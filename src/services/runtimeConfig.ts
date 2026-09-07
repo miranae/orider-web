@@ -18,6 +18,8 @@ export interface RuntimeConfig {
   coachRiderInsightEnabled?: boolean;
   coachProgressPlannerEnabled?: boolean;
   trainingDecisionEnabled?: boolean;
+  /** canonical 훈련 결정(`getTrainingDecision`) 소비 전환(#886). 기본 꺼짐 — 켜기 전까지 기존 로컬 표시가 남는다. */
+  trainingDecisionCanonicalEnabled?: boolean;
   trainingExecutionEnabled?: boolean;
   riderWorkoutDeliveryEnabled?: boolean;
   coachRidePlanTokenEnabled?: boolean;
@@ -68,6 +70,7 @@ function readBuildFallbackConfig(): RuntimeConfig {
     coachRiderInsightEnabled: import.meta.env.VITE_COACH_RIDER_INSIGHT_ENABLED === "true",
     coachProgressPlannerEnabled: import.meta.env.VITE_COACH_PROGRESS_PLANNER_ENABLED === "true",
     trainingDecisionEnabled: import.meta.env.VITE_TRAINING_DECISION_ENABLED === "true",
+    trainingDecisionCanonicalEnabled: import.meta.env.VITE_TRAINING_DECISION_CANONICAL_ENABLED === "true",
     trainingExecutionEnabled: import.meta.env.VITE_TRAINING_EXECUTION_ENABLED === "true",
     riderWorkoutDeliveryEnabled: import.meta.env.VITE_RIDER_WORKOUT_DELIVERY_ENABLED === "true",
     coachRidePlanTokenEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_TOKEN_ENABLED === "true",

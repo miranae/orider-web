@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTrainingDecision } from "../hooks/useTrainingDecision";
 import { useSearchParams } from "react-router-dom";
 
 import { isNegligibleActivitySummary } from "@shared/training/activityLoad";
@@ -56,6 +57,11 @@ export interface FitnessViewProps {
 
 export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  // Form 구간 정본(#886). 전환이 꺼져 있으면 envelope 은 null 이고 카드는 기존 로컬 표시로 남는다.
+  const trainingDecision = useTrainingDecision(
+    model.user?.uid ?? null,
+    model.discipline === "tri" ? "bike" : model.discipline,
+  );
   const {
     t,
     i18n,
@@ -455,6 +461,8 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
                 atl={atl}
                 ctlRampPerWeek={ctlRampPerWeek}
                 sport={discipline}
+                decision={trainingDecision.envelope}
+                decisionDisplay={trainingDecision.display}
               />
             )}
           </DetailsSection>

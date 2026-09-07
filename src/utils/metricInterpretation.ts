@@ -10,6 +10,7 @@
  */
 
 import { trainingStatusLabel } from "./trainingStatusLabel";
+import type { FormBandKey } from "@shared/training/formBand";
 
 /** 해설 시트가 다루는 지표 식별자 — i18n `metricGlossary:{metric}.*` 와 1:1. */
 export type MetricKey =
@@ -48,6 +49,11 @@ export interface InterpretationContext {
   atl?: number | null;
   tsb?: number | null;
   ctlRampPerWeek?: number | null;
+  /**
+   * 서버 `TrainingDecision.form.band.key` (#886). 있으면 이것만 쓴다 — 로컬 TSB 판정과
+   * 서버 판정이 갈리면 같은 화면에서 상태 라벨과 해설 문구가 서로 다른 구간을 말한다.
+   */
+  formBandKey?: FormBandKey | null;
 }
 
 /** GAP 과 실제 페이스 차이가 이 값(초) 미만이면 "평지에 가깝다"로 본다. */
@@ -153,12 +159,15 @@ function interpretRtss(ctx: InterpretationContext): MetricInterpretation | null 
   return { variant: "moderate", values: { rtss: round(rtss), if: ifStr } };
 }
 
-/** TSB: 훈련 상태 라벨과 같은 판정을 재사용해 화면 간 문구가 어긋나지 않게 한다. */
+/**
+ * TSB: 구간은 **서버가 판정한 것**(`formBandKey`)을 그대로 쓴다.
+ * 서버 구간이 없을 때만(전환 플래그 꺼짐) 기존 로컬 판정으로 떨어진다.
+ */
 function interpretTsb(ctx: InterpretationContext): MetricInterpretation | null {
-  const { tsb, ctlRampPerWeek } = ctx;
+  const { tsb, ctlRampPerWeek, formBandKey } = ctx;
   if (tsb == null) return null;
-  const status = trainingStatusLabel({ tsb, ctlRampPerWeek });
-  return { variant: status.key, values: { tsb: tsb.toFixed(1) } };
+  const variant = formBandKey ?? trainingStatusLabel({ tsb, ctlRampPerWeek }).key;
+  return { variant, values: { tsb: tsb.toFixed(1) } };
 }
 
 /** CTL: 체력. ATL 과 함께 있어야 의미가 살아난다. */
