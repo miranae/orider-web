@@ -1,8 +1,66 @@
 import { describe, expect, it } from 'vitest'
 import type { FitnessPoint } from '../../utils/fitnessMetrics'
-import { buildPmcHistory, buildPmcYearComparison, getPmcUnit } from './pmcHistory'
+import { buildPmcHistory, buildPmcYearComparison, describePmcHistory, getPmcUnit, type PmcHistoryPoint } from './pmcHistory'
+import type { FitnessTimeseriesDoc } from '../../../shared/types/fitness-timeseries'
 
 const point = (date: string, value = 10): FitnessPoint => ({ date, ctl: value, atl: value * 2, tsb: -value, dailyLoad: value * 3 })
+const source = (points: FitnessPoint[], discipline: FitnessTimeseriesDoc['discipline'] = 'bike'): FitnessTimeseriesDoc => ({
+  discipline, schemaVersion: 1, computedAt: Date.parse('2026-09-06T12:00:00Z'),
+  startDate: points[0]?.date ?? null, endDate: points.at(-1)?.date ?? null, pointCount: points.length, points,
+})
+
+describe('PMC 부하 반영과 계산 출처', () => {
+  it('서로 다른 종목으로 운동해도 저장된 0 부하와 통합 계산을 정상적으로 구분한다', () => {
+    const bike = [point('2026-09-05', 20), point('2026-09-06', 0)]
+    const run = [point('2026-09-05', 0), point('2026-09-06', 10)]
+    const swim = bike.map(p => ({ ...p, dailyLoad: 0 }))
+    const integrated = [point('2026-09-05', 20), point('2026-09-06', 10)]
+    expect(describePmcHistory(integrated, [source(bike), source(run, 'run'), source(swim, 'swim')]))
+      .toEqual(integrated.map(p => ({ ...p, loadStatus: 'snapshot', calculationStatus: 'derived' })))
+  })
+
+  it('문서 종료일 이후, 시작일 이전, 빈 종목과 fallback을 휴식으로 확정하지 않는다', () => {
+    const points = [point('2026-09-05'), point('2026-09-06')]
+    for (const missing of [source([points[0]]), source([points[1]]), source([]), null]) {
+      const described = describePmcHistory(points, [source(points), missing])
+      expect(described.some(p => p.loadStatus === 'unconfirmed' && p.calculationStatus === 'estimated')).toBe(true)
+    }
+    expect(describePmcHistory(points, [null]).every(p => p.loadStatus === 'unconfirmed')).toBe(true)
+    expect(describePmcHistory(points, [{ ...source(points), computedAt: NaN }])[0])
+      .toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'server' })
+  })
+
+  it('같은 날 누적 부하가 바뀌면 최신 스냅샷 값을 그대로 사용한다', () => {
+    const morning = { ...point('2026-09-06'), dailyLoad: 40 }
+    const evening = { ...morning, ctl: 11, atl: 22, tsb: -11, dailyLoad: 70 }
+    expect(describePmcHistory([morning], [source([morning])])[0].dailyLoad).toBe(40)
+    const latest = describePmcHistory([evening], [source([evening])])
+    expect(buildPmcHistory(latest, 30, evening.date).buckets.at(-1))
+      .toMatchObject({ totalLoad: 70, ctl: 11, atl: 22, loadStatus: 'snapshot', calculationStatus: 'server' })
+  })
+
+  it('독립 상태 입력 계약을 지원하고 주·월의 누락은 부하 미확인으로 남긴다', () => {
+    // 수동 상태 입력 계약 테스트이며 현재 서버의 처리 대기 상태 검증은 아니다.
+    const known: PmcHistoryPoint = { ...point('2026-09-01', 0), loadStatus: 'snapshot', calculationStatus: 'estimated' }
+    expect(buildPmcHistory([known], 30, known.date).buckets.at(-1))
+      .toMatchObject({ totalLoad: 0, loadStatus: 'snapshot', calculationStatus: 'estimated', loadSnapshotDays: 1 })
+    for (const range of [180, 'all'] as const) {
+      expect(buildPmcHistory([known], range, '2026-09-03').buckets.at(-1))
+        .toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'estimated', partial: true })
+    }
+    expect(buildPmcYearComparison([known], [2026], known.date).series[0].buckets[8])
+      .toMatchObject({ expectedDays: 1, loadStatus: 'snapshot', calculationStatus: 'estimated' })
+  })
+
+  it('같은 값의 출처가 충돌하면 순서에 관계없이 수치는 보존하고 보수적 상태를 합친다', () => {
+    const known: PmcHistoryPoint = { ...point('2026-09-06'), loadStatus: 'snapshot', calculationStatus: 'server' }
+    const unknown: PmcHistoryPoint = { ...known, loadStatus: 'unconfirmed', calculationStatus: 'estimated' }
+    const result = buildPmcHistory([known, unknown], 30, known.date)
+    expect(result).toEqual(buildPmcHistory([unknown, known], 30, known.date))
+    expect(result.buckets.at(-1)).toMatchObject({ ctl: known.ctl, totalLoad: known.dailyLoad,
+      observedDays: 1, loadStatus: 'unconfirmed', calculationStatus: 'estimated' })
+  })
+})
 
 describe('PMC 표시 집계', () => {
   it('일/주/월 단위를 선택한다', () => {

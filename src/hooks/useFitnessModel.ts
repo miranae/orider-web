@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { describePmcHistory } from "../features/fitness/pmcHistory";
 import {
   FITNESS_TIMESERIES_SCHEMA_VERSION,
   type FitnessTimeseriesDoc,
@@ -580,6 +581,13 @@ export function useFitnessModel(
   const hasCanonicalHistory = discipline === "tri"
     ? Object.values(resolvedTriFitness).every((entry) => entry.canonical)
     : hasCanonicalTimeseries;
+  const pmcHistoryPoints = useMemo(() => describePmcHistory(fitnessData,
+    discipline === "tri" ? [
+      resolvedTriFitness.bike.canonical ? timeseries : null,
+      resolvedTriFitness.run.canonical ? triRunTimeseries : null,
+      resolvedTriFitness.swim.canonical ? triSwimTimeseries : null,
+    ] : [hasCanonicalTimeseries ? timeseries : null]),
+  [fitnessData, discipline, resolvedTriFitness, timeseries, triRunTimeseries, triSwimTimeseries, hasCanonicalTimeseries]);
   const rangeData = useMemo(() => {
     if (fitnessData.length === 0) return { fitness: [], daily: [] };
     const sliceStart = Math.max(0, fitnessData.length - range);
@@ -879,6 +887,7 @@ export function useFitnessModel(
     retryLoad,
     hasCanonicalTimeseries,
     hasCanonicalHistory,
+    pmcHistoryPoints,
     fitnessData,
     dailyData,
     rangeData,
@@ -899,7 +908,7 @@ export function useFitnessModel(
     runPaceStreams,
     mobilePageProps: {
       data: mobilePageData,
-      pmcHistoryPoints: fitnessData,
+      pmcHistoryPoints,
       pmcHistoryCanonical: hasCanonicalHistory,
       consistencyStreak,
       ftpDecision: bikeFtpDecision,

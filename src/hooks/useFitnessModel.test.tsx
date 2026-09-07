@@ -72,6 +72,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("useFitnessModel", () => {
+  it("이력 표시 상태를 별도 전달하고 기존 KPI 입력은 보존한다", () => {
+    seed("bike");
+    const point = { date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 70 };
+    mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: Date.parse("2026-09-06T12:00:00Z"),
+      startDate: point.date, endDate: point.date, pointCount: 1, points: [point] };
+    const { result } = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.fitnessData).toEqual([point]);
+    expect(result.current.currentPoint).toEqual(point);
+    expect(result.current.pmcHistoryPoints).toEqual([{ ...point, loadStatus: "snapshot", calculationStatus: "server" }]);
+    expect(result.current.mobilePageProps.pmcHistoryPoints).toBe(result.current.pmcHistoryPoints);
+  });
+
   it("유효한 빈 정본을 활동 기반 fallback으로 바꾸지 않는다", () => {
     seed("bike");
     mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: Date.now(), startDate: null, endDate: null, pointCount: 0, points: [] };

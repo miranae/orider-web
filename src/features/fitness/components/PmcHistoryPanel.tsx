@@ -1,11 +1,10 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
-import type { FitnessPoint } from "../../../utils/fitnessMetrics";
-import { buildPmcHistory, buildPmcYearComparison, type PmcBucket, type PmcRange } from "../pmcHistory";
+import { buildPmcHistory, buildPmcYearComparison, type PmcBucket, type PmcRange, type PmcHistoryPoint } from "../pmcHistory";
 import "./PmcHistoryPanel.css";
 
 interface PmcHistoryPanelProps {
-  points: readonly FitnessPoint[];
+  points: readonly PmcHistoryPoint[];
   today: string;
   canonical: boolean;
   ctlColor?: string;
@@ -124,8 +123,11 @@ export default function PmcHistoryPanel({ points, today, canonical, ctlColor = "
   const selectionLabel = mode === "years" ? labels[selectedIndex] ?? t("history.empty") : firstSelected ? `${firstSelected.bucket.startDate} – ${firstSelected.bucket.endDate}` : t("history.empty");
   const selectionOptions = mode === "years" ? labels : history.buckets.map((bucket) => `${bucket.startDate} – ${bucket.endDate}`);
   const unit = mode === "years" ? "month" : history.unit;
+  const sourceKey = points.length && points.every(point => point.calculationStatus === "server")
+    ? "history.canonical" : points.length && points.every(point => point.calculationStatus === "derived")
+      ? "history.derived" : points.some(point => point.calculationStatus) ? "history.estimated" : "history.fallback";
   return <section className="pmc-history" aria-labelledby={headingId}>
-    <header className="pmc-history__header"><div><h2 id={headingId}>{t("history.title")}</h2><p>{t("history.subtitle")}</p></div><span className="pmc-history__source">{sourceLabel ?? t(canonical ? "history.canonical" : "history.fallback")}</span></header>
+    <header className="pmc-history__header"><div><h2 id={headingId}>{t("history.title")}</h2><p>{t("history.subtitle")}</p></div><span className="pmc-history__source">{sourceLabel ?? t(sourceKey)}</span></header>
     <div className="pmc-history__controls">
       <div role="group" aria-label={t("history.mode")} className="pmc-history__buttons">
         {(["trend", "years"] as const).map((value) => <button type="button" key={value} aria-pressed={mode === value} onClick={() => setMode(value)}>{t(`history.mode.${value}`)}</button>)}
@@ -141,7 +143,7 @@ export default function PmcHistoryPanel({ points, today, canonical, ctlColor = "
       <HistoryChart series={series} metrics={["tsb"]} labels={labels} selectedIndex={selectedIndex} onSelect={selectIndex} title={t("history.chart.form")} ctlColor={ctlColor} selectionLabel={selectionLabel} />
     </>}
     {labels.length > 0 && <div className="pmc-history__navigation"><button type="button" aria-label={t("history.previous")} disabled={selectedIndex === 0} onClick={() => selectIndex(selectedIndex - 1)}>←</button><label>{t("history.selection")}<select value={selectedIndex} onChange={(event) => selectIndex(Number(event.target.value))}>{selectionOptions.map((label, index) => <option key={index} value={index}>{label}</option>)}</select></label><button type="button" aria-label={t("history.next")} disabled={selectedIndex === labels.length - 1} onClick={() => selectIndex(selectedIndex + 1)}>→</button><button type="button" onClick={() => { setSelectedKey(null); setSelectedMonth(null); }}>{t("history.today")}</button></div>}
-    <div className="pmc-history__selection" aria-live="polite"><h3>{selectionLabel}</h3><div className="pmc-history__table-scroll"><table><caption>{t("history.summary")}</caption><thead><tr><th scope="col">{t("history.period")}</th>{(["ctl", "atl", "tsb"] as const).map((metric) => <th scope="col" key={metric}>{metric.toUpperCase()}{unit !== "day" && ` · ${t("history.mean")}`}</th>)}<th scope="col">{t("history.totalLoad")}</th><th scope="col">{t("history.coverage")}</th></tr></thead><tbody>{selected.map(({ label, bucket }) => <tr key={label}><th scope="row">{label}</th><td>{formatValue(bucket.ctl)}</td><td>{formatValue(bucket.atl)}</td><td>{formatValue(bucket.tsb)}</td><td>{formatValue(bucket.totalLoad)}</td><td>{bucket.observedDays === 0 ? t("history.missing") : `${bucket.observedDays}/${bucket.expectedDays} ${t("history.days")}${bucket.partial ? ` · ${t("history.partial")}` : ""}`}</td></tr>)}</tbody></table></div></div>
-    <p className="pmc-history__note">{t(canonical ? "history.canonicalNote" : "history.fallbackNote")} {t("history.coverageNote")}</p>
+    <div className="pmc-history__selection" aria-live="polite"><h3>{selectionLabel}</h3><div className="pmc-history__table-scroll"><table><caption>{t("history.summary")}</caption><thead><tr><th scope="col">{t("history.period")}</th>{(["ctl", "atl", "tsb"] as const).map((metric) => <th scope="col" key={metric}>{metric.toUpperCase()}{unit !== "day" && ` · ${t("history.mean")}`}</th>)}<th scope="col">{t("history.totalLoad")}</th><th scope="col">{t("history.loadStatus")}</th><th scope="col">{t("history.pmcStatus")}</th><th scope="col">{t("history.coverage")}</th></tr></thead><tbody>{selected.map(({ label, bucket }) => <tr key={label}><th scope="row">{label}</th><td>{formatValue(bucket.ctl)}</td><td>{formatValue(bucket.atl)}</td><td>{formatValue(bucket.tsb)}</td><td>{formatValue(bucket.totalLoad)}</td><td>{t(`history.load.${bucket.loadStatus}`)} · {bucket.loadSnapshotDays}/{bucket.expectedDays} {t("history.days")}</td><td>{t(`history.pmc.${bucket.calculationStatus}`)}</td><td>{bucket.observedDays === 0 ? t("history.missing") : `${bucket.observedDays}/${bucket.expectedDays} ${t("history.days")}${bucket.partial ? ` · ${t("history.partial")}` : ""}`}</td></tr>)}</tbody></table></div></div>
+    <p className="pmc-history__note">{t(canonical ? "history.canonicalNote" : "history.fallbackNote")} {t("history.statusNote")} {t("history.coverageNote")}</p>
   </section>;
 }

@@ -11,6 +11,13 @@ for (const width of [1440, 390]) {
       await page.goto(`/e2e/fixtures/pmc-history.html?lang=${lang}`);
       const panel = page.locator(".pmc-history");
       await expect(panel).toBeVisible();
+      await expect(panel.getByRole("columnheader", { name: lang === "ko" ? "운동부하 반영" : "Exercise load coverage", exact: true })).toBeVisible();
+      await expect(panel.getByRole("columnheader", { name: lang === "ko" ? "PMC 계산" : "PMC calculation", exact: true })).toBeVisible();
+      const latest = panel.locator("tbody tr").first();
+      await expect(latest).toContainText(lang === "ko" ? "집계됨" : "Recorded");
+      await expect(latest).toContainText(lang === "ko" ? "추정 계산" : "Estimated calculation");
+      await panel.getByRole("button", { name: lang === "ko" ? "이전 구간" : "Previous period", exact: true }).click();
+      await expect(latest).toContainText(lang === "ko" ? "미확인" : "Unconfirmed");
       await page.evaluate(() => document.fonts.ready);
       await panel.getByRole("button", { name: lang === "ko" ? "3년" : "3 years", exact: true }).click();
       await expect(panel.getByRole("combobox").locator("option")).toHaveCount(36);

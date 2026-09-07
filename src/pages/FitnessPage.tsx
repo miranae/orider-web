@@ -184,7 +184,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         timeline={triFitnessTimeline}
         combinedLoad={combinedLoad}
         loadFocus={integratedLoadFocus}
-        historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={fitnessData} today={toLocalDate(Date.now())} canonical={model.hasCanonicalHistory} />}
+        historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toLocalDate(Date.now())} canonical={model.hasCanonicalHistory} />}
       />
     );
   }
@@ -483,7 +483,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         {/* PMC 차트 */}
         <PmcHistoryPanel
           key={`${user.uid}-${discipline}`}
-          points={fitnessData}
+          points={model.pmcHistoryPoints}
           today={toLocalDate(Date.now())}
           canonical={model.hasCanonicalHistory}
           ctlColor={getDisciplineColor(discipline)}

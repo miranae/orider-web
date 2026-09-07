@@ -3,12 +3,28 @@ import { describe, expect, it } from "vitest";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import type { FitnessPoint } from "../../../utils/fitnessMetrics";
 import PmcHistoryPanel from "./PmcHistoryPanel";
+import type { PmcHistoryPoint } from "../pmcHistory";
 
 const point = (date: string, ctl = 40, dailyLoad = 60): FitnessPoint => ({ date, ctl, atl: ctl + 5, tsb: -5, dailyLoad });
 const points = [point("2023-09-06"), point("2025-09-06", 30), point("2026-09-05"), point("2026-09-06", 50, 0)];
 const renderPanel = (data = points) => renderWithProviders(<PmcHistoryPanel points={data} today="2026-09-06" canonical />);
 
 describe("PmcHistoryPanel", () => {
+  it("shows load snapshot coverage separately from estimated PMC and updates same-day totals", () => {
+    const morning: PmcHistoryPoint = { ...point("2026-09-06", 40, 40), loadStatus: "snapshot", calculationStatus: "estimated" };
+    const view = renderPanel([morning]);
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("집계됨 · 1/1 일")).toBeInTheDocument();
+    expect(within(table).getByText("추정 계산")).toBeInTheDocument();
+    expect(screen.queryByText("서버 정본 이력")).not.toBeInTheDocument();
+    view.rerender(<PmcHistoryPanel points={[{ ...morning, dailyLoad: 70, calculationStatus: "derived" }]} today={morning.date} canonical />);
+    expect(within(table).getByText("70.0")).toBeInTheDocument();
+    expect(within(table).getByText("종목 합산")).toBeInTheDocument();
+    view.rerender(<PmcHistoryPanel points={[{ ...morning, loadStatus: "unconfirmed" }]} today={morning.date} canonical />);
+    expect(within(table).getByText("미확인 · 0/1 일")).toBeInTheDocument();
+    expect(within(table).getByText("1/1 일")).toBeInTheDocument();
+  });
+
   it("changes day/week/month granularity and synchronizes keyboard selection across charts", () => {
     renderPanel();
     expect(screen.getByRole("button", { name: "90일" })).toHaveAttribute("aria-pressed", "true");
