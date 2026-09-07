@@ -29,6 +29,7 @@ import { getDiscipline } from "../utils/disciplineFilter";
 import {
   executeFirestoreSessionRecovery,
   firestoreRecoveryLogContext,
+  noteFirestoreServerSuccess,
   prepareFirestoreSessionRecovery,
 } from "../utils/firestoreSessionRecovery";
 
@@ -120,6 +121,7 @@ type FeedCursor = {
 };
 
 type ActivityPage = {
+  serverMetadata?: { fromCache: boolean; hasPendingWrites: boolean };
   items: Activity[];
   cursor: FeedCursor | null;
   hasMore: boolean;
@@ -313,6 +315,7 @@ export function useActivities(
     pageSize = FEED_PAGE_SIZE,
   ): Promise<ActivityPage> => {
     const col = collection(firestore, "activities");
+    let serverMetadata: ActivityPage["serverMetadata"];
     const sourceQueries = buildSourceQueries(uid);
     const previousSources = cursor?.sources ?? sourceQueries.map((source) => ({
       ownerIds: source.ownerIds,
@@ -342,6 +345,9 @@ export function useActivities(
           ...(nextSource.last ? [startAfter(nextSource.last)] : []),
         ];
         const snap = await getDocs(makeSourceQuery(col, sourceQuery, constraints));
+        if (snap.metadata?.fromCache === false && snap.metadata.hasPendingWrites === false) {
+          serverMetadata = snap.metadata;
+        }
         nextSource = {
           ...nextSource,
           last: snap.docs[snap.docs.length - 1] ?? nextSource.last,
@@ -379,6 +385,7 @@ export function useActivities(
 
     return {
       items: hydratedItems,
+      serverMetadata,
       cursor: hasMore ? { sources: nextSources } : null,
       hasMore,
     };
@@ -503,6 +510,7 @@ export function useActivities(
           return;
         }
         if (cancelled) return;
+        noteFirestoreServerSuccess(first.serverMetadata);
         setActivities(first.items);
         setFeedCursor(first.cursor);
         setHasMore(first.hasMore);
@@ -529,6 +537,7 @@ export function useActivities(
         }
         if (!rest) return;
         if (cancelled) return;
+        noteFirestoreServerSuccess(rest.serverMetadata);
         setActivities((prev) => {
           const seen = new Set(prev.map((activity) => activity.id));
           return [...prev, ...rest.items.filter((activity) => !seen.has(activity.id))];
@@ -560,6 +569,7 @@ export function useActivities(
       // 필터/사용자/친구 목록이 바뀐 동안 끝난 이전 요청은 새 피드에 섞지 않는다.
       // A→B→A처럼 키가 되돌아와도 단조 증가 generation으로 옛 A 요청을 구분한다.
       if (!isCurrentRequest()) return;
+      noteFirestoreServerSuccess(result.serverMetadata);
       setActivities((prev) => [...prev, ...result.items]);
       setFeedCursor(result.cursor);
       setHasMore(result.hasMore);
@@ -634,6 +644,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
         );
         const snap = await getDocs(q);
         if (cancelled) return;
+        noteFirestoreServerSuccess(snap.metadata);
         const loadedActivities = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Activity);
         // summary 누락 문서는 통계 계산에서 크래시를 유발하므로 제외
         setActivities(
@@ -672,6 +683,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
         );
         const monthlySnap = await getDocs(monthlyQuery);
         if (cancelled) return;
+        noteFirestoreServerSuccess(monthlySnap.metadata);
         setMonthlyDistanceState({ key: requestStatsKey, distance: monthlySnap.docs.reduce((sum, d) => {
           const activity = { id: d.id, ...d.data() } as Activity;
           return sum + (activity.summary?.distance ?? 0);

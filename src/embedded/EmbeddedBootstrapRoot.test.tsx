@@ -179,6 +179,31 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     vi.mocked(onSnapshot).mockClear();
   });
 
+  it("초기 인증 null은 디스크를 보존하고 실제 승인 후에만 복원한다", async () => {
+    const scope = "12345678-1234-1234-1234-123456789abc";
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = scope;
+    const diskKey = "orider.trainingSurfaceCache.v2";
+    const cacheKey = { uid: "owner-1", surface: "plan" as const, sport: "bike", locale: "ko" };
+    const value = { goal: null, weeks: [] };
+    const encoded = JSON.stringify({ schema: 2, uid: "owner-1", scope,
+      entries: [{ key: cacheKey, expiresAt: Date.now() + 60_000, value }] });
+    localStorage.setItem(diskKey, encoded);
+    mocks.setCurrentUser(null);
+    simulateLogin(null);
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/plan", "plan");
+    expect(localStorage.getItem(diskKey)).toBe(encoded);
+    expect(getTrainingSurfaceCache(cacheKey)).toBeNull();
+    mocks.setCurrentUser({ uid: "owner-1" });
+    await act(async () => bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 })));
+    expect(getTrainingSurfaceCache(cacheKey)).toBeNull();
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    expect(getTrainingSurfaceCache(cacheKey)).toEqual(value);
+    act(() => bridge.emit(hostMessage("host.logout", {})));
+    expect(localStorage.getItem(diskKey)).toBeNull();
+    delete window.__ORIDER_TRAINING_CACHE_SCOPE__;
+  });
+
   it("mounts no profile listener, React Query provider, or surface hook before sessionAccepted", async () => {
     const bridge = createFakeBridge();
     renderBootstrap(bridge);
@@ -390,6 +415,58 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     await waitFor(() => expect(screen.queryByTestId("plan-surface")).not.toBeInTheDocument());
     expect(mocks.queryClientCreations).toHaveBeenCalledTimes(1);
     expect(onSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("correlates shell readiness across fitness plan inactive and fitness selections without stale signals", async () => {
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+    const bridge = createFakeBridge();
+    const shellMessages = () => bridge.sent.filter((message) => message.type === "surface.shellReady");
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    await screen.findByTestId("fitness-surface");
+    const initialFrame = frames.at(-1)!;
+    act(() => initialFrame(performance.now()));
+    expect(shellMessages()).toEqual([{ type: "surface.shellReady", payload: {}, requestId: undefined }]);
+
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "select-plan")));
+    await screen.findByTestId("plan-surface");
+    const planFrame = frames.at(-1)!;
+    act(() => planFrame(performance.now()));
+    expect(shellMessages()).toHaveLength(2);
+    expect(shellMessages().at(-1)).toEqual({
+      type: "surface.shellReady", payload: {}, requestId: "select-plan",
+    });
+
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null })));
+    await waitFor(() => expect(screen.queryByTestId("plan-surface")).not.toBeInTheDocument());
+    act(() => planFrame(performance.now()));
+    expect(shellMessages()).toHaveLength(2);
+
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-fitness")));
+    await screen.findByTestId("fitness-surface");
+    const fitnessFrame = frames.at(-1)!;
+    act(() => {
+      initialFrame(performance.now());
+      planFrame(performance.now());
+    });
+    expect(shellMessages()).toHaveLength(2);
+    act(() => fitnessFrame(performance.now()));
+    expect(shellMessages()).toEqual([
+      { type: "surface.shellReady", payload: {}, requestId: undefined },
+      { type: "surface.shellReady", payload: {}, requestId: "select-plan" },
+      { type: "surface.shellReady", payload: {}, requestId: "select-fitness" },
+    ]);
   });
 
   it("rejects selection when Auth uid no longer matches the accepted session", async () => {

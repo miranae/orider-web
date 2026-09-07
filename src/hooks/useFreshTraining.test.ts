@@ -12,6 +12,7 @@ import {
 import {
   __resetFirestoreSessionRecoveryForTests,
   FIRESTORE_B815_RECOVERY_SESSION_KEY,
+  noteFirestoreServerSuccess,
 } from "../utils/firestoreSessionRecovery";
 import { useFreshTraining } from "./useFreshTraining";
 
@@ -33,6 +34,7 @@ vi.mock("../utils/firestoreSessionRecovery", async (importOriginal) => {
   return {
     ...actual,
     executeFirestoreSessionRecovery: firestoreRecoveryMocks.execute,
+    noteFirestoreServerSuccess: vi.fn(actual.noteFirestoreServerSuccess),
   };
 });
 
@@ -40,7 +42,7 @@ interface ControlledListener {
   path: string;
   next: (snapshot: {
     data: () => Record<string, unknown> | undefined;
-    metadata: { fromCache: boolean };
+    metadata: { fromCache: boolean; hasPendingWrites?: boolean };
   }) => void;
   error: (error: Error) => void;
   unsubscribe: ReturnType<typeof vi.fn>;
@@ -68,7 +70,7 @@ function emit(
   data: Record<string, unknown>,
   fromCache = false,
 ) {
-  listener.next({ data: () => data, metadata: { fromCache } });
+  listener.next({ data: () => data, metadata: { fromCache, hasPendingWrites: false } });
 }
 
 describe("useFreshTraining", () => {
@@ -79,8 +81,26 @@ describe("useFreshTraining", () => {
     __resetFirestoreSessionRecoveryForTests();
     window.sessionStorage.removeItem(FIRESTORE_B815_RECOVERY_SESSION_KEY);
     firestoreRecoveryMocks.execute.mockClear();
+    vi.mocked(noteFirestoreServerSuccess).mockClear();
     vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
     setCallableResult("revalidateTraining", { data: { ok: true, status: "recomputed" } });
+  });
+
+  it("reports metadata only from current active listeners, including later projection snapshots", () => {
+    const listeners = installControlledSnapshots();
+    const { unmount } = renderHook(() => useFreshTraining("bike"));
+    act(() => {
+      emit(listeners[1], { computedAt: Date.now() });
+      emit(listeners[1], { computedAt: Date.now() });
+    });
+    expect(noteFirestoreServerSuccess).toHaveBeenCalledTimes(2);
+    expect(noteFirestoreServerSuccess).toHaveBeenCalledWith({ fromCache: false, hasPendingWrites: false });
+    unmount();
+    act(() => {
+      emit(listeners[0], {});
+      emit(listeners[1], {});
+    });
+    expect(noteFirestoreServerSuccess).toHaveBeenCalledTimes(2);
   });
 
   it("waits for both first snapshots and keeps both listeners until unmount", async () => {

@@ -481,6 +481,30 @@ describe("FitnessPage", () => {
     expect(screen.queryByText("일일 부하 반영을 기다리는 중")).not.toBeInTheDocument();
   });
 
+  it.each([false, true])("shows own-record model contribution for mixed-TSS activities on mobile=%s", async (isMobile) => {
+    viewport.isMobile = isMobile;
+    setCollectionDocs("activities", [null, null, 51.2866, 63.1913].map((tss, index) => ({
+      id: `distinct-${index}`, userId: "test-uid", source: "orider", type: "Ride",
+      startTime: Date.UTC(2026, 8, 6, 4 + index * 2), deletedAt: null,
+      summary: { distance: [31_500, 2_400, 14_400, 16_000][index], ridingTimeMillis: 3_600_000, tss },
+    })));
+    setDocData("users/test-uid/fitness/timeseries_bike", {
+      discipline: "bike", schemaVersion: 1, computedAt: Date.UTC(2026, 8, 6, 6),
+      startDate: "2026-09-06", endDate: "2026-09-06", pointCount: 1,
+      points: [{ date: "2026-09-06", ctl: 40.1, atl: 55.6, tsb: -15.5, dailyLoad: 154 }],
+    });
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+    expect(await screen.findByText("활동 기록 부하 63 TSS · 모델 기여 추정")).toBeInTheDocument();
+    expect(screen.getByText("+1.5")).toBeInTheDocument();
+    expect(screen.getByText("+9.0")).toBeInTheDocument();
+    expect(screen.getByText("-7.5")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /16.0 km/ })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "오늘의 운동 선택" })).not.toBeDisabled();
+    expect(screen.getByText(/실제 일일 합계에 이 활동이 반영되었음을 확인한 결과는 아닙니다/)).toBeInTheDocument();
+    expect(screen.queryByText(/개별 활동의 기여도는 정보 부족/)).not.toBeInTheDocument();
+    expect(screen.queryByText("일일 부하 반영을 기다리는 중")).not.toBeInTheDocument();
+  });
+
   it("does not show a newer negligible activity as pending over a canonical ride", async () => {
     viewport.isMobile = false;
     const rideStart = Date.parse("2026-09-03T08:00:00.000Z");

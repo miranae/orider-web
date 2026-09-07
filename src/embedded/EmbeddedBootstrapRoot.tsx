@@ -424,7 +424,7 @@ export default function EmbeddedBootstrapRoot({
       || surfaceSelection.surface !== surface
       || surfaceSelection.generation !== generation
     ) return;
-    safeSend("surface.shellReady", {});
+    safeSend("surface.shellReady", {}, surfaceSelection.requestId);
     const flow = surfaceLoadingFlow.current;
     if (!flow || flow.surface !== surface || flow.generation !== generation) return;
     safeSend("telemetry.event", {

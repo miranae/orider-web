@@ -57,6 +57,37 @@ function renderBriefing(overrides: Partial<React.ComponentProps<typeof FitnessCo
 }
 
 describe("FitnessCoachBriefing", () => {
+  it("labels own-record model contribution separately from canonical inclusion and actual day change", () => {
+    renderBriefing({ impacts: [{ ...impact("ride-1", 29, 63), confidence: "activity-tss", canonicalDailyLoad: 154 }] });
+    expect(screen.getByText("활동 기록 부하 63 TSS · 모델 기여 추정")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "활동 부하 기준 모델 기여" })).toBeInTheDocument();
+    expect(screen.getByText("활동 기록 TSS 기준 모델 추정")).toBeInTheDocument();
+    expect(screen.getByText(/실제 일일 합계에 이 활동이 반영되었음을 확인한 결과는 아닙니다/)).toBeInTheDocument();
+    expect(screen.queryByText("반영 부하 63 TSS")).not.toBeInTheDocument();
+    expect(screen.getByText("+1.5")).toBeInTheDocument();
+    expect(screen.getByText("+9.0")).toBeInTheDocument();
+    expect(screen.getByText("-7.5")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "하루 상태 변화" }));
+    expect(screen.getByText("+2.0")).toBeInTheDocument();
+    expect(screen.getByText("+8.0")).toBeInTheDocument();
+    expect(screen.getByText("-6.0")).toBeInTheDocument();
+    expect(screen.getByText(/자연 감소와 같은 날의 모든 활동/)).toBeInTheDocument();
+  });
+  it.each([0, 154])("shows a day-only load of %s without inventing a marginal contribution or blocking choices", (dailyLoad) => {
+    const newest = impact("newest", 29, 63).activity;
+    renderBriefing({
+      impacts: [], selectedActivityId: newest.id, pendingActivity: newest,
+      pendingDayLoad: { dailyLoad },
+    });
+    expect(screen.getAllByText(`이날 일일 부하 ${dailyLoad} TSS · 개별 활동의 기여도는 정보 부족으로 구분할 수 없습니다.`)).toHaveLength(2);
+    expect(screen.getByText("기존 일일 합계 기준 예상이며, 개별 활동 반영 여부를 확인한 결과는 아닙니다.")).toBeInTheDocument();
+    expect(screen.getAllByText("—")).toHaveLength(3);
+    expect(screen.getByRole("group", { name: "오늘의 운동 선택" })).not.toBeDisabled();
+    expect(screen.getByText(/24시간 뒤 예상/)).toBeInTheDocument();
+    expect(screen.queryByText("일일 부하 반영을 기다리는 중")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-pending]")).toBeNull();
+    expect(document.querySelector("[data-day-load-available]")).not.toBeNull();
+  });
   it("separates activity-only contribution from the whole-day change", () => {
     renderBriefing();
 

@@ -4,6 +4,7 @@ import type { Activity } from "@shared/types";
 import type { FitnessPoint } from "../../utils/fitnessMetrics";
 import {
   activityIdsCoveredByImpacts,
+  activityDayLoad,
   deriveActivityImpacts,
   forecastFitnessChoice48Hours,
   forecastFitness48Hours,
@@ -53,6 +54,56 @@ const point = (date: string, ctl: number, atl: number, dailyLoad: number): Fitne
 });
 
 describe("deriveActivityImpacts", () => {
+  it("preserves known activity TSS contributions when other same-day TSS values are missing", () => {
+    const activities = [null, null, 51.2866, 63.1913].map((tss, index) => activity(
+      `ride-${index}`, Date.UTC(2026, 8, 6, 4 + index * 2), tss,
+    ));
+    const points = [point("2026-09-05", 38, 50, 0), point("2026-09-06", 40.1, 55.6, 154)];
+    const impacts = deriveActivityImpacts(points, activities);
+    expect(impacts.map((entry) => [entry.activity.id, entry.attributedLoad])).toEqual([["ride-3", 63], ["ride-2", 51]]);
+    expect(impacts[0]).toMatchObject({
+      confidence: "activity-tss", canonicalDailyLoad: 154,
+      marginalImpact: { ctl: 1.5, atl: 9, tsb: -7.5 },
+      remainingContribution: { ctl: 1.5, atl: 9, tsb: -7.5 },
+    });
+    expect(impacts[0].actualDayChange?.ctl).toBeCloseTo(2.1);
+    expect(impacts[0].actualDayChange?.atl).toBeCloseTo(5.6);
+    expect(impacts.reduce((sum, entry) => sum + entry.attributedLoad, 0)).toBe(114);
+    expect(activityDayLoad(activities[3]!, points)).toEqual({ dailyLoad: 154 });
+  });
+
+  it("uses sane summary TSS when the top-level value is invalid, without clamping to the daily total", () => {
+    const [entry] = deriveActivityImpacts([point("2026-09-06", 40, 55, 20)], [
+      activity("known", Date.UTC(2026, 8, 6, 8), 63.1913, 601),
+      activity("unknown", Date.UTC(2026, 8, 6, 18), null),
+    ], { asOfDate: "2026-09-07" });
+    expect(entry).toMatchObject({ attributedLoad: 63, canonicalDailyLoad: 20, confidence: "activity-tss", daysSince: 1 });
+    expect(entry.remainingContribution.ctl).toBeCloseTo(1.5 * 41 / 42);
+    expect(entry.remainingContribution.atl).toBeCloseTo(9 * 6 / 7);
+  });
+
+  it.each([0, 154])("does not imply individual inclusion from a same-day aggregate of %s", (dailyLoad) => {
+    expect(activityDayLoad(activity("newer", Date.UTC(2026, 8, 6, 20), null), [
+      point("2026-09-06", 40, 55, dailyLoad),
+    ])).toEqual({ dailyLoad });
+  });
+
+  it.each([Number.NaN, Infinity, -1])("rejects unusable daily aggregate %s", (dailyLoad) => {
+    expect(activityDayLoad(activity("ride", Date.UTC(2026, 8, 6), null), [
+      point("2026-09-06", 40, 55, dailyLoad),
+    ])).toBeNull();
+  });
+
+  it("does not substitute an older day aggregate for a missing activity day", () => {
+    expect(activityDayLoad(activity("ride", Date.UTC(2026, 8, 7), null), [
+      point("2026-09-06", 40, 55, 154),
+    ])).toBeNull();
+  });
+
+  it.each([Number.NaN, Infinity, 1e20])("ignores an invalid activity timestamp %s", (startTime) => {
+    expect(activityDayLoad(activity("ride", startTime, null), [])).toBeNull();
+    expect(deriveActivityImpacts([point("2026-09-06", 40, 55, 154)], [activity("ride", startTime, 63)])).toEqual([]);
+  });
   it("uses canonical 196 TSS for a single activity and exposes its marginal effect", () => {
     const points = [point("2026-08-28", 36, 42, 0), point("2026-08-29", 39.8, 64, 196)];
     const [impact] = deriveActivityImpacts(points, [activity("ride", Date.UTC(2026, 7, 29, 8), 120)]);
@@ -213,7 +264,9 @@ describe("deriveActivityImpacts", () => {
       tss: null,
     });
 
-    expect(deriveActivityImpacts([point("2026-08-29", 10, 12, 100)], [known, unknown])).toEqual([]);
+    expect(deriveActivityImpacts([point("2026-08-29", 10, 12, 100)], [known, unknown])).toMatchObject([
+      { activity: { id: "morning-ride" }, attributedLoad: 60, confidence: "activity-tss" },
+    ]);
   });
 
   it("omits activities that have no matching canonical fitness point", () => {
@@ -243,12 +296,12 @@ describe("deriveActivityImpacts", () => {
     expect(impacts[1].remainingContribution.ctl).toBeCloseTo((40 / 42) * (41 / 42));
   });
 
-  it("does not estimate a multi-activity allocation when any candidate load is unsafe", () => {
+  it.each([null, Number.NaN, Infinity, -1, 0, 601])("omits unsafe TSS %s without suppressing a known activity", (unsafeTss) => {
     const impacts = deriveActivityImpacts(
       [point("2026-08-29", 10, 12, 100)],
-      [activity("known", Date.UTC(2026, 7, 29, 7), 50), activity("unknown", Date.UTC(2026, 7, 29, 8), Number.NaN)],
+      [activity("known", Date.UTC(2026, 7, 29, 7), 50), activity("unknown", Date.UTC(2026, 7, 29, 8), unsafeTss)],
     );
-    expect(impacts).toEqual([]);
+    expect(impacts).toMatchObject([{ activity: { id: "known" }, attributedLoad: 50, confidence: "activity-tss" }]);
   });
 });
 

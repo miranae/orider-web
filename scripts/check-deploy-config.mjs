@@ -106,6 +106,7 @@ function checkHostingConfig(hosting, label, aiApiOrigin) {
     requireIncludes(csp, "https://www.recaptcha.net", `${label} Content-Security-Policy frame-src`);
     const connectSrc = csp.split(";").map((directive) => directive.trim())
       .find((directive) => directive === "connect-src" || directive.startsWith("connect-src ")) ?? "";
+    requireIncludes(connectSrc, "https://auth.orider.co.kr", `${label} Content-Security-Policy connect-src`);
     requireIncludes(connectSrc, aiApiOrigin, `${label} Content-Security-Policy connect-src`);
   }
 
