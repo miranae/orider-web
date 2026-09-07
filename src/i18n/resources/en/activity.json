@@ -65,6 +65,8 @@
     "avgCadence": "Avg Cadence",
     "cadence": "Cadence",
     "avgStroke": "Avg Stroke",
+    "deviceSummary": "Device summary",
+    "elevLoss": "Descent",
     "calories": "Calories",
     "time": "Time",
     "speed": "Speed",
