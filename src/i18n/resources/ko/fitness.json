@@ -699,5 +699,6 @@
   "ftpDecision.receipt.deviceState.deferred_in_ride": "주행 종료 후 적용",
   "ftpDecision.receipt.deviceState.applied_for_next_ride": "다음 라이드에 적용됨",
   "ftpDecision.receipt.deviceState.failed": "동기화 실패",
-  "ftpDecision.receipt.deviceState.superseded": "더 최신 설정으로 대체됨"
+  "ftpDecision.receipt.deviceState.superseded": "더 최신 설정으로 대체됨",
+  "trainingStatus.state.paused": "훈련 상태 표시를 일시 중단했습니다. 다시 켜지면 서버 판정이 나타납니다."
 }

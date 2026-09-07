@@ -34,6 +34,13 @@ export interface RuntimeConfig {
   canonicalMaintenanceEnabled?: boolean;
   /** 누적 마일스톤 배지를 서버 판정으로 소비(#2237). 서버 누적 원장이 러닝 전용이라 기본 꺼짐. */
   canonicalMilestonesEnabled?: boolean;
+  /**
+   * 서버 전환 판정(`getCanonicalRollout`) 을 실제로 물어보는가 (#2442).
+   *
+   * 꺼져 있으면 서버에 묻지 않고, 화면은 빌드 플래그만으로 오늘과 똑같이 그린다 — callable 이
+   * 배포되기 전에 켜면 fail-closed 가 정상 화면을 끄기 때문이다. 서버 배포 뒤에 켠다.
+   */
+  canonicalRolloutEnabled?: boolean;
   sentryDsn?: string;
   appEnvironment?: string;
   useEmulators?: boolean;
@@ -83,10 +90,12 @@ function readBuildFallbackConfig(): RuntimeConfig {
     coachRidePlanSnapshotEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED === "true",
     coachRidePlanAiEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_AI_ENABLED === "true",
     coachRidePlanRespondV2Enabled: import.meta.env.VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED === "true",
+    canonicalConsumersEnabled: import.meta.env.VITE_CANONICAL_CONSUMERS_ENABLED === "true",
     canonicalWeatherEnabled: import.meta.env.VITE_CANONICAL_WEATHER === "true",
     canonicalCourseEnabled: import.meta.env.VITE_CANONICAL_COURSE === "true",
     canonicalMaintenanceEnabled: import.meta.env.VITE_CANONICAL_MAINTENANCE === "true",
     canonicalMilestonesEnabled: import.meta.env.VITE_CANONICAL_MILESTONES === "true",
+    canonicalRolloutEnabled: import.meta.env.VITE_CANONICAL_ROLLOUT_ENABLED === "true",
     sentryDsn: import.meta.env.VITE_SENTRY_DSN,
     appEnvironment: import.meta.env.MODE,
     useEmulators: import.meta.env.VITE_USE_EMULATORS === "true",

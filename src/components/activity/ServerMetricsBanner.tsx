@@ -54,6 +54,15 @@ export default function ServerMetricsBanner({
     mixed: t("serverMetrics.workoutType.mixed"),
   };
 
+  // disabled: 서버가 이 면을 껐다(kill switch). 아무것도 그리지 않으면 "데이터 없음" 으로
+  // 읽히므로 중단 상태를 한 줄로 밝힌다 (#2442).
+  if (state.status === "disabled") {
+    return (
+      <Card style={{ padding: "var(--space-3)", marginBottom: "var(--space-4)" }}>
+        <Text size="xs" tone="tertiary">{t("serverMetrics.paused")}</Text>
+      </Card>
+    );
+  }
   // missing: Phase A 트리거 발화 안 된 활동 — 1줄 hint 로 명시.
   if (state.status === "missing") {
     return (

@@ -219,9 +219,10 @@ export default function AnalysisTab({
   activityId, isOwner = false, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams,
   hasStreamPowerCandidate = false, hasStreamHeartRateCandidate = false, hasStreamCadenceCandidate = false,
 }: AnalysisTabProps) {
-  // 읽기 권한은 활동 가시성이 정한다(g1-web #2471 rules: activity_metrics 읽기 = activity_streams 와 동일).
-  // 소유자 게이트를 두면 뷰어는 영원히 "없음" 을 본다.
-  const serverMetrics = useActivityMetrics(activityId ?? null, true);
+  // 소유자는 정본(`activity_metrics`), 뷰어는 공개 projection(`activity_metrics_public`) 을 읽는다.
+  // rules 는 정본을 owner 로 제한하므로 리터럴 true 를 넘기면 뷰어는 permission-denied 끝에
+  // 영원히 "없음" 을 본다 — 훅이 소유 여부로 컬렉션을 고른다.
+  const serverMetrics = useActivityMetrics(activityId ?? null, isOwner);
   // 스트림 센서 후보가 신뢰 게이트에서 거부된 채널의 서버 지표는 숨긴다 — 리터럴 false 로 두면 이 억제가 사라진다.
   const sm = useMemo(() => filterServerMetricsForSensorCandidates(serverMetrics.metrics, {
     power: hasStreamPowerCandidate, heartRate: hasStreamHeartRateCandidate, cadence: hasStreamCadenceCandidate,
@@ -379,6 +380,15 @@ export default function AnalysisTab({
 
   if (!hasPower && !hasHr && cyclingDynamicsCards.length === 0) {
     // 서버 분석 문서가 아직 없거나 로딩 중이면 "스트림 없음" 이 아니다 — 모름을 없음으로 그리지 않는다.
+    // kill switch — 서버가 이 면을 껐다. 빈 화면으로 두면 "데이터가 없다" 로 읽힌다.
+    if (serverMetrics.status === "disabled") {
+      return (
+        <div className="rounded-[var(--r-lg)] border border-dashed px-4 py-8 text-center" style={{ background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }} data-testid="analysis-disabled">
+          <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>{t("analysis.empty.pausedTitle")}</div>
+          <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: 'var(--ink-3)' }}>{t("analysis.empty.pausedDesc")}</div>
+        </div>
+      );
+    }
     if (serverMetrics.status === "loading") {
       return (
         <div className="rounded-[var(--r-lg)] border border-dashed px-4 py-8 text-center" style={{ background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }} data-testid="analysis-loading">

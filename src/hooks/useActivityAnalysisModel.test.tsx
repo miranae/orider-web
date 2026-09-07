@@ -196,7 +196,7 @@ describe("useActivityAnalysisModel", () => {
     expect(result.current.hasAnalysisStreams).toBe(true);
   });
 
-  it("disables owner-only metrics for another rider and never subscribes to social or photo data", async () => {
+  it("reads the public metrics projection for another rider and never subscribes to social or photo data", async () => {
     mocks.user = { uid: "viewer" };
     const activity = makeActivity("orider_public", "owner");
     seedActivity(activity);
@@ -207,15 +207,15 @@ describe("useActivityAnalysisModel", () => {
     await waitFor(() => expect(result.current.streams).not.toBeNull());
 
     expect(result.current.isActivityOwner).toBe(false);
-    expect(result.current.serverMetrics.status).toBe("disabled");
-    expect(onSnapshot).not.toHaveBeenCalledWith(
-      expect.objectContaining({ path: `activity_metrics/${activity.id}` }),
-      expect.anything(),
-      expect.anything(),
-    );
+    // 공개 문서가 없으면 missing — 예전엔 여기서 구독 자체를 막아(`disabled`) 타인의 공개
+    // 활동 분석이 영구히 빈 화면이었다.
+    expect(result.current.serverMetrics.status).toBe("missing");
     expect(collection).not.toHaveBeenCalled();
     const subscribedPaths = vi.mocked(onSnapshot).mock.calls
       .map(([ref]) => (ref as { path?: string }).path ?? "");
+    // owner-only 정본은 건드리지 않는다(rules 가 거부한다). 공개 projection 만 읽는다.
+    expect(subscribedPaths).not.toContain(`activity_metrics/${activity.id}`);
+    expect(subscribedPaths).toContain(`activity_metrics_public/${activity.id}`);
     expect(subscribedPaths).not.toEqual(expect.arrayContaining([
       expect.stringContaining("kudos"),
       expect.stringContaining("comments"),

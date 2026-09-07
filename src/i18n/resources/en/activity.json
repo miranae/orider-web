@@ -535,7 +535,9 @@
       "computingTitle": "Computing analysis",
       "computingDesc": "The server is computing metrics for this activity. Check back shortly.",
       "noServerMetricsTitle": "No server analysis yet",
-      "noServerMetricsDesc": "The analysis document for this activity has not been produced yet."
+      "noServerMetricsDesc": "The analysis document for this activity has not been produced yet.",
+      "pausedTitle": "Server analysis paused",
+      "pausedDesc": "Server analysis display is paused for maintenance. Your ride data is intact and reappears once it is back on."
     },
     "seiler": {
       "z1": "Low Intensity",
@@ -864,7 +866,8 @@
     },
     "provisionalChip": "Provisional · upload in progress",
     "staleChip": "From an earlier analysis · awaiting recompute",
-    "truncatedInputChip": "From truncated input"
+    "truncatedInputChip": "From truncated input",
+    "paused": "Server analysis display is paused."
   },
   "vp": {
     "badge": "Virtual Power",

@@ -1,7 +1,7 @@
 /**
  * 킬로미터스톤 배지 그리드 (이슈 #360) — 누적 거리 이정표 + 최장 라이드.
  *
- * 판정 주체는 `canonicalConsumerEnabled("milestones")` 로 갈린다 (#2237):
+ * 판정 주체는 `useCanonicalSurfaceEnabled("milestones")` 로 갈린다 (#2237, 서버 전환 판정 포함 #2442):
  *
  * - **꺼짐(기본)** — 클라가 활동 목록에서 판정한다(`computeLifetimeMilestones`, 5단 카탈로그).
  *   서버 누적 원장(personal-records 트리거)은 `run_lifetime` 만 누적해 **러닝 전용**이라,
@@ -19,7 +19,7 @@ import { Card, Text } from "../../theme/components";
 import { CUMULATIVE_MILESTONE_M } from "@shared/types/milestone";
 import type { Activity } from "@shared/types";
 import type { Milestone, MilestoneId } from "@shared/types/milestone";
-import { canonicalConsumerEnabled } from "../../config/canonicalConsumers";
+import { useCanonicalSurfaceEnabled } from "../../hooks/useCanonicalRollout";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import { computeLifetimeMilestones, computeLifetimeTotals } from "../../utils/lifetimeMilestones";
 
@@ -66,7 +66,7 @@ export interface LifetimeMilestonesGridProps {
 
 export default function LifetimeMilestonesGrid({ activities, achieved, loading = false }: LifetimeMilestonesGridProps) {
   const { t } = useTranslation("fitness");
-  const canonical = canonicalConsumerEnabled("milestones");
+  const canonical = useCanonicalSurfaceEnabled("milestones");
 
   const totals = useMemo(() => computeLifetimeTotals(activities), [activities]);
   const clientSummary = useMemo(

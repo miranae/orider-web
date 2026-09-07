@@ -469,6 +469,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
                 sport={discipline}
                 decision={trainingDecision.envelope}
                 decisionDisplay={trainingDecision.display}
+                decisionPaused={trainingDecision.paused}
               />
             )}
           </DetailsSection>

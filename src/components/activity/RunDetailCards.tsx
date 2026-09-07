@@ -8,7 +8,7 @@ import type { ActivityStreams } from "@shared/types";
 import { Card, Chip, Text } from "../../theme/components";
 import { paceToZone } from "../../utils/workoutPace";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
-import { canonicalConsumerEnabled } from "../../config/canonicalConsumers";
+import { useCanonicalSurfaceEnabled } from "../../hooks/useCanonicalRollout";
 import { conditionFromMetricsValue, weatherConditionLabelKey } from "../../utils/weatherCondition";
 
 // ── 유틸리티 ─────────────────────────────────────────────────────────────────
@@ -423,7 +423,7 @@ export type WeatherMetricsStatus = "loading" | "disabled" | "missing" | "stale" 
  *
  * 결측은 0 이 아니다. 서버가 `humidity: null` 을 주면 그 줄을 아예 그리지 않는다.
  *
- * 전환이 꺼져 있으면(`canonicalConsumerEnabled("weather") === false`) 오늘과 똑같이
+ * 전환이 꺼져 있으면(`useCanonicalSurfaceEnabled("weather") === false`) 오늘과 똑같이
  * 기기 기록만 표식 없이 그린다.
  */
 function WeatherCard({ weather, metricsWeather, metricsStatus }: {
@@ -432,7 +432,7 @@ function WeatherCard({ weather, metricsWeather, metricsStatus }: {
   metricsStatus?: WeatherMetricsStatus;
 }) {
   const { t } = useTranslation("activity");
-  const canonical = canonicalConsumerEnabled("weather");
+  const canonical = useCanonicalSurfaceEnabled("weather");
   const serverReady = canonical && (metricsStatus === "ready" || metricsStatus === "stale") && !!metricsWeather;
 
   // 계산 중이면 숫자를 지어내지 않고 계산 중임을 밝힌다.

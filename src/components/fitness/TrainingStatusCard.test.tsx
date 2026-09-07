@@ -75,4 +75,10 @@ describe("TrainingStatusCard", () => {
     render(<TrainingStatusCard tsb={-45} />);
     expect(screen.getAllByText("과부하 주의").length).toBeGreaterThan(0);
   });
+
+  it("서버가 화면을 껐으면 중단을 밝히고 로컬 구간을 그리지 않는다", () => {
+    render(<TrainingStatusCard tsb={-45} decision={decision("productive", "canonical")} decisionDisplay="value" decisionPaused />);
+    expect(screen.getByText(ko["trainingStatus.state.paused"])).toBeInTheDocument();
+    expect(screen.queryByText("과부하 주의")).not.toBeInTheDocument();
+  });
 });

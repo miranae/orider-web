@@ -39,6 +39,12 @@ export interface TrainingDecisionState {
   /** 전환이 꺼져 있거나 미로그인이면 null — 이때만 화면이 기존(로컬) 표시로 남는다. */
   envelope: TrainingDecisionEnvelope | null;
   display: CanonicalDisplay | null;
+  /**
+   * 서버가 이 화면을 껐다(`rolloutEnabled === false`). 화면은 **일시 중단**을 명시하고,
+   * 로컬 밴드로 내려가지 않는다 — kill switch 를 내렸는데 로컬 판정이 대신 그려지면
+   * 끈 의미가 없다 (#2442).
+   */
+  paused: boolean;
   loading: boolean;
   refresh: () => void;
 }
@@ -70,7 +76,8 @@ export function useTrainingDecision(
       if (previous && sameDecision(previous, next)) return;
       // 값이 없는 응답은 last-known-good 을 덮어쓰지 않는다. 상태만 바꿔 낡음을 알린다.
       const merged = next.data === null && previous?.data
-        ? { ...previous, status: next.status, error: next.error }
+        // 전환 판정은 최신 응답의 것을 쓴다 — 낡은 판정으로 중단 상태를 덮으면 kill switch 가 늦게 듣는다.
+        ? { ...previous, status: next.status, error: next.error, rolloutEnabled: next.rolloutEnabled }
         : next;
       decisionCache.set(cacheKey(uid, discipline), merged);
       setEnvelope(merged);
@@ -84,6 +91,7 @@ export function useTrainingDecision(
   return {
     envelope,
     display: envelope ? canonicalDisplayFor(envelope.status, envelope.data !== null) : null,
+    paused: envelope?.rolloutEnabled === false,
     loading,
     refresh,
   };
@@ -91,6 +99,8 @@ export function useTrainingDecision(
 
 function sameDecision(a: TrainingDecisionEnvelope, b: TrainingDecisionEnvelope): boolean {
   return a.status === b.status
+    // 전환 판정이 뒤집혔으면 같은 결정이 아니다 — 아니면 kill switch 가 리렌더 억제에 먹힌다.
+    && a.rolloutEnabled === b.rolloutEnabled
     && a.data !== null && b.data !== null
     && a.data.decisionRevision === b.data.decisionRevision;
 }

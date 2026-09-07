@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 
 import { canonicalDisplayFor, type CanonicalDisplay } from "@shared/types/canonicalDisplay";
-import { canonicalConsumerEnabled } from "../config/canonicalConsumers";
+import { useCanonicalSurfaceEnabled } from "./useCanonicalRollout";
 import { fetchCourseAnalysis, type CourseAnalysisEnvelope } from "../services/courseAnalysisReader";
 
 export interface CourseAnalysisState {
@@ -28,8 +28,9 @@ export function courseAnalysisNoteKey(display: CanonicalDisplay | null): string 
 
 export function useCourseAnalysis(courseId: string | null | undefined): CourseAnalysisState {
   const [envelope, setEnvelope] = useState<CourseAnalysisEnvelope | null>(null);
-  // 런타임 설정은 fetch 로 늦게 도착할 수 있다 — 플래그 값을 deps 에 넣어 도착 시 재구독한다.
-  const enabled = canonicalConsumerEnabled("course");
+  // 빌드 플래그 AND 서버 전환 판정. 런타임 설정·서버 판정 모두 늦게 도착할 수 있으므로
+  // 값을 deps 에 넣어 도착 시 재구독한다.
+  const enabled = useCanonicalSurfaceEnabled("course");
 
   useEffect(() => {
     if (!courseId || !enabled) {

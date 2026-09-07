@@ -36,6 +36,8 @@ function clientEnvelope(
     inputDigest: null,
     period: null,
     data: null,
+    // 클라이언트 실패에는 서버 판정이 없다 — 모름이지 중단이 아니다.
+    rolloutEnabled: null,
     error: status === "failed" ? { code, message, retryable } : null,
   };
 }

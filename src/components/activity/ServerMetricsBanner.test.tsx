@@ -134,3 +134,12 @@ describe("ServerMetricsBanner sensor provenance", () => {
     expect(screen.queryByText("이전 분석 기준 · 재계산 대기")).not.toBeInTheDocument();
   });
 });
+
+/** kill switch 중에 아무것도 안 그리면 "데이터 없음" 으로 읽힌다 — 중단은 중단이라고 쓴다 (#2442). */
+describe("ServerMetricsBanner kill switch", () => {
+  it("disabled 는 중단 문구를 낸다", () => {
+    render(<ServerMetricsBanner state={{ status: "disabled", metrics: null }} />);
+    expect(screen.getByText("서버 분석 표시를 일시 중단했습니다.")).toBeInTheDocument();
+  });
+});
+

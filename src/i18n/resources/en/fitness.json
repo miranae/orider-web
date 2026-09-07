@@ -699,5 +699,6 @@
   "ftpDecision.receipt.deviceState.deferred_in_ride": "Will apply after the ride",
   "ftpDecision.receipt.deviceState.applied_for_next_ride": "Applied for next ride",
   "ftpDecision.receipt.deviceState.failed": "Sync failed",
-  "ftpDecision.receipt.deviceState.superseded": "Replaced by a newer setting"
+  "ftpDecision.receipt.deviceState.superseded": "Replaced by a newer setting",
+  "trainingStatus.state.paused": "Training status display is paused. The server verdict returns once it is back on."
 }

@@ -35,6 +35,11 @@ export interface TrainingStatusCardProps {
   decision?: TrainingDecisionEnvelope | null;
   /** 봉투에서 파생된 화면 상태(`useTrainingDecision().display`). */
   decisionDisplay?: CanonicalDisplay | null;
+  /**
+   * 서버가 이 화면을 껐다(`useTrainingDecision().paused`). 구간도 숫자도 그리지 않고 중단만
+   * 밝힌다 — 로컬 밴드로 내려가면 kill switch 를 내린 의미가 없다 (#2442).
+   */
+  decisionPaused?: boolean;
 }
 
 const TONE_VAR: Record<TrainingStatusTone, string> = {
@@ -84,8 +89,20 @@ export default function TrainingStatusCard({
   sport,
   decision,
   decisionDisplay,
+  decisionPaused = false,
 }: TrainingStatusCardProps) {
   const { t } = useTranslation("fitness");
+
+  // kill switch 가 먼저다. 값이 손에 있어도 그리지 않는다.
+  if (decisionPaused) {
+    return (
+      <Card>
+        <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: 0 }}>
+          {t("trainingStatus.state.paused")}
+        </Text>
+      </Card>
+    );
+  }
 
   const display = decision ? (decisionDisplay ?? null) : null;
   const serverBandKey = decision?.data ? knownFormBandKey(decision.data.form.band.key) : null;

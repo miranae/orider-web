@@ -136,9 +136,18 @@ export const trainingDecisionEnvelopeSchema = z.object({
   period: z.unknown().nullable().optional(),
   data: trainingDecisionSchema.nullable(),
   error: z.object({ code: z.string(), retryable: z.boolean(), message: z.string().optional() }).nullable(),
+  /** 서버 전환 판정. 없으면(구버전 서버) null — 판정을 모르는 것과 껐다는 것은 다르다. */
+  rolloutEnabled: z.boolean().nullish(),
 });
 
-export type TrainingDecisionEnvelope = CanonicalEnvelope<TrainingDecision>;
+/**
+ * 봉투 + 전환 판정. `rolloutEnabled` 는 `CanonicalEnvelope`(원본 사본, 드리프트 검사 대상)에
+ * 없는 필드라 여기서만 얹는다 — 사본을 건드리면 `check-canonical-contract.mjs` 가 막는다.
+ */
+export type TrainingDecisionEnvelope = CanonicalEnvelope<TrainingDecision> & {
+  /** `false` 면 이 화면은 **일시 중단**이다. `null` 이면 서버가 아직 판정을 내려주지 않는다. */
+  rolloutEnabled: boolean | null;
+};
 
 /**
  * 봉투를 판다. 모르는 status 는 `failed` 로 떨어뜨린다 — 모르는 상태를 canonical 로 낙관하면
@@ -156,6 +165,7 @@ export function parseTrainingDecisionEnvelope(value: unknown): TrainingDecisionE
     inputDigest: parsed.inputDigest,
     period: null,
     data: parsed.data,
+    rolloutEnabled: parsed.rolloutEnabled ?? null,
     error: parsed.error
       ?? (status === "failed" ? { code: "unknown_status", retryable: true, message: parsed.status } : null),
   };

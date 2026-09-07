@@ -535,7 +535,9 @@
       "computingTitle": "분석 계산 중",
       "computingDesc": "서버가 이 활동의 지표를 계산하고 있어요. 잠시 후 다시 확인해 주세요.",
       "noServerMetricsTitle": "서버 분석이 아직 없어요",
-      "noServerMetricsDesc": "이 활동의 분석 문서가 만들어지지 않았어요. 스트림이 있으면 곧 계산됩니다."
+      "noServerMetricsDesc": "이 활동의 분석 문서가 만들어지지 않았어요. 스트림이 있으면 곧 계산됩니다.",
+      "pausedTitle": "서버 분석 일시 중단",
+      "pausedDesc": "점검 때문에 서버 분석 표시를 잠시 멈췄습니다. 기록은 그대로 있고, 다시 켜지면 자동으로 나타납니다."
     },
     "seiler": {
       "z1": "저강도",
@@ -864,7 +866,8 @@
     },
     "provisionalChip": "잠정값 · 업로드 반영 중",
     "staleChip": "이전 분석 기준 · 재계산 대기",
-    "truncatedInputChip": "잘린 입력 기준"
+    "truncatedInputChip": "잘린 입력 기준",
+    "paused": "서버 분석 표시를 일시 중단했습니다."
   },
   "vp": {
     "badge": "가상 파워",

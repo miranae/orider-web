@@ -21,6 +21,7 @@ function envelope(revision: string, status: TrainingDecisionEnvelope["status"] =
       form: { tsb: -8, ctl: 60, atl: 68, ctlRampPerWeek: null, band: { key: "productive", index: 2, drivenByRamp: false } },
       goal: null, readiness: null, decisionRevision: revision,
     },
+    rolloutEnabled: true,
     error: null,
   };
 }
@@ -34,6 +35,7 @@ function Harness() {
       <input aria-label="goal-note" value={note} onChange={(event) => setNote(event.target.value)} />
       <span data-testid="revision">{decision.envelope?.data?.decisionRevision ?? "none"}</span>
       <span data-testid="display">{decision.display ?? "none"}</span>
+      <span data-testid="paused">{String(decision.paused)}</span>
       <button onClick={decision.refresh}>refresh</button>
     </div>
   );
@@ -101,5 +103,30 @@ describe("useTrainingDecision", () => {
     await flush();
     expect(screen.getByTestId("revision").textContent).toBe("rev-1");
     expect(screen.getByTestId("display").textContent).toBe("value_with_stale_hint");
+  });
+
+  it("서버가 이 화면을 끄면(rolloutEnabled false) 일시 중단이다", async () => {
+    fetchTrainingDecision.mockResolvedValue({ ...envelope("rev-1"), rolloutEnabled: false });
+    render(<Harness />);
+    await flush();
+    expect(screen.getByTestId("paused").textContent).toBe("true");
+  });
+
+  it("판정이 뒤집히면 같은 revision 이어도 중단이 화면에 도착한다", async () => {
+    fetchTrainingDecision.mockResolvedValueOnce(envelope("rev-1"))
+      .mockResolvedValueOnce({ ...envelope("rev-1"), rolloutEnabled: false });
+    render(<Harness />);
+    await flush();
+    expect(screen.getByTestId("paused").textContent).toBe("false");
+    await act(async () => { screen.getByText("refresh").click(); });
+    await flush();
+    expect(screen.getByTestId("paused").textContent).toBe("true");
+  });
+
+  it("서버가 판정을 안 내려주면(null) 중단이 아니다 — 모름과 껐음은 다르다", async () => {
+    fetchTrainingDecision.mockResolvedValue({ ...envelope("rev-1"), rolloutEnabled: null });
+    render(<Harness />);
+    await flush();
+    expect(screen.getByTestId("paused").textContent).toBe("false");
   });
 });
