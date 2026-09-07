@@ -545,20 +545,21 @@ export default function CreatorHubPage() {
   });
 
   const chartWeeks = useMemo(() => {
-    const actual = weeklyStats.filter((week) => week.rides > 0 || week.distance > 0 || week.tss > 0).slice(-6);
+    // tss 는 알 수 없으면 null — 차트 막대에서는 "없음"을 0 높이로 그린다(추정치 날조 금지).
+    const actual = weeklyStats.filter((week) => week.rides > 0 || week.distance > 0 || (week.tss ?? 0) > 0).slice(-6);
     return actual.length > 0 ? actual : demoWeeklyStats();
   }, [weeklyStats]);
-  const chartMax = Math.max(1, ...chartWeeks.map((week) => week.tss || week.distance || 0));
+  const chartMax = Math.max(1, ...chartWeeks.map((week) => (week.tss ?? 0) || week.distance || 0));
   const chartTotal = chartWeeks.reduce(
     (acc, week) => ({
       distance: acc.distance + week.distance,
       time: acc.time + week.time,
       rides: acc.rides + week.rides,
-      tss: acc.tss + week.tss,
+      tss: acc.tss + (week.tss ?? 0),
     }),
     { distance: 0, time: 0, rides: 0, tss: 0 },
   );
-  const chartUsesOwnData = Boolean(user && weeklyStats.some((week) => week.rides > 0 || week.distance > 0 || week.tss > 0));
+  const chartUsesOwnData = Boolean(user && weeklyStats.some((week) => week.rides > 0 || week.distance > 0 || (week.tss ?? 0) > 0));
   const shareCard = diary?.shareCard ?? copy.shareCard;
   const shareText = `${shareCard.title}\n${shareCard.body}\n${shareCard.footer}`;
   const weeklyShareText = `${copy.weekly.shareTitle}\n${copy.weekly.distance}: ${Math.round(chartTotal.distance)}km · ${copy.weekly.time}: ${chartTotal.time.toFixed(1)}h · ${copy.weekly.rides}: ${chartTotal.rides} · ${copy.weekly.tss}: ${chartTotal.tss}\n${chartUsesOwnData ? copy.weekly.own : copy.weekly.demo}`;

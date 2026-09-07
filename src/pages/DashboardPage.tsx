@@ -856,17 +856,20 @@ export default function DashboardPage() {
           <div className="hidden lg:flex w-[340px] flex-shrink-0 flex-col gap-4.5 sticky self-start top-0" style={{ paddingBottom: 'var(--space-5)' }}>
             {/* 주간 TSS 차트 — 실데이터 바인딩 */}
             {(() => {
-              const avgTSS = weeklyStats.length
-                ? Math.round(weeklyStats.reduce((s, w) => s + w.tss, 0) / weeklyStats.length)
+              // 부하를 알 수 없는 주(tss=null)는 평균·피크·추세에서 제외한다 — 0 으로 세면
+              // 쉬지 않은 주가 휴식 주처럼 평균을 끌어내린다 (#2237).
+              const knownTssWeeks = weeklyStats.filter((w): w is typeof w & { tss: number } => w.tss != null);
+              const avgTSS = knownTssWeeks.length
+                ? Math.round(knownTssWeeks.reduce((s, w) => s + w.tss, 0) / knownTssWeeks.length)
                 : 0;
-              const peakTSS = Math.max(...weeklyStats.map((w) => w.tss), 0);
-              const lastTwo = weeklyStats.slice(-2);
+              const peakTSS = Math.max(...knownTssWeeks.map((w) => w.tss), 0);
+              const lastTwo = knownTssWeeks.slice(-2);
               const trendUp = lastTwo.length === 2 && lastTwo[1]!.tss >= lastTwo[0]!.tss;
               return (
                 <Card padding="none" style={{ padding: "var(--space-4)" }}>
                   <SectionHeader title={t("sidebar.weeklyTss.title")} sub={t("sidebar.weeklyTss.sub")} right={<Chip>TSS</Chip>} />
                   <WeeklyTssBars
-                    weeks={weeklyStats}
+                    weeks={weeklyStats.map((w) => ({ ...w, tss: w.tss ?? 0 }))}
                     tooltipFor={(w) => t("sidebar.weeklyTss.barTooltip", { week: w.week, tss: w.tss })}
                   />
                   <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>

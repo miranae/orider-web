@@ -18,7 +18,10 @@ export interface WeeklyStat {
   time: number;
   elevation: number;
   rides: number;
-  tss: number;
+  /** 주간 TSS 합계. 아는 값이 하나도 없으면 null — 0 을 확정값처럼 그리지 않는다 (#2237). */
+  tss: number | null;
+  /** 합계에 클라 추정치가 섞였는가. 화면에 쓰면 "추정 포함" 으로 밝혀야 한다. */
+  tssEstimated: boolean;
 }
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);

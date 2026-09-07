@@ -65,6 +65,7 @@
     "avgCadence": "평균 케이던스",
     "cadence": "케이던스",
     "avgStroke": "평균 스트로크",
+    "tssEstimatedIncluded": "추정 포함",
     "deviceSummary": "기기 요약",
     "elevLoss": "하강",
     "calories": "칼로리",

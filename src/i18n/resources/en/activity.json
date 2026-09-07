@@ -65,6 +65,7 @@
     "avgCadence": "Avg Cadence",
     "cadence": "Cadence",
     "avgStroke": "Avg Stroke",
+    "tssEstimatedIncluded": "incl. estimates",
     "deviceSummary": "Device summary",
     "elevLoss": "Descent",
     "calories": "Calories",

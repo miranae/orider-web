@@ -102,6 +102,9 @@ export default function GroupDashboardPage() {
     const weekActivities = weekRides.flatMap((r) => r.activities);
     const activeMembers = new Set(weekActivities.map((a) => a.userId));
 
+    // TODO(#2437): 그룹 주간 집계는 서버(group.stats 주간 aggregate)가 정본이어야 한다.
+    // 지금은 서버 집계 문서가 없어 활동 요약을 클라에서 합산한다 — 활동 상세와 달리
+    // activity_metrics 를 활동 수만큼 읽을 수 없어서다. 서버 aggregate 가 생기면 교체.
     return {
       totalDistance: weekActivities.reduce((sum, a) => sum + a.summary.distance, 0),
       totalTime: weekActivities.reduce((sum, a) => sum + a.summary.ridingTimeMillis, 0),

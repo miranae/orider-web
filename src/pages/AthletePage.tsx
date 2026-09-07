@@ -19,7 +19,7 @@ import StatCard from "../components/StatCard";
 import ActivityCard from "../components/ActivityCard";
 import { isTrivialActivity } from "../utils/activityFilter";
 import { resolveDuration } from "../utils/activityTime";
-import { estimateTSS } from "../utils/estimateTSS";
+import { estimateActivityTss } from "../utils/estimateTSS";
 import Avatar from "../components/Avatar";
 import WeeklyChart from "../components/WeeklyChart";
 import type { Activity } from "@shared/types";
@@ -566,17 +566,22 @@ export default function AthletePage() {
   const isMe = isOwnProfile;
 
   const monthlyStats = useMemo(() => {
-    const months = new Map<string, { distance: number; time: number; elevation: number; rides: number; tss: number }>();
+    const months = new Map<string, { distance: number; time: number; elevation: number; rides: number; tss: number; tssEstimated: boolean }>();
     for (const a of chartActivities) {
       const d = new Date(a.createdAt);
       const key = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const existing = months.get(key) ?? { distance: 0, time: 0, elevation: 0, rides: 0, tss: 0 };
+      const existing = months.get(key) ?? { distance: 0, time: 0, elevation: 0, rides: 0, tss: 0, tssEstimated: false };
       existing.distance += a.summary.distance / 1000;
       existing.time += a.summary.ridingTimeMillis / 3600000;
       existing.elevation += a.summary.elevationGain;
       existing.rides += 1;
-      // TSS 추정: 정본 폴백 체인(사전계산 TSS → relativeEffort → 시간factor)에 위임 (P0 단일화)
-      existing.tss += estimateTSS(a);
+      // TSS: 정본 폴백 체인(사전계산 TSS → relativeEffort → 시간factor)에 위임 (P0 단일화).
+      // 근거가 없으면 null 이 온다 — 0 으로 더해 "부하 0" 을 만들지 않고 건너뛴다 (#2237).
+      const load = estimateActivityTss(a);
+      if (load.value != null) {
+        existing.tss += load.value;
+        existing.tssEstimated = existing.tssEstimated || load.estimated;
+      }
       months.set(key, existing);
     }
     return Array.from(months.entries())
