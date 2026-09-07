@@ -793,6 +793,22 @@
     "weatherHumidity": "습도",
     "weatherPrecip": "강수량",
     "weatherAirQuality": "대기질",
+    "weatherCondition": {
+      "CLEAR": "맑음",
+      "PARTLY_CLOUDY": "구름 조금",
+      "CLOUDY": "흐림",
+      "FOG": "안개",
+      "DRIZZLE": "이슬비",
+      "RAIN": "비",
+      "HEAVY_RAIN": "폭우",
+      "SNOW": "눈",
+      "THUNDERSTORM": "뇌우",
+      "UNKNOWN": "알 수 없음"
+    },
+    "weatherConditionLabel": "날씨",
+    "weatherSourceDevice": "기기 기록",
+    "weatherStale": "이전 분석",
+    "weatherProcessing": "날씨를 계산하고 있습니다.",
     "gearTitle": "장비",
     "gearTotalDist": "누적 {{dist}} km",
     "gearRemaining": "교체까지 {{dist}} km"

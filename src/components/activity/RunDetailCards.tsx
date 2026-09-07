@@ -5,8 +5,11 @@
 import { useTranslation } from "react-i18next";
 import type { Activity, ActivitySummary } from "@shared/types";
 import type { ActivityStreams } from "@shared/types";
-import { Card, Text } from "../../theme/components";
+import { Card, Chip, Text } from "../../theme/components";
 import { paceToZone } from "../../utils/workoutPace";
+import type { ActivityMetrics } from "@shared/types/activity-metrics";
+import { canonicalConsumerEnabled } from "../../config/canonicalConsumers";
+import { conditionFromMetricsValue, weatherConditionLabelKey } from "../../utils/weatherCondition";
 
 // ── 유틸리티 ─────────────────────────────────────────────────────────────────
 
@@ -405,26 +408,78 @@ export function RunLeftCards({
 
 // ── 환경 카드 ────────────────────────────────────────────────────────────────
 
-function WeatherCard({ weather }: { weather?: Activity["weather"] }) {
+/** 서버 활동 메트릭의 읽기 상태 — `useActivityMetrics` 의 status 와 같은 어휘. */
+export type WeatherMetricsStatus = "loading" | "disabled" | "missing" | "stale" | "ready";
+
+/**
+ * 환경(날씨) 카드.
+ *
+ * ## 출처는 한 페이지에 하나뿐이다 (#887)
+ *
+ * 서버 활동 메트릭 v22 의 `weather`(tempC/humidity/windSpeed/condition) 가 정본이다.
+ * 기기가 기록한 `activity.weather` 는 폴백이고, 그때는 **"기기 기록" 표식**을 붙여
+ * 어느 출처를 보고 있는지 밝힌다. 두 출처를 같은 화면에 겹쳐 그리지 않는다 —
+ * 같은 라이드의 기온이 두 개로 보이는 것이 지금 고치는 결함이다.
+ *
+ * 결측은 0 이 아니다. 서버가 `humidity: null` 을 주면 그 줄을 아예 그리지 않는다.
+ *
+ * 전환이 꺼져 있으면(`canonicalConsumerEnabled("weather") === false`) 오늘과 똑같이
+ * 기기 기록만 표식 없이 그린다.
+ */
+function WeatherCard({ weather, metricsWeather, metricsStatus }: {
+  weather?: Activity["weather"];
+  metricsWeather?: ActivityMetrics["weather"];
+  metricsStatus?: WeatherMetricsStatus;
+}) {
   const { t } = useTranslation("activity");
-  if (!weather) return null;
-  const rows: [string, string][] = [];
-  if (weather.temperature != null) rows.push([t("runCards.weatherTemp"), `${weather.temperature} °C`]);
-  if (weather.feelsLike != null) rows.push([t("runCards.weatherFeelsLike"), `${weather.feelsLike} °C`]);
-  if (weather.windSpeed != null) {
-    const dirText = weather.windDirection != null
-      ? ` (${['N','NE','E','SE','S','SW','W','NW'][Math.round(weather.windDirection / 45) % 8]})`
-      : '';
-    rows.push([t("runCards.weatherWind"), `${weather.windSpeed} m/s${dirText}`]);
+  const canonical = canonicalConsumerEnabled("weather");
+  const serverReady = canonical && (metricsStatus === "ready" || metricsStatus === "stale") && !!metricsWeather;
+
+  // 계산 중이면 숫자를 지어내지 않고 계산 중임을 밝힌다.
+  if (canonical && !serverReady && metricsStatus === "loading") {
+    return (
+      <Card padding="none" style={{ padding: "var(--space-4)" }}>
+        <Text as="div" variant="label" tone="primary" style={{ marginBottom: "var(--space-3)" }}>{t("runCards.weatherTitle")}</Text>
+        <Text as="div" variant="caption" tone="tertiary">{t("runCards.weatherProcessing")}</Text>
+      </Card>
+    );
   }
-  if (weather.humidity != null) rows.push([t("runCards.weatherHumidity"), `${weather.humidity}%`]);
-  if (weather.precipitation != null && weather.precipitation > 0) rows.push([t("runCards.weatherPrecip"), `${weather.precipitation} mm`]);
-  if (weather.airQuality) rows.push([t("runCards.weatherAirQuality"), weather.airQuality]);
+
+  const rows: [string, string][] = [];
+  if (serverReady && metricsWeather) {
+    rows.push([t("runCards.weatherTemp"), `${Math.round(metricsWeather.tempC)} °C`]);
+    if (metricsWeather.windSpeed != null) rows.push([t("runCards.weatherWind"), `${metricsWeather.windSpeed} m/s`]);
+    if (metricsWeather.humidity != null) rows.push([t("runCards.weatherHumidity"), `${metricsWeather.humidity}%`]);
+    const condition = conditionFromMetricsValue(metricsWeather.condition);
+    if (condition !== "UNKNOWN") {
+      rows.push([t("runCards.weatherConditionLabel"), t(weatherConditionLabelKey(condition))]);
+    }
+  } else {
+    if (!weather) return null;
+    if (weather.temperature != null) rows.push([t("runCards.weatherTemp"), `${weather.temperature} °C`]);
+    if (weather.feelsLike != null) rows.push([t("runCards.weatherFeelsLike"), `${weather.feelsLike} °C`]);
+    if (weather.windSpeed != null) {
+      const dirText = weather.windDirection != null
+        ? ` (${['N','NE','E','SE','S','SW','W','NW'][Math.round(weather.windDirection / 45) % 8]})`
+        : '';
+      rows.push([t("runCards.weatherWind"), `${weather.windSpeed} m/s${dirText}`]);
+    }
+    if (weather.humidity != null) rows.push([t("runCards.weatherHumidity"), `${weather.humidity}%`]);
+    if (weather.precipitation != null && weather.precipitation > 0) rows.push([t("runCards.weatherPrecip"), `${weather.precipitation} mm`]);
+    if (weather.airQuality) rows.push([t("runCards.weatherAirQuality"), weather.airQuality]);
+  }
   if (rows.length === 0) return null;
+
+  const badge = serverReady
+    ? (metricsStatus === "stale" ? t("runCards.weatherStale") : null)
+    : (canonical ? t("runCards.weatherSourceDevice") : null);
 
   return (
     <Card padding="none" style={{ padding: "var(--space-4)" }}>
-      <Text as="div" variant="label" tone="primary" style={{ marginBottom: 'var(--space-3)' }}>{t("runCards.weatherTitle")}</Text>
+      <div style={{ display: 'flex', alignItems: 'center', gap: "var(--space-2)", marginBottom: 'var(--space-3)' }}>
+        <Text as="div" variant="label" tone="primary">{t("runCards.weatherTitle")}</Text>
+        {badge && <Chip variant="default">{badge}</Chip>}
+      </div>
       <div className="text-[length:var(--fs-xs)]" style={{ display: 'flex', flexDirection: 'column', gap: "var(--space-2)" }}>
         {rows.map(([k, v]) => (
           <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -463,12 +518,17 @@ function GearCard({ gear }: { gear?: Activity["gear"] }) {
 }
 
 /** 러닝 활동 상세 — 우측 사이드바용 카드 */
-export function RunRightCards({ summary, activity }: { summary: ActivitySummary; activity?: Activity }) {
+export function RunRightCards({ summary, activity, metricsWeather, metricsStatus }: {
+  summary: ActivitySummary;
+  activity?: Activity;
+  metricsWeather?: ActivityMetrics["weather"];
+  metricsStatus?: WeatherMetricsStatus;
+}) {
   return (
     <>
       <RunLoadCard tss={summary.tss} />
       <GapCard summary={summary} />
-      <WeatherCard weather={activity?.weather} />
+      <WeatherCard weather={activity?.weather} metricsWeather={metricsWeather} metricsStatus={metricsStatus} />
       <GearCard gear={activity?.gear} />
     </>
   );

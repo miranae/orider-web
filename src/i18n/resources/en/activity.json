@@ -793,6 +793,22 @@
     "weatherHumidity": "Humidity",
     "weatherPrecip": "Precipitation",
     "weatherAirQuality": "Air quality",
+    "weatherCondition": {
+      "CLEAR": "Clear",
+      "PARTLY_CLOUDY": "Partly cloudy",
+      "CLOUDY": "Cloudy",
+      "FOG": "Fog",
+      "DRIZZLE": "Drizzle",
+      "RAIN": "Rain",
+      "HEAVY_RAIN": "Heavy rain",
+      "SNOW": "Snow",
+      "THUNDERSTORM": "Thunderstorm",
+      "UNKNOWN": "Unknown"
+    },
+    "weatherConditionLabel": "Weather",
+    "weatherSourceDevice": "From device",
+    "weatherStale": "Earlier analysis",
+    "weatherProcessing": "Working out the weather.",
     "gearTitle": "Gear",
     "gearTotalDist": "{{dist}} km accumulated",
     "gearRemaining": "{{dist}} km until replacement"

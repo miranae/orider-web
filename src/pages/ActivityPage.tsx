@@ -1326,7 +1326,14 @@ export default function ActivityPage() {
       {/* ── Right sidebar (개요): 종목별 카드만 ── */}
       {(sport === "run" || sport === "swim") && (
       <div className="lg:w-80 flex-shrink-0 space-y-6 lg:pl-6 lg:[border-left:1px_solid_var(--line-soft)]">
-      {sport === "run" && <RunRightCards summary={s} activity={activity} />}
+      {sport === "run" && (
+        <RunRightCards
+          summary={s}
+          activity={activity}
+          metricsWeather={serverMetrics.metrics?.weather}
+          metricsStatus={serverMetrics.status}
+        />
+      )}
       {sport === "swim" && <SwimRightCards summary={s} streams={streams} />}
       </div>
       )}

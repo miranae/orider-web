@@ -28,6 +28,10 @@ export interface RuntimeConfig {
   coachRidePlanRespondV2Enabled?: boolean;
   /** canonical 정본 API 소비 전환(#884). 서버 배포·백필 뒤에 켠다 — 기본 꺼짐. */
   canonicalConsumersEnabled?: boolean;
+  /** 날씨·코스·정비 정본 소비 전환(#887). 세 면을 **따로** 켠다 — 한 면이 막혀도 나머지는 굴러간다. */
+  canonicalWeatherEnabled?: boolean;
+  canonicalCourseEnabled?: boolean;
+  canonicalMaintenanceEnabled?: boolean;
   sentryDsn?: string;
   appEnvironment?: string;
   useEmulators?: boolean;
@@ -77,6 +81,9 @@ function readBuildFallbackConfig(): RuntimeConfig {
     coachRidePlanSnapshotEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED === "true",
     coachRidePlanAiEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_AI_ENABLED === "true",
     coachRidePlanRespondV2Enabled: import.meta.env.VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED === "true",
+    canonicalWeatherEnabled: import.meta.env.VITE_CANONICAL_WEATHER === "true",
+    canonicalCourseEnabled: import.meta.env.VITE_CANONICAL_COURSE === "true",
+    canonicalMaintenanceEnabled: import.meta.env.VITE_CANONICAL_MAINTENANCE === "true",
     sentryDsn: import.meta.env.VITE_SENTRY_DSN,
     appEnvironment: import.meta.env.MODE,
     useEmulators: import.meta.env.VITE_USE_EMULATORS === "true",
