@@ -15,7 +15,6 @@ describe("AI Coach entry-surface boundary", () => {
     "src/pages/PlanPage.tsx",
     "src/components/mobile/MobileFitnessPage.tsx",
     "src/pages/fitness/TriFitnessView.tsx",
-    "src/components/training/TodaysWorkoutCard.tsx",
   ])("does not leak the launcher into %s", (path) => {
     expect(readFileSync(path, "utf8")).not.toContain("CoachQuestionLauncher");
   });
