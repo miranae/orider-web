@@ -32,6 +32,8 @@ export interface RuntimeConfig {
   canonicalWeatherEnabled?: boolean;
   canonicalCourseEnabled?: boolean;
   canonicalMaintenanceEnabled?: boolean;
+  /** 누적 마일스톤 배지를 서버 판정으로 소비(#2237). 서버 누적 원장이 러닝 전용이라 기본 꺼짐. */
+  canonicalMilestonesEnabled?: boolean;
   sentryDsn?: string;
   appEnvironment?: string;
   useEmulators?: boolean;
@@ -84,6 +86,7 @@ function readBuildFallbackConfig(): RuntimeConfig {
     canonicalWeatherEnabled: import.meta.env.VITE_CANONICAL_WEATHER === "true",
     canonicalCourseEnabled: import.meta.env.VITE_CANONICAL_COURSE === "true",
     canonicalMaintenanceEnabled: import.meta.env.VITE_CANONICAL_MAINTENANCE === "true",
+    canonicalMilestonesEnabled: import.meta.env.VITE_CANONICAL_MILESTONES === "true",
     sentryDsn: import.meta.env.VITE_SENTRY_DSN,
     appEnvironment: import.meta.env.MODE,
     useEmulators: import.meta.env.VITE_USE_EMULATORS === "true",

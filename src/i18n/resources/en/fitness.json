@@ -660,6 +660,7 @@
   "lifetimeMilestones.total": "{{km}} km lifetime (all disciplines)",
   "lifetimeMilestones.label": "{{km}} km",
   "lifetimeMilestones.loading": "Loading…",
+  "lifetimeMilestones.pending": "Tallying soon",
   "lifetimeMilestones.longestRide": "Longest ride",
   "thresholdDecision.modelOnly": "The PDC estimate is evidence only and cannot be applied directly here.",
   "ftpDecision.ariaLabel": "FTP change decision",

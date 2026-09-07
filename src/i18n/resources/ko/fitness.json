@@ -660,6 +660,7 @@
   "lifetimeMilestones.total": "누적 {{km}}km (모든 종목)",
   "lifetimeMilestones.label": "{{km}}km",
   "lifetimeMilestones.loading": "구독 중…",
+  "lifetimeMilestones.pending": "집계 준비 중",
   "lifetimeMilestones.longestRide": "최장 라이드",
   "thresholdDecision.modelOnly": "PDC 추정값은 분석 근거이며 여기서 바로 적용되지 않습니다.",
   "ftpDecision.ariaLabel": "FTP 변경 결정",

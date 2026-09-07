@@ -11,7 +11,7 @@ import {
 describe("canonicalConsumers", () => {
   afterEach(() => resetRuntimeConfigForTests());
 
-  it("기본은 세 면 모두 꺼짐", () => {
+  it("기본은 네 면 모두 꺼짐", () => {
     resetRuntimeConfigForTests({});
     expect(canonicalConsumerFlags()).toEqual(CANONICAL_CONSUMER_DEFAULTS);
     for (const surface of CANONICAL_SURFACES) expect(canonicalConsumerEnabled(surface)).toBe(false);
@@ -19,7 +19,13 @@ describe("canonicalConsumers", () => {
 
   it("면마다 독립적으로 켜진다", () => {
     resetRuntimeConfigForTests({ canonicalWeatherEnabled: true });
-    expect(canonicalConsumerFlags()).toEqual({ weather: true, course: false, maintenance: false });
+    expect(canonicalConsumerFlags()).toEqual({ weather: true, course: false, maintenance: false, milestones: false });
+  });
+
+  it("마일스톤 면도 독립 스위치 — 서버 누적 원장이 러닝 전용이라 기본은 꺼짐", () => {
+    resetRuntimeConfigForTests({ canonicalMilestonesEnabled: true });
+    expect(canonicalConsumerEnabled("milestones")).toBe(true);
+    expect(canonicalConsumerEnabled("weather")).toBe(false);
   });
 
   it("true 가 아닌 값은 켜짐으로 보지 않는다", () => {
