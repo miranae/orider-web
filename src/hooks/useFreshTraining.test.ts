@@ -118,7 +118,7 @@ describe("useFreshTraining", () => {
   it("과거 미확인 부하로 stale이어도 최신 revision 처리가 끝난 통합은 반복 계산하지 않는다", async () => {
     const listeners = installControlledSnapshots();
     const { result } = renderHook(() => useFreshTraining("tri"));
-    act(() => { emit(listeners[0], {}); emit(listeners[1], { computedAt: Date.now(), state: "stale", processingState: "processed", inputRevision: "bike:1|run:1|swim:1" }); });
+    act(() => { emit(listeners[0], {}); emit(listeners[1], { computedAt: Date.now(), processingSourceAsOf: Date.now(), state: "stale", processingState: "processed", inputRevision: "bike:1|run:1|swim:1" }); });
     await waitFor(() => expect(result.current.lastStatus).toBe("fresh"));
     expect(mockCallableInvocations).toHaveLength(0);
   });
@@ -128,6 +128,23 @@ describe("useFreshTraining", () => {
     const { result } = renderHook(() => useFreshTraining("tri"));
     act(() => { emit(listeners[0], {}); emit(listeners[1], { computedAt: Date.now(), state: "final", processingState, inputRevision: "bike:1|run:1|swim:1" }); });
     await waitFor(() => expect(result.current.lastStatus).toBe("recomputed"));
+  });
+
+  it.each(["old-source", "previous-day", "ingest-after-source", "missing", "invalid", "fresh"])("통합 쓰기 시각 대신 가장 오래된 원본 시각(%s)으로 신선도를 판단한다", async (scenario) => {
+    const listeners = installControlledSnapshots();
+    const now = Date.now();
+    const sourceAsOf = scenario === "old-source" ? now - 4 * 3600000
+      : scenario === "previous-day" ? now - 86400000
+      : scenario === "ingest-after-source" ? now - 1000
+      : scenario === "missing" ? null : scenario === "invalid" ? Infinity : now;
+    const { result } = renderHook(() => useFreshTraining("tri"));
+    act(() => {
+      emit(listeners[0], scenario === "ingest-after-source" ? { lastActivityIngestAt: now - 500 } : {});
+      emit(listeners[1], { computedAt: now, processingSourceAsOf: sourceAsOf, processingState: "processed",
+        state: "final", inputRevision: "bike:1|run:1|swim:1" });
+    });
+    await waitFor(() => expect(result.current.lastStatus).toBe(scenario === "fresh" ? "fresh" : "recomputed"));
+    expect(mockCallableInvocations).toHaveLength(scenario === "fresh" ? 0 : 1);
   });
 
   it("통합 화면은 단일 projection 대신 전체 입력 revision을 확인해 세 종목 갱신을 요청한다", async () => {

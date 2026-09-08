@@ -256,12 +256,14 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
           noteFirestoreServerSuccess(snapshot.metadata);
           if (projectionSnapshotReady) return;
           const data = snapshot.data();
+          // 통합 문서 쓰기 시각은 다른 종목의 오래된 입력을 갱신하지 않는다.
+          const triSourceAsOf = data?.processingState == null ? data?.computedAt : data?.processingSourceAsOf;
           const triComplete = (data?.processingState === "processed" || data?.processingState == null && data?.state === "final")
             && typeof data?.inputRevision === "string"
-            && typeof data.computedAt === "number" && Number.isFinite(new Date(data.computedAt).getTime())
-            && new Date(data.computedAt).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)
+            && typeof triSourceAsOf === "number" && Number.isFinite(new Date(triSourceAsOf).getTime())
+            && toUtcDate(triSourceAsOf) === toUtcDate(Date.now())
             && ["bike", "run", "swim"].every(sport => new RegExp(`(?:^|\\|)${sport}:[1-9]\\d*(?:\\||$)`).test(data.inputRevision as string));
-          computedAt = discipline === "tri" && !triComplete ? 0 : (data?.computedAt as number | undefined) ?? 0;
+          computedAt = discipline === "tri" ? triComplete ? triSourceAsOf : 0 : (data?.computedAt as number | undefined) ?? 0;
           if (snapshot.metadata.fromCache) return;
           projectionSnapshotReady = true;
           evaluateWhenReady();
