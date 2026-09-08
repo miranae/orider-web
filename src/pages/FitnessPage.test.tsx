@@ -286,7 +286,11 @@ describe("FitnessPage", () => {
     expect(screen.queryByText("mobile fitness dashboard: tri")).not.toBeInTheDocument();
   });
 
-  it("prefers canonical discipline timeseries and uses activity_metrics.tss for a missing discipline fallback", async () => {
+  it("prefers canonical discipline timeseries and uses activity_metrics.tss for a missing discipline fallback", async ({ onTestFinished }) => {
+    // 고정된 정본 날짜와 최근 7일 집계 기준을 맞추되 비동기 타이머는 실제 시간을 쓴다.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    onTestFinished(() => vi.useRealTimers());
+    vi.setSystemTime(new Date("2026-09-02T12:00:00+09:00"));
     viewport.isMobile = false;
     setCollectionDocs("activities", [{
       id: "run-fallback",
