@@ -43,6 +43,22 @@ describe("athlete monthly activities", () => {
     expect(aggregateMonthlyActivities(rows!, new Date(2021, 0, 2))[0]?.distance).toBe(201);
   });
 
+  it("retains activities with absent or null summaries without changing measured totals", async () => {
+    const first = page(1);
+    const legacy = { ...activity(new Date(2021, 0, 2).getTime()), summary: undefined };
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [
+      ...first.docs,
+      { id: "missing-summary", data: () => legacy },
+      { id: "null-summary", data: () => ({ ...legacy, summary: null }) },
+    ] } as never);
+    const rows = await loadAthleteChartActivities("athlete", true, () => false);
+    expect(rows).toHaveLength(3);
+    expect(rows![1]?.summary).toMatchObject({ distance: 0, ridingTimeMillis: 0, elevationGain: 0 });
+    expect(aggregateMonthlyActivities(rows!, new Date(2021, 0, 2))[0]).toMatchObject({
+      rides: 3, distance: 1, time: 1, elevation: 10,
+    });
+  });
+
   it("includes private activities only for the owner query", async () => {
     vi.mocked(getDocs).mockResolvedValueOnce(page(1) as never);
     vi.mocked(where).mockClear();
