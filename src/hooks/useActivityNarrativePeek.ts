@@ -12,6 +12,7 @@
  * `${activityId}:${lang}` 로 분리 — 언어 전환 시 다른 언어 결과가 잘못 노출되지 않는다.
  */
 import { useEffect, useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import { logClientError } from "../services/errorLogger";
 import { peekActivityNarrative } from "../services/activityNarrativeApi";
 import type { ActivityNarrative, NarrativeLang } from "./useActivityNarrative";
@@ -25,7 +26,7 @@ interface PeekState {
 
 // 세션 캐시 — 탭 전환 시 peek 재요청 방지. 키 = `${activityId}:${lang}`.
 const peekDone = new Map<string, ActivityNarrative | null>();
-const peekKey = (activityId: string, lang: NarrativeLang) => `${activityId}:${lang}`;
+const peekKey = (activityId: string, lang: NarrativeLang, viewer: string) => `${activityId}:${lang}:${viewer}`;
 
 /**
  * @param activityId  활동 id
@@ -33,11 +34,15 @@ const peekKey = (activityId: string, lang: NarrativeLang) => `${activityId}:${la
  * @param lang        출력 언어(ko/en). 서버 언어별 슬롯을 조회.
  */
 export function useActivityNarrativePeek(activityId: string | null, enabled: boolean, lang: NarrativeLang = "ko"): PeekState {
+  const { user } = useAuth();
+  const scope = peekKey(activityId ?? "", lang, user?.uid ?? "anonymous");
+  const [stateScope, setStateScope] = useState(scope);
   const [state, setState] = useState<PeekState>({ data: null, loading: false, cacheMiss: false });
 
   useEffect(() => {
     if (!enabled || !activityId) return;
-    const key = peekKey(activityId, lang);
+    const key = scope;
+    setStateScope(scope);
 
     // 세션 캐시 적중 → 즉시 반환
     if (peekDone.has(key)) {
@@ -70,19 +75,16 @@ export function useActivityNarrativePeek(activityId: string | null, enabled: boo
       });
 
     return () => { cancelled = true; };
-  }, [activityId, enabled, lang]);
+  }, [activityId, enabled, lang, scope]);
 
-  return state;
+  return stateScope === scope ? state : { data: null, loading: enabled, cacheMiss: false };
 }
 
 /** 활동 peek 세션 캐시 무효화 — 분석 완료 후 AiRideAnalysisCard 가 호출해 갱신 유도.
  *  lang 미지정 시 해당 활동의 모든 언어 슬롯을 비운다. */
 export function invalidateActivityNarrativePeekCache(activityId: string, lang?: NarrativeLang): void {
-  if (lang) {
-    peekDone.delete(peekKey(activityId, lang));
-    return;
-  }
-  for (const k of Array.from(peekDone.keys())) {
-    if (k.startsWith(`${activityId}:`)) peekDone.delete(k);
+  const prefix = lang ? `${activityId}:${lang}:` : `${activityId}:`;
+  for (const key of peekDone.keys()) {
+    if (key.startsWith(prefix)) peekDone.delete(key);
   }
 }

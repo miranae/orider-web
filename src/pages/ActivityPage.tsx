@@ -982,6 +982,7 @@ export default function ActivityPage() {
           activityId={activityId ?? null}
           enabled={canShowAiAnalysis}
           sport={sport}
+          isActivityOwner={isActivityOwner}
           summaryPreview={activity.aiSummaryPreview}
           summaryPreviewEn={activity.aiSummaryPreview_en}
         />
