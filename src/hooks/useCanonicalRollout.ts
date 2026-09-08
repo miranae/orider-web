@@ -16,10 +16,16 @@
  * 물으면 사고 대응으로 서버를 뒤집어도 이미 열려 있는 탭은 새로고침 전까지 그대로다.
  * 재조회 중에는 `loading` 으로 돌아가지 않는다 — 정상 화면이 1분마다 깜빡이면 안 된다.
  *
- * ## 기다리는 동안은 "모름" 이다
+ * ## 기다리는 동안은 "모름" 이다 — 그리고 **첫 렌더부터** 그렇다
  *
  * `loading` 중에는 켜짐도 꺼짐도 아니다. 소비처는 이 상태에서 값을 그리지 않고(로딩) 기다린다 —
  * 꺼짐으로 단정하면 정상 사용자에게 "일시 중단" 이 깜빡인다.
+ *
+ * 이전에는 초기 상태가 `gateEnabled: false` 였다. 게이트가 **켜져 있을 때** 첫 렌더가
+ * "게이트 없음" 으로 보였고, `canonicalRolloutAllows` 가 통과를 돌려주어 소비처가 판정 전에
+ * 코스 요청과 소유자 지표 구독을 시작했다 (#2237 리뷰). 게이트가 켜져 있으면 effect 가 돌기
+ * 전에도 상태는 "판정 전"(loading) 이다 — 조용한 통과는 없다. 게이트가 꺼져 있을 때(오늘의
+ * 기본값)는 예전과 완전히 같다.
  */
 import { useEffect, useState } from "react";
 
@@ -48,6 +54,14 @@ export interface CanonicalRolloutState {
   surfaces: CanonicalRolloutSurfaces;
 }
 
+/** 게이트가 켜져 있는데 아직 판정이 없는 상태. 첫 렌더와 런타임 설정 늦은 도착이 여기로 온다. */
+const PENDING: CanonicalRolloutState = {
+  gateEnabled: true,
+  loading: true,
+  verdictOk: false,
+  surfaces: canonicalRolloutAllOff(),
+};
+
 const OFF: CanonicalRolloutState = {
   gateEnabled: false,
   loading: false,
@@ -60,7 +74,9 @@ export function useCanonicalRollout(): CanonicalRolloutState {
   // 런타임 설정은 fetch 로 늦게 도착할 수 있다 — 렌더마다 읽어 도착 시 그대로 반영된다.
   const gateEnabled = canonicalRolloutGateEnabled();
   const uid = user?.uid ?? null;
-  const [state, setState] = useState<CanonicalRolloutState>(OFF);
+  const [state, setState] = useState<CanonicalRolloutState>(() =>
+    canonicalRolloutGateEnabled() ? PENDING : OFF,
+  );
 
   useEffect(() => {
     if (!gateEnabled) {
@@ -107,12 +123,16 @@ export function useCanonicalRollout(): CanonicalRolloutState {
     };
   }, [gateEnabled, uid]);
 
+  // 런타임 설정이 늦게 도착해 게이트가 방금 켜졌다면 effect 는 아직 돌지 않았다. 그 렌더에서
+  // 옛 `gateEnabled: false` 를 그대로 돌려주면 한 프레임 동안 조용히 통과한다.
+  if (gateEnabled && !state.gateEnabled) return PENDING;
+  if (!gateEnabled && state.gateEnabled) return OFF;
   return state;
 }
 
 /**
  * 서버가 이 면을 켜 주었는가. 게이트 계층이 꺼져 있으면 조건에서 빠진다(통과).
- * 기다리는 중이면 꺼짐으로 답한다 — 판정 전에 켜진 것처럼 그리지 않는다.
+ * 기다리는 중이면 꺼짐으로 답한다 — 판정 전에 켜진 것처럼 그리지 않는다. 첫 렌더도 마찬가지다.
  */
 export function canonicalRolloutAllows(
   state: CanonicalRolloutState,
