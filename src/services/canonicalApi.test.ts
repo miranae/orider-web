@@ -77,20 +77,39 @@ describe("canonicalApi", () => {
  * 모양이 아니면 값 없음**이다 — 일부만 그리면 나머지 칸이 0 으로 보인다.
  */
 describe("parseCanonicalFitnessSummary", () => {
-  it("세 숫자가 모두 유한하면 읽는다", () => {
-    expect(parseCanonicalFitnessSummary({ ctl: 40, atl: 30.5, tsb: 9.5 }))
-      .toEqual({ ctl: 40, atl: 30.5, tsb: 9.5 });
+  /** 서버 봉투 `data` 모양 — orider-g1-web:functions/src/api/routes/fitness.ts */
+  const serverData = (current: unknown) => ({
+    current,
+    projection: null,
+    summaries: { bike: null, run: null, swim: null },
+    projections: { bike: null, run: null, swim: null },
+    pdc: { bike: null },
+    timeseries: { bike: null, run: null, swim: null },
+  });
+
+  it("data.current 의 통합 3값을 읽는다 — 서버 키는 totalCTL/totalATL/totalTSB 다", () => {
+    expect(parseCanonicalFitnessSummary(serverData({
+      totalCTL: 40, totalATL: 30.5, totalTSB: 9.5, breakdown: {}, state: "final",
+    }))).toEqual({ ctl: 40, atl: 30.5, tsb: 9.5 });
   });
 
   it("모르는 필드는 무시한다", () => {
-    expect(parseCanonicalFitnessSummary({ ctl: 1, atl: 2, tsb: -1, somethingNew: 9 }))
-      .toEqual({ ctl: 1, atl: 2, tsb: -1 });
+    expect(parseCanonicalFitnessSummary(serverData({
+      totalCTL: 1, totalATL: 2, totalTSB: -1, somethingNew: 9,
+    }))).toEqual({ ctl: 1, atl: 2, tsb: -1 });
+  });
+
+  it("옛 기대(최상위 ctl/atl/tsb)로는 읽지 않는다 — 계약이 바뀌면 값이 사라지되 틀린 숫자는 안 뜬다", () => {
+    expect(parseCanonicalFitnessSummary({ ctl: 40, atl: 30, tsb: 10 })).toBeNull();
   });
 
   it.each([
-    ["필드 하나가 없음", { ctl: 40, atl: 30 }],
-    ["숫자가 아님", { ctl: "40", atl: 30, tsb: 10 }],
-    ["유한하지 않음", { ctl: Number.NaN, atl: 30, tsb: 10 }],
+    ["current 없음", serverData(undefined)],
+    ["current 가 null", serverData(null)],
+    ["필드 하나가 없음", serverData({ totalCTL: 40, totalATL: 30 })],
+    ["숫자가 아님", serverData({ totalCTL: "40", totalATL: 30, totalTSB: 10 })],
+    ["유한하지 않음", serverData({ totalCTL: Number.NaN, totalATL: 30, totalTSB: 10 })],
+    ["current 가 배열", serverData([1, 2, 3])],
     ["객체가 아님", 42],
     ["배열", [1, 2, 3]],
     ["null", null],

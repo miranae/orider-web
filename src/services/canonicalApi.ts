@@ -92,17 +92,20 @@ export function fetchCanonicalHomeSummary(): Promise<CanonicalEnvelope<Canonical
 }
 
 /**
- * 피트니스 요약(E)이 담는 값. CTL/ATL/TSB 세 숫자다.
+ * 피트니스 요약(E)이 담는 값. 통합 CTL/ATL/TSB 세 숫자다.
  *
- * ## 이 모양은 클라이언트가 **선언한 기대**다
+ * ## 서버 계약 (2026-09-08 대조 완료)
  *
- * `GET /api/v1/fitness/summary` 의 페이로드 스키마는 이 저장소 어디에도 고정돼 있지 않다
- * (`home/summary` 와 달리 서버 타입 사본이 없다). 그래서 필드 이름을 지어내 매핑하는 대신,
- * **여기 적힌 모양이 아니면 값이 없는 것으로 본다** — [parseCanonicalFitnessSummary] 가
- * null 을 돌려주고 화면은 숫자 대신 명시 상태를 그린다. 0 을 만들어 내는 경로는 없다.
+ * `GET /api/v1/fitness/summary` 의 봉투 `data` 는
+ * `{ current, projection, summaries, projections, pdc, timeseries }` 이고,
+ * 통합 3값은 **`data.current` 안에 `totalCTL` / `totalATL` / `totalTSB`** 로 들어 있다
+ * (종목별은 `current.breakdown[discipline].{ctl,atl,tsb}`).
+ * 원본: `orider-g1-web:functions/src/api/routes/fitness.ts` (라우트),
+ * `orider-g1-web:functions/src/training/projection-update.ts` `writeCurrentFitness` (문서 쓰기).
  *
- * 서버와 실제로 맞춰 보기 전에는 이 면을 켜면 안 된다(기본 꺼짐). 모양이 다르면 여기와
- * 서버 중 어느 쪽을 고칠지 결정한 뒤 켠다.
+ * 모양이 다르면 [parseCanonicalFitnessSummary] 가 null 을 돌려주고 화면은 숫자 대신 명시
+ * 상태를 그린다 — 0 을 만들어 내는 경로는 없다. 서버가 키를 바꾸면 값이 사라지되 틀린
+ * 숫자가 뜨지는 않는다.
  */
 export interface CanonicalFitnessSummaryData {
   /** Chronic Training Load — 체력. */
@@ -123,10 +126,12 @@ function finiteNumber(value: unknown): number | null {
  */
 export function parseCanonicalFitnessSummary(value: unknown): CanonicalFitnessSummaryData | null {
   if (value == null || typeof value !== "object" || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  const ctl = finiteNumber(record.ctl);
-  const atl = finiteNumber(record.atl);
-  const tsb = finiteNumber(record.tsb);
+  const current = (value as Record<string, unknown>).current;
+  if (current == null || typeof current !== "object" || Array.isArray(current)) return null;
+  const record = current as Record<string, unknown>;
+  const ctl = finiteNumber(record.totalCTL);
+  const atl = finiteNumber(record.totalATL);
+  const tsb = finiteNumber(record.totalTSB);
   if (ctl === null || atl === null || tsb === null) return null;
   return { ctl, atl, tsb };
 }

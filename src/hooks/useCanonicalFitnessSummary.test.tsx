@@ -42,7 +42,12 @@ function envelope(over: Partial<CanonicalEnvelope<unknown>>): CanonicalEnvelope<
   };
 }
 
-const values = { ctl: 42.5, atl: 30.25, tsb: 12.25 };
+/** 서버 봉투 `data` 모양 — 통합 3값은 `current.totalCTL/totalATL/totalTSB`. */
+const serverData = (current: unknown) => ({
+  current, projection: null, summaries: {}, projections: {}, pdc: {}, timeseries: {},
+});
+const values = serverData({ totalCTL: 42.5, totalATL: 30.25, totalTSB: 12.25 });
+const parsed = { ctl: 42.5, atl: 30.25, tsb: 12.25 };
 
 /**
  * 홈의 체력 칸이 서버 값으로 갈아타는 경로. **켜지는 조건은 빌드 플래그 AND 서버 판정**이고,
@@ -74,14 +79,14 @@ describe("useCanonicalFitnessSummary", () => {
     mocks.fetch.mockResolvedValue(envelope({ data: values }));
     const { result } = renderHook(() => useCanonicalFitnessSummary());
     await waitFor(() => expect(result.current.display).toBe("value"));
-    expect(result.current.values).toEqual(values);
+    expect(result.current.values).toEqual(parsed);
   });
 
   it("stale 이면 값을 버리지 않되 표식을 남긴다", async () => {
     mocks.fetch.mockResolvedValue(envelope({ status: "stale", data: values }));
     const { result } = renderHook(() => useCanonicalFitnessSummary());
     await waitFor(() => expect(result.current.display).toBe("value_with_stale_hint"));
-    expect(result.current.values).toEqual(values);
+    expect(result.current.values).toEqual(parsed);
   });
 
   it("계산 중이고 캐시도 없으면 값을 주지 않는다 — 0 을 그리면 안 된다", async () => {
@@ -106,7 +111,7 @@ describe("useCanonicalFitnessSummary", () => {
   });
 
   it("기대한 모양이 아니면 값 없음이다 — 일부 필드만 그리지 않는다", async () => {
-    mocks.fetch.mockResolvedValue(envelope({ data: { ctl: 40, atl: 30 } }));
+    mocks.fetch.mockResolvedValue(envelope({ data: serverData({ totalCTL: 40, totalATL: 30 }) }));
     const { result } = renderHook(() => useCanonicalFitnessSummary());
     await waitFor(() => expect(result.current.display).not.toBeNull());
     expect(result.current.values).toBeNull();
@@ -116,7 +121,7 @@ describe("useCanonicalFitnessSummary", () => {
   it("계정이 바뀌면 이전 계정 값을 즉시 버린다", async () => {
     mocks.fetch.mockResolvedValue(envelope({ data: values }));
     const { result, rerender } = renderHook(() => useCanonicalFitnessSummary());
-    await waitFor(() => expect(result.current.values).toEqual(values));
+    await waitFor(() => expect(result.current.values).toEqual(parsed));
 
     mocks.fetch.mockReturnValue(new Promise(() => {}));
     mocks.user = { uid: "u2" };
