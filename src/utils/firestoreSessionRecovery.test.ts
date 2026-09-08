@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   __resetFirestoreSessionRecoveryForTests,
@@ -7,6 +7,7 @@ import {
   findFirestoreFatalError,
   FIRESTORE_B815_RECOVERY_SESSION_KEY,
   prepareFirestoreSessionRecovery,
+  noteFirestoreServerSuccess,
   shouldAbortForFirestoreRecovery,
 } from "./firestoreSessionRecovery";
 
@@ -16,6 +17,7 @@ function preparationEnvironment(initialValue: string | null = null) {
     sessionStorage: {
       getItem: vi.fn(() => storedValue),
       setItem: vi.fn((_key: string, value: string) => { storedValue = value; }),
+      removeItem: vi.fn(() => { storedValue = null; }),
     },
   };
 }
@@ -23,6 +25,73 @@ function preparationEnvironment(initialValue: string | null = null) {
 describe("Firestore session recovery", () => {
   beforeEach(() => {
     __resetFirestoreSessionRecoveryForTests();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const server = { fromCache: false, hasPendingWrites: false };
+  const fatal = new Error("AsyncQueue is already failed");
+
+  it("rearms only after two server confirmations spanning a healthy minute", () => {
+    vi.useFakeTimers();
+    const environment = preparationEnvironment("1");
+    noteFirestoreServerSuccess(server, environment);
+    vi.advanceTimersByTime(59_999);
+    noteFirestoreServerSuccess(server, environment);
+    expect(environment.sessionStorage.removeItem).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    noteFirestoreServerSuccess(server, environment);
+    expect(prepareFirestoreSessionRecovery(fatal, environment).action).toBe("reload-ready");
+    __resetFirestoreSessionRecoveryForTests(); // next document, before any server proof
+    expect(prepareFirestoreSessionRecovery(fatal, environment).action).toBe("already-attempted");
+  });
+
+  it("does not rearm from time, cache, local writes, or missing metadata", () => {
+    vi.useFakeTimers();
+    const environment = preparationEnvironment("1");
+    noteFirestoreServerSuccess(server, environment);
+    vi.advanceTimersByTime(120_000);
+    expect(environment.sessionStorage.removeItem).not.toHaveBeenCalled();
+    noteFirestoreServerSuccess({ fromCache: true, hasPendingWrites: false }, environment);
+    noteFirestoreServerSuccess({ fromCache: false, hasPendingWrites: true }, environment);
+    noteFirestoreServerSuccess(undefined, environment);
+    expect(environment.sessionStorage.removeItem).not.toHaveBeenCalled();
+    expect(prepareFirestoreSessionRecovery(fatal, environment).action).toBe("already-attempted");
+  });
+
+  it("restarts the healthy window for every suppressed fatal error", () => {
+    vi.useFakeTimers();
+    const environment = preparationEnvironment("1");
+    noteFirestoreServerSuccess(server, environment);
+    vi.advanceTimersByTime(60_000);
+    prepareFirestoreSessionRecovery(fatal, environment);
+    noteFirestoreServerSuccess(server, environment);
+    expect(environment.sessionStorage.removeItem).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(60_000);
+    noteFirestoreServerSuccess(server, environment);
+    expect(environment.sessionStorage.removeItem).toHaveBeenCalledOnce();
+  });
+
+  it("never rearms while navigation is pending", () => {
+    vi.useFakeTimers();
+    const environment = preparationEnvironment();
+    prepareFirestoreSessionRecovery(fatal, environment);
+    noteFirestoreServerSuccess(server, environment);
+    vi.advanceTimersByTime(60_000);
+    noteFirestoreServerSuccess(server, environment);
+    expect(environment.sessionStorage.removeItem).not.toHaveBeenCalled();
+    expect(prepareFirestoreSessionRecovery(fatal, environment).action).toBe("reload-pending");
+  });
+
+  it("keeps the marker and resets proof when storage removal fails", () => {
+    vi.useFakeTimers();
+    const environment = preparationEnvironment("1");
+    environment.sessionStorage.removeItem.mockImplementationOnce(() => { throw new Error("blocked"); });
+    noteFirestoreServerSuccess(server, environment);
+    vi.advanceTimersByTime(60_000);
+    expect(() => noteFirestoreServerSuccess(server, environment)).not.toThrow();
+    noteFirestoreServerSuccess(server, environment);
+    expect(environment.sessionStorage.getItem()).toBe("1");
+    expect(environment.sessionStorage.removeItem).toHaveBeenCalledOnce();
   });
 
   it("classifies the initial internal TypeError, b815, and the poisoned AsyncQueue follow-up", () => {

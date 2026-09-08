@@ -26,6 +26,7 @@ import { toUtcDate } from "../utils/dateUtils";
 import {
   executeFirestoreSessionRecovery,
   firestoreRecoveryLogContext,
+  noteFirestoreServerSuccess,
   prepareFirestoreSessionRecovery,
 } from "../utils/firestoreSessionRecovery";
 
@@ -137,6 +138,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
         { includeMetadataChanges: true },
         (snapshot) => {
           if (cancelled || listenerFailed || userFreshnessRef.current !== userGeneration) return;
+          noteFirestoreServerSuccess(snapshot.metadata);
           userGeneration.lastIngest =
             (snapshot.data()?.lastActivityIngestAt as number | undefined) ?? 0;
           if (snapshot.metadata.fromCache) return;
@@ -250,7 +252,9 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
         doc(firestore, "users", uid, "fitness", projDocId),
         { includeMetadataChanges: true },
         (snapshot) => {
-          if (cancelled || projectionSnapshotReady) return;
+          if (cancelled || listenerFailed || !hasCurrentUserGeneration()) return;
+          noteFirestoreServerSuccess(snapshot.metadata);
+          if (projectionSnapshotReady) return;
           const data = snapshot.data();
           const triComplete = (data?.processingState === "processed" || data?.processingState == null && data?.state === "final")
             && typeof data?.inputRevision === "string"
@@ -269,7 +273,9 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
           doc(firestore, "users", uid, "fitness", `timeseries_${discipline}`),
           { includeMetadataChanges: true },
           (snapshot) => {
-            if (cancelled || timeseriesSnapshotReady || snapshot.metadata.fromCache) return;
+            if (cancelled || listenerFailed || !hasCurrentUserGeneration()) return;
+            noteFirestoreServerSuccess(snapshot.metadata);
+            if (timeseriesSnapshotReady || snapshot.metadata.fromCache) return;
             timeseries = (snapshot.data() as FitnessTimeseriesDoc | undefined) ?? null;
             timeseriesSnapshotReady = true;
             evaluateWhenReady();
