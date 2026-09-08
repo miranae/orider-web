@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
-import { toLocalDate } from "../../utils/dateUtils";
+import { toUtcDate } from "../../utils/dateUtils";
 import DetailsSection from "../redesign/DetailsSection";
 import SportFilterTabs from "./SportFilterTabs";
 import { getDisciplineColor } from "../../utils/disciplineFilter";
@@ -643,7 +643,7 @@ export default function MobileFitnessPage({
             ) : (
               <>
                 {pmcHistoryPoints && (
-                  <PmcHistoryPanel key={data.discipline} points={pmcHistoryPoints} today={data.today ?? toLocalDate(Date.now())} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} />
+                  <PmcHistoryPanel key={data.discipline} points={pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} />
                 )}
                 <DetailsSection title={t("fitness:history.dailyDetails")} defaultOpen={!pmcHistoryPoints}>
                 {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.

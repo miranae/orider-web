@@ -7,6 +7,7 @@ import PmcHistoryPanel from "../../src/features/fitness/components/PmcHistoryPan
 import { describePmcHistory, type PmcHistoryPoint } from "../../src/features/fitness/pmcHistory";
 import type { FitnessTimeseriesDoc } from "../../shared/types/fitness-timeseries";
 import { calculateFitness } from "../../shared/training/fitness";
+import { toUtcDate } from "../../src/utils/dateUtils";
 import ko from "../../src/i18n/resources/ko/fitness.json";
 import en from "../../src/i18n/resources/en/fitness.json";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
@@ -15,7 +16,7 @@ import "../../src/index.css";
 import "../../src/theme/generated.css";
 import "../../src/theme/components/components.css";
 
-const today = "2026-09-06";
+const today = new URLSearchParams(location.search).get("clock") === "live" ? toUtcDate(Date.now()) : "2026-09-06";
 const basePoints = calculateFitness(Array.from({ length: 1500 }, (_, index) => ({
   date: new Date(Date.parse(`${today}T00:00:00Z`) - (1499 - index) * 86400000).toISOString().slice(0, 10),
   totalLoad: index % 7 === 0 ? 0 : Math.round(35 + index / 50 + 20 * Math.sin(index / 50)),
@@ -25,7 +26,7 @@ const points: PmcHistoryPoint[] = basePoints.map((point, index) => ({ ...point,
   calculationStatus: index >= 1498 ? "estimated" : "server",
 }));
 const lifecycle = new URLSearchParams(location.search).get("lifecycle");
-const computedAt = Date.parse(`${today}T12:00:00Z`);
+const computedAt = new URLSearchParams(location.search).get("clock") === "live" ? Date.now() : Date.parse(`${today}T12:00:00Z`);
 const storedPoints = lifecycle === "processed" ? basePoints : basePoints.slice(0, -1);
 const wire: FitnessTimeseriesDoc = {
   discipline: "bike", schemaVersion: 1, computedAt, points: storedPoints,

@@ -35,12 +35,21 @@ function validReadTime(value: { seconds: number; nanoseconds: number } | undefin
   return !!value && Number.isInteger(value.seconds) && Number.isInteger(value.nanoseconds) && value.nanoseconds >= 0 && value.nanoseconds < 1e9
 }
 
-function invalidated(source: FitnessTimeseriesDoc | null): boolean {
+export function isFitnessInputInvalidated(source: FitnessTimeseriesDoc | null): boolean {
   const dirty = source?.inputInvalidatedAt
   if (!dirty) return false
   const read = source?.loadSnapshot?.inputReadTime
   return !validReadTime(dirty) || !validReadTime(read) || dirty.seconds > read!.seconds
     || dirty.seconds === read!.seconds && dirty.nanoseconds > read!.nanoseconds
+}
+
+/** 서버 PMC_ATTEMPT_BUDGET_MS와 동일. 새 입력은 이전 시도의 실패/기한을 상속하지 않는다. */
+export function pmcHistoryDeadline(source: FitnessTimeseriesDoc | null): number | null {
+  if (isFitnessInputInvalidated(source)) {
+    const dirty = source?.inputInvalidatedAt
+    return validReadTime(dirty) ? dirty!.seconds * 1000 + dirty!.nanoseconds / 1e6 + 60_000 : 0
+  }
+  return source?.pmc?.status === 'pending' && Number.isFinite(source.pmc.deadlineAt) ? source.pmc.deadlineAt : null
 }
 
 /** 검증된 정본만 전달한다. 빈 문서/범위 밖/누락 날짜는 휴식의 증거가 아니다. */
@@ -55,7 +64,7 @@ export function describePmcHistory(
     dates: new Set(saved.keys()),
     saved,
     source,
-    invalidated: invalidated(source),
+    invalidated: isFitnessInputInvalidated(source),
     invalidLifecycle: !!(source?.loadSnapshot || source?.pmc) && !hasFitnessLoadLifecycle(source),
     load: hasFitnessLoadLifecycle(source) ? new Map(source!.loadSnapshot!.points.map(point => [point.date, point])) : null,
     computedDate: source && Number.isFinite(source.computedAt)
@@ -99,7 +108,8 @@ export function describePmcHistory(
         ?? evidence[index]?.saved.get(point.date)?.dailyLoad ?? 0), 0) : point.dailyLoad,
       loadStatus: dirty || malformed ? 'unconfirmed' : lifecycle ? allCovered && covered.every(load => load?.status === 'final') ? 'final' : 'unconfirmed'
         : exact && evidence.every(source => source.computedDate !== null && source.computedDate >= point.date) ? 'snapshot' : 'unconfirmed',
-      calculationStatus: dirty ? 'pending' : malformed ? 'estimated' : failed ? 'failed' : expired ? 'stale' : pending ? 'pending'
+      calculationStatus: dirty ? evidence.some(entry => entry.invalidated && now > (pmcHistoryDeadline(entry.source) ?? 0)) ? 'stale' : 'pending'
+        : malformed ? 'estimated' : failed ? 'failed' : expired ? 'stale' : pending ? 'pending'
         : completePmc ? sources.length > 1 ? 'derived' : 'server' : 'estimated',
     }
   })

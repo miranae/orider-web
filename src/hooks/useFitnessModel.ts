@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { describePmcHistory } from "../features/fitness/pmcHistory";
+import { describePmcHistory, pmcHistoryDeadline } from "../features/fitness/pmcHistory";
 import {
   FITNESS_TIMESERIES_SCHEMA_VERSION,
   type FitnessTimeseriesDoc,
@@ -585,8 +585,7 @@ export function useFitnessModel(
   useEffect(() => {
     const now = Date.now();
     const deadlines = [timeseries, triRunTimeseries, triSwimTimeseries]
-      .flatMap(source => source?.pmc?.status === "pending" && Number.isFinite(source.pmc.deadlineAt)
-        && source.pmc.deadlineAt >= now ? [source.pmc.deadlineAt] : []);
+      .map(pmcHistoryDeadline).filter((deadline): deadline is number => deadline !== null && deadline >= now);
     if (!deadlines.length) return;
     const timer = setTimeout(() => setPmcHistoryTick(Date.now()), Math.min(...deadlines) - now + 1);
     return () => clearTimeout(timer);

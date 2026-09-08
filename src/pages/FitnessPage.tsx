@@ -47,7 +47,7 @@ import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainin
 import { useFitnessModel, type FitnessModel } from "../hooks/useFitnessModel";
 import { Card, Chip, Text, buttonClass } from "../theme/components";
 import { getDisciplineColor } from "../utils/disciplineFilter";
-import { toLocalDate } from "../utils/dateUtils";
+import { toLocalDate, toUtcDate } from "../utils/dateUtils";
 import TriFitnessView from "./fitness/TriFitnessView";
 
 export interface FitnessViewProps {
@@ -184,7 +184,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         timeline={triFitnessTimeline}
         combinedLoad={combinedLoad}
         loadFocus={integratedLoadFocus}
-        historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toLocalDate(Date.now())} canonical={model.hasCanonicalHistory} />}
+        historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={model.hasCanonicalHistory} />}
       />
     );
   }
@@ -484,7 +484,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         <PmcHistoryPanel
           key={`${user.uid}-${discipline}`}
           points={model.pmcHistoryPoints}
-          today={toLocalDate(Date.now())}
+          today={toUtcDate(Date.now())}
           canonical={model.hasCanonicalHistory}
           ctlColor={getDisciplineColor(discipline)}
         />

@@ -59,3 +59,12 @@ npm run build
 2026-09-07 백엔드 수명주기 연동 후 최종 검증: 관련 Vitest 6파일 94테스트, `tsc -b`, 변경 파일 ESLint 통과. 실제 wire fixture 기반 PMC 대기/실패/처리완료 및 기존 이력의 브라우저 8시나리오(한국어/영어 × 데스크톱/모바일) 통과. 새 날짜 부하만 있는 null PMC, 알려진 빈 입력의 처리된 0, 잘못된 metadata, 새 snapshot 없는 deadline 경과, 통합 revision 재검증을 포함한다. 백엔드 실 Firestore emulator는 3시나리오 통과했으며 운영 배포/실계정 증거는 아니다.
 
 최종 리뷰의 손상된 계산 날짜 방어 후 `useFreshTraining` 18테스트와 TypeScript/ESLint 재통과(관련 테스트 총 95개). 기존 브라우저 표시 동작은 변경하지 않았다.
+
+## 2026-09-08 리뷰 수정
+
+- 데스크톱·통합·모바일의 PMC 기준일은 정본과 같은 UTC 날짜를 사용한다. 활동·계획의 로컬 날짜는 유지한다. 한국 새벽의 빈 ‘오늘’과 음수 UTC 지역에서 최신 포인트가 잘리는 문제를 함께 방지한다.
+- 단일 종목의 화면 진입 신선도는 projection과 timeseries의 서버 확정 snapshot을 모두 기다린다. 실패·미처리 revision·새 입력 무효화·이전 UTC 날짜는 재검증하며, 기존 계약 사용자만 projection 기준을 유지한다. 인입 비교에는 PMC 완료 시각이 아니라 실제 입력 조회 시각(`loadSnapshot.asOf`)을 사용한다.
+- 통합 `processingState=processed`는 입력의 완전성과 별개다. 과거 unknown 입력 때문에 `state=stale`여도 최신 세 종목 revision의 처리가 끝났으면 재계산하지 않는다. 새 입력·날짜 변경·3시간 경과에는 기존대로 갱신한다.
+- 새 입력 무효화의 대기는 최신 `inputInvalidatedAt + 60초`로 제한한다(서버 시도 예산과 동일). 이전 시도의 실패나 deadline을 상속하지 않고, 추가 snapshot 없이도 단일 타이머가 ‘처리 지연’으로 전환한다.
+
+검증: 관련 Vitest 6파일 119테스트, `tsc -b --pretty false`, 변경 파일 ESLint(경고 0), `npm run build` 통과. 독립 브라우저 검증 10시나리오 통과(기존 8 + Asia/Seoul 새벽·America/Los_Angeles 저녁의 실제 UTC 날짜 선택 2). 전체 테스트 재실행·머지·운영 배포는 하지 않았다.

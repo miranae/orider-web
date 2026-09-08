@@ -7,6 +7,12 @@ function read(path: string): string {
 }
 
 describe("mobile fitness action", () => {
+  it("desktop, tri, mobile PMC 패널은 로컬 활동 날짜 대신 UTC 날짜를 사용한다", () => {
+    const panels = [read("src/pages/FitnessPage.tsx"), read("src/components/mobile/MobileFitnessPage.tsx")]
+      .flatMap(source => source.match(/<PmcHistoryPanel\b[\s\S]*?\/>/g) ?? []);
+    expect(panels).toHaveLength(3);
+    for (const panel of panels) expect(panel).toContain("today={toUtcDate(Date.now())}");
+  });
   it("removes today's workout from mobile fitness and keeps core sections ordered", () => {
     const source = read("src/components/mobile/MobileFitnessPage.tsx");
     const overview = source.slice(source.indexOf('{activeTab === "overview"'));

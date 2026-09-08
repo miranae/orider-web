@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { FitnessPoint } from '../../utils/fitnessMetrics'
 import { buildPmcHistory, buildPmcYearComparison, describePmcHistory, getPmcUnit, type PmcHistoryPoint } from './pmcHistory'
 import type { FitnessTimeseriesDoc } from '../../../shared/types/fitness-timeseries'
+import { toUtcDate } from '../../utils/dateUtils'
 
 const point = (date: string, value = 10): FitnessPoint => ({ date, ctl: value, atl: value * 2, tsb: -value, dailyLoad: value * 3 })
 const source = (points: FitnessPoint[], discipline: FitnessTimeseriesDoc['discipline'] = 'bike'): FitnessTimeseriesDoc => ({
@@ -22,6 +23,21 @@ function lifecycleSource(status: 'pending' | 'processed' | 'failed' = 'pending')
 }
 
 describe('서버 운동부하와 PMC 수명주기', () => {
+  it.each([
+    ['2026-09-08T03:00:00+09:00', '2026-09-07'],
+    ['2026-09-07T20:00:00-07:00', '2026-09-08'],
+  ])('현지 %s에도 UTC 최신 날짜를 기본 선택하고 잘라내지 않는다', (instant, utcDay) => {
+    const history = buildPmcHistory([point(utcDay)], 30, toUtcDate(Date.parse(instant)))
+    expect(history.buckets.at(-1)).toMatchObject({ key: utcDay, ctl: 10, totalLoad: 30 })
+  })
+
+  it.each(['failed', 'processed', 'pending'] as const)('새 무효화 입력은 이전 %s 상태 대신 자체 기한 후 지연이 된다', (status) => {
+    const doc = lifecycleSource(status)
+    const now = doc.computedAt + 120000
+    doc.inputInvalidatedAt = { seconds: now / 1000, nanoseconds: 0 }
+    expect(describePmcHistory(doc.points, [doc], now)[0]).toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'pending' })
+    expect(describePmcHistory(doc.points, [doc], now + 60001)[0]).toMatchObject({ ctl: 10, loadStatus: 'unconfirmed', calculationStatus: 'stale' })
+  })
   it('새 날짜 부하는 PMC 포인트 없이도 확정으로 표시하고 CTL을 0으로 만들지 않는다', () => {
     const doc = lifecycleSource()
     const points = describePmcHistory(doc.points, [doc], doc.computedAt)
@@ -65,7 +81,7 @@ describe('서버 운동부하와 PMC 수명주기', () => {
   it('무효화 watermark와 손상된/중복된 snapshot을 확정 상태로 쓰지 않는다', () => {
     const doc = lifecycleSource('processed')
     doc.inputInvalidatedAt = { ...doc.loadSnapshot!.inputReadTime, nanoseconds: 2 }
-    expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'pending' })
+    expect(describePmcHistory(doc.points, [doc], doc.computedAt)[0]).toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'pending' })
     delete doc.inputInvalidatedAt
     doc.loadSnapshot!.points.push(doc.loadSnapshot!.points[0])
     expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'estimated' })

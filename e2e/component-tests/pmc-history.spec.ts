@@ -1,5 +1,27 @@
 import { test, expect } from "@playwright/test";
 
+for (const scenario of [
+  { timezoneId: "Asia/Seoul", now: "2026-09-07T16:00:00Z", expectedDay: "2026-09-07" },
+  { timezoneId: "America/Los_Angeles", now: "2026-09-08T02:00:00Z", expectedDay: "2026-09-08" },
+]) {
+  test(`PMC UTC 날짜 경계: ${scenario.timezoneId}`, async ({ browser }) => {
+    const context = await browser.newContext({ timezoneId: scenario.timezoneId });
+    try {
+      const page = await context.newPage();
+      await page.clock.setFixedTime(new Date(scenario.now));
+      await page.route(/^https?:\/\/(?!127\.0\.0\.1:5189)/, route => route.abort());
+      await page.goto("http://127.0.0.1:5189/e2e/fixtures/pmc-history.html?lang=ko&lifecycle=processed&clock=live");
+      const panel = page.locator(".pmc-history");
+      await expect(panel.locator(".pmc-history__selection h3")).toHaveText(`${scenario.expectedDay} – ${scenario.expectedDay}`);
+      const row = panel.locator("tbody tr").first();
+      await expect(row).toContainText("서버 계산");
+      await expect(row.locator("td").first()).not.toHaveText("—");
+    } finally {
+      await context.close();
+    }
+  });
+}
+
 for (const width of [1440, 390]) {
   for (const lang of ["ko", "en"]) {
     test(`PMC lifecycle ${width}px ${lang}: 확정 부하와 계산 대기·실패·완료`, async ({ page }) => {

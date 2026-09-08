@@ -72,6 +72,24 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("useFitnessModel", () => {
+  it("새 입력이 기존 실패 시도보다 늦으면 무효화 시각부터 기다리고 snapshot 없이 지연으로 전환한다", () => {
+    vi.useFakeTimers();
+    const now = Date.parse("2026-09-06T12:00:00Z");
+    vi.setSystemTime(now);
+    seed("bike");
+    const point = { date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 40 };
+    mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: now - 120000, points: [point],
+      startDate: point.date, endDate: point.date, pointCount: 1,
+      inputInvalidatedAt: { seconds: now / 1000, nanoseconds: 0 },
+      pmc: { status: "failed", attemptId: "old", inputRevision: 1, processedInputRevision: 1, asOf: now - 120000, deadlineAt: now - 60000, errorCode: "old" },
+    };
+    const { result, unmount } = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.pmcHistoryPoints[0].calculationStatus).toBe("pending");
+    act(() => vi.advanceTimersByTime(60001));
+    expect(result.current.pmcHistoryPoints[0]).toMatchObject({ ctl: 40, loadStatus: "unconfirmed", calculationStatus: "stale" });
+    unmount();
+    vi.useRealTimers();
+  });
   it("새 snapshot 없이 deadline에 도달해도 PMC 대기를 처리 지연으로 바꾼다", () => {
     vi.useFakeTimers();
     const now = Date.parse("2026-09-06T12:00:00Z");
