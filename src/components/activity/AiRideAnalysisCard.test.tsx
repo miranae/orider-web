@@ -67,7 +67,7 @@ function narrative(segments: NarrativeSegment[]): ActivityNarrative & { hit: tru
 }
 
 describe("AiRideAnalysisCard", () => {
-  it("replaces the old summary while retaining segment coaching and prescriptions", async () => {
+  it("shows full AI analysis alongside distinct short sharing text, segment coaching and prescriptions", async () => {
     narrativeApiMocks.peek.mockResolvedValue({
       ...narrative([segment(0, 10, "구간별 코칭 유지")]),
       socialSummary: {
@@ -82,7 +82,7 @@ describe("AiRideAnalysisCard", () => {
     });
     renderWithProviders(<AiRideAnalysisCard activityId="coaching-with-social-summary" enabled isActivityOwner />, { authenticated: true });
     expect(await screen.findByText("공유할 성취 요약")).toBeInTheDocument();
-    expect(screen.queryByText("전체 코칭 요약")).not.toBeInTheDocument();
+    expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
     expect(screen.getByText("다음 주행은 가볍게")).toBeInTheDocument();
     expect(screen.getByText("구간별 코칭 유지")).toBeInTheDocument();
     expect(screen.getByText("38.6 → 40.1 (+1.5)")).toBeInTheDocument();
@@ -116,7 +116,7 @@ describe("AiRideAnalysisCard", () => {
     expect(screen.getByText("구간 코칭 보존")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "공유요약 다시 불러오기" }));
     expect(await screen.findByText("복구된 공유요약")).toBeInTheDocument();
-    expect(screen.queryByText("전체 코칭 요약")).not.toBeInTheDocument();
+    expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
     expect(screen.getByText("구간 코칭 보존")).toBeInTheDocument();
     expect(narrativeApiMocks.retrySummary).toHaveBeenCalledWith("retry-only-summary", "ko");
     expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
