@@ -8,12 +8,13 @@ import StravaSummaryPublishing from "./StravaSummaryPublishing";
 
 interface Props {
   summary?: SocialSummary;
+  fallbackSummary?: string;
   isActivityOwner: boolean;
   activityId?: string;
   lang?: NarrativeLang;
 }
 
-export default function ActivitySocialSummary({ summary: initialSummary, isActivityOwner, activityId, lang = "ko" }: Props) {
+export default function ActivitySocialSummary({ summary: initialSummary, fallbackSummary, isActivityOwner, activityId, lang = "ko" }: Props) {
   const { t } = useTranslation("activity");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [recovered, setRecovered] = useState<SocialSummary>();
@@ -37,16 +38,21 @@ export default function ActivitySocialSummary({ summary: initialSummary, isActiv
       if (mounted.current) setRetryState("error");
     }
   };
-  if (!summary) return isActivityOwner && activityId ? (
-    <section className="mt-4 space-y-3" aria-label={t("socialSummary.title")}>
-      <Text variant="body" tone="primary" as="h3">{t("socialSummary.title")}</Text>
-      <Text variant="caption" tone="tertiary" as="p">{t("socialSummary.retryHint")}</Text>
-      <Button variant="secondary" size="sm" disabled={retryState === "loading"} onClick={() => { void retry(); }}>
-        {t(retryState === "loading" ? "socialSummary.retrying" : "socialSummary.retry")}
-      </Button>
-      {retryState === "error" && <p role="status">{t("socialSummary.retryError")}</p>}
-    </section>
-  ) : null;
+  if (!summary) return (
+    <>
+      {fallbackSummary && <Text variant="body" tone="primary" as="p">{fallbackSummary}</Text>}
+      {isActivityOwner && activityId && (
+        <section className="mt-4 space-y-3" aria-label={t("socialSummary.title")}>
+          <Text variant="body" tone="primary" as="h3">{t("socialSummary.title")}</Text>
+          <Text variant="caption" tone="tertiary" as="p">{t("socialSummary.retryHint")}</Text>
+          <Button variant="secondary" size="sm" disabled={retryState === "loading"} onClick={() => { void retry(); }}>
+            {t(retryState === "loading" ? "socialSummary.retrying" : "socialSummary.retry")}
+          </Button>
+          {retryState === "error" && <p role="status">{t("socialSummary.retryError")}</p>}
+        </section>
+      )}
+    </>
+  );
   const impact = isActivityOwner ? summary.fitnessImpact : undefined;
   const copy = async () => {
     try {
@@ -81,6 +87,9 @@ export default function ActivitySocialSummary({ summary: initialSummary, isActiv
             ))}
           </dl>
           <Text variant="caption" tone="tertiary" as="p">{t("socialSummary.counterfactual")}</Text>
+          {(impact.excludedHistoryCount ?? 0) > 0 && (
+            <Text variant="caption" tone="tertiary" as="p">{t("socialSummary.excludedHistory", { count: impact.excludedHistoryCount })}</Text>
+          )}
         </div>
       )}
       {impact?.status === "unavailable" && <Text variant="caption" tone="tertiary" as="p">{t("socialSummary.unavailable")}</Text>}
