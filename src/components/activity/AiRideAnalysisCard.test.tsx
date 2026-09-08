@@ -122,6 +122,24 @@ describe("AiRideAnalysisCard", () => {
     expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
   });
 
+  it("lets the owner explicitly regenerate a fresh analysis with invalid short share text", async () => {
+    narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "구간 코칭")]), shareSummary: null });
+    narrativeApiMocks.generate.mockResolvedValue({
+      ...narrative([segment(0, 10, "구간 코칭")]), shareSummary: "새로운 짧은 성취 문구",
+      socialSummary: { narrative: "새로운 짧은 성취 문구", achievements: [], shareText: "새로운 짧은 성취 문구" },
+    });
+    renderWithProviders(<AiRideAnalysisCard activityId="invalid-short-share" enabled isActivityOwner />, { authenticated: true });
+    const regenerate = await screen.findByRole("button", { name: "공유 문구를 위해 다시 분석" });
+    expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
+    fireEvent.click(regenerate);
+    expect(await screen.findByText("새로운 짧은 성취 문구")).toBeInTheDocument();
+    expect(narrativeApiMocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      activityId: "invalid-short-share", forceRefresh: true,
+    }));
+    expect(narrativeApiMocks.retrySummary).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "공유 문구를 위해 다시 분석" })).not.toBeInTheDocument();
+  });
+
   it("shows saved AI summary instead of a fresh analysis CTA when detail cache misses", async () => {
     renderWithProviders(
       <AiRideAnalysisCard

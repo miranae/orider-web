@@ -80,6 +80,8 @@ export interface ActivitySocialSummary {
 
 export interface ActivityNarrative {
   socialSummary?: ActivitySocialSummary;
+  /** 짧은 공유 문구 생성에 실패한 새 분석은 null. 구버전 캐시는 미포함. */
+  shareSummary?: string | null;
   narrativeVersion: string;
   generatedAt: number;
   isVirtualPower: boolean;
