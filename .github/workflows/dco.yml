@@ -23,21 +23,8 @@ jobs:
           base="${{ github.event.pull_request.base.sha }}"
           head="${{ github.event.pull_request.head.sha }}"
           base_ref="${{ github.event.pull_request.base.ref }}"
-          missing=()
-          failed=0
-
-          while IFS= read -r commit; do
-            if ! git log -1 --format=%B "$commit" | grep -qiE '^Signed-off-by: .+ <.+@.+>$'; then
-              missing+=("$commit")
-              failed=1
-            fi
-          done < <(git rev-list --no-merges "$base..$head")
-
-          for commit in "${missing[@]}"; do
-            echo "::error::Commit $commit is missing a DCO Signed-off-by line."
-          done
-
-          if [ "$failed" -ne 0 ]; then
+          node --test scripts/check-dco.test.mjs
+          if ! node scripts/check-dco.mjs "$base" "$head"; then
             printf '%s\n' \
               "" \
               "To fix your latest commit:" \
@@ -46,7 +33,8 @@ jobs:
               "" \
               "To fix several commits, rebase and amend each missing commit:" \
               "  git rebase -i origin/$base_ref" \
-              "  git commit --amend -s --no-edit"
+              "  git commit --amend -s --no-edit" \
+              "" \
+              "For shared protected branches, use a signed individual remediation commit (CONTRIBUTING.md)."
+            exit 1
           fi
-
-          exit "$failed"

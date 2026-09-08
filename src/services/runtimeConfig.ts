@@ -24,6 +24,8 @@ export interface RuntimeConfig {
   coachRidePlanSnapshotEnabled?: boolean;
   coachRidePlanAiEnabled?: boolean;
   coachRidePlanRespondV2Enabled?: boolean;
+  /** canonical 정본 API 소비 전환(#884). 서버 배포·백필 뒤에 켠다 — 기본 꺼짐. */
+  canonicalConsumersEnabled?: boolean;
   sentryDsn?: string;
   appEnvironment?: string;
   useEmulators?: boolean;

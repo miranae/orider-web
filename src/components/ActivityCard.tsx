@@ -10,6 +10,7 @@ import { getStravaActivityId } from "../utils/stravaActivity";
 import type { Activity } from "@shared/types";
 import type { PdcDoc } from "@shared/types/pdc";
 import Avatar from "./Avatar";
+import { useActivityAuthor } from "../hooks/useActivityAuthor";
 import { getSportLabelKey } from "../utils/sportType";
 import DisciplineBadge from "./redesign/DisciplineBadge";
 import { getDiscipline } from "../utils/disciplineFilter";
@@ -232,9 +233,10 @@ export default function ActivityCard({
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();
   const s = activity.summary ?? EMPTY_ACTIVITY_SUMMARY;
-  const nickname = typeof activity.nickname === "string" && activity.nickname.trim()
-    ? activity.nickname
-    : tCommon("label.rider");
+  // 작성자는 프로필(users_public)이 정본이다 — 활동 문서의 nickname 은 업로드 시점 복제본이라
+  // 앱 업로드분엔 아예 없고(#2444) 개명 후엔 옛 이름으로 남는다.
+  const author = useActivityAuthor(activity);
+  const nickname = author.nickname ?? tCommon("label.rider");
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const { units } = useLocale();
   const { getStreams } = useStrava();
@@ -293,7 +295,7 @@ export default function ActivityCard({
             <div className="flex items-start gap-3">
               <Avatar
                 name={nickname}
-                imageUrl={activity.profileImage}
+                imageUrl={author.profileImage}
                 size="md"
                 userId={activity.userId}
               />

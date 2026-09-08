@@ -7,6 +7,12 @@ function read(path: string): string {
 }
 
 describe("mobile fitness action", () => {
+  it("desktop, tri, mobile PMC 패널은 로컬 활동 날짜 대신 UTC 날짜를 사용한다", () => {
+    const panels = [read("src/pages/FitnessPage.tsx"), read("src/components/mobile/MobileFitnessPage.tsx")]
+      .flatMap(source => source.match(/<PmcHistoryPanel\b[\s\S]*?\/>/g) ?? []);
+    expect(panels).toHaveLength(3);
+    for (const panel of panels) expect(panel).toContain("today={toUtcDate(Date.now())}");
+  });
   it("removes today's workout from mobile fitness and keeps core sections ordered", () => {
     const source = read("src/components/mobile/MobileFitnessPage.tsx");
     const overview = source.slice(source.indexOf('{activeTab === "overview"'));
@@ -60,7 +66,11 @@ describe("mobile fitness action", () => {
     const integrated = read("src/components/mobile/IntegratedLoadCard.tsx");
     expect(mobileFitness).toContain("IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다.");
     expect(mobileFitness).toContain('const trendSectionTitle = sectionState.trend === "ready"');
-    expect(mobileFitness).toContain("<SectionCard title={trendSectionTitle} sub={pmcSub} accentColor={pmcCtlColor}>");
+    expect(mobileFitness).toContain("<SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle}");
+    expect(mobileFitness.indexOf("<IntegratedLoadCard")).toBeLessThan(mobileFitness.indexOf("<PmcHistoryPanel"));
+    expect(mobileFitness).toContain("points={pmcHistoryPoints}");
+    expect(mobileFitness).toContain('title={t("fitness:history.dailyDetails")}');
+    expect(integrated).not.toContain("PmcHistoryPanel");
     expect(integrated).not.toContain("PmcMiniChart");
     expect(integrated).not.toContain("TripleStackPMC");
   });

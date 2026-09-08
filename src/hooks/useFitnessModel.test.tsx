@@ -1,6 +1,7 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
+import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import type { ActivityMetricStatus } from "../features/fitness/useActivityDerivedDocuments";
 import { activityDerivedDocumentRevision } from "../features/fitness/derivedDocumentReadAttempts";
 import * as cache from "../embedded/trainingSurfaceCache";
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   status: new Map<string, ActivityMetricStatus>(),
   derived: vi.fn(),
   snapshot: null as null | ((value: { docs: { id: string; data: () => Activity }[] }) => void),
+  timeseries: null as FitnessTimeseriesDoc | null,
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: mocks.t, i18n: { language: "ko" } }) }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, profile: null }) }));
@@ -45,7 +47,7 @@ vi.mock("./useRunRecords", () => ({ useRunRecords: () => ({ run: null }) }));
 vi.mock("./useMilestones", () => ({ useMilestones: () => ({ achieved: new Map(), markCelebrated: vi.fn() }) }));
 vi.mock("./useFreshTraining", () => ({ useFreshTraining: () => ({ revalidating: false, justRecomputed: false }) }));
 vi.mock("./useFitnessTimeseries", () => ({ useFitnessTimeseries: () => ({
-  timeseries: null, loaded: true, error: null, cacheHit: true, freshLoaded: true,
+  timeseries: mocks.timeseries, loaded: true, error: null, cacheHit: true, freshLoaded: true,
 }) }));
 
 const bike = { id: "bike", userId: "rider-a", type: "Ride", startTime: Date.now(), summary: { ridingTimeMillis: 3600000, distanceMeters: 20000 } } as Activity;
@@ -60,6 +62,7 @@ function seed(sport: string, activities = [bike, run]) {
 }
 beforeEach(() => {
   mocks.user = { uid: "rider-a", isAnonymous: false };
+  mocks.timeseries = null;
   mocks.status.clear();
   mocks.derived.mockClear();
   cache.clearTrainingSurfaceCache();
@@ -69,6 +72,78 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("useFitnessModel", () => {
+  it("새 입력이 기존 실패 시도보다 늦으면 무효화 시각부터 기다리고 snapshot 없이 지연으로 전환한다", () => {
+    vi.useFakeTimers();
+    const now = Date.parse("2026-09-06T12:00:00Z");
+    vi.setSystemTime(now);
+    seed("bike");
+    const point = { date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 40 };
+    mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: now - 120000, points: [point],
+      startDate: point.date, endDate: point.date, pointCount: 1,
+      inputInvalidatedAt: { seconds: now / 1000, nanoseconds: 0 },
+      pmc: { status: "failed", attemptId: "old", inputRevision: 1, processedInputRevision: 1, asOf: now - 120000, deadlineAt: now - 60000, errorCode: "old" },
+    };
+    const { result, unmount } = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.pmcHistoryPoints[0].calculationStatus).toBe("pending");
+    act(() => vi.advanceTimersByTime(60001));
+    expect(result.current.pmcHistoryPoints[0]).toMatchObject({ ctl: 40, loadStatus: "unconfirmed", calculationStatus: "stale" });
+    unmount();
+    vi.useRealTimers();
+  });
+  it("새 snapshot 없이 deadline에 도달해도 PMC 대기를 처리 지연으로 바꾼다", () => {
+    vi.useFakeTimers();
+    const now = Date.parse("2026-09-06T12:00:00Z");
+    vi.setSystemTime(now);
+    seed("bike");
+    const point = { date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 40 };
+    mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: now, points: [point],
+      startDate: point.date, endDate: point.date, pointCount: 1,
+      loadSnapshot: { inputRevision: 2, inputDigest: "next", asOf: now, inputReadTime: { seconds: now / 1000, nanoseconds: 0 },
+        coverageStartDate: point.date, coverageEndDate: point.date,
+        points: [{ date: point.date, dailyLoad: 70, status: "final", quality: "estimated" }] },
+      pmc: { status: "pending", attemptId: "next", inputRevision: 2, processedInputRevision: 1, asOf: now - 1, deadlineAt: now + 1000, errorCode: null },
+    };
+    const { result, unmount } = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.pmcHistoryPoints[0].calculationStatus).toBe("pending");
+    act(() => vi.advanceTimersByTime(1001));
+    expect(result.current.pmcHistoryPoints[0]).toMatchObject({ dailyLoad: 70, ctl: 40, loadStatus: "final", calculationStatus: "stale" });
+    unmount();
+    vi.useRealTimers();
+  });
+
+  it("이력 표시 상태를 별도 전달하고 기존 KPI 입력은 보존한다", () => {
+    seed("bike");
+    const point = { date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 70 };
+    mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: Date.parse("2026-09-06T12:00:00Z"),
+      startDate: point.date, endDate: point.date, pointCount: 1, points: [point] };
+    const { result } = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.fitnessData).toEqual([point]);
+    expect(result.current.currentPoint).toEqual(point);
+    expect(result.current.pmcHistoryPoints).toEqual([{ ...point, loadStatus: "snapshot", calculationStatus: "server" }]);
+    expect(result.current.mobilePageProps.pmcHistoryPoints).toBe(result.current.pmcHistoryPoints);
+  });
+
+  it("유효한 빈 정본을 활동 기반 fallback으로 바꾸지 않는다", () => {
+    seed("bike");
+    mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: Date.now(), startDate: null, endDate: null, pointCount: 0, points: [] };
+    const { result } = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.hasCanonicalHistory).toBe(true);
+    expect(result.current.fitnessData).toEqual([]);
+    expect(result.current.mobilePageProps.pmcHistoryPoints).toEqual([]);
+  });
+
+  it("스키마 검증에 실패한 시계열을 정본 이력으로 소비하지 않는다", () => {
+    seed("bike");
+    mocks.timeseries = {
+      discipline: "bike", schemaVersion: 999, computedAt: Date.now(),
+      startDate: "2023-01-01", endDate: "2023-01-01", pointCount: 1,
+      points: [{ date: "2023-01-01", ctl: 99999, atl: 99999, tsb: 0, dailyLoad: 99999 }],
+    };
+    const { result } = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.hasCanonicalHistory).toBe(false);
+    expect(result.current.fitnessData.some((point) => point.ctl === 99999)).toBe(false);
+    expect(result.current.mobilePageProps.pmcHistoryCanonical).toBe(false);
+  });
   it.each(["loading", "error"] as const)("자전거 분석은 러닝 %s 상태에 막히지 않는다", (state) => {
     seed("bike");
     setStatus(run, state);
