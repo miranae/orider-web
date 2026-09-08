@@ -28,7 +28,11 @@ export function useBikeProfiles(uid: string | null) {
     const unsub = onSnapshot(
       ref,
       (snap) => {
-        setProfiles(snap.docs.map((d) => parseBikeProfile(d.id, d.data())));
+        setProfiles(snap.docs.flatMap((d) => {
+          const data = d.data();
+          // 삭제 callable은 문서를 남기고 deletedAt으로 삭제를 표시한다.
+          return data.deletedAt != null ? [] : [parseBikeProfile(d.id, data)];
+        }));
         setLoading(false);
       },
       () => {
