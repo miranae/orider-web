@@ -10,7 +10,7 @@ export function useStrava() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const connectStrava = (returnTo?: string) => {
+  const connectStrava = (returnTo?: string, options?: { writeActivities?: boolean }) => {
     const { stravaClientId, stravaRedirectUri } = getRuntimeConfig();
     if (!stravaClientId || !stravaRedirectUri) {
       setError("Strava configuration is missing");
@@ -19,6 +19,8 @@ export function useStrava() {
 
     const nonce = crypto.randomUUID();
     sessionStorage.setItem("strava_state", nonce);
+    if (options?.writeActivities) sessionStorage.setItem("strava_write_activities", "true");
+    else sessionStorage.removeItem("strava_write_activities");
     if (returnTo) sessionStorage.setItem("strava_return_to", returnTo);
 
     // state = "returnOrigin|nonce" → 프록시가 파싱하여 원래 출처로 리다이렉트
@@ -29,19 +31,20 @@ export function useStrava() {
       client_id: stravaClientId,
       redirect_uri: stravaRedirectUri,
       response_type: "code",
-      scope: "read,activity:read_all",
+      scope: options?.writeActivities ? "read,activity:read_all,activity:write" : "read,activity:read_all",
+      ...(options?.writeActivities ? { approval_prompt: "force" } : {}),
       state,
     });
 
     window.location.href = `https://www.strava.com/oauth/authorize?${params}`;
   };
 
-  const exchangeCode = useCallback(async (code: string) => {
+  const exchangeCode = useCallback(async (code: string, scope?: string) => {
     setLoading(true);
     setError(null);
     try {
       const fn = httpsCallable(functions, "stravaExchangeToken");
-      const result = await fn({ code });
+      const result = await fn({ code, ...(scope ? { scope } : {}) });
       return result.data as { athleteId: number; firstname: string; lastname: string };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Token exchange failed";

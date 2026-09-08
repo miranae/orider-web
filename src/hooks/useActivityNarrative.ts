@@ -8,6 +8,7 @@
  * 설계: docs/architecture/RIDE_SEGMENT_NARRATIVE.md
  */
 import { useEffect, useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import { logClientError } from "../services/errorLogger";
 import { generateActivityNarrative } from "../services/activityNarrativeApi";
 
@@ -59,7 +60,25 @@ export interface Prescription {
   detail: string;
 }
 
+export interface FitnessImpactValues { ctl: number; atl: number; tsb: number }
+
+export interface ActivitySocialSummary {
+  narrative: string;
+  achievements: Array<{ id: string; text: string }>;
+  fitnessImpact?: {
+    status: "available";
+    asOf: number;
+    timezone: "UTC";
+    before: FitnessImpactValues;
+    after: FitnessImpactValues;
+    delta: FitnessImpactValues;
+    inputDigest: string;
+  } | { status: "unavailable"; reason: string };
+  shareText: string;
+}
+
 export interface ActivityNarrative {
+  socialSummary?: ActivitySocialSummary;
   narrativeVersion: string;
   generatedAt: number;
   isVirtualPower: boolean;
@@ -94,7 +113,7 @@ interface State {
 // onCall 을 1번만 보낸다. inflight: 진행 중 promise 공유, done: 완료 데이터 즉시 표시.
 // (서버도 영구 캐시지만, 첫 생성 ~18s 동안 재마운트되면 클라가 중복 호출 → LLM 중복 생성.
 //  이 캐시가 그 창을 막아 비용·로딩 반복을 차단한다.)
-// 캐시 키는 `${activityId}:${lang}` — 언어별 슬롯을 분리해 ko/en 결과가 섞이지 않게 한다.
+// 캐시 키는 `${activityId}:${lang}:${viewerUid}` — 언어별 슬롯을 분리해 ko/en 결과가 섞이지 않게 한다.
 const inflight = new Map<string, Promise<ActivityNarrative>>();
 const done = new Map<string, ActivityNarrative>();
 
@@ -114,11 +133,15 @@ export function useActivityNarrativeWithOptions(
   forceRefresh = false,
   refreshKey = 0,
 ): State {
+  const { user } = useAuth();
+  const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}`;
+  const [stateScope, setStateScope] = useState(scope);
   const [state, setState] = useState<State>({ data: null, loading: false, error: null });
 
   useEffect(() => {
     if (!enabled || !activityId) return;
-    const key = `${activityId}:${lang}:${forceRefresh ? `force-${refreshKey}` : "cache"}`;
+    setStateScope(scope);
+    const key = `${scope}:${forceRefresh ? `force-${refreshKey}` : "cache"}`;
 
     // 완료 캐시 적중 → 즉시 표시(로딩·호출 없음)
     const cached = forceRefresh ? null : done.get(key);
@@ -140,7 +163,7 @@ export function useActivityNarrativeWithOptions(
       inflight.set(key, promise);
       // 성공 → done 으로 승격, 실패 → inflight 비워 후속 마운트가 재시도 가능
       promise.then((data) => {
-        done.set(`${activityId}:${lang}:cache`, data);
+        done.set(`${scope}:cache`, data);
         done.set(key, data);
       }).finally(() => {
         inflight.delete(key);
@@ -159,7 +182,7 @@ export function useActivityNarrativeWithOptions(
       });
 
     return () => { cancelled = true; };
-  }, [activityId, enabled, lang, forceRefresh, refreshKey]);
+  }, [activityId, enabled, lang, forceRefresh, refreshKey, scope]);
 
-  return state;
+  return stateScope === scope ? state : { data: null, loading: enabled, error: null };
 }

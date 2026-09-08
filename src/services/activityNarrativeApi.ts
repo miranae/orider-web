@@ -4,7 +4,7 @@ import { auth, ensureAppCheckReady, functions, getAppCheckToken } from "./fireba
 import { getRuntimeConfig } from "./runtimeConfig";
 import { logClientError } from "./errorLogger";
 import { track } from "./analytics";
-import type { ActivityNarrative, NarrativeLang } from "../hooks/useActivityNarrative";
+import type { ActivityNarrative, ActivitySocialSummary, NarrativeLang } from "../hooks/useActivityNarrative";
 
 export interface ActivityNarrativeGenerateRequest {
   activityId: string;
@@ -17,6 +17,7 @@ export interface ActivityNarrativePeekRequest {
   activityId: string;
   lang: NarrativeLang;
   cacheOnly: true;
+  socialSummaryOnly?: boolean;
   forceRefresh?: never;
 }
 
@@ -36,7 +37,8 @@ interface ActivityNarrativeErrorPayload {
   };
 }
 
-type ActivityNarrativeResponse = ActivityNarrative | ActivityNarrativePeekResponse;
+type ActivitySocialSummaryResponse = { socialSummary?: ActivitySocialSummary };
+type ActivityNarrativeResponse = ActivityNarrative | ActivityNarrativePeekResponse | ActivitySocialSummaryResponse;
 type CompatibilityFallbackReason =
   | "rest_not_configured"
   | "rest_route_unavailable"
@@ -403,4 +405,9 @@ export function peekActivityNarrative(
   request: ActivityNarrativePeekRequest,
 ): Promise<ActivityNarrativePeekResponse> {
   return requestActivityNarrative<ActivityNarrativePeekResponse>(request);
+}
+
+/** AI를 재생성하지 않고 공유요약만 재조회한다. */
+export function retryActivitySocialSummary(activityId: string, lang: NarrativeLang): Promise<ActivitySocialSummaryResponse> {
+  return requestActivityNarrative<ActivitySocialSummaryResponse>({ activityId, lang, cacheOnly: true, socialSummaryOnly: true });
 }
