@@ -87,6 +87,18 @@ git commit -s
 
 기여는 [Developer Certificate of Origin](DCO.md)을 따르며, 별도의 광범위한 저작권 양도를 요구하지 않습니다. 기여 내용은 [AGPL-3.0](LICENSE)으로 제공됩니다.
 
+공유 브랜치의 누락은 이력을 재작성하지 않고 [DCO App의 individual remediation](https://github.com/dcoapp/app#individual-remediation-commit-support) 방식으로 보정할 수 있습니다. 원래 작성자 본인이 명시적으로 동의하고 같은 이름·이메일로 아래 새 커밋을 작성해야 합니다. 전체 40자리 SHA와 작성자에 일치하는 sign-off가 필요하며, 보정 커밋은 원본 이후 현재 PR 이력에 도달 가능해야 합니다. 제3자·일괄 예외는 지원하지 않습니다.
+
+```text
+DCO remediation commit for Author <author@example.com>
+
+I, Author <author@example.com>, hereby add my Signed-off-by to this commit: FULL_40_CHARACTER_COMMIT_SHA
+
+Signed-off-by: Author <author@example.com>
+```
+
+필수 DCO 검사는 유지됩니다. 로컬 검증: `node scripts/check-dco.mjs origin/main HEAD`.
+
 ## 보안
 
 취약점은 공개 issue나 PR comment에 쓰지 마세요. [SECURITY.md](SECURITY.md)를 따르세요.
