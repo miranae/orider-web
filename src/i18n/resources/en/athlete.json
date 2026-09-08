@@ -49,5 +49,8 @@
   "activities.addSegment": "+ Segment",
   "activities.loading": "Loading activities…",
   "activities.loadMore": "Load more",
-  "activities.loadMoreRemaining": "Load more ({{count}} remaining)"
+  "activities.loadMoreRemaining": "Load more ({{count}} remaining)",
+  "monthly.loading": "Loading all monthly activities…",
+  "monthly.error": "Unable to load monthly activities.",
+  "monthly.retry": "Retry"
 }

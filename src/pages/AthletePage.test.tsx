@@ -175,6 +175,16 @@ describe("AthletePage", () => {
     expect(screen.queryByText("100h 0m")).not.toBeInTheDocument();
   });
 
+  it("keeps known total hours when legacy activities have no duration", async () => {
+    setCollectionDocs("activities", [
+      { id: "legacy", ...createMockActivity({ userId: "athlete-1", summary: { distance: 1000, elevationGain: 10 } as never }) },
+      { id: "timed", ...createMockActivity({ userId: "athlete-1", summary: createMockSummary({ ridingTimeMillis: 3600000 }) }) },
+    ]);
+    renderWithProviders(<AthletePage />);
+    await waitFor(() => expect(screen.getAllByText("1h 0m").length).toBeGreaterThan(0));
+    expect(screen.queryByText("NaNm")).not.toBeInTheDocument();
+  });
+
   it("shows friend action button for other users", async () => {
     renderWithProviders(<AthletePage />, {
       authenticated: true,

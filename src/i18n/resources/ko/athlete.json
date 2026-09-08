@@ -49,5 +49,8 @@
   "activities.addSegment": "+ 세그먼트",
   "activities.loading": "활동을 불러오는 중…",
   "activities.loadMore": "더 보기",
-  "activities.loadMoreRemaining": "더 보기 ({{count}}개 남음)"
+  "activities.loadMoreRemaining": "더 보기 ({{count}}개 남음)",
+  "monthly.loading": "전체 월간 활동을 불러오는 중…",
+  "monthly.error": "월간 활동을 불러오지 못했습니다.",
+  "monthly.retry": "다시 시도"
 }
