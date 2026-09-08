@@ -934,6 +934,7 @@
     "retryHint": "Your coaching stays available. Reload just the share summary.",
     "retryError": "Could not load the share summary. Please try again.",
     "title": "Share summary",
+    "excludedHistory": "Calculated excluding {{count}} past activities with insufficient data.",
     "integrated": "Integrated training load · Before → after activity",
     "ctl": "CTL · Fitness",
     "atl": "ATL · Fatigue",

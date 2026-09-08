@@ -73,6 +73,7 @@ export interface ActivitySocialSummary {
     after: FitnessImpactValues;
     delta: FitnessImpactValues;
     inputDigest: string;
+    excludedHistoryCount?: number;
   } | { status: "unavailable"; reason: string };
   shareText: string;
 }

@@ -67,15 +67,26 @@ function narrative(segments: NarrativeSegment[]): ActivityNarrative & { hit: tru
 }
 
 describe("AiRideAnalysisCard", () => {
-  it("preserves senior coaching and segment details alongside a separate share summary", async () => {
+  it("replaces the old summary while retaining segment coaching and prescriptions", async () => {
     narrativeApiMocks.peek.mockResolvedValue({
       ...narrative([segment(0, 10, "구간별 코칭 유지")]),
-      socialSummary: { narrative: "공유할 성취 요약", achievements: [], shareText: "공유할 성취 요약" },
+      socialSummary: {
+        narrative: "공유할 성취 요약", achievements: [], shareText: "공유할 성취 요약",
+        fitnessImpact: {
+          status: "available", asOf: 1, timezone: "UTC", inputDigest: "test", excludedHistoryCount: 5,
+          before: { ctl: 38.6, atl: 46.6, tsb: -8 }, after: { ctl: 40.1, atl: 55.6, tsb: -15.5 },
+          delta: { ctl: 1.5, atl: 9, tsb: -7.5 },
+        },
+      },
+      prescriptions: [{ horizon: "ride", theme: "recovery", title: "회복 권고", detail: "다음 주행은 가볍게" }],
     });
     renderWithProviders(<AiRideAnalysisCard activityId="coaching-with-social-summary" enabled isActivityOwner />, { authenticated: true });
-    expect(await screen.findByText("전체 코칭 요약")).toBeInTheDocument();
-    expect(screen.getByText("공유할 성취 요약")).toBeInTheDocument();
+    expect(await screen.findByText("공유할 성취 요약")).toBeInTheDocument();
+    expect(screen.queryByText("전체 코칭 요약")).not.toBeInTheDocument();
+    expect(screen.getByText("다음 주행은 가볍게")).toBeInTheDocument();
     expect(screen.getByText("구간별 코칭 유지")).toBeInTheDocument();
+    expect(screen.getByText("38.6 → 40.1 (+1.5)")).toBeInTheDocument();
+    expect(screen.getByText("데이터가 부족한 과거 활동 5개를 제외하고 계산했습니다.")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "공유용 요약" })).toBeInTheDocument();
   });
 
@@ -105,7 +116,8 @@ describe("AiRideAnalysisCard", () => {
     expect(screen.getByText("구간 코칭 보존")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "공유요약 다시 불러오기" }));
     expect(await screen.findByText("복구된 공유요약")).toBeInTheDocument();
-    expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
+    expect(screen.queryByText("전체 코칭 요약")).not.toBeInTheDocument();
+    expect(screen.getByText("구간 코칭 보존")).toBeInTheDocument();
     expect(narrativeApiMocks.retrySummary).toHaveBeenCalledWith("retry-only-summary", "ko");
     expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
   });
