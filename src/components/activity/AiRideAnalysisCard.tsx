@@ -439,6 +439,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   if (!data || data.segments.length === 0) return null;
 
   const { overall } = data;
+  const needsShareRegeneration = isActivityOwner && data.shareSummary === null;
   const coachedSegments = data.segments.filter((segment) => segment.narrative !== "");
   const tempBadge =
     overall.tempStartC != null && overall.tempEndC != null
@@ -453,20 +454,25 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
         {tempBadge && <Text variant="caption" tone="tertiary">{tempBadge}</Text>}
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
-        {data.stale && user && (
+        {user && (data.stale || needsShareRegeneration) && (
           <Button size="sm" variant="secondary" onClick={retryFullAnalysis}>
-            {t("ai.refreshAnalysisBtn")}
+            {t(data.stale ? "ai.refreshAnalysisBtn" : "ai.regenerateShareSummaryBtn")}
           </Button>
         )}
       </div>
 
-      {/* 요약 (항상 노출) */}
-      <Text variant="body" tone="primary" as="p">{data.summary}</Text>
+      {/* 공유요약으로 기존 요약을 대체하고, 없을 때만 기존 요약을 노출 */}
       <ActivitySocialSummary key={`${activityId}:${lang}:${user?.uid ?? "anonymous"}:${data.generatedAt}`}
-        activityId={activityId ?? undefined} lang={lang} summary={data.socialSummary} isActivityOwner={isActivityOwner} />
+        activityId={activityId ?? undefined} lang={lang} summary={data.socialSummary} fallbackSummary={data.summary} isActivityOwner={isActivityOwner} />
       {data.stale && (
         <Text variant="caption" tone="tertiary" as="p" className="mt-2">
           {user ? t("ai.staleHint") : t("ai.staleLoginHint")}
+        </Text>
+      )}
+
+      {!data.stale && needsShareRegeneration && (
+        <Text variant="caption" tone="tertiary" as="p" className="mt-2">
+          {t("ai.regenerateShareSummaryHint")}
         </Text>
       )}
 
