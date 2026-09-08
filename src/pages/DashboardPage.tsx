@@ -36,6 +36,9 @@ import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { isYearRecapSeason } from "../utils/yearRecapSeason";
 import { useConsistencyStreak } from "../hooks/useConsistencyStreak";
+import { useCanonicalHomeSummary } from "../hooks/useCanonicalHomeSummary";
+import { useCanonicalFitnessSummary } from "../hooks/useCanonicalFitnessSummary";
+import { canonicalKpiPresentation, canonicalKpiSource } from "../features/home/canonicalKpiSource";
 import { useDashboardPreferences } from "../hooks/useDashboardPreferences";
 import type { FitnessProjection } from "@shared/types/goal";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
@@ -283,6 +286,10 @@ export default function DashboardPage() {
   const { weeklyStats, thisWeek, recent7DayDistances, monthlyActivityDistance } = useWeeklyStats({
     includeMonthlyDistance: true,
   });
+  // 정본(서버 집계) 홈 요약 — `homeSummary` 서버 전환 판정 AND 빌드 플래그 뒤에 있다.
+  // 꺼져 있으면(오늘의 기본값) 아래 KPI 는 useWeeklyStats 의 클라 집계를 그대로 그린다.
+  const canonicalHome = useCanonicalHomeSummary();
+  const canonicalFitness = useCanonicalFitnessSummary();
   const activitySearch = useActivitySearch(friendIds);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
@@ -382,14 +389,48 @@ export default function DashboardPage() {
     : `${t("header.greetingPrefix")}${userName}${t("header.greetingSuffix")}`;
   const showYearRecapBanner = !!user && isYearRecapSeason();
 
-  const thisWeekDistFormatted = formatDistance(thisWeek.distance, units);
+  /**
+   * 모바일 피드의 7일 스파크라인은 **일자별 거리 배열**이다. 정본 봉투의 `calendar` 는
+   * 일자별 합계를 담지만 이 화면이 쓰는 배열 모양·기준일 규칙과 1:1 이 아니라, 지어낸 매핑
+   * 대신 두 값 모두 클라 집계로 남긴다 (#2237). 같은 출처끼리 묶어 둬야 막대와 개수가
+   * 서로 어긋나지 않는다.
+   */
+  const mobileWeeklySummary = { activityCount: thisWeek.rides, distances: recent7DayDistances };
+
+  const weekSource = canonicalKpiSource(canonicalHome.enabled, canonicalHome.display, canonicalHome.totals);
+  /**
+   * 최근 7일 숫자의 출처. 전환이 켜지고 값이 손에 있을 때만 서버 값이고, 그 밖에는
+   * 오늘과 똑같은 클라 집계다. **미계산·실패는 여기로 오지 않는다** — 그 경우
+   * `weekSource.kind === "state"` 라 아래에서 숫자 자체를 그리지 않는다.
+   */
+  const weekTotals = weekSource.kind === "server"
+    ? {
+        rides: weekSource.values.rideCount,
+        distance: weekSource.values.distanceKm * 1000,
+        time: weekSource.values.movingSec * 1000,
+        elevation: Math.round(weekSource.values.elevationGainMeters),
+      }
+    : thisWeek;
+  const weekPresentation = canonicalKpiPresentation(weekSource, {
+    value: t("kpi.subRecent7d"),
+    pending: t("canonical.pending"),
+    failed: t("canonical.failed"),
+    empty: t("canonical.empty"),
+    staleChip: t("canonical.staleChip"),
+  });
+  /** false 면 KPI 칸은 숫자 대신 "—" 와 상태 문구다. 0 도, 클라 집계도 아니다. */
+  const showWeekNumbers = weekPresentation.showNumbers;
+  const weekSub = weekPresentation.sub;
+  const weekChip = weekPresentation.chip;
+
+  const thisWeekDistFormatted = formatDistance(weekTotals.distance, units);
   // KPI에선 숫자만 별도, 단위 별도로 표시
   const M_PER_MI = 1609.344;
   const thisWeekDistValue = units === 'imperial'
-    ? (thisWeek.distance / M_PER_MI).toFixed(1)
-    : (thisWeek.distance / 1000).toFixed(1);
+    ? (weekTotals.distance / M_PER_MI).toFixed(1)
+    : (weekTotals.distance / 1000).toFixed(1);
   const distUnit = units === 'imperial' ? 'mi' : 'km';
-  const thisWeekTimeStr = formatDuration(thisWeek.time);
+  const thisWeekTimeStr = formatDuration(weekTotals.time);
 
   // CTL/ATL/TSB — 폴백용 클라 계산. 피드(useActivities)는 페이지네이션(20개)이라 42일 CTL
   // EMA 워밍업이 부족해 과소평가됨. 권위값은 아래 서버 projection 의 현재 포인트를 우선 사용.
@@ -497,52 +538,64 @@ export default function DashboardPage() {
     };
   })();
 
-  const KPI = [
-    {
-      label: t("kpi.weekDistance"),
-      value: thisWeekDistValue,
-      unit: distUnit,
-      delta: null,
-      deltaKind: "up" as const,
-      sub: t("kpi.subRecent7d"),
-    },
-    {
-      label: t("kpi.rides"),
-      value: String(thisWeek.rides),
-      unit: null,
-      delta: null,
-      deltaKind: "up" as const,
-      sub: t("kpi.subRecent7d"),
-    },
-    {
-      label: t("kpi.movingTime"),
-      value: thisWeekTimeStr,
-      unit: "h",
-      delta: null,
-      deltaKind: "up" as const,
-      sub: t("kpi.subRecent7d"),
-    },
-    {
-      label: t("kpi.elevation"),
-      value: units === 'imperial' ? formatNum(Math.round(thisWeek.elevation / 0.3048), i18n.language) : formatNum(thisWeek.elevation, i18n.language),
-      unit: units === 'imperial' ? 'ft' : 'm',
-      delta: null,
-      deltaKind: "up" as const,
-      sub: t("kpi.subRecent7d"),
-    },
-    thresholdKpi,
-    {
-      label: t("kpi.fitness"),
-      value: fitness.ctl > 0 ? fitness.ctl.toFixed(1) : "—",
-      unit: "CTL",
-      // delta 값에 "TSB" 라벨 prefix. 이전엔 "-84.4" 만 떠 사용자가 어느 지표인지
-      // 즉시 알기 어려웠음 (옆 sub 의 "ATL 109.8" 와 혼동).
-      delta: fitness.tsb !== 0 ? (fitness.tsb > 0 ? `TSB +${fitness.tsb.toFixed(1)}` : `TSB ${fitness.tsb.toFixed(1)}`) : null,
-      deltaKind: (fitness.tsb >= 0 ? "up" : "down") as "up" | "down",
-      sub: fitness.ctl > 0
-        ? `${fitness.tsb >= 5 ? t("kpi.fitnessMaintain") : fitness.tsb <= -10 ? t("kpi.fitnessRecovery") : t("kpi.fitnessBuild")} · ${t("kpi.subAtl", { value: fitness.atl.toFixed(1) })}`
+  // 최근 7일 네 칸. 전환이 켜졌는데 값이 없는 상태면 숫자 자리에 "—" 와 상태 문구가 온다.
+  const weekKpi = (label: string, value: string, unit: string | null) => ({
+    label,
+    value: showWeekNumbers ? value : "—",
+    unit: showWeekNumbers ? unit : null,
+    delta: null,
+    deltaKind: "up" as const,
+    sub: weekSub,
+    chip: weekChip,
+  });
+
+  const fitnessSource = canonicalKpiSource(
+    canonicalFitness.enabled, canonicalFitness.display, canonicalFitness.values,
+  );
+  // 서버 값이 손에 있을 때만 갈아탄다. 상태(계산중·실패·없음)면 숫자를 그리지 않는다 —
+  // 클라 계산으로 조용히 되돌아가면 사용자는 서버가 멈춘 것을 영영 모른다.
+  const kpiFitness = fitnessSource.kind === "server" ? fitnessSource.values : fitness;
+  const fitnessPresentation = canonicalKpiPresentation(fitnessSource, {
+    // 값이 보일 때의 서브 문구는 아래에서 CTL/TSB 로 다시 만든다 — 여기서는 자리만 채운다.
+    value: "",
+    pending: t("canonical.pending"),
+    failed: t("canonical.failed"),
+    empty: t("canonical.empty"),
+    staleChip: t("canonical.staleChip"),
+  });
+  // CTL 이 0 이면 "부족" 이라는 기존 규칙을 그대로 둔다(서버 값이든 클라 값이든).
+  const showFitnessNumbers = fitnessPresentation.showNumbers && kpiFitness.ctl > 0;
+  const fitnessKpi = {
+    label: t("kpi.fitness"),
+    value: showFitnessNumbers ? kpiFitness.ctl.toFixed(1) : "—",
+    unit: showFitnessNumbers ? "CTL" : null,
+    // delta 값에 "TSB" 라벨 prefix. 이전엔 "-84.4" 만 떠 사용자가 어느 지표인지
+    // 즉시 알기 어려웠음 (옆 sub 의 "ATL 109.8" 와 혼동).
+    delta: showFitnessNumbers && kpiFitness.tsb !== 0
+      ? (kpiFitness.tsb > 0 ? `TSB +${kpiFitness.tsb.toFixed(1)}` : `TSB ${kpiFitness.tsb.toFixed(1)}`)
+      : null,
+    deltaKind: (kpiFitness.tsb >= 0 ? "up" : "down") as "up" | "down",
+    sub: !fitnessPresentation.showNumbers
+      ? fitnessPresentation.sub
+      : showFitnessNumbers
+        ? `${kpiFitness.tsb >= 5 ? t("kpi.fitnessMaintain") : kpiFitness.tsb <= -10 ? t("kpi.fitnessRecovery") : t("kpi.fitnessBuild")} · ${t("kpi.subAtl", { value: kpiFitness.atl.toFixed(1) })}`
         : t("kpi.subInsufficient"),
-    },
+    chip: fitnessPresentation.chip,
+  };
+
+  const KPI = [
+    weekKpi(t("kpi.weekDistance"), thisWeekDistValue, distUnit),
+    weekKpi(t("kpi.rides"), String(weekTotals.rides), null),
+    weekKpi(t("kpi.movingTime"), thisWeekTimeStr, "h"),
+    weekKpi(
+      t("kpi.elevation"),
+      units === 'imperial'
+        ? formatNum(Math.round(weekTotals.elevation / 0.3048), i18n.language)
+        : formatNum(weekTotals.elevation, i18n.language),
+      units === 'imperial' ? 'ft' : 'm',
+    ),
+    { ...thresholdKpi, chip: null },
+    fitnessKpi,
   ];
 
   const isMobile = useMobile();
@@ -557,7 +610,7 @@ export default function DashboardPage() {
         onLoadMore={loadMore}
         showYearRecapBanner={showYearRecapBanner}
         consistencyStreak={consistencyStreak}
-        weeklySummary={{ activityCount: thisWeek.rides, distances: recent7DayDistances }}
+        weeklySummary={mobileWeeklySummary}
         currentUserId={user?.uid ?? null}
         friendIds={[...friendIds]}
         feedScope={feedScope}
@@ -583,7 +636,9 @@ export default function DashboardPage() {
               <span>
                 {t("header.subtitleRecent")}
                 <span style={{ color: "var(--lime)", fontFamily: "var(--font-mono)", fontWeight: 500 }}>
-                  {thisWeek.rides} · {thisWeekDistFormatted}
+                  {/* KPI 와 같은 출처·같은 규칙. 미계산을 여기서만 클라 집계로 그리면 한 화면에
+                      서로 다른 숫자가 선다. */}
+                  {showWeekNumbers ? `${weekTotals.rides} · ${thisWeekDistFormatted}` : "—"}
                 </span>
                 {t("header.subtitleSuffix")}
               </span>

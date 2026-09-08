@@ -91,6 +91,46 @@ export function fetchCanonicalHomeSummary(): Promise<CanonicalEnvelope<Canonical
   return fetchCanonical<CanonicalHomeSummaryData>("/home/summary");
 }
 
+/**
+ * 피트니스 요약(E)이 담는 값. CTL/ATL/TSB 세 숫자다.
+ *
+ * ## 이 모양은 클라이언트가 **선언한 기대**다
+ *
+ * `GET /api/v1/fitness/summary` 의 페이로드 스키마는 이 저장소 어디에도 고정돼 있지 않다
+ * (`home/summary` 와 달리 서버 타입 사본이 없다). 그래서 필드 이름을 지어내 매핑하는 대신,
+ * **여기 적힌 모양이 아니면 값이 없는 것으로 본다** — [parseCanonicalFitnessSummary] 가
+ * null 을 돌려주고 화면은 숫자 대신 명시 상태를 그린다. 0 을 만들어 내는 경로는 없다.
+ *
+ * 서버와 실제로 맞춰 보기 전에는 이 면을 켜면 안 된다(기본 꺼짐). 모양이 다르면 여기와
+ * 서버 중 어느 쪽을 고칠지 결정한 뒤 켠다.
+ */
+export interface CanonicalFitnessSummaryData {
+  /** Chronic Training Load — 체력. */
+  ctl: number;
+  /** Acute Training Load — 피로. */
+  atl: number;
+  /** Training Stress Balance — 컨디션(= CTL − ATL). */
+  tsb: number;
+}
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * 봉투의 `data` → 세 숫자. 하나라도 숫자가 아니면 **전체가 null** 이다.
+ * 일부만 그리면 나머지 칸이 0 으로 보인다 — 그게 이 에픽이 없애려는 결함이다.
+ */
+export function parseCanonicalFitnessSummary(value: unknown): CanonicalFitnessSummaryData | null {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const ctl = finiteNumber(record.ctl);
+  const atl = finiteNumber(record.atl);
+  const tsb = finiteNumber(record.tsb);
+  if (ctl === null || atl === null || tsb === null) return null;
+  return { ctl, atl, tsb };
+}
+
 export function fetchCanonicalFitnessSummary(): Promise<CanonicalEnvelope<Record<string, unknown>>> {
   return fetchCanonical<Record<string, unknown>>("/fitness/summary");
 }

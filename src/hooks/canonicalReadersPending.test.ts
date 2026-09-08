@@ -14,12 +14,13 @@ import { describe, expect, it } from "vitest";
  * 그릴지 결정이 필요하고, 그 결정 없이 붙이면 미계산을 0 으로 그리는 결함이 되돌아온다.
  * 붙일 때는 **`homeSummary` 서버 전환 판정 + 빌드 플래그** 뒤에 두고, 아래 목록에서 지운다.
  * 소비자가 생기면 이 테스트가 실패해 목록 갱신을 강제한다.
+ *
+ * 2026-09-08 (#2237 리뷰): `useCanonicalHomeSummary` 와 `fetchCanonicalFitnessSummary` 는
+ * DashboardPage 의 최근 7일 KPI 네 칸과 체력(CTL/TSB) 칸에 붙었다 — `homeSummary` 판정 +
+ * `canonicalConsumersEnabled` 빌드 플래그 뒤이고, 상태별 표시는
+ * `src/features/home/canonicalKpiSource.ts` 한 곳에서 정한다. 그래서 목록에서 지운다.
  */
 const PENDING_READERS = [
-  // src/hooks/useCanonicalHomeSummary.ts — GET /home/summary (D). 홈 요약 미연결.
-  "useCanonicalHomeSummary",
-  // src/services/canonicalApi.ts — GET /fitness/summary (E). 피트니스 요약 미연결.
-  "fetchCanonicalFitnessSummary",
   // src/hooks/useMaintenanceSnapshot.ts — 웹에 정비 화면 자체가 없다.
   "useMaintenanceSnapshot",
 ] as const;

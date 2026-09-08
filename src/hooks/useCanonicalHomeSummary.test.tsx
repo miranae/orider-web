@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   enabled: vi.fn(() => true),
   log: vi.fn(),
   user: { uid: "u1" } as { uid: string } | null,
+  rolloutAllows: vi.fn(() => true),
 }));
 
 vi.mock("../services/canonicalApi", () => ({
@@ -15,6 +16,10 @@ vi.mock("../services/canonicalApi", () => ({
 }));
 vi.mock("../services/errorLogger", () => ({ logClientError: mocks.log }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
+vi.mock("./useCanonicalRollout", () => ({
+  useCanonicalRollout: () => ({ gateEnabled: true, loading: false, verdictOk: true, surfaces: {} }),
+  canonicalRolloutAllows: () => mocks.rolloutAllows(),
+}));
 
 import { useCanonicalHomeSummary } from "./useCanonicalHomeSummary";
 
@@ -41,14 +46,31 @@ describe("useCanonicalHomeSummary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.enabled.mockReturnValue(true);
+    mocks.rolloutAllows.mockReturnValue(true);
     mocks.user = { uid: "u1" };
   });
 
-  it("스위치가 꺼져 있으면 서버를 부르지 않는다", async () => {
+  it("빌드 플래그가 꺼져 있으면 서버를 부르지 않는다 — 화면은 오늘과 똑같다", async () => {
     mocks.enabled.mockReturnValue(false);
     const { result } = renderHook(() => useCanonicalHomeSummary());
-    await waitFor(() => expect(result.current.display).toBeNull());
+    await waitFor(() => expect(result.current.enabled).toBe(false));
+    expect(result.current.display).toBeNull();
     expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("서버 판정이 homeSummary 를 껐으면 부르지 않는다 — 빌드 플래그만으로는 못 켠다", async () => {
+    mocks.rolloutAllows.mockReturnValue(false);
+    const { result } = renderHook(() => useCanonicalHomeSummary());
+    await waitFor(() => expect(result.current.enabled).toBe(false));
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("둘 다 켜지면 서버 값으로 갈아탄다", async () => {
+    mocks.fetch.mockResolvedValue(withTotals());
+    const { result } = renderHook(() => useCanonicalHomeSummary());
+    await waitFor(() => expect(result.current.totals).toEqual(totals));
+    expect(result.current.enabled).toBe(true);
+    expect(result.current.display).toBe("value");
   });
 
   it("계산 중이고 캐시도 없으면 값을 주지 않는다 — 0 을 그리면 안 된다", async () => {
