@@ -73,7 +73,7 @@ export function fromPublicActivityMetrics(data: Record<string, unknown>): Activi
 
 export type UseActivityMetricsState =
   | { status: "loading"; metrics: null }
-  /** kill switch — 서버가 이 면을 껐다(소유자 정본 경로만). 화면은 중단을 명시한다. */
+  /** kill switch — 서버가 `activityDetail` 면을 껐다. 소유자·공개 뷰어 모두. 화면은 중단을 명시한다. */
   | { status: "disabled"; metrics: null }
   | { status: "missing"; metrics: null }
   /** 서버 doc 이 있으나 스키마 버전이 클라 기대보다 낮다. 값은 last-known-good 으로 그대로 쓰되
@@ -94,17 +94,37 @@ export type UseActivityMetricsState =
  *
  *   기본 true(소유자 화면 등 기존 호출 호환).
  *
- * `disabled` 는 이제 **kill switch** 하나만 뜻한다: 서버가 `activityDetail` 면을 껐고 내가
- * 소유자일 때. 공개 뷰어는 kill switch 와 무관하다 — 끄는 대상은 정본 소비 경로다.
+ * ## kill switch 는 공개 뷰어에게도 적용된다
+ *
+ * `disabled` 는 **kill switch** 를 뜻한다: 서버가 `activityDetail` 면을 껐다.
+ *
+ * 예전에는 소유자에게만 적용했다. 그러면 `config/canonicalRollout` 의 루트 `killSwitch` 로
+ * 전 화면을 껐는데도 남의 공개 활동 상세는 계속 정본 파생 문서를 그렸다 — 전량 정지가
+ * 전량이 아니었다 (#2237 리뷰).
+ *
+ * 서버 계약상 `activityDetail` 은 **활동 상세라는 정본 소비 화면 하나**의 스위치다
+ * (`orider-g1-web/functions/src/canonical-rollout-config.ts` — 화면 단위로 켜고 끄며 루트
+ * `killSwitch` 가 화면별 설정을 이긴다). `activity_metrics_public` 은 그 정본에서 서버가
+ * 파생한 projection 이므로 같은 스위치 아래에 있다. 그래서 면이 꺼지면 공개 뷰어도
+ * `disabled` 다 — 빈 화면이 아니라 중단을 밝힌다.
+ *
+ * **다만 "서버가 껐다" 와 "판정을 못 받았다" 는 다르다.** 로그아웃 상태의 방문자는 애초에
+ * 판정 대상이 아니라 판정이 존재하지 않는다. 없는 판정을 꺼짐으로 읽어 공개 활동 페이지를
+ * 잠그면, 게이트를 켜는 순간 비로그인 방문자 전원이 빈 화면을 본다. 그래서 공개 뷰어는
+ * **서버 판정을 실제로 받았고 그 판정이 꺼짐일 때만** 막는다(`rollout.verdictOk`). 소유자
+ * 경로는 정본 소비 그 자체이므로 예전처럼 fail-closed 다 — 판정을 못 받으면 꺼짐이다.
  */
 export function useActivityMetrics(activityId: string | null, isOwner = true): UseActivityMetricsState {
   const { firestore } = useFirebaseServices();
   const rollout = useCanonicalRollout();
   const [state, setState] = useState<UseActivityMetricsState>({ status: "loading", metrics: null });
 
-  // 정본 경로만 서버 전환 판정을 따른다. 판정을 기다리는 동안은 켜짐도 꺼짐도 아니다.
-  const gateWaiting = isOwner && rollout.gateEnabled && rollout.loading;
-  const gateBlocked = isOwner && !gateWaiting && !canonicalRolloutAllows(rollout, "activityDetail");
+  // 게이트 계층이 꺼져 있으면(오늘의 기본값) 판정은 조건에서 아예 빠진다 — 소유자도 공개 뷰어도
+  // 오늘과 똑같이 읽는다. 판정을 기다리는 동안은 켜짐도 꺼짐도 아니므로 둘 다 기다린다.
+  const gateWaiting = rollout.gateEnabled && rollout.loading;
+  const surfaceOff = !canonicalRolloutAllows(rollout, "activityDetail");
+  // 소유자는 fail-closed(판정 없음 = 꺼짐), 공개 뷰어는 서버가 실제로 껐다고 말했을 때만.
+  const gateBlocked = rollout.gateEnabled && !gateWaiting && surfaceOff && (isOwner || rollout.verdictOk);
   const collection = isOwner ? "activity_metrics" : "activity_metrics_public";
 
   useEffect(() => {
@@ -113,7 +133,8 @@ export function useActivityMetrics(activityId: string | null, isOwner = true): U
       return undefined;
     }
     if (gateBlocked) {
-      // kill switch — 서버가 이 면을 껐다. 화면은 빈 칸이 아니라 중단 상태를 밝힌다.
+      // kill switch — 서버가 이 면을 껐다. 공개 projection 도 같은 정본에서 파생되므로 함께 멈춘다.
+      // 화면은 빈 칸이 아니라 중단 상태를 밝힌다.
       setState({ status: "disabled", metrics: null });
       return undefined;
     }

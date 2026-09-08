@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import {
   mockDocData,
+  setCallableImplementation,
   setCallableResult,
   setDocData,
   simulateLogin,
@@ -17,6 +18,18 @@ import { useActivityMetrics } from "./useActivityMetrics";
 function signedIn({ children }: { children: React.ReactNode }) {
   const value = {
     user: { uid: "u1" } as AuthContextValue["user"],
+    profile: null,
+    profileLoading: false,
+    loading: false,
+    signInWithGoogle: async () => {},
+    logout: async () => {},
+  } satisfies AuthContextValue;
+  return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
+}
+
+function signedOut({ children }: { children: React.ReactNode }) {
+  const value = {
+    user: null,
     profile: null,
     profileLoading: false,
     loading: false,
@@ -138,17 +151,73 @@ describe("useActivityMetrics 전환 kill switch", () => {
     expect(result.current.metrics?.tss).toBe(42);
   });
 
-  it("kill switch 중에도 공개 뷰어는 공개 문서를 계속 본다", async () => {
-    resetRuntimeConfigForTests({ canonicalRolloutEnabled: true });
-    setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: false } } });
-    const { result } = renderHook(() => useActivityMetrics("act-k", false), { wrapper: signedIn });
-    await waitFor(() => expect(result.current.status).toBe("ready"));
-    expect(result.current.metrics?.distanceKm).toBe(30);
-  });
-
   it("게이트 계층이 꺼져 있으면 소유자 화면은 오늘과 같다", async () => {
     resetRuntimeConfigForTests({});
     const { result } = renderHook(() => useActivityMetrics("act-k", true), { wrapper: signedIn });
     await waitFor(() => expect(result.current.status).toBe("ready"));
+  });
+});
+
+
+/**
+ * kill switch 는 **전량 정지**여야 한다. 소유자만 멈추고 남의 공개 활동 상세가 계속 정본 파생
+ * 문서를 그리면 전량 정지가 전량이 아니다 (#2237 리뷰).
+ *
+ * 다만 "서버가 껐다" 와 "판정이 아예 없다" 는 다르다 — 비로그인 방문자는 판정 대상이 아니므로
+ * 공개 활동 읽기를 막지 않는다.
+ */
+describe("useActivityMetrics — activityDetail kill switch 범위", () => {
+  beforeEach(() => {
+    mockDocData.clear();
+    resetCanonicalRolloutCacheForTests();
+    simulateLogin({ uid: "u1" });
+    setDocData("activity_metrics/act-k", { version: ACTIVITY_METRICS_VERSION, tss: 42, distanceKm: 30 });
+    setDocData("activity_metrics_public/act-k", { version: ACTIVITY_METRICS_VERSION, distanceKm: 30 });
+  });
+  afterEach(() => {
+    simulateLogout();
+    resetRuntimeConfigForTests();
+  });
+
+  it("면이 꺼지면 공개 뷰어도 중단 상태다 — 공개 projection 을 그리지 않는다", async () => {
+    resetRuntimeConfigForTests({ canonicalRolloutEnabled: true });
+    setCallableResult("getCanonicalRollout", { data: { surfaces: {} } });
+    const { result } = renderHook(() => useActivityMetrics("act-k", false), { wrapper: signedIn });
+    await waitFor(() => expect(result.current.status).toBe("disabled"));
+    expect(result.current.metrics).toBeNull();
+  });
+
+  it("면이 켜져 있으면 공개 뷰어는 오늘처럼 공개 projection 을 본다", async () => {
+    resetRuntimeConfigForTests({ canonicalRolloutEnabled: true });
+    setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });
+    const { result } = renderHook(() => useActivityMetrics("act-k", false), { wrapper: signedIn });
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.metrics?.distanceKm).toBe(30);
+    expect(result.current.metrics?.tss).toBeUndefined();
+  });
+
+  it("게이트 계층이 꺼져 있으면 오늘과 똑같다 — 소유자도 공개 뷰어도 읽는다", async () => {
+    resetRuntimeConfigForTests({});
+    const owner = renderHook(() => useActivityMetrics("act-k", true), { wrapper: signedIn });
+    await waitFor(() => expect(owner.result.current.status).toBe("ready"));
+    const viewer = renderHook(() => useActivityMetrics("act-k", false), { wrapper: signedIn });
+    await waitFor(() => expect(viewer.result.current.status).toBe("ready"));
+  });
+
+  it("판정이 없는 비로그인 방문자는 공개 활동을 계속 읽는다 — 없는 판정은 꺼짐이 아니다", async () => {
+    resetRuntimeConfigForTests({ canonicalRolloutEnabled: true });
+    simulateLogout();
+    const { result } = renderHook(() => useActivityMetrics("act-k", false), { wrapper: signedOut });
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.metrics?.distanceKm).toBe(30);
+  });
+
+  it("판정 조회가 실패하면 소유자 정본은 꺼짐(fail-closed) 이다", async () => {
+    resetRuntimeConfigForTests({ canonicalRolloutEnabled: true });
+    setCallableImplementation("getCanonicalRollout", () => {
+      throw new Error("boom");
+    });
+    const { result } = renderHook(() => useActivityMetrics("act-k", true), { wrapper: signedIn });
+    await waitFor(() => expect(result.current.status).toBe("disabled"));
   });
 });
