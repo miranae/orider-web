@@ -13,6 +13,7 @@
  *    사용자는 서버가 멈춘 것을 영영 모른다.
  */
 import { canonicalDisplayShowsValue, type CanonicalDisplay } from "@shared/types/canonicalDisplay";
+import type { CanonicalHomeTotals } from "../../services/canonicalApi";
 
 /** 숫자 없는 상태에서 쓰는 안내 문구 키(`dashboard:canonical.*`). */
 export type CanonicalKpiNoteKey = "pending" | "failed" | "empty";
@@ -72,5 +73,30 @@ export function canonicalKpiPresentation<T>(
     showNumbers: true,
     sub: notes.value,
     chip: source.kind === "server" && source.stale ? notes.staleChip : null,
+  };
+}
+
+/** 화면이 쓰는 최근 7일 네 숫자. 단위는 클라 집계(`useWeeklyStats.thisWeek`)와 같다. */
+export interface HomeWeekTotals {
+  rides: number;
+  /** 미터. 표시 단위(km·mi) 변환은 formatter 한 곳에서만 한다. */
+  distance: number;
+  /** 밀리초. h:m 변환은 formatter 한 곳에서만 한다. */
+  time: number;
+  /** 미터. */
+  elevation: number;
+}
+
+/**
+ * 정본 합계 → 화면 이름. **여기서 단위를 바꾸지 않는다** — 서버가 이미 미터·밀리초로 주고,
+ * 클라 집계도 같은 단위라 두 출처가 같은 formatter 를 지난다. 예전에는 이 자리에서 ×1000 을
+ * 했다(웹이 km·초로 잘못 선언해서) — 실제 응답에서는 그 곱이 NaN 을 만들었다 (#2237 리뷰).
+ */
+export function canonicalWeekTotals(totals: CanonicalHomeTotals): HomeWeekTotals {
+  return {
+    rides: totals.activityCount,
+    distance: totals.distanceMeters,
+    time: totals.movingMillis,
+    elevation: Math.round(totals.elevationGainMeters),
   };
 }

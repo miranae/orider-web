@@ -38,7 +38,7 @@ import { isYearRecapSeason } from "../utils/yearRecapSeason";
 import { useConsistencyStreak } from "../hooks/useConsistencyStreak";
 import { useCanonicalHomeSummary } from "../hooks/useCanonicalHomeSummary";
 import { useCanonicalFitnessSummary } from "../hooks/useCanonicalFitnessSummary";
-import { canonicalKpiPresentation, canonicalKpiSource } from "../features/home/canonicalKpiSource";
+import { canonicalKpiPresentation, canonicalKpiSource, canonicalWeekTotals } from "../features/home/canonicalKpiSource";
 import { useDashboardPreferences } from "../hooks/useDashboardPreferences";
 import type { FitnessProjection } from "@shared/types/goal";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
@@ -404,12 +404,7 @@ export default function DashboardPage() {
    * `weekSource.kind === "state"` 라 아래에서 숫자 자체를 그리지 않는다.
    */
   const weekTotals = weekSource.kind === "server"
-    ? {
-        rides: weekSource.values.rideCount,
-        distance: weekSource.values.distanceKm * 1000,
-        time: weekSource.values.movingSec * 1000,
-        elevation: Math.round(weekSource.values.elevationGainMeters),
-      }
+    ? canonicalWeekTotals(weekSource.values)
     : thisWeek;
   const weekPresentation = canonicalKpiPresentation(weekSource, {
     value: t("kpi.subRecent7d"),

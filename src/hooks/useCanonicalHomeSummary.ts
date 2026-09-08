@@ -20,10 +20,10 @@ import { logClientError } from "../services/errorLogger";
 import {
   canonicalConsumersEnabled,
   fetchCanonicalHomeSummary,
-  type CanonicalHomeSummaryData,
+  parseCanonicalHomeRolling7d,
   type CanonicalHomeTotals,
 } from "../services/canonicalApi";
-import { decideCanonicalRender, type CanonicalDisplay } from "@shared/types/canonicalDisplay";
+import { decideCanonicalRender, canonicalDisplayShowsValue, type CanonicalDisplay } from "@shared/types/canonicalDisplay";
 import { canonicalRolloutAllows, useCanonicalRollout } from "./useCanonicalRollout";
 
 export interface CanonicalHomeSummaryState {
@@ -57,12 +57,22 @@ export function useCanonicalHomeSummary(): CanonicalHomeSummaryState {
   const load = useCallback(async (uid: string, myGeneration: number) => {
     const envelope = await fetchCanonicalHomeSummary();
     if (generation.current !== myGeneration) return;
-    const data = envelope.data as CanonicalHomeSummaryData | null;
     const decision = decideCanonicalRender(envelope, lastGood.current !== null);
     if (decision.contractViolations.length > 0) {
       logClientError("useCanonicalHomeSummary.contract", new Error(decision.contractViolations.join("; ")), { uid });
     }
-    const fresh = data?.rolling7d?.totals ?? null;
+    // 서버 필드명·단위로만 읽는다. 네 필드 중 하나라도 유한한 숫자가 아니면 **전체가 null** 이고
+    // 화면은 숫자 대신 상태를 그린다 — 0 도, NaN 도 만들지 않는다.
+    const fresh = parseCanonicalHomeRolling7d(envelope.data);
+    if (fresh === null && canonicalDisplayShowsValue(decision.display)) {
+      // 값을 그려야 하는 상태인데 모양이 안 맞는다 = 서버·클라 계약 드리프트. 조용히 빈 화면이
+      // 되면 아무도 모르므로 남긴다 (#2237 리뷰: 필드명 불일치가 이렇게 숨어 있었다).
+      logClientError(
+        "useCanonicalHomeSummary.shape",
+        new Error("rolling7d.totals 가 서버 계약 모양이 아니다"),
+        { uid, display: decision.display },
+      );
+    }
     if (fresh !== null && decision.display === "value") lastGood.current = fresh;
     setState({
       enabled: true,

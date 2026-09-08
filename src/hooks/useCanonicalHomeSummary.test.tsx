@@ -2,6 +2,12 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CANONICAL_SCHEMA_VERSION, type CanonicalEnvelope } from "@shared/types/canonical";
 
+import {
+  legacyWebHomeTotals,
+  serverHomeSummaryData,
+  serverHomeTotals,
+} from "../__tests__/fixtures/canonicalHomeSummary";
+
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
   enabled: vi.fn(() => true),
@@ -10,7 +16,9 @@ const mocks = vi.hoisted(() => ({
   rolloutAllows: vi.fn(() => true),
 }));
 
-vi.mock("../services/canonicalApi", () => ({
+// 파서는 진짜를 쓴다 — 여기서 흉내 내면 서버 계약과 어긋난 채로 통과한다 (#2237 리뷰).
+vi.mock("../services/canonicalApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../services/canonicalApi")>()),
   fetchCanonicalHomeSummary: mocks.fetch,
   canonicalConsumersEnabled: mocks.enabled,
 }));
@@ -38,9 +46,10 @@ function envelope(over: Partial<CanonicalEnvelope<unknown>>): CanonicalEnvelope<
   };
 }
 
-const totals = { rideCount: 3, distanceKm: 42, movingSec: 100, elevationGainMeters: 10 };
+/** 서버가 실제로 내려주는 모양. 픽스처 한 곳에서만 만든다. */
+const totals = serverHomeTotals;
 const withTotals = (status: CanonicalEnvelope<unknown>["status"] = "canonical") =>
-  envelope({ status, data: { rolling7d: { period: null, totals } } });
+  envelope({ status, data: serverHomeSummaryData() });
 
 describe("useCanonicalHomeSummary", () => {
   beforeEach(() => {
@@ -115,6 +124,30 @@ describe("useCanonicalHomeSummary", () => {
     mocks.user = { uid: "u2" };
     rerender();
     await waitFor(() => expect(result.current.display).toBe("loading"));
+    expect(result.current.totals).toBeNull();
+  });
+
+  it("옛 웹 필드명 페이로드는 '값 없음' 이다 — 0 도 NaN 도 만들지 않는다", async () => {
+    mocks.fetch.mockResolvedValue(
+      envelope({ data: { rolling7d: { period: null, totals: legacyWebHomeTotals } } }),
+    );
+    const { result } = renderHook(() => useCanonicalHomeSummary());
+    await waitFor(() => expect(result.current.display).toBe("value"));
+    // 화면이 그릴 값이 없다 → KPI 는 상태 문구를 그린다(canonicalKpiSource).
+    expect(result.current.totals).toBeNull();
+    // 조용히 빈 화면이 되지 않도록 계약 드리프트를 남긴다.
+    expect(mocks.log).toHaveBeenCalledWith(
+      "useCanonicalHomeSummary.shape", expect.any(Error), expect.objectContaining({ uid: "u1" }),
+    );
+  });
+
+  it("필드 하나만 빠져도 전체가 값 없음이다 — 나머지 칸이 0 으로 보이면 안 된다", async () => {
+    const { movingMillis: _drop, ...partial } = serverHomeTotals;
+    mocks.fetch.mockResolvedValue(
+      envelope({ data: { rolling7d: { period: null, totals: partial } } }),
+    );
+    const { result } = renderHook(() => useCanonicalHomeSummary());
+    await waitFor(() => expect(result.current.display).toBe("value"));
     expect(result.current.totals).toBeNull();
   });
 

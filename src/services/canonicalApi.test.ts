@@ -12,7 +12,14 @@ import {
   canonicalConsumersEnabled,
   fetchCanonicalHomeSummary,
   parseCanonicalFitnessSummary,
+  parseCanonicalHomeRolling7d,
+  parseCanonicalHomeTotals,
 } from "./canonicalApi";
+import {
+  legacyWebHomeTotals,
+  serverHomeSummaryData,
+  serverHomeTotals,
+} from "../__tests__/fixtures/canonicalHomeSummary";
 
 describe("canonicalApi", () => {
   beforeEach(() => {
@@ -60,7 +67,7 @@ describe("canonicalApi", () => {
   });
 
   it("성공 응답의 봉투를 그대로 전달한다", async () => {
-    const body = { data: { rolling7d: { totals: { rideCount: 3 } } }, status: "canonical", computedAt: 1 };
+    const body = { data: serverHomeSummaryData(), status: "canonical", computedAt: 1 };
     const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     const envelope = await fetchCanonicalHomeSummary();
@@ -69,6 +76,58 @@ describe("canonicalApi", () => {
       "https://api.example/api/v1/home/summary",
       { headers: { Authorization: "Bearer tok" } },
     );
+  });
+});
+
+
+/**
+ * 홈 요약 합계 파서. **서버 필드명·단위가 계약**이고, 그 밖의 모양은 값이 아니라 "없음" 이다.
+ *
+ * @sync-with orider-g1-web/functions/src/api/routes/home-summary-aggregate.ts#HomeSummaryTotals
+ */
+describe("parseCanonicalHomeTotals", () => {
+  it("서버 모양이면 그대로 통과한다 — 단위 변환 없음(미터·밀리초)", () => {
+    expect(parseCanonicalHomeTotals(serverHomeTotals)).toEqual(serverHomeTotals);
+  });
+
+  it("옛 웹 필드명(rideCount/distanceKm/movingSec)은 값이 아니다 — 불일치가 조용히 돌아오면 안 된다", () => {
+    expect(parseCanonicalHomeTotals(legacyWebHomeTotals)).toBeNull();
+  });
+
+  it.each(["activityCount", "distanceMeters", "movingMillis", "elevationGainMeters"] as const)(
+    "%s 가 없으면 전체가 null — 나머지 칸이 0 으로 보이면 안 된다",
+    (field) => {
+      const partial: Record<string, unknown> = { ...serverHomeTotals };
+      delete partial[field];
+      expect(parseCanonicalHomeTotals(partial)).toBeNull();
+    },
+  );
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, "42", null])(
+    "유한한 숫자가 아니면(%s) 값이 아니다",
+    (bad) => {
+      expect(parseCanonicalHomeTotals({ ...serverHomeTotals, distanceMeters: bad })).toBeNull();
+    },
+  );
+
+  it.each([null, undefined, 1, "x", []])("객체가 아니면 값이 아니다 (%s)", (bad) => {
+    expect(parseCanonicalHomeTotals(bad)).toBeNull();
+  });
+});
+
+describe("parseCanonicalHomeRolling7d", () => {
+  it("봉투 data 에서 최근 7일 합계를 꺼낸다", () => {
+    expect(parseCanonicalHomeRolling7d(serverHomeSummaryData())).toEqual(serverHomeTotals);
+  });
+
+  it("rolling7d 나 totals 가 없으면 값이 아니다", () => {
+    expect(parseCanonicalHomeRolling7d({})).toBeNull();
+    expect(parseCanonicalHomeRolling7d({ rolling7d: {} })).toBeNull();
+    expect(parseCanonicalHomeRolling7d(null)).toBeNull();
+  });
+
+  it("옛 웹 필드명만 담긴 응답은 값이 아니다 (회귀 가드)", () => {
+    expect(parseCanonicalHomeRolling7d({ rolling7d: { totals: legacyWebHomeTotals } })).toBeNull();
   });
 });
 

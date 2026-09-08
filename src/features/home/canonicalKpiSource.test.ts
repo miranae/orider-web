@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import ko from "../../i18n/resources/ko/dashboard.json";
-import { canonicalKpiPresentation, canonicalKpiSource } from "./canonicalKpiSource";
+import { serverHomeTotals } from "../../__tests__/fixtures/canonicalHomeSummary";
+import { canonicalKpiPresentation, canonicalKpiSource, canonicalWeekTotals } from "./canonicalKpiSource";
 
 /**
  * 이 표가 곧 홈 KPI 의 계약이다: **미계산·실패는 숫자가 아니다.** 0 도, 클라 집계도 아니다.
@@ -92,5 +93,31 @@ describe("canonicalKpiPresentation", () => {
 
   it("켜졌는데 응답 전이면 숫자를 그리지 않는다", () => {
     expect(canonicalKpiPresentation(canonicalKpiSource(true, null, null), notes).showNumbers).toBe(false);
+  });
+});
+
+/**
+ * 정본 합계 → 화면 이름. **단위를 바꾸지 않는다** — 서버가 미터·밀리초로 주고 클라 집계도
+ * 같은 단위다. 예전의 ×1000 은 실제 응답에서 NaN 을 만들었다 (#2237 리뷰).
+ */
+describe("canonicalWeekTotals", () => {
+  it("서버 필드명·단위를 그대로 옮긴다", () => {
+    expect(canonicalWeekTotals(serverHomeTotals)).toEqual({
+      rides: 3,
+      distance: 42_000,
+      time: 3_600_000,
+      elevation: 120,
+    });
+  });
+
+  it("어떤 값도 1000 배 되지 않는다 — 미터는 미터, 밀리초는 밀리초", () => {
+    const mapped = canonicalWeekTotals(serverHomeTotals);
+    expect(mapped.distance).toBe(serverHomeTotals.distanceMeters);
+    expect(mapped.time).toBe(serverHomeTotals.movingMillis);
+    expect(Number.isFinite(mapped.distance) && Number.isFinite(mapped.time)).toBe(true);
+  });
+
+  it("고도는 정수로 반올림한다", () => {
+    expect(canonicalWeekTotals({ ...serverHomeTotals, elevationGainMeters: 120.6 }).elevation).toBe(121);
   });
 });
