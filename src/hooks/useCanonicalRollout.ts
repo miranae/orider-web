@@ -21,6 +21,13 @@
  * `loading` 중에는 켜짐도 꺼짐도 아니다. 소비처는 이 상태에서 값을 그리지 않고(로딩) 기다린다 —
  * 꺼짐으로 단정하면 정상 사용자에게 "일시 중단" 이 깜빡인다.
  *
+ ## 남의 판정을 쓰지 않는다 (계정 전환)
+ *
+ * 판정은 **계정별**이다. 상태에 판정의 uid 를 함께 들고, 지금 로그인한 uid 와 다르면 렌더
+ * 경로에서 곧바로 "판정 전" 으로 답한다. 이전에는 상태에 uid 가 없어서 A→B 전환 첫 렌더가
+ * A 의 허용을 그대로 돌려주었고 — uid 변경 처리가 effect 라서 — B 의 판정이 오기 전에 구독·
+ * 요청이 이미 나갔다 (#2237 리뷰). 로그아웃(uid null)도 같다.
+ *
  * 이전에는 초기 상태가 `gateEnabled: false` 였다. 게이트가 **켜져 있을 때** 첫 렌더가
  * "게이트 없음" 으로 보였고, `canonicalRolloutAllows` 가 통과를 돌려주어 소비처가 판정 전에
  * 코스 요청과 소유자 지표 구독을 시작했다 (#2237 리뷰). 게이트가 켜져 있으면 effect 가 돌기
@@ -54,19 +61,30 @@ export interface CanonicalRolloutState {
   surfaces: CanonicalRolloutSurfaces;
 }
 
+/**
+ * 훅 내부 상태. 공개 모양에 **판정의 주인(uid)** 을 더한다 — 소비처는 이 필드를 볼 필요가
+ * 없고(렌더 경로에서 이미 걸러진다), 보게 두면 각자 계정 비교를 다시 구현한다.
+ */
+interface RolloutSnapshot extends CanonicalRolloutState {
+  /** 이 판정이 어느 계정의 것인가. 미로그인·판정 전은 null. */
+  verdictUid: string | null;
+}
+
 /** 게이트가 켜져 있는데 아직 판정이 없는 상태. 첫 렌더와 런타임 설정 늦은 도착이 여기로 온다. */
-const PENDING: CanonicalRolloutState = {
+const PENDING: RolloutSnapshot = {
   gateEnabled: true,
   loading: true,
   verdictOk: false,
   surfaces: canonicalRolloutAllOff(),
+  verdictUid: null,
 };
 
-const OFF: CanonicalRolloutState = {
+const OFF: RolloutSnapshot = {
   gateEnabled: false,
   loading: false,
   verdictOk: false,
   surfaces: canonicalRolloutAllOff(),
+  verdictUid: null,
 };
 
 export function useCanonicalRollout(): CanonicalRolloutState {
@@ -74,7 +92,7 @@ export function useCanonicalRollout(): CanonicalRolloutState {
   // 런타임 설정은 fetch 로 늦게 도착할 수 있다 — 렌더마다 읽어 도착 시 그대로 반영된다.
   const gateEnabled = canonicalRolloutGateEnabled();
   const uid = user?.uid ?? null;
-  const [state, setState] = useState<CanonicalRolloutState>(() =>
+  const [state, setState] = useState<RolloutSnapshot>(() =>
     canonicalRolloutGateEnabled() ? PENDING : OFF,
   );
 
@@ -85,7 +103,10 @@ export function useCanonicalRollout(): CanonicalRolloutState {
     }
     if (!uid) {
       // 미로그인은 판정 대상이 아니다 — fail-closed 기본값이다.
-      setState({ gateEnabled: true, loading: false, verdictOk: false, surfaces: canonicalRolloutAllOff() });
+      setState({
+        gateEnabled: true, loading: false, verdictOk: false,
+        surfaces: canonicalRolloutAllOff(), verdictUid: null,
+      });
       return;
     }
     let active = true;
@@ -103,11 +124,15 @@ export function useCanonicalRollout(): CanonicalRolloutState {
             loading: false,
             verdictOk: result.ok,
             surfaces: result.surfaces,
+            verdictUid: uid,
           });
         }
       });
     };
-    setState({ gateEnabled: true, loading: true, verdictOk: false, surfaces: canonicalRolloutAllOff() });
+    setState({
+      gateEnabled: true, loading: true, verdictOk: false,
+      surfaces: canonicalRolloutAllOff(), verdictUid: null,
+    });
     refresh();
     const onVisibility = () => {
       if (document.visibilityState === "visible") refresh();
@@ -127,6 +152,9 @@ export function useCanonicalRollout(): CanonicalRolloutState {
   // 옛 `gateEnabled: false` 를 그대로 돌려주면 한 프레임 동안 조용히 통과한다.
   if (gateEnabled && !state.gateEnabled) return PENDING;
   if (!gateEnabled && state.gateEnabled) return OFF;
+  // 계정이 방금 바뀌었다면(로그아웃 포함) 손에 있는 판정은 **남의 것**이다. effect 가 돌기
+  // 전이므로 여기서 막지 않으면 그 한 프레임에 이전 계정의 허용으로 읽기가 나간다.
+  if (gateEnabled && !state.loading && state.verdictUid !== uid) return PENDING;
   return state;
 }
 

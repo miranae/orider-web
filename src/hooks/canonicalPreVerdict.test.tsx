@@ -44,6 +44,21 @@ vi.mock("../services/courseAnalysisReader", () => ({
   })),
 }));
 
+/** 렌더마다 읽는다 — 값을 바꾸고 rerender 하면 계정 전환이 된다. */
+let wrapperUid: string | null = "u1";
+
+function signedInAs({ children }: { children: React.ReactNode }) {
+  const value = {
+    user: (wrapperUid === null ? null : { uid: wrapperUid }) as AuthContextValue["user"],
+    profile: null,
+    profileLoading: false,
+    loading: false,
+    signInWithGoogle: async () => {},
+    logout: async () => {},
+  } satisfies AuthContextValue;
+  return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
+}
+
 function signedIn({ children }: { children: React.ReactNode }) {
   const value = {
     user: { uid: "u1" } as AuthContextValue["user"],
@@ -124,5 +139,101 @@ describe("판정 전에는 아무것도 읽지 않는다", () => {
     await waitFor(() => expect(vi.mocked(fetchCourseAnalysis)).toHaveBeenCalled());
     expect(vi.mocked(onSnapshot)).toHaveBeenCalled();
     expect(mockCallableInvocations).toEqual([]);
+  });
+});
+
+/**
+ * 계정 전환 직후 (#2237 리뷰 2번).
+ *
+ * 판정은 계정별이다. A→B 첫 렌더에서 A 의 허용을 그대로 쓰면 그 프레임에 B 의 화면이 이미
+ * 읽기를 시작한다 — uid 변경 처리는 effect 라서 B 의 판정보다 렌더가 먼저다. 그래서 여기서도
+ * 보는 것은 상태가 아니라 **바깥으로 나간 읽기** 다.
+ */
+describe("계정이 바뀌면 판정도 다시 받는다", () => {
+  beforeEach(() => {
+    resetCanonicalRolloutCacheForTests();
+    mockCallableInvocations.length = 0;
+    vi.mocked(onSnapshot).mockClear();
+    vi.mocked(fetchCourseAnalysis).mockClear();
+    wrapperUid = "u1";
+    simulateLogin({ uid: "u1" });
+  });
+  afterEach(() => {
+    wrapperUid = "u1";
+    simulateLogout();
+    resetRuntimeConfigForTests();
+  });
+
+  it("전환 첫 렌더는 이전 계정의 허용을 재사용하지 않는다 — 판정 전이다", async () => {
+    resetRuntimeConfigForTests({ canonicalRolloutEnabled: true });
+    setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });
+    const { result, rerender } = renderHook(() => useCanonicalRollout(), { wrapper: signedInAs });
+    await waitFor(() => expect(result.current.verdictOk).toBe(true));
+
+    hangRolloutVerdict();
+    wrapperUid = "u2";
+    simulateLogin({ uid: "u2" });
+    rerender();
+    expect(result.current.loading).toBe(true);
+    expect(result.current.verdictOk).toBe(false);
+    expect(result.current.surfaces.activityDetail).toBe(false);
+  });
+
+  it("로그아웃도 판정 전이다 — 직전 계정의 허용이 남지 않는다", async () => {
+    resetRuntimeConfigForTests({ canonicalRolloutEnabled: true });
+    setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });
+    const { result, rerender } = renderHook(() => useCanonicalRollout(), { wrapper: signedInAs });
+    await waitFor(() => expect(result.current.verdictOk).toBe(true));
+
+    wrapperUid = null;
+    simulateLogout();
+    rerender();
+    expect(result.current.verdictOk).toBe(false);
+    expect(result.current.surfaces.activityDetail).toBe(false);
+  });
+
+  it("소유자 지표는 전환 직후 새 활동을 구독하지 않는다 — B 의 판정 전이다", async () => {
+    resetRuntimeConfigForTests({ canonicalRolloutEnabled: true });
+    setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });
+    const { rerender } = renderHook(
+      ({ id }: { id: string }) => useActivityMetrics(id, true),
+      { wrapper: signedInAs, initialProps: { id: "act-1" } },
+    );
+    await waitFor(() => expect(vi.mocked(onSnapshot)).toHaveBeenCalled());
+
+    vi.mocked(onSnapshot).mockClear();
+    // B 의 판정은 오지 않는다 — 그동안 아무 구독도 나가면 안 된다.
+    hangRolloutVerdict();
+    wrapperUid = "u2";
+    simulateLogin({ uid: "u2" });
+    rerender({ id: "act-2" });
+    expect(vi.mocked(onSnapshot)).not.toHaveBeenCalled();
+    await act(async () => { await Promise.resolve(); });
+    expect(vi.mocked(onSnapshot)).not.toHaveBeenCalled();
+  });
+
+  it("코스 정본은 전환 직후 요청하지 않고, B 의 판정이 켜짐으로 오면 그때 읽는다", async () => {
+    resetRuntimeConfigForTests({ canonicalRolloutEnabled: true, canonicalCourseEnabled: true });
+    setCallableResult("getCanonicalRollout", { data: { surfaces: { course: true } } });
+    const { rerender } = renderHook(
+      ({ id }: { id: string }) => useCourseAnalysis(id),
+      { wrapper: signedInAs, initialProps: { id: "course-1" } },
+    );
+    await waitFor(() => expect(vi.mocked(fetchCourseAnalysis)).toHaveBeenCalledWith("course-1"));
+
+    vi.mocked(fetchCourseAnalysis).mockClear();
+    let releaseVerdict: (() => void) | null = null;
+    setCallableImplementation("getCanonicalRollout", () => new Promise((resolve) => {
+      releaseVerdict = () => resolve({ data: { surfaces: { course: true } } });
+    }));
+    wrapperUid = "u2";
+    simulateLogin({ uid: "u2" });
+    rerender({ id: "course-2" });
+    await act(async () => { await Promise.resolve(); });
+    expect(vi.mocked(fetchCourseAnalysis)).not.toHaveBeenCalled();
+
+    // 판정이 도착하면 막힌 채로 남지 않는다.
+    await act(async () => { releaseVerdict!(); await Promise.resolve(); });
+    await waitFor(() => expect(vi.mocked(fetchCourseAnalysis)).toHaveBeenCalledWith("course-2"));
   });
 });
