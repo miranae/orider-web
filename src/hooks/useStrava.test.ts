@@ -11,6 +11,10 @@ const mocks = vi.hoisted(() => ({
   logClientError: vi.fn(),
 }));
 
+vi.mock("../services/runtimeConfig", () => ({
+  getRuntimeConfig: () => ({ stravaClientId: "123", stravaRedirectUri: "https://example.com/callback" }),
+}));
+
 vi.mock("../services/analytics", () => ({ track: mocks.track }));
 vi.mock("../services/errorLogger", () => ({ logClientError: mocks.logClientError }));
 
@@ -69,16 +73,28 @@ describe("useStrava", () => {
     expect(data).toEqual({ jobId: "job-1", queuePosition: 0 });
   });
 
-  it("connectStrava redirects to Strava OAuth", () => {
-    const originalHref = window.location.href;
+  it("preserves publishing intent for retry and resets it for a fresh read-only connection", () => {
+    sessionStorage.clear();
     const { result } = renderHook(() => useStrava());
+    const location = { origin: "https://example.com", href: "" };
+    vi.stubGlobal("window", { location });
+    try {
+      result.current.connectStrava("/activities/a1", { writeActivities: true });
+      expect(sessionStorage.getItem("strava_write_activities")).toBe("true");
+      expect(sessionStorage.getItem("strava_state")).toBeTruthy();
+      const publishingUrl = new URL(location.href);
+      expect(publishingUrl.searchParams.get("scope")).toContain("activity:write");
+      expect(publishingUrl.searchParams.get("approval_prompt")).toBe("force");
 
-    // Mock crypto.randomUUID
-    vi.spyOn(crypto, "randomUUID").mockReturnValue("test-uuid" as `${string}-${string}-${string}-${string}-${string}`);
-
-    // connectStrava tries to set window.location.href
-    // In jsdom this will throw, but we can verify the function exists
-    expect(typeof result.current.connectStrava).toBe("function");
+      result.current.connectStrava("/settings");
+      expect(sessionStorage.getItem("strava_write_activities")).toBeNull();
+      const readOnlyUrl = new URL(location.href);
+      expect(readOnlyUrl.searchParams.get("scope")).toBe("read,activity:read_all");
+      expect(readOnlyUrl.searchParams.has("approval_prompt")).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+      sessionStorage.clear();
+    }
   });
 
   it("verifyMigration calls stravaMigrationVerify", async () => {

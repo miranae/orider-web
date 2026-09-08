@@ -19,6 +19,8 @@ export function useStrava() {
 
     const nonce = crypto.randomUUID();
     sessionStorage.setItem("strava_state", nonce);
+    if (options?.writeActivities) sessionStorage.setItem("strava_write_activities", "true");
+    else sessionStorage.removeItem("strava_write_activities");
     if (returnTo) sessionStorage.setItem("strava_return_to", returnTo);
 
     // state = "returnOrigin|nonce" → 프록시가 파싱하여 원래 출처로 리다이렉트
