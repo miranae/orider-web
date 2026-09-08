@@ -905,5 +905,43 @@
       "improvedTiny": "{{dist}} 최고 기록 {{time}} — 이전 기록을 갱신했어요! O-Rider에서 분석했어요.",
       "first": "{{dist}} 첫 기록 {{time}}을 세웠어요! O-Rider에서 분석했어요."
     }
+  },
+  "stravaSummary": {
+    "title": "Strava에 요약 게시",
+    "disclosure": "체력·피로·상태를 포함한 공유요약을 Strava 활동 설명에 게시합니다. 기존 설명은 보존하고 오라이더 요약만 갱신합니다.",
+    "publish": "Strava에 게시 / 갱신",
+    "working": "처리 중…",
+    "reconnect": "Strava 쓰기 권한 연결",
+    "targetHelp": "연결된 Strava 활동이 없나요?",
+    "targetLabel": "이 요약을 게시할 내 Strava 활동 링크",
+    "automatic": "앞으로 시작하는 활동이 Strava에 연결되면 요약 자동 게시",
+    "loadSettings": "자동 게시 설정 다시 불러오기",
+    "published": "Strava 활동 설명에 요약을 게시했습니다.",
+    "unchanged": "이미 같은 요약이 게시되어 있습니다.",
+    "queued": "게시 대기 중입니다. 일시적인 오류는 자동으로 다시 시도합니다.",
+    "reauthorization-required": "Strava 연결 또는 활동 쓰기 권한이 필요합니다. 다시 연결해 주세요.",
+    "unavailable": "게시할 활동 연결 또는 분석이 준비되지 않았습니다. Strava 활동 링크를 지정하거나 잠시 후 다시 시도해 주세요.",
+    "invalidTarget": "올바른 Strava 활동 링크를 입력해 주세요.",
+    "settingsError": "자동 게시 설정을 불러오거나 저장하지 못했습니다. 다시 시도해 주세요.",
+    "publishError": "Strava 게시 요청에 실패했습니다. 다시 시도해 주세요.",
+    "autoEnabled": "앞으로 시작하는 활동의 자동 게시를 켰습니다.",
+    "autoDisabled": "자동 게시를 껐습니다.",
+    "view": "Strava에서 확인"
+  },
+  "socialSummary": {
+    "retry": "공유요약 다시 불러오기",
+    "retrying": "공유요약 불러오는 중…",
+    "retryHint": "기존 코칭은 유지됩니다. 공유요약만 다시 불러올 수 있습니다.",
+    "retryError": "공유요약을 불러오지 못했습니다. 다시 시도해 주세요.",
+    "title": "공유용 요약",
+    "integrated": "종목 통합 부하 · 활동 반영 전 → 후",
+    "ctl": "CTL · 통합 체력",
+    "atl": "ATL · 피로",
+    "tsb": "TSB · 상태",
+    "counterfactual": "같은 기준 시점에서 이 활동의 포함 여부를 비교한 훈련 부하 추정치입니다.",
+    "unavailable": "이 활동의 통합 체력 변화를 계산할 데이터가 부족합니다.",
+    "copy": "공유 문구 복사",
+    "copied": "공유 문구를 복사했습니다.",
+    "error": "복사하지 못했습니다. 다시 시도해 주세요."
   }
 }

@@ -47,8 +47,8 @@ vi.mock("../hooks/useLocalizedNavigate", () => ({
 
 vi.mock("../hooks/useStrava", () => ({
   useStrava: () => ({
-    connectStrava: (returnTo: string) => mocks.connectStrava(returnTo),
-    exchangeCode: (code: string) => mocks.exchangeCode(code),
+    connectStrava: mocks.connectStrava,
+    exchangeCode: (...args: [string, string?]) => mocks.exchangeCode(...args),
   }),
 }));
 
@@ -57,6 +57,11 @@ vi.mock("../services/analytics", () => ({
 }));
 
 describe("StravaCallbackPage", () => {
+  it("forwards the scope returned by Strava when authorizing publishing", async () => {
+    sessionStorage.setItem("strava_state", "nonce");
+    render(<MemoryRouter initialEntries={["/strava/callback?code=write-code&state=nonce&scope=read,activity:read_all,activity:write"]}><StravaCallbackPage /></MemoryRouter>);
+    await waitFor(() => expect(mocks.exchangeCode).toHaveBeenCalledWith("write-code", "read,activity:read_all,activity:write"));
+  });
   beforeEach(() => {
     vi.useRealTimers();
     sessionStorage.clear();
@@ -151,7 +156,31 @@ describe("StravaCallbackPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "stravaCallback.action.retry" }));
 
-    expect(mocks.connectStrava).toHaveBeenCalledWith("/onboarding?returnTo=%2Fgroup%2Fabc");
+    expect(mocks.connectStrava).toHaveBeenCalledWith("/onboarding?returnTo=%2Fgroup%2Fabc", { writeActivities: false });
+  });
+
+  it.each(["denied", "exchange failed"])("preserves publishing permission when retrying after %s", async (failure) => {
+    sessionStorage.setItem("strava_state", "nonce");
+    sessionStorage.setItem("strava_return_to", "/activities/a1");
+    sessionStorage.setItem("strava_write_activities", "true");
+    mocks.exchangeCode.mockRejectedValue(new Error("Token exchange failed"));
+    const callback = failure === "denied"
+      ? "/strava/callback?error=access_denied&state=nonce"
+      : "/strava/callback?code=write-code&state=nonce";
+
+    render(<MemoryRouter initialEntries={[callback]}><StravaCallbackPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: "stravaCallback.action.retry" }));
+
+    expect(mocks.connectStrava).toHaveBeenCalledWith("/activities/a1", { writeActivities: true });
+  });
+
+  it("clears publishing permission intent after a successful exchange", async () => {
+    sessionStorage.setItem("strava_state", "nonce");
+    sessionStorage.setItem("strava_write_activities", "true");
+    render(<MemoryRouter initialEntries={["/strava/callback?code=write-code&state=nonce"]}><StravaCallbackPage /></MemoryRouter>);
+
+    await screen.findByText("stravaCallback.step.done");
+    expect(sessionStorage.getItem("strava_write_activities")).toBeNull();
   });
 
   it("offers a direct path to Strava connection settings on callback failure", async () => {
