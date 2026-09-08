@@ -11,6 +11,7 @@ import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard"
 import CriticalPaceCurve from "../components/charts/CriticalPaceCurve";
 import CSSCurve from "../components/charts/CSSCurve";
 import FitnessChart from "../components/FitnessChart";
+import PmcHistoryPanel from "../features/fitness/components/PmcHistoryPanel";
 import CyclingAbilityCard from "../components/fitness/CyclingAbilityCard";
 import MilestoneCelebration from "../components/fitness/MilestoneCelebration";
 import MilestonesGrid from "../components/fitness/MilestonesGrid";
@@ -48,7 +49,7 @@ import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainin
 import { useFitnessModel, type FitnessModel } from "../hooks/useFitnessModel";
 import { Card, Chip, Text, buttonClass } from "../theme/components";
 import { getDisciplineColor } from "../utils/disciplineFilter";
-import { toLocalDate } from "../utils/dateUtils";
+import { toLocalDate, toUtcDate } from "../utils/dateUtils";
 import TriFitnessView from "./fitness/TriFitnessView";
 
 export interface FitnessViewProps {
@@ -164,7 +165,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     );
   }
 
-  if (renderMobile && activities.length === 0) {
+  if (renderMobile && activities.length === 0 && fitnessData.length === 0) {
     return (
       <div style={{ padding: "20px 16px 40px" }}>
         {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
@@ -193,6 +194,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         timeline={triFitnessTimeline}
         combinedLoad={combinedLoad}
         loadFocus={integratedLoadFocus}
+        historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={model.hasCanonicalHistory} />}
       />
     );
   }
@@ -388,7 +390,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
       </div>
     );
   }
-  if (activities.length === 0) {
+  if (activities.length === 0 && fitnessData.length === 0) {
     return (
       <div>
         {pageHeader}
@@ -494,6 +496,14 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         )}
 
         {/* PMC 차트 */}
+        <PmcHistoryPanel
+          key={`${user.uid}-${discipline}`}
+          points={model.pmcHistoryPoints}
+          today={toUtcDate(Date.now())}
+          canonical={model.hasCanonicalHistory}
+          ctlColor={getDisciplineColor(discipline)}
+        />
+        <DetailsSection title={t("history.dailyDetails")}>
         <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
           <div style={{ display: "flex", alignItems: "flex-end", marginBottom: "var(--space-3)" }}>
             <div>
@@ -646,6 +656,8 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             );
           })()}
         </Card>
+
+        </DetailsSection>
 
         {/* 상세 분석 — 바이크 개선 액션·VO2max·강점/약점·야외 페이싱·라이더 유형. */}
         {discipline === "bike" && (

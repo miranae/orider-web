@@ -48,7 +48,7 @@ interface ControlledListener {
   unsubscribe: ReturnType<typeof vi.fn>;
 }
 
-function installControlledSnapshots(): ControlledListener[] {
+function installControlledSnapshots(includeTimeseries = false): ControlledListener[] {
   const listeners: ControlledListener[] = [];
   vi.mocked(onSnapshot).mockImplementation(((_ref, options, next, error) => {
     const ref = _ref as { path: string };
@@ -59,7 +59,10 @@ function installControlledSnapshots(): ControlledListener[] {
       error: error as ControlledListener["error"],
       unsubscribe: vi.fn(),
     };
-    listeners.push(listener);
+    // 기존 listener 복구 테스트는 lifecycle 도입 전 사용자를 기본 fixture로 유지한다.
+    if (!includeTimeseries && ref.path.includes("/timeseries_")) {
+      listener.next({ data: () => undefined, metadata: { fromCache: false } });
+    } else listeners.push(listener);
     return listener.unsubscribe;
   }) as typeof onSnapshot);
   return listeners;
@@ -86,9 +89,92 @@ describe("useFreshTraining", () => {
     setCallableResult("revalidateTraining", { data: { ok: true, status: "recomputed" } });
   });
 
+  it.each(["failed", "pending", "invalidated", "revision-mismatch", "previous-day", "wrong-sport", "ingest-after-read", "unknown-processed", "processed"])("신선한 projection과 별개로 단일 종목 %s lifecycle을 검사한다", async (status) => {
+    const listeners = installControlledSnapshots(true);
+    const now = Date.now();
+    const date = new Date(now).toISOString().slice(0, 10);
+    const readTime = { seconds: Math.floor(now / 1000), nanoseconds: 0 };
+    const lifecycle = {
+      discipline: status === "wrong-sport" ? "run" : "bike",
+      loadSnapshot: { inputRevision: 2, inputDigest: "two", asOf: status === "ingest-after-read" ? now - 1000 : now, inputReadTime: readTime,
+        coverageStartDate: date, coverageEndDate: status === "previous-day" ? new Date(now - 86400000).toISOString().slice(0, 10) : date,
+        points: status === "unknown-processed" ? [{ date, dailyLoad: 0, status: "unknown" }] : [] },
+      pmc: { status: ["failed", "pending"].includes(status) ? status : "processed", attemptId: "two", inputRevision: 2,
+        processedInputRevision: status === "revision-mismatch" ? 1 : 2, asOf: now, deadlineAt: now - 1 },
+      ...(status === "invalidated" ? { inputInvalidatedAt: { ...readTime, nanoseconds: 1 } } : {}),
+    };
+    const { result, unmount } = renderHook(() => useFreshTraining("bike"));
+    expect(listeners.map(listener => listener.path)).toEqual(["users/training-user", "users/training-user/fitness/projection_bike", "users/training-user/fitness/timeseries_bike"]);
+    act(() => { emit(listeners[0], status === "ingest-after-read" ? { lastActivityIngestAt: now - 500 } : {}); emit(listeners[1], { computedAt: now }); emit(listeners[2], lifecycle, true); });
+    expect(result.current.lastStatus).toBeNull();
+    act(() => emit(listeners[2], lifecycle));
+    const processed = status === "processed" || status === "unknown-processed";
+    await waitFor(() => expect(result.current.lastStatus).toBe(processed ? "fresh" : "recomputed"));
+    expect(mockCallableInvocations).toHaveLength(processed ? 0 : 1);
+    unmount();
+    expect(listeners.every(listener => listener.unsubscribe.mock.calls.length === 1)).toBe(true);
+  });
+
+  it("과거 미확인 부하로 stale이어도 최신 revision 처리가 끝난 통합은 반복 계산하지 않는다", async () => {
+    const listeners = installControlledSnapshots();
+    const { result } = renderHook(() => useFreshTraining("tri"));
+    act(() => { emit(listeners[0], {}); emit(listeners[1], { computedAt: Date.now(), processingSourceAsOf: Date.now(), state: "stale", processingState: "processed", inputRevision: "bike:1|run:1|swim:1" }); });
+    await waitFor(() => expect(result.current.lastStatus).toBe("fresh"));
+    expect(mockCallableInvocations).toHaveLength(0);
+  });
+
+  it.each(["pending", "failed"])("통합 completeness가 final이어도 processingState %s는 재검증한다", async (processingState) => {
+    const listeners = installControlledSnapshots();
+    const { result } = renderHook(() => useFreshTraining("tri"));
+    act(() => { emit(listeners[0], {}); emit(listeners[1], { computedAt: Date.now(), state: "final", processingState, inputRevision: "bike:1|run:1|swim:1" }); });
+    await waitFor(() => expect(result.current.lastStatus).toBe("recomputed"));
+  });
+
+  it.each(["old-source", "previous-day", "ingest-after-source", "missing", "invalid", "fresh"])("통합 쓰기 시각 대신 가장 오래된 원본 시각(%s)으로 신선도를 판단한다", async (scenario) => {
+    const listeners = installControlledSnapshots();
+    const now = Date.now();
+    const sourceAsOf = scenario === "old-source" ? now - 4 * 3600000
+      : scenario === "previous-day" ? now - 86400000
+      : scenario === "ingest-after-source" ? now - 1000
+      : scenario === "missing" ? null : scenario === "invalid" ? Infinity : now;
+    const { result } = renderHook(() => useFreshTraining("tri"));
+    act(() => {
+      emit(listeners[0], scenario === "ingest-after-source" ? { lastActivityIngestAt: now - 500 } : {});
+      emit(listeners[1], { computedAt: now, processingSourceAsOf: sourceAsOf, processingState: "processed",
+        state: "final", inputRevision: "bike:1|run:1|swim:1" });
+    });
+    await waitFor(() => expect(result.current.lastStatus).toBe(scenario === "fresh" ? "fresh" : "recomputed"));
+    expect(mockCallableInvocations).toHaveLength(scenario === "fresh" ? 0 : 1);
+  });
+
+  it("통합 화면은 단일 projection 대신 전체 입력 revision을 확인해 세 종목 갱신을 요청한다", async () => {
+    const listeners = installControlledSnapshots();
+    const { result } = renderHook(() => useFreshTraining("tri"));
+    expect(listeners[1].path).toBe("users/training-user/fitness/current");
+    act(() => { emit(listeners[0], {}); emit(listeners[1], { computedAt: Date.now(), state: "final", inputRevision: "bike:1" }); });
+    await waitFor(() => expect(result.current.lastStatus).toBe("recomputed"));
+    expect(mockCallableInvocations).toEqual([{ name: "revalidateTraining", data: { discipline: "tri" } }]);
+  });
+
+  it("통합 전체 revision이 신선하면 재계산 요청을 생략한다", async () => {
+    const listeners = installControlledSnapshots();
+    const { result } = renderHook(() => useFreshTraining("tri"));
+    act(() => { emit(listeners[0], {}); emit(listeners[1], { computedAt: Date.now(), state: "final", inputRevision: "bike:1|run:1|swim:1" }); });
+    await waitFor(() => expect(result.current.lastStatus).toBe("fresh"));
+    expect(mockCallableInvocations).toHaveLength(0);
+  });
+
+  it("손상된 통합 계산 날짜는 화면 오류 없이 재검증한다", async () => {
+    const listeners = installControlledSnapshots();
+    const { result } = renderHook(() => useFreshTraining("tri"));
+    act(() => { emit(listeners[0], {}); emit(listeners[1], { computedAt: Infinity, state: "final", inputRevision: "bike:1|run:1|swim:1" }); });
+    await waitFor(() => expect(result.current.lastStatus).toBe("recomputed"));
+  });
+
   it("reports metadata only from current active listeners, including later projection snapshots", () => {
     const listeners = installControlledSnapshots();
     const { unmount } = renderHook(() => useFreshTraining("bike"));
+    vi.mocked(noteFirestoreServerSuccess).mockClear();
     act(() => {
       emit(listeners[1], { computedAt: Date.now() });
       emit(listeners[1], { computedAt: Date.now() });

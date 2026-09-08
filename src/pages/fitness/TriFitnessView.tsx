@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import DisciplineTabs from "../../components/redesign/DisciplineTabs";
@@ -7,6 +7,7 @@ import IntegratedLoadCard, { type CombinedLoadStatus } from "../../components/mo
 import type { LoadFocusResult } from "../../features/fitness/multisportPerformance";
 import { DISCIPLINE_CHART_COLORS, PMC_LINE_PALETTE } from "../../features/fitness/chartPalette";
 import type { TriFitnessBreakdown, TriFitnessTimelinePoint } from "../../hooks/useFitnessModel";
+import DetailsSection from "../../components/redesign/DetailsSection";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Props
@@ -20,6 +21,7 @@ interface TriFitnessViewProps {
   timeline: TriFitnessTimelinePoint[];
   combinedLoad: CombinedLoadStatus | null;
   loadFocus: LoadFocusResult;
+  historySlot?: ReactNode;
 }
 
 
@@ -515,7 +517,7 @@ const LEGEND_ITEM_KEYS = [
 // ─────────────────────────────────────────────────────────────────────────────
 // TriFitnessView
 // ─────────────────────────────────────────────────────────────────────────────
-export default function TriFitnessView({ range, onRangeChange, breakdown: triBreakdown, timeline, combinedLoad, loadFocus }: TriFitnessViewProps) {
+export default function TriFitnessView({ range, onRangeChange, breakdown: triBreakdown, timeline, combinedLoad, loadFocus, historySlot }: TriFitnessViewProps) {
   const { t } = useTranslation("fitness");
 
   // ── 실데이터 기반 KPI 변수 ─────────────────────────────────────────────────
@@ -642,6 +644,8 @@ export default function TriFitnessView({ range, onRangeChange, breakdown: triBre
         </div>
       )}
 
+      {historySlot}
+      <DetailsSection title={t("history.disciplineDetails")} defaultOpen={!historySlot}>
       {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, 이 PMC는 시간 추이만 담당한다. */}
       <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
         <div
@@ -778,6 +782,8 @@ export default function TriFitnessView({ range, onRangeChange, breakdown: triBre
           </div>
         </div>
       </Card>
+
+      </DetailsSection>
 
       {/* 종목별 드릴다운 카드 */}
       <div style={{ marginTop: 'var(--space-5)' }}>

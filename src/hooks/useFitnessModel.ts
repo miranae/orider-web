@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { describePmcHistory, pmcHistoryDeadline } from "../features/fitness/pmcHistory";
 import {
   FITNESS_TIMESERIES_SCHEMA_VERSION,
   type FitnessTimeseriesDoc,
@@ -327,7 +328,7 @@ export function useFitnessModel(
   }, [dismissedMilestones, milestones]);
 
   const { revalidating, justRecomputed } = useFreshTraining(
-    discipline === "tri" ? undefined : discipline,
+    discipline,
   );
   const projUnsubRef = useRef<(() => void) | null>(null);
   const projectionGoalIdRef = useRef<string | null>(null);
@@ -563,8 +564,8 @@ export function useFitnessModel(
   const { fitnessData, dailyData } = useMemo(() => {
     const points = discipline === "tri"
       ? triFitnessTimeline.map((point) => point.integrated)
-      : timeseries?.points;
-    if (points && points.length > 0) {
+      : hasCanonicalTimeseries ? timeseries?.points : undefined;
+    if (points) {
       return {
         fitnessData: points,
         dailyData: points.map((point) => ({
@@ -575,7 +576,28 @@ export function useFitnessModel(
       };
     }
     return clientFitness;
-  }, [clientFitness, discipline, timeseries, triFitnessTimeline]);
+  }, [clientFitness, discipline, hasCanonicalTimeseries, timeseries, triFitnessTimeline]);
+  // 장기 PMC는 기존 일별 값만 요약한다. 페이지 range / 활동 상세 조회 범위와 독립이다.
+  const hasCanonicalHistory = discipline === "tri"
+    ? Object.values(resolvedTriFitness).every((entry) => entry.canonical)
+    : hasCanonicalTimeseries;
+  const [pmcHistoryTick, setPmcHistoryTick] = useState(0);
+  useEffect(() => {
+    const now = Date.now();
+    const deadlines = [timeseries, triRunTimeseries, triSwimTimeseries]
+      .map(pmcHistoryDeadline).filter((deadline): deadline is number => deadline !== null && deadline >= now);
+    if (!deadlines.length) return;
+    const timer = setTimeout(() => setPmcHistoryTick(Date.now()), Math.min(...deadlines) - now + 1);
+    return () => clearTimeout(timer);
+  }, [timeseries, triRunTimeseries, triSwimTimeseries, pmcHistoryTick]);
+  const pmcHistoryPoints = useMemo(() => {
+    const source = (doc: FitnessTimeseriesDoc | null, sport: TimeseriesDiscipline) => doc?.discipline === sport
+      && (isCanonicalTimeseries(doc, sport) || doc.loadSnapshot || doc.inputInvalidatedAt) ? doc : null;
+    return describePmcHistory(fitnessData,
+    discipline === "tri" ? [
+      source(timeseries, "bike"), source(triRunTimeseries, "run"), source(triSwimTimeseries, "swim"),
+    ] : [source(timeseries, discipline)], Math.max(pmcHistoryTick, Date.now()));
+  }, [fitnessData, discipline, timeseries, triRunTimeseries, triSwimTimeseries, pmcHistoryTick]);
   const rangeData = useMemo(() => {
     if (fitnessData.length === 0) return { fitness: [], daily: [] };
     const sliceStart = Math.max(0, fitnessData.length - range);
@@ -874,6 +896,8 @@ export function useFitnessModel(
     timeseriesError,
     retryLoad,
     hasCanonicalTimeseries,
+    hasCanonicalHistory,
+    pmcHistoryPoints,
     fitnessData,
     dailyData,
     rangeData,
@@ -894,6 +918,8 @@ export function useFitnessModel(
     runPaceStreams,
     mobilePageProps: {
       data: mobilePageData,
+      pmcHistoryPoints,
+      pmcHistoryCanonical: hasCanonicalHistory,
       consistencyStreak,
       ftpDecision: bikeFtpDecision,
       ftpReceipt: bikeFtpReceipt,
