@@ -1,8 +1,9 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import {
+  mockCallableInvocations,
   mockDocData,
   setCallableImplementation,
   setCallableResult,
@@ -11,7 +12,10 @@ import {
   simulateLogout,
 } from "../__tests__/mocks/firebase";
 import { AuthContextProvider, type AuthContextValue } from "../contexts/AuthContext";
-import { resetCanonicalRolloutCacheForTests } from "../services/canonicalRollout";
+import {
+  expireCanonicalRolloutCacheForTests,
+  resetCanonicalRolloutCacheForTests,
+} from "../services/canonicalRollout";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { useActivityMetrics } from "./useActivityMetrics";
 
@@ -219,5 +223,78 @@ describe("useActivityMetrics — activityDetail kill switch 범위", () => {
     });
     const { result } = renderHook(() => useActivityMetrics("act-k", true), { wrapper: signedIn });
     await waitFor(() => expect(result.current.status).toBe("disabled"));
+  });
+});
+
+/**
+ * 꺼짐을 한 번 본 면은 **실패로 되살아나지 않는다** (#2237 리뷰 3번).
+ *
+ * 공개 뷰어 차단이 `verdictOk` 에만 걸려 있어서, 꺼짐 판정 뒤 TTL 재조회가 실패하면
+ * `verdictOk` 가 false 로 떨어지고 차단이 풀렸다 — kill switch 를 내렸는데 장애 한 번에
+ * 공개 지표 구독이 되살아난다. 다음 **성공한** 판정만 차단을 풀 수 있다.
+ */
+describe("useActivityMetrics — 꺼짐은 실패로 풀리지 않는다(sticky)", () => {
+  const verdictCalls = () =>
+    mockCallableInvocations.filter((call) => call.name === "getCanonicalRollout").length;
+
+  beforeEach(() => {
+    mockDocData.clear();
+    resetCanonicalRolloutCacheForTests();
+    mockCallableInvocations.length = 0;
+    simulateLogin({ uid: "u1" });
+    setDocData("activity_metrics/act-s", { version: ACTIVITY_METRICS_VERSION, tss: 42, distanceKm: 30 });
+    setDocData("activity_metrics_public/act-s", { version: ACTIVITY_METRICS_VERSION, distanceKm: 30 });
+    resetRuntimeConfigForTests({ canonicalRolloutEnabled: true });
+  });
+  afterEach(() => {
+    simulateLogout();
+    resetRuntimeConfigForTests();
+  });
+
+  /** TTL 이 지난 뒤 창 포커스로 재조회를 일으킨다 — 훅이 실제로 쓰는 경로다. */
+  async function refetchVerdict(): Promise<void> {
+    const before = verdictCalls();
+    expireCanonicalRolloutCacheForTests();
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(verdictCalls()).toBe(before + 1));
+    await act(async () => { await Promise.resolve(); });
+  }
+
+  it("꺼짐 뒤 재조회가 실패해도 공개 뷰어는 계속 막힌다", async () => {
+    setCallableResult("getCanonicalRollout", { data: { surfaces: {} } });
+    const { result } = renderHook(() => useActivityMetrics("act-s", false), { wrapper: signedIn });
+    await waitFor(() => expect(result.current.status).toBe("disabled"));
+
+    setCallableImplementation("getCanonicalRollout", () => { throw new Error("boom"); });
+    await refetchVerdict();
+
+    expect(result.current.status).toBe("disabled");
+    expect(result.current.metrics).toBeNull();
+  });
+
+  it("성공한 켜짐 판정은 차단을 푼다 — 영구 차단이 아니다", async () => {
+    setCallableResult("getCanonicalRollout", { data: { surfaces: {} } });
+    const { result } = renderHook(() => useActivityMetrics("act-s", false), { wrapper: signedIn });
+    await waitFor(() => expect(result.current.status).toBe("disabled"));
+
+    setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });
+    await refetchVerdict();
+
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.metrics?.distanceKm).toBe(30);
+  });
+
+  it("같은 세션에서 꺼짐을 본 뒤 로그아웃해도 막힌다 — 로그아웃으로 빠져나갈 수 없다", async () => {
+    setCallableResult("getCanonicalRollout", { data: { surfaces: {} } });
+    const signedInViewer = renderHook(() => useActivityMetrics("act-s", false), { wrapper: signedIn });
+    await waitFor(() => expect(signedInViewer.result.current.status).toBe("disabled"));
+
+    simulateLogout();
+    const anonymous = renderHook(() => useActivityMetrics("act-s", false), { wrapper: signedOut });
+    await act(async () => { await Promise.resolve(); });
+    expect(anonymous.result.current.status).toBe("disabled");
   });
 });

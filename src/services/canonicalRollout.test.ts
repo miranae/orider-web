@@ -13,6 +13,7 @@ import {
   CANONICAL_ROLLOUT_SURFACES,
   canonicalRolloutAllOff,
   canonicalRolloutGateEnabled,
+  canonicalRolloutObservedOff,
   fetchCanonicalRollout,
   loadCanonicalRolloutOnce,
   parseCanonicalRolloutSurfaces,
@@ -124,5 +125,54 @@ describe("canonicalRollout", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+/**
+ * 세션 기록: **성공한 판정이 꺼짐이라고 말한 면**. 실패도, 로그아웃도 이 답을 바꾸지 않는다 —
+ * 다음 성공한 판정만 바꾼다 (#2237 리뷰 3번).
+ */
+describe("canonicalRolloutObservedOff", () => {
+  beforeEach(() => {
+    resetCanonicalRolloutCacheForTests();
+    mockCallableInvocations.length = 0;
+    resetRuntimeConfigForTests({ canonicalRolloutEnabled: true });
+    simulateLogin({ uid: "u1" });
+  });
+  afterEach(() => {
+    simulateLogout();
+    resetRuntimeConfigForTests();
+  });
+
+  it("판정을 받기 전에는 기록이 없다 — 없는 판정은 꺼짐이 아니다", () => {
+    expect(canonicalRolloutObservedOff("activityDetail")).toBe(false);
+  });
+
+  it("성공한 꺼짐 판정은 기록되고, 그 뒤 실패가 기록을 지우지 않는다", async () => {
+    setCallableResult("getCanonicalRollout", { data: { surfaces: {} } });
+    await fetchCanonicalRollout("u1");
+    expect(canonicalRolloutObservedOff("activityDetail")).toBe(true);
+
+    setCallableImplementation("getCanonicalRollout", () => { throw new Error("boom"); });
+    const failed = await fetchCanonicalRollout("u1");
+    expect(failed.ok).toBe(false);
+    expect(canonicalRolloutObservedOff("activityDetail")).toBe(true);
+  });
+
+  it("성공한 켜짐 판정은 기록을 지운다 — 영구 차단이 아니다", async () => {
+    setCallableResult("getCanonicalRollout", { data: { surfaces: {} } });
+    await fetchCanonicalRollout("u1");
+    setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });
+    await fetchCanonicalRollout("u1");
+    expect(canonicalRolloutObservedOff("activityDetail")).toBe(false);
+    // 판정에 없던 면은 여전히 꺼짐 기록이다.
+    expect(canonicalRolloutObservedOff("course")).toBe(true);
+  });
+
+  it("로그아웃해도 기록은 남는다 — 미로그인으로 kill switch 를 빠져나갈 수 없다", async () => {
+    setCallableResult("getCanonicalRollout", { data: { surfaces: {} } });
+    await fetchCanonicalRollout("u1");
+    simulateLogout();
+    expect(canonicalRolloutObservedOff("activityDetail")).toBe(true);
   });
 });

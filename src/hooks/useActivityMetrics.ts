@@ -24,6 +24,7 @@ import { ACTIVITY_METRICS_VERSION, type ActivityMetrics } from "@shared/types/ac
 import { logClientError } from "../services/errorLogger";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { canonicalRolloutAllows, useCanonicalRollout } from "./useCanonicalRollout";
+import { canonicalRolloutObservedOff } from "../services/canonicalRollout";
 
 /** @sync-with functions/src/analysis/activity-metrics.ts#ActivityMetrics
  *  서버에서 영속화되는 모든 필드. 서버가 ground truth, 클라는 read-only.
@@ -113,6 +114,23 @@ export type UseActivityMetricsState =
  * 잠그면, 게이트를 켜는 순간 비로그인 방문자 전원이 빈 화면을 본다. 그래서 공개 뷰어는
  * **서버 판정을 실제로 받았고 그 판정이 꺼짐일 때만** 막는다(`rollout.verdictOk`). 소유자
  * 경로는 정본 소비 그 자체이므로 예전처럼 fail-closed 다 — 판정을 못 받으면 꺼짐이다.
+ *
+ * ## 한 번 꺼짐을 본 면은 재조회 실패로 되살아나지 않는다 (sticky)
+ *
+ * 위 규칙만 있으면 구멍이 하나 남는다: 꺼짐 판정을 받은 뒤 TTL 재조회가 네트워크 오류로
+ * 실패하면 `verdictOk` 가 false 로 떨어져 공개 뷰어의 차단이 풀리고 구독이 되살아났다
+ * (#2237 리뷰). 그래서 **이번 세션에서 성공한 판정이 꺼짐이라고 말한 적이 있으면**
+ * (`canonicalRolloutObservedOff`) 그 뒤의 실패는 차단을 풀지 못한다 — 다음 **성공한**
+ * 판정이 켜 줄 때만 풀린다. 같은 기록이 로그아웃으로 빠져나가는 것도 막는다.
+ *
+ * **정책 (a) 와 그 한계:** `getCanonicalRollout` 은 인증을 요구한다
+ * (`orider-g1-web/functions/src/canonical-rollout-callable.ts`). 그래서 "판정이 알려진
+ * 세션" 에서만 미로그인 뷰어를 막는다. **처음부터 로그인하지 않은 방문자에게는 kill switch
+ * 가 닿지 않는다** — 인증 없는 판정 읽기 경로는 이 저장소에 없고(런타임 설정은 배포
+ * 산출물이라 사고 대응 수단이 아니다) 새로 만들면 서버 계약을 지어내는 것이다. 그 방문자가
+ * 보는 것은 서버가 공개용으로 파생해 둔 `activity_metrics_public` 뿐이므로, 전량 정지의
+ * 실제 수단은 서버에서 그 projection 쓰기를 멈추는 것이다. (docs/operations/canonical-
+ * rollout-kill-switch.md)
  */
 export function useActivityMetrics(activityId: string | null, isOwner = true): UseActivityMetricsState {
   const { firestore } = useFirebaseServices();
@@ -123,8 +141,14 @@ export function useActivityMetrics(activityId: string | null, isOwner = true): U
   // 오늘과 똑같이 읽는다. 판정을 기다리는 동안은 켜짐도 꺼짐도 아니므로 둘 다 기다린다.
   const gateWaiting = rollout.gateEnabled && rollout.loading;
   const surfaceOff = !canonicalRolloutAllows(rollout, "activityDetail");
-  // 소유자는 fail-closed(판정 없음 = 꺼짐), 공개 뷰어는 서버가 실제로 껐다고 말했을 때만.
-  const gateBlocked = rollout.gateEnabled && !gateWaiting && surfaceOff && (isOwner || rollout.verdictOk);
+  // 이번 세션에서 꺼짐을 본 적이 있는가. 이 값은 성공한 판정만 바꾼다 — 재조회 실패나
+  // 로그아웃이 차단을 풀지 못하게 하는 자리다. 값이 바뀌는 순간은 판정이 도착하는 순간이라
+  // 훅의 setState 가 함께 리렌더를 일으킨다.
+  const observedOff = canonicalRolloutObservedOff("activityDetail");
+  // 소유자는 fail-closed(판정 없음 = 꺼짐), 공개 뷰어는 서버가 실제로 껐다고 말했을 때만 —
+  // 단 한 번 꺼짐을 본 뒤에는 실패도 차단을 유지한다(sticky).
+  const gateBlocked = rollout.gateEnabled && !gateWaiting
+    && ((surfaceOff && (isOwner || rollout.verdictOk)) || observedOff);
   const collection = isOwner ? "activity_metrics" : "activity_metrics_public";
 
   useEffect(() => {

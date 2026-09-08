@@ -1,0 +1,33 @@
+# 정본 전환 kill switch — 웹이 지키는 범위와 한계
+
+에픽 `miranae/orider-g1-app#2237` 의 전환 판정(rollout / kill switch)이 **웹에서** 어디까지
+닿는지, 무엇에는 닿지 않는지 적는다. 서버 원본은 `orider-g1-web` 의
+`functions/src/canonical-rollout-config.ts` 와 callable `getCanonicalRollout` 이다.
+
+## 판정이 닿는 경로
+
+- 판정은 callable `getCanonicalRollout` 으로 **계정별**로 받는다. 코호트 계산은 서버에만 있다.
+- 캐시·주기 갱신 수명은 `CANONICAL_ROLLOUT_CACHE_TTL_MS`(60초)다. 열린 탭에 닿기까지의 최악
+  지연은 `src/services/canonicalRollout.ts` 의 해당 주석이 정한다. 탭 복귀·창 포커스에서는
+  그 자리에서 한 번 더 묻는다.
+- 계정이 바뀌면(로그아웃 포함) 그 순간부터 "판정 전" 이다 — 이전 계정의 허용을 재사용하지
+  않는다 (`useCanonicalRollout` 의 `verdictUid`).
+
+## 꺼짐은 실패로 풀리지 않는다 (sticky)
+
+이번 세션에서 **성공한 판정이 꺼짐이라고 말한 면**은 `canonicalRolloutObservedOff` 에
+기록된다. 이후의 조회 실패(네트워크·App Check·권한)는 이 기록을 지우지 못하고, **다음
+성공한 판정이 켜 줄 때만** 풀린다. 기록이 없으면 꺼짐 판정 뒤 TTL 재조회가 한 번 실패하는
+것만으로 공개 지표 구독이 되살아났다 (2026-09-08 리뷰).
+
+## 미로그인 방문자 — 정책 (a) 와 그 한계
+
+`getCanonicalRollout` 은 인증을 요구한다. 그래서 웹은 **정책 (a)** 를 쓴다: 미로그인 뷰어는
+**같은 세션에서 이미 꺼짐 판정이 알려져 있을 때만** 막는다(위 sticky 기록). 없는 판정을
+꺼짐으로 읽으면 게이트를 켜는 순간 비로그인 방문자 전원이 빈 화면을 보게 되기 때문이다.
+
+**한계:** 처음부터 끝까지 로그인하지 않은 방문자에게는 kill switch 가 닿지 않는다. 인증 없이
+전환 설정을 읽는 서버 경로는 없고(런타임 설정 파일은 배포 산출물이라 사고 대응 수단이 아니다),
+새로 만들면 서버 계약을 지어내는 일이다. 그 방문자가 보는 것은 서버가 공개용으로 파생해 둔
+`activity_metrics_public` 뿐이므로, **전량 정지의 실제 수단은 서버에서 그 projection 쓰기를
+멈추는 것**이다. 사고 대응 시 이 한 줄을 기억할 것.

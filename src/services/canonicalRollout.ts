@@ -96,8 +96,56 @@ interface CachedVerdict {
 /** uid → 성공한 판정. 세션 동안, 그리고 TTL 동안만 산다. */
 const rolloutCache = new Map<string, CachedVerdict>();
 
+/**
+ * 이번 세션에서 **성공한 판정이 "꺼짐" 이라고 말한** 면.
+ *
+ * 캐시(TTL)와 달리 만료도, 실패로 인한 삭제도 없다. 다음 **성공한** 판정이 그 면을 켜 줄
+ * 때만 지워진다. 이유는 두 가지다.
+ *
+ * 1. **재조회 실패가 차단을 풀면 안 된다.** 서버가 껐다고 답한 뒤 TTL 재조회가 네트워크
+ *    오류로 실패하면 `ok: false` 가 되는데, 그때 "판정을 못 받았다" 로 취급하는 소비처
+ *    (공개 뷰어 경로)가 차단을 풀고 다시 그리기 시작했다 — kill switch 를 내렸는데 장애
+ *    한 번에 되살아난다 (#2237 리뷰).
+ * 2. **로그아웃으로 빠져나갈 수 없어야 한다.** callable `getCanonicalRollout` 은 인증을
+ *    요구하므로(`orider-g1-web/functions/src/canonical-rollout-callable.ts`) 미로그인
+ *    방문자에게는 판정 자체가 없다. 이 기록이 있으면 같은 탭에서 로그아웃해도 꺼짐이 남는다.
+ *
+ * **한계(정책 (a)):** 처음부터 끝까지 로그인하지 않은 방문자에게는 kill switch 가 닿지
+ * 않는다 — 그에게는 판정을 물을 인증된 경로가 없고, 공개 설정을 인증 없이 읽는 경로를
+ * 새로 만드는 것은 서버 계약을 지어내는 일이다. 그 방문자가 보는 것은 서버가 이미
+ * 공개용으로 파생해 둔 문서(`activity_metrics_public`)뿐이다. 전량 정지가 필요하면 서버
+ * 쪽에서 그 projection 쓰기를 멈추는 것이 실제 수단이다.
+ *
+ * 기록은 면 단위이고 계정 단위가 아니다 — **막는 방향으로만** 쓰이므로 남의 판정으로 남의
+ * 값을 그리는 일은 생기지 않는다. 계정 전환 자체는 `useCanonicalRollout` 이 "판정 전" 으로
+ * 처리한다.
+ */
+const observedOffSurfaces = new Set<CanonicalRolloutSurface>();
+
+/** 이번 세션에서 이 면이 꺼짐으로 판정된 적이 있는가. 실패·미로그인이 이 답을 바꾸지 않는다. */
+export function canonicalRolloutObservedOff(surface: CanonicalRolloutSurface): boolean {
+  return observedOffSurfaces.has(surface);
+}
+
+/** 성공한 판정만 기록을 바꾼다. 켜짐이면 지우고(차단 해제), 꺼짐이면 남긴다. */
+function recordObservedVerdict(surfaces: CanonicalRolloutSurfaces): void {
+  for (const surface of CANONICAL_ROLLOUT_SURFACES) {
+    if (surfaces[surface]) observedOffSurfaces.delete(surface);
+    else observedOffSurfaces.add(surface);
+  }
+}
+
+/**
+ * 캐시만 만료시킨다(기록은 남긴다). TTL 이 지난 뒤의 재조회를 실제 경로로 재현하려면
+ * 필요하다 — 캐시를 지워 버리면 세션 기록까지 함께 사라져 sticky 를 검증할 수 없다.
+ */
+export function expireCanonicalRolloutCacheForTests(): void {
+  for (const cached of rolloutCache.values()) cached.expiresAt = 0;
+}
+
 export function resetCanonicalRolloutCacheForTests(): void {
   rolloutCache.clear();
+  observedOffSurfaces.clear();
 }
 
 export interface CanonicalRolloutResult {
@@ -124,6 +172,8 @@ export async function fetchCanonicalRollout(
       return { surfaces: canonicalRolloutAllOff(), ok: false };
     }
     const surfaces = parseCanonicalRolloutSurfaces(response.data);
+    // 꺼짐은 세션에 기록한다 — 이후 재조회가 실패해도, 로그아웃해도 차단이 유지된다.
+    recordObservedVerdict(surfaces);
     // 부작용 있는 읽기는 결과를 남긴다 — 어떤 판정으로 그렸는지 없으면 화면 불일치를 못 쫓는다.
     debugLog("canonicalRollout.read", { surfaces });
     return { surfaces, ok: true };
