@@ -26,7 +26,14 @@ export async function loadAthleteChartActivities(
     if (cancelled()) return null;
     for (const doc of snap.docs) {
       const activity = { ...doc.data(), id: doc.id } as Activity;
-      if (activity.summary) activities.push(activity);
+      // 요약이 없는 레거시 활동도 횟수에는 포함하고, 없는 측정값만 0으로 집계한다.
+      activity.summary = {
+        ...activity.summary,
+        distance: activity.summary?.distance ?? 0,
+        ridingTimeMillis: activity.summary?.ridingTimeMillis ?? 0,
+        elevationGain: activity.summary?.elevationGain ?? 0,
+      };
+      activities.push(activity);
     }
     if (snap.docs.length < PAGE_SIZE) return activities;
     cursor = snap.docs[snap.docs.length - 1];
