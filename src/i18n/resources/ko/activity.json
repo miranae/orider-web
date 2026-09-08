@@ -80,6 +80,8 @@
     "checking": "확인 중…",
     "startBtn": "분석시작",
     "refreshDetailBtn": "상세 분석 다시 불러오기",
+    "regenerateShareSummaryBtn": "공유 문구를 위해 다시 분석",
+    "regenerateShareSummaryHint": "짧은 공유 문구를 생성하지 못했습니다. 다시 분석하면 공유 문구도 새로 생성합니다.",
     "refreshAnalysisBtn": "변경사항 반영해 다시 분석",
     "loginBtn": "로그인",
     "waitHint": "분석 대기 — 버튼을 눌러 AI 구간 분석을 시작하세요.",
