@@ -77,13 +77,14 @@ export function parseCanonicalRolloutSurfaces(value: unknown): CanonicalRolloutS
 }
 
 /**
- * 캐시된 판정의 수명. **kill switch 가 열린 탭에 닿기까지의 최악 지연이 이 값이다** —
+ * 캐시된 판정의 수명. **kill switch 가 열린 탭에 닿기까지의 최악 지연이 이 값(+응답 시간)이다** —
  * 사고 대응 시간 예산이지 성능 튜닝 값이 아니다. 60초는 "설정을 뒤집고 1분 안에 전부 멈춘다"
  * 를 약속할 수 있는 값이면서, 화면마다 매 렌더 callable 을 때리지 않을 만큼은 길다.
  * 짧게 줄이면 callable 호출량이 그만큼 늘고, 늘리면 사고 대응이 그만큼 느려진다.
  *
- * 훅([useCanonicalRollout])은 이 값을 주기 갱신 간격으로도 쓴다 — 캐시 수명보다 긴 주기로
- * 갱신하면 약속한 지연을 못 지킨다.
+ * 훅([useCanonicalRollout])은 갱신을 **캐시 만료 시각에 맞춰** 예약한다([CachedRolloutResult.expiresAt]).
+ * 마운트 시각 기준의 고정 주기로 돌리면 만료 직전에 마운트한 훅이 "남은 수명 + TTL" 만큼
+ * 낡은 판정을 들고 있어 최악 지연이 이 값의 두 배가 된다 — 약속과 다른 숫자다 (#2237 리뷰).
  */
 export const CANONICAL_ROLLOUT_CACHE_TTL_MS = 60_000;
 
@@ -154,6 +155,14 @@ export interface CanonicalRolloutResult {
   ok: boolean;
 }
 
+export interface CachedRolloutResult extends CanonicalRolloutResult {
+  /**
+   * 이 판정이 언제 만료되는가(`Date.now()` 기준). 실패는 캐시하지 않으므로 null 이다.
+   * 훅이 **다음 갱신을 이 시각에 맞춰** 예약한다 — 그래야 약속한 최악 지연이 지켜진다.
+   */
+  expiresAt: number | null;
+}
+
 /**
  * 이 사용자의 화면별 전환 판정. 던지지 않는다 — 실패는 전부 꺼짐이다.
  */
@@ -192,20 +201,20 @@ export async function fetchCanonicalRollout(
  */
 export async function loadCanonicalRolloutOnce(
   uid: string,
-): Promise<CanonicalRolloutResult> {
+): Promise<CachedRolloutResult> {
   const cached = rolloutCache.get(uid);
   if (cached && cached.expiresAt > Date.now()) {
-    return { surfaces: cached.surfaces, ok: true };
+    // 남은 수명을 함께 돌려준다 — 방금 마운트한 훅도 이 시각에 맞춰 갱신을 예약한다.
+    return { surfaces: cached.surfaces, ok: true, expiresAt: cached.expiresAt };
   }
   const result = await fetchCanonicalRollout(uid);
   if (result.ok) {
-    rolloutCache.set(uid, {
-      surfaces: result.surfaces,
-      expiresAt: Date.now() + CANONICAL_ROLLOUT_CACHE_TTL_MS,
-    });
+    const expiresAt = Date.now() + CANONICAL_ROLLOUT_CACHE_TTL_MS;
+    rolloutCache.set(uid, { surfaces: result.surfaces, expiresAt });
+    return { ...result, expiresAt };
   } else {
     // 만료된 채로 남겨 두면 다음 호출이 또 캐시를 뒤진다. 실패 시엔 아예 지운다.
     rolloutCache.delete(uid);
   }
-  return result;
+  return { ...result, expiresAt: null };
 }

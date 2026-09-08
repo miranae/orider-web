@@ -11,7 +11,8 @@
  *
  * ## kill switch 는 열린 탭에도 닿아야 한다
  *
- * 판정은 서버 캐시 TTL([CANONICAL_ROLLOUT_CACHE_TTL_MS])마다 다시 묻고, 탭이 다시 보이거나
+ * 판정은 **캐시 만료 시각에 맞춰** 다시 묻고(마운트 시각 기준 고정 주기가 아니다 — 만료
+ * 직전에 마운트하면 최악 지연이 TTL 두 배가 된다, #2237 리뷰), 탭이 다시 보이거나
  * (`visibilitychange`) 창이 포커스를 받으면 그 자리에서 한 번 더 묻는다. 마운트 시 한 번만
  * 물으면 사고 대응으로 서버를 뒤집어도 이미 열려 있는 탭은 새로고침 전까지 그대로다.
  * 재조회 중에는 `loading` 으로 돌아가지 않는다 — 정상 화면이 1분마다 깜빡이면 안 된다.
@@ -109,26 +110,43 @@ export function useCanonicalRollout(): CanonicalRolloutState {
       });
       return;
     }
+    // 아래 함수 선언들은 호이스팅되므로 `uid` 의 null 좁히기가 닿지 않는다 — 여기서 고정한다.
+    const verdictUid: string = uid;
     let active = true;
     let inFlight = false;
-    const refresh = () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    /**
+     * 다음 갱신을 **캐시 만료 시각**에 예약한다. 고정 주기(마운트 기준)로 돌리면 만료 1초
+     * 전에 마운트한 훅이 남은 1초 + 60초 동안 낡은 판정을 들고 있어, 약속한 최악 지연이
+     * 두 배가 된다 (#2237 리뷰). 실패는 캐시가 없으므로 한 주기 뒤에 다시 시도한다.
+     */
+    function scheduleNext(expiresAt: number | null): void {
+      if (!active) return;
+      clearTimeout(timer);
+      timer = setTimeout(
+        refresh,
+        expiresAt === null ? CANONICAL_ROLLOUT_CACHE_TTL_MS : Math.max(0, expiresAt - Date.now()),
+      );
+    }
+    function refresh(): void {
       // 겹친 호출은 하나로 접는다 — 포커스가 연달아 오는 창에서 callable 을 도배하지 않는다.
+      // 접힌 쪽은 예약도 하지 않는다 — 날아가 있는 호출이 응답에서 다시 예약한다.
       if (inFlight) return;
       inFlight = true;
-      void loadCanonicalRolloutOnce(uid).then((result) => {
+      void loadCanonicalRolloutOnce(verdictUid).then((result) => {
         inFlight = false;
+        if (!active) return;
         // 재조회는 loading 을 다시 켜지 않는다 — 켜면 정상 화면이 주기마다 깜빡인다.
-        if (active) {
-          setState({
-            gateEnabled: true,
-            loading: false,
-            verdictOk: result.ok,
-            surfaces: result.surfaces,
-            verdictUid: uid,
-          });
-        }
+        setState({
+          gateEnabled: true,
+          loading: false,
+          verdictOk: result.ok,
+          surfaces: result.surfaces,
+          verdictUid,
+        });
+        scheduleNext(result.expiresAt);
       });
-    };
+    }
     setState({
       gateEnabled: true, loading: true, verdictOk: false,
       surfaces: canonicalRolloutAllOff(), verdictUid: null,
@@ -139,12 +157,11 @@ export function useCanonicalRollout(): CanonicalRolloutState {
     };
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("focus", refresh);
-    const timer = setInterval(refresh, CANONICAL_ROLLOUT_CACHE_TTL_MS);
     return () => {
       active = false;
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", refresh);
-      clearInterval(timer);
+      clearTimeout(timer);
     };
   }, [gateEnabled, uid]);
 

@@ -233,6 +233,37 @@ describe("useCanonicalRollout 재조회 — kill switch 전달 경로", () => {
     expect(result.current).toBe(false);
   });
 
+  /**
+   * 최악 지연을 못 박는다 (#2237 리뷰 4번).
+   *
+   * 캐시 만료는 **조회 시각** 기준인데 갱신 주기는 **마운트 시각** 기준이었다. 만료 1초 전에
+   * 마운트한 훅은 남은 1초 + 60초 = 약 120초 동안 낡은 판정을 들고 있었다 — 문서가 약속한
+   * 60초의 두 배다. 이제 갱신은 만료 시각에 맞춰 예약된다.
+   */
+  it("만료 직전에 마운트해도 남은 수명 안에 새 판정을 받는다 — 최악 지연은 TTL 하나다", async () => {
+    vi.useFakeTimers();
+    setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });
+    // 첫 훅이 판정을 받아 캐시를 채운다(만료 = 지금 + TTL).
+    renderHook(() => useCanonicalRollout(), { wrapper: withUser("u1") });
+    await settle();
+    expect(rolloutCalls()).toBe(1);
+
+    // 만료 1초 전에 새 화면이 마운트한다 — 캐시 적중이라 서버를 다시 때리지 않는다.
+    vi.setSystemTime(Date.now() + CANONICAL_ROLLOUT_CACHE_TTL_MS - 1_000);
+    const late = renderHook(() => useCanonicalRollout(), { wrapper: withUser("u1") });
+    await settle();
+    expect(late.result.current.surfaces.activityDetail).toBe(true);
+    expect(rolloutCalls()).toBe(1);
+
+    // 서버에서 kill switch 를 올렸다. 남은 수명(1초)만 지나면 늦게 마운트한 훅도 알아야 한다.
+    setCallableResult("getCanonicalRollout", { data: { surfaces: {} } });
+    await act(async () => {
+      vi.advanceTimersByTime(1_001);
+    });
+    await settle();
+    expect(late.result.current.surfaces.activityDetail).toBe(false);
+  });
+
   it("언마운트하면 리스너와 타이머를 걷는다 — 화면을 떠난 뒤 서버를 때리지 않는다", async () => {
     vi.useFakeTimers();
     setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });
