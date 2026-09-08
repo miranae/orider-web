@@ -73,7 +73,7 @@ describe("useStrava", () => {
     expect(data).toEqual({ jobId: "job-1", queuePosition: 0 });
   });
 
-  it("preserves publishing intent for retry and resets it for a fresh read-only connection", () => {
+  it("preserves forced reauthorization for retry but requests write without forcing ordinary consent", () => {
     sessionStorage.clear();
     const { result } = renderHook(() => useStrava());
     const location = { origin: "https://example.com", href: "" };
@@ -88,9 +88,9 @@ describe("useStrava", () => {
 
       result.current.connectStrava("/settings");
       expect(sessionStorage.getItem("strava_write_activities")).toBeNull();
-      const readOnlyUrl = new URL(location.href);
-      expect(readOnlyUrl.searchParams.get("scope")).toBe("read,activity:read_all");
-      expect(readOnlyUrl.searchParams.has("approval_prompt")).toBe(false);
+      const defaultUrl = new URL(location.href);
+      expect(defaultUrl.searchParams.get("scope")).toBe("read,activity:read_all,activity:write");
+      expect(defaultUrl.searchParams.has("approval_prompt")).toBe(false);
     } finally {
       vi.unstubAllGlobals();
       sessionStorage.clear();

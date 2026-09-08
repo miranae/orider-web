@@ -174,13 +174,14 @@ describe("StravaCallbackPage", () => {
     expect(mocks.connectStrava).toHaveBeenCalledWith("/activities/a1", { writeActivities: true });
   });
 
-  it("clears publishing permission intent after a successful exchange", async () => {
+  it("does not treat publishing permission intent as granted scope and clears it after exchange", async () => {
     sessionStorage.setItem("strava_state", "nonce");
     sessionStorage.setItem("strava_write_activities", "true");
     render(<MemoryRouter initialEntries={["/strava/callback?code=write-code&state=nonce"]}><StravaCallbackPage /></MemoryRouter>);
 
     await screen.findByText("stravaCallback.step.done");
     expect(sessionStorage.getItem("strava_write_activities")).toBeNull();
+    expect(mocks.exchangeCode).toHaveBeenCalledWith("write-code");
   });
 
   it("offers a direct path to Strava connection settings on callback failure", async () => {
