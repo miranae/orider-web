@@ -129,7 +129,7 @@ export type UseActivityMetricsState =
  * 가 닿지 않는다** — 인증 없는 판정 읽기 경로는 이 저장소에 없고(런타임 설정은 배포
  * 산출물이라 사고 대응 수단이 아니다) 새로 만들면 서버 계약을 지어내는 것이다. 그 방문자가
  * 보는 것은 서버가 공개용으로 파생해 둔 `activity_metrics_public` 뿐이므로, 전량 정지의
- * 실제 수단은 서버에서 그 projection 쓰기를 멈추는 것이다. (docs/operations/canonical-
+ * 실제 수단은 그 projection 의 읽기를 막는 것이다(쓰기 중단은 기존 문서를 가리지 못한다). (docs/operations/canonical-
  * rollout-kill-switch.md)
  */
 export function useActivityMetrics(activityId: string | null, isOwner = true): UseActivityMetricsState {

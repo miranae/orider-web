@@ -115,7 +115,8 @@ const rolloutCache = new Map<string, CachedVerdict>();
  * 않는다 — 그에게는 판정을 물을 인증된 경로가 없고, 공개 설정을 인증 없이 읽는 경로를
  * 새로 만드는 것은 서버 계약을 지어내는 일이다. 그 방문자가 보는 것은 서버가 이미
  * 공개용으로 파생해 둔 문서(`activity_metrics_public`)뿐이다. 전량 정지가 필요하면 서버
- * 쪽에서 그 projection 쓰기를 멈추는 것이 실제 수단이다.
+ * 쪽에서 그 projection 의 **읽기를 막는 것**(rules 임시 차단)이 실제 수단이다 — 쓰기 중단은
+ * 이미 쓰여 있는 문서를 가리지 못한다. docs/operations/canonical-rollout-kill-switch.md 참조.
  *
  * 기록은 면 단위이고 계정 단위가 아니다 — **막는 방향으로만** 쓰이므로 남의 판정으로 남의
  * 값을 그리는 일은 생기지 않는다. 계정 전환 자체는 `useCanonicalRollout` 이 "판정 전" 으로
