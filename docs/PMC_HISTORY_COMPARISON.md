@@ -68,3 +68,5 @@ npm run build
 - 새 입력 무효화의 대기는 최신 `inputInvalidatedAt + 60초`로 제한한다(서버 시도 예산과 동일). 이전 시도의 실패나 deadline을 상속하지 않고, 추가 snapshot 없이도 단일 타이머가 ‘처리 지연’으로 전환한다.
 
 검증: 관련 Vitest 6파일 119테스트, `tsc -b --pretty false`, 변경 파일 ESLint(경고 0), `npm run build` 통과. 독립 브라우저 검증 10시나리오 통과(기존 8 + Asia/Seoul 새벽·America/Los_Angeles 저녁의 실제 UTC 날짜 선택 2). 전체 테스트 재실행·머지·운영 배포는 하지 않았다.
+
+후속 통합 신선도: `fitness/current.processingSourceAsOf`는 세 종목 입력 조회 시각의 최솟값이다. 통합 문서 쓰기 시각이 최신이어도 이 값이 3시간 이전이거나 UTC 날짜/최근 인입을 포함하지 못하면 재검증한다. `processingState`가 있는 계약에서 원본 시각이 누락·손상된 경우도 재검증한다. 이전 계약(`processingState` 없음)은 기존 `computedAt` 기준을 유지한다. 관련 hook 37테스트·TypeScript·변경 파일 ESLint 통과.
