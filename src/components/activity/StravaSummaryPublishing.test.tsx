@@ -24,6 +24,7 @@ describe("Strava summary publishing", () => {
     render(<StravaSummaryPublishing activityId="own-ride" lang="ko" />);
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "stravaSummary.publish" })); });
     expect(screen.getByText("stravaSummary.queued")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "stravaSummary.reconnect" })).not.toBeInTheDocument();
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
     expect(screen.getByText("stravaSummary.published")).toBeInTheDocument();
     expect(mocks.status).toHaveBeenCalledWith({ activityId: "own-ride", stravaActivityId: "12345" });
@@ -37,9 +38,12 @@ describe("Strava summary publishing", () => {
     expect(mocks.settings).toHaveBeenCalledWith({});
     expect(screen.getByRole("checkbox")).not.toBeChecked();
     expect(mocks.publish).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "stravaSummary.reconnect" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "stravaSummary.publish" }));
     await waitFor(() => expect(mocks.publish).toHaveBeenCalledWith({ activityId: "own-ride", lang: "ko" }));
     expect(await screen.findByRole("link", { name: "stravaSummary.view" })).toHaveAttribute("href", "https://www.strava.com/activities/12345");
+    expect(screen.queryByRole("button", { name: "stravaSummary.reconnect" })).not.toBeInTheDocument();
+    expect(mocks.connect).not.toHaveBeenCalled();
   });
 
   it("passes an explicitly selected target and requests write authorization on insufficient scope", async () => {

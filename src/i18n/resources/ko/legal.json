@@ -438,7 +438,7 @@
             "list": [
               "read — 공개 프로필 정보 읽기",
               "activity:read_all — 모든 활동 데이터 읽기",
-              "activity:write — 활동 업로드 (모바일 앱에서만 사용)"
+              "activity:write — 모바일 앱의 활동 업로드 및 웹의 활동 공유요약 게시"
             ]
           },
           {

@@ -19,6 +19,7 @@ export function useStrava() {
 
     const nonce = crypto.randomUUID();
     sessionStorage.setItem("strava_state", nonce);
+    // 명시적인 권한 복구 요청만 재동의를 강제한다. 요청 범위는 승인된 권한의 증거가 아니다.
     if (options?.writeActivities) sessionStorage.setItem("strava_write_activities", "true");
     else sessionStorage.removeItem("strava_write_activities");
     if (returnTo) sessionStorage.setItem("strava_return_to", returnTo);
@@ -31,7 +32,7 @@ export function useStrava() {
       client_id: stravaClientId,
       redirect_uri: stravaRedirectUri,
       response_type: "code",
-      scope: options?.writeActivities ? "read,activity:read_all,activity:write" : "read,activity:read_all",
+      scope: "read,activity:read_all,activity:write",
       ...(options?.writeActivities ? { approval_prompt: "force" } : {}),
       state,
     });

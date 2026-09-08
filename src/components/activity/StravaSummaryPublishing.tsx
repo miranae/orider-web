@@ -112,7 +112,7 @@ export default function StravaSummaryPublishing({ activityId, lang }: { activity
       <Text as="h4" variant="body" tone="primary">{t("stravaSummary.title")}</Text>
       <Text as="p" variant="caption" tone="tertiary">{t("stravaSummary.disclosure")}</Text>
       <Button variant="secondary" size="sm" disabled={busy} onClick={() => { void publish(); }}>{t(busy ? "stravaSummary.working" : "stravaSummary.publish")}</Button>
-      {result?.status !== "published" && result?.status !== "unchanged" && (
+      {result?.status === "reauthorization-required" && (
         <Button variant="secondary" size="sm" disabled={busy} onClick={() => connectStrava(window.location.pathname, { writeActivities: true })}>{t("stravaSummary.reconnect")}</Button>
       )}
       <details>
