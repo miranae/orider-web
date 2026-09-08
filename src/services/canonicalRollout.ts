@@ -11,9 +11,12 @@
  * 실패·미로그인·모양 불일치는 모두 **전부 꺼짐**이다. 켜진 쪽으로 기울면 설정 조회 장애
  * 하나가 전량 전환이 된다. 서버(`readCanonicalRolloutEnabled`)와 같은 기본값이다.
  *
- * ## 세션당 한 번
+ * ## 캐시에는 수명이 있다 (kill switch 가 열린 탭에 닿아야 한다)
  *
- * 판정은 uid 별로 바뀌지 않으므로 uid 마다 한 번만 부른다. 실패한 응답은 캐시하지 않는다 —
+ * 판정은 자주 바뀌지 않으므로 uid 별로 캐시하지만 **영구 캐시는 아니다.** 세션 내내 들고
+ * 있으면 서버에서 `killSwitch: true` 로 뒤집어도 이미 열려 있는 탭에는 영원히 닿지 않는다 —
+ * 사고 대응 수단이 새로고침을 강요하는 순간 수단이 아니다. 그래서 성공한 판정에도
+ * [CANONICAL_ROLLOUT_CACHE_TTL_MS] 만큼의 수명을 준다. 실패한 응답은 여전히 캐시하지 않는다 —
  * 일시적인 네트워크 실패가 세션 내내 화면을 끄면 안 된다.
  *
  * ## 게이트 계층 자체의 스위치
@@ -73,8 +76,25 @@ export function parseCanonicalRolloutSurfaces(value: unknown): CanonicalRolloutS
   ) as CanonicalRolloutSurfaces;
 }
 
-/** uid → 성공한 판정. 세션 동안만 산다. */
-const rolloutCache = new Map<string, CanonicalRolloutSurfaces>();
+/**
+ * 캐시된 판정의 수명. **kill switch 가 열린 탭에 닿기까지의 최악 지연이 이 값이다** —
+ * 사고 대응 시간 예산이지 성능 튜닝 값이 아니다. 60초는 "설정을 뒤집고 1분 안에 전부 멈춘다"
+ * 를 약속할 수 있는 값이면서, 화면마다 매 렌더 callable 을 때리지 않을 만큼은 길다.
+ * 짧게 줄이면 callable 호출량이 그만큼 늘고, 늘리면 사고 대응이 그만큼 느려진다.
+ *
+ * 훅([useCanonicalRollout])은 이 값을 주기 갱신 간격으로도 쓴다 — 캐시 수명보다 긴 주기로
+ * 갱신하면 약속한 지연을 못 지킨다.
+ */
+export const CANONICAL_ROLLOUT_CACHE_TTL_MS = 60_000;
+
+interface CachedVerdict {
+  surfaces: CanonicalRolloutSurfaces;
+  /** `Date.now()` 기준. 지나면 캐시가 아니라 없는 것으로 본다. */
+  expiresAt: number;
+}
+
+/** uid → 성공한 판정. 세션 동안, 그리고 TTL 동안만 산다. */
+const rolloutCache = new Map<string, CachedVerdict>();
 
 export function resetCanonicalRolloutCacheForTests(): void {
   rolloutCache.clear();
@@ -114,14 +134,28 @@ export async function fetchCanonicalRollout(
 }
 
 /**
- * uid 당 한 번만 부른다. 실패는 캐시하지 않는다 — 일시적인 장애가 세션 내내 화면을 끄면 안 된다.
+ * uid 별 판정. 캐시가 살아 있으면(TTL 이내) 그것을, 아니면 서버에 다시 묻는다.
+ * 실패는 캐시하지 않는다 — 일시적인 장애가 세션 내내 화면을 끄면 안 된다.
+ *
+ * 이름의 "Once" 는 **TTL 창 안에서 한 번**이라는 뜻이다. 영구 캐시였을 때는 서버에서 kill
+ * switch 를 내려도 이미 열린 탭이 계속 켜져 있었다 (#2237 리뷰).
  */
 export async function loadCanonicalRolloutOnce(
   uid: string,
-): Promise<CanonicalRolloutSurfaces> {
+): Promise<CanonicalRolloutResult> {
   const cached = rolloutCache.get(uid);
-  if (cached) return cached;
+  if (cached && cached.expiresAt > Date.now()) {
+    return { surfaces: cached.surfaces, ok: true };
+  }
   const result = await fetchCanonicalRollout(uid);
-  if (result.ok) rolloutCache.set(uid, result.surfaces);
-  return result.surfaces;
+  if (result.ok) {
+    rolloutCache.set(uid, {
+      surfaces: result.surfaces,
+      expiresAt: Date.now() + CANONICAL_ROLLOUT_CACHE_TTL_MS,
+    });
+  } else {
+    // 만료된 채로 남겨 두면 다음 호출이 또 캐시를 뒤진다. 실패 시엔 아예 지운다.
+    rolloutCache.delete(uid);
+  }
+  return result;
 }

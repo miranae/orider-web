@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   mockCallableInvocations,
@@ -9,6 +9,7 @@ import {
 } from "../__tests__/mocks/firebase";
 import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import {
+  CANONICAL_ROLLOUT_CACHE_TTL_MS,
   CANONICAL_ROLLOUT_SURFACES,
   canonicalRolloutAllOff,
   canonicalRolloutGateEnabled,
@@ -69,19 +70,59 @@ describe("canonicalRollout", () => {
     expect(mockCallableInvocations).toEqual([]);
   });
 
-  it("성공한 판정은 uid 당 한 번만 부른다", async () => {
+  it("성공한 판정은 TTL 안에서 uid 당 한 번만 부른다", async () => {
     setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });
-    expect((await loadCanonicalRolloutOnce("u1")).activityDetail).toBe(true);
-    expect((await loadCanonicalRolloutOnce("u1")).activityDetail).toBe(true);
+    expect((await loadCanonicalRolloutOnce("u1")).surfaces.activityDetail).toBe(true);
+    expect((await loadCanonicalRolloutOnce("u1")).surfaces.activityDetail).toBe(true);
     expect(mockCallableInvocations.filter((call) => call.name === "getCanonicalRollout")).toHaveLength(1);
+  });
+
+  it("캐시는 TTL 뒤 만료된다 — kill switch 가 열린 세션에 닿는 경로다", async () => {
+    vi.useFakeTimers();
+    try {
+      setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });
+      expect((await loadCanonicalRolloutOnce("u1")).surfaces.activityDetail).toBe(true);
+
+      // 서버가 kill switch 를 내렸다 — 전부 꺼짐이 내려온다.
+      setCallableResult("getCanonicalRollout", { data: { surfaces: {} } });
+      // TTL 이 지나기 전에는 아직 옛 판정이다.
+      vi.advanceTimersByTime(CANONICAL_ROLLOUT_CACHE_TTL_MS - 1);
+      expect((await loadCanonicalRolloutOnce("u1")).surfaces.activityDetail).toBe(true);
+      expect(mockCallableInvocations.filter((call) => call.name === "getCanonicalRollout")).toHaveLength(1);
+
+      vi.advanceTimersByTime(2);
+      expect((await loadCanonicalRolloutOnce("u1")).surfaces.activityDetail).toBe(false);
+      expect(mockCallableInvocations.filter((call) => call.name === "getCanonicalRollout")).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("실패는 캐시하지 않는다 — 일시 장애가 세션 내내 화면을 끄면 안 된다", async () => {
     setCallableImplementation("getCanonicalRollout", () => {
       throw new Error("network");
     });
-    expect(await loadCanonicalRolloutOnce("u1")).toEqual(canonicalRolloutAllOff());
+    const failed = await loadCanonicalRolloutOnce("u1");
+    expect(failed.ok).toBe(false);
+    expect(failed.surfaces).toEqual(canonicalRolloutAllOff());
     setCallableImplementation("getCanonicalRollout", () => ({ data: { surfaces: { homeSummary: true } } }));
-    expect((await loadCanonicalRolloutOnce("u1")).homeSummary).toBe(true);
+    expect((await loadCanonicalRolloutOnce("u1")).surfaces.homeSummary).toBe(true);
+  });
+
+  it("만료된 캐시 위에서 실패하면 옛 판정을 되살리지 않는다 (fail-closed)", async () => {
+    vi.useFakeTimers();
+    try {
+      setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });
+      await loadCanonicalRolloutOnce("u1");
+      vi.advanceTimersByTime(CANONICAL_ROLLOUT_CACHE_TTL_MS + 1);
+      setCallableImplementation("getCanonicalRollout", () => {
+        throw new Error("network");
+      });
+      expect((await loadCanonicalRolloutOnce("u1")).surfaces).toEqual(canonicalRolloutAllOff());
+      // 지운 뒤이므로 다음 호출도 캐시를 믿지 않는다.
+      expect((await loadCanonicalRolloutOnce("u1")).surfaces).toEqual(canonicalRolloutAllOff());
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
