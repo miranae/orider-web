@@ -5,6 +5,8 @@
  *   - lastActivityIngestAt > projection.computedAt  (신규 활동)
  *   - now - computedAt > 3h                          (시간 경과)
  *   - computedAt 없음                                (한 번도 계산 안 됨)
+ *   - 단일 종목 입력/PMC revision 미처리, 무효화 또는 이전 UTC 날짜
+ *   - 통합 processingState 미처리 (입력 unknown 자체는 반복 갱신 사유가 아님)
  *
  * 사용처: FitnessPage, PlanPage, HomePage TodaysWorkout 등 "살아있는 분석"이 필요한 화면.
  *
@@ -18,6 +20,9 @@ import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
+import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
+import { hasFitnessLoadLifecycle, isFitnessInputInvalidated } from "../features/fitness/pmcHistory";
+import { toUtcDate } from "../utils/dateUtils";
 import {
   executeFirestoreSessionRecovery,
   firestoreRecoveryLogContext,
@@ -161,8 +166,12 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
     let listenerFailed = false;
     let evaluationStarted = false;
     let projectionSnapshotReady = false;
+    const singleSport = discipline === "bike" || discipline === "run" || discipline === "swim";
+    let timeseriesSnapshotReady = !singleSport;
+    let timeseries: FitnessTimeseriesDoc | null = null;
     let computedAt = 0;
     let unsubscribe: () => void = () => undefined;
+    let unsubscribeTimeseries: () => void = () => undefined;
 
     const hasCurrentUserGeneration = () => (
       userFreshnessRef.current === userGeneration && !userGeneration.failed
@@ -184,7 +193,15 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
         if (!hasCurrentUserGeneration()) return;
         const lastIngest = userGeneration.lastIngest;
         const now = Date.now();
-        const stale = computedAt === 0
+        const hasLifecycle = !!(timeseries?.loadSnapshot || timeseries?.pmc || timeseries?.inputInvalidatedAt);
+        const lifecycleProcessed = timeseries?.discipline === discipline && hasFitnessLoadLifecycle(timeseries) && !isFitnessInputInvalidated(timeseries)
+          && timeseries!.pmc!.status === "processed"
+          && timeseries!.pmc!.processedInputRevision === timeseries!.loadSnapshot!.inputRevision
+          && timeseries!.loadSnapshot!.coverageEndDate === toUtcDate(now)
+          && typeof timeseries!.pmc!.asOf === "number" && Number.isFinite(timeseries!.pmc!.asOf);
+        const lifecycleAsOf = lifecycleProcessed ? timeseries!.loadSnapshot!.asOf : 0;
+        const stale = (hasLifecycle && (!lifecycleProcessed || lastIngest > lifecycleAsOf || now - lifecycleAsOf > STALE_THRESHOLD_MS))
+          || computedAt === 0
           || lastIngest > computedAt
           || (now - computedAt) > STALE_THRESHOLD_MS;
 
@@ -220,16 +237,16 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
     const evaluateWhenReady = () => {
       if (cancelled || listenerFailed || evaluationStarted
         || !hasCurrentUserGeneration()
-        || !userGeneration.ready || !projectionSnapshotReady) return;
+        || !userGeneration.ready || !projectionSnapshotReady || !timeseriesSnapshotReady) return;
       evaluationStarted = true;
       void evaluateFreshness();
     };
     evaluateCurrentProjectionRef.current = evaluateWhenReady;
 
     // transient getDoc target을 즉시 만들고 제거하면 멀티탭 Firestore AsyncQueue에서
-    // target 해제 경쟁이 발생할 수 있다. 두 서버 확정 스냅샷을 기다린 뒤 한 번만 평가하되,
+    // target 해제 경쟁이 발생할 수 있다. 필요한 서버 확정 스냅샷을 모두 기다린 뒤 한 번만 평가하되,
     // listener는 해당 user/discipline 세대 전체에서 유지해 target churn을 피한다.
-    const projDocId = discipline ? `projection_${discipline}` : "projection";
+    const projDocId = discipline === "tri" ? "current" : discipline ? `projection_${discipline}` : "projection";
     try {
       unsubscribe = onSnapshot(
         doc(firestore, "users", uid, "fitness", projDocId),
@@ -238,13 +255,34 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
           if (cancelled || listenerFailed || !hasCurrentUserGeneration()) return;
           noteFirestoreServerSuccess(snapshot.metadata);
           if (projectionSnapshotReady) return;
-          computedAt = (snapshot.data()?.computedAt as number | undefined) ?? 0;
+          const data = snapshot.data();
+          const triComplete = (data?.processingState === "processed" || data?.processingState == null && data?.state === "final")
+            && typeof data?.inputRevision === "string"
+            && typeof data.computedAt === "number" && Number.isFinite(new Date(data.computedAt).getTime())
+            && new Date(data.computedAt).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)
+            && ["bike", "run", "swim"].every(sport => new RegExp(`(?:^|\\|)${sport}:[1-9]\\d*(?:\\||$)`).test(data.inputRevision as string));
+          computedAt = discipline === "tri" && !triComplete ? 0 : (data?.computedAt as number | undefined) ?? 0;
           if (snapshot.metadata.fromCache) return;
           projectionSnapshotReady = true;
           evaluateWhenReady();
         },
         handleProjectionError,
       );
+      if (singleSport && !listenerFailed) {
+        unsubscribeTimeseries = onSnapshot(
+          doc(firestore, "users", uid, "fitness", `timeseries_${discipline}`),
+          { includeMetadataChanges: true },
+          (snapshot) => {
+            if (cancelled || listenerFailed || !hasCurrentUserGeneration()) return;
+            noteFirestoreServerSuccess(snapshot.metadata);
+            if (timeseriesSnapshotReady || snapshot.metadata.fromCache) return;
+            timeseries = (snapshot.data() as FitnessTimeseriesDoc | undefined) ?? null;
+            timeseriesSnapshotReady = true;
+            evaluateWhenReady();
+          },
+          handleProjectionError,
+        );
+      }
     } catch (err) {
       handleProjectionError(err);
     }
@@ -255,6 +293,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
         evaluateCurrentProjectionRef.current = () => undefined;
       }
       unsubscribe();
+      unsubscribeTimeseries();
     };
   }, [authLoading, discipline, ensureAppCheckReady, firestore, functions, uid, userListenerAttempt]);
 
