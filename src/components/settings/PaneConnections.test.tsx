@@ -1,3 +1,4 @@
+import { setCallableResult } from "../../__tests__/mocks/firebase";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -10,7 +11,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../contexts/AuthContext", () => ({
-  useAuth: () => ({ profile: { stravaConnected: true, autoUpload: false } }),
+  useAuth: () => ({ user: { uid: "u1" }, profile: { stravaConnected: true, autoUpload: false } }),
 }));
 vi.mock("../../contexts/ToastContext", () => ({
   useToast: () => ({ showToast: vi.fn() }),
@@ -30,6 +31,7 @@ vi.mock("../../services/analytics", () => ({ track: mocks.track }));
 describe("PaneConnections Strava disconnect observability", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    setCallableResult("stravaSummarySettings", { data: { enabled: true, lang: "ko" } });
     mocks.confirm.mockReset();
     mocks.disconnectStrava.mockReset();
     mocks.track.mockReset();
@@ -43,6 +45,7 @@ describe("PaneConnections Strava disconnect observability", () => {
     const user = userEvent.setup();
     render(<MemoryRouter><PaneConnections /></MemoryRouter>);
 
+    expect(screen.getByRole("switch", { name: "활동 요약 자동 게시" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "연결 해제" }));
 
     const params = {

@@ -260,8 +260,8 @@ describe("useActivities", () => {
 
   it("returns activities from collection data", async () => {
     setCollectionDocs("activities", [
-      { id: "a1", ...createMockActivity({ id: "a1" }) },
-      { id: "a2", ...createMockActivity({ id: "a2" }) },
+      { id: "a1", ...createMockActivity({ id: "a1", startTime: 2_000 }) },
+      { id: "a2", ...createMockActivity({ id: "a2", startTime: 1_000 }) },
     ]);
 
     const { result } = renderHook(() => useActivities(), { wrapper });

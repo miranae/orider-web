@@ -1,3 +1,4 @@
+import StravaSummarySettings from "./StravaSummarySettings";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
@@ -117,7 +118,7 @@ function ServiceCard({
 
 export function PaneConnections() {
   const { t } = useTranslation("settings");
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { showToast } = useToast();
   const dialog = useDialog();
   const { connectStrava, disconnectStrava, loading } = useStrava();
@@ -245,6 +246,7 @@ export function PaneConnections() {
               disabled={autoUploadSaving}
             />
           </InlineRow>
+          {user && <StravaSummarySettings key={user.uid} />}
           <InlineRow
             label={t("pane.connections.importPastLabel")}
             hint={t("pane.connections.importPastHint")}
