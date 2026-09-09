@@ -6,7 +6,6 @@ import { useStrava } from "../../hooks/useStrava";
 import { Button, Text } from "../../theme/components";
 import type { NarrativeLang } from "../../hooks/useActivityNarrative";
 
-interface Settings { enabled: boolean; lang: NarrativeLang }
 interface PublishResult {
   status: "published" | "unchanged" | "queued" | "reauthorization-required" | "unavailable";
   reason?: string;
@@ -32,28 +31,14 @@ export default function StravaSummaryPublishing({ activityId, lang }: { activity
   const { functions, ensureAppCheckReady } = useFirebaseServices();
   const { connectStrava } = useStrava();
   const active = useRef(false);
-  const [settings, setSettings] = useState<Settings | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [result, setResult] = useState<PublishResult | null>(null);
   const [target, setTarget] = useState("");
-  const [settingsLoading, setSettingsLoading] = useState(true);
-  const [reloadKey, setReloadKey] = useState(0);
-
   useEffect(() => {
     active.current = true;
-    setSettingsLoading(true);
-    let cancelled = false;
-    void (async () => {
-      try {
-        await ensureAppCheckReady();
-        const response = await httpsCallable<Record<string, never>, Settings>(functions, "stravaSummarySettings")({});
-        if (!cancelled) setSettings(response.data);
-      } catch { if (!cancelled) setMessage("settingsError"); }
-      finally { if (!cancelled) setSettingsLoading(false); }
-    })();
-    return () => { cancelled = true; active.current = false; };
-  }, [functions, ensureAppCheckReady, reloadKey]);
+    return () => { active.current = false; };
+  }, []);
 
   useEffect(() => {
     const remoteId = result?.stravaActivityId == null ? null : parseStravaSummaryTarget(String(result.stravaActivityId));
@@ -78,18 +63,6 @@ export default function StravaSummaryPublishing({ activityId, lang }: { activity
     timer = setTimeout(() => { void poll(); }, 15_000);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [activityId, result?.status, result?.stravaActivityId, functions, ensureAppCheckReady]);
-
-  const saveAutomatic = async (enabled: boolean) => {
-    setBusy(true);
-    setMessage(null);
-    try {
-      await ensureAppCheckReady();
-      if (!active.current) return;
-      const response = await httpsCallable<{ enabled: boolean; lang: NarrativeLang }, Settings>(functions, "stravaSummarySettings")({ enabled, lang });
-      if (active.current) { setSettings(response.data); setMessage(enabled ? "autoEnabled" : "autoDisabled"); }
-    } catch { if (active.current) setMessage("settingsError"); }
-    finally { if (active.current) setBusy(false); }
-  };
 
   const publish = async () => {
     const stravaActivityId = target.trim() ? parseStravaSummaryTarget(target) : null;
@@ -122,11 +95,6 @@ export default function StravaSummaryPublishing({ activityId, lang }: { activity
           <input className="w-full" type="url" value={target} onChange={(event) => setTarget(event.target.value)} disabled={busy} placeholder="https://www.strava.com/activities/…" />
         </label>
       </details>
-      <label className="flex items-start gap-2">
-        <input type="checkbox" checked={settings?.enabled ?? false} disabled={busy || !settings} onChange={(event) => { void saveAutomatic(event.target.checked); }} />
-        <span>{t("stravaSummary.automatic")}</span>
-      </label>
-      {!settings && <Button variant="secondary" size="sm" disabled={busy || settingsLoading} onClick={() => { setMessage(null); setReloadKey((key) => key + 1); }}>{t("stravaSummary.loadSettings")}</Button>}
       <p role="status">{message ? t(`stravaSummary.${message}`) : ""}</p>
       {publishedId && (result?.status === "published" || result?.status === "unchanged") && <a href={`https://www.strava.com/activities/${publishedId}`} target="_blank" rel="noreferrer">{t("stravaSummary.view")}</a>}
     </section>
