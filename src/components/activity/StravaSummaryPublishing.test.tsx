@@ -34,9 +34,8 @@ describe("Strava summary publishing", () => {
   });
   it("does not publish or enable automation on mount; publishes only after the owner action", async () => {
     render(<StravaSummaryPublishing activityId="own-ride" lang="ko" />);
-    await waitFor(() => expect(screen.getByRole("checkbox")).toBeEnabled());
-    expect(mocks.settings).toHaveBeenCalledWith({});
-    expect(screen.getByRole("checkbox")).not.toBeChecked();
+    expect(mocks.settings).not.toHaveBeenCalled();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     expect(mocks.publish).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "stravaSummary.reconnect" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "stravaSummary.publish" }));
@@ -55,25 +54,6 @@ describe("Strava summary publishing", () => {
     expect(mocks.publish).toHaveBeenCalledWith({ activityId: "own-ride", lang: "en", stravaActivityId: "98765" });
     fireEvent.click(screen.getByRole("button", { name: "stravaSummary.reconnect" }));
     expect(mocks.connect).toHaveBeenCalledWith(window.location.pathname, { writeActivities: true });
-  });
-
-  it("retries loading settings without disabling an existing automatic setting", async () => {
-    mocks.settings.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce({ data: { enabled: true, lang: "ko" } });
-    render(<StravaSummaryPublishing activityId="own-ride" lang="ko" />);
-    await screen.findByText("stravaSummary.settingsError");
-    fireEvent.click(screen.getByRole("button", { name: "stravaSummary.loadSettings" }));
-    await waitFor(() => expect(screen.getByRole("checkbox")).toBeChecked());
-    expect(mocks.settings.mock.calls).toEqual([[{}], [{}]]);
-    expect(mocks.publish).not.toHaveBeenCalled();
-  });
-
-  it("only saves opt-in after an explicit checkbox action", async () => {
-    render(<StravaSummaryPublishing activityId="own-ride" lang="ko" />);
-    await waitFor(() => expect(screen.getByRole("checkbox")).toBeEnabled());
-    mocks.settings.mockResolvedValue({ data: { enabled: true, lang: "ko" } });
-    fireEvent.click(screen.getByRole("checkbox"));
-    await waitFor(() => expect(mocks.settings).toHaveBeenLastCalledWith({ enabled: true, lang: "ko" }));
-    expect(mocks.publish).not.toHaveBeenCalled();
   });
 
   it("discards a late publish result after changing accounts", async () => {
