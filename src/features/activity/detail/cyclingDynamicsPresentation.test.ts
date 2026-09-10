@@ -40,4 +40,13 @@ describe("buildCyclingDynamicsCards", () => {
   it("센서 지표와 구형 폴백이 모두 없으면 빈 목록", () => {
     expect(buildCyclingDynamicsCards({})).toEqual([]);
   });
+
+  it("세션 요약 폴백(session_summary)의 합산 토크효율을 단일값 카드로 그린다 (#2344)", () => {
+    const cards = buildCyclingDynamicsCards({
+      cyclingDynamics: { source: "session_summary", sampleCount: 0, validSampleCount: 0, coverage: 0, torqueEffectiveness: { combinedAvgPct: 76.4 } } as never,
+      lrBalance: { avg: 52, asymmetryPct: 4 },
+    });
+    expect(cards.find((c) => c.kind === "torqueEffectiveness")).toMatchObject({ value: "76.4", unit: "%" });
+    expect(cards.find((c) => c.kind === "balance")).toMatchObject({ value: "48.0 / 52.0" });
+  });
 });

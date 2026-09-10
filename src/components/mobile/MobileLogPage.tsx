@@ -6,7 +6,7 @@ import type { Activity } from "@shared/types";
 import ImportActivityModal from "./ImportActivityModal";
 import SportFilterTabs from "./SportFilterTabs";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon } from "../../utils/disciplineFilter";
-import { estimateTSS } from "../../utils/estimateTSS";
+import { sumActivityTss } from "../../utils/estimateTSS";
 
 // DAY_NAMES — i18n via t("mobileLog.dayNames")
 
@@ -100,7 +100,8 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
   const monthTotals = {
     timeMs: monthActs.reduce((sum, a) => sum + (a.summary.ridingTimeMillis ?? 0), 0),
     elevationM: Math.round(monthActs.reduce((sum, a) => sum + (a.summary.elevationGain ?? 0), 0)),
-    tss: Math.round(monthActs.reduce((sum, a) => sum + (((a as { tss?: number | null }).tss ?? a.summary.tss) ?? estimateTSS(a)), 0)),
+    // 아는 값만 더하고, 추정치가 섞이면 라벨로 밝힌다. 모르면 null — 0 을 쓰지 않는다 (#2237).
+    load: sumActivityTss(monthActs),
   };
 
   const monthLabel = t("mobileLog.monthLabel", { year, month: month + 1 });
@@ -227,7 +228,12 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
               [t("mobileLog.activeDays"), `${activeDays}/${daysInMonth}`],
               [t("mobileLog.totalSessions"), monthActs.length],
               [t("mobileLog.totalTime", { defaultValue: "총 시간" }), formatDuration(monthTotals.timeMs)],
-              [t("mobileLog.totalTss", { defaultValue: "총 TSS" }), monthTotals.tss],
+              [
+                monthTotals.load.estimated
+                  ? `${t("mobileLog.totalTss", { defaultValue: "총 TSS" })} · ${t("stat.tssEstimatedIncluded")}`
+                  : t("mobileLog.totalTss", { defaultValue: "총 TSS" }),
+                monthTotals.load.value ?? "–",
+              ],
               [t("mobileLog.totalElevation", { defaultValue: "상승고도" }), `${monthTotals.elevationM.toLocaleString()}m`],
             ].map(([label, value]) => (
               <div key={String(label)} style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: 'var(--space-3)' }}>

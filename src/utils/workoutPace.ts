@@ -2,7 +2,7 @@
  * 러닝 워크아웃 목표 페이스 — 임계 페이스(threshold pace) 기반 존별 범위 산출.
  *
  * 배경: 기존 코드에는 임계 페이스 → 존별 페이스 범위를 계산하는 공식이 없었다.
- * `todaysRecommendation.ts` 의 zoneNames 는 표시 라벨일 뿐이고, `RunDetailCards` 의
+ * 권장 카드의 zoneNames 는 표시 라벨일 뿐이고, `RunDetailCards` 의
  * 존 매핑(paceSec < 250 → Z5 …)은 임계값과 무관한 절대 매직넘버였다. 이 파일이 그 공식의
  * 단일 진실원이며, 두 소비처 모두 여기로 수렴한다.
  *

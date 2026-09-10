@@ -663,6 +663,10 @@
   "trainingStatus.fresh.label": "회복 완료",
   "trainingStatus.fresh.advice": "충분히 회복됐어요. 강도를 올려도 좋아요.",
   "trainingStatus.fresh.adviceRamp": "회복 구간이에요. 강도를 올릴 준비가 됐어요.",
+  "trainingStatus.staleChip": "갱신 대기",
+  "trainingStatus.state.loading": "훈련 상태를 계산하고 있습니다.",
+  "trainingStatus.state.error": "훈련 상태를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.",
+  "trainingStatus.state.empty": "훈련 상태를 계산할 활동이 아직 없습니다.",
   "crossLoad.eyebrow": "통합 체력 기여",
   "crossLoad.headline": "지금 통합 체력의 {{pct}}%는 {{sport}}에서 나오고 있어요.",
   "crossLoad.viewTri": "통합 피트니스 보기",
@@ -713,6 +717,8 @@
   "lifetimeMilestones.title": "킬로미터스톤",
   "lifetimeMilestones.total": "누적 {{km}}km (모든 종목)",
   "lifetimeMilestones.label": "{{km}}km",
+  "lifetimeMilestones.loading": "구독 중…",
+  "lifetimeMilestones.pending": "집계 준비 중",
   "lifetimeMilestones.longestRide": "최장 라이드",
   "thresholdDecision.modelOnly": "PDC 추정값은 분석 근거이며 여기서 바로 적용되지 않습니다.",
   "ftpDecision.ariaLabel": "FTP 변경 결정",
@@ -751,5 +757,6 @@
   "ftpDecision.receipt.deviceState.deferred_in_ride": "주행 종료 후 적용",
   "ftpDecision.receipt.deviceState.applied_for_next_ride": "다음 라이드에 적용됨",
   "ftpDecision.receipt.deviceState.failed": "동기화 실패",
-  "ftpDecision.receipt.deviceState.superseded": "더 최신 설정으로 대체됨"
+  "ftpDecision.receipt.deviceState.superseded": "더 최신 설정으로 대체됨",
+  "trainingStatus.state.paused": "훈련 상태 표시를 일시 중단했습니다. 다시 켜지면 서버 판정이 나타납니다."
 }

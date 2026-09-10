@@ -1,25 +1,19 @@
-import { useMemo, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  computeRideSubstrate,
-  computeFatMaxProfile,
   relativeFatOxidation,
   FATMAX_PEAK_PCT_FTP,
+  type FatMaxProfile,
+  type RideSubstrate,
 } from "@shared/training/metabolism";
 import { Text } from "../theme/components";
 import InfoTip from "./InfoTip";
 
 interface MetabolismCardProps {
-  /** 1Hz 파워 스트림 (W). */
-  watts: number[];
-  /** 기능적 임계파워 (W). */
-  ftp: number;
-  /** 체중 (kg). v1 미사용이나 향후 보정 여지로 전달. */
-  weightKg?: number | null;
-  /** 임계파워 (W) — 있으면 FATMAX 지속시간·TSS 추정. */
-  cp?: number | null;
-  /** 무산소 용량 (J). */
-  wPrime?: number | null;
+  /** 서버 `activity_metrics.substrate` — 시간 가중 적분. 웹은 계산하지 않는다 (#2437). */
+  substrate: RideSubstrate | null | undefined;
+  /** 서버 `activity_metrics.fatMax`. */
+  fatMax: FatMaxProfile | null | undefined;
   /** 가상파워(추정 파워) 활동 여부 — 신뢰도 낮음 표기. */
   isVirtualPower?: boolean;
 }
@@ -50,25 +44,13 @@ function Dot({ color }: { color: string }) {
 }
 
 export default function MetabolismCard({
-  watts,
-  ftp,
-  weightKg = null,
-  cp = null,
-  wPrime = null,
+  substrate,
+  fatMax,
   isVirtualPower = false,
 }: MetabolismCardProps) {
   const { t } = useTranslation("activity");
 
-  const substrate = useMemo(
-    () => computeRideSubstrate(watts, ftp, weightKg),
-    [watts, ftp, weightKg],
-  );
-  const fatMax = useMemo(
-    () => computeFatMaxProfile(ftp, cp, wPrime),
-    [ftp, cp, wPrime],
-  );
-
-  if (substrate.totalKcal <= 0) return null;
+  if (!substrate || substrate.totalKcal <= 0) return null;
 
   const fatPctRound = Math.round(substrate.fatPct * 100);
   const carbPctRound = 100 - fatPctRound;
@@ -81,7 +63,7 @@ export default function MetabolismCard({
   }));
 
   const sustainText =
-    fatMax.sustainableMin != null
+    fatMax?.sustainableMin != null
       ? fatMax.sustainableMin >= 240
         ? t("metabolism.sustainLong")
         : t("metabolism.sustainMin", { min: Math.round(fatMax.sustainableMin) })
@@ -160,7 +142,7 @@ export default function MetabolismCard({
       </div>
 
       {/* FATMAX 존 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+      {fatMax && <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
         <div style={metricStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
             <Dot color="var(--lime)" />
@@ -205,7 +187,7 @@ export default function MetabolismCard({
             </Text>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* 강도-지방산화 종형곡선 */}
       <div className="mt-3" style={panelStyle}>

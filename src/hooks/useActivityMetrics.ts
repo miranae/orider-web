@@ -12,175 +12,187 @@
  *   - stale: version 이 클라이언트 기대보다 낮음 (다음 streams write 시 자동 갱신)
  *   - ready: 사용 가능
  *
- * Firestore rules: 활동 owner 만 read. backend write. 본 hook 은 read only.
+ * Firestore rules: `activity_metrics/{id}` 는 **활동 owner 만** read (contextSnapshot 에
+ * FTP·최대심박·체중·LTHR 이 들어 있다). 타인의 공개 활동을 보는 사람은 서버가 따로 내는
+ * `activity_metrics_public/{id}` 를 읽는다 — 민감 필드를 뺀 부분집합이다. backend write,
+ * 본 hook 은 read only.
  */
 
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
+import { ACTIVITY_METRICS_VERSION, type ActivityMetrics } from "@shared/types/activity-metrics";
 import { logClientError } from "../services/errorLogger";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import { canonicalRolloutAllows, useCanonicalRollout } from "./useCanonicalRollout";
+import { canonicalRolloutObservedOff } from "../services/canonicalRollout";
 
 /** @sync-with functions/src/analysis/activity-metrics.ts#ActivityMetrics
  *  서버에서 영속화되는 모든 필드. 서버가 ground truth, 클라는 read-only.
  *  필드 drift 방지를 위해 모두 optional/nullable 로 선언 — 새 서버 필드 누락 시
  *  consumer 가 undefined 안전 처리하도록 강제.
  *  TODO: shared/types/activity-metrics.ts 로 단일 source 화 (현재 inline mirror 2곳). */
-export interface ActivityMetricsDoc {
-  // 기본
-  np: number | null;
-  if: number | null;
-  tss: number | null;
-  vi: number | null;
-  xPower: number | null;
-  workKj: number;
-  caloriesKcal: number;
+/**
+ * `activity_metrics/{activityId}` 문서. 정의는 `@shared/types/activity-metrics` 하나다 —
+ * 이전엔 이 파일이 같은 문서를 따로 선언해 필드가 두 곳에서 갈렸다 (#2437).
+ */
+export type ActivityMetricsDoc = ActivityMetrics & {
+  newPrs?: Array<{ duration?: string; durationSeconds?: number; rank?: number; value?: number; watts?: number }>;
+};
 
-  // 평균/최대
-  avgPower: number | null;
-  maxPower: number | null;
-  avgHr: number | null;
-  maxHr: number | null;
-  avgCadence: number | null;
-  avgSpeedKph: number | null;
-  maxSpeedKph: number | null;
-  distanceKm: number;
-  durationSec: number;
-  elevationGainM: number;
+/**
+ * 공개 projection 이 담는 필드. 민감한 선수 컨텍스트(FTP·존 경계·클라임 파워)는 서버가 애초에
+ * 복사하지 않는다.
+ *
+ * @sync-with orider-g1-web/functions/src/analysis/activity-metrics-public-projection.ts#PUBLIC_ACTIVITY_METRICS_KEYS
+ */
+export const PUBLIC_ACTIVITY_METRICS_KEYS = [
+  "version", "discipline", "activityType", "startTime", "computedAt",
+  "durationSec", "movingTimeSec", "pauseTimeSec",
+  "distanceKm", "elevationGainM", "elevationLossM", "avgGrade", "maxGrade",
+  "avgSpeedKph", "maxSpeedKph", "avgCadence", "maxCadence",
+  "np", "avgPower", "avgHr", "cyclingDynamics", "lrBalance",
+  "workKj", "caloriesKcal", "isVirtualPower", "gpsQuality", "weather",
+  "sourceLayer", "inputPending",
+] as const;
 
-  // A.6
-  avgGrade?: number | null;
-  maxGrade?: number | null;
-  elevationLossM?: number;
-  movingTimeSec?: number;
-  pauseTimeSec?: number;
-  peakHr?: { "1m"?: number; "5m"?: number; "20m"?: number };
-  zoneKj?: { z1: number; z2: number; z3: number; z4: number; z5: number; z6: number; z7: number };
-  wPrimeMinJ?: number | null;
-  loadAxes?: {
-    cardiovascular?: number | null;
-    muscular?: number | null;
-    perceptual?: number | null;
-    confidence?: number | null;
-  } | null;
-  newPrs?: Array<{
-    duration?: string;
-    durationSeconds?: number;
-    rank?: number;
-    value?: number;
-    watts?: number;
-  }>;
-  workoutTypeConfidence?: number;
-  cyclingMetrics?: { cadenceStdDev: number | null; longestZ4PlusSec: number | null };
-  /** FIT dual-sided power meter. avg is right-side percentage; left = 100 - avg. */
-  lrBalance?: { avg: number; asymmetryPct: number };
-  cyclingDynamics?: {
-    source: "session" | "records";
-    sampleCount: number;
-    validSampleCount: number;
-    coverage: number;
-    balance?: { leftAvgPct: number; rightAvgPct: number; asymmetryPct: number };
-    torqueEffectiveness?: { leftAvgPct?: number; rightAvgPct?: number };
-    pedalSmoothness?: { leftAvgPct?: number; rightAvgPct?: number; combinedAvgPct?: number };
-    platformCenterOffset?: { leftAvgMm?: number; rightAvgMm?: number };
-    powerPhase?: {
-      left?: { startDeg: number; endDeg: number; arcDeg: number; peakStartDeg?: number; peakEndDeg?: number };
-      right?: { startDeg: number; endDeg: number; arcDeg: number; peakStartDeg?: number; peakEndDeg?: number };
-    };
-  };
-
-  // 모델 / 분포
-  cp: number | null;
-  wPrime: number | null;
-  cpR2: number | null;
-  quadrant: { q1Pct: number; q2Pct: number; q3Pct: number; q4Pct: number } | null;
-  matches: { count: number; totalSec: number; peakW: number; longestW: number };
-  climbs: Array<{
-    startKm: number; endKm: number; lengthKm: number;
-    elevationGainM: number; avgGrade: number;
-    category: "HC"|"Cat1"|"Cat2"|"Cat3"|"Cat4"|null;
-    vam: number|null; durationSec: number|null;
-    avgPower: number|null; wPerKg: number|null; normalizedPower: number|null;
-    climbScore: number;
-  }>;
-  decoupling: { ef: number|null; decouplingPct: number|null; hrDriftPct: number|null };
-  trimp: number | null;
-  streamTrimpTss?: number | null;
-  sufferScore: number | null;
-  zonesSec: { sweetSpot: number; threshold: number; vo2: number; anaerobic: number };
-  hrZoneSec: number[];
-  powerZoneSec: number[];
-  mmp: Partial<Record<"1s"|"5s"|"10s"|"30s"|"1m"|"2m"|"5m"|"10m"|"20m"|"30m"|"1h", number>>;
-  splits?: Array<{ km: number; paceSec: number; gapSec: number; elevGain: number; avgHr: number | null }>;
-  runMetrics?: {
-    gapAvgSec: number | null;
-    paceStdDevSec?: number | null;
-    minPaceSecPerKm?: number | null;
-  };
-
-  workoutType: "recovery"|"endurance"|"tempo"|"threshold"|"interval"|"race"|"mixed";
-
-  // Meta
-  discipline: "bike"|"run"|"swim";
-  activityType: string;
-  startTime: number;
-  computedAt: number;
-  version: number;
-  contextSnapshot: { ftp?: number; maxHr?: number; weightKg?: number; lthr?: number };
+/**
+ * 공개 doc → `ActivityMetricsDoc` 부분집합.
+ *
+ * 서버가 이미 걸러 내지만 여기서 한 번 더 화이트리스트를 지난다 — 나중에 서버가 필드를 더
+ * 흘려도 화면이 조용히 그것을 그리지 않는다. **없는 필드는 undefined 로 남긴다**(0 으로
+ * 채우면 "미계산" 과 "실제로 0" 이 같은 화면이 된다).
+ */
+export function fromPublicActivityMetrics(data: Record<string, unknown>): ActivityMetricsDoc {
+  const projection: Record<string, unknown> = {};
+  for (const key of PUBLIC_ACTIVITY_METRICS_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) projection[key] = data[key];
+  }
+  // 부분집합이므로 필수 필드가 비어 있다. 타입은 정본과 같은 것으로 두고(소비처가 두 모양을
+  // 따로 다루면 화면마다 분기가 늘어난다) 없는 값은 undefined 로 남긴다 — 소비처는 이미 모든
+  // 필드를 optional 로 다룬다(파일 머리 주석의 drift 규칙).
+  return projection as unknown as ActivityMetricsDoc;
 }
 
 export type UseActivityMetricsState =
   | { status: "loading"; metrics: null }
+  /** kill switch — 서버가 `activityDetail` 면을 껐다. 소유자·공개 뷰어 모두. 화면은 중단을 명시한다. */
   | { status: "disabled"; metrics: null }
   | { status: "missing"; metrics: null }
+  /** 서버 doc 이 있으나 스키마 버전이 클라 기대보다 낮다. 값은 last-known-good 으로 그대로 쓰되
+   *  화면에는 "이전 분석" 표식을 붙인다 — 다음 streams write 때 서버가 재계산한다. */
+  | { status: "stale"; metrics: ActivityMetricsDoc }
   | { status: "ready"; metrics: ActivityMetricsDoc };
 
 /**
  * @param activityId Firestore activity doc id. null 이면 구독 안 함 (status="loading"
  *   유지) — caller 에서 명시적 unmount 와 동일하게 동작.
- * @param enabled 구독 게이트. **소유자만 read 가능**한 doc 이므로(rules: activities
- *   owner 만), 타인의 공개 활동을 볼 때 호출자가 false 를 넘겨 구독 자체를 막는다.
- *   안 그러면 비소유자 뷰마다 permission-denied 가 errorLogger 로 발사돼 알림 노이즈가
- *   되고(2026-06-03 client:useActivityMetrics), contextSnapshot(ftp/maxHr/weightKg/lthr
- *   등 소유자 개인정보)을 owner-only 로 막아둔 의도와도 무관한 잡음이 된다. false 면
- *   status="disabled" — 배너는 아무것도 렌더하지 않고, AnalysisTab 은 streams 재계산
- *   경로를 그대로 쓴다. 기본 true(소유자 화면 등 기존 호출 호환).
+ * @param isOwner 이 활동의 소유자인가.
+ *
+ *   - `true` → 정본 `activity_metrics/{id}` (rules: owner 만). 개인 컨텍스트까지 전부.
+ *   - `false` → 공개 projection `activity_metrics_public/{id}`. 예전에는 이때 구독 자체를
+ *     막아(`disabled`) 타인의 공개 활동 분석이 **영구히 빈 화면**이었다 — owner-only doc 을
+ *     읽으려다 permission-denied 만 쌓였다(2026-06-03 client:useActivityMetrics). 공개 문서가
+ *     생긴 지금은 그것을 읽는다.
+ *
+ *   기본 true(소유자 화면 등 기존 호출 호환).
+ *
+ * ## kill switch 는 공개 뷰어에게도 적용된다
+ *
+ * `disabled` 는 **kill switch** 를 뜻한다: 서버가 `activityDetail` 면을 껐다.
+ *
+ * 예전에는 소유자에게만 적용했다. 그러면 `config/canonicalRollout` 의 루트 `killSwitch` 로
+ * 전 화면을 껐는데도 남의 공개 활동 상세는 계속 정본 파생 문서를 그렸다 — 전량 정지가
+ * 전량이 아니었다 (#2237 리뷰).
+ *
+ * 서버 계약상 `activityDetail` 은 **활동 상세라는 정본 소비 화면 하나**의 스위치다
+ * (`orider-g1-web/functions/src/canonical-rollout-config.ts` — 화면 단위로 켜고 끄며 루트
+ * `killSwitch` 가 화면별 설정을 이긴다). `activity_metrics_public` 은 그 정본에서 서버가
+ * 파생한 projection 이므로 같은 스위치 아래에 있다. 그래서 면이 꺼지면 공개 뷰어도
+ * `disabled` 다 — 빈 화면이 아니라 중단을 밝힌다.
+ *
+ * **다만 "서버가 껐다" 와 "판정을 못 받았다" 는 다르다.** 로그아웃 상태의 방문자는 애초에
+ * 판정 대상이 아니라 판정이 존재하지 않는다. 없는 판정을 꺼짐으로 읽어 공개 활동 페이지를
+ * 잠그면, 게이트를 켜는 순간 비로그인 방문자 전원이 빈 화면을 본다. 그래서 공개 뷰어는
+ * **서버 판정을 실제로 받았고 그 판정이 꺼짐일 때만** 막는다(`rollout.verdictOk`). 소유자
+ * 경로는 정본 소비 그 자체이므로 예전처럼 fail-closed 다 — 판정을 못 받으면 꺼짐이다.
+ *
+ * ## 한 번 꺼짐을 본 면은 재조회 실패로 되살아나지 않는다 (sticky)
+ *
+ * 위 규칙만 있으면 구멍이 하나 남는다: 꺼짐 판정을 받은 뒤 TTL 재조회가 네트워크 오류로
+ * 실패하면 `verdictOk` 가 false 로 떨어져 공개 뷰어의 차단이 풀리고 구독이 되살아났다
+ * (#2237 리뷰). 그래서 **이번 세션에서 성공한 판정이 꺼짐이라고 말한 적이 있으면**
+ * (`canonicalRolloutObservedOff`) 그 뒤의 실패는 차단을 풀지 못한다 — 다음 **성공한**
+ * 판정이 켜 줄 때만 풀린다. 같은 기록이 로그아웃으로 빠져나가는 것도 막는다.
+ *
+ * **정책 (a) 와 그 한계:** `getCanonicalRollout` 은 인증을 요구한다
+ * (`orider-g1-web/functions/src/canonical-rollout-callable.ts`). 그래서 "판정이 알려진
+ * 세션" 에서만 미로그인 뷰어를 막는다. **처음부터 로그인하지 않은 방문자에게는 kill switch
+ * 가 닿지 않는다** — 인증 없는 판정 읽기 경로는 이 저장소에 없고(런타임 설정은 배포
+ * 산출물이라 사고 대응 수단이 아니다) 새로 만들면 서버 계약을 지어내는 것이다. 그 방문자가
+ * 보는 것은 서버가 공개용으로 파생해 둔 `activity_metrics_public` 뿐이므로, 전량 정지의
+ * 실제 수단은 그 projection 의 읽기를 막는 것이다(쓰기 중단은 기존 문서를 가리지 못한다). (docs/operations/canonical-
+ * rollout-kill-switch.md)
  */
-export function useActivityMetrics(activityId: string | null, enabled = true): UseActivityMetricsState {
+export function useActivityMetrics(activityId: string | null, isOwner = true): UseActivityMetricsState {
   const { firestore } = useFirebaseServices();
+  const rollout = useCanonicalRollout();
   const [state, setState] = useState<UseActivityMetricsState>({ status: "loading", metrics: null });
 
+  // 게이트 계층이 꺼져 있으면(오늘의 기본값) 판정은 조건에서 아예 빠진다 — 소유자도 공개 뷰어도
+  // 오늘과 똑같이 읽는다. 판정을 기다리는 동안은 켜짐도 꺼짐도 아니므로 둘 다 기다린다.
+  const gateWaiting = rollout.gateEnabled && rollout.loading;
+  const surfaceOff = !canonicalRolloutAllows(rollout, "activityDetail");
+  // 이번 세션에서 꺼짐을 본 적이 있는가. 이 값은 성공한 판정만 바꾼다 — 재조회 실패나
+  // 로그아웃이 차단을 풀지 못하게 하는 자리다. 값이 바뀌는 순간은 판정이 도착하는 순간이라
+  // 훅의 setState 가 함께 리렌더를 일으킨다.
+  const observedOff = canonicalRolloutObservedOff("activityDetail");
+  // 소유자는 fail-closed(판정 없음 = 꺼짐), 공개 뷰어는 서버가 실제로 껐다고 말했을 때만 —
+  // 단 한 번 꺼짐을 본 뒤에는 실패도 차단을 유지한다(sticky).
+  const gateBlocked = rollout.gateEnabled && !gateWaiting
+    && ((surfaceOff && (isOwner || rollout.verdictOk)) || observedOff);
+  const collection = isOwner ? "activity_metrics" : "activity_metrics_public";
+
   useEffect(() => {
-    if (!activityId) {
+    if (!activityId || gateWaiting) {
       setState({ status: "loading", metrics: null });
       return undefined;
     }
-    if (!enabled) {
-      // 비소유자 — owner-only doc 을 읽을 권한이 없으므로 구독조차 시도하지 않는다.
+    if (gateBlocked) {
+      // kill switch — 서버가 이 면을 껐다. 공개 projection 도 같은 정본에서 파생되므로 함께 멈춘다.
+      // 화면은 빈 칸이 아니라 중단 상태를 밝힌다.
       setState({ status: "disabled", metrics: null });
       return undefined;
     }
     // 새 activityId 진입 시 loading 으로 초기화 (옛 데이터 깜빡임 방지).
     setState({ status: "loading", metrics: null });
     const unsub = onSnapshot(
-      doc(firestore, "activity_metrics", activityId),
+      doc(firestore, collection, activityId),
       (snap) => {
         if (!snap.exists()) {
           setState({ status: "missing", metrics: null });
           return;
         }
-        // 캐스팅은 hook 사용자 책임 영역 — 서버 doc 스키마는 functions 쪽에서
-        // 강제. 클라가 잘못 읽을 일 자체가 적음 (rules: owner read).
-        setState({ status: "ready", metrics: snap.data() as ActivityMetricsDoc });
+        // 캐스팅은 hook 사용자 책임 영역 — 서버 doc 스키마는 functions 쪽에서 강제.
+        // 공개 문서는 부분집합이라 화이트리스트를 지난다.
+        const raw = snap.data() as Record<string, unknown>;
+        const data = isOwner
+          ? (raw as unknown as ActivityMetricsDoc)
+          : fromPublicActivityMetrics(raw);
+        // version 이 클라 기대보다 낮으면 stale — 값은 그대로 노출하되 호출자가 표식을 붙인다.
+        // version 필드가 아예 없는 옛 문서는 0 으로 본다 — 모름을 최신으로 그리면 안 된다 (#2237).
+        const version = typeof data.version === "number" ? data.version : 0;
+        const isStale = version < ACTIVITY_METRICS_VERSION;
+        setState({ status: isStale ? "stale" : "ready", metrics: data });
       },
       (err) => {
-        // permission-denied (rule 평가 실패 — auth state desync 의심) / network 등.
+        // permission-denied (비공개 활동을 링크로 열었거나 rule 평가 실패) / network 등.
         // missing 으로 격하 + errorLogger 전송 (auth 문제는 진단 가치 있음).
-        logClientError("useActivityMetrics", err, { activityId });
+        logClientError("useActivityMetrics", err, { activityId, collection });
         setState({ status: "missing", metrics: null });
       },
     );
     return () => unsub();
-  }, [activityId, enabled, firestore]);
+  }, [activityId, collection, firestore, gateBlocked, gateWaiting, isOwner]);
 
   return state;
 }

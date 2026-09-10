@@ -1,9 +1,11 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { collection, getDoc, onSnapshot } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { setDocData } from "../__tests__/mocks/firebase";
+import AnalysisTab from "../components/AnalysisTab";
 import { useActivityAnalysisModel } from "./useActivityAnalysisModel";
 
 const mocks = vi.hoisted(() => ({
@@ -17,6 +19,25 @@ vi.mock("../contexts/AuthContext", () => ({
 
 vi.mock("./useStrava", () => ({
   useStrava: () => ({ getStreams: mocks.getStreams }),
+}));
+
+vi.mock("./useFitnessTimeseries", () => ({
+  useFitnessTimeseries: () => ({ timeseries: null }),
+}));
+
+vi.mock("../contexts/LocaleContext", () => ({
+  useLocale: () => ({ units: "metric", locale: "ko-KR" }),
+}));
+
+vi.mock("../components/ZoneDistributionChart", () => ({
+  default: ({ title, zones }: { title: string; zones: Array<{ seconds: number }> }) => (
+    <div data-testid={`zone-chart-${title}`}>{zones.map(({ seconds }) => seconds).join(",")}</div>
+  ),
+}));
+vi.mock("../components/PowerCurveChart", () => ({
+  default: ({ points }: { points: Array<{ maxPower: number }> }) => (
+    <div data-testid="power-curve-chart">{points.map(({ maxPower }) => maxPower).join(",")}</div>
+  ),
 }));
 
 vi.mock("./useActiveBikeProfile", () => ({
@@ -98,8 +119,19 @@ describe("useActivityAnalysisModel", () => {
     const activity = makeActivity("orider_owner");
     seedActivity(activity);
     setDocData("activity_metrics/orider_owner", {
+      // version 없는 문서는 이제 stale 로 격하된다 (#2237) — 정상 경로 테스트라 현재 버전을 심는다.
+      version: ACTIVITY_METRICS_VERSION,
+      computedAt: 1_700_000_000_000,
       movingTimeSec: 3,
       pauseTimeSec: 1,
+      np: 190,
+      tss: 30,
+      trimp: 20,
+      avgPower: 175,
+      avgHr: 140,
+      powerZoneSec: [1, 2, 3, 4, 5, 6, 7],
+      hrZoneSec: [1, 2, 3, 4, 5],
+      mmp: { "5s": 500 },
     });
 
     const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
@@ -120,9 +152,9 @@ describe("useActivityAnalysisModel", () => {
       isOwner: true,
       startTime: activity.startTime,
       sport: "ride",
-      hasStreamPowerCandidate: true,
-      hasStreamHeartRateCandidate: true,
-      hasStreamCadenceCandidate: true,
+      suppressServerPowerMetrics: false,
+      suppressServerHeartRateMetrics: false,
+      suppressServerCadenceMetrics: false,
       summary: {
         averagePower: 250,
         movingTimeSec: 3,
@@ -130,6 +162,12 @@ describe("useActivityAnalysisModel", () => {
       },
     });
     expect(result.current.analysisTabProps?.streams.watts).toEqual(streams.watts);
+    render(<AnalysisTab {...result.current.analysisTabProps!} />);
+    expect(screen.getByText("190")).toBeInTheDocument();
+    expect(screen.getByText("30")).toBeInTheDocument();
+    expect(screen.getByText("20")).toBeInTheDocument();
+    expect(screen.getByTestId("zone-chart-파워 존")).toHaveTextContent("1,2,3,4,5,6,7");
+    expect(screen.getByTestId("power-curve-chart")).toHaveTextContent("500");
     expect(onSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ path: `activity_metrics/${activity.id}` }),
       expect.any(Function),
@@ -196,7 +234,7 @@ describe("useActivityAnalysisModel", () => {
     expect(result.current.hasAnalysisStreams).toBe(true);
   });
 
-  it("disables owner-only metrics for another rider and never subscribes to social or photo data", async () => {
+  it("reads the public metrics projection for another rider and never subscribes to social or photo data", async () => {
     mocks.user = { uid: "viewer" };
     const activity = makeActivity("orider_public", "owner");
     seedActivity(activity);
@@ -207,20 +245,123 @@ describe("useActivityAnalysisModel", () => {
     await waitFor(() => expect(result.current.streams).not.toBeNull());
 
     expect(result.current.isActivityOwner).toBe(false);
-    expect(result.current.serverMetrics.status).toBe("disabled");
-    expect(onSnapshot).not.toHaveBeenCalledWith(
-      expect.objectContaining({ path: `activity_metrics/${activity.id}` }),
-      expect.anything(),
-      expect.anything(),
-    );
+    // 공개 문서가 없으면 missing — 예전엔 여기서 구독 자체를 막아(`disabled`) 타인의 공개
+    // 활동 분석이 영구히 빈 화면이었다.
+    expect(result.current.serverMetrics.status).toBe("missing");
     expect(collection).not.toHaveBeenCalled();
     const subscribedPaths = vi.mocked(onSnapshot).mock.calls
       .map(([ref]) => (ref as { path?: string }).path ?? "");
+    // owner-only 정본은 건드리지 않는다(rules 가 거부한다). 공개 projection 만 읽는다.
+    expect(subscribedPaths).not.toContain(`activity_metrics/${activity.id}`);
+    expect(subscribedPaths).toContain(`activity_metrics_public/${activity.id}`);
     expect(subscribedPaths).not.toEqual(expect.arrayContaining([
       expect.stringContaining("kudos"),
       expect.stringContaining("comments"),
       expect.stringContaining("activity_photos"),
     ]));
+  });
+
+  it("공개 비소유자의 정상 승인 센서는 공개 서버 분석 projection을 그대로 유지한다", async () => {
+    mocks.user = { uid: "viewer" };
+    const activity = makeActivity("orider_public_accepted", "owner");
+    seedActivity(activity);
+    setDocData(`activity_metrics_public/${activity.id}`, {
+      version: ACTIVITY_METRICS_VERSION,
+      np: 999,
+      avgPower: 998,
+      avgHr: 197,
+      cyclingDynamics: {
+        source: "records",
+        sampleCount: 10,
+        validSampleCount: 9,
+        coverage: 0.9,
+        balance: { leftAvgPct: 49, rightAvgPct: 51, asymmetryPct: 2 },
+      },
+      contextSnapshot: { ftp: 400 },
+    });
+
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.serverMetrics.status).toBe("ready"));
+    await waitFor(() => expect(result.current.analysisTabProps).not.toBeNull());
+
+    expect(result.current.serverMetrics.metrics).toMatchObject({ np: 999, avgPower: 998, avgHr: 197 });
+    expect(result.current.serverMetrics.metrics?.contextSnapshot).toBeUndefined();
+    expect(result.current.analysisTabProps).toMatchObject({
+      isOwner: false,
+      suppressServerPowerMetrics: false,
+      suppressServerHeartRateMetrics: false,
+      summary: { averagePower: 250, averageHeartRate: 145 },
+    });
+
+    render(<AnalysisTab {...result.current.analysisTabProps!} />);
+
+    expect(screen.queryByTestId("analysis-missing")).not.toBeInTheDocument();
+    expect(screen.getByText("999")).toBeInTheDocument();
+    expect(screen.getByText("998")).toBeInTheDocument();
+    expect(screen.getByText("197")).toBeInTheDocument();
+    expect(screen.getByText("사이클링 다이내믹스")).toBeInTheDocument();
+  });
+
+  it("공개 비소유자의 거부된 파워·심박 후보는 AnalysisTab에서 과거 서버 지표로 되살아나지 않는다", async () => {
+    mocks.user = { uid: "viewer" };
+    const activity = makeActivity("orider_public_rejected", "owner");
+    seedActivity(activity, {
+      userId: activity.userId,
+      time: [0, 1, 2, 3],
+      distance: [0, 10, 20, 30],
+      watts: [250, 250, 250, 250],
+      heartrate: [150, 150, 150, 150],
+      cadence: [0, 85, 86, 0],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: activity.startTime,
+        time: [0, 1, 2, 3],
+        watts: [200, null, null, null],
+        heartrate: [145, null, null, null],
+      },
+    } as unknown as ActivityStreams);
+    setDocData(`activity_metrics_public/${activity.id}`, {
+      version: ACTIVITY_METRICS_VERSION,
+      np: 999,
+      avgPower: 998,
+      avgHr: 197,
+      cyclingDynamics: {
+        source: "records",
+        sampleCount: 10,
+        validSampleCount: 9,
+        coverage: 0.9,
+        balance: { leftAvgPct: 49, rightAvgPct: 51, asymmetryPct: 2 },
+      },
+    });
+
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.serverMetrics.status).toBe("ready"));
+    await waitFor(() => expect(result.current.analysisTabProps).not.toBeNull());
+
+    expect(result.current.streamSensorSummary).toMatchObject({
+      hasRejectedPowerStream: true,
+      hasRejectedHeartRateStream: true,
+      hasRejectedCadenceStream: true,
+      averagePower: null,
+      averageHeartRate: null,
+    });
+    expect(result.current.analysisTabProps).toMatchObject({
+      suppressServerPowerMetrics: true,
+      suppressServerHeartRateMetrics: true,
+      suppressServerCadenceMetrics: true,
+      summary: { averagePower: null, averageHeartRate: null },
+    });
+
+    render(<AnalysisTab {...result.current.analysisTabProps!} />);
+
+    expect(screen.queryByText("999")).not.toBeInTheDocument();
+    expect(screen.queryByText("998")).not.toBeInTheDocument();
+    expect(screen.queryByText("197")).not.toBeInTheDocument();
+    expect(screen.queryByText("파워 분석")).not.toBeInTheDocument();
+    expect(screen.queryByText("심박 분석")).not.toBeInTheDocument();
+    expect(screen.queryByText("사이클링 다이내믹스")).not.toBeInTheDocument();
   });
 
   it("preserves processing state and retries the activity document after three seconds", async () => {

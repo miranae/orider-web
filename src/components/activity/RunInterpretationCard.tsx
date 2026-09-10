@@ -8,14 +8,13 @@
  */
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { ActivityStreams } from "@shared/types";
 import { Card, Text } from "../../theme/components";
-import { calculateOverallGap } from "../../utils/runMetrics";
 import { interpretActivitySummary } from "../../utils/metricInterpretation";
 import { formatPaceSec } from "../../utils/workoutPace";
 
 export interface RunInterpretationCardProps {
-  streams: ActivityStreams | null | undefined;
+  /** 서버 `activity_metrics.runMetrics.gapAvgSec`. 웹은 GAP 을 스트림에서 다시 계산하지 않는다 (#2437). */
+  gapSecPerKm: number | null;
   /** 활동 평균 속도 (km/h). */
   averageSpeedKmh: number;
   /** 최근 4주 거리 가중 평균 페이스 (sec/km). 없으면 변화 문장을 생략. */
@@ -23,16 +22,12 @@ export interface RunInterpretationCardProps {
 }
 
 export default function RunInterpretationCard({
-  streams,
+  gapSecPerKm,
   averageSpeedKmh,
   baselinePaceSecPerKm,
 }: RunInterpretationCardProps) {
   const { t } = useTranslation("metricGlossary");
 
-  const gapSecPerKm = useMemo(
-    () => (streams ? calculateOverallGap(streams) : null),
-    [streams],
-  );
 
   const paceSecPerKm = averageSpeedKmh > 0 ? Math.round(3600 / averageSpeedKmh) : null;
 

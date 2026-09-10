@@ -22,7 +22,7 @@ import {
 import { logClientError } from "../services/errorLogger";
 import { Card, Stat, Text, Button, Stack } from "../theme/components";
 import LifetimeMilestonesGrid from "../components/fitness/LifetimeMilestonesGrid";
-import { computeLifetimeMilestones } from "../utils/lifetimeMilestones";
+import { useMilestones } from "../hooks/useMilestones";
 
 /** km, 콤마·정수 */
 function km(meters: number): string {
@@ -48,9 +48,9 @@ export default function YearRecapPage() {
   const year = selectedYear ?? years[0] ?? new Date().getFullYear();
 
   const recap = useMemo(() => computeYearRecap(activities, year), [activities, year]);
-  // 연도 필터 이전의 전체 활동(useYearActivities 가 이미 로드)에서 계산 — 누적 거리는
-  // 연도에 갇히지 않는 lifetime 지표라 recap(연도별 집계)과 별도로 둔다.
-  const lifetimeMilestones = useMemo(() => computeLifetimeMilestones(activities), [activities]);
+  // 마일스톤 달성 판정 주체는 `canonical` 플래그가 가른다 — 서버 누적 원장이 러닝 전용이라
+  // 기본은 꺼짐(클라 판정 유지). 그리드가 직접 분기한다 (#2237).
+  const { achieved: milestones, loading: milestonesLoading } = useMilestones();
 
   const nickname = profile?.nickname || user?.displayName || t("rider");
 
@@ -226,8 +226,8 @@ export default function YearRecapPage() {
             </Stack>
           </Card>
 
-          {/* 킬로미터스톤 (이슈 #360) — 종목 무관 누적 거리·최장 라이드, 클라 파생 */}
-          <LifetimeMilestonesGrid summary={lifetimeMilestones} />
+          {/* 킬로미터스톤 (이슈 #360) — 배지 판정 주체는 플래그, 누적 합계·최장 라이드는 화면 집계 */}
+          <LifetimeMilestonesGrid activities={activities} achieved={milestones} loading={milestonesLoading} />
 
           {/* 월별 추이 */}
           <Card title={t("section.monthly")}>

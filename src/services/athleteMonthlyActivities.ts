@@ -3,7 +3,7 @@ import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
 import { firestore } from "./firebase";
 import { resolveDuration } from "../utils/activityTime";
-import { estimateTSS } from "../utils/estimateTSS";
+import { estimateActivityTss } from "../utils/estimateTSS";
 
 const PAGE_SIZE = 200;
 
@@ -55,8 +55,12 @@ export function aggregateMonthlyActivities(activities: Activity[], now = new Dat
     row.time += Number.isFinite(duration) ? duration / 3600000 : 0;
     row.elevation += Number.isFinite(activity.summary.elevationGain) ? activity.summary.elevationGain : 0;
     row.rides += 1;
-    const tss = estimateTSS(activity);
-    row.tss += Number.isFinite(tss) ? tss : 0;
+    // 부하를 모르는 활동은 **건너뛴다**. 0 으로 더하면 "부하 0" 이 확정값처럼 그려진다 (#2237).
+    const load = estimateActivityTss(activity);
+    if (load.value != null) {
+      row.tss = (row.tss ?? 0) + load.value;
+      row.tssEstimated = row.tssEstimated || load.estimated;
+    }
     months.set(month, row);
   }
   if (months.size === 0) return [];
@@ -68,6 +72,8 @@ export function aggregateMonthlyActivities(activities: Activity[], now = new Dat
 function emptyMonth(month: number): WeeklyStat {
   return {
     week: `${Math.floor(month / 12)}.${String(month % 12 + 1).padStart(2, "0")}`,
-    distance: 0, time: 0, elevation: 0, rides: 0, tss: 0,
+    distance: 0, time: 0, elevation: 0, rides: 0,
+    // 활동이 없거나 아는 부하가 하나도 없는 달은 null — 빈 슬롯으로 그려진다.
+    tss: null, tssEstimated: false,
   };
 }

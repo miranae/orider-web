@@ -65,6 +65,9 @@
     "avgCadence": "Avg Cadence",
     "cadence": "Cadence",
     "avgStroke": "Avg Stroke",
+    "tssEstimatedIncluded": "incl. estimates",
+    "deviceSummary": "Device summary",
+    "elevLoss": "Descent",
     "calories": "Calories",
     "time": "Time",
     "speed": "Speed",
@@ -530,7 +533,13 @@
       "powerZonesTitle": "Power zones are not ready",
       "powerZonesDesc": "When enough power stream data is recorded, FTP-based intensity distribution will appear here.",
       "powerCurveTitle": "Power curve is not ready yet",
-      "powerCurveDesc": "When the power stream is long enough, peak average power from 5 seconds to 60 minutes will appear here."
+      "powerCurveDesc": "When the power stream is long enough, peak average power from 5 seconds to 60 minutes will appear here.",
+      "computingTitle": "Computing analysis",
+      "computingDesc": "The server is computing metrics for this activity. Check back shortly.",
+      "noServerMetricsTitle": "No server analysis yet",
+      "noServerMetricsDesc": "The analysis document for this activity has not been produced yet.",
+      "pausedTitle": "Server analysis paused",
+      "pausedDesc": "Server analysis display is paused for maintenance. Your ride data is intact and reappears once it is back on."
     },
     "seiler": {
       "z1": "Low Intensity",
@@ -788,6 +797,22 @@
     "weatherHumidity": "Humidity",
     "weatherPrecip": "Precipitation",
     "weatherAirQuality": "Air quality",
+    "weatherCondition": {
+      "CLEAR": "Clear",
+      "PARTLY_CLOUDY": "Partly cloudy",
+      "CLOUDY": "Cloudy",
+      "FOG": "Fog",
+      "DRIZZLE": "Drizzle",
+      "RAIN": "Rain",
+      "HEAVY_RAIN": "Heavy rain",
+      "SNOW": "Snow",
+      "THUNDERSTORM": "Thunderstorm",
+      "UNKNOWN": "Unknown"
+    },
+    "weatherConditionLabel": "Weather",
+    "weatherSourceDevice": "From device",
+    "weatherStale": "Earlier analysis",
+    "weatherProcessing": "Working out the weather.",
     "gearTitle": "Gear",
     "gearTotalDist": "{{dist}} km accumulated",
     "gearRemaining": "{{dist}} km until replacement"
@@ -840,7 +865,11 @@
       "interval": "Interval",
       "race": "Race",
       "mixed": "Mixed"
-    }
+    },
+    "provisionalChip": "Provisional · upload in progress",
+    "staleChip": "From an earlier analysis · awaiting recompute",
+    "truncatedInputChip": "From truncated input",
+    "paused": "Server analysis display is paused."
   },
   "vp": {
     "badge": "Virtual Power",

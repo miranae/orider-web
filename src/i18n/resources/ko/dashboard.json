@@ -85,6 +85,7 @@
       "title": "주간 TSS",
       "sub": "최근 12주",
       "barTooltip": "{{week}}: {{tss}} TSS",
+      "barTooltipUnknown": "{{week}}: 기록 없음",
       "avgPerWeek": "평균/주",
       "peakWeek": "최고주",
       "trend": "추세",
@@ -534,5 +535,12 @@
   "shoeBadge": {
     "title": "{{name}} 교체가 가까워졌어요",
     "detail": "누적 {{total}}km · 남은 수명 약 {{remaining}}km"
+  },
+  "canonical": {
+    "pending": "최근 7일 요약을 아직 확인할 수 없습니다.",
+    "failed": "최근 7일 요약을 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.",
+    "empty": "최근 7일에 집계할 활동이 없습니다.",
+    "stale": "마지막으로 확정된 최근 7일 요약을 표시합니다.",
+    "staleChip": "이전 집계"
   }
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Activity } from "@shared/types";
 import { TIME_FACTORS } from "@shared/training/activityLoad";
-import { estimateTSS, estimateRunTSS, estimateSwimTSS, estimateBikeTSS } from "./estimateTSS";
+import { estimateTSS, estimateActivityTss, sumActivityTss, estimateRunTSS, estimateSwimTSS, estimateBikeTSS } from "./estimateTSS";
 
 /** 테스트용 최소 Activity. summary 핵심 필드만 채우고 나머지는 캐스팅으로 우회. */
 function act(opts: {
@@ -76,5 +76,50 @@ describe("estimateBikeTSS", () => {
 
   it("relativeEffort 없으면 bike 시간factor(42)", () => {
     expect(estimateBikeTSS(act({ hours: 2 }))).toBe(2 * TIME_FACTORS.bike);
+  });
+});
+
+describe("estimateActivityTss — 모르면 null, 추정이면 표식", () => {
+  it("서버 사전계산 summary.tss 는 추정이 아니다", () => {
+    expect(estimateActivityTss(act({ tss: 88, hours: 2 }))).toEqual({ value: 88, estimated: false });
+  });
+
+  it("옛 문서의 최상위 tss 도 사전계산 경로로 취급", () => {
+    const legacy = { ...act({ hours: 2 }), tss: 77 } as unknown as Activity;
+    expect(estimateActivityTss(legacy)).toEqual({ value: 77, estimated: false });
+  });
+
+  it("시간factor 로 채운 값은 추정으로 표식", () => {
+    expect(estimateActivityTss(act({ hours: 2 }))).toEqual({
+      value: Math.round(2 * TIME_FACTORS.bike),
+      estimated: true,
+    });
+  });
+
+  it("근거가 없으면 null — 0 을 확정값처럼 돌려주지 않는다", () => {
+    expect(estimateActivityTss(act({ hours: 0 }))).toEqual({ value: null, estimated: false });
+    expect(estimateTSS(act({ hours: 0 }))).toBeNull();
+  });
+});
+
+describe("sumActivityTss — 아는 값만 합산, 추정 혼입 고지", () => {
+  it("추정치가 섞이면 estimated=true", () => {
+    const total = sumActivityTss([act({ tss: 50, hours: 1 }), act({ hours: 1 })]);
+    expect(total).toEqual({ value: 50 + Math.round(TIME_FACTORS.bike), estimated: true });
+  });
+
+  it("전부 사전계산이면 estimated=false", () => {
+    expect(sumActivityTss([act({ tss: 50, hours: 1 }), act({ tss: 30, hours: 1 })]))
+      .toEqual({ value: 80, estimated: false });
+  });
+
+  it("모르는 활동은 0 으로 세지 않고 건너뛴다", () => {
+    expect(sumActivityTss([act({ tss: 50, hours: 1 }), act({ hours: 0 })]))
+      .toEqual({ value: 50, estimated: false });
+  });
+
+  it("아는 값이 하나도 없으면 null", () => {
+    expect(sumActivityTss([act({ hours: 0 })])).toEqual({ value: null, estimated: false });
+    expect(sumActivityTss([])).toEqual({ value: null, estimated: false });
   });
 });

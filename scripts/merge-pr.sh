@@ -35,6 +35,11 @@ set -euo pipefail
 DO_MERGE=1
 RUN_REVIEW=1
 REVIEW_BLOCKERS_ONLY=1
+REVIEW_RANGE_MODE=delta   # delta(기본)=마지막으로 PASS 한 head 이후만 · full=PR 전체
+REVIEW_SINCE=""           # --review-since <ref> 로 명시 지정
+# Codex 입력 상한 1,048,576자. 프롬프트·메타데이터·스키마 몫을 뺀 보수적 상한.
+REVIEW_MAX_DIFF_BYTES=900000
+REVIEW_STATE_REF_PREFIX="refs/codex-review/pr-"
 REQUIRE_VISUAL_CHECK=1
 REQUIRE_GITHUB_REVIEW=0
 DO_BUILD=1
@@ -48,6 +53,8 @@ while [[ $# -gt 0 ]]; do
     --no-merge) DO_MERGE=0 ;;
     --no-review) RUN_REVIEW=0 ;;
     --blockers-only) REVIEW_BLOCKERS_ONLY=1 ;;
+    --review-full) REVIEW_RANGE_MODE=full ;;
+    --review-since) REVIEW_SINCE="${2:-}"; shift ;;
     --all-findings) REVIEW_BLOCKERS_ONLY=0 ;;
     --no-visual-check) REQUIRE_VISUAL_CHECK=0 ;;
     --require-github-review) REQUIRE_GITHUB_REVIEW=1 ;;
@@ -106,6 +113,33 @@ cleanup_review_workspace() {
   REVIEW_DIR=""
 }
 
+# 리뷰 범위를 정한다 — REVIEW_FROM_REV / REVIEW_RANGE_LABEL 을 세팅.
+# 기본(delta): 마지막으로 PASS 한 head 이후만. 없거나 조상이 아니면 자동으로 PR 전체.
+resolve_review_range() {
+  REVIEW_FROM_REV="origin/$BASE"
+  REVIEW_RANGE_LABEL="full(origin/$BASE...${HEAD_OID:0:8})"
+  local candidate="" origin_label=""
+  if [[ -n "$REVIEW_SINCE" ]]; then
+    candidate="$(git rev-parse --verify "${REVIEW_SINCE}^{commit}" 2>/dev/null || true)"
+    [[ -n "$candidate" ]] || die "--review-since 참조를 해석할 수 없습니다: $REVIEW_SINCE"
+    origin_label="--review-since"
+  elif [[ "$REVIEW_RANGE_MODE" == "delta" ]]; then
+    candidate="$(git rev-parse --verify "${REVIEW_STATE_REF_PREFIX}${PR_NUM}^{commit}" 2>/dev/null || true)"
+    origin_label="이전 PASS"
+  fi
+  [[ -n "$candidate" ]] || return 0
+  if [[ "$candidate" == "$HEAD_OID" ]]; then
+    log "[리뷰] 이 head 는 이미 PASS 했습니다(${candidate:0:8}) — 전체 범위로 다시 봅니다."
+    return 0
+  fi
+  if ! git merge-base --is-ancestor "$candidate" "$HEAD_OID" 2>/dev/null; then
+    log "[리뷰] ${origin_label} 시작점(${candidate:0:8})이 HEAD 의 조상이 아닙니다(force-push/rebase) — 전체 범위로 되돌립니다."
+    return 0
+  fi
+  REVIEW_FROM_REV="$candidate"
+  REVIEW_RANGE_LABEL="delta(${candidate:0:8}..${HEAD_OID:0:8}, ${origin_label})"
+}
+
 prepare_codex_review_workspace() {
   REVIEW_PARENT="$(mktemp -d -t orider-codex-review-parent)" || die "Codex 리뷰 임시 디렉터리 생성 실패"
   REVIEW_PARENT="$(realpath "$REVIEW_PARENT")"
@@ -138,11 +172,25 @@ prepare_codex_review_workspace() {
   REVIEW_METADATA="$REVIEW_INPUT_DIR/metadata.txt"
   REVIEW_INPUT="$REVIEW_INPUT_DIR/input.txt"
   REVIEW_SCHEMA="$REVIEW_INPUT_DIR/output.schema.json"
-  git diff --binary --no-ext-diff "origin/$BASE...$HEAD_OID" >"$REVIEW_DIFF" \
+  resolve_review_range
+  git diff --binary --no-ext-diff "$REVIEW_FROM_REV...$HEAD_OID" >"$REVIEW_DIFF" \
     || { cleanup_review_workspace; die "PR head diff 생성 실패"; }
+  # Codex 입력 상한을 넘기면 리뷰가 아예 실행되지 않는다 — 불투명한 -32602 대신 여기서 끊는다.
+  local diff_bytes
+  diff_bytes="$(wc -c <"$REVIEW_DIFF" | tr -d ' ')"
+  if [[ "$diff_bytes" -gt "$REVIEW_MAX_DIFF_BYTES" ]]; then
+    cleanup_review_workspace
+    die "리뷰 입력이 상한을 넘습니다(${diff_bytes}바이트 > ${REVIEW_MAX_DIFF_BYTES}). 범위=${REVIEW_RANGE_LABEL}. --review-since <ref> 로 좁히거나 PR 을 나누세요."
+  fi
   {
     printf 'base=origin/%s\n' "$BASE"
+    printf 'review_range=%s\n' "$REVIEW_RANGE_LABEL"
+    printf 'review_from=%s\n' "$REVIEW_FROM_REV"
     printf 'head=%s\n' "$HEAD_OID"
+    if [[ "$REVIEW_FROM_REV" != "origin/$BASE" ]]; then
+      printf '%s\n' 'note=이 diff 는 증분이다. 아래는 PR 전체가 건드린 파일 목록(맥락용, 이 diff 에 없는 파일도 있다).'
+      printf 'pr_changed_files=%s\n' "$(git diff --name-only "origin/$BASE...$HEAD_OID" | tr '\n' ' ')"
+    fi
   } >"$REVIEW_METADATA"
   cat >"$REVIEW_SCHEMA" <<'JSON'
 {"type":"object","properties":{"findings":{"type":"string"},"verdict":{"type":"string","enum":["PASS","BLOCK"]}},"required":["findings","verdict"],"additionalProperties":false}
@@ -561,6 +609,9 @@ NODE
     echo "  리뷰 로그: $REVIEW_OUT"
     die "코드 리뷰 BLOCK — 머지 중단"
   elif [[ "$verdict" == "PASS" ]]; then
+    # 다음 실행의 델타 시작점. PASS 한 head 만 기록한다 — BLOCK 은 기록하지 않는다.
+    git update-ref "${REVIEW_STATE_REF_PREFIX}${PR_NUM}" "$HEAD_OID" 2>/dev/null \
+      || log "[리뷰] 델타 시작점 기록 실패(무해) — 다음 실행은 전체 범위로 봅니다."
     tail -60 "$REVIEW_FINDINGS" | sed 's/^/  │ /' || true
     printf '  \033[1;32m리뷰 PASS\033[0m\n'
     rm -f "$REVIEW_OUT" "$REVIEW_LOG" "$REVIEW_FINDINGS" "$REVIEW_PARSE_LOG"

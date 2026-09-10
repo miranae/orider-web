@@ -663,6 +663,10 @@
   "trainingStatus.fresh.label": "Recovered",
   "trainingStatus.fresh.advice": "You're well recovered. A harder session would land well.",
   "trainingStatus.fresh.adviceRamp": "You're rested and ready to raise the intensity.",
+  "trainingStatus.staleChip": "Updating",
+  "trainingStatus.state.loading": "Working out your training status.",
+  "trainingStatus.state.error": "Couldn't load your training status. Please check back shortly.",
+  "trainingStatus.state.empty": "No activities yet to work out a training status.",
   "crossLoad.eyebrow": "Cross-sport contribution",
   "crossLoad.headline": "{{sport}} is building {{pct}}% of your combined fitness right now.",
   "crossLoad.viewTri": "View combined fitness",
@@ -713,6 +717,8 @@
   "lifetimeMilestones.title": "Kilometerstones",
   "lifetimeMilestones.total": "{{km}} km lifetime (all disciplines)",
   "lifetimeMilestones.label": "{{km}} km",
+  "lifetimeMilestones.loading": "Loading…",
+  "lifetimeMilestones.pending": "Tallying soon",
   "lifetimeMilestones.longestRide": "Longest ride",
   "thresholdDecision.modelOnly": "The PDC estimate is evidence only and cannot be applied directly here.",
   "ftpDecision.ariaLabel": "FTP change decision",
@@ -751,5 +757,6 @@
   "ftpDecision.receipt.deviceState.deferred_in_ride": "Will apply after the ride",
   "ftpDecision.receipt.deviceState.applied_for_next_ride": "Applied for next ride",
   "ftpDecision.receipt.deviceState.failed": "Sync failed",
-  "ftpDecision.receipt.deviceState.superseded": "Replaced by a newer setting"
+  "ftpDecision.receipt.deviceState.superseded": "Replaced by a newer setting",
+  "trainingStatus.state.paused": "Training status display is paused. The server verdict returns once it is back on."
 }

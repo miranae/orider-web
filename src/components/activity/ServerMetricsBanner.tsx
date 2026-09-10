@@ -54,6 +54,15 @@ export default function ServerMetricsBanner({
     mixed: t("serverMetrics.workoutType.mixed"),
   };
 
+  // disabled: 서버가 이 면을 껐다(kill switch). 아무것도 그리지 않으면 "데이터 없음" 으로
+  // 읽히므로 중단 상태를 한 줄로 밝힌다 (#2442).
+  if (state.status === "disabled") {
+    return (
+      <Card style={{ padding: "var(--space-3)", marginBottom: "var(--space-4)" }}>
+        <Text size="xs" tone="tertiary">{t("serverMetrics.paused")}</Text>
+      </Card>
+    );
+  }
   // missing: Phase A 트리거 발화 안 된 활동 — 1줄 hint 로 명시.
   if (state.status === "missing") {
     return (
@@ -63,8 +72,10 @@ export default function ServerMetricsBanner({
     );
   }
   // loading: 첫 read 응답 전. 잠깐만 보임 — silent.
-  if (state.status !== "ready") return null;
+  // stale: 값은 last-known-good 으로 그대로 보여주되 아래에서 "이전 분석" 칩을 붙인다.
+  if (state.status !== "ready" && state.status !== "stale") return null;
   const m = state.metrics;
+  const isStale = state.status === "stale";
 
   const lowConf = m.workoutTypeConfidence != null && m.workoutTypeConfidence < LOW_CONFIDENCE;
 
@@ -98,6 +109,11 @@ export default function ServerMetricsBanner({
     <Card style={{ padding: "var(--space-3)", marginBottom: "var(--space-4)" }}>
       <div className="flex items-center" style={{ gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
         <Chip>{t("serverMetrics.chip")}</Chip>
+        {/* 서버가 찍은 출처 표식 — 파츠 업로드 중 잠정값 / 800KB 에서 잘린 inline 입력. 숨기면 잘린 값이 확정값으로 읽힌다 (#900). */}
+        {/* 스키마 버전이 클라 기대보다 낮은 문서 — 값은 보여주되 최신 계산이 아님을 명시 (#885). */}
+        {isStale && <Chip>{t("serverMetrics.staleChip")}</Chip>}
+        {m.inputPending && <Chip>{t("serverMetrics.provisionalChip")}</Chip>}
+        {m.sourceLayer === "inline_streams" && <Chip>{t("serverMetrics.truncatedInputChip")}</Chip>}
         <Text size="xs" tone="tertiary">
           {new Date(m.computedAt).toLocaleString("ko-KR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" })} · v{m.version}
         </Text>

@@ -18,6 +18,8 @@ export interface RuntimeConfig {
   coachRiderInsightEnabled?: boolean;
   coachProgressPlannerEnabled?: boolean;
   trainingDecisionEnabled?: boolean;
+  /** canonical 훈련 결정(`getTrainingDecision`) 소비 전환(#886). 기본 꺼짐 — 켜기 전까지 기존 로컬 표시가 남는다. */
+  trainingDecisionCanonicalEnabled?: boolean;
   trainingExecutionEnabled?: boolean;
   riderWorkoutDeliveryEnabled?: boolean;
   coachRidePlanTokenEnabled?: boolean;
@@ -26,6 +28,19 @@ export interface RuntimeConfig {
   coachRidePlanRespondV2Enabled?: boolean;
   /** canonical 정본 API 소비 전환(#884). 서버 배포·백필 뒤에 켠다 — 기본 꺼짐. */
   canonicalConsumersEnabled?: boolean;
+  /** 날씨·코스·정비 정본 소비 전환(#887). 세 면을 **따로** 켠다 — 한 면이 막혀도 나머지는 굴러간다. */
+  canonicalWeatherEnabled?: boolean;
+  canonicalCourseEnabled?: boolean;
+  canonicalMaintenanceEnabled?: boolean;
+  /** 누적 마일스톤 배지를 서버 판정으로 소비(#2237). 서버 누적 원장이 러닝 전용이라 기본 꺼짐. */
+  canonicalMilestonesEnabled?: boolean;
+  /**
+   * 서버 전환 판정(`getCanonicalRollout`) 을 실제로 물어보는가 (#2442).
+   *
+   * 꺼져 있으면 서버에 묻지 않고, 화면은 빌드 플래그만으로 오늘과 똑같이 그린다 — callable 이
+   * 배포되기 전에 켜면 fail-closed 가 정상 화면을 끄기 때문이다. 서버 배포 뒤에 켠다.
+   */
+  canonicalRolloutEnabled?: boolean;
   sentryDsn?: string;
   appEnvironment?: string;
   useEmulators?: boolean;
@@ -68,12 +83,19 @@ function readBuildFallbackConfig(): RuntimeConfig {
     coachRiderInsightEnabled: import.meta.env.VITE_COACH_RIDER_INSIGHT_ENABLED === "true",
     coachProgressPlannerEnabled: import.meta.env.VITE_COACH_PROGRESS_PLANNER_ENABLED === "true",
     trainingDecisionEnabled: import.meta.env.VITE_TRAINING_DECISION_ENABLED === "true",
+    trainingDecisionCanonicalEnabled: import.meta.env.VITE_TRAINING_DECISION_CANONICAL_ENABLED === "true",
     trainingExecutionEnabled: import.meta.env.VITE_TRAINING_EXECUTION_ENABLED === "true",
     riderWorkoutDeliveryEnabled: import.meta.env.VITE_RIDER_WORKOUT_DELIVERY_ENABLED === "true",
     coachRidePlanTokenEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_TOKEN_ENABLED === "true",
     coachRidePlanSnapshotEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED === "true",
     coachRidePlanAiEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_AI_ENABLED === "true",
     coachRidePlanRespondV2Enabled: import.meta.env.VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED === "true",
+    canonicalConsumersEnabled: import.meta.env.VITE_CANONICAL_CONSUMERS_ENABLED === "true",
+    canonicalWeatherEnabled: import.meta.env.VITE_CANONICAL_WEATHER === "true",
+    canonicalCourseEnabled: import.meta.env.VITE_CANONICAL_COURSE === "true",
+    canonicalMaintenanceEnabled: import.meta.env.VITE_CANONICAL_MAINTENANCE === "true",
+    canonicalMilestonesEnabled: import.meta.env.VITE_CANONICAL_MILESTONES === "true",
+    canonicalRolloutEnabled: import.meta.env.VITE_CANONICAL_ROLLOUT_ENABLED === "true",
     sentryDsn: import.meta.env.VITE_SENTRY_DSN,
     appEnvironment: import.meta.env.MODE,
     useEmulators: import.meta.env.VITE_USE_EMULATORS === "true",

@@ -109,4 +109,37 @@ describe("ServerMetricsBanner sensor provenance", () => {
     expect(screen.getByText("지구력")).toBeInTheDocument();
     expect(screen.getByText("신뢰도 90%")).toBeInTheDocument();
   });
+
+  it("잠정값·잘린 입력 표식을 칩으로 드러낸다 — 숨기면 잘린 값이 확정값으로 읽힌다 (#900)", () => {
+    const provisional = { ...readyState, metrics: { ...readyState.metrics, inputPending: true, sourceLayer: "inline_streams" } };
+    render(<ServerMetricsBanner state={provisional as never} />);
+    expect(screen.getByText("잠정값 · 업로드 반영 중")).toBeInTheDocument();
+    expect(screen.getByText("잘린 입력 기준")).toBeInTheDocument();
+  });
+
+  it("출처 표식이 없으면 칩을 그리지 않는다", () => {
+    render(<ServerMetricsBanner state={readyState as never} />);
+    expect(screen.queryByText("잠정값 · 업로드 반영 중")).not.toBeInTheDocument();
+    expect(screen.queryByText("잘린 입력 기준")).not.toBeInTheDocument();
+  });
+  it("stale 상태에서도 값을 보여주되 '이전 분석' 칩을 붙인다 (#885)", () => {
+    render(<ServerMetricsBanner state={{ ...readyState, status: "stale" } as never} />);
+    expect(screen.getByText("이전 분석 기준 · 재계산 대기")).toBeInTheDocument();
+    expect(screen.getByText("333 W")).toBeInTheDocument();
+    expect(screen.getByText("444")).toBeInTheDocument();
+  });
+
+  it("ready 상태에는 '이전 분석' 칩이 없다", () => {
+    render(<ServerMetricsBanner state={readyState as never} />);
+    expect(screen.queryByText("이전 분석 기준 · 재계산 대기")).not.toBeInTheDocument();
+  });
 });
+
+/** kill switch 중에 아무것도 안 그리면 "데이터 없음" 으로 읽힌다 — 중단은 중단이라고 쓴다 (#2442). */
+describe("ServerMetricsBanner kill switch", () => {
+  it("disabled 는 중단 문구를 낸다", () => {
+    render(<ServerMetricsBanner state={{ status: "disabled", metrics: null }} />);
+    expect(screen.getByText("서버 분석 표시를 일시 중단했습니다.")).toBeInTheDocument();
+  });
+});
+

@@ -139,3 +139,12 @@ describe("computeRideSubstrate", () => {
     expect(withoutW).toEqual(withW);
   });
 });
+
+describe("computeRideSubstrate 시간 가중 (#2437)", () => {
+  it("소유 초로 적분한다 — 2초 간격 900샘플 = 1Hz 1800샘플", () => {
+    const a = computeRideSubstrate(Array(1800).fill(200), 250, null);
+    const b = computeRideSubstrate(Array(900).fill(200), 250, null, Array(900).fill(2));
+    expect(b.totalKcal).toBe(a.totalKcal);
+    expect(b.fatKcal).toBe(a.fatKcal);
+  });
+});

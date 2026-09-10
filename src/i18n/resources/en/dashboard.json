@@ -85,6 +85,7 @@
       "title": "Weekly TSS",
       "sub": "Last 12 weeks",
       "barTooltip": "{{week}}: {{tss}} TSS",
+      "barTooltipUnknown": "{{week}}: No data",
       "avgPerWeek": "Avg / week",
       "peakWeek": "Peak week",
       "trend": "Trend",
@@ -534,5 +535,12 @@
   "shoeBadge": {
     "title": "{{name}} is nearing the end of its life",
     "detail": "{{total}} km logged · roughly {{remaining}} km left"
+  },
+  "canonical": {
+    "pending": "The latest seven-day summary is not available yet.",
+    "failed": "The seven-day summary could not be loaded. Please try again shortly.",
+    "empty": "There are no activities to summarize in the last seven days.",
+    "stale": "Showing the last confirmed seven-day summary.",
+    "staleChip": "Earlier summary"
   }
 }

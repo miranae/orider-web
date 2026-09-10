@@ -52,6 +52,8 @@
     "logTotalDistance": "총 거리",
     "logTotalTime": "총 시간",
     "logTotalElevation": "총 고도",
+    "tssEstimated": "추정",
+    "tssEstimatedIncluded": "추정 포함",
     "logTotalTSS": "총 TSS",
     "prevMonth": "← 이전 달",
     "nextMonth": "다음 달 →",

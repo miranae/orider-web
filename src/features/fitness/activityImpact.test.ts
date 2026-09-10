@@ -26,10 +26,15 @@ function ride(params: {
   distanceKm: number;
   movingSec: number;
   tss: number | null;
+  /** 같은 실주행 판정 링크 키 — 시각·거리로는 묶이지 않는다. */
+  stravaActivityId?: number;
+  localSessionId?: string;
 }): Activity {
   return {
     id: params.id,
     source: params.source,
+    ...(params.stravaActivityId === undefined ? {} : { stravaActivityId: params.stravaActivityId }),
+    ...(params.localSessionId === undefined ? {} : { localSessionId: params.localSessionId }),
     startTime: params.startTime,
     summary: {
       distance: params.distanceKm * 1_000,
@@ -142,6 +147,7 @@ describe("deriveActivityImpacts", () => {
         distanceKm: 77.78136,
         movingSec: 11_735.672,
         tss: 102,
+        stravaActivityId: 777, // Strava 업로드가 남긴 링크
       }),
       ride({
         id: "strava_ride",
@@ -150,6 +156,7 @@ describe("deriveActivityImpacts", () => {
         distanceKm: 70.4166,
         movingSec: 9_385,
         tss: null,
+        stravaActivityId: 777,
       }),
     ];
 
@@ -184,6 +191,7 @@ describe("deriveActivityImpacts", () => {
         distanceKm: 39.6,
         movingSec: 5_400,
         tss: 107,
+        stravaActivityId: 396,
       }),
       ride({
         id: "orider-ride",
@@ -191,6 +199,7 @@ describe("deriveActivityImpacts", () => {
         startTime: startTime + 30_000,
         distanceKm: 39.6,
         movingSec: 5_400,
+        stravaActivityId: 396,
         tss: null,
       }),
     ];
@@ -212,6 +221,7 @@ describe("deriveActivityImpacts", () => {
     const longerWithoutExplicitTss = {
       id: "longer-time-load",
       source: "orider",
+      localSessionId: "s1",
       startTime,
       summary: { distance: 30_000, movingTimeMillis: 3_600_000, tss: null },
     } as Activity;
@@ -222,6 +232,7 @@ describe("deriveActivityImpacts", () => {
       distanceKm: 30,
       movingSec: 3_550,
       tss: 50,
+      localSessionId: "s1", // 같은 세션의 이중 업로드
     });
 
     const impacts = deriveActivityImpacts(
