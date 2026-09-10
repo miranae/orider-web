@@ -326,6 +326,9 @@ export function useActivityAnalysisModel(
       streams: analysisProjection.streams,
       summary: resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics),
       sport,
+      hasStreamPowerCandidate,
+      hasStreamHeartRateCandidate,
+      hasStreamCadenceCandidate,
       isVirtualPower: activity.isVirtualPower || activePowerOverride != null,
       virtualPowerParams: activePowerOverride?.params ?? activity.virtualPowerParams,
     };

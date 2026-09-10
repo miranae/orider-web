@@ -21,9 +21,10 @@ describe("activity detail server insights", () => {
     expect(activityPage).toContain("<AnalysisTab {...analysisTabProps} />");
     expect(analysisModel).toContain("startTime: activity.startTime");
     expect(analysisTab).toContain("filterServerMetricsForSensorCandidates(serverMetrics.metrics");
-    // 분석 탭은 서버 정본을 그리되, 센서 거부 필터는 배너에 실배선돼 있어야 한다 (#885 f2ad731).
-    expect(analysisTab).toContain("suppressPowerMetrics={!hasStreamPowerCandidate");
-    expect(analysisTab).toContain("suppressHeartRateMetrics={!hasStreamHeartRateCandidate");
+    // 현재 센서 후보가 있으면 배너도 필터된 projection 을 받고 서버 파생값을 되살리지 않는다.
+    expect(analysisTab).toContain("state={visibleServerMetrics}");
+    expect(analysisTab).toContain("suppressPowerMetrics={hasStreamPowerCandidate");
+    expect(analysisTab).toContain("suppressHeartRateMetrics={hasStreamHeartRateCandidate");
     expect(analysisTab).not.toContain("calculateNP(");
     expect(analysisTab).not.toContain("calculateTSS(");
     expect(analysisTab).not.toContain("calculateHrZoneDistribution(");

@@ -3,6 +3,13 @@ import { describe, expect, it } from "vitest";
 import { filterServerMetricsForSensorCandidates } from "./AnalysisTab";
 
 const metrics = {
+  np: 240,
+  avgPower: 220,
+  maxPower: 900,
+  avgHr: 148,
+  maxHr: 190,
+  trimp: 72,
+  peakHr: { "1m": 185 },
   workoutType: "endurance",
   workoutTypeConfidence: 0.9,
   sufferScore: 81,
@@ -52,6 +59,10 @@ describe("AnalysisTab server metric provenance", () => {
       expect(filtered.cyclingMetrics).toMatchObject({ longestZ4PlusSec: null, cadenceStdDev: 7 });
       expect(filtered.zoneKj).toBeUndefined();
       expect(filtered.lrBalance).toBeUndefined();
+      expect(filtered.cyclingDynamics).toBeUndefined();
+      expect(filtered.np).toBeNull();
+      expect(filtered.avgPower).toBeNull();
+      expect(filtered.maxPower).toBeNull();
       expect(filtered.climbs[0]).toMatchObject({
         startKm: 2,
         lengthKm: 1,
@@ -73,6 +84,10 @@ describe("AnalysisTab server metric provenance", () => {
     })!;
 
     expect(filtered.sufferScore).toBeNull();
+    expect(filtered.avgHr).toBeNull();
+    expect(filtered.maxHr).toBeNull();
+    expect(filtered.trimp).toBeNull();
+    expect(filtered.peakHr).toEqual({});
     expect(filtered.quadrant).toEqual(metrics.quadrant);
     expect(filtered.workoutType).toBeUndefined();
     expect(filtered.workoutTypeConfidence).toBeUndefined();
@@ -100,5 +115,23 @@ describe("AnalysisTab server metric provenance", () => {
     const filtered = filterServerMetricsForSensorCandidates(metrics as never, noCandidates)!;
 
     expect(filtered).toMatchObject(metrics);
+  });
+
+  it("후보가 승인되면 서버 평균 대신 현재 선택된 파워와 심박 평균만 사용한다", () => {
+    const filtered = filterServerMetricsForSensorCandidates(metrics as never, {
+      power: true,
+      heartRate: true,
+      cadence: false,
+    }, {
+      power: 251,
+      heartRate: 151,
+    })!;
+
+    expect(filtered.avgPower).toBe(251);
+    expect(filtered.avgHr).toBe(151);
+    expect(filtered.np).toBeNull();
+    expect(filtered.maxPower).toBeNull();
+    expect(filtered.maxHr).toBeNull();
+    expect(filtered.cyclingDynamics).toBeUndefined();
   });
 });

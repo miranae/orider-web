@@ -50,6 +50,7 @@ export const PUBLIC_ACTIVITY_METRICS_KEYS = [
   "durationSec", "movingTimeSec", "pauseTimeSec",
   "distanceKm", "elevationGainM", "elevationLossM", "avgGrade", "maxGrade",
   "avgSpeedKph", "maxSpeedKph", "avgCadence", "maxCadence",
+  "np", "avgPower", "avgHr", "cyclingDynamics", "lrBalance",
   "workKj", "caloriesKcal", "isVirtualPower", "gpsQuality", "weather",
   "sourceLayer", "inputPending",
 ] as const;

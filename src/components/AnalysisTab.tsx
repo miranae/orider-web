@@ -11,7 +11,7 @@ import MetabolismCard from "./MetabolismCard";
 import InfoTip from "./InfoTip";
 import { VirtualPowerBadge } from "./activity/VirtualPowerBadge";
 import { Chip, Text } from "../theme/components";
-import { useActivityMetrics, type ActivityMetricsDoc } from "../hooks/useActivityMetrics";
+import { useActivityMetrics, type ActivityMetricsDoc, type UseActivityMetricsState } from "../hooks/useActivityMetrics";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import ServerMetricsBanner from "./activity/ServerMetricsBanner";
 import { buildCyclingDynamicsCards, type CyclingDynamicsCardDescriptor } from "../features/activity/detail/cyclingDynamicsPresentation";
@@ -148,6 +148,10 @@ interface SensorCandidateFlags {
   heartRate: boolean;
   cadence: boolean;
 }
+interface SelectedSensorAverages {
+  power?: number | null;
+  heartRate?: number | null;
+}
 type FilteredActivityMetricsDoc = Omit<ActivityMetricsDoc, "workoutType" | "workoutTypeConfidence" | "zoneKj" | "lrBalance"> & {
   workoutType?: ActivityMetricsDoc["workoutType"];
   workoutTypeConfidence?: number;
@@ -158,6 +162,7 @@ type FilteredActivityMetricsDoc = Omit<ActivityMetricsDoc, "workoutType" | "work
 export function filterServerMetricsForSensorCandidates(
   metrics: ActivityMetricsDoc | null,
   candidates: SensorCandidateFlags,
+  selected: SelectedSensorAverages = {},
 ): FilteredActivityMetricsDoc | null {
   if (!metrics) return null;
   const filteredMetrics: FilteredActivityMetricsDoc = { ...metrics };
@@ -173,14 +178,71 @@ export function filterServerMetricsForSensorCandidates(
       }
     : undefined;
 
+  if (candidates.power) {
+    Object.assign(filteredMetrics, {
+      avgPower: selected.power ?? null,
+      maxPower: null,
+      maxPower3s: null,
+      np: null,
+      if: null,
+      tss: null,
+      vi: null,
+      xPower: null,
+      workKj: null,
+      cp: null,
+      wPrime: null,
+      cpR2: null,
+      matches: undefined,
+      zonesSec: undefined,
+      powerZoneSec: [],
+      seilerZoneSec: null,
+      polarization: null,
+      wPrimeBalance: null,
+      substrate: null,
+      fatMax: null,
+      zoneKj: undefined,
+      wPrimeMinJ: null,
+      mmp: {},
+      aet: undefined,
+      loadAxes: undefined,
+      thresholdFlags: undefined,
+      lrBalance: undefined,
+      cyclingDynamics: undefined,
+    });
+  }
+  if (candidates.heartRate) {
+    Object.assign(filteredMetrics, {
+      avgHr: selected.heartRate ?? null,
+      maxHr: null,
+      peakHr: {},
+      trimp: null,
+      streamTrimpTss: null,
+      sufferScore: null,
+      hrZoneSec: [],
+      hrZoneBoundaries: null,
+      aet: undefined,
+      loadAxes: undefined,
+    });
+  }
+
+  const decoupling = candidates.power || candidates.heartRate
+    ? {
+        ...metrics.decoupling,
+        ef: null,
+        decouplingPct: null,
+        hrDriftPct: candidates.heartRate ? null : metrics.decoupling?.hrDriftPct ?? null,
+      }
+    : metrics.decoupling;
+
   return {
     ...filteredMetrics,
     sufferScore: candidates.heartRate ? null : metrics.sufferScore,
     quadrant: candidates.power || candidates.cadence ? null : metrics.quadrant,
     cyclingMetrics,
+    decoupling,
     zoneKj: candidates.power ? undefined : metrics.zoneKj,
     lrBalance: candidates.power ? undefined : metrics.lrBalance,
-    cyclingDynamics: metrics.cyclingDynamics,
+    cyclingDynamics: candidates.power ? undefined : metrics.cyclingDynamics,
     climbs: candidates.power && Array.isArray(metrics.climbs)
       ? metrics.climbs.map((climb) => ({
           ...climb,
@@ -189,6 +251,9 @@ export function filterServerMetricsForSensorCandidates(
           normalizedPower: null,
         }))
       : metrics.climbs,
+    splits: candidates.heartRate && Array.isArray(metrics.splits)
+      ? metrics.splits.map((split) => ({ ...split, avgHr: null }))
+      : metrics.splits,
   };
 }
 
@@ -226,7 +291,13 @@ export default function AnalysisTab({
   // 스트림 센서 후보가 신뢰 게이트에서 거부된 채널의 서버 지표는 숨긴다 — 리터럴 false 로 두면 이 억제가 사라진다.
   const sm = useMemo(() => filterServerMetricsForSensorCandidates(serverMetrics.metrics, {
     power: hasStreamPowerCandidate, heartRate: hasStreamHeartRateCandidate, cadence: hasStreamCadenceCandidate,
-  }), [serverMetrics.metrics, hasStreamPowerCandidate, hasStreamHeartRateCandidate, hasStreamCadenceCandidate]);
+  }, {
+    power: summary?.averagePower ?? null,
+    heartRate: summary?.averageHeartRate ?? null,
+  }), [serverMetrics.metrics, hasStreamPowerCandidate, hasStreamHeartRateCandidate, hasStreamCadenceCandidate, summary?.averageHeartRate, summary?.averagePower]);
+  const visibleServerMetrics = (serverMetrics.metrics && sm
+    ? { ...serverMetrics, metrics: sm }
+    : serverMetrics) as UseActivityMetricsState;
   const { t } = useTranslation("activity");
   const { profile, user } = useAuth();
   const ctlDiscipline = sport === "run" ? "run" : sport === "swim" ? "swim" : "bike";
@@ -425,9 +496,9 @@ export default function AnalysisTab({
     <div className="space-y-6">
       {/* Phase A.7: 서버 메트릭 배너 (있으면 표시) */}
       <ServerMetricsBanner
-        state={serverMetrics}
-        suppressPowerMetrics={!hasStreamPowerCandidate && serverMetrics.metrics?.avgPower != null}
-        suppressHeartRateMetrics={!hasStreamHeartRateCandidate && serverMetrics.metrics?.avgHr != null}
+        state={visibleServerMetrics}
+        suppressPowerMetrics={hasStreamPowerCandidate || serverMetrics.metrics?.avgPower != null}
+        suppressHeartRateMetrics={hasStreamHeartRateCandidate || serverMetrics.metrics?.avgHr != null}
       />
 
       {/* FTP/maxHR 기본값 경고 */}
