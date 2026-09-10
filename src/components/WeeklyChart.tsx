@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Bar } from "react-chartjs-2";
 import {
@@ -34,6 +34,7 @@ interface WeeklyChartProps {
   height?: number;
   /** 카드 + 종목 토글 + 모든 지표 툴팁의 풍부한 형태로 렌더링 */
   rich?: boolean;
+  showAllPeriods?: boolean;
 }
 
 const COLOR_MAP: Record<MetricKey, string> = {
@@ -56,10 +57,16 @@ export default function WeeklyChart({
   dataKey = "distance",
   height = 150,
   rich = false,
+  showAllPeriods = false,
 }: WeeklyChartProps) {
   const { t } = useTranslation("dashboard");
   const { resolvedTheme } = useTheme();
   const [metric, setMetric] = useState<MetricKey>(dataKey);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const latestPeriod = data[data.length - 1]?.week;
+  useEffect(() => {
+    if (showAllPeriods && scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+  }, [showAllPeriods, latestPeriod, data.length]);
   const activeKey: MetricKey = rich ? metric : dataKey;
 
   // 기존 i18n 라벨 "거리 (km)" 형태에서 라벨/단위를 분리.
@@ -88,11 +95,12 @@ export default function WeeklyChart({
   const labels = useMemo(
     () =>
       data.map((d) => {
+        if (showAllPeriods) return d.week;
         // x축은 짧게: "6월" 형식
         const m = /^\d{4}\.(\d{2})$/.exec(d.week);
         return m ? `${parseInt(m[1]!, 10)}월` : d.week;
       }),
-    [data],
+    [data, showAllPeriods],
   );
 
   const totalActive = useMemo(
@@ -116,11 +124,14 @@ export default function WeeklyChart({
   };
 
   const chartElement = (
-    <div style={{ height }}>
+    <div ref={scrollRef} style={{ overflowX: showAllPeriods ? "auto" : undefined }} tabIndex={showAllPeriods ? 0 : undefined}>
+    <div style={{ height, minWidth: showAllPeriods ? `${data.length * 4.5}rem` : undefined }}>
       <Bar
         data={chartData}
         options={{
           responsive: true,
+          // 긴 월간 이력이 모바일 고해상도 캔버스 크기 한도를 넘지 않도록 제한.
+          devicePixelRatio: showAllPeriods ? 1 : undefined,
           maintainAspectRatio: false,
           // 모바일 탭 시 tooltip 발화 + 가장 가까운 막대로 활성. 'nearest' + axis 'x'
           // 로 손가락이 막대 정확히 위 아닐 때도 같은 열의 막대가 active.
@@ -160,7 +171,7 @@ export default function WeeklyChart({
           scales: {
             x: {
               grid: { display: false },
-              ticks: { font: { size: 12 }, color: tickColor, autoSkip: true, maxTicksLimit: 6 },
+              ticks: { font: { size: 12 }, color: tickColor, autoSkip: !showAllPeriods, maxTicksLimit: showAllPeriods ? undefined : 6, maxRotation: 0 },
             },
             y: {
               beginAtZero: true,
@@ -170,6 +181,7 @@ export default function WeeklyChart({
           },
         }}
       />
+    </div>
     </div>
   );
 
@@ -202,6 +214,7 @@ export default function WeeklyChart({
           ))}
         </div>
       </div>
+      {showAllPeriods && data.length > 0 && <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mb-2">{data[0]?.week} – {latestPeriod}</p>}
       {chartElement}
     </div>
   );

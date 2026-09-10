@@ -438,7 +438,7 @@
             "list": [
               "read — Read public profile information",
               "activity:read_all — Read all activity data",
-              "activity:write — Upload activities (used only by mobile apps)"
+              "activity:write — Upload activities from mobile apps and publish activity share summaries from the web"
             ]
           },
           {

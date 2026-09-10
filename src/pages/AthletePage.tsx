@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import {
-  collection, query, where, orderBy, getDocs, getCountFromServer, limit, startAfter,
+  collection, query, where, orderBy, getDocs, limit, startAfter,
   doc, getDoc, setDoc, deleteDoc,
   type QueryDocumentSnapshot, type DocumentData,
 } from "firebase/firestore";
@@ -19,7 +19,7 @@ import StatCard from "../components/StatCard";
 import ActivityCard from "../components/ActivityCard";
 import { isTrivialActivity } from "../utils/activityFilter";
 import { resolveDuration } from "../utils/activityTime";
-import { estimateActivityTss } from "../utils/estimateTSS";
+import { aggregateMonthlyActivities, loadAthleteChartActivities } from "../services/athleteMonthlyActivities";
 import Avatar from "../components/Avatar";
 import WeeklyChart from "../components/WeeklyChart";
 import type { Activity } from "@shared/types";
@@ -135,8 +135,10 @@ export default function AthletePage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreActivities, setHasMoreActivities] = useState(true);
   const [lastActivityDoc, setLastActivityDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [stats, setStats] = useState({ count: 0, distance: 0, time: 0, elevation: 0 });
   const [chartActivities, setChartActivities] = useState<Activity[]>([]);
+  const [chartLoading, setChartLoading] = useState(true);
+  const [chartError, setChartError] = useState(false);
+  const [chartAttempt, setChartAttempt] = useState(0);
 
   // My segments
   const [mySegments, setMySegments] = useState<{ id: string; name: string; distance: number; status: string; createdAt: number }[]>([]);
@@ -169,9 +171,12 @@ export default function AthletePage() {
 
   const aggregateActivityStats = (items: Activity[]) => ({
     count: items.length,
-    distance: items.reduce((sumDistance, a) => sumDistance + (a.summary.distance ?? 0), 0),
-    time: items.reduce((sumTime, a) => sumTime + resolveDuration(a.summary).displayMs, 0),
-    elevation: items.reduce((sumElevation, a) => sumElevation + (a.summary.elevationGain ?? 0), 0),
+    distance: items.reduce((sumDistance, a) => sumDistance + (Number.isFinite(a.summary.distance) ? a.summary.distance : 0), 0),
+    time: items.reduce((sumTime, a) => {
+      const duration = resolveDuration(a.summary).displayMs;
+      return sumTime + (Number.isFinite(duration) ? duration : 0);
+    }, 0),
+    elevation: items.reduce((sumElevation, a) => sumElevation + (Number.isFinite(a.summary.elevationGain) ? a.summary.elevationGain : 0), 0),
   });
 
   useEffect(() => {
@@ -222,66 +227,30 @@ export default function AthletePage() {
     return () => { cancelled = true; };
   }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
 
-  // 2. 통계 카드: 전체 활동 fetch 대신 count() + 제한된 활동 샘플로 read 폭을 제한.
+  // 월간 누적은 접근 가능한 전체 활동을 모두 읽은 뒤에만 표시한다.
   useEffect(() => {
-    if (!userId) return;
-    if (profileLoading && !ownProfileFallback) return;
-    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
-      setStats({ count: 0, distance: 0, time: 0, elevation: 0 });
-      return;
-    }
     let cancelled = false;
-
-    const loadStats = async () => {
-      try {
-        const constraints = [
-          where("userId", "==", userId),
-          where("deletedAt", "==", null),
-          ...(!isOwnProfile ? [where("visibility", "==", "everyone")] : []),
-        ];
-        const [countSnap, sampleSnap] = await Promise.all([
-          getCountFromServer(query(collection(firestore, "activities"), ...constraints)),
-          getDocs(query(collection(firestore, "activities"), ...constraints, orderBy("createdAt", "desc"), limit(ACTIVITIES_PAGE_SIZE))),
-        ]);
-        if (cancelled) return;
-        const sampledStats = aggregateActivityStats(docsToActivities(sampleSnap.docs));
-        const countedActivities = countSnap.data().count;
-        setStats({
-          ...sampledStats,
-          count: countedActivities > 0 ? countedActivities : sampledStats.count,
-        });
-      } catch (err) {
-        logClientError("AthletePage.loadStats", err, { userId, isOwnProfile });
-        if (!cancelled) setStats({ count: 0, distance: 0, time: 0, elevation: 0 });
-      }
-    };
-
-    void loadStats();
-
-    return () => { cancelled = true; };
-  }, [isOwnProfile, userId, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
-
-  // 3. 월간 차트: 백그라운드 (limit 200)
-  useEffect(() => {
-    if (!userId) return;
-    if (profileLoading && !ownProfileFallback) return;
+    setChartActivities([]);
+    setChartError(false);
+    setChartLoading(true);
+    if (!userId || (profileLoading && !ownProfileFallback)) return;
     if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
-      setChartActivities([]);
+      setChartLoading(false);
       return;
     }
-
-    const constraints = [
-      where("userId", "==", userId),
-      where("deletedAt", "==", null),
-      ...(!isOwnProfile ? [where("visibility", "==", "everyone")] : []),
-      orderBy("createdAt", "desc"),
-      limit(200),
-    ];
-    getDocs(query(collection(firestore, "activities"), ...constraints))
-      .then((snap) => {
-        setChartActivities(docsToActivities(snap.docs));
-      }).catch((err) => logClientError("AthletePage.loadChartActivities", err, { userId, isOwnProfile }));
-  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
+    void loadAthleteChartActivities(userId, isOwnProfile, () => cancelled)
+      .then((items) => {
+        if (cancelled || !items) return;
+        setChartActivities(items);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        logClientError("AthletePage.loadChartActivities", err, { userId, isOwnProfile });
+        setChartError(true);
+      })
+      .finally(() => { if (!cancelled) setChartLoading(false); });
+    return () => { cancelled = true; };
+  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus, chartAttempt]);
 
   // 4. 서버 검색: keywords array-contains 쿼리
   const handleSearch = () => {
@@ -565,30 +534,9 @@ export default function AthletePage() {
   );
   const isMe = isOwnProfile;
 
-  const monthlyStats = useMemo(() => {
-    const months = new Map<string, { distance: number; time: number; elevation: number; rides: number; tss: number; tssEstimated: boolean }>();
-    for (const a of chartActivities) {
-      const d = new Date(a.createdAt);
-      const key = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const existing = months.get(key) ?? { distance: 0, time: 0, elevation: 0, rides: 0, tss: 0, tssEstimated: false };
-      existing.distance += a.summary.distance / 1000;
-      existing.time += a.summary.ridingTimeMillis / 3600000;
-      existing.elevation += a.summary.elevationGain;
-      existing.rides += 1;
-      // TSS: 정본 폴백 체인(사전계산 TSS → relativeEffort → 시간factor)에 위임 (P0 단일화).
-      // 근거가 없으면 null 이 온다 — 0 으로 더해 "부하 0" 을 만들지 않고 건너뛴다 (#2237).
-      const load = estimateActivityTss(a);
-      if (load.value != null) {
-        existing.tss += load.value;
-        existing.tssEstimated = existing.tssEstimated || load.estimated;
-      }
-      months.set(key, existing);
-    }
-    return Array.from(months.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-12)
-      .map(([week, data]) => ({ week, ...data }));
-  }, [chartActivities]);
+  const stats = aggregateActivityStats(chartActivities);
+  const statsReady = !chartLoading && !chartError;
+  const monthlyStats = useMemo(() => aggregateMonthlyActivities(chartActivities), [chartActivities]);
 
   // 검색 활성 시: 서버 검색 결과 사용
   // 비활성 시: 페이지네이션된 displayActivities 사용
@@ -772,22 +720,22 @@ export default function AthletePage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
           label={t(isOwnProfile ? "stats.activities" : "stats.publicActivities")}
-          value={t("stats.activitiesValue", { count: stats.count })}
+          value={statsReady ? t("stats.activitiesValue", { count: stats.count }) : "—"}
           icon="🚴"
         />
         <StatCard
           label={t("stats.distance")}
-          value={`${(stats.distance / 1000).toFixed(0)} km`}
+          value={statsReady ? `${(stats.distance / 1000).toFixed(0)} km` : "—"}
           icon="📏"
         />
         <StatCard
           label={t("stats.time")}
-          value={formatHours(stats.time)}
+          value={statsReady ? formatHours(stats.time) : "—"}
           icon="⏱"
         />
         <StatCard
           label={t("stats.elevation")}
-          value={`${Math.round(stats.elevation).toLocaleString()} m`}
+          value={statsReady ? `${Math.round(stats.elevation).toLocaleString()} m` : "—"}
           icon="⛰"
         />
       </div>
@@ -795,7 +743,7 @@ export default function AthletePage() {
       {/* Friend list */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left Column: Friends & Chart */}
-        <div className="space-y-6 sticky top-0 self-start">
+        <div className="min-w-0 space-y-6 sticky top-0 self-start">
           {/* Friends List */}
           {canViewFriends && <Card padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--line-soft)] flex items-center justify-between">
@@ -887,7 +835,16 @@ export default function AthletePage() {
             </Card>
           )}
 
-          <WeeklyChart data={monthlyStats} dataKey="distance" height={180} rich />
+          {chartLoading ? (
+            <p role="status">{t("monthly.loading")}</p>
+          ) : chartError ? (
+            <div role="alert">
+              <p>{t("monthly.error")}</p>
+              <Button onClick={() => setChartAttempt((attempt) => attempt + 1)}>{t("monthly.retry")}</Button>
+            </div>
+          ) : (
+            <WeeklyChart data={monthlyStats} dataKey="distance" height={180} rich showAllPeriods />
+          )}
         </div>
 
         {/* Right Column: Activities */}

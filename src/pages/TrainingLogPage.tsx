@@ -434,7 +434,17 @@ export default function TrainingLogPage() {
         const snap = await getDocs(q);
         const acts = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }) as Activity)
-          .filter((a) => a.summary != null);
+          .filter((a) => a.summary != null)
+          // 일부 과거 활동의 요약 필드가 없더라도 월 합계·캘린더·모바일 계산을 오염시키지 않는다.
+          .map((a) => ({
+            ...a,
+            summary: {
+              ...a.summary,
+              distance: Number.isFinite(a.summary.distance) ? a.summary.distance : 0,
+              ridingTimeMillis: Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0,
+              elevationGain: Number.isFinite(a.summary.elevationGain) ? a.summary.elevationGain : 0,
+            },
+          }));
         setActivitiesByMonth((prev) => new Map(prev).set(key, acts));
         setLoadedMonths((prev) => new Set(prev).add(key));
       } catch (err) {

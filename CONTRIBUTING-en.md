@@ -85,6 +85,8 @@ git commit -s
 
 Contributions use the [Developer Certificate of Origin](DCO-en.md), not broad copyright assignment. By contributing, you agree that your contribution is provided under [AGPL-3.0](LICENSE).
 
+For shared branches, the original author may explicitly add a signed follow-up [individual remediation commit](https://github.com/dcoapp/app#individual-remediation-commit-support) without rewriting history. The author name/email and sign-off must match the original author exactly. Include the full 40-character SHA in this exact line: `I, Author <author@example.com>, hereby add my Signed-off-by to this commit: FULL_40_CHARACTER_COMMIT_SHA`. The signed remediation must descend from the original and be reachable in the PR history. Third-party and blanket exemptions are not supported; the required DCO check remains enabled. Verify locally with `node scripts/check-dco.mjs origin/main HEAD`.
+
 ## Security
 
 Do not report vulnerabilities in public issues or PR comments. Follow [SECURITY.md](SECURITY-en.md).
