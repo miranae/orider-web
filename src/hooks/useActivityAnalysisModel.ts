@@ -255,6 +255,10 @@ export function useActivityAnalysisModel(
     && (streamSensorSummary.hasHeartRateStream || streamSensorSummary.hasRejectedHeartRateStream);
   const hasStreamCadenceCandidate = !!streamSensorSummary
     && (streamSensorSummary.hasCadenceStream || streamSensorSummary.hasRejectedCadenceStream);
+  const suppressServerPowerMetrics = !!streamSensorSummary?.hasRejectedPowerStream
+    || activePowerOverride != null;
+  const suppressServerHeartRateMetrics = !!streamSensorSummary?.hasRejectedHeartRateStream;
+  const suppressServerCadenceMetrics = !!streamSensorSummary?.hasRejectedCadenceStream;
   const analysisProjection = useMemo(
     () => buildActivityAnalysisProjection(effectiveStreams, sensorSelectionContext),
     [effectiveStreams, sensorSelectionContext],
@@ -326,9 +330,9 @@ export function useActivityAnalysisModel(
       streams: analysisProjection.streams,
       summary: resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics),
       sport,
-      hasStreamPowerCandidate,
-      hasStreamHeartRateCandidate,
-      hasStreamCadenceCandidate,
+      suppressServerPowerMetrics,
+      suppressServerHeartRateMetrics,
+      suppressServerCadenceMetrics,
       isVirtualPower: activity.isVirtualPower || activePowerOverride != null,
       virtualPowerParams: activePowerOverride?.params ?? activity.virtualPowerParams,
     };
@@ -345,6 +349,9 @@ export function useActivityAnalysisModel(
     sensorSelectionContext,
     serverMetrics.metrics,
     sport,
+    suppressServerCadenceMetrics,
+    suppressServerHeartRateMetrics,
+    suppressServerPowerMetrics,
   ]);
 
   return {

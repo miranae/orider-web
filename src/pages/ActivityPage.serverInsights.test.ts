@@ -20,11 +20,11 @@ describe("activity detail server insights", () => {
     expect(insightCards).not.toContain("Server insights");
     expect(activityPage).toContain("<AnalysisTab {...analysisTabProps} />");
     expect(analysisModel).toContain("startTime: activity.startTime");
-    expect(analysisTab).toContain("filterServerMetricsForSensorCandidates(serverMetrics.metrics");
-    // 현재 센서 후보가 있으면 배너도 필터된 projection 을 받고 서버 파생값을 되살리지 않는다.
+    expect(analysisTab).toContain("filterInvalidatedServerMetrics(serverMetrics.metrics");
+    // 센서 provenance가 무효화되면 배너도 필터된 projection 을 받고 서버 파생값을 되살리지 않는다.
     expect(analysisTab).toContain("state={visibleServerMetrics}");
-    expect(analysisTab).toContain("suppressPowerMetrics={hasStreamPowerCandidate");
-    expect(analysisTab).toContain("suppressHeartRateMetrics={hasStreamHeartRateCandidate");
+    expect(analysisTab).toContain("suppressPowerMetrics={suppressServerPowerMetrics");
+    expect(analysisTab).toContain("suppressHeartRateMetrics={suppressServerHeartRateMetrics");
     expect(analysisTab).not.toContain("calculateNP(");
     expect(analysisTab).not.toContain("calculateTSS(");
     expect(analysisTab).not.toContain("calculateHrZoneDistribution(");

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterServerMetricsForSensorCandidates } from "./AnalysisTab";
+import { filterInvalidatedServerMetrics } from "./AnalysisTab";
 
 const metrics = {
   np: 240,
@@ -40,46 +40,43 @@ const metrics = {
   }],
 } as const;
 
-const noCandidates = { power: false, heartRate: false, cadence: false };
+const noSuppression = { power: false, heartRate: false, cadence: false };
 
 describe("AnalysisTab server metric provenance", () => {
-  it.each(["accepted", "rejected"])(
-    "removes server power fields but preserves climb geometry for %s power",
-    () => {
-      const filtered = filterServerMetricsForSensorCandidates(metrics as never, {
-        ...noCandidates,
-        power: true,
-      })!;
+  it("removes server power fields but preserves climb geometry when power provenance is invalidated", () => {
+    const filtered = filterInvalidatedServerMetrics(metrics as never, {
+      ...noSuppression,
+      power: true,
+    })!;
 
-      expect(filtered.quadrant).toBeNull();
-      expect(filtered.workoutType).toBeUndefined();
-      expect(filtered.workoutTypeConfidence).toBeUndefined();
-      expect(filtered).not.toHaveProperty("workoutType");
-      expect(filtered).not.toHaveProperty("workoutTypeConfidence");
-      expect(filtered.cyclingMetrics).toMatchObject({ longestZ4PlusSec: null, cadenceStdDev: 7 });
-      expect(filtered.zoneKj).toBeUndefined();
-      expect(filtered.lrBalance).toBeUndefined();
-      expect(filtered.cyclingDynamics).toBeUndefined();
-      expect(filtered.np).toBeNull();
-      expect(filtered.avgPower).toBeNull();
-      expect(filtered.maxPower).toBeNull();
-      expect(filtered.climbs[0]).toMatchObject({
-        startKm: 2,
-        lengthKm: 1,
-        elevationGainM: 70,
-        avgGrade: 7,
-        durationSec: 300,
-        vam: 840,
-        avgPower: null,
-        wPerKg: null,
-        normalizedPower: null,
-      });
-    },
-  );
+    expect(filtered.quadrant).toBeNull();
+    expect(filtered.workoutType).toBeUndefined();
+    expect(filtered.workoutTypeConfidence).toBeUndefined();
+    expect(filtered).not.toHaveProperty("workoutType");
+    expect(filtered).not.toHaveProperty("workoutTypeConfidence");
+    expect(filtered.cyclingMetrics).toMatchObject({ longestZ4PlusSec: null, cadenceStdDev: 7 });
+    expect(filtered.zoneKj).toBeUndefined();
+    expect(filtered.lrBalance).toBeUndefined();
+    expect(filtered.cyclingDynamics).toBeUndefined();
+    expect(filtered.np).toBeNull();
+    expect(filtered.avgPower).toBeNull();
+    expect(filtered.maxPower).toBeNull();
+    expect(filtered.climbs[0]).toMatchObject({
+      startKm: 2,
+      lengthKm: 1,
+      elevationGainM: 70,
+      avgGrade: 7,
+      durationSec: 300,
+      vam: 840,
+      avgPower: null,
+      wPerKg: null,
+      normalizedPower: null,
+    });
+  });
 
-  it.each(["accepted", "rejected"])("removes suffer score for %s heart rate", () => {
-    const filtered = filterServerMetricsForSensorCandidates(metrics as never, {
-      ...noCandidates,
+  it("removes stale heart-rate fields when heart-rate provenance is invalidated", () => {
+    const filtered = filterInvalidatedServerMetrics(metrics as never, {
+      ...noSuppression,
       heartRate: true,
     })!;
 
@@ -95,30 +92,27 @@ describe("AnalysisTab server metric provenance", () => {
     expect(filtered).not.toHaveProperty("workoutTypeConfidence");
   });
 
-  it.each(["accepted", "rejected"])(
-    "removes cadence-dependent server metrics for %s cadence",
-    () => {
-      const filtered = filterServerMetricsForSensorCandidates(metrics as never, {
-        ...noCandidates,
-        cadence: true,
-      })!;
+  it("removes cadence-dependent server metrics when cadence provenance is invalidated", () => {
+    const filtered = filterInvalidatedServerMetrics(metrics as never, {
+      ...noSuppression,
+      cadence: true,
+    })!;
 
-      expect(filtered.cyclingMetrics).toMatchObject({ longestZ4PlusSec: 420, cadenceStdDev: null });
-      expect(filtered.quadrant).toBeNull();
-      expect(filtered.cyclingDynamics).toEqual(metrics.cyclingDynamics);
-      expect(filtered.workoutType).toBe("endurance");
-      expect(filtered.workoutTypeConfidence).toBe(0.9);
-    },
-  );
+    expect(filtered.cyclingMetrics).toMatchObject({ longestZ4PlusSec: 420, cadenceStdDev: null });
+    expect(filtered.quadrant).toBeNull();
+    expect(filtered.cyclingDynamics).toEqual(metrics.cyclingDynamics);
+    expect(filtered.workoutType).toBe("endurance");
+    expect(filtered.workoutTypeConfidence).toBe(0.9);
+  });
 
-  it("keeps server metrics when no stream sensor candidate exists", () => {
-    const filtered = filterServerMetricsForSensorCandidates(metrics as never, noCandidates)!;
+  it("keeps server metrics when no sensor provenance is invalidated", () => {
+    const filtered = filterInvalidatedServerMetrics(metrics as never, noSuppression)!;
 
     expect(filtered).toMatchObject(metrics);
   });
 
-  it("후보가 승인되면 서버 평균 대신 현재 선택된 파워와 심박 평균만 사용한다", () => {
-    const filtered = filterServerMetricsForSensorCandidates(metrics as never, {
+  it("provenance가 무효화되면 서버 평균 대신 현재 선택된 파워와 심박 평균만 사용한다", () => {
+    const filtered = filterInvalidatedServerMetrics(metrics as never, {
       power: true,
       heartRate: true,
       cadence: false,
