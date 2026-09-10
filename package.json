@@ -23,7 +23,7 @@
     "lint:report": "eslint src --format=stylish || true",
     "preview": "vite preview",
     "quality:budget": "node scripts/gen-design-tokens.mjs --check && node scripts/check-quality-budget.mjs",
-    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run && npm run test:production-hosting-evidence && npm run test:merge-gate-ci-reuse && npm run test:social-callable-contract && npm run test:runtime-config-writer && npm run test:dco && npm run test:script-tests-wired && npm run check:canonical-contract",
+    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run && npm run test:production-hosting-evidence && npm run test:merge-gate-ci-reuse && npm run test:social-callable-contract && npm run test:runtime-config-writer && npm run test:dco && npm run test:merge-pr-review-range && npm run test:script-tests-wired && npm run check:canonical-contract",
     "test:dco": "node --test scripts/check-dco.test.mjs",
     "test:merge-gate-ci-reuse": "node --test scripts/merge-gate-ci-reuse.test.mjs",
     "test:production-hosting-evidence": "node --test scripts/production-hosting-evidence.test.mjs",
@@ -32,7 +32,8 @@
     "test:runtime-config-writer": "node --test scripts/write-runtime-config.test.mjs",
     "test:watch": "NODE_OPTIONS=--no-experimental-webstorage vitest",
     "write:runtime-config": "node scripts/write-runtime-config.mjs",
-    "check:canonical-contract": "node scripts/check-canonical-contract.mjs"
+    "check:canonical-contract": "node scripts/check-canonical-contract.mjs",
+    "test:merge-pr-review-range": "node --test scripts/merge-pr-review-range.test.mjs"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.2.8",
