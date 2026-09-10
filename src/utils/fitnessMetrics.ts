@@ -1,5 +1,3 @@
-import { calculateTSS } from './powerMetrics'
-import { trimpToTssEquivalent } from './advancedMetrics'
 import { estimateLoad, type LoadSource } from '@shared/training/activityLoad'
 import type { Discipline } from './disciplineFilter'
 
@@ -40,54 +38,27 @@ export interface DailyLoad {
  *  watts 스트림이 있으면 calculateTSS 로 실측 TSS 를, heartrate 스트림이 있으면(파워 경로가
  *  실패했을 때) trimpToTssEquivalent 로 TSS 등가 TRIMP 를 구해 코어에 넘긴다(서버는 스트림이
  *  없어 이 단계들 skip). */
+/**
+ * 활동 부하(TSS 등가) — **정본 폴백 체인**(`@shared/training/activityLoad.estimateLoad`)에 위임한다.
+ *
+ * 스트림에서 TSS·TRIMP 를 다시 계산하던 분기는 지웠다(#2437). 호출부 어디도 스트림을 넘기지
+ * 않았고(사전계산 TSS·relativeEffort·시간만), 서버가 `activity_metrics.tss`·`streamTrimpTss` 를
+ * 이미 낸다. 웹 사본 원시함수는 삭제됐다.
+ */
 export function estimateActivityLoad(params: {
-  /** 서버 사전계산 TSS (activity.tss 또는 activity.summary.tss). 있으면 최우선. */
   precomputedTss?: number | null
-  watts?: number[]
-  ftp?: number
-  /** 평균 파워(W). watts 스트림이 없을 때 bike 파워근사(IF²)에 사용. */
+  streamTrimpTss?: number | null
   avgPower?: number | null
-  /** HR 스트림 — 파워 기반 부하를 구하지 못했을 때 TRIMP 로 폴백(#365). */
-  heartrate?: number[]
-  /** time 스트림(초) — 스마트 레코딩/일시정지 보정. 미전달 시 1Hz 가정으로 TRIMP 저평가됨. */
-  time?: number[]
-  /** HR TRIMP 계산용. maxHr 없으면 이 단계 skip. */
-  maxHr?: number | null
-  restHr?: number | null
-  /** LTHR — 있으면 TRIMP→TSS 정규화 임계값으로 사용(없으면 maxHr×0.85 근사). */
-  lthr?: number | null
-  gender?: 'male' | 'female'
+  ftp?: number
   relativeEffort: number | null
   ridingTimeMillis: number
-  /** 'tri'(멀티스포츠 혼합)는 종목 미상으로 간주 → 시간기반 기본 factor. */
   discipline?: Discipline
 }): ActivityLoad {
-  // 파워 스트림 실측 TSS (파워미터 보유 활동) — web 전용 단계. 코어엔 streamTss 로 전달.
-  const streamTss =
-    params.watts && params.watts.length >= 30 && params.ftp && params.ftp > 0
-      ? calculateTSS(params.watts, params.ftp)
-      : null
-
-  // HR 스트림 실측 TRIMP → TSS 등가 (#365) — web 전용 단계. 파워 경로 없을 때만 의미 있지만
-  // 계산 자체는 항상 시도해 코어(estimateLoad)의 우선순위 판단에 맡긴다.
-  const streamTrimpTss =
-    params.heartrate && params.heartrate.length >= 30 && params.maxHr && params.maxHr > 0
-      ? trimpToTssEquivalent({
-          heartrate: params.heartrate,
-          maxHr: params.maxHr,
-          restHr: params.restHr ?? undefined,
-          thresholdHr: params.lthr ?? undefined,
-          gender: params.gender,
-          time: params.time,
-        })
-      : null
-
   return estimateLoad({
     precomputedTss: params.precomputedTss,
-    streamTss,
     avgPower: params.avgPower,
     ftp: params.ftp,
-    streamTrimpTss,
+    streamTrimpTss: params.streamTrimpTss,
     relativeEffort: params.relativeEffort,
     durationMillis: params.ridingTimeMillis,
     discipline: params.discipline && params.discipline !== 'tri' ? params.discipline : undefined,

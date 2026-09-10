@@ -40,6 +40,7 @@ import { Button, Card, Text } from "../theme/components";
 import { ErrorState } from "../components/redesign";
 import { formatDuration, formatTime, type SegmentEffortData } from "../features/activity/detail/activityDetailUtils";
 import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid";
+import { resolveSummaryStripStats } from "../features/activity/detail/summaryStripStats";
 import { useRunActivityDetail, RunActivityIntro } from "../features/activity/detail/runActivityDetail";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
 import { ActivityProcessingState, DeletedActivityState, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
@@ -556,6 +557,7 @@ export default function ActivityPage() {
   const activityNp = hasStreamPowerCandidate
     ? null
     : serverMetrics.metrics?.np ?? normalizedPowerValue;
+
   const sharePerformanceMetrics = [
     shareMetric(t("page.share.tss"), activityTss),
     shareMetric(activityNp != null ? t("page.share.normalizedPower") : t("stat.avgPower"), activityNp ?? avgPowerValue, "W"),
@@ -578,10 +580,11 @@ export default function ActivityPage() {
   const discipline = sport === "ride" ? "bike" : sport === "run" ? "run" : "swim";
   const avgSpeedImplausible = isImplausibleAvgSpeed(s.averageSpeed, discipline);
   const maxSpeedImplausible = isImplausibleMaxSpeed(s.maxSpeed, discipline);
-  // 기기/제공자 요약값을 우선하고, 없을 때만 서버 재분석값을 사용한다. Strava 의
-  // ridingTimeMillis 는 이동시간 성격이므로 총 경과시간은 start/end 차이로 확정한다.
-  const movingTimeSec = s.movingTimeSec ?? serverMetrics.metrics?.movingTimeSec;
-  const pauseTimeSec = s.pauseTimeSec ?? serverMetrics.metrics?.pauseTimeSec;
+  // 서버 activity_metrics 가 이동/정지 시간의 정본. 활동 문서의 movingTimeSec/pauseTimeSec 는
+  // 같은 문서를 비정규화한 미러라 폴백으로 안전하다. Strava 의 ridingTimeMillis 는 이동시간
+  // 성격이므로 총 경과시간은 start/end 차이로 확정한다.
+  const movingTimeSec = serverMetrics.metrics?.movingTimeSec ?? s.movingTimeSec;
+  const pauseTimeSec = serverMetrics.metrics?.pauseTimeSec ?? s.pauseTimeSec;
   const speedDur = resolveDuration({
     ridingTimeMillis: s.ridingTimeMillis,
     elapsedTimeMillis: s.elapsedTimeMillis,
@@ -590,7 +593,16 @@ export default function ActivityPage() {
     movingTimeSec,
     pauseTimeSec,
   });
-  const displayAvgKph = resolveAvgSpeedKph(s.distance, speedDur, s.averageSpeed);
+  const fallbackAvgKph = resolveAvgSpeedKph(s.distance, speedDur, s.averageSpeed);
+  // 요약 스트립도 AnalysisTab 과 같은 서버 정본을 쓴다 — 한 화면에서 값이 갈리지 않도록 (#885 §2).
+  const stripStats = resolveSummaryStripStats(serverMetrics, {
+    summary: displayedSummary,
+    avgPowerValue,
+    avgSpeedFallbackKph: fallbackAvgKph,
+    normalizedPowerValue,
+    hasStreamPowerCandidate,
+  });
+  const displayAvgKph = stripStats.avgSpeedKph.value ?? fallbackAvgKph;
   const displayAvgImplausible = isImplausibleAvgSpeed(displayAvgKph, discipline);
 
   // Elevation data from streams
@@ -620,42 +632,56 @@ export default function ActivityPage() {
     ? t("page.loadingGps")
     : streamsError ?? t("page.streamsMissing");
 
+  // 스트립과 같은 서버 정본을 쓰고, 서버 문서를 아직 못 읽었으면 "기기 요약" 표식을 붙인다.
+  const sensorSub = (base: string | undefined, stat: { provisional: boolean }) => (
+    stat.provisional ? [base, t("stat.deviceSummary")].filter(Boolean).join(" · ") : base
+  );
   const summarySensorMetrics = ([
-    displayedSummary.averageHeartRate != null
+    stripStats.avgHr.value != null
       ? {
           label: t("stat.avgHr"),
-          value: String(Math.round(displayedSummary.averageHeartRate)),
+          value: String(Math.round(stripStats.avgHr.value)),
           unit: "bpm",
-          sub: displayedSummary.maxHeartRate != null ? `${t("page.max")} ${Math.round(displayedSummary.maxHeartRate)} bpm` : undefined,
+          sub: sensorSub(
+            stripStats.maxHr.value != null ? `${t("page.max")} ${Math.round(stripStats.maxHr.value)} bpm` : undefined,
+            stripStats.avgHr,
+          ),
         }
       : null,
-    avgPowerValue != null && (sport === "ride" || sport === "run")
+    stripStats.avgPower.value != null && (sport === "ride" || sport === "run")
       ? {
           label: t("stat.avgPower"),
-          value: String(Math.round(avgPowerValue)),
+          value: String(Math.round(stripStats.avgPower.value)),
           unit: "W",
-          sub: normalizedPowerValue != null ? `NP ${Math.round(normalizedPowerValue)} W` : undefined,
+          // NP 는 서버 metrics.np 단일 출처 (#885 §3) — 같은 페이지에서 두 출처가 갈리지 않도록.
+          sub: sensorSub(
+            stripStats.np.value != null ? `NP ${Math.round(stripStats.np.value)} W` : undefined,
+            stripStats.avgPower,
+          ),
         }
       : null,
-    displayedSummary.maxPower != null && (sport === "ride" || sport === "run")
+    stripStats.maxPower.value != null && (sport === "ride" || sport === "run")
       ? {
           label: t("stat.maxPower"),
-          value: String(Math.round(displayedSummary.maxPower)),
+          value: String(Math.round(stripStats.maxPower.value)),
           unit: "W",
+          sub: sensorSub(undefined, stripStats.maxPower),
         }
       : null,
-    displayedSummary.averageCadence != null
+    stripStats.avgCadence.value != null
       ? {
           label: sport === "swim" ? t("stat.avgStroke") : t("stat.avgCadence"),
-          value: String(Math.round(displayedSummary.averageCadence)),
+          value: String(Math.round(stripStats.avgCadence.value)),
           unit: sport === "run" || sport === "swim" ? "spm" : "rpm",
+          sub: sensorSub(undefined, stripStats.avgCadence),
         }
       : null,
-    s.calories != null
+    stripStats.caloriesKcal.value != null
       ? {
           label: t("stat.calories"),
-          value: Math.round(s.calories).toLocaleString(),
+          value: Math.round(stripStats.caloriesKcal.value).toLocaleString(),
           unit: "kcal",
+          sub: sensorSub(undefined, stripStats.caloriesKcal),
         }
       : null,
   ] as (SummarySensorMetric | null)[]).filter((metric): metric is SummarySensorMetric => metric != null);
@@ -664,10 +690,9 @@ export default function ActivityPage() {
     <Card padding="none" style={{ padding: 0 }}>
       <ActivityStatsGrid
         summary={displayedSummary}
+        stats={stripStats}
         sport={sport}
         interpretationContext={runDetail.interpretationContext}
-        avgPowerValue={avgPowerValue}
-        normalizedPowerValue={normalizedPowerValue}
         movingTimeSec={movingTimeSec}
         pauseTimeSec={pauseTimeSec}
         elapsedTimeMillis={speedDur.elapsedMs}
@@ -1090,7 +1115,7 @@ export default function ActivityPage() {
             separateOverlayLanes={chartOverlays.length > 0}
             highlightRange={chartHighlightRange}
           />
-          {analysisProjection && <ActivityZoneTimeline streams={analysisProjection.streams} sensorHeartRate={analysisProjection.heartRate} sensorPower={analysisProjection.power} sensorSelectionContext={sensorSelectionContext} summary={analysisTabProps?.summary} sport={sport} startTime={activity.startTime} isOwner={isActivityOwner} activityContextMaxHr={serverMetrics.metrics?.contextSnapshot?.maxHr} activityContextLthr={serverMetrics.metrics?.contextSnapshot?.lthr} />}
+          <ActivityZoneTimeline metrics={serverMetrics.metrics} />
         </Card>
       )}
 
@@ -1110,7 +1135,7 @@ export default function ActivityPage() {
       )}
 
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
-      <RunActivityIntro detail={runDetail} activityId={activityId} streams={streams} />
+      <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null} />
 
       {/* 러닝/수영 전용 상세 카드 (좌측, 개요 탭에서만) */}
       {activeTab === "overview" && sport === "run" && streams && <RunLeftCards streams={streams} thresholdPaceSecPerKm={profile?.thresholdPace ?? null} />}
@@ -1302,7 +1327,14 @@ export default function ActivityPage() {
       {/* ── Right sidebar (개요): 종목별 카드만 ── */}
       {(sport === "run" || sport === "swim") && (
       <div className="lg:w-80 flex-shrink-0 space-y-6 lg:pl-6 lg:[border-left:1px_solid_var(--line-soft)]">
-      {sport === "run" && <RunRightCards summary={s} activity={activity} />}
+      {sport === "run" && (
+        <RunRightCards
+          summary={s}
+          activity={activity}
+          metricsWeather={serverMetrics.metrics?.weather}
+          metricsStatus={serverMetrics.status}
+        />
+      )}
       {sport === "swim" && <SwimRightCards summary={s} streams={streams} />}
       </div>
       )}

@@ -2,19 +2,32 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CANONICAL_SCHEMA_VERSION, type CanonicalEnvelope } from "@shared/types/canonical";
 
+import {
+  legacyWebHomeTotals,
+  serverHomeSummaryData,
+  serverHomeTotals,
+} from "../__tests__/fixtures/canonicalHomeSummary";
+
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
   enabled: vi.fn(() => true),
   log: vi.fn(),
   user: { uid: "u1" } as { uid: string } | null,
+  rolloutAllows: vi.fn(() => true),
 }));
 
-vi.mock("../services/canonicalApi", () => ({
+// 파서는 진짜를 쓴다 — 여기서 흉내 내면 서버 계약과 어긋난 채로 통과한다 (#2237 리뷰).
+vi.mock("../services/canonicalApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../services/canonicalApi")>()),
   fetchCanonicalHomeSummary: mocks.fetch,
   canonicalConsumersEnabled: mocks.enabled,
 }));
 vi.mock("../services/errorLogger", () => ({ logClientError: mocks.log }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
+vi.mock("./useCanonicalRollout", () => ({
+  useCanonicalRollout: () => ({ gateEnabled: true, loading: false, verdictOk: true, surfaces: {} }),
+  canonicalRolloutAllows: () => mocks.rolloutAllows(),
+}));
 
 import { useCanonicalHomeSummary } from "./useCanonicalHomeSummary";
 
@@ -33,22 +46,40 @@ function envelope(over: Partial<CanonicalEnvelope<unknown>>): CanonicalEnvelope<
   };
 }
 
-const totals = { rideCount: 3, distanceKm: 42, movingSec: 100, elevationGainMeters: 10 };
+/** 서버가 실제로 내려주는 모양. 픽스처 한 곳에서만 만든다. */
+const totals = serverHomeTotals;
 const withTotals = (status: CanonicalEnvelope<unknown>["status"] = "canonical") =>
-  envelope({ status, data: { rolling7d: { period: null, totals } } });
+  envelope({ status, data: serverHomeSummaryData() });
 
 describe("useCanonicalHomeSummary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.enabled.mockReturnValue(true);
+    mocks.rolloutAllows.mockReturnValue(true);
     mocks.user = { uid: "u1" };
   });
 
-  it("스위치가 꺼져 있으면 서버를 부르지 않는다", async () => {
+  it("빌드 플래그가 꺼져 있으면 서버를 부르지 않는다 — 화면은 오늘과 똑같다", async () => {
     mocks.enabled.mockReturnValue(false);
     const { result } = renderHook(() => useCanonicalHomeSummary());
-    await waitFor(() => expect(result.current.display).toBeNull());
+    await waitFor(() => expect(result.current.enabled).toBe(false));
+    expect(result.current.display).toBeNull();
     expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("서버 판정이 homeSummary 를 껐으면 부르지 않는다 — 빌드 플래그만으로는 못 켠다", async () => {
+    mocks.rolloutAllows.mockReturnValue(false);
+    const { result } = renderHook(() => useCanonicalHomeSummary());
+    await waitFor(() => expect(result.current.enabled).toBe(false));
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("둘 다 켜지면 서버 값으로 갈아탄다", async () => {
+    mocks.fetch.mockResolvedValue(withTotals());
+    const { result } = renderHook(() => useCanonicalHomeSummary());
+    await waitFor(() => expect(result.current.totals).toEqual(totals));
+    expect(result.current.enabled).toBe(true);
+    expect(result.current.display).toBe("value");
   });
 
   it("계산 중이고 캐시도 없으면 값을 주지 않는다 — 0 을 그리면 안 된다", async () => {
@@ -93,6 +124,30 @@ describe("useCanonicalHomeSummary", () => {
     mocks.user = { uid: "u2" };
     rerender();
     await waitFor(() => expect(result.current.display).toBe("loading"));
+    expect(result.current.totals).toBeNull();
+  });
+
+  it("옛 웹 필드명 페이로드는 '값 없음' 이다 — 0 도 NaN 도 만들지 않는다", async () => {
+    mocks.fetch.mockResolvedValue(
+      envelope({ data: { rolling7d: { period: null, totals: legacyWebHomeTotals } } }),
+    );
+    const { result } = renderHook(() => useCanonicalHomeSummary());
+    await waitFor(() => expect(result.current.display).toBe("value"));
+    // 화면이 그릴 값이 없다 → KPI 는 상태 문구를 그린다(canonicalKpiSource).
+    expect(result.current.totals).toBeNull();
+    // 조용히 빈 화면이 되지 않도록 계약 드리프트를 남긴다.
+    expect(mocks.log).toHaveBeenCalledWith(
+      "useCanonicalHomeSummary.shape", expect.any(Error), expect.objectContaining({ uid: "u1" }),
+    );
+  });
+
+  it("필드 하나만 빠져도 전체가 값 없음이다 — 나머지 칸이 0 으로 보이면 안 된다", async () => {
+    const { movingMillis: _drop, ...partial } = serverHomeTotals;
+    mocks.fetch.mockResolvedValue(
+      envelope({ data: { rolling7d: { period: null, totals: partial } } }),
+    );
+    const { result } = renderHook(() => useCanonicalHomeSummary());
+    await waitFor(() => expect(result.current.display).toBe("value"));
     expect(result.current.totals).toBeNull();
   });
 

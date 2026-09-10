@@ -1,5 +1,5 @@
 import type { Activity } from "@shared/types";
-import { estimateLoad, TIME_FACTORS, type LoadDiscipline } from "@shared/training/activityLoad";
+import { estimateLoad, isSaneTss, TIME_FACTORS, type LoadDiscipline } from "@shared/training/activityLoad";
 import { disciplineOfType } from "@shared/sport/discipline";
 
 /**
@@ -72,17 +72,57 @@ export function estimateBikeTSS(a: Activity): number {
   return hours * TIME_FACTORS.bike;
 }
 
+/** TSS 값 + 출처 표식. value=null 이면 **모른다** — 화면은 0 대신 대시/생략. */
+export interface ActivityTssEstimate {
+  value: number | null;
+  /** true 면 서버 사전계산값이 아니라 클라 추정치 — "추정" 으로 밝혀야 한다. */
+  estimated: boolean;
+}
+
 /**
- * 종목 무관 TSS 추정 — 정본 폴백 체인(`estimateLoad`)에 위임.
+ * 종목 무관 TSS — 정본 폴백 체인(`estimateLoad`)에 위임.
  *   사전계산 TSS(summary.tss) > relativeEffort(TRIMP) > 종목 시간factor.
+ *
+ * `summary.tss` 는 서버가 계산해 활동 문서에 적어둔 값이다(activity_metrics 와 같은 출처).
+ * 활동 목록 화면들은 활동 수만큼 `activity_metrics` 를 읽을 수 없으므로 이 필드가 서버
+ * 정본 경로다 — 그게 없을 때만 추정하고, **추정임을 밝힌다**.
+ *
+ * 아무 근거도 없으면 `value=null` 이다. 예전엔 0 을 돌려줘서 "부하 0" 이라는 확정값처럼
+ * 읽혔다 (#2237 web.tss.estimate).
+ *
  * 더 정밀한 추정이 필요하면 estimateRunTSS / estimateSwimTSS (IF² 기반) 를 직접 호출.
  */
-export function estimateTSS(a: Activity): number {
-  return estimateLoad({
-    precomputedTss: a.summary.tss,
+export function estimateActivityTss(a: Activity): ActivityTssEstimate {
+  // 옛 문서는 TSS 를 활동 문서 최상위에 뒀다 — summary.tss 와 함께 서버 사전계산 경로로 취급.
+  const precomputedTss = a.summary.tss ?? (a as Activity & { tss?: number | null }).tss ?? null;
+  const precomputed = isSaneTss(precomputedTss);
+  const { value } = estimateLoad({
+    precomputedTss,
     relativeEffort: a.summary.relativeEffort,
     avgPower: a.summary.averagePower,
     durationMillis: a.summary.ridingTimeMillis,
     discipline: inferDiscipline(a.type),
-  }).value;
+  });
+  if (precomputed) return { value, estimated: false };
+  return { value: value > 0 ? value : null, estimated: value > 0 };
+}
+
+/** 값만 필요한 호출자용. 모르면 null — 0 으로 메우지 않는다. */
+export function estimateTSS(a: Activity): number | null {
+  return estimateActivityTss(a).value;
+}
+
+/** 활동 묶음의 TSS 합계. 아는 값만 더하고, 추정치가 하나라도 섞이면 `estimated` 로 알린다. */
+export function sumActivityTss(activities: readonly Activity[]): ActivityTssEstimate {
+  let total = 0;
+  let known = false;
+  let estimated = false;
+  for (const a of activities) {
+    const { value, estimated: isEstimate } = estimateActivityTss(a);
+    if (value == null) continue;
+    total += value;
+    known = true;
+    if (isEstimate) estimated = true;
+  }
+  return { value: known ? Math.round(total) : null, estimated };
 }

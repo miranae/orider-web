@@ -1,5 +1,5 @@
 import { ArrowUp, ArrowDown } from "lucide-react";
-import { Text } from "../../theme/components";
+import { Chip, Text } from "../../theme/components";
 
 interface StatBlockProps {
   label: string;
@@ -8,6 +8,8 @@ interface StatBlockProps {
   delta?: string | null;
   deltaKind?: 'up' | 'down' | 'neutral';
   sub?: string;
+  /** 값 옆에 붙는 짧은 표식. 서버 값이 낡았을 때("이전 집계") 쓴다. */
+  chip?: string | null;
 }
 
 export default function StatBlock({
@@ -17,6 +19,7 @@ export default function StatBlock({
   delta,
   deltaKind = 'neutral',
   sub,
+  chip,
 }: StatBlockProps) {
   const deltaColor =
     deltaKind === 'up'
@@ -46,6 +49,10 @@ export default function StatBlock({
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-base)', color: 'var(--ink-2)', fontWeight: 400 }}>
             {unit}
           </span>
+        )}
+        {/* 낡은 값 표식 — 값을 숨기지 않되 최신인 척하지도 않는다 (TrainingStatusCard 와 같은 규칙). */}
+        {chip != null && chip !== "" && (
+          <Chip variant="default" style={{ flexShrink: 0 }}>{chip}</Chip>
         )}
       </div>
 

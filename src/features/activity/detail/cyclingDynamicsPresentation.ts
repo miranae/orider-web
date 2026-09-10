@@ -60,7 +60,12 @@ export function buildCyclingDynamicsCards({ cyclingDynamics, lrBalance }: Dynami
 
   const torque = cyclingDynamics?.torqueEffectiveness;
   const torqueValue = torque && sidePair(torque.leftAvgPct, torque.rightAvgPct);
-  if (torqueValue) cards.push({ kind: "torqueEffectiveness", value: torqueValue, unit: "L/R %" });
+  if (torqueValue) {
+    cards.push({ kind: "torqueEffectiveness", value: torqueValue, unit: "L/R %" });
+  } else if (finite(torque?.combinedAvgPct)) {
+    // 앱 세션 요약 폴백(session_summary) — 좌우 분리값이 없어 합산 하나만 (#2344)
+    cards.push({ kind: "torqueEffectiveness", value: torque.combinedAvgPct.toFixed(1), unit: "%" });
+  }
 
   const smoothness = cyclingDynamics?.pedalSmoothness;
   const smoothnessValue = smoothness && sidePair(smoothness.leftAvgPct, smoothness.rightAvgPct);

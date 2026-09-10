@@ -1,3 +1,4 @@
+import type { FatMaxProfile, RideSubstrate } from "../training/metabolism";
 /**
  * 활동별 영속 분석 메트릭 — `activity_metrics/{activityId}` 컬렉션.
  *
@@ -21,12 +22,12 @@ export type WorkoutType =
   | "interval" | "race" | "mixed";
 
 export interface CyclingDynamicsMetrics {
-  source: "session" | "records";
+  source: "session" | "records" | "session_summary";
   sampleCount: number;
   validSampleCount: number;
   coverage: number;
   balance?: { leftAvgPct: number; rightAvgPct: number; asymmetryPct: number };
-  torqueEffectiveness?: { leftAvgPct?: number; rightAvgPct?: number };
+  torqueEffectiveness?: { leftAvgPct?: number; rightAvgPct?: number; combinedAvgPct?: number };
   pedalSmoothness?: { leftAvgPct?: number; rightAvgPct?: number; combinedAvgPct?: number };
   platformCenterOffset?: { leftAvgMm?: number; rightAvgMm?: number };
   powerPhase?: {
@@ -95,6 +96,7 @@ export interface ActivityMetrics {
     totalSec: number;
     peakW: number;
     longestW: number;
+    longestSec?: number;
   };
 
   // ── 클라임 (자동 감지 + 분류 + VAM/W·kg)
@@ -121,7 +123,31 @@ export interface ActivityMetrics {
     anaerobic: number;  // >120%
   };
   hrZoneSec: number[];     // [z1..z5]
+  /** 존 경계 정본(서버 파생). 웹은 경계를 다시 파생하지 않는다 (#2437). */
+  hrZoneBoundaries?: {
+    reference: "lthr" | "max_hr";
+    referenceBpm: number;
+    sport: "bike" | "run" | "other";
+    zones: Array<{ zone: number; minPct: number; maxPct: number | null; minBpm: number; maxBpmExclusive: number | null }>;
+  } | null;
   powerZoneSec: number[];  // [z1..z7]
+  /** Seiler 3존 체류 초 [저강도, 역치, 고강도] (사이클만). */
+  seilerZoneSec?: [number, number, number] | null;
+  polarization?: { verdict: "polarized" | "threshold" | "pyramidal"; extremePct: number; thresholdPct: number } | null;
+  /** 3초 최대 파워 — 화면의 "최대 파워". 1초 최대(`maxPower`)는 스파이크에 취약하다. */
+  maxPower3s?: number | null;
+  maxCadence?: number | null;
+  /** W' 잔량 곡선(≤200점). `wPrimeMinJ` 와 같은 적산. */
+  wPrimeBalance?: number[] | null;
+  /** 기질(지방/탄수 kcal) — 서버 시간 가중 적분 (#2437). 웹은 계산하지 않고 읽는다. */
+  substrate?: RideSubstrate | null;
+  fatMax?: FatMaxProfile | null;
+  /** 그래프용 축약 시계열. 계산 입력이 아니다 — 여기서 값을 다시 계산하면 요약과 어긋난다. */
+  renderSeries?: { resolution: number; axes: Record<string, Array<number | null>> } | null;
+  /** 어느 입력에서 나온 값인가. inline 은 800KB 에서 잘린 스트림이다. */
+  sourceLayer?: "raw_parts" | "inline_streams";
+  /** 원시 파트가 아직 올라오는 중 — 지금 값은 잠정값이다. */
+  inputPending?: boolean;
 
   // ── A.6 신규: 존 별 누적 일 (kJ) — power zone z1..z7.
   /** 사이클만 의미 있음 (watts 필요). watts 없으면 모두 0. */
@@ -175,19 +201,31 @@ export interface ActivityMetrics {
   aet?: { hr: number; watts: number; confidence: number };
 
   // ── 환경
+  /** 주행 당시 날씨 — 서버 v22: 습도·풍속은 결측이면 null(0 으로 채우지 않음), windSpeed m/s, condition `wmo_<code>`|unknown. */
   weather?: {
     tempC: number;
-    humidity: number;
-    windSpeed: number;
+    humidity: number | null;
+    windSpeed: number | null;
     condition: string;
-  };
+  } | null;
 
   // ── 좌우 파워 균형 (dual power 사용자)
   lrBalance?: { avg: number; asymmetryPct: number };
   cyclingDynamics?: CyclingDynamicsMetrics;
 
   // ── Meta
-  discipline: "bike" | "run" | "swim";
+  /** 가상파워 활동 — mmp/cp/wPrime 은 비운다. */
+  /** GPS 품질 요약 (#2345). */
+  gpsQuality?: { medianAccuracyM: number; p90AccuracyM: number; coverage: number; poorFixPct: number } | null;
+  isVirtualPower?: boolean;
+  /** 부하 3축 — **서버 형태 그대로**. 웹이 다른 이름(cardiovascular/muscular/perceptual)으로 재선언하던 것을 제거(ETL 감사). */
+  loadAxes?: {
+    cardio: { score: number | null; source: "tss" | "trimp" | "time"; confidence: "low" | "medium" | "high" };
+    muscle: { score: number | null; source: "wprime" | "power-zones" | "cardio"; confidence: "low" | "medium" | "high" };
+    perceived: { score: number | null; source: "rpe" | "decoupling" | "cardio"; confidence: "low" | "medium" | "high" };
+  };
+  thresholdFlags?: { ftpStale: boolean; ifSuspect: boolean; suggestedFtp?: number } | null;
+  discipline: "bike" | "run" | "swim" | "other";
   activityType: string;            // raw a.type ("Ride", "VirtualRide", ...)
   startTime: number;
   computedAt: number;
@@ -221,8 +259,10 @@ export interface SplitRow {
   paceSec: number;
   gapSec: number;
   elevGain: number;
+  elevLoss?: number;
   avgHr: number | null;
+  avgCadence?: number | null;
 }
 
 /** 현재 ActivityMetrics 계산 스키마 버전. 변경 시 +1, backfill 트리거. */
-export const ACTIVITY_METRICS_VERSION = 2;
+export const ACTIVITY_METRICS_VERSION = 22;

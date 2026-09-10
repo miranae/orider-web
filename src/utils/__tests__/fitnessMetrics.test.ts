@@ -7,28 +7,7 @@ import {
 } from '../fitnessMetrics'
 
 describe('estimateActivityLoad', () => {
-  it('uses TSS when watts stream and ftp available', () => {
-    const load = estimateActivityLoad({
-      watts: Array(3600).fill(200),
-      ftp: 200,
-      relativeEffort: null,
-      ridingTimeMillis: 3600000,
-    })
-    expect(load.value).toBeCloseTo(100, -1)
-    expect(load.source).toBe('tss')
-  })
-
-  it('falls back to TRIMP when no watts', () => {
-    const load = estimateActivityLoad({
-      watts: undefined,
-      ftp: undefined,
-      relativeEffort: 120,
-      ridingTimeMillis: 3600000,
-    })
-    expect(load.value).toBe(120)
-    expect(load.source).toBe('trimp')
-  })
-
+  // 스트림(watts·heartrate) 기반 부하 테스트 2건은 삭제 — 스트림 계산은 서버 정본이 한다 (#2437).
   it('falls back to time estimate when no watts or TRIMP', () => {
     const load = estimateActivityLoad({
       watts: undefined,
@@ -87,98 +66,7 @@ describe('estimateActivityLoad', () => {
   })
 
   // #365 — HR 스트림 TRIMP 부하 체인 삽입 (파워근사 다음, relativeEffort 앞).
-  describe('HR 스트림 TRIMP 폴백 (#365)', () => {
-    it('uses HR-stream TRIMP when no power data is available', () => {
-      const maxHr = 190
-      const thresholdHr = maxHr * 0.85 // LTHR 미지정 → 근사 임계 HR
-      const heartrate = Array(3600).fill(thresholdHr) // 임계HR 로 1시간 유지 → ≈100 기대
-      const load = estimateActivityLoad({
-        watts: undefined,
-        ftp: undefined,
-        heartrate,
-        maxHr,
-        relativeEffort: null,
-        ridingTimeMillis: 3600000,
-      })
-      expect(load.source).toBe('trimp')
-      expect(load.value).toBeCloseTo(100, -1)
-    })
-
-    it('does not use HR-stream TRIMP when power data produces a TSS', () => {
-      const maxHr = 190
-      const heartrate = Array(3600).fill(maxHr * 0.85)
-      const load = estimateActivityLoad({
-        watts: Array(3600).fill(200),
-        ftp: 200,
-        heartrate,
-        maxHr,
-        relativeEffort: null,
-        ridingTimeMillis: 3600000,
-      })
-      expect(load.source).toBe('tss')
-      expect(load.value).toBeCloseTo(100, -1)
-    })
-
-    it('prefers HR-stream TRIMP over relativeEffort when both are present', () => {
-      const maxHr = 190
-      const heartrate = Array(3600).fill(maxHr * 0.85) // ≈100 TSS-equivalent
-      const load = estimateActivityLoad({
-        watts: undefined,
-        ftp: undefined,
-        heartrate,
-        maxHr,
-        // 의도적으로 스트림 기반 추정치와 크게 다른 값 — 우선순위 검증용
-        relativeEffort: 400,
-        ridingTimeMillis: 3600000,
-      })
-      expect(load.source).toBe('trimp')
-      expect(load.value).toBeCloseTo(100, -1)
-    })
-
-    it('uses a provided LTHR as the normalization threshold instead of the maxHr approximation', () => {
-      const maxHr = 190
-      const lthr = 165 // 사용자 실측 LTHR — maxHr*0.85(161.5)와 다름
-      const heartrate = Array(3600).fill(lthr)
-      const load = estimateActivityLoad({
-        watts: undefined,
-        ftp: undefined,
-        heartrate,
-        maxHr,
-        lthr,
-        relativeEffort: null,
-        ridingTimeMillis: 3600000,
-      })
-      expect(load.source).toBe('trimp')
-      // LTHR 에서 정확히 1시간 유지 → 정규화 결과가 100 에 수렴해야 함
-      expect(load.value).toBeCloseTo(100, -1)
-    })
-
-    it('falls through to relativeEffort when the HR stream is too short (missing/incomplete HR data)', () => {
-      const load = estimateActivityLoad({
-        watts: undefined,
-        ftp: undefined,
-        heartrate: [140, 145, 150], // < 30 샘플 — TRIMP 계산 skip
-        maxHr: 190,
-        relativeEffort: 80,
-        ridingTimeMillis: 3600000,
-      })
-      expect(load.source).toBe('trimp')
-      expect(load.value).toBe(80)
-    })
-
-    it('falls through to relativeEffort when maxHr is missing', () => {
-      const load = estimateActivityLoad({
-        watts: undefined,
-        ftp: undefined,
-        heartrate: Array(3600).fill(160),
-        maxHr: undefined,
-        relativeEffort: 80,
-        ridingTimeMillis: 3600000,
-      })
-      expect(load.source).toBe('trimp')
-      expect(load.value).toBe(80)
-    })
-  })
+  // HR 스트림 TRIMP 폴백 테스트는 삭제 — 스트림 계산은 서버 정본(activity_metrics.streamTrimpTss)이 한다 (#2437).
 })
 
 describe('aggregateDailyLoad', () => {

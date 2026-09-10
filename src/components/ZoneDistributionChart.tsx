@@ -9,7 +9,7 @@ import {
   BarElement,
   Tooltip,
 } from "chart.js";
-import type { ZoneDistribution } from "../utils/zoneAnalysis";
+import type { ZoneDistribution } from "../features/activity/detail/metricsPresentation";
 import { resolveCssColor } from "../utils/cssColor";
 import { useTheme } from "../contexts/ThemeContext";
 import { useOriderTheme } from "../theme";

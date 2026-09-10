@@ -3,7 +3,7 @@
  *
  * ActivityPage 가 품질 예산(파일 1600줄) 상한에 가까우므로 러닝 상태·JSX 를 여기로 분리한다.
  */
-import type { Activity, ActivityStreams, UserProfile } from "@shared/types";
+import type { Activity, UserProfile } from "@shared/types";
 import type { RunPrTable } from "@shared/types/personal-records";
 import RunRecordBanner from "../../../components/activity/RunRecordBanner";
 import RunInterpretationCard from "../../../components/activity/RunInterpretationCard";
@@ -60,18 +60,19 @@ export function useRunActivityDetail(
 export function RunActivityIntro({
   detail,
   activityId,
-  streams,
+  gapSecPerKm,
 }: {
   detail: RunActivityDetail;
   activityId: string | undefined;
-  streams: ActivityStreams | null | undefined;
+  /** 서버 GAP 평균(초/km). 웹은 스트림에서 다시 계산하지 않는다. */
+  gapSecPerKm: number | null;
 }) {
   if (!detail.isRun) return null;
   return (
     <>
       {activityId && <RunRecordBanner run={detail.runRecords} activityId={activityId} />}
       <RunInterpretationCard
-        streams={streams}
+        gapSecPerKm={gapSecPerKm}
         averageSpeedKmh={detail.averageSpeedKmh}
         baselinePaceSecPerKm={detail.baselinePaceSecPerKm}
       />

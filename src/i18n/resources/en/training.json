@@ -52,6 +52,8 @@
     "logTotalDistance": "Total Distance",
     "logTotalTime": "Total Time",
     "logTotalElevation": "Total Elevation",
+    "tssEstimated": "est.",
+    "tssEstimatedIncluded": "incl. estimates",
     "logTotalTSS": "Total TSS",
     "prevMonth": "← Previous Month",
     "nextMonth": "Next Month →",

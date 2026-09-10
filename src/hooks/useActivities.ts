@@ -23,7 +23,7 @@ import { getPublicUserProfiles } from "../services/publicProfiles";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
-import { estimateTSS } from "../utils/estimateTSS";
+import { sumActivityTss } from "../utils/estimateTSS";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { getDiscipline } from "../utils/disciplineFilter";
 import {
@@ -745,7 +745,10 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
       time: Math.round(weekActivities.reduce((s, a) => s + activityDurationMillis(a), 0) / 3600000 * 10) / 10,
       elevation: Math.round(weekActivities.reduce((s, a) => s + activityElevation(a), 0)),
       rides: weekActivities.length,
-      tss: Math.round(weekActivities.reduce((s, a) => s + estimateTSS(a), 0)),
+      ...(() => {
+        const load = sumActivityTss(weekActivities);
+        return { tss: load.value, tssEstimated: load.estimated };
+      })(),
     });
   }
 

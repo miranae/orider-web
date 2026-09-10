@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import MobileFitnessPage, { type MobileFitnessData } from "./MobileFitnessPage";
 
-vi.mock("../training/TodaysWorkoutCard", () => ({ default: () => null }));
 vi.mock("./SportPerformanceCard", () => ({ default: () => null }));
 
 describe("MobileFitnessPage power curve", () => {

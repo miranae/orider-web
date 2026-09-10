@@ -171,3 +171,6 @@ a:active,
 .bar { flex: 1; background: var(--lime-dim); border-radius: 1px; transition: background .15s; min-width: 4px; }
 .bar--current { background: var(--lime); }
 .bar:hover { background: var(--lime); }
+/* 부하를 알 수 없는 주 — 막대 대신 빈 칸(점선 윤곽). 0 짜리 막대로 그리면 휴식 주로 읽힌다. */
+.bar--unknown { background: transparent; border: 1px dashed var(--line-soft); }
+.bar--unknown:hover { background: var(--bg-2); }

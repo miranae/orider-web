@@ -6,8 +6,8 @@ describe("AnalysisTab legacy HR context", () => {
   it("guards legacy activity metrics without contextSnapshot", () => {
     const source = readFileSync(join(process.cwd(), "src/components/AnalysisTab.tsx"), "utf8");
     expect(source).toContain("sm?.contextSnapshot?.maxHr");
-    expect(source).toContain("sm?.contextSnapshot?.lthr");
+    expect(source).toContain("sm?.hrZoneBoundaries?.referenceBpm");
     expect(source).not.toContain("sm?.contextSnapshot.maxHr");
-    expect(source).not.toContain("sm?.contextSnapshot.lthr");
+    expect(source).not.toContain("sm?.hrZoneBoundaries.referenceBpm");
   });
 });

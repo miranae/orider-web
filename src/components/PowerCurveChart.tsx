@@ -12,7 +12,7 @@ import {
   Filler,
   Tooltip,
 } from "chart.js";
-import type { PowerCurvePoint } from "../utils/powerCurve";
+import type { PowerCurvePoint } from "../features/activity/detail/metricsPresentation";
 import { formatNum } from "../utils/units";
 import { useTheme } from "../contexts/ThemeContext";
 import ChartEmptyState from "./charts/ChartEmptyState";

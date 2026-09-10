@@ -11,7 +11,7 @@ import type { PlanDay, PlanWeek } from "@shared/types/goal";
 import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
-import { estimateTSS } from "../utils/estimateTSS";
+import { estimateActivityTss, sumActivityTss } from "../utils/estimateTSS";
 import { getSportIcon } from "../utils/sportType";
 import { Button, Card, Text } from "../theme/components";
 import { ErrorState } from "../components/redesign";
@@ -143,7 +143,8 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
   const hasPlan = plans.length > 0;
   const single = activities.length === 1;
   const plannedTSS = plans.reduce((sum, plan) => sum + plan.plannedTSS, 0);
-  const actualTSS = activities.reduce((sum, activity) => sum + estimateTSS(activity), 0);
+  // 계획 대비 달성 비교용 내부 수치 — 아는 값만 더한다(모르는 활동은 0 으로 세지 않는다).
+  const actualTSS = sumActivityTss(activities).value ?? 0;
   const adherence =
     !hasPlan ? null :
     hasAct ? (actualTSS >= plannedTSS * 0.8 ? "hit" : "under") :
@@ -248,7 +249,7 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
       {sorted.map((a) => {
         const icon = getSportIcon(a.type);
         const color = sportColor(a.type);
-        const tss = Math.round(estimateTSS(a));
+        const { value: tss, estimated: tssEstimated } = estimateActivityTss(a);
         return (
           <button
             key={a.id}
@@ -281,8 +282,10 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
             <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-0)", lineHeight: 1 }}>
               {formatActivityDist(a)}
             </span>
+            {/* 모르면 대시 — 0 을 "부하 없음" 확정값처럼 보여주지 않는다 (#2237). */}
             <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-3)", lineHeight: 1, marginLeft: "auto" }}>
-              {tss}
+              {tss == null ? "–" : tss}
+              {tssEstimated && <span style={{ marginLeft: "var(--space-0-5)", color: "var(--ink-4)" }}>{t("page.tssEstimated")}</span>}
             </span>
           </button>
         );
@@ -578,13 +581,14 @@ export default function TrainingLogPage() {
     const totalDist = monthActivities.reduce((s, a) => s + a.summary.distance, 0);
     const totalTime = monthActivities.reduce((s, a) => s + a.summary.ridingTimeMillis, 0);
     const totalElev = monthActivities.reduce((s, a) => s + a.summary.elevationGain, 0);
-    const totalTSS = Math.round(monthActivities.reduce((s, a) => s + estimateTSS(a), 0));
+    const totalLoad = sumActivityTss(monthActivities);
     return {
       dist: totalDist / 1000,
       time: totalTime,
       elev: Math.round(totalElev),
       count: monthActivities.length,
-      tss: totalTSS,
+      tss: totalLoad.value,
+      tssEstimated: totalLoad.estimated,
     };
   }, [monthActivities]);
 
@@ -670,7 +674,8 @@ export default function TrainingLogPage() {
             { label: t("page.logTotalDistance"), value: `${kpi.dist.toFixed(1)}`, unit: "km", color: "var(--aqua)" },
             { label: t("page.logTotalTime"), value: formatDuration(kpi.time), unit: null, color: "var(--ink-0)" },
             { label: t("page.logTotalElevation"), value: `${kpi.elev}`, unit: "m", color: "var(--amber)" },
-            { label: t("page.logTotalTSS"), value: `${kpi.tss}`, unit: null, color: "var(--rose)" },
+            // 추정치가 섞였으면 밝힌다 — 서버 사전계산값과 구분되지 않으면 안 된다 (#2237).
+            { label: t("page.logTotalTSS"), value: kpi.tss == null ? "–" : `${kpi.tss}`, unit: kpi.tssEstimated ? t("page.tssEstimatedIncluded") : null, color: "var(--rose)" },
             { label: t("page.logActivityCount"), value: `${kpi.count}`, unit: t("page.logActivityUnit"), color: "var(--lime)" },
           ].map(({ label, value, unit, color }, i) => (
             <div key={label} style={{ padding: "14px 16px", borderRight: i < 4 ? "1px solid var(--line-soft)" : "none" }}>
@@ -799,10 +804,9 @@ export default function TrainingLogPage() {
                 ))
               : calendar.map((week, wi) => {
                   // 주간 TSS 합계
-                  const weekTSS = week.reduce((s, cell) => {
-                    const acts = byDay.get(dateToKey(cell.date)) ?? [];
-                    return s + acts.reduce((ts, a) => ts + estimateTSS(a), 0);
-                  }, 0);
+                  const weekLoad = sumActivityTss(
+                    week.flatMap((cell) => byDay.get(dateToKey(cell.date)) ?? []),
+                  );
                   return (
                   <div
                     key={wi}
@@ -834,11 +838,11 @@ export default function TrainingLogPage() {
                     {/* 주간 TSS */}
                     <div style={{
                       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                      fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: weekTSS > 0 ? "var(--ink-1)" : "var(--ink-4)",
+                      fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: (weekLoad.value ?? 0) > 0 ? "var(--ink-1)" : "var(--ink-4)",
                       borderLeft: "1px solid var(--line-soft)", paddingLeft: 6,
                     }}>
                       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-0-5)" }}>TSS</div>
-                      <div>{Math.round(weekTSS)}</div>
+                      <div>{weekLoad.value == null ? "–" : weekLoad.value}{weekLoad.estimated ? t("page.tssEstimated") : ""}</div>
                     </div>
                   </div>
                   );
