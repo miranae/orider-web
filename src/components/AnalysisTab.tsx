@@ -124,10 +124,10 @@ interface AnalysisTabProps {
   activityId?: string | null;
   /** 소유자 여부 — CTL 기반 회복 시간 등 개인 컨텍스트에만 쓴다. 지표 읽기 권한은 활동 가시성이 정한다. */
   isOwner?: boolean;
-  /** 스트림 센서 후보 판정(activityDetailDerived) — 거부된 채널의 서버 지표를 숨기는 데 쓴다. */
-  hasStreamPowerCandidate?: boolean;
-  hasStreamHeartRateCandidate?: boolean;
-  hasStreamCadenceCandidate?: boolean;
+  /** 현재 센서 provenance가 서버 계산 입력과 달라진 채널만 서버 파생 지표를 숨긴다. */
+  suppressServerPowerMetrics?: boolean;
+  suppressServerHeartRateMetrics?: boolean;
+  suppressServerCadenceMetrics?: boolean;
   /** 활동 시작 epoch (초 또는 밀리초). 클라임 진입 실제 현지 시각 계산에 사용. */
   startTime?: number | null;
   /** 랩·칼로리·FTP 폴백·기질 카드에만 쓴다. 지표는 여기서 계산하지 않는다. */
@@ -143,7 +143,7 @@ interface AnalysisTabProps {
   };
 }
 
-interface SensorCandidateFlags {
+interface ServerMetricSuppression {
   power: boolean;
   heartRate: boolean;
   cadence: boolean;
@@ -159,26 +159,26 @@ type FilteredActivityMetricsDoc = Omit<ActivityMetricsDoc, "workoutType" | "work
   lrBalance?: ActivityMetricsDoc["lrBalance"];
 };
 
-export function filterServerMetricsForSensorCandidates(
+export function filterInvalidatedServerMetrics(
   metrics: ActivityMetricsDoc | null,
-  candidates: SensorCandidateFlags,
+  suppression: ServerMetricSuppression,
   selected: SelectedSensorAverages = {},
 ): FilteredActivityMetricsDoc | null {
   if (!metrics) return null;
   const filteredMetrics: FilteredActivityMetricsDoc = { ...metrics };
-  if (candidates.power || candidates.heartRate) {
+  if (suppression.power || suppression.heartRate) {
     delete filteredMetrics.workoutType;
     delete filteredMetrics.workoutTypeConfidence;
   }
   const cyclingMetrics = metrics.cyclingMetrics
     ? {
         ...metrics.cyclingMetrics,
-        longestZ4PlusSec: candidates.power ? null : metrics.cyclingMetrics.longestZ4PlusSec,
-        cadenceStdDev: candidates.cadence ? null : metrics.cyclingMetrics.cadenceStdDev,
+        longestZ4PlusSec: suppression.power ? null : metrics.cyclingMetrics.longestZ4PlusSec,
+        cadenceStdDev: suppression.cadence ? null : metrics.cyclingMetrics.cadenceStdDev,
       }
     : undefined;
 
-  if (candidates.power) {
+  if (suppression.power) {
     Object.assign(filteredMetrics, {
       avgPower: selected.power ?? null,
       maxPower: null,
@@ -210,7 +210,7 @@ export function filterServerMetricsForSensorCandidates(
       cyclingDynamics: undefined,
     });
   }
-  if (candidates.heartRate) {
+  if (suppression.heartRate) {
     Object.assign(filteredMetrics, {
       avgHr: selected.heartRate ?? null,
       maxHr: null,
@@ -225,25 +225,25 @@ export function filterServerMetricsForSensorCandidates(
     });
   }
 
-  const decoupling = candidates.power || candidates.heartRate
+  const decoupling = suppression.power || suppression.heartRate
     ? {
         ...metrics.decoupling,
         ef: null,
         decouplingPct: null,
-        hrDriftPct: candidates.heartRate ? null : metrics.decoupling?.hrDriftPct ?? null,
+        hrDriftPct: suppression.heartRate ? null : metrics.decoupling?.hrDriftPct ?? null,
       }
     : metrics.decoupling;
 
   return {
     ...filteredMetrics,
-    sufferScore: candidates.heartRate ? null : metrics.sufferScore,
-    quadrant: candidates.power || candidates.cadence ? null : metrics.quadrant,
+    sufferScore: suppression.heartRate ? null : metrics.sufferScore,
+    quadrant: suppression.power || suppression.cadence ? null : metrics.quadrant,
     cyclingMetrics,
     decoupling,
-    zoneKj: candidates.power ? undefined : metrics.zoneKj,
-    lrBalance: candidates.power ? undefined : metrics.lrBalance,
-    cyclingDynamics: candidates.power ? undefined : metrics.cyclingDynamics,
-    climbs: candidates.power && Array.isArray(metrics.climbs)
+    zoneKj: suppression.power ? undefined : metrics.zoneKj,
+    lrBalance: suppression.power ? undefined : metrics.lrBalance,
+    cyclingDynamics: suppression.power ? undefined : metrics.cyclingDynamics,
+    climbs: suppression.power && Array.isArray(metrics.climbs)
       ? metrics.climbs.map((climb) => ({
           ...climb,
           avgPower: null,
@@ -251,7 +251,7 @@ export function filterServerMetricsForSensorCandidates(
           normalizedPower: null,
         }))
       : metrics.climbs,
-    splits: candidates.heartRate && Array.isArray(metrics.splits)
+    splits: suppression.heartRate && Array.isArray(metrics.splits)
       ? metrics.splits.map((split) => ({ ...split, avgHr: null }))
       : metrics.splits,
   };
@@ -282,19 +282,19 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
 
 export default function AnalysisTab({
   activityId, isOwner = false, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams,
-  hasStreamPowerCandidate = false, hasStreamHeartRateCandidate = false, hasStreamCadenceCandidate = false,
+  suppressServerPowerMetrics = false, suppressServerHeartRateMetrics = false, suppressServerCadenceMetrics = false,
 }: AnalysisTabProps) {
   // 소유자는 정본(`activity_metrics`), 뷰어는 공개 projection(`activity_metrics_public`) 을 읽는다.
   // rules 는 정본을 owner 로 제한하므로 리터럴 true 를 넘기면 뷰어는 permission-denied 끝에
   // 영원히 "없음" 을 본다 — 훅이 소유 여부로 컬렉션을 고른다.
   const serverMetrics = useActivityMetrics(activityId ?? null, isOwner);
   // 스트림 센서 후보가 신뢰 게이트에서 거부된 채널의 서버 지표는 숨긴다 — 리터럴 false 로 두면 이 억제가 사라진다.
-  const sm = useMemo(() => filterServerMetricsForSensorCandidates(serverMetrics.metrics, {
-    power: hasStreamPowerCandidate, heartRate: hasStreamHeartRateCandidate, cadence: hasStreamCadenceCandidate,
+  const sm = useMemo(() => filterInvalidatedServerMetrics(serverMetrics.metrics, {
+    power: suppressServerPowerMetrics, heartRate: suppressServerHeartRateMetrics, cadence: suppressServerCadenceMetrics,
   }, {
     power: summary?.averagePower ?? null,
     heartRate: summary?.averageHeartRate ?? null,
-  }), [serverMetrics.metrics, hasStreamPowerCandidate, hasStreamHeartRateCandidate, hasStreamCadenceCandidate, summary?.averageHeartRate, summary?.averagePower]);
+  }), [serverMetrics.metrics, suppressServerPowerMetrics, suppressServerHeartRateMetrics, suppressServerCadenceMetrics, summary?.averageHeartRate, summary?.averagePower]);
   const visibleServerMetrics = (serverMetrics.metrics && sm
     ? { ...serverMetrics, metrics: sm }
     : serverMetrics) as UseActivityMetricsState;
@@ -497,8 +497,8 @@ export default function AnalysisTab({
       {/* Phase A.7: 서버 메트릭 배너 (있으면 표시) */}
       <ServerMetricsBanner
         state={visibleServerMetrics}
-        suppressPowerMetrics={hasStreamPowerCandidate || serverMetrics.metrics?.avgPower != null}
-        suppressHeartRateMetrics={hasStreamHeartRateCandidate || serverMetrics.metrics?.avgHr != null}
+        suppressPowerMetrics={suppressServerPowerMetrics || serverMetrics.metrics?.avgPower != null}
+        suppressHeartRateMetrics={suppressServerHeartRateMetrics || serverMetrics.metrics?.avgHr != null}
       />
 
       {/* FTP/maxHR 기본값 경고 */}

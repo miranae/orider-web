@@ -29,8 +29,16 @@ vi.mock("../contexts/LocaleContext", () => ({
   useLocale: () => ({ units: "metric", locale: "ko-KR" }),
 }));
 
-vi.mock("../components/ZoneDistributionChart", () => ({ default: () => null }));
-vi.mock("../components/PowerCurveChart", () => ({ default: () => null }));
+vi.mock("../components/ZoneDistributionChart", () => ({
+  default: ({ title, zones }: { title: string; zones: Array<{ seconds: number }> }) => (
+    <div data-testid={`zone-chart-${title}`}>{zones.map(({ seconds }) => seconds).join(",")}</div>
+  ),
+}));
+vi.mock("../components/PowerCurveChart", () => ({
+  default: ({ points }: { points: Array<{ maxPower: number }> }) => (
+    <div data-testid="power-curve-chart">{points.map(({ maxPower }) => maxPower).join(",")}</div>
+  ),
+}));
 
 vi.mock("./useActiveBikeProfile", () => ({
   useActiveBikeProfile: () => ({ active: null }),
@@ -113,8 +121,17 @@ describe("useActivityAnalysisModel", () => {
     setDocData("activity_metrics/orider_owner", {
       // version 없는 문서는 이제 stale 로 격하된다 (#2237) — 정상 경로 테스트라 현재 버전을 심는다.
       version: ACTIVITY_METRICS_VERSION,
+      computedAt: 1_700_000_000_000,
       movingTimeSec: 3,
       pauseTimeSec: 1,
+      np: 190,
+      tss: 30,
+      trimp: 20,
+      avgPower: 175,
+      avgHr: 140,
+      powerZoneSec: [1, 2, 3, 4, 5, 6, 7],
+      hrZoneSec: [1, 2, 3, 4, 5],
+      mmp: { "5s": 500 },
     });
 
     const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
@@ -135,9 +152,9 @@ describe("useActivityAnalysisModel", () => {
       isOwner: true,
       startTime: activity.startTime,
       sport: "ride",
-      hasStreamPowerCandidate: true,
-      hasStreamHeartRateCandidate: true,
-      hasStreamCadenceCandidate: true,
+      suppressServerPowerMetrics: false,
+      suppressServerHeartRateMetrics: false,
+      suppressServerCadenceMetrics: false,
       summary: {
         averagePower: 250,
         movingTimeSec: 3,
@@ -145,6 +162,12 @@ describe("useActivityAnalysisModel", () => {
       },
     });
     expect(result.current.analysisTabProps?.streams.watts).toEqual(streams.watts);
+    render(<AnalysisTab {...result.current.analysisTabProps!} />);
+    expect(screen.getByText("190")).toBeInTheDocument();
+    expect(screen.getByText("30")).toBeInTheDocument();
+    expect(screen.getByText("20")).toBeInTheDocument();
+    expect(screen.getByTestId("zone-chart-파워 존")).toHaveTextContent("1,2,3,4,5,6,7");
+    expect(screen.getByTestId("power-curve-chart")).toHaveTextContent("500");
     expect(onSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ path: `activity_metrics/${activity.id}` }),
       expect.any(Function),
@@ -238,7 +261,7 @@ describe("useActivityAnalysisModel", () => {
     ]));
   });
 
-  it("공개 비소유자의 승인된 현재 센서 평균만 AnalysisTab에 그리고 과거 서버 파생값은 숨긴다", async () => {
+  it("공개 비소유자의 정상 승인 센서는 공개 서버 분석 projection을 그대로 유지한다", async () => {
     mocks.user = { uid: "viewer" };
     const activity = makeActivity("orider_public_accepted", "owner");
     seedActivity(activity);
@@ -265,20 +288,18 @@ describe("useActivityAnalysisModel", () => {
     expect(result.current.serverMetrics.metrics?.contextSnapshot).toBeUndefined();
     expect(result.current.analysisTabProps).toMatchObject({
       isOwner: false,
-      hasStreamPowerCandidate: true,
-      hasStreamHeartRateCandidate: true,
+      suppressServerPowerMetrics: false,
+      suppressServerHeartRateMetrics: false,
       summary: { averagePower: 250, averageHeartRate: 145 },
     });
 
     render(<AnalysisTab {...result.current.analysisTabProps!} />);
 
     expect(screen.queryByTestId("analysis-missing")).not.toBeInTheDocument();
-    expect(screen.getByText("250")).toBeInTheDocument();
-    expect(screen.getByText("145")).toBeInTheDocument();
-    expect(screen.queryByText("999")).not.toBeInTheDocument();
-    expect(screen.queryByText("998")).not.toBeInTheDocument();
-    expect(screen.queryByText("197")).not.toBeInTheDocument();
-    expect(screen.queryByText("사이클링 다이내믹스")).not.toBeInTheDocument();
+    expect(screen.getByText("999")).toBeInTheDocument();
+    expect(screen.getByText("998")).toBeInTheDocument();
+    expect(screen.getByText("197")).toBeInTheDocument();
+    expect(screen.getByText("사이클링 다이내믹스")).toBeInTheDocument();
   });
 
   it("공개 비소유자의 거부된 파워·심박 후보는 AnalysisTab에서 과거 서버 지표로 되살아나지 않는다", async () => {
@@ -290,6 +311,7 @@ describe("useActivityAnalysisModel", () => {
       distance: [0, 10, 20, 30],
       watts: [250, 250, 250, 250],
       heartrate: [150, 150, 150, 150],
+      cadence: [0, 85, 86, 0],
       sensorStreamsV1: {
         version: 1,
         timeUnit: "relative_seconds",
@@ -321,12 +343,14 @@ describe("useActivityAnalysisModel", () => {
     expect(result.current.streamSensorSummary).toMatchObject({
       hasRejectedPowerStream: true,
       hasRejectedHeartRateStream: true,
+      hasRejectedCadenceStream: true,
       averagePower: null,
       averageHeartRate: null,
     });
     expect(result.current.analysisTabProps).toMatchObject({
-      hasStreamPowerCandidate: true,
-      hasStreamHeartRateCandidate: true,
+      suppressServerPowerMetrics: true,
+      suppressServerHeartRateMetrics: true,
+      suppressServerCadenceMetrics: true,
       summary: { averagePower: null, averageHeartRate: null },
     });
 
