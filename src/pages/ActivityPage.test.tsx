@@ -406,12 +406,11 @@ describe("ActivityPage", () => {
 
     await waitFor(() => expect(mockVirtualPowerStream).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByText("파워 분석")).toBeInTheDocument());
-    // 분석 탭은 서버 정본(activity_metrics)을 그린다 — 프리뷰가 바꾸는 건 요약·차트·공유다.
-    // 이전엔 분석 탭이 스트림에서 다시 계산해 프리뷰 파워를 따라갔고, 그게 서버와 다른 값을 내는 경로였다 (#2437).
-    expect(screen.getAllByText("444").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("333").length).toBeGreaterThan(0);
-    // 서버 분석 배너는 항상 보인다 — 분석 탭이 서버 정본을 그리므로 억제 분기가 없다 (#2437).
-    expect(screen.getByText("서버 분석")).toBeInTheDocument();
+    // 현재 파워 후보가 있으면 서버의 과거 NP/TSS를 섞지 않고 센서 선택을 통과한 평균만 쓴다.
+    expect(screen.getAllByText("250").length).toBeGreaterThan(0);
+    expect(screen.queryByText("444")).not.toBeInTheDocument();
+    expect(screen.queryByText("333")).not.toBeInTheDocument();
+    expect(screen.queryByText("서버 분석")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "개요" }));
     await waitFor(() => expect(stats).toHaveTextContent("평균 파워250W"));

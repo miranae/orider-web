@@ -1,10 +1,11 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { collection, getDoc, onSnapshot } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { setDocData } from "../__tests__/mocks/firebase";
+import AnalysisTab from "../components/AnalysisTab";
 import { useActivityAnalysisModel } from "./useActivityAnalysisModel";
 
 const mocks = vi.hoisted(() => ({
@@ -19,6 +20,17 @@ vi.mock("../contexts/AuthContext", () => ({
 vi.mock("./useStrava", () => ({
   useStrava: () => ({ getStreams: mocks.getStreams }),
 }));
+
+vi.mock("./useFitnessTimeseries", () => ({
+  useFitnessTimeseries: () => ({ timeseries: null }),
+}));
+
+vi.mock("../contexts/LocaleContext", () => ({
+  useLocale: () => ({ units: "metric", locale: "ko-KR" }),
+}));
+
+vi.mock("../components/ZoneDistributionChart", () => ({ default: () => null }));
+vi.mock("../components/PowerCurveChart", () => ({ default: () => null }));
 
 vi.mock("./useActiveBikeProfile", () => ({
   useActiveBikeProfile: () => ({ active: null }),
@@ -224,6 +236,108 @@ describe("useActivityAnalysisModel", () => {
       expect.stringContaining("comments"),
       expect.stringContaining("activity_photos"),
     ]));
+  });
+
+  it("공개 비소유자의 승인된 현재 센서 평균만 AnalysisTab에 그리고 과거 서버 파생값은 숨긴다", async () => {
+    mocks.user = { uid: "viewer" };
+    const activity = makeActivity("orider_public_accepted", "owner");
+    seedActivity(activity);
+    setDocData(`activity_metrics_public/${activity.id}`, {
+      version: ACTIVITY_METRICS_VERSION,
+      np: 999,
+      avgPower: 998,
+      avgHr: 197,
+      cyclingDynamics: {
+        source: "records",
+        sampleCount: 10,
+        validSampleCount: 9,
+        coverage: 0.9,
+        balance: { leftAvgPct: 49, rightAvgPct: 51, asymmetryPct: 2 },
+      },
+      contextSnapshot: { ftp: 400 },
+    });
+
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.serverMetrics.status).toBe("ready"));
+    await waitFor(() => expect(result.current.analysisTabProps).not.toBeNull());
+
+    expect(result.current.serverMetrics.metrics).toMatchObject({ np: 999, avgPower: 998, avgHr: 197 });
+    expect(result.current.serverMetrics.metrics?.contextSnapshot).toBeUndefined();
+    expect(result.current.analysisTabProps).toMatchObject({
+      isOwner: false,
+      hasStreamPowerCandidate: true,
+      hasStreamHeartRateCandidate: true,
+      summary: { averagePower: 250, averageHeartRate: 145 },
+    });
+
+    render(<AnalysisTab {...result.current.analysisTabProps!} />);
+
+    expect(screen.queryByTestId("analysis-missing")).not.toBeInTheDocument();
+    expect(screen.getByText("250")).toBeInTheDocument();
+    expect(screen.getByText("145")).toBeInTheDocument();
+    expect(screen.queryByText("999")).not.toBeInTheDocument();
+    expect(screen.queryByText("998")).not.toBeInTheDocument();
+    expect(screen.queryByText("197")).not.toBeInTheDocument();
+    expect(screen.queryByText("사이클링 다이내믹스")).not.toBeInTheDocument();
+  });
+
+  it("공개 비소유자의 거부된 파워·심박 후보는 AnalysisTab에서 과거 서버 지표로 되살아나지 않는다", async () => {
+    mocks.user = { uid: "viewer" };
+    const activity = makeActivity("orider_public_rejected", "owner");
+    seedActivity(activity, {
+      userId: activity.userId,
+      time: [0, 1, 2, 3],
+      distance: [0, 10, 20, 30],
+      watts: [250, 250, 250, 250],
+      heartrate: [150, 150, 150, 150],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: activity.startTime,
+        time: [0, 1, 2, 3],
+        watts: [200, null, null, null],
+        heartrate: [145, null, null, null],
+      },
+    } as unknown as ActivityStreams);
+    setDocData(`activity_metrics_public/${activity.id}`, {
+      version: ACTIVITY_METRICS_VERSION,
+      np: 999,
+      avgPower: 998,
+      avgHr: 197,
+      cyclingDynamics: {
+        source: "records",
+        sampleCount: 10,
+        validSampleCount: 9,
+        coverage: 0.9,
+        balance: { leftAvgPct: 49, rightAvgPct: 51, asymmetryPct: 2 },
+      },
+    });
+
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.serverMetrics.status).toBe("ready"));
+    await waitFor(() => expect(result.current.analysisTabProps).not.toBeNull());
+
+    expect(result.current.streamSensorSummary).toMatchObject({
+      hasRejectedPowerStream: true,
+      hasRejectedHeartRateStream: true,
+      averagePower: null,
+      averageHeartRate: null,
+    });
+    expect(result.current.analysisTabProps).toMatchObject({
+      hasStreamPowerCandidate: true,
+      hasStreamHeartRateCandidate: true,
+      summary: { averagePower: null, averageHeartRate: null },
+    });
+
+    render(<AnalysisTab {...result.current.analysisTabProps!} />);
+
+    expect(screen.queryByText("999")).not.toBeInTheDocument();
+    expect(screen.queryByText("998")).not.toBeInTheDocument();
+    expect(screen.queryByText("197")).not.toBeInTheDocument();
+    expect(screen.queryByText("파워 분석")).not.toBeInTheDocument();
+    expect(screen.queryByText("심박 분석")).not.toBeInTheDocument();
+    expect(screen.queryByText("사이클링 다이내믹스")).not.toBeInTheDocument();
   });
 
   it("preserves processing state and retries the activity document after three seconds", async () => {
