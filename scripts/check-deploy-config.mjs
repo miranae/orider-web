@@ -149,6 +149,28 @@ function checkSelfHostedSetupNodeCache(workflow, label) {
     fail(`${label} must not restore or save the shared npm cache on the self-hosted runner`);
   }
 }
+
+/**
+ * canonical 플래그는 배포 환경마다 명시적으로 연결해야 한다. 값이 비면 별도의 동적 검사에서
+ * 배포를 막는다. 특히 rollout gate 를 서버 문서 준비 전에 켜면 로그인 소유자의 activityDetail
+ * 이 fail-closed 되므로, 암묵적 기본값을 두 방향 어느 쪽으로도 만들지 않는다.
+ */
+function checkCanonicalRuntimeEnv(workflow, label, variablePrefix = "") {
+  const variables = [
+    "VITE_TRAINING_DECISION_CANONICAL_ENABLED",
+    "VITE_CANONICAL_CONSUMERS_ENABLED",
+    "VITE_CANONICAL_WEATHER",
+    "VITE_CANONICAL_COURSE",
+    "VITE_CANONICAL_MAINTENANCE",
+    "VITE_CANONICAL_MILESTONES",
+    "VITE_CANONICAL_ROLLOUT_ENABLED",
+  ];
+  for (const name of variables) {
+    requireIncludes(workflow, `${name}: \${{ vars.${variablePrefix}${name} }}`, `${label} canonical env`);
+  }
+  requireIncludes(workflow, "node scripts/check-canonical-deploy-env.mjs", `${label} canonical env validation`);
+  requireBefore(workflow, "node scripts/check-canonical-deploy-env.mjs", "npm ci", `${label} canonical env validation`);
+}
 requireIncludes(runtimeConfigWriter, '  "mapboxToken",\n  "aiApiBase",', "write-runtime-config required keys");
 requireIncludes(runtimeConfigWriter,
   'coachRidePlanRespondV2Enabled: readBoolEnv("VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED") ?? false',
@@ -169,6 +191,7 @@ requireIncludes(deployWorkflow, "VITE_COACH_PMC_INSIGHT_ENABLED: ${{ vars.VITE_C
 requireIncludes(deployWorkflow, "VITE_COACH_RIDER_INSIGHT_ENABLED: ${{ vars.VITE_COACH_RIDER_INSIGHT_ENABLED }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_COACH_PROGRESS_PLANNER_ENABLED: ${{ vars.VITE_COACH_PROGRESS_PLANNER_ENABLED }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_TRAINING_DECISION_ENABLED: ${{ vars.VITE_TRAINING_DECISION_ENABLED }}", "deploy.yml env");
+checkCanonicalRuntimeEnv(deployWorkflow, "deploy.yml");
 requireIncludes(deployWorkflow, "VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.VITE_TRAINING_EXECUTION_ENABLED }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_RIDER_WORKOUT_DELIVERY_ENABLED: ${{ vars.VITE_RIDER_WORKOUT_DELIVERY_ENABLED }}", "deploy.yml env");
 for (const name of ["TOKEN", "SNAPSHOT", "AI"]) {
@@ -229,6 +252,7 @@ requireIncludes(stageDeployWorkflow,
 requireIncludes(stageDeployWorkflow,
   "VITE_TRAINING_DECISION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_DECISION_ENABLED }}",
   "deploy-stage.yml env");
+checkCanonicalRuntimeEnv(stageDeployWorkflow, "deploy-stage.yml", "STAGE_");
 requireIncludes(stageDeployWorkflow,
   "VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_EXECUTION_ENABLED }}",
   "deploy-stage.yml env");
