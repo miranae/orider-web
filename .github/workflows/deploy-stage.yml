@@ -43,6 +43,15 @@ jobs:
       VITE_COACH_PMC_INSIGHT_ENABLED: ${{ vars.STAGE_VITE_COACH_PMC_INSIGHT_ENABLED }}
       VITE_COACH_RIDER_INSIGHT_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDER_INSIGHT_ENABLED }}
       VITE_TRAINING_DECISION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_DECISION_ENABLED }}
+      # Configure every STAGE_* variable explicitly as true/false. Keep rollout
+      # false until the stage canonicalRollout server document is ready.
+      VITE_TRAINING_DECISION_CANONICAL_ENABLED: ${{ vars.STAGE_VITE_TRAINING_DECISION_CANONICAL_ENABLED }}
+      VITE_CANONICAL_CONSUMERS_ENABLED: ${{ vars.STAGE_VITE_CANONICAL_CONSUMERS_ENABLED }}
+      VITE_CANONICAL_WEATHER: ${{ vars.STAGE_VITE_CANONICAL_WEATHER }}
+      VITE_CANONICAL_COURSE: ${{ vars.STAGE_VITE_CANONICAL_COURSE }}
+      VITE_CANONICAL_MAINTENANCE: ${{ vars.STAGE_VITE_CANONICAL_MAINTENANCE }}
+      VITE_CANONICAL_MILESTONES: ${{ vars.STAGE_VITE_CANONICAL_MILESTONES }}
+      VITE_CANONICAL_ROLLOUT_ENABLED: ${{ vars.STAGE_VITE_CANONICAL_ROLLOUT_ENABLED }}
       VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_EXECUTION_ENABLED }}
       VITE_RIDER_WORKOUT_DELIVERY_ENABLED: ${{ vars.STAGE_VITE_RIDER_WORKOUT_DELIVERY_ENABLED }}
       VITE_COACH_RIDE_PLAN_TOKEN_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_TOKEN_ENABLED }}
@@ -55,6 +64,8 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+      - name: Check canonical deploy flags
+        run: node scripts/check-canonical-deploy-env.mjs
       - run: npm ci
       - name: Check deploy config
         run: npm run check:deploy-config

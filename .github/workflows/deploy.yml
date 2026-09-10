@@ -41,6 +41,16 @@ jobs:
       VITE_COACH_RIDER_INSIGHT_ENABLED: ${{ vars.VITE_COACH_RIDER_INSIGHT_ENABLED }}
       VITE_COACH_PROGRESS_PLANNER_ENABLED: ${{ vars.VITE_COACH_PROGRESS_PLANNER_ENABLED }}
       VITE_TRAINING_DECISION_ENABLED: ${{ vars.VITE_TRAINING_DECISION_ENABLED }}
+      # Canonical flags must be configured explicitly as true/false. The rollout
+      # gate stays false until config/canonicalRollout exists; once enabled, its
+      # server activityDetail kill switch becomes authoritative.
+      VITE_TRAINING_DECISION_CANONICAL_ENABLED: ${{ vars.VITE_TRAINING_DECISION_CANONICAL_ENABLED }}
+      VITE_CANONICAL_CONSUMERS_ENABLED: ${{ vars.VITE_CANONICAL_CONSUMERS_ENABLED }}
+      VITE_CANONICAL_WEATHER: ${{ vars.VITE_CANONICAL_WEATHER }}
+      VITE_CANONICAL_COURSE: ${{ vars.VITE_CANONICAL_COURSE }}
+      VITE_CANONICAL_MAINTENANCE: ${{ vars.VITE_CANONICAL_MAINTENANCE }}
+      VITE_CANONICAL_MILESTONES: ${{ vars.VITE_CANONICAL_MILESTONES }}
+      VITE_CANONICAL_ROLLOUT_ENABLED: ${{ vars.VITE_CANONICAL_ROLLOUT_ENABLED }}
       VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.VITE_TRAINING_EXECUTION_ENABLED }}
       VITE_RIDER_WORKOUT_DELIVERY_ENABLED: ${{ vars.VITE_RIDER_WORKOUT_DELIVERY_ENABLED }}
       VITE_COACH_RIDE_PLAN_TOKEN_ENABLED: ${{ vars.VITE_COACH_RIDE_PLAN_TOKEN_ENABLED }}
@@ -64,6 +74,8 @@ jobs:
           package-manager-cache: false
       - name: Check deploy config
         run: node scripts/check-deploy-config.mjs
+      - name: Check canonical deploy flags
+        run: node scripts/check-canonical-deploy-env.mjs
       - name: Verify release commit is on main
         run: |
           set -euo pipefail
