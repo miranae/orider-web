@@ -17,7 +17,7 @@ import {
   resetCanonicalRolloutCacheForTests,
 } from "../services/canonicalRollout";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
-import { useActivityMetrics } from "./useActivityMetrics";
+import { fromPublicActivityMetrics, useActivityMetrics } from "./useActivityMetrics";
 
 function signedIn({ children }: { children: React.ReactNode }) {
   const value = {
@@ -85,13 +85,45 @@ describe("useActivityMetrics", () => {
       version: ACTIVITY_METRICS_VERSION,
       distanceKm: 12,
       contextSnapshot: { ftp: 250, weightKg: 70 },
-      np: 240,
+      ftp: 250,
+      climbs: [{ avgPower: 260 }],
     });
     const { result } = renderHook(() => useActivityMetrics("act-3", false));
     await waitFor(() => expect(result.current.status).toBe("ready"));
     expect(result.current.metrics?.distanceKm).toBe(12);
     expect(result.current.metrics?.contextSnapshot).toBeUndefined();
-    expect(result.current.metrics?.np).toBeUndefined();
+    expect(result.current.metrics?.ftp).toBeUndefined();
+    expect(result.current.metrics?.climbs).toBeUndefined();
+  });
+
+  it("공개 projection 은 허용된 파워·심박·사이클링 다이내믹스만 보존한다", () => {
+    const cyclingDynamics = {
+      source: "records",
+      sampleCount: 10,
+      validSampleCount: 9,
+      coverage: 0.9,
+      balance: { leftAvgPct: 49, rightAvgPct: 51, asymmetryPct: 2 },
+    };
+    const publicMetrics = fromPublicActivityMetrics({
+      version: ACTIVITY_METRICS_VERSION,
+      np: 240,
+      avgPower: 220,
+      avgHr: 148,
+      cyclingDynamics,
+      lrBalance: { avg: 51, asymmetryPct: 2 },
+      contextSnapshot: { ftp: 250, weightKg: 70 },
+      powerCurve: { "5s": 900 },
+    });
+
+    expect(publicMetrics).toMatchObject({
+      np: 240,
+      avgPower: 220,
+      avgHr: 148,
+      cyclingDynamics,
+      lrBalance: { avg: 51, asymmetryPct: 2 },
+    });
+    expect(publicMetrics.contextSnapshot).toBeUndefined();
+    expect(publicMetrics.powerCurve).toBeUndefined();
   });
 
   it("현재 버전이면 ready", async () => {
