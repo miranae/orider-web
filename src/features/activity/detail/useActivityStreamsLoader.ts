@@ -27,7 +27,18 @@ interface UseActivityStreamsLoaderArgs {
   t: (key: string) => string;
 }
 
-export async function loadOriderActivityStreams(
+export function usesCanonicalActivityStreams(
+  activityId: string,
+  source: Activity["source"],
+): boolean {
+  return source === "orider"
+    || source === "apple_health"
+    || source === "health_connect"
+    || activityId.startsWith("orider_")
+    || activityId.startsWith("hs_");
+}
+
+export async function loadCanonicalActivityStreams(
   activityId: string,
   fallbackUserId?: string,
   services?: { auth: Auth; firestore: Firestore },
@@ -80,16 +91,16 @@ export function useActivityStreamsLoader({
     const source = (activity as Activity & { source?: string }).source;
     const stravaId = getStravaActivityId(activity);
 
-    if (activityId && (source === "orider" || activityId.startsWith("orider_"))) {
+    if (activityId && usesCanonicalActivityStreams(activityId, source)) {
       setLoadingStreams(true);
       setStreamsError(null);
       const timer = setTimeout(() => setShowStreamSpinner(true), 500);
-      loadOriderActivityStreams(activityId, activity.userId, { auth, firestore }).then((parsed) => {
+      loadCanonicalActivityStreams(activityId, activity.userId, { auth, firestore }).then((parsed) => {
         setStreams(parsed);
       }).catch((err) => {
         logClientError("ActivityPage.streams", err, {
           activityId,
-          source: "orider",
+          source: source ?? "unknown",
           visibility: (activity as Activity & { visibility?: string }).visibility ?? null,
           isOwn: !!userId && activity.userId === userId,
         });

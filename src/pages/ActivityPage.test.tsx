@@ -1475,24 +1475,25 @@ describe("ActivityPage", () => {
     expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
   });
 
-  it("retries Orider stream loading from Firestore when stream data appears later", async () => {
+  it("retries Apple Health streams and restores the map, elevation, and analysis", async () => {
+    mockRoute.activityId = "hs_044dd41d554ece74f6fbd3c8a0030b21";
     const activity = createMockActivity({
-      id: "test-activity",
-      source: "orider",
+      id: mockRoute.activityId,
+      source: "apple_health",
       thumbnailTrack: null,
       summary: createMockSummary({ elapsedTimeMillis: 120_000, ridingTimeMillis: 120_000 }),
     });
-    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
     // 훈련 부하 섹션은 서버 정본에서 뜬다. 스트림 재시도는 차트·랩의 것이다 (#2437).
     // 정본은 owner 전용이라(rules) 소유자로 렌더한다 (#2442).
-    setDocData("activity_metrics/test-activity", { version: 22, computedAt: 0, np: 200, tss: 50, if: 0.8, trimp: 40, durationSec: 120, contextSnapshot: { ftp: 250 } });
+    setDocData(`activity_metrics/${activity.id}`, { version: 22, computedAt: 0, np: 200, tss: 50, if: 0.8, trimp: 40, durationSec: 120, contextSnapshot: { ftp: 250 } });
 
     renderWithProviders(<ActivityPage />, { authenticated: true, user: { uid: "user-1" } });
 
     fireEvent.click(await screen.findByRole("tab", { name: "분석" }));
     expect(await screen.findByText(/원본 스트림 데이터가 아직 저장되지 않았습니다/)).toBeInTheDocument();
 
-    setDocData("activity_streams/test-activity", {
+    setDocData(`activity_streams/${activity.id}`, {
       userId: "user-1",
       json: JSON.stringify(createMockStreams()),
     });
@@ -1500,6 +1501,11 @@ describe("ActivityPage", () => {
 
     expect(await screen.findByText("훈련 부하")).toBeInTheDocument();
     expect(screen.queryByText(/원본 스트림 데이터가 아직 저장되지 않았습니다/)).not.toBeInTheDocument();
+    expect(await screen.findByTestId("route-map")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    expect(await screen.findByTestId("elevation-chart")).toBeInTheDocument();
+    expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
   });
 
   it("shows the AI analysis card on overview when a saved preview exists without streams", async () => {
