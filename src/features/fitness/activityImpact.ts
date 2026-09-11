@@ -10,6 +10,7 @@ import {
   groupSamePhysicalRides,
   pickPhysicalRideRepresentative,
 } from "../../utils/samePhysicalRide";
+import { disciplineOfType } from "@shared/sport/discipline";
 
 export type ActivityImpactConfidence = "canonical-single" | "estimated-allocation" | "activity-tss";
 
@@ -128,8 +129,10 @@ function physicalRideIdentity(activity: Activity) {
     stravaActivityId: activity.stravaActivityId ?? null,
     stravaTwinActivityId: activity.stravaTwinActivityId ?? null,
     startTime: activity.startTime,
+    endTime: activity.endTime,
     distanceKm: distanceMeters != null ? distanceMeters / 1_000 : null,
     movingSec,
+    sportFamily: disciplineOfType(activity.type),
     // 서버 extractActivityTss는 명시 TSS가 없어도 지원 시간 필드가 있으면 시간 부하로 폴백한다.
     // 비례 배분의 candidateTss는 그대로 유지하고, 대표 선택 힌트만 서버 의미에 맞춘다.
     hasLoad: candidateTss(activity) != null || movingSec != null,
