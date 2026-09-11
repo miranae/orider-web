@@ -24,8 +24,9 @@ import {
 } from "../features/activity/detail/activitySensorRejectionLogging";
 import { getSportCategory } from "../features/activity/detail/activityDetailUtils";
 import {
-  loadOriderActivityStreams,
+  loadCanonicalActivityStreams,
   useActivityStreamsLoader,
+  usesCanonicalActivityStreams,
 } from "../features/activity/detail/useActivityStreamsLoader";
 import { logClientError } from "../services/errorLogger";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -176,14 +177,14 @@ export function useActivityAnalysisModel(
   const retryStreams = useCallback(async () => {
     if (!activityId || !activity) return;
     const source = activity.source;
-    const isOriderActivity = source === "orider" || activityId.startsWith("orider_");
+    const isCanonicalActivity = usesCanonicalActivityStreams(activityId, source);
 
     setLoadingStreams(true);
     setStreamsError(null);
     setShowStreamSpinner(true);
     try {
-      if (isOriderActivity) {
-        setStreams(await loadOriderActivityStreams(activityId, activity.userId, firebaseServices));
+      if (isCanonicalActivity) {
+        setStreams(await loadCanonicalActivityStreams(activityId, activity.userId, firebaseServices));
         return;
       }
 
@@ -197,7 +198,7 @@ export function useActivityAnalysisModel(
     } catch (error) {
       logClientError("ActivityPage.streams.retry", error, {
         activityId,
-        source: isOriderActivity ? "orider" : "strava",
+        source: source ?? "unknown",
       });
       setStreamsError(error instanceof Error && error.message !== "STREAMS_MISSING"
         ? error.message

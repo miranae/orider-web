@@ -175,6 +175,29 @@ describe("useActivityAnalysisModel", () => {
     );
   });
 
+  it("loads Apple Health route and sensor streams through the canonical activity path", async () => {
+    const activity = {
+      ...makeActivity("hs_044dd41d554ece74f6fbd3c8a0030b21"),
+      source: "apple_health",
+    } as Activity;
+    const healthStreams: ActivityStreams = {
+      ...streams,
+      latlng: [[37.5, 127], [37.51, 127.01], [37.52, 127.02], [37.53, 127.03]],
+    };
+    seedActivity(activity, healthStreams);
+
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+
+    await waitFor(() => expect(result.current.loadingActivity).toBe(false));
+    await waitFor(() => expect(result.current.streams).not.toBeNull());
+
+    expect(result.current.streams?.latlng).toEqual(healthStreams.latlng);
+    expect(result.current.analysisProjection?.streams.altitude).toEqual(healthStreams.altitude);
+    expect(result.current.hasAnalysisStreams).toBe(true);
+    expect(result.current.analysisTabProps?.sport).toBe("ride");
+    expect(mocks.getStreams).not.toHaveBeenCalled();
+  });
+
   it("keeps production-shaped pause-gapped HR in the analysis model without rewriting moving time", async () => {
     const sampleCount = 9_388;
     const pauseGaps = new Map([
