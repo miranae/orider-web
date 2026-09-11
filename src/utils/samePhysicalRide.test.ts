@@ -22,9 +22,11 @@ const ride = (
   id,
   localSessionId: link.session ?? null,
   stravaActivityId: link.strava ?? null,
-  startTime: T0,
+  startTime: null,
   distanceKm: 30,
   movingSec: 3600,
+  endTime: null,
+  sportFamily: "bike",
   ...extra,
 });
 
@@ -48,11 +50,35 @@ describe("판정", () => {
     expect(dedupeSamePhysicalRides([orider, strava]).map((r) => r.id)).toEqual(["strava_777"]);
   });
 
-  it("링크가 없으면 다른 주행 — 시각·거리가 같아도. 모르는 것을 같다고 하지 않는다", () => {
-    const orider = ride("orider_s1", { session: "s1" }, { source: "orider" });
-    const strava = ride("strava_777", { strava: 777 }, { source: "strava" });
-    expect(isSamePhysicalRide(orider, strava)).toBe(false);
-    expect(dedupeSamePhysicalRides([orider, strava])).toHaveLength(2);
+  it("링크가 없어도 시간 구간이 실질적으로 겹치면 같은 주행", () => {
+    const orider = ride("orider_s1", { session: "s1" }, { source: "orider", startTime: T0, endTime: T0 + 3600_000 });
+    const strava = ride("strava_777", { strava: 777 }, { source: "strava", startTime: T0 + 138_000, endTime: T0 + 3635_000 });
+    expect(isSamePhysicalRide(orider, strava)).toBe(true);
+    expect(dedupeSamePhysicalRides([orider, strava]).map((r) => r.id)).toEqual(["strava_777"]);
+  });
+
+  it("연속된 별개 주행과 2분 미만 경계 겹침은 합치지 않는다", () => {
+    const first = ride("orider_1", {}, { source: "orider", startTime: T0, endTime: T0 + 3600_000 });
+    const second = ride("strava_2", { strava: 2 }, { source: "strava", startTime: T0 + 3590_000, endTime: T0 + 7200_000 });
+    expect(dedupeSamePhysicalRides([first, second])).toHaveLength(2);
+  });
+
+  it("시간이 겹쳐도 종목 축이 다르거나 미상이면 합치지 않는다", () => {
+    const cycling = ride("ride", {}, { startTime: T0, endTime: T0 + 3600_000, sportFamily: "bike" });
+    const running = ride("run", {}, { startTime: T0 + 60_000, endTime: T0 + 3500_000, sportFamily: "run" });
+    const unknown = ride("unknown", {}, { startTime: T0 + 60_000, endTime: T0 + 3500_000, sportFamily: null });
+    expect(dedupeSamePhysicalRides([cycling, running, unknown])).toHaveLength(3);
+  });
+
+  it("Strava 전체 기록과 여러 ORider 분할 기록을 전이적으로 한 건으로 묶는다", () => {
+    const strava = ride("strava_full", { strava: 9 }, { source: "strava", startTime: T0, endTime: T0 + 8160_000, movingSec: 4107 });
+    const parts = [
+      ride("orider_1", {}, { source: "orider", startTime: T0 + 42_000, endTime: T0 + 392_000, movingSec: 350 }),
+      ride("orider_2", {}, { source: "orider", startTime: T0 + 407_000, endTime: T0 + 3972_000, movingSec: 1664 }),
+      ride("orider_3", {}, { source: "orider", startTime: T0 + 6021_000, endTime: T0 + 8173_000, movingSec: 2138 }),
+    ];
+    expect(groupSamePhysicalRides([strava, ...parts])).toHaveLength(1);
+    expect(dedupeSamePhysicalRides([strava, ...parts]).map((row) => row.id)).toEqual(["strava_full"]);
   });
 
   it("세 벌(로컬~orider~strava)은 전이적으로 한 건", () => {
@@ -71,10 +97,10 @@ describe("판정", () => {
 });
 
 describe("대표 선택", () => {
-  it("Strava > 헬스 > orider", () => {
+  it("Strava > ORider > 헬스", () => {
     expect(physicalRideSourceRank(ride("a", {}, { source: "strava" }))).toBe(0);
-    expect(physicalRideSourceRank(ride("a", {}, { source: "health_connect" }))).toBe(1);
-    expect(physicalRideSourceRank(ride("a", {}, { source: "orider" }))).toBe(2);
+    expect(physicalRideSourceRank(ride("a", {}, { source: "orider" }))).toBe(1);
+    expect(physicalRideSourceRank(ride("a", {}, { source: "health_connect" }))).toBe(2);
     expect(physicalRideSourceRank(ride("strava_9"))).toBe(0);
   });
 
