@@ -34,6 +34,7 @@ import { RunLeftCards, RunRightCards } from "../components/activity/RunDetailCar
 import { SwimLeftCards, SwimRightCards } from "../components/activity/SwimDetailCards";
 import KudosCommentsCard from "../components/activity/KudosCommentsCard";
 import AiRideAnalysisCard from "../components/activity/AiRideAnalysisCard";
+import StravaSummaryPublishing from "../components/activity/StravaSummaryPublishing";
 import SegmentEffortsCard from "../components/activity/SegmentEffortsCard";
 import { logClientError } from "../services/errorLogger";
 import { Button, Card, Text } from "../theme/components";
@@ -69,7 +70,7 @@ import { useActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { ActivityFtpDecisionCard } from "../features/activity/detail/ActivityFtpDecisionCard";
 
 export default function ActivityPage() {
-  const { t } = useTranslation("activity");
+  const { t, i18n } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();
   const formatFullDate = useFormatFullDate();
@@ -127,6 +128,7 @@ export default function ActivityPage() {
     revertVirtualPowerPreview,
     activePowerOverride,
   } = useActivityAnalysisModel(activityId);
+  const stravaSummaryLang = i18n.language?.startsWith("en") ? "en" : "ko";
   const shareDiscipline = getDiscipline(activity?.type);
   // 미지 종목(요가·근력 등)은 종목별 피트니스 시계열이 없다 — uid 를 주지 않아 조회를
   // 건너뛴다. 예전엔 사이클로 폴백해 **엉뚱한 종목의 곡선**을 이 활동 화면에 붙였다.
@@ -1000,6 +1002,14 @@ export default function ActivityPage() {
         activityId={activity.id}
         enabled={isActivityOwner && shareDiscipline === "bike"}
       />
+
+      {isActivityOwner && activityId && (
+        <StravaSummaryPublishing
+          key={`${activityId}:${stravaSummaryLang}:${user?.uid ?? "anonymous"}`}
+          activityId={activityId}
+          lang={stravaSummaryLang}
+        />
+      )}
 
       {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}
       {canShowAiAnalysis && (
