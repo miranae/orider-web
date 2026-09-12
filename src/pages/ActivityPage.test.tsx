@@ -23,6 +23,7 @@ const mockBikeProfiles = vi.hoisted(() => vi.fn((): { profiles: Array<Record<str
 const mockVirtualPowerStream = vi.hoisted(() => vi.fn((): number[] => []));
 const mockFitnessTimeseries = vi.hoisted(() => vi.fn(() => ({ timeseries: null, loaded: true })));
 const mockPdc = vi.hoisted(() => vi.fn(() => ({ status: "missing", pdc: null })));
+const stravaPublishingProps = vi.hoisted(() => vi.fn());
 vi.mock("../hooks/useFitnessTimeseries", () => ({ useFitnessTimeseries: mockFitnessTimeseries }));
 vi.mock("../hooks/usePdc", () => ({ usePdc: mockPdc }));
 vi.mock("../hooks/useBikeProfiles", () => ({ useBikeProfiles: mockBikeProfiles }));
@@ -46,6 +47,12 @@ vi.mock("../components/ElevationChart", () => ({
 }));
 vi.mock("../components/activity/AiRideAnalysisCard", () => ({
   default: () => <div data-testid="ai-ride-analysis-card">AI</div>,
+}));
+vi.mock("../components/activity/StravaSummaryPublishing", () => ({
+  default: (props: unknown) => {
+    stravaPublishingProps(props);
+    return <div data-testid="strava-summary-publishing" />;
+  },
 }));
 
 // ActivityPage 의 분석 탭 임포트 체인(PowerCurveChart 등)이 chart.js 의
@@ -102,6 +109,7 @@ describe("ActivityPage", () => {
     mockPdc.mockReturnValue({ status: "missing", pdc: null });
     mockBikeProfiles.mockReturnValue({ profiles: [] });
     mockVirtualPowerStream.mockReturnValue([]);
+    stravaPublishingProps.mockClear();
     elevationChartProps.mockClear();
     mockRoute.activityId = "test-activity";
     setCollectionDocs("courses", []);
@@ -1456,6 +1464,22 @@ describe("ActivityPage", () => {
 
     await screen.findByText("한강 라이딩");
     expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
+  });
+
+  it("shows the owner Strava publishing control when AI analysis streams are unavailable", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      userId: "test-uid",
+      source: "orider",
+      thumbnailTrack: null,
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+
+    expect(await screen.findByTestId("strava-summary-publishing")).toBeInTheDocument();
+    expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
+    expect(stravaPublishingProps).toHaveBeenCalledWith({ activityId: "test-activity", lang: "ko" });
   });
 
   it("shows AI ride analysis when route latlng streams are available", async () => {
