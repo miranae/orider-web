@@ -4,7 +4,6 @@ import { Button, Text } from "../../theme/components";
 import type { ActivitySocialSummary as SocialSummary } from "../../hooks/useActivityNarrative";
 import type { NarrativeLang } from "../../hooks/useActivityNarrative";
 import { retryActivitySocialSummary } from "../../services/activityNarrativeApi";
-import StravaSummaryPublishing from "./StravaSummaryPublishing";
 
 interface Props {
   summary?: SocialSummary;
@@ -93,7 +92,6 @@ export default function ActivitySocialSummary({ summary: initialSummary, isActiv
           <p role="status">{copyState === "idle" ? "" : t(`socialSummary.${copyState}`)}</p>
         </div>
       )}
-      {isActivityOwner && activityId && <StravaSummaryPublishing activityId={activityId} lang={lang} />}
     </section>
   );
 }

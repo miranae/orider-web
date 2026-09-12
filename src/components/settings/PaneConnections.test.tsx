@@ -45,7 +45,7 @@ describe("PaneConnections Strava disconnect observability", () => {
     const user = userEvent.setup();
     render(<MemoryRouter><PaneConnections /></MemoryRouter>);
 
-    expect(screen.getByRole("switch", { name: "활동 요약 자동 게시" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Strava용 요약 자동 생성 및 게시" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "연결 해제" }));
 
     const params = {
