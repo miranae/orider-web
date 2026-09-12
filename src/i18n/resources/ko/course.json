@@ -125,6 +125,7 @@
   "empty.noPhotos": "GPS 위치 정보가 포함된 사진을 추가해보세요",
   "map.unavailableTitle": "지도 표시를 준비하지 못했습니다",
   "map.listPriorityDescription": "코스 목록은 계속 사용할 수 있습니다.",
+  "map.retry": "지도 다시 불러오기",
   "map.showMobileMap": "지도 보기",
   "map.hideMobileMap": "지도 접기",
   "report.button": "신고",

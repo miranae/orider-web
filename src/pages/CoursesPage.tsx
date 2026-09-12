@@ -233,6 +233,16 @@ export default function CoursesPage() {
     setHoveredId(null);
   }, []);
 
+  const handleMapFailed = useCallback((error: unknown, context?: Record<string, unknown>) => {
+    logClientError("CoursesPage.map", error, context);
+    setMapFailed(true);
+  }, []);
+
+  const handleRetryMap = useCallback(() => {
+    setMapFailed(false);
+    setMapBounds(null);
+  }, []);
+
   const selectedCourse = useMemo(
     () => activeCourses.find((course) => course.id === selectedId) ?? null,
     [activeCourses, selectedId],
@@ -517,7 +527,7 @@ export default function CoursesPage() {
               onSelectCourse={handleMapSelectCourse}
               onClearSelection={handleClearSelection}
               onOpenCourse={handleOpenCourse}
-              onMapFailed={() => setMapFailed(true)}
+              onMapFailed={handleMapFailed}
               className={mobileMapOpen ? "h-56 lg:h-auto lg:flex-[2] relative" : "hidden lg:block lg:h-auto lg:flex-[2] relative"}
             />
           )}
@@ -532,6 +542,7 @@ export default function CoursesPage() {
               searchQuery={searchQuery}
               cardRefs={cardRefs}
               mapUnavailable={mapUnavailable}
+              onRetryMap={mapFailed ? handleRetryMap : undefined}
               onHoverCourse={setHoveredId}
               onSelectCourse={handleSelectCourse}
               onOpenCourse={handleOpenCourse}

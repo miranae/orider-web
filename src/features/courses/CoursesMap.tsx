@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import MapGL, { Source, Layer, Popup, useMap } from "react-map-gl/mapbox";
-import type { LngLatBounds, MapMouseEvent } from "mapbox-gl";
+import type { ErrorEvent as MapErrorEvent, LngLatBounds, MapMouseEvent } from "mapbox-gl";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../../utils/mapbox";
 import type { CourseData, LatLngTuple } from "./courseSnapshot";
@@ -63,6 +63,45 @@ function getCoursePopupPosition(courseId: string | null, polylineCache: Map<stri
   if (!pts || pts.length === 0) return null;
   const mid = pts[Math.floor(pts.length / 2)]!;
   return { lat: mid[0], lng: mid[1] };
+}
+
+type CourseMapError = MapErrorEvent & {
+  sourceId?: string;
+  tile?: unknown;
+};
+
+function readMapErrorField(error: unknown, field: "status" | "url"): unknown {
+  if (!error || typeof error !== "object") return undefined;
+  return (error as Record<string, unknown>)[field];
+}
+
+export function sanitizeCourseMapErrorUrl(url: unknown): string | undefined {
+  if (typeof url !== "string") return undefined;
+  try {
+    const parsed = new URL(url);
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+export function isFatalCourseMapError(event: CourseMapError, styleLoaded: boolean): boolean {
+  if (styleLoaded || event.sourceId || event.tile) return false;
+
+  const url = readMapErrorField(event.error, "url");
+  if (typeof url !== "string") return true;
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "mapbox:" && parsed.hostname === "styles") {
+      return parsed.pathname.split("/").filter(Boolean).length === 2;
+    }
+    return /^\/styles\/v1\/[^/]+\/[^/]+\/?$/.test(parsed.pathname);
+  } catch {
+    return false;
+  }
 }
 
 function FitAllBounds({ courses, polylineCache }: {
@@ -141,7 +180,7 @@ export interface CoursesMapProps {
   onSelectCourse: (courseId: string) => void;
   onClearSelection: () => void;
   onOpenCourse: (courseId: string) => void;
-  onMapFailed: () => void;
+  onMapFailed: (error: unknown, context?: Record<string, unknown>) => void;
   className?: string;
 }
 
@@ -177,6 +216,7 @@ export function CoursesMap({
     () => getCoursePopupPosition(selectedId, polylineCache),
     [selectedId, polylineCache],
   );
+  const styleLoaded = useRef(false);
   const handleMoveEnd = useCallback((e: { target: { getBounds: () => LngLatBounds | null }; originalEvent?: unknown }) => {
     const bounds = e.target.getBounds();
     if (bounds) onBoundsChange(bounds);
@@ -229,6 +269,19 @@ export function CoursesMap({
     setTooltipInfo(null);
   }, []);
 
+  const handleMapError = useCallback((event: CourseMapError) => {
+    if (!isFatalCourseMapError(event, styleLoaded.current)) return;
+
+    const url = readMapErrorField(event.error, "url");
+    const status = readMapErrorField(event.error, "status");
+    const sanitizedUrl = sanitizeCourseMapErrorUrl(url);
+    onMapFailed(event.error, {
+      phase: url ? "style-load" : "initialization",
+      ...(sanitizedUrl ? { url: sanitizedUrl } : {}),
+      ...(typeof status === "number" ? { status } : {}),
+    });
+  }, [onMapFailed]);
+
   if (!mapboxToken) return null;
 
   return (
@@ -242,14 +295,17 @@ export function CoursesMap({
             </div>
           </div>
         )}
-        onError={onMapFailed}
+        onError={(error) => onMapFailed(error, { phase: "render" })}
       >
         <MapGL
           mapboxAccessToken={mapboxToken}
           mapStyle={MAP_STYLE}
           initialViewState={DEFAULT_VIEW}
-          onLoad={(e) => applyKoreaCyclingStyle(e.target)}
-          onError={onMapFailed}
+          onLoad={(e) => {
+            styleLoaded.current = true;
+            applyKoreaCyclingStyle(e.target);
+          }}
+          onError={handleMapError}
           onMoveEnd={handleMoveEnd}
           onClick={handleMapClick}
           onDblClick={handleMapDblClick}
