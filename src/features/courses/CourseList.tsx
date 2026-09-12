@@ -138,6 +138,7 @@ export interface CourseListProps {
   searchQuery: string;
   cardRefs: React.MutableRefObject<Map<string, HTMLDivElement>>;
   mapUnavailable: boolean;
+  onRetryMap?: () => void;
   onHoverCourse: (courseId: string | null) => void;
   onSelectCourse: (courseId: string) => void;
   onOpenCourse: (courseId: string) => void;
@@ -152,6 +153,7 @@ export function CourseList({
   searchQuery,
   cardRefs,
   mapUnavailable,
+  onRetryMap,
   onHoverCourse,
   onSelectCourse,
   onOpenCourse,
@@ -164,6 +166,11 @@ export function CourseList({
         <div className="rounded-[var(--r-lg)]" role="status" style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)", marginBottom: "var(--space-3)", padding: "var(--space-3) var(--space-4)" }}>
           <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("map.unavailableTitle")}</div>
           <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{t("map.listPriorityDescription")}</div>
+          {onRetryMap && (
+            <Button type="button" variant="secondary" size="sm" onClick={onRetryMap} style={{ marginTop: "var(--space-2)" }}>
+              {t("map.retry")}
+            </Button>
+          )}
         </div>
       )}
 

@@ -125,6 +125,7 @@
   "empty.noPhotos": "Add photos with GPS location information",
   "map.unavailableTitle": "Could not prepare the map",
   "map.listPriorityDescription": "You can keep browsing the course list.",
+  "map.retry": "Retry map",
   "map.showMobileMap": "Show map",
   "map.hideMobileMap": "Hide map",
   "report.button": "Report",
