@@ -64,6 +64,7 @@ describe("IntegratedLoadCard", () => {
 
     expect(screen.getByText("42.0")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("서버 정본이 부하 포커스를 제공하지 않아 현재 표시할 수 없습니다.");
+    expect(screen.queryByText("분류 0% · 없음")).not.toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /부하 포커스/ })).not.toBeInTheDocument();
     expect(screen.queryByText("계산 방법과 해석 근거")).not.toBeInTheDocument();
   });
