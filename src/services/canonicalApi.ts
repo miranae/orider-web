@@ -15,13 +15,21 @@
  * [canonicalConsumersEnabled] 가 참일 때만 호출한다. 서버(D·E)가 배포되고 백필이 끝난
  * 뒤 켜는 것이 순서다 — 먼저 켜면 없는 API 를 부른다.
  */
-import { auth } from "./firebase";
+import type { Auth } from "firebase/auth";
+
+import { auth, ensureAppCheckReady } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 import {
   CANONICAL_SCHEMA_VERSION,
+  type CanonicalPeriod,
   type CanonicalEnvelope,
   type CanonicalStatus,
 } from "@shared/types/canonical";
+import {
+  FITNESS_TIMESERIES_SCHEMA_VERSION,
+  type FitnessTimeseriesDoc,
+  type TimeseriesDiscipline,
+} from "@shared/types/fitness-timeseries";
 
 /** 전환 스위치. 런타임 설정에 명시적으로 true 가 들어오기 전까지 꺼져 있다. */
 export function canonicalConsumersEnabled(): boolean {
@@ -68,8 +76,21 @@ function failedEnvelope<T>(code: string, message: string): CanonicalEnvelope<T> 
   };
 }
 
-async function fetchCanonical<T>(path: string): Promise<CanonicalEnvelope<T>> {
-  const token = await auth.currentUser?.getIdToken().catch(() => null);
+export interface CanonicalApiFirebaseServices {
+  auth: Auth;
+  ensureAppCheckReady: (forceRefresh?: boolean) => Promise<void>;
+}
+
+const singletonCanonicalApiServices: CanonicalApiFirebaseServices = {
+  get auth() { return auth; },
+  ensureAppCheckReady,
+};
+
+async function fetchCanonical<T>(
+  path: string,
+  services: CanonicalApiFirebaseServices,
+): Promise<CanonicalEnvelope<T>> {
+  const token = await services.auth.currentUser?.getIdToken().catch(() => null);
   if (!token) {
     // 미로그인은 실패가 아니라 "줄 값이 없다" 다 — 재시도해도 달라지지 않는다.
     return {
@@ -77,6 +98,13 @@ async function fetchCanonical<T>(path: string): Promise<CanonicalEnvelope<T>> {
       status: "unavailable" as CanonicalStatus,
       error: { code: "unauthenticated", message: "로그인이 필요합니다", retryable: false },
     };
+  }
+  try {
+    // 임베드에서는 별도 Firebase app/App Check 인스턴스를 쓴다. 해당 provider 의 준비 함수를
+    // 거쳐야 뒤이은 인증 API 호출이 전역 앱과 섞이지 않는다.
+    await services.ensureAppCheckReady();
+  } catch {
+    return failedEnvelope<T>("app_check_failed", "요청 보안 확인에 실패했습니다");
   }
   const apiBase = (getRuntimeConfig().personalApiBase || "").replace(/\/$/, "");
   let response: Response;
@@ -124,8 +152,10 @@ export function parseCanonicalHomeRolling7d(value: unknown): CanonicalHomeTotals
   return parseCanonicalHomeTotals((rolling as Record<string, unknown>).totals);
 }
 
-export function fetchCanonicalHomeSummary(): Promise<CanonicalEnvelope<CanonicalHomeSummaryData>> {
-  return fetchCanonical<CanonicalHomeSummaryData>("/home/summary");
+export function fetchCanonicalHomeSummary(
+  services: CanonicalApiFirebaseServices = singletonCanonicalApiServices,
+): Promise<CanonicalEnvelope<CanonicalHomeSummaryData>> {
+  return fetchCanonical<CanonicalHomeSummaryData>("/home/summary", services);
 }
 
 /**
@@ -151,6 +181,16 @@ export interface CanonicalFitnessSummaryData {
   atl: number;
   /** Training Stress Balance — 컨디션(= CTL − ATL). */
   tsb: number;
+  breakdown: Record<TimeseriesDiscipline, { ctl: number; atl: number; tsb: number; weeklyTSS: number }>;
+  totalsBasis: TimeseriesDiscipline[];
+  timeseries: Record<TimeseriesDiscipline, FitnessTimeseriesDoc | null>;
+  /** 서버가 별도 generation을 제공하는 새 계약과도 값 손실 없이 호환한다. */
+  generation: string | number | null;
+  /** Fitness 봉투 period는 현재 null이지만, 기간형 계약으로 확장되면 그대로 보존한다. */
+  period: CanonicalPeriod | null;
+  /** 서버 입력 스냅샷의 기준 시각. 없는 값을 브라우저 시각으로 만들지 않는다. */
+  asOf: number | null;
+  timezone: string | null;
 }
 
 function finiteNumber(value: unknown): number | null {
@@ -170,9 +210,104 @@ export function parseCanonicalFitnessSummary(value: unknown): CanonicalFitnessSu
   const atl = finiteNumber(record.totalATL);
   const tsb = finiteNumber(record.totalTSB);
   if (ctl === null || atl === null || tsb === null) return null;
-  return { ctl, atl, tsb };
+  const disciplines = ["bike", "run", "swim"] as const;
+  const rawBreakdown = objectRecord(record.breakdown);
+  const breakdownEntries = disciplines.map((discipline) => {
+    const entry = objectRecord(rawBreakdown?.[discipline]);
+    const disciplineCtl = finiteNumber(entry?.ctl);
+    const disciplineAtl = finiteNumber(entry?.atl);
+    const disciplineTsb = finiteNumber(entry?.tsb);
+    const weeklyTSS = finiteNumber(entry?.weeklyTSS);
+    if (disciplineCtl === null || disciplineAtl === null || disciplineTsb === null || weeklyTSS === null) return null;
+    return [discipline, { ctl: disciplineCtl, atl: disciplineAtl, tsb: disciplineTsb, weeklyTSS }] as const;
+  });
+  if (breakdownEntries.some((entry) => entry === null)) return null;
+
+  const root = value as Record<string, unknown>;
+  const rawTimeseries = objectRecord(root.timeseries);
+  if (!rawTimeseries) return null;
+  const parsedTimeseries = disciplines.map((discipline) => {
+    const raw = rawTimeseries[discipline];
+    const parsed = parseCanonicalFitnessTimeseries(raw, discipline);
+    return raw !== null && parsed === null ? null : [discipline, parsed] as const;
+  });
+  if (parsedTimeseries.some((entry) => entry === null)) return null;
+  const timeseries = Object.fromEntries(
+    parsedTimeseries as Array<readonly [TimeseriesDiscipline, FitnessTimeseriesDoc | null]>,
+  ) as Record<TimeseriesDiscipline, FitnessTimeseriesDoc | null>;
+  const totalsBasis = Array.isArray(record.totalsBasis)
+    ? record.totalsBasis.filter((entry): entry is TimeseriesDiscipline => disciplines.includes(entry as TimeseriesDiscipline))
+    : [];
+  const asOfCandidates = Object.values(timeseries)
+    .map((entry) => finiteNumber(entry?.loadSnapshot?.asOf))
+    .filter((entry): entry is number => entry !== null);
+  const generation = typeof record.generation === "string"
+    || (typeof record.generation === "number" && Number.isFinite(record.generation)) ? record.generation : null;
+  const rawTimezone = typeof record.timezone === "string" ? record.timezone : root.timezone;
+  const timezone = typeof rawTimezone === "string" && rawTimezone.length > 0 ? rawTimezone : null;
+  return {
+    ctl,
+    atl,
+    tsb,
+    breakdown: Object.fromEntries(breakdownEntries as Array<readonly [TimeseriesDiscipline, { ctl: number; atl: number; tsb: number; weeklyTSS: number }]>) as CanonicalFitnessSummaryData["breakdown"],
+    totalsBasis,
+    timeseries,
+    generation,
+    period: null,
+    asOf: asOfCandidates.length > 0 ? Math.min(...asOfCandidates) : null,
+    timezone,
+  };
 }
 
-export function fetchCanonicalFitnessSummary(): Promise<CanonicalEnvelope<Record<string, unknown>>> {
-  return fetchCanonical<Record<string, unknown>>("/fitness/summary");
+function objectRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown> : null;
+}
+
+function parseCanonicalFitnessTimeseries(
+  value: unknown,
+  discipline: TimeseriesDiscipline,
+): FitnessTimeseriesDoc | null {
+  if (value === null) return null;
+  const record = objectRecord(value);
+  if (!record
+    || record.discipline !== discipline
+    || record.schemaVersion !== FITNESS_TIMESERIES_SCHEMA_VERSION
+    || !Array.isArray(record.points)
+    || !Number.isInteger(record.pointCount)
+    || record.pointCount !== record.points.length
+    || finiteNumber(record.computedAt) === null) return null;
+  const points = record.points.map((candidate) => {
+    const point = objectRecord(candidate);
+    const ctl = finiteNumber(point?.ctl);
+    const atl = finiteNumber(point?.atl);
+    const tsb = finiteNumber(point?.tsb);
+    const dailyLoad = finiteNumber(point?.dailyLoad);
+    if (!point || typeof point.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(point.date)
+      || ctl === null || atl === null || tsb === null || dailyLoad === null) return null;
+    return { date: point.date, ctl, atl, tsb, dailyLoad };
+  });
+  if (points.some((point) => point === null)) return null;
+  const typedPoints = points as FitnessTimeseriesDoc["points"];
+  if (typedPoints.some((point, index) => index > 0 && typedPoints[index - 1]!.date >= point.date)) return null;
+  const startDate = typeof record.startDate === "string" ? record.startDate : null;
+  const endDate = typeof record.endDate === "string" ? record.endDate : null;
+  if ((typedPoints.length === 0 && (startDate !== null || endDate !== null))
+    || (typedPoints.length > 0 && (startDate !== typedPoints[0]!.date || endDate !== typedPoints[typedPoints.length - 1]!.date))) return null;
+  return {
+    ...(record as unknown as FitnessTimeseriesDoc),
+    discipline,
+    schemaVersion: FITNESS_TIMESERIES_SCHEMA_VERSION,
+    computedAt: record.computedAt as number,
+    startDate,
+    endDate,
+    pointCount: typedPoints.length,
+    points: typedPoints,
+  };
+}
+
+export function fetchCanonicalFitnessSummary(
+  services: CanonicalApiFirebaseServices = singletonCanonicalApiServices,
+): Promise<CanonicalEnvelope<Record<string, unknown>>> {
+  return fetchCanonical<Record<string, unknown>>("/fitness/summary", services);
 }

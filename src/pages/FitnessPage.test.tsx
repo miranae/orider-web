@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { getDoc, onSnapshot } from "firebase/firestore";
+import { collection, getDoc, onSnapshot } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
@@ -14,12 +14,14 @@ import FitnessPage from "./FitnessPage";
 
 const viewport = vi.hoisted(() => ({ isMobile: true }));
 const riderInsight = vi.hoisted(() => ({ enabled: false, insight: null as ReturnType<typeof parseCoachRiderInsight> | null, loading: false, unavailable: false }));
+const canonicalSummary = vi.hoisted(() => ({ state: null as any }));
 
 vi.mock("../hooks/useMobile", () => ({
   useMobile: () => viewport.isMobile,
 }));
 vi.mock("../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ coachRiderInsightEnabled: riderInsight.enabled }) }));
 vi.mock("../hooks/useCoachRiderInsight", () => ({ useCoachRiderInsight: () => riderInsight }));
+vi.mock("../hooks/useCanonicalFitnessSummary", () => ({ useCanonicalFitnessSummary: () => canonicalSummary.state }));
 vi.mock("../features/trainingDecision/TodayTrainingDecisionCard", () => ({
   default: ({ surface }: { surface: string }) => <div data-testid="today-training-decision">{surface} workout</div>,
 }));
@@ -74,6 +76,91 @@ describe("FitnessPage", () => {
     riderInsight.insight = null;
     riderInsight.loading = false;
     riderInsight.unavailable = false;
+    canonicalSummary.state = {
+      enabled: false, values: null, display: null, computedAt: null, status: null,
+      metadata: null, showingLastGood: false, retry: vi.fn(),
+    };
+  });
+
+  it.each([
+    ["web", <FitnessPage />],
+    ["embed", <FitnessSurface onReady={vi.fn()} retryKey={0} />],
+  ])("renders the same canonical values and revision on the %s surface", async (_surface, view) => {
+    vi.mocked(collection).mockClear();
+    canonicalSummary.state = {
+      enabled: true,
+      values: {
+        ctl: 42.5, atl: 30.25, tsb: 12.25,
+        breakdown: {
+          bike: { ctl: 20, atl: 15, tsb: 5, weeklyTSS: 100 },
+          run: { ctl: 15, atl: 10, tsb: 5, weeklyTSS: 50 },
+          swim: { ctl: 7.5, atl: 5.25, tsb: 2.25, weeklyTSS: 20 },
+        },
+        totalsBasis: ["bike", "run", "swim"],
+        timeseries: { bike: null, run: null, swim: null },
+        generation: "generation-7", period: null, asOf: 1_789_200_000_000, timezone: "Asia/Seoul",
+      },
+      display: "value", computedAt: 1_789_200_000_000, status: "canonical",
+      metadata: {
+        algorithmVersion: "fitness-snapshot@2", inputRevision: "bike:7|run:3|swim:1",
+        inputDigest: "digest", period: null, asOf: 1_789_200_000_000,
+        timezone: "Asia/Seoul", generation: "generation-7",
+      },
+      showingLastGood: false, retry: vi.fn(),
+    };
+    renderWithProviders(view, { authenticated: true, route: "/fitness?sport=tri" });
+
+    expect(await screen.findByTestId("canonical-fitness-view")).toBeInTheDocument();
+    expect(screen.getByText("42.5")).toBeInTheDocument();
+    expect(screen.getByText("bike:7|run:3|swim:1")).toBeInTheDocument();
+    expect(screen.queryByText("mobile fitness dashboard: tri")).not.toBeInTheDocument();
+    expect(vi.mocked(collection).mock.calls.some((call) => call.slice(1).join("/") === "activities")).toBe(false);
+  });
+
+  it("shows last-good values with a failed status instead of replacing them with zero", async () => {
+    canonicalSummary.state = {
+      enabled: true,
+      values: {
+        ctl: 40, atl: 35, tsb: 5,
+        breakdown: {
+          bike: { ctl: 40, atl: 35, tsb: 5, weeklyTSS: 120 },
+          run: { ctl: 0, atl: 0, tsb: 0, weeklyTSS: 0 },
+          swim: { ctl: 0, atl: 0, tsb: 0, weeklyTSS: 0 },
+        },
+        totalsBasis: ["bike"], timeseries: { bike: null, run: null, swim: null },
+        generation: null, period: null, asOf: null, timezone: null,
+      },
+      display: "error", computedAt: null, status: "failed",
+      metadata: null, showingLastGood: true, retry: vi.fn(),
+    };
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("계산 실패");
+    expect(screen.getByText("40.0")).toBeInTheDocument();
+    expect(screen.queryByText("0.0")).not.toBeInTheDocument();
+  });
+
+  it("does not invent zero when canonical data is unavailable", async () => {
+    canonicalSummary.state = {
+      enabled: true, values: null, display: "empty", computedAt: null, status: "unavailable",
+      metadata: null, showingLastGood: false, retry: vi.fn(),
+    };
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByText("계산된 피트니스가 아직 없습니다")).toBeInTheDocument();
+    expect(screen.queryByText("0.0")).not.toBeInTheDocument();
+  });
+
+  it("shows ErrorState instead of a blank page when the canonical payload is malformed", async () => {
+    canonicalSummary.state = {
+      enabled: true, values: null, display: "error", computedAt: null, status: "failed",
+      metadata: null, showingLastGood: false, retry: vi.fn(),
+    };
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByText("피트니스 정본을 불러오지 못했습니다")).toBeInTheDocument();
+    expect(screen.queryByTestId("canonical-fitness-view")).not.toBeInTheDocument();
+    expect(screen.queryByText("0.0")).not.toBeInTheDocument();
   });
 
   it("never carries a single-sport projection into the integrated mobile PMC", () => {

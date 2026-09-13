@@ -47,6 +47,7 @@ import { PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
 import { FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportunityPanel";
 import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
 import { useFitnessModel, type FitnessModel } from "../hooks/useFitnessModel";
+import CanonicalFitnessView from "../features/fitness/components/CanonicalFitnessView";
 import { Card, Chip, Text, buttonClass } from "../theme/components";
 import { getDisciplineColor } from "../utils/disciplineFilter";
 import { toLocalDate, toUtcDate } from "../utils/dateUtils";
@@ -144,6 +145,10 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
 
   if (!user) {
     return <GuestValuePreview kind="fitness" lang={i18n.language} />;
+  }
+
+  if (model.canonicalFitness.enabled) {
+    return <CanonicalFitnessView embedded={embedded} model={model} />;
   }
 
   if (renderMobile && (loading || !timeseriesLoaded)) {

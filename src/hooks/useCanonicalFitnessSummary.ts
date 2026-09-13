@@ -13,8 +13,10 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { decideCanonicalRender, type CanonicalDisplay } from "@shared/types/canonicalDisplay";
+import { canonicalDisplayShowsValue, decideCanonicalRender, type CanonicalDisplay } from "@shared/types/canonicalDisplay";
+import type { CanonicalPeriod, CanonicalStatus } from "@shared/types/canonical";
 import { useAuth } from "../contexts/AuthContext";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import {
   canonicalConsumersEnabled,
@@ -31,54 +33,118 @@ export interface CanonicalFitnessSummaryState {
   values: CanonicalFitnessSummaryData | null;
   display: CanonicalDisplay | null;
   computedAt: number | null;
+  status: CanonicalStatus | null;
+  metadata: {
+    algorithmVersion: string;
+    inputRevision: string | null;
+    inputDigest: string | null;
+    period: CanonicalPeriod | null;
+    asOf: number | null;
+    timezone: string | null;
+    generation: string | number | null;
+  } | null;
+  showingLastGood: boolean;
+  retry: () => void;
 }
 
+const noop = () => undefined;
 const DISABLED: CanonicalFitnessSummaryState = {
-  enabled: false, values: null, display: null, computedAt: null,
+  enabled: false, values: null, display: null, computedAt: null, status: null,
+  metadata: null, showingLastGood: false, retry: noop,
 };
 
 export function useCanonicalFitnessSummary(): CanonicalFitnessSummaryState {
   const { user } = useAuth();
+  const firebaseServices = useFirebaseServices();
   const rollout = useCanonicalRollout();
   const enabled = canonicalConsumersEnabled() && canonicalRolloutAllows(rollout, "homeSummary");
   const [state, setState] = useState<CanonicalFitnessSummaryState>(DISABLED);
   const lastGood = useRef<CanonicalFitnessSummaryData | null>(null);
+  const lastGoodMetadata = useRef<CanonicalFitnessSummaryState["metadata"]>(null);
+  const lastUid = useRef<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   // 늦게 도착한 응답이 최신을 덮지 않게 한다 (A→B→A 전환 포함).
   const generation = useRef(0);
 
   const load = useCallback(async (uid: string, myGeneration: number) => {
-    const envelope = await fetchCanonicalFitnessSummary();
+    const envelope = await fetchCanonicalFitnessSummary(firebaseServices);
     if (generation.current !== myGeneration) return;
     const parsed = parseCanonicalFitnessSummary(envelope.data);
     if (envelope.data !== null && parsed === null) {
       // 값이 실려 왔는데 읽을 수 없다 — 조용히 빈 화면으로 넘기지 않고 남긴다.
       logClientError("useCanonicalFitnessSummary.shape", new Error("unexpected fitness summary payload"), { uid });
     }
-    const decision = decideCanonicalRender(envelope, lastGood.current !== null);
+    const shapeInvalid = envelope.data !== null && parsed === null;
+    const renderEnvelope = shapeInvalid ? {
+      ...envelope,
+      data: null,
+      status: "failed" as const,
+      error: {
+        code: "contract_mismatch",
+        message: "피트니스 요약 응답 형식이 올바르지 않습니다",
+        retryable: true,
+      },
+    } : envelope;
+    const decision = decideCanonicalRender(renderEnvelope, lastGood.current !== null);
     if (decision.contractViolations.length > 0) {
       logClientError("useCanonicalFitnessSummary.contract", new Error(decision.contractViolations.join("; ")), { uid });
     }
-    if (parsed !== null && decision.display === "value") lastGood.current = parsed;
+    const accepted = parsed !== null && canonicalDisplayShowsValue(decision.display) ? parsed : null;
+    const metadata = {
+      algorithmVersion: envelope.algorithmVersion,
+      inputRevision: envelope.inputRevision,
+      inputDigest: envelope.inputDigest,
+      period: envelope.period,
+      asOf: accepted?.asOf ?? envelope.period?.asOf ?? null,
+      timezone: accepted?.timezone ?? envelope.period?.timezone ?? null,
+      generation: accepted?.generation ?? null,
+    };
+    if (accepted !== null) {
+      lastGood.current = accepted;
+      lastGoodMetadata.current = metadata;
+    }
+    const showingLastGood = accepted === null && lastGood.current !== null;
     setState({
       enabled: true,
-      values: parsed ?? (decision.display === "value_with_stale_hint" ? lastGood.current : null),
+      // processing/failed/unavailable 에서도 동일 계정의 마지막 성공값은 버리지 않는다.
+      // display/status 가 별도로 남으므로 낡은 값을 최신처럼 오인시키지 않는다.
+      values: accepted ?? lastGood.current,
       display: decision.display,
       computedAt: envelope.computedAt,
+      status: renderEnvelope.status,
+      metadata: showingLastGood ? lastGoodMetadata.current : metadata,
+      showingLastGood,
+      retry: () => setReloadKey((current) => current + 1),
     });
-  }, []);
+  }, [firebaseServices]);
 
   useEffect(() => {
     generation.current += 1;
     const myGeneration = generation.current;
-    // 계정이 바뀌면 이전 계정의 값을 즉시 버린다 — 남겨 두면 남의 기록이 보인다.
-    lastGood.current = null;
+    // 계정이 바뀔 때만 이전 값을 버린다. 같은 계정 재시도는 last-known-good 을 유지한다.
+    const uid = user?.uid ?? null;
+    const uidChanged = lastUid.current !== uid;
+    if (uidChanged) {
+      lastGood.current = null;
+      lastGoodMetadata.current = null;
+      lastUid.current = uid;
+    }
     if (!enabled || !user) {
       setState(DISABLED);
       return;
     }
-    setState({ enabled: true, values: null, display: null, computedAt: null });
+    setState((previous) => ({
+      enabled: true,
+      values: !uidChanged && previous.enabled ? previous.values : null,
+      display: null,
+      computedAt: !uidChanged && previous.enabled ? previous.computedAt : null,
+      status: null,
+      metadata: !uidChanged && previous.enabled ? previous.metadata : null,
+      showingLastGood: !uidChanged && previous.enabled && previous.values !== null,
+      retry: () => setReloadKey((current) => current + 1),
+    }));
     void load(user.uid, myGeneration);
-  }, [user, load, enabled]);
+  }, [user, load, enabled, reloadKey]);
 
   return state;
 }
