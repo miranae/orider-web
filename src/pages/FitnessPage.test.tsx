@@ -77,7 +77,7 @@ describe("FitnessPage", () => {
     riderInsight.loading = false;
     riderInsight.unavailable = false;
     canonicalSummary.state = {
-      enabled: false, values: null, display: null, computedAt: null, status: null,
+      rolloutState: "off", enabled: false, values: null, display: null, computedAt: null, status: null,
       metadata: null, showingLastGood: false, retry: vi.fn(),
     };
   });
@@ -85,10 +85,10 @@ describe("FitnessPage", () => {
   it.each([
     ["web", <FitnessPage />],
     ["embed", <FitnessSurface onReady={vi.fn()} retryKey={0} />],
-  ])("renders the same canonical values and revision on the %s surface", async (_surface, view) => {
+  ])("injects the same canonical values into the existing %s presentation", async (_surface, view) => {
     vi.mocked(collection).mockClear();
     canonicalSummary.state = {
-      enabled: true,
+      rolloutState: "on", enabled: true,
       values: {
         ctl: 42.5, atl: 30.25, tsb: 12.25,
         breakdown: {
@@ -110,16 +110,32 @@ describe("FitnessPage", () => {
     };
     renderWithProviders(view, { authenticated: true, route: "/fitness?sport=tri" });
 
-    expect(await screen.findByTestId("canonical-fitness-view")).toBeInTheDocument();
-    expect(screen.getByText("42.5")).toBeInTheDocument();
-    expect(screen.getByText("bike:7|run:3|swim:1")).toBeInTheDocument();
-    expect(screen.queryByText("mobile fitness dashboard: tri")).not.toBeInTheDocument();
-    expect(vi.mocked(collection).mock.calls.some((call) => call.slice(1).join("/") === "activities")).toBe(false);
+    expect(await screen.findByText("mobile fitness dashboard: tri")).toBeInTheDocument();
+    expect(screen.getByText("selected 42.5/30.25/12.25")).toBeInTheDocument();
+    expect(screen.getByText("integrated 42.5")).toBeInTheDocument();
+    expect(screen.queryByTestId("canonical-fitness-view")).not.toBeInTheDocument();
+    if (_surface === "embed") {
+      expect(screen.queryByRole("heading", { name: "피트니스" })).not.toBeInTheDocument();
+    }
+    expect(vi.mocked(collection).mock.calls.some((call) => call.slice(1).join("/") === "activities")).toBe(true);
+  });
+
+  it("waits for the fitness rollout verdict without starting legacy activity reads", async () => {
+    vi.mocked(onSnapshot).mockClear();
+    canonicalSummary.state = {
+      rolloutState: "pending", enabled: false, values: null, display: null, computedAt: null, status: null,
+      metadata: null, showingLastGood: false, retry: vi.fn(),
+    };
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByRole("status")).toBeInTheDocument();
+    expect(vi.mocked(onSnapshot).mock.calls.some(([ref]) => (ref as { path?: string }).path === "activities")).toBe(false);
   });
 
   it("shows last-good values with a failed status instead of replacing them with zero", async () => {
     canonicalSummary.state = {
-      enabled: true,
+      rolloutState: "on", enabled: true,
       values: {
         ctl: 40, atl: 35, tsb: 5,
         breakdown: {
@@ -136,13 +152,13 @@ describe("FitnessPage", () => {
     renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
 
     expect(await screen.findByRole("alert")).toHaveTextContent("계산 실패");
-    expect(screen.getByText("40.0")).toBeInTheDocument();
-    expect(screen.queryByText("0.0")).not.toBeInTheDocument();
+    expect(screen.getByText("selected 40/35/5")).toBeInTheDocument();
+    expect(screen.queryByText("selected 0/0/0")).not.toBeInTheDocument();
   });
 
   it("does not invent zero when canonical data is unavailable", async () => {
     canonicalSummary.state = {
-      enabled: true, values: null, display: "empty", computedAt: null, status: "unavailable",
+      rolloutState: "on", enabled: true, values: null, display: "empty", computedAt: null, status: "unavailable",
       metadata: null, showingLastGood: false, retry: vi.fn(),
     };
     renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
@@ -153,7 +169,7 @@ describe("FitnessPage", () => {
 
   it("shows ErrorState instead of a blank page when the canonical payload is malformed", async () => {
     canonicalSummary.state = {
-      enabled: true, values: null, display: "error", computedAt: null, status: "failed",
+      rolloutState: "on", enabled: true, values: null, display: "error", computedAt: null, status: "failed",
       metadata: null, showingLastGood: false, retry: vi.fn(),
     };
     renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });

@@ -37,13 +37,14 @@ import { getRuntimeConfig } from "./runtimeConfig";
  * 전환 단위가 되는 화면.
  *
  * @sync-with orider-g1-web/functions/src/canonical-rollout-config.ts#CANONICAL_ROLLOUT_SURFACES
- * 앞의 세 면은 서버 원본과 같은 이름이고, 뒤의 네 면(stage 4)은 `config/canonicalConsumers.ts`
+ * 앞의 네 면은 서버 원본과 같은 이름이고, 뒤의 네 면(stage 4)은 `config/canonicalConsumers.ts`
  * 의 빌드 플래그와 1:1 이다. 모르는 이름이 내려오면 무시된다(꺼짐).
  */
 export const CANONICAL_ROLLOUT_SURFACES = [
   "activityDetail",
   "trainingDecision",
   "homeSummary",
+  "fitnessSummary",
   "weather",
   "course",
   "maintenance",

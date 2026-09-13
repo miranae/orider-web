@@ -73,12 +73,12 @@ describe("useCanonicalRollout", () => {
       firestore: {},
       ensureAppCheckReady: embeddedReady,
     } as unknown as FirebaseServices;
-    setCallableResult("getCanonicalRollout", { data: { surfaces: { homeSummary: true } } });
+    setCallableResult("getCanonicalRollout", { data: { surfaces: { fitnessSummary: true } } });
 
     const { result } = renderHook(() => useCanonicalRollout(), { wrapper: withUser("u1", services) });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(result.current.surfaces.homeSummary).toBe(true);
+    expect(result.current.surfaces.fitnessSummary).toBe(true);
     expect(embeddedReady).toHaveBeenCalledOnce();
     expect(vi.mocked(httpsCallable)).toHaveBeenCalledWith(embeddedFunctions, "getCanonicalRollout");
   });

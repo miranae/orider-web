@@ -219,9 +219,11 @@ export function useFitnessModel(
   const { t, i18n } = useTranslation("fitness");
   const durationLabel = makeDurationLabel(t);
   const { user, profile } = useAuth();
-  const canonicalFitness = useCanonicalFitnessSummary();
+  const canonicalFitness = useCanonicalFitnessSummary("fitnessSummary");
+  const canonicalPending = canonicalFitness.rolloutState === "pending";
+  const canonicalActive = canonicalFitness.rolloutState === "on";
   const { firestore } = useFirebaseServices();
-  const { entries: ftpHistory } = useFtpHistory(canonicalFitness.enabled ? undefined : user?.uid);
+  const { entries: ftpHistory } = useFtpHistory(user?.uid);
   const { showToast } = useToast();
   const discipline = resolveFitnessDiscipline(sportParam);
   const [range, setRange] = useState<RangeOption | 42>(90);
@@ -251,7 +253,7 @@ export function useFitnessModel(
     key: activityDataKey,
     items: initialCache?.activities ?? [],
   });
-  const activities = canonicalFitness.enabled
+  const activities = canonicalPending
     ? []
     : activityState.key === activityDataKey ? activityState.items : [];
   const disciplineActivities = useMemo(
@@ -274,7 +276,7 @@ export function useFitnessModel(
   const [projection, setProjection] = useState<FitnessProjection | null>(null);
   const [, setGoalQueryDone] = useState(false);
   const isMobile = useMobile();
-  const { pdc } = usePdc(canonicalFitness.enabled ? undefined : user?.uid);
+  const { pdc } = usePdc(user?.uid);
   // 다음 라이드 FTP 브리핑(#837) — 결정 문서를 구독하고 수락만 수행한다.
   // 임베드 표면은 decisionId 를 넘기지 않아 딥링크로 특정 결정을 열지 않는다.
   const {
@@ -290,11 +292,11 @@ export function useFitnessModel(
     && getRuntimeConfig().coachRiderInsightEnabled === true
     && discipline === "bike";
   const { insight: coachRiderInsight } = useCoachRiderInsight(user?.uid, riderInsightEnabled);
-  const { fitness: userFitness } = useUserFitness(!!user && !canonicalFitness.enabled);
+  const { fitness: userFitness } = useUserFitness(!!user);
   const latestActivityStart = activities.reduce((latest, activity) => Math.max(latest, activity.startTime), 0);
   const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
-  const { summary: consistencyStreak } = useConsistencyStreak(canonicalFitness.enabled ? undefined : user?.uid);
+  const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
   useEffect(() => {
     if (normalizedRange !== range) setRange(normalizedRange);
   }, [normalizedRange, range]);
@@ -321,8 +323,8 @@ export function useFitnessModel(
     }
   }
 
-  const { run: runRecords } = useRunRecords(discipline === "run" && !canonicalFitness.enabled);
-  const { achieved: milestones, markCelebrated } = useMilestones(discipline === "run" && !canonicalFitness.enabled);
+  const { run: runRecords } = useRunRecords(discipline === "run");
+  const { achieved: milestones, markCelebrated } = useMilestones(discipline === "run");
   const [dismissedMilestones, setDismissedMilestones] = useState<ReadonlySet<MilestoneId>>(new Set());
   const pendingMilestone = useMemo(() => {
     for (const milestone of milestones.values()) {
@@ -346,13 +348,12 @@ export function useFitnessModel(
       setFreshLoaded(true);
       return undefined;
     }
-    if (canonicalFitness.enabled) {
-      // canonical ON에서는 활동 목록을 Fitness 계산 입력으로 다시 읽지 않는다.
-      // 상태와 last-good은 /fitness/summary 한 응답만이 소유한다.
+    if (canonicalPending) {
+      // 판정 전에는 legacy 계산 입력도 canonical API도 시작하지 않는다.
       setActivityState({ key: activityDataKey, items: [] });
-      setLoading(false);
+      setLoading(true);
       setCacheHit(false);
-      setFreshLoaded(true);
+      setFreshLoaded(false);
       setError(null);
       return undefined;
     }
@@ -417,7 +418,7 @@ export function useFitnessModel(
       active = false;
       unsubscribe();
     };
-  }, [activityDataKey, activityQueryRange, cacheLocale, canonicalFitness.enabled, discipline, firestore, reloadKey, t, user]);
+  }, [activityDataKey, activityQueryRange, cacheLocale, canonicalPending, discipline, firestore, reloadKey, t, user]);
 
   const retryLoad = useCallback(() => {
     setError(null);
@@ -491,10 +492,10 @@ export function useFitnessModel(
   }, [discipline, firestore, user]);
 
   const clientFitness = useMemo(
-    () => canonicalFitness.enabled || discipline === "tri"
+    () => canonicalActive || canonicalPending || discipline === "tri"
       ? { fitnessData: [], dailyData: [] }
       : calculateClientFitness(activities, metricsMap, discipline),
-    [activities, canonicalFitness.enabled, discipline, metricsMap],
+    [activities, canonicalActive, canonicalPending, discipline, metricsMap],
   );
   const selectedTimeseriesDiscipline = discipline === "tri" ? "bike" : discipline;
   const {
@@ -504,13 +505,13 @@ export function useFitnessModel(
     cacheHit: selectedTimeseriesCacheHit,
     freshLoaded: selectedTimeseriesFreshLoaded,
   } = useFitnessTimeseries(
-    canonicalFitness.enabled ? undefined : user?.uid,
+    canonicalActive || canonicalPending ? undefined : user?.uid,
     selectedTimeseriesDiscipline,
     reloadKey,
     cacheLocale ?? undefined,
     user?.isAnonymous === true,
   );
-  const triUid = discipline === "tri" && !canonicalFitness.enabled ? user?.uid : undefined;
+  const triUid = discipline === "tri" && !canonicalActive && !canonicalPending ? user?.uid : undefined;
   const {
     timeseries: triRunTimeseries,
     loaded: triRunTimeseriesLoaded,
@@ -525,10 +526,12 @@ export function useFitnessModel(
     cacheHit: triSwimTimeseriesCacheHit,
     freshLoaded: triSwimTimeseriesFreshLoaded,
   } = useFitnessTimeseries(triUid, "swim", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true);
-  const timeseriesLoaded = canonicalFitness.enabled
+  const timeseriesLoaded = canonicalPending
+    ? false
+    : canonicalActive
     ? canonicalFitness.display !== null
     : selectedTimeseriesLoaded && (discipline !== "tri" || (triRunTimeseriesLoaded && triSwimTimeseriesLoaded));
-  const timeseriesError = canonicalFitness.enabled && canonicalFitness.status === "failed"
+  const timeseriesError = canonicalActive && canonicalFitness.status === "failed"
     ? t("canonical.errorBody")
     : selectedTimeseriesError ?? (discipline === "tri" ? triRunTimeseriesError ?? triSwimTimeseriesError : null);
   const timeseriesCacheHit = selectedTimeseriesCacheHit
@@ -538,7 +541,7 @@ export function useFitnessModel(
   const apiTimeseries = canonicalFitness.values?.timeseries ?? null;
   const selectedApiTimeseries = discipline === "tri" ? apiTimeseries?.bike ?? null : apiTimeseries?.[discipline] ?? null;
   const hasCanonicalTimeseries = Boolean(discipline !== "tri" && (
-    canonicalFitness.enabled
+    canonicalActive
       ? isCanonicalTimeseries(selectedApiTimeseries, discipline)
       : isCanonicalTimeseries(timeseries, discipline)
   ));
@@ -547,14 +550,14 @@ export function useFitnessModel(
       triDiscipline: TimeseriesDiscipline,
       canonical: FitnessTimeseriesDoc | null,
     ): TriDisciplineFitness => {
-      const apiCanonical = canonicalFitness.enabled ? apiTimeseries?.[triDiscipline] ?? null : canonical;
+      const apiCanonical = canonicalActive ? apiTimeseries?.[triDiscipline] ?? null : canonical;
       const hasCanonical = isCanonicalTimeseries(apiCanonical, triDiscipline);
       const fitness = hasCanonical
         ? apiCanonical!.points
-        : canonicalFitness.enabled ? [] : calculateClientFitness(activities, metricsMap, triDiscipline).fitnessData;
+        : canonicalActive || canonicalPending ? [] : calculateClientFitness(activities, metricsMap, triDiscipline).fitnessData;
       return {
         fitness,
-        weeklyTSS: canonicalFitness.enabled
+        weeklyTSS: canonicalActive
           ? canonicalFitness.values?.breakdown[triDiscipline].weeklyTSS ?? 0
           : fitness.slice(-7).reduce((sum, point) => sum + point.dailyLoad, 0),
         canonical: hasCanonical,
@@ -565,15 +568,15 @@ export function useFitnessModel(
       run: resolve("run", triRunTimeseries),
       swim: resolve("swim", triSwimTimeseries),
     };
-  }, [activities, apiTimeseries, canonicalFitness.enabled, canonicalFitness.values, metricsMap, timeseries, triRunTimeseries, triSwimTimeseries]);
+  }, [activities, apiTimeseries, canonicalActive, canonicalFitness.values, canonicalPending, metricsMap, timeseries, triRunTimeseries, triSwimTimeseries]);
   const triFitnessTimeline = useMemo(
     // API는 현재 통합값만 제공하고 통합 과거 시계열은 제공하지 않는다. canonical ON에서
     // 브라우저가 종목별 CTL을 합산해 새 정본을 만들지 않는다.
-    () => canonicalFitness.enabled ? [] : buildTriFitnessTimeline(resolvedTriFitness),
-    [canonicalFitness.enabled, resolvedTriFitness],
+    () => canonicalActive ? [] : buildTriFitnessTimeline(resolvedTriFitness),
+    [canonicalActive, resolvedTriFitness],
   );
   const triFitnessBreakdown = useMemo<TriFitnessBreakdown>(() => {
-    if (canonicalFitness.enabled) return resolvedTriFitness;
+    if (canonicalActive) return resolvedTriFitness;
     const disciplines = ["bike", "run", "swim"] as const;
     const endDate = triFitnessTimeline[triFitnessTimeline.length - 1]?.date;
     const startDate = endDate
@@ -586,12 +589,12 @@ export function useFitnessModel(
         point.date >= startDate ? sum + (point[triDiscipline]?.dailyLoad ?? 0) : sum
       ), 0),
     }])) as unknown as TriFitnessBreakdown;
-  }, [canonicalFitness.enabled, resolvedTriFitness, triFitnessTimeline]);
+  }, [canonicalActive, resolvedTriFitness, triFitnessTimeline]);
   const { fitnessData, dailyData } = useMemo(() => {
     const points = discipline === "tri"
       ? triFitnessTimeline.map((point) => point.integrated)
       : hasCanonicalTimeseries
-        ? (canonicalFitness.enabled ? selectedApiTimeseries?.points : timeseries?.points)
+        ? (canonicalActive ? selectedApiTimeseries?.points : timeseries?.points)
         : undefined;
     if (points) {
       return {
@@ -604,7 +607,7 @@ export function useFitnessModel(
       };
     }
     return clientFitness;
-  }, [canonicalFitness.enabled, clientFitness, discipline, hasCanonicalTimeseries, selectedApiTimeseries, timeseries, triFitnessTimeline]);
+  }, [canonicalActive, clientFitness, discipline, hasCanonicalTimeseries, selectedApiTimeseries, timeseries, triFitnessTimeline]);
   // 장기 PMC는 기존 일별 값만 요약한다. 페이지 range / 활동 상세 조회 범위와 독립이다.
   const hasCanonicalHistory = discipline === "tri"
     ? Object.values(resolvedTriFitness).every((entry) => entry.canonical)
@@ -619,20 +622,34 @@ export function useFitnessModel(
     return () => clearTimeout(timer);
   }, [timeseries, triRunTimeseries, triSwimTimeseries, pmcHistoryTick]);
   const pmcHistoryPoints = useMemo(() => {
-    if (canonicalFitness.enabled && discipline === "tri") return [];
+    if (canonicalActive && discipline === "tri") return [];
     const source = (doc: FitnessTimeseriesDoc | null, sport: TimeseriesDiscipline) => doc?.discipline === sport
       && (isCanonicalTimeseries(doc, sport) || doc.loadSnapshot || doc.inputInvalidatedAt) ? doc : null;
     return describePmcHistory(fitnessData,
     discipline === "tri" ? [
       source(timeseries, "bike"), source(triRunTimeseries, "run"), source(triSwimTimeseries, "swim"),
     ] : [source(timeseries, discipline)], Math.max(pmcHistoryTick, Date.now()));
-  }, [canonicalFitness.enabled, fitnessData, discipline, timeseries, triRunTimeseries, triSwimTimeseries, pmcHistoryTick]);
+  }, [canonicalActive, fitnessData, discipline, timeseries, triRunTimeseries, triSwimTimeseries, pmcHistoryTick]);
   const rangeData = useMemo(() => {
     if (fitnessData.length === 0) return { fitness: [], daily: [] };
     const sliceStart = Math.max(0, fitnessData.length - range);
     return { fitness: fitnessData.slice(sliceStart), daily: dailyData.slice(sliceStart) };
   }, [dailyData, fitnessData, range]);
-  const currentPoint = rangeData.fitness[rangeData.fitness.length - 1] ?? null;
+  const canonicalCurrent = canonicalActive && canonicalFitness.values
+    ? discipline === "tri"
+      ? canonicalFitness.values
+      : canonicalFitness.values.breakdown[discipline]
+    : null;
+  const canonicalCurrentPoint = canonicalCurrent
+    ? {
+      date: toLocalDate(canonicalFitness.values?.asOf ?? Date.now()),
+      ctl: canonicalCurrent.ctl,
+      atl: canonicalCurrent.atl,
+      tsb: canonicalCurrent.tsb,
+      dailyLoad: 0,
+    }
+    : null;
+  const currentPoint = canonicalCurrentPoint ?? rangeData.fitness[rangeData.fitness.length - 1] ?? null;
   const rangeStartPoint = rangeData.fitness[0] ?? null;
 
   const powerCurveProgressions = useMemo(() => {
@@ -705,7 +722,7 @@ export function useFitnessModel(
     return total === 0 ? null : counts.map((count) => Math.round((count / total) * 100));
   }, [disciplineActivities, fitnessClock, metricsMap]);
   const combinedLoad = useMemo(() => {
-    if (canonicalFitness.enabled) {
+    if (canonicalActive) {
       const current = canonicalFitness.values;
       if (!current) return null;
       return {
@@ -733,7 +750,7 @@ export function useFitnessModel(
       };
     }
     return authoritativeCombinedLoad(userFitness, fitnessClock);
-  }, [canonicalFitness.enabled, canonicalFitness.values, discipline, fitnessClock, triFitnessTimeline, userFitness]);
+  }, [canonicalActive, canonicalFitness.values, discipline, fitnessClock, triFitnessTimeline, userFitness]);
   const integratedLoadFocus = useMemo(
     () => computeIntegratedLoadFocus(activities, metricsMap, fitnessClock),
     [activities, fitnessClock, metricsMap],
@@ -910,10 +927,13 @@ export function useFitnessModel(
     metricsMap,
     derivedMetricsSettled,
     derivedMetricsError,
-    loading,
-    cacheHit: cacheHit && timeseriesCacheHit,
-    freshLoaded: freshLoaded && timeseriesFreshLoaded,
-    error,
+    loading: canonicalPending || (!canonicalActive && loading),
+    cacheHit: !canonicalActive && cacheHit && timeseriesCacheHit,
+    freshLoaded: canonicalActive
+      ? canonicalFitness.display !== null
+      : freshLoaded && timeseriesFreshLoaded,
+    // canonical 핵심 데이터가 준비된 뒤 독립 보조 데이터의 실패가 전체 화면을 막지 않는다.
+    error: canonicalActive ? null : error,
     range,
     setRange,
     activeGoal,

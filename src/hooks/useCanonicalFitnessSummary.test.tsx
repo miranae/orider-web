@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
   enabled: vi.fn(() => true),
   log: vi.fn(),
   user: { uid: "u1" } as { uid: string } | null,
-  rolloutAllows: vi.fn(() => true),
+  rolloutAllows: vi.fn((_surface: "homeSummary" | "fitnessSummary") => true),
+  rolloutLoading: false,
   firebaseServices: { auth: { name: "embedded-auth" }, ensureAppCheckReady: vi.fn(), functions: {}, firestore: {} },
 }));
 
@@ -25,8 +26,8 @@ vi.mock("../contexts/FirebaseServicesContext", () => ({
   useFirebaseServices: () => mocks.firebaseServices,
 }));
 vi.mock("./useCanonicalRollout", () => ({
-  useCanonicalRollout: () => ({ gateEnabled: true, loading: false, verdictOk: true, surfaces: {} }),
-  canonicalRolloutAllows: () => mocks.rolloutAllows(),
+  useCanonicalRollout: () => ({ gateEnabled: true, loading: mocks.rolloutLoading, verdictOk: true, surfaces: {} }),
+  canonicalRolloutAllows: (_state: unknown, surface: "homeSummary" | "fitnessSummary") => mocks.rolloutAllows(surface),
 }));
 
 import { useCanonicalFitnessSummary } from "./useCanonicalFitnessSummary";
@@ -71,6 +72,7 @@ describe("useCanonicalFitnessSummary", () => {
     vi.clearAllMocks();
     mocks.enabled.mockReturnValue(true);
     mocks.rolloutAllows.mockReturnValue(true);
+    mocks.rolloutLoading = false;
     mocks.user = { uid: "u1" };
   });
 
@@ -88,12 +90,28 @@ describe("useCanonicalFitnessSummary", () => {
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
+  it("서버 판정을 기다리는 동안 legacy와 canonical 어느 쪽도 시작하지 않는다", () => {
+    mocks.rolloutLoading = true;
+    const { result } = renderHook(() => useCanonicalFitnessSummary());
+    expect(result.current.rolloutState).toBe("pending");
+    expect(result.current.enabled).toBe(false);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
   it("정본이면 세 숫자를 준다", async () => {
     mocks.fetch.mockResolvedValue(envelope({ data: values }));
     const { result } = renderHook(() => useCanonicalFitnessSummary());
     await waitFor(() => expect(result.current.display).toBe("value"));
     expect(result.current.values).toMatchObject(parsed);
     expect(mocks.fetch).toHaveBeenCalledWith("u1", mocks.firebaseServices);
+    expect(mocks.rolloutAllows).toHaveBeenCalledWith("homeSummary");
+  });
+
+  it("Fitness 화면은 홈과 별도인 fitnessSummary 판정을 사용한다", async () => {
+    mocks.fetch.mockResolvedValue(envelope({ data: values }));
+    const { result } = renderHook(() => useCanonicalFitnessSummary("fitnessSummary"));
+    await waitFor(() => expect(result.current.display).toBe("value"));
+    expect(mocks.rolloutAllows).toHaveBeenCalledWith("fitnessSummary");
   });
 
   it("stale 이면 값을 버리지 않되 표식을 남긴다", async () => {

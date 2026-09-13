@@ -47,7 +47,7 @@ import { PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
 import { FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportunityPanel";
 import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
 import { useFitnessModel, type FitnessModel } from "../hooks/useFitnessModel";
-import CanonicalFitnessView from "../features/fitness/components/CanonicalFitnessView";
+import CanonicalFitnessNotice from "../features/fitness/components/CanonicalFitnessNotice";
 import { Card, Chip, Text, buttonClass } from "../theme/components";
 import { getDisciplineColor } from "../utils/disciplineFilter";
 import { toLocalDate, toUtcDate } from "../utils/dateUtils";
@@ -147,10 +147,6 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     return <GuestValuePreview kind="fitness" lang={i18n.language} />;
   }
 
-  if (model.canonicalFitness.enabled) {
-    return <CanonicalFitnessView embedded={embedded} model={model} />;
-  }
-
   if (renderMobile && (loading || !timeseriesLoaded)) {
     return (
       <div style={{ padding: "20px 16px 40px" }}>
@@ -170,7 +166,21 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     );
   }
 
-  if (renderMobile && activities.length === 0 && fitnessData.length === 0) {
+  if (renderMobile && model.canonicalFitness.enabled && model.canonicalFitness.values === null) {
+    const state = model.canonicalFitness;
+    if (state.display === "error") {
+      return <div style={{ padding: "20px 16px 40px" }}>
+        <ErrorState title={t("canonical.errorTitle")} description={t("canonical.errorBody")} onRetry={state.retry} />
+      </div>;
+    }
+    if (state.display === "empty") {
+      return <div style={{ padding: "20px 16px 40px" }}>
+        <EmptyState icon="📈" title={t("canonical.emptyTitle")} description={t("canonical.emptyBody")} />
+      </div>;
+    }
+  }
+
+  if (renderMobile && activities.length === 0 && fitnessData.length === 0 && !currentPoint) {
     return (
       <div style={{ padding: "20px 16px 40px" }}>
         {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
@@ -192,15 +202,20 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   // MobileFitnessPage 로 보내 좁은 화면에서 헤더와 카드가 눌리지 않게 한다.
   if (!renderMobile && discipline === "tri") {
     return (
-      <TriFitnessView
-        range={range}
-        onRangeChange={setRange}
-        breakdown={triFitnessBreakdown}
-        timeline={triFitnessTimeline}
-        combinedLoad={combinedLoad}
-        loadFocus={integratedLoadFocus}
-        historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={model.hasCanonicalHistory} />}
-      />
+      <div>
+        <div className="site-shell" style={{ padding: "var(--space-4) var(--space-6) 0" }}>
+          <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
+        </div>
+        <TriFitnessView
+          range={range}
+          onRangeChange={setRange}
+          breakdown={triFitnessBreakdown}
+          timeline={triFitnessTimeline}
+          combinedLoad={combinedLoad}
+          loadFocus={integratedLoadFocus}
+          historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={model.hasCanonicalHistory} />}
+        />
+      </div>
     );
   }
 
@@ -224,11 +239,14 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
       />
     ) : null;
     return (
-      <MobileFitnessPage
-        {...model.mobilePageProps}
-        embedded={embedded}
-        coachSlot={mobileCoachBriefing}
-      />
+      <>
+        <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
+        <MobileFitnessPage
+          {...model.mobilePageProps}
+          embedded={embedded}
+          coachSlot={mobileCoachBriefing}
+        />
+      </>
     );
   }
 
@@ -395,7 +413,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
       </div>
     );
   }
-  if (activities.length === 0 && fitnessData.length === 0) {
+  if (activities.length === 0 && fitnessData.length === 0 && !currentPoint) {
     return (
       <div>
         {pageHeader}
@@ -421,6 +439,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
       {pageHeader}
 
       <div className="site-shell" style={bodyPad}>
+        <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
         {discipline !== "tri" && currentPoint && (
           <FitnessCoachBriefing
             key={`${discipline}-${currentPoint.date}`}
