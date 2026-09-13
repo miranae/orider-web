@@ -526,10 +526,13 @@ export function useFitnessModel(
     cacheHit: triSwimTimeseriesCacheHit,
     freshLoaded: triSwimTimeseriesFreshLoaded,
   } = useFitnessTimeseries(triUid, "swim", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true);
+  const canonicalProcessing = canonicalActive
+    && canonicalFitness.values === null
+    && (canonicalFitness.display === null || canonicalFitness.display === "loading");
   const timeseriesLoaded = canonicalPending
     ? false
     : canonicalActive
-    ? canonicalFitness.display !== null
+    ? !canonicalProcessing
     : selectedTimeseriesLoaded && (discipline !== "tri" || (triRunTimeseriesLoaded && triSwimTimeseriesLoaded));
   const timeseriesError = canonicalActive && canonicalFitness.status === "failed"
     ? t("canonical.errorBody")
@@ -927,10 +930,10 @@ export function useFitnessModel(
     metricsMap,
     derivedMetricsSettled,
     derivedMetricsError,
-    loading: canonicalPending || (!canonicalActive && loading),
+    loading: canonicalPending || canonicalProcessing || (!canonicalActive && loading),
     cacheHit: !canonicalActive && cacheHit && timeseriesCacheHit,
     freshLoaded: canonicalActive
-      ? canonicalFitness.display !== null
+      ? !canonicalProcessing
       : freshLoaded && timeseriesFreshLoaded,
     // canonical 핵심 데이터가 준비된 뒤 독립 보조 데이터의 실패가 전체 화면을 막지 않는다.
     error: canonicalActive ? null : error,

@@ -133,6 +133,22 @@ describe("FitnessPage", () => {
     expect(vi.mocked(onSnapshot).mock.calls.some(([ref]) => (ref as { path?: string }).path === "activities")).toBe(false);
   });
 
+  it.each([
+    ["web", <FitnessPage />],
+    ["embed", <FitnessSurface onReady={vi.fn()} retryKey={0} />],
+  ])("keeps the %s surface loading while canonical Fitness is processing without last-good", async (_surface, view) => {
+    canonicalSummary.state = {
+      rolloutState: "on", enabled: true, values: null, display: "loading", computedAt: null, status: "processing",
+      metadata: null, showingLastGood: false, retry: vi.fn(),
+    };
+
+    renderWithProviders(view, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByRole("status")).toBeInTheDocument();
+    expect(screen.queryByText("mobile fitness dashboard: bike")).not.toBeInTheDocument();
+    expect(screen.queryByText("아직 라이딩 기록이 없습니다")).not.toBeInTheDocument();
+  });
+
   it("shows last-good values with a failed status instead of replacing them with zero", async () => {
     canonicalSummary.state = {
       rolloutState: "on", enabled: true,
