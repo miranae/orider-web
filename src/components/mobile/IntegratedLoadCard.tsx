@@ -106,9 +106,9 @@ export default function IntegratedLoadCard({
             {t("mobileFitness.integrated.title")}
           </h2>
         </div>
-        <span style={{ background: "var(--bg-3)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-full)", color: "var(--ink-2)", fontSize: "var(--fs-xs)", fontWeight: 600, padding: "var(--space-1) var(--space-2)", whiteSpace: "nowrap" }}>
+        {focus && <span style={{ background: "var(--bg-3)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-full)", color: "var(--ink-2)", fontSize: "var(--fs-xs)", fontWeight: 600, padding: "var(--space-1) var(--space-2)", whiteSpace: "nowrap" }}>
           {t("mobileFitness.integrated.coverageChip", { pct: Math.round(coverage), confidence })}
-        </span>
+        </span>}
       </div>
 
       <dl style={{ margin: "var(--space-4) 0 0", display: "grid", gridTemplateColumns: "minmax(0, 1.35fr) repeat(2, minmax(0, 1fr))", gap: "var(--space-2)" }}>
