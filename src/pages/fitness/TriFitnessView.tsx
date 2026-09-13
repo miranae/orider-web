@@ -20,7 +20,7 @@ interface TriFitnessViewProps {
   breakdown: TriFitnessBreakdown;
   timeline: TriFitnessTimelinePoint[];
   combinedLoad: CombinedLoadStatus | null;
-  loadFocus: LoadFocusResult;
+  loadFocus: LoadFocusResult | null;
   historySlot?: ReactNode;
 }
 

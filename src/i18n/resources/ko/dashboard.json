@@ -386,6 +386,7 @@
       "focusTitle": "부하 포커스 · 최근 {{days}}일",
       "dominant": "주요 부하 · {{label}}",
       "noFocusData": "분류된 부하 없음",
+      "focusUnavailable": "서버 정본이 부하 포커스를 제공하지 않아 현재 표시할 수 없습니다.",
       "focusBarAria": "최근 {{days}}일 부하 포커스: {{values}}",
       "focusBasis": "존 커버리지가 50% 이상일 때만 각 활동 부하를 존 시간과 대표 상대강도의 제곱으로 한 번 배분하며, 미달 부하는 미분류로 보존합니다.",
       "bucket": {

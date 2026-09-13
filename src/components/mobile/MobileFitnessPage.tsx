@@ -76,7 +76,7 @@ export interface MobileFitnessData {
   hasLoadData: boolean;
   pdcSummary?: MobileFitnessPdcSummary | null;
   combinedLoad?: CombinedLoadStatus | null;
-  loadFocus: LoadFocusResult;
+  loadFocus: LoadFocusResult | null;
   cyclingAbility: CyclingAbilityResult | null;
   runEvidence: RunEvidence;
   swimEvidence: SwimEvidence;
