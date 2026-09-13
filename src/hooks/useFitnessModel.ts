@@ -755,8 +755,8 @@ export function useFitnessModel(
     return authoritativeCombinedLoad(userFitness, fitnessClock);
   }, [canonicalActive, canonicalFitness.values, discipline, fitnessClock, triFitnessTimeline, userFitness]);
   const integratedLoadFocus = useMemo(
-    () => computeIntegratedLoadFocus(activities, metricsMap, fitnessClock),
-    [activities, fitnessClock, metricsMap],
+    () => canonicalActive ? null : computeIntegratedLoadFocus(activities, metricsMap, fitnessClock),
+    [activities, canonicalActive, fitnessClock, metricsMap],
   );
   const canonicalRiderView = useMemo(
     () => buildCanonicalRiderFitnessView(pdc, coachRiderInsight),

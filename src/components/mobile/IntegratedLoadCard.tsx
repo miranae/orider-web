@@ -45,7 +45,7 @@ export default function IntegratedLoadCard({
   focus,
 }: {
   combined: CombinedLoadStatus;
-  focus: LoadFocusResult;
+  focus: LoadFocusResult | null;
 }) {
   const { t } = useTranslation("dashboard");
   const ctl = safeAuthoritativeLoad(combined.ctl);
@@ -61,17 +61,17 @@ export default function IntegratedLoadCard({
   ])) as Record<(typeof DISCIPLINES)[number], number>;
   const contributionTotal = DISCIPLINES.reduce((sum, discipline) => sum + disciplineLoads[discipline], 0);
 
-  const focusLoads = Object.fromEntries(BUCKETS.map(({ key }) => [key, safeLoad(focus.buckets?.[key])])) as Record<LoadFocusBucket, number>;
+  const focusLoads = Object.fromEntries(BUCKETS.map(({ key }) => [key, safeLoad(focus?.buckets?.[key])])) as Record<LoadFocusBucket, number>;
   const focusTotal = BUCKETS.reduce((sum, { key }) => sum + focusLoads[key], 0);
   const dominantBucket = focusTotal > 0
     ? BUCKETS.reduce((dominant, current) => focusLoads[current.key] > focusLoads[dominant.key] ? current : dominant)
     : null;
-  const coverage = typeof focus.coveragePct === "number" && Number.isFinite(focus.coveragePct)
+  const coverage = typeof focus?.coveragePct === "number" && Number.isFinite(focus.coveragePct)
     ? Math.min(100, Math.max(0, focus.coveragePct))
     : 0;
-  const confidenceKey = ["high", "medium", "low", "none"].includes(focus.confidence) ? focus.confidence : "none";
+  const confidenceKey = focus && ["high", "medium", "low", "none"].includes(focus.confidence) ? focus.confidence : "none";
   const confidence = t(`mobileFitness.integrated.confidence.${confidenceKey}`);
-  const windowDays = Number.isFinite(focus.windowDays) && focus.windowDays > 0 ? Math.round(focus.windowDays) : 28;
+  const windowDays = focus && Number.isFinite(focus.windowDays) && focus.windowDays > 0 ? Math.round(focus.windowDays) : 28;
   const contributionAria = contributionTotal > 0
     ? DISCIPLINES.map((discipline) => t("mobileFitness.integrated.barPart", {
       label: t(`mobileFitness.integrated.discipline.${discipline}`),
@@ -157,6 +157,15 @@ export default function IntegratedLoadCard({
       </div>
 
       <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: "var(--space-4)", paddingTop: "var(--space-4)" }}>
+        {!focus ? (
+          <>
+            <h3 style={{ color: "var(--ink-0)", fontSize: "var(--fs-sm)", margin: 0 }}>{t("mobileFitness.integrated.focusTitle", { days: windowDays })}</h3>
+            <p role="status" style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", lineHeight: "var(--lh-relaxed)", margin: "var(--space-2) 0 0" }}>
+              {t("mobileFitness.integrated.focusUnavailable")}
+            </p>
+          </>
+        ) : (
+          <>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-2)", alignItems: "baseline", flexWrap: "wrap" }}>
           <h3 style={{ color: "var(--ink-0)", fontSize: "var(--fs-sm)", margin: 0 }}>{t("mobileFitness.integrated.focusTitle", { days: windowDays })}</h3>
           <span style={{ color: "var(--ink-2)", fontSize: "var(--fs-xs)", fontWeight: 600 }}>
@@ -184,9 +193,11 @@ export default function IntegratedLoadCard({
         <div style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginTop: "var(--space-3)" }}>
           {t("mobileFitness.integrated.coverage", { pct: Math.round(coverage), confidence })}
         </div>
+          </>
+        )}
       </div>
 
-      <details style={{ borderTop: "1px solid var(--line-soft)", marginTop: "var(--space-4)" }}>
+      {focus && <details style={{ borderTop: "1px solid var(--line-soft)", marginTop: "var(--space-4)" }}>
         <summary style={{ minHeight: 44, display: "flex", alignItems: "center", cursor: "pointer", color: "var(--ink-1)", fontSize: "var(--fs-sm)", fontWeight: 700 }}>
           {t("mobileFitness.integrated.detailsToggle")}
         </summary>
@@ -202,7 +213,7 @@ export default function IntegratedLoadCard({
             {focus.hasAnaerobicBikeDetail ? t("mobileFitness.integrated.anaerobicBikeDetail") : t("mobileFitness.integrated.hrHighIntensityNote")}
           </p>
         </div>
-      </details>
+      </details>}
     </section>
   );
 }
