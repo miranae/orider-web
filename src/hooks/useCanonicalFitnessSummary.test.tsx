@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CANONICAL_SCHEMA_VERSION, type CanonicalEnvelope } from "@shared/types/canonical";
 
@@ -93,7 +93,7 @@ describe("useCanonicalFitnessSummary", () => {
     const { result } = renderHook(() => useCanonicalFitnessSummary());
     await waitFor(() => expect(result.current.display).toBe("value"));
     expect(result.current.values).toMatchObject(parsed);
-    expect(mocks.fetch).toHaveBeenCalledWith(mocks.firebaseServices);
+    expect(mocks.fetch).toHaveBeenCalledWith("u1", mocks.firebaseServices);
   });
 
   it("stale 이면 값을 버리지 않되 표식을 남긴다", async () => {
@@ -193,5 +193,49 @@ describe("useCanonicalFitnessSummary", () => {
     mocks.user = { uid: "u2" };
     rerender();
     expect(result.current.values).toBeNull();
+  });
+
+  it("계정 전환의 첫 render부터 이전 owner의 값과 metadata를 가린다", async () => {
+    mocks.fetch.mockResolvedValueOnce(envelope({ data: values, inputRevision: "u1-secret" }));
+    const seen: Array<{ ctl: number | null; revision: string | null }> = [];
+    function Probe() {
+      const state = useCanonicalFitnessSummary();
+      seen.push({
+        ctl: state.values?.ctl ?? null,
+        revision: state.metadata?.inputRevision ?? null,
+      });
+      return null;
+    }
+    const view = render(<Probe />);
+    await waitFor(() => expect(seen.some((snapshot) => snapshot.ctl === 42.5)).toBe(true));
+
+    seen.length = 0;
+    mocks.user = { uid: "u2" };
+    mocks.fetch.mockReturnValueOnce(new Promise(() => {}));
+    view.rerender(<Probe />);
+
+    // rerender는 effect까지 flush하지만 seen에는 그보다 앞선 render도 남는다. 하나라도 u1 값이
+    // 있으면 실제 브라우저에서도 passive effect 전 한 프레임 노출될 수 있다.
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((snapshot) => snapshot.ctl === null && snapshot.revision === null)).toBe(true);
+  });
+
+  it("계정 전환 뒤 이전 계정의 in-flight 응답이 도착해도 값이 다시 노출되지 않는다", async () => {
+    let resolveFirst!: (value: CanonicalEnvelope<unknown>) => void;
+    mocks.fetch.mockReturnValueOnce(new Promise((resolve) => { resolveFirst = resolve; }));
+    const { result, rerender } = renderHook(() => useCanonicalFitnessSummary());
+
+    mocks.user = { uid: "u2" };
+    mocks.fetch.mockReturnValueOnce(new Promise(() => {}));
+    rerender();
+    expect(result.current.enabled).toBe(true);
+    expect(result.current.values).toBeNull();
+
+    await act(async () => {
+      resolveFirst(envelope({ data: values, inputRevision: "u1-secret" }));
+      await Promise.resolve();
+    });
+    expect(result.current.values).toBeNull();
+    expect(result.current.metadata).toBeNull();
   });
 });

@@ -16,6 +16,7 @@ let runtimeConfig: Record<string, unknown> = {};
 
 import {
   canonicalConsumersEnabled,
+  fetchCanonicalFitnessSummary,
   fetchCanonicalHomeSummary,
   parseCanonicalFitnessSummary,
   parseCanonicalHomeRolling7d,
@@ -105,6 +106,41 @@ describe("canonicalApi", () => {
       { headers: { Authorization: "Bearer embedded-token" } },
     );
     expect(ensureAppCheckReady).not.toHaveBeenCalled();
+  });
+
+  it("fitness 응답 전후 계정이 달라지면 payload를 반환하지 않는다", async () => {
+    let resolveResponse!: (response: Response) => void;
+    const embeddedAuth = {
+      currentUser: { uid: "u1", getIdToken: vi.fn(async () => "u1-token") },
+    };
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { resolveResponse = resolve; })));
+    const request = fetchCanonicalFitnessSummary("u1", {
+      auth: embeddedAuth as never,
+      ensureAppCheckReady: vi.fn(async () => undefined),
+    });
+    await vi.waitFor(() => expect(resolveResponse).toBeTypeOf("function"));
+    embeddedAuth.currentUser = { uid: "u2", getIdToken: vi.fn(async () => "u2-token") };
+    resolveResponse(new Response(JSON.stringify({ data: { private: "u1" } }), { status: 200 }));
+
+    const envelope = await request;
+    expect(envelope.status).toBe("failed");
+    expect(envelope.error?.code).toBe("auth_changed");
+    expect(envelope.data).toBeNull();
+  });
+
+  it("fitness 요청 전에 현재 계정이 다르면 token과 fetch를 사용하지 않는다", async () => {
+    const getIdToken = vi.fn(async () => "wrong-token");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const envelope = await fetchCanonicalFitnessSummary("expected", {
+      auth: { currentUser: { uid: "other", getIdToken } } as never,
+      ensureAppCheckReady: vi.fn(async () => undefined),
+    });
+
+    expect(envelope.error?.code).toBe("auth_changed");
+    expect(getIdToken).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

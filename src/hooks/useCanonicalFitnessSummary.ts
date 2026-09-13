@@ -48,9 +48,14 @@ export interface CanonicalFitnessSummaryState {
 }
 
 const noop = () => undefined;
-const DISABLED: CanonicalFitnessSummaryState = {
+interface CanonicalFitnessSummarySnapshot extends CanonicalFitnessSummaryState {
+  /** state와 last-good 값을 소유한 계정. 렌더 시 현재 uid와 즉시 대조한다. */
+  ownerUid: string | null;
+}
+
+const DISABLED: CanonicalFitnessSummarySnapshot = {
   enabled: false, values: null, display: null, computedAt: null, status: null,
-  metadata: null, showingLastGood: false, retry: noop,
+  metadata: null, showingLastGood: false, retry: noop, ownerUid: null,
 };
 
 export function useCanonicalFitnessSummary(): CanonicalFitnessSummaryState {
@@ -58,7 +63,7 @@ export function useCanonicalFitnessSummary(): CanonicalFitnessSummaryState {
   const firebaseServices = useFirebaseServices();
   const rollout = useCanonicalRollout();
   const enabled = canonicalConsumersEnabled() && canonicalRolloutAllows(rollout, "homeSummary");
-  const [state, setState] = useState<CanonicalFitnessSummaryState>(DISABLED);
+  const [state, setState] = useState<CanonicalFitnessSummarySnapshot>(DISABLED);
   const lastGood = useRef<CanonicalFitnessSummaryData | null>(null);
   const lastGoodMetadata = useRef<CanonicalFitnessSummaryState["metadata"]>(null);
   const lastUid = useRef<string | null>(null);
@@ -67,7 +72,7 @@ export function useCanonicalFitnessSummary(): CanonicalFitnessSummaryState {
   const generation = useRef(0);
 
   const load = useCallback(async (uid: string, myGeneration: number) => {
-    const envelope = await fetchCanonicalFitnessSummary(firebaseServices);
+    const envelope = await fetchCanonicalFitnessSummary(uid, firebaseServices);
     if (generation.current !== myGeneration) return;
     const parsed = parseCanonicalFitnessSummary(envelope.data);
     if (envelope.data !== null && parsed === null) {
@@ -115,6 +120,7 @@ export function useCanonicalFitnessSummary(): CanonicalFitnessSummaryState {
       metadata: showingLastGood ? lastGoodMetadata.current : metadata,
       showingLastGood,
       retry: () => setReloadKey((current) => current + 1),
+      ownerUid: uid,
     });
   }, [firebaseServices]);
 
@@ -142,9 +148,25 @@ export function useCanonicalFitnessSummary(): CanonicalFitnessSummaryState {
       metadata: !uidChanged && previous.enabled ? previous.metadata : null,
       showingLastGood: !uidChanged && previous.enabled && previous.values !== null,
       retry: () => setReloadKey((current) => current + 1),
+      ownerUid: uid,
     }));
     void load(user.uid, myGeneration);
   }, [user, load, enabled, reloadKey]);
 
+  // effect보다 렌더가 먼저다. A→B 전환 렌더에서 A state를 그대로 반환하면 effect가 지우기
+  // 전 한 프레임 동안 A의 피트니스가 B 화면에 노출된다. state 소유자가 다르면 즉시 가린다.
+  if (!enabled) return DISABLED;
+  if (user && state.ownerUid !== user.uid) {
+    return {
+      enabled: true,
+      values: null,
+      display: null,
+      computedAt: null,
+      status: null,
+      metadata: null,
+      showingLastGood: false,
+      retry: () => setReloadKey((current) => current + 1),
+    };
+  }
   return state;
 }

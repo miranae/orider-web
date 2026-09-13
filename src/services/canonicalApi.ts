@@ -89,8 +89,13 @@ const singletonCanonicalApiServices: CanonicalApiFirebaseServices = {
 async function fetchCanonical<T>(
   path: string,
   services: CanonicalApiFirebaseServices,
+  expectedUid?: string,
 ): Promise<CanonicalEnvelope<T>> {
-  const token = await services.auth.currentUser?.getIdToken().catch(() => null);
+  const requestUser = services.auth.currentUser;
+  if (expectedUid !== undefined && requestUser?.uid !== expectedUid) {
+    return failedEnvelope<T>("auth_changed", "로그인 계정이 변경되었습니다");
+  }
+  const token = await requestUser?.getIdToken().catch(() => null);
   if (!token) {
     // 미로그인은 실패가 아니라 "줄 값이 없다" 다 — 재시도해도 달라지지 않는다.
     return {
@@ -114,6 +119,11 @@ async function fetchCanonical<T>(
     });
   } catch {
     return failedEnvelope<T>("network_failed", "네트워크에 연결할 수 없습니다");
+  }
+  // 토큰을 받은 계정과 응답을 소비하는 계정이 같아야 한다. A 요청이 진행 중일 때 B로
+  // 전환되면 A의 payload를 hook state에 한 번이라도 넣지 않는다.
+  if (expectedUid !== undefined && services.auth.currentUser?.uid !== expectedUid) {
+    return failedEnvelope<T>("auth_changed", "로그인 계정이 변경되었습니다");
   }
   if (!response.ok) {
     return failedEnvelope<T>(`http_${response.status}`, `서버 응답 ${response.status}`);
@@ -307,7 +317,8 @@ function parseCanonicalFitnessTimeseries(
 }
 
 export function fetchCanonicalFitnessSummary(
+  expectedUid: string,
   services: CanonicalApiFirebaseServices = singletonCanonicalApiServices,
 ): Promise<CanonicalEnvelope<Record<string, unknown>>> {
-  return fetchCanonical<Record<string, unknown>>("/fitness/summary", services);
+  return fetchCanonical<Record<string, unknown>>("/fitness/summary", services, expectedUid);
 }
