@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import MobileFitnessPage from "../../components/mobile/MobileFitnessPage";
+import CanonicalFitnessNotice from "../../features/fitness/components/CanonicalFitnessNotice";
 import { useFitnessModel } from "../../hooks/useFitnessModel";
 
 export interface FitnessSurfaceProps {
@@ -56,6 +57,7 @@ export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProp
 
   return (
     <main className="orider-embedded-surface" data-testid="embedded-fitness">
+      {model.canonicalFitness && <CanonicalFitnessNotice state={model.canonicalFitness} t={model.t} />}
       <MobileFitnessPage
         {...model.mobilePageProps}
         embedded

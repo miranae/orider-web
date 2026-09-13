@@ -26,6 +26,8 @@
  * 켜는 것이 순서다.
  */
 import { httpsCallable } from "firebase/functions";
+import type { Auth } from "firebase/auth";
+import type { Functions } from "firebase/functions";
 
 import { auth, ensureAppCheckReady, functions } from "./firebase";
 import { debugLog, logClientError } from "./errorLogger";
@@ -35,13 +37,14 @@ import { getRuntimeConfig } from "./runtimeConfig";
  * 전환 단위가 되는 화면.
  *
  * @sync-with orider-g1-web/functions/src/canonical-rollout-config.ts#CANONICAL_ROLLOUT_SURFACES
- * 앞의 세 면은 서버 원본과 같은 이름이고, 뒤의 네 면(stage 4)은 `config/canonicalConsumers.ts`
+ * 앞의 네 면은 서버 원본과 같은 이름이고, 뒤의 네 면(stage 4)은 `config/canonicalConsumers.ts`
  * 의 빌드 플래그와 1:1 이다. 모르는 이름이 내려오면 무시된다(꺼짐).
  */
 export const CANONICAL_ROLLOUT_SURFACES = [
   "activityDetail",
   "trainingDecision",
   "homeSummary",
+  "fitnessSummary",
   "weather",
   "course",
   "maintenance",
@@ -92,6 +95,8 @@ interface CachedVerdict {
   surfaces: CanonicalRolloutSurfaces;
   /** `Date.now()` 기준. 지나면 캐시가 아니라 없는 것으로 본다. */
   expiresAt: number;
+  auth: Auth;
+  functions: Functions;
 }
 
 /** uid → 성공한 판정. 세션 동안, 그리고 TTL 동안만 산다. */
@@ -164,21 +169,34 @@ export interface CachedRolloutResult extends CanonicalRolloutResult {
   expiresAt: number | null;
 }
 
+export interface CanonicalRolloutFirebaseServices {
+  auth: Auth;
+  functions: Functions;
+  ensureAppCheckReady: (forceRefresh?: boolean) => Promise<void>;
+}
+
+const singletonCanonicalRolloutServices: CanonicalRolloutFirebaseServices = {
+  get auth() { return auth; },
+  get functions() { return functions; },
+  ensureAppCheckReady,
+};
+
 /**
  * 이 사용자의 화면별 전환 판정. 던지지 않는다 — 실패는 전부 꺼짐이다.
  */
 export async function fetchCanonicalRollout(
   expectedUid: string,
+  services: CanonicalRolloutFirebaseServices = singletonCanonicalRolloutServices,
 ): Promise<CanonicalRolloutResult> {
-  if (auth.currentUser?.uid !== expectedUid) {
+  if (services.auth.currentUser?.uid !== expectedUid) {
     return { surfaces: canonicalRolloutAllOff(), ok: false };
   }
   try {
-    await ensureAppCheckReady();
-    const callable = httpsCallable<Record<string, never>, unknown>(functions, "getCanonicalRollout");
+    await services.ensureAppCheckReady();
+    const callable = httpsCallable<Record<string, never>, unknown>(services.functions, "getCanonicalRollout");
     const response = await callable({});
     // 응답을 기다리는 동안 계정이 바뀌면 남의 판정을 쓰지 않는다.
-    if (auth.currentUser?.uid !== expectedUid) {
+    if (services.auth.currentUser?.uid !== expectedUid) {
       return { surfaces: canonicalRolloutAllOff(), ok: false };
     }
     const surfaces = parseCanonicalRolloutSurfaces(response.data);
@@ -202,16 +220,20 @@ export async function fetchCanonicalRollout(
  */
 export async function loadCanonicalRolloutOnce(
   uid: string,
+  services: CanonicalRolloutFirebaseServices = singletonCanonicalRolloutServices,
 ): Promise<CachedRolloutResult> {
   const cached = rolloutCache.get(uid);
-  if (cached && cached.expiresAt > Date.now()) {
+  if (cached && cached.expiresAt > Date.now()
+    && cached.auth === services.auth && cached.functions === services.functions) {
     // 남은 수명을 함께 돌려준다 — 방금 마운트한 훅도 이 시각에 맞춰 갱신을 예약한다.
     return { surfaces: cached.surfaces, ok: true, expiresAt: cached.expiresAt };
   }
-  const result = await fetchCanonicalRollout(uid);
+  const result = await fetchCanonicalRollout(uid, services);
   if (result.ok) {
     const expiresAt = Date.now() + CANONICAL_ROLLOUT_CACHE_TTL_MS;
-    rolloutCache.set(uid, { surfaces: result.surfaces, expiresAt });
+    rolloutCache.set(uid, {
+      surfaces: result.surfaces, expiresAt, auth: services.auth, functions: services.functions,
+    });
     return { ...result, expiresAt };
   } else {
     // 만료된 채로 남겨 두면 다음 호출이 또 캐시를 뒤진다. 실패 시엔 아예 지운다.

@@ -38,6 +38,7 @@
 import { useEffect, useState } from "react";
 
 import { useAuth } from "../contexts/AuthContext";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import {
   CANONICAL_ROLLOUT_CACHE_TTL_MS,
   canonicalRolloutAllOff,
@@ -90,6 +91,7 @@ const OFF: RolloutSnapshot = {
 
 export function useCanonicalRollout(): CanonicalRolloutState {
   const { user } = useAuth();
+  const firebaseServices = useFirebaseServices();
   // 런타임 설정은 fetch 로 늦게 도착할 수 있다 — 렌더마다 읽어 도착 시 그대로 반영된다.
   const gateEnabled = canonicalRolloutGateEnabled();
   const uid = user?.uid ?? null;
@@ -133,7 +135,7 @@ export function useCanonicalRollout(): CanonicalRolloutState {
       // 접힌 쪽은 예약도 하지 않는다 — 날아가 있는 호출이 응답에서 다시 예약한다.
       if (inFlight) return;
       inFlight = true;
-      void loadCanonicalRolloutOnce(verdictUid).then((result) => {
+      void loadCanonicalRolloutOnce(verdictUid, firebaseServices).then((result) => {
         inFlight = false;
         if (!active) return;
         // 재조회는 loading 을 다시 켜지 않는다 — 켜면 정상 화면이 주기마다 깜빡인다.
@@ -163,7 +165,7 @@ export function useCanonicalRollout(): CanonicalRolloutState {
       window.removeEventListener("focus", refresh);
       clearTimeout(timer);
     };
-  }, [gateEnabled, uid]);
+  }, [firebaseServices, gateEnabled, uid]);
 
   // 런타임 설정이 늦게 도착해 게이트가 방금 켜졌다면 effect 는 아직 돌지 않았다. 그 렌더에서
   // 옛 `gateEnabled: false` 를 그대로 돌려주면 한 프레임 동안 조용히 통과한다.

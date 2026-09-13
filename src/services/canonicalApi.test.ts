@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { ensureAppCheckReady } = vi.hoisted(() => ({
+  ensureAppCheckReady: vi.fn(async () => undefined),
+}));
 const currentUser = { getIdToken: vi.fn(async () => "tok") };
-vi.mock("./firebase", () => ({ auth: { get currentUser() { return currentUser; } } }));
+vi.mock("./firebase", () => ({
+  auth: { get currentUser() { return currentUser; } },
+  ensureAppCheckReady,
+}));
 vi.mock("./runtimeConfig", () => ({
   getRuntimeConfig: () => runtimeConfig,
 }));
@@ -10,6 +16,7 @@ let runtimeConfig: Record<string, unknown> = {};
 
 import {
   canonicalConsumersEnabled,
+  fetchCanonicalFitnessSummary,
   fetchCanonicalHomeSummary,
   parseCanonicalFitnessSummary,
   parseCanonicalHomeRolling7d,
@@ -25,6 +32,7 @@ describe("canonicalApi", () => {
   beforeEach(() => {
     runtimeConfig = { personalApiBase: "https://api.example" };
     currentUser.getIdToken.mockResolvedValue("tok");
+    ensureAppCheckReady.mockClear().mockResolvedValue(undefined);
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -76,6 +84,63 @@ describe("canonicalApi", () => {
       "https://api.example/api/v1/home/summary",
       { headers: { Authorization: "Bearer tok" } },
     );
+    expect(ensureAppCheckReady).toHaveBeenCalledOnce();
+  });
+
+  it("주입된 auth와 App Check 준비 함수를 사용한다 — 임베드 전용 Firebase 경계", async () => {
+    const embeddedReady = vi.fn(async () => undefined);
+    const embeddedAuth = {
+      currentUser: { getIdToken: vi.fn(async () => "embedded-token") },
+    };
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ status: "canonical" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchCanonicalHomeSummary({
+      auth: embeddedAuth as never,
+      ensureAppCheckReady: embeddedReady,
+    });
+
+    expect(embeddedReady).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example/api/v1/home/summary",
+      { headers: { Authorization: "Bearer embedded-token" } },
+    );
+    expect(ensureAppCheckReady).not.toHaveBeenCalled();
+  });
+
+  it("fitness 응답 전후 계정이 달라지면 payload를 반환하지 않는다", async () => {
+    let resolveResponse!: (response: Response) => void;
+    const embeddedAuth = {
+      currentUser: { uid: "u1", getIdToken: vi.fn(async () => "u1-token") },
+    };
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { resolveResponse = resolve; })));
+    const request = fetchCanonicalFitnessSummary("u1", {
+      auth: embeddedAuth as never,
+      ensureAppCheckReady: vi.fn(async () => undefined),
+    });
+    await vi.waitFor(() => expect(resolveResponse).toBeTypeOf("function"));
+    embeddedAuth.currentUser = { uid: "u2", getIdToken: vi.fn(async () => "u2-token") };
+    resolveResponse(new Response(JSON.stringify({ data: { private: "u1" } }), { status: 200 }));
+
+    const envelope = await request;
+    expect(envelope.status).toBe("failed");
+    expect(envelope.error?.code).toBe("auth_changed");
+    expect(envelope.data).toBeNull();
+  });
+
+  it("fitness 요청 전에 현재 계정이 다르면 token과 fetch를 사용하지 않는다", async () => {
+    const getIdToken = vi.fn(async () => "wrong-token");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const envelope = await fetchCanonicalFitnessSummary("expected", {
+      auth: { currentUser: { uid: "other", getIdToken } } as never,
+      ensureAppCheckReady: vi.fn(async () => undefined),
+    });
+
+    expect(envelope.error?.code).toBe("auth_changed");
+    expect(getIdToken).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
@@ -138,7 +203,15 @@ describe("parseCanonicalHomeRolling7d", () => {
 describe("parseCanonicalFitnessSummary", () => {
   /** 서버 봉투 `data` 모양 — orider-g1-web:functions/src/api/routes/fitness.ts */
   const serverData = (current: unknown) => ({
-    current,
+    current: current && typeof current === "object" && !Array.isArray(current) ? {
+      breakdown: {
+        bike: { ctl: 20, atl: 15, tsb: 5, weeklyTSS: 100 },
+        run: { ctl: 15, atl: 10, tsb: 5, weeklyTSS: 50 },
+        swim: { ctl: 5, atl: 5.5, tsb: -0.5, weeklyTSS: 20 },
+      },
+      totalsBasis: ["bike", "run", "swim"],
+      ...current as Record<string, unknown>,
+    } : current,
     projection: null,
     summaries: { bike: null, run: null, swim: null },
     projections: { bike: null, run: null, swim: null },
@@ -148,14 +221,49 @@ describe("parseCanonicalFitnessSummary", () => {
 
   it("data.current 의 통합 3값을 읽는다 — 서버 키는 totalCTL/totalATL/totalTSB 다", () => {
     expect(parseCanonicalFitnessSummary(serverData({
-      totalCTL: 40, totalATL: 30.5, totalTSB: 9.5, breakdown: {}, state: "final",
-    }))).toEqual({ ctl: 40, atl: 30.5, tsb: 9.5 });
+      totalCTL: 40, totalATL: 30.5, totalTSB: 9.5, state: "final",
+    }))).toMatchObject({ ctl: 40, atl: 30.5, tsb: 9.5 });
   });
 
   it("모르는 필드는 무시한다", () => {
     expect(parseCanonicalFitnessSummary(serverData({
       totalCTL: 1, totalATL: 2, totalTSB: -1, somethingNew: 9,
-    }))).toEqual({ ctl: 1, atl: 2, tsb: -1 });
+    }))).toMatchObject({ ctl: 1, atl: 2, tsb: -1 });
+  });
+
+  it("종목별 서버 시계열과 coverage 기준 시각을 그대로 보존한다", () => {
+    const data = serverData({ totalCTL: 40, totalATL: 30, totalTSB: 10 }) as any;
+    data.current.generation = 7;
+    data.current.timezone = "Asia/Seoul";
+    data.timeseries.bike = {
+      discipline: "bike", schemaVersion: 1, computedAt: 1_789_200_000_000,
+      startDate: "2026-09-12", endDate: "2026-09-13", pointCount: 2,
+      points: [
+        { date: "2026-09-12", ctl: 39, atl: 29, tsb: 10, dailyLoad: 80 },
+        { date: "2026-09-13", ctl: 40, atl: 30, tsb: 10, dailyLoad: 50 },
+      ],
+      loadSnapshot: { asOf: 1_789_200_000_000 },
+    };
+
+    expect(parseCanonicalFitnessSummary(data)).toMatchObject({
+      generation: 7,
+      timezone: "Asia/Seoul",
+      asOf: 1_789_200_000_000,
+      timeseries: { bike: { pointCount: 2, endDate: "2026-09-13" } },
+    });
+  });
+
+  it("서버 시계열의 순서나 개수가 깨지면 전체를 표시하지 않는다", () => {
+    const data = serverData({ totalCTL: 40, totalATL: 30, totalTSB: 10 }) as any;
+    data.timeseries.bike = {
+      discipline: "bike", schemaVersion: 1, computedAt: 1,
+      startDate: "2026-09-13", endDate: "2026-09-12", pointCount: 2,
+      points: [
+        { date: "2026-09-13", ctl: 40, atl: 30, tsb: 10, dailyLoad: 50 },
+        { date: "2026-09-12", ctl: 39, atl: 29, tsb: 10, dailyLoad: 80 },
+      ],
+    };
+    expect(parseCanonicalFitnessSummary(data)).toBeNull();
   });
 
   it("옛 기대(최상위 ctl/atl/tsb)로는 읽지 않는다 — 계약이 바뀌면 값이 사라지되 틀린 숫자는 안 뜬다", () => {
