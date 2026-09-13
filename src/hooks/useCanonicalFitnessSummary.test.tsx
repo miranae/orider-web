@@ -220,6 +220,28 @@ describe("useCanonicalFitnessSummary", () => {
     expect(seen.every((snapshot) => snapshot.ctl === null && snapshot.revision === null)).toBe(true);
   });
 
+  it("로그아웃 첫 render부터 이전 owner의 값과 metadata를 가린다", async () => {
+    mocks.fetch.mockResolvedValueOnce(envelope({ data: values, inputRevision: "u1-secret" }));
+    const seen: Array<{ ctl: number | null; revision: string | null }> = [];
+    function Probe() {
+      const state = useCanonicalFitnessSummary();
+      seen.push({
+        ctl: state.values?.ctl ?? null,
+        revision: state.metadata?.inputRevision ?? null,
+      });
+      return null;
+    }
+    const view = render(<Probe />);
+    await waitFor(() => expect(seen.some((snapshot) => snapshot.ctl === 42.5)).toBe(true));
+
+    seen.length = 0;
+    mocks.user = null;
+    view.rerender(<Probe />);
+
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((snapshot) => snapshot.ctl === null && snapshot.revision === null)).toBe(true);
+  });
+
   it("계정 전환 뒤 이전 계정의 in-flight 응답이 도착해도 값이 다시 노출되지 않는다", async () => {
     let resolveFirst!: (value: CanonicalEnvelope<unknown>) => void;
     mocks.fetch.mockReturnValueOnce(new Promise((resolve) => { resolveFirst = resolve; }));

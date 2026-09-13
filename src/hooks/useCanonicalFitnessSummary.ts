@@ -156,7 +156,7 @@ export function useCanonicalFitnessSummary(): CanonicalFitnessSummaryState {
   // effect보다 렌더가 먼저다. A→B 전환 렌더에서 A state를 그대로 반환하면 effect가 지우기
   // 전 한 프레임 동안 A의 피트니스가 B 화면에 노출된다. state 소유자가 다르면 즉시 가린다.
   if (!enabled) return DISABLED;
-  if (user && state.ownerUid !== user.uid) {
+  if ((user?.uid ?? null) !== state.ownerUid) {
     return {
       enabled: true,
       values: null,
