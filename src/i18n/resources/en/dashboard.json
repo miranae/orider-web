@@ -386,6 +386,7 @@
       "focusTitle": "Load focus · last {{days}} days",
       "dominant": "Primary load · {{label}}",
       "noFocusData": "No classified load",
+      "focusUnavailable": "Load focus is unavailable because it is not provided by the canonical server data.",
       "focusBarAria": "Load focus for the last {{days}} days: {{values}}",
       "focusBasis": "With at least 50% zone coverage, each activity load is allocated once by zone time weighted by representative intensity squared; otherwise it stays unclassified.",
       "bucket": {

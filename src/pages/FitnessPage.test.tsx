@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { getDoc, onSnapshot } from "firebase/firestore";
+import { collection, getDoc, onSnapshot } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
@@ -14,12 +14,14 @@ import FitnessPage from "./FitnessPage";
 
 const viewport = vi.hoisted(() => ({ isMobile: true }));
 const riderInsight = vi.hoisted(() => ({ enabled: false, insight: null as ReturnType<typeof parseCoachRiderInsight> | null, loading: false, unavailable: false }));
+const canonicalSummary = vi.hoisted(() => ({ state: null as any }));
 
 vi.mock("../hooks/useMobile", () => ({
   useMobile: () => viewport.isMobile,
 }));
 vi.mock("../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ coachRiderInsightEnabled: riderInsight.enabled }) }));
 vi.mock("../hooks/useCoachRiderInsight", () => ({ useCoachRiderInsight: () => riderInsight }));
+vi.mock("../hooks/useCanonicalFitnessSummary", () => ({ useCanonicalFitnessSummary: () => canonicalSummary.state }));
 vi.mock("../features/trainingDecision/TodayTrainingDecisionCard", () => ({
   default: ({ surface }: { surface: string }) => <div data-testid="today-training-decision">{surface} workout</div>,
 }));
@@ -30,7 +32,7 @@ vi.mock("../features/fitness/components/PmcHistoryPanel", () => ({
 }));
 
 vi.mock("../components/mobile/MobileFitnessPage", () => ({
-  default: ({ data, coachSlot, pmcHistoryPoints, pmcHistoryCanonical }: { data: { discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number }; cyclingAbility?: { activityCount: number; axes: Array<{ score: number | null }> } | null; pdcSummary?: { riderType?: { type: string } | null; abilityScore?: number | null; activityCount?: number | null } | null }; coachSlot?: ReactNode; pmcHistoryPoints?: Array<{ date: string }>; pmcHistoryCanonical?: boolean }) => (
+  default: ({ data, coachSlot, pmcHistoryPoints, pmcHistoryCanonical }: { data: { discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number } | null; cyclingAbility?: { activityCount: number; axes: Array<{ score: number | null }> } | null; pdcSummary?: { riderType?: { type: string } | null; abilityScore?: number | null; activityCount?: number | null } | null }; coachSlot?: ReactNode; pmcHistoryPoints?: Array<{ date: string }>; pmcHistoryCanonical?: boolean }) => (
     <div>
       {coachSlot}
       <div data-testid="pmc-history" data-count={pmcHistoryPoints?.length} data-start={pmcHistoryPoints?.[0]?.date} data-canonical={String(pmcHistoryCanonical)} />
@@ -38,7 +40,7 @@ vi.mock("../components/mobile/MobileFitnessPage", () => ({
       <span>selected {data.ctl}/{data.atl}/{data.tsb}</span>
       <span>integrated {data.combinedLoad?.ctl ?? "none"}</span>
       <span>contributions {data.combinedLoad?.contributions.length ?? 0}</span>
-      <span>focus {data.loadFocus.totalLoad}</span>
+      <span>focus {data.loadFocus?.totalLoad ?? "unavailable"}</span>
       <span>cycling ability {data.cyclingAbility?.activityCount ?? "none"}/{data.cyclingAbility?.axes[0]?.score ?? "none"}</span>
       <span>PDC summary {data.pdcSummary?.abilityScore ?? "none"}/{data.pdcSummary?.activityCount ?? "none"}/{data.pdcSummary?.riderType?.type ?? "none"}</span>
     </div>
@@ -48,7 +50,7 @@ vi.mock("./fitness/TriFitnessView", () => ({
   default: ({ combinedLoad, loadFocus, breakdown, onRangeChange, historySlot }: {
     historySlot?: ReactNode;
     combinedLoad?: { ctl: number } | null;
-    loadFocus: { totalLoad: number };
+    loadFocus: { totalLoad: number } | null;
     breakdown: {
       bike: { weeklyTSS: number; fitness: Array<{ ctl: number }> };
       run: { weeklyTSS: number; fitness: Array<{ ctl: number }> };
@@ -59,7 +61,7 @@ vi.mock("./fitness/TriFitnessView", () => ({
       desktop tri fitness dashboard
       {historySlot}
       <span>desktop integrated {combinedLoad?.ctl ?? "none"}</span>
-      <span>desktop focus {loadFocus.totalLoad}</span>
+      <span>desktop focus {loadFocus?.totalLoad ?? "unavailable"}</span>
       <span>desktop bike {breakdown.bike.fitness[breakdown.bike.fitness.length - 1]?.ctl ?? "none"}/{breakdown.bike.weeklyTSS}</span>
       <span>desktop run {breakdown.run.fitness[breakdown.run.fitness.length - 1]?.ctl ?? "none"}/{breakdown.run.weeklyTSS}</span>
       <button onClick={() => onRangeChange(365)}>desktop 1y</button>
@@ -74,6 +76,153 @@ describe("FitnessPage", () => {
     riderInsight.insight = null;
     riderInsight.loading = false;
     riderInsight.unavailable = false;
+    canonicalSummary.state = {
+      rolloutState: "off", enabled: false, values: null, display: null, computedAt: null, status: null,
+      metadata: null, showingLastGood: false, retry: vi.fn(),
+    };
+  });
+
+  it.each([
+    ["web", <FitnessPage />],
+    ["embed", <FitnessSurface onReady={vi.fn()} retryKey={0} />],
+  ])("injects the same canonical values into the existing %s presentation", async (_surface, view) => {
+    vi.mocked(collection).mockClear();
+    const sharedStart = Date.now() - 60_000;
+    setCollectionDocs("activities", [
+      {
+        id: "strava-overlap", userId: "test-uid", source: "strava", type: "Ride", startTime: sharedStart, deletedAt: null,
+        summary: { distance: 40_000, ridingTimeMillis: 3_600_000, tss: 100 },
+      },
+      {
+        id: "orider-overlap", userId: "test-uid", source: "orider", type: "Ride", startTime: sharedStart + 30_000, deletedAt: null,
+        summary: { distance: 40_000, ridingTimeMillis: 3_600_000, tss: 100 },
+      },
+    ]);
+    canonicalSummary.state = {
+      rolloutState: "on", enabled: true,
+      values: {
+        ctl: 42.5, atl: 30.25, tsb: 12.25,
+        breakdown: {
+          bike: { ctl: 20, atl: 15, tsb: 5, weeklyTSS: 100 },
+          run: { ctl: 15, atl: 10, tsb: 5, weeklyTSS: 50 },
+          swim: { ctl: 7.5, atl: 5.25, tsb: 2.25, weeklyTSS: 20 },
+        },
+        totalsBasis: ["bike", "run", "swim"],
+        timeseries: { bike: null, run: null, swim: null },
+        generation: "generation-7", period: null, asOf: 1_789_200_000_000, timezone: "Asia/Seoul",
+      },
+      display: "value", computedAt: 1_789_200_000_000, status: "canonical",
+      metadata: {
+        algorithmVersion: "fitness-snapshot@2", inputRevision: "bike:7|run:3|swim:1",
+        inputDigest: "digest", period: null, asOf: 1_789_200_000_000,
+        timezone: "Asia/Seoul", generation: "generation-7",
+      },
+      showingLastGood: false, retry: vi.fn(),
+    };
+    renderWithProviders(view, { authenticated: true, route: "/fitness?sport=tri" });
+
+    expect(await screen.findByText("mobile fitness dashboard: tri")).toBeInTheDocument();
+    expect(screen.getByText("selected 42.5/30.25/12.25")).toBeInTheDocument();
+    expect(screen.getByText("integrated 42.5")).toBeInTheDocument();
+    expect(screen.getByText("focus unavailable")).toBeInTheDocument();
+    expect(screen.queryByTestId("canonical-fitness-view")).not.toBeInTheDocument();
+    if (_surface === "embed") {
+      expect(screen.queryByRole("heading", { name: "피트니스" })).not.toBeInTheDocument();
+    }
+    expect(vi.mocked(collection).mock.calls.some((call) => call.slice(1).join("/") === "activities")).toBe(true);
+  });
+
+  it("keeps legacy load focus unchanged while the canonical rollout is off", async () => {
+    const sharedStart = Date.now() - 60_000;
+    setCollectionDocs("activities", [
+      {
+        id: "strava-overlap", userId: "test-uid", source: "strava", type: "Ride", startTime: sharedStart, deletedAt: null,
+        summary: { distance: 40_000, ridingTimeMillis: 3_600_000, tss: 100 },
+      },
+      {
+        id: "orider-overlap", userId: "test-uid", source: "orider", type: "Ride", startTime: sharedStart + 30_000, deletedAt: null,
+        summary: { distance: 40_000, ridingTimeMillis: 3_600_000, tss: 100 },
+      },
+    ]);
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=tri" });
+
+    expect(await screen.findByText("focus 200")).toBeInTheDocument();
+  });
+
+  it("waits for the fitness rollout verdict without starting legacy activity reads", async () => {
+    vi.mocked(onSnapshot).mockClear();
+    canonicalSummary.state = {
+      rolloutState: "pending", enabled: false, values: null, display: null, computedAt: null, status: null,
+      metadata: null, showingLastGood: false, retry: vi.fn(),
+    };
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByRole("status")).toBeInTheDocument();
+    expect(vi.mocked(onSnapshot).mock.calls.some(([ref]) => (ref as { path?: string }).path === "activities")).toBe(false);
+  });
+
+  it.each([
+    ["web", <FitnessPage />],
+    ["embed", <FitnessSurface onReady={vi.fn()} retryKey={0} />],
+  ])("keeps the %s surface loading while canonical Fitness is processing without last-good", async (_surface, view) => {
+    canonicalSummary.state = {
+      rolloutState: "on", enabled: true, values: null, display: "loading", computedAt: null, status: "processing",
+      metadata: null, showingLastGood: false, retry: vi.fn(),
+    };
+
+    renderWithProviders(view, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByRole("status")).toBeInTheDocument();
+    expect(screen.queryByText("mobile fitness dashboard: bike")).not.toBeInTheDocument();
+    expect(screen.queryByText("아직 라이딩 기록이 없습니다")).not.toBeInTheDocument();
+  });
+
+  it("shows last-good values with a failed status instead of replacing them with zero", async () => {
+    canonicalSummary.state = {
+      rolloutState: "on", enabled: true,
+      values: {
+        ctl: 40, atl: 35, tsb: 5,
+        breakdown: {
+          bike: { ctl: 40, atl: 35, tsb: 5, weeklyTSS: 120 },
+          run: { ctl: 0, atl: 0, tsb: 0, weeklyTSS: 0 },
+          swim: { ctl: 0, atl: 0, tsb: 0, weeklyTSS: 0 },
+        },
+        totalsBasis: ["bike"], timeseries: { bike: null, run: null, swim: null },
+        generation: null, period: null, asOf: null, timezone: null,
+      },
+      display: "error", computedAt: null, status: "failed",
+      metadata: null, showingLastGood: true, retry: vi.fn(),
+    };
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("계산 실패");
+    expect(screen.getByText("selected 40/35/5")).toBeInTheDocument();
+    expect(screen.queryByText("selected 0/0/0")).not.toBeInTheDocument();
+  });
+
+  it("does not invent zero when canonical data is unavailable", async () => {
+    canonicalSummary.state = {
+      rolloutState: "on", enabled: true, values: null, display: "empty", computedAt: null, status: "unavailable",
+      metadata: null, showingLastGood: false, retry: vi.fn(),
+    };
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByText("계산된 피트니스가 아직 없습니다")).toBeInTheDocument();
+    expect(screen.queryByText("0.0")).not.toBeInTheDocument();
+  });
+
+  it("shows ErrorState instead of a blank page when the canonical payload is malformed", async () => {
+    canonicalSummary.state = {
+      rolloutState: "on", enabled: true, values: null, display: "error", computedAt: null, status: "failed",
+      metadata: null, showingLastGood: false, retry: vi.fn(),
+    };
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByText("피트니스 정본을 불러오지 못했습니다")).toBeInTheDocument();
+    expect(screen.queryByTestId("canonical-fitness-view")).not.toBeInTheDocument();
+    expect(screen.queryByText("0.0")).not.toBeInTheDocument();
   });
 
   it("never carries a single-sport projection into the integrated mobile PMC", () => {

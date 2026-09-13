@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { httpsCallable } from "firebase/functions";
 
 import {
   mockCallableInvocations,
@@ -9,6 +10,7 @@ import {
   simulateLogout,
 } from "../__tests__/mocks/firebase";
 import { AuthContextProvider, type AuthContextValue } from "../contexts/AuthContext";
+import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import {
   CANONICAL_ROLLOUT_CACHE_TTL_MS,
   resetCanonicalRolloutCacheForTests,
@@ -16,7 +18,7 @@ import {
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { useCanonicalRollout, useCanonicalSurfaceEnabled } from "./useCanonicalRollout";
 
-function withUser(uid: string | null) {
+function withUser(uid: string | null, services?: FirebaseServices) {
   const value = {
     user: uid ? ({ uid } as AuthContextValue["user"]) : null,
     profile: null,
@@ -25,9 +27,12 @@ function withUser(uid: string | null) {
     signInWithGoogle: async () => {},
     logout: async () => {},
   } satisfies AuthContextValue;
-  return ({ children }: { children: React.ReactNode }) => (
-    <AuthContextProvider value={value}>{children}</AuthContextProvider>
-  );
+  return ({ children }: { children: React.ReactNode }) => {
+    const content = <AuthContextProvider value={value}>{children}</AuthContextProvider>;
+    return services
+      ? <FirebaseServicesProvider services={services}>{content}</FirebaseServicesProvider>
+      : content;
+  };
 }
 
 describe("useCanonicalRollout", () => {
@@ -57,6 +62,25 @@ describe("useCanonicalRollout", () => {
     expect(result.current.surfaces.activityDetail).toBe(true);
     expect(result.current.surfaces.weather).toBe(true);
     expect(result.current.surfaces.trainingDecision).toBe(false);
+  });
+
+  it("임베드 provider의 auth/functions/App Check로 판정을 요청한다", async () => {
+    const embeddedFunctions = { name: "embedded-functions" };
+    const embeddedReady = vi.fn(async () => undefined);
+    const services = {
+      auth: { currentUser: { uid: "u1" } },
+      functions: embeddedFunctions,
+      firestore: {},
+      ensureAppCheckReady: embeddedReady,
+    } as unknown as FirebaseServices;
+    setCallableResult("getCanonicalRollout", { data: { surfaces: { fitnessSummary: true } } });
+
+    const { result } = renderHook(() => useCanonicalRollout(), { wrapper: withUser("u1", services) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.surfaces.fitnessSummary).toBe(true);
+    expect(embeddedReady).toHaveBeenCalledOnce();
+    expect(vi.mocked(httpsCallable)).toHaveBeenCalledWith(embeddedFunctions, "getCanonicalRollout");
   });
 
   it("호출 실패는 전부 꺼짐 (fail-closed)", async () => {

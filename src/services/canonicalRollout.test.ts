@@ -43,14 +43,14 @@ describe("canonicalRollout", () => {
   });
 
   it("서버 응답의 true 만 켜짐 — 나머지 모양은 전부 꺼짐", () => {
-    expect(parseCanonicalRolloutSurfaces({ surfaces: { activityDetail: true, weather: "true" } }))
-      .toEqual({ ...canonicalRolloutAllOff(), activityDetail: true });
+    expect(parseCanonicalRolloutSurfaces({ surfaces: { activityDetail: true, fitnessSummary: true, weather: "true" } }))
+      .toEqual({ ...canonicalRolloutAllOff(), activityDetail: true, fitnessSummary: true });
     expect(parseCanonicalRolloutSurfaces(null)).toEqual(canonicalRolloutAllOff());
     expect(parseCanonicalRolloutSurfaces({ surfaces: [] })).toEqual(canonicalRolloutAllOff());
     expect(parseCanonicalRolloutSurfaces({})).toEqual(canonicalRolloutAllOff());
   });
 
-  it("모르는 면 이름은 무시한다 — 아는 일곱 면만 판정에 든다", () => {
+  it("모르는 면 이름은 무시한다 — 아는 여덟 면만 판정에 든다", () => {
     const surfaces = parseCanonicalRolloutSurfaces({ surfaces: { somethingNew: true, course: true } });
     expect(Object.keys(surfaces).sort()).toEqual([...CANONICAL_ROLLOUT_SURFACES].sort());
     expect(surfaces.course).toBe(true);
