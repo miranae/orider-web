@@ -6,6 +6,7 @@ import ElevationChart from "../components/ElevationChart";
 import Avatar from "../components/Avatar";
 import TabNav from "../components/TabNav";
 import AnalysisTab from "../components/AnalysisTab";
+import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
 import { ActivityZoneTimeline } from "../components/activity/ActivityZoneTimeline";
 import LapTable from "../components/LapTable";
 import ExportTab from "../components/ExportTab";
@@ -112,6 +113,7 @@ export default function ActivityPage() {
     loadingStreams,
     retryStreams,
     serverMetrics,
+    overview,
     isActivityOwner,
     sport,
     streamSensorSummary,
@@ -917,6 +919,7 @@ export default function ActivityPage() {
       />
 
       {/* ── 분석 탭 ── */}
+      {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} />}
       {activeTab === "analysis" && !hasAnalysisStreams && (
         <div className="space-y-4">
           <SummarySensorFallbackCard
