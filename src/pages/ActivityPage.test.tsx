@@ -149,6 +149,40 @@ describe("ActivityPage", () => {
     });
   });
 
+  it("shows canonical overview before sharing and reuses it across analysis tab switches", async () => {
+    mockRoute.activityId = "overview-tab-owner";
+    const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid" });
+    setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
+    setCallableResult("getActivityOverview", { data: {
+      status: "available", activityId: activity.id, version: "activity-overview-v1", inputDigest: "fixture",
+      presentation: { coachSentence: "내 지속출력이 돋보인 활동", session: { discipline: "bike", load: 42 }, recovery: { hours: 11 } },
+    } });
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+
+    expect(await screen.findByText("내 지속출력이 돋보인 활동")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "오라이더 활동개요" })).toBeInTheDocument();
+    expect(screen.getByText("11 h")).toBeInTheDocument();
+    expect(screen.getByTestId("activity-overview-evidence").compareDocumentPosition(screen.getByTestId("strava-summary-publishing")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "활동개요 평가 근거" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(await screen.findByRole("heading", { name: "활동개요 평가 근거" })).toBeInTheDocument();
+    expect(screen.getAllByText("내 지속출력이 돋보인 활동")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    expect(screen.getByRole("heading", { name: "오라이더 활동개요" })).toBeInTheDocument();
+    expect(mockCallableInvocations.filter(({ name }) => name === "getActivityOverview")).toHaveLength(1);
+  });
+
+  it.each([false, true])("does not request private overview for a nonowner (authenticated=%s)", async (authenticated) => {
+    mockRoute.activityId = `overview-tab-nonowner-${authenticated}`;
+    const activity = createMockActivity({ id: mockRoute.activityId, userId: "another-owner", description: "공개 활동 개요" });
+    setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
+    renderWithProviders(<ActivityPage />, { authenticated });
+    await screen.findByText("공개 활동 개요");
+    expect(screen.queryByTestId("activity-overview-evidence")).not.toBeInTheDocument();
+    expect(mockCallableInvocations.some(({ name }) => name === "getActivityOverview")).toBe(false);
+  });
+
   it("publishes the current owner and clears stale ownership across route changes", async () => {
     const first = createMockActivity({
       id: "test-activity",
