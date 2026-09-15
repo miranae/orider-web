@@ -1,9 +1,11 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import i18n from "i18next";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
+import enActivity from "../../../i18n/resources/en/activity.json";
 import ActivityOverviewSummary, { ActivityOverviewSummaryContent } from "./ActivityOverviewSummary";
 
-afterEach(cleanup);
+afterEach(async () => { cleanup(); await i18n.changeLanguage("ko"); });
 const rich: ActivityOverviewPresentation = {
   coachSentence: "내 기준에서 지속출력이 돋보인 라이딩이었어요.", session: { discipline: "bike", character: "interval", distanceKm: 100, load: 279, normalizedPowerW: 164 },
   availability: { personal: "available", records: "evaluated", power: "available", heartRate: "available" },
@@ -33,6 +35,23 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.queryByText("근육 부하")).not.toBeInTheDocument();
     expect(screen.queryByText("1520")).not.toBeInTheDocument();
     expect(screen.getByText(/직접 측정한 생리값/)).toBeInTheDocument();
+  });
+  it("shows the user-approved-value caveat as a separate caption only when qualityNote is true", () => {
+    const { rerender } = render(<ActivityOverviewSummaryContent presentation={rich} />);
+    const modelNote = screen.getByText("회복·연료·W′는 계측값을 바탕으로 한 모델이며 직접 측정한 생리값은 아닙니다.");
+    const qualityNote = screen.getByText("※ 사용자 승인값이 없으면 계측값을 사용합니다.");
+    expect(modelNote).not.toBe(qualityNote);
+    expect(modelNote).toHaveClass("ds-text--caption");
+    expect(qualityNote).toHaveClass("ds-text--caption");
+    rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, qualityNote: false }} />);
+    expect(screen.queryByText("※ 사용자 승인값이 없으면 계측값을 사용합니다.")).not.toBeInTheDocument();
+    expect(screen.getByText(modelNote.textContent!)).toBeInTheDocument();
+  });
+  it("uses the equivalent English caveat", async () => {
+    i18n.addResourceBundle("en", "activity", enActivity, true, true);
+    await i18n.changeLanguage("en");
+    render(<ActivityOverviewSummaryContent presentation={rich} />);
+    expect(screen.getByText("※ Measured values are used when user-approved values are unavailable.")).toBeInTheDocument();
   });
   it("uses one design-system card and quiet dividers rather than numbered inset panels", () => {
     render(<ActivityOverviewSummary overview={{ enabled: true, loading: false, response: { status: "available", activityId: "a", presentation: rich }, error: false, retry: vi.fn() }} />);

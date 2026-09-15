@@ -76,7 +76,10 @@ export function ActivityOverviewSummaryContent({ presentation: p }: { presentati
         <div className="grid grid-cols-3 gap-[var(--dim-item-gap)]"><Stat compact label={copy("ctl")} value={number(p.priorFitnessStatus.ctl)} /><Stat compact label={copy("atl")} value={number(p.priorFitnessStatus.atl)} /><Stat compact label={copy("tsb")} value={number(p.priorFitnessStatus.tsb)} /></div>
       </Stack> : note(copy("beforeMissing"))}
     </SummarySection>
-    {note(`${label("modelNote")}${p.qualityNote ? ` · ${label("qualityNote")}` : ""}`)}
+    <Stack gap="var(--dim-item-gap)">
+      {note(label("modelNote"))}
+      {p.qualityNote && note(copy("qualityFooter"))}
+    </Stack>
   </Stack>;
 }
 
