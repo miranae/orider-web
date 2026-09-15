@@ -8,7 +8,8 @@
     "peakChange": "피크 파워 변화", "stablePower": "비교 가능한 피크 파워는 내 기준 ±5% 이내예요.",
     "comparisonNote": "변화는 중앙값 대비 · 영역 비중 차이는 %p · PR은 전체 기간 기준",
     "recoveryHours": "권장 회복 · 약", "recoveryMissing": "이번 활동의 회복·연료 분석 정보가 아직 없어요.", "beforeMissing": "활동 시작 전 피트니스 정보가 아직 없어요.",
-    "ctl": "체력 · CTL", "atl": "피로 · ATL", "tsb": "폼 · TSB", "ftp": "분석 기준 FTP"
+    "ctl": "체력 · CTL", "atl": "피로 · ATL", "tsb": "폼 · TSB", "ftp": "분석 기준 FTP",
+    "qualityFooter": "※ 사용자 승인값이 없으면 계측값을 사용합니다."
   },
   "overviewEvidence": {
     "overviewTitle": "오라이더 활동개요",
