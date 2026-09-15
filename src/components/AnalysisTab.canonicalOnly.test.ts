@@ -8,12 +8,16 @@ describe("activity analysis canonical-only boundary", () => {
     expect(source).toContain("const recovery = isOwner ? overviewRecovery : null");
     expect(readFileSync("src/components/MetabolismCard.tsx", "utf8")).not.toContain("relativeFatOxidation");
   });
-  it("mounts the same evidence panel outside stream gates in page and embed", () => {
+  it("mounts the same evidence panel independently of stream gates in page and embed", () => {
     for (const path of ["src/pages/ActivityPage.tsx", "src/embedded/surfaces/ActivityAnalysisSurface.tsx"]) {
       const source = readFileSync(path, "utf8");
       expect(source).toContain("<ActivityOverviewEvidence overview=");
-      expect(source.indexOf("<ActivityOverviewEvidence overview=")).toBeLessThan(source.indexOf("<AnalysisTab {..."));
     }
+    const page = readFileSync("src/pages/ActivityPage.tsx", "utf8");
+    expect(page).toContain('activeTab === "analysis" && <ActivityOverviewEvidence overview=');
+    expect(page.indexOf("<AnalysisTab {...")).toBeLessThan(page.indexOf("<ActivityOverviewEvidence overview="));
+    const embedded = readFileSync("src/embedded/surfaces/ActivityAnalysisSurface.tsx", "utf8");
+    expect(embedded.indexOf("<ActivityOverviewEvidence overview=")).toBeLessThan(embedded.indexOf("<AnalysisTab {..."));
   });
   it("includes privacy and source metadata in the overview request identity", () => {
     const source = readFileSync("src/hooks/useActivityAnalysisModel.ts", "utf8");
