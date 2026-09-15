@@ -161,12 +161,15 @@ describe("ActivityPage", () => {
 
     expect(await screen.findByText("내 지속출력이 돋보인 활동")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "오라이더 활동개요" })).toBeInTheDocument();
-    expect(screen.getByText("11 h")).toBeInTheDocument();
-    expect(screen.getByTestId("activity-overview-evidence").compareDocumentPosition(screen.getByTestId("strava-summary-publishing")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("activity-overview-summary").querySelector("table")).toBeNull();
+    expect(screen.getByTestId("activity-overview-summary").compareDocumentPosition(screen.getByTestId("strava-summary-publishing")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId("activity-overview-evidence")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "활동개요 평가 근거" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(await screen.findByRole("heading", { name: "활동개요 평가 근거" })).toBeInTheDocument();
+    expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
+    expect(screen.getByText("11 h")).toBeInTheDocument();
     expect(screen.getAllByText("내 지속출력이 돋보인 활동")).toHaveLength(1);
     fireEvent.click(screen.getByRole("tab", { name: "개요" }));
     expect(screen.getByRole("heading", { name: "오라이더 활동개요" })).toBeInTheDocument();
@@ -180,6 +183,7 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />, { authenticated });
     await screen.findByText("공개 활동 개요");
     expect(screen.queryByTestId("activity-overview-evidence")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
     expect(mockCallableInvocations.some(({ name }) => name === "getActivityOverview")).toBe(false);
   });
 

@@ -1,0 +1,69 @@
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
+import ActivityOverviewSummary, { ActivityOverviewSummaryContent } from "./ActivityOverviewSummary";
+
+afterEach(cleanup);
+const rich: ActivityOverviewPresentation = {
+  coachSentence: "내 기준에서 지속출력이 돋보인 라이딩이었어요.", session: { discipline: "bike", character: "interval", distanceKm: 100, load: 279, normalizedPowerW: 164 },
+  availability: { personal: "available", records: "evaluated", power: "available", heartRate: "available" },
+  comparisonMetadata: { windowDays: 90, character: "interval", priorSampleCount: 10, historyCompleteness: "complete" },
+  personal: [{ axis: "sessionLoad", personalIndex: 100, band: "higher", sampleCount: 10 }, { axis: "muscularLoad", personalIndex: 80, band: "higher", sampleCount: 9 }],
+  zones: [{ kind: "power", seconds: [75, 0, 0, 25], priority: "primary", baselinePercentages: [60, 0, 0, 40], deltaPercentagePoints: [15, 0, 0, -15], priorSampleCount: 10 }],
+  powerFingerprint: [{ duration: "2m", watts: 288, deltaPct: 19.3, medianWatts: 241, priorSampleCount: 10, competitionRank: 1 }, { duration: "5m", watts: 219, recordAchievement: "new" }],
+  thresholdWork: { matchesCount: 0, matchesTotalSec: 0, longestZ4PlusSec: 59.8, wPrimeRemainingPct: 0 },
+  recovery: { hours: 72, load: 279 }, energy: { totalKcal: 1520, fatPct: 18, carbPct: 82 },
+  priorFitnessStatus: { asOf: "2026-09-12 09:00 KST", ctl: 37.4, atl: 42, tsb: -4.6, formBand: "productive" },
+  sportDetails: [{ label: "분석 기준 FTP", value: "182 W", priority: "primary" }], qualityNote: true,
+};
+
+describe("ActivityOverviewSummary", () => {
+  it("renders the four share-summary sections without analysis tables or basic activity stats", () => {
+    render(<ActivityOverviewSummaryContent presentation={rich} />);
+    for (const title of ["훈련 자극", "나의 변화", "회복과 연료", "시작 전 상태"]) expect(screen.getByRole("region", { name: title })).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByText(rich.coachSentence)).toBeInTheDocument();
+    expect(screen.getByText("25")).toBeInTheDocument();
+    expect(screen.getByText("0회 · 0분 0초")).toBeInTheDocument();
+    expect(screen.getByText("1분 0초")).toBeInTheDocument();
+    expect(screen.getByText("피크 파워 변화 · 2분")).toBeInTheDocument();
+    expect(screen.getByText("+19.3% · 10회")).toBeInTheDocument();
+    expect(screen.getByText("전체 기간 PR")).toBeInTheDocument();
+    expect(screen.getByText(/분석 기준 FTP 182 W/)).toBeInTheDocument();
+    expect(screen.queryByText("근육 부하")).not.toBeInTheDocument();
+    expect(screen.queryByText("1520")).not.toBeInTheDocument();
+    expect(screen.getByText(/직접 측정한 생리값/)).toBeInTheDocument();
+  });
+  it.each(["bike", "run", "swim"] as const)("keeps the same frame for missing %s inputs", (discipline) => {
+    render(<ActivityOverviewSummaryContent presentation={{ coachSentence: "짧은 활동", session: { discipline }, thresholdWork: {}, availability: { personal: "character_uncertain", records: "unavailable", power: "unavailable", heartRate: "unavailable" } }} />);
+    expect(screen.getAllByRole("region")).toHaveLength(4);
+    expect(screen.getByText("이번 활동의 자극 분석 정보가 아직 없어요.")).toBeInTheDocument();
+    expect(screen.getByText(/성격이 불명확/)).toBeInTheDocument();
+    expect(screen.queryByText("전체 기간 PR")).not.toBeInTheDocument();
+  });
+  it("does not promote window rank to PR or disclose private power", () => {
+    const { rerender } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, availability: { ...rich.availability!, records: "unavailable" } }} />);
+    expect(screen.queryByText("전체 기간 PR")).not.toBeInTheDocument();
+    rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, availability: { ...rich.availability!, power: "private", records: "private" } }} />);
+    for (const text of ["25", "18", "82", "전체 기간 PR", "피크 파워 변화 · 2분"]) expect(screen.queryByText(text)).not.toBeInTheDocument();
+    expect(screen.queryByText(/분석 기준 FTP 182 W/)).not.toBeInTheDocument();
+  });
+  it("does not highlight comparisons from incomplete history", () => {
+    render(<ActivityOverviewSummaryContent presentation={{ ...rich, comparisonMetadata: { ...rich.comparisonMetadata!, historyCompleteness: "incomplete" } }} />);
+    expect(screen.queryByText("+19.3% · 10회")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Z1 \+15/)).not.toBeInTheDocument();
+    expect(screen.getByText("전체 기간 PR")).toBeInTheDocument();
+  });
+  it("preserves owner, loading, retry and rollout states", () => {
+    const overview = { enabled: false, loading: false, response: null, error: false, retry: vi.fn() };
+    const { rerender } = render(<ActivityOverviewSummary overview={overview} />);
+    expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
+    rerender(<ActivityOverviewSummary overview={{ ...overview, enabled: true, loading: true }} />);
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    rerender(<ActivityOverviewSummary overview={{ ...overview, enabled: true, error: true }} />);
+    fireEvent.click(screen.getByRole("button"));
+    expect(overview.retry).toHaveBeenCalledOnce();
+    rerender(<ActivityOverviewSummary overview={{ ...overview, enabled: true, response: { status: "unavailable", activityId: "a", reason: "rollout_disabled" } }} />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+});

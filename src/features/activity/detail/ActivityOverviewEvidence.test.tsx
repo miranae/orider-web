@@ -17,15 +17,26 @@ const rich: ActivityOverviewPresentation = {
 };
 
 describe("activity overview evidence", () => {
-  it("keeps loading, retry and rollout-disabled states in the overview variant", () => {
+  it("uses analysis-native metric cards and keyboard-scrollable comparison tables", () => {
+    const { container } = render(<ActivityOverviewEvidenceContent presentation={rich} />);
+    expect(screen.getByText("NP").closest(".ds-card")).toHaveClass("ds-card--inset");
+    expect(screen.getByText("NP").closest("section")).toHaveAccessibleName("훈련 자극과 분석 기준");
+    for (const table of screen.getAllByRole("table")) {
+      expect(table.parentElement).toHaveAttribute("tabindex", "0");
+      expect(table.querySelector("th")).toHaveAttribute("scope", "col");
+    }
+    expect(container.querySelector("dl")).toBeNull();
+    expect(screen.getByText("전체 기간 PR")).toHaveClass("ds-chip--accent");
+  });
+  it("keeps loading, retry and rollout-disabled states in analysis", () => {
     const overview = { enabled: true, loading: true, response: null, error: false, retry: vi.fn() };
-    const { rerender } = render(<ActivityOverviewEvidence overview={overview} variant="overview" />);
-    expect(screen.getByRole("heading", { name: "오라이더 활동개요" })).toBeInTheDocument();
+    const { rerender } = render(<ActivityOverviewEvidence overview={overview} />);
+    expect(screen.getByRole("heading", { name: "활동개요 평가 근거" })).toBeInTheDocument();
     expect(screen.getByRole("status")).toBeInTheDocument();
-    rerender(<ActivityOverviewEvidence overview={{ ...overview, loading: false, error: true }} variant="overview" />);
+    rerender(<ActivityOverviewEvidence overview={{ ...overview, loading: false, error: true }} />);
     fireEvent.click(screen.getByRole("button"));
     expect(overview.retry).toHaveBeenCalledOnce();
-    rerender(<ActivityOverviewEvidence overview={{ ...overview, loading: false, response: { status: "unavailable", activityId: "a", reason: "rollout_disabled" } }} variant="overview" />);
+    rerender(<ActivityOverviewEvidence overview={{ ...overview, loading: false, response: { status: "unavailable", activityId: "a", reason: "rollout_disabled" } }} />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByText(rich.coachSentence)).not.toBeInTheDocument();
   });

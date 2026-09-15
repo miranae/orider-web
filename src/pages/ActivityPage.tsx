@@ -7,6 +7,7 @@ import Avatar from "../components/Avatar";
 import TabNav from "../components/TabNav";
 import AnalysisTab from "../components/AnalysisTab";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
+import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
 import { ActivityZoneTimeline } from "../components/activity/ActivityZoneTimeline";
 import LapTable from "../components/LapTable";
 import ExportTab from "../components/ExportTab";
@@ -919,7 +920,6 @@ export default function ActivityPage() {
       />
 
       {/* ── 분석 탭 ── */}
-      {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} />}
       {activeTab === "analysis" && !hasAnalysisStreams && (
         <div className="space-y-4">
           <SummarySensorFallbackCard
@@ -961,6 +961,7 @@ export default function ActivityPage() {
           <AnalysisTab {...analysisTabProps} />
         </Card>
       )}
+      {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} />}
 
       {/* ── 스플릿 탭 (러닝 전용) ── */}
       {activeTab === "splits" && sport === "run" && streams && (
@@ -993,7 +994,7 @@ export default function ActivityPage() {
       {/* ── Left: 분석 / 스탯 / 사진 / 댓글 ── */}
       <div className="flex-1 min-w-0 space-y-6">
 
-      <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} variant="overview" />
+      <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} />
 
       <EquipmentSignalCard
         key={activity.id}
