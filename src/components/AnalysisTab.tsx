@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActivityStreams, ActivitySummary, LapData } from "@shared/types";
-import { estimateRecoveryHours } from "@shared/training/recoveryTime";
+import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
 import { buildClimbTableRows, formatClimbEntryTime } from "../utils/climbMetrics";
-import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
 import ZoneDistributionChart from "./ZoneDistributionChart";
 import PowerCurveChart from "./PowerCurveChart";
@@ -12,7 +11,6 @@ import InfoTip from "./InfoTip";
 import { VirtualPowerBadge } from "./activity/VirtualPowerBadge";
 import { Chip, Text } from "../theme/components";
 import { useActivityMetrics, type ActivityMetricsDoc, type UseActivityMetricsState } from "../hooks/useActivityMetrics";
-import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import ServerMetricsBanner from "./activity/ServerMetricsBanner";
 import { buildCyclingDynamicsCards, type CyclingDynamicsCardDescriptor } from "../features/activity/detail/cyclingDynamicsPresentation";
 import { LocalizedLink as Link } from "./LocalizedLink";
@@ -124,13 +122,14 @@ interface AnalysisTabProps {
   activityId?: string | null;
   /** 소유자 여부 — CTL 기반 회복 시간 등 개인 컨텍스트에만 쓴다. 지표 읽기 권한은 활동 가시성이 정한다. */
   isOwner?: boolean;
+  overviewRecovery?: ActivityOverviewPresentation["recovery"] | null;
   /** 현재 센서 provenance가 서버 계산 입력과 달라진 채널만 서버 파생 지표를 숨긴다. */
   suppressServerPowerMetrics?: boolean;
   suppressServerHeartRateMetrics?: boolean;
   suppressServerCadenceMetrics?: boolean;
   /** 활동 시작 epoch (초 또는 밀리초). 클라임 진입 실제 현지 시각 계산에 사용. */
   startTime?: number | null;
-  /** 랩·칼로리·FTP 폴백·기질 카드에만 쓴다. 지표는 여기서 계산하지 않는다. */
+  /** 랩·센서 표시용. 생리 지표와 분석 컨텍스트는 서버 정본만 사용한다. */
   streams: ActivityStreams;
   summary?: ActivitySummary;
   sport?: "ride" | "run" | "swim" | "other";
@@ -281,7 +280,7 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
 }
 
 export default function AnalysisTab({
-  activityId, isOwner = false, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams,
+  activityId, isOwner = false, overviewRecovery = null, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams,
   suppressServerPowerMetrics = false, suppressServerHeartRateMetrics = false, suppressServerCadenceMetrics = false,
 }: AnalysisTabProps) {
   // 소유자는 정본(`activity_metrics`), 뷰어는 공개 projection(`activity_metrics_public`) 을 읽는다.
@@ -299,10 +298,6 @@ export default function AnalysisTab({
     ? { ...serverMetrics, metrics: sm }
     : serverMetrics) as UseActivityMetricsState;
   const { t } = useTranslation("activity");
-  const { profile, user } = useAuth();
-  const ctlDiscipline = sport === "run" ? "run" : sport === "swim" ? "swim" : "bike";
-  const { timeseries: ctlTs } = useFitnessTimeseries(isOwner ? user?.uid : undefined, ctlDiscipline);
-  const currentCtl = ctlTs?.points?.[ctlTs.points.length - 1]?.ctl;
   const { units, locale } = useLocale();
   const M_PER_MI = 1609.344;
   const M_PER_FT = 0.3048;
@@ -316,11 +311,11 @@ export default function AnalysisTab({
   // ── 서버 값을 화면 변수로. 계산은 없다 — 이름은 이전 JSX 가 쓰던 것을 유지한다.
   // 계산에 쓰인 컨텍스트는 서버 스냅샷이 정본이다. 프로필 현재값과 다르면(FTP 갱신 뒤) 그
   // 차이가 화면에 드러나야 한다 — 프로필로 덮으면 IF 와 FTP 가 서로 다른 값에서 나온다.
-  const ftp = sm?.contextSnapshot?.ftp ?? profile?.ftp ?? streams.ftp ?? 200;
-  const hasFtp = sm?.contextSnapshot?.ftp != null || !!profile?.ftp || !!streams.ftp;
-  const maxHr = sm?.contextSnapshot?.maxHr ?? sm?.hrZoneBoundaries?.referenceBpm ?? 190;
-  const hasMaxHr = sm?.contextSnapshot?.maxHr != null;
-  const weightKg = sm?.contextSnapshot?.weightKg ?? profile?.weightKg ?? null;
+  const ftp = sm?.contextSnapshot?.ftp ?? null;
+  const hasFtp = ftp != null && ftp > 0;
+  const maxHr = sm?.contextSnapshot?.maxHr ?? sm?.hrZoneBoundaries?.referenceBpm ?? null;
+  const hasMaxHr = maxHr != null;
+  const weightKg = sm?.contextSnapshot?.weightKg ?? null;
   const hasPower = sm != null && (sm.np != null || sm.avgPower != null);
   const hasHr = sm != null && sm.avgHr != null;
   const np = sm?.np ?? null;
@@ -339,15 +334,12 @@ export default function AnalysisTab({
   const ef = sm?.decoupling?.ef ?? null;
   const decoupling = sm?.decoupling?.decouplingPct ?? null;
   const trimp = sm?.trimp ?? null;
-  const recovery = useMemo(() => {
-    const load = tss ?? trimp ?? null;
-    return load != null ? estimateRecoveryHours({ load, ctl: currentCtl }) : null;
-  }, [tss, trimp, currentCtl]);
+  const recovery = isOwner ? overviewRecovery : null;
   const cadenceStats = { avg: sm?.avgCadence ?? null, max: sm?.maxCadence ?? null };
-  // 요약(summary)은 제공자가 준 값이라 스트림 계산보다 우선한다 — 서버도 같은 순서다.
+  // 상세 분석은 제공자 summary 사본이 아니라 ETL 정본을 표시한다.
   const speed = {
-    avgKph: summary?.averageSpeed && summary.averageSpeed > 0 ? summary.averageSpeed : sm?.avgSpeedKph ?? null,
-    maxKph: summary?.maxSpeed && summary.maxSpeed > 0 && summary.maxSpeed < 120 ? summary.maxSpeed : sm?.maxSpeedKph ?? null,
+    avgKph: sm?.avgSpeedKph ?? null,
+    maxKph: sm?.maxSpeedKph ?? null,
   };
   const distanceKm = sm?.distanceKm ?? null;
   const elevGain = sm?.elevationGainM ?? null;
@@ -358,7 +350,7 @@ export default function AnalysisTab({
   const criticalBands = useMemo(() => (sm && hasPower ? presentCriticalBands(sm) : null), [sm, hasPower]);
   const powerCurve = useMemo(() => (sm && hasPower ? powerCurvePoints(sm) : []), [sm, hasPower]);
   const matches = sm && hasPower && sm.matches
-    ? { count: sm.matches.count, totalSeconds: sm.matches.totalSec, avgPower: sm.matches.peakW || null, longestSeconds: sm.matches.longestSec ?? 0, longestAvgPower: sm.matches.longestW || null }
+    ? { count: sm.matches.count, totalSeconds: sm.matches.totalSec, peakPower: sm.matches.peakW ?? null, longestSeconds: sm.matches.longestSec ?? 0, longestAvgPower: sm.matches.longestW || null }
     : null;
   const cp = sm && hasPower && !isVirtualPower && sm.cp != null && sm.wPrime != null
     ? { cp: sm.cp, wPrime: sm.wPrime, rSquared: sm.cpR2 ?? null }
@@ -504,12 +496,12 @@ export default function AnalysisTab({
       {/* FTP/maxHR 기본값 경고 */}
       {hasPower && !hasFtp && (
         <div className="rounded-[var(--r-lg)] px-4 py-2.5 text-[length:var(--fs-xs)]" style={{ background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', color: 'var(--amber)' }}>
-          {t("analysis.ftpFallback", { ftp })}
+          {t("overviewEvidence.ftpMissing")}
         </div>
       )}
       {hasHr && !hasMaxHr && (
         <div className="rounded-[var(--r-lg)] px-4 py-2.5 text-[length:var(--fs-xs)]" style={{ background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', color: 'var(--amber)' }}>
-          {t("analysis.maxHrFallback", { hr: maxHr })}
+          {t("overviewEvidence.hrContextMissing")}
         </div>
       )}
 
@@ -518,7 +510,7 @@ export default function AnalysisTab({
         <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.load")}</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
           <MetricCard color="violet" label="TSS" value={tss?.toFixed(0)} description={t("analysis.metric.tssDesc")} tooltip={t("analysis.glossary.tss")} />
-          <MetricCard color="violet" label="IF" value={ifactor?.toFixed(2)} description={hasFtp ? t("analysis.metric.ifDesc", { ftp }) : t("analysis.metric.ifDescDefault", { ftp })} tooltip={t("analysis.glossary.if")} />
+          <MetricCard color="violet" label="IF" value={ifactor?.toFixed(2)} description={hasFtp ? t("analysis.metric.ifDesc", { ftp }) : t("overviewEvidence.ftpMissing")} tooltip={t("analysis.glossary.if")} />
           <MetricCard color="lime" label={t("analysis.metric.work")} value={workKj != null ? Math.round(workKj).toString() : null} unit="kJ" description={t("analysis.metric.workDesc")} tooltip={t("analysis.glossary.work")} />
           <MetricCard color="lime" label={t("analysis.metric.kjPerHour")} value={kjPerHr != null ? Math.round(kjPerHr).toString() : null} unit="kJ/h" description={t("analysis.metric.kjPerHourDesc")} tooltip={t("analysis.glossary.kjPerHour")} />
           <MetricCard color="rose" label="TRIMP" value={trimp != null ? Math.round(trimp).toString() : null} description={t("analysis.metric.trimpDesc")} tooltip={t("analysis.glossary.trimp")} />
@@ -567,7 +559,7 @@ export default function AnalysisTab({
             {matches && matches.count > 0 && (
               <>
                 <MetricCard color="rose" label={t("analysis.metric.matches")} value={matches.count.toString()} unit={t("analysis.metric.matchesUnit")} description={t("analysis.metric.matchesDesc", { ftp })} tooltip={t("analysis.glossary.matches")} />
-                <MetricCard color="rose" label={t("analysis.metric.matchesTime")} value={formatDuration(matches.totalSeconds)} description={matches.avgPower != null ? t("analysis.metric.matchesTimeDesc", { value: Math.round(matches.avgPower) }) : undefined} tooltip={t("analysis.glossary.matchesTime")} />
+                <MetricCard color="rose" label={t("analysis.metric.matchesTime")} value={formatDuration(matches.totalSeconds)} description={matches.peakPower != null ? t("overviewEvidence.peakPower", { value: Math.round(matches.peakPower) }) : undefined} tooltip={t("analysis.glossary.matchesTime")} />
                 <MetricCard color="rose" label={t("analysis.metric.longestMatch")} value={matches.longestSeconds > 0 ? formatDuration(matches.longestSeconds) : null} description={matches.longestAvgPower != null ? `${Math.round(matches.longestAvgPower)}W` : undefined} tooltip={t("analysis.glossary.longestMatch")} />
               </>
             )}
@@ -882,7 +874,7 @@ export default function AnalysisTab({
                       </td>
                     )}
                     <td className="px-4 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                      {r.watts != null ? `${Math.round((r.watts / ftp) * 100)}%` : "-"}
+                      {r.watts != null && ftp != null && ftp > 0 ? `${Math.round((r.watts / ftp) * 100)}%` : "-"}
                     </td>
                   </tr>
                 ))}
@@ -898,7 +890,7 @@ export default function AnalysisTab({
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.powerCurve")}</h3>
           <PowerCurveChart
             points={powerCurve}
-            ftp={streams.ftp}
+            ftp={ftp ?? undefined}
             emptyTitle={t("analysis.empty.powerCurveTitle")}
             emptyDescription={t("analysis.empty.powerCurveDesc")}
           />
@@ -1040,7 +1032,7 @@ export default function AnalysisTab({
   );
 }
 
-function LapTable({ laps, ftp }: { laps: LapData[]; ftp: number }) {
+function LapTable({ laps, ftp }: { laps: LapData[]; ftp: number | null }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
   const M_PER_MI = 1609.344;
@@ -1081,7 +1073,7 @@ function LapTable({ laps, ftp }: { laps: LapData[]; ftp: number }) {
                     {l.avgPower > 0 ? `${Math.round(l.avgPower)}W` : "-"}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                    {l.avgPower > 0 ? `${Math.round((l.avgPower / ftp) * 100)}%` : "-"}
+                    {l.avgPower > 0 && ftp != null && ftp > 0 ? `${Math.round((l.avgPower / ftp) * 100)}%` : "-"}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
                     {l.avgHeartRate > 0 ? `${Math.round(l.avgHeartRate)}` : "-"}

@@ -1,10 +1,8 @@
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  relativeFatOxidation,
-  FATMAX_PEAK_PCT_FTP,
-  type FatMaxProfile,
-  type RideSubstrate,
+import type {
+  FatMaxProfile,
+  RideSubstrate,
 } from "@shared/training/metabolism";
 import { Text } from "../theme/components";
 import InfoTip from "./InfoTip";
@@ -17,9 +15,6 @@ interface MetabolismCardProps {
   /** 가상파워(추정 파워) 활동 여부 — 신뢰도 낮음 표기. */
   isVirtualPower?: boolean;
 }
-
-/** 강도-지방산화 종형곡선 시각화용 샘플 강도(%FTP). */
-const CURVE_PCTS = [0.3, 0.4, 0.5, 0.6, 0.68, 0.8, 0.9, 1.0, 1.15];
 
 const panelStyle: CSSProperties = {
   padding: "var(--space-4)",
@@ -52,15 +47,8 @@ export default function MetabolismCard({
 
   if (!substrate || substrate.totalKcal <= 0) return null;
 
-  const fatPctRound = Math.round(substrate.fatPct * 100);
-  const carbPctRound = 100 - fatPctRound;
-
-  // 종형곡선 막대 — 각 강도의 상대 지방산화율(0~1)을 높이로.
-  const curve = CURVE_PCTS.map((p) => ({
-    pct: p,
-    rel: relativeFatOxidation(p),
-    isPeak: Math.abs(p - FATMAX_PEAK_PCT_FTP) < 0.01,
-  }));
+  const fatPctRound = Math.round(substrate.fatPct * 1000) / 10;
+  const carbPctRound = Math.round((1 - substrate.fatPct) * 1000) / 10;
 
   const sustainText =
     fatMax?.sustainableMin != null
@@ -188,32 +176,6 @@ export default function MetabolismCard({
           </div>
         )}
       </div>}
-
-      {/* 강도-지방산화 종형곡선 */}
-      <div className="mt-3" style={panelStyle}>
-        <Text variant="eyebrow" size="xs">{t("metabolism.curveTitle")}</Text>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-2)", height: 90, marginTop: "var(--space-2)" }}>
-          {curve.map((c) => (
-            <div key={c.pct} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)" }}>
-              <div
-                style={{
-                  width: "100%",
-                  height: `${Math.max(2, c.rel * 70)}px`,
-                  borderRadius: "var(--r-sm)",
-                  background: c.isPeak ? "var(--lime)" : "var(--line-soft)",
-                }}
-                title={`${Math.round(c.pct * 100)}% FTP`}
-              />
-              <Text variant="caption" style={{ color: c.isPeak ? "var(--lime)" : "var(--ink-3)" }}>
-                {Math.round(c.pct * 100)}
-              </Text>
-            </div>
-          ))}
-        </div>
-        <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-2)" }}>
-          {t("metabolism.curveFootnote")}
-        </Text>
-      </div>
 
       <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-2)" }}>
         {t("metabolism.disclaimer")}

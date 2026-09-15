@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import AnalysisTab from "../../components/AnalysisTab";
+import ActivityOverviewEvidence from "../../features/activity/detail/ActivityOverviewEvidence";
 import { useActivityAnalysisModel } from "../../hooks/useActivityAnalysisModel";
 
 export interface ActivityAnalysisSurfaceProps {
@@ -39,7 +40,8 @@ export default function ActivityAnalysisSurface({
     let code: SurfaceErrorCode;
     if (model.activityLoadError) code = "activity_load_failed";
     else if (!model.loadingActivity && !model.activity && !model.activityProcessing) code = "activity_not_found";
-    else if (!model.loadingStreams && model.streamsError) code = "streams_load_failed";
+    else if (!model.loadingStreams && model.streamsError
+      && !model.overview.loading && model.overview.response?.status !== "available") code = "streams_load_failed";
     else return;
 
     const key = `${retryKey}:${code}`;
@@ -53,6 +55,8 @@ export default function ActivityAnalysisSurface({
     model.loadingActivity,
     model.loadingStreams,
     model.streamsError,
+    model.overview.loading,
+    model.overview.response,
     onError,
     retryKey,
   ]);
@@ -62,9 +66,8 @@ export default function ActivityAnalysisSurface({
       readyKey.current === retryKey
       || model.loadingActivity
       || model.activityProcessing
-      || model.loadingStreams
-      || model.showStreamSpinner
-      || !model.analysisTabProps
+      || ((model.loadingStreams || model.showStreamSpinner || !model.analysisTabProps)
+        && model.overview.response?.status !== "available")
     ) return;
     readyKey.current = retryKey;
     onReady();
@@ -73,12 +76,13 @@ export default function ActivityAnalysisSurface({
     model.analysisTabProps,
     model.loadingActivity,
     model.loadingStreams,
+    model.overview.response,
     model.showStreamSpinner,
     onReady,
     retryKey,
   ]);
 
-  if (model.loadingActivity || model.activityProcessing || model.loadingStreams || model.showStreamSpinner) {
+  if (model.loadingActivity || model.activityProcessing) {
     return (
       <div className="orider-embedded-status" role="status" aria-label="Loading analysis">
         <div className="orider-embedded-status__pulse" />
@@ -86,17 +90,12 @@ export default function ActivityAnalysisSurface({
     );
   }
 
-  if (!model.analysisTabProps) {
-    return (
-      <div className="orider-embedded-status" role="alert">
-        Analysis is unavailable.
-      </div>
-    );
-  }
-
   return (
     <main className="orider-embedded-surface" data-testid="embedded-activity-analysis">
-      <AnalysisTab {...model.analysisTabProps} />
+      <ActivityOverviewEvidence overview={model.overview} preview={model.activePowerOverride != null} />
+      {model.loadingStreams || model.showStreamSpinner ? <div className="orider-embedded-status" role="status">Loading analysis</div>
+        : model.analysisTabProps ? <AnalysisTab {...model.analysisTabProps} />
+          : <div className="orider-embedded-status" role="alert">Analysis is unavailable.</div>}
     </main>
   );
 }
