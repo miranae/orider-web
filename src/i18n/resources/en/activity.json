@@ -8,7 +8,8 @@
     "peakChange": "Peak power change", "stablePower": "Comparable peak power is within ±5% of my baseline.",
     "comparisonNote": "Changes versus median · zone differences in percentage points · PRs use all-time records",
     "recoveryHours": "Recommended recovery · about", "recoveryMissing": "Recovery and fuel information is not available yet.", "beforeMissing": "Pre-session fitness information is not available yet.",
-    "ctl": "Fitness · CTL", "atl": "Fatigue · ATL", "tsb": "Form · TSB", "ftp": "Analysis FTP"
+    "ctl": "Fitness · CTL", "atl": "Fatigue · ATL", "tsb": "Form · TSB", "ftp": "Analysis FTP",
+    "qualityFooter": "※ Measured values are used when user-approved values are unavailable."
   },
   "overviewEvidence": {
     "overviewTitle": "ORider activity overview",
