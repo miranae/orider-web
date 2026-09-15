@@ -7,6 +7,8 @@ const SOURCES: PdcPowerSource[] = ["strava_api", "direct_file", "orider_native",
 const RIDER_TYPES: RiderType[] = ["RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist", "Unclassified"];
 const POWER_PROFILES: PowerProfile[] = ["sprinter", "pursuiter", "tt_specialist", "all_rounder", "climber", "unclassified"];
 const TOP_KEYS = ["ability", "activityCount", "computedAt", "cp", "discipline", "history", "mmpAll", "pdcModel", "powerProfile", "provenance", "riderType", "stamina", "sustainablePower", "version", "vo2maxEst", "wPerKgAtKey", "weightKgSnapshot"];
+const V6_TOP_KEYS = [...TOP_KEYS, "status", "inputDigest", "asOf", "coverage"];
+const V6_PARTIAL_TOP_KEYS = [...V6_TOP_KEYS, "inputExclusions"];
 const LEGACY_TOP_KEYS = TOP_KEYS.filter((key) => key !== "provenance");
 
 const object = (value: unknown): Record<string, unknown> | null => value != null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -22,6 +24,43 @@ const date = (value: unknown): value is string => {
 };
 
 function invalid(): never { throw new Error("INVALID_PERSISTED_PDC_V5"); }
+
+function validateV6Lifecycle(raw: Record<string, unknown>): void {
+  const partial = raw.status === "partial";
+  if (!(raw.status === "final" || partial) || !exact(raw, partial ? V6_PARTIAL_TOP_KEYS : V6_TOP_KEYS)
+      || typeof raw.inputDigest !== "string" || !/^[a-f0-9]{64}$/u.test(raw.inputDigest)
+      || !integer(raw.asOf, 0, Number.MAX_SAFE_INTEGER)) invalid();
+  const coverage = object(raw.coverage);
+  const excludedIds = coverage?.excludedActivityIds;
+  const reasons = object(coverage?.excludedReasonCounts);
+  if (!coverage || !exact(coverage, ["state", "candidateActivityCount", "includedActivityCount", "excludedActivityCount",
+      "excludedActivityIds", "excludedActivityIdsTruncated", "excludedReasonCounts", "carriedForwardDurationCount"])
+      || coverage.state !== (partial ? "partial" : "complete")
+      || !integer(coverage.candidateActivityCount, 0, 10_000)
+      || !integer(coverage.includedActivityCount, 0, 10_000)
+      || !integer(coverage.excludedActivityCount, 0, 10_000)
+      || coverage.candidateActivityCount < coverage.includedActivityCount + coverage.excludedActivityCount
+      || coverage.includedActivityCount !== raw.activityCount
+      || !Array.isArray(excludedIds)
+      || excludedIds.length > coverage.excludedActivityCount
+      || excludedIds.some((id) => typeof id !== "string" || id.length < 1 || id.length > 256)
+      || typeof coverage.excludedActivityIdsTruncated !== "boolean"
+      || coverage.excludedActivityIdsTruncated !== (excludedIds.length < coverage.excludedActivityCount)
+      || !integer(coverage.carriedForwardDurationCount, 0, DURATIONS.length)
+      || !reasons || !subset(reasons, ["metrics_missing", "metrics_not_final"])
+      || Object.values(reasons).some((count) => !integer(count, 1, 10_000))
+      || Object.values(reasons).reduce<number>((sum, count) => sum + Number(count), 0) !== coverage.excludedActivityCount
+      || (partial ? coverage.excludedActivityCount === 0 : coverage.excludedActivityCount !== 0)) invalid();
+  if (partial) {
+    const exclusions = object(raw.inputExclusions);
+    if (!exclusions || !exact(exclusions, ["reason", "count", "activityIds", "mergedWithLastKnownGood"])
+        || exclusions.reason !== "input_pending" || exclusions.count !== coverage.excludedActivityCount
+        || !Array.isArray(exclusions.activityIds)
+        || exclusions.activityIds.length !== excludedIds.length
+        || exclusions.activityIds.some((id, index) => id !== excludedIds[index])
+        || typeof exclusions.mergedWithLastKnownGood !== "boolean") invalid();
+  }
+}
 
 function migrateLegacyPdcV1(raw: Record<string, unknown>): PdcDoc {
   if (!exact(raw, LEGACY_TOP_KEYS) || raw.discipline !== "bike" || raw.version !== 1
@@ -59,16 +98,18 @@ function migrateLegacyPdcV1(raw: Record<string, unknown>): PdcDoc {
     wPerKgAtKey: null, riderType: null, ability: null, sustainablePower: [], history: [], vo2maxEst: null,
     provenance: { version: 2, power: "unknown", excludesVirtualPower: false, migration: "legacy_v1",
       byDuration, derived: { ftpEst: false, vo2maxEst: false } }, activityCount: raw.activityCount,
-    weightKgSnapshot: null, computedAt: raw.computedAt, version: PDC_VERSION };
+    weightKgSnapshot: null, computedAt: raw.computedAt, version: 5 };
 }
 
 export function parsePersistedPdc(input: unknown): PdcDoc {
   const raw = object(input);
   if (raw?.version === 1) return migrateLegacyPdcV1(raw);
-  if (!raw || !exact(raw, TOP_KEYS) || raw.discipline !== "bike" || raw.version !== PDC_VERSION
+  if (!raw || (raw.version === 6 ? !exact(raw, raw.status === "partial" ? V6_PARTIAL_TOP_KEYS : V6_TOP_KEYS) : !exact(raw, TOP_KEYS))
+      || raw.discipline !== "bike" || (raw.version !== 5 && raw.version !== PDC_VERSION)
       || !integer(raw.computedAt, 0, Number.MAX_SAFE_INTEGER) || !integer(raw.activityCount, 0, 10_000)
       || !nullable(raw.weightKgSnapshot, 25, 250) || !nullable(raw.stamina, 0, 1)
       || !nullable(raw.vo2maxEst, 20, 95) || !POWER_PROFILES.includes(raw.powerProfile as PowerProfile)) invalid();
+  if (raw.version === 6) validateV6Lifecycle(raw);
 
   const mmpAll = object(raw.mmpAll);
   if (!mmpAll || !subset(mmpAll, DURATIONS)) invalid();

@@ -56,7 +56,7 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
   const ftpEvidence = activeFtp == null
     ? t("mobileFitness.performance.ftpMissingEvidence")
     : wkg != null ? t("mobileFitness.snapshot.ftpSource") : t("mobileFitness.snapshot.ftpWeightMissing");
-  const definitive = pdc?.version === 5 && pdc.provenanceVersion === 2 && pdc.measuredPower
+  const definitive = (pdc?.version === 5 || pdc?.version === 6) && pdc.provenanceVersion === 2 && pdc.measuredPower
     && (pdc.activityCount ?? 0) >= 5 && pdc.weightKgSnapshot != null
     && pdc.riderType != null && pdc.riderType.confidence >= 0.75 && RIDER_TYPE_KEYS.has(pdc.riderType.type)
     && pdc.riderType.type !== "Unclassified";

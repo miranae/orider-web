@@ -5,6 +5,23 @@ import type { PdcDoc } from "../types/pdc";
 import { hasCanonicalPdcV5Source, hasDefinitiveRiderProfile } from "./pdcRiderGate";
 
 describe("canonical PDC rider profile gate", () => {
+  it("accepts canonical final v6 rider evidence and rejects partial lifecycle or cohort-ineligible power", () => {
+    const value = structuredClone(parity.persistedPdc) as any;
+    value.version = 6; value.status = "final"; value.inputDigest = "a".repeat(64);
+    value.asOf = value.computedAt;
+    value.coverage = { state: "complete", candidateActivityCount: value.activityCount,
+      includedActivityCount: value.activityCount, excludedActivityCount: 0,
+      excludedActivityIds: [], excludedActivityIdsTruncated: false, excludedReasonCounts: {},
+      carriedForwardDurationCount: 0 };
+    const pdc = parsePersistedPdc(value);
+    expect(hasCanonicalPdcV5Source(pdc)).toBe(true);
+    expect(hasDefinitiveRiderProfile(pdc)).toBe(true);
+    expect(hasDefinitiveRiderProfile({ ...pdc, status: "partial" })).toBe(false);
+    const personal = structuredClone(pdc);
+    personal.mmpAll["5s"]!.cohortEligible = false;
+    personal.provenance.byDuration["5s"]!.cohortEligible = false;
+    expect(hasDefinitiveRiderProfile(personal)).toBe(false);
+  });
   it("requires v5 measured provenance, weight, five activities, and confidence >= 0.75", () => {
     const pdc = parsePersistedPdc(parity.persistedPdc);
     expect(hasDefinitiveRiderProfile(pdc)).toBe(true);

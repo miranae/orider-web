@@ -15,6 +15,12 @@ const completeDecision = {
 };
 
 describe("BikePerformanceSummaryCard", () => {
+  it("shows a validated v6 final rider summary", () => {
+    renderWithProviders(<BikePerformanceSummaryCard pdc={{ riderType: { type: "Climber", confidence: 0.9 },
+      abilityScore: 82, vo2maxEst: 58, activityCount: 14, weightKgSnapshot: 70,
+      version: 6, provenanceVersion: 2, measuredPower: true }} />);
+    expect(screen.getByText("클라이머")).toBeInTheDocument();
+  });
   it("keeps the personal PDC hierarchy and shows one simple ability score", async () => {
     const user = userEvent.setup();
     const { container } = renderWithProviders(

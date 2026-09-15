@@ -5,6 +5,18 @@ import parity from "../features/coach/__fixtures__/rider-insight-parity.json";
 import { parsePersistedPdc } from "./pdcContract";
 
 const fixture = () => structuredClone(parity.persistedPdc) as any;
+const v6Fixture = () => {
+  const value = fixture();
+  value.version = 6;
+  value.status = "final";
+  value.inputDigest = "a".repeat(64);
+  value.asOf = value.computedAt;
+  value.coverage = { state: "complete", candidateActivityCount: value.activityCount,
+    includedActivityCount: value.activityCount, excludedActivityCount: 0,
+    excludedActivityIds: [], excludedActivityIdsTruncated: false, excludedReasonCounts: {},
+    carriedForwardDurationCount: 0 };
+  return value;
+};
 const legacyFixture = () => {
   const legacy = fixture();
   legacy.version = 1;
@@ -16,7 +28,48 @@ const legacyFixture = () => {
   return legacy;
 };
 
-describe("persisted PDC v5 contract", () => {
+describe("persisted PDC contract", () => {
+  it("accepts a complete v6 final document with measured provenance", () => {
+    const parsed = parsePersistedPdc(v6Fixture());
+    expect(parsed).toMatchObject({ version: 6, status: "final", coverage: { state: "complete", excludedActivityCount: 0 } });
+    expect(hasCanonicalPdcV5Source(parsed)).toBe(true);
+  });
+
+  it("accepts a v6 final document with more candidate rides than measured PDC inputs", () => {
+    const value = v6Fixture();
+    value.activityCount = 20;
+    value.coverage.includedActivityCount = 20;
+    value.coverage.candidateActivityCount = 76;
+    expect(parsePersistedPdc(value)).toMatchObject({ version: 6, status: "final",
+      coverage: { candidateActivityCount: 76, includedActivityCount: 20, excludedActivityCount: 0 } });
+  });
+
+  it("accepts a structurally valid v6 partial document without promoting it as canonical", () => {
+    const value = v6Fixture();
+    value.status = "partial";
+    value.coverage = { ...value.coverage, state: "partial", candidateActivityCount: value.activityCount + 1,
+      excludedActivityCount: 1, excludedActivityIds: ["pending-ride"],
+      excludedReasonCounts: { metrics_not_final: 1 } };
+    value.inputExclusions = { reason: "input_pending", count: 1,
+      activityIds: ["pending-ride"], mergedWithLastKnownGood: false };
+    const parsed = parsePersistedPdc(value);
+    expect(parsed).toMatchObject({ version: 6, status: "partial" });
+    expect(hasCanonicalPdcV5Source(parsed)).toBe(false);
+  });
+
+  it.each([
+    ["missing digest", (value: any) => { delete value.inputDigest; }],
+    ["malformed digest", (value: any) => { value.inputDigest = "not-a-sha256"; }],
+    ["missing evaluation time", (value: any) => { delete value.asOf; }],
+    ["wrong coverage state", (value: any) => { value.coverage.state = "partial"; }],
+    ["excluded activity in final coverage", (value: any) => { value.coverage.excludedActivityCount = 1; }],
+    ["partial status without exclusions", (value: any) => { value.status = "partial"; }],
+    ["unexpected lifecycle field", (value: any) => { value.inputExclusions = { reason: "input_pending" }; }],
+  ] as Array<[string, (value: any) => void]>)('rejects malformed v6 lifecycle: %s', (_label, mutate) => {
+    const value = v6Fixture(); mutate(value);
+    expect(() => parsePersistedPdc(value)).toThrow("INVALID_PERSISTED_PDC_V5");
+  });
+
   it("accepts only the canonical v5 measured-power provenance source", () => {
     const parsed = parsePersistedPdc(fixture());
     expect(parsed).toMatchObject({ version: 5, provenance: { version: 2, power: "measured", excludesVirtualPower: true },
@@ -39,7 +92,7 @@ describe("persisted PDC v5 contract", () => {
     const legacy = legacyFixture();
     const parsed = parsePersistedPdc(legacy);
     expectTypeOf(parsed).toEqualTypeOf<PdcDoc>();
-    expectTypeOf(parsed.version).toEqualTypeOf<5>();
+    expectTypeOf(parsed.version).toEqualTypeOf<5 | 6>();
     expect(parsed).toMatchObject({ version: 5, activityCount: 12, cp: { value: 270 },
       provenance: { version: 2, power: "unknown", excludesVirtualPower: false, migration: "legacy_v1" },
       pdcModel: null, stamina: null, powerProfile: "unclassified", wPerKgAtKey: null,

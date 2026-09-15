@@ -33,6 +33,19 @@ export interface PdcDurationProvenance {
   cohortEligible: boolean;
 }
 
+export type PdcStatus = "final" | "partial";
+
+export interface PdcCoverage {
+  state: "complete" | "partial";
+  candidateActivityCount: number;
+  includedActivityCount: number;
+  excludedActivityCount: number;
+  excludedActivityIds: string[];
+  excludedActivityIdsTruncated: boolean;
+  excludedReasonCounts: Partial<Record<"metrics_missing" | "metrics_not_final", number>>;
+  carriedForwardDurationCount: number;
+}
+
 export type RiderType =
   | "RoadSprinter"
   | "TrackSprinter"
@@ -59,6 +72,12 @@ export interface PdcSustainablePoint {
 
 export interface PdcDoc {
   discipline: "bike";
+
+  /** v6 계산 상태. v5 및 v1 마이그레이션 문서에는 없다. */
+  status?: PdcStatus;
+  inputDigest?: string;
+  asOf?: number;
+  coverage?: PdcCoverage;
 
   /** 90일 윈도우 best per duration. PrEntry 형태 유지 (activityId/date 추적). */
   mmpAll: Partial<Record<PowerDurationKey, PdcPrEntry>>;
@@ -127,10 +146,10 @@ export interface PdcDoc {
   /** 사용된 weight 스냅샷 (W/kg 계산 시). */
   weightKgSnapshot: number | null;
   computedAt: number;
-  version: 5;
+  version: 5 | 6;
 }
 
-export const PDC_VERSION = 5;
+export const PDC_VERSION = 6;
 /** PDC 계산 윈도우 (일). */
 export const PDC_WINDOW_DAYS = 90;
 /** History 보존 개월. */
