@@ -17,6 +17,7 @@ import { parsePersistedPdc } from "../services/pdcContract";
 export type UsePdcState =
   | { status: "loading"; pdc: null }
   | { status: "missing"; pdc: null }
+  | { status: "partial"; pdc: null }
   | { status: "ready"; pdc: PdcDoc };
 
 /**
@@ -40,7 +41,10 @@ export function usePdc(uid: string | null | undefined): UsePdcState {
           return;
         }
         try {
-          setState({ status: "ready", pdc: parsePersistedPdc(snap.data()) });
+          const parsed = parsePersistedPdc(snap.data());
+          setState(parsed.version === 6 && parsed.status === "partial"
+            ? { status: "partial", pdc: null }
+            : { status: "ready", pdc: parsed });
         } catch (error) {
           logClientError("usePdc.invalidContract", error, { uid });
           setState({ status: "missing", pdc: null });

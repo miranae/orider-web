@@ -24,7 +24,11 @@ function hasCanonicalRiderMmpEvidence(pdc: PdcDoc): boolean {
 }
 
 export function hasCanonicalPdcV5Source(pdc: PdcDoc | null | undefined): pdc is PdcDoc {
-  return pdc?.version === PDC_VERSION && pdc.provenance?.version === 2
+  return (pdc?.version === 5 || (pdc?.version === PDC_VERSION && pdc.status === "final"
+    && typeof pdc.inputDigest === "string" && /^[a-f0-9]{64}$/u.test(pdc.inputDigest)
+    && typeof pdc.asOf === "number" && Number.isSafeInteger(pdc.asOf) && pdc.asOf >= 0
+    && pdc.coverage?.state === "complete" && pdc.coverage.excludedActivityCount === 0))
+    && pdc.provenance?.version === 2
     && pdc.provenance.power === "measured" && pdc.provenance.excludesVirtualPower === true
     && hasCanonicalRiderMmpEvidence(pdc);
 }
