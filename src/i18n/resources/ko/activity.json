@@ -1,4 +1,15 @@
 {
+  "overviewSummary": {
+    "title": "오라이더 활동개요", "characterPending": "성격 확인 중",
+    "stimulus": "훈련 자극", "changes": "나의 변화", "recovery": "회복과 연료", "before": "시작 전 상태",
+    "minute": "분", "second": "초", "hour": "시간", "efforts": "회", "samples": "회", "index": "지수",
+    "matches": "FTP 초과 30초 이상", "longest": "최장 Z4+", "anaerobic": "120% FTP 초과 누적", "reserve": "무산소 여력 최대 소진", "remaining": "W′ 최저 잔량",
+    "stimulusMissing": "이번 활동의 자극 분석 정보가 아직 없어요.", "measuredZones": "계측된 존 시간 기준",
+    "peakChange": "피크 파워 변화", "stablePower": "비교 가능한 피크 파워는 내 기준 ±5% 이내예요.",
+    "comparisonNote": "변화는 중앙값 대비 · 영역 비중 차이는 %p · PR은 전체 기간 기준",
+    "recoveryHours": "권장 회복 · 약", "recoveryMissing": "이번 활동의 회복·연료 분석 정보가 아직 없어요.", "beforeMissing": "활동 시작 전 피트니스 정보가 아직 없어요.",
+    "ctl": "체력 · CTL", "atl": "피로 · ATL", "tsb": "폼 · TSB", "ftp": "분석 기준 FTP"
+  },
   "overviewEvidence": {
     "overviewTitle": "오라이더 활동개요",
     "overviewSource": "이번 활동의 성격과 내 기록 대비 변화를 한눈에 확인하세요.",

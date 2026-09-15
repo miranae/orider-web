@@ -1,4 +1,15 @@
 {
+  "overviewSummary": {
+    "title": "O-Rider activity overview", "characterPending": "Character pending",
+    "stimulus": "Training stimulus", "changes": "My changes", "recovery": "Recovery & fuel", "before": "Pre-session state",
+    "minute": "m", "second": "s", "hour": "h", "efforts": " efforts", "samples": " samples", "index": "Index",
+    "matches": "Above FTP for ≥30s", "longest": "Longest Z4+", "anaerobic": "Time above 120% FTP", "reserve": "Maximum anaerobic reserve depletion", "remaining": "Minimum W′ remaining",
+    "stimulusMissing": "Training stimulus information is not available yet.", "measuredZones": "Based on measured zone time",
+    "peakChange": "Peak power change", "stablePower": "Comparable peak power is within ±5% of my baseline.",
+    "comparisonNote": "Changes versus median · zone differences in percentage points · PRs use all-time records",
+    "recoveryHours": "Recommended recovery · about", "recoveryMissing": "Recovery and fuel information is not available yet.", "beforeMissing": "Pre-session fitness information is not available yet.",
+    "ctl": "Fitness · CTL", "atl": "Fatigue · ATL", "tsb": "Form · TSB", "ftp": "Analysis FTP"
+  },
   "overviewEvidence": {
     "overviewTitle": "ORider activity overview",
     "overviewSource": "See your session's character and how it compares with your own history.",
