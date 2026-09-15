@@ -32,6 +32,7 @@ import { logClientError } from "../services/errorLogger";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useBikeProfiles } from "./useBikeProfiles";
 import { useActivityMetrics } from "./useActivityMetrics";
+import { useActivityOverview } from "./useActivityOverview";
 import { useStrava } from "./useStrava";
 import { getStravaActivityId } from "../utils/stravaActivity";
 
@@ -51,6 +52,7 @@ export interface ActivityAnalysisModel {
   streamsError: string | null;
   retryStreams: () => Promise<void>;
   serverMetrics: ReturnType<typeof useActivityMetrics>;
+  overview: ReturnType<typeof useActivityOverview>;
   isActivityOwner: boolean;
   sport: ReturnType<typeof getSportCategory>;
   streamSensorSummary: ReturnType<typeof deriveStreamSensorSummary>;
@@ -156,6 +158,18 @@ export function useActivityAnalysisModel(
     && !!user
     && activity.userId === user.uid;
   const serverMetrics = useActivityMetrics(activityId ?? null, isActivityOwner);
+  const overviewActivity = activity as (Activity & Record<string, unknown>) | null;
+  const overviewMetrics = serverMetrics.metrics as (NonNullable<typeof serverMetrics.metrics> & Record<string, unknown>) | null;
+  // 메트릭 생성 시각이 그대로여도 개인정보·출처·선택 revision 변경은 캐시를 무효화한다.
+  const overview = useActivityOverview(activityId, isActivityOwner, JSON.stringify([
+    serverMetrics.status, overviewMetrics?.version, overviewMetrics?.computedAt,
+    overviewMetrics?.metricsRevision, overviewMetrics?.inputDigest, overviewMetrics?.etag,
+    overviewMetrics?.inputPending, overviewMetrics?.sourceLayer, overviewMetrics?.isVirtualPower,
+    activity?.contentRevision, activity?.contentSelectedRevision, activity?.source, activity?.sourceMeta,
+    activity?.isVirtualPower, activity?.virtualPowerParams, activity?.visibility,
+    overviewActivity?.hidePower, overviewActivity?.hideHr, overviewActivity?.metadataRevision,
+    overviewActivity?.updatedAt,
+  ]));
   const isStrava = activity?.source === "strava";
   const sport = getSportCategory(activity?.type || (isStrava ? undefined : "Ride"));
   const isRide = sport === "ride";
@@ -327,6 +341,7 @@ export function useActivityAnalysisModel(
     return {
       activityId: activityId ?? null,
       isOwner: isActivityOwner,
+      overviewRecovery: overview.response?.status === "available" ? overview.response.presentation.recovery ?? null : null,
       startTime: activity.startTime,
       streams: analysisProjection.streams,
       summary: resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics),
@@ -338,6 +353,7 @@ export function useActivityAnalysisModel(
       virtualPowerParams: activePowerOverride?.params ?? activity.virtualPowerParams,
     };
   }, [
+    overview.response,
     activePowerOverride,
     activity,
     activityId,
@@ -369,6 +385,7 @@ export function useActivityAnalysisModel(
     streamsError,
     retryStreams,
     serverMetrics,
+    overview,
     isActivityOwner,
     sport,
     streamSensorSummary,
