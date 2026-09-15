@@ -993,6 +993,8 @@ export default function ActivityPage() {
       {/* ── Left: 분석 / 스탯 / 사진 / 댓글 ── */}
       <div className="flex-1 min-w-0 space-y-6">
 
+      <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} variant="overview" />
+
       <EquipmentSignalCard
         key={activity.id}
         activityId={activity.id}
