@@ -66,13 +66,13 @@ export function ActivityOverviewEvidenceContent({ presentation: p }: { presentat
   </div>;
 }
 
-export default function ActivityOverviewEvidence({ overview, preview = false }: { overview: ReturnType<typeof useActivityOverview>; preview?: boolean }) {
+export default function ActivityOverviewEvidence({ overview, preview = false, variant = "analysis" }: { overview: ReturnType<typeof useActivityOverview>; preview?: boolean; variant?: "overview" | "analysis" }) {
   const { t } = useTranslation("activity");
   if (!overview.enabled) return null;
   const reason = overview.response?.status === "unavailable" ? overview.response.reason : null;
   return <Card className="space-y-4" data-testid="activity-overview-evidence">
-    <Text as="h2" variant="subtitle">{t("overviewEvidence.title")}</Text>
-    <Text as="p" variant="caption" tone="secondary">{t("overviewEvidence.source")}</Text>
+    <Text as="h2" variant="subtitle">{t(variant === "overview" ? "overviewEvidence.overviewTitle" : "overviewEvidence.title")}</Text>
+    <Text as="p" variant="caption" tone="secondary">{t(variant === "overview" ? "overviewEvidence.overviewSource" : "overviewEvidence.source")}</Text>
     {preview && <Text as="p" variant="caption">{t("overviewEvidence.preview")}</Text>}
     {overview.loading ? <Text as="p" variant="body" role="status">{t("overviewEvidence.loading")}</Text> : overview.response?.status === "available" ? <>
       <ActivityOverviewEvidenceContent presentation={overview.response.presentation} />

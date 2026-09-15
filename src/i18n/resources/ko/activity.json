@@ -1,5 +1,7 @@
 {
   "overviewEvidence": {
+    "overviewTitle": "오라이더 활동개요",
+    "overviewSource": "이번 활동의 성격과 내 기록 대비 변화를 한눈에 확인하세요.",
     "hrContextMissing": "활동 당시 심박 기준 정본이 없습니다.",
     "unavailable": { "rollout_disabled": "활동개요 근거 제공이 현재 비활성화되어 있습니다.", "metrics_unavailable": "활동 지표가 준비 중이거나 아직 산출되지 않았습니다.", "input_changed": "활동 데이터가 갱신되었습니다. 다시 불러와 주세요." },
     "title": "활동개요 평가 근거",

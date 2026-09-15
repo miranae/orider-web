@@ -1,4 +1,4 @@
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
 import ActivityOverviewEvidence, { ActivityOverviewEvidenceContent } from "./ActivityOverviewEvidence";
@@ -17,6 +17,18 @@ const rich: ActivityOverviewPresentation = {
 };
 
 describe("activity overview evidence", () => {
+  it("keeps loading, retry and rollout-disabled states in the overview variant", () => {
+    const overview = { enabled: true, loading: true, response: null, error: false, retry: vi.fn() };
+    const { rerender } = render(<ActivityOverviewEvidence overview={overview} variant="overview" />);
+    expect(screen.getByRole("heading", { name: "오라이더 활동개요" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    rerender(<ActivityOverviewEvidence overview={{ ...overview, loading: false, error: true }} variant="overview" />);
+    fireEvent.click(screen.getByRole("button"));
+    expect(overview.retry).toHaveBeenCalledOnce();
+    rerender(<ActivityOverviewEvidence overview={{ ...overview, loading: false, response: { status: "unavailable", activityId: "a", reason: "rollout_disabled" } }} variant="overview" />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.queryByText(rich.coachSentence)).not.toBeInTheDocument();
+  });
   it("shows measured zone percentages without comparison history", () => {
     render(<ActivityOverviewEvidenceContent presentation={{ coachSentence: "short", session: { discipline: "bike" }, zones: [{ kind: "power", seconds: [25, 75, 0, 0, 0, 0, 0], priority: "primary" }] }} />);
     expect(screen.getByText("25%")).toBeInTheDocument();

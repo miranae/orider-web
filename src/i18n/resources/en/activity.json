@@ -1,5 +1,7 @@
 {
   "overviewEvidence": {
+    "overviewTitle": "ORider activity overview",
+    "overviewSource": "See your session's character and how it compares with your own history.",
     "hrContextMissing": "Activity-time heart-rate reference is unavailable.",
     "unavailable": { "rollout_disabled": "Activity overview evidence is currently disabled.", "metrics_unavailable": "Activity metrics are pending or have not been produced yet.", "input_changed": "Activity data changed. Please reload the evidence." },
     "title": "Activity overview evidence",
