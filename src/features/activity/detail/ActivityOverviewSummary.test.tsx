@@ -29,10 +29,33 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.getByText("피크 파워 변화 · 2분")).toBeInTheDocument();
     expect(screen.getByText("+19.3% · 10회")).toBeInTheDocument();
     expect(screen.getByText("전체 기간 PR")).toBeInTheDocument();
-    expect(screen.getByText(/분석 기준 FTP 182 W/)).toBeInTheDocument();
+    expect(screen.queryByText(/분석 기준 FTP 182 W/)).not.toBeInTheDocument();
     expect(screen.queryByText("근육 부하")).not.toBeInTheDocument();
     expect(screen.queryByText("1520")).not.toBeInTheDocument();
     expect(screen.getByText(/직접 측정한 생리값/)).toBeInTheDocument();
+  });
+  it("uses one design-system card and quiet dividers rather than numbered inset panels", () => {
+    render(<ActivityOverviewSummary overview={{ enabled: true, loading: false, response: { status: "available", activityId: "a", presentation: rich }, error: false, retry: vi.fn() }} />);
+    const summary = screen.getByTestId("activity-overview-summary");
+    expect(summary).toHaveClass("ds-card");
+    expect(summary.querySelectorAll(".ds-card")).toHaveLength(0);
+    expect(summary.querySelectorAll("section.border-t")).toHaveLength(4);
+    expect(summary.querySelector(".ds-card--inset")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^0[1-4]$/)).not.toBeInTheDocument();
+    expect(screen.queryByText("라이딩")).not.toBeInTheDocument();
+  });
+  it("shows every verified PR and only the strongest personal comparisons", () => {
+    render(<ActivityOverviewSummaryContent presentation={{ ...rich, powerFingerprint: [
+      ...rich.powerFingerprint!,
+      { duration: "10m", watts: 204, deltaPct: 8, medianWatts: 180, priorSampleCount: 10, recordAchievement: "new" },
+      { duration: "20m", watts: 190, deltaPct: 6, medianWatts: 170, priorSampleCount: 10, recordAchievement: "new" },
+    ] }} />);
+    expect(screen.getByText("5분 · 219 W")).toBeInTheDocument();
+    expect(screen.getByText("10분 · 204 W")).toBeInTheDocument();
+    expect(screen.getByText("20분 · 190 W")).toBeInTheDocument();
+    expect(screen.getByText("+19.3% · 10회")).toBeInTheDocument();
+    expect(screen.queryByText("+8% · 10회")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Z1 \+15/)).not.toBeInTheDocument();
   });
   it.each(["bike", "run", "swim"] as const)("keeps the same frame for missing %s inputs", (discipline) => {
     render(<ActivityOverviewSummaryContent presentation={{ coachSentence: "짧은 활동", session: { discipline }, thresholdWork: {}, availability: { personal: "character_uncertain", records: "unavailable", power: "unavailable", heartRate: "unavailable" } }} />);
