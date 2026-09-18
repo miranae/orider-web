@@ -176,15 +176,18 @@ describe("ActivityPage", () => {
     expect(mockCallableInvocations.filter(({ name }) => name === "getActivityOverview")).toHaveLength(1);
   });
 
-  it.each([false, true])("does not request private overview for a nonowner (authenticated=%s)", async (authenticated) => {
+  it.each([false, true])("requests a nonowner overview and hides diagnostics when the server withholds it (authenticated=%s)", async (authenticated) => {
     mockRoute.activityId = `overview-tab-nonowner-${authenticated}`;
     const activity = createMockActivity({ id: mockRoute.activityId, userId: "another-owner", description: "공개 활동 개요" });
     setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
     renderWithProviders(<ActivityPage />, { authenticated });
     await screen.findByText("공개 활동 개요");
+    // 공개 여부 판정은 서버에만 있다 — 클라이언트는 소유권으로 막지 않고 묻는다.
+    await waitFor(() => expect(mockCallableInvocations.some(({ name }) => name === "getActivityOverview")).toBe(true));
+    // 서버가 개요를 주지 않으면 남의 활동에는 진단 문구도 재시도 버튼도 남기지 않는다.
     expect(screen.queryByTestId("activity-overview-evidence")).not.toBeInTheDocument();
     expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
-    expect(mockCallableInvocations.some(({ name }) => name === "getActivityOverview")).toBe(false);
+    expect(screen.queryByText("평가 근거 다시 불러오기")).not.toBeInTheDocument();
   });
 
   it("publishes the current owner and clears stale ownership across route changes", async () => {

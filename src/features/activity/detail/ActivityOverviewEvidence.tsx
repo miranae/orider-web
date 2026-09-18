@@ -7,9 +7,11 @@ const number = (value: number | undefined, unit = "") => value != null && Number
 const delta = (value: number | undefined, unit: string) => value != null && Number.isFinite(value) ? `${value > 0 ? "+" : ""}${number(value, unit)}` : "—";
 const seconds = (value: number | undefined) => number(value, " s");
 
-export function ActivityOverviewEvidenceContent({ presentation: p }: { presentation: ActivityOverviewPresentation }) {
+export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = true }: { presentation: ActivityOverviewPresentation; isOwner?: boolean }) {
   const { t } = useTranslation("activity");
   const label = (key: string) => t(`overviewEvidence.${key}`);
+  // 근거 문구도 소유자 1인칭이다 — 남의 활동에서는 소유자를 가리키는 표현으로 바꾼다.
+  const voice = (key: string) => label(isOwner ? key : `${key}Other`);
   const accents: Record<string, string> = { stimulus: "var(--lime)", recoveryFuel: "var(--amber)", fitness: "var(--aqua)", sportDetails: "var(--lime)", route: "var(--aqua)" };
   const heading = (key: string) => <Text as="h3" variant="bodySmall" weight={600} tone="secondary">{label(key)}</Text>;
   const section = (key: string, rows: [string, string][]) => <section className="space-y-3" aria-label={label(key)}>
@@ -54,8 +56,8 @@ export function ActivityOverviewEvidenceContent({ presentation: p }: { presentat
         [label("depletion"), number(effort?.wPrimeDepletionPct, "%")], [label("remaining"), number(effort?.wPrimeRemainingPct, "%")],
       ] as [string, string][] : []),
     ])}
-    <section className="space-y-3">{heading("personal")}
-      <Text as="p" variant="caption" tone="secondary">{label("relative")}</Text>
+    <section className="space-y-3">{<Text as="h3" variant="bodySmall" weight={600} tone="secondary">{voice("personal")}</Text>}
+      <Text as="p" variant="caption" tone="secondary">{voice("relative")}</Text>
       {metadata && <Text as="p" variant="caption">{t("overviewEvidence.scope", { days: metadata.windowDays, count: metadata.priorSampleCount, character: label(`characters.${metadata.character}`) })} · {label(`completeness.${metadata.historyCompleteness}`)}</Text>}
       {p.personal?.length ? table([label("axis"), label("index"), label("band"), label("samples")], p.personal.map((row) => [label(`axes.${row.axis}`), number(row.personalIndex), label(`bands.${row.band}`), number(row.sampleCount)])) : <Text as="p" variant="caption">{label(`personalStates.${p.availability?.personal ?? "unavailable"}`)}</Text>}
     </section>
@@ -83,16 +85,17 @@ export function ActivityOverviewEvidenceContent({ presentation: p }: { presentat
   </div>;
 }
 
-export default function ActivityOverviewEvidence({ overview, preview = false }: { overview: ReturnType<typeof useActivityOverview>; preview?: boolean }) {
+export default function ActivityOverviewEvidence({ overview, preview = false, isOwner = true }: { overview: ReturnType<typeof useActivityOverview>; preview?: boolean; isOwner?: boolean }) {
   const { t } = useTranslation("activity");
   if (!overview.enabled) return null;
   const reason = overview.response?.status === "unavailable" ? overview.response.reason : null;
+  if (!isOwner && overview.response?.status !== "available") return null;
   return <div className="space-y-4 min-w-0" data-testid="activity-overview-evidence">
     <Text as="h2" variant="subtitle">{t("overviewEvidence.title")}</Text>
     <Text as="p" variant="caption" tone="secondary">{t("overviewEvidence.source")}</Text>
     {preview && <Text as="p" variant="caption">{t("overviewEvidence.preview")}</Text>}
     {overview.loading ? <Text as="p" variant="body" role="status">{t("overviewEvidence.loading")}</Text> : overview.response?.status === "available" ? <>
-      <ActivityOverviewEvidenceContent presentation={overview.response.presentation} />
+      <ActivityOverviewEvidenceContent presentation={overview.response.presentation} isOwner={isOwner} />
       {!!overview.response.partialReasons?.length && <Text as="p" variant="caption">{t("overviewEvidence.partial")} {overview.response.partialReasons.map((reason) => t(`overviewEvidence.partialReasons.${reason}`)).join(" · ")}</Text>}
     </> : <div className="space-y-2"><Text as="p" variant="body">{t(overview.error ? "overviewEvidence.error" : reason ? `overviewEvidence.unavailable.${reason}` : "overviewEvidence.missing")}</Text>{reason !== "rollout_disabled" && <Button size="sm" variant="outline" onClick={overview.retry}>{t("overviewEvidence.retry")}</Button>}</div>}
   </div>;
