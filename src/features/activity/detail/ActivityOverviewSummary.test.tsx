@@ -109,3 +109,23 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
+
+describe("activity overview summary for a viewer", () => {
+  const overview = { enabled: true, loading: false, response: null, error: false, retry: vi.fn() };
+  it("uses the rider voice instead of the owner voice", () => {
+    render(<ActivityOverviewSummaryContent presentation={rich} isOwner={false} />);
+    expect(screen.getByText("이 라이더의 변화")).toBeInTheDocument();
+    expect(screen.queryByText("나의 변화")).not.toBeInTheDocument();
+  });
+  it("shows the card only when the server actually returned an overview", () => {
+    const { rerender } = render(<ActivityOverviewSummary overview={{ ...overview, loading: true }} isOwner={false} />);
+    expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
+    for (const state of [{ error: true }, { response: { status: "unavailable" as const, activityId: "a", reason: "metrics_unavailable" as const } }]) {
+      rerender(<ActivityOverviewSummary overview={{ ...overview, ...state }} isOwner={false} />);
+      expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    }
+    rerender(<ActivityOverviewSummary overview={{ ...overview, response: { status: "available", activityId: "a", version: "activity-overview-v1", inputDigest: "d", presentation: rich } }} isOwner={false} />);
+    expect(screen.getByTestId("activity-overview-summary")).toBeInTheDocument();
+  });
+});

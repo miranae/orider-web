@@ -961,7 +961,7 @@ export default function ActivityPage() {
           <AnalysisTab {...analysisTabProps} />
         </Card>
       )}
-      {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} />}
+      {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />}
 
       {/* ── 스플릿 탭 (러닝 전용) ── */}
       {activeTab === "splits" && sport === "run" && streams && (
@@ -994,7 +994,7 @@ export default function ActivityPage() {
       {/* ── Left: 분석 / 스탯 / 사진 / 댓글 ── */}
       <div className="flex-1 min-w-0 space-y-6">
 
-      <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} />
+      <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />
 
       <EquipmentSignalCard
         key={activity.id}

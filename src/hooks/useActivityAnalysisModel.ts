@@ -161,7 +161,8 @@ export function useActivityAnalysisModel(
   const overviewActivity = activity as (Activity & Record<string, unknown>) | null;
   const overviewMetrics = serverMetrics.metrics as (NonNullable<typeof serverMetrics.metrics> & Record<string, unknown>) | null;
   // 메트릭 생성 시각이 그대로여도 개인정보·출처·선택 revision 변경은 캐시를 무효화한다.
-  const overview = useActivityOverview(activityId, isActivityOwner, JSON.stringify([
+  // 활동 문서가 도착해 이 경로의 활동임이 확인되기 전에는 개요를 묻지 않는다.
+  const overview = useActivityOverview(activityId, !!activity && activity.id === activityId, JSON.stringify([
     serverMetrics.status, overviewMetrics?.version, overviewMetrics?.computedAt,
     overviewMetrics?.metricsRevision, overviewMetrics?.inputDigest, overviewMetrics?.etag,
     overviewMetrics?.inputPending, overviewMetrics?.sourceLayer, overviewMetrics?.isVirtualPower,
