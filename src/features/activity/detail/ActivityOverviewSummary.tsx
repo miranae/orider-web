@@ -15,10 +15,12 @@ function SummarySection({ title, children }: { title: string; children: ReactNod
 }
 
 /** A reading surface for the sharing summary, not a second analysis dashboard. */
-export function ActivityOverviewSummaryContent({ presentation: p }: { presentation: ActivityOverviewPresentation }) {
+export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true }: { presentation: ActivityOverviewPresentation; isOwner?: boolean }) {
   const { t, i18n } = useTranslation("activity");
   const label = (key: string) => t(`overviewEvidence.${key}`);
   const copy = (key: string) => t(`overviewSummary.${key}`);
+  // 개요 문구는 소유자 1인칭으로 쓰여 있다. 남의 활동에서 그대로 쓰면 보는 사람의 기록으로 읽힌다.
+  const voice = (key: string) => copy(isOwner ? key : `${key}Other`);
   const duration = (value: number) => `${Math.floor(Math.round(value) / 60)}${copy("minute")} ${Math.round(value) % 60}${copy("second")}`;
   const powerDuration = (value: string) => i18n.language.startsWith("ko") ? value.replace(/s$/, "초").replace(/m$/, "분").replace(/h$/, "시간") : value;
   const powerVisible = p.availability?.power !== "private";
@@ -55,12 +57,12 @@ export function ActivityOverviewSummaryContent({ presentation: p }: { presentati
         {highPercent == null && ![effort?.matchesCount, effort?.longestZ4PlusSec, effort?.anaerobicSec, effort?.wPrimeDepletionPct, effort?.wPrimeRemainingPct].some((value) => value != null) && note(copy("stimulusMissing"))}
       </Stack>
     </SummarySection>
-    <SummarySection title={copy("changes")}>
+    <SummarySection title={voice("changes")}>
       {!!records.length && <Stack>{records.map((row) => <Stack key={row.key} direction="row" wrap align="center"><Chip variant="accent">{label(`records.${row.achievement}`)}</Chip><Text variant="bodyMedium" mono>{row.value}</Text></Stack>)}</Stack>}
       {!!personal.length && <Stack gap="var(--dim-item-gap)">{personal.map((row) => <Stack key={row.axis} direction="row" justify="space-between" align="baseline" wrap><Text variant="bodySmall" tone="secondary">{label(`axes.${row.axis}`)} · {label(`bands.${row.band}`)}</Text><Text variant="bodyMedium" mono tone="primary">{copy("index")} {number(row.personalIndex)}</Text></Stack>)}</Stack>}
       {!personal.length && note(label(`personalStates.${p.availability?.personal ?? "unavailable"}`))}
       {!!highlights.length && <Stack>{highlights.map((row) => <Stack key={row.duration} direction="row" wrap justify="space-between"><Text variant="bodySmall">{copy("peakChange")} · {powerDuration(row.duration)}</Text><Text variant="bodyMedium" mono>{signed(row.deltaPct!)}% · {row.priorSampleCount}{copy("samples")}</Text></Stack>)}</Stack>}
-      {!!comparable.length && !highlights.length && note(copy("stablePower"))}
+      {!!comparable.length && !highlights.length && note(voice("stablePower"))}
       {metadata && (personal.length > 0 || comparable.length > 0) && note(t("overviewEvidence.scope", { days: metadata.windowDays, count: metadata.priorSampleCount, character: label(`characters.${metadata.character}`) }) + (metadata.historyCompleteness !== "complete" ? ` · ${label(`completeness.${metadata.historyCompleteness}`)}` : ""))}
     </SummarySection>
     <SummarySection title={copy("recovery")}>
@@ -83,15 +85,17 @@ export function ActivityOverviewSummaryContent({ presentation: p }: { presentati
   </Stack>;
 }
 
-export default function ActivityOverviewSummary({ overview, preview = false }: { overview: ReturnType<typeof useActivityOverview>; preview?: boolean }) {
+export default function ActivityOverviewSummary({ overview, preview = false, isOwner = true }: { overview: ReturnType<typeof useActivityOverview>; preview?: boolean; isOwner?: boolean }) {
   const { t } = useTranslation("activity");
   if (!overview.enabled) return null;
   const reason = overview.response?.status === "unavailable" ? overview.response.reason : null;
+  // 남의 활동에서는 보여줄 개요가 있을 때만 카드를 낸다 — 진단 문구·재시도는 소유자의 것이다.
+  if (!isOwner && overview.response?.status !== "available") return null;
   return <Card data-testid="activity-overview-summary"><Stack gap="var(--dim-section-gap)">
     <Stack direction="row" wrap justify="space-between" align="baseline"><Text as="h2" variant="subtitle">{t("overviewSummary.title")}</Text><Text variant="eyebrow" tone="accent">O-RIDER</Text></Stack>
     {preview && <Text as="p" variant="caption">{t("overviewEvidence.preview")}</Text>}
     {overview.loading ? <Text as="p" variant="body" role="status">{t("overviewEvidence.loading")}</Text> : overview.response?.status === "available" ? <>
-      <ActivityOverviewSummaryContent presentation={overview.response.presentation} />
+      <ActivityOverviewSummaryContent presentation={overview.response.presentation} isOwner={isOwner} />
       {!!overview.response.partialReasons?.length && <Text as="p" variant="caption">{t("overviewEvidence.partial")} {overview.response.partialReasons.map((value) => t(`overviewEvidence.partialReasons.${value}`)).join(" · ")}</Text>}
     </> : <Stack><Text as="p" variant="body">{t(overview.error ? "overviewEvidence.error" : reason ? `overviewEvidence.unavailable.${reason}` : "overviewEvidence.missing")}</Text>{reason !== "rollout_disabled" && <Button size="sm" variant="outline" onClick={overview.retry}>{t("overviewEvidence.retry")}</Button>}</Stack>}
   </Stack></Card>;

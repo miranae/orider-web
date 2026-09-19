@@ -73,3 +73,17 @@ describe("activity overview evidence", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
+
+describe("activity overview evidence viewer voice", () => {
+  it("attributes the personal comparison to the rider when the viewer is not the owner", () => {
+    render(<ActivityOverviewEvidenceContent presentation={rich} isOwner={false} />);
+    expect(screen.getByText("이 라이더의 기록 대비")).toBeInTheDocument();
+    expect(screen.queryByText("내 기록 대비")).not.toBeInTheDocument();
+    expect(screen.getByText(/이 라이더의 기록 안에서의 상대 위치/)).toBeInTheDocument();
+  });
+
+  it("keeps the owner voice for the owner", () => {
+    render(<ActivityOverviewEvidenceContent presentation={rich} />);
+    expect(screen.getByText("내 기록 대비")).toBeInTheDocument();
+  });
+});
