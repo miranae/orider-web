@@ -1,5 +1,7 @@
 {
   "overviewSummary": {
+    "peaks": "구간 최고 출력",
+    "route": "경로",
     "title": "오라이더 활동개요", "characterPending": "성격 확인 중",
     "stimulus": "훈련 자극", "changes": "나의 변화", "recovery": "회복과 연료", "before": "시작 전 상태",
     "minute": "분", "second": "초", "hour": "시간", "efforts": "회", "samples": "회", "index": "지수",

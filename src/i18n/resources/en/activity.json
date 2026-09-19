@@ -1,5 +1,7 @@
 {
   "overviewSummary": {
+    "peaks": "Peak power by duration",
+    "route": "Route",
     "title": "O-Rider activity overview", "characterPending": "Character pending",
     "stimulus": "Training stimulus", "changes": "My changes", "recovery": "Recovery & fuel", "before": "Pre-session state",
     "minute": "m", "second": "s", "hour": "h", "efforts": " efforts", "samples": " samples", "index": "Index",
