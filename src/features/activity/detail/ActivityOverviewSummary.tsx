@@ -49,6 +49,14 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
     </Stack>
     <SummarySection title={copy("stimulus")}>
       <Stack gap="var(--dim-item-gap)">
+        {/* 부하·NP·IF 는 상단 스탯 스트립에 없다 — 여기서 빠지면 어디에도 안 나온다. */}
+        {(p.session.load != null || (powerVisible && p.session.normalizedPowerW != null)) && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-[var(--dim-item-gap)]">
+            {p.session.load != null && <Stat compact label={p.session.loadKind === "tss" ? "TSS" : label("load")} value={number(p.session.load)} />}
+            {powerVisible && p.session.normalizedPowerW != null && <Stat compact label="NP" value={number(p.session.normalizedPowerW)} unit="W" />}
+            {powerVisible && p.session.intensityFactor != null && <Stat compact label="IF" value={p.session.intensityFactor.toFixed(2)} />}
+          </div>
+        )}
         {highPercent != null && <Stat compact label={`${label(highZone!.kind)} Z4+`} value={number(highPercent)} unit="%" />}
         {effort?.matchesCount != null && line(copy("matches"), `${effort.matchesCount}${copy("efforts")}${effort.matchesTotalSec != null ? ` · ${duration(effort.matchesTotalSec)}` : ""}`)}
         {effort?.longestZ4PlusSec != null && line(copy("longest"), duration(effort.longestZ4PlusSec))}
@@ -65,6 +73,22 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       {!!comparable.length && !highlights.length && note(voice("stablePower"))}
       {metadata && (personal.length > 0 || comparable.length > 0) && note(t("overviewEvidence.scope", { days: metadata.windowDays, count: metadata.priorSampleCount, character: label(`characters.${metadata.character}`) }) + (metadata.historyCompleteness !== "complete" ? ` · ${label(`completeness.${metadata.historyCompleteness}`)}` : ""))}
     </SummarySection>
+    {!!power.length && <SummarySection title={copy("peaks")}>
+      {/* 비교 이력이 없어도 구간 최고 출력 자체는 읽을 값이다. 예전에는 비교 가능할 때만
+          "변화" 한 줄을 그리고 9개 구간을 통째로 버렸다. */}
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-[var(--dim-item-gap)]">
+        {power.map((row) => <Stat key={row.duration} compact label={powerDuration(row.duration)} value={number(row.watts)} unit="W" />)}
+      </div>
+    </SummarySection>}
+    {p.routeLoad && (p.routeLoad.climbCount != null || p.routeLoad.maxGradePct != null) && <SummarySection title={copy("route")}>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-[var(--dim-item-gap)]">
+        {p.routeLoad.climbCount != null && <Stat compact label={label("climbs")} value={number(p.routeLoad.climbCount)} />}
+        {p.routeLoad.highestCategory && <Stat compact label={label("category")} value={p.routeLoad.highestCategory} />}
+        {p.routeLoad.avgGradePct != null && <Stat compact label={label("avgGrade")} value={number(p.routeLoad.avgGradePct)} unit="%" />}
+        {p.routeLoad.maxGradePct != null && <Stat compact label={label("maxGrade")} value={number(p.routeLoad.maxGradePct)} unit="%" />}
+      </div>
+      {p.routeLoad.elevationSuspect && note(label("suspect"))}
+    </SummarySection>}
     <SummarySection title={copy("recovery")}>
       <Stack>
         {p.recovery && <Stat compact label={copy("recoveryHours")} value={number(p.recovery.hours)} unit={copy("hour")} />}

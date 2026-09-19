@@ -20,7 +20,7 @@ const rich: ActivityOverviewPresentation = {
 };
 
 describe("ActivityOverviewSummary", () => {
-  it("renders the four share-summary sections without analysis tables or basic activity stats", () => {
+  it("renders the share-summary sections without analysis tables or basic activity stats", () => {
     render(<ActivityOverviewSummaryContent presentation={rich} />);
     for (const title of ["훈련 자극", "나의 변화", "회복과 연료", "시작 전 상태"]) expect(screen.getByRole("region", { name: title })).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
@@ -58,7 +58,11 @@ describe("ActivityOverviewSummary", () => {
     const summary = screen.getByTestId("activity-overview-summary");
     expect(summary).toHaveClass("ds-card");
     expect(summary.querySelectorAll(".ds-card")).toHaveLength(0);
-    expect(summary.querySelectorAll("section.border-t")).toHaveLength(4);
+    // 섹션 수는 데이터에 따라 달라진다 — 여기서 보는 것은 "모든 섹션이 조용한 구분선이고
+    // 중첩 카드가 아니다" 라는 구조다.
+    const sections = summary.querySelectorAll("section");
+    expect(sections.length).toBeGreaterThanOrEqual(4);
+    for (const section of sections) expect(section).toHaveClass("border-t");
     expect(summary.querySelector(".ds-card--inset")).not.toBeInTheDocument();
     expect(screen.queryByText(/^0[1-4]$/)).not.toBeInTheDocument();
     expect(screen.queryByText("라이딩")).not.toBeInTheDocument();
@@ -127,5 +131,53 @@ describe("activity overview summary for a viewer", () => {
     }
     rerender(<ActivityOverviewSummary overview={{ ...overview, response: { status: "available", activityId: "a", version: "activity-overview-v1", inputDigest: "d", presentation: rich } }} isOwner={false} />);
     expect(screen.getByTestId("activity-overview-summary")).toBeInTheDocument();
+  });
+});
+
+describe("activity overview summary shows what the server actually sent", () => {
+  // 이력이 얕은 라이더의 실제 운영 응답 모양 — 비교·존·개인지수가 전부 비어 있다.
+  const sparse: ActivityOverviewPresentation = {
+    coachSentence: "오늘의 라이딩이었어요.",
+    availability: { personal: "character_uncertain", records: "evaluated", power: "available", heartRate: "unavailable" },
+    session: { discipline: "bike", load: 50, loadKind: "load", normalizedPowerW: 167.1, intensityFactor: 0.72 },
+    zones: [],
+    powerFingerprint: [
+      { duration: "1s", watts: 781 }, { duration: "5s", watts: 646 },
+      { duration: "1m", watts: 290 }, { duration: "20m", watts: 152 },
+    ],
+    routeLoad: { climbCount: 2, avgGradePct: 0.8, maxGradePct: 11.4 },
+    thresholdWork: { wPrimeDepletionPct: 100 },
+    priorFitnessStatus: { asOf: "2026-09-16 09:00 KST", ctl: 53.9, atl: 56.5, tsb: -2.6, formBand: "productive" },
+    recovery: { hours: 11, load: 50 },
+  };
+
+  it("renders the peak power curve even with no comparison history", () => {
+    render(<ActivityOverviewSummaryContent presentation={sparse} />);
+    for (const watts of ["781", "646", "290", "152"]) expect(screen.getByText(watts)).toBeInTheDocument();
+  });
+
+  it("renders session load, NP and IF — they appear nowhere else on the page", () => {
+    render(<ActivityOverviewSummaryContent presentation={sparse} />);
+    expect(screen.getByText("50")).toBeInTheDocument();
+    expect(screen.getByText("167.1")).toBeInTheDocument();
+    expect(screen.getByText("0.72")).toBeInTheDocument();
+  });
+
+  it("renders the route load, which appears nowhere else", () => {
+    render(<ActivityOverviewSummaryContent presentation={sparse} />);
+    expect(screen.getByText("11.4")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+  });
+
+  it("still leaves sport details to the analysis tab", () => {
+    render(<ActivityOverviewSummaryContent presentation={{ ...sparse,
+      sportDetails: [{ label: "분석 기준 FTP", value: "182 W", priority: "primary" }] }} />);
+    expect(screen.queryByText("182 W")).not.toBeInTheDocument();
+  });
+
+  it("keeps power sections out when the owner hid power", () => {
+    render(<ActivityOverviewSummaryContent presentation={{ ...sparse, availability: { ...sparse.availability!, power: "private" } }} />);
+    expect(screen.queryByText("781")).not.toBeInTheDocument();
+    expect(screen.queryByText("167.1")).not.toBeInTheDocument();
   });
 });
