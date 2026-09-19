@@ -3,31 +3,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityOverviewResponse } from "@shared/types/activity-overview";
 import { useActivityOverview } from "./useActivityOverview";
 
-const mocks = vi.hoisted(() => ({ uid: "u1" as string | null, allowed: true, load: vi.fn(), services: {} }));
+const mocks = vi.hoisted(() => ({ uid: "u1" as string | null, load: vi.fn(), services: {} }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.uid == null ? null : { uid: mocks.uid } }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
 vi.mock("../services/activityOverview", () => ({ loadActivityOverview: mocks.load }));
-vi.mock("./useCanonicalRollout", () => ({ useCanonicalRollout: () => ({ gateEnabled: true, loading: false }), canonicalRolloutAllows: () => mocks.allowed }));
 const response = (activityId: string): ActivityOverviewResponse => ({ status: "available", activityId, version: "activity-overview-v1", inputDigest: "d", presentation: { coachSentence: activityId, session: { discipline: "bike" } } });
 
 describe("useActivityOverview visibility and stale response safety", () => {
-  beforeEach(() => { mocks.uid = "u1"; mocks.allowed = true; mocks.load.mockReset(); mocks.load.mockResolvedValue(response("a")); });
-  it("requests a nonowner overview and lets the server judge the visibility", () => {
-    renderHook(() => useActivityOverview("a", false, "r1"));
+  beforeEach(() => { mocks.uid = "u1"; mocks.load.mockReset(); mocks.load.mockResolvedValue(response("a")); });
+  it("asks the server regardless of who is looking, signed in or not", () => {
+    renderHook(() => useActivityOverview("a", true, "r1"));
     expect(mocks.load).toHaveBeenLastCalledWith(mocks.services, "u1", "a", "ko", "r1", false);
-  });
-  it("requests a public overview while signed out", () => {
     mocks.uid = null;
-    renderHook(() => useActivityOverview("a", false, "r1"));
+    renderHook(() => useActivityOverview("a", true, "r1"));
     expect(mocks.load).toHaveBeenLastCalledWith(mocks.services, null, "a", "ko", "r1", false);
   });
-  it("still applies the rollout verdict on the owner surface only", () => {
-    mocks.allowed = false;
-    const { result, rerender } = renderHook(({ owner }) => useActivityOverview("a", owner, "r1"), { initialProps: { owner: true } });
+  it("waits for the activity document before asking", () => {
+    const { result, rerender } = renderHook(({ ready }) => useActivityOverview("a", ready, "r1"), { initialProps: { ready: false } });
     expect(result.current.enabled).toBe(false);
     expect(mocks.load).not.toHaveBeenCalled();
-    rerender({ owner: false });
-    expect(mocks.load).toHaveBeenLastCalledWith(mocks.services, "u1", "a", "ko", "r1", false);
+    rerender({ ready: true });
+    expect(mocks.load).toHaveBeenCalledOnce();
   });
   it("suppresses late activity results and old-account data synchronously", async () => {
     let resolveA!: (value: ActivityOverviewResponse) => void;
