@@ -22,6 +22,18 @@
     "overviewTitle": "ORider activity overview",
     "overviewSource": "See your session's character and how it compares with your own history.",
     "hrContextMissing": "Activity-time heart-rate reference is unavailable.",
+    "highlight": "Highlight",
+    "aboveUsualVolume": "more than usual",
+    "anaerobicWork": "Anaerobic work · joules above FTP",
+    "loadIndex": "Load index {{index}} · top {{top}}% of my 90-day same-type",
+    "allTimeBest": "All-time best",
+    "bestPct": "% of best",
+    "bestScope": "% of best uses verified all-time personal records. Durations judged as clamp or glitch artifacts are left blank.",
+    "fatGrams": "Fat burned (est.) · kcal ÷ 9",
+    "baselineScope": {
+      "sameCharacter": "Baseline: same type",
+      "discipline": "Baseline: all of this sport (same-type samples insufficient)"
+    },
     "unavailable": { "rollout_disabled": "Activity overview evidence is currently disabled.", "metrics_unavailable": "Activity metrics are pending or have not been produced yet.", "input_changed": "Activity data changed. Please reload the evidence." },
     "title": "Activity overview evidence",
     "source": "The same canonical server evidence as the overview. Not reanalysed in the browser.",

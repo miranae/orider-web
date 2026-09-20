@@ -22,6 +22,18 @@
     "overviewTitle": "오라이더 활동개요",
     "overviewSource": "이번 활동의 성격과 내 기록 대비 변화를 한눈에 확인하세요.",
     "hrContextMissing": "활동 당시 심박 기준 정본이 없습니다.",
+    "highlight": "하이라이트",
+    "aboveUsualVolume": "평소보다 많이",
+    "anaerobicWork": "무산소 운동량 · FTP 초과분 일",
+    "loadIndex": "오늘 부하 지수 {{index}} · 같은 유형 내 90일 상위 {{top}}%",
+    "allTimeBest": "역대 최고",
+    "bestPct": "최고 대비",
+    "bestScope": "최고 대비는 검증된 개인기록의 역대 최고 기준입니다. 클램프·글리치로 판정된 구간은 비워 둡니다.",
+    "fatGrams": "지방 소모 추정 · kcal ÷ 9",
+    "baselineScope": {
+      "sameCharacter": "기준: 같은 유형",
+      "discipline": "기준: 종목 전체 (같은 유형 표본 부족)"
+    },
     "unavailable": { "rollout_disabled": "활동개요 근거 제공이 현재 비활성화되어 있습니다.", "metrics_unavailable": "활동 지표가 준비 중이거나 아직 산출되지 않았습니다.", "input_changed": "활동 데이터가 갱신되었습니다. 다시 불러와 주세요." },
     "title": "활동개요 평가 근거",
     "source": "개요와 같은 서버 정본입니다. 브라우저에서 다시 분석하지 않습니다.",
