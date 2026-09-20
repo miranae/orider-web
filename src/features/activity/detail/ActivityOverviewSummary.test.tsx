@@ -38,18 +38,18 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.getByText(/직접 측정한 생리값/)).toBeInTheDocument();
   });
   it("leads with the server-decided water metaphor chip and keeps the character as a secondary chip", () => {
-    const { rerender } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, water: { cue: "waves" } }} />);
-    expect(screen.getByText("파도")).toHaveClass("ds-chip--accent");
+    const { rerender } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, water: { cue: "steppingRiffle" } }} />);
+    expect(screen.getByText("징검여울")).toHaveClass("ds-chip--accent");
     expect(screen.getByText("인터벌")).not.toHaveClass("ds-chip--accent");
     rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, water: { cue: "river", swollen: true } }} />);
     expect(screen.getByText("강물 · 평소보다 불어남")).toBeInTheDocument();
-    rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, water: { cue: "waterfall", highlight: { kind: "sprint", reason: "5초 최고 출력 · 전체 기간 PR" } } }} />);
-    expect(screen.getByText("폭포")).toHaveClass("ds-chip--accent");
+    rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, water: { cue: "narrows", highlight: { kind: "sprint", reason: "5초 최고 출력 · 전체 기간 PR" } } }} />);
+    expect(screen.getByText("여울목")).toHaveClass("ds-chip--accent");
     expect(screen.getByText("5초 최고 출력 · 전체 기간 PR")).toHaveClass("ds-text--caption");
     // 은유가 없으면 예전처럼 성격 칩만 강조한다 — 화면이 은유를 지어내지 않는다.
     rerender(<ActivityOverviewSummaryContent presentation={rich} />);
     expect(screen.getByText("인터벌")).toHaveClass("ds-chip--accent");
-    expect(screen.queryByText("파도")).not.toBeInTheDocument();
+    expect(screen.queryByText("징검여울")).not.toBeInTheDocument();
   });
   it("shows the user-approved-value caveat as a separate caption only when qualityNote is true", () => {
     const { rerender } = render(<ActivityOverviewSummaryContent presentation={rich} />);

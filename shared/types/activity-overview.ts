@@ -18,7 +18,8 @@ export interface ActivityOverviewPresentation {
     ctl: number; atl: number; tsb: number };
   session: {
     discipline: "bike" | "run" | "swim" | "other";
-    character?: "recovery" | "endurance" | "tempo" | "threshold" | "interval" | "race" | "mixed" | "polarized" | "racePace";
+    character?: "recovery" | "endurance" | "tempo" | "threshold" | "highIntensity"
+      | "interval" | "race" | "mixed" | "polarized" | "racePace";
     movingSec?: number;
     distanceKm?: number;
     load?: number;
@@ -64,8 +65,14 @@ export interface ActivityOverviewPresentation {
   };
 }
 
-/** shoals(여울) = 양극화 — 잔잔한 물과 빠른 물이 번갈아 이어진다. whirlpool(소용돌이) = 레이스 페이스 — 여러 강도가 한데 휘몰아친다. */
-export type ActivityWaterCue = "still" | "stream" | "river" | "ripples" | "rapids" | "waves" | "waterfall" | "currents" | "shoals" | "whirlpool";
+/**
+ * 물 이름은 **한 물줄기 위**로 제한한다 — 바다 말(파도·너울)을 섞으면 "물을 탄다" 는 장면이 바뀐다.
+ * 세기 순서: 고요한 물 < 시냇물 < 강물 < 물결 < 여울 < 급류 < 여울목.
+ * `steppingRiffle`(징검여울) 은 사이를 두고 되풀이되는 여울, `bend`(물굽이) 는 크게 굽이쳐 오르내리는
+ * 물길, `whirlpool`(소용돌이) 은 여러 강도가 한데 휘도는 것, `currents`(여러 물길) 는 고루 섞인 날이다.
+ */
+export type ActivityWaterCue = "still" | "stream" | "river" | "ripples" | "riffle" | "rapids"
+  | "steppingRiffle" | "narrows" | "bend" | "whirlpool" | "currents";
 
 
 export const ACTIVITY_OVERVIEW_VERSION = "activity-overview-v1" as const;
