@@ -48,7 +48,8 @@ export interface ActivityOverviewPresentation {
   runRecordAchievements?: Array<{ distance: string; valueSec: number; competitionRank: number;
     recordAchievement: "first" | "new" | "tie" }>;
   thresholdWork?: { matchesCount?: number; matchesTotalSec?: number; longestZ4PlusSec?: number;
-    anaerobicSec?: number; wPrimeDepletionPct?: number; wPrimeRemainingPct?: number };
+    anaerobicSec?: number; wPrimeDepletionPct?: number; wPrimeRemainingPct?: number;
+    /** FTP 초과분으로 한 일(kJ) — "무산소 운동량". 옛 지표 문서엔 없다. */ aboveFtpKj?: number };
   energy?: { totalKcal: number; fatKcal?: number; carbKcal?: number; fatPct?: number; carbPct?: number };
   sportDetails?: Array<{ label: string; value: string; priority: "primary" | "secondary" }>;
   qualityNote?: boolean;
