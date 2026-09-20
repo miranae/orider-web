@@ -1,5 +1,9 @@
 {
   "overviewSummary": {
+    "thresholdMissingChip": "임계값 없음",
+    "thresholdMissing": "FTP·최대심박을 설정하면 존 분포·강도·같은 유형 비교가 채워집니다.",
+    "thresholdMissingOther": "이 라이더의 임계값이 없어 같은 유형 비교를 보류했습니다.",
+    "thresholdMissingCta": "임계값 설정하기",
     "peaks": "구간 최고 출력",
     "route": "경로",
     "title": "오라이더 활동개요", "characterPending": "성격 확인 중",
