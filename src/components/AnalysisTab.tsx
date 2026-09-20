@@ -6,6 +6,7 @@ import { buildClimbTableRows, formatClimbEntryTime } from "../utils/climbMetrics
 import { useLocale } from "../contexts/LocaleContext";
 import ZoneDistributionChart from "./ZoneDistributionChart";
 import PowerCurveChart from "./PowerCurveChart";
+import SpeedCurveChart from "./SpeedCurveChart";
 import MetabolismCard from "./MetabolismCard";
 import InfoTip from "./InfoTip";
 import { VirtualPowerBadge } from "./activity/VirtualPowerBadge";
@@ -20,6 +21,7 @@ import {
   criticalBands as presentCriticalBands,
   hrZoneDistribution,
   powerCurvePoints,
+  speedCurvePoints,
   powerZoneDistribution,
   seilerZones as presentSeilerZones,
   wPrimeBalance as presentWPrimeBalance,
@@ -349,6 +351,8 @@ export default function AnalysisTab({
   const polarization = sm?.polarization ?? null;
   const criticalBands = useMemo(() => (sm && hasPower ? presentCriticalBands(sm) : null), [sm, hasPower]);
   const powerCurve = useMemo(() => (sm && hasPower ? powerCurvePoints(sm) : []), [sm, hasPower]);
+  // 속도 커브는 파워와 무관하다 — 파워계 없는 라이더에게 이것이 유일한 노력 축이다.
+  const speedCurve = useMemo(() => (sm ? speedCurvePoints(sm) : []), [sm]);
   const matches = sm && hasPower && sm.matches
     ? { count: sm.matches.count, totalSeconds: sm.matches.totalSec, peakPower: sm.matches.peakW ?? null, longestSeconds: sm.matches.longestSec ?? 0, longestAvgPower: sm.matches.longestW || null }
     : null;
@@ -907,6 +911,14 @@ export default function AnalysisTab({
             emptyTitle={t("analysis.empty.powerCurveTitle")}
             emptyDescription={t("analysis.empty.powerCurveDesc")}
           />
+        </div>
+      )}
+
+      {/* 속도 커브 — 파워 커브와 같은 창 길이라 나란히 읽힌다 */}
+      {speedCurve.length > 0 && (
+        <div>
+          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.speedCurve")}</h3>
+          <SpeedCurveChart points={speedCurve} />
         </div>
       )}
 
