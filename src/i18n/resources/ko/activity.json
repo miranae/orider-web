@@ -930,11 +930,11 @@
     "toastDeleteFailed": "삭제에 실패했습니다",
     "workoutType": {
       "none": "미지정",
-      "endurance": "지구력",
-      "tempo": "템포",
-      "interval": "인터벌",
-      "recovery": "회복",
-      "race": "대회",
+      "endurance": "오래 꾸준히",
+      "tempo": "리듬 유지",
+      "interval": "고강도 반복",
+      "recovery": "회복 위주",
+      "race": "실전 경기",
       "commute": "출퇴근"
     }
   },

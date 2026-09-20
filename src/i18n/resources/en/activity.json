@@ -930,11 +930,11 @@
     "toastDeleteFailed": "Delete failed",
     "workoutType": {
       "none": "None",
-      "endurance": "Endurance",
-      "tempo": "Tempo",
-      "interval": "Interval",
-      "recovery": "Recovery",
-      "race": "Race",
+      "endurance": "Long and steady",
+      "tempo": "Steady rhythm",
+      "interval": "Hard and repeated",
+      "recovery": "Recovery focus",
+      "race": "Race day",
       "commute": "Commute"
     }
   },
