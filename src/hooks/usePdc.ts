@@ -12,7 +12,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import type { PdcDoc } from "@shared/types/pdc";
-import { parsePersistedPdc } from "../services/pdcContract";
+import { parsePersistedPdc, unknownPdcTopLevelKeys } from "../services/pdcContract";
 
 export type UsePdcState =
   | { status: "loading"; pdc: null }
@@ -41,6 +41,12 @@ export function usePdc(uid: string | null | undefined): UsePdcState {
           return;
         }
         try {
+          // 모르는 키는 읽기를 막지 않는다 — 대신 드러낸다. 서버가 필드를 더했을 뿐인지,
+          // 내부 데이터가 샌 것인지는 사람이 판단해야 한다.
+          const unknownKeys = unknownPdcTopLevelKeys(snap.data());
+          if (unknownKeys.length > 0) {
+            logClientError("usePdc.unknownFields", new Error(unknownKeys.join(",")), { uid });
+          }
           const parsed = parsePersistedPdc(snap.data());
           setState(parsed.version === 6 && parsed.status === "partial"
             ? { status: "partial", pdc: null }

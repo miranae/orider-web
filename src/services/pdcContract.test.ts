@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import type { PdcDoc } from "@shared/types/pdc";
 import { hasCanonicalPdcV5Source } from "@shared/training/pdcRiderGate";
 import parity from "../features/coach/__fixtures__/rider-insight-parity.json";
-import { parsePersistedPdc } from "./pdcContract";
+import { parsePersistedPdc, unknownPdcTopLevelKeys } from "./pdcContract";
 
 const fixture = () => structuredClone(parity.persistedPdc) as any;
 const v6Fixture = () => {
@@ -67,6 +67,36 @@ describe("persisted PDC contract", () => {
     ["unexpected lifecycle field", (value: any) => { value.inputExclusions = { reason: "input_pending" }; }],
   ] as Array<[string, (value: any) => void]>)('rejects malformed v6 lifecycle: %s', (_label, mutate) => {
     const value = v6Fixture(); mutate(value);
+    expect(() => parsePersistedPdc(value)).toThrow("INVALID_PERSISTED_PDC_V5");
+  });
+
+  it("모르는 최상위 키는 읽기를 막지 않고 드러낸다", () => {
+    // 예전에는 fail-closed 로 거부했는데, 서버가 필드를 **더하기만 해도** 화면이 통째로
+    // 비었다(2026-09-20 `ftpEstTrust` 추가 → 피트니스 상세 분석 전체 소실, 데이터는 정상).
+    // 누출 감시는 로그가 맡고 화면은 살린다.
+    const value = fixture();
+    value.rawActivities = [];
+    expect(() => parsePersistedPdc(value)).not.toThrow();
+    expect(unknownPdcTopLevelKeys(value)).toEqual(["rawActivities"]);
+  });
+
+  it("나중에 추가된 선택 필드는 모르는 키로 보고하지 않는다", () => {
+    const value = v6Fixture();
+    value.ftpEstTrust = "consistent";
+    expect(() => parsePersistedPdc(value)).not.toThrow();
+    expect(unknownPdcTopLevelKeys(value)).toEqual([]);
+  });
+
+  it("선택 필드가 없는 옛 문서도 그대로 읽는다", () => {
+    // 아직 재계산되지 않은 문서에는 ftpEstTrust 가 없다. 필수로 만들면 같은 사고가 난다.
+    const value = v6Fixture();
+    expect("ftpEstTrust" in value).toBe(false);
+    expect(() => parsePersistedPdc(value)).not.toThrow();
+  });
+
+  it("선택 필드의 값이 계약 밖이면 거부한다", () => {
+    const value = v6Fixture();
+    value.ftpEstTrust = "maybe";
     expect(() => parsePersistedPdc(value)).toThrow("INVALID_PERSISTED_PDC_V5");
   });
 
@@ -144,7 +174,6 @@ describe("persisted PDC contract", () => {
   });
 
   it.each([
-    ["unknown top-level field", (value: any) => { value.rawActivities = []; }],
     ["legacy version", (value: any) => { value.version = 4; }],
     ["legacy provenance", (value: any) => { value.provenance.version = 1; }],
     ["virtual power", (value: any) => { value.provenance.power = "virtual"; }],
@@ -169,5 +198,18 @@ describe("persisted PDC contract", () => {
   ] as Array<[string, (value: any) => void]>)("rejects %s fail-closed", (_label, mutate) => {
     const value = fixture(); mutate(value);
     expect(() => parsePersistedPdc(value)).toThrow("INVALID_PERSISTED_PDC_V5");
+  });
+});
+
+describe("운영 문서 회귀 (2026-09-20 ftpEstTrust 추가)", () => {
+  it("서버가 필드를 더한 실제 문서를 읽는다", async () => {
+    // 이 픽스처는 운영에서 그대로 가져온 v6 문서다(활동 id 만 마스킹). 이전 계약은
+    // INVALID_PERSISTED_PDC_V5 로 던져 피트니스 "상세 분석" 이 통째로 비었다.
+    const raw = (await import("./__fixtures__/pdc-v6-ftp-trust.json")).default;
+    const parsed = parsePersistedPdc(raw);
+    expect(parsed.cp?.value).toBe(177);
+    expect(parsed.vo2maxEst).toBe(44.4);
+    expect(parsed.riderType?.type).toBe("Puncher");
+    expect(unknownPdcTopLevelKeys(raw)).toEqual([]);
   });
 });
