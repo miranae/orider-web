@@ -33,9 +33,9 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
   const highPercent = highZone && zoneTotal > 0 ? highZone.seconds.slice(3).reduce((sum, value) => sum + value, 0) / zoneTotal * 100 : undefined;
   const metadata = p.comparisonMetadata;
   const loadIndex = (p.personal ?? []).find((row) => row.axis === "sessionLoad");
-  // 역대 최고 대비 % — 기록 영수증이 평가됐을 때만 값이 있고, 클램프·글리치 구간은 서버가 비운다.
+  // 역대 최고 대비 % 는 서버가 계산해 보낸다(클램프·글리치 구간은 비움). 화면은 나누지 않는다.
   const bestPct = (row: NonNullable<ActivityOverviewPresentation["powerFingerprint"]>[number]) =>
-    recordsVisible && row.allTimeBestWatts != null && row.allTimeBestWatts > 0 ? Math.min(100, row.watts / row.allTimeBestWatts * 100) : undefined;
+    recordsVisible ? row.allTimeBestPct : undefined;
   const record = (achievement: "first" | "new" | "tie" | undefined) => achievement ? label(`records.${achievement}`) : "—";
   const table = (headers: string[], rows: string[][]) => <Card variant="inset" padding="none" className="overflow-hidden"><div className="overflow-x-auto" role="region" aria-label={headers.join(" · ")} tabIndex={0}>
     <table className="w-full" style={{ borderCollapse: "collapse" }}>
@@ -81,13 +81,13 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
     <section className="space-y-3">{heading("zones")}
       {zones.length ? zones.map((zone) => <div key={zone.kind} className="space-y-3"><Stack direction="row" align="center" wrap><Chip variant={zone.kind === "power" ? "accent" : "default"}>{label(zone.kind)}</Chip><Text variant="caption" tone="tertiary">{label("samples")} {number(zone.priorSampleCount)}</Text>
         {/* 기준이 넓어진 것은 반드시 밝힌다 — 같은 성격 표본이 부족해 종목 전체로 비교했다는 뜻이다. */}
-        {zone.baselinePercentages && <Chip variant={zone.baselineScope === "discipline" ? "default" : "accent"}>{label(`baselineScope.${zone.baselineScope ?? "sameCharacter"}`)}</Chip>}</Stack>{table([label("zone"), label("duration"), "%", label("baseline"), label("change")], zone.seconds.map((value, index) => [`Z${index + 1}`, seconds(value), number(zone.currentPercentages?.[index] ?? (zone.seconds.reduce((sum, seconds) => sum + seconds, 0) > 0 ? value / zone.seconds.reduce((sum, seconds) => sum + seconds, 0) * 100 : undefined), "%"), number(zone.baselinePercentages?.[index], "%"), delta(zone.deltaPercentagePoints?.[index], "%p")]))}</div>) : <Text as="p" variant="caption">{label("missing")}</Text>}
+        {zone.baselinePercentages && <Chip variant={zone.baselineScope === "discipline" ? "default" : "accent"}>{label(`baselineScope.${zone.baselineScope ?? "sameCharacter"}`)}</Chip>}</Stack>{table([label("zone"), label("duration"), "%", label("baseline"), label("change")], zone.seconds.map((value, index) => [`Z${index + 1}`, seconds(value), number(zone.currentPercentages?.[index], "%"), number(zone.baselinePercentages?.[index], "%"), delta(zone.deltaPercentagePoints?.[index], "%p")]))}</div>) : <Text as="p" variant="caption">{label("missing")}</Text>}
     </section>
     {section("recoveryFuel", [
       [label("recovery"), number(p.recovery?.hours, " h")], [label("recoveryLoad"), number(p.recovery?.load)], [label("historicalCtl"), number(p.recovery?.ctl)],
       [label("energy"), number(p.energy?.totalKcal, " kcal")], [label("fat"), `${number(p.energy?.fatPct, "%")} · ${number(p.energy?.fatKcal, " kcal")}`], [label("carb"), `${number(p.energy?.carbPct, "%")} · ${number(p.energy?.carbKcal, " kcal")}`],
       // 지방 1g ≈ 9kcal. "감량" 이 아니라 "소모" — 태운 지방이 곧 빠진 체중은 아니다.
-      [label("fatGrams"), p.energy?.fatKcal != null && p.energy.fatKcal > 0 ? number(p.energy.fatKcal / 9, " g") : "—"],
+      [label("fatGrams"), number(p.energy?.fatGrams, " g")],
     ])}
     {section("fitness", [
       [label("cutoff"), p.priorFitnessStatus ? p.priorFitnessStatus.asOf : "—"],

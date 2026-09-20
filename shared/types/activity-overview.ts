@@ -35,6 +35,7 @@ export interface ActivityOverviewPresentation {
     historyCompleteness: "complete" | "incomplete" | "unknown" };
   recovery?: { hours: number; load: number; ctl?: number };
   zones?: Array<{ kind: "power" | "heartRate"; seconds: number[]; priority: "primary" | "secondary";
+    /** 계측 존 시간 비중(%, 소수 1자리). 비교가 없어도 항상 채워진다 — 소비처가 초에서 다시 나누지 않는다. */
     currentPercentages?: number[]; baselinePercentages?: number[]; deltaPercentagePoints?: number[]; priorSampleCount?: number;
     /** 비교 기준 코호트. `discipline` 은 같은 성격 표본이 부족해 종목 전체로 넓힌 것 — 표시할 때 밝힌다. */
     baselineScope?: "sameCharacter" | "discipline" }>;
@@ -44,13 +45,16 @@ export interface ActivityOverviewPresentation {
     competitionRank?: number; isBestInWindow?: boolean; tiedBest?: boolean; priorSampleCount?: number;
     recordAchievement?: "first" | "new" | "tie";
     /** 이 구간의 내 역대 최고(이번 활동 포함). 기록 영수증이 평가됐을 때만 채워진다 — 표본 조건 없이 항상 비교할 수 있는 기준. */
-    allTimeBestWatts?: number }>;
+    allTimeBestWatts?: number;
+    /** watts ÷ allTimeBestWatts × 100 (상한 100). 서버가 한 번 계산한다 — 소비처가 각자 나누지 않는다. */
+    allTimeBestPct?: number }>;
   runRecordAchievements?: Array<{ distance: string; valueSec: number; competitionRank: number;
     recordAchievement: "first" | "new" | "tie" }>;
   thresholdWork?: { matchesCount?: number; matchesTotalSec?: number; longestZ4PlusSec?: number;
     anaerobicSec?: number; wPrimeDepletionPct?: number; wPrimeRemainingPct?: number;
     /** FTP 초과분으로 한 일(kJ) — "무산소 운동량". 옛 지표 문서엔 없다. */ aboveFtpKj?: number };
-  energy?: { totalKcal: number; fatKcal?: number; carbKcal?: number; fatPct?: number; carbPct?: number };
+  /** `fatGrams` = 지방 연소 kcal ÷ 9. 서버 지표(substrate.fatGrams)에서 그대로 온다 — 화면·게시가 따로 나누지 않는다. */
+  energy?: { totalKcal: number; fatKcal?: number; carbKcal?: number; fatPct?: number; carbPct?: number; fatGrams?: number };
   sportDetails?: Array<{ label: string; value: string; priority: "primary" | "secondary" }>;
   qualityNote?: boolean;
   /**

@@ -12,7 +12,7 @@ const rich: ActivityOverviewPresentation = {
   powerFingerprint: [{ duration: "2m", watts: 288, medianWatts: 242, deltaPct: 19.3, competitionRank: 1, priorSampleCount: 10 }, { duration: "5m", watts: 219, recordAchievement: "new" }],
   zones: [{ kind: "power", seconds: [10, 20, 30, 40, 0, 0, 0], currentPercentages: [10, 20, 30, 40, 0, 0, 0], baselinePercentages: [20, 20, 20, 40, 0, 0, 0], deltaPercentagePoints: [-10, 0, 10, 0, 0, 0, 0], priorSampleCount: 8, priority: "primary" }],
   thresholdWork: { matchesCount: 0, matchesTotalSec: 0, longestZ4PlusSec: 40, anaerobicSec: 0, wPrimeDepletionPct: 100, wPrimeRemainingPct: 0 },
-  recovery: { hours: 48, load: 160, ctl: 37 }, energy: { totalKcal: 1000, fatKcal: 175, carbKcal: 825, fatPct: 17.5, carbPct: 82.5 },
+  recovery: { hours: 48, load: 160, ctl: 37 }, energy: { totalKcal: 1000, fatKcal: 175, carbKcal: 825, fatPct: 17.5, carbPct: 82.5, fatGrams: 19.4 },
   priorFitnessStatus: { asOf: "2026-09-12 09:00 KST", ctl: 37, atl: 42, tsb: -5, formBand: "productive" }, sportDetails: [{ label: "분석 기준 FTP", value: "182 W", priority: "primary" }], qualityNote: true,
 };
 
@@ -40,10 +40,14 @@ describe("activity overview evidence", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByText(rich.coachSentence)).not.toBeInTheDocument();
   });
-  it("shows measured zone percentages without comparison history", () => {
-    render(<ActivityOverviewEvidenceContent presentation={{ coachSentence: "short", session: { discipline: "bike" }, zones: [{ kind: "power", seconds: [25, 75, 0, 0, 0, 0, 0], priority: "primary" }] }} />);
+  it("shows server-computed zone percentages without comparison history and never divides seconds itself", () => {
+    // 비중은 서버 정본(currentPercentages)에서만 온다 — 없으면 화면이 초를 나눠 만들어내지 않는다.
+    render(<ActivityOverviewEvidenceContent presentation={{ coachSentence: "short", session: { discipline: "bike" }, zones: [{ kind: "power", seconds: [25, 75, 0, 0, 0, 0, 0], priority: "primary", currentPercentages: [25, 75, 0, 0, 0, 0, 0] }] }} />);
     expect(screen.getByText("25%")).toBeInTheDocument();
     expect(screen.getByText("75%")).toBeInTheDocument();
+    cleanup();
+    render(<ActivityOverviewEvidenceContent presentation={{ coachSentence: "short", session: { discipline: "bike" }, zones: [{ kind: "power", seconds: [25, 75, 0, 0, 0, 0, 0], priority: "primary" }] }} />);
+    expect(screen.queryByText("25%")).not.toBeInTheDocument();
   });
   it("renders full canonical evidence, zeros, exact cutoff and only awarded PR", () => {
     render(<ActivityOverviewEvidenceContent presentation={rich} />);
@@ -56,8 +60,8 @@ describe("activity overview evidence", () => {
     const value: ActivityOverviewPresentation = { ...rich,
       highlight: { kind: "sustained", reason: "20분 최고 출력 · 전체 기간 PR" }, aboveUsualVolume: true,
       thresholdWork: { ...rich.thresholdWork, aboveFtpKj: 72.4 },
-      powerFingerprint: [{ duration: "2m", watts: 288, allTimeBestWatts: 320, medianWatts: 242, deltaPct: 19.3, competitionRank: 1, priorSampleCount: 10 },
-        { duration: "5m", watts: 219, allTimeBestWatts: 219, recordAchievement: "new" }, { duration: "1s", watts: 845 }],
+      powerFingerprint: [{ duration: "2m", watts: 288, allTimeBestWatts: 320, allTimeBestPct: 90, medianWatts: 242, deltaPct: 19.3, competitionRank: 1, priorSampleCount: 10 },
+        { duration: "5m", watts: 219, allTimeBestWatts: 219, allTimeBestPct: 100, recordAchievement: "new" }, { duration: "1s", watts: 845 }],
       zones: [{ ...rich.zones![0]!, baselineScope: "discipline" }],
     };
     render(<ActivityOverviewEvidenceContent presentation={value} />);
@@ -78,7 +82,7 @@ describe("activity overview evidence", () => {
 
   it("keeps the best columns blank and the baseline chip absent when records are unavailable or there is no comparison", () => {
     const value: ActivityOverviewPresentation = { ...rich, availability: { ...rich.availability!, records: "unavailable" },
-      powerFingerprint: [{ duration: "2m", watts: 288, allTimeBestWatts: 320 }], zones: [{ kind: "power", seconds: [10, 20, 30, 40, 0, 0, 0], priority: "primary" }] };
+      powerFingerprint: [{ duration: "2m", watts: 288, allTimeBestWatts: 320, allTimeBestPct: 90 }], zones: [{ kind: "power", seconds: [10, 20, 30, 40, 0, 0, 0], priority: "primary", currentPercentages: [10, 20, 30, 40, 0, 0, 0] }] };
     render(<ActivityOverviewEvidenceContent presentation={value} />);
     expect(screen.queryByText("320 W")).not.toBeInTheDocument();
     expect(screen.queryByText("90%")).not.toBeInTheDocument();
