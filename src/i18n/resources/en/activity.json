@@ -6,16 +6,38 @@
     "thresholdMissingCta": "Set thresholds",
     "peaks": "Peak power by duration",
     "route": "Route",
-    "title": "O-Rider activity overview", "characterPending": "Character pending", "aboveUsualVolume": "More than usual",
-    "stimulus": "Training stimulus", "changes": "My changes", "recovery": "Recovery & fuel", "before": "Pre-session state",
-    "minute": "m", "second": "s", "hour": "h", "efforts": " efforts", "samples": " samples", "index": "Index",
-    "matches": "Above FTP for ≥30s", "longest": "Longest Z4+", "anaerobic": "Time above 120% FTP", "reserve": "Maximum anaerobic reserve depletion", "remaining": "Minimum W′ remaining",
-    "stimulusMissing": "Training stimulus information is not available yet.", "measuredZones": "Based on measured zone time",
-    "peakChange": "Peak power change", "stablePower": "Comparable peak power is within ±5% of my baseline.",
-    "changesOther": "This rider's changes", "stablePowerOther": "Comparable peak power is within ±5% of this rider's baseline.",
+    "title": "O-Rider activity overview",
+    "characterPending": "Character pending",
+    "aboveUsualVolume": "More than usual",
+    "stimulus": "Training stimulus",
+    "changes": "My changes",
+    "recovery": "Recovery & fuel",
+    "before": "Pre-session state",
+    "minute": "m",
+    "second": "s",
+    "hour": "h",
+    "efforts": " efforts",
+    "samples": " samples",
+    "index": "Index",
+    "matches": "Above FTP for ≥30s",
+    "longest": "Longest Z4+",
+    "anaerobic": "Time above 120% FTP",
+    "reserve": "Maximum anaerobic reserve depletion",
+    "remaining": "Minimum W′ remaining",
+    "stimulusMissing": "Training stimulus information is not available yet.",
+    "measuredZones": "Based on measured zone time",
+    "peakChange": "Peak power change",
+    "stablePower": "Comparable peak power is within ±5% of my baseline.",
+    "changesOther": "This rider's changes",
+    "stablePowerOther": "Comparable peak power is within ±5% of this rider's baseline.",
     "comparisonNote": "Changes versus median · zone differences in percentage points · PRs use all-time records",
-    "recoveryHours": "Recommended recovery · about", "recoveryMissing": "Recovery and fuel information is not available yet.", "beforeMissing": "Pre-session fitness information is not available yet.",
-    "ctl": "Fitness · CTL", "atl": "Fatigue · ATL", "tsb": "Form · TSB", "ftp": "Analysis FTP",
+    "recoveryHours": "Recommended recovery · about",
+    "recoveryMissing": "Recovery and fuel information is not available yet.",
+    "beforeMissing": "Pre-session fitness information is not available yet.",
+    "ctl": "Fitness · CTL",
+    "atl": "Fatigue · ATL",
+    "tsb": "Form · TSB",
+    "ftp": "Analysis FTP",
     "qualityFooter": "※ Measured values are used when user-approved values are unavailable."
   },
   "overviewEvidence": {
@@ -30,7 +52,10 @@
     "afterCutoff": "Settled after",
     "after": "After",
     "terrainLabel": "Terrain",
-    "terrain": { "climbing": "Climbing ride", "flat": "Flat ride" },
+    "terrain": {
+      "climbing": "Climbing ride",
+      "flat": "Flat ride"
+    },
     "highlight": "Highlight",
     "aboveUsualVolume": "more than usual",
     "anaerobicWork": "Anaerobic work · joules above FTP",
@@ -43,7 +68,11 @@
       "sameCharacter": "Baseline: same type",
       "discipline": "Baseline: all of this sport (same-type samples insufficient)"
     },
-    "unavailable": { "rollout_disabled": "Activity overview evidence is currently disabled.", "metrics_unavailable": "Activity metrics are pending or have not been produced yet.", "input_changed": "Activity data changed. Please reload the evidence." },
+    "unavailable": {
+      "rollout_disabled": "Activity overview evidence is currently disabled.",
+      "metrics_unavailable": "Activity metrics are pending or have not been produced yet.",
+      "input_changed": "Activity data changed. Please reload the evidence."
+    },
     "title": "Activity overview evidence",
     "source": "The same canonical server evidence as the overview. Not reanalysed in the browser.",
     "preview": "Saved analysis below does not incorporate the temporary virtual-power preview.",
@@ -545,7 +574,8 @@
       "splits": "km Splits",
       "lapAnalysis": "Lap Analysis",
       "pedalQuality": "Pedaling & effort quality",
-      "cyclingDynamics": "Cycling dynamics"
+      "cyclingDynamics": "Cycling dynamics",
+      "speedCurve": "Speed curve"
     },
     "metric": {
       "tssDesc": "Training Stress",
@@ -626,6 +656,7 @@
       "dynamicsSourceRecords": "record aggregate",
       "paceConsistency": "Pace consistency",
       "paceConsistencyDesc": "Pace std-dev (lower = steadier)",
+      "fastestKm": "Fastest 1km",
       "wPrimeBal": "W'bal trajectory",
       "wPrimeBalMin": "min {{pct}}%"
     },
@@ -679,7 +710,8 @@
       "powerPhase": "Power phase is the angular range of a crank revolution where effective power is produced.",
       "dynamicsCoverage": "The share of sensor samples containing valid cycling dynamics data.",
       "paceConsistency": "Pace standard deviation. Lower = more even pace.",
-      "wPrimeBal": "Time trajectory of W' (anaerobic capacity) balance. Depletes above CP, recharges below (Skiba 2015). A minimum near 0% means nearly maxed out."
+      "wPrimeBal": "Time trajectory of W' (anaerobic capacity) balance. Depletes above CP, recharges below (Skiba 2015). A minimum near 0% means nearly maxed out.",
+      "fastestKm": "Pace of the quickest single kilometre in this activity."
     },
     "decoupling": {
       "good": "Aerobic decoupling under 5% — strong durability",
@@ -715,7 +747,9 @@
       "noServerMetricsTitle": "No server analysis yet",
       "noServerMetricsDesc": "The analysis document for this activity has not been produced yet.",
       "pausedTitle": "Server analysis paused",
-      "pausedDesc": "Server analysis display is paused for maintenance. Your ride data is intact and reappears once it is back on."
+      "pausedDesc": "Server analysis display is paused for maintenance. Your ride data is intact and reappears once it is back on.",
+      "speedCurveTitle": "No speed curve yet",
+      "speedCurveDesc": "Once GPS speed is recorded long enough, best average speed from 5s to 60min appears here."
     },
     "seiler": {
       "z1": "Low Intensity",

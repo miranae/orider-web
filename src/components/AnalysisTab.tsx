@@ -6,6 +6,7 @@ import { buildClimbTableRows, formatClimbEntryTime } from "../utils/climbMetrics
 import { useLocale } from "../contexts/LocaleContext";
 import ZoneDistributionChart from "./ZoneDistributionChart";
 import PowerCurveChart from "./PowerCurveChart";
+import SpeedCurveChart from "./SpeedCurveChart";
 import MetabolismCard from "./MetabolismCard";
 import InfoTip from "./InfoTip";
 import { VirtualPowerBadge } from "./activity/VirtualPowerBadge";
@@ -20,6 +21,7 @@ import {
   criticalBands as presentCriticalBands,
   hrZoneDistribution,
   powerCurvePoints,
+  speedCurvePoints,
   powerZoneDistribution,
   seilerZones as presentSeilerZones,
   wPrimeBalance as presentWPrimeBalance,
@@ -349,6 +351,8 @@ export default function AnalysisTab({
   const polarization = sm?.polarization ?? null;
   const criticalBands = useMemo(() => (sm && hasPower ? presentCriticalBands(sm) : null), [sm, hasPower]);
   const powerCurve = useMemo(() => (sm && hasPower ? powerCurvePoints(sm) : []), [sm, hasPower]);
+  // 속도 커브는 파워와 무관하다 — 파워계 없는 라이더에게 이것이 유일한 노력 축이다.
+  const speedCurve = useMemo(() => (sm ? speedCurvePoints(sm) : []), [sm]);
   const matches = sm && hasPower && sm.matches
     ? { count: sm.matches.count, totalSeconds: sm.matches.totalSec, peakPower: sm.matches.peakW ?? null, longestSeconds: sm.matches.longestSec ?? 0, longestAvgPower: sm.matches.longestW || null }
     : null;
@@ -441,7 +445,17 @@ export default function AnalysisTab({
     }
   };
 
-  if (!hasPower && !hasHr && cyclingDynamicsCards.length === 0) {
+  // 러닝은 파워·심박이 없어도 보여줄 분석이 있다 — 스플릿·GAP·페이스 편차는 GPS 만으로 나온다.
+  // 이 조건을 빼면 센서 없이 달리는 가장 흔한 구성에서 러닝 분석 전체가 unreachable 이 된다
+  // (스플릿 16개를 계산해두고 "스트림이 없다" 고 답하던 상태).
+  const hasRunAnalysis = sport === "run" && (
+    runSplits.length > 0
+    || overallGap != null
+    || sm?.runMetrics?.paceStdDevSec != null
+    || sm?.runMetrics?.minPaceSecPerKm != null
+  );
+
+  if (!hasPower && !hasHr && cyclingDynamicsCards.length === 0 && !hasRunAnalysis) {
     // 서버 분석 문서가 아직 없거나 로딩 중이면 "스트림 없음" 이 아니다 — 모름을 없음으로 그리지 않는다.
     // kill switch — 서버가 이 면을 껐다. 빈 화면으로 두면 "데이터가 없다" 로 읽힌다.
     if (serverMetrics.status === "disabled") {
@@ -703,6 +717,9 @@ export default function AnalysisTab({
             <MetricCard color="lime" label={t("analysis.metric.maxSpeed")} value={speed.maxKph != null ? speedVal(speed.maxKph) : null} unit={speedUnit} tooltip={t("analysis.glossary.maxSpeed")} />
             <MetricCard color="violet" label={t("analysis.metric.avgRpm")} value={cadenceStats.avg != null ? Math.round(cadenceStats.avg).toString() : null} unit="rpm" tooltip={t("analysis.glossary.avgRpm")} />
             <MetricCard color="violet" label={t("analysis.metric.maxRpm")} value={cadenceStats.max != null ? Math.round(cadenceStats.max).toString() : null} unit="rpm" tooltip={t("analysis.glossary.maxRpm")} />
+            {sport === "run" && sm?.runMetrics?.minPaceSecPerKm != null && (
+              <MetricCard color="lime" label={t("analysis.metric.fastestKm")} value={formatPace(sm.runMetrics.minPaceSecPerKm)} unit="/km" tooltip={t("analysis.glossary.fastestKm")} />
+            )}
             {sport === "run" && sm?.runMetrics?.paceStdDevSec != null && (
               <MetricCard color="aqua" label={t("analysis.metric.paceConsistency")} value={formatPace(sm.runMetrics.paceStdDevSec)} unit="σ" description={t("analysis.metric.paceConsistencyDesc")} tooltip={t("analysis.glossary.paceConsistency")} />
             )}
@@ -894,6 +911,14 @@ export default function AnalysisTab({
             emptyTitle={t("analysis.empty.powerCurveTitle")}
             emptyDescription={t("analysis.empty.powerCurveDesc")}
           />
+        </div>
+      )}
+
+      {/* 속도 커브 — 파워 커브와 같은 창 길이라 나란히 읽힌다 */}
+      {speedCurve.length > 0 && (
+        <div>
+          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.speedCurve")}</h3>
+          <SpeedCurveChart points={speedCurve} />
         </div>
       )}
 

@@ -279,6 +279,10 @@
     },
     "criticalPace": {
       "half": "Half"
+    },
+    "speedCurve": {
+      "datasetLabel": "Best average speed",
+      "peakSpeed": "Peak {{speed}}km/h (5s)"
     }
   },
   "leaderboard": {
