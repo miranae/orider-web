@@ -7,12 +7,21 @@ const SOURCES: PdcPowerSource[] = ["strava_api", "direct_file", "orider_native",
 const RIDER_TYPES: RiderType[] = ["RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist", "Unclassified"];
 const POWER_PROFILES: PowerProfile[] = ["sprinter", "pursuiter", "tt_specialist", "all_rounder", "climber", "unclassified"];
 const TOP_KEYS = ["ability", "activityCount", "computedAt", "cp", "discipline", "history", "mmpAll", "pdcModel", "powerProfile", "provenance", "riderType", "stamina", "sustainablePower", "version", "vo2maxEst", "wPerKgAtKey", "weightKgSnapshot"];
+/** v6 문서가 **반드시** 가져야 하는 키. 여기 없는 키는 거부하지 않고 무시한다. */
 const V6_TOP_KEYS = [...TOP_KEYS, "status", "inputDigest", "asOf", "coverage"];
+
+/**
+ * 나중에 추가된 선택 필드 — **있으면 검증하고 없으면 넘어간다.**
+ * 필수로 만들면 아직 재계산되지 않은 문서가 거부돼, 지금 고치려는 것과 같은 사고가 난다.
+ */
+const FTP_EST_TRUST = ["consistent", "contradicted", "unverified"];
 const V6_PARTIAL_TOP_KEYS = [...V6_TOP_KEYS, "inputExclusions"];
 const LEGACY_TOP_KEYS = TOP_KEYS.filter((key) => key !== "provenance");
 
 const object = (value: unknown): Record<string, unknown> | null => value != null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 const exact = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).sort().join(",") === [...keys].sort().join(",");
+/** 필요한 키가 모두 있는가. 모르는 키는 허용한다(전방호환) — 대신 호출부가 보고한다. */
+const hasAll = (value: Record<string, unknown>, keys: readonly string[]) => keys.every((key) => key in value);
 const subset = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).every((key) => keys.includes(key));
 const finite = (value: unknown, min: number, max: number): value is number => typeof value === "number" && Number.isFinite(value) && value >= min && value <= max;
 const integer = (value: unknown, min: number, max: number): value is number => Number.isInteger(value) && finite(value, min, max);
@@ -27,7 +36,11 @@ function invalid(): never { throw new Error("INVALID_PERSISTED_PDC_V5"); }
 
 function validateV6Lifecycle(raw: Record<string, unknown>): void {
   const partial = raw.status === "partial";
-  if (!(raw.status === "final" || partial) || !exact(raw, partial ? V6_PARTIAL_TOP_KEYS : V6_TOP_KEYS)
+  if (!(raw.status === "final" || partial) || !hasAll(raw, partial ? V6_PARTIAL_TOP_KEYS : V6_TOP_KEYS)
+      || ("ftpEstTrust" in raw && !FTP_EST_TRUST.includes(raw.ftpEstTrust as string))
+      // inputExclusions 는 partial 문서에만 있다 — 모르는 키를 허용하더라도 이 불변식은
+      // 지킨다. final 인데 제외 목록이 실려 있으면 상태와 내용이 어긋난 문서다.
+      || (!partial && "inputExclusions" in raw)
       || typeof raw.inputDigest !== "string" || !/^[a-f0-9]{64}$/u.test(raw.inputDigest)
       || !integer(raw.asOf, 0, Number.MAX_SAFE_INTEGER)) invalid();
   const coverage = object(raw.coverage);
@@ -101,10 +114,39 @@ function migrateLegacyPdcV1(raw: Record<string, unknown>): PdcDoc {
     weightKgSnapshot: null, computedAt: raw.computedAt, version: 5 };
 }
 
+/**
+ * 계약이 모르는 최상위 키. **거부하지 않고 돌려준다** — 호출부가 로깅한다.
+ *
+ * 예전에는 모르는 키가 하나라도 있으면 문서를 통째로 버렸다(fail-closed). 내부 필드가
+ * 새는 것을 막으려는 의도였지만, 값은 그대로 두고 서버가 필드를 **더하기만 해도** 화면이
+ * 통째로 비었다 — 2026-09-20 에 서버가 `ftpEstTrust` 를 추가하자 피트니스 "상세 분석" 이
+ * 오류 표시도 없이 사라졌다(데이터는 멀쩡했다).
+ *
+ * 그래서 판정을 나눈다: **읽기는 계속하되 모르는 키는 드러낸다.** 누출 감시는 로그가 맡고,
+ * 화면은 살아 있는다. 필수 키 누락·값 범위·중첩 모양은 그대로 fail-closed 다.
+ */
+export function unknownPdcTopLevelKeys(input: unknown): string[] {
+  const raw = object(input);
+  if (!raw) return [];
+  const known = raw.version === 1 ? LEGACY_TOP_KEYS
+    : raw.version === 6 ? (raw.status === "partial" ? V6_PARTIAL_TOP_KEYS : V6_TOP_KEYS)
+      : TOP_KEYS;
+  return Object.keys(raw).filter((key) => !known.includes(key) && key !== "ftpEstTrust");
+}
+
 export function parsePersistedPdc(input: unknown): PdcDoc {
   const raw = object(input);
   if (raw?.version === 1) return migrateLegacyPdcV1(raw);
-  if (!raw || (raw.version === 6 ? !exact(raw, raw.status === "partial" ? V6_PARTIAL_TOP_KEYS : V6_TOP_KEYS) : !exact(raw, TOP_KEYS))
+  // 최상위는 **모르는 키를 허용**한다. 서버가 필드를 더하기만 해도 웹이 문서를 통째로
+  // 버리면, 화면에서는 오류도 없이 섹션이 사라진다 — 2026-09-20 에 서버가 `ftpEstTrust`
+  // 를 추가하자 피트니스 "상세 분석" 이 통째로 비었다(데이터는 멀쩡했다). 소비자가
+  // 생산자의 필드 추가를 금지하는 계약은 유지될 수 없다.
+  //
+  // 대신 **필요한 키가 모두 있는지**는 그대로 요구하고, 값 검증도 그대로다. 중첩 객체는
+  // 기존처럼 엄격히 본다 — 거기서 모양이 바뀌면 값을 잘못 읽는다.
+  if (!raw || !hasAll(raw, raw.version === 6
+        ? (raw.status === "partial" ? V6_PARTIAL_TOP_KEYS : V6_TOP_KEYS)
+        : TOP_KEYS)
       || raw.discipline !== "bike" || (raw.version !== 5 && raw.version !== PDC_VERSION)
       || !integer(raw.computedAt, 0, Number.MAX_SAFE_INTEGER) || !integer(raw.activityCount, 0, 10_000)
       || !nullable(raw.weightKgSnapshot, 25, 250) || !nullable(raw.stamina, 0, 1)
