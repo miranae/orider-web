@@ -101,7 +101,9 @@
       "rapids": "Rapids",
       "waves": "Waves",
       "waterfall": "Waterfall",
-      "currents": "Mixed currents"
+      "currents": "Mixed currents",
+      "shoals": "Shoals",
+      "whirlpool": "Whirlpool"
     },
     "characters": {
       "recovery": "Recovery",
@@ -110,7 +112,9 @@
       "threshold": "Threshold",
       "interval": "Intervals",
       "race": "Race",
-      "mixed": "Mixed"
+      "mixed": "Mixed",
+      "polarized": "Polarized",
+      "racePace": "Race pace"
     },
     "axes": {
       "sessionLoad": "Session load",
@@ -1026,7 +1030,9 @@
       "threshold": "Threshold",
       "interval": "Interval",
       "race": "Race",
-      "mixed": "Mixed"
+      "mixed": "Mixed",
+      "polarized": "Polarized",
+      "racePace": "Race pace"
     },
     "provisionalChip": "Provisional · upload in progress",
     "staleChip": "From an earlier analysis · awaiting recompute",

@@ -18,7 +18,7 @@ export interface ActivityOverviewPresentation {
     ctl: number; atl: number; tsb: number };
   session: {
     discipline: "bike" | "run" | "swim" | "other";
-    character?: "recovery" | "endurance" | "tempo" | "threshold" | "interval" | "race" | "mixed";
+    character?: "recovery" | "endurance" | "tempo" | "threshold" | "interval" | "race" | "mixed" | "polarized" | "racePace";
     movingSec?: number;
     distanceKm?: number;
     load?: number;
@@ -64,7 +64,8 @@ export interface ActivityOverviewPresentation {
   };
 }
 
-export type ActivityWaterCue = "still" | "stream" | "river" | "ripples" | "rapids" | "waves" | "waterfall" | "currents";
+/** shoals(여울) = 양극화 — 잔잔한 물과 빠른 물이 번갈아 이어진다. whirlpool(소용돌이) = 레이스 페이스 — 여러 강도가 한데 휘몰아친다. */
+export type ActivityWaterCue = "still" | "stream" | "river" | "ripples" | "rapids" | "waves" | "waterfall" | "currents" | "shoals" | "whirlpool";
 
 
 export const ACTIVITY_OVERVIEW_VERSION = "activity-overview-v1" as const;

@@ -101,7 +101,9 @@
       "rapids": "급류",
       "waves": "파도",
       "waterfall": "폭포",
-      "currents": "여러 물길"
+      "currents": "여러 물길",
+      "shoals": "여울",
+      "whirlpool": "소용돌이"
     },
     "characters": {
       "recovery": "회복",
@@ -110,7 +112,9 @@
       "threshold": "역치",
       "interval": "인터벌",
       "race": "레이스",
-      "mixed": "복합"
+      "mixed": "복합",
+      "polarized": "양극화",
+      "racePace": "레이스 페이스"
     },
     "axes": {
       "sessionLoad": "세션 부하",
@@ -1026,7 +1030,9 @@
       "threshold": "역치",
       "interval": "인터벌",
       "race": "레이스",
-      "mixed": "혼합"
+      "mixed": "혼합",
+      "polarized": "양극화",
+      "racePace": "레이스 페이스"
     },
     "provisionalChip": "잠정값 · 업로드 반영 중",
     "staleChip": "이전 분석 기준 · 재계산 대기",
