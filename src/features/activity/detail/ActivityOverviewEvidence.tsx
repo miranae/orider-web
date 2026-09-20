@@ -32,6 +32,10 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
   const zoneTotal = highZone?.seconds.reduce((sum, value) => sum + value, 0) ?? 0;
   const highPercent = highZone && zoneTotal > 0 ? highZone.seconds.slice(3).reduce((sum, value) => sum + value, 0) / zoneTotal * 100 : undefined;
   const metadata = p.comparisonMetadata;
+  const loadIndex = (p.personal ?? []).find((row) => row.axis === "sessionLoad");
+  // 역대 최고 대비 % 는 서버가 계산해 보낸다(클램프·글리치 구간은 비움). 화면은 나누지 않는다.
+  const bestPct = (row: NonNullable<ActivityOverviewPresentation["powerFingerprint"]>[number]) =>
+    recordsVisible ? row.allTimeBestPct : undefined;
   const record = (achievement: "first" | "new" | "tie" | undefined) => achievement ? label(`records.${achievement}`) : "—";
   const table = (headers: string[], rows: string[][]) => <Card variant="inset" padding="none" className="overflow-hidden"><div className="overflow-x-auto" role="region" aria-label={headers.join(" · ")} tabIndex={0}>
     <table className="w-full" style={{ borderCollapse: "collapse" }}>
@@ -43,43 +47,69 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
   </div></Card>;
   return <div className="space-y-6">
     <Card variant="inset"><Stack><Text as="p" variant="bodyMedium" tone="primary">{p.coachSentence}</Text>
+    {/* 하이라이트 근거 — 서버가 표시 언어로 써서 보낸 한 줄. 라벨이 왜 그렇게 불렸는지. */}
+    {p.highlight && <Text as="p" variant="caption" tone="secondary">{label("highlight")} · {p.highlight.reason}</Text>}
+    {/* 최고 순간 — 서버 정본(peakEfforts.highlight + 세그먼트 이름). 화면은 단위와 순서만 붙인다. */}
+    {p.peakMoment && <Text as="p" variant="caption" tone="secondary">{label("peakMoment")} · {[
+      p.peakMoment.segmentName ? p.peakMoment.segmentName + (p.peakMoment.segmentPr ? ` (${label("segmentPr")})` : "")
+        : p.peakMoment.fromKm != null && p.peakMoment.toKm != null ? t("overviewEvidence.peakMomentAt", { from: number(p.peakMoment.fromKm), to: number(p.peakMoment.toKm) }) : null,
+      `${Math.round(p.peakMoment.durationSec / 60)}${label("minuteShort")} ${number(p.peakMoment.avgPowerW, " W")}`,
+      p.peakMoment.avgSpeedKmh != null ? number(p.peakMoment.avgSpeedKmh, " km/h") : null,
+      p.peakMoment.maxHr != null ? `${label("maxHrShort")} ${number(p.peakMoment.maxHr)}` : null,
+    ].filter(Boolean).join(" · ")}</Text>}
     {p.session.classificationReason && <Text as="p" variant="caption" tone="tertiary">{p.session.classificationReason}</Text>}</Stack></Card>
     {section("stimulus", [
       [label("sport"), label(`sports.${p.session.discipline}`)],
-      [label("character"), p.session.character ? label(`characters.${p.session.character}`) : "—"],
+      [label("character"), p.session.character ? label(`characters.${p.session.character}`) + (p.aboveUsualVolume ? ` · ${label("aboveUsualVolume")}` : "") : "—"],
       [`${label("load")} · ${p.session.loadKind === "tss" ? "TSS" : label("load")}`, number(p.session.load)],
       ...(powerVisible ? [["IF", p.session.intensityFactor != null ? p.session.intensityFactor.toFixed(2) : "—"], ["NP", number(p.session.normalizedPowerW, " W")]] as [string, string][] : []),
       [label("highZone"), `${number(highPercent, "%")} · ${highZone ? label(highZone.kind) : "—"}`],
       ...(powerVisible ? [
         [label("matches"), number(effort?.matchesCount)], [label("matchesTotal"), seconds(effort?.matchesTotalSec)],
         [label("longestZ4"), seconds(effort?.longestZ4PlusSec)], [label("anaerobic"), seconds(effort?.anaerobicSec)],
+        [label("anaerobicWork"), number(effort?.aboveFtpKj, " kJ")],
         [label("depletion"), number(effort?.wPrimeDepletionPct, "%")], [label("remaining"), number(effort?.wPrimeRemainingPct, "%")],
       ] as [string, string][] : []),
     ])}
     <section className="space-y-3">{<Text as="h3" variant="bodySmall" weight={600} tone="secondary">{voice("personal")}</Text>}
       <Text as="p" variant="caption" tone="secondary">{voice("relative")}</Text>
       {metadata && <Text as="p" variant="caption">{t("overviewEvidence.scope", { days: metadata.windowDays, count: metadata.priorSampleCount, character: label(`characters.${metadata.character}`) })} · {label(`completeness.${metadata.historyCompleteness}`)}</Text>}
+      {/* 오늘의 점수 — 정의된 값(같은 성격 90일 상대지수)만 점수라 부른다. */}
+      {loadIndex && <Text as="p" variant="bodyMedium" tone="primary">{t("overviewEvidence.loadIndex", { index: Math.round(loadIndex.personalIndex), top: Math.max(1, 100 - Math.round(loadIndex.personalIndex)) })}</Text>}
       {p.personal?.length ? table([label("axis"), label("index"), label("band"), label("samples")], p.personal.map((row) => [label(`axes.${row.axis}`), number(row.personalIndex), label(`bands.${row.band}`), number(row.sampleCount)])) : <Text as="p" variant="caption">{label(`personalStates.${p.availability?.personal ?? "unavailable"}`)}</Text>}
     </section>
     <section className="space-y-3">{heading("powerComparison")}<Text as="p" variant="caption" tone="tertiary">{label("prScope")}</Text>
-      {powerVisible && p.powerFingerprint?.length ? table([label("duration"), "W", label("median"), label("change"), label("rank"), label("samples"), "PR"], p.powerFingerprint.map((row) => [row.duration, number(row.watts), number(row.medianWatts, " W"), delta(row.deltaPct, "%"), number(row.competitionRank), number(row.priorSampleCount), recordsVisible ? record(row.recordAchievement) : "—"])) : <Text as="p" variant="caption">{label(powerVisible ? "missing" : "private")}</Text>}
+      {powerVisible && p.powerFingerprint?.length ? table([label("duration"), "W", label("allTimeBest"), label("bestPct"), label("median"), label("change"), label("rank"), label("samples"), "PR"], p.powerFingerprint.map((row) => [row.duration, number(row.watts),
+        recordsVisible ? number(row.allTimeBestWatts, " W") : "—", number(bestPct(row), "%"),
+        number(row.medianWatts, " W"), delta(row.deltaPct, "%"), number(row.competitionRank), number(row.priorSampleCount), recordsVisible ? record(row.recordAchievement) : "—"])) : <Text as="p" variant="caption">{label(powerVisible ? "missing" : "private")}</Text>}
+      {powerVisible && p.powerFingerprint?.some((row) => bestPct(row) != null) && <Text as="p" variant="caption" tone="tertiary">{label("bestScope")}</Text>}
       {recordsVisible && p.runRecordAchievements?.length ? table([label("distance"), label("duration"), "PR"], p.runRecordAchievements.map((row) => [row.distance, seconds(row.valueSec), record(row.recordAchievement)])) : null}
       <Text as="p" variant="caption" tone="tertiary">{label(`recordStates.${p.availability?.records ?? "unavailable"}`)}</Text>
     </section>
     <section className="space-y-3">{heading("zones")}
-      {zones.length ? zones.map((zone) => <div key={zone.kind} className="space-y-3"><Stack direction="row" align="center" wrap><Chip variant={zone.kind === "power" ? "accent" : "default"}>{label(zone.kind)}</Chip><Text variant="caption" tone="tertiary">{label("samples")} {number(zone.priorSampleCount)}</Text></Stack>{table([label("zone"), label("duration"), "%", label("baseline"), label("change")], zone.seconds.map((value, index) => [`Z${index + 1}`, seconds(value), number(zone.currentPercentages?.[index] ?? (zone.seconds.reduce((sum, seconds) => sum + seconds, 0) > 0 ? value / zone.seconds.reduce((sum, seconds) => sum + seconds, 0) * 100 : undefined), "%"), number(zone.baselinePercentages?.[index], "%"), delta(zone.deltaPercentagePoints?.[index], "%p")]))}</div>) : <Text as="p" variant="caption">{label("missing")}</Text>}
+      {zones.length ? zones.map((zone) => <div key={zone.kind} className="space-y-3"><Stack direction="row" align="center" wrap><Chip variant={zone.kind === "power" ? "accent" : "default"}>{label(zone.kind)}</Chip><Text variant="caption" tone="tertiary">{label("samples")} {number(zone.priorSampleCount)}</Text>
+        {/* 기준이 넓어진 것은 반드시 밝힌다 — 같은 성격 표본이 부족해 종목 전체로 비교했다는 뜻이다. */}
+        {zone.baselinePercentages && <Chip variant={zone.baselineScope === "discipline" ? "default" : "accent"}>{label(`baselineScope.${zone.baselineScope ?? "sameCharacter"}`)}</Chip>}</Stack>{table([label("zone"), label("duration"), "%", label("baseline"), label("change")], zone.seconds.map((value, index) => [`Z${index + 1}`, seconds(value), number(zone.currentPercentages?.[index], "%"), number(zone.baselinePercentages?.[index], "%"), delta(zone.deltaPercentagePoints?.[index], "%p")]))}</div>) : <Text as="p" variant="caption">{label("missing")}</Text>}
     </section>
     {section("recoveryFuel", [
       [label("recovery"), number(p.recovery?.hours, " h")], [label("recoveryLoad"), number(p.recovery?.load)], [label("historicalCtl"), number(p.recovery?.ctl)],
       [label("energy"), number(p.energy?.totalKcal, " kcal")], [label("fat"), `${number(p.energy?.fatPct, "%")} · ${number(p.energy?.fatKcal, " kcal")}`], [label("carb"), `${number(p.energy?.carbPct, "%")} · ${number(p.energy?.carbKcal, " kcal")}`],
+      // 지방 1g ≈ 9kcal. "감량" 이 아니라 "소모" — 태운 지방이 곧 빠진 체중은 아니다.
+      [label("fatGrams"), number(p.energy?.fatGrams, " g")],
     ])}
     {section("fitness", [
       [label("cutoff"), p.priorFitnessStatus ? p.priorFitnessStatus.asOf : "—"],
       [label("sport"), label(`sports.${p.session.discipline}`)], ["CTL", number(p.priorFitnessStatus?.ctl)], ["ATL", number(p.priorFitnessStatus?.atl)], ["TSB", number(p.priorFitnessStatus?.tsb)],
       [label("form"), p.priorFitnessStatus ? label(`forms.${p.priorFitnessStatus.formBand}`) : "—"],
+      // 활동 반영 후 — 활동일 일별 정산 지점. 시작 전과 나란히 두면 이 활동이 몸에 준 변화가 보인다.
+      ...(p.postFitnessStatus ? [
+        [label("afterCutoff"), p.postFitnessStatus.asOf],
+        [`${label("after")} CTL`, number(p.postFitnessStatus.ctl)], [`${label("after")} ATL`, number(p.postFitnessStatus.atl)], [`${label("after")} TSB`, number(p.postFitnessStatus.tsb)],
+        [`${label("after")} ${label("form")}`, label(`forms.${p.postFitnessStatus.formBand}`)],
+      ] as [string, string][] : []),
     ])}
     {!!p.sportDetails?.length && section("sportDetails", p.sportDetails.map((row) => [row.label, row.value]))}
-    {p.routeLoad && section("route", [[label("climbs"), number(p.routeLoad.climbCount)], [label("category"), p.routeLoad.highestCategory ?? "—"], [label("avgGrade"), number(p.routeLoad.avgGradePct, "%")], [label("maxGrade"), number(p.routeLoad.maxGradePct, "%")], [label("elevationQuality"), label(p.routeLoad.elevationSuspect ? "suspect" : "noWarning")]])}
+    {p.routeLoad && section("route", [[label("terrainLabel"), p.routeLoad.terrain ? label(`terrain.${p.routeLoad.terrain}`) : "—"], [label("climbs"), number(p.routeLoad.climbCount)], [label("category"), p.routeLoad.highestCategory ?? "—"], [label("avgGrade"), number(p.routeLoad.avgGradePct, "%")], [label("maxGrade"), number(p.routeLoad.maxGradePct, "%")], [label("elevationQuality"), label(p.routeLoad.elevationSuspect ? "suspect" : "noWarning")]])}
     <Text as="p" variant="caption" tone="tertiary">{label("modelNote")}</Text>
     {p.qualityNote && <Text as="p" variant="caption" tone="tertiary">{label("qualityNote")}</Text>}
   </div>;

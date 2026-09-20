@@ -37,6 +37,21 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.queryByText("1520")).not.toBeInTheDocument();
     expect(screen.getByText(/직접 측정한 생리값/)).toBeInTheDocument();
   });
+  it("labels the day with the session character and appends the above-usual volume", () => {
+    const { rerender } = render(<ActivityOverviewSummaryContent presentation={rich} />);
+    expect(screen.getByText("고강도 반복")).toHaveClass("ds-chip--accent");
+    rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, aboveUsualVolume: true }} />);
+    expect(screen.getByText("고강도 반복 · 평소보다 많이")).toBeInTheDocument();
+    // 성격이 없으면 예전처럼 진단 문구만 남는다 — 화면이 이름을 지어내지 않는다.
+    rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, session: { discipline: "bike" } }} />);
+    expect(screen.getByText("성격 확인 중")).not.toHaveClass("ds-chip--accent");
+  });
+
+  it("explains the label with the server-written highlight reason", () => {
+    render(<ActivityOverviewSummaryContent presentation={{ ...rich, highlight: { kind: "sprint", reason: "5초 최고 출력 · 전체 기간 PR" } }} />);
+    expect(screen.getByText("5초 최고 출력 · 전체 기간 PR")).toHaveClass("ds-text--caption");
+  });
+
   it("shows the user-approved-value caveat as a separate caption only when qualityNote is true", () => {
     const { rerender } = render(<ActivityOverviewSummaryContent presentation={rich} />);
     const modelNote = screen.getByText("회복·연료·W′는 계측값을 바탕으로 한 모델이며 직접 측정한 생리값은 아닙니다.");

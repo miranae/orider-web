@@ -19,7 +19,8 @@ export type ClimbCategory = "HC" | "Cat1" | "Cat2" | "Cat3" | "Cat4" | null;
 
 export type WorkoutType =
   | "recovery" | "endurance" | "tempo" | "threshold"
-  | "interval" | "race" | "mixed";
+  | "interval" | "race" | "mixed"
+  | "polarized" | "racePace" | "highIntensity";
 
 export interface CyclingDynamicsMetrics {
   source: "session" | "records" | "session_summary";
