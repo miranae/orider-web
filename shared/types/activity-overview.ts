@@ -35,12 +35,16 @@ export interface ActivityOverviewPresentation {
     historyCompleteness: "complete" | "incomplete" | "unknown" };
   recovery?: { hours: number; load: number; ctl?: number };
   zones?: Array<{ kind: "power" | "heartRate"; seconds: number[]; priority: "primary" | "secondary";
-    currentPercentages?: number[]; baselinePercentages?: number[]; deltaPercentagePoints?: number[]; priorSampleCount?: number }>;
+    currentPercentages?: number[]; baselinePercentages?: number[]; deltaPercentagePoints?: number[]; priorSampleCount?: number;
+    /** 비교 기준 코호트. `discipline` 은 같은 성격 표본이 부족해 종목 전체로 넓힌 것 — 표시할 때 밝힌다. */
+    baselineScope?: "sameCharacter" | "discipline" }>;
   routeLoad?: { climbCount?: number; highestCategory?: string; avgGradePct?: number; maxGradePct?: number;
     elevationSuspect?: boolean };
   powerFingerprint?: Array<{ duration: string; watts: number; medianWatts?: number; deltaPct?: number;
     competitionRank?: number; isBestInWindow?: boolean; tiedBest?: boolean; priorSampleCount?: number;
-    recordAchievement?: "first" | "new" | "tie" }>;
+    recordAchievement?: "first" | "new" | "tie";
+    /** 이 구간의 내 역대 최고(이번 활동 포함). 기록 영수증이 평가됐을 때만 채워진다 — 표본 조건 없이 항상 비교할 수 있는 기준. */
+    allTimeBestWatts?: number }>;
   runRecordAchievements?: Array<{ distance: string; valueSec: number; competitionRank: number;
     recordAchievement: "first" | "new" | "tie" }>;
   thresholdWork?: { matchesCount?: number; matchesTotalSec?: number; longestZ4PlusSec?: number;
