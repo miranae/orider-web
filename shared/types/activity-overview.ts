@@ -8,6 +8,12 @@ export interface ActivityOverviewPresentation {
     power: "available" | "private" | "not_applicable" | "unavailable";
     heartRate: "available" | "private" | "unavailable";
   };
+  /**
+   * 성격 판정 근거. `"none"` 은 **임계값이 없어 판정하지 못했다** 는 뜻이다 — "확인 중" 이
+   * 아니라 FTP·최대심박을 설정하기 전까지 영원히 채워지지 않는 상태다.
+   * @sync-with orider-g1-web/shared/types/activity-overview.ts
+   */
+  thresholdBasis?: "user" | "power_ftp" | "hr_lthr" | "hr_max" | "none";
   priorFitnessStatus?: { asOf: string; formBand: "overload" | "needsRecovery" | "productive" | "fresh" | "overRecovered";
     ctl: number; atl: number; tsb: number };
   session: {

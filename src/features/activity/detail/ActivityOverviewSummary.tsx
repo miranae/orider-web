@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
 import type { useActivityOverview } from "../../../hooks/useActivityOverview";
-import { Button, Card, Chip, Stack, Stat, Text } from "../../../theme/components";
+import { Button, Card, Chip, Stack, Stat, Text, buttonClass } from "../../../theme/components";
 
 const number = (value: number) => String(Math.round(value * 10) / 10);
 const signed = (value: number) => `${value > 0 ? "+" : ""}${number(value)}`;
@@ -21,6 +22,9 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   const copy = (key: string) => t(`overviewSummary.${key}`);
   // 개요 문구는 소유자 1인칭으로 쓰여 있다. 남의 활동에서 그대로 쓰면 보는 사람의 기록으로 읽힌다.
   const voice = (key: string) => copy(isOwner ? key : `${key}Other`);
+  // "성격 확인 중" 은 곧 계산될 것처럼 읽힌다. 임계값이 없으면 설정 전까지 영원히
+  // 채워지지 않으므로 그 상태를 그대로 말한다.
+  const thresholdMissing = p.thresholdBasis === "none";
   const duration = (value: number) => `${Math.floor(Math.round(value) / 60)}${copy("minute")} ${Math.round(value) % 60}${copy("second")}`;
   const powerDuration = (value: string) => i18n.language.startsWith("ko") ? value.replace(/s$/, "초").replace(/m$/, "분").replace(/h$/, "시간") : value;
   const powerVisible = p.availability?.power !== "private";
@@ -44,7 +48,10 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   const line = (name: string, value: string) => <Stack direction="row" justify="space-between" align="baseline" wrap><Text variant="bodySmall" tone="secondary">{name}</Text><Text variant="bodyMedium" mono tone="primary">{value}</Text></Stack>;
   return <Stack gap="var(--dim-section-gap)">
     <Stack gap="var(--dim-item-gap)">
-      <Stack direction="row" wrap><Chip variant="accent">{p.session.character ? label(`characters.${p.session.character}`) : copy("characterPending")}</Chip></Stack>
+      <Stack direction="row" wrap><Chip variant={p.session.character ? "accent" : "default"}>
+        {p.session.character ? label(`characters.${p.session.character}`)
+          : thresholdMissing ? copy("thresholdMissingChip") : copy("characterPending")}
+      </Chip></Stack>
       <Text as="p" variant="title" tone="primary">{p.coachSentence}</Text>
     </Stack>
     <SummarySection title={copy("stimulus")}>
@@ -68,7 +75,14 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
     <SummarySection title={voice("changes")}>
       {!!records.length && <Stack>{records.map((row) => <Stack key={row.key} direction="row" wrap align="center"><Chip variant="accent">{label(`records.${row.achievement}`)}</Chip><Text variant="bodyMedium" mono>{row.value}</Text></Stack>)}</Stack>}
       {!!personal.length && <Stack gap="var(--dim-item-gap)">{personal.map((row) => <Stack key={row.axis} direction="row" justify="space-between" align="baseline" wrap><Text variant="bodySmall" tone="secondary">{label(`axes.${row.axis}`)} · {label(`bands.${row.band}`)}</Text><Text variant="bodyMedium" mono tone="primary">{copy("index")} {number(row.personalIndex)}</Text></Stack>)}</Stack>}
-      {!personal.length && note(label(`personalStates.${p.availability?.personal ?? "unavailable"}`))}
+      {!personal.length && (thresholdMissing
+        ? <Stack gap="var(--dim-item-gap)">
+            {note(voice("thresholdMissing"))}
+            {isOwner && <Link to="/settings?section=training" className={buttonClass({ size: "sm", variant: "outline" })}>
+              {copy("thresholdMissingCta")}
+            </Link>}
+          </Stack>
+        : note(label(`personalStates.${p.availability?.personal ?? "unavailable"}`)))}
       {!!highlights.length && <Stack>{highlights.map((row) => <Stack key={row.duration} direction="row" wrap justify="space-between"><Text variant="bodySmall">{copy("peakChange")} · {powerDuration(row.duration)}</Text><Text variant="bodyMedium" mono>{signed(row.deltaPct!)}% · {row.priorSampleCount}{copy("samples")}</Text></Stack>)}</Stack>}
       {!!comparable.length && !highlights.length && note(voice("stablePower"))}
       {metadata && (personal.length > 0 || comparable.length > 0) && note(t("overviewEvidence.scope", { days: metadata.windowDays, count: metadata.priorSampleCount, character: label(`characters.${metadata.character}`) }) + (metadata.historyCompleteness !== "complete" ? ` · ${label(`completeness.${metadata.historyCompleteness}`)}` : ""))}

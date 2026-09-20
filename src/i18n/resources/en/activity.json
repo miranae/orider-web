@@ -1,5 +1,9 @@
 {
   "overviewSummary": {
+    "thresholdMissingChip": "No threshold set",
+    "thresholdMissing": "Set your FTP or max heart rate to fill in zones, intensity and same-type comparisons.",
+    "thresholdMissingOther": "This rider has no threshold set, so same-type comparisons are withheld.",
+    "thresholdMissingCta": "Set thresholds",
     "peaks": "Peak power by duration",
     "route": "Route",
     "title": "O-Rider activity overview", "characterPending": "Character pending",

@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import i18n from "i18next";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
@@ -179,5 +180,35 @@ describe("activity overview summary shows what the server actually sent", () => 
     render(<ActivityOverviewSummaryContent presentation={{ ...sparse, availability: { ...sparse.availability!, power: "private" } }} />);
     expect(screen.queryByText("781")).not.toBeInTheDocument();
     expect(screen.queryByText("167.1")).not.toBeInTheDocument();
+  });
+});
+
+describe("missing threshold is stated as a dead end, not as pending work", () => {
+  const noThreshold: ActivityOverviewPresentation = {
+    coachSentence: "오늘의 라이딩이었어요.",
+    availability: { personal: "character_uncertain", records: "unavailable", power: "available", heartRate: "unavailable" },
+    session: { discipline: "bike" },
+    thresholdBasis: "none",
+  };
+
+  it("replaces the pending chip and explains what to do, for the owner", () => {
+    render(<MemoryRouter><ActivityOverviewSummaryContent presentation={noThreshold} /></MemoryRouter>);
+    expect(screen.getByText("임계값 없음")).toBeInTheDocument();
+    expect(screen.queryByText("성격 확인 중")).not.toBeInTheDocument();
+    expect(screen.getByText(/FTP·최대심박을 설정하면/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "임계값 설정하기" })).toHaveAttribute("href", "/settings?section=training");
+  });
+
+  it("tells a viewer whose threshold is missing, without offering them the setting", () => {
+    render(<MemoryRouter><ActivityOverviewSummaryContent presentation={noThreshold} isOwner={false} /></MemoryRouter>);
+    expect(screen.getByText(/이 라이더의 임계값이 없어/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "임계값 설정하기" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the pending wording when the verdict really is still uncertain", () => {
+    render(<MemoryRouter><ActivityOverviewSummaryContent presentation={{ ...noThreshold, thresholdBasis: "power_ftp" }} /></MemoryRouter>);
+    expect(screen.getByText("성격 확인 중")).toBeInTheDocument();
+    expect(screen.getByText("활동 성격이 불명확하여 같은 유형 비교를 보류했습니다.")).toBeInTheDocument();
+    expect(screen.queryByText("임계값 없음")).not.toBeInTheDocument();
   });
 });
