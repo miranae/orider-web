@@ -546,7 +546,8 @@
       "splits": "km 스플릿",
       "lapAnalysis": "랩 분석",
       "pedalQuality": "페달링·노력 품질",
-      "cyclingDynamics": "사이클링 다이내믹스"
+      "cyclingDynamics": "사이클링 다이내믹스",
+      "speedCurve": "속도 커브"
     },
     "metric": {
       "tssDesc": "Training Stress",
@@ -718,7 +719,9 @@
       "noServerMetricsTitle": "서버 분석이 아직 없어요",
       "noServerMetricsDesc": "이 활동의 분석 문서가 만들어지지 않았어요. 스트림이 있으면 곧 계산됩니다.",
       "pausedTitle": "서버 분석 일시 중단",
-      "pausedDesc": "점검 때문에 서버 분석 표시를 잠시 멈췄습니다. 기록은 그대로 있고, 다시 켜지면 자동으로 나타납니다."
+      "pausedDesc": "점검 때문에 서버 분석 표시를 잠시 멈췄습니다. 기록은 그대로 있고, 다시 켜지면 자동으로 나타납니다.",
+      "speedCurveTitle": "속도 커브를 만들 수 없어요",
+      "speedCurveDesc": "GPS 속도가 충분히 길게 기록되면 5초부터 60분까지 최고 평균 속도가 표시됩니다."
     },
     "seiler": {
       "z1": "저강도",

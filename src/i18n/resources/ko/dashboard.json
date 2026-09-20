@@ -279,6 +279,10 @@
     },
     "criticalPace": {
       "half": "하프"
+    },
+    "speedCurve": {
+      "datasetLabel": "최고 평균 속도",
+      "peakSpeed": "최고 {{speed}}km/h (5초)"
     }
   },
   "leaderboard": {
