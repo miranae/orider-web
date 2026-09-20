@@ -49,30 +49,19 @@ export interface ActivityOverviewPresentation {
   sportDetails?: Array<{ label: string; value: string; priority: "primary" | "secondary" }>;
   qualityNote?: boolean;
   /**
-   * 활동 성격의 물 은유. 세기 순서가 이름에 들어 있다 — 고요한 물 < 시냇물 < 강물 < 물결 < 급류 < 파도 < 폭포.
-   * `currents` 는 여러 강도가 섞인 세션이고, `swollen` 은 같은 성격의 내 평소보다 유산소량이 많았다는 뜻이다.
-   * 서버가 확정해 보내며 화면은 칩으로만 그린다(재분류 금지). 성격이 없으면 은유도 없다.
-   * @sync-with orider-g1-web/shared/types/activity-overview.ts
+   * 같은 성격의 내 평소보다 유산소량이 많았는가. 성격 라벨에 "평소보다 많이" 로 덧붙는다.
+   * 칩에 오른 성격과 비교 코호트가 일치할 때만 채워진다.
    */
-  water?: {
-    cue: ActivityWaterCue;
-    swollen?: boolean;
-    /**
-     * 오늘의 하이라이트 — 이 활동에서 가장 이야기할 만한 한 순간. 있으면 물은 성격이 아니라 이 순간의 세기를
-     * 따른다(긴 라이딩의 결정적 5분이 평균에 희석되지 않도록). `reason` 은 표시 언어로 쓰인 한 줄 근거다.
-     */
-    highlight?: { kind: "sprint" | "surge" | "sustained"; reason: string };
-  };
+  aboveUsualVolume?: boolean;
+  /**
+   * 오늘의 하이라이트 — 이 활동에서 가장 이야기할 만한 근거 한 줄. 표시 언어로 쓰여 온다.
+   *
+   * 라벨은 성격이 정하고, 이 값은 "왜 그렇게 불렀나" 를 설명한다. 근거가 없으면 비어 있다 —
+   * 없는 자랑을 만들지 않기 위해서다.
+   */
+  highlight?: { kind: "sprint" | "surge" | "sustained"; reason: string };
 }
 
-/**
- * 물 이름은 **한 물줄기 위**로 제한한다 — 바다 말(파도·너울)을 섞으면 "물을 탄다" 는 장면이 바뀐다.
- * 세기 순서: 고요한 물 < 시냇물 < 강물 < 물결 < 여울 < 급류 < 여울목.
- * `steppingRiffle`(징검여울) 은 사이를 두고 되풀이되는 여울, `bend`(물굽이) 는 크게 굽이쳐 오르내리는
- * 물길, `whirlpool`(소용돌이) 은 여러 강도가 한데 휘도는 것, `currents`(여러 물길) 는 고루 섞인 날이다.
- */
-export type ActivityWaterCue = "still" | "stream" | "river" | "ripples" | "riffle" | "rapids"
-  | "steppingRiffle" | "narrows" | "bend" | "whirlpool" | "currents";
 
 
 export const ACTIVITY_OVERVIEW_VERSION = "activity-overview-v1" as const;
