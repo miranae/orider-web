@@ -53,7 +53,15 @@ export interface ActivityOverviewPresentation {
    * 서버가 확정해 보내며 화면은 칩으로만 그린다(재분류 금지). 성격이 없으면 은유도 없다.
    * @sync-with orider-g1-web/shared/types/activity-overview.ts
    */
-  water?: { cue: ActivityWaterCue; swollen?: boolean };
+  water?: {
+    cue: ActivityWaterCue;
+    swollen?: boolean;
+    /**
+     * 오늘의 하이라이트 — 이 활동에서 가장 이야기할 만한 한 순간. 있으면 물은 성격이 아니라 이 순간의 세기를
+     * 따른다(긴 라이딩의 결정적 5분이 평균에 희석되지 않도록). `reason` 은 표시 언어로 쓰인 한 줄 근거다.
+     */
+    highlight?: { kind: "sprint" | "surge" | "sustained"; reason: string };
+  };
 }
 
 export type ActivityWaterCue = "still" | "stream" | "river" | "ripples" | "rapids" | "waves" | "waterfall" | "currents";

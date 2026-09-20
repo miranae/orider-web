@@ -58,6 +58,8 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
         </Chip>
       </Stack>
       <Text as="p" variant="title" tone="primary">{p.coachSentence}</Text>
+      {/* 하이라이트의 한 줄 근거 — 서버가 표시 언어로 써서 보낸다. "왜 이 물인가" 가 칩 바로 아래 온다. */}
+      {p.water?.highlight && <Text as="p" variant="caption" tone="secondary">{p.water.highlight.reason}</Text>}
     </Stack>
     <SummarySection title={copy("stimulus")}>
       <Stack gap="var(--dim-item-gap)">
