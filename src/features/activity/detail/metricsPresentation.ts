@@ -40,6 +40,11 @@ export interface PowerCurvePoint {
   maxPower: number;
 }
 
+export interface SpeedCurvePoint {
+  durationSeconds: number;
+  speedKmh: number;
+}
+
 export interface ClimbSegment {
   startKm: number;
   endKm: number;
@@ -123,6 +128,21 @@ export function powerCurvePoints(m: MetricsLike): PowerCurvePoint[] {
   return MMP_SECONDS.flatMap(([key, durationSeconds]) => {
     const maxPower = m.mmp?.[key];
     return typeof maxPower === "number" ? [{ durationSeconds, maxPower }] : [];
+  });
+}
+
+/**
+ * 속도 커브 점 — 서버 `speedCurve` 를 초 단위 지속시간으로 푼다.
+ *
+ * 파워 커브와 같은 창 길이 표를 쓰므로 두 곡선을 같은 축으로 읽을 수 있다. 1초는 서버가
+ * 넣지 않는다(GPS 미분 잡음) — 여기서도 만들지 않는다.
+ */
+export function speedCurvePoints(m: MetricsLike): SpeedCurvePoint[] {
+  // 1초는 걸러낸다. 서버도 넣지 않지만, 여기서 의존하면 서버가 바뀔 때 조용히 새어 들어온다
+  // — GPS 미분 잡음이라 정본 maxSpeedKph 와 어긋난다(같은 라이딩에서 61.9 vs 56.6).
+  return MMP_SECONDS.filter(([, seconds]) => seconds > 1).flatMap(([key, durationSeconds]) => {
+    const speedKmh = m.speedCurve?.[key];
+    return typeof speedKmh === "number" ? [{ durationSeconds, speedKmh }] : [];
   });
 }
 

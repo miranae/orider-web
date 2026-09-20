@@ -19,7 +19,8 @@ export type ClimbCategory = "HC" | "Cat1" | "Cat2" | "Cat3" | "Cat4" | null;
 
 export type WorkoutType =
   | "recovery" | "endurance" | "tempo" | "threshold"
-  | "interval" | "race" | "mixed";
+  | "interval" | "race" | "mixed"
+  | "polarized" | "racePace" | "highIntensity";
 
 export interface CyclingDynamicsMetrics {
   source: "session" | "records" | "session_summary";
@@ -162,6 +163,14 @@ export interface ActivityMetrics {
 
   // ── Power curve (단일 활동 best per duration)
   mmp: Partial<Record<DurationKey, number>>;
+
+  /**
+   * 속도 커브 — 창 길이별 최고 시간가중 평균 속도 (km/h). `mmp` 와 같은 창 길이·같은 규약
+   * (`bestWindowByTime`: 시간가중 평균, 기록 구멍 끊기, 경계 샘플 부분 포함)으로 계산해
+   * 두 커브를 나란히 읽을 수 있다. 1초는 GPS 미분 잡음이라 넣지 않는다 — 정본
+   * `maxSpeedKph` 와 어긋난다(같은 라이딩에서 61.9 vs 56.6). 5초가 정본과 일치한다.
+   */
+  speedCurve?: Partial<Record<DurationKey, number>>;
 
   // ── Run-specific
   splits?: SplitRow[];

@@ -48,11 +48,15 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   const line = (name: string, value: string) => <Stack direction="row" justify="space-between" align="baseline" wrap><Text variant="bodySmall" tone="secondary">{name}</Text><Text variant="bodyMedium" mono tone="primary">{value}</Text></Stack>;
   return <Stack gap="var(--dim-section-gap)">
     <Stack gap="var(--dim-item-gap)">
+      {/* 성격이 곧 라벨이다 — 별도 은유 층을 두지 않는다. 서버가 확정한 값만 그린다(화면에서 재분류하지 않는다). */}
       <Stack direction="row" wrap><Chip variant={p.session.character ? "accent" : "default"}>
         {p.session.character ? label(`characters.${p.session.character}`)
           : thresholdMissing ? copy("thresholdMissingChip") : copy("characterPending")}
+        {p.aboveUsualVolume ? ` · ${copy("aboveUsualVolume")}` : ""}
       </Chip></Stack>
       <Text as="p" variant="title" tone="primary">{p.coachSentence}</Text>
+      {/* 하이라이트의 한 줄 근거 — 서버가 표시 언어로 써서 보낸다. "왜 그렇게 불렀나" 가 칩 바로 아래 온다. */}
+      {p.highlight && <Text as="p" variant="caption" tone="secondary">{p.highlight.reason}</Text>}
     </Stack>
     <SummarySection title={copy("stimulus")}>
       <Stack gap="var(--dim-item-gap)">

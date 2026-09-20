@@ -12,7 +12,7 @@ const rich: ActivityOverviewPresentation = {
   powerFingerprint: [{ duration: "2m", watts: 288, medianWatts: 242, deltaPct: 19.3, competitionRank: 1, priorSampleCount: 10 }, { duration: "5m", watts: 219, recordAchievement: "new" }],
   zones: [{ kind: "power", seconds: [10, 20, 30, 40, 0, 0, 0], currentPercentages: [10, 20, 30, 40, 0, 0, 0], baselinePercentages: [20, 20, 20, 40, 0, 0, 0], deltaPercentagePoints: [-10, 0, 10, 0, 0, 0, 0], priorSampleCount: 8, priority: "primary" }],
   thresholdWork: { matchesCount: 0, matchesTotalSec: 0, longestZ4PlusSec: 40, anaerobicSec: 0, wPrimeDepletionPct: 100, wPrimeRemainingPct: 0 },
-  recovery: { hours: 48, load: 160, ctl: 37 }, energy: { totalKcal: 1000, fatKcal: 175, carbKcal: 825, fatPct: 17.5, carbPct: 82.5 },
+  recovery: { hours: 48, load: 160, ctl: 37 }, energy: { totalKcal: 1000, fatKcal: 175, carbKcal: 825, fatPct: 17.5, carbPct: 82.5, fatGrams: 19.4 },
   priorFitnessStatus: { asOf: "2026-09-12 09:00 KST", ctl: 37, atl: 42, tsb: -5, formBand: "productive" }, sportDetails: [{ label: "분석 기준 FTP", value: "182 W", priority: "primary" }], qualityNote: true,
 };
 
@@ -40,10 +40,14 @@ describe("activity overview evidence", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByText(rich.coachSentence)).not.toBeInTheDocument();
   });
-  it("shows measured zone percentages without comparison history", () => {
-    render(<ActivityOverviewEvidenceContent presentation={{ coachSentence: "short", session: { discipline: "bike" }, zones: [{ kind: "power", seconds: [25, 75, 0, 0, 0, 0, 0], priority: "primary" }] }} />);
+  it("shows server-computed zone percentages without comparison history and never divides seconds itself", () => {
+    // 비중은 서버 정본(currentPercentages)에서만 온다 — 없으면 화면이 초를 나눠 만들어내지 않는다.
+    render(<ActivityOverviewEvidenceContent presentation={{ coachSentence: "short", session: { discipline: "bike" }, zones: [{ kind: "power", seconds: [25, 75, 0, 0, 0, 0, 0], priority: "primary", currentPercentages: [25, 75, 0, 0, 0, 0, 0] }] }} />);
     expect(screen.getByText("25%")).toBeInTheDocument();
     expect(screen.getByText("75%")).toBeInTheDocument();
+    cleanup();
+    render(<ActivityOverviewEvidenceContent presentation={{ coachSentence: "short", session: { discipline: "bike" }, zones: [{ kind: "power", seconds: [25, 75, 0, 0, 0, 0, 0], priority: "primary" }] }} />);
+    expect(screen.queryByText("25%")).not.toBeInTheDocument();
   });
   it("renders full canonical evidence, zeros, exact cutoff and only awarded PR", () => {
     render(<ActivityOverviewEvidenceContent presentation={rich} />);
@@ -52,6 +56,62 @@ describe("activity overview evidence", () => {
     expect(screen.getByText(/활동 이전 90일/)).toBeInTheDocument();
     expect(screen.getAllByText("0 s").length).toBeGreaterThan(0);
   });
+  it("shows the highlight, anaerobic work, load index, all-time best, baseline scope and fat grams from the same presentation", () => {
+    const value: ActivityOverviewPresentation = { ...rich,
+      highlight: { kind: "sustained", reason: "20분 최고 출력 · 전체 기간 PR" }, aboveUsualVolume: true,
+      thresholdWork: { ...rich.thresholdWork, aboveFtpKj: 72.4 },
+      powerFingerprint: [{ duration: "2m", watts: 288, allTimeBestWatts: 320, allTimeBestPct: 90, medianWatts: 242, deltaPct: 19.3, competitionRank: 1, priorSampleCount: 10 },
+        { duration: "5m", watts: 219, allTimeBestWatts: 219, allTimeBestPct: 100, recordAchievement: "new" }, { duration: "1s", watts: 845 }],
+      zones: [{ ...rich.zones![0]!, baselineScope: "discipline" }],
+    };
+    render(<ActivityOverviewEvidenceContent presentation={value} />);
+    expect(screen.getByText("하이라이트 · 20분 최고 출력 · 전체 기간 PR")).toBeInTheDocument();
+    expect(screen.getByText("고강도 반복 · 평소보다 많이")).toBeInTheDocument();
+    expect(screen.getByText("72.4 kJ")).toBeInTheDocument();
+    expect(screen.getByText("오늘 부하 지수 100 · 같은 유형 내 90일 상위 1%")).toBeInTheDocument();
+    // 역대 최고 열: 320 W 대비 90%, 이번이 최고면 100%, 서버가 비운 구간은 —.
+    expect(screen.getByText("320 W")).toBeInTheDocument();
+    expect(screen.getByText("90%")).toBeInTheDocument();
+    // 100% 는 무산소 최대소진 카드에도 있으므로 표 셀까지 합쳐 둘 이상이어야 한다.
+    expect(screen.getAllByText("100%").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/클램프·글리치로 판정된 구간은 비워 둡니다/)).toBeInTheDocument();
+    expect(screen.getByText("기준: 종목 전체 (같은 유형 표본 부족)")).toBeInTheDocument();
+    expect(screen.getByText("19.4 g")).toBeInTheDocument();
+    cleanup();
+    // 지형 라벨은 서버가 정한 값만 보여준다.
+    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, routeLoad: { climbCount: 3, highestCategory: "Cat2", terrain: "climbing" } }} />);
+    expect(screen.getByText("업힐 위주")).toBeInTheDocument();
+    cleanup();
+    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, routeLoad: { climbCount: 0 } }} />);
+    expect(screen.queryByText("업힐 위주")).not.toBeInTheDocument();
+    expect(screen.queryByText("평지 위주")).not.toBeInTheDocument();
+  });
+
+  it("tells the best moment as a scene and shows the settled state after the activity", () => {
+    render(<ActivityOverviewEvidenceContent presentation={{ ...rich,
+      peakMoment: { durationSec: 60, avgPowerW: 371, fromKm: 42.1, toKm: 42.9, avgSpeedKmh: 51.5, maxHr: 191, segmentName: "남한산성 오르막", segmentPr: true },
+      postFitnessStatus: { asOf: "2026-09-13 09:00 KST", ctl: 39, atl: 62, tsb: -23, formBand: "needsRecovery" } }} />);
+    expect(screen.getByText("최고 순간 · 남한산성 오르막 (개인 최고) · 1분 371 W · 51.5 km/h · 최고심박 191")).toBeInTheDocument();
+    expect(screen.getByText("반영 후 CTL")).toBeInTheDocument();
+    expect(screen.getByText("-23")).toBeInTheDocument();
+    expect(screen.getByText("회복 필요")).toBeInTheDocument();
+    cleanup();
+    // 세그먼트가 없으면 km 구간으로, 반영 후 값이 없으면 카드도 없다.
+    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, peakMoment: { durationSec: 120, avgPowerW: 353, fromKm: 10, toKm: 11.2 } }} />);
+    expect(screen.getByText("최고 순간 · 10~11.2km 지점 · 2분 353 W")).toBeInTheDocument();
+    expect(screen.queryByText("반영 후 CTL")).not.toBeInTheDocument();
+  });
+
+  it("keeps the best columns blank and the baseline chip absent when records are unavailable or there is no comparison", () => {
+    const value: ActivityOverviewPresentation = { ...rich, availability: { ...rich.availability!, records: "unavailable" },
+      powerFingerprint: [{ duration: "2m", watts: 288, allTimeBestWatts: 320, allTimeBestPct: 90 }], zones: [{ kind: "power", seconds: [10, 20, 30, 40, 0, 0, 0], priority: "primary", currentPercentages: [10, 20, 30, 40, 0, 0, 0] }] };
+    render(<ActivityOverviewEvidenceContent presentation={value} />);
+    expect(screen.queryByText("320 W")).not.toBeInTheDocument();
+    expect(screen.queryByText("90%")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^기준:/)).not.toBeInTheDocument();
+    expect(screen.queryByText("하이라이트", { exact: false })).not.toBeInTheDocument();
+  });
+
   it.each(["bike", "run", "swim"] as const)("keeps sections with missing %s inputs without inventing zero values", (discipline) => {
     render(<ActivityOverviewEvidenceContent presentation={{ coachSentence: "짧은 활동", session: { discipline } }} />);
     expect(screen.getByText("내 기록 대비")).toBeInTheDocument();
