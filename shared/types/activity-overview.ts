@@ -16,6 +16,15 @@ export interface ActivityOverviewPresentation {
   thresholdBasis?: "user" | "power_ftp" | "hr_lthr" | "hr_max" | "none";
   priorFitnessStatus?: { asOf: string; formBand: "overload" | "needsRecovery" | "productive" | "fresh" | "overRecovered";
     ctl: number; atl: number; tsb: number };
+  /** 활동이 반영된 뒤의 상태 — 활동일 일별 정산 지점. 시작 전과 나란히 두면 이 활동이 몸에 준 변화가 보인다. */
+  postFitnessStatus?: { asOf: string; formBand: "overload" | "needsRecovery" | "productive" | "fresh" | "overRecovered";
+    ctl: number; atl: number; tsb: number };
+  /**
+   * 오늘의 최고 순간 — 정본 `metrics.peakEfforts.highlight` 에 세그먼트 이름을 붙인 것. 숫자 나열이 아니라
+   * "남한산성 오르막에서 1분 371W, 51km/h, 최고심박 191" 이라는 장면. 세그먼트와 겹치지 않으면 km 구간만 있다.
+   */
+  peakMoment?: { durationSec: number; avgPowerW: number; fromKm?: number; toKm?: number; avgSpeedKmh?: number; maxHr?: number;
+    segmentName?: string; segmentPr?: boolean };
   session: {
     discipline: "bike" | "run" | "swim" | "other";
     character?: "recovery" | "endurance" | "tempo" | "threshold" | "highIntensity"

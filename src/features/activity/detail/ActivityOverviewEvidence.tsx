@@ -49,6 +49,14 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
     <Card variant="inset"><Stack><Text as="p" variant="bodyMedium" tone="primary">{p.coachSentence}</Text>
     {/* 하이라이트 근거 — 서버가 표시 언어로 써서 보낸 한 줄. 라벨이 왜 그렇게 불렸는지. */}
     {p.highlight && <Text as="p" variant="caption" tone="secondary">{label("highlight")} · {p.highlight.reason}</Text>}
+    {/* 최고 순간 — 서버 정본(peakEfforts.highlight + 세그먼트 이름). 화면은 단위와 순서만 붙인다. */}
+    {p.peakMoment && <Text as="p" variant="caption" tone="secondary">{label("peakMoment")} · {[
+      p.peakMoment.segmentName ? p.peakMoment.segmentName + (p.peakMoment.segmentPr ? ` (${label("segmentPr")})` : "")
+        : p.peakMoment.fromKm != null && p.peakMoment.toKm != null ? t("overviewEvidence.peakMomentAt", { from: number(p.peakMoment.fromKm), to: number(p.peakMoment.toKm) }) : null,
+      `${Math.round(p.peakMoment.durationSec / 60)}${label("minuteShort")} ${number(p.peakMoment.avgPowerW, " W")}`,
+      p.peakMoment.avgSpeedKmh != null ? number(p.peakMoment.avgSpeedKmh, " km/h") : null,
+      p.peakMoment.maxHr != null ? `${label("maxHrShort")} ${number(p.peakMoment.maxHr)}` : null,
+    ].filter(Boolean).join(" · ")}</Text>}
     {p.session.classificationReason && <Text as="p" variant="caption" tone="tertiary">{p.session.classificationReason}</Text>}</Stack></Card>
     {section("stimulus", [
       [label("sport"), label(`sports.${p.session.discipline}`)],
@@ -93,6 +101,12 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
       [label("cutoff"), p.priorFitnessStatus ? p.priorFitnessStatus.asOf : "—"],
       [label("sport"), label(`sports.${p.session.discipline}`)], ["CTL", number(p.priorFitnessStatus?.ctl)], ["ATL", number(p.priorFitnessStatus?.atl)], ["TSB", number(p.priorFitnessStatus?.tsb)],
       [label("form"), p.priorFitnessStatus ? label(`forms.${p.priorFitnessStatus.formBand}`) : "—"],
+      // 활동 반영 후 — 활동일 일별 정산 지점. 시작 전과 나란히 두면 이 활동이 몸에 준 변화가 보인다.
+      ...(p.postFitnessStatus ? [
+        [label("afterCutoff"), p.postFitnessStatus.asOf],
+        [`${label("after")} CTL`, number(p.postFitnessStatus.ctl)], [`${label("after")} ATL`, number(p.postFitnessStatus.atl)], [`${label("after")} TSB`, number(p.postFitnessStatus.tsb)],
+        [`${label("after")} ${label("form")}`, label(`forms.${p.postFitnessStatus.formBand}`)],
+      ] as [string, string][] : []),
     ])}
     {!!p.sportDetails?.length && section("sportDetails", p.sportDetails.map((row) => [row.label, row.value]))}
     {p.routeLoad && section("route", [[label("terrainLabel"), p.routeLoad.terrain ? label(`terrain.${p.routeLoad.terrain}`) : "—"], [label("climbs"), number(p.routeLoad.climbCount)], [label("category"), p.routeLoad.highestCategory ?? "—"], [label("avgGrade"), number(p.routeLoad.avgGradePct, "%")], [label("maxGrade"), number(p.routeLoad.maxGradePct, "%")], [label("elevationQuality"), label(p.routeLoad.elevationSuspect ? "suspect" : "noWarning")]])}

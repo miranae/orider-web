@@ -87,6 +87,21 @@ describe("activity overview evidence", () => {
     expect(screen.queryByText("평지 위주")).not.toBeInTheDocument();
   });
 
+  it("tells the best moment as a scene and shows the settled state after the activity", () => {
+    render(<ActivityOverviewEvidenceContent presentation={{ ...rich,
+      peakMoment: { durationSec: 60, avgPowerW: 371, fromKm: 42.1, toKm: 42.9, avgSpeedKmh: 51.5, maxHr: 191, segmentName: "남한산성 오르막", segmentPr: true },
+      postFitnessStatus: { asOf: "2026-09-13 09:00 KST", ctl: 39, atl: 62, tsb: -23, formBand: "needsRecovery" } }} />);
+    expect(screen.getByText("최고 순간 · 남한산성 오르막 (개인 최고) · 1분 371 W · 51.5 km/h · 최고심박 191")).toBeInTheDocument();
+    expect(screen.getByText("반영 후 CTL")).toBeInTheDocument();
+    expect(screen.getByText("-23")).toBeInTheDocument();
+    expect(screen.getByText("회복 필요")).toBeInTheDocument();
+    cleanup();
+    // 세그먼트가 없으면 km 구간으로, 반영 후 값이 없으면 카드도 없다.
+    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, peakMoment: { durationSec: 120, avgPowerW: 353, fromKm: 10, toKm: 11.2 } }} />);
+    expect(screen.getByText("최고 순간 · 10~11.2km 지점 · 2분 353 W")).toBeInTheDocument();
+    expect(screen.queryByText("반영 후 CTL")).not.toBeInTheDocument();
+  });
+
   it("keeps the best columns blank and the baseline chip absent when records are unavailable or there is no comparison", () => {
     const value: ActivityOverviewPresentation = { ...rich, availability: { ...rich.availability!, records: "unavailable" },
       powerFingerprint: [{ duration: "2m", watts: 288, allTimeBestWatts: 320, allTimeBestPct: 90 }], zones: [{ kind: "power", seconds: [10, 20, 30, 40, 0, 0, 0], priority: "primary", currentPercentages: [10, 20, 30, 40, 0, 0, 0] }] };

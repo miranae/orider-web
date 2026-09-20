@@ -29,7 +29,7 @@ describe("ServerMetricsBanner sensor provenance", () => {
     expect(screen.queryByText("444")).not.toBeInTheDocument();
     expect(screen.queryByText("IF")).not.toBeInTheDocument();
     expect(screen.queryByText("VI")).not.toBeInTheDocument();
-    expect(screen.queryByText("지구력")).not.toBeInTheDocument();
+    expect(screen.queryByText("오래 꾸준히")).not.toBeInTheDocument();
     expect(screen.getByText("TRIMP")).toBeInTheDocument();
     expect(screen.getByText("peakHR bpm")).toBeInTheDocument();
     expect(screen.getByText("분석상 이동시간")).toBeInTheDocument();
@@ -45,7 +45,7 @@ describe("ServerMetricsBanner sensor provenance", () => {
     expect(screen.getByText("VI")).toBeInTheDocument();
     expect(screen.queryByText("TRIMP")).not.toBeInTheDocument();
     expect(screen.queryByText("peakHR bpm")).not.toBeInTheDocument();
-    expect(screen.queryByText("지구력")).not.toBeInTheDocument();
+    expect(screen.queryByText("오래 꾸준히")).not.toBeInTheDocument();
     expect(screen.getByText("분석상 이동시간")).toBeInTheDocument();
     expect(screen.getByText("1:00:00")).toBeInTheDocument();
   });
@@ -65,7 +65,7 @@ describe("ServerMetricsBanner sensor provenance", () => {
       expect(screen.queryByText("VI")).not.toBeInTheDocument();
       expect(screen.queryByText("TRIMP")).not.toBeInTheDocument();
       expect(screen.queryByText("peakHR bpm")).not.toBeInTheDocument();
-      expect(screen.queryByText("지구력")).not.toBeInTheDocument();
+      expect(screen.queryByText("오래 꾸준히")).not.toBeInTheDocument();
       expect(screen.getByText("분석상 이동시간")).toBeInTheDocument();
       expect(screen.getByText("1:00:00")).toBeInTheDocument();
     },
@@ -80,7 +80,7 @@ describe("ServerMetricsBanner sensor provenance", () => {
     expect(screen.getByText("VI")).toBeInTheDocument();
     expect(screen.getByText("TRIMP")).toBeInTheDocument();
     expect(screen.getByText("peakHR bpm")).toBeInTheDocument();
-    expect(screen.getByText("지구력")).toBeInTheDocument();
+    expect(screen.getByText("오래 꾸준히")).toBeInTheDocument();
     expect(screen.getByText("분석상 이동시간")).toBeInTheDocument();
     expect(screen.getByText("1:00:00")).toBeInTheDocument();
   });
@@ -106,7 +106,7 @@ describe("ServerMetricsBanner sensor provenance", () => {
       suppressHeartRateMetrics={false}
     />);
 
-    expect(screen.getByText("지구력")).toBeInTheDocument();
+    expect(screen.getByText("오래 꾸준히")).toBeInTheDocument();
     expect(screen.getByText("신뢰도 90%")).toBeInTheDocument();
   });
 
