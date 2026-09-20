@@ -1,0 +1,319 @@
+{
+ "discipline": "bike",
+ "mmpAll": {
+  "1s": {
+   "value": 848,
+   "activityId": "masked_activity",
+   "date": "2026-08-07",
+   "startTime": 1786135264000,
+   "source": "strava_api",
+   "cohortEligible": false
+  },
+  "5s": {
+   "value": 768,
+   "activityId": "masked_activity",
+   "date": "2026-08-22",
+   "startTime": 1787441448000,
+   "source": "strava_api",
+   "cohortEligible": false
+  },
+  "10s": {
+   "value": 671,
+   "activityId": "masked_activity",
+   "date": "2026-08-22",
+   "startTime": 1787441448000,
+   "source": "strava_api",
+   "cohortEligible": false
+  },
+  "30s": {
+   "value": 473,
+   "activityId": "masked_activity",
+   "date": "2026-08-01",
+   "startTime": 1785583463000,
+   "source": "strava_api",
+   "cohortEligible": false
+  },
+  "1m": {
+   "value": 404,
+   "activityId": "masked_activity",
+   "date": "2026-08-29",
+   "startTime": 1787994466000,
+   "source": "strava_api",
+   "cohortEligible": false
+  },
+  "2m": {
+   "value": 343,
+   "activityId": "masked_activity",
+   "date": "2026-09-18",
+   "startTime": 1789773998000,
+   "source": "strava_api",
+   "cohortEligible": false
+  },
+  "5m": {
+   "value": 263,
+   "activityId": "masked_activity",
+   "date": "2026-08-02",
+   "startTime": 1785668580000,
+   "source": "strava_api",
+   "cohortEligible": false
+  },
+  "10m": {
+   "value": 213,
+   "activityId": "masked_activity",
+   "date": "2026-09-06",
+   "startTime": 1788691083000,
+   "source": "strava_api",
+   "cohortEligible": false
+  },
+  "20m": {
+   "value": 202,
+   "activityId": "masked_activity",
+   "date": "2026-08-22",
+   "startTime": 1787441448000,
+   "source": "strava_api",
+   "cohortEligible": false
+  },
+  "30m": {
+   "value": 181,
+   "activityId": "masked_activity",
+   "date": "2026-09-06",
+   "startTime": 1788691083000,
+   "source": "strava_api",
+   "cohortEligible": false
+  },
+  "1h": {
+   "value": 164,
+   "activityId": "masked_activity",
+   "date": "2026-08-12",
+   "startTime": 1786576261000,
+   "source": "strava_api",
+   "cohortEligible": false
+  }
+ },
+ "cp": {
+  "value": 177,
+  "wPrime": 25200,
+  "r2": 0.974,
+  "computedAt": 1789916591543
+ },
+ "pdcModel": {
+  "pmax": 768,
+  "frc": 25200,
+  "ftpEst": 172,
+  "cpEst": 177,
+  "tteMin": 79
+ },
+ "stamina": 0.768,
+ "powerProfile": "all_rounder",
+ "wPerKgAtKey": {
+  "5s": 10.11,
+  "1m": 5.32,
+  "5m": 3.46,
+  "20m": 2.66
+ },
+ "riderType": {
+  "type": "Puncher",
+  "axisX": -0.06,
+  "axisY": -0.22,
+  "confidence": 0.97
+ },
+ "ability": {
+  "byDuration": [
+   {
+    "duration": "5s",
+    "wPerKg": 10.11,
+    "percentile": 7
+   },
+   {
+    "duration": "1m",
+    "wPerKg": 5.32,
+    "percentile": 3
+   },
+   {
+    "duration": "5m",
+    "wPerKg": 3.46,
+    "percentile": 14
+   },
+   {
+    "duration": "20m",
+    "wPerKg": 2.66,
+    "percentile": 11
+   }
+  ],
+  "overallPercentile": 9
+ },
+ "sustainablePower": [
+  {
+   "minutes": 5,
+   "watts": 261,
+   "basis": "cp_w_prime"
+  },
+  {
+   "minutes": 10,
+   "watts": 219,
+   "basis": "cp_w_prime"
+  },
+  {
+   "minutes": 20,
+   "watts": 198,
+   "basis": "cp_w_prime"
+  },
+  {
+   "minutes": 40,
+   "watts": 188,
+   "basis": "cp_w_prime"
+  },
+  {
+   "minutes": 60,
+   "watts": 184,
+   "basis": "cp_w_prime"
+  },
+  {
+   "minutes": 90,
+   "watts": 182,
+   "basis": "cp_w_prime"
+  },
+  {
+   "minutes": 180,
+   "watts": 179,
+   "basis": "cp_w_prime"
+  }
+ ],
+ "history": [
+  {
+   "period": "2026-06",
+   "mmp": {
+    "1s": 624,
+    "5s": 532,
+    "10s": 425,
+    "30s": 310,
+    "1m": 302,
+    "2m": 248,
+    "5m": 206,
+    "10m": 177,
+    "20m": 173,
+    "30m": 163
+   }
+  },
+  {
+   "period": "2026-07",
+   "mmp": {
+    "1s": 767,
+    "5s": 613,
+    "10s": 583,
+    "30s": 381,
+    "1m": 318,
+    "2m": 275,
+    "5m": 227,
+    "10m": 203,
+    "20m": 184,
+    "30m": 156
+   }
+  },
+  {
+   "period": "2026-08",
+   "mmp": {
+    "1s": 886,
+    "5s": 785,
+    "10s": 671,
+    "30s": 473,
+    "1m": 404,
+    "2m": 348,
+    "5m": 270,
+    "10m": 213,
+    "20m": 202,
+    "30m": 168,
+    "1h": 164
+   }
+  },
+  {
+   "period": "2026-09",
+   "mmp": {
+    "1s": 845,
+    "5s": 652,
+    "10s": 620,
+    "30s": 381,
+    "1m": 371,
+    "2m": 353,
+    "5m": 246,
+    "10m": 213,
+    "20m": 190,
+    "30m": 181
+   }
+  }
+ ],
+ "vo2maxEst": 44.4,
+ "provenance": {
+  "version": 2,
+  "power": "measured",
+  "excludesVirtualPower": true,
+  "byDuration": {
+   "1s": {
+    "source": "strava_api",
+    "cohortEligible": false
+   },
+   "5s": {
+    "source": "strava_api",
+    "cohortEligible": false
+   },
+   "10s": {
+    "source": "strava_api",
+    "cohortEligible": false
+   },
+   "30s": {
+    "source": "strava_api",
+    "cohortEligible": false
+   },
+   "1m": {
+    "source": "strava_api",
+    "cohortEligible": false
+   },
+   "2m": {
+    "source": "strava_api",
+    "cohortEligible": false
+   },
+   "5m": {
+    "source": "strava_api",
+    "cohortEligible": false
+   },
+   "10m": {
+    "source": "strava_api",
+    "cohortEligible": false
+   },
+   "20m": {
+    "source": "strava_api",
+    "cohortEligible": false
+   },
+   "30m": {
+    "source": "strava_api",
+    "cohortEligible": false
+   },
+   "1h": {
+    "source": "strava_api",
+    "cohortEligible": false
+   }
+  },
+  "derived": {
+   "ftpEst": false,
+   "vo2maxEst": false
+  }
+ },
+ "activityCount": 21,
+ "weightKgSnapshot": 76,
+ "computedAt": 1789916591543,
+ "version": 6,
+ "status": "final",
+ "inputDigest": "b5872604a65b2710387198e9846cc7bf66ea6fc948dc7f713187f8d9f187ea3e",
+ "asOf": 1789916400000,
+ "coverage": {
+  "state": "complete",
+  "candidateActivityCount": 73,
+  "includedActivityCount": 21,
+  "excludedActivityCount": 0,
+  "excludedActivityIds": [],
+  "excludedActivityIdsTruncated": false,
+  "excludedReasonCounts": {},
+  "carriedForwardDurationCount": 0
+ },
+ "ftpEstTrust": "consistent"
+}
