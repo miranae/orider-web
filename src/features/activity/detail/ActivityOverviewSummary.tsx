@@ -48,10 +48,15 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   const line = (name: string, value: string) => <Stack direction="row" justify="space-between" align="baseline" wrap><Text variant="bodySmall" tone="secondary">{name}</Text><Text variant="bodyMedium" mono tone="primary">{value}</Text></Stack>;
   return <Stack gap="var(--dim-section-gap)">
     <Stack gap="var(--dim-item-gap)">
-      <Stack direction="row" wrap><Chip variant={p.session.character ? "accent" : "default"}>
-        {p.session.character ? label(`characters.${p.session.character}`)
-          : thresholdMissing ? copy("thresholdMissingChip") : copy("characterPending")}
-      </Chip></Stack>
+      {/* 물 은유가 라벨이고 성격은 보조다 — "나는 시냇물, 너는 급류" 처럼 부를 수 있는 이름을 앞에 둔다.
+          은유는 서버가 확정한 값만 그린다(화면에서 재분류하지 않는다). */}
+      <Stack direction="row" wrap>
+        {p.water && <Chip variant="accent">{label(`water.${p.water.cue}`)}{p.water.swollen ? ` · ${copy("swollen")}` : ""}</Chip>}
+        <Chip variant={p.session.character && !p.water ? "accent" : "default"}>
+          {p.session.character ? label(`characters.${p.session.character}`)
+            : thresholdMissing ? copy("thresholdMissingChip") : copy("characterPending")}
+        </Chip>
+      </Stack>
       <Text as="p" variant="title" tone="primary">{p.coachSentence}</Text>
     </Stack>
     <SummarySection title={copy("stimulus")}>

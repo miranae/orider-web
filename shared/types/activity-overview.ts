@@ -47,7 +47,16 @@ export interface ActivityOverviewPresentation {
   energy?: { totalKcal: number; fatKcal?: number; carbKcal?: number; fatPct?: number; carbPct?: number };
   sportDetails?: Array<{ label: string; value: string; priority: "primary" | "secondary" }>;
   qualityNote?: boolean;
+  /**
+   * 활동 성격의 물 은유. 세기 순서가 이름에 들어 있다 — 고요한 물 < 시냇물 < 강물 < 물결 < 급류 < 파도 < 폭포.
+   * `currents` 는 여러 강도가 섞인 세션이고, `swollen` 은 같은 성격의 내 평소보다 유산소량이 많았다는 뜻이다.
+   * 서버가 확정해 보내며 화면은 칩으로만 그린다(재분류 금지). 성격이 없으면 은유도 없다.
+   * @sync-with orider-g1-web/shared/types/activity-overview.ts
+   */
+  water?: { cue: ActivityWaterCue; swollen?: boolean };
 }
+
+export type ActivityWaterCue = "still" | "stream" | "river" | "ripples" | "rapids" | "waves" | "waterfall" | "currents";
 
 
 export const ACTIVITY_OVERVIEW_VERSION = "activity-overview-v1" as const;

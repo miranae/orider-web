@@ -6,7 +6,7 @@
     "thresholdMissingCta": "Set thresholds",
     "peaks": "Peak power by duration",
     "route": "Route",
-    "title": "O-Rider activity overview", "characterPending": "Character pending",
+    "title": "O-Rider activity overview", "characterPending": "Character pending", "swollen": "Swollen vs usual",
     "stimulus": "Training stimulus", "changes": "My changes", "recovery": "Recovery & fuel", "before": "Pre-session state",
     "minute": "m", "second": "s", "hour": "h", "efforts": " efforts", "samples": " samples", "index": "Index",
     "matches": "Above FTP for ≥30s", "longest": "Longest Z4+", "anaerobic": "Time above 120% FTP", "reserve": "Maximum anaerobic reserve depletion", "remaining": "Minimum W′ remaining",
@@ -92,6 +92,16 @@
       "run": "Run",
       "swim": "Swim",
       "other": "Other"
+    },
+    "water": {
+      "still": "Still water",
+      "stream": "Stream",
+      "river": "River",
+      "ripples": "Ripples",
+      "rapids": "Rapids",
+      "waves": "Waves",
+      "waterfall": "Waterfall",
+      "currents": "Mixed currents"
     },
     "characters": {
       "recovery": "Recovery",

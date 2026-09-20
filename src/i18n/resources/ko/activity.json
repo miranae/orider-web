@@ -6,7 +6,7 @@
     "thresholdMissingCta": "임계값 설정하기",
     "peaks": "구간 최고 출력",
     "route": "경로",
-    "title": "오라이더 활동개요", "characterPending": "성격 확인 중",
+    "title": "오라이더 활동개요", "characterPending": "성격 확인 중", "swollen": "평소보다 불어남",
     "stimulus": "훈련 자극", "changes": "나의 변화", "recovery": "회복과 연료", "before": "시작 전 상태",
     "minute": "분", "second": "초", "hour": "시간", "efforts": "회", "samples": "회", "index": "지수",
     "matches": "FTP 초과 30초 이상", "longest": "최장 Z4+", "anaerobic": "120% FTP 초과 누적", "reserve": "무산소 여력 최대 소진", "remaining": "W′ 최저 잔량",
@@ -92,6 +92,16 @@
       "run": "러닝",
       "swim": "수영",
       "other": "기타"
+    },
+    "water": {
+      "still": "고요한 물",
+      "stream": "시냇물",
+      "river": "강물",
+      "ripples": "물결",
+      "rapids": "급류",
+      "waves": "파도",
+      "waterfall": "폭포",
+      "currents": "여러 물길"
     },
     "characters": {
       "recovery": "회복",
