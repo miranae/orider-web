@@ -95,7 +95,7 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
       [label("form"), p.priorFitnessStatus ? label(`forms.${p.priorFitnessStatus.formBand}`) : "—"],
     ])}
     {!!p.sportDetails?.length && section("sportDetails", p.sportDetails.map((row) => [row.label, row.value]))}
-    {p.routeLoad && section("route", [[label("climbs"), number(p.routeLoad.climbCount)], [label("category"), p.routeLoad.highestCategory ?? "—"], [label("avgGrade"), number(p.routeLoad.avgGradePct, "%")], [label("maxGrade"), number(p.routeLoad.maxGradePct, "%")], [label("elevationQuality"), label(p.routeLoad.elevationSuspect ? "suspect" : "noWarning")]])}
+    {p.routeLoad && section("route", [[label("terrainLabel"), p.routeLoad.terrain ? label(`terrain.${p.routeLoad.terrain}`) : "—"], [label("climbs"), number(p.routeLoad.climbCount)], [label("category"), p.routeLoad.highestCategory ?? "—"], [label("avgGrade"), number(p.routeLoad.avgGradePct, "%")], [label("maxGrade"), number(p.routeLoad.maxGradePct, "%")], [label("elevationQuality"), label(p.routeLoad.elevationSuspect ? "suspect" : "noWarning")]])}
     <Text as="p" variant="caption" tone="tertiary">{label("modelNote")}</Text>
     {p.qualityNote && <Text as="p" variant="caption" tone="tertiary">{label("qualityNote")}</Text>}
   </div>;

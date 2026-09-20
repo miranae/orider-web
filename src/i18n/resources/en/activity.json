@@ -22,6 +22,8 @@
     "overviewTitle": "ORider activity overview",
     "overviewSource": "See your session's character and how it compares with your own history.",
     "hrContextMissing": "Activity-time heart-rate reference is unavailable.",
+    "terrainLabel": "Terrain",
+    "terrain": { "climbing": "Climbing ride", "flat": "Flat ride" },
     "highlight": "Highlight",
     "aboveUsualVolume": "more than usual",
     "anaerobicWork": "Anaerobic work · joules above FTP",

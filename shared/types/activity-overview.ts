@@ -40,7 +40,12 @@ export interface ActivityOverviewPresentation {
     /** 비교 기준 코호트. `discipline` 은 같은 성격 표본이 부족해 종목 전체로 넓힌 것 — 표시할 때 밝힌다. */
     baselineScope?: "sameCharacter" | "discipline" }>;
   routeLoad?: { climbCount?: number; highestCategory?: string; avgGradePct?: number; maxGradePct?: number;
-    elevationSuspect?: boolean };
+    elevationSuspect?: boolean;
+    /**
+     * 지형 라벨. 서버가 검증된 고도·거리·클라임에서 정한다 — 업힐 위주(km당 상승 15m 이상 또는 HC/Cat1 포함),
+     * 평지 위주(km당 5m 이하·Cat3 이상 없음). 그 사이는 라벨을 두지 않는다(말할 가치가 없다).
+     */
+    terrain?: "climbing" | "flat" };
   powerFingerprint?: Array<{ duration: string; watts: number; medianWatts?: number; deltaPct?: number;
     competitionRank?: number; isBestInWindow?: boolean; tiedBest?: boolean; priorSampleCount?: number;
     recordAchievement?: "first" | "new" | "tie";

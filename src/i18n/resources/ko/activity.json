@@ -22,6 +22,8 @@
     "overviewTitle": "오라이더 활동개요",
     "overviewSource": "이번 활동의 성격과 내 기록 대비 변화를 한눈에 확인하세요.",
     "hrContextMissing": "활동 당시 심박 기준 정본이 없습니다.",
+    "terrainLabel": "지형",
+    "terrain": { "climbing": "업힐 위주", "flat": "평지 위주" },
     "highlight": "하이라이트",
     "aboveUsualVolume": "평소보다 많이",
     "anaerobicWork": "무산소 운동량 · FTP 초과분 일",

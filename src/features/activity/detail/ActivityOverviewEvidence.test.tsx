@@ -76,8 +76,15 @@ describe("activity overview evidence", () => {
     expect(screen.getAllByText("100%").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/클램프·글리치로 판정된 구간은 비워 둡니다/)).toBeInTheDocument();
     expect(screen.getByText("기준: 종목 전체 (같은 유형 표본 부족)")).toBeInTheDocument();
-    // 175 kcal ÷ 9 = 19.4 g
     expect(screen.getByText("19.4 g")).toBeInTheDocument();
+    cleanup();
+    // 지형 라벨은 서버가 정한 값만 보여준다.
+    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, routeLoad: { climbCount: 3, highestCategory: "Cat2", terrain: "climbing" } }} />);
+    expect(screen.getByText("업힐 위주")).toBeInTheDocument();
+    cleanup();
+    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, routeLoad: { climbCount: 0 } }} />);
+    expect(screen.queryByText("업힐 위주")).not.toBeInTheDocument();
+    expect(screen.queryByText("평지 위주")).not.toBeInTheDocument();
   });
 
   it("keeps the best columns blank and the baseline chip absent when records are unavailable or there is no comparison", () => {
