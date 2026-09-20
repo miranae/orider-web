@@ -441,7 +441,17 @@ export default function AnalysisTab({
     }
   };
 
-  if (!hasPower && !hasHr && cyclingDynamicsCards.length === 0) {
+  // 러닝은 파워·심박이 없어도 보여줄 분석이 있다 — 스플릿·GAP·페이스 편차는 GPS 만으로 나온다.
+  // 이 조건을 빼면 센서 없이 달리는 가장 흔한 구성에서 러닝 분석 전체가 unreachable 이 된다
+  // (스플릿 16개를 계산해두고 "스트림이 없다" 고 답하던 상태).
+  const hasRunAnalysis = sport === "run" && (
+    runSplits.length > 0
+    || overallGap != null
+    || sm?.runMetrics?.paceStdDevSec != null
+    || sm?.runMetrics?.minPaceSecPerKm != null
+  );
+
+  if (!hasPower && !hasHr && cyclingDynamicsCards.length === 0 && !hasRunAnalysis) {
     // 서버 분석 문서가 아직 없거나 로딩 중이면 "스트림 없음" 이 아니다 — 모름을 없음으로 그리지 않는다.
     // kill switch — 서버가 이 면을 껐다. 빈 화면으로 두면 "데이터가 없다" 로 읽힌다.
     if (serverMetrics.status === "disabled") {
@@ -703,6 +713,9 @@ export default function AnalysisTab({
             <MetricCard color="lime" label={t("analysis.metric.maxSpeed")} value={speed.maxKph != null ? speedVal(speed.maxKph) : null} unit={speedUnit} tooltip={t("analysis.glossary.maxSpeed")} />
             <MetricCard color="violet" label={t("analysis.metric.avgRpm")} value={cadenceStats.avg != null ? Math.round(cadenceStats.avg).toString() : null} unit="rpm" tooltip={t("analysis.glossary.avgRpm")} />
             <MetricCard color="violet" label={t("analysis.metric.maxRpm")} value={cadenceStats.max != null ? Math.round(cadenceStats.max).toString() : null} unit="rpm" tooltip={t("analysis.glossary.maxRpm")} />
+            {sport === "run" && sm?.runMetrics?.minPaceSecPerKm != null && (
+              <MetricCard color="lime" label={t("analysis.metric.fastestKm")} value={formatPace(sm.runMetrics.minPaceSecPerKm)} unit="/km" tooltip={t("analysis.glossary.fastestKm")} />
+            )}
             {sport === "run" && sm?.runMetrics?.paceStdDevSec != null && (
               <MetricCard color="aqua" label={t("analysis.metric.paceConsistency")} value={formatPace(sm.runMetrics.paceStdDevSec)} unit="σ" description={t("analysis.metric.paceConsistencyDesc")} tooltip={t("analysis.glossary.paceConsistency")} />
             )}
