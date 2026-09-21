@@ -1,7 +1,12 @@
 export type ActivityOverviewBand = "lower" | "usual" | "higher";
 
 export interface ActivityOverviewPresentation {
-  coachSentence: string;
+  /**
+   * 판정 한 줄. 근거(임계값·존·부하)가 있어 규칙 하나가 걸렸을 때만 있다. 없으면 줄을 비운다 —
+   * "오늘의 라이딩이었어요" 같은 내용 없는 문장을 만들지 않는다(2026-09-21).
+   * @sync-with orider-g1-web/shared/types/activity-overview.ts
+   */
+  coachSentence?: string;
   availability?: {
     personal: "available" | "character_uncertain" | "insufficient_history" | "unavailable";
     records: "evaluated" | "not_applicable" | "private" | "unavailable";
@@ -33,6 +38,8 @@ export interface ActivityOverviewPresentation {
     distanceKm?: number;
     load?: number;
     loadKind?: "tss" | "load";
+    /** 부하의 출처. `time` 은 파워·심박 없이 이동 시간으로만 추정한 값이라 화면이 "이동 시간 추정" 을 붙인다. */
+    loadSource?: "tss" | "trimp" | "time";
     intensityFactor?: number;
     normalizedPowerW?: number;
     elevationGainM?: number;

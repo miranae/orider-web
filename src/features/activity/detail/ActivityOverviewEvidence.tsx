@@ -46,7 +46,7 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
     </table>
   </div></Card>;
   return <div className="space-y-6">
-    <Card variant="inset"><Stack><Text as="p" variant="bodyMedium" tone="primary">{p.coachSentence}</Text>
+    <Card variant="inset"><Stack>{p.coachSentence && <Text as="p" variant="bodyMedium" tone="primary">{p.coachSentence}</Text>}
     {/* 하이라이트 근거 — 서버가 표시 언어로 써서 보낸 한 줄. 라벨이 왜 그렇게 불렸는지. */}
     {p.highlight && <Text as="p" variant="caption" tone="secondary">{label("highlight")} · {p.highlight.reason}</Text>}
     {/* 최고 순간 — 서버 정본(peakEfforts.highlight + 세그먼트 이름). 화면은 단위와 순서만 붙인다. */}
@@ -61,7 +61,7 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
     {section("stimulus", [
       [label("sport"), label(`sports.${p.session.discipline}`)],
       [label("character"), p.session.character ? label(`characters.${p.session.character}`) + (p.aboveUsualVolume ? ` · ${label("aboveUsualVolume")}` : "") : "—"],
-      [`${label("load")} · ${p.session.loadKind === "tss" ? "TSS" : label("load")}`, number(p.session.load)],
+      [`${label("load")} · ${p.session.loadKind === "tss" ? "TSS" : p.session.loadSource === "time" ? label("loadEstimatedFromTime") : label("load")}`, number(p.session.load)],
       ...(powerVisible ? [["IF", p.session.intensityFactor != null ? p.session.intensityFactor.toFixed(2) : "—"], ["NP", number(p.session.normalizedPowerW, " W")]] as [string, string][] : []),
       [label("highZone"), `${number(highPercent, "%")} · ${highZone ? label(highZone.kind) : "—"}`],
       ...(powerVisible ? [
