@@ -97,9 +97,11 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.queryByText(/Z1 \+15/)).not.toBeInTheDocument();
   });
   it.each(["bike", "run", "swim"] as const)("keeps the same frame for missing %s inputs", (discipline) => {
-    render(<ActivityOverviewSummaryContent presentation={{ coachSentence: "짧은 활동", session: { discipline }, thresholdWork: {}, availability: { personal: "character_uncertain", records: "unavailable", power: "unavailable", heartRate: "unavailable" } }} />);
+    render(<ActivityOverviewSummaryContent presentation={{ session: { discipline }, thresholdWork: {}, availability: { personal: "character_uncertain", records: "unavailable", power: "unavailable", heartRate: "unavailable" } }} />);
     expect(screen.getAllByRole("region")).toHaveLength(4);
-    expect(screen.getByText("이번 활동의 자극 분석 정보가 아직 없어요.")).toBeInTheDocument();
+    // 자극 표가 없으면 없다고 따로 말하지 않는다 — 문장이 없어도 프레임(4개 영역)은 유지된다.
+    expect(screen.queryByText(/자극 분석 정보/)).not.toBeInTheDocument();
+    expect(screen.queryByText("짧은 활동")).not.toBeInTheDocument();
     expect(screen.getByText(/성격이 불명확/)).toBeInTheDocument();
     expect(screen.queryByText("전체 기간 PR")).not.toBeInTheDocument();
   });

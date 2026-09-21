@@ -54,7 +54,8 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
           : thresholdMissing ? copy("thresholdMissingChip") : copy("characterPending")}
         {p.aboveUsualVolume ? ` · ${copy("aboveUsualVolume")}` : ""}
       </Chip></Stack>
-      <Text as="p" variant="title" tone="primary">{p.coachSentence}</Text>
+      {/* 판정 문장은 근거가 있을 때만 온다. 없으면 줄을 비운다 — 칩과 헤더가 이미 사실을 보여준다. */}
+      {p.coachSentence && <Text as="p" variant="title" tone="primary">{p.coachSentence}</Text>}
       {/* 하이라이트의 한 줄 근거 — 서버가 표시 언어로 써서 보낸다. "왜 그렇게 불렀나" 가 칩 바로 아래 온다. */}
       {p.highlight && <Text as="p" variant="caption" tone="secondary">{p.highlight.reason}</Text>}
     </Stack>
@@ -63,7 +64,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
         {/* 부하·NP·IF 는 상단 스탯 스트립에 없다 — 여기서 빠지면 어디에도 안 나온다. */}
         {(p.session.load != null || (powerVisible && p.session.normalizedPowerW != null)) && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-[var(--dim-item-gap)]">
-            {p.session.load != null && <Stat compact label={p.session.loadKind === "tss" ? "TSS" : label("load")} value={number(p.session.load)} />}
+            {p.session.load != null && <Stat compact label={p.session.loadKind === "tss" ? "TSS" : p.session.loadSource === "time" ? `${label("load")} · ${label("loadEstimatedFromTime")}` : label("load")} value={number(p.session.load)} />}
             {powerVisible && p.session.normalizedPowerW != null && <Stat compact label="NP" value={number(p.session.normalizedPowerW)} unit="W" />}
             {powerVisible && p.session.intensityFactor != null && <Stat compact label="IF" value={p.session.intensityFactor.toFixed(2)} />}
           </div>
@@ -73,7 +74,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
         {effort?.longestZ4PlusSec != null && line(copy("longest"), duration(effort.longestZ4PlusSec))}
         {effort?.anaerobicSec != null && line(copy("anaerobic"), duration(effort.anaerobicSec))}
         {effort?.wPrimeDepletionPct != null ? line(copy("reserve"), `${number(effort.wPrimeDepletionPct)}%`) : effort?.wPrimeRemainingPct != null && line(copy("remaining"), `${number(effort.wPrimeRemainingPct)}%`)}
-        {highPercent == null && ![effort?.matchesCount, effort?.longestZ4PlusSec, effort?.anaerobicSec, effort?.wPrimeDepletionPct, effort?.wPrimeRemainingPct].some((value) => value != null) && note(copy("stimulusMissing"))}
+        {/* 존·기록·무산소가 없으면 표가 없는 것으로 충분하다. "아직 없어요" 는 곧 계산될 것처럼 읽혀 임계값 없는 활동에서 거짓이 된다. */}
       </Stack>
     </SummarySection>
     <SummarySection title={voice("changes")}>
