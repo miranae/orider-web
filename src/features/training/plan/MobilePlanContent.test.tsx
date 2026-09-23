@@ -61,6 +61,9 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("2026_비앙키그란폰도춘천");
     expect(screen.getByText("오늘의 다음 운동")).toBeInTheDocument();
     expect(screen.getByText("60 TSS · 75 분")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "주간 선택" })).toHaveTextContent("이번 주");
+    expect(screen.getByText("🚴 사이클")).toBeInTheDocument();
+    expect(screen.getByText("가벼움")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("주간 TSS60");
     expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("1h 15m");
     expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("사이클 60");

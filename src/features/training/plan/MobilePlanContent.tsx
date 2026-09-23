@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { PlanWeek, PlanDay, WorkoutKind } from "@shared/types/goal";
-import { getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../../utils/disciplineFilter";
+import { getDisciplineColor, getDisciplineIcon } from "../../../utils/disciplineFilter";
 import type { Discipline } from "../../../utils/disciplineFilter";
 import { getWorkoutDiscipline as _gwDiscipline } from "../../../utils/workoutDiscipline";
 import { effectivePlanTSS, sumEffectivePlanTSS } from "../../../utils/planTss";
@@ -100,7 +100,6 @@ export default function MobilePlanContent({
   progressPct,
   completedTSS,
   totalTSS,
-  weeksLeft,
   projectedCTL,
   onWeekPrev,
   onWeekNext,
@@ -198,13 +197,10 @@ export default function MobilePlanContent({
       {adaptationSlot}
 
       {/* Week navigation */}
-      <div className="flex items-center justify-center" style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
+      <div className="flex items-center justify-center" role="group" aria-label={t('mobile.weekHeading')} style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
         <button type="button" onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')}
           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>◀</button>
-        <div style={{ textAlign: "center", minWidth: 0 }}>
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t('mobile.weekHeading')}</div>
-          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{weekLabel}{weeksLeft != null && <span style={{ marginLeft: "var(--space-1)", color: "var(--ink-3)", fontSize: "var(--fs-xs)", fontWeight: 400 }}>· {t("metrics.weeksLeft")} {weeksLeft}{t("metrics.weeksUnit")}</span>}</div>
-        </div>
+        <div style={{ textAlign: "center", minWidth: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{weekLabel}</div>
         <button type="button" onClick={onWeekNext} disabled={!onWeekNext || !canNextWeek} aria-label={t('mobile.nextWeek')}
           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>▶</button>
       </div>
@@ -279,10 +275,9 @@ export default function MobilePlanContent({
           : (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? "var(--amber)"
           : (day.workout === "ftp" || day.workout === "vo2" || day.workout === "sim" || day.workout === "intervalRun" || day.workout === "intervalSwim") ? "var(--rose)"
           : "var(--lime)";
-        const intensityLabel = isRest ? "REST"
-          : (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? "MOD"
-          : (day.workout === "ftp" || day.workout === "vo2" || day.workout === "sim" || day.workout === "intervalRun" || day.workout === "intervalSwim") ? "HARD"
-          : "EASY";
+        const intensityLabel = (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? t("intensityChip.mod")
+          : (day.workout === "ftp" || day.workout === "vo2" || day.workout === "sim" || day.workout === "intervalRun" || day.workout === "intervalSwim") ? t("intensityChip.hard")
+          : t("intensityChip.easy");
 
         if (isRest) {
           return (
@@ -333,15 +328,15 @@ export default function MobilePlanContent({
                   const c = getDisciplineColor(d);
                   return (
                     <span style={{
-                      fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", padding: "1px 5px", borderRadius: "var(--r-xs)",
+                      fontSize: "var(--fs-xs)", padding: "1px 5px", borderRadius: "var(--r-xs)",
                       background: `color-mix(in oklch, ${c} 14%, var(--bg-2))`,
                       color: c, border: `1px solid color-mix(in oklch, ${c} 30%, transparent)`,
                       display: "flex", alignItems: "center", gap: "var(--space-0-5)",
-                    }}>{getDisciplineIcon(d)} {getDisciplineTag(d)}</span>
+                    }}>{getDisciplineIcon(d)} {t(`discipline.${d}`)}</span>
                   );
                 })()}
                 <span style={{
-                  fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", padding: "1px 5px", borderRadius: "var(--r-xs)",
+                  fontSize: "var(--fs-xs)", padding: "1px 5px", borderRadius: "var(--r-xs)",
                   background: "var(--bg-3)", color: intensityColor,
                 }}>{intensityLabel}</span>
                 {/* 자동 조정 chip — week 단위 canonical factor 사용 */}

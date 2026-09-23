@@ -282,10 +282,10 @@
     "loading": "로그인 상태를 확인하고 있어요…"
   },
   "intensityChip": {
-    "rest": "REST",
-    "easy": "EASY",
-    "mod": "MOD",
-    "hard": "HARD"
+    "rest": "휴식",
+    "easy": "가벼움",
+    "mod": "보통",
+    "hard": "고강도"
   },
   "session": {
     "burnoutRest": "완전 휴식 (필수)",
