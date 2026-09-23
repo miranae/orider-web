@@ -619,7 +619,7 @@ export default function MobileFitnessPage({
   const powerCurveSub = t("mobileFitness.powerCurveSub", { maxW: powerCurveMaxW });
 
   return (
-    <div>
+    <div className={embedded ? "mobile-fitness-page mobile-fitness-page--embedded" : "mobile-fitness-page"}>
       {!embedded && <h1 className="sr-only">{t("mobileFitness.title")}</h1>}
 
       <div className="mobile-fitness-toolbar">
@@ -636,7 +636,7 @@ export default function MobileFitnessPage({
         <div style={{ paddingTop: "var(--space-2)" }}>
           <SectionCard ariaLabel={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")} compact>
             <div data-mobile-fitness-status className="mobile-fitness-status">
-              <Text variant="eyebrow">{t("mobileFitness.kpiTsbLabel")}<span className="mobile-fitness-status__meaning"> · {tsbInterpretation}</span></Text>
+              <Text as="div" variant="eyebrow" className="mobile-fitness-status__label">{t("mobileFitness.kpiTsbLabel")}<span className="mobile-fitness-status__meaning">{tsbInterpretation}</span></Text>
               <span className="mobile-fitness-status__value">
                 {tsbValue == null ? "—" : tsbValue.toFixed(1)}
               </span>
