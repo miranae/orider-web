@@ -56,6 +56,17 @@ for (const width of [1440, 390]) {
       await page.goto(`/e2e/fixtures/pmc-history.html?lang=${lang}`);
       const panel = page.locator(".pmc-history");
       await expect(panel).toBeVisible();
+      if (width === 390 && lang === "ko") {
+        const range = panel.getByRole("group", { name: "표시 기간" });
+        const chart = panel.locator(".pmc-history__trend-stack");
+        await expect(range).toBeInViewport();
+        await expect(panel.locator(".pmc-history__latest")).toContainText("체력 (CTL)");
+        await expect(panel.locator(".pmc-history__latest")).toContainText("피로도 (ATL)");
+        const rangeBox = (await range.boundingBox())!;
+        expect(rangeBox.y + rangeBox.height).toBeLessThan((await chart.boundingBox())!.y);
+        await expect.poll(() => panel.locator(".pmc-history__navigation label").evaluate(label => label.clientWidth / label.parentElement!.clientWidth)).toBeGreaterThan(0.9);
+        await testInfo.attach("pmc-mobile-before-chart-ko", { body: await page.screenshot({ path: testInfo.outputPath("mobile-before-chart.png"), animations: "disabled" }), contentType: "image/png" });
+      }
       if (width === 1440) await expect(panel.locator('[data-pmc-end-label="ctl"]')).toBeVisible();
       else await expect(panel.locator("[data-pmc-end-label]")).toHaveCount(0);
       await panel.locator("details summary").click();
@@ -68,6 +79,7 @@ for (const width of [1440, 390]) {
       await expect(latest).toContainText(lang === "ko" ? "미확인" : "Unconfirmed");
       await page.evaluate(() => document.fonts.ready);
       await panel.getByRole("button", { name: lang === "ko" ? "3년" : "3 years", exact: true }).click();
+      if (width === 390 && lang === "ko") await expect.poll(() => panel.getByRole("button", { name: "최신 구간" }).evaluate(button => button.scrollWidth <= button.clientWidth)).toBe(true);
       await expect(panel.getByRole("combobox").locator("option")).toHaveCount(36);
       const charts = panel.getByRole("slider");
       await charts.first().focus();
