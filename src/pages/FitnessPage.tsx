@@ -20,6 +20,7 @@ import RunRecordsBoard from "../components/fitness/RunRecordsBoard";
 import TrainingStatusCard from "../components/fitness/TrainingStatusCard";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
 import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
+import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../components/redesign";
 import DetailsSection from "../components/redesign/DetailsSection";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
@@ -53,10 +54,19 @@ import { Card, Chip, Text, buttonClass } from "../theme/components";
 import { getDisciplineColor } from "../utils/disciplineFilter";
 import { toLocalDate, toUtcDate } from "../utils/dateUtils";
 import TriFitnessView from "./fitness/TriFitnessView";
+import { formatPlanGoalTitle } from "../features/training/plan/planDisplay";
 
 export interface FitnessViewProps {
   embedded?: boolean;
   model: FitnessModel;
+}
+
+export function fitnessGoalDisplayName(goal: { title?: string | null; courseName?: string | null } | null): string | null {
+  if (!goal) return null;
+  const raw = [goal.title, goal.courseName]
+    .map((value) => value?.trim())
+    .find((value) => value && !/^[a-z0-9]+(?:_[a-z0-9]+)+$/i.test(value));
+  return raw ? formatPlanGoalTitle(raw).name : null;
 }
 
 export function FitnessView({ embedded = false, model }: FitnessViewProps) {
@@ -157,11 +167,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     ? selectedActivityId
     : pendingImpactActivity?.id ?? activityImpacts[0]?.activity.id ?? null;
   const recoveryForecast = currentPoint ? forecastFitness48Hours(currentPoint, 35) : null;
-  const goalDisplayName = activeGoal
-    ? [activeGoal.title, activeGoal.courseName]
-        .map((value) => value?.trim())
-        .find((value) => value && !/^[a-z0-9]+(?:_[a-z0-9]+)+$/i.test(value)) ?? null
-    : null;
+  const goalDisplayName = fitnessGoalDisplayName(activeGoal);
 
   if (!user) {
     return <GuestValuePreview kind="fitness" lang={i18n.language} />;
@@ -301,26 +307,15 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     : null;
 
   // 자막 생성
-  const subtitleParts: string[] = [];
-  if (projection) {
-    const projDays = projection.series.length;
-    subtitleParts.push(t("header.subtitle.actualWithProjection", { range, projDays }));
-  } else {
-    subtitleParts.push(t("header.subtitle.actual", { range }));
-  }
-  if (activeGoal && projection && goalDisplayName) {
+  const subtitle = projection
+    ? t("header.subtitle.actualWithProjection", { range, projDays: projection.series.length })
+    : t("header.subtitle.actual", { range });
+  const goalForecast = activeGoal && projection && goalDisplayName ? (() => {
     const goalDateObj = new Date(activeGoal.eventDate);
-    const goalDateStr = `${goalDateObj.getMonth() + 1}/${goalDateObj.getDate()}`;
+    const date = `${goalDateObj.getMonth() + 1}/${goalDateObj.getDate()}`;
     const tsbVal = Math.round(projection.goalDay.tsb);
-    subtitleParts.push(
-      t("header.subtitle.goal", {
-        course: goalDisplayName,
-        date: goalDateStr,
-        ctl: Math.round(projection.goalDay.ctl),
-        tsb: tsbVal >= 0 ? `+${tsbVal}` : tsbVal,
-      })
-    );
-  }
+    return { course: goalDisplayName, date, ctl: Math.round(projection.goalDay.ctl), tsb: tsbVal >= 0 ? `+${tsbVal}` : String(tsbVal) };
+  })() : null;
 
   // 파워 커브 데이터 분리
   const currentPowerCurve = powerCurveProgressions.find((p) => p.label === t("period.recent"));
@@ -375,7 +370,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   // 동일 헤더를 공유한다. 콜드 진입 시 차트 데이터가 도착하기 전에도 헤더(h1)가 즉시
   // 페인트돼 LCP 요소가 늦게 뜨는 차트가 아닌 정적 헤더로 고정 → LCP 꼬리 제거.
   const pageHeader = (
-    <div className="site-shell" style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
+    <div className="site-shell" style={{ padding: "var(--space-4) var(--space-6) var(--space-3)", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
       <div style={{ flex: 1 }}>
         <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)', display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
           <span>{t("header.eyebrow", { date: formatMonthDay(i18n.language) })}</span>
@@ -387,15 +382,18 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         <Text as="h1" variant="pageTitle" style={{ marginBottom: "var(--space-1-5)" }}>
           {t("header.title")}
         </Text>
-        <div style={{ color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
-          {subtitleParts.join(" ")}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-1) var(--space-3)", color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
+          <span>{subtitle}</span>
+          {goalForecast && <Link to="/plan" title={t("header.subtitle.goal", goalForecast)} aria-label={t("header.subtitle.goal", goalForecast)} style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}>
+            {t("header.subtitle.goalShort", goalForecast)} →
+          </Link>}
         </div>
       </div>
       <DisciplineTabs includeTri />
     </div>
   );
 
-  const bodyPad = { padding: "20px 24px 40px" };
+  const bodyPad = { padding: "var(--space-4) var(--space-6) var(--space-8)" };
 
   // 데이터 의존 본문만 상태별로 스왑 — 헤더는 항상 즉시 페인트.
   // 정본 timeseries doc 이 도착하기 전(doc 보유 유저)엔 스켈레톤 유지 — 클라 폴백(부정확

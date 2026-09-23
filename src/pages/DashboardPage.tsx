@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import { Fragment, useState, useRef, useMemo, useEffect } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { Search, X, ChevronDown } from "lucide-react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -48,6 +48,7 @@ import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard"
 import { useMobile } from "../hooks/useMobile";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import type { Activity } from "@shared/types";
+import "./DashboardPage.css";
 
 type FeedFilterIndex = 0 | 1 | 2;
 
@@ -554,7 +555,8 @@ export default function DashboardPage() {
     unit: showWeekNumbers ? unit : null,
     delta: null,
     deltaKind: "up" as const,
-    sub: weekSub,
+    // 네 지표의 공통 기간은 그룹 제목으로 올린다. 계산 대기/실패 등 상태 문구는 유지한다.
+    sub: showWeekNumbers ? undefined : weekSub,
     chip: weekChip,
   });
 
@@ -608,6 +610,11 @@ export default function DashboardPage() {
   ];
 
   const isMobile = useMobile();
+  const desktopRoutine = consistencyStreak && (
+    <div style={{ marginTop: "var(--space-3)" }}>
+      <ConsistencyStreakCard summary={consistencyStreak} compact />
+    </div>
+  );
 
   if (isMobile) {
     return (
@@ -708,12 +715,6 @@ export default function DashboardPage() {
           <FirstSyncCelebration activityId={firstSync.activityId} onClose={firstSync.dismiss} />
         )}
 
-        {consistencyStreak && (
-          <div style={{ marginTop: 'var(--space-4)' }}>
-            <ConsistencyStreakCard summary={consistencyStreak} />
-          </div>
-        )}
-
         {showYearRecapBanner && (
           <Card
             padding="none"
@@ -741,17 +742,38 @@ export default function DashboardPage() {
           </Card>
         )}
 
-        {/* KPI 스트립 */}
-        {user && <Card padding="none" style={{ marginTop: 'var(--space-4)', display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))" }}>
-          {KPI.map((s, i) => (
-            <div key={i} style={{ padding: "18px 20px", borderRight: i < KPI.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
-              <StatBlock {...s} />
-            </div>
-          ))}
-        </Card>}
+        {/* 한 주의 활동량과 훈련 상태는 서로 다른 질문이다. 두 그룹으로 읽히게 한다. */}
+        {user && (
+          <div className="dashboard-kpi-overview grid gap-3" style={{ marginTop: "var(--space-2)" }}>
+            <Card padding="none" style={{ overflow: "hidden" }}>
+              <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
+                <Text as="h2" variant="eyebrow" tone="secondary">{t("kpi.weekGroup")}</Text>
+              </div>
+              <div className="dashboard-kpi-week grid">
+                {KPI.slice(0, 4).map((stat) => (
+                  <div key={stat.label} style={{ minWidth: 0, padding: "var(--space-3) var(--space-4)" }}>
+                    <StatBlock {...stat} />
+                  </div>
+                ))}
+              </div>
+            </Card>
+            <Card padding="none" style={{ overflow: "hidden", background: "var(--bg-2)" }}>
+              <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
+                <Text as="h2" variant="eyebrow" tone="secondary">{t("kpi.trainingGroup")}</Text>
+              </div>
+              <div className="dashboard-kpi-training grid">
+                {KPI.slice(4).map((stat) => (
+                  <div key={stat.label} style={{ minWidth: 0, padding: "var(--space-3) var(--space-3)" }}>
+                    <StatBlock {...stat} />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* 메인: 피드 + 사이드바 */}
-        <div className="flex gap-5" style={{ marginTop: 'var(--space-5)' }}>
+        <div className="flex gap-5" style={{ marginTop: 'var(--space-3)' }}>
           {/* 피드 */}
           <div className="flex-1 min-w-0 flex flex-col">
             {/* 헤더: 제목 + 카운트 + 필터 */}
@@ -865,10 +887,14 @@ export default function DashboardPage() {
                     <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("feed.search.emptyDescription")}</div>
                   </Card>
                 )}
+                {!activitySearch.loading && activitySearch.results.length === 0 && desktopRoutine}
                 {!activitySearch.loading && activitySearch.results.length > 0 && (
                   <div className="flex flex-col gap-3.5">
                     {activitySearch.results.map((activity, i) => (
-                      <ActivityCard key={activity.id} activity={activity} priority={i === 0} />
+                      <Fragment key={activity.id}>
+                        <ActivityCard activity={activity} priority={i === 0} />
+                        {i === 0 && desktopRoutine}
+                      </Fragment>
                     ))}
                     {activitySearch.hasMore && (
                       <Button variant="secondary" onClick={activitySearch.loadMore} style={{ width: "100%" }}>
@@ -899,6 +925,7 @@ export default function DashboardPage() {
                     actions={[{ label: activities.length > 0 ? t("feed.partialError.retry") : t("feed.error.retry"), variant: "primary", onClick: retryFeed }]}
                   />
                 )}
+                {!loading && feedError && filteredActivities.length === 0 && desktopRoutine}
 
                 {!loading && !feedError && filteredActivities.length === 0 && (
                   <EmptyState
@@ -911,11 +938,15 @@ export default function DashboardPage() {
                     ]}
                   />
                 )}
+                {!loading && !feedError && filteredActivities.length === 0 && desktopRoutine}
 
                 {!loading && filteredActivities.length > 0 && (
                   <div className="flex flex-col gap-3.5">
                     {filteredActivities.map((activity, i) => (
-                      <ActivityCard key={activity.id} activity={activity} priority={i === 0} />
+                      <Fragment key={activity.id}>
+                        <ActivityCard activity={activity} priority={i === 0} />
+                        {i === 0 && desktopRoutine}
+                      </Fragment>
                     ))}
                   </div>
                 )}

@@ -10,7 +10,7 @@ import parity from "../features/coach/__fixtures__/rider-insight-parity.json";
 import { parseCoachRiderInsight } from "../services/coachRiderInsightContract";
 import FitnessSurface from "../embedded/surfaces/FitnessSurface";
 import { normalizeFitnessRange } from "../hooks/useFitnessModel";
-import FitnessPage from "./FitnessPage";
+import FitnessPage, { fitnessGoalDisplayName } from "./FitnessPage";
 
 const viewport = vi.hoisted(() => ({ isMobile: true }));
 const riderInsight = vi.hoisted(() => ({ enabled: false, insight: null as ReturnType<typeof parseCoachRiderInsight> | null, loading: false, unavailable: false }));
@@ -73,6 +73,10 @@ vi.mock("./fitness/TriFitnessView", () => ({
 }));
 
 describe("FitnessPage", () => {
+  it("uses the plan display formatter for generated goal names in the fitness header", () => {
+    expect(fitnessGoalDisplayName({ title: "2026_비앙키그란폰도춘천_그란폰도_122.91km" })).toBe("비앙키그란폰도춘천");
+    expect(fitnessGoalDisplayName({ title: "ride_123", courseName: "춘천 코스" })).toBe("춘천 코스");
+  });
   beforeEach(() => {
     viewport.isMobile = true;
     riderInsight.enabled = false;

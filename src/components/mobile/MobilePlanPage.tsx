@@ -6,6 +6,7 @@ import MobilePlanContent from "../../features/training/plan/MobilePlanContent";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { AddPlanSheet } from "../training";
 import AdaptationBanner from "../training/AdaptationBanner";
+import { Button } from "../../theme/components";
 
 export interface MobilePlanPageProps {
   currentWeek: PlanWeek | null;
@@ -81,8 +82,8 @@ export default function MobilePlanPage({
           style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
           <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t('mobile.headerTitle')}</span>
           <div style={{ flex: 1 }} />
-          <span style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", cursor: "pointer", fontWeight: 500 }}
-            onClick={() => currentWeek && goalId ? setShowAddSheet(true) : navigate("/goal-setup")}>{t('mobile.addAction')}</span>
+          <Button type="button" variant="ghost" size="sm"
+            onClick={() => currentWeek && goalId ? setShowAddSheet(true) : navigate("/goal-setup")}>{t('mobile.addAction')}</Button>
         </div>
       )}
       adaptationSlot={goalId && adaptationFlag ? (
@@ -98,14 +99,16 @@ export default function MobilePlanPage({
             [t("actions.resetGoal", { defaultValue: "목표 재설정" }), onGoalReset],
             [t("actions.abandon", { defaultValue: "포기" }), onAbandon],
           ].map(([label, action]) => action ? (
-            <button
+            <Button
               key={String(label)}
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => { void (action as () => void | Promise<void>)(); }}
-              style={{ minHeight: 36, padding: "0 10px", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", color: "var(--ink-1)", fontSize: "var(--fs-xs)", fontWeight: 600, whiteSpace: "nowrap" }}
+              style={{ whiteSpace: "nowrap" }}
             >
               {String(label)}
-            </button>
+            </Button>
           ) : null)}
         </div>
       )}

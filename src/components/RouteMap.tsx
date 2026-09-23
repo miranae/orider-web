@@ -6,6 +6,7 @@ import type { LngLatBoundsLike } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { decodeTrack } from "../utils/polyline";
+import { buildStaticRoutePath } from "../utils/staticRoutePath";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
 
@@ -97,29 +98,6 @@ function findNearestIndex(positions: [number, number][], lat: number, lng: numbe
   return minIdx;
 }
 
-function buildStaticRoutePath(positions: [number, number][]): string | null {
-  if (positions.length < 2) return null;
-  const lats = positions.map(([lat]) => lat);
-  const lngs = positions.map(([, lng]) => lng);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  const latSpan = Math.max(maxLat - minLat, 0.000001);
-  const lngSpan = Math.max(maxLng - minLng, 0.000001);
-  const pad = 16;
-  const width = 320;
-  const height = 160;
-
-  return positions
-    .map(([lat, lng], index) => {
-      const x = pad + ((lng - minLng) / lngSpan) * (width - pad * 2);
-      const y = pad + (1 - (lat - minLat) / latSpan) * (height - pad * 2);
-      return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(" ");
-}
-
 function supportsWebGL(): boolean {
   if (typeof document === "undefined") return true;
   try {
@@ -150,6 +128,7 @@ function RouteMapFallback({
   title: string;
   description: string;
 }) {
+  const { t } = useTranslation("common");
   const containerClass = `${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`;
   if (imageUrl) {
     return (
@@ -167,7 +146,7 @@ function RouteMapFallback({
   const path = buildStaticRoutePath(positions);
   return (
     <div
-      className={`${containerClass} relative flex items-center justify-center`}
+      className={`${containerClass} relative`}
       role="status"
       aria-live="polite"
       style={{
@@ -182,9 +161,14 @@ function RouteMapFallback({
           <path d={path} fill="none" stroke="var(--lime)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
-      <div className="relative mx-4 max-w-sm rounded-[var(--r-md)] px-4 py-3 text-center" style={{ background: "color-mix(in srgb, var(--bg-0) 82%, transparent)", border: "1px solid var(--line-soft)" }}>
-        <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{title}</div>
-        <div className="mt-1 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{description}</div>
+      <div
+        data-route-fallback-badge
+        className="absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-[var(--r-sm)] px-2 py-1"
+        style={{ background: "color-mix(in srgb, var(--bg-0) 88%, transparent)", border: "1px solid var(--line-soft)", boxShadow: "var(--shadow-sm)" }}
+      >
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "var(--amber)" }} aria-hidden="true" />
+        <span className="truncate text-[length:var(--fs-xs)] font-medium" style={{ color: "var(--ink-1)" }}>{path ? t("map.routePreviewTitle") : title}</span>
+        <span className="sr-only">{path ? t("map.routePreviewDescription") : description}</span>
       </div>
     </div>
   );

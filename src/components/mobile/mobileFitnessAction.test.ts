@@ -138,7 +138,7 @@ describe("mobile fitness action", () => {
   it("uses semantic violet only for integrated weekly load and preserves discipline colors", () => {
     const source = read("src/components/mobile/MobileFitnessPage.tsx");
     const colorSetup = source.slice(source.indexOf("const ringColor"), source.indexOf("const pmcTitle"));
-    const overview = source.slice(source.indexOf('{activeTab === "overview"'), source.indexOf('{activeTab === "analysis"'));
+    const overview = source.slice(source.indexOf('      {activeTab === "overview" && ('), source.indexOf('      {activeTab === "analysis" && ('));
 
     expect(colorSetup).toContain('const weeklyLoadColor = data.discipline === "tri" ? PMC_LINE_PALETTE.ctl.color : ringColor;');
     expect(overview).toContain('<WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />');

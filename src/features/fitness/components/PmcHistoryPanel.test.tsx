@@ -18,7 +18,7 @@ describe("PmcHistoryPanel", () => {
     const table = screen.getByRole("table");
     expect(within(table).getByText("집계됨 · 1/1 일")).toBeInTheDocument();
     expect(within(table).getByText("추정 계산")).toBeInTheDocument();
-    expect(screen.queryByText("서버 정본 이력")).not.toBeInTheDocument();
+    expect(screen.queryByText("저장된 훈련 이력")).not.toBeInTheDocument();
     view.rerender(<PmcHistoryPanel points={[{ ...morning, dailyLoad: 70, calculationStatus: "derived" }]} today={morning.date} canonical />);
     expect(within(table).getByText("70.0")).toBeInTheDocument();
     expect(within(table).getByText("종목 합산")).toBeInTheDocument();
@@ -29,7 +29,7 @@ describe("PmcHistoryPanel", () => {
 
   it("changes day/week/month granularity and keeps navigation synchronized with the value strip", () => {
     const { container } = renderPanel();
-    expect(screen.getByText("저장된 PMC 이력")).toBeInTheDocument();
+    expect(screen.getByText("체력·피로 이력")).toBeInTheDocument();
     expect(screen.queryByText(/실적 \+ 예측/)).not.toBeInTheDocument();
     expect(container.querySelector('[data-pmc-today-marker="true"]')).toBeInTheDocument();
     expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("체력 (CTL)");
@@ -133,11 +133,11 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getByText("직접 지정")).toHaveAttribute("data-source-state", "failed");
   });
 
-  it("uses non-overlapping real 44px range buttons in the mobile grid", () => {
+  it("keeps the six period controls in one touch-sized mobile row", () => {
     const css = readFileSync(join(process.cwd(), "src/features/fitness/components/PmcHistoryPanel.css"), "utf8");
-    expect(css).toContain(".pmc-history__ranges .ds-btn { height: 44px; min-height: 44px; }");
+    expect(css).toContain(".pmc-history__ranges { flex-wrap: nowrap; gap: var(--space-1); overflow-x: auto;");
+    expect(css).toContain(".pmc-history__ranges .ds-btn { flex: 1 0 2.75rem; height: 44px; min-height: 44px;");
     expect(css).toContain(".pmc-history__ranges .ds-btn::after { display: none; }");
-    expect(css).toContain(".pmc-history__ranges--controlled { grid-template-columns: repeat(2, minmax(0, 1fr)); }");
     expect(css).toContain(".pmc-history__navigation label { grid-column: 1 / -1; }");
     expect(css).toContain(".pmc-history__tsb-chart { display: block; width: 100%; height: auto;");
   });
@@ -158,7 +158,7 @@ describe("PmcHistoryPanel", () => {
   it("keeps selected values keyed to the plotted series and emphasizes the independent zero baseline", () => {
     const { container } = renderWithProviders(<PmcHistoryPanel points={points} today="2026-09-06" canonical ctlColor="var(--color-brand-bike)" />);
     const chartHeading = container.querySelector(".pmc-history__chart-heading");
-    expect(chartHeading).toHaveTextContent("저장된 PMC 이력");
+    expect(chartHeading).toHaveTextContent("체력·피로 이력");
     expect(chartHeading).toHaveTextContent("일별");
     expect(container.querySelector(".pmc-history__values [data-pmc-metric='ctl']")).toHaveStyle({ borderInlineStartColor: "var(--color-brand-bike)" });
     expect(container.querySelector(".pmc-history__values [data-pmc-metric='atl']")).toHaveStyle({ borderInlineStartColor: "var(--rose)" });

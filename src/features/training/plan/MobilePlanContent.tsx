@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { PlanWeek, PlanDay, WorkoutKind } from "@shared/types/goal";
 import { getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../../utils/disciplineFilter";
@@ -6,7 +6,9 @@ import type { Discipline } from "../../../utils/disciplineFilter";
 import { getWorkoutDiscipline as _gwDiscipline } from "../../../utils/workoutDiscipline";
 import { effectivePlanTSS, sumEffectivePlanTSS } from "../../../utils/planTss";
 import AdjustedChip from "../../../components/training/AdjustedChip";
-import { Text } from "../../../theme/components";
+import { Button, Card, Text } from "../../../theme/components";
+import { formatPlanGoalTitle } from "./planDisplay";
+import "./MobilePlanContent.css";
 
 /** rest → bike 폴백으로 Discipline 타입 보장 (색상/아이콘 표시용) */
 function getWorkoutDisciplineForDisplay(workout: string): Discipline {
@@ -102,6 +104,7 @@ export default function MobilePlanContent({
 }: MobilePlanContentProps) {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
+  const [showPastDays, setShowPastDays] = useState(false);
   const WORKOUT_LABELS = useMemo(() => buildWorkoutLabels(t), [t]);
   const DAY_NAMES = useMemo(() => [
     tCommon('weekday.mon'),
@@ -118,6 +121,15 @@ export default function MobilePlanContent({
     if (!d.date) return false;
     return kstDateString(d.date) === todayStr;
   });
+  const [goalExpanded, setGoalExpanded] = useState(false);
+  const formattedGoal = goalTitle ? formatPlanGoalTitle(goalTitle) : null;
+  const todayWorkout = todayIdx >= 0 ? days[todayIdx] : null;
+  const todayActionable = todayWorkout && !todayWorkout.completed && !todayWorkout.skipped && todayWorkout.workout !== "rest";
+  const nextWorkoutIdx = todayActionable ? todayIdx : days.findIndex(day =>
+    kstDateString(day.date) >= todayStr && !day.completed && !day.skipped && day.workout !== "rest",
+  );
+  const nextWorkout = nextWorkoutIdx >= 0 ? days[nextWorkoutIdx] : null;
+  const nextWorkoutLabel = nextWorkout ? WORKOUT_LABELS[nextWorkout.workout] ?? nextWorkout.workout : "";
 
   /**
    * 데스크톱 PlanPage 의 일별 칸 클릭과 동일하게 WorkoutEditModal(완료/건너뛰기/변경/교환) 을 연다.
@@ -134,40 +146,55 @@ export default function MobilePlanContent({
   return (
     <div>
       {chromeSlot}
-      {adaptationSlot}
 
       {goalTitle && (
-        <div style={{ margin: "14px 16px 12px", background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-lg)", padding: "var(--space-3)" }}>
-          {!embedded && <Text as="div" variant="eyebrow" style={{ color: "var(--lime)", marginBottom: "var(--space-1)" }}>{t("page.planTitle")}</Text>}
-          <div style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", marginBottom: "var(--space-3)" }}>{goalTitle}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
-            {[
-              [t("page.daysLeftPrefix"), daysLeft ?? "—"],
-              [t("metrics.progress"), progressPct != null ? `${progressPct}%` : "—"],
-              [t("metrics.completedTSS"), `${completedTSS ?? 0}/${totalTSS ?? 0}`],
-              [t("metrics.projectedCTL"), projectedCTL != null ? `≈+${Math.round(projectedCTL)}` : "—"],
-            ].map(([label, value]) => (
-              <div key={String(label)} style={{ minWidth: 0, padding: "var(--space-2)", borderRadius: "var(--r-md)", background: "var(--bg-2)" }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{label}</Text>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink-0)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
-              </div>
-            ))}
-          </div>
-          {actionsSlot}
-          {weeksLeft != null && (
-            <div style={{ marginTop: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-              {t("metrics.weeksLeft")}: {weeksLeft}{t("metrics.weeksUnit")}
+        <Card padding="none" style={{ margin: "var(--space-2) var(--space-4)", padding: "var(--space-2) var(--space-3)", minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "start", gap: "var(--space-2)", marginBottom: "var(--space-1)" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2 title={goalTitle} aria-label={goalTitle} style={{ margin: 0, fontSize: "var(--fs-base)", lineHeight: 1.4, fontWeight: 700, color: "var(--ink-0)", overflowWrap: "anywhere", ...(!goalExpanded ? { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden" } : {}) }}>{goalExpanded ? goalTitle : formattedGoal?.name}</h2>
+              {!goalExpanded && formattedGoal?.meta && <div style={{ marginTop: "var(--space-0-5)", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{formattedGoal.meta}</div>}
             </div>
-          )}
-        </div>
+            {(formattedGoal?.meta || goalTitle.length > 32) && (
+              <Button type="button" variant="ghost" size="sm" aria-expanded={goalExpanded} onClick={() => setGoalExpanded(value => !value)} style={{ flexShrink: 0 }}>
+                {goalExpanded ? t("mobile.collapseGoal") : t("mobile.showOriginal")}
+              </Button>
+            )}
+          </div>
+          <div role="progressbar" aria-label={t("metrics.progress")} aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} style={{ height: 4, borderRadius: "var(--r-xs)", background: "var(--bg-3)", overflow: "hidden", margin: "var(--space-1) 0 var(--space-2)" }}>
+            <div style={{ width: `${Math.min(100, Math.max(0, progressPct ?? 0))}%`, height: "100%", background: "var(--lime)" }} />
+          </div>
+          <div className="mobile-plan-goal-stats" style={{ columnGap: "var(--space-3)", rowGap: "var(--space-1)", color: "var(--ink-2)", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
+            <span><strong style={{ color: "var(--ink-0)" }}>{daysLeft != null ? `${t("page.daysLeftPrefix")}${daysLeft}` : "—"}</strong></span>
+            <span>{t("metrics.progress")} <strong style={{ color: "var(--lime)" }}>{progressPct != null ? `${progressPct}%` : "—"}</strong></span>
+            <span>{t("metrics.completedTSS")} <strong style={{ color: "var(--ink-0)" }}>{completedTSS ?? 0}/{totalTSS ?? 0}</strong></span>
+            <span>CTL <strong style={{ color: "var(--ink-0)" }}>{projectedCTL != null ? `≈+${Math.round(projectedCTL)}` : "—"}</strong></span>
+          </div>
+          {actionsSlot && <details style={{ marginTop: "var(--space-2)", borderTop: "1px solid var(--line-soft)", paddingTop: "var(--space-1)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>
+            <summary style={{ cursor: "pointer", fontWeight: 600 }}>{t("mobile.managePlan")}</summary>
+            <div style={{ paddingTop: "var(--space-2)" }}>{actionsSlot}</div>
+          </details>}
+        </Card>
       )}
 
+      {nextWorkout && (
+        <Card padding="none" style={{ margin: "0 var(--space-4) var(--space-2)", padding: "var(--space-2) var(--space-3)", borderColor: "var(--lime)", background: "color-mix(in oklch, var(--lime) 5%, var(--bg-1))" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", minWidth: 0 }}>
+            <Text as="span" variant="eyebrow" style={{ color: "var(--lime)", flexShrink: 0 }}>{nextWorkoutIdx === todayIdx ? t("mobile.todayNext") : t("mobile.weekNext")}</Text>
+            <strong style={{ minWidth: 0, flex: 1, fontSize: "var(--fs-sm)", color: "var(--ink-0)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nextWorkoutLabel}</strong>
+            {onEditWorkout && <Button type="button" size="sm" onClick={() => openEditFor(nextWorkoutIdx)}>{t("mobile.start")}</Button>}
+          </div>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{nextWorkoutIdx !== todayIdx && `${kstDateString(nextWorkout.date)} · `}{effectivePlanTSS(nextWorkout)} TSS</div>
+        </Card>
+      )}
+
+      {adaptationSlot}
+
       {/* Week navigation */}
-      <div className="flex items-center justify-center" style={{ padding: "var(--space-3) var(--space-4)", gap: 'var(--space-4)' }}>
+      <div className="flex items-center justify-center" style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
         <button onClick={onWeekPrev} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>◀</button>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-4)" }}>WEEK</div>
-          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{weekLabel}</div>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{weekLabel}{weeksLeft != null && <span style={{ marginLeft: "var(--space-1)", color: "var(--ink-3)", fontSize: "var(--fs-xs)", fontWeight: 400 }}>· {t("metrics.weeksLeft")} {weeksLeft}{t("metrics.weeksUnit")}</span>}</div>
         </div>
         <button onClick={onWeekNext} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>▶</button>
       </div>
@@ -188,62 +215,45 @@ export default function MobilePlanContent({
         const stackTotal = bikeTSS + runTSS + swimTSS || 1;
 
         return (
-          <div style={{ margin: "0 16px 12px", background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-lg)", padding: "var(--space-3)" }}>
-            <div className="flex" style={{ marginBottom: 'var(--space-3)' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.weeklyTSS')}</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xl)", fontWeight: 600, color: "var(--lime)", letterSpacing: "-0.03em" }}>{Math.round(totalTSS)}</div>
+          <details style={{ margin: "0 var(--space-4) var(--space-1)", background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: "var(--space-1) var(--space-3)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>
+            <summary style={{ cursor: 'pointer', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}
+              aria-label={`${t('mobile.weeklyTSS')} ${Math.round(totalTSS)}, ${t('mobile.timeLabel')} ${h}h ${m}m, ${t('mobile.sessions')} ${sessions}`}>
+              TSS <strong style={{ color: 'var(--lime)' }}>{Math.round(totalTSS)}</strong>
+              {' · '}<strong style={{ color: 'var(--ink-0)' }}>{h}h {m}m</strong>
+              {' · '}<strong style={{ color: 'var(--ink-0)' }}>{sessions}</strong>{t('mobile.sessions')}
+            </summary>
+            {(bikeTSS > 0 || runTSS > 0 || swimTSS > 0) && <div style={{ paddingTop: 'var(--space-2)' }}>
+              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}>{t('mobile.sportLoad')}</Text>
+              <div style={{ display: "flex", height: 6, borderRadius: "var(--r-xs)", overflow: "hidden", marginBlock: 'var(--space-2)' }}>
+                {bikeTSS > 0 && <div style={{ width: `${(bikeTSS/stackTotal)*100}%`, background: "var(--aqua)" }} />}
+                {runTSS > 0 && <div style={{ width: `${(runTSS/stackTotal)*100}%`, background: "var(--amber)" }} />}
+                {swimTSS > 0 && <div style={{ width: `${(swimTSS/stackTotal)*100}%`, background: "var(--lime)" }} />}
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.timeLabel')}</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xl)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em" }}>{h}h {m}m</div>
+              <div className="flex" style={{ gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+                {bikeTSS > 0 && <span>🚴 {Math.round(bikeTSS)}</span>}
+                {runTSS > 0 && <span>🏃 {Math.round(runTSS)}</span>}
+                {swimTSS > 0 && <span>🏊 {Math.round(swimTSS)}</span>}
               </div>
-              <div>
-                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.sessions')}</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xl)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em" }}>{sessions}</div>
-              </div>
-            </div>
-            {/* Sport TSS stack bar */}
-            <div style={{ display: "flex", height: 6, borderRadius: "var(--r-xs)", overflow: "hidden", marginBottom: 'var(--space-2)' }}>
-              {bikeTSS > 0 && <div style={{ width: `${(bikeTSS/stackTotal)*100}%`, background: "var(--aqua)" }} />}
-              {runTSS > 0 && <div style={{ width: `${(runTSS/stackTotal)*100}%`, background: "var(--amber)" }} />}
-              {swimTSS > 0 && <div style={{ width: `${(swimTSS/stackTotal)*100}%`, background: "var(--lime)" }} />}
-            </div>
-            <div className="flex" style={{ gap: 'var(--space-3)', fontSize: "var(--fs-xs)" }}>
-              {bikeTSS > 0 && <span style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}><span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: "var(--aqua)" }} />🚴 {Math.round(bikeTSS)}</span>}
-              {runTSS > 0 && <span style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}><span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: "var(--amber)" }} />🏃 {Math.round(runTSS)}</span>}
-              {swimTSS > 0 && <span style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}><span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: "var(--lime)" }} />🏊 {Math.round(swimTSS)}</span>}
-            </div>
-          </div>
+            </div>}
+          </details>
         );
       })()}
 
-      {/* 운동 강도 범례 */}
-      <div style={{ padding: "10px 16px", display: "flex", flexWrap: "wrap", gap: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-        {[
-          { label: t('legend.z1Recovery'), color: "var(--ink-4)" },
-          { label: t('legend.z2Endurance'), color: "var(--aqua)" },
-          { label: t('legend.z3Tempo'), color: "var(--amber)" },
-          { label: t('legend.z4Threshold'), color: "var(--lime)" },
-          { label: t('legend.z5VO2'), color: "var(--rose)" },
-          { label: t('legend.longSim'), color: "var(--aqua)" },
-        ].map(({ label, color }) => (
-          <span key={label} style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}>
-            <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: color, flexShrink: 0 }} />
-            {label}
-          </span>
-        ))}
-      </div>
-
       {/* Weekly plan — vertical list */}
-      <div className="flex items-center justify-between" style={{ padding: "14px 16px 8px" }}>
+      <div className="flex items-center justify-between" style={{ padding: "var(--space-1) var(--space-4)" }}>
         <Text variant="eyebrow">{t('mobile.weeklyPlan')}</Text>
         {onEditWorkout && editTargetIdx >= 0 && (
-          <span style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, cursor: "pointer" }}
-            onClick={() => openEditFor(editTargetIdx)}>{t('mobile.edit')}</span>
+          <Button type="button" variant="ghost" size="sm" onClick={() => openEditFor(editTargetIdx)}>{t('mobile.edit')}</Button>
         )}
       </div>
+      {todayIdx > 0 && (
+        <button type="button" onClick={() => setShowPastDays(value => !value)} aria-expanded={showPastDays}
+          style={{ margin: "0 var(--space-4) var(--space-1)", minHeight: 36, padding: "0 var(--space-2)", textAlign: "left", border: "1px solid var(--line-soft)", borderRadius: "var(--r-sm)", background: "var(--bg-1)", color: "var(--ink-2)", fontSize: "var(--fs-sm)", cursor: "pointer" }}>
+          {showPastDays ? t('mobile.hidePastDays') : t('mobile.showPastDays', { count: todayIdx })}
+        </button>
+      )}
       {days.map((day, i) => {
+        if (todayIdx > 0 && i < todayIdx && !showPastDays) return null;
         const dayStr = day.date ? kstDateString(day.date) : "";
         const dayOfMonth = day.date ? kstDayOfMonth(day.date) : null;
         const isToday = dayStr === todayStr;
@@ -252,6 +262,7 @@ export default function MobilePlanContent({
         const isPast = dayStr !== "" && dayStr < todayStr;
         const label = WORKOUT_LABELS[day.workout] ?? day.workout;
         const state = isDone ? "done" : isToday ? "today" : isRest ? "off" : isPast ? "past" : "planned";
+        const stateLabel = state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned');
 
         const intensityColor = isRest ? "var(--ink-4)"
           : (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? "var(--amber)"
@@ -282,7 +293,16 @@ export default function MobilePlanContent({
 
         return (
           <div key={i} className="flex items-center gap-3.5"
-            onClick={() => onEditWorkout?.(day, currentWeek?.id ?? "", i)}
+            role={onEditWorkout ? "button" : undefined}
+            tabIndex={onEditWorkout ? 0 : undefined}
+            aria-label={onEditWorkout ? `${DAY_NAMES[i]} ${dayOfMonth ?? ""} ${label} · ${stateLabel}` : undefined}
+            onClick={() => openEditFor(i)}
+            onKeyDown={onEditWorkout ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openEditFor(i);
+              }
+            } : undefined}
             style={{
               padding: "13px 16px", borderBottom: "1px solid var(--line-soft)",
               background: isToday ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent",
@@ -320,20 +340,33 @@ export default function MobilePlanContent({
               </div>
               <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)" }}>{label}</div>
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>
-                {state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned')}
+                {stateLabel}
               </div>
             </div>
             {state === "done" && <span style={{ color: "var(--lime)", fontSize: "var(--fs-base)" }}>✓</span>}
-            {state === "today" && onEditWorkout && (
-              <button
-                onClick={(e) => { e.stopPropagation(); openEditFor(i); }}
-                style={{ padding: "10px 14px", background: "var(--lime)", color: "var(--primary-fg)", border: "none", borderRadius: "var(--r-sm)", fontSize: "var(--fs-xs)", fontWeight: 600, cursor: "pointer" }}>
-                {t('mobile.start')}
-              </button>
-            )}
           </div>
         );
       })}
+
+      {/* 운동 강도 범례: 일정 다음에 두어 첫 화면의 행동 흐름을 방해하지 않는다. */}
+      <details style={{ padding: "var(--space-2) var(--space-4)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+        <summary style={{ cursor: 'pointer' }}>{t('mobile.intensityLegend')}</summary>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", paddingBlock: "var(--space-2)" }}>
+          {[
+            { label: t('legend.z1Recovery'), color: "var(--ink-4)" },
+            { label: t('legend.z2Endurance'), color: "var(--aqua)" },
+            { label: t('legend.z3Tempo'), color: "var(--amber)" },
+            { label: t('legend.z4Threshold'), color: "var(--lime)" },
+            { label: t('legend.z5VO2'), color: "var(--rose)" },
+            { label: t('legend.longSim'), color: "var(--aqua)" },
+          ].map(({ label, color }) => (
+            <span key={label} style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}>
+              <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: color, flexShrink: 0 }} />
+              {label}
+            </span>
+          ))}
+        </div>
+      </details>
 
       {!embedded && <div style={{ height: 80 }} />}
 

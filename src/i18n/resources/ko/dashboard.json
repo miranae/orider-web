@@ -12,7 +12,9 @@
     "signInFailed": "로그인에 실패했습니다. 다시 시도해 주세요."
   },
   "kpi": {
-    "weekDistance": "최근 7일 거리",
+    "weekGroup": "최근 7일 활동",
+    "trainingGroup": "훈련 상태",
+    "weekDistance": "거리",
     "rides": "라이드 수",
     "movingTime": "이동 시간",
     "elevation": "획득 고도",
@@ -215,6 +217,9 @@
     "statElev": "획득고도",
     "statSpeed": "평균속도",
     "weekSummary": "이번 주 요약",
+    "streakWeeks": "{{count}}주 연속",
+    "routineScore": "90일 점수 {{score}}",
+    "filterToggle": "필터",
     "sportFilterLabel": "활동 종목 필터",
     "viewAll": "전체보기",
     "loading": "불러오는 중…",
@@ -334,6 +339,12 @@
     "kpiCtlLabel": "CTL 체력",
     "kpiAtlLabel": "ATL 피로",
     "kpiTsbLabel": "TSB 상태",
+    "tsbMeaning": {
+      "fatigueHigher": "피로가 체력보다 높아요",
+      "fitnessHigher": "체력이 피로보다 높아요",
+      "balanced": "체력과 피로가 비슷해요",
+      "noData": "아직 계산할 기록이 없어요"
+    },
     "vo2maxDesc": "추정치",
     "vo2maxNoFtp": "FTP와 체중 필요",
     "tsbOverRested": "휴식 과다",

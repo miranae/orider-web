@@ -1,0 +1,48 @@
+.dashboard-kpi-overview {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.dashboard-kpi-week {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dashboard-kpi-training {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-kpi-week > :not(:last-child),
+.dashboard-kpi-training > :first-child {
+  border-right: 1px solid var(--line-soft);
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .dashboard-kpi-overview {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+
+  .dashboard-kpi-week {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-kpi-training {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    --fs-3xl: var(--fs-2xl);
+  }
+
+  .dashboard-kpi-training > :first-child {
+    border-right: 1px solid var(--line-soft);
+    border-bottom: 0;
+  }
+
+  .dashboard-kpi-week > :nth-child(2) {
+    border-right: 0;
+  }
+
+  .dashboard-kpi-week > :nth-child(odd) {
+    border-right: 1px solid var(--line-soft);
+  }
+
+  .dashboard-kpi-week > :nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line-soft);
+  }
+}

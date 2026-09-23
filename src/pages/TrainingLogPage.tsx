@@ -12,7 +12,6 @@ import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
 import { estimateActivityTss, sumActivityTss } from "../utils/estimateTSS";
-import { getSportIcon } from "../utils/sportType";
 import { Button, Card, Text } from "../theme/components";
 import { ErrorState } from "../components/redesign";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
@@ -139,6 +138,7 @@ function effectivePlanDuration(day: PlanDay): number {
 function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKey, todayKey }: LogDayCellProps) {
   const navigate = useNavigate();
   const { t } = useTranslation("training");
+  const [expanded, setExpanded] = useState(false);
   const hasAct = activities.length > 0;
   const hasPlan = plans.length > 0;
   const single = activities.length === 1;
@@ -153,6 +153,8 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
 
   // 활동 정렬 — 시작 시각 빠른 순
   const sorted = [...activities].sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
+  const visible = expanded ? sorted : sorted.slice(0, 2);
+  const hiddenCount = sorted.length - 2;
 
   const fmtTime = (ts: number) => {
     if (!ts) return "";
@@ -160,38 +162,28 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   };
 
-  const handleCellClick = () => {
-    if (!single) return; // 다중 활동은 행 단위 선택만 허용
-    const first = sorted[0];
-    if (first) navigate(`/activity/${first.id}`);
-  };
-
   return (
     <div
-      onClick={hasAct ? handleCellClick : undefined}
       style={{
         minHeight: 66,
-        padding: "5px 6px",
+        padding: "var(--space-2)",
         borderRadius: "var(--r-sm)",
         background: "var(--bg-2)",
         border: `1px solid ${isToday ? "var(--lime)" : "var(--line-soft)"}`,
         opacity: isCurrentMonth ? 1 : 0.2,
-        cursor: single ? "pointer" : "default",
         display: "flex",
         flexDirection: "column",
         gap: "var(--space-1)",
         position: "relative",
       }}
-      onMouseEnter={(e) => { if (single) e.currentTarget.style.background = "var(--bg-3)"; }}
-      onMouseLeave={(e) => { if (single) e.currentTarget.style.background = "var(--bg-2)"; }}
     >
       {/* 날짜 숫자 + 다중 활동 인디케이터 */}
       <div className="flex items-center" style={{ gap: 'var(--space-1)' }}>
         <span
           style={{
-            fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)",
+            fontSize: "var(--fs-sm)", fontFamily: "var(--font-mono)",
             color: isToday ? "var(--lime)" : "var(--ink-3)",
-            fontWeight: isToday ? 700 : 400, lineHeight: 1,
+            fontWeight: isToday ? 700 : 600, lineHeight: 1.2,
           }}
         >
           {dayNum}
@@ -226,7 +218,7 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
               display: "flex",
               alignItems: "center",
               gap: "var(--space-1)",
-              padding: "1px 3px",
+              padding: "3px 5px",
               borderRadius: "var(--r-xs)",
               border: `1px dashed ${color}`,
               color,
@@ -234,9 +226,9 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
               background: "color-mix(in oklch, currentColor 7%, transparent)",
             }}
           >
-            <span style={{ fontSize: "var(--fs-xs)", lineHeight: 1 }}>P</span>
-            <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
-              {plan.plannedTSS}
+            <span style={{ fontSize: "var(--fs-xs)", lineHeight: 1.2 }}>{t("log.planLabel")}</span>
+            <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", lineHeight: 1.2 }}>
+              {plan.plannedTSS} TSS
             </span>
             {index === 0 && adherenceLabel && (
               <span style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
@@ -246,14 +238,14 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
           </div>
         );
       })}
-      {sorted.map((a) => {
-        const icon = getSportIcon(a.type);
+      {visible.map((a) => {
         const color = sportColor(a.type);
         const { value: tss, estimated: tssEstimated } = estimateActivityTss(a);
         return (
           <button
             key={a.id}
             type="button"
+            aria-label={`${a.description || a.type || formatActivityDist(a)} · ${fmtTime(a.startTime)} · ${formatActivityDist(a)}${tss == null ? "" : ` · ${tss} TSS${tssEstimated ? ` ${t("page.tssEstimated")}` : ""}`}`}
             onClick={(e) => {
               e.stopPropagation();
               navigate(`/activity/${a.id}`);
@@ -264,7 +256,7 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
               alignItems: "center",
               gap: "var(--space-1)",
               color,
-              padding: "1px 2px",
+              padding: "3px 2px",
               borderRadius: "var(--r-xs)",
               border: "none",
               background: "transparent",
@@ -278,8 +270,8 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
               e.currentTarget.style.background = "transparent";
             }}
           >
-            <span style={{ fontSize: "var(--fs-sm)", lineHeight: 1, flexShrink: 0 }}>{icon}</span>
-            <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-0)", lineHeight: 1 }}>
+            <span aria-hidden="true" style={{ width: "var(--space-1-5)", height: "var(--space-1-5)", borderRadius: "var(--r-full)", background: color, flexShrink: 0 }} />
+            <span style={{ fontSize: "var(--fs-sm)", fontFamily: "var(--font-mono)", color: "var(--ink-0)", lineHeight: 1.2 }}>
               {formatActivityDist(a)}
             </span>
             {/* 모르면 대시 — 0 을 "부하 없음" 확정값처럼 보여주지 않는다 (#2237). */}
@@ -290,6 +282,10 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
           </button>
         );
       })}
+      {hiddenCount > 0 && <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}
+        style={{ alignSelf: "flex-start", minHeight: 24, padding: "0 var(--space-1)", border: 0, background: "none", color: "var(--accent)", fontSize: "var(--fs-xs)", fontWeight: 600, cursor: "pointer" }}>
+        {t(expanded ? "log.hideExtraActivities" : "log.showExtraActivities", { count: hiddenCount })}
+      </button>}
     </div>
   );
 }
@@ -631,12 +627,22 @@ export default function TrainingLogPage() {
   const [importOpen, setImportOpen] = useState(false);
 
   const isMobile = useMobile();
+  const [isNarrowLayout, setIsNarrowLayout] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+    const update = () => setIsNarrowLayout(media.matches);
+    media.addEventListener("change", update);
+    update();
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   if (!user) {
     return <GuestValuePreview kind="log" lang={i18n.language} />;
   }
 
-  if (isMobile) {
+  if (isMobile || isNarrowLayout) {
     if (loadError) {
       return (
         <div style={{ padding: "var(--space-4)" }}>
@@ -668,7 +674,10 @@ export default function TrainingLogPage() {
 
       {/* ── 헤더 ───────────────────────────────────────────────── */}
       <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "20px 0 16px" }}>
-        <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("page.logTitle")} · {t("page.logActivities", { count: kpi.count })}</Text>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+          <Text as="h1" variant="title" style={{ margin: 0 }}>{t("page.logTitle")}</Text>
+          <Text as="span" variant="caption" tone="secondary">{t("page.logActivities", { count: kpi.count })}</Text>
+        </div>
         <Card padding="none" style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
           {[
             { label: t("page.logTotalDistance"), value: `${kpi.dist.toFixed(1)}`, unit: "km", color: "var(--aqua)" },
@@ -802,14 +811,14 @@ export default function TrainingLogPage() {
                     ))}
                   </div>
                 ))
-              : calendar.map((week, wi) => {
+              : calendar.map((week) => {
                   // 주간 TSS 합계
                   const weekLoad = sumActivityTss(
                     week.flatMap((cell) => byDay.get(dateToKey(cell.date)) ?? []),
                   );
                   return (
                   <div
-                    key={wi}
+                    key={dateToKey(week[0]!.date)}
                     style={{
                       display: "grid",
                       gridTemplateColumns: LOG_WEEK_GRID_COLUMNS,
@@ -817,14 +826,14 @@ export default function TrainingLogPage() {
                       alignItems: "stretch",
                     }}
                   >
-                    {week.map((cell, di) => {
+                    {week.map((cell) => {
                       const key = dateToKey(cell.date);
                       const acts = byDay.get(key) ?? [];
                       const plans = planByMonth.get(key) ?? [];
                       const isToday = key === todayKey;
                       return (
                         <LogDayCell
-                          key={di}
+                          key={key}
                           activities={acts}
                           plans={plans}
                           isToday={isToday}

@@ -22,7 +22,42 @@ vi.mock("../activity/ActivitySocialFooter", () => ({
 }));
 
 describe("MobileFeedPage", () => {
-  it("keeps the public feed visible for a guest even with a stale personal scope", () => {
+  it("keeps the first activity near the top and expands the routine from the weekly summary", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<MobileFeedPage
+      activities={[createMockActivity({ id: "first-ride", description: "첫 활동" })]}
+      loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()}
+      feedScope="all" onFeedScopeChange={vi.fn()}
+      consistencyStreak={{ streakWeeks: 12, activeDays90d: 30, activeWeeks90d: 12, thisWeekCount: 1, needsThisWeek: 0, score90d: 63 }}
+    />, { authenticated: true });
+
+    const firstActivity = screen.getByText("첫 활동");
+    expect(screen.getByText("12주 연속")).toBeInTheDocument();
+    expect(screen.queryByText("라이딩 루틴")).not.toBeInTheDocument();
+    const routineToggle = screen.getByRole("button", { name: /12주 연속 라이딩.*90일 점수 63/ });
+    expect(routineToggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(routineToggle);
+    const routine = await screen.findByText("라이딩 루틴");
+    expect(routine.compareDocumentPosition(firstActivity) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(routineToggle).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("keeps routine details available when a filter has no matching activities", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<MobileFeedPage
+      activities={[createMockActivity({ id: "bike-ride", type: "ride" })]}
+      loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()}
+      feedScope="all" onFeedScopeChange={vi.fn()} sportFilter="run"
+      consistencyStreak={{ streakWeeks: 12, activeDays90d: 30, activeWeeks90d: 12, thisWeekCount: 1, needsThisWeek: 0, score90d: 63 }}
+    />, { authenticated: true });
+
+    expect(screen.getByText("조건에 맞는 활동이 없어요")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /12주 연속 라이딩.*90일 점수 63/ }));
+    expect(await screen.findByText("라이딩 루틴")).toBeInTheDocument();
+  });
+
+  it("keeps the public feed visible for a guest even with a stale personal scope", async () => {
+    const user = userEvent.setup();
     const activities = [
       createMockActivity({ id: "public-one", description: "공개 라이딩" }),
       createMockActivity({ id: "public-two", description: "공개 러닝", type: "run" }),
@@ -31,6 +66,7 @@ describe("MobileFeedPage", () => {
       loadingMore={false} onLoadMore={vi.fn()} feedScope="friends" onFeedScopeChange={vi.fn()} />);
 
     expect(screen.queryByRole("combobox", { name: "공개 범위" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "필터" }));
     const dateSelect = screen.getByRole("combobox", { name: "조회 기간" });
     expect(dateSelect.parentElement?.parentElement).toHaveStyle({ gridTemplateColumns: "minmax(0, 1fr)" });
     expect(screen.getByText("공개 라이딩")).toBeInTheDocument();
@@ -338,6 +374,11 @@ describe("MobileFeedPage", () => {
       { authenticated: true },
     );
 
+    const filterToggle = screen.getByRole("button", { name: "필터" });
+    expect(filterToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("combobox", { name: "공개 범위" })).not.toBeInTheDocument();
+    await user.click(filterToggle);
+    expect(filterToggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("공개 범위")).toBeVisible();
     expect(screen.getByText("조회 기간")).toBeVisible();
     const scopeSelect = screen.getByRole("combobox", { name: "공개 범위" });
@@ -363,5 +404,9 @@ describe("MobileFeedPage", () => {
 
     expect(screen.getByText("친구 활동")).toBeInTheDocument();
     expect(screen.queryByText("전체 활동")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "필터: 친구" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "필터: 친구" }));
+    expect(screen.queryByRole("combobox", { name: "공개 범위" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "필터: 친구" })).toHaveTextContent("친구");
   });
 });

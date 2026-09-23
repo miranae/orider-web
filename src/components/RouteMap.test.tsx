@@ -139,7 +139,10 @@ describe("RouteMap", () => {
     );
 
     expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
-    expect(screen.getByText("지도 표시를 준비하지 못했습니다")).toBeInTheDocument();
+    expect(screen.getByText("경로 미리보기")).toBeInTheDocument();
+    const badge = document.querySelector("[data-route-fallback-badge]");
+    expect(badge).toHaveClass("absolute", "bottom-2", "left-2");
+    expect(screen.getByText("지도를 사용할 수 없어 경로 선만 표시합니다.")).toHaveClass("sr-only");
 
     getContextSpy.mockRestore();
   });
@@ -167,7 +170,7 @@ describe("RouteMap", () => {
 
     fireEvent.click(screen.getByTestId("mock-map"));
 
-    expect(screen.getByText("지도 표시를 준비하지 못했습니다")).toBeInTheDocument();
-    expect(screen.getByText("경로 데이터는 계속 확인할 수 있습니다.")).toBeInTheDocument();
+    expect(screen.getByText("경로 미리보기")).toBeInTheDocument();
+    expect(screen.getByText("지도를 사용할 수 없어 경로 선만 표시합니다.")).toBeInTheDocument();
   });
 });

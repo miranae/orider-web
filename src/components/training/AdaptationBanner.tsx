@@ -13,6 +13,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import type { AdaptationFlag } from "@shared/types/goal";
 import { Button } from "../../theme/components";
+import "./AdaptationBanner.css";
 
 interface Props {
   goalId: string;
@@ -22,13 +23,13 @@ interface Props {
 
 const STYLES: Record<"warn" | "critical", { bg: string; border: string; ink: string }> = {
   warn: {
-    bg: "color-mix(in srgb, var(--amber) 12%, transparent)",
-    border: "color-mix(in srgb, var(--amber) 40%, transparent)",
+    bg: "var(--bg-1)",
+    border: "var(--amber)",
     ink: "var(--amber)",
   },
   critical: {
-    bg: "color-mix(in srgb, var(--rose) 12%, transparent)",
-    border: "color-mix(in srgb, var(--rose) 40%, transparent)",
+    bg: "var(--bg-1)",
+    border: "var(--rose)",
     ink: "var(--rose)",
   },
 };
@@ -86,60 +87,38 @@ export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
 
   return (
     <div
-      role="alert"
+      className="adaptation-banner"
+      role={flag.severity === "critical" ? "alert" : "status"}
       style={{
-        margin: "16px 0 8px",
-        padding: "var(--space-3) var(--space-4)",
+        margin: "var(--space-2) 0",
+        padding: "var(--space-2) var(--space-3)",
         background: style.bg,
-        border: `1px solid ${style.border}`,
+        border: "1px solid var(--line-soft)",
+        borderLeft: `3px solid ${style.border}`,
         borderRadius: "var(--r-md)",
-        display: "flex",
-        alignItems: "center",
-        gap: 'var(--space-3)',
-        flexWrap: "wrap",
       }}
     >
-      <div
-        aria-hidden
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          background: style.ink,
-          flexShrink: 0,
-        }}
-      />
-      <div style={{ flex: 1, minWidth: 200 }}>
-        <div style={{ fontSize: "var(--fs-xs)", fontWeight: 600, color: style.ink, marginBottom: "var(--space-0-5)" }}>
-          {flag.severity === "critical" ? "⚠ " : ""}
-          {flag.reason}
-        </div>
+      <div className="adaptation-banner__main">
+        <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", background: style.ink, flexShrink: 0 }} />
+        <strong style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-sm)", color: "var(--ink-1)", lineHeight: 1.35 }}>
+          {flag.severity === "critical" ? "⚠ " : ""}{flag.reason}
+        </strong>
+        <span className="adaptation-banner__action"><Button type="button" variant="secondary" size="sm" onClick={onReroll} disabled={busy} style={{ flexShrink: 0, color: style.ink, borderColor: style.border }}>
+          {t("adaptation.rerollNow")}
+        </Button></span>
+      </div>
+      <details style={{ marginLeft: "var(--space-3)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+        <summary style={{ cursor: "pointer" }}>{t("adaptation.details")}</summary>
+        <div style={{ padding: "var(--space-1) 0" }}>{flag.reason}</div>
         {flag.recent4wRatio != null && (
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-            {t("adaptation.metricsLine", { pct: Math.round(flag.recent4wRatio * 100) })}
+          <div>{t("adaptation.metricsLine", { pct: Math.round(flag.recent4wRatio * 100) })}
             {flag.streakWeeksOff != null && flag.streakWeeksOff > 0
               ? t("adaptation.streakSuffix", { count: flag.streakWeeksOff })
               : ""}
           </div>
         )}
-      </div>
-      <div style={{ display: "flex", gap: 'var(--space-2)', flexShrink: 0 }}>
-        <Button
-          type="button" variant="secondary" size="sm"
-          onClick={onSnooze}
-          disabled={busy}
-        >
-          {t("adaptation.snooze")}
-        </Button>
-        <Button
-          type="button" variant="secondary" size="sm"
-          onClick={onReroll}
-          disabled={busy}
-          style={{ color: style.ink, borderColor: style.border }}
-        >
-          {t("adaptation.rerollNow")}
-        </Button>
-      </div>
+        <Button type="button" variant="ghost" size="sm" onClick={onSnooze} disabled={busy}>{t("adaptation.snooze")}</Button>
+      </details>
     </div>
   );
 }

@@ -1,3 +1,23 @@
+.mobile-fitness-toolbar { display: flex; align-items: center; gap: var(--space-1); min-width: 0; border-bottom: 1px solid var(--line-soft); background: var(--bg-1); }
+.mobile-fitness-toolbar__sports { position: relative; flex: 1; min-width: 0; }
+.mobile-fitness-toolbar__sports > [role="group"] { overflow-x: auto; scrollbar-width: thin; }
+.mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.75rem; white-space: nowrap; }
+.mobile-fitness-mode-toggle { flex: 0 0 auto; min-width: 3.75rem; min-height: 44px; margin-inline-end: var(--space-4); padding: var(--space-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--bg-2); color: var(--ink-2); font-size: var(--fs-xs); font-weight: 700; cursor: pointer; }
+.mobile-fitness-mode-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mobile-fitness-status { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.mobile-fitness-status__value { color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-2xl); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.mobile-fitness-status__meaning { color: var(--ink-2); font-weight: 500; letter-spacing: normal; }
+.mobile-fitness-deferred-decision { margin: 0 var(--space-4) var(--space-3); color: var(--ink-3); font-size: var(--fs-xs); }
+
+@media (max-width: 24rem) {
+  .mobile-fitness-toolbar__sports > [role="group"] { gap: var(--space-1); padding-inline: 0 !important; }
+  .mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 2.75rem; }
+  .mobile-fitness-toolbar__sports > [role="group"] > button:not(:first-child) { font-size: 0 !important; }
+  .mobile-fitness-toolbar__sports > [role="group"] > button:nth-child(2)::before { content: "🚴"; font-size: var(--fs-lg); }
+  .mobile-fitness-toolbar__sports > [role="group"] > button:nth-child(3)::before { content: "🏃"; font-size: var(--fs-lg); }
+  .mobile-fitness-toolbar__sports > [role="group"] > button:nth-child(4)::before { content: "🏊"; font-size: var(--fs-lg); }
+}
+
 @media (max-width: 36rem) {
   .mobile-fitness-pmc .ds-chart__header {
     align-items: center;
@@ -35,4 +55,7 @@
   .mobile-fitness-pmc .pmc-history .ds-chart__plot {
     margin-top: var(--space-2);
   }
+
+  /* 그래프 끝점과 아래 값 스트립에 있는 최신 CTL/ATL을 상단에서 반복하지 않는다. */
+  .mobile-fitness-pmc .pmc-history__latest { display: none; }
 }

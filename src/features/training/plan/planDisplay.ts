@@ -5,6 +5,26 @@ export interface WorkoutMeta {
   color: string;
 }
 
+/** 자동 생성된 코스 식별자의 기계적인 구분자를 표시명과 메타로 분리한다. 원문은 저장/공유하지 않고 UI에서만 변환한다. */
+export function formatPlanGoalTitle(rawTitle: string): { name: string; meta: string | null } {
+  const title = rawTitle.trim();
+  const parts = title.split("_").filter(Boolean);
+  if (parts.length < 2) return { name: title, meta: null };
+
+  const meta: string[] = [];
+  if (/^\d{4}$/.test(parts[0] ?? "")) meta.push(parts.shift()!);
+  const distance = /^\d+(?:\.\d+)?\s?km$/i.test(parts[parts.length - 1] ?? "")
+    ? (parts.pop() ?? "").replace(/\s?km$/i, " km")
+    : null;
+  if (distance) meta.push(distance);
+  if (meta.length === 0 || parts.length === 0) return { name: title, meta: null };
+  const last = parts[parts.length - 1] ?? "";
+  if (parts.length > 1 && /^(그란폰도|메디오폰도|마라톤|트라이애슬론|철인3종|레이스|대회|코스)$/i.test(last)) {
+    meta.splice(meta.length > 1 ? 1 : 0, 0, parts.pop()!);
+  }
+  return { name: parts.join(" "), meta: meta.join(" · ") };
+}
+
 export const WORKOUT_COLORS: Record<WorkoutKind, string> = {
   rest: "transparent",
   rec: "var(--ink-4)",
