@@ -13,6 +13,21 @@ describe("coachPrescriptionContract", () => {
     expect(parsed.quotaConsumed).toBe(0);
   });
 
+  it("preserves bounded backend rules metadata in prescriptions and check-in responses", () => {
+    for (const rulesVersion of ["coach-prescription-rules-v2", "coach-prescription-rules-v3", "future rules + 4"]) {
+      const prescription = { ...fixture, rulesVersion };
+      expect(parseCoachPrescription(prescription).rulesVersion).toBe(rulesVersion);
+      expect(parseCoachPrescriptionCheckInResponse({ data: { status: "ok", prescription,
+        providerCalls: 0, quotaConsumed: 0 } })).toMatchObject({ prescription: { rulesVersion } });
+    }
+    for (const rulesVersion of ["", "   ", "x".repeat(257), 3]) {
+      const prescription = { ...fixture, rulesVersion };
+      expect(() => parseCoachPrescription(prescription)).toThrow();
+      expect(() => parseCoachPrescriptionCheckInResponse({ data: { status: "ok", prescription,
+        providerCalls: 0, quotaConsumed: 0 } })).toThrow();
+    }
+  });
+
   it("fails closed on evidence, status and charge drift", () => {
     for (const mutate of [
       (value: Record<string, any>) => { value.nextDays[0].evidenceIds[0] = "missing_evidence"; },
