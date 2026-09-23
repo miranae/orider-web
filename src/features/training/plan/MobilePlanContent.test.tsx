@@ -60,7 +60,11 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.getByRole("button", { name: "접기" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("2026_비앙키그란폰도춘천");
     expect(screen.getByText("오늘의 다음 운동")).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: "시작" })[0]);
+    expect(screen.getByText("60 TSS · 75 분")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("주간 TSS60");
+    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("1h 15m");
+    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("사이클 60");
+    fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
     expect(edit).toHaveBeenCalledWith(workout, "week-04", 0);
   });
 
@@ -76,8 +80,18 @@ describe("MobilePlanContent product hierarchy", () => {
       <MobilePlanContent currentWeek={{ ...week, days: [{ ...workout, workout: "rest" }, nextDay] }} weekLabel="이번 주" onEditWorkout={edit} />,
     );
     expect(screen.getByText("이번 주 다음 운동")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "시작" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
     expect(edit).toHaveBeenCalledWith(nextDay, "week-04", 1);
+  });
+
+  it("shows the adjusted workout duration without offering an edit action in an embedded plan", () => {
+    const adjustedDay = { ...workout, adjustedTSS: 48, adjustedDurationMin: 58 };
+    renderWithProviders(<MobilePlanContent embedded currentWeek={{ ...week, days: [adjustedDay] }} weekLabel="이번 주" />);
+
+    expect(screen.getByText("48 TSS · 58 분")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "편집" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("48");
+    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("0h 58m");
   });
 
   it("prioritizes today while keeping earlier days accessible", () => {
