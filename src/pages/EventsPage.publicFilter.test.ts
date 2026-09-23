@@ -1,5 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { isPublicEventInfo, matchesDatePreset } from "./EventsPage";
+import { displayEventStatus, eventAvailability, isPublicEventInfo, matchesDatePreset } from "./EventsPage";
+
+describe("displayEventStatus", () => {
+  it("labels an open event with a past start date without changing the persisted status", () => {
+    const event = { status: "OPEN" as const, startTime: 1000 };
+    expect(displayEventStatus(event, 2000)).toBe("PAST");
+    expect(event.status).toBe("OPEN");
+  });
+
+  it("keeps future open and live events unchanged", () => {
+    expect(displayEventStatus({ status: "OPEN", startTime: 3000 }, 2000)).toBe("OPEN");
+    expect(displayEventStatus({ status: "LIVE", startTime: 1000 }, 2000)).toBe("LIVE");
+  });
+});
+
+describe("eventAvailability", () => {
+  it("excludes stale open events from currently joinable counts", () => {
+    expect(eventAvailability([
+      { status: "OPEN", startTime: 1000 },
+      { status: "OPEN", startTime: 3000 },
+      { status: "LIVE", startTime: 1000 },
+      { status: "FINISHED", startTime: 1000 },
+    ], 2000)).toEqual({ live: 1, open: 1 });
+  });
+
+  it("returns zero availability when only past events remain", () => {
+    expect(eventAvailability([{ status: "OPEN", startTime: 1000 }, { status: "FINISHED", startTime: 1000 }], 2000)).toEqual({ live: 0, open: 0 });
+  });
+});
 
 describe("isPublicEventInfo", () => {
   it.each(["OPEN", "LIVE", "FINISHED"])("allows public %s events", (status) => {

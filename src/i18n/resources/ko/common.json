@@ -10,6 +10,8 @@
     "retry": "다시 시도",
     "close": "닫기",
     "more": "더보기",
+    "nextTabs": "다음 탭 보기",
+    "previousTabs": "이전 탭 보기",
     "less": "접기",
     "login": "로그인",
     "logout": "로그아웃",
@@ -229,6 +231,8 @@
     "placeholder": "지도",
     "noRouteData": "경로 데이터 없음",
     "routeImageAlt": "활동 경로 지도",
+    "routePreviewTitle": "경로 미리보기",
+    "routePreviewDescription": "지도를 사용할 수 없어 경로 선만 표시합니다.",
     "unavailableTitle": "지도 표시를 준비하지 못했습니다",
     "unavailableDescription": "경로 데이터는 계속 확인할 수 있습니다."
   },

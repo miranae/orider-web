@@ -69,9 +69,8 @@
   .pmc-history__values b { font-size: var(--fs-base); }
   .pmc-history__controls { align-items: stretch; flex-direction: column; }
   .pmc-history__buttons .ds-btn { flex: 1; }
-  .pmc-history__ranges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .pmc-history__ranges--controlled { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pmc-history__ranges .ds-btn { height: 44px; min-height: 44px; }
+  .pmc-history__ranges { flex-wrap: nowrap; gap: var(--space-1); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: thin; }
+  .pmc-history__ranges .ds-btn { flex: 1 0 2.75rem; height: 44px; min-height: 44px; padding-inline: 0; scroll-snap-align: start; white-space: nowrap; }
   .pmc-history__ranges .ds-btn::after { display: none; }
   .pmc-history__navigation { display: grid; grid-template-columns: 2.75rem 2.75rem minmax(0, 1fr); gap: var(--space-2); }
   .pmc-history__navigation label { grid-column: 1 / -1; }

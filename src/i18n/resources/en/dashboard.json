@@ -12,7 +12,9 @@
     "signInFailed": "Sign-in failed. Please try again."
   },
   "kpi": {
-    "weekDistance": "7-Day Distance",
+    "weekGroup": "Last 7 days",
+    "trainingGroup": "Training status",
+    "weekDistance": "Distance",
     "rides": "Rides",
     "movingTime": "Moving Time",
     "elevation": "Elevation Gain",
@@ -215,6 +217,9 @@
     "statElev": "Elev gain",
     "statSpeed": "Avg speed",
     "weekSummary": "This week",
+    "streakWeeks": "{{count}}-week streak",
+    "routineScore": "90-day score {{score}}",
+    "filterToggle": "Filters",
     "sportFilterLabel": "Activity sport filter",
     "viewAll": "View all",
     "loading": "Loading…",
@@ -334,6 +339,12 @@
     "kpiCtlLabel": "CTL Fitness",
     "kpiAtlLabel": "ATL Fatigue",
     "kpiTsbLabel": "TSB Form",
+    "tsbMeaning": {
+      "fatigueHigher": "Fatigue exceeds fitness",
+      "fitnessHigher": "Fitness exceeds fatigue",
+      "balanced": "Fitness and fatigue are balanced",
+      "noData": "Not enough data yet"
+    },
     "vo2maxDesc": "Estimated",
     "vo2maxNoFtp": "FTP and weight required",
     "tsbOverRested": "Over-rested",

@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Goal, PlanWeek, PlanDay } from "@shared/types/goal";
 import { evaluateRecoveryDownshift } from "@shared/training/recoveryDownshift";
@@ -17,11 +17,28 @@ import {
   buildDayNames,
   buildWorkoutMeta,
   formatDateLabel,
+  formatPlanGoalTitle,
   phaseColor,
   phaseLabel,
 } from "./planDisplay";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const kstDayKey = (ms: number) => new Date(ms + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+const COMPACT_PLAN_MEDIA = '(max-width: 1023px)';
+
+/** 달력 9열이 읽히지 않는 태블릿 너비에서는 주간 리스트를 사용한다. */
+function useCompactPlanLayout(): boolean {
+  const isMobile = useMobile();
+  const [isNarrow, setIsNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(COMPACT_PLAN_MEDIA).matches);
+  useEffect(() => {
+    const media = window.matchMedia(COMPACT_PLAN_MEDIA);
+    const update = () => setIsNarrow(media.matches);
+    media.addEventListener('change', update);
+    update();
+    return () => media.removeEventListener('change', update);
+  }, []);
+  return isMobile || isNarrow;
+}
 
 const PLAN_WEEK_GRID_COLUMNS = '80px repeat(7, minmax(72px, 1fr)) 100px';
 const PLAN_CALENDAR_CARD_STYLE: CSSProperties = {
@@ -55,6 +72,13 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
   const isAdjusted = day.adjustedTSS != null && !isRest && !isGoal;
   const effectiveTSS = day.adjustedTSS ?? day.plannedTSS;
   const effectiveDur = day.adjustedDurationMin ?? day.plannedDurationMin;
+  const distanceLabel = !isRest && !isGoal && effectiveDur > 0
+    ? day.workout.includes('Swim')
+      ? `${Math.round(effectiveDur * 40)}m`
+      : day.workout.includes('Run')
+        ? `${(effectiveDur * 0.15).toFixed(1)}km`
+        : `${(effectiveDur * 0.45).toFixed(1)}km`
+    : null;
   // 완료 달성률: actualTSS / plannedTSS. actualTSS=0(데이터 미수집)은 0%가 아닌 미표시로 처리.
   const completionRatio = day.completed && day.actualTSS != null && day.actualTSS > 0 && day.plannedTSS > 0
     ? day.actualTSS / day.plannedTSS
@@ -70,20 +94,20 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
       <div
         onClick={onClick}
         style={{
-          padding: '6px 6px',
+          padding: '20px 8px 8px',
           borderRadius: "var(--r-sm)",
-          minHeight: 62,
+          minHeight: 82,
           cursor: 'pointer',
           background: 'var(--bg-2)',
           border: '1px solid var(--line-soft)',
-          opacity: 0.35,
+          opacity: 0.65,
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           gap: 'var(--space-1)',
         }}
       >
-        <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'line-through', paddingLeft: 6 }}>
+        <div style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-2)', textDecoration: 'line-through', paddingLeft: 6 }}>
           {meta.label}
         </div>
         <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', paddingLeft: 6, fontFamily: 'var(--font-mono)' }}>
@@ -106,7 +130,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
         style={{
           padding: '6px 4px',
           borderRadius: "var(--r-sm)",
-          minHeight: 62,
+          minHeight: 82,
           background: 'var(--lime)',
           color: 'var(--primary-fg)',
           display: 'flex',
@@ -136,15 +160,15 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
     <div
       onClick={!isGoal ? onClick : undefined}
       style={{
-        padding: '6px 6px',
+        padding: '20px 8px 8px',
         borderRadius: "var(--r-sm)",
-        minHeight: 62,
+        minHeight: 82,
         cursor: !isGoal ? 'pointer' : 'default',
         background: isToday
           ? 'color-mix(in oklch, var(--lime) 10%, var(--bg-2))'
           : 'var(--bg-2)',
         border: `1px solid ${isToday ? 'var(--lime)' : 'var(--line-soft)'}`,
-        opacity: isRest ? 0.4 : dimmed ? 0.5 : 1,
+        opacity: isRest ? 0.65 : dimmed ? 0.85 : 1,
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
@@ -165,11 +189,11 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
       />
       <div
         style={{
-          fontSize: "var(--fs-xs)",
+          fontSize: "var(--fs-md)",
           color: 'var(--ink-0)',
-          fontWeight: 500,
+          fontWeight: 600,
           paddingLeft: 6,
-          lineHeight: 1.2,
+          lineHeight: 1.25,
         }}
       >
         {meta.label}
@@ -177,31 +201,18 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
       {effectiveTSS > 0 && (
         <div
           style={{
-            fontSize: "var(--fs-xs)",
-            color: 'var(--ink-2)',
+            fontSize: "var(--fs-base)",
+            color: 'var(--ink-1)',
             paddingLeft: 6,
             fontFamily: 'var(--font-mono)',
+            lineHeight: 1.25,
+            display: 'flex',
+            flexWrap: 'wrap',
+            columnGap: 'var(--space-1)',
           }}
         >
-          {(() => {
-            const dur = effectiveDur ?? 0;
-            const w = day.workout;
-            if (!isRest && !isGoal && dur > 0) {
-              const isRun = w.includes('Run');
-              const isSwim = w.includes('Swim');
-              if (isSwim) {
-                const m = Math.round(dur * 40);
-                return `${m}m · `;
-              } else if (isRun) {
-                const km = (dur * 0.15).toFixed(1);
-                return `${km}km · `;
-              } else {
-                const km = (dur * 0.45).toFixed(1);
-                return `${km}km · `;
-              }
-            }
-            return '';
-          })()}{effectiveTSS} TSS
+          {distanceLabel && <span style={{ whiteSpace: 'nowrap' }}>{distanceLabel}</span>}
+          <span style={{ whiteSpace: 'nowrap' }}>{effectiveTSS} TSS</span>
         </div>
       )}
       {/* 자동 조정 칩 — week 단위 canonical factor 사용 (day별 ratio 누적 오차 회피) */}
@@ -541,6 +552,8 @@ export default function PlanPresentation({
 }: PlanPresentationProps) {
   const { t, i18n } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
+  const [goalExpanded, setGoalExpanded] = useState(false);
+  const [showPreviousWeeks, setShowPreviousWeeks] = useState(false);
   const DAY_NAMES = useMemo(() => buildDayNames(tCommon), [tCommon]);
   const {
     discipline,
@@ -561,24 +574,31 @@ export default function PlanPresentation({
     isTodayCell,
     retryLoad,
   } = model;
-  const isMobile = useMobile();
+  const isMobile = useCompactPlanLayout();
+  const currentWeekIndex = useMemo(() => {
+    const todayIndex = weeks.findIndex((week) => week.days.some(isTodayCell));
+    if (todayIndex >= 0) return todayIndex;
+    const futureIndex = weeks.findIndex((week) => week.days.some((day) => day.date >= Date.now()));
+    return futureIndex >= 0 ? futureIndex : Math.max(0, weeks.length - 1);
+  }, [isTodayCell, weeks]);
+  const hasCurrentWeek = weeks[currentWeekIndex]?.days.some(isTodayCell) ?? false;
+  const visibleWeeks = showPreviousWeeks || currentWeekIndex === 0 ? weeks : weeks.slice(currentWeekIndex);
+  const remainingSessions = weeks.reduce((total, week) => total + week.days.filter((day) =>
+    !day.completed && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal',
+  ).length, 0);
+  const todayKey = kstDayKey(Date.now());
+  const nextAction = weeks.slice(currentWeekIndex).flatMap((week) => week.days.map((day, dayIndex) => ({ day, weekId: week.id, dayIndex })))
+    .find(({ day }) => kstDayKey(day.date) >= todayKey && !day.completed && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal');
+  const nextActionLabel = nextAction ? buildWorkoutMeta(t)[nextAction.day.workout]?.label ?? nextAction.day.workout : null;
+  const goalTitle = goal?.title ?? goal?.courseName ?? '—';
+  const formattedGoal = formatPlanGoalTitle(goalTitle);
   const mobilePlanViewModel = useMemo(() => {
-    const now = Date.now();
-    const currentWeekIdx = weeks.findIndex((w) => w.days.some((d) => {
-      if (!d.date) return false;
-      const dayStart = new Date(d.date);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart);
-      dayEnd.setDate(dayEnd.getDate() + 1);
-      return now >= dayStart.getTime() && now < dayEnd.getTime();
-    }));
-    const baseIdx = currentWeekIdx >= 0 ? currentWeekIdx : 0;
-    const mobileWeekIdx = Math.max(0, Math.min(weeks.length - 1, baseIdx + mobileWeekOffset));
+    const mobileWeekIdx = Math.max(0, Math.min(weeks.length - 1, currentWeekIndex + mobileWeekOffset));
     return {
       currentWeek: weeks[mobileWeekIdx] ?? null,
-      weekLabel: mobileWeekOffset === 0 ? t('mobile.weekThis') : `W${mobileWeekIdx + 1}`,
+      weekLabel: mobileWeekOffset === 0 && hasCurrentWeek ? t('mobile.weekThis') : `W${mobileWeekIdx + 1}`,
     };
-  }, [mobileWeekOffset, t, weeks]);
+  }, [currentWeekIndex, hasCurrentWeek, mobileWeekOffset, t, weeks]);
   if (!loading && loadError) {
     return (
       <div className={embedded ? "orider-embedded-surface" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
@@ -648,7 +668,7 @@ export default function PlanPresentation({
       embedded,
       currentWeek: mobilePlanViewModel.currentWeek,
       weekLabel: mobilePlanViewModel.weekLabel,
-      goalTitle: goal?.courseName,
+      goalTitle: goal?.title ?? goal?.courseName,
       daysLeft,
       progressPct: progress,
       completedTSS,
@@ -682,13 +702,13 @@ export default function PlanPresentation({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1.4fr 1fr',
-            gap: "var(--space-8)",
-            alignItems: 'flex-end',
+            gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 0.9fr)',
+            gap: "var(--space-6)",
+            alignItems: 'stretch',
           }}
         >
           {/* Left: goal name + date */}
-          <div>
+          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-2)', flexWrap: 'wrap' }}>
               {!embedded && (
                 <>
@@ -713,8 +733,8 @@ export default function PlanPresentation({
                 flexWrap: 'wrap',
               }}
             >
-              <Text as="h1" variant="pageTitle" style={{ margin: 0 }}>
-                {loading ? '...' : (goal?.title ?? goal?.courseName ?? '—')}
+              <Text as="h1" variant="pageTitle" title={goalTitle} aria-label={goalTitle} style={{ margin: 0, minWidth: 0, fontSize: 'clamp(var(--fs-xl), 2vw, var(--fs-2xl))', lineHeight: 1.25, overflowWrap: 'anywhere', ...(!goalExpanded ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' } : {}) }}>
+                {loading ? '...' : (goalExpanded ? goalTitle : formattedGoal.name)}
               </Text>
               <span
                 style={{
@@ -730,7 +750,13 @@ export default function PlanPresentation({
               >
                 {t('page.inProgress')}
               </span>
+              {(formattedGoal.meta || goalTitle.length > 50) && (
+                <Button type="button" variant="ghost" size="sm" aria-expanded={goalExpanded} onClick={() => setGoalExpanded(value => !value)}>
+                  {goalExpanded ? t('mobile.collapseGoal') : t('mobile.showOriginal')}
+                </Button>
+              )}
             </div>
+            {!goalExpanded && formattedGoal.meta && <div style={{ color: 'var(--ink-3)', fontSize: 'var(--fs-sm)', marginBottom: 'var(--space-2)' }}>{formattedGoal.meta}</div>}
             <div
               style={{
                 display: 'flex',
@@ -774,18 +800,27 @@ export default function PlanPresentation({
                 </span>
               )}
             </div>
+            <div style={{ marginTop: 'var(--space-4)', maxWidth: 480 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 'var(--space-1)', color: 'var(--ink-2)', fontSize: 'var(--fs-sm)' }}>
+                <span>{t('metrics.progress')}</span>
+                <strong style={{ color: 'var(--lime)', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-md)' }}>{progress}%</strong>
+              </div>
+              <div role="progressbar" aria-label={t('metrics.progress')} aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} style={{ height: 6, borderRadius: 'var(--r-xs)', background: 'var(--bg-3)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, progress))}%`, background: 'var(--lime)' }} />
+              </div>
+            </div>
           </div>
 
           {/* Right: 4-KPI */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
               gap: "var(--space-2)",
             }}
           >
             {[
-              { label: t('metrics.progress'),   value: `${progress}%`,       unit: null,  color: 'var(--lime)' },
+              { label: t('metrics.sessionsLeft'), value: String(remainingSessions), unit: t('mobile.sessions'), color: 'var(--lime)' },
               { label: t('metrics.completedTSS'), value: completedTSS.toLocaleString(), unit: `/ ${totalTSS.toLocaleString()}`, color: 'var(--ink-0)' },
               { label: t('metrics.weeksLeft'), value: String(weeksLeft),    unit: t('metrics.weeksUnit'),  color: 'var(--ink-0)' },
               { label: t('metrics.projectedCTL'), value: goal?.snapshot?.ctl != null ? `≈+${Math.round(goal.snapshot.ctl * 0.18)}` : '—', unit: null, color: 'var(--lime)' },
@@ -793,7 +828,7 @@ export default function PlanPresentation({
               <div
                 key={label}
                 style={{
-                  padding: '18px 16px',
+                  padding: 'var(--space-2) var(--space-4)',
                   background: 'var(--bg-2)',
                   borderRadius: "var(--r-md)",
                   border: '1px solid var(--line-soft)',
@@ -824,6 +859,19 @@ export default function PlanPresentation({
       <div style={{ padding: '20px 0 0' }}>
         {decisionSlot && <div style={{ marginBottom: "var(--space-4)" }}>{decisionSlot}</div>}
 
+        {!loading && nextAction && (
+          <Card padding="compact" style={{ marginBottom: 'var(--space-3)', borderColor: 'var(--lime)', background: 'color-mix(in oklch, var(--lime) 5%, var(--bg-1))' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+              <Text as="div" variant="eyebrow" style={{ color: 'var(--lime)' }}>{kstDayKey(nextAction.day.date) === todayKey ? t('mobile.todayNext') : t('mobile.weekNext')}</Text>
+              <strong style={{ color: 'var(--ink-0)', fontSize: 'var(--fs-md)' }}>{nextActionLabel}</strong>
+              <span style={{ color: 'var(--ink-2)', fontSize: 'var(--fs-sm)', fontFamily: 'var(--font-mono)' }}>
+                {new Date(nextAction.day.date).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric', timeZone: 'Asia/Seoul' })} · {nextAction.day.adjustedTSS ?? nextAction.day.plannedTSS} TSS
+              </span>
+              {onEditWorkout && !embedded && <Button type="button" size="sm" style={{ marginLeft: 'auto' }} onClick={() => onEditWorkout(nextAction.day, nextAction.weekId, nextAction.dayIndex)}>{t('mobile.start')}</Button>}
+            </div>
+          </Card>
+        )}
+
         <PlanAdjustmentNarrative goal={goal} weeks={weeks} t={t} />
 
         {adaptationSlot}
@@ -838,6 +886,15 @@ export default function PlanPresentation({
             onGoalReset={embedded ? undefined : onGoalReset}
             onAbandon={embedded ? undefined : onAbandon}
           />
+        )}
+
+        {!loading && weeks.length > 0 && currentWeekIndex > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
+            <Text as="div" variant="eyebrow">{hasCurrentWeek && `${t('mobile.weekThis')} · `}W{weeks[currentWeekIndex]?.weekNumber}</Text>
+            <Button type="button" variant="ghost" size="sm" aria-expanded={showPreviousWeeks} onClick={() => setShowPreviousWeeks(value => !value)}>
+              {showPreviousWeeks ? t('mobile.hidePastWeeks') : t('mobile.showPastWeeks', { count: currentWeekIndex })}
+            </Button>
+          </div>
         )}
 
         {/* Calendar Grid */}
@@ -884,7 +941,7 @@ export default function PlanPresentation({
                 {t('page.planEmptyBody')}
               </div>
             ) : (
-              weeks.map((wk, wi) => {
+              visibleWeeks.map((wk, wi) => {
                 const weekTSS = sumEffectivePlanTSS(wk.days);
                 const isCurrentWeek = wk.days.some(isTodayCell);
                 const pc = phaseColor(wk.phase);
@@ -897,7 +954,7 @@ export default function PlanPresentation({
                       gridTemplateColumns: PLAN_WEEK_GRID_COLUMNS,
                       gap: "var(--space-1-5)",
                       padding: '10px 14px',
-                      borderBottom: wi < weeks.length - 1 ? '1px solid var(--line-soft)' : 'none',
+                      borderBottom: wi < visibleWeeks.length - 1 ? '1px solid var(--line-soft)' : 'none',
                       background: isCurrentWeek
                         ? 'color-mix(in oklch, var(--lime) 3%, var(--bg-1))'
                         : 'transparent',

@@ -449,17 +449,17 @@ function PowerCurveMini({ points, color, ariaLabel }: { points: MobilePowerCurve
 }
 
 // ── 카드 컨테이너 ─────────────────────────────────────────────
-function SectionCard({ children, title, sub, accentColor }: { children: React.ReactNode; title?: string; sub?: string; accentColor?: string }) {
+function SectionCard({ children, title, sub, accentColor, ariaLabel, compact = false }: { children: React.ReactNode; title?: string; sub?: string; accentColor?: string; ariaLabel?: string; compact?: boolean }) {
   // 모바일은 화면이 좁아 모든 카드를 화면 전폭으로 쓴다(섹션 스타일). Layout 컨텐츠 래퍼
   // (max-w mx-auto px-4 = 좌우 16px) 인셋을 음수 마진(-16)으로 상쇄해 좌우 끝까지 채우고,
   // 좌우 border·radius 는 제거하고 상하 구분선만 둔다. 콘텐츠는 좌우 16px padding 으로 가독성 유지.
   return (
-    <div style={{
-      margin: "0 -16px 12px",
+    <div role={ariaLabel ? "region" : undefined} aria-label={ariaLabel} style={{
+      margin: compact ? "0 -16px var(--space-2)" : "0 -16px 12px",
       background: "var(--bg-1)",
       borderTop: accentColor ? `var(--space-0-5) solid ${accentColor}` : "1px solid var(--line-soft)",
       borderBottom: "1px solid var(--line-soft)",
-      padding: "12px 16px",
+      padding: compact ? "var(--space-3) var(--space-4)" : "12px 16px",
     }}>
       {(title || sub) && (
         <div style={{ marginBottom: "var(--space-2)" }}>
@@ -504,7 +504,7 @@ function TodayDecisionPreview({ state, signedIn, hasDetails }: {
   const canOpenDetails = hasDetails && Boolean(decision);
   const buttonStyle = { display: "inline-flex", alignItems: "center", minHeight: 44, padding: "var(--space-2) var(--space-3)", marginTop: "var(--space-2)", background: "none", border: "1px solid var(--accent)", borderRadius: "var(--r-sm)", color: "var(--accent)", fontSize: "var(--fs-sm)", fontWeight: 600, cursor: "pointer" } as const;
 
-  return <div data-mobile-fitness-decision={stateKey} aria-live="polite" style={{ marginTop: "var(--space-2)" }}>
+  return <div data-mobile-fitness-decision={stateKey} aria-live="polite" style={{ marginTop: "var(--space-1)" }}>
     <Text as="div" variant="subtitle">{title}</Text>
     {stateKey === "health-stop" && <Text as="p" variant="caption" tone="warning" style={{ margin: "var(--space-1) 0 0" }}>{t("decision.healthStop")}</Text>}
     {session && <Text as="div" variant="bodySmall" style={{ marginTop: "var(--space-1)" }}>
@@ -599,8 +599,16 @@ export default function MobileFitnessPage({
     : data.discipline === "run"
     ? t("mobileFitness.tabZonesRun")
     : t("mobileFitness.tabZonesSwim");
-  const topTabs = ["overview", "analysis"] as const;
   const activeTab = data.discipline === "tri" ? "overview" : tab;
+  const tsbValue = data.hasLoadData && Number.isFinite(data.tsb) ? Number(data.tsb.toFixed(1)) : null;
+  const tsbInterpretation = tsbValue == null ? t("mobileFitness.tsbMeaning.noData")
+    : tsbValue < 0 ? t("mobileFitness.tsbMeaning.fatigueHigher")
+      : tsbValue > 0 ? t("mobileFitness.tsbMeaning.fitnessHigher")
+        : t("mobileFitness.tsbMeaning.balanced");
+  // 사용 불가 안내는 훈련 수치보다 우선순위가 낮다. 건강 중단·오류·실제 처방은
+  // 기존처럼 상단에 남기고, 기능 비활성 안내만 차트 뒤로 보낸다.
+  const deferDisabledDecision = todayDecisionSignedIn && todayDecisionState?.unavailableReason === "disabled"
+    && !todayDecisionState.loading && !todayDecisionState.decision;
 
   const isBike = data.discipline === "bike";
   const showZones = data.zones.length > 0;
@@ -612,46 +620,28 @@ export default function MobileFitnessPage({
 
   return (
     <div>
-      {!embedded && (
-        <div className="flex items-center sticky top-0 z-10"
-          style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
-          <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileFitness.title")}</span>
-        </div>
-      )}
+      {!embedded && <h1 className="sr-only">{t("mobileFitness.title")}</h1>}
 
-      <SportFilterTabs value={sportSegment} onChange={setSportSegment} allLabelKey="discipline.tri" />
-
-      {/* 통합 화면은 단일 개요이므로 종목별 개요/분석 탭을 노출하지 않는다. */}
-      {data.discipline !== "tri" && (
-        <div className="flex" role="tablist" style={{ borderBottom: "1px solid var(--line-soft)", background: "var(--bg-1)" }}>
-          {topTabs.map((k) => {
-            const label = k === "overview" ? t("mobileFitness.tabOverview") : analysisTabLabel;
-            const active = activeTab === k;
-            return (
-              <button key={k} onClick={() => setTab(k)}
-                role="tab"
-                aria-selected={active}
-                className="flex-1 flex items-center justify-center relative"
-                style={{ padding: "12px 0", fontSize: "var(--fs-sm)", fontWeight: 500, minHeight: 44,
-                  color: active ? "var(--ink-0)" : "var(--ink-3)", background: "none", border: "none", cursor: "pointer" }}>
-                {label}
-                {active && <div style={{ position: "absolute", bottom: 0, left: 16, right: 16, height: 2, background: "var(--lime)", borderRadius: "2px 2px 0 0" }} />}
-              </button>
-            );
-          })}
+      <div className="mobile-fitness-toolbar">
+        <div className="mobile-fitness-toolbar__sports">
+          <SportFilterTabs value={sportSegment} onChange={setSportSegment} allLabelKey="discipline.tri" />
         </div>
-      )}
+        {data.discipline !== "tri" && <button type="button" className="mobile-fitness-mode-toggle"
+          onClick={() => setTab(activeTab === "overview" ? "analysis" : "overview")}>
+          {activeTab === "overview" ? analysisTabLabel : t("mobileFitness.tabOverview")}
+        </button>}
+      </div>
 
       {activeTab === "overview" && (
-        <div style={{ paddingTop: 14 }}>
-          <SectionCard title={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")}>
-            <div data-mobile-fitness-status style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2)" }}>
-              <Text variant="eyebrow">{t("mobileFitness.kpiTsbLabel")}</Text>
-              <span style={{ color: "var(--ink-0)", fontFamily: "var(--font-mono)", fontSize: "var(--fs-lg)", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                {data.hasLoadData && Number.isFinite(data.tsb) ? data.tsb.toFixed(1) : "—"}
+        <div style={{ paddingTop: "var(--space-2)" }}>
+          <SectionCard ariaLabel={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")} compact>
+            <div data-mobile-fitness-status className="mobile-fitness-status">
+              <Text variant="eyebrow">{t("mobileFitness.kpiTsbLabel")}<span className="mobile-fitness-status__meaning"> · {tsbInterpretation}</span></Text>
+              <span className="mobile-fitness-status__value">
+                {tsbValue == null ? "—" : tsbValue.toFixed(1)}
               </span>
             </div>
-            {data.discipline !== "tri" && todayDecisionState && <TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} />}
+            {data.discipline !== "tri" && todayDecisionState && !deferDisabledDecision && <TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} />}
           </SectionCard>
 
           {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다. */}
@@ -695,6 +685,8 @@ export default function MobileFitnessPage({
               </>
             )}
           </SectionCard>
+
+          {deferDisabledDecision && <div className="mobile-fitness-deferred-decision"><TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} /></div>}
 
           {coachSlot && data.discipline !== "tri" && (
             <div data-mobile-fitness-coach style={{ padding: "0 var(--space-4) var(--space-3)" }}>

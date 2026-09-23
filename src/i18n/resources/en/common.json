@@ -10,6 +10,8 @@
     "retry": "Try again",
     "close": "Close",
     "more": "More",
+    "nextTabs": "More tabs",
+    "previousTabs": "Previous tabs",
     "less": "Less",
     "login": "Sign in",
     "logout": "Sign out",
@@ -229,6 +231,8 @@
     "placeholder": "Map",
     "noRouteData": "No route data",
     "routeImageAlt": "Activity route map",
+    "routePreviewTitle": "Route preview",
+    "routePreviewDescription": "The map is unavailable, so only the route line is shown.",
     "unavailableTitle": "Could not prepare the map",
     "unavailableDescription": "Route data is still available."
   },

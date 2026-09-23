@@ -1,11 +1,13 @@
 .fitness-coach__summary,
 .fitness-coach__impact-heading { display: flex; gap: var(--space-3); align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
-.fitness-coach__summary-copy { flex: 1 1 30rem; max-width: 48rem; }
+.fitness-coach__summary-copy { flex: 1 1 20rem; min-width: 0; max-width: 48rem; }
 .fitness-coach__current-metrics,
 .fitness-coach__delta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
 .fitness-coach__current-metrics { min-width: min(100%, 18rem); }
 .fitness-coach__first-view { display: grid; grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr); gap: var(--space-4); align-items: start; margin-bottom: var(--space-4); }
 .fitness-coach__first-view > :only-child { grid-column: 1 / -1; }
+.fitness-coach__first-view:has(> .fitness-coach__today:empty) { grid-template-columns: minmax(0, 1fr); }
+.fitness-coach__today:empty { display: none; }
 .fitness-coach__trend, .fitness-coach__today { min-width: 0; }
 .fitness-coach__primary-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(18rem, 0.75fr); gap: var(--space-4); align-items: start; }
 .fitness-coach__primary-grid--choice { grid-template-columns: minmax(0, 1fr); }

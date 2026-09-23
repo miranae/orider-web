@@ -16,6 +16,7 @@ import { MAP_STYLE, DEFAULT_VIEW } from "../utils/mapbox";
 import { buildMonthCells, firstPolylinePoint } from "../features/event/discovery/eventViews";
 
 type EventStatus = "OPEN" | "LIVE" | "FINISHED" | "CANCELLED" | "DRAFT" | "UNKNOWN";
+type DisplayEventStatus = EventStatus | "PAST";
 type EventVisibility = "PUBLIC" | "GROUP" | "PRIVATE" | "UNKNOWN";
 type DatePreset = "ALL" | "WEEKEND" | "MONTH";
 type EventView = "LIST" | "CALENDAR" | "MAP";
@@ -55,14 +56,29 @@ const STATUS_TAB_KEYS: Array<{ k: "ALL" | EventStatus; labelKey: string }> = [
   { k: "FINISHED", labelKey: "status.finished" },
 ];
 
-const STATUS_META_KEYS: Record<EventStatus, { labelKey: string; color: string; chip: "lime" | "aqua" | null }> = {
+const STATUS_META_KEYS: Record<DisplayEventStatus, { labelKey: string; color: string; chip: "lime" | "aqua" | null }> = {
   LIVE: { labelKey: "status.live", color: "var(--lime)", chip: "lime" },
   OPEN: { labelKey: "status.open", color: "var(--aqua)", chip: "aqua" },
   FINISHED: { labelKey: "status.finished", color: "var(--ink-3)", chip: null },
+  PAST: { labelKey: "status.pastDate", color: "var(--ink-3)", chip: null },
   CANCELLED: { labelKey: "status.cancelled", color: "var(--rose)", chip: null },
   DRAFT: { labelKey: "status.draft", color: "var(--ink-3)", chip: null },
   UNKNOWN: { labelKey: "status.unknown", color: "var(--ink-3)", chip: null },
 };
+
+/** Past start dates cannot be presented as open for registration. This is display-only. */
+export function displayEventStatus(event: Pick<EventInfo, "status" | "startTime">, now = Date.now()): DisplayEventStatus {
+  return event.status === "OPEN" && event.startTime > 0 && event.startTime < now ? "PAST" : event.status;
+}
+
+export function eventAvailability(events: ReadonlyArray<Pick<EventInfo, "status" | "startTime">>, now = Date.now()) {
+  return events.reduce((counts, event) => {
+    const status = displayEventStatus(event, now);
+    if (status === "LIVE") counts.live += 1;
+    if (status === "OPEN") counts.open += 1;
+    return counts;
+  }, { live: 0, open: 0 });
+}
 
 const TYPE_FILTER_KEYS: Array<{ k: string; labelKey: string; icon: string }> = [
   { k: "ALL", labelKey: "type.all", icon: "" },
@@ -93,9 +109,9 @@ function formatDateTime(ts: number): { date: string; time: string } {
   };
 }
 
-function dDay(ts: number): string {
+function dDay(ts: number, now = Date.now()): string {
   if (!ts) return "";
-  const diff = ts - Date.now();
+  const diff = ts - now;
   const days = Math.ceil(diff / 86_400_000);
   if (days > 0) return `D-${days}`;
   if (days === 0) return "D-DAY";
@@ -201,6 +217,13 @@ export function matchesDatePreset(startTime: number, preset: DatePreset, now = n
 
 export default function EventsPage() {
   const { t } = useTranslation("event");
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(max-width: 900px)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+    const update = () => setIsMobile(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const STATUS_TABS = STATUS_TAB_KEYS.map(({ k, labelKey }) => ({ k, label: t(labelKey) }));
   const TYPE_FILTERS = TYPE_FILTER_KEYS.map(({ k, labelKey, icon }) => ({ k, label: t(labelKey), icon }));
   const { user, loading: authLoading } = useAuth();
@@ -217,6 +240,12 @@ export default function EventsPage() {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [mapEventId, setMapEventId] = useState<string | null>(null);
   const [difficultyFilter, setDifficultyFilter] = useState<"ALL" | EventDifficulty>("ALL");
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -346,21 +375,21 @@ export default function EventsPage() {
 
   const filtered = useMemo(() => {
     return events
-      .filter((e) => statusFilter === "ALL" || e.status === statusFilter)
+      .filter((e) => statusFilter === "ALL" || (statusFilter === "FINISHED" ? ["FINISHED", "PAST"].includes(displayEventStatus(e, now)) : displayEventStatus(e, now) === statusFilter))
       .filter((e) => typeFilter === "ALL" || e.type === typeFilter)
       .filter((e) => regionFilter === "ALL" || e.region?.trim() === regionFilter)
-      .filter((e) => matchesDatePreset(e.startTime, datePreset))
+      .filter((e) => matchesDatePreset(e.startTime, datePreset, new Date(now)))
       .filter((e) => difficultyFilter === "ALL" || e.difficulty === difficultyFilter)
       .sort((a, b) => {
         // LIVE/OPEN 먼저, 종료는 뒤로 — 같은 상태 내 가까운 시작일 우선 (종료는 최근순)
-        const bucket = (s: EventStatus) => (s === "LIVE" ? 0 : s === "OPEN" ? 1 : 2);
-        const ba = bucket(a.status);
-        const bb = bucket(b.status);
+        const bucket = (s: DisplayEventStatus) => (s === "LIVE" ? 0 : s === "OPEN" ? 1 : 2);
+        const ba = bucket(displayEventStatus(a, now));
+        const bb = bucket(displayEventStatus(b, now));
         if (ba !== bb) return ba - bb;
-        if (a.status === "FINISHED") return b.startTime - a.startTime;
+        if (ba === 2) return b.startTime - a.startTime;
         return a.startTime - b.startTime;
       });
-  }, [datePreset, difficultyFilter, events, regionFilter, statusFilter, typeFilter]);
+  }, [datePreset, difficultyFilter, events, now, regionFilter, statusFilter, typeFilter]);
 
   const regions = useMemo(
     () => Array.from(new Set(events.map((event) => event.region?.trim()).filter((region): region is string => !!region)))
@@ -368,14 +397,40 @@ export default function EventsPage() {
     [events],
   );
 
-  const liveCount = useMemo(() => events.filter((e) => e.status === "LIVE").length, [events]);
-  const openCount = useMemo(() => events.filter((e) => e.status === "OPEN").length, [events]);
+  const { live: liveCount, open: openCount } = useMemo(() => eventAvailability(events, now), [events, now]);
   const myCount = myEventIds.size;
+  const activeAdvancedCount = [typeFilter, regionFilter, datePreset, difficultyFilter].filter((value) => value !== "ALL").length;
   const calendarCells = useMemo(() => buildMonthCells(filtered, calendarMonth), [calendarMonth, filtered]);
   const mapEvents = useMemo(() => filtered.map((event) => {
     const polyline = (event.courseId ? coursePolylines[event.courseId] : undefined) ?? event.inlinePolyline;
     return { event, point: firstPolylinePoint(polyline, decodePolyline) };
   }), [coursePolylines, filtered]);
+
+  const advancedFilters = (
+    <>
+      <div className="event-type-filters" role="group" aria-label={t("filter.typeLabel")}>
+        {TYPE_FILTERS.map((item) => {
+          const active = typeFilter === item.k;
+          return <Button key={item.k} size="sm" variant={active ? "outline" : "secondary"} dense onClick={() => setTypeFilter(item.k)} aria-pressed={active}>
+            {item.icon && <span aria-hidden="true">{item.icon}</span>} {item.label}
+          </Button>;
+        })}
+      </div>
+      {regions.length > 0 && <Select aria-label={t("filter.region")} value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)}>
+        <option value="ALL">{t("filter.allRegions")}</option>
+        {regions.map((region) => <option key={region} value={region}>{region}</option>)}
+      </Select>}
+      <div className="event-date-filters" role="group" aria-label={t("filter.dateLabel")}>
+        {(["ALL", "WEEKEND", "MONTH"] as const).map((preset) => <Button key={preset} size="sm" dense variant={datePreset === preset ? "outline" : "secondary"} aria-pressed={datePreset === preset} onClick={() => setDatePreset(preset)}>
+          {t(`filter.date.${preset.toLowerCase()}`)}
+        </Button>)}
+      </div>
+      <Select aria-label={t("filter.difficulty")} value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value as "ALL" | EventDifficulty)}>
+        <option value="ALL">{t("filter.allDifficulties")}</option>
+        {(["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const).map((difficulty) => <option key={difficulty} value={difficulty}>{t(`difficulty.${difficulty.toLowerCase()}`)}</option>)}
+      </Select>
+    </>
+  );
 
   if (loading) {
     return (
@@ -387,22 +442,36 @@ export default function EventsPage() {
 
   return (
     <div className="site-shell space-y-4" style={{ padding: "0 24px 40px" }}>
-      <PageHeader
-        eyebrow={t("page.eyebrow")}
-        title={t("title")}
-        subtitle={t("page.subtitle")}
-        right={
-          authLoading ? null : user ? (
-            <Link to="/event/create" className={`${buttonClass({ variant: 'primary', size: 'sm' })}`}>
+      {isMobile ? (
+        <header className="event-mobile-heading">
+          <div>
+            <h1>{t("title")}</h1>
+            <p>{t("page.subtitleMobile")}</p>
+          </div>
+          {user && (
+            <Link to="/event/create" className={buttonClass({ variant: "primary", size: "sm" })}>
               + {t("button.create")}
             </Link>
-          ) : (
-            <Link to="/tools/virtual-power" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>
-              {t("guest.compareCta", { defaultValue: "내 예상 기록과 비교하기" })}
-            </Link>
-          )
-        }
-      />
+          )}
+        </header>
+      ) : (
+        <PageHeader
+          eyebrow={t("page.eyebrow")}
+          title={t("title")}
+          subtitle={t("page.subtitle")}
+          right={
+            user ? (
+              <Link to="/event/create" className={buttonClass({ variant: "primary", size: "sm" })}>
+                + {t("button.create")}
+              </Link>
+            ) : !authLoading ? (
+              <Link to="/tools/virtual-power" className={buttonClass({ variant: "secondary", size: "sm" })}>
+                {t("guest.compareCta", { defaultValue: "내 예상 기록과 비교하기" })}
+              </Link>
+            ) : null
+          }
+        />
+      )}
 
       {!authLoading && !user && (
         <Card padding="none" style={{ padding: "var(--space-5)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap" }}>
@@ -432,7 +501,7 @@ export default function EventsPage() {
           {[
             { lbl: t("status.live"), val: liveCount, sub: t("summary.liveNow"), dot: "var(--lime)" },
             { lbl: t("status.open"), val: openCount, sub: t("summary.canRegister"), dot: "var(--aqua)" },
-            { lbl: t("summary.myEvents"), val: myCount, sub: t("summary.thisSeason"), dot: "var(--ink-2)" },
+            { lbl: t(isMobile ? "summary.myEventsShort" : "summary.myEvents"), val: myCount, sub: t("summary.thisSeason"), dot: "var(--ink-2)" },
           ].map((s) => (
             <div
               key={s.lbl}
@@ -449,7 +518,7 @@ export default function EventsPage() {
                 <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)', wordBreak: "keep-all" }}>{s.lbl}</Text>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-2)', flexWrap: "wrap" }}>
                   <Text variant="dataMedium" style={{ color: "var(--ink-0)" }}>{s.val}</Text>
-                  <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{s.sub}</span>
+                  <span className="event-summary__sub" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{s.sub}</span>
                 </div>
               </div>
             </div>
@@ -457,10 +526,20 @@ export default function EventsPage() {
         </div>
       )}
 
+      {events.length > 0 && liveCount + openCount === 0 && (
+        <Card padding="none" className="event-availability-note" style={{ padding: "var(--space-4)" }}>
+          <div>
+            <Text as="div" variant="eyebrow" style={{ color: "var(--ink-3)" }}>{t("availability.eyebrow")}</Text>
+            <div style={{ color: "var(--ink-0)", fontSize: "var(--fs-base)", fontWeight: 650, marginTop: "var(--space-1)" }}>{t("availability.title")}</div>
+            <div style={{ color: "var(--ink-2)", fontSize: "var(--fs-sm)", marginTop: "var(--space-1)" }}>{t("availability.description")}</div>
+          </div>
+        </Card>
+      )}
+
       {/* 필터 행 */}
-      <div className="flex items-center flex-wrap" style={{ gap: 'var(--space-5)', paddingTop: 'var(--space-1)' }}>
+      <div className="event-filter-toolbar">
         {/* 상태 탭 — lime 하단 보더 */}
-        <div style={{ display: "flex", gap: "var(--space-0-5)", borderBottom: "1px solid var(--line-soft)" }}>
+        <div className="event-status-filters" role="group" aria-label={t("filter.statusLabel")}>
           {STATUS_TABS.map((t) => {
             const active = statusFilter === t.k;
             return (
@@ -487,48 +566,12 @@ export default function EventsPage() {
           })}
         </div>
 
-        <div style={{ width: 1, height: 18, background: "var(--line-soft)" }} />
+        <details className="event-advanced-filters">
+          <summary>{t("filter.more")}{activeAdvancedCount > 0 && <span className="event-filter-count">{activeAdvancedCount}</span>}</summary>
+          <div className="event-advanced-filters__body">{advancedFilters}</div>
+        </details>
 
-        {/* 유형 칩 */}
-        <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
-          {TYPE_FILTERS.map((t) => {
-            const active = typeFilter === t.k;
-            return (
-              <Button
-                key={t.k}
-                size="sm"
-                variant={active ? "outline" : "secondary"}
-                dense
-                onClick={() => setTypeFilter(t.k)}
-                aria-pressed={active}
-              >
-                {t.icon && <span aria-hidden="true">{t.icon}</span>} {t.label}
-              </Button>
-            );
-          })}
-        </div>
-
-        {regions.length > 0 && (
-          <Select aria-label={t("filter.region")} value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)}>
-            <option value="ALL">{t("filter.allRegions")}</option>
-            {regions.map((region) => <option key={region} value={region}>{region}</option>)}
-          </Select>
-        )}
-
-        <div style={{ display: "flex", gap: "var(--space-1)" }}>
-          {(["ALL", "WEEKEND", "MONTH"] as const).map((preset) => (
-            <Button key={preset} size="sm" dense variant={datePreset === preset ? "outline" : "secondary"} aria-pressed={datePreset === preset} onClick={() => setDatePreset(preset)}>
-              {t(`filter.date.${preset.toLowerCase()}`)}
-            </Button>
-          ))}
-        </div>
-
-        <Select aria-label={t("filter.difficulty")} value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value as "ALL" | EventDifficulty)}>
-          <option value="ALL">{t("filter.allDifficulties")}</option>
-          {(["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const).map((difficulty) => <option key={difficulty} value={difficulty}>{t(`difficulty.${difficulty.toLowerCase()}`)}</option>)}
-        </Select>
-
-        <div style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+        <div className="event-result-count">
           {filtered.length} / {events.length}
         </div>
       </div>
@@ -541,6 +584,7 @@ export default function EventsPage() {
             </Button>
           ))}
         </div>
+        <span className="event-view-count">{filtered.length} / {events.length}</span>
         {view === "CALENDAR" && (
           <div className="flex items-center" style={{ gap: "var(--space-2)" }}>
             <Button size="sm" dense aria-label={t("view.previousMonth")} onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}>←</Button>
@@ -564,8 +608,8 @@ export default function EventsPage() {
           title={t("empty.noMatch")}
           description={t("empty.adjustFilters")}
           actions={[
-            { label: t("button.create"), variant: "primary", href: "/event/create" },
-            { label: t("button.resetFilters"), variant: "secondary", onClick: () => { setStatusFilter("ALL"); setTypeFilter("ALL"); setRegionFilter("ALL"); setDatePreset("ALL"); setDifficultyFilter("ALL"); } },
+            ...(user ? [{ label: t("button.create"), variant: "primary" as const, href: "/event/create" }] : []),
+            { label: t("button.resetFilters"), variant: "secondary" as const, onClick: () => { setStatusFilter("ALL"); setTypeFilter("ALL"); setRegionFilter("ALL"); setDatePreset("ALL"); setDifficultyFilter("ALL"); } },
           ]}
         />
       ) : view === "CALENDAR" ? (
@@ -574,7 +618,7 @@ export default function EventsPage() {
             <div key={cell.date.toISOString()} style={{ minHeight: 112, padding: "var(--space-2)", borderRight: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)", opacity: cell.inMonth ? 1 : 0.45 }}>
               <Text as="div" variant="eyebrow">{cell.date.getDate()}</Text>
               <div className="flex flex-col" style={{ gap: "var(--space-1)", marginTop: "var(--space-1)" }}>
-                {cell.events.map((event) => <Link key={event.id} to={`/event/${event.id}`} className="text-[length:var(--fs-xs)] truncate" style={{ color: event.status === "LIVE" ? "var(--lime)" : "var(--aqua)" }}>{event.name}</Link>)}
+                {cell.events.map((event) => <Link key={event.id} to={`/event/${event.id}`} className="text-[length:var(--fs-xs)] truncate" style={{ color: displayEventStatus(event, now) === "LIVE" ? "var(--lime)" : displayEventStatus(event, now) === "OPEN" ? "var(--aqua)" : "var(--ink-3)" }}>{event.name}</Link>)}
               </div>
             </div>
           ))}
@@ -602,6 +646,7 @@ export default function EventsPage() {
             <EventCard
               key={e.id}
               event={e}
+              now={now}
               isMine={myEventIds.has(e.id)}
               mapImageUrl={e.courseId ? courseThumbs[e.courseId] : undefined}
               polyline={(e.courseId ? coursePolylines[e.courseId] : undefined) ?? e.inlinePolyline}
@@ -612,12 +657,43 @@ export default function EventsPage() {
       )}
 
       <style>{`
+        .event-mobile-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding-block: var(--space-2); }
+        .event-mobile-heading h1 { margin: 0; color: var(--ink-0); font-size: var(--fs-2xl); line-height: 1.15; }
+        .event-mobile-heading p { margin: var(--space-1) 0 0; color: var(--ink-2); font-size: var(--fs-xs); }
+        .event-mobile-heading a { flex-shrink: 0; }
+        .event-filter-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding-top: var(--space-1); }
+        .event-card__title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow: hidden; line-height: 1.35; }
+        .event-status-filters { display: flex; gap: var(--space-0-5); border-bottom: 1px solid var(--line-soft); }
+        .event-advanced-filters { position: relative; margin-left: auto; }
+        .event-advanced-filters[open] { flex-basis: 100%; order: 1; }
+        .event-advanced-filters summary { display: flex; align-items: center; gap: var(--space-1); min-height: 40px; padding: 0 var(--space-2); border: 1px solid var(--line-soft); border-radius: var(--r-md); color: var(--ink-1); font-size: var(--fs-xs); cursor: pointer; list-style: none; }
+        .event-advanced-filters summary::-webkit-details-marker { display: none; }
+        .event-filter-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 var(--space-1); border-radius: 999px; background: var(--accent-soft-bg); color: var(--accent); font-family: var(--font-mono); }
+        .event-advanced-filters__body { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) 0; }
+        .event-type-filters, .event-date-filters { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+        .event-result-count, .event-view-count { color: var(--ink-3); font: var(--fs-xs) var(--font-mono); }
+        .event-result-count { margin-left: 0; }
+        .event-view-count { display: none; }
         @media (max-width: 900px) {
           .event-grid { grid-template-columns: 1fr !important; }
         }
-        @media (max-width: 700px) {
-          .event-summary { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-          .event-summary > :last-child { grid-column: 1 / -1; }
+        @media (max-width: 900px) {
+          .event-summary { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+          .event-summary > div { padding: var(--space-2) !important; gap: var(--space-1) !important; }
+          .event-summary__sub { display: none; }
+          .event-filter-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); }
+          .event-status-filters { min-width: 0; overflow-x: auto; white-space: nowrap; }
+          .event-status-filters button { padding-inline: var(--space-2) !important; }
+          .event-advanced-filters { margin-left: 0; }
+          .event-advanced-filters[open] { grid-column: 1 / -1; }
+          .event-advanced-filters__body select { width: 100%; }
+          .event-result-count { display: none; }
+          .event-view-count { display: inline; margin-left: auto; }
+        }
+        @media (max-width: 767px) {
+          .event-card { grid-template-columns: minmax(0, 1fr) !important; }
+          .event-card__cover { min-height: 128px !important; height: 128px; }
+          .event-card__content { padding: var(--space-3) !important; }
           .event-calendar { overflow-x: auto; grid-template-columns: repeat(7, minmax(110px, 1fr)) !important; }
         }
       `}</style>
@@ -625,10 +701,11 @@ export default function EventsPage() {
   );
 }
 
-const COVER_BG: Record<EventStatus | "DEFAULT", string> = {
+const COVER_BG: Record<DisplayEventStatus | "DEFAULT", string> = {
   LIVE: "linear-gradient(135deg, color-mix(in oklch, var(--lime) 35%, var(--bg-2)), color-mix(in oklch, var(--lime) 8%, var(--bg-2)))",
   OPEN: "linear-gradient(135deg, color-mix(in oklch, var(--aqua) 35%, var(--bg-2)), color-mix(in oklch, var(--aqua) 8%, var(--bg-2)))",
   FINISHED: "linear-gradient(135deg, color-mix(in oklch, var(--ink-3) 25%, var(--bg-2)), color-mix(in oklch, var(--ink-3) 6%, var(--bg-2)))",
+  PAST: "linear-gradient(135deg, color-mix(in oklch, var(--ink-3) 25%, var(--bg-2)), color-mix(in oklch, var(--ink-3) 6%, var(--bg-2)))",
   CANCELLED: "linear-gradient(135deg, color-mix(in oklch, var(--rose) 25%, var(--bg-2)), color-mix(in oklch, var(--rose) 6%, var(--bg-2)))",
   DRAFT: "linear-gradient(135deg, color-mix(in oklch, var(--amber) 25%, var(--bg-2)), color-mix(in oklch, var(--amber) 6%, var(--bg-2)))",
   UNKNOWN: "var(--bg-2)",
@@ -740,31 +817,39 @@ function CoverIllustration() {
 
 function EventCard({
   event,
+  now,
   isMine,
   polyline,
   mapImageUrl,
   t,
 }: {
   event: EventInfo;
+  now: number;
   isMine?: boolean;
   polyline?: string;
   mapImageUrl?: string;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
-  const metaRaw = STATUS_META_KEYS[event.status] ?? STATUS_META_KEYS.UNKNOWN;
+  const displayStatus = displayEventStatus(event, now);
+  const metaRaw = STATUS_META_KEYS[displayStatus] ?? STATUS_META_KEYS.UNKNOWN;
   const meta = { label: t(metaRaw.labelKey), color: metaRaw.color, chip: metaRaw.chip };
   const { date, time } = formatDateTime(event.startTime);
-  const dDayLabel = (event.status === "OPEN" || event.status === "LIVE") ? dDay(event.startTime) : "";
+  const dDayLabel = (displayStatus === "OPEN" || displayStatus === "LIVE") ? dDay(event.startTime, now) : "";
   const fillPct =
     event.maxParticipants && event.registered != null
       ? Math.round((event.registered / event.maxParticipants) * 100)
       : null;
-  const isFinished = event.status === "FINISHED";
+  const isFinished = displayStatus === "FINISHED" || displayStatus === "PAST";
   const isLive = event.status === "LIVE";
+  const imageUrl = mapImageUrl || (polyline ? buildMapboxStaticUrl(polyline) : null);
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const usableImageUrl = imageUrl && imageUrl !== failedImageUrl ? imageUrl : null;
+  const hasRouteVisual = Boolean(usableImageUrl || polyline);
+  const startDate = new Date(event.startTime);
 
   return (
     <Link to={`/event/${event.id}`} className="block" style={{ color: "inherit", textDecoration: "none" }}>
-      <Card variant="bare" padding="none" style={{
+      <Card variant="bare" padding="none" className="event-card" style={{
         padding: 0,
         overflow: "hidden",
         display: "grid",
@@ -775,25 +860,27 @@ function EventCard({
         borderColor: isMine ? "color-mix(in oklch, var(--lime) 30%, var(--line-soft))" : undefined,
       }}>
       {/* 커버: 1) CF mapImageUrl 2) Mapbox Static API (실시간) 3) SVG 폴백 4) 일러스트 */}
-      <div style={{ position: "relative", background: COVER_BG[event.status] ?? COVER_BG.DEFAULT, minHeight: 144 }}>
+      <div className="event-card__cover" style={{ position: "relative", background: COVER_BG[displayStatus] ?? COVER_BG.DEFAULT, minHeight: 144 }}>
         {(() => {
-          const staticUrl = !mapImageUrl && polyline ? buildMapboxStaticUrl(polyline) : null;
-          const imgSrc = mapImageUrl || staticUrl;
-          if (imgSrc) {
+          if (usableImageUrl) {
             return (
-              <img
-                src={imgSrc}
-                alt=""
-                loading="lazy"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  opacity: 0.92,
-                }}
-              />
+              <>
+                <CoverIllustration />
+                <img
+                  src={usableImageUrl}
+                  alt=""
+                  loading="lazy"
+                  onError={() => setFailedImageUrl(usableImageUrl)}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    opacity: 0.92,
+                  }}
+                />
+              </>
             );
           }
           if (polyline) {
@@ -801,11 +888,11 @@ function EventCard({
               <MapThumbnail
                 polyline={polyline}
                 accent={
-                  event.status === "LIVE"
+                  displayStatus === "LIVE"
                     ? "var(--lime)"
-                    : event.status === "OPEN"
+                    : displayStatus === "OPEN"
                       ? "var(--aqua)"
-                      : event.status === "FINISHED"
+                      : isFinished
                         ? "var(--ink-3)"
                         : "var(--lime)"
                 }
@@ -870,15 +957,19 @@ function EventCard({
             {event.region}
           </div>
         )}
+        {!hasRouteVisual && event.startTime > 0 && <div aria-hidden="true" style={{ position: "absolute", right: "var(--space-3)", bottom: "var(--space-2)", display: "flex", flexDirection: "column", alignItems: "flex-end", color: "var(--ink-1)" }}>
+          <span style={{ fontSize: "var(--fs-xs)" }}>{t("cover.startDate")}</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xl)", fontWeight: 600, letterSpacing: "-0.04em", lineHeight: 1 }}>{String(startDate.getMonth() + 1).padStart(2, "0")}.{String(startDate.getDate()).padStart(2, "0")}</span>
+        </div>}
       </div>
 
       {/* 콘텐츠 */}
-      <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: "var(--space-2)", minWidth: 0 }}>
+      <div className="event-card__content" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: "var(--space-2)", minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-2)" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
-              className="truncate"
-              style={{ fontSize: "var(--fs-base)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.01em", marginBottom: 'var(--space-1)' }}
+              className="event-card__title truncate"
+              style={{ fontSize: "var(--fs-lg)", fontWeight: 650, color: "var(--ink-0)", letterSpacing: "-0.01em", marginBottom: 'var(--space-1)' }}
             >
               {event.name}
             </div>
@@ -946,7 +1037,7 @@ function EventCard({
           </div>
         )}
 
-        {fillPct != null && event.status === "OPEN" && (
+        {fillPct != null && displayStatus === "OPEN" && (
           <div>
             <div style={{ height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
               <div

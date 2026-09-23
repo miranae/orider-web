@@ -1,5 +1,8 @@
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { NavLink, useParams } from "react-router-dom";
 import { SUPPORTED_LANGS } from "../i18n/detector";
+import "./TabNav.css";
 
 const langSet = new Set<string>([...SUPPORTED_LANGS]);
 const tabFocusClass = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]";
@@ -58,15 +61,41 @@ interface RouteTabNavProps {
 
 export function RouteTabNav({ tabs }: RouteTabNavProps) {
   const { lang } = useParams();
+  const { t } = useTranslation("common");
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [canScrollBack, setCanScrollBack] = useState(false);
+  const [canScrollForward, setCanScrollForward] = useState(false);
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const update = () => {
+      setCanScrollBack(scroller.scrollLeft > 1);
+      setCanScrollForward(scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 1);
+    };
+    update();
+    scroller.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      scroller.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [tabs]);
+
   return (
-    <div className="flex border-b overflow-x-auto" style={{ borderColor: "var(--line-soft)" }}>
+    <div className="route-tab-nav" style={{ borderColor: "var(--line-soft)" }}>
+      {canScrollBack && <button type="button" className="route-tab-nav__more" aria-label={t("button.previousTabs")} onClick={() => {
+        const scroller = scrollerRef.current;
+        if (scroller) scroller.scrollLeft -= scroller.clientWidth * 0.7;
+      }}>‹</button>}
+      <div ref={scrollerRef} className="route-tab-nav__scroller flex overflow-x-auto">
       {tabs.map((tab) => (
         <NavLink
           key={tab.to}
           to={localizeTo(tab.to, lang)}
           end={tab.end}
           className={({ isActive }) =>
-            `flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${
+            `flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-2 sm:px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${
               isActive
                 ? ""
                 : "border-transparent hover:border-[var(--line)]"
@@ -77,6 +106,11 @@ export function RouteTabNav({ tabs }: RouteTabNavProps) {
           {tab.label}
         </NavLink>
       ))}
+      </div>
+      {canScrollForward && <button type="button" className="route-tab-nav__more" aria-label={t("button.nextTabs")} onClick={() => {
+        const scroller = scrollerRef.current;
+        if (scroller) scroller.scrollLeft += scroller.clientWidth * 0.7;
+      }}>›</button>}
     </div>
   );
 }
