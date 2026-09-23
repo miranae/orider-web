@@ -211,17 +211,18 @@ export default function MobilePlanContent({
 
       {/* Weekly summary */}
       {currentWeek && (() => {
-        const totalTSS = sumEffectivePlanTSS(days);
-        const totalMins = Math.round(days.filter(d => d.workout !== "rest").reduce((s, d) => {
+        const scheduledDays = days.filter(d => d.workout !== "rest" && !d.skipped);
+        const totalTSS = sumEffectivePlanTSS(scheduledDays);
+        const totalMins = Math.round(scheduledDays.reduce((s, d) => {
           return s + Math.max(0, d.adjustedDurationMin ?? d.plannedDurationMin ?? 0);
         }, 0));
         const h = Math.floor(totalMins / 60);
         const m = totalMins % 60;
-        const sessions = days.filter(d => d.workout !== "rest").length;
+        const sessions = scheduledDays.length;
 
-        const bikeTSS = days.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "bike" && d.workout !== "rest").reduce((s, d) => s + effectivePlanTSS(d), 0);
-        const runTSS = days.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "run").reduce((s, d) => s + effectivePlanTSS(d), 0);
-        const swimTSS = days.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "swim").reduce((s, d) => s + effectivePlanTSS(d), 0);
+        const bikeTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "bike").reduce((s, d) => s + effectivePlanTSS(d), 0);
+        const runTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "run").reduce((s, d) => s + effectivePlanTSS(d), 0);
+        const swimTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "swim").reduce((s, d) => s + effectivePlanTSS(d), 0);
         const stackTotal = bikeTSS + runTSS + swimTSS || 1;
 
         return (

@@ -94,6 +94,20 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("0h 58m");
   });
 
+  it("excludes skipped workouts from all weekly load, time, and session figures", () => {
+    const skippedDay = { ...workout, skipped: true };
+    const scheduledDay = { ...workout, date: today + 86_400_000, dayOfWeek: 2 as const,
+      adjustedTSS: 40, adjustedDurationMin: 45 };
+    renderWithProviders(<MobilePlanContent embedded currentWeek={{ ...week, days: [skippedDay, scheduledDay] }} weekLabel="이번 주" />);
+
+    const summary = screen.getByRole("region", { name: "이번 주 요약" });
+    expect(summary).toHaveTextContent("주간 TSS40");
+    expect(summary).toHaveTextContent("시간0h 45m");
+    expect(summary).toHaveTextContent("세션1");
+    expect(summary).toHaveTextContent("사이클 40");
+    expect(screen.getByText("이번 주 다음 운동")).toBeInTheDocument();
+  });
+
   it("prioritizes today while keeping earlier days accessible", () => {
     const priorDay = { ...workout, date: today - 86_400_000, workout: "rest" as const };
     renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [priorDay, workout] }} weekLabel="이번 주" />);
