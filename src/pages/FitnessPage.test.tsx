@@ -24,12 +24,12 @@ vi.mock("../hooks/useCoachRiderInsight", () => ({ useCoachRiderInsight: () => ri
 vi.mock("../hooks/useCanonicalFitnessSummary", () => ({ useCanonicalFitnessSummary: () => canonicalSummary.state }));
 vi.mock("../features/trainingDecision/TodayTrainingDecisionCard", () => ({
   default: ({ surface }: { surface: string }) => <div data-testid="today-training-decision">{surface} workout</div>,
+  TodayTrainingDecisionSource: ({ children }: { children: (state: unknown) => ReactNode }) => children({ decision: null, loading: false, scheduledOnly: true, unavailable: false, unavailableReason: null, refresh: vi.fn() }),
 }));
 vi.mock("../features/fitness/components/PmcHistoryPanel", () => ({
-  default: ({ points, canonical, controlledRange, onControlledRangeChange }: { points: Array<{ date: string }>; canonical: boolean; controlledRange?: number | "3y" | "all"; onControlledRangeChange?: (range: "3y" | "all") => void }) => (
+  default: ({ points, canonical, controlledRange, onControlledRangeChange, rangeChoices = [] }: { points: Array<{ date: string }>; canonical: boolean; controlledRange?: number | "3y" | "all"; onControlledRangeChange?: (range: number | "3y" | "all") => void; rangeChoices?: Array<number | "3y" | "all"> }) => (
     <div data-testid="pmc-history" data-count={points.length} data-start={points[0]?.date} data-canonical={String(canonical)} data-range={controlledRange}>
-      {onControlledRangeChange && <button onClick={() => onControlledRangeChange("3y")}>history 3y</button>}
-      {onControlledRangeChange && <button onClick={() => onControlledRangeChange("all")}>history all</button>}
+      {onControlledRangeChange && rangeChoices.map((choice) => <button key={choice} onClick={() => onControlledRangeChange(choice)}>{choice === 42 ? "6주" : choice === 365 ? "1년" : choice === "3y" ? "history 3y" : choice === "all" ? "history all" : `${choice}일`}</button>)}
     </div>
   ),
 }));
@@ -50,7 +50,7 @@ vi.mock("../components/mobile/MobileFitnessPage", () => ({
   ),
 }));
 vi.mock("./fitness/TriFitnessView", () => ({
-  default: ({ combinedLoad, loadFocus, breakdown, onRangeChange, selectedHistoryRange, historySlot }: {
+  default: ({ combinedLoad, loadFocus, breakdown, selectedHistoryRange, historySlot }: {
     historySlot?: ReactNode;
     combinedLoad?: { ctl: number } | null;
     loadFocus: { totalLoad: number } | null;
@@ -68,7 +68,6 @@ vi.mock("./fitness/TriFitnessView", () => ({
       <span>desktop focus {loadFocus?.totalLoad ?? "unavailable"}</span>
       <span>desktop bike {breakdown.bike.fitness[breakdown.bike.fitness.length - 1]?.ctl ?? "none"}/{breakdown.bike.weeklyTSS}</span>
       <span>desktop run {breakdown.run.fitness[breakdown.run.fitness.length - 1]?.ctl ?? "none"}/{breakdown.run.weeklyTSS}</span>
-      <button onClick={() => onRangeChange(365)}>desktop 1y</button>
     </div>
   ),
 }));
@@ -527,7 +526,7 @@ describe("FitnessPage", () => {
     const before = activitySubscriptions();
     expect(screen.getByTestId("pmc-history")).toHaveAttribute("data-range", "90");
 
-    fireEvent.click(screen.getByRole("button", { name: "desktop 1y" }));
+    fireEvent.click(screen.getByRole("button", { name: "1년" }));
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(activitySubscriptions()).toBe(before);
@@ -537,7 +536,7 @@ describe("FitnessPage", () => {
     expect(screen.getByTestId("tri-page")).toHaveAttribute("data-selected-history-range", "3y");
     fireEvent.click(screen.getByRole("button", { name: "history all" }));
     expect(screen.getByTestId("pmc-history")).toHaveAttribute("data-range", "all");
-    fireEvent.click(screen.getByRole("button", { name: "desktop 1y" }));
+    fireEvent.click(screen.getByRole("button", { name: "1년" }));
     expect(screen.getByTestId("pmc-history")).toHaveAttribute("data-range", "365");
   });
 

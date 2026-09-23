@@ -296,6 +296,14 @@
   },
   "mobileFitness": {
     "title": "Fitness",
+    "currentStatusTitle": "Current status",
+    "decision": {
+      "signedOut": "Sign in to view today's plan",
+      "unavailable": "Today's plan is unavailable",
+      "healthStop": "Check the reason to stop training first",
+      "viewDetails": "View today's decision and action",
+      "viewSafetyDetails": "Review the stop reason"
+    },
     "tabOverview": "Overview",
     "tabZones": "Power Zones",
     "tabZonesBike": "Power Zones",

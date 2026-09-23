@@ -5,16 +5,23 @@ import { describe, expect, it } from "vitest";
 describe("FitnessPage desktop hierarchy", () => {
   const source = readFileSync(join(process.cwd(), "src/pages/FitnessPage.tsx"), "utf8");
   const modelSource = readFileSync(join(process.cwd(), "src/hooks/useFitnessModel.ts"), "utf8");
-  it("uses the site shell and puts the coach briefing before PMC and deep metrics", () => {
+  it("uses the site shell and injects PMC into the coach hierarchy before secondary metrics", () => {
     expect(source).toContain('className="site-shell"');
     expect(source).not.toContain("maxWidth: 1120");
     expect(source).toContain("<FitnessCoachBriefing");
-    expect(source.indexOf("<FitnessCoachBriefing")).toBeLessThan(source.indexOf("{/* PMC 차트 */}"));
-    expect(source.indexOf("{/* PMC 차트 */}")).toBeLessThan(source.indexOf('t("conclusion.trainingDetailToggle")'));
-    expect(source.indexOf("{/* PMC 차트 */}")).toBeLessThan(source.indexOf("{/* 상세 분석 —"));
+    expect(source).toContain("trendSlot={<PmcHistoryPanel");
+    expect(source.indexOf("trendSlot={<PmcHistoryPanel")).toBeLessThan(source.indexOf("{/* 상세 분석 —"));
+    expect(source).toContain("decisionSlot={<TodayTrainingDecisionCard");
+    expect(source).toContain("mobilePriority");
     expect(source).toContain("activityMarkers={activityImpacts.map");
     expect(source).toContain('discipline === "tri" || !hasCanonicalTimeseries');
     expect(source).not.toContain("{/* KPI 스트립 */}");
+  });
+
+  it("keeps the PMC history or its explanatory empty state visible when no current snapshot is available", () => {
+    expect(source).toContain('discipline !== "tri" && !currentPoint && (');
+    expect(source).not.toContain('!currentPoint && model.pmcHistoryPoints.length > 0');
+    expect(source).toContain('!currentPoint && model.pmcHistoryPoints.length === 0');
   });
 
   it("separates the canonical FTP decision from restored PDC evidence", () => {

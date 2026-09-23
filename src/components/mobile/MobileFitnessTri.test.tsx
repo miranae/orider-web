@@ -3,6 +3,23 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import MobileFitnessPage, { type MobileFitnessData } from "./MobileFitnessPage";
+import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
+import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
+import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
+
+const baseDecision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+const decisionState = (overrides: Partial<TodayTrainingDecisionState> = {}): TodayTrainingDecisionState => ({
+  decision: baseDecision, loading: false, scheduledOnly: false, unavailable: false, unavailableReason: null, refresh: vi.fn(), ...overrides,
+});
+const previewData: MobileFitnessData = {
+  ctl: 12, atl: 10, tsb: 2,
+  pmcHistory: [{ date: "2026-07-13", ctl: 10, atl: 9, tsb: 1 }, { date: "2026-07-14", ctl: 12, atl: 10, tsb: 2 }],
+  weeklyTSS: [], thisWeekTSS: 0, avgWeekTSS: 0, restDays: 0,
+  threshold: null, hasLoadData: true, combinedLoad: null, loadFocus: null, cyclingAbility: null,
+  runEvidence: { thresholdPaceSec: null, records: [] },
+  swimEvidence: { windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 },
+  zones: [], zoneSource: "none", discipline: "run",
+};
 
 const sportPerformanceSpy = vi.hoisted(() => vi.fn());
 const integratedLoadSpy = vi.hoisted(() => vi.fn());
@@ -25,7 +42,7 @@ describe("MobileFitnessPage tri", () => {
     integratedLoadSpy.mockClear();
   });
 
-  it("places the single-sport coach briefing before the PMC evidence", () => {
+  it("shows current status and today's entry before PMC, then keeps the full coach action after the chart", () => {
     const data = {
       ctl: 12, atl: 10, tsb: 2,
       pmcHistory: [
@@ -40,15 +57,81 @@ describe("MobileFitnessPage tri", () => {
     } satisfies MobileFitnessData;
 
     const { container } = renderWithProviders(
-      <MobileFitnessPage data={data} coachSlot={<div>활동 영향과 오늘 선택</div>} />,
+      <MobileFitnessPage data={data} todayDecisionState={decisionState()} coachSlot={<div id="fitness-coach-today">활동 영향과 오늘 선택</div>} />,
     );
 
     expect(screen.getByText("활동 영향과 오늘 선택")).toBeInTheDocument();
+    const status = container.querySelector("[data-mobile-fitness-status]");
+    expect(screen.getByText("현재 상태")).toBeInTheDocument();
+    expect(status).toHaveTextContent("TSB 상태2.0");
+    expect(status).not.toHaveTextContent("CTL");
+    expect(status).not.toHaveTextContent("ATL");
     const coach = container.querySelector("[data-mobile-fitness-coach]");
     const pmc = container.querySelector("[data-pmc-chart]");
+    expect(status!.compareDocumentPosition(pmc!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(coach).not.toBeNull();
     expect(pmc).not.toBeNull();
-    expect(coach!.compareDocumentPosition(pmc!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(pmc!.compareDocumentPosition(coach!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const today = container.querySelector<HTMLElement>("#fitness-coach-today")!;
+    today.scrollIntoView = vi.fn();
+    expect(container.querySelector("[data-mobile-fitness-decision]")).toHaveAttribute("data-mobile-fitness-decision", "recommendation-pending");
+    expect(screen.getByText("현재 실행안: 템포 · 60분")).toBeInTheDocument();
+    expect(screen.getByText("조정 권고: 회복 · 미적용")).toBeInTheDocument();
+    const todayLink = screen.getByRole("button", { name: "오늘 결정·실행안 보기 ↓" });
+    expect(todayLink).toHaveStyle({ minHeight: "44px" });
+    fireEvent.click(todayLink);
+    expect(today.scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+  });
+
+  it("does not present default zeroes as observed status while current fitness is unavailable", () => {
+    const data: MobileFitnessData = {
+      ctl: 0, atl: 0, tsb: 0, pmcHistory: [], weeklyTSS: [], thisWeekTSS: 0, avgWeekTSS: 0, restDays: 0,
+      threshold: null, hasLoadData: false, combinedLoad: null, loadFocus: null, cyclingAbility: null,
+      runEvidence: { thresholdPaceSec: null, records: [] },
+      swimEvidence: { windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 },
+      zones: [], zoneSource: "none", discipline: "run",
+    };
+    const { container } = renderWithProviders(<MobileFitnessPage data={data} sectionState={{ trend: "loading", derived: "loading" }} />);
+    expect(container.querySelector("[data-mobile-fitness-status]")).toHaveTextContent("TSB 상태—");
+    expect(container.querySelector("[data-mobile-fitness-decision]")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("피트니스 추이를 불러오는 중");
+    expect(screen.queryByRole("button", { name: /오늘은 어떻게 이어갈까요/ })).not.toBeInTheDocument();
+  });
+
+  it("does not show a permanent decision loading state on the embedded surface without a shared decision source", () => {
+    const { container } = renderWithProviders(<MobileFitnessPage data={previewData} embedded />);
+    expect(container.querySelector("[data-mobile-fitness-status]")).toBeInTheDocument();
+    expect(container.querySelector("[data-mobile-fitness-decision]")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["signed-out", false, decisionState({ decision: null }), "로그인하면 오늘 계획을 확인할 수 있어요"],
+    ["loading", true, decisionState({ decision: null, loading: true }), "오늘 계획을 확인하는 중"],
+    ["disabled", true, decisionState({ decision: null, unavailableReason: "disabled" }), "오늘의 계획 기능이 아직 켜지지 않았어요"],
+    ["error", true, decisionState({ decision: null, unavailableReason: "error" }), "오늘 계획을 불러오지 못했습니다"],
+    ["unavailable", true, decisionState({ decision: null }), "오늘 계획을 확인할 수 없습니다"],
+    ["health-stop", true, decisionState({ decision: { ...baseDecision, healthGate: { ...baseDecision.healthGate, state: "stop" } } }), "운동 중단 사유를 먼저 확인하세요"],
+    ["no-scheduled", true, decisionState({ decision: { ...baseDecision, scheduledSessions: [], effectiveSessions: [], representativeSessionId: null } }), "오늘 예정된 세션이 없습니다"],
+    ["applied", true, decisionState({ decision: { ...baseDecision, receipt: { status: "applied" } as NonNullable<typeof baseDecision.receipt> } }), "변경 적용됨"],
+  ] as const)("shows the authoritative %s today state in the first-fold preview", (stateKey, signedIn, state, copy) => {
+    const { container } = renderWithProviders(<MobileFitnessPage data={previewData} todayDecisionSignedIn={signedIn} todayDecisionState={state} coachSlot={<div id="fitness-coach-today">상세 결정</div>} />);
+    expect(container.querySelector("[data-mobile-fitness-decision]")).toHaveAttribute("data-mobile-fitness-decision", stateKey);
+    expect(container.querySelector("[data-mobile-fitness-decision]")).toHaveTextContent(copy);
+    if (stateKey === "health-stop") {
+      expect(container.querySelector("[data-mobile-fitness-decision]")).not.toHaveTextContent("조정 권고");
+      expect(screen.getByRole("button", { name: "중단 사유 자세히 보기 ↓" })).toHaveStyle({ minHeight: "44px" });
+    }
+    if (stateKey === "error") expect(screen.getByRole("button", { name: "새로 확인" })).toHaveStyle({ minHeight: "44px" });
+  });
+
+  it("keeps the original plan clearly separate when a recommendation is not ready", () => {
+    const decision = { ...baseDecision, mode: "scheduled-only" as const, recommendedAdjustments: [],
+      fallback: { active: true, reasonCode: "prescription_not_ready" } };
+    const { container } = renderWithProviders(<MobileFitnessPage data={previewData} todayDecisionState={decisionState({ decision })} />);
+    expect(container.querySelector("[data-mobile-fitness-decision]")).toHaveAttribute("data-mobile-fitness-decision", "scheduled");
+    expect(container.querySelector("[data-mobile-fitness-decision]")).toHaveTextContent("현재 실행안: 템포 · 60분");
+    expect(container.querySelector("[data-mobile-fitness-decision]")).toHaveTextContent("오늘 처방이 아직 준비되지 않았어요");
+    expect(container.querySelector("[data-mobile-fitness-decision]")).not.toHaveTextContent("조정 권고:");
   });
 
   it.each([
@@ -115,7 +198,7 @@ describe("MobileFitnessPage tri", () => {
       discipline: "tri",
     };
 
-    renderWithProviders(<MobileFitnessPage data={data} />);
+    renderWithProviders(<MobileFitnessPage data={data} coachSlot={<div>잘못된 통합 추천</div>} />);
 
     expect(screen.queryByTestId("sport-performance-card")).not.toBeInTheDocument();
     expect(sportPerformanceSpy).not.toHaveBeenCalled();
@@ -123,6 +206,9 @@ describe("MobileFitnessPage tri", () => {
     expect(screen.queryByRole("button", { name: "전체" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "개요" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "수영" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /오늘은 어떻게 이어갈까요/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("잘못된 통합 추천")).not.toBeInTheDocument();
+    expect(screen.getByText("통합 멀티스포츠 상태")).toBeInTheDocument();
   });
 
   it("resets the secondary tab after bike analysis to tri and then run", async () => {
