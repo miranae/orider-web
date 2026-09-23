@@ -72,6 +72,15 @@ describe("today training decision contract", () => {
     expect(currentTrainingRecommendation(parsed)).toBe(true);
   });
 
+  it("preserves future policy metadata and rejects malformed policy values", () => {
+    expect(parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({ policyVersion: "future policy + 2" })).policyVersion)
+      .toBe("future policy + 2");
+    for (const policyVersion of ["", "   ", "x".repeat(257), 2]) {
+      expect(() => parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({ policyVersion }))).toThrow();
+    }
+    expect(() => parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({ schemaVersion: "today-training-decision-v2" }))).toThrow();
+  });
+
   it("accepts public null, normalizes the legacy zero sentinel, and accepts positive revisions", () => {
     const publicNoCheckIn = trainingDecisionEnvelope() as any;
     publicNoCheckIn.data.recommendationSource = { ...publicNoCheckIn.data.recommendationSource!, weeklyCheckInRevision: null };

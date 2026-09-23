@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { coachPrescriptionSchema } from "./coachPrescriptionContract";
+import { coachPrescriptionSchema, coachServerMetadataVersionSchema } from "./coachPrescriptionContract";
 
 const id = z.string().min(1).max(256);
 const uuid = z.string().uuid();
@@ -40,24 +40,24 @@ export const coachProgressPlannerCapabilitiesSchema = z.object({
         && items.some((item) => item.capabilityVersion === "p1"))),
   defaultCapabilityVersion: z.literal("p0"), queryCatalogVersion: id, factsCatalogVersion: id,
   answerSchemaVersion: id, answerCatalogVersion: id,
-  progressPlanner: z.object({ read: z.object({ enabled: z.boolean() }).strict(),
-    proposal: z.object({ enabled: z.boolean() }).strict(), confirm: z.object({ enabled: z.boolean() }).strict() }).strict(),
+  progressPlanner: z.object({ read: z.object({ enabled: z.boolean() }),
+    proposal: z.object({ enabled: z.boolean() }), confirm: z.object({ enabled: z.boolean() }) }),
   todayTrainingDecision: z.object({ enabled: z.boolean(), endpoint: z.literal("/v1/coach/training-decisions/today"),
-    schemaVersion: z.literal("today-training-decision-v1"), policyVersion: z.literal("today-training-decision-policy-v1"),
-    policyStage: z.enum(["shadow", "active"]), proposal: z.object({ enabled: z.boolean() }).strict(),
-    confirm: z.object({ enabled: z.boolean() }).strict(), decline: z.object({ enabled: z.boolean() }).strict() }).strict().optional(),
+    schemaVersion: z.literal("today-training-decision-v1"), policyVersion: coachServerMetadataVersionSchema,
+    policyStage: z.enum(["shadow", "active"]), proposal: z.object({ enabled: z.boolean() }),
+    confirm: z.object({ enabled: z.boolean() }), decline: z.object({ enabled: z.boolean() }) }).optional(),
   prescription: z.union([
     z.object({ enabled: z.literal(true), schemaVersion: z.literal("coach-prescription-v1"),
-      rulesVersion: z.enum(["coach-prescription-rules-v1", "coach-prescription-rules-v2"]), checkIn: z.union([
-        z.object({ enabled: z.literal(true), endpoint: z.literal("/v1/coach/prescription/check-in") }).strict(),
-        z.object({ enabled: z.literal(false), reasonCode: z.literal("prescription_proposal_feature_disabled") }).strict(),
-      ]) }).strict(),
+      rulesVersion: coachServerMetadataVersionSchema, checkIn: z.union([
+        z.object({ enabled: z.literal(true), endpoint: z.literal("/v1/coach/prescription/check-in") }),
+        z.object({ enabled: z.literal(false), reasonCode: z.literal("prescription_proposal_feature_disabled") }),
+      ]) }),
     z.object({ enabled: z.literal(false), reasonCode: z.literal("prescription_feature_disabled"), checkIn: z.union([
-      z.object({ enabled: z.literal(true), endpoint: z.literal("/v1/coach/prescription/check-in") }).strict(),
-      z.object({ enabled: z.literal(false), reasonCode: z.literal("prescription_proposal_feature_disabled") }).strict(),
-    ]) }).strict(),
+      z.object({ enabled: z.literal(true), endpoint: z.literal("/v1/coach/prescription/check-in") }),
+      z.object({ enabled: z.literal(false), reasonCode: z.literal("prescription_proposal_feature_disabled") }),
+    ]) }),
   ]),
-}).strict().superRefine((value, context) => {
+}).superRefine((value, context) => {
   if (value.prescription.enabled !== value.progressPlanner.read.enabled
       || value.prescription.checkIn.enabled !== value.progressPlanner.proposal.enabled) {
     context.addIssue({ code: "custom", message: "progress planner capability mismatch" });
@@ -72,7 +72,7 @@ export const coachChangeProposalSchema = z.object({ schemaVersion: z.literal("co
     weeklyCheckInId: z.string().regex(/^(bike|run|swim)_\d{4}-\d{2}-\d{2}$/u),
     weeklyCheckInRevision: z.number().int().min(1) }).strict(),
   targetRevision, changes: z.array(change).min(1).max(7), evidence: z.array(evidence).max(500),
-  consent: z.object({ policyVersion: z.literal("ai-coach-policy-v4"), revision: iso }).strict(),
+  consent: z.object({ policyVersion: coachServerMetadataVersionSchema, revision: iso }).strict(),
   createdAt: iso, expiresAt: iso, ...zeroExecution,
 }).strict().superRefine((value, context) => {
   if (Date.parse(value.expiresAt) <= Date.parse(value.createdAt)) context.addIssue({ code: "custom", message: "proposal expiry" });

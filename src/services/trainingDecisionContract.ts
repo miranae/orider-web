@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { coachChangeReceiptSchema } from "./coachProgressPlannerContract";
+import { coachServerMetadataVersionSchema } from "./coachPrescriptionContract";
 
 const id = z.string().min(3).max(256);
 const uuid = z.string().uuid();
@@ -59,7 +60,7 @@ const source = z.object({
 
 export const todayTrainingDecisionProjectionSchema = z.object({
   schemaVersion: z.literal("today-training-decision-v1"),
-  policyVersion: z.literal("today-training-decision-policy-v1"),
+  policyVersion: coachServerMetadataVersionSchema,
   policyStage: z.enum(["shadow", "active"]),
   projectionId: z.string().regex(/^today_[0-9a-f]{24}$/u),
   asOfDate: localDate,
