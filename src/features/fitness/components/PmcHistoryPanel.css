@@ -1,4 +1,5 @@
 .pmc-history h2, .pmc-history p { margin: 0; }
+.pmc-history h2 { font-size: clamp(var(--fs-lg), 1vw, var(--fs-xl)); }
 .pmc-history .ds-chart__plot { margin-top: var(--space-3); }
 .pmc-history__source { padding: var(--space-1) var(--space-2); color: var(--ink-3); background: var(--bg-2); border-radius: var(--r-sm); font-size: var(--fs-xs); }
 .pmc-history__source--danger { color: var(--color-error); background: color-mix(in oklch, var(--color-error) 10%, var(--bg-2)); }
@@ -6,9 +7,9 @@
 .pmc-history__source--progress { color: var(--accent); background: var(--accent-soft-bg); }
 .pmc-history__chart-head { display: grid; gap: var(--space-2); padding-bottom: var(--space-2); border-bottom: 1px solid var(--line-soft); }
 .pmc-history__chart-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.pmc-history__canonical-chart { color: var(--ink-1); font-size: var(--fs-sm); font-weight: 700; }
+.pmc-history__canonical-chart { color: var(--ink-1); font-size: var(--fs-lg); font-weight: 700; }
 .pmc-history__unit { flex: none; padding: var(--space-1) var(--space-2); color: var(--ink-2); background: var(--bg-2); border-radius: var(--r-sm); font-size: var(--fs-xs); font-weight: 600; }
-.pmc-history__chart-head .ds-chart__legend { gap: var(--space-4); color: var(--ink-1); font-weight: 500; }
+.pmc-history__chart-head .ds-chart__legend { gap: var(--space-4); color: var(--ink-1); font-size: var(--fs-md); font-weight: 500; }
 .pmc-history__plot-wrap { position: relative; margin-top: var(--space-2); }
 .pmc-history__plot-wrap .ds-chart__tooltip { transform: translateX(-50%); }
 .pmc-history__plot-wrap .pmc-history__tooltip--start { transform: none; }
@@ -19,17 +20,18 @@
 .pmc-history__tsb-wrap { position: relative; padding-top: var(--space-2); border-top: 1px solid var(--line-soft); }
 .pmc-history__tsb-label { display: block; color: var(--ink-1); font-size: var(--fs-xs); font-weight: 700; }
 .pmc-history__tsb-chart { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
-.pmc-history__tsb-chart text { fill: var(--chart-grid-label); font-size: var(--fs-sm); }
+.pmc-history__tsb-chart text { fill: var(--chart-grid-label); font-size: var(--fs-md); }
 .pmc-history__tsb-chart .pmc-history__zero-axis { stroke: var(--ink-2); stroke-width: 1.5; }
 .pmc-history__tsb-chart .pmc-history__zero-label { fill: var(--ink-1); font-weight: 700; }
 .pmc-history__chart { display: block; width: 100%; height: 15rem; overflow: visible; touch-action: pan-y; }
-.pmc-history__chart text { fill: var(--chart-grid-label); font-size: var(--fs-sm); }
+.pmc-history__chart text { fill: var(--chart-grid-label); font-size: var(--fs-md); }
+.pmc-history__trend-stack > svg text { font-size: var(--fs-md); }
 .pmc-history__cursor { stroke: var(--grid-axis); stroke-dasharray: 3 4; }
 .pmc-history__value-strip { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-3); min-height: 2.5rem; padding: var(--space-2) var(--space-3); color: var(--ink-2); background: var(--bg-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .pmc-history__value-strip strong { margin-right: auto; color: var(--ink-1); font-weight: 600; }
 .pmc-history__values { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
 .pmc-history__values span { display: inline-flex; align-items: baseline; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-inline-start: 3px solid; border-radius: var(--r-sm); background: var(--bg-1); white-space: nowrap; }
-.pmc-history__value-strip b { color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-md); font-weight: 700; }
+.pmc-history__value-strip b { color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-lg); font-weight: 700; }
 .pmc-history__controls, .pmc-history__buttons, .pmc-history__navigation { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .pmc-history__controls { justify-content: space-between; margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--line-soft); }
 .pmc-history__buttons .ds-btn[aria-pressed="false"] { color: var(--ink-3); }
@@ -49,6 +51,9 @@
 
 @media (max-width: 36rem) {
   .ds-chart--card.pmc-history { padding: var(--space-3); }
+  .pmc-history__canonical-chart { font-size: var(--fs-md); }
+  .pmc-history__chart-head .ds-chart__legend { font-size: var(--fs-sm); }
+  .pmc-history__tsb-chart text, .pmc-history__chart text, .pmc-history__trend-stack > svg text { font-size: var(--fs-sm); }
   .pmc-history__chart { height: 13.5rem; }
   .pmc-history__chart-head .ds-chart__legend { gap: var(--space-2); }
   .pmc-history__chart-head .ds-chart__legend li { gap: var(--space-1); }
