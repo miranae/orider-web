@@ -9,7 +9,8 @@ import {
   Tooltip,
   type TooltipItem,
 } from "chart.js";
-import { useTheme } from "../contexts/ThemeContext";
+import { useOriderTheme } from "../theme";
+import { resolveCssColor } from "../utils/cssColor";
 import { formatNum } from "../utils/units";
 
 export interface WeeklyStat {
@@ -38,9 +39,9 @@ interface WeeklyChartProps {
 }
 
 const COLOR_MAP: Record<MetricKey, string> = {
-  distance: "rgba(199, 247, 58, 0.85)", // lime
-  time: "rgba(98, 200, 224, 0.85)",      // aqua
-  elevation: "rgba(255, 168, 76, 0.85)", // amber
+  distance: "var(--accent)",
+  time: "var(--color-info)",
+  elevation: "var(--chart-altitude)",
 };
 
 function formatPeriodLabel(week: string): string {
@@ -60,7 +61,7 @@ export default function WeeklyChart({
   showAllPeriods = false,
 }: WeeklyChartProps) {
   const { t } = useTranslation("dashboard");
-  const { resolvedTheme } = useTheme();
+  const { variant } = useOriderTheme();
   const [metric, setMetric] = useState<MetricKey>(dataKey);
   const scrollRef = useRef<HTMLDivElement>(null);
   const latestPeriod = data[data.length - 1]?.week;
@@ -83,14 +84,13 @@ export default function WeeklyChart({
   const ridesUnit = "회";
   const active = METRIC_META[activeKey];
 
-  // Chart.js는 CSS 변수를 해석 못해서 테마별 실제 색상값을 직접 지정.
-  const isDark = resolvedTheme === "dark";
-  const tickColor = isDark ? "rgba(235,236,238,0.72)" : "rgba(20,22,26,0.72)";
-  const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
-  const tooltipBg = isDark ? "rgba(20,22,26,0.96)" : "rgba(255,255,255,0.98)";
-  const tooltipBorder = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)";
-  const tooltipTitle = isDark ? "rgba(245,246,248,1)" : "rgba(18,20,24,1)";
-  const tooltipBody = isDark ? "rgba(220,222,226,1)" : "rgba(36,40,46,1)";
+  // Chart.js 캔버스는 CSS 변수를 해석하지 못하므로 테마 색상을 확정해 전달한다.
+  const tickColor = resolveCssColor("var(--chart-grid-label)", variant);
+  const gridColor = resolveCssColor("var(--grid-soft)", variant);
+  const tooltipBg = resolveCssColor("var(--bg-3)", variant);
+  const tooltipBorder = resolveCssColor("var(--line)", variant);
+  const tooltipTitle = resolveCssColor("var(--ink-0)", variant);
+  const tooltipBody = resolveCssColor("var(--ink-1)", variant);
 
   const labels = useMemo(
     () =>
@@ -116,7 +116,7 @@ export default function WeeklyChart({
     datasets: [
       {
         data: data.map((d) => Number.isFinite(d[activeKey]) ? d[activeKey] : 0),
-        backgroundColor: COLOR_MAP[activeKey],
+        backgroundColor: resolveCssColor(COLOR_MAP[activeKey], variant),
         borderRadius: 4,
         barPercentage: 0.75,
       },
@@ -139,6 +139,7 @@ export default function WeeklyChart({
           interaction: { mode: "nearest" as const, axis: "x" as const, intersect: false },
           events: ["mousemove", "mouseout", "click", "touchstart", "touchmove"] as const,
           plugins: {
+            legend: { display: false },
             tooltip: {
               backgroundColor: tooltipBg,
               borderColor: tooltipBorder,

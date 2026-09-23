@@ -13,7 +13,8 @@ import {
   Tooltip,
 } from "chart.js";
 import { formatNum } from "../utils/units";
-import { useTheme } from "../contexts/ThemeContext";
+import { useOriderTheme } from "../theme";
+import { resolveCssColor } from "../utils/cssColor";
 import ChartEmptyState from "./charts/ChartEmptyState";
 
 ChartJS.register(CategoryScale, LinearScale, LogarithmicScale, PointElement, LineElement, Filler, Tooltip);
@@ -50,7 +51,9 @@ export default function DurationCurveChart({
   reference = null, peakLabel, emptyTitle, emptyDescription,
 }: DurationCurveChartProps) {
   const { t } = useTranslation("dashboard");
-  const { resolvedTheme } = useTheme();
+  const { variant } = useOriderTheme();
+  const seriesColor = resolveCssColor(color, variant);
+  const referenceColor = resolveCssColor("var(--ink-2)", variant);
 
   const formatDuration = (sec: number): string => {
     if (sec < 60) return t("charts.powerCurve.unitSec", { n: sec });
@@ -64,31 +67,30 @@ export default function DurationCurveChart({
       {
         label: datasetLabel,
         data: points.map((p) => p.value),
-        borderColor: color,
+        borderColor: seriesColor,
         backgroundColor: "transparent",
         borderWidth: 2,
         pointRadius: 4,
-        pointBackgroundColor: color,
+        pointBackgroundColor: seriesColor,
         fill: false,
         tension: 0.3,
       },
       ...(reference ? [{
         label: reference.label,
         data: points.map(() => reference.value),
-        borderColor: "rgba(239, 68, 68, 0.5)",
-        borderWidth: 1,
+        borderColor: referenceColor,
+        borderWidth: 1.5,
         borderDash: [6, 3],
         pointRadius: 0,
         fill: false,
       }] : []),
     ],
     // formatDuration 은 t 에만 의존한다.
-  }), [points, reference, color, datasetLabel, t]);
+  }), [points, reference, seriesColor, referenceColor, datasetLabel, t]);
 
   const options: ChartOptions<"line"> = useMemo(() => {
-    const dark = resolvedTheme === "dark";
-    const textColor = dark ? "#9ca3af" : "#6b7280";
-    const gridColor = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+    const textColor = resolveCssColor("var(--chart-grid-label)", variant);
+    const gridColor = resolveCssColor("var(--grid-soft)", variant);
 
     return {
       responsive: true,
@@ -97,6 +99,11 @@ export default function DurationCurveChart({
       plugins: {
         legend: { display: false },
         tooltip: {
+          backgroundColor: resolveCssColor("var(--bg-3)", variant),
+          borderColor: resolveCssColor("var(--line)", variant),
+          borderWidth: 1,
+          titleColor: resolveCssColor("var(--ink-0)", variant),
+          bodyColor: resolveCssColor("var(--ink-1)", variant),
           callbacks: {
             label: (ctx) => `${ctx.dataset.label}: ${formatNum(ctx.parsed.y, fractionDigits)}${unit}`,
           },
@@ -116,7 +123,7 @@ export default function DurationCurveChart({
         },
       },
     };
-  }, [resolvedTheme, unit, fractionDigits]);
+  }, [variant, unit, fractionDigits]);
 
   if (points.length === 0) {
     return <ChartEmptyState title={emptyTitle} description={emptyDescription} minHeight={200} />;
@@ -124,9 +131,14 @@ export default function DurationCurveChart({
 
   return (
     <div>
-      <div className="flex items-center justify-end gap-3 text-[length:var(--fs-xs)] mb-2" style={{ color: "var(--ink-3)" }}>
+      <div className="flex items-center justify-end gap-3 text-[length:var(--fs-xs)] mb-2" style={{ color: "var(--ink-2)" }}>
         {peakLabel && <span>{peakLabel}</span>}
-        {reference && <span className="text-red-400">{reference.label}</span>}
+        {reference && (
+          <span className="inline-flex items-center gap-1.5" style={{ color: "var(--ink-2)" }}>
+            <span aria-hidden="true" className="w-4 border-t-2 border-dashed" style={{ borderColor: "var(--ink-2)" }} />
+            {reference.label}
+          </span>
+        )}
       </div>
       <div className="h-[200px]">
         <Line data={data} options={options} />

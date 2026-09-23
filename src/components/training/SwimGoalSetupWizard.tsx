@@ -386,9 +386,9 @@ export default function SwimGoalSetupWizard({ Stepper }: SwimGoalSetupWizardProp
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: `${buildW}fr ${peakW}fr ${taperW}fr`, gap: 1, border: '1px solid var(--line-soft)', borderRadius: "var(--r-md)", overflow: 'hidden' }}>
               {([
-                ['buildup', buildW, 'oklch(0.70 0.09 220)'],
-                ['peak', peakW, 'var(--aqua)'],
-                ['taper', taperW, 'var(--amber)'],
+                ['buildup', buildW, 'var(--chart-speed)'],
+                ['peak', peakW, 'var(--color-info)'],
+                ['taper', taperW, 'var(--color-warning)'],
               ] as const).map(([key, weeks, color]) => (
                 <div key={key} style={{ padding: 'var(--space-4)', background: 'var(--bg-2)', borderLeft: `3px solid ${color}` }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', marginBottom: "var(--space-1-5)" }}>
@@ -411,11 +411,11 @@ export default function SwimGoalSetupWizard({ Stepper }: SwimGoalSetupWizardProp
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 'var(--space-2)' }}>
               {([
-                ['z1', cssPaceSec + 25, cssPaceSec + 40, 'oklch(0.70 0.10 220)'],
-                ['z2', cssPaceSec + 12, cssPaceSec + 25, 'oklch(0.75 0.11 200)'],
-                ['z3', cssPaceSec + 4, cssPaceSec + 12, 'oklch(0.78 0.12 180)'],
-                ['z4', cssPaceSec - 3, cssPaceSec + 4, 'var(--aqua)'],
-                ['z5', cssPaceSec - 15, cssPaceSec - 8, 'oklch(0.78 0.14 160)'],
+                ['z1', cssPaceSec + 25, cssPaceSec + 40, 'var(--zone-1)'],
+                ['z2', cssPaceSec + 12, cssPaceSec + 25, 'var(--zone-2)'],
+                ['z3', cssPaceSec + 4, cssPaceSec + 12, 'var(--zone-3)'],
+                ['z4', cssPaceSec - 3, cssPaceSec + 4, 'var(--zone-4)'],
+                ['z5', cssPaceSec - 15, cssPaceSec - 8, 'var(--zone-5)'],
               ] as const).map(([key, fast, slow, color]) => (
                 <div key={key} style={{ padding: 'var(--space-3)', background: 'var(--bg-2)', borderRadius: "var(--r-md)", borderLeft: `3px solid ${color}` }}>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.06em', color, marginBottom: "var(--space-1-5)", fontWeight: 600 }}>{t(`swimWizard.paceZone.${key}`)}</div>
@@ -447,15 +447,15 @@ export default function SwimGoalSetupWizard({ Stepper }: SwimGoalSetupWizardProp
                 return (
                   <>
                     <path d={`${d} L 800 160 L 0 160 Z`} fill="url(#swimTsbF)" />
-                    <path d={d} stroke="var(--aqua)" strokeWidth="2" fill="none" />
-                    <circle cx={800} cy={pts[pts.length - 1]![1]} r="5" fill="var(--aqua)" stroke="#041820" strokeWidth="1.5" />
+                    <path d={d} stroke="var(--color-info)" strokeWidth="2" fill="none" />
+                    <circle cx={800} cy={pts[pts.length - 1]![1]} r="5" fill="var(--color-info)" stroke="var(--bg-1)" strokeWidth="1.5" />
                   </>
                 );
               })()}
               <defs>
                 <linearGradient id="swimTsbF" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0" stopColor="var(--aqua)" stopOpacity="0.2" />
-                  <stop offset="1" stopColor="var(--aqua)" stopOpacity="0" />
+                  <stop offset="0" stopColor="var(--color-info)" stopOpacity="0.2" />
+                  <stop offset="1" stopColor="var(--color-info)" stopOpacity="0" />
                 </linearGradient>
               </defs>
             </svg>

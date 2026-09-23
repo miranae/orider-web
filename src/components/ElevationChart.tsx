@@ -1,7 +1,8 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartEvent, ActiveElement, Chart, Plugin } from "chart.js";
-import { isDarkTheme, useTheme } from "../contexts/ThemeContext";
+import { isDarkTheme } from "../contexts/ThemeContext";
+import { useOriderTheme, type OriderThemeVariant } from "../theme";
 import {
   Chart as ChartJS,
   LinearScale,
@@ -33,7 +34,8 @@ const crosshairPlugin: Plugin<"line"> = {
     const ctx = chart.ctx;
     ctx.save();
     ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = isDarkTheme() ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)";
+    const opts = (chart.options.plugins as Record<string, unknown>)?.crosshair as { color?: string } | undefined;
+    ctx.strokeStyle = opts?.color ?? "transparent";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x, area.top);
@@ -50,7 +52,7 @@ const rangeHighlightPlugin: Plugin<"line"> = {
   id: "rangeHighlight",
   afterDatasetsDraw(chart) {
     const opts = (chart.options.plugins as Record<string, unknown>)?.rangeHighlight as
-      | { start: number; end: number }
+      | { start: number; end: number; startColor: string; endColor: string; reverseColor: string; handleCenterColor: string }
       | undefined;
     if (!opts) return;
     const { start, end } = opts;
@@ -75,7 +77,7 @@ const rangeHighlightPlugin: Plugin<"line"> = {
     ctx.fillRect(xRight, area.top, area.right - xRight, area.bottom - area.top);
 
     // Draw start line (green) — always at start position
-    ctx.strokeStyle = "#16A34A";
+    ctx.strokeStyle = opts.startColor;
     ctx.lineWidth = 2;
     ctx.setLineDash([]);
     ctx.beginPath();
@@ -84,7 +86,7 @@ const rangeHighlightPlugin: Plugin<"line"> = {
     ctx.stroke();
 
     // Draw end line (red) — always at end position
-    ctx.strokeStyle = "#DC2626";
+    ctx.strokeStyle = opts.endColor;
     ctx.beginPath();
     ctx.moveTo(x2, area.top);
     ctx.lineTo(x2, area.bottom);
@@ -94,31 +96,34 @@ const rangeHighlightPlugin: Plugin<"line"> = {
     if (start > end) {
       const midX = (x1 + x2) / 2;
       const midY = area.top + 10;
-      ctx.fillStyle = dark ? "rgba(249, 115, 22, 0.7)" : "rgba(249, 115, 22, 0.5)";
+      const previousAlpha = ctx.globalAlpha;
+      ctx.globalAlpha = previousAlpha * (dark ? 0.7 : 0.5);
+      ctx.fillStyle = opts.reverseColor;
       ctx.beginPath();
       ctx.moveTo(midX - 6, midY);
       ctx.lineTo(midX + 4, midY - 5);
       ctx.lineTo(midX + 4, midY + 5);
       ctx.closePath();
       ctx.fill();
+      ctx.globalAlpha = previousAlpha;
     }
 
     // Draw drag handle — start (green circle at top)
-    ctx.fillStyle = "#16A34A";
+    ctx.fillStyle = opts.startColor;
     ctx.beginPath();
     ctx.arc(x1, area.top + 10, 6, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = opts.handleCenterColor;
     ctx.beginPath();
     ctx.arc(x1, area.top + 10, 2.5, 0, Math.PI * 2);
     ctx.fill();
 
     // Draw drag handle — end (red circle at top)
-    ctx.fillStyle = "#DC2626";
+    ctx.fillStyle = opts.endColor;
     ctx.beginPath();
     ctx.arc(x2, area.top + 10, 6, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = opts.handleCenterColor;
     ctx.beginPath();
     ctx.arc(x2, area.top + 10, 2.5, 0, Math.PI * 2);
     ctx.fill();
@@ -132,7 +137,7 @@ const segmentHighlightPlugin: Plugin<"line"> = {
   id: "segmentHighlight",
   afterDatasetsDraw(chart) {
     const opts = (chart.options.plugins as Record<string, unknown>)?.segmentHighlight as
-      | { start: number; end: number }
+      | { start: number; end: number; startColor: string; endColor: string }
       | undefined;
     if (!opts) return;
     const { start, end } = opts;
@@ -154,7 +159,7 @@ const segmentHighlightPlugin: Plugin<"line"> = {
     ctx.fillRect(x2, area.top, area.right - x2, area.bottom - area.top);
 
     // Green start line
-    ctx.strokeStyle = "#16A34A";
+    ctx.strokeStyle = opts.startColor;
     ctx.lineWidth = 2;
     ctx.setLineDash([]);
     ctx.beginPath();
@@ -163,7 +168,7 @@ const segmentHighlightPlugin: Plugin<"line"> = {
     ctx.stroke();
 
     // Red end line
-    ctx.strokeStyle = "#DC2626";
+    ctx.strokeStyle = opts.endColor;
     ctx.beginPath();
     ctx.moveTo(x2, area.top);
     ctx.lineTo(x2, area.bottom);
@@ -197,20 +202,15 @@ export function buildFiniteOverlayPoints(
       && (point.y === null || Number.isFinite(point.y)));
 }
 
-/** 경사 구간 색상. 캔버스는 CSS 변수를 못 읽으므로 그릴 때 토큰을 실제 값으로 읽는다. */
+/** 경사 구간 색상. 캔버스에는 현재 테마 variant 값을 직접 전달한다. */
 const GRADE_BANDS = [
-  { maxGradePct: 3, variable: "--color-info", fallbackDark: "oklch(0.78 0.13 210)", fallbackLight: "oklch(0.55 0.13 210)" },
-  { maxGradePct: 7, variable: "--color-warning", fallbackDark: "oklch(0.80 0.14 75)", fallbackLight: "oklch(0.66 0.15 75)" },
-  { maxGradePct: Infinity, variable: "--color-error", fallbackDark: "oklch(0.72 0.16 20)", fallbackLight: "oklch(0.58 0.17 20)" },
+  { maxGradePct: 3 },
+  { maxGradePct: 7 },
+  { maxGradePct: Infinity },
 ] as const;
 
-export function readGradeBandColors(dark: boolean): string[] {
-  const root = typeof document === "undefined" ? null : document.documentElement;
-  return GRADE_BANDS.map((band) => {
-    const fallback = dark ? band.fallbackDark : band.fallbackLight;
-    if (!root) return fallback;
-    return getComputedStyle(root).getPropertyValue(band.variable).trim() || fallback;
-  });
+export function readGradeBandColors(colors: OriderThemeVariant["colors"]): string[] {
+  return [colors.info, colors.warning, colors.error];
 }
 
 /** 두 표본 사이의 경사(%). 거리가 0이면 0으로 본다. */
@@ -314,8 +314,7 @@ export default function ElevationChart({
   const chartRef = useRef<Chart<"line", any>>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [dragTarget, setDragTarget] = useState<"start" | "end" | null>(null);
-  // 테마 변경 시 차트 옵션 재계산 (플러그인이 isDarkTheme를 새로 읽도록)
-  const { resolvedTheme } = useTheme();
+  const { variant } = useOriderTheme();
 
   // For Ctrl+drag fine control
   const lastDragClientX = useRef(0);
@@ -462,27 +461,32 @@ export default function ElevationChart({
     if (wrapperRef.current) wrapperRef.current.style.cursor = "";
   }, [onHoverIndex]);
 
-  // Chart.js는 CSS 변수를 해석 못해서 테마별 실제 색상값을 직접 지정.
-  const isDark = resolvedTheme === "dark";
-  const tickColor = isDark ? "rgba(235,236,238,0.72)" : "rgba(20,22,26,0.72)";
-  const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
-  const pointHoverBorder = isDark ? "rgba(28,30,34,1)" : "rgba(255,255,255,1)";
+  // Chart.js 캔버스에는 현재 디자인 테마의 실제 색상값을 전달한다.
+  const tickColor = variant.chartColors.gridLabel;
+  const gridColor = variant.chartColors.grid;
+  const pointHoverBorder = variant.colors.surface;
+  const altitudeColor = variant.chartColors.altitude;
+  const rangeColors = {
+    startColor: variant.colors.success,
+    endColor: variant.colors.error,
+    reverseColor: variant.colors.warning,
+    handleCenterColor: variant.colors.surface,
+  };
 
   // X축 값을 km 단위 숫자로 변환
   const distancesKm = data.map((d) => d.distance / 1000);
-  // 세그먼트마다 다시 읽으면 수백 번 getComputedStyle 이 돈다. 한 번만 읽는다.
-  const gradeColors = colorByGrade ? readGradeBandColors(isDark) : [];
+  const gradeColors = colorByGrade ? readGradeBandColors(variant.colors) : [];
 
   const elevationDataset = {
     label: "고도 (m)",
     data: data.map((d, i) => ({ x: distancesKm[i], y: d.elevation })),
     fill: true,
-    backgroundColor: "rgba(199, 247, 58, 0.08)",
-    borderColor: "#A9CC39",
+    backgroundColor: `color-mix(in srgb, ${altitudeColor} 8%, transparent)`,
+    borderColor: altitudeColor,
     borderWidth: 2,
     pointRadius: 0,
     pointHoverRadius: 5,
-    pointHoverBackgroundColor: "#C7F73A",
+    pointHoverBackgroundColor: altitudeColor,
     pointHoverBorderColor: pointHoverBorder,
     pointHoverBorderWidth: 2,
     tension: 0.4,
@@ -558,13 +562,13 @@ export default function ElevationChart({
         grid: { drawOnChartArea: false },
         border: { display: false },
         ticks: {
-          color: o.color,
+          color: tickColor,
           font: { size: 11, weight: focused ? "600" : "400" },
           maxTicksLimit: 4,
           callback: (value: string | number) => `${value}${o.unit ? ` ${o.unit}` : ""}`,
         },
         title: focused && o.unit
-          ? { display: true, text: o.unit, color: o.color, font: { size: 11, weight: "600" } }
+          ? { display: true, text: o.unit, color: tickColor, font: { size: 11, weight: "600" } }
           : { display: false },
       };
     }
@@ -575,11 +579,11 @@ export default function ElevationChart({
     : [crosshairPlugin, segmentHighlightPlugin];
 
   const rangeHighlightOpts = rangeMode && range
-    ? { start: indexToKm(range[0]), end: indexToKm(range[1]) }
+    ? { start: indexToKm(range[0]), end: indexToKm(range[1]), ...rangeColors }
     : undefined;
 
   const segmentHighlightOpts = !rangeMode && highlightRange
-    ? { start: indexToKm(highlightRange[0]), end: indexToKm(highlightRange[1]) }
+    ? { start: indexToKm(highlightRange[0]), end: indexToKm(highlightRange[1]), ...rangeColors }
     : undefined;
   const showLanes = separateOverlayLanes && (overlays?.length ?? 0) > 0;
 
@@ -614,6 +618,11 @@ export default function ElevationChart({
               intersect: true,
               filter: (item: { datasetIndex: number }) => item.datasetIndex === 1,
               displayColors: false,
+              backgroundColor: variant.colors.surfaceElevated,
+              borderColor: variant.colors.border,
+              borderWidth: 1,
+              titleColor: variant.colors.textPrimary,
+              bodyColor: variant.colors.textSecondary,
               callbacks: {
                 title: () => "",
                 label: (item: { dataIndex: number; parsed: { y: number } }) => {
@@ -624,6 +633,7 @@ export default function ElevationChart({
               },
             } : { enabled: false },
             legend: { display: false },
+            crosshair: { color: variant.chartColors.gridAxis },
             ...(rangeHighlightOpts ? { rangeHighlight: rangeHighlightOpts } : {}),
             ...(segmentHighlightOpts ? { segmentHighlight: segmentHighlightOpts } : {}),
           } as Record<string, unknown>,
@@ -648,7 +658,7 @@ export default function ElevationChart({
               grid: { color: gridColor },
               ticks: {
                 font: { size: 12 },
-                color: "rgba(199,247,58,0.6)",
+                color: tickColor,
                 callback: (v) => `${v}m`,
               },
             },
@@ -700,7 +710,7 @@ export default function ElevationChart({
                 maintainAspectRatio: false,
                 interaction: { mode: "index", intersect: false },
                 onHover: handleHover,
-                plugins: { tooltip: { enabled: false }, legend: { display: false } },
+                plugins: { tooltip: { enabled: false }, legend: { display: false }, crosshair: { color: variant.chartColors.gridAxis } } as Record<string, unknown>,
                 scales: {
                   x: { type: "linear", min: 0, max: distancesKm[distancesKm.length - 1], display: false },
                   yMetricSpacer: {
@@ -709,7 +719,7 @@ export default function ElevationChart({
                   },
                   yMetric: {
                     type: "linear", position: "right", afterFit: (scale: { width: number }) => { scale.width = 54; }, grid: { color: gridColor }, border: { display: false },
-                    ticks: { color: overlay.color, font: { size: 12, weight: "bold" }, maxTicksLimit: 3, callback: (value: string | number) => `${value} ${overlay.unit ?? ""}` },
+                    ticks: { color: tickColor, font: { size: 12, weight: "bold" }, maxTicksLimit: 3, callback: (value: string | number) => `${value} ${overlay.unit ?? ""}` },
                   },
                 },
               }}

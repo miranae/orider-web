@@ -11,7 +11,9 @@ import {
 } from "chart.js";
 import type { DailyLoad } from "../utils/fitnessMetrics";
 import { formatNum } from "../utils/units";
-import { useTheme } from "../contexts/ThemeContext";
+import { useOriderTheme } from "../theme";
+import { resolveCssColor } from "../utils/cssColor";
+import type { OriderThemeVariant } from "../theme/OriderTheme";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
@@ -25,32 +27,31 @@ function formatDate(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-function getBarColor(day: DailyLoad): string {
-  if (day.activities.length === 0) return "rgba(156,163,175,0.3)";
+function getBarColor(day: DailyLoad, variant: OriderThemeVariant): string {
+  if (day.activities.length === 0) return variant.colors.textQuaternary;
   const hasTss = day.activities.some((a) => a.source === "tss");
   const hasTrimp = day.activities.some((a) => a.source === "trimp");
-  if (hasTss) return "rgba(168, 85, 247, 0.7)";
-  if (hasTrimp) return "rgba(239, 68, 68, 0.5)";
-  return "rgba(156, 163, 175, 0.5)";
+  if (hasTss) return variant.chartColors.power;
+  if (hasTrimp) return variant.chartColors.heartRate;
+  return variant.chartColors.gridLabel;
 }
 
 export default function DailyLoadChart({ data }: DailyLoadChartProps) {
   const { t } = useTranslation("dashboard");
-  const { resolvedTheme } = useTheme();
+  const { variant } = useOriderTheme();
   const chartData = useMemo(() => ({
     labels: data.map((d) => formatDate(d.date)),
     datasets: [{
       label: t("charts.dailyLoad.datasetLabel"),
       data: data.map((d) => d.totalLoad),
-      backgroundColor: data.map((d) => getBarColor(d)),
+      backgroundColor: data.map((d) => getBarColor(d, variant)),
       borderRadius: 2,
     }],
-  }), [data, t]);
+  }), [data, t, variant]);
 
   const options: ChartOptions<"bar"> = useMemo(() => {
-    const dark = resolvedTheme === "dark";
-    const textColor = dark ? "#9ca3af" : "#6b7280";
-    const gridColor = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+    const textColor = resolveCssColor("var(--chart-grid-label)", variant);
+    const gridColor = resolveCssColor("var(--grid-soft)", variant);
 
     return {
       responsive: true,
@@ -58,6 +59,11 @@ export default function DailyLoadChart({ data }: DailyLoadChartProps) {
       plugins: {
         legend: { display: false },
         tooltip: {
+          backgroundColor: resolveCssColor("var(--bg-3)", variant),
+          borderColor: resolveCssColor("var(--line)", variant),
+          borderWidth: 1,
+          titleColor: resolveCssColor("var(--ink-0)", variant),
+          bodyColor: resolveCssColor("var(--ink-1)", variant),
           callbacks: {
             title: (items) => {
               const idx = items[0]?.dataIndex;
@@ -81,7 +87,7 @@ export default function DailyLoadChart({ data }: DailyLoadChartProps) {
         },
       },
     };
-  }, [data, resolvedTheme, t]);
+  }, [data, variant, t]);
 
   return (
     <div className="h-full">
