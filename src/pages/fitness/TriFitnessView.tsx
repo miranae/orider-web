@@ -16,6 +16,7 @@ type TriRange = 42 | 90 | 180 | 365;
 
 interface TriFitnessViewProps {
   range: number;
+  selectedHistoryRange?: number | "3y" | "all";
   onRangeChange: (range: TriRange) => void;
   breakdown: TriFitnessBreakdown;
   timeline: TriFitnessTimelinePoint[];
@@ -517,7 +518,7 @@ const LEGEND_ITEM_KEYS = [
 // ─────────────────────────────────────────────────────────────────────────────
 // TriFitnessView
 // ─────────────────────────────────────────────────────────────────────────────
-export default function TriFitnessView({ range, onRangeChange, breakdown: triBreakdown, timeline, combinedLoad, loadFocus, historySlot }: TriFitnessViewProps) {
+export default function TriFitnessView({ range, selectedHistoryRange = range, onRangeChange, breakdown: triBreakdown, timeline, combinedLoad, loadFocus, historySlot }: TriFitnessViewProps) {
   const { t } = useTranslation("fitness");
 
   // ── 실데이터 기반 KPI 변수 ─────────────────────────────────────────────────
@@ -624,9 +625,9 @@ export default function TriFitnessView({ range, onRangeChange, breakdown: triBre
                   borderRadius: "var(--r-sm)",
                   border: "none",
                   cursor: "pointer",
-                  background: range === opt.value ? "var(--bg-3)" : "transparent",
-                  color: range === opt.value ? "var(--ink-0)" : "var(--ink-3)",
-                  fontWeight: range === opt.value ? 600 : 400,
+                  background: selectedHistoryRange === opt.value ? "var(--bg-3)" : "transparent",
+                  color: selectedHistoryRange === opt.value ? "var(--ink-0)" : "var(--ink-3)",
+                  fontWeight: selectedHistoryRange === opt.value ? 600 : 400,
                 }}
               >
                 {opt.label}
