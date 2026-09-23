@@ -109,4 +109,26 @@ describe("FitnessChart activity markers", () => {
     expect(x).toBeGreaterThanOrEqual(0);
     expect(x + width).toBeLessThanOrEqual(320);
   });
+
+  it("commits taps to the nearest historical point without committing hover or projection indexes", () => {
+    const onSelectedIndexChange = vi.fn();
+    const { container } = renderWithProviders(<FitnessChart
+      data={[
+        { date: "2026-09-05", ctl: 38, atl: 42, tsb: -4, dailyLoad: 50 },
+        { date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 60 },
+      ]}
+      projection={[{ date: new Date("2026-09-07T00:00:00").getTime(), ctl: 41, atl: 44, tsb: -3 }]}
+      onSelectedIndexChange={onSelectedIndexChange}
+    />);
+    const chart = screen.getByRole("img");
+    const svgPoint = { x: 0, y: 0, matrixTransform: () => ({ x: svgPoint.x, y: svgPoint.y }) };
+    Object.defineProperty(chart, "createSVGPoint", { value: () => svgPoint });
+    Object.defineProperty(chart, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
+    fireEvent.pointerMove(chart, { clientX: 1072, clientY: 40 });
+    expect(onSelectedIndexChange).not.toHaveBeenCalled();
+    fireEvent.pointerDown(chart, { clientX: 1072, clientY: 40 });
+    expect(onSelectedIndexChange).toHaveBeenCalledWith(1);
+    fireEvent.pointerLeave(chart);
+    expect(container.querySelector('[data-pmc-tooltip-metric="CTL"]')).not.toBeInTheDocument();
+  });
 });

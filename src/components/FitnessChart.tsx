@@ -39,6 +39,8 @@ interface FitnessChartProps {
   }>;
   /** Optional controlled point selection used by history navigation outside the SVG. */
   selectedIndex?: number;
+  /** Commits a pointer/tap selection to the nearest historical point. */
+  onSelectedIndexChange?: (index: number) => void;
   /** False when each point represents an aggregated period rather than an actual day. */
   showTodayMarker?: boolean;
   /** Context-specific accessible title when the chart is reused outside forecast surfaces. */
@@ -106,6 +108,7 @@ export default function FitnessChart({
   ctlColor = PMC_LINE_PALETTE.ctl.color,
   activityMarkers = [],
   selectedIndex,
+  onSelectedIndexChange,
   showTodayMarker = true,
   accessibleTitle,
   metricQualifier,
@@ -149,6 +152,7 @@ export default function FitnessChart({
     markerPoints,
     syFn,
     selectedPoint,
+    historicalPointCount,
   } = useMemo(() => {
     const todayStr = today ?? new Date().toISOString().slice(0, 10);
 
@@ -338,6 +342,7 @@ export default function FitnessChart({
       markerPoints: markerData,
       syFn: sy,
       selectedPoint: controlledIndex == null ? null : seriesData[controlledIndex] ?? null,
+      historicalPointCount: pastCount,
     };
   }, [activityMarkers, data, projection, today, goalDate, goalCTL, goalTSB, selectedIndex, showTodayMarker, t, viewWidth]);
 
@@ -349,22 +354,33 @@ export default function FitnessChart({
     );
   }
 
-  function handleMove(e: React.PointerEvent<SVGSVGElement>) {
+  function nearestIndexFromPointer(e: React.PointerEvent<SVGSVGElement>, pointCount: number) {
     const svg = svgRef.current;
-    if (!svg || series.length === 0) return;
+    if (!svg || pointCount === 0) return null;
     const pt = svg.createSVGPoint();
     pt.x = e.clientX;
     pt.y = e.clientY;
     const ctm = svg.getScreenCTM();
-    if (!ctm) return;
+    if (!ctm) return null;
     const localX = pt.matrixTransform(ctm.inverse()).x;
     let best = 0;
     let bestDist = Infinity;
-    for (let i = 0; i < series.length; i++) {
+    for (let i = 0; i < pointCount; i++) {
       const d = Math.abs(series[i]!.x - localX);
       if (d < bestDist) { bestDist = d; best = i; }
     }
-    setHoverIdx(best);
+    return best;
+  }
+
+  function handleMove(e: React.PointerEvent<SVGSVGElement>) {
+    const index = nearestIndexFromPointer(e, series.length);
+    if (index != null) setHoverIdx(index);
+  }
+
+  function handleSelect(e: React.PointerEvent<SVGSVGElement>) {
+    if (!onSelectedIndexChange) return;
+    const index = nearestIndexFromPointer(e, historicalPointCount);
+    if (index != null) onSelectedIndexChange(index);
   }
 
   const hover = hoverIdx != null ? series[hoverIdx] : null;
@@ -384,7 +400,7 @@ export default function FitnessChart({
   const markerAccessibilitySummary = activityMarkers.length > 0
     ? ` ${t("charts.fitness.activityMarkers", { count: activityMarkers.length })}${selectedMarker ? ` ${t("charts.fitness.selectedActivityMarker", { label: selectedMarker.label })}` : ""}`
     : "";
-  const accessibleDescription = `${accessibleTitle ?? t("pmc.title", { ns: "fitness" })}. ${t("pmc.interpretation", { ns: "fitness" })}.${markerAccessibilitySummary}`;
+  const accessibleDescription = `${accessibleTitle ?? t("pmc.title", { ns: "fitness" })}. ${metricQualifier ? `${metricQualifier}. ` : ""}${t("pmc.interpretation", { ns: "fitness" })}.${markerAccessibilitySummary}`;
 
   return (
     <svg
@@ -393,6 +409,7 @@ export default function FitnessChart({
       style={{ width: "100%", height: "auto", maxHeight: 360, display: "block" }}
       preserveAspectRatio="xMidYMid meet"
       onPointerMove={handleMove}
+      onPointerDown={handleSelect}
       onPointerLeave={() => setHoverIdx(null)}
       role="img"
       aria-label={accessibleDescription}
