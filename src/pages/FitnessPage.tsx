@@ -213,7 +213,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           timeline={triFitnessTimeline}
           combinedLoad={combinedLoad}
           loadFocus={integratedLoadFocus}
-          historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={model.hasCanonicalHistory} />}
+          historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={model.hasCanonicalHistory} controlledRange={range} />}
         />
       </div>
     );
@@ -525,6 +525,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           points={model.pmcHistoryPoints}
           today={toUtcDate(Date.now())}
           canonical={model.hasCanonicalHistory}
+          controlledRange={range}
           ctlColor={getDisciplineColor(discipline)}
         />
         <DetailsSection title={t("history.dailyDetails")}>

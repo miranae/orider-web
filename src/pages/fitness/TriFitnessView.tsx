@@ -638,13 +638,14 @@ export default function TriFitnessView({ range, onRangeChange, breakdown: triBre
 
       <div className="site-shell" style={{ padding: "var(--space-5) var(--space-6) var(--space-8)" }}>
 
+      {historySlot && <div style={{ marginBottom: "var(--space-5)" }}>{historySlot}</div>}
+
       {combinedLoad && (
         <div style={{ marginBottom: "var(--space-5)" }}>
           <IntegratedLoadCard combined={combinedLoad} focus={loadFocus} />
         </div>
       )}
 
-      {historySlot}
       <DetailsSection title={t("history.disciplineDetails")} defaultOpen={!historySlot}>
       {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, 이 PMC는 시간 추이만 담당한다. */}
       <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
