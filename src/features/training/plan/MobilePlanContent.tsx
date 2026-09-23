@@ -202,7 +202,7 @@ export default function MobilePlanContent({
         <button type="button" onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')}
           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>◀</button>
         <div style={{ textAlign: "center", minWidth: 0 }}>
-          <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.weekHeading')}</div>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t('mobile.weekHeading')}</div>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{weekLabel}{weeksLeft != null && <span style={{ marginLeft: "var(--space-1)", color: "var(--ink-3)", fontSize: "var(--fs-xs)", fontWeight: 400 }}>· {t("metrics.weeksLeft")} {weeksLeft}{t("metrics.weeksUnit")}</span>}</div>
         </div>
         <button type="button" onClick={onWeekNext} disabled={!onWeekNext || !canNextWeek} aria-label={t('mobile.nextWeek')}
@@ -234,7 +234,7 @@ export default function MobilePlanContent({
               <span><small>{t('mobile.sessions')}</small><strong>{sessions}</strong></span>
             </div>
             {(bikeTSS > 0 || runTSS > 0 || swimTSS > 0) && <div className="mobile-plan-sport-load">
-              <Text as="div" variant="eyebrow">{t('mobile.sportLoad')}</Text>
+              <Text as="div" variant="eyebrow" className="mobile-plan-section-label">{t('mobile.sportLoad')}</Text>
               <div className="mobile-plan-sport-bar" aria-hidden="true">
                 {bikeTSS > 0 && <div style={{ width: `${(bikeTSS/stackTotal)*100}%`, background: "var(--aqua)" }} />}
                 {runTSS > 0 && <div style={{ width: `${(runTSS/stackTotal)*100}%`, background: "var(--amber)" }} />}
@@ -252,7 +252,7 @@ export default function MobilePlanContent({
 
       {/* Weekly plan — vertical list */}
       <div className="flex items-center justify-between" style={{ padding: "var(--space-1) var(--space-4)" }}>
-        <Text variant="eyebrow">{t('mobile.weeklyPlan')}</Text>
+        <Text variant="eyebrow" className="mobile-plan-section-label">{t('mobile.weeklyPlan')}</Text>
         {onEditWorkout && editTargetIdx >= 0 && (
           <Button type="button" variant="ghost" size="sm" onClick={() => openEditFor(editTargetIdx)}>{t('mobile.edit')}</Button>
         )}

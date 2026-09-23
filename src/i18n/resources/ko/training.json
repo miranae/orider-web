@@ -428,7 +428,7 @@
   "mobile": {
     "headerTitle": "운동 계획",
     "addAction": "+ 추가",
-    "weekHeading": "WEEK",
+    "weekHeading": "주간 선택",
     "previousWeek": "이전 주",
     "nextWeek": "다음 주",
     "weekThis": "이번 주",

@@ -48,10 +48,11 @@ describe("MobileFitnessPage tri", () => {
     const css = readFileSync(join(process.cwd(), "src/components/mobile/MobileFitnessPage.css"), "utf8");
     expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] { overflow-x: auto;');
     expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.75rem; white-space: nowrap; }');
-    expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 2.75rem; }');
-    expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] > button:not(:first-child) { font-size: 0 !important; }');
+    expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.25rem; }');
+    expect(css).not.toContain('font-size: 0 !important;');
     const { container } = renderWithProviders(<MobileFitnessPage data={previewData} />);
     expect(container.querySelector(".mobile-fitness-toolbar__sports [role='group']")).toHaveAccessibleName("종목 선택");
+    expect(screen.getByRole("button", { name: "🚴 사이클" })).toBeInTheDocument();
     expect(container.querySelector(".mobile-fitness-toolbar__sports .mobile-fitness-mode-toggle")).toBeNull();
     expect(container.querySelector(".mobile-fitness-toolbar > .mobile-fitness-mode-toggle")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "심박존" })).not.toHaveAttribute("aria-pressed");
