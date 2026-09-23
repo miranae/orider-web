@@ -597,14 +597,14 @@ export default function PlanPresentation({
     return {
       currentWeek: weeks[mobileWeekIdx] ?? null,
       weekIndex: mobileWeekIdx,
-      weekLabel: mobileWeekOffset === 0 && hasCurrentWeek ? t('mobile.weekThis') : `W${mobileWeekIdx + 1}`,
+      weekLabel: mobileWeekIdx === currentWeekIndex && hasCurrentWeek ? t('mobile.weekThis') : `W${mobileWeekIdx + 1}`,
       canPrevWeek: mobileWeekIdx > 0,
       canNextWeek: mobileWeekIdx < weeks.length - 1,
     };
   }, [currentWeekIndex, hasCurrentWeek, mobileWeekOffset, t, weeks]);
   if (!loading && loadError) {
     return (
-      <div className={embedded ? undefined : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
+      <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
         {!embedded && (
           <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
             <DisciplineTabs />
@@ -622,7 +622,7 @@ export default function PlanPresentation({
     const sportLabel = t(`discipline.${discipline}`);
     const sportIcon = t(`disciplineIcon.${discipline}`);
     return (
-      <div className={embedded ? undefined : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
+      <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
         {!embedded && (
           <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
             <DisciplineTabs />
@@ -646,7 +646,7 @@ export default function PlanPresentation({
     const sportLabel = t(`discipline.${discipline}`);
     const sportIcon = t(`disciplineIcon.${discipline}`);
     return (
-      <div className={embedded ? undefined : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
+      <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
         {!embedded && (
           <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
             <DisciplineTabs />
@@ -693,7 +693,7 @@ export default function PlanPresentation({
   }
 
   return (
-    <div className={embedded ? undefined : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
+    <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
 
       {/* ── Goal Header ─────────────────────────────────────────────── */}
       <div
