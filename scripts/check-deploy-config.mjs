@@ -32,7 +32,6 @@ function requireBefore(haystack, before, after, label) {
 const firebaseConfig = JSON.parse(readFileSync("firebase.json", "utf8"));
 const stageFirebaseConfig = JSON.parse(readFileSync("firebase.stage.json", "utf8"));
 const PROD_AI_API_ORIGIN = "https://orider-ai-api-h5zqzw3n4a-du.a.run.app";
-const STAGE_AI_API_ORIGIN = "https://orider-ai-api-stage-ldfyfyx5da-du.a.run.app";
 
 /**
  * 크롤러가 링크 미리보기·검색 인덱싱을 받으려면 SPA 폴백보다 **먼저** prerender 로 가야 한다.
@@ -125,7 +124,7 @@ function checkHostingConfig(hosting, label, aiApiOrigin) {
 }
 
 checkHostingConfig(firebaseConfig.hosting, "firebase.json", PROD_AI_API_ORIGIN);
-checkHostingConfig(stageFirebaseConfig.hosting, "firebase.stage.json", STAGE_AI_API_ORIGIN);
+checkHostingConfig(stageFirebaseConfig.hosting, "firebase.stage.json", PROD_AI_API_ORIGIN);
 if (stageFirebaseConfig.hosting?.site !== "miranae-orider-g1-stage") {
   fail("firebase.stage.json hosting.site must be miranae-orider-g1-stage");
 }

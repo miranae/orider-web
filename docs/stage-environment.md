@@ -11,8 +11,10 @@ tagged production release.
 
 ## Deployment Model
 
-The stage workflow independently builds and verifies `main` with stage
-configuration before deploying it to the permanent stage site.
+The stage workflow independently builds and verifies `main` before deploying it
+to the permanent stage site. Stage separates only the Hosting site and release
+workflow; the browser app uses the production Firebase project, data, backend
+services, and AI API so UI changes can be checked against real production data.
 
 Production tags run their own `npm ci` and production-configured build after
 the `production` GitHub Environment approval. They then write the production
@@ -22,9 +24,12 @@ not a production-release prerequisite.
 
 ## GitHub Environment Values
 
-The stage workflow must use `STAGE_*` values only. Do not point the stage
-workflow directly at production repository-level `VITE_*`, `FIREBASE_*`, or
-`GCP_*` values. `npm run check:deploy-config` enforces this.
+The stage workflow must use `STAGE_*` values only. These names isolate the stage
+deployment configuration from repository-level production deployment settings;
+they do not select a separate backend environment. Set the Firebase, backend,
+and integration values to their production equivalents. `npm run
+check:deploy-config` enforces the `STAGE_*` boundary while the stage Hosting CSP
+explicitly allows the production AI API origin.
 
 Required `stage` environment variables:
 
@@ -67,11 +72,9 @@ Firebase App Check / reCAPTCHA Enterprise:
 
 Strava OAuth:
 
-- If stage uses a stage-specific callback, add it to the Strava app callback
-  domain and set `STAGE_VITE_STRAVA_REDIRECT_URI` to that callback.
-- If stage uses the shared callback proxy, verify that the proxy accepts requests
-  from `https://miranae-orider-g1-stage.web.app` and routes the final redirect
-  back to the stage site when appropriate.
+- Use the production Strava integration and shared callback proxy. Verify that
+  the proxy accepts requests from `https://miranae-orider-g1-stage.web.app` and
+  routes the final redirect back to the stage site when appropriate.
 
 Firebase / Google API key restrictions:
 
@@ -85,7 +88,8 @@ Mapbox:
 
 ## Current Scope
 
-Stage separates frontend Hosting, GitHub deployment configuration, and runtime
-browser config. It still targets the same Firebase project and backend services
-unless the `STAGE_*` values are changed to a separate Firebase project and
-separate integration apps.
+Stage is a production-data UI verification surface. Only the frontend Hosting
+site and its deployment workflow are separate. Its `STAGE_*` browser values
+must point to the production Firebase project, backend services, AI API, and
+integrations. Do not repoint them to a development Firebase project or a
+stage-only backend.
