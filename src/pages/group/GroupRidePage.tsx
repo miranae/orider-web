@@ -24,6 +24,8 @@ import type { OverlayDataset } from "../../components/ElevationChart";
 import ComparisonChart from "../../components/ComparisonChart";
 import { EmptyState } from "../../components/redesign";
 import { Card } from "../../theme/components";
+import { useOriderTheme } from "../../theme";
+import { GroupRideOverlayControls } from "./GroupRideOverlayControls";
 
 const RIDER_COLORS = [
   "#f97316", "#3b82f6", "#22c55e", "#ef4444", "#a855f7",
@@ -36,6 +38,7 @@ export default function GroupRidePage() {
   const { groupId, rideId } = useParams();
   const { user } = useAuth();
   const { group } = useGroup(groupId);
+  const { variant } = useOriderTheme();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [streams, setStreams] = useState<Record<string, ActivityStreams>>({});
   const [loading, setLoading] = useState(true);
@@ -268,11 +271,11 @@ export default function GroupRidePage() {
   }
 
   const PERF_OVERLAY_CONFIGS: OverlayConfig[] = useMemo(() => [
-    { key: "speed", label: t("ridePage.overlay.speed"), unit: "km/h", color: "rgba(59, 130, 246, 0.7)", dotColor: "#3b82f6", yAxisID: "ySpeed", getData: (s) => s.velocity_smooth?.map((v) => v * 3.6) },
-    { key: "hr", label: t("ridePage.overlay.hr"), unit: "bpm", color: "rgba(239, 68, 68, 0.7)", dotColor: "#ef4444", yAxisID: "yHR", getData: (s) => s.heartrate },
-    { key: "power", label: t("ridePage.overlay.power"), unit: "W", color: "rgba(168, 85, 247, 0.7)", dotColor: "#a855f7", yAxisID: "yPower", getData: (s) => s.watts },
-    { key: "cadence", label: t("ridePage.overlay.cadence"), unit: "rpm", color: "rgba(6, 182, 212, 0.7)", dotColor: "#06b6d4", yAxisID: "yCadence", getData: (s) => s.cadence },
-  ], [t]);
+    { key: "speed", label: t("ridePage.overlay.speed"), unit: "km/h", color: `color-mix(in srgb, ${variant.chartColors.speed} 70%, transparent)`, dotColor: variant.chartColors.speed, yAxisID: "ySpeed", getData: (s) => s.velocity_smooth?.map((v) => v * 3.6) },
+    { key: "hr", label: t("ridePage.overlay.hr"), unit: "bpm", color: `color-mix(in srgb, ${variant.chartColors.heartRate} 70%, transparent)`, dotColor: variant.chartColors.heartRate, yAxisID: "yHR", getData: (s) => s.heartrate },
+    { key: "power", label: t("ridePage.overlay.power"), unit: "W", color: `color-mix(in srgb, ${variant.chartColors.power} 70%, transparent)`, dotColor: variant.chartColors.power, yAxisID: "yPower", getData: (s) => s.watts },
+    { key: "cadence", label: t("ridePage.overlay.cadence"), unit: "rpm", color: `color-mix(in srgb, ${variant.chartColors.cadence} 70%, transparent)`, dotColor: variant.chartColors.cadence, yAxisID: "yCadence", getData: (s) => s.cadence },
+  ], [t, variant]);
 
   // Which performance overlays are available (at least one rider has data)
   const availablePerfOverlays = useMemo(() => {
@@ -491,44 +494,12 @@ export default function GroupRidePage() {
                 {t("ridePage.elevation")} {availablePerfOverlays.length > 0 ? t("ridePage.elevationAndPerf") : t("ridePage.elevationProfile")}
               </h3>
 
-              {/* Overlay toggle buttons */}
-              {availablePerfOverlays.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                  <span
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-full cursor-default"
-                    style={{
-                      background: "color-mix(in srgb, var(--color-success) 15%, transparent)",
-                      color: "var(--color-success)",
-                      border: "1px solid color-mix(in srgb, var(--color-success) 30%, transparent)",
-                    }}
-                  >
-                    <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
-                    {t("ridePage.overlay.elevation")}
-                  </span>
-                  {availablePerfOverlays.map((cfg) => (
-                    <button
-                      key={cfg.key}
-                      onClick={() => toggleOverlay(cfg.key)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-full border transition-colors"
-                      style={activeOverlays.has(cfg.key) ? {
-                        color: cfg.dotColor,
-                        borderColor: cfg.dotColor,
-                        backgroundColor: `${cfg.dotColor}15`,
-                      } : {
-                        background: "var(--bg-2)",
-                        color: "var(--ink-3)",
-                        borderColor: "var(--line)",
-                      }}
-                    >
-                      <span
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: activeOverlays.has(cfg.key) ? cfg.dotColor : "var(--ink-3)" }}
-                      />
-                      {cfg.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <GroupRideOverlayControls
+                overlays={availablePerfOverlays}
+                activeOverlays={activeOverlays}
+                onToggle={toggleOverlay}
+                elevationLabel={t("ridePage.overlay.elevation")}
+              />
 
               <ElevationChart
                 data={elevationChartData.baseData}

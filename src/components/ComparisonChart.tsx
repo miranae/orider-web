@@ -7,7 +7,8 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { useTheme } from "../contexts/ThemeContext";
+import { useOriderTheme } from "../theme";
+import { resolveCssColor } from "../utils/cssColor";
 import { formatNum } from "../utils/units";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
@@ -29,18 +30,16 @@ export default function ComparisonChart({
   height = 200,
   unit = "",
 }: ComparisonChartProps) {
-  const { resolvedTheme } = useTheme();
-  const dark = resolvedTheme === "dark";
-  const tickColor = dark ? "#6b7280" : "#9ca3af";
-  const labelColor = dark ? "#9ca3af" : "#6b7280";
-  const gridColor = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+  const { variant } = useOriderTheme();
+  const labelColor = resolveCssColor("var(--chart-grid-label)", variant);
+  const gridColor = resolveCssColor("var(--grid-soft)", variant);
 
   const chartData = {
     labels,
     datasets: datasets.map((ds) => ({
       label: ds.label,
       data: ds.data,
-      backgroundColor: ds.color,
+      backgroundColor: resolveCssColor(ds.color, variant),
       borderRadius: 3,
       barPercentage: 0.8,
       categoryPercentage: 0.7,
@@ -60,6 +59,11 @@ export default function ComparisonChart({
               labels: { font: { size: 12 }, padding: 12, usePointStyle: true, color: labelColor },
             },
             tooltip: {
+              backgroundColor: resolveCssColor("var(--bg-3)", variant),
+              borderColor: resolveCssColor("var(--line)", variant),
+              borderWidth: 1,
+              titleColor: resolveCssColor("var(--ink-0)", variant),
+              bodyColor: resolveCssColor("var(--ink-1)", variant),
               callbacks: {
                 label: (ctx) =>
                   `${ctx.dataset.label}: ${formatNum(ctx.parsed.y, 1)}${unit}`,
@@ -76,7 +80,7 @@ export default function ComparisonChart({
               grid: { color: gridColor },
               ticks: {
                 font: { size: 12 },
-                color: tickColor,
+                color: labelColor,
                 callback: (v) => `${v}${unit}`,
               },
             },

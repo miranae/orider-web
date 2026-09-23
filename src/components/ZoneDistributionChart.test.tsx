@@ -7,8 +7,8 @@ import type { ZoneDistribution } from "../features/activity/detail/metricsPresen
 import ZoneDistributionChart from "./ZoneDistributionChart";
 
 vi.mock("react-chartjs-2", () => ({
-  Bar: ({ data }: { data: { datasets: Array<{ backgroundColor: string[] }> } }) => (
-    <div data-testid="zone-bar" data-colors={JSON.stringify(data.datasets[0]?.backgroundColor ?? [])} />
+  Bar: ({ data, options }: { data: { datasets: Array<{ backgroundColor: string[] }> }; options: { scales: { x: { ticks: { color: string } } }; plugins: { tooltip: { backgroundColor: string } } } }) => (
+    <div data-testid="zone-bar" data-colors={JSON.stringify(data.datasets[0]?.backgroundColor ?? [])} data-axis-color={options.scales.x.ticks.color} data-tooltip-color={options.plugins.tooltip.backgroundColor} />
   ),
 }));
 
@@ -64,17 +64,20 @@ describe("ZoneDistributionChart", () => {
   });
 
   it("passes concrete colors to Chart.js and stays in sync during design-theme changes", () => {
-    window.localStorage.removeItem("orider.designTheme");
     renderWithProviders(<ThemeSwitchingZoneChart />);
 
     const button = screen.getByRole("button", { name: "테마 변경" });
     const chart = screen.getByTestId("zone-bar");
     expect(chart).toHaveAttribute("data-colors", button.getAttribute("data-expected-colors"));
     expect(chart.getAttribute("data-colors")).not.toContain("var(");
+    expect(chart.getAttribute("data-axis-color")).not.toContain("var(");
+    expect(chart.getAttribute("data-tooltip-color")).not.toContain("var(");
 
     fireEvent.click(button);
 
     expect(chart).toHaveAttribute("data-colors", button.getAttribute("data-expected-colors"));
     expect(chart.getAttribute("data-colors")).not.toContain("var(");
+    expect(chart.getAttribute("data-axis-color")).not.toContain("var(");
+    expect(chart.getAttribute("data-tooltip-color")).not.toContain("var(");
   });
 });

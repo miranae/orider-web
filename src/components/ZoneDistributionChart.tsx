@@ -11,7 +11,6 @@ import {
 } from "chart.js";
 import type { ZoneDistribution } from "../features/activity/detail/metricsPresentation";
 import { resolveCssColor } from "../utils/cssColor";
-import { useTheme } from "../contexts/ThemeContext";
 import { useOriderTheme } from "../theme";
 import ChartEmptyState from "./charts/ChartEmptyState";
 
@@ -37,7 +36,6 @@ interface ZoneDistributionChartProps {
 
 export default function ZoneDistributionChart({ title, zones, emptyTitle, emptyDescription }: ZoneDistributionChartProps) {
   const { t } = useTranslation("dashboard");
-  const { resolvedTheme } = useTheme();
   const { variant } = useOriderTheme();
   const hasZoneData = zones.some((z) => z.seconds > 0 || z.percentage > 0);
   const data = useMemo(() => ({
@@ -51,8 +49,7 @@ export default function ZoneDistributionChart({ title, zones, emptyTitle, emptyD
   }), [zones, t, variant]);
 
   const options: ChartOptions<"bar"> = useMemo(() => {
-    const dark = resolvedTheme === "dark";
-    const textColor = dark ? "#9ca3af" : "#6b7280";
+    const textColor = resolveCssColor("var(--chart-grid-label)", variant);
     return {
       indexAxis: "y",
       responsive: true,
@@ -60,6 +57,11 @@ export default function ZoneDistributionChart({ title, zones, emptyTitle, emptyD
       plugins: {
         legend: { display: false },
         tooltip: {
+          backgroundColor: resolveCssColor("var(--bg-3)", variant),
+          borderColor: resolveCssColor("var(--line)", variant),
+          borderWidth: 1,
+          titleColor: resolveCssColor("var(--ink-0)", variant),
+          bodyColor: resolveCssColor("var(--ink-1)", variant),
           callbacks: {
             label: (ctx) => {
               const z = zones[ctx.dataIndex]!;
@@ -82,7 +84,7 @@ export default function ZoneDistributionChart({ title, zones, emptyTitle, emptyD
         },
       },
     };
-  }, [zones, resolvedTheme]);
+  }, [zones, variant]);
 
   if (!hasZoneData) {
     return (

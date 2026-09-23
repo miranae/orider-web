@@ -19,7 +19,7 @@ export default function PowerCurveChart({ points, ftp, emptyTitle, emptyDescript
     <DurationCurveChart
       points={points.map((p) => ({ durationSeconds: p.durationSeconds, value: p.maxPower }))}
       unit="W"
-      color="#a855f7"
+      color="var(--chart-power)"
       datasetLabel={t("charts.powerCurve.datasetLabel")}
       reference={ftp ? { value: ftp, label: `FTP ${ftp}W` } : null}
       peakLabel={points.length > 0 ? t("charts.powerCurve.peakPower", { power: points[0]!.maxPower }) : undefined}
