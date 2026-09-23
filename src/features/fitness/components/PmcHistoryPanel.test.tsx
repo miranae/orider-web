@@ -68,25 +68,29 @@ describe("PmcHistoryPanel", () => {
     expect(within(table).getByText(/2\/6 일 · 부분 집계/)).toBeInTheDocument();
   });
 
-  it("uses a page-controlled range without rendering a competing range selector", () => {
+  it("uses the supplied six-option page-controlled range selector", () => {
     const onControlledRangeChange = vi.fn();
-    const view = renderWithProviders(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={42} onControlledRangeChange={onControlledRangeChange} />);
+    const choices = [42, 90, 180, 365, "3y", "all"] as const;
+    const view = renderWithProviders(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={42} onControlledRangeChange={onControlledRangeChange} rangeChoices={choices} />);
     expect(screen.getByText("일별")).toBeInTheDocument();
     expect(screen.getByRole("combobox").querySelectorAll("option")).toHaveLength(42);
-    expect(screen.queryByRole("button", { name: "90일" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "90일" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "6주" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "1년" }));
+    expect(onControlledRangeChange).toHaveBeenCalledWith(365);
     fireEvent.click(screen.getByRole("button", { name: "3년" }));
     expect(onControlledRangeChange).toHaveBeenCalledWith("3y");
 
-    view.rerender(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange="3y" onControlledRangeChange={onControlledRangeChange} />);
+    view.rerender(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange="3y" onControlledRangeChange={onControlledRangeChange} rangeChoices={choices} />);
     expect(screen.getByRole("button", { name: "3년" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("월평균")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "전체" }));
     expect(onControlledRangeChange).toHaveBeenCalledWith("all");
 
-    view.rerender(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={365} onControlledRangeChange={onControlledRangeChange} />);
+    view.rerender(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={365} onControlledRangeChange={onControlledRangeChange} rangeChoices={choices} />);
     expect(screen.getByText("주평균")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "3년" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.queryByRole("button", { name: "360일" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1년" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("compares current and previous years by month and never substitutes missing data with zero", () => {

@@ -1,0 +1,15 @@
+.tri-fitness__primary {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  margin-bottom: var(--space-5);
+}
+
+.tri-fitness__primary-trend,
+.tri-fitness__primary-summary { min-width: 0; }
+.tri-fitness__primary > :only-child { grid-column: 1 / -1; }
+
+@media (max-width: 64rem) {
+  .tri-fitness__primary { grid-template-columns: minmax(0, 1fr); }
+}

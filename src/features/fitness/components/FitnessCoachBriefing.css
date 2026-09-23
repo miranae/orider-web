@@ -4,7 +4,12 @@
 .fitness-coach__current-metrics,
 .fitness-coach__delta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
 .fitness-coach__current-metrics { min-width: min(100%, 18rem); }
-.fitness-coach__primary-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(18rem, 0.75fr); gap: var(--space-4); align-items: stretch; }
+.fitness-coach__first-view { display: grid; grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr); gap: var(--space-4); align-items: start; margin-bottom: var(--space-4); }
+.fitness-coach__first-view > :only-child { grid-column: 1 / -1; }
+.fitness-coach__trend, .fitness-coach__today { min-width: 0; }
+.fitness-coach__primary-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(18rem, 0.75fr); gap: var(--space-4); align-items: start; }
+.fitness-coach__primary-grid--choice { grid-template-columns: minmax(0, 1fr); }
+.fitness-coach--mobile-priority .fitness-coach__choice-card { order: -1; }
 .fitness-coach__mode { display: flex; gap: var(--space-1); padding: var(--space-1); background: var(--bg-2); border-radius: var(--r-md); }
 .fitness-coach__mode button { border: 0; border-radius: var(--r-sm); padding: var(--space-2) var(--space-3); background: transparent; color: var(--ink-3); cursor: pointer; }
 .fitness-coach__mode button[aria-pressed="true"] { background: var(--bg-3); color: var(--ink-0); }
@@ -41,6 +46,7 @@
 .fitness-coach__sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 @media (max-width: 52rem) {
+  .fitness-coach__first-view,
   .fitness-coach__primary-grid { grid-template-columns: minmax(0, 1fr); }
 }
 

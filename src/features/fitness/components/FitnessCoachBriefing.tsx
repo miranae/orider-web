@@ -27,6 +27,9 @@ interface FitnessCoachBriefingProps {
   metricsMap?: ReadonlyMap<string, ActivityMetrics>;
   discipline: "bike" | "run" | "swim";
   userId?: string | null;
+  /** Primary trend surface shown after the current-state summary on desktop. */
+  trendSlot?: ReactNode;
+  mobilePriority?: boolean;
 }
 
 const CHOICE_LOAD: Record<TrainingChoice, number> = { rest: 0, recovery: 20, endurance: 45 };
@@ -83,7 +86,7 @@ function initialTrainingChoice(tsb: number): TrainingChoice {
   return "endurance";
 }
 
-export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null }: FitnessCoachBriefingProps) {
+export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false }: FitnessCoachBriefingProps) {
   const { t } = useTranslation("fitness");
   const [mode, setMode] = useState<ImpactMode>("marginal");
   const [trainingChoice, setTrainingChoice] = useState<TrainingChoice>(() => initialTrainingChoice(current.tsb));
@@ -112,8 +115,8 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
   }, [current.atl, current.ctl, current.tsb, forecast, awaitingAggregate, trainingChoice]);
 
   return (
-    <section aria-labelledby="fitness-coach-title">
-      <Card padding="none" style={{ padding: "var(--space-5)", marginBottom: "var(--space-4)" }}>
+    <section aria-labelledby={mobilePriority ? undefined : "fitness-coach-title"} className={mobilePriority ? "fitness-coach fitness-coach--mobile-priority" : "fitness-coach"}>
+      {!mobilePriority && <Card padding="none" style={{ padding: "var(--space-5)", marginBottom: "var(--space-4)" }}>
         <div className="fitness-coach__summary">
           <div className="fitness-coach__summary-copy">
             <Chip variant={conclusion.tone} dot>{t("coach.eyebrow")}</Chip>
@@ -126,10 +129,17 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
             <div><Text as="div" variant="eyebrow">{t("coach.metric.tsb")}</Text><Text variant="dataMedium" style={{ color: "var(--amber)" }}>{signed(current.tsb)}</Text></div>
           </div>
         </div>
-      </Card>
+      </Card>}
 
+      <div className="fitness-coach__first-view">
+        {trendSlot && <div className="fitness-coach__trend">{trendSlot}</div>}
+        <div className="fitness-coach__today" id="fitness-coach-today">{decisionSlot}</div>
+      </div>
+
+      <DetailsSection title={t("coach.range.detailsTitle")}>
+        <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("coach.range.body")}</Text>
       <div className="fitness-coach__primary-grid">
-        <Card padding="none" style={{ padding: "var(--space-5)" }}>
+        <Card className="fitness-coach__impact-card" padding="none" style={{ padding: "var(--space-5)" }}>
           <div className="fitness-coach__impact-heading">
             <div>
               <Text as="div" variant="eyebrow">{t("coach.impact.eyebrow")}</Text>
@@ -170,8 +180,11 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
             </div>
           )}
         </Card>
+      </div>
+      </DetailsSection>
 
-        <Card padding="none" style={{ padding: "var(--space-5)" }}>
+      <div className="fitness-coach__primary-grid fitness-coach__primary-grid--choice">
+        <Card className="fitness-coach__choice-card" padding="none" style={{ padding: "var(--space-5)" }}>
           <Text as="div" variant="eyebrow">{t("coach.choice.eyebrow")}</Text>
           <Text as="h3" variant="title" style={{ margin: "var(--space-2) 0" }}>{t("coach.choice.title")}</Text>
           <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("coach.choice.body")}</Text>
@@ -211,11 +224,6 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
           ) : !awaitingAggregate ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-4) 0 0" }}>{t("coach.choice.localOnly")}</Text> : null}
         </Card>
       </div>
-
-      <DetailsSection title={t("coach.range.detailsTitle")}>
-        <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("coach.range.body")}</Text>
-        {decisionSlot}
-      </DetailsSection>
 
       {(pendingActivity || impacts.length > 0) && (
         <Card padding="none" style={{ padding: "var(--space-5)", marginTop: "var(--space-4)" }}>

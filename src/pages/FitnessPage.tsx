@@ -40,13 +40,13 @@ import {
   POWER_DURATION_KEY_SEC,
   formatKoreanDate,
   formatMonthDay,
-  getRangeOptions,
   secToMmss,
   type PowerCurvePoint,
 } from "../features/fitness/fitnessPageUtils";
 import { PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
 import { FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportunityPanel";
-import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
+import TodayTrainingDecisionCard, { TodayTrainingDecisionSource } from "../features/trainingDecision/TodayTrainingDecisionCard";
+import type { TodayTrainingDecisionState } from "../hooks/useTodayTrainingDecision";
 import { useFitnessModel, type FitnessModel } from "../hooks/useFitnessModel";
 import CanonicalFitnessNotice from "../features/fitness/components/CanonicalFitnessNotice";
 import { Card, Chip, Text, buttonClass } from "../theme/components";
@@ -123,7 +123,14 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     setHistoryRangeOverride(null);
     setRange(nextRange);
   };
-  const changeHistoryRange = (nextRange: PmcRange) => setHistoryRangeOverride({ discipline, range: nextRange });
+  const changeHistoryRange = (nextRange: PmcRange) => {
+    if (typeof nextRange === "number") {
+      setHistoryRangeOverride(null);
+      setRange(nextRange as typeof range);
+      return;
+    }
+    setHistoryRangeOverride({ discipline, range: nextRange });
+  };
   const renderMobile = embedded || isMobile;
   const activityImpacts = discipline === "tri" || !hasCanonicalTimeseries
     ? []
@@ -150,6 +157,11 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     ? selectedActivityId
     : pendingImpactActivity?.id ?? activityImpacts[0]?.activity.id ?? null;
   const recoveryForecast = currentPoint ? forecastFitness48Hours(currentPoint, 35) : null;
+  const goalDisplayName = activeGoal
+    ? [activeGoal.title, activeGoal.courseName]
+        .map((value) => value?.trim())
+        .find((value) => value && !/^[a-z0-9]+(?:_[a-z0-9]+)+$/i.test(value)) ?? null
+    : null;
 
   if (!user) {
     return <GuestValuePreview kind="fitness" lang={i18n.language} />;
@@ -188,7 +200,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     }
   }
 
-  if (renderMobile && activities.length === 0 && fitnessData.length === 0 && !currentPoint) {
+  if (renderMobile && activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
     return (
       <div style={{ padding: "20px 16px 40px" }}>
         {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
@@ -222,40 +234,50 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           timeline={triFitnessTimeline}
           combinedLoad={combinedLoad}
           loadFocus={integratedLoadFocus}
-          historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={model.hasCanonicalHistory} controlledRange={historyRange} onControlledRangeChange={changeHistoryRange} />}
+          historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={model.hasCanonicalHistory} controlledRange={historyRange} onControlledRangeChange={changeHistoryRange} rangeChoices={[42, 90, 180, 365, "3y", "all"]} />}
         />
       </div>
     );
   }
 
   if (renderMobile) {
-    const mobileCoachBriefing = discipline !== "tri" && currentPoint ? (
-      <FitnessCoachBriefing
-        key={`${discipline}-${currentPoint.date}`}
-        impacts={activityImpacts}
-        selectedActivityId={effectiveSelectedActivityId}
-        onSelectActivity={setSelectedActivityId}
-        forecast={recoveryForecast}
-        current={{ ctl: currentPoint.ctl, atl: currentPoint.atl, tsb: currentPoint.tsb }}
-        locale={i18n.language}
-        canonicalAvailable={hasCanonicalTimeseries}
-        pendingActivity={pendingImpactActivity}
-        pendingDayLoad={pendingDayLoad}
-        metricsMap={metricsMap}
-        discipline={discipline}
-        userId={user.uid}
-        decisionSlot={<TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />}
-      />
-    ) : null;
-    return (
-      <>
-        <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
-        <MobileFitnessPage
-          {...model.mobilePageProps}
-          embedded={embedded}
-          coachSlot={mobileCoachBriefing}
+    const renderMobileContent = (decisionState?: TodayTrainingDecisionState) => {
+      const mobileCoachBriefing = discipline !== "tri" && currentPoint ? (
+        <FitnessCoachBriefing
+          key={`${discipline}-${currentPoint.date}`}
+          impacts={activityImpacts}
+          selectedActivityId={effectiveSelectedActivityId}
+          onSelectActivity={setSelectedActivityId}
+          forecast={recoveryForecast}
+          current={{ ctl: currentPoint.ctl, atl: currentPoint.atl, tsb: currentPoint.tsb }}
+          locale={i18n.language}
+          canonicalAvailable={hasCanonicalTimeseries}
+          pendingActivity={pendingImpactActivity}
+          pendingDayLoad={pendingDayLoad}
+          metricsMap={metricsMap}
+          discipline={discipline}
+          userId={user.uid}
+          mobilePriority
+          decisionSlot={<TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" decisionState={decisionState} />}
         />
-      </>
+      ) : null;
+      return (
+        <>
+          <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
+          <MobileFitnessPage
+            {...model.mobilePageProps}
+            embedded={embedded}
+            coachSlot={mobileCoachBriefing}
+            todayDecisionState={decisionState}
+            todayDecisionSignedIn={Boolean(user)}
+          />
+        </>
+      );
+    };
+    return discipline === "tri" ? renderMobileContent() : (
+      <TodayTrainingDecisionSource user={user} discipline={discipline}>
+        {(decisionState) => renderMobileContent(decisionState)}
+      </TodayTrainingDecisionSource>
     );
   }
 
@@ -286,13 +308,13 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   } else {
     subtitleParts.push(t("header.subtitle.actual", { range }));
   }
-  if (activeGoal && projection) {
+  if (activeGoal && projection && goalDisplayName) {
     const goalDateObj = new Date(activeGoal.eventDate);
     const goalDateStr = `${goalDateObj.getMonth() + 1}/${goalDateObj.getDate()}`;
     const tsbVal = Math.round(projection.goalDay.tsb);
     subtitleParts.push(
       t("header.subtitle.goal", {
-        course: activeGoal.courseName,
+        course: goalDisplayName,
         date: goalDateStr,
         ctl: Math.round(projection.goalDay.ctl),
         tsb: tsbVal >= 0 ? `+${tsbVal}` : tsbVal,
@@ -369,28 +391,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           {subtitleParts.join(" ")}
         </div>
       </div>
-      <div style={{ display: "flex", gap: 'var(--space-2)', alignItems: "center" }}>
-        <DisciplineTabs includeTri />
-          <div style={{ display: "flex", gap: "var(--space-0-5)", background: "var(--bg-1)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
-            {getRangeOptions(t).map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => changePageRange(opt.value)}
-                style={{
-                  padding: "5px 12px",
-                  fontSize: "var(--fs-xs)",
-                  borderRadius: "var(--r-sm)",
-                  background: historyRange === opt.value ? "var(--bg-3)" : "transparent",
-                  color: historyRange === opt.value ? "var(--ink-0)" : "var(--ink-3)",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-        </div>
-      </div>
+      <DisciplineTabs includeTri />
     </div>
   );
 
@@ -422,7 +423,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
       </div>
     );
   }
-  if (activities.length === 0 && fitnessData.length === 0 && !currentPoint) {
+  if (activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
     return (
       <div>
         {pageHeader}
@@ -465,6 +466,28 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             discipline={discipline}
             userId={user.uid}
             decisionSlot={<TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />}
+            trendSlot={<PmcHistoryPanel
+              key={`${user.uid}-${discipline}`}
+              points={model.pmcHistoryPoints}
+              today={toUtcDate(Date.now())}
+              canonical={model.hasCanonicalHistory}
+              controlledRange={historyRange}
+              onControlledRangeChange={changeHistoryRange}
+              rangeChoices={[30, 90, 180, 365, "3y", "all"]}
+              ctlColor={getDisciplineColor(discipline)}
+            />}
+          />
+        )}
+        {discipline !== "tri" && !currentPoint && (
+          <PmcHistoryPanel
+            key={`${user.uid}-${discipline}`}
+            points={model.pmcHistoryPoints}
+            today={toUtcDate(Date.now())}
+            canonical={model.hasCanonicalHistory}
+            controlledRange={historyRange}
+            onControlledRangeChange={changeHistoryRange}
+            rangeChoices={[30, 90, 180, 365, "3y", "all"]}
+            ctlColor={getDisciplineColor(discipline)}
           />
         )}
         {(activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
@@ -528,16 +551,6 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           />
         )}
 
-        {/* PMC 차트 */}
-        <PmcHistoryPanel
-          key={`${user.uid}-${discipline}`}
-          points={model.pmcHistoryPoints}
-          today={toUtcDate(Date.now())}
-          canonical={model.hasCanonicalHistory}
-          controlledRange={historyRange}
-          onControlledRangeChange={changeHistoryRange}
-          ctlColor={getDisciplineColor(discipline)}
-        />
         <DetailsSection title={t("history.dailyDetails")}>
         <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
           <div style={{ display: "flex", alignItems: "flex-end", marginBottom: "var(--space-3)" }}>
@@ -608,7 +621,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           {/* 목표 요약 스트립 */}
           {activeGoal && (() => {
             const now = Date.now();
-            const daysLeft = Math.max(0, Math.ceil((activeGoal.eventDate - now) / 86400000));
+            const daysLeft = Math.ceil((activeGoal.eventDate - now) / 86400000);
             const eventDateStr = formatKoreanDate(activeGoal.eventDate);
             const goalCTLVal = projection?.goalDay.ctl;
             const goalTSBVal = projection?.goalDay.tsb;
@@ -630,11 +643,11 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
                 }}
               >
                 <div>
-                  <Text as="div" variant="eyebrow" style={{ color: "var(--lime)", marginBottom: 'var(--space-1)' }}>
-                    {t("goal.eyebrow", { course: activeGoal.courseName })}
-                  </Text>
+                  {goalDisplayName && <Text as="div" variant="eyebrow" style={{ color: "var(--lime)", marginBottom: 'var(--space-1)' }}>
+                    {t("goal.eyebrow", { course: goalDisplayName })}
+                  </Text>}
                   <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", fontWeight: 500 }}>
-                    {eventDateStr} · D-<Text variant="mono" style={{ color: "var(--lime)" }}>{daysLeft}</Text>
+                    {eventDateStr}{daysLeft >= 0 && <> · D-<Text variant="mono" style={{ color: "var(--lime)" }}>{daysLeft}</Text></>}
                     <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: "var(--space-2)" }}>
                       {activeGoal.goalType === 'climb'
                         ? `${activeGoal.target?.climbDurationMin ?? activeGoal.targetDurationMin ?? '—'} min${activeGoal.target?.targetWkg != null ? ` · ${activeGoal.target.targetWkg.toFixed(1)} W/kg` : ''}`

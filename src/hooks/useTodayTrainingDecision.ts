@@ -7,7 +7,7 @@ import {
   TodayTrainingDecisionCooldownError,
 } from "../services/todayTrainingDecisionGuard";
 
-interface State {
+export interface TodayTrainingDecisionState {
   decision: TodayTrainingDecisionProjection | null;
   loading: boolean;
   scheduledOnly: boolean;
@@ -25,11 +25,11 @@ export function nextTrainingDecisionExpiry(decision: TodayTrainingDecisionProjec
 }
 
 export function useTodayTrainingDecision(uid: string | null | undefined,
-  discipline: "bike" | "run" | "swim"): State {
+  discipline: "bike" | "run" | "swim"): TodayTrainingDecisionState {
   const generation = useRef(0);
   const manualRefresh = useRef(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [state, setState] = useState<Omit<State, "refresh">>({
+  const [state, setState] = useState<Omit<TodayTrainingDecisionState, "refresh">>({
     decision: null, loading: Boolean(uid), scheduledOnly: true, unavailable: false, unavailableReason: null,
   });
 

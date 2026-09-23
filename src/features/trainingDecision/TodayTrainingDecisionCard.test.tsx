@@ -6,7 +6,7 @@ import { parseTodayTrainingDecisionProjection } from "../../services/trainingDec
 import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { decisionForNow } from "../../services/todayTrainingDecisionGuard";
-import TodayTrainingDecisionCard from "./TodayTrainingDecisionCard";
+import TodayTrainingDecisionCard, { TodayTrainingDecisionSource } from "./TodayTrainingDecisionCard";
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), coach: vi.fn(() => <button>코치 분석</button>),
   execution: vi.fn(() => <div>실행 패널</div>),
@@ -28,6 +28,18 @@ describe("TodayTrainingDecisionCard", () => {
   beforeEach(() => { vi.clearAllMocks(); resetRuntimeConfigForTests({ trainingDecisionEnabled: true });
     mocks.proposal = { state: "unavailable", proposal: null, create: vi.fn(), confirm: vi.fn(),
     decline: vi.fn(), rollback: vi.fn(), refresh: vi.fn() }; });
+  it("shares one hook response between the mobile preview owner and detailed card", () => {
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false,
+      unavailableReason: null, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionSource user={user} discipline="bike">
+      {(decisionState) => <><span data-testid="mobile-decision-preview-id">{decisionState.decision?.projectionId}</span>
+        <TodayTrainingDecisionCard user={user} discipline="bike" decisionState={decisionState} /></>}
+    </TodayTrainingDecisionSource></MemoryRouter>);
+    expect(mocks.hook).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("mobile-decision-preview-id")).toHaveTextContent(decision.projectionId);
+    expect(document.querySelector("[data-decision-id]")).toHaveAttribute("data-decision-id", decision.projectionId);
+  });
   it("keeps Plan empty when the decision API is unavailable", () => {
     mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true, refresh: vi.fn() });
     render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);

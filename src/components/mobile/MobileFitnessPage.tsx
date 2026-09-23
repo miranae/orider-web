@@ -31,6 +31,9 @@ import IntegratedLoadCard, { type CombinedLoadStatus } from "./IntegratedLoadCar
 import SportPerformanceCard from "./SportPerformanceCard";
 import BikePerformanceSummaryCard, { type MobileFitnessPdcSummary } from "./BikePerformanceSummaryCard";
 import { PMC_FUTURE_OPACITY, PMC_LINE_PALETTE } from "../../features/fitness/chartPalette";
+import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
+import { canShowRecommendation, decisionAction, primaryEffectiveSession, primaryRecommendedAdjustment, primaryRecommendedSession, primaryScheduledSession } from "../../features/trainingDecision/decisionPresentation";
+import "./MobileFitnessPage.css";
 
 export type ZoneSource = "power" | "hr" | "none";
 
@@ -469,12 +472,69 @@ function SectionCard({ children, title, sub, accentColor }: { children: React.Re
   );
 }
 
+function TodayDecisionPreview({ state, signedIn, hasDetails }: {
+  state?: TodayTrainingDecisionState;
+  signedIn: boolean;
+  hasDetails: boolean;
+}) {
+  const { t } = useTranslation("training");
+  const decision = state?.decision;
+  const healthStop = decision?.healthGate.state === "stop";
+  const scheduled = decision ? primaryScheduledSession(decision) : null;
+  const effective = decision ? primaryEffectiveSession(decision) : null;
+  const recommendationVisible = Boolean(decision && !healthStop && canShowRecommendation(decision));
+  const adjustment = decision && recommendationVisible ? primaryRecommendedAdjustment(decision) : null;
+  const recommended = decision && adjustment ? primaryRecommendedSession(decision) : null;
+  const applied = decision?.receipt?.status === "applied";
+  const pending = Boolean(adjustment && !applied);
+  const stateKey = !signedIn ? "signed-out" : !state || state.loading ? "loading"
+    : !decision ? state.unavailableReason === "disabled" ? "disabled" : state.unavailableReason === "error" ? "error" : "unavailable"
+      : healthStop ? "health-stop" : !scheduled ? "no-scheduled" : applied ? "applied" : pending ? "recommendation-pending" : "scheduled";
+  const title = stateKey === "signed-out" ? t("dashboard:mobileFitness.decision.signedOut")
+    : stateKey === "loading" ? t("decision.loading")
+      : stateKey === "disabled" ? t("decision.fallback.reason.feature_disabled")
+        : stateKey === "error" ? t("decision.fallback.unavailableTitle")
+          : stateKey === "unavailable" ? t("dashboard:mobileFitness.decision.unavailable")
+            : stateKey === "health-stop" ? t("dashboard:mobileFitness.decision.healthStop")
+              : stateKey === "no-scheduled" ? t("decision.noScheduled")
+                : stateKey === "applied" ? t("decision.status.applied")
+                  : stateKey === "recommendation-pending" ? t("decision.status.recommendationPending")
+                    : t("decision.status.scheduledOnly");
+  const session = stateKey === "scheduled" || stateKey === "applied" || stateKey === "recommendation-pending" ? effective : null;
+  const canOpenDetails = hasDetails && Boolean(decision);
+  const buttonStyle = { display: "inline-flex", alignItems: "center", minHeight: 44, padding: "var(--space-2) var(--space-3)", marginTop: "var(--space-2)", background: "none", border: "1px solid var(--accent)", borderRadius: "var(--r-sm)", color: "var(--accent)", fontSize: "var(--fs-sm)", fontWeight: 600, cursor: "pointer" } as const;
+
+  return <div data-mobile-fitness-decision={stateKey} aria-live="polite" style={{ marginTop: "var(--space-2)" }}>
+    <Text as="div" variant="subtitle">{title}</Text>
+    {stateKey === "health-stop" && <Text as="p" variant="caption" tone="warning" style={{ margin: "var(--space-1) 0 0" }}>{t("decision.healthStop")}</Text>}
+    {session && <Text as="div" variant="bodySmall" style={{ marginTop: "var(--space-1)" }}>
+      {t("decision.effective")}: {t(`decision.workout.${session.current.workout}`)} · {t("decision.duration", { value: session.current.durationMin })}
+    </Text>}
+    {pending && <Text as="div" variant="caption" tone="secondary" style={{ marginTop: "var(--space-1)" }}>
+      {t("decision.recommended")}: {recommended ? t(`decision.workout.${recommended.current.workout}`) : t(`decision.status.${decisionAction(decision!) ?? "reassess"}`)} · {t("decision.mode.not-applied")}
+    </Text>}
+    {stateKey === "scheduled" && decision?.fallback.active && decision.fallback.reasonCode && <Text as="div" variant="caption" tone="secondary" style={{ marginTop: "var(--space-1)" }}>
+      {t(`decision.fallback.reason.${decision.fallback.reasonCode}`)}
+    </Text>}
+    {stateKey === "scheduled" && decision?.prescription.status !== "ready" && !decision?.fallback.active && <Text as="div" variant="caption" tone="secondary" style={{ marginTop: "var(--space-1)" }}>
+      {t("decision.fallback.reason.prescription_not_ready")}
+    </Text>}
+    {stateKey === "error" && state && <button type="button" style={buttonStyle} onClick={state.refresh}>{t("decision.refresh")}</button>}
+    {canOpenDetails && <button type="button" data-mobile-fitness-today-link style={buttonStyle}
+      onClick={() => document.getElementById("fitness-coach-today")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+      {t(stateKey === "health-stop" ? "dashboard:mobileFitness.decision.viewSafetyDetails" : "dashboard:mobileFitness.decision.viewDetails")} ↓
+    </button>}
+  </div>;
+}
+
 // ── 메인 ──────────────────────────────────────────────────────
 export default function MobileFitnessPage({
   data,
   pmcHistoryPoints,
   pmcHistoryCanonical = false,
   coachSlot = null,
+  todayDecisionState,
+  todayDecisionSignedIn = true,
   consistencyStreak = null,
   ftpDecision = null,
   ftpReceipt = null,
@@ -490,6 +550,9 @@ export default function MobileFitnessPage({
   pmcHistoryCanonical?: boolean;
   /** 단일 종목에서 활동 영향과 오늘 선택을 먼저 보여주는 공용 코치 브리핑. */
   coachSlot?: ReactNode;
+  /** 오늘 결정 상세와 공유하는 단일 서버 판정 상태. 모바일 소스가 한 번만 조회한다. */
+  todayDecisionState?: TodayTrainingDecisionState;
+  todayDecisionSignedIn?: boolean;
   consistencyStreak?: ConsistencyStreakSummary | null;
   ftpDecision?: BikeThresholdDecisionV2 | null;
   ftpReceipt?: FtpMutationReceipt | null;
@@ -581,7 +644,59 @@ export default function MobileFitnessPage({
 
       {activeTab === "overview" && (
         <div style={{ paddingTop: 14 }}>
-          {coachSlot && (
+          <SectionCard title={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")}>
+            <div data-mobile-fitness-status style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2)" }}>
+              <Text variant="eyebrow">{t("mobileFitness.kpiTsbLabel")}</Text>
+              <span style={{ color: "var(--ink-0)", fontFamily: "var(--font-mono)", fontSize: "var(--fs-lg)", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                {data.hasLoadData && Number.isFinite(data.tsb) ? data.tsb.toFixed(1) : "—"}
+              </span>
+            </div>
+            {data.discipline !== "tri" && todayDecisionState && <TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} />}
+          </SectionCard>
+
+          {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다. */}
+          <SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle} sub={pmcHistoryPoints ? undefined : pmcSub} accentColor={pmcCtlColor}>
+            {sectionState.trend === "loading" ? (
+              <p role="status">{t("mobileFitness.trendLoading")}</p>
+            ) : sectionState.trend === "error" ? (
+              <>
+                <p role="alert">{t("mobileFitness.trendError")}</p>
+                {sectionState.onRetryTrend && (
+                  <button type="button" onClick={sectionState.onRetryTrend}>
+                    {sectionState.retryLabel ?? t("common:button.retry")}
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                {pmcHistoryPoints && (
+                  <div className="mobile-fitness-pmc">
+                    <PmcHistoryPanel key={data.discipline} points={pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]} />
+                  </div>
+                )}
+                <DetailsSection title={t("fitness:history.dailyDetails")} defaultOpen={!pmcHistoryPoints}>
+                {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
+                    제목/범례는 카드 padding 인셋 유지. */}
+                <div style={{ margin: "0 -16px" }}>
+                  <PmcMiniChart history={data.pmcHistory} projection={data.pmcProjection} today={data.today} ctlColor={pmcCtlColor} ctlLabel={pmcCtlLabel} ariaLabel={`${pmcTitle}. ${pmcSub}`} t={t} />
+                </div>
+                <div style={{ marginTop: "var(--space-1-5)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", display: "flex", gap: "var(--space-3)" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+                    <PmcLegendSample color={pmcCtlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />{pmcCtlLabel}
+                  </span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+                    <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} />ATL
+                  </span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+                    <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} />TSB
+                  </span>
+                </div>
+                </DetailsSection>
+              </>
+            )}
+          </SectionCard>
+
+          {coachSlot && data.discipline !== "tri" && (
             <div data-mobile-fitness-coach style={{ padding: "0 var(--space-4) var(--space-3)" }}>
               {coachSlot}
             </div>
@@ -620,46 +735,6 @@ export default function MobileFitnessPage({
               <ConsistencyStreakCard summary={consistencyStreak} compact />
             </div>
           )}
-
-          {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다. */}
-          <SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle} sub={pmcHistoryPoints ? undefined : pmcSub} accentColor={pmcCtlColor}>
-            {sectionState.trend === "loading" ? (
-              <p role="status">{t("mobileFitness.trendLoading")}</p>
-            ) : sectionState.trend === "error" ? (
-              <>
-                <p role="alert">{t("mobileFitness.trendError")}</p>
-                {sectionState.onRetryTrend && (
-                  <button type="button" onClick={sectionState.onRetryTrend}>
-                    {sectionState.retryLabel ?? t("common:button.retry")}
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                {pmcHistoryPoints && (
-                  <PmcHistoryPanel key={data.discipline} points={pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" />
-                )}
-                <DetailsSection title={t("fitness:history.dailyDetails")} defaultOpen={!pmcHistoryPoints}>
-                {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
-                    제목/범례는 카드 padding 인셋 유지. */}
-                <div style={{ margin: "0 -16px" }}>
-                  <PmcMiniChart history={data.pmcHistory} projection={data.pmcProjection} today={data.today} ctlColor={pmcCtlColor} ctlLabel={pmcCtlLabel} ariaLabel={`${pmcTitle}. ${pmcSub}`} t={t} />
-                </div>
-                <div style={{ marginTop: "var(--space-1-5)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", display: "flex", gap: "var(--space-3)" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                    <PmcLegendSample color={pmcCtlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />{pmcCtlLabel}
-                  </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                    <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} />ATL
-                  </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                    <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} />TSB
-                  </span>
-                </div>
-                </DetailsSection>
-              </>
-            )}
-          </SectionCard>
 
           {data.discipline === "tri" && data.combinedLoad && (
             <div style={{ marginBottom: "var(--space-3)" }}>

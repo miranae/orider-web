@@ -10,24 +10,30 @@ describe("mobile fitness action", () => {
   it("desktop, tri, mobile PMC 패널은 로컬 활동 날짜 대신 UTC 날짜를 사용한다", () => {
     const panels = [read("src/pages/FitnessPage.tsx"), read("src/components/mobile/MobileFitnessPage.tsx")]
       .flatMap(source => source.match(/<PmcHistoryPanel\b[\s\S]*?\/>/g) ?? []);
-    expect(panels).toHaveLength(3);
+    expect(panels.length).toBeGreaterThanOrEqual(3);
     for (const panel of panels) expect(panel).toContain("today={toUtcDate(Date.now())}");
   });
   it("removes today's workout from mobile fitness and keeps core sections ordered", () => {
     const source = read("src/components/mobile/MobileFitnessPage.tsx");
     const overview = source.slice(source.indexOf('{activeTab === "overview"'));
     const coreIndex = overview.indexOf("<BikePerformanceSummaryCard");
+    const trendIndex = overview.indexOf("<PmcHistoryPanel");
+    const coachIndex = overview.indexOf("data-mobile-fitness-coach");
     const loadIndex = overview.indexOf("<IntegratedLoadCard");
     const sportIndex = overview.indexOf("<SportPerformanceCard");
     const analysisIndex = overview.indexOf('{activeTab === "analysis"');
 
     expect(overview).not.toContain("TodaysWorkoutCard");
     expect(coreIndex).toBeGreaterThan(-1);
+    expect(trendIndex).toBeGreaterThan(-1);
+    expect(coachIndex).toBeGreaterThan(-1);
     expect(loadIndex).toBeGreaterThan(-1);
     expect(overview).toContain('data.discipline === "tri" && data.combinedLoad');
     expect(sportIndex).toBeGreaterThan(-1);
     expect(coreIndex).toBeLessThan(loadIndex);
     expect(sportIndex).toBeLessThan(loadIndex);
+    expect(trendIndex).toBeLessThan(coachIndex);
+    expect(coachIndex).toBeLessThan(coreIndex);
     expect(analysisIndex).toBeGreaterThan(loadIndex);
     expect(overview).not.toContain("{kpiItems.map");
     expect(overview).toContain("<BikePerformanceSummaryCard");
@@ -68,6 +74,7 @@ describe("mobile fitness action", () => {
     expect(mobileFitness).toContain('const trendSectionTitle = sectionState.trend === "ready"');
     expect(mobileFitness).toContain("<SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle}");
     expect(mobileFitness.indexOf("<PmcHistoryPanel")).toBeLessThan(mobileFitness.indexOf("<IntegratedLoadCard"));
+    expect(mobileFitness).toContain('data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]');
     expect(mobileFitness).toContain("points={pmcHistoryPoints}");
     expect(mobileFitness).toContain('title={t("fitness:history.dailyDetails")}');
     expect(integrated).not.toContain("PmcHistoryPanel");

@@ -12,6 +12,7 @@ interface PmcHistoryPanelProps {
   canonical: boolean;
   controlledRange?: PmcRange;
   onControlledRangeChange?: (range: PmcRange) => void;
+  rangeChoices?: readonly PmcRange[];
   ctlColor?: string;
   sourceLabel?: string;
   variant?: "card" | "embedded";
@@ -184,7 +185,7 @@ function YearComparisonChart({ series, selectedIndex, onSelect, labels, title, c
   </div>;
 }
 
-export default function PmcHistoryPanel({ points, today, canonical, controlledRange, onControlledRangeChange, ctlColor = PMC_LINE_PALETTE.ctl.color, sourceLabel, variant = "card" }: PmcHistoryPanelProps) {
+export default function PmcHistoryPanel({ points, today, canonical, controlledRange, onControlledRangeChange, rangeChoices = RANGES, ctlColor = PMC_LINE_PALETTE.ctl.color, sourceLabel, variant = "card" }: PmcHistoryPanelProps) {
   const { t, i18n } = useTranslation("fitness");
   const headingId = useId();
   const [localRange, setLocalRange] = useState<PmcRange>(90);
@@ -238,7 +239,7 @@ export default function PmcHistoryPanel({ points, today, canonical, controlledRa
 
   return <ChartFrame as="section" variant={variant} className="pmc-history" aria-labelledby={headingId} header={<ChartHeader title={<h2 id={headingId}>{t("history.title")}</h2>} description={t("history.subtitle")} actions={<span role={sourceState ? "status" : undefined} aria-live={sourceState ? "polite" : undefined} className={`pmc-history__source${sourceTone ? ` pmc-history__source--${sourceTone}` : ""}`} data-source-state={sourceState ?? "default"}>{sourceLabel ?? t(sourceKey)}</span>} />}>
     <div className="pmc-history__chart-head"><div className="pmc-history__chart-heading"><span className="pmc-history__canonical-chart">{mode === "years" ? t("history.mode.years") : t("history.chart.title")}</span><span className="pmc-history__unit">{t(`history.unit.${unit}`)}</span></div><ChartLegend items={mode === "years" ? legendItems : [{ label: t("ctl"), color: ctlColor, seriesId: "ctl", strokeWidth: PMC_LINE_PALETTE.ctl.strokeWidth, strokeLinecap: PMC_LINE_PALETTE.ctl.linecap }, { label: t("atl"), color: PMC_LINE_PALETTE.atl.color, seriesId: "atl", dasharray: PMC_LINE_PALETTE.atl.dasharray, strokeWidth: PMC_LINE_PALETTE.atl.strokeWidth, strokeLinecap: PMC_LINE_PALETTE.atl.linecap }, { label: t("tsb"), color: PMC_LINE_PALETTE.tsb.color, seriesId: "tsb", dasharray: PMC_LINE_PALETTE.tsb.dasharray, strokeWidth: PMC_LINE_PALETTE.tsb.strokeWidth, strokeLinecap: PMC_LINE_PALETTE.tsb.linecap }]} />
-      {mode === "trend" && <div role="group" aria-label={t("history.range")} className={`pmc-history__buttons pmc-history__ranges${controlledRange == null ? "" : " pmc-history__ranges--controlled"}`}>{(controlledRange == null ? RANGES : ["3y", "all"] as const).map((value) => <Button size="sm" variant={range === value ? "outline" : "ghost"} key={value} aria-pressed={range === value} onClick={() => controlledRange == null ? setLocalRange(value) : onControlledRangeChange?.(value)}>{t(`history.range.${value}`)}</Button>)}</div>}
+      {mode === "trend" && <div role="group" aria-label={t("history.range")} className={`pmc-history__buttons pmc-history__ranges${controlledRange == null ? "" : " pmc-history__ranges--controlled"}`}>{rangeChoices.map((value) => <Button size="sm" variant={range === value ? "outline" : "ghost"} key={value} aria-pressed={range === value} onClick={() => controlledRange == null ? setLocalRange(value) : onControlledRangeChange?.(value)}>{t(`history.range.${value}`)}</Button>)}</div>}
       {mode === "trend" && hasChart && latestBucket && <div className="pmc-history__latest" aria-hidden="true"><span>{t("history.latest")}</span><span>{t("ctl")} <b>{formatValue(latestBucket.ctl)}</b></span><span>{t("atl")} <b>{formatValue(latestBucket.atl)}</b></span></div>}
     </div>
     {!hasChart ? <p role="status" className="pmc-history__empty">{t(years.length === 0 && mode === "years" ? "history.selectYear" : "history.empty")}</p>
