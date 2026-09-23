@@ -26,8 +26,8 @@ vi.mock("../features/trainingDecision/TodayTrainingDecisionCard", () => ({
   default: ({ surface }: { surface: string }) => <div data-testid="today-training-decision">{surface} workout</div>,
 }));
 vi.mock("../features/fitness/components/PmcHistoryPanel", () => ({
-  default: ({ points, canonical }: { points: Array<{ date: string }>; canonical: boolean }) => (
-    <div data-testid="pmc-history" data-count={points.length} data-start={points[0]?.date} data-canonical={String(canonical)} />
+  default: ({ points, canonical, controlledRange }: { points: Array<{ date: string }>; canonical: boolean; controlledRange?: number }) => (
+    <div data-testid="pmc-history" data-count={points.length} data-start={points[0]?.date} data-canonical={String(canonical)} data-range={controlledRange} />
   ),
 }));
 
@@ -521,11 +521,27 @@ describe("FitnessPage", () => {
     const activitySubscriptions = () => vi.mocked(onSnapshot).mock.calls
       .filter(([ref]) => (ref as { path?: string }).path === "activities").length;
     const before = activitySubscriptions();
+    expect(screen.getByTestId("pmc-history")).toHaveAttribute("data-range", "90");
 
     fireEvent.click(screen.getByRole("button", { name: "desktop 1y" }));
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(activitySubscriptions()).toBe(before);
+    expect(screen.getByTestId("pmc-history")).toHaveAttribute("data-range", "365");
+  });
+
+  it("drives the desktop single-sport PMC from the page range selector", async () => {
+    viewport.isMobile = false;
+    setCollectionDocs("activities", [{
+      id: "range-ride", userId: "test-uid", type: "Ride", startTime: Date.now(), deletedAt: null,
+      summary: { distance: 20_000, ridingTimeMillis: 3_600_000, tss: 60 },
+    }]);
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByTestId("pmc-history")).toHaveAttribute("data-range", "90");
+    fireEvent.click(screen.getByRole("button", { name: "1년" }));
+    expect(screen.getByTestId("pmc-history")).toHaveAttribute("data-range", "365");
   });
 
   it("normalizes the tri-only 42-day range before a single-sport query", () => {

@@ -1,7 +1,7 @@
 import type { FitnessPoint } from '../../utils/fitnessMetrics'
 import type { FitnessTimeseriesDoc } from '../../../shared/types/fitness-timeseries'
 
-export type PmcRange = 30 | 90 | 180 | 360 | '3y' | 'all'
+export type PmcRange = 30 | 42 | 90 | 180 | 360 | 365 | '3y' | 'all'
 export type PmcUnit = 'day' | 'week' | 'month'
 
 /** snapshot은 계산 시점에 저장된 부하이며 활동 수집 완료를 뜻하지 않는다. */
@@ -229,7 +229,8 @@ function availableYears(points: PmcHistoryPoint[], today: string): number[] {
 }
 
 export function getPmcUnit(range: PmcRange): PmcUnit {
-  return range === 30 || range === 90 ? 'day' : range === 180 || range === 360 ? 'week' : 'month'
+  return range === 30 || range === 42 || range === 90 ? 'day'
+    : range === 180 || range === 360 || range === 365 ? 'week' : 'month'
 }
 
 /** 정본 일별 EMA 값은 변경하지 않고 표시 구간만 요약한다. 누락은 휴식(0)이 아니다. */
