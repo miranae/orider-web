@@ -45,8 +45,8 @@ function ActivityHubRoutes() {
 }
 
 function selectedMobileTab() {
-  const tabBar = screen.getByRole("tablist", { name: "메인 내비게이션" });
-  return within(tabBar).getByRole("tab", { selected: true });
+  const tabBar = screen.getByRole("navigation", { name: "메인 내비게이션" });
+  return within(tabBar).getByRole("link", { current: "page" });
 }
 
 describe("Layout activity hub ownership", () => {

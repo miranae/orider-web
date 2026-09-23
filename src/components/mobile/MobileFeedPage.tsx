@@ -2,14 +2,13 @@ import { lazy, Suspense, useState, useMemo } from "react";
 import { useActivityAuthor } from "../../hooks/useActivityAuthor";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
-import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import type { Activity } from "@shared/types";
 import Avatar from "../Avatar";
 import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
 import { timeAgo } from "../../utils/timeAgo";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
-import { Button, Card, Text } from "../../theme/components";
+import { Button, Card, Text, buttonClass } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { isTrivialActivity } from "../../utils/activityFilter";
 import { resolveDuration, resolveAvgSpeedKph } from "../../utils/activityTime";
@@ -35,6 +34,8 @@ interface SportBreakdownItem {
 interface MobileFeedPageProps {
   activities: Activity[];
   loading: boolean;
+  error?: boolean;
+  onRetry?: () => void;
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
@@ -159,7 +160,6 @@ function MobileRouteThumbnail({ activity, priority = false }: { activity: Activi
 
 /** 시안과 일치하는 컴팩트 모바일 활동 카드 */
 function CompactActivityCard({ activity, priority = false }: { activity: Activity; priority?: boolean }) {
-  const navigate = useNavigate();
   const { t } = useTranslation("dashboard");
   const s = activity.summary;
 
@@ -190,13 +190,16 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
   const sTag = getDisciplineTag(discipline);
 
   return (
-    <div
-      onClick={() => navigate(`/activity/${activity.id}`)}
-      style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px", cursor: "pointer" }}
-    >
+    <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px", position: "relative" }}>
+      <Link
+        to={`/activity/${activity.id}`}
+        aria-label={activity.description || t("mobileFeed.defaultActivity")}
+        className="absolute inset-0 rounded-[var(--r-md)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--lime)]"
+        style={{ zIndex: 1 }}
+      />
       {/* Header: avatar + name/time + sport badge */}
       <div className="flex items-center gap-2.5" style={{ marginBottom: "var(--space-2)" }}>
-        <Avatar userId={activity.userId} name={nickname} imageUrl={activity.profileImage} size="sm" />
+        <span style={{ position: "relative", zIndex: 2 }}><Avatar userId={activity.userId} name={nickname} imageUrl={activity.profileImage} size="sm" /></span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{nickname}</div>
           <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>{timeAgo(activity.startTime, t)}</div>
@@ -262,7 +265,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 
       {/* 스트라바형 소셜 푸터 — 좋아요(아바타 스택)+댓글. 카드 패딩(16) 음수마진으로 상쇄해
           전폭 상단 구분선, 내부는 footer 자체 px-4 로 콘텐츠와 정렬 (지도 썸네일과 동일 기법). */}
-      <div style={{ margin: "10px -16px 0" }}>
+      <div style={{ margin: "10px -16px 0", position: "relative", zIndex: 2 }}>
         <ActivitySocialFooter activity={activity} />
       </div>
     </div>
@@ -270,7 +273,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 }
 
 export default function MobileFeedPage({
-  activities, loading, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
+  activities, loading, error = false, onRetry, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
   weeklySummary, feedScope, onFeedScopeChange,
   sportFilter: controlledSportFilter,
   onSportFilterChange,
@@ -288,6 +291,7 @@ export default function MobileFeedPage({
   const setDatePreset = onDatePresetChange ?? setLocalDatePreset;
   const [renderLimit, setRenderLimit] = useState(MOBILE_FEED_RENDER_INITIAL);
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
+  const effectiveFeedScope = user ? feedScope : "all";
 
   // 비로그인 필터 행은 현재 공개 피드 요약을 유지한다. 로그인 주간 요약에는 사용하지 않는다.
   const feedSportBreakdown = useMemo<SportBreakdownItem[]>(() => {
@@ -317,8 +321,8 @@ export default function MobileFeedPage({
   const filteredBySport = sportFilter === "all" ? visibleActivities
     : visibleActivities.filter(a => getDiscipline(a.type) === sportFilter);
   const filteredByScope = filteredBySport.filter((a) => {
-    if (feedScope === "friends") return friendIdSet.has(a.userId);
-    if (feedScope === "self") return currentUserId != null && a.userId === currentUserId;
+    if (effectiveFeedScope === "friends") return friendIdSet.has(a.userId);
+    if (effectiveFeedScope === "self") return currentUserId != null && a.userId === currentUserId;
     return true;
   });
   const cutoff = datePreset === "all"
@@ -383,8 +387,8 @@ export default function MobileFeedPage({
             <Text variant="bodySmall" tone="tertiary" style={{ display: "block", marginTop: "var(--space-1)", marginBottom: "var(--space-3)" }}>
               {t("yearRecap.desc")}
             </Text>
-            <Link to="/year-recap" className="ds-btn ds-btn--primary ds-btn--sm" style={{ textDecoration: "none", width: "100%" }}>
-              <span className="ds-btn__label">{t("yearRecap.cta")}</span>
+            <Link to="/year-recap" className={buttonClass({ variant: "primary", size: "sm", block: true })} style={{ textDecoration: "none" }}>
+              {t("yearRecap.cta")}
             </Link>
           </Card>
         </div>
@@ -408,8 +412,8 @@ export default function MobileFeedPage({
             fontSize: "var(--fs-sm)",
           }}
         />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2)" }}>
-          <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: user ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)", gap: "var(--space-2)" }}>
+          {user && <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden" }}>
             <span style={{ display: "block", padding: "8px 10px 0", color: "var(--ink-3)", fontSize: "var(--fs-2xs)", fontWeight: 600 }}>
               {t("feed.filter.label")}
             </span>
@@ -423,7 +427,7 @@ export default function MobileFeedPage({
               <option value="friends">{t("feed.filter.friends")}</option>
               <option value="self">{t("feed.filter.self")}</option>
             </select>
-          </label>
+          </label>}
           <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden" }}>
             <span style={{ display: "block", padding: "8px 10px 0", color: "var(--ink-3)", fontSize: "var(--fs-2xs)", fontWeight: 600 }}>
               {t("feed.datePreset.label")}
@@ -448,11 +452,19 @@ export default function MobileFeedPage({
         <MobileFeedSkeleton />
       )}
 
-      {!loading && filteredActivities.length === 0 && (
+      {!loading && error && (
+        <div role="alert" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-2)" }}>{t(activities.length > 0 ? "feed.partialError.title" : "feed.error.title")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: "var(--space-4)" }}>{t(activities.length > 0 ? "feed.partialError.description" : "feed.error.description")}</div>
+          {onRetry && <Button variant="primary" onClick={onRetry}>{t(activities.length > 0 ? "feed.partialError.retry" : "feed.error.retry")}</Button>}
+        </div>
+      )}
+
+      {!loading && !error && filteredActivities.length === 0 && (
         <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>🚴</div>
-          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("mobileFeed.emptyTitle")}</div>
-          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("mobileFeed.emptyDesc")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{activities.length > 0 ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{activities.length > 0 ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
         </div>
       )}
 
@@ -464,7 +476,7 @@ export default function MobileFeedPage({
         </div>
       )}
 
-      {!loading && (hasHiddenLocalItems || hasMore) && (
+      {!loading && !error && (hasHiddenLocalItems || hasMore) && (
         <div style={{ padding: "var(--space-3) var(--space-4)" }}>
           <Button variant="secondary" size="lg"
             onClick={() => {

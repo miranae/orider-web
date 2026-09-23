@@ -10,7 +10,7 @@ import { EmptyState, LoadingSkeleton, PageHeader } from "../components/redesign"
 import { decodePolyline, encodePolyline } from "../utils/polyline";
 import { getMapboxToken } from "../utils/mapbox";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import { Card, Chip, Text, buttonClass } from "../theme/components";
+import { Button, Card, Chip, Select, Text, buttonClass } from "../theme/components";
 import MapGL, { Marker, Popup } from "react-map-gl/mapbox";
 import { MAP_STYLE, DEFAULT_VIEW } from "../utils/mapbox";
 import { buildMonthCells, firstPolylinePoint } from "../features/event/discovery/eventViews";
@@ -418,6 +418,7 @@ export default function EventsPage() {
       {/* 요약 strip — 3컬럼 (진행중/모집중/내 참가) */}
       {events.length > 0 && (
         <div
+          className="event-summary"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(3, 1fr)",
@@ -436,7 +437,7 @@ export default function EventsPage() {
             <div
               key={s.lbl}
               style={{
-                padding: "var(--space-4) var(--space-5)",
+                padding: "var(--space-4)",
                 background: "var(--bg-1)",
                 display: "flex",
                 alignItems: "center",
@@ -445,8 +446,8 @@ export default function EventsPage() {
             >
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.dot, flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}>{s.lbl}</Text>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-2)' }}>
+                <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)', wordBreak: "keep-all" }}>{s.lbl}</Text>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-2)', flexWrap: "wrap" }}>
                   <Text variant="dataMedium" style={{ color: "var(--ink-0)" }}>{s.val}</Text>
                   <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{s.sub}</span>
                 </div>
@@ -493,48 +494,39 @@ export default function EventsPage() {
           {TYPE_FILTERS.map((t) => {
             const active = typeFilter === t.k;
             return (
-              <button
+              <Button
                 key={t.k}
-                type="button"
+                size="sm"
+                variant={active ? "outline" : "secondary"}
+                dense
                 onClick={() => setTypeFilter(t.k)}
                 aria-pressed={active}
-                className="ds-chip"
-                style={{
-                  fontSize: "var(--fs-xs)",
-                  cursor: "pointer",
-                  color: active ? "var(--ink-0)" : "var(--ink-3)",
-                  background: active ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
-                  borderColor: active ? "var(--lime)" : "var(--line-soft)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "var(--space-1)",
-                }}
               >
                 {t.icon && <span aria-hidden="true">{t.icon}</span>} {t.label}
-              </button>
+              </Button>
             );
           })}
         </div>
 
         {regions.length > 0 && (
-          <select aria-label={t("filter.region")} value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)} className="ds-chip" style={{ color: "var(--ink-2)", background: "var(--bg-2)" }}>
+          <Select aria-label={t("filter.region")} value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)}>
             <option value="ALL">{t("filter.allRegions")}</option>
             {regions.map((region) => <option key={region} value={region}>{region}</option>)}
-          </select>
+          </Select>
         )}
 
         <div style={{ display: "flex", gap: "var(--space-1)" }}>
           {(["ALL", "WEEKEND", "MONTH"] as const).map((preset) => (
-            <button key={preset} type="button" aria-pressed={datePreset === preset} onClick={() => setDatePreset(preset)} className="ds-chip" style={{ cursor: "pointer", color: datePreset === preset ? "var(--ink-0)" : "var(--ink-3)", borderColor: datePreset === preset ? "var(--lime)" : "var(--line-soft)" }}>
+            <Button key={preset} size="sm" dense variant={datePreset === preset ? "outline" : "secondary"} aria-pressed={datePreset === preset} onClick={() => setDatePreset(preset)}>
               {t(`filter.date.${preset.toLowerCase()}`)}
-            </button>
+            </Button>
           ))}
         </div>
 
-        <select aria-label={t("filter.difficulty")} value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value as "ALL" | EventDifficulty)} className="ds-chip" style={{ color: "var(--ink-2)", background: "var(--bg-2)" }}>
+        <Select aria-label={t("filter.difficulty")} value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value as "ALL" | EventDifficulty)}>
           <option value="ALL">{t("filter.allDifficulties")}</option>
           {(["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const).map((difficulty) => <option key={difficulty} value={difficulty}>{t(`difficulty.${difficulty.toLowerCase()}`)}</option>)}
-        </select>
+        </Select>
 
         <div style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
           {filtered.length} / {events.length}
@@ -544,16 +536,16 @@ export default function EventsPage() {
       <div className="flex items-center justify-between flex-wrap" style={{ gap: "var(--space-2)" }}>
         <div className="flex" role="group" aria-label={t("view.label")} style={{ gap: "var(--space-1)" }}>
           {(["LIST", "CALENDAR", "MAP"] as const).map((item) => (
-            <button key={item} type="button" className="ds-chip" aria-pressed={view === item} onClick={() => setView(item)} style={{ cursor: "pointer", borderColor: view === item ? "var(--lime)" : "var(--line-soft)" }}>
+            <Button key={item} size="sm" dense variant={view === item ? "outline" : "secondary"} aria-pressed={view === item} onClick={() => setView(item)}>
               {t(`view.${item.toLowerCase()}`)}
-            </button>
+            </Button>
           ))}
         </div>
         {view === "CALENDAR" && (
           <div className="flex items-center" style={{ gap: "var(--space-2)" }}>
-            <button type="button" className="ds-chip" aria-label={t("view.previousMonth")} onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}>←</button>
+            <Button size="sm" dense aria-label={t("view.previousMonth")} onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}>←</Button>
             <strong>{calendarMonth.toLocaleDateString(localeTag(), { year: "numeric", month: "long" })}</strong>
-            <button type="button" className="ds-chip" aria-label={t("view.nextMonth")} onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}>→</button>
+            <Button size="sm" dense aria-label={t("view.nextMonth")} onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}>→</Button>
           </div>
         )}
       </div>
@@ -623,7 +615,11 @@ export default function EventsPage() {
         @media (max-width: 900px) {
           .event-grid { grid-template-columns: 1fr !important; }
         }
-        @media (max-width: 700px) { .event-calendar { overflow-x: auto; grid-template-columns: repeat(7, minmax(110px, 1fr)) !important; } }
+        @media (max-width: 700px) {
+          .event-summary { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .event-summary > :last-child { grid-column: 1 / -1; }
+          .event-calendar { overflow-x: auto; grid-template-columns: repeat(7, minmax(110px, 1fr)) !important; }
+        }
       `}</style>
     </div>
   );
@@ -767,10 +763,8 @@ function EventCard({
   const isLive = event.status === "LIVE";
 
   return (
-    <Link
-      to={`/event/${event.id}`}
-      className="ds-card ds-card--bare block"
-      style={{
+    <Link to={`/event/${event.id}`} className="block" style={{ color: "inherit", textDecoration: "none" }}>
+      <Card variant="bare" padding="none" style={{
         padding: 0,
         overflow: "hidden",
         display: "grid",
@@ -779,8 +773,7 @@ function EventCard({
         opacity: isFinished ? 0.72 : 1,
         transition: "opacity .15s",
         borderColor: isMine ? "color-mix(in oklch, var(--lime) 30%, var(--line-soft))" : undefined,
-      }}
-    >
+      }}>
       {/* 커버: 1) CF mapImageUrl 2) Mapbox Static API (실시간) 3) SVG 폴백 4) 일러스트 */}
       <div style={{ position: "relative", background: COVER_BG[event.status] ?? COVER_BG.DEFAULT, minHeight: 144 }}>
         {(() => {
@@ -970,6 +963,7 @@ function EventCard({
           </div>
         )}
       </div>
+      </Card>
     </Link>
   );
 }

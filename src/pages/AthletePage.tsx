@@ -606,13 +606,13 @@ export default function AthletePage() {
             {t("privacy.privateDesc")}
           </div>
           {currentUser && canSendFriendRequest && friendStatus === "none" && (
-            <button
+            <Button
               onClick={handleSendFriendRequest}
               disabled={friendLoading}
-              className={`ds-btn ds-btn--md mt-5 px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] disabled:opacity-50${friendLoading ? ' cursor-wait' : ''}`}
+              className={`mt-5 ${friendLoading ? 'cursor-wait' : ''}`}
             >
               {friendLoading ? t("friend.requesting") : t("friend.request")}
-            </button>
+            </Button>
           )}
         </Card>
       </div>
@@ -667,13 +667,13 @@ export default function AthletePage() {
         {!isMe && currentUser && (
           <div className="flex gap-2">
             {friendStatus === "none" && canSendFriendRequest && (
-              <button
+              <Button
                 onClick={handleSendFriendRequest}
                 disabled={friendLoading}
-                className={`ds-btn ds-btn--md px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] disabled:opacity-50${friendLoading ? 'cursor-wait' : ''}`}
+                className={friendLoading ? 'cursor-wait' : undefined}
               >
                 {friendLoading ? t("friend.requesting") : t("friend.request")}
-              </button>
+              </Button>
             )}
             {friendStatus === "request_sent" && (
               <button
@@ -686,13 +686,13 @@ export default function AthletePage() {
               </button>
             )}
             {friendStatus === "request_received" && (
-              <button
+              <Button
                 onClick={handleAcceptRequest}
                 disabled={friendLoading}
-                className={`ds-btn ds-btn--md px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] disabled:opacity-50${friendLoading ? 'cursor-wait' : ''}`}
+                className={friendLoading ? 'cursor-wait' : undefined}
               >
                 {friendLoading ? t("friend.accepting") : t("friend.accept")}
-              </button>
+              </Button>
             )}
             {friendStatus === "friends" && (
               <button
@@ -969,11 +969,12 @@ export default function AthletePage() {
                   </div>
                 ))}
                 {!isSearchActive && hasMoreActivities && (
-                  <button
-                    onClick={handleLoadMoreActivities}
-                    disabled={loadingMore}
-                    className="w-full py-3 text-[length:var(--fs-sm)] font-medium text-[var(--lime)] ds-card ds-card--bare rounded-[var(--r-lg)] hover:bg-[var(--lime)]/10 transition-colors disabled:opacity-50"
-                  >
+                  <Card variant="bare" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
+                    <button
+                      onClick={handleLoadMoreActivities}
+                      disabled={loadingMore}
+                      className="w-full py-3 text-[length:var(--fs-sm)] font-medium text-[var(--lime)] hover:bg-[var(--lime)]/10 transition-colors disabled:opacity-50"
+                    >
                     {loadingMore ? (
                       <span className="flex items-center justify-center gap-2">
                         <span className="w-4 h-4 border-2 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
@@ -984,7 +985,8 @@ export default function AthletePage() {
                     ) : (
                       t("activities.loadMore")
                     )}
-                  </button>
+                    </button>
+                  </Card>
                 )}
               </>
             )}

@@ -14,7 +14,7 @@ import { useAuth } from "../contexts/AuthContext";
 import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
 import { EmptyState } from "../components/redesign";
-import { Card } from "../theme/components";
+import { Alert, Button, Card } from "../theme/components";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 import RouteBuilderMap from "../components/course/RouteBuilderMap";
 import { MAX_BUILDER_WAYPOINTS, tryAddWaypoint, undoWaypoint, type Waypoint } from "../features/courseBuilder/routeBuilder";
@@ -572,8 +572,8 @@ export default function CreateCoursePage() {
       <div className="space-y-6">
         <Card padding="none" className="p-8 text-center">
           <div className="relative inline-flex items-center justify-center mb-6">
-            <span className="absolute w-16 h-16 rounded-full bg-green-400/30 animate-ping" />
-            <span className="relative w-16 h-16 rounded-full bg-green-500 flex items-center justify-center">
+            <span className="absolute w-16 h-16 rounded-full bg-[var(--color-success)]/30 animate-ping" />
+            <span className="relative w-16 h-16 rounded-full bg-[var(--color-success)] flex items-center justify-center">
               <svg className="w-8 h-8 text-[var(--ink-0)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
@@ -676,9 +676,7 @@ export default function CreateCoursePage() {
           {/* Error */}
           {!loadingStreams && streamError && (
             <div className="space-y-4">
-              <div className="bg-red-50 border border-red-200 rounded-[var(--r-lg)] p-4 text-center">
-                <p className="text-red-600">{streamError}</p>
-              </div>
+              <Alert variant="danger">{streamError}</Alert>
               <button
                 onClick={leavePage}
                 className="px-4 py-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors"
@@ -778,22 +776,23 @@ export default function CreateCoursePage() {
           ) : (
             <>
               {/* GPX loaded */}
-              <div className="bg-green-50 border border-green-200 rounded-[var(--r-lg)] p-3 flex items-center justify-between">
-                <span className="text-[length:var(--fs-sm)] text-green-700">
-                  {t("gpx.loaded", { filename: gpxFileName, pointCount: gpxLatlng?.length ?? 0 })}
-                </span>
-                <button
-                  onClick={() => {
-                    setGpxXml(null);
-                    setGpxLatlng(null);
-                    setGpxParsed(null);
-                    setGpxFileName("");
-                  }}
-                  className="text-[length:var(--fs-xs)] text-[var(--ink-2)] hover:text-red-400 transition-colors"
-                >
-                  {t("button.reselect")}
-                </button>
-              </div>
+              <Alert variant="success">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[length:var(--fs-sm)]">
+                    {t("gpx.loaded", { filename: gpxFileName, pointCount: gpxLatlng?.length ?? 0 })}
+                  </span>
+                  <Button variant="ghost" size="sm"
+                    onClick={() => {
+                      setGpxXml(null);
+                      setGpxLatlng(null);
+                      setGpxParsed(null);
+                      setGpxFileName("");
+                    }}
+                  >
+                    {t("button.reselect")}
+                  </Button>
+                </div>
+              </Alert>
 
               {/* GPX Map preview */}
               {gpxLatlng && gpxLatlng.length > 0 && (
@@ -821,13 +820,13 @@ export default function CreateCoursePage() {
           <div className="flex flex-wrap gap-2" aria-label={t("builder.coordinateEntry")}>
             <input aria-label={t("builder.latitude")} inputMode="decimal" value={manualLat} onChange={(e) => setManualLat(e.target.value)} className="min-h-11 w-36 rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--bg-2)] px-2" />
             <input aria-label={t("builder.longitude")} inputMode="decimal" value={manualLng} onChange={(e) => setManualLng(e.target.value)} className="min-h-11 w-36 rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--bg-2)] px-2" />
-            <button type="button" className="ds-btn ds-btn--md" onClick={() => { if (!manualLat.trim() || !manualLng.trim() || !addBuilderPoint({ lat: Number(manualLat), lng: Number(manualLng) })) { setBuilderError(t("builder.invalidCoordinate")); return; } setManualLat(""); setManualLng(""); }}>{t("builder.addCoordinate")}</button>
+            <Button onClick={() => { if (!manualLat.trim() || !manualLng.trim() || !addBuilderPoint({ lat: Number(manualLat), lng: Number(manualLng) })) { setBuilderError(t("builder.invalidCoordinate")); return; } setManualLat(""); setManualLng(""); }}>{t("builder.addCoordinate")}</Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => { builderPointsRef.current = undoWaypoint(builderPointsRef.current); setBuilderPoints(builderPointsRef.current); invalidateBuilderRoute(); }} disabled={!builderPoints.length} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.undo")}</button>
-            <button type="button" onClick={() => { builderPointsRef.current = []; setBuilderPoints([]); invalidateBuilderRoute(); }} disabled={!builderPoints.length} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.clear")}</button>
-            <button type="button" onClick={() => void calculateBuilderRoute()} disabled={builderPoints.length < 2 || routing} className="ds-btn ds-btn--md disabled:opacity-50">{routing ? t("builder.routing") : builderError ? t("builder.retry") : t("builder.calculate")}</button>
-            <button type="button" onClick={() => builderRoute && downloadGpx(routeToGpx(name, builderRoute.geometry.coordinates))} disabled={!builderRoute} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.export")}</button>
+            <Button onClick={() => { builderPointsRef.current = undoWaypoint(builderPointsRef.current); setBuilderPoints(builderPointsRef.current); invalidateBuilderRoute(); }} disabled={!builderPoints.length}>{t("builder.undo")}</Button>
+            <Button onClick={() => { builderPointsRef.current = []; setBuilderPoints([]); invalidateBuilderRoute(); }} disabled={!builderPoints.length}>{t("builder.clear")}</Button>
+            <Button onClick={() => void calculateBuilderRoute()} disabled={builderPoints.length < 2 || routing}>{routing ? t("builder.routing") : builderError ? t("builder.retry") : t("builder.calculate")}</Button>
+            <Button onClick={() => builderRoute && downloadGpx(routeToGpx(name, builderRoute.geometry.coordinates))} disabled={!builderRoute}>{t("builder.export")}</Button>
           </div>
           <div role={builderError ? "alert" : "status"} aria-live="polite" className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">
             {builderError || (builderRoute ? t("builder.stats", { distance: (builderRoute.distanceM / 1000).toFixed(1), minutes: Math.round(builderRoute.durationSeconds / 60), ascent: Math.round(builderRoute.ascentM ?? 0) }) : t("builder.pointCount", { count: builderPoints.length, max: MAX_BUILDER_WAYPOINTS }))}
@@ -859,7 +858,7 @@ export default function CreateCoursePage() {
           <Card padding="none" className="lg:flex-1 p-4 space-y-4">
             <div>
               <label className="block text-[length:var(--fs-sm)] font-medium text-[var(--ink-1)] mb-1">
-                {t("form.courseName")} <span className="text-red-500">{t("form.nameRequired")}</span>
+                {t("form.courseName")} <span className="text-[var(--color-error)]">{t("form.nameRequired")}</span>
               </label>
               <input
                 type="text"
@@ -952,16 +951,14 @@ export default function CreateCoursePage() {
 
               {/* Errors */}
               {rangeValidation.length > 0 && (
-                <div className="mt-3 bg-red-50 border border-red-200 rounded-[var(--r-sm)] p-2">
+                <Alert variant="danger" className="mt-3 text-[length:var(--fs-xs)]">
                   {rangeValidation.map((msg) => (
-                    <p key={msg} className="text-red-600 text-[length:var(--fs-xs)]">{msg}</p>
+                    <p key={msg}>{msg}</p>
                   ))}
-                </div>
+                </Alert>
               )}
               {submitError && (
-                <div className="mt-3 bg-red-50 border border-red-200 rounded-[var(--r-sm)] p-2">
-                  <p className="text-red-600 text-[length:var(--fs-xs)]">{submitError}</p>
-                </div>
+                <Alert variant="danger" className="mt-3 text-[length:var(--fs-xs)]">{submitError}</Alert>
               )}
 
               {/* Submit */}

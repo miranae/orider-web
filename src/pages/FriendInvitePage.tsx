@@ -9,7 +9,7 @@ import { useFriends } from "../hooks/useFriends";
 import { useToast } from "../contexts/ToastContext";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
-import { Card } from "../theme/components";
+import { Button, Card } from "../theme/components";
 
 interface InvitePreview {
   userId: string;
@@ -188,16 +188,15 @@ export default function FriendInvitePage() {
             {inviteError}
           </p>
           <div className="flex gap-2 justify-center">
-            <button
+            <Button
               type="button"
               onClick={() => {
                 setInviteError(null);
                 setProcessed(false);
               }}
-              className="ds-btn ds-btn--md px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)]"
             >
               {t("invite.retry")}
-            </button>
+            </Button>
             <button
               type="button"
               onClick={() => navigate("/friends", { replace: true })}

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { LocalizedLink } from "../LocalizedLink";
 import { NAV_GROUPS } from "../settings/settingsNavigation";
-import { Text } from "../../theme/components";
+import { Text, buttonClass } from "../../theme/components";
 
 /** Mobile settings root: a short category hub; settings themselves live on dedicated subpages. */
 export default function MobileSettingsPage() {
@@ -14,7 +14,7 @@ export default function MobileSettingsPage() {
       <header className="mobile-settings-header">
         <LocalizedLink
           to="/my"
-          className="ds-btn ds-btn--ghost ds-btn--sm ds-btn--icon-only"
+          className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })}
           aria-label={t("nav.backToProfile")}
         >
           <ChevronLeft aria-hidden="true" />

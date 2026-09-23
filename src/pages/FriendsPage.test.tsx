@@ -110,7 +110,7 @@ describe("FriendsPage", () => {
   it("disables add button when input is empty", async () => {
     renderWithProviders(<FriendsPage />, { authenticated: true });
     await waitFor(() => {
-      const addBtn = screen.getByText("추가");
+      const addBtn = screen.getByRole("button", { name: "추가" });
       expect(addBtn).toBeDisabled();
     });
   });

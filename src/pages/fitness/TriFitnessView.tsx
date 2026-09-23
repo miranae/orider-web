@@ -356,9 +356,10 @@ function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess
   return (
     <Link
       to={href}
-      className="ds-card ds-card--bare"
-      style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: "var(--space-2)", textDecoration: "none", color: "inherit" }}
+      className="block no-underline"
+      style={{ color: "inherit" }}
     >
+      <Card variant="bare" padding="none" style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: "var(--space-2)", color: "inherit" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)' }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
         <Text variant="eyebrow">{label}</Text>
@@ -396,6 +397,7 @@ function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess
         <span><Text variant="mono" style={{ color: "var(--ink-1)" }}>{dist}</Text> {unit}</span>
       </div>
       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{lastSess}</div>
+      </Card>
     </Link>
   );
 }

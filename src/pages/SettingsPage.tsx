@@ -18,7 +18,7 @@ import { PaneApp } from "../components/settings/PaneApp";
 import { PaneDeveloper } from "../components/settings/PaneDeveloper";
 import { PaneAiCoach } from "../components/settings/PaneAiCoach";
 import { LocalizedLink } from "../components/LocalizedLink";
-import { Text } from "../theme/components";
+import { Text, buttonClass } from "../theme/components";
 import { NAV_GROUPS, SECTION_IDS, type SectionId } from "../components/settings/settingsNavigation";
 
 function parseSection(value: string | null): SectionId {
@@ -59,7 +59,7 @@ export default function SettingsPage() {
         <header className="mobile-settings-header">
           <LocalizedLink
             to="/settings"
-            className="ds-btn ds-btn--ghost ds-btn--sm ds-btn--icon-only"
+            className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })}
             aria-label={t("nav.backToSettings")}
           >
             <ChevronLeft aria-hidden="true" />

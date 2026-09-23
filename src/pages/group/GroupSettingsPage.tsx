@@ -180,7 +180,7 @@ export default function GroupSettingsPage() {
           <p className="text-[length:var(--fs-sm)] mb-4" style={{ color: "var(--ink-2)" }}>
             {t("settings.leaveDescription")}
           </p>
-          <button
+          <Button variant="danger"
             onClick={async () => {
               setLeaving(true);
               try {
@@ -195,10 +195,9 @@ export default function GroupSettingsPage() {
               setLeaving(false);
             }}
             disabled={leaving}
-            className="px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-md)] bg-red-500 text-[var(--ink-0)] hover:bg-red-600 disabled:opacity-50 transition-colors"
           >
             {leaving ? t("button.saving") : t("button.leave")}
-          </button>
+          </Button>
         </Card>
       </div>
     );
@@ -539,7 +538,7 @@ export default function GroupSettingsPage() {
         {isCreator && <Card padding="none" className="p-6"
           style={{ borderRadius: "var(--r-md)", borderColor: "color-mix(in srgb, var(--rose) 30%, transparent)" }}
         >
-          <h2 className="text-[length:var(--fs-sm)] font-semibold text-red-500 mb-2">{t("settings.dangerZone")}</h2>
+          <h2 className="text-[length:var(--fs-sm)] font-semibold text-[var(--color-error)] mb-2">{t("settings.dangerZone")}</h2>
           <p className="text-[length:var(--fs-xs)] mb-2" style={{ color: "var(--ink-2)" }}>
             {t("settings.deleteDescription")}
           </p>
@@ -552,28 +551,24 @@ export default function GroupSettingsPage() {
           </p>
           {showDeleteConfirm ? (
             <div className="flex gap-2">
-              <button
+              <Button variant="danger"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-md)] bg-red-500 text-[var(--ink-0)] hover:bg-red-600 disabled:opacity-50 transition-colors"
               >
                 {deleting ? t("button.saving") : t("button.confirmDelete")}
-              </button>
-              <button
+              </Button>
+              <Button variant="secondary"
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-md)]"
-                style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}
               >
                 {t("button.cancel")}
-              </button>
+              </Button>
             </div>
           ) : (
-            <button
+            <Button variant="danger"
               onClick={() => setShowDeleteConfirm(true)}
-              className="px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-md)] border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors"
             >
               {t("button.deleteGroup")}
-            </button>
+            </Button>
           )}
         </Card>}
       </div>
