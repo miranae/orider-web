@@ -155,11 +155,11 @@ function SplitTable({ laps, thresholdPaceSecPerKm }: { laps?: ActivityStreams["l
 // ── 심박 차트 + 존 분포 ──────────────────────────────────────────────────────
 
 const HR_ZONES = [
-  { label: 'Z1', color: 'oklch(0.7 0.1 200)',  test: (hr: number) => hr < 120 },
-  { label: 'Z2', color: 'oklch(0.75 0.12 160)', test: (hr: number) => hr >= 120 && hr < 140 },
-  { label: 'Z3', color: 'oklch(0.80 0.14 120)', test: (hr: number) => hr >= 140 && hr < 160 },
-  { label: 'Z4', color: 'oklch(0.78 0.15 60)',  test: (hr: number) => hr >= 160 && hr < 175 },
-  { label: 'Z5', color: 'oklch(0.72 0.16 30)',  test: (hr: number) => hr >= 175 },
+  { label: 'Z1', color: 'var(--zone-1)', test: (hr: number) => hr < 120 },
+  { label: 'Z2', color: 'var(--zone-2)', test: (hr: number) => hr >= 120 && hr < 140 },
+  { label: 'Z3', color: 'var(--zone-3)', test: (hr: number) => hr >= 140 && hr < 160 },
+  { label: 'Z4', color: 'var(--zone-4)', test: (hr: number) => hr >= 160 && hr < 175 },
+  { label: 'Z5', color: 'var(--zone-5)', test: (hr: number) => hr >= 175 },
 ];
 
 function HRCard({ laps }: { laps?: ActivityStreams["laps"] }) {
@@ -199,15 +199,15 @@ function HRCard({ laps }: { laps?: ActivityStreams["laps"] }) {
       <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 100, display: 'block' }} preserveAspectRatio="none">
         <defs>
           <linearGradient id="hrFill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0" stopColor="oklch(0.72 0.16 30)" stopOpacity="0.4" />
-            <stop offset="1" stopColor="oklch(0.72 0.16 30)" stopOpacity="0" />
+            <stop offset="0" stopColor="var(--chart-heart-rate)" stopOpacity="0.4" />
+            <stop offset="1" stopColor="var(--chart-heart-rate)" stopOpacity="0" />
           </linearGradient>
         </defs>
         {[0.25, 0.5, 0.75].map(p => (
           <line key={p} x1="0" x2={w} y1={h * p} y2={h * p} stroke="var(--grid-soft)" />
         ))}
         <path d={fill} fill="url(#hrFill)" />
-        <path d={path} stroke="oklch(0.72 0.16 30)" strokeWidth="1.8" fill="none" />
+        <path d={path} stroke="var(--chart-heart-rate)" strokeWidth="1.8" fill="none" />
       </svg>
 
       {/* 존 분포 세로 막대 */}

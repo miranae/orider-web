@@ -296,6 +296,14 @@
   },
   "mobileFitness": {
     "title": "피트니스",
+    "currentStatusTitle": "현재 상태",
+    "decision": {
+      "signedOut": "로그인하면 오늘 계획을 확인할 수 있어요",
+      "unavailable": "오늘 계획을 확인할 수 없습니다",
+      "healthStop": "운동 중단 사유를 먼저 확인하세요",
+      "viewDetails": "오늘 결정·실행안 보기",
+      "viewSafetyDetails": "중단 사유 자세히 보기"
+    },
     "tabOverview": "개요",
     "tabZones": "파워존",
     "tabZonesBike": "파워존",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { gradeBandIndex, readGradeBandColors, segmentGradePct } from "./ElevationChart";
+import { DEFAULT_THEME } from "../theme";
 
 describe("segmentGradePct", () => {
   it("거리 대비 고도차를 백분율로 낸다", () => {
@@ -31,13 +32,13 @@ describe("gradeBandIndex", () => {
 
 describe("readGradeBandColors", () => {
   it("구간 수만큼 색을 돌려주고 서로 다르다", () => {
-    const colors = readGradeBandColors(true);
+    const colors = readGradeBandColors(DEFAULT_THEME.scheme.dark.colors);
     expect(colors).toHaveLength(3);
     expect(new Set(colors).size).toBe(3);
     expect(colors.every((color) => color.length > 0)).toBe(true);
   });
 
   it("라이트·다크에서 각각 값을 낸다", () => {
-    expect(readGradeBandColors(false).every((color) => color.length > 0)).toBe(true);
+    expect(readGradeBandColors(DEFAULT_THEME.scheme.light.colors).every((color) => color.length > 0)).toBe(true);
   });
 });

@@ -1,0 +1,38 @@
+@media (max-width: 36rem) {
+  .mobile-fitness-pmc .ds-chart__header {
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: var(--space-2);
+  }
+
+  .mobile-fitness-pmc .ds-chart__heading {
+    flex: 1;
+  }
+
+  .mobile-fitness-pmc .ds-chart__title {
+    font-size: var(--fs-md);
+  }
+
+  .mobile-fitness-pmc .ds-chart__actions {
+    flex: none;
+  }
+
+  .mobile-fitness-pmc .pmc-history__source {
+    white-space: nowrap;
+  }
+
+  /* 보조 설명과 반복 차트명은 읽기 순서를 유지하면서 화면 공간만 줄인다. */
+  .mobile-fitness-pmc .ds-chart__description,
+  .mobile-fitness-pmc .pmc-history__chart-heading {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .mobile-fitness-pmc .pmc-history .ds-chart__plot {
+    margin-top: var(--space-2);
+  }
+}

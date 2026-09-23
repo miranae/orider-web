@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
+import type { ReactNode } from "react";
 import type { User } from "firebase/auth";
 import { useTodayTrainingDecision } from "../../hooks/useTodayTrainingDecision";
+import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
 import { Alert, Button, Card, Chip, Text } from "../../theme/components";
 import {
   canShowRecommendation, decisionAction, primaryEffectiveSession, primaryRecommendedAdjustment,
@@ -55,14 +57,38 @@ function ProposalPanel({ decision, recommendationVisible, refresh }: {
   </section>;
 }
 
-export default function TodayTrainingDecisionCard({ user, discipline, surface = "fitness", onSignIn = () => undefined }: {
+interface TodayTrainingDecisionCardProps {
   user: User | null;
   discipline: "bike" | "run" | "swim";
   surface?: TrainingDecisionSurface;
   onSignIn?: () => void;
+  decisionState?: TodayTrainingDecisionState;
+}
+
+/** 모바일 상단 요약과 상세 카드가 동일한 판정 응답을 소비하도록 한 번만 조회한다. */
+export function TodayTrainingDecisionSource({ user, discipline, children }: {
+  user: User | null;
+  discipline: "bike" | "run" | "swim";
+  children: (state: TodayTrainingDecisionState) => ReactNode;
 }) {
+  const state = useTodayTrainingDecision(user?.uid, discipline);
+  return <>{children(state)}</>;
+}
+
+function ConnectedTodayTrainingDecisionCard(props: TodayTrainingDecisionCardProps) {
+  const decisionState = useTodayTrainingDecision(props.user?.uid, props.discipline);
+  return <TodayTrainingDecisionCardContent {...props} decisionState={decisionState} />;
+}
+
+export default function TodayTrainingDecisionCard(props: TodayTrainingDecisionCardProps) {
+  return props.decisionState
+    ? <TodayTrainingDecisionCardContent {...props} decisionState={props.decisionState} />
+    : <ConnectedTodayTrainingDecisionCard {...props} />;
+}
+
+function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness", onSignIn = () => undefined, decisionState }: TodayTrainingDecisionCardProps & { decisionState: TodayTrainingDecisionState }) {
   const { t, i18n } = useTranslation("training");
-  const { decision, loading, scheduledOnly, unavailableReason, refresh } = useTodayTrainingDecision(user?.uid, discipline);
+  const { decision, loading, scheduledOnly, unavailableReason, refresh } = decisionState;
   if (!user) return null;
   if (loading) return surface === "plan" ? null
     : <Card className="training-decision-card" aria-busy="true"><Text tone="secondary">{t("decision.loading")}</Text></Card>;

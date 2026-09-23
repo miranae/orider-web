@@ -20,7 +20,7 @@ export default function SpeedCurveChart({ points, emptyTitle, emptyDescription }
       points={points.map((p) => ({ durationSeconds: p.durationSeconds, value: p.speedKmh }))}
       unit="km/h"
       fractionDigits={1}
-      color="#22d3ee"
+      color="var(--chart-speed)"
       datasetLabel={t("dashboard:charts.speedCurve.datasetLabel")}
       peakLabel={points.length > 0
         ? t("dashboard:charts.speedCurve.peakSpeed", { speed: points[0]!.speedKmh })
