@@ -27,6 +27,9 @@ describe("PmcHistoryPanel", () => {
 
   it("changes day/week/month granularity and keeps navigation synchronized with the value strip", () => {
     const { container } = renderPanel();
+    expect(screen.getByText("저장된 PMC 이력")).toBeInTheDocument();
+    expect(screen.queryByText(/실적 \+ 예측/)).not.toBeInTheDocument();
+    expect(container.querySelector('[data-pmc-today-marker="true"]')).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "90일" })).toHaveAttribute("aria-pressed", "true");
     const initialSelectionX = container.querySelector('[data-pmc-selection="true"] line')?.getAttribute("x1");
     fireEvent.click(screen.getByRole("button", { name: "이전 구간" }));
@@ -36,8 +39,18 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getAllByText("2026-09-06 – 2026-09-06")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "180일" }));
     expect(screen.getByText("주평균")).toBeInTheDocument();
+    expect(container.querySelector('[data-pmc-today-marker="true"]')).not.toBeInTheDocument();
+    expect(container.querySelector(".pmc-history__value-strip strong")).toHaveTextContent("주평균");
+    expect(screen.getByRole("button", { name: "최신 구간" })).toBeInTheDocument();
+    const chart = screen.getByRole("img");
+    const svgPoint = { x: 0, y: 0, matrixTransform: () => ({ x: svgPoint.x, y: svgPoint.y }) };
+    Object.defineProperty(chart, "createSVGPoint", { value: () => svgPoint });
+    Object.defineProperty(chart, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
+    fireEvent.pointerMove(chart, { clientX: 400, clientY: 10 });
+    expect(screen.getByText("CTL · 주평균")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "3년" }));
     expect(screen.getByText("월평균")).toBeInTheDocument();
+    expect(container.querySelector(".pmc-history__value-strip strong")).toHaveTextContent("월평균");
     const table = screen.getByRole("table");
     expect(within(table).getByText("45.0")).toBeInTheDocument();
     expect(within(table).getByText("60.0")).toBeInTheDocument();

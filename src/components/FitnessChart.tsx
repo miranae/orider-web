@@ -39,6 +39,12 @@ interface FitnessChartProps {
   }>;
   /** Optional controlled point selection used by history navigation outside the SVG. */
   selectedIndex?: number;
+  /** False when each point represents an aggregated period rather than an actual day. */
+  showTodayMarker?: boolean;
+  /** Context-specific accessible title when the chart is reused outside forecast surfaces. */
+  accessibleTitle?: string;
+  /** Clarifies that displayed metrics are period aggregates, such as weekly or monthly means. */
+  metricQualifier?: string;
 }
 
 function tsToDateStr(ms: number): string {
@@ -100,8 +106,11 @@ export default function FitnessChart({
   ctlColor = PMC_LINE_PALETTE.ctl.color,
   activityMarkers = [],
   selectedIndex,
+  showTodayMarker = true,
+  accessibleTitle,
+  metricQualifier,
 }: FitnessChartProps) {
-  const { t } = useTranslation("dashboard");
+  const { t } = useTranslation(["dashboard", "fitness"]);
   const svgRef = useRef<SVGSVGElement>(null);
   const chartId = useId().replace(/:/g, "");
   const ctlFillId = `${chartId}-ctl-fill`;
@@ -282,7 +291,7 @@ export default function FitnessChart({
       return {
         x: sx(idx),
         text: formatDateLabel(d),
-        isToday: d === todayStr,
+        isToday: showTodayMarker && d === todayStr,
         isGoal: goalDateStr != null && d === goalDateStr,
       };
     });
@@ -330,7 +339,7 @@ export default function FitnessChart({
       syFn: sy,
       selectedPoint: controlledIndex == null ? null : seriesData[controlledIndex] ?? null,
     };
-  }, [activityMarkers, data, projection, today, goalDate, goalCTL, goalTSB, selectedIndex, t, viewWidth]);
+  }, [activityMarkers, data, projection, today, goalDate, goalCTL, goalTSB, selectedIndex, showTodayMarker, t, viewWidth]);
 
   if (data.length === 0) {
     return (
@@ -359,19 +368,23 @@ export default function FitnessChart({
   }
 
   const hover = hoverIdx != null ? series[hoverIdx] : null;
-  const tooltipW = 156;
+  const tooltipW = metricQualifier ? 210 : 156;
   const tooltipH = 90;
   const tooltipPad = 10;
-  const tooltipX = hover
+  const preferredTooltipX = hover
     ? hover.x + tooltipPad + tooltipW > viewWidth - PAD_RIGHT
       ? hover.x - tooltipPad - tooltipW
       : hover.x + tooltipPad
+    : 0;
+  const tooltipX = hover
+    ? Math.max(PAD_LEFT, Math.min(preferredTooltipX, viewWidth - PAD_RIGHT - tooltipW))
     : 0;
   const tooltipY = PAD_TOP + 4;
   const selectedMarker = activityMarkers.find((marker) => marker.selected);
   const markerAccessibilitySummary = activityMarkers.length > 0
     ? ` ${t("charts.fitness.activityMarkers", { count: activityMarkers.length })}${selectedMarker ? ` ${t("charts.fitness.selectedActivityMarker", { label: selectedMarker.label })}` : ""}`
     : "";
+  const accessibleDescription = `${accessibleTitle ?? t("pmc.title", { ns: "fitness" })}. ${t("pmc.interpretation", { ns: "fitness" })}.${markerAccessibilitySummary}`;
 
   return (
     <svg
@@ -382,9 +395,9 @@ export default function FitnessChart({
       onPointerMove={handleMove}
       onPointerLeave={() => setHoverIdx(null)}
       role="img"
-      aria-label={`${t("pmc.title")}. ${t("pmc.interpretation")}.${markerAccessibilitySummary}`}
+      aria-label={accessibleDescription}
     >
-      <desc>{`${t("pmc.title")}. ${t("pmc.interpretation")}.${markerAccessibilitySummary}`}</desc>
+      <desc>{accessibleDescription}</desc>
       <defs>
         <linearGradient id={ctlFillId} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={ctlColor} stopOpacity="0.28" />
@@ -489,14 +502,16 @@ export default function FitnessChart({
         <path d={tsbFuturePath} stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth={PMC_LINE_PALETTE.tsb.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" fill="none" opacity={PMC_FUTURE_OPACITY} />
       )}
 
-      {/* 오늘 마커 */}
-      <ChartAxisLine x1={todayX} x2={todayX} y1={PAD_TOP} y2={PAD_TOP + PLOT_H}
-            strokeDasharray="3 3" opacity="0.7" />
-      <text x={todayX + 6} y={PAD_TOP + 12} fontSize="12" fontFamily="var(--font-mono)"
-            fill="var(--ink-1)" fontWeight="600">
-        {t("charts.fitness.today")}
-      </text>
-      {todayCTL != null && <circle cx={todayX} cy={todayCtlY} r="4" fill={ctlColor} stroke="var(--bg-0)" strokeWidth="2" />}
+      {/* 오늘 마커 — 집계 포인트(주/월 평균)에는 실제 오늘로 오인되지 않도록 표시하지 않는다. */}
+      {showTodayMarker && <g data-pmc-today-marker="true">
+        <ChartAxisLine x1={todayX} x2={todayX} y1={PAD_TOP} y2={PAD_TOP + PLOT_H}
+              strokeDasharray="3 3" opacity="0.7" />
+        <text x={todayX + 6} y={PAD_TOP + 12} fontSize="12" fontFamily="var(--font-mono)"
+              fill="var(--ink-1)" fontWeight="600">
+          {t("charts.fitness.today")}
+        </text>
+        {todayCTL != null && <circle cx={todayX} cy={todayCtlY} r="4" fill={ctlColor} stroke="var(--bg-0)" strokeWidth="2" />}
+      </g>}
 
       {/* 외부 기간 탐색과 동기화된 확정 선택점. 호버와 달리 포인터 이탈 후에도 유지한다. */}
       {selectedPoint && (
@@ -542,7 +557,7 @@ export default function FitnessChart({
           {hover.atl != null && <circle cx={hover.x} cy={syFn(hover.atl)} r="3.5" fill={PMC_LINE_PALETTE.atl.color} stroke="var(--bg-0)" strokeWidth="1.5" />}
           {hover.tsb != null && <circle cx={hover.x} cy={syFn(hover.tsb)} r="3.5" fill={PMC_LINE_PALETTE.tsb.color} stroke="var(--bg-0)" strokeWidth="1.5" />}
 
-          <rect x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH} rx="6"
+          <rect data-pmc-tooltip="true" x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH} rx="6"
                 fill="var(--bg-1)" stroke="var(--line)" strokeWidth="1" opacity="0.98" />
           <text x={tooltipX + 10} y={tooltipY + 16} fontSize="12" fontFamily="var(--font-mono)"
                 fill="var(--ink-0)" fontWeight="700">
@@ -555,7 +570,7 @@ export default function FitnessChart({
           ] as const).map((item, i) => (
             <g key={item.label} data-pmc-tooltip-metric={item.label} transform={`translate(${tooltipX + 10}, ${tooltipY + 34 + i * 16})`}>
               <line x1="0" y1="-3" x2="10" y2="-3" stroke={item.color} strokeWidth="2" strokeDasharray={item.style.dasharray} strokeLinecap={item.style.linecap} vectorEffect="non-scaling-stroke" />
-              <text x="14" y="0" fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-2)">{item.label}</text>
+              <text x="14" y="0" fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-2)">{item.label}{metricQualifier ? ` · ${metricQualifier}` : ""}</text>
               <text x={tooltipW - 20} y="0" fontSize="12" fontFamily="var(--font-mono)" fill={item.color}
                     fontWeight="700" textAnchor="end">
                 {item.value != null ? `${item.value >= 0 && item.label === "TSB" ? "+" : ""}${item.value.toFixed(1)}` : "—"}
