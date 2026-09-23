@@ -481,6 +481,25 @@ select.ds-input {
 .ds-progress--lg { height: 10px; }
 .ds-progress--sm { height: 4px; }
 
+/* ===== Chart — 공통 차트 프레임/범례/격자 ===== */
+.ds-chart { min-width: 0; color: var(--ink-0); }
+.ds-chart--card { padding: var(--space-5); background: var(--bg-1); border: 1px solid var(--line-soft); border-radius: var(--r-lg); }
+.ds-chart--embedded { padding: 0; background: transparent; border: 0; }
+.ds-chart__header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
+.ds-chart__heading { min-width: 0; }
+.ds-chart__title { color: var(--ink-0); font-size: var(--fs-lg); font-weight: 700; line-height: 1.35; }
+.ds-chart__title > :is(h1, h2, h3, h4, h5, h6) { margin: 0; color: inherit; font: inherit; }
+.ds-chart__description { margin-top: var(--space-1); color: var(--ink-2); font-size: var(--fs-sm); line-height: 1.5; }
+.ds-chart__actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.ds-chart__plot { position: relative; min-width: 0; }
+.ds-chart__legend { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin: 0; padding: 0; color: var(--ink-2); font-size: var(--fs-sm); list-style: none; }
+.ds-chart__legend li { display: inline-flex; align-items: center; gap: var(--space-1); }
+.ds-chart__legend svg { width: 1.5rem; height: .5rem; overflow: visible; }
+.ds-chart__tooltip { position: absolute; z-index: 1; display: grid; gap: var(--space-1); min-width: 7rem; padding: var(--space-2) var(--space-3); color: var(--ink-1); background: color-mix(in oklch, var(--bg-2) 94%, transparent); border: 1px solid var(--line-soft); border-radius: var(--r-sm); box-shadow: var(--shadow-sm); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; pointer-events: none; }
+.ds-chart__tooltip strong { color: var(--ink-0); font-weight: 600; }
+.ds-chart__grid { stroke: var(--grid-soft); }
+.ds-chart__axis { stroke: var(--grid-axis); }
+
 /* ===== Text — 의미 단위 타이포 ===== */
 .ds-text { color: inherit; overflow-wrap: anywhere; word-break: keep-all; }
 

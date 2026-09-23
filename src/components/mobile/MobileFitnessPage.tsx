@@ -643,7 +643,7 @@ export default function MobileFitnessPage({
             ) : (
               <>
                 {pmcHistoryPoints && (
-                  <PmcHistoryPanel key={data.discipline} points={pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} />
+                  <PmcHistoryPanel key={data.discipline} points={pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" />
                 )}
                 <DetailsSection title={t("fitness:history.dailyDetails")} defaultOpen={!pmcHistoryPoints}>
                 {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
