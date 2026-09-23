@@ -17,7 +17,6 @@
 .mobile-fitness-page--embedded .mobile-fitness-pmc .pmc-history__ranges { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
 .mobile-fitness-page--embedded .mobile-fitness-pmc .pmc-history__ranges .ds-btn { flex: 1 0 2.75rem; }
 
-.mobile-fitness-performance__header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
 .mobile-fitness-performance__ftp { display: flex; align-items: baseline; gap: var(--space-2); margin-top: var(--space-1); }
 .mobile-fitness-performance__profile { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin-top: var(--space-1); }
 .mobile-fitness-performance__metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
