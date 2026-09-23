@@ -429,6 +429,8 @@
     "headerTitle": "운동 계획",
     "addAction": "+ 추가",
     "weekHeading": "WEEK",
+    "previousWeek": "이전 주",
+    "nextWeek": "다음 주",
     "weekThis": "이번 주",
     "showPastWeeks": "지난 {{count}}주 보기",
     "hidePastWeeks": "지난 주 접기",

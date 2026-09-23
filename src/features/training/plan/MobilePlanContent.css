@@ -1,11 +1,18 @@
 .mobile-plan-goal-stats {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-@media (max-width: 360px) {
-  .mobile-plan-goal-stats {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.mobile-plan-goal-stats > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mobile-plan-goal-stats strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-plan-content button:disabled {
+  cursor: default;
+  opacity: 0.38;
 }

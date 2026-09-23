@@ -71,6 +71,8 @@ export interface MobilePlanContentProps {
   footerSlot?: ReactNode;
   currentWeek: PlanWeek | null;
   weekLabel: string;
+  canPrevWeek?: boolean;
+  canNextWeek?: boolean;
   goalTitle?: string;
   daysLeft?: number;
   progressPct?: number;
@@ -91,6 +93,8 @@ export default function MobilePlanContent({
   footerSlot,
   currentWeek,
   weekLabel,
+  canPrevWeek = true,
+  canNextWeek = true,
   goalTitle,
   daysLeft,
   progressPct,
@@ -144,7 +148,7 @@ export default function MobilePlanContent({
   const editTargetIdx = todayIdx >= 0 ? todayIdx : days.findIndex(d => d.workout !== "rest");
 
   return (
-    <div>
+    <div className="mobile-plan-content">
       {chromeSlot}
 
       {goalTitle && (
@@ -191,12 +195,14 @@ export default function MobilePlanContent({
 
       {/* Week navigation */}
       <div className="flex items-center justify-center" style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
-        <button onClick={onWeekPrev} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>◀</button>
+        <button type="button" onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>◀</button>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-4)" }}>WEEK</div>
+          <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.weekHeading')}</div>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{weekLabel}{weeksLeft != null && <span style={{ marginLeft: "var(--space-1)", color: "var(--ink-3)", fontSize: "var(--fs-xs)", fontWeight: 400 }}>· {t("metrics.weeksLeft")} {weeksLeft}{t("metrics.weeksUnit")}</span>}</div>
         </div>
-        <button onClick={onWeekNext} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>▶</button>
+        <button type="button" onClick={onWeekNext} disabled={!onWeekNext || !canNextWeek} aria-label={t('mobile.nextWeek')}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>▶</button>
       </div>
 
       {/* Weekly summary */}

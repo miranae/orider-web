@@ -90,4 +90,20 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.getByRole("button", { name: "지난 일정 접기" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("휴식일")).toBeInTheDocument();
   });
+
+  it("labels week controls and disables unavailable directions", () => {
+    const previous = vi.fn();
+    const next = vi.fn();
+    renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="이번 주" canPrevWeek={false} canNextWeek
+      onWeekPrev={previous} onWeekNext={next} />);
+
+    const previousButton = screen.getByRole("button", { name: "이전 주" });
+    const nextButton = screen.getByRole("button", { name: "다음 주" });
+    expect(previousButton).toBeDisabled();
+    expect(nextButton).toBeEnabled();
+    fireEvent.click(previousButton);
+    fireEvent.click(nextButton);
+    expect(previous).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledOnce();
+  });
 });

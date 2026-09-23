@@ -429,6 +429,8 @@
     "headerTitle": "Training Plan",
     "addAction": "+ Add",
     "weekHeading": "WEEK",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
     "weekThis": "This week",
     "showPastWeeks": "Show previous {{count}} weeks",
     "hidePastWeeks": "Hide previous weeks",

@@ -23,6 +23,43 @@
   color: var(--orider-host-text-primary);
 }
 
+.orider-embedded-surface--plan {
+  padding: var(--space-2) 0 var(--space-4);
+}
+
+.orider-embedded-plan-state {
+  margin: var(--space-2) var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  background: var(--bg-1);
+}
+
+.orider-embedded-plan-state h2 {
+  margin: 0;
+  color: var(--ink-0);
+  font-size: var(--fs-base);
+  line-height: 1.4;
+}
+
+.orider-embedded-plan-state p {
+  margin: var(--space-2) 0 0;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+}
+
+.orider-embedded-plan-state button {
+  min-height: 44px;
+  margin-top: var(--space-3);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+}
+
 .orider-embedded-shell__header {
   padding: var(--space-4) var(--space-4) 0;
 }
