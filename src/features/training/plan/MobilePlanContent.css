@@ -125,8 +125,10 @@
 }
 
 .mobile-plan-week-metrics strong {
-  font-size: var(--fs-md);
+  font-size: var(--fs-lg);
 }
+
+.mobile-plan-week-metrics small { font-size: var(--fs-base); }
 
 .mobile-plan-week-metrics > span:first-child strong {
   color: var(--lime);

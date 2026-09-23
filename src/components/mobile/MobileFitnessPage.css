@@ -35,7 +35,9 @@
 
 @media (max-width: 36rem) {
   .mobile-fitness-toolbar__sports > [role="group"] { padding-inline: 0 !important; }
-  .mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.25rem; }
+  .mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.25rem; font-size: var(--fs-base) !important; }
+  .mobile-fitness-toolbar__sports > [role="group"] > button[aria-pressed="false"] { color: var(--ink-2) !important; }
+  .mobile-fitness-mode-toggle { font-size: var(--fs-base); }
   .mobile-fitness-pmc .ds-chart__header {
     align-items: center;
     flex-wrap: nowrap;

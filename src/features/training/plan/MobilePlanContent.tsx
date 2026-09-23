@@ -229,7 +229,7 @@ export default function MobilePlanContent({
               <span><small>{t('mobile.timeLabel')}</small><strong>{h}h {m}m</strong></span>
               <span><small>{t('mobile.sessions')}</small><strong>{sessions}</strong></span>
             </div>
-            {(bikeTSS > 0 || runTSS > 0 || swimTSS > 0) && <div className="mobile-plan-sport-load">
+            {[bikeTSS, runTSS, swimTSS].filter(load => load > 0).length > 1 && <div className="mobile-plan-sport-load">
               <Text as="div" variant="eyebrow" className="mobile-plan-section-label">{t('mobile.sportLoad')}</Text>
               <div className="mobile-plan-sport-bar" aria-hidden="true">
                 {bikeTSS > 0 && <div style={{ width: `${(bikeTSS/stackTotal)*100}%`, background: "var(--aqua)" }} />}
@@ -328,7 +328,7 @@ export default function MobilePlanContent({
                   const c = getDisciplineColor(d);
                   return (
                     <span style={{
-                      fontSize: "var(--fs-xs)", padding: "1px 5px", borderRadius: "var(--r-xs)",
+                      fontSize: "var(--fs-base)", padding: "2px var(--space-1-5)", borderRadius: "var(--r-xs)",
                       background: `color-mix(in oklch, ${c} 14%, var(--bg-2))`,
                       color: c, border: `1px solid color-mix(in oklch, ${c} 30%, transparent)`,
                       display: "flex", alignItems: "center", gap: "var(--space-0-5)",
@@ -336,7 +336,7 @@ export default function MobilePlanContent({
                   );
                 })()}
                 <span style={{
-                  fontSize: "var(--fs-xs)", padding: "1px 5px", borderRadius: "var(--r-xs)",
+                  fontSize: "var(--fs-base)", padding: "2px var(--space-1-5)", borderRadius: "var(--r-xs)",
                   background: "var(--bg-3)", color: intensityColor,
                 }}>{intensityLabel}</span>
                 {/* 자동 조정 chip — week 단위 canonical factor 사용 */}

@@ -48,7 +48,7 @@ describe("MobileFitnessPage tri", () => {
     const css = readFileSync(join(process.cwd(), "src/components/mobile/MobileFitnessPage.css"), "utf8");
     expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] { overflow-x: auto;');
     expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.75rem; white-space: nowrap; }');
-    expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.25rem; }');
+    expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.25rem; font-size: var(--fs-base) !important; }');
     expect(css).not.toContain('font-size: 0 !important;');
     const { container } = renderWithProviders(<MobileFitnessPage data={previewData} />);
     expect(container.querySelector(".mobile-fitness-toolbar__sports [role='group']")).toHaveAccessibleName("종목 선택");

@@ -66,7 +66,7 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.getByText("가벼움")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("주간 TSS60");
     expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("1h 15m");
-    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("사이클 60");
+    expect(screen.getByRole("region", { name: "이번 주 요약" }).querySelector(".mobile-plan-sport-load")).toBeNull();
     fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
     expect(edit).toHaveBeenCalledWith(workout, "week-04", 0);
   });
@@ -107,8 +107,18 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(summary).toHaveTextContent("주간 TSS40");
     expect(summary).toHaveTextContent("시간0h 45m");
     expect(summary).toHaveTextContent("세션1");
-    expect(summary).toHaveTextContent("사이클 40");
+    expect(summary.querySelector(".mobile-plan-sport-load")).toBeNull();
     expect(screen.getByText("이번 주 다음 운동")).toBeInTheDocument();
+  });
+
+  it("shows the sport load split when the week includes more than one sport", () => {
+    const runDay = { ...workout, date: today + 86_400_000, workout: "easyRun" as const, plannedTSS: 30 };
+    renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [workout, runDay] }} weekLabel="이번 주" />);
+
+    const summary = screen.getByRole("region", { name: "이번 주 요약" });
+    expect(summary.querySelector(".mobile-plan-sport-bar")).toBeInTheDocument();
+    expect(summary).toHaveTextContent("사이클 60");
+    expect(summary).toHaveTextContent("러닝 30");
   });
 
   it("prioritizes today while keeping earlier days accessible", () => {
