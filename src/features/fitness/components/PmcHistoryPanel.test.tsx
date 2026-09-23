@@ -133,7 +133,22 @@ describe("PmcHistoryPanel", () => {
     const css = readFileSync(join(process.cwd(), "src/features/fitness/components/PmcHistoryPanel.css"), "utf8");
     expect(css).toContain(".pmc-history__ranges .ds-btn { height: 44px; min-height: 44px; }");
     expect(css).toContain(".pmc-history__ranges .ds-btn::after { display: none; }");
+    expect(css).toContain(".pmc-history__ranges--controlled { grid-template-columns: repeat(2, minmax(0, 1fr)); }");
+    expect(css).toContain(".pmc-history__navigation label { grid-column: 1 / -1; }");
     expect(css).toContain(".pmc-history__tsb-chart { display: block; width: 100%; height: auto;");
+  });
+
+  it("puts period controls and latest CTL/ATL before the long trend plot", () => {
+    const { container } = renderPanel();
+    const range = screen.getByRole("group", { name: "표시 기간" });
+    const chart = container.querySelector(".pmc-history__trend-stack");
+    const latest = container.querySelector(".pmc-history__latest");
+    expect(range.compareDocumentPosition(chart!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(latest).toHaveTextContent("최신 구간");
+    expect(latest).toHaveTextContent("체력 (CTL) 50.0");
+    expect(latest).toHaveTextContent("피로도 (ATL) 55.0");
+    expect(latest?.compareDocumentPosition(chart!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(container.querySelector(".pmc-history__navigation label")?.compareDocumentPosition(screen.getByRole("button", { name: "오늘" }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("keeps selected values keyed to the plotted series and emphasizes the independent zero baseline", () => {

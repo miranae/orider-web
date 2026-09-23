@@ -10,6 +10,8 @@
 .pmc-history__canonical-chart { color: var(--ink-1); font-size: var(--fs-lg); font-weight: 700; }
 .pmc-history__unit { flex: none; padding: var(--space-1) var(--space-2); color: var(--ink-2); background: var(--bg-2); border-radius: var(--r-sm); font-size: var(--fs-xs); font-weight: 600; }
 .pmc-history__chart-head .ds-chart__legend { gap: var(--space-4); color: var(--ink-1); font-size: var(--fs-md); font-weight: 500; }
+.pmc-history__chart-head .pmc-history__ranges { margin-top: var(--space-1); }
+.pmc-history__latest { display: none; }
 .pmc-history__plot-wrap { position: relative; margin-top: var(--space-2); }
 .pmc-history__plot-wrap .ds-chart__tooltip { transform: translateX(-50%); }
 .pmc-history__plot-wrap .pmc-history__tooltip--start { transform: none; }
@@ -57,6 +59,10 @@
   .pmc-history__chart { height: 13.5rem; }
   .pmc-history__chart-head .ds-chart__legend { gap: var(--space-2); }
   .pmc-history__chart-head .ds-chart__legend li { gap: var(--space-1); }
+  .pmc-history__latest { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+  .pmc-history__latest span { white-space: nowrap; }
+  .pmc-history__latest span:first-child { color: var(--ink-1); font-weight: 600; }
+  .pmc-history__latest b { color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-sm); }
   .pmc-history__value-strip { align-items: stretch; }
   .pmc-history__values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
   .pmc-history__values span { min-width: 0; display: grid; gap: var(--space-1); white-space: normal; }
@@ -64,9 +70,11 @@
   .pmc-history__controls { align-items: stretch; flex-direction: column; }
   .pmc-history__buttons .ds-btn { flex: 1; }
   .pmc-history__ranges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pmc-history__ranges--controlled { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pmc-history__ranges .ds-btn { height: 44px; min-height: 44px; }
   .pmc-history__ranges .ds-btn::after { display: none; }
-  .pmc-history__navigation { gap: var(--space-1); }
-  .pmc-history__navigation label { flex-basis: 60%; }
+  .pmc-history__navigation { display: grid; grid-template-columns: 2.75rem 2.75rem minmax(0, 1fr); gap: var(--space-2); }
+  .pmc-history__navigation label { grid-column: 1 / -1; }
+  .pmc-history__navigation > .ds-btn:last-child { justify-self: end; white-space: nowrap; }
   .pmc-history__value-strip strong { flex-basis: 100%; }
 }
