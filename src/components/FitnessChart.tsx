@@ -57,6 +57,8 @@ interface FitnessChartProps {
   chartWidth?: number;
   hideLegend?: boolean;
   hideXLabels?: boolean;
+  /** Show the latest observed CTL/ATL beside their line ends on wide history charts. */
+  showEndLabels?: boolean;
   onSelectionFocusRequest?: () => void;
 }
 
@@ -130,6 +132,7 @@ export default function FitnessChart({
   chartWidth,
   hideLegend = false,
   hideXLabels = false,
+  showEndLabels = false,
   onSelectionFocusRequest,
 }: FitnessChartProps) {
   const { t } = useTranslation(["dashboard", "fitness"]);
@@ -437,6 +440,21 @@ export default function FitnessChart({
     ? ` ${t("charts.fitness.activityMarkers", { count: activityMarkers.length })}${selectedMarker ? ` ${t("charts.fitness.selectedActivityMarker", { label: selectedMarker.label })}` : ""}`
     : "";
   const accessibleDescription = `${accessibleTitle ?? t("pmc.title", { ns: "fitness" })}. ${metricQualifier ? `${metricQualifier}. ` : ""}${t("pmc.interpretation", { ns: "fitness" })}.${markerAccessibilitySummary}`;
+  const lastObserved = series[historicalPointCount - 1];
+  const endLabels = (() => {
+    if (!showEndLabels || renderWidth < 600 || !lastObserved) return [];
+    const labels = ([
+      { metric: "ctl", value: showCtl ? lastObserved.ctl : null, color: ctlColor },
+      { metric: "atl", value: showAtl ? lastObserved.atl : null, color: PMC_LINE_PALETTE.atl.color },
+    ] as const).filter((item): item is typeof item & { value: number } => item.value != null)
+      .map((item) => ({ ...item, y: syFn(item.value) }));
+    if (labels.length === 2 && Math.abs(labels[0]!.y - labels[1]!.y) < 22) {
+      const direction = labels[0]!.y <= labels[1]!.y ? 1 : -1;
+      labels[0]!.y -= direction * 11;
+      labels[1]!.y += direction * 11;
+    }
+    return labels.map((item) => ({ ...item, y: Math.max(PAD_TOP + 11, Math.min(PAD_TOP + PLOT_H - 11, item.y)) }));
+  })();
 
   return (
     <svg
@@ -522,6 +540,13 @@ export default function FitnessChart({
       {showTsb && tsbPastPath && (
         <path data-pmc-series="tsb" d={tsbPastPath} stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth={PMC_LINE_PALETTE.tsb.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
       )}
+
+      {endLabels.map(({ metric, value, color, y }) => (
+        <g key={metric} data-pmc-end-label={metric} aria-hidden="true" pointerEvents="none">
+          <rect x={lastObserved!.x - 83} y={y - 12} width="72" height="22" rx="4" fill="var(--bg-0)" fillOpacity="0.92" stroke={color} strokeOpacity="0.5" />
+          <text x={lastObserved!.x - 17} y={y + 4} textAnchor="end" fontSize="14" fontWeight="700" fontFamily="var(--font-mono)" fill={color}>{metric.toUpperCase()} {value.toFixed(1)}</text>
+        </g>
+      ))}
 
       {/* 최근 활동 마커. 선택은 상단 활동 목록에서 수행하고 차트는 같은 선택을 강조한다. */}
       {markerPoints.map((marker, index) => (
