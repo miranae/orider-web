@@ -45,6 +45,26 @@ function triProps(values: { bike?: number; run?: number; swim?: number } = {}) {
 }
 
 describe("TriFitnessView parity", () => {
+  it("shows the history chart before the integrated summary while retaining both", () => {
+    renderWithProviders(
+      <TriFitnessView
+        range={90}
+        onRangeChange={vi.fn()}
+        {...triProps({ bike: 35.2 })}
+        combinedLoad={{ ctl: 35.2, atl: 30, tsb: 5.2, contributions: [] }}
+        loadFocus={emptyLoadFocus}
+        historySlot={<section data-testid="pmc-history-chart">PMC history chart</section>}
+      />,
+      { authenticated: true, route: "/fitness?sport=tri" },
+    );
+
+    const chart = screen.getByTestId("pmc-history-chart");
+    const summary = screen.getByTestId("desktop-integrated-detail");
+    expect(chart.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("button", { name: "3개월" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /사이클링/ })).toBeInTheDocument();
+  });
+
   it("renders the authoritative integrated detail exactly once without a workout card", () => {
     renderWithProviders(
       <TriFitnessView
