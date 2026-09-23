@@ -67,13 +67,18 @@ export interface ActivitySocialSummary {
   achievements: Array<{ id: string; text: string }>;
   fitnessImpact?: {
     status: "available";
+    discipline: "bike" | "run" | "swim";
     asOf: number;
     timezone: "UTC";
     before: FitnessImpactValues;
     after: FitnessImpactValues;
     delta: FitnessImpactValues;
-    inputDigest: string;
-    excludedHistoryCount?: number;
+  } | {
+    status: "pending";
+    discipline: "bike" | "run" | "swim";
+    asOf: number;
+    timezone: "UTC";
+    before: FitnessImpactValues;
   } | { status: "unavailable"; reason: string };
   shareText: string;
 }

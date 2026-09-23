@@ -73,9 +73,9 @@ describe("AiRideAnalysisCard", () => {
       socialSummary: {
         narrative: "공유할 성취 요약", achievements: [], shareText: "공유할 성취 요약",
         fitnessImpact: {
-          status: "available", asOf: 1, timezone: "UTC", inputDigest: "test", excludedHistoryCount: 5,
-          before: { ctl: 38.6, atl: 46.6, tsb: -8 }, after: { ctl: 40.1, atl: 55.6, tsb: -15.5 },
-          delta: { ctl: 1.5, atl: 9, tsb: -7.5 },
+          status: "available", discipline: "bike", asOf: 1, timezone: "UTC",
+          before: { ctl: 51.9, atl: 65.2, tsb: -13.3 }, after: { ctl: 53.3, atl: 71.6, tsb: -18.3 },
+          delta: { ctl: 1.4, atl: 6.4, tsb: -5 },
         },
       },
       prescriptions: [{ horizon: "ride", theme: "recovery", title: "회복 권고", detail: "다음 주행은 가볍게" }],
@@ -85,8 +85,8 @@ describe("AiRideAnalysisCard", () => {
     expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
     expect(screen.getByText("다음 주행은 가볍게")).toBeInTheDocument();
     expect(screen.getByText("구간별 코칭 유지")).toBeInTheDocument();
-    expect(screen.getByText("38.6 → 40.1 (+1.5)")).toBeInTheDocument();
-    expect(screen.getByText("데이터가 부족한 과거 활동 5개를 제외하고 계산했습니다.")).toBeInTheDocument();
+    expect(screen.getByText("51.9 → 53.3 (+1.4)")).toBeInTheDocument();
+    expect(screen.getByText("같은 종목의 일별 정산값입니다. 활동일 값에는 그날의 모든 활동이 포함됩니다.")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "공유용 요약" })).toBeInTheDocument();
   });
 

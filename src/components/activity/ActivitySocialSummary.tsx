@@ -65,27 +65,26 @@ export default function ActivitySocialSummary({ summary: initialSummary, isActiv
           {summary.achievements.map((achievement) => <li key={achievement.id}>{achievement.text}</li>)}
         </ul>
       )}
-      {impact?.status === "available" && (
+      {(impact?.status === "available" || impact?.status === "pending") && impact.discipline && (
         <div className="space-y-2">
-          <Text variant="caption" tone="tertiary" as="p">{t("socialSummary.integrated")}</Text>
+          <Text variant="caption" tone="tertiary" as="p">{t(`socialSummary.sports.${impact.discipline}`)} · {t(impact.status === "available" ? "socialSummary.settled" : "socialSummary.pendingTitle")}</Text>
           <dl className="space-y-2">
             {(["ctl", "atl", "tsb"] as const).map((metric) => (
               <div key={metric} className="flex flex-wrap items-baseline justify-between gap-2">
                 <dt>{t(`socialSummary.${metric}`)}</dt>
                 <dd className="tabular-nums">
-                  {impact.before[metric].toFixed(1)} → {impact.after[metric].toFixed(1)}
-                  {" "}({impact.delta[metric] > 0 ? "+" : ""}{impact.delta[metric].toFixed(1)})
+                  {impact.before[metric].toFixed(1)}
+                  {impact.status === "available" && <> → {impact.after[metric].toFixed(1)}
+                    {" "}({impact.delta[metric] > 0 ? "+" : ""}{impact.delta[metric].toFixed(1)})</>}
                 </dd>
               </div>
             ))}
           </dl>
-          <Text variant="caption" tone="tertiary" as="p">{t("socialSummary.counterfactual")}</Text>
-          {(impact.excludedHistoryCount ?? 0) > 0 && (
-            <Text variant="caption" tone="tertiary" as="p">{t("socialSummary.excludedHistory", { count: impact.excludedHistoryCount })}</Text>
-          )}
+          <Text variant="caption" tone="tertiary" as="p">{t(impact.status === "available" ? "socialSummary.dailyBasis" : "socialSummary.pendingBasis")}</Text>
         </div>
       )}
-      {impact?.status === "unavailable" && <Text variant="caption" tone="tertiary" as="p">{t("socialSummary.unavailable")}</Text>}
+      {(impact?.status === "unavailable" || (impact?.status === "available" && !impact.discipline))
+        && <Text variant="caption" tone="tertiary" as="p">{t(impact?.status === "unavailable" && impact.reason === "privacy-hidden" ? "socialSummary.private" : "socialSummary.unavailable")}</Text>}
       {isActivityOwner && summary.shareText && (
         <div className="space-y-2">
           <Button variant="secondary" size="sm" onClick={() => { void copy(); }}>{t("socialSummary.copy")}</Button>
