@@ -12,6 +12,7 @@ import CriticalPaceCurve from "../components/charts/CriticalPaceCurve";
 import CSSCurve from "../components/charts/CSSCurve";
 import FitnessChart from "../components/FitnessChart";
 import PmcHistoryPanel from "../features/fitness/components/PmcHistoryPanel";
+import type { PmcRange } from "../features/fitness/pmcHistory";
 import CyclingAbilityCard from "../components/fitness/CyclingAbilityCard";
 import MilestoneCelebration from "../components/fitness/MilestoneCelebration";
 import MilestonesGrid from "../components/fitness/MilestonesGrid";
@@ -116,6 +117,13 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     cyclingAbility,
     runPaceStreams,
   } = model;
+  const [historyRangeOverride, setHistoryRangeOverride] = useState<{ discipline: string; range: PmcRange } | null>(null);
+  const historyRange = historyRangeOverride?.discipline === discipline ? historyRangeOverride.range : range;
+  const changePageRange = (nextRange: typeof range) => {
+    setHistoryRangeOverride(null);
+    setRange(nextRange);
+  };
+  const changeHistoryRange = (nextRange: PmcRange) => setHistoryRangeOverride({ discipline, range: nextRange });
   const renderMobile = embedded || isMobile;
   const activityImpacts = discipline === "tri" || !hasCanonicalTimeseries
     ? []
@@ -208,12 +216,13 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         </div>
         <TriFitnessView
           range={range}
-          onRangeChange={setRange}
+          selectedHistoryRange={historyRange}
+          onRangeChange={changePageRange}
           breakdown={triFitnessBreakdown}
           timeline={triFitnessTimeline}
           combinedLoad={combinedLoad}
           loadFocus={integratedLoadFocus}
-          historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={model.hasCanonicalHistory} controlledRange={range} />}
+          historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={model.hasCanonicalHistory} controlledRange={historyRange} onControlledRangeChange={changeHistoryRange} />}
         />
       </div>
     );
@@ -366,13 +375,13 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             {getRangeOptions(t).map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => setRange(opt.value)}
+                onClick={() => changePageRange(opt.value)}
                 style={{
                   padding: "5px 12px",
                   fontSize: "var(--fs-xs)",
                   borderRadius: "var(--r-sm)",
-                  background: range === opt.value ? "var(--bg-3)" : "transparent",
-                  color: range === opt.value ? "var(--ink-0)" : "var(--ink-3)",
+                  background: historyRange === opt.value ? "var(--bg-3)" : "transparent",
+                  color: historyRange === opt.value ? "var(--ink-0)" : "var(--ink-3)",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -525,7 +534,8 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           points={model.pmcHistoryPoints}
           today={toUtcDate(Date.now())}
           canonical={model.hasCanonicalHistory}
-          controlledRange={range}
+          controlledRange={historyRange}
+          onControlledRangeChange={changeHistoryRange}
           ctlColor={getDisciplineColor(discipline)}
         />
         <DetailsSection title={t("history.dailyDetails")}>

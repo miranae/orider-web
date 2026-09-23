@@ -604,12 +604,6 @@ export default function MobileFitnessPage({
             />
           )}
 
-          {data.discipline === "tri" && data.combinedLoad && (
-            <div style={{ marginBottom: "var(--space-3)" }}>
-              <IntegratedLoadCard combined={data.combinedLoad} focus={data.loadFocus} />
-            </div>
-          )}
-
           {data.discipline !== "tri" && (
             <div style={{ marginBottom: "var(--space-3)" }}>
               <SportPerformanceCard
@@ -666,6 +660,12 @@ export default function MobileFitnessPage({
               </>
             )}
           </SectionCard>
+
+          {data.discipline === "tri" && data.combinedLoad && (
+            <div style={{ marginBottom: "var(--space-3)" }}>
+              <IntegratedLoadCard combined={data.combinedLoad} focus={data.loadFocus} />
+            </div>
+          )}
 
           {/* 주간 TSS */}
           {sectionState.trend === "ready" && data.weeklyTSS.length > 0 && (

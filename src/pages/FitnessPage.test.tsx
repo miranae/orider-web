@@ -26,8 +26,11 @@ vi.mock("../features/trainingDecision/TodayTrainingDecisionCard", () => ({
   default: ({ surface }: { surface: string }) => <div data-testid="today-training-decision">{surface} workout</div>,
 }));
 vi.mock("../features/fitness/components/PmcHistoryPanel", () => ({
-  default: ({ points, canonical, controlledRange }: { points: Array<{ date: string }>; canonical: boolean; controlledRange?: number }) => (
-    <div data-testid="pmc-history" data-count={points.length} data-start={points[0]?.date} data-canonical={String(canonical)} data-range={controlledRange} />
+  default: ({ points, canonical, controlledRange, onControlledRangeChange }: { points: Array<{ date: string }>; canonical: boolean; controlledRange?: number | "3y" | "all"; onControlledRangeChange?: (range: "3y" | "all") => void }) => (
+    <div data-testid="pmc-history" data-count={points.length} data-start={points[0]?.date} data-canonical={String(canonical)} data-range={controlledRange}>
+      {onControlledRangeChange && <button onClick={() => onControlledRangeChange("3y")}>history 3y</button>}
+      {onControlledRangeChange && <button onClick={() => onControlledRangeChange("all")}>history all</button>}
+    </div>
   ),
 }));
 
@@ -47,7 +50,7 @@ vi.mock("../components/mobile/MobileFitnessPage", () => ({
   ),
 }));
 vi.mock("./fitness/TriFitnessView", () => ({
-  default: ({ combinedLoad, loadFocus, breakdown, onRangeChange, historySlot }: {
+  default: ({ combinedLoad, loadFocus, breakdown, onRangeChange, selectedHistoryRange, historySlot }: {
     historySlot?: ReactNode;
     combinedLoad?: { ctl: number } | null;
     loadFocus: { totalLoad: number } | null;
@@ -56,8 +59,9 @@ vi.mock("./fitness/TriFitnessView", () => ({
       run: { weeklyTSS: number; fitness: Array<{ ctl: number }> };
     };
     onRangeChange: (range: 365) => void;
+    selectedHistoryRange?: number | "3y" | "all";
   }) => (
-    <div>
+    <div data-testid="tri-page" data-selected-history-range={selectedHistoryRange}>
       desktop tri fitness dashboard
       {historySlot}
       <span>desktop integrated {combinedLoad?.ctl ?? "none"}</span>
@@ -527,6 +531,13 @@ describe("FitnessPage", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(activitySubscriptions()).toBe(before);
+    expect(screen.getByTestId("pmc-history")).toHaveAttribute("data-range", "365");
+    fireEvent.click(screen.getByRole("button", { name: "history 3y" }));
+    expect(screen.getByTestId("pmc-history")).toHaveAttribute("data-range", "3y");
+    expect(screen.getByTestId("tri-page")).toHaveAttribute("data-selected-history-range", "3y");
+    fireEvent.click(screen.getByRole("button", { name: "history all" }));
+    expect(screen.getByTestId("pmc-history")).toHaveAttribute("data-range", "all");
+    fireEvent.click(screen.getByRole("button", { name: "desktop 1y" }));
     expect(screen.getByTestId("pmc-history")).toHaveAttribute("data-range", "365");
   });
 

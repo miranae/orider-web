@@ -1,7 +1,7 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import type { FitnessPoint } from "../../../utils/fitnessMetrics";
 import PmcHistoryPanel from "./PmcHistoryPanel";
@@ -69,13 +69,23 @@ describe("PmcHistoryPanel", () => {
   });
 
   it("uses a page-controlled range without rendering a competing range selector", () => {
-    const view = renderWithProviders(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={42} />);
+    const onControlledRangeChange = vi.fn();
+    const view = renderWithProviders(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={42} onControlledRangeChange={onControlledRangeChange} />);
     expect(screen.getByText("일별")).toBeInTheDocument();
     expect(screen.getByRole("combobox").querySelectorAll("option")).toHaveLength(42);
     expect(screen.queryByRole("button", { name: "90일" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "3년" }));
+    expect(onControlledRangeChange).toHaveBeenCalledWith("3y");
 
-    view.rerender(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={365} />);
+    view.rerender(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange="3y" onControlledRangeChange={onControlledRangeChange} />);
+    expect(screen.getByRole("button", { name: "3년" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("월평균")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "전체" }));
+    expect(onControlledRangeChange).toHaveBeenCalledWith("all");
+
+    view.rerender(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={365} onControlledRangeChange={onControlledRangeChange} />);
     expect(screen.getByText("주평균")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "3년" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.queryByRole("button", { name: "360일" })).not.toBeInTheDocument();
   });
 
