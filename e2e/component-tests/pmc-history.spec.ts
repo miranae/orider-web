@@ -12,7 +12,8 @@ for (const scenario of [
       await page.route(/^https?:\/\/(?!127\.0\.0\.1:5189)/, route => route.abort());
       await page.goto("http://127.0.0.1:5189/e2e/fixtures/pmc-history.html?lang=ko&lifecycle=processed&clock=live");
       const panel = page.locator(".pmc-history");
-      await expect(panel.locator(".pmc-history__selection h3")).toHaveText(`${scenario.expectedDay} – ${scenario.expectedDay}`);
+      await expect(panel.locator(".pmc-history__value-strip strong")).toHaveText(`${scenario.expectedDay} – ${scenario.expectedDay}`);
+      await panel.locator("details summary").click();
       const row = panel.locator("tbody tr").first();
       await expect(row).toContainText("서버 계산");
       await expect(row.locator("td").first()).not.toHaveText("—");
@@ -55,6 +56,9 @@ for (const width of [1440, 390]) {
       await page.goto(`/e2e/fixtures/pmc-history.html?lang=${lang}`);
       const panel = page.locator(".pmc-history");
       await expect(panel).toBeVisible();
+      if (width === 1440) await expect(panel.locator('[data-pmc-end-label="ctl"]')).toBeVisible();
+      else await expect(panel.locator("[data-pmc-end-label]")).toHaveCount(0);
+      await panel.locator("details summary").click();
       await expect(panel.getByRole("columnheader", { name: lang === "ko" ? "운동부하 반영" : "Exercise load coverage", exact: true })).toBeVisible();
       await expect(panel.getByRole("columnheader", { name: lang === "ko" ? "PMC 계산" : "PMC calculation", exact: true })).toBeVisible();
       const latest = panel.locator("tbody tr").first();
@@ -71,13 +75,13 @@ for (const width of [1440, 390]) {
       await expect(charts.first()).toHaveAttribute("aria-valuenow", "35");
       await expect(charts.last()).toHaveAttribute("aria-valuenow", "35");
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await expect.poll(() => panel.locator("svg.pmc-history__chart").first().evaluate(svg => {
-        const labels = [...svg.querySelectorAll("text")].filter(node => node.getAttribute("y") === "190");
+      await testInfo.attach(`pmc-3year-${width}-${lang}`, { body: await page.screenshot({ path: testInfo.outputPath("3year.png"), fullPage: true, animations: "disabled" }), contentType: "image/png" });
+      await panel.getByRole("button", { name: lang === "ko" ? "연도별 비교" : "Compare years", exact: true }).click();
+      await expect.poll(() => panel.locator("svg.pmc-history__chart").evaluate(svg => {
+        const labels = [...svg.querySelectorAll("text")].filter(node => node.getAttribute("y") === "230");
         const boxes = labels.map(node => node.getBoundingClientRect());
         return boxes.every((box, index) => index === 0 || box.left >= boxes[index - 1].right);
       })).toBe(true);
-      await testInfo.attach(`pmc-3year-${width}-${lang}`, { body: await page.screenshot({ path: testInfo.outputPath("3year.png"), fullPage: true, animations: "disabled" }), contentType: "image/png" });
-      await panel.getByRole("button", { name: lang === "ko" ? "연도별 비교" : "Compare years", exact: true }).click();
       for (const year of ["2024", "2023", "2022"]) await panel.getByRole("button", { name: year, exact: true }).click();
       await expect(panel.getByRole("combobox").locator("option")).toHaveCount(12);
       await expect(panel.locator("tbody tr")).toHaveCount(5);

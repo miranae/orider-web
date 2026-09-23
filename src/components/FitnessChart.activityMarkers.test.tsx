@@ -79,6 +79,24 @@ describe("FitnessChart activity markers", () => {
     expect(container.querySelector('[data-pmc-today-marker="true"]')).not.toBeInTheDocument();
   });
 
+  it("labels observed line ends only when the history chart has room", () => {
+    const data = [
+      { date: "2026-09-05", ctl: 40, atl: 44, tsb: -4, dailyLoad: 50 },
+      { date: "2026-09-06", ctl: 42.3, atl: 42.8, tsb: -0.5, dailyLoad: 60 },
+    ];
+    const view = renderWithProviders(<FitnessChart data={data} chartWidth={1080} showEndLabels visibleMetrics={["ctl", "atl"]} />);
+    const ctl = view.container.querySelector('[data-pmc-end-label="ctl"]');
+    const atl = view.container.querySelector('[data-pmc-end-label="atl"]');
+    expect(ctl).toHaveTextContent("CTL 42.3");
+    expect(atl).toHaveTextContent("ATL 42.8");
+    expect(Math.abs(Number(ctl?.querySelector("text")?.getAttribute("y")) - Number(atl?.querySelector("text")?.getAttribute("y")))).toBeGreaterThanOrEqual(22);
+    view.rerender(<FitnessChart data={data} chartWidth={390} showEndLabels visibleMetrics={["ctl", "atl"]} />);
+    expect(view.container.querySelector("[data-pmc-end-label]")).not.toBeInTheDocument();
+    view.rerender(<FitnessChart data={[data[0]!, { ...data[1]!, atl: null }]} chartWidth={1080} showEndLabels visibleMetrics={["ctl", "atl"]} />);
+    expect(view.container.querySelector('[data-pmc-end-label="ctl"]')).toBeInTheDocument();
+    expect(view.container.querySelector('[data-pmc-end-label="atl"]')).not.toBeInTheDocument();
+  });
+
   it("keeps an aggregated tooltip inside a narrow chart", async () => {
     class NarrowResizeObserver {
       constructor(private readonly callback: ResizeObserverCallback) {}
