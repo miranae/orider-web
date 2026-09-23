@@ -161,9 +161,18 @@ describe("MobileFitnessPage tri", () => {
       zones: [], zoneSource: "none", discipline: "tri",
     } satisfies MobileFitnessData;
 
-    renderWithProviders(<MobileFitnessPage data={data} />);
+    const { container } = renderWithProviders(<MobileFitnessPage
+      data={data}
+      pmcHistoryPoints={[
+        { date: "2026-07-13", ctl: 9, atl: 8, tsb: 1, dailyLoad: 20 },
+        { date: "2026-07-14", ctl: 10, atl: 8, tsb: 2, dailyLoad: 25 },
+      ]}
+    />);
     expect(screen.getAllByTestId("integrated-load-card")).toHaveLength(1);
     expect(integratedLoadSpy).toHaveBeenCalledTimes(1);
+    const history = container.querySelector(".pmc-history");
+    expect(history).not.toBeNull();
+    expect(history!.compareDocumentPosition(screen.getByTestId("integrated-load-card")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("does not render integrated detail on a single-sport tab", () => {

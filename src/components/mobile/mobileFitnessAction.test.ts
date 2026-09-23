@@ -27,8 +27,8 @@ describe("mobile fitness action", () => {
     expect(overview).toContain('data.discipline === "tri" && data.combinedLoad');
     expect(sportIndex).toBeGreaterThan(-1);
     expect(coreIndex).toBeLessThan(loadIndex);
-    expect(loadIndex).toBeLessThan(sportIndex);
-    expect(analysisIndex).toBeGreaterThan(sportIndex);
+    expect(sportIndex).toBeLessThan(loadIndex);
+    expect(analysisIndex).toBeGreaterThan(loadIndex);
     expect(overview).not.toContain("{kpiItems.map");
     expect(overview).toContain("<BikePerformanceSummaryCard");
   });
@@ -67,7 +67,7 @@ describe("mobile fitness action", () => {
     expect(mobileFitness).toContain("IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다.");
     expect(mobileFitness).toContain('const trendSectionTitle = sectionState.trend === "ready"');
     expect(mobileFitness).toContain("<SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle}");
-    expect(mobileFitness.indexOf("<IntegratedLoadCard")).toBeLessThan(mobileFitness.indexOf("<PmcHistoryPanel"));
+    expect(mobileFitness.indexOf("<PmcHistoryPanel")).toBeLessThan(mobileFitness.indexOf("<IntegratedLoadCard"));
     expect(mobileFitness).toContain("points={pmcHistoryPoints}");
     expect(mobileFitness).toContain('title={t("fitness:history.dailyDetails")}');
     expect(integrated).not.toContain("PmcHistoryPanel");
