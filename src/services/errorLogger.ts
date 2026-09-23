@@ -1,6 +1,6 @@
 import { captureError } from "./sentry";
 import { httpsCallable, type HttpsCallable } from "firebase/functions";
-import { functions } from "./firebase";
+import { ensureAppCheckReady, functions } from "./firebase";
 
 /**
  * callable 은 호출 시점에 lazy 생성한다. 모듈 로드 시점에 만들면 main.tsx 의
@@ -65,15 +65,16 @@ export function logClientError(
   // error_logs에도 기록 (백업). functions 미초기화 시 skip, 동기/비동기 실패 모두 흡수.
   const stack = error instanceof Error ? error.stack : undefined;
 
-  try {
-    const fn = getLogClientErrorFn();
-    if (!fn) return; // initFirebase 전 — 서버 로깅 skip (Sentry 큐로 충분)
-    fn({ source, message, stack, context }).catch(() => {
+  void (async () => {
+    try {
+      await ensureAppCheckReady();
+      const fn = getLogClientErrorFn();
+      if (!fn) return; // initFirebase 전 — 서버 로깅 skip (Sentry 큐로 충분)
+      await fn({ source, message, stack, context });
+    } catch {
       console.warn("[errorLogger] 서버 에러 로깅 실패:", message);
-    });
-  } catch {
-    console.warn("[errorLogger] 서버 에러 로깅 동기 실패:", message);
-  }
+    }
+  })();
 }
 
 /**

@@ -488,20 +488,17 @@ export function useActivities(
             context: "first",
             scope,
           });
-          if (!cancelled) {
-            setHasMore(false);
-            setLoading(false);
+          first = await retryFetchPage(null, FIRST_FEED_CHUNK_SIZE, "first");
+        } else {
+          if (handleActivityFeedError("useActivities.initialLoad.first", err, { scope })) {
+            if (!cancelled) {
+              setHasMore(false);
+              setLoading(false);
+            }
+            return;
           }
-          return;
+          first = await retryFetchPage(null, FIRST_FEED_CHUNK_SIZE, "first");
         }
-        if (handleActivityFeedError("useActivities.initialLoad.first", err, { scope })) {
-          if (!cancelled) {
-            setHasMore(false);
-            setLoading(false);
-          }
-          return;
-        }
-        first = await retryFetchPage(null, FIRST_FEED_CHUNK_SIZE, "first");
       }
 
       try {
