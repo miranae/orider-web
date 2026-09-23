@@ -215,7 +215,46 @@ describe("useActivities", () => {
     }
   });
 
-  it("leaves the loading state when the current guest Firestore request never settles", async () => {
+  it("retries the initial feed once after a timeout and publishes the retry result", async () => {
+    const mockedGetDocs = vi.mocked(getDocs);
+    const defaultImplementation = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockReset();
+    mockedGetDocs
+      .mockImplementationOnce(() => new Promise(() => {}) as never)
+      .mockResolvedValueOnce({
+        docs: [{
+          id: "retry-success",
+          data: () => createMockActivity({ id: "retry-success", profileImage: "https://example.com/avatar.jpg" }),
+          exists: () => true,
+          ref: { path: "activities/retry-success" },
+        }],
+        size: 1,
+        empty: false,
+        metadata: { fromCache: false, hasPendingWrites: false },
+      } as never);
+    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+    vi.useFakeTimers();
+
+    try {
+      const { result } = renderHook(() => useActivities(), { wrapper });
+      await act(async () => { await Promise.resolve(); });
+      expect(mockedGetDocs).toHaveBeenCalledTimes(1);
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(12_600); });
+
+      expect(mockedGetDocs).toHaveBeenCalledTimes(2);
+      expect(result.current.loading).toBe(false);
+      expect(result.current.activities.map((activity) => activity.id)).toEqual(["retry-success"]);
+      expect(result.current.hasMore).toBe(false);
+    } finally {
+      vi.useRealTimers();
+      logSpy.mockRestore();
+      mockedGetDocs.mockReset();
+      if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
+    }
+  });
+
+  it("settles the initial feed after the timeout retry also times out", async () => {
     const mockedGetDocs = vi.mocked(getDocs);
     const defaultImplementation = mockedGetDocs.getMockImplementation();
     mockedGetDocs.mockReset();
@@ -229,12 +268,12 @@ describe("useActivities", () => {
       expect(mockedGetDocs).toHaveBeenCalledTimes(1);
       expect(result.current.loading).toBe(true);
 
-      await act(async () => { await vi.advanceTimersByTimeAsync(12_000); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(24_600); });
 
       expect(result.current.loading).toBe(false);
       expect(result.current.activities).toEqual([]);
       expect(result.current.hasMore).toBe(false);
-      expect(mockedGetDocs).toHaveBeenCalledTimes(1);
+      expect(mockedGetDocs).toHaveBeenCalledTimes(2);
       expect(firestoreRecoveryMocks.execute).not.toHaveBeenCalled();
       expect(logSpy).toHaveBeenCalledWith(
         "useActivities.initialLoad.timeout",
