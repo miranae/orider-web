@@ -48,7 +48,7 @@ export const coachProgressPlannerCapabilitiesSchema = z.object({
     confirm: z.object({ enabled: z.boolean() }).strict(), decline: z.object({ enabled: z.boolean() }).strict() }).strict().optional(),
   prescription: z.union([
     z.object({ enabled: z.literal(true), schemaVersion: z.literal("coach-prescription-v1"),
-      rulesVersion: z.literal("coach-prescription-rules-v1"), checkIn: z.union([
+      rulesVersion: z.enum(["coach-prescription-rules-v1", "coach-prescription-rules-v2"]), checkIn: z.union([
         z.object({ enabled: z.literal(true), endpoint: z.literal("/v1/coach/prescription/check-in") }).strict(),
         z.object({ enabled: z.literal(false), reasonCode: z.literal("prescription_proposal_feature_disabled") }).strict(),
       ]) }).strict(),
