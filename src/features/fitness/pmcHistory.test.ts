@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FitnessPoint } from '../../utils/fitnessMetrics'
-import { buildPmcHistory, buildPmcYearComparison, describePmcHistory, getPmcUnit, type PmcHistoryPoint } from './pmcHistory'
+import { buildPmcHistory, buildPmcYearComparison, describePmcHistory, getPmcUnit, type PmcHistoryPoint, type PmcRange } from './pmcHistory'
 import type { FitnessTimeseriesDoc } from '../../../shared/types/fitness-timeseries'
 import { toUtcDate } from '../../utils/dateUtils'
 
@@ -145,13 +145,13 @@ describe('PMC 부하 반영과 계산 출처', () => {
 
 describe('PMC 표시 집계', () => {
   it('일/주/월 단위를 선택한다', () => {
-    expect([30, 90, 180, 360, '3y', 'all'].map(range => getPmcUnit(range as 30 | 90 | 180 | 360 | '3y' | 'all')))
-      .toEqual(['day', 'day', 'week', 'week', 'month', 'month'])
+    expect([30, 42, 90, 180, 360, 365, '3y', 'all'].map(range => getPmcUnit(range as PmcRange)))
+      .toEqual(['day', 'day', 'day', 'week', 'week', 'week', 'month', 'month'])
   })
 
-  it('일별 기간은 오늘 포함 30/90일이며 입력 값을 재계산하지 않는다', () => {
+  it('일별 기간은 오늘 포함 30/42/90일이며 입력 값을 재계산하지 않는다', () => {
     const points = [point('2026-09-06', 12)]
-    for (const range of [30, 90] as const) {
+    for (const range of [30, 42, 90] as const) {
       const history = buildPmcHistory(points, range, '2026-09-06')
       expect(history.buckets).toHaveLength(range)
       expect(history.buckets.at(-1)).toMatchObject({ ctl: 12, atl: 24, tsb: -12, totalLoad: 36, partial: false })
@@ -167,6 +167,12 @@ describe('PMC 표시 집계', () => {
     })
     expect(history.buckets[0].startDate).toBe(history.startDate)
     expect(history.buckets.reduce((sum, bucket) => sum + bucket.expectedDays, 0)).toBe(180)
+  })
+
+  it('365일 범위는 오늘을 포함한 정확한 일수를 주 단위로 집계한다', () => {
+    const history = buildPmcHistory([point('2026-09-06')], 365, '2026-09-06')
+    expect(history.startDate).toBe('2025-09-07')
+    expect(history.buckets.reduce((sum, bucket) => sum + bucket.expectedDays, 0)).toBe(365)
   })
 
   it('3년은 현재 월 포함 36개월이며 윤년 2월의 29일을 센다', () => {

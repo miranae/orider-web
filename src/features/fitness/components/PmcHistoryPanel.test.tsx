@@ -68,6 +68,17 @@ describe("PmcHistoryPanel", () => {
     expect(within(table).getByText(/2\/6 일 · 부분 집계/)).toBeInTheDocument();
   });
 
+  it("uses a page-controlled range without rendering a competing range selector", () => {
+    const view = renderWithProviders(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={42} />);
+    expect(screen.getByText("일별")).toBeInTheDocument();
+    expect(screen.getByRole("combobox").querySelectorAll("option")).toHaveLength(42);
+    expect(screen.queryByRole("button", { name: "90일" })).not.toBeInTheDocument();
+
+    view.rerender(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={365} />);
+    expect(screen.getByText("주평균")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "360일" })).not.toBeInTheDocument();
+  });
+
   it("compares current and previous years by month and never substitutes missing data with zero", () => {
     const { container } = renderPanel();
     fireEvent.click(screen.getByRole("button", { name: "연도별 비교" }));
