@@ -136,6 +136,18 @@ describe("PmcHistoryPanel", () => {
     expect(css).toContain(".pmc-history__tsb-chart { display: block; width: 100%; height: auto;");
   });
 
+  it("keeps selected values keyed to the plotted series and emphasizes the independent zero baseline", () => {
+    const { container } = renderWithProviders(<PmcHistoryPanel points={points} today="2026-09-06" canonical ctlColor="var(--color-brand-bike)" />);
+    const chartHeading = container.querySelector(".pmc-history__chart-heading");
+    expect(chartHeading).toHaveTextContent("저장된 PMC 이력");
+    expect(chartHeading).toHaveTextContent("일별");
+    expect(container.querySelector(".pmc-history__values [data-pmc-metric='ctl']")).toHaveStyle({ borderInlineStartColor: "var(--color-brand-bike)" });
+    expect(container.querySelector(".pmc-history__values [data-pmc-metric='atl']")).toHaveStyle({ borderInlineStartColor: "var(--rose)" });
+    expect(container.querySelector(".pmc-history__values [data-pmc-metric='tsb']")).toHaveStyle({ borderInlineStartColor: "var(--amber)" });
+    expect(container.querySelector('[data-tsb-zero-axis="true"]')).toHaveClass("pmc-history__zero-axis");
+    expect(container.querySelector(".pmc-history__zero-label")).toHaveTextContent("0");
+  });
+
   it("supports every range and keeps distinct year styles with no fatigue overlay clutter", () => {
     const { container } = renderPanel([point("2022-09-06"), point("2024-09-06"), ...points]);
     for (const [name, unit] of [["30일", "일별"], ["90일", "일별"], ["180일", "주평균"], ["360일", "주평균"], ["3년", "월평균"], ["전체", "월평균"]]) {
