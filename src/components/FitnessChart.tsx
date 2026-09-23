@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { FitnessPoint } from "../utils/fitnessMetrics";
 import { PMC_FUTURE_OPACITY, PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
+import { ChartAxisLine, ChartGridLine } from "../theme/components";
 
 interface ProjectionPoint {
   date: number; // ms timestamp
@@ -10,8 +10,16 @@ interface ProjectionPoint {
   tsb: number;
 }
 
+export interface FitnessChartPoint {
+  date: string;
+  ctl: number | null;
+  atl: number | null;
+  tsb: number | null;
+  dailyLoad: number | null;
+}
+
 interface FitnessChartProps {
-  data: FitnessPoint[];
+  data: readonly FitnessChartPoint[];
   projection?: ProjectionPoint[] | null;
   /** Today's date string 'YYYY-MM-DD' */
   today?: string;
@@ -29,6 +37,8 @@ interface FitnessChartProps {
     label: string;
     selected?: boolean;
   }>;
+  /** Optional controlled point selection used by history navigation outside the SVG. */
+  selectedIndex?: number;
 }
 
 function tsToDateStr(ms: number): string {
@@ -48,9 +58,8 @@ const PAD_LEFT = 44;
 const PAD_RIGHT = 8;
 const PAD_TOP = 32;
 const PAD_BOTTOM = 24;
-const VIEW_W = 1080;
+const DEFAULT_VIEW_W = 1080;
 const VIEW_H = 280;
-const PLOT_W = VIEW_W - PAD_LEFT - PAD_RIGHT;
 const PLOT_H = VIEW_H - PAD_TOP - PAD_BOTTOM;
 
 /** 친근한 Y축 tick 생성 (5의 배수 단위). */
@@ -90,9 +99,23 @@ export default function FitnessChart({
   goalTSB,
   ctlColor = PMC_LINE_PALETTE.ctl.color,
   activityMarkers = [],
+  selectedIndex,
 }: FitnessChartProps) {
   const { t } = useTranslation("dashboard");
   const svgRef = useRef<SVGSVGElement>(null);
+  const chartId = useId().replace(/:/g, "");
+  const ctlFillId = `${chartId}-ctl-fill`;
+  const projectionHatchId = `${chartId}-projection-hatch`;
+  const [viewWidth, setViewWidth] = useState(DEFAULT_VIEW_W);
+  useLayoutEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry && entry.contentRect.width > 0) setViewWidth(Math.max(280, entry.contentRect.width));
+    });
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
 
   const formatDateLabel = (dateStr: string): string => {
     const parts = dateStr.split("-");
@@ -107,7 +130,7 @@ export default function FitnessChart({
     ctlPastPath, atlPastPath, tsbPastPath,
     ctlFuturePath, atlFuturePath, tsbFuturePath,
     ctlFillPath,
-    todayX, todayCtlY,
+    todayX, todayCtlY, todayCTL,
     goalX, goalCtlY, goalTsbY,
     goalCTLVal, goalTSBVal,
     hasFuture,
@@ -116,6 +139,7 @@ export default function FitnessChart({
     series,
     markerPoints,
     syFn,
+    selectedPoint,
   } = useMemo(() => {
     const todayStr = today ?? new Date().toISOString().slice(0, 10);
 
@@ -132,9 +156,16 @@ export default function FitnessChart({
 
     // Seed 보정 (기존 동작 유지) — 서버 projection 의 load 공식 차이로 인한
     // 경계 점프 방지. 첫 미래값을 오늘 실제값에 맞춰 평행이동.
-    const lastPastCTL = pastCTL[pastCTL.length - 1] ?? 0;
-    const lastPastATL = pastATL[pastATL.length - 1] ?? 0;
-    const lastPastTSB = pastTSB[pastTSB.length - 1] ?? 0;
+    const lastFinite = (values: readonly (number | null)[]) => {
+      for (let index = values.length - 1; index >= 0; index -= 1) {
+        const value = values[index];
+        if (value != null) return value;
+      }
+      return 0;
+    };
+    const lastPastCTL = lastFinite(pastCTL);
+    const lastPastATL = lastFinite(pastATL);
+    const lastPastTSB = lastFinite(pastTSB);
     const ctlOffset = hasFut ? lastPastCTL - futurePoints[0]!.ctl : 0;
     const atlOffset = hasFut ? lastPastATL - futurePoints[0]!.atl : 0;
     const tsbOffset = hasFut ? lastPastTSB - futurePoints[0]!.tsb : 0;
@@ -146,32 +177,52 @@ export default function FitnessChart({
     const totalPoints = pastCount + futurePoints.length;
 
     // Y 자동 스케일.
-    const allValues = [...allCTL, ...allATL, ...allTSB];
+    const allValues = [...allCTL, ...allATL, ...allTSB].filter((value): value is number => value != null);
     const dataMax = Math.max(...allValues, 10);
     const dataMin = Math.min(...allValues, -5);
     const padding = (dataMax - dataMin) * 0.1;
     const yMax = dataMax + padding;
     const yMin = dataMin - padding;
 
+    const plotWidth = viewWidth - PAD_LEFT - PAD_RIGHT;
     const sx = (i: number) =>
-      PAD_LEFT + (i / Math.max(totalPoints - 1, 1)) * PLOT_W;
+      PAD_LEFT + (i / Math.max(totalPoints - 1, 1)) * plotWidth;
     const sy = (v: number) =>
       PAD_TOP + PLOT_H - ((v - yMin) / (yMax - yMin)) * PLOT_H;
 
-    const lineSeg = (arr: number[], from: number, count: number) =>
-      arr
-        .slice(from, from + count)
-        .map((v, i) => `${i === 0 ? "M" : "L"}${sx(from + i).toFixed(1)} ${sy(v).toFixed(1)}`)
-        .join(" ");
+    const lineSeg = (arr: readonly (number | null)[], from: number, count: number) => {
+      let connected = false;
+      return arr.slice(from, from + count).map((value, index) => {
+        if (value == null) {
+          connected = false;
+          return "";
+        }
+        const command = connected ? "L" : "M";
+        connected = true;
+        return `${command}${sx(from + index).toFixed(1)} ${sy(value).toFixed(1)}`;
+      }).join(" ");
+    };
 
     const ctlPast = pastCount > 0 ? lineSeg(allCTL, 0, pastCount) : "";
     const atlPast = pastCount > 0 ? lineSeg(allATL, 0, pastCount) : "";
     const tsbPast = pastCount > 0 ? lineSeg(allTSB, 0, pastCount) : "";
 
     const baseY = (PAD_TOP + PLOT_H).toFixed(1);
-    const ctlFill = pastCount > 0
-      ? `M${sx(0).toFixed(1)} ${baseY} ${lineSeg(allCTL, 0, pastCount).replace(/^M/, "L")} L${sx(pastCount - 1).toFixed(1)} ${baseY} Z`
-      : "";
+    const ctlFill = (() => {
+      const paths: string[] = [];
+      let start = -1;
+      for (let index = 0; index <= pastCount; index += 1) {
+        const value = index < pastCount ? allCTL[index] : null;
+        if (value != null && start < 0) start = index;
+        if (value == null && start >= 0) {
+          const end = index - 1;
+          const line = lineSeg(allCTL, start, end - start + 1).replace(/^M/, "L");
+          paths.push(`M${sx(start).toFixed(1)} ${baseY} ${line} L${sx(end).toFixed(1)} ${baseY} Z`);
+          start = -1;
+        }
+      }
+      return paths.join(" ");
+    })();
 
     let ctlFut = "";
     let atlFut = "";
@@ -186,7 +237,8 @@ export default function FitnessChart({
 
     const todayIdx = pastCount - 1;
     const tX = sx(todayIdx);
-    const tCtlY = pastCount > 0 ? sy(pastCTL[pastCount - 1]!) : 0;
+    const todayCTL = pastCTL[pastCount - 1] ?? null;
+    const tCtlY = todayCTL != null ? sy(todayCTL) : 0;
 
     const goalDateStr = goalDate != null ? tsToDateStr(goalDate) : null;
     let gX = sx(totalPoints - 1);
@@ -240,9 +292,9 @@ export default function FitnessChart({
     const seriesData = Array.from({ length: totalPoints }, (_, i) => ({
       x: sx(i),
       dateStr: allDates[i] ?? "",
-      ctl: allCTL[i] ?? 0,
-      atl: allATL[i] ?? 0,
-      tsb: allTSB[i] ?? 0,
+      ctl: allCTL[i] ?? null,
+      atl: allATL[i] ?? null,
+      tsb: allTSB[i] ?? null,
       isFuture: i >= pastCount,
     }));
     const markerData = activityMarkers.flatMap((marker) => {
@@ -250,6 +302,9 @@ export default function FitnessChart({
       if (index < 0) return [];
       return [{ ...marker, x: sx(index) }];
     });
+    const controlledIndex = selectedIndex == null || pastCount === 0
+      ? null
+      : Math.max(0, Math.min(pastCount - 1, selectedIndex));
 
     return {
       ctlPastPath: ctlPast,
@@ -261,6 +316,7 @@ export default function FitnessChart({
       ctlFillPath: ctlFill,
       todayX: tX,
       todayCtlY: tCtlY,
+      todayCTL,
       goalX: gX,
       goalCtlY: gCtlY,
       goalTsbY: gTsbY,
@@ -272,8 +328,9 @@ export default function FitnessChart({
       series: seriesData,
       markerPoints: markerData,
       syFn: sy,
+      selectedPoint: controlledIndex == null ? null : seriesData[controlledIndex] ?? null,
     };
-  }, [activityMarkers, data, projection, today, goalDate, goalCTL, goalTSB, t]);
+  }, [activityMarkers, data, projection, today, goalDate, goalCTL, goalTSB, selectedIndex, t, viewWidth]);
 
   if (data.length === 0) {
     return (
@@ -306,7 +363,7 @@ export default function FitnessChart({
   const tooltipH = 90;
   const tooltipPad = 10;
   const tooltipX = hover
-    ? hover.x + tooltipPad + tooltipW > VIEW_W - PAD_RIGHT
+    ? hover.x + tooltipPad + tooltipW > viewWidth - PAD_RIGHT
       ? hover.x - tooltipPad - tooltipW
       : hover.x + tooltipPad
     : 0;
@@ -319,7 +376,7 @@ export default function FitnessChart({
   return (
     <svg
       ref={svgRef}
-      viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+      viewBox={`0 0 ${viewWidth} ${VIEW_H}`}
       style={{ width: "100%", height: "auto", maxHeight: 360, display: "block" }}
       preserveAspectRatio="xMidYMid meet"
       onPointerMove={handleMove}
@@ -329,12 +386,12 @@ export default function FitnessChart({
     >
       <desc>{`${t("pmc.title")}. ${t("pmc.interpretation")}.${markerAccessibilitySummary}`}</desc>
       <defs>
-        <linearGradient id="ctlFill" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={ctlFillId} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={ctlColor} stopOpacity="0.28" />
           <stop offset="1" stopColor={ctlColor} stopOpacity="0" />
         </linearGradient>
         {/* 예측 영역 hatch — 토큰화 (테마 교체 시 자동 반영). */}
-        <pattern id="projHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <pattern id={projectionHatchId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <rect width="6" height="6" fill="var(--accent-soft-bg)" />
           <line x1="0" y1="0" x2="0" y2="6" stroke={ctlColor} strokeOpacity="0.15" strokeWidth="1" />
         </pattern>
@@ -348,27 +405,29 @@ export default function FitnessChart({
           { label: "ATL", color: PMC_LINE_PALETTE.atl.color, style: PMC_LINE_PALETTE.atl, desc: t("charts.fitness.legendFatigue") },
           { label: "TSB", color: PMC_LINE_PALETTE.tsb.color, style: PMC_LINE_PALETTE.tsb, desc: t("charts.fitness.legendForm") },
         ].map((item, i) => (
-          <g key={item.label} transform={`translate(${i * 150}, 0)`}>
+          <g key={item.label} transform={`translate(${i * Math.min(150, (viewWidth - PAD_LEFT - PAD_RIGHT) / 3)}, 0)`}>
             <line x1="0" y1="6" x2="14" y2="6" stroke={item.color} strokeWidth="2.5" strokeDasharray={item.style.dasharray} strokeLinecap={item.style.linecap} vectorEffect="non-scaling-stroke" />
-            <text x="18" y="9" fill="var(--ink-1)" fontWeight="700">{item.desc} <tspan fill="var(--ink-4)" fontWeight="400">{item.label}</tspan></text>
+            <text x="18" y="9" fill="var(--ink-1)" fontWeight="700">
+              {viewWidth < 520 ? item.label : <>{item.desc} <tspan fill="var(--ink-4)" fontWeight="400">{item.label}</tspan></>}
+            </text>
           </g>
         ))}
       </g>
 
       {/* 예측 영역 배경 */}
       {hasFuture && (
-        <rect x={todayX} y={PAD_TOP} width={VIEW_W - PAD_RIGHT - todayX} height={PLOT_H} fill="url(#projHatch)" />
+        <rect x={todayX} y={PAD_TOP} width={viewWidth - PAD_RIGHT - todayX} height={PLOT_H} fill={`url(#${projectionHatchId})`} />
       )}
 
       {/* Y축 grid + tick 값 */}
       {yTicks.map((t) => (
         <g key={t.v}>
-          <line
+          <ChartGridLine
             x1={PAD_LEFT}
-            x2={VIEW_W - PAD_RIGHT}
+            x2={viewWidth - PAD_RIGHT}
             y1={t.y}
             y2={t.y}
-            stroke={t.v === 0 ? "var(--grid-axis)" : "var(--grid-soft)"}
+            className={t.v === 0 ? "ds-chart__axis" : undefined}
             strokeDasharray={t.v === 0 ? "4 3" : undefined}
           />
           <text
@@ -385,15 +444,15 @@ export default function FitnessChart({
       ))}
 
       {/* CTL 영역 fill + 라인 (CTL 두꺼움, ATL/TSB opacity 강화) */}
-      {ctlFillPath && <path d={ctlFillPath} fill="url(#ctlFill)" />}
+      {ctlFillPath && <path data-pmc-fill="ctl" d={ctlFillPath} fill={`url(#${ctlFillId})`} />}
       {ctlPastPath && (
-        <path d={ctlPastPath} stroke={ctlColor} strokeWidth={PMC_LINE_PALETTE.ctl.strokeWidth} strokeLinecap={PMC_LINE_PALETTE.ctl.linecap} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
+        <path data-pmc-series="ctl" d={ctlPastPath} stroke={ctlColor} strokeWidth={PMC_LINE_PALETTE.ctl.strokeWidth} strokeLinecap={PMC_LINE_PALETTE.ctl.linecap} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
       )}
       {atlPastPath && (
-        <path d={atlPastPath} stroke={PMC_LINE_PALETTE.atl.color} strokeWidth={PMC_LINE_PALETTE.atl.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.atl.dasharray} strokeLinecap={PMC_LINE_PALETTE.atl.linecap} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
+        <path data-pmc-series="atl" d={atlPastPath} stroke={PMC_LINE_PALETTE.atl.color} strokeWidth={PMC_LINE_PALETTE.atl.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.atl.dasharray} strokeLinecap={PMC_LINE_PALETTE.atl.linecap} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
       )}
       {tsbPastPath && (
-        <path d={tsbPastPath} stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth={PMC_LINE_PALETTE.tsb.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
+        <path data-pmc-series="tsb" d={tsbPastPath} stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth={PMC_LINE_PALETTE.tsb.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
       )}
 
       {/* 최근 활동 마커. 선택은 상단 활동 목록에서 수행하고 차트는 같은 선택을 강조한다. */}
@@ -431,13 +490,23 @@ export default function FitnessChart({
       )}
 
       {/* 오늘 마커 */}
-      <line x1={todayX} x2={todayX} y1={PAD_TOP} y2={PAD_TOP + PLOT_H}
-            stroke="var(--ink-2)" strokeDasharray="3 3" opacity="0.7" />
+      <ChartAxisLine x1={todayX} x2={todayX} y1={PAD_TOP} y2={PAD_TOP + PLOT_H}
+            strokeDasharray="3 3" opacity="0.7" />
       <text x={todayX + 6} y={PAD_TOP + 12} fontSize="12" fontFamily="var(--font-mono)"
             fill="var(--ink-1)" fontWeight="600">
         {t("charts.fitness.today")}
       </text>
-      <circle cx={todayX} cy={todayCtlY} r="4" fill={ctlColor} stroke="var(--bg-0)" strokeWidth="2" />
+      {todayCTL != null && <circle cx={todayX} cy={todayCtlY} r="4" fill={ctlColor} stroke="var(--bg-0)" strokeWidth="2" />}
+
+      {/* 외부 기간 탐색과 동기화된 확정 선택점. 호버와 달리 포인터 이탈 후에도 유지한다. */}
+      {selectedPoint && (
+        <g data-pmc-selection="true" pointerEvents="none">
+          <ChartAxisLine x1={selectedPoint.x} x2={selectedPoint.x} y1={PAD_TOP} y2={PAD_TOP + PLOT_H} strokeDasharray="2 3" />
+          {selectedPoint.ctl != null && <circle cx={selectedPoint.x} cy={syFn(selectedPoint.ctl)} r="4" fill="var(--bg-0)" stroke={ctlColor} strokeWidth="2.5" />}
+          {selectedPoint.atl != null && <circle cx={selectedPoint.x} cy={syFn(selectedPoint.atl)} r="4" fill="var(--bg-0)" stroke={PMC_LINE_PALETTE.atl.color} strokeWidth="2.5" />}
+          {selectedPoint.tsb != null && <circle cx={selectedPoint.x} cy={syFn(selectedPoint.tsb)} r="4" fill="var(--bg-0)" stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth="2.5" />}
+        </g>
+      )}
 
       {/* 목표일 마커 */}
       {hasFuture && goalCTLVal != null && (
@@ -469,9 +538,9 @@ export default function FitnessChart({
         <g pointerEvents="none">
           <line x1={hover.x} x2={hover.x} y1={PAD_TOP} y2={PAD_TOP + PLOT_H}
                 stroke="var(--ink-2)" strokeWidth="1" opacity="0.5" strokeDasharray="2 2" />
-          <circle cx={hover.x} cy={syFn(hover.ctl)} r="3.5" fill={ctlColor} stroke="var(--bg-0)" strokeWidth="1.5" />
-          <circle cx={hover.x} cy={syFn(hover.atl)} r="3.5" fill={PMC_LINE_PALETTE.atl.color} stroke="var(--bg-0)" strokeWidth="1.5" />
-          <circle cx={hover.x} cy={syFn(hover.tsb)} r="3.5" fill={PMC_LINE_PALETTE.tsb.color} stroke="var(--bg-0)" strokeWidth="1.5" />
+          {hover.ctl != null && <circle cx={hover.x} cy={syFn(hover.ctl)} r="3.5" fill={ctlColor} stroke="var(--bg-0)" strokeWidth="1.5" />}
+          {hover.atl != null && <circle cx={hover.x} cy={syFn(hover.atl)} r="3.5" fill={PMC_LINE_PALETTE.atl.color} stroke="var(--bg-0)" strokeWidth="1.5" />}
+          {hover.tsb != null && <circle cx={hover.x} cy={syFn(hover.tsb)} r="3.5" fill={PMC_LINE_PALETTE.tsb.color} stroke="var(--bg-0)" strokeWidth="1.5" />}
 
           <rect x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH} rx="6"
                 fill="var(--bg-1)" stroke="var(--line)" strokeWidth="1" opacity="0.98" />
@@ -489,7 +558,7 @@ export default function FitnessChart({
               <text x="14" y="0" fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-2)">{item.label}</text>
               <text x={tooltipW - 20} y="0" fontSize="12" fontFamily="var(--font-mono)" fill={item.color}
                     fontWeight="700" textAnchor="end">
-                {item.value >= 0 && item.label === "TSB" ? "+" : ""}{item.value.toFixed(1)}
+                {item.value != null ? `${item.value >= 0 && item.label === "TSB" ? "+" : ""}${item.value.toFixed(1)}` : "—"}
               </text>
             </g>
           ))}

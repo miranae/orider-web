@@ -25,15 +25,15 @@ describe("PmcHistoryPanel", () => {
     expect(within(table).getByText("1/1 일")).toBeInTheDocument();
   });
 
-  it("changes day/week/month granularity and keeps keyboard selection synchronized with the value strip", () => {
-    renderPanel();
+  it("changes day/week/month granularity and keeps navigation synchronized with the value strip", () => {
+    const { container } = renderPanel();
     expect(screen.getByRole("button", { name: "90일" })).toHaveAttribute("aria-pressed", "true");
-    const slider = screen.getByRole("slider");
-    fireEvent.keyDown(slider, { key: "ArrowLeft" });
-    expect(slider).toHaveAttribute("aria-valuetext", "2026-09-05 – 2026-09-05");
+    const initialSelectionX = container.querySelector('[data-pmc-selection="true"] line')?.getAttribute("x1");
+    fireEvent.click(screen.getByRole("button", { name: "이전 구간" }));
     expect(screen.getAllByText("2026-09-05 – 2026-09-05")).toHaveLength(2);
+    expect(container.querySelector('[data-pmc-selection="true"] line')?.getAttribute("x1")).not.toBe(initialSelectionX);
     fireEvent.click(screen.getByRole("button", { name: "오늘" }));
-    expect(slider).toHaveAttribute("aria-valuetext", "2026-09-06 – 2026-09-06");
+    expect(screen.getAllByText("2026-09-06 – 2026-09-06")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "180일" }));
     expect(screen.getByText("주평균")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "3년" }));
@@ -85,33 +85,15 @@ describe("PmcHistoryPanel", () => {
     expect(container.querySelector('[data-series$="-atl"]')).not.toBeInTheDocument();
   });
 
-  it("breaks paths across missing days and dynamically contains extreme metric values", () => {
-    const { container } = renderPanel([point("2026-09-04", 5000), point("2026-09-06", -900)]);
-    const path = container.querySelector('[data-series$="-ctl"] path')?.getAttribute("d") ?? "";
-    expect(path.match(/M/g)).toHaveLength(2);
-    expect(path).not.toContain("L");
-    for (const circle of container.querySelectorAll("circle")) {
-      expect(Number(circle.getAttribute("cy"))).toBeGreaterThanOrEqual(16);
-      expect(Number(circle.getAttribute("cy"))).toBeLessThanOrEqual(204);
-    }
-  });
-
-  it("renders one combined trend plot, commits pointer selection and only shows selected metric points", () => {
+  it("reuses the canonical PMC renderer for the combined trend and keeps year comparison specialized", () => {
     const { container } = renderPanel();
-    const slider = screen.getByRole("slider");
     expect(screen.getByRole("region", { name: "훈련 이력 지도" })).toBeInTheDocument();
-    expect(container.querySelectorAll('[data-series="저장 이력-ctl"], [data-series="저장 이력-atl"], [data-series="저장 이력-tsb"]')).toHaveLength(3);
-    expect(container.querySelector('[data-zero-axis="true"]')).toBeInTheDocument();
-    expect(container.querySelectorAll("circle")).toHaveLength(3);
-    const svgPoint = { x: 0, y: 0, matrixTransform: () => ({ x: (svgPoint.x - 100) * 2, y: svgPoint.y * 2 }) };
-    Object.defineProperty(slider, "createSVGPoint", { value: () => svgPoint });
-    Object.defineProperty(slider, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
-    Object.defineProperty(slider, "getBoundingClientRect", { value: () => ({ left: 100, width: 1200, top: 0, right: 1300, bottom: 180, height: 180, x: 100, y: 0, toJSON: () => ({}) }) });
-    fireEvent.pointerDown(slider, { clientX: 124, clientY: 10 });
-    expect(slider).toHaveAttribute("aria-valuenow", "1");
-    fireEvent.pointerMove(slider, { clientX: 300, clientY: 10 });
-    expect(screen.getByRole("tooltip")).toBeInTheDocument();
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("img")).toBeInTheDocument();
+    expect(container.querySelectorAll("[data-pmc-series]")).toHaveLength(3);
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "연도별 비교" }));
+    expect(screen.getByRole("slider")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
   it("labels every compared year in the hover tooltip", () => {

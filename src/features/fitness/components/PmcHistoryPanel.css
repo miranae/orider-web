@@ -2,6 +2,7 @@
 .pmc-history .ds-chart__plot { margin-top: var(--space-4); }
 .pmc-history__source { padding: var(--space-1) var(--space-2); color: var(--ink-3); background: var(--bg-2); border-radius: var(--r-sm); font-size: var(--fs-xs); }
 .pmc-history__chart-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); }
+.pmc-history__canonical-chart { color: var(--ink-2); font-size: var(--fs-sm); font-weight: 600; }
 .pmc-history__unit { color: var(--ink-3); font-size: var(--fs-xs); }
 .pmc-history__plot-wrap { position: relative; margin-top: var(--space-2); }
 .pmc-history__plot-wrap .ds-chart__tooltip { transform: translateX(-50%); }
