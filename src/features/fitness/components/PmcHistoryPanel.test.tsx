@@ -25,19 +25,19 @@ describe("PmcHistoryPanel", () => {
     expect(within(table).getByText("1/1 일")).toBeInTheDocument();
   });
 
-  it("changes day/week/month granularity and synchronizes keyboard selection across charts", () => {
+  it("changes day/week/month granularity and keeps keyboard selection synchronized with the value strip", () => {
     renderPanel();
     expect(screen.getByRole("button", { name: "90일" })).toHaveAttribute("aria-pressed", "true");
-    const sliders = screen.getAllByRole("slider");
-    fireEvent.keyDown(sliders[0], { key: "ArrowLeft" });
-    expect(sliders[0].getAttribute("aria-valuenow")).toBe(sliders[1].getAttribute("aria-valuenow"));
-    expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent("2026-09-05");
+    const slider = screen.getByRole("slider");
+    fireEvent.keyDown(slider, { key: "ArrowLeft" });
+    expect(slider).toHaveAttribute("aria-valuetext", "2026-09-05 – 2026-09-05");
+    expect(screen.getAllByText("2026-09-05 – 2026-09-05")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "오늘" }));
-    expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent("2026-09-06");
+    expect(slider).toHaveAttribute("aria-valuetext", "2026-09-06 – 2026-09-06");
     fireEvent.click(screen.getByRole("button", { name: "180일" }));
-    expect(screen.getByText(/주평균 ·/)).toBeInTheDocument();
+    expect(screen.getByText("주평균")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "3년" }));
-    expect(screen.getByText(/월평균 ·/)).toBeInTheDocument();
+    expect(screen.getByText("월평균")).toBeInTheDocument();
     const table = screen.getByRole("table");
     expect(within(table).getByText("45.0")).toBeInTheDocument();
     expect(within(table).getByText("60.0")).toBeInTheDocument();
@@ -50,6 +50,8 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getByRole("button", { name: "2026" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "2025" })).toHaveAttribute("aria-pressed", "true");
     expect(container.querySelector('[data-series="2025-ctl"] path')).toHaveAttribute("stroke-dasharray", "8 4");
+    expect(screen.getByText((_, element) => element?.tagName === "SPAN" && element.textContent === "2026 · CTL 45.0")).toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.tagName === "SPAN" && element.textContent === "2025 · CTL 30.0")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "9" } });
     expect(screen.getAllByText("기록 없음")).toHaveLength(2);
     expect(screen.getAllByRole("cell").filter((cell) => cell.textContent === "—")).toHaveLength(8);
@@ -73,7 +75,7 @@ describe("PmcHistoryPanel", () => {
     const { container } = renderPanel([point("2022-09-06"), point("2024-09-06"), ...points]);
     for (const [name, unit] of [["30일", "일별"], ["90일", "일별"], ["180일", "주평균"], ["360일", "주평균"], ["3년", "월평균"], ["전체", "월평균"]]) {
       fireEvent.click(screen.getByRole("button", { name }));
-      expect(screen.getByText(new RegExp(`${unit} ·`))).toBeInTheDocument();
+      expect(screen.getByText(unit)).toBeInTheDocument();
     }
     fireEvent.click(screen.getByRole("button", { name: "연도별 비교" }));
     for (const year of ["2022", "2023", "2024"]) fireEvent.click(screen.getByRole("button", { name: year }));
@@ -90,7 +92,38 @@ describe("PmcHistoryPanel", () => {
     expect(path).not.toContain("L");
     for (const circle of container.querySelectorAll("circle")) {
       expect(Number(circle.getAttribute("cy"))).toBeGreaterThanOrEqual(16);
-      expect(Number(circle.getAttribute("cy"))).toBeLessThanOrEqual(166);
+      expect(Number(circle.getAttribute("cy"))).toBeLessThanOrEqual(204);
     }
+  });
+
+  it("renders one combined trend plot, commits pointer selection and only shows selected metric points", () => {
+    const { container } = renderPanel();
+    const slider = screen.getByRole("slider");
+    expect(screen.getByRole("region", { name: "훈련 이력 지도" })).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-series="저장 이력-ctl"], [data-series="저장 이력-atl"], [data-series="저장 이력-tsb"]')).toHaveLength(3);
+    expect(container.querySelector('[data-zero-axis="true"]')).toBeInTheDocument();
+    expect(container.querySelectorAll("circle")).toHaveLength(3);
+    const svgPoint = { x: 0, y: 0, matrixTransform: () => ({ x: (svgPoint.x - 100) * 2, y: svgPoint.y * 2 }) };
+    Object.defineProperty(slider, "createSVGPoint", { value: () => svgPoint });
+    Object.defineProperty(slider, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
+    Object.defineProperty(slider, "getBoundingClientRect", { value: () => ({ left: 100, width: 1200, top: 0, right: 1300, bottom: 180, height: 180, x: 100, y: 0, toJSON: () => ({}) }) });
+    fireEvent.pointerDown(slider, { clientX: 124, clientY: 10 });
+    expect(slider).toHaveAttribute("aria-valuenow", "1");
+    fireEvent.pointerMove(slider, { clientX: 300, clientY: 10 });
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("labels every compared year in the hover tooltip", () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "연도별 비교" }));
+    const slider = screen.getByRole("slider");
+    const svgPoint = { x: 0, y: 0, matrixTransform: () => ({ x: svgPoint.x, y: svgPoint.y }) };
+    Object.defineProperty(slider, "createSVGPoint", { value: () => svgPoint });
+    Object.defineProperty(slider, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
+    fireEvent.pointerMove(slider, { clientX: 580, clientY: 10 });
+    const tooltip = screen.getByRole("tooltip");
+    expect(within(tooltip).getByText(/2026 · CTL/)).toBeInTheDocument();
+    expect(within(tooltip).getByText(/2025 · CTL/)).toBeInTheDocument();
   });
 });

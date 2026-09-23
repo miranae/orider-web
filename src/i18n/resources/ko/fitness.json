@@ -45,6 +45,7 @@
   "history.selection": "선택 구간",
   "history.today": "오늘",
   "history.summary": "선택 구간 지표와 기록 범위",
+  "history.details": "계산 및 상세 데이터",
   "history.period": "이력",
   "history.mean": "평균",
   "history.totalLoad": "누적 부하",

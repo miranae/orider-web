@@ -20,6 +20,7 @@ src/theme/
     ├── Stat.tsx               라벨 + 큰 수치 + 단위 + 변화량
     ├── Alert.tsx              info/success/warning/danger + 기본 아이콘
     ├── Progress.tsx           0..1 / 0..100 자동 + variant
+    ├── Chart.tsx              ChartFrame / Header / Legend / Tooltip / Grid·Axis
     └── components.css         모든 ds-* 스타일 (외부 import 금지)
 ```
 
@@ -128,6 +129,8 @@ npm run lint:report   # 카운트 확인용
 이번 마이그레이션 효과: **1,561 → 63 warnings (-96%)**.
 
 ## 새 컴포넌트 추가 가이드
+
+차트는 `ChartFrame` 안에 `ChartHeader`, `ChartLegend`, `ChartTooltip`을 조합하고 SVG 격자는 `ChartGridLine`, 기준축은 `ChartAxisLine`을 사용한다. 데이터 path와 상호작용은 기능 컴포넌트가 소유한다.
 
 1. `src/theme/components/{Name}.tsx` — 토큰만 소비
 2. `components.css` 에 `ds-{name}` 스타일 (모든 색·치수는 `var(--*)` 만)

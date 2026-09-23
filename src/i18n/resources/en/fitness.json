@@ -45,6 +45,7 @@
   "history.selection": "Selected period",
   "history.today": "Today",
   "history.summary": "Selected period metrics and coverage",
+  "history.details": "Calculation and detailed data",
   "history.period": "History",
   "history.mean": "Mean",
   "history.totalLoad": "Total load",

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { Alert, Button, Card, Chip, Field, IconButton, Input, Progress, Select, Stack, Stat, Switch, Text, Textarea } from './index';
+import { Alert, Button, Card, ChartAxisLine, ChartFrame, ChartGridLine, ChartHeader, ChartLegend, ChartTooltip, Chip, Field, IconButton, Input, Progress, Select, Stack, Stat, Switch, Text, Textarea } from './index';
 import { cn } from './cn';
 
 describe('cn()', () => {
@@ -56,6 +56,19 @@ describe('Card', () => {
     const card = screen.getByRole('button');
     fireEvent.keyDown(card, { key: 'Enter' });
     expect(onClick).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Chart primitives', () => {
+  it('composes an embedded frame, header, legend, tooltip and semantic SVG lines', () => {
+    const { container } = render(<ChartFrame as="section" variant="embedded" aria-label="부하 차트" header={<ChartHeader title={<h2>부하</h2>} description="90일" />}><ChartLegend items={[{ label: 'CTL', color: 'var(--chart-power)' }]} /><svg><ChartGridLine /><ChartAxisLine /></svg><ChartTooltip label="오늘">CTL 42</ChartTooltip></ChartFrame>);
+    expect(container.firstElementChild).toHaveClass('ds-chart--embedded');
+    expect(screen.getByRole('region', { name: '부하 차트' })).toBeInTheDocument();
+    expect(screen.getByText('90일')).toBeInTheDocument();
+    expect(screen.getByText('CTL')).toBeInTheDocument();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('오늘CTL 42');
+    expect(container.querySelector('.ds-chart__grid')).toBeInTheDocument();
+    expect(container.querySelector('.ds-chart__axis')).toBeInTheDocument();
   });
 });
 

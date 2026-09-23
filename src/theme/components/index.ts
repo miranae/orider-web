@@ -40,4 +40,17 @@ export { Stack, type StackProps } from './Stack';
 export { Stat, type StatProps, type StatDelta } from './Stat';
 export { Alert, type AlertProps, type AlertVariant } from './Alert';
 export { Progress, type ProgressProps } from './Progress';
+export {
+  ChartFrame,
+  ChartHeader,
+  ChartLegend,
+  ChartTooltip,
+  ChartGridLine,
+  ChartAxisLine,
+  type ChartFrameProps,
+  type ChartHeaderProps,
+  type ChartLegendItem,
+  type ChartLegendProps,
+  type ChartTooltipProps,
+} from './Chart';
 export { cn, type ClassValue } from './cn';
