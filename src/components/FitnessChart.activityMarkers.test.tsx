@@ -127,7 +127,13 @@ describe("FitnessChart activity markers", () => {
     fireEvent.pointerMove(chart, { clientX: 1072, clientY: 40 });
     expect(onSelectedIndexChange).not.toHaveBeenCalled();
     fireEvent.pointerDown(chart, { clientX: 1072, clientY: 40 });
+    fireEvent.pointerUp(chart, { clientX: 1072, clientY: 40 });
     expect(onSelectedIndexChange).toHaveBeenCalledWith(1);
+    onSelectedIndexChange.mockClear();
+    fireEvent.pointerDown(chart, { clientX: 44, clientY: 40, pointerType: "touch" });
+    fireEvent.pointerCancel(chart, { clientX: 80, clientY: 80, pointerType: "touch" });
+    fireEvent.pointerUp(chart, { clientX: 80, clientY: 80, pointerType: "touch" });
+    expect(onSelectedIndexChange).not.toHaveBeenCalled();
     fireEvent.pointerLeave(chart);
     expect(container.querySelector('[data-pmc-tooltip-metric="CTL"]')).not.toBeInTheDocument();
   });

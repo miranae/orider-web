@@ -42,6 +42,8 @@
   "history.selectYear": "비교할 연도를 선택하세요.",
   "history.chart.load": "체력·피로 차트. 좌우 방향키로 구간 선택",
   "history.chart.title": "저장된 PMC 이력",
+  "history.chart.tsbIndependent": "회복 상태 · 독립 축",
+  "history.chart.trendGroup": "상단 체력·피로 공통 축과 하단 회복 상태 독립 축. 두 차트는 같은 기간 선택을 공유합니다.",
   "history.chart.fitness": "연도별 체력 차트. 좌우 방향키로 월 선택",
   "history.chart.form": "폼 차트. 좌우 방향키로 구간 선택",
   "history.previous": "이전 구간",

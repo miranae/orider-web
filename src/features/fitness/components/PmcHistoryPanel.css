@@ -11,6 +11,11 @@
 .pmc-history__plot-wrap .ds-chart__tooltip { transform: translateX(-50%); }
 .pmc-history__plot-wrap .pmc-history__tooltip--start { transform: none; }
 .pmc-history__plot-wrap .pmc-history__tooltip--end { transform: translateX(-100%); }
+.pmc-history__trend-stack { display: grid; gap: var(--space-2); }
+.pmc-history__tsb-wrap { position: relative; }
+.pmc-history__tsb-label { display: block; color: var(--ink-3); font-size: var(--fs-xs); font-weight: 600; }
+.pmc-history__tsb-chart { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
+.pmc-history__tsb-chart text { fill: var(--chart-grid-label); font-size: var(--fs-sm); }
 .pmc-history__chart { display: block; width: 100%; height: 15rem; overflow: visible; touch-action: pan-y; }
 .pmc-history__chart text { fill: var(--chart-grid-label); font-size: var(--fs-sm); }
 .pmc-history__cursor { stroke: var(--grid-axis); stroke-dasharray: 3 4; }

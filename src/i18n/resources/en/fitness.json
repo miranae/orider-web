@@ -42,6 +42,8 @@
   "history.selectYear": "Select a year to compare.",
   "history.chart.load": "Fitness and fatigue chart. Use left and right arrows to select a period",
   "history.chart.title": "Stored PMC history",
+  "history.chart.tsbIndependent": "Recovery status · independent axis",
+  "history.chart.trendGroup": "Fitness and fatigue share the upper axis; recovery status uses the independent lower axis. Both charts share the same period selection.",
   "history.chart.fitness": "Yearly fitness chart. Use left and right arrows to select a month",
   "history.chart.form": "Form chart. Use left and right arrows to select a period",
   "history.previous": "Previous period",

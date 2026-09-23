@@ -40,6 +40,7 @@ describe("PmcHistoryPanel", () => {
     Object.defineProperty(trendChart, "createSVGPoint", { value: () => trendPoint });
     Object.defineProperty(trendChart, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
     fireEvent.pointerDown(trendChart, { clientX: 44, clientY: 40 });
+    fireEvent.pointerUp(trendChart, { clientX: 44, clientY: 40 });
     expect(screen.getByRole("combobox")).toHaveValue("0");
     fireEvent.click(screen.getByRole("button", { name: "오늘" }));
     expect(screen.getByRole("button", { name: "90일" })).toHaveAttribute("aria-pressed", "true");
@@ -111,6 +112,7 @@ describe("PmcHistoryPanel", () => {
     const css = readFileSync(join(process.cwd(), "src/features/fitness/components/PmcHistoryPanel.css"), "utf8");
     expect(css).toContain(".pmc-history__ranges .ds-btn { height: 44px; min-height: 44px; }");
     expect(css).toContain(".pmc-history__ranges .ds-btn::after { display: none; }");
+    expect(css).toContain(".pmc-history__tsb-chart { display: block; width: 100%; height: auto;");
   });
 
   it("supports every range and keeps distinct year styles with no fatigue overlay clutter", () => {
@@ -132,10 +134,56 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getByRole("region", { name: "훈련 이력 지도" })).toBeInTheDocument();
     expect(screen.getByRole("img")).toBeInTheDocument();
     expect(container.querySelectorAll("[data-pmc-series]")).toHaveLength(3);
-    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+    expect(container.querySelector('svg[role="img"] [data-pmc-series="tsb"]')).not.toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "회복 상태 · 독립 축" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "연도별 비교" }));
     expect(screen.getByRole("slider")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("uses a symmetric independent TSB scale and synchronizes hover, tap, and keyboard selection", () => {
+    const data: PmcHistoryPoint[] = [
+      { ...point("2026-09-04", 200), tsb: -7 },
+      { ...point("2026-09-05", 210), tsb: null },
+      { ...point("2026-09-06", 220), tsb: 13 },
+    ];
+    const { container } = renderPanel(data);
+    const main = screen.getByRole("img");
+    const tsb = screen.getByRole("slider", { name: "회복 상태 · 독립 축" });
+    expect(tsb).toHaveAttribute("viewBox", "0 0 800 112");
+    expect(container.querySelector('[data-tsb-zero-axis="true"]')).toHaveAttribute("y1", "48");
+    expect(container.querySelector('[data-pmc-series="tsb"]')?.getAttribute("d")?.match(/M/g)).toHaveLength(2);
+    const svgPoint = { x: 0, y: 0, matrixTransform: () => ({ x: svgPoint.x, y: svgPoint.y }) };
+    for (const chart of [main, tsb]) {
+      Object.defineProperty(chart, "createSVGPoint", { value: () => svgPoint });
+      Object.defineProperty(chart, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
+    }
+    fireEvent.pointerMove(main, { clientX: 48, clientY: 20 });
+    expect(container.querySelector('[data-pmc-hover="true"] line')).toHaveAttribute("x1", container.querySelector('[data-tsb-cursor="true"]')?.getAttribute("x1"));
+    expect(container.querySelectorAll('[data-pmc-tooltip="true"]')).toHaveLength(1);
+    expect(container.querySelectorAll("[data-pmc-tooltip-metric]")).toHaveLength(3);
+    fireEvent.pointerDown(tsb, { clientX: 48, clientY: 20 });
+    fireEvent.pointerUp(tsb, { clientX: 48, clientY: 20 });
+    expect(screen.getByRole("combobox")).toHaveValue("0");
+    expect(tsb).toHaveFocus();
+    expect(tsb.getAttribute("aria-valuetext")).toMatch(/체력 \(CTL\).*피로도 \(ATL\).*상태 \(TSB\)/);
+    fireEvent.pointerLeave(main);
+    for (const index of [0, 44, 89]) {
+      fireEvent.change(screen.getByRole("combobox"), { target: { value: String(index) } });
+      expect(container.querySelector('[data-pmc-selection="true"] line')).toHaveAttribute("x1", container.querySelector('[data-tsb-cursor="true"]')?.getAttribute("x1"));
+    }
+    fireEvent.pointerDown(tsb, { clientX: 48, clientY: 20 });
+    fireEvent.pointerUp(tsb, { clientX: 70, clientY: 20 });
+    expect(screen.getByRole("combobox")).toHaveValue("89");
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "0" } });
+    fireEvent.pointerMove(tsb, { clientX: 400, clientY: 20, pointerType: "touch" });
+    expect(container.querySelector('[data-pmc-tooltip="true"]')).not.toBeInTheDocument();
+    fireEvent.pointerDown(tsb, { clientX: 48, clientY: 20, pointerType: "touch" });
+    fireEvent.pointerCancel(tsb, { clientX: 70, clientY: 42, pointerType: "touch" });
+    fireEvent.pointerUp(tsb, { clientX: 70, clientY: 42, pointerType: "touch" });
+    expect(screen.getByRole("combobox")).toHaveValue("0");
+    fireEvent.keyDown(tsb, { key: "End" });
+    expect(screen.getByRole("combobox")).toHaveValue("89");
   });
 
   it("labels every compared year in the hover tooltip", () => {

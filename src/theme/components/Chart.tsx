@@ -24,12 +24,12 @@ export function ChartHeader({ title, description, actions, className, ...rest }:
   </div>;
 }
 
-export interface ChartLegendItem { label: ReactNode; color: string; dasharray?: string }
+export interface ChartLegendItem { label: ReactNode; color: string; dasharray?: string; seriesId?: string; strokeWidth?: number; strokeLinecap?: SVGProps<SVGLineElement>['strokeLinecap'] }
 export interface ChartLegendProps extends HTMLAttributes<HTMLUListElement> { items: readonly ChartLegendItem[] }
 
 export function ChartLegend({ items, className, ...rest }: ChartLegendProps) {
-  return <ul className={cn('ds-chart__legend', className)} {...rest}>{items.map((item, index) => <li key={index}>
-    <svg viewBox="0 0 24 8" aria-hidden="true"><line x1="1" x2="23" y1="4" y2="4" stroke={item.color} strokeWidth="2" strokeDasharray={item.dasharray} strokeLinecap="round" /></svg>
+  return <ul className={cn('ds-chart__legend', className)} {...rest}>{items.map((item, index) => <li key={item.seriesId ?? index}>
+    <svg viewBox="0 0 24 8" aria-hidden="true" data-series={item.seriesId}><line x1="1" x2="23" y1="4" y2="4" stroke={item.color} strokeWidth={item.strokeWidth ?? 2} strokeDasharray={item.dasharray} strokeLinecap={item.strokeLinecap ?? "round"} /></svg>
     <span>{item.label}</span>
   </li>)}</ul>;
 }
