@@ -34,13 +34,43 @@ describe("Progress Planner backend contract", () => {
         rulesVersion: "coach-prescription-rules-v1", checkIn: { enabled: false,
           reasonCode: "prescription_proposal_feature_disabled" } } };
     expect(parseCoachProgressPlannerCapabilities({ data: value }).progressPlanner).toEqual(value.progressPlanner);
+    expect(parseCoachProgressPlannerCapabilities({ data: { ...value, futureCapability: { enabled: true },
+      progressPlanner: { ...value.progressPlanner, read: { enabled: true, futureHint: "available" } },
+      prescription: { ...value.prescription, futurePolicy: "beta" } } }).progressPlanner.read)
+      .toEqual({ enabled: true });
     expect(() => parseCoachProgressPlannerCapabilities({ data: { ...value,
       progressPlanner: { ...value.progressPlanner, proposal: { enabled: true } } } })).toThrow();
     expect(parseCoachProgressPlannerCapabilities({ data: { ...value,
       prescription: { ...value.prescription, rulesVersion: "coach-prescription-rules-v2" } } }).prescription)
       .toMatchObject({ rulesVersion: "coach-prescription-rules-v2" });
-    expect(() => parseCoachProgressPlannerCapabilities({ data: { ...value,
-      prescription: { ...value.prescription, rulesVersion: "coach-prescription-rules-v3" } } })).toThrow();
+    expect(parseCoachProgressPlannerCapabilities({ data: { ...value,
+      prescription: { ...value.prescription, rulesVersion: "coach-prescription-rules-v3" } } }).prescription)
+      .toMatchObject({ rulesVersion: "coach-prescription-rules-v3" });
+    expect(parseCoachProgressPlannerCapabilities({ data: { ...value,
+      prescription: { ...value.prescription, rulesVersion: "future rules + 4" } } }).prescription)
+      .toMatchObject({ rulesVersion: "future rules + 4" });
+    for (const rulesVersion of ["", "   ", "x".repeat(257), 3]) {
+      expect(() => parseCoachProgressPlannerCapabilities({ data: { ...value,
+        prescription: { ...value.prescription, rulesVersion } } })).toThrow();
+    }
+  });
+
+  it("accepts future Today policy metadata while rejecting malformed metadata", () => {
+    const value = { schemaVersion: "coach-capabilities-v1", apiVersions, defaultCapabilityVersion: "p0",
+      queryCatalogVersion: "query-v1", factsCatalogVersion: "facts-v1", answerSchemaVersion: "answer-v1",
+      answerCatalogVersion: "catalog-v1", progressPlanner: { read: { enabled: true }, proposal: { enabled: true },
+        confirm: { enabled: true } }, prescription: { enabled: true, schemaVersion: "coach-prescription-v1",
+        rulesVersion: "future rules + 4", checkIn: { enabled: true, endpoint: "/v1/coach/prescription/check-in" } },
+      todayTrainingDecision: { enabled: true, endpoint: "/v1/coach/training-decisions/today",
+        schemaVersion: "today-training-decision-v1", policyVersion: "future policy + 2", policyStage: "active",
+        proposal: { enabled: true }, confirm: { enabled: true }, decline: { enabled: true } } };
+    expect(parseCoachProgressPlannerCapabilities(value).todayTrainingDecision?.policyVersion).toBe("future policy + 2");
+    for (const policyVersion of ["", "   ", "x".repeat(257), 2]) {
+      expect(() => parseCoachProgressPlannerCapabilities({ ...value,
+        todayTrainingDecision: { ...value.todayTrainingDecision, policyVersion } })).toThrow();
+    }
+    expect(() => parseCoachProgressPlannerCapabilities({ ...value,
+      todayTrainingDecision: { ...value.todayTrainingDecision, policyStage: "unknown" } })).toThrow();
   });
 
   it("rejects empty, missing, unknown, duplicate, and version-drifted API discovery tuples", () => {
@@ -90,6 +120,14 @@ describe("Progress Planner backend contract", () => {
       nonce: "n".repeat(32) }, providerCalls: 0, quotaConsumed: 0 })).toThrow();
     expect(() => parseCoachProposalCreateResponse({ status: "ok", data: { proposal, nonce: "n".repeat(32) },
       providerCalls: 1, quotaConsumed: 0 })).toThrow();
+    expect(parseCoachProposalCreateResponse({ status: "ok", data: { proposal: { ...proposal,
+      consent: { ...proposal.consent, policyVersion: "future consent + 5" } }, nonce: "n".repeat(32) },
+    providerCalls: 0, quotaConsumed: 0 })).toMatchObject({ data: { proposal: { consent: { policyVersion: "future consent + 5" } } } });
+    for (const policyVersion of ["", "   ", "x".repeat(257), 2]) {
+      expect(() => parseCoachProposalCreateResponse({ status: "ok", data: { proposal: { ...proposal,
+        consent: { ...proposal.consent, policyVersion } }, nonce: "n".repeat(32) },
+      providerCalls: 0, quotaConsumed: 0 })).toThrow();
+    }
   });
 
   it.each(["expired", "superseded", "consent_revoked", "applied", "reverted"] as const)(

@@ -13,15 +13,19 @@ describe("coachPrescriptionContract", () => {
     expect(parsed.quotaConsumed).toBe(0);
   });
 
-  it("accepts current rules in prescriptions and check-in responses while rejecting unknown rules", () => {
-    const current = { ...fixture, rulesVersion: "coach-prescription-rules-v2" };
-    expect(parseCoachPrescription(current).rulesVersion).toBe("coach-prescription-rules-v2");
-    expect(parseCoachPrescriptionCheckInResponse({ data: { status: "ok", prescription: current,
-      providerCalls: 0, quotaConsumed: 0 } })).toMatchObject({ prescription: { rulesVersion: "coach-prescription-rules-v2" } });
-    expect(() => parseCoachPrescription({ ...current, rulesVersion: "coach-prescription-rules-v3" })).toThrow();
-    expect(() => parseCoachPrescriptionCheckInResponse({ data: { status: "ok",
-      prescription: { ...current, rulesVersion: "coach-prescription-rules-v3" },
-      providerCalls: 0, quotaConsumed: 0 } })).toThrow();
+  it("preserves bounded backend rules metadata in prescriptions and check-in responses", () => {
+    for (const rulesVersion of ["coach-prescription-rules-v2", "coach-prescription-rules-v3", "future rules + 4"]) {
+      const prescription = { ...fixture, rulesVersion };
+      expect(parseCoachPrescription(prescription).rulesVersion).toBe(rulesVersion);
+      expect(parseCoachPrescriptionCheckInResponse({ data: { status: "ok", prescription,
+        providerCalls: 0, quotaConsumed: 0 } })).toMatchObject({ prescription: { rulesVersion } });
+    }
+    for (const rulesVersion of ["", "   ", "x".repeat(257), 3]) {
+      const prescription = { ...fixture, rulesVersion };
+      expect(() => parseCoachPrescription(prescription)).toThrow();
+      expect(() => parseCoachPrescriptionCheckInResponse({ data: { status: "ok", prescription,
+        providerCalls: 0, quotaConsumed: 0 } })).toThrow();
+    }
   });
 
   it("fails closed on evidence, status and charge drift", () => {
