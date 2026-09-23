@@ -7,7 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { useDialog } from "../contexts/DialogContext";
 import Avatar from "../components/Avatar";
-import { Card, Text } from "../theme/components";
+import { Button, Card, Text } from "../theme/components";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { buildFriendInviteUrl, shareFriendInvite } from "../utils/friendInviteShare";
 import i18n from "../i18n";
@@ -121,9 +121,9 @@ export default function FriendsPage() {
           <Text as="h2" className="font-semibold text-[var(--ink-0)]">{t("onboarding.title")}</Text>
           <Text as="p" className="mt-1 text-[var(--ink-3)]">{t("onboarding.description")}</Text>
           <div className="mt-4 flex flex-wrap gap-2">
-            <button type="button" onClick={handleShareInvite} disabled={friendCodeLoading || !friendCode} className="ds-btn ds-btn--md disabled:opacity-50">
+            <Button onClick={handleShareInvite} disabled={friendCodeLoading || !friendCode}>
               {friendCodeLoading ? t("onboarding.loadingCode") : friendCode ? t("onboarding.share") : t("onboarding.codeUnavailable")}
-            </button>
+            </Button>
             <button type="button" onClick={() => navigate(continueTo, { replace: true })} className="px-4 py-2 rounded-[var(--r-lg)] bg-[var(--bg-2)] text-[var(--ink-1)]">
               {t("onboarding.continue")}
             </button>
@@ -165,10 +165,10 @@ export default function FriendsPage() {
             className="flex-1 px-4 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] focus:outline-none focus:border-[var(--lime)]"
             style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
           />
-          <button
+          <Button
             onClick={handleAddByCode}
             disabled={actionLoading || !codeInput.trim()}
-            className={`ds-btn ds-btn--md px-5 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] disabled:opacity-50 ${actionLoading ? 'cursor-wait' : ''}`}
+            className={actionLoading ? 'cursor-wait' : undefined}
           >
             {actionLoading ? (
               <span className="flex items-center gap-1.5">
@@ -179,7 +179,7 @@ export default function FriendsPage() {
                 {t("adding")}
               </span>
             ) : t("addButton")}
-          </button>
+          </Button>
         </div>
       </Card>
 
@@ -276,13 +276,13 @@ export default function FriendsPage() {
                     <span className="text-[length:var(--fs-sm)] font-medium text-[var(--ink-0)] truncate">{r.nickname}</span>
                   </Link>
                   <div className="flex gap-2 shrink-0">
-                    <button
+                    <Button size="sm"
                       onClick={() => handleAccept(r.requesterId)}
                       disabled={requestPending}
-                      className={`ds-btn ds-btn--md px-3 py-1.5 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-lg)] disabled:opacity-50 ${accepting ? 'cursor-wait' : ''}`}
+                      className={accepting ? 'cursor-wait' : undefined}
                     >
                       {accepting ? t("accepting") : t("accept")}
-                    </button>
+                    </Button>
                     <button
                       onClick={() => handleDecline(r.requesterId)}
                       disabled={requestPending}

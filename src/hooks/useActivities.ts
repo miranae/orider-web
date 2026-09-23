@@ -244,6 +244,12 @@ export function useActivities(
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [feedCursor, setFeedCursor] = useState<FeedCursor | null>(null);
+  const [error, setError] = useState(false);
+  const [retryGeneration, setRetryGeneration] = useState(0);
+  const retry = useCallback(() => {
+    feedRequestGenerationRef.current += 1;
+    setRetryGeneration((generation) => generation + 1);
+  }, []);
 
   const buildSourceQueries = useCallback((uid: string | null): FeedSourceQuery[] => {
     if (scope === "self") {
@@ -428,6 +434,7 @@ export function useActivities(
       setHasMore(false);
       setLoading(false);
       setLoadingMore(false);
+      setError(false);
       return;
     }
     if (authLoading) return;
@@ -477,6 +484,7 @@ export function useActivities(
       setFeedCursor(null);
       setHasMore(true);
       setLoadingMore(false);
+      setError(false);
 
       let first: ActivityPage | null = null;
       try {
@@ -493,6 +501,7 @@ export function useActivities(
           if (handleActivityFeedError("useActivities.initialLoad.first", err, { scope })) {
             if (!cancelled) {
               setHasMore(false);
+              setError(true);
               setLoading(false);
             }
             return;
@@ -503,7 +512,10 @@ export function useActivities(
 
       try {
         if (!first) {
-          if (!cancelled) setHasMore(false);
+          if (!cancelled) {
+            setHasMore(false);
+            setError(true);
+          }
           return;
         }
         if (cancelled) return;
@@ -527,12 +539,19 @@ export function useActivities(
               scope,
             });
             setHasMore(false);
+            setError(true);
             return;
           }
-          if (handleActivityFeedError("useActivities.initialLoad.rest", err, { scope })) return;
+          if (handleActivityFeedError("useActivities.initialLoad.rest", err, { scope })) {
+            setError(true);
+            return;
+          }
           rest = await retryFetchPage(first.cursor, FEED_PAGE_SIZE - FIRST_FEED_CHUNK_SIZE, "rest");
         }
-        if (!rest) return;
+        if (!rest) {
+          if (!cancelled) setError(true);
+          return;
+        }
         if (cancelled) return;
         noteFirestoreServerSuccess(rest.serverMetadata);
         setActivities((prev) => {
@@ -549,7 +568,7 @@ export function useActivities(
 
     load();
     return () => { cancelled = true; };
-  }, [enabled, authLoading, user, fetchPage]);
+  }, [enabled, authLoading, user, fetchPage, retryGeneration]);
 
   const loadMore = useCallback(async () => {
     if (!enabled || !feedCursor || loadingMore) return;
@@ -578,6 +597,7 @@ export function useActivities(
       } else {
         handleActivityFeedError("useActivities.loadMore", err, { scope });
       }
+      setError(true);
     } finally {
       if (isCurrentRequest()) {
         setLoadingMore(false);
@@ -592,6 +612,8 @@ export function useActivities(
     loadMore,
     hasMore,
     loadingMore,
+    error,
+    retry,
   };
 }
 

@@ -39,7 +39,7 @@ import {
   monoInputStyle,
 } from "./_primitives";
 import { LayoutEditorCard } from "./LayoutEditorCard";
-import { Button, Card } from "../../theme/components";
+import { Button, Card, buttonClass } from "../../theme/components";
 
 function formatDateTime(ms: number): string {
   if (!ms) return "-";
@@ -1362,7 +1362,7 @@ function LegacyLayoutCard({
       <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
         <LocalizedLink
           to="/settings/equipment"
-          className="ds-btn ds-btn--secondary ds-btn--sm"
+          className={buttonClass({ variant: "secondary", size: "sm" })}
           data-testid="legacy-layout-open-equipment"
         >
           {t("device.legacyLayoutOpenEquipment")}

@@ -7,7 +7,9 @@
     "defaultName": "Rider",
     "anonTitle": "Keep your riding history longer and go deeper",
     "anonSubtitle": "Bring scattered activity records together safely, then turn them into training load, courses, segments, and AI coaching.",
-    "anonCta": "Start with Google"
+    "anonCta": "Start with Google",
+    "signingIn": "Signing in…",
+    "signInFailed": "Sign-in failed. Please try again."
   },
   "kpi": {
     "weekDistance": "7-Day Distance",
@@ -65,6 +67,20 @@
       "title": "No activities yet",
       "description": "Connect Strava or upload an activity to get started.",
       "ctaConnectStrava": "Connect Strava"
+    },
+    "noMatches": {
+      "title": "No matching activities",
+      "description": "Try another filter or date range."
+    },
+    "error": {
+      "title": "Could not load activities",
+      "description": "Check your connection and try again. This does not mean there are no activities.",
+      "retry": "Try again"
+    },
+    "partialError": {
+      "title": "Could not load more activities",
+      "description": "Only part of the activity list loaded. Reload the full list to try again.",
+      "retry": "Reload list"
     }
   },
   "yearRecap": {

@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/redesign';
 import type { BoardType } from '@shared/types';
-import { Button, Card } from "../theme/components";
+import { Button, Card, Chip } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
 import SafeImage from "../components/SafeImage";
 
@@ -276,18 +276,16 @@ const BoardPage: React.FC = () => {
           </div>
           <div className="flex gap-1">
             {(['all', 'devlog', 'inquiry', 'archive'] as const).map((type) => (
-              <button
+              <Button
                 key={type}
                 onClick={() => selectBoard(type)}
-                className={`min-h-[44px] px-2.5 py-1.5 sm:px-3 sm:py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] font-medium transition-colors whitespace-nowrap ${
-                  selectedBoard === type && !activeTag
-                    ? "ds-btn ds-btn--md"
-                    : "border text-[var(--ink-2)] hover:text-[var(--ink-1)] hover:bg-[var(--bg-2)]"
-                }`}
-                style={selectedBoard === type && !activeTag ? {} : { background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }}
+                variant={selectedBoard === type && !activeTag ? "outline" : "secondary"}
+                size="sm"
+                aria-pressed={selectedBoard === type && !activeTag}
+                className="min-h-[44px] whitespace-nowrap"
               >
                 {type === 'all' ? t("tab.all") : type === 'devlog' ? t("tab.devlog") : type === 'inquiry' ? t("tab.inquiry") : t("tab.archive")}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -333,15 +331,15 @@ const BoardPage: React.FC = () => {
                   if (name === activeTag) return null; // 상단 칩에서 이미 표시
                   const isUnchecked = uncheckedTags.has(name);
                   return (
-                    <button
+                    <Chip
                       key={name}
+                      selectable
+                      aria-pressed={!isUnchecked}
                       onClick={() => toggleTag(name)}
-                      className={`ds-chip text-[length:var(--fs-xs)] px-2.5 py-1 rounded-full transition-colors${
-                        isUnchecked ? 'opacity-40 line-through' : ''
-                      }`}
+                      className={`text-[length:var(--fs-xs)] px-2.5 py-1 rounded-full transition-colors ${isUnchecked ? 'opacity-40 line-through' : ''}`}
                     >
                       #{name}
-                    </button>
+                    </Chip>
                   );
                 })}
                 {(uncheckedTags.size > 0 || activeTag) && (
@@ -406,26 +404,24 @@ const BoardPage: React.FC = () => {
         {selectedBoard === 'inquiry' && (
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div className="flex gap-1">
-              <button
+              <Button
                 type="button"
                 onClick={() => setInquiryView('all')}
-                className={`px-3 py-1.5 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] font-medium transition-colors ${
-                  !isMyInquiryView ? "ds-btn ds-btn--md" : "border text-[var(--ink-2)] hover:text-[var(--ink-1)] hover:bg-[var(--bg-2)]"
-                }`}
-                style={!isMyInquiryView ? {} : { background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }}
+                variant={!isMyInquiryView ? "outline" : "secondary"}
+                size="sm"
+                aria-pressed={!isMyInquiryView}
               >
                 {t("inquiry.all")}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => setInquiryView('my')}
-                className={`px-3 py-1.5 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] font-medium transition-colors ${
-                  isMyInquiryView ? "ds-btn ds-btn--md" : "border text-[var(--ink-2)] hover:text-[var(--ink-1)] hover:bg-[var(--bg-2)]"
-                }`}
-                style={isMyInquiryView ? {} : { background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }}
+                variant={isMyInquiryView ? "outline" : "secondary"}
+                size="sm"
+                aria-pressed={isMyInquiryView}
               >
                 {t("inquiry.mine")}
-              </button>
+              </Button>
             </div>
             {isMyInquiryView && user && (
               <button
@@ -564,19 +560,21 @@ const BoardPage: React.FC = () => {
                   return (
                     <div className="flex flex-wrap gap-1.5 mb-3">
                       {shownTags.map(tag => (
-                        <button
+                        <Chip
                           key={tag}
+                          selectable
+                          variant={activeTag === tag ? 'accent' : 'default'}
+                          aria-pressed={activeTag === tag}
                           onClick={(e) => {
                             e.stopPropagation();
                             setActiveTag(prev => prev === tag ? undefined : tag);
                           }}
-                          className={`ds-chip rounded-[var(--r-sm)] cursor-pointer ${activeTag === tag ? 'ds-chip--accent' : ''}`}
                         >
                           #{tag}
-                        </button>
+                        </Chip>
                       ))}
                       {hiddenCount > 0 && (
-                        <span className="ds-chip rounded-[var(--r-sm)]">+{hiddenCount}</span>
+                        <Chip>+{hiddenCount}</Chip>
                       )}
                     </div>
                   );
@@ -634,17 +632,16 @@ const BoardPage: React.FC = () => {
               if (end - start < 4) start = Math.max(1, end - 4);
               for (let i = start; i <= end; i++) pages.push(i);
               return pages.map((p) => (
-                <button
+                <Button
                   key={p}
                   onClick={() => goToPage(p)}
-                  className={`min-w-[44px] min-h-[44px] text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-medium transition-colors ${
-                    p === page
-                      ? 'ds-btn ds-btn--md'
-                      : 'border border-[var(--line-soft)] text-[var(--ink-2)] hover:bg-[var(--bg-2)]'
-                  }`}
+                  variant={p === page ? 'outline' : 'secondary'}
+                  size="sm"
+                  aria-current={p === page ? 'page' : undefined}
+                  className="min-w-[44px] min-h-[44px]"
                 >
                   {p}
-                </button>
+                </Button>
               ));
             })()}
             <button
@@ -674,13 +671,15 @@ const BoardPage: React.FC = () => {
             </p>
             <div className="flex flex-wrap gap-1.5">
               {panelTags.slice(0, 12).map(({ name }) => (
-                <button
+                <Chip
                   key={name}
+                  selectable
+                  variant={activeTag === name ? 'accent' : 'default'}
+                  aria-pressed={activeTag === name}
                   onClick={() => setActiveTag(prev => prev === name ? undefined : name)}
-                  className={`ds-chip rounded-[var(--r-sm)] cursor-pointer ${activeTag === name ? 'ds-chip--accent' : ''}`}
                 >
                   #{name}
-                </button>
+                </Chip>
               ))}
             </div>
           </Card>

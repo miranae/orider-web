@@ -13,7 +13,7 @@ import { useSegmentCreator } from "../hooks/useSegmentCreator";
 import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
 import PermissionGate from "../components/redesign/states/PermissionGate";
-import { Card, buttonClass } from "../theme/components";
+import { Alert, Card, buttonClass } from "../theme/components";
 import { deriveSegmentCategory, type SegmentCategory } from "../features/segmentCreation/category";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 import { readClimbPromotionRange, resolveClimbPromotionIndices } from "../features/segmentCreation/climbPromotion";
@@ -519,8 +519,8 @@ export default function CreateSegmentPage() {
       <div className="space-y-6">
         <Card padding="none" className="p-8 text-center">
           <div className="relative inline-flex items-center justify-center mb-6">
-            <span className="absolute w-16 h-16 rounded-full bg-green-400/30 animate-ping" />
-            <span className="relative w-16 h-16 rounded-full bg-green-500 flex items-center justify-center">
+            <span className="absolute w-16 h-16 rounded-full bg-[var(--color-success)]/30 animate-ping" />
+            <span className="relative w-16 h-16 rounded-full bg-[var(--color-success)] flex items-center justify-center">
               <svg className="w-8 h-8 text-[var(--ink-0)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
@@ -580,9 +580,7 @@ export default function CreateSegmentPage() {
       {/* Error */}
       {!loadingStreams && streamError && (
         <div className="space-y-4">
-          <div className="bg-red-50 border border-red-200 rounded-[var(--r-lg)] p-4 text-center">
-            <p className="text-red-600">{streamError}</p>
-          </div>
+          <Alert variant="danger">{streamError}</Alert>
           <button
             onClick={leavePage}
             className="px-4 py-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors"
@@ -686,7 +684,7 @@ export default function CreateSegmentPage() {
               {/* Name */}
               <div>
                 <label className="block text-[length:var(--fs-sm)] font-medium text-[var(--ink-1)] mb-1">
-                  {t("form.segmentName")} <span className="text-red-500">{t("form.nameRequired")}</span>
+                  {t("form.segmentName")} <span className="text-[var(--color-error)]">{t("form.nameRequired")}</span>
                 </label>
                 <input
                   type="text"
@@ -756,16 +754,14 @@ export default function CreateSegmentPage() {
 
                 {/* Errors */}
                 {rangeValidation.length > 0 && (
-                  <div className="mt-3 bg-red-50 border border-red-200 rounded-[var(--r-sm)] p-2">
+                  <Alert variant="danger" className="mt-3 text-[length:var(--fs-xs)]">
                     {rangeValidation.map((msg) => (
-                      <p key={msg} className="text-red-600 text-[length:var(--fs-xs)]">{msg}</p>
+                      <p key={msg}>{msg}</p>
                     ))}
-                  </div>
+                  </Alert>
                 )}
                 {submitError && (
-                  <div className="mt-3 bg-red-50 border border-red-200 rounded-[var(--r-sm)] p-2">
-                    <p className="text-red-600 text-[length:var(--fs-xs)]">{submitError}</p>
-                  </div>
+                  <Alert variant="danger" className="mt-3 text-[length:var(--fs-xs)]">{submitError}</Alert>
                 )}
 
                 {/* Submit */}
