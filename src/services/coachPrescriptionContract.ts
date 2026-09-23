@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const COACH_PRESCRIPTION_SCHEMA_VERSION = "coach-prescription-v1" as const;
-export const COACH_PRESCRIPTION_RULES_VERSION = "coach-prescription-rules-v1" as const;
+export const COACH_PRESCRIPTION_RULES_VERSION = "coach-prescription-rules-v2" as const;
 
 export type CoachCheckInSignal = "subjective_fatigue" | "soreness" | "pain_or_illness";
 export type CoachPrescriptionStatus = "ready" | "needs_checkin" | "insufficient_data" | "safety_blocked";
@@ -41,7 +41,7 @@ export interface CoachPrescriptionDTO {
   factsId: string;
   snapshotRevision: string;
   planRevision: string | null;
-  rulesVersion: typeof COACH_PRESCRIPTION_RULES_VERSION;
+  rulesVersion: "coach-prescription-rules-v1" | typeof COACH_PRESCRIPTION_RULES_VERSION;
   validFrom: string;
   validUntil: string;
   confidence: "low" | "medium" | "high";
@@ -88,7 +88,7 @@ const day = z.object({ localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), actio
 
 export const coachPrescriptionSchema = z.object({
   schemaVersion: z.literal(COACH_PRESCRIPTION_SCHEMA_VERSION), prescriptionId: z.string().regex(/^rx_[0-9a-f]{24}$/), factsId: id,
-  snapshotRevision: id, planRevision: id.nullable(), rulesVersion: z.literal(COACH_PRESCRIPTION_RULES_VERSION), validFrom: iso, validUntil: iso,
+  snapshotRevision: id, planRevision: id.nullable(), rulesVersion: z.enum(["coach-prescription-rules-v1", COACH_PRESCRIPTION_RULES_VERSION]), validFrom: iso, validUntil: iso,
   confidence: z.enum(["low", "medium", "high"]), status: z.enum(["ready", "needs_checkin", "insufficient_data", "safety_blocked"]),
   nextDays: z.array(day).max(7), nextWeekLoad: z.object({ minTss: z.number().int().nonnegative(), maxTss: z.number().int().nonnegative(), evidenceIds: refs }).strict().optional(),
   missingSignals: z.array(reason).max(64).refine(unique), requiredSignals: z.array(z.enum(["subjective_fatigue", "soreness", "pain_or_illness"])).min(1).max(3).refine(unique).optional(),

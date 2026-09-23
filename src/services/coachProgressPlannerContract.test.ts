@@ -36,6 +36,11 @@ describe("Progress Planner backend contract", () => {
     expect(parseCoachProgressPlannerCapabilities({ data: value }).progressPlanner).toEqual(value.progressPlanner);
     expect(() => parseCoachProgressPlannerCapabilities({ data: { ...value,
       progressPlanner: { ...value.progressPlanner, proposal: { enabled: true } } } })).toThrow();
+    expect(parseCoachProgressPlannerCapabilities({ data: { ...value,
+      prescription: { ...value.prescription, rulesVersion: "coach-prescription-rules-v2" } } }).prescription)
+      .toMatchObject({ rulesVersion: "coach-prescription-rules-v2" });
+    expect(() => parseCoachProgressPlannerCapabilities({ data: { ...value,
+      prescription: { ...value.prescription, rulesVersion: "coach-prescription-rules-v3" } } })).toThrow();
   });
 
   it("rejects empty, missing, unknown, duplicate, and version-drifted API discovery tuples", () => {
