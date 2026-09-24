@@ -65,7 +65,7 @@ export default function FtpProgressionCard({
     <>
       <div className="flex flex-wrap items-start justify-between" style={{ gap: "var(--space-4)" }}>
         <div>
-          <Text as="h3" variant={compact ? "eyebrow" : "title"}>{t(hasHistory ? "ftpProgression.combinedTitle" : "ftpProgression.title")}</Text>
+          <Text as="h3" variant={compact ? "subtitle" : "title"}>{t(hasHistory ? "ftpProgression.combinedTitle" : "ftpProgression.title")}</Text>
           {!compact && <Text as="p" variant="caption" tone="secondary" style={{ marginTop: "var(--space-1)" }}>{t(hasHistory ? "ftpProgression.combinedDescription" : "ftpProgression.description")}</Text>}
         </div>
         {hasChart && !embedded && (
@@ -78,7 +78,7 @@ export default function FtpProgressionCard({
 
       {hasChart && (
         <div style={{ marginTop: "var(--space-4)" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)", marginBottom: "var(--space-2)" }}>
+          <div className="ftp-progression__legend" style={{ display: "flex", flexWrap: "wrap", gap: compact ? "var(--space-2)" : "var(--space-3)", marginBottom: "var(--space-2)" }}>
             {points.length > 0 && <Text as="span" variant="caption" tone="secondary">● {t("ftpProgression.autoSeriesLabel")}</Text>}
             {hasHistory && <Text as="span" variant="caption" tone="secondary" style={{ color: "var(--violet)" }}>● {t("ftpProgression.historySeriesLabel")}</Text>}
             {currentFtpW != null && currentFtpW > 0 && (
@@ -107,8 +107,9 @@ export default function FtpProgressionCard({
             ))}
           </svg>
           {!compact && points.length > 0 && <Text as="p" variant="caption" tone="tertiary">{t("ftpProgression.method")}</Text>}
-          {hasHistory && (
-            <div data-ftp-history style={{ display: "grid", gap: "var(--space-1)", marginTop: "var(--space-3)" }}>
+          {hasHistory && (embedded ? <details data-ftp-history style={{ marginTop: "var(--space-2)" }}>
+            <summary style={{ color: "var(--ink-2)", fontSize: "var(--fs-sm)", cursor: "pointer", minHeight: 44, paddingBlock: "var(--space-3)", boxSizing: "border-box" }}>{t("ftpProgression.historyDetails")}</summary>
+            <div style={{ display: "grid", gap: "var(--space-1)", paddingBottom: "var(--space-2)" }}>
               {sortedHistory.slice(-4).reverse().map((entry) => (
                 <div key={entry.id} style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)" }}>
                   <Text variant="caption" tone="secondary">{new Date(entry.changedAt).toLocaleDateString(i18n.language)} · {t(`ftpProgression.source.${entry.source}`)}</Text>
@@ -116,7 +117,15 @@ export default function FtpProgressionCard({
                 </div>
               ))}
             </div>
-          )}
+          </details> :
+            <div data-ftp-history style={{ display: "grid", gap: "var(--space-1)", marginTop: "var(--space-3)" }}>
+              {sortedHistory.slice(-4).reverse().map((entry) => (
+                <div key={entry.id} style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)" }}>
+                  <Text variant="caption" tone="secondary">{new Date(entry.changedAt).toLocaleDateString(i18n.language)} · {t(`ftpProgression.source.${entry.source}`)}</Text>
+                  <Text variant="mono">{entry.value} W</Text>
+                </div>
+              ))}
+            </div>)}
         </div>
       )}
 

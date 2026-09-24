@@ -4,21 +4,40 @@
 .mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.75rem; white-space: nowrap; }
 .mobile-fitness-mode-toggle { flex: 0 0 auto; min-width: 3.75rem; min-height: 44px; margin-inline-end: var(--space-4); padding: var(--space-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--bg-2); color: var(--ink-2); font-size: var(--fs-xs); font-weight: 700; cursor: pointer; }
 .mobile-fitness-mode-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.mobile-fitness-status { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
-.mobile-fitness-status__value { color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-2xl); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
-.mobile-fitness-status__meaning { color: var(--ink-2); font-weight: 500; letter-spacing: normal; }
+.mobile-fitness-status { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-width: 0; }
+.mobile-fitness-status__label { min-width: 0; }
+.mobile-fitness-status__value { flex: none; color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-2xl); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.mobile-fitness-status__meaning { display: block; margin-top: var(--space-1); color: var(--ink-1); font-size: var(--fs-sm); font-weight: 500; letter-spacing: normal; line-height: 1.35; }
 .mobile-fitness-deferred-decision { margin: 0 var(--space-4) var(--space-3); color: var(--ink-3); font-size: var(--fs-xs); }
+.mobile-fitness-page--embedded .mobile-fitness-daily-details details { margin-top: var(--space-2) !important; }
+.mobile-fitness-page--embedded .mobile-fitness-daily-details summary { padding: var(--space-2) var(--space-3) !important; }
+.mobile-fitness-page--embedded .mobile-fitness-daily-details summary .ds-text { color: var(--ink-2) !important; font-size: var(--fs-xs); font-weight: 500; }
+
+/* Native title and bottom bar already frame this page. Keep the chart in the first viewport. */
+.mobile-fitness-page--embedded .mobile-fitness-toolbar__sports > [role="group"] { gap: var(--space-1); padding-block: var(--space-2) !important; }
+.mobile-fitness-page--embedded .mobile-fitness-toolbar__sports > [role="group"] > button { min-height: 44px; padding-block: var(--space-1); }
+.mobile-fitness-page--embedded .mobile-fitness-pmc .pmc-history__chart-head { gap: var(--space-1); padding-bottom: var(--space-1); }
+.mobile-fitness-page--embedded .mobile-fitness-pmc .pmc-history__ranges { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.mobile-fitness-page--embedded .mobile-fitness-pmc .pmc-history__ranges .ds-btn { flex: 1 0 2.75rem; }
+
+.mobile-fitness-performance__ftp { display: flex; align-items: baseline; gap: var(--space-2); margin-top: var(--space-1); }
+.mobile-fitness-performance__profile { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin-top: var(--space-1); }
+.mobile-fitness-performance__metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
+.mobile-fitness-performance__metric { min-width: 0; padding: var(--space-3); border-radius: var(--r-md); background: var(--bg-2); border: 1px solid var(--line-soft); }
+.mobile-fitness-performance__metric-value { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); margin-top: var(--space-1); }
+.mobile-fitness-performance__trend .ftp-progression__legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
+.mobile-fitness-performance__trend .ftp-progression__legend > span { white-space: nowrap; }
 
 @media (max-width: 24rem) {
-  .mobile-fitness-toolbar__sports > [role="group"] { gap: var(--space-1); padding-inline: 0 !important; }
-  .mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 2.75rem; }
-  .mobile-fitness-toolbar__sports > [role="group"] > button:not(:first-child) { font-size: 0 !important; }
-  .mobile-fitness-toolbar__sports > [role="group"] > button:nth-child(2)::before { content: "🚴"; font-size: var(--fs-lg); }
-  .mobile-fitness-toolbar__sports > [role="group"] > button:nth-child(3)::before { content: "🏃"; font-size: var(--fs-lg); }
-  .mobile-fitness-toolbar__sports > [role="group"] > button:nth-child(4)::before { content: "🏊"; font-size: var(--fs-lg); }
+  .mobile-fitness-performance__metric { padding: var(--space-2); }
+  .mobile-fitness-performance__metric-value .ds-text--unit { font-size: var(--fs-xs); }
 }
 
 @media (max-width: 36rem) {
+  .mobile-fitness-toolbar__sports > [role="group"] { padding-inline: 0 !important; }
+  .mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.25rem; font-size: var(--fs-base) !important; }
+  .mobile-fitness-toolbar__sports > [role="group"] > button[aria-pressed="false"] { color: var(--ink-2) !important; }
+  .mobile-fitness-mode-toggle { font-size: var(--fs-base); }
   .mobile-fitness-pmc .ds-chart__header {
     align-items: center;
     flex-wrap: nowrap;
@@ -55,6 +74,8 @@
   .mobile-fitness-pmc .pmc-history .ds-chart__plot {
     margin-top: var(--space-2);
   }
+
+  .mobile-fitness-pmc .pmc-history__chart { height: 12rem; }
 
   /* 그래프 끝점과 아래 값 스트립에 있는 최신 CTL/ATL을 상단에서 반복하지 않는다. */
   .mobile-fitness-pmc .pmc-history__latest { display: none; }

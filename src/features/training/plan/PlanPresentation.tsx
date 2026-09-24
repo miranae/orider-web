@@ -596,12 +596,15 @@ export default function PlanPresentation({
     const mobileWeekIdx = Math.max(0, Math.min(weeks.length - 1, currentWeekIndex + mobileWeekOffset));
     return {
       currentWeek: weeks[mobileWeekIdx] ?? null,
-      weekLabel: mobileWeekOffset === 0 && hasCurrentWeek ? t('mobile.weekThis') : `W${mobileWeekIdx + 1}`,
+      weekIndex: mobileWeekIdx,
+      weekLabel: mobileWeekIdx === currentWeekIndex && hasCurrentWeek ? t('mobile.weekThis') : `W${mobileWeekIdx + 1}`,
+      canPrevWeek: mobileWeekIdx > 0,
+      canNextWeek: mobileWeekIdx < weeks.length - 1,
     };
   }, [currentWeekIndex, hasCurrentWeek, mobileWeekOffset, t, weeks]);
   if (!loading && loadError) {
     return (
-      <div className={embedded ? "orider-embedded-surface" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
+      <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
         {!embedded && (
           <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
             <DisciplineTabs />
@@ -619,7 +622,7 @@ export default function PlanPresentation({
     const sportLabel = t(`discipline.${discipline}`);
     const sportIcon = t(`disciplineIcon.${discipline}`);
     return (
-      <div className={embedded ? "orider-embedded-surface" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
+      <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
         {!embedded && (
           <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
             <DisciplineTabs />
@@ -643,7 +646,7 @@ export default function PlanPresentation({
     const sportLabel = t(`discipline.${discipline}`);
     const sportIcon = t(`disciplineIcon.${discipline}`);
     return (
-      <div className={embedded ? "orider-embedded-surface" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
+      <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
         {!embedded && (
           <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
             <DisciplineTabs />
@@ -668,6 +671,8 @@ export default function PlanPresentation({
       embedded,
       currentWeek: mobilePlanViewModel.currentWeek,
       weekLabel: mobilePlanViewModel.weekLabel,
+      canPrevWeek: mobilePlanViewModel.canPrevWeek,
+      canNextWeek: mobilePlanViewModel.canNextWeek,
       goalTitle: goal?.title ?? goal?.courseName,
       daysLeft,
       progressPct: progress,
@@ -675,8 +680,8 @@ export default function PlanPresentation({
       totalTSS,
       weeksLeft,
       projectedCTL: goal?.snapshot?.ctl != null ? goal.snapshot.ctl * 0.18 : null,
-      onWeekPrev: () => onMobileWeekOffsetChange(mobileWeekOffset - 1),
-      onWeekNext: () => onMobileWeekOffsetChange(mobileWeekOffset + 1),
+      onWeekPrev: () => onMobileWeekOffsetChange(mobilePlanViewModel.weekIndex - 1 - currentWeekIndex),
+      onWeekNext: () => onMobileWeekOffsetChange(mobilePlanViewModel.weekIndex + 1 - currentWeekIndex),
       onEditWorkout: embedded ? undefined : onEditWorkout,
     };
     return (
@@ -688,7 +693,7 @@ export default function PlanPresentation({
   }
 
   return (
-    <div className={embedded ? "orider-embedded-surface" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
+    <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
 
       {/* ── Goal Header ─────────────────────────────────────────────── */}
       <div

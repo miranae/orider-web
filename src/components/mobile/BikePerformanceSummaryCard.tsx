@@ -81,19 +81,19 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
     { key: "vo2max", label: "VO₂max", value: vo2max, unit: "ml/kg/min", status: vo2max != null ? t("mobileFitness.performance.estimated") : t("mobileFitness.performance.insufficient") },
   ];
   return (
-    <section aria-label={t("mobileFitness.performance.ariaLabel")} style={{ marginBottom: "var(--space-3)", padding: "var(--space-5) var(--space-4)", background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)" }}>
+    <section className="mobile-fitness-performance" aria-label={t("mobileFitness.performance.ariaLabel")} style={{ marginBottom: "var(--space-3)", padding: "var(--space-4)", background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)" }}>
       <Text as="h2" variant="title" style={{ margin: 0 }}>{t("mobileFitness.performance.title")}</Text>
-      <Text as="div" variant="eyebrow" tone="secondary" style={{ marginTop: "var(--space-4)" }}>{t("fitness:thresholdDecision.activeLabel")}</Text>
-      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2)", marginTop: "var(--space-1)" }}>
+      <Text as="div" variant="eyebrow" tone="secondary" style={{ marginTop: "var(--space-3)" }}>{t("fitness:thresholdDecision.activeLabel")}</Text>
+      <div className="mobile-fitness-performance__ftp">
         <Text as="span" variant="dataHero" style={{ color: "var(--lime)" }}>{activeFtp ?? "—"}</Text>
         {activeFtp != null && <Text as="span" variant="unit">W</Text>}
       </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
+      <div className="mobile-fitness-performance__profile">
         <Text as="span" variant="mono">{wkgSummary}</Text>
         <Text as="span" variant="caption" tone="tertiary">{t("mobileFitness.performance.canonical")}</Text>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
         <Chip variant={riderType ? "accent" : "default"} dot={!!riderType}>{riderType ?? t("mobileFitness.performance.riderUnknown")}</Chip>
       </div>
       <div style={{ marginTop: "var(--space-3)" }}>
@@ -106,11 +106,11 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
             />
           : <Text as="div" variant="label">{t("mobileFitness.performance.abilityUnknown")}</Text>}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
+      <div className="mobile-fitness-performance__metrics">
         {metrics.map((metric) => (
-          <div key={metric.key} data-performance-metric={metric.key} style={{ minWidth: 0, padding: "var(--space-3)", borderRadius: "var(--r-md)", background: "var(--bg-2)", border: "1px solid var(--line-soft)" }}>
+          <div key={metric.key} data-performance-metric={metric.key} className="mobile-fitness-performance__metric">
             <Text as="div" variant="caption" tone="secondary">{metric.label}</Text>
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "var(--space-1)", marginTop: "var(--space-1)" }}>
+            <div className="mobile-fitness-performance__metric-value">
               <Text as="span" variant="dataLarge" style={{ whiteSpace: "nowrap" }}>{metric.value ?? "—"}</Text>
               {metric.value != null && <Text as="span" variant="unit" style={{ whiteSpace: "nowrap" }}>{metric.unit}</Text>}
             </div>
@@ -119,7 +119,7 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
         ))}
       </div>
 
-      <FtpProgressionCard points={progression} history={ftpHistory} currentFtpW={activeFtp} breakthrough={null} embedded compact />
+      <div className="mobile-fitness-performance__trend"><FtpProgressionCard points={progression} history={ftpHistory} currentFtpW={activeFtp} breakthrough={null} embedded compact /></div>
 
       <BikeFtpDecisionActionPanel
         decision={ftpDecision}

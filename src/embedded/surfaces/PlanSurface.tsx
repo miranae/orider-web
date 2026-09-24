@@ -39,8 +39,8 @@ export default function PlanSurface({ onReady, retryKey }: PlanSurfaceProps) {
 
   if (model.goalLoading) {
     return (
-      <main className="orider-embedded-surface" data-testid="embedded-plan">
-        <section aria-labelledby="embedded-plan-goal-title">
+      <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
+        <section className="orider-embedded-plan-state" aria-labelledby="embedded-plan-goal-title">
           <h2 id="embedded-plan-goal-title">{t("goal")}</h2>
           <p role="status">{loadingLabel}</p>
         </section>
@@ -50,8 +50,8 @@ export default function PlanSurface({ onReady, retryKey }: PlanSurfaceProps) {
 
   if (model.goalError) {
     return (
-      <main className="orider-embedded-surface" data-testid="embedded-plan">
-        <section aria-labelledby="embedded-plan-goal-title">
+      <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
+        <section className="orider-embedded-plan-state" aria-labelledby="embedded-plan-goal-title">
           <h2 id="embedded-plan-goal-title">{t("goal")}</h2>
           <p role="alert">{tCommon("error.title")}</p>
           <button type="button" onClick={model.retryLoad}>{retryLabel}</button>
@@ -62,11 +62,11 @@ export default function PlanSurface({ onReady, retryKey }: PlanSurfaceProps) {
 
   if (model.goal && model.planLoading) {
     return (
-      <main className="orider-embedded-surface" data-testid="embedded-plan">
-        <section aria-labelledby="embedded-plan-goal-title">
+      <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
+        <section className="orider-embedded-plan-state" aria-labelledby="embedded-plan-goal-title">
           <h2 id="embedded-plan-goal-title">{model.goal.title ?? model.goal.courseName ?? t("goal")}</h2>
         </section>
-        <section aria-labelledby="embedded-plan-weeks-title">
+        <section className="orider-embedded-plan-state" aria-labelledby="embedded-plan-weeks-title">
           <h2 id="embedded-plan-weeks-title">{t("page.planTitle")}</h2>
           <p role="status">{loadingLabel}</p>
         </section>
@@ -76,11 +76,11 @@ export default function PlanSurface({ onReady, retryKey }: PlanSurfaceProps) {
 
   if (model.goal && model.planError) {
     return (
-      <main className="orider-embedded-surface" data-testid="embedded-plan">
-        <section aria-labelledby="embedded-plan-goal-title">
+      <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
+        <section className="orider-embedded-plan-state" aria-labelledby="embedded-plan-goal-title">
           <h2 id="embedded-plan-goal-title">{model.goal.title ?? model.goal.courseName ?? t("goal")}</h2>
         </section>
-        <section aria-labelledby="embedded-plan-weeks-title">
+        <section className="orider-embedded-plan-state" aria-labelledby="embedded-plan-weeks-title">
           <h2 id="embedded-plan-weeks-title">{t("page.planTitle")}</h2>
           <p role="alert">{tCommon("error.title")}</p>
           <button type="button" onClick={model.retryLoad}>{retryLabel}</button>
@@ -90,7 +90,7 @@ export default function PlanSurface({ onReady, retryKey }: PlanSurfaceProps) {
   }
 
   return (
-    <main data-testid="embedded-plan">
+    <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
       <PlanPresentation
         model={model}
         embedded

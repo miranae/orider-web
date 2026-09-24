@@ -41,6 +41,38 @@ describe("PlanPresentation responsive layout", () => {
     expect(screen.getByText("tablet weekly list")).toBeInTheDocument();
   });
 
+  it("labels the displayed week after an old offset is clamped by refreshed plan data", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
+      matches: query === "(max-width: 1023px)", media: query, onchange: null,
+      addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(),
+      removeEventListener: vi.fn(), dispatchEvent: vi.fn(),
+    }));
+    const today = Date.now();
+    const refreshedModel = {
+      ...model,
+      weeks: [{ id: "week-01", weekNumber: 1, phase: "build", startDate: today, plannedTSS: 50,
+        days: [{ date: today, dayOfWeek: 0, workout: "z2", plannedTSS: 50, plannedDurationMin: 60 }] }],
+      isTodayCell: (day: { date: number }) => day.date === today,
+    } as unknown as PlanModel;
+    renderWithProviders(<PlanPresentation model={refreshedModel} mobileWeekOffset={5} onMobileWeekOffsetChange={vi.fn()}
+      renderMobile={(props) => <div>{props.weekLabel} · {props.canNextWeek ? "next" : "last"}</div>} />);
+
+    expect(screen.getByText("이번 주 · last")).toBeInTheDocument();
+  });
+
+  it("keeps the embedded inset container for empty and wide plan views", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
+      matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(),
+      addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn(),
+    }));
+    const view = renderWithProviders(<PlanPresentation model={{ ...model, goal: null } as unknown as PlanModel}
+      embedded mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
+    expect(view.container.querySelector(".embedded-plan-presentation")).toBeInTheDocument();
+
+    view.rerender(<PlanPresentation model={model} embedded mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
+    expect(view.container.querySelector(".embedded-plan-presentation")).toBeInTheDocument();
+  });
+
   it("keeps a long ride's TSS value and unit together in the desktop calendar", () => {
     vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
       matches: false,

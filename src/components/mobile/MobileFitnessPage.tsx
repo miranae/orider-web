@@ -286,7 +286,7 @@ function PmcMiniChart({ history, projection, today, ctlColor, ctlLabel, ariaLabe
         {yTicks.map((v) => (
           <span key={v} style={{
             position: "absolute", left: `${(PAD_L / W) * 100}%`, top: `${(sy(v) / H) * 100}%`,
-            transform: "translate(calc(-100% - var(--space-0-5)), -50%)", color: "var(--ink-4)", fontFamily: "var(--font-mono)",
+            transform: "translate(calc(-100% - var(--space-0-5)), -50%)", color: "var(--ink-2)", fontFamily: "var(--font-mono)",
             fontSize: "var(--fs-xs)", fontWeight: 500, fontVariantNumeric: "tabular-nums", lineHeight: 1,
           }}>{Math.round(v)}</span>
         ))}
@@ -294,7 +294,7 @@ function PmcMiniChart({ history, projection, today, ctlColor, ctlLabel, ariaLabe
           <span key={i} style={{
             position: "absolute", left: `${(l.x / W) * 100}%`, top: `${((H - 6) / H) * 100}%`,
             transform: `translate(${i === 0 ? "0" : i === xLabels.length - 1 ? "-100%" : "-50%"}, -100%)`,
-            color: l.isToday ? "var(--ink-1)" : "var(--ink-4)", fontSize: "var(--fs-xs)", fontWeight: 500,
+            color: l.isToday ? "var(--ink-1)" : "var(--ink-2)", fontSize: "var(--fs-xs)", fontWeight: 500,
             lineHeight: 1, whiteSpace: "nowrap",
           }}>{l.text}{l.isToday ? t("mobileFitness.pmcLabelToday") : ""}</span>
         ))}
@@ -464,7 +464,7 @@ function SectionCard({ children, title, sub, accentColor, ariaLabel, compact = f
       {(title || sub) && (
         <div style={{ marginBottom: "var(--space-2)" }}>
           {title && <Text variant="eyebrow">{title}</Text>}
-          {sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{sub}</div>}
+          {sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginTop: "var(--space-1)" }}>{sub}</div>}
         </div>
       )}
       {children}
@@ -619,7 +619,7 @@ export default function MobileFitnessPage({
   const powerCurveSub = t("mobileFitness.powerCurveSub", { maxW: powerCurveMaxW });
 
   return (
-    <div>
+    <div className={embedded ? "mobile-fitness-page mobile-fitness-page--embedded" : "mobile-fitness-page"}>
       {!embedded && <h1 className="sr-only">{t("mobileFitness.title")}</h1>}
 
       <div className="mobile-fitness-toolbar">
@@ -636,7 +636,7 @@ export default function MobileFitnessPage({
         <div style={{ paddingTop: "var(--space-2)" }}>
           <SectionCard ariaLabel={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")} compact>
             <div data-mobile-fitness-status className="mobile-fitness-status">
-              <Text variant="eyebrow">{t("mobileFitness.kpiTsbLabel")}<span className="mobile-fitness-status__meaning"> · {tsbInterpretation}</span></Text>
+              <Text as="div" variant="eyebrow" className="mobile-fitness-status__label">{t("mobileFitness.kpiTsbLabel")}<span className="mobile-fitness-status__meaning">{tsbInterpretation}</span></Text>
               <span className="mobile-fitness-status__value">
                 {tsbValue == null ? "—" : tsbValue.toFixed(1)}
               </span>
@@ -664,24 +664,26 @@ export default function MobileFitnessPage({
                     <PmcHistoryPanel key={data.discipline} points={pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]} />
                   </div>
                 )}
-                <DetailsSection title={t("fitness:history.dailyDetails")} defaultOpen={!pmcHistoryPoints}>
-                {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
-                    제목/범례는 카드 padding 인셋 유지. */}
-                <div style={{ margin: "0 -16px" }}>
-                  <PmcMiniChart history={data.pmcHistory} projection={data.pmcProjection} today={data.today} ctlColor={pmcCtlColor} ctlLabel={pmcCtlLabel} ariaLabel={`${pmcTitle}. ${pmcSub}`} t={t} />
+                <div className="mobile-fitness-daily-details">
+                  <DetailsSection title={t("fitness:history.dailyDetails")} defaultOpen={!pmcHistoryPoints}>
+                    {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
+                        제목/범례는 카드 padding 인셋 유지. */}
+                    <div style={{ margin: "0 -16px" }}>
+                      <PmcMiniChart history={data.pmcHistory} projection={data.pmcProjection} today={data.today} ctlColor={pmcCtlColor} ctlLabel={pmcCtlLabel} ariaLabel={`${pmcTitle}. ${pmcSub}`} t={t} />
+                    </div>
+                    <div style={{ marginTop: "var(--space-1-5)", fontSize: "var(--fs-xs)", color: "var(--ink-2)", display: "flex", gap: "var(--space-3)" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+                        <PmcLegendSample color={pmcCtlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />{pmcCtlLabel}
+                      </span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+                        <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} />ATL
+                      </span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+                        <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} />TSB
+                      </span>
+                    </div>
+                  </DetailsSection>
                 </div>
-                <div style={{ marginTop: "var(--space-1-5)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", display: "flex", gap: "var(--space-3)" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                    <PmcLegendSample color={pmcCtlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />{pmcCtlLabel}
-                  </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                    <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} />ATL
-                  </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                    <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} />TSB
-                  </span>
-                </div>
-                </DetailsSection>
               </>
             )}
           </SectionCard>

@@ -579,6 +579,7 @@
   "ftpCard.ftpEstSub": "CP × 0.97 (Coggan 추정)",
   "ftpProgression.title": "월별 추정 FTP 추이",
   "ftpProgression.combinedTitle": "FTP 진전과 변경 이력",
+  "ftpProgression.historyDetails": "FTP 변경 이력 보기",
   "ftpProgression.description": "최근 파워 기록에서 계산한 eFTP 변화입니다. 직접 설정한 FTP 변경 이력과는 다릅니다.",
   "ftpProgression.combinedDescription": "실제로 적용한 FTP 변경과 파워 기록에서 계산한 월별 eFTP를 구분해 함께 표시합니다.",
   "ftpProgression.chartLabel": "월별 추정 FTP 추이 차트",

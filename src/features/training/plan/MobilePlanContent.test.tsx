@@ -60,7 +60,14 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.getByRole("button", { name: "접기" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("2026_비앙키그란폰도춘천");
     expect(screen.getByText("오늘의 다음 운동")).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: "시작" })[0]);
+    expect(screen.getByText("60 TSS · 75 분")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "주간 선택" })).toHaveTextContent("이번 주");
+    expect(screen.getByText("🚴 사이클")).toBeInTheDocument();
+    expect(screen.getByText("가벼움")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("주간 TSS60");
+    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("1h 15m");
+    expect(screen.getByRole("region", { name: "이번 주 요약" }).querySelector(".mobile-plan-sport-load")).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
     expect(edit).toHaveBeenCalledWith(workout, "week-04", 0);
   });
 
@@ -76,8 +83,42 @@ describe("MobilePlanContent product hierarchy", () => {
       <MobilePlanContent currentWeek={{ ...week, days: [{ ...workout, workout: "rest" }, nextDay] }} weekLabel="이번 주" onEditWorkout={edit} />,
     );
     expect(screen.getByText("이번 주 다음 운동")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "시작" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
     expect(edit).toHaveBeenCalledWith(nextDay, "week-04", 1);
+  });
+
+  it("shows the adjusted workout duration without offering an edit action in an embedded plan", () => {
+    const adjustedDay = { ...workout, adjustedTSS: 48, adjustedDurationMin: 58 };
+    renderWithProviders(<MobilePlanContent embedded currentWeek={{ ...week, days: [adjustedDay] }} weekLabel="이번 주" />);
+
+    expect(screen.getByText("48 TSS · 58 분")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "편집" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("48");
+    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("0h 58m");
+  });
+
+  it("excludes skipped workouts from all weekly load, time, and session figures", () => {
+    const skippedDay = { ...workout, skipped: true };
+    const scheduledDay = { ...workout, date: today + 86_400_000, dayOfWeek: 2 as const,
+      adjustedTSS: 40, adjustedDurationMin: 45 };
+    renderWithProviders(<MobilePlanContent embedded currentWeek={{ ...week, days: [skippedDay, scheduledDay] }} weekLabel="이번 주" />);
+
+    const summary = screen.getByRole("region", { name: "이번 주 요약" });
+    expect(summary).toHaveTextContent("주간 TSS40");
+    expect(summary).toHaveTextContent("시간0h 45m");
+    expect(summary).toHaveTextContent("세션1");
+    expect(summary.querySelector(".mobile-plan-sport-load")).toBeNull();
+    expect(screen.getByText("이번 주 다음 운동")).toBeInTheDocument();
+  });
+
+  it("shows the sport load split when the week includes more than one sport", () => {
+    const runDay = { ...workout, date: today + 86_400_000, workout: "easyRun" as const, plannedTSS: 30 };
+    renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [workout, runDay] }} weekLabel="이번 주" />);
+
+    const summary = screen.getByRole("region", { name: "이번 주 요약" });
+    expect(summary.querySelector(".mobile-plan-sport-bar")).toBeInTheDocument();
+    expect(summary).toHaveTextContent("사이클 60");
+    expect(summary).toHaveTextContent("러닝 30");
   });
 
   it("prioritizes today while keeping earlier days accessible", () => {
@@ -89,5 +130,21 @@ describe("MobilePlanContent product hierarchy", () => {
     fireEvent.click(reveal);
     expect(screen.getByRole("button", { name: "지난 일정 접기" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("휴식일")).toBeInTheDocument();
+  });
+
+  it("labels week controls and disables unavailable directions", () => {
+    const previous = vi.fn();
+    const next = vi.fn();
+    renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="이번 주" canPrevWeek={false} canNextWeek
+      onWeekPrev={previous} onWeekNext={next} />);
+
+    const previousButton = screen.getByRole("button", { name: "이전 주" });
+    const nextButton = screen.getByRole("button", { name: "다음 주" });
+    expect(previousButton).toBeDisabled();
+    expect(nextButton).toBeEnabled();
+    fireEvent.click(previousButton);
+    fireEvent.click(nextButton);
+    expect(previous).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledOnce();
   });
 });

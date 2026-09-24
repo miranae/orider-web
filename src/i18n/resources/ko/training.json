@@ -282,10 +282,10 @@
     "loading": "로그인 상태를 확인하고 있어요…"
   },
   "intensityChip": {
-    "rest": "REST",
-    "easy": "EASY",
-    "mod": "MOD",
-    "hard": "HARD"
+    "rest": "휴식",
+    "easy": "가벼움",
+    "mod": "보통",
+    "hard": "고강도"
   },
   "session": {
     "burnoutRest": "완전 휴식 (필수)",
@@ -428,12 +428,16 @@
   "mobile": {
     "headerTitle": "운동 계획",
     "addAction": "+ 추가",
-    "weekHeading": "WEEK",
+    "weekHeading": "주간 선택",
+    "previousWeek": "이전 주",
+    "nextWeek": "다음 주",
     "weekThis": "이번 주",
     "showPastWeeks": "지난 {{count}}주 보기",
     "hidePastWeeks": "지난 주 접기",
     "weekNext": "이번 주 다음 운동",
     "weeklyTSS": "주간 TSS",
+    "weeklySummary": "이번 주 요약",
+    "minutesUnit": "분",
     "timeLabel": "시간",
     "sessions": "세션",
     "weeklyPlan": "주간 플랜",
