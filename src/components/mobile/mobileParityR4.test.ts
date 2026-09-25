@@ -15,7 +15,7 @@ describe("mobile parity r4", () => {
     expect(mobileFeed).toContain("searchQuery");
     expect(mobileFeed).toContain("datePreset");
     expect(mobileFeed).toContain('aria-label={t("feed.filter.label")}');
-    expect(mobileFeed).toContain('gridTemplateColumns: "repeat(2, minmax(0, 1fr))"');
+    expect(mobileFeed).toContain('gridTemplateColumns: user ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)"');
     expect(mobileFeed).not.toContain('role="tablist"');
     expect(mobileFeed).not.toContain("WeekBars");
     expect(mobileFeed).not.toContain("recentWeeks");

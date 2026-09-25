@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { LocalizedLink as Link } from "../LocalizedLink";
-import { Card, Text, buttonClass } from "../../theme/components";
+import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
+import { Button, Card, Text, buttonClass } from "../../theme/components";
 
 type PreviewKind = "fitness" | "plan" | "log";
 
@@ -69,6 +72,22 @@ export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps
   const c = copy(kind, lang);
   const isFitness = kind === "fitness";
   const isPlan = kind === "plan";
+  const { signInWithGoogle } = useAuth();
+  const { showToast } = useToast();
+  const [signInPending, setSignInPending] = useState(false);
+
+  async function handleSignIn() {
+    if (signInPending) return;
+    setSignInPending(true);
+    try {
+      // 팝업 로그인은 현재 페이지를 유지하고, 차단 시 Firebase redirect도 같은 URL로 돌아온다.
+      await signInWithGoogle();
+    } catch {
+      showToast((lang ?? "ko").startsWith("ko") ? "로그인에 실패했습니다. 다시 시도해 주세요." : "Sign-in failed. Please try again.", "error");
+    } finally {
+      setSignInPending(false);
+    }
+  }
 
   return (
     <div className="site-shell" style={{ padding: "48px 20px 64px" }}>
@@ -80,13 +99,13 @@ export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps
             <p style={{ marginTop: "var(--space-2)", color: "var(--ink-3)", fontSize: "var(--fs-sm)", lineHeight: 1.7 }}>{c.desc}</p>
           </div>
           <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
-            <Link to="/settings?section=connections" className={buttonClass({ variant: "primary", size: "sm" })}>{c.cta}</Link>
+            <Button variant="primary" size="sm" loading={signInPending} onClick={() => { void handleSignIn(); }}>{c.cta}</Button>
             <Link to="/tools/virtual-power" className={buttonClass({ variant: "secondary", size: "sm" })}>{c.tools}</Link>
           </div>
         </div>
 
         {isFitness ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(120px, 1fr))", gap: "var(--space-3)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 120px), 1fr))", gap: "var(--space-3)" }}>
             {FITNESS_POINTS.map((p) => (
               <div key={p.day} style={{ border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: "var(--space-4)", background: "var(--bg-2)" }}>
                 <Text as="div" variant="eyebrow">{p.day}</Text>
@@ -100,7 +119,7 @@ export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps
             ))}
           </div>
         ) : isPlan ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(120px, 1fr))", gap: "var(--space-3)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 120px), 1fr))", gap: "var(--space-3)" }}>
             {PLAN_DAYS.map((d) => (
               <div key={d.label} style={{ border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: "var(--space-4)", background: "var(--bg-2)" }}>
                 <Text as="div" variant="eyebrow">{d.label}</Text>
@@ -111,7 +130,7 @@ export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps
             ))}
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(80px, 1fr))", gap: "var(--space-2)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 80px), 1fr))", gap: "var(--space-2)" }}>
             {LOG_DAYS.map((d) => (
               <div key={d.d} style={{ minHeight: 96, border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: "var(--space-3)", background: "var(--bg-2)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                 <Text as="div" variant="eyebrow">{d.d}</Text>

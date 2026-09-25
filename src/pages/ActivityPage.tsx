@@ -39,7 +39,7 @@ import AiRideAnalysisCard from "../components/activity/AiRideAnalysisCard";
 import StravaSummaryPublishing from "../components/activity/StravaSummaryPublishing";
 import SegmentEffortsCard from "../components/activity/SegmentEffortsCard";
 import { logClientError } from "../services/errorLogger";
-import { Button, Card, Text } from "../theme/components";
+import { Button, Card, Text, buttonClass } from "../theme/components";
 import { ErrorState } from "../components/redesign";
 import { formatDuration, formatTime, type SegmentEffortData } from "../features/activity/detail/activityDetailUtils";
 import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid";
@@ -1518,7 +1518,7 @@ export default function ActivityPage() {
         <div className="flex gap-2">
           <Link
             to={`/segment/create?activityId=${activityId}`}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] font-medium transition-colors ds-btn ds-btn--md"
+            className={buttonClass({ className: "flex-1 gap-2" })}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
               <path d="M2 20L8.5 8l4 6 3.5-5L22 20H2z" fill="currentColor" opacity="0.15" />

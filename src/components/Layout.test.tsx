@@ -49,8 +49,8 @@ describe("Layout", () => {
     expect(screen.getAllByText("AI 코치").length).toBeGreaterThan(0);
     expect(screen.getAllByText("탐색").length).toBeGreaterThan(0);
     expect(screen.getAllByText("커뮤니티").length).toBeGreaterThan(0);
-    const tabBar = screen.getByRole("tablist", { name: "메인 내비게이션" });
-    expect(within(tabBar).queryByRole("tab", { name: "설정" })).not.toBeInTheDocument();
+    const tabBar = screen.getByRole("navigation", { name: "메인 내비게이션" });
+    expect(within(tabBar).queryByRole("link", { name: "설정" })).not.toBeInTheDocument();
   });
 
   it("shows Google login button when not authenticated", async () => {
@@ -254,25 +254,25 @@ describe("Layout", () => {
 
   it("has five ordered localized mobile tabs including AI Coach", async () => {
     renderWithProviders(<Layout />);
-    // 페이지 내 다른 tablist(예: DisciplineTabs)와 구분하기 위해 접근성 이름으로 모바일 탭바를 스코프.
+    // 페이지 내 다른 탐색 영역과 구분하기 위해 접근성 이름으로 모바일 탭바를 스코프.
     await waitFor(() => {
-      expect(screen.getByRole("tablist", { name: "메인 내비게이션" })).toBeInTheDocument();
+      expect(screen.getByRole("navigation", { name: "메인 내비게이션" })).toBeInTheDocument();
     });
-    const tabBar = screen.getByRole("tablist", { name: "메인 내비게이션" });
-    const tabs = within(tabBar).getAllByRole("tab");
+    const tabBar = screen.getByRole("navigation", { name: "메인 내비게이션" });
+    const tabs = within(tabBar).getAllByRole("link");
     expect(tabs.map((tab) => tab.textContent)).toEqual(["홈", "내 운동", "AI 코치", "탐색", "커뮤니티"]);
-    expect(within(tabBar).getByRole("tab", { name: "AI 코치" })).toHaveAttribute("href", "/ko/coach");
+    expect(within(tabBar).getByRole("link", { name: "AI 코치" })).toHaveAttribute("href", "/ko/coach");
   });
 
   it("selects AI Coach routes but no primary tab on settings routes", async () => {
     const coachView = renderWithProviders(<Layout />, { route: "/ko/coach/thread-1" });
-    const coachTabBar = await screen.findByRole("tablist", { name: "메인 내비게이션" });
-    expect(within(coachTabBar).getByRole("tab", { name: "AI 코치" })).toHaveAttribute("aria-selected", "true");
+    const coachTabBar = await screen.findByRole("navigation", { name: "메인 내비게이션" });
+    expect(within(coachTabBar).getByRole("link", { name: "AI 코치" })).toHaveAttribute("aria-current", "page");
     coachView.unmount();
 
     renderWithProviders(<Layout />, { route: "/ko/settings", authenticated: true, user: { uid: "viewer" } });
-    const settingsTabBar = await screen.findByRole("tablist", { name: "메인 내비게이션" });
-    expect(within(settingsTabBar).getAllByRole("tab").every((tab) => tab.getAttribute("aria-selected") === "false")).toBe(true);
+    const settingsTabBar = await screen.findByRole("navigation", { name: "메인 내비게이션" });
+    expect(within(settingsTabBar).getAllByRole("link").every((link) => !link.hasAttribute("aria-current"))).toBe(true);
     expect(screen.getByRole("link", { name: "설정" })).toHaveAttribute("aria-current", "page");
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
     expect(screen.getAllByRole("link", { name: "설정" }).every((link) => link.getAttribute("aria-current") === "page")).toBe(true);
@@ -299,17 +299,17 @@ describe("Layout", () => {
     renderWithProviders(<Layout />, { authenticated: false });
 
     await waitFor(() => {
-      expect(screen.getByRole("tablist", { name: "메인 내비게이션" })).toBeInTheDocument();
+      expect(screen.getByRole("navigation", { name: "메인 내비게이션" })).toBeInTheDocument();
     });
 
-    const tabBar = screen.getByRole("tablist", { name: "메인 내비게이션" });
-    for (const tab of within(tabBar).getAllByRole("tab")) {
-      expect(tab.className).toContain("focus-visible:outline");
+    const tabBar = screen.getByRole("navigation", { name: "메인 내비게이션" });
+    for (const link of within(tabBar).getAllByRole("link")) {
+      expect(link.className).toContain("focus-visible:outline");
     }
 
     expect(screen.getByRole("button", { name: "KO" }).className).toContain("focus-visible:outline");
     const moreButtons = screen.getAllByRole("button", { name: "더보기" });
     expect(moreButtons.some((button) => button.className.includes("focus-visible:outline"))).toBe(true);
-    expect(screen.getByRole("link", { name: /내 운동/ }).className).toContain("focus-visible:outline");
+    expect(screen.getAllByRole("link", { name: /내 운동/ }).some((link) => link.className.includes("focus-visible:outline"))).toBe(true);
   });
 });

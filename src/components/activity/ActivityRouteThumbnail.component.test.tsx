@@ -72,6 +72,14 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
     routeMapControl.delayedOnLoad = null;
   });
 
+  it("shows a route line immediately for the priority card while the map is deferred", () => {
+    const { container } = renderWithProviders(
+      <ActivityRouteThumbnail {...baseProps} priority layout="mobile" />,
+      { authenticated: false },
+    );
+    expect(container.querySelector("[data-static-route-preview] path")).toBeInTheDocument();
+  });
+
   it("uses the revision filename and sends one head revision to prepare and finalize for the owner", async () => {
     installSuccessfulCoordinator();
 

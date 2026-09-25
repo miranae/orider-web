@@ -50,7 +50,7 @@ describe("MobileFitnessPage power curve", () => {
     } satisfies MobileFitnessData;
 
     const { container } = renderWithProviders(<MobileFitnessPage data={data} />);
-    await user.click(screen.getByRole("tab", { name: "파워존" }));
+    await user.click(screen.getByRole("button", { name: "파워존" }));
 
     const copy = container.querySelector<HTMLElement>("[data-power-curve-copy]");
     const visual = container.querySelector<HTMLElement>("[data-power-curve-visual]");

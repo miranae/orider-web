@@ -1,12 +1,14 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { PlanWeek, PlanDay, WorkoutKind } from "@shared/types/goal";
-import { getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../../utils/disciplineFilter";
+import { getDisciplineColor, getDisciplineIcon } from "../../../utils/disciplineFilter";
 import type { Discipline } from "../../../utils/disciplineFilter";
 import { getWorkoutDiscipline as _gwDiscipline } from "../../../utils/workoutDiscipline";
 import { effectivePlanTSS, sumEffectivePlanTSS } from "../../../utils/planTss";
 import AdjustedChip from "../../../components/training/AdjustedChip";
-import { Text } from "../../../theme/components";
+import { Button, Card, Text } from "../../../theme/components";
+import { formatPlanGoalTitle } from "./planDisplay";
+import "./MobilePlanContent.css";
 
 /** rest → bike 폴백으로 Discipline 타입 보장 (색상/아이콘 표시용) */
 function getWorkoutDisciplineForDisplay(workout: string): Discipline {
@@ -69,6 +71,8 @@ export interface MobilePlanContentProps {
   footerSlot?: ReactNode;
   currentWeek: PlanWeek | null;
   weekLabel: string;
+  canPrevWeek?: boolean;
+  canNextWeek?: boolean;
   goalTitle?: string;
   daysLeft?: number;
   progressPct?: number;
@@ -89,12 +93,13 @@ export default function MobilePlanContent({
   footerSlot,
   currentWeek,
   weekLabel,
+  canPrevWeek = true,
+  canNextWeek = true,
   goalTitle,
   daysLeft,
   progressPct,
   completedTSS,
   totalTSS,
-  weeksLeft,
   projectedCTL,
   onWeekPrev,
   onWeekNext,
@@ -102,6 +107,7 @@ export default function MobilePlanContent({
 }: MobilePlanContentProps) {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
+  const [showPastDays, setShowPastDays] = useState(false);
   const WORKOUT_LABELS = useMemo(() => buildWorkoutLabels(t), [t]);
   const DAY_NAMES = useMemo(() => [
     tCommon('weekday.mon'),
@@ -118,6 +124,16 @@ export default function MobilePlanContent({
     if (!d.date) return false;
     return kstDateString(d.date) === todayStr;
   });
+  const [goalExpanded, setGoalExpanded] = useState(false);
+  const formattedGoal = goalTitle ? formatPlanGoalTitle(goalTitle) : null;
+  const todayWorkout = todayIdx >= 0 ? days[todayIdx] : null;
+  const todayActionable = todayWorkout && !todayWorkout.completed && !todayWorkout.skipped && todayWorkout.workout !== "rest";
+  const nextWorkoutIdx = todayActionable ? todayIdx : days.findIndex(day =>
+    kstDateString(day.date) >= todayStr && !day.completed && !day.skipped && day.workout !== "rest",
+  );
+  const nextWorkout = nextWorkoutIdx >= 0 ? days[nextWorkoutIdx] : null;
+  const nextWorkoutLabel = nextWorkout ? WORKOUT_LABELS[nextWorkout.workout] ?? nextWorkout.workout : "";
+  const nextDuration = nextWorkout ? nextWorkout.adjustedDurationMin ?? nextWorkout.plannedDurationMin : 0;
 
   /**
    * 데스크톱 PlanPage 의 일별 칸 클릭과 동일하게 WorkoutEditModal(완료/건너뛰기/변경/교환) 을 연다.
@@ -132,118 +148,119 @@ export default function MobilePlanContent({
   const editTargetIdx = todayIdx >= 0 ? todayIdx : days.findIndex(d => d.workout !== "rest");
 
   return (
-    <div>
+    <div className="mobile-plan-content">
       {chromeSlot}
-      {adaptationSlot}
 
       {goalTitle && (
-        <div style={{ margin: "14px 16px 12px", background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-lg)", padding: "var(--space-3)" }}>
-          {!embedded && <Text as="div" variant="eyebrow" style={{ color: "var(--lime)", marginBottom: "var(--space-1)" }}>{t("page.planTitle")}</Text>}
-          <div style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", marginBottom: "var(--space-3)" }}>{goalTitle}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
-            {[
-              [t("page.daysLeftPrefix"), daysLeft ?? "—"],
-              [t("metrics.progress"), progressPct != null ? `${progressPct}%` : "—"],
-              [t("metrics.completedTSS"), `${completedTSS ?? 0}/${totalTSS ?? 0}`],
-              [t("metrics.projectedCTL"), projectedCTL != null ? `≈+${Math.round(projectedCTL)}` : "—"],
-            ].map(([label, value]) => (
-              <div key={String(label)} style={{ minWidth: 0, padding: "var(--space-2)", borderRadius: "var(--r-md)", background: "var(--bg-2)" }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{label}</Text>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink-0)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
-              </div>
-            ))}
-          </div>
-          {actionsSlot}
-          {weeksLeft != null && (
-            <div style={{ marginTop: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-              {t("metrics.weeksLeft")}: {weeksLeft}{t("metrics.weeksUnit")}
+        <Card padding="compact" className="mobile-plan-goal">
+          <Text as="div" variant="eyebrow" className="mobile-plan-section-label">{t("goal")}</Text>
+          <div className="mobile-plan-goal-heading">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2 title={goalTitle} aria-label={goalTitle} className={`mobile-plan-goal-title${goalExpanded ? " is-expanded" : ""}`}>{goalExpanded ? goalTitle : formattedGoal?.name}</h2>
+              {!goalExpanded && formattedGoal?.meta && <div className="mobile-plan-goal-meta">{formattedGoal.meta}</div>}
             </div>
-          )}
-        </div>
+            {(formattedGoal?.meta || goalTitle.length > 32) && (
+              <Button type="button" variant="ghost" size="sm" aria-expanded={goalExpanded} onClick={() => setGoalExpanded(value => !value)} style={{ flexShrink: 0 }}>
+                {goalExpanded ? t("mobile.collapseGoal") : t("mobile.showOriginal")}
+              </Button>
+            )}
+          </div>
+          <div role="progressbar" aria-label={t("metrics.progress")} aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} className="mobile-plan-progress">
+            <div style={{ width: `${Math.min(100, Math.max(0, progressPct ?? 0))}%`, height: "100%", background: "var(--lime)" }} />
+          </div>
+          <div className="mobile-plan-goal-stats">
+            <span><small>{t("mobile.goalCountdown")}</small><strong>{daysLeft != null ? `${t("page.daysLeftPrefix")}${daysLeft}` : "—"}</strong></span>
+            <span><small>{t("metrics.progress")}</small><strong>{progressPct != null ? `${progressPct}%` : "—"}</strong></span>
+            <span><small>{t("metrics.completedTSS")}</small><strong>{completedTSS ?? 0}/{totalTSS ?? 0}</strong></span>
+            <span><small>CTL</small><strong>{projectedCTL != null ? `≈+${Math.round(projectedCTL)}` : "—"}</strong></span>
+          </div>
+          {actionsSlot && <details style={{ marginTop: "var(--space-2)", borderTop: "1px solid var(--line-soft)", paddingTop: "var(--space-1)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>
+            <summary style={{ cursor: "pointer", fontWeight: 600 }}>{t("mobile.managePlan")}</summary>
+            <div style={{ paddingTop: "var(--space-2)" }}>{actionsSlot}</div>
+          </details>}
+        </Card>
       )}
 
+      {nextWorkout && (
+        <Card padding="compact" className="mobile-plan-next">
+          <div className="mobile-plan-next-main">
+            <div className="mobile-plan-next-copy">
+              <Text as="span" variant="eyebrow" style={{ color: "var(--lime)" }}>{nextWorkoutIdx === todayIdx ? t("mobile.todayNext") : t("mobile.weekNext")}</Text>
+              <strong>{nextWorkoutLabel}</strong>
+              <span>{nextWorkoutIdx !== todayIdx && `${kstDateString(nextWorkout.date)} · `}{effectivePlanTSS(nextWorkout)} TSS{nextDuration > 0 && ` · ${nextDuration} ${t("mobile.minutesUnit")}`}</span>
+            </div>
+            {onEditWorkout && <Button type="button" size="sm" onClick={() => openEditFor(nextWorkoutIdx)}>{t("mobile.edit")}</Button>}
+          </div>
+        </Card>
+      )}
+
+      {adaptationSlot}
+
       {/* Week navigation */}
-      <div className="flex items-center justify-center" style={{ padding: "var(--space-3) var(--space-4)", gap: 'var(--space-4)' }}>
-        <button onClick={onWeekPrev} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>◀</button>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-4)" }}>WEEK</div>
-          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{weekLabel}</div>
-        </div>
-        <button onClick={onWeekNext} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>▶</button>
+      <div className="flex items-center justify-center" role="group" aria-label={t('mobile.weekHeading')} style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
+        <button type="button" onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>◀</button>
+        <div style={{ textAlign: "center", minWidth: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{weekLabel}</div>
+        <button type="button" onClick={onWeekNext} disabled={!onWeekNext || !canNextWeek} aria-label={t('mobile.nextWeek')}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>▶</button>
       </div>
 
       {/* Weekly summary */}
       {currentWeek && (() => {
-        const totalTSS = sumEffectivePlanTSS(days);
-        const totalMins = days.filter(d => d.workout !== "rest").reduce((s, d) => {
-          return s + (effectivePlanTSS(d) * 0.6);
-        }, 0);
+        const scheduledDays = days.filter(d => d.workout !== "rest" && !d.skipped);
+        const totalTSS = sumEffectivePlanTSS(scheduledDays);
+        const totalMins = Math.round(scheduledDays.reduce((s, d) => {
+          return s + Math.max(0, d.adjustedDurationMin ?? d.plannedDurationMin ?? 0);
+        }, 0));
         const h = Math.floor(totalMins / 60);
-        const m = Math.round(totalMins % 60);
-        const sessions = days.filter(d => d.workout !== "rest").length;
+        const m = totalMins % 60;
+        const sessions = scheduledDays.length;
 
-        const bikeTSS = days.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "bike" && d.workout !== "rest").reduce((s, d) => s + effectivePlanTSS(d), 0);
-        const runTSS = days.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "run").reduce((s, d) => s + effectivePlanTSS(d), 0);
-        const swimTSS = days.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "swim").reduce((s, d) => s + effectivePlanTSS(d), 0);
+        const bikeTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "bike").reduce((s, d) => s + effectivePlanTSS(d), 0);
+        const runTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "run").reduce((s, d) => s + effectivePlanTSS(d), 0);
+        const swimTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "swim").reduce((s, d) => s + effectivePlanTSS(d), 0);
         const stackTotal = bikeTSS + runTSS + swimTSS || 1;
 
         return (
-          <div style={{ margin: "0 16px 12px", background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-lg)", padding: "var(--space-3)" }}>
-            <div className="flex" style={{ marginBottom: 'var(--space-3)' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.weeklyTSS')}</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xl)", fontWeight: 600, color: "var(--lime)", letterSpacing: "-0.03em" }}>{Math.round(totalTSS)}</div>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.timeLabel')}</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xl)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em" }}>{h}h {m}m</div>
-              </div>
-              <div>
-                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.sessions')}</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xl)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em" }}>{sessions}</div>
-              </div>
+          <section className="mobile-plan-week-summary" aria-label={t('mobile.weeklySummary')}>
+            <Text as="h3" variant="eyebrow" className="mobile-plan-section-label">{t('mobile.weeklySummary')}</Text>
+            <div className="mobile-plan-week-metrics">
+              <span><small>{t('mobile.weeklyTSS')}</small><strong>{Math.round(totalTSS)}</strong></span>
+              <span><small>{t('mobile.timeLabel')}</small><strong>{h}h {m}m</strong></span>
+              <span><small>{t('mobile.sessions')}</small><strong>{sessions}</strong></span>
             </div>
-            {/* Sport TSS stack bar */}
-            <div style={{ display: "flex", height: 6, borderRadius: "var(--r-xs)", overflow: "hidden", marginBottom: 'var(--space-2)' }}>
-              {bikeTSS > 0 && <div style={{ width: `${(bikeTSS/stackTotal)*100}%`, background: "var(--aqua)" }} />}
-              {runTSS > 0 && <div style={{ width: `${(runTSS/stackTotal)*100}%`, background: "var(--amber)" }} />}
-              {swimTSS > 0 && <div style={{ width: `${(swimTSS/stackTotal)*100}%`, background: "var(--lime)" }} />}
-            </div>
-            <div className="flex" style={{ gap: 'var(--space-3)', fontSize: "var(--fs-xs)" }}>
-              {bikeTSS > 0 && <span style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}><span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: "var(--aqua)" }} />🚴 {Math.round(bikeTSS)}</span>}
-              {runTSS > 0 && <span style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}><span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: "var(--amber)" }} />🏃 {Math.round(runTSS)}</span>}
-              {swimTSS > 0 && <span style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}><span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: "var(--lime)" }} />🏊 {Math.round(swimTSS)}</span>}
-            </div>
-          </div>
+            {[bikeTSS, runTSS, swimTSS].filter(load => load > 0).length > 1 && <div className="mobile-plan-sport-load">
+              <Text as="div" variant="eyebrow" className="mobile-plan-section-label">{t('mobile.sportLoad')}</Text>
+              <div className="mobile-plan-sport-bar" aria-hidden="true">
+                {bikeTSS > 0 && <div style={{ width: `${(bikeTSS/stackTotal)*100}%`, background: "var(--aqua)" }} />}
+                {runTSS > 0 && <div style={{ width: `${(runTSS/stackTotal)*100}%`, background: "var(--amber)" }} />}
+                {swimTSS > 0 && <div style={{ width: `${(swimTSS/stackTotal)*100}%`, background: "var(--lime)" }} />}
+              </div>
+              <div className="mobile-plan-sport-legend">
+                {bikeTSS > 0 && <span><i style={{ background: "var(--aqua)" }} />{t('discipline.bike')} {Math.round(bikeTSS)}</span>}
+                {runTSS > 0 && <span><i style={{ background: "var(--amber)" }} />{t('discipline.run')} {Math.round(runTSS)}</span>}
+                {swimTSS > 0 && <span><i style={{ background: "var(--lime)" }} />{t('discipline.swim')} {Math.round(swimTSS)}</span>}
+              </div>
+            </div>}
+          </section>
         );
       })()}
 
-      {/* 운동 강도 범례 */}
-      <div style={{ padding: "10px 16px", display: "flex", flexWrap: "wrap", gap: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-        {[
-          { label: t('legend.z1Recovery'), color: "var(--ink-4)" },
-          { label: t('legend.z2Endurance'), color: "var(--aqua)" },
-          { label: t('legend.z3Tempo'), color: "var(--amber)" },
-          { label: t('legend.z4Threshold'), color: "var(--lime)" },
-          { label: t('legend.z5VO2'), color: "var(--rose)" },
-          { label: t('legend.longSim'), color: "var(--aqua)" },
-        ].map(({ label, color }) => (
-          <span key={label} style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}>
-            <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: color, flexShrink: 0 }} />
-            {label}
-          </span>
-        ))}
-      </div>
-
       {/* Weekly plan — vertical list */}
-      <div className="flex items-center justify-between" style={{ padding: "14px 16px 8px" }}>
-        <Text variant="eyebrow">{t('mobile.weeklyPlan')}</Text>
+      <div className="flex items-center justify-between" style={{ padding: "var(--space-1) var(--space-4)" }}>
+        <Text variant="eyebrow" className="mobile-plan-section-label">{t('mobile.weeklyPlan')}</Text>
         {onEditWorkout && editTargetIdx >= 0 && (
-          <span style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, cursor: "pointer" }}
-            onClick={() => openEditFor(editTargetIdx)}>{t('mobile.edit')}</span>
+          <Button type="button" variant="ghost" size="sm" onClick={() => openEditFor(editTargetIdx)}>{t('mobile.edit')}</Button>
         )}
       </div>
+      {todayIdx > 0 && (
+        <button type="button" onClick={() => setShowPastDays(value => !value)} aria-expanded={showPastDays}
+          style={{ margin: "0 var(--space-4) var(--space-1)", minHeight: 36, padding: "0 var(--space-2)", textAlign: "left", border: "1px solid var(--line-soft)", borderRadius: "var(--r-sm)", background: "var(--bg-1)", color: "var(--ink-2)", fontSize: "var(--fs-sm)", cursor: "pointer" }}>
+          {showPastDays ? t('mobile.hidePastDays') : t('mobile.showPastDays', { count: todayIdx })}
+        </button>
+      )}
       {days.map((day, i) => {
+        if (todayIdx > 0 && i < todayIdx && !showPastDays) return null;
         const dayStr = day.date ? kstDateString(day.date) : "";
         const dayOfMonth = day.date ? kstDayOfMonth(day.date) : null;
         const isToday = dayStr === todayStr;
@@ -252,15 +269,15 @@ export default function MobilePlanContent({
         const isPast = dayStr !== "" && dayStr < todayStr;
         const label = WORKOUT_LABELS[day.workout] ?? day.workout;
         const state = isDone ? "done" : isToday ? "today" : isRest ? "off" : isPast ? "past" : "planned";
+        const stateLabel = state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned');
 
         const intensityColor = isRest ? "var(--ink-4)"
           : (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? "var(--amber)"
           : (day.workout === "ftp" || day.workout === "vo2" || day.workout === "sim" || day.workout === "intervalRun" || day.workout === "intervalSwim") ? "var(--rose)"
           : "var(--lime)";
-        const intensityLabel = isRest ? "REST"
-          : (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? "MOD"
-          : (day.workout === "ftp" || day.workout === "vo2" || day.workout === "sim" || day.workout === "intervalRun" || day.workout === "intervalSwim") ? "HARD"
-          : "EASY";
+        const intensityLabel = (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? t("intensityChip.mod")
+          : (day.workout === "ftp" || day.workout === "vo2" || day.workout === "sim" || day.workout === "intervalRun" || day.workout === "intervalSwim") ? t("intensityChip.hard")
+          : t("intensityChip.easy");
 
         if (isRest) {
           return (
@@ -282,7 +299,16 @@ export default function MobilePlanContent({
 
         return (
           <div key={i} className="flex items-center gap-3.5"
-            onClick={() => onEditWorkout?.(day, currentWeek?.id ?? "", i)}
+            role={onEditWorkout ? "button" : undefined}
+            tabIndex={onEditWorkout ? 0 : undefined}
+            aria-label={onEditWorkout ? `${DAY_NAMES[i]} ${dayOfMonth ?? ""} ${label} · ${stateLabel}` : undefined}
+            onClick={() => openEditFor(i)}
+            onKeyDown={onEditWorkout ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openEditFor(i);
+              }
+            } : undefined}
             style={{
               padding: "13px 16px", borderBottom: "1px solid var(--line-soft)",
               background: isToday ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent",
@@ -295,22 +321,22 @@ export default function MobilePlanContent({
               </div>
             </div>
             <div style={{ width: 3, height: 36, background: getDisciplineColor(getWorkoutDisciplineForDisplay(day.workout)), borderRadius: "var(--r-xs)", flexShrink: 0 }} />
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginBottom: "var(--space-0-5)" }}>
                 {(() => {
                   const d = getWorkoutDisciplineForDisplay(day.workout);
                   const c = getDisciplineColor(d);
                   return (
                     <span style={{
-                      fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", padding: "1px 5px", borderRadius: "var(--r-xs)",
+                      fontSize: "var(--fs-base)", padding: "2px var(--space-1-5)", borderRadius: "var(--r-xs)",
                       background: `color-mix(in oklch, ${c} 14%, var(--bg-2))`,
                       color: c, border: `1px solid color-mix(in oklch, ${c} 30%, transparent)`,
                       display: "flex", alignItems: "center", gap: "var(--space-0-5)",
-                    }}>{getDisciplineIcon(d)} {getDisciplineTag(d)}</span>
+                    }}>{getDisciplineIcon(d)} {t(`discipline.${d}`)}</span>
                   );
                 })()}
                 <span style={{
-                  fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", padding: "1px 5px", borderRadius: "var(--r-xs)",
+                  fontSize: "var(--fs-base)", padding: "2px var(--space-1-5)", borderRadius: "var(--r-xs)",
                   background: "var(--bg-3)", color: intensityColor,
                 }}>{intensityLabel}</span>
                 {/* 자동 조정 chip — week 단위 canonical factor 사용 */}
@@ -318,22 +344,35 @@ export default function MobilePlanContent({
                   <AdjustedChip factor={currentWeek.adjustmentFactor} />
                 )}
               </div>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)" }}>{label}</div>
+              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{label}</div>
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>
-                {state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned')}
+                {stateLabel}
               </div>
             </div>
             {state === "done" && <span style={{ color: "var(--lime)", fontSize: "var(--fs-base)" }}>✓</span>}
-            {state === "today" && onEditWorkout && (
-              <button
-                onClick={(e) => { e.stopPropagation(); openEditFor(i); }}
-                style={{ padding: "10px 14px", background: "var(--lime)", color: "var(--primary-fg)", border: "none", borderRadius: "var(--r-sm)", fontSize: "var(--fs-xs)", fontWeight: 600, cursor: "pointer" }}>
-                {t('mobile.start')}
-              </button>
-            )}
           </div>
         );
       })}
+
+      {/* 운동 강도 범례: 일정 다음에 두어 첫 화면의 행동 흐름을 방해하지 않는다. */}
+      <details className="mobile-plan-intensity-legend">
+        <summary>{t('mobile.intensityLegend')}</summary>
+        <div className="mobile-plan-intensity-items">
+          {[
+            { label: t('legend.z1Recovery'), color: "var(--ink-4)" },
+            { label: t('legend.z2Endurance'), color: "var(--aqua)" },
+            { label: t('legend.z3Tempo'), color: "var(--amber)" },
+            { label: t('legend.z4Threshold'), color: "var(--lime)" },
+            { label: t('legend.z5VO2'), color: "var(--rose)" },
+            { label: t('legend.longSim'), color: "var(--aqua)" },
+          ].map(({ label, color }) => (
+            <span key={label}>
+              <i style={{ background: color }} />
+              {label}
+            </span>
+          ))}
+        </div>
+      </details>
 
       {!embedded && <div style={{ height: 80 }} />}
 

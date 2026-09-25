@@ -6,8 +6,19 @@ import { ensureAppCheckReady, functions, storage } from "../../services/firebase
 import { logClientError } from "../../services/errorLogger";
 import { lazyWithRetry as lazy } from "../../utils/lazyWithRetry";
 import { LocalizedLink as Link } from "../LocalizedLink";
+import { decodeTrack } from "../../utils/polyline";
+import { buildStaticRoutePath } from "../../utils/staticRoutePath";
 
 const RouteMap = lazy(() => import("../RouteMap"));
+
+function StaticRoutePreview({ path }: { path: string | null }) {
+  return <div data-static-route-preview className="w-full h-full" style={{ background: "linear-gradient(135deg, var(--bg-1), var(--bg-2))" }} aria-hidden="true">
+    {path && <svg viewBox="0 0 320 160" className="w-full h-full" preserveAspectRatio="none">
+      <path d={path} fill="none" stroke="color-mix(in oklch, var(--lime) 36%, transparent)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={path} fill="none" stroke="var(--lime)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>}
+  </div>;
+}
 
 export const MAP_THUMBNAIL_RENDER_VERSION = "route-v2";
 export const MAP_THUMBNAIL_WIDTH = 2560;
@@ -99,6 +110,7 @@ export default function ActivityRouteThumbnail({
   const containerRef = useRef<HTMLDivElement>(null);
   const captureRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(mapImageUrl ?? null);
   const [captureSlot, setCaptureSlot] = useState<CaptureSlot | null>(null);
   const [derivedKey, setDerivedKey] = useState<CanonicalMapThumbnailKey | null>(null);
@@ -128,6 +140,18 @@ export default function ActivityRouteThumbnail({
     canonicalFileName,
     storage.app.options.storageBucket,
   ) ? imageUrl : null;
+  const routePath = useMemo(() => {
+    if (!priority && !visible) return null;
+    const positions = decodeTrack(polyline);
+    if (positions.length < 2) return null;
+    const step = Math.max(1, Math.ceil(positions.length / 500));
+    const sampled = positions.filter((_, index) => index % step === 0);
+    const last = positions[positions.length - 1]!;
+    if (sampled[sampled.length - 1] !== last) sampled.push(last);
+    return buildStaticRoutePath(sampled);
+  }, [polyline, priority, visible]);
+
+  useEffect(() => { setImageLoaded(false); }, [canonicalImageUrl]);
 
   useEffect(() => { setImageUrl(mapImageUrl ?? null); }, [mapImageUrl]);
   useEffect(() => {
@@ -273,10 +297,14 @@ export default function ActivityRouteThumbnail({
   if (canonicalImageUrl) {
     content = (
       <>
+        {!imageLoaded && <div className="absolute inset-0"><StaticRoutePreview path={routePath} /></div>}
         <img
           src={canonicalImageUrl}
           alt={isMobile ? "" : t("card.routeMapAlt")}
-          className="w-full h-full object-cover"
+          className="relative w-full h-full object-cover"
+          style={{ opacity: imageLoaded ? 1 : 0 }}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageLoaded(false)}
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : undefined}
         />
@@ -284,10 +312,11 @@ export default function ActivityRouteThumbnail({
       </>
     );
   } else {
+    const placeholder = <StaticRoutePreview path={routePath} />;
     content = (
       <>
         {visible ? (
-          <Suspense fallback={<div className="w-full h-full" style={frameStyle} />}>
+          <Suspense fallback={placeholder}>
             <RouteMap
               key={`${canonicalFileName}:${canonicalVersion}:live`}
               polyline={polyline}
@@ -299,7 +328,7 @@ export default function ActivityRouteThumbnail({
             />
           </Suspense>
         ) : (
-          <div className="w-full h-full" style={frameStyle} />
+          placeholder
         )}
         {hoverDim}
       </>

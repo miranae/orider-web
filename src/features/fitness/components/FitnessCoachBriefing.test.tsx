@@ -160,9 +160,12 @@ describe("FitnessCoachBriefing", () => {
     expect(document.querySelector(".fitness-coach__choice-card")).toBeInTheDocument();
   });
 
-  it("uses a two-to-one desktop first-view grid and stacks it at the responsive breakpoint", () => {
+  it("fills the desktop width when there is no today decision, while preserving the two-column decision layout", () => {
     const css = readFileSync(join(process.cwd(), "src/features/fitness/components/FitnessCoachBriefing.css"), "utf8");
     expect(css).toContain("grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr)");
+    expect(css).toContain(".fitness-coach__summary-copy { flex: 1 1 20rem; min-width: 0;");
+    expect(css).toContain(".fitness-coach__first-view:has(> .fitness-coach__today:empty) { grid-template-columns: minmax(0, 1fr); }");
+    expect(css).toContain(".fitness-coach__today:empty { display: none; }");
     expect(css).toContain(".fitness-coach__first-view,");
   });
 

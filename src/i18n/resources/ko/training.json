@@ -16,7 +16,10 @@
     ],
     "monthLabel": "{{year}}년 {{month}}월",
     "activitiesCount": "{{count}}개 활동",
-    "activitiesCountTitle": "{{count}}개 활동 — 각 항목 클릭"
+    "activitiesCountTitle": "{{count}}개 활동 — 각 항목 클릭",
+    "planLabel": "계획",
+    "showExtraActivities": "외 {{count}}건 보기",
+    "hideExtraActivities": "접기"
   },
   "goal": "목표",
   "goalSetup": "목표 설정",
@@ -121,6 +124,7 @@
     "creationError": "목표 생성에 실패했습니다. 잠시 후 다시 시도해주세요."
   },
   "adaptation": {
+    "details": "근거 및 알림 설정",
     "rerollNow": "지금 재생성",
     "snooze": "1주 동안 보지 않기",
     "adjustedChip": "조정",
@@ -146,6 +150,7 @@
   },
   "metrics": {
     "progress": "진행률",
+    "sessionsLeft": "남은 훈련",
     "completedTSS": "완료 TSS",
     "weeksLeft": "남은 주수",
     "weeksUnit": "주",
@@ -277,10 +282,10 @@
     "loading": "로그인 상태를 확인하고 있어요…"
   },
   "intensityChip": {
-    "rest": "REST",
-    "easy": "EASY",
-    "mod": "MOD",
-    "hard": "HARD"
+    "rest": "휴식",
+    "easy": "가벼움",
+    "mod": "보통",
+    "hard": "고강도"
   },
   "session": {
     "burnoutRest": "완전 휴식 (필수)",
@@ -423,19 +428,36 @@
   "mobile": {
     "headerTitle": "운동 계획",
     "addAction": "+ 추가",
-    "weekHeading": "WEEK",
+    "weekHeading": "주간 선택",
+    "previousWeek": "이전 주",
+    "nextWeek": "다음 주",
     "weekThis": "이번 주",
+    "showPastWeeks": "지난 {{count}}주 보기",
+    "hidePastWeeks": "지난 주 접기",
+    "weekNext": "이번 주 다음 운동",
     "weeklyTSS": "주간 TSS",
+    "weeklySummary": "이번 주 요약",
+    "minutesUnit": "분",
     "timeLabel": "시간",
     "sessions": "세션",
     "weeklyPlan": "주간 플랜",
+    "showPastDays": "지난 {{count}}일 보기",
+    "hidePastDays": "지난 일정 접기",
     "edit": "편집",
     "restDay": "휴식일",
     "stateDone": "완료",
     "stateToday": "오늘",
     "statePast": "미완료",
     "statePlanned": "예정",
-    "start": "시작"
+    "start": "시작",
+    "todayNext": "오늘의 다음 운동",
+    "expandGoal": "전체 보기",
+    "collapseGoal": "접기",
+    "showOriginal": "원문 보기",
+    "goalCountdown": "목표까지",
+    "managePlan": "계획 관리",
+    "sportLoad": "종목별 부하",
+    "intensityLegend": "운동 강도 범례"
   },
   "add": {
     "title": "운동 추가",

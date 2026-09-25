@@ -1,4 +1,4 @@
-import { NavLink, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PRIMARY_HUBS, type HubKey } from "../../config/navHubs";
@@ -47,16 +47,15 @@ export default function MobileTabBar({
         transition: "transform 160ms ease",
       }}
     >
-      <nav className="flex items-start pt-1.5" role="tablist" aria-label={t("nav.mainNavAria")} style={{ minHeight: 46 }}>
+      <nav className="flex items-start pt-1.5" aria-label={t("nav.mainNavAria")} style={{ minHeight: 46 }}>
         {PRIMARY_HUBS.map(({ key, to, icon: Icon, labelKey }) => {
           const label = t(labelKey);
           const isActive = active === key;
           return (
-            <NavLink
+            <Link
               key={key}
               to={localized(to)}
-              role="tab"
-              aria-selected={isActive}
+              aria-current={isActive ? "page" : undefined}
               className={`flex flex-col items-center justify-start flex-1 gap-0.5 rounded-[var(--r-md)] pt-1 ${mobileTabFocusClass}`}
               style={{ color: isActive ? "var(--lime)" : "var(--ink-4)", minHeight: 44 }}
             >
@@ -74,7 +73,7 @@ export default function MobileTabBar({
               <span className="text-[length:var(--fs-xs)] font-medium" style={{ letterSpacing: "-0.01em" }}>
                 {label}
               </span>
-            </NavLink>
+            </Link>
           );
         })}
       </nav>

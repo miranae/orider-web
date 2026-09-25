@@ -1,6 +1,7 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import TabNav from "./TabNav";
+import { MemoryRouter } from "react-router-dom";
+import TabNav, { RouteTabNav } from "./TabNav";
 
 describe("TabNav", () => {
   const tabs = [
@@ -49,5 +50,26 @@ describe("TabNav", () => {
 
     await user.click(screen.getByText("세그먼트"));
     expect(onChange).toHaveBeenCalledWith("segments");
+  });
+});
+
+describe("RouteTabNav narrow overflow", () => {
+  it("offers a next-tabs control when routes overflow", () => {
+    const { container } = render(<MemoryRouter><RouteTabNav tabs={[
+      { to: "/board", label: "게시판" },
+      { to: "/events", label: "이벤트" },
+      { to: "/friends", label: "친구" },
+    ]} /></MemoryRouter>);
+    const scroller = container.querySelector<HTMLElement>(".route-tab-nav__scroller")!;
+    Object.defineProperty(scroller, "scrollWidth", { configurable: true, value: 600 });
+    Object.defineProperty(scroller, "clientWidth", { configurable: true, value: 200 });
+    fireEvent(window, new Event("resize"));
+    const more = screen.getByRole("button", { name: /다음 탭 보기|More tabs|button.nextTabs/ });
+    fireEvent.click(more);
+    expect(scroller.scrollLeft).toBeGreaterThan(0);
+    fireEvent.scroll(scroller);
+    const previous = screen.getByRole("button", { name: /이전 탭 보기|Previous tabs|button.previousTabs/ });
+    fireEvent.click(previous);
+    expect(scroller.scrollLeft).toBe(0);
   });
 });

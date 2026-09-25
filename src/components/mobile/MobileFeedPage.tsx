@@ -1,15 +1,15 @@
-import { lazy, Suspense, useState, useMemo } from "react";
+import { Fragment, lazy, Suspense, useState, useMemo } from "react";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { useActivityAuthor } from "../../hooks/useActivityAuthor";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
-import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import type { Activity } from "@shared/types";
 import Avatar from "../Avatar";
 import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
 import { timeAgo } from "../../utils/timeAgo";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
-import { Button, Card, Text } from "../../theme/components";
+import { Button, Card, Text, buttonClass } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { isTrivialActivity } from "../../utils/activityFilter";
 import { resolveDuration, resolveAvgSpeedKph } from "../../utils/activityTime";
@@ -18,6 +18,7 @@ import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import type { ActivityFeedScope } from "../../hooks/useActivities";
 import ActivityRouteThumbnail from "../activity/ActivityRouteThumbnail";
 import type { DashboardDatePreset, DashboardSportFilter } from "../../hooks/useDashboardPreferences";
+import "./MobileFeedPage.css";
 
 const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
 const MOBILE_FEED_RENDER_STEP = 40;
@@ -35,6 +36,8 @@ interface SportBreakdownItem {
 interface MobileFeedPageProps {
   activities: Activity[];
   loading: boolean;
+  error?: boolean;
+  onRetry?: () => void;
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
@@ -112,7 +115,7 @@ function formatDur(ms: number): string {
 
 function MobileFeedSkeleton() {
   return (
-    <div aria-hidden="true">
+    <div aria-hidden="true" className="mobile-feed-skeleton">
       {[0, 1, 2].map((idx) => (
         <div key={idx} style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
           <div className="flex items-center gap-2.5" style={{ marginBottom: "var(--space-3)" }}>
@@ -159,7 +162,6 @@ function MobileRouteThumbnail({ activity, priority = false }: { activity: Activi
 
 /** 시안과 일치하는 컴팩트 모바일 활동 카드 */
 function CompactActivityCard({ activity, priority = false }: { activity: Activity; priority?: boolean }) {
-  const navigate = useNavigate();
   const { t } = useTranslation("dashboard");
   const s = activity.summary;
 
@@ -190,13 +192,16 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
   const sTag = getDisciplineTag(discipline);
 
   return (
-    <div
-      onClick={() => navigate(`/activity/${activity.id}`)}
-      style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px", cursor: "pointer" }}
-    >
+    <div className="mobile-feed-card" style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)", position: "relative" }}>
+      <Link
+        to={`/activity/${activity.id}`}
+        aria-label={activity.description || t("mobileFeed.defaultActivity")}
+        className="absolute inset-0 rounded-[var(--r-md)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--lime)]"
+        style={{ zIndex: 1 }}
+      />
       {/* Header: avatar + name/time + sport badge */}
-      <div className="flex items-center gap-2.5" style={{ marginBottom: "var(--space-2)" }}>
-        <Avatar userId={activity.userId} name={nickname} imageUrl={activity.profileImage} size="sm" />
+      <div className="flex items-center gap-2.5" style={{ marginBottom: "var(--space-1)" }}>
+        <span style={{ position: "relative", zIndex: 2 }}><Avatar userId={activity.userId} name={nickname} imageUrl={activity.profileImage} size="sm" /></span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{nickname}</div>
           <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>{timeAgo(activity.startTime, t)}</div>
@@ -227,7 +232,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
       </div>
 
       {/* Title */}
-      <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-2)", lineHeight: 1.3, letterSpacing: "-0.01em" }}>
+      <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-1)", lineHeight: 1.3, letterSpacing: "-0.01em" }}>
         {activity.description || t("mobileFeed.defaultActivity")}
       </div>
 
@@ -262,7 +267,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 
       {/* 스트라바형 소셜 푸터 — 좋아요(아바타 스택)+댓글. 카드 패딩(16) 음수마진으로 상쇄해
           전폭 상단 구분선, 내부는 footer 자체 px-4 로 콘텐츠와 정렬 (지도 썸네일과 동일 기법). */}
-      <div style={{ margin: "10px -16px 0" }}>
+      <div style={{ margin: "10px -16px 0", position: "relative", zIndex: 2 }}>
         <ActivitySocialFooter activity={activity} />
       </div>
     </div>
@@ -270,7 +275,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 }
 
 export default function MobileFeedPage({
-  activities, loading, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
+  activities, loading, error = false, onRetry, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
   weeklySummary, feedScope, onFeedScopeChange,
   sportFilter: controlledSportFilter,
   onSportFilterChange,
@@ -281,6 +286,8 @@ export default function MobileFeedPage({
   const { user } = useAuth();
   const [localSportFilter, setLocalSportFilter] = useState<SportFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [routineOpen, setRoutineOpen] = useState(false);
   const [localDatePreset, setLocalDatePreset] = useState<DashboardDatePreset>("all");
   const sportFilter = controlledSportFilter ?? localSportFilter;
   const datePreset = controlledDatePreset ?? localDatePreset;
@@ -288,6 +295,12 @@ export default function MobileFeedPage({
   const setDatePreset = onDatePresetChange ?? setLocalDatePreset;
   const [renderLimit, setRenderLimit] = useState(MOBILE_FEED_RENDER_INITIAL);
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
+  const effectiveFeedScope = user ? feedScope : "all";
+  const activeFilterCount = Number(effectiveFeedScope !== "all") + Number(datePreset !== "all");
+  const activeFilterDescription = [
+    effectiveFeedScope !== "all" ? t(`feed.filter.${effectiveFeedScope}`) : null,
+    datePreset !== "all" ? t(`feed.datePreset.${datePreset}`) : null,
+  ].filter(Boolean).join(" · ");
 
   // 비로그인 필터 행은 현재 공개 피드 요약을 유지한다. 로그인 주간 요약에는 사용하지 않는다.
   const feedSportBreakdown = useMemo<SportBreakdownItem[]>(() => {
@@ -317,8 +330,8 @@ export default function MobileFeedPage({
   const filteredBySport = sportFilter === "all" ? visibleActivities
     : visibleActivities.filter(a => getDiscipline(a.type) === sportFilter);
   const filteredByScope = filteredBySport.filter((a) => {
-    if (feedScope === "friends") return friendIdSet.has(a.userId);
-    if (feedScope === "self") return currentUserId != null && a.userId === currentUserId;
+    if (effectiveFeedScope === "friends") return friendIdSet.has(a.userId);
+    if (effectiveFeedScope === "self") return currentUserId != null && a.userId === currentUserId;
     return true;
   });
   const cutoff = datePreset === "all"
@@ -331,6 +344,25 @@ export default function MobileFeedPage({
     : filteredByDate;
   const renderedActivities = filteredActivities.slice(0, renderLimit);
   const hasHiddenLocalItems = filteredActivities.length > renderedActivities.length;
+  const supportingCards = (showYearRecapBanner || (!user && consistencyStreak)) && (
+    <>
+      {!user && consistencyStreak && (
+        <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
+          <Suspense fallback={null}><ConsistencyStreakCard summary={consistencyStreak} compact /></Suspense>
+        </div>
+      )}
+      {showYearRecapBanner && (
+        <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
+          <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "var(--lime)" }}>
+            <Text variant="eyebrow" tone="secondary">{t("yearRecap.eyebrow")}</Text>
+            <Text as="h2" variant="subtitle" weight={700} style={{ display: "block", marginTop: "var(--space-1)", color: "var(--ink-0)" }}>{t("yearRecap.title")}</Text>
+            <Text variant="bodySmall" tone="tertiary" style={{ display: "block", marginTop: "var(--space-1)", marginBottom: "var(--space-3)" }}>{t("yearRecap.desc")}</Text>
+            <Link to="/year-recap" className={buttonClass({ variant: "primary", size: "sm", block: true })} style={{ textDecoration: "none" }}>{t("yearRecap.cta")}</Link>
+          </Card>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div style={{ overscrollBehavior: "contain" }}>
@@ -347,9 +379,25 @@ export default function MobileFeedPage({
 
       {/* 주간 요약 — 로그인 사용자만 (비로그인은 개인 통계 컨텍스트 없음) */}
       {user && (
-        <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
-          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-3)' }}>
-            <Text variant="eyebrow">{t("mobileFeed.weekSummary")}</Text>
+        <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-2) var(--space-4)" }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-1)" }}>
+            <div className="flex items-center" style={{ minWidth: 0, gap: "var(--space-2)" }}>
+              <Text variant="eyebrow">{t("mobileFeed.weekSummary")}</Text>
+              {consistencyStreak && (
+                <button
+                  type="button"
+                  aria-expanded={routineOpen}
+                  aria-controls={routineOpen ? "mobile-routine-detail" : undefined}
+                  aria-label={`${t("streak.title", { count: consistencyStreak.streakWeeks })} · ${consistencyStreak.needsThisWeek === 0 ? t("streak.maintained", { count: consistencyStreak.thisWeekCount }) : t("streak.needOne")} · ${t("mobileFeed.routineScore", { score: consistencyStreak.score90d })}`}
+                  onClick={() => setRoutineOpen((open) => !open)}
+                  className="flex items-center"
+                  style={{ border: "none", borderRadius: "var(--r-lg)", background: "var(--accent-soft-bg)", color: "var(--lime)", fontSize: "var(--fs-xs)", fontWeight: 600, minHeight: "var(--space-8)", padding: "0 var(--space-2)", whiteSpace: "nowrap", cursor: "pointer", gap: "var(--space-1)" }}
+                >
+                  {t("mobileFeed.streakWeeks", { count: consistencyStreak.streakWeeks })}
+                  <ChevronDown size={12} aria-hidden="true" style={{ transform: routineOpen ? "rotate(180deg)" : undefined }} />
+                </button>
+              )}
+            </div>
             <Link to="/my" className="ds-tap-target" style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, textDecoration: "none" }}>
               {t("mobileFeed.viewAll")}
             </Link>
@@ -362,77 +410,70 @@ export default function MobileFeedPage({
             onChange={setSportFilter}
             ariaLabel={t("mobileFeed.sportFilterLabel")}
           />
+          {routineOpen && consistencyStreak && (
+            <div id="mobile-routine-detail" style={{ marginTop: "var(--space-2)" }}>
+              <Suspense fallback={null}><ConsistencyStreakCard summary={consistencyStreak} compact /></Suspense>
+            </div>
+          )}
         </div>
       )}
 
-      {consistencyStreak && (
-        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-          <Suspense fallback={null}>
-            <ConsistencyStreakCard summary={consistencyStreak} compact />
-          </Suspense>
-        </div>
-      )}
-
-      {showYearRecapBanner && (
-        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-          <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "var(--lime)" }}>
-            <Text variant="eyebrow" tone="secondary">{t("yearRecap.eyebrow")}</Text>
-            <Text as="h2" variant="subtitle" weight={700} style={{ display: "block", marginTop: "var(--space-1)", color: "var(--ink-0)" }}>
-              {t("yearRecap.title")}
-            </Text>
-            <Text variant="bodySmall" tone="tertiary" style={{ display: "block", marginTop: "var(--space-1)", marginBottom: "var(--space-3)" }}>
-              {t("yearRecap.desc")}
-            </Text>
-            <Link to="/year-recap" className="ds-btn ds-btn--primary ds-btn--sm" style={{ textDecoration: "none", width: "100%" }}>
-              <span className="ds-btn__label">{t("yearRecap.cta")}</span>
-            </Link>
-          </Card>
-        </div>
-      )}
-
-      <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "10px 16px", display: "grid", gap: "var(--space-2)" }}>
-        <input
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder={t("feed.search.placeholder")}
-          aria-label={t("feed.search.placeholder")}
-          style={{
-            width: "100%",
-            minWidth: 0,
-            minHeight: 44,
-            borderRadius: "var(--r-md)",
-            border: "1px solid var(--line-soft)",
-            background: "var(--bg-2)",
-            color: "var(--ink-0)",
-            padding: "0 12px",
-            fontSize: "var(--fs-sm)",
-          }}
-        />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2)" }}>
-          <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden" }}>
-            <span style={{ display: "block", padding: "8px 10px 0", color: "var(--ink-3)", fontSize: "var(--fs-2xs)", fontWeight: 600 }}>
-              {t("feed.filter.label")}
+      <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-2) var(--space-4)" }}>
+        <div className="flex" style={{ gap: "var(--space-2)" }}>
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={t("feed.search.placeholder")}
+            aria-label={t("feed.search.placeholder")}
+            style={{
+              width: "100%",
+              minWidth: 0,
+              minHeight: "var(--space-8)",
+              borderRadius: "var(--r-md)",
+              border: "1px solid var(--line-soft)",
+              background: "var(--bg-2)",
+              color: "var(--ink-0)",
+              padding: "0 var(--space-3)",
+              fontSize: "var(--fs-sm)",
+            }}
+          />
+          <Button
+            type="button"
+            variant={activeFilterCount > 0 ? "primary" : "secondary"}
+            size="sm"
+            aria-expanded={filtersOpen}
+            aria-controls={filtersOpen ? "mobile-feed-filters" : undefined}
+            aria-label={`${t("mobileFeed.filterToggle")}${activeFilterDescription ? `: ${activeFilterDescription}` : ""}`}
+            onClick={() => setFiltersOpen((open) => !open)}
+            style={{ flexShrink: 0, maxWidth: "45%", minHeight: "var(--space-8)", gap: "var(--space-1)", overflow: "hidden" }}
+          >
+            <SlidersHorizontal size={15} aria-hidden="true" />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {activeFilterCount > 0 ? activeFilterDescription : t("mobileFeed.filterToggle")}
             </span>
+          </Button>
+        </div>
+        {filtersOpen && <div id="mobile-feed-filters" style={{ display: "grid", gridTemplateColumns: user ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
+          {user && <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden", display: "flex", alignItems: "center", paddingLeft: "var(--space-2)" }}>
+            <span style={{ flexShrink: 0, color: "var(--ink-3)", fontSize: "var(--fs-2xs)" }}>{t("feed.filter.label")}</span>
             <select
               value={feedScope}
               onChange={(event) => onFeedScopeChange(event.target.value as ActivityFeedScope)}
               aria-label={t("feed.filter.label")}
-              style={{ width: "100%", minWidth: 0, minHeight: 44, border: 0, background: "transparent", color: "var(--ink-0)", padding: "0 10px", fontSize: "var(--fs-xs)" }}
+              style={{ flex: 1, minWidth: 0, minHeight: "var(--space-8)", border: 0, background: "transparent", color: "var(--ink-0)", paddingLeft: "var(--space-1)", fontSize: "var(--fs-sm)" }}
             >
               <option value="all">{t("feed.filter.all")}</option>
               <option value="friends">{t("feed.filter.friends")}</option>
               <option value="self">{t("feed.filter.self")}</option>
             </select>
-          </label>
-          <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden" }}>
-            <span style={{ display: "block", padding: "8px 10px 0", color: "var(--ink-3)", fontSize: "var(--fs-2xs)", fontWeight: 600 }}>
-              {t("feed.datePreset.label")}
-            </span>
+          </label>}
+          <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden", display: "flex", alignItems: "center", paddingLeft: "var(--space-2)" }}>
+            <span style={{ flexShrink: 0, color: "var(--ink-3)", fontSize: "var(--fs-2xs)" }}>{t("feed.datePreset.label")}</span>
             <select
               value={datePreset}
               onChange={(event) => setDatePreset(event.target.value as DashboardDatePreset)}
               aria-label={t("feed.datePreset.label")}
-              style={{ width: "100%", minWidth: 0, minHeight: 44, border: 0, background: "transparent", color: "var(--ink-0)", padding: "0 10px", fontSize: "var(--fs-xs)" }}
+              style={{ flex: 1, minWidth: 0, minHeight: "var(--space-8)", border: 0, background: "transparent", color: "var(--ink-0)", paddingLeft: "var(--space-1)", fontSize: "var(--fs-sm)" }}
             >
               <option value="all">{t("feed.datePreset.all")}</option>
               <option value="7d">{t("feed.datePreset.7d")}</option>
@@ -440,7 +481,7 @@ export default function MobileFeedPage({
               <option value="90d">{t("feed.datePreset.90d")}</option>
             </select>
           </label>
-        </div>
+        </div>}
       </div>
 
       {/* 활동 피드 */}
@@ -448,23 +489,35 @@ export default function MobileFeedPage({
         <MobileFeedSkeleton />
       )}
 
-      {!loading && filteredActivities.length === 0 && (
-        <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
-          <div style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>🚴</div>
-          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("mobileFeed.emptyTitle")}</div>
-          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("mobileFeed.emptyDesc")}</div>
+      {!loading && error && (
+        <div role="alert" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-2)" }}>{t(activities.length > 0 ? "feed.partialError.title" : "feed.error.title")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: "var(--space-4)" }}>{t(activities.length > 0 ? "feed.partialError.description" : "feed.error.description")}</div>
+          {onRetry && <Button variant="primary" onClick={onRetry}>{t(activities.length > 0 ? "feed.partialError.retry" : "feed.error.retry")}</Button>}
         </div>
       )}
+
+      {!loading && !error && filteredActivities.length === 0 && (
+        <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
+          <div style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>🚴</div>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{activities.length > 0 ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{activities.length > 0 ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
+        </div>
+      )}
+      {!loading && filteredActivities.length === 0 && supportingCards}
 
       {!loading && filteredActivities.length > 0 && (
         <div>
           {renderedActivities.map((activity, i) => (
-            <CompactActivityCard key={activity.id} activity={activity} priority={i === 0} />
+            <Fragment key={activity.id}>
+              <CompactActivityCard activity={activity} priority={i < 2} />
+              {i === 0 && supportingCards}
+            </Fragment>
           ))}
         </div>
       )}
 
-      {!loading && (hasHiddenLocalItems || hasMore) && (
+      {!loading && !error && (hasHiddenLocalItems || hasMore) && (
         <div style={{ padding: "var(--space-3) var(--space-4)" }}>
           <Button variant="secondary" size="lg"
             onClick={() => {

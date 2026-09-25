@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import { Fragment, useState, useRef, useMemo, useEffect } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { Search, X, ChevronDown } from "lucide-react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -23,6 +23,7 @@ import { computeRunWeeklyRecap, isRecapVisible } from "../utils/runWeeklyRecap";
 import { seoulWeekday } from "../utils/seoulWeek";
 import ActivityCard from "../components/ActivityCard";
 import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatDistance } from "../utils/units";
 import { useActivities, useWeeklyStats, useActivitySearch } from "../hooks/useActivities";
@@ -45,8 +46,9 @@ import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import AppInstallLinks from "../components/AppInstallLinks";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
 import { useMobile } from "../hooks/useMobile";
-import { Button, Card, Chip, Text } from "../theme/components";
+import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import type { Activity } from "@shared/types";
+import "./DashboardPage.css";
 
 type FeedFilterIndex = 0 | 1 | 2;
 
@@ -273,6 +275,19 @@ export default function DashboardPage() {
   const [searchInput, setSearchInput] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
+  const { showToast } = useToast();
+  const [signInPending, setSignInPending] = useState(false);
+  const handleGuestSignIn = async () => {
+    if (signInPending) return;
+    setSignInPending(true);
+    try {
+      await signInWithGoogle();
+    } catch {
+      showToast(t("header.signInFailed"), "error");
+    } finally {
+      setSignInPending(false);
+    }
+  };
   const { preferences: dashboardPreferences, update: updateDashboardPreferences } = useDashboardPreferences(
     user?.uid ?? null,
     authLoading,
@@ -280,9 +295,9 @@ export default function DashboardPage() {
   const { units } = useLocale();
   const { friends } = useFriends();
   const friendIds = useMemo(() => new Set(friends.map((friend) => friend.userId)), [friends]);
-  const feedScope: ActivityFeedScope = dashboardPreferences.feedScope;
+  const feedScope: ActivityFeedScope = user ? dashboardPreferences.feedScope : "all";
   const feedFilter = ({ all: 0, friends: 1, self: 2 } as const)[feedScope];
-  const { activities, loading, loadMore, hasMore, loadingMore, totalCount } = useActivities(feedScope, [...friendIds]);
+  const { activities, loading, loadMore, hasMore, loadingMore, totalCount, error: feedError, retry: retryFeed } = useActivities(feedScope, [...friendIds]);
   const { weeklyStats, thisWeek, recent7DayDistances, monthlyActivityDistance } = useWeeklyStats({
     includeMonthlyDistance: true,
   });
@@ -540,7 +555,8 @@ export default function DashboardPage() {
     unit: showWeekNumbers ? unit : null,
     delta: null,
     deltaKind: "up" as const,
-    sub: weekSub,
+    // 네 지표의 공통 기간은 그룹 제목으로 올린다. 계산 대기/실패 등 상태 문구는 유지한다.
+    sub: showWeekNumbers ? undefined : weekSub,
     chip: weekChip,
   });
 
@@ -594,12 +610,19 @@ export default function DashboardPage() {
   ];
 
   const isMobile = useMobile();
+  const desktopRoutine = consistencyStreak && (
+    <div style={{ marginTop: "var(--space-3)" }}>
+      <ConsistencyStreakCard summary={consistencyStreak} compact />
+    </div>
+  );
 
   if (isMobile) {
     return (
       <MobileFeedPage
         activities={activities}
         loading={loading}
+        error={feedError}
+        onRetry={retryFeed}
         hasMore={hasMore}
         loadingMore={loadingMore}
         onLoadMore={loadMore}
@@ -644,7 +667,7 @@ export default function DashboardPage() {
               {/* 비로그인: 가치 제안 헤더에 실제 로그인 CTA 동반 (#234) —
                   TopNav 와 동일한 signInWithGoogle 트리거 재사용. */}
               {isAnon && (
-                <Button onClick={signInWithGoogle} variant="primary" size="sm">
+                <Button onClick={() => { void handleGuestSignIn(); }} loading={signInPending} variant="primary" size="sm">
                   {t("header.anonCta")}
                 </Button>
               )}
@@ -692,12 +715,6 @@ export default function DashboardPage() {
           <FirstSyncCelebration activityId={firstSync.activityId} onClose={firstSync.dismiss} />
         )}
 
-        {consistencyStreak && (
-          <div style={{ marginTop: 'var(--space-4)' }}>
-            <ConsistencyStreakCard summary={consistencyStreak} />
-          </div>
-        )}
-
         {showYearRecapBanner && (
           <Card
             padding="none"
@@ -718,24 +735,45 @@ export default function DashboardPage() {
                   {t("yearRecap.desc")}
                 </Text>
               </div>
-              <Link to="/year-recap" className="ds-btn ds-btn--primary ds-btn--sm" style={{ textDecoration: "none", flexShrink: 0 }}>
-                <span className="ds-btn__label">{t("yearRecap.cta")}</span>
+              <Link to="/year-recap" className={buttonClass({ variant: "primary", size: "sm" })} style={{ textDecoration: "none", flexShrink: 0 }}>
+                {t("yearRecap.cta")}
               </Link>
             </div>
           </Card>
         )}
 
-        {/* KPI 스트립 */}
-        <Card padding="none" style={{ marginTop: 'var(--space-4)', display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))" }}>
-          {KPI.map((s, i) => (
-            <div key={i} style={{ padding: "18px 20px", borderRight: i < KPI.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
-              <StatBlock {...s} />
-            </div>
-          ))}
-        </Card>
+        {/* 한 주의 활동량과 훈련 상태는 서로 다른 질문이다. 두 그룹으로 읽히게 한다. */}
+        {user && (
+          <div className="dashboard-kpi-overview grid gap-3" style={{ marginTop: "var(--space-2)" }}>
+            <Card padding="none" style={{ overflow: "hidden" }}>
+              <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
+                <Text as="h2" variant="eyebrow" tone="secondary">{t("kpi.weekGroup")}</Text>
+              </div>
+              <div className="dashboard-kpi-week grid">
+                {KPI.slice(0, 4).map((stat) => (
+                  <div key={stat.label} style={{ minWidth: 0, padding: "var(--space-3) var(--space-4)" }}>
+                    <StatBlock {...stat} />
+                  </div>
+                ))}
+              </div>
+            </Card>
+            <Card padding="none" style={{ overflow: "hidden", background: "var(--bg-2)" }}>
+              <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
+                <Text as="h2" variant="eyebrow" tone="secondary">{t("kpi.trainingGroup")}</Text>
+              </div>
+              <div className="dashboard-kpi-training grid">
+                {KPI.slice(4).map((stat) => (
+                  <div key={stat.label} style={{ minWidth: 0, padding: "var(--space-3) var(--space-3)" }}>
+                    <StatBlock {...stat} />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* 메인: 피드 + 사이드바 */}
-        <div className="flex gap-5" style={{ marginTop: 'var(--space-5)' }}>
+        <div className="flex gap-5" style={{ marginTop: 'var(--space-3)' }}>
           {/* 피드 */}
           <div className="flex-1 min-w-0 flex flex-col">
             {/* 헤더: 제목 + 카운트 + 필터 */}
@@ -755,7 +793,7 @@ export default function DashboardPage() {
                 </span>
               )}
               <div className="flex-1" />
-              <div className="flex gap-0.5" style={{ background: "var(--bg-1)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
+              {user && <div className="flex gap-0.5" style={{ background: "var(--bg-1)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
                 {([t("feed.filter.all"), t("feed.filter.friends"), t("feed.filter.self")] as const).map((label, i) => (
                   <button
                     key={i}
@@ -769,7 +807,7 @@ export default function DashboardPage() {
                     {label}
                   </button>
                 ))}
-              </div>
+              </div>}
             </div>
 
             {/* 검색 입력 */}
@@ -849,10 +887,14 @@ export default function DashboardPage() {
                     <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("feed.search.emptyDescription")}</div>
                   </Card>
                 )}
+                {!activitySearch.loading && activitySearch.results.length === 0 && desktopRoutine}
                 {!activitySearch.loading && activitySearch.results.length > 0 && (
                   <div className="flex flex-col gap-3.5">
                     {activitySearch.results.map((activity, i) => (
-                      <ActivityCard key={activity.id} activity={activity} priority={i === 0} />
+                      <Fragment key={activity.id}>
+                        <ActivityCard activity={activity} priority={i === 0} />
+                        {i === 0 && desktopRoutine}
+                      </Fragment>
                     ))}
                     {activitySearch.hasMore && (
                       <Button variant="secondary" onClick={activitySearch.loadMore} style={{ width: "100%" }}>
@@ -875,26 +917,41 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {!loading && filteredActivities.length === 0 && (
+                {!loading && feedError && (
+                  <EmptyState
+                    icon="⚠️"
+                    title={activities.length > 0 ? t("feed.partialError.title") : t("feed.error.title")}
+                    description={activities.length > 0 ? t("feed.partialError.description") : t("feed.error.description")}
+                    actions={[{ label: activities.length > 0 ? t("feed.partialError.retry") : t("feed.error.retry"), variant: "primary", onClick: retryFeed }]}
+                  />
+                )}
+                {!loading && feedError && filteredActivities.length === 0 && desktopRoutine}
+
+                {!loading && !feedError && filteredActivities.length === 0 && (
                   <EmptyState
                     icon="🚴"
-                    title={t("feed.empty.title")}
-                    description={t("feed.empty.description")}
-                    actions={[
-                      { label: t("feed.empty.ctaConnectStrava"), variant: "primary", href: "/settings?section=connections" },
+                    title={activities.length > 0 ? t("feed.noMatches.title") : t("feed.empty.title")}
+                    description={activities.length > 0 ? t("feed.noMatches.description") : t("feed.empty.description")}
+                    actions={activities.length > 0 ? [] : [user
+                      ? { label: t("feed.empty.ctaConnectStrava"), variant: "primary", href: "/settings?section=connections" }
+                      : { label: signInPending ? t("header.signingIn") : t("header.anonCta"), variant: "primary", onClick: () => { void handleGuestSignIn(); } },
                     ]}
                   />
                 )}
+                {!loading && !feedError && filteredActivities.length === 0 && desktopRoutine}
 
                 {!loading && filteredActivities.length > 0 && (
                   <div className="flex flex-col gap-3.5">
                     {filteredActivities.map((activity, i) => (
-                      <ActivityCard key={activity.id} activity={activity} priority={i === 0} />
+                      <Fragment key={activity.id}>
+                        <ActivityCard activity={activity} priority={i === 0} />
+                        {i === 0 && desktopRoutine}
+                      </Fragment>
                     ))}
                   </div>
                 )}
 
-                {!loading && hasMore && (
+                {!loading && !feedError && hasMore && (
                   <Button variant="secondary"
                     onClick={loadMore}
                     disabled={loadingMore}
@@ -916,7 +973,7 @@ export default function DashboardPage() {
           {/* 사이드바 */}
           <div className="hidden lg:flex w-[340px] flex-shrink-0 flex-col gap-4.5 sticky self-start top-0" style={{ paddingBottom: 'var(--space-5)' }}>
             {/* 주간 TSS 차트 — 실데이터 바인딩 */}
-            {(() => {
+            {user && (() => {
               // 부하를 알 수 없는 주(tss=null)는 평균·피크·추세에서 제외한다 — 0 으로 세면
               // 쉬지 않은 주가 휴식 주처럼 평균을 끌어내린다 (#2237).
               const knownTssWeeks = weeklyStats.filter((w): w is typeof w & { tss: number } => w.tss != null);
@@ -965,7 +1022,7 @@ export default function DashboardPage() {
             })()}
 
             {/* 월간 목표 — 운동 계획 기반 */}
-            {(() => {
+            {user && (() => {
               const now = new Date();
               const monthLabel = t("sidebar.monthlyGoal.title", { month: now.getMonth() + 1 });
               const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -1012,7 +1069,7 @@ export default function DashboardPage() {
             })()}
 
             {/* 피트니스 스냅샷 */}
-            <Card padding="none" style={{ padding: "var(--space-4)" }}>
+            {user && <Card padding="none" style={{ padding: "var(--space-4)" }}>
               <SectionHeader title={t("sidebar.fitness.title")} sub={t("sidebar.fitness.sub")} />
               {fitness.ctl === 0 ? (
                 <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", padding: "8px 0" }}>{t("sidebar.fitness.insufficient")}</div>
@@ -1045,7 +1102,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
-            </Card>
+            </Card>}
 
             {/* 한국 자전거 커뮤니티 */}
             <Card padding="none" style={{ padding: 'var(--space-4)' }}>

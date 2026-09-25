@@ -78,6 +78,20 @@ describe("FtpProgressionCard", () => {
     expect(screen.getByRole("img", { name: /월별 자동 추정 eFTP.*245W.*252W.*실제 적용 FTP.*248W.*255W/ })).toBeInTheDocument();
   });
 
+  it("keeps applied FTP events available in a compact embedded disclosure", () => {
+    renderWithProviders(<FtpProgressionCard
+      points={[{ period: "2026-05", ftpW: 245, source: "20m" }, { period: "2026-06", ftpW: 252, source: "20m" }]}
+      history={[{ id: "manual", value: 248, source: "manual", changedAt: Date.UTC(2026, 4, 15) }]}
+      currentFtpW={248} breakthrough={null} embedded compact
+    />);
+
+    const details = screen.getByText("FTP 변경 이력 보기").closest("details");
+    expect(details).toHaveAttribute("data-ftp-history");
+    expect(details).not.toHaveAttribute("open");
+    expect(details).toHaveTextContent("직접 설정");
+    expect(screen.getByRole("img", { name: /실제 적용 FTP.*248W/ })).toBeInTheDocument();
+  });
+
   it("shows a single real FTP change even without enough eFTP points", () => {
     renderWithProviders(
       <FtpProgressionCard

@@ -5,6 +5,7 @@ import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNaviga
 import { useAuth } from "../contexts/AuthContext";
 import { useStrava } from "../hooks/useStrava";
 import { useToast } from "../contexts/ToastContext";
+import { Card } from "../theme/components";
 
 type Step = "landing" | "progress" | "report";
 type MigrationProgressLike = {
@@ -26,9 +27,9 @@ export function calculateMigrationProgressPercent(progress: MigrationProgressLik
 
 function Section({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`ds-card ds-card--bare overflow-hidden ${className}`}>
+    <Card variant="bare" padding="none" className={`overflow-hidden ${className}`}>
       {children}
-    </div>
+    </Card>
   );
 }
 

@@ -272,6 +272,7 @@ describe("useActivities", () => {
 
       expect(result.current.loading).toBe(false);
       expect(result.current.activities).toEqual([]);
+      expect(result.current.error).toBe(true);
       expect(result.current.hasMore).toBe(false);
       expect(mockedGetDocs).toHaveBeenCalledTimes(2);
       expect(firestoreRecoveryMocks.execute).not.toHaveBeenCalled();
@@ -294,7 +295,39 @@ describe("useActivities", () => {
       expect(result.current.loading).toBe(false);
     });
     expect(result.current.activities).toEqual([]);
+    expect(result.current.error).toBe(false);
     expect(result.current.totalCount).toBe(0);
+  });
+
+  it("retries a failed feed separately from a successful empty feed", async () => {
+    const mockedGetDocs = vi.mocked(getDocs);
+    const defaultImplementation = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockReset();
+    mockedGetDocs.mockRejectedValueOnce(new Error("offline"));
+    mockedGetDocs.mockRejectedValueOnce(new Error("offline"));
+    mockedGetDocs.mockRejectedValueOnce(new Error("offline"));
+    mockedGetDocs.mockResolvedValue({ docs: [], metadata: { fromCache: false, hasPendingWrites: false } } as never);
+    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+    vi.useFakeTimers();
+
+    try {
+      const { result } = renderHook(() => useActivities(), { wrapper });
+      await act(async () => { await vi.advanceTimersByTimeAsync(2_300); });
+      expect(result.current.loading).toBe(false);
+      expect(result.current.error).toBe(true);
+      expect(result.current.activities).toEqual([]);
+
+      act(() => result.current.retry());
+      await act(async () => { await Promise.resolve(); });
+      expect(result.current.loading).toBe(false);
+      expect(result.current.error).toBe(false);
+      expect(result.current.activities).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+      logSpy.mockRestore();
+      mockedGetDocs.mockReset();
+      if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
+    }
   });
 
   it("returns activities from collection data", async () => {

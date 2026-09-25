@@ -4,13 +4,15 @@ import { describe, expect, it } from "vitest";
 
 describe("mobile fitness decision hierarchy", () => {
   const source = fs.readFileSync(path.resolve("src/components/mobile/BikePerformanceSummaryCard.tsx"), "utf8");
+  const css = fs.readFileSync(path.resolve("src/components/mobile/MobileFitnessPage.css"), "utf8");
 
   it("keeps one canonical FTP hero and a dedicated performance hierarchy", () => {
     expect(source).toContain("function BikePerformanceSummaryCard");
     expect(source).toContain("decision?.activeFtpW");
     expect(source).toContain("W/kg");
     expect(source).toContain("<AbilityScoreScale");
-    expect(source).toContain('gridTemplateColumns: "repeat(2, minmax(0, 1fr))"');
+    expect(source).toContain('className="mobile-fitness-performance__metrics"');
+    expect(css).toMatch(/\.mobile-fitness-performance__metrics\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
     expect(source).toContain("vo2PdcSource");
     expect(source).toContain("vo2FormulaSource");
     expect(source).toContain("<FtpProgressionCard");

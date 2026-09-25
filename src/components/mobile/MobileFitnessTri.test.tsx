@@ -1,5 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import MobileFitnessPage, { type MobileFitnessData } from "./MobileFitnessPage";
@@ -42,6 +44,20 @@ describe("MobileFitnessPage tri", () => {
     integratedLoadSpy.mockClear();
   });
 
+  it("keeps all four sports available at narrow widths while the analysis control stays separate", () => {
+    const css = readFileSync(join(process.cwd(), "src/components/mobile/MobileFitnessPage.css"), "utf8");
+    expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] { overflow-x: auto;');
+    expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.75rem; white-space: nowrap; }');
+    expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.25rem; font-size: var(--fs-base) !important; }');
+    expect(css).not.toContain('font-size: 0 !important;');
+    const { container } = renderWithProviders(<MobileFitnessPage data={previewData} />);
+    expect(container.querySelector(".mobile-fitness-toolbar__sports [role='group']")).toHaveAccessibleName("종목 선택");
+    expect(screen.getByRole("button", { name: "🚴 사이클" })).toBeInTheDocument();
+    expect(container.querySelector(".mobile-fitness-toolbar__sports .mobile-fitness-mode-toggle")).toBeNull();
+    expect(container.querySelector(".mobile-fitness-toolbar > .mobile-fitness-mode-toggle")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "심박존" })).not.toHaveAttribute("aria-pressed");
+  });
+
   it("shows current status and today's entry before PMC, then keeps the full coach action after the chart", () => {
     const data = {
       ctl: 12, atl: 10, tsb: 2,
@@ -61,9 +77,10 @@ describe("MobileFitnessPage tri", () => {
     );
 
     expect(screen.getByText("활동 영향과 오늘 선택")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "피트니스" })).toHaveClass("sr-only");
     const status = container.querySelector("[data-mobile-fitness-status]");
-    expect(screen.getByText("현재 상태")).toBeInTheDocument();
-    expect(status).toHaveTextContent("TSB 상태2.0");
+    expect(screen.getByRole("region", { name: "현재 상태" })).toBeInTheDocument();
+    expect(status).toHaveTextContent("TSB 상태체력이 피로보다 높아요2.0");
     expect(status).not.toHaveTextContent("CTL");
     expect(status).not.toHaveTextContent("ATL");
     const coach = container.querySelector("[data-mobile-fitness-coach]");
@@ -92,16 +109,28 @@ describe("MobileFitnessPage tri", () => {
       zones: [], zoneSource: "none", discipline: "run",
     };
     const { container } = renderWithProviders(<MobileFitnessPage data={data} sectionState={{ trend: "loading", derived: "loading" }} />);
-    expect(container.querySelector("[data-mobile-fitness-status]")).toHaveTextContent("TSB 상태—");
+    expect(container.querySelector("[data-mobile-fitness-status]")).toHaveTextContent("TSB 상태아직 계산할 기록이 없어요—");
     expect(container.querySelector("[data-mobile-fitness-decision]")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("피트니스 추이를 불러오는 중");
     expect(screen.queryByRole("button", { name: /오늘은 어떻게 이어갈까요/ })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [-9.4, "피로가 체력보다 높아요", "-9.4"],
+    [0, "체력과 피로가 비슷해요", "0.0"],
+    [-0.04, "체력과 피로가 비슷해요", "0.0"],
+  ] as const)("interprets TSB %s from the displayed value without prescribing a workout", (tsb, meaning, displayed) => {
+    const { container } = renderWithProviders(<MobileFitnessPage data={{ ...previewData, tsb }} />);
+    const status = container.querySelector("[data-mobile-fitness-status]");
+    expect(status).toHaveTextContent(`TSB 상태${meaning}${displayed}`);
+    expect(status?.children).toHaveLength(2);
   });
 
   it("does not show a permanent decision loading state on the embedded surface without a shared decision source", () => {
     const { container } = renderWithProviders(<MobileFitnessPage data={previewData} embedded />);
     expect(container.querySelector("[data-mobile-fitness-status]")).toBeInTheDocument();
     expect(container.querySelector("[data-mobile-fitness-decision]")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1, name: "피트니스" })).not.toBeInTheDocument();
   });
 
   it.each([
@@ -117,6 +146,11 @@ describe("MobileFitnessPage tri", () => {
     const { container } = renderWithProviders(<MobileFitnessPage data={previewData} todayDecisionSignedIn={signedIn} todayDecisionState={state} coachSlot={<div id="fitness-coach-today">상세 결정</div>} />);
     expect(container.querySelector("[data-mobile-fitness-decision]")).toHaveAttribute("data-mobile-fitness-decision", stateKey);
     expect(container.querySelector("[data-mobile-fitness-decision]")).toHaveTextContent(copy);
+    if (stateKey === "disabled") {
+      const deferred = container.querySelector(".mobile-fitness-deferred-decision");
+      expect(deferred).toContainElement(container.querySelector("[data-mobile-fitness-decision]"));
+      expect(container.querySelector("[data-pmc-chart]")?.compareDocumentPosition(deferred!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
     if (stateKey === "health-stop") {
       expect(container.querySelector("[data-mobile-fitness-decision]")).not.toHaveTextContent("조정 권고");
       expect(screen.getByRole("button", { name: "중단 사유 자세히 보기 ↓" })).toHaveStyle({ minHeight: "44px" });
@@ -204,11 +238,11 @@ describe("MobileFitnessPage tri", () => {
     expect(sportPerformanceSpy).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "통합" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "전체" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "개요" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "수영" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "개요" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "수영" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /오늘은 어떻게 이어갈까요/ })).not.toBeInTheDocument();
     expect(screen.queryByText("잘못된 통합 추천")).not.toBeInTheDocument();
-    expect(screen.getByText("통합 멀티스포츠 상태")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "통합 멀티스포츠 상태" })).toBeInTheDocument();
   });
 
   it("resets the secondary tab after bike analysis to tri and then run", async () => {
@@ -224,17 +258,17 @@ describe("MobileFitnessPage tri", () => {
       <MobileFitnessPage data={{ ...base, discipline: "bike" } satisfies MobileFitnessData} />,
     );
 
-    await user.click(screen.getByRole("tab", { name: "파워존" }));
-    expect(screen.getByRole("tab", { name: "파워존" })).toHaveAttribute("aria-selected", "true");
+    await user.click(screen.getByRole("button", { name: "파워존" }));
+    expect(screen.getByRole("button", { name: "개요" })).not.toHaveAttribute("aria-pressed");
 
     rerender(<MobileFitnessPage data={{ ...base, discipline: "tri" } satisfies MobileFitnessData} />);
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "개요" })).not.toBeInTheDocument();
 
     rerender(<MobileFitnessPage data={{ ...base, discipline: "run" } satisfies MobileFitnessData} />);
     await waitFor(() => {
-      expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("button", { name: "심박존" })).not.toHaveAttribute("aria-pressed");
     });
-    expect(screen.getByRole("tab", { name: "심박존" })).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("group", { name: "종목 선택" })).toBeInTheDocument();
   });
 
   it("renders authoritative integrated detail exactly once on tri", () => {
