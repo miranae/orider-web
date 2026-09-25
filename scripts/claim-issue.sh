@@ -65,14 +65,42 @@ is_stale() { # $1=issue $2=label → stale(≥TTL)면 0(true)
   [[ -n "$age" && "$age" -ge "$CLAIM_TTL_DAYS" ]]
 }
 
+# 지금 체크아웃된 브랜치. detached HEAD 면 빈 출력(제외할 대상이 없다).
+self_branch() {
+  local name; name="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+  [[ "$name" == "HEAD" ]] && name=""
+  printf '%s' "$name"
+}
+
 # 이슈번호가 fix/feat 브랜치명(fix/NNN-…)에 들어간 열린 PR / 원격 브랜치 = 경쟁. (라벨 미준수 대비)
-competing_refs() { # $1=issue → 경쟁 ref 출력(없으면 빈 출력)
-  local issue="$1" pat="(^|[-/_])0*${issue}([-/_]|\$)"
-  git ls-remote --heads origin 2>/dev/null \
+#
+# **내 브랜치는 경쟁자가 아니다.** 라벨 경로에는 "이미 내 라벨 → 멱등" 처리가 있는데
+# 브랜치 경로에는 대응 예외가 없어서, **인계받은 워크트리에서 재클레임이 영구히 막혔다**
+# (#2271). 표준 루프는 한 세션이 브랜치를 만들고 그 세션이 머지하는 것을 전제하므로
+# 클레임이 브랜치보다 먼저 걸리는데, 세션 인계에서는 그 순서가 뒤집힌다.
+#
+# 제외 대상은 **지금 체크아웃된 브랜치 하나**뿐이다. 같은 이슈 번호의 다른 브랜치는
+# 계속 충돌로 잡히므로 방어력은 줄지 않는다.
+competing_refs() { # $1=issue [$2=제외할 브랜치] → 경쟁 ref 출력(없으면 빈 출력)
+  local issue="$1"
+  # 한 `local` 문 안에서 자기 참조(`local issue=... pat=...${issue}...`)를 하면
+  # `set -u` 환경에서 unbound 로 터진다 — 프로덕션은 `set -u` 가 아니어서 잠복해 있었고
+  # 단위 테스트(`set -euo pipefail`)에서 드러났다. 줄을 나눠 의존을 명시한다.
+  local pat="(^|[-/_])0*${issue}([-/_]|\$)"
+  local self="${2-$(self_branch)}"
+  local branches prs
+  branches="$(git ls-remote --heads origin 2>/dev/null \
     | sed 's#.*refs/heads/##' \
-    | grep -E "(^|[-/_])0*${issue}([-/_]|$)" | sed 's/^/    branch /' || true
-  gh pr list --state open --json number,headRefName \
-    -q ".[] | select(.headRefName|test(\"$pat\")) | \"    PR#\(.number) \(.headRefName)\"" 2>/dev/null || true
+    | grep -E "(^|[-/_])0*${issue}([-/_]|$)" || true)"
+  prs="$(gh pr list --state open --json number,headRefName \
+    -q ".[] | select(.headRefName|test(\"$pat\")) | \"\(.number) \(.headRefName)\"" 2>/dev/null || true)"
+  if [[ -n "$self" ]]; then
+    branches="$(grep -vxF "$self" <<<"$branches" || true)"
+    # PR 은 "번호 브랜치명" 형태라 두 번째 필드로 비교한다 — 브랜치명이 다른 PR 은 남긴다.
+    prs="$(awk -v self="$self" '$2 != self' <<<"$prs" || true)"
+  fi
+  [[ -z "$branches" ]] || sed 's/^/    branch /' <<<"$branches"
+  [[ -z "$prs" ]] || sed 's/^/    PR#/' <<<"$prs"
 }
 
 acquire() {
@@ -196,6 +224,10 @@ status() {
   fi
   echo "$line"
 }
+
+# 직접 실행일 때만 디스패치한다 — 테스트가 함수 단위로 검증하려면 source 가능해야 한다
+# (`scripts/test-claim-issue.sh`). 이 가드가 없으면 source 하는 순간 usage 로 exit 한다.
+[[ "${BASH_SOURCE[0]}" == "${0}" ]] || return 0
 
 cmd="${1:-}"; a2="${2:-}"; a3="${3:-}"
 case "$cmd" in
