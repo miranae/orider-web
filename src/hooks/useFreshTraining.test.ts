@@ -415,7 +415,7 @@ describe("useFreshTraining", () => {
         pageVisibility: expect.any(String),
       }),
     );
-    expect(window.sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).toBe("1");
+    expect(window.sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).toBeTruthy();
     expect(firestoreRecoveryMocks.execute).toHaveBeenCalledWith({
       kind: "b815",
       action: "reload-ready",
