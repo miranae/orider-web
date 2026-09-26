@@ -149,6 +149,7 @@ export default function MobilePlanContent({
 
   return (
     <div className="mobile-plan-content">
+      {embedded && <h1 className="orider-embedded-page-title">{t("page.embeddedTitle")}</h1>}
       {chromeSlot}
 
       {goalTitle && (
@@ -197,7 +198,7 @@ export default function MobilePlanContent({
       {adaptationSlot}
 
       {/* Week navigation */}
-      <div className="flex items-center justify-center" role="group" aria-label={t('mobile.weekHeading')} style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
+      <div className="mobile-plan-week-navigation flex items-center justify-center" role="group" aria-label={t('mobile.weekHeading')} style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
         <button type="button" onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')}
           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>◀</button>
         <div style={{ textAlign: "center", minWidth: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{weekLabel}</div>

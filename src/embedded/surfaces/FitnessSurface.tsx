@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
+import EmbeddedSurfaceState from "./EmbeddedSurfaceState";
 import MobileFitnessPage from "../../components/mobile/MobileFitnessPage";
 import CanonicalFitnessNotice from "../../features/fitness/components/CanonicalFitnessNotice";
 import { useFitnessModel } from "../../hooks/useFitnessModel";
@@ -38,19 +39,10 @@ export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProp
     onReady(status, derivedContentReady);
   }, [derivedContentReady, model.cacheHit, model.error, model.freshLoaded, model.loading, model.timeseriesError, model.timeseriesLoaded, onReady, retryKey]);
 
-  if (model.loading) {
-    return (
-      <div className="orider-embedded-status" role="status" aria-label="Loading fitness">
-        <div className="orider-embedded-status__pulse" />
-      </div>
-    );
-  }
-
-  if (model.error) {
+  if (model.loading || model.error) {
     return (
       <main className="orider-embedded-surface" data-testid="embedded-fitness">
-        <p role="alert">{model.t("error.dataFailed")}</p>
-        <button type="button" onClick={model.retryLoad}>{tCommon("button.retry")}</button>
+        <EmbeddedSurfaceState title={model.t("login.title")} loading={model.loading} onRetry={model.retryLoad} />
       </main>
     );
   }

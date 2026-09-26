@@ -282,5 +282,9 @@
       "title": "좋아요 {{count}}명",
       "aria": "좋아요 {{count}}명: {{names}}"
     }
+  },
+  "embeddedStatus": {
+    "loading": "기록과 훈련 데이터를 불러오고 있어요.",
+    "unavailable": "잠시 연결할 수 없어요. 연결 상태를 확인한 후 다시 시도해 주세요."
   }
 }

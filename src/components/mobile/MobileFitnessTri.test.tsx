@@ -130,7 +130,7 @@ describe("MobileFitnessPage tri", () => {
     const { container } = renderWithProviders(<MobileFitnessPage data={previewData} embedded />);
     expect(container.querySelector("[data-mobile-fitness-status]")).toBeInTheDocument();
     expect(container.querySelector("[data-mobile-fitness-decision]")).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { level: 1, name: "피트니스" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "피트니스" })).toHaveClass("orider-embedded-page-title");
   });
 
   it.each([

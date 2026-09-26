@@ -45,6 +45,8 @@ vi.mock("react-i18next", () => ({
       "button.loading": "불러오는 중…",
       "button.retry": "다시 시도",
       "error.title": "문제가 발생했어요",
+      "embeddedStatus.loading": "기록과 훈련 데이터를 불러오고 있어요.",
+      "embeddedStatus.unavailable": "잠시 연결할 수 없어요. 연결 상태를 확인한 후 다시 시도해 주세요.",
       goal: "목표",
       "page.planTitle": "운동 계획",
     })[key] ?? key,
@@ -115,7 +117,7 @@ describe("training embedded surface partial loading", () => {
 
     const view = render(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
 
-    expect(screen.getByRole("alert")).toHaveTextContent("error.dataFailed");
+    expect(screen.getByRole("alert")).toHaveTextContent("잠시 연결할 수 없어요");
     await waitFor(() => expect(onReady).toHaveBeenCalledWith("error", true));
     await act(async () => screen.getByRole("button", { name: "다시 시도" }).click());
     expect(retryLoad).toHaveBeenCalledTimes(1);
@@ -157,7 +159,7 @@ describe("training embedded surface partial loading", () => {
     render(wrapper(<PlanSurface onReady={vi.fn()} retryKey={0} />));
 
     expect(screen.getByRole("heading", { name: "서울 10K" })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("불러오는 중…");
+    expect(screen.getByRole("status")).toHaveTextContent("기록과 훈련 데이터를 불러오고 있어요");
     expect(screen.queryByText("plan presentation")).not.toBeInTheDocument();
   });
 
@@ -240,7 +242,7 @@ describe("training embedded surface partial loading", () => {
 
     render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
 
-    expect(screen.getByRole("alert")).toHaveTextContent("문제가 발생했어요");
+    expect(screen.getByRole("alert")).toHaveTextContent("잠시 연결할 수 없어요");
     await act(async () => screen.getByRole("button", { name: "다시 시도" }).click());
     expect(retryLoad).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(onReady).toHaveBeenCalledWith("error"));

@@ -75,7 +75,9 @@
     "missed": "결근",
     "today": "TODAY",
     "goalDay": "목표일",
-    "planEmptyBody": "운동 계획이 아직 생성 중입니다. 잠시 후 새로고침하세요."
+    "planEmptyBody": "운동 계획이 아직 생성 중입니다. 잠시 후 새로고침하세요.",
+    "planEmptyEmbeddedDesc": "웹에서 {{sportLabel}} 목표를 설정하면 계획이 생성됩니다. 설정 후 다시 불러와 주세요.",
+    "embeddedTitle": "운동 계획"
   },
   "workoutStatus": {
     "skipped": "건너뜀",
