@@ -13,6 +13,7 @@ import {
   __resetFirestoreSessionRecoveryForTests,
   FIRESTORE_B815_RECOVERY_SESSION_KEY,
   noteFirestoreServerSuccess,
+  prepareFirestoreSessionRecovery,
 } from "../utils/firestoreSessionRecovery";
 
 const firestoreRecoveryMocks = vi.hoisted(() => ({
@@ -128,7 +129,7 @@ describe("useActivities", () => {
         pageVisibility: expect.any(String),
       }),
     );
-    expect(window.sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).toBe("1");
+    expect(window.sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).toBeTruthy();
     expect(firestoreRecoveryMocks.execute).toHaveBeenCalledTimes(1);
     expect(firestoreRecoveryMocks.execute).toHaveBeenCalledWith({ kind: "b815", action: "reload-ready" });
     expect(logSpy.mock.invocationCallOrder[0]).toBeLessThan(firestoreRecoveryMocks.execute.mock.invocationCallOrder[0]!);
@@ -137,7 +138,8 @@ describe("useActivities", () => {
 
   it("does not retry a fatal feed request after this session already attempted recovery", async () => {
     const assertion = new Error("INTERNAL ASSERTION FAILED: Unexpected state (ID: b815)");
-    window.sessionStorage.setItem(FIRESTORE_B815_RECOVERY_SESSION_KEY, "1");
+    prepareFirestoreSessionRecovery(assertion);
+    __resetFirestoreSessionRecoveryForTests();
     vi.mocked(getDocs).mockRejectedValueOnce(assertion);
     const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
 

@@ -14,6 +14,7 @@ import {
 function preparationEnvironment(initialValue: string | null = null) {
   let storedValue = initialValue;
   return {
+    buildId: "test-build",
     sessionStorage: {
       getItem: vi.fn(() => storedValue),
       setItem: vi.fn((_key: string, value: string) => { storedValue = value; }),
@@ -31,9 +32,33 @@ describe("Firestore session recovery", () => {
   const server = { fromCache: false, hasPendingWrites: false };
   const fatal = new Error("AsyncQueue is already failed");
 
+  it("gives a new build one attempt, including migration from the legacy marker", () => {
+    for (const marker of ["1", "previous-build"]) {
+      __resetFirestoreSessionRecoveryForTests();
+      const environment = preparationEnvironment(marker);
+      expect(prepareFirestoreSessionRecovery(fatal, environment).action).toBe("reload-ready");
+      __resetFirestoreSessionRecoveryForTests();
+      expect(prepareFirestoreSessionRecovery(fatal, environment).action).toBe("already-attempted");
+    }
+  });
+
+  it("waits for online without spending multiple navigation attempts", () => {
+    const result = prepareFirestoreSessionRecovery(fatal, preparationEnvironment());
+    const reload = vi.fn();
+    const schedule = vi.fn((callback: () => void) => callback());
+    const waitUntilOnline = vi.fn();
+    const environment = { reload, schedule, isOnline: () => false, waitUntilOnline };
+    executeFirestoreSessionRecovery(result, environment);
+    executeFirestoreSessionRecovery(result, environment);
+    expect(reload).not.toHaveBeenCalled();
+    expect(waitUntilOnline).toHaveBeenCalledOnce();
+    waitUntilOnline.mock.calls[0][0]();
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
   it("rearms only after two server confirmations spanning a healthy minute", () => {
     vi.useFakeTimers();
-    const environment = preparationEnvironment("1");
+    const environment = preparationEnvironment("test-build");
     noteFirestoreServerSuccess(server, environment);
     vi.advanceTimersByTime(59_999);
     noteFirestoreServerSuccess(server, environment);
@@ -47,7 +72,7 @@ describe("Firestore session recovery", () => {
 
   it("does not rearm from time, cache, local writes, or missing metadata", () => {
     vi.useFakeTimers();
-    const environment = preparationEnvironment("1");
+    const environment = preparationEnvironment("test-build");
     noteFirestoreServerSuccess(server, environment);
     vi.advanceTimersByTime(120_000);
     expect(environment.sessionStorage.removeItem).not.toHaveBeenCalled();
@@ -60,7 +85,7 @@ describe("Firestore session recovery", () => {
 
   it("restarts the healthy window for every suppressed fatal error", () => {
     vi.useFakeTimers();
-    const environment = preparationEnvironment("1");
+    const environment = preparationEnvironment("test-build");
     noteFirestoreServerSuccess(server, environment);
     vi.advanceTimersByTime(60_000);
     prepareFirestoreSessionRecovery(fatal, environment);
@@ -84,13 +109,13 @@ describe("Firestore session recovery", () => {
 
   it("keeps the marker and resets proof when storage removal fails", () => {
     vi.useFakeTimers();
-    const environment = preparationEnvironment("1");
+    const environment = preparationEnvironment("test-build");
     environment.sessionStorage.removeItem.mockImplementationOnce(() => { throw new Error("blocked"); });
     noteFirestoreServerSuccess(server, environment);
     vi.advanceTimersByTime(60_000);
     expect(() => noteFirestoreServerSuccess(server, environment)).not.toThrow();
     noteFirestoreServerSuccess(server, environment);
-    expect(environment.sessionStorage.getItem()).toBe("1");
+    expect(environment.sessionStorage.getItem()).toBe("test-build");
     expect(environment.sessionStorage.removeItem).toHaveBeenCalledOnce();
   });
 
@@ -144,7 +169,7 @@ describe("Firestore session recovery", () => {
     );
 
     expect(result).toEqual({ kind: "b815", action: "reload-ready" });
-    expect(environment.sessionStorage.setItem).toHaveBeenCalledWith(FIRESTORE_B815_RECOVERY_SESSION_KEY, "1");
+    expect(environment.sessionStorage.setItem).toHaveBeenCalledWith(FIRESTORE_B815_RECOVERY_SESSION_KEY, "test-build");
     expect(shouldAbortForFirestoreRecovery(result)).toBe(true);
   });
 
@@ -185,7 +210,7 @@ describe("Firestore session recovery", () => {
   });
 
   it("falls through after a reload was already attempted in this browser session", () => {
-    const environment = preparationEnvironment("1");
+    const environment = preparationEnvironment("test-build");
     const result = prepareFirestoreSessionRecovery(
       new Error("INTERNAL ASSERTION FAILED: AsyncQueue is already failed"),
       environment,
@@ -208,6 +233,16 @@ describe("Firestore session recovery", () => {
 
     expect(result.action).toBe("storage-unavailable");
     expect(shouldAbortForFirestoreRecovery(result)).toBe(false);
+  });
+
+  it("does not navigate if the persisted budget cannot be written", () => {
+    const environment = preparationEnvironment();
+    environment.sessionStorage.setItem.mockImplementation(() => { throw new Error("quota exceeded"); });
+    const result = prepareFirestoreSessionRecovery(fatal, environment);
+    const reload = vi.fn();
+    executeFirestoreSessionRecovery(result, { reload, schedule: (callback) => callback() });
+    expect(result.action).toBe("storage-unavailable");
+    expect(reload).not.toHaveBeenCalled();
   });
 
   it("schedules exactly one reload only after an eligible plan is executed", () => {
