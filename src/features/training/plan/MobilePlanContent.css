@@ -214,3 +214,8 @@
     flex-wrap: wrap;
   }
 }
+
+.orider-embedded-surface .mobile-plan-content { --fs-xs: var(--fs-md); --fs-sm: var(--fs-md); --fs-base: var(--fs-md); }
+.orider-embedded-surface .mobile-plan-week-navigation button { color: var(--ink-0) !important; border: 1px solid var(--line-soft) !important; border-radius: var(--r-md); background: var(--bg-1) !important; }
+.orider-embedded-surface .mobile-plan-week-navigation button:disabled { opacity: 1; color: var(--ink-2) !important; cursor: default; }
+.orider-embedded-surface .mobile-plan-content .orider-embedded-page-title { margin-inline: var(--space-4); }

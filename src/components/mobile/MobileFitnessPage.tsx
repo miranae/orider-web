@@ -454,7 +454,7 @@ function SectionCard({ children, title, sub, accentColor, ariaLabel, compact = f
   // (max-w mx-auto px-4 = 좌우 16px) 인셋을 음수 마진(-16)으로 상쇄해 좌우 끝까지 채우고,
   // 좌우 border·radius 는 제거하고 상하 구분선만 둔다. 콘텐츠는 좌우 16px padding 으로 가독성 유지.
   return (
-    <div role={ariaLabel ? "region" : undefined} aria-label={ariaLabel} style={{
+    <div className="mobile-fitness-section" role={ariaLabel ? "region" : undefined} aria-label={ariaLabel} style={{
       margin: compact ? "0 -16px var(--space-2)" : "0 -16px 12px",
       background: "var(--bg-1)",
       borderTop: accentColor ? `var(--space-0-5) solid ${accentColor}` : "1px solid var(--line-soft)",
@@ -620,7 +620,7 @@ export default function MobileFitnessPage({
 
   return (
     <div className={embedded ? "mobile-fitness-page mobile-fitness-page--embedded" : "mobile-fitness-page"}>
-      {!embedded && <h1 className="sr-only">{t("mobileFitness.title")}</h1>}
+      <h1 className={embedded ? "orider-embedded-page-title" : "sr-only"}>{t("mobileFitness.title")}</h1>
 
       <div className="mobile-fitness-toolbar">
         <div className="mobile-fitness-toolbar__sports">
@@ -713,14 +713,10 @@ export default function MobileFitnessPage({
             />
           )}
 
-          {data.discipline !== "tri" && (
+
+          {!embedded && data.discipline !== "tri" && (
             <div style={{ marginBottom: "var(--space-3)" }}>
-              <SportPerformanceCard
-                discipline={data.discipline}
-                cycling={data.cyclingAbility}
-                run={data.runEvidence}
-                swim={data.swimEvidence}
-              />
+              <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={data.runEvidence} swim={data.swimEvidence} />
             </div>
           )}
 
@@ -741,6 +737,13 @@ export default function MobileFitnessPage({
             <SectionCard title={t("mobileFitness.weeklyLoadTitle")} sub={t("mobileFitness.weeklyLoadSub", { thisWeek: data.thisWeekTSS, avg: data.avgWeekTSS, restDays: data.restDays })}>
               <WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />
             </SectionCard>
+          )}
+
+          {embedded && data.discipline !== "tri" && (
+            <details className="mobile-fitness-provenance">
+              <summary>{t(`mobileFitness.sport.${data.discipline}.title`)}</summary>
+              <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={data.runEvidence} swim={data.swimEvidence} />
+            </details>
           )}
 
         </div>

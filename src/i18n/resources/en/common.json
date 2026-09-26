@@ -282,5 +282,9 @@
       "title": "{{count}} likes",
       "aria": "{{count}} likes: {{names}}"
     }
+  },
+  "embeddedStatus": {
+    "loading": "Loading activity and training data.",
+    "unavailable": "Unable to connect right now. Check your connection and try again."
   }
 }

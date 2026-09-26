@@ -75,7 +75,9 @@
     "missed": "Missed",
     "today": "TODAY",
     "goalDay": "Goal day",
-    "planEmptyBody": "Training plan is still being generated. Please refresh later."
+    "planEmptyBody": "Training plan is still being generated. Please refresh later.",
+    "planEmptyEmbeddedDesc": "Set a {{sportLabel}} goal on the website to create your plan, then reload this screen.",
+    "embeddedTitle": "Training plan"
   },
   "workoutStatus": {
     "skipped": "Skipped",
