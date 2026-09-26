@@ -22,7 +22,9 @@ vi.mock("../utils/firestoreSessionRecovery", async (importOriginal) => {
   };
 });
 
-const fatal = new Error("FIRESTORE (12.16.0) INTERNAL ASSERTION FAILED: Unexpected state (ID: b815)");
+const fatal = new Error(`FIRESTORE (12.16.0) INTERNAL ASSERTION FAILED: Unexpected state (ID: b815) CONTEXT: ${JSON.stringify({
+  el: "TypeError: Cannot read properties of null (reading 'target')\n at Ws (https://orider.co.kr/assets/vendor-firebase-s6GpcmKx.js:3424:5497)",
+})}`);
 
 function setOnline(online: boolean) {
   Object.defineProperty(navigator, "onLine", { configurable: true, value: online });
@@ -88,7 +90,7 @@ describe("App error recovery", () => {
 
   it("schedules the first caught fatal reload once and logs its recovery action", () => {
     const first = renderCrash(fatal);
-    expect(sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).toBe("1");
+    expect(sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).toBeTruthy();
     expect(recoveryNavigation.schedule).toHaveBeenCalledTimes(1);
     expect(captureError).toHaveBeenCalledWith(fatal, expect.objectContaining({
       extra: expect.objectContaining({ firestoreRecoveryAction: "reload-ready" }),
@@ -98,8 +100,22 @@ describe("App error recovery", () => {
     expect(recoveryNavigation.schedule).toHaveBeenCalledTimes(1);
   });
 
+  it("recovers a caught null-target assertion after updating an already-recovered tab", () => {
+    sessionStorage.setItem(FIRESTORE_B815_RECOVERY_SESSION_KEY, "previous-build");
+    const view = renderCrash(fatal);
+    expect(recoveryNavigation.schedule).toHaveBeenCalledOnce();
+    expect(sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).not.toBe("previous-build");
+    view.unmount();
+    __resetFirestoreSessionRecoveryForTests();
+    renderCrash(fatal);
+    expect(recoveryNavigation.schedule).toHaveBeenCalledOnce();
+  });
+
   it("leaves fatal fallback stable after the session recovery budget is exhausted", () => {
-    sessionStorage.setItem(FIRESTORE_B815_RECOVERY_SESSION_KEY, "1");
+    const first = renderCrash(fatal);
+    first.unmount();
+    __resetFirestoreSessionRecoveryForTests();
+    vi.clearAllMocks();
     renderCrash(fatal);
     setOnline(false);
     setOnline(true);
