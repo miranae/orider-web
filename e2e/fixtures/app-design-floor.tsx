@@ -1,4 +1,5 @@
 // 합성 데이터 전용. 실제 Firebase 인증이나 사용자 기록을 읽지 않는다.
+import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import i18next from "i18next";
@@ -23,6 +24,7 @@ document.documentElement.lang = locale;
 const mode = query.get("theme") === "light" ? "light" : "dark";
 const surface = query.get("surface") === "plan" ? "plan" : "fitness";
 const state = query.get("state") ?? "loaded";
+document.documentElement.dataset.designFixtureIdentity = `${surface}-${state}-${mode}`;
 const resources = import.meta.glob("../../src/i18n/resources/*/*.json", { eager: true, import: "default" });
 const namespaces = Object.fromEntries(Object.entries(resources).filter(([path]) => path.includes(`/${locale}/`)).map(([path, value]) => [path.split("/").at(-1)!.replace(".json", ""), value]));
 await i18next.init({ lng: locale, resources: { [locale]: namespaces }, interpolation: { escapeValue: false } });
@@ -54,6 +56,20 @@ if (state === "loaded-success") {
 const week: PlanWeek = { id: "fixture-week", weekNumber: 4, phase: "build", startDate: todayMs, plannedTSS: 360,
   days: ["tempo", "rest", "ftp", "z2", "rec", "z2Long", "rest"].map((workout, i) => ({ date: todayMs + i * 86400000, dayOfWeek: ((i % 7) + 1) as 1, workout: workout as "tempo", plannedTSS: workout === "rest" ? 0 : 60, plannedDurationMin: workout === "rest" ? 0 : 75, completed: false, skipped: false })) };
 const title = i18next.t(surface === "plan" ? "page.embeddedTitle" : "login.title", { ns: surface === "plan" ? "training" : "fitness" });
+function DocumentReadyMarker() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    void document.fonts.ready.then(() => {
+      if (!mounted) return;
+      document.documentElement.dataset.designFixtureReady = "true";
+      setReady(true);
+    });
+    return () => { mounted = false; };
+  }, []);
+  return <p role="status" className="sr-only" data-viewport-width={window.innerWidth}>{ready ? "합성 웹 문서 준비됨" : "합성 웹 문서 준비 중"}</p>;
+}
 createRoot(document.getElementById("root")!).render(<I18nextProvider i18n={i18next}><BrowserRouter><main className={surface === "plan" ? "orider-embedded-surface orider-embedded-surface--plan" : "orider-embedded-surface"}>
+  <DocumentReadyMarker />
   {state === "loading" || state === "error" ? <div className={surface === "plan" ? "orider-embedded-plan-state" : undefined}><EmbeddedSurfaceState title={title} loading={state === "loading"} onRetry={() => location.reload()} /></div> : surface === "fitness" ? <MobileFitnessPage embedded data={data} /> : empty ? <div className="embedded-plan-presentation"><h1 className="orider-embedded-page-title">{title}</h1><EmptyState compact actions={[{ label: i18next.t("button.retry", { ns: "common" }), variant: "primary", onClick: () => location.reload() }]} icon={i18next.t("disciplineIcon.bike", { ns: "training" })} title={i18next.t("page.planEmpty", { ns: "training", sportLabel: i18next.t("discipline.bike", { ns: "training" }) })} description={i18next.t("page.planEmptyEmbeddedDesc", { ns: "training", sportLabel: i18next.t("discipline.bike", { ns: "training" }) })} /></div> : <MobilePlanContent embedded currentWeek={week} weekLabel={locale === "ko" ? "이번 주" : "This week"} goalTitle={empty ? undefined : "2026_비앙키그란폰도춘천_그란폰도_122.91km"} daysLeft={24} progressPct={7} completedTSS={169} totalTSS={2595} projectedCTL={6} />}
 </main></BrowserRouter></I18nextProvider>);
