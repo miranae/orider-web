@@ -111,6 +111,8 @@ export interface PlanDay {
   intervals?: IntervalBlock[];
   /** 임포트한 워크아웃 이름 (구조화 워크아웃 표시용). */
   workoutName?: string;
+  /** 강도 교체 시 원본 임포트 구간을 보존하고 새 운동의 실행 처방을 선택한다. */
+  executionWorkoutOverride?: WorkoutKind;
 }
 
 export interface PlanWeek {

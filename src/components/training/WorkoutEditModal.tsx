@@ -6,6 +6,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import type { PlanDay, PlanWeek, WorkoutKind } from "@shared/types/goal";
 import { parseWorkoutFile, toIntervalBlocks, estimateWorkoutLoad } from "@shared/training/workoutImport";
+import { usesEffectiveExecutionPrescription } from "@shared/training/effectiveExecutionPrescription";
 import { Check, SkipForward, RefreshCw, ArrowUpDown, Undo2, Upload } from "lucide-react";
 
 // ── 워크아웃 메타 (PlanPage와 동기화) ─────────────────────────────────
@@ -118,6 +119,7 @@ import { Button, Card } from "../../theme/components";
 export interface WorkoutEditModalProps {
   day: PlanDay;
   weekId: string;
+  weekAdjustmentReason?: string;
   dayIndex: number;
   goalId: string;
   goalDiscipline?: "bike" | "run" | "swim";
@@ -130,6 +132,7 @@ export interface WorkoutEditModalProps {
 export default function WorkoutEditModal({
   day,
   weekId,
+  weekAdjustmentReason,
   dayIndex,
   goalId,
   goalDiscipline,
@@ -194,9 +197,13 @@ export default function WorkoutEditModal({
       days[dayIndex] = {
         ...d,
         workout: newKind,
+        executionWorkoutOverride: newKind,
         plannedTSS: TSS_MAP[newKind],
         plannedDurationMin: DURATION_MAP[newKind],
       };
+      delete days[dayIndex]!.adjustedTSS;
+      delete days[dayIndex]!.adjustedDurationMin;
+      delete (days[dayIndex]! as PlanDay & { closedLoopAdjustment?: unknown }).closedLoopAdjustment;
     });
   }
 
@@ -227,6 +234,10 @@ export default function WorkoutEditModal({
           plannedDurationMin: load.durationMin,
           plannedTSS: load.tss,
         };
+        delete days[dayIndex]!.executionWorkoutOverride;
+        delete days[dayIndex]!.adjustedTSS;
+        delete days[dayIndex]!.adjustedDurationMin;
+        delete (days[dayIndex]! as PlanDay & { closedLoopAdjustment?: unknown }).closedLoopAdjustment;
       });
     } catch (err) {
       logClientError("WorkoutEditModal.handleImportFile", err, { goalId, weekId, dayIndex, fileName: file.name });
@@ -418,7 +429,7 @@ export default function WorkoutEditModal({
         )}
 
         {/* #476 임포트된 구조화 워크아웃 요약 */}
-        {day.intervals && day.intervals.length > 0 && (
+        {!usesEffectiveExecutionPrescription(day, weekAdjustmentReason) && day.intervals && day.intervals.length > 0 && (
           <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <Upload size={12} style={{ color: 'var(--aqua)', flexShrink: 0 }} />
             <span>

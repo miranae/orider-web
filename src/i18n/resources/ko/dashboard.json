@@ -286,6 +286,10 @@
     },
     "weeklyChart": {
       "recordsCount": "저장 기록 {{count}}건",
+      "tssValue": "TSS {{value}}",
+      "tssUnknown": "TSS 미확인",
+      "tssPartial": "산출 가능한 활동의 부분합계 · 미확인 {{count}}건",
+      "tssEstimated": "추정 포함",
       "distance": "거리 (km)",
       "time": "시간 (h)",
       "elevation": "고도 (m)"

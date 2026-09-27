@@ -1,7 +1,7 @@
 import type { Activity } from "@shared/types";
-import { TIME_FACTORS } from "@shared/training/activityLoad";
+import { TIME_FACTORS, type LoadDiscipline } from "@shared/training/activityLoad";
 import { acceptedActivityLoad } from "@shared/training/acceptedActivityLoad";
-import { dedupeSamePhysicalRides } from "./samePhysicalRide";
+import { dedupeSamePhysicalRides, type PhysicalRideActivity } from "./samePhysicalRide";
 import { disciplineOfType } from "@shared/sport/discipline";
 
 /**
@@ -83,7 +83,7 @@ export function estimateActivityTss(a: Activity, ftp?: number): ActivityTssEstim
 /** 서버와 같은 종목·삭제·실주행 대표 규칙. 원본 활동을 수정하지 않는다. */
 export function acceptedTrainingActivities(activities: readonly Activity[], ftp?: number): Activity[] {
   const positive = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
-  const rows = activities.flatMap((activity) => {
+  const rows: (PhysicalRideActivity & { activity: Activity; sportFamily: LoadDiscipline })[] = activities.flatMap((activity) => {
     const discipline = disciplineOfType(activity.type);
     const record = activity as Activity & { deletedAt?: unknown };
     if (!discipline || record.deletedAt || !Number.isFinite(activity.startTime) || !activity.startTime
@@ -91,7 +91,7 @@ export function acceptedTrainingActivities(activities: readonly Activity[], ftp?
     const summary = activity.summary as unknown as Record<string, unknown>;
     const load = estimateActivityTss(activity, ftp);
     const millis = positive(summary?.movingTimeMillis) ?? positive(summary?.ridingTimeMillis) ?? positive(summary?.elapsedTimeMillis);
-    return [{ activity, id: activity.id, source: activity.source, discipline, type: activity.type,
+    return [{ activity, id: activity.id, source: activity.source, discipline, sportFamily: discipline, type: activity.type,
       localSessionId: activity.localSessionId, stravaActivityId: activity.stravaActivityId, stravaTwinActivityId: activity.stravaTwinActivityId,
       startTime: activity.startTime, endTime: positive(activity.endTime),
       movingSec: positive(summary?.movingTimeSec) ?? (millis !== null ? millis / 1000 : null), hasLoad: (load.value ?? 0) > 0 }];

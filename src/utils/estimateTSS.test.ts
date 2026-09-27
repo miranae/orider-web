@@ -153,3 +153,24 @@ it("같은 실제 운동의 명시적 연동 기록은 대표 부하 한 번만 
   const imported = {...native, id: "imported", source: "strava", summary: {...native.summary, tss: 122}, stravaActivityId: 123, serverDerivedLoad: {schemaVersion: 1, userId: "fixture-user", inputBinding: "final", streamTss: 307}} as Activity;
   expect(sumActivityTss([native, imported])).toEqual({value: 307, estimated: false, unknownCount: 0});
 });
+
+
+describe("링크가 없는 같은 실주행 대표", () => {
+  const pair = (type = "Ride", delay = 30000) => {
+    const native = {...act({tss: 100, hours: 1}), source: "orider"} as Activity;
+    const imported = {...native, id: "external", source: "strava", type, startTime: native.startTime + delay} as Activity;
+    return [native, imported];
+  };
+  it("같은 종목의 30초 차이 1시간 기록은 부하 한 번만 반영한다", () => {
+    expect(sumActivityTss(pair())).toEqual({value: 100, estimated: false, unknownCount: 0});
+  });
+  it.each(["Ride", "Run", "Swim"])("%s 정규화 adapter도 같은 운동을 한 번만 반영한다", (type) => {
+    expect(sumActivityTss(pair().map((activity) => ({ ...activity, type }))).value).toBe(100);
+  });
+  it("동시 다른 종목은 같은 운동으로 합치지 않는다", () => {
+    expect(sumActivityTss(pair("Run")).value).toBe(200);
+  });
+  it("같은 종목이지만 겹치지 않는 운동은 각각 반영한다", () => {
+    expect(sumActivityTss(pair("Ride", 7200000)).value).toBe(200);
+  });
+});

@@ -43,7 +43,8 @@ function main() {
     ['training/activityLoad.ts', '823c105bfb1d78bade3866ee97b006645ddf26343ec3167af76e9cedf60410cf'],
     ['training/planMetrics.ts', '954ff82007acf63420fd345512502a3fea3bae1af5818ffb8a6d00909a2f9ac6'],
     ['training/acceptedActivityLoad.ts', '43ff004ddd094679d43c9f6ac8ff93f9a2fc5c6f7a323bdb85fd5e6ba3cfcb6d'],
-    ['training/fitnessLoadLifecycle.ts', '63888407ca664ad22dbb072c85c61a57605cc7145912d25cefa0355dddf7d5d6'],
+    ['training/effectiveExecutionPrescription.ts', 'cac6fc75f2e0168feeb229492501b7d14e92ac66f30e71a853cb4bc5f4345ad4'],
+    ['training/fitnessLoadLifecycle.ts', '10a3da308bfce6b5c392f676a414b123d11a509b8d88bf00d2e1c9fb7eee121c'],
   ]) {
     const mirrored = readFileSync(fileURLToPath(new URL(`../shared/${file}`, import.meta.url)), 'utf8');
     if (createHash('sha256').update(mirrored).digest('hex') !== expected) errors.push(`공용 훈련 계약 드리프트: ${file}`);

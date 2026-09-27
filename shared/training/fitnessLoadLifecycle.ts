@@ -75,4 +75,3 @@ export function canonicalFitnessInputsLifecycle(
   if (!validFitnessLoadSnapshotProof(load) || invalidatedAt != null && !validTimestamp(invalidatedAt)) return "pending";
   return "ready";
 }
-

@@ -286,6 +286,10 @@
     },
     "weeklyChart": {
       "recordsCount": "Saved records: {{count}}",
+      "tssValue": "TSS {{value}}",
+      "tssUnknown": "TSS unknown",
+      "tssPartial": "Partial sum of available loads · {{count}} unknown activities",
+      "tssEstimated": "Includes estimates",
       "distance": "Distance (km)",
       "time": "Time (h)",
       "elevation": "Elevation (m)"

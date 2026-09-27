@@ -1,3 +1,4 @@
+import contractCases from "./samePhysicalRide.contract.fixture.json";
 import { describe, expect, it } from "vitest";
 import {
   dedupeSamePhysicalRides,
@@ -121,5 +122,11 @@ describe("대표 선택", () => {
       ride("strava_7", { strava: 7 }, { source: "strava" }),
     ];
     expect(dedupeSamePhysicalRides(rows).map((r) => r.id)).toEqual(["strava_9", "strava_7"]);
+  });
+});
+
+describe("WEB/BE 공용 실주행 계약 fixture", () => {
+  it.each(contractCases)("$name", ({ rows, expected }) => {
+    expect(dedupeSamePhysicalRides(rows).map((row) => row.id)).toEqual(expected);
   });
 });

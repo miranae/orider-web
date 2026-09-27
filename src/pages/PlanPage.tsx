@@ -153,6 +153,7 @@ export default function PlanPage() {
         <WorkoutEditModal
           day={selectedDay.day}
           weekId={selectedDay.weekId}
+          weekAdjustmentReason={weeks.find((week) => week.id === selectedDay.weekId)?.adjustmentReason}
           dayIndex={selectedDay.dayIndex}
           goalId={goal.id}
           goalDiscipline={goal.discipline as "bike" | "run" | "swim" | undefined}

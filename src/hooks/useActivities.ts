@@ -23,7 +23,7 @@ import { getPublicUserProfiles } from "../services/publicProfiles";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
-import { sumActivityTss } from "../utils/estimateTSS";
+import { acceptedTrainingActivities, sumActivityTss } from "../utils/estimateTSS";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { getDiscipline } from "../utils/disciplineFilter";
 import {
@@ -747,6 +747,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   };
   const activityElevation = (activity: Activity): number => summaryNumber(activity.summary.elevationGain);
   const weeks: WeeklyStat[] = [];
+  const physicalLoadActivities = acceptedTrainingActivities(all);
   for (let w = 11; w >= 0; w--) {
     const weekStart = new Date(now);
     const daysSinceMonday = (weekStart.getDay() + 6) % 7;
@@ -765,8 +766,10 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
       elevation: Math.round(weekActivities.reduce((s, a) => s + activityElevation(a), 0)),
       rides: weekActivities.length,
       ...(() => {
-        const load = sumActivityTss(weekActivities);
-        return { tss: load.value, tssEstimated: load.estimated };
+        const load = sumActivityTss(physicalLoadActivities.filter(
+          (activity) => activity.startTime >= weekStart.getTime() && activity.startTime < weekEnd.getTime(),
+        ));
+        return { tss: load.value, tssEstimated: load.estimated, tssUnknownCount: load.unknownCount };
       })(),
     });
   }

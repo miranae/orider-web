@@ -7,7 +7,7 @@ import ImportActivityModal from "./ImportActivityModal";
 import SportFilterTabs from "./SportFilterTabs";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineLabelKey } from "../../utils/disciplineFilter";
 import { planDayKey, planCalendarDate } from "@shared/training/planDate";
-import { estimateActivityTss, sumActivityTss } from "../../utils/estimateTSS";
+import { acceptedTrainingActivities, estimateActivityTss, sumActivityTss } from "../../utils/estimateTSS";
 import "./MobileLogPage.css";
 
 // DAY_NAMES — i18n via t("mobileLog.dayNames")
@@ -27,6 +27,13 @@ interface MobileLogPageProps {
   month: number;
   onChangeMonth: (delta: number) => void;
   loading?: boolean;
+}
+
+function formatRecordedDuration(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  const hours = Math.floor(value / 3600000);
+  const minutes = Math.floor((value % 3600000) / 60000);
+  return `${hours}:${String(minutes).padStart(2, "0")}`;
 }
 
 function MobileLogSkeleton() {
@@ -104,7 +111,10 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
     timeMs: monthActs.reduce((sum, a) => sum + (Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0), 0),
     elevationM: Math.round(monthActs.reduce((sum, a) => sum + (Number.isFinite(a.summary.elevationGain) ? a.summary.elevationGain : 0), 0)),
     // 아는 값만 더하고, 추정치가 섞이면 라벨로 밝힌다. 모르면 null — 0 을 쓰지 않는다 (#2237).
-    load: sumActivityTss(monthActs, ftp),
+    load: sumActivityTss(acceptedTrainingActivities(filteredActivities, ftp).filter((activity) => {
+      const date = planCalendarDate(activity.startTime);
+      return date.getUTCFullYear() === year && date.getUTCMonth() === month;
+    }), ftp),
   };
 
   const monthLabel = t("mobileLog.monthLabel", { year, month: month + 1 });
@@ -147,17 +157,15 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
     const d = planCalendarDate(a.startTime);
     const discipline = getDiscipline(a.type);
     const dateStr = t("mobileLog.dateMonthDay", { month: d.getUTCMonth() + 1, day: d.getUTCDate() });
-    const km = ((Number.isFinite(a.summary.distance) ? a.summary.distance : 0) / 1000).toFixed(1);
-    const h = Math.floor((Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0) / 3600000);
-    const m = Math.floor(((Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0) % 3600000) / 60000);
-    const tmStr = `${h}:${String(m).padStart(2, "0")}`;
+    const km = Number.isFinite(a.summary.distance) ? (a.summary.distance / 1000).toFixed(1) : null;
+    const tmStr = formatRecordedDuration(a.summary.ridingTimeMillis);
     const pwVal = a.summary.averagePower ?? a.avgPower ?? null;
     const pw = pwVal ? `${Math.round(pwVal)}W` : "";
     return (
       <button key={a.id} type="button" className="mobile-log__activity" onClick={() => navigate(`/activity/${a.id}`)}>
         <span className="mobile-log__activity-head">
           <span className="mobile-log__activity-title"><span className="mobile-log__activity-dot" style={{ background: getDisciplineColor(discipline) }} aria-hidden="true" /><span className="mobile-log__activity-title-text">{a.description || (discipline ? t(getDisciplineLabelKey(discipline)) : t("mobileLog.defaultActivity"))}</span></span>
-          <strong className="mobile-log__activity-distance">{km}<small>km</small></strong>
+          <strong className="mobile-log__activity-distance">{km ?? "—"}{km !== null && <small>km</small>}</strong>
         </span>
         <span className="mobile-log__activity-meta">
           <span>{dateStr}</span><span aria-hidden="true">·</span><span>{tmStr}</span>
@@ -428,10 +436,8 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
                 // 삼항 else 가 미지 종목을 자전거로 떨어뜨렸다 — 중립 아이콘까지 다루는 헬퍼로 대체.
                 const icon = getDisciplineIcon(disc);
                 const color = getDisciplineColor(disc);
-                const km = ((Number.isFinite(a.summary.distance) ? a.summary.distance : 0) / 1000).toFixed(1);
-                const h = Math.floor((Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0) / 3600000);
-                const m = Math.floor(((Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0) % 3600000) / 60000);
-                const tmStr = `${h}:${String(m).padStart(2, "0")}`;
+                const km = Number.isFinite(a.summary.distance) ? (a.summary.distance / 1000).toFixed(1) : null;
+                const tmStr = formatRecordedDuration(a.summary.ridingTimeMillis);
                 const { value: tss, estimated: tssEstimated } = estimateActivityTss(a, ftp);
                 return (
                   <button type="button"
@@ -455,7 +461,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
                         {a.description || t("mobileLog.defaultActivity")}
                       </div>
                       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginTop: "var(--space-0-5)" }}>
-                        {km}km · {tmStr}{tss == null ? "" : ` · ${Math.round(tss)} TSS${tssEstimated ? ` ${t("training:page.tssEstimated")}` : ""}`}
+                        {km !== null ? `${km}km` : "—"} · {tmStr}{tss == null ? "" : ` · ${Math.round(tss)} TSS${tssEstimated ? ` ${t("training:page.tssEstimated")}` : ""}`}
                       </div>
                     </div>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

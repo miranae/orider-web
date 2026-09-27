@@ -3,7 +3,7 @@ import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
 import { firestore } from "./firebase";
 import { resolveDuration } from "../utils/activityTime";
-import { sumActivityTss } from "../utils/estimateTSS";
+import { acceptedTrainingActivities, sumActivityTss } from "../utils/estimateTSS";
 
 const PAGE_SIZE = 200;
 
@@ -36,6 +36,9 @@ export async function loadAthleteChartActivities(
 
 export function aggregateMonthlyActivities(activities: Activity[], now = new Date()): WeeklyStat[] {
   const months = new Map<number, WeeklyStat>();
+  const membersByMonth = new Map<number, Activity[]>();
+  // 조회된 동일 입력셋에서 먼저 대표를 고른다. 기간 경계의 쌍둥이를 두 달에 세지 않는다.
+  const loadIds = new Set(acceptedTrainingActivities(activities).map((activity) => activity.id));
   for (const activity of activities) {
     const timestamp = Number.isFinite(activity.startTime) && activity.startTime > 0
       ? activity.startTime : activity.createdAt;
@@ -50,16 +53,18 @@ export function aggregateMonthlyActivities(activities: Activity[], now = new Dat
     row.elevation += Number.isFinite(summary.elevationGain) ? summary.elevationGain : 0;
     row.rides += 1;
     months.set(month, row);
+    if (loadIds.has(activity.id)) {
+      const members = membersByMonth.get(month) ?? [];
+      members.push(activity);
+      membersByMonth.set(month, members);
+    }
   }
   for (const [month, row] of months) {
-    const members = activities.filter((activity) => {
-      const timestamp = Number.isFinite(activity.startTime) && activity.startTime > 0 ? activity.startTime : activity.createdAt;
-      const date = new Date(timestamp);
-      return date.getFullYear() * 12 + date.getMonth() === month;
-    });
+    const members = membersByMonth.get(month) ?? [];
     const load = sumActivityTss(members);
     row.tss = load.value;
-    row.tssEstimated = load.estimated || load.unknownCount > 0;
+    row.tssEstimated = load.estimated;
+    row.tssUnknownCount = load.unknownCount;
   }
   if (months.size === 0) return [];
   const first = Math.min(...months.keys());
@@ -72,6 +77,6 @@ function emptyMonth(month: number): WeeklyStat {
     week: `${Math.floor(month / 12)}.${String(month % 12 + 1).padStart(2, "0")}`,
     distance: 0, time: 0, elevation: 0, rides: 0,
     // 활동이 없거나 아는 부하가 하나도 없는 달은 null — 빈 슬롯으로 그려진다.
-    tss: null, tssEstimated: false,
+    tss: null, tssEstimated: false, tssUnknownCount: 0,
   };
 }

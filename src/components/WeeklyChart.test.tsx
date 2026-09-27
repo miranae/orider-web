@@ -22,7 +22,7 @@ it("makes all year-month labels visible in a horizontally scrollable chart", () 
   expect(props.options.scales.x.ticks.autoSkip).toBe(false);
   expect(props.options.plugins.legend.display).toBe(false);
   const tooltipLines = props.options.plugins.tooltip.callbacks.label({ dataIndex: 0 });
-  expect(tooltipLines).toHaveLength(4);
+  expect(tooltipLines).toHaveLength(5);
   expect(tooltipLines).toContain("저장 기록 1건");
   expect(tooltipLines.filter((line: string) => line.includes("거리"))).toHaveLength(1);
   expect(screen.getByTestId("bar").parentElement?.parentElement).toHaveStyle({ overflowX: "auto" });
@@ -50,4 +50,19 @@ it("resolves semantic series, axis, grid and tooltip colors after a design-theme
   checkColors();
   fireEvent.click(button);
   checkColors();
+});
+
+
+it.each([
+  [100, false, 1, "TSS 100", "부분합계", false],
+  [0, false, 1, "TSS 0", "부분합계", false],
+  [null, false, 1, "TSS 미확인", "부분합계", false],
+  [42, true, 0, "TSS 42", "추정 포함", true],
+])("부하 %s 추정=%s 미확인=%s를 정상 거리와 별도로 설명한다", (tss, tssEstimated, tssUnknownCount, valueLabel, qualifier, estimated) => {
+  renderWithProviders(<WeeklyChart rich data={[{ ...data[0]!, tss, tssEstimated, tssUnknownCount }]} />);
+  const lines: string[] = bar.mock.lastCall![0].options.plugins.tooltip.callbacks.label({ dataIndex: 0 });
+  expect(lines.at(-1)).toContain(valueLabel);
+  expect(lines.at(-1)).toContain(qualifier);
+  expect(lines.at(-1)?.includes("추정 포함")).toBe(estimated);
+  expect(lines.some((line) => line.includes("거리"))).toBe(true);
 });

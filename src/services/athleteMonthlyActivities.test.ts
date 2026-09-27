@@ -80,3 +80,27 @@ describe("athlete monthly activities", () => {
     expect(query).toHaveBeenCalledTimes(1);
   });
 });
+
+it("월별 단일 pass 구성도 원본 기록 수와 실제 운동 부하를 구분한다", () => {
+  const start = new Date(2026, 8, 1, 12).getTime();
+  const native = {...activity(start), id: "native", type: "Ride", source: "orider", summary: createMockSummary({distance: 1000, ridingTimeMillis: 3600000, tss: 100})};
+  const imported = {...native, id: "imported", source: "strava", startTime: start + 30000};
+  const later = {...native, id: "later", startTime: new Date(2026, 9, 1, 12).getTime(), summary: {} as typeof native.summary};
+  const rows = aggregateMonthlyActivities([native, imported, later], new Date(2026, 9, 2));
+  expect(rows[0]).toMatchObject({week: "2026.09", rides: 2, distance: 2, tss: 100, tssEstimated: false});
+  expect(rows[1]).toMatchObject({week: "2026.10", rides: 1, tss: null, tssEstimated: false, tssUnknownCount: 1});
+});
+
+it.each([
+  [100, { tss: 100, ridingTimeMillis: 3600000 }, false],
+  [0, { tss: 0, ridingTimeMillis: 0 }, false],
+  [null, null, false],
+  [42, { ridingTimeMillis: 3600000 }, true],
+])("월간 부하 %s와 미확인 활동을 추정 여부와 별도로 표시한다", (tss, summary, estimated) => {
+  const start = new Date(2026, 8, 1, 12).getTime();
+  const unknown = { ...activity(start + 2 * 86400000), id: "unknown", endTime: start + 2 * 86400000 + 3600000, summary: {} };
+  const known = { ...activity(start), id: "known", endTime: start + 3600000, summary };
+  const input = summary ? [known, unknown] : [unknown];
+  expect(aggregateMonthlyActivities(input as Parameters<typeof aggregateMonthlyActivities>[0], new Date(2026, 8, 4))[0])
+    .toMatchObject({ tss, tssEstimated: estimated, tssUnknownCount: 1 });
+});
