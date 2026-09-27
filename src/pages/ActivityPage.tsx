@@ -920,7 +920,7 @@ export default function ActivityPage() {
       />
 
       {/* ── 분석 탭 ── */}
-      {activeTab === "analysis" && !hasAnalysisStreams && (
+      {activeTab === "analysis" && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
         <div className="space-y-4">
           <SummarySensorFallbackCard
             title={t("page.summarySensorTitle")}
@@ -958,7 +958,7 @@ export default function ActivityPage() {
               )}
             </div>
           )}
-          <AnalysisTab {...analysisTabProps} />
+          <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} />
         </Card>
       )}
       {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />}

@@ -28,6 +28,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   const duration = (value: number) => `${Math.floor(Math.round(value) / 60)}${copy("minute")} ${Math.round(value) % 60}${copy("second")}`;
   const powerDuration = (value: string) => i18n.language.startsWith("ko") ? value.replace(/s$/, "초").replace(/m$/, "분").replace(/h$/, "시간") : value;
   const powerVisible = p.availability?.power !== "private";
+  const powerEstimated = p.availability?.power === "estimated";
   const zones = (p.zones ?? []).filter((zone) => zone.kind === "power" ? powerVisible : p.availability?.heartRate !== "private");
   const highZone = zones.find((zone) => zone.kind === "power") ?? zones.find((zone) => zone.kind === "heartRate");
   // Format the canonical zone-time aggregate exactly as the share formatter does.
@@ -59,6 +60,8 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       {/* 하이라이트의 한 줄 근거 — 서버가 표시 언어로 써서 보낸다. "왜 그렇게 불렀나" 가 칩 바로 아래 온다. */}
       {p.highlight && <Text as="p" variant="caption" tone="secondary">{p.highlight.reason}</Text>}
     </Stack>
+    {powerEstimated && note(label("powerEstimated"))}
+    {powerVisible && p.session.ftpVerificationRequired && note(label("ftpVerificationRequired"))}
     <SummarySection title={copy("stimulus")}>
       <Stack gap="var(--dim-item-gap)">
         {/* 부하·NP·IF 는 상단 스탯 스트립에 없다 — 여기서 빠지면 어디에도 안 나온다. */}

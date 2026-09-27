@@ -18,7 +18,7 @@ describe("activity detail server insights", () => {
     expect(metricsHook).toContain('status: "stale"');
     expect(activityPage).not.toContain("ServerActivityInsightsCard");
     expect(insightCards).not.toContain("Server insights");
-    expect(activityPage).toContain("<AnalysisTab {...analysisTabProps} />");
+    expect(activityPage).toContain("<AnalysisTab {...analysisTabProps} canonicalPresentationAvailable=");
     expect(analysisModel).toContain("startTime: activity.startTime");
     expect(analysisTab).toContain("filterInvalidatedServerMetrics(serverMetrics.metrics");
     // 센서 provenance가 무효화되면 배너도 필터된 projection 을 받고 서버 파생값을 되살리지 않는다.

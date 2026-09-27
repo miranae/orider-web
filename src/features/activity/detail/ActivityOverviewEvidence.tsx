@@ -24,6 +24,7 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
     </Card>)}</div>
   </section>;
   const powerVisible = p.availability?.power !== "private";
+  const powerEstimated = p.availability?.power === "estimated";
   const hrVisible = p.availability?.heartRate !== "private";
   const recordsVisible = p.availability?.records === "evaluated";
   const effort = powerVisible ? p.thresholdWork : undefined;
@@ -58,6 +59,8 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
       p.peakMoment.maxHr != null ? `${label("maxHrShort")} ${number(p.peakMoment.maxHr)}` : null,
     ].filter(Boolean).join(" · ")}</Text>}
     {p.session.classificationReason && <Text as="p" variant="caption" tone="tertiary">{p.session.classificationReason}</Text>}</Stack></Card>
+    {powerEstimated && <Text as="p" variant="caption">{label("powerEstimated")}</Text>}
+    {powerVisible && p.session.ftpVerificationRequired && <Text as="p" variant="caption">{label("ftpVerificationRequired")}</Text>}
     {section("stimulus", [
       [label("sport"), label(`sports.${p.session.discipline}`)],
       [label("character"), p.session.character ? label(`characters.${p.session.character}`) + (p.aboveUsualVolume ? ` · ${label("aboveUsualVolume")}` : "") : "—"],

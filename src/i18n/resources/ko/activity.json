@@ -202,7 +202,9 @@
       "record_receipt": "개인기록",
       "fitness": "피트니스",
       "history": "비교 기록"
-    }
+    },
+    "powerEstimated": "추정 파워 기준",
+    "ftpVerificationRequired": "FTP 확인 필요 · 부하와 강도는 잠정 기준입니다."
   },
   "title": "활동",
   "ftpDecision": {

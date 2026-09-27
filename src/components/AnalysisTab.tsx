@@ -124,6 +124,8 @@ interface AnalysisTabProps {
   activityId?: string | null;
   /** 소유자 여부 — CTL 기반 회복 시간 등 개인 컨텍스트에만 쓴다. 지표 읽기 권한은 활동 가시성이 정한다. */
   isOwner?: boolean;
+  /** 공개 분석의 지표는 overview presentation이 제공하고 허용된 그래프·랩만 유지한다. */
+  canonicalPresentationAvailable?: boolean;
   overviewRecovery?: ActivityOverviewPresentation["recovery"] | null;
   /** 현재 센서 provenance가 서버 계산 입력과 달라진 채널만 서버 파생 지표를 숨긴다. */
   suppressServerPowerMetrics?: boolean;
@@ -282,7 +284,7 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
 }
 
 export default function AnalysisTab({
-  activityId, isOwner = false, overviewRecovery = null, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams,
+  activityId, isOwner = false, canonicalPresentationAvailable = false, overviewRecovery = null, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams,
   suppressServerPowerMetrics = false, suppressServerHeartRateMetrics = false, suppressServerCadenceMetrics = false,
 }: AnalysisTabProps) {
   // 소유자는 정본(`activity_metrics`), 뷰어는 공개 projection(`activity_metrics_public`) 을 읽는다.
@@ -454,6 +456,14 @@ export default function AnalysisTab({
     || sm?.runMetrics?.paceStdDevSec != null
     || sm?.runMetrics?.minPaceSecPerKm != null
   );
+
+  // 공개 수치·존·파워곡선은 같은 서버 presentation에서 그린다. 기존 허용 그래프/랩은 보존한다.
+  if (!isOwner && canonicalPresentationAvailable) {
+    return <div className="space-y-6" data-testid="public-analysis-charts">
+      {speedCurve.length > 0 && <div><h3 className="text-[length:var(--fs-sm)] font-semibold mb-3">{t("analysis.section.speedCurve")}</h3><SpeedCurveChart points={speedCurve} /></div>}
+      {laps && laps.length > 0 && <LapTable laps={laps} ftp={null} />}
+    </div>;
+  }
 
   if (!hasPower && !hasHr && cyclingDynamicsCards.length === 0 && !hasRunAnalysis) {
     // 서버 분석 문서가 아직 없거나 로딩 중이면 "스트림 없음" 이 아니다 — 모름을 없음으로 그리지 않는다.

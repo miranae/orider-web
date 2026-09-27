@@ -775,7 +775,7 @@ export default function MobileFitnessPage({
             <SectionCard
               title={isBike ? t("mobileFitness.zonePowerTitle") : t("mobileFitness.zoneHrTitle")}
               sub={
-                data.zoneSource === "power" ? t("mobileFitness.zoneSourcePower") :
+                data.zoneSource === "power" ? t("mobileFitness.zoneSourcePowerHistorical") :
                 data.zoneSource === "hr" ? (isBike ? t("mobileFitness.zoneSourceHrBike") : t("mobileFitness.zoneSourceHrRun")) :
                 t("mobileFitness.zoneSourceNone")
               }>

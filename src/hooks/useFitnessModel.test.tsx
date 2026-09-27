@@ -1,5 +1,6 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { Activity } from "@shared/types";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import type { ActivityMetricStatus } from "../features/fitness/useActivityDerivedDocuments";
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   firestore: {},
   t: (key: string) => key,
   status: new Map<string, ActivityMetricStatus>(),
+  metrics: new Map<string, ActivityMetrics>(),
   derived: vi.fn(),
   snapshot: null as null | ((value: { docs: { id: string; data: () => Activity }[] }) => void),
   timeseries: null as FitnessTimeseriesDoc | null,
@@ -32,7 +34,7 @@ vi.mock("firebase/firestore", () => ({
 vi.mock("../features/fitness/useActivityDerivedDocuments", () => ({
   useActivityDerivedDocuments: (...args: unknown[]) => {
     mocks.derived(...args);
-    return { streamsMap: new Map(), metricsMap: new Map(), metricStatusMap: mocks.status };
+    return { streamsMap: new Map(), metricsMap: mocks.metrics, metricStatusMap: mocks.status };
   },
 }));
 vi.mock("./useFtpHistory", () => ({ useFtpHistory: () => ({ entries: [] }) }));
@@ -64,6 +66,7 @@ beforeEach(() => {
   mocks.user = { uid: "rider-a", isAnonymous: false };
   mocks.timeseries = null;
   mocks.status.clear();
+  mocks.metrics.clear();
   mocks.derived.mockClear();
   cache.clearTrainingSurfaceCache();
   setStatus(bike, "loaded");
@@ -193,4 +196,15 @@ describe("useFitnessModel", () => {
     expect(result.current.activities).toEqual([]);
     expect(result.current.loading).toBe(true);
   });
+});
+
+it("shows all seven historical power zones even without a current profile FTP", () => {
+ seed("bike", [bike]);
+ mocks.metrics.set(bike.id, { powerZoneSec: [100, 0, 0, 0, 0, 0, 100], contextSnapshot: { ftp: 175 } } as ActivityMetrics);
+ const { result } = renderHook(() => useFitnessModel("bike", options));
+ expect(result.current.mobilePageProps.data.zoneSource).toBe("power");
+ expect(result.current.mobilePageProps.data.zones).toHaveLength(7);
+ expect(result.current.mobilePageProps.data.zones[0]?.pct).toBe(50);
+ expect(result.current.mobilePageProps.data.zones[6]?.pct).toBe(50);
+ expect(result.current.mobilePageProps.data.zones.every((zone) => zone.rangeLabel === "")).toBe(true);
 });

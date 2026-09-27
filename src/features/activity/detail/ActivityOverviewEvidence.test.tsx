@@ -147,3 +147,10 @@ describe("activity overview evidence viewer voice", () => {
     expect(screen.getByText("내 기록 대비")).toBeInTheDocument();
   });
 });
+
+it("preserves estimated power and provisional FTP semantics", () => {
+ render(<ActivityOverviewEvidenceContent presentation={{ ...rich, availability: { ...rich.availability!, power: "estimated" }, session: { ...rich.session, ftpVerificationRequired: true } }} />);
+ expect(screen.getByText("추정 파워 기준")).toBeInTheDocument();
+ expect(screen.getByText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다.")).toBeInTheDocument();
+ expect(screen.getByText("NP")).toBeInTheDocument();
+});

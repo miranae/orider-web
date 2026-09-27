@@ -202,7 +202,9 @@
       "record_receipt": "Personal records",
       "fitness": "Fitness",
       "history": "Comparison history"
-    }
+    },
+    "powerEstimated": "Estimated power",
+    "ftpVerificationRequired": "FTP verification required · load and intensity use a provisional threshold."
   },
   "title": "Activity",
   "ftpDecision": {

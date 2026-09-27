@@ -39,3 +39,16 @@ describe("aggregateRecentZoneSeconds", () => {
     });
   });
 });
+
+it("includes Z7 in the denominator and retains historical FTP classifications", () => {
+ const activities = [{ id: "old-basis", startTime: 1 }, { id: "new-basis", startTime: 2 }];
+ const metrics = new Map<string, ActivityMetrics>([
+  ["old-basis", { powerZoneSec: [100, 0, 0, 0, 0, 0, 100], contextSnapshot: { ftp: 175 } } as ActivityMetrics],
+  ["new-basis", { powerZoneSec: [0, 100, 0, 0, 0, 0, 0], contextSnapshot: { ftp: 220 } } as ActivityMetrics],
+ ]);
+ expect(aggregateRecentZoneSeconds(activities, metrics, "powerZoneSec", 7, 3)).toEqual({ counts: [100, 100, 0, 0, 0, 0, 100], total: 300 });
+});
+it("zero-pads legacy six-zone documents instead of losing their measured seconds", () => {
+ const metrics = new Map<string, ActivityMetrics>([["legacy", { powerZoneSec: [10, 0, 0, 0, 0, 20] } as ActivityMetrics]]);
+ expect(aggregateRecentZoneSeconds([{ id: "legacy", startTime: 1 }], metrics, "powerZoneSec", 7, 2)).toEqual({ counts: [10, 0, 0, 0, 0, 20, 0], total: 30 });
+});

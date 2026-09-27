@@ -809,29 +809,30 @@ export function useFitnessModel(
       last28.slice(week * 7, week * 7 + 7).reduce((sum, day) => sum + day.totalLoad, 0),
     ));
     const { counts: powerZoneCounts, total: powerSamples } = discipline === "bike"
-      ? aggregateRecentZoneSeconds(disciplineActivities, metricsMap, "powerZoneSec", 6)
-      : { counts: [0, 0, 0, 0, 0, 0], total: 0 };
+      ? aggregateRecentZoneSeconds(disciplineActivities, metricsMap, "powerZoneSec", 7)
+      : { counts: [0, 0, 0, 0, 0, 0, 0], total: 0 };
     const hrFractions = mobileZoneDistribution ?? [0, 0, 0, 0, 0];
     const maxHr = profile?.maxHr ?? 200;
     let zoneSource: MobileFitnessData["zoneSource"] = "none";
     let zones: MobileFitnessData["zones"] = [];
-    if (discipline === "bike" && ftp > 0) {
-      let percentages = [0, 0, 0, 0, 0, 0];
+    if (discipline === "bike" && (powerSamples > 0 || (ftp > 0 && mobileZoneDistribution))) {
+      let percentages = [0, 0, 0, 0, 0, 0, 0];
       if (powerSamples > 0) {
         zoneSource = "power";
         percentages = powerZoneCounts.map((count) => Math.round((count / powerSamples) * 100));
       } else if (mobileZoneDistribution) {
         zoneSource = "hr";
-        percentages = [...hrFractions, 0];
+        percentages = [...hrFractions, 0, 0];
       }
       if (zoneSource !== "none") {
         zones = [
-          { name: t("zone.recovery"), pct: percentages[0]!, color: "var(--ink-3)", rangeLabel: `< ${Math.round(ftp * 0.55)} W`, percentLabel: "~55%" },
-          { name: t("zone.endurance"), pct: percentages[1]!, color: "var(--aqua)", rangeLabel: `${Math.round(ftp * 0.55)}–${Math.round(ftp * 0.75)} W`, percentLabel: "55–75%" },
-          { name: t("zone.tempo"), pct: percentages[2]!, color: "var(--lime)", rangeLabel: `${Math.round(ftp * 0.75)}–${Math.round(ftp * 0.9)} W`, percentLabel: "75–90%" },
-          { name: t("zone.threshold"), pct: percentages[3]!, color: "var(--amber)", rangeLabel: `${Math.round(ftp * 0.9)}–${Math.round(ftp * 1.05)} W`, percentLabel: "90–105%" },
-          { name: "VO₂max", pct: percentages[4]!, color: "var(--rose)", rangeLabel: `${Math.round(ftp * 1.05)}–${Math.round(ftp * 1.2)} W`, percentLabel: "105–120%" },
-          { name: t("zone.anaerobic"), pct: percentages[5]!, color: "var(--zone-5)", rangeLabel: `> ${Math.round(ftp * 1.2)} W`, percentLabel: ">120%" },
+          { name: t("zone.recovery"), pct: percentages[0]!, color: "var(--ink-3)", rangeLabel: "", percentLabel: "" },
+          { name: t("zone.endurance"), pct: percentages[1]!, color: "var(--aqua)", rangeLabel: "", percentLabel: "" },
+          { name: t("zone.tempo"), pct: percentages[2]!, color: "var(--lime)", rangeLabel: "", percentLabel: "" },
+          { name: t("zone.threshold"), pct: percentages[3]!, color: "var(--amber)", rangeLabel: "", percentLabel: "" },
+          { name: "VO₂max", pct: percentages[4]!, color: "var(--rose)", rangeLabel: "", percentLabel: "" },
+          { name: t("zone.anaerobic"), pct: percentages[5]!, color: "var(--zone-5)", rangeLabel: "", percentLabel: "" },
+          { name: t("zone.neuromuscular"), pct: percentages[6]!, color: "var(--zone-5)", rangeLabel: "", percentLabel: "" },
         ];
       }
     } else if (mobileZoneDistribution) {

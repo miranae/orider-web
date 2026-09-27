@@ -91,6 +91,11 @@ function main() {
     errors.push('표시 규칙의 원본(앱 CanonicalConsumption.kt) 표기가 없다');
   }
 
+  // overview wire 의미도 미러가 보존해야 한다 — 표시값만 맞아도 추정/잠정이 빠지면 계약 드리프트다.
+  const overview = readFileSync(new URL('../shared/types/activity-overview.ts', import.meta.url), 'utf8');
+  if (!/power:\s*[^;]*"estimated"/.test(overview)) errors.push('overview power estimated 의미가 없다');
+  if (!/ftpVerificationRequired\?:\s*boolean/.test(overview)) errors.push('overview FTP 확인 필요 의미가 없다');
+
   if (errors.length > 0) {
     console.error(`canonical 계약 사본 드리프트 ${errors.length}건:`);
     for (const error of errors) console.error(`  - ${error}`);

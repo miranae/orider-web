@@ -10,7 +10,7 @@ export interface ActivityOverviewPresentation {
   availability?: {
     personal: "available" | "character_uncertain" | "insufficient_history" | "unavailable";
     records: "evaluated" | "not_applicable" | "private" | "unavailable";
-    power: "available" | "private" | "not_applicable" | "unavailable";
+    power: "available" | "estimated" | "private" | "not_applicable" | "unavailable";
     heartRate: "available" | "private" | "unavailable";
   };
   /**
@@ -40,6 +40,8 @@ export interface ActivityOverviewPresentation {
     loadKind?: "tss" | "load";
     /** 부하의 출처. `time` 은 파워·심박 없이 이동 시간으로만 추정한 값이라 화면이 "이동 시간 추정" 을 붙인다. */
     loadSource?: "tss" | "trimp" | "time";
+    /** 계산에 쓰인 FTP가 확인 전이면 부하·강도에 확인 필요 표시를 보존한다. */
+    ftpVerificationRequired?: boolean;
     intensityFactor?: number;
     normalizedPowerW?: number;
     elevationGainM?: number;

@@ -111,7 +111,7 @@ describe("ServerMetricsBanner sensor provenance", () => {
   });
 
   it("잠정값·잘린 입력 표식을 칩으로 드러낸다 — 숨기면 잘린 값이 확정값으로 읽힌다 (#900)", () => {
-    const provisional = { ...readyState, metrics: { ...readyState.metrics, inputPending: true, sourceLayer: "inline_streams" } };
+    const provisional = { ...readyState, metrics: { ...readyState.metrics, inputPending: true, sourceLayer: "inline_streams", inputCoverage: "partial_terminal" } };
     render(<ServerMetricsBanner state={provisional as never} />);
     expect(screen.getByText("잠정값 · 업로드 반영 중")).toBeInTheDocument();
     expect(screen.getByText("잘린 입력 기준")).toBeInTheDocument();
@@ -143,3 +143,8 @@ describe("ServerMetricsBanner kill switch", () => {
   });
 });
 
+
+ it.each(["complete", "pending", undefined])("does not infer clipped input from inline storage (coverage=%s)", (inputCoverage) => {
+  render(<ServerMetricsBanner state={{ ...readyState, metrics: { ...readyState.metrics, sourceLayer: "inline_streams", inputCoverage } } as never} />);
+  expect(screen.queryByText("잘린 입력 기준")).not.toBeInTheDocument();
+ });

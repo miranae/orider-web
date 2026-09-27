@@ -229,3 +229,10 @@ describe("missing threshold is stated as a dead end, not as pending work", () =>
     expect(screen.queryByText("임계값 없음")).not.toBeInTheDocument();
   });
 });
+
+it("preserves estimated power and provisional FTP semantics", () => {
+ render(<MemoryRouter><ActivityOverviewSummaryContent presentation={{ ...rich, availability: { ...rich.availability!, power: "estimated" }, session: { ...rich.session, ftpVerificationRequired: true } }} /></MemoryRouter>);
+ expect(screen.getByText("추정 파워 기준")).toBeInTheDocument();
+ expect(screen.getByText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다.")).toBeInTheDocument();
+ expect(screen.getByText("NP")).toBeInTheDocument();
+});

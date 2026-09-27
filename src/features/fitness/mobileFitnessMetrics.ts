@@ -21,7 +21,7 @@ export function aggregateRecentZoneSeconds(
   for (const activity of activities) {
     if (activity.startTime < cutoff || activity.startTime > now) continue;
     const values = metricsMap.get(activity.id)?.[metricKey];
-    if (!values || values.length < zoneCount) continue;
+    if (!values || values.length < (metricKey === "powerZoneSec" ? 6 : zoneCount)) continue;
     for (let i = 0; i < zoneCount; i++) {
       const value = values[i] ?? 0;
       if (!Number.isFinite(value) || value <= 0) continue;
