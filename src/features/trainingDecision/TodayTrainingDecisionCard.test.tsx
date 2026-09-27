@@ -28,6 +28,50 @@ describe("TodayTrainingDecisionCard", () => {
   beforeEach(() => { vi.clearAllMocks(); resetRuntimeConfigForTests({ trainingDecisionEnabled: true });
     mocks.proposal = { state: "unavailable", proposal: null, create: vi.fn(), confirm: vi.fn(),
     decline: vi.fn(), rollback: vi.fn(), refresh: vi.fn() }; });
+  function restDecision() {
+    const base = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    const session = base.scheduledSessions[0]!;
+    const resting = { ...session, current: { ...session.current, workout: "rest", durationMin: 0, targetTss: 0 } };
+    return { ...base, scheduledSessions: [resting], effectiveSessions: [{ ...base.effectiveSessions[0]!, current: resting.current }],
+      recommendedAdjustments: [{ ...base.recommendedAdjustments[0]!, recommendation: {
+        ...base.recommendedAdjustments[0]!.recommendation, action: "rest" as const,
+        workout: { kind: "rest" as const, durationMin: 0, targetTss: 0 },
+      } }] };
+  }
+
+  it("hides plan review when scheduled and recommended rest are identical", () => {
+    mocks.hook.mockReturnValue({ decision: restDecision(), loading: false, scheduledOnly: false, refresh: vi.fn() });
+    mocks.proposal = { ...mocks.proposal, state: "idle" };
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    expect(screen.queryByText("계획 변경 검토")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "변경안 만들기" })).not.toBeInTheDocument();
+  });
+
+  it("shows scheduled rest without a pending recommendation on Fitness", () => {
+    mocks.hook.mockReturnValue({ decision: restDecision(), loading: false, scheduledOnly: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+    expect(document.querySelector('[data-session-role="recommended"]')).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "오늘 예정된 계획" })).toBeInTheDocument();
+  });
+
+  it.each(["proposal", "receipt"] as const)("preserves an existing %s despite an identical rest recommendation", (kind) => {
+    const decision = { ...restDecision(), ...(kind === "proposal"
+      ? { proposal: { proposalId: `proposal_${"d".repeat(24)}`, status: "pending" as const,
+        expiresAt: "2096-08-15T00:00:00.000Z", confirmNonce: "n".repeat(32) } }
+      : { receipt: appliedReceipt }) };
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, refresh: vi.fn() });
+    mocks.proposal = { ...mocks.proposal, state: kind === "proposal" ? "pending" : "applied" };
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    expect(screen.getByText("계획 변경 검토")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(kind === "proposal" ? "승인 대기" : "적용됨");
+  });
+
+  it("keeps plan review hidden while a changed recommendation is loading", () => {
+    mocks.hook.mockReturnValue({ decision: restDecision(), loading: true, scheduledOnly: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    expect(screen.queryByText("계획 변경 검토")).not.toBeInTheDocument();
+  });
+
   it("shares one hook response between the mobile preview owner and detailed card", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false,
