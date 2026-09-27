@@ -457,9 +457,29 @@ export default function AnalysisTab({
     || sm?.runMetrics?.minPaceSecPerKm != null
   );
 
+  const cyclingDynamicsSection = cyclingDynamicsCards.length > 0 && (
+        <div>
+          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.cyclingDynamics")}</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {cyclingDynamicsCards.map((card) => (
+              <MetricCard
+                key={card.kind}
+                color={card.kind === "balance" ? "aqua" : card.kind === "coverage" ? "ink" : "violet"}
+                label={cyclingDynamicsLabel(card)}
+                value={card.value}
+                unit={card.unit}
+                description={cyclingDynamicsDescription(card)}
+                tooltip={cyclingDynamicsGlossary(card)}
+              />
+            ))}
+          </div>
+        </div>
+      );
+
   // 공개 수치·존·파워곡선은 같은 서버 presentation에서 그린다. 기존 허용 그래프/랩은 보존한다.
   if (!isOwner && canonicalPresentationAvailable) {
     return <div className="space-y-6" data-testid="public-analysis-charts">
+      {cyclingDynamicsSection}
       {speedCurve.length > 0 && <div><h3 className="text-[length:var(--fs-sm)] font-semibold mb-3">{t("analysis.section.speedCurve")}</h3><SpeedCurveChart points={speedCurve} /></div>}
       {laps && laps.length > 0 && <LapTable laps={laps} ftp={null} />}
     </div>;
@@ -606,24 +626,7 @@ export default function AnalysisTab({
         </div>
       )}
 
-      {cyclingDynamicsCards.length > 0 && (
-        <div>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.cyclingDynamics")}</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {cyclingDynamicsCards.map((card) => (
-              <MetricCard
-                key={card.kind}
-                color={card.kind === "balance" ? "aqua" : card.kind === "coverage" ? "ink" : "violet"}
-                label={cyclingDynamicsLabel(card)}
-                value={card.value}
-                unit={card.unit}
-                description={cyclingDynamicsDescription(card)}
-                tooltip={cyclingDynamicsGlossary(card)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      {cyclingDynamicsSection}
 
       {/* #459/#462 페달링 사분면 + 노력 품질 (서버 사전계산 메트릭 노출) */}
       {hasPower && (sm?.quadrant || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null) && (

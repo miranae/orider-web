@@ -61,7 +61,7 @@
     "loadIndex": "오늘 부하 지수 {{index}} · 같은 유형 내 90일 상위 {{top}}%",
     "allTimeBest": "역대 최고",
     "bestPct": "최고 대비",
-    "bestScope": "최고 대비는 검증된 개인기록의 역대 최고 기준입니다. 클램프·글리치로 판정된 구간은 비워 둡니다.",
+    "bestScope": "역대 최고 대비는 이번 활동을 포함한 검증된 최고 기준입니다. 클램프·글리치로 판정된 구간은 비워 둡니다.",
     "fatGrams": "지방 소모 추정 · kcal ÷ 9",
     "baselineScope": {
       "sameCharacter": "기준: 같은 유형",
@@ -204,7 +204,10 @@
       "history": "비교 기록"
     },
     "powerEstimated": "추정 파워 기준",
-    "ftpVerificationRequired": "FTP 확인 필요 · 부하와 강도는 잠정 기준입니다."
+    "ftpVerificationRequired": "FTP 확인 필요 · 부하와 강도는 잠정 기준입니다.",
+    "previousBestPct": "활동 전 최고 대비",
+    "previousBestScope": "활동 전 최고 대비는 이번 활동 이전 기록 기준이며 새 기록은 100%를 넘습니다.",
+    "zoneProvisional": "존 비교 잠정 · FTP 확인이 필요한 과거 기록 포함"
   },
   "title": "활동",
   "ftpDecision": {

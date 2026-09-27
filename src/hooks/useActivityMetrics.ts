@@ -52,7 +52,7 @@ export const PUBLIC_ACTIVITY_METRICS_KEYS = [
   "avgSpeedKph", "maxSpeedKph", "avgCadence", "maxCadence",
   "np", "avgPower", "avgHr", "cyclingDynamics", "lrBalance",
   "workKj", "caloriesKcal", "isVirtualPower", "gpsQuality", "weather",
-  "sourceLayer", "inputPending",
+  "sourceLayer", "inputPending", "inputCoverage",
 ] as const;
 
 /**

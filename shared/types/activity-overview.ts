@@ -2,11 +2,12 @@ export type ActivityOverviewBand = "lower" | "usual" | "higher";
 
 export interface ActivityOverviewPresentation {
   /**
-   * 판정 한 줄. 근거(임계값·존·부하)가 있어 규칙 하나가 걸렸을 때만 있다. 없으면 줄을 비운다 —
-   * "오늘의 라이딩이었어요" 같은 내용 없는 문장을 만들지 않는다(2026-09-21).
-   * @sync-with orider-g1-web/shared/types/activity-overview.ts
+   * 판정 한 줄. 근거(임계값·존·부하)가 있어 규칙 하나가 걸렸을 때만 있다.
+   * 없으면 **줄을 비운다** — "오늘의 라이딩이었어요" 같은 내용 없는 문장을 만들지 않는다(2026-09-21).
    */
   coachSentence?: string;
+  /** 측정 시간·심박 노출·검증된 기록에서 나온 관찰 태그. */
+  observedEffects?: string[];
   availability?: {
     personal: "available" | "character_uncertain" | "insufficient_history" | "unavailable";
     records: "evaluated" | "not_applicable" | "private" | "unavailable";
@@ -14,9 +15,11 @@ export interface ActivityOverviewPresentation {
     heartRate: "available" | "private" | "unavailable";
   };
   /**
-   * 성격 판정 근거. `"none"` 은 **임계값이 없어 판정하지 못했다** 는 뜻이다 — "확인 중" 이
-   * 아니라 FTP·최대심박을 설정하기 전까지 영원히 채워지지 않는 상태다.
-   * @sync-with orider-g1-web/shared/types/activity-overview.ts
+   * 성격 판정이 무엇에 근거했는가. `"none"` 은 **임계값이 없어 판정하지 못했다** 는 뜻이다.
+   *
+   * 화면이 "성격 확인 중"(곧 계산될 것처럼 읽힌다)과 "임계값이 없어 판정 불가"(FTP·최대심박을
+   * 설정하기 전까지 영원히 채워지지 않는다)를 구분하려면 이 값이 필요하다. 서버는 이미
+   * `workoutTypeProvenance.kind` 로 들고 있었고 화면에만 전달되지 않았다.
    */
   thresholdBasis?: "user" | "power_ftp" | "hr_lthr" | "hr_max" | "none";
   priorFitnessStatus?: { asOf: string; formBand: "overload" | "needsRecovery" | "productive" | "fresh" | "overRecovered";
@@ -38,9 +41,9 @@ export interface ActivityOverviewPresentation {
     distanceKm?: number;
     load?: number;
     loadKind?: "tss" | "load";
-    /** 부하의 출처. `time` 은 파워·심박 없이 이동 시간으로만 추정한 값이라 화면이 "이동 시간 추정" 을 붙인다. */
+    /** 부하가 무엇에서 나왔나. `time` 은 파워·심박 없이 이동 시간으로만 추정한 값이라 표시 층이 "추정" 을 붙인다. */
     loadSource?: "tss" | "trimp" | "time";
-    /** 계산에 쓰인 FTP가 확인 전이면 부하·강도에 확인 필요 표시를 보존한다. */
+    /** 현재 FTP 기준 계산값을 표시하지만 신뢰도 확인이 필요하다. */
     ftpVerificationRequired?: boolean;
     intensityFactor?: number;
     normalizedPowerW?: number;
@@ -56,7 +59,9 @@ export interface ActivityOverviewPresentation {
     /** 계측 존 시간 비중(%, 소수 1자리). 비교가 없어도 항상 채워진다 — 소비처가 초에서 다시 나누지 않는다. */
     currentPercentages?: number[]; baselinePercentages?: number[]; deltaPercentagePoints?: number[]; priorSampleCount?: number;
     /** 비교 기준 코호트. `discipline` 은 같은 성격 표본이 부족해 종목 전체로 넓힌 것 — 표시할 때 밝힌다. */
-    baselineScope?: "sameCharacter" | "discipline" }>;
+    baselineScope?: "sameCharacter" | "discipline";
+    historyCompleteness?: "complete" | "incomplete" | "unknown";
+    provisional?: boolean }>;
   routeLoad?: { climbCount?: number; highestCategory?: string; avgGradePct?: number; maxGradePct?: number;
     elevationSuspect?: boolean;
     /**
@@ -70,7 +75,9 @@ export interface ActivityOverviewPresentation {
     /** 이 구간의 내 역대 최고(이번 활동 포함). 기록 영수증이 평가됐을 때만 채워진다 — 표본 조건 없이 항상 비교할 수 있는 기준. */
     allTimeBestWatts?: number;
     /** watts ÷ allTimeBestWatts × 100 (상한 100). 서버가 한 번 계산한다 — 소비처가 각자 나누지 않는다. */
-    allTimeBestPct?: number }>;
+    allTimeBestPct?: number;
+    /** 이번 활동 전 최고 대비 %. 새 기록이면 100%를 넘는다. */
+    previousBestPct?: number }>;
   runRecordAchievements?: Array<{ distance: string; valueSec: number; competitionRank: number;
     recordAchievement: "first" | "new" | "tie" }>;
   thresholdWork?: { matchesCount?: number; matchesTotalSec?: number; longestZ4PlusSec?: number;

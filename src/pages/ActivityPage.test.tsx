@@ -3,6 +3,7 @@ import { getDocs, onSnapshot, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import ActivityPage from "./ActivityPage";
+import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { clearRideRouteIntentMemoryForTests } from "../features/activity/detail/RideActivityRouteButton";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import {
@@ -178,11 +179,12 @@ describe("ActivityPage", () => {
 
   it("uses the same authorized facts for nonowner overview and analysis without empty private-metric cards", async () => {
     mockRoute.activityId = "public-canonical-analysis";
-    const activity = createMockActivity({ id: mockRoute.activityId, userId: "fixture-other-owner", source: "orider", description: "공개 분석 계약 fixture" });
+    const activity = createMockActivity({ id: mockRoute.activityId, userId: "fixture-other-owner", source: "orider", description: "공개 분석 계약 fixture", startTime: Date.now() - 120000, endTime: Date.now(), summary: createMockSummary({ ridingTimeMillis: 120000, elapsedTimeMillis: 120000 }) });
     setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
     setDocData(`activity_streams/${activity.id}`, { userId: "fixture-other-owner", json: JSON.stringify({
-      ...createMockStreams(), laps: [{ number: 1, distanceKm: 1, durationMs: 180000, avgSpeed: 20, maxSpeed: 25, avgCadence: 80, avgHeartRate: 140, avgPower: 123 }],
+      ...createMockStreams({ time: Array.from({ length: 120 }, (_, i) => i), watts: Array(120).fill(200), heartrate: Array(120).fill(140), distance: Array.from({ length: 120 }, (_, i) => i * 10) }), laps: [{ number: 1, distanceKm: 1, durationMs: 180000, avgSpeed: 20, maxSpeed: 25, avgCadence: 80, avgHeartRate: 140, avgPower: 123 }],
     }) });
+    setDocData(`activity_metrics_public/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, avgPower: 200, lrBalance: { avg: 51, asymmetryPct: 2 }, cyclingDynamics: { source: "records", sampleCount: 120, validSampleCount: 120, coverage: 1, balance: { leftAvgPct: 49, rightAvgPct: 51, asymmetryPct: 2 } } });
     setCallableResult("getActivityOverview", { data: {
       status: "available", activityId: activity.id, version: "activity-overview-v1", inputDigest: "public-fixture",
       presentation: {
@@ -203,6 +205,7 @@ describe("ActivityPage", () => {
     expect(screen.getByText("679")).toBeInTheDocument();
     expect(screen.getByText("Z7")).toBeInTheDocument();
     expect(await screen.findByTestId("public-analysis-charts")).toBeInTheDocument();
+    expect(screen.getByText("49.0 / 51.0")).toBeInTheDocument();
     expect(screen.getByText("추정 파워 기준")).toBeInTheDocument();
     expect(screen.queryByText("FTP 미설정")).not.toBeInTheDocument();
     expect(screen.queryByText("잘린 입력 기준")).not.toBeInTheDocument();

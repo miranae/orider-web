@@ -330,3 +330,10 @@ describe("useActivityMetrics — 꺼짐은 실패로 풀리지 않는다(sticky)
     expect(anonymous.result.current.status).toBe("disabled");
   });
 });
+
+it.each(["complete", "partial_terminal", "pending"] as const)("preserves public inputCoverage=%s without private context", (inputCoverage) => {
+ const publicMetrics = fromPublicActivityMetrics({ inputCoverage, sourceLayer: "inline_streams", contextSnapshot: { ftp: 175 }, ftp: 175 });
+ expect(publicMetrics.inputCoverage).toBe(inputCoverage);
+ expect(publicMetrics.contextSnapshot).toBeUndefined();
+ expect(publicMetrics.ftp).toBeUndefined();
+});
