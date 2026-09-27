@@ -285,6 +285,7 @@
       "unitHour": "{{n}}시간"
     },
     "weeklyChart": {
+      "recordsCount": "저장 기록 {{count}}건",
       "distance": "거리 (km)",
       "time": "시간 (h)",
       "elevation": "고도 (m)"

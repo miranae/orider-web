@@ -93,15 +93,15 @@ describe("useFreshTraining", () => {
     const listeners = installControlledSnapshots(true);
     const now = Date.now();
     const date = new Date(now).toISOString().slice(0, 10);
-    const readTime = { seconds: Math.floor(now / 1000), nanoseconds: 0 };
+    const readTime = { seconds: Math.floor(now / 1000), nanoseconds: (now % 1000) * 1_000_000 };
     const lifecycle = {
       discipline: status === "wrong-sport" ? "run" : "bike",
-      loadSnapshot: { inputRevision: 2, inputDigest: "two", asOf: status === "ingest-after-read" ? now - 1000 : now, inputReadTime: readTime,
+      loadSnapshot: { inputRevision: 2, inputDigest: "a".repeat(64), asOf: status === "ingest-after-read" ? now - 1000 : now, inputReadTime: readTime,
         coverageStartDate: date, coverageEndDate: status === "previous-day" ? new Date(now - 86400000).toISOString().slice(0, 10) : date,
-        points: status === "unknown-processed" ? [{ date, dailyLoad: 0, status: "unknown" }] : [] },
+        points: [{ date, dailyLoad: 0, status: status === "unknown-processed" ? "unknown" : "final", quality: "zero" }] },
       pmc: { status: ["failed", "pending"].includes(status) ? status : "processed", attemptId: "two", inputRevision: 2,
         processedInputRevision: status === "revision-mismatch" ? 1 : 2, asOf: now, deadlineAt: now - 1 },
-      ...(status === "invalidated" ? { inputInvalidatedAt: { ...readTime, nanoseconds: 1 } } : {}),
+      ...(status === "invalidated" ? { inputInvalidatedAt: { ...readTime, nanoseconds: readTime.nanoseconds + 1 } } : {}),
     };
     const { result, unmount } = renderHook(() => useFreshTraining("bike"));
     expect(listeners.map(listener => listener.path)).toEqual(["users/training-user", "users/training-user/fitness/projection_bike", "users/training-user/fitness/timeseries_bike"]);

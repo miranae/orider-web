@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { describePmcHistory, pmcHistoryDeadline } from "../features/fitness/pmcHistory";
+import { describePmcHistory, hasFitnessLoadLifecycle, pmcHistoryDeadline } from "../features/fitness/pmcHistory";
 import {
   FITNESS_TIMESERIES_SCHEMA_VERSION,
   type FitnessTimeseriesDoc,
@@ -162,6 +162,10 @@ export function buildTriFitnessTimeline(breakdown: TriFitnessBreakdown): TriFitn
   });
 }
 
+function hasModernFitnessContract(timeseries: FitnessTimeseriesDoc | null): boolean {
+  return timeseries !== null && ("loadSnapshot" in timeseries || "pmc" in timeseries || "inputInvalidatedAt" in timeseries);
+}
+
 function isCanonicalTimeseries(
   timeseries: FitnessTimeseriesDoc | null,
   discipline: TimeseriesDiscipline,
@@ -171,6 +175,7 @@ function isCanonicalTimeseries(
     || timeseries.schemaVersion !== FITNESS_TIMESERIES_SCHEMA_VERSION
     || timeseries.discipline !== discipline
     || timeseries.pointCount !== timeseries.points.length) return false;
+  if (hasModernFitnessContract(timeseries) && !hasFitnessLoadLifecycle(timeseries)) return false;
   if (timeseries.points.length === 0) {
     return timeseries.startDate === null && timeseries.endDate === null;
   }
@@ -557,7 +562,7 @@ export function useFitnessModel(
       const hasCanonical = isCanonicalTimeseries(apiCanonical, triDiscipline);
       const fitness = hasCanonical
         ? apiCanonical!.points
-        : canonicalActive || canonicalPending ? [] : calculateClientFitness(activities, metricsMap, triDiscipline).fitnessData;
+        : canonicalActive || canonicalPending || hasModernFitnessContract(apiCanonical) ? [] : calculateClientFitness(activities, metricsMap, triDiscipline).fitnessData;
       return {
         fitness,
         weeklyTSS: canonicalActive
@@ -609,6 +614,8 @@ export function useFitnessModel(
         })),
       };
     }
+    // 현대 서버 계약이 손상된 경우 브라우저 재계산으로 오류를 감추지 않는다.
+    if (hasModernFitnessContract(timeseries)) return { fitnessData: [], dailyData: [] };
     return clientFitness;
   }, [canonicalActive, clientFitness, discipline, hasCanonicalTimeseries, selectedApiTimeseries, timeseries, triFitnessTimeline]);
   // 장기 PMC는 기존 일별 값만 요약한다. 페이지 range / 활동 상세 조회 범위와 독립이다.
@@ -628,7 +635,10 @@ export function useFitnessModel(
     if (canonicalActive && discipline === "tri") return [];
     const source = (doc: FitnessTimeseriesDoc | null, sport: TimeseriesDiscipline) => doc?.discipline === sport
       && (isCanonicalTimeseries(doc, sport) || doc.loadSnapshot || doc.inputInvalidatedAt) ? doc : null;
-    return describePmcHistory(fitnessData,
+    const historyValues = !canonicalActive && discipline !== "tri" && hasModernFitnessContract(timeseries)
+      ? (Array.isArray(timeseries?.points) ? timeseries.points.filter((point) => point && typeof point.date === "string"
+        && [point.ctl, point.atl, point.tsb, point.dailyLoad].every(Number.isFinite)) : []) : fitnessData;
+    return describePmcHistory(historyValues,
     discipline === "tri" ? [
       source(timeseries, "bike"), source(triRunTimeseries, "run"), source(triSwimTimeseries, "swim"),
     ] : [source(timeseries, discipline)], Math.max(pmcHistoryTick, Date.now()));

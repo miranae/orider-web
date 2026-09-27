@@ -6,6 +6,7 @@ import type { Activity } from "@shared/types";
 import ImportActivityModal from "./ImportActivityModal";
 import SportFilterTabs from "./SportFilterTabs";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineLabelKey } from "../../utils/disciplineFilter";
+import { planDayKey, planCalendarDate } from "@shared/training/planDate";
 import { estimateActivityTss, sumActivityTss } from "../../utils/estimateTSS";
 import "./MobileLogPage.css";
 
@@ -21,6 +22,7 @@ function formatDuration(ms: number): string {
 
 interface MobileLogPageProps {
   activities: Activity[];
+  ftp?: number;
   year: number;
   month: number;
   onChangeMonth: (delta: number) => void;
@@ -45,7 +47,7 @@ function MobileLogSkeleton() {
   );
 }
 
-export default function MobileLogPage({ activities, year, month, onChangeMonth, loading = false }: MobileLogPageProps) {
+export default function MobileLogPage({ activities, year, month, onChangeMonth, loading = false, ftp }: MobileLogPageProps) {
   const { t, i18n } = useTranslation("activity");
   const DAY_NAMES = (t("mobileLog.dayNames", { returnObjects: true }) as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const [tab, setTab] = useState<"month" | "activity">("month");
@@ -63,48 +65,46 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
   }, [activities, sportFilter]);
 
   // Build calendar grid
-  const firstDay = new Date(year, month, 1);
-  const startDow = firstDay.getDay();
+  const firstDay = new Date(Date.UTC(year, month, 1));
+  const startDow = firstDay.getUTCDay();
   const mondayOffset = startDow === 0 ? -6 : 1 - startDow;
-  const calStart = new Date(year, month, 1 + mondayOffset);
+  const calStart = new Date(Date.UTC(year, month, 1 + mondayOffset));
   const weeks: Date[][] = [];
   const cursor = new Date(calStart);
   for (let w = 0; w < 6; w++) {
     const week: Date[] = [];
     for (let d = 0; d < 7; d++) {
       week.push(new Date(cursor));
-      cursor.setDate(cursor.getDate() + 1);
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
-    if (w >= 4 && week.every((d) => d.getMonth() !== month)) break;
+    if (w >= 4 && week.every((d) => d.getUTCMonth() !== month)) break;
     weeks.push(week);
   }
 
   // Map filtered activities by date key
   const actByDate = new Map<string, Activity[]>();
   for (const a of filteredActivities) {
-    const d = new Date(a.startTime);
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const key = planDayKey(a.startTime);
     if (!actByDate.has(key)) actByDate.set(key, []);
     actByDate.get(key)!.push(a);
   }
 
-  const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+  const todayKey = planDayKey(Date.now());
 
   // Monthly totals (from filteredActivities)
   const monthActs = filteredActivities.filter((a) => {
-    const d = new Date(a.startTime);
-    return d.getFullYear() === year && d.getMonth() === month;
+    const d = planCalendarDate(a.startTime);
+    return d.getUTCFullYear() === year && d.getUTCMonth() === month;
   });
 
-  const activeDays = new Set(monthActs.map(a => new Date(a.startTime).getDate())).size;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const activeDays = new Set(monthActs.map(a => planCalendarDate(a.startTime).getUTCDate())).size;
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const monthTotals = {
     distanceKm: monthActs.reduce((sum, a) => sum + (Number.isFinite(a.summary.distance) && a.summary.distance > 0 ? a.summary.distance : 0), 0) / 1000,
-    timeMs: monthActs.reduce((sum, a) => sum + (a.summary.ridingTimeMillis ?? 0), 0),
-    elevationM: Math.round(monthActs.reduce((sum, a) => sum + (a.summary.elevationGain ?? 0), 0)),
+    timeMs: monthActs.reduce((sum, a) => sum + (Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0), 0),
+    elevationM: Math.round(monthActs.reduce((sum, a) => sum + (Number.isFinite(a.summary.elevationGain) ? a.summary.elevationGain : 0), 0)),
     // 아는 값만 더하고, 추정치가 섞이면 라벨로 밝힌다. 모르면 null — 0 을 쓰지 않는다 (#2237).
-    load: sumActivityTss(monthActs),
+    load: sumActivityTss(monthActs, ftp),
   };
 
   const monthLabel = t("mobileLog.monthLabel", { year, month: month + 1 });
@@ -144,12 +144,12 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
   }, [dayDetailActs]);
 
   const activityRow = (a: Activity) => {
-    const d = new Date(a.startTime);
+    const d = planCalendarDate(a.startTime);
     const discipline = getDiscipline(a.type);
-    const dateStr = t("mobileLog.dateMonthDay", { month: d.getMonth() + 1, day: d.getDate() });
-    const km = (a.summary.distance / 1000).toFixed(1);
-    const h = Math.floor(a.summary.ridingTimeMillis / 3600000);
-    const m = Math.floor((a.summary.ridingTimeMillis % 3600000) / 60000);
+    const dateStr = t("mobileLog.dateMonthDay", { month: d.getUTCMonth() + 1, day: d.getUTCDate() });
+    const km = ((Number.isFinite(a.summary.distance) ? a.summary.distance : 0) / 1000).toFixed(1);
+    const h = Math.floor((Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0) / 3600000);
+    const m = Math.floor(((Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0) % 3600000) / 60000);
     const tmStr = `${h}:${String(m).padStart(2, "0")}`;
     const pwVal = a.summary.averagePower ?? a.avgPower ?? null;
     const pw = pwVal ? `${Math.round(pwVal)}W` : "";
@@ -231,7 +231,9 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
             <span>{t("mobileLog.glanceTss")}{monthTotals.load.estimated && <sup aria-hidden="true">*</sup>}</span>
             <strong>{monthTotals.load.value ?? "–"}</strong>
           </div>
-          {monthTotals.load.estimated && <div className="mobile-log__glance-note">* {t("stat.tssEstimatedIncluded")}</div>}
+          <div className="mobile-log__glance-note">{t("mobileLog.recordBasis")}</div>
+          {monthTotals.load.unknownCount > 0 && <div className="mobile-log__glance-note">{t("mobileLog.loadPartial", { count: monthTotals.load.unknownCount })}</div>}
+          {monthTotals.load.estimated && <div className="mobile-log__glance-note">* {t("stat.tssEstimatedIncluded")} {t("mobileLog.estimateBasis")}</div>}
         </div>
       )}
 
@@ -255,9 +257,9 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
                 }}>{d}</div>
               ))}
               {weeks.flat().map((date, i) => {
-                const key = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+                const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,"0")}-${String(date.getUTCDate()).padStart(2,"0")}`;
                 const dayActs = actByDate.get(key) ?? [];
-                const isCurrentMonth = date.getMonth() === month;
+                const isCurrentMonth = date.getUTCMonth() === month;
                 const isToday = key === todayKey;
 
                 const sports = new Set(dayActs.map(a => getDiscipline(a.type)));
@@ -268,7 +270,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
 
                 return (
                   <button key={i} type="button" className="mobile-log__calendar-day" disabled={dayActs.length === 0}
-                    aria-label={dayActs.length > 0 ? t("mobileLog.dayActivitiesTitle", { month: date.getMonth() + 1, day: date.getDate(), count: dayActs.length }) : undefined}
+                    aria-label={dayActs.length > 0 ? t("mobileLog.dayActivitiesTitle", { month: date.getUTCMonth() + 1, day: date.getUTCDate(), count: dayActs.length }) : undefined}
                     onClick={() => {
                       if (dayActs.length === 1) {
                         navigate(`/activity/${dayActs[0]!.id}`);
@@ -287,7 +289,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
                       border: isToday ? "1.5px solid var(--lime)" : "1px solid transparent",
                       paddingBottom: dotColors.length > 0 ? 3 : 0,
                     }}>
-                    {date.getDate()}
+                    {date.getUTCDate()}
                     {dotColors.length > 0 ? (
                   <div style={{ display: "flex", gap: "var(--space-1)", justifyContent: "center", marginTop: 'var(--space-1)', alignItems: "center" }}>
                         {dotColors.map((c, idx) => (
@@ -345,7 +347,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
             ].map(sport => {
               const acts = monthActs.filter(sport.filter);
               if (acts.length === 0) return null;
-              const dist = acts.reduce((s, a) => s + a.summary.distance / sport.divisor, 0);
+              const dist = acts.reduce((s, a) => s + (Number.isFinite(a.summary.distance) ? a.summary.distance : 0) / sport.divisor, 0);
               return (
                 <div key={sport.label} style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)', padding: "10px 0", borderBottom: "1px solid var(--line-soft)" }}>
                   <div style={{ width: 36, height: 36, borderRadius: "var(--r-lg)", background: `color-mix(in oklch, ${sport.color} 14%, var(--bg-2))`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-lg)" }}>{sport.icon}</div>
@@ -399,7 +401,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
             }}
           />
           {/* 시트 */}
-          <div ref={daySheetRef} role="dialog" aria-modal="true" aria-label={t("mobileLog.dayActivitiesTitle", { month: new Date(dayDetailActs[0]!.startTime).getMonth() + 1, day: new Date(dayDetailActs[0]!.startTime).getDate(), count: dayDetailActs.length })}
+          <div ref={daySheetRef} role="dialog" aria-modal="true" aria-label={t("mobileLog.dayActivitiesTitle", { month: planCalendarDate(dayDetailActs[0]!.startTime).getUTCMonth() + 1, day: planCalendarDate(dayDetailActs[0]!.startTime).getUTCDate(), count: dayDetailActs.length })}
             style={{
               position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 999,
               background: "var(--bg-1)",
@@ -415,8 +417,8 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
             {/* 제목 */}
             <div style={{ padding: "var(--space-2) var(--space-4) var(--space-3)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
               {(() => {
-                const d = new Date(dayDetailActs[0]!.startTime);
-                return t("mobileLog.dayActivitiesTitle", { month: d.getMonth() + 1, day: d.getDate(), count: dayDetailActs.length });
+                const d = planCalendarDate(dayDetailActs[0]!.startTime);
+                return t("mobileLog.dayActivitiesTitle", { month: d.getUTCMonth() + 1, day: d.getUTCDate(), count: dayDetailActs.length });
               })()}
             </div>
             {/* 활동 목록 */}
@@ -426,11 +428,11 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
                 // 삼항 else 가 미지 종목을 자전거로 떨어뜨렸다 — 중립 아이콘까지 다루는 헬퍼로 대체.
                 const icon = getDisciplineIcon(disc);
                 const color = getDisciplineColor(disc);
-                const km = (a.summary.distance / 1000).toFixed(1);
-                const h = Math.floor(a.summary.ridingTimeMillis / 3600000);
-                const m = Math.floor((a.summary.ridingTimeMillis % 3600000) / 60000);
+                const km = ((Number.isFinite(a.summary.distance) ? a.summary.distance : 0) / 1000).toFixed(1);
+                const h = Math.floor((Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0) / 3600000);
+                const m = Math.floor(((Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0) % 3600000) / 60000);
                 const tmStr = `${h}:${String(m).padStart(2, "0")}`;
-                const { value: tss, estimated: tssEstimated } = estimateActivityTss(a);
+                const { value: tss, estimated: tssEstimated } = estimateActivityTss(a, ftp);
                 return (
                   <button type="button"
                     key={a.id}

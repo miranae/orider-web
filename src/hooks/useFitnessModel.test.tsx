@@ -93,6 +93,18 @@ describe("useFitnessModel", () => {
     unmount();
     vi.useRealTimers();
   });
+  it("손상된 현대 snapshot은 headline 정본이나 숨은 클라이언트 폴백이 되지 않는다", () => {
+    seed("bike");
+    const now = Date.parse("2026-09-06T12:00:00Z");
+    const point = {date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 70};
+    mocks.timeseries = {discipline: "bike", schemaVersion: 1, computedAt: now, startDate: point.date, endDate: point.date, pointCount: 1, points: [point],
+      loadSnapshot: {inputRevision: 2, inputDigest: "", asOf: now, inputReadTime: {seconds: now / 1000, nanoseconds: 0}, coverageStartDate: point.date, coverageEndDate: point.date, points: [{date: point.date, dailyLoad: 70, status: "final", quality: "precomputed"}]},
+      pmc: {status: "processed", attemptId: "invalid", inputRevision: 2, processedInputRevision: 2, asOf: now, deadlineAt: now + 1000, errorCode: null}};
+    const {result} = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.currentPoint).toBeNull();
+    expect(result.current.pmcHistoryPoints[0]).toMatchObject({ctl: 40, loadStatus: "unconfirmed", calculationStatus: "estimated"});
+  });
+
   it("새 snapshot 없이 deadline에 도달해도 PMC 대기를 처리 지연으로 바꾼다", () => {
     vi.useFakeTimers();
     const now = Date.parse("2026-09-06T12:00:00Z");
@@ -101,7 +113,7 @@ describe("useFitnessModel", () => {
     const point = { date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 40 };
     mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: now, points: [point],
       startDate: point.date, endDate: point.date, pointCount: 1,
-      loadSnapshot: { inputRevision: 2, inputDigest: "next", asOf: now, inputReadTime: { seconds: now / 1000, nanoseconds: 0 },
+      loadSnapshot: { inputRevision: 2, inputDigest: "a".repeat(64), asOf: now, inputReadTime: { seconds: now / 1000, nanoseconds: 0 },
         coverageStartDate: point.date, coverageEndDate: point.date,
         points: [{ date: point.date, dailyLoad: 70, status: "final", quality: "estimated" }] },
       pmc: { status: "pending", attemptId: "next", inputRevision: 2, processedInputRevision: 1, asOf: now - 1, deadlineAt: now + 1000, errorCode: null },

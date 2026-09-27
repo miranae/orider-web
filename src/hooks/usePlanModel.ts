@@ -10,6 +10,8 @@ import {
 } from "firebase/firestore";
 
 import type { Goal, PlanDay, PlanWeek } from "@shared/types/goal";
+import { hasFitnessLoadLifecycle, isFitnessInputInvalidated } from "../features/fitness/pmcHistory";
+import { planDayStartMs, planDayKey } from "@shared/training/planDate";
 import { computePlanProgress } from "@shared/training/planMetrics";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -112,7 +114,12 @@ export function usePlanModel(sport?: string | null): PlanModel {
   );
   const tsbFresh = timeseries?.endDate != null
     && (Date.now() - new Date(`${timeseries.endDate}T00:00:00Z`).getTime()) <= 3 * DAY_MS;
-  const currentTsb = legacyRecoveryEnabled && tsbFresh && timeseries!.points.length
+  const modernRecoveryReady = !timeseries || !("loadSnapshot" in timeseries || "pmc" in timeseries || "inputInvalidatedAt" in timeseries)
+    || hasFitnessLoadLifecycle(timeseries) && !isFitnessInputInvalidated(timeseries)
+      && timeseries.pmc!.status === "processed" && timeseries.pmc!.processedInputRevision === timeseries.loadSnapshot!.inputRevision
+      && timeseries.computedAt === timeseries.loadSnapshot!.asOf && timeseries.pmc!.asOf === timeseries.loadSnapshot!.asOf
+      && timeseries.loadSnapshot!.points.every((point) => point.status === "final");
+  const currentTsb = legacyRecoveryEnabled && modernRecoveryReady && tsbFresh && timeseries!.points.length
     ? timeseries!.points[timeseries!.points.length - 1]!.tsb
     : null;
 
@@ -229,11 +236,7 @@ export function usePlanModel(sport?: string | null): PlanModel {
     };
   }, [discipline, firestore, locale, modelKey, reloadKey, user]);
 
-  const todayMs = useMemo(() => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    return now.getTime();
-  }, []);
+  const todayMs = useMemo(() => planDayStartMs(Date.now()), []);
   const goalDate = goal ? new Date(goal.eventDate) : null;
   const daysLeft = goalDate
     ? Math.max(0, Math.round((goalDate.getTime() - todayMs) / DAY_MS))
@@ -246,9 +249,7 @@ export function usePlanModel(sport?: string | null): PlanModel {
   } = computePlanProgress(weeks, todayMs);
   const goalMatchesDiscipline = !goal || !goal.discipline || goal.discipline === discipline;
   const isTodayCell = useCallback((day: PlanDay): boolean => {
-    const date = new Date(day.date);
-    date.setHours(0, 0, 0, 0);
-    return date.getTime() === todayMs;
+    return planDayKey(day.date) === planDayKey(todayMs);
   }, [todayMs]);
 
   const retryLoad = useCallback(() => {

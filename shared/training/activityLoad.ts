@@ -6,12 +6,10 @@
  * 65/80/50(클라) vs 42/60/40(서버)로 갈라져 같은 활동의 부하가 화면과 저장 PMC 에서
  * 달랐다(2026-06 감사). 본 모듈로 수렴.
  *
- * functions 는 tsconfig `include:["src"]` 제약으로 이 파일을 프로덕션 빌드에서 직접
- * import 할 수 없어 미러(functions/src/training/activity-load.ts 의 estimateLoad)를 두고,
- * parity 테스트(functions/src/training/activity-load.test.ts)가 동기화를 강제한다.
- * (shared/training/staleness.ts ↔ revalidate-rules.ts 와 동일한 mirror+sync 패턴.)
+ * 서버 acceptedActivityLoad adapter는 이 순수 계산기를 직접 import한다.
+ * 기존 서버 estimateLoad export는 호환을 유지하며 parity fixture로 동일 결과를 검증한다.
  *
- * 서버 SDK import 없음 → 양쪽 sub-project 에서 단위 테스트 가능.
+ * Firebase admin import 없음 → 양쪽 sub-project 에서 단위 테스트 가능.
  */
 
 export type LoadDiscipline = "bike" | "run" | "swim";
@@ -34,23 +32,26 @@ export const TIME_FACTORS: Record<LoadDiscipline, number> = { bike: 42, run: 60,
  */
 export const DEFAULT_TIME_FACTOR = 50;
 
-/** 활동 부하에서 제외하는 짧은 테스트 기록의 거리 경계. */
+/** #1391: 0km 대 테스트·쓰레기 기록 판정 상수 — 부하/집계 산입 차단 기준. */
 export const NEGLIGIBLE_DISTANCE_M = 500;
-/** 활동 부하에서 제외하는 짧은 테스트 기록의 지속시간 경계. */
 export const NEGLIGIBLE_DURATION_MILLIS = 10 * 60 * 1000;
 
-/** 거리 500m 미만이면서 지속시간도 10분 미만인 활동만 무시한다. */
+/** #1391: 무시해도 되는 쓰레기 기록인가 — 거리 500m 미만 **그리고** 지속 10분 미만.
+ *  거리 필드 자체가 없는 활동(수동 입력 등)은 게이트하지 않고, 거리 0 이라도 지속시간이
+ *  충분하면(실내 트레이너) 정상 산입한다. 실사례: 0~0.2km × 수 분짜리 테스트 기록 쌍. */
 export function isNegligibleActivity(
   distanceMeters: number | null | undefined,
   durationMillis: number | null | undefined,
 ): boolean {
   if (distanceMeters == null || !Number.isFinite(distanceMeters)) return false;
   if (distanceMeters >= NEGLIGIBLE_DISTANCE_M) return false;
-  const duration = durationMillis != null && Number.isFinite(durationMillis) ? durationMillis : 0;
-  return duration < NEGLIGIBLE_DURATION_MILLIS;
+  const dur = durationMillis != null && Number.isFinite(durationMillis) ? durationMillis : 0;
+  return dur < NEGLIGIBLE_DURATION_MILLIS;
 }
 
-/** 서버 부하 추출과 같은 시간 필드 우선순위로 negligible 활동을 판정한다. */
+/** #1391: activity.summary 어댑터 — 서버 extractActivityTss 와 동일한 시간 폴백 체인
+ *  (ridingTimeMillis → movingTimeMillis → elapsedTimeMillis)으로 negligible 판정.
+ *  클라 집계도 이 헬퍼를 써야 서버와 게이트가 일치한다. */
 export function isNegligibleActivitySummary(summary: {
   distance?: number | null;
   ridingTimeMillis?: number | null;
@@ -58,15 +59,12 @@ export function isNegligibleActivitySummary(summary: {
   elapsedTimeMillis?: number | null;
 } | null | undefined): boolean {
   if (!summary) return false;
-  const durationMillis =
+  const millis =
     typeof summary.ridingTimeMillis === "number" ? summary.ridingTimeMillis
     : typeof summary.movingTimeMillis === "number" ? summary.movingTimeMillis
     : typeof summary.elapsedTimeMillis === "number" ? summary.elapsedTimeMillis
     : 0;
-  return isNegligibleActivity(
-    typeof summary.distance === "number" ? summary.distance : null,
-    durationMillis,
-  );
+  return isNegligibleActivity(typeof summary.distance === "number" ? summary.distance : null, millis);
 }
 
 export interface LoadInputs {
@@ -78,11 +76,7 @@ export interface LoadInputs {
   avgPower?: number | null;
   /** 사용자 FTP(W). */
   ftp?: number | null;
-  /**
-   * HR 스트림에서 계산한 실측 TRIMP 를 TSS 등가로 정규화한 값(hrTSS 방식). 클라 전용
-   * (heartrate 스트림 보유 시, fitnessMetrics.ts:estimateActivityLoad 에서 계산해 전달);
-   * 서버는 null. relativeEffort(Strava 블랙박스)보다 우선 — 실측 HR 기반이라 더 정밀.
-   */
+  /** HR 스트림 TRIMP를 임계HR 1시간=100으로 정규화한 hrTSS. */
   streamTrimpTss?: number | null;
   /** Strava relativeEffort(TRIMP) — 보통 TSS 와 같은 척도. */
   relativeEffort?: number | null;
@@ -106,8 +100,8 @@ export function isSaneTss(x: number | null | undefined): x is number {
  * 통합 폴백 체인 (정확도 높은 순):
  *   1) precomputedTss   2) streamTss(파워 스트림 실측)
  *   3) avgPower → IF²·h·100 (bike + ftp + avgPower, VI=1 근사)
- *   4) streamTrimpTss(HR 스트림 실측 TRIMP → TSS 등가)
- *   5) relativeEffort(TRIMP)   6) 시간 기반(종목 factor)   7) 0
+ *   4) streamTrimpTss(HR 스트림)   5) relativeEffort(TRIMP)
+ *   6) 시간 기반(종목 factor)   7) 0
  */
 export function estimateLoad(i: LoadInputs): LoadResult {
   if (isSaneTss(i.precomputedTss)) return { value: Math.round(i.precomputedTss), source: "tss" };
@@ -122,7 +116,7 @@ export function estimateLoad(i: LoadInputs): LoadResult {
     if (isSaneTss(tss)) return { value: Math.round(tss), source: "tss" };
   }
 
-  // 4: HR 스트림 실측 TRIMP(TSS 등가 정규화 완료 — 계산은 클라에서 trimpToTssEquivalent 로 수행)
+  // 4: HR 스트림 실측 TRIMP(hrTSS 정규화)
   if (isSaneTss(i.streamTrimpTss)) return { value: Math.round(i.streamTrimpTss), source: "trimp" };
 
   // 5: Strava relativeEffort(TRIMP)

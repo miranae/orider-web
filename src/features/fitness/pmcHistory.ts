@@ -1,3 +1,4 @@
+import { validFitnessLoadSnapshotProof } from '@shared/training/fitnessLoadLifecycle'
 import type { FitnessPoint } from '../../utils/fitnessMetrics'
 import type { FitnessTimeseriesDoc } from '../../../shared/types/fitness-timeseries'
 
@@ -17,22 +18,17 @@ const calculationPriority: NonNullable<PmcHistoryPoint['calculationStatus']>[] =
 export function hasFitnessLoadLifecycle(source: FitnessTimeseriesDoc | null): boolean {
   const load = source?.loadSnapshot
   const pmc = source?.pmc
-  return !!load && !!pmc && Number.isInteger(load.inputRevision) && load.inputRevision > 0
-    && Number.isFinite(load.asOf) && typeof load.inputDigest === 'string'
-    && validDate(load.coverageStartDate) && validDate(load.coverageEndDate) && load.coverageStartDate <= load.coverageEndDate
-    && validReadTime(load.inputReadTime)
-    && Array.isArray(load.points) && load.points.every(point => point !== null && typeof point === 'object')
-    && new Set(load.points.map(point => point.date)).size === load.points.length
-    && load.points.every(point => validDate(point.date) && point.date >= load.coverageStartDate && point.date <= load.coverageEndDate
-      && Number.isFinite(point.dailyLoad) && point.dailyLoad >= 0
-      && (point.status === 'final' || point.status === 'unknown'))
-    && ['pending', 'processed', 'failed'].includes(pmc.status) && Number.isFinite(pmc.deadlineAt)
-    && pmc.inputRevision === load.inputRevision && typeof pmc.attemptId === 'string'
-    && (pmc.processedInputRevision === null || Number.isInteger(pmc.processedInputRevision))
+  return validFitnessLoadSnapshotProof(load) && !!load && !!pmc
+    && ['pending', 'processed', 'failed'].includes(pmc.status)
+    && Number.isSafeInteger(pmc.deadlineAt) && pmc.deadlineAt > 0
+    && pmc.inputRevision === load.inputRevision && typeof pmc.attemptId === 'string' && pmc.attemptId.length > 0
+    && (pmc.processedInputRevision === null || Number.isSafeInteger(pmc.processedInputRevision) && pmc.processedInputRevision >= 0)
+    && (pmc.asOf === null || Number.isSafeInteger(pmc.asOf) && pmc.asOf > 0)
+
 }
 
 function validReadTime(value: { seconds: number; nanoseconds: number } | undefined): boolean {
-  return !!value && Number.isInteger(value.seconds) && Number.isInteger(value.nanoseconds) && value.nanoseconds >= 0 && value.nanoseconds < 1e9
+  return !!value && Number.isSafeInteger(value.seconds) && value.seconds >= 0 && Number.isInteger(value.nanoseconds) && value.nanoseconds >= 0 && value.nanoseconds < 1e9
 }
 
 export function isFitnessInputInvalidated(source: FitnessTimeseriesDoc | null): boolean {
@@ -97,7 +93,9 @@ export function describePmcHistory(
     const allCovered = covered.length > 0 && covered.every(Boolean)
     const failed = evidence.some(entry => entry.load && entry.source?.pmc?.status === 'failed')
     const pending = evidence.some(entry => entry.load && (entry.source?.pmc?.status !== 'processed'
-      || entry.source.pmc.processedInputRevision !== entry.source.loadSnapshot!.inputRevision))
+      || entry.source.pmc.processedInputRevision !== entry.source.loadSnapshot!.inputRevision
+      || entry.source.computedAt !== entry.source.loadSnapshot!.asOf || entry.source.pmc.asOf !== entry.source.loadSnapshot!.asOf
+      || entry.source.loadSnapshot!.points.some(point => point.status === 'unknown')))
     const expired = evidence.some(entry => entry.load && entry.source?.pmc?.status === 'pending' && now > entry.source.pmc.deadlineAt)
     const hasSavedPmc = evidence.some(entry => entry.dates.has(point.date))
     return {

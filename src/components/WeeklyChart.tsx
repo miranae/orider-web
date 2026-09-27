@@ -80,8 +80,6 @@ export default function WeeklyChart({
     time: { ...splitLabel(t("charts.weeklyChart.time")), digits: 1 },
     elevation: { ...splitLabel(t("charts.weeklyChart.elevation")), digits: 0 },
   };
-  const ridesLabel = "활동";
-  const ridesUnit = "회";
   const active = METRIC_META[activeKey];
 
   // Chart.js 캔버스는 CSS 변수를 해석하지 못하므로 테마 색상을 확정해 전달한다.
@@ -161,7 +159,7 @@ export default function WeeklyChart({
                       `${METRIC_META.distance.label}  ${formatNum(row.distance, METRIC_META.distance.digits)} ${METRIC_META.distance.unit}`,
                       `${METRIC_META.time.label}  ${formatNum(row.time, METRIC_META.time.digits)} ${METRIC_META.time.unit}`,
                       `${METRIC_META.elevation.label}  ${formatNum(row.elevation, METRIC_META.elevation.digits)} ${METRIC_META.elevation.unit}`,
-                      `${ridesLabel}  ${row.rides}${ridesUnit}`,
+                      t("charts.weeklyChart.recordsCount", {count: row.rides}),
                     ];
                   }
                   return `${active.label}  ${formatNum(ctx.parsed.y, active.digits)} ${active.unit}`.trim();

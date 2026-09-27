@@ -53,7 +53,8 @@ describe("athlete monthly activities", () => {
     ] } as never);
     const rows = await loadAthleteChartActivities("athlete", true, () => false);
     expect(rows).toHaveLength(3);
-    expect(rows![1]?.summary).toMatchObject({ distance: 0, ridingTimeMillis: 0, elevationGain: 0 });
+    expect(rows![1]?.summary).toBeUndefined();
+    expect(rows![2]?.summary).toBeNull();
     expect(aggregateMonthlyActivities(rows!, new Date(2021, 0, 2))[0]).toMatchObject({
       rides: 3, distance: 1, time: 1, elevation: 10,
     });

@@ -4,6 +4,7 @@ import { TIME_FACTORS } from "@shared/training/activityLoad";
 import { estimateTSS, estimateActivityTss, sumActivityTss, estimateRunTSS, estimateSwimTSS, estimateBikeTSS } from "./estimateTSS";
 
 /** 테스트용 최소 Activity. summary 핵심 필드만 채우고 나머지는 캐스팅으로 우회. */
+let activitySequence = 0;
 function act(opts: {
   type?: string;
   hours?: number;
@@ -12,7 +13,11 @@ function act(opts: {
   averageSpeed?: number;
   averagePower?: number | null;
 }): Activity {
+  const sequence = ++activitySequence;
   return {
+    id: `fixture-${sequence}`,
+    userId: "fixture-user",
+    startTime: Date.UTC(2026, 8, 1) + sequence * 4 * 3600000,
     type: opts.type ?? "Ride",
     summary: {
       ridingTimeMillis: (opts.hours ?? 1) * 3600000,
@@ -105,21 +110,46 @@ describe("estimateActivityTss — 모르면 null, 추정이면 표식", () => {
 describe("sumActivityTss — 아는 값만 합산, 추정 혼입 고지", () => {
   it("추정치가 섞이면 estimated=true", () => {
     const total = sumActivityTss([act({ tss: 50, hours: 1 }), act({ hours: 1 })]);
-    expect(total).toEqual({ value: 50 + Math.round(TIME_FACTORS.bike), estimated: true });
+    expect(total).toEqual({ value: 50 + Math.round(TIME_FACTORS.bike), estimated: true, unknownCount: 0 });
   });
 
   it("전부 사전계산이면 estimated=false", () => {
     expect(sumActivityTss([act({ tss: 50, hours: 1 }), act({ tss: 30, hours: 1 })]))
-      .toEqual({ value: 80, estimated: false });
+      .toEqual({ value: 80, estimated: false, unknownCount: 0 });
   });
 
   it("모르는 활동은 0 으로 세지 않고 건너뛴다", () => {
     expect(sumActivityTss([act({ tss: 50, hours: 1 }), act({ hours: 0 })]))
-      .toEqual({ value: 50, estimated: false });
+      .toEqual({ value: 50, estimated: false, unknownCount: 1 });
   });
 
   it("아는 값이 하나도 없으면 null", () => {
-    expect(sumActivityTss([act({ hours: 0 })])).toEqual({ value: null, estimated: false });
-    expect(sumActivityTss([])).toEqual({ value: null, estimated: false });
+    expect(sumActivityTss([act({ hours: 0 })])).toEqual({ value: null, estimated: false, unknownCount: 1 });
+    expect(sumActivityTss([])).toEqual({ value: null, estimated: false, unknownCount: 0 });
   });
+});
+
+
+describe("accepted training load contract", () => {
+  it("uses owner-bound accepted Strava load rather than recorded summary", () => {
+    const activity = { ...act({tss: 122}), source: "strava", serverDerivedLoad: {schemaVersion: 1, userId: "fixture-user", inputBinding: "revision", streamTss: 306.93} } as unknown as Activity;
+    expect(estimateActivityTss(activity)).toEqual({value: 307, estimated: false});
+    expect(sumActivityTss([activity])).toEqual({value: 307, estimated: false, unknownCount: 0});
+    const wrongOwner = {...activity, serverDerivedLoad: {...activity.serverDerivedLoad, userId: "other"}} as Activity;
+    expect(estimateActivityTss(wrongOwner).value).toBe(122);
+  });
+  it("distinguishes an explicit zero from absent load evidence", () => {
+    expect(sumActivityTss([act({hours: 0, tss: 0})])).toEqual({value: 0, estimated: false, unknownCount: 0});
+    expect(sumActivityTss([act({hours: 0})])).toEqual({value: null, estimated: false, unknownCount: 1});
+  });
+  it("does not turn unsupported activities into bike load", () => {
+    expect(sumActivityTss([act({type: "Yoga", tss: 100})])).toEqual({value: null, estimated: false, unknownCount: 0});
+  });
+});
+
+
+it("같은 실제 운동의 명시적 연동 기록은 대표 부하 한 번만 반영한다", () => {
+  const native = {...act({tss: 307}), source: "orider", localSessionId: "physical-ride", stravaTwinActivityId: 123} as Activity;
+  const imported = {...native, id: "imported", source: "strava", summary: {...native.summary, tss: 122}, stravaActivityId: 123, serverDerivedLoad: {schemaVersion: 1, userId: "fixture-user", inputBinding: "final", streamTss: 307}} as Activity;
+  expect(sumActivityTss([native, imported])).toEqual({value: 307, estimated: false, unknownCount: 0});
 });

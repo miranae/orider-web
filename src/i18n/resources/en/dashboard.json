@@ -285,6 +285,7 @@
       "unitHour": "{{n}}h"
     },
     "weeklyChart": {
+      "recordsCount": "Saved records: {{count}}",
       "distance": "Distance (km)",
       "time": "Time (h)",
       "elevation": "Elevation (m)"

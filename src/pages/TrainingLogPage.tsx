@@ -12,6 +12,7 @@ import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
 import { estimateActivityTss, sumActivityTss } from "../utils/estimateTSS";
+import { planDayKey, planCalendarDate, planMonthBounds } from "@shared/training/planDate";
 import { Button, Card, Text } from "../theme/components";
 import { ErrorState } from "../components/redesign";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
@@ -26,20 +27,9 @@ const LOG_CALENDAR_CARD_STYLE: CSSProperties = {
 
 // ── 날짜 유틸 ─────────────────────────────────────────────────────────
 
-function msToDateKey(ms: number): string {
-  const d = new Date(ms);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
-}
-
-function dateToKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
+const msToDateKey = planDayKey;
+const dateToKey = (date: Date) => date.toISOString().slice(0, 10);
+const finiteMetric = (value: number) => Number.isFinite(value) ? value : 0;
 
 /** 월 캐시 키 "YYYY-MM" */
 function monthKey(year: number, month: number): string {
@@ -73,7 +63,7 @@ function sportColor(type?: string): string {
 
 /** 수영은 m 단위, 그 외는 km */
 function formatActivityDist(a: Activity): string {
-  const km = a.summary.distance / 1000;
+  const km = finiteMetric(a.summary.distance) / 1000;
   if ((a.type || "").toLowerCase().includes("swim")) return `${Math.round(km * 1000)}m`;
   return `${km.toFixed(1)}km`;
 }
@@ -86,10 +76,10 @@ interface CalCell {
 }
 
 function getMonthCalendar(year: number, month: number): CalCell[][] {
-  const firstDay = new Date(year, month, 1);
-  const startDow = firstDay.getDay(); // 0=Sun
+  const firstDay = new Date(Date.UTC(year, month, 1));
+  const startDow = firstDay.getUTCDay(); // 0=Sun
   const mondayOffset = startDow === 0 ? -6 : 1 - startDow;
-  const calStart = new Date(year, month, 1 + mondayOffset);
+  const calStart = new Date(Date.UTC(year, month, 1 + mondayOffset));
 
   const weeks: CalCell[][] = [];
   const current = new Date(calStart);
@@ -98,9 +88,9 @@ function getMonthCalendar(year: number, month: number): CalCell[][] {
     for (let d = 0; d < 7; d++) {
       week.push({
         date: new Date(current),
-        isCurrentMonth: current.getMonth() === month,
+        isCurrentMonth: current.getUTCMonth() === month,
       });
-      current.setDate(current.getDate() + 1);
+      current.setUTCDate(current.getUTCDate() + 1);
     }
     // 뒤쪽 빈 주 건너뜀
     if (w >= 3 && week.every((c) => !c.isCurrentMonth)) break;
@@ -119,6 +109,7 @@ interface LogDayCellProps {
   dayNum: number;
   dateKey: string;
   todayKey: string;
+  ftp?: number;
 }
 
 interface PlanGhost {
@@ -135,7 +126,7 @@ function effectivePlanDuration(day: PlanDay): number {
   return day.adjustedDurationMin ?? day.plannedDurationMin ?? 0;
 }
 
-function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKey, todayKey }: LogDayCellProps) {
+function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKey, todayKey, ftp }: LogDayCellProps) {
   const navigate = useNavigate();
   const { t } = useTranslation("training");
   const [expanded, setExpanded] = useState(false);
@@ -144,12 +135,14 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
   const single = activities.length === 1;
   const plannedTSS = plans.reduce((sum, plan) => sum + plan.plannedTSS, 0);
   // 계획 대비 달성 비교용 내부 수치 — 아는 값만 더한다(모르는 활동은 0 으로 세지 않는다).
-  const actualTSS = sumActivityTss(activities).value ?? 0;
+  const actualLoad = sumActivityTss(activities, ftp);
+  const actualTSS = actualLoad.value;
   const adherence =
     !hasPlan ? null :
-    hasAct ? (actualTSS >= plannedTSS * 0.8 ? "hit" : "under") :
+    hasAct ? (actualLoad.unknownCount > 0 || actualTSS === null ? "unknown"
+      : actualLoad.estimated ? "estimated" : actualTSS >= plannedTSS * 0.8 ? "hit" : "under") :
     dateKey < todayKey ? "missed" : "planned";
-  const adherenceLabel = adherence === "hit" ? "✓" : adherence === "under" ? "△" : adherence === "missed" ? "!" : "";
+  const adherenceLabel = adherence === "hit" ? "✓" : adherence === "under" ? "△" : adherence === "missed" ? "!" : adherence === "unknown" ? "?" : adherence === "estimated" ? "~" : "";
 
   // 활동 정렬 — 시작 시각 빠른 순
   const sorted = [...activities].sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
@@ -158,8 +151,8 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
 
   const fmtTime = (ts: number) => {
     if (!ts) return "";
-    const d = new Date(ts);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const d = planCalendarDate(ts);
+    return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
   };
 
   return (
@@ -231,7 +224,7 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
               {plan.plannedTSS} TSS
             </span>
             {index === 0 && adherenceLabel && (
-              <span style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
+              <span aria-label={adherence === "unknown" ? t("log.loadUnknown") : adherence === "estimated" ? t("page.tssEstimated") : undefined} style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
                 {adherenceLabel}
               </span>
             )}
@@ -240,7 +233,7 @@ function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKe
       })}
       {visible.map((a) => {
         const color = sportColor(a.type);
-        const { value: tss, estimated: tssEstimated } = estimateActivityTss(a);
+        const { value: tss, estimated: tssEstimated } = estimateActivityTss(a, ftp);
         return (
           <button
             key={a.id}
@@ -381,11 +374,12 @@ function MiniBarChart({ values, labels, unit = "" }: MiniBarChartProps) {
 export default function TrainingLogPage() {
   const { t, i18n } = useTranslation("training");
   const { t: tCommon } = useTranslation("common");
-  const { user } = useAuth();
-  const today = new Date();
+  const { user, profile } = useAuth();
+  const ftp = profile?.ftp ?? undefined;
+  const today = planCalendarDate(Date.now());
   const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number }>({
-    year: today.getFullYear(),
-    month: today.getMonth(),
+    year: today.getUTCFullYear(),
+    month: today.getUTCMonth(),
   });
 
   // 월별 캐시 — 본 적 있는 달은 재요청하지 않는다 (Firestore 읽기 절감 + 즉시 표시)
@@ -417,8 +411,7 @@ export default function TrainingLogPage() {
         return next;
       });
       try {
-        const start = new Date(year, month, 1).getTime();
-        const end = new Date(year, month + 1, 0, 23, 59, 59, 999).getTime();
+        const { start, end } = planMonthBounds(year, month);
         const q = query(
           collection(firestore, "activities"),
           where("deletedAt", "==", null),
@@ -428,19 +421,11 @@ export default function TrainingLogPage() {
           orderBy("startTime", "desc"),
         );
         const snap = await getDocs(q);
-        const acts = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }) as Activity)
-          .filter((a) => a.summary != null)
-          // 일부 과거 활동의 요약 필드가 없더라도 월 합계·캘린더·모바일 계산을 오염시키지 않는다.
-          .map((a) => ({
-            ...a,
-            summary: {
-              ...a.summary,
-              distance: Number.isFinite(a.summary.distance) ? a.summary.distance : 0,
-              ridingTimeMillis: Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0,
-              elevationGain: Number.isFinite(a.summary.elevationGain) ? a.summary.elevationGain : 0,
-            },
-          }));
+        const acts = snap.docs.map((d) => {
+          const activity = { id: d.id, ...d.data() } as Activity;
+          // 렌더링용 빈 요약은 측정값 0을 만들지 않는다. 누락 부하는 unknown으로 남는다.
+          return { ...activity, summary: activity.summary ?? {} as Activity["summary"] };
+        });
         setActivitiesByMonth((prev) => new Map(prev).set(key, acts));
         setLoadedMonths((prev) => new Set(prev).add(key));
       } catch (err) {
@@ -544,8 +529,8 @@ export default function TrainingLogPage() {
 
   // 본인 활동만 + 월 범위 필터
   const { monthStart, monthEnd } = useMemo(() => ({
-    monthStart: new Date(selectedMonth.year, selectedMonth.month, 1).getTime(),
-    monthEnd: new Date(selectedMonth.year, selectedMonth.month + 1, 0, 23, 59, 59).getTime(),
+    monthStart: planMonthBounds(selectedMonth.year, selectedMonth.month).start,
+    monthEnd: planMonthBounds(selectedMonth.year, selectedMonth.month).end,
   }), [selectedMonth.year, selectedMonth.month]);
 
 
@@ -564,7 +549,7 @@ export default function TrainingLogPage() {
       map.set(key, arr);
     }
     return map;
-  }, [monthActivities]);
+  }, [monthActivities, ftp]);
 
   // 캘린더 그리드
   const calendar = useMemo(
@@ -574,10 +559,10 @@ export default function TrainingLogPage() {
 
   // KPI
   const kpi = useMemo(() => {
-    const totalDist = monthActivities.reduce((s, a) => s + a.summary.distance, 0);
-    const totalTime = monthActivities.reduce((s, a) => s + a.summary.ridingTimeMillis, 0);
-    const totalElev = monthActivities.reduce((s, a) => s + a.summary.elevationGain, 0);
-    const totalLoad = sumActivityTss(monthActivities);
+    const totalDist = monthActivities.reduce((s, a) => s + finiteMetric(a.summary.distance), 0);
+    const totalTime = monthActivities.reduce((s, a) => s + finiteMetric(a.summary.ridingTimeMillis), 0);
+    const totalElev = monthActivities.reduce((s, a) => s + finiteMetric(a.summary.elevationGain), 0);
+    const totalLoad = sumActivityTss(monthActivities, ftp);
     return {
       dist: totalDist / 1000,
       time: totalTime,
@@ -585,17 +570,18 @@ export default function TrainingLogPage() {
       count: monthActivities.length,
       tss: totalLoad.value,
       tssEstimated: totalLoad.estimated,
+      tssUnknownCount: totalLoad.unknownCount,
     };
-  }, [monthActivities]);
+  }, [monthActivities, ftp]);
 
   // 월간 일별 바 차트 데이터 (1일~말일)
-  const daysInMonth = new Date(selectedMonth.year, selectedMonth.month + 1, 0).getDate();
+  const daysInMonth = new Date(Date.UTC(selectedMonth.year, selectedMonth.month + 1, 0)).getUTCDate();
   const barValues = useMemo(
     () =>
       Array.from({ length: daysInMonth }, (_, i) => {
-        const key = dateToKey(new Date(selectedMonth.year, selectedMonth.month, i + 1));
+        const key = dateToKey(new Date(Date.UTC(selectedMonth.year, selectedMonth.month, i + 1)));
         const acts = byDay.get(key) ?? [];
-        return acts.reduce((s, a) => s + a.summary.distance / 1000, 0);
+        return acts.reduce((s, a) => s + finiteMetric(a.summary.distance) / 1000, 0);
       }),
     [byDay, daysInMonth, selectedMonth],
   );
@@ -606,7 +592,7 @@ export default function TrainingLogPage() {
 
   // 네비게이션
   const isThisMonth =
-    selectedMonth.year === today.getFullYear() && selectedMonth.month === today.getMonth();
+    selectedMonth.year === today.getUTCFullYear() && selectedMonth.month === today.getUTCMonth();
 
   const goPrevMonth = () => {
     setSelectedMonth((prev) => {
@@ -652,6 +638,7 @@ export default function TrainingLogPage() {
     }
     return (
       <MobileLogPage
+        ftp={ftp}
         activities={activities}
         year={selectedMonth.year}
         month={selectedMonth.month}
@@ -678,13 +665,15 @@ export default function TrainingLogPage() {
           <Text as="h1" variant="title" style={{ margin: 0 }}>{t("page.logTitle")}</Text>
           <Text as="span" variant="caption" tone="secondary">{t("page.logActivities", { count: kpi.count })}</Text>
         </div>
+        <Text variant="caption" tone="secondary">{t("log.recordBasis")}</Text>
+        {kpi.tssEstimated && <Text variant="caption" tone="secondary">{t("log.estimateBasis")}</Text>}
         <Card padding="none" style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
           {[
             { label: t("page.logTotalDistance"), value: `${kpi.dist.toFixed(1)}`, unit: "km", color: "var(--aqua)" },
             { label: t("page.logTotalTime"), value: formatDuration(kpi.time), unit: null, color: "var(--ink-0)" },
             { label: t("page.logTotalElevation"), value: `${kpi.elev}`, unit: "m", color: "var(--amber)" },
             // 추정치가 섞였으면 밝힌다 — 서버 사전계산값과 구분되지 않으면 안 된다 (#2237).
-            { label: t("page.logTotalTSS"), value: kpi.tss == null ? "–" : `${kpi.tss}`, unit: kpi.tssEstimated ? t("page.tssEstimatedIncluded") : null, color: "var(--rose)" },
+            { label: t("page.logTotalTSS"), value: kpi.tss == null ? "–" : `${kpi.tss}`, unit: kpi.tssUnknownCount > 0 ? t("log.loadPartial", { count: kpi.tssUnknownCount }) : kpi.tssEstimated ? t("page.tssEstimatedIncluded") : null, color: "var(--rose)" },
             { label: t("page.logActivityCount"), value: `${kpi.count}`, unit: t("page.logActivityUnit"), color: "var(--lime)" },
           ].map(({ label, value, unit, color }, i) => (
             <div key={label} style={{ padding: "14px 16px", borderRight: i < 4 ? "1px solid var(--line-soft)" : "none" }}>
@@ -745,7 +734,7 @@ export default function TrainingLogPage() {
           {!isThisMonth && (
             <Button variant="secondary" size="sm"
               onClick={() =>
-                setSelectedMonth({ year: today.getFullYear(), month: today.getMonth() })
+                setSelectedMonth({ year: today.getUTCFullYear(), month: today.getUTCMonth() })
               }
             >
               {t("page.currentMonth")}
@@ -814,7 +803,7 @@ export default function TrainingLogPage() {
               : calendar.map((week) => {
                   // 주간 TSS 합계
                   const weekLoad = sumActivityTss(
-                    week.flatMap((cell) => byDay.get(dateToKey(cell.date)) ?? []),
+                    week.flatMap((cell) => byDay.get(dateToKey(cell.date)) ?? []), ftp,
                   );
                   return (
                   <div
@@ -833,12 +822,13 @@ export default function TrainingLogPage() {
                       const isToday = key === todayKey;
                       return (
                         <LogDayCell
+                          ftp={ftp}
                           key={key}
                           activities={acts}
                           plans={plans}
                           isToday={isToday}
                           isCurrentMonth={cell.isCurrentMonth}
-                          dayNum={cell.date.getDate()}
+                          dayNum={cell.date.getUTCDate()}
                           dateKey={key}
                           todayKey={todayKey}
                         />
@@ -852,6 +842,7 @@ export default function TrainingLogPage() {
                     }}>
                       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-0-5)" }}>TSS</div>
                       <div>{weekLoad.value == null ? "–" : weekLoad.value}{weekLoad.estimated ? t("page.tssEstimated") : ""}</div>
+                      {weekLoad.unknownCount > 0 && <Text variant="caption">{t("log.loadPartial", { count: weekLoad.unknownCount })}</Text>}
                     </div>
                   </div>
                   );

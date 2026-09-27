@@ -19,7 +19,11 @@
     "activitiesCountTitle": "{{count}} activities — click each row",
     "planLabel": "Plan",
     "showExtraActivities": "Show {{count}} more",
-    "hideExtraActivities": "Show less"
+    "hideExtraActivities": "Show less",
+    "loadPartial": "{{count}} unknown loads · known values only",
+    "loadUnknown": "Actual load unknown · adherence unavailable",
+    "recordBasis": "KST dates · Linked saved records are listed separately; training load counts each workout once.",
+    "estimateBasis": "Estimated load uses the current profile FTP or duration and may differ from the saved server load."
   },
   "goal": "Goal",
   "goalSetup": "Goal Setup",
@@ -150,6 +154,7 @@
   },
   "metrics": {
     "progress": "Progress",
+    "progressBasis": "Progress against the current prescription. Completed prescription load is used when actual load is absent; this is not a measured load total.",
     "sessionsLeft": "Sessions left",
     "completedTSS": "Completed TSS",
     "weeksLeft": "Weeks Left",

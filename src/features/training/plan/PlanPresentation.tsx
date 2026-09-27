@@ -1,3 +1,4 @@
+import { planDayKey as kstDayKey, planDayStartMs } from "@shared/training/planDate";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Goal, PlanWeek, PlanDay } from "@shared/types/goal";
@@ -23,7 +24,7 @@ import {
 } from "./planDisplay";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const kstDayKey = (ms: number) => new Date(ms + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
 const COMPACT_PLAN_MEDIA = '(max-width: 1023px)';
 
 /** 달력 9열이 읽히지 않는 태블릿 너비에서는 주간 리스트를 사용한다. */
@@ -79,11 +80,11 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
         ? `${(effectiveDur * 0.15).toFixed(1)}km`
         : `${(effectiveDur * 0.45).toFixed(1)}km`
     : null;
-  // 완료 달성률: actualTSS / plannedTSS. actualTSS=0(데이터 미수집)은 0%가 아닌 미표시로 처리.
-  const completionRatio = day.completed && day.actualTSS != null && day.actualTSS > 0 && day.plannedTSS > 0
-    ? day.actualTSS / day.plannedTSS
+  // 완료 달성률은 조정된 처방 대비다. 기존 actualTSS=0은 미수집과 명시적0을 구분할 근거가 없어 미표시한다.
+  const completionRatio = day.completed && day.actualTSS != null && day.actualTSS > 0 && effectiveTSS > 0
+    ? day.actualTSS / effectiveTSS
     : null;
-  const daysUntil = Math.max(0, Math.floor((day.date - Date.now()) / DAY_MS));
+  const daysUntil = Math.max(0, Math.floor((day.date - planDayStartMs(Date.now())) / DAY_MS));
   const downshift = !isPast && !isSkipped && !isRest && !isGoal && !day.completed && currentTsb != null
     ? evaluateRecoveryDownshift({ workoutKind: day.workout, tsb: currentTsb, daysUntil })
     : null;
@@ -810,6 +811,7 @@ export default function PlanPresentation({
                 <span>{t('metrics.progress')}</span>
                 <strong style={{ color: 'var(--lime)', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-md)' }}>{progress}%</strong>
               </div>
+              <Text variant="caption" tone="secondary">{t("metrics.progressBasis")}</Text>
               <div role="progressbar" aria-label={t('metrics.progress')} aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} style={{ height: 6, borderRadius: 'var(--r-xs)', background: 'var(--bg-3)', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, progress))}%`, background: 'var(--lime)' }} />
               </div>

@@ -23,6 +23,7 @@ it("makes all year-month labels visible in a horizontally scrollable chart", () 
   expect(props.options.plugins.legend.display).toBe(false);
   const tooltipLines = props.options.plugins.tooltip.callbacks.label({ dataIndex: 0 });
   expect(tooltipLines).toHaveLength(4);
+  expect(tooltipLines).toContain("저장 기록 1건");
   expect(tooltipLines.filter((line: string) => line.includes("거리"))).toHaveLength(1);
   expect(screen.getByTestId("bar").parentElement?.parentElement).toHaveStyle({ overflowX: "auto" });
   expect(screen.getByText("2024.01 – 2025.12")).toBeInTheDocument();

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { FirebaseServicesProvider } from "../contexts/FirebaseServicesContext";
 import { setCollectionDocs } from "../__tests__/mocks/firebase";
+import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { normalizePlanSport, usePlanModel } from "./usePlanModel";
 import * as trainingSurfaceCache from "../embedded/trainingSurfaceCache";
 import {
@@ -55,7 +56,8 @@ describe("usePlanModel", () => {
     mocks.locale = "ko";
     mocks.user = { uid: "owner" };
     mocks.freshTraining.mockClear();
-    mocks.fitnessTimeseries.mockClear();
+    mocks.fitnessTimeseries.mockReset().mockReturnValue({timeseries: null, loaded: true});
+    resetRuntimeConfigForTests({trainingDecisionEnabled: false});
     vi.mocked(collection).mockClear();
     vi.mocked(getDocs).mockClear();
   });
@@ -439,4 +441,16 @@ describe("usePlanModel", () => {
     await waitFor(() => expect(hook.result.current.user).toBeNull());
     expect(getTrainingSurfaceCache(cacheKey)).toBeNull();
   });
+  it("현대 입력 증거가 손상된 TSB는 회복 처방 근거로 승격하지 않는다", () => {
+    const date = new Date().toISOString().slice(0, 10);
+    const base = {discipline: "bike", schemaVersion: 1, computedAt: Date.now(), startDate: date, endDate: date, pointCount: 1, points: [{date, ctl: 20, atl: 40, tsb: -20, dailyLoad: 10}]};
+    mocks.fitnessTimeseries.mockReturnValue({timeseries: base, loaded: true} as never);
+    const legacy = renderHook(() => usePlanModel("bike"), {wrapper});
+    expect(legacy.result.current.currentTsb).toBe(-20);
+    legacy.unmount();
+    mocks.fitnessTimeseries.mockReturnValue({timeseries: {...base, loadSnapshot: {inputDigest: ""}, pmc: {status: "processed"}}, loaded: true} as never);
+    const modern = renderHook(() => usePlanModel("bike"), {wrapper});
+    expect(modern.result.current.currentTsb).toBeNull();
+  });
+
 });

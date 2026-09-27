@@ -12,7 +12,7 @@ const source = (points: FitnessPoint[], discipline: FitnessTimeseriesDoc['discip
 function lifecycleSource(status: 'pending' | 'processed' | 'failed' = 'pending'): FitnessTimeseriesDoc {
   const doc = source([point('2026-09-05')])
   return { ...doc,
-    loadSnapshot: { inputRevision: 2, inputDigest: 'new', asOf: doc.computedAt,
+    loadSnapshot: { inputRevision: 2, inputDigest: 'a'.repeat(64), asOf: doc.computedAt,
       inputReadTime: { seconds: doc.computedAt / 1000, nanoseconds: 1 }, coverageStartDate: '2026-09-05', coverageEndDate: '2026-09-06',
       points: [{ date: '2026-09-05', dailyLoad: 30, status: 'final', quality: 'precomputed' },
         { date: '2026-09-06', dailyLoad: 70, status: 'final', quality: 'estimated' }],
@@ -62,7 +62,7 @@ describe('서버 운동부하와 PMC 수명주기', () => {
   it('PMC가 완료됐어도 알 수 없는 부하 입력은 확정으로 승격하지 않는다', () => {
     const doc = lifecycleSource('processed')
     doc.loadSnapshot!.points[0].status = 'unknown'
-    expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'server' })
+    expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'pending' })
   })
 
   it('다른 종목의 알려진 0도 통합 입력으로 사용하고 전부 0인 과거 범위를 늘리지 않는다', () => {
@@ -256,3 +256,17 @@ describe('PMC 연도별 월 비교', () => {
     expect(comparison.series[0].buckets[0].partial).toBe(true)
   })
 })
+
+
+describe('현대 PMC 입력 증거 검증', () => {
+  it.each(['empty digest', 'negative timestamp', 'sparse coverage', 'missing quality', 'negative load'])('%s는 확정 부하로 승격하지 않는다', (invalid) => {
+    const doc = lifecycleSource('processed');
+    const load = doc.loadSnapshot!;
+    if (invalid === 'empty digest') load.inputDigest = '';
+    if (invalid === 'negative timestamp') load.inputReadTime.seconds = -1;
+    if (invalid === 'sparse coverage') load.points.pop();
+    if (invalid === 'missing quality') delete (load.points[0] as Partial<typeof load.points[0]>).quality;
+    if (invalid === 'negative load') load.points[0].dailyLoad = -1;
+    expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ctl: 10, loadStatus: 'unconfirmed', calculationStatus: 'estimated'});
+  });
+});
