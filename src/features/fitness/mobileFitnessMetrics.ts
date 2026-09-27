@@ -10,21 +10,22 @@ export function aggregateRecentZoneSeconds(
   activities: ReadonlyArray<Pick<Activity, "id" | "startTime">>,
   metricsMap: ReadonlyMap<string, ActivityMetrics>,
   metricKey: ZoneMetricKey,
-  zoneCount: number,
   now = Date.now(),
   windowDays = FITNESS_ZONE_WINDOW_DAYS,
 ): { counts: number[]; total: number } {
   const cutoff = now - windowDays * 24 * 60 * 60 * 1000;
+  const zoneCount = metricKey === "powerZoneSec" ? 7 : 5;
   const counts = Array.from({ length: zoneCount }, () => 0);
   let total = 0;
 
   for (const activity of activities) {
     if (activity.startTime < cutoff || activity.startTime > now) continue;
     const values = metricsMap.get(activity.id)?.[metricKey];
-    if (!values || values.length < (metricKey === "powerZoneSec" ? 6 : zoneCount)) continue;
+    // 잘린 배열의 없는 존을 0초로 추정하지 않는다. 한 활동의 전체 존 자료가 유효해야 합산한다.
+    if (!Array.isArray(values) || values.length !== zoneCount
+      || !values.every((value) => Number.isFinite(value) && value >= 0)) continue;
     for (let i = 0; i < zoneCount; i++) {
-      const value = values[i] ?? 0;
-      if (!Number.isFinite(value) || value <= 0) continue;
+      const value = values[i]!;
       counts[i]! += value;
       total += value;
     }

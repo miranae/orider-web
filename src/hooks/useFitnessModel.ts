@@ -708,7 +708,6 @@ export function useFitnessModel(
       disciplineActivities,
       metricsMap,
       "hrZoneSec",
-      5,
       fitnessClock,
       30,
     );
@@ -719,7 +718,6 @@ export function useFitnessModel(
       disciplineActivities,
       metricsMap,
       "hrZoneSec",
-      5,
       fitnessClock,
     );
     return total === 0 ? null : counts.map((count) => Math.round((count / total) * 100));
@@ -809,7 +807,7 @@ export function useFitnessModel(
       last28.slice(week * 7, week * 7 + 7).reduce((sum, day) => sum + day.totalLoad, 0),
     ));
     const { counts: powerZoneCounts, total: powerSamples } = discipline === "bike"
-      ? aggregateRecentZoneSeconds(disciplineActivities, metricsMap, "powerZoneSec", 7)
+      ? aggregateRecentZoneSeconds(disciplineActivities, metricsMap, "powerZoneSec", fitnessClock)
       : { counts: [0, 0, 0, 0, 0, 0, 0], total: 0 };
     const hrFractions = mobileZoneDistribution ?? [0, 0, 0, 0, 0];
     const maxHr = profile?.maxHr ?? 200;
@@ -911,7 +909,7 @@ export function useFitnessModel(
     };
   }, [
     canonicalFtpW, canonicalRiderView, combinedLoad, currentPoint, cyclingAbility, dailyData,
-    discipline, disciplineActivities, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
+    discipline, disciplineActivities, fitnessClock, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
     metricsMap, mobileZoneDistribution, pdc, powerCurveProgressions, profile, projection,
     runEvidence, swimEvidence, t, thresholdDecision, weeklyStats,
   ]);

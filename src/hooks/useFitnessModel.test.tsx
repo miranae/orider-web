@@ -208,3 +208,14 @@ it("shows all seven historical power zones even without a current profile FTP", 
  expect(result.current.mobilePageProps.data.zones[6]?.pct).toBe(50);
  expect(result.current.mobilePageProps.data.zones.every((zone) => zone.rangeLabel === "")).toBe(true);
 });
+
+it("uses valid HR evidence when legacy power zones leave Z7 unknown", () => {
+  seed("bike", [bike]);
+  mocks.metrics.set(bike.id, {
+    powerZoneSec: [100, 0, 0, 0, 0, 100], hrZoneSec: [100, 100, 0, 0, 0],
+  } as ActivityMetrics);
+  const { result } = renderHook(() => useFitnessModel("bike", options));
+  expect(result.current.mobilePageProps.data.zoneSource).toBe("hr");
+  expect(result.current.mobilePageProps.data.zones).toHaveLength(5);
+  expect(result.current.mobilePageProps.data.zones[0]?.pct).toBe(50);
+});
