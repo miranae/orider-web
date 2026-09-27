@@ -150,6 +150,20 @@ describe("ActivityPage", () => {
     });
   });
 
+  it.each([[Date.now(), null], [Number.MAX_VALUE, null], [null, null], [Date.now(), 0]])("keeps healthy data with startTime %s and optional summary %s", async (startTime, summary) => {
+    const activity = createMockActivity({id: "test-activity", userId: "test-uid", source: "orider", description: "요약 미확인 경로 기록"});
+    setDocData("activities/test-activity", {...activity, summary, startTime});
+    setDocData("activity_streams/test-activity", {userId: "test-uid", json: JSON.stringify({
+      userId: "test-uid", time: [0, 1, 2, 3], distance: [0, 10, 20, 30],
+      latlng: [[37, 127], [37.001, 127], [37.002, 127], [37.003, 127]],
+      watts: [100, 200, 300, 400], heartrate: [130, 140, 150, 160],
+    })});
+    const {container} = renderWithProviders(<ActivityPage />, {authenticated: true});
+    await waitFor(() => expect(screen.getByTestId("route-map")).toBeInTheDocument());
+    expect(screen.getByText("요약 미확인 경로 기록")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/NaN|Infinity/);
+  });
+
   it("shows canonical overview before sharing and reuses it across analysis tab switches", async () => {
     mockRoute.activityId = "overview-tab-owner";
     const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid" });
@@ -726,11 +740,7 @@ describe("ActivityPage", () => {
   });
 
   it("shows processing state instead of not found when activity summary is still missing", async () => {
-    const { summary: _summary, ...activityWithoutSummary } = createMockActivity({
-      id: "test-activity",
-      description: "수집 중 활동",
-    });
-    setDocData("activities/test-activity", activityWithoutSummary as unknown as Record<string, unknown>);
+    setDocData("activities/test-activity", {userId: "test-uid"});
 
     renderWithProviders(<ActivityPage />);
 

@@ -542,7 +542,7 @@ export default function ActivityPage() {
 
   const s = activity.summary;
   const displayedSummary = selectedSummary ?? s;
-  const activityDate = Number.isFinite(activity.startTime)
+  const activityDate = Number.isFinite(activity.startTime) && Number.isFinite(new Date(activity.startTime).getTime())
     ? new Date(activity.startTime).toISOString().slice(0, 10)
     : null;
   const fitnessAtActivity = fitnessTimeseries?.points
@@ -818,9 +818,9 @@ export default function ActivityPage() {
                   athlete: activity.nickname,
                   sport: tCommon(getSportLabelKey(activity.type)),
                   date: formatFullDate(activity.startTime),
-                  distance: `${distVal(s.distance)} ${distUnit}`,
-                  duration: formatDuration(s.ridingTimeMillis),
-                  elevation: `${elevVal(s.elevationGain)} ${elevUnit}`,
+                  distance: Number.isFinite(s.distance) ? `${distVal(s.distance)} ${distUnit}` : "—",
+                  duration: Number.isFinite(s.ridingTimeMillis) ? formatDuration(s.ridingTimeMillis) : "—",
+                  elevation: Number.isFinite(s.elevationGain) ? `${elevVal(s.elevationGain)} ${elevUnit}` : "—",
                   distanceLabel: t("stat.distance"),
                   durationLabel: t("stat.time"),
                   elevationLabel: t("stat.elev"),

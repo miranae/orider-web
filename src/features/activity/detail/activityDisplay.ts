@@ -18,6 +18,7 @@ export interface UploadedPhoto {
 export function useTimeAgo() {
   const { t, i18n } = useTranslation("activity");
   return (timestamp: number): string => {
+    if (!Number.isFinite(timestamp) || !Number.isFinite(new Date(timestamp).getTime())) return "—";
     const diff = Date.now() - timestamp;
     const hours = Math.floor(diff / 3600000);
     if (hours < 1) return t("card.timeAgo.justNow");
@@ -35,7 +36,7 @@ export function useTimeAgo() {
 export function useFormatFullDate() {
   const { i18n } = useTranslation();
   return (timestamp: number): string =>
-    new Date(timestamp).toLocaleDateString(i18n.language === "en" ? "en-US" : "ko-KR", {
+    !Number.isFinite(timestamp) || !Number.isFinite(new Date(timestamp).getTime()) ? "—" : new Date(timestamp).toLocaleDateString(i18n.language === "en" ? "en-US" : "ko-KR", {
       year: "numeric",
       month: "long",
       day: "numeric",

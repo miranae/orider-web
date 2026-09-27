@@ -103,7 +103,10 @@ export function useActivityAnalysisModel(
       if (cancelled) return;
       if (snap.exists()) {
         const data = snap.data();
-        if (data.summary == null) {
+        const usableIdentity = typeof data.userId === "string" && data.userId.length > 0
+          && typeof data.type === "string" && data.type.length > 0;
+        const usableSummary = data.summary !== null && typeof data.summary === "object" && !Array.isArray(data.summary);
+        if (!usableSummary && !usableIdentity) {
           setActivity(null);
           setActivityProcessing(true);
           setLoadingActivity(false);
@@ -113,7 +116,8 @@ export function useActivityAnalysisModel(
           return;
         }
         setActivityProcessing(false);
-        setActivity({ id: snap.id, ...data } as Activity);
+        // 누락된 선택 요약이 정상 경로/센서/개요의 조회까지 막지 않는다. 수치 0은 만들지 않는다.
+        setActivity({ id: snap.id, ...data, summary: usableSummary ? data.summary : {} } as Activity);
       } else {
         setActivityProcessing(false);
       }
