@@ -121,7 +121,9 @@ describe("pass5 accepted fitness IO", () => {
     const {result} = renderHook(() => useFitnessModel("tri",options));
     expect(result.current.triFitnessBreakdown.bike.fitness).toEqual([point]);
     expect(result.current.triFitnessBreakdown.bike.weeklyTSS).toBe(100);
-    expect(result.current.dailyData.at(-1)).toMatchObject({totalLoad:100,unknownCount:1});
+    // 정본 날짜는 UTC이고 레거시 활동은 로컬 날짜라 자정 경계에서 같은 행이 아닐 수 있다.
+    expect(result.current.dailyData.find(day => day.date === point.date)?.totalLoad).toBe(100);
+    expect(result.current.dailyData.reduce((sum, day) => sum + (day.unknownCount ?? 0), 0)).toBe(1);
     expect(result.current.currentPoint).toBeNull();
   });
   it("keeps period-specific known flags for old100 and unknown today", () => {
