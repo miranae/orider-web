@@ -42,7 +42,7 @@ function main() {
   for (const [file, expected] of [
     ['training/activityLoad.ts', '823c105bfb1d78bade3866ee97b006645ddf26343ec3167af76e9cedf60410cf'],
     ['training/planMetrics.ts', '954ff82007acf63420fd345512502a3fea3bae1af5818ffb8a6d00909a2f9ac6'],
-    ['training/acceptedActivityLoad.ts', '43ff004ddd094679d43c9f6ac8ff93f9a2fc5c6f7a323bdb85fd5e6ba3cfcb6d'],
+  ['training/acceptedActivityLoad.ts', '3c65bbcd3bd07c9463667863f1f573ad31c500281eb44fff841d4b5027fcce3b'],
     ['training/effectiveExecutionPrescription.ts', 'cac6fc75f2e0168feeb229492501b7d14e92ac66f30e71a853cb4bc5f4345ad4'],
     ['training/fitnessLoadLifecycle.ts', '10a3da308bfce6b5c392f676a414b123d11a509b8d88bf00d2e1c9fb7eee121c'],
   ]) {
