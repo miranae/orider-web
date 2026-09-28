@@ -864,17 +864,18 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             <div style={{ marginTop: 'var(--space-4)', paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)" }}>
               <div>
                 <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("daily.weekTSS")}</Text>
-                <div><Text variant="dataMedium">{weeklyStats.thisWeekUnknownCount && !weeklyStats.hasKnownThisWeekLoad ? "–" : weeklyStats.thisWeekTSS}</Text></div>
+                <div><Text variant="dataMedium">{weeklyStats.thisWeekUnknownCount && !weeklyStats.hasKnownThisWeekLoad ? "–" : weeklyStats.thisWeekTSS ?? "–"}</Text></div>
+                {weeklyStats.partial && <Text variant="caption">{t("history.partial")}</Text>}
                 {weeklyStats.thisWeekUnknownCount > 0 && <Text variant="caption">{trainingT("log.loadPartial", { count: weeklyStats.thisWeekUnknownCount })}</Text>}
               </div>
               <div>
                 <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("daily.avgWeekTSS")}</Text>
-                <div><Text variant="dataMedium">{weeklyStats.unknownCount && !weeklyStats.hasKnownLoad ? "–" : weeklyStats.avgWeekTSS}</Text></div>
+                <div><Text variant="dataMedium">{weeklyStats.unknownCount && !weeklyStats.hasKnownLoad ? "–" : weeklyStats.avgWeekTSS ?? "–"}</Text></div>
                 {weeklyStats.unknownCount > 0 && <Text variant="caption">{trainingT("log.loadPartial", { count: weeklyStats.unknownCount })}</Text>}
               </div>
               <div>
                 <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("daily.restDays")}</Text>
-                <div><Text variant="dataMedium">{weeklyStats.restDays}</Text><Text variant="unit">{t("daily.daysUnit")}</Text></div>
+                <div><Text variant="dataMedium">{weeklyStats.restDays ?? "–"}</Text><Text variant="unit">{t("daily.daysUnit")}</Text></div>
               </div>
             </div>
           </Card>

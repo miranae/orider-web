@@ -17,6 +17,15 @@ describe("useFitnessClock", () => {
     expect(result.current).toBe(beforeMidnight.getTime() + 100);
   });
 
+  it("ticks at UTC midnight even when local midnight is later", () => {
+    vi.useFakeTimers();
+    const now = Date.parse("2026-09-28T23:59:59.900Z");
+    vi.setSystemTime(now);
+    const { result } = renderHook(() => useFitnessClock());
+    act(() => vi.advanceTimersByTime(100));
+    expect(result.current).toBe(now + 100);
+  });
+
   it("schedules an earlier refresh when UserFitness reaches the shared stale threshold", () => {
     const now = new Date(2026, 6, 14, 10, 0, 0).getTime();
     const updatedAt = now - STALE_THRESHOLD_MS + 5_000;

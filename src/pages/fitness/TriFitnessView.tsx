@@ -405,7 +405,7 @@ function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess
 // ─────────────────────────────────────────────────────────────────────────────
 // 일별 부하 바 차트 (3종목 스택)
 // ─────────────────────────────────────────────────────────────────────────────
-type DailyBarEntry = { date: string; bike: number; run: number; swim: number };
+type DailyBarEntry = { date: string; bike: number | null; run: number | null; swim: number | null; unknownCount: number };
 
 const BIKE_COLOR = DISCIPLINE_CHART_COLORS.bike;
 
@@ -418,6 +418,7 @@ function recentCalendarDays<T extends { date: string }>(points: readonly T[], da
 
 function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
   const { t } = useTranslation("fitness");
+  const { t: trainingT } = useTranslation("training");
   const max = 300;
   const entries = data.length > 0 ? data : ([] as DailyBarEntry[]);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -442,8 +443,11 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
         style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-1)", height: 110 }}
         onPointerLeave={() => setHoverIdx(null)}
       >
-        {entries.map(({ bike, run, swim }, i) => {
-          const isRest = bike === 0 && run === 0 && swim === 0;
+        {entries.map((entry, i) => {
+          const bike = entry.bike ?? 0;
+          const run = entry.run ?? 0;
+          const swim = entry.swim ?? 0;
+          const isRest = entry.bike === 0 && entry.run === 0 && entry.swim === 0 && !entry.unknownCount;
           const dim = hoverIdx != null && hoverIdx !== i ? 0.5 : 1;
           return (
             <div
@@ -470,6 +474,7 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
                   <div style={{ height: `${(swim / max) * 100}%`, background: DISCIPLINE_CHART_COLORS.swim, borderRadius: swim > 0 ? "1px 1px 0 0" : 0, minHeight: swim > 0 ? 2 : 0 }} />
                   <div style={{ height: `${(run / max) * 100}%`, background: DISCIPLINE_CHART_COLORS.run, borderRadius: run > 0 && swim === 0 ? "1px 1px 0 0" : 0, minHeight: run > 0 ? 2 : 0 }} />
                   <div style={{ height: `${(bike / max) * 100}%`, background: BIKE_COLOR, borderRadius: bike > 0 && run === 0 && swim === 0 ? "1px 1px 0 0" : 0, minHeight: bike > 0 ? 2 : 0 }} />
+                  {entry.unknownCount > 0 && <div aria-label={trainingT("log.loadPartial", { count: entry.unknownCount })} style={{ height: 4, borderTop: "1px dashed var(--ink-3)" }} />}
                 </>
               )}
             </div>
@@ -502,12 +507,13 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
             <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
               <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: color, flexShrink: 0 }} />
               <span style={{ color: "var(--ink-2)", minWidth: 44 }}>{label}</span>
-              <span style={{ color: "var(--ink-0)", fontWeight: 700, marginLeft: "auto" }}>{Math.round(v)}</span>
+              <span style={{ color: "var(--ink-0)", fontWeight: 700, marginLeft: "auto" }}>{v == null ? "—" : Math.round(v)}</span>
             </div>
           ))}
+          {hover.unknownCount > 0 && <Text as="p" variant="caption" tone="secondary">{trainingT("log.loadPartial", { count: hover.unknownCount })}</Text>}
           <div style={{ marginTop: "var(--space-1)", paddingTop: 3, borderTop: "1px solid var(--line-soft)", display: "flex", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
             <span style={{ color: "var(--ink-3)" }}>{t("triView.total")}</span>
-            <span style={{ color: "var(--ink-0)", fontWeight: 700, marginLeft: "auto" }}>{Math.round(hover.bike + hover.run + hover.swim)} TSS</span>
+            <span style={{ color: "var(--ink-0)", fontWeight: 700, marginLeft: "auto" }}>{hover.bike == null && hover.run == null && hover.swim == null ? "—" : Math.round((hover.bike ?? 0) + (hover.run ?? 0) + (hover.swim ?? 0))} TSS</span>
           </div>
         </div>
       )}
@@ -550,11 +556,11 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
     const unknownCount = entry.weeklyUnknownCount ?? days.reduce((sum, day) => sum + (day.unknownCount ?? 0), 0);
     const known = entry.hasKnownWeeklyLoad ?? (days.some(day => day.activities.length > 0 || day.totalLoad > 0)
       || entry.fitness.some(point => point.date >= weekStart && point.date <= today));
-    return [discipline, { unknownCount, known, display: known ? Math.round(entry.weeklyTSS).toString() : "—" }];
+    return [discipline, { unknownCount, known, display: known ? Math.round(entry.weeklyTSS ?? 0).toString() : "—" }];
   })) as Record<"bike" | "run" | "swim", { unknownCount: number; known: boolean; display: string }>;
   const weeklyUnknownCount = Object.values(weeklyEvidence).reduce((sum, entry) => sum + entry.unknownCount, 0);
   const displayedWeeklyTss = Object.values(weeklyEvidence).some(entry => entry.known)
-    ? Math.round(triBreakdown.bike.weeklyTSS + triBreakdown.run.weeklyTSS + triBreakdown.swim.weeklyTSS).toString()
+    ? Math.round((triBreakdown.bike.weeklyTSS ?? 0) + (triBreakdown.run.weeklyTSS ?? 0) + (triBreakdown.swim.weeklyTSS ?? 0)).toString()
     : "—";
 
   const totalForPct = totalCTL || 1;
@@ -584,13 +590,25 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
 
   // ── 일별 부하 차트 데이터 (최근 42일) ────────────────────────────────────
   const dailyLoadData = useMemo((): DailyBarEntry[] => {
-    return recentCalendarDays(timeline, 42).map((point) => ({
-      date: point.date,
-      bike: point.bike?.dailyLoad ?? 0,
-      run: point.run?.dailyLoad ?? 0,
-      swim: point.swim?.dailyLoad ?? 0,
-    }));
-  }, [timeline]);
+    // 확정 일별 부분합은 통합 PMC 유무와 독립이다. 미확인 종목을 휴식 0으로 만들지 않는다.
+    const days = new Map<string, DailyBarEntry>();
+    for (const discipline of ["bike", "run", "swim"] as const) {
+      const entry = triBreakdown[discipline];
+      const now = new Date();
+      const today = entry.canonical ? now.toISOString().slice(0, 10)
+        : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const cutoff = new Date(Date.parse(`${today}T00:00:00Z`) - 41 * 86_400_000).toISOString().slice(0, 10);
+      const source = entry.dailyData ?? entry.fitness.map(point => ({ date: point.date, totalLoad: point.dailyLoad, activities: [], unknownCount: 0 }));
+      for (const day of source) {
+        if (day.date < cutoff || day.date > today) continue;
+        const bar = days.get(day.date) ?? { date: day.date, bike: null, run: null, swim: null, unknownCount: 0 };
+        bar[discipline] = day.unknownCount && !day.activities.length && day.totalLoad === 0 ? null : day.totalLoad;
+        bar.unknownCount += day.unknownCount ?? 0;
+        days.set(day.date, bar);
+      }
+    }
+    return [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
+  }, [triBreakdown]);
 
   // ── PMC 실데이터 시계열 (rangeLocal 일 기준) ─────────────────────────────
   const pmcSeries = useMemo(() => {
@@ -795,6 +813,7 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
         </Card>
       </div>
 
+      {Object.values(triBreakdown).some(entry => entry.weeklyTSS === null) && Object.values(weeklyEvidence).some(entry => entry.known) && <Text as="p" variant="caption" tone="secondary">{t("history.partial")}</Text>}
       {weeklyUnknownCount > 0 && <Text as="p" variant="caption" tone="secondary">{trainingT("log.loadPartial", { count: weeklyUnknownCount })}</Text>}
 
       {/* 종목별 드릴다운 카드 */}

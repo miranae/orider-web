@@ -82,7 +82,7 @@ export function resolveFitnessDiscipline(value: string | null | undefined): Disc
 
 export interface TriDisciplineFitness {
   fitness: FitnessPoint[];
-  weeklyTSS: number;
+  weeklyTSS: number | null;
   canonical: boolean;
   dailyData?: DailyLoad[];
   unknownCount?: number;
@@ -566,6 +566,12 @@ export function useFitnessModel(
       ? isCanonicalTimeseries(selectedApiTimeseries, discipline)
       : isCanonicalTimeseries(timeseries, discipline)
   ));
+  const canonicalWeeklySummaries = useMemo(() => Object.fromEntries((["bike", "run", "swim"] as const).map(sport => {
+    const summary = canonicalFitness.values?.weeklySummaries?.[sport];
+    const current = summary
+      && new Date(summary.computedAt).toISOString().slice(0, 10) === new Date(fitnessClock).toISOString().slice(0, 10);
+    return [sport, current ? summary.totalTss : null];
+  })) as Record<TimeseriesDiscipline, number | null>, [canonicalFitness.values, fitnessClock]);
   const resolvedTriFitness = useMemo<TriFitnessBreakdown>(() => {
     const resolve = (
       triDiscipline: TimeseriesDiscipline,
@@ -589,11 +595,11 @@ export function useFitnessModel(
         fitness,
         dailyData,
         weeklyUnknownCount: recentDays.reduce((sum, day) => sum + (day.unknownCount ?? 0), 0),
-        hasKnownWeeklyLoad: canonicalActive ? canonicalFitness.values != null : recentDays.some(day =>
+        hasKnownWeeklyLoad: canonicalActive && !hasCanonical ? canonicalWeeklySummaries[triDiscipline] !== null : recentDays.some(day =>
           day.activities.length > 0 || day.totalLoad > 0 || (!day.unknownCount && (hasCanonical || fitness.length > 0))),
         unknownCount: dailyData.reduce((sum, day) => sum + (day.unknownCount ?? 0), 0),
-        weeklyTSS: canonicalActive
-          ? canonicalFitness.values?.breakdown[triDiscipline].weeklyTSS ?? 0
+        weeklyTSS: canonicalActive && !hasCanonical
+          ? canonicalWeeklySummaries[triDiscipline]
           : recentDays.reduce((sum, day) => sum + day.totalLoad, 0),
         canonical: hasCanonical,
       };
@@ -603,7 +609,7 @@ export function useFitnessModel(
       run: resolve("run", triRunTimeseries),
       swim: resolve("swim", triSwimTimeseries),
     };
-  }, [activities, apiTimeseries, canonicalActive, canonicalFitness.values, canonicalPending, canonicalFtpW, fitnessClock, timeseries, triRunTimeseries, triSwimTimeseries]);
+  }, [activities, apiTimeseries, canonicalActive, canonicalFitness.values, canonicalPending, canonicalFtpW, canonicalWeeklySummaries, fitnessClock, timeseries, triRunTimeseries, triSwimTimeseries]);
   const triFitnessTimeline = useMemo(
     // API는 현재 통합값만 제공하고 통합 과거 시계열은 제공하지 않는다. canonical ON에서
     // 브라우저가 종목별 CTL을 합산해 새 정본을 만들지 않는다.
@@ -722,23 +728,57 @@ export function useFitnessModel(
   }, [disciplineActivities, metricsMap, t]);
 
   const weeklyStats = useMemo(() => {
-    const recent = dailyData.slice(-42);
-    const thisWeekTSS = recent.slice(-7).reduce((sum, day) => sum + day.totalLoad, 0);
-    const avgWeekTSS = Math.round(
-      recent.reduce((sum, day) => sum + day.totalLoad, 0) / Math.max(1, Math.ceil(recent.length / 7)),
-    );
-    let restDays = 0;
-    for (let index = recent.length - 1; index >= 0; index -= 1) {
-      if (recent[index]!.totalLoad === 0 && !recent[index]!.unknownCount) restDays += 1;
-      else break;
+    // 기록점 개수가 아닌 현재 날짜까지의 실제 달력 창을 사용한다. 서버 날짜는 UTC,
+    // 클라이언트 계산 날짜는 로컬이며 통합 화면도 각 종목의 날짜 근거를 유지한다.
+    const sources = discipline === "tri"
+      ? Object.entries(resolvedTriFitness).map(([sport, entry]) => ({ days: entry.dailyData ?? [], canonical: entry.canonical, weekly: canonicalActive && !entry.canonical ? canonicalWeeklySummaries[sport as TimeseriesDiscipline] : undefined }))
+      : [{ days: dailyData, canonical: hasCanonicalTimeseries, weekly: canonicalActive && !hasCanonicalTimeseries ? canonicalWeeklySummaries[discipline] : undefined }];
+    const recent = new Map<number, { load: number; unknown: number; known: boolean }>();
+    for (const source of sources) {
+      const today = source.canonical ? new Date(fitnessClock).toISOString().slice(0, 10) : toLocalDate(fitnessClock);
+      const todayDate = Date.parse(`${today}T00:00:00Z`);
+      for (const day of source.days) {
+        const offset = (todayDate - Date.parse(`${day.date}T00:00:00Z`)) / 86_400_000;
+        if (!Number.isInteger(offset) || offset < 0 || offset >= 42) continue;
+        const previous = recent.get(offset) ?? { load: 0, unknown: 0, known: false };
+        recent.set(offset, {
+          load: previous.load + day.totalLoad,
+          unknown: previous.unknown + (day.unknownCount ?? 0),
+          known: previous.known || day.activities.length > 0 || day.totalLoad > 0 || (source.canonical && !day.unknownCount),
+        });
+      }
     }
-    return { thisWeekTSS, avgWeekTSS, restDays,
-      thisWeekUnknownCount: recent.slice(-7).reduce((sum, day) => sum + (day.unknownCount ?? 0), 0),
-      unknownCount: recent.reduce((sum, day) => sum + (day.unknownCount ?? 0), 0),
-      hasKnownLoad: recent.some(day => day.activities.length > 0 || day.totalLoad > 0),
-      hasKnownThisWeekLoad: recent.slice(-7).some(day => day.activities.length > 0 || day.totalLoad > 0),
+    const thisWeek = [...recent].filter(([offset]) => offset < 7).map(([, day]) => day);
+    const allDays = [...recent.values()];
+    const weekCount = Math.max(1, Math.ceil((Math.max(-1, ...recent.keys()) + 1) / 7));
+    const summarySources = sources.filter(source => source.weekly !== undefined);
+    const knownSummaries = summarySources.flatMap(source => source.weekly === null ? [] : [source.weekly!]);
+    const summaryLoad = knownSummaries.reduce((sum, load) => sum + load, 0);
+    const hasKnownThisWeek = thisWeek.some(day => day.known) || knownSummaries.length > 0;
+    const hasKnownRecent = allDays.some(day => day.known) || knownSummaries.length > 0;
+    const unknownSummaryOnly = summarySources.length > 0 && !hasKnownThisWeek;
+    let restDays = 0;
+    // 날짜가 빠졌거나 부하가 미확인이면 확인된 연속 휴식일로 연장하지 않는다.
+    while (restDays < 42 && summarySources.length === 0) {
+      const day = recent.get(restDays);
+      if (!day || day.load !== 0 || day.unknown || !day.known) break;
+      restDays += 1;
+    }
+    return {
+      thisWeekTSS: unknownSummaryOnly ? null : thisWeek.reduce((sum, day) => sum + day.load, 0) + summaryLoad,
+      avgWeekTSS: summarySources.length > 0 ? null : Math.round(allDays.reduce((sum, day) => sum + day.load, 0) / weekCount),
+      restDays: summarySources.length > 0 ? null : restDays,
+      partial: summarySources.length > 0,
+      thisWeekUnknownCount: thisWeek.reduce((sum, day) => sum + day.unknown, 0),
+      unknownCount: allDays.reduce((sum, day) => sum + day.unknown, 0),
+      hasKnownLoad: hasKnownRecent,
+      hasKnownThisWeekLoad: hasKnownThisWeek,
+      weeklyTSS: summarySources.length > 0
+        ? (hasKnownThisWeek ? [thisWeek.reduce((sum, day) => sum + day.load, 0) + summaryLoad] : [])
+        : [3, 2, 1, 0].map(week => Math.round([...recent].reduce((sum, [offset, day]) =>
+          sum + (offset >= week * 7 && offset < (week + 1) * 7 ? day.load : 0), 0) + (week === 0 ? summaryLoad : 0))),
     };
-  }, [dailyData]);
+  }, [canonicalActive, canonicalWeeklySummaries, dailyData, discipline, fitnessClock, hasCanonicalTimeseries, resolvedTriFitness]);
   const zoneDistribution = useMemo(() => {
     const { counts, total } = aggregateRecentZoneSeconds(
       disciplineActivities,
@@ -839,10 +879,7 @@ export function useFitnessModel(
       tsb: point.tsb,
       date: point.date,
     }));
-    const last28 = dailyData.slice(-28);
-    const weeklyTSS = [0, 1, 2, 3].map((week) => Math.round(
-      last28.slice(week * 7, week * 7 + 7).reduce((sum, day) => sum + day.totalLoad, 0),
-    ));
+    const weeklyTSS = weeklyStats.weeklyTSS;
     const { counts: powerZoneCounts, total: powerSamples } = discipline === "bike"
       ? aggregateRecentZoneSeconds(disciplineActivities, metricsMap, "powerZoneSec", fitnessClock)
       : { counts: [0, 0, 0, 0, 0, 0, 0], total: 0 };
@@ -901,11 +938,12 @@ export function useFitnessModel(
       tsb: currentPoint?.tsb ?? 0,
       pmcHistory,
       pmcProjection: discipline === "tri" ? null : projection?.series ?? null,
-      today: toLocalDate(Date.now()),
+      today: hasCanonicalTimeseries ? new Date(fitnessClock).toISOString().slice(0, 10) : toLocalDate(fitnessClock),
       weeklyTSS,
       thisWeekTSS: weeklyStats.thisWeekTSS,
       avgWeekTSS: weeklyStats.avgWeekTSS,
       restDays: weeklyStats.restDays,
+      weeklyLoadPartial: weeklyStats.partial,
       loadUnknownCount: weeklyStats.unknownCount,
       thisWeekUnknownCount: weeklyStats.thisWeekUnknownCount,
       hasKnownWeeklyLoad: weeklyStats.hasKnownLoad,
@@ -949,7 +987,7 @@ export function useFitnessModel(
       discipline,
     };
   }, [
-    canonicalFtpW, canonicalRiderView, combinedLoad, currentPoint, cyclingAbility, dailyData,
+    canonicalFtpW, canonicalRiderView, combinedLoad, currentPoint, cyclingAbility, hasCanonicalTimeseries,
     discipline, disciplineActivities, fitnessClock, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
     metricsMap, mobileZoneDistribution, pdc, powerCurveProgressions, profile, projection,
     runEvidence, swimEvidence, t, thresholdDecision, weeklyStats,

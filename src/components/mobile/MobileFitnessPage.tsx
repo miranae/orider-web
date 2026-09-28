@@ -68,9 +68,10 @@ export interface MobileFitnessData {
   today?: string;                       // YYYY-MM-DD (오늘 마커용)
   // 주간 TSS
   weeklyTSS: number[];   // 오래된 → 최신 (최근 4주)
-  thisWeekTSS: number;
-  avgWeekTSS: number;
-  restDays: number;
+  thisWeekTSS: number | null;
+  avgWeekTSS: number | null;
+  restDays: number | null;
+  weeklyLoadPartial?: boolean;
   loadUnknownCount?: number;
   thisWeekUnknownCount?: number;
   hasKnownWeeklyLoad?: boolean;
@@ -742,9 +743,10 @@ export default function MobileFitnessPage({
           )}
 
           {/* 주간 TSS */}
-          {sectionState.trend === "ready" && data.weeklyTSS.length > 0 && (
-            <SectionCard title={t("mobileFitness.weeklyLoadTitle")} sub={t("mobileFitness.weeklyLoadSub", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS, avg: data.loadUnknownCount && !data.hasKnownWeeklyLoad ? "–" : data.avgWeekTSS, restDays: data.restDays })}>
+          {sectionState.trend === "ready" && (data.weeklyTSS.length > 0 || data.weeklyLoadPartial) && (
+            <SectionCard title={t("mobileFitness.weeklyLoadTitle")} sub={t("mobileFitness.weeklyLoadSub", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS ?? "–", avg: data.loadUnknownCount && !data.hasKnownWeeklyLoad ? "–" : data.avgWeekTSS ?? "–", restDays: data.restDays ?? "–" })}>
               {(!data.loadUnknownCount || data.hasKnownWeeklyLoad) && <WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />}
+              {data.weeklyLoadPartial && <Text variant="caption">{t("fitness:history.partial")}</Text>}
               {!!data.loadUnknownCount && <Text variant="caption">{trainingT("log.loadPartial", { count: data.loadUnknownCount })}</Text>}
             </SectionCard>
           )}
