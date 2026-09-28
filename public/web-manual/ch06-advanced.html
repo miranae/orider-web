@@ -18,7 +18,7 @@
         <a class="gb-link" href="ch01-start.html">1. 웹 시작하기 <span class="lvl level-beginner">초급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">기록 보기</div>
-        <a class="gb-link" href="ch02-records.html">2. 라이딩 기록 확인 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch02-records.html">2. 자전거·러닝 기록 확인 <span class="lvl level-beginner">초급</span></a>
         <a class="gb-link" href="ch03-analysis.html">3. 활동 상세 분석 <span class="lvl level-intermediate">중급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">비교와 이해</div>
@@ -28,7 +28,7 @@
       <div class="gb-group"><div class="gb-group-title">심화</div>
         <a class="gb-link active" href="ch06-advanced.html">6. 고급 데이터 활용 <span class="lvl level-advanced">고급</span></a>
         <a class="gb-link" href="ch07-training.html">7. 훈련 계획·기록 <span class="lvl level-intermediate">중급</span></a>
-        <a class="gb-link" href="ch08-multisport.html">8. 멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch08-multisport.html">8. 종목별 분석·멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">연동·설정</div>
         <a class="gb-link" href="ch09-strava.html">9. Strava 연동 <span class="lvl level-beginner">초급</span></a>
@@ -49,23 +49,23 @@
     <main class="gb-content">
       <section id="s6">
         <h2>6. 고급 데이터 활용</h2>
-      
+
         <div class="purpose">
           <h4>이 섹션의 목적</h4>
-          <p>장기적인 체력 변화를 추적하고, 파워 데이터를 기반으로 훈련 전략을 수립하는 것. 이 섹션은 몇 달 이상의 데이터가 쌓였고, "더 빨라지고 싶다" 또는 "체계적으로 훈련하고 싶다"는 목표가 있는 라이더를 위한 것입니다.</p>
+          <p>종목별 훈련 부하와 장기 추세를 확인합니다. 자전거는 파워 커브, 러닝은 거리별 개인 기록과 임계 페이스를 함께 보며 다음 훈련을 계획합니다.</p>
         </div>
-      
-        <div class="info">고급 분석은 <strong>피트니스</strong> 메뉴에서 확인합니다. 파워미터 데이터가 있으면 더 정밀한 분석이 가능합니다.</div>
-      
-        
-        <figure class="gb-fig"><img src="screenshots/05-fitness-pmc.png" alt="피트니스 — PMC(체력 CTL · 피로 ATL · 폼 TSB)." loading="lazy"><figcaption>피트니스 — PMC(체력 CTL · 피로 ATL · 폼 TSB).</figcaption></figure>
+
+        <div class="info">고급 분석은 <strong>피트니스</strong> 메뉴에서 확인합니다. 자전거 파워 분석에는 파워 데이터가, 러닝 기록에는 거리와 시간 데이터가 필요합니다. 종목 선택을 먼저 확인하세요.</div>
+
+
+        <figure class="gb-fig"><img src="screenshots/05-fitness-pmc.png" alt="피트니스 화면 예시 — 선택한 종목의 CTL·ATL·TSB를 확인합니다." loading="lazy"><figcaption>피트니스 화면 예시 — 선택한 종목의 CTL·ATL·TSB를 확인합니다.</figcaption></figure>
         <h3 id="s6-1">6.1 피트니스 점수 — "내 체력이 올라가고 있는가"</h3>
         <div class="card">
           <h4>확인할 것</h4>
           <p>피트니스 페이지의 퍼포먼스 관리 차트(PMC)에서 장기간의 체력 변화 추이를 봅니다. 상단 KPI에는 <strong>체력(CTL) · 피로(ATL) · 폼(TSB)</strong> 세 지표가 함께 표시됩니다.</p>
-      
-          <div class="info">세 지표는 모두 TSS(Training Stress Score) 누적에서 계산됩니다. <strong>체력(CTL)</strong>은 최근 42일 평균 훈련 부하, <strong>피로(ATL)</strong>는 최근 7일 평균 훈련 스트레스, <strong>폼(TSB)</strong>은 체력 − 피로(음수면 피로, 양수면 회복)를 의미합니다.</div>
-      
+
+          <div class="info">세 지표는 모두 TSS(Training Stress Score) 누적에서 계산됩니다. <strong>체력(CTL)</strong>은 42일 시정수로 누적 부하를 반영한 지표, <strong>피로(ATL)</strong>는 7일 시정수로 최근 부하를 반영한 지표, <strong>폼(TSB)</strong>은 체력 − 피로(음수면 피로, 양수면 회복)를 의미합니다.</div>
+
           <h4>해석 기준</h4>
           <p>체력(CTL)은 TSS의 누적 효과를 나타냅니다.</p>
           <table>
@@ -75,7 +75,7 @@
             <tr><td><strong>급격한 상승</strong></td><td>과훈련 위험</td><td>회복 주간 삽입, 피로 모니터링</td></tr>
             <tr><td><strong>하락</strong></td><td>훈련 중단 또는 회복 기간</td><td>의도한 디로드면 정상, 그 외에는 원인 파악</td></tr>
           </table>
-      
+
           <h4>기간별 활용</h4>
           <table>
             <tr><th>기간</th><th>목적</th></tr>
@@ -84,36 +84,38 @@
             <tr><td>180일</td><td>반기 추이 — "올봄 대비 가을 체력이 어떤가"</td></tr>
             <tr><td>1년</td><td>연간 주기 전체 — "작년 같은 시기와 비교"</td></tr>
           </table>
-      
+
           <h4>결과</h4>
           <p>"지금 체력이 올라가는 중인지, 정체인지, 쉬어야 하는지"를 객관적으로 판단하여 훈련 계획을 조정합니다.</p>
         </div>
-      
+
         <h3 id="s6-2">6.2 활동 부하 차트 — "일별 훈련 강도 관리"</h3>
         <div class="card">
           <h4>확인할 것</h4>
           <p>일별 TSS를 막대 차트로 표시합니다. 매일의 훈련 부하를 시각적으로 확인합니다.</p>
-      
+
           <h4>해석 기준</h4>
           <table>
             <tr><th>일별 TSS</th><th>의미</th></tr>
-            <tr><td><strong>50 이하</strong></td><td>가벼운 회복 라이딩</td></tr>
-            <tr><td><strong>50~150</strong></td><td>일반적인 훈련 라이딩</td></tr>
-            <tr><td><strong>150~300</strong></td><td>높은 부하 — 다음 날 가벼운 라이딩이나 휴식 권장</td></tr>
-            <tr><td><strong>300 이상</strong></td><td>매우 높은 부하 — 장거리 대회급, 충분한 회복 필요</td></tr>
+            <tr><td><strong>낮은 부하</strong></td><td>내 이전 운동보다 낮은 부하인지 산출 기준과 함께 확인</td></tr>
+            <tr><td><strong>평소 수준</strong></td><td>개인 주간 패턴·목표와 비교</td></tr>
+            <tr><td><strong>높은 부하</strong></td><td>계획한 고부하 운동인지, 회복 일정이 있는지 확인</td></tr>
+            <tr><td><strong>갑작스러운 변화</strong></td><td>실제 강도 변화와 원본 데이터·임계값 변경을 구분</td></tr>
           </table>
-      
+
           <h4>활용 전략</h4>
           <ul>
             <li><strong>고강도 → 저강도 교대</strong> — 높은 TSS 다음 날은 가벼운 라이딩으로 회복</li>
-            <li><strong>주간 TSS 합계</strong> — 전주 대비 10% 이상 급증하면 과훈련 위험</li>
-            <li><strong>연속 휴식일</strong> — 2일 이상 연속 휴식이 반복되면 훈련 루틴 재점검</li>
+            <li><strong>주간 TSS 합계</strong> — 평소보다 급증했다면 활동 시간·강도·회복을 함께 점검</li>
+            <li><strong>연속 휴식일</strong> — 계획한 휴식인지 기록이 빠진 날인지 구분</li>
           </ul>
-      
+
           <h4>결과</h4>
-          <p>훈련과 회복의 균형을 데이터로 관리하여 부상 없이 꾸준히 체력을 쌓습니다.</p>
+          <p>훈련과 회복의 균형을 데이터로 관리하여 다음 운동의 부하와 휴식을 조절하는 참고 자료로 사용합니다.</p>
         </div>
-      
+
+        <div class="info">다음 파워 커브·PDC·FTP·CP(임계 파워) 관련 항목은 자전거 파워 데이터의 분석입니다. 러닝 임계 페이스와 단위가 다르고, 러닝 케이던스만으로 파워 커브를 만들 수는 없습니다. 러닝은 아래 <a href="#s6-run">거리별 기록과 부하</a>를 확인하세요.</div>
+
         <h3 id="s6-3">6.3 파워 커브 — "나는 어떤 유형의 라이더인가"</h3>
         <div class="card">
           <h4>확인할 것</h4>
@@ -129,7 +131,7 @@
           <div class="tip"><strong>비교 기준:</strong> 현재 백분위는 기존 Coggan 남성 파워 프로파일(v1)을 사용하며 성별·연령을 보정하지 않습니다. 개인의 의학적·생리학적 진단이나 Garmin EPOC/Training Effect와 같은 독점 점수가 아니라, 공개된 규칙으로 계산한 훈련 참고용 휴리스틱입니다.</div>
           <h4>신뢰도 읽기</h4>
           <p>신뢰도는 두 요소로 정합니다. 첫째, 축에 필요한 구간 중 백분위 근거가 실제로 몇 개 있는지 확인합니다. 둘째, 최근 90일 파워 활동 수가 10개에 가까울수록 활동 커버리지를 높게 봅니다. 두 커버리지를 곱한 값이 80% 이상이면 높음, 50% 이상이면 보통, 일부만 있으면 낮음, 근거가 없으면 없음으로 표시합니다. 활동 수가 적거나 필요한 구간 기록이 빠지면 점수보다 근거 부족 표시를 우선해서 해석하세요.</p>
-      
+
           <h4>해석 기준</h4>
           <table>
             <tr><th>구간</th><th>측정하는 것</th><th>높으면</th></tr>
@@ -139,9 +141,9 @@
             <tr><td><strong>20분 피크</strong></td><td>FTP의 기준 (관례상 ×0.95)</td><td>지속 가능한 출력 — 장거리 강도의 기준</td></tr>
             <tr><td><strong>60분 피크</strong></td><td>지구력</td><td>장시간 고출력 유지 — 타임트라이얼형</td></tr>
           </table>
-      
+
           <div class="tip"><strong>FTP(기능적 역치 출력)</strong>는 이론상 1시간 유지 가능한 최대 파워입니다. 20분 피크 × 0.95는 널리 쓰이는 단순 추정이며, 오라이더의 3축 근거는 프로필 FTP를 임의로 바꾸지 않습니다.</div>
-      
+
           <h4>파워 커브 진행 차트</h4>
           <p>시간이 지남에 따라 각 구간의 피크가 어떻게 변했는지 비교합니다.</p>
           <ul>
@@ -149,16 +151,16 @@
             <li><strong>특정 구간만 올라갔으면</strong> — 해당 능력(스프린트/지구력 등) 향상</li>
             <li><strong>장기간 변화 없으면</strong> — 새로운 자극이 필요한 시점</li>
           </ul>
-      
+
           <h4>결과</h4>
           <p>자신의 강점과 약점을 객관적으로 파악하여, 부족한 영역을 집중 훈련할 수 있습니다.</p>
         </div>
-      
+
         <h3 id="s6-4">6.4 심박 존 분석 — "훈련 강도 분포 확인"</h3>
         <div class="card">
           <h4>확인할 것</h4>
           <p>피트니스 페이지에서 심박 존별 시간 분포를 차트로 확인합니다.</p>
-      
+
           <h4>해석 기준</h4>
           <table>
             <tr><th>존</th><th>이름</th><th>훈련 목적</th></tr>
@@ -168,23 +170,23 @@
             <tr><td style="color:#FF5722"><strong>존 4</strong></td><td>역치</td><td>FTP 근처 — 실질적인 체력 향상 구간</td></tr>
             <tr><td style="color:#F44336"><strong>존 5</strong></td><td>VO2max</td><td>최대 강도 — 짧은 인터벌에만 적합</td></tr>
           </table>
-      
+
           <h4>활용 전략</h4>
           <ul>
             <li><strong>장거리 라이딩</strong> — 존 2 시간이 70% 이상이면 적절한 강도</li>
             <li><strong>인터벌 훈련</strong> — 존 4~5 시간이 15~20%면 효과적인 세션</li>
             <li><strong>존 3만 많은 라이딩</strong> — "약간 힘들지만 효과도 약한" 애매한 강도 — 목적에 맞는 존을 의식적으로 선택</li>
           </ul>
-      
+
           <h4>결과</h4>
           <p>"오늘 라이딩의 강도 배분이 목적에 맞았는가"를 존 분포로 검증합니다.</p>
         </div>
-      
+
         <h3 id="s6-5">6.5 데이터 기반 훈련 전략</h3>
         <div class="card">
           <h4>종합 활용 방법</h4>
           <p>위의 도구들을 조합하면 다음과 같은 전략적 판단이 가능합니다:</p>
-      
+
           <table>
             <tr><th>질문</th><th>확인하는 데이터</th><th>판단 기준</th></tr>
             <tr><td>"체력이 올라가고 있나?"</td><td>체력(CTL) 추이</td><td>우상향이면 양호, 정체면 자극 변경</td></tr>
@@ -193,14 +195,22 @@
             <tr><td>"특정 구간에서 더 빨라지고 있나?"</td><td>세그먼트 리더보드</td><td>같은 세그먼트의 기록 추이 비교</td></tr>
             <tr><td>"적절한 강도로 타고 있나?"</td><td>심박 존 분포</td><td>목적(회복/지구력/고강도)에 맞는 존 분포인지</td></tr>
           </table>
-      
+
           <h4>결과</h4>
           <p>감이 아닌 데이터에 기반하여 "다음에 무엇을 어떻게 타야 하는지"를 결정합니다. 이것이 웹 플랫폼의 궁극적인 가치입니다.</p>
         </div>
+
+        <h3 id="s6-run">6.6 러닝 피트니스 — 거리별 기록과 부하</h3>
+        <div class="card"><ol><li>피트니스에서 러닝을 선택해 CTL·ATL·TSB와 일별 부하를 확인합니다.</li>
+            <li>거리별 기록 보드에서 표시된 거리의 최고 시간, 평균 페이스, 날짜를 봅니다. 확정된 기록이 없으면 "—"로 표시됩니다.</li>
+            <li>임계 페이스와 존 분포를 확인합니다. 기준값이 없으면 운동 프로필에서 입력합니다.</li>
+            <li>자전거를 병행하면 통합 화면에서 종목별 부하 기여도도 확인합니다.</li></ol>
+          <p>활동 전체 평균 페이스와 거리별 최고 기록은 다릅니다. 7km 활동 안에서 5km 최고 구간이 따로 계산될 수 있습니다. 분석·기록 확정이 진행 중이면 결과가 나중에 채워질 수 있습니다.</p>
+          <div class="tip">자전거 TSS와 러닝 부하는 산출 근거가 다릅니다. 통합 부하와 함께 러닝의 거리·시간 증가, 개인 컨디션도 확인하세요.</div></div>
       </section>
       <nav class="gb-prevnext"><a class="pn-prev" href="ch05-group-event.html"><div class="pn-label">← 이전</div><div class="pn-title">5. 그룹·이벤트</div></a><a class="pn-next" href="ch07-training.html"><div class="pn-label">다음 →</div><div class="pn-title">7. 훈련 계획·기록</div></a></nav>
       <div class="manual-store-links" aria-label="Orider 앱 설치">
-        <span>주행 기록은 Orider 앱에서 이어집니다.</span>
+        <span>자전거·러닝 기록은 Orider 앱에서 시작합니다.</span>
         <a href="https://apps.apple.com/kr/app/o-rider/id6775696052" target="_blank" rel="noopener">App Store</a>
         <a href="https://play.google.com/store/apps/details?id=com.miranae.orider" target="_blank" rel="noopener">Google Play</a>
       </div>

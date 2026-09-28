@@ -3,16 +3,16 @@
 
   <div class="purpose">
     <h4>이 섹션의 목적</h4>
-    <p>지금까지의 설명은 모두 자전거 기준이었습니다. 오라이더 웹은 <strong>러닝·수영·철인(트라이애슬론)</strong>도 지원합니다. 이 장에서는 각 종목이 자전거와 무엇이 다른지 — 파워 대신 페이스, FTP 대신 임계 페이스/CSS — 를 종목별로 정리합니다.</p>
+    <p>자전거와 러닝을 병행할 때 종목별 기준을 분리하고 전체 부하를 함께 보는 방법을 정리합니다. 공통 기록·분석·계획 흐름을 바탕으로 수영과 철인 훈련의 차이도 확인합니다.</p>
   </div>
 
   <div class="card">
-    <p>핵심 개념은 자전거와 동일합니다. 부하(TSS)를 쌓아 CTL(체력)·ATL(피로)·TSB(컨디션)를 추적하고, 목표 이벤트를 향해 계획을 세웁니다. 달라지는 것은 <strong>강도를 측정하는 기준 지표</strong> 하나입니다.</p>
+    <p>핵심 개념은 자전거와 동일합니다. 부하(TSS)를 쌓아 CTL(체력)·ATL(피로)·TSB(컨디션)를 추적하고, 목표 이벤트를 향해 계획을 세웁니다. 종목마다 <strong>강도 기준, 거리 단위, 원본 데이터, 부하 산출 방식</strong>이 다릅니다.</p>
 
     <table>
       <tr><th>구분</th><th>자전거</th><th>러닝</th><th>수영</th></tr>
       <tr><td><strong>강도 기준</strong></td><td>파워 (W)</td><td>페이스 (분/km)</td><td>페이스 (분/100m)</td></tr>
-      <tr><td><strong>임계값(역치)</strong></td><td>FTP (W)</td><td>임계 페이스 (LTHR 기반)</td><td>CSS (임계 수영 속도)</td></tr>
+      <tr><td><strong>임계값(역치)</strong></td><td>FTP (W)</td><td>임계 페이스 (분/km)</td><td>CSS (임계 수영 속도)</td></tr>
       <tr><td><strong>부하 표기</strong></td><td>TSS</td><td>rTSS</td><td>sTSS</td></tr>
       <tr><td><strong>존(Zone) 기준</strong></td><td>파워 존</td><td>페이스 존 (임계 페이스 기준 Z1~Z5)</td><td>페이스 존 (CSS 기준 Z1~Z5)</td></tr>
       <tr><td><strong>고유 분석</strong></td><td>NP·IF·파워커브</td><td>km 스플릿·GAP·케이던스</td><td>세트·SWOLF·스트로크</td></tr>
@@ -28,12 +28,12 @@
 
     <table>
       <tr><th>탭</th><th>나타나는 화면</th><th>통합(철인) 탭 포함 여부</th></tr>
-      <tr><td><strong>대시보드</strong></td><td>해당 종목 활동·통계만 표시</td><td>없음 (사이클·러닝·수영 3개)</td></tr>
+      <tr><td><strong>대시보드</strong></td><td>해당 종목 활동·통계만 표시</td><td>화면과 기기에 따라 전체 필터도 제공</td></tr>
       <tr><td><strong>피트니스</strong></td><td>종목별 CTL/ATL/TSB·존·임계값</td><td>있음 (통합·사이클·러닝·수영 4개)</td></tr>
-      <tr><td><strong>목표 설정</strong></td><td>종목별 목표 위저드</td><td>없음 (사이클·러닝·수영 3개)</td></tr>
+      <tr><td><strong>목표 설정</strong></td><td>종목별 목표 위저드</td><td>화면과 기기에 따라 전체 필터도 제공</td></tr>
     </table>
 
-    <div class="tip">주소창의 <code>?sport=</code> 값으로 현재 종목을 알 수 있습니다. <code>?sport=run</code>은 러닝, <code>?sport=swim</code>은 수영, 파라미터가 없으면 사이클(기본값)입니다. 종목을 바꾸면 다음 접속 시에도 선호 종목으로 기억됩니다.</div>
+    <div class="tip">주소창의 <code>?sport=</code> 값으로 현재 종목을 알 수 있습니다. <code>?sport=run</code>은 러닝, <code>?sport=swim</code>은 수영, 파라미터가 없으면 계정의 주 종목이나 최근 활동에 따라 선택될 수 있습니다. 빈 피드가 나오면 현재 종목을 확인하세요.</div>
 
     <h4>결과</h4>
     <p>자전거·러닝·수영을 하나의 계정에서 따로 관리하면서, 종목 탭 하나로 전환할 수 있습니다.</p>
@@ -46,18 +46,18 @@
 
     <table>
       <tr><th>카드</th><th>읽는 법</th></tr>
-      <tr><td><strong>km 스플릿 테이블</strong></td><td>1km 단위로 페이스·심박·케이던스·존을 나열. 가장 빠른 구간에 ★ 표시. 마지막 미완성 구간(1km 미만)은 흐리게 표기</td></tr>
+      <tr><td><strong>km 스플릿 테이블</strong></td><td>원본 랩 데이터가 있으면 구간별 페이스·심박·케이던스·존을 나열. 가장 빠른 구간에 ★ 표시. 짧은 마지막 구간은 흐리게 표기</td></tr>
       <tr><td><strong>페이스 프로필</strong></td><td>구간별 페이스 곡선 — 앞이 빠르고 뒤가 느려지면 오버페이스</td></tr>
       <tr><td><strong>GAP (경사 보정 페이스)</strong></td><td>오르내림의 영향을 제거해 "평지였다면 이 페이스" 로 환산. 언덕 코스에서 실제 페이스보다 빠르게 나오면 그만큼 힘을 더 쓴 것</td></tr>
-      <tr><td><strong>케이던스</strong></td><td>분당 보수(spm)·보폭 추정. 180 spm 기준선과 비교</td></tr>
-      <tr><td><strong>rTSS (러닝 부하)</strong></td><td>이 러닝이 준 총 부하. 50 이하 가벼움 · 100 전후 보통 · 150 이상 장거리/레이스급</td></tr>
+      <tr><td><strong>케이던스</strong></td><td>분당 걸음 수(spm)·보폭/접지 시간 추정. 180 spm 선은 참고용</td></tr>
+      <tr><td><strong>rTSS (러닝 부하)</strong></td><td>산출된 러닝 훈련 부하. 내 이전 활동·산출 근거와 비교</td></tr>
     </table>
 
-    <div class="info"><strong>GAP(Grade Adjusted Pace)</strong>는 경사별 에너지 소모 모델(Minetti)로 계산됩니다. 같은 4:30/km라도 오르막이면 평지 환산 페이스는 더 빨라지므로, 코스가 다른 두 러닝의 강도를 공정하게 비교할 수 있습니다.</div>
+    <div class="info"><strong>GAP(Grade Adjusted Pace)</strong>는 경사별 에너지 소모 모델(Minetti)로 계산됩니다. 같은 4:30/km라도 오르막이면 평지 환산 페이스는 더 빨라지므로, 코스가 다른 활동을 비교하는 참고값입니다. GPS·고도 오차의 영향을 받는 추정값입니다.</div>
 
-    <p><strong>임계 페이스와 존:</strong> 피트니스 화면 러닝 탭의 핵심 임계값은 <strong>임계 페이스</strong>(LTHR 기반 추정)입니다. 자전거 FTP에 해당하는 값으로, 이 페이스를 기준으로 5단계 페이스 존이 자동 산출됩니다.</p>
+    <p><strong>임계 페이스와 존:</strong> 피트니스 화면 러닝 탭의 핵심 임계값은 <strong>임계 페이스</strong>(분/km)입니다. 자전거 FTP에 해당하는 값으로, 이 페이스를 기준으로 5단계 페이스 존이 자동 산출됩니다.</p>
 
-    <div class="tip">임계 페이스를 프로필에 설정하지 않으면 기본값(4:35/km)으로 존과 목표가 계산됩니다. 자전거의 FTP와 마찬가지로, 임계 페이스를 갱신하면 존과 목표 판정이 즉시 다시 계산됩니다.</div>
+    <div class="tip">임계 페이스가 없으면 스플릿의 존이나 피트니스의 존 경계는 비어 있을 수 있습니다. 목표 위저드가 임시 기준값을 사용하더라도 개인 실측값은 아니므로 운동 프로필에 자신의 임계 페이스를 먼저 입력하세요.</div>
 
     <h4>결과</h4>
     <p>"평균 페이스"라는 한 숫자 대신, 구간별 페이스·경사 보정·존 분포로 러닝의 질을 입체적으로 파악합니다.</p>
@@ -80,7 +80,7 @@
 
     <div class="info"><strong>CSS(Critical Swim Speed, 임계 수영 속도)</strong>는 자전거 FTP·러닝 임계 페이스에 대응하는 수영의 역치 지표입니다. 단위는 <strong>분/100m</strong>이며, 이 값을 기준으로 5단계 페이스 존이 산출됩니다. (기본값 1:48/100m)</div>
 
-    <div class="tip">수영 강도 분포의 이상적 비율은 <strong>저강도(Z1~Z2) 60% 내외 + CSS 이상 고강도 약 20%</strong>입니다. 피트니스 수영 탭의 존 분포에서 이 균형을 확인할 수 있습니다.</div>
+    <div class="tip">수영 피트니스의 존 분포는 CSS와 원본 데이터가 있을 때 해석합니다. 훈련 목적과 이전 기록을 기준으로 강도 배분을 확인하세요.</div>
 
     <h4>결과</h4>
     <p>"몇 미터 수영했는가"를 넘어, 세트별 페이스·SWOLF·CSS 기준 존으로 수영 훈련의 질을 분석합니다.</p>

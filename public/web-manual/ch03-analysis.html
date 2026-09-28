@@ -18,7 +18,7 @@
         <a class="gb-link" href="ch01-start.html">1. 웹 시작하기 <span class="lvl level-beginner">초급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">기록 보기</div>
-        <a class="gb-link" href="ch02-records.html">2. 라이딩 기록 확인 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch02-records.html">2. 자전거·러닝 기록 확인 <span class="lvl level-beginner">초급</span></a>
         <a class="gb-link active" href="ch03-analysis.html">3. 활동 상세 분석 <span class="lvl level-intermediate">중급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">비교와 이해</div>
@@ -28,7 +28,7 @@
       <div class="gb-group"><div class="gb-group-title">심화</div>
         <a class="gb-link" href="ch06-advanced.html">6. 고급 데이터 활용 <span class="lvl level-advanced">고급</span></a>
         <a class="gb-link" href="ch07-training.html">7. 훈련 계획·기록 <span class="lvl level-intermediate">중급</span></a>
-        <a class="gb-link" href="ch08-multisport.html">8. 멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch08-multisport.html">8. 종목별 분석·멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">연동·설정</div>
         <a class="gb-link" href="ch09-strava.html">9. Strava 연동 <span class="lvl level-beginner">초급</span></a>
@@ -49,57 +49,57 @@
     <main class="gb-content">
       <section id="s3">
         <h2>3. 활동 상세 분석</h2>
-      
+
         <div class="purpose">
           <h4>이 섹션의 목적</h4>
-          <p>개별 라이딩의 상세 데이터를 읽고, "이 라이딩에서 무엇이 잘 되었고 무엇이 부족했는지"를 판단하는 것.</p>
+          <p>자전거와 러닝의 경로·시간·강도를 읽고, 같은 종목의 이전 활동과 비교합니다. 러닝은 평균 페이스에 더해 스플릿·심박·케이던스로 전후반 변화를 확인합니다.</p>
         </div>
-      
-        
-        <figure class="gb-fig"><img src="screenshots/03-activity-analysis.png" alt="분석 탭 — 지표 카드와 영문 용어 ⓘ 툴팁." loading="lazy"><figcaption>분석 탭 — 지표 카드와 영문 용어 ⓘ 툴팁.</figcaption></figure>
+
+
+        <figure class="gb-fig"><img src="screenshots/03-activity-analysis.png" alt="자전거 분석 탭 예시 — 데이터가 있는 지표와 ⓘ 설명을 확인합니다." loading="lazy"><figcaption>자전거 분석 탭 예시 — 데이터가 있는 지표와 ⓘ 설명을 확인합니다.</figcaption></figure>
         <h3 id="s3-1">3.1 경로 지도 — "어디를 어떻게 달렸는가"</h3>
         <div class="card">
           <h4>확인할 것</h4>
           <p>활동 상세 상단의 경로 지도에서 실제 이동 경로를 확인합니다.</p>
           <ul>
-            <li><strong>출발/도착 마커</strong> — 라이딩의 시작점과 끝점</li>
+            <li><strong>출발/도착 마커</strong> — 활동의 시작점과 끝점</li>
             <li><strong>경로 폴리라인</strong> — 실제 이동 경로 (주황색 선)</li>
             <li><strong>세그먼트 하이라이트</strong> — 등록된 세그먼트와 겹치는 구간 강조</li>
           </ul>
-      
+
           <h4>해석 기준</h4>
           <ul>
             <li>경로가 깔끔하게 이어지면 GPS 정확도가 양호했던 것</li>
             <li>경로가 지그재그로 튀는 구간이 있으면 GPS 오차가 있었음 (터널, 고층 빌딩 등)</li>
           </ul>
-      
+
           <h4>결과</h4>
-          <p>코스를 시각적으로 되짚어 보며, 다음에 같은 코스를 탈 때 구간별 전략을 세울 수 있습니다.</p>
+          <p>코스를 시각적으로 되짚어 보며, 다음에 같은 코스에서 운동할 때 구간별 전략을 세울 수 있습니다.</p>
         </div>
-      
+
         <h3 id="s3-2">3.2 고도 프로필 — "코스의 난이도를 한눈에"</h3>
         <div class="card">
           <h4>확인할 것</h4>
           <p>거리(X축) 대비 고도(Y축)의 변화를 그래프로 봅니다.</p>
-      
+
           <h4>해석 기준</h4>
           <table>
             <tr><th>패턴</th><th>의미</th></tr>
-            <tr><td>완만한 곡선</td><td>평지 중심의 라이딩 — 속도 훈련에 적합</td></tr>
+            <tr><td>완만한 곡선</td><td>평탄한 경로 — 속도·페이스 변화를 비교하기 쉬움</td></tr>
             <tr><td>급격한 상승 구간</td><td>가파른 오르막 — 클라이밍 능력이 요구됨</td></tr>
             <tr><td>반복적인 오르내림</td><td>롤링 코스 — 페이스 조절 능력이 중요</td></tr>
             <tr><td>후반부에 상승 집중</td><td>후반부 체력 관리가 핵심인 코스</td></tr>
           </table>
-      
+
           <h4>결과</h4>
-          <p>코스 특성을 이해하면 다음 라이딩에서 체력 배분을 개선할 수 있습니다.</p>
+          <p>코스 특성을 이해하면 다음 운동에서 체력 배분을 개선할 수 있습니다.</p>
         </div>
-      
+
         <h3 id="s3-3">3.3 핵심 지표 읽기 — "숫자 뒤의 의미"</h3>
         <div class="card">
           <h4>확인할 것</h4>
-          <p>분석 탭의 핵심 지표를 단순히 읽는 것이 아니라 해석합니다.</p>
-      
+          <p>종목 배지와 단위를 먼저 확인합니다. 아래 수치는 자전거 예시이며 러닝에서는 평균 페이스를 먼저 읽습니다.</p>
+
           <table>
             <tr><th>지표</th><th>단순 수치</th><th>해석</th></tr>
             <tr><td><strong>평균 속도</strong></td><td>25.3 km/h</td><td>전체 페이스를 일정하게 유지했는가? 지난 동일 코스와 비교하여 향상되었는가?</td></tr>
@@ -107,65 +107,65 @@
             <tr><td><strong>획득 고도</strong></td><td>850m</td><td>같은 거리(80km)라도 고도 850m면 상당한 난이도. 평지 80km와는 전혀 다른 라이딩</td></tr>
             <tr><td><strong>칼로리</strong></td><td>1,200 kcal</td><td>에너지 소비량 — 보급 계획 수립에 참고 (시간당 300~400kcal이 일반적)</td></tr>
           </table>
-      
+
           <div class="tip">평균 속도는 <strong>이동 시간 기준</strong>으로 표시되어 정지 구간이 페이스를 왜곡하지 않습니다. GPS 노이즈나 짧은 활동으로 속도·페이스가 비현실적으로 계산되면 해당 값은 <strong>"—"</strong>로 표시되고, 원본값은 마우스를 올렸을 때 확인할 수 있습니다.</div>
         </div>
-      
-        <h3 id="s3-4">3.4 심박 데이터 — "얼마나 힘들었는가"</h3>
+
+        <h3 id="s3-4">3.4 자전거·러닝 심박 데이터 — "얼마나 힘들었는가"</h3>
         <div class="card">
           <h4>확인할 것</h4>
           <p>심박 센서로 기록된 데이터가 있으면 분석 탭에 심박 정보가 표시됩니다.</p>
-      
+
           <h4>해석 기준</h4>
           <table>
             <tr><th>지표</th><th>해석</th></tr>
-            <tr><td><strong>평균 심박수</strong></td><td>전체 운동 강도 — 최대 심박의 60~70%면 편안한 라이딩, 80% 이상이면 고강도</td></tr>
+            <tr><td><strong>평균 심박수</strong></td><td>같은 종목의 이전 기록과 비교할 운동 강도 참고값</td></tr>
             <tr><td><strong>최대 심박수</strong></td><td>가장 힘들었던 순간의 강도 — 오르막 정상이나 스프린트 구간</td></tr>
             <tr><td><strong>심박 존 분포</strong></td><td>존 1~2 중심이면 회복/지구력 라이딩, 존 4~5가 많으면 고강도 훈련</td></tr>
           </table>
-      
-          <div class="tip">장거리 라이딩에서 심박이 후반부에 계속 올라가는 패턴이면 "심박 드리프트" — 탈수나 피로 누적의 신호입니다.</div>
-      
+
+          <div class="tip">자전거와 러닝 모두 페이스·출력이 비슷한데 후반 심박이 높아지는지 확인합니다. 기온·경사·기록 센서도 영향을 주므로 심박 변화 하나만으로 원인을 단정하지 마세요.</div>
+
           <h4>결과</h4>
-          <p>"힘들었다"는 느낌을 숫자로 검증하고, 다음 라이딩의 강도를 조절할 근거를 얻습니다.</p>
+          <p>"힘들었다"는 느낌을 숫자로 검증하고, 다음 자전거·러닝 운동의 강도를 조절할 근거를 얻습니다.</p>
         </div>
-      
-        <h3 id="s3-5">3.5 파워 데이터 — "실제로 얼마나 밟았는가"</h3>
+
+        <h3 id="s3-5">3.5 자전거 파워 데이터 — "실제로 얼마나 밟았는가"</h3>
         <div class="card">
           <h4>확인할 것</h4>
           <p>파워미터로 기록된 활동, 또는 가상 파워(속도·경사·체중 기반 추정)가 계산된 활동에서 표시됩니다.</p>
-      
+
           <h4>해석 기준</h4>
           <table>
             <tr><th>지표</th><th>해석</th></tr>
             <tr><td><strong>평균 파워</strong></td><td>전체 출력 — 바람이나 경사에 영향 받지 않는 객관적 강도 지표</td></tr>
             <tr><td><strong>NP (정규화 파워)</strong></td><td>변동을 고려한 실제 신체 부하 — 평균 파워보다 높으면 강도 변동이 큰 라이딩</td></tr>
             <tr><td><strong>IF (강도 계수)</strong></td><td>FTP 대비 강도 — 0.7 이하면 회복, 0.75~0.85면 지구력, 0.85 이상이면 레이스급</td></tr>
-            <tr><td><strong>TSS (훈련 스트레스)</strong></td><td>이 라이딩이 몸에 준 총 부하 — 150 이하면 가벼움, 300 이상이면 상당한 피로</td></tr>
+            <tr><td><strong>TSS (훈련 스트레스)</strong></td><td>자전거에서 산출한 훈련 부하 — 같은 기준의 이전 활동과 비교</td></tr>
           </table>
-      
+
           <div class="tip">IF·TSS는 <strong>FTP</strong> 값을 기준으로 계산됩니다. FTP 우선순위는 <strong>프로필 설정값 → 활동 기록 당시 스냅샷 → 기본값(200W)</strong> 순서이며, 프로필에서 FTP를 수정하면 과거 활동 분석에도 즉시 반영됩니다. (FTP가 설정되지 않으면 기본값 안내가 표시됩니다.)</div>
-      
+
           <h4>결과</h4>
           <p>속도나 심박과 달리 외부 조건에 영향 받지 않는 객관적 지표로, 훈련 효과를 정확히 판단할 수 있습니다.</p>
         </div>
-      
+
         <h3 id="s3-6">3.6 랩 분석 — "구간별 페이스 비교"</h3>
         <div class="card">
           <h4>확인할 것</h4>
           <p>랩이 기록된 활동에서 구간별 거리, 시간, 속도를 테이블로 비교합니다.</p>
-      
+
           <h4>해석 기준</h4>
           <ul>
             <li><strong>앞쪽 랩이 빠르고 뒤쪽이 느리면</strong> — 오버페이스로 시작하여 후반에 체력이 떨어진 것</li>
             <li><strong>랩 시간이 고르면</strong> — 페이스 조절이 잘 된 라이딩</li>
             <li><strong>특정 랩만 유독 느리면</strong> — 해당 구간의 특성(오르막, 역풍 등) 확인 필요</li>
           </ul>
-      
+
           <h4>결과</h4>
-          <p>구간별 페이스 패턴을 파악하여 다음 라이딩에서 체력 배분을 개선할 수 있습니다.</p>
+          <p>구간별 페이스 패턴을 파악하여 다음 운동에서 체력 배분을 개선할 수 있습니다.</p>
         </div>
-      
+
         <h3 id="s3-7">3.7 활동 관리</h3>
         <div class="card">
           <h4>해야 할 것</h4>
@@ -178,20 +178,20 @@
           </ul>
           <div class="warn">삭제 전에 필요하면 GPX 내보내기를 먼저 수행하세요.</div>
         </div>
-      
+
         <h3 id="s3-8">3.8 좋아요와 댓글 — "동료와 소통"</h3>
         <div class="card">
           <h4>해야 할 것</h4>
           <p>다른 라이더의 활동에 좋아요(Kudos)를 보내거나 댓글을 남겨 응원합니다. 받은 좋아요와 댓글은 활동 하단에 표시됩니다.</p>
-      
+
           <h4>결과</h4>
-          <p>소셜 상호작용이 라이딩 동기 부여에 도움이 됩니다.</p>
+          <p>자전거·러닝 기록에서 친구와 운동 경험을 나눌 수 있습니다.</p>
         </div>
-      
+
         <h3 id="s3-9">3.9 활동 정보 편집과 삭제</h3>
         <div class="card">
           <p>등록된 활동의 설명을 다듬거나 공개 범위를 바꾸고, 잘못 올린 활동을 삭제합니다. 본인이 등록한 활동만 편집할 수 있습니다(다른 사람의 활동은 편집 불가).</p>
-      
+
           <table>
             <tr><th>항목</th><th>설명</th></tr>
             <tr><td>설명</td><td>활동에 대한 메모·코멘트</td></tr>
@@ -202,18 +202,33 @@
             <tr><td>레이스 여부 · RPE</td><td>레이스 표시, 체감 강도(1~10)</td></tr>
             <tr><td>데이터 숨기기</td><td>심박수 / 파워 수치를 다른 사람에게 숨김</td></tr>
           </table>
-      
+
           <div class="warn">시작 일시는 현재 보고 있는 브라우저의 시간대(한국 기준)로 해석됩니다. 해외에서 편집하면 의도와 다른 시각이 저장될 수 있습니다.</div>
-      
+
           <div class="info">화면 아래 삭제 버튼으로 활동을 지웁니다. 확인 창이 한 번 뜨며, 삭제 후 운동 기록으로 이동합니다.</div>
-      
+
           <h4>결과</h4>
           <p>저장하면 변경 내용이 반영되고 활동 상세로 돌아갑니다. 공개 범위·데이터 숨기기 설정은 피드와 다른 사용자에게 보이는 내용에 바로 적용됩니다.</p>
         </div>
+
+        <h3 id="s3-run">3.10 러닝 상세 — 평균에서 구간으로</h3>
+        <div class="card">
+          <p>러닝 활동을 열면 원본 데이터가 있는 경우 개요에 전용 카드가 표시됩니다. 스플릿 탭은 러닝 활동에 랩 데이터가 있을 때 나타납니다. 먼저 거리와 이동/경과 시간을 읽고 아래 순서로 확인하세요.</p>
+          <table>
+            <tr><th>확인 순서</th><th>읽는 방법</th></tr>
+            <tr><td><strong>평균 페이스</strong></td><td>5:00/km는 6:00/km보다 빠릅니다. 이동 시간 기준 요약과 휴식을 포함한 경과 시간을 구분합니다.</td></tr>
+            <tr><td><strong>스플릿·페이스 프로필</strong></td><td>기록된 랩별 거리와 시간으로 계산한 페이스입니다. 앞이 빠르고 뒤가 느려지면 고도·휴식·심박을 함께 확인합니다. 짧은 마지막 구간은 완전한 1km 구간과 구분하세요.</td></tr>
+            <tr><td><strong>심박</strong></td><td>랩별 심박 변화로 같은 페이스에서 후반 부담이 커졌는지 봅니다. 심박 데이터가 없으면 카드가 나오지 않을 수 있습니다.</td></tr>
+            <tr><td><strong>케이던스</strong></td><td>러닝의 분당 걸음 수(spm)입니다. 자전거의 페달 회전수(rpm)와 구분합니다. 같은 페이스에서 내 이전 기록과 비교하세요.</td></tr>
+            <tr><td><strong>GAP</strong></td><td>고도 데이터로 경사 영향을 보정한 추정 페이스입니다. 실제 완주 시간이나 실측 페이스와 구분합니다.</td></tr>
+          </table>
+          <div class="tip">페이스 존은 설정한 <strong>러닝 임계 페이스</strong>가 있어야 해석할 수 있습니다. 임계값이 없으면 스플릿의 존은 "-"로 표시될 수 있습니다. 케이던스 카드의 180 spm 선은 참고선이며, 보폭·접지 시간은 추정값입니다.</div>
+          <p>GPS 점프, 짧은 거리, 정지 구간은 페이스에 영향을 줍니다. 데이터가 없는 항목을 실패나 나쁜 성적으로 해석하지 말고 원본 활동에 해당 값이 기록되었는지 먼저 확인하세요.</p>
+        </div>
       </section>
-      <nav class="gb-prevnext"><a class="pn-prev" href="ch02-records.html"><div class="pn-label">← 이전</div><div class="pn-title">2. 라이딩 기록 확인</div></a><a class="pn-next" href="ch04-compare.html"><div class="pn-label">다음 →</div><div class="pn-title">4. 데이터 비교·이해</div></a></nav>
+      <nav class="gb-prevnext"><a class="pn-prev" href="ch02-records.html"><div class="pn-label">← 이전</div><div class="pn-title">2. 자전거·러닝 기록 확인</div></a><a class="pn-next" href="ch04-compare.html"><div class="pn-label">다음 →</div><div class="pn-title">4. 데이터 비교·이해</div></a></nav>
       <div class="manual-store-links" aria-label="Orider 앱 설치">
-        <span>주행 기록은 Orider 앱에서 이어집니다.</span>
+        <span>자전거·러닝 기록은 Orider 앱에서 시작합니다.</span>
         <a href="https://apps.apple.com/kr/app/o-rider/id6775696052" target="_blank" rel="noopener">App Store</a>
         <a href="https://play.google.com/store/apps/details?id=com.miranae.orider" target="_blank" rel="noopener">Google Play</a>
       </div>

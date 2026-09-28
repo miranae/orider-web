@@ -22,6 +22,9 @@ body {
   scroll-behavior: smooth;
 }
 
+/* 본문 링크는 어두운 배경에서도 읽을 수 있게 표시합니다. */
+.container a { color: var(--primary); }
+
 /* -- Header -- */
 header {
   background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #01579b 100%);

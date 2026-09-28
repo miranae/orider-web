@@ -4,52 +4,59 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>10. 라이딩 기록 - Orider 매뉴얼</title>
+<title>10. 활동 기록 - Orider 매뉴얼</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <nav class="chapter-nav">
   <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
-  <div class="nav-title">10. 라이딩 기록</div>
+  <div class="nav-title">10. 활동 기록</div>
   <div class="nav-right"><a href="ch09-strava.html">이전</a><span class="nav-sep">|</span><a href="ch11-weather.html">다음 &rarr;</a></div>
 </nav>
 
 <div class="container">
 <section id="s10">
-  <h2>10. 라이딩 기록</h2>
-  <p>완료한 모든 라이딩 기록을 확인하고, 그래프와 지도로 자세히 분석할 수 있습니다.</p>
-  <img src="screenshots/13_history.png" alt="라이딩 기록" class="screenshot">
+  <h2>10. 활동 기록</h2>
+  <p>완료한 모든 활동 기록을 확인하고, 그래프와 지도로 자세히 분석할 수 있습니다.</p>
+  <img src="screenshots/13_history.png" alt="활동 기록" class="screenshot">
 
   <h3 id="s10-1">10.1 기록 목록</h3>
   <div class="card">
-    <p>설정 → 기록에서 모든 완료된 라이딩을 확인합니다. 각 항목에는 날짜, 거리, 시간, 상승 고도가 표시됩니다.</p>
+    <p>홈의 활동 목록에서 모든 완료된 활동을 확인합니다. 각 항목에는 날짜, 거리, 시간, 상승 고도가 표시됩니다.</p>
     <div class="tip">Strava를 연동하면 Strava에서 가져온 기록도 함께 표시됩니다.</div>
   </div>
 
   <h3 id="s10-2">10.2 세션 상세</h3>
   <div class="card">
-    <p>기록을 탭하면 라이딩의 모든 디테일을 확인할 수 있는 상세 화면으로 이동합니다.</p>
+    <p>기록을 탭하면 선택한 활동의 상세 정보를 확인할 수 있는 상세 화면으로 이동합니다.</p>
     <ul>
-      <li><strong>주행 통계</strong> — 거리, 시간, 평균속도, 최고속도, 상승고도, 칼로리 등</li>
+      <li><strong>주행 통계</strong> — 거리, 시간, 평균 속도·최고 속도(자전거), 평균 페이스·최고 페이스(러닝), 상승고도, 칼로리 등</li>
       <li><strong>고도 프로필 그래프</strong> — 전체 경로의 고도 변화</li>
-      <li><strong>속도/심박/파워/케이던스 그래프</strong> — 시간축 데이터</li>
-      <li><strong>지도 리플레이</strong> — 주행 트랙을 지도 위에 표시</li>
+      <li><strong>속도·페이스/심박/파워/케이던스 그래프</strong> — 종목과 실제 측정 데이터에 따른 시간축 데이터</li>
+      <li><strong>지도 리플레이</strong> — 활동 트랙을 지도 위에 표시</li>
       <li><strong>ClimbPro 데이터</strong> — 오르막 구간별 상세 정보</li>
-      <li><strong>추천 사진</strong> — 주행 중 촬영된 사진 표시</li>
-      <li><strong>GPX / FIT 내보내기</strong> — 주행 기록을 GPX 또는 FIT 파일로 저장·공유</li>
+      <li><strong>추천 사진</strong> — 운동 중 촬영된 사진 표시</li>
+      <li><strong>GPX / FIT 내보내기</strong> — 활동 기록을 GPX 또는 FIT 파일로 저장·공유</li>
       <li><strong>공개 범위</strong> — 이 활동을 누구에게 보일지 설정 (비공개 / 친구만 / 전체공개)</li>
       <li><strong>Strava 업로드 상태</strong> — 업로드 완료 여부 표시</li>
     </ul>
-    <p>주행 이름 수정 및 삭제도 가능합니다. 활동에는 주행 경로가 담긴 지도 썸네일이 자동 생성됩니다.</p>
+    <p>활동 이름 수정 및 삭제도 가능합니다. 활동에는 이동 경로가 담긴 지도 썸네일이 자동 생성됩니다.</p>
   </div>
+  <h3 id="s10-3">10.3 러닝 기록과 분석</h3>
+  <ol><li>기록 목록에서 활동을 열고 러닝으로 저장되었는지 확인합니다.</li><li>거리·운동 시간·평균 페이스를 함께 비교합니다. 일시정지를 포함한 경과 시간은 운동 시간과 다를 수 있습니다.</li><li>지도 트랙과 시간축 그래프를 보며 GPS가 튄 구간이나 휴식 구간을 확인합니다. 심박·케이던스는 수집된 값이 있을 때 분석합니다.</li><li>랩을 기록했다면 같은 거리 구간을 비교해 후반 페이스 변화와 심박 상승을 확인합니다.</li></ol>
+  <p>러닝 칼로리는 측정 가능한 데이터와 체중 등을 이용한 추정치입니다. 자전거 파워 기반 지표가 비어 있는 것을 러닝 기록 실패로 보지 마세요. 기록 종목·센서·가져온 데이터에 따라 제공되는 분석이 달라집니다.</p>
+  <p>큰 화면에서 기록·종목별 분석을 보려면 <a href="/web-manual/">웹 매뉴얼</a>을 참고하세요. GPX는 주로 경로를 교환하는 형식이며, 파일만으로 모든 센서 데이터나 활동 종목이 전달된다고 가정하지 마세요. FIT를 내보낼 때에도 받는 서비스의 표시 결과를 확인하세요.</p>
+  <h3 id="s10-4">10.4 계획 진행 결과 확인</h3>
+  <p>계획으로 시작한 러닝은 저장된 활동과 프로그램 진행 상태를 함께 확인하세요. 오늘의 러닝 완료·일부 완료·중단·건너뜀은 서로 다른 결과입니다. 다음 운동 보류나 계획 유지 사유가 보이면 운동 기록·본인 피드백에 따른 안내를 읽고 다음 단계를 결정합니다.</p>
+  <p>활동 저장 후에도 계획 연결이나 웹 분석이 준비 중일 수 있습니다. 인터넷 연결 후 프로그램을 새로고침하고, 실제 기록과 연결된 날짜·단계를 확인하세요. 연결 실패를 해결하려고 같은 운동을 새로 기록할 필요는 없습니다.</p>
 </section>
 </div>
 
 <div class="container">
   <div class="bottom-nav">
     <div><a href="ch09-strava.html">&larr; 이전</a></div>
-    <div class="nav-title">10. 라이딩 기록</div>
+    <div class="nav-title">10. 활동 기록</div>
     <div><a href="ch11-weather.html">다음 &rarr;</a></div>
   </div>
 </div>

@@ -18,7 +18,7 @@
         <a class="gb-link" href="ch01-start.html">1. 웹 시작하기 <span class="lvl level-beginner">초급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">기록 보기</div>
-        <a class="gb-link" href="ch02-records.html">2. 라이딩 기록 확인 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch02-records.html">2. 자전거·러닝 기록 확인 <span class="lvl level-beginner">초급</span></a>
         <a class="gb-link" href="ch03-analysis.html">3. 활동 상세 분석 <span class="lvl level-intermediate">중급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">비교와 이해</div>
@@ -28,7 +28,7 @@
       <div class="gb-group"><div class="gb-group-title">심화</div>
         <a class="gb-link" href="ch06-advanced.html">6. 고급 데이터 활용 <span class="lvl level-advanced">고급</span></a>
         <a class="gb-link" href="ch07-training.html">7. 훈련 계획·기록 <span class="lvl level-intermediate">중급</span></a>
-        <a class="gb-link" href="ch08-multisport.html">8. 멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch08-multisport.html">8. 종목별 분석·멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">연동·설정</div>
         <a class="gb-link" href="ch09-strava.html">9. Strava 연동 <span class="lvl level-beginner">초급</span></a>
@@ -49,8 +49,19 @@
     <main class="gb-content">
       <section id="glossary">
         <h2>부록. 용어집</h2>
-        <div class="purpose"><h4>이 페이지의 목적</h4><p>분석 탭의 영문 지표 용어를 한곳에서 찾아봅니다. 각 지표 카드의 <strong>ⓘ</strong>에 마우스를 올리면 같은 설명이 툴팁으로도 표시됩니다.</p></div>
-        <div class="tip">이 용어집은 분석 탭 ⓘ 툴팁과 <strong>동일한 i18n 소스(<code>analysis.glossary</code>)</strong>에서 자동 생성됩니다.</div>
+        <div class="purpose"><h4>이 페이지의 목적</h4><p>자전거와 러닝의 단위·페이스·부하 용어를 찾아봅니다. 분석 지표의 <strong>ⓘ</strong>에서는 해당 화면의 설명도 확인할 수 있습니다.</p></div>
+        <div class="tip">러닝 용어와 분석 지표를 함께 정리했습니다. 파워·FTP 기반 설명은 자전거에 적용하고 러닝은 페이스·임계 페이스 기준으로 읽습니다.</div>
+          <h3>러닝 · 종목별 기록</h3>
+          <div class="card"><table><tr><th>용어</th><th>영문</th><th>설명</th></tr>
+            <tr><td><strong>페이스</strong></td><td>Pace</td><td>1km에 걸리는 시간(분/km). 5:00/km가 6:00/km보다 빠릅니다. 수영은 분/100m로 구분합니다.</td></tr>
+            <tr><td><strong>스플릿·랩</strong></td><td>Split / Lap</td><td>활동을 나눈 구간의 거리와 시간. 원본 랩 데이터가 있어야 표시되며 마지막 짧은 구간은 따로 해석합니다.</td></tr>
+            <tr><td><strong>러닝 케이던스</strong></td><td>Running cadence</td><td>분당 걸음 수(spm). 자전거 페달 회전수(rpm)와 다릅니다. 보폭·접지 시간 추정과 실측값을 구분하세요.</td></tr>
+            <tr><td><strong>임계 페이스</strong></td><td>Threshold pace</td><td>러닝 강도·페이스 존을 정하는 개인 기준(분/km). 역치 심박 LTHR(bpm)과 단위가 다릅니다.</td></tr>
+            <tr><td><strong>경사 보정 페이스</strong></td><td>GAP</td><td>경사의 영향을 보정한 추정 페이스. 실제 기록 시간과 다르며 GPS·고도 데이터에 영향을 받습니다.</td></tr>
+            <tr><td><strong>러닝 부하</strong></td><td>rTSS</td><td>러닝 활동으로 산출한 훈련 부하. 자전거 파워 기반 TSS와 산출 근거가 다르므로 자신의 추세와 함께 확인합니다.</td></tr>
+            <tr><td><strong>거리별 개인 기록</strong></td><td>Distance PR</td><td>특정 거리 구간의 확정 최고 시간. 활동 전체 평균과 구분하며 데이터가 없으면 미산출로 표시됩니다.</td></tr>
+            <tr><td><strong>체력·피로·폼</strong></td><td>CTL / ATL / TSB</td><td>누적 부하에서 산출하는 훈련 추세 지표. 체력 CTL, 최근 피로 ATL, 두 값의 차이 TSB를 종목별·통합으로 봅니다.</td></tr>
+          </table></div>
           <h3>훈련 부하 · 강도</h3>
           <div class="card"><table>
               <tr><th>용어</th><th>영문</th><th>설명</th></tr>
@@ -81,6 +92,12 @@
               <tr><td><strong>최장 매치</strong></td><td></td><td>가장 길게 이어진 단일 고강도 구간.</td></tr>
               <tr><td><strong>FTP 91% 이상을 끊김 없이 유지한 최장 시간</strong></td><td></td><td>역치 지구력 지표.</td></tr>
               <tr><td><strong>페달링 사분면</strong></td><td></td><td>케이던스×토크 4분면에 머문 시간 비중. Q4(저rpm·고토크) 높으면 근력형, Q1(고rpm·고출력) 높으면 고강도 스피닝.</td></tr>
+              <tr><td><strong>듀얼 파워미터가 기록한 좌측/우측 출력 비율입니다. 50/50에 가까울수록 좌우 출력이 균형적입니다.</strong></td><td></td><td></td></tr>
+              <tr><td><strong>토크 효율은 전체 페달 힘 중 크랭크를 전진시키는 데 기여한 힘의 비율입니다.</strong></td><td></td><td></td></tr>
+              <tr><td><strong>페달 부드러움은 한 바퀴 회전 동안 출력이 얼마나 고르게 이어지는지 나타냅니다.</strong></td><td></td><td></td></tr>
+              <tr><td><strong>플랫폼 중심 오프셋(PCO)은 페달 플랫폼 중심에서 힘이 작용한 좌우 거리입니다. 부호를 유지해 표시합니다.</strong></td><td></td><td></td></tr>
+              <tr><td><strong>파워 페이즈는 한 번의 크랭크 회전에서 유효 파워를 생성한 각도 구간입니다.</strong></td><td></td><td></td></tr>
+              <tr><td><strong>전체 센서 샘플 중 유효한 사이클링 다이내믹스 값의 비율입니다.</strong></td><td></td><td></td></tr>
             </table></div>
           <h3>심박 · 효율</h3>
           <div class="card"><table>
@@ -117,12 +134,13 @@
               <tr><td><strong>최대 케이던스</strong></td><td></td><td>분당 최고 페달 회전수(rpm).</td></tr>
               <tr><td><strong>케이던스 표준편차. 작을수록 일정한 페달링.</strong></td><td></td><td></td></tr>
               <tr><td><strong>페이스 표준편차. 작을수록 균일한 페이스.</strong></td><td></td><td></td></tr>
+              <tr><td><strong>이 활동에서 가장 빠른 1km 구간의 페이스.</strong></td><td></td><td></td></tr>
               <tr><td><strong>칼로리</strong></td><td></td><td>추정 소비 열량(kcal).</td></tr>
             </table></div>
       </section>
       <nav class="gb-prevnext"><a class="pn-prev" href="ch10-settings.html"><div class="pn-label">← 이전</div><div class="pn-title">10. 설정</div></a><a class="pn-next" href="index.html"><div class="pn-label">→</div><div class="pn-title">목차로</div></a></nav>
       <div class="manual-store-links" aria-label="Orider 앱 설치">
-        <span>주행 기록은 Orider 앱에서 이어집니다.</span>
+        <span>자전거·러닝 기록은 Orider 앱에서 시작합니다.</span>
         <a href="https://apps.apple.com/kr/app/o-rider/id6775696052" target="_blank" rel="noopener">App Store</a>
         <a href="https://play.google.com/store/apps/details?id=com.miranae.orider" target="_blank" rel="noopener">Google Play</a>
       </div>

@@ -18,7 +18,7 @@
         <a class="gb-link" href="ch01-start.html">1. 웹 시작하기 <span class="lvl level-beginner">초급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">기록 보기</div>
-        <a class="gb-link" href="ch02-records.html">2. 라이딩 기록 확인 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch02-records.html">2. 자전거·러닝 기록 확인 <span class="lvl level-beginner">초급</span></a>
         <a class="gb-link" href="ch03-analysis.html">3. 활동 상세 분석 <span class="lvl level-intermediate">중급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">비교와 이해</div>
@@ -28,7 +28,7 @@
       <div class="gb-group"><div class="gb-group-title">심화</div>
         <a class="gb-link" href="ch06-advanced.html">6. 고급 데이터 활용 <span class="lvl level-advanced">고급</span></a>
         <a class="gb-link" href="ch07-training.html">7. 훈련 계획·기록 <span class="lvl level-intermediate">중급</span></a>
-        <a class="gb-link" href="ch08-multisport.html">8. 멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch08-multisport.html">8. 종목별 분석·멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">연동·설정</div>
         <a class="gb-link active" href="ch09-strava.html">9. Strava 연동 <span class="lvl level-beginner">초급</span></a>
@@ -49,12 +49,12 @@
     <main class="gb-content">
       <section id="s9">
         <h2>9. Strava 연동</h2>
-      
+
         <div class="purpose">
           <h4>이 섹션의 목적</h4>
-          <p>Strava에 쌓인 기존 라이딩 데이터를 오라이더로 가져와서 통합 분석하는 것. Strava에서 기록한 활동도 세그먼트 매칭, 피트니스 분석 등 오라이더 웹의 모든 기능을 활용할 수 있게 됩니다.</p>
+          <p>Strava의 자전거·러닝 활동을 같은 계정으로 가져오고, 원본에 포함된 거리·시간·심박·케이던스를 확인합니다. 연결 상태, 가져오기 결과, 활동 종목을 차례로 점검합니다.</p>
         </div>
-      
+
         <h3 id="s9-1">9.1 Strava 연결하기</h3>
         <div class="card">
           <h4>해야 할 것</h4>
@@ -67,63 +67,70 @@
             <div class="flow-arrow">&rarr;</div>
             <div class="flow-step">연결 완료</div>
           </div>
-      
+
           <h4>확인할 것</h4>
           <p>연결이 완료되면 <strong>연결된 앱</strong> 탭의 Strava 카드에 초록색 점과 함께 <strong>연결됨</strong> 표시가 나타나고, 상단에 <strong>"N개 연결됨"</strong> 개수가 갱신됩니다. <strong>계정 &amp; 프로필</strong> 탭 상단 프로필 카드에도 <strong>Strava 연결됨</strong> 배지가 표시됩니다.</p>
-      
+
           <h4>결과</h4>
           <p>Strava 계정이 연결되어, 과거 활동 가져오기와 자동 업로드가 가능한 상태가 됩니다.</p>
-      
+
           <div class="info">앱과 웹의 Strava 연동은 자동 동기화됩니다. 웹에서 연결하면 앱에서도 연결 상태가 반영됩니다.</div>
         </div>
-      
+
         <h3 id="s9-2">9.2 과거 활동 가져오기</h3>
         <div class="card">
           <h4>해야 할 것</h4>
           <p>연결 후 <strong>연결된 앱</strong> 탭에 나타나는 <strong>Strava 동기화 옵션</strong> 카드에서, <strong>과거 활동 가져오기</strong> 행의 <strong>가져오기</strong> 버튼을 누릅니다. 이동한 페이지에서 가져오기를 시작하면 Strava에 쌓인 기존 활동을 한꺼번에 불러옵니다.</p>
-      
+
           <h4>확인할 것</h4>
           <ul>
             <li>단계 표시(시작 &rarr; 진행 &rarr; 리포트)와 진행 상황</li>
             <li>가져온 활동 수 / Strava 전체 활동 수</li>
             <li>가져온 활동이 대시보드 피드에 추가됨</li>
           </ul>
-      
+
           <h4>해석 기준</h4>
           <p>가져온 활동은 일반 활동과 동일하게 취급됩니다:</p>
           <ul>
-            <li>세그먼트 자동 매칭 대상</li>
+            <li>종목과 데이터가 지원하는 분석 대상</li>
             <li>피트니스 분석에 반영 (파워/심박 데이터 포함 시)</li>
             <li>주간 통계에 합산</li>
           </ul>
-      
+
           <h4>결과</h4>
-          <p>Strava에만 있던 과거 기록이 오라이더에 통합되어, 전체 라이딩 역사를 하나의 플랫폼에서 관리합니다. 가져오기를 한 번 완료하면 같은 버튼이 <strong>리포트 보기</strong>로 바뀌어 결과를 다시 확인할 수 있습니다.</p>
+          <p>Strava에만 있던 과거 기록이 오라이더에 통합되어, 자전거·러닝 활동 이력을 하나의 플랫폼에서 관리합니다. 가져오기를 한 번 완료하면 같은 버튼이 <strong>리포트 보기</strong>로 바뀌어 결과를 다시 확인할 수 있습니다.</p>
         </div>
-      
+
         <h3 id="s9-3">9.3 자동 업로드</h3>
         <div class="card">
           <h4>해야 할 것</h4>
           <p><strong>연결된 앱 &rarr; Strava 동기화 옵션</strong> 카드에서 <strong>자동 업로드</strong> 스위치를 켭니다.</p>
-      
+
           <h4>결과</h4>
-          <p>활동 종료 시 새 활동이 Strava에 자동으로 업로드됩니다.</p>
+          <p>앱의 자동 업로드 설정에 따라 저장한 새 활동을 Strava로 전송합니다. 저장·동기화·업로드는 별도 단계이므로 앱과 Strava에서 실제 결과를 확인하세요.</p>
         </div>
-      
+
         <h3 id="s9-4">9.4 연결 해제</h3>
         <div class="card">
           <h4>해야 할 것</h4>
           <p>설정 &rarr; <strong>연결된 앱</strong> &rarr; Strava 카드의 <strong>연결 해제</strong>를 클릭하고, 확인 대화상자에서 승인합니다.</p>
-      
+
           <h4>결과</h4>
           <p>Strava 연동이 해제됩니다. 이미 가져온 활동 데이터는 그대로 유지됩니다.</p>
-      
+
           <div class="warn">연결 해제 후에는 새로운 Strava 활동이 자동으로 동기화되지 않습니다.</div>
         </div>
+
+        <h3 id="s9-5">9.5 가져온 러닝 기록 확인하기</h3>
+        <div class="card"><ol><li>가져오기 리포트에서 완료·건너뜀·오류 등 결과를 확인합니다.</li>
+            <li>대시보드에서 러닝과 기간을 선택해 해당 활동을 찾습니다.</li>
+            <li>상세에서 종목·거리·시간·페이스를 보고, 랩 데이터가 있으면 스플릿을 확인합니다.</li>
+            <li>분석이나 개인 기록이 준비 중이면 상태 안내를 보고 나중에 다시 확인합니다.</li></ol>
+          <p>원본에 심박·케이던스·상세 경로가 없으면 연결 후에도 자동으로 생성되지 않습니다. 같은 운동을 앱·Strava·파일로 가져온 경우에는 출처와 중복 여부를 확인하고 이미 존재하는 활동을 반복 업로드하지 마세요.</p></div>
       </section>
-      <nav class="gb-prevnext"><a class="pn-prev" href="ch08-multisport.html"><div class="pn-label">← 이전</div><div class="pn-title">8. 멀티스포츠</div></a><a class="pn-next" href="ch10-settings.html"><div class="pn-label">다음 →</div><div class="pn-title">10. 설정</div></a></nav>
+      <nav class="gb-prevnext"><a class="pn-prev" href="ch08-multisport.html"><div class="pn-label">← 이전</div><div class="pn-title">8. 종목별 분석·멀티스포츠</div></a><a class="pn-next" href="ch10-settings.html"><div class="pn-label">다음 →</div><div class="pn-title">10. 설정</div></a></nav>
       <div class="manual-store-links" aria-label="Orider 앱 설치">
-        <span>주행 기록은 Orider 앱에서 이어집니다.</span>
+        <span>자전거·러닝 기록은 Orider 앱에서 시작합니다.</span>
         <a href="https://apps.apple.com/kr/app/o-rider/id6775696052" target="_blank" rel="noopener">App Store</a>
         <a href="https://play.google.com/store/apps/details?id=com.miranae.orider" target="_blank" rel="noopener">Google Play</a>
       </div>
