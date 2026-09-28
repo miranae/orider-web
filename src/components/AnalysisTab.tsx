@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActivityStreams, ActivitySummary, LapData } from "@shared/types";
+import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
 import { buildClimbTableRows, formatClimbEntryTime } from "../utils/climbMetrics";
 import { useLocale } from "../contexts/LocaleContext";
@@ -345,7 +346,7 @@ export default function AnalysisTab({
     avgKph: sm?.avgSpeedKph ?? null,
     maxKph: sm?.maxSpeedKph ?? null,
   };
-  const distanceKm = sm?.distanceKm ?? null;
+  const distanceKm = sm ? resolveObservedDistanceKm(sm, summary?.distance) : null;
   const elevGain = sm?.elevationGainM ?? null;
   const hrZones = useMemo(() => (sm && hasHr ? hrZoneDistribution(sm) : null), [sm, hasHr]);
   const powerZones = useMemo(() => (sm && hasPower ? powerZoneDistribution(sm) : null), [sm, hasPower]);

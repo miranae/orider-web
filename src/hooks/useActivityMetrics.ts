@@ -48,7 +48,7 @@ export type ActivityMetricsDoc = ActivityMetrics & {
 export const PUBLIC_ACTIVITY_METRICS_KEYS = [
   "version", "discipline", "activityType", "startTime", "computedAt",
   "durationSec", "movingTimeSec", "pauseTimeSec",
-  "distanceKm", "elevationGainM", "elevationLossM", "avgGrade", "maxGrade",
+  "distanceKm", "distanceSource", "elevationGainM", "elevationLossM", "avgGrade", "maxGrade",
   "avgSpeedKph", "maxSpeedKph", "avgCadence", "maxCadence",
   "np", "avgPower", "avgHr", "cyclingDynamics", "lrBalance",
   "workKj", "caloriesKcal", "isVirtualPower", "gpsQuality", "weather",
@@ -66,6 +66,11 @@ export function fromPublicActivityMetrics(data: Record<string, unknown>): Activi
   const projection: Record<string, unknown> = {};
   for (const key of PUBLIC_ACTIVITY_METRICS_KEYS) {
     if (Object.prototype.hasOwnProperty.call(data, key)) projection[key] = data[key];
+  }
+  // 잘못된 출처도 명시 결측으로 유지한다. 필드를 지우면 이전 형식의 숫자로 승격된다.
+  if (Object.prototype.hasOwnProperty.call(projection, "distanceSource")
+    && projection.distanceSource !== "recorded_summary" && projection.distanceSource !== "stream_counter") {
+    projection.distanceSource = null;
   }
   // 부분집합이므로 필수 필드가 비어 있다. 타입은 정본과 같은 것으로 두고(소비처가 두 모양을
   // 따로 다루면 화면마다 분기가 늘어난다) 없는 값은 undefined 로 남긴다 — 소비처는 이미 모든

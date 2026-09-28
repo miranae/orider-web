@@ -56,6 +56,8 @@ export interface ActivityMetrics {
   avgSpeedKph: number | null;
   maxSpeedKph: number | null;
   distanceKm: number;
+  /** null이면 숫자 호환값이 있어도 관측 거리로 승격하지 않는다. */
+  distanceSource?: "recorded_summary" | "stream_counter" | null;
   durationSec: number;
   elevationGainM: number;
 
