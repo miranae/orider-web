@@ -21,7 +21,7 @@ afterEach(cleanup);
 
 function metrics(fields: Record<string, unknown>) {
   return {
-    version: 32, discipline: "run", durationSec: 300, movingTimeSec: 300,
+    version: 33, discipline: "run", durationSec: 300, movingTimeSec: 300,
     distanceKm: 0, avgSpeedKph: 20, maxSpeedKph: 20,
     avgPower: null, np: null, avgHr: 150, maxHr: 155,
     powerZoneSec: [], hrZoneSec: [], mmp: {}, splits: [], runMetrics: {},
@@ -61,7 +61,7 @@ describe("서버 거리 근거의 실제 구독과 화면", () => {
     expect(card.getByText("—")).toBeInTheDocument();
   });
   it("이전 형식의 양수 거리는 보존한다", async () => {
-    const card = await show({ version: 31, distanceKm: 8 }, false);
+    const card = await show({ version: 32, distanceKm: 8 }, false);
     expect(card.getByText("8.00")).toBeInTheDocument();
   });
   it("이전 형식의 근거 없는 0km는 숨긴다", async () => {
