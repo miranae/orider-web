@@ -15,6 +15,7 @@ import {
   noteFirestoreServerSuccess,
 } from "../utils/firestoreSessionRecovery";
 import { useFreshTraining } from "./useFreshTraining";
+import { canonicalFitnessInputsLifecycle } from "@shared/training/fitnessLoadLifecycle";
 
 const mocks = vi.hoisted(() => ({
   authLoading: false,
@@ -113,7 +114,7 @@ describe("useFreshTraining", () => {
     unmount();
   });
 
-  it.each(["failed", "pending", "invalidated", "revision-mismatch", "previous-day", "wrong-sport", "ingest-after-read", "unknown-processed", "processed", "completion-earlier", "completion-null", "completion-missing", "input-time-mismatch", "completion-later"])("신선한 projection과 별개로 단일 종목 %s lifecycle을 검사한다", async (status) => {
+  it.each(["failed", "pending", "invalidated", "revision-mismatch", "previous-day", "wrong-sport", "ingest-after-read", "unknown-processed", "processed", "completion-earlier", "completion-null", "completion-missing", "input-time-mismatch", "completion-later", "invalidation-false", "invalidation-zero", "invalidation-empty", "invalidation-null"])("신선한 projection과 별개로 단일 종목 %s lifecycle을 검사한다", async (status) => {
     const listeners = installControlledSnapshots(true);
     const now = Date.now();
     const date = new Date(now).toISOString().slice(0, 10);
@@ -129,14 +130,16 @@ describe("useFreshTraining", () => {
         asOf: status === "completion-earlier" ? now - 1 : status === "completion-null" ? null
           : status === "completion-missing" ? undefined : status === "completion-later" ? now + 100 : now,
         deadlineAt: now - 1 },
+      ...(status.startsWith("invalidation-") ? { inputInvalidatedAt: status === "invalidation-false" ? false : status === "invalidation-zero" ? 0 : status === "invalidation-empty" ? "" : null } : {}),
       ...(status === "invalidated" ? { inputInvalidatedAt: { ...readTime, nanoseconds: readTime.nanoseconds + 1 } } : {}),
     };
+    if (status.startsWith("invalidation-")) expect(canonicalFitnessInputsLifecycle(lifecycle, { discipline: "bike", computedAt: now }, "bike", { requireSnapshot: true })).toBe(status === "invalidation-null" ? "ready" : "pending");
     const { result, unmount } = renderHook(() => useFreshTraining("bike"));
     expect(listeners.map(listener => listener.path)).toEqual(["users/training-user", "users/training-user/fitness/projection_bike", "users/training-user/fitness/timeseries_bike"]);
     act(() => { emit(listeners[0], status === "ingest-after-read" ? { lastActivityIngestAt: now - 500 } : {}); emit(listeners[1], { computedAt: now }); emit(listeners[2], lifecycle, true); });
     expect(result.current.lastStatus).toBeNull();
     act(() => emit(listeners[2], lifecycle));
-    const processed = status === "processed" || status === "unknown-processed" || status === "completion-later";
+    const processed = status === "processed" || status === "unknown-processed" || status === "completion-later" || status === "invalidation-null";
     await waitFor(() => expect(result.current.lastStatus).toBe(processed ? "fresh" : "recomputed"));
     expect(mockCallableInvocations).toHaveLength(processed ? 0 : 1);
     unmount();

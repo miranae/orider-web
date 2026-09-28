@@ -38,6 +38,18 @@ describe('서버 운동부하와 PMC 수명주기', () => {
       loadStatus: Object.keys(fields).length ? 'unconfirmed' : 'snapshot',
       calculationStatus: Object.keys(fields).length ? 'estimated' : 'server' })
   })
+  it.each([false, 0, ''])('완료된 정본의 잘못된 무효화 %j는 저장 차트를 보존하며 확정으로 표시하지 않는다', inputInvalidatedAt => {
+    const doc = { ...lifecycleSource('processed'), inputInvalidatedAt } as unknown as FitnessTimeseriesDoc
+    expect(describePmcHistory(doc.points, [doc], doc.computedAt)[0]).toMatchObject({
+      ctl: 10, atl: 20, tsb: -10, dailyLoad: 30, loadStatus: 'unconfirmed', calculationStatus: 'stale',
+    })
+  })
+  it.each([undefined, null])('완료된 정본의 무효화 %s는 저장 차트와 완료 상태를 유지한다', inputInvalidatedAt => {
+    const doc = { ...lifecycleSource('processed'), inputInvalidatedAt } as FitnessTimeseriesDoc
+    expect(describePmcHistory(doc.points, [doc], doc.computedAt)[0]).toMatchObject({
+      ctl: 10, dailyLoad: 30, loadStatus: 'final', calculationStatus: 'server',
+    })
+  })
   it.each([
     ['2026-09-08T03:00:00+09:00', '2026-09-07'],
     ['2026-09-07T20:00:00-07:00', '2026-09-08'],

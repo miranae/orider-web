@@ -33,7 +33,7 @@ function validReadTime(value: { seconds: number; nanoseconds: number } | undefin
 
 export function isFitnessInputInvalidated(source: FitnessTimeseriesDoc | null): boolean {
   const dirty = source?.inputInvalidatedAt
-  if (!dirty) return false
+  if (dirty == null) return false
   const read = source?.loadSnapshot?.inputReadTime
   return !validReadTime(dirty) || !validReadTime(read) || dirty.seconds > read!.seconds
     || dirty.seconds === read!.seconds && dirty.nanoseconds > read!.nanoseconds

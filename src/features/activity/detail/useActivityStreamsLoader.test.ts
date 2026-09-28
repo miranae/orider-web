@@ -1,3 +1,5 @@
+import { renderHook } from "@testing-library/react";
+import type { Activity } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setDocData } from "../../../__tests__/mocks/firebase";
@@ -5,6 +7,7 @@ import { getActivityStreams } from "../../../services/personalDataApi";
 import {
   loadCanonicalActivityStreams,
   usesCanonicalActivityStreams,
+  useActivityStreamsLoader,
 } from "./useActivityStreamsLoader";
 
 vi.mock("../../../services/personalDataApi", () => ({
@@ -14,6 +17,21 @@ vi.mock("../../../services/personalDataApi", () => ({
 describe("canonical activity streams", () => {
   beforeEach(() => {
     vi.mocked(getActivityStreams).mockReset();
+  });
+
+  it.each(["0", "9007199254740993", "9".repeat(400)])("잘못된 Strava ID %s로 provider 스트림 요청을 보내지 않는다", value => {
+    const getStreams = vi.fn().mockResolvedValue({});
+    for (const activity of [
+      { id: "legacy-doc", source: "strava", stravaActivityId: value },
+      { id: `strava_${value}`, source: "strava" },
+    ]) {
+      const { unmount } = renderHook(() => useActivityStreamsLoader({
+        activityId: activity.id, activity: { ...activity, userId: "owner-1" } as Activity,
+        userId: "owner-1", getStreams, t: key => key,
+      }));
+      expect(getStreams).not.toHaveBeenCalled();
+      unmount();
+    }
   });
 
   it("loads a GCS-backed document through the authenticated REST API", async () => {
