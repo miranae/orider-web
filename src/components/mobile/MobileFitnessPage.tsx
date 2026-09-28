@@ -71,6 +71,10 @@ export interface MobileFitnessData {
   thisWeekTSS: number;
   avgWeekTSS: number;
   restDays: number;
+  loadUnknownCount?: number;
+  thisWeekUnknownCount?: number;
+  hasKnownWeeklyLoad?: boolean;
+  hasKnownThisWeekLoad?: boolean;
   // 임계값 (종목별)
   threshold: MobileFitnessThreshold | null;
   // bike 핵심 상태/역량 표시용 프로필 값.
@@ -565,6 +569,7 @@ export default function MobileFitnessPage({
   sectionState?: MobileFitnessSectionState;
 }) {
   const { t } = useTranslation("dashboard");
+  const { t: trainingT } = useTranslation("training");
   const [tab, setTab] = useState<"overview" | "analysis">("overview");
   useEffect(() => {
     setTab("overview");
@@ -738,8 +743,9 @@ export default function MobileFitnessPage({
 
           {/* 주간 TSS */}
           {sectionState.trend === "ready" && data.weeklyTSS.length > 0 && (
-            <SectionCard title={t("mobileFitness.weeklyLoadTitle")} sub={t("mobileFitness.weeklyLoadSub", { thisWeek: data.thisWeekTSS, avg: data.avgWeekTSS, restDays: data.restDays })}>
-              <WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />
+            <SectionCard title={t("mobileFitness.weeklyLoadTitle")} sub={t("mobileFitness.weeklyLoadSub", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS, avg: data.loadUnknownCount && !data.hasKnownWeeklyLoad ? "–" : data.avgWeekTSS, restDays: data.restDays })}>
+              {(!data.loadUnknownCount || data.hasKnownWeeklyLoad) && <WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />}
+              {!!data.loadUnknownCount && <Text variant="caption">{trainingT("log.loadPartial", { count: data.loadUnknownCount })}</Text>}
             </SectionCard>
           )}
 

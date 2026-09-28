@@ -24,9 +24,7 @@ import {
 } from "../features/activity/detail/activitySensorRejectionLogging";
 import { getSportCategory } from "../features/activity/detail/activityDetailUtils";
 import {
-  loadCanonicalActivityStreams,
   useActivityStreamsLoader,
-  usesCanonicalActivityStreams,
 } from "../features/activity/detail/useActivityStreamsLoader";
 import { logClientError } from "../services/errorLogger";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -34,7 +32,6 @@ import { useBikeProfiles } from "./useBikeProfiles";
 import { useActivityMetrics } from "./useActivityMetrics";
 import { useActivityOverview } from "./useActivityOverview";
 import { useStrava } from "./useStrava";
-import { getStravaActivityId } from "../utils/stravaActivity";
 
 type AnalysisTabProps = ComponentProps<typeof AnalysisTab>;
 
@@ -142,13 +139,10 @@ export function useActivityAnalysisModel(
 
   const {
     streams,
-    setStreams,
+    retryStreams,
     showStreamSpinner,
-    setShowStreamSpinner,
     streamsError,
-    setStreamsError,
     loadingStreams,
-    setLoadingStreams,
   } = useActivityStreamsLoader({
     activityId,
     activity,
@@ -192,41 +186,6 @@ export function useActivityAnalysisModel(
   const activityBike = activity?.bikeProfileId
     ? (bikeProfiles.find((p) => p.id === activity.bikeProfileId) ?? null)
     : null;
-
-  const retryStreams = useCallback(async () => {
-    if (!activityId || !activity) return;
-    const source = activity.source;
-    const isCanonicalActivity = usesCanonicalActivityStreams(activityId, source);
-
-    setLoadingStreams(true);
-    setStreamsError(null);
-    setShowStreamSpinner(true);
-    try {
-      if (isCanonicalActivity) {
-        setStreams(await loadCanonicalActivityStreams(activityId, activity.userId, firebaseServices));
-        return;
-      }
-
-      const stravaId = getStravaActivityId(activity);
-      if (!stravaId) {
-        setStreamsError(t("page.streamsMissing"));
-        return;
-      }
-      const data = await getStreams(stravaId);
-      setStreams(data as unknown as ActivityStreams);
-    } catch (error) {
-      logClientError("ActivityPage.streams.retry", error, {
-        activityId,
-        source: source ?? "unknown",
-      });
-      setStreamsError(error instanceof Error && error.message !== "STREAMS_MISSING"
-        ? error.message
-        : t("page.streamsMissing"));
-    } finally {
-      setShowStreamSpinner(false);
-      setLoadingStreams(false);
-    }
-  }, [activity, activityId, firebaseServices, getStreams, setLoadingStreams, setShowStreamSpinner, setStreams, setStreamsError, t]);
 
   const activePowerOverride = resolveActiveActivityPowerOverride(
     activityId,
@@ -346,6 +305,7 @@ export function useActivityAnalysisModel(
     return {
       activityId: activityId ?? null,
       isOwner: isActivityOwner,
+      canonicalPresentationAvailable: overview.response?.status === "available",
       overviewRecovery: overview.response?.status === "available" ? overview.response.presentation.recovery ?? null : null,
       startTime: activity.startTime,
       streams: analysisProjection.streams,

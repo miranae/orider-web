@@ -78,7 +78,7 @@ export function classifyPerformanceDiscipline(type?: string, metricsDiscipline?:
 function activityLoad(activity: Activity, metrics?: ActivityMetrics): number {
   const candidates = [
     (activity as Activity & { tss?: number | null }).tss,
-    activity.summary.tss,
+    activity.summary?.tss,
   ];
   const authoritative = candidates.find(isSaneTss);
   const discipline = classifyPerformanceDiscipline(activity.type, metrics?.discipline);
@@ -86,11 +86,11 @@ function activityLoad(activity: Activity, metrics?: ActivityMetrics): number {
     precomputedTss: authoritative,
     // activity_metrics.tss는 스트림 분석 결과이므로 canonical 2순위 streamTss로 전달한다.
     streamTss: metrics?.tss,
-    avgPower: metrics?.avgPower ?? activity.summary.averagePower,
+    avgPower: metrics?.avgPower ?? activity.summary?.averagePower,
     ftp: metrics?.contextSnapshot?.ftp ?? activity.ftp,
-    streamTrimpTss: metrics?.streamTrimpTss ?? activity.summary.streamTrimpTss,
-    relativeEffort: activity.summary.relativeEffort,
-    durationMillis: activity.summary.ridingTimeMillis,
+    streamTrimpTss: metrics?.streamTrimpTss ?? activity.summary?.streamTrimpTss,
+    relativeEffort: activity.summary?.relativeEffort,
+    durationMillis: activity.summary?.ridingTimeMillis ?? 0,
     discipline: discipline === "other" ? undefined : discipline,
   }).value;
 }
@@ -159,7 +159,7 @@ export function computeIntegratedLoadFocus(
     disciplineLoad[discipline] += load;
     const durationSec = finitePositive(metrics?.durationSec)
       ? metrics.durationSec
-      : Math.max(0, activity.summary.ridingTimeMillis) / 1000;
+      : Math.max(0, activity.summary?.ridingTimeMillis ?? 0) / 1000;
 
     const powerZones = metrics?.powerZoneSec ?? [];
     if (discipline === "bike" && hasSufficientZoneCoverage(powerZones, 7, durationSec) && addAllocated(buckets, load, powerZones, [
@@ -268,7 +268,7 @@ export function buildSwimEvidence(
     if (activity.startTime < cutoff || activity.startTime > now) return [];
     const metrics = metricsMap.get(activity.id);
     if (classifyPerformanceDiscipline(activity.type, metrics?.discipline) !== "swim") return [];
-    const swolf = metrics?.swimMetrics?.swolfAvg ?? activity.summary.swolf;
+    const swolf = metrics?.swimMetrics?.swolfAvg ?? activity.summary?.swolf;
     const distancePerStroke = metrics?.swimMetrics?.distancePerStroke;
     if (!finitePositive(swolf) && !finitePositive(distancePerStroke)) return [];
     return [{ swolf: finitePositive(swolf) ? swolf : null, distancePerStroke: finitePositive(distancePerStroke) ? distancePerStroke : null }];

@@ -29,6 +29,7 @@ export interface DailyLoad {
   date: string
   totalLoad: number
   activities: { load: number; source: LoadSource }[]
+  unknownCount?: number
 }
 
 /** 활동 1개의 트레이닝 부하 추정: 사전계산 TSS > 스트림 TSS > 파워근사 > HR 스트림 TRIMP > relativeEffort > 시간 기반.

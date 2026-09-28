@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useTrainingDecision } from "../hooks/useTrainingDecision";
 import { useSearchParams } from "react-router-dom";
 
@@ -127,6 +128,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     cyclingAbility,
     runPaceStreams,
   } = model;
+  const { t: trainingT } = useTranslation("training");
   const [historyRangeOverride, setHistoryRangeOverride] = useState<{ discipline: string; range: PmcRange } | null>(null);
   const historyRange = historyRangeOverride?.discipline === discipline ? historyRangeOverride.range : range;
   const changePageRange = (nextRange: typeof range) => {
@@ -837,7 +839,10 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
               </div>
             </div>
             {rangeData.daily.length > 0 ? (
-              <DailyTSSChart data={rangeData.daily} />
+              <>
+                <DailyTSSChart data={rangeData.daily} />
+                {rangeData.daily.some(day => day.unknownCount) && <Text variant="caption">{trainingT("log.loadPartial", { count: rangeData.daily.reduce((sum, day) => sum + (day.unknownCount ?? 0), 0) })}</Text>}
+              </>
             ) : (
               <div style={{ height: 90, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
                 {t("daily.empty")}
@@ -859,11 +864,13 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             <div style={{ marginTop: 'var(--space-4)', paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)" }}>
               <div>
                 <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("daily.weekTSS")}</Text>
-                <div><Text variant="dataMedium">{weeklyStats.thisWeekTSS}</Text></div>
+                <div><Text variant="dataMedium">{weeklyStats.thisWeekUnknownCount && !weeklyStats.hasKnownThisWeekLoad ? "–" : weeklyStats.thisWeekTSS}</Text></div>
+                {weeklyStats.thisWeekUnknownCount > 0 && <Text variant="caption">{trainingT("log.loadPartial", { count: weeklyStats.thisWeekUnknownCount })}</Text>}
               </div>
               <div>
                 <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("daily.avgWeekTSS")}</Text>
-                <div><Text variant="dataMedium">{weeklyStats.avgWeekTSS}</Text></div>
+                <div><Text variant="dataMedium">{weeklyStats.unknownCount && !weeklyStats.hasKnownLoad ? "–" : weeklyStats.avgWeekTSS}</Text></div>
+                {weeklyStats.unknownCount > 0 && <Text variant="caption">{trainingT("log.loadPartial", { count: weeklyStats.unknownCount })}</Text>}
               </div>
               <div>
                 <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("daily.restDays")}</Text>
