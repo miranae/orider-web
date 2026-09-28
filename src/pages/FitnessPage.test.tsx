@@ -442,7 +442,7 @@ describe("FitnessPage", () => {
     expect(screen.queryByText("mobile fitness dashboard: tri")).not.toBeInTheDocument();
   });
 
-  it("prefers canonical discipline timeseries and uses activity_metrics.tss for a missing discipline fallback", async ({ onTestFinished }) => {
+  it("prefers canonical discipline timeseries and uses accepted recorded TSS for a missing discipline fallback", async ({ onTestFinished }) => {
     // 고정된 정본 날짜와 최근 7일 집계 기준을 맞추되 비동기 타이머는 실제 시간을 쓴다.
     vi.useFakeTimers({ toFake: ["Date"] });
     onTestFinished(() => vi.useRealTimers());
@@ -454,7 +454,7 @@ describe("FitnessPage", () => {
       type: "Run",
       startTime: Date.now(),
       deletedAt: null,
-      summary: { distance: 10_000, ridingTimeMillis: 3_600_000, relativeEffort: null },
+      summary: { distance: 10_000, ridingTimeMillis: 3_600_000, relativeEffort: null, tss: 72 },
     }]);
     setDocData("activity_metrics/run-fallback", { tss: 72, discipline: "run" });
     setDocData("users/test-uid/fitness/timeseries_run", {
@@ -485,7 +485,10 @@ describe("FitnessPage", () => {
     expect(await screen.findByText(/desktop run [^/]+\/72/)).toBeInTheDocument();
   });
 
-  it("aligns discipline weekly TSS to the shared final seven-day window", async () => {
+  it("aligns discipline weekly TSS to the current seven-day window", async ({ onTestFinished }) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    onTestFinished(() => vi.useRealTimers());
+    vi.setSystemTime(new Date("2026-09-10T12:00:00+09:00"));
     viewport.isMobile = false;
     setDocData("users/test-uid/fitness/timeseries_bike", {
       discipline: "bike",

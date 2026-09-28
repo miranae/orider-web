@@ -43,6 +43,8 @@ describe("MobileLogPage", () => {
     const changeMonth = vi.fn();
     const estimatedRide = activity("b", 3);
     estimatedRide.summary.tss = null;
+    // 같은 날짜의 별도 운동이다. 시작 시각을 분리해 중복 운동 대표 선택과 구분한다.
+    estimatedRide.startTime += 2 * 60 * 60 * 1000;
     render(<MemoryRouter><MobileLogPage activities={[activity("a", 3), estimatedRide, activity("c", 22)]} year={2026} month={8} onChangeMonth={changeMonth} /></MemoryRouter>);
     expect(screen.getByLabelText("이번 달 운동 요약")).toHaveTextContent("추정 포함");
     const day = screen.getByRole("button", { name: "9월 3일 활동 2건" });
