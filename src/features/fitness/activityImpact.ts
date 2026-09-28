@@ -112,10 +112,10 @@ function positiveNumber(value: unknown): number | null {
 
 function physicalRideIdentity(activity: Activity) {
   const summary = activity.summary as ActivitySummaryWithLegacyMovingTime;
-  const legacyMovingMillis = positiveNumber(summary.movingTimeMillis);
-  const ridingMillis = positiveNumber(summary.ridingTimeMillis);
-  const elapsedMillis = positiveNumber(summary.elapsedTimeMillis);
-  const movingSec = positiveNumber(summary.movingTimeSec)
+  const legacyMovingMillis = positiveNumber(summary?.movingTimeMillis);
+  const ridingMillis = positiveNumber(summary?.ridingTimeMillis);
+  const elapsedMillis = positiveNumber(summary?.elapsedTimeMillis);
+  const movingSec = positiveNumber(summary?.movingTimeSec)
     ?? (legacyMovingMillis != null ? Math.round(legacyMovingMillis / 1_000) : null)
     ?? (ridingMillis != null ? Math.round(ridingMillis / 1_000) : null)
     ?? (elapsedMillis != null ? Math.round(elapsedMillis / 1_000) : null);

@@ -48,14 +48,16 @@ function activityTypeLabel(type: string, t: (key: string) => string): string {
 
 function activityLabel(entry: ActivityImpactEntry, locale: string, t: (key: string) => string): string {
   const date = new Date(`${entry.date}T00:00:00.000Z`).toLocaleDateString(locale, { month: "short", day: "numeric", timeZone: "UTC" });
-  const distanceKm = entry.activity.summary.distance / 1000;
-  return `${date} · ${activityTypeLabel(entry.activity.type, t)}${distanceKm > 0 ? ` · ${distanceKm.toFixed(1)} km` : ""}`;
+  const distance = entry.activity.summary?.distance;
+  const distanceKm = typeof distance === "number" && Number.isFinite(distance) && distance > 0 ? distance / 1000 : null;
+  return `${date} · ${activityTypeLabel(entry.activity.type, t)}${distanceKm != null ? ` · ${distanceKm.toFixed(1)} km` : ""}`;
 }
 
 function pendingActivityLabel(activity: Activity, locale: string, t: (key: string) => string): string {
   const date = new Date(activity.startTime).toLocaleDateString(locale, { month: "short", day: "numeric" });
-  const distanceKm = activity.summary.distance / 1000;
-  return `${date} · ${activityTypeLabel(activity.type, t)}${distanceKm > 0 ? ` · ${distanceKm.toFixed(1)} km` : ""}`;
+  const distance = activity.summary?.distance;
+  const distanceKm = typeof distance === "number" && Number.isFinite(distance) && distance > 0 ? distance / 1000 : null;
+  return `${date} · ${activityTypeLabel(activity.type, t)}${distanceKm != null ? ` · ${distanceKm.toFixed(1)} km` : ""}`;
 }
 
 function previousUtcDay(date: string): string {

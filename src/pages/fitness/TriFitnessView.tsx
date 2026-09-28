@@ -335,8 +335,8 @@ interface PerDisciplineCardProps {
   label: string;
   color: string;
   ctl: number[];
-  delta: number;
-  tss: number;
+  delta: number | null;
+  tss: string;
   dist: string;
   unit: string;
   lastSess: string;
@@ -368,12 +368,12 @@ function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1-5)" }}>
         <Text variant="dataHero" style={{ fontSize: "var(--fs-3xl)", color, fontFamily: "var(--font-mono)" }}>
-          {ctl.length > 0 ? ctl[ctl.length - 1]!.toFixed(1) : "0.0"}
+          {ctl.length > 0 ? ctl[ctl.length - 1]!.toFixed(1) : "—"}
         </Text>
         <Text variant="unit">CTL</Text>
         <span style={{ flex: 1 }} />
-        <Text variant="mono" style={{ fontSize: "var(--fs-xs)", color: delta >= 0 ? "var(--lime)" : "var(--rose)" }}>
-          {delta >= 0 ? "+" : ""}{delta.toFixed(1)}
+        <Text variant="mono" style={{ fontSize: "var(--fs-xs)", color: delta != null && delta >= 0 ? "var(--lime)" : "var(--rose)" }}>
+          {delta == null ? "—" : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`}
         </Text>
       </div>
       {ctl.length > 0 && (
@@ -532,9 +532,9 @@ const LEGEND_ITEM_KEYS = [
 // ─────────────────────────────────────────────────────────────────────────────
 export default function TriFitnessView({ range, selectedHistoryRange = range, breakdown: triBreakdown, timeline, combinedLoad, loadFocus, historySlot }: TriFitnessViewProps) {
   const { t } = useTranslation("fitness");
+  const { t: trainingT } = useTranslation("training");
 
   // ── 실데이터 기반 KPI 변수 ─────────────────────────────────────────────────
-  const hasData = Object.values(triBreakdown).some((entry) => entry.fitness.length > 0);
   const currentTimelinePoint = timeline[timeline.length - 1];
 
   const bikeCTL = currentTimelinePoint?.bike?.ctl ?? 0;
@@ -542,7 +542,18 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
   const swimCTL = currentTimelinePoint?.swim?.ctl ?? 0;
   const totalCTL = bikeCTL + runCTL + swimCTL;
 
-  const displayedWeeklyTss = hasData
+  const weeklyEvidence = Object.fromEntries((["bike", "run", "swim"] as const).map(discipline => {
+    const entry = triBreakdown[discipline];
+    const today = new Date().toISOString().slice(0, 10);
+    const weekStart = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
+    const days = (entry.dailyData ?? []).filter(day => day.date >= weekStart && day.date <= today);
+    const unknownCount = entry.weeklyUnknownCount ?? days.reduce((sum, day) => sum + (day.unknownCount ?? 0), 0);
+    const known = entry.hasKnownWeeklyLoad ?? (days.some(day => day.activities.length > 0 || day.totalLoad > 0)
+      || entry.fitness.some(point => point.date >= weekStart && point.date <= today));
+    return [discipline, { unknownCount, known, display: known ? Math.round(entry.weeklyTSS).toString() : "—" }];
+  })) as Record<"bike" | "run" | "swim", { unknownCount: number; known: boolean; display: string }>;
+  const weeklyUnknownCount = Object.values(weeklyEvidence).reduce((sum, entry) => sum + entry.unknownCount, 0);
+  const displayedWeeklyTss = Object.values(weeklyEvidence).some(entry => entry.known)
     ? Math.round(triBreakdown.bike.weeklyTSS + triBreakdown.run.weeklyTSS + triBreakdown.swim.weeklyTSS).toString()
     : "—";
 
@@ -559,12 +570,17 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
   ];
 
   // ── CTL 스파크라인 (최근 28일 FitnessPoint에서 추출) ───────────────────────
-  const bikeSpark = timeline.slice(-28).map((point) => point.bike?.ctl ?? 0);
-  const runSpark  = timeline.slice(-28).map((point) => point.run?.ctl ?? 0);
-  const swimSpark = timeline.slice(-28).map((point) => point.swim?.ctl ?? 0);
+  const bikeSpark = timeline.length > 0
+    ? timeline.slice(-28).flatMap(point => point.bike ? [point.bike.ctl] : [])
+    : triBreakdown.bike.fitness.slice(-28).map(point => point.ctl);
+  const runSpark = timeline.length > 0
+    ? timeline.slice(-28).flatMap(point => point.run ? [point.run.ctl] : [])
+    : triBreakdown.run.fitness.slice(-28).map(point => point.ctl);
+  const swimSpark = timeline.length > 0
+    ? timeline.slice(-28).flatMap(point => point.swim ? [point.swim.ctl] : [])
+    : triBreakdown.swim.fitness.slice(-28).map(point => point.ctl);
 
-  // 스파크 빈 경우 단일 점(0) fallback — PerDisciplineCard가 빈 배열 처리 가능하도록 그냥 전달
-  // ctl.length === 0이면 차트 렌더 생략 (컴포넌트 내부에서 처리)
+  // 종목별 CTL 근거가 없으면 숫자와 차트를 미확인 상태로 표시한다.
 
   // ── 일별 부하 차트 데이터 (최근 42일) ────────────────────────────────────
   const dailyLoadData = useMemo((): DailyBarEntry[] => {
@@ -710,9 +726,9 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
             <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
               {t("triView.contrib.title")}
             </h3>
-            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{hasData && totalCTL > 0 ? t("triView.contrib.sub", { ctl: totalCTL.toFixed(1) }) : t("daily.empty")}</div>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{currentTimelinePoint && totalCTL > 0 ? t("triView.contrib.sub", { ctl: totalCTL.toFixed(1) }) : t("daily.empty")}</div>
           </div>
-          {hasData && totalCTL > 0 ? <ContribDonut
+          {currentTimelinePoint && totalCTL > 0 ? <ContribDonut
             slices={contribSlices}
             totalCtl={totalCTL}
           /> : <div data-testid="tri-contribution-empty" style={{ minHeight: "calc(var(--space-8) * 2)", display: "grid", placeItems: "center", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>{t("daily.empty")}</div>}
@@ -726,7 +742,7 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
               lineHeight: 1.6,
             }}
           >
-            {hasData ? t("triView.contrib.advice", { pct: bikePct }) : t("daily.empty")}
+            {currentTimelinePoint ? t("triView.contrib.advice", { pct: bikePct }) : t("daily.empty")}
           </div>
         </Card>
 
@@ -765,19 +781,21 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
             </div>
             <div>
               <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.bike")}</Text>
-              <div><Text variant="dataMedium">{Math.round(triBreakdown.bike.weeklyTSS)}</Text><Text variant="unit"> TSS</Text></div>
+              <div><Text variant="dataMedium">{weeklyEvidence.bike.display}</Text><Text variant="unit"> TSS</Text></div>
             </div>
             <div>
               <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.run")}</Text>
-              <div><Text variant="dataMedium">{Math.round(triBreakdown.run.weeklyTSS)}</Text><Text variant="unit"> TSS</Text></div>
+              <div><Text variant="dataMedium">{weeklyEvidence.run.display}</Text><Text variant="unit"> TSS</Text></div>
             </div>
             <div>
               <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.swim")}</Text>
-              <div><Text variant="dataMedium">{Math.round(triBreakdown.swim.weeklyTSS)}</Text><Text variant="unit"> TSS</Text></div>
+              <div><Text variant="dataMedium">{weeklyEvidence.swim.display}</Text><Text variant="unit"> TSS</Text></div>
             </div>
           </div>
         </Card>
       </div>
+
+      {weeklyUnknownCount > 0 && <Text as="p" variant="caption" tone="secondary">{trainingT("log.loadPartial", { count: weeklyUnknownCount })}</Text>}
 
       {/* 종목별 드릴다운 카드 */}
       <div style={{ marginTop: 'var(--space-5)' }}>
@@ -787,9 +805,9 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{t("triView.disciplineCards.hint")}</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 'var(--space-4)', alignItems: "start" }}>
-          <PerDisciplineCard label={t("triView.cycling")} color={DISCIPLINE_CHART_COLORS.bike} ctl={bikeSpark} delta={bikeSpark.length >= 2 ? bikeSpark[bikeSpark.length - 1]! - bikeSpark[bikeSpark.length - 2]! : 0} tss={Math.round(triBreakdown.bike.weeklyTSS)} dist="—" unit="km" lastSess={hasData ? t("triView.liveData") : t("daily.empty")} href="/fitness?sport=bike" />
-          <PerDisciplineCard label={t("discipline.run")} color={DISCIPLINE_CHART_COLORS.run} ctl={runSpark} delta={runSpark.length >= 2 ? runSpark[runSpark.length - 1]! - runSpark[runSpark.length - 2]! : 0} tss={Math.round(triBreakdown.run.weeklyTSS)} dist="—" unit="km" lastSess={hasData ? t("triView.liveData") : t("daily.empty")} href="/fitness?sport=run" />
-          <PerDisciplineCard label={t("discipline.swim")} color={DISCIPLINE_CHART_COLORS.swim} ctl={swimSpark} delta={swimSpark.length >= 2 ? swimSpark[swimSpark.length - 1]! - swimSpark[swimSpark.length - 2]! : 0} tss={Math.round(triBreakdown.swim.weeklyTSS)} dist="—" unit="km" lastSess={hasData ? t("triView.liveData") : t("daily.empty")} href="/fitness?sport=swim" />
+          <PerDisciplineCard label={t("triView.cycling")} color={DISCIPLINE_CHART_COLORS.bike} ctl={bikeSpark} delta={bikeSpark.length >= 2 ? bikeSpark[bikeSpark.length - 1]! - bikeSpark[bikeSpark.length - 2]! : null} tss={weeklyEvidence.bike.display} dist="—" unit="km" lastSess={bikeSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/fitness?sport=bike" />
+          <PerDisciplineCard label={t("discipline.run")} color={DISCIPLINE_CHART_COLORS.run} ctl={runSpark} delta={runSpark.length >= 2 ? runSpark[runSpark.length - 1]! - runSpark[runSpark.length - 2]! : null} tss={weeklyEvidence.run.display} dist="—" unit="km" lastSess={runSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/fitness?sport=run" />
+          <PerDisciplineCard label={t("discipline.swim")} color={DISCIPLINE_CHART_COLORS.swim} ctl={swimSpark} delta={swimSpark.length >= 2 ? swimSpark[swimSpark.length - 1]! - swimSpark[swimSpark.length - 2]! : null} tss={weeklyEvidence.swim.display} dist="—" unit="km" lastSess={swimSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/fitness?sport=swim" />
         </div>
       </div>
       </div>

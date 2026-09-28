@@ -28,16 +28,16 @@ function boundedConfidence(value: unknown): number | null {
 
 function activityDurationSec(activity: Activity): number | null {
   const summary = activity.summary as LegacySummary;
-  return finitePositive(summary.movingTimeSec)
-    ?? (finitePositive(summary.movingTimeMillis) != null ? finitePositive(summary.movingTimeMillis)! / 1_000 : null)
-    ?? (finitePositive(summary.ridingTimeMillis) != null ? finitePositive(summary.ridingTimeMillis)! / 1_000 : null)
-    ?? (finitePositive(summary.elapsedTimeMillis) != null ? finitePositive(summary.elapsedTimeMillis)! / 1_000 : null);
+  return finitePositive(summary?.movingTimeSec)
+    ?? (finitePositive(summary?.movingTimeMillis) != null ? finitePositive(summary?.movingTimeMillis)! / 1_000 : null)
+    ?? (finitePositive(summary?.ridingTimeMillis) != null ? finitePositive(summary?.ridingTimeMillis)! / 1_000 : null)
+    ?? (finitePositive(summary?.elapsedTimeMillis) != null ? finitePositive(summary?.elapsedTimeMillis)! / 1_000 : null);
 }
 
 function summaryIntensityFactor(activity: Activity): number | null {
   const explicit = finitePositive(activity.intensityFactor);
   if (explicit != null) return explicit;
-  const normalizedPower = finitePositive(activity.summary.normalizedPower ?? activity.weightedAvgPower);
+  const normalizedPower = finitePositive(activity.summary?.normalizedPower ?? activity.weightedAvgPower);
   const ftp = finitePositive(activity.ftp);
   return normalizedPower != null && ftp != null ? normalizedPower / ftp : null;
 }
@@ -63,7 +63,7 @@ export function deriveActivityStimulus(
   const fallbackIf = summaryIntensityFactor(activity);
   const durationSec = finitePositive(metrics?.durationSec) ?? activityDurationSec(activity);
   const heartRateRecorded = finitePositive(metrics?.avgHr) != null
-    || finitePositive(activity.summary.averageHeartRate) != null;
+    || finitePositive(activity.summary?.averageHeartRate) != null;
 
   if (metrics?.workoutType) {
     return {

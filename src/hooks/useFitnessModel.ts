@@ -86,6 +86,8 @@ export interface TriDisciplineFitness {
   canonical: boolean;
   dailyData?: DailyLoad[];
   unknownCount?: number;
+  weeklyUnknownCount?: number;
+  hasKnownWeeklyLoad?: boolean;
 }
 
 export type TriFitnessBreakdown = Record<TimeseriesDiscipline, TriDisciplineFitness>;
@@ -577,13 +579,22 @@ export function useFitnessModel(
         ? apiCanonical!.points
         : fallback?.fitnessData ?? [];
       const dailyData: DailyLoad[] = fallback?.dailyData ?? fitness.map(point => ({date:point.date,totalLoad:point.dailyLoad,activities:[]}));
+      const today = hasCanonical ? new Date(fitnessClock).toISOString().slice(0, 10) : toLocalDate(fitnessClock);
+      const weekStartDate = new Date(fitnessClock);
+      if (hasCanonical) weekStartDate.setUTCDate(weekStartDate.getUTCDate() - 6);
+      else weekStartDate.setDate(weekStartDate.getDate() - 6);
+      const weekStart = hasCanonical ? weekStartDate.toISOString().slice(0, 10) : toLocalDate(weekStartDate.getTime());
+      const recentDays = dailyData.filter(day => day.date >= weekStart && day.date <= today);
       return {
         fitness,
         dailyData,
+        weeklyUnknownCount: recentDays.reduce((sum, day) => sum + (day.unknownCount ?? 0), 0),
+        hasKnownWeeklyLoad: canonicalActive ? canonicalFitness.values != null : recentDays.some(day =>
+          day.activities.length > 0 || day.totalLoad > 0 || (!day.unknownCount && (hasCanonical || fitness.length > 0))),
         unknownCount: dailyData.reduce((sum, day) => sum + (day.unknownCount ?? 0), 0),
         weeklyTSS: canonicalActive
           ? canonicalFitness.values?.breakdown[triDiscipline].weeklyTSS ?? 0
-          : dailyData.slice(-7).reduce((sum, day) => sum + day.totalLoad, 0),
+          : recentDays.reduce((sum, day) => sum + day.totalLoad, 0),
         canonical: hasCanonical,
       };
     };
@@ -592,28 +603,15 @@ export function useFitnessModel(
       run: resolve("run", triRunTimeseries),
       swim: resolve("swim", triSwimTimeseries),
     };
-  }, [activities, apiTimeseries, canonicalActive, canonicalFitness.values, canonicalPending, canonicalFtpW, timeseries, triRunTimeseries, triSwimTimeseries]);
+  }, [activities, apiTimeseries, canonicalActive, canonicalFitness.values, canonicalPending, canonicalFtpW, fitnessClock, timeseries, triRunTimeseries, triSwimTimeseries]);
   const triFitnessTimeline = useMemo(
     // API는 현재 통합값만 제공하고 통합 과거 시계열은 제공하지 않는다. canonical ON에서
     // 브라우저가 종목별 CTL을 합산해 새 정본을 만들지 않는다.
     () => canonicalActive || Object.values(resolvedTriFitness).some(entry => entry.unknownCount) ? [] : buildTriFitnessTimeline(resolvedTriFitness),
     [canonicalActive, resolvedTriFitness],
   );
-  const triFitnessBreakdown = useMemo<TriFitnessBreakdown>(() => {
-    if (canonicalActive || Object.values(resolvedTriFitness).some(entry => entry.unknownCount)) return resolvedTriFitness;
-    const disciplines = ["bike", "run", "swim"] as const;
-    const endDate = triFitnessTimeline[triFitnessTimeline.length - 1]?.date;
-    const startDate = endDate
-      ? new Date(Date.parse(`${endDate}T00:00:00Z`) - 6 * 24 * 60 * 60 * 1000)
-        .toISOString().slice(0, 10)
-      : null;
-    return Object.fromEntries(disciplines.map((triDiscipline) => [triDiscipline, {
-      ...resolvedTriFitness[triDiscipline],
-      weeklyTSS: startDate === null ? 0 : triFitnessTimeline.reduce((sum, point) => (
-        point.date >= startDate ? sum + (point[triDiscipline]?.dailyLoad ?? 0) : sum
-      ), 0),
-    }])) as unknown as TriFitnessBreakdown;
-  }, [canonicalActive, resolvedTriFitness, triFitnessTimeline]);
+  // 주간 부하는 각 종목의 원본 날짜 기준(정본 UTC, 클라이언트 local)으로 확정한다.
+  const triFitnessBreakdown = resolvedTriFitness;
   const { fitnessData, dailyData } = useMemo<{ fitnessData: FitnessPoint[]; dailyData: DailyLoad[] }>(() => {
     if (discipline === "tri" && Object.values(resolvedTriFitness).some(entry => entry.unknownCount)) {
       const days = new Map<string, DailyLoad>();
@@ -776,12 +774,13 @@ export function useFitnessModel(
     }
     if (discipline === "tri") {
       const latest = triFitnessTimeline[triFitnessTimeline.length - 1];
-      const ctl = latest?.integrated.ctl ?? 0;
-      const atl = latest?.integrated.atl ?? 0;
+      if (!latest) return null;
+      const ctl = latest.integrated.ctl;
+      const atl = latest.integrated.atl;
       return {
         ctl,
         atl,
-        tsb: latest?.integrated.tsb ?? 0,
+        tsb: latest.integrated.tsb,
         contributions: (["bike", "run", "swim"] as const).map((contributionDiscipline) => ({
           discipline: contributionDiscipline,
           ctl: latest?.[contributionDiscipline]?.ctl ?? 0,

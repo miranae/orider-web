@@ -628,7 +628,7 @@ export function useActivityDerivedDocuments(
 
     const streamActivities = scopedActivities.filter((activity) => {
       if (!shouldReadDerivedDocument(resources.streamAttempts, activity)) return false;
-      const power = activity.summary.averagePower ?? activity.avgPower ?? null;
+      const power = activity.summary?.averagePower ?? activity.avgPower ?? null;
       const discipline = getDiscipline(activity.type);
       return power != null && power > 0 || discipline === "run" || discipline === "swim";
     });
