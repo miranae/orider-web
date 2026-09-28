@@ -634,7 +634,7 @@ export function useFitnessModel(
   const pmcHistoryPoints = useMemo(() => {
     if (canonicalActive && discipline === "tri") return [];
     const source = (doc: FitnessTimeseriesDoc | null, sport: TimeseriesDiscipline) => doc?.discipline === sport
-      && (isCanonicalTimeseries(doc, sport) || doc.loadSnapshot || doc.inputInvalidatedAt) ? doc : null;
+      && (isCanonicalTimeseries(doc, sport) || hasModernFitnessContract(doc)) ? doc : null;
     const historyValues = !canonicalActive && discipline !== "tri" && hasModernFitnessContract(timeseries)
       ? (Array.isArray(timeseries?.points) ? timeseries.points.filter((point) => point && typeof point.date === "string"
         && [point.ctl, point.atl, point.tsb, point.dailyLoad].every(Number.isFinite)) : []) : fitnessData;

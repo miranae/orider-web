@@ -75,6 +75,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("useFitnessModel", () => {
+  it.each([{ loadSnapshot: null, pmc: null }, { loadSnapshot: null }, { pmc: null }, { inputInvalidatedAt: null }, {}])("현대 계약 필드 %j의 무효 근거와 legacy 차트를 보존한다", fields => {
+    seed("bike");
+    const now = Date.parse("2026-09-06T12:00:00Z");
+    const point = { date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 70 };
+    mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: now, startDate: point.date,
+      endDate: point.date, pointCount: 1, points: [point], ...fields } as FitnessTimeseriesDoc;
+    const { result } = renderHook(() => useFitnessModel("bike", options));
+    const modern = Object.keys(fields).length > 0;
+    if (modern) expect(result.current.currentPoint).toBeNull();
+    expect(result.current.pmcHistoryPoints[0]).toMatchObject({ ctl: 40, dailyLoad: 70,
+      loadStatus: modern ? "unconfirmed" : "snapshot", calculationStatus: modern ? "estimated" : "server" });
+  });
   it("새 입력이 기존 실패 시도보다 늦으면 무효화 시각부터 기다리고 snapshot 없이 지연으로 전환한다", () => {
     vi.useFakeTimers();
     const now = Date.parse("2026-09-06T12:00:00Z");

@@ -61,7 +61,7 @@ export function describePmcHistory(
     saved,
     source,
     invalidated: isFitnessInputInvalidated(source),
-    invalidLifecycle: !!(source?.loadSnapshot || source?.pmc) && !hasFitnessLoadLifecycle(source),
+    invalidLifecycle: !!source && ('loadSnapshot' in source || 'pmc' in source || 'inputInvalidatedAt' in source) && !hasFitnessLoadLifecycle(source),
     load: hasFitnessLoadLifecycle(source) ? new Map(source!.loadSnapshot!.points.map(point => [point.date, point])) : null,
     computedDate: source && Number.isFinite(source.computedAt)
       && Number.isFinite(new Date(source.computedAt).getTime())

@@ -193,7 +193,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
         if (!hasCurrentUserGeneration()) return;
         const lastIngest = userGeneration.lastIngest;
         const now = Date.now();
-        const hasLifecycle = !!(timeseries?.loadSnapshot || timeseries?.pmc || timeseries?.inputInvalidatedAt);
+        const hasLifecycle = !!timeseries && ("loadSnapshot" in timeseries || "pmc" in timeseries || "inputInvalidatedAt" in timeseries);
         const lifecycleProcessed = timeseries?.discipline === discipline && hasFitnessLoadLifecycle(timeseries) && !isFitnessInputInvalidated(timeseries)
           && timeseries!.pmc!.status === "processed"
           && timeseries!.pmc!.processedInputRevision === timeseries!.loadSnapshot!.inputRevision

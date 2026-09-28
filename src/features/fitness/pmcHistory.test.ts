@@ -24,6 +24,21 @@ function lifecycleSource(status: 'pending' | 'processed' | 'failed' = 'pending')
 
 describe('서버 운동부하와 PMC 수명주기', () => {
   it.each([
+    { loadSnapshot: null, pmc: null },
+    { loadSnapshot: null },
+    { pmc: null },
+    { inputInvalidatedAt: null },
+    { loadSnapshot: false, pmc: false },
+    { loadSnapshot: '', pmc: '' },
+    { loadSnapshot: {}, pmc: {} },
+    {},
+  ])('현대 계약 필드 %j를 legacy 완료값으로 표시하지 않고 원본 차트를 보존한다', fields => {
+    const doc = { ...source([point('2026-09-06')]), ...fields } as FitnessTimeseriesDoc
+    expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ ctl: 10, dailyLoad: 30,
+      loadStatus: Object.keys(fields).length ? 'unconfirmed' : 'snapshot',
+      calculationStatus: Object.keys(fields).length ? 'estimated' : 'server' })
+  })
+  it.each([
     ['2026-09-08T03:00:00+09:00', '2026-09-07'],
     ['2026-09-07T20:00:00-07:00', '2026-09-08'],
   ])('현지 %s에도 UTC 최신 날짜를 기본 선택하고 잘라내지 않는다', (instant, utcDay) => {

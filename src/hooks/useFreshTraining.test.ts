@@ -89,6 +89,30 @@ describe("useFreshTraining", () => {
     setCallableResult("revalidateTraining", { data: { ok: true, status: "recomputed" } });
   });
 
+  it.each([
+    { loadSnapshot: null, pmc: null },
+    { loadSnapshot: null },
+    { pmc: null },
+    { inputInvalidatedAt: null },
+    { loadSnapshot: false, pmc: false },
+    { loadSnapshot: "", pmc: "" },
+    { loadSnapshot: {}, pmc: {} },
+    {},
+  ])("현대 계약 필드 %j의 존재로 legacy와 재검증을 구분한다", async fields => {
+    const listeners = installControlledSnapshots(true);
+    const now = Date.now();
+    const { result, unmount } = renderHook(() => useFreshTraining("bike"));
+    act(() => {
+      emit(listeners[0], {});
+      emit(listeners[1], { computedAt: now });
+      emit(listeners[2], { discipline: "bike", computedAt: now, ...fields });
+    });
+    const modern = Object.keys(fields).length > 0;
+    await waitFor(() => expect(result.current.lastStatus).toBe(modern ? "recomputed" : "fresh"));
+    expect(mockCallableInvocations).toHaveLength(modern ? 1 : 0);
+    unmount();
+  });
+
   it.each(["failed", "pending", "invalidated", "revision-mismatch", "previous-day", "wrong-sport", "ingest-after-read", "unknown-processed", "processed", "completion-earlier", "completion-null", "completion-missing", "input-time-mismatch", "completion-later"])("신선한 projection과 별개로 단일 종목 %s lifecycle을 검사한다", async (status) => {
     const listeners = installControlledSnapshots(true);
     const now = Date.now();

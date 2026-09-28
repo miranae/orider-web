@@ -665,12 +665,12 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
         if (cancelled) return;
         noteFirestoreServerSuccess(snap.metadata);
         const loadedActivities = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Activity);
-        // summary 누락 문서는 통계 계산에서 크래시를 유발하므로 제외
+        // summary 복구 대기 활동도 원본 수와 미확인 부하 집계에 포함한다.
         setActivities(
           loadedActivities
             // 쿼리 자체도 userId 로 제한하지만, 집계 경계에서도 소유자를 확인해 공개 피드나
             // 잘못 합쳐진 응답이 개인 주간 통계에 섞이지 않게 한다.
-            .filter((a) => a.userId === uid && a.summary != null),
+            .filter((a) => a.userId === uid),
         );
 
         if (!includeMonthlyDistance) return;
@@ -737,15 +737,15 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   const summaryNumber = (value: unknown): number => (
     typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0
   );
-  const activityDistance = (activity: Activity): number => summaryNumber(activity.summary.distance);
+  const activityDistance = (activity: Activity): number => summaryNumber(activity.summary?.distance);
   const activityDurationMillis = (activity: Activity): number => {
-    const ridingTime = summaryNumber(activity.summary.ridingTimeMillis);
+    const ridingTime = summaryNumber(activity.summary?.ridingTimeMillis);
     if (ridingTime > 0) return ridingTime;
-    const elapsedTime = summaryNumber(activity.summary.elapsedTimeMillis);
+    const elapsedTime = summaryNumber(activity.summary?.elapsedTimeMillis);
     if (elapsedTime > 0) return elapsedTime;
-    return summaryNumber(activity.summary.movingTimeSec) * 1000;
+    return summaryNumber(activity.summary?.movingTimeSec) * 1000;
   };
-  const activityElevation = (activity: Activity): number => summaryNumber(activity.summary.elevationGain);
+  const activityElevation = (activity: Activity): number => summaryNumber(activity.summary?.elevationGain);
   const weeks: WeeklyStat[] = [];
   const physicalLoadActivities = acceptedTrainingActivities(all);
   for (let w = 11; w >= 0; w--) {

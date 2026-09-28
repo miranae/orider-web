@@ -585,6 +585,22 @@ describe("useActivities", () => {
 });
 
 describe("useWeeklyStats", () => {
+  it.each([null, undefined])("summary %s 복구 대기 기록을 원본 수와 미확인 부하에 포함한다", async summary => {
+    simulateLogin({ uid: "user-1" });
+    const now = new Date(2026, 8, 8, 12);
+    setCollectionDocs("activities", [
+      { id: "known", userId: "user-1", type: "Ride", startTime: now.getTime() - 3600000,
+        summary: { tss: 100, distance: 20000, ridingTimeMillis: 3600000, elevationGain: 100 } },
+      { id: "recovering", userId: "user-1", type: "Ride", startTime: now.getTime() - 1800000,
+        summary, invalidSummaryRecoveryState: "pending", deletedAt: null },
+    ]);
+    const { result } = renderHook(() => useWeeklyStats({ now, includeMonthlyDistance: true }), { wrapper });
+    await waitFor(() => expect(result.current.weeklyStats.at(-1)?.rides).toBe(2));
+    expect(result.current.weeklyStats.at(-1)).toMatchObject({ tss: 100, tssEstimated: false, tssUnknownCount: 1,
+      distance: 20, time: 1, elevation: 100 });
+    expect(result.current.thisWeek).toEqual({ rides: 2, distance: 20000, time: 3600000, elevation: 100 });
+    expect(result.current.monthlyActivityDistance).toBe(20000);
+  });
   it.each([
     [100, { tss: 100, ridingTimeMillis: 3600000 }, false],
     [0, { tss: 0, ridingTimeMillis: 0 }, false],
