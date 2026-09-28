@@ -3,14 +3,16 @@ import { MemoryRouter } from "react-router-dom";
 import { getDocs } from "firebase/firestore";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TrainingLogPage from "./TrainingLogPage";
+import { planCalendarDate, planMonthBounds } from "@shared/training/planDate";
 
 const state = vi.hoisted(() => ({ mobile: false, user: { uid: "rider" } }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.user }) }));
 vi.mock("../hooks/useMobile", () => ({ useMobile: () => state.mobile }));
 vi.mock("../components/mobile/ImportActivityModal", () => ({ default: () => null }));
 
-const now = new Date();
-const startTime = new Date(now.getFullYear(), now.getMonth(), 1, 12).getTime();
+// 훈련 달력의 날짜 경계는 실행 머신의 시간대와 무관하게 KST 계약을 따른다.
+const now = planCalendarDate(Date.now());
+const startTime = planMonthBounds(now.getUTCFullYear(), now.getUTCMonth()).start + 12 * 3600000;
 const summaries = [
   { distance: 12000, ridingTimeMillis: 3600000, elevationGain: 120, tss: 70 },
   { distance: 3000, ridingTimeMillis: 1800000, elevationGain: 30.4, tss: 40 },
