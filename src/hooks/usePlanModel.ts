@@ -117,7 +117,8 @@ export function usePlanModel(sport?: string | null): PlanModel {
   const modernRecoveryReady = !timeseries || !("loadSnapshot" in timeseries || "pmc" in timeseries || "inputInvalidatedAt" in timeseries)
     || hasFitnessLoadLifecycle(timeseries) && !isFitnessInputInvalidated(timeseries)
       && timeseries.pmc!.status === "processed" && timeseries.pmc!.processedInputRevision === timeseries.loadSnapshot!.inputRevision
-      && timeseries.computedAt === timeseries.loadSnapshot!.asOf && timeseries.pmc!.asOf === timeseries.loadSnapshot!.asOf
+      && timeseries.computedAt === timeseries.loadSnapshot!.asOf
+      && timeseries.pmc!.asOf !== null && timeseries.pmc!.asOf >= timeseries.loadSnapshot!.asOf
       && timeseries.loadSnapshot!.points.every((point) => point.status === "final");
   const currentTsb = legacyRecoveryEnabled && modernRecoveryReady && tsbFresh && timeseries!.points.length
     ? timeseries!.points[timeseries!.points.length - 1]!.tsb

@@ -92,7 +92,7 @@ export function acceptedTrainingActivities(activities: readonly Activity[], ftp?
     const load = estimateActivityTss(activity, ftp);
     const millis = positive(summary?.movingTimeMillis) ?? positive(summary?.ridingTimeMillis) ?? positive(summary?.elapsedTimeMillis);
     return [{ activity, id: activity.id, source: activity.source, discipline, sportFamily: discipline, type: activity.type,
-      localSessionId: activity.localSessionId, stravaActivityId: activity.stravaActivityId, stravaTwinActivityId: activity.stravaTwinActivityId,
+      localSessionId: activity.localSessionId, stravaActivityId: positive(activity.stravaActivityId), stravaTwinActivityId: positive(activity.stravaTwinActivityId),
       startTime: activity.startTime, endTime: positive(activity.endTime),
       movingSec: positive(summary?.movingTimeSec) ?? (millis !== null ? millis / 1000 : null), hasLoad: (load.value ?? 0) > 0 }];
   });

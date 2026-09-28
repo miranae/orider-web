@@ -94,7 +94,8 @@ export function describePmcHistory(
     const failed = evidence.some(entry => entry.load && entry.source?.pmc?.status === 'failed')
     const pending = evidence.some(entry => entry.load && (entry.source?.pmc?.status !== 'processed'
       || entry.source.pmc.processedInputRevision !== entry.source.loadSnapshot!.inputRevision
-      || entry.source.computedAt !== entry.source.loadSnapshot!.asOf || entry.source.pmc.asOf !== entry.source.loadSnapshot!.asOf
+      || entry.source.computedAt !== entry.source.loadSnapshot!.asOf
+      || entry.source.pmc.asOf === null || entry.source.pmc.asOf < entry.source.loadSnapshot!.asOf
       || entry.source.loadSnapshot!.points.some(point => point.status === 'unknown')))
     const expired = evidence.some(entry => entry.load && entry.source?.pmc?.status === 'pending' && now > entry.source.pmc.deadlineAt)
     const hasSavedPmc = evidence.some(entry => entry.dates.has(point.date))

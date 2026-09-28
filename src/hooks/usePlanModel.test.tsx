@@ -441,6 +441,32 @@ describe("usePlanModel", () => {
     await waitFor(() => expect(hook.result.current.user).toBeNull());
     expect(getTrainingSurfaceCache(cacheKey)).toBeNull();
   });
+  it.each([
+    { completedOffset: 100, revision: 2, expected: -20 },
+    { completedOffset: 0, revision: 2, expected: -20 },
+    { completedOffset: -1, revision: 2, expected: null },
+    { completedOffset: null, revision: 2, expected: null },
+    { completedOffset: 100, revision: 1, expected: null },
+  ])("같은 입력의 완료 시각과 revision을 확인해 회복 TSB를 소비한다 %j", ({ completedOffset, revision, expected }) => {
+    const date = new Date().toISOString().slice(0, 10);
+    const asOf = Date.now();
+    const timeseries = { discipline: "bike", schemaVersion: 1, computedAt: asOf,
+      startDate: date, endDate: date, pointCount: 1,
+      points: [{ date, ctl: 20, atl: 40, tsb: -20, dailyLoad: 10 }],
+      loadSnapshot: { inputRevision: 2, inputDigest: "a".repeat(64), asOf,
+        inputReadTime: { seconds: Math.floor(asOf / 1000), nanoseconds: (asOf % 1000) * 1_000_000 },
+        coverageStartDate: date, coverageEndDate: date,
+        points: [{ date, dailyLoad: 10, status: "final", quality: "precomputed" }],
+      },
+      pmc: { status: "processed", inputRevision: 2, processedInputRevision: revision, attemptId: "fixture",
+        asOf: completedOffset === null ? null : asOf + completedOffset, deadlineAt: asOf + 60000, errorCode: null },
+    };
+    mocks.fitnessTimeseries.mockReturnValue({ timeseries, loaded: true } as never);
+    const { result, unmount } = renderHook(() => usePlanModel("bike"), { wrapper });
+    expect(result.current.currentTsb).toBe(expected);
+    unmount();
+  });
+
   it("현대 입력 증거가 손상된 TSB는 회복 처방 근거로 승격하지 않는다", () => {
     const date = new Date().toISOString().slice(0, 10);
     const base = {discipline: "bike", schemaVersion: 1, computedAt: Date.now(), startDate: date, endDate: date, pointCount: 1, points: [{date, ctl: 20, atl: 40, tsb: -20, dailyLoad: 10}]};

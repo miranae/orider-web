@@ -47,6 +47,21 @@ describe('서버 운동부하와 PMC 수명주기', () => {
       loadFinalDays: 1, observedDays: 0, loadStatus: 'final', calculationStatus: 'pending' })
   })
 
+  it('입력 시각 이후 정상 완료된 같은 revision은 완료로 표시하고 이전/null/다른 revision은 보류한다', () => {
+    const processed = lifecycleSource('processed')
+    processed.pmc!.asOf = processed.loadSnapshot!.asOf + 100
+    expect(describePmcHistory(processed.points, [processed], processed.computedAt)[0].calculationStatus).toBe('server')
+    for (const completedAt of [null, processed.loadSnapshot!.asOf - 1]) {
+      const doc = lifecycleSource('processed')
+      doc.pmc!.asOf = completedAt
+      expect(describePmcHistory(doc.points, [doc], doc.computedAt)[0].calculationStatus).toBe('pending')
+    }
+    const mismatch = lifecycleSource('processed')
+    mismatch.pmc!.asOf = mismatch.loadSnapshot!.asOf + 100
+    mismatch.pmc!.processedInputRevision = 1
+    expect(describePmcHistory(mismatch.points, [mismatch], mismatch.computedAt)[0].calculationStatus).toBe('pending')
+  })
+
   it('이전 계산값을 보존하면서 대기/실패/지연을 구분하고 revision이 일치해야 완료다', () => {
     for (const status of ['pending', 'failed', 'processed'] as const) {
       const doc = lifecycleSource(status)
