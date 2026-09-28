@@ -64,6 +64,22 @@ describe("서버 거리 근거의 실제 구독과 화면", () => {
     const card = await show({ version: 32, distanceKm: 8 }, false);
     expect(card.getByText("8.00")).toBeInTheDocument();
   });
+  it.each([true, false])("실제 dev32 출처필드 없는 양수 producer는 보존한다 owner=%s", async isOwner => {
+    // dev75c7 실제 계산기 fixture: version32/distanceKm1/durationSec300, distanceSource 없음.
+    const card = await show({version: 32, distanceKm: 1}, isOwner);
+    expect(card.getByText("1.00")).toBeInTheDocument();
+  });
+  it("dev32 저장 요약으로 증명한0과 feature32 명시출처0을 보존한다", async () => {
+    const card = await show({version: 32}, true, 0);
+    expect(card.getByText("0.00")).toBeInTheDocument();
+    cleanup();
+    const proof = await show({version: 32, distanceSource: "stream_counter"}, false);
+    expect(proof.getByText("0.00")).toBeInTheDocument();
+  });
+  it.each([true, false])("dev32 명시null출처는 이전 양수fallback으로 승격하지 않는다 owner=%s", async isOwner => {
+    const card = await show({version: 32, distanceKm: 1, distanceSource: null}, isOwner);
+    expect(card.getByText("—")).toBeInTheDocument();
+  });
   it("이전 형식의 근거 없는 0km는 숨긴다", async () => {
     const card = await show({ version: 31 }, true);
     expect(card.getByText("—")).toBeInTheDocument();
