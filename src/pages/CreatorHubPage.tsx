@@ -26,6 +26,7 @@ import { RideStoryPhotoPicker } from "../components/creator/RideStoryPhotoPicker
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
+import { formatTrainingLoad } from "../utils/trainingLoadDisplay";
 import { useWeeklyStats } from "../hooks/useActivities";
 import { buildCreatorHubDetailLinks } from "../data/creatorHubDetailLinks";
 import {
@@ -462,17 +463,18 @@ function buildCopy(language: string) {
 
 function demoWeeklyStats() {
   return [
-    { week: "5/11", distance: 84, time: 3.4, elevation: 620, rides: 2, tss: 132 },
-    { week: "5/18", distance: 126, time: 4.9, elevation: 1040, rides: 3, tss: 211 },
-    { week: "5/25", distance: 94, time: 3.7, elevation: 760, rides: 2, tss: 158 },
-    { week: "6/1", distance: 162, time: 6.2, elevation: 1510, rides: 4, tss: 302 },
-    { week: "6/8", distance: 118, time: 4.4, elevation: 870, rides: 3, tss: 196 },
-    { week: "6/15", distance: 188, time: 7.1, elevation: 2140, rides: 4, tss: 344 },
+    { week: "5/11", distance: 84, time: 3.4, elevation: 620, rides: 2, tss: 132, tssEstimated: false, tssUnknownCount: 0 },
+    { week: "5/18", distance: 126, time: 4.9, elevation: 1040, rides: 3, tss: 211, tssEstimated: false, tssUnknownCount: 0 },
+    { week: "5/25", distance: 94, time: 3.7, elevation: 760, rides: 2, tss: 158, tssEstimated: false, tssUnknownCount: 0 },
+    { week: "6/1", distance: 162, time: 6.2, elevation: 1510, rides: 4, tss: 302, tssEstimated: false, tssUnknownCount: 0 },
+    { week: "6/8", distance: 118, time: 4.4, elevation: 870, rides: 3, tss: 196, tssEstimated: false, tssUnknownCount: 0 },
+    { week: "6/15", distance: 188, time: 7.1, elevation: 2140, rides: 4, tss: 344, tssEstimated: false, tssUnknownCount: 0 },
   ];
 }
 
 export default function CreatorHubPage() {
   const { i18n } = useTranslation();
+  const { t: loadT } = useTranslation("dashboard");
   const { user, signInWithGoogle } = useAuth();
   const { showToast } = useToast();
   const { section: sectionParam } = useParams<{ section?: string }>();
@@ -545,11 +547,11 @@ export default function CreatorHubPage() {
   });
 
   const chartWeeks = useMemo(() => {
-    // tss 는 알 수 없으면 null — 차트 막대에서는 "없음"을 0 높이로 그린다(추정치 날조 금지).
+    // 부하 미확인은 원본 거리와 별개 상태다. 실제 입력과 명시된 예시를 분리한다.
     const actual = weeklyStats.filter((week) => week.rides > 0 || week.distance > 0 || (week.tss ?? 0) > 0).slice(-6);
     return actual.length > 0 ? actual : demoWeeklyStats();
   }, [weeklyStats]);
-  const chartMax = Math.max(1, ...chartWeeks.map((week) => (week.tss ?? 0) || week.distance || 0));
+  const chartMax = Math.max(1, ...chartWeeks.map((week) => week.tss ?? 0));
   const chartTotal = chartWeeks.reduce(
     (acc, week) => ({
       distance: acc.distance + week.distance,
@@ -559,10 +561,15 @@ export default function CreatorHubPage() {
     }),
     { distance: 0, time: 0, rides: 0, tss: 0 },
   );
+  const chartTotalLoad = {
+    tss: chartWeeks.some((week) => week.tss !== null) ? chartTotal.tss : null,
+    tssEstimated: chartWeeks.some((week) => week.tssEstimated),
+    tssUnknownCount: chartWeeks.reduce((sum, week) => sum + (week.tssUnknownCount ?? 0), 0),
+  };
   const chartUsesOwnData = Boolean(user && weeklyStats.some((week) => week.rides > 0 || week.distance > 0 || (week.tss ?? 0) > 0));
   const shareCard = diary?.shareCard ?? copy.shareCard;
   const shareText = `${shareCard.title}\n${shareCard.body}\n${shareCard.footer}`;
-  const weeklyShareText = `${copy.weekly.shareTitle}\n${copy.weekly.distance}: ${Math.round(chartTotal.distance)}km · ${copy.weekly.time}: ${chartTotal.time.toFixed(1)}h · ${copy.weekly.rides}: ${chartTotal.rides} · ${copy.weekly.tss}: ${chartTotal.tss}\n${chartUsesOwnData ? copy.weekly.own : copy.weekly.demo}`;
+  const weeklyShareText = `${copy.weekly.shareTitle}\n${copy.weekly.distance}: ${Math.round(chartTotal.distance)}km · ${copy.weekly.time}: ${chartTotal.time.toFixed(1)}h · ${copy.weekly.rides}: ${chartTotal.rides} · ${formatTrainingLoad(chartTotalLoad, loadT)}\n${chartUsesOwnData ? copy.weekly.own : copy.weekly.demo}`;
 
   useEffect(() => {
     setTabState(sectionDefaultTab(section, tabParam));
@@ -1344,14 +1351,15 @@ export default function CreatorHubPage() {
 
           <div className="mt-4 grid h-48 grid-cols-6 items-end gap-2 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
             {chartWeeks.map((week) => {
-              const height = Math.max(8, Math.round(((week.tss || week.distance || 0) / chartMax) * 132));
+              const height = week.tss === null ? 132 : Math.round((week.tss / chartMax) * 132);
               return (
-                <div key={week.week} className="flex h-full min-w-0 flex-col justify-end gap-2">
+                <div key={week.week} className="flex h-full min-w-0 flex-col justify-end gap-2"
+                  title={`${week.week}: ${formatTrainingLoad({ ...week, tssUnknownCount: week.tssUnknownCount ?? 0 }, loadT)}, ${week.distance}km`}>
                   <div className="flex min-h-0 flex-1 items-end justify-center">
                     <div
                       className="w-full max-w-10 rounded-t-[var(--r-sm)]"
-                      style={{ height, background: "linear-gradient(180deg, var(--aqua), var(--lime))" }}
-                      title={`${week.week}: ${week.tss} TSS, ${week.distance}km`}
+                      data-testid={week.tss === null ? "creator-tss-unknown" : "creator-tss-bar"}
+                      style={{ height, opacity: week.tss === null ? 0.35 : 1, background: week.tss === null ? "var(--bg-3)" : "linear-gradient(180deg, var(--aqua), var(--lime))" }}
                     />
                   </div>
                   <div className="truncate text-center text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{week.week}</div>
@@ -1365,7 +1373,7 @@ export default function CreatorHubPage() {
               { label: copy.weekly.distance, value: `${Math.round(chartTotal.distance)}km` },
               { label: copy.weekly.time, value: `${chartTotal.time.toFixed(1)}h` },
               { label: copy.weekly.rides, value: String(chartTotal.rides) },
-              { label: copy.weekly.tss, value: String(chartTotal.tss) },
+              { label: copy.weekly.tss, value: formatTrainingLoad(chartTotalLoad, loadT) },
             ].map((stat) => (
               <div key={stat.label} className="rounded-[var(--r-md)] border p-2" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
                 <Text as="div" variant="eyebrow">{stat.label}</Text>

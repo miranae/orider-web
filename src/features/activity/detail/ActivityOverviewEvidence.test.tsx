@@ -147,3 +147,27 @@ describe("activity overview evidence viewer voice", () => {
     expect(screen.getByText("내 기록 대비")).toBeInTheDocument();
   });
 });
+
+it("preserves estimated power and provisional FTP semantics", () => {
+ render(<ActivityOverviewEvidenceContent presentation={{ ...rich, availability: { ...rich.availability!, power: "estimated" }, session: { ...rich.session, ftpVerificationRequired: true } }} />);
+ expect(screen.getByText("추정 파워 기준")).toBeInTheDocument();
+ expect(screen.getByText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다.")).toBeInTheDocument();
+ expect(screen.getByText("NP")).toBeInTheDocument();
+});
+
+it.each(["complete", "incomplete", "unknown"] as const)("preserves per-zone comparison completeness (%s) independently of session FTP", (historyCompleteness) => {
+ render(<ActivityOverviewEvidenceContent presentation={{ ...rich, session: { ...rich.session, ftpVerificationRequired: false }, comparisonMetadata: undefined,
+  zones: [{ kind: "power", seconds: [100, 0, 0, 0, 0, 0, 100], priority: "primary", historyCompleteness, provisional: historyCompleteness !== "complete" }] }} />);
+ const labels = { complete: "전체 비교 기록 확인", incomplete: "일부 비교 기록 기준", unknown: "비교 기록 완전성 미확인" };
+ expect(screen.getByText(labels[historyCompleteness])).toBeInTheDocument();
+ expect(screen.queryByText("존 비교 잠정 · FTP 확인이 필요한 과거 기록 포함") != null).toBe(historyCompleteness !== "complete");
+ expect(screen.queryByText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다.")).not.toBeInTheDocument();
+});
+it("distinguishes previous best from all-time best including this activity", () => {
+ render(<ActivityOverviewEvidenceContent presentation={{ ...rich, observedEffects: ["관찰된 스프린트"], powerFingerprint: [{ duration: "5s", watts: 330, allTimeBestWatts: 330, allTimeBestPct: 100, previousBestPct: 110 }] }} />);
+ expect(screen.getByText("관찰된 스프린트")).toBeInTheDocument();
+ expect(screen.getAllByText("100%").length).toBeGreaterThan(0);
+ expect(screen.getByText("110%")).toBeInTheDocument();
+ expect(screen.getByText(/역대 최고 대비는 이번 활동을 포함한/)).toBeInTheDocument();
+ expect(screen.getByText(/활동 전 최고 대비는 이번 활동 이전/)).toBeInTheDocument();
+});

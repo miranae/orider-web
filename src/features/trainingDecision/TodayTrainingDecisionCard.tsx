@@ -6,7 +6,7 @@ import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDec
 import { Alert, Button, Card, Chip, Text } from "../../theme/components";
 import {
   canShowRecommendation, decisionAction, primaryEffectiveSession, primaryRecommendedAdjustment,
-  primaryRecommendedSession, primaryScheduledSession,
+  primaryRecommendedSession, primaryScheduledSession, presentedRecommendedAdjustments,
 } from "./decisionPresentation";
 import { TrainingDecisionSessionView } from "./TrainingDecisionSessionView";
 import { useTrainingProposalController } from "./useTrainingProposalController";
@@ -21,7 +21,7 @@ function ProposalPanel({ decision, recommendationVisible, refresh }: {
   recommendationVisible: boolean; refresh: () => void }) {
   const { t, i18n } = useTranslation("training");
   const controller = useTrainingProposalController(decision, refresh);
-  const hasAdjustments = decision.recommendedAdjustments.length > 0;
+  const hasAdjustments = presentedRecommendedAdjustments(decision).length > 0;
   const canApplyRecommendation = decision.healthGate.state === "clear" && recommendationVisible;
   return <section className="training-decision-proposal" aria-labelledby="training-decision-proposal-title"
     data-proposal-state={controller.state}>
@@ -107,7 +107,7 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
   </Card>;
 
   const recommendationVisible = decision.healthGate.state === "clear" && canShowRecommendation(decision);
-  const hasPlanAdjustment = (recommendationVisible && decision.recommendedAdjustments.length > 0)
+  const hasPlanAdjustment = (recommendationVisible && presentedRecommendedAdjustments(decision).length > 0)
     || decision.proposal !== null || decision.receipt !== null;
   if (surface === "plan") {
     if (!hasPlanAdjustment) return null;

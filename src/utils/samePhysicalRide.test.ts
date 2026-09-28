@@ -1,3 +1,4 @@
+import contractCases from "./samePhysicalRide.contract.fixture.json";
 import { describe, expect, it } from "vitest";
 import {
   dedupeSamePhysicalRides,
@@ -39,6 +40,14 @@ describe("식별 키", () => {
 
   it("빈 문자열·NaN 은 키가 되지 않는다", () => {
     expect(physicalRideIdentityKeys(ride("a", { session: "", strava: Number.NaN }))).toEqual(["doc:a"]);
+  });
+
+  it.each([0, -1, 0.5, Number.MAX_SAFE_INTEGER + 1, Infinity, NaN])("잘못된 제공자 ID %s는 다른 활동을 연결하지 않는다", (providerId) => {
+    const first = ride("a", { strava: providerId });
+    const second = ride("b", {}, { stravaTwinActivityId: providerId });
+    expect(physicalRideIdentityKeys(first)).toEqual(["doc:a"]);
+    expect(physicalRideIdentityKeys(second)).toEqual(["doc:b"]);
+    expect(dedupeSamePhysicalRides([first, second])).toHaveLength(2);
   });
 });
 
@@ -121,5 +130,11 @@ describe("대표 선택", () => {
       ride("strava_7", { strava: 7 }, { source: "strava" }),
     ];
     expect(dedupeSamePhysicalRides(rows).map((r) => r.id)).toEqual(["strava_9", "strava_7"]);
+  });
+});
+
+describe("WEB/BE 공용 실주행 계약 fixture", () => {
+  it.each(contractCases)("$name", ({ rows, expected }) => {
+    expect(dedupeSamePhysicalRides(rows).map((row) => row.id)).toEqual(expected);
   });
 });

@@ -13,6 +13,7 @@
  * `check_canonical_contract_mirror`) — 세 저장소가 같은 계약을 들고 있고, 각자
  * 자기 사본을 지킨다.
  */
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -37,6 +38,18 @@ function main() {
   }
 
   const errors = [];
+  // BE/WEB는 같은 accepted-load와 modern PMC 증거 순수 계약을 사용한다.
+  for (const [file, expected] of [
+    ['training/activityLoad.ts', '823c105bfb1d78bade3866ee97b006645ddf26343ec3167af76e9cedf60410cf'],
+    ['training/planMetrics.ts', '954ff82007acf63420fd345512502a3fea3bae1af5818ffb8a6d00909a2f9ac6'],
+  ['training/acceptedActivityLoad.ts', '52884035063f4d14059da8b3318ec1ab77d5cecd5f5f36c1ca7e1c1acf235fde'],
+    ['training/effectiveExecutionPrescription.ts', 'cac6fc75f2e0168feeb229492501b7d14e92ac66f30e71a853cb4bc5f4345ad4'],
+    ['training/fitnessLoadLifecycle.ts', '0c484412e5ad044293d81b487c58f9ddbd769264db936a76bad8fc1faf885f8a'],
+  ]) {
+    const mirrored = readFileSync(fileURLToPath(new URL(`../shared/${file}`, import.meta.url)), 'utf8');
+    if (createHash('sha256').update(mirrored).digest('hex') !== expected) errors.push(`공용 훈련 계약 드리프트: ${file}`);
+  }
+
 
   for (const wire of STATUS_WIRE) {
     if (!source.includes(`"${wire}"`)) errors.push(`status wire 값 "${wire}" 이 없다`);
@@ -90,6 +103,12 @@ function main() {
   if (!display.includes('CanonicalConsumption.kt')) {
     errors.push('표시 규칙의 원본(앱 CanonicalConsumption.kt) 표기가 없다');
   }
+
+  // overview wire 의미도 미러가 보존해야 한다 — 표시값만 맞아도 추정/잠정이 빠지면 계약 드리프트다.
+  const overview = readFileSync(new URL('../shared/types/activity-overview.ts', import.meta.url), 'utf8');
+  if (createHash('sha256').update(overview).digest('hex') !== '9a5cbafdf9e50536a709bea05402b4ffc40666d66926f35ab4e75b36361a6965') errors.push('overview 전체 계약 mirror가 backend 합의본과 다르다');
+  if (!/power:\s*[^;]*"estimated"/.test(overview)) errors.push('overview power estimated 의미가 없다');
+  if (!/ftpVerificationRequired\?:\s*boolean/.test(overview)) errors.push('overview FTP 확인 필요 의미가 없다');
 
   if (errors.length > 0) {
     console.error(`canonical 계약 사본 드리프트 ${errors.length}건:`);

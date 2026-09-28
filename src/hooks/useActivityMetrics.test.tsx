@@ -1,5 +1,8 @@
+import { useLayoutEffect } from "react";
+import { onSnapshot } from "firebase/firestore";
+import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import {
@@ -12,6 +15,7 @@ import {
   simulateLogout,
 } from "../__tests__/mocks/firebase";
 import { AuthContextProvider, type AuthContextValue } from "../contexts/AuthContext";
+import { FirebaseServicesProvider, useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import {
   expireCanonicalRolloutCacheForTests,
   resetCanonicalRolloutCacheForTests,
@@ -329,4 +333,162 @@ describe("useActivityMetrics — 꺼짐은 실패로 풀리지 않는다(sticky)
     await act(async () => { await Promise.resolve(); });
     expect(anonymous.result.current.status).toBe("disabled");
   });
+});
+
+it.each(["complete", "partial_terminal", "pending"] as const)("preserves public inputCoverage=%s without private context", (inputCoverage) => {
+ const publicMetrics = fromPublicActivityMetrics({ inputCoverage, sourceLayer: "inline_streams", contextSnapshot: { ftp: 175 }, ftp: 175 });
+ expect(publicMetrics.inputCoverage).toBe(inputCoverage);
+ expect(publicMetrics.contextSnapshot).toBeUndefined();
+ expect(publicMetrics.ftp).toBeUndefined();
+});
+
+
+describe("useActivityMetrics 구독 범위의 첫 커밋", () => {
+  beforeEach(() => {
+    mockDocData.clear();
+    resetRuntimeConfigForTests();
+    resetCanonicalRolloutCacheForTests();
+    setDocData("activity_metrics/a", {
+      version: ACTIVITY_METRICS_VERSION, distanceKm: 8, distanceSource: "stream_counter",
+      contextSnapshot: { ftp: 250 },
+    });
+    for (const id of ["a", "b"]) {
+      setDocData(`activity_metrics_public/${id}`, {
+        version: ACTIVITY_METRICS_VERSION, distanceKm: 0, distanceSource: null,
+      });
+    }
+    setDocData("activity_metrics/b", {
+      version: ACTIVITY_METRICS_VERSION, distanceKm: 3, distanceSource: "stream_counter",
+      contextSnapshot: { ftp: 180 },
+    });
+  });
+  afterEach(() => {
+    resetRuntimeConfigForTests();
+    resetCanonicalRolloutCacheForTests();
+  });
+
+  it.each([
+    { id: "b", owner: false, distance: 0 },
+    { id: "a", owner: false, distance: 0 },
+    { id: "b", owner: true, distance: 3 },
+  ])("활동 또는 공개 범위가 바뀐 첫 커밋에는 이전 값이 없다 $id/$owner", async ({ id, owner, distance }) => {
+    const commits: Array<ReturnType<typeof useActivityMetrics>> = [];
+    const hook = renderHook(({ id, owner }) => {
+      const state = useActivityMetrics(id, owner);
+      useLayoutEffect(() => { commits.push(state); });
+      return state;
+    }, { initialProps: { id: "a", owner: true } });
+    await waitFor(() => expect(hook.result.current.metrics?.distanceKm).toBe(8));
+    commits.length = 0;
+    hook.rerender({ id, owner });
+    expect(commits[0]).toEqual({ status: "loading", metrics: null });
+    await waitFor(() => expect(hook.result.current.metrics?.distanceKm).toBe(distance));
+    expect(commits.every(state => state.metrics?.distanceKm !== 8)).toBe(true);
+    if (!owner) expect(hook.result.current.metrics?.contextSnapshot).toBeUndefined();
+  });
+
+  it.each(["u2", null])("같은 문서라도 계정이 %s로 바뀐 첫 커밋에는 이전 개인 컨텍스트가 없다", async nextUid => {
+    let uid: string | null = "u1";
+    function Wrapper({ children }: { children: React.ReactNode }) {
+      const value = {
+        user: uid ? { uid } as AuthContextValue["user"] : null, profile: null, profileLoading: false,
+        loading: false, signInWithGoogle: async () => {}, logout: async () => {},
+      } satisfies AuthContextValue;
+      return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
+    }
+    const commits: Array<ReturnType<typeof useActivityMetrics>> = [];
+    const hook = renderHook(() => {
+      const state = useActivityMetrics("a", true);
+      useLayoutEffect(() => { commits.push(state); });
+      return state;
+    }, { wrapper: Wrapper });
+    await waitFor(() => expect(hook.result.current.metrics?.distanceKm).toBe(8));
+    commits.length = 0;
+    // 계정 전환 이후 새 구독이 받는 문서도 별도로 바꾼다.
+    mockDocData.set("activity_metrics/a", { version: ACTIVITY_METRICS_VERSION, distanceKm: 2 });
+    uid = nextUid;
+    hook.rerender();
+    expect(commits[0]).toEqual({ status: "loading", metrics: null });
+    await waitFor(() => expect(hook.result.current.metrics?.distanceKm).toBe(2));
+    expect(commits.every(state => state.metrics?.contextSnapshot === undefined)).toBe(true);
+  });
+
+  it("Firestore 인스턴스가 바뀐 첫 커밋에는 이전 프로젝트 지표가 없다", async () => {
+    let replacement: ReturnType<typeof useFirebaseServices>["firestore"] | null = null;
+    function Wrapper({ children }: { children: React.ReactNode }) {
+      const base = useFirebaseServices();
+      return <FirebaseServicesProvider services={{ ...base, firestore: replacement ?? base.firestore }}>{children}</FirebaseServicesProvider>;
+    }
+    const commits: Array<ReturnType<typeof useActivityMetrics>> = [];
+    const hook = renderHook(() => {
+      const state = useActivityMetrics("a");
+      useLayoutEffect(() => { commits.push(state); });
+      return state;
+    }, { wrapper: Wrapper });
+    await waitFor(() => expect(hook.result.current.metrics?.distanceKm).toBe(8));
+    commits.length = 0;
+    mockDocData.set("activity_metrics/a", { version: ACTIVITY_METRICS_VERSION, distanceKm: 2 });
+    replacement = {} as ReturnType<typeof useFirebaseServices>["firestore"];
+    hook.rerender();
+    expect(commits[0]).toEqual({ status: "loading", metrics: null });
+    await waitFor(() => expect(hook.result.current.metrics?.distanceKm).toBe(2));
+    expect(commits.every(state => state.metrics?.distanceKm !== 8)).toBe(true);
+  });
+
+  it("null 활동과 게이트 판정 대기에서는 첫 커밋부터 기존 지표를 숨긴다", async () => {
+    const commits: Array<ReturnType<typeof useActivityMetrics>> = [];
+    const hook = renderHook(({ id }: { id: string | null }) => {
+      const state = useActivityMetrics(id, true);
+      useLayoutEffect(() => { commits.push(state); });
+      return state;
+    }, { initialProps: { id: "a" as string | null }, wrapper: signedIn });
+    await waitFor(() => expect(hook.result.current.metrics?.distanceKm).toBe(8));
+    commits.length = 0;
+    hook.rerender({ id: null });
+    expect(commits[0]).toEqual({ status: "loading", metrics: null });
+    hook.rerender({ id: "a" });
+    await waitFor(() => expect(hook.result.current.metrics?.distanceKm).toBe(8));
+    setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: false } } });
+    resetRuntimeConfigForTests({ canonicalRolloutEnabled: true });
+    commits.length = 0;
+    hook.rerender({ id: "a" });
+    expect(commits[0]).toEqual({ status: "loading", metrics: null });
+    await waitFor(() => expect(hook.result.current.status).toBe("disabled"));
+    expect(commits.every(state => state.metrics === null)).toBe(true);
+  });
+
+  it("해제된 구독의 늦은 성공·오류 콜백은 새 공개 지표를 바꾸지 않는다", async () => {
+    const hook = renderHook(({ owner }) => useActivityMetrics("a", owner), { initialProps: { owner: true } });
+    await waitFor(() => expect(hook.result.current.metrics?.distanceKm).toBe(8));
+    const calls = vi.mocked(onSnapshot).mock.calls;
+    const previousCall = calls[calls.length - 1]!;
+    const oldSuccess = previousCall[1] as unknown as (snapshot: unknown) => void;
+    const oldError = previousCall[2] as unknown as (error: Error) => void;
+    hook.rerender({ owner: false });
+    await waitFor(() => expect(hook.result.current.metrics?.distanceKm).toBe(0));
+    act(() => {
+      oldSuccess({ exists: () => true, data: () => ({ version: ACTIVITY_METRICS_VERSION, distanceKm: 8, contextSnapshot: { ftp: 250 } }) });
+      oldError(new Error("late owner error"));
+    });
+    expect(hook.result.current.status).toBe("ready");
+    expect(hook.result.current.metrics?.distanceKm).toBe(0);
+    expect(hook.result.current.metrics?.contextSnapshot).toBeUndefined();
+  });
+});
+
+it.each([NaN, Infinity, "32", -1, 31.5, Number.MAX_SAFE_INTEGER + 1])("잘못된 버전 %s은 stale이며 출처 없는 거리를 증명하지 않는다", async version => {
+  setDocData("activity_metrics/malformed-version", { version, distanceKm: 8 });
+  const hook = renderHook(() => useActivityMetrics("malformed-version"));
+  await waitFor(() => expect(hook.result.current.status).toBe("stale"));
+  expect(resolveObservedDistanceKm(hook.result.current.metrics!)).toBeNull();
+});
+
+it.each([
+  { version: ACTIVITY_METRICS_VERSION, distanceSource: "stream_counter", status: "ready" },
+  { version: 31, status: "ready" },
+])("정상 버전 $version의 실측·이전 호환 거리는 보존한다", async ({ status, ...data }) => {
+  setDocData("activity_metrics/valid-version", { ...data, distanceKm: 8 });
+  const hook = renderHook(() => useActivityMetrics("valid-version"));
+  await waitFor(() => expect(hook.result.current.status).toBe(status));
+  expect(resolveObservedDistanceKm(hook.result.current.metrics!)).toBe(8);
 });

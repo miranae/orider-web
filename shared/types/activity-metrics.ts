@@ -56,6 +56,8 @@ export interface ActivityMetrics {
   avgSpeedKph: number | null;
   maxSpeedKph: number | null;
   distanceKm: number;
+  /** null이면 숫자 호환값이 있어도 관측 거리로 승격하지 않는다. */
+  distanceSource?: "recorded_summary" | "stream_counter" | null;
   durationSec: number;
   elevationGainM: number;
 
@@ -145,10 +147,11 @@ export interface ActivityMetrics {
   fatMax?: FatMaxProfile | null;
   /** 그래프용 축약 시계열. 계산 입력이 아니다 — 여기서 값을 다시 계산하면 요약과 어긋난다. */
   renderSeries?: { resolution: number; axes: Record<string, Array<number | null>> } | null;
-  /** 어느 입력에서 나온 값인가. inline 은 800KB 에서 잘린 스트림이다. */
+  /** 어느 입력에서 나온 값인가. 완전성은 sourceLayer가 아닌 inputCoverage로 판단한다. */
   sourceLayer?: "raw_parts" | "inline_streams";
   /** 원시 파트가 아직 올라오는 중 — 지금 값은 잠정값이다. */
   inputPending?: boolean;
+  inputCoverage?: "complete" | "partial_terminal" | "pending";
 
   // ── A.6 신규: 존 별 누적 일 (kJ) — power zone z1..z7.
   /** 사이클만 의미 있음 (watts 필요). watts 없으면 모두 0. */

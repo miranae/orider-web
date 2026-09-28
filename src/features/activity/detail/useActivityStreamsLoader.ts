@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 
 import type { Activity, ActivityStreams } from "@shared/types";
@@ -78,15 +78,19 @@ export function useActivityStreamsLoader({
   const [streamsError, setStreamsError] = useState<string | null>(null);
   const [loadingStreams, setLoadingStreams] = useState(false);
 
+  const scope = useMemo(() => ({ activityId, userId, auth, firestore }), [activityId, userId, auth, firestore]);
+  const [loadedScope, setLoadedScope] = useState(scope);
+  const [retryKey, setRetryKey] = useState(0);
+  const retryStreams = useCallback(async () => { setRetryKey(key => key + 1); }, []);
+
   useEffect(() => {
+    let active = true;
+    setLoadedScope(scope);
     setStreams(null);
     setStreamsError(null);
     setLoadingStreams(false);
     setShowStreamSpinner(false);
-  }, [activityId]);
-
-  useEffect(() => {
-    if (!activity || streams) return;
+    if (!activity || activity.id !== activityId) return;
 
     const source = (activity as Activity & { source?: string }).source;
     const stravaId = getStravaActivityId(activity);
@@ -94,10 +98,11 @@ export function useActivityStreamsLoader({
     if (activityId && usesCanonicalActivityStreams(activityId, source)) {
       setLoadingStreams(true);
       setStreamsError(null);
-      const timer = setTimeout(() => setShowStreamSpinner(true), 500);
+      const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
       loadCanonicalActivityStreams(activityId, activity.userId, { auth, firestore }).then((parsed) => {
-        setStreams(parsed);
+        if (active) setStreams(parsed);
       }).catch((err) => {
+        if (!active) return;
         logClientError("ActivityPage.streams", err, {
           activityId,
           source: source ?? "unknown",
@@ -109,20 +114,22 @@ export function useActivityStreamsLoader({
           : t("page.streamsMissing"));
       }).finally(() => {
         clearTimeout(timer);
+        if (!active) return;
         setShowStreamSpinner(false);
         setLoadingStreams(false);
       });
-      return;
+      return () => { active = false; clearTimeout(timer); };
     }
 
     if (!stravaId) return;
 
     setLoadingStreams(true);
     setStreamsError(null);
-    const timer = setTimeout(() => setShowStreamSpinner(true), 500);
+    const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
     getStreams(stravaId).then((data) => {
-      setStreams(data as unknown as ActivityStreams);
+      if (active) setStreams(data as unknown as ActivityStreams);
     }).catch((err) => {
+      if (!active) return;
       if (isStreamNotCachedError(err)) {
         setStreamsError(t("page.streamsNotCached"));
       } else {
@@ -138,19 +145,22 @@ export function useActivityStreamsLoader({
       }
     }).finally(() => {
       clearTimeout(timer);
+      if (!active) return;
       setShowStreamSpinner(false);
       setLoadingStreams(false);
     });
-  }, [activity, activityId, auth, firestore, getStreams, streams, t, userId]);
+    return () => { active = false; clearTimeout(timer); };
+  }, [activity, activityId, auth, firestore, getStreams, retryKey, scope, t, userId]);
 
   return {
-    streams,
+    streams: loadedScope === scope ? streams : null,
+    retryStreams,
     setStreams,
-    showStreamSpinner,
+    showStreamSpinner: loadedScope === scope && showStreamSpinner,
     setShowStreamSpinner,
-    streamsError,
+    streamsError: loadedScope === scope ? streamsError : null,
     setStreamsError,
-    loadingStreams,
+    loadingStreams: loadedScope === scope && loadingStreams,
     setLoadingStreams,
   };
 }

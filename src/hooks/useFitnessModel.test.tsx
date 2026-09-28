@@ -1,5 +1,6 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { Activity } from "@shared/types";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import type { ActivityMetricStatus } from "../features/fitness/useActivityDerivedDocuments";
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   firestore: {},
   t: (key: string) => key,
   status: new Map<string, ActivityMetricStatus>(),
+  metrics: new Map<string, ActivityMetrics>(),
   derived: vi.fn(),
   snapshot: null as null | ((value: { docs: { id: string; data: () => Activity }[] }) => void),
   timeseries: null as FitnessTimeseriesDoc | null,
@@ -32,7 +34,7 @@ vi.mock("firebase/firestore", () => ({
 vi.mock("../features/fitness/useActivityDerivedDocuments", () => ({
   useActivityDerivedDocuments: (...args: unknown[]) => {
     mocks.derived(...args);
-    return { streamsMap: new Map(), metricsMap: new Map(), metricStatusMap: mocks.status };
+    return { streamsMap: new Map(), metricsMap: mocks.metrics, metricStatusMap: mocks.status };
   },
 }));
 vi.mock("./useFtpHistory", () => ({ useFtpHistory: () => ({ entries: [] }) }));
@@ -64,6 +66,7 @@ beforeEach(() => {
   mocks.user = { uid: "rider-a", isAnonymous: false };
   mocks.timeseries = null;
   mocks.status.clear();
+  mocks.metrics.clear();
   mocks.derived.mockClear();
   cache.clearTrainingSurfaceCache();
   setStatus(bike, "loaded");
@@ -72,6 +75,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("useFitnessModel", () => {
+  it.each([{ loadSnapshot: null, pmc: null }, { loadSnapshot: null }, { pmc: null }, { inputInvalidatedAt: null }, {}])("현대 계약 필드 %j의 무효 근거와 legacy 차트를 보존한다", fields => {
+    seed("bike");
+    const now = Date.parse("2026-09-06T12:00:00Z");
+    const point = { date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 70 };
+    mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: now, startDate: point.date,
+      endDate: point.date, pointCount: 1, points: [point], ...fields } as FitnessTimeseriesDoc;
+    const { result } = renderHook(() => useFitnessModel("bike", options));
+    const modern = Object.keys(fields).length > 0;
+    if (modern) expect(result.current.currentPoint).toBeNull();
+    expect(result.current.pmcHistoryPoints[0]).toMatchObject({ ctl: 40, dailyLoad: 70,
+      loadStatus: modern ? "unconfirmed" : "snapshot", calculationStatus: modern ? "estimated" : "server" });
+  });
   it("새 입력이 기존 실패 시도보다 늦으면 무효화 시각부터 기다리고 snapshot 없이 지연으로 전환한다", () => {
     vi.useFakeTimers();
     const now = Date.parse("2026-09-06T12:00:00Z");
@@ -90,6 +105,18 @@ describe("useFitnessModel", () => {
     unmount();
     vi.useRealTimers();
   });
+  it("손상된 현대 snapshot은 headline 정본이나 숨은 클라이언트 폴백이 되지 않는다", () => {
+    seed("bike");
+    const now = Date.parse("2026-09-06T12:00:00Z");
+    const point = {date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 70};
+    mocks.timeseries = {discipline: "bike", schemaVersion: 1, computedAt: now, startDate: point.date, endDate: point.date, pointCount: 1, points: [point],
+      loadSnapshot: {inputRevision: 2, inputDigest: "", asOf: now, inputReadTime: {seconds: now / 1000, nanoseconds: 0}, coverageStartDate: point.date, coverageEndDate: point.date, points: [{date: point.date, dailyLoad: 70, status: "final", quality: "precomputed"}]},
+      pmc: {status: "processed", attemptId: "invalid", inputRevision: 2, processedInputRevision: 2, asOf: now, deadlineAt: now + 1000, errorCode: null}};
+    const {result} = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.currentPoint).toBeNull();
+    expect(result.current.pmcHistoryPoints[0]).toMatchObject({ctl: 40, loadStatus: "unconfirmed", calculationStatus: "estimated"});
+  });
+
   it("새 snapshot 없이 deadline에 도달해도 PMC 대기를 처리 지연으로 바꾼다", () => {
     vi.useFakeTimers();
     const now = Date.parse("2026-09-06T12:00:00Z");
@@ -98,7 +125,7 @@ describe("useFitnessModel", () => {
     const point = { date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 40 };
     mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: now, points: [point],
       startDate: point.date, endDate: point.date, pointCount: 1,
-      loadSnapshot: { inputRevision: 2, inputDigest: "next", asOf: now, inputReadTime: { seconds: now / 1000, nanoseconds: 0 },
+      loadSnapshot: { inputRevision: 2, inputDigest: "a".repeat(64), asOf: now, inputReadTime: { seconds: now / 1000, nanoseconds: 0 },
         coverageStartDate: point.date, coverageEndDate: point.date,
         points: [{ date: point.date, dailyLoad: 70, status: "final", quality: "estimated" }] },
       pmc: { status: "pending", attemptId: "next", inputRevision: 2, processedInputRevision: 1, asOf: now - 1, deadlineAt: now + 1000, errorCode: null },
@@ -193,4 +220,26 @@ describe("useFitnessModel", () => {
     expect(result.current.activities).toEqual([]);
     expect(result.current.loading).toBe(true);
   });
+});
+
+it("shows all seven historical power zones even without a current profile FTP", () => {
+ seed("bike", [bike]);
+ mocks.metrics.set(bike.id, { powerZoneSec: [100, 0, 0, 0, 0, 0, 100], contextSnapshot: { ftp: 175 } } as ActivityMetrics);
+ const { result } = renderHook(() => useFitnessModel("bike", options));
+ expect(result.current.mobilePageProps.data.zoneSource).toBe("power");
+ expect(result.current.mobilePageProps.data.zones).toHaveLength(7);
+ expect(result.current.mobilePageProps.data.zones[0]?.pct).toBe(50);
+ expect(result.current.mobilePageProps.data.zones[6]?.pct).toBe(50);
+ expect(result.current.mobilePageProps.data.zones.every((zone) => zone.rangeLabel === "")).toBe(true);
+});
+
+it("uses valid HR evidence when legacy power zones leave Z7 unknown", () => {
+  seed("bike", [bike]);
+  mocks.metrics.set(bike.id, {
+    powerZoneSec: [100, 0, 0, 0, 0, 100], hrZoneSec: [100, 100, 0, 0, 0],
+  } as ActivityMetrics);
+  const { result } = renderHook(() => useFitnessModel("bike", options));
+  expect(result.current.mobilePageProps.data.zoneSource).toBe("hr");
+  expect(result.current.mobilePageProps.data.zones).toHaveLength(5);
+  expect(result.current.mobilePageProps.data.zones[0]?.pct).toBe(50);
 });

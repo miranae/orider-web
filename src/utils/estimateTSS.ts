@@ -1,5 +1,7 @@
 import type { Activity } from "@shared/types";
-import { estimateLoad, isSaneTss, TIME_FACTORS, type LoadDiscipline } from "@shared/training/activityLoad";
+import { TIME_FACTORS, type LoadDiscipline } from "@shared/training/activityLoad";
+import { acceptedActivityLoad } from "@shared/training/acceptedActivityLoad";
+import { dedupeSamePhysicalRides, type PhysicalRideActivity } from "./samePhysicalRide";
 import { disciplineOfType } from "@shared/sport/discipline";
 
 /**
@@ -13,15 +15,6 @@ import { disciplineOfType } from "@shared/sport/discipline";
  * `estimateRunTSS`/`estimateSwimTSS` 는 thresholdPace/CSS 가 있으면 IF² 기반 rTSS/sTSS 를
  * 우선 계산하고(시간factor 보다 정밀), 없을 때만 정본 시간factor 로 폴백한다.
  */
-
-/**
- * 활동 type → discipline. 판정은 `@shared/sport/discipline` 정본.
- * 서버 부하 추정과 같은 폴백(`?? "bike"`)을 유지해 시간기반 추정 계수가
- * 서버 PMC 와 어긋나지 않게 한다.
- */
-function inferDiscipline(type: string | undefined): LoadDiscipline {
-  return disciplineOfType(type) ?? "bike";
-}
 
 /**
  * 러닝 TSS (rTSS) 추정.
@@ -79,32 +72,32 @@ export interface ActivityTssEstimate {
   estimated: boolean;
 }
 
-/**
- * 종목 무관 TSS — 정본 폴백 체인(`estimateLoad`)에 위임.
- *   사전계산 TSS(summary.tss) > relativeEffort(TRIMP) > 종목 시간factor.
- *
- * `summary.tss` 는 서버가 계산해 활동 문서에 적어둔 값이다(activity_metrics 와 같은 출처).
- * 활동 목록 화면들은 활동 수만큼 `activity_metrics` 를 읽을 수 없으므로 이 필드가 서버
- * 정본 경로다 — 그게 없을 때만 추정하고, **추정임을 밝힌다**.
- *
- * 아무 근거도 없으면 `value=null` 이다. 예전엔 0 을 돌려줘서 "부하 0" 이라는 확정값처럼
- * 읽혔다 (#2237 web.tss.estimate).
- *
- * 더 정밀한 추정이 필요하면 estimateRunTSS / estimateSwimTSS (IF² 기반) 를 직접 호출.
- */
-export function estimateActivityTss(a: Activity): ActivityTssEstimate {
-  // 옛 문서는 TSS 를 활동 문서 최상위에 뒀다 — summary.tss 와 함께 서버 사전계산 경로로 취급.
-  const precomputedTss = a.summary.tss ?? (a as Activity & { tss?: number | null }).tss ?? null;
-  const precomputed = isSaneTss(precomputedTss);
-  const { value } = estimateLoad({
-    precomputedTss,
-    relativeEffort: a.summary.relativeEffort,
-    avgPower: a.summary.averagePower,
-    durationMillis: a.summary.ridingTimeMillis,
-    discipline: inferDiscipline(a.type),
+/** 원본 summary와 별도로 accepted-load 정본 adapter를 사용한다. */
+export function estimateActivityTss(a: Activity, ftp?: number): ActivityTssEstimate {
+  const discipline = disciplineOfType(a.type);
+  if (!discipline) return { value: null, estimated: false };
+  const load = acceptedActivityLoad(a as unknown as Record<string, unknown>, discipline, ftp);
+  return { value: load.known ? load.value : null,
+    estimated: load.known && !load.reliable && (load.value > 0 || load.source === "trimp" || load.source === "power_estimate") };
+}
+
+/** 서버와 같은 종목·삭제·실주행 대표 규칙. 원본 활동을 수정하지 않는다. */
+export function acceptedTrainingActivities(activities: readonly Activity[], ftp?: number): Activity[] {
+  const positive = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+  const rows: (PhysicalRideActivity & { activity: Activity; sportFamily: LoadDiscipline })[] = activities.flatMap((activity) => {
+    const discipline = disciplineOfType(activity.type);
+    const record = activity as Activity & { deletedAt?: unknown };
+    if (!discipline || record.deletedAt || !Number.isFinite(activity.startTime) || !activity.startTime
+      || !Number.isFinite(new Date(activity.startTime).getTime())) return [];
+    const summary = activity.summary as unknown as Record<string, unknown>;
+    const load = estimateActivityTss(activity, ftp);
+    const millis = positive(summary?.movingTimeMillis) ?? positive(summary?.ridingTimeMillis) ?? positive(summary?.elapsedTimeMillis);
+    return [{ activity, id: activity.id, source: activity.source, discipline, sportFamily: discipline, type: activity.type,
+      localSessionId: activity.localSessionId, stravaActivityId: positive(activity.stravaActivityId), stravaTwinActivityId: positive(activity.stravaTwinActivityId),
+      startTime: activity.startTime, endTime: positive(activity.endTime),
+      movingSec: positive(summary?.movingTimeSec) ?? (millis !== null ? millis / 1000 : null), hasLoad: (load.value ?? 0) > 0 }];
   });
-  if (precomputed) return { value, estimated: false };
-  return { value: value > 0 ? value : null, estimated: value > 0 };
+  return dedupeSamePhysicalRides(rows).map((row) => row.activity);
 }
 
 /** 값만 필요한 호출자용. 모르면 null — 0 으로 메우지 않는다. */
@@ -113,16 +106,17 @@ export function estimateTSS(a: Activity): number | null {
 }
 
 /** 활동 묶음의 TSS 합계. 아는 값만 더하고, 추정치가 하나라도 섞이면 `estimated` 로 알린다. */
-export function sumActivityTss(activities: readonly Activity[]): ActivityTssEstimate {
+export function sumActivityTss(activities: readonly Activity[], ftp?: number): ActivityTssEstimate & { unknownCount: number } {
   let total = 0;
   let known = false;
   let estimated = false;
-  for (const a of activities) {
-    const { value, estimated: isEstimate } = estimateActivityTss(a);
-    if (value == null) continue;
+  let unknownCount = 0;
+  for (const a of acceptedTrainingActivities(activities, ftp)) {
+    const { value, estimated: isEstimate } = estimateActivityTss(a, ftp);
+    if (value == null) { unknownCount += 1; continue; }
     total += value;
     known = true;
     if (isEstimate) estimated = true;
   }
-  return { value: known ? Math.round(total) : null, estimated };
+  return { value: known ? Math.round(total) : null, estimated, unknownCount };
 }

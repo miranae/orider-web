@@ -10,9 +10,9 @@
 import type { PlanWeek, PlanDay } from "../types/goal";
 
 export interface PlanProgressMetrics {
-  /** 휴식·스킵 제외 계획 TSS 총합 */
+  /** 스킵 제외 현재 유효 처방 TSS 총합(조정값 우선) */
   totalTSS: number;
-  /** completed && !skipped인 day의 actualTSS (없으면 plannedTSS) 합 */
+  /** 계획 가중 진행: 실제 TSS가 있으면 0도 보존, 없으면 유효 처방값. 실측 부하 총합이 아니다. */
   completedTSS: number;
   /** completedTSS/totalTSS × 100, 정수 반올림. totalTSS=0이면 0 */
   progressPct: number;
@@ -21,12 +21,12 @@ export interface PlanProgressMetrics {
 }
 
 function dayPlanned(d: PlanDay): number {
-  return d.skipped ? 0 : d.plannedTSS;
+  return d.skipped ? 0 : (d.adjustedTSS ?? d.plannedTSS);
 }
 
 function dayCompleted(d: PlanDay): number {
   if (!d.completed || d.skipped) return 0;
-  return d.actualTSS ?? d.plannedTSS;
+  return d.actualTSS ?? dayPlanned(d);
 }
 
 export function computePlanProgress(weeks: PlanWeek[], todayMs: number): PlanProgressMetrics {

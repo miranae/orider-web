@@ -134,4 +134,13 @@ describe("PlanPresentation responsive layout", () => {
     fireEvent.click(screen.getByRole("button", { name: "지난 주 접기" }));
     expect(screen.queryByText("W1")).not.toBeInTheDocument();
   });
+  it("조정된 처방 85 TSS를 실제 85 TSS로 완료하면 100%다", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((query) => ({matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn()}));
+    const date = Date.now();
+    const adjusted = {...model, weeks: [{id: "week-01", weekNumber: 1, phase: "build", startDate: date, plannedTSS: 100, days: [{date, dayOfWeek: 0, workout: "z2", plannedTSS: 100, adjustedTSS: 85, actualTSS: 85, completed: true, plannedDurationMin: 60}]}]} as unknown as PlanModel;
+    renderWithProviders(<PlanPresentation model={adjusted} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
+    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.queryByText("85%")).not.toBeInTheDocument();
+  });
+
 });

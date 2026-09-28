@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
 
-/** 다음 로컬 자정 또는 서버 문서 stale 전환 시점 중 먼저 오는 경계까지의 시간. */
+/** 다음 로컬·UTC 자정 또는 서버 문서 stale 전환 시점 중 먼저 오는 경계까지의 시간. */
 export function nextFitnessClockDelay(now: number, updatedAt?: number): number {
   const nextMidnight = new Date(now);
   nextMidnight.setHours(24, 0, 0, 0);
-  const delays = [nextMidnight.getTime() - now];
+  const nextUtcMidnight = new Date(now);
+  nextUtcMidnight.setUTCHours(24, 0, 0, 0);
+  const delays = [nextMidnight.getTime() - now, nextUtcMidnight.getTime() - now];
   if (Number.isFinite(updatedAt)) {
     const staleDelay = updatedAt! + STALE_THRESHOLD_MS - now + 1;
     if (staleDelay > 0) delays.push(staleDelay);

@@ -229,3 +229,20 @@ describe("missing threshold is stated as a dead end, not as pending work", () =>
     expect(screen.queryByText("임계값 없음")).not.toBeInTheDocument();
   });
 });
+
+it("preserves estimated power and provisional FTP semantics", () => {
+ render(<MemoryRouter><ActivityOverviewSummaryContent presentation={{ ...rich, availability: { ...rich.availability!, power: "estimated" }, session: { ...rich.session, ftpVerificationRequired: true } }} /></MemoryRouter>);
+ expect(screen.getByText("추정 파워 기준")).toBeInTheDocument();
+ expect(screen.getByText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다.")).toBeInTheDocument();
+ expect(screen.getByText("NP")).toBeInTheDocument();
+});
+
+it("preserves observed effects, historical zone uncertainty and previous-best percentages", () => {
+ render(<MemoryRouter><ActivityOverviewSummaryContent presentation={{ ...rich, observedEffects: ["관찰된 스프린트"], session: { ...rich.session, ftpVerificationRequired: false }, zones: [{ kind: "power", seconds: [10, 0, 0, 5], priority: "primary", historyCompleteness: "incomplete", provisional: true }], powerFingerprint: [{ duration: "5s", watts: 330, previousBestPct: 110 }] }} /></MemoryRouter>);
+ expect(screen.getByText("관찰된 스프린트")).toBeInTheDocument();
+ expect(screen.getByText("존 비교 잠정 · FTP 확인이 필요한 과거 기록 포함")).toBeInTheDocument();
+ expect(screen.getByText(/일부 비교 기록 기준/)).toBeInTheDocument();
+ expect(screen.getByText("110%")).toBeInTheDocument();
+ expect(screen.getByText(/활동 전 최고 대비는 이번 활동 이전/)).toBeInTheDocument();
+ expect(screen.queryByText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다.")).not.toBeInTheDocument();
+});

@@ -109,11 +109,11 @@ export default function ServerMetricsBanner({
     <Card style={{ padding: "var(--space-3)", marginBottom: "var(--space-4)" }}>
       <div className="flex items-center" style={{ gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
         <Chip>{t("serverMetrics.chip")}</Chip>
-        {/* 서버가 찍은 출처 표식 — 파츠 업로드 중 잠정값 / 800KB 에서 잘린 inline 입력. 숨기면 잘린 값이 확정값으로 읽힌다 (#900). */}
+        {/* 서버 완전성 표식 — 업로드 중 잠정값 / 종료된 부분 입력. 저장 층만으로 잘림을 추론하지 않는다. */}
         {/* 스키마 버전이 클라 기대보다 낮은 문서 — 값은 보여주되 최신 계산이 아님을 명시 (#885). */}
         {isStale && <Chip>{t("serverMetrics.staleChip")}</Chip>}
         {m.inputPending && <Chip>{t("serverMetrics.provisionalChip")}</Chip>}
-        {m.sourceLayer === "inline_streams" && <Chip>{t("serverMetrics.truncatedInputChip")}</Chip>}
+        {m.inputCoverage === "partial_terminal" && <Chip>{t("serverMetrics.truncatedInputChip")}</Chip>}
         <Text size="xs" tone="tertiary">
           {new Date(m.computedAt).toLocaleString("ko-KR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" })} · v{m.version}
         </Text>

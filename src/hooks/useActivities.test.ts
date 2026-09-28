@@ -13,6 +13,7 @@ import {
   __resetFirestoreSessionRecoveryForTests,
   FIRESTORE_B815_RECOVERY_SESSION_KEY,
   noteFirestoreServerSuccess,
+  prepareFirestoreSessionRecovery,
 } from "../utils/firestoreSessionRecovery";
 
 const firestoreRecoveryMocks = vi.hoisted(() => ({
@@ -128,7 +129,7 @@ describe("useActivities", () => {
         pageVisibility: expect.any(String),
       }),
     );
-    expect(window.sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).toBe("1");
+    expect(window.sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).toBeTruthy();
     expect(firestoreRecoveryMocks.execute).toHaveBeenCalledTimes(1);
     expect(firestoreRecoveryMocks.execute).toHaveBeenCalledWith({ kind: "b815", action: "reload-ready" });
     expect(logSpy.mock.invocationCallOrder[0]).toBeLessThan(firestoreRecoveryMocks.execute.mock.invocationCallOrder[0]!);
@@ -137,7 +138,8 @@ describe("useActivities", () => {
 
   it("does not retry a fatal feed request after this session already attempted recovery", async () => {
     const assertion = new Error("INTERNAL ASSERTION FAILED: Unexpected state (ID: b815)");
-    window.sessionStorage.setItem(FIRESTORE_B815_RECOVERY_SESSION_KEY, "1");
+    prepareFirestoreSessionRecovery(assertion);
+    __resetFirestoreSessionRecoveryForTests();
     vi.mocked(getDocs).mockRejectedValueOnce(assertion);
     const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
 
@@ -583,6 +585,57 @@ describe("useActivities", () => {
 });
 
 describe("useWeeklyStats", () => {
+  it.each([null, undefined])("summary %s 복구 대기 기록을 원본 수와 미확인 부하에 포함한다", async summary => {
+    simulateLogin({ uid: "user-1" });
+    const now = new Date(2026, 8, 8, 12);
+    setCollectionDocs("activities", [
+      { id: "known", userId: "user-1", type: "Ride", startTime: now.getTime() - 3600000,
+        summary: { tss: 100, distance: 20000, ridingTimeMillis: 3600000, elevationGain: 100 } },
+      { id: "recovering", userId: "user-1", type: "Ride", startTime: now.getTime() - 1800000,
+        summary, invalidSummaryRecoveryState: "pending", deletedAt: null },
+    ]);
+    const { result } = renderHook(() => useWeeklyStats({ now, includeMonthlyDistance: true }), { wrapper });
+    await waitFor(() => expect(result.current.weeklyStats.at(-1)?.rides).toBe(2));
+    expect(result.current.weeklyStats.at(-1)).toMatchObject({ tss: 100, tssEstimated: false, tssUnknownCount: 1,
+      distance: 20, time: 1, elevation: 100 });
+    expect(result.current.thisWeek).toEqual({ rides: 2, distance: 20000, time: 3600000, elevation: 100 });
+    expect(result.current.monthlyActivityDistance).toBe(20000);
+  });
+  it.each([
+    [100, { tss: 100, ridingTimeMillis: 3600000 }, false],
+    [0, { tss: 0, ridingTimeMillis: 0 }, false],
+    [null, null, false],
+    [42, { ridingTimeMillis: 3600000 }, true],
+  ])("주간 부하 %s와 미확인 활동의 coverage/추정 상태를 분리한다", async (expected, summary, estimated) => {
+    simulateLogin({ uid: "user-1" });
+    const now = new Date(2026, 8, 7, 12);
+    const docs = [{ id: "unknown", userId: "user-1", type: "Ride", startTime: now.getTime() + 3 * 3600000, summary: {} }];
+    if (summary) docs.push({ id: "known", userId: "user-1", type: "Ride", startTime: now.getTime() + 3600000, summary });
+    setCollectionDocs("activities", docs);
+    const { result } = renderHook(() => useWeeklyStats(now), { wrapper });
+    await waitFor(() => expect(result.current.weeklyStats.at(-1)?.rides).toBe(docs.length));
+    expect(result.current.weeklyStats.at(-1)).toMatchObject({ tss: expected, tssEstimated: estimated, tssUnknownCount: 1 });
+  });
+
+  it("주 경계의 연동 기록은 전체 입력 대표 날짜에만 부하를 배분하고 원본 활동 수는 보존한다", async () => {
+    simulateLogin({ uid: "user-1" });
+    const boundary = new Date(2026, 9, 5, 0, 0, 0);
+    const nativeStart = boundary.getTime() - 15000;
+    const stravaStart = boundary.getTime() + 15000;
+    setCollectionDocs("activities", [
+      createMockActivity({ id: "native", userId: "user-1", source: "orider", startTime: nativeStart,
+        endTime: nativeStart + 3600000, summary: createMockSummary({ tss: 100, ridingTimeMillis: 3600000 }) }),
+      createMockActivity({ id: "strava_1", userId: "user-1", source: "strava", startTime: stravaStart,
+        endTime: stravaStart + 3600000, summary: createMockSummary({ tss: 100, ridingTimeMillis: 3600000 }) }),
+    ]);
+    const { result } = renderHook(() => useWeeklyStats(boundary), { wrapper });
+    await waitFor(() => expect(result.current.weeklyStats.at(-1)?.rides).toBe(1));
+    expect(result.current.weeklyStats.at(-2)?.rides).toBe(1);
+    expect(result.current.weeklyStats.at(-2)?.tss).toBeNull();
+    expect(result.current.weeklyStats.at(-1)?.tss).toBe(100);
+    expect(result.current.weeklyStats.reduce((total, row) => total + (row.tss ?? 0), 0)).toBe(100);
+  });
+
   it("returns empty stats for guest", async () => {
     const { result } = renderHook(() => useWeeklyStats(), { wrapper });
     expect(result.current.thisWeek.rides).toBe(0);

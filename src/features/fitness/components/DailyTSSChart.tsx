@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import type { DailyLoad } from "../../../utils/fitnessMetrics";
 
 export default function DailyTSSChart({ data }: { data: DailyLoad[] }) {
+  const { t } = useTranslation("training");
   const recent = data.slice(-42);
   const maxLoad = Math.max(...recent.map((d) => d.totalLoad), 1);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -65,8 +67,9 @@ export default function DailyTSSChart({ data }: { data: DailyLoad[] }) {
             {hover.date}
           </div>
           <div style={{ fontSize: "var(--fs-sm)", fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--ink-0)" }}>
-            {Math.round(hover.totalLoad)} TSS
+            {hover.unknownCount && hover.activities.length === 0 && hover.totalLoad === 0 ? "–" : Math.round(hover.totalLoad)} TSS
           </div>
+          {!!hover.unknownCount && <div>{t("log.loadPartial", { count: hover.unknownCount })}</div>}
         </div>
       )}
     </div>

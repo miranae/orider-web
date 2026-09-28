@@ -68,9 +68,14 @@ export interface MobileFitnessData {
   today?: string;                       // YYYY-MM-DD (오늘 마커용)
   // 주간 TSS
   weeklyTSS: number[];   // 오래된 → 최신 (최근 4주)
-  thisWeekTSS: number;
-  avgWeekTSS: number;
-  restDays: number;
+  thisWeekTSS: number | null;
+  avgWeekTSS: number | null;
+  restDays: number | null;
+  weeklyLoadPartial?: boolean;
+  loadUnknownCount?: number;
+  thisWeekUnknownCount?: number;
+  hasKnownWeeklyLoad?: boolean;
+  hasKnownThisWeekLoad?: boolean;
   // 임계값 (종목별)
   threshold: MobileFitnessThreshold | null;
   // bike 핵심 상태/역량 표시용 프로필 값.
@@ -565,6 +570,7 @@ export default function MobileFitnessPage({
   sectionState?: MobileFitnessSectionState;
 }) {
   const { t } = useTranslation("dashboard");
+  const { t: trainingT } = useTranslation("training");
   const [tab, setTab] = useState<"overview" | "analysis">("overview");
   useEffect(() => {
     setTab("overview");
@@ -733,9 +739,11 @@ export default function MobileFitnessPage({
           )}
 
           {/* 주간 TSS */}
-          {sectionState.trend === "ready" && data.weeklyTSS.length > 0 && (
-            <SectionCard title={t("mobileFitness.weeklyLoadTitle")} sub={t("mobileFitness.weeklyLoadSub", { thisWeek: data.thisWeekTSS, avg: data.avgWeekTSS, restDays: data.restDays })}>
-              <WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />
+          {sectionState.trend === "ready" && (data.weeklyTSS.length > 0 || data.weeklyLoadPartial) && (
+            <SectionCard title={t("mobileFitness.weeklyLoadTitle")} sub={t("mobileFitness.weeklyLoadSub", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS ?? "–", avg: data.loadUnknownCount && !data.hasKnownWeeklyLoad ? "–" : data.avgWeekTSS ?? "–", restDays: data.restDays ?? "–" })}>
+              {(!data.loadUnknownCount || data.hasKnownWeeklyLoad) && <WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />}
+              {data.weeklyLoadPartial && <Text variant="caption">{t("fitness:history.partial")}</Text>}
+              {!!data.loadUnknownCount && <Text variant="caption">{trainingT("log.loadPartial", { count: data.loadUnknownCount })}</Text>}
             </SectionCard>
           )}
 
@@ -778,7 +786,7 @@ export default function MobileFitnessPage({
             <SectionCard
               title={isBike ? t("mobileFitness.zonePowerTitle") : t("mobileFitness.zoneHrTitle")}
               sub={
-                data.zoneSource === "power" ? t("mobileFitness.zoneSourcePower") :
+                data.zoneSource === "power" ? t("mobileFitness.zoneSourcePowerHistorical") :
                 data.zoneSource === "hr" ? (isBike ? t("mobileFitness.zoneSourceHrBike") : t("mobileFitness.zoneSourceHrRun")) :
                 t("mobileFitness.zoneSourceNone")
               }>

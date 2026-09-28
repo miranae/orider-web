@@ -24,6 +24,7 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
     </Card>)}</div>
   </section>;
   const powerVisible = p.availability?.power !== "private";
+  const powerEstimated = p.availability?.power === "estimated";
   const hrVisible = p.availability?.heartRate !== "private";
   const recordsVisible = p.availability?.records === "evaluated";
   const effort = powerVisible ? p.thresholdWork : undefined;
@@ -46,6 +47,7 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
     </table>
   </div></Card>;
   return <div className="space-y-6">
+    {!!p.observedEffects?.length && <Text as="p" variant="caption">{p.observedEffects.join(" · ")}</Text>}
     <Card variant="inset"><Stack>{p.coachSentence && <Text as="p" variant="bodyMedium" tone="primary">{p.coachSentence}</Text>}
     {/* 하이라이트 근거 — 서버가 표시 언어로 써서 보낸 한 줄. 라벨이 왜 그렇게 불렸는지. */}
     {p.highlight && <Text as="p" variant="caption" tone="secondary">{label("highlight")} · {p.highlight.reason}</Text>}
@@ -58,6 +60,8 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
       p.peakMoment.maxHr != null ? `${label("maxHrShort")} ${number(p.peakMoment.maxHr)}` : null,
     ].filter(Boolean).join(" · ")}</Text>}
     {p.session.classificationReason && <Text as="p" variant="caption" tone="tertiary">{p.session.classificationReason}</Text>}</Stack></Card>
+    {powerEstimated && <Text as="p" variant="caption">{label("powerEstimated")}</Text>}
+    {powerVisible && p.session.ftpVerificationRequired && <Text as="p" variant="caption">{label("ftpVerificationRequired")}</Text>}
     {section("stimulus", [
       [label("sport"), label(`sports.${p.session.discipline}`)],
       [label("character"), p.session.character ? label(`characters.${p.session.character}`) + (p.aboveUsualVolume ? ` · ${label("aboveUsualVolume")}` : "") : "—"],
@@ -79,16 +83,19 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
       {p.personal?.length ? table([label("axis"), label("index"), label("band"), label("samples")], p.personal.map((row) => [label(`axes.${row.axis}`), number(row.personalIndex), label(`bands.${row.band}`), number(row.sampleCount)])) : <Text as="p" variant="caption">{label(`personalStates.${p.availability?.personal ?? "unavailable"}`)}</Text>}
     </section>
     <section className="space-y-3">{heading("powerComparison")}<Text as="p" variant="caption" tone="tertiary">{label("prScope")}</Text>
-      {powerVisible && p.powerFingerprint?.length ? table([label("duration"), "W", label("allTimeBest"), label("bestPct"), label("median"), label("change"), label("rank"), label("samples"), "PR"], p.powerFingerprint.map((row) => [row.duration, number(row.watts),
-        recordsVisible ? number(row.allTimeBestWatts, " W") : "—", number(bestPct(row), "%"),
+      {powerVisible && p.powerFingerprint?.length ? table([label("duration"), "W", label("allTimeBest"), label("bestPct"), label("previousBestPct"), label("median"), label("change"), label("rank"), label("samples"), "PR"], p.powerFingerprint.map((row) => [row.duration, number(row.watts),
+        recordsVisible ? number(row.allTimeBestWatts, " W") : "—", number(bestPct(row), "%"), recordsVisible ? number(row.previousBestPct, "%") : "—",
         number(row.medianWatts, " W"), delta(row.deltaPct, "%"), number(row.competitionRank), number(row.priorSampleCount), recordsVisible ? record(row.recordAchievement) : "—"])) : <Text as="p" variant="caption">{label(powerVisible ? "missing" : "private")}</Text>}
       {powerVisible && p.powerFingerprint?.some((row) => bestPct(row) != null) && <Text as="p" variant="caption" tone="tertiary">{label("bestScope")}</Text>}
+      {recordsVisible && p.powerFingerprint?.some((row) => row.previousBestPct != null) && <Text as="p" variant="caption" tone="tertiary">{label("previousBestScope")}</Text>}
       {recordsVisible && p.runRecordAchievements?.length ? table([label("distance"), label("duration"), "PR"], p.runRecordAchievements.map((row) => [row.distance, seconds(row.valueSec), record(row.recordAchievement)])) : null}
       <Text as="p" variant="caption" tone="tertiary">{label(`recordStates.${p.availability?.records ?? "unavailable"}`)}</Text>
     </section>
     <section className="space-y-3">{heading("zones")}
       {zones.length ? zones.map((zone) => <div key={zone.kind} className="space-y-3"><Stack direction="row" align="center" wrap><Chip variant={zone.kind === "power" ? "accent" : "default"}>{label(zone.kind)}</Chip><Text variant="caption" tone="tertiary">{label("samples")} {number(zone.priorSampleCount)}</Text>
         {/* 기준이 넓어진 것은 반드시 밝힌다 — 같은 성격 표본이 부족해 종목 전체로 비교했다는 뜻이다. */}
+        {zone.provisional && <Chip>{label("zoneProvisional")}</Chip>}
+        {zone.historyCompleteness && <Chip>{label(`completeness.${zone.historyCompleteness}`)}</Chip>}
         {zone.baselinePercentages && <Chip variant={zone.baselineScope === "discipline" ? "default" : "accent"}>{label(`baselineScope.${zone.baselineScope ?? "sameCharacter"}`)}</Chip>}</Stack>{table([label("zone"), label("duration"), "%", label("baseline"), label("change")], zone.seconds.map((value, index) => [`Z${index + 1}`, seconds(value), number(zone.currentPercentages?.[index], "%"), number(zone.baselinePercentages?.[index], "%"), delta(zone.deltaPercentagePoints?.[index], "%p")]))}</div>) : <Text as="p" variant="caption">{label("missing")}</Text>}
     </section>
     {section("recoveryFuel", [

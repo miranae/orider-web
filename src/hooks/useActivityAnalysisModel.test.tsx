@@ -387,6 +387,19 @@ describe("useActivityAnalysisModel", () => {
     expect(screen.queryByText("사이클링 다이내믹스")).not.toBeInTheDocument();
   });
 
+  it("retains authorized identity and healthy streams when optional summary is absent", async () => {
+    const activity = makeActivity("orider_missing_summary");
+    seedActivity({...activity, summary: null} as unknown as Activity);
+    const {result} = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.streams?.distance).toEqual(streams.distance));
+    expect(result.current.activityProcessing).toBe(false);
+    expect(result.current.activity?.id).toBe(activity.id);
+    expect(result.current.activity?.summary.distance).toBeUndefined();
+    expect(result.current.activity?.summary.tss).toBeUndefined();
+    expect(result.current.hasAnalysisStreams).toBe(true);
+    expect(result.current.avgPowerValue).toBe(250);
+  });
+
   it("preserves processing state and retries the activity document after three seconds", async () => {
     vi.useFakeTimers();
     const activity = makeActivity("orider_processing");

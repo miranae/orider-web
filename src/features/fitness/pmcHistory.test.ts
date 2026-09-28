@@ -12,7 +12,7 @@ const source = (points: FitnessPoint[], discipline: FitnessTimeseriesDoc['discip
 function lifecycleSource(status: 'pending' | 'processed' | 'failed' = 'pending'): FitnessTimeseriesDoc {
   const doc = source([point('2026-09-05')])
   return { ...doc,
-    loadSnapshot: { inputRevision: 2, inputDigest: 'new', asOf: doc.computedAt,
+    loadSnapshot: { inputRevision: 2, inputDigest: 'a'.repeat(64), asOf: doc.computedAt,
       inputReadTime: { seconds: doc.computedAt / 1000, nanoseconds: 1 }, coverageStartDate: '2026-09-05', coverageEndDate: '2026-09-06',
       points: [{ date: '2026-09-05', dailyLoad: 30, status: 'final', quality: 'precomputed' },
         { date: '2026-09-06', dailyLoad: 70, status: 'final', quality: 'estimated' }],
@@ -23,6 +23,33 @@ function lifecycleSource(status: 'pending' | 'processed' | 'failed' = 'pending')
 }
 
 describe('서버 운동부하와 PMC 수명주기', () => {
+  it.each([
+    { loadSnapshot: null, pmc: null },
+    { loadSnapshot: null },
+    { pmc: null },
+    { inputInvalidatedAt: null },
+    { loadSnapshot: false, pmc: false },
+    { loadSnapshot: '', pmc: '' },
+    { loadSnapshot: {}, pmc: {} },
+    {},
+  ])('현대 계약 필드 %j를 legacy 완료값으로 표시하지 않고 원본 차트를 보존한다', fields => {
+    const doc = { ...source([point('2026-09-06')]), ...fields } as FitnessTimeseriesDoc
+    expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ ctl: 10, dailyLoad: 30,
+      loadStatus: Object.keys(fields).length ? 'unconfirmed' : 'snapshot',
+      calculationStatus: Object.keys(fields).length ? 'estimated' : 'server' })
+  })
+  it.each([false, 0, ''])('완료된 정본의 잘못된 무효화 %j는 저장 차트를 보존하며 확정으로 표시하지 않는다', inputInvalidatedAt => {
+    const doc = { ...lifecycleSource('processed'), inputInvalidatedAt } as unknown as FitnessTimeseriesDoc
+    expect(describePmcHistory(doc.points, [doc], doc.computedAt)[0]).toMatchObject({
+      ctl: 10, atl: 20, tsb: -10, dailyLoad: 30, loadStatus: 'unconfirmed', calculationStatus: 'stale',
+    })
+  })
+  it.each([undefined, null])('완료된 정본의 무효화 %s는 저장 차트와 완료 상태를 유지한다', inputInvalidatedAt => {
+    const doc = { ...lifecycleSource('processed'), inputInvalidatedAt } as FitnessTimeseriesDoc
+    expect(describePmcHistory(doc.points, [doc], doc.computedAt)[0]).toMatchObject({
+      ctl: 10, dailyLoad: 30, loadStatus: 'final', calculationStatus: 'server',
+    })
+  })
   it.each([
     ['2026-09-08T03:00:00+09:00', '2026-09-07'],
     ['2026-09-07T20:00:00-07:00', '2026-09-08'],
@@ -47,6 +74,21 @@ describe('서버 운동부하와 PMC 수명주기', () => {
       loadFinalDays: 1, observedDays: 0, loadStatus: 'final', calculationStatus: 'pending' })
   })
 
+  it('입력 시각 이후 정상 완료된 같은 revision은 완료로 표시하고 이전/null/다른 revision은 보류한다', () => {
+    const processed = lifecycleSource('processed')
+    processed.pmc!.asOf = processed.loadSnapshot!.asOf + 100
+    expect(describePmcHistory(processed.points, [processed], processed.computedAt)[0].calculationStatus).toBe('server')
+    for (const completedAt of [null, processed.loadSnapshot!.asOf - 1]) {
+      const doc = lifecycleSource('processed')
+      doc.pmc!.asOf = completedAt
+      expect(describePmcHistory(doc.points, [doc], doc.computedAt)[0].calculationStatus).toBe('pending')
+    }
+    const mismatch = lifecycleSource('processed')
+    mismatch.pmc!.asOf = mismatch.loadSnapshot!.asOf + 100
+    mismatch.pmc!.processedInputRevision = 1
+    expect(describePmcHistory(mismatch.points, [mismatch], mismatch.computedAt)[0].calculationStatus).toBe('pending')
+  })
+
   it('이전 계산값을 보존하면서 대기/실패/지연을 구분하고 revision이 일치해야 완료다', () => {
     for (const status of ['pending', 'failed', 'processed'] as const) {
       const doc = lifecycleSource(status)
@@ -62,7 +104,7 @@ describe('서버 운동부하와 PMC 수명주기', () => {
   it('PMC가 완료됐어도 알 수 없는 부하 입력은 확정으로 승격하지 않는다', () => {
     const doc = lifecycleSource('processed')
     doc.loadSnapshot!.points[0].status = 'unknown'
-    expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'server' })
+    expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'pending' })
   })
 
   it('다른 종목의 알려진 0도 통합 입력으로 사용하고 전부 0인 과거 범위를 늘리지 않는다', () => {
@@ -256,3 +298,17 @@ describe('PMC 연도별 월 비교', () => {
     expect(comparison.series[0].buckets[0].partial).toBe(true)
   })
 })
+
+
+describe('현대 PMC 입력 증거 검증', () => {
+  it.each(['empty digest', 'negative timestamp', 'sparse coverage', 'missing quality', 'negative load'])('%s는 확정 부하로 승격하지 않는다', (invalid) => {
+    const doc = lifecycleSource('processed');
+    const load = doc.loadSnapshot!;
+    if (invalid === 'empty digest') load.inputDigest = '';
+    if (invalid === 'negative timestamp') load.inputReadTime.seconds = -1;
+    if (invalid === 'sparse coverage') load.points.pop();
+    if (invalid === 'missing quality') delete (load.points[0] as Partial<typeof load.points[0]>).quality;
+    if (invalid === 'negative load') load.points[0].dailyLoad = -1;
+    expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ctl: 10, loadStatus: 'unconfirmed', calculationStatus: 'estimated'});
+  });
+});

@@ -142,8 +142,8 @@ export function ActivityMediaPanel({
               }}
             >
               <span>0m</span>
-              <span>{Math.round(summary.distance / 2).toLocaleString()}m</span>
-              <span>{Math.round(summary.distance).toLocaleString()}m</span>
+              <span>{Number.isFinite(summary.distance) ? Math.round(summary.distance / 2).toLocaleString() : "—"}m</span>
+              <span>{Number.isFinite(summary.distance) ? Math.round(summary.distance).toLocaleString() : "—"}m</span>
             </div>
           </div>
         ) : (
@@ -155,7 +155,7 @@ export function ActivityMediaPanel({
           </div>
         )}
         <div className="text-[length:var(--fs-xs)] mt-2" style={{ color: "var(--ink-3)" }}>
-          {t("page.swim.totalSummary", { distance: Math.round(summary.distance).toLocaleString(), time: formatDuration(summary.ridingTimeMillis) })}
+          {t("page.swim.totalSummary", { distance: Number.isFinite(summary.distance) ? Math.round(summary.distance).toLocaleString() : "—", time: Number.isFinite(summary.ridingTimeMillis) ? formatDuration(summary.ridingTimeMillis) : "—" })}
         </div>
       </Card>
     );

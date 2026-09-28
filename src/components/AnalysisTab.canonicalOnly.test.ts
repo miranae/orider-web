@@ -11,13 +11,13 @@ describe("activity analysis canonical-only boundary", () => {
   it("mounts the same evidence panel independently of stream gates in page and embed", () => {
     for (const path of ["src/pages/ActivityPage.tsx", "src/embedded/surfaces/ActivityAnalysisSurface.tsx"]) {
       const source = readFileSync(path, "utf8");
-      expect(source).toContain("<ActivityOverviewEvidence overview=");
+      expect(source).toMatch(/<ActivityOverviewEvidence\b[^>]*\boverview=/);
     }
     const page = readFileSync("src/pages/ActivityPage.tsx", "utf8");
     expect(page).toContain('activeTab === "analysis" && <ActivityOverviewEvidence overview=');
     expect(page.indexOf("<AnalysisTab {...")).toBeLessThan(page.indexOf("<ActivityOverviewEvidence overview="));
     const embedded = readFileSync("src/embedded/surfaces/ActivityAnalysisSurface.tsx", "utf8");
-    expect(embedded.indexOf("<ActivityOverviewEvidence overview=")).toBeLessThan(embedded.indexOf("<AnalysisTab {..."));
+    expect(embedded.indexOf("<ActivityOverviewEvidence")).toBeLessThan(embedded.indexOf("<AnalysisTab {..."));
   });
   it("includes privacy and source metadata in the overview request identity", () => {
     const source = readFileSync("src/hooks/useActivityAnalysisModel.ts", "utf8");

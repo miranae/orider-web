@@ -76,7 +76,7 @@ function validSnapshot(surface: TrainingCacheSurface, value: unknown, uid: strin
       && value.activities.every((activity) => isRecord(activity) && typeof activity.id === "string"
         && activity.userId === uid && typeof activity.type === "string"
         && typeof activity.startTime === "number" && Number.isFinite(activity.startTime)
-        && isRecord(activity.summary));
+        && (activity.summary == null || isRecord(activity.summary)));
   }
   if (surface === "fitness-timeseries") {
     return Object.keys(value).length === 1 && "timeseries" in value

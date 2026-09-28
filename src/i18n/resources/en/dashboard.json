@@ -285,6 +285,11 @@
       "unitHour": "{{n}}h"
     },
     "weeklyChart": {
+      "recordsCount": "Saved records: {{count}}",
+      "tssValue": "TSS {{value}}",
+      "tssUnknown": "TSS unknown",
+      "tssPartial": "Partial sum of available loads · {{count}} unknown activities",
+      "tssEstimated": "Includes estimates",
       "distance": "Distance (km)",
       "time": "Time (h)",
       "elevation": "Elevation (m)"
@@ -381,8 +386,8 @@
     "zonePowerTitle": "Power zone distribution · last 4 weeks",
     "zoneHrTitle": "HR zone distribution · last 4 weeks",
     "zoneSourcePower": "Based on power stream",
-    "zoneSourceHrBike": "HR estimate (HR Z1–Z5 → power zone mapping, Z6 anaerobic not separable)",
-    "zoneSourceHrRun": "Based on HR stream",
+    "zoneSourceHrBike": "HR estimate (HR Z1–Z5 mapped to power zones; Z6–Z7 cannot be separated) Includes only activities with complete zone evidence.",
+    "zoneSourceHrRun": "Based on HR stream Includes only activities with complete zone evidence.",
     "zoneSourceNone": "No stream data — will fill in after syncing a ride",
     "powerCurveTitle": "Power curve · last 28 days",
     "powerCurveSub": "Peak {{maxW}} W · 5s–60m",
@@ -533,7 +538,8 @@
         "riderConfidence": "Rider-type confidence"
       },
       "modelEvidence": "eFTP uses 95% of the monthly best 20-minute average power; CP and TTE come from the last 90-day PDC model. All are estimates and never change active FTP automatically."
-    }
+    },
+    "zoneSourcePowerHistorical": "Z1–Z7 combined using each activity’s FTP · not reclassified with current FTP. Includes only activities with complete zone evidence."
   },
   "runEmpty": {
     "title": "Connect the app you run with, and we'll make sense of it here",

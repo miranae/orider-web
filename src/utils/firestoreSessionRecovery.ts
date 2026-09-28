@@ -1,6 +1,8 @@
 import { SDK_VERSION } from "firebase/app";
 
 export const FIRESTORE_B815_RECOVERY_SESSION_KEY = "orider.firestore.b815-recovery.v1";
+// Vite의 해시된 모듈 URL은 같은 배포의 새로고침 사이에도 유지된다.
+const recoveryBuild = import.meta.url;
 
 export type FirestoreFatalErrorKind = "internal-get-type-error" | "b815" | "async-queue-failed";
 export type FirestoreRecoveryAction =
@@ -17,14 +19,18 @@ export interface FirestoreRecoveryResult {
 
 interface FirestoreRecoveryPreparationEnvironment {
   sessionStorage: Pick<Storage, "getItem" | "setItem">;
+  buildId?: string;
 }
 
 interface FirestoreRecoveryExecutionEnvironment {
   reload: () => void;
   schedule: (callback: () => void) => void;
+  isOnline?: () => boolean;
+  waitUntilOnline?: (callback: () => void) => void;
 }
 
 let reloadPending = false;
+let reloadScheduled = false;
 let firstServerSuccessAt: number | null = null;
 
 /** 기존 읽기의 서버 확인만으로 복구를 재무장한다. 시간 경과만으로는 마커를 지우지 않는다. */
@@ -35,7 +41,7 @@ export function noteFirestoreServerSuccess(
   if (reloadPending || metadata?.fromCache !== false || metadata.hasPendingWrites !== false) return;
   try {
     const storage = environment?.sessionStorage ?? (typeof window !== "undefined" ? window.sessionStorage : null);
-    if (!storage || storage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY) !== "1") {
+    if (!storage || !storage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)) {
       firstServerSuccessAt = null;
       return;
     }
@@ -115,11 +121,13 @@ export function prepareFirestoreSessionRecovery(
   if (!sessionStorage) return { kind, action: "storage-unavailable" };
 
   try {
-    if (sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY) === "1") {
+    const buildId = environment?.buildId ?? recoveryBuild;
+    if (sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY) === buildId) {
       return { kind, action: "already-attempted" };
     }
     // reload 전에 기록해야 새 문서에서도 같은 오류로 무한 새로고침하지 않는다.
-    sessionStorage.setItem(FIRESTORE_B815_RECOVERY_SESSION_KEY, "1");
+    // 이전 배포의 마커(옛 "1" 포함)는 새 배포에서 한 번만 다시 시도한다.
+    sessionStorage.setItem(FIRESTORE_B815_RECOVERY_SESSION_KEY, buildId);
   } catch {
     // 세션 경계를 보장할 수 없으면 새로고침하지 않고 기존 오류 UI로 넘긴다.
     return { kind, action: "storage-unavailable" };
@@ -134,26 +142,35 @@ export function executeFirestoreSessionRecovery(
   result: FirestoreRecoveryResult,
   environment?: FirestoreRecoveryExecutionEnvironment,
 ): void {
-  if (result.action !== "reload-ready") return;
+  if (result.action !== "reload-ready" || reloadScheduled) return;
 
   const browserEnvironment = environment ?? (
     typeof window !== "undefined"
       ? {
           reload: () => window.location.reload(),
           schedule: (callback: () => void) => { window.setTimeout(callback, 0); },
+          isOnline: () => navigator.onLine !== false,
+          waitUntilOnline: (callback: () => void) => { window.addEventListener("online", callback, { once: true }); },
         }
       : null
   );
   if (!browserEnvironment) return;
 
-  browserEnvironment.schedule(() => {
+  reloadScheduled = true;
+  const reload = () => browserEnvironment.schedule(() => {
     try {
       browserEnvironment.reload();
     } catch {
       // 마커는 유지해 reload 자체가 거부된 환경에서도 반복 navigation을 막는다.
       reloadPending = false;
+      reloadScheduled = false;
     }
   });
+  if (browserEnvironment.isOnline?.() === false && browserEnvironment.waitUntilOnline) {
+    browserEnvironment.waitUntilOnline(reload);
+  } else {
+    reload();
+  }
 }
 
 export function shouldAbortForFirestoreRecovery(result: FirestoreRecoveryResult): boolean {
@@ -171,5 +188,6 @@ export function firestoreRecoveryLogContext(result: FirestoreRecoveryResult): Re
 
 export function __resetFirestoreSessionRecoveryForTests(): void {
   reloadPending = false;
+  reloadScheduled = false;
   firstServerSuccessAt = null;
 }

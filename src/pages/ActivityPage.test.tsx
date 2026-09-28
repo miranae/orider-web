@@ -3,6 +3,7 @@ import { getDocs, onSnapshot, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import ActivityPage from "./ActivityPage";
+import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { clearRideRouteIntentMemoryForTests } from "../features/activity/detail/RideActivityRouteButton";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import {
@@ -149,6 +150,20 @@ describe("ActivityPage", () => {
     });
   });
 
+  it.each([[Date.now(), null], [Number.MAX_VALUE, null], [null, null], [Date.now(), 0]])("keeps healthy data with startTime %s and optional summary %s", async (startTime, summary) => {
+    const activity = createMockActivity({id: "test-activity", userId: "test-uid", source: "orider", description: "요약 미확인 경로 기록"});
+    setDocData("activities/test-activity", {...activity, summary, startTime});
+    setDocData("activity_streams/test-activity", {userId: "test-uid", json: JSON.stringify({
+      userId: "test-uid", time: [0, 1, 2, 3], distance: [0, 10, 20, 30],
+      latlng: [[37, 127], [37.001, 127], [37.002, 127], [37.003, 127]],
+      watts: [100, 200, 300, 400], heartrate: [130, 140, 150, 160],
+    })});
+    const {container} = renderWithProviders(<ActivityPage />, {authenticated: true});
+    await waitFor(() => expect(screen.getByTestId("route-map")).toBeInTheDocument());
+    expect(screen.getByText("요약 미확인 경로 기록")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/NaN|Infinity/);
+  });
+
   it("shows canonical overview before sharing and reuses it across analysis tab switches", async () => {
     mockRoute.activityId = "overview-tab-owner";
     const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid" });
@@ -174,6 +189,41 @@ describe("ActivityPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "개요" }));
     expect(screen.getByRole("heading", { name: "오라이더 활동개요" })).toBeInTheDocument();
     expect(mockCallableInvocations.filter(({ name }) => name === "getActivityOverview")).toHaveLength(1);
+  });
+
+  it("uses the same authorized facts for nonowner overview and analysis without empty private-metric cards", async () => {
+    mockRoute.activityId = "public-canonical-analysis";
+    const activity = createMockActivity({ id: mockRoute.activityId, userId: "fixture-other-owner", source: "orider", description: "공개 분석 계약 fixture", startTime: Date.now() - 120000, endTime: Date.now(), summary: createMockSummary({ ridingTimeMillis: 120000, elapsedTimeMillis: 120000 }) });
+    setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
+    setDocData(`activity_streams/${activity.id}`, { userId: "fixture-other-owner", json: JSON.stringify({
+      ...createMockStreams({ time: Array.from({ length: 120 }, (_, i) => i), watts: Array(120).fill(200), heartrate: Array(120).fill(140), distance: Array.from({ length: 120 }, (_, i) => i * 10) }), laps: [{ number: 1, distanceKm: 1, durationMs: 180000, avgSpeed: 20, maxSpeed: 25, avgCadence: 80, avgHeartRate: 140, avgPower: 123 }],
+    }) });
+    setDocData(`activity_metrics_public/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, avgPower: 200, lrBalance: { avg: 51, asymmetryPct: 2 }, cyclingDynamics: { source: "records", sampleCount: 120, validSampleCount: 120, coverage: 1, balance: { leftAvgPct: 49, rightAvgPct: 51, asymmetryPct: 2 } } });
+    setCallableResult("getActivityOverview", { data: {
+      status: "available", activityId: activity.id, version: "activity-overview-v1", inputDigest: "public-fixture",
+      presentation: {
+        availability: { personal: "unavailable", records: "private", power: "estimated", heartRate: "available" },
+        session: { discipline: "bike", loadKind: "tss", load: 306.93, normalizedPowerW: 164.94, intensityFactor: 0.94, ftpVerificationRequired: true },
+        powerFingerprint: [{ duration: "5s", watts: 679 }, { duration: "20m", watts: 178 }],
+        zones: [{ kind: "power", seconds: [100, 0, 0, 0, 0, 0, 100], currentPercentages: [50, 0, 0, 0, 0, 0, 50], priority: "primary" }],
+      },
+    } });
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    expect(await screen.findByText("306.9")).toBeInTheDocument();
+    expect(screen.getByText("164.9")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(await screen.findByTestId("activity-overview-evidence")).toBeInTheDocument();
+    expect(screen.getByText("306.9")).toBeInTheDocument();
+    expect(screen.getByText("164.9 W")).toBeInTheDocument();
+    expect(screen.getByText("0.94")).toBeInTheDocument();
+    expect(screen.getByText("679")).toBeInTheDocument();
+    expect(screen.getByText("Z7")).toBeInTheDocument();
+    expect(await screen.findByTestId("public-analysis-charts")).toBeInTheDocument();
+    expect(screen.getByText("49.0 / 51.0")).toBeInTheDocument();
+    expect(screen.getByText("추정 파워 기준")).toBeInTheDocument();
+    expect(screen.queryByText("FTP 미설정")).not.toBeInTheDocument();
+    expect(screen.queryByText("잘린 입력 기준")).not.toBeInTheDocument();
+    expect(screen.queryByText("저장된 센서 요약")).not.toBeInTheDocument();
   });
 
   it.each([false, true])("requests a nonowner overview and hides diagnostics when the server withholds it (authenticated=%s)", async (authenticated) => {
@@ -690,11 +740,7 @@ describe("ActivityPage", () => {
   });
 
   it("shows processing state instead of not found when activity summary is still missing", async () => {
-    const { summary: _summary, ...activityWithoutSummary } = createMockActivity({
-      id: "test-activity",
-      description: "수집 중 활동",
-    });
-    setDocData("activities/test-activity", activityWithoutSummary as unknown as Record<string, unknown>);
+    setDocData("activities/test-activity", {userId: "test-uid"});
 
     renderWithProviders(<ActivityPage />);
 

@@ -25,6 +25,7 @@ import ActivityCard from "../components/ActivityCard";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { useLocale } from "../contexts/LocaleContext";
+import { formatTrainingLoad, type TrainingLoadPoint } from "../utils/trainingLoadDisplay";
 import { formatDistance } from "../utils/units";
 import { useActivities, useWeeklyStats, useActivitySearch } from "../hooks/useActivities";
 import type { ActivityFeedScope, DatePreset } from "../hooks/useActivities";
@@ -193,7 +194,7 @@ function FeedSkeleton() {
   );
 }
 
-export interface WeeklyTssBar {
+export interface WeeklyTssBar extends TrainingLoadPoint {
   week: string;
   /** 부하를 알 수 없는 주는 `null` — 0 으로 내리면 "쉰 주"로 보인다 (#2237). */
   tss: number | null;
@@ -979,18 +980,19 @@ export default function DashboardPage() {
               const knownTssWeeks = weeklyStats.filter((w): w is typeof w & { tss: number } => w.tss != null);
               const avgTSS = knownTssWeeks.length
                 ? Math.round(knownTssWeeks.reduce((s, w) => s + w.tss, 0) / knownTssWeeks.length)
-                : 0;
-              const peakTSS = Math.max(...knownTssWeeks.map((w) => w.tss), 0);
-              const lastTwo = knownTssWeeks.slice(-2);
-              const trendUp = lastTwo.length === 2 && lastTwo[1]!.tss >= lastTwo[0]!.tss;
+                : null;
+              const peakTSS = knownTssWeeks.length ? Math.max(...knownTssWeeks.map((w) => w.tss)) : null;
+              const lastTwo = weeklyStats.slice(-2);
+              const trendKnown = lastTwo.length === 2 && lastTwo.every((week) => week.tss !== null && !week.tssEstimated && !week.tssUnknownCount);
+              const trendUp = trendKnown && lastTwo[1]!.tss! >= lastTwo[0]!.tss!;
+              const unknownCount = weeklyStats.reduce((sum, week) => sum + (week.tssUnknownCount ?? 0), 0);
+              const hasEstimates = weeklyStats.some((week) => week.tssEstimated);
               return (
                 <Card padding="none" style={{ padding: "var(--space-4)" }}>
                   <SectionHeader title={t("sidebar.weeklyTss.title")} sub={t("sidebar.weeklyTss.sub")} right={<Chip>TSS</Chip>} />
                   <WeeklyTssBars
-                    weeks={weeklyStats.map((w) => ({ week: w.week, tss: w.tss ?? null }))}
-                    tooltipFor={(w) => (w.tss == null
-                      ? t("sidebar.weeklyTss.barTooltipUnknown", { week: w.week })
-                      : t("sidebar.weeklyTss.barTooltip", { week: w.week, tss: w.tss }))}
+                    weeks={weeklyStats.map((w) => ({ week: w.week, tss: w.tss ?? null, tssEstimated: w.tssEstimated, tssUnknownCount: w.tssUnknownCount ?? 0 }))}
+                    tooltipFor={(w) => `${w.week}: ${formatTrainingLoad(w, t)}`}
                   />
                   <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>
                     {weeklyStats.length > 0 && (
@@ -1001,19 +1003,20 @@ export default function DashboardPage() {
                       </>
                     )}
                   </div>
+                  {(unknownCount > 0 || hasEstimates) && <Text variant="caption">{unknownCount > 0 && t("charts.weeklyChart.tssPartial", { count: unknownCount })}{unknownCount > 0 && hasEstimates ? " · " : ""}{hasEstimates && t("charts.weeklyChart.tssEstimated")}</Text>}
                   <div className="flex justify-between" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: "1px solid var(--line-soft)" }}>
                     <div>
                       <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.avgPerWeek")}</Text>
-                      <div><Text variant="dataMedium">{avgTSS}</Text><Text variant="unit">TSS</Text></div>
+                      <div><Text variant="dataMedium">{avgTSS ?? "—"}</Text><Text variant="unit">TSS</Text></div>
                     </div>
                     <div>
                       <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.peakWeek")}</Text>
-                      <div><Text variant="dataMedium">{peakTSS}</Text><Text variant="unit">TSS</Text></div>
+                      <div><Text variant="dataMedium">{peakTSS ?? "—"}</Text><Text variant="unit">TSS</Text></div>
                     </div>
                     <div>
                       <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.trend")}</Text>
                       <div style={{ color: trendUp ? "var(--lime)" : "var(--rose)", fontSize: "var(--fs-sm)", fontWeight: 600 }}>
-                        {trendUp ? t("sidebar.weeklyTss.trendUp") : t("sidebar.weeklyTss.trendDown")}
+                        {!trendKnown ? t("charts.weeklyChart.tssUnknown") : trendUp ? t("sidebar.weeklyTss.trendUp") : t("sidebar.weeklyTss.trendDown")}
                       </div>
                     </div>
                   </div>

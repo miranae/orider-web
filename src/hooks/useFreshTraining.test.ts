@@ -15,6 +15,7 @@ import {
   noteFirestoreServerSuccess,
 } from "../utils/firestoreSessionRecovery";
 import { useFreshTraining } from "./useFreshTraining";
+import { canonicalFitnessInputsLifecycle } from "@shared/training/fitnessLoadLifecycle";
 
 const mocks = vi.hoisted(() => ({
   authLoading: false,
@@ -89,26 +90,56 @@ describe("useFreshTraining", () => {
     setCallableResult("revalidateTraining", { data: { ok: true, status: "recomputed" } });
   });
 
-  it.each(["failed", "pending", "invalidated", "revision-mismatch", "previous-day", "wrong-sport", "ingest-after-read", "unknown-processed", "processed"])("신선한 projection과 별개로 단일 종목 %s lifecycle을 검사한다", async (status) => {
+  it.each([
+    { loadSnapshot: null, pmc: null },
+    { loadSnapshot: null },
+    { pmc: null },
+    { inputInvalidatedAt: null },
+    { loadSnapshot: false, pmc: false },
+    { loadSnapshot: "", pmc: "" },
+    { loadSnapshot: {}, pmc: {} },
+    {},
+  ])("현대 계약 필드 %j의 존재로 legacy와 재검증을 구분한다", async fields => {
+    const listeners = installControlledSnapshots(true);
+    const now = Date.now();
+    const { result, unmount } = renderHook(() => useFreshTraining("bike"));
+    act(() => {
+      emit(listeners[0], {});
+      emit(listeners[1], { computedAt: now });
+      emit(listeners[2], { discipline: "bike", computedAt: now, ...fields });
+    });
+    const modern = Object.keys(fields).length > 0;
+    await waitFor(() => expect(result.current.lastStatus).toBe(modern ? "recomputed" : "fresh"));
+    expect(mockCallableInvocations).toHaveLength(modern ? 1 : 0);
+    unmount();
+  });
+
+  it.each(["failed", "pending", "invalidated", "revision-mismatch", "previous-day", "wrong-sport", "ingest-after-read", "unknown-processed", "processed", "completion-earlier", "completion-null", "completion-missing", "input-time-mismatch", "completion-later", "invalidation-false", "invalidation-zero", "invalidation-empty", "invalidation-null"])("신선한 projection과 별개로 단일 종목 %s lifecycle을 검사한다", async (status) => {
     const listeners = installControlledSnapshots(true);
     const now = Date.now();
     const date = new Date(now).toISOString().slice(0, 10);
-    const readTime = { seconds: Math.floor(now / 1000), nanoseconds: 0 };
+    const readTime = { seconds: Math.floor(now / 1000), nanoseconds: (now % 1000) * 1_000_000 };
     const lifecycle = {
       discipline: status === "wrong-sport" ? "run" : "bike",
-      loadSnapshot: { inputRevision: 2, inputDigest: "two", asOf: status === "ingest-after-read" ? now - 1000 : now, inputReadTime: readTime,
+      computedAt: status === "input-time-mismatch" ? now - 1 : now,
+      loadSnapshot: { inputRevision: 2, inputDigest: "a".repeat(64), asOf: status === "ingest-after-read" ? now - 1000 : now, inputReadTime: readTime,
         coverageStartDate: date, coverageEndDate: status === "previous-day" ? new Date(now - 86400000).toISOString().slice(0, 10) : date,
-        points: status === "unknown-processed" ? [{ date, dailyLoad: 0, status: "unknown" }] : [] },
+        points: [{ date, dailyLoad: 0, status: status === "unknown-processed" ? "unknown" : "final", quality: "zero" }] },
       pmc: { status: ["failed", "pending"].includes(status) ? status : "processed", attemptId: "two", inputRevision: 2,
-        processedInputRevision: status === "revision-mismatch" ? 1 : 2, asOf: now, deadlineAt: now - 1 },
-      ...(status === "invalidated" ? { inputInvalidatedAt: { ...readTime, nanoseconds: 1 } } : {}),
+        processedInputRevision: status === "revision-mismatch" ? 1 : 2,
+        asOf: status === "completion-earlier" ? now - 1 : status === "completion-null" ? null
+          : status === "completion-missing" ? undefined : status === "completion-later" ? now + 100 : now,
+        deadlineAt: now - 1 },
+      ...(status.startsWith("invalidation-") ? { inputInvalidatedAt: status === "invalidation-false" ? false : status === "invalidation-zero" ? 0 : status === "invalidation-empty" ? "" : null } : {}),
+      ...(status === "invalidated" ? { inputInvalidatedAt: { ...readTime, nanoseconds: readTime.nanoseconds + 1 } } : {}),
     };
+    if (status.startsWith("invalidation-")) expect(canonicalFitnessInputsLifecycle(lifecycle, { discipline: "bike", computedAt: now }, "bike", { requireSnapshot: true })).toBe(status === "invalidation-null" ? "ready" : "pending");
     const { result, unmount } = renderHook(() => useFreshTraining("bike"));
     expect(listeners.map(listener => listener.path)).toEqual(["users/training-user", "users/training-user/fitness/projection_bike", "users/training-user/fitness/timeseries_bike"]);
     act(() => { emit(listeners[0], status === "ingest-after-read" ? { lastActivityIngestAt: now - 500 } : {}); emit(listeners[1], { computedAt: now }); emit(listeners[2], lifecycle, true); });
     expect(result.current.lastStatus).toBeNull();
     act(() => emit(listeners[2], lifecycle));
-    const processed = status === "processed" || status === "unknown-processed";
+    const processed = status === "processed" || status === "unknown-processed" || status === "completion-later" || status === "invalidation-null";
     await waitFor(() => expect(result.current.lastStatus).toBe(processed ? "fresh" : "recomputed"));
     expect(mockCallableInvocations).toHaveLength(processed ? 0 : 1);
     unmount();
@@ -415,7 +446,7 @@ describe("useFreshTraining", () => {
         pageVisibility: expect.any(String),
       }),
     );
-    expect(window.sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).toBe("1");
+    expect(window.sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).toBeTruthy();
     expect(firestoreRecoveryMocks.execute).toHaveBeenCalledWith({
       kind: "b815",
       action: "reload-ready",

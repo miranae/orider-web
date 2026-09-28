@@ -1,3 +1,4 @@
+import { planDayKey as kstDateString } from "@shared/training/planDate";
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { PlanWeek, PlanDay, WorkoutKind } from "@shared/types/goal";
@@ -52,10 +53,6 @@ function buildWorkoutLabels(t: (key: string) => string): Record<WorkoutKind, str
   };
 }
 
-function kstDateString(ms: number): string {
-  if (!Number.isFinite(ms)) return "";
-  return new Date(ms + 9 * 3600000).toISOString().slice(0, 10);
-}
 
 function kstDayOfMonth(ms: number): number | null {
   const dateStr = kstDateString(ms);
@@ -166,6 +163,7 @@ export default function MobilePlanContent({
               </Button>
             )}
           </div>
+          <div className="mobile-plan-meta">{t("metrics.progressBasis")}</div>
           <div role="progressbar" aria-label={t("metrics.progress")} aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} className="mobile-plan-progress">
             <div style={{ width: `${Math.min(100, Math.max(0, progressPct ?? 0))}%`, height: "100%", background: "var(--lime)" }} />
           </div>

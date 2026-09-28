@@ -193,6 +193,8 @@ export interface CanonicalFitnessSummaryData {
   tsb: number;
   breakdown: Record<TimeseriesDiscipline, { ctl: number; atl: number; tsb: number; weeklyTSS: number }>;
   totalsBasis: TimeseriesDiscipline[];
+  /** 종목별 주간 합계의 원본 기간 시각. 통합 봉투 시각으로 대체하지 않는다. */
+  weeklySummaries?: Record<TimeseriesDiscipline, { computedAt: number; totalTss: number } | null>;
   timeseries: Record<TimeseriesDiscipline, FitnessTimeseriesDoc | null>;
   /** 서버가 별도 generation을 제공하는 새 계약과도 값 손실 없이 호환한다. */
   generation: string | number | null;
@@ -245,6 +247,17 @@ export function parseCanonicalFitnessSummary(value: unknown): CanonicalFitnessSu
   const timeseries = Object.fromEntries(
     parsedTimeseries as Array<readonly [TimeseriesDiscipline, FitnessTimeseriesDoc | null]>,
   ) as Record<TimeseriesDiscipline, FitnessTimeseriesDoc | null>;
+  const rawSummaries = objectRecord(root.summaries);
+  const weeklySummaries = Object.fromEntries(disciplines.map(discipline => {
+    const summary = objectRecord(rawSummaries?.[discipline]);
+    const computedAt = finiteNumber(summary?.computedAt);
+    const totalTss = finiteNumber(objectRecord(summary?.week)?.totalTss);
+    const currentWeeklyTss = objectRecord(rawBreakdown?.[discipline])?.weeklyTSS;
+    const valid = summary?.discipline === discipline && computedAt !== null
+      && Number.isSafeInteger(computedAt) && computedAt > 0 && Number.isFinite(new Date(computedAt).getTime())
+      && totalTss !== null && totalTss >= 0 && Math.round(totalTss) === currentWeeklyTss;
+    return [discipline, valid ? { computedAt: computedAt!, totalTss: Math.round(totalTss!) } : null];
+  })) as NonNullable<CanonicalFitnessSummaryData["weeklySummaries"]>;
   const totalsBasis = Array.isArray(record.totalsBasis)
     ? record.totalsBasis.filter((entry): entry is TimeseriesDiscipline => disciplines.includes(entry as TimeseriesDiscipline))
     : [];
@@ -261,6 +274,7 @@ export function parseCanonicalFitnessSummary(value: unknown): CanonicalFitnessSu
     tsb,
     breakdown: Object.fromEntries(breakdownEntries as Array<readonly [TimeseriesDiscipline, { ctl: number; atl: number; tsb: number; weeklyTSS: number }]>) as CanonicalFitnessSummaryData["breakdown"],
     totalsBasis,
+    weeklySummaries,
     timeseries,
     generation,
     period: null,

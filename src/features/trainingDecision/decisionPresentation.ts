@@ -15,9 +15,24 @@ export function primaryScheduledSession(decision: TodayTrainingDecisionProjectio
     ?? decision.scheduledSessions.find((session) => !session.current.completed) ?? decision.scheduledSessions[0] ?? null;
 }
 
+/** 원래 운동과 동일한 권고는 변경 검토 대상으로 표시하지 않는다. */
+export function presentedRecommendedAdjustments(decision: TodayTrainingDecisionProjection) {
+  return decision.recommendedAdjustments.filter((item) => {
+    if (item.recommendation.action === "reassess") return true;
+    const workout = item.recommendation.workout;
+    const scheduled = decision.scheduledSessions.find((session) => session.sessionId === item.sessionId);
+    if (!workout || !scheduled) return true;
+    // 예정 세션에는 존이 없으므로 휴식 이외의 존 변경은 동일하다고 판단할 수 없다.
+    if (workout.kind !== "rest" && workout.zone != null) return true;
+    return workout.kind !== scheduled.current.workout
+      || workout.durationMin !== scheduled.current.durationMin
+      || workout.targetTss !== scheduled.current.targetTss;
+  });
+}
+
 export function primaryRecommendedAdjustment(decision: TodayTrainingDecisionProjection) {
   const id = decision.representativeSessionId;
-  return decision.recommendedAdjustments.find((item) => item.sessionId === id) ?? null;
+  return presentedRecommendedAdjustments(decision).find((item) => item.sessionId === id) ?? null;
 }
 
 export function primaryRecommendedSession(decision: TodayTrainingDecisionProjection): PresentedTrainingDecisionSession | null {

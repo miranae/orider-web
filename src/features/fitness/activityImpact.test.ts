@@ -338,3 +338,12 @@ describe("forecastFitness48Hours", () => {
     expect(endurance[1].tsb).toBeLessThan(recovery[1].tsb);
   });
 });
+
+
+it("비례 배분의 부하 후보도 owner-bound accepted Strava 값을 사용한다", () => {
+  const date = Date.UTC(2026, 8, 6, 8);
+  const accepted = {...activity("accepted", date, 122), userId: "fixture-user", type: "Ride", source: "strava", serverDerivedLoad: {schemaVersion: 1, userId: "fixture-user", inputBinding: "accepted", streamTss: 300}} as Activity;
+  const other = {...activity("other", date + 7200000, 100), type: "Ride"} as Activity;
+  const impacts = deriveActivityImpacts([point("2026-09-06", 40, 55, 400)], [accepted, other]);
+  expect(impacts.find((entry) => entry.activity.id === "accepted")?.attributedLoad).toBe(300);
+});

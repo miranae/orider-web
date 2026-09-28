@@ -1,5 +1,6 @@
+import { acceptedActivityLoad } from "@shared/training/acceptedActivityLoad";
 import type { Activity } from "@shared/types";
-import { isNegligibleActivitySummary, isSaneTss } from "@shared/training/activityLoad";
+import { isNegligibleActivitySummary } from "@shared/training/activityLoad";
 import {
   ATL_DAYS,
   CTL_DAYS,
@@ -73,7 +74,6 @@ export interface Fitness48HourForecast {
   easy?: [FitnessForecastPoint, FitnessForecastPoint];
 }
 
-type ActivityWithTopLevelTss = Activity & { tss?: number | null };
 type ActivitySummaryWithLegacyMovingTime = Activity["summary"] & { movingTimeMillis?: number | null };
 
 const DAY_MS = 86_400_000;
@@ -101,9 +101,9 @@ function daysBetweenUtcDays(from: string, to: string): number {
 }
 
 function candidateTss(activity: Activity): number | null {
-  const topLevel = (activity as ActivityWithTopLevelTss).tss;
-  if (isSaneTss(topLevel)) return topLevel;
-  return isSaneTss(activity.summary?.tss) ? activity.summary.tss : null;
+  const discipline = disciplineOfType(activity.type) ?? "bike";
+  const load = acceptedActivityLoad(activity as unknown as Record<string, unknown>, discipline);
+  return load.reliable && load.value > 0 ? load.value : null;
 }
 
 function positiveNumber(value: unknown): number | null {
@@ -112,10 +112,10 @@ function positiveNumber(value: unknown): number | null {
 
 function physicalRideIdentity(activity: Activity) {
   const summary = activity.summary as ActivitySummaryWithLegacyMovingTime;
-  const legacyMovingMillis = positiveNumber(summary.movingTimeMillis);
-  const ridingMillis = positiveNumber(summary.ridingTimeMillis);
-  const elapsedMillis = positiveNumber(summary.elapsedTimeMillis);
-  const movingSec = positiveNumber(summary.movingTimeSec)
+  const legacyMovingMillis = positiveNumber(summary?.movingTimeMillis);
+  const ridingMillis = positiveNumber(summary?.ridingTimeMillis);
+  const elapsedMillis = positiveNumber(summary?.elapsedTimeMillis);
+  const movingSec = positiveNumber(summary?.movingTimeSec)
     ?? (legacyMovingMillis != null ? Math.round(legacyMovingMillis / 1_000) : null)
     ?? (ridingMillis != null ? Math.round(ridingMillis / 1_000) : null)
     ?? (elapsedMillis != null ? Math.round(elapsedMillis / 1_000) : null);
@@ -134,7 +134,7 @@ function physicalRideIdentity(activity: Activity) {
     movingSec,
     sportFamily: disciplineOfType(activity.type),
     // 서버 extractActivityTss는 명시 TSS가 없어도 지원 시간 필드가 있으면 시간 부하로 폴백한다.
-    // 비례 배분의 candidateTss는 그대로 유지하고, 대표 선택 힌트만 서버 의미에 맞춘다.
+    // 확정 부하 후보와 지속시간을 대표 선택 힌트로 사용한다.
     hasLoad: candidateTss(activity) != null || movingSec != null,
   };
 }

@@ -365,9 +365,9 @@
   "cssCurve.title": "CSS Curve",
   "cssCurve.sub": "Best pace by distance · current season",
   "zoneDist.title": "Zone Distribution",
-  "zoneDist.subRun": "Last 30 days · pace zones",
-  "zoneDist.subSwim": "Last 30 days · CSS zones",
-  "zoneDist.subBike": "Last 30 days · power zones",
+  "zoneDist.subRun": "Last 30 days · pace zones · complete zone evidence only",
+  "zoneDist.subSwim": "Last 30 days · CSS zones · complete zone evidence only",
+  "zoneDist.subBike": "Last 30 days · power zones · complete zone evidence only",
   "zoneDist.empty": "Zone distribution appears when recent activities include enough power, heart-rate, or pace stream data.",
   "rec.title": "Today's Recommendation",
   "rec.sub": "Data-driven suggestion",
@@ -783,5 +783,6 @@
   "ftpDecision.receipt.deviceState.applied_for_next_ride": "Applied for next ride",
   "ftpDecision.receipt.deviceState.failed": "Sync failed",
   "ftpDecision.receipt.deviceState.superseded": "Replaced by a newer setting",
-  "trainingStatus.state.paused": "Training status display is paused. The server verdict returns once it is back on."
+  "trainingStatus.state.paused": "Training status display is paused. The server verdict returns once it is back on.",
+  "zone.neuromuscular": "Neuromuscular"
 }

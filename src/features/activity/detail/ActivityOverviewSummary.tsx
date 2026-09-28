@@ -28,6 +28,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   const duration = (value: number) => `${Math.floor(Math.round(value) / 60)}${copy("minute")} ${Math.round(value) % 60}${copy("second")}`;
   const powerDuration = (value: string) => i18n.language.startsWith("ko") ? value.replace(/s$/, "초").replace(/m$/, "분").replace(/h$/, "시간") : value;
   const powerVisible = p.availability?.power !== "private";
+  const powerEstimated = p.availability?.power === "estimated";
   const zones = (p.zones ?? []).filter((zone) => zone.kind === "power" ? powerVisible : p.availability?.heartRate !== "private");
   const highZone = zones.find((zone) => zone.kind === "power") ?? zones.find((zone) => zone.kind === "heartRate");
   // Format the canonical zone-time aggregate exactly as the share formatter does.
@@ -55,10 +56,15 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
         {p.aboveUsualVolume ? ` · ${copy("aboveUsualVolume")}` : ""}
       </Chip></Stack>
       {/* 판정 문장은 근거가 있을 때만 온다. 없으면 줄을 비운다 — 칩과 헤더가 이미 사실을 보여준다. */}
+      {!!p.observedEffects?.length && note(p.observedEffects.join(" · "))}
       {p.coachSentence && <Text as="p" variant="title" tone="primary">{p.coachSentence}</Text>}
       {/* 하이라이트의 한 줄 근거 — 서버가 표시 언어로 써서 보낸다. "왜 그렇게 불렀나" 가 칩 바로 아래 온다. */}
       {p.highlight && <Text as="p" variant="caption" tone="secondary">{p.highlight.reason}</Text>}
     </Stack>
+    {powerEstimated && note(label("powerEstimated"))}
+    {zones.some((zone) => zone.provisional) && note(label("zoneProvisional"))}
+    {zones.filter((zone) => zone.historyCompleteness && zone.historyCompleteness !== "complete").map((zone) => <Text key={zone.kind} as="p" variant="caption" tone="tertiary">{label(zone.kind)} · {label(`completeness.${zone.historyCompleteness}`)}</Text>)}
+    {powerVisible && p.session.ftpVerificationRequired && note(label("ftpVerificationRequired"))}
     <SummarySection title={copy("stimulus")}>
       <Stack gap="var(--dim-item-gap)">
         {/* 부하·NP·IF 는 상단 스탯 스트립에 없다 — 여기서 빠지면 어디에도 안 나온다. */}
@@ -98,6 +104,8 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       <div className="grid grid-cols-3 sm:grid-cols-5 gap-[var(--dim-item-gap)]">
         {power.map((row) => <Stat key={row.duration} compact label={powerDuration(row.duration)} value={number(row.watts)} unit="W" />)}
       </div>
+      {p.availability?.records === "evaluated" && power.some((row) => row.previousBestPct != null) && note(label("previousBestScope"))}
+      {p.availability?.records === "evaluated" && power.filter((row) => row.previousBestPct != null).map((row) => <div key={row.duration}>{line(`${powerDuration(row.duration)} · ${label("previousBestPct")}`, `${number(row.previousBestPct!)}%`)}</div>)}
     </SummarySection>}
     {p.routeLoad && (p.routeLoad.climbCount != null || p.routeLoad.maxGradePct != null) && <SummarySection title={copy("route")}>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-[var(--dim-item-gap)]">

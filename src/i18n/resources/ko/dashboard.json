@@ -285,6 +285,11 @@
       "unitHour": "{{n}}시간"
     },
     "weeklyChart": {
+      "recordsCount": "저장 기록 {{count}}건",
+      "tssValue": "TSS {{value}}",
+      "tssUnknown": "TSS 미확인",
+      "tssPartial": "산출 가능한 활동의 부분합계 · 미확인 {{count}}건",
+      "tssEstimated": "추정 포함",
       "distance": "거리 (km)",
       "time": "시간 (h)",
       "elevation": "고도 (m)"
@@ -381,8 +386,8 @@
     "zonePowerTitle": "파워 존 분포 · 최근 4주",
     "zoneHrTitle": "심박 존 분포 · 최근 4주",
     "zoneSourcePower": "파워 스트림 기반",
-    "zoneSourceHrBike": "심박 추정 (HR Z1~Z5 → 파워존 매핑, Z6 무산소 분리 불가)",
-    "zoneSourceHrRun": "심박 스트림 기반",
+    "zoneSourceHrBike": "심박 추정 (HR Z1~Z5 → 파워존 매핑, Z6~Z7 분리 불가) 완전한 존 자료가 있는 활동만 포함합니다.",
+    "zoneSourceHrRun": "심박 스트림 기반 완전한 존 자료가 있는 활동만 포함합니다.",
     "zoneSourceNone": "스트림 데이터 없음 — 라이딩 동기화 후 채워집니다",
     "powerCurveTitle": "파워 커브 · 최근 28일",
     "powerCurveSub": "최대 {{maxW}} W · 5s~60m",
@@ -533,7 +538,8 @@
         "riderConfidence": "라이더 유형 신뢰도"
       },
       "modelEvidence": "eFTP는 월별 20분 최고 평균 파워의 95%, CP와 TTE는 최근 90일 PDC 모델에서 계산합니다. 모두 추정값이며 현재 적용 FTP를 자동 변경하지 않습니다."
-    }
+    },
+    "zoneSourcePowerHistorical": "활동 당시 FTP 기준 Z1~Z7 합산 · 현재 FTP 경계로 재분류하지 않습니다. 완전한 존 자료가 있는 활동만 포함합니다."
   },
   "runEmpty": {
     "title": "달리던 앱을 연결하면, 여기서 러닝을 해석해 드려요",

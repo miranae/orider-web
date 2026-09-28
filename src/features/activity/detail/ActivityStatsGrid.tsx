@@ -193,7 +193,7 @@ export function ActivityStatsGrid({
         <MetricCell
           label={duration.usingMoving ? t("stat.movingTime") : t("stat.elapsedTime")}
         >
-          <Value>{formatDuration(duration.displayMs)}</Value>
+          <Value>{Number.isFinite(duration.displayMs) ? formatDuration(duration.displayMs) : "--"}</Value>
         </MetricCell>
 
         {sport === "ride" && (
@@ -201,7 +201,7 @@ export function ActivityStatsGrid({
             label={t("stat.avgSpeed")}
             title={displayAvgImplausible
               ? t("stat.dataWarningRaw", { value: displayAvgKph.toFixed(1) })
-              : (duration.usingMoving ? t("stat.movingAvgTotal", { total: s.averageSpeed.toFixed(1) }) : undefined)}
+              : (duration.usingMoving && Number.isFinite(s.averageSpeed) ? t("stat.movingAvgTotal", { total: s.averageSpeed.toFixed(1) }) : undefined)}
             provisionalLabel={provisional(stats.avgSpeedKph)}
           >
             {displayAvgImplausible || stats.avgSpeedKph.value == null ? (

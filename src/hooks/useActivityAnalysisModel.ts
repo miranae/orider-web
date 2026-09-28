@@ -24,9 +24,7 @@ import {
 } from "../features/activity/detail/activitySensorRejectionLogging";
 import { getSportCategory } from "../features/activity/detail/activityDetailUtils";
 import {
-  loadCanonicalActivityStreams,
   useActivityStreamsLoader,
-  usesCanonicalActivityStreams,
 } from "../features/activity/detail/useActivityStreamsLoader";
 import { logClientError } from "../services/errorLogger";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -34,7 +32,6 @@ import { useBikeProfiles } from "./useBikeProfiles";
 import { useActivityMetrics } from "./useActivityMetrics";
 import { useActivityOverview } from "./useActivityOverview";
 import { useStrava } from "./useStrava";
-import { getStravaActivityId } from "../utils/stravaActivity";
 
 type AnalysisTabProps = ComponentProps<typeof AnalysisTab>;
 
@@ -103,7 +100,10 @@ export function useActivityAnalysisModel(
       if (cancelled) return;
       if (snap.exists()) {
         const data = snap.data();
-        if (data.summary == null) {
+        const usableIdentity = typeof data.userId === "string" && data.userId.length > 0
+          && typeof data.type === "string" && data.type.length > 0;
+        const usableSummary = data.summary !== null && typeof data.summary === "object" && !Array.isArray(data.summary);
+        if (!usableSummary && !usableIdentity) {
           setActivity(null);
           setActivityProcessing(true);
           setLoadingActivity(false);
@@ -113,7 +113,8 @@ export function useActivityAnalysisModel(
           return;
         }
         setActivityProcessing(false);
-        setActivity({ id: snap.id, ...data } as Activity);
+        // 누락된 선택 요약이 정상 경로/센서/개요의 조회까지 막지 않는다. 수치 0은 만들지 않는다.
+        setActivity({ id: snap.id, ...data, summary: usableSummary ? data.summary : {} } as Activity);
       } else {
         setActivityProcessing(false);
       }
@@ -138,13 +139,10 @@ export function useActivityAnalysisModel(
 
   const {
     streams,
-    setStreams,
+    retryStreams,
     showStreamSpinner,
-    setShowStreamSpinner,
     streamsError,
-    setStreamsError,
     loadingStreams,
-    setLoadingStreams,
   } = useActivityStreamsLoader({
     activityId,
     activity,
@@ -161,8 +159,8 @@ export function useActivityAnalysisModel(
   const overviewActivity = activity as (Activity & Record<string, unknown>) | null;
   const overviewMetrics = serverMetrics.metrics as (NonNullable<typeof serverMetrics.metrics> & Record<string, unknown>) | null;
   // 메트릭 생성 시각이 그대로여도 개인정보·출처·선택 revision 변경은 캐시를 무효화한다.
-  // 활동 문서가 도착해 이 경로의 활동임이 확인되기 전에는 개요를 묻지 않는다.
-  const overview = useActivityOverview(activityId, !!activity && activity.id === activityId, JSON.stringify([
+  // 활동 문서와 첫 메트릭 판정이 도착한 뒤 요청해 초기 revision 변경에 따른 중복 호출을 막는다.
+  const overview = useActivityOverview(activityId, !!activity && activity.id === activityId && serverMetrics.status !== "loading", JSON.stringify([
     serverMetrics.status, overviewMetrics?.version, overviewMetrics?.computedAt,
     overviewMetrics?.metricsRevision, overviewMetrics?.inputDigest, overviewMetrics?.etag,
     overviewMetrics?.inputPending, overviewMetrics?.sourceLayer, overviewMetrics?.isVirtualPower,
@@ -188,41 +186,6 @@ export function useActivityAnalysisModel(
   const activityBike = activity?.bikeProfileId
     ? (bikeProfiles.find((p) => p.id === activity.bikeProfileId) ?? null)
     : null;
-
-  const retryStreams = useCallback(async () => {
-    if (!activityId || !activity) return;
-    const source = activity.source;
-    const isCanonicalActivity = usesCanonicalActivityStreams(activityId, source);
-
-    setLoadingStreams(true);
-    setStreamsError(null);
-    setShowStreamSpinner(true);
-    try {
-      if (isCanonicalActivity) {
-        setStreams(await loadCanonicalActivityStreams(activityId, activity.userId, firebaseServices));
-        return;
-      }
-
-      const stravaId = getStravaActivityId(activity);
-      if (!stravaId) {
-        setStreamsError(t("page.streamsMissing"));
-        return;
-      }
-      const data = await getStreams(stravaId);
-      setStreams(data as unknown as ActivityStreams);
-    } catch (error) {
-      logClientError("ActivityPage.streams.retry", error, {
-        activityId,
-        source: source ?? "unknown",
-      });
-      setStreamsError(error instanceof Error && error.message !== "STREAMS_MISSING"
-        ? error.message
-        : t("page.streamsMissing"));
-    } finally {
-      setShowStreamSpinner(false);
-      setLoadingStreams(false);
-    }
-  }, [activity, activityId, firebaseServices, getStreams, setLoadingStreams, setShowStreamSpinner, setStreams, setStreamsError, t]);
 
   const activePowerOverride = resolveActiveActivityPowerOverride(
     activityId,
@@ -342,6 +305,7 @@ export function useActivityAnalysisModel(
     return {
       activityId: activityId ?? null,
       isOwner: isActivityOwner,
+      canonicalPresentationAvailable: overview.response?.status === "available",
       overviewRecovery: overview.response?.status === "available" ? overview.response.presentation.recovery ?? null : null,
       startTime: activity.startTime,
       streams: analysisProjection.streams,

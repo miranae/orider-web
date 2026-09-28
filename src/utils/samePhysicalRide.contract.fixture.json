@@ -1,0 +1,267 @@
+[
+  {
+    "name": "KST-month-day-boundary",
+    "rows": [
+      { "id": "native", "source": "orider", "sportFamily": "bike", "discipline": "bike", "startTime": 1790780385000, "movingSec": 3600, "hasLoad": true },
+      { "id": "strava_1", "source": "strava", "sportFamily": "bike", "discipline": "bike", "startTime": 1790780415000, "movingSec": 3600, "hasLoad": true }
+    ],
+    "expected": ["strava_1"]
+  },
+  {
+    "name": "KST-week-boundary",
+    "rows": [
+      { "id": "native", "source": "orider", "sportFamily": "bike", "discipline": "bike", "startTime": 1791125985000, "movingSec": 3600, "hasLoad": true },
+      { "id": "strava_1", "source": "strava", "sportFamily": "bike", "discipline": "bike", "startTime": 1791126015000, "movingSec": 3600, "hasLoad": true }
+    ],
+    "expected": ["strava_1"]
+  },
+  {
+    "name": "bike-overlap",
+    "rows": [
+      {
+        "id": "native",
+        "source": "orider",
+        "sportFamily": "bike",
+        "discipline": "bike",
+        "startTime": 1000000,
+        "movingSec": 3600,
+        "hasLoad": true
+      },
+      {
+        "id": "strava_1",
+        "source": "strava",
+        "sportFamily": "bike",
+        "discipline": "bike",
+        "startTime": 1030000,
+        "movingSec": 3600,
+        "hasLoad": true
+      }
+    ],
+    "expected": [
+      "strava_1"
+    ]
+  },
+  {
+    "name": "run-overlap",
+    "rows": [
+      {
+        "id": "native",
+        "source": "orider",
+        "sportFamily": "run",
+        "discipline": "run",
+        "startTime": 1000000,
+        "movingSec": 3600,
+        "hasLoad": true
+      },
+      {
+        "id": "strava_1",
+        "source": "strava",
+        "sportFamily": "run",
+        "discipline": "run",
+        "startTime": 1030000,
+        "movingSec": 3600,
+        "hasLoad": true
+      }
+    ],
+    "expected": [
+      "strava_1"
+    ]
+  },
+  {
+    "name": "swim-overlap",
+    "rows": [
+      {
+        "id": "native",
+        "source": "orider",
+        "sportFamily": "swim",
+        "discipline": "swim",
+        "startTime": 1000000,
+        "movingSec": 3600,
+        "hasLoad": true
+      },
+      {
+        "id": "strava_1",
+        "source": "strava",
+        "sportFamily": "swim",
+        "discipline": "swim",
+        "startTime": 1030000,
+        "movingSec": 3600,
+        "hasLoad": true
+      }
+    ],
+    "expected": [
+      "strava_1"
+    ]
+  },
+  {
+    "name": "cross-sport",
+    "rows": [
+      {
+        "id": "native",
+        "source": "orider",
+        "sportFamily": "bike",
+        "discipline": "bike",
+        "startTime": 1000000,
+        "movingSec": 3600,
+        "hasLoad": true
+      },
+      {
+        "id": "strava_1",
+        "source": "strava",
+        "sportFamily": "run",
+        "discipline": "run",
+        "startTime": 1030000,
+        "movingSec": 3600,
+        "hasLoad": true
+      }
+    ],
+    "expected": [
+      "native",
+      "strava_1"
+    ]
+  },
+  {
+    "name": "separate",
+    "rows": [
+      {
+        "id": "native",
+        "source": "orider",
+        "sportFamily": "bike",
+        "discipline": "bike",
+        "startTime": 1000000,
+        "movingSec": 3600,
+        "hasLoad": true
+      },
+      {
+        "id": "strava_1",
+        "source": "strava",
+        "sportFamily": "bike",
+        "discipline": "bike",
+        "startTime": 9000000,
+        "movingSec": 3600,
+        "hasLoad": true
+      }
+    ],
+    "expected": [
+      "native",
+      "strava_1"
+    ]
+  },
+  {
+    "name": "explicit-link",
+    "rows": [
+      {
+        "id": "native",
+        "source": "orider",
+        "sportFamily": "bike",
+        "discipline": "bike",
+        "startTime": null,
+        "movingSec": 3600,
+        "hasLoad": true,
+        "stravaTwinActivityId": 1
+      },
+      {
+        "id": "strava_1",
+        "source": "strava",
+        "sportFamily": "bike",
+        "discipline": "bike",
+        "startTime": null,
+        "movingSec": 3600,
+        "hasLoad": true,
+        "stravaActivityId": 1
+      }
+    ],
+    "expected": [
+      "strava_1"
+    ]
+  },
+  {
+    "name": "split",
+    "rows": [
+      {
+        "id": "part1",
+        "source": "orider",
+        "sportFamily": "bike",
+        "discipline": "bike",
+        "startTime": 1000000,
+        "movingSec": 1800,
+        "hasLoad": true
+      },
+      {
+        "id": "part2",
+        "source": "orider",
+        "sportFamily": "bike",
+        "discipline": "bike",
+        "startTime": 2800000,
+        "movingSec": 1800,
+        "hasLoad": true
+      },
+      {
+        "id": "strava_1",
+        "source": "strava",
+        "sportFamily": "bike",
+        "discipline": "bike",
+        "startTime": 1030000,
+        "movingSec": 3600,
+        "hasLoad": true
+      }
+    ],
+    "expected": [
+      "strava_1"
+    ]
+  },
+  {
+    "name": "unknown-duration",
+    "rows": [
+      {
+        "id": "native",
+        "source": "orider",
+        "sportFamily": "bike",
+        "discipline": "bike",
+        "startTime": 1000000,
+        "movingSec": null,
+        "hasLoad": true
+      },
+      {
+        "id": "strava_1",
+        "source": "strava",
+        "sportFamily": "bike",
+        "discipline": "bike",
+        "startTime": 1030000,
+        "movingSec": null,
+        "hasLoad": true
+      }
+    ],
+    "expected": [
+      "native",
+      "strava_1"
+    ]
+  },
+  {
+    "name": "unknown-sport",
+    "rows": [
+      {
+        "id": "native",
+        "source": "orider",
+        "sportFamily": null,
+        "discipline": null,
+        "startTime": 1000000,
+        "movingSec": 3600,
+        "hasLoad": true
+      },
+      {
+        "id": "strava_1",
+        "source": "strava",
+        "sportFamily": null,
+        "discipline": null,
+        "startTime": 1030000,
+        "movingSec": 3600,
+        "hasLoad": true
+      }
+    ],
+    "expected": [
+      "native",
+      "strava_1"
+    ]
+  }
+]
