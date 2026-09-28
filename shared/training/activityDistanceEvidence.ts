@@ -3,6 +3,8 @@ export function resolveObservedDistanceKm(
   metrics: { distanceKm?: unknown; distanceSource?: unknown; version?: unknown },
   recordedSummaryMeters?: unknown,
 ): number | null {
+  if (Object.prototype.hasOwnProperty.call(metrics, "version")
+    && (typeof metrics.version !== "number" || !Number.isSafeInteger(metrics.version) || metrics.version < 0)) return null;
   const distance = metrics.distanceKm;
   if (typeof distance !== "number" || !Number.isFinite(distance) || distance < 0) return null;
   if (Object.prototype.hasOwnProperty.call(metrics, "distanceSource")) {

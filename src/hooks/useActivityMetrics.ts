@@ -22,6 +22,7 @@ import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { ACTIVITY_METRICS_VERSION, type ActivityMetrics } from "@shared/types/activity-metrics";
 import { logClientError } from "../services/errorLogger";
+import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { canonicalRolloutAllows, useCanonicalRollout } from "./useCanonicalRollout";
 import { canonicalRolloutObservedOff } from "../services/canonicalRollout";
@@ -140,8 +141,16 @@ export type UseActivityMetricsState =
  */
 export function useActivityMetrics(activityId: string | null, isOwner = true): UseActivityMetricsState {
   const { firestore } = useFirebaseServices();
+  const { user } = useAuth();
+  const uid = user?.uid ?? null;
   const rollout = useCanonicalRollout();
-  const [state, setState] = useState<UseActivityMetricsState>({ status: "loading", metrics: null });
+  const [state, setState] = useState<{
+    activityId: string;
+    collection: string;
+    firestore: typeof firestore;
+    uid: string | null;
+    value: UseActivityMetricsState;
+  } | null>(null);
 
   // 게이트 계층이 꺼져 있으면(오늘의 기본값) 판정은 조건에서 아예 빠진다 — 소유자도 공개 뷰어도
   // 오늘과 똑같이 읽는다. 판정을 기다리는 동안은 켜짐도 꺼짐도 아니므로 둘 다 기다린다.
@@ -158,23 +167,21 @@ export function useActivityMetrics(activityId: string | null, isOwner = true): U
   const collection = isOwner ? "activity_metrics" : "activity_metrics_public";
 
   useEffect(() => {
-    if (!activityId || gateWaiting) {
-      setState({ status: "loading", metrics: null });
+    if (!activityId || gateWaiting || gateBlocked) {
+      setState(null);
       return undefined;
     }
-    if (gateBlocked) {
-      // kill switch — 서버가 이 면을 껐다. 공개 projection 도 같은 정본에서 파생되므로 함께 멈춘다.
-      // 화면은 빈 칸이 아니라 중단 상태를 밝힌다.
-      setState({ status: "disabled", metrics: null });
-      return undefined;
-    }
-    // 새 activityId 진입 시 loading 으로 초기화 (옛 데이터 깜빡임 방지).
-    setState({ status: "loading", metrics: null });
+    let active = true;
+    const update = (value: UseActivityMetricsState) => {
+      if (active) setState({ activityId, collection, firestore, uid, value });
+    };
+    update({ status: "loading", metrics: null });
     const unsub = onSnapshot(
       doc(firestore, collection, activityId),
       (snap) => {
+        if (!active) return;
         if (!snap.exists()) {
-          setState({ status: "missing", metrics: null });
+          update({ status: "missing", metrics: null });
           return;
         }
         // 캐스팅은 hook 사용자 책임 영역 — 서버 doc 스키마는 functions 쪽에서 강제.
@@ -185,19 +192,31 @@ export function useActivityMetrics(activityId: string | null, isOwner = true): U
           : fromPublicActivityMetrics(raw);
         // version 이 클라 기대보다 낮으면 stale — 값은 그대로 노출하되 호출자가 표식을 붙인다.
         // version 필드가 아예 없는 옛 문서는 0 으로 본다 — 모름을 최신으로 그리면 안 된다 (#2237).
-        const version = typeof data.version === "number" ? data.version : 0;
+        const version = typeof data.version === "number" && Number.isSafeInteger(data.version)
+          && data.version >= 0 ? data.version : 0;
         const isStale = version < ACTIVITY_METRICS_VERSION;
-        setState({ status: isStale ? "stale" : "ready", metrics: data });
+        update({ status: isStale ? "stale" : "ready", metrics: data });
       },
       (err) => {
+        if (!active) return;
         // permission-denied (비공개 활동을 링크로 열었거나 rule 평가 실패) / network 등.
         // missing 으로 격하 + errorLogger 전송 (auth 문제는 진단 가치 있음).
         logClientError("useActivityMetrics", err, { activityId, collection });
-        setState({ status: "missing", metrics: null });
+        update({ status: "missing", metrics: null });
       },
     );
-    return () => unsub();
-  }, [activityId, collection, firestore, gateBlocked, gateWaiting, isOwner]);
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [activityId, collection, firestore, gateBlocked, gateWaiting, isOwner, uid]);
 
-  return state;
+  // effect 전에 바뀐 활동·공개 범위·계정의 첫 커밋에서도 이전 데이터를 내보내지 않는다.
+  if (!activityId || gateWaiting) return { status: "loading", metrics: null };
+  if (gateBlocked) return { status: "disabled", metrics: null };
+  if (!state || state.activityId !== activityId || state.collection !== collection
+    || state.firestore !== firestore || state.uid !== uid) {
+    return { status: "loading", metrics: null };
+  }
+  return state.value;
 }
