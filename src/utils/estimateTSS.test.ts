@@ -108,6 +108,12 @@ describe("estimateActivityTss — 모르면 null, 추정이면 표식", () => {
 });
 
 describe("sumActivityTss — 아는 값만 합산, 추정 혼입 고지", () => {
+  it.each([0.5, Number.MAX_SAFE_INTEGER + 1])("잘못된 Strava 연결 ID %s 때문에 정상 부하를 버리지 않는다", (providerId) => {
+    const first = { ...act({ tss: 50 }), stravaActivityId: providerId } as Activity;
+    const second = { ...act({ tss: 50 }), stravaTwinActivityId: providerId } as Activity;
+    expect(sumActivityTss([first, second])).toEqual({ value: 100, estimated: false, unknownCount: 0 });
+  });
+
   it("추정치가 섞이면 estimated=true", () => {
     const total = sumActivityTss([act({ tss: 50, hours: 1 }), act({ hours: 1 })]);
     expect(total).toEqual({ value: 50 + Math.round(TIME_FACTORS.bike), estimated: true, unknownCount: 0 });

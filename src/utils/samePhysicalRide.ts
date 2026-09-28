@@ -43,8 +43,8 @@ export function physicalRideIdentityKeys(row: PhysicalRideIdentity): string[] {
   const keys: string[] = [];
   if (typeof row.id === "string" && row.id.length > 0) keys.push(`doc:${row.id}`);
   if (typeof row.localSessionId === "string" && row.localSessionId.length > 0) keys.push(`session:${row.localSessionId}`);
-  if (typeof row.stravaActivityId === "number" && Number.isFinite(row.stravaActivityId)) keys.push(`strava:${row.stravaActivityId}`);
-  if (typeof row.stravaTwinActivityId === "number" && Number.isFinite(row.stravaTwinActivityId)) keys.push(`strava:${row.stravaTwinActivityId}`);
+  if (typeof row.stravaActivityId === "number" && Number.isSafeInteger(row.stravaActivityId) && row.stravaActivityId > 0) keys.push(`strava:${row.stravaActivityId}`);
+  if (typeof row.stravaTwinActivityId === "number" && Number.isSafeInteger(row.stravaTwinActivityId) && row.stravaTwinActivityId > 0) keys.push(`strava:${row.stravaTwinActivityId}`);
   return keys;
 }
 

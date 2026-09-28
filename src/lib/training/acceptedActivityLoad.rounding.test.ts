@@ -23,6 +23,21 @@ describe("accepted TSS evidence before integer rounding", () => {
       .toEqual({ value: 42, known: true, reliable: false, source: "time" });
   });
 
+  it.each([
+    [{ ...summary, streamTrimpTss: 0.1 }, undefined, "trimp"],
+    [{ ...summary, relativeEffort: 0.1 }, undefined, "trimp"],
+    [{ ...summary, averagePower: 5 }, 250, "power_estimate"],
+  ] as const)("keeps rounded estimated zero distinct from unknown", (selectedSummary, ftp, source) => {
+    const activity = { id: "tiny-estimate", userId: "fixture", type: "Ride",
+      startTime: Date.UTC(2026, 8, 21), summary: selectedSummary } as unknown as Activity;
+    const before = structuredClone(activity);
+    expect(acceptedActivityLoad(activity as unknown as Record<string, unknown>, "bike", ftp))
+      .toEqual({ value: 0, known: true, reliable: false, source });
+    expect(estimateActivityTss(activity, ftp)).toEqual({ value: 0, estimated: true });
+    expect(sumActivityTss([activity], ftp)).toEqual({ value: 0, estimated: true, unknownCount: 0 });
+    expect(activity).toEqual(before);
+  });
+
   it("retains confirmed zero in the actual TrainingLog estimate and aggregate consumers", () => {
     const activity = { id: "tiny", userId: "fixture", type: "Ride", startTime: Date.UTC(2026, 8, 21),
       summary: { ...summary, tss: 0.1 } } as unknown as Activity;

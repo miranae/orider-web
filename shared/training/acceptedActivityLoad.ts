@@ -29,7 +29,7 @@ export function acceptedActivityLoad(activity: Record<string, unknown>, discipli
     relativeEffort: typeof summary.relativeEffort === 'number' ? summary.relativeEffort : null,
     durationMillis, discipline });
   const known = precomputedTss !== null || streamTss !== null
-    || load.value > 0 || activity.tss === 0 || summary.tss === 0;
+    || load.source === 'tss' || load.source === 'trimp' || load.value > 0 || activity.tss === 0 || summary.tss === 0;
   return { value: load.value, known, reliable, source: !known ? 'unknown'
     : precomputedTss !== null ? 'recorded' : streamTss !== null ? 'server' : load.source === 'tss' ? 'power_estimate' : load.source === 'trimp' ? 'trimp' : 'time' };
 }

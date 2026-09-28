@@ -89,18 +89,22 @@ describe("useFreshTraining", () => {
     setCallableResult("revalidateTraining", { data: { ok: true, status: "recomputed" } });
   });
 
-  it.each(["failed", "pending", "invalidated", "revision-mismatch", "previous-day", "wrong-sport", "ingest-after-read", "unknown-processed", "processed"])("신선한 projection과 별개로 단일 종목 %s lifecycle을 검사한다", async (status) => {
+  it.each(["failed", "pending", "invalidated", "revision-mismatch", "previous-day", "wrong-sport", "ingest-after-read", "unknown-processed", "processed", "completion-earlier", "completion-null", "completion-missing", "input-time-mismatch", "completion-later"])("신선한 projection과 별개로 단일 종목 %s lifecycle을 검사한다", async (status) => {
     const listeners = installControlledSnapshots(true);
     const now = Date.now();
     const date = new Date(now).toISOString().slice(0, 10);
     const readTime = { seconds: Math.floor(now / 1000), nanoseconds: (now % 1000) * 1_000_000 };
     const lifecycle = {
       discipline: status === "wrong-sport" ? "run" : "bike",
+      computedAt: status === "input-time-mismatch" ? now - 1 : now,
       loadSnapshot: { inputRevision: 2, inputDigest: "a".repeat(64), asOf: status === "ingest-after-read" ? now - 1000 : now, inputReadTime: readTime,
         coverageStartDate: date, coverageEndDate: status === "previous-day" ? new Date(now - 86400000).toISOString().slice(0, 10) : date,
         points: [{ date, dailyLoad: 0, status: status === "unknown-processed" ? "unknown" : "final", quality: "zero" }] },
       pmc: { status: ["failed", "pending"].includes(status) ? status : "processed", attemptId: "two", inputRevision: 2,
-        processedInputRevision: status === "revision-mismatch" ? 1 : 2, asOf: now, deadlineAt: now - 1 },
+        processedInputRevision: status === "revision-mismatch" ? 1 : 2,
+        asOf: status === "completion-earlier" ? now - 1 : status === "completion-null" ? null
+          : status === "completion-missing" ? undefined : status === "completion-later" ? now + 100 : now,
+        deadlineAt: now - 1 },
       ...(status === "invalidated" ? { inputInvalidatedAt: { ...readTime, nanoseconds: readTime.nanoseconds + 1 } } : {}),
     };
     const { result, unmount } = renderHook(() => useFreshTraining("bike"));
@@ -108,7 +112,7 @@ describe("useFreshTraining", () => {
     act(() => { emit(listeners[0], status === "ingest-after-read" ? { lastActivityIngestAt: now - 500 } : {}); emit(listeners[1], { computedAt: now }); emit(listeners[2], lifecycle, true); });
     expect(result.current.lastStatus).toBeNull();
     act(() => emit(listeners[2], lifecycle));
-    const processed = status === "processed" || status === "unknown-processed";
+    const processed = status === "processed" || status === "unknown-processed" || status === "completion-later";
     await waitFor(() => expect(result.current.lastStatus).toBe(processed ? "fresh" : "recomputed"));
     expect(mockCallableInvocations).toHaveLength(processed ? 0 : 1);
     unmount();

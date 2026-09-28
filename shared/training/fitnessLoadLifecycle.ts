@@ -72,6 +72,9 @@ export function canonicalFitnessInputsLifecycle(
       || (point as Record<string, unknown>).status !== "final")) return "pending";
   const asOf = load.asOf;
   if (typeof asOf !== "number" || timeseries.computedAt !== asOf || summary.computedAt !== asOf) return "pending";
+  const completedAt = pmc.asOf;
+  if (typeof completedAt !== "number" || !Number.isSafeInteger(completedAt)
+      || completedAt <= 0 || completedAt < asOf) return "pending";
   if (!validFitnessLoadSnapshotProof(load) || invalidatedAt != null && !validTimestamp(invalidatedAt)) return "pending";
   return "ready";
 }

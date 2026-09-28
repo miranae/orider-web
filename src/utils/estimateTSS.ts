@@ -77,7 +77,8 @@ export function estimateActivityTss(a: Activity, ftp?: number): ActivityTssEstim
   const discipline = disciplineOfType(a.type);
   if (!discipline) return { value: null, estimated: false };
   const load = acceptedActivityLoad(a as unknown as Record<string, unknown>, discipline, ftp);
-  return { value: load.known ? load.value : null, estimated: load.known && !load.reliable && load.value > 0 };
+  return { value: load.known ? load.value : null,
+    estimated: load.known && !load.reliable && (load.value > 0 || load.source === "trimp" || load.source === "power_estimate") };
 }
 
 /** 서버와 같은 종목·삭제·실주행 대표 규칙. 원본 활동을 수정하지 않는다. */
