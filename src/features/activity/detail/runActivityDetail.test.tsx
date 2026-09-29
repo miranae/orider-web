@@ -4,7 +4,7 @@ import { createMockActivity } from "../../../__tests__/fixtures/mockData";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import { RunActivityIntro, type RunActivityDetail, useRunActivityDetail } from "./runActivityDetail";
 
-const hooks = vi.hoisted(() => ({ baseline: vi.fn(() => ({ paceSecPerKm: 300, loading: false })), records: vi.fn(() => ({ run: undefined })) }));
+const hooks = vi.hoisted(() => ({ baseline: vi.fn(() => ({ paceSecPerKm: 300, loading: false, comparisonType: "run" as const, sampleCount: 3, windowComplete: true })), records: vi.fn(() => ({ run: undefined })) }));
 vi.mock("../../../hooks/useRunBaselinePace", () => ({ useRunBaselinePace: hooks.baseline }));
 vi.mock("../../../hooks/useRunRecords", () => ({ useRunRecords: hooks.records }));
 
@@ -34,7 +34,7 @@ describe("running interpretation avoids absolute cadence coaching", () => {
 
 it("disables personal queries and interpretation on somebody else's run", () => {
   const { result } = renderHook(() => useRunActivityDetail(run, null, { avgCadence: 89, cadenceUnit: "strides_per_minute", avgSpeedKph: 10 }, "outsider"));
-  expect(hooks.baseline).toHaveBeenLastCalledWith(run.id, false, run.startTime);
+  expect(hooks.baseline).toHaveBeenLastCalledWith(run.id, false, run.startTime, "Run");
   expect(hooks.records).toHaveBeenLastCalledWith(false);
   expect(result.current.interpretationContext).toBeUndefined();
   expect(result.current.baselinePaceSecPerKm).toBeNull();
@@ -62,8 +62,23 @@ it("does not render an intro without pace or GAP evidence", () => {
 });
 
 it("omits pending baseline from owner interpretation", () => {
- hooks.baseline.mockReturnValueOnce({ paceSecPerKm: 300, loading: true });
+ hooks.baseline.mockReturnValueOnce({ paceSecPerKm: 300, loading: true, comparisonType: "run", sampleCount: 3, windowComplete: true });
  const { result } = renderHook(() => useRunActivityDetail(run, null, null, run.userId));
  expect(result.current.baselinePaceSecPerKm).toBeNull();
  expect(result.current.interpretationContext?.baselinePaceSecPerKm).toBeNull();
+});
+
+it("forwards the exact current running subtype to the baseline query", () => {
+ const trail = { ...run, type: "TrailRun" };
+ renderHook(() => useRunActivityDetail(trail, null, null, trail.userId));
+ expect(hooks.baseline).toHaveBeenLastCalledWith(trail.id, true, trail.startTime, "TrailRun");
+});
+it("does not expose owner comparison evidence to public viewers", () => {
+ const { result } = renderHook(() => useRunActivityDetail(run, null, null, "outside"));
+ expect(result.current.baselineComparison).toBeUndefined();
+});
+
+it("passes completed owner comparison metadata to the intro", () => {
+ const { result } = renderHook(() => useRunActivityDetail(run, null, null, run.userId));
+ expect(result.current.baselineComparison).toMatchObject({ comparisonType: "run", sampleCount: 3, windowComplete: true });
 });

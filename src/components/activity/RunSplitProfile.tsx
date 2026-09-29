@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SplitRow } from "@shared/types/activity-metrics";
 import { useLocale } from "../../contexts/LocaleContext";
@@ -7,8 +7,11 @@ import { Card, Text } from "../../theme/components";
 import { MetricExplainerTrigger } from "../common/MetricExplainer";
 
 /** 서버 km 스플릿을 탐색한다. 막대는 관측된 페이스 범위 안에서 상대 비교하며 기록 페이스를 다시 계산하지 않는다. */
-export default function RunSplitProfile({ splits, distanceKm, suppressCadence, cadenceLabel, formatCadence }: {
+export default function RunSplitProfile({ splits, distanceKm, suppressCadence, cadenceLabel, formatCadence, onSelectSplit, onViewSplitLocation, canViewSplitLocation = false }: {
   splits: SplitRow[];
+  onSelectSplit?: (split: SplitRow | null) => void;
+  onViewSplitLocation?: () => void;
+  canViewSplitLocation?: boolean;
   distanceKm: number | null;
   suppressCadence: boolean;
   cadenceLabel: string;
@@ -20,6 +23,7 @@ export default function RunSplitProfile({ splits, distanceKm, suppressCadence, c
   const [selectedKm, setSelectedKm] = useState(valid[0]?.km);
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
   const selected = valid.find(split => split.km === selectedKm) ?? valid[0];
+  useEffect(() => { onSelectSplit?.(selected ?? null); }, [selected, onSelectSplit]);
   if (!selected) return <Text as="p" variant="bodySmall" tone="tertiary">{t("analysis.run.splitsUnavailable")}</Text>;
   const isPartial = (split: SplitRow) => !Number.isInteger(split.km) || (distanceKm != null && split.km > distanceKm);
   const full = valid.filter(split => distanceKm != null && Number.isInteger(split.km) && !isPartial(split));
@@ -47,13 +51,14 @@ export default function RunSplitProfile({ splits, distanceKm, suppressCadence, c
     </div>
     <Card padding="compact" className="min-w-0" data-testid="selected-run-split" aria-live="polite" aria-atomic="true">
       <Text as="h4" variant="bodyMedium" weight={600}>{t("analysis.run.selectedSplit", { km: selected.km })}{isPartial(selected) ? ` · ${t("analysis.run.partialSplit")}` : ""}</Text>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" style={{ marginTop: "var(--space-3)" }}>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2" style={{ marginTop: "var(--space-2)" }}>
         <MetricExplainerTrigger metric="pace" context={context} sport="run"><Text as="div" variant="caption">{t("stat.avgPace")}</Text><Text variant="dataSmall">{pace(selected.paceSec)}</Text></MetricExplainerTrigger>
         {selected.gapSec != null && Number.isFinite(selected.gapSec) && selected.gapSec > 0 && <MetricExplainerTrigger metric="gap" context={context} sport="run"><Text as="div" variant="caption">{t("runCards.gapPace")}</Text><Text variant="dataSmall">{pace(selected.gapSec)}</Text></MetricExplainerTrigger>}
         {selected.avgHr != null && Number.isFinite(selected.avgHr) && selected.avgHr > 0 && <div><Text as="div" variant="caption">{t("stat.avgHr")}</Text><Text variant="dataSmall">{Math.round(selected.avgHr)} bpm</Text></div>}
         {!suppressCadence && selected.avgCadence != null && formatCadence(selected.avgCadence) !== "—" && <MetricExplainerTrigger metric="cadence" context={{ thresholdPaceSecPerKm: null }} sport="run"><Text as="div" variant="caption">{cadenceLabel}</Text><Text variant="dataSmall">{formatCadence(selected.avgCadence)}</Text></MetricExplainerTrigger>}
         {Number.isFinite(selected.elevGain) && <div><Text as="div" variant="caption">{t("analysis.metric.elevGain")}</Text><Text variant="dataSmall">{formatElev(selected.elevGain, units)}</Text></div>}
       </div>
+      {canViewSplitLocation && onViewSplitLocation && <button type="button" onClick={onViewSplitLocation} className="w-full rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[length:var(--fs-sm)] font-semibold" style={{ minHeight: 44, marginTop: "var(--space-2)", color: "var(--accent-dark)" }}>{t("analysis.run.viewSplitLocation")}</button>}
     </Card>
     <Card padding="compact" className="min-w-0">
       <div role="group" aria-label={t("analysis.run.profileLabel")} className="space-y-1" style={{ maxHeight: "calc(var(--space-8) * 6)", overflowY: "auto", overflowX: "hidden" }}>

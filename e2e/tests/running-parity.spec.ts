@@ -1,11 +1,26 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   RUNNING_PARITY_ID, RUNNING_PARITY_PROJECT, RUNNING_PARITY_TITLE, seedRunningParity,
 } from "../fixtures/running-parity";
 
+const browserErrors = new WeakMap<Page, string[]>();
+
 test.beforeAll(seedRunningParity);
 
+test.afterEach(async ({ page }, info) => {
+  const errors = browserErrors.get(page) ?? [];
+  if (errors.length) await info.attach("browser-page-errors", { body: errors.join("\n\n"), contentType: "text/plain" });
+  expect(errors, "Browser page errors (full stacks attached)").toEqual([]);
+});
+
 test.beforeEach(async ({ page }) => {
+  const errors: string[] = [];
+  browserErrors.set(page, errors);
+  page.on("pageerror", error => {
+    const stack = error.stack ?? `${error.name}: ${error.message}`;
+    errors.push(stack);
+    console.error(`[running-parity pageerror] ${stack}`);
+  });
   await page.route("**/runtime-config.json*", (route) => route.fulfill({ json: {
     firebaseProjectId: RUNNING_PARITY_PROJECT, firebaseApiKey: "fake-api-key",
     firebaseAuthDomain: "localhost", firebaseAppId: "fake-app-id",
@@ -58,6 +73,7 @@ test("public detail keeps running splits and excludes cycling analytics", async 
   const secondSplit = profile.getByRole("button", { name: /^2km 구간, 페이스/ });
   await expect(secondSplit).toHaveAttribute("aria-pressed", "true");
   const selected = page.getByTestId("selected-run-split");
+  await expect(selected.getByRole("button", { name: "지도·고도로 보기", exact: true })).toHaveCount(0);
   await expect(selected).toContainText(/5[:'′]47/);
   await expect(selected).toContainText(/5[:'′]57/);
   await expect(selected).toContainText("139 bpm");
@@ -71,7 +87,8 @@ test("public detail keeps running splits and excludes cycling analytics", async 
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByTestId("run-next-actions")).toHaveCount(0);
   await expect(page.getByTestId("run-raw-splits")).not.toHaveAttribute("open", "");
-  await expect(page.getByText(/5[:'′]50/).first()).toBeVisible();
+  await expect(page.getByTestId("run-recap-details")).not.toHaveAttribute("open", "");
+  await expect(page.getByTestId("run-hr-details")).not.toHaveAttribute("open", "");
   await expect(page.getByText(/5[:'′]37/).first()).toBeVisible();
   await expect(page.getByText("활동 당시 FTP 정본 없음", { exact: true })).toHaveCount(0);
   await expect(page.getByText("NP", { exact: true })).toHaveCount(0);
@@ -85,6 +102,10 @@ test("public detail keeps running splits and excludes cycling analytics", async 
   await page.screenshot({ path: info.outputPath("running-analysis.png") });
   await page.getByRole("heading", { name: /스플릿/ }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath("running-analysis-splits.png") });
+  await page.getByTestId("run-recap-details").locator("summary").click();
+  await expect(recap).toContainText(/5[:'′]01/);
+  await page.getByTestId("run-hr-details").locator("summary").click();
+  await page.screenshot({ path: info.outputPath("running-analysis-heart-rate.png") });
   await page.getByTestId("run-detail-disclosure").locator("summary").click();
   await expect(page.getByTestId("run-detail-disclosure")).toContainText("191");
   await expect(page.getByTestId("run-detail-disclosure")).toContainText("264");

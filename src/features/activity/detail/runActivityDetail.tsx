@@ -11,7 +11,7 @@ import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { RunPrTable } from "@shared/types/personal-records";
 import RunRecordBanner from "../../../components/activity/RunRecordBanner";
 import RunInterpretationCard from "../../../components/activity/RunInterpretationCard";
-import { useRunBaselinePace } from "../../../hooks/useRunBaselinePace";
+import { useRunBaselinePace, type RunBaseline } from "../../../hooks/useRunBaselinePace";
 import { useRunRecords } from "../../../hooks/useRunRecords";
 import type { InterpretationContext } from "../../../utils/metricInterpretation";
 import { getSportCategory } from "./activityDetailUtils";
@@ -24,6 +24,7 @@ export interface RunActivityDetail {
   runRecords: RunPrTable | undefined;
   baselinePaceSecPerKm: number | null;
   averageSpeedKmh: number;
+  baselineComparison?: Pick<RunBaseline, "comparisonType" | "sampleCount" | "windowComplete">;
 }
 
 /**
@@ -40,7 +41,7 @@ export function useRunActivityDetail(
   // 그리고 활동 로딩 전(id=undefined)·후(id) 두 번 실행되던 중복 쿼리.
   const isOwner = !!viewerUid && activity?.userId === viewerUid;
   const personal = isRun && isOwner;
-  const baseline = useRunBaselinePace(activity?.id, personal, activity?.startTime);
+  const baseline = useRunBaselinePace(activity?.id, personal, activity?.startTime, activity?.type);
   const { run: runRecords } = useRunRecords(personal);
 
   const s = activity?.summary;
@@ -51,6 +52,7 @@ export function useRunActivityDetail(
     runRecords: personal ? runRecords : undefined,
     baselinePaceSecPerKm: personal && !baseline.loading ? baseline.paceSecPerKm : null,
     averageSpeedKmh: speed,
+    baselineComparison: personal && !baseline.loading && baseline.comparisonType && baseline.windowComplete != null ? baseline : undefined,
     interpretationContext: personal && s
       ? {
           paceSecPerKm: speed > 0 ? Math.round(3600 / speed) : null,
@@ -86,6 +88,7 @@ export function RunActivityIntro({
         gapSecPerKm={gapSecPerKm}
         averageSpeedKmh={detail.averageSpeedKmh}
         baselinePaceSecPerKm={detail.baselinePaceSecPerKm}
+        comparison={detail.isOwner ? detail.baselineComparison : undefined}
       />
       {detail.isOwner && (
         <div className="flex flex-wrap gap-2" data-testid="run-next-actions">

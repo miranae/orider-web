@@ -3,6 +3,8 @@ import { useOutletContext, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import ElevationChart from "../components/ElevationChart";
+import { useRunSplitLocation } from "../features/activity/detail/useRunSplitLocation";
+import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 import Avatar from "../components/Avatar";
 import TabNav from "../components/TabNav";
 import AnalysisTab from "../components/AnalysisTab";
@@ -151,6 +153,11 @@ export default function ActivityPage() {
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
   // 탭 네비게이션
   const [activeTab, setActiveTab] = useState("overview");
+  const runLocationAnchor = useRef<HTMLDivElement>(null);
+  const viewRunSplitLocation = useCallback(() => {
+    setActiveTab("overview");
+    runLocationAnchor.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
+  }, []);
 
   // Layout의 허브 판정에 소유권을 전달한다. 같은 ActivityPage 인스턴스에서 activityId만
   // 바뀔 때 이전 활동의 owner가 남지 않도록 현재 문서와 route id가 일치할 때만 publish한다.
@@ -474,14 +481,15 @@ export default function ActivityPage() {
     () => buildSummaryStats(effectiveStreams, streamSensorSummary),
     [effectiveStreams, streamSensorSummary],
   );
+  const { location: runSplitLocation, onSelectSplit: selectRunSplit } = useRunSplitLocation(activityId, activity?.id, sport === "run", streams, sampledData, resolveObservedDistanceKm(serverMetrics.metrics ?? {}, activity?.summary?.distance));
   const markerPosition = useMemo(() => {
-    if (hoverIndex == null || !sampledData[hoverIndex]) return null;
+    if (hoverIndex == null || !sampledData[hoverIndex]) return runSplitLocation?.markerPosition ?? null;
     return sampledData[hoverIndex].latlng;
-  }, [hoverIndex, sampledData]);
+  }, [hoverIndex, sampledData, runSplitLocation]);
   const segmentEfforts = useMemo(() => getSegmentEfforts(streams), [streams]);
   const chartHighlightRange = useMemo(
-    () => getChartHighlightRange(hoveredSegment, streams),
-    [hoveredSegment, streams],
+    () => getChartHighlightRange(hoveredSegment, streams) ?? runSplitLocation?.chartRange,
+    [hoveredSegment, streams, runSplitLocation],
   );
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
   const hasStreams = sampledData.length > 0;
@@ -900,6 +908,7 @@ export default function ActivityPage() {
       </Card>
 
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
+      <div ref={runLocationAnchor} style={{ scrollMarginTop: "var(--space-8)" }}>
       <ActivityMediaPanel
         activity={activity}
         streams={streams}
@@ -908,11 +917,13 @@ export default function ActivityPage() {
         summary={s}
         markerPosition={markerPosition}
         hoveredSegment={hoveredSegment}
+        selectedRunRange={runSplitLocation?.routeRange}
         photos={photos}
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
         t={t}
       />
+      </div>
 
       {/* 핵심 스탯 — 모바일 첫 화면에서 지도 직후, 탭보다 먼저 노출. */}
       {keyStatsStrip}
@@ -975,6 +986,7 @@ export default function ActivityPage() {
         </Card>
       )}
       {activeTab === "analysis" && sport === "run" && <AnalysisTab
+        key={activityId}
         {...analysisTabProps}
         activityId={activityId}
         isOwner={isActivityOwner}
@@ -982,6 +994,9 @@ export default function ActivityPage() {
         streams={streams ?? { userId: activity.userId, time: [], distance: [] }}
         summary={displayedSummary}
         canonicalPresentationAvailable={overview.response?.status === "available"}
+        onSelectRunSplit={selectRunSplit}
+        onViewRunSplitLocation={viewRunSplitLocation}
+        canViewRunSplitLocation={!!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
       />}
       {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />}
 

@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { Card, Text } from "../../theme/components";
 import { interpretActivitySummary } from "../../utils/metricInterpretation";
 import { formatPace } from "../../utils/units";
+import type { RunBaseline } from "../../hooks/useRunBaselinePace";
 import { useLocale } from "../../contexts/LocaleContext";
 
 export interface RunInterpretationCardProps {
@@ -19,12 +20,14 @@ export interface RunInterpretationCardProps {
   averageSpeedKmh: number;
   /** 활동 전 4주 거리 가중 평균 페이스 (sec/km). 없으면 변화 문장을 생략. */
   baselinePaceSecPerKm: number | null;
+  comparison?: Pick<RunBaseline, "comparisonType" | "sampleCount" | "windowComplete">;
 }
 
 export default function RunInterpretationCard({
   gapSecPerKm,
   averageSpeedKmh,
   baselinePaceSecPerKm,
+  comparison,
 }: RunInterpretationCardProps) {
   const { t } = useTranslation("metricGlossary");
   const { units } = useLocale();
@@ -42,7 +45,8 @@ export default function RunInterpretationCard({
     [paceSecPerKm, gapSecPerKm, baselinePaceSecPerKm],
   );
 
-  if (!interp) return null;
+  const showComparison = comparison?.comparisonType && comparison.windowComplete != null;
+  if (!interp && !showComparison) return null;
 
   return (
     <Card style={{ borderLeft: "3px solid var(--accent)" }}>
@@ -50,7 +54,7 @@ export default function RunInterpretationCard({
         {t("sheet.interpLabel")}
       </Text>
       <Text as="p" variant="bodyLarge" tone="primary" style={{ margin: 0, lineHeight: 1.55 }}>
-        {interp.gap && gapSecPerKm != null && (
+        {interp?.gap && gapSecPerKm != null && (
           <>
             {t(`gap.summary.${interp.gap.variant}`, {
               ...interp.gap.values,
@@ -58,8 +62,12 @@ export default function RunInterpretationCard({
             })}{" "}
           </>
         )}
-        {interp.pace && <>{t(`pace.interp.${interp.pace.variant}`, { ...interp.pace.values, diffSec: units === "imperial" ? Math.round(Number(interp.pace.values.diffSec) * 1.609344) : interp.pace.values.diffSec })}</>}
+        {interp?.pace && <>{t(`pace.interp.${interp.pace.variant}`, { ...interp.pace.values, diffSec: units === "imperial" ? Math.round(Number(interp.pace.values.diffSec) * 1.609344) : interp.pace.values.diffSec })}</>}
       </Text>
+      {showComparison && comparison && <Text as="p" variant="bodySmall" tone="tertiary" style={{ marginTop: "var(--space-2)" }} data-testid="run-comparison-basis">
+        {t(comparison.windowComplete && comparison.sampleCount >= 3 ? "pace.comparison.basis" : "pace.comparison.observed", { type: t(`pace.comparison.${comparison.comparisonType}`), count: comparison.sampleCount })}
+        {comparison.windowComplete === false ? ` ${t("pace.comparison.incomplete")}` : comparison.sampleCount < 3 ? ` ${t("pace.comparison.insufficient")}` : ""}
+      </Text>}
     </Card>
   );
 }

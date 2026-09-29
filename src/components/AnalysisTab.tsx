@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActivityStreams, ActivitySummary, LapData } from "@shared/types";
+import type { SplitRow } from "@shared/types/activity-metrics";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
 import { buildClimbTableRows, formatClimbEntryTime } from "../utils/climbMetrics";
@@ -123,6 +124,9 @@ function formatPace(secPerKm: number): string {
 }
 
 interface AnalysisTabProps {
+  onSelectRunSplit?: (split: SplitRow | null) => void;
+  onViewRunSplitLocation?: () => void;
+  canViewRunSplitLocation?: boolean;
   activityId?: string | null;
   /** 소유자 여부 — CTL 기반 회복 시간 등 개인 컨텍스트에만 쓴다. 지표 읽기 권한은 활동 가시성이 정한다. */
   isOwner?: boolean;
@@ -287,6 +291,7 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
 
 export default function AnalysisTab({
   activityId, isOwner = false, canonicalPresentationAvailable = false, overviewRecovery = null, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams,
+  onSelectRunSplit, onViewRunSplitLocation, canViewRunSplitLocation,
   suppressServerPowerMetrics = false, suppressServerHeartRateMetrics = false, suppressServerCadenceMetrics = false,
 }: AnalysisTabProps) {
   // 소유자는 정본(`activity_metrics`), 뷰어는 공개 projection(`activity_metrics_public`) 을 읽는다.
@@ -479,7 +484,7 @@ export default function AnalysisTab({
       );
 
   if (sport === "run" && sm) {
-    return <div className="space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel metrics={sm as ActivityMetricsDoc} summary={summary} suppressCadence={suppressServerCadenceMetrics} /></div>;
+    return <div className="space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel metrics={sm as ActivityMetricsDoc} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} /></div>;
   }
 
   // 공개 수치·존·파워곡선은 같은 서버 presentation에서 그린다. 기존 허용 그래프/랩은 보존한다.

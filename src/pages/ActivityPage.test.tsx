@@ -19,6 +19,7 @@ import { createMockActivity, createMockStreams, createMockSummary } from "../__t
 
 const shareButtonProps = vi.hoisted(() => vi.fn());
 const elevationChartProps = vi.hoisted(() => vi.fn());
+const routeMapProps = vi.hoisted(() => vi.fn());
 // 활동 재계산은 **그 활동의 자전거**로만 한다(#1950) — 지금 선택된 자전거가 아니다.
 const mockBikeProfiles = vi.hoisted(() => vi.fn((): { profiles: Array<Record<string, unknown>> } => ({ profiles: [] })));
 const mockVirtualPowerStream = vi.hoisted(() => vi.fn((): number[] => []));
@@ -38,7 +39,7 @@ vi.mock("../features/activity/share/ActivityShareButton", () => ({
 
 // Mock heavy components
 vi.mock("../components/RouteMap", () => ({
-  default: () => <div data-testid="route-map">Map</div>,
+  default: (props: unknown) => { routeMapProps(props); return <div data-testid="route-map">Map</div>; },
 }));
 vi.mock("../components/ElevationChart", () => ({
   default: (props: unknown) => {
@@ -112,6 +113,7 @@ describe("ActivityPage", () => {
     mockVirtualPowerStream.mockReturnValue([]);
     stravaPublishingProps.mockClear();
     elevationChartProps.mockClear();
+    routeMapProps.mockClear();
     mockRoute.activityId = "test-activity";
     setCollectionDocs("courses", []);
     vi.mocked(getDocs).mockClear();
@@ -132,6 +134,38 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />);
     // The component starts with loading state
     expect(document.querySelector(".animate-pulse")).toBeInTheDocument();
+  });
+
+  it("links canonical running split selection to route and sampled elevation, then opens their visible overview", async () => {
+    mockRoute.activityId = "run-spatial-selection";
+    const activity = createMockActivity({ id: mockRoute.activityId, type: "Run", source: "orider", userId: "fixture-other-owner", summary: createMockSummary({ distance: 3000, ridingTimeMillis: 600000, elapsedTimeMillis: 600000, averageSpeed: 18 }) });
+    const distance = Array.from({ length: 601 }, (_, index) => index * 5);
+    const latlng: [number, number][] = distance.map((_, index) => [37.5 + index / 100000, 127 + index / 100000]);
+    setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
+    setDocData(`activity_streams/${activity.id}`, { userId: activity.userId, json: JSON.stringify(createMockStreams({ userId: activity.userId, distance, time: distance.map((_, index) => index), latlng, altitude: distance.map((_, index) => 10 + index / 10) })) });
+    setDocData(`activity_metrics_public/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, discipline: "run", distanceKm: 3, avgSpeedKph: 18, splits: [1, 2, 3].map(km => ({ km, paceSec: 300, gapSec: 300, elevGain: 1, elevLoss: 0, avgHr: null })) });
+    const rendered = renderWithProviders(<ActivityPage />, { authenticated: true });
+    await screen.findByTestId("route-map");
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    fireEvent.click(await screen.findByRole("button", { name: /2km.*5:00/u }));
+    await waitFor(() => expect(routeMapProps.mock.lastCall?.[0]).toMatchObject({ highlightRange: { startIndex: 200, endIndex: 400 }, markerPosition: latlng[400] }));
+    fireEvent.click(screen.getByRole("button", { name: "지도·고도로 보기" }));
+    await waitFor(() => expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true"));
+    const chart = elevationChartProps.mock.lastCall?.[0];
+    expect(chart.data[chart.highlightRange[0]].distance).toBe(1000);
+    expect(chart.data[chart.highlightRange[1]].distance).toBe(2000);
+    act(() => chart.onHoverIndex(10));
+    expect(routeMapProps.mock.lastCall?.[0].markerPosition).toEqual(latlng[chart.data[10].distance / 5]);
+    act(() => chart.onHoverIndex(null));
+    expect(routeMapProps.mock.lastCall?.[0].markerPosition).toEqual(latlng[400]);
+    // 같은 페이지 인스턴스에서 활동을 바꿔도 이전 러닝 구간을 새 지도에 붙이지 않는다.
+    mockRoute.activityId = "another-run-spatial-selection";
+    const next = createMockActivity({ id: mockRoute.activityId, type: "Run", userId: activity.userId, description: "다른 러닝 경로" });
+    setDocData(`activities/${next.id}`, next as unknown as Record<string, unknown>);
+    rendered.rerender(<ActivityPage />);
+    await waitFor(() => expect(screen.getByText(next.description!)).toBeInTheDocument());
+    expect(routeMapProps.mock.lastCall?.[0]).toMatchObject({ markerPosition: null });
+    expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeUndefined();
   });
 
   it("renders activity details when data is loaded", async () => {
@@ -924,14 +958,17 @@ describe("ActivityPage", () => {
       updatedAt: Date.now(),
     }));
 
-    const first = renderWithProviders(<ActivityPage />, { authenticated: true });
+    let first!: ReturnType<typeof renderWithProviders>;
+    await act(async () => { first = renderWithProviders(<ActivityPage />, { authenticated: true }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    await waitFor(() => expect(vi.mocked(getDocs).mock.calls.filter(([ref]) => (ref as { _collectionPath?: string })._collectionPath === "courses")).toHaveLength(1), { timeout: COURSE_ASYNC_TIMEOUT });
     expect(await screen.findByRole("alert", {}, { timeout: COURSE_ASYNC_TIMEOUT }))
       .toHaveTextContent("코스 생성 결과를 확인 중입니다");
     expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
     first.unmount();
 
-    const second = renderWithProviders(<ActivityPage />, { authenticated: true });
+    let second!: ReturnType<typeof renderWithProviders>;
+    await act(async () => { second = renderWithProviders(<ActivityPage />, { authenticated: true }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     expect(await screen.findByRole("alert", {}, { timeout: COURSE_ASYNC_TIMEOUT }))
       .toHaveTextContent("코스 생성 결과를 확인 중입니다");
@@ -1056,13 +1093,20 @@ describe("ActivityPage", () => {
     void rejectedCreate.catch(() => undefined);
     setCallableResult("createCourseFromActivity", rejectedCreate);
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
-    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    mockSignInWithPopup.mockClear();
+    // 인증 콜백과 초기 mount 효과를 마친 뒤, unavailable 응답 복구 경로를 검증한다.
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    const button = await screen.findByRole("button", { name: "이 경로로 라이드" });
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    await waitForCallableCount("createCourseFromActivity", 1);
+    expect(mockSignInWithPopup).not.toHaveBeenCalled();
     expect(await screen.findByRole("alert", {}, { timeout: COURSE_ASYNC_TIMEOUT }))
       .toHaveTextContent("코스 생성 결과를 확인 중입니다");
     expect(window.sessionStorage.getItem("orider:ride-route:test-uid:test-activity")).toContain('"state":"pending"');
 
-    fireEvent.click(screen.getByRole("button", { name: "이 경로로 라이드" }));
+    await waitFor(() => expect(button).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
+    fireEvent.click(button);
     await waitFor(() => expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(3), { timeout: COURSE_ASYNC_TIMEOUT });
     expect(screen.getByRole("alert")).toHaveTextContent("코스 생성 결과를 확인 중입니다");
     expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1);

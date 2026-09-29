@@ -34,3 +34,24 @@ The intended advantage is clearer evidence: server GAP and km splits remain usab
 구현 화면과 에뮬레이터 재현 방법은 [스크린샷 기록](screenshots/running-parity.md)에 둔다. 운영 배포와 기존 활동 재계산은 별도 전달 단계다.
 
 Implementation screenshots and emulator reproduction are recorded separately; production deployment and existing-activity recomputation remain separate delivery steps.
+
+## 후속 개선과 실사용 비교 / Follow-up and usability comparison
+
+후속 범위는 모바일 첫 화면의 읽기 부담, 선택 구간과 지도·고도의 연결, 비교 대상 러닝의 유형과 표본 근거를 개선한다. 지도 연결은 기존 거리 스트림이 유효한 활동에만 적용하며, 스트림이 없는 공개 활동의 서버 스플릿 탐색은 유지한다. 트레일·가상 러닝·일반 러닝의 과거 비교는 같은 유형끼리 활동 시작 전 4주를 사용한다.
+
+The follow-up reduces mobile reading density, connects selected splits to existing route/elevation data, and identifies the type and sample basis of historical comparisons. Valid distance streams are required for route linkage. Historical comparisons use the same run subtype and the four weeks preceding the activity.
+
+실제 비교는 같은 러너의 같은 활동을 각 제품에 준비한 뒤 아래 과제를 같은 기기에서 수행한다. 서비스별로 제공하지 않는 데이터는 따로 기록하며 임의로 만들어 채우지 않는다. 과제 순서는 번갈아 배정하고 안내 없이 수행한 성공 여부, 소요 시간, 도움 요청, 잘못 읽은 값을 기록한다. 아래는 실행할 평가 절차이며 측정 결과가 아니다.
+
+Use the same runner's activity on the same device, alternate product order, and record unaided completion, time, help requests and misread values. Document unsupported data separately. This is a study protocol, not measured evidence.
+
+| 상황 / Scenario | 과제 / Task | 정확한 완료 조건 / Correct completion |
+|---|---|---|
+| 21km 러닝 / Long run | 평균 페이스와 느린 구간 찾기 / Find average pace and a slow split | 단위를 포함해 값을 읽고 해당 구간을 선택 / Read units and select the matching split |
+| 경사가 있는 러닝 / Hilly run | 선택 구간의 위치와 고도 찾기 / Locate a split and its elevation | 해당 거리 범위를 확인하며 경사가 속도 저하의 유일한 원인이라고 단정하지 않음 / Locate the range without claiming a single cause |
+| 심박 센서 없는 러닝 / Run without HR | 분석에서 알 수 있는 것과 없는 것 구분 / Identify available evidence | 관측 페이스는 읽고 심박 기반 판단은 알 수 없다고 답함 / Read observed pace and recognize missing HR evidence |
+| 본인 활동 / Owner activity | 과거 비교 기준과 다음 훈련 찾기 / Find comparison basis and next training | 유형·표본 근거를 확인하고 훈련 계획으로 이동 / Identify subtype/sample basis and navigate to the plan |
+
+실계정 배포 확인과 위 비교를 완료하기 전에는 경쟁 앱보다 우수하다는 결론을 내리지 않는다. 기존 활동 재계산, 공개/소유자 권한, 마일 단위, 센서·스트림 결측 상태를 배포 후 별도로 확인한다.
+
+Production checks and this study remain required before claiming competitive superiority; verify recalculation, ownership, miles and missing sensor/stream states separately.

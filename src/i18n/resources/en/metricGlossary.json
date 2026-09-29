@@ -14,6 +14,15 @@
       "faster": "Your pace is {{diffSec}} seconds faster than your preceding four-week average.",
       "slower": "Your pace is {{diffSec}} seconds slower than your preceding four-week average; terrain and how you felt both play a part.",
       "steady": "Your pace is similar to your preceding four-week average."
+    },
+    "comparison": {
+      "run": "road running",
+      "trailrun": "trail running",
+      "virtualrun": "virtual running",
+      "basis": "Comparison basis: {{count}} valid {{type}} activities in the preceding four weeks, weighted by distance.",
+      "insufficient": "At least three valid activities are needed for a comparison.",
+      "incomplete": "The query limit prevents checking the full window, so the pace comparison is omitted.",
+      "observed": "{{count}} valid {{type}} activities were found in the portion checked from the preceding four weeks."
     }
   },
   "gap": {

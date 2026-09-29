@@ -20,6 +20,7 @@ type ActivityMediaPanelProps = {
   summary: Activity["summary"];
   markerPosition: [number, number] | null;
   hoveredSegment: SegmentEffortData | null;
+  selectedRunRange?: { startIndex: number; endIndex: number };
   photos: StreamPhoto[];
   uploadedPhotos: UploadedPhoto[];
   flyToPosition: [number, number] | null;
@@ -34,6 +35,7 @@ export function ActivityMediaPanel({
   summary,
   markerPosition,
   hoveredSegment,
+  selectedRunRange,
   photos,
   uploadedPhotos,
   flyToPosition,
@@ -51,7 +53,7 @@ export function ActivityMediaPanel({
           highlightRange={hoveredSegment ? {
             startIndex: hoveredSegment.startIndex,
             endIndex: hoveredSegment.endIndex,
-          } : undefined}
+          } : selectedRunRange}
           photos={[
             ...photos
               .filter((p) => p.url && p.location)

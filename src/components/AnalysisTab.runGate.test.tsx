@@ -48,6 +48,7 @@ function renderRun() {
 }
 
 import AnalysisTab from "./AnalysisTab";
+import RunAnalysisPanel from "./activity/RunAnalysisPanel";
 
 describe("러닝 분석 게이트", () => {
   it.each(["ko", "en"] as const)("서버 근거로만 쉬운 요약을 보여주고 고급 지표를 접어 둔다 locale=%s", language => {
@@ -65,6 +66,56 @@ describe("러닝 분석 게이트", () => {
     details.setAttribute("open", "");
     expect(within(details).getByText("264 W")).toBeVisible();
     expect(screen.getByTestId("run-raw-splits")).not.toHaveAttribute("open");
+  });
+
+  it.each(["ko", "en"] as const)("보조 요약과 심박 전문 지표는 접고 평균 심박과 선택 구간은 유지한다 locale=%s", language => {
+    state.language = language;
+    state.metrics = gpsOnlyRunMetrics();
+    Object.assign(state.metrics.metrics!, { avgSpeedKph: 12, avgHr: 150, maxHr: 172, decoupling: { basis: "speed_hr", hrDriftPct: 3.2, decouplingPct: 4.1 } });
+    renderRun();
+    const resource = language === "ko" ? koActivity : enActivity;
+    const recapDetails = screen.getByTestId("run-recap-details");
+    expect(recapDetails).not.toHaveAttribute("open");
+    expect(within(recapDetails).getByText(/3:59/)).not.toBeVisible();
+    expect(screen.getByTestId("selected-run-split")).toBeVisible();
+    const hrDetails = screen.getByTestId("run-hr-details");
+    expect(hrDetails).not.toHaveAttribute("open");
+    expect(within(hrDetails).getByText("3.2%")).not.toBeVisible();
+    expect(screen.getByText("150")).toBeVisible();
+    hrDetails.setAttribute("open", "");
+    expect(within(hrDetails).getByText("3.2%")).toBeVisible();
+    expect(hrDetails).toHaveTextContent(resource.analysis.run.hrDriftDefinition);
+    expect(hrDetails).toHaveTextContent(resource.analysis.run.hrComparisonLimits);
+  });
+
+  it("선택 콜백은 초기·키보드·부분 구간의 원래 서버 행을 전달하고 결측이면 비운다", () => {
+    state.language = "ko";
+    const metrics = gpsOnlyRunMetrics().metrics!;
+    const splits = [{ km: 1, paceSec: 300 }, { km: 2, paceSec: 310 }, { km: 2.5, paceSec: 320 }, { km: 3, paceSec: NaN }];
+    const onSelectSplit = vi.fn();
+    const { rerender } = render(<RunAnalysisPanel metrics={{ ...metrics, splits, distanceKm: 2.5 }} onSelectSplit={onSelectSplit} />);
+    expect(onSelectSplit).toHaveBeenLastCalledWith(splits[0]);
+    const rows = within(screen.getByRole("group", { name: "km별 페이스 탐색" })).getAllByRole("button");
+    fireEvent.keyDown(rows[0]!, { key: "ArrowDown" });
+    expect(onSelectSplit).toHaveBeenLastCalledWith(splits[1]);
+    fireEvent.click(rows[2]!);
+    expect(onSelectSplit).toHaveBeenLastCalledWith(splits[2]);
+    expect(onSelectSplit.mock.calls.at(-1)![0]).toBe(splits[2]);
+    rerender(<RunAnalysisPanel metrics={{ ...metrics, splits: [] }} onSelectSplit={onSelectSplit} />);
+    expect(onSelectSplit).toHaveBeenLastCalledWith(null);
+  });
+
+  it("위치 근거가 있을 때만 선택 구간 보기 동작을 노출한다", () => {
+    state.language = "en";
+    const metrics = gpsOnlyRunMetrics().metrics!;
+    const onViewSplitLocation = vi.fn();
+    const { rerender } = render(<RunAnalysisPanel metrics={metrics} onViewSplitLocation={onViewSplitLocation} />);
+    expect(screen.queryByRole("button", { name: "View route and elevation" })).not.toBeInTheDocument();
+    rerender(<RunAnalysisPanel metrics={metrics} onViewSplitLocation={onViewSplitLocation} canViewSplitLocation />);
+    fireEvent.click(screen.getByRole("button", { name: "View route and elevation" }));
+    expect(onViewSplitLocation).toHaveBeenCalledTimes(1);
+    rerender(<RunAnalysisPanel metrics={metrics} onViewSplitLocation={onViewSplitLocation} canViewSplitLocation={false} />);
+    expect(screen.queryByRole("button", { name: "View route and elevation" })).not.toBeInTheDocument();
   });
 
   it("21개 스플릿은 세로 탐색하며 마지막 구간의 결과도 목록 위에서 즉시 확인한다", () => {

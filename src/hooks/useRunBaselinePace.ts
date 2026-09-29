@@ -15,18 +15,28 @@ import { logClientError, debugLog } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
 import { isImplausibleAvgSpeed } from "../utils/activitySanity";
-import { getSportCategory } from "../features/activity/detail/activityDetailUtils";
 
 const FOUR_WEEKS_MS = 28 * 86400000;
 /** 표본이 이보다 적으면 기준선을 만들지 않는다 — 우연한 한두 번의 러닝은 평균이라 부를 수 없다. */
 const MIN_SAMPLES = 3;
 const QUERY_LIMIT = 100;
 
+export type RunComparisonType = "run" | "trailrun" | "virtualrun";
+
+/** 기존 활동 종목 코드만 비교한다. 누락된 종목을 일반 러닝으로 간주하지 않는다. */
+export function getRunComparisonType(type?: string | null): RunComparisonType | null {
+  const normalized = typeof type === "string" ? type.toLowerCase() : null;
+  return normalized === "run" || normalized === "trailrun" || normalized === "virtualrun" ? normalized : null;
+}
+
 export interface RunBaseline {
   /** 거리 가중 평균 페이스 (sec/km). 표본 부족이면 null. */
   paceSecPerKm: number | null;
   sampleCount: number;
   loading: boolean;
+  comparisonType: RunComparisonType | null;
+  /** null은 로딩/실패, false는 쿼리 한도로 잘린 창. */
+  windowComplete: boolean | null;
 }
 
 /**
@@ -34,18 +44,19 @@ export interface RunBaseline {
  * @param enabled 본인 러닝 활동에서만 개인 활동을 쿼리한다.
  * @param activityStartTime 활동 직전까지의 4주 창. 100문서 한도에 도달하면 비교를 생략한다.
  */
-export function useRunBaselinePace(excludeActivityId?: string, enabled = true, activityStartTime?: number | null): RunBaseline {
+export function useRunBaselinePace(excludeActivityId?: string, enabled = true, activityStartTime?: number | null, activityType?: string | null): RunBaseline {
   const { user } = useAuth();
-  const requestKey = `${user?.uid ?? ""}:${enabled}:${excludeActivityId ?? ""}:${activityStartTime ?? ""}`;
-  const [state, setState] = useState<RunBaseline & { requestKey: string }>({ requestKey: "", paceSecPerKm: null, sampleCount: 0, loading: true });
+  const comparisonType = getRunComparisonType(activityType);
+  const requestKey = `${user?.uid ?? ""}:${enabled}:${excludeActivityId ?? ""}:${activityStartTime ?? ""}:${comparisonType ?? ""}`;
+  const [state, setState] = useState<RunBaseline & { requestKey: string }>({ requestKey: "", comparisonType: null, windowComplete: null, paceSecPerKm: null, sampleCount: 0, loading: true });
 
   useEffect(() => {
     let cancelled = false;
-    if (!user || !enabled || !activityStartTime || !Number.isFinite(activityStartTime)) {
-      setState({ requestKey, paceSecPerKm: null, sampleCount: 0, loading: false });
+    if (!user || !enabled || !activityStartTime || !Number.isFinite(activityStartTime) || !comparisonType) {
+      setState({ requestKey, comparisonType, windowComplete: null, paceSecPerKm: null, sampleCount: 0, loading: false });
       return;
     }
-    setState({ requestKey, paceSecPerKm: null, sampleCount: 0, loading: true });
+    setState({ requestKey, comparisonType, windowComplete: null, paceSecPerKm: null, sampleCount: 0, loading: true });
 
     const load = async () => {
       try {
@@ -64,7 +75,7 @@ export function useRunBaselinePace(excludeActivityId?: string, enabled = true, a
           .map((d) => ({ id: d.id, ...d.data() }) as Activity)
           .filter((a) => a.id !== excludeActivityId && a.startTime >= cutoff && a.startTime < activityStartTime)
           .filter((a) => a.summary != null)
-          .filter((a) => getSportCategory(a.type) === "run")
+          .filter((a) => getRunComparisonType(a.type) === comparisonType)
           .filter((a) => Number.isFinite(a.summary.distance) && a.summary.distance > 0 && Number.isFinite(a.summary.averageSpeed) && a.summary.averageSpeed > 0 && !isImplausibleAvgSpeed(a.summary.averageSpeed, "run"));
 
         // 거리 가중 평균: Σ(시간) / Σ(거리) = 전체 페이스
@@ -89,10 +100,10 @@ export function useRunBaselinePace(excludeActivityId?: string, enabled = true, a
           belowMinSamples: runs.length < MIN_SAMPLES,
         });
 
-        if (!cancelled) setState({ requestKey, paceSecPerKm, sampleCount: runs.length, loading: false });
+        if (!cancelled) setState({ requestKey, comparisonType, windowComplete: snap.docs.length < QUERY_LIMIT, paceSecPerKm, sampleCount: runs.length, loading: false });
       } catch (err) {
         logClientError("useRunBaselinePace.load", err, { excludeActivityId });
-        if (!cancelled) setState({ requestKey, paceSecPerKm: null, sampleCount: 0, loading: false });
+        if (!cancelled) setState({ requestKey, comparisonType, windowComplete: null, paceSecPerKm: null, sampleCount: 0, loading: false });
       }
     };
 
@@ -100,7 +111,7 @@ export function useRunBaselinePace(excludeActivityId?: string, enabled = true, a
     return () => {
       cancelled = true;
     };
-  }, [user, excludeActivityId, enabled, activityStartTime, requestKey]);
+  }, [user, excludeActivityId, enabled, activityStartTime, requestKey, comparisonType]);
 
-  return state.requestKey === requestKey ? state : { paceSecPerKm: null, sampleCount: 0, loading: !!user && enabled && !!activityStartTime };
+  return state.requestKey === requestKey ? state : { comparisonType, windowComplete: null, paceSecPerKm: null, sampleCount: 0, loading: !!user && enabled && !!activityStartTime && !!comparisonType };
 }

@@ -3,6 +3,7 @@ import type { ActivityMetricsDoc } from "../../hooks/useActivityMetrics";
 import { useLocale } from "../../contexts/LocaleContext";
 import { formatPace, formatElev, formatDistance } from "../../utils/units";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
+import type { SplitRow } from "@shared/types/activity-metrics";
 import type { ActivitySummary } from "@shared/types";
 import { Card, Text } from "../../theme/components";
 import { MetricExplainerTrigger } from "../common/MetricExplainer";
@@ -22,8 +23,11 @@ function RunMetric({ label, value, description, unit, explain }: { label: string
 }
 
 /** 서버의 러닝 지표만 표시한다. 사이클 FTP 기반 수치는 러닝 파워에 적용하지 않는다. */
-export default function RunAnalysisPanel({ metrics, summary, suppressCadence = false }: {
+export default function RunAnalysisPanel({ metrics, summary, suppressCadence = false, onSelectSplit, onViewSplitLocation, canViewSplitLocation = false }: {
   metrics: ActivityMetricsDoc;
+  onSelectSplit?: (split: SplitRow | null) => void;
+  onViewSplitLocation?: () => void;
+  canViewSplitLocation?: boolean;
   summary?: ActivitySummary;
   suppressCadence?: boolean;
 }) {
@@ -51,18 +55,28 @@ export default function RunAnalysisPanel({ metrics, summary, suppressCadence = f
   return <div className="min-w-0 space-y-6" data-testid="run-analysis">
     {recap.length > 0 && <Card padding="compact" data-testid="run-recap">
       <Text as="h3" variant="subtitle">{t("analysis.run.recapTitle")}</Text>
-      <div className="space-y-2" style={{ marginTop: "var(--space-3)" }}>{recap.map((line, index) => line.metric ? <MetricExplainerTrigger key={index} metric={line.metric} context={context} sport="run"><Text as="p" variant={index === 0 ? "bodyMedium" : "bodySmall"} tone={index === 0 ? "primary" : "secondary"}>{line.text}</Text></MetricExplainerTrigger> : <Text as="p" key={index} variant="bodySmall" tone="secondary">{line.text}</Text>)}</div>
+      <div style={{ marginTop: "var(--space-2)" }}>{recap[0]!.metric ? <MetricExplainerTrigger metric={recap[0]!.metric!} context={context} sport="run"><Text as="p" variant="bodyMedium">{recap[0]!.text}</Text></MetricExplainerTrigger> : <Text as="p" variant="bodyMedium">{recap[0]!.text}</Text>}</div>
+      {recap.length > 1 && <details data-testid="run-recap-details">
+        <summary className="cursor-pointer text-[length:var(--fs-sm)]" style={{ minHeight: 44, display: "flex", alignItems: "center" }}>{t("analysis.run.recapDetails")}</summary>
+        <div className="space-y-2">{recap.slice(1).map((line, index) => line.metric ? <MetricExplainerTrigger key={index} metric={line.metric} context={context} sport="run"><Text as="p" variant="bodySmall" tone="secondary">{line.text}</Text></MetricExplainerTrigger> : <Text as="p" key={index} variant="bodySmall" tone="secondary">{line.text}</Text>)}</div>
+      </details>}
     </Card>}
-    <RunSplitProfile splits={splits} distanceKm={distanceKm} suppressCadence={suppressCadence} cadenceLabel={cadenceLabel} formatCadence={cadence} />
+    <RunSplitProfile splits={splits} distanceKm={distanceKm} suppressCadence={suppressCadence} cadenceLabel={cadenceLabel} formatCadence={cadence} onSelectSplit={onSelectSplit} onViewSplitLocation={onViewSplitLocation} canViewSplitLocation={canViewSplitLocation} />
     {(metrics.avgHr != null || metrics.maxHr != null) && <div>
       <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3">{t("analysis.section.hr")}</h3>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <RunMetric label={t("analysis.metric.avgHr")} value={metrics.avgHr != null ? Math.round(metrics.avgHr).toString() : "—"} unit="bpm" />
         <RunMetric label={t("analysis.metric.maxHr")} value={number(metrics.maxHr, "bpm")} />
-        <RunMetric label={t("analysis.metric.hrDrift")} value={metrics.decoupling?.hrDriftPct != null ? `${metrics.decoupling.hrDriftPct.toFixed(1)}%` : "—"} description={t("analysis.metric.hrDriftDesc")} />
-        {metrics.decoupling?.basis === "speed_hr" && metrics.decoupling.decouplingPct != null && <RunMetric label={t("analysis.run.paceHrDecoupling")} value={`${metrics.decoupling.decouplingPct.toFixed(1)}%`} description={t("analysis.run.paceHrDecouplingDesc")} />}
       </div>
-      {zones && <div style={{ marginTop: "var(--space-3)" }}><ZoneDistributionChart zones={zones} title={t("analysis.zones.hr")} /></div>}
+      <details className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3" style={{ marginTop: "var(--space-3)" }} data-testid="run-hr-details">
+        <summary className="cursor-pointer font-semibold text-[length:var(--fs-sm)]" style={{ minHeight: 44, display: "flex", alignItems: "center" }}>{t("analysis.run.hrDetails")}</summary>
+        <div className="grid grid-cols-2 gap-3" style={{ marginTop: "var(--space-2)" }}>
+          <RunMetric label={t("analysis.metric.hrDrift")} value={metrics.decoupling?.hrDriftPct != null ? `${metrics.decoupling.hrDriftPct.toFixed(1)}%` : "—"} description={t("analysis.run.hrDriftDefinition")} />
+          {metrics.decoupling?.basis === "speed_hr" && metrics.decoupling.decouplingPct != null && <RunMetric label={t("analysis.run.paceHrDecoupling")} value={`${metrics.decoupling.decouplingPct.toFixed(1)}%`} description={t("analysis.run.paceHrDecouplingDesc")} />}
+        </div>
+        <Text as="p" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-2)" }}>{t("analysis.run.hrComparisonLimits")}</Text>
+        {zones && <div style={{ marginTop: "var(--space-3)" }}><ZoneDistributionChart zones={zones} title={t("analysis.zones.hr")} /></div>}
+      </details>
     </div>}
     <details className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3" data-testid="run-detail-disclosure">
       <summary className="cursor-pointer font-semibold text-[length:var(--fs-sm)]" style={{ minHeight: 44, display: "flex", alignItems: "center" }}>{t("analysis.run.detailedAnalysis")}</summary>
