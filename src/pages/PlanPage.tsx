@@ -5,6 +5,8 @@ import { doc, updateDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 
 import type { PlanDay } from "@shared/types/goal";
+import RunPlanPreview from "../components/activity/RunPlanPreview";
+import { useRunPlanTarget } from "../hooks/useRunPlanTarget";
 import MobilePlanPage from "../components/mobile/MobilePlanPage";
 import WorkoutEditModal from "../components/training/WorkoutEditModal";
 import AdaptationBanner from "../components/training/AdaptationBanner";
@@ -41,6 +43,7 @@ export default function PlanPage() {
   const model = usePlanModel(searchParams.get("sport"));
   const { discipline, goal, weeks, loading, loadError } = model;
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
+  const runTarget = useRunPlanTarget(searchParams, user?.uid, user?.isAnonymous === true, goal, weeks, loading || (!model.freshLoaded && !loadError), loadError, model.isTodayCell, setMobileWeekOffset);
   const [selectedDay, setSelectedDay] = useState<{
     day: PlanDay;
     weekId: string;
@@ -134,18 +137,22 @@ export default function PlanPage() {
     return <GuestValuePreview kind="plan" lang={i18n.language} />;
   }
 
+  const targetNotice = runTarget.unavailable ? <p role="status" className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{tActivity("analysis.run.nextPlan.unavailable")}</p> : null;
+
   if (!loading && loadError) {
-    return renderPresentation(
+    return <>{targetNotice}{renderPresentation(
       <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />,
-    );
+    )}</>;
   }
 
   if (!loading && !goal) {
-    return renderPresentation();
+    return <>{targetNotice}{renderPresentation()}</>;
   }
 
   return (
     <>
+      {targetNotice}
+      {runTarget.session && <RunPlanPreview session={runTarget.session} onClose={runTarget.close} />}
       {renderPresentation(
         <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />,
       )}

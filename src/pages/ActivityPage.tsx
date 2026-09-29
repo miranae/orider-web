@@ -493,7 +493,7 @@ export default function ActivityPage() {
   );
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
   const hasStreams = sampledData.length > 0;
-  const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, user?.uid);
+  const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, user?.uid, activityId, user?.isAnonymous === true);
 
   if (loadingActivity) {
     return (

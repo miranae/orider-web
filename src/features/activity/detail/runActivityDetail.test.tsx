@@ -4,8 +4,9 @@ import { createMockActivity } from "../../../__tests__/fixtures/mockData";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import { RunActivityIntro, type RunActivityDetail, useRunActivityDetail } from "./runActivityDetail";
 
-const hooks = vi.hoisted(() => ({ baseline: vi.fn(() => ({ paceSecPerKm: 300, loading: false, comparisonType: "run" as const, sampleCount: 3, windowComplete: true })), records: vi.fn(() => ({ run: undefined })) }));
+const hooks = vi.hoisted(() => ({ baseline: vi.fn(() => ({ paceSecPerKm: 300, loading: false, comparisonType: "run" as const, sampleCount: 3, windowComplete: true })), records: vi.fn(() => ({ run: undefined })), next: vi.fn(() => ({ status: "none" as const, session: null })) }));
 vi.mock("../../../hooks/useRunBaselinePace", () => ({ useRunBaselinePace: hooks.baseline }));
+vi.mock("../../../hooks/useRunNextTraining", async importOriginal => ({ ...await importOriginal<typeof import("../../../hooks/useRunNextTraining")>(), useRunNextTraining: hooks.next }));
 vi.mock("../../../hooks/useRunRecords", () => ({ useRunRecords: hooks.records }));
 
 const base = createMockActivity();
@@ -57,7 +58,7 @@ it("shows no owner actions on a public run", () => {
  expect(screen.queryByTestId("run-next-actions")).not.toBeInTheDocument();
 });
 it("does not render an intro without pace or GAP evidence", () => {
- const { container } = renderWithProviders(<RunActivityIntro detail={{ ...introDetail, averageSpeedKmh: 0 }} activityId="run" gapSecPerKm={null} />);
+ const { container } = renderWithProviders(<RunActivityIntro detail={{ ...introDetail, averageSpeedKmh: 0, isOwner: false }} activityId="run" gapSecPerKm={null} />);
  expect(container).toBeEmptyDOMElement();
 });
 
@@ -81,4 +82,21 @@ it("does not expose owner comparison evidence to public viewers", () => {
 it("passes completed owner comparison metadata to the intro", () => {
  const { result } = renderHook(() => useRunActivityDetail(run, null, null, run.userId));
  expect(result.current.baselineComparison).toMatchObject({ comparisonType: "run", sampleCount: 3, windowComplete: true });
+});
+
+it("disables next-plan reads and hides owner UI immediately on route activity mismatch", () => {
+ const { result } = renderHook(() => useRunActivityDetail(run, null, null, run.userId, "other-route"));
+ expect(hooks.next).toHaveBeenLastCalledWith(run.id, run.userId, false);
+ expect(result.current.nextTraining).toBeUndefined();
+ expect(result.current.isOwner).toBe(false);
+});
+it("shows next-plan availability to owner even when this run has no pace fields", () => {
+ renderWithProviders(<RunActivityIntro detail={{ ...introDetail, averageSpeedKmh: 0, nextTraining: { status: "none", session: null } }} activityId="run" gapSecPerKm={null} />);
+ expect(screen.getByTestId("run-next-training-card")).toBeInTheDocument();
+});
+
+it("never publishes upcoming-plan card data for an anonymous activity owner", () => {
+ const { result } = renderHook(() => useRunActivityDetail(run, null, null, run.userId, run.id, true));
+ expect(hooks.next).toHaveBeenLastCalledWith(run.id, run.userId, false);
+ expect(result.current.nextTraining).toBeUndefined();
 });

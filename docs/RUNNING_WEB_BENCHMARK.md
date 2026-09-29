@@ -1,6 +1,6 @@
 # 러닝 웹 경험 비교 기준 / Running web experience benchmark
 
-2026-09-29. 홈 카드와 저장 활동 상세를 대상으로 한다. 비교 대상의 공식 공개 자료와 오라이더 앱·웹의 기존 설계를 함께 사용한다. 실제 경쟁 앱을 같은 계정·활동으로 실행한 사용성 비교 결과는 아니다.
+2026-09-30. 홈 카드와 저장 활동 상세, 예정 러닝 계획 연결을 대상으로 한다. 비교 대상의 공식 공개 자료와 오라이더 앱·웹의 기존 설계를 함께 사용한다. 실제 경쟁 앱을 같은 계정·활동으로 실행한 사용성 비교 결과는 아니다.
 
 This comparison covers the feed and post-run reading flow. Competitor capabilities come from current official descriptions; this is not a head-to-head usability study or a claim that the whole product is already superior.
 
@@ -30,6 +30,8 @@ The intended advantage is clearer evidence: server GAP and km splits remain usab
 - 남의 활동에 내 기록·내 평균·내 다음 훈련을 붙이지 않는다 / No viewer-history or training context on another person's run.
 - 지난 러닝 비교는 활동 시작 전의 이력만 사용한다 / Historical comparisons exclude later activity.
 - 개인 심박 존은 서버 체류 시간만 사용하며 랩 개수·고정 심박 경계로 추정하지 않는다 / HR zones use canonical time aggregates only.
+- 내 활동에서 확인 가능한 예정 러닝의 날짜·유형·시간·저장된 구성을 확인하고, 해당 날짜의 읽기 전용 미리보기로 이동한다. 유형 설명은 개인별 코칭 판정으로 표현하지 않는다. 오늘 처방의 종류를 확인할 수 없으면 이후 저장 계획을 보여주며, 오늘 운동이 없다고 단정하지 않는다 / The owner can read an available scheduled run and open that exact day's read-only preview; workout definitions are not personalized coaching. An unverifiable today prescription can yield a later stored plan without implying that today has no workout.
+- 활동 상세는 계획을 읽기만 한다. 조정된 처방과 일치하지 않는 오늘 훈련, 완료·건너뛴 회차, 다른 종목, 불완전한 조회를 다음 러닝으로 확정하지 않는다 / Activity detail only reads plans; conflicting today prescriptions, completed/skipped sessions, other sports and incomplete reads do not become confirmed next runs.
 
 구현 화면과 에뮬레이터 재현 방법은 [스크린샷 기록](screenshots/running-parity.md)에 둔다. 운영 배포와 기존 활동 재계산은 별도 전달 단계다.
 
@@ -50,7 +52,7 @@ Use the same runner's activity on the same device, alternate product order, and 
 | 21km 러닝 / Long run | 평균 페이스와 느린 구간 찾기 / Find average pace and a slow split | 단위를 포함해 값을 읽고 해당 구간을 선택 / Read units and select the matching split |
 | 경사가 있는 러닝 / Hilly run | 선택 구간의 위치와 고도 찾기 / Locate a split and its elevation | 해당 거리 범위를 확인하며 경사가 속도 저하의 유일한 원인이라고 단정하지 않음 / Locate the range without claiming a single cause |
 | 심박 센서 없는 러닝 / Run without HR | 분석에서 알 수 있는 것과 없는 것 구분 / Identify available evidence | 관측 페이스는 읽고 심박 기반 판단은 알 수 없다고 답함 / Read observed pace and recognize missing HR evidence |
-| 본인 활동 / Owner activity | 과거 비교 기준과 다음 훈련 찾기 / Find comparison basis and next training | 유형·표본 근거를 확인하고 훈련 계획으로 이동 / Identify subtype/sample basis and navigate to the plan |
+| 본인 활동 / Owner activity | 과거 비교 기준과 다음 훈련 찾기 / Find comparison basis and next training | 유형·표본 근거와 계획된 러닝의 날짜·시간·구성을 확인하고 같은 회차의 미리보기로 이동 / Identify subtype/sample basis and planned date/duration/steps, then open the matching session preview |
 
 실계정 배포 확인과 위 비교를 완료하기 전에는 경쟁 앱보다 우수하다는 결론을 내리지 않는다. 기존 활동 재계산, 공개/소유자 권한, 마일 단위, 센서·스트림 결측 상태를 배포 후 별도로 확인한다.
 

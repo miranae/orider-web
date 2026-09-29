@@ -9,6 +9,8 @@ import { buttonClass } from "../../../theme/components";
 import type { Activity, UserProfile } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { RunPrTable } from "@shared/types/personal-records";
+import RunNextTrainingCard from "../../../components/activity/RunNextTrainingCard";
+import { useRunNextTraining, type RunNextTrainingState } from "../../../hooks/useRunNextTraining";
 import RunRecordBanner from "../../../components/activity/RunRecordBanner";
 import RunInterpretationCard from "../../../components/activity/RunInterpretationCard";
 import { useRunBaselinePace, type RunBaseline } from "../../../hooks/useRunBaselinePace";
@@ -18,6 +20,7 @@ import { getSportCategory } from "./activityDetailUtils";
 
 export interface RunActivityDetail {
   isRun: boolean;
+  nextTraining?: RunNextTrainingState;
   isOwner: boolean;
   /** 지표 해설(ⓘ)용 개인화 컨텍스트. 러닝이 아니면 undefined. */
   interpretationContext: InterpretationContext | undefined;
@@ -35,20 +38,25 @@ export function useRunActivityDetail(
   profile: UserProfile | null | undefined,
   metrics?: Pick<ActivityMetrics, "avgCadence" | "cadenceUnit"> & Partial<Pick<ActivityMetrics, "avgSpeedKph">> | null,
   viewerUid?: string | null,
+  routeActivityId?: string,
+  viewerIsAnonymous = false,
 ): RunActivityDetail {
   const isRun = getSportCategory(activity?.type) === "run";
   // `isRun` 게이트가 두 가지를 동시에 막는다: 자전거·수영 상세의 불필요한 100문서 읽기,
   // 그리고 활동 로딩 전(id=undefined)·후(id) 두 번 실행되던 중복 쿼리.
   const isOwner = !!viewerUid && activity?.userId === viewerUid;
-  const personal = isRun && isOwner;
+  const currentActivity = routeActivityId == null || activity?.id === routeActivityId;
+  const personal = isRun && isOwner && currentActivity;
   const baseline = useRunBaselinePace(activity?.id, personal, activity?.startTime, activity?.type);
   const { run: runRecords } = useRunRecords(personal);
+  const nextTraining = useRunNextTraining(activity?.id, activity?.userId, personal && !viewerIsAnonymous);
 
   const s = activity?.summary;
   const speed = metrics ? metrics.avgSpeedKph ?? 0 : s?.averageSpeed ?? 0;
   return {
     isRun,
-    isOwner,
+    isOwner: isOwner && currentActivity,
+    nextTraining: personal && !viewerIsAnonymous ? nextTraining : undefined,
     runRecords: personal ? runRecords : undefined,
     baselinePaceSecPerKm: personal && !baseline.loading ? baseline.paceSecPerKm : null,
     averageSpeedKmh: speed,
@@ -80,21 +88,24 @@ export function RunActivityIntro({
   gapSecPerKm: number | null;
 }) {
   const { t } = useTranslation("activity");
-  if (!detail.isRun || !(detail.averageSpeedKmh > 0 || (gapSecPerKm != null && gapSecPerKm > 0))) return null;
+  if (!detail.isRun) return null;
+  const hasPace = detail.averageSpeedKmh > 0 || (gapSecPerKm != null && gapSecPerKm > 0);
+  if (!hasPace && !detail.isOwner) return null;
   return (
     <>
       {detail.isOwner && activityId && <RunRecordBanner run={detail.runRecords} activityId={activityId} />}
-      <RunInterpretationCard
+      {hasPace && <RunInterpretationCard
         gapSecPerKm={gapSecPerKm}
         averageSpeedKmh={detail.averageSpeedKmh}
         baselinePaceSecPerKm={detail.baselinePaceSecPerKm}
         comparison={detail.isOwner ? detail.baselineComparison : undefined}
-      />
+      />}
+      {detail.isOwner && detail.nextTraining && <RunNextTrainingCard state={detail.nextTraining} />}
       {detail.isOwner && (
         <div className="flex flex-wrap gap-2" data-testid="run-next-actions">
-          <LocalizedLink to={{ pathname: "/plan", search: "?sport=run" }} className={buttonClass({ variant: "primary", size: "sm" })}>
+          {!detail.nextTraining && <LocalizedLink to={{ pathname: "/plan", search: "?sport=run" }} className={buttonClass({ variant: "primary", size: "sm" })}>
             {t("analysis.run.nextTraining")}
-          </LocalizedLink>
+          </LocalizedLink>}
           <LocalizedLink to={{ pathname: "/fitness", search: "?sport=run" }} className={buttonClass({ variant: "ghost", size: "sm" })}>
             {t("analysis.run.trainingFlow")}
           </LocalizedLink>

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   RUNNING_PARITY_ID, RUNNING_PARITY_PROJECT, RUNNING_PARITY_TITLE, seedRunningParity,
+  RUNNING_OWNER_ID, RUNNING_OWNER_TITLE, RUNNING_OWNER_EMAIL, RUNNING_OWNER_PASSWORD, RUNNING_PLAN_GOAL, RUNNING_PLAN_WEEK, RUNNING_PLAN_TITLE,
 } from "../fixtures/running-parity";
 
 const browserErrors = new WeakMap<Page, string[]>();
@@ -27,8 +28,10 @@ test.beforeEach(async ({ page }) => {
     firebaseStorageBucket: `${RUNNING_PARITY_PROJECT}.appspot.com`, useEmulators: true,
     canonicalRolloutEnabled: false,
   } }));
+  await page.route("**/ensureUserProfile", route => route.fulfill({ json: { result: {} } }));
+  await page.route("**/revalidateTraining", route => route.fulfill({ json: { result: { status: "fresh" } } }));
   await page.route("**/getActivityOverview", (route) => route.fulfill({ json: { result: {
-    status: "available", activityId: RUNNING_PARITY_ID, version: "activity-overview-v1",
+    status: "available", activityId: route.request().postDataJSON()?.data?.activityId ?? RUNNING_PARITY_ID, version: "activity-overview-v1",
     inputDigest: "synthetic-running-parity", presentation: {
       session: { discipline: "run", movingSec: 7082, distanceKm: 21.02, caloriesKcal: 1954 },
       zones: [{ kind: "heartRate", seconds: [90, 112, 3313, 3558, 9], priority: "primary" }],
@@ -111,4 +114,45 @@ test("public detail keeps running splits and excludes cycling analytics", async 
   await expect(page.getByTestId("run-detail-disclosure")).toContainText("264");
   await page.getByTestId("run-raw-splits").locator("summary").click();
   await expect(page.getByTestId("run-raw-splits").getByRole("table")).toBeVisible();
+});
+
+
+test("owner scheduled running plan opens exact read-only workout and stays private", async ({ page }, info) => {
+  const commands: string[] = [];
+  page.on("request", request => {
+    if (/reserve.*Session|start.*Session|complete.*Session|apply.*Proposal|rerollPlan|updateWorkout/i.test(request.url())) commands.push(request.url());
+  });
+  await page.goto("/ko/");
+  await page.waitForFunction(() => typeof (window as unknown as { __e2eSignIn?: unknown }).__e2eSignIn === "function");
+  await page.evaluate(async ({ email, password }) => {
+    await (window as unknown as { __e2eSignIn: (email: string, password: string) => Promise<unknown> }).__e2eSignIn(email, password);
+  }, { email: RUNNING_OWNER_EMAIL, password: RUNNING_OWNER_PASSWORD });
+  await page.goto(`/ko/activity/${RUNNING_OWNER_ID}`);
+  await expect(page.getByRole("heading", { name: RUNNING_OWNER_TITLE })).toBeVisible();
+  const card = page.getByTestId("run-next-training-card");
+  await expect(card).toContainText(RUNNING_PLAN_TITLE);
+  await expect(card).toContainText("30분");
+  await expect(card.getByRole("listitem")).toHaveCount(3);
+  const link = card.getByRole("link", { name: "이 훈련 계획 보기" });
+  const target = new URL((await link.getAttribute("href"))!, "http://127.0.0.1:5190");
+  expect(target.searchParams.get("goalId")).toBe(RUNNING_PLAN_GOAL);
+  expect(target.searchParams.get("weekId")).toBe(RUNNING_PLAN_WEEK);
+  expect(target.searchParams.get("dayIndex")).toBe("0");
+  expect(target.searchParams.get("date")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("running-next-training.png") });
+  await link.click();
+  const preview = page.getByRole("dialog", { name: "선택한 러닝 계획" });
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText(RUNNING_PLAN_TITLE);
+  await expect(preview).toContainText("30분");
+  await expect(preview.getByRole("button")).toHaveCount(1);
+  await expect(preview.getByRole("button", { name: "닫기" })).toBeFocused();
+  await page.screenshot({ path: info.outputPath("running-plan-preview.png") });
+  await preview.getByRole("button", { name: "닫기" }).click();
+  await expect(preview).toHaveCount(0);
+  await page.goto(`/ko/activity/${RUNNING_PARITY_ID}`);
+  await expect(page.getByRole("heading", { name: RUNNING_PARITY_TITLE })).toBeVisible();
+  await expect(page.getByTestId("run-next-training-card")).toHaveCount(0);
+  expect(commands).toEqual([]);
 });

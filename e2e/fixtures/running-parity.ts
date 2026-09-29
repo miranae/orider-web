@@ -1,6 +1,15 @@
+import { createTestUser, signInUser } from "./auth";
+
 // 공개 정보 형태의 합성 회귀 픽스처. 계정·좌표·운영 문서 식별자를 포함하지 않는다.
 export const RUNNING_PARITY_PROJECT = "demo-orider-running-parity";
 export const RUNNING_PARITY_ID = "running-parity-public";
+export const RUNNING_OWNER_ID = "running-parity-owner";
+export const RUNNING_OWNER_TITLE = "본인 러닝 계획 연결 픽스처";
+export const RUNNING_OWNER_EMAIL = "running-parity-owner@example.test";
+export const RUNNING_OWNER_PASSWORD = "Synthetic-running-parity-2026!";
+export const RUNNING_PLAN_GOAL = "running-parity-goal";
+export const RUNNING_PLAN_WEEK = "week-running-parity";
+export const RUNNING_PLAN_TITLE = "합성 이지 러닝";
 export const RUNNING_PARITY_TITLE = "러닝 페이스 회귀 픽스처";
 
 export const runningSummary = {
@@ -57,6 +66,12 @@ export async function seedRunningParity(): Promise<void> {
   // 고정 localhost 에뮬레이터에서만 합성 문서를 쓴다.
   const root = `http://127.0.0.1:8080/v1/projects/${RUNNING_PARITY_PROJECT}/databases/(default)/documents`;
   const now = Date.now();
+  const owner = await createTestUser(RUNNING_OWNER_EMAIL, RUNNING_OWNER_PASSWORD, "러닝 계획 테스트").catch(error => {
+    if (!String(error).includes("EMAIL_EXISTS")) throw error;
+    return signInUser(RUNNING_OWNER_EMAIL, RUNNING_OWNER_PASSWORD);
+  });
+  const tomorrow = Math.floor((now + 9 * 3600000) / 86400000) * 86400000 - 9 * 3600000 + 86400000;
+
   const activity = {
     userId: "running-parity-author", nickname: "러닝 테스트", profileImage: null,
     type: "Run", source: "orider", description: RUNNING_PARITY_TITLE,
@@ -69,6 +84,11 @@ export async function seedRunningParity(): Promise<void> {
     [`activities/${RUNNING_PARITY_ID}`]: activity,
     [`activity_metrics_public/${RUNNING_PARITY_ID}`]: { ...runningPublicMetrics, startTime: activity.startTime, computedAt: now },
     "users_public/running-parity-author": { nickname: "러닝 테스트", photoURL: null },
+    [`users/${owner.localId}`]: { nickname: "러닝 계획 테스트", email: RUNNING_OWNER_EMAIL, units: "metric", createdAt: now },
+    [`activities/${RUNNING_OWNER_ID}`]: { ...activity, userId: owner.localId, description: RUNNING_OWNER_TITLE, visibility: "private" },
+    [`activity_metrics/${RUNNING_OWNER_ID}`]: { ...runningPublicMetrics, startTime: activity.startTime, computedAt: now },
+    [`goals/${RUNNING_PLAN_GOAL}`]: { userId: owner.localId, discipline: "run", status: "active", courseName: "합성 러닝 목표", courseId: null, courseDist: 10, courseElev: 0, eventType: "10k", eventDate: tomorrow + 28 * 86400000, weeklySessions: 3, createdAt: now, updatedAt: now, snapshot: { ftp: 0, weightKg: 70, ctl: 10 }, feasibility: { label: "easy" } },
+    [`goals/${RUNNING_PLAN_GOAL}/plan/${RUNNING_PLAN_WEEK}`]: { weekNumber: 1, phase: "base", startDate: tomorrow, plannedTSS: 30, days: [{ date: tomorrow, dayOfWeek: new Date(tomorrow + 9 * 3600000).getUTCDay(), workout: "easyRun", workoutName: RUNNING_PLAN_TITLE, plannedDurationMin: 30, plannedTSS: 30, completed: false, skipped: false, intervals: [{ label: "WU", durationMin: 5 }, { label: "Z2", durationMin: 20 }, { label: "CD", durationMin: 5 }] }] },
   };
   for (const [path, data] of Object.entries(docs)) {
     const response = await fetch(`${root}/${path}`, {
