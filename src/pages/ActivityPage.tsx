@@ -485,7 +485,7 @@ export default function ActivityPage() {
   );
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
   const hasStreams = sampledData.length > 0;
-  const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics);
+  const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, user?.uid);
 
   if (loadingActivity) {
     return (
@@ -987,7 +987,7 @@ export default function ActivityPage() {
 
       {/* ── 스플릿 탭 (러닝 전용) ── */}
       {activeTab === "splits" && sport === "run" && streams && (
-        <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={profile?.thresholdPace ?? null} />
+        <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={isActivityOwner ? profile?.thresholdPace ?? null : null} hrZoneSec={serverMetrics.metrics?.hrZoneSec} />
       )}
 
       {/* ── 랩 탭 ── */}
@@ -1015,6 +1015,9 @@ export default function ActivityPage() {
       <div className="flex flex-col lg:flex-row gap-6">
       {/* ── Left: 분석 / 스탯 / 사진 / 댓글 ── */}
       <div className="flex-1 min-w-0 space-y-6">
+
+      {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
+      <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null} />
 
       <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />
 
@@ -1174,11 +1177,9 @@ export default function ActivityPage() {
         </Card>
       )}
 
-      {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
-      <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null} />
 
       {/* 러닝/수영 전용 상세 카드 (좌측, 개요 탭에서만) */}
-      {activeTab === "overview" && sport === "run" && streams && <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={profile?.thresholdPace ?? null} />}
+      {activeTab === "overview" && sport === "run" && streams && <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={isActivityOwner ? profile?.thresholdPace ?? null : null} hrZoneSec={serverMetrics.metrics?.hrZoneSec} />}
       {activeTab === "overview" && sport === "swim" && streams && <SwimLeftCards streams={streams} />}
 
       {/* 사진 (가로 스크롤) — Strava + 업로드 사진 */}

@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useState, useMemo } from "react";
+import { Fragment, lazy, Suspense, useState, useMemo, type ReactNode } from "react";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { useActivityAuthor } from "../../hooks/useActivityAuthor";
 import { useTranslation } from "react-i18next";
@@ -59,6 +59,7 @@ interface MobileFeedPageProps {
   onSportFilterChange?: (sportFilter: SportFilter) => void;
   datePreset?: DashboardDatePreset;
   onDatePresetChange?: (datePreset: DashboardDatePreset) => void;
+  runningJourney?: ReactNode;
 }
 
 function SportSummaryFilter({
@@ -255,28 +256,34 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
       <MobileRouteThumbnail activity={activity} priority={priority} />
 
       {/* 4-col stats */}
-      <div className="flex">
-        {[
+      <div className="flex" data-testid={discipline === "run" ? "run-card-primary" : undefined}>
+        {(discipline === "run" ? [
+          { v: distance, u: "", l: t("mobileFeed.statDistance") },
+          { v: pace, u: "", l: tActivity("stat.avgPace") },
+          { v: dur, u: "", l: t("mobileFeed.statTime") },
+        ] : [
           { v: distance, u: "", l: t("mobileFeed.statDistance") },
           { v: dur, u: "", l: t("mobileFeed.statTime") },
-          { v: discipline === "run" ? pace : elev, u: "", l: discipline === "run" ? tActivity("stat.avgPace") : t("mobileFeed.statElev") },
-          { v: discipline === "run" ? (hasHr ? `${Math.round(heartRate)} bpm` : "—") : spd, u: "", l: discipline === "run" ? tActivity("stat.avgHr") : t("mobileFeed.statSpeed") },
-        ].map((stat, i) => (
+          { v: elev, u: "", l: t("mobileFeed.statElev") },
+          { v: spd, u: "", l: t("mobileFeed.statSpeed") },
+        ]).map((stat, i) => (
           <div key={stat.l} style={{ flex: 1, borderLeft: i > 0 ? "1px solid var(--line-soft)" : "none", paddingLeft: i > 0 ? 12 : 0 }}>
             {/* 라벨 위 / 값 아래 — ActivityCard 와 동일 세로 스택 (가독성) */}
             <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-0-5)" }}>{stat.l}</div>
             <div>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.02em", lineHeight: 1 }}>{stat.v}</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: discipline === "run" && i === 1 ? "var(--fs-lg)" : "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.02em", lineHeight: 1 }}>{stat.v}</span>
               {stat.u && <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}> {stat.u}</span>}
             </div>
           </div>
         ))}
       </div>
 
-      {discipline === "run" && (s.averagePower ?? activity.avgPower ?? 0) > 0 && (
-        <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-2)" }}>
-          {tActivity("stat.runningPower")} · {Math.round(s.averagePower ?? activity.avgPower ?? 0)} W
-        </Text>
+      {discipline === "run" && (
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }} data-testid="run-card-secondary">
+          {hasHr && <span>{tActivity("stat.avgHrShort")} · {Math.round(heartRate)} bpm</span>}
+          <span>{t("mobileFeed.statElev")} · {elev}</span>
+          {(s.averagePower ?? activity.avgPower ?? 0) > 0 && <span>{tActivity("stat.runningPower")} · {Math.round(s.averagePower ?? activity.avgPower ?? 0)} W</span>}
+        </div>
       )}
 
       {/* 스트라바형 소셜 푸터 — 좋아요(아바타 스택)+댓글. 카드 패딩(16) 음수마진으로 상쇄해
@@ -295,6 +302,7 @@ export default function MobileFeedPage({
   onSportFilterChange,
   datePreset: controlledDatePreset,
   onDatePresetChange,
+  runningJourney,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
@@ -497,6 +505,10 @@ export default function MobileFeedPage({
           </label>
         </div>}
       </div>
+
+      {user && effectiveFeedScope === "self" && sportFilter === "run" && runningJourney && (
+        <div data-testid="mobile-owner-running-journey" className="space-y-3">{runningJourney}</div>
+      )}
 
       {/* 활동 피드 */}
       {loading && (

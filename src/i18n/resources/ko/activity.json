@@ -841,7 +841,27 @@
       "paceHrDecoupling": "페이스·심박 디커플링",
       "paceHrDecouplingDesc": "전·후반 속도 대비 심박 효율의 변화입니다. 경사·더위·페이스 변화의 영향을 받습니다.",
       "hrLoad": "심박 기반 러닝 부하",
-      "hrLoadDesc": "기록 심박으로 계산한 훈련 부하입니다. 임계 페이스 기반 rTSS와 구분합니다."
+      "hrLoadDesc": "기록 심박으로 계산한 훈련 부하입니다. 임계 페이스 기반 rTSS와 구분합니다.",
+      "recapTitle": "이번 러닝 한눈에",
+      "recapDistancePace": "{{distance}}를 평균 {{pace}}로 달렸어요.",
+      "recapPace": "이번 러닝의 평균 페이스는 {{pace}}예요.",
+      "recapGap": "경사를 보정한 평균 페이스는 {{pace}}예요.",
+      "recapFastestKm": "이번 러닝에서 가장 빠른 1km 페이스는 {{pace}}예요.",
+      "profileGuide": "이번 러닝의 구간 페이스 범위 안에서 비교해요. 긴 막대와 작은 페이스 숫자가 더 빠른 구간이에요. 구간을 선택해 기록을 확인하세요.",
+      "profileLabel": "km별 페이스 탐색",
+      "selectSplit": "{{km}}km 구간, 페이스 {{pace}}",
+      "selectedSplit": "{{km}}km 구간 기록",
+      "partialSplit": "부분 구간",
+      "fastestSplit": "가장 빠름",
+      "detailedAnalysis": "러닝 지표 자세히 보기",
+      "allSplitData": "전체 구간 데이터",
+      "nextTraining": "다음 훈련 확인",
+      "trainingFlow": "회복·훈련 흐름",
+      "lap": "랩",
+      "lapPace": "랩별 페이스",
+      "lapHr": "랩별 심박",
+      "recapDistance": "기록된 거리는 {{distance}}예요.",
+      "recapHr": "기록된 평균 심박은 {{bpm}} bpm이에요."
     }
   },
   "metabolism": {

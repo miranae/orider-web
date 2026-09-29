@@ -32,6 +32,10 @@ export const runningPublicMetrics = {
     { km: 1, paceSec: 350, gapSec: 360, avgHr: 123, avgCadence: 184, elevGain: 0.4, elevLoss: 5.4 },
     { km: 2, paceSec: 347, gapSec: 357, avgHr: 139, avgCadence: 188, elevGain: 1, elevLoss: 6.2 },
     { km: 3, paceSec: 344, gapSec: 355, avgHr: 143, avgCadence: 188, elevGain: 0.2, elevLoss: 6 },
+    ...Array.from({ length: 18 }, (_, index) => ({
+      km: index + 4, paceSec: 332 + (index % 4) * 2, gapSec: 330 + (index % 4) * 2,
+      avgHr: 146 + (index % 7), avgCadence: 190 + (index % 3), elevGain: 2, elevLoss: 1,
+    })),
   ],
 };
 

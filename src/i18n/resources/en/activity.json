@@ -841,7 +841,27 @@
       "paceHrDecoupling": "Pace/HR decoupling",
       "paceHrDecouplingDesc": "Change in speed-to-heart-rate efficiency between halves. Hills, heat and pace changes can affect it.",
       "hrLoad": "Heart-rate running load",
-      "hrLoadDesc": "Training load derived from recorded heart rate, separate from threshold-pace rTSS."
+      "hrLoadDesc": "Training load derived from recorded heart rate, separate from threshold-pace rTSS.",
+      "recapTitle": "Your run at a glance",
+      "recapDistancePace": "You covered {{distance}} at an average pace of {{pace}}.",
+      "recapPace": "Your average pace for this run was {{pace}}.",
+      "recapGap": "Your grade-adjusted average pace was {{pace}}.",
+      "recapFastestKm": "Your fastest 1 km pace in this run was {{pace}}.",
+      "profileGuide": "Bars compare the range of paces within this run. Longer bars and smaller pace numbers mean faster splits. Select a split to inspect it.",
+      "profileLabel": "Explore pace by kilometre",
+      "selectSplit": "Kilometre {{km}}, pace {{pace}}",
+      "selectedSplit": "Kilometre {{km}} details",
+      "partialSplit": "Partial split",
+      "fastestSplit": "Fastest",
+      "detailedAnalysis": "Detailed running metrics",
+      "allSplitData": "All split data",
+      "nextTraining": "View next training",
+      "trainingFlow": "Recovery and training",
+      "lap": "Lap",
+      "lapPace": "Pace by lap",
+      "lapHr": "Heart rate by lap",
+      "recapDistance": "The recorded distance was {{distance}}.",
+      "recapHr": "Your recorded average heart rate was {{bpm}} bpm."
     }
   },
   "metabolism": {

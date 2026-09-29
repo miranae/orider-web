@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import MobileFeedPage from "./MobileFeedPage";
+import MobileFeedPage, { CompactActivityCard } from "./MobileFeedPage";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { createMockActivity, createMockSummary } from "../../__tests__/fixtures/mockData";
 import { getCanonicalMapThumbnailFileName, isCanonicalMapThumbnailUrl } from "../activity/ActivityRouteThumbnail";
@@ -409,4 +409,25 @@ describe("MobileFeedPage", () => {
     expect(screen.queryByRole("combobox", { name: "공개 범위" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "필터: 친구" })).toHaveTextContent("친구");
   });
+});
+
+it("gives mobile running distance, pace and time primary positions with sensors secondary", () => {
+ const base = createMockActivity();
+ renderWithProviders(<CompactActivityCard activity={createMockActivity({ type: "Run", summary: { ...base.summary, averagePower: 264, averageHeartRate: 150 } })} />);
+ expect(screen.getByTestId("run-card-primary").children).toHaveLength(3);
+ expect(screen.getByTestId("run-card-primary")).not.toHaveTextContent("264 W");
+ expect(screen.getByTestId("run-card-secondary")).toHaveTextContent("264 W");
+ expect(screen.getByTestId("run-card-secondary")).toHaveTextContent("150 bpm");
+});
+
+it("keeps mobile personal running journey out of guest and public feeds", () => {
+ const props = { activities: [], loading: false, hasMore: false, loadingMore: false, onLoadMore: vi.fn(), feedScope: "all" as const, onFeedScopeChange: vi.fn(), sportFilter: "run" as const, runningJourney: <div>personal-run-program</div> };
+ const guest = renderWithProviders(<MobileFeedPage {...props} />);
+ expect(screen.queryByText("personal-run-program")).not.toBeInTheDocument();
+ guest.unmount();
+ const publicFeed = renderWithProviders(<MobileFeedPage {...props} />, { authenticated: true });
+ expect(screen.queryByText("personal-run-program")).not.toBeInTheDocument();
+ publicFeed.unmount();
+ renderWithProviders(<MobileFeedPage {...props} feedScope="self" />, { authenticated: true });
+ expect(screen.getByTestId("mobile-owner-running-journey")).toHaveTextContent("personal-run-program");
 });

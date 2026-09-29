@@ -28,23 +28,24 @@ function PaceChart({ laps }: { laps?: ActivityStreams["laps"] }) {
     const distKm = lap.distanceKm ?? 0;
     const timeMs = lap.durationMs ?? 0;
     const timeSec = timeMs / 1000;
-    return distKm > 0 ? timeSec / distKm : 300;
+    return Number.isFinite(distKm) && distKm > 0 && Number.isFinite(timeSec) && timeSec > 0 ? timeSec / distKm : null;
   });
 
-  const minP = Math.min(...paces) - 15;
-  const maxP = Math.max(...paces) + 15;
+  const measuredPaces = paces.filter((pace): pace is number => pace != null);
+  if (!measuredPaces.length) return null;
+  const minP = Math.min(...measuredPaces) - 15;
+  const maxP = Math.max(...measuredPaces) + 15;
   const xScale = (i: number) => (i / Math.max(paces.length - 1, 1)) * w;
   const yScale = (p: number) => ((p - minP) / (maxP - minP)) * h;
 
-  const path = paces.map((p, i) => `${i ? 'L' : 'M'}${xScale(i)} ${yScale(p)}`).join(' ');
-  const fill = `M0 ${h} ${path.replace(/^M/, 'L')} L${w} ${h} Z`;
+  const path = paces.map((pace, i) => pace == null ? "" : `${i > 0 && paces[i - 1] != null ? "L" : "M"}${xScale(i)} ${yScale(pace)}`).join(" ");
 
   return (
     <Card padding="none" style={{ padding: "var(--space-4)" }}>
       <div style={{ marginBottom: 'var(--space-3)' }}>
-        <Text as="div" variant="label" tone="primary" style={{ marginBottom: "var(--space-0-5)" }}>{t("runCards.paceProfile")}</Text>
+        <Text as="div" variant="label" tone="primary" style={{ marginBottom: "var(--space-0-5)" }}>{t("analysis.run.lapPace")}</Text>
         <Text as="div" variant="bodySmall" tone="tertiary">
-          {t("runCards.paceProfileDesc", { count: laps.length })}
+          {t("runCards.lapCount", { count: measuredPaces.length })}
         </Text>
       </div>
       <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 160, display: 'block' }} preserveAspectRatio="none">
@@ -57,12 +58,11 @@ function PaceChart({ laps }: { laps?: ActivityStreams["laps"] }) {
         {[0.25, 0.5, 0.75].map(p => (
           <line key={p} x1="0" x2={w} y1={h * p} y2={h * p} stroke="var(--grid-soft)" />
         ))}
-        <path d={fill} fill="url(#paceFill)" />
         <path d={path} stroke="var(--amber)" strokeWidth="1.8" fill="none" />
       </svg>
       <div className="text-[length:var(--fs-xs)]" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-2)', fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>
         {laps.map((_, i) => i === 0 || i === laps.length - 1 || i === Math.floor(laps.length / 2) ? (
-          <span key={i}>{i + 1} km</span>
+          <span key={i}>{t("analysis.run.lap")} {i + 1}</span>
         ) : null).filter(Boolean)}
       </div>
     </Card>
@@ -71,7 +71,7 @@ function PaceChart({ laps }: { laps?: ActivityStreams["laps"] }) {
 
 // ── km 스플릿 테이블 ─────────────────────────────────────────────────────────
 
-function SplitTable({ laps, thresholdPaceSecPerKm }: { laps?: ActivityStreams["laps"]; thresholdPaceSecPerKm?: number | null }) {
+function SplitTable({ laps, thresholdPaceSecPerKm }: { laps?: Array<Omit<NonNullable<ActivityStreams["laps"]>[number], "avgCadence"> & { avgCadence?: number }>; thresholdPaceSecPerKm?: number | null }) {
   const { t } = useTranslation("activity");
   if (!laps || laps.length === 0) return null;
 
@@ -80,7 +80,8 @@ function SplitTable({ laps, thresholdPaceSecPerKm }: { laps?: ActivityStreams["l
     const timeMs = lap.durationMs ?? 0;
     const timeSec = timeMs / 1000;
     const paceSec = distKm > 0 ? timeSec / distKm : 0;
-    const paceStr = paceSec > 0 ? `${Math.floor(paceSec / 60)}:${String(Math.round(paceSec % 60)).padStart(2, '0')}` : '-';
+    const roundedPace = Math.round(paceSec);
+    const paceStr = Number.isFinite(paceSec) && paceSec > 0 ? `${Math.floor(roundedPace / 60)}:${String(roundedPace % 60).padStart(2, "0")}` : "—";
     const hr = lap.avgHeartRate ?? null;
     const cad = lap.avgCadence ?? null;
     // 존은 사용자 임계 페이스 상대값이다. 임계값이 없으면 표시하지 않는다 —
@@ -92,16 +93,18 @@ function SplitTable({ laps, thresholdPaceSecPerKm }: { laps?: ActivityStreams["l
       : zoneNum === 4 ? 'var(--lime)'
       : zoneNum === 3 ? 'var(--amber)'
       : 'var(--aqua)';
-    return { km: i + 1, pace: paceStr, paceSec, hr, cad, zone, zoneColor, partial: distKm < 0.9 };
+    return { km: i + 1, pace: paceStr, paceSec, hr, cad, zone, zoneColor, distanceKm: distKm };
   });
 
-  const fastestSec = Math.min(...rows.map(r => r.paceSec).filter(p => p > 0));
+  const validPaces = rows.map(row => row.paceSec).filter(pace => Number.isFinite(pace) && pace > 0);
+  const fastestSec = Math.min(...validPaces);
+  const slowestSec = Math.max(...validPaces);
 
   return (
     <Card padding="none" style={{ padding: 0 }}>
       <div style={{ padding: '16px 18px 14px', borderBottom: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center' }}>
         <div>
-          <Text as="h3" variant="label" tone="primary" style={{ margin: 0, marginBottom: "var(--space-1)" }}>{t("runCards.kmSplit")}</Text>
+          <Text as="h3" variant="label" tone="primary" style={{ margin: 0, marginBottom: "var(--space-1)" }}>{t("analysis.run.lapPace")}</Text>
           <Text as="div" variant="bodySmall" tone="tertiary">{t("runCards.lapCount", { count: laps.length })}</Text>
         </div>
       </div>
@@ -109,7 +112,7 @@ function SplitTable({ laps, thresholdPaceSecPerKm }: { laps?: ActivityStreams["l
         <table className="text-[length:var(--fs-xs)]" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}>
-              <th style={{ textAlign: 'left', padding: '10px 18px', fontWeight: 500 }}>km</th>
+              <th style={{ textAlign: 'left', padding: '10px 18px', fontWeight: 500 }}>{t("analysis.run.lap")}</th>
               <th style={{ textAlign: 'right', padding: '10px 10px', fontWeight: 500 }}>{t("runCards.colPace")}</th>
               <th style={{ textAlign: 'left', padding: '10px 10px', fontWeight: 500, width: '25%' }}></th>
               <th style={{ textAlign: 'right', padding: '10px 10px', fontWeight: 500 }}>{t("runCards.colHr")}</th>
@@ -120,10 +123,11 @@ function SplitTable({ laps, thresholdPaceSecPerKm }: { laps?: ActivityStreams["l
           <tbody>
             {rows.map((r) => {
               const isBest = r.paceSec === fastestSec && r.paceSec > 0;
-              const barPct = r.paceSec > 0 ? Math.max(10, ((350 - r.paceSec) / 100) * 100) : 0;
+              const barPct = Number.isFinite(r.paceSec) && r.paceSec > 0
+                ? slowestSec === fastestSec ? 100 : 20 + 80 * (slowestSec - r.paceSec) / (slowestSec - fastestSec) : 0;
               return (
-                <tr key={r.km} style={{ borderTop: '1px solid var(--line-soft)', opacity: r.partial ? 0.7 : 1 }}>
-                  <td style={{ padding: '10px 18px', color: 'var(--ink-0)', fontWeight: 500, fontFamily: 'var(--font-mono)' }}>{r.km}</td>
+                <tr key={r.km} style={{ borderTop: '1px solid var(--line-soft)', opacity: 1 }}>
+                  <td style={{ padding: '10px 18px', color: 'var(--ink-0)', fontWeight: 500, fontFamily: 'var(--font-mono)' }}>{r.km} · {r.distanceKm > 0 ? `${r.distanceKm.toFixed(1)} km` : '—'}</td>
                   <td style={{ textAlign: 'right', padding: '10px 10px', color: isBest ? 'var(--lime)' : 'var(--ink-0)', fontWeight: isBest ? 600 : 400, fontFamily: 'var(--font-mono)' }}>
                     {r.pace}{isBest && <span className="text-[length:var(--fs-xs)]" style={{ color: 'var(--lime)', marginLeft: 'var(--space-1)' }}>★</span>}
                   </td>
@@ -149,15 +153,9 @@ function SplitTable({ laps, thresholdPaceSecPerKm }: { laps?: ActivityStreams["l
 
 // ── 심박 차트 + 존 분포 ──────────────────────────────────────────────────────
 
-const HR_ZONES = [
-  { label: 'Z1', color: 'var(--zone-1)', test: (hr: number) => hr < 120 },
-  { label: 'Z2', color: 'var(--zone-2)', test: (hr: number) => hr >= 120 && hr < 140 },
-  { label: 'Z3', color: 'var(--zone-3)', test: (hr: number) => hr >= 140 && hr < 160 },
-  { label: 'Z4', color: 'var(--zone-4)', test: (hr: number) => hr >= 160 && hr < 175 },
-  { label: 'Z5', color: 'var(--zone-5)', test: (hr: number) => hr >= 175 },
-];
+const HR_ZONES = Array.from({ length: 5 }, (_, i) => ({ label: `Z${i + 1}`, color: `var(--zone-${i + 1})` }));
 
-function HRCard({ laps }: { laps?: ActivityStreams["laps"] }) {
+function HRCard({ laps, hrZoneSec }: { laps?: ActivityStreams["laps"]; hrZoneSec?: number[] }) {
   const { t } = useTranslation("activity");
   if (!laps || laps.length === 0) return null;
 
@@ -175,18 +173,17 @@ function HRCard({ laps }: { laps?: ActivityStreams["laps"] }) {
   const fill = `M0 ${h} ${path.replace(/^M/, 'L')} L${w} ${h} Z`;
 
   // ── 존 분포 ───────────────────────────────────────────────────────────────
-  const total = hrs.length;
-  const zones = HR_ZONES.map(z => {
-    const count = hrs.filter(z.test).length;
-    return { ...z, pct: total > 0 ? (count / total) * 100 : 0 };
-  });
+  const validZones = hrZoneSec?.length === 5 && hrZoneSec.every(value => Number.isFinite(value) && value >= 0);
+  const total = validZones ? hrZoneSec!.reduce((sum, value) => sum + value, 0) : 0;
+  const zones = total > 0 ? HR_ZONES.map((zone, i) => ({ ...zone, pct: hrZoneSec![i]! / total * 100 })) : [];
+
 
   return (
     <Card padding="none" style={{ padding: "var(--space-4)" }}>
       <div style={{ marginBottom: 'var(--space-3)' }}>
-        <Text as="div" variant="label" tone="primary" style={{ marginBottom: "var(--space-0-5)" }}>{t("runCards.hrTitle")}</Text>
+        <Text as="div" variant="label" tone="primary" style={{ marginBottom: "var(--space-0-5)" }}>{t("analysis.run.lapHr")}</Text>
         <Text as="div" variant="bodySmall" tone="tertiary">
-          {t("runCards.hrDesc", { count: hrs.length })}
+          {t("runCards.lapCount", { count: hrs.length })}
         </Text>
       </div>
 
@@ -206,7 +203,7 @@ function HRCard({ laps }: { laps?: ActivityStreams["laps"] }) {
       </svg>
 
       {/* 존 분포 세로 막대 */}
-      <div style={{ marginTop: "var(--space-3)", display: 'flex', gap: "var(--space-1-5)", alignItems: 'flex-end', height: 56 }}>
+      {zones.length > 0 && <div data-testid="run-canonical-hr-zones" style={{ marginTop: "var(--space-3)", display: 'flex', gap: "var(--space-1-5)", alignItems: 'flex-end', height: 56 }}>
         {zones.map(z => (
           <div key={z.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: "var(--space-1)" }}>
             <div className="text-[length:var(--fs-xs)]" style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>
@@ -216,7 +213,7 @@ function HRCard({ laps }: { laps?: ActivityStreams["laps"] }) {
             <div className="text-[length:var(--fs-xs)]" style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', marginTop: "var(--space-0-5)" }}>{z.label}</div>
           </div>
         ))}
-      </div>
+      </div>}
     </Card>
   );
 }
@@ -234,12 +231,10 @@ function CadenceCard({ laps, cadenceUnit }: { laps?: ActivityStreams["laps"]; ca
   const max = Math.max(...cadences);
 
   const w = 800, h = 100;
-  const maxC = Math.max(max + 5, 185);
+  const maxC = max + 5;
   const minC = Math.max(0, Math.min(...cadences.filter(c => c > 0)) - 5);
   const barW = Math.floor(w / cadences.length) - 2;
 
-  // 180 spm 기준선의 y 좌표
-  const refY = maxC > minC ? h - ((180 - minC) / (maxC - minC)) * h : h / 2;
 
   const stats = [
     { label: t("runCards.cadenceAvg"), value: `${avg}`, unit: 'spm' },
@@ -257,17 +252,6 @@ function CadenceCard({ laps, cadenceUnit }: { laps?: ActivityStreams["laps"]; ca
 
       {/* 수직 바 차트 */}
       <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 100, display: 'block' }} preserveAspectRatio="none">
-        {/* 180 spm 기준 점선 */}
-        {refY > 0 && refY < h && (
-          <line
-            x1="0" x2={w}
-            y1={refY} y2={refY}
-            stroke="var(--lime)"
-            strokeWidth="1.5"
-            strokeDasharray="3 3"
-            opacity="0.6"
-          />
-        )}
         {cadences.map((c, i) => {
           const barH = c > 0 && maxC > minC ? Math.max(0, ((c - minC) / (maxC - minC)) * h) : 0;
           const x = i * (barW + 2);
@@ -279,7 +263,7 @@ function CadenceCard({ laps, cadenceUnit }: { laps?: ActivityStreams["laps"]; ca
               width={barW}
               height={barH}
               fill="var(--aqua)"
-              opacity={c >= 180 ? 0.85 : 0.5}
+              opacity={0.75}
               rx={2}
             />
           );
@@ -367,18 +351,20 @@ export function RunLeftCards({
   streams,
   cadenceUnit,
   thresholdPaceSecPerKm,
+  hrZoneSec,
 }: {
   streams?: ActivityStreams | null;
   cadenceUnit?: ActivityMetrics["cadenceUnit"];
+  hrZoneSec?: number[];
   /** 스플릿 존 계산 기준. 없으면 존 열이 '-' 로 표시된다. */
   thresholdPaceSecPerKm?: number | null;
 }) {
   return (
     <>
       <PaceChart laps={streams?.laps} />
-      <HRCard laps={streams?.laps} />
+      <HRCard laps={streams?.laps} hrZoneSec={hrZoneSec} />
       <CadenceCard laps={streams?.laps} cadenceUnit={cadenceUnit} />
-      <SplitTable laps={streams?.laps?.map(lap => ({ ...lap, avgCadence: runningCadenceSpm(lap.avgCadence, cadenceUnit) ?? 0 }))} thresholdPaceSecPerKm={thresholdPaceSecPerKm} />
+      <SplitTable laps={streams?.laps?.map(lap => ({ ...lap, avgCadence: runningCadenceSpm(lap.avgCadence, cadenceUnit) ?? undefined }))} thresholdPaceSecPerKm={thresholdPaceSecPerKm} />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { screen, waitFor, fireEvent } from "@testing-library/react";
+import { screen, waitFor, fireEvent, within } from "@testing-library/react";
 import ActivityCard, { shouldReportMapCaptureError } from "./ActivityCard";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
@@ -24,7 +24,9 @@ describe("ActivityCard", () => {
       summary: { ...base.summary, distance: 21022.1, ridingTimeMillis: 7082000, averageSpeed: 10.686, averagePower: 264 }, topAchievements: [], segmentEffortCount: 0 });
     renderWithProviders(<ActivityCard activity={activity} showMap={false} />);
     expect(screen.getByText("5:37/km")).toBeInTheDocument();
-    expect(screen.getByText("러닝 파워")).toBeInTheDocument();
+    expect(screen.getByTestId("run-card-primary").children).toHaveLength(3);
+    expect(within(screen.getByTestId("run-card-primary")).getByText("5:37/km")).toHaveClass("font-bold");
+    expect(screen.getByTestId("run-card-secondary")).toHaveTextContent("러닝 파워 · 264 W");
     expect(screen.getByText("페이스·km별 기록 보기")).toBeInTheDocument();
     expect(screen.queryByText("구간 기록 없음")).not.toBeInTheDocument();
   });

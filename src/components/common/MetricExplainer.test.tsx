@@ -45,9 +45,16 @@ describe("MetricExplainerSheet — 3단 구조", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveTextContent("평지 기준으로 환산한 페이스");
-    // GAP 340 < pace 352 → uphill, diffSec 12
-    expect(dialog).toHaveTextContent("12초 빨라요");
-    expect(dialog).toHaveTextContent("오르막이 많았다");
+    // 평균 GAP 차이는 수치 비교 근거이며 코스의 오르막 양을 증명하지 않는다.
+    expect(dialog).toHaveTextContent("GAP이 실제 평균 페이스보다 12초/km 빨라요");
+    expect(dialog).not.toHaveTextContent("오르막이 많았다");
+  });
+
+  it("GAP 차이가 작아도 코스가 평지였다고 단정하지 않는다", () => {
+    openSheet("gap", { ...RUN_CTX, gapSecPerKm: 351 });
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("경사 보정 전후의 평균 페이스가 비슷해요");
+    expect(dialog).not.toHaveTextContent("평지에 가까운 코스");
   });
 
   it("근거(임계 페이스)가 없으면 해석 단락을 생략하고 정의만 보여준다", () => {

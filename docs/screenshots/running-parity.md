@@ -7,7 +7,9 @@ These screenshots use a synthetic public run with no production accounts, coordi
 - 경로 / Routes: `/ko/`, `/ko/activity/running-parity-public`
 - 데스크톱 / Desktop: 1440 × 900, Chrome
 - 모바일 / Mobile: 390 × 844, Chrome
-- 검증 / Checks: four Playwright assertions flows passed (home and public detail on both viewports).
+- 검증 / Checks: four Playwright flows passed (home and public detail on both viewports). The 21-split fixture checks keyboard selection, immediately available pace/GAP/HR/cadence detail, the metric explanation dialog, and folded technical metrics/raw data.
+- 홈은 거리·페이스·시간을 우선 표시한다. 분석은 쉬운 요약 → 선택형 스플릿 → 펼치는 상세 순서다 / Feed primary stats are distance, pace and time; analysis follows recap, interactive splits, then disclosures.
+- 개인 여정과 지난 이력 비교는 별도 owner/component 회귀로 검증했다 / Owner-only journey and historical comparison are covered by component regressions, not real-account browser evidence.
 - 운영 반영 / Delivery: screenshots show local implementation; production deployment and existing-activity recomputation are separate steps.
 
 ```sh

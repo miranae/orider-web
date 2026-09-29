@@ -1,5 +1,5 @@
 /**
- * 최근 4주 러닝 평균 페이스 — 활동 상세의 "지난 4주 평균보다 8초 빨라졌어요" 문장의 기준선.
+ * 활동 전 4주 러닝 평균 페이스 — 이번 활동과 이전 기간을 비교하는 기준선.
  *
  * 창은 **`startTime`(실제 운동 시각)** 기준이다. `createdAt`(동기화 시각) 기준이면 Strava 를 방금
  * 연결한 사용자의 수년치 백필이 전부 창에 들어와 "최근 4주 평균"이 과거 러닝의 평균이 된다.
@@ -14,6 +14,7 @@ import { firestore } from "../services/firebase";
 import { logClientError, debugLog } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
+import { isImplausibleAvgSpeed } from "../utils/activitySanity";
 import { getSportCategory } from "../features/activity/detail/activityDetailUtils";
 
 const FOUR_WEEKS_MS = 28 * 86400000;
@@ -30,38 +31,41 @@ export interface RunBaseline {
 
 /**
  * @param excludeActivityId 지금 보고 있는 활동 — 자기 자신과 비교하지 않도록 제외.
- * @param enabled 러닝 활동에서만 쿼리한다. 자전거·수영 상세에서 100문서를 읽을 이유가 없다.
+ * @param enabled 본인 러닝 활동에서만 개인 활동을 쿼리한다.
+ * @param activityStartTime 활동 직전까지의 4주 창. 100문서 한도에 도달하면 비교를 생략한다.
  */
-export function useRunBaselinePace(excludeActivityId?: string, enabled = true): RunBaseline {
+export function useRunBaselinePace(excludeActivityId?: string, enabled = true, activityStartTime?: number | null): RunBaseline {
   const { user } = useAuth();
-  const [state, setState] = useState<RunBaseline>({ paceSecPerKm: null, sampleCount: 0, loading: true });
+  const requestKey = `${user?.uid ?? ""}:${enabled}:${excludeActivityId ?? ""}:${activityStartTime ?? ""}`;
+  const [state, setState] = useState<RunBaseline & { requestKey: string }>({ requestKey: "", paceSecPerKm: null, sampleCount: 0, loading: true });
 
   useEffect(() => {
     let cancelled = false;
-    if (!user || !enabled) {
-      setState({ paceSecPerKm: null, sampleCount: 0, loading: false });
+    if (!user || !enabled || !activityStartTime || !Number.isFinite(activityStartTime)) {
+      setState({ requestKey, paceSecPerKm: null, sampleCount: 0, loading: false });
       return;
     }
-    setState((s) => ({ ...s, loading: true }));
+    setState({ requestKey, paceSecPerKm: null, sampleCount: 0, loading: true });
 
     const load = async () => {
       try {
-        const cutoff = Date.now() - FOUR_WEEKS_MS;
+        const cutoff = activityStartTime - FOUR_WEEKS_MS;
         const q = query(
           collection(firestore, "activities"),
           where("userId", "==", user.uid),
           where("deletedAt", "==", null),
           where("startTime", ">=", cutoff),
+          where("startTime", "<", activityStartTime),
           orderBy("startTime", "desc"),
           limit(QUERY_LIMIT),
         );
         const snap = await getDocs(q);
         const runs = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }) as Activity)
-          .filter((a) => a.id !== excludeActivityId)
+          .filter((a) => a.id !== excludeActivityId && a.startTime >= cutoff && a.startTime < activityStartTime)
           .filter((a) => a.summary != null)
           .filter((a) => getSportCategory(a.type) === "run")
-          .filter((a) => a.summary.distance > 0 && a.summary.averageSpeed > 0);
+          .filter((a) => Number.isFinite(a.summary.distance) && a.summary.distance > 0 && Number.isFinite(a.summary.averageSpeed) && a.summary.averageSpeed > 0 && !isImplausibleAvgSpeed(a.summary.averageSpeed, "run"));
 
         // 거리 가중 평균: Σ(시간) / Σ(거리) = 전체 페이스
         let totalMeters = 0;
@@ -73,7 +77,7 @@ export function useRunBaselinePace(excludeActivityId?: string, enabled = true): 
           totalSeconds += (meters / 1000) * secPerKm;
         }
         const paceSecPerKm =
-          runs.length >= MIN_SAMPLES && totalMeters > 0
+          snap.docs.length < QUERY_LIMIT && runs.length >= MIN_SAMPLES && totalMeters > 0
             ? Math.round(totalSeconds / (totalMeters / 1000))
             : null;
 
@@ -85,10 +89,10 @@ export function useRunBaselinePace(excludeActivityId?: string, enabled = true): 
           belowMinSamples: runs.length < MIN_SAMPLES,
         });
 
-        if (!cancelled) setState({ paceSecPerKm, sampleCount: runs.length, loading: false });
+        if (!cancelled) setState({ requestKey, paceSecPerKm, sampleCount: runs.length, loading: false });
       } catch (err) {
         logClientError("useRunBaselinePace.load", err, { excludeActivityId });
-        if (!cancelled) setState({ paceSecPerKm: null, sampleCount: 0, loading: false });
+        if (!cancelled) setState({ requestKey, paceSecPerKm: null, sampleCount: 0, loading: false });
       }
     };
 
@@ -96,7 +100,7 @@ export function useRunBaselinePace(excludeActivityId?: string, enabled = true): 
     return () => {
       cancelled = true;
     };
-  }, [user, excludeActivityId, enabled]);
+  }, [user, excludeActivityId, enabled, activityStartTime, requestKey]);
 
-  return state;
+  return state.requestKey === requestKey ? state : { paceSecPerKm: null, sampleCount: 0, loading: !!user && enabled && !!activityStartTime };
 }

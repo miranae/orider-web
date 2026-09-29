@@ -294,6 +294,7 @@ export default function DashboardPage() {
     authLoading,
   );
   const { units } = useLocale();
+  const isMobile = useMobile();
   const { friends } = useFriends();
   const friendIds = useMemo(() => new Set(friends.map((friend) => friend.userId)), [friends]);
   const feedScope: ActivityFeedScope = user ? dashboardPreferences.feedScope : "all";
@@ -316,31 +317,33 @@ export default function DashboardPage() {
   // ── 러닝 탭 전용 데이터 (§3.0 / §3.4c / §3.7) ────────────────────────────
   // 8주 창 하나로 리캡(3주)과 러너 레벨(8주)을 함께 커버한다 — 쿼리 1회.
   const isRunTab = discipline === "run";
+  const isRunningJourneyActive = isMobile ? dashboardPreferences.sportFilter === "run" : isRunTab;
+  const showOwnerRunningJourney = isRunningJourneyActive && !!user && !user.isAnonymous && !authLoading && (!isMobile || feedScope === "self");
   const RUN_HISTORY_WEEKS = 8;
-  const runHistory = useRunHistory(RUN_HISTORY_WEEKS, isRunTab && !!user);
-  const { fitness: userFitness } = useUserFitness(isRunTab && !!user);
+  const runHistory = useRunHistory(RUN_HISTORY_WEEKS, showOwnerRunningJourney);
+  const { fitness: userFitness } = useUserFitness(showOwnerRunningJourney);
   // 창 길이·계정 생성일을 함께 넘긴다 — 창이 계정 수명을 못 덮으면 "첫 러닝" 축하를 하지 않는다.
   const firstSync = useFirstSyncCelebration(
     runHistory.runs,
     runHistory.loading,
-    user?.uid ?? null,
+    showOwnerRunningJourney ? user?.uid ?? null : null,
     RUN_HISTORY_WEEKS * 7 * 86400000,
     profile?.createdAt,
   );
 
   const runRecap = useMemo(
-    () => (isRunTab ? computeRunWeeklyRecap(runHistory.runs, Date.now()) : null),
-    [isRunTab, runHistory.runs],
+    () => (showOwnerRunningJourney ? computeRunWeeklyRecap(runHistory.runs, Date.now()) : null),
+    [showOwnerRunningJourney, runHistory.runs],
   );
   const showRecap = runRecap != null && isRecapVisible(Date.now(), seoulWeekday);
 
   // "최근 8주 러닝 없음" 과 "러닝 이력 자체가 없음" 은 다른 신호다. 둘을 같게 다루면 오래 쉬었다
   // 돌아온 러너에게 "첫 러닝이 도착하면 알려드릴게요" 온보딩이 뜨고 오늘의 워크아웃까지 사라진다.
   // 서버가 유지하는 거리별 기록(records/power.run)을 "달린 적 있음"의 근거로 쓴다.
-  const { run: dashRunRecords, loading: recordsLoading } = useRunRecords(isRunTab && !!user);
+  const { run: dashRunRecords, loading: recordsLoading } = useRunRecords(showOwnerRunningJourney);
   const hasEverRun = dashRunRecords != null && Object.keys(dashRunRecords).length > 0;
   const hasNoRuns =
-    isRunTab &&
+    showOwnerRunningJourney &&
     !!user &&
     !runHistory.loading &&
     !recordsLoading &&
@@ -351,20 +354,20 @@ export default function DashboardPage() {
   // 가끔 달리는 사람에게는 띄우지 않는다 — 잔소리가 되므로.
   const runnerLevel = useMemo(
     () =>
-      isRunTab && !runHistory.loading
+      showOwnerRunningJourney && !runHistory.loading
         ? estimateRunnerLevel(runHistory.runs, Date.now(), profile?.createdAt ?? null)
         : null,
-    [isRunTab, runHistory.runs, runHistory.loading, profile?.createdAt],
+    [showOwnerRunningJourney, runHistory.runs, runHistory.loading, profile?.createdAt],
   );
   // profile 이 도착하기 전에는 판단하지 않는다 — 이미 임계 페이스를 설정한 러너에게
   // 넛지가 깜빡 떴다 사라지는 플래시가 생긴다(firstSync 와 같은 프로필 레이스).
   const showThresholdNudge =
-    profile != null && runnerLevel?.level === "regular" && !profile.thresholdPace && !hasNoRuns;
+    showOwnerRunningJourney && profile != null && runnerLevel?.level === "regular" && !profile.thresholdPace && !hasNoRuns;
 
   // 신발 교체 임박 — 가장 최근 러닝의 gear 스냅샷에서 파생 (§3.6, 신규 구현 아님)
   const shoeStatus = useMemo(
-    () => (isRunTab ? latestShoeStatus(runHistory.runs) : null),
-    [isRunTab, runHistory.runs],
+    () => (showOwnerRunningJourney ? latestShoeStatus(runHistory.runs) : null),
+    [showOwnerRunningJourney, runHistory.runs],
   );
 
   // 종목 필터 적용
@@ -610,16 +613,58 @@ export default function DashboardPage() {
     fitnessKpi,
   ];
 
-  const isMobile = useMobile();
   const desktopRoutine = consistencyStreak && (
     <div style={{ marginTop: "var(--space-3)" }}>
       <ConsistencyStreakCard summary={consistencyStreak} compact />
     </div>
   );
 
+  const runningJourney = showOwnerRunningJourney ? <div data-testid="dashboard-running-journey">
+        {/* 러닝 데이터가 없으면 빈 대시보드 대신 첫 동기화 여정을 보여준다 (§3.0) */}
+        {hasNoRuns && (
+          <div style={{ marginTop: 'var(--space-5)' }}>
+            <RunEmptyState stravaConnected={!!profile?.stravaConnected} />
+          </div>
+        )}
+        {/* 지난주 리캡 — 주 초반(월~수)에만. 변화가 헤드라인이다 (§3.4c) */}
+        {showOwnerRunningJourney && showRecap && runRecap && !hasNoRuns && (
+          <div style={{ marginTop: 'var(--space-5)' }}>
+            <WeeklyRecapCard recap={runRecap} />
+          </div>
+        )}
+
+        {/* 임계 페이스 설정 유도 — regular 러너에게만 (§3.1) */}
+        {showThresholdNudge && (
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <ThresholdPaceNudge visible />
+          </div>
+        )}
+
+        {/* 신발 교체 임박 — 임박했을 때만 (§3.6) */}
+        {showOwnerRunningJourney && !hasNoRuns && shoeStatus?.replacementDue && (
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <ShoeReplacementBadge status={shoeStatus} />
+          </div>
+        )}
+
+        {/* 통합 부하 기여 — 자전거를 병행하는 러너에게만 의미가 있다 (§3.7) */}
+        {showOwnerRunningJourney && !hasNoRuns && (
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <CrossDisciplineLoadCard fitness={userFitness} discipline="run" />
+          </div>
+        )}
+
+        {/* 첫 러닝 도착 축하 — aha moment 와 같은 릴리스 (§3.0.3) */}
+        {firstSync.show && (
+          <FirstSyncCelebration activityId={firstSync.activityId} onClose={firstSync.dismiss} />
+        )}
+
+  </div> : null;
+
   if (isMobile) {
     return (
       <MobileFeedPage
+        runningJourney={runningJourney}
         activities={activities}
         loading={loading}
         error={feedError}
@@ -677,44 +722,7 @@ export default function DashboardPage() {
           }
         />
 
-        {/* 러닝 데이터가 없으면 빈 대시보드 대신 첫 동기화 여정을 보여준다 (§3.0) */}
-        {hasNoRuns && (
-          <div style={{ marginTop: 'var(--space-5)' }}>
-            <RunEmptyState stravaConnected={!!profile?.stravaConnected} />
-          </div>
-        )}
-        {/* 지난주 리캡 — 주 초반(월~수)에만. 변화가 헤드라인이다 (§3.4c) */}
-        {isRunTab && showRecap && runRecap && !hasNoRuns && (
-          <div style={{ marginTop: 'var(--space-5)' }}>
-            <WeeklyRecapCard recap={runRecap} />
-          </div>
-        )}
-
-        {/* 임계 페이스 설정 유도 — regular 러너에게만 (§3.1) */}
-        {showThresholdNudge && (
-          <div style={{ marginTop: 'var(--space-4)' }}>
-            <ThresholdPaceNudge visible />
-          </div>
-        )}
-
-        {/* 신발 교체 임박 — 임박했을 때만 (§3.6) */}
-        {isRunTab && !hasNoRuns && shoeStatus?.replacementDue && (
-          <div style={{ marginTop: 'var(--space-4)' }}>
-            <ShoeReplacementBadge status={shoeStatus} />
-          </div>
-        )}
-
-        {/* 통합 부하 기여 — 자전거를 병행하는 러너에게만 의미가 있다 (§3.7) */}
-        {isRunTab && !hasNoRuns && (
-          <div style={{ marginTop: 'var(--space-4)' }}>
-            <CrossDisciplineLoadCard fitness={userFitness} discipline="run" />
-          </div>
-        )}
-
-        {/* 첫 러닝 도착 축하 — aha moment 와 같은 릴리스 (§3.0.3) */}
-        {firstSync.show && (
-          <FirstSyncCelebration activityId={firstSync.activityId} onClose={firstSync.dismiss} />
-        )}
+        {runningJourney}
 
         {showYearRecapBanner && (
           <Card

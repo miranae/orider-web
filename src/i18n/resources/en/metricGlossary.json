@@ -11,28 +11,28 @@
     "title": "Pace",
     "definition": "How long it takes you to cover one kilometer. Lower is faster.",
     "interp": {
-      "faster": "That's {{diffSec}} seconds per km quicker than your four-week average.",
-      "slower": "That's {{diffSec}} seconds per km slower than your four-week average — terrain and how you felt both play a part.",
-      "steady": "Right in line with your four-week average."
+      "faster": "Your pace is {{diffSec}} seconds faster than your preceding four-week average.",
+      "slower": "Your pace is {{diffSec}} seconds slower than your preceding four-week average; terrain and how you felt both play a part.",
+      "steady": "Your pace is similar to your preceding four-week average."
     }
   },
   "gap": {
     "title": "GAP (Grade Adjusted Pace)",
     "definition": "Your pace converted to what it would have been on flat ground. It shows the real effort behind a hilly run.",
     "interp": {
-      "uphill": "Your GAP is {{diffSec}} seconds per km quicker than your actual pace — you were climbing.",
-      "downhill": "Your GAP is {{diffSec}} seconds per km slower than your actual pace — the descents gave you a hand.",
-      "flat": "GAP and actual pace are nearly identical — this route was essentially flat."
+      "uphill": "GAP is {{diffSec}} seconds per km faster than your actual average pace.",
+      "downhill": "GAP is {{diffSec}} seconds per km slower than your actual average pace.",
+      "flat": "Your average pace is similar before and after adjusting for grade."
     },
     "summary": {
-      "uphill": "Factor in the climbing and you effectively ran {{gapPace}} per km on the flat.",
-      "downhill": "Take the descents out and you effectively ran {{gapPace}} per km on the flat.",
-      "flat": "This route was near flat, so your actual pace tells the whole story."
+      "uphill": "Your grade-adjusted average pace is {{gapPace}}.",
+      "downhill": "Your grade-adjusted average pace is {{gapPace}}.",
+      "flat": "Your average pace is similar before and after adjusting for grade."
     }
   },
   "cadence": {
     "title": "Cadence",
-    "definition": "How many times your feet strike the ground each minute (spm). Taking quicker, shorter steps eases the load on your knees.",
+    "definition": "Your total steps per minute (spm). Cadence varies with speed, terrain and running style.",
     "interp": {
       "low": "At {{cadence}} spm you're below the {{target}} spm guideline. Try shortening your stride and turning your legs over a little faster.",
       "optimal": "At {{cadence}} spm you're inside the recommended range.",
