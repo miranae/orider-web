@@ -37,7 +37,8 @@
     "atl": "피로 · ATL",
     "tsb": "폼 · TSB",
     "ftp": "분석 기준 FTP",
-    "qualityFooter": "※ 사용자 승인값이 없으면 계측값을 사용합니다."
+    "qualityFooter": "※ 사용자 승인값이 없으면 계측값을 사용합니다.",
+    "runThresholdMissing": "임계 페이스·최대심박을 설정하면 러닝 강도와 같은 유형 비교를 확인할 수 있습니다."
   },
   "overviewEvidence": {
     "overviewTitle": "오라이더 활동개요",
@@ -207,7 +208,9 @@
     "ftpVerificationRequired": "FTP 확인 필요 · 부하와 강도는 잠정 기준입니다.",
     "previousBestPct": "활동 전 최고 대비",
     "previousBestScope": "활동 전 최고 대비는 이번 활동 이전 기록 기준이며 새 기록은 100%를 넘습니다.",
-    "zoneProvisional": "존 비교 잠정 · FTP 확인이 필요한 과거 기록 포함"
+    "zoneProvisional": "존 비교 잠정 · FTP 확인이 필요한 과거 기록 포함",
+    "runRecords": "러닝 거리별 기록",
+    "runModelNote": "회복·연료는 기록을 바탕으로 한 추정 모델이며 직접 측정한 생리값은 아닙니다."
   },
   "title": "활동",
   "ftpDecision": {
@@ -285,7 +288,8 @@
     "dataWarningTooltip": "GPS noise 또는 짧은 활동으로 평균/최고 속도가 비현실적입니다. 일부 지표는 '—' 로 표시됩니다.",
     "movingTimeTotalSimple": "이동 시간 · 전체 {{elapsed}}",
     "movingAvgTotal": "이동 평균 · 전체 {{total}} km/h",
-    "dataWarningRaw": "데이터 이상 — 원본값 {{value}} km/h"
+    "dataWarningRaw": "데이터 이상 — 원본값 {{value}} km/h",
+    "runningPower": "러닝 파워"
   },
   "ai": {
     "header": "🤖 AI 라이딩 분석",
@@ -397,7 +401,8 @@
       "daysAgo_other": "{{count}}일 전"
     },
     "segmentCount_one": "{{count}}개 세그먼트",
-    "segmentCount_other": "{{count}}개 세그먼트"
+    "segmentCount_other": "{{count}}개 세그먼트",
+    "runSplitsLink": "페이스·km별 기록 보기"
   },
   "socialErrors": {
     "auth": "로그인이 만료되었습니다. 다시 로그인해 주세요.",
@@ -522,7 +527,8 @@
     "speed": "속도",
     "hr": "심박",
     "power": "파워",
-    "cadence": "케이던스"
+    "cadence": "케이던스",
+    "pace": "페이스"
   },
   "segments": {
     "title": "세그먼트",
@@ -824,6 +830,18 @@
         "hr": "심박",
         "rpm": "RPM"
       }
+    },
+    "run": {
+      "recordedCadence": "기록 케이던스",
+      "cadenceUnit": "회/분",
+      "cadenceDesc": "기록 원본 기준입니다. 센서·제공자에 따라 한 발의 보폭 빈도 또는 양발의 걸음 수일 수 있습니다.",
+      "powerDesc": "센서에서 기록한 러닝 파워입니다. 사이클 FTP·NP 기준으로 해석하지 않습니다.",
+      "splitsUnits": "스플릿은 1km 기준이며 페이스 단위는 거리 설정을 따릅니다.",
+      "splitsUnavailable": "공유된 km별 스플릿이 아직 없습니다. 페이스·심박 등 제공된 지표를 표시합니다.",
+      "paceHrDecoupling": "페이스·심박 디커플링",
+      "paceHrDecouplingDesc": "전·후반 속도 대비 심박 효율의 변화입니다. 경사·더위·페이스 변화의 영향을 받습니다.",
+      "hrLoad": "심박 기반 러닝 부하",
+      "hrLoadDesc": "기록 심박으로 계산한 훈련 부하입니다. 임계 페이스 기반 rTSS와 구분합니다."
     }
   },
   "metabolism": {
@@ -1008,7 +1026,7 @@
     "strideEst": "보폭(추정)",
     "groundEst": "접지(추정)",
     "gapTitle": "지형 보정 페이스 (GAP)",
-    "gapDesc": "오르막/내리막 보정",
+    "gapDesc": "경사 영향을 보정한 서버 분석 페이스",
     "avgPace": "평균 페이스",
     "gapPace": "GAP (보정)",
     "runLoadTitle": "운동 부하",
@@ -1197,7 +1215,11 @@
     "retryHint": "기존 코칭은 유지됩니다. 공유요약만 다시 불러올 수 있습니다.",
     "retryError": "공유요약을 불러오지 못했습니다. 다시 시도해 주세요.",
     "title": "공유용 요약",
-    "sports": { "bike": "자전거", "run": "러닝", "swim": "수영" },
+    "sports": {
+      "bike": "자전거",
+      "run": "러닝",
+      "swim": "수영"
+    },
     "settled": "전날 정산 → 활동일 정산",
     "pendingTitle": "전날 정산",
     "ctl": "체력 · CTL",

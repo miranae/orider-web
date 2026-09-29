@@ -1,3 +1,4 @@
+import type { ActivityMetricsDoc } from "../hooks/useActivityMetrics";
 import { describe, expect, it } from "vitest";
 
 import { filterInvalidatedServerMetrics } from "./AnalysisTab";
@@ -128,4 +129,13 @@ describe("AnalysisTab server metric provenance", () => {
     expect(filtered.maxHr).toBeNull();
     expect(filtered.cyclingDynamics).toBeUndefined();
   });
+});
+
+
+it("does not invalidate speed/HR run decoupling when only running power is rejected", () => {
+  const metrics = { discipline: "run", decoupling: { basis: "speed_hr", ef: 0.018, decouplingPct: 3.4, hrDriftPct: 2 } } as unknown as ActivityMetricsDoc;
+  const filtered = filterInvalidatedServerMetrics(metrics, { power: true, heartRate: false, cadence: false });
+  expect(filtered?.decoupling).toEqual(metrics.decoupling);
+  const rejectedHr = filterInvalidatedServerMetrics(metrics, { power: false, heartRate: true, cadence: false });
+  expect(rejectedHr?.decoupling?.decouplingPct).toBeNull();
 });

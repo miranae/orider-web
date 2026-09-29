@@ -50,8 +50,8 @@ export const PUBLIC_ACTIVITY_METRICS_KEYS = [
   "version", "discipline", "activityType", "startTime", "computedAt",
   "durationSec", "movingTimeSec", "pauseTimeSec",
   "distanceKm", "distanceSource", "elevationGainM", "elevationLossM", "avgGrade", "maxGrade",
-  "avgSpeedKph", "maxSpeedKph", "avgCadence", "maxCadence",
-  "np", "avgPower", "avgHr", "cyclingDynamics", "lrBalance",
+  "avgSpeedKph", "maxSpeedKph", "avgCadence", "maxCadence", "cadenceUnit",
+  "np", "avgPower", "avgHr", "maxHr", "hrZoneSec", "runMetrics", "splits", "decoupling", "algorithmVersion", "cyclingDynamics", "lrBalance",
   "workKj", "caloriesKcal", "isVirtualPower", "gpsQuality", "weather",
   "sourceLayer", "inputPending", "inputCoverage",
 ] as const;

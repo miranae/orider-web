@@ -485,8 +485,8 @@ it.each([NaN, Infinity, "32", -1, 31.5, Number.MAX_SAFE_INTEGER + 1])("잘못된
 
 it.each([
   { version: ACTIVITY_METRICS_VERSION, distanceSource: "stream_counter", status: "ready" },
-  { version: 31, status: "ready" },
-  { version: 32, status: "ready" },
+  { version: 31, status: "stale" },
+  { version: 32, status: "stale" },
 ])("정상 버전 $version의 실측·이전 호환 거리는 보존한다", async ({ status, ...data }) => {
   setDocData("activity_metrics/valid-version", { ...data, distanceKm: 8 });
   const hook = renderHook(() => useActivityMetrics("valid-version"));
@@ -497,6 +497,16 @@ it.each([
 it.each([true, false])("dev32 실제 producer 거리의 owner/public hook 호환을 보존한다 owner=%s", async isOwner => {
   setDocData(`${isOwner ? "activity_metrics" : "activity_metrics_public"}/dev32-wire`, {version: 32, distanceKm: 1, durationSec: 300});
   const hook = renderHook(() => useActivityMetrics("dev32-wire", isOwner));
-  await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+  await waitFor(() => expect(hook.result.current.status).toBe("stale"));
   expect(resolveObservedDistanceKm(hook.result.current.metrics!)).toBe(1);
+});
+
+
+it("preserves public running metrics without exposing athlete context", () => {
+  const runMetrics = { gapAvgSec: 337.29, minPaceSecPerKm: 330, paceStdDevSec: 12 };
+  const splits = [{ km: 1, paceSec: 337, gapSec: 334, avgCadence: 95, avgHr: 150 }];
+  const projected = fromPublicActivityMetrics({ discipline: "run", runMetrics, splits, maxHr: 172, hrZoneSec: [0, 0, 100, 200, 0], cadenceUnit: "strides_per_minute", decoupling: { basis: "speed_hr", decouplingPct: 3 }, contextSnapshot: { ftp: 300 }, hrZoneBoundaries: { referenceBpm: 180 } });
+  expect(projected).toMatchObject({ runMetrics, splits, maxHr: 172, cadenceUnit: "strides_per_minute", decoupling: { basis: "speed_hr" } });
+  expect(projected.contextSnapshot).toBeUndefined();
+  expect(projected.hrZoneBoundaries).toBeUndefined();
 });

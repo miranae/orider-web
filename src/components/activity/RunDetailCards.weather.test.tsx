@@ -1,10 +1,12 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import type { Activity, ActivitySummary } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { RunRightCards } from "./RunDetailCards";
+
+vi.mock("../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: "metric" }) }));
 
 const summary = { tss: 40 } as unknown as ActivitySummary;
 
@@ -71,4 +73,14 @@ describe("WeatherCard 정본 전환 (#887)", () => {
     renderCard({ summary, activity: {} as Activity, metricsWeather: undefined, metricsStatus: "missing" });
     expect(screen.queryByText("환경")).not.toBeInTheDocument();
   });
+});
+
+it("GAP는 서버 값만 사용하고 고도에서 다시 추정하지 않는다", () => {
+  const summary = { averageSpeed: 12, distance: 21022.1, elevationGain: 51, tss: null } as ActivitySummary;
+  const { rerender } = renderCard({ summary, gapSecPerKm: 337.29 });
+  expect(screen.getByText("5:37/km")).toBeInTheDocument();
+  expect(screen.getByText("5:00/km")).toBeInTheDocument();
+  rerender(<RunRightCards summary={summary} gapSecPerKm={null} />);
+  expect(screen.queryByText("5:37/km")).not.toBeInTheDocument();
+  expect(screen.getByText("—")).toBeInTheDocument();
 });

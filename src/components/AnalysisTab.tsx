@@ -13,6 +13,7 @@ import InfoTip from "./InfoTip";
 import { VirtualPowerBadge } from "./activity/VirtualPowerBadge";
 import { Chip, Text } from "../theme/components";
 import { useActivityMetrics, type ActivityMetricsDoc, type UseActivityMetricsState } from "../hooks/useActivityMetrics";
+import RunAnalysisPanel from "./activity/RunAnalysisPanel";
 import ServerMetricsBanner from "./activity/ServerMetricsBanner";
 import { buildCyclingDynamicsCards, type CyclingDynamicsCardDescriptor } from "../features/activity/detail/cyclingDynamicsPresentation";
 import { LocalizedLink as Link } from "./LocalizedLink";
@@ -229,7 +230,7 @@ export function filterInvalidatedServerMetrics(
     });
   }
 
-  const decoupling = suppression.power || suppression.heartRate
+  const decoupling = suppression.heartRate || (suppression.power && metrics.decoupling?.basis !== "speed_hr" && metrics.decoupling?.basis !== "hr_only")
     ? {
         ...metrics.decoupling,
         ef: null,
@@ -476,6 +477,10 @@ export default function AnalysisTab({
           </div>
         </div>
       );
+
+  if (sport === "run" && sm) {
+    return <div className="space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel metrics={sm as ActivityMetricsDoc} summary={summary} suppressCadence={suppressServerCadenceMetrics} /></div>;
+  }
 
   // 공개 수치·존·파워곡선은 같은 서버 presentation에서 그린다. 기존 허용 그래프/랩은 보존한다.
   if (!isOwner && canonicalPresentationAvailable) {

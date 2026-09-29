@@ -16,6 +16,7 @@ const labels: Record<string, string> = {
   "stat.avgHr": "평균 심박수",
   "stat.avgPower": "평균 파워",
   "stat.cadence": "케이던스",
+  "stat.runningPower": "러닝 파워",
   "stat.runLoad": "러닝 부하",
   "stat.calories": "칼로리",
   "stat.deviceSummary": "기기 요약",
@@ -118,9 +119,8 @@ describe("ActivityStatsGrid", () => {
       "최고 페이스3'20\"/km기기 요약",
       "획득 고도240m기기 요약",
       "평균 심박수158bpm최대 181기기 요약",
-      "평균 파워310WNP 325기기 요약",
+      "러닝 파워310W기기 요약",
       "케이던스178spm기기 요약",
-      "러닝 부하92",
       "칼로리2,220kcal기기 요약",
     ]);
   });
@@ -135,9 +135,8 @@ describe("ActivityStatsGrid", () => {
       "최고 페이스4'00\"/km",
       "획득 고도300m하강 280m",
       "평균 심박수150bpm최대 175",
-      "평균 파워300WNP 320",
+      "러닝 파워300W",
       "케이던스170spm",
-      "러닝 부하92",
       "칼로리2,000kcal",
     ]);
     expect(screen.queryByTestId("stat-provisional")).not.toBeInTheDocument();
@@ -152,11 +151,11 @@ describe("ActivityStatsGrid", () => {
     expect(texts).not.toContain("178spm");
   });
 
-  it("NP 보조줄은 서버 np 단일 출처 — 요약의 normalizedPower 로 대체하지 않는다", () => {
+  it("러닝은 서버 NP가 있어도 사이클 보조줄을 보여주지 않는다", () => {
     renderGrid(readyState({ np: null }));
 
-    const power = cellTexts().find((text) => text?.startsWith("평균 파워"));
-    expect(power).toBe("평균 파워300W");
+    const power = cellTexts().find((text) => text?.startsWith("러닝 파워"));
+    expect(power).toBe("러닝 파워300W");
   });
 
   it("서버 상승이 null 이어도 하강이 있으면 칸을 내고 상승은 대시로 — 하강을 묻지 않는다", () => {

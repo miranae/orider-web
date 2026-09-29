@@ -46,6 +46,7 @@ export interface ActivityMetrics {
   xPower: number | null;
   workKj: number;
   caloriesKcal: number;
+  caloriesSource?: "provider"|"recorded"|"distance_weight"|"power"|"time";
 
   // ── 평균/최대
   avgPower: number | null;
@@ -53,6 +54,8 @@ export interface ActivityMetrics {
   avgHr: number | null;
   maxHr: number | null;
   avgCadence: number | null;
+  /** 종목·제공자 기준. 앱의 spm을 Strava strides/min처럼 두 배로 변환하지 않는다. */
+  cadenceUnit?: "rpm" | "spm" | "strides_per_minute" | null;
   avgSpeedKph: number | null;
   maxSpeedKph: number | null;
   distanceKm: number;
@@ -110,6 +113,8 @@ export interface ActivityMetrics {
     ef: number | null;            // NP / avgHR
     decouplingPct: number | null; // (EF_1H - EF_2H) / EF_1H × 100
     hrDriftPct: number | null;
+    /** 러닝은 속도/심박, 사이클은 파워/심박. 구버전의 무표시 값은 러닝 효율로 쓰지 않는다. */
+    basis?: "power_hr" | "speed_hr" | "hr_only";
   };
 
   // ── TRIMP / Suffer
@@ -242,6 +247,8 @@ export interface ActivityMetrics {
   startTime: number;
   computedAt: number;
   version: number;                 // 스키마/계산식 변경 시 증가
+  /** 계산 결과의 출처. 구버전 문서에는 없을 수 있다. */
+  algorithmVersion?: string;
   // 입력 컨텍스트 스냅샷 (재계산 시 무엇으로 계산했는지 추적)
   contextSnapshot: {
     ftp?: number;
@@ -277,4 +284,4 @@ export interface SplitRow {
 }
 
 /** 현재 ActivityMetrics 계산 스키마 버전. 변경 시 +1, backfill 트리거. */
-export const ACTIVITY_METRICS_VERSION = 22;
+export const ACTIVITY_METRICS_VERSION = 34;

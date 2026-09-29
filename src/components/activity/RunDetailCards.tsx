@@ -2,6 +2,9 @@
  * 러닝 활동 상세 카드 — ActivityPage 오버뷰 탭 좌측/우측에 삽입
  * 시안: activity-run.html 참조
  */
+import { runningCadenceSpm } from "../../utils/runningCadence";
+import { useLocale } from "../../contexts/LocaleContext";
+import { formatPace as formatPaceSec } from "../../utils/units";
 import { useTranslation } from "react-i18next";
 import type { Activity, ActivitySummary } from "@shared/types";
 import type { ActivityStreams } from "@shared/types";
@@ -12,14 +15,6 @@ import { useCanonicalSurfaceEnabled } from "../../hooks/useCanonicalRollout";
 import { conditionFromMetricsValue, weatherConditionLabelKey } from "../../utils/weatherCondition";
 
 // ── 유틸리티 ─────────────────────────────────────────────────────────────────
-
-function formatPace(kmh: number): string {
-  if (kmh <= 0) return "-";
-  const minPerKm = 60 / kmh;
-  const m = Math.floor(minPerKm);
-  const s = Math.round((minPerKm - m) * 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
 
 // ── 페이스 프로필 차트 ───────────────────────────────────────────────────────
 
@@ -228,11 +223,11 @@ function HRCard({ laps }: { laps?: ActivityStreams["laps"] }) {
 
 // ── 케이던스 차트 ────────────────────────────────────────────────────────────
 
-function CadenceCard({ laps }: { laps?: ActivityStreams["laps"] }) {
+function CadenceCard({ laps, cadenceUnit }: { laps?: ActivityStreams["laps"]; cadenceUnit?: ActivityMetrics["cadenceUnit"] }) {
   const { t } = useTranslation("activity");
-  if (!laps || laps.length === 0) return null;
+  if (!laps || laps.length === 0 || (cadenceUnit !== "spm" && cadenceUnit !== "strides_per_minute")) return null;
 
-  const cadences = laps.map(l => l.avgCadence ?? 0);
+  const cadences = laps.map(l => runningCadenceSpm(l.avgCadence, cadenceUnit) ?? 0);
   if (cadences.every(c => c === 0)) return null;
 
   const avg = Math.round(cadences.filter(c => c > 0).reduce((a, b) => a + b, 0) / cadences.filter(c => c > 0).length);
@@ -243,27 +238,12 @@ function CadenceCard({ laps }: { laps?: ActivityStreams["laps"] }) {
   const minC = Math.max(0, Math.min(...cadences.filter(c => c > 0)) - 5);
   const barW = Math.floor(w / cadences.length) - 2;
 
-  // 보폭 추정: avgSpeed(km/h) * 1000 / 60 / avgCadence m/step
-  // 대표 랩 (MAIN 랩들 평균)
-  const validLaps = laps.filter(l => (l.avgCadence ?? 0) > 0);
-  const avgSpeed = validLaps.length > 0
-    ? validLaps.reduce((s, l) => s + (l.avgSpeed ?? 0), 0) / validLaps.length
-    : 0;
-  const strideM = avg > 0 && avgSpeed > 0
-    ? ((avgSpeed * 1000) / 60 / avg).toFixed(2)
-    : '-';
-  const groundMs = avg > 0
-    ? Math.round((60000 / avg) * 0.4)
-    : null;
-
   // 180 spm 기준선의 y 좌표
   const refY = maxC > minC ? h - ((180 - minC) / (maxC - minC)) * h : h / 2;
 
   const stats = [
     { label: t("runCards.cadenceAvg"), value: `${avg}`, unit: 'spm' },
     { label: t("runCards.cadenceMax"), value: `${max}`, unit: 'spm' },
-    { label: t("runCards.strideEst"), value: strideM !== '-' ? strideM : '-', unit: strideM !== '-' ? 'm' : '' },
-    { label: t("runCards.groundEst"), value: groundMs != null ? `${groundMs}` : '-', unit: groundMs != null ? 'ms' : '' },
   ];
 
   return (
@@ -324,16 +304,11 @@ function CadenceCard({ laps }: { laps?: ActivityStreams["laps"] }) {
 
 // ── GAP 패널 ─────────────────────────────────────────────────────────────────
 
-function GapCard({ summary }: { summary: ActivitySummary }) {
+function GapCard({ summary, gapSecPerKm }: { summary: ActivitySummary; gapSecPerKm?: number | null }) {
   const { t } = useTranslation("activity");
-  const avgPace = summary.averageSpeed > 0 ? formatPace(summary.averageSpeed) : '-';
-  // GAP 추정: 평지 보정 (고도 영향 근사)
-  const distKm = summary.distance / 1000;
-  const elevGain = summary.elevationGain;
-  const gainPctAdj = distKm > 0 ? (elevGain / distKm) * 0.033 : 0; // 고도 보정 계수
-  const avgSpeedKmh = summary.averageSpeed;
-  const gapSpeedKmh = avgSpeedKmh * (1 + gainPctAdj);
-  const gapPace = gapSpeedKmh > 0 ? formatPace(gapSpeedKmh) : '-';
+  const { units } = useLocale();
+  const avgPace = summary.averageSpeed > 0 ? formatPaceSec(3600 / summary.averageSpeed, units) : "—";
+  const gapPace = gapSecPerKm != null && gapSecPerKm > 0 ? formatPaceSec(gapSecPerKm, units) : "—";
 
   return (
     <Card padding="none" style={{ padding: "var(--space-4)" }}>
@@ -342,11 +317,11 @@ function GapCard({ summary }: { summary: ActivitySummary }) {
       <div className="text-[length:var(--fs-xs)]" style={{ display: 'flex', flexDirection: 'column', gap: "var(--space-2)" }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: 'var(--ink-3)' }}>{t("runCards.avgPace")}</span>
-          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-1)' }}>{avgPace}/km</span>
+          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-1)' }}>{avgPace}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: 'var(--ink-3)' }}>{t("runCards.gapPace")}</span>
-          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--lime)', fontWeight: 600 }}>{gapPace}/km</span>
+          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--lime)', fontWeight: 600 }}>{gapPace}</span>
         </div>
       </div>
     </Card>
@@ -363,11 +338,11 @@ function RunLoadCard({ tss }: { tss: number | null }) {
 
   return (
     <Card padding="none" style={{ padding: "var(--space-4)" }}>
-      <Text as="div" variant="label" tone="primary" style={{ marginBottom: "var(--space-1)" }}>{t("runCards.runLoadTitle")}</Text>
-      <Text as="div" variant="bodySmall" tone="tertiary" style={{ marginBottom: 'var(--space-3)' }}>{t("runCards.runLoadDesc")}</Text>
+      <Text as="div" variant="label" tone="primary" style={{ marginBottom: "var(--space-1)" }}>{t("analysis.run.hrLoad")}</Text>
+      <Text as="div" variant="bodySmall" tone="tertiary" style={{ marginBottom: 'var(--space-3)' }}>{t("analysis.run.hrLoadDesc")}</Text>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: "var(--space-1-5)", marginBottom: 'var(--space-3)' }}>
         <Text variant="dataHero" mono style={{ color }}>{Math.round(tss)}</Text>
-        <Text variant="unit" tone="secondary" mono>rTSS</Text>
+        <Text variant="unit" tone="secondary" mono>hrTSS</Text>
       </div>
       <div style={{ height: 4, background: 'var(--bg-3)', borderRadius: 'var(--r-sm)', marginBottom: 'var(--space-2)', position: 'relative' }}>
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `linear-gradient(90deg, var(--lime), ${color})`, borderRadius: 'var(--r-sm)' }} />
@@ -390,9 +365,11 @@ function RunLoadCard({ tss }: { tss: number | null }) {
 /** 러닝 활동 상세 — 좌측 컬럼용 차트/테이블 */
 export function RunLeftCards({
   streams,
+  cadenceUnit,
   thresholdPaceSecPerKm,
 }: {
   streams?: ActivityStreams | null;
+  cadenceUnit?: ActivityMetrics["cadenceUnit"];
   /** 스플릿 존 계산 기준. 없으면 존 열이 '-' 로 표시된다. */
   thresholdPaceSecPerKm?: number | null;
 }) {
@@ -400,8 +377,8 @@ export function RunLeftCards({
     <>
       <PaceChart laps={streams?.laps} />
       <HRCard laps={streams?.laps} />
-      <CadenceCard laps={streams?.laps} />
-      <SplitTable laps={streams?.laps} thresholdPaceSecPerKm={thresholdPaceSecPerKm} />
+      <CadenceCard laps={streams?.laps} cadenceUnit={cadenceUnit} />
+      <SplitTable laps={streams?.laps?.map(lap => ({ ...lap, avgCadence: runningCadenceSpm(lap.avgCadence, cadenceUnit) ?? 0 }))} thresholdPaceSecPerKm={thresholdPaceSecPerKm} />
     </>
   );
 }
@@ -518,16 +495,18 @@ function GearCard({ gear }: { gear?: Activity["gear"] }) {
 }
 
 /** 러닝 활동 상세 — 우측 사이드바용 카드 */
-export function RunRightCards({ summary, activity, metricsWeather, metricsStatus }: {
+export function RunRightCards({ summary, activity, metricsWeather, metricsStatus, gapSecPerKm, hrLoad }: {
   summary: ActivitySummary;
+  gapSecPerKm?: number | null;
+  hrLoad?: number | null;
   activity?: Activity;
   metricsWeather?: ActivityMetrics["weather"];
   metricsStatus?: WeatherMetricsStatus;
 }) {
   return (
     <>
-      <RunLoadCard tss={summary.tss} />
-      <GapCard summary={summary} />
+      <RunLoadCard tss={hrLoad ?? null} />
+      <GapCard summary={summary} gapSecPerKm={gapSecPerKm} />
       <WeatherCard weather={activity?.weather} metricsWeather={metricsWeather} metricsStatus={metricsStatus} />
       <GearCard gear={activity?.gear} />
     </>

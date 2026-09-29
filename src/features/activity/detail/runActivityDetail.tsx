@@ -4,12 +4,14 @@
  * ActivityPage 가 품질 예산(파일 1600줄) 상한에 가까우므로 러닝 상태·JSX 를 여기로 분리한다.
  */
 import type { Activity, UserProfile } from "@shared/types";
+import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { RunPrTable } from "@shared/types/personal-records";
 import RunRecordBanner from "../../../components/activity/RunRecordBanner";
 import RunInterpretationCard from "../../../components/activity/RunInterpretationCard";
 import { useRunBaselinePace } from "../../../hooks/useRunBaselinePace";
 import { useRunRecords } from "../../../hooks/useRunRecords";
 import type { InterpretationContext } from "../../../utils/metricInterpretation";
+import { runningCadenceSpm } from "../../../utils/runningCadence";
 import { getSportCategory } from "./activityDetailUtils";
 
 export interface RunActivityDetail {
@@ -27,6 +29,7 @@ export interface RunActivityDetail {
 export function useRunActivityDetail(
   activity: Activity | null,
   profile: UserProfile | null | undefined,
+  metrics?: Pick<ActivityMetrics, "avgCadence" | "cadenceUnit"> | null,
 ): RunActivityDetail {
   const isRun = getSportCategory(activity?.type) === "run";
   // `isRun` 게이트가 두 가지를 동시에 막는다: 자전거·수영 상세의 불필요한 100문서 읽기,
@@ -36,6 +39,9 @@ export function useRunActivityDetail(
 
   const s = activity?.summary;
   const speed = s?.averageSpeed ?? 0;
+  const cadenceUnit = metrics?.cadenceUnit !== undefined ? metrics.cadenceUnit
+    : activity?.source === "strava" ? "strides_per_minute" : activity?.source === "orider" ? "spm" : null;
+  const cadenceSpm = runningCadenceSpm(metrics ? metrics.avgCadence : s?.averageCadence, cadenceUnit);
   return {
     isRun,
     runRecords,
@@ -45,8 +51,8 @@ export function useRunActivityDetail(
       ? {
           paceSecPerKm: speed > 0 ? Math.round(3600 / speed) : null,
           baselinePaceSecPerKm: baseline.paceSecPerKm,
-          cadenceSpm: s.averageCadence ?? null,
-          rtss: s.tss ?? null,
+          cadenceSpm,
+          rtss: null,
           thresholdPaceSecPerKm: profile?.thresholdPace ?? null,
         }
       : undefined,

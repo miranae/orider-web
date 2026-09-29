@@ -16,6 +16,7 @@ type ActivityStatsGridProps = {
    */
   stats: SummaryStripStats;
   sport: SportCategory;
+  runTrainingLoad?: number | null;
   /**
    * 지표 해설(ⓘ)에 쓸 개인화 컨텍스트. 없으면 해설 트리거를 붙이지 않는다 —
    * 근거 없는 개인화 문장을 지어내지 않기 위해(설계 문서 §3.2).
@@ -119,6 +120,7 @@ export function ActivityStatsGrid({
   summary: s,
   stats,
   sport,
+  runTrainingLoad,
   interpretationContext,
   movingTimeSec,
   pauseTimeSec,
@@ -157,8 +159,8 @@ export function ActivityStatsGrid({
   const avgPowerCell = stats.avgPower.value != null && (sport === "ride" || sport === "run")
     ? (
       <MetricCell
-        label={t("stat.avgPower")}
-        sub={stats.np.value != null ? `NP ${round(stats.np.value)}` : undefined}
+        label={t(sport === "run" ? "stat.runningPower" : "stat.avgPower")}
+        sub={sport === "ride" && stats.np.value != null ? `NP ${round(stats.np.value)}` : undefined}
         provisionalLabel={provisional(stats.avgPower)}
       >
         <Value>{round(stats.avgPower.value)}</Value>
@@ -357,12 +359,12 @@ export function ActivityStatsGrid({
           </MetricCell>
         )}
 
-        {s.tss != null && (
+        {(sport === "run" ? runTrainingLoad != null : s.tss != null) && (
           <MetricCell
-            label={sport === "run" ? t("stat.runLoad") : sport === "swim" ? "sTSS" : "TSS"}
-            explain={explainFor("rtss")}
+            label={sport === "run" ? t("analysis.run.hrLoad") : sport === "swim" ? "sTSS" : "TSS"}
+            explain={sport === "run" ? undefined : explainFor("rtss")}
           >
-            <Value>{Math.round(s.tss)}</Value>
+            <Value>{Math.round((sport === "run" ? runTrainingLoad : s.tss) ?? 0)}</Value>
           </MetricCell>
         )}
 

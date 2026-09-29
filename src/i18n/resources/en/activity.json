@@ -37,7 +37,8 @@
     "atl": "Fatigue · ATL",
     "tsb": "Form · TSB",
     "ftp": "Analysis FTP",
-    "qualityFooter": "※ Measured values are used when user-approved values are unavailable."
+    "qualityFooter": "※ Measured values are used when user-approved values are unavailable.",
+    "runThresholdMissing": "Set threshold pace and maximum heart rate for running intensity and comparisons."
   },
   "overviewEvidence": {
     "overviewTitle": "ORider activity overview",
@@ -207,7 +208,9 @@
     "ftpVerificationRequired": "FTP verification required · load and intensity use a provisional threshold.",
     "previousBestPct": "Previous best %",
     "previousBestScope": "Previous best excludes this activity; a new record can exceed 100%.",
-    "zoneProvisional": "Provisional zone comparisons · includes historical FTP requiring verification"
+    "zoneProvisional": "Provisional zone comparisons · includes historical FTP requiring verification",
+    "runRecords": "Running distance records",
+    "runModelNote": "Recovery and fuel are estimates based on recorded data, not direct physiological measurements."
   },
   "title": "Activity",
   "ftpDecision": {
@@ -285,7 +288,8 @@
     "dataWarningTooltip": "GPS noise or short activity — avg/max speed is unrealistic. Some stats show '—'.",
     "movingTimeTotalSimple": "Moving time · total {{elapsed}}",
     "movingAvgTotal": "Moving avg · total {{total}} km/h",
-    "dataWarningRaw": "Data anomaly — raw value {{value}} km/h"
+    "dataWarningRaw": "Data anomaly — raw value {{value}} km/h",
+    "runningPower": "Running power"
   },
   "ai": {
     "header": "🤖 AI Ride Analysis",
@@ -397,7 +401,8 @@
       "daysAgo": "{{count}} days ago",
       "daysAgo_one": "{{count}} day ago",
       "daysAgo_other": "{{count}} days ago"
-    }
+    },
+    "runSplitsLink": "View pace and km splits"
   },
   "socialErrors": {
     "auth": "Your sign-in has expired. Please sign in again.",
@@ -522,7 +527,8 @@
     "speed": "Speed",
     "hr": "HR",
     "power": "Power",
-    "cadence": "Cadence"
+    "cadence": "Cadence",
+    "pace": "Pace"
   },
   "segments": {
     "title": "Segments",
@@ -824,6 +830,18 @@
         "hr": "HR",
         "rpm": "RPM"
       }
+    },
+    "run": {
+      "recordedCadence": "Recorded cadence",
+      "cadenceUnit": "cycles/min",
+      "cadenceDesc": "As recorded. Depending on the provider or sensor, this may count strides or total steps.",
+      "powerDesc": "Recorded running power. Cycling FTP and normalized power do not apply.",
+      "splitsUnits": "Splits cover 1 km each; pace uses your selected distance unit.",
+      "splitsUnavailable": "Km splits are not available in the shared analysis yet. Available pace and heart-rate metrics are shown.",
+      "paceHrDecoupling": "Pace/HR decoupling",
+      "paceHrDecouplingDesc": "Change in speed-to-heart-rate efficiency between halves. Hills, heat and pace changes can affect it.",
+      "hrLoad": "Heart-rate running load",
+      "hrLoadDesc": "Training load derived from recorded heart rate, separate from threshold-pace rTSS."
     }
   },
   "metabolism": {
@@ -1008,7 +1026,7 @@
     "strideEst": "Stride (est.)",
     "groundEst": "GCT (est.)",
     "gapTitle": "Grade-Adjusted Pace (GAP)",
-    "gapDesc": "Uphill/downhill correction",
+    "gapDesc": "Server pace adjusted for the effect of gradients",
     "avgPace": "Avg Pace",
     "gapPace": "GAP",
     "runLoadTitle": "Training Load",
@@ -1197,7 +1215,11 @@
     "retryHint": "Your coaching stays available. Reload just the share summary.",
     "retryError": "Could not load the share summary. Please try again.",
     "title": "Share summary",
-    "sports": { "bike": "Cycling", "run": "Running", "swim": "Swimming" },
+    "sports": {
+      "bike": "Cycling",
+      "run": "Running",
+      "swim": "Swimming"
+    },
     "settled": "Previous day close → activity day close",
     "pendingTitle": "Previous day close",
     "ctl": "CTL · Fitness",

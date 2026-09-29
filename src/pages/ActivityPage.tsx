@@ -32,6 +32,7 @@ import { isImplausibleAvgSpeed, isImplausibleMaxSpeed } from "../utils/activityS
 import { getStravaActivityId } from "../utils/stravaActivity";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { usePdc } from "../hooks/usePdc";
+import { runningCadenceSpm } from "../utils/runningCadence";
 import { RunLeftCards, RunRightCards } from "../components/activity/RunDetailCards";
 import { SwimLeftCards, SwimRightCards } from "../components/activity/SwimDetailCards";
 import KudosCommentsCard from "../components/activity/KudosCommentsCard";
@@ -462,7 +463,13 @@ export default function ActivityPage() {
     () => buildSampledData(effectiveStreams, sensorSelectionContext),
     [effectiveStreams, sensorSelectionContext],
   );
-  const availableOverlays = useMemo(() => getAvailableOverlays(sampledData), [sampledData]);
+  const recordedRunCadenceUnit = serverMetrics.metrics?.cadenceUnit ?? (activity?.source === "strava" ? "strides_per_minute" : activity?.source === "orider" ? "spm" : null);
+  const availableOverlays = useMemo(() => getAvailableOverlays(sampledData).map(cfg => {
+    if (sport !== "run") return cfg;
+    if (cfg.key === "speed") return { ...cfg, label: "pace", unit: units === "imperial" ? "min/mi" : "min/km", getValue: (d: typeof sampledData[number]) => d.speed > 0 ? 60 / d.speed * (units === "imperial" ? 1.609344 : 1) : null };
+    if (cfg.key === "cadence") return { ...cfg, unit: recordedRunCadenceUnit == null ? t("analysis.run.cadenceUnit") : "spm", getValue: (d: typeof sampledData[number]) => recordedRunCadenceUnit == null ? d.cadence : runningCadenceSpm(d.cadence, recordedRunCadenceUnit) };
+    return cfg;
+  }), [sampledData, sport, units, recordedRunCadenceUnit, t]);
   const summaryStats = useMemo(
     () => buildSummaryStats(effectiveStreams, streamSensorSummary),
     [effectiveStreams, streamSensorSummary],
@@ -478,7 +485,7 @@ export default function ActivityPage() {
   );
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
   const hasStreams = sampledData.length > 0;
-  const runDetail = useRunActivityDetail(activity, profile);
+  const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics);
 
   if (loadingActivity) {
     return (
@@ -556,20 +563,20 @@ export default function ActivityPage() {
   };
   // Until streams and activity_metrics share a revision fingerprint, any raw power candidate
   // makes saved/server NP and TSS provenance unprovable. Keep trusted stream avg/max only.
-  const activityTss = hasStreamPowerCandidate
+  const activityTss = sport === "run" ? serverMetrics.metrics?.streamTrimpTss ?? null : hasStreamPowerCandidate
     ? null
     : serverMetrics.metrics?.tss ?? s.tss;
-  const activityNp = hasStreamPowerCandidate
+  const activityNp = sport !== "ride" || hasStreamPowerCandidate
     ? null
     : serverMetrics.metrics?.np ?? normalizedPowerValue;
 
   const sharePerformanceMetrics = [
-    shareMetric(t("page.share.tss"), activityTss),
-    shareMetric(activityNp != null ? t("page.share.normalizedPower") : t("stat.avgPower"), activityNp ?? avgPowerValue, "W"),
+    shareMetric(t(sport === "run" ? "analysis.run.hrLoad" : "page.share.tss"), activityTss),
+    shareMetric(activityNp != null ? t("page.share.normalizedPower") : t(sport === "run" ? "stat.runningPower" : "stat.avgPower"), activityNp ?? avgPowerValue, "W"),
     shareMetric("CTL", fitnessAtActivity?.ctl),
     shareMetric("ATL", fitnessAtActivity?.atl),
     shareMetric("TSB", fitnessAtActivity?.tsb, undefined, true),
-    shareMetric(t("page.share.vo2max"), bikePdc?.vo2maxEst),
+    sport === "ride" ? shareMetric(t("page.share.vo2max"), bikePdc?.vo2maxEst) : null,
   ].filter((metric): metric is ActivityShareMetric => metric != null);
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const stravaActivityId = getStravaActivityId(activity);
@@ -600,13 +607,18 @@ export default function ActivityPage() {
   });
   const fallbackAvgKph = resolveAvgSpeedKph(s.distance, speedDur, s.averageSpeed);
   // 요약 스트립도 AnalysisTab 과 같은 서버 정본을 쓴다 — 한 화면에서 값이 갈리지 않도록 (#885 §2).
-  const stripStats = resolveSummaryStripStats(serverMetrics, {
+  const rawStripStats = resolveSummaryStripStats(serverMetrics, {
     summary: displayedSummary,
     avgPowerValue,
     avgSpeedFallbackKph: fallbackAvgKph,
     normalizedPowerValue,
     hasStreamPowerCandidate,
   });
+  const runCadenceUnit = recordedRunCadenceUnit;
+  const stripStats = sport === "run" ? {
+    ...rawStripStats,
+    avgCadence: { ...rawStripStats.avgCadence, value: runningCadenceSpm(rawStripStats.avgCadence.value, runCadenceUnit) },
+  } : rawStripStats;
   const displayAvgKph = stripStats.avgSpeedKph.value ?? fallbackAvgKph;
   const displayAvgImplausible = isImplausibleAvgSpeed(displayAvgKph, discipline);
 
@@ -655,12 +667,12 @@ export default function ActivityPage() {
       : null,
     stripStats.avgPower.value != null && (sport === "ride" || sport === "run")
       ? {
-          label: t("stat.avgPower"),
+          label: t(sport === "run" ? "stat.runningPower" : "stat.avgPower"),
           value: String(Math.round(stripStats.avgPower.value)),
           unit: "W",
           // NP 는 서버 metrics.np 단일 출처 (#885 §3) — 같은 페이지에서 두 출처가 갈리지 않도록.
           sub: sensorSub(
-            stripStats.np.value != null ? `NP ${Math.round(stripStats.np.value)} W` : undefined,
+            sport === "ride" && stripStats.np.value != null ? `NP ${Math.round(stripStats.np.value)} W` : undefined,
             stripStats.avgPower,
           ),
         }
@@ -694,6 +706,7 @@ export default function ActivityPage() {
   const keyStatsStrip = (
     <Card padding="none" style={{ padding: 0 }}>
       <ActivityStatsGrid
+        runTrainingLoad={serverMetrics.metrics?.streamTrimpTss ?? null}
         summary={displayedSummary}
         stats={stripStats}
         sport={sport}
@@ -920,7 +933,7 @@ export default function ActivityPage() {
       />
 
       {/* ── 분석 탭 ── */}
-      {activeTab === "analysis" && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
+      {activeTab === "analysis" && sport !== "run" && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
         <div className="space-y-4">
           <SummarySensorFallbackCard
             title={t("page.summarySensorTitle")}
@@ -930,7 +943,7 @@ export default function ActivityPage() {
           <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
         </div>
       )}
-      {activeTab === "analysis" && hasAnalysisStreams && streams && analysisProjection && analysisTabProps && (
+      {activeTab === "analysis" && sport !== "run" && hasAnalysisStreams && streams && analysisProjection && analysisTabProps && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
               훅이 소유권과 활성 자전거를 함께 검증해 비소유자의 프로필로 활동 스트림을
@@ -961,11 +974,20 @@ export default function ActivityPage() {
           <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} />
         </Card>
       )}
+      {activeTab === "analysis" && sport === "run" && <AnalysisTab
+        {...analysisTabProps}
+        activityId={activityId}
+        isOwner={isActivityOwner}
+        sport="run"
+        streams={streams ?? { userId: activity.userId, time: [], distance: [] }}
+        summary={displayedSummary}
+        canonicalPresentationAvailable={overview.response?.status === "available"}
+      />}
       {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />}
 
       {/* ── 스플릿 탭 (러닝 전용) ── */}
       {activeTab === "splits" && sport === "run" && streams && (
-        <RunLeftCards streams={streams} thresholdPaceSecPerKm={profile?.thresholdPace ?? null} />
+        <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={profile?.thresholdPace ?? null} />
       )}
 
       {/* ── 랩 탭 ── */}
@@ -1099,7 +1121,7 @@ export default function ActivityPage() {
                     return [
                       <span key={`${cfg.key}-sep`} style={{ color: 'var(--line)' }}>|</span>,
                       <span key={cfg.key} style={{ color: cfg.dotColor }}>
-                        {t(`overlay.${cfg.label}`)} {cfg.key === "speed" ? val.toFixed(1) : Math.round(val)} {cfg.unit}
+                        {t(`overlay.${cfg.label}`)} {cfg.key === "speed" ? val.toFixed(sport === "run" ? 2 : 1) : Math.round(val)} {cfg.unit}
                       </span>,
                     ];
                   })}
@@ -1108,12 +1130,14 @@ export default function ActivityPage() {
                 <>
                   <span style={{ color: "var(--color-success)" }}>{t("page.elevationRange", { min: Math.round(summaryStats.minElev), max: Math.round(summaryStats.maxElev) })}</span>
                   {availableOverlays.flatMap((cfg) => {
-                    const stat = summaryStats.overlays[cfg.key];
+                    const rawStat = summaryStats.overlays[cfg.key];
+                    const stat = rawStat && sport === "run" && cfg.key === "speed" ? { ...rawStat, avg: rawStat.avg > 0 ? 60 / rawStat.avg * (units === "imperial" ? 1.609344 : 1) : 0 }
+                      : rawStat && sport === "run" && cfg.key === "cadence" && recordedRunCadenceUnit != null ? { ...rawStat, avg: runningCadenceSpm(rawStat.avg, recordedRunCadenceUnit) ?? rawStat.avg } : rawStat;
                     if (!stat || !activeOverlays.has(cfg.key)) return [];
                     return [
                       <span key={`${cfg.key}-sep`} style={{ color: 'var(--line)' }}>|</span>,
                       <span key={cfg.key} style={{ color: cfg.dotColor }}>
-                        {t("page.avgPrefix")} {cfg.key === "speed" ? stat.avg.toFixed(1) : Math.round(stat.avg)} {cfg.unit}
+                        {t("page.avgPrefix")} {cfg.key === "speed" ? stat.avg.toFixed(sport === "run" ? 2 : 1) : Math.round(stat.avg)} {cfg.unit}
                       </span>,
                     ];
                   })}
@@ -1154,7 +1178,7 @@ export default function ActivityPage() {
       <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null} />
 
       {/* 러닝/수영 전용 상세 카드 (좌측, 개요 탭에서만) */}
-      {activeTab === "overview" && sport === "run" && streams && <RunLeftCards streams={streams} thresholdPaceSecPerKm={profile?.thresholdPace ?? null} />}
+      {activeTab === "overview" && sport === "run" && streams && <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={profile?.thresholdPace ?? null} />}
       {activeTab === "overview" && sport === "swim" && streams && <SwimLeftCards streams={streams} />}
 
       {/* 사진 (가로 스크롤) — Strava + 업로드 사진 */}
@@ -1345,6 +1369,8 @@ export default function ActivityPage() {
       <div className="lg:w-80 flex-shrink-0 space-y-6 lg:pl-6 lg:[border-left:1px_solid_var(--line-soft)]">
       {sport === "run" && (
         <RunRightCards
+          hrLoad={serverMetrics.metrics?.streamTrimpTss ?? null}
+          gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null}
           summary={s}
           activity={activity}
           metricsWeather={serverMetrics.metrics?.weather}

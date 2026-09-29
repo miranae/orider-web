@@ -14,6 +14,7 @@ interface ServerMetricsBannerProps {
   state: UseActivityMetricsState;
   suppressPowerMetrics?: boolean;
   suppressHeartRateMetrics?: boolean;
+  showStatusWithoutMetrics?: boolean;
 }
 
 /** 신뢰도 임계 — 이 아래면 type label de-emphasize + hint hide. */
@@ -41,6 +42,7 @@ export default function ServerMetricsBanner({
   state,
   suppressPowerMetrics = false,
   suppressHeartRateMetrics = false,
+  showStatusWithoutMetrics = false,
 }: ServerMetricsBannerProps) {
   const { t } = useTranslation("activity");
 
@@ -103,7 +105,7 @@ export default function ServerMetricsBanner({
     items.push({ label: t("serverMetrics.movingTimeLabel"), value: fmtSec(m.movingTimeSec), hint: t("serverMetrics.pauseHint", { time: fmtSec(m.pauseTimeSec) }) });
   }
 
-  if (items.length === 0) return null;
+  if (items.length === 0 && (!showStatusWithoutMetrics || (!isStale && !m.inputPending && m.inputCoverage !== "partial_terminal"))) return null;
 
   return (
     <Card style={{ padding: "var(--space-3)", marginBottom: "var(--space-4)" }}>

@@ -4,7 +4,7 @@ import { LocalizedLink as Link } from "./LocalizedLink";
 import { logClientError } from "../services/errorLogger";
 import { useLocale } from "../contexts/LocaleContext";
 import { useStrava } from "../hooks/useStrava";
-import { formatDistance, formatSpeed, formatElev } from "../utils/units";
+import { formatDistance, formatSpeed, formatElev, formatPace } from "../utils/units";
 import { resolveDuration, resolveAvgSpeedKph } from "../utils/activityTime";
 import { getStravaActivityId } from "../utils/stravaActivity";
 import type { Activity } from "@shared/types";
@@ -233,6 +233,7 @@ export default function ActivityCard({
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();
   const s = activity.summary ?? EMPTY_ACTIVITY_SUMMARY;
+  const isRun = getDiscipline(activity.type) === "run";
   // 작성자는 프로필(users_public)이 정본이다 — 활동 문서의 nickname 은 업로드 시점 복제본이라
   // 앱 업로드분엔 아예 없고(#2444) 개명 후엔 옛 이름으로 남는다.
   const author = useActivityAuthor(activity);
@@ -400,8 +401,8 @@ export default function ActivityCard({
               const implausible = isImplausibleAvgSpeed(avgKph, getDiscipline(activity.type) ?? undefined);
               return (
                 <StatBlock
-                  label={t("stat.avgSpeed")}
-                  value={implausible ? "—" : formatSpeed(avgKph / 3.6, units, 'bike')}
+                  label={t(isRun ? "stat.avgPace" : "stat.avgSpeed")}
+                  value={implausible || avgKph <= 0 ? "—" : isRun ? formatPace(3600 / avgKph, units) : formatSpeed(avgKph / 3.6, units, 'bike')}
                   title={implausible
                     ? t("stat.dataWarningRaw", { value: avgKph.toFixed(1) })
                     : (sd.usingMoving ? t("stat.movingAvgTotal", { total: s.averageSpeed.toFixed(1) }) : undefined)}
@@ -410,17 +411,17 @@ export default function ActivityCard({
             })()}
             {/* 센서 미연결 (0 W / 0 bpm) 케이스는 stat 숨김 — 광고 유입자에게
              *  "데이터 없음" 인상보다 stat 카드가 일관성 있게 노출되는 게 낫다. */}
-            {(() => {
-              const pw = s.averagePower ?? activity.avgPower;
-              return pw != null && pw > 0 ? (
-                <StatBlock label={t("stat.powerShort")} value={`${Math.round(pw)} W`} />
-              ) : null;
-            })()}
             {s.averageHeartRate != null &&
               s.averageHeartRate > 0 &&
               !isImplausibleActivityHeartRate(s.averageHeartRate) && (
               <StatBlock label={t("stat.avgHrShort")} value={`${s.averageHeartRate} bpm`} />
-            )}
+            )}            {(() => {
+              const pw = s.averagePower ?? activity.avgPower;
+              return pw != null && pw > 0 ? (
+                <StatBlock label={t(isRun ? "stat.runningPower" : "stat.powerShort")} value={`${Math.round(pw)} W`} />
+              ) : null;
+            })()}
+
           </div>
         </div>
 
@@ -446,7 +447,7 @@ export default function ActivityCard({
             </div>
           ) : (
             <div className="text-[length:var(--fs-xs)] text-center" style={{ color: 'var(--ink-4)' }}>
-              {t("card.noAchievements")}
+              {isRun ? <Link to={`/activity/${activity.id}`}>{t("card.runSplitsLink")}</Link> : t("card.noAchievements")}
             </div>
           )}
         </div>

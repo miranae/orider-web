@@ -301,14 +301,14 @@ export function useActivityAnalysisModel(
   }, [activePowerOverride, wattsOverride]);
 
   const analysisTabProps = useMemo<AnalysisTabProps | null>(() => {
-    if (!activity || !analysisProjection || !displayedSummary) return null;
+    if (!activity || (!analysisProjection && sport !== "run") || !displayedSummary) return null;
     return {
       activityId: activityId ?? null,
       isOwner: isActivityOwner,
       canonicalPresentationAvailable: overview.response?.status === "available",
       overviewRecovery: overview.response?.status === "available" ? overview.response.presentation.recovery ?? null : null,
       startTime: activity.startTime,
-      streams: analysisProjection.streams,
+      streams: analysisProjection?.streams ?? { userId: activity.userId, time: [], distance: [] },
       summary: resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics),
       sport,
       suppressServerPowerMetrics,

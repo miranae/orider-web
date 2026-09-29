@@ -27,8 +27,8 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   const thresholdMissing = p.thresholdBasis === "none";
   const duration = (value: number) => `${Math.floor(Math.round(value) / 60)}${copy("minute")} ${Math.round(value) % 60}${copy("second")}`;
   const powerDuration = (value: string) => i18n.language.startsWith("ko") ? value.replace(/s$/, "초").replace(/m$/, "분").replace(/h$/, "시간") : value;
-  const powerVisible = p.availability?.power !== "private";
-  const powerEstimated = p.availability?.power === "estimated";
+  const powerVisible = p.availability?.power !== "private" && p.session.discipline === "bike";
+  const powerEstimated = p.session.discipline === "bike" && p.availability?.power === "estimated";
   const zones = (p.zones ?? []).filter((zone) => zone.kind === "power" ? powerVisible : p.availability?.heartRate !== "private");
   const highZone = zones.find((zone) => zone.kind === "power") ?? zones.find((zone) => zone.kind === "heartRate");
   // Format the canonical zone-time aggregate exactly as the share formatter does.
@@ -88,7 +88,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       {!!personal.length && <Stack gap="var(--dim-item-gap)">{personal.map((row) => <Stack key={row.axis} direction="row" justify="space-between" align="baseline" wrap><Text variant="bodySmall" tone="secondary">{label(`axes.${row.axis}`)} · {label(`bands.${row.band}`)}</Text><Text variant="bodyMedium" mono tone="primary">{copy("index")} {number(row.personalIndex)}</Text></Stack>)}</Stack>}
       {!personal.length && (thresholdMissing
         ? <Stack gap="var(--dim-item-gap)">
-            {note(voice("thresholdMissing"))}
+            {note(p.session.discipline === "run" && isOwner ? copy("runThresholdMissing") : voice("thresholdMissing"))}
             {isOwner && <Link to="/settings?section=training" className={buttonClass({ size: "sm", variant: "outline" })}>
               {copy("thresholdMissingCta")}
             </Link>}

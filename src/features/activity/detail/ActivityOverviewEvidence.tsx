@@ -23,8 +23,8 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
       </Stack>
     </Card>)}</div>
   </section>;
-  const powerVisible = p.availability?.power !== "private";
-  const powerEstimated = p.availability?.power === "estimated";
+  const powerVisible = p.availability?.power !== "private" && p.session.discipline === "bike";
+  const powerEstimated = p.session.discipline === "bike" && p.availability?.power === "estimated";
   const hrVisible = p.availability?.heartRate !== "private";
   const recordsVisible = p.availability?.records === "evaluated";
   const effort = powerVisible ? p.thresholdWork : undefined;
@@ -82,12 +82,12 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
       {loadIndex && <Text as="p" variant="bodyMedium" tone="primary">{t("overviewEvidence.loadIndex", { index: Math.round(loadIndex.personalIndex), top: Math.max(1, 100 - Math.round(loadIndex.personalIndex)) })}</Text>}
       {p.personal?.length ? table([label("axis"), label("index"), label("band"), label("samples")], p.personal.map((row) => [label(`axes.${row.axis}`), number(row.personalIndex), label(`bands.${row.band}`), number(row.sampleCount)])) : <Text as="p" variant="caption">{label(`personalStates.${p.availability?.personal ?? "unavailable"}`)}</Text>}
     </section>
-    <section className="space-y-3">{heading("powerComparison")}<Text as="p" variant="caption" tone="tertiary">{label("prScope")}</Text>
-      {powerVisible && p.powerFingerprint?.length ? table([label("duration"), "W", label("allTimeBest"), label("bestPct"), label("previousBestPct"), label("median"), label("change"), label("rank"), label("samples"), "PR"], p.powerFingerprint.map((row) => [row.duration, number(row.watts),
+    <section className="space-y-3">{heading(p.session.discipline === "run" ? "runRecords" : "powerComparison")}<Text as="p" variant="caption" tone="tertiary">{label("prScope")}</Text>
+      {p.session.discipline === "bike" ? (powerVisible && p.powerFingerprint?.length ? table([label("duration"), "W", label("allTimeBest"), label("bestPct"), label("previousBestPct"), label("median"), label("change"), label("rank"), label("samples"), "PR"], p.powerFingerprint.map((row) => [row.duration, number(row.watts),
         recordsVisible ? number(row.allTimeBestWatts, " W") : "—", number(bestPct(row), "%"), recordsVisible ? number(row.previousBestPct, "%") : "—",
-        number(row.medianWatts, " W"), delta(row.deltaPct, "%"), number(row.competitionRank), number(row.priorSampleCount), recordsVisible ? record(row.recordAchievement) : "—"])) : <Text as="p" variant="caption">{label(powerVisible ? "missing" : "private")}</Text>}
+        number(row.medianWatts, " W"), delta(row.deltaPct, "%"), number(row.competitionRank), number(row.priorSampleCount), recordsVisible ? record(row.recordAchievement) : "—"])) : <Text as="p" variant="caption">{label(powerVisible ? "missing" : "private")}</Text>) : null}
       {powerVisible && p.powerFingerprint?.some((row) => bestPct(row) != null) && <Text as="p" variant="caption" tone="tertiary">{label("bestScope")}</Text>}
-      {recordsVisible && p.powerFingerprint?.some((row) => row.previousBestPct != null) && <Text as="p" variant="caption" tone="tertiary">{label("previousBestScope")}</Text>}
+      {powerVisible && recordsVisible && p.powerFingerprint?.some((row) => row.previousBestPct != null) && <Text as="p" variant="caption" tone="tertiary">{label("previousBestScope")}</Text>}
       {recordsVisible && p.runRecordAchievements?.length ? table([label("distance"), label("duration"), "PR"], p.runRecordAchievements.map((row) => [row.distance, seconds(row.valueSec), record(row.recordAchievement)])) : null}
       <Text as="p" variant="caption" tone="tertiary">{label(`recordStates.${p.availability?.records ?? "unavailable"}`)}</Text>
     </section>
@@ -117,7 +117,7 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
     ])}
     {!!p.sportDetails?.length && section("sportDetails", p.sportDetails.map((row) => [row.label, row.value]))}
     {p.routeLoad && section("route", [[label("terrainLabel"), p.routeLoad.terrain ? label(`terrain.${p.routeLoad.terrain}`) : "—"], [label("climbs"), number(p.routeLoad.climbCount)], [label("category"), p.routeLoad.highestCategory ?? "—"], [label("avgGrade"), number(p.routeLoad.avgGradePct, "%")], [label("maxGrade"), number(p.routeLoad.maxGradePct, "%")], [label("elevationQuality"), label(p.routeLoad.elevationSuspect ? "suspect" : "noWarning")]])}
-    <Text as="p" variant="caption" tone="tertiary">{label("modelNote")}</Text>
+    <Text as="p" variant="caption" tone="tertiary">{label(p.session.discipline === "run" ? "runModelNote" : "modelNote")}</Text>
     {p.qualityNote && <Text as="p" variant="caption" tone="tertiary">{label("qualityNote")}</Text>}
   </div>;
 }
