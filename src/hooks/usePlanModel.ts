@@ -30,8 +30,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type PlanDiscipline = "bike" | "run" | "swim";
 
+/**
+ * 계획 `sport=` 값은 bike|run|swim 만 받는다. 구버전 iOS 가 보내던 `cycling` 은 bike 별칭이고,
+ * 그 밖의 값은 기본 종목(bike)으로 처리한다.
+ */
 export function normalizePlanSport(sport: string | null | undefined): PlanDiscipline {
-  return sport === "run" || sport === "swim" || sport === "bike" ? sport : "bike";
+  if (sport === "run" || sport === "swim" || sport === "bike") return sport;
+  if (sport === "cycling") return "bike";
+  return "bike";
 }
 
 export interface PlanModel {

@@ -40,6 +40,12 @@ import {
 } from "./surfaceSelection";
 import "./embedded.css";
 import {
+  createRunStartChannel,
+  parseRunStartResult,
+  RUN_START_SCHEDULED_CAPABILITY,
+  type RunStartChannel,
+} from "./runStartBridge";
+import {
   clearTrainingSurfaceCache,
   prepareTrainingSurfaceCacheOwner,
 } from "./trainingSurfaceCache";
@@ -51,6 +57,8 @@ const PlanSurface = lazy(() => import("./surfaces/PlanSurface"));
 const CONTRACT_VERSION = 1 as const;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/;
 const SUPPORTED_LOCALES = new Set(["ko", "en"]);
+const HOST_CAPABILITY = /^[A-Za-z0-9._-]{1,64}$/;
+const MAX_HOST_CAPABILITIES = 16;
 
 type HostTheme = {
   mode: "light" | "dark";
@@ -67,6 +75,8 @@ interface AcceptedSession {
   theme: HostTheme;
   locale: "ko" | "en";
   safeInsets: { top: number; bottom: number };
+  /** 호스트가 `host.sessionAccepted.capabilities` 로 알린 기능. 없으면 빈 배열(구버전 호스트). */
+  hostCapabilities: string[];
 }
 
 interface SurfaceLoadingFlow {
@@ -123,7 +133,16 @@ function parseHostTheme(value: unknown): HostTheme | null {
 }
 
 function parseAcceptedSession(payload: unknown): AcceptedSession | null {
-  if (!isRecord(payload) || !hasOnlyKeys(payload, ["theme", "locale", "safeInsets"])) return null;
+  if (!isRecord(payload) || !hasOnlyKeys(payload, ["theme", "locale", "safeInsets", "capabilities"])) return null;
+  let hostCapabilities: string[] = [];
+  if (payload.capabilities !== undefined) {
+    if (
+      !Array.isArray(payload.capabilities)
+      || payload.capabilities.length > MAX_HOST_CAPABILITIES
+      || !payload.capabilities.every((item) => typeof item === "string" && HOST_CAPABILITY.test(item))
+    ) return null;
+    hostCapabilities = [...new Set(payload.capabilities as string[])];
+  }
   const theme = parseHostTheme(payload.theme);
   if (!theme || typeof payload.locale !== "string" || !SUPPORTED_LOCALES.has(payload.locale)) return null;
   if (!isRecord(payload.safeInsets) || !hasOnlyKeys(payload.safeInsets, ["top", "bottom"])) return null;
@@ -142,6 +161,7 @@ function parseAcceptedSession(payload: unknown): AcceptedSession | null {
     theme,
     locale: payload.locale as AcceptedSession["locale"],
     safeInsets: { top, bottom },
+    hostCapabilities,
   };
 }
 
@@ -223,6 +243,7 @@ function AuthorizedSurface({
   onTrainingShellReady,
   onTrainingSurfaceReady,
   retryKey,
+  runStartChannel,
   selectionGeneration,
   selectedTrainingSurface,
   selectionRequestId,
@@ -238,6 +259,7 @@ function AuthorizedSurface({
     contentComplete?: boolean,
   ) => void;
   retryKey: number;
+  runStartChannel: RunStartChannel;
   selectionGeneration: number;
   selectedTrainingSurface: TrainingSurfaceKind | null;
   selectionRequestId?: string;
@@ -339,6 +361,9 @@ function AuthorizedSurface({
                   key={`${selectionGeneration}:${retryKey}`}
                   retryKey={retryKey}
                   onReady={onTrainingSurfaceReady}
+                  scheduledRunStarter={session.hostCapabilities.includes(RUN_START_SCHEDULED_CAPABILITY)
+                    ? runStartChannel
+                    : null}
                 />
               ) : null}
             </Suspense>
@@ -378,6 +403,9 @@ export default function EmbeddedBootstrapRoot({
   const { activityId } = useParams();
   const rootRef = useRef<HTMLDivElement>(null);
   const [bridge] = useState(bridgeFactory);
+  const [runStartChannel] = useState(() => createRunStartChannel({
+    send: (payload, requestId) => bridge.send("run.startScheduled", payload, requestId),
+  }));
   const [session, setSession] = useState<AcceptedSession | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const initialTrainingSurface = surfaceKind === "fitness" || surfaceKind === "plan"
@@ -652,6 +680,14 @@ export default function EmbeddedBootstrapRoot({
         return;
       }
 
+      if (message.type === "host.runStartResult") {
+        // 대기 중 요청이 없는 응답(시간 초과 뒤 도착 등)은 조용히 버린다.
+        if (!runStartChannel.deliver(message) && !parseRunStartResult(message)) {
+          safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
+        }
+        return;
+      }
+
       if (message.type === "host.lifecycle") {
         if (!isLifecyclePayload(message.payload)) {
           safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
@@ -714,14 +750,16 @@ export default function EmbeddedBootstrapRoot({
       capabilities: [
         RETAINED_SURFACE_SELECTION_CAPABILITY,
         SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
+        RUN_START_SCHEDULED_CAPABILITY,
       ],
     });
     return () => {
       unsubscribe();
       unsubscribeAuth();
+      runStartChannel.dispose();
       bridge.dispose();
     };
-  }, [bridge, initialTrainingSurface, safeSend, services, surfaceKind]);
+  }, [bridge, initialTrainingSurface, runStartChannel, safeSend, services, surfaceKind]);
 
   const selectedTrainingSurface = surfaceKind === "activity-analysis"
     ? null
@@ -758,6 +796,7 @@ export default function EmbeddedBootstrapRoot({
           onTrainingShellReady={trainingShellReady}
           onTrainingSurfaceReady={trainingSurfaceReady}
           retryKey={retryKey}
+          runStartChannel={runStartChannel}
           selectionGeneration={surfaceSelection.generation}
           selectedTrainingSurface={selectedTrainingSurface}
           selectionRequestId={surfaceSelection.requestId}

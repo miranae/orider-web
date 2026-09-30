@@ -16,6 +16,12 @@ import { useDialog } from "../contexts/DialogContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useToast } from "../contexts/ToastContext";
 import PlanPresentation from "../features/training/plan/PlanPresentation";
+import Run30EnrollCard from "../features/training/run30/Run30EnrollCard";
+import Run30ProgramView from "../features/training/run30/Run30ProgramView";
+import type { Run30StartMode } from "../features/training/run30/run30Start";
+import { useRun30Program } from "../features/training/run30/useRun30Program";
+import DisciplineTabs from "../components/redesign/DisciplineTabs";
+import { ErrorState } from "../components/redesign";
 import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { useMobile } from "../hooks/useMobile";
@@ -30,9 +36,12 @@ import { downloadICS, generateICS } from "../utils/icsExport";
  * mobilePlanViewModel is shared by full-page and embedded rendering there.
  */
 
+const WEB_START_MODE: Run30StartMode = { kind: "web" };
+
 export default function PlanPage() {
   const { t, i18n } = useTranslation("training");
   const { t: tActivity } = useTranslation("activity");
+  const { t: tCommon } = useTranslation("common");
   const { user } = useAuth();
   const { firestore, functions } = useFirebaseServices();
   const { showToast } = useToast();
@@ -42,6 +51,9 @@ export default function PlanPage() {
   const [searchParams] = useSearchParams();
   const model = usePlanModel(searchParams.get("sport"));
   const { discipline, goal, weeks, loading, loadError } = model;
+  const run30 = useRun30Program(discipline === "run" && user != null);
+  // 서버 관리 프로그램 목표는 계획 직접 쓰기(편집·추가·재생성·재설정·적응 적용)를 규칙이 거부한다.
+  const serverManagedPlan = goal?.runProgram != null;
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
   const runTarget = useRunPlanTarget(searchParams, user?.uid, user?.isAnonymous === true, goal, weeks, loading || (!model.freshLoaded && !loadError), loadError, model.isTodayCell, setMobileWeekOffset);
   const [selectedDay, setSelectedDay] = useState<{
@@ -90,7 +102,7 @@ export default function PlanPage() {
     <PlanPresentation
       model={model}
       decisionSlot={decisionSlot}
-      adaptationSlot={goal?.adaptationFlag ? (
+      adaptationSlot={goal?.adaptationFlag && !serverManagedPlan ? (
         <AdaptationBanner
           goalId={goal.id}
           flag={goal.adaptationFlag}
@@ -99,16 +111,16 @@ export default function PlanPage() {
       ) : undefined}
       mobileWeekOffset={mobileWeekOffset}
       onMobileWeekOffsetChange={setMobileWeekOffset}
-      onEditWorkout={(day, weekId, dayIndex) => setSelectedDay({ day, weekId, dayIndex })}
+      onEditWorkout={serverManagedPlan ? undefined : (day, weekId, dayIndex) => setSelectedDay({ day, weekId, dayIndex })}
       onIcsExport={exportPlanIcs}
-      onReroll={rerollPlan}
-      onGoalReset={() => navigate("/goal-setup")}
+      onReroll={serverManagedPlan ? undefined : rerollPlan}
+      onGoalReset={serverManagedPlan ? undefined : () => navigate("/goal-setup")}
       onAbandon={abandonGoal}
       renderMobile={(props) => (
         <MobilePlanPage
           currentWeek={props.currentWeek}
           weekLabel={props.weekLabel}
-          goalId={goal?.id}
+          goalId={serverManagedPlan ? undefined : goal?.id}
           goalTitle={props.goalTitle}
           daysLeft={props.daysLeft}
           progressPct={props.progressPct}
@@ -125,8 +137,8 @@ export default function PlanPage() {
             setMobileWeekOffset(0);
           }}
           onIcsExport={exportPlanIcs}
-          onReroll={rerollPlan}
-          onGoalReset={() => navigate("/goal-setup")}
+          onReroll={serverManagedPlan ? undefined : rerollPlan}
+          onGoalReset={serverManagedPlan ? undefined : () => navigate("/goal-setup")}
           onAbandon={abandonGoal}
         />
       )}
@@ -138,6 +150,46 @@ export default function PlanPage() {
   }
 
   const targetNotice = runTarget.unavailable ? <p role="status" className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{tActivity("analysis.run.nextPlan.unavailable")}</p> : null;
+
+  const refreshAfterEnroll = async () => {
+    await run30.refresh();
+    model.retryLoad();
+  };
+
+  if (discipline === "run") {
+    const run30Program = run30.status === "ready" ? run30.program : null;
+    // 미리보기는 일반 계획 경로와 같은 위치에 둬서 Run30 조회가 끝나도 다시 마운트되지 않게 한다.
+    const shell = (content: ReactNode) => (
+      <>
+        {targetNotice}
+        {runTarget.session && <RunPlanPreview session={runTarget.session} onClose={runTarget.close} />}
+        <div className="site-shell" style={{ paddingBottom: "var(--space-8)" }}>
+          <div style={{ padding: "var(--space-4) 0 var(--space-3)", borderBottom: "1px solid var(--line-soft)", marginBottom: "var(--space-4)" }}>
+            <DisciplineTabs />
+          </div>
+          {content}
+        </div>
+      </>
+    );
+    if (run30Program) {
+      return shell(
+        <Run30ProgramView api={run30.api} program={run30Program} onRefresh={run30.refresh} startMode={WEB_START_MODE} />,
+      );
+    }
+    if (run30.status === "loading") {
+      return shell(<p role="status" style={{ color: "var(--ink-3)" }}>{tCommon("button.loading")}</p>);
+    }
+    if (run30.status === "error" && !goal && !loading) {
+      return shell(<ErrorState title={t("run30.errors.load")} onRetry={run30.retry} />);
+    }
+    if (!loading && !loadError && (!goal || goal.discipline !== "run")) {
+      return shell(<Run30EnrollCard api={run30.api} variant="intro" onEnrolled={refreshAfterEnroll} showCustomGoalLink />);
+    }
+  }
+
+  const run30Offer = discipline === "run" && run30.status === "ready" && goal?.discipline === "run" && !serverManagedPlan
+    ? <Run30EnrollCard api={run30.api} variant="offer" onEnrolled={refreshAfterEnroll} />
+    : null;
 
   if (!loading && loadError) {
     return <>{targetNotice}{renderPresentation(
@@ -154,9 +206,12 @@ export default function PlanPage() {
       {targetNotice}
       {runTarget.session && <RunPlanPreview session={runTarget.session} onClose={runTarget.close} />}
       {renderPresentation(
-        <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />,
+        <>
+          {run30Offer}
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />
+        </>,
       )}
-      {selectedDay && goal && (
+      {selectedDay && goal && !serverManagedPlan && (
         <WorkoutEditModal
           day={selectedDay.day}
           weekId={selectedDay.weekId}

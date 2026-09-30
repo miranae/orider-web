@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => {
     surfaceHookMounts: vi.fn(),
     fitnessSurfaceMounts: vi.fn(),
     planSurfaceMounts: vi.fn(),
+    planRunStarter: undefined as unknown,
     surfaceReadyCallbacks: {
       activityAnalysis: null as (() => void) | null,
       fitness: null as ((status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void) | null,
@@ -86,8 +87,12 @@ vi.mock("./surfaces/FitnessSurface", () => ({
 }));
 
 vi.mock("./surfaces/PlanSurface", () => ({
-  default: ({ onReady }: { onReady: (status?: "cached" | "fresh" | "error") => void }) => {
+  default: ({ onReady, scheduledRunStarter }: {
+    onReady: (status?: "cached" | "fresh" | "error") => void;
+    scheduledRunStarter?: unknown;
+  }) => {
     mocks.planSurfaceMounts();
+    mocks.planRunStarter = scheduledRunStarter;
     mocks.surfaceReadyCallbacks.plan = onReady;
     return <div data-testid="plan-surface" />;
   },
@@ -212,7 +217,11 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       type: "bootstrap.ready",
       payload: {
         contractVersion: 1,
-        capabilities: ["host.surfaceSelected", "surface-selection-request-id-v1"],
+        capabilities: [
+          "host.surfaceSelected",
+          "surface-selection-request-id-v1",
+          "run-start-scheduled-v1",
+        ],
       },
       requestId: undefined,
     });
@@ -960,5 +969,74 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     }));
     expect(onSnapshot).not.toHaveBeenCalled();
     expect(mocks.surfaceHookMounts).not.toHaveBeenCalled();
+  });
+
+  describe("scheduled run start negotiation", () => {
+    async function acceptPlan(bridge: FakeBridge, payload: Record<string, unknown>) {
+      renderBootstrap(bridge, "/ko/embed/plan", "plan");
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+      });
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", payload)));
+      await waitFor(() => expect(mocks.planSurfaceMounts).toHaveBeenCalled());
+    }
+
+    it("withholds the run starter when the host does not advertise the capability", async () => {
+      mocks.planRunStarter = undefined;
+      const bridge = createFakeBridge();
+      await acceptPlan(bridge, acceptedPayload());
+      expect(mocks.planRunStarter).toBeNull();
+    });
+
+    it("rejects malformed host capability lists", async () => {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge, "/ko/embed/plan", "plan");
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+      });
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", {
+        ...acceptedPayload(),
+        capabilities: ["run-start-scheduled-v1", 7],
+      })));
+      expect(bridge.sent).toContainEqual(expect.objectContaining({
+        type: "surface.error",
+        payload: { code: "invalid_host_payload" },
+      }));
+      expect(mocks.planSurfaceMounts).not.toHaveBeenCalled();
+    });
+
+    it("sends run.startScheduled and resolves only on the echoed requestId", async () => {
+      const bridge = createFakeBridge();
+      await acceptPlan(bridge, { ...acceptedPayload(), capabilities: ["run-start-scheduled-v1"] });
+      const starter = mocks.planRunStarter as { start(id: string): Promise<unknown> };
+      expect(starter).toBeTruthy();
+
+      let outcome: unknown;
+      void starter.start("ss_abc123").then((value) => { outcome = value; });
+      const request = bridge.sent.find((message) => message.type === "run.startScheduled");
+      expect(request).toMatchObject({ payload: { scheduledSessionId: "ss_abc123" } });
+      expect(request?.requestId).toEqual(expect.any(String));
+
+      await act(async () => {
+        bridge.emit(hostMessage("host.runStartResult", { accepted: false, reason: "busy" }, "other-request"));
+      });
+      expect(outcome).toBeUndefined();
+      await act(async () => {
+        bridge.emit(hostMessage("host.runStartResult", { accepted: false, reason: "ride-active" }, request?.requestId));
+      });
+      expect(outcome).toEqual({ accepted: false, reason: "ride-active" });
+      expect(bridge.sent).not.toContainEqual(expect.objectContaining({ type: "surface.error" }));
+    });
+
+    it("reports malformed run start results as invalid host payloads", async () => {
+      const bridge = createFakeBridge();
+      await acceptPlan(bridge, { ...acceptedPayload(), capabilities: ["run-start-scheduled-v1"] });
+      act(() => bridge.emit(hostMessage("host.runStartResult", { accepted: "yes" }, "req-1")));
+      expect(bridge.sent).toContainEqual(expect.objectContaining({
+        type: "surface.error",
+        payload: { code: "invalid_host_payload" },
+        requestId: "req-1",
+      }));
+    });
   });
 });

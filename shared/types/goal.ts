@@ -46,6 +46,24 @@ export interface Goal {
   userId: string;
   discipline?: 'bike' | 'run' | 'swim';
   goalType?: GoalType;
+  /**
+   * 서버가 관리하는 구조화 프로그램(예: 30분 달리기 입문). 설정된 목표의 계획은 서버
+   * callable 로만 바뀌며, 클라이언트 직접 쓰기는 규칙이 거부한다.
+   */
+  runProgram?: {
+    template: 'run-30-intro-v1';
+    revision: number;
+    startDate: string;
+    requestedStartDate?: string;
+    history: Array<{
+      revision: number;
+      action: 'enroll' | 'skip' | 'postpone' | 'continue' | 'retry';
+      stage: number | null;
+      at: number;
+      fromLocalDate?: string;
+      toLocalDate?: string;
+    }>;
+  };
   targetDate?: number;
   title?: string;
   target?: {

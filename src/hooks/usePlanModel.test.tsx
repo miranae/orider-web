@@ -66,6 +66,7 @@ describe("usePlanModel", () => {
     ["bike", "bike"],
     ["run", "run"],
     ["swim", "swim"],
+    ["cycling", "bike"],
     ["tri", "bike"],
     ["RUN", "bike"],
     ["", "bike"],

@@ -1,0 +1,262 @@
+/* 30분 달리기 입문 프로그램 — 계획 탭(임베드·웹 공용). 토큰만 사용한다. */
+
+.run30 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.run30-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4);
+  border: var(--dim-divider-thickness) solid var(--line-soft);
+  border-radius: var(--r-lg);
+  background: var(--bg-1);
+  color: var(--ink-0);
+}
+
+.run30-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.run30-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.run30-title {
+  margin: 0;
+  color: var(--ink-0);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.run30-section-title {
+  margin: 0;
+  color: var(--ink-0);
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+
+.run30-subtitle {
+  margin: 0;
+  color: var(--ink-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.run30-lead {
+  color: var(--ink-0);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.run30-muted,
+.run30-progress-text {
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+}
+
+.run30-progress-text {
+  font-family: var(--font-mono);
+}
+
+.run30-decision {
+  color: var(--ink-1);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.run30-warning {
+  color: var(--color-warning);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.run30-hint {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+}
+
+.run30-today {
+  border-color: var(--accent-soft-border);
+}
+
+.run30-start {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.run30-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: var(--dim-divider-thickness) solid var(--line-soft);
+}
+
+.run30-actions__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.run30-stage-list,
+.run30-segments {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run30-stage-list {
+  gap: var(--space-1);
+}
+
+.run30-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--dim-divider-thickness) solid transparent;
+  border-radius: var(--r-md);
+}
+
+.run30-stage.is-next {
+  border-color: var(--accent-soft-border);
+  background: var(--accent-soft-bg);
+}
+
+.run30-stage__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+}
+
+.run30-stage__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  min-width: 0;
+}
+
+.run30-stage__date {
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.run30-stage__title {
+  color: var(--ink-0);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.run30-stage__meta {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.run30-segments {
+  gap: var(--space-1);
+  width: 100%;
+  padding-left: var(--space-2);
+  color: var(--ink-1);
+  font-size: var(--fs-sm);
+}
+
+.run30-segments li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.run30-segments__duration {
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+}
+
+.run30-safety-text {
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.run30-notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-md);
+  background: var(--accent-soft-bg);
+  color: var(--ink-0);
+  font-size: var(--fs-sm);
+}
+
+.run30-enroll__preview,
+.run30-replacement {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.run30-consent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--dim-button-height);
+  color: var(--ink-0);
+  font-size: var(--fs-sm);
+}
+
+.run30-link {
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.run30-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.run30-dialog p {
+  margin: 0;
+}
+
+.run30-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.orider-embedded-surface--plan .run30,
+.orider-embedded-surface--plan > .run30-enroll {
+  margin: var(--space-2) var(--space-4);
+}

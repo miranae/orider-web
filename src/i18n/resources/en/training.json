@@ -980,5 +980,132 @@
       }
     },
     "reasonTitlePlain": "Why this call"
+  },
+  "run30": {
+    "title": "30-minute run intro",
+    "subtitle": "8 weeks · 24 stages · Start with walking and easy running.",
+    "purpose": "Running 30 minutes without stopping is the final goal. Each stage mixes walking and running so you adapt gradually.",
+    "phoneOnly": "You can start with just your phone. A watch is optional.",
+    "progress": "{{completed}}/{{total}} stages done",
+    "progressLabel": "Program progress",
+    "remaining": "{{count}} stages left",
+    "refresh": "Refresh",
+    "decision": {
+      "maintain": "Next workout as planned · {{reason}}",
+      "hold": "Next workout on hold · {{reason}}",
+      "basisFeedback": "Based on your run feedback. Plan changes only happen after you confirm them.",
+      "basisRecord": "Based on your workout records. Plan changes only happen after you confirm them."
+    },
+    "today": {
+      "eyebrow": "Today",
+      "stageWorkout": "Stage {{stage}} · {{workout}}",
+      "workoutFallback": "Easy run",
+      "total": "{{duration}} total",
+      "breathing": "Walk and run in order. Keep your breathing comfortable rather than running fast.",
+      "rest": "Rest day · Next: stage {{stage}} on {{date}}",
+      "restHint": "Recover until the next scheduled day.",
+      "decideTitle": "Stage {{stage}} · {{date}} · {{status}}",
+      "decideMissed": "Missing a day doesn't mean starting over. Pick a day to try again.",
+      "decidePartial": "What you did still counts. After recovering you can repeat this stage or move on to the next one.",
+      "decideHold": "The previous stage still needs a decision. Choose how to continue.",
+      "holdTitle": "Not starting today",
+      "holdFallback": "The next workout is on hold for safety. Check again after you recover.",
+      "finished": "You've finished the program. Keep going with free runs."
+    },
+    "start": {
+      "button": "Start stage {{stage}}",
+      "pending": "Checking whether you can start…",
+      "accepted": "Opening the run screen.",
+      "hostUnsupported": "Start today's run from the app home.",
+      "webOnly": "Runs are started in the O-Rider app.",
+      "errors": {
+        "not-today": "This stage isn't scheduled for today. Refresh and check again.",
+        "hold": "The next workout is on hold for safety.",
+        "changed": "The schedule changed. Refresh and try again.",
+        "busy": "Another request is in progress. Try again in a moment.",
+        "ride-active": "A workout is already in progress. Finish it first.",
+        "offline": "You're offline, so the run can't start. Check your connection.",
+        "unsupported": "This app version can't start runs from the plan tab. Start from the app home.",
+        "timeout": "The app didn't respond. Try again in a moment.",
+        "unavailable": "Couldn't reach the app. Start from the app home.",
+        "unknown": "The run can't start right now. Try again in a moment."
+      }
+    },
+    "actions": {
+      "scheduleTitle": "Change schedule",
+      "retryIntro": "Keep the previous record and try the same stage again.",
+      "retryDate": "Retry date",
+      "retry": "Review retry schedule",
+      "retryNone": "No retry dates are available right now. Refresh and review the schedule and guidance.",
+      "retryCount": "Retried {{count}} time(s) · previous records kept",
+      "continue": "Keep the record and move on",
+      "skip": "Skip this stage",
+      "postponeHint": "You can move it to an empty rest day before the next stage. The preview confirms whether it's possible.",
+      "postponeDate": "Rest day to move to",
+      "postpone": "Preview the move",
+      "previewing": "Checking available dates…"
+    },
+    "change": {
+      "title": "Confirm stage {{stage}} change",
+      "range": "Stage {{stage}} · {{from}}",
+      "rangeMove": "Stage {{stage}} · {{from}} → {{to}}",
+      "notApplied": "Nothing changes until you confirm.",
+      "applying": "Applying the change…",
+      "cancel": "Cancel",
+      "confirm": {
+        "retry": "Apply retry schedule",
+        "continue": "Move to the next stage",
+        "postpone": "Move to the selected day",
+        "skip": "Skip this stage"
+      }
+    },
+    "stages": {
+      "title": "All stages",
+      "stage": "Stage {{stage}}",
+      "next": "Next",
+      "showPast": "Show {{count}} past stages",
+      "hidePast": "Hide past stages",
+      "showSegments": "Show {{count}} segments",
+      "hideSegments": "Hide segments"
+    },
+    "status": {
+      "planned": "Planned",
+      "missed": "Missed",
+      "partial": "Partly done",
+      "abandoned": "Stopped",
+      "skipped": "Skipped",
+      "completed": "Done",
+      "unknown": "Needs review"
+    },
+    "safety": {
+      "title": "Safety"
+    },
+    "duration": {
+      "seconds": "{{seconds}} s",
+      "minutes": "{{minutes}} min",
+      "minutesSeconds": "{{minutes}} min {{seconds}} s"
+    },
+    "enroll": {
+      "startDate": "Start date",
+      "todayOption": "{{date}} (today)",
+      "preview": "Review schedule",
+      "previewing": "Reviewing schedule…",
+      "summary": "8 weeks and {{total}} stages starting {{date}}.",
+      "lateStart": "Starting late tonight moves the first stage to tomorrow.",
+      "firstStage": "First stage: {{date}}",
+      "replacement": "Your current running goal ‘{{title}}’ will be stopped and replaced by this program.",
+      "consent": "I agree to replace my current goal.",
+      "confirm": "Start the 30-minute run intro",
+      "enrolling": "Enrolling…",
+      "enrolled": "Enrolled. Loading your program…",
+      "offerTitle": "Switch to the 30-minute run intro",
+      "offerBody": "You can replace your current running goal with the 8-week intro program. Your current goal is shown before switching.",
+      "offerOpen": "View intro program",
+      "customGoal": "Create a different running goal"
+    },
+    "errors": {
+      "load": "Couldn't load the program.",
+      "generic": "Couldn't process the request. Try again in a moment."
+    }
   }
 }
