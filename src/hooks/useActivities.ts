@@ -25,7 +25,8 @@ import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
 import { acceptedTrainingActivities, sumActivityTss } from "../utils/estimateTSS";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
-import { getDiscipline } from "../utils/disciplineFilter";
+import { getDiscipline, type Discipline } from "../utils/disciplineFilter";
+import { seoulWeekStartMs } from "../utils/seoulWeek";
 import {
   executeFirestoreSessionRecovery,
   firestoreRecoveryLogContext,
@@ -620,6 +621,7 @@ export function useActivities(
 type WeeklyStatsOptions = {
   includeMonthlyDistance?: boolean;
   now?: Date;
+  discipline?: Discipline;
 };
 
 export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Date()) {
@@ -627,22 +629,26 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   const options = nowOrOptions instanceof Date ? null : nowOrOptions;
   const now = nowOrOptions instanceof Date ? nowOrOptions : (nowOrOptions.now ?? new Date());
   const includeMonthlyDistance = options?.includeMonthlyDistance ?? false;
+  const discipline = options?.discipline;
 
   const [activities, setActivities] = useState<Activity[]>([]);
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const statsKey = user ? `${user.uid}:${year}-${month}` : null;
+  const seoulNow = new Date(now.getTime() + 9 * 3600000);
+  const year = discipline === "run" ? seoulNow.getUTCFullYear() : now.getFullYear();
+  const month = discipline === "run" ? seoulNow.getUTCMonth() : now.getMonth();
+  const statsKey = user ? `${user.uid}:${year}-${month}:${discipline ?? "all"}` : null;
   const [monthlyDistanceState, setMonthlyDistanceState] = useState<{ key: string; distance: number } | null>(null);
+  const [coverage, setCoverage] = useState<{ key: string; status: "ready" | "partial" | "error" } | null>(null);
 
   useEffect(() => {
     if (!user) {
       setActivities([]);
       setMonthlyDistanceState(null);
+      setCoverage(null);
       return;
     }
     let cancelled = false;
     const uid = user.uid;
-    const requestStatsKey = `${uid}:${year}-${month}`;
+    const requestStatsKey = `${uid}:${year}-${month}:${discipline ?? "all"}`;
 
     const load = async () => {
       try {
@@ -665,6 +671,8 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
         if (cancelled) return;
         noteFirestoreServerSuccess(snap.metadata);
         const loadedActivities = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Activity);
+        const complete = snap.docs.length < 200 && snap.metadata?.fromCache === false && snap.metadata.hasPendingWrites === false;
+        setCoverage({ key: requestStatsKey, status: complete ? "ready" : "partial" });
         // summary 복구 대기 활동도 원본 수와 미확인 부하 집계에 포함한다.
         setActivities(
           loadedActivities
@@ -675,8 +683,8 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
 
         if (!includeMonthlyDistance) return;
 
-        const monthStart = new Date(year, month, 1).getTime();
-        const monthEnd = new Date(year, month + 1, 1).getTime();
+        const monthStart = discipline === "run" ? Date.UTC(year, month, 1) - 9 * 3600000 : new Date(year, month, 1).getTime();
+        const monthEnd = discipline === "run" ? Date.UTC(year, month + 1, 1) - 9 * 3600000 : new Date(year, month + 1, 1).getTime();
         if (snap.docs.length < 200) {
           // 현재 달은 12주 창 안에 있으므로 상한에 닿지 않은 응답은 월간 거리에도 완전하다.
           // 대시보드의 별도 월간 쿼리를 없애고 같은 문서로 정확히 집계한다.
@@ -684,6 +692,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
             activity.userId === uid &&
             activity.startTime >= monthStart &&
             activity.startTime < monthEnd
+              && (!discipline || discipline === "tri" || getDiscipline(activity.type) === discipline)
               ? sum + (activity.summary?.distance ?? 0)
               : sum
           ), 0) });
@@ -705,16 +714,19 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
         noteFirestoreServerSuccess(monthlySnap.metadata);
         setMonthlyDistanceState({ key: requestStatsKey, distance: monthlySnap.docs.reduce((sum, d) => {
           const activity = { id: d.id, ...d.data() } as Activity;
-          return sum + (activity.summary?.distance ?? 0);
+          return sum + ((!discipline || discipline === "tri" || getDiscipline(activity.type) === discipline) ? (activity.summary?.distance ?? 0) : 0);
         }, 0) });
       } catch (err) {
-        if (!cancelled) logClientError("useWeeklyStats.load", err, { userId: uid });
+        if (!cancelled) {
+          setCoverage({ key: requestStatsKey, status: "error" });
+          logClientError("useWeeklyStats.load", err, { userId: uid });
+        }
       }
     };
 
     load();
     return () => { cancelled = true; };
-  }, [user, year, month, includeMonthlyDistance]);
+  }, [user, year, month, includeMonthlyDistance, discipline]);
 
   const emptyWeeks: WeeklyStat[] = [];
   const emptyThisWeek = { rides: 0, distance: 0, time: 0, elevation: 0 };
@@ -725,12 +737,16 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
       weeklyStats: emptyWeeks,
       thisWeek: emptyThisWeek,
       recent7DayDistances: emptyRecent7DayDistances,
+      recent7DayCount: 0,
       monthlyActivityDistance: 0,
+      coverage: "unavailable" as const,
     };
   }
 
   // 계정 전환 직후 이전 effect 결과가 잠깐 남아도 새 사용자의 통계로 노출하지 않는다.
-  const all = activities.filter((activity) => activity.userId === user.uid);
+  const allOwned = activities.filter((activity) => activity.userId === user.uid);
+  const all = allOwned.filter((activity) => !discipline || discipline === "tri" || getDiscipline(activity.type) === discipline);
+  const coverageStatus = coverage?.key === statsKey ? coverage.status : "loading";
   const monthlyActivityDistance = includeMonthlyDistance && monthlyDistanceState?.key === statsKey
     ? monthlyDistanceState.distance
     : 0;
@@ -752,22 +768,23 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
     const weekStart = new Date(now);
     const daysSinceMonday = (weekStart.getDay() + 6) % 7;
     weekStart.setDate(weekStart.getDate() - w * 7 - daysSinceMonday);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 7);
+    const weekStartMs = discipline === "run" ? seoulWeekStartMs(now.getTime()) - w * 7 * 86400000 : weekStart.getTime();
+    const weekEndMs = discipline === "run" ? weekStartMs + 7 * 86400000 : new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7).getTime();
+    const labelDate = discipline === "run" ? new Date(weekStartMs + 9 * 3600000) : weekStart;
 
     const weekActivities = all.filter(
-      (a) => a.startTime >= weekStart.getTime() && a.startTime < weekEnd.getTime(),
+      (a) => a.startTime >= weekStartMs && a.startTime < weekEndMs,
     );
 
     weeks.push({
-      week: `${weekStart.getMonth() + 1}/${weekStart.getDate()}`,
+      week: discipline === "run" ? `${labelDate.getUTCMonth() + 1}/${labelDate.getUTCDate()}` : `${labelDate.getMonth() + 1}/${labelDate.getDate()}`,
       distance: Math.round(weekActivities.reduce((s, a) => s + activityDistance(a), 0) / 1000),
       time: Math.round(weekActivities.reduce((s, a) => s + activityDurationMillis(a), 0) / 3600000 * 10) / 10,
       elevation: Math.round(weekActivities.reduce((s, a) => s + activityElevation(a), 0)),
       rides: weekActivities.length,
       ...(() => {
         const load = sumActivityTss(physicalLoadActivities.filter(
-          (activity) => activity.startTime >= weekStart.getTime() && activity.startTime < weekEnd.getTime(),
+          (activity) => activity.startTime >= weekStartMs && activity.startTime < weekEndMs,
         ));
         return { tss: load.value, tssEstimated: load.estimated, tssUnknownCount: load.unknownCount };
       })(),
@@ -779,7 +796,10 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   const thisWeekActivities = all.filter(
     (a) => a.startTime >= sevenDaysAgo && a.startTime <= now.getTime(),
   );
-  const recent7DayDistances = thisWeekActivities.reduce(
+  const allRecent7DayActivities = allOwned.filter(
+    (a) => a.startTime >= sevenDaysAgo && a.startTime <= now.getTime(),
+  );
+  const recent7DayDistances = allRecent7DayActivities.reduce(
     (distances, activity) => {
       const discipline = getDiscipline(activity.type);
       if (discipline === "bike" || discipline === "run" || discipline === "swim") {
@@ -799,7 +819,9 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
       elevation: Math.round(thisWeekActivities.reduce((s, a) => s + activityElevation(a), 0)),
     },
     recent7DayDistances,
+    recent7DayCount: allRecent7DayActivities.length,
     monthlyActivityDistance,
+    coverage: coverageStatus,
   };
 }
 

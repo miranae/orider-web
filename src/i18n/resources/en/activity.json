@@ -12,6 +12,8 @@
     "stimulus": "Training stimulus",
     "changes": "My changes",
     "recovery": "Recovery & fuel",
+    "runRecovery": "Recovery estimate",
+    "runRecoveryNote": "Recovery time is a model based on measured load, not a direct physiological measurement.",
     "before": "Pre-session state",
     "minute": "m",
     "second": "s",

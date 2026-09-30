@@ -116,13 +116,13 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       </div>
       {p.routeLoad.elevationSuspect && note(label("suspect"))}
     </SummarySection>}
-    <SummarySection title={copy("recovery")}>
+    {(p.session.discipline === "bike" || p.recovery) && <SummarySection title={copy(p.session.discipline === "bike" ? "recovery" : "runRecovery")}>
       <Stack>
         {p.recovery && <Stat compact label={copy("recoveryHours")} value={number(p.recovery.hours)} unit={copy("hour")} />}
         {powerVisible && p.energy?.fatPct != null && p.energy.carbPct != null && <div className="grid grid-cols-2 gap-[var(--dim-item-gap)]"><Stat compact label={label("fat")} value={number(p.energy.fatPct)} unit="%" /><Stat compact label={label("carb")} value={number(p.energy.carbPct)} unit="%" /></div>}
         {!p.recovery && !(powerVisible && p.energy?.fatPct != null && p.energy.carbPct != null) && note(copy("recoveryMissing"))}
       </Stack>
-    </SummarySection>
+    </SummarySection>}
     <SummarySection title={copy("before")}>
       {p.priorFitnessStatus ? <Stack>
         <Stack direction="row" wrap align="center"><Text variant="bodyMedium" tone="primary">{label(`forms.${p.priorFitnessStatus.formBand}`)}</Text><Text variant="caption" tone="tertiary">{p.priorFitnessStatus.asOf}</Text></Stack>
@@ -130,7 +130,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       </Stack> : note(copy("beforeMissing"))}
     </SummarySection>
     <Stack gap="var(--dim-item-gap)">
-      {note(label("modelNote"))}
+      {p.session.discipline === "bike" ? note(label("modelNote")) : p.recovery ? note(copy("runRecoveryNote")) : null}
       {p.qualityNote && note(copy("qualityFooter"))}
     </Stack>
   </Stack>;

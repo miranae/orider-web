@@ -585,6 +585,53 @@ describe("useActivities", () => {
 });
 
 describe("useWeeklyStats", () => {
+  it.each([
+    { fromCache: true, hasPendingWrites: false },
+    { fromCache: false, hasPendingWrites: true },
+  ])("does not certify an incomplete running read as a full 7-day total: %j", async (metadata) => {
+    const now = new Date(2026, 6, 14, 12);
+    const mockedGetDocs = vi.mocked(getDocs);
+    const original = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockReset();
+    mockedGetDocs.mockResolvedValueOnce({ docs: [{ id: "run", data: () => createMockActivity({ id: "run", userId: "user-1", type: "Run", startTime: now.getTime() - 3600000 }) }], size: 1, metadata } as never);
+    try {
+      simulateLogin({ uid: "user-1" });
+      const { result } = renderHook(() => useWeeklyStats({ now, discipline: "run" }), { wrapper });
+      await waitFor(() => expect(result.current.coverage).toBe("partial"));
+    } finally {
+      mockedGetDocs.mockReset();
+      if (original) mockedGetDocs.mockImplementation(original);
+    }
+  });
+  it("uses only the run-axis activities for running KPIs while keeping the mobile sport breakdown complete", async () => {
+    const now = new Date(2026, 6, 14, 12);
+    simulateLogin({ uid: "user-1" });
+    setCollectionDocs("activities", [
+      { id: "ride", ...createMockActivity({ id: "ride", userId: "user-1", type: "Ride", startTime: now.getTime() - 3600000, summary: createMockSummary({ distance: 25000, ridingTimeMillis: 3600000, elevationGain: 200 }) }) },
+      { id: "run", ...createMockActivity({ id: "run", userId: "user-1", type: "Run", startTime: now.getTime() - 7200000, summary: createMockSummary({ distance: 10000, ridingTimeMillis: 3300000, elevationGain: 40 }) }) },
+      { id: "walk", ...createMockActivity({ id: "walk", userId: "user-1", type: "Walk", startTime: now.getTime() - 10800000, summary: createMockSummary({ distance: 2000, ridingTimeMillis: 1800000, elevationGain: 10 }) }) },
+    ]);
+    const { result } = renderHook(() => useWeeklyStats({ now, includeMonthlyDistance: true, discipline: "run" }), { wrapper });
+    await waitFor(() => expect(result.current.coverage).not.toBe("loading"));
+    expect(result.current.coverage).toBe("ready");
+    expect(result.current.thisWeek).toEqual({ rides: 2, distance: 12000, time: 5100000, elevation: 50 });
+    expect(result.current.monthlyActivityDistance).toBe(12000);
+    expect(result.current.recent7DayCount).toBe(3);
+    expect(result.current.recent7DayDistances).toMatchObject({ bike: 25000, run: 12000 });
+  });
+  it("places run-week activity at the Monday 00:00 KST boundary", async () => {
+    const now = new Date("2026-07-12T15:30:00Z");
+    simulateLogin({ uid: "user-1" });
+    setCollectionDocs("activities", [
+      { id: "before", ...createMockActivity({ id: "before", userId: "user-1", type: "Run", startTime: Date.parse("2026-07-12T14:30:00Z") }) },
+      { id: "after", ...createMockActivity({ id: "after", userId: "user-1", type: "Run", startTime: Date.parse("2026-07-12T15:15:00Z") }) },
+    ]);
+    const { result } = renderHook(() => useWeeklyStats({ now, discipline: "run" }), { wrapper });
+    await waitFor(() => expect(result.current.coverage).not.toBe("loading"));
+    expect(result.current.coverage).toBe("ready");
+    expect(result.current.weeklyStats.at(-1)).toMatchObject({ week: "7/13", rides: 1 });
+    expect(result.current.weeklyStats.at(-2)).toMatchObject({ week: "7/6", rides: 1 });
+  });
   it.each([null, undefined])("summary %s 복구 대기 기록을 원본 수와 미확인 부하에 포함한다", async summary => {
     simulateLogin({ uid: "user-1" });
     const now = new Date(2026, 8, 8, 12);
@@ -793,6 +840,7 @@ describe("useWeeklyStats", () => {
       const { result } = renderHook(() => useWeeklyStats({ now, includeMonthlyDistance: true }), { wrapper });
 
       await waitFor(() => expect(result.current.monthlyActivityDistance).toBe(42_000));
+      expect(result.current.coverage).toBe("partial");
       expect(mockedGetDocs).toHaveBeenCalledTimes(2);
     } finally {
       mockedGetDocs.mockReset();
@@ -820,6 +868,7 @@ describe("useWeeklyStats", () => {
       const { result } = renderHook(() => useWeeklyStats(now), { wrapper });
 
       await waitFor(() => expect(result.current.weeklyStats.at(-1)?.rides).toBe(200));
+      expect(result.current.coverage).toBe("partial");
       expect(result.current.monthlyActivityDistance).toBe(0);
       expect(mockedGetDocs).toHaveBeenCalledTimes(1);
     } finally {

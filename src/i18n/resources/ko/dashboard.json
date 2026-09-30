@@ -3,6 +3,8 @@
     "greetingPrefix": "안녕하세요, ",
     "greetingSuffix": "님.",
     "subtitleSuffix": " 탔어요.",
+    "runSubtitleSuffix": " 러닝·걷기·하이킹 활동을 기록했어요.",
+    "runCountUnit": "회",
     "subtitleRecent": "최근 7일 ",
     "defaultName": "라이더",
     "anonTitle": "라이딩 기록을 더 오래, 더 깊게",
@@ -13,9 +15,12 @@
   },
   "kpi": {
     "weekGroup": "최근 7일 활동",
+    "runWeekGroup": "최근 7일 내 러닝·걷기·하이킹",
     "trainingGroup": "훈련 상태",
     "weekDistance": "거리",
     "rides": "라이드 수",
+    "runs": "활동 수",
+    "runUnavailable": "러닝·걷기·하이킹 통계를 확인할 수 없어요",
     "movingTime": "이동 시간",
     "elevation": "획득 고도",
     "fitness": "피트니스",
@@ -99,6 +104,16 @@
     "score": "90일"
   },
   "sidebar": {
+    "runWeekly": {
+      "title": "주간 러닝·걷기·하이킹 기록",
+      "sub": "최근 8주 · 내 활동",
+      "value": "{{count}}회 · {{distance}}"
+    },
+    "runMonth": {
+      "title": "{{month}}월 러닝·걷기·하이킹 거리",
+      "sub": "기록된 내 활동",
+      "plan": "러닝 계획 보기"
+    },
     "weeklyTss": {
       "title": "주간 TSS",
       "sub": "최근 12주",
@@ -210,6 +225,12 @@
     }
   },
   "mobileFeed": {
+    "runSummary": {
+      "count": "활동 수",
+      "distance": "거리",
+      "time": "시간",
+      "elevation": "획득 고도"
+    },
     "defaultRider": "라이더",
     "defaultActivity": "라이딩",
     "statDistance": "거리",

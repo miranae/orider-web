@@ -22,6 +22,33 @@ vi.mock("../activity/ActivitySocialFooter", () => ({
 }));
 
 describe("MobileFeedPage", () => {
+  it("puts verified owner run facts before the mixed sport filter on a run view", () => {
+    renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()}
+      feedScope="all" onFeedScopeChange={vi.fn()} sportFilter="run"
+      weeklySummary={{ activityCount: 4, distances: { bike: 30000, run: 12000, swim: 0 }, available: true }}
+      runSummary={{ count: "2", distance: "12.0km", time: "1h 25m", elevation: "50m", available: true }}
+    />, { authenticated: true });
+    const runSummary = screen.getByTestId("mobile-run-weekly-summary");
+    expect(runSummary).toHaveTextContent("최근 7일 내 러닝·걷기·하이킹");
+    expect(runSummary).toHaveTextContent("12.0km");
+    expect(runSummary).toHaveTextContent("1h 25m");
+    expect(runSummary).toHaveTextContent("50m");
+    const sportFilters = screen.getByRole("group", { name: "활동 종목 필터" });
+    expect(within(sportFilters).getByText("4건")).toBeInTheDocument();
+    expect(within(sportFilters).getAllByRole("button")).toHaveLength(4);
+  });
+
+  it("keeps every sport selectable and omits unverified run numbers", () => {
+    renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()}
+      feedScope="all" onFeedScopeChange={vi.fn()} sportFilter="run"
+      weeklySummary={{ activityCount: 4, distances: { bike: 30000, run: 12000, swim: 0 }, available: false }}
+      runSummary={{ count: "2", distance: "12.0km", time: "1h 25m", elevation: "50m", available: false }}
+    />, { authenticated: true });
+    const runSummary = screen.getByTestId("mobile-run-weekly-summary");
+    expect(runSummary).toHaveTextContent("통계를 확인할 수 없어요");
+    expect(runSummary).not.toHaveTextContent("12.0km");
+    expect(within(screen.getByRole("group", { name: "활동 종목 필터" })).getAllByRole("button")).toHaveLength(4);
+  });
   it("keeps the first activity near the top and expands the routine from the weekly summary", async () => {
     const user = userEvent.setup();
     renderWithProviders(<MobileFeedPage

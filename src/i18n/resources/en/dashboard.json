@@ -3,6 +3,8 @@
     "greetingPrefix": "Hi, ",
     "greetingSuffix": ".",
     "subtitleSuffix": " in the last 7 days.",
+    "runSubtitleSuffix": " of running, walking and hiking in the last 7 days.",
+    "runCountUnit": " activities",
     "subtitleRecent": "You logged ",
     "defaultName": "Rider",
     "anonTitle": "Keep your riding history longer and go deeper",
@@ -13,9 +15,12 @@
   },
   "kpi": {
     "weekGroup": "Last 7 days",
+    "runWeekGroup": "My runs, walks and hikes · last 7 days",
     "trainingGroup": "Training status",
     "weekDistance": "Distance",
     "rides": "Rides",
+    "runs": "Activities",
+    "runUnavailable": "Run, walk and hike stats are unavailable",
     "movingTime": "Moving Time",
     "elevation": "Elevation Gain",
     "fitness": "Fitness",
@@ -99,6 +104,16 @@
     "score": "90d"
   },
   "sidebar": {
+    "runWeekly": {
+      "title": "Weekly runs, walks and hikes",
+      "sub": "Last 8 weeks · my activities",
+      "value": "{{count}} activities · {{distance}}"
+    },
+    "runMonth": {
+      "title": "Run, walk and hike distance in month {{month}}",
+      "sub": "Recorded activities",
+      "plan": "View running plan"
+    },
     "weeklyTss": {
       "title": "Weekly TSS",
       "sub": "Last 12 weeks",
@@ -210,6 +225,12 @@
     }
   },
   "mobileFeed": {
+    "runSummary": {
+      "count": "Activities",
+      "distance": "Distance",
+      "time": "Time",
+      "elevation": "Elevation gain"
+    },
     "defaultRider": "Rider",
     "defaultActivity": "Ride",
     "statDistance": "Distance",

@@ -16,7 +16,7 @@ import { firestore } from "../services/firebase";
 import { logClientError, debugLog } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
-import { getSportCategory } from "../features/activity/detail/activityDetailUtils";
+import { getDiscipline } from "../utils/disciplineFilter";
 
 const WEEK_MS = 7 * 86400000;
 const QUERY_LIMIT = 200;
@@ -24,6 +24,7 @@ const QUERY_LIMIT = 200;
 export interface RunHistory {
   runs: Activity[];
   loading: boolean;
+  available: boolean;
 }
 
 /**
@@ -31,15 +32,15 @@ export interface RunHistory {
  */
 export function useRunHistory(weeks: number, enabled = true): RunHistory {
   const { user } = useAuth();
-  const [state, setState] = useState<RunHistory>({ runs: [], loading: true });
+  const [state, setState] = useState<RunHistory & { ownerUid: string | null }>({ runs: [], loading: true, available: false, ownerUid: null });
 
   useEffect(() => {
     let cancelled = false;
     if (!user || !enabled) {
-      setState({ runs: [], loading: false });
+      setState({ runs: [], loading: false, available: false, ownerUid: null });
       return;
     }
-    setState((s) => ({ ...s, loading: true }));
+    setState({ runs: [], loading: true, available: false, ownerUid: user.uid });
 
     const load = async () => {
       try {
@@ -55,8 +56,9 @@ export function useRunHistory(weeks: number, enabled = true): RunHistory {
         const snap = await getDocs(q);
         const runs = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }) as Activity)
+          .filter((a) => a.userId === user.uid)
           .filter((a) => a.summary != null)
-          .filter((a) => getSportCategory(a.type) === "run");
+          .filter((a) => getDiscipline(a.type) === "run");
 
         debugLog("useRunHistory.loaded", {
           weeks,
@@ -65,10 +67,11 @@ export function useRunHistory(weeks: number, enabled = true): RunHistory {
           hitLimit: snap.size >= QUERY_LIMIT,
         });
 
-        if (!cancelled) setState({ runs, loading: false });
+        const available = snap.size < QUERY_LIMIT && snap.metadata?.fromCache === false && snap.metadata.hasPendingWrites === false;
+        if (!cancelled) setState({ runs: available ? runs : [], loading: false, available, ownerUid: user.uid });
       } catch (err) {
         logClientError("useRunHistory.load", err, { weeks });
-        if (!cancelled) setState({ runs: [], loading: false });
+        if (!cancelled) setState({ runs: [], loading: false, available: false, ownerUid: user.uid });
       }
     };
 
@@ -78,5 +81,6 @@ export function useRunHistory(weeks: number, enabled = true): RunHistory {
     };
   }, [user, weeks, enabled]);
 
-  return state;
+  return !user || !enabled ? { runs: [], loading: false, available: false }
+    : state.ownerUid === user.uid ? state : { runs: [], loading: true, available: false };
 }

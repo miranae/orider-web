@@ -50,7 +50,9 @@ interface MobileFeedPageProps {
     activityCount: number;
     /** 종목별 최근 7일 거리. Firestore 원본 단위인 meter. */
     distances: Record<"bike" | "run" | "swim", number>;
+    available?: boolean;
   };
+  runSummary?: { count: string; distance: string; time: string; elevation: string; available: boolean };
   currentUserId?: string | null;
   friendIds?: string[];
   feedScope: ActivityFeedScope;
@@ -297,7 +299,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
 
 export default function MobileFeedPage({
   activities, loading, error = false, onRetry, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
-  weeklySummary, feedScope, onFeedScopeChange,
+  weeklySummary, runSummary, feedScope, onFeedScopeChange,
   sportFilter: controlledSportFilter,
   onSportFilterChange,
   datePreset: controlledDatePreset,
@@ -339,13 +341,21 @@ export default function MobileFeedPage({
   const weeklySportBreakdown = useMemo<SportBreakdownItem[]>(() => {
     const activityCount = weeklySummary?.activityCount ?? 0;
     const distances = weeklySummary?.distances ?? { bike: 0, run: 0, swim: 0 };
+    if (sportFilter === "run" && weeklySummary?.available === false) {
+      return [
+        { key: "all" as const, label: t("common:label.all"), value: "—", unit: "", color: "var(--ink-0)" },
+        { key: "bike" as const, label: t("common:sportFilter.bike"), value: "—", unit: "", color: "var(--aqua)" },
+        { key: "run" as const, label: t("common:sportFilter.run"), value: "—", unit: "", color: "var(--amber)" },
+        { key: "swim" as const, label: t("common:sportFilter.swim"), value: "—", unit: "", color: "var(--lime)" },
+      ];
+    }
     return [
       { key: "all" as const, label: t("common:label.all"), value: t("feed.countSuffix", { value: activityCount }), unit: "", color: "var(--ink-0)" },
       { key: "bike" as const, label: t("common:sportFilter.bike"), value: Math.round(distances.bike / 1000).toLocaleString(), unit: "km", color: "var(--aqua)" },
       { key: "run" as const, label: t("common:sportFilter.run"), value: Math.round(distances.run / 1000).toLocaleString(), unit: "km", color: "var(--amber)" },
       { key: "swim" as const, label: t("common:sportFilter.swim"), value: Math.round(distances.swim).toLocaleString(), unit: "m", color: "var(--lime)" },
     ];
-  }, [weeklySummary, t]);
+  }, [weeklySummary, t, sportFilter]);
 
   // 측정 오류 trivial 활동(거리<100m 또는 시간<60s) 항상 숨김.
   const visibleActivities = activities.filter((a) => !isTrivialActivity(a));
@@ -424,6 +434,15 @@ export default function MobileFeedPage({
               {t("mobileFeed.viewAll")}
             </Link>
           </div>
+          {sportFilter === "run" && runSummary && <div data-testid="mobile-run-weekly-summary" style={{ marginBottom: "var(--space-2)" }}>
+            <Text as="h2" variant="eyebrow">{t("kpi.runWeekGroup")}</Text>
+            {runSummary.available ? <div className="grid grid-cols-2 gap-2" style={{ marginTop: "var(--space-1)" }}>
+              {(["count", "distance", "time", "elevation"] as const).map((key) => <div key={key}>
+                <Text as="div" variant="caption">{t(`mobileFeed.runSummary.${key}`)}</Text>
+                <Text variant="bodyMedium" mono>{runSummary[key]}</Text>
+              </div>)}
+            </div> : <Text variant="caption">{t("kpi.runUnavailable")}</Text>}
+          </div>}
 
           {/* 전폭 카드: 대시보드 래퍼는 모바일 px 없음 → 부모 padding(16px) 음수마진으로 상쇄 */}
           <SportSummaryFilter

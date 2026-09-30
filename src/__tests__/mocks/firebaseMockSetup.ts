@@ -104,6 +104,7 @@ vi.mock("firebase/firestore", () => {
       })),
       size: docs.length,
       empty: docs.length === 0,
+      metadata: { fromCache: false, hasPendingWrites: false },
     };
   });
 
@@ -129,7 +130,7 @@ vi.mock("firebase/firestore", () => {
         })),
         size: docs.length,
         empty: docs.length === 0,
-        metadata: { fromCache: false },
+        metadata: { fromCache: false, hasPendingWrites: false },
       });
       return addSnapshotListener(path, cb);
     } else {
@@ -140,7 +141,7 @@ vi.mock("firebase/firestore", () => {
         data: () => data,
         id: path.split("/").pop() ?? "",
         ref: { path },
-        metadata: { fromCache: false },
+        metadata: { fromCache: false, hasPendingWrites: false },
       });
       return addSnapshotListener(path, cb);
     }

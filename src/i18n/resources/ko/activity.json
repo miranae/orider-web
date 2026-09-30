@@ -12,6 +12,8 @@
     "stimulus": "훈련 자극",
     "changes": "나의 변화",
     "recovery": "회복과 연료",
+    "runRecovery": "회복 추정",
+    "runRecoveryNote": "회복시간은 계측 부하를 바탕으로 한 추정치이며 직접 측정한 생리값은 아닙니다.",
     "before": "시작 전 상태",
     "minute": "분",
     "second": "초",

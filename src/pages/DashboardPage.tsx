@@ -26,7 +26,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatTrainingLoad, type TrainingLoadPoint } from "../utils/trainingLoadDisplay";
-import { formatDistance } from "../utils/units";
+import { formatDistance, formatElev } from "../utils/units";
 import { useActivities, useWeeklyStats, useActivitySearch } from "../hooks/useActivities";
 import type { ActivityFeedScope, DatePreset } from "../hooks/useActivities";
 import { useFriends } from "../hooks/useFriends";
@@ -300,9 +300,6 @@ export default function DashboardPage() {
   const feedScope: ActivityFeedScope = user ? dashboardPreferences.feedScope : "all";
   const feedFilter = ({ all: 0, friends: 1, self: 2 } as const)[feedScope];
   const { activities, loading, loadMore, hasMore, loadingMore, totalCount, error: feedError, retry: retryFeed } = useActivities(feedScope, [...friendIds]);
-  const { weeklyStats, thisWeek, recent7DayDistances, monthlyActivityDistance } = useWeeklyStats({
-    includeMonthlyDistance: true,
-  });
   // 정본(서버 집계) 홈 요약 — `homeSummary` 서버 전환 판정 AND 빌드 플래그 뒤에 있다.
   // 꺼져 있으면(오늘의 기본값) 아래 KPI 는 useWeeklyStats 의 클라 집계를 그대로 그린다.
   const canonicalHome = useCanonicalHomeSummary();
@@ -310,14 +307,18 @@ export default function DashboardPage() {
   const activitySearch = useActivitySearch(friendIds);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const sportParam = searchParams.get("sport");
   const requestedDiscipline = normalizeDashboardDiscipline(sportParam);
   const discipline: Discipline = requestedDiscipline ?? "bike";
+  const mobileSportFilter = requestedDiscipline === "tri" ? "all" : requestedDiscipline ?? dashboardPreferences.sportFilter;
+  const selectedDiscipline = isMobile ? mobileSportFilter : discipline;
+  const runStats = useWeeklyStats({ includeMonthlyDistance: true, discipline: selectedDiscipline === "run" ? "run" : undefined });
+  const { weeklyStats, thisWeek, recent7DayDistances, recent7DayCount, monthlyActivityDistance } = runStats;
   // ── 러닝 탭 전용 데이터 (§3.0 / §3.4c / §3.7) ────────────────────────────
   // 8주 창 하나로 리캡(3주)과 러너 레벨(8주)을 함께 커버한다 — 쿼리 1회.
   const isRunTab = discipline === "run";
-  const isRunningJourneyActive = isMobile ? dashboardPreferences.sportFilter === "run" : isRunTab;
+  const isRunningJourneyActive = isMobile ? mobileSportFilter === "run" : isRunTab;
   const showOwnerRunningJourney = isRunningJourneyActive && !!user && !user.isAnonymous && !authLoading && (!isMobile || feedScope === "self");
   const RUN_HISTORY_WEEKS = 8;
   const runHistory = useRunHistory(RUN_HISTORY_WEEKS, showOwnerRunningJourney);
@@ -325,7 +326,7 @@ export default function DashboardPage() {
   // 창 길이·계정 생성일을 함께 넘긴다 — 창이 계정 수명을 못 덮으면 "첫 러닝" 축하를 하지 않는다.
   const firstSync = useFirstSyncCelebration(
     runHistory.runs,
-    runHistory.loading,
+    runHistory.loading || !runHistory.available,
     showOwnerRunningJourney ? user?.uid ?? null : null,
     RUN_HISTORY_WEEKS * 7 * 86400000,
     profile?.createdAt,
@@ -346,6 +347,7 @@ export default function DashboardPage() {
     showOwnerRunningJourney &&
     !!user &&
     !runHistory.loading &&
+    runHistory.available &&
     !recordsLoading &&
     runHistory.runs.length === 0 &&
     !hasEverRun;
@@ -354,10 +356,10 @@ export default function DashboardPage() {
   // 가끔 달리는 사람에게는 띄우지 않는다 — 잔소리가 되므로.
   const runnerLevel = useMemo(
     () =>
-      showOwnerRunningJourney && !runHistory.loading
+      showOwnerRunningJourney && !runHistory.loading && runHistory.available
         ? estimateRunnerLevel(runHistory.runs, Date.now(), profile?.createdAt ?? null)
         : null,
-    [showOwnerRunningJourney, runHistory.runs, runHistory.loading, profile?.createdAt],
+    [showOwnerRunningJourney, runHistory.runs, runHistory.loading, runHistory.available, profile?.createdAt],
   );
   // profile 이 도착하기 전에는 판단하지 않는다 — 이미 임계 페이스를 설정한 러너에게
   // 넛지가 깜빡 떴다 사라지는 플래시가 생긴다(firstSync 와 같은 프로필 레이스).
@@ -406,7 +408,7 @@ export default function DashboardPage() {
   const heroTitle = isAnon
     ? t("header.anonTitle")
     : `${t("header.greetingPrefix")}${userName}${t("header.greetingSuffix")}`;
-  const showYearRecapBanner = !!user && isYearRecapSeason();
+  const showYearRecapBanner = !!user && selectedDiscipline !== "run" && isYearRecapSeason();
 
   /**
    * 모바일 피드의 7일 스파크라인은 **일자별 거리 배열**이다. 정본 봉투의 `calendar` 는
@@ -414,7 +416,7 @@ export default function DashboardPage() {
    * 대신 두 값 모두 클라 집계로 남긴다 (#2237). 같은 출처끼리 묶어 둬야 막대와 개수가
    * 서로 어긋나지 않는다.
    */
-  const mobileWeeklySummary = { activityCount: thisWeek.rides, distances: recent7DayDistances };
+  const mobileWeeklySummary = { activityCount: recent7DayCount, distances: recent7DayDistances, available: selectedDiscipline !== "run" || runStats.coverage === "ready" };
 
   const weekSource = canonicalKpiSource(canonicalHome.enabled, canonicalHome.display, canonicalHome.totals);
   /**
@@ -422,7 +424,7 @@ export default function DashboardPage() {
    * 오늘과 똑같은 클라 집계다. **미계산·실패는 여기로 오지 않는다** — 그 경우
    * `weekSource.kind === "state"` 라 아래에서 숫자 자체를 그리지 않는다.
    */
-  const weekTotals = weekSource.kind === "server"
+  const weekTotals = isRunTab ? thisWeek : weekSource.kind === "server"
     ? canonicalWeekTotals(weekSource.values)
     : thisWeek;
   const weekPresentation = canonicalKpiPresentation(weekSource, {
@@ -433,9 +435,9 @@ export default function DashboardPage() {
     staleChip: t("canonical.staleChip"),
   });
   /** false 면 KPI 칸은 숫자 대신 "—" 와 상태 문구다. 0 도, 클라 집계도 아니다. */
-  const showWeekNumbers = weekPresentation.showNumbers;
-  const weekSub = weekPresentation.sub;
-  const weekChip = weekPresentation.chip;
+  const showWeekNumbers = isRunTab ? runStats.coverage === "ready" : weekPresentation.showNumbers;
+  const weekSub = isRunTab && runStats.coverage !== "ready" ? t("kpi.runUnavailable") : weekPresentation.sub;
+  const weekChip = isRunTab ? null : weekPresentation.chip;
 
   const thisWeekDistFormatted = formatDistance(weekTotals.distance, units);
   // KPI에선 숫자만 별도, 단위 별도로 표시
@@ -569,7 +571,9 @@ export default function DashboardPage() {
   );
   // 서버 값이 손에 있을 때만 갈아탄다. 상태(계산중·실패·없음)면 숫자를 그리지 않는다 —
   // 클라 계산으로 조용히 되돌아가면 사용자는 서버가 멈춘 것을 영영 모른다.
-  const kpiFitness = fitnessSource.kind === "server" ? fitnessSource.values : fitness;
+  const kpiFitness = fitnessSource.kind === "server"
+    ? isRunTab ? fitnessSource.values.breakdown.run : fitnessSource.values
+    : fitness;
   const fitnessPresentation = canonicalKpiPresentation(fitnessSource, {
     // 값이 보일 때의 서브 문구는 아래에서 CTL/TSB 로 다시 만든다 — 여기서는 자리만 채운다.
     value: "",
@@ -600,7 +604,7 @@ export default function DashboardPage() {
 
   const KPI = [
     weekKpi(t("kpi.weekDistance"), thisWeekDistValue, distUnit),
-    weekKpi(t("kpi.rides"), String(weekTotals.rides), null),
+    weekKpi(t(isRunTab ? "kpi.runs" : "kpi.rides"), String(weekTotals.rides), null),
     weekKpi(t("kpi.movingTime"), thisWeekTimeStr, "h"),
     weekKpi(
       t("kpi.elevation"),
@@ -613,7 +617,7 @@ export default function DashboardPage() {
     fitnessKpi,
   ];
 
-  const desktopRoutine = consistencyStreak && (
+  const desktopRoutine = !isRunTab && consistencyStreak && (
     <div style={{ marginTop: "var(--space-3)" }}>
       <ConsistencyStreakCard summary={consistencyStreak} compact />
     </div>
@@ -673,14 +677,27 @@ export default function DashboardPage() {
         loadingMore={loadingMore}
         onLoadMore={loadMore}
         showYearRecapBanner={showYearRecapBanner}
-        consistencyStreak={consistencyStreak}
+        consistencyStreak={mobileSportFilter === "run" ? null : consistencyStreak}
         weeklySummary={mobileWeeklySummary}
+        runSummary={mobileSportFilter === "run" && user && !user.isAnonymous ? {
+          count: String(thisWeek.rides), distance: formatDistance(thisWeek.distance, units),
+          time: formatDuration(thisWeek.time), elevation: formatElev(thisWeek.elevation, units),
+          available: runStats.coverage === "ready",
+        } : undefined}
         currentUserId={user?.uid ?? null}
         friendIds={[...friendIds]}
         feedScope={feedScope}
         onFeedScopeChange={(scope) => updateDashboardPreferences({ feedScope: scope })}
-        sportFilter={dashboardPreferences.sportFilter}
-        onSportFilterChange={(sportFilter) => updateDashboardPreferences({ sportFilter })}
+        sportFilter={mobileSportFilter}
+        onSportFilterChange={(sportFilter) => {
+          updateDashboardPreferences({ sportFilter });
+          if (requestedDiscipline) {
+            const next = new URLSearchParams(searchParams);
+            if (sportFilter === "all") next.delete("sport");
+            else next.set("sport", sportFilter);
+            setSearchParams(next);
+          }
+        }}
         datePreset={dashboardPreferences.datePreset}
         onDatePresetChange={(datePreset) => updateDashboardPreferences({ datePreset })}
       />
@@ -702,9 +719,9 @@ export default function DashboardPage() {
                 <span style={{ color: "var(--lime)", fontFamily: "var(--font-mono)", fontWeight: 500 }}>
                   {/* KPI 와 같은 출처·같은 규칙. 미계산을 여기서만 클라 집계로 그리면 한 화면에
                       서로 다른 숫자가 선다. */}
-                  {showWeekNumbers ? `${weekTotals.rides} · ${thisWeekDistFormatted}` : "—"}
+                  {showWeekNumbers ? `${weekTotals.rides}${isRunTab ? t("header.runCountUnit") : ""} · ${thisWeekDistFormatted}` : "—"}
                 </span>
-                {t("header.subtitleSuffix")}
+                {t(isRunTab ? "header.runSubtitleSuffix" : "header.subtitleSuffix")}
               </span>
             )
           }
@@ -756,7 +773,7 @@ export default function DashboardPage() {
           <div className="dashboard-kpi-overview grid gap-3" style={{ marginTop: "var(--space-2)" }}>
             <Card padding="none" style={{ overflow: "hidden" }}>
               <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
-                <Text as="h2" variant="eyebrow" tone="secondary">{t("kpi.weekGroup")}</Text>
+                <Text as="h2" variant="eyebrow" tone="secondary">{t(isRunTab ? "kpi.runWeekGroup" : "kpi.weekGroup")}</Text>
               </div>
               <div className="dashboard-kpi-week grid">
                 {KPI.slice(0, 4).map((stat) => (
@@ -981,8 +998,19 @@ export default function DashboardPage() {
 
           {/* 사이드바 */}
           <div className="hidden lg:flex w-[340px] flex-shrink-0 flex-col gap-4.5 sticky self-start top-0" style={{ paddingBottom: 'var(--space-5)' }}>
+            {user && isRunTab && <Card padding="none" style={{ padding: "var(--space-4)" }} data-testid="run-weekly-activity">
+              <SectionHeader title={t("sidebar.runWeekly.title")} sub={t("sidebar.runWeekly.sub")} />
+              {runStats.coverage !== "ready" ? <Text variant="caption">{t("kpi.runUnavailable")}</Text> : (
+                <div className="flex flex-col gap-2">
+                  {weeklyStats.slice(-8).map((week) => <div key={week.week} className="flex justify-between gap-2">
+                    <Text variant="bodySmall">{week.week}</Text>
+                    <Text variant="bodySmall" mono>{t("sidebar.runWeekly.value", { count: week.rides, distance: formatDistance(week.distance * 1000, units) })}</Text>
+                  </div>)}
+                </div>
+              )}
+            </Card>}
             {/* 주간 TSS 차트 — 실데이터 바인딩 */}
-            {user && (() => {
+            {user && !isRunTab && (() => {
               // 부하를 알 수 없는 주(tss=null)는 평균·피크·추세에서 제외한다 — 0 으로 세면
               // 쉬지 않은 주가 휴식 주처럼 평균을 끌어내린다 (#2237).
               const knownTssWeeks = weeklyStats.filter((w): w is typeof w & { tss: number } => w.tss != null);
@@ -1033,7 +1061,13 @@ export default function DashboardPage() {
             })()}
 
             {/* 월간 목표 — 운동 계획 기반 */}
-            {user && (() => {
+            {user && isRunTab && <Card padding="none" style={{ padding: "var(--space-4)" }} data-testid="run-monthly-distance">
+              <SectionHeader title={t("sidebar.runMonth.title", { month: new Date(Date.now() + 9 * 3600000).getUTCMonth() + 1 })} sub={t("sidebar.runMonth.sub")} />
+              {runStats.coverage !== "ready" ? <Text variant="caption">{t("kpi.runUnavailable")}</Text>
+                : <Text variant="dataMedium" mono>{formatDistance(monthlyActivityDistance, units)}</Text>}
+              <Link to="/plan?sport=run" className={buttonClass({ size: "sm", variant: "outline" })}>{t("sidebar.runMonth.plan")}</Link>
+            </Card>}
+            {user && !isRunTab && (() => {
               const now = new Date();
               const monthLabel = t("sidebar.monthlyGoal.title", { month: now.getMonth() + 1 });
               const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -1116,7 +1150,7 @@ export default function DashboardPage() {
             </Card>}
 
             {/* 한국 자전거 커뮤니티 */}
-            <Card padding="none" style={{ padding: 'var(--space-4)' }}>
+            {!isRunTab && <Card padding="none" style={{ padding: 'var(--space-4)' }}>
               <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("sidebar.community.title")}</Text>
               <div className="flex flex-col gap-2">
                 {KOREAN_CYCLING_COMMUNITIES.map((c) => (
@@ -1138,7 +1172,7 @@ export default function DashboardPage() {
                   </a>
                 ))}
               </div>
-            </Card>
+            </Card>}
 
             {/* Orider 앱: 설치 버튼(App Store/Google Play)만 노출, 매뉴얼·약관은 더보기로 */}
             <Card padding="none" style={{ padding: 'var(--space-4)' }}>

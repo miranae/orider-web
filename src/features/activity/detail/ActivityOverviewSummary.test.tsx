@@ -21,6 +21,17 @@ const rich: ActivityOverviewPresentation = {
 };
 
 describe("ActivityOverviewSummary", () => {
+  it("keeps bike fuel and W-prime language out of a run, and shows recovery only when modeled", () => {
+    const run = { ...rich, session: { ...rich.session, discipline: "run" as const } };
+    const { rerender } = render(<ActivityOverviewSummaryContent presentation={run} />);
+    expect(screen.getByRole("region", { name: "회복 추정" })).toBeInTheDocument();
+    expect(screen.getByText(/회복시간은 계측 부하/)).toBeInTheDocument();
+    expect(screen.queryByText(/W′/)).not.toBeInTheDocument();
+    expect(screen.queryByText("회복과 연료")).not.toBeInTheDocument();
+    rerender(<ActivityOverviewSummaryContent presentation={{ ...run, recovery: undefined }} />);
+    expect(screen.queryByRole("region", { name: "회복 추정" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/회복시간은 계측 부하/)).not.toBeInTheDocument();
+  });
   it("renders the share-summary sections without analysis tables or basic activity stats", () => {
     render(<ActivityOverviewSummaryContent presentation={rich} />);
     for (const title of ["훈련 자극", "나의 변화", "회복과 연료", "시작 전 상태"]) expect(screen.getByRole("region", { name: title })).toBeInTheDocument();
@@ -98,8 +109,8 @@ describe("ActivityOverviewSummary", () => {
   });
   it.each(["bike", "run", "swim"] as const)("keeps the same frame for missing %s inputs", (discipline) => {
     render(<ActivityOverviewSummaryContent presentation={{ session: { discipline }, thresholdWork: {}, availability: { personal: "character_uncertain", records: "unavailable", power: "unavailable", heartRate: "unavailable" } }} />);
-    expect(screen.getAllByRole("region")).toHaveLength(4);
-    // 자극 표가 없으면 없다고 따로 말하지 않는다 — 문장이 없어도 프레임(4개 영역)은 유지된다.
+    expect(screen.getAllByRole("region")).toHaveLength(discipline === "bike" ? 4 : 3);
+    // 회복 모델이 없는 러닝·수영에는 회복/연료 영역을 만들지 않는다.
     expect(screen.queryByText(/자극 분석 정보/)).not.toBeInTheDocument();
     expect(screen.queryByText("짧은 활동")).not.toBeInTheDocument();
     expect(screen.getByText(/성격이 불명확/)).toBeInTheDocument();
