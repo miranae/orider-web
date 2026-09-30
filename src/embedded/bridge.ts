@@ -9,6 +9,8 @@ export const HOST_MESSAGE_TYPES = [
   "host.surfaceSelected",
   "host.retry",
   "host.logout",
+  // run-start-scheduled-v1 협상 후에만 온다. payload: { accepted, reason? }, requestId 는 요청과 동일.
+  "host.runStartResult",
 ] as const;
 
 export const WEB_MESSAGE_TYPES = [
@@ -20,6 +22,8 @@ export const WEB_MESSAGE_TYPES = [
   "navigation.openExternal",
   "navigation.openNative",
   "telemetry.event",
+  // run-start-scheduled-v1 협상 후에만 보낸다. payload: { scheduledSessionId }, requestId 필수.
+  "run.startScheduled",
 ] as const;
 
 export type HostMessageType = (typeof HOST_MESSAGE_TYPES)[number];
