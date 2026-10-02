@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { and, collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
+import { and, collection, getDocs, orderBy, query, where } from "firebase/firestore";
 import type { Activity } from "@shared/types";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
@@ -26,17 +26,19 @@ export function useConsistencyStreak(uid: string | null | undefined) {
 
     const load = async () => {
       try {
+        // Query the lookback window directly. The previous query read the newest 200 activities by
+        // createdAt on every Home open and dropped the out-of-window ones in the browser, so users with
+        // 200+ activities always paid 200 reads (orider-web#1025). Same index as useFitnessModel.
+        const cutoff = Date.now() - CONSISTENCY_STREAK_LOOKBACK_MS;
         const snap = await getDocs(query(
           collection(firestore, "activities"),
-          and(where("userId", "==", uid), where("deletedAt", "==", null)),
-          orderBy("createdAt", "desc"),
-          limit(200),
+          and(where("userId", "==", uid), where("deletedAt", "==", null), where("startTime", ">=", cutoff)),
+          orderBy("startTime", "asc"),
         ));
         if (cancelled) return;
-        const cutoff = Date.now() - CONSISTENCY_STREAK_LOOKBACK_MS;
         const activities = snap.docs
           .map((doc) => ({ id: doc.id, ...doc.data() }) as Activity)
-          .filter((activity) => activity.summary != null && activity.startTime >= cutoff);
+          .filter((activity) => activity.summary != null);
         setSummary(computeConsistencyStreak(activities));
       } catch (err) {
         logClientError("useConsistencyStreak.load", err, { uid });

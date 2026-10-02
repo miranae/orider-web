@@ -42,4 +42,24 @@ describe("useConsistencyStreak (Provider 없는 일반 웹 트리)", () => {
     expect(logClientError).not.toHaveBeenCalled();
     expect(getDocs).toHaveBeenCalled();
   });
+
+  it("reads only the lookback window — no fixed 200-document page (orider-web#1025)", async () => {
+    live.firestore = { name: "firestore" };
+    getDocs.mockClear();
+    getDocs.mockResolvedValue({ docs: [] });
+    const before = Date.now();
+
+    const { result } = renderHook(() => useConsistencyStreak("uid-2"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const [queryArgs] = getDocs.mock.calls[0] as [unknown[]];
+    const flat = JSON.stringify(queryArgs);
+    expect(flat).toContain('["startTime",">=",');
+    expect(flat).toContain('["startTime","asc"]');
+    expect(flat).not.toContain("createdAt");
+    // limit() mock returns the number itself; no page size must be present.
+    expect(queryArgs.some((arg) => typeof arg === "number")).toBe(false);
+    const cutoff = JSON.parse(flat).flat(3).find((value: unknown) => typeof value === "number") as number;
+    expect(cutoff).toBeLessThan(before);
+  });
 });
