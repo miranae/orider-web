@@ -2,7 +2,9 @@ import { getDocs, query, where, startAfter } from "firebase/firestore";
 import { aggregateMonthlyActivities, loadAthleteChartActivities } from "./athleteMonthlyActivities";
 import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
 
-const activity = (startTime: number) => createMockActivity({ startTime, createdAt: new Date(2026, 8, 1).getTime(), summary: createMockSummary({ distance: 1000, ridingTimeMillis: 3600000, elevationGain: 10 }) });
+// endTime 을 고정한다 — 기본값(현재 시각 - 1시간)이면 9월 활동이 지금까지 이어진 것으로 보여, 10월 이후에는
+// 10월 활동과 시간이 겹쳐 같은 실주행으로 묶였다(2026-10-01 부터 실패).
+const activity = (startTime: number) => createMockActivity({ startTime, endTime: startTime + 3600000, createdAt: new Date(2026, 8, 1).getTime(), summary: createMockSummary({ distance: 1000, ridingTimeMillis: 3600000, elevationGain: 10 }) });
 const page = (count: number, offset = 0) => ({ docs: Array.from({ length: count }, (_, i) => ({ id: `a-${offset + i}`, data: () => activity(new Date(2021, 0, 2).getTime()) })) });
 
 describe("athlete monthly activities", () => {
@@ -85,7 +87,8 @@ it("월별 단일 pass 구성도 원본 기록 수와 실제 운동 부하를 �
   const start = new Date(2026, 8, 1, 12).getTime();
   const native = {...activity(start), id: "native", type: "Ride", source: "orider", summary: createMockSummary({distance: 1000, ridingTimeMillis: 3600000, tss: 100})};
   const imported = {...native, id: "imported", source: "strava", startTime: start + 30000};
-  const later = {...native, id: "later", startTime: new Date(2026, 9, 1, 12).getTime(), summary: {} as typeof native.summary};
+  const laterStart = new Date(2026, 9, 1, 12).getTime();
+  const later = {...native, id: "later", startTime: laterStart, endTime: laterStart + 3600000, summary: {} as typeof native.summary};
   const rows = aggregateMonthlyActivities([native, imported, later], new Date(2026, 9, 2));
   expect(rows[0]).toMatchObject({week: "2026.09", rides: 2, distance: 2, tss: 100, tssEstimated: false});
   expect(rows[1]).toMatchObject({week: "2026.10", rides: 1, tss: null, tssEstimated: false, tssUnknownCount: 1});
