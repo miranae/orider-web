@@ -314,7 +314,14 @@ export function useFitnessModel(
   const latestActivityStart = activities.reduce((latest, activity) => Math.max(latest, activity.startTime), 0);
   const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
-  const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
+  // 연속 기록은 이미 읽은 체력 기간 활동으로 계산한다 — 기간이 연속 기록 기간(97일)을 덮을 때만.
+  // 예전에는 화면을 열 때마다 최근 등록 200건을 따로 읽었다 (#1028).
+  const streakPreload = useMemo(() => ({
+    activities,
+    coversSinceMs: Date.now() - (activityQueryRange + 42) * 24 * 60 * 60 * 1000,
+    ready: !canonicalPending && !loading && activityState.key === activityDataKey,
+  }), [activities, activityQueryRange, canonicalPending, loading, activityState.key, activityDataKey]);
+  const { summary: consistencyStreak } = useConsistencyStreak(user?.uid, streakPreload);
   useEffect(() => {
     if (normalizedRange !== range) setRange(normalizedRange);
   }, [normalizedRange, range]);
