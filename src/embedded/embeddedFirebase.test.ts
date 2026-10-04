@@ -238,5 +238,46 @@ describe("embeddedFirebase", () => {
       expect(mocks.terminate).toHaveBeenCalledTimes(2);
       expect(embeddedFirebase.embeddedAccountReady("user-b")).toBe(true);
     });
+
+    it("terminate 뒤 새 인스턴스 생성이 실패하면 ready 를 막고 다음 시도에서 terminate 없이 다시 만든다", async () => {
+      const { embeddedFirebase } = await loadEmbeddedFirebase();
+      await embeddedFirebase.isolateEmbeddedAccount("user-a");
+      mocks.initializeFirestore.mockImplementationOnce(() => {
+        throw new Error("initialize failed");
+      });
+
+      await expect(embeddedFirebase.isolateEmbeddedAccount("user-b"))
+        .rejects.toThrow("embedded-firestore/recreate-failed");
+      expect(mocks.terminate).toHaveBeenCalledTimes(1);
+      // terminate 된 인스턴스가 남아 있으므로 어떤 계정도 바로 열면 안 된다.
+      expect(embeddedFirebase.getEmbeddedFirestore()).toBe(mocks.firestore);
+      expect(embeddedFirebase.embeddedAccountReady("user-b")).toBe(false);
+      expect(embeddedFirebase.embeddedAccountReady("user-a")).toBe(false);
+
+      const recreated = { kind: "firestore-2" };
+      mocks.initializeFirestore.mockReturnValueOnce(recreated);
+      await embeddedFirebase.isolateEmbeddedAccount("user-b");
+
+      expect(mocks.terminate).toHaveBeenCalledTimes(1);
+      expect(embeddedFirebase.getEmbeddedFirestore()).toBe(recreated);
+      expect(embeddedFirebase.embeddedAccountReady("user-b")).toBe(true);
+      expect(embeddedFirebase.embeddedFirestoreOwnerUid()).toBe("user-b");
+    });
+
+    it("재생성 실패 뒤 같은 계정으로 다시 시도해도 새 인스턴스를 만든다", async () => {
+      const { embeddedFirebase } = await loadEmbeddedFirebase();
+      await embeddedFirebase.isolateEmbeddedAccount("user-a");
+      mocks.initializeFirestore.mockImplementationOnce(() => {
+        throw new Error("initialize failed");
+      });
+      await expect(embeddedFirebase.isolateEmbeddedAccount(null)).rejects.toThrow();
+      expect(embeddedFirebase.embeddedAccountReady("user-a")).toBe(false);
+
+      const recreated = { kind: "firestore-2" };
+      mocks.initializeFirestore.mockReturnValueOnce(recreated);
+      await embeddedFirebase.isolateEmbeddedAccount(null);
+      expect(embeddedFirebase.getEmbeddedFirestore()).toBe(recreated);
+      expect(embeddedFirebase.embeddedAccountReady("user-a")).toBe(true);
+    });
   });
 });

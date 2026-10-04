@@ -44,6 +44,9 @@ let emulatorRuntime = false;
 // 현재 Firestore 인스턴스 캐시에 데이터가 들어갔을 수 있는 계정. null 이면 어떤 계정도 쓰지 않은 새 인스턴스다.
 let firestoreOwnerUid: string | null = null;
 let accountTransition: Promise<void> | null = null;
+// terminate 는 끝났지만 새 인스턴스를 만들지 못한 상태. embeddedFirestore 는 terminate 된 인스턴스라
+// 표면을 열면 안 되고, 다음 격리 시도가 새 인스턴스 생성부터 다시 한다.
+let firestoreNeedsRecreate = false;
 
 export interface EmbeddedFirebaseServices {
   app: FirebaseApp;
@@ -77,6 +80,13 @@ function createEmbeddedFirestore(app: FirebaseApp): Firestore {
  */
 export function isolateEmbeddedAccount(nextUid: string | null): Promise<void> {
   const run = async () => {
+    if (firestoreNeedsRecreate) {
+      // 앞선 전환이 terminate 까지 마쳤으므로 남은 계정 데이터는 없다. 새 인스턴스만 다시 만든다.
+      if (firestoreOwnerUid !== nextUid) clearActivityDerivedDocumentCache();
+      recreateEmbeddedFirestore();
+      firestoreOwnerUid = nextUid;
+      return;
+    }
     if (firestoreOwnerUid === nextUid) return;
     const previousUid = firestoreOwnerUid;
     firestoreOwnerUid = nextUid;
@@ -85,12 +95,14 @@ export function isolateEmbeddedAccount(nextUid: string | null): Promise<void> {
     if (previousUid === null || !embeddedApp) return;
     try {
       await terminate(embeddedFirestore);
-      embeddedFirestore = createEmbeddedFirestore(embeddedApp);
     } catch (error) {
       // 격리에 실패하면 이전 계정 소유로 되돌려, 다음 계정은 재시도 전까지 표면을 열지 않는다.
       firestoreOwnerUid = previousUid;
       throw error;
     }
+    // 여기서 실패하면 terminate 된 인스턴스가 남는다 — 재생성 대기로 표시해 ready 를 막고 다음 시도에서 다시 만든다.
+    firestoreNeedsRecreate = true;
+    recreateEmbeddedFirestore();
   };
   // 전환은 순서대로 한 번에 하나씩. 앞선 전환의 실패가 다음 전환을 막지 않는다.
   const transition = (accountTransition ?? Promise.resolve()).catch(() => undefined).then(run);
@@ -101,9 +113,27 @@ export function isolateEmbeddedAccount(nextUid: string | null): Promise<void> {
   return transition;
 }
 
+function recreateEmbeddedFirestore(): void {
+  if (!embeddedApp) return;
+  try {
+    embeddedFirestore = createEmbeddedFirestore(embeddedApp);
+  } catch (error) {
+    // 호출부(EmbeddedBootstrapRoot)가 격리 실패를 기록한다 — 원인 구분을 위해 메시지를 고정한다.
+    throw Object.assign(new Error("embedded-firestore/recreate-failed"), { cause: error });
+  }
+  firestoreNeedsRecreate = false;
+}
+
 /** 진행 중인 계정 전환이 없고 Firestore 가 이미 이 계정 소유(또는 새 인스턴스)면 기다릴 필요가 없다. */
 export function embeddedAccountReady(uid: string): boolean {
-  return accountTransition === null && (firestoreOwnerUid === uid || firestoreOwnerUid === null);
+  return accountTransition === null
+    && !firestoreNeedsRecreate
+    && (firestoreOwnerUid === uid || firestoreOwnerUid === null);
+}
+
+/** 현재 Firestore 인스턴스를 쓴 계정(null 이면 아무도 쓰지 않은 새 인스턴스). 로그 구분용. */
+export function embeddedFirestoreOwnerUid(): string | null {
+  return firestoreOwnerUid;
 }
 
 export function getEmbeddedFirestore(): Firestore {

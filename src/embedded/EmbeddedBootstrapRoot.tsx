@@ -31,6 +31,7 @@ import {
 import { logClientError } from "../services/errorLogger";
 import {
   embeddedAccountReady,
+  embeddedFirestoreOwnerUid,
   ensureEmbeddedAppCheckReady,
   getEmbeddedFirestore,
   initEmbeddedFirebase,
@@ -107,6 +108,8 @@ interface MountedTrainingSurface {
   lastReady: { status: TrainingSurfaceStatus; contentComplete: boolean } | null;
   /** 숨김 시작 시각(Date.now). 보이는 중이면 null. */
   hiddenAt: number | null;
+  /** 마지막으로 데이터를 새로 읽은 시각(마운트 또는 백그라운드 갱신, Date.now). */
+  refreshedAt: number;
 }
 
 interface SurfaceSelectionState {
@@ -128,6 +131,16 @@ interface SurfaceSelectionState {
  * 조회(계획 등)를 새로 받는 편이 낫다. 다시 열 때는 trainingSurfaceCache 가 즉시 화면을 채운다.
  */
 const HIDDEN_SURFACE_RELEASE_MS = 30 * 60 * 1000;
+
+/**
+ * 숨겼다 다시 보인 계획 표면을 백그라운드로 다시 읽는 최소 간격. 계획은 일회성 조회라
+ * 숨긴 동안의 변경을 받지 못하지만, 탭 왕복마다 다시 읽을 만큼 자주 바뀌지는 않는다.
+ * (피트니스는 리스너라 해당 없음.)
+ */
+const PLAN_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 5 * 60 * 1000;
+
+/** host 언어 적용(i18n.changeLanguage)이 끝나지 않을 때 표면을 열어 버리는 상한. */
+const INITIAL_LOCALE_APPLY_TIMEOUT_MS = 2500;
 
 interface EmbeddedBootstrapRootProps {
   bridgeFactory?: () => EmbeddedBridge;
@@ -284,6 +297,7 @@ function AuthorizedSurface({
   mountedTrainingSurface,
   onTrainingShellReady,
   onTrainingSurfaceReady,
+  planBackgroundRefreshKey,
   retryKey,
   runStartChannel,
   surfaceMountKey,
@@ -301,6 +315,7 @@ function AuthorizedSurface({
     status?: "cached" | "fresh" | "error",
     contentComplete?: boolean,
   ) => void;
+  planBackgroundRefreshKey: number;
   retryKey: number;
   runStartChannel: RunStartChannel;
   surfaceMountKey: number;
@@ -363,18 +378,31 @@ function AuthorizedSurface({
   );
   useEffect(() => {
     let cancelled = false;
+    let timeoutId: number | undefined;
     document.documentElement.lang = session.locale;
     const markApplied = () => {
+      window.clearTimeout(timeoutId);
       if (!cancelled) setInitialLocaleApplied(true);
     };
     if (i18n.language === session.locale) markApplied();
-    // 실패해도 표면은 연다(fail-open) — 다만 원인은 남긴다.
-    else void i18n.changeLanguage(session.locale).then(markApplied, (err: unknown) => {
-      logClientError("embedded.initialLocale.apply", err, { locale: session.locale });
-      markApplied();
-    });
+    else {
+      // 실패하거나 끝나지 않아도 표면은 연다(fail-open) — 다만 원인은 남긴다.
+      timeoutId = window.setTimeout(() => {
+        if (cancelled) return;
+        logClientError("embedded.initialLocale.timeout", new Error("embedded-locale/apply-timeout"), {
+          locale: session.locale,
+          timeoutMs: INITIAL_LOCALE_APPLY_TIMEOUT_MS,
+        });
+        markApplied();
+      }, INITIAL_LOCALE_APPLY_TIMEOUT_MS);
+      void i18n.changeLanguage(session.locale).then(markApplied, (err: unknown) => {
+        logClientError("embedded.initialLocale.apply", err, { locale: session.locale });
+        markApplied();
+      });
+    }
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
     };
   }, [session.locale]);
   const surfaceGateLoading = profileLoading || !initialLocaleApplied;
@@ -423,6 +451,7 @@ function AuthorizedSurface({
                 <PlanSurface
                   key={`${surfaceMountKey}:${retryKey}`}
                   retryKey={retryKey}
+                  backgroundRefreshKey={planBackgroundRefreshKey}
                   onReady={onTrainingSurfaceReady}
                   scheduledRunStarter={session.hostCapabilities.includes(RUN_START_SCHEDULED_CAPABILITY)
                     ? runStartChannel
@@ -489,9 +518,11 @@ export default function EmbeddedBootstrapRoot({
   });
   const mountedTrainingSurface = useRef<MountedTrainingSurface | null>(
     initialTrainingSurface
-      ? { surface: initialTrainingSurface, mountKey: 0, lastReady: null, hiddenAt: null }
+      ? { surface: initialTrainingSurface, mountKey: 0, lastReady: null, hiddenAt: null, refreshedAt: Date.now() }
       : null,
   );
+  // 숨겼다 다시 보인 계획 표면에 백그라운드 갱신을 요청하는 카운터(재마운트 없음).
+  const [planBackgroundRefreshKey, setPlanBackgroundRefreshKey] = useState(0);
   const reuseAckGeneration = useRef(-1);
   // 메시지 처리 직후(커밋 전)에 도착한 표면 콜백도 최신 선택에 응답하도록 동기 사본을 둔다.
   const latestSelection = useRef(surfaceSelection);
@@ -669,6 +700,8 @@ export default function EmbeddedBootstrapRoot({
           authorizedUid.current = uid === authorization.expectedUid ? uid : null;
           if (authorizedUid.current === null || controlServices.auth.currentUser?.isAnonymous === true) {
             clearTrainingSurfaceCache();
+            // 이전 계정의 Firestore 문서도 다음 승인까지 메모리에 두지 않는다(표면은 위에서 내렸다).
+            setAccountReleaseRequest((request) => request + 1);
           }
           safeSend("auth.state", { uid }, message.requestId);
         }).catch(() => {
@@ -702,7 +735,13 @@ export default function EmbeddedBootstrapRoot({
         selectionGeneration.current = generation;
         activeSelectionRequestId.current = undefined;
         mountedTrainingSurface.current = initialTrainingSurface
-          ? { surface: initialTrainingSurface, mountKey: generation, lastReady: null, hiddenAt: null }
+          ? {
+            surface: initialTrainingSurface,
+            mountKey: generation,
+            lastReady: null,
+            hiddenAt: null,
+            refreshedAt: Date.now(),
+          }
           : null;
         commitSurfaceSelection({
           generation,
@@ -733,11 +772,15 @@ export default function EmbeddedBootstrapRoot({
           }, flow.requestId);
         }
         // 이전 계정이 쓰던 Firestore 캐시를 다음 계정 표면이 마운트되기 전에 비운다.
+        const previousOwner = embeddedFirestoreOwnerUid();
+        const isolationPhase = previousOwner === currentUid
+          ? "same_account"
+          : previousOwner === null ? "fresh_instance" : "account_switch";
         const ready = embeddedAccountReady(currentUid);
         const isolation = isolateEmbeddedAccount(currentUid);
         if (ready) {
           void isolation.catch((err: unknown) => logClientError("embedded.accountIsolation.accept", err, {
-            phase: "same_account", uid: currentUid,
+            phase: isolationPhase, waited: false, uid: currentUid,
           }));
           setSession(accepted);
           return;
@@ -751,7 +794,9 @@ export default function EmbeddedBootstrapRoot({
           setFirestore(getEmbeddedFirestore());
           setSession(accepted);
         }, (err: unknown) => {
-          logClientError("embedded.accountIsolation.accept", err, { phase: "account_switch", uid: currentUid });
+          logClientError("embedded.accountIsolation.accept", err, {
+            phase: isolationPhase, waited: true, uid: currentUid,
+          });
           if (!isCurrentAcceptance()) return;
           sessionAccepted.current = false;
           acceptedUid.current = null;
@@ -796,8 +841,24 @@ export default function EmbeddedBootstrapRoot({
           next = retained ? { ...retained, hiddenAt: retained.hiddenAt ?? now } : null;
         } else if (retained?.surface === selection.surface) {
           next = { ...retained, hiddenAt: null };
+          // 숨겼다 다시 보인 계획 표면은 일회성 조회라 숨긴 동안의 변경을 놓친다 — 재마운트 없이 조용히 다시 읽는다.
+          if (
+            retained.surface === "plan"
+            && retained.hiddenAt !== null
+            && retained.lastReady !== null
+            && now - retained.refreshedAt >= PLAN_BACKGROUND_REFRESH_MIN_INTERVAL_MS
+          ) {
+            next.refreshedAt = now;
+            setPlanBackgroundRefreshKey((key) => key + 1);
+          }
         } else {
-          next = { surface: selection.surface, mountKey: generation, lastReady: null, hiddenAt: null };
+          next = {
+            surface: selection.surface,
+            mountKey: generation,
+            lastReady: null,
+            hiddenAt: null,
+            refreshedAt: now,
+          };
         }
         mountedTrainingSurface.current = next;
         // 이미 준비를 알린 표면을 다시 보여 주면 표면이 다시 알리지 않으므로 대신 응답한다.
@@ -866,7 +927,7 @@ export default function EmbeddedBootstrapRoot({
       if (message.type === "host.retry") {
         // 재시도는 표면을 새로 마운트하므로 이전 인스턴스의 준비 상태를 재사용하지 않는다.
         const mounted = mountedTrainingSurface.current;
-        if (mounted) mountedTrainingSurface.current = { ...mounted, lastReady: null };
+        if (mounted) mountedTrainingSurface.current = { ...mounted, lastReady: null, refreshedAt: Date.now() };
         setRetryKey((key) => key + 1);
       } else if (message.type === "host.logout") {
         clearTrainingSurfaceCache();
@@ -1003,6 +1064,7 @@ export default function EmbeddedBootstrapRoot({
           mountedTrainingSurface={surfaceKind === "activity-analysis" ? null : surfaceSelection.mounted}
           onTrainingShellReady={trainingShellReady}
           onTrainingSurfaceReady={trainingSurfaceReady}
+          planBackgroundRefreshKey={planBackgroundRefreshKey}
           retryKey={retryKey}
           runStartChannel={runStartChannel}
           surfaceMountKey={surfaceSelection.mountKey}
