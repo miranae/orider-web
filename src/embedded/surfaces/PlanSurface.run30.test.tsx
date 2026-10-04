@@ -57,6 +57,7 @@ const program = { goalId: "run30_goal", revision: 1, sessions: [] };
 
 describe("PlanSurface Run30 mode", () => {
   beforeEach(() => {
+    loadedPlan.retryLoad.mockClear();
     mocks.planModel = { ...loadedPlan };
     mocks.run30 = { status: "ready", program: null, api: {}, refresh: vi.fn(), retry: vi.fn() };
     mocks.programViewProps = null;
@@ -116,6 +117,31 @@ describe("PlanSurface Run30 mode", () => {
     screen.getByRole("button").click();
     expect(mocks.run30.retry).toHaveBeenCalled();
     expect(loadedPlan.retryLoad).toHaveBeenCalled();
+  });
+
+  it("backgroundRefreshKey 가 바뀔 때만 재마운트 없이 계획과 Run30 을 조용히 다시 읽는다", async () => {
+    const refreshPlanWeeks = vi.fn().mockResolvedValue(undefined);
+    mocks.planModel = {
+      ...loadedPlan,
+      goal: { id: "half", discipline: "run" },
+      refreshPlanWeeks,
+    };
+    const onReady = vi.fn();
+    const { rerender } = render(wrapper(<PlanSurface onReady={onReady} retryKey={0} backgroundRefreshKey={3} />));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh"));
+    // 마운트 시점 값으로는 갱신하지 않는다(마운트가 이미 새로 읽는다).
+    expect(refreshPlanWeeks).not.toHaveBeenCalled();
+    expect(mocks.run30.refresh).not.toHaveBeenCalled();
+
+    rerender(wrapper(<PlanSurface onReady={onReady} retryKey={0} backgroundRefreshKey={4} />));
+    await waitFor(() => expect(refreshPlanWeeks).toHaveBeenCalledTimes(1));
+    expect(mocks.run30.refresh).toHaveBeenCalledTimes(1);
+    expect(loadedPlan.retryLoad).not.toHaveBeenCalled();
+    expect(screen.getByTestId("plan-presentation")).toBeInTheDocument();
+
+    rerender(wrapper(<PlanSurface onReady={onReady} retryKey={0} backgroundRefreshKey={4} />));
+    expect(refreshPlanWeeks).toHaveBeenCalledTimes(1);
+    expect(onReady).toHaveBeenCalledTimes(1);
   });
 
   it("leaves bike plans untouched", async () => {

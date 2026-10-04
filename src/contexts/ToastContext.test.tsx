@@ -70,6 +70,19 @@ describe("ToastContext", () => {
     expect(screen.queryByText("성공 메시지")).not.toBeInTheDocument();
   });
 
+  it("언마운트하면 대기 중인 자동 닫기 타이머를 모두 정리한다", () => {
+    const { unmount } = renderToast();
+    act(() => { fireEvent.click(screen.getByText("성공")); });
+    act(() => { fireEvent.click(screen.getByText("에러")); });
+    // 성공 토스트를 닫는 중(200ms 제거 타이머)까지 걸어 둔다.
+    act(() => { vi.advanceTimersByTime(2500); });
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+    unmount();
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("can show multiple toasts simultaneously", () => {
     renderToast();
     act(() => { fireEvent.click(screen.getByText("성공")); });
