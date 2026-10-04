@@ -493,6 +493,12 @@ export default function EmbeddedBootstrapRoot({
       : null,
   );
   const reuseAckGeneration = useRef(-1);
+  // 메시지 처리 직후(커밋 전)에 도착한 표면 콜백도 최신 선택에 응답하도록 동기 사본을 둔다.
+  const latestSelection = useRef(surfaceSelection);
+  const commitSurfaceSelection = useCallback((next: SurfaceSelectionState) => {
+    latestSelection.current = next;
+    setSurfaceSelection(next);
+  }, []);
   const authorizedUid = useRef<string | null>(null);
   const acceptedUid = useRef<string | null>(null);
   const sessionAccepted = useRef(false);
@@ -543,10 +549,10 @@ export default function EmbeddedBootstrapRoot({
   ) => {
     if (
       selectionGeneration.current !== generation
-      || surfaceSelection.surface !== surface
-      || surfaceSelection.generation !== generation
+      || latestSelection.current.surface !== surface
+      || latestSelection.current.generation !== generation
     ) return;
-    safeSend("surface.shellReady", {}, surfaceSelection.requestId);
+    safeSend("surface.shellReady", {}, latestSelection.current.requestId);
     const flow = surfaceLoadingFlow.current;
     if (!flow || flow.surface !== surface || flow.generation !== generation) return;
     safeSend("telemetry.event", {
@@ -556,7 +562,7 @@ export default function EmbeddedBootstrapRoot({
       loadState: flow.reused ? "warm" : "cold",
       milestone: "shell_visible",
     }, flow.requestId);
-  }, [safeSend, surfaceSelection]);
+  }, [safeSend]);
 
   const handleTrainingSurfaceReady = useCallback((
     surface: TrainingSurfaceKind,
@@ -567,8 +573,8 @@ export default function EmbeddedBootstrapRoot({
   ) => {
     if (
       selectionGeneration.current !== generation
-      || surfaceSelection.surface !== surface
-      || surfaceSelection.generation !== generation
+      || latestSelection.current.surface !== surface
+      || latestSelection.current.generation !== generation
     ) return;
     const flow = surfaceLoadingFlow.current;
     if (flow && flow.surface === surface && flow.generation === generation) {
@@ -612,7 +618,7 @@ export default function EmbeddedBootstrapRoot({
     } else {
       safeSend("surface.ready", {}, requestId);
     }
-  }, [safeSend, surfaceSelection]);
+  }, [safeSend]);
 
   const handleNavigation = useCallback((event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
@@ -698,7 +704,7 @@ export default function EmbeddedBootstrapRoot({
         mountedTrainingSurface.current = initialTrainingSurface
           ? { surface: initialTrainingSurface, mountKey: generation, lastReady: null, hiddenAt: null }
           : null;
-        setSurfaceSelection({
+        commitSurfaceSelection({
           generation,
           surface: initialTrainingSurface,
           requestId: undefined,
@@ -810,7 +816,7 @@ export default function EmbeddedBootstrapRoot({
             reused: reuseReady,
           }
           : null;
-        setSurfaceSelection({
+        commitSurfaceSelection({
           generation,
           surface: selection.surface,
           requestId: selection.requestId,
@@ -923,7 +929,7 @@ export default function EmbeddedBootstrapRoot({
       runStartChannel.dispose();
       bridge.dispose();
     };
-  }, [bridge, controlServices, initialTrainingSurface, runStartChannel, safeSend, surfaceKind]);
+  }, [bridge, commitSurfaceSelection, controlServices, initialTrainingSurface, runStartChannel, safeSend, surfaceKind]);
 
   const selectedTrainingSurface = surfaceKind === "activity-analysis"
     ? null
@@ -936,27 +942,25 @@ export default function EmbeddedBootstrapRoot({
     status: "cached" | "fresh" | "error" = "fresh",
     contentComplete = true,
   ) => {
-    // 숨긴 동안 도착한 준비도 기록해 둔다 — 같은 표면을 다시 고르면 이 상태로 바로 응답한다.
+    // 이 콜백을 만든 표면 인스턴스(mountKey)가 아직 마운트돼 있을 때만 받는다.
     const mounted = mountedTrainingSurface.current;
-    if (mounted && mounted.mountKey === surfaceSelection.mountKey && mounted.surface === surfaceSelection.mounted) {
-      mounted.lastReady = { status, contentComplete };
+    if (!mounted || mounted.mountKey !== surfaceSelection.mountKey || mounted.surface !== surfaceSelection.mounted) {
+      return;
     }
-    if (!selectedTrainingSurface) return;
+    // 숨긴 동안 도착한 준비도 기록해 둔다 — 같은 표면을 다시 고르면 이 상태로 바로 응답한다.
+    mounted.lastReady = { status, contentComplete };
+    // 응답은 커밋된 props 가 아니라 최신 선택에 보낸다. 재선택 메시지와 커밋 사이에 준비가
+    // 도착하면 재선택 시점엔 lastReady 가 없어 대신 응답도 없으므로, 여기서 새 requestId 에 보낸다.
+    const latest = latestSelection.current;
+    if (surfaceKind === "activity-analysis" || !latest.surface || latest.mountKey !== mounted.mountKey) return;
     handleTrainingSurfaceReady(
-      selectedTrainingSurface,
-      surfaceSelection.generation,
-      surfaceSelection.requestId,
+      latest.surface,
+      latest.generation,
+      latest.requestId,
       status,
       contentComplete,
     );
-  }, [
-    handleTrainingSurfaceReady,
-    selectedTrainingSurface,
-    surfaceSelection.generation,
-    surfaceSelection.mountKey,
-    surfaceSelection.mounted,
-    surfaceSelection.requestId,
-  ]);
+  }, [handleTrainingSurfaceReady, surfaceKind, surfaceSelection.mountKey, surfaceSelection.mounted]);
 
   // 재사용한 표면은 이미 준비를 알렸으므로 새 requestId 에 마지막 준비 상태로 대신 응답한다.
   // 응답하지 않으면 호스트의 표면 렌더 제한 시간(10초)이 지나 오류 화면으로 바뀐다.
@@ -974,15 +978,16 @@ export default function EmbeddedBootstrapRoot({
   useEffect(() => {
     if (surfaceSelection.surface !== null || surfaceSelection.mounted === null) return undefined;
     const { generation } = surfaceSelection;
+    // null 이 반복돼도 상한은 처음 숨긴 시각부터 센다(타이머가 밀리지 않게 남은 시간만 건다).
+    const hiddenAt = mountedTrainingSurface.current?.hiddenAt ?? Date.now();
+    const remainingMs = Math.max(0, HIDDEN_SURFACE_RELEASE_MS - (Date.now() - hiddenAt));
     const timer = window.setTimeout(() => {
       if (selectionGeneration.current !== generation) return;
       mountedTrainingSurface.current = null;
-      setSurfaceSelection((current) => current.generation === generation
-        ? { ...current, mounted: null, reuseReady: false }
-        : current);
-    }, HIDDEN_SURFACE_RELEASE_MS);
+      commitSurfaceSelection({ ...latestSelection.current, mounted: null, reuseReady: false });
+    }, remainingMs);
     return () => window.clearTimeout(timer);
-  }, [surfaceSelection]);
+  }, [commitSurfaceSelection, surfaceSelection]);
 
   return (
     <div

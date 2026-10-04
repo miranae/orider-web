@@ -1364,7 +1364,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       const releaseTimers: Array<() => void> = [];
       const realSetTimeout = window.setTimeout.bind(window);
       vi.spyOn(window, "setTimeout").mockImplementation(((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
-        if (delay === 30 * 60 * 1000 && typeof handler === "function") {
+        if (typeof delay === "number" && delay >= 29 * 60 * 1000 && typeof handler === "function") {
           releaseTimers.push(handler as () => void);
           return 0;
         }
@@ -1381,6 +1381,46 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       await screen.findByTestId("fitness-surface");
       expect(mountCount("fitness")).toBe(2);
       expect(readyFor(bridge, "select-2")).toEqual([]);
+    });
+
+    it("재선택 메시지와 커밋 사이에 도착한 준비도 새 requestId 에 정확히 한 번 응답한다", async () => {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+      });
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+      await screen.findByTestId("fitness-surface");
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-1")));
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive")));
+      // 숨긴 상태에서 커밋된(선택 없음) 콜백을, 재선택 직후 커밋 전에 호출한다.
+      const hiddenReady = mocks.surfaceReadyCallbacks.fitness!;
+      act(() => {
+        bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-2"));
+        hiddenReady("fresh", true);
+      });
+
+      expect(readyFor(bridge, "select-2")).toHaveLength(1);
+      expect(mountCount("fitness")).toBe(1);
+    });
+
+    it("null 이 반복돼도 해제 타이머는 처음 숨긴 시각부터 남은 시간만 건다", async () => {
+      const bridge = createFakeBridge();
+      await acceptFitnessSession(bridge);
+      const delays: number[] = [];
+      const realSetTimeout = window.setTimeout.bind(window);
+      vi.spyOn(window, "setTimeout").mockImplementation(((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+        if (typeof delay === "number" && delay >= 60_000) delays.push(delay);
+        return realSetTimeout(handler, delay !== undefined && delay >= 60_000 ? 2_147_483_647 : delay, ...args);
+      }) as typeof window.setTimeout);
+      const start = Date.now();
+      const now = vi.spyOn(Date, "now").mockReturnValue(start);
+
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive-1")));
+      now.mockReturnValue(start + 20 * 60 * 1000);
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive-2")));
+
+      expect(delays).toEqual([30 * 60 * 1000, 10 * 60 * 1000]);
     });
 
     it("숨긴 표면도 로그아웃·uid 변경이면 언마운트한다", async () => {
