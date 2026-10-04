@@ -10,10 +10,13 @@ const mocks = vi.hoisted(() => ({
   appCheck: { kind: "app-check" },
   inMemoryPersistence: { kind: "memory-persistence" },
   memoryCache: { kind: "memory-cache" },
+  lruGarbageCollector: { kind: "lru-gc" },
   initializeApp: vi.fn(),
   initializeAuth: vi.fn(),
   initializeFirestore: vi.fn(),
   memoryLocalCache: vi.fn(),
+  memoryLruGarbageCollector: vi.fn(),
+  terminate: vi.fn(),
   getFunctions: vi.fn(),
   initializeAppCheck: vi.fn(),
   getToken: vi.fn(),
@@ -32,6 +35,8 @@ vi.mock("firebase/auth", () => ({
 vi.mock("firebase/firestore", () => ({
   initializeFirestore: mocks.initializeFirestore,
   memoryLocalCache: mocks.memoryLocalCache,
+  memoryLruGarbageCollector: mocks.memoryLruGarbageCollector,
+  terminate: mocks.terminate,
   connectFirestoreEmulator: mocks.connectFirestoreEmulator,
 }));
 vi.mock("firebase/functions", () => ({
@@ -73,10 +78,12 @@ describe("embeddedFirebase", () => {
     mocks.initializeApp.mockReturnValue(mocks.app);
     mocks.initializeAuth.mockReturnValue(mocks.auth);
     mocks.memoryLocalCache.mockReturnValue(mocks.memoryCache);
+    mocks.memoryLruGarbageCollector.mockReturnValue(mocks.lruGarbageCollector);
     mocks.initializeFirestore.mockReturnValue(mocks.firestore);
     mocks.getFunctions.mockReturnValue(mocks.functions);
     mocks.initializeAppCheck.mockReturnValue(mocks.appCheck);
     mocks.getToken.mockResolvedValue({ token: "app-check-token" });
+    mocks.terminate.mockResolvedValue(undefined);
   });
 
   it("creates a named app with memory-only Auth and Firestore", async () => {
@@ -94,6 +101,9 @@ describe("embeddedFirebase", () => {
       persistence: mocks.inMemoryPersistence,
     });
     expect(mocks.memoryLocalCache).toHaveBeenCalledTimes(1);
+    // 재마운트 시 전체 재조회를 막기 위해 EAGER 대신 LRU GC 를 쓴다(메모리 전용 유지).
+    expect(mocks.memoryLruGarbageCollector).toHaveBeenCalledWith({ cacheSizeBytes: 40 * 1024 * 1024 });
+    expect(mocks.memoryLocalCache).toHaveBeenCalledWith({ garbageCollector: mocks.lruGarbageCollector });
     expect(mocks.initializeFirestore).toHaveBeenCalledWith(mocks.app, {
       localCache: mocks.memoryCache,
     });
@@ -144,5 +154,89 @@ describe("embeddedFirebase", () => {
     const source = readFileSync(join(process.cwd(), "src/embedded/embeddedFirebase.ts"), "utf8");
     expect(source).not.toMatch(/services\/firebase/);
     expect(source).toContain("../services/runtimeConfig");
+  });
+
+  describe("계정 격리", () => {
+    async function loadWithDerivedCache() {
+      const loaded = await loadEmbeddedFirebase();
+      const derivedCache = await import("../features/fitness/activityDerivedDocumentCache");
+      return { ...loaded, derivedCache };
+    }
+
+    it("아무 계정도 쓰지 않은 첫 인스턴스는 terminate 없이 그대로 쓴다", async () => {
+      const { embeddedFirebase } = await loadEmbeddedFirebase();
+      expect(embeddedFirebase.embeddedAccountReady("user-a")).toBe(true);
+      await embeddedFirebase.isolateEmbeddedAccount("user-a");
+      await embeddedFirebase.isolateEmbeddedAccount("user-a");
+      expect(mocks.terminate).not.toHaveBeenCalled();
+      expect(embeddedFirebase.getEmbeddedFirestore()).toBe(mocks.firestore);
+      expect(embeddedFirebase.embeddedAccountReady("user-a")).toBe(true);
+      expect(embeddedFirebase.embeddedAccountReady("user-b")).toBe(false);
+    });
+
+    it("로그아웃하면 이전 계정 인스턴스를 한 번 terminate 하고 같은 설정으로 새로 만든다", async () => {
+      const { embeddedFirebase, derivedCache } = await loadWithDerivedCache();
+      const recreated = { kind: "firestore-2" };
+      mocks.initializeFirestore.mockReturnValueOnce(recreated);
+      await embeddedFirebase.isolateEmbeddedAccount("user-a");
+      derivedCache.setCachedActivityDerivedDocument(
+        "user-a", "metrics", "a1", "r1", { tss: 1 } as never,
+      );
+      expect(derivedCache.activityDerivedDocumentCacheTestApi.size()).toBe(0);
+      derivedCache.prepareActivityDerivedDocumentCacheOwner("user-a");
+      derivedCache.setCachedActivityDerivedDocument(
+        "user-a", "metrics", "a1", "r1", { tss: 1 } as never,
+      );
+      expect(derivedCache.activityDerivedDocumentCacheTestApi.size()).toBe(1);
+
+      await embeddedFirebase.isolateEmbeddedAccount(null);
+
+      expect(mocks.terminate).toHaveBeenCalledTimes(1);
+      expect(mocks.terminate).toHaveBeenCalledWith(mocks.firestore);
+      expect(mocks.initializeFirestore).toHaveBeenCalledTimes(2);
+      expect(mocks.initializeFirestore).toHaveBeenLastCalledWith(mocks.app, {
+        localCache: mocks.memoryCache,
+      });
+      expect(embeddedFirebase.getEmbeddedFirestore()).toBe(recreated);
+      expect(derivedCache.activityDerivedDocumentCacheTestApi.size()).toBe(0);
+
+      // 새 인스턴스는 다음 계정이 그대로 쓴다 — 추가 terminate 없음.
+      expect(embeddedFirebase.embeddedAccountReady("user-b")).toBe(true);
+      await embeddedFirebase.isolateEmbeddedAccount("user-b");
+      expect(mocks.terminate).toHaveBeenCalledTimes(1);
+      expect(embeddedFirebase.getEmbeddedFirestore()).toBe(recreated);
+    });
+
+    it("로그아웃 없이 다른 계정으로 바뀌어도 terminate 후 새 인스턴스를 쓰고 에뮬레이터 연결을 다시 건다", async () => {
+      mocks.runtimeConfig.useEmulators = true;
+      const { embeddedFirebase } = await loadEmbeddedFirebase();
+      const recreated = { kind: "firestore-2" };
+      mocks.initializeFirestore.mockReturnValueOnce(recreated);
+      await embeddedFirebase.isolateEmbeddedAccount("user-a");
+
+      const switching = embeddedFirebase.isolateEmbeddedAccount("user-b");
+      expect(embeddedFirebase.embeddedAccountReady("user-b")).toBe(false);
+      await switching;
+
+      expect(mocks.terminate).toHaveBeenCalledTimes(1);
+      expect(mocks.terminate).toHaveBeenCalledWith(mocks.firestore);
+      expect(embeddedFirebase.getEmbeddedFirestore()).toBe(recreated);
+      expect(mocks.connectFirestoreEmulator).toHaveBeenLastCalledWith(recreated, "localhost", 8080);
+      expect(embeddedFirebase.embeddedAccountReady("user-b")).toBe(true);
+    });
+
+    it("terminate 가 실패하면 이전 계정 소유로 남아 다음 계정이 기다리게 한다", async () => {
+      const { embeddedFirebase } = await loadEmbeddedFirebase();
+      await embeddedFirebase.isolateEmbeddedAccount("user-a");
+      mocks.terminate.mockRejectedValueOnce(new Error("terminate failed"));
+
+      await expect(embeddedFirebase.isolateEmbeddedAccount("user-b")).rejects.toThrow("terminate failed");
+      expect(embeddedFirebase.getEmbeddedFirestore()).toBe(mocks.firestore);
+      expect(embeddedFirebase.embeddedAccountReady("user-b")).toBe(false);
+
+      await embeddedFirebase.isolateEmbeddedAccount("user-b");
+      expect(mocks.terminate).toHaveBeenCalledTimes(2);
+      expect(embeddedFirebase.embeddedAccountReady("user-b")).toBe(true);
+    });
   });
 });

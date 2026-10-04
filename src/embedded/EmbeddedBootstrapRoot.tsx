@@ -28,9 +28,13 @@ import {
   type EmbeddedBridge,
   type HostBridgeEnvelope,
 } from "./bridge";
+import { logClientError } from "../services/errorLogger";
 import {
+  embeddedAccountReady,
   ensureEmbeddedAppCheckReady,
+  getEmbeddedFirestore,
   initEmbeddedFirebase,
+  isolateEmbeddedAccount,
 } from "./embeddedFirebase";
 import {
   parseSurfaceSelectionMessage,
@@ -311,10 +315,29 @@ function AuthorizedSurface({
     logout,
   }), [logout, profile, profileLoading, user]);
 
+  // host 언어를 표면이 마운트되기 전에 적용한다. 마운트 뒤에 바꾸면 언어(t)에 의존하는 활동·
+  // 시계열 리스너가 한 번 열렸다 닫히고 다시 열려 첫 로드에 같은 문서를 두 번 읽는다.
+  // 첫 적용 이후의 언어 변경은 표면을 내리지 않고 그대로 바꾼다.
+  const [initialLocaleApplied, setInitialLocaleApplied] = useState(
+    () => i18n.language === session.locale,
+  );
   useEffect(() => {
-    void i18n.changeLanguage(session.locale);
+    let cancelled = false;
     document.documentElement.lang = session.locale;
+    const markApplied = () => {
+      if (!cancelled) setInitialLocaleApplied(true);
+    };
+    if (i18n.language === session.locale) markApplied();
+    // 실패해도 표면은 연다(fail-open) — 다만 원인은 남긴다.
+    else void i18n.changeLanguage(session.locale).then(markApplied, (err: unknown) => {
+      logClientError("embedded.initialLocale.apply", err, { locale: session.locale });
+      markApplied();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [session.locale]);
+  const surfaceGateLoading = profileLoading || !initialLocaleApplied;
 
   useEffect(() => {
     if (!trainingSurface) return undefined;
@@ -325,7 +348,7 @@ function AuthorizedSurface({
     return () => window.cancelAnimationFrame(frame);
   }, [onTrainingShellReady, trainingSurface]);
 
-  if (profileLoading && !trainingSurface) {
+  if (surfaceGateLoading && !trainingSurface) {
     return (
       <div className="orider-embedded-status" role="status" aria-label="Loading profile">
         <div className="orider-embedded-status__pulse" />
@@ -384,7 +407,7 @@ function AuthorizedSurface({
           <h1 id="orider-training-surface-title">{title}</h1>
           <p ref={shellStatusRef} role="status">{loadingLabel}</p>
         </header>
-        {profileLoading ? (
+        {surfaceGateLoading ? (
           <div className="orider-embedded-status" role="status" aria-label={loadingLabel}>
             <div className="orider-embedded-status__pulse" />
           </div>
@@ -424,12 +447,29 @@ export default function EmbeddedBootstrapRoot({
   const authorizationAttempt = useRef(0);
   const surfaceLoadingFlow = useRef<SurfaceLoadingFlow | null>(null);
   const embedded = initEmbeddedFirebase();
-  const services = useMemo<FirebaseServices>(() => ({
+  // 브리지·인증 구독은 Firestore 인스턴스와 무관하다. 계정 전환으로 Firestore 가 새로 만들어져도
+  // 구독(과 브리지)이 다시 만들어지지 않도록 표면용 services 와 분리한다.
+  const controlServices = useMemo(() => ({
     auth: embedded.auth,
-    firestore: embedded.firestore,
     functions: embedded.functions,
     ensureAppCheckReady: ensureEmbeddedAppCheckReady,
-  }), [embedded.auth, embedded.firestore, embedded.functions]);
+  }), [embedded.auth, embedded.functions]);
+  const [firestore, setFirestore] = useState(() => embedded.firestore);
+  const services = useMemo<FirebaseServices>(
+    () => ({ ...controlServices, firestore }),
+    [controlServices, firestore],
+  );
+  // 로그아웃·계정 변경 뒤 이전 계정 데이터를 버리는 요청. 표면이 언마운트된(리스너가 닫힌)
+  // 다음 커밋의 effect 에서 처리한다.
+  const [accountReleaseRequest, setAccountReleaseRequest] = useState(0);
+  useEffect(() => {
+    if (accountReleaseRequest === 0) return;
+    void isolateEmbeddedAccount(null).then(
+      () => setFirestore(getEmbeddedFirestore()),
+      // 실패하면 소유 계정이 유지되어 다음 sessionAccepted 가 격리를 다시 시도한다.
+      (err: unknown) => logClientError("embedded.accountIsolation.release", err, { phase: "logout" }),
+    );
+  }, [accountReleaseRequest]);
 
   const safeSend = useCallback((
     type: Parameters<EmbeddedBridge["send"]>[0],
@@ -560,14 +600,14 @@ export default function EmbeddedBootstrapRoot({
         activeSelectionRequestId.current = undefined;
         setSession(null);
         void consumeAppHandoffCode({
-          auth: services.auth,
-          functions: services.functions,
-          ensureAppCheckReady: services.ensureAppCheckReady,
-        }).then(() => services.auth.authStateReady()).then(() => {
+          auth: controlServices.auth,
+          functions: controlServices.functions,
+          ensureAppCheckReady: controlServices.ensureAppCheckReady,
+        }).then(() => controlServices.auth.authStateReady()).then(() => {
           if (authorizationAttempt.current !== attempt) return;
-          const uid = services.auth.currentUser?.uid ?? null;
+          const uid = controlServices.auth.currentUser?.uid ?? null;
           authorizedUid.current = uid === authorization.expectedUid ? uid : null;
-          if (authorizedUid.current === null || services.auth.currentUser?.isAnonymous === true) {
+          if (authorizedUid.current === null || controlServices.auth.currentUser?.isAnonymous === true) {
             clearTrainingSurfaceCache();
           }
           safeSend("auth.state", { uid }, message.requestId);
@@ -581,7 +621,7 @@ export default function EmbeddedBootstrapRoot({
 
       if (message.type === "host.sessionAccepted") {
         const accepted = parseAcceptedSession(message.payload);
-        const currentUid = services.auth.currentUser?.uid ?? null;
+        const currentUid = controlServices.auth.currentUser?.uid ?? null;
         if (!accepted) {
           safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
           return;
@@ -594,7 +634,7 @@ export default function EmbeddedBootstrapRoot({
           safeSend("surface.error", { code: "auth_uid_mismatch" }, message.requestId);
           return;
         }
-        prepareTrainingSurfaceCacheOwner(currentUid, services.auth.currentUser?.isAnonymous === true);
+        prepareTrainingSurfaceCacheOwner(currentUid, controlServices.auth.currentUser?.isAnonymous === true);
         if (rootRef.current) applyHostContract(rootRef.current, accepted);
         acceptedUid.current = currentUid;
         sessionAccepted.current = true;
@@ -621,7 +661,32 @@ export default function EmbeddedBootstrapRoot({
             milestone: "session_accepted",
           }, flow.requestId);
         }
-        setSession(accepted);
+        // 이전 계정이 쓰던 Firestore 캐시를 다음 계정 표면이 마운트되기 전에 비운다.
+        const ready = embeddedAccountReady(currentUid);
+        const isolation = isolateEmbeddedAccount(currentUid);
+        if (ready) {
+          void isolation.catch((err: unknown) => logClientError("embedded.accountIsolation.accept", err, {
+            phase: "same_account", uid: currentUid,
+          }));
+          setSession(accepted);
+          return;
+        }
+        const attempt = authorizationAttempt.current;
+        const isCurrentAcceptance = () => authorizationAttempt.current === attempt
+          && sessionAccepted.current
+          && acceptedUid.current === currentUid;
+        void isolation.then(() => {
+          if (!isCurrentAcceptance()) return;
+          setFirestore(getEmbeddedFirestore());
+          setSession(accepted);
+        }, (err: unknown) => {
+          logClientError("embedded.accountIsolation.accept", err, { phase: "account_switch", uid: currentUid });
+          if (!isCurrentAcceptance()) return;
+          sessionAccepted.current = false;
+          acceptedUid.current = null;
+          surfaceLoadingFlow.current = null;
+          safeSend("surface.error", { code: "surface_load_failed" }, message.requestId);
+        });
         return;
       }
 
@@ -635,9 +700,9 @@ export default function EmbeddedBootstrapRoot({
           surfaceKind === "activity-analysis"
           || !sessionAccepted.current
           || !acceptedUid.current
-          || services.auth.currentUser?.uid !== acceptedUid.current
+          || controlServices.auth.currentUser?.uid !== acceptedUid.current
         ) {
-          if (acceptedUid.current && services.auth.currentUser?.uid !== acceptedUid.current) {
+          if (acceptedUid.current && controlServices.auth.currentUser?.uid !== acceptedUid.current) {
             clearTrainingSurfaceCache();
           }
           safeSend("surface.error", { code: "invalid_host_state" }, message.requestId);
@@ -671,6 +736,7 @@ export default function EmbeddedBootstrapRoot({
           return;
         }
         setSession(null);
+        setAccountReleaseRequest((request) => request + 1);
         authorizedUid.current = null;
         acceptedUid.current = null;
         sessionAccepted.current = false;
@@ -711,12 +777,13 @@ export default function EmbeddedBootstrapRoot({
         surfaceLoadingFlow.current = null;
         activeSelectionRequestId.current = undefined;
         setSession(null);
-        void signOut(services.auth);
+        setAccountReleaseRequest((request) => request + 1);
+        void signOut(controlServices.auth);
       }
     };
 
     const unsubscribe = bridge.subscribe(handleMessage);
-    const unsubscribeAuth = onAuthStateChanged(services.auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(controlServices.auth, (user) => {
       const lockedUid = acceptedUid.current;
       if (user?.isAnonymous === true) {
         const requestId = activeSelectionRequestId.current;
@@ -729,6 +796,7 @@ export default function EmbeddedBootstrapRoot({
         surfaceLoadingFlow.current = null;
         activeSelectionRequestId.current = undefined;
         setSession(null);
+        setAccountReleaseRequest((request) => request + 1);
         safeSend("surface.error", { code: "auth_uid_changed" }, requestId);
         return;
       }
@@ -743,6 +811,7 @@ export default function EmbeddedBootstrapRoot({
       surfaceLoadingFlow.current = null;
       activeSelectionRequestId.current = undefined;
       setSession(null);
+      setAccountReleaseRequest((request) => request + 1);
       safeSend("surface.error", { code: "auth_uid_changed" }, requestId);
     });
     safeSend("bootstrap.ready", {
@@ -759,7 +828,7 @@ export default function EmbeddedBootstrapRoot({
       runStartChannel.dispose();
       bridge.dispose();
     };
-  }, [bridge, initialTrainingSurface, runStartChannel, safeSend, services, surfaceKind]);
+  }, [bridge, controlServices, initialTrainingSurface, runStartChannel, safeSend, surfaceKind]);
 
   const selectedTrainingSurface = surfaceKind === "activity-analysis"
     ? null
