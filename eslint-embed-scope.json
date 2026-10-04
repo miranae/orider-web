@@ -58,6 +58,7 @@
   "src/features/activity/detail/metricsPresentation.ts",
   "src/features/activity/detail/sensorChannelContract.ts",
   "src/features/activity/detail/useActivityStreamsLoader.ts",
+  "src/features/fitness/activityDerivedDocumentCache.ts",
   "src/features/fitness/chartPalette.ts",
   "src/features/fitness/components/BikeFtpDecisionActionPanel.tsx",
   "src/features/fitness/components/CanonicalFitnessNotice.tsx",

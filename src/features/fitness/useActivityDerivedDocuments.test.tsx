@@ -920,4 +920,67 @@ describe("useActivityDerivedDocuments", () => {
     expect(new Set(streamReadIds())).toEqual(new Set(["trail", "virtual-run", "open-water", "pool"]));
     expect(streamReadIds()).not.toContain("virtual-ride");
   });
+
+  describe("재마운트 간 파생 문서 캐시", () => {
+    const readCount = () => vi.mocked(getDoc).mock.calls.length;
+
+    it("같은 revision 이면 재마운트해도 다시 읽지 않는다", async () => {
+      setDocData("activity_streams/remount", { watts: [200] });
+      setDocData("activity_metrics/remount", { tss: 55 });
+      const current = activity("remount", "user-a");
+      const first = renderHook(() => useActivityDerivedDocuments("user-a", [current]));
+      await waitFor(() => expect(first.result.current.metricsMap.get("remount")).toEqual({ tss: 55 }));
+      expect(readCount()).toBe(2);
+      first.unmount();
+
+      const second = renderHook(() => useActivityDerivedDocuments("user-a", [{ ...current }]));
+      expect(second.result.current.streamsMap.get("remount")).toEqual({ watts: [200] });
+      expect(second.result.current.metricsMap.get("remount")).toEqual({ tss: 55 });
+      expect(second.result.current.metricStatusMap.get("remount")?.state).toBe("loaded");
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(readCount()).toBe(2);
+      second.unmount();
+    });
+
+    it("활동 revision 이 바뀌면 캐시 대신 다시 읽는다", async () => {
+      setDocData("activity_streams/revised", { watts: [200] });
+      setDocData("activity_metrics/revised", { tss: 55 });
+      const current = activity("revised", "user-a");
+      const first = renderHook(() => useActivityDerivedDocuments("user-a", [current]));
+      await waitFor(() => expect(first.result.current.metricsMap.get("revised")).toEqual({ tss: 55 }));
+      first.unmount();
+
+      setDocData("activity_streams/revised", { watts: [210] });
+      setDocData("activity_metrics/revised", { tss: 61 });
+      const revised = activity("revised", "user-a", 190);
+      const second = renderHook(() => useActivityDerivedDocuments("user-a", [revised]));
+      expect(second.result.current.metricsMap.has("revised")).toBe(false);
+      await waitFor(() => {
+        expect(second.result.current.streamsMap.get("revised")).toEqual({ watts: [210] });
+        expect(second.result.current.metricsMap.get("revised")).toEqual({ tss: 61 });
+      });
+      expect(readCount()).toBe(4);
+      second.unmount();
+    });
+
+    it("다른 계정이 쓰면 이전 계정의 캐시를 비운다", async () => {
+      setDocData("activity_metrics/owned", { tss: 30 });
+      const owned = activity("owned", "user-a", null);
+      const first = renderHook(() => useActivityDerivedDocuments("user-a", [owned]));
+      await waitFor(() => expect(first.result.current.metricsMap.get("owned")).toEqual({ tss: 30 }));
+      expect(readCount()).toBe(1);
+      first.unmount();
+
+      const other = renderHook(() => useActivityDerivedDocuments("user-b", []));
+      other.unmount();
+
+      const again = renderHook(() => useActivityDerivedDocuments("user-a", [owned]));
+      expect(again.result.current.metricsMap.has("owned")).toBe(false);
+      await waitFor(() => expect(again.result.current.metricsMap.get("owned")).toEqual({ tss: 30 }));
+      expect(readCount()).toBe(2);
+      again.unmount();
+    });
+  });
 });
