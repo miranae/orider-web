@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { simulateLogin } from "../__tests__/mocks/firebase";
@@ -28,7 +28,7 @@ const mocks = vi.hoisted(() => {
       plan: null as ((status?: "cached" | "fresh" | "error") => void) | null,
     },
     consumeHandoff: vi.fn().mockResolvedValue(undefined),
-    firestore: {},
+    firestore: { instance: "initial" } as object,
     functions: {},
   };
   return {
@@ -39,6 +39,15 @@ const mocks = vi.hoisted(() => {
     },
     setCurrentUser(user: { uid: string } | null) {
       state.currentUser = user;
+    },
+    // 계정 격리 가짜 구현 — 실제 terminate/재생성은 embeddedFirebase.test 가 검증한다.
+    account: {
+      owner: null as string | null,
+      firestore: null as object | null,
+      created: 0,
+      terminate: vi.fn(),
+      isolate: vi.fn(),
+      gate: null as Promise<void> | null,
     },
   };
 });
@@ -59,11 +68,33 @@ vi.mock("./embeddedFirebase", () => ({
   initEmbeddedFirebase: () => ({
     app: {},
     auth: mocks.embeddedAuth,
-    firestore: mocks.firestore,
+    firestore: mocks.account.firestore ?? mocks.firestore,
     functions: mocks.functions,
   }),
   ensureEmbeddedAppCheckReady: vi.fn().mockResolvedValue(undefined),
+  embeddedAccountReady: (uid: string) => mocks.account.owner === null || mocks.account.owner === uid,
+  getEmbeddedFirestore: () => mocks.account.firestore ?? mocks.firestore,
+  isolateEmbeddedAccount: (uid: string | null) => mocks.account.isolate(uid),
 }));
+
+function resetAccountIsolationMock() {
+  mocks.account.owner = null;
+  mocks.account.firestore = null;
+  mocks.account.created = 0;
+  mocks.account.gate = null;
+  mocks.account.terminate.mockReset();
+  mocks.account.isolate.mockReset();
+  mocks.account.isolate.mockImplementation(async (uid: string | null) => {
+    if (mocks.account.gate) await mocks.account.gate;
+    if (mocks.account.owner === uid) return;
+    const previous = mocks.account.owner;
+    mocks.account.owner = uid;
+    if (previous === null) return;
+    mocks.account.terminate(mocks.account.firestore ?? mocks.firestore);
+    mocks.account.created += 1;
+    mocks.account.firestore = { instance: `recreated-${mocks.account.created}` };
+  });
+}
 
 vi.mock("../services/appHandoff", () => ({
   consumeAppHandoffCode: mocks.consumeHandoff,
@@ -172,6 +203,8 @@ describe("EmbeddedBootstrapRoot session gate", () => {
 
   beforeEach(() => {
     clearTrainingSurfaceCache();
+    resetAccountIsolationMock();
+    vi.mocked(doc).mockClear();
     mocks.setCurrentUser({ uid: "owner-1" });
     mocks.queryProviderMounts.mockClear();
     mocks.queryClientCreations.mockClear();
@@ -467,6 +500,86 @@ describe("EmbeddedBootstrapRoot session gate", () => {
         await i18n.changeLanguage(previousLanguage);
       });
     }
+  });
+
+  it("로그아웃 뒤 다른 계정은 표면이 내려간 다음 terminate 된 Firestore 대신 새 인스턴스로 연다", async () => {
+    const surfacePresentAtIsolation: boolean[] = [];
+    const isolate = mocks.account.isolate.getMockImplementation()!;
+    mocks.account.isolate.mockImplementation((uid: string | null) => {
+      surfacePresentAtIsolation.push(screen.queryByTestId("fitness-surface") !== null);
+      return isolate(uid);
+    });
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    expect(await screen.findByTestId("fitness-surface")).toBeInTheDocument();
+    const initialFirestore = mocks.firestore;
+    expect(vi.mocked(doc)).toHaveBeenCalledWith(initialFirestore, "users", "owner-1");
+
+    await act(async () => bridge.emit(hostMessage("host.logout", {})));
+    await waitFor(() => expect(mocks.account.terminate).toHaveBeenCalledTimes(1));
+    expect(mocks.account.terminate).toHaveBeenCalledWith(initialFirestore);
+    expect(mocks.account.isolate).toHaveBeenLastCalledWith(null);
+    // 리스너가 닫힌 뒤(표면 언마운트 후)에 격리한다.
+    expect(surfacePresentAtIsolation.at(-1)).toBe(false);
+
+    vi.mocked(doc).mockClear();
+    mocks.setCurrentUser({ uid: "owner-2" });
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-2", contractVersion: 1 }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    expect(await screen.findByTestId("fitness-surface")).toBeInTheDocument();
+    expect(mocks.account.terminate).toHaveBeenCalledTimes(1);
+    const recreated = mocks.account.firestore;
+    expect(recreated).not.toBeNull();
+    expect(recreated).not.toBe(initialFirestore);
+    const profileReads = vi.mocked(doc).mock.calls.filter(([, collectionName]) => collectionName === "users");
+    expect(profileReads.length).toBeGreaterThan(0);
+    expect(profileReads.every(([instance, , uid]) => instance === recreated && uid === "owner-2")).toBe(true);
+  });
+
+  it("로그아웃 없이 다른 계정으로 재승인하면 격리가 끝날 때까지 표면을 열지 않는다", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    expect(await screen.findByTestId("fitness-surface")).toBeInTheDocument();
+    await waitFor(() => expect(mocks.account.owner).toBe("owner-1"));
+    const initialFirestore = mocks.firestore;
+
+    let openGate: () => void = () => undefined;
+    mocks.account.gate = new Promise<void>((resolve) => {
+      openGate = resolve;
+    });
+    vi.mocked(doc).mockClear();
+    mocks.setCurrentUser({ uid: "owner-2" });
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-2", contractVersion: 1 }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByTestId("fitness-surface")).not.toBeInTheDocument();
+    expect(vi.mocked(doc).mock.calls.some(([, collectionName]) => collectionName === "users")).toBe(false);
+
+    await act(async () => {
+      openGate();
+      await mocks.account.gate;
+    });
+    expect(await screen.findByTestId("fitness-surface")).toBeInTheDocument();
+    expect(mocks.account.terminate).toHaveBeenCalledTimes(1);
+    expect(mocks.account.terminate).toHaveBeenCalledWith(initialFirestore);
+    const profileReads = vi.mocked(doc).mock.calls.filter(([, collectionName]) => collectionName === "users");
+    expect(profileReads.length).toBeGreaterThan(0);
+    expect(profileReads.every(([instance, , uid]) => instance === mocks.account.firestore && uid === "owner-2"))
+      .toBe(true);
   });
 
   it("correlates shell readiness across fitness plan inactive and fitness selections without stale signals", async () => {
