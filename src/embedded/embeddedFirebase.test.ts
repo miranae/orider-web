@@ -10,10 +10,12 @@ const mocks = vi.hoisted(() => ({
   appCheck: { kind: "app-check" },
   inMemoryPersistence: { kind: "memory-persistence" },
   memoryCache: { kind: "memory-cache" },
+  lruGarbageCollector: { kind: "lru-gc" },
   initializeApp: vi.fn(),
   initializeAuth: vi.fn(),
   initializeFirestore: vi.fn(),
   memoryLocalCache: vi.fn(),
+  memoryLruGarbageCollector: vi.fn(),
   getFunctions: vi.fn(),
   initializeAppCheck: vi.fn(),
   getToken: vi.fn(),
@@ -32,6 +34,7 @@ vi.mock("firebase/auth", () => ({
 vi.mock("firebase/firestore", () => ({
   initializeFirestore: mocks.initializeFirestore,
   memoryLocalCache: mocks.memoryLocalCache,
+  memoryLruGarbageCollector: mocks.memoryLruGarbageCollector,
   connectFirestoreEmulator: mocks.connectFirestoreEmulator,
 }));
 vi.mock("firebase/functions", () => ({
@@ -73,6 +76,7 @@ describe("embeddedFirebase", () => {
     mocks.initializeApp.mockReturnValue(mocks.app);
     mocks.initializeAuth.mockReturnValue(mocks.auth);
     mocks.memoryLocalCache.mockReturnValue(mocks.memoryCache);
+    mocks.memoryLruGarbageCollector.mockReturnValue(mocks.lruGarbageCollector);
     mocks.initializeFirestore.mockReturnValue(mocks.firestore);
     mocks.getFunctions.mockReturnValue(mocks.functions);
     mocks.initializeAppCheck.mockReturnValue(mocks.appCheck);
@@ -94,6 +98,9 @@ describe("embeddedFirebase", () => {
       persistence: mocks.inMemoryPersistence,
     });
     expect(mocks.memoryLocalCache).toHaveBeenCalledTimes(1);
+    // 재마운트 시 전체 재조회를 막기 위해 EAGER 대신 LRU GC 를 쓴다(메모리 전용 유지).
+    expect(mocks.memoryLruGarbageCollector).toHaveBeenCalledWith({ cacheSizeBytes: 40 * 1024 * 1024 });
+    expect(mocks.memoryLocalCache).toHaveBeenCalledWith({ garbageCollector: mocks.lruGarbageCollector });
     expect(mocks.initializeFirestore).toHaveBeenCalledWith(mocks.app, {
       localCache: mocks.memoryCache,
     });

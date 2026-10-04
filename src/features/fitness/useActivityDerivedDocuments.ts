@@ -6,6 +6,11 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import {
+  getCachedActivityDerivedDocument,
+  prepareActivityDerivedDocumentCacheOwner,
+  setCachedActivityDerivedDocument,
+} from "./activityDerivedDocumentCache";
+import {
   activityDerivedDocumentRevision,
   isDerivedDocumentReadCurrent,
   markDerivedDocumentMissing,
@@ -307,10 +312,37 @@ export function useActivityDerivedDocuments(
     const displayedIds = new Set(activities.map((activity) => activity.id));
     const scopedReadIds = new Set(scopedActivities.map((activity) => activity.id));
     pruneResources(resources, scopedReadIds);
+    // 재마운트 전에 같은 revision 으로 읽어 둔 파생 문서는 다시 읽지 않고 모듈 캐시에서 채운다.
+    prepareActivityDerivedDocumentCacheOwner(normalizedUid);
+    const cachedStreams = new Map<string, ActivityStreams>();
+    const cachedMetrics = new Map<string, ActivityMetrics>();
+    if (normalizedUid != null) {
+      for (const activity of scopedActivities) {
+        const revision = activityDerivedDocumentRevision(activity);
+        if (shouldReadDerivedDocument(resources.streamAttempts, activity)) {
+          const streams = getCachedActivityDerivedDocument(normalizedUid, "stream", activity.id, revision);
+          if (streams !== undefined) {
+            markDerivedDocumentReadComplete(resources.streamAttempts, activity);
+            cachedStreams.set(activity.id, streams);
+          }
+        }
+        if (shouldReadDerivedDocument(resources.metricAttempts, activity)) {
+          const metrics = getCachedActivityDerivedDocument(normalizedUid, "metrics", activity.id, revision);
+          if (metrics !== undefined) {
+            markDerivedDocumentReadComplete(resources.metricAttempts, activity);
+            cachedMetrics.set(activity.id, metrics);
+          }
+        }
+      }
+    }
     setState((previous) => {
       const ownerChanged = previous.ownerUid !== normalizedUid;
-      const streamsChanged = ownerChanged || [...previous.streamsMap.keys()].some((id) => !displayedIds.has(id));
-      const metricsChanged = ownerChanged || [...previous.metricsMap.keys()].some((id) => !displayedIds.has(id));
+      const streamsChanged = ownerChanged
+        || [...previous.streamsMap.keys()].some((id) => !displayedIds.has(id))
+        || [...cachedStreams].some(([id, value]) => previous.streamsMap.get(id) !== value);
+      const metricsChanged = ownerChanged
+        || [...previous.metricsMap.keys()].some((id) => !displayedIds.has(id))
+        || [...cachedMetrics].some(([id, value]) => previous.metricsMap.get(id) !== value);
       const metricStatusesChanged = ownerChanged
         || [...previous.metricStatusMap.keys()].some((id) => !displayedIds.has(id))
         || activities.some((activity) => {
@@ -330,6 +362,7 @@ export function useActivityDerivedDocuments(
       if (!ownerChanged) {
         for (const [id, value] of previous.streamsMap) if (displayedIds.has(id)) streamsMap.set(id, value);
       }
+      for (const [id, value] of cachedStreams) streamsMap.set(id, value);
       for (const activity of activities) {
         const revision = activityDerivedDocumentRevision(activity);
         const previousStatus = previous.metricStatusMap.get(activity.id);
@@ -338,6 +371,9 @@ export function useActivityDerivedDocuments(
           || getDiscipline(activity.type) === null;
         if (skipped) {
           metricStatusMap.set(activity.id, { revision, state: "skipped" });
+        } else if (cachedMetrics.has(activity.id)) {
+          metricStatusMap.set(activity.id, { revision, state: "loaded" });
+          metricsMap.set(activity.id, cachedMetrics.get(activity.id)!);
         } else if (!ownerChanged && previousStatus?.revision === revision) {
           metricStatusMap.set(activity.id, previousStatus);
           const metrics = previous.metricsMap.get(activity.id);
@@ -597,22 +633,29 @@ export function useActivityDerivedDocuments(
       }
     };
 
-    const applyStream = (id: string, value: ActivityStreams) => setState((previous) => {
-      if (previous.ownerUid !== normalizedUid) return previous;
-      const streamsMap = new Map(previous.streamsMap);
-      streamsMap.set(id, value);
-      return { ...previous, streamsMap };
-    });
-    const applyMetric = (id: string, value: ActivityMetrics, revision: string) => setState((previous) => {
-      if (previous.ownerUid !== normalizedUid) return previous;
-      const currentStatus = previous.metricStatusMap.get(id);
-      if (currentStatus?.revision !== revision || currentStatus.state === "skipped") return previous;
-      const metricsMap = new Map(previous.metricsMap);
-      const metricStatusMap = new Map(previous.metricStatusMap);
-      metricsMap.set(id, value);
-      metricStatusMap.set(id, { revision, state: "loaded" });
-      return { ...previous, metricsMap, metricStatusMap };
-    });
+    const ownerUid = normalizedUid;
+    const applyStream = (id: string, value: ActivityStreams, revision: string) => {
+      setCachedActivityDerivedDocument(ownerUid, "stream", id, revision, value);
+      setState((previous) => {
+        if (previous.ownerUid !== normalizedUid) return previous;
+        const streamsMap = new Map(previous.streamsMap);
+        streamsMap.set(id, value);
+        return { ...previous, streamsMap };
+      });
+    };
+    const applyMetric = (id: string, value: ActivityMetrics, revision: string) => {
+      setCachedActivityDerivedDocument(ownerUid, "metrics", id, revision, value);
+      setState((previous) => {
+        if (previous.ownerUid !== normalizedUid) return previous;
+        const currentStatus = previous.metricStatusMap.get(id);
+        if (currentStatus?.revision !== revision || currentStatus.state === "skipped") return previous;
+        const metricsMap = new Map(previous.metricsMap);
+        const metricStatusMap = new Map(previous.metricStatusMap);
+        metricsMap.set(id, value);
+        metricStatusMap.set(id, { revision, state: "loaded" });
+        return { ...previous, metricsMap, metricStatusMap };
+      });
+    };
     const applyMetricStatus = (
       id: string,
       revision: string,

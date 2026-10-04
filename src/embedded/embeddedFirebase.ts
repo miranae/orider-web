@@ -9,6 +9,7 @@ import {
   connectFirestoreEmulator,
   initializeFirestore,
   memoryLocalCache,
+  memoryLruGarbageCollector,
   type Firestore,
 } from "firebase/firestore";
 import {
@@ -26,6 +27,9 @@ import { getRuntimeConfig } from "../services/runtimeConfig";
 
 const EMBEDDED_APP_NAME = "orider-embedded";
 const APP_CHECK_TOKEN_TIMEOUT_MS = 12_000;
+// 임베드 Firestore 메모리 캐시 상한. 피트니스 표면의 활동·파생 문서 수백 건을 담고도 남는 크기로,
+// WebView 메모리를 무한정 쓰지 않도록 이 값을 넘으면 오래된 문서부터 정리된다.
+const EMBEDDED_FIRESTORE_CACHE_SIZE_BYTES = 40 * 1024 * 1024;
 
 let embeddedApp: FirebaseApp | undefined;
 export let embeddedAuth: Auth;
@@ -93,7 +97,17 @@ export function initEmbeddedFirebase(): EmbeddedFirebaseServices {
 
   embeddedApp = initializeApp(config, EMBEDDED_APP_NAME);
   embeddedAuth = initializeAuth(embeddedApp, { persistence: inMemoryPersistence });
-  embeddedFirestore = initializeFirestore(embeddedApp, { localCache: memoryLocalCache() });
+  // 기본 메모리 캐시(EAGER GC)는 리스너가 닫히는 즉시 문서를 버린다. 임베드 표면은 host 의 표면
+  // 선택·포그라운드 복귀마다 재마운트되어, 그때마다 모든 리스너가 서버에서 전체를 다시 읽었다.
+  // LRU GC 로 바꾸면 같은 WebView 안의 재마운트가 캐시된 문서와 resume token 을 재사용해 변경분만
+  // 받는다. 디스크 영속 저장은 여전히 하지 않는다(메모리 전용 — WebView 가 끝나면 사라진다).
+  embeddedFirestore = initializeFirestore(embeddedApp, {
+    localCache: memoryLocalCache({
+      garbageCollector: memoryLruGarbageCollector({
+        cacheSizeBytes: EMBEDDED_FIRESTORE_CACHE_SIZE_BYTES,
+      }),
+    }),
+  });
   embeddedFunctions = getFunctions(
     embeddedApp,
     runtimeConfig.firebaseFunctionsRegion || "us-central1",

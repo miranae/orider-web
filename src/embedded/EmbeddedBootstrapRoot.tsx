@@ -311,10 +311,25 @@ function AuthorizedSurface({
     logout,
   }), [logout, profile, profileLoading, user]);
 
+  // host 언어를 표면이 마운트되기 전에 적용한다. 마운트 뒤에 바꾸면 언어(t)에 의존하는 활동·
+  // 시계열 리스너가 한 번 열렸다 닫히고 다시 열려 첫 로드에 같은 문서를 두 번 읽는다.
+  // 첫 적용 이후의 언어 변경은 표면을 내리지 않고 그대로 바꾼다.
+  const [initialLocaleApplied, setInitialLocaleApplied] = useState(
+    () => i18n.language === session.locale,
+  );
   useEffect(() => {
-    void i18n.changeLanguage(session.locale);
+    let cancelled = false;
     document.documentElement.lang = session.locale;
+    const markApplied = () => {
+      if (!cancelled) setInitialLocaleApplied(true);
+    };
+    if (i18n.language === session.locale) markApplied();
+    else void i18n.changeLanguage(session.locale).then(markApplied, markApplied);
+    return () => {
+      cancelled = true;
+    };
   }, [session.locale]);
+  const surfaceGateLoading = profileLoading || !initialLocaleApplied;
 
   useEffect(() => {
     if (!trainingSurface) return undefined;
@@ -325,7 +340,7 @@ function AuthorizedSurface({
     return () => window.cancelAnimationFrame(frame);
   }, [onTrainingShellReady, trainingSurface]);
 
-  if (profileLoading && !trainingSurface) {
+  if (surfaceGateLoading && !trainingSurface) {
     return (
       <div className="orider-embedded-status" role="status" aria-label="Loading profile">
         <div className="orider-embedded-status__pulse" />
@@ -384,7 +399,7 @@ function AuthorizedSurface({
           <h1 id="orider-training-surface-title">{title}</h1>
           <p ref={shellStatusRef} role="status">{loadingLabel}</p>
         </header>
-        {profileLoading ? (
+        {surfaceGateLoading ? (
           <div className="orider-embedded-status" role="status" aria-label={loadingLabel}>
             <div className="orider-embedded-status__pulse" />
           </div>

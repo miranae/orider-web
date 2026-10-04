@@ -3,6 +3,7 @@ import { onSnapshot } from "firebase/firestore";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { simulateLogin } from "../__tests__/mocks/firebase";
+import i18n from "../i18n";
 
 import type { EmbeddedBridge, HostBridgeEnvelope, WebMessageType } from "./bridge";
 import {
@@ -424,6 +425,48 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     await waitFor(() => expect(screen.queryByTestId("plan-surface")).not.toBeInTheDocument());
     expect(mocks.queryClientCreations).toHaveBeenCalledTimes(1);
     expect(onSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("host 언어를 표면 마운트 전에 적용해 언어 변경으로 표면이 다시 열리지 않는다", async () => {
+    const previousLanguage = i18n.language;
+    await act(async () => {
+      await i18n.changeLanguage("ko");
+    });
+    const languagesAtMount: string[] = [];
+    mocks.fitnessSurfaceMounts.mockImplementation(() => {
+      languagesAtMount.push(i18n.language);
+    });
+    // 언어 리소스 로드가 프로필 도착보다 늦는 경우를 재현한다 — 적용이 끝나기 전에는 마운트하지 않아야 한다.
+    const changeLanguage = i18n.changeLanguage.bind(i18n);
+    const delayedChange = vi.spyOn(i18n, "changeLanguage").mockImplementation((language) => (
+      new Promise((resolve, reject) => {
+        setTimeout(() => {
+          changeLanguage(language).then(resolve, reject);
+        }, 20);
+      })
+    ));
+    try {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge, "/en/embed/fitness", "fitness");
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", {
+          expectedUid: "owner-1",
+          contractVersion: 1,
+        }));
+      });
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", { ...acceptedPayload(), locale: "en" })));
+      expect(await screen.findByTestId("fitness-surface")).toBeInTheDocument();
+      expect(languagesAtMount.length).toBeGreaterThan(0);
+      expect(new Set(languagesAtMount)).toEqual(new Set(["en"]));
+      expect(document.documentElement.lang).toBe("en");
+      expect(delayedChange).toHaveBeenCalledWith("en");
+    } finally {
+      delayedChange.mockRestore();
+      mocks.fitnessSurfaceMounts.mockReset();
+      await act(async () => {
+        await i18n.changeLanguage(previousLanguage);
+      });
+    }
   });
 
   it("correlates shell readiness across fitness plan inactive and fitness selections without stale signals", async () => {
