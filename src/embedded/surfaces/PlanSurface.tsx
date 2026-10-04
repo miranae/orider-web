@@ -9,6 +9,7 @@ import Run30ProgramView from "../../features/training/run30/Run30ProgramView";
 import type { Run30StartMode } from "../../features/training/run30/run30Start";
 import { useRun30Program } from "../../features/training/run30/useRun30Program";
 import { usePlanModel } from "../../hooks/usePlanModel";
+import { logClientError } from "../../services/errorLogger";
 import type { ScheduledRunStarter } from "../runStartBridge";
 
 export interface PlanSurfaceProps {
@@ -16,9 +17,19 @@ export interface PlanSurfaceProps {
   retryKey: number;
   /** 호스트가 run-start-scheduled-v1 을 알렸을 때만 주어진다. null 이면 구버전 앱. */
   scheduledRunStarter?: ScheduledRunStarter | null;
+  /**
+   * 숨겼다가 다시 보여 준(재마운트 없이 재사용한) 표면을 조용히 갱신하라는 요청. 값이 바뀔 때만
+   * 갱신하고, 마운트 시점의 값은 무시한다(마운트 자체가 새로 읽는다). 빈도 제한은 호출부가 한다.
+   */
+  backgroundRefreshKey?: number;
 }
 
-export default function PlanSurface({ onReady, retryKey, scheduledRunStarter = null }: PlanSurfaceProps) {
+export default function PlanSurface({
+  onReady,
+  retryKey,
+  scheduledRunStarter = null,
+  backgroundRefreshKey = 0,
+}: PlanSurfaceProps) {
   const [searchParams] = useSearchParams();
   const { t } = useTranslation("training");
   const model = usePlanModel(searchParams.get("sport"));
@@ -62,6 +73,20 @@ export default function PlanSurface({ onReady, retryKey, scheduledRunStarter = n
     run30Program,
     run30Settled,
   ]);
+
+  // 계획은 일회성 조회라 숨긴 동안의 변경(앱에서 완료 기록 등)을 받지 못한다. 다시 보일 때
+  // 로딩 화면 없이 주차 계획과 Run30 상태만 다시 읽는다.
+  const refreshedKey = useRef(backgroundRefreshKey);
+  const { refreshPlanWeeks } = model;
+  const { refresh: refreshRun30 } = run30;
+  useEffect(() => {
+    if (refreshedKey.current === backgroundRefreshKey) return;
+    refreshedKey.current = backgroundRefreshKey;
+    if (run30Enabled) void refreshRun30();
+    refreshPlanWeeks().catch((error: unknown) => {
+      logClientError("embedded.plan.backgroundRefresh", error, { discipline: model.discipline });
+    });
+  }, [backgroundRefreshKey, model.discipline, refreshPlanWeeks, refreshRun30, run30Enabled]);
 
   const retryAll = useCallback(() => {
     model.retryLoad();

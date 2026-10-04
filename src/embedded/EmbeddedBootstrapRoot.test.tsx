@@ -25,6 +25,8 @@ const mocks = vi.hoisted(() => {
     /** 실제 마운트/언마운트(렌더 횟수가 아니라 effect 기준). */
     surfaceLifecycle: vi.fn(),
     planRunStarter: undefined as unknown,
+    planBackgroundRefreshKeys: [] as unknown[],
+    logClientError: vi.fn(),
     surfaceReadyCallbacks: {
       activityAnalysis: null as (() => void) | null,
       fitness: null as ((status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void) | null,
@@ -76,6 +78,7 @@ vi.mock("./embeddedFirebase", () => ({
   }),
   ensureEmbeddedAppCheckReady: vi.fn().mockResolvedValue(undefined),
   embeddedAccountReady: (uid: string) => mocks.account.owner === null || mocks.account.owner === uid,
+  embeddedFirestoreOwnerUid: () => mocks.account.owner,
   getEmbeddedFirestore: () => mocks.account.firestore ?? mocks.firestore,
   isolateEmbeddedAccount: (uid: string | null) => mocks.account.isolate(uid),
 }));
@@ -98,6 +101,11 @@ function resetAccountIsolationMock() {
     mocks.account.firestore = { instance: `recreated-${mocks.account.created}` };
   });
 }
+
+vi.mock("../services/errorLogger", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../services/errorLogger")>()),
+  logClientError: mocks.logClientError,
+}));
 
 vi.mock("../services/appHandoff", () => ({
   consumeAppHandoffCode: mocks.consumeHandoff,
@@ -126,11 +134,13 @@ vi.mock("./surfaces/FitnessSurface", () => ({
 }));
 
 vi.mock("./surfaces/PlanSurface", () => ({
-  default: function MockPlanSurface({ onReady, scheduledRunStarter }: {
+  default: function MockPlanSurface({ onReady, scheduledRunStarter, backgroundRefreshKey }: {
     onReady: (status?: "cached" | "fresh" | "error") => void;
     scheduledRunStarter?: unknown;
+    backgroundRefreshKey?: number;
   }) {
     mocks.planSurfaceMounts();
+    mocks.planBackgroundRefreshKeys.push(backgroundRefreshKey);
     mocks.planRunStarter = scheduledRunStarter;
     mocks.surfaceReadyCallbacks.plan = onReady;
     useEffect(() => {
@@ -227,6 +237,8 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     mocks.surfaceReadyCallbacks.fitness = null;
     mocks.surfaceReadyCallbacks.plan = null;
     mocks.consumeHandoff.mockClear();
+    mocks.logClientError.mockClear();
+    mocks.planBackgroundRefreshKeys.length = 0;
     vi.mocked(onSnapshot).mockClear();
   });
 
@@ -513,6 +525,100 @@ describe("EmbeddedBootstrapRoot session gate", () => {
         await i18n.changeLanguage(previousLanguage);
       });
     }
+  });
+
+  it("host 언어 적용이 끝나지 않으면 제한 시간 뒤 표면을 열고 기록한다", async () => {
+    const previousLanguage = i18n.language;
+    await act(async () => {
+      await i18n.changeLanguage("ko");
+    });
+    const localeTimers: Array<() => void> = [];
+    const realSetTimeout = window.setTimeout.bind(window);
+    vi.spyOn(window, "setTimeout").mockImplementation(((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+      if (delay === 2500 && typeof handler === "function") {
+        localeTimers.push(handler as () => void);
+        return 0;
+      }
+      return realSetTimeout(handler, delay, ...args);
+    }) as typeof window.setTimeout);
+    const hangingChange = vi.spyOn(i18n, "changeLanguage").mockImplementation(() => new Promise(() => undefined));
+    try {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge, "/en/embed/fitness", "fitness");
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+      });
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", { ...acceptedPayload(), locale: "en" })));
+      await waitFor(() => expect(localeTimers).toHaveLength(1));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.queryByTestId("fitness-surface")).not.toBeInTheDocument();
+      expect(mocks.logClientError).not.toHaveBeenCalledWith(
+        "embedded.initialLocale.timeout", expect.anything(), expect.anything(),
+      );
+
+      act(() => localeTimers[0]());
+
+      expect(await screen.findByTestId("fitness-surface")).toBeInTheDocument();
+      expect(mocks.logClientError).toHaveBeenCalledWith(
+        "embedded.initialLocale.timeout",
+        expect.any(Error),
+        { locale: "en", timeoutMs: 2500 },
+      );
+    } finally {
+      hangingChange.mockRestore();
+      await act(async () => {
+        await i18n.changeLanguage(previousLanguage);
+      });
+    }
+  });
+
+  it.each([
+    ["아무 계정도 쓰지 않은 새 인스턴스", null, "fresh_instance"],
+    ["같은 계정이 쓰던 인스턴스", "owner-1", "same_account"],
+  ] as const)("즉시 여는 경로의 격리 실패는 %s 를 phase 로 구분해 기록한다", async (_label, owner, phase) => {
+    mocks.account.owner = owner;
+    mocks.account.isolate.mockRejectedValueOnce(new Error("isolation failed"));
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    expect(await screen.findByTestId("fitness-surface")).toBeInTheDocument();
+    await waitFor(() => expect(mocks.logClientError).toHaveBeenCalledWith(
+      "embedded.accountIsolation.accept",
+      expect.any(Error),
+      { phase, waited: false, uid: "owner-1" },
+    ));
+  });
+
+  it("인계 결과 uid 가 다르면 학습 캐시와 함께 이전 계정 Firestore 해제도 요청한다", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    expect(await screen.findByTestId("fitness-surface")).toBeInTheDocument();
+    await waitFor(() => expect(mocks.account.owner).toBe("owner-1"));
+    const initialFirestore = mocks.firestore;
+
+    // 인계가 다른 계정으로 끝났다 — 표면은 내려가고 이전 계정 인스턴스를 바로 정리해야 한다.
+    mocks.setCurrentUser({ uid: "someone-else" });
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+    });
+    await waitFor(() => expect(bridge.sent).toContainEqual({
+      type: "auth.state",
+      payload: { uid: "someone-else" },
+      requestId: undefined,
+    }));
+    await waitFor(() => expect(mocks.account.isolate).toHaveBeenLastCalledWith(null));
+    expect(screen.queryByTestId("fitness-surface")).not.toBeInTheDocument();
+    await waitFor(() => expect(mocks.account.terminate).toHaveBeenCalledWith(initialFirestore));
+    expect(mocks.account.owner).toBeNull();
   });
 
   it("로그아웃 뒤 다른 계정은 표면이 내려간 다음 terminate 된 Firestore 대신 새 인스턴스로 연다", async () => {
@@ -1421,6 +1527,62 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive-2")));
 
       expect(delays).toEqual([30 * 60 * 1000, 10 * 60 * 1000]);
+    });
+
+    async function acceptPlanSession(bridge: FakeBridge) {
+      renderBootstrap(bridge, "/ko/embed/plan", "plan");
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+      });
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+      await screen.findByTestId("plan-surface");
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "plan-1")));
+      act(() => mocks.surfaceReadyCallbacks.plan?.("fresh"));
+      expect(readyFor(bridge, "plan-1")).toHaveLength(1);
+    }
+
+    it("숨겼다 다시 보인 계획 표면은 재마운트 없이 백그라운드 갱신을 5분에 한 번만 요청한다", async () => {
+      const start = Date.now();
+      const now = vi.spyOn(Date, "now").mockReturnValue(start);
+      const bridge = createFakeBridge();
+      await acceptPlanSession(bridge);
+      const lastRefreshKey = () => mocks.planBackgroundRefreshKeys.at(-1);
+      const initialKey = lastRefreshKey();
+
+      // 5분 안에 숨겼다 다시 보이면 갱신하지 않는다.
+      now.mockReturnValue(start + 60_000);
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive-1")));
+      now.mockReturnValue(start + 4 * 60_000);
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "plan-2")));
+      expect(readyFor(bridge, "plan-2")).toHaveLength(1);
+      expect(lastRefreshKey()).toBe(initialKey);
+
+      // 마지막으로 읽은 지 5분이 지나 다시 보이면 한 번 갱신한다.
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive-2")));
+      now.mockReturnValue(start + 6 * 60_000);
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "plan-3")));
+      expect(readyFor(bridge, "plan-3")).toHaveLength(1);
+      await waitFor(() => expect(lastRefreshKey()).not.toBe(initialKey));
+      const refreshedKey = lastRefreshKey();
+
+      // 갱신 직후 다시 숨겼다 보이면 간격 안이라 또 요청하지 않는다.
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive-3")));
+      now.mockReturnValue(start + 8 * 60_000);
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "plan-4")));
+      expect(lastRefreshKey()).toBe(refreshedKey);
+      expect(mountCount("plan")).toBe(1);
+      expect(mocks.surfaceLifecycle).not.toHaveBeenCalledWith("plan", "unmount");
+    });
+
+    it("보이는 채 같은 계획 표면을 다시 골라도 백그라운드 갱신은 요청하지 않는다", async () => {
+      const start = Date.now();
+      const now = vi.spyOn(Date, "now").mockReturnValue(start);
+      const bridge = createFakeBridge();
+      await acceptPlanSession(bridge);
+      const initialKey = mocks.planBackgroundRefreshKeys.at(-1);
+      now.mockReturnValue(start + 10 * 60_000);
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "plan-2")));
+      expect(mocks.planBackgroundRefreshKeys.at(-1)).toBe(initialKey);
     });
 
     it("숨긴 표면도 로그아웃·uid 변경이면 언마운트한다", async () => {

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 
 type ToastType = "success" | "error" | "info";
 
@@ -25,24 +25,43 @@ let nextId = 0;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  // 언마운트 뒤 남은 자동 닫기 타이머가 setState 를 부르지 않도록 대기 중인 타이머를 모아 둔다
+  // (테스트에서는 jsdom 정리 뒤 타이머가 돌아 "window is not defined" 를 냈다).
+  const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
+
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      pending.forEach((timer) => clearTimeout(timer));
+      pending.clear();
+    };
+  }, []);
+
+  const schedule = useCallback((callback: () => void, delay: number) => {
+    const timer = setTimeout(() => {
+      timers.current.delete(timer);
+      callback();
+    }, delay);
+    timers.current.add(timer);
+  }, []);
 
   const dismissToast = useCallback((id: number) => {
     setToasts((prev) =>
       prev.map((t) => (t.id === id ? { ...t, removing: true } : t)),
     );
-    setTimeout(() => {
+    schedule(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 200);
-  }, []);
+  }, [schedule]);
 
   const showToast = useCallback((message: string, type: ToastType = "success") => {
     const id = ++nextId;
     setToasts((prev) => [...prev, { id, message, type }]);
     const duration = type === "error" ? 8000 : type === "info" ? 4000 : 2500;
-    setTimeout(() => {
+    schedule(() => {
       dismissToast(id);
     }, duration);
-  }, [dismissToast]);
+  }, [dismissToast, schedule]);
 
   return (
     <ToastContext.Provider value={{ toasts, showToast, dismissToast }}>
