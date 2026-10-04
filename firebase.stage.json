@@ -40,7 +40,7 @@
     ],
     "rewrites": [
       { "source": "/api/v1/**", "function": { "functionId": "api", "region": "asia-northeast3" } },
-      { "source": "/api/strava/webhook", "function": { "functionId": "stravaWebhook", "region": "asia-northeast3" } },
+      { "source": "/api/strava/webhook", "function": { "functionId": "stravaWebhookIngress", "region": "asia-northeast3" } },
       { "source": "/og-thumbnail/**", "function": { "functionId": "ogThumbnail", "region": "asia-northeast3" } },
       { "source": "/:lang/design-system.html", "destination": "/design-system.html" },
       { "source": "/sitemap.xml", "function": { "functionId": "sitemap", "region": "asia-northeast3" } },
