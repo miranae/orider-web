@@ -16,6 +16,11 @@ import type { ActivityMetrics } from "@shared/types/activity-metrics";
  *   객체를 들고 있으므로, 추가 비용은 언마운트 뒤에도 참조를 유지하는 만큼이다.
  */
 export const ACTIVITY_DERIVED_DOCUMENT_CACHE_MAX_ENTRIES = 1_000;
+/**
+ * 항목 수명. 서버가 활동 문서는 그대로 두고 파생 문서만 다시 쓰는 경우(지표 백필·가상 파워 재계산 등)는
+ * revision 이 바뀌지 않아 알 수 없다 — 그래도 이 시간이 지나면 다시 읽는다(#1032 리뷰).
+ */
+export const ACTIVITY_DERIVED_DOCUMENT_CACHE_TTL_MS = 10 * 60 * 1000;
 
 export type ActivityDerivedDocumentKind = "stream" | "metrics";
 
@@ -25,6 +30,7 @@ type CachedValue<K extends ActivityDerivedDocumentKind> = K extends "stream"
 
 type CacheEntry = {
   revision: string;
+  storedAt: number;
   value: ActivityStreams | ActivityMetrics;
 };
 
@@ -53,8 +59,8 @@ export function getCachedActivityDerivedDocument<K extends ActivityDerivedDocume
   const entry = entries.get(key);
   if (entry == null) return undefined;
   entries.delete(key);
-  // revision 이 바뀐 항목은 다시 읽어야 하므로 버린다.
-  if (entry.revision !== revision) return undefined;
+  // revision 이 바뀌었거나 수명이 지난 항목은 다시 읽어야 하므로 버린다.
+  if (entry.revision !== revision || Date.now() - entry.storedAt >= ACTIVITY_DERIVED_DOCUMENT_CACHE_TTL_MS) return undefined;
   entries.set(key, entry);
   return entry.value as CachedValue<K>;
 }
@@ -69,7 +75,7 @@ export function setCachedActivityDerivedDocument<K extends ActivityDerivedDocume
   if (ownerUid !== uid) return;
   const key = cacheKey(kind, activityId);
   entries.delete(key);
-  entries.set(key, { revision, value });
+  entries.set(key, { revision, storedAt: Date.now(), value });
   while (entries.size > ACTIVITY_DERIVED_DOCUMENT_CACHE_MAX_ENTRIES) {
     const oldest = entries.keys().next().value as string | undefined;
     if (oldest === undefined) break;

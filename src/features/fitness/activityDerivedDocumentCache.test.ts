@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import {
   ACTIVITY_DERIVED_DOCUMENT_CACHE_MAX_ENTRIES,
+  ACTIVITY_DERIVED_DOCUMENT_CACHE_TTL_MS,
   activityDerivedDocumentCacheTestApi,
   clearActivityDerivedDocumentCache,
   getCachedActivityDerivedDocument,
@@ -49,4 +50,18 @@ describe("activityDerivedDocumentCache", () => {
     expect(getCachedActivityDerivedDocument("user-a", "metrics", "a1", "r")).toBeUndefined();
     expect(getCachedActivityDerivedDocument("user-a", "metrics", "a0", "r")).toEqual({ tss: 0 });
   });
+
+  describe("수명", () => {
+    afterEach(() => vi.useRealTimers());
+    it("revision 이 같아도 수명이 지나면 다시 읽게 한다 — 서버가 파생 문서만 다시 쓴 경우(#1032 리뷰)", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(1_000_000);
+      setCachedActivityDerivedDocument("user-a", "metrics", "a1", "r1", metrics(10));
+      vi.setSystemTime(1_000_000 + ACTIVITY_DERIVED_DOCUMENT_CACHE_TTL_MS - 1);
+      expect(getCachedActivityDerivedDocument("user-a", "metrics", "a1", "r1")).toEqual({ tss: 10 });
+      vi.setSystemTime(1_000_000 + ACTIVITY_DERIVED_DOCUMENT_CACHE_TTL_MS);
+      expect(getCachedActivityDerivedDocument("user-a", "metrics", "a1", "r1")).toBeUndefined();
+    });
+  });
 });
+
