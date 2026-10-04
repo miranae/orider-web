@@ -28,6 +28,7 @@ import {
   type EmbeddedBridge,
   type HostBridgeEnvelope,
 } from "./bridge";
+import { logClientError } from "../services/errorLogger";
 import {
   embeddedAccountReady,
   ensureEmbeddedAppCheckReady,
@@ -327,7 +328,11 @@ function AuthorizedSurface({
       if (!cancelled) setInitialLocaleApplied(true);
     };
     if (i18n.language === session.locale) markApplied();
-    else void i18n.changeLanguage(session.locale).then(markApplied, markApplied);
+    // 실패해도 표면은 연다(fail-open) — 다만 원인은 남긴다.
+    else void i18n.changeLanguage(session.locale).then(markApplied, (err: unknown) => {
+      logClientError("embedded.initialLocale.apply", err, { locale: session.locale });
+      markApplied();
+    });
     return () => {
       cancelled = true;
     };
@@ -462,7 +467,7 @@ export default function EmbeddedBootstrapRoot({
     void isolateEmbeddedAccount(null).then(
       () => setFirestore(getEmbeddedFirestore()),
       // 실패하면 소유 계정이 유지되어 다음 sessionAccepted 가 격리를 다시 시도한다.
-      () => undefined,
+      (err: unknown) => logClientError("embedded.accountIsolation.release", err, { phase: "logout" }),
     );
   }, [accountReleaseRequest]);
 
@@ -660,7 +665,9 @@ export default function EmbeddedBootstrapRoot({
         const ready = embeddedAccountReady(currentUid);
         const isolation = isolateEmbeddedAccount(currentUid);
         if (ready) {
-          void isolation.catch(() => undefined);
+          void isolation.catch((err: unknown) => logClientError("embedded.accountIsolation.accept", err, {
+            phase: "same_account", uid: currentUid,
+          }));
           setSession(accepted);
           return;
         }
@@ -672,7 +679,8 @@ export default function EmbeddedBootstrapRoot({
           if (!isCurrentAcceptance()) return;
           setFirestore(getEmbeddedFirestore());
           setSession(accepted);
-        }, () => {
+        }, (err: unknown) => {
+          logClientError("embedded.accountIsolation.accept", err, { phase: "account_switch", uid: currentUid });
           if (!isCurrentAcceptance()) return;
           sessionAccepted.current = false;
           acceptedUid.current = null;
