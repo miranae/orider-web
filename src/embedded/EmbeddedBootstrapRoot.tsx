@@ -90,7 +90,44 @@ interface SurfaceLoadingFlow {
   surface: "fitness" | "plan";
   cacheHit: boolean;
   cachedContentReported: boolean;
+  /** 이미 준비된 채 숨겨 두었던 표면을 다시 보여 주는 흐름(재마운트 없음). */
+  reused: boolean;
 }
+
+type TrainingSurfaceStatus = "cached" | "fresh" | "error";
+
+/**
+ * 마운트된(숨겨졌을 수 있는) 트레이닝 표면. 호스트가 같은 표면을 다시 고르거나 비활성(null)
+ * 선택을 보내도 이 인스턴스를 유지해 Firestore 리스너를 닫았다 다시 열지 않는다.
+ */
+interface MountedTrainingSurface {
+  surface: TrainingSurfaceKind;
+  mountKey: number;
+  /** 표면이 마지막으로 알린 준비 상태. 아직 없으면 null. */
+  lastReady: { status: TrainingSurfaceStatus; contentComplete: boolean } | null;
+  /** 숨김 시작 시각(Date.now). 보이는 중이면 null. */
+  hiddenAt: number | null;
+}
+
+interface SurfaceSelectionState {
+  generation: number;
+  /** 호스트가 현재 보여 주길 원하는 표면. null 이면 비활성(숨김). */
+  surface: TrainingSurfaceKind | null;
+  requestId?: string;
+  /** 실제로 마운트해 둔 표면. 비활성 동안에도 유지된다. */
+  mounted: TrainingSurfaceKind | null;
+  mountKey: number;
+  /** 이미 준비된 표면을 재사용해 새 requestId 에 즉시 응답해야 하는지. */
+  reuseReady: boolean;
+}
+
+/**
+ * 숨긴 표면을 유지하는 상한. 이보다 오래 숨겨지면 언마운트해 리스너를 놓는다.
+ * 탭 왕복·잠깐의 백그라운드(알림 센터·설정 시트)는 대개 수 분 안이라 재사용 이득이 크고,
+ * 그보다 오래 비운 화면은 숨긴 채 원격 변경 읽기를 계속 내기보다 다시 열어 일회성
+ * 조회(계획 등)를 새로 받는 편이 낫다. 다시 열 때는 trainingSurfaceCache 가 즉시 화면을 채운다.
+ */
+const HIDDEN_SURFACE_RELEASE_MS = 30 * 60 * 1000;
 
 interface EmbeddedBootstrapRootProps {
   bridgeFactory?: () => EmbeddedBridge;
@@ -244,19 +281,21 @@ function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
 function AuthorizedSurface({
   activityId,
   bridge,
+  mountedTrainingSurface,
   onTrainingShellReady,
   onTrainingSurfaceReady,
   retryKey,
   runStartChannel,
-  selectionGeneration,
-  selectedTrainingSurface,
+  surfaceMountKey,
   selectionRequestId,
   services,
   session,
   surfaceKind,
+  trainingSurfaceVisible,
 }: {
   activityId?: string;
   bridge: EmbeddedBridge;
+  mountedTrainingSurface: TrainingSurfaceKind | null;
   onTrainingShellReady: () => void;
   onTrainingSurfaceReady: (
     status?: "cached" | "fresh" | "error",
@@ -264,12 +303,12 @@ function AuthorizedSurface({
   ) => void;
   retryKey: number;
   runStartChannel: RunStartChannel;
-  selectionGeneration: number;
-  selectedTrainingSurface: TrainingSurfaceKind | null;
+  surfaceMountKey: number;
   selectionRequestId?: string;
   services: FirebaseServices;
   session: AcceptedSession;
   surfaceKind: EmbeddedSurfaceKind;
+  trainingSurfaceVisible: boolean;
 }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -278,7 +317,8 @@ function AuthorizedSurface({
     defaultOptions: { queries: { staleTime: 5 * 60 * 1000, retry: 1 } },
   }));
   const user = services.auth.currentUser;
-  const trainingSurface = selectedTrainingSurface !== null;
+  const trainingSurface = mountedTrainingSurface !== null;
+  const trainingShellVisible = trainingSurface && trainingSurfaceVisible;
   const selectionRequestIdRef = useRef(selectionRequestId);
   selectionRequestIdRef.current = selectionRequestId;
 
@@ -340,13 +380,13 @@ function AuthorizedSurface({
   const surfaceGateLoading = profileLoading || !initialLocaleApplied;
 
   useEffect(() => {
-    if (!trainingSurface) return undefined;
+    if (!trainingShellVisible) return undefined;
     const frame = window.requestAnimationFrame(() => {
       onTrainingShellReady();
       if (shellStatusRef.current) shellStatusRef.current.hidden = true;
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [onTrainingShellReady, trainingSurface]);
+  }, [onTrainingShellReady, trainingShellVisible]);
 
   if (surfaceGateLoading && !trainingSurface) {
     return (
@@ -373,15 +413,15 @@ function AuthorizedSurface({
                   onReady={() => bridge.send("surface.ready", { activityId })}
                   onError={(code) => bridge.send("surface.error", { code })}
                 />
-              ) : selectedTrainingSurface === "fitness" ? (
+              ) : mountedTrainingSurface === "fitness" ? (
                 <FitnessSurface
-                  key={`${selectionGeneration}:${retryKey}`}
+                  key={`${surfaceMountKey}:${retryKey}`}
                   retryKey={retryKey}
                   onReady={onTrainingSurfaceReady}
                 />
-              ) : selectedTrainingSurface === "plan" ? (
+              ) : mountedTrainingSurface === "plan" ? (
                 <PlanSurface
-                  key={`${selectionGeneration}:${retryKey}`}
+                  key={`${surfaceMountKey}:${retryKey}`}
                   retryKey={retryKey}
                   onReady={onTrainingSurfaceReady}
                   scheduledRunStarter={session.hostCapabilities.includes(RUN_START_SCHEDULED_CAPABILITY)
@@ -398,11 +438,16 @@ function AuthorizedSurface({
 
   if (trainingSurface) {
     const title = session.locale === "en"
-      ? selectedTrainingSurface === "fitness" ? "Fitness" : "Plan"
-      : selectedTrainingSurface === "fitness" ? "피트니스" : "운동 계획";
+      ? mountedTrainingSurface === "fitness" ? "Fitness" : "Plan"
+      : mountedTrainingSurface === "fitness" ? "피트니스" : "운동 계획";
     const loadingLabel = session.locale === "en" ? "Loading…" : "불러오는 중…";
     return (
-      <section className="orider-embedded-shell" aria-labelledby="orider-training-surface-title">
+      // 비활성 동안에는 언마운트 대신 숨긴다 — 같은 표면으로 돌아올 때 리스너를 다시 열지 않는다.
+      <section
+        className="orider-embedded-shell"
+        aria-labelledby="orider-training-surface-title"
+        hidden={!trainingSurfaceVisible}
+      >
         <header className="orider-embedded-shell__header">
           <h1 id="orider-training-surface-title">{title}</h1>
           <p ref={shellStatusRef} role="status">{loadingLabel}</p>
@@ -434,11 +479,20 @@ export default function EmbeddedBootstrapRoot({
   const initialTrainingSurface = surfaceKind === "fitness" || surfaceKind === "plan"
     ? surfaceKind
     : null;
-  const [surfaceSelection, setSurfaceSelection] = useState<{
-    generation: number;
-    surface: TrainingSurfaceKind | null;
-    requestId?: string;
-  }>({ generation: 0, surface: initialTrainingSurface, requestId: undefined });
+  const [surfaceSelection, setSurfaceSelection] = useState<SurfaceSelectionState>({
+    generation: 0,
+    surface: initialTrainingSurface,
+    requestId: undefined,
+    mounted: initialTrainingSurface,
+    mountKey: 0,
+    reuseReady: false,
+  });
+  const mountedTrainingSurface = useRef<MountedTrainingSurface | null>(
+    initialTrainingSurface
+      ? { surface: initialTrainingSurface, mountKey: 0, lastReady: null, hiddenAt: null }
+      : null,
+  );
+  const reuseAckGeneration = useRef(-1);
   const authorizedUid = useRef<string | null>(null);
   const acceptedUid = useRef<string | null>(null);
   const sessionAccepted = useRef(false);
@@ -499,7 +553,7 @@ export default function EmbeddedBootstrapRoot({
       name: "embedded_surface_loading",
       surface: flow.surface,
       elapsedMs: Math.min(120_000, Math.max(0, Math.round(performance.now() - flow.startedAt))),
-      loadState: "cold",
+      loadState: flow.reused ? "warm" : "cold",
       milestone: "shell_visible",
     }, flow.requestId);
   }, [safeSend, surfaceSelection]);
@@ -548,7 +602,7 @@ export default function EmbeddedBootstrapRoot({
           name: "embedded_surface_loading",
           surface: flow.surface,
           elapsedMs: Math.min(120_000, Math.max(0, Math.round(performance.now() - flow.startedAt))),
-          loadState: flow.cacheHit ? "warm" : "cold",
+          loadState: flow.cacheHit || flow.reused ? "warm" : "cold",
           milestone: "fresh_complete",
         }, flow.requestId);
       }
@@ -641,7 +695,17 @@ export default function EmbeddedBootstrapRoot({
         const generation = selectionGeneration.current + 1;
         selectionGeneration.current = generation;
         activeSelectionRequestId.current = undefined;
-        setSurfaceSelection({ generation, surface: initialTrainingSurface, requestId: undefined });
+        mountedTrainingSurface.current = initialTrainingSurface
+          ? { surface: initialTrainingSurface, mountKey: generation, lastReady: null, hiddenAt: null }
+          : null;
+        setSurfaceSelection({
+          generation,
+          surface: initialTrainingSurface,
+          requestId: undefined,
+          mounted: initialTrainingSurface,
+          mountKey: generation,
+          reuseReady: false,
+        });
         surfaceLoadingFlow.current = null;
         if ((surfaceKind === "fitness" || surfaceKind === "plan") && message.requestId) {
           const flow: SurfaceLoadingFlow = {
@@ -651,6 +715,7 @@ export default function EmbeddedBootstrapRoot({
             surface: surfaceKind,
             cacheHit: false,
             cachedContentReported: false,
+            reused: false,
           };
           surfaceLoadingFlow.current = flow;
           safeSend("telemetry.event", {
@@ -711,6 +776,29 @@ export default function EmbeddedBootstrapRoot({
         const generation = selectionGeneration.current + 1;
         selectionGeneration.current = generation;
         activeSelectionRequestId.current = selection.requestId;
+        // 같은 표면의 재선택·비활성(null)은 마운트를 유지한다. 다른 표면, 오류 상태,
+        // 너무 오래 숨겨 둔 표면만 새로 마운트한다(재시도는 retryKey 가 따로 다시 연다).
+        const now = Date.now();
+        const previous = mountedTrainingSurface.current;
+        const retained = previous
+          && previous.lastReady?.status !== "error"
+          && (previous.hiddenAt === null || now - previous.hiddenAt < HIDDEN_SURFACE_RELEASE_MS)
+          ? previous
+          : null;
+        let next: MountedTrainingSurface | null;
+        if (selection.surface === null) {
+          next = retained ? { ...retained, hiddenAt: retained.hiddenAt ?? now } : null;
+        } else if (retained?.surface === selection.surface) {
+          next = { ...retained, hiddenAt: null };
+        } else {
+          next = { surface: selection.surface, mountKey: generation, lastReady: null, hiddenAt: null };
+        }
+        mountedTrainingSurface.current = next;
+        // 이미 준비를 알린 표면을 다시 보여 주면 표면이 다시 알리지 않으므로 대신 응답한다.
+        const reuseReady = selection.surface !== null
+          && retained !== null
+          && next?.mountKey === retained.mountKey
+          && retained.lastReady !== null;
         surfaceLoadingFlow.current = selection.surface && selection.requestId
           ? {
             generation,
@@ -719,12 +807,16 @@ export default function EmbeddedBootstrapRoot({
             surface: selection.surface,
             cacheHit: false,
             cachedContentReported: false,
+            reused: reuseReady,
           }
           : null;
         setSurfaceSelection({
           generation,
           surface: selection.surface,
           requestId: selection.requestId,
+          mounted: next?.surface ?? null,
+          mountKey: next?.mountKey ?? generation,
+          reuseReady,
         });
         return;
       }
@@ -766,6 +858,9 @@ export default function EmbeddedBootstrapRoot({
         return;
       }
       if (message.type === "host.retry") {
+        // 재시도는 표면을 새로 마운트하므로 이전 인스턴스의 준비 상태를 재사용하지 않는다.
+        const mounted = mountedTrainingSurface.current;
+        if (mounted) mountedTrainingSurface.current = { ...mounted, lastReady: null };
         setRetryKey((key) => key + 1);
       } else if (message.type === "host.logout") {
         clearTrainingSurfaceCache();
@@ -841,6 +936,11 @@ export default function EmbeddedBootstrapRoot({
     status: "cached" | "fresh" | "error" = "fresh",
     contentComplete = true,
   ) => {
+    // 숨긴 동안 도착한 준비도 기록해 둔다 — 같은 표면을 다시 고르면 이 상태로 바로 응답한다.
+    const mounted = mountedTrainingSurface.current;
+    if (mounted && mounted.mountKey === surfaceSelection.mountKey && mounted.surface === surfaceSelection.mounted) {
+      mounted.lastReady = { status, contentComplete };
+    }
     if (!selectedTrainingSurface) return;
     handleTrainingSurfaceReady(
       selectedTrainingSurface,
@@ -849,7 +949,40 @@ export default function EmbeddedBootstrapRoot({
       status,
       contentComplete,
     );
-  }, [handleTrainingSurfaceReady, selectedTrainingSurface, surfaceSelection.generation, surfaceSelection.requestId]);
+  }, [
+    handleTrainingSurfaceReady,
+    selectedTrainingSurface,
+    surfaceSelection.generation,
+    surfaceSelection.mountKey,
+    surfaceSelection.mounted,
+    surfaceSelection.requestId,
+  ]);
+
+  // 재사용한 표면은 이미 준비를 알렸으므로 새 requestId 에 마지막 준비 상태로 대신 응답한다.
+  // 응답하지 않으면 호스트의 표면 렌더 제한 시간(10초)이 지나 오류 화면으로 바뀐다.
+  useEffect(() => {
+    const { generation, requestId, reuseReady, surface } = surfaceSelection;
+    if (!reuseReady || !surface || reuseAckGeneration.current === generation) return;
+    reuseAckGeneration.current = generation;
+    const lastReady = mountedTrainingSurface.current?.lastReady;
+    if (!lastReady) return;
+    handleTrainingSurfaceReady(surface, generation, requestId, lastReady.status, lastReady.contentComplete);
+  }, [handleTrainingSurfaceReady, surfaceSelection]);
+
+  // 숨긴 표면을 상한보다 오래 두지 않는다. 백그라운드에서 타이머가 멈춰도 재선택 시
+  // hiddenAt 으로 한 번 더 판정하므로 오래된 표면을 재사용하지 않는다.
+  useEffect(() => {
+    if (surfaceSelection.surface !== null || surfaceSelection.mounted === null) return undefined;
+    const { generation } = surfaceSelection;
+    const timer = window.setTimeout(() => {
+      if (selectionGeneration.current !== generation) return;
+      mountedTrainingSurface.current = null;
+      setSurfaceSelection((current) => current.generation === generation
+        ? { ...current, mounted: null, reuseReady: false }
+        : current);
+    }, HIDDEN_SURFACE_RELEASE_MS);
+    return () => window.clearTimeout(timer);
+  }, [surfaceSelection]);
 
   return (
     <div
@@ -862,16 +995,17 @@ export default function EmbeddedBootstrapRoot({
         <AuthorizedSurface
           activityId={activityId}
           bridge={bridge}
+          mountedTrainingSurface={surfaceKind === "activity-analysis" ? null : surfaceSelection.mounted}
           onTrainingShellReady={trainingShellReady}
           onTrainingSurfaceReady={trainingSurfaceReady}
           retryKey={retryKey}
           runStartChannel={runStartChannel}
-          selectionGeneration={surfaceSelection.generation}
-          selectedTrainingSurface={selectedTrainingSurface}
+          surfaceMountKey={surfaceSelection.mountKey}
           selectionRequestId={surfaceSelection.requestId}
           services={services}
           session={session}
           surfaceKind={surfaceKind}
+          trainingSurfaceVisible={selectedTrainingSurface !== null}
         />
       ) : (
         <div className="orider-embedded-status" role="status" aria-label="Waiting for host authorization">
