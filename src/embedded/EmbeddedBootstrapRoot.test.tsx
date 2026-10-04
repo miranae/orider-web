@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { doc, onSnapshot } from "firebase/firestore";
+import { useEffect } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { simulateLogin } from "../__tests__/mocks/firebase";
@@ -21,6 +22,8 @@ const mocks = vi.hoisted(() => {
     surfaceHookMounts: vi.fn(),
     fitnessSurfaceMounts: vi.fn(),
     planSurfaceMounts: vi.fn(),
+    /** 실제 마운트/언마운트(렌더 횟수가 아니라 effect 기준). */
+    surfaceLifecycle: vi.fn(),
     planRunStarter: undefined as unknown,
     surfaceReadyCallbacks: {
       activityAnalysis: null as (() => void) | null,
@@ -109,23 +112,31 @@ vi.mock("./surfaces/ActivityAnalysisSurface", () => ({
 }));
 
 vi.mock("./surfaces/FitnessSurface", () => ({
-  default: ({ onReady }: {
+  default: function MockFitnessSurface({ onReady }: {
     onReady: (status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void;
-  }) => {
+  }) {
     mocks.fitnessSurfaceMounts();
     mocks.surfaceReadyCallbacks.fitness = onReady;
+    useEffect(() => {
+      mocks.surfaceLifecycle("fitness", "mount");
+      return () => mocks.surfaceLifecycle("fitness", "unmount");
+    }, []);
     return <div data-testid="fitness-surface" />;
   },
 }));
 
 vi.mock("./surfaces/PlanSurface", () => ({
-  default: ({ onReady, scheduledRunStarter }: {
+  default: function MockPlanSurface({ onReady, scheduledRunStarter }: {
     onReady: (status?: "cached" | "fresh" | "error") => void;
     scheduledRunStarter?: unknown;
-  }) => {
+  }) {
     mocks.planSurfaceMounts();
     mocks.planRunStarter = scheduledRunStarter;
     mocks.surfaceReadyCallbacks.plan = onReady;
+    useEffect(() => {
+      mocks.surfaceLifecycle("plan", "mount");
+      return () => mocks.surfaceLifecycle("plan", "unmount");
+    }, []);
     return <div data-testid="plan-surface" />;
   },
 }));
@@ -211,6 +222,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     mocks.surfaceHookMounts.mockClear();
     mocks.fitnessSurfaceMounts.mockClear();
     mocks.planSurfaceMounts.mockClear();
+    mocks.surfaceLifecycle.mockClear();
     mocks.surfaceReadyCallbacks.activityAnalysis = null;
     mocks.surfaceReadyCallbacks.fitness = null;
     mocks.surfaceReadyCallbacks.plan = null;
@@ -454,8 +466,9 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       && (message.payload as { milestone?: string }).milestone === "session_accepted"
     ))).toBe(false);
 
+    // 비활성(null)은 언마운트 대신 숨긴다.
     act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null })));
-    await waitFor(() => expect(screen.queryByTestId("plan-surface")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("plan-surface")).not.toBeVisible());
     expect(mocks.queryClientCreations).toHaveBeenCalledTimes(1);
     expect(onSnapshot).toHaveBeenCalledTimes(1);
   });
@@ -614,7 +627,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     });
 
     act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null })));
-    await waitFor(() => expect(screen.queryByTestId("plan-surface")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("plan-surface")).not.toBeVisible());
     act(() => planFrame(performance.now()));
     expect(shellMessages()).toHaveLength(2);
 
@@ -1193,6 +1206,250 @@ describe("EmbeddedBootstrapRoot session gate", () => {
         payload: { code: "invalid_host_payload" },
         requestId: "req-1",
       }));
+    });
+  });
+  describe("retained training surface keep-alive", () => {
+    const mountCount = (surface: "fitness" | "plan") => mocks.surfaceLifecycle.mock.calls
+      .filter(([kind, event]) => kind === surface && event === "mount").length;
+    const readyFor = (bridge: FakeBridge, requestId: string) => bridge.sent.filter((message) => (
+      message.type === "surface.ready" && message.requestId === requestId
+    ));
+
+    async function acceptFitnessSession(bridge: FakeBridge) {
+      renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+      });
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+      await screen.findByTestId("fitness-surface");
+      // 호스트는 sessionAccepted 직후 같은 표면 선택을 보낸다 — 첫 마운트를 다시 열지 않아야 한다.
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-1")));
+      act(() => mocks.surfaceReadyCallbacks.fitness?.("fresh", true));
+      expect(readyFor(bridge, "select-1")).toHaveLength(1);
+      expect(mountCount("fitness")).toBe(1);
+    }
+
+    it("같은 표면 재선택은 재마운트하지 않고 새 requestId 에 즉시 응답한다", async () => {
+      const bridge = createFakeBridge();
+      await acceptFitnessSession(bridge);
+      const profileListeners = vi.mocked(onSnapshot).mock.calls.length;
+
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-2")));
+
+      expect(readyFor(bridge, "select-2")).toHaveLength(1);
+      expect(bridge.sent).toContainEqual({
+        type: "telemetry.event",
+        payload: {
+          name: "embedded_surface_loading",
+          surface: "fitness",
+          elapsedMs: expect.any(Number),
+          loadState: "warm",
+          milestone: "fresh_complete",
+        },
+        requestId: "select-2",
+      });
+      expect(mocks.surfaceLifecycle).not.toHaveBeenCalledWith("fitness", "unmount");
+      expect(mountCount("fitness")).toBe(1);
+      expect(vi.mocked(onSnapshot).mock.calls.length).toBe(profileListeners);
+      expect(screen.getByTestId("fitness-surface")).toBeVisible();
+    });
+
+    it("비활성(null) 뒤 같은 표면 재선택은 숨겼던 표면을 그대로 다시 보여 준다", async () => {
+      const bridge = createFakeBridge();
+      await acceptFitnessSession(bridge);
+
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive")));
+      expect(screen.getByTestId("fitness-surface")).not.toBeVisible();
+      expect(bridge.sent.filter((message) => message.requestId === "inactive")).toEqual([]);
+
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-2")));
+      expect(screen.getByTestId("fitness-surface")).toBeVisible();
+      expect(readyFor(bridge, "select-2")).toHaveLength(1);
+      expect(mocks.surfaceLifecycle).not.toHaveBeenCalledWith("fitness", "unmount");
+      expect(mountCount("fitness")).toBe(1);
+    });
+
+    it("숨긴 동안 끝난 로딩도 기억해 재선택 때 응답한다", async () => {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+      });
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+      await screen.findByTestId("fitness-surface");
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-1")));
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive")));
+      act(() => mocks.surfaceReadyCallbacks.fitness?.("fresh", true));
+      expect(bridge.sent.filter((message) => message.type === "surface.ready")).toEqual([]);
+
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-2")));
+      expect(readyFor(bridge, "select-2")).toHaveLength(1);
+      expect(mountCount("fitness")).toBe(1);
+    });
+
+    it("아직 준비 전인 표면을 재선택하면 응답을 미루고 이후 준비를 새 requestId 로 보낸다", async () => {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+      });
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+      await screen.findByTestId("fitness-surface");
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-1")));
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-2")));
+      expect(bridge.sent.filter((message) => message.type === "surface.ready")).toEqual([]);
+
+      act(() => mocks.surfaceReadyCallbacks.fitness?.("fresh", true));
+      expect(readyFor(bridge, "select-1")).toEqual([]);
+      expect(readyFor(bridge, "select-2")).toHaveLength(1);
+      expect(bridge.sent).toContainEqual(expect.objectContaining({
+        type: "telemetry.event",
+        requestId: "select-2",
+        payload: expect.objectContaining({ milestone: "fresh_complete", loadState: "cold" }),
+      }));
+      expect(mountCount("fitness")).toBe(1);
+    });
+
+    it("다른 표면 선택과 host.retry 는 지금처럼 다시 마운트한다", async () => {
+      const bridge = createFakeBridge();
+      await acceptFitnessSession(bridge);
+
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "select-plan")));
+      await screen.findByTestId("plan-surface");
+      expect(screen.queryByTestId("fitness-surface")).not.toBeInTheDocument();
+      expect(mountCount("plan")).toBe(1);
+      expect(readyFor(bridge, "select-plan")).toEqual([]);
+
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-fitness")));
+      await screen.findByTestId("fitness-surface");
+      expect(mountCount("fitness")).toBe(2);
+      expect(readyFor(bridge, "select-fitness")).toEqual([]);
+      act(() => mocks.surfaceReadyCallbacks.fitness?.("fresh", true));
+      expect(readyFor(bridge, "select-fitness")).toHaveLength(1);
+
+      act(() => bridge.emit(hostMessage("host.retry", {})));
+      await waitFor(() => expect(mountCount("fitness")).toBe(3));
+      // 재시도한 인스턴스는 아직 준비를 알리지 않았으므로 재선택에 대신 응답하지 않는다.
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "after-retry")));
+      expect(readyFor(bridge, "after-retry")).toEqual([]);
+      expect(mountCount("fitness")).toBe(3);
+    });
+
+    it("오류를 알린 표면은 재선택 때 새로 마운트한다", async () => {
+      const bridge = createFakeBridge();
+      await acceptFitnessSession(bridge);
+      act(() => mocks.surfaceReadyCallbacks.fitness?.("error", true));
+
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-2")));
+      await waitFor(() => expect(mountCount("fitness")).toBe(2));
+      expect(readyFor(bridge, "select-2")).toEqual([]);
+    });
+
+    it("30분 넘게 숨긴 표면은 재사용하지 않고 새로 마운트한다", async () => {
+      const bridge = createFakeBridge();
+      await acceptFitnessSession(bridge);
+      const start = Date.now();
+      const now = vi.spyOn(Date, "now").mockReturnValue(start);
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive")));
+      now.mockReturnValue(start + 30 * 60 * 1000);
+
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-2")));
+      await waitFor(() => expect(mountCount("fitness")).toBe(2));
+      expect(readyFor(bridge, "select-2")).toEqual([]);
+    });
+
+    it("숨긴 채 30분이 지나면 표면을 언마운트해 리스너를 놓는다", async () => {
+      const bridge = createFakeBridge();
+      await acceptFitnessSession(bridge);
+      const releaseTimers: Array<() => void> = [];
+      const realSetTimeout = window.setTimeout.bind(window);
+      vi.spyOn(window, "setTimeout").mockImplementation(((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+        if (typeof delay === "number" && delay >= 29 * 60 * 1000 && typeof handler === "function") {
+          releaseTimers.push(handler as () => void);
+          return 0;
+        }
+        return realSetTimeout(handler, delay, ...args);
+      }) as typeof window.setTimeout);
+
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive")));
+      expect(releaseTimers).toHaveLength(1);
+      act(() => releaseTimers[0]());
+
+      await waitFor(() => expect(screen.queryByTestId("fitness-surface")).not.toBeInTheDocument());
+      expect(mocks.surfaceLifecycle).toHaveBeenCalledWith("fitness", "unmount");
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-2")));
+      await screen.findByTestId("fitness-surface");
+      expect(mountCount("fitness")).toBe(2);
+      expect(readyFor(bridge, "select-2")).toEqual([]);
+    });
+
+    it("재선택 메시지와 커밋 사이에 도착한 준비도 새 requestId 에 정확히 한 번 응답한다", async () => {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+      });
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+      await screen.findByTestId("fitness-surface");
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-1")));
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive")));
+      // 숨긴 상태에서 커밋된(선택 없음) 콜백을, 재선택 직후 커밋 전에 호출한다.
+      const hiddenReady = mocks.surfaceReadyCallbacks.fitness!;
+      act(() => {
+        bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-2"));
+        hiddenReady("fresh", true);
+      });
+
+      expect(readyFor(bridge, "select-2")).toHaveLength(1);
+      expect(mountCount("fitness")).toBe(1);
+    });
+
+    it("null 이 반복돼도 해제 타이머는 처음 숨긴 시각부터 남은 시간만 건다", async () => {
+      const bridge = createFakeBridge();
+      await acceptFitnessSession(bridge);
+      const delays: number[] = [];
+      const realSetTimeout = window.setTimeout.bind(window);
+      vi.spyOn(window, "setTimeout").mockImplementation(((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+        if (typeof delay === "number" && delay >= 60_000) delays.push(delay);
+        return realSetTimeout(handler, delay !== undefined && delay >= 60_000 ? 2_147_483_647 : delay, ...args);
+      }) as typeof window.setTimeout);
+      const start = Date.now();
+      const now = vi.spyOn(Date, "now").mockReturnValue(start);
+
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive-1")));
+      now.mockReturnValue(start + 20 * 60 * 1000);
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive-2")));
+
+      expect(delays).toEqual([30 * 60 * 1000, 10 * 60 * 1000]);
+    });
+
+    it("숨긴 표면도 로그아웃·uid 변경이면 언마운트한다", async () => {
+      const bridge = createFakeBridge();
+      await acceptFitnessSession(bridge);
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive")));
+      expect(screen.getByTestId("fitness-surface")).not.toBeVisible();
+
+      act(() => {
+        mocks.setCurrentUser({ uid: "different-user" });
+        simulateLogin({ uid: "different-user" });
+      });
+
+      await waitFor(() => expect(screen.queryByTestId("fitness-surface")).not.toBeInTheDocument());
+      expect(mocks.surfaceLifecycle).toHaveBeenCalledWith("fitness", "unmount");
+      expect(bridge.sent).toContainEqual(expect.objectContaining({
+        type: "surface.error",
+        payload: { code: "auth_uid_changed" },
+      }));
+      // 새 세션의 같은 표면 선택은 이전 인스턴스 준비 상태로 응답하지 않는다.
+      mocks.setCurrentUser({ uid: "owner-1" });
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+      });
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+      await screen.findByTestId("fitness-surface");
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "new-session")));
+      expect(readyFor(bridge, "new-session")).toEqual([]);
+      expect(mountCount("fitness")).toBe(2);
     });
   });
 });
