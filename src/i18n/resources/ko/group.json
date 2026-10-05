@@ -7,6 +7,8 @@
   "members": "멤버",
   "memberCount": "멤버 수",
   "rides": "라이드",
+  "rides.loadMore": "라이드 더 보기",
+  "rides.loadingMore": "불러오는 중…",
   "rides.groupRides": "그룹 라이드",
   "settings": "설정",
   "settings.inviteLink": "초대 링크",

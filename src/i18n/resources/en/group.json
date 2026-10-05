@@ -7,6 +7,8 @@
   "members": "Members",
   "memberCount": "Member Count",
   "rides": "Rides",
+  "rides.loadMore": "Load more rides",
+  "rides.loadingMore": "Loading…",
   "rides.groupRides": "Group Rides",
   "settings": "Settings",
   "settings.inviteLink": "Invite Link",

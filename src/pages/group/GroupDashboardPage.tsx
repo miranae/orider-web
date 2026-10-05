@@ -35,7 +35,7 @@ export default function GroupDashboardPage() {
   const { members, loading: membersLoading } = useGroupMembers(groupId, 8);
   const { role: currentMemberRole } = useGroupMemberRole(groupId, user?.uid);
 
-  const { rides, aggregate, loading: ridesLoading } = useGroupRideStats(groupId);
+  const { rides, aggregate, weeklyStats: serverWeeklyStats, memberWeekStats: serverMemberWeekStats, loading: ridesLoading } = useGroupRideStats(groupId);
   const { posts, loading: postsLoading } = useGroupPosts(groupId);
   const [postContent, setPostContent] = useState("");
   const [posting, setPosting] = useState(false);
@@ -92,6 +92,7 @@ export default function GroupDashboardPage() {
 
   // 이번 주 통계 계산
   const weekStats = useMemo(() => {
+    if (serverWeeklyStats) return serverWeeklyStats;
     const now = new Date();
     const monday = new Date(now);
     monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
@@ -112,13 +113,14 @@ export default function GroupDashboardPage() {
       rideCount: weekRides.length,
       activeMembers: activeMembers.size,
     };
-  }, [rides]);
+  }, [rides, serverWeeklyStats]);
 
   // 멤버 순위 정렬 키 (거리/고도/시간/TSS)
   const [rankKey, setRankKey] = useState<"distance" | "elevation" | "time" | "tss">("distance");
 
   // 멤버별 종합 통계 (이번주)
   const memberWeekStats = useMemo(() => {
+    if (serverMemberWeekStats) return new Map(Object.entries(serverMemberWeekStats));
     const now = new Date();
     const monday = new Date(now);
     monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
@@ -137,7 +139,7 @@ export default function GroupDashboardPage() {
       }
     }
     return map;
-  }, [rides]);
+  }, [rides, serverMemberWeekStats]);
 
   if (groupLoading) {
     return (

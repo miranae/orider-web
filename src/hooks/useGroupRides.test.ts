@@ -1,9 +1,34 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { setCallableResult } from "../__tests__/mocks/firebase";
+import { setCallableImplementation, setCallableResult } from "../__tests__/mocks/firebase";
 import { normalizeGroupRideAggregate, useGroupRideStats } from "./useGroupRides";
 
 describe("useGroupRideStats", () => {
+  it("appends the next ride page without changing lifetime aggregates", async () => {
+    const cursor = { startTime: 200, groupRideId: "new" };
+    const calls: unknown[] = [];
+    setCallableImplementation("getGroupRideStats", (request) => {
+      calls.push(request);
+      const isNext = (request as { cursor?: unknown }).cursor != null;
+      return { data: {
+        rides: [{ groupRideId: isNext ? "old" : "new", startTime: isNext ? 100 : 200,
+          participantCount: 2, totalDistance: 1000, activities: [] }],
+        memberStats: { member: { distance: 2000, rideCount: 2, lastActivityAt: 200 } },
+        aggregate: { monthKey: "2026-07", monthlyDistance: 2000, lifetimeDistance: 2000,
+          lifetimeRideCount: 2, longestRideDistance: 1000 },
+        nextCursor: isNext ? null : cursor,
+      } };
+    });
+    const { result } = renderHook(() => useGroupRideStats("group-pages"));
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+    await act(async () => { await result.current.loadMore(); });
+    expect(calls).toEqual([{ groupId: "group-pages", pageSize: 20 },
+      { groupId: "group-pages", pageSize: 20, cursor }]);
+    expect(result.current.rides.map((ride) => ride.groupRideId)).toEqual(["new", "old"]);
+    expect(result.current.aggregate?.lifetimeRideCount).toBe(2);
+    expect(result.current.hasMore).toBe(false);
+  });
+
   it("loads grouped rides from the callable response", async () => {
     setCallableResult("getGroupRideStats", {
       data: {

@@ -13,7 +13,7 @@ export default function GroupRidesPage() {
   const { groupId } = useParams();
   const { user } = useAuth();
   const { group, loading: groupLoading } = useGroup(groupId);
-  const { rides, loading } = useGroupRideStats(groupId);
+  const { rides, loading, loadingMore, hasMore, loadMore } = useGroupRideStats(groupId);
 
   const [minParticipants, setMinParticipants] = useState(0);
 
@@ -74,13 +74,24 @@ export default function GroupRidesPage() {
 
       {loading && rides.length === 0 ? (
         <LoadingSkeleton kind="list" count={5} />
-      ) : filteredRides.length === 0 ? (
+      ) : filteredRides.length === 0 && !hasMore ? (
         <EmptyState icon="🚴" title={t("empty.noRides")} compact />
       ) : (
         <div className="space-y-3">
           {filteredRides.map((r) => (
             <RideCard key={r.groupRideId} ride={r} />
           ))}
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => { void loadMore(); }}
+              disabled={loadingMore}
+              className="w-full rounded-[var(--r-sm)] py-3 text-[length:var(--fs-sm)] disabled:opacity-50"
+              style={{ background: "var(--bg-2)", color: "var(--ink-1)" }}
+            >
+              {loadingMore ? t("rides.loadingMore") : t("rides.loadMore")}
+            </button>
+          )}
         </div>
       )}
     </div>
