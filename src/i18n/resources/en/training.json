@@ -517,6 +517,8 @@
     "swapFailed": "Day swap failed:",
     "swapFailedAlert": "Failed to swap days.",
     "linkedActivity": "View linked activity",
+    "serverOutcomeLocked": "Completion and skip status cannot be changed here after an activity link or execution result is recorded.",
+    "runningOutcomeLocked": "Manage running completion and skips through the activity link and session outcome.",
     "uncheckCompleted": "Undo completion",
     "markCompleted": "Mark complete",
     "unskip": "Undo skip",
