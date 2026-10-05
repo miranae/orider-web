@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { calcVirtualPowerStream, normalizeTimeToSeconds } from "./virtualPower";
+import { calcVirtualPowerStream, normalizeTimeToSeconds, type PowerStreamInput } from "./virtualPower";
+import golden from "./__fixtures__/virtualPower.golden.json";
 
 const baseParams = {
   riderWeightKg: 70,
@@ -67,6 +68,15 @@ describe("calcVirtualPowerStream", () => {
     expect(watts.every((w) => Number.isFinite(w))).toBe(true);
   });
 
+  it("고도 결측 인접 구간은 경사만 제외하고 평지 저항 파워는 유지", () => {
+    const input: PowerStreamInput = constSpeedInput(30, 30, 100);
+    input.altitude[15] = null;
+    const watts = calcVirtualPowerStream(input, baseParams);
+    expect(watts[15]).toBeGreaterThan(100);
+    expect(watts[16]).toBeGreaterThan(100);
+    expect(Math.max(...watts.slice(10))).toBeLessThan(250);
+  });
+
   it("배열 길이 불일치 시 빈 배열 반환", () => {
     const time = [0, 1, 2, 3, 4];
     const velocity_smooth = [1, 2, 3];
@@ -111,5 +121,74 @@ describe("calcVirtualPowerStream", () => {
     // ms 단위 보정 적용되면 평지 30km/h ≈ 150W (이전 버그: 1500W+ 폭주)
     expect(avg).toBeGreaterThan(140);
     expect(avg).toBeLessThan(200);
+  });
+});
+
+// 서버 정본(orider-g1-web functions/src/lib/virtualPower.ts)과 같은 골든 픽스처로 고정한다.
+// 픽스처는 두 저장소에 같은 파일로 있고, 공식을 바꾸면 양쪽을 함께 갱신한다.
+describe("golden: 서버 정본과 같은 출력 (virtualPower drift 차단)", () => {
+  const PARAMS = golden.params;
+  const NULL_ALTITUDE_CASE = "고도 결측(평지 60번째 null)";
+  const expected = golden.calcVirtualPowerStream as Record<string, number[]>;
+
+  // 다양한 형태: 평지 정속 / 오르막 / 내리막 / 정지·코스팅 / 급변(클램프 유발) / ms 타임스탬프
+  function buildCases(): { name: string; input: PowerStreamInput }[] {
+    const n = 120;
+    const flat: PowerStreamInput = {
+      time: Array.from({ length: n }, (_, i) => i),
+      velocity_smooth: Array.from({ length: n }, () => 8),
+      altitude: Array.from({ length: n }, () => 100),
+    };
+    const climb: PowerStreamInput = {
+      time: Array.from({ length: n }, (_, i) => i),
+      velocity_smooth: Array.from({ length: n }, () => 5),
+      altitude: Array.from({ length: n }, (_, i) => 100 + i * 0.8),
+    };
+    const descent: PowerStreamInput = {
+      time: Array.from({ length: n }, (_, i) => i),
+      velocity_smooth: Array.from({ length: n }, () => 15),
+      altitude: Array.from({ length: n }, (_, i) => 200 - i * 1.2),
+    };
+    const stopGo: PowerStreamInput = {
+      time: Array.from({ length: n }, (_, i) => i),
+      velocity_smooth: Array.from({ length: n }, (_, i) => (i % 10 < 3 ? 0 : 12)),
+      altitude: Array.from({ length: n }, () => 50),
+    };
+    const spike: PowerStreamInput = {
+      time: Array.from({ length: n }, (_, i) => i),
+      velocity_smooth: Array.from({ length: n }, (_, i) => (i === 60 ? 40 : 9)),
+      altitude: Array.from({ length: n }, (_, i) => (i === 60 ? 130 : 100)),
+    };
+    const msTime: PowerStreamInput = {
+      time: Array.from({ length: n }, (_, i) => Date.UTC(2026, 5, 21) + i * 1000),
+      velocity_smooth: Array.from({ length: n }, () => 10),
+      altitude: Array.from({ length: n }, (_, i) => 100 + i * 0.3),
+    };
+    return [
+      { name: "평지 정속", input: flat },
+      { name: "오르막", input: climb },
+      { name: "내리막", input: descent },
+      { name: "정지·코스팅", input: stopGo },
+      { name: "급변(클램프)", input: spike },
+      { name: "ms 타임스탬프", input: msTime },
+    ];
+  }
+
+  it("calcVirtualPowerStream — 입력 매트릭스 전수 출력 동일", () => {
+    const cases = buildCases();
+    expect(Object.keys(expected).sort()).toEqual([...cases.map((c) => c.name), NULL_ALTITUDE_CASE].sort());
+    for (const { name, input } of cases) {
+      expect(calcVirtualPowerStream(input, PARAMS), name).toEqual(expected[name]);
+    }
+    const nullInput = buildCases()[0]!.input;
+    nullInput.altitude[60] = null;
+    expect(calcVirtualPowerStream(nullInput, PARAMS)).toEqual(expected[NULL_ALTITUDE_CASE]);
+  });
+
+  it("normalizeTimeToSeconds — 초/ms 단위 처리 동일", () => {
+    const secTime = Array.from({ length: 50 }, (_, i) => i);
+    const msTime = Array.from({ length: 50 }, (_, i) => Date.UTC(2026, 5, 21) + i * 1000);
+    expect(normalizeTimeToSeconds(secTime)).toEqual(golden.normalizeTimeToSeconds.sec);
+    expect(normalizeTimeToSeconds(msTime)).toEqual(golden.normalizeTimeToSeconds.ms);
   });
 });

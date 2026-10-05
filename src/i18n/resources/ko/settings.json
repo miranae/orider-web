@@ -295,11 +295,11 @@
     "clearCacheConfirm": "캐시를 초기화하시겠습니까?",
     "cacheCleared": "캐시가 초기화되었습니다",
     "delete": "데이터 삭제",
-    "deleteDesc": "모든 활동·프로필·댓글·그룹 멤버십·세그먼트가 영구 삭제됩니다. 되돌릴 수 없습니다.",
-    "deleteConfirm": "모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
-    "deleteAll": "모든 데이터 영구 삭제",
+    "deleteDesc": "활동·프로필·댓글·그룹 멤버십·세그먼트가 삭제됩니다. 원본 활동 데이터는 다음 전체 재분석 시 제거되며, 그 전까지 보관될 수 있습니다.",
+    "deleteConfirm": "안내된 데이터를 삭제하시겠습니까? 원본 활동 데이터는 다음 전체 재분석 전까지 보관될 수 있습니다. 이 작업은 되돌릴 수 없습니다.",
+    "deleteAll": "데이터 삭제",
     "deleting": "삭제 중...",
-    "deleted": "데이터가 삭제되었습니다"
+    "deleted": "삭제 처리가 완료되었습니다"
   },
   "account": {
     "email": "이메일",
@@ -344,10 +344,10 @@
       "logoutConfirm": "로그아웃하시겠어요?",
       "logoutBtn": "로그아웃",
       "deleteLabel": "모든 활동 데이터 삭제",
-      "deleteHint": "활동·스트림·사진·세그먼트가 영구 삭제됩니다.",
+      "deleteHint": "활동·분석 결과·사진·세그먼트가 삭제됩니다. 원본 활동 데이터는 다음 전체 재분석까지 보관될 수 있습니다.",
       "deleteBtnDeleting": "삭제 중…",
       "deleteBtnLabel": "데이터 삭제",
-      "deleteAccountDone": "모든 활동 데이터가 삭제되었습니다",
+      "deleteAccountDone": "활동과 분석 데이터가 삭제되었습니다",
       "deleteTypeConfirm": "계정과 활동 데이터를 삭제하려면 DELETE를 입력하세요. 삭제 후 홈으로 이동하며 다시 로그인해야 합니다.",
       "deleteTypePlaceholder": "DELETE",
       "deleteTypeToken": "DELETE",
@@ -372,7 +372,7 @@
       "clearCacheBtn": "비우기",
       "clearCacheFailed": "캐시 비우기 실패",
       "cardDeleteAll": "모든 활동 데이터 삭제",
-      "deleteAllWarning": "이 작업은 되돌릴 수 없습니다. 활동, 스트림, 사진, 세그먼트가 모두 영구 삭제됩니다. 계정 자체는 유지됩니다.",
+      "deleteAllWarning": "이 작업은 되돌릴 수 없습니다. 활동, 분석 결과, 사진, 세그먼트가 삭제됩니다. 원본 활동 데이터는 다음 전체 재분석까지 보관될 수 있습니다. 계정 자체는 유지됩니다.",
       "deleteAllBtn": "모든 활동 데이터 삭제",
       "deleteFailed": "삭제 실패"
     },

@@ -8,7 +8,7 @@ export interface VirtualPowerParams {
 export interface PowerStreamInput {
   time: number[];
   velocity_smooth: number[];
-  altitude: number[];
+  altitude: Array<number | null>;
 }
 
 const G = 9.81;
@@ -35,6 +35,25 @@ function smooth7(arr: number[]): number[] {
       }
     }
     out[i] = sum / cnt;
+  }
+  return out;
+}
+
+function smooth7Altitude(arr: Array<number | null>): Array<number | null> {
+  const out = new Array<number | null>(arr.length).fill(null);
+  for (let i = 0; i < arr.length; i++) {
+    if (typeof arr[i] !== "number" || !Number.isFinite(arr[i])) continue;
+    let sum = arr[i]!;
+    let count = 1;
+    for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
+      if (typeof arr[j] !== "number" || !Number.isFinite(arr[j])) break;
+      sum += arr[j]!; count++;
+    }
+    for (let j = i + 1; j <= Math.min(arr.length - 1, i + 3); j++) {
+      if (typeof arr[j] !== "number" || !Number.isFinite(arr[j])) break;
+      sum += arr[j]!; count++;
+    }
+    out[i] = sum / count;
   }
   return out;
 }
@@ -81,7 +100,7 @@ export function calcVirtualPowerStream(
   if (input.velocity_smooth.length !== n || input.altitude.length !== n) return [];
 
   const v = smooth7(input.velocity_smooth);
-  const alt = smooth7(input.altitude);
+  const alt = smooth7Altitude(input.altitude);
   // ms timestamp → seconds 자동 변환 (orider 모바일 활동 단위 버그 보정)
   const t = normalizeTimeToSeconds(input.time);
 
@@ -96,9 +115,10 @@ export function calcVirtualPowerStream(
 
     const ds = Math.max(((vi + v[i - 1]!) / 2) * (validDt ? dt : 0), 0.1);
     // GPS/기압 노이즈로 인한 gradient 폭주 방지: 자전거 주행 가능 범위로 클램프
-    const gradientRaw = (alt[i]! - alt[i - 1]!) / ds;
+    const gradientRaw = alt[i] != null && alt[i - 1] != null ? (alt[i]! - alt[i - 1]!) / ds : 0;
     const gradient = Math.max(-0.25, Math.min(0.25, gradientRaw));
-    const rho = Math.max(0.4, RHO_SEA * Math.pow(Math.max(0, 1 - (0.0065 * alt[i]!) / 288.15), 5.255));
+    const altitudeM = alt[i] ?? alt[i - 1] ?? 0;
+    const rho = Math.max(0.4, RHO_SEA * Math.pow(Math.max(0, 1 - (0.0065 * altitudeM) / 288.15), 5.255));
 
     // aero 는 v³ 이라 속도 아웃라이어에 극히 민감 → V_MAX 로 캡한 속도로 계산.
     const vAero = Math.min(vi, V_MAX);

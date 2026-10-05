@@ -1057,7 +1057,7 @@
     "savingBtn": "Saving...",
     "toastSaved": "Saved",
     "toastSaveFailed": "Save failed",
-    "deleteConfirm": "Delete this activity?\nIt will be removed from fitness metrics and cannot be recovered.",
+    "deleteConfirm": "Delete this activity?\nIt will be removed from fitness metrics and cannot be recovered. Raw data may remain until the next full reanalysis.",
     "toastDeleted": "Activity deleted",
     "toastDeleteFailed": "Delete failed",
     "workoutType": {

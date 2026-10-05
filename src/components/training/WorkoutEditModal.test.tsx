@@ -74,3 +74,29 @@ describe("강도 교체와 원본 임포트", () => {
     for (const field of ["executionWorkoutOverride", "closedLoopAdjustment", "adjustedTSS", "adjustedDurationMin"]) expect(saved).not.toHaveProperty(field);
   });
 });
+
+describe("Firestore rules 가 거부하는 완료·건너뛰기 쓰기 잠금", () => {
+  function showFor(day: PlanDay, goalDiscipline: "bike" | "run") {
+    return render(<WorkoutEditModal day={day} weekId="week-01" dayIndex={0} goalId="goal"
+      goalDiscipline={goalDiscipline} onClose={vi.fn()} onUpdate={vi.fn()} />);
+  }
+  it("러닝 목표는 완료·건너뛰기를 잠그고 안내한다", () => {
+    showFor(original, "run");
+    expect(screen.getByRole("button", { name: "edit.markCompleted" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "edit.skip" })).toBeDisabled();
+    expect(screen.getByText("edit.runningOutcomeLocked")).toBeInTheDocument();
+  });
+  it("서버가 활동 연결을 기록한 날은 사이클도 잠근다", () => {
+    showFor({ ...original, actualActivityId: "a1", completed: true }, "bike");
+    expect(screen.getByRole("button", { name: "edit.uncheckCompleted" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "edit.skip" })).toBeDisabled();
+    expect(screen.getByText("edit.serverOutcomeLocked")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "edit.uncheckCompleted" }));
+    expect(updateDoc).not.toHaveBeenCalled();
+  });
+  it("실행 결과가 없는 사이클 일정은 그대로 바꿀 수 있다", () => {
+    showFor(original, "bike");
+    expect(screen.getByRole("button", { name: "edit.markCompleted" })).toBeEnabled();
+    expect(screen.queryByText("edit.serverOutcomeLocked")).not.toBeInTheDocument();
+  });
+});
