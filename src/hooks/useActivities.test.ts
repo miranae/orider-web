@@ -598,6 +598,7 @@ describe("useWeeklyStats", () => {
       simulateLogin({ uid: "user-1" });
       const { result } = renderHook(() => useWeeklyStats({ now, discipline: "run" }), { wrapper });
       await waitFor(() => expect(result.current.coverage).toBe("partial"));
+      expect(result.current.recent7DayCoverage).toBe("partial");
     } finally {
       mockedGetDocs.mockReset();
       if (original) mockedGetDocs.mockImplementation(original);
@@ -848,7 +849,7 @@ describe("useWeeklyStats", () => {
     }
   });
 
-  it("does not run the monthly fallback for weekly-only consumers at the 200-document cap", async () => {
+  it("reads all recent rides when the 200-document chart cap falls within seven days", async () => {
     const now = new Date(2026, 6, 14, 12, 0, 0);
     const cappedDocs = Array.from({ length: 200 }, (_, index) => ({
       id: `weekly-only-${index}`,
@@ -861,16 +862,35 @@ describe("useWeeklyStats", () => {
     const mockedGetDocs = vi.mocked(getDocs);
     const defaultImplementation = mockedGetDocs.getMockImplementation();
     mockedGetDocs.mockReset();
-    mockedGetDocs.mockResolvedValueOnce({ docs: cappedDocs } as never);
+    const extraDoc = {
+      id: "weekly-extra",
+      data: () => createMockActivity({
+        id: "weekly-extra",
+        userId: "user-1",
+        startTime: now.getTime() - 86400000,
+        summary: createMockSummary({ distance: 22_700 }),
+      }),
+    };
+    mockedGetDocs
+      .mockResolvedValueOnce({ docs: cappedDocs } as never)
+      .mockResolvedValueOnce({ docs: [...cappedDocs, extraDoc], metadata: { fromCache: false, hasPendingWrites: false } } as never);
 
     try {
       simulateLogin({ uid: "user-1" });
+      vi.mocked(where).mockClear();
+      vi.mocked(orderBy).mockClear();
       const { result } = renderHook(() => useWeeklyStats(now), { wrapper });
 
-      await waitFor(() => expect(result.current.weeklyStats.at(-1)?.rides).toBe(200));
+      await waitFor(() => expect(result.current.weeklyStats.at(-1)?.rides).toBe(201));
       expect(result.current.coverage).toBe("partial");
+      expect(result.current.recent7DayCoverage).toBe("ready");
       expect(result.current.monthlyActivityDistance).toBe(0);
-      expect(mockedGetDocs).toHaveBeenCalledTimes(1);
+      expect(result.current.recent7DayCount).toBe(201);
+      expect(result.current.recent7DayDistances.bike).toBeGreaterThanOrEqual(22_700);
+      expect(mockedGetDocs).toHaveBeenCalledTimes(2);
+      expect(where).toHaveBeenCalledWith("startTime", ">=", now.getTime() - 12 * 7 * 86400000);
+      expect(orderBy).toHaveBeenCalledWith("startTime", "desc");
+      expect(where).not.toHaveBeenCalledWith("createdAt", expect.anything(), expect.anything());
     } finally {
       mockedGetDocs.mockReset();
       if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);

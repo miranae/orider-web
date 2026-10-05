@@ -416,7 +416,7 @@ export default function DashboardPage() {
    * 대신 두 값 모두 클라 집계로 남긴다 (#2237). 같은 출처끼리 묶어 둬야 막대와 개수가
    * 서로 어긋나지 않는다.
    */
-  const mobileWeeklySummary = { activityCount: recent7DayCount, distances: recent7DayDistances, available: selectedDiscipline !== "run" || runStats.coverage === "ready" };
+  const mobileWeeklySummary = { activityCount: recent7DayCount, distances: recent7DayDistances, available: selectedDiscipline !== "run" || runStats.recent7DayCoverage === "ready" };
 
   const weekSource = canonicalKpiSource(canonicalHome.enabled, canonicalHome.display, canonicalHome.totals);
   /**
@@ -435,8 +435,8 @@ export default function DashboardPage() {
     staleChip: t("canonical.staleChip"),
   });
   /** false 면 KPI 칸은 숫자 대신 "—" 와 상태 문구다. 0 도, 클라 집계도 아니다. */
-  const showWeekNumbers = isRunTab ? runStats.coverage === "ready" : weekPresentation.showNumbers;
-  const weekSub = isRunTab && runStats.coverage !== "ready" ? t("kpi.runUnavailable") : weekPresentation.sub;
+  const showWeekNumbers = isRunTab ? runStats.recent7DayCoverage === "ready" : weekPresentation.showNumbers;
+  const weekSub = isRunTab && runStats.recent7DayCoverage !== "ready" ? t("kpi.runUnavailable") : weekPresentation.sub;
   const weekChip = isRunTab ? null : weekPresentation.chip;
 
   const thisWeekDistFormatted = formatDistance(weekTotals.distance, units);
@@ -682,7 +682,7 @@ export default function DashboardPage() {
         runSummary={mobileSportFilter === "run" && user && !user.isAnonymous ? {
           count: String(thisWeek.rides), distance: formatDistance(thisWeek.distance, units),
           time: formatDuration(thisWeek.time), elevation: formatElev(thisWeek.elevation, units),
-          available: runStats.coverage === "ready",
+          available: runStats.recent7DayCoverage === "ready",
         } : undefined}
         currentUserId={user?.uid ?? null}
         friendIds={[...friendIds]}
