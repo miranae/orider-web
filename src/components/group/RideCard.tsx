@@ -17,17 +17,17 @@ export default function RideCard({ ride }: RideCardProps) {
   const summarizedActivities = ride.activities.filter((activity) => activity.summary != null);
 
   // Average duration across participants
-  const avgTimeMs = summarizedActivities.length > 0
+  const avgTimeMs = ride.averageRidingTimeMillis ?? (summarizedActivities.length > 0
     ? summarizedActivities.reduce((sum, a) => sum + a.summary.ridingTimeMillis, 0) / summarizedActivities.length
-    : 0;
+    : 0);
   const hours = Math.floor(avgTimeMs / 3600000);
   const mins = Math.floor((avgTimeMs % 3600000) / 60000);
   const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 
   // Average elevation gain across participants
-  const avgElevation = summarizedActivities.length > 0
-    ? Math.round(summarizedActivities.reduce((sum, a) => sum + (a.summary.elevationGain ?? 0), 0) / summarizedActivities.length)
-    : 0;
+  const avgElevation = Math.round(ride.averageElevationGain ?? (summarizedActivities.length > 0
+    ? summarizedActivities.reduce((sum, a) => sum + (a.summary.elevationGain ?? 0), 0) / summarizedActivities.length
+    : 0));
 
   return (
     <Link
@@ -47,9 +47,9 @@ export default function RideCard({ ride }: RideCardProps) {
           {ride.activities.slice(0, 4).map((a) => (
             <Avatar key={a.id} name={a.nickname} imageUrl={a.profileImage} size="sm" />
           ))}
-          {ride.activities.length > 4 && (
+          {ride.participantCount > 4 && (
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-[length:var(--fs-xs)] ring-2" style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>
-              +{ride.activities.length - 4}
+              +{ride.participantCount - 4}
             </div>
           )}
         </div>
