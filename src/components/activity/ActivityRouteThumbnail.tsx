@@ -28,6 +28,7 @@ export const MAP_THUMBNAIL_VIEWPORT_HEIGHT = 457;
 export const MAP_THUMBNAIL_PIXEL_RATIO = 2;
 const MAP_THUMBNAIL_MAX_BYTES = 1024 * 1024;
 const MAP_THUMBNAIL_CAPTURE_TIMEOUT_MS = 20_000;
+const MAP_THUMBNAIL_IMAGE_WAIT_MS = 8_000;
 const MAP_THUMBNAIL_PROCESS_TIMEOUT_MS = 30_000;
 const MAP_THUMBNAIL_WEBP_QUALITIES = [0.85, 0.78, 0.7, 0.62, 0.52, 0.4, 0.28, 0.16];
 type MapThumbnailPhase = "capture" | "encode" | "prepare" | "finalize";
@@ -111,7 +112,9 @@ export default function ActivityRouteThumbnail({
   const captureRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [timedOutImageUrl, setTimedOutImageUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(mapImageUrl ?? null);
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const [captureSlot, setCaptureSlot] = useState<CaptureSlot | null>(null);
   const [derivedKey, setDerivedKey] = useState<CanonicalMapThumbnailKey | null>(null);
   const captured = useRef(false);
@@ -139,7 +142,7 @@ export default function ActivityRouteThumbnail({
     userId,
     canonicalFileName,
     storage.app.options.storageBucket,
-  ) ? imageUrl : null;
+  ) && imageUrl !== failedImageUrl ? imageUrl : null;
   const routePath = useMemo(() => {
     if (!priority && !visible) return null;
     const positions = decodeTrack(polyline);
@@ -152,6 +155,12 @@ export default function ActivityRouteThumbnail({
   }, [polyline, priority, visible]);
 
   useEffect(() => { setImageLoaded(false); }, [canonicalImageUrl]);
+
+  useEffect(() => {
+    if (!visible || !canonicalImageUrl || imageLoaded || timedOutImageUrl === canonicalImageUrl) return;
+    const timeoutId = globalThis.setTimeout(() => setTimedOutImageUrl(canonicalImageUrl), MAP_THUMBNAIL_IMAGE_WAIT_MS);
+    return () => globalThis.clearTimeout(timeoutId);
+  }, [visible, canonicalImageUrl, imageLoaded, timedOutImageUrl]);
 
   useEffect(() => { setImageUrl(mapImageUrl ?? null); }, [mapImageUrl]);
   useEffect(() => {
@@ -180,7 +189,6 @@ export default function ActivityRouteThumbnail({
   const needsCapture = mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
 
   useEffect(() => {
-    if (canonicalImageUrl) return;
     const el = containerRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -294,17 +302,34 @@ export default function ActivityRouteThumbnail({
   );
 
   let content;
+  const placeholder = <StaticRoutePreview path={routePath} />;
+  const liveRoute = visible ? (
+    <Suspense fallback={placeholder}>
+      <RouteMap
+        key={`${canonicalFileName}:${canonicalVersion}:live`}
+        polyline={polyline}
+        height="w-full h-full"
+        fitPadding={16}
+        interactive={false}
+        rounded={false}
+        fallbackImageUrl={mapImageUrl === failedImageUrl ? null : mapImageUrl}
+      />
+    </Suspense>
+  ) : placeholder;
   if (canonicalImageUrl) {
     content = (
       <>
-        {!imageLoaded && <div className="absolute inset-0"><StaticRoutePreview path={routePath} /></div>}
+        {!imageLoaded && <div className="absolute inset-0">{timedOutImageUrl === canonicalImageUrl ? liveRoute : placeholder}</div>}
         <img
           src={canonicalImageUrl}
           alt={isMobile ? "" : t("card.routeMapAlt")}
           className="relative w-full h-full object-cover"
           style={{ opacity: imageLoaded ? 1 : 0 }}
           onLoad={() => setImageLoaded(true)}
-          onError={() => setImageLoaded(false)}
+          onError={() => {
+            setImageLoaded(false);
+            setFailedImageUrl(canonicalImageUrl);
+          }}
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : undefined}
         />
@@ -312,24 +337,9 @@ export default function ActivityRouteThumbnail({
       </>
     );
   } else {
-    const placeholder = <StaticRoutePreview path={routePath} />;
     content = (
       <>
-        {visible ? (
-          <Suspense fallback={placeholder}>
-            <RouteMap
-              key={`${canonicalFileName}:${canonicalVersion}:live`}
-              polyline={polyline}
-              height="w-full h-full"
-              fitPadding={16}
-              interactive={false}
-              rounded={false}
-              fallbackImageUrl={mapImageUrl}
-            />
-          </Suspense>
-        ) : (
-          placeholder
-        )}
+        {liveRoute}
         {hoverDim}
       </>
     );
