@@ -1057,7 +1057,7 @@
     "savingBtn": "저장 중...",
     "toastSaved": "저장되었습니다",
     "toastSaveFailed": "저장에 실패했습니다",
-    "deleteConfirm": "활동을 삭제하시겠습니까?\n피트니스 지표에서도 제거되며 복구할 수 없습니다.",
+    "deleteConfirm": "활동을 삭제하시겠습니까?\n피트니스 지표에서 제거되며 복구할 수 없습니다. 원본은 다음 전체 재분석까지 보관될 수 있습니다.",
     "toastDeleted": "활동이 삭제되었습니다",
     "toastDeleteFailed": "삭제에 실패했습니다",
     "workoutType": {
