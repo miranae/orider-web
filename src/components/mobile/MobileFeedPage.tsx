@@ -15,7 +15,7 @@ import { isTrivialActivity } from "../../utils/activityFilter";
 import { resolveDuration, resolveAvgSpeedKph } from "../../utils/activityTime";
 import { isImplausibleAvgSpeed, isImplausibleActivity } from "../../utils/activitySanity";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
-import type { ActivityFeedScope } from "../../hooks/useActivities";
+import type { ActivityFeedScope, useActivitySearch } from "../../hooks/useActivities";
 import ActivityRouteThumbnail from "../activity/ActivityRouteThumbnail";
 import type { DashboardDatePreset, DashboardSportFilter } from "../../hooks/useDashboardPreferences";
 import { useLocale } from "../../contexts/LocaleContext";
@@ -44,6 +44,7 @@ interface MobileFeedPageProps {
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
+  activitySearch?: ReturnType<typeof useActivitySearch>;
   showYearRecapBanner?: boolean;
   consistencyStreak?: ConsistencyStreakSummary | null;
   weeklySummary?: {
@@ -299,6 +300,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
 
 export default function MobileFeedPage({
   activities, loading, error = false, onRetry, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
+  activitySearch,
   weeklySummary, runSummary, feedScope, onFeedScopeChange,
   sportFilter: controlledSportFilter,
   onSportFilterChange,
@@ -310,6 +312,7 @@ export default function MobileFeedPage({
   const { user } = useAuth();
   const [localSportFilter, setLocalSportFilter] = useState<SportFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const searchActive = activitySearch?.active ?? false;
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [routineOpen, setRoutineOpen] = useState(false);
   const [localDatePreset, setLocalDatePreset] = useState<DashboardDatePreset>("all");
@@ -321,6 +324,7 @@ export default function MobileFeedPage({
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
   const effectiveFeedScope = user ? feedScope : "all";
   const activeFilterCount = Number(effectiveFeedScope !== "all") + Number(datePreset !== "all");
+  const hasActiveSearchFilters = sportFilter !== "all" || effectiveFeedScope !== "all" || datePreset !== "all";
   const activeFilterDescription = [
     effectiveFeedScope !== "all" ? t(`feed.filter.${effectiveFeedScope}`) : null,
     datePreset !== "all" ? t(`feed.datePreset.${datePreset}`) : null,
@@ -358,7 +362,17 @@ export default function MobileFeedPage({
   }, [weeklySummary, t, sportFilter]);
 
   // 측정 오류 trivial 활동(거리<100m 또는 시간<60s) 항상 숨김.
-  const visibleActivities = activities.filter((a) => !isTrivialActivity(a));
+  const sourceActivities = searchActive ? (() => {
+    const keyword = activitySearch!.searchedKeyword.toLowerCase();
+    const merged = new Map(activitySearch!.allResults.map((activity) => [activity.id, activity]));
+    for (const activity of activities) {
+      if (`${activity.description ?? ""} ${activity.nickname ?? ""} ${activity.type ?? ""}`.toLowerCase().includes(keyword)) {
+        merged.set(activity.id, activity);
+      }
+    }
+    return [...merged.values()].sort((a, b) => b.startTime - a.startTime);
+  })() : activities;
+  const visibleActivities = sourceActivities.filter((a) => !isTrivialActivity(a));
   const filteredBySport = sportFilter === "all" ? visibleActivities
     : visibleActivities.filter(a => getDiscipline(a.type) === sportFilter);
   const filteredByScope = filteredBySport.filter((a) => {
@@ -370,10 +384,7 @@ export default function MobileFeedPage({
     ? 0
     : Date.now() - (datePreset === "7d" ? 7 : datePreset === "30d" ? 30 : 90) * 86400000;
   const filteredByDate = cutoff > 0 ? filteredByScope.filter((a) => a.startTime >= cutoff) : filteredByScope;
-  const q = searchQuery.trim().toLowerCase();
-  const filteredActivities = q
-    ? filteredByDate.filter((a) => `${a.description ?? ""} ${a.nickname ?? ""} ${a.type ?? ""}`.toLowerCase().includes(q))
-    : filteredByDate;
+  const filteredActivities = filteredByDate;
   const renderedActivities = filteredActivities.slice(0, renderLimit);
   const hasHiddenLocalItems = filteredActivities.length > renderedActivities.length;
   const supportingCards = (showYearRecapBanner || (!user && consistencyStreak)) && (
@@ -461,9 +472,20 @@ export default function MobileFeedPage({
 
       <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-2) var(--space-4)" }}>
         <div className="flex" style={{ gap: "var(--space-2)" }}>
+          {activitySearch && <form onSubmit={(event) => {
+            event.preventDefault();
+            const keyword = String(new FormData(event.currentTarget).get("query") ?? searchQuery).trim();
+            if (!keyword) return;
+            setDatePreset("all");
+            activitySearch.search(keyword);
+            setRenderLimit(MOBILE_FEED_RENDER_INITIAL);
+          }} className="flex" style={{ flex: 1, minWidth: 0, gap: "var(--space-1)" }}>
           <input
+            name="query"
+            enterKeyHint="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
+            onCompositionEnd={(event) => setSearchQuery(event.currentTarget.value)}
             placeholder={t("feed.search.placeholder")}
             aria-label={t("feed.search.placeholder")}
             style={{
@@ -478,6 +500,13 @@ export default function MobileFeedPage({
               fontSize: "var(--fs-sm)",
             }}
           />
+          {searchActive && <Button type="button" variant="secondary" size="sm" aria-label={t("feed.search.reset")} onClick={() => {
+            setSearchQuery("");
+            activitySearch.reset();
+            setRenderLimit(MOBILE_FEED_RENDER_INITIAL);
+          }}>×</Button>}
+          <Button type="submit" variant="secondary" size="sm">{t("feed.search.submit")}</Button>
+          </form>}
           <Button
             type="button"
             variant={activeFilterCount > 0 ? "primary" : "secondary"}
@@ -512,7 +541,11 @@ export default function MobileFeedPage({
             <span style={{ flexShrink: 0, color: "var(--ink-3)", fontSize: "var(--fs-2xs)" }}>{t("feed.datePreset.label")}</span>
             <select
               value={datePreset}
-              onChange={(event) => setDatePreset(event.target.value as DashboardDatePreset)}
+              onChange={(event) => {
+                const nextPreset = event.target.value as DashboardDatePreset;
+                setDatePreset(nextPreset);
+                if (searchActive) activitySearch?.setDatePreset(nextPreset);
+              }}
               aria-label={t("feed.datePreset.label")}
               style={{ flex: 1, minWidth: 0, minHeight: "var(--space-8)", border: 0, background: "transparent", color: "var(--ink-0)", paddingLeft: "var(--space-1)", fontSize: "var(--fs-sm)" }}
             >
@@ -530,11 +563,11 @@ export default function MobileFeedPage({
       )}
 
       {/* 활동 피드 */}
-      {loading && (
+      {(searchActive ? activitySearch!.loading : loading) && (
         <MobileFeedSkeleton />
       )}
 
-      {!loading && error && (
+      {!searchActive && !loading && error && (
         <div role="alert" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-2)" }}>{t(activities.length > 0 ? "feed.partialError.title" : "feed.error.title")}</div>
           <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: "var(--space-4)" }}>{t(activities.length > 0 ? "feed.partialError.description" : "feed.error.description")}</div>
@@ -542,16 +575,29 @@ export default function MobileFeedPage({
         </div>
       )}
 
-      {!loading && !error && filteredActivities.length === 0 && (
-        <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
-          <div style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>🚴</div>
-          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{activities.length > 0 ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
-          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{activities.length > 0 ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
+      {searchActive && !activitySearch!.loading && activitySearch!.error && (
+        <div role="alert" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
+          <div style={{ fontSize: "var(--fs-sm)", marginBottom: "var(--space-4)" }}>{t(filteredActivities.length > 0 ? "feed.partialError.title" : "feed.error.title")}</div>
+          <Button variant="primary" onClick={activitySearch!.retry}>{t("feed.error.retry")}</Button>
         </div>
       )}
-      {!loading && filteredActivities.length === 0 && supportingCards}
 
-      {!loading && filteredActivities.length > 0 && (
+      {!(searchActive ? activitySearch!.loading || activitySearch!.error : loading || error) && filteredActivities.length === 0 && (
+        <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
+          <div style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>🚴</div>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{searchActive && activitySearch!.hasMoreServerResults ? t("feed.search.morePossibleTitle") : searchActive ? t("feed.search.emptyTitle") : activities.length > 0 ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{searchActive && activitySearch!.hasMoreServerResults ? t("feed.search.morePossibleDescription") : searchActive ? t("feed.search.emptyDescription") : activities.length > 0 ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
+          {searchActive && hasActiveSearchFilters && <Button variant="secondary" onClick={() => {
+            setSportFilter("all");
+            onFeedScopeChange("all");
+            setDatePreset("all");
+            activitySearch!.setDatePreset("all");
+          }} style={{ marginTop: "var(--space-3)" }}>{t("feed.search.clearFilters")}</Button>}
+        </div>
+      )}
+      {!(searchActive ? activitySearch!.loading : loading) && filteredActivities.length === 0 && supportingCards}
+
+      {!(searchActive ? activitySearch!.loading : loading) && filteredActivities.length > 0 && (
         <div>
           {renderedActivities.map((activity, i) => (
             <Fragment key={activity.id}>
@@ -562,20 +608,22 @@ export default function MobileFeedPage({
         </div>
       )}
 
-      {!loading && !error && (hasHiddenLocalItems || hasMore) && (
+      {!(searchActive ? activitySearch!.loading || activitySearch!.error : loading || error) && (hasHiddenLocalItems || (searchActive ? activitySearch!.hasMoreServerResults : hasMore)) && (
         <div style={{ padding: "var(--space-3) var(--space-4)" }}>
           <Button variant="secondary" size="lg"
             onClick={() => {
               if (hasHiddenLocalItems) {
                 setRenderLimit((value) => value + MOBILE_FEED_RENDER_STEP);
+              } else if (searchActive) {
+                activitySearch!.loadMoreServer();
               } else {
                 onLoadMore();
               }
             }}
-            disabled={loadingMore}
+            disabled={!searchActive && loadingMore}
             style={{ width: "100%" }}
           >
-            {loadingMore ? t("mobileFeed.loadingMore") : t("mobileFeed.loadMore")}
+            {!searchActive && loadingMore ? t("mobileFeed.loadingMore") : t("mobileFeed.loadMore")}
           </Button>
         </div>
       )}

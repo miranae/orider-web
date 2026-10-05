@@ -4,6 +4,9 @@ import MobileFeedPage, { CompactActivityCard } from "./MobileFeedPage";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { createMockActivity, createMockSummary } from "../../__tests__/fixtures/mockData";
 import { getCanonicalMapThumbnailFileName, isCanonicalMapThumbnailUrl } from "../activity/ActivityRouteThumbnail";
+import { useActivitySearch } from "../../hooks/useActivities";
+import { setCollectionDocs } from "../../__tests__/mocks/firebase";
+import { getDocs, startAfter, where } from "firebase/firestore";
 
 vi.mock("../RouteMap", () => ({
   default: ({ interactive, fallbackImageUrl }: { interactive?: boolean; fallbackImageUrl?: string | null }) => (
@@ -22,6 +25,119 @@ vi.mock("../activity/ActivitySocialFooter", () => ({
 }));
 
 describe("MobileFeedPage", () => {
+  it("searches the server for 설레임 even when the activity is outside the loaded feed", async () => {
+    const user = userEvent.setup();
+    setCollectionDocs("activities", [
+      { id: "older-match", ...createMockActivity({ id: "older-match", description: "설레임 첫 라이딩" }) },
+    ]);
+    const searchWhere = vi.mocked(where);
+    searchWhere.mockClear();
+
+    function SearchFeed() {
+      const activitySearch = useActivitySearch(new Set());
+      return <MobileFeedPage activities={[]} activitySearch={activitySearch} loading={false} hasMore={false}
+        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />;
+    }
+    renderWithProviders(<SearchFeed />);
+
+    await user.type(screen.getByRole("textbox", { name: "활동 검색..." }), "설레임");
+    await user.click(screen.getByRole("button", { name: "검색" }));
+
+    expect(await screen.findByText("설레임 첫 라이딩")).toBeInTheDocument();
+    expect(searchWhere).toHaveBeenCalledWith("keywords", "array-contains", "설레임");
+    await user.click(screen.getByRole("button", { name: "검색 초기화" }));
+    expect(screen.queryByText("설레임 첫 라이딩")).not.toBeInTheDocument();
+  });
+  it("applies the sport filter across server results beyond the hook's first page", async () => {
+    const user = userEvent.setup();
+    setCollectionDocs("activities", [
+      ...Array.from({ length: 20 }, (_, index) => ({
+        id: `bike-${index}`,
+        ...createMockActivity({ id: `bike-${index}`, type: "ride", description: `설레임 사이클 ${index}`, startTime: 1_000_000 - index }),
+      })),
+      { id: "run-match", ...createMockActivity({ id: "run-match", type: "run", description: "설레임 러닝", startTime: 1 }) },
+    ]);
+
+    function SearchFeed() {
+      const activitySearch = useActivitySearch(new Set());
+      return <MobileFeedPage activities={[]} activitySearch={activitySearch} loading={false} hasMore={false}
+        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} sportFilter="run" />;
+    }
+    renderWithProviders(<SearchFeed />);
+
+    await user.type(screen.getByRole("textbox", { name: "활동 검색..." }), "설레임");
+    await user.click(screen.getByRole("button", { name: "검색" }));
+
+    expect(await screen.findByText("설레임 러닝")).toBeInTheDocument();
+    expect(screen.queryByText("설레임 사이클 0")).not.toBeInTheDocument();
+  });
+  it("keeps a loaded friend's nonpublic matching activity in search results", async () => {
+    const user = userEvent.setup();
+    setCollectionDocs("activities", []);
+    const friendActivity = createMockActivity({ id: "friend-private", userId: "friend-1", visibility: "friends", description: "설레임 비공개 라이딩" });
+
+    function SearchFeed() {
+      const activitySearch = useActivitySearch(new Set(["friend-1"]));
+      return <MobileFeedPage activities={[friendActivity]} activitySearch={activitySearch} loading={false} hasMore={false}
+        loadingMore={false} onLoadMore={vi.fn()} feedScope="friends" friendIds={["friend-1"]} onFeedScopeChange={vi.fn()} />;
+    }
+    renderWithProviders(<SearchFeed />, { authenticated: true });
+
+    await user.type(screen.getByRole("textbox", { name: "활동 검색..." }), "설레임");
+    await user.click(screen.getByRole("button", { name: "검색" }));
+
+    expect(await screen.findByText("설레임 비공개 라이딩")).toBeInTheDocument();
+  });
+  it("keeps loaded matches visible on search failure and retries the same keyword", async () => {
+    const user = userEvent.setup();
+    const loaded = createMockActivity({ id: "loaded-match", description: "설레임 로드된 라이딩" });
+    setCollectionDocs("activities", []);
+    const searchRead = vi.mocked(getDocs);
+    searchRead.mockClear().mockRejectedValueOnce(new Error("search unavailable"));
+
+    function SearchFeed() {
+      const activitySearch = useActivitySearch(new Set());
+      return <MobileFeedPage activities={[loaded]} activitySearch={activitySearch} loading={false} hasMore={false}
+        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />;
+    }
+    renderWithProviders(<SearchFeed />);
+
+    await user.type(screen.getByRole("textbox", { name: "활동 검색..." }), "설레임");
+    await user.click(screen.getByRole("button", { name: "검색" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("추가 활동을 불러오지 못했어요");
+    expect(screen.getByText("설레임 로드된 라이딩")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "검색" }));
+    await waitFor(() => expect(searchRead).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("설레임 로드된 라이딩")).toBeInTheDocument();
+  });
+
+  it("loads the next server page when the selected sport hides the first 50 hits", async () => {
+    const user = userEvent.setup();
+    const firstPage = Array.from({ length: 50 }, (_, index) => {
+      const activity = createMockActivity({ id: `bike-${index}`, type: "ride", description: `설레임 사이클 ${index}`, startTime: 1_000_000 - index });
+      return { id: activity.id, data: () => activity };
+    });
+    const run = createMockActivity({ id: "later-run", type: "run", description: "설레임 나중 러닝", startTime: 1 });
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: firstPage } as Awaited<ReturnType<typeof getDocs>>)
+      .mockResolvedValueOnce({ docs: [{ id: run.id, data: () => run }] } as Awaited<ReturnType<typeof getDocs>>);
+    vi.mocked(startAfter).mockClear();
+
+    function SearchFeed() {
+      const activitySearch = useActivitySearch(new Set());
+      return <MobileFeedPage activities={[]} activitySearch={activitySearch} loading={false} hasMore={false}
+        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} sportFilter="run" />;
+    }
+    renderWithProviders(<SearchFeed />);
+
+    await user.type(screen.getByRole("textbox", { name: "활동 검색..." }), "설레임");
+    await user.click(screen.getByRole("button", { name: "검색" }));
+    expect(await screen.findByText("더 많은 검색 결과가 있을 수 있어요")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "더 보기" }));
+
+    expect(await screen.findByText("설레임 나중 러닝")).toBeInTheDocument();
+    expect(startAfter).toHaveBeenCalled();
+  });
   it("puts verified owner run facts before the mixed sport filter on a run view", () => {
     renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()}
       feedScope="all" onFeedScopeChange={vi.fn()} sportFilter="run"
