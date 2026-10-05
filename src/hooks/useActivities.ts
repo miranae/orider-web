@@ -622,6 +622,7 @@ type WeeklyStatsOptions = {
   includeMonthlyDistance?: boolean;
   now?: Date;
   discipline?: Discipline;
+  recent7DayDiscipline?: Discipline;
 };
 
 export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Date()) {
@@ -630,6 +631,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   const now = nowOrOptions instanceof Date ? nowOrOptions : (nowOrOptions.now ?? new Date());
   const includeMonthlyDistance = options?.includeMonthlyDistance ?? false;
   const discipline = options?.discipline;
+  const recent7DayDiscipline = options?.recent7DayDiscipline ?? discipline;
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const seoulNow = new Date(now.getTime() + 9 * 3600000);
@@ -813,8 +815,9 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
 
   // 이번 주 = 오늘부터 7일 전
   const sevenDaysAgo = now.getTime() - 7 * 86400000;
-  const thisWeekActivities = all.filter(
-    (a) => a.startTime >= sevenDaysAgo && a.startTime <= now.getTime(),
+  const thisWeekActivities = allOwned.filter(
+    (a) => a.startTime >= sevenDaysAgo && a.startTime <= now.getTime()
+      && (!recent7DayDiscipline || recent7DayDiscipline === "tri" || getDiscipline(a.type) === recent7DayDiscipline),
   );
   const allRecent7DayActivities = allOwned.filter(
     (a) => a.startTime >= sevenDaysAgo && a.startTime <= now.getTime(),

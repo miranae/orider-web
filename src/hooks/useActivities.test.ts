@@ -585,6 +585,24 @@ describe("useActivities", () => {
 });
 
 describe("useWeeklyStats", () => {
+  it.each(["bike", "swim"] as const)("filters %s 7-day totals without changing all-sport history and mobile breakdown", async (discipline) => {
+    const now = new Date(2026, 9, 6, 12);
+    simulateLogin({ uid: "user-1" });
+    setCollectionDocs("activities", [
+      { id: "ride", ...createMockActivity({ id: "ride", userId: "user-1", type: "Ride", startTime: now.getTime() - 3600000, summary: createMockSummary({ distance: 22700, ridingTimeMillis: 6600000, elevationGain: 40 }) }) },
+      { id: "run-1", ...createMockActivity({ id: "run-1", userId: "user-1", type: "Run", startTime: now.getTime() - 7200000, summary: createMockSummary({ distance: 5000 }) }) },
+      { id: "run-2", ...createMockActivity({ id: "run-2", userId: "user-1", type: "Run", startTime: now.getTime() - 10800000, summary: createMockSummary({ distance: 7000 }) }) },
+      { id: "swim", ...createMockActivity({ id: "swim", userId: "user-1", type: "Swim", startTime: now.getTime() - 14400000, summary: createMockSummary({ distance: 1500 }) }) },
+    ]);
+    const { result } = renderHook(() => useWeeklyStats({ now, includeMonthlyDistance: true, recent7DayDiscipline: discipline }), { wrapper });
+    await waitFor(() => expect(result.current.recent7DayCoverage).toBe("ready"));
+    expect(result.current.thisWeek).toMatchObject(discipline === "bike"
+      ? { rides: 1, distance: 22700, time: 6600000, elevation: 40 }
+      : { rides: 1, distance: 1500 });
+    expect(result.current.monthlyActivityDistance).toBe(36200);
+    expect(result.current.recent7DayCount).toBe(4);
+    expect(result.current.recent7DayDistances).toEqual({ bike: 22700, run: 12000, swim: 1500 });
+  });
   it.each([
     { fromCache: true, hasPendingWrites: false },
     { fromCache: false, hasPendingWrites: true },

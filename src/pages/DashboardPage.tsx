@@ -313,7 +313,11 @@ export default function DashboardPage() {
   const discipline: Discipline = requestedDiscipline ?? "bike";
   const mobileSportFilter = requestedDiscipline === "tri" ? "all" : requestedDiscipline ?? dashboardPreferences.sportFilter;
   const selectedDiscipline = isMobile ? mobileSportFilter : discipline;
-  const runStats = useWeeklyStats({ includeMonthlyDistance: true, discipline: selectedDiscipline === "run" ? "run" : undefined });
+  const runStats = useWeeklyStats({
+    includeMonthlyDistance: true,
+    discipline: selectedDiscipline === "run" ? "run" : undefined,
+    recent7DayDiscipline: selectedDiscipline === "all" ? undefined : selectedDiscipline,
+  });
   const { weeklyStats, thisWeek, recent7DayDistances, recent7DayCount, monthlyActivityDistance } = runStats;
   // ── 러닝 탭 전용 데이터 (§3.0 / §3.4c / §3.7) ────────────────────────────
   // 8주 창 하나로 리캡(3주)과 러너 레벨(8주)을 함께 커버한다 — 쿼리 1회.
@@ -416,7 +420,7 @@ export default function DashboardPage() {
    * 대신 두 값 모두 클라 집계로 남긴다 (#2237). 같은 출처끼리 묶어 둬야 막대와 개수가
    * 서로 어긋나지 않는다.
    */
-  const mobileWeeklySummary = { activityCount: recent7DayCount, distances: recent7DayDistances, available: selectedDiscipline !== "run" || runStats.recent7DayCoverage === "ready" };
+  const mobileWeeklySummary = { activityCount: recent7DayCount, distances: recent7DayDistances, available: runStats.recent7DayCoverage === "ready" };
 
   const weekSource = canonicalKpiSource(canonicalHome.enabled, canonicalHome.display, canonicalHome.totals);
   /**
@@ -424,7 +428,8 @@ export default function DashboardPage() {
    * 오늘과 똑같은 클라 집계다. **미계산·실패는 여기로 오지 않는다** — 그 경우
    * `weekSource.kind === "state"` 라 아래에서 숫자 자체를 그리지 않는다.
    */
-  const weekTotals = isRunTab ? thisWeek : weekSource.kind === "server"
+  const sportSpecificWeek = selectedDiscipline === "bike" || selectedDiscipline === "run" || selectedDiscipline === "swim";
+  const weekTotals = sportSpecificWeek ? thisWeek : weekSource.kind === "server"
     ? canonicalWeekTotals(weekSource.values)
     : thisWeek;
   const weekPresentation = canonicalKpiPresentation(weekSource, {
@@ -435,9 +440,11 @@ export default function DashboardPage() {
     staleChip: t("canonical.staleChip"),
   });
   /** false 면 KPI 칸은 숫자 대신 "—" 와 상태 문구다. 0 도, 클라 집계도 아니다. */
-  const showWeekNumbers = isRunTab ? runStats.recent7DayCoverage === "ready" : weekPresentation.showNumbers;
-  const weekSub = isRunTab && runStats.recent7DayCoverage !== "ready" ? t("kpi.runUnavailable") : weekPresentation.sub;
-  const weekChip = isRunTab ? null : weekPresentation.chip;
+  const showWeekNumbers = sportSpecificWeek ? runStats.recent7DayCoverage === "ready" : weekPresentation.showNumbers;
+  const weekSub = sportSpecificWeek && runStats.recent7DayCoverage !== "ready"
+    ? selectedDiscipline === "run" ? t("kpi.runUnavailable") : t(runStats.recent7DayCoverage === "loading" ? "canonical.pending" : "canonical.failed")
+    : weekPresentation.sub;
+  const weekChip = sportSpecificWeek ? null : weekPresentation.chip;
 
   const thisWeekDistFormatted = formatDistance(weekTotals.distance, units);
   // KPI에선 숫자만 별도, 단위 별도로 표시
