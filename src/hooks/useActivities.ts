@@ -869,28 +869,31 @@ function getDateFrom(preset: DatePreset): number | null {
 export type OwnerPreset = "all" | "friends" | "me";
 
 const SEARCH_LIMIT = 50;
+type SearchCursor = { last: QueryDocumentSnapshot<DocumentData> | null; hasMore: boolean };
+type SearchPage = { results: Activity[]; cursors: SearchCursor[]; hasMore: boolean };
 
 /** Server-side keyword search for activities using array-contains */
 async function fetchActivitySearchResults(
   keyword: string,
   uid: string | null,
   dateFrom: number | null,
-): Promise<Activity[]> {
+  previousCursors?: SearchCursor[],
+): Promise<SearchPage> {
   const tokens = keyword
     .toLowerCase()
     .split(/[^\p{L}\p{N}]+/gu)
     .filter(Boolean);
-  if (tokens.length === 0) return [];
+  if (tokens.length === 0) return { results: [], cursors: [], hasMore: false };
   const token = tokens[0]!;
 
   const col = collection(firestore, "activities");
 
   // Build queries based on auth state
-  const queries: Promise<import("firebase/firestore").QuerySnapshot<DocumentData>>[] = [];
+  const constraints: QueryConstraint[][] = [];
 
   if (uid) {
     // 1. My activities
-    const myConstraints = [
+    const myConstraints: QueryConstraint[] = [
       where("userId", "==", uid),
       where("deletedAt", "==", null),
       where("keywords", "array-contains", token),
@@ -900,10 +903,10 @@ async function fetchActivitySearchResults(
     if (dateFrom !== null) {
       myConstraints.splice(3, 0, where("startTime", ">=", dateFrom));
     }
-    queries.push(getDocs(query(col, ...myConstraints)));
+    constraints.push(myConstraints);
 
     // 2. Public activities (excluding mine)
-    const pubConstraints = [
+    const pubConstraints: QueryConstraint[] = [
       where("deletedAt", "==", null),
       where("visibility", "==", "everyone"),
       where("keywords", "array-contains", token),
@@ -913,10 +916,10 @@ async function fetchActivitySearchResults(
     if (dateFrom !== null) {
       pubConstraints.splice(3, 0, where("startTime", ">=", dateFrom));
     }
-    queries.push(getDocs(query(col, ...pubConstraints)));
+    constraints.push(pubConstraints);
   } else {
     // Guest: public only
-    const pubConstraints = [
+    const pubConstraints: QueryConstraint[] = [
       where("deletedAt", "==", null),
       where("visibility", "==", "everyone"),
       where("keywords", "array-contains", token),
@@ -926,17 +929,25 @@ async function fetchActivitySearchResults(
     if (dateFrom !== null) {
       pubConstraints.splice(3, 0, where("startTime", ">=", dateFrom));
     }
-    queries.push(getDocs(query(col, ...pubConstraints)));
+    constraints.push(pubConstraints);
   }
 
-  const snaps = await Promise.all(queries);
+  const snaps = await Promise.all(constraints.map((source, index) => {
+    const cursor = previousCursors?.[index];
+    if (cursor && !cursor.hasMore) return null;
+    return getDocs(query(col, ...source, ...(cursor?.last ? [startAfter(cursor.last)] : [])));
+  }));
+  const cursors = snaps.map((snap, index): SearchCursor => snap ? {
+    last: snap.docs[snap.docs.length - 1] ?? previousCursors?.[index]?.last ?? null,
+    hasMore: snap.docs.length === SEARCH_LIMIT,
+  } : previousCursors![index]!);
 
   // Merge and deduplicate, preserving sort order by startTime desc
   const seen = new Set<string>();
   const merged: Activity[] = [];
 
   // Interleave results by startTime descending
-  const iterators = snaps.map((s) => s.docs.map((d) => ({ id: d.id, ...d.data() }) as Activity));
+  const iterators = snaps.map((s) => s?.docs.map((d) => ({ id: d.id, ...d.data() }) as Activity) ?? []);
   const indices = iterators.map(() => 0);
 
   while (true) {
@@ -964,15 +975,16 @@ async function fetchActivitySearchResults(
     }
   }
 
-  return hydrateActivityProfileImages(merged);
+  return { results: await hydrateActivityProfileImages(merged), cursors, hasMore: cursors.some((cursor) => cursor.hasMore) };
 }
 
 export function useActivitySearch(friendIds: ReadonlySet<string>) {
   const { user } = useAuth();
 
   const searchOwnerKey = user?.uid ?? "anonymous";
-  const [searchResultState, setSearchResultState] = useState<{ ownerKey: string; results: Activity[] } | null>(null);
+  const [searchResultState, setSearchResultState] = useState<{ ownerKey: string; keyword: string; datePreset: DatePreset; results: Activity[]; cursors: SearchCursor[]; hasMore: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [active, setActive] = useState(false);
   const [searchedKeyword, setSearchedKeyword] = useState("");
 
@@ -980,42 +992,51 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
   const [ownerPreset, setOwnerPreset] = useState<OwnerPreset>("all");
 
   const [displayCount, setDisplayCount] = useState(20);
+  const [retryCount, setRetryCount] = useState(0);
+  const searchEpoch = useRef(0);
 
   // Server search: keyword + datePreset triggers new fetch
-  const search = useCallback((keyword: string) => {
+  const search = useCallback((keyword: string, initialDatePreset: DatePreset = "all") => {
     const kw = keyword.trim();
     if (!kw) return;
 
+    searchEpoch.current += 1;
     setActive(true);
     setSearchedKeyword(kw);
-    setDatePreset("all");
+    setDatePreset(initialDatePreset);
     setOwnerPreset("all");
     setDisplayCount(20);
+    setSearchResultState(null);
+    setRetryCount((count) => count + 1);
   }, []);
+
+  const retry = useCallback(() => setRetryCount((count) => count + 1), []);
 
   // Re-fetch when keyword or datePreset changes
   useEffect(() => {
     if (!active || !searchedKeyword) return;
 
     let cancelled = false;
+    const requestEpoch = ++searchEpoch.current;
     setLoading(true);
+    setError(false);
 
     const dateFrom = getDateFrom(datePreset);
 
     fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, dateFrom)
-      .then((results) => {
-        if (!cancelled) setSearchResultState({ ownerKey: searchOwnerKey, results });
+      .then((page) => {
+        if (!cancelled && searchEpoch.current === requestEpoch) setSearchResultState({ ownerKey: searchOwnerKey, keyword: searchedKeyword, datePreset, ...page });
       })
       .catch((err) => {
         logClientError("useActivitySearch.search", err, { datePreset });
-        if (!cancelled) setSearchResultState({ ownerKey: searchOwnerKey, results: [] });
+        if (!cancelled && searchEpoch.current === requestEpoch) setError(true);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && searchEpoch.current === requestEpoch) setLoading(false);
       });
 
-    return () => { cancelled = true; };
-  }, [active, searchedKeyword, datePreset, user, searchOwnerKey]);
+    return () => { cancelled = true; searchEpoch.current += 1; };
+  }, [active, searchedKeyword, datePreset, user, searchOwnerKey, retryCount]);
 
   // Reset displayCount when filters change
   useEffect(() => {
@@ -1023,10 +1044,12 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
   }, [searchedKeyword, datePreset, ownerPreset]);
 
   // Client-side owner filter (server can't do friends filter efficiently)
+  const currentSearchResultState = searchResultState?.ownerKey === searchOwnerKey && searchResultState.keyword === searchedKeyword && searchResultState.datePreset === datePreset
+    ? searchResultState : null;
   const results = useMemo(() => {
     if (!active) return [];
 
-    let filtered = searchResultState?.ownerKey === searchOwnerKey ? searchResultState.results : [];
+    let filtered = currentSearchResultState?.results ?? [];
 
     if (user && ownerPreset !== "all") {
       if (ownerPreset === "me") {
@@ -1037,17 +1060,44 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
     }
 
     return filtered;
-  }, [active, searchResultState, searchOwnerKey, ownerPreset, user, friendIds]);
+  }, [active, currentSearchResultState, ownerPreset, user, friendIds]);
 
-  const loadMore = useCallback(() => setDisplayCount((prev) => prev + 20), []);
-  const hasMore = displayCount < results.length;
+  const loadMoreServer = useCallback(() => {
+    if (!active || loading || error || !currentSearchResultState?.hasMore) return;
+    const requestEpoch = searchEpoch.current;
+    setLoading(true);
+    fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, getDateFrom(datePreset), currentSearchResultState.cursors)
+      .then((page) => {
+        if (searchEpoch.current !== requestEpoch) return;
+        setSearchResultState((previous) => previous === currentSearchResultState ? {
+          ...previous,
+          results: [...previous.results, ...page.results.filter((activity) => !previous.results.some((item) => item.id === activity.id))],
+          cursors: page.cursors,
+          hasMore: page.hasMore,
+        } : previous);
+        setDisplayCount((prev) => prev + 20);
+      })
+      .catch((err) => {
+        if (searchEpoch.current !== requestEpoch) return;
+        logClientError("useActivitySearch.loadMore", err, { datePreset });
+        setError(true);
+      })
+      .finally(() => { if (searchEpoch.current === requestEpoch) setLoading(false); });
+  }, [active, currentSearchResultState, datePreset, error, loading, searchedKeyword, user]);
+  const loadMore = useCallback(() => {
+    if (displayCount < results.length) setDisplayCount((prev) => prev + 20);
+    else loadMoreServer();
+  }, [displayCount, loadMoreServer, results.length]);
+  const hasMore = displayCount < results.length || !!currentSearchResultState?.hasMore;
 
   const reset = useCallback(() => {
+    searchEpoch.current += 1;
     setActive(false);
     setSearchedKeyword("");
     setDatePreset("all");
     setOwnerPreset("all");
     setSearchResultState(null);
+    setError(false);
   }, []);
 
   return {
@@ -1057,9 +1107,15 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
     ownerPreset,
     setOwnerPreset,
     results: results.slice(0, displayCount),
+    allResults: results,
+    searchedKeyword,
+    hasMoreServerResults: !!currentSearchResultState?.hasMore,
     totalResults: results.length,
     loading,
+    error,
+    retry,
     loadMore,
+    loadMoreServer,
     hasMore,
     active,
     reset,

@@ -54,6 +54,10 @@
     "search": {
       "placeholder": "활동 검색...",
       "submit": "검색",
+      "reset": "검색 초기화",
+      "clearFilters": "필터 초기화",
+      "morePossibleTitle": "더 많은 검색 결과가 있을 수 있어요",
+      "morePossibleDescription": "더 보기를 눌러 나머지 활동을 확인해 보세요.",
       "resultsCount": "{{count}}건",
       "emptyTitle": "검색 결과가 없어요",
       "emptyDescription": "다른 키워드나 기간을 시도해 보세요.",

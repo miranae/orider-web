@@ -675,6 +675,7 @@ export default function DashboardPage() {
   if (isMobile) {
     return (
       <MobileFeedPage
+        activitySearch={activitySearch}
         runningJourney={runningJourney}
         activities={activities}
         loading={loading}
