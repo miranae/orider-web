@@ -1,4 +1,4 @@
-import { act, waitFor } from "@testing-library/react";
+import { act, fireEvent, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import {
   mockCallableInvocations,
@@ -78,6 +78,52 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
       { authenticated: false },
     );
     expect(container.querySelector("[data-static-route-preview] path")).toBeInTheDocument();
+  });
+
+  it("shows the live route when a canonical image fails to load", async () => {
+    const fileName = "activity-123.r1.route-v2-fcfef7dfc9b21144.webp";
+    const mapImageUrl = `https://firebasestorage.googleapis.com/v0/b/test/o/${encodeURIComponent(`map_thumbnails/${baseProps.userId}/${fileName}`)}?alt=media`;
+    const { container, queryByTestId } = renderWithProviders(
+      <ActivityRouteThumbnail {...baseProps} mapImageUrl={mapImageUrl} contentRevision={3} contentSelectedRevision={1} priority />,
+      { authenticated: false },
+    );
+
+    const image = await waitFor(() => {
+      const element = container.querySelector<HTMLImageElement>(`img[src="${mapImageUrl}"]`);
+      expect(element).toBeInTheDocument();
+      return element!;
+    });
+    fireEvent.error(image);
+
+    await waitFor(() => expect(queryByTestId("route-map")).toBeInTheDocument());
+    expect(container.querySelector(`img[src="${mapImageUrl}"]`)).not.toBeInTheDocument();
+    expect(thumbnailInvocations()).toEqual([]);
+  });
+
+  it("shows the live route after a stalled image request and accepts a late image load", async () => {
+    const fileName = "activity-123.r1.route-v2-fcfef7dfc9b21144.webp";
+    const mapImageUrl = `https://firebasestorage.googleapis.com/v0/b/test/o/${encodeURIComponent(`map_thumbnails/${baseProps.userId}/${fileName}`)}?alt=media`;
+    vi.useFakeTimers();
+    const { container, queryByTestId } = renderWithProviders(
+      <ActivityRouteThumbnail {...baseProps} mapImageUrl={mapImageUrl} contentRevision={3} contentSelectedRevision={1} priority />,
+      { authenticated: false },
+    );
+    try {
+      await act(async () => { await Promise.resolve(); });
+      const image = container.querySelector<HTMLImageElement>(`img[src="${mapImageUrl}"]`);
+      expect(image).toBeInTheDocument();
+      act(() => { vi.advanceTimersByTime(7_999); });
+      expect(queryByTestId("route-map")).not.toBeInTheDocument();
+      act(() => { vi.advanceTimersByTime(1); });
+      await act(async () => { await Promise.resolve(); });
+      expect(queryByTestId("route-map")).toBeInTheDocument();
+      expect(image).toBeInTheDocument();
+      fireEvent.load(image!);
+      expect(queryByTestId("route-map")).not.toBeInTheDocument();
+      expect(image).toHaveStyle({ opacity: "1" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("uses the revision filename and sends one head revision to prepare and finalize for the owner", async () => {
