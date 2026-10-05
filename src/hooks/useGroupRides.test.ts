@@ -4,6 +4,49 @@ import { setCallableImplementation, setCallableResult } from "../__tests__/mocks
 import { normalizeGroupRideAggregate, useGroupRideStats } from "./useGroupRides";
 
 describe("useGroupRideStats", () => {
+  it("reports an unavailable callable and clears the error on retry", async () => {
+    let calls = 0;
+    setCallableImplementation("getGroupRideStats", () => {
+      calls += 1;
+      if (calls === 1) return Promise.reject(Object.assign(new Error("repair pending"), { code: "functions/unavailable" }));
+      return { data: {
+        rides: [{ groupRideId: "repaired", startTime: 1, participantCount: 1,
+          totalDistance: 1000, activities: [] }],
+        memberStats: {},
+        weeklyStats: { totalDistance: 1000, totalTime: 10, totalElevation: 0,
+          rideCount: 1, activeMembers: 1 },
+      } };
+    });
+    const { result } = renderHook(() => useGroupRideStats("group-repair"));
+    await waitFor(() => expect(result.current.error).toBe("unavailable"));
+    expect(result.current.loading).toBe(false);
+    expect(result.current.rides).toEqual([]);
+    expect(result.current.weeklyStats).toBeNull();
+
+    act(() => result.current.retry());
+    expect(result.current.error).toBeNull();
+    await waitFor(() => expect(result.current.rides[0]?.groupRideId).toBe("repaired"));
+    expect(result.current.weeklyStats?.totalDistance).toBe(1000);
+    expect(calls).toBe(2);
+  });
+
+  it("clears a failed group's error when switching groups", async () => {
+    setCallableImplementation("getGroupRideStats", (request) => {
+      if ((request as { groupId: string }).groupId === "group-a") {
+        return Promise.reject(Object.assign(new Error("repair pending"), { code: "functions/unavailable" }));
+      }
+      return { data: { rides: [], memberStats: {}, nextCursor: null } };
+    });
+    const { result, rerender } = renderHook(({ groupId }) => useGroupRideStats(groupId), {
+      initialProps: { groupId: "group-a" },
+    });
+    await waitFor(() => expect(result.current.error).toBe("unavailable"));
+    rerender({ groupId: "group-b" });
+    expect(result.current.error).toBeNull();
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.rides).toEqual([]);
+  });
+
   it("clears group stats and ignores an older group's pending page", async () => {
     let resolveOldPage!: (value: unknown) => void;
     setCallableImplementation("getGroupRideStats", (request) => {
@@ -79,7 +122,7 @@ describe("useGroupRideStats", () => {
     await waitFor(() => expect(result.current.hasMore).toBe(true));
     await act(async () => { await result.current.loadMore(); });
     expect(calls).toEqual([{ groupId: "group-pages", pageSize: 20 },
-      { groupId: "group-pages", pageSize: 20, cursor }]);
+      { groupId: "group-pages", pageSize: 20, cursor, pageOnly: true }]);
     expect(result.current.rides.map((ride) => ride.groupRideId)).toEqual(["new", "old"]);
     expect(result.current.aggregate?.lifetimeRideCount).toBe(2);
     expect(result.current.hasMore).toBe(false);

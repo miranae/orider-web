@@ -6,14 +6,14 @@ import { useGroup } from "../../hooks/useGroup";
 import { useGroupRideStats } from "../../hooks/useGroupRides";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
-import { EmptyState, LoadingSkeleton } from "../../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 
 export default function GroupRidesPage() {
   const { t } = useTranslation("group");
   const { groupId } = useParams();
   const { user } = useAuth();
   const { group, loading: groupLoading } = useGroup(groupId);
-  const { rides, loading, loadingMore, hasMore, loadMore } = useGroupRideStats(groupId);
+  const { rides, loading, loadingMore, error, retry, hasMore, loadMore } = useGroupRideStats(groupId);
 
   const [minParticipants, setMinParticipants] = useState(0);
 
@@ -49,6 +49,19 @@ export default function GroupRidesPage() {
   }
 
   const isCreator = user?.uid === group.creatorId;
+
+  if (error) {
+    return (
+      <div>
+        <GroupSubNav group={group} isCreator={isCreator} />
+        <ErrorState
+          title={t(error === "unavailable" ? "error.rideStatsUnavailable" : "error.rideStatsLoadFailed")}
+          description={t("error.rideStatsRetry")}
+          onRetry={retry}
+        />
+      </div>
+    );
+  }
 
   return (
     <div>

@@ -86,7 +86,10 @@ export function useGroupRideStats(groupId: string | undefined) {
   const [memberWeekStats, setMemberWeekStats] = useState<Record<string, GroupMemberWeekStat> | null>(null);
   const [nextCursor, setNextCursor] = useState<GroupRideCursor | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<"unavailable" | "failed" | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const generation = useRef(0);
+  const retry = useCallback(() => setRetryKey((key) => key + 1), []);
 
   const loadMore = useCallback(async () => {
     if (!groupId || !nextCursor || loadingMore) return;
@@ -94,8 +97,8 @@ export function useGroupRideStats(groupId: string | undefined) {
     const requestedGeneration = generation.current;
     setLoadingMore(true);
     try {
-      const fn = httpsCallable<{ groupId: string; pageSize: number; cursor: GroupRideCursor }, RideStatsResponse>(functions, "getGroupRideStats");
-      const { data } = await fn({ groupId, pageSize: 20, cursor: nextCursor });
+      const fn = httpsCallable<{ groupId: string; pageSize: number; cursor: GroupRideCursor; pageOnly: true }, RideStatsResponse>(functions, "getGroupRideStats");
+      const { data } = await fn({ groupId, pageSize: 20, cursor: nextCursor, pageOnly: true });
       if (generation.current !== requestedGeneration || requestedGroup !== groupId) return;
       setRides((previous) => {
         const existing = new Set(previous.map((ride) => ride.groupRideId));
@@ -103,7 +106,17 @@ export function useGroupRideStats(groupId: string | undefined) {
       });
       setNextCursor(data.nextCursor ?? null);
     } catch (error) {
-      if (generation.current === requestedGeneration) logClientError("useGroupRideStats.loadMore", error, { groupId });
+      if (generation.current === requestedGeneration) {
+        setRides([]);
+        setMemberStats({});
+        setAggregate(null);
+        setWeeklyStats(null);
+        setMemberWeekStats(null);
+        setNextCursor(null);
+        const code = (error as { code?: string } | null)?.code;
+        setError(code === "functions/unavailable" || code === "unavailable" ? "unavailable" : "failed");
+        logClientError("useGroupRideStats.loadMore", error, { groupId });
+      }
     } finally {
       if (generation.current === requestedGeneration) setLoadingMore(false);
     }
@@ -111,6 +124,7 @@ export function useGroupRideStats(groupId: string | undefined) {
 
   useEffect(() => {
     generation.current += 1;
+    setError(null);
     if (!groupId) {
       setRides([]);
       setMemberStats({});
@@ -153,6 +167,7 @@ export function useGroupRideStats(groupId: string | undefined) {
         setMemberWeekStats(null);
         setNextCursor(null);
         const code = (err as { code?: string } | null)?.code;
+        setError(code === "functions/unavailable" || code === "unavailable" ? "unavailable" : "failed");
         if (code !== "functions/permission-denied" && code !== "permission-denied") {
           logClientError("useGroupRideStats", err, { groupId });
         }
@@ -164,7 +179,7 @@ export function useGroupRideStats(groupId: string | undefined) {
     return () => {
       cancelled = true;
     };
-  }, [groupId]);
+  }, [groupId, retryKey]);
 
-  return { rides, memberStats, aggregate, weeklyStats, memberWeekStats, loading, loadingMore, hasMore: nextCursor !== null, loadMore };
+  return { rides, memberStats, aggregate, weeklyStats, memberWeekStats, loading, loadingMore, error, retry, hasMore: nextCursor !== null, loadMore };
 }
