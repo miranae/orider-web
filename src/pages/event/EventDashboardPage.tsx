@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { doc, getDoc, getDocs, collection, onSnapshot } from "firebase/firestore";
+import { loadPrivateSnapshotWithRetry } from "./privateSnapshotPages";
 import { httpsCallable } from "firebase/functions";
 import { firestore as db, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
@@ -106,6 +107,9 @@ interface SnapshotData {
   };
   checkpoints: Array<{ cpId: string; name: string; passedCount: number }>;
   locations: SnapshotLocation[];
+  storage?: "pages";
+  pageIds?: string[];
+  locationCount?: number;
 }
 
 interface AlertItem {
@@ -298,84 +302,105 @@ export default function EventDashboardPage() {
 
   useEffect(() => {
     if (!eventId) return;
+    let revision = 0;
+    const latestRef = doc(db, `events/${eventId}/snapshots/latest`);
+    const readPage = async (id: string): Promise<SnapshotLocation[]> => {
+      const page = await getDoc(doc(db, `events/${eventId}/snapshots/${id}`));
+      if (!page.exists()) throw new Error("이벤트 위치 페이지가 누락됨");
+      return (page.data().locations ?? []) as SnapshotLocation[];
+    };
     const unsub = onSnapshot(
-      doc(db, `events/${eventId}/snapshots/latest`),
+      latestRef,
       (snap) => {
         if (snap.exists()) {
-          const raw = snap.data() as SnapshotData;
-          const data: SnapshotData = {
-            ...raw,
-            locations: (raw.locations ?? []).map((l) => ({
-              ...l,
-              status: (l.status || "").toUpperCase(),
-            })),
-          };
-          setSnapshot(data);
+          const currentRevision = ++revision;
+          void (async () => {
+            const { snapshot: raw, locations } = await loadPrivateSnapshotWithRetry(
+              snap.data() as SnapshotData, readPage, async () => {
+                const latest = await getDoc(latestRef);
+                return latest.exists() ? latest.data() as SnapshotData : null;
+              },
+            );
+            if (currentRevision !== revision) return;
+            const data: SnapshotData = {
+              ...raw,
+              locations: locations.map((l) => ({
+                ...l,
+                status: (l.status || "").toUpperCase(),
+              })),
+            };
+            setSnapshot(data);
+            setLoadError(null);
 
-          const newAlerts: AlertItem[] = [];
-          const now = data.timestamp || Date.now();
-          for (const loc of data.locations ?? []) {
-            const prev = prevStatusRef.current.get(loc.uid);
-            const bibLabel = loc.bib != null ? `#${String(loc.bib).padStart(3, "0")}` : "";
-            if (prev && prev !== loc.status) {
-              if (loc.status === "FINISHED") {
+            const newAlerts: AlertItem[] = [];
+            const now = data.timestamp || Date.now();
+            for (const loc of data.locations ?? []) {
+              const prev = prevStatusRef.current.get(loc.uid);
+              const bibLabel = loc.bib != null ? `#${String(loc.bib).padStart(3, "0")}` : "";
+              if (prev && prev !== loc.status) {
+                if (loc.status === "FINISHED") {
+                  newAlerts.push({
+                    key: `${loc.uid}-fin-${now}`,
+                    ts: now,
+                    emoji: "🏁",
+                    color: "var(--aqua)",
+                    message: t("dashboard.alert.finished", { bib: bibLabel, name: loc.displayName }),
+                    sub: loc.overallRank ? t("dashboard.alert.overallRank", { rank: loc.overallRank }) : undefined,
+                  });
+                } else if (loc.status === "DNF") {
+                  newAlerts.push({
+                    key: `${loc.uid}-dnf-${now}`,
+                    ts: now,
+                    emoji: "❌",
+                    color: "var(--ink-3)",
+                    message: t("dashboard.alert.dnf", { bib: bibLabel, name: loc.displayName }),
+                    sub: loc.lastCp ? t("dashboard.alert.dnfSub", { cp: loc.lastCp }) : undefined,
+                  });
+                } else if (loc.status === "SOS") {
+                  newAlerts.push({
+                    key: `${loc.uid}-sos-${now}`,
+                    ts: now,
+                    emoji: "🆘",
+                    color: "var(--rose)",
+                    message: t("dashboard.alert.sos", { bib: bibLabel, name: loc.displayName }),
+                    sub: loc.lastCp ? t("dashboard.alert.sosSub", { cp: loc.lastCp }) : t("dashboard.alert.locationConfirmed"),
+                  });
+                } else if (loc.status === "OFF_COURSE") {
+                  newAlerts.push({
+                    key: `${loc.uid}-off-${now}`,
+                    ts: now,
+                    emoji: "🟠",
+                    color: "var(--amber)",
+                    message: t("dashboard.alert.offCourse", { bib: bibLabel, name: loc.displayName }),
+                    sub: loc.lastCp ? t("dashboard.alert.offCourseSub", { cp: loc.lastCp }) : undefined,
+                  });
+                }
+              }
+              prevStatusRef.current.set(loc.uid, loc.status);
+            }
+            for (const cp of data.checkpoints ?? []) {
+              const prev = prevCpRef.current.get(cp.cpId) ?? 0;
+              const delta = cp.passedCount - prev;
+              if (delta > 0 && prev > 0) {
                 newAlerts.push({
-                  key: `${loc.uid}-fin-${now}`,
+                  key: `cp-${cp.cpId}-${now}`,
                   ts: now,
-                  emoji: "🏁",
-                  color: "var(--aqua)",
-                  message: t("dashboard.alert.finished", { bib: bibLabel, name: loc.displayName }),
-                  sub: loc.overallRank ? t("dashboard.alert.overallRank", { rank: loc.overallRank }) : undefined,
-                });
-              } else if (loc.status === "DNF") {
-                newAlerts.push({
-                  key: `${loc.uid}-dnf-${now}`,
-                  ts: now,
-                  emoji: "❌",
-                  color: "var(--ink-3)",
-                  message: t("dashboard.alert.dnf", { bib: bibLabel, name: loc.displayName }),
-                  sub: loc.lastCp ? t("dashboard.alert.dnfSub", { cp: loc.lastCp }) : undefined,
-                });
-              } else if (loc.status === "SOS") {
-                newAlerts.push({
-                  key: `${loc.uid}-sos-${now}`,
-                  ts: now,
-                  emoji: "🆘",
-                  color: "var(--rose)",
-                  message: t("dashboard.alert.sos", { bib: bibLabel, name: loc.displayName }),
-                  sub: loc.lastCp ? t("dashboard.alert.sosSub", { cp: loc.lastCp }) : t("dashboard.alert.locationConfirmed"),
-                });
-              } else if (loc.status === "OFF_COURSE") {
-                newAlerts.push({
-                  key: `${loc.uid}-off-${now}`,
-                  ts: now,
-                  emoji: "🟠",
-                  color: "var(--amber)",
-                  message: t("dashboard.alert.offCourse", { bib: bibLabel, name: loc.displayName }),
-                  sub: loc.lastCp ? t("dashboard.alert.offCourseSub", { cp: loc.lastCp }) : undefined,
+                  emoji: "📍",
+                  color: "var(--lime)",
+                  message: t("dashboard.alert.cpPassed", { count: delta, name: cp.name }),
+                  sub: t("dashboard.alert.cpTotal", { count: cp.passedCount }),
                 });
               }
+              prevCpRef.current.set(cp.cpId, cp.passedCount);
             }
-            prevStatusRef.current.set(loc.uid, loc.status);
-          }
-          for (const cp of data.checkpoints ?? []) {
-            const prev = prevCpRef.current.get(cp.cpId) ?? 0;
-            const delta = cp.passedCount - prev;
-            if (delta > 0 && prev > 0) {
-              newAlerts.push({
-                key: `cp-${cp.cpId}-${now}`,
-                ts: now,
-                emoji: "📍",
-                color: "var(--lime)",
-                message: t("dashboard.alert.cpPassed", { count: delta, name: cp.name }),
-                sub: t("dashboard.alert.cpTotal", { count: cp.passedCount }),
-              });
+            if (newAlerts.length > 0) {
+              setAlerts((prev) => [...newAlerts, ...prev].slice(0, 30));
             }
-            prevCpRef.current.set(cp.cpId, cp.passedCount);
-          }
-          if (newAlerts.length > 0) {
-            setAlerts((prev) => [...newAlerts, ...prev].slice(0, 30));
-          }
+          })().catch((err: unknown) => {
+            if (currentRevision !== revision) return;
+            logClientError("EventDashboard.snapshotPages", err, { eventId });
+            setLoadError(t("dashboard.errorLoadSnapshot"));
+          });
         }
         setLoading(false);
       },
@@ -385,7 +410,7 @@ export default function EventDashboardPage() {
         setLoading(false);
       }
     );
-    return () => unsub();
+    return () => { revision++; unsub(); };
   }, [eventId, t]);
 
   const handleFinishEvent = useCallback(async () => {
