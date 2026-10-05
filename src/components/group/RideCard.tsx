@@ -25,9 +25,9 @@ export default function RideCard({ ride }: RideCardProps) {
   const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 
   // Average elevation gain across participants
-  const avgElevation = ride.averageElevationGain ?? (summarizedActivities.length > 0
-    ? Math.round(summarizedActivities.reduce((sum, a) => sum + (a.summary.elevationGain ?? 0), 0) / summarizedActivities.length)
-    : 0);
+  const avgElevation = Math.round(ride.averageElevationGain ?? (summarizedActivities.length > 0
+    ? summarizedActivities.reduce((sum, a) => sum + (a.summary.elevationGain ?? 0), 0) / summarizedActivities.length
+    : 0));
 
   return (
     <Link

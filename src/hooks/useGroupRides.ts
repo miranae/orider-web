@@ -115,6 +115,7 @@ export function useGroupRideStats(groupId: string | undefined) {
       setRides([]);
       setMemberStats({});
       setLoading(false);
+      setLoadingMore(false);
       setAggregate(null);
       setWeeklyStats(null);
       setMemberWeekStats(null);
@@ -124,7 +125,12 @@ export function useGroupRideStats(groupId: string | undefined) {
 
     let cancelled = false;
     setLoading(true);
+    setLoadingMore(false);
     setRides([]);
+    setMemberStats({});
+    setAggregate(null);
+    setWeeklyStats(null);
+    setMemberWeekStats(null);
     setNextCursor(null);
 
     (async () => {

@@ -4,6 +4,62 @@ import { setCallableImplementation, setCallableResult } from "../__tests__/mocks
 import { normalizeGroupRideAggregate, useGroupRideStats } from "./useGroupRides";
 
 describe("useGroupRideStats", () => {
+  it("clears group stats and ignores an older group's pending page", async () => {
+    let resolveOldPage!: (value: unknown) => void;
+    setCallableImplementation("getGroupRideStats", (request) => {
+      const { groupId, cursor } = request as { groupId: string; cursor?: unknown };
+      if (groupId === "group-a" && cursor) {
+        return new Promise((resolve) => { resolveOldPage = resolve; });
+      }
+      const isOldGroup = groupId === "group-a";
+      return { data: {
+        rides: [{ groupRideId: isOldGroup ? "a-ride" : "b-ride", startTime: 200,
+          participantCount: 1, totalDistance: 1000, activities: [] }],
+        memberStats: { [isOldGroup ? "a-member" : "b-member"]: {
+          distance: 1000, rideCount: 1, lastActivityAt: 200,
+        } },
+        aggregate: { monthKey: "2026-07", monthlyDistance: isOldGroup ? 1000 : 2000,
+          lifetimeDistance: isOldGroup ? 1000 : 2000, lifetimeRideCount: 1,
+          longestRideDistance: 1000 },
+        weeklyStats: { totalDistance: isOldGroup ? 1000 : 2000, totalTime: 100,
+          totalElevation: 10, rideCount: 1, activeMembers: 1 },
+        memberWeekStats: { [isOldGroup ? "a-member" : "b-member"]: {
+          distance: 1000, elevation: 10, time: 100, tss: 5,
+        } },
+        nextCursor: isOldGroup ? { startTime: 200, groupRideId: "a-ride" } : null,
+      } };
+    });
+
+    const { result, rerender } = renderHook(({ groupId }) => useGroupRideStats(groupId), {
+      initialProps: { groupId: "group-a" },
+    });
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+    act(() => { void result.current.loadMore(); });
+    expect(result.current.loadingMore).toBe(true);
+
+    rerender({ groupId: "group-b" });
+    expect(result.current.loadingMore).toBe(false);
+    expect(result.current.rides).toEqual([]);
+    expect(result.current.memberStats).toEqual({});
+    expect(result.current.aggregate).toBeNull();
+    expect(result.current.weeklyStats).toBeNull();
+    expect(result.current.memberWeekStats).toBeNull();
+    await waitFor(() => expect(result.current.rides[0]?.groupRideId).toBe("b-ride"));
+
+    await act(async () => { resolveOldPage({ data: {
+      rides: [{ groupRideId: "old-page", startTime: 100, participantCount: 1,
+        totalDistance: 900, activities: [] }], nextCursor: null,
+    } }); });
+    expect(result.current.rides.map((ride) => ride.groupRideId)).toEqual(["b-ride"]);
+    expect(result.current.memberStats).toHaveProperty("b-member");
+    expect(result.current.memberStats).not.toHaveProperty("a-member");
+    expect(result.current.aggregate?.lifetimeDistance).toBe(2000);
+    expect(result.current.weeklyStats?.totalDistance).toBe(2000);
+    expect(result.current.memberWeekStats).toHaveProperty("b-member");
+    expect(result.current.hasMore).toBe(false);
+    expect(result.current.loadingMore).toBe(false);
+  });
+
   it("appends the next ride page without changing lifetime aggregates", async () => {
     const cursor = { startTime: 200, groupRideId: "new" };
     const calls: unknown[] = [];
