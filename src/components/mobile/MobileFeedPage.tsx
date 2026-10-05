@@ -341,7 +341,7 @@ export default function MobileFeedPage({
   const weeklySportBreakdown = useMemo<SportBreakdownItem[]>(() => {
     const activityCount = weeklySummary?.activityCount ?? 0;
     const distances = weeklySummary?.distances ?? { bike: 0, run: 0, swim: 0 };
-    if (sportFilter === "run" && weeklySummary?.available === false) {
+    if (weeklySummary?.available === false) {
       return [
         { key: "all" as const, label: t("common:label.all"), value: "—", unit: "", color: "var(--ink-0)" },
         { key: "bike" as const, label: t("common:sportFilter.bike"), value: "—", unit: "", color: "var(--aqua)" },

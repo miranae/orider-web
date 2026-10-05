@@ -49,6 +49,16 @@ describe("MobileFeedPage", () => {
     expect(runSummary).not.toHaveTextContent("12.0km");
     expect(within(screen.getByRole("group", { name: "활동 종목 필터" })).getAllByRole("button")).toHaveLength(4);
   });
+  it.each(["bike", "swim"] as const)("omits incomplete 7-day sport breakdown on the %s view", (sportFilter) => {
+    renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()}
+      feedScope="all" onFeedScopeChange={vi.fn()} sportFilter={sportFilter}
+      weeklySummary={{ activityCount: 3, distances: { bike: 22700, run: 12000, swim: 1500 }, available: false }}
+    />, { authenticated: true });
+    const sportFilters = screen.getByRole("group", { name: "활동 종목 필터" });
+    expect(within(sportFilters).getAllByRole("button")).toHaveLength(4);
+    expect(within(sportFilters).getAllByText("—")).toHaveLength(4);
+    expect(within(sportFilters).queryByText("3건")).not.toBeInTheDocument();
+  });
   it("keeps the first activity near the top and expands the routine from the weekly summary", async () => {
     const user = userEvent.setup();
     renderWithProviders(<MobileFeedPage
