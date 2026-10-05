@@ -598,6 +598,7 @@ describe("useWeeklyStats", () => {
       simulateLogin({ uid: "user-1" });
       const { result } = renderHook(() => useWeeklyStats({ now, discipline: "run" }), { wrapper });
       await waitFor(() => expect(result.current.coverage).toBe("partial"));
+      expect(result.current.recent7DayCoverage).toBe("partial");
     } finally {
       mockedGetDocs.mockReset();
       if (original) mockedGetDocs.mockImplementation(original);
@@ -872,7 +873,7 @@ describe("useWeeklyStats", () => {
     };
     mockedGetDocs
       .mockResolvedValueOnce({ docs: cappedDocs } as never)
-      .mockResolvedValueOnce({ docs: [...cappedDocs, extraDoc] } as never);
+      .mockResolvedValueOnce({ docs: [...cappedDocs, extraDoc], metadata: { fromCache: false, hasPendingWrites: false } } as never);
 
     try {
       simulateLogin({ uid: "user-1" });
@@ -882,6 +883,7 @@ describe("useWeeklyStats", () => {
 
       await waitFor(() => expect(result.current.weeklyStats.at(-1)?.rides).toBe(201));
       expect(result.current.coverage).toBe("partial");
+      expect(result.current.recent7DayCoverage).toBe("ready");
       expect(result.current.monthlyActivityDistance).toBe(0);
       expect(result.current.recent7DayCount).toBe(201);
       expect(result.current.recent7DayDistances.bike).toBeGreaterThanOrEqual(22_700);

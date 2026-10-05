@@ -637,7 +637,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   const month = discipline === "run" ? seoulNow.getUTCMonth() : now.getMonth();
   const statsKey = user ? `${user.uid}:${year}-${month}:${discipline ?? "all"}` : null;
   const [monthlyDistanceState, setMonthlyDistanceState] = useState<{ key: string; distance: number } | null>(null);
-  const [coverage, setCoverage] = useState<{ key: string; status: "ready" | "partial" | "error" } | null>(null);
+  const [coverage, setCoverage] = useState<{ key: string; status: "ready" | "partial" | "error"; recent7DayStatus: "ready" | "partial" | "error" } | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -671,6 +671,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
         // 7일 내 활동만 200건을 넘어도 홈 합계는 정확해야 한다.
         const cappedWithinSevenDays = snap.docs.length === 200 &&
           (loadedActivities[loadedActivities.length - 1]?.startTime ?? 0) >= now.getTime() - 7 * 86400000;
+        let recentMetadata = snap.metadata;
         if (cappedWithinSevenDays) {
           const recentSnap = await getDocs(query(
             collection(firestore, "activities"),
@@ -681,13 +682,15 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
           ));
           if (cancelled) return;
           noteFirestoreServerSuccess(recentSnap.metadata);
+          recentMetadata = recentSnap.metadata;
           const seen = new Set(snap.docs.map((d) => d.id));
           for (const d of recentSnap.docs) {
             if (!seen.has(d.id)) loadedActivities.push({ id: d.id, ...d.data() } as Activity);
           }
         }
         const complete = snap.docs.length < 200 && snap.metadata?.fromCache === false && snap.metadata.hasPendingWrites === false;
-        setCoverage({ key: requestStatsKey, status: complete ? "ready" : "partial" });
+        const recentComplete = recentMetadata?.fromCache === false && recentMetadata.hasPendingWrites === false;
+        setCoverage({ key: requestStatsKey, status: complete ? "ready" : "partial", recent7DayStatus: recentComplete ? "ready" : "partial" });
         // summary 복구 대기 활동도 원본 수와 미확인 부하 집계에 포함한다.
         setActivities(
           loadedActivities
@@ -733,7 +736,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
         }, 0) });
       } catch (err) {
         if (!cancelled) {
-          setCoverage({ key: requestStatsKey, status: "error" });
+          setCoverage({ key: requestStatsKey, status: "error", recent7DayStatus: "error" });
           logClientError("useWeeklyStats.load", err, { userId: uid });
         }
       }
@@ -755,6 +758,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
       recent7DayCount: 0,
       monthlyActivityDistance: 0,
       coverage: "unavailable" as const,
+      recent7DayCoverage: "unavailable" as const,
     };
   }
 
@@ -762,6 +766,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   const allOwned = activities.filter((activity) => activity.userId === user.uid);
   const all = allOwned.filter((activity) => !discipline || discipline === "tri" || getDiscipline(activity.type) === discipline);
   const coverageStatus = coverage?.key === statsKey ? coverage.status : "loading";
+  const recent7DayCoverage = coverage?.key === statsKey ? coverage.recent7DayStatus : "loading";
   const monthlyActivityDistance = includeMonthlyDistance && monthlyDistanceState?.key === statsKey
     ? monthlyDistanceState.distance
     : 0;
@@ -837,6 +842,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
     recent7DayCount: allRecent7DayActivities.length,
     monthlyActivityDistance,
     coverage: coverageStatus,
+    recent7DayCoverage,
   };
 }
 
