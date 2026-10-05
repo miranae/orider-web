@@ -652,25 +652,40 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
 
     const load = async () => {
       try {
-        // 차트는 최근 12주만 표시하므로 그 윈도우만 가져온다 (perf, 2026-06). 옛 limit(200) 은
-        // 활동 많은 유저에게 ~40주치 문서(각 thumbnailTrack 포함)를 끌어와 첫 로드 전송량을
-        // 키웠다. createdAt >= startTime 이므로 startTime 이 12주 내인 활동은 createdAt 도 12주
-        // 내 → 이 윈도우가 차트에 필요한 활동을 모두 포함. limit(200) 은 안전 상한으로 유지.
-        // 기존 인덱스(userId, deletedAt, createdAt) 그대로 사용 — 새 인덱스 불필요.
+        // 차트는 최근 12주 운동 시각을 기준으로 읽는다. 업로드 시각으로 정렬하면
+        // 과거 활동을 대량 가져온 경우 최근 운동이 200개 상한 밖으로 밀릴 수 있다.
         const TWELVE_WEEKS_MS = 12 * 7 * 86400000;
-        const cutoff = Date.now() - TWELVE_WEEKS_MS;
+        const cutoff = now.getTime() - TWELVE_WEEKS_MS;
         const q = query(
           collection(firestore, "activities"),
           where("userId", "==", uid),
           where("deletedAt", "==", null),
-          where("createdAt", ">=", cutoff),
-          orderBy("createdAt", "desc"),
+          where("startTime", ">=", cutoff),
+          orderBy("startTime", "desc"),
           limit(200),
         );
         const snap = await getDocs(q);
         if (cancelled) return;
         noteFirestoreServerSuccess(snap.metadata);
         const loadedActivities = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Activity);
+        // 7일 내 활동만 200건을 넘어도 홈 합계는 정확해야 한다.
+        const cappedWithinSevenDays = snap.docs.length === 200 &&
+          (loadedActivities[loadedActivities.length - 1]?.startTime ?? 0) >= now.getTime() - 7 * 86400000;
+        if (cappedWithinSevenDays) {
+          const recentSnap = await getDocs(query(
+            collection(firestore, "activities"),
+            where("userId", "==", uid),
+            where("deletedAt", "==", null),
+            where("startTime", ">=", now.getTime() - 7 * 86400000),
+            orderBy("startTime", "desc"),
+          ));
+          if (cancelled) return;
+          noteFirestoreServerSuccess(recentSnap.metadata);
+          const seen = new Set(snap.docs.map((d) => d.id));
+          for (const d of recentSnap.docs) {
+            if (!seen.has(d.id)) loadedActivities.push({ id: d.id, ...d.data() } as Activity);
+          }
+        }
         const complete = snap.docs.length < 200 && snap.metadata?.fromCache === false && snap.metadata.hasPendingWrites === false;
         setCoverage({ key: requestStatsKey, status: complete ? "ready" : "partial" });
         // summary 복구 대기 활동도 원본 수와 미확인 부하 집계에 포함한다.
