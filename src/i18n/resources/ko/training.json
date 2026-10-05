@@ -517,6 +517,8 @@
     "swapFailed": "날짜 교환 실패:",
     "swapFailedAlert": "날짜 교환에 실패했습니다.",
     "linkedActivity": "연결된 활동 보기",
+    "serverOutcomeLocked": "활동 연결 또는 실행 결과가 기록된 날은 여기서 완료·건너뛰기 상태를 바꿀 수 없습니다.",
+    "runningOutcomeLocked": "러닝의 완료·건너뛰기는 활동 연결과 실행 결과에서 관리합니다.",
     "uncheckCompleted": "완료 취소",
     "markCompleted": "완료 표시",
     "unskip": "건너뛰기 취소",

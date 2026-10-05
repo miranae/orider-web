@@ -295,11 +295,11 @@
     "clearCacheConfirm": "Clear the cache?",
     "cacheCleared": "Cache cleared",
     "delete": "Delete data",
-    "deleteDesc": "All activities, profile, comments, group memberships and segments will be permanently deleted. This cannot be undone.",
-    "deleteConfirm": "Delete all data? This cannot be undone.",
-    "deleteAll": "Permanently delete all data",
+    "deleteDesc": "Activities, profile, comments, group memberships and segments will be deleted. Raw activity data may remain until the next full reanalysis.",
+    "deleteConfirm": "Delete the listed data? Raw activity data may remain until the next full reanalysis. This cannot be undone.",
+    "deleteAll": "Delete data",
     "deleting": "Deleting...",
-    "deleted": "Data deleted"
+    "deleted": "Deletion completed"
   },
   "account": {
     "email": "Email",
@@ -344,10 +344,10 @@
       "logoutConfirm": "Sign out?",
       "logoutBtn": "Sign out",
       "deleteLabel": "Delete all activity data",
-      "deleteHint": "Activities, streams, photos and segments will be permanently deleted.",
+      "deleteHint": "Activities, analysis results, photos and segments will be deleted. Raw activity data may remain until the next full reanalysis.",
       "deleteBtnDeleting": "Deleting…",
       "deleteBtnLabel": "Delete data",
-      "deleteAccountDone": "Activity data deleted",
+      "deleteAccountDone": "Activities and analysis data deleted",
       "deleteTypeConfirm": "Type DELETE to delete your account and activity data. You will be signed out and sent home.",
       "deleteTypePlaceholder": "DELETE",
       "deleteTypeToken": "DELETE",
@@ -372,7 +372,7 @@
       "clearCacheBtn": "Clear",
       "clearCacheFailed": "Failed to clear cache",
       "cardDeleteAll": "Delete all activity data",
-      "deleteAllWarning": "This cannot be undone. All activities, streams, photos and segments will be permanently deleted. Your account itself is kept.",
+      "deleteAllWarning": "This cannot be undone. Activities, analysis results, photos and segments will be deleted. Raw activity data may remain until the next full reanalysis. Your account itself is kept.",
       "deleteAllBtn": "Delete all activity data",
       "deleteFailed": "Delete failed"
     },

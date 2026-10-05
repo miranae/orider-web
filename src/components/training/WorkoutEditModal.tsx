@@ -129,6 +129,11 @@ export interface WorkoutEditModalProps {
 
 // ── Component ─────────────────────────────────────────────────────────
 
+const SERVER_OUTCOME_FIELDS = [
+  "actualActivityId", "actualTSS", "matchMethod", "matchConfidence", "probableActivityId", "probableTSS",
+  "probableMatchMethod", "probableMatchConfidence", "executionStatus", "postponedToLocalDate",
+] as const;
+
 export default function WorkoutEditModal({
   day,
   weekId,
@@ -145,6 +150,12 @@ export default function WorkoutEditModal({
   const [loading, setLoading] = useState(false);
   const [showKindPicker, setShowKindPicker] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Firestore rules 가 거부하는 쓰기를 UI 에서 먼저 막는다 — 러닝 목표, 또는 서버가 활동 연결·
+  // 실행 결과를 기록한 날의 completed/skipped 변경은 permission-denied 로 끝난다.
+  // 필드 목록은 rules 의 hasExecutionOutcome 과 같다. 서버 전용 필드라 PlanDay 타입에는 없다.
+  const serverFields = day as PlanDay & Partial<Record<typeof SERVER_OUTCOME_FIELDS[number], unknown>>;
+  const hasServerOutcome = SERVER_OUTCOME_FIELDS.some((field) => serverFields[field] != null);
+  const outcomeLocked = hasServerOutcome || goalDiscipline === 'run';
 
   const meta = WORKOUT_META[day.workout] ?? { label: String(day.workout), color: 'var(--ink-4)' };
 
@@ -178,6 +189,7 @@ export default function WorkoutEditModal({
   // ── 핸들러 ─────────────────────────────────────────────────────────
 
   function handleToggleCompleted() {
+    if (outcomeLocked) return;
     run((days) => {
       const d = days[dayIndex]!;
       days[dayIndex] = { ...d, completed: !d.completed };
@@ -185,6 +197,7 @@ export default function WorkoutEditModal({
   }
 
   function handleSkip() {
+    if (outcomeLocked) return;
     run((days) => {
       const d = days[dayIndex]!;
       days[dayIndex] = { ...d, skipped: !d.skipped };
@@ -441,10 +454,20 @@ export default function WorkoutEditModal({
 
         {/* 액션 버튼들 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          {hasServerOutcome && (
+            <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>
+              {t('edit.serverOutcomeLocked')}
+            </div>
+          )}
+          {goalDiscipline === 'run' && (
+            <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>
+              {t('edit.runningOutcomeLocked')}
+            </div>
+          )}
           {/* 완료 토글 */}
           <Button variant="secondary" size="sm"
             onClick={handleToggleCompleted}
-            disabled={loading}
+            disabled={loading || outcomeLocked}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)' }}
           >
             {day.completed ? <Undo2 size={14} /> : <Check size={14} />}
@@ -454,7 +477,7 @@ export default function WorkoutEditModal({
           {/* 건너뛰기 / 건너뛰기 취소 */}
           <Button variant="secondary" size="sm"
             onClick={handleSkip}
-            disabled={loading}
+            disabled={loading || outcomeLocked}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)', color: day.skipped ? 'var(--lime)' : 'var(--amber)' }}
           >
             {day.skipped ? <Undo2 size={14} /> : <SkipForward size={14} />}
