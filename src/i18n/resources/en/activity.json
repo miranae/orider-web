@@ -1213,6 +1213,7 @@
     "phasePhotosDone": "Photos {{done}}/{{total}} complete",
     "phaseZip": "Building ZIP file…",
     "phaseZipDone": "Download complete! ({{sizeMB}} MB)",
+    "phaseZipDoneMissingTracks": "Download complete! ({{sizeMB}} MB) · {{count}} activities exported without track",
     "errorFailed": "Export failed",
     "icsCalName": "{{goalName}} Training Plan",
     "icsDescWeek": "W{{weekNumber}} {{phase}} · Planned TSS: {{tss}}",
