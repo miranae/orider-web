@@ -4,6 +4,7 @@ import type { Activity, ActivityStreams } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
+import { getActivityStreamsWithAuth } from "../../services/personalDataApi";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import {
   getCachedActivityDerivedDocument,
@@ -271,7 +272,7 @@ export function useActivityDerivedDocuments(
   metricsMap: Map<string, ActivityMetrics>;
   metricStatusMap: Map<string, ActivityMetricStatus>;
 } {
-  const { firestore } = useFirebaseServices();
+  const { auth, firestore } = useFirebaseServices();
   const normalizedUid = uid ?? null;
   const generationRef = useRef(0);
   const currentUidRef = useRef(normalizedUid);
@@ -476,17 +477,32 @@ export function useActivityDerivedDocuments(
           stop();
           return;
         }
-        try {
-          const value = parse(snapshot.data());
+        const complete = (value: T) => {
+          if (watches.get(activity.id) !== stop ||
+              !isCurrent(activity, attempts, revision, attemptToken)) return;
           markDerivedDocumentReadComplete(attempts, activity);
           cancelRecheck(rechecks, activity.id);
           apply(activity.id, value, revision);
           stop();
-        } catch (error) {
+        };
+        const reportError = (error: unknown) => {
           logClientError("useActivityDerivedDocuments.creationWatch.parse", error, {
             kind,
             activityId: activity.id,
           });
+        };
+        const data = snapshot.data();
+        if (kind === "stream" && data.storage === "gcs" && typeof data.gcsPath === "string") {
+          void getActivityStreamsWithAuth(auth, activity.id).then(
+            (streams) => complete(streams as T),
+            reportError,
+          );
+        } else {
+          try {
+            complete(parse(data));
+          } catch (error) {
+            reportError(error);
+          }
         }
       }, (error) => {
         const wasCurrent = isCurrent(activity, attempts, revision, attemptToken);
@@ -537,7 +553,12 @@ export function useActivityDerivedDocuments(
         }
         if (!isCurrent(activity, attempts, revision, attemptToken)) return;
         if (snapshot.exists()) {
-          const value = parse(snapshot.data());
+          const data = snapshot.data();
+          const value = kind === "stream" && data.storage === "gcs" &&
+              typeof data.gcsPath === "string"
+            ? await getActivityStreamsWithAuth(auth, activity.id) as T
+            : parse(data);
+          if (!isCurrent(activity, attempts, revision, attemptToken)) return;
           markDerivedDocumentReadComplete(attempts, activity);
           apply(activity.id, value, revision);
           return;
@@ -718,7 +739,7 @@ export function useActivityDerivedDocuments(
     };
     void loadStreams();
     void loadMetrics();
-  }, [activities, generation, normalizedUid, resources]);
+  }, [activities, auth, generation, normalizedUid, resources]);
 
   return state.ownerUid === normalizedUid
     ? {

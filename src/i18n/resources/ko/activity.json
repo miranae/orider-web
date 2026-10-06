@@ -1213,6 +1213,7 @@
     "phasePhotosDone": "사진 {{done}}/{{total}}개 완료",
     "phaseZip": "ZIP 파일을 만드는 중…",
     "phaseZipDone": "다운로드 완료! ({{sizeMB}} MB)",
+    "phaseZipDoneMissingTracks": "다운로드 완료! ({{sizeMB}} MB) · 활동 {{count}}개는 트랙 없이 내보냈습니다",
     "errorFailed": "내보내기 실패",
     "icsCalName": "{{goalName}} 운동 계획",
     "icsDescWeek": "W{{weekNumber}} {{phase}} · 계획 TSS: {{tss}}",
