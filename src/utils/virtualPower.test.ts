@@ -164,6 +164,26 @@ describe("golden: 서버 정본과 같은 출력 (virtualPower drift 차단)", (
       velocity_smooth: Array.from({ length: n }, () => 10),
       altitude: Array.from({ length: n }, (_, i) => 100 + i * 0.3),
     };
+    // 상수 분기를 직접 겨냥한 케이스 — MAX_WATTS(2000) 아래에서 차이가 드러나게 잡는다.
+    // V_MAX: 30 m/s 지속 + 10% 내리막(aero 캡 여부로 651W ↔ 2000W 로 갈린다)
+    const overSpeed: PowerStreamInput = {
+      time: Array.from({ length: n }, (_, i) => i),
+      velocity_smooth: Array.from({ length: n }, () => 30),
+      altitude: Array.from({ length: n }, (_, i) => 1000 - i * 3),
+    };
+    // gradient clamp: 2 m/s 에 경사 0.4 지속
+    const steepClimb: PowerStreamInput = {
+      time: Array.from({ length: n }, (_, i) => i),
+      velocity_smooth: Array.from({ length: n }, () => 2),
+      altitude: Array.from({ length: n }, (_, i) => 100 + i * 0.8),
+    };
+    // dt 유효성(0.1 ≤ dt ≤ 10): 1·7·15초 간격을 섞고 속도·고도를 바꾼다
+    const gaps = [1, 7, 15];
+    const sparseTime: PowerStreamInput = {
+      time: Array.from({ length: n }, (_, i) => Array.from({ length: i }, (_, k) => gaps[k % 3]!).reduce((a, b) => a + b, 0)),
+      velocity_smooth: Array.from({ length: n }, (_, i) => 6 + (i % 5)),
+      altitude: Array.from({ length: n }, (_, i) => 100 + i * 2),
+    };
     return [
       { name: "평지 정속", input: flat },
       { name: "오르막", input: climb },
@@ -171,6 +191,9 @@ describe("golden: 서버 정본과 같은 출력 (virtualPower drift 차단)", (
       { name: "정지·코스팅", input: stopGo },
       { name: "급변(클램프)", input: spike },
       { name: "ms 타임스탬프", input: msTime },
+      { name: "V_MAX 초과 지속", input: overSpeed },
+      { name: "급경사(경사 클램프)", input: steepClimb },
+      { name: "희소 간격(dt 유효성)", input: sparseTime },
     ];
   }
 
