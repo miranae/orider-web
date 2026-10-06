@@ -7,7 +7,6 @@ import {
 } from "firebase/firestore";
 import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
-import { getActivityStreams } from "../../services/personalDataApi";
 import { httpsCallable } from "firebase/functions";
 import { useAuth } from "../../contexts/AuthContext";
 import type { Activity, ActivityStreams } from "@shared/types";
@@ -123,12 +122,7 @@ export default function GroupRidePage() {
           if (cancelled) return;
           if (streamSnap.exists()) {
             const data = streamSnap.data();
-            if (data.storage === "gcs" && typeof data.gcsPath === "string") {
-              const remoteStreams = await getActivityStreams(a.id);
-              if (!cancelled) {
-                setStreams((prev) => ({ ...prev, [a.id]: remoteStreams }));
-              }
-            } else if (typeof data.json === "string") {
+            if (typeof data.json === "string") {
               setStreams((prev) => ({ ...prev, [a.id]: JSON.parse(data.json) as ActivityStreams }));
             } else if (data.latlng || data.altitude || data.velocity_smooth) {
               setStreams((prev) => ({ ...prev, [a.id]: data as ActivityStreams }));
