@@ -1,4 +1,6 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import i18n from "i18next";
+import enActivity from "../../i18n/resources/en/activity.json";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import AiRideAnalysisCard from "./AiRideAnalysisCard";
 import type { ActivityNarrative, NarrativeSegment } from "../../hooks/useActivityNarrative";
@@ -67,6 +69,75 @@ function narrative(segments: NarrativeSegment[]): ActivityNarrative & { hit: tru
 }
 
 describe("AiRideAnalysisCard", () => {
+  it("keeps a legacy saved analysis and its timestamp visible through refresh failure and retry", async () => {
+    const generatedAt = Date.UTC(2026, 8, 30, 4, 25);
+    const saved = { ...narrative([segment(0, 10, "생성 당시 구간 코칭")]), narrativeVersion: "rsn-v9", generatedAt, stale: true };
+    narrativeApiMocks.peek.mockResolvedValue(saved);
+    let rejectRefresh!: (error: Error) => void;
+    narrativeApiMocks.generate.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectRefresh = reject; }))
+      .mockResolvedValueOnce({ ...saved, generatedAt: generatedAt + 60_000, stale: false, summary: "최신 코칭 요약" });
+    const { container } = renderWithProviders(<AiRideAnalysisCard activityId="legacy-stale-refresh" enabled />, { authenticated: true });
+    expect(await screen.findByText("생성 당시 구간 코칭")).toBeInTheDocument();
+    const time = container.querySelector("time")!;
+    expect(time).toHaveAttribute("datetime", new Date(generatedAt).toISOString());
+    expect(time).toHaveTextContent(new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(generatedAt));
+    expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "변경사항 반영해 다시 분석" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("저장된 분석을 계속 표시합니다");
+    expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
+    expect(screen.getByText("생성 당시 구간 코칭")).toBeInTheDocument();
+    await waitFor(() => expect(narrativeApiMocks.generate).toHaveBeenCalledWith({ activityId: "legacy-stale-refresh", lang: "ko", forceRefresh: true }));
+    await act(async () => rejectRefresh(new Error("temporary refresh failure")));
+    expect(await screen.findByRole("alert")).toHaveTextContent("저장된 분석은 유지됩니다");
+    expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
+    expect(container.querySelector("time")).toHaveAttribute("datetime", new Date(generatedAt).toISOString());
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(await screen.findByText("최신 코칭 요약")).toBeInTheDocument();
+    expect(container.querySelector("time")).toHaveAttribute("datetime", new Date(generatedAt + 60_000).toISOString());
+  });
+
+  it("does not carry an explicit refresh request into another activity or language", async () => {
+    narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "기존 코칭")]), stale: true });
+    narrativeApiMocks.generate.mockResolvedValue({ ...narrative([segment(0, 10, "다시 분석한 코칭")]), stale: false });
+    const { rerender } = renderWithProviders(<AiRideAnalysisCard activityId="scope-refresh-a" enabled />, { authenticated: true });
+    expect(await screen.findByText("기존 코칭")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "변경사항 반영해 다시 분석" }));
+    expect(await screen.findByText("다시 분석한 코칭")).toBeInTheDocument();
+    rerender(<AiRideAnalysisCard activityId="scope-refresh-b" enabled />);
+    expect(await screen.findByText("기존 코칭")).toBeInTheDocument();
+    expect(narrativeApiMocks.generate).toHaveBeenCalledTimes(1);
+    await act(async () => { await i18n.changeLanguage("en"); });
+    try {
+      await waitFor(() => expect(narrativeApiMocks.peek).toHaveBeenCalledWith({ activityId: "scope-refresh-b", cacheOnly: true, lang: "en" }));
+      expect(narrativeApiMocks.generate).toHaveBeenCalledTimes(1);
+    } finally {
+      await act(async () => { await i18n.changeLanguage("ko"); });
+    }
+  });
+
+  it("shows the saved generation date and historical-data wording in English", async () => {
+    i18n.addResourceBundle("en", "activity", enActivity);
+    await act(async () => { await i18n.changeLanguage("en"); });
+    try {
+      const generatedAt = Date.UTC(2026, 8, 30, 4, 25);
+      narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "Saved English coaching")]), generatedAt, stale: true });
+      const { container } = renderWithProviders(<AiRideAnalysisCard activityId="english-saved-generation-date" enabled />);
+      expect(await screen.findByText("Saved English coaching")).toBeInTheDocument();
+      expect(screen.getByText(/This analysis was written using the data available when it was generated/)).toBeInTheDocument();
+      expect(container.querySelector("time")).toHaveTextContent(new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(generatedAt));
+      expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => { await i18n.changeLanguage("ko"); });
+    }
+  });
+
+  it("does not invent a timestamp for a saved analysis without a valid generation date", async () => {
+    narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "시각 없는 코칭")]), generatedAt: NaN });
+    const { container } = renderWithProviders(<AiRideAnalysisCard activityId="invalid-generation-date" enabled />);
+    expect(await screen.findByText("시각 없는 코칭")).toBeInTheDocument();
+    expect(container.querySelector("time")).toBeNull();
+  });
+
   it("shows full AI analysis alongside distinct short sharing text, segment coaching and prescriptions", async () => {
     narrativeApiMocks.peek.mockResolvedValue({
       ...narrative([segment(0, 10, "구간별 코칭 유지")]),

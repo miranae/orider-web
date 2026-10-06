@@ -247,7 +247,10 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   // 2단계: 사용자가 "분석시작"을 눌렀을 때만 full 생성 호출.
   //   생성(LLM)은 인증 필수 → 비로그인은 호출 금지. cacheMiss 분기에서 비로그인엔 로그인 CTA 노출
   //   (= 결과는 공개로 보되, 새 생성은 로그인 필요).
-  const [triggerFull, setTriggerFull] = useState(false);
+  const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}`;
+  const [triggerScope, setTriggerScope] = useState<string | null>(null);
+  const triggerFull = triggerScope === scope;
+  const setTriggerFull = (trigger: boolean) => setTriggerScope(trigger ? scope : null);
   const [forceRefresh, setForceRefresh] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const full = useActivityNarrativeWithOptions(activityId, enabled && triggerFull && !!user, lang, forceRefresh, refreshKey);
@@ -268,6 +271,8 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     setTriggerFull(false);
     window.setTimeout(() => setTriggerFull(true), 0);
   };
+
+  const data = full.data ?? peek.data;
 
   if (!enabled) return null;
 
@@ -352,7 +357,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   }
 
   // full 생성 중 (버튼 클릭 후)
-  if (triggerFull && full.loading) {
+  if (triggerFull && full.loading && !data) {
     return (
       <Card padding="none" style={{ padding: "var(--space-5)" }}>
         <div className="flex items-center gap-2">
@@ -370,12 +375,11 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   }
 
   // 사용할 데이터: peek hit 결과 또는 full 생성 결과
-  const data = full.data ?? peek.data;
   const error = full.error;
   const authError = isAuthenticationError(error);
   const restartAfterAppCheckThrottle = () => window.location.reload();
 
-  if (error) {
+  if (error && !data) {
     if (previewSummary) {
       return (
         <Card padding="none" style={{ padding: "var(--space-5)" }}>
@@ -439,6 +443,9 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   if (!data || data.segments.length === 0) return null;
 
   const { overall } = data;
+  const generatedDate = Number.isFinite(data.generatedAt) && data.generatedAt > 0
+    ? new Date(data.generatedAt) : null;
+  const generatedAt = generatedDate && Number.isFinite(generatedDate.getTime()) ? generatedDate : null;
   const needsShareRegeneration = isActivityOwner && data.shareSummary === null;
   const coachedSegments = data.segments.filter((segment) => segment.narrative !== "");
   const tempBadge =
@@ -455,11 +462,35 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         {tempBadge && <Text variant="caption" tone="tertiary">{tempBadge}</Text>}
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
         {user && (data.stale || needsShareRegeneration) && (
-          <Button size="sm" variant="secondary" onClick={retryFullAnalysis}>
+          <Button size="sm" variant="secondary" onClick={retryFullAnalysis} disabled={full.loading}>
             {t(data.stale ? "ai.refreshAnalysisBtn" : "ai.regenerateShareSummaryBtn")}
           </Button>
         )}
       </div>
+
+      {generatedAt && (
+        <Text variant="caption" tone="tertiary" as="p" className="mb-3">
+          {t("ai.generatedAt")} {" "}
+          <time dateTime={generatedAt.toISOString()}>
+            {new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(generatedAt)}
+          </time>
+        </Text>
+      )}
+      {triggerFull && full.loading && (
+        <p role="status" className="mb-3 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>
+          {t("ai.refreshingHint")}
+        </p>
+      )}
+      {error && (
+        <div className="mb-3">
+          <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--color-error)" }}>
+            {t("ai.refreshFailedHint")}
+          </p>
+          <Button size="sm" variant="secondary" onClick={authError ? () => signInWithGoogle() : appCheckThrottled ? restartAfterAppCheckThrottle : retryFullAnalysis}>
+            {t(authError ? "ai.loginBtn" : appCheckThrottled ? "ai.appCheckRestartBtn" : "ai.retryBtn")}
+          </Button>
+        </div>
+      )}
 
       {/* 상세 AI 분석과 짧은 공유 문구는 각각의 내용을 유지한다. */}
       <Text variant="body" tone="primary" as="p">{data.summary}</Text>
