@@ -11,7 +11,8 @@ import {
 import { httpsCallable } from "firebase/functions";
 import JSZip from "jszip";
 import { firestore, functions } from "../services/firebase";
-import { logClientError } from "../services/errorLogger";
+import { debugLog, logClientError } from "../services/errorLogger";
+import { getActivityStreams } from "../services/personalDataApi";
 import { useAuth } from "../contexts/AuthContext";
 import { makeRelSecAt } from "../utils/streamTime";
 import type { Activity, ActivityStreams, Comment, Kudos, FollowRelation } from "@shared/types";
@@ -244,12 +245,15 @@ export function useExport() {
               const streamDoc = await getDoc(doc(firestore, "activity_streams", streamDocId));
               if (!streamDoc.exists()) return null;
               const data = streamDoc.data();
-              if (data?.storage === "gcs" && a.stravaActivityId) {
-                // GCS-stored stream: fetch via Cloud Function
+              if (data?.storage === "gcs") {
                 try {
-                  const result = await getStreams({ stravaActivityId: a.stravaActivityId });
-                  return { id: a.id, stream: result.data };
-                } catch {
+                  if (a.stravaActivityId) {
+                    const result = await getStreams({ stravaActivityId: a.stravaActivityId });
+                    return { id: a.id, stream: result.data };
+                  }
+                  return { id: a.id, stream: await getActivityStreams(a.id) };
+                } catch (err) {
+                  logClientError("useExport.loadGcsStream", err, { activityId: a.id });
                   return null;
                 }
               }
@@ -261,8 +265,8 @@ export function useExport() {
                 }
               }
               return { id: a.id, stream: data as ParsedStream };
-            } catch {
-              // Permission denied or doc doesn't exist — skip
+            } catch (err) {
+              logClientError("useExport.loadStream", err, { activityId: a.id });
               return null;
             }
           }),
@@ -421,15 +425,6 @@ export function useExport() {
       const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
 
       // metadata.json
-      zip.file("metadata.json", JSON.stringify({
-        exportedAt: now.toISOString(),
-        platform: "Orider Web",
-        version: "1.0",
-        activityCount: activities.length,
-        streamCount: streamMap.size,
-        photoCount: photoDataMap.size,
-      }, null, 2));
-
       // profile.json
       zip.file("profile.json", JSON.stringify({
         userId: uid,
@@ -445,6 +440,7 @@ export function useExport() {
       // Per-activity files
       const actFolder = zip.folder("activities")!;
 
+      let trackCount = 0;
       for (const a of activities) {
         const folderName = activityFolderName(a);
         const folder = actFolder.folder(folderName)!;
@@ -456,7 +452,10 @@ export function useExport() {
         const stream = streamMap.get(a.id);
         if (stream?.latlng && stream.latlng.length > 0) {
           const gpx = generateGpx(a, stream);
-          if (gpx) folder.file("track.gpx", gpx);
+          if (gpx) {
+            folder.file("track.gpx", gpx);
+            trackCount++;
+          }
         }
 
         // comments.json
@@ -488,6 +487,21 @@ export function useExport() {
         }
       }
 
+      const missingTrackCount = activities.length - trackCount;
+      zip.file("metadata.json", JSON.stringify({
+        exportedAt: now.toISOString(),
+        platform: "Orider Web",
+        version: "1.0",
+        activityCount: activities.length,
+        streamCount: streamMap.size,
+        trackCount,
+        missingTrackCount,
+        photoCount: photoDataMap.size,
+      }, null, 2));
+      if (missingTrackCount > 0) {
+        debugLog("useExport.missingTracks", { activityCount: activities.length, missingTrackCount });
+      }
+
       // segments/personal_records.json
       if (segmentPRs.length > 0) {
         const segFolder = zip.folder("segments")!;
@@ -512,7 +526,14 @@ export function useExport() {
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
 
-      setProgress({ phase: "zip", current: 1, total: 1, label: t("export.phaseZipDone", { sizeMB }) });
+      setProgress({
+        phase: "zip",
+        current: 1,
+        total: 1,
+        label: missingTrackCount > 0
+          ? t("export.phaseZipDoneMissingTracks", { sizeMB, count: missingTrackCount })
+          : t("export.phaseZipDone", { sizeMB }),
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : t("export.errorFailed"));
     } finally {

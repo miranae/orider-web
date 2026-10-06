@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
 import { mockDocData, setDocData } from "../../__tests__/mocks/firebase";
 import * as errorLogger from "../../services/errorLogger";
+import { getActivityStreamsWithAuth } from "../../services/personalDataApi";
 import {
   DERIVED_DOCUMENT_CREATION_WATCH_MS,
   DERIVED_DOCUMENT_CREATION_RETRY_MS,
@@ -12,6 +13,10 @@ import {
   DERIVED_DOCUMENT_READ_TIMEOUT_MS,
   useActivityDerivedDocuments,
 } from "./useActivityDerivedDocuments";
+
+vi.mock("../../services/personalDataApi", () => ({
+  getActivityStreamsWithAuth: vi.fn(),
+}));
 
 const defaultOnSnapshotImplementation = vi.mocked(onSnapshot).getMockImplementation();
 
@@ -31,6 +36,7 @@ function activity(id: string, userId: string, averagePower: number | null = 180)
 
 describe("useActivityDerivedDocuments", () => {
   beforeEach(() => {
+    vi.mocked(getActivityStreamsWithAuth).mockReset();
     vi.mocked(getDoc).mockImplementation(async (reference) => {
       const path = (reference as { path: string }).path;
       const data = mockDocData.get(path) ?? null;
@@ -46,6 +52,65 @@ describe("useActivityDerivedDocuments", () => {
       vi.mocked(onSnapshot).mockImplementation(defaultOnSnapshotImplementation);
     }
     vi.mocked(onSnapshot).mockClear();
+  });
+
+  it("loads a GCS-backed stream through the authenticated API", async () => {
+    setDocData("activity_streams/gcs-fitness", {
+      storage: "gcs",
+      gcsPath: "activity-streams/gcs-fitness.json",
+    });
+    vi.mocked(getActivityStreamsWithAuth).mockResolvedValue({
+      watts: [180, 190],
+    });
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("gcs-fitness", "user-a")],
+    ));
+
+    await waitFor(() => {
+      expect(hook.result.current.streamsMap.get("gcs-fitness")).toEqual({ watts: [180, 190] });
+    });
+    expect(getActivityStreamsWithAuth).toHaveBeenCalledWith(expect.anything(), "gcs-fitness");
+  });
+
+  it("loads a GCS-backed stream created after the first read", async () => {
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("late-gcs-fitness", "user-a")],
+    ));
+    await waitFor(() => expect(vi.mocked(onSnapshot)).toHaveBeenCalled());
+    vi.mocked(getActivityStreamsWithAuth).mockResolvedValue({ watts: [205] });
+
+    act(() => setDocData("activity_streams/late-gcs-fitness", {
+      storage: "gcs",
+      gcsPath: "activity-streams/late-gcs-fitness.json",
+    }));
+
+    await waitFor(() => {
+      expect(hook.result.current.streamsMap.get("late-gcs-fitness")).toEqual({ watts: [205] });
+    });
+  });
+
+  it("discards a GCS response after the account changes", async () => {
+    setDocData("activity_streams/gcs-stale", {
+      storage: "gcs",
+      gcsPath: "activity-streams/gcs-stale.json",
+    });
+    let resolveStreams!: (streams: { watts: number[] }) => void;
+    vi.mocked(getActivityStreamsWithAuth).mockImplementation(() => new Promise((resolve) => {
+      resolveStreams = resolve;
+    }));
+    const current = activity("gcs-stale", "user-a");
+    const hook = renderHook(
+      ({ uid, activities }) => useActivityDerivedDocuments(uid, activities),
+      { initialProps: { uid: "user-a", activities: [current] } },
+    );
+    await waitFor(() => expect(getActivityStreamsWithAuth).toHaveBeenCalled());
+
+    hook.rerender({ uid: "user-b", activities: [] });
+    await act(async () => resolveStreams({ watts: [230] }));
+
+    expect(hook.result.current.streamsMap.has("gcs-stale")).toBe(false);
   });
 
   it("observes a derived document created after an unchanged activity snapshot", async () => {
