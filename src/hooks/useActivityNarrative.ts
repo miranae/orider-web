@@ -159,7 +159,7 @@ export function useActivityNarrativeWithOptions(
     }
 
     let cancelled = false;
-    setState({ data: null, loading: true, error: null });
+    setState({ data: forceRefresh ? done.get(`${scope}:cache`) ?? null : null, loading: true, error: null });
 
     let promise = inflight.get(key);
     if (!promise) {
@@ -186,7 +186,7 @@ export function useActivityNarrativeWithOptions(
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
         logClientError("useActivityNarrative", msg, { activityId, lang });
-        setState({ data: null, loading: false, error: msg });
+        setState((previous) => ({ data: previous.data, loading: false, error: msg }));
       });
 
     return () => { cancelled = true; };

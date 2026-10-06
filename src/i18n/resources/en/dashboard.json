@@ -54,6 +54,10 @@
     "search": {
       "placeholder": "Search activities...",
       "submit": "Search",
+      "reset": "Clear search",
+      "clearFilters": "Clear filters",
+      "morePossibleTitle": "There may be more results",
+      "morePossibleDescription": "Load more activities to continue searching.",
       "resultsCount": "{{count}} results",
       "resultsCount_one": "{{count}} result",
       "resultsCount_other": "{{count}} results",

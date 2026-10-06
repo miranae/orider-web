@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
@@ -23,7 +23,19 @@ export interface GroupRideSummary {
   startTime: number;
   participantCount: number;
   totalDistance: number;
+  averageRidingTimeMillis?: number;
+  averageElevationGain?: number;
 }
+
+export interface GroupRideCursor { startTime: number; groupRideId: string }
+export interface GroupWeekStats {
+  totalDistance: number;
+  totalTime: number;
+  totalElevation: number;
+  rideCount: number;
+  activeMembers: number;
+}
+export interface GroupMemberWeekStat { distance: number; elevation: number; time: number; tss: number }
 
 export interface MemberRideStat {
   distance: number;
@@ -37,6 +49,9 @@ interface RideStatsResponse {
   computedAt: number;
   cached: boolean;
   aggregate?: GroupRideAggregate;
+  nextCursor?: GroupRideCursor | null;
+  weeklyStats?: GroupWeekStats;
+  memberWeekStats?: Record<string, GroupMemberWeekStat>;
 }
 
 export interface GroupRideAggregate {
@@ -67,33 +82,92 @@ export function useGroupRideStats(groupId: string | undefined) {
   const [memberStats, setMemberStats] = useState<Record<string, MemberRideStat>>({});
   const [loading, setLoading] = useState(true);
   const [aggregate, setAggregate] = useState<GroupRideAggregate | null>(null);
+  const [weeklyStats, setWeeklyStats] = useState<GroupWeekStats | null>(null);
+  const [memberWeekStats, setMemberWeekStats] = useState<Record<string, GroupMemberWeekStat> | null>(null);
+  const [nextCursor, setNextCursor] = useState<GroupRideCursor | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<"unavailable" | "failed" | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+  const generation = useRef(0);
+  const retry = useCallback(() => setRetryKey((key) => key + 1), []);
+
+  const loadMore = useCallback(async () => {
+    if (!groupId || !nextCursor || loadingMore) return;
+    const requestedGroup = groupId;
+    const requestedGeneration = generation.current;
+    setLoadingMore(true);
+    try {
+      const fn = httpsCallable<{ groupId: string; pageSize: number; cursor: GroupRideCursor; pageOnly: true }, RideStatsResponse>(functions, "getGroupRideStats");
+      const { data } = await fn({ groupId, pageSize: 20, cursor: nextCursor, pageOnly: true });
+      if (generation.current !== requestedGeneration || requestedGroup !== groupId) return;
+      setRides((previous) => {
+        const existing = new Set(previous.map((ride) => ride.groupRideId));
+        return [...previous, ...(data.rides ?? []).filter((ride) => !existing.has(ride.groupRideId))];
+      });
+      setNextCursor(data.nextCursor ?? null);
+    } catch (error) {
+      if (generation.current === requestedGeneration) {
+        setRides([]);
+        setMemberStats({});
+        setAggregate(null);
+        setWeeklyStats(null);
+        setMemberWeekStats(null);
+        setNextCursor(null);
+        const code = (error as { code?: string } | null)?.code;
+        setError(code === "functions/unavailable" || code === "unavailable" ? "unavailable" : "failed");
+        logClientError("useGroupRideStats.loadMore", error, { groupId });
+      }
+    } finally {
+      if (generation.current === requestedGeneration) setLoadingMore(false);
+    }
+  }, [groupId, loadingMore, nextCursor]);
 
   useEffect(() => {
+    generation.current += 1;
+    setError(null);
     if (!groupId) {
       setRides([]);
       setMemberStats({});
       setLoading(false);
+      setLoadingMore(false);
       setAggregate(null);
+      setWeeklyStats(null);
+      setMemberWeekStats(null);
+      setNextCursor(null);
       return;
     }
 
     let cancelled = false;
     setLoading(true);
+    setLoadingMore(false);
+    setRides([]);
+    setMemberStats({});
+    setAggregate(null);
+    setWeeklyStats(null);
+    setMemberWeekStats(null);
+    setNextCursor(null);
 
     (async () => {
       try {
-        const fn = httpsCallable<{ groupId: string }, RideStatsResponse>(functions, "getGroupRideStats");
-        const { data } = await fn({ groupId });
+        const fn = httpsCallable<{ groupId: string; pageSize: number }, RideStatsResponse>(functions, "getGroupRideStats");
+        const { data } = await fn({ groupId, pageSize: 20 });
         if (cancelled) return;
         setRides(data.rides ?? []);
         setMemberStats(data.memberStats ?? {});
         setAggregate(normalizeGroupRideAggregate(data.aggregate));
+        setWeeklyStats(data.weeklyStats ?? null);
+        setMemberWeekStats(data.memberWeekStats ?? null);
+        setNextCursor(data.nextCursor ?? null);
       } catch (err) {
         if (cancelled) return;
         setRides([]);
         setMemberStats({});
         setAggregate(null);
+        setWeeklyStats(null);
+        setMemberWeekStats(null);
+        setNextCursor(null);
         const code = (err as { code?: string } | null)?.code;
+        setError(code === "functions/unavailable" || code === "unavailable" ? "unavailable" : "failed");
         if (code !== "functions/permission-denied" && code !== "permission-denied") {
           logClientError("useGroupRideStats", err, { groupId });
         }
@@ -105,7 +179,7 @@ export function useGroupRideStats(groupId: string | undefined) {
     return () => {
       cancelled = true;
     };
-  }, [groupId]);
+  }, [groupId, retryKey]);
 
-  return { rides, memberStats, aggregate, loading };
+  return { rides, memberStats, aggregate, weeklyStats, memberWeekStats, loading, loadingMore, error, retry, hasMore: nextCursor !== null, loadMore };
 }
