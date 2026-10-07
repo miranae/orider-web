@@ -328,7 +328,7 @@
   },
   "privacy": {
     "title": "Orider Privacy Policy",
-    "lastUpdated": "Last updated: July 11, 2026",
+    "lastUpdated": "Last updated: October 7, 2026",
     "intro": "Orider (\"Company\") complies with the Personal Information Protection Act and other applicable laws and establishes and discloses this Privacy Policy as follows to protect Users' personal information.",
     "stravaPrivacyLink": "Strava Privacy Policy",
     "sections": [
@@ -359,7 +359,7 @@
               "Access logs, IP address",
               "Device info (device type, OS version)",
               "Cookies (web) and local storage (app)",
-              "Location info (GPS): ride routes, real-time location sharing",
+              "Location info (GPS): ride and run routes, real-time location sharing",
               "BLE sensor data: heart rate, cadence, power, gearing status, radar"
             ]
           },
@@ -368,7 +368,8 @@
             "list": [
               "Device identifiers (device model, OS version, app version)",
               "Bluetooth device info (connected sensor name, device ID)",
-              "Background location (during ride recording, with User consent)"
+              "Background location (during ride recording, with User consent)",
+              "When using the Wear OS watch app: workout data measured by the watch during exercise, including heart rate, GPS location, distance, speed, cadence and altitude"
             ]
           }
         ]
@@ -380,7 +381,7 @@
         ],
         "list": [
           "Member identification and account management",
-          "Storing and analyzing ride records",
+          "Storing and analyzing ride and run records",
           "Providing Strava integration features",
           "Operating leaderboards and social features",
           "Collecting real-time ride and sensor data",
@@ -465,22 +466,24 @@
       {
         "title": "Article 4-3 (Health Platform Integration and Health Data)",
         "paragraphs": [
-          "When you connect a device health platform such as Apple Health (HealthKit) in the mobile app, we process data as follows.",
+          "When you connect a device health platform such as Apple Health (HealthKit), Health Connect (Android) or Samsung Health in the mobile app, we process data as follows.",
           "Health data is sensitive information under Article 23 of the Personal Information Protection Act, so we obtain separate consent, distinct from general privacy consent, before collection. Core features such as ride recording remain fully available if you decline."
         ],
         "groups": [
           {
             "heading": "1. Data collected (only items you consent to)",
             "list": [
-              "Workout records — activity type, start and end time, distance, calories, heart-rate statistics",
+              "Workout records — activity type, start and end time, distance, calories, heart-rate samples and statistics recorded during the workout",
+              "Workout routes — GPS locations recorded during the workout (latitude, longitude, altitude, timestamp, accuracy)",
               "Recovery data (with additional consent) — heart-rate variability (HRV), resting heart rate, sleep duration"
             ]
           },
           {
             "heading": "2. Purpose of use",
             "list": [
-              "Creating and analyzing service activities from workouts recorded on your watch or device",
-              "Recovery (readiness) analysis and training intensity guidance"
+              "Creating and analyzing service activities, such as route maps and segment efforts, from workouts recorded on your watch or device",
+              "Recovery (readiness) analysis and training intensity guidance",
+              "If you enable it, recording rides completed in O-Rider to Apple Health as workouts (distance, calories, heart rate)"
             ]
           },
           {
@@ -494,7 +497,7 @@
             "heading": "4. Withdrawal of consent",
             "list": [
               "You can disconnect anytime in the app under Settings > Health Sync; collection stops immediately.",
-              "Health platform access can also be revoked per item in device settings (iOS Settings > Health)."
+              "Health platform access can also be revoked per item in each platform's settings (iOS Settings > Health, Android Health Connect, the Samsung Health app)."
             ]
           },
           {
