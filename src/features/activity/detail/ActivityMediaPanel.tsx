@@ -4,6 +4,7 @@ import RouteMap from "../../../components/RouteMap";
 import { Card } from "../../../theme/components";
 import { formatDuration, type SegmentEffortData, type SportCategory } from "./activityDetailUtils";
 import type { UploadedPhoto } from "./activityDisplay";
+import { isIndoorActivity } from "../../../utils/indoorActivity";
 
 type StreamPhoto = {
   id: string | number;
@@ -163,6 +164,13 @@ export function ActivityMediaPanel({
     );
   }
 
+  // 실내 판정은 trainer 필드와 Virtual* 종목을 함께 본다 — "가상 라이딩" 고정 문구는 러닝·트레이너 라이딩에 틀렸다.
+  const indoor = isIndoorActivity(activity);
+  const lowerType = activity.type?.toLowerCase() ?? "";
+  const indoorTitle = sport === "ride"
+    ? t("page.indoorRide")
+    : sport === "run" && lowerType.includes("run") ? t("page.indoorRun") : t("page.indoorActivity");
+
   return (
     <Card padding="none" className="px-6 py-8 flex items-center gap-4">
       <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--lime) 12%, transparent)" }}>
@@ -174,10 +182,10 @@ export function ActivityMediaPanel({
       </div>
       <div>
         <p className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>
-          {activity.type?.toLowerCase().includes("virtual") ? t("page.indoor") : t("page.noGps")}
+          {indoor ? indoorTitle : t("page.noGps")}
         </p>
         <p className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-2)" }}>
-          {t("page.noGpsDesc")}
+          {indoor ? t("page.indoorDesc") : t("page.noGpsDesc")}
         </p>
       </div>
     </Card>

@@ -6,6 +6,7 @@ import type { Activity } from "@shared/types";
 import ImportActivityModal from "./ImportActivityModal";
 import SportFilterTabs from "./SportFilterTabs";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineLabelKey } from "../../utils/disciplineFilter";
+import { isIndoorActivity } from "../../utils/indoorActivity";
 import { planDayKey, planCalendarDate } from "@shared/training/planDate";
 import { acceptedTrainingActivities, estimateActivityTss, sumActivityTss } from "../../utils/estimateTSS";
 import "./MobileLogPage.css";
@@ -169,6 +170,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
         </span>
         <span className="mobile-log__activity-meta">
           <span>{dateStr}</span><span aria-hidden="true">·</span><span>{tmStr}</span>
+          {isIndoorActivity(a) && <><span aria-hidden="true">·</span><span>{t("common:sport.indoor")}</span></>}
           {pw && <span className="mobile-log__activity-power">{pw}</span>}
         </span>
       </button>

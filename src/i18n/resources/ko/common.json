@@ -225,7 +225,8 @@
     "golf": "골프",
     "ski": "스키",
     "snowboard": "스노보드",
-    "activity": "활동"
+    "activity": "활동",
+    "indoor": "실내"
   },
   "map": {
     "placeholder": "지도",

@@ -1,5 +1,6 @@
 import type { Activity } from "@shared/types";
 import { getSportCategory } from "../features/activity/detail/activityDetailUtils";
+import { isIndoorActivity } from "./indoorActivity";
 
 const MIN_CANDIDATE_DISTANCE_M = 1_000;
 const MIN_CANDIDATE_DURATION_MS = 5 * 60_000;
@@ -46,8 +47,11 @@ function overlapMs(a: Activity, b: Activity): number {
 }
 
 function isVirtual(activity: Activity): boolean {
-  const type = activity.type?.toLowerCase() ?? "";
-  return type.includes("virtual") || type.includes("indoor");
+  if (isIndoorActivity(activity)) return true;
+  // 공용 판정(trainer·Virtual*) 밖의 "indoor" 부분 문자열은 옛 문서 대비로만 남긴다 — 현재 서버
+  // 가져오기는 indoor_cycling 등을 VirtualRide 로 정규화하지만, 정규화 이전 type 이 남은 활동이
+  // 실외 활동과 동승으로 묶이지 않게 한다.
+  return activity.type?.toLowerCase().includes("indoor") ?? false;
 }
 
 function hasEnoughOverlap(base: Activity, candidate: Activity): boolean {

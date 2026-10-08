@@ -184,6 +184,26 @@ describe("ActivityPage", () => {
     });
   });
 
+  it("marks trainer activities as indoor next to the header sport label", async () => {
+    const activity = createMockActivity({ id: "test-activity", type: "Ride", trainer: true, description: "트레이너 세션" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+
+    renderWithProviders(<ActivityPage />);
+
+    await waitFor(() => expect(screen.getByText("트레이너 세션")).toBeInTheDocument());
+    expect(screen.getByTitle("라이딩")).toHaveTextContent("라이딩· 실내");
+  });
+
+  it("does not repeat the indoor marker on Virtual* sport labels", async () => {
+    const activity = createMockActivity({ id: "test-activity", type: "VirtualRide", description: "가상 세션" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+
+    renderWithProviders(<ActivityPage />);
+
+    await waitFor(() => expect(screen.getByText("가상 세션")).toBeInTheDocument());
+    expect(screen.getByTitle("가상 라이딩")).not.toHaveTextContent("실내");
+  });
+
   it.each([[Date.now(), null], [Number.MAX_VALUE, null], [null, null], [Date.now(), 0]])("keeps healthy data with startTime %s and optional summary %s", async (startTime, summary) => {
     const activity = createMockActivity({id: "test-activity", userId: "test-uid", source: "orider", description: "요약 미확인 경로 기록"});
     setDocData("activities/test-activity", {...activity, summary, startTime});
