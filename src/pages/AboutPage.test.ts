@@ -27,8 +27,11 @@ describe("AboutPage document navigation", () => {
       readFile(`${process.cwd()}/public/en/about/index.html`, "utf8"),
     ]);
 
-    expect(koDocument).toContain("내 기록에서 시작해, 우리의 라이딩으로 이어지도록.");
-    expect(koDocument).toContain("혼자 만든 도구에서, 함께 고치는 플랫폼으로");
+    expect(koDocument).toContain('<html lang="ko">');
+    expect(koDocument).toContain('<main id="main">');
+    expect(koDocument).toMatch(/<section[^>]+id="club"/);
+    expect(koDocument).toMatch(/<section[^>]+id="experience"/);
+    expect(koDocument).toContain('href="/ko/groups"');
     expect(enDocument).toContain("From my ride records to our shared riding platform.");
     expect(enDocument).toContain("From a tool built by one person to a platform improved together");
   });
