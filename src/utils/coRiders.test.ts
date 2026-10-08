@@ -121,6 +121,36 @@ describe("selectActualCoRiders", () => {
     ]);
   });
 
+  it("separates trainer rides from outdoor rides even when both are typed Ride", () => {
+    const base = confirmed(activity({
+      id: "outdoor-base",
+      userId: "main",
+      nickname: "Outdoor",
+      type: "Ride",
+      startTime: 1_783_421_333_000,
+      endTime: 1_783_426_871_000,
+      thumbnailTrack: nearRoute,
+      summary: createMockSummary({ distance: 42_910, ridingTimeMillis: 5_538_000 }),
+    }), ["trainer-rider"]);
+
+    const candidates = [
+      confirmed({
+        ...activity({
+          id: "trainer-ride",
+          userId: "trainer-rider",
+          nickname: "Trainer",
+          type: "Ride",
+          startTime: 1_783_421_333_000,
+          endTime: 1_783_426_871_000,
+          summary: createMockSummary({ distance: 40_000, ridingTimeMillis: 5_538_000 }),
+        }),
+        trainer: true,
+      }, ["main"]),
+    ];
+
+    expect(selectActualCoRiders(base, candidates)).toEqual([]);
+  });
+
   it("keeps the best overlapping activity per rider", () => {
     const base = confirmed(activity({
       id: "strava_19215757019",

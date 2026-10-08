@@ -564,6 +564,14 @@ describe("MobileFeedPage", () => {
   });
 });
 
+it("adds an indoor marker to the mobile sport tag only for indoor activities", () => {
+ const indoor = renderWithProviders(<CompactActivityCard activity={createMockActivity({ type: "Run", trainer: true })} />);
+ expect(screen.getByText("· 실내")).toBeInTheDocument();
+ indoor.unmount();
+ renderWithProviders(<CompactActivityCard activity={createMockActivity({ type: "Run" })} />);
+ expect(screen.queryByText("· 실내")).not.toBeInTheDocument();
+});
+
 it("gives mobile running distance, pace and time primary positions with sensors secondary", () => {
  const base = createMockActivity();
  renderWithProviders(<CompactActivityCard activity={createMockActivity({ type: "Run", summary: { ...base.summary, averagePower: 264, averageHeartRate: 150 } })} />);

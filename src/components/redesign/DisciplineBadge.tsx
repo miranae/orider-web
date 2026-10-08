@@ -5,12 +5,16 @@ import type { Discipline } from "../../utils/disciplineFilter";
 
 interface DisciplineBadgeProps {
   discipline: Discipline;
+  /** 실내 활동이면 종목 라벨 뒤에 "· 실내" 를 붙인다 — 판정은 `isIndoorActivity`. */
+  indoor?: boolean;
 }
 
-export default function DisciplineBadge({ discipline }: DisciplineBadgeProps) {
+export default function DisciplineBadge({ discipline, indoor = false }: DisciplineBadgeProps) {
   const { t } = useTranslation("common");
   const color = getDisciplineColor(discipline);
-  const label = t(getDisciplineLabelKey(discipline));
+  const label = indoor
+    ? `${t(getDisciplineLabelKey(discipline))} · ${t("sport.indoor")}`
+    : t(getDisciplineLabelKey(discipline));
   const Icon = discipline === "bike" ? Bike : discipline === "run" ? Footprints : Waves;
 
   return (

@@ -86,7 +86,6 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     ftpHistory,
     activities,
     disciplineActivities,
-    streamsMap,
     metricsMap,
     loading,
     error,
@@ -126,7 +125,8 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     triFitnessTimeline,
     integratedLoadFocus,
     cyclingAbility,
-    runPaceStreams,
+    runPaceCurve,
+    swimCssCurve,
   } = model;
   const { t: trainingT } = useTranslation("training");
   const [historyRangeOverride, setHistoryRangeOverride] = useState<{ discipline: string; range: PmcRange } | null>(null);
@@ -894,7 +894,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
                     <span style={{ width: 10, height: 2, borderTop: "1px dashed var(--ink-3)", display: "inline-block" }} /> {t("powerCurve.prevSeason")}
                   </span>
                 </div>
-                <CriticalPaceCurve recentStreams={runPaceStreams.recentStreams} prevStreams={runPaceStreams.prevStreams} />
+                <CriticalPaceCurve recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} />
               </>
             ) : discipline === "swim" ? (
               <>
@@ -908,19 +908,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
                     <span style={{ width: 10, height: 2, borderTop: "1px dashed var(--ink-3)", display: "inline-block" }} /> {t("powerCurve.prevSeason")}
                   </span>
                 </div>
-                {(() => {
-                  const now = Date.now();
-                  const d28 = 28 * 24 * 60 * 60 * 1000;
-                  const recentLaps: import("@shared/types").LapData[][] = [];
-                  const prevLaps: import("@shared/types").LapData[][] = [];
-                  for (const a of disciplineActivities) {
-                    const stream = streamsMap.get(a.id);
-                    if (!stream?.laps || stream.laps.length === 0) continue;
-                    if (a.startTime >= now - d28) recentLaps.push(stream.laps);
-                    else if (a.startTime >= now - d28 * 2) prevLaps.push(stream.laps);
-                  }
-                  return <CSSCurve css={profile?.css} recentLaps={recentLaps} prevLaps={prevLaps} />;
-                })()}
+                <CSSCurve css={profile?.css} recentPoints={swimCssCurve.recent28} prevPoints={swimCssCurve.prev28} />
               </>
             ) : (
               <>

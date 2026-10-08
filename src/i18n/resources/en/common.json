@@ -225,7 +225,8 @@
     "golf": "Golf",
     "ski": "Ski",
     "snowboard": "Snowboard",
-    "activity": "Activity"
+    "activity": "Activity",
+    "indoor": "Indoor"
   },
   "map": {
     "placeholder": "Map",

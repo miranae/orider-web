@@ -9,6 +9,8 @@ export interface Activity {
   nickname: string;
   profileImage: string | null;
   type: string; // TODO: ActivityType으로 전환 (Strava 호환성 확인 후)
+  /** Strava trainer 필드 — 실내(트레이너·트레드밀) 활동. 판정은 `isIndoorActivity` 로만. */
+  trainer?: boolean | null;
   createdAt: number;
   startTime: number;
   endTime: number;
