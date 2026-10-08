@@ -1,8 +1,8 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { Activity } from "@shared/types";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
+import type { FitnessActivityWindowEntry } from "../features/fitness/fitnessActivityWindow";
 import type { ActivityMetricStatus } from "../features/fitness/useActivityDerivedDocuments";
 import { activityDerivedDocumentRevision } from "../features/fitness/derivedDocumentReadAttempts";
 import * as cache from "../embedded/trainingSurfaceCache";
@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   firestore: {},
   t: (key: string) => key,
   status: new Map<string, ActivityMetricStatus>(),
-  metrics: new Map<string, ActivityMetrics>(),
+  windowEntries: [] as FitnessActivityWindowEntry[],
   derived: vi.fn(),
   windowLoaded: true, windowError: false, truncated: false,
   subscriptionCallbacks: [] as Array<{ path: string; callback: (...args: unknown[]) => void }>,
@@ -40,7 +40,7 @@ vi.mock("firebase/firestore", () => ({
 vi.mock("../features/fitness/useActivityDerivedDocuments", () => ({
   useActivityDerivedDocuments: (...args: unknown[]) => {
     mocks.derived(...args);
-    return { metricsMap: mocks.metrics, metricStatusMap: mocks.status };
+    return { metricsMap: new Map(), metricStatusMap: mocks.status };
   },
 }));
 vi.mock("./useFtpHistory", () => ({ useFtpHistory: () => ({ entries: [] }) }));
@@ -50,9 +50,7 @@ vi.mock("../features/fitness/useFitnessCurves", () => ({ useFitnessCurves: () =>
   run: { recent28: [], prev28: [] }, swim: { recent28: [], prev28: [] },
   activityWindowLoaded: mocks.windowLoaded, activityWindowError: mocks.windowError,
   activityWindow: { version: 1, windowDays: 90, maxEntries: 768, generation: 1, updatedAt: Date.now(), truncated: mocks.truncated,
-    entries: [...mocks.metrics].map(([id, metrics]) => ({ activityId: id, startTime: Date.now(), activityType: "Ride", discipline: "bike",
-      hrZoneSec: metrics.hrZoneSec ?? null, powerZoneSec: metrics.powerZoneSec ?? null, mmp: metrics.mmp ?? {},
-      swolf: null, distancePerStroke: null, loadFocus: { load: 0, source: "unclassified", allocations: [], hasAnaerobicBikeDetail: false } })) },
+    entries: mocks.windowEntries },
 }) }));
 vi.mock("./useBikeFtpDecision", () => ({ useBikeFtpDecision: () => ({ decision: null }) }));
 vi.mock("./useCoachRiderInsight", () => ({ useCoachRiderInsight: () => ({ insight: null }) }));
@@ -69,6 +67,14 @@ vi.mock("./useFitnessTimeseries", () => ({ useFitnessTimeseries: () => ({
 const bike = { id: "bike", userId: "rider-a", type: "Ride", startTime: Date.now(), summary: { ridingTimeMillis: 3600000, distanceMeters: 20000 } } as Activity;
 const run = { ...bike, id: "run", type: "Run" } as Activity;
 const options = { enableCoachRiderInsight: false };
+function windowEntry(fields: Partial<FitnessActivityWindowEntry>): FitnessActivityWindowEntry {
+  return {
+    activityId: bike.id, startTime: bike.startTime, activityType: "Ride", discipline: "bike",
+    hrZoneSec: null, powerZoneSec: null, mmp: {}, swolf: null, distancePerStroke: null,
+    loadFocus: { load: 0, source: "unclassified", allocations: [], hasAnaerobicBikeDetail: false },
+    ...fields,
+  };
+}
 function setStatus(activity: Activity, state: ActivityMetricStatus["state"]) {
   mocks.status.set(activity.id, { revision: activityDerivedDocumentRevision(activity), state });
 }
@@ -80,7 +86,7 @@ beforeEach(() => {
   mocks.user = { uid: "rider-a", isAnonymous: false };
   mocks.timeseries = null;
   mocks.status.clear();
-  mocks.metrics.clear();
+  mocks.windowEntries = [];
   mocks.windowLoaded = true; mocks.windowError = false; mocks.truncated = false;
   mocks.derived.mockClear();
   mocks.subscriptions.mockClear();
@@ -234,7 +240,7 @@ describe("useFitnessModel", () => {
 
 it("shows all seven historical power zones even without a current profile FTP", () => {
  seed("bike", [bike]);
- mocks.metrics.set(bike.id, { powerZoneSec: [100, 0, 0, 0, 0, 0, 100], contextSnapshot: { ftp: 175 } } as ActivityMetrics);
+ mocks.windowEntries.push(windowEntry({ powerZoneSec: [100, 0, 0, 0, 0, 0, 100] }));
  const { result } = renderHook(() => useFitnessModel("bike", options));
  expect(result.current.mobilePageProps.data.zoneSource).toBe("power");
  expect(result.current.mobilePageProps.data.zones).toHaveLength(7);
@@ -245,13 +251,13 @@ it("shows all seven historical power zones even without a current profile FTP", 
 
 it("uses valid HR evidence when legacy power zones leave Z7 unknown", () => {
   seed("bike", [bike]);
-  mocks.metrics.set(bike.id, {
-    powerZoneSec: [100, 0, 0, 0, 0, 100], hrZoneSec: [100, 100, 0, 0, 0],
-  } as ActivityMetrics);
+  // 서버는 Z7이 없는 레거시 파워 배열을 null로 게시하고 유효한 HR 근거를 보존한다.
+  mocks.windowEntries.push(windowEntry({ powerZoneSec: null, hrZoneSec: [100, 100, 0, 0, 0] }));
   const { result } = renderHook(() => useFitnessModel("bike", options));
   expect(result.current.mobilePageProps.data.zoneSource).toBe("hr");
   expect(result.current.mobilePageProps.data.zones).toHaveLength(5);
   expect(result.current.mobilePageProps.data.zones[0]?.pct).toBe(50);
+  expect(result.current.mobilePageProps.data.zones[1]?.pct).toBe(50);
 });
 
 
@@ -341,7 +347,7 @@ it("복귀 후 같은 목표 구독을 다시 연결할 때 기존 projection을
 it("잘린 윈도는 부분 존·MMP·부하·수영 근거를 전체 합계로 표시하지 않는다", () => {
   seed("bike", [bike]);
   mocks.truncated = true;
-  mocks.metrics.set(bike.id, { powerZoneSec: [100, 0, 0, 0, 0, 0, 100], mmp: { "5s": 900 } } as ActivityMetrics);
+  mocks.windowEntries.push(windowEntry({ powerZoneSec: [100, 0, 0, 0, 0, 0, 100], mmp: { "5s": 900 } }));
   const { result } = renderHook(() => useFitnessModel("bike", options));
   expect(result.current.activityWindowIncomplete).toBe(true);
   expect(result.current.derivedMetricsError).toBe(true);

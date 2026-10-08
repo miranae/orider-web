@@ -65,6 +65,19 @@ describe("fitness entry request budget", () => {
     ]);
     expect(vi.mocked(httpsCallable).mock.calls.some(([, name]) => name === "ensureFitnessCurves")).toBe(false);
   });
+  it("Z7이 없는 레거시 파워가 null인 서버 윈도에서도 유효한 HR 존을 표시한다", async () => {
+    setDocData("users/rider-a/fitness/activity_window", { ...document, entries: [{
+      ...document.entries[0], powerZoneSec: null, hrZoneSec: [100, 100, 0, 0, 0],
+    }] });
+    const { result } = renderHook(() => useFitnessModel("bike", { enableCoachRiderInsight: false }));
+    await waitFor(() => expect(result.current.derivedMetricsSettled).toBe(true));
+    expect(result.current.derivedMetricsError).toBe(false);
+    expect(result.current.mobilePageProps.data.zoneSource).toBe("hr");
+    expect(result.current.mobilePageProps.data.zones.map(zone => zone.pct)).toEqual([50, 50, 0, 0, 0]);
+    const paths = [...vi.mocked(onSnapshot).mock.calls, ...vi.mocked(getDoc).mock.calls]
+      .map(([ref]) => (ref as { path: string }).path);
+    expect(paths.some(path => path?.startsWith("activity_metrics/"))).toBe(false);
+  });
   it("윈도 누락이면 callable 1회 재조회 후 부재를 오류로 종료한다", async () => {
     clearDocData("users/rider-a/fitness/activity_window");
     const { result, rerender } = renderHook(() => useFitnessModel("bike", { enableCoachRiderInsight: false }));
