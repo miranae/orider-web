@@ -119,7 +119,7 @@ describe("usePlanModel", () => {
     expect(result.current.progress).toBe(50);
     expect(collection).toHaveBeenCalledWith(firestore, "goals");
     expect(collection).toHaveBeenCalledWith(firestore, "goals", "goal-run", "plan");
-    expect(mocks.freshTraining).toHaveBeenCalledWith("run", true);
+    expect(mocks.freshTraining).toHaveBeenCalledWith("run", true, true);
     expect(mocks.fitnessTimeseries).not.toHaveBeenCalled();
   });
 
@@ -131,7 +131,7 @@ describe("usePlanModel", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.discipline).toBe("bike");
     expect(result.current.goal).toBeNull();
-    expect(mocks.freshTraining).toHaveBeenCalledWith("bike", true);
+    expect(mocks.freshTraining).toHaveBeenCalledWith("bike", true, true);
     expect(mocks.fitnessTimeseries).not.toHaveBeenCalled();
   });
 
@@ -446,7 +446,7 @@ describe("usePlanModel", () => {
     mocks.freshTraining.mockReturnValue({ revalidating: false, justRecomputed: false, currentTsb: -20 });
     const hook = renderHook(() => usePlanModel("bike"), { wrapper });
     expect(hook.result.current.currentTsb).toBe(-20);
-    expect(mocks.freshTraining).toHaveBeenCalledWith("bike", true);
+    expect(mocks.freshTraining).toHaveBeenCalledWith("bike", true, true);
     expect(mocks.fitnessTimeseries).not.toHaveBeenCalled();
 
     resetRuntimeConfigForTests({ trainingDecisionEnabled: true });

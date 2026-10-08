@@ -254,6 +254,30 @@ describe("useFreshTraining", () => {
     expect(listeners.every(listener => listener.unsubscribe.mock.calls.length === 1)).toBe(true);
   });
 
+  it("숨은 동안 listener를 닫고 복귀하면 재개하며 owner 변경은 상태를 지운다", () => {
+    const listeners = installControlledSnapshots(true);
+    const hook = renderHook(({ active }) => useFreshTraining("bike", false, active),
+      { initialProps: { active: true } });
+    expect(listeners).toHaveLength(3);
+    act(() => listeners[1]!.error(new Error("permission-denied")));
+    expect(hook.result.current.lastStatus).toBe("error");
+    hook.rerender({ active: false });
+    expect(listeners.every(listener => listener.unsubscribe.mock.calls.length === 1)).toBe(true);
+    expect(hook.result.current.lastStatus).toBe("error");
+    hook.rerender({ active: true });
+    expect(listeners).toHaveLength(6);
+    hook.rerender({ active: false });
+    mocks.user = { uid: "owner-b" };
+    hook.rerender({ active: false });
+    act(() => listeners[1]!.error(new Error("late-error")));
+    expect(hook.result.current.lastStatus).toBeNull();
+    expect(hook.result.current.revalidating).toBe(false);
+    expect(listeners).toHaveLength(6);
+    mocks.user = null;
+    hook.rerender({ active: false });
+    expect(hook.result.current.lastStatus).toBeNull();
+  });
+
   it("과거 미확인 부하로 stale이어도 최신 revision 처리가 끝난 통합은 반복 계산하지 않는다", async () => {
     const listeners = installControlledSnapshots();
     const { result } = renderHook(() => useFreshTraining("tri"));

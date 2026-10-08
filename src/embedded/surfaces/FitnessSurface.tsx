@@ -10,15 +10,17 @@ import { useFitnessModel } from "../../hooks/useFitnessModel";
 export interface FitnessSurfaceProps {
   onReady: (status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void;
   retryKey: number;
+  active?: boolean;
 }
 
-export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProps) {
+export default function FitnessSurface({ onReady, retryKey, active = true }: FitnessSurfaceProps) {
   const [searchParams] = useSearchParams();
   const { t: tCommon } = useTranslation("common");
   const model = useFitnessModel(searchParams.get("sport"), {
     // This REST client still owns the normal web Auth/App Check singleton. The embedded
     // surface uses the persisted PDC fallback until that client accepts injected services.
     enableCoachRiderInsight: false,
+    active,
   });
   const settledKeys = useRef(new Set<string>());
   const derivedContentReady = model.derivedMetricsSettled && !model.derivedMetricsError;

@@ -68,7 +68,7 @@ export interface PlanModel {
 }
 
 /** Plan data model shared by the full page and embedded surface. */
-export function usePlanModel(sport?: string | null): PlanModel {
+export function usePlanModel(sport?: string | null, active = true): PlanModel {
   const { firestore } = useFirebaseServices();
   const { user } = useAuth();
   const { i18n } = useTranslation();
@@ -110,7 +110,7 @@ export function usePlanModel(sport?: string | null): PlanModel {
       value: refreshGenerationRef.current.value + 1,
     };
   }
-  const { revalidating, justRecomputed, currentTsb: projectionTsb } = useFreshTraining(discipline, true);
+  const { revalidating, justRecomputed, currentTsb: projectionTsb } = useFreshTraining(discipline, true, active);
   const legacyRecoveryEnabled = getRuntimeConfig().trainingDecisionEnabled !== true;
   const currentTsb = legacyRecoveryEnabled ? projectionTsb : null;
 

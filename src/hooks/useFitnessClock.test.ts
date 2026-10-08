@@ -58,3 +58,17 @@ describe("useFitnessClock", () => {
     expect(vi.getTimerCount()).toBe(1);
   });
 });
+
+
+it("숨은 표면의 시계 갱신을 멈추고 복귀하면 현재 시각으로 갱신한다", () => {
+  vi.useFakeTimers();
+  const start = new Date(2026, 9, 8, 23, 59, 59, 900).getTime();
+  vi.setSystemTime(start);
+  const hook = renderHook(({ active }) => useFitnessClock(undefined, undefined, active),
+    { initialProps: { active: true } });
+  hook.rerender({ active: false });
+  act(() => vi.advanceTimersByTime(200));
+  expect(hook.result.current).toBe(start);
+  hook.rerender({ active: true });
+  expect(hook.result.current).toBe(start + 200);
+});

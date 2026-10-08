@@ -26,7 +26,7 @@ function logCurveError(operation: string) {
   logClientError(`useFitnessCurves.${operation}`, new Error("Fitness curve read failed"));
 }
 
-export function useFitnessCurves(uid: string | null | undefined): FitnessCurves {
+export function useFitnessCurves(uid: string | null | undefined, subscriptionActive = true): FitnessCurves {
   const { firestore, functions, ensureAppCheckReady } = useFirebaseServices();
   const [state, setState] = useState<{ uid: typeof uid; curves: FitnessCurves }>(() => ({ uid, curves: emptyCurves() }));
   // Keep the same request through StrictMode's setup/cleanup replay, and never retry
@@ -34,11 +34,17 @@ export function useFitnessCurves(uid: string | null | undefined): FitnessCurves 
   const ensureRequests = useRef(new Map<string, Promise<boolean>>());
   const currentUid = useRef(uid);
   currentUid.current = uid;
+  const currentSubscriptionActive = useRef(subscriptionActive);
+  currentSubscriptionActive.current = subscriptionActive;
+  const stateOwnerUid = useRef(uid);
 
   useEffect(() => {
     let active = true;
-    setState({ uid, curves: emptyCurves() });
-    if (!uid) return undefined;
+    if (stateOwnerUid.current !== uid || !uid) {
+      stateOwnerUid.current = uid;
+      setState({ uid, curves: emptyCurves() });
+    }
+    if (!subscriptionActive || !uid) return undefined;
 
     const refs = {
       run: doc(firestore, "users", uid, "fitness", "pace_run"),
@@ -69,7 +75,7 @@ export function useFitnessCurves(uid: string | null | undefined): FitnessCurves 
       if (!request) {
         request = Promise.resolve().then(async () => {
           await ensureAppCheckReady();
-          if (currentUid.current !== uid) return false;
+          if (currentUid.current !== uid || !currentSubscriptionActive.current) return false;
           await httpsCallable(functions, "ensureFitnessCurves")({});
           return true;
         });
@@ -123,7 +129,7 @@ export function useFitnessCurves(uid: string | null | undefined): FitnessCurves 
       active = false;
       unsubscribes.forEach((unsubscribe) => unsubscribe());
     };
-  }, [firestore, functions, ensureAppCheckReady, uid]);
+  }, [firestore, functions, ensureAppCheckReady, uid, subscriptionActive]);
 
   return state.uid === uid ? state.curves : emptyCurves();
 }

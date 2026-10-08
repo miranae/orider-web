@@ -84,7 +84,7 @@ function isRetryableListenerError(err: unknown): boolean {
   return /(?:FirebaseError:\s*)?(?:aborted|deadline-exceeded|unavailable)\b/i.test(String(err));
 }
 
-export function useFreshTraining(discipline?: string, projectionOnly = false): FreshTrainingState {
+export function useFreshTraining(discipline?: string, projectionOnly = false, active = true): FreshTrainingState {
   const { user, loading: authLoading } = useAuth();
   const { ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const uid = user?.uid;
@@ -108,9 +108,18 @@ export function useFreshTraining(discipline?: string, projectionOnly = false): F
     userRetryRef.current = { uid, attempted: false };
   }
 
+  const stateOwnerUid = useRef(uid);
+
   // user 문서는 discipline과 무관하므로 사용자 세션 전체에서 구독을 유지한다.
   // 종목 전환 때 이 target까지 불필요하게 release/re-add하지 않는다.
   useEffect(() => {
+    if (stateOwnerUid.current !== uid) {
+      stateOwnerUid.current = uid;
+      userFreshnessRef.current = { uid, ready: false, failed: false, lastIngest: 0 };
+      setRevalidating(false);
+      setJustRecomputed(false);
+      setLastStatus(null);
+    }
     if (authLoading) {
       return;
     }
@@ -122,6 +131,7 @@ export function useFreshTraining(discipline?: string, projectionOnly = false): F
       setProjection(null);
       return;
     }
+    if (!active) return;
     let cancelled = false;
     let listenerFailed = false;
     let unsubscribe: () => void = () => undefined;
@@ -170,12 +180,13 @@ export function useFreshTraining(discipline?: string, projectionOnly = false): F
       cancelled = true;
       unsubscribe();
     };
-  }, [authLoading, firestore, uid, userListenerAttempt, projectionOnly]);
+  }, [active, authLoading, firestore, uid, userListenerAttempt, projectionOnly]);
 
   useEffect(() => {
-    if (authLoading || !uid) return;
+    if (!active || authLoading || !uid) return;
     if (userFreshnessRef.current.uid === uid && userFreshnessRef.current.failed) return;
     const userGeneration = userFreshnessRef.current;
+    if (!active) return;
     let cancelled = false;
     let listenerFailed = false;
     let evaluationStarted = false;
@@ -320,7 +331,7 @@ export function useFreshTraining(discipline?: string, projectionOnly = false): F
       unsubscribe();
       unsubscribeTimeseries();
     };
-  }, [authLoading, discipline, ensureAppCheckReady, firestore, functions, uid, userListenerAttempt, projectionOnly]);
+  }, [active, authLoading, discipline, ensureAppCheckReady, firestore, functions, uid, userListenerAttempt, projectionOnly]);
 
   // justRecomputed가 켜지면 1.5초 후 자동 해제 — "✓ 업데이트 완료" 트랜지언트 표시
   useEffect(() => {
@@ -343,5 +354,7 @@ export function useFreshTraining(discipline?: string, projectionOnly = false): F
     && data.inputInvalidatedAt == null && !("loadSnapshot" in data || "pmc" in data);
   const currentTsb = projectionFresh && typeof data.currentTsb === "number" && Number.isFinite(data.currentTsb)
     ? data.currentTsb : null;
-  return { revalidating, justRecomputed, lastStatus, currentTsb };
+  return stateOwnerUid.current === uid
+    ? { revalidating, justRecomputed, lastStatus, currentTsb }
+    : { revalidating: false, justRecomputed: false, lastStatus: null, currentTsb: null };
 }

@@ -7,7 +7,7 @@
  * Firestore rules: 소유자만 read. uid 없으면 구독 안 함.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
@@ -23,19 +23,27 @@ export type UsePdcState =
 /**
  * @param uid Firebase Auth uid. null/undefined 이면 구독 안 함 (status="loading" 유지).
  */
-export function usePdc(uid: string | null | undefined): UsePdcState {
+export function usePdc(uid: string | null | undefined, active = true): UsePdcState {
   const { firestore } = useFirebaseServices();
   const [state, setState] = useState<UsePdcState>({ status: "loading", pdc: null });
 
+  const ownerUid = useRef(uid);
+  const generationRef = useRef(0);
   useEffect(() => {
+    const generation = ++generationRef.current;
+    if (ownerUid.current !== uid) {
+      setState({ status: "loading", pdc: null });
+      ownerUid.current = uid;
+    }
+    if (!active && uid) return;
     if (!uid) {
       setState({ status: "loading", pdc: null });
       return undefined;
     }
-    setState({ status: "loading", pdc: null });
     const unsub = onSnapshot(
       doc(firestore, "users", uid, "fitness", "pdc_bike"),
       (snap) => {
+        if (generationRef.current !== generation) return;
         if (!snap.exists()) {
           setState({ status: "missing", pdc: null });
           return;
@@ -57,12 +65,16 @@ export function usePdc(uid: string | null | undefined): UsePdcState {
         }
       },
       (err) => {
+        if (generationRef.current !== generation) return;
         logClientError("usePdc", err, { uid });
         setState({ status: "missing", pdc: null });
       },
     );
-    return () => unsub();
-  }, [firestore, uid]);
+    return () => {
+      generationRef.current += 1;
+      unsub();
+    };
+  }, [active, firestore, uid]);
 
-  return state;
+  return ownerUid.current === uid ? state : { status: "loading", pdc: null };
 }

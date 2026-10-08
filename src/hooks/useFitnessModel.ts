@@ -233,16 +233,17 @@ function calculateClientFitness(
 
 export function useFitnessModel(
   sportParam: string | null | undefined,
-  options: { enableCoachRiderInsight?: boolean; decisionId?: string | null } = {},
+  options: { enableCoachRiderInsight?: boolean; decisionId?: string | null; active?: boolean } = {},
 ) {
+  const subscriptionActive = options.active ?? true;
   const { t, i18n } = useTranslation("fitness");
   const durationLabel = makeDurationLabel(t);
   const { user, profile } = useAuth();
-  const canonicalFitness = useCanonicalFitnessSummary("fitnessSummary");
+  const canonicalFitness = useCanonicalFitnessSummary("fitnessSummary", subscriptionActive);
   const canonicalPending = canonicalFitness.rolloutState === "pending";
   const canonicalActive = canonicalFitness.rolloutState === "on";
   const { firestore } = useFirebaseServices();
-  const { entries: ftpHistory } = useFtpHistory(user?.uid);
+  const { entries: ftpHistory } = useFtpHistory(user?.uid, subscriptionActive);
   const { showToast } = useToast();
   const discipline = resolveFitnessDiscipline(sportParam);
   const [range, setRange] = useState<RangeOption | 42>(90);
@@ -272,6 +273,8 @@ export function useFitnessModel(
     key: activityDataKey,
     items: initialCache?.activities ?? [],
   });
+  const loadedActivityKey = useRef<string | null>(null);
+  const activityOwnerKey = useRef(activityDataKey);
   const activities = canonicalPending
     ? []
     : activityState.key === activityDataKey ? activityState.items : [];
@@ -279,10 +282,10 @@ export function useFitnessModel(
     () => discipline === "tri" ? activities : filterByDiscipline(activities, discipline),
     [activities, discipline],
   );
-  const { fitness: userFitness } = useUserFitness(!!user);
+  const { fitness: userFitness } = useUserFitness(!!user, subscriptionActive);
   const latestActivityStart = activities.reduce((latest, activity) => Math.max(latest, activity.startTime), 0);
   const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
-  const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
+  const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey, subscriptionActive);
   // 활동 이력/PMC의 긴 조회 창은 유지하되 metrics는 실제 카드의 최대 소비 창만 읽는다.
   // 파워 비교는 28일 두 구간, 수영 근거는 90일이며 철인은 활동 종목별 창을 적용한다.
   const metricActivities = useMemo(() => activities.filter((activity) => {
@@ -291,7 +294,7 @@ export function useFitnessModel(
     return activity.startTime >= fitnessClock - windowDays * 86_400_000
       && activity.startTime <= fitnessClock;
   }), [activities, discipline, fitnessClock]);
-  const { metricsMap, metricStatusMap } = useActivityDerivedDocuments(user?.uid, metricActivities);
+  const { metricsMap, metricStatusMap } = useActivityDerivedDocuments(user?.uid, metricActivities, subscriptionActive);
   const currentMetricStatuses = (discipline === "tri"
     ? metricActivities
     : filterByDiscipline(metricActivities, discipline)).map((activity) => {
@@ -305,12 +308,16 @@ export function useFitnessModel(
   const [freshLoaded, setFreshLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
-  const [projection, setProjection] = useState<FitnessProjection | null>(null);
+  const [activeGoalState, setActiveGoal] = useState<Goal | null>(null);
+  const [projectionState, setProjection] = useState<FitnessProjection | null>(null);
   const [, setGoalQueryDone] = useState(false);
+  const currentGoalOwnerKey = user && discipline !== "tri" ? `${user.uid}:${discipline}` : null;
+  const goalOwnerKey = useRef(currentGoalOwnerKey);
+  const activeGoal = goalOwnerKey.current === currentGoalOwnerKey ? activeGoalState : null;
+  const projection = goalOwnerKey.current === currentGoalOwnerKey ? projectionState : null;
   const isMobile = useMobile();
-  const { pdc } = usePdc(user?.uid);
-  const { run: runPaceCurve, swim: swimCssCurve } = useFitnessCurves(user?.uid);
+  const { pdc } = usePdc(user?.uid, subscriptionActive);
+  const { run: runPaceCurve, swim: swimCssCurve } = useFitnessCurves(user?.uid, subscriptionActive);
   // 다음 라이드 FTP 브리핑(#837) — 결정 문서를 구독하고 수락만 수행한다.
   // 임베드 표면은 decisionId 를 넘기지 않아 딥링크로 특정 결정을 열지 않는다.
   const {
@@ -321,6 +328,7 @@ export function useFitnessModel(
     uid: user?.uid,
     decisionId: options.decisionId ?? null,
     enabled: discipline === "bike",
+    active: subscriptionActive,
   });
   const riderInsightEnabled = options.enableCoachRiderInsight !== false
     && getRuntimeConfig().coachRiderInsightEnabled === true
@@ -333,7 +341,7 @@ export function useFitnessModel(
     coversSinceMs: Date.now() - (activityQueryRange + 42) * 24 * 60 * 60 * 1000,
     ready: !canonicalPending && !loading && activityState.key === activityDataKey,
   }), [activities, activityQueryRange, canonicalPending, loading, activityState.key, activityDataKey]);
-  const { summary: consistencyStreak } = useConsistencyStreak(user?.uid, streakPreload);
+  const { summary: consistencyStreak } = useConsistencyStreak(user?.uid, streakPreload, subscriptionActive);
   useEffect(() => {
     if (normalizedRange !== range) setRange(normalizedRange);
   }, [normalizedRange, range]);
@@ -360,8 +368,8 @@ export function useFitnessModel(
     }
   }
 
-  const { run: runRecords } = useRunRecords(discipline === "run");
-  const { achieved: milestones, markCelebrated } = useMilestones(discipline === "run");
+  const { run: runRecords } = useRunRecords(discipline === "run", subscriptionActive);
+  const { achieved: milestones, markCelebrated } = useMilestones(discipline === "run", subscriptionActive);
   const [dismissedMilestones, setDismissedMilestones] = useState<ReadonlySet<MilestoneId>>(new Set());
   const pendingMilestone = useMemo(() => {
     for (const milestone of milestones.values()) {
@@ -372,11 +380,18 @@ export function useFitnessModel(
 
   const { revalidating, justRecomputed } = useFreshTraining(
     discipline,
+    false,
+    subscriptionActive,
   );
   const projUnsubRef = useRef<(() => void) | null>(null);
   const projectionGoalIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (activityOwnerKey.current !== activityDataKey) {
+      activityOwnerKey.current = activityDataKey;
+      loadedActivityKey.current = null;
+      setActivityState({ key: activityDataKey, items: [] });
+    }
     if (!user) {
       clearTrainingSurfaceCache();
       setActivityState({ key: null, items: [] });
@@ -394,6 +409,11 @@ export function useFitnessModel(
       setError(null);
       return undefined;
     }
+    prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true);
+    if (!subscriptionActive) {
+      setActivityState((previous) => previous.key === activityDataKey ? previous : { key: activityDataKey, items: [] });
+      return;
+    }
     const uid = user.uid;
     let active = true;
     const nextCacheKey = cacheLocale
@@ -410,9 +430,11 @@ export function useFitnessModel(
     const cached = cacheEnabled
       ? getTrainingSurfaceCache<{ activities: Activity[] }>(nextCacheKey)
       : null;
-    setActivityState({ key: activityDataKey, items: cached?.activities ?? [] });
+    const retaining = loadedActivityKey.current === activityDataKey;
+    if (cached !== null) loadedActivityKey.current = activityDataKey;
+    setActivityState((previous) => previous.key === activityDataKey && retaining ? previous : { key: activityDataKey, items: cached?.activities ?? [] });
     setError(null);
-    setLoading(cached === null);
+    setLoading(!retaining && cached === null);
     setCacheHit(cached !== null);
     setFreshLoaded(false);
     const cutoff = Date.now() - (activityQueryRange + 42) * 24 * 60 * 60 * 1000;
@@ -431,31 +453,32 @@ export function useFitnessModel(
           const items = snapshot.docs
             .map((entry) => ({ id: entry.id, ...entry.data() }) as Activity)
             .filter((activity) => activity.userId === uid);
+          loadedActivityKey.current = activityDataKey;
           setActivityState({ key: activityDataKey, items });
           setLoading(false);
           setFreshLoaded(true);
           if (cacheEnabled) setTrainingSurfaceCache(nextCacheKey, { activities: items });
         } catch (snapshotError) {
-          if (cached === null) {
+          if (cached === null && !retaining) {
             setError(snapshotError instanceof Error ? snapshotError.message : t("error.loadFailed"));
           }
           setLoading(false);
-          setFreshLoaded(cached === null);
+          setFreshLoaded(cached === null && !retaining);
         }
       },
       (subscriptionError) => {
         if (!active) return;
         logClientError("FitnessPage.activitiesSubscription", subscriptionError, { range: activityQueryRange });
-        if (cached === null) setError(t("error.loadFailed"));
+        if (cached === null && !retaining) setError(t("error.loadFailed"));
         setLoading(false);
-        setFreshLoaded(cached === null);
+        setFreshLoaded(cached === null && !retaining);
       },
     );
     return () => {
       active = false;
       unsubscribe();
     };
-  }, [activityDataKey, activityQueryRange, cacheLocale, canonicalPending, discipline, firestore, reloadKey, t, user]);
+  }, [activityDataKey, activityQueryRange, cacheLocale, canonicalPending, discipline, firestore, reloadKey, subscriptionActive, t, user]);
 
   const retryLoad = useCallback(() => {
     setError(null);
@@ -464,9 +487,13 @@ export function useFitnessModel(
   }, []);
 
   useEffect(() => {
-    if (!user || discipline === "tri") return undefined;
-    setActiveGoal(null);
-    setProjection(null);
+    if (goalOwnerKey.current !== currentGoalOwnerKey) {
+      goalOwnerKey.current = currentGoalOwnerKey;
+      setActiveGoal(null);
+      setProjection(null);
+    }
+    if (!subscriptionActive || !user || discipline === "tri") return undefined;
+    let current = true;
     setGoalQueryDone(false);
     if (projUnsubRef.current) {
       projUnsubRef.current();
@@ -482,8 +509,10 @@ export function useFitnessModel(
     const goalUnsubscribe = onSnapshot(
       goalQuery,
       (goalSnapshot) => {
+        if (!current) return;
         if (goalSnapshot.empty) {
           setActiveGoal(null);
+          setProjection(null);
           setGoalQueryDone(true);
           if (projUnsubRef.current) {
             projUnsubRef.current();
@@ -497,11 +526,13 @@ export function useFitnessModel(
         setActiveGoal(nextGoal);
         setGoalQueryDone(true);
         if (projectionGoalIdRef.current !== nextGoal.id) {
+          setProjection((previous) => previous?.goalId === nextGoal.id ? previous : null);
           if (projUnsubRef.current) projUnsubRef.current();
           projectionGoalIdRef.current = nextGoal.id;
           projUnsubRef.current = onSnapshot(
             doc(firestore, "users", user.uid, "fitness", `projection_${discipline}`),
             (snapshot) => {
+              if (!current || projectionGoalIdRef.current !== nextGoal.id) return;
               if (!snapshot.exists()) return;
               const nextProjection = snapshot.data() as FitnessProjection;
               if (nextProjection.goalId === nextGoal.id) setProjection(nextProjection);
@@ -514,11 +545,13 @@ export function useFitnessModel(
         }
       },
       (goalError) => {
+        if (!current) return;
         logClientError("FitnessPage.goalSubscription", goalError, { discipline });
         setGoalQueryDone(true);
       },
     );
     return () => {
+      current = false;
       goalUnsubscribe();
       if (projUnsubRef.current) {
         projUnsubRef.current();
@@ -526,7 +559,7 @@ export function useFitnessModel(
       }
       projectionGoalIdRef.current = null;
     };
-  }, [discipline, firestore, user]);
+  }, [currentGoalOwnerKey, discipline, firestore, subscriptionActive, user]);
 
   const clientFitness = useMemo(
     () => canonicalActive || canonicalPending || discipline === "tri"
@@ -547,6 +580,7 @@ export function useFitnessModel(
     reloadKey,
     cacheLocale ?? undefined,
     user?.isAnonymous === true,
+    subscriptionActive,
   );
   const triUid = discipline === "tri" && !canonicalActive && !canonicalPending ? user?.uid : undefined;
   const {
@@ -555,14 +589,14 @@ export function useFitnessModel(
     error: triRunTimeseriesError,
     cacheHit: triRunTimeseriesCacheHit,
     freshLoaded: triRunTimeseriesFreshLoaded,
-  } = useFitnessTimeseries(triUid, "run", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true);
+  } = useFitnessTimeseries(triUid, "run", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true, subscriptionActive);
   const {
     timeseries: triSwimTimeseries,
     loaded: triSwimTimeseriesLoaded,
     error: triSwimTimeseriesError,
     cacheHit: triSwimTimeseriesCacheHit,
     freshLoaded: triSwimTimeseriesFreshLoaded,
-  } = useFitnessTimeseries(triUid, "swim", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true);
+  } = useFitnessTimeseries(triUid, "swim", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true, subscriptionActive);
   const canonicalProcessing = canonicalActive
     && canonicalFitness.values === null
     && (canonicalFitness.display === null || canonicalFitness.display === "loading");
@@ -672,13 +706,17 @@ export function useFitnessModel(
     : hasCanonicalTimeseries;
   const [pmcHistoryTick, setPmcHistoryTick] = useState(0);
   useEffect(() => {
+    if (subscriptionActive) setPmcHistoryTick(Date.now());
+  }, [subscriptionActive]);
+  useEffect(() => {
+    if (!subscriptionActive) return;
     const now = Date.now();
     const deadlines = [timeseries, triRunTimeseries, triSwimTimeseries]
       .map(pmcHistoryDeadline).filter((deadline): deadline is number => deadline !== null && deadline >= now);
     if (!deadlines.length) return;
     const timer = setTimeout(() => setPmcHistoryTick(Date.now()), Math.min(...deadlines) - now + 1);
     return () => clearTimeout(timer);
-  }, [timeseries, triRunTimeseries, triSwimTimeseries, pmcHistoryTick]);
+  }, [subscriptionActive, timeseries, triRunTimeseries, triSwimTimeseries, pmcHistoryTick]);
   const pmcHistoryPoints = useMemo(() => {
     if (canonicalActive && discipline === "tri") return [];
     const source = (doc: FitnessTimeseriesDoc | null, sport: TimeseriesDiscipline) => doc?.discipline === sport

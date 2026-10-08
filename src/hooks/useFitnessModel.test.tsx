@@ -15,6 +15,9 @@ const mocks = vi.hoisted(() => ({
   status: new Map<string, ActivityMetricStatus>(),
   metrics: new Map<string, ActivityMetrics>(),
   derived: vi.fn(),
+  subscriptionCallbacks: [] as Array<{ path: string; callback: (...args: unknown[]) => void }>,
+  subscriptions: vi.fn(),
+  unsubscribe: vi.fn(),
   snapshot: null as null | ((value: { docs: { id: string; data: () => Activity }[] }) => void),
   timeseries: null as FitnessTimeseriesDoc | null,
 }));
@@ -27,8 +30,10 @@ vi.mock("firebase/firestore", () => ({
   query: (path: string) => path,
   doc: vi.fn(), limit: vi.fn(), orderBy: vi.fn(), where: vi.fn(),
   onSnapshot: (path: string, callback: typeof mocks.snapshot) => {
+    mocks.subscriptions(path);
+    if (callback) mocks.subscriptionCallbacks.push({ path, callback: callback as (...args: unknown[]) => void });
     if (path === "activities") mocks.snapshot = callback;
-    return vi.fn();
+    return mocks.unsubscribe;
   },
 }));
 vi.mock("../features/fitness/useActivityDerivedDocuments", () => ({
@@ -71,6 +76,9 @@ beforeEach(() => {
   mocks.status.clear();
   mocks.metrics.clear();
   mocks.derived.mockClear();
+  mocks.subscriptions.mockClear();
+  mocks.subscriptionCallbacks.length = 0;
+  mocks.unsubscribe.mockClear();
   cache.clearTrainingSurfaceCache();
   setStatus(bike, "loaded");
   setStatus(run, "loaded");
@@ -181,7 +189,7 @@ describe("useFitnessModel", () => {
     expect(result.current.derivedMetricsSettled).toBe(true);
     expect(result.current.derivedMetricsError).toBe(false);
     expect(result.current.disciplineActivities).toEqual([bike]);
-    expect(mocks.derived).toHaveBeenLastCalledWith("rider-a", [bike, run]);
+    expect(mocks.derived).toHaveBeenLastCalledWith("rider-a", [bike, run], true);
   });
   it.each(["loading", "error"] as const)("선택한 자전거의 %s 상태는 유지한다", (state) => {
     seed("bike");
@@ -245,4 +253,88 @@ it("uses valid HR evidence when legacy power zones leave Z7 unknown", () => {
   expect(result.current.mobilePageProps.data.zoneSource).toBe("hr");
   expect(result.current.mobilePageProps.data.zones).toHaveLength(5);
   expect(result.current.mobilePageProps.data.zones[0]?.pct).toBe(50);
+});
+
+
+it("숨으면 활동 구독만 멈추고 복귀하는 동안 기존 활동 UI를 유지한다", () => {
+  const hook = renderHook(({ active }) => useFitnessModel("bike", { ...options, active }),
+    { initialProps: { active: true } });
+  act(() => mocks.snapshot?.({ docs: [{ id: bike.id, data: () => bike }] }));
+  expect(hook.result.current.loading).toBe(false);
+  const subscriptionCount = mocks.subscriptions.mock.calls.length;
+  hook.rerender({ active: false });
+  expect(mocks.subscriptions).toHaveBeenCalledTimes(subscriptionCount);
+  expect(mocks.unsubscribe).toHaveBeenCalled();
+  expect(hook.result.current.activities).toEqual([bike]);
+  hook.rerender({ active: true });
+  expect(mocks.subscriptions.mock.calls.length).toBeGreaterThan(subscriptionCount);
+  expect(hook.result.current.loading).toBe(false);
+  expect(hook.result.current.activities).toEqual([bike]);
+  act(() => mocks.snapshot?.({ docs: [] }));
+  expect(hook.result.current.activities).toEqual([]);
+});
+
+
+it("숨은 계정 전환은 목표를 무효화하고 이전 목표 콜백을 차단한다", () => {
+  const hook = renderHook(({ active }) => useFitnessModel("bike", { ...options, active }),
+    { initialProps: { active: true } });
+  const callback = mocks.subscriptionCallbacks.find(entry => entry.path === "goals")!.callback;
+  act(() => callback({ empty: false, docs: [{ id: "goal-a", data: () => ({ userId: "rider-a", discipline: "bike" }) }] }));
+  expect(hook.result.current.activeGoal?.id).toBe("goal-a");
+  hook.rerender({ active: false });
+  expect(hook.result.current.activeGoal?.id).toBe("goal-a");
+  mocks.user = { uid: "rider-b", isAnonymous: false };
+  hook.rerender({ active: false });
+  act(() => callback({ empty: false, docs: [{ id: "stale-goal", data: () => ({ userId: "rider-a", discipline: "bike" }) }] }));
+  expect(hook.result.current.activeGoal).toBeNull();
+  expect(hook.result.current.projection).toBeNull();
+});
+
+
+it("목표 교체와 빈 목표는 이전 projection을 지우고 늦은 목표 projection을 차단한다", () => {
+  const hook = renderHook(() => useFitnessModel("bike", options));
+  const goal = mocks.subscriptionCallbacks.find(entry => entry.path === "goals")!.callback;
+  act(() => goal({ empty: false, docs: [{ id: "goal-a", data: () => ({ userId: "rider-a", discipline: "bike" }) }] }));
+  const oldProjection = mocks.subscriptionCallbacks.at(-1)!.callback;
+  act(() => oldProjection({ exists: () => true, data: () => ({ goalId: "goal-a" }) }));
+  expect(hook.result.current.projection?.goalId).toBe("goal-a");
+  act(() => goal({ empty: false, docs: [{ id: "goal-b", data: () => ({ userId: "rider-a", discipline: "bike" }) }] }));
+  expect(hook.result.current.projection).toBeNull();
+  act(() => oldProjection({ exists: () => true, data: () => ({ goalId: "goal-a" }) }));
+  expect(hook.result.current.projection).toBeNull();
+  const newProjection = mocks.subscriptionCallbacks.at(-1)!.callback;
+  act(() => newProjection({ exists: () => true, data: () => ({ goalId: "goal-b" }) }));
+  expect(hook.result.current.projection?.goalId).toBe("goal-b");
+  act(() => goal({ empty: true, docs: [] }));
+  expect(hook.result.current.projection).toBeNull();
+  act(() => newProjection({ exists: () => true, data: () => ({ goalId: "goal-b" }) }));
+  expect(hook.result.current.projection).toBeNull();
+});
+
+
+it("fresh snapshot 전 채택한 캐시도 TTL 후 복귀하면 기존 UI를 보존한다", () => {
+  seed("bike", [bike]);
+  const hook = renderHook(({ active }) => useFitnessModel("bike", { ...options, active }),
+    { initialProps: { active: true } });
+  expect(hook.result.current.loading).toBe(false);
+  expect(hook.result.current.activities).toEqual([bike]);
+  hook.rerender({ active: false });
+  const future = Date.now() + 11 * 60 * 1000;
+  vi.spyOn(Date, "now").mockReturnValue(future);
+  hook.rerender({ active: true });
+  expect(hook.result.current.loading).toBe(false);
+  expect(hook.result.current.activities).toEqual([bike]);
+});
+
+
+it("복귀 후 같은 목표 구독을 다시 연결할 때 기존 projection을 보존한다", () => {
+  const hook = renderHook(({ active }) => useFitnessModel("bike", { ...options, active }),
+    { initialProps: { active: true } });
+  const goalSnapshot = { empty: false, docs: [{ id: "goal-a", data: () => ({ userId: "rider-a", discipline: "bike" }) }] };
+  act(() => mocks.subscriptionCallbacks.find(entry => entry.path === "goals")!.callback(goalSnapshot));
+  act(() => mocks.subscriptionCallbacks.at(-1)!.callback({ exists: () => true, data: () => ({ goalId: "goal-a" }) }));
+  hook.rerender({ active: false });
+  hook.rerender({ active: true });
+  act(() => mocks.subscriptionCallbacks.filter(entry => entry.path === "goals").at(-1)!.callback(goalSnapshot));
+  expect(hook.result.current.projection?.goalId).toBe("goal-a");
 });

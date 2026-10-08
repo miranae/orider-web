@@ -65,10 +65,11 @@ const PENDING: CanonicalFitnessSummarySnapshot = {
 
 export function useCanonicalFitnessSummary(
   surface: "homeSummary" | "fitnessSummary" = "homeSummary",
+  active = true,
 ): CanonicalFitnessSummaryState {
   const { user } = useAuth();
   const firebaseServices = useFirebaseServices();
-  const rollout = useCanonicalRollout();
+  const rollout = useCanonicalRollout(active);
   const consumerEnabled = canonicalConsumersEnabled();
   const pending = consumerEnabled && rollout.gateEnabled && rollout.loading;
   const enabled = consumerEnabled && canonicalRolloutAllows(rollout, surface);
@@ -79,6 +80,7 @@ export function useCanonicalFitnessSummary(
   const [reloadKey, setReloadKey] = useState(0);
   // 늦게 도착한 응답이 최신을 덮지 않게 한다 (A→B→A 전환 포함).
   const generation = useRef(0);
+  const paused = useRef(false);
 
   const load = useCallback(async (uid: string, myGeneration: number) => {
     const envelope = await fetchCanonicalFitnessSummary(uid, firebaseServices);
@@ -153,7 +155,13 @@ export function useCanonicalFitnessSummary(
       setState(DISABLED);
       return;
     }
-    setState((previous) => ({
+    if (!active) {
+      paused.current = true;
+      return;
+    }
+    const resuming = paused.current && !uidChanged;
+    paused.current = false;
+    setState((previous) => resuming && previous.ownerUid === uid ? previous : ({
       rolloutState: "on",
       enabled: true,
       values: !uidChanged && previous.enabled ? previous.values : null,
@@ -166,7 +174,7 @@ export function useCanonicalFitnessSummary(
       ownerUid: uid,
     }));
     void load(user.uid, myGeneration);
-  }, [user, load, enabled, pending, reloadKey]);
+  }, [active, user, load, enabled, pending, reloadKey]);
 
   if (pending) return PENDING;
   // effect보다 렌더가 먼저다. A→B 전환 렌더에서 A state를 그대로 반환하면 effect가 지우기
