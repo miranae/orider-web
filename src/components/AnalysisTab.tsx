@@ -130,6 +130,8 @@ interface AnalysisTabProps {
   activityId?: string | null;
   /** 소유자 여부 — CTL 기반 회복 시간 등 개인 컨텍스트에만 쓴다. 지표 읽기 권한은 활동 가시성이 정한다. */
   isOwner?: boolean;
+  /** 모델과 함께 렌더할 때 같은 metrics 문서를 다시 구독하지 않는다. */
+  serverMetrics?: UseActivityMetricsState;
   /** 공개 분석의 지표는 overview presentation이 제공하고 허용된 그래프·랩만 유지한다. */
   canonicalPresentationAvailable?: boolean;
   overviewRecovery?: ActivityOverviewPresentation["recovery"] | null;
@@ -290,14 +292,15 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
 }
 
 export default function AnalysisTab({
-  activityId, isOwner = false, canonicalPresentationAvailable = false, overviewRecovery = null, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams,
+  activityId, isOwner = false, serverMetrics: suppliedServerMetrics, canonicalPresentationAvailable = false, overviewRecovery = null, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams,
   onSelectRunSplit, onViewRunSplitLocation, canViewRunSplitLocation,
   suppressServerPowerMetrics = false, suppressServerHeartRateMetrics = false, suppressServerCadenceMetrics = false,
 }: AnalysisTabProps) {
   // 소유자는 정본(`activity_metrics`), 뷰어는 공개 projection(`activity_metrics_public`) 을 읽는다.
   // rules 는 정본을 owner 로 제한하므로 리터럴 true 를 넘기면 뷰어는 permission-denied 끝에
   // 영원히 "없음" 을 본다 — 훅이 소유 여부로 컬렉션을 고른다.
-  const serverMetrics = useActivityMetrics(activityId ?? null, isOwner);
+  const ownServerMetrics = useActivityMetrics(suppliedServerMetrics === undefined ? activityId ?? null : null, isOwner);
+  const serverMetrics = suppliedServerMetrics ?? ownServerMetrics;
   // 스트림 센서 후보가 신뢰 게이트에서 거부된 채널의 서버 지표는 숨긴다 — 리터럴 false 로 두면 이 억제가 사라진다.
   const sm = useMemo(() => filterInvalidatedServerMetrics(serverMetrics.metrics, {
     power: suppressServerPowerMetrics, heartRate: suppressServerHeartRateMetrics, cadence: suppressServerCadenceMetrics,

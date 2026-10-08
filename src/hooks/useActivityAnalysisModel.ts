@@ -77,6 +77,7 @@ export function useActivityAnalysisModel(
   const { firestore } = firebaseServices;
   const { t } = useTranslation("activity");
   const { user } = useAuth();
+  const userId = user?.uid;
   const { getStreams } = useStrava();
   const [activity, setActivity] = useState<Activity | null>(null);
   const [loadingActivity, setLoadingActivity] = useState(true);
@@ -92,46 +93,59 @@ export function useActivityAnalysisModel(
     setLoadingActivity(true);
     setWattsOverride(null);
     setActivityLoadError(null);
+    setActivityProcessing(false);
 
     let cancelled = false;
     let processingTimer: number | undefined;
+    let attempts = 0;
 
-    getDoc(doc(firestore, "activities", activityId)).then((snap) => {
-      if (cancelled) return;
-      if (snap.exists()) {
-        const data = snap.data();
-        const usableIdentity = typeof data.userId === "string" && data.userId.length > 0
-          && typeof data.type === "string" && data.type.length > 0;
-        const usableSummary = data.summary !== null && typeof data.summary === "object" && !Array.isArray(data.summary);
-        if (!usableSummary && !usableIdentity) {
-          setActivity(null);
-          setActivityProcessing(true);
-          setLoadingActivity(false);
-          processingTimer = window.setTimeout(() => {
-            setActivityReloadKey((key) => key + 1);
-          }, 3000);
-          return;
+    const loadActivity = () => {
+      attempts += 1;
+      return getDoc(doc(firestore, "activities", activityId)).then((snap) => {
+        if (cancelled) return;
+        if (snap.exists()) {
+          const data = snap.data();
+          const usableIdentity = typeof data.userId === "string" && data.userId.length > 0
+            && typeof data.type === "string" && data.type.length > 0;
+          const usableSummary = data.summary !== null && typeof data.summary === "object" && !Array.isArray(data.summary);
+          if (!usableSummary && !usableIdentity) {
+            setActivity(null);
+            setActivityProcessing(true);
+            setLoadingActivity(false);
+            // 첫 조회 포함 최대 6회. 처리 지연은 3→6→12→24→30초로 기다린다.
+            // 상한 뒤에는 기존 오류·재시도 화면으로 전환한다.
+            if (attempts < 6) {
+              processingTimer = window.setTimeout(() => {
+                if (!cancelled) void loadActivity();
+              }, Math.min(3000 * 2 ** (attempts - 1), 30000));
+            } else {
+              setActivityProcessing(false);
+              setActivityLoadError(new Error("Activity processing timeout"));
+            }
+            return;
+          }
+          setActivityProcessing(false);
+          // 누락된 선택 요약이 정상 경로/센서/개요의 조회까지 막지 않는다. 수치 0은 만들지 않는다.
+          setActivity({ id: snap.id, ...data, summary: usableSummary ? data.summary : {} } as Activity);
+        } else {
+          setActivityProcessing(false);
         }
+        setLoadingActivity(false);
+      }).catch((error) => {
+        if (cancelled) return;
+        setActivityLoadError(error);
         setActivityProcessing(false);
-        // 누락된 선택 요약이 정상 경로/센서/개요의 조회까지 막지 않는다. 수치 0은 만들지 않는다.
-        setActivity({ id: snap.id, ...data, summary: usableSummary ? data.summary : {} } as Activity);
-      } else {
-        setActivityProcessing(false);
-      }
-      setLoadingActivity(false);
-    }).catch((error) => {
-      if (cancelled) return;
-      setActivityLoadError(error);
-      setActivityProcessing(false);
-      setLoadingActivity(false);
-      logClientError("ActivityPage.loadActivity", error, { activityId });
-    });
+        setLoadingActivity(false);
+        logClientError("ActivityPage.loadActivity", error, { activityId });
+      });
+    };
+    void loadActivity();
 
     return () => {
       cancelled = true;
       if (processingTimer !== undefined) window.clearTimeout(processingTimer);
     };
-  }, [activityId, activityReloadKey, firestore]);
+  }, [activityId, activityReloadKey, firestore, userId]);
 
   const retryActivity = useCallback(() => {
     setActivityReloadKey((key) => key + 1);
@@ -155,7 +169,7 @@ export function useActivityAnalysisModel(
     && activity.id === activityId
     && !!user
     && activity.userId === user.uid;
-  const serverMetrics = useActivityMetrics(activityId ?? null, isActivityOwner);
+  const serverMetrics = useActivityMetrics(activity?.id === activityId ? activityId ?? null : null, isActivityOwner);
   const overviewActivity = activity as (Activity & Record<string, unknown>) | null;
   const overviewMetrics = serverMetrics.metrics as (NonNullable<typeof serverMetrics.metrics> & Record<string, unknown>) | null;
   // 메트릭 생성 시각이 그대로여도 개인정보·출처·선택 revision 변경은 캐시를 무효화한다.
@@ -305,6 +319,7 @@ export function useActivityAnalysisModel(
     return {
       activityId: activityId ?? null,
       isOwner: isActivityOwner,
+      serverMetrics,
       canonicalPresentationAvailable: overview.response?.status === "available",
       overviewRecovery: overview.response?.status === "available" ? overview.response.presentation.recovery ?? null : null,
       startTime: activity.startTime,
@@ -329,7 +344,7 @@ export function useActivityAnalysisModel(
     hasStreamPowerCandidate,
     isActivityOwner,
     sensorSelectionContext,
-    serverMetrics.metrics,
+    serverMetrics,
     sport,
     suppressServerCadenceMetrics,
     suppressServerHeartRateMetrics,
