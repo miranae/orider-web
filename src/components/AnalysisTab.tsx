@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { ActivityStreams, ActivitySummary, LapData } from "@shared/types";
+import type { ActivityStreams, ActivitySummary } from "@shared/types";
+import type { ActivityAnalysisSummary } from "@shared/analysis/activityAnalysisSummary";
 import type { SplitRow } from "@shared/types/activity-metrics";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
@@ -143,6 +144,7 @@ interface AnalysisTabProps {
   startTime?: number | null;
   /** 랩·센서 표시용. 생리 지표와 분석 컨텍스트는 서버 정본만 사용한다. */
   streams: ActivityStreams;
+  analysisSummary?: ActivityAnalysisSummary;
   summary?: ActivitySummary;
   sport?: "ride" | "run" | "swim" | "other";
   isVirtualPower?: boolean;
@@ -292,7 +294,7 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
 }
 
 export default function AnalysisTab({
-  activityId, isOwner = false, serverMetrics: suppliedServerMetrics, canonicalPresentationAvailable = false, overviewRecovery = null, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams,
+  activityId, isOwner = false, serverMetrics: suppliedServerMetrics, canonicalPresentationAvailable = false, overviewRecovery = null, startTime, streams, analysisSummary, summary, sport, isVirtualPower, virtualPowerParams,
   onSelectRunSplit, onViewRunSplitLocation, canViewRunSplitLocation,
   suppressServerPowerMetrics = false, suppressServerHeartRateMetrics = false, suppressServerCadenceMetrics = false,
 }: AnalysisTabProps) {
@@ -399,7 +401,8 @@ export default function AnalysisTab({
     return { duration: d, watts: pt?.maxPower ?? null, wkg: pt && weightKg ? pt.maxPower / weightKg : null };
   }), [powerCurve, weightKg]);
   // 기질(지방/탄수) 카드는 아직 원시 파워로 웹이 적분한다 — 서버 정본 이전 대상(남은 항목).
-  const laps = streams.laps;
+  const laps = analysisSummary?.laps ?? streams.laps;
+  const caloriesKcal = sm?.caloriesKcal ?? (analysisSummary ? analysisSummary.caloriesFallbackKcal : streams.calories);
 
   // 파워 존 뷰 토글: Coggan 7존 ↔ Seiler 3존
   const [powerZoneView, setPowerZoneView] = useState<"coggan" | "seiler">("coggan");
@@ -487,7 +490,7 @@ export default function AnalysisTab({
       );
 
   if (sport === "run" && sm) {
-    return <div className="space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel metrics={sm as ActivityMetricsDoc} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} /></div>;
+    return <div className="space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel metrics={sm as ActivityMetricsDoc} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} />}</div>;
   }
 
   // 공개 수치·존·파워곡선은 같은 서버 presentation에서 그린다. 기존 허용 그래프/랩은 보존한다.
@@ -495,11 +498,12 @@ export default function AnalysisTab({
     return <div className="space-y-6" data-testid="public-analysis-charts">
       {cyclingDynamicsSection}
       {speedCurve.length > 0 && <div><h3 className="text-[length:var(--fs-sm)] font-semibold mb-3">{t("analysis.section.speedCurve")}</h3><SpeedCurveChart points={speedCurve} /></div>}
-      {laps && laps.length > 0 && <LapTable laps={laps} ftp={null} />}
+      {laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={null} />}
     </div>;
   }
 
-  if (!hasPower && !hasHr && cyclingDynamicsCards.length === 0 && !hasRunAnalysis) {
+  if (!hasPower && !hasHr && cyclingDynamicsCards.length === 0 && !hasRunAnalysis
+    && !laps?.length && caloriesKcal == null && climbRows.length === 0) {
     // 서버 분석 문서가 아직 없거나 로딩 중이면 "스트림 없음" 이 아니다 — 모름을 없음으로 그리지 않는다.
     // kill switch — 서버가 이 면을 껐다. 빈 화면으로 두면 "데이터가 없다" 로 읽힌다.
     if (serverMetrics.status === "disabled") {
@@ -734,7 +738,7 @@ export default function AnalysisTab({
       )}
 
       {/* 케이던스/속도/거리/고도 */}
-      {(cadenceStats.avg != null || speed.avgKph != null || distanceKm != null || elevGain != null || streams.calories != null) && (
+      {(cadenceStats.avg != null || speed.avgKph != null || distanceKm != null || elevGain != null || caloriesKcal != null) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.exerciseData")}</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -750,9 +754,9 @@ export default function AnalysisTab({
             {sport === "run" && sm?.runMetrics?.paceStdDevSec != null && (
               <MetricCard color="aqua" label={t("analysis.metric.paceConsistency")} value={formatPace(sm.runMetrics.paceStdDevSec)} unit="σ" description={t("analysis.metric.paceConsistencyDesc")} tooltip={t("analysis.glossary.paceConsistency")} />
             )}
-            {/* 칼로리는 서버 caloriesKcal 이 정본 — 분석 문서가 없을 때만 업로드 요약(streams.calories) 폴백 (#900) */}
-            {(sm?.caloriesKcal ?? streams.calories) != null && (
-              <MetricCard color="amber" label={t("analysis.metric.calories")} value={Math.round((sm?.caloriesKcal ?? streams.calories) as number).toString()} unit="kcal" tooltip={t("analysis.glossary.calories")} />
+            {/* 확정 지표 → 서버 요약 폴백. 과거 문서만 스트림 칼로리를 쓴다. */}
+            {caloriesKcal != null && (
+              <MetricCard color="amber" label={t("analysis.metric.calories")} value={Math.round(caloriesKcal).toString()} unit="kcal" tooltip={t("analysis.glossary.calories")} />
             )}
           </div>
         </div>
@@ -1078,13 +1082,13 @@ export default function AnalysisTab({
 
       {/* 랩 분석 */}
       {laps && laps.length > 0 && (
-        <LapTable laps={laps} ftp={ftp} />
+        <AnalysisLapTable laps={laps} ftp={ftp} />
       )}
     </div>
   );
 }
 
-function LapTable({ laps, ftp }: { laps: LapData[]; ftp: number | null }) {
+export function AnalysisLapTable({ laps, ftp }: { laps: ActivityAnalysisSummary["laps"]; ftp: number | null }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
   const M_PER_MI = 1609.344;
@@ -1110,28 +1114,28 @@ function LapTable({ laps, ftp }: { laps: LapData[]; ftp: number | null }) {
             </tr>
           </thead>
           <tbody>
-            {laps.map((l) => {
-              const sec = l.durationMs / 1000;
-              const pacePerKm = l.distanceKm > 0 ? sec / l.distanceKm : 0;
+            {laps.map((l, index) => {
+              const sec = l.durationMs == null ? null : l.durationMs / 1000;
+              const pacePerKm = sec != null && l.distanceKm != null && l.distanceKm > 0 ? sec / l.distanceKm : 0;
               return (
-                <tr key={l.number} className="border-t" style={{ borderColor: 'var(--bg-3)' }}>
-                  <td className="px-3 py-2" style={{ color: 'var(--ink-1)' }}>{l.number}</td>
-                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{formatDuration(sec)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>{distVal(l.distanceKm)} {distUnit}</td>
+                <tr key={l.number ?? index} className="border-t" style={{ borderColor: 'var(--bg-3)' }}>
+                  <td className="px-3 py-2" style={{ color: 'var(--ink-1)' }}>{l.number ?? "—"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{sec == null ? "—" : formatDuration(sec)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>{l.distanceKm == null ? "—" : `${distVal(l.distanceKm)} ${distUnit}`}</td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                    {l.avgSpeed > 0 ? `${speedVal(l.avgSpeed * 3.6)} ${speedUnit}` : pacePerKm > 0 ? `${formatPace(pacePerKm)}/km` : "-"}
+                    {l.avgSpeed != null && l.avgSpeed > 0 ? `${speedVal(l.avgSpeed * 3.6)} ${speedUnit}` : pacePerKm > 0 ? `${formatPace(pacePerKm)}/km` : "-"}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>
-                    {l.avgPower > 0 ? `${Math.round(l.avgPower)}W` : "-"}
+                    {l.avgPower != null && l.avgPower > 0 ? `${Math.round(l.avgPower)}W` : "-"}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                    {l.avgPower > 0 && ftp != null && ftp > 0 ? `${Math.round((l.avgPower / ftp) * 100)}%` : "-"}
+                    {l.avgPower != null && l.avgPower > 0 && ftp != null && ftp > 0 ? `${Math.round((l.avgPower / ftp) * 100)}%` : "-"}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                    {l.avgHeartRate > 0 ? `${Math.round(l.avgHeartRate)}` : "-"}
+                    {l.avgHeartRate != null && l.avgHeartRate > 0 ? `${Math.round(l.avgHeartRate)}` : "-"}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                    {l.avgCadence > 0 ? `${Math.round(l.avgCadence)}` : "-"}
+                    {l.avgCadence != null && l.avgCadence > 0 ? `${Math.round(l.avgCadence)}` : "-"}
                   </td>
                 </tr>
               );

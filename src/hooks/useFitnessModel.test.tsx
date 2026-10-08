@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   status: new Map<string, ActivityMetricStatus>(),
   metrics: new Map<string, ActivityMetrics>(),
   derived: vi.fn(),
+  windowLoaded: true, windowError: false, truncated: false,
   subscriptionCallbacks: [] as Array<{ path: string; callback: (...args: unknown[]) => void }>,
   subscriptions: vi.fn(),
   unsubscribe: vi.fn(),
@@ -47,6 +48,11 @@ vi.mock("./useMobile", () => ({ useMobile: () => false }));
 vi.mock("./usePdc", () => ({ usePdc: () => ({ pdc: null }) }));
 vi.mock("../features/fitness/useFitnessCurves", () => ({ useFitnessCurves: () => ({
   run: { recent28: [], prev28: [] }, swim: { recent28: [], prev28: [] },
+  activityWindowLoaded: mocks.windowLoaded, activityWindowError: mocks.windowError,
+  activityWindow: { version: 1, windowDays: 90, maxEntries: 768, generation: 1, updatedAt: Date.now(), truncated: mocks.truncated,
+    entries: [...mocks.metrics].map(([id, metrics]) => ({ activityId: id, startTime: Date.now(), activityType: "Ride", discipline: "bike",
+      hrZoneSec: metrics.hrZoneSec ?? null, powerZoneSec: metrics.powerZoneSec ?? null, mmp: metrics.mmp ?? {},
+      swolf: null, distancePerStroke: null, loadFocus: { load: 0, source: "unclassified", allocations: [], hasAnaerobicBikeDetail: false } })) },
 }) }));
 vi.mock("./useBikeFtpDecision", () => ({ useBikeFtpDecision: () => ({ decision: null }) }));
 vi.mock("./useCoachRiderInsight", () => ({ useCoachRiderInsight: () => ({ insight: null }) }));
@@ -75,6 +81,7 @@ beforeEach(() => {
   mocks.timeseries = null;
   mocks.status.clear();
   mocks.metrics.clear();
+  mocks.windowLoaded = true; mocks.windowError = false; mocks.truncated = false;
   mocks.derived.mockClear();
   mocks.subscriptions.mockClear();
   mocks.subscriptionCallbacks.length = 0;
@@ -182,26 +189,18 @@ describe("useFitnessModel", () => {
     expect(result.current.fitnessData.some((point) => point.ctl === 99999)).toBe(false);
     expect(result.current.mobilePageProps.pmcHistoryCanonical).toBe(false);
   });
-  it.each(["loading", "error"] as const)("자전거 분석은 러닝 %s 상태에 막히지 않는다", (state) => {
+  it("활동별 지표 hook을 사용하지 않는다", () => {
     seed("bike");
-    setStatus(run, state);
     const { result } = renderHook(() => useFitnessModel("bike", options));
     expect(result.current.derivedMetricsSettled).toBe(true);
     expect(result.current.derivedMetricsError).toBe(false);
-    expect(result.current.disciplineActivities).toEqual([bike]);
-    expect(mocks.derived).toHaveBeenLastCalledWith("rider-a", [bike, run], true);
+    expect(mocks.derived).not.toHaveBeenCalled();
   });
-  it.each(["loading", "error"] as const)("선택한 자전거의 %s 상태는 유지한다", (state) => {
+  it.each(["loading", "error"] as const)("서버 윈도의 %s 상태를 전달한다", state => {
     seed("bike");
-    setStatus(bike, state);
+    mocks.windowLoaded = state !== "loading";
+    mocks.windowError = state === "error";
     const { result } = renderHook(() => useFitnessModel("bike", options));
-    expect(result.current.derivedMetricsSettled).toBe(state !== "loading");
-    expect(result.current.derivedMetricsError).toBe(state === "error");
-  });
-  it.each(["loading", "error"] as const)("철인은 러닝 %s 상태도 합산한다", (state) => {
-    seed("tri");
-    setStatus(run, state);
-    const { result } = renderHook(() => useFitnessModel("tri", options));
     expect(result.current.derivedMetricsSettled).toBe(state !== "loading");
     expect(result.current.derivedMetricsError).toBe(state === "error");
   });
@@ -337,4 +336,25 @@ it("복귀 후 같은 목표 구독을 다시 연결할 때 기존 projection을
   hook.rerender({ active: true });
   act(() => mocks.subscriptionCallbacks.filter(entry => entry.path === "goals").at(-1)!.callback(goalSnapshot));
   expect(hook.result.current.projection?.goalId).toBe("goal-a");
+});
+
+it("잘린 윈도는 부분 존·MMP·부하·수영 근거를 전체 합계로 표시하지 않는다", () => {
+  seed("bike", [bike]);
+  mocks.truncated = true;
+  mocks.metrics.set(bike.id, { powerZoneSec: [100, 0, 0, 0, 0, 0, 100], mmp: { "5s": 900 } } as ActivityMetrics);
+  const { result } = renderHook(() => useFitnessModel("bike", options));
+  expect(result.current.activityWindowIncomplete).toBe(true);
+  expect(result.current.derivedMetricsError).toBe(true);
+  expect(result.current.integratedLoadFocus).toBeNull();
+  expect(result.current.metricsMap.size).toBe(0);
+  expect(result.current.zoneDistribution).toBeNull();
+  expect(result.current.powerCurveProgressions.every(period => period.points.length === 0)).toBe(true);
+  expect(result.current.mobilePageProps.data.zoneSource).toBe("none");
+});
+
+it("활동 경로와 thumbnail은 상태 및 계정별 캐시에 넣지 않는다", () => {
+  const hook = renderHook(() => useFitnessModel("bike", options));
+  act(() => mocks.snapshot!({ docs: [{ id: bike.id, data: () => ({ ...bike, thumbnailTrack: [[1, 2]], track: [[3, 4]] }) as Activity }] }));
+  expect(hook.result.current.activities).toEqual([bike]);
+  expect(cache.getTrainingSurfaceCache<{activities: Activity[]}>({uid: "rider-a", surface: "fitness", sport: "bike", locale: "ko", range: 90})?.activities).toEqual([bike]);
 });

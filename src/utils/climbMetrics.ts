@@ -11,6 +11,7 @@ export interface ClimbTableRow {
   durationSec: number | null;
   /** 활동 시작부터 클라임 시작 지점까지의 경과 시간. */
   entrySec: number | null;
+  endSec: number | null;
   vam: number | null;
   avgPower: number | null;
   wPerKg: number | null;
@@ -174,7 +175,8 @@ function normalizeServerClimb(value: unknown, streams?: ClimbTimeStreams): Climb
     avgGrade: climb.avgGrade,
     category: validCategory(climb.category) ? climb.category : null,
     durationSec: positiveOrNull(climb.durationSec),
-    entrySec: climbEntrySec(climb.startKm, streams),
+    entrySec: climb.entrySec !== undefined ? nonNegativeOrNull(climb.entrySec) : climbEntrySec(climb.startKm, streams),
+    endSec: climb.endSec !== undefined ? nonNegativeOrNull(climb.endSec) : climbEntrySec(climb.startKm + climb.lengthKm, streams),
     vam: positiveOrNull(climb.vam),
     avgPower: nonNegativeOrNull(climb.avgPower),
     wPerKg: nonNegativeOrNull(climb.wPerKg),
@@ -202,6 +204,7 @@ export function buildClimbTableRows(
     ...climb,
     category: fallbackCategory(climb.lengthKm, climb.avgGrade),
     entrySec: climbEntrySec(climb.startKm, streams),
+    endSec: climbEntrySec(climb.startKm + climb.lengthKm, streams),
     avgPower: null,
     wPerKg: null,
   }));

@@ -2,6 +2,7 @@ import { act, render, renderHook, screen, waitFor } from "@testing-library/react
 import { collection, getDoc, onSnapshot } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ActivityAnalysisSummary } from "@shared/analysis/activityAnalysisSummary";
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { setDocData } from "../__tests__/mocks/firebase";
@@ -113,6 +114,155 @@ describe("useActivityAnalysisModel", () => {
     vi.mocked(getDoc).mockClear();
     vi.mocked(onSnapshot).mockClear();
     vi.mocked(collection).mockClear();
+  });
+
+
+  const analysisSummary: ActivityAnalysisSummary = {
+    schemaVersion: 1,
+    laps: [{ number: 4, distanceKm: 1, durationMs: 100_000, avgSpeed: 10, avgHeartRate: 150 }, {}],
+    caloriesFallbackKcal: 42.4,
+    hasAnalysisStreams: true,
+    sensors: {
+      hasHeartRateStream: true, hasRejectedHeartRateStream: false,
+      hasCadenceStream: false, hasRejectedCadenceStream: false,
+      hasPowerStream: false, hasRejectedPowerStream: true, hasReliablePower: false,
+      averageHeartRate: 150, maxHeartRate: 170, averageCadence: null, maxCadence: null,
+      averagePower: null, maxPower: null, heartRateSource: "sensorStreamsV1", powerSource: null,
+      rejections: [{ channel: "power", source: "sensorStreamsV1", reason: "duration_mismatch" }],
+    },
+    correctedAverages: {
+      averageHeartRate: 150, maxHeartRate: 170, averageCadence: null, maxCadence: null,
+      averagePower: null, maxPower: null, normalizedPower: null, tss: null,
+    },
+  };
+  const streamReads = () => vi.mocked(getDoc).mock.calls.filter(([ref]) => (
+    ref as unknown as { path: string }
+  ).path.startsWith("activity_streams/"));
+
+  it("uses final owner summary with zero stream reads and loads only on explicit demand", async () => {
+    const activity = makeActivity("orider_summary");
+    seedActivity(activity);
+    setDocData(`activity_metrics/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, analysisSummary, avgHr: 150 });
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.analysisTabProps?.analysisSummary).toEqual(analysisSummary));
+    expect(streamReads()).toHaveLength(0);
+    expect(mocks.getStreams).not.toHaveBeenCalled();
+    expect(result.current.streams).toBeNull();
+    expect(result.current.hasAnalysisStreams).toBe(true);
+    expect(result.current.displayedSummary).toMatchObject(analysisSummary.correctedAverages);
+    expect(result.current.analysisTabProps?.suppressServerPowerMetrics).toBe(true);
+    render(<AnalysisTab {...result.current.analysisTabProps!} />);
+    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.getByText("36.0 km/h")).toBeInTheDocument();
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
+    await act(async () => { result.current.requestStreams(); });
+    await waitFor(() => expect(result.current.streams).not.toBeNull());
+    await act(async () => { result.current.requestStreams(); });
+    expect(streamReads()).toHaveLength(1);
+    // 기온/차트용 스트림을 읽어도 확정 센서 판정·랩은 서버 요약을 유지한다.
+    expect(result.current.displayedSummary?.averagePower).toBeNull();
+    expect(result.current.analysisTabProps?.analysisSummary).toEqual(analysisSummary);
+  });
+
+  it("reads v3 nested final summaries without loading provider streams", async () => {
+    const activity = { ...makeActivity("strava_12345"), source: "strava", stravaActivityId: 12345 } as Activity;
+    seedActivity(activity);
+    setDocData(`activity_metrics/${activity.id}`, { schemaVersion: 3, status: "final", metrics: { version: ACTIVITY_METRICS_VERSION, analysisSummary } });
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.analysisTabProps?.analysisSummary).toEqual(analysisSummary));
+    expect(mocks.getStreams).not.toHaveBeenCalled();
+    expect(streamReads()).toHaveLength(0);
+  });
+
+  it("preserves final v3 stale metadata and payload version", async () => {
+    const activity = makeActivity("orider_v3_stale_summary");
+    seedActivity(activity);
+    setDocData(`activity_metrics/${activity.id}`, { schemaVersion: 3, status: "final", stale: true,
+      version: 999, metrics: { version: ACTIVITY_METRICS_VERSION, analysisSummary } });
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.analysisTabProps?.analysisSummary).toEqual(analysisSummary));
+    expect(result.current.serverMetrics.status).toBe("stale");
+    expect(result.current.serverMetrics.metrics?.version).toBe(ACTIVITY_METRICS_VERSION);
+    expect(streamReads()).toHaveLength(0);
+  });
+
+  it("does not fall back before the first metrics snapshot resolves", async () => {
+    const activity = makeActivity("orider_delayed_summary");
+    seedActivity(activity);
+    const original = vi.mocked(onSnapshot).getMockImplementation()!;
+    let deliver!: () => void;
+    const snapshotSpy = vi.mocked(onSnapshot).mockImplementation((...args: Parameters<typeof onSnapshot>) => {
+      if ((args[0] as unknown as { path: string }).path === `activity_metrics/${activity.id}`) {
+        deliver = () => { original(...args); };
+        return () => {};
+      }
+      return original(...args);
+    });
+    try {
+      const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+      await waitFor(() => expect(result.current.activity?.id).toBe(activity.id));
+      expect(result.current.serverMetrics.status).toBe("loading");
+      expect(streamReads()).toHaveLength(0);
+      await act(async () => {
+        setDocData(`activity_metrics/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, analysisSummary });
+        deliver();
+      });
+      expect(result.current.analysisTabProps?.analysisSummary).toEqual(analysisSummary);
+      expect(streamReads()).toHaveLength(0);
+    } finally {
+      snapshotSpy.mockImplementation(original);
+    }
+  });
+
+  it.each(["pending", "invalid", "unknown"])("never serves a v3 %s payload containing a summary", async (status) => {
+    const activity = makeActivity(`orider_v3_${status}`);
+    seedActivity(activity);
+    setDocData(`activity_metrics/${activity.id}`, { schemaVersion: 3, status, version: ACTIVITY_METRICS_VERSION, metrics: { analysisSummary } });
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.activity?.id).toBe(activity.id));
+    expect(result.current.serverMetrics.metrics).toBeNull();
+    expect(result.current.analysisTabProps?.analysisSummary).toBeUndefined();
+    if (status === "pending") expect(streamReads()).toHaveLength(0);
+  });
+
+  it("uses corrected nulls with no server sensor candidates", async () => {
+    const activity = makeActivity("orider_no_sensor_summary");
+    seedActivity(activity);
+    const summary = { ...analysisSummary, sensors: null };
+    setDocData(`activity_metrics/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, analysisSummary: summary });
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.analysisTabProps?.analysisSummary).toEqual(summary));
+    expect(result.current.avgPowerValue).toBeNull();
+    expect(result.current.normalizedPowerValue).toBeNull();
+    expect(streamReads()).toHaveLength(0);
+  });
+
+  it("waits for metrics and rejects provisional summaries before final arrival", async () => {
+    const activity = makeActivity("orider_pending_summary");
+    seedActivity(activity);
+    setDocData(`activity_metrics/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, inputPending: true, analysisSummary });
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.serverMetrics.metrics?.inputPending).toBe(true));
+    expect(result.current.analysisTabProps).toBeNull();
+    expect(streamReads()).toHaveLength(0);
+    await act(async () => { setDocData(`activity_metrics/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, inputPending: false, analysisSummary }); });
+    expect(result.current.analysisTabProps?.analysisSummary).toEqual(analysisSummary);
+    expect(streamReads()).toHaveLength(0);
+  });
+
+  it("falls back for historical metrics and never reuses an explicit request across accounts", async () => {
+    const activity = makeActivity("orider_historical_summary");
+    seedActivity(activity);
+    setDocData(`activity_metrics/${activity.id}`, { version: ACTIVITY_METRICS_VERSION });
+    const { result, rerender } = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.streams).not.toBeNull());
+    expect(streamReads()).toHaveLength(1);
+    await act(async () => { setDocData(`activity_metrics/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, analysisSummary }); });
+    await act(async () => { result.current.requestStreams(); });
+    await waitFor(() => expect(result.current.streams).not.toBeNull());
+    mocks.user = { uid: "viewer" };
+    rerender();
+    expect(result.current.streams).toBeNull();
   });
 
   it("loads an owner activity and inline streams into complete AnalysisTab props", async () => {

@@ -51,6 +51,7 @@ import TodayTrainingDecisionCard, { TodayTrainingDecisionSource } from "../featu
 import type { TodayTrainingDecisionState } from "../hooks/useTodayTrainingDecision";
 import { useFitnessModel, type FitnessModel } from "../hooks/useFitnessModel";
 import CanonicalFitnessNotice from "../features/fitness/components/CanonicalFitnessNotice";
+import FitnessActivityWindowNotice from "../features/fitness/components/FitnessActivityWindowNotice";
 import { Card, Chip, Text, buttonClass } from "../theme/components";
 import { getDisciplineColor } from "../utils/disciplineFilter";
 import { toLocalDate, toUtcDate } from "../utils/dateUtils";
@@ -233,6 +234,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
       <div>
         <div className="site-shell" style={{ padding: "var(--space-4) var(--space-6) 0" }}>
           <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
+          <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
         </div>
         <TriFitnessView
           range={range}
@@ -272,6 +274,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
       return (
         <>
           <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
+          <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
           <MobileFitnessPage
             {...model.mobilePageProps}
             embedded={embedded}
@@ -450,6 +453,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
 
       <div className="site-shell" style={bodyPad}>
         <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
+        <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
         {discipline !== "tri" && currentPoint && (
           <FitnessCoachBriefing
             key={`${discipline}-${currentPoint.date}`}

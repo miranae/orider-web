@@ -48,6 +48,7 @@ export interface ActivityAnalysisModel {
   showStreamSpinner: boolean;
   streamsError: string | null;
   retryStreams: () => Promise<void>;
+  requestStreams: () => void;
   serverMetrics: ReturnType<typeof useActivityMetrics>;
   overview: ReturnType<typeof useActivityOverview>;
   isActivityOwner: boolean;
@@ -151,9 +152,21 @@ export function useActivityAnalysisModel(
     setActivityReloadKey((key) => key + 1);
   }, []);
 
+  const isActivityOwner = !!activity
+    && activity.id === activityId
+    && !!user
+    && activity.userId === user.uid;
+  const serverMetrics = useActivityMetrics(activity?.id === activityId ? activityId ?? null : null, isActivityOwner);
+  // 확정 소유자 요약이 오기 전에는 스트림을 요청하지 않는다. 과거 문서만 기존 경로로 폴백한다.
+  const serverAnalysisSummary = isActivityOwner
+    && serverMetrics.metrics?.inputPending !== true
+    && serverMetrics.metrics?.inputCoverage !== "pending"
+    && serverMetrics.metrics?.analysisSummary?.schemaVersion === 1
+    ? serverMetrics.metrics.analysisSummary : null;
   const {
     streams,
     retryStreams,
+    requestStreams,
     showStreamSpinner,
     streamsError,
     loadingStreams,
@@ -163,13 +176,14 @@ export function useActivityAnalysisModel(
     userId: user?.uid,
     getStreams,
     t,
+    enabled: !!activity && (!isActivityOwner || (
+      serverMetrics.status !== "loading" && serverMetrics.status !== "disabled"
+      && serverMetrics.metrics?.inputPending !== true
+      && serverMetrics.metrics?.inputCoverage !== "pending"
+      && !serverAnalysisSummary
+    )),
   });
 
-  const isActivityOwner = !!activity
-    && activity.id === activityId
-    && !!user
-    && activity.userId === user.uid;
-  const serverMetrics = useActivityMetrics(activity?.id === activityId ? activityId ?? null : null, isActivityOwner);
   const overviewActivity = activity as (Activity & Record<string, unknown>) | null;
   const overviewMetrics = serverMetrics.metrics as (NonNullable<typeof serverMetrics.metrics> & Record<string, unknown>) | null;
   // 메트릭 생성 시각이 그대로여도 개인정보·출처·선택 revision 변경은 캐시를 무효화한다.
@@ -228,8 +242,10 @@ export function useActivityAnalysisModel(
     [activity?.startTime, powerOverrideProvenance, selectionSummary],
   );
   const streamSensorSummary = useMemo(
-    () => deriveStreamSensorSummary(effectiveStreams, sensorSelectionContext),
-    [effectiveStreams, sensorSelectionContext],
+    () => serverAnalysisSummary && !activePowerOverride
+      ? serverAnalysisSummary.sensors
+      : deriveStreamSensorSummary(effectiveStreams, sensorSelectionContext),
+    [activePowerOverride, effectiveStreams, sensorSelectionContext, serverAnalysisSummary],
   );
   const rejectionLogState = useRef(createSensorRejectionLogState());
 
@@ -256,7 +272,8 @@ export function useActivityAnalysisModel(
     () => buildActivityAnalysisProjection(effectiveStreams, sensorSelectionContext),
     [effectiveStreams, sensorSelectionContext],
   );
-  const hasAnalysisStreams = !!effectiveStreams && (
+  const hasAnalysisStreams = serverAnalysisSummary && !activePowerOverride
+    ? serverAnalysisSummary.hasAnalysisStreams : !!effectiveStreams && (
     !!streamSensorSummary?.hasReliablePower
     || streamSensorSummary?.averageHeartRate != null
     || (effectiveStreams.distance?.length ?? 0) > 0
@@ -264,6 +281,9 @@ export function useActivityAnalysisModel(
   );
   const displayedSummary = useMemo(() => {
     const summary = activity?.summary;
+    if (summary && serverAnalysisSummary && !activePowerOverride) {
+      return { ...summary, ...serverAnalysisSummary.correctedAverages };
+    }
     if (!summary || !effectiveStreams || !streamSensorSummary) return summary ?? null;
     const hasHeartRateCandidate = streamSensorSummary.hasHeartRateStream
       || streamSensorSummary.hasRejectedHeartRateStream;
@@ -288,25 +308,43 @@ export function useActivityAnalysisModel(
       normalizedPower: hasStreamPowerCandidate ? null : summary.normalizedPower,
       tss: hasStreamPowerCandidate ? null : summary.tss,
     };
-  }, [activity?.summary, effectiveStreams, hasStreamCadenceCandidate, hasStreamPowerCandidate, streamSensorSummary]);
+  }, [activePowerOverride, activity?.summary, effectiveStreams, hasStreamCadenceCandidate, hasStreamPowerCandidate, serverAnalysisSummary, streamSensorSummary]);
 
-  const avgPowerValue = effectiveStreams && hasStreamPowerCandidate
+  const avgPowerValue = serverAnalysisSummary && !activePowerOverride
+    ? displayedSummary?.averagePower ?? null
+    : effectiveStreams && hasStreamPowerCandidate
     ? streamSensorSummary?.averagePower ?? null
     : activity?.summary.averagePower ?? activity?.avgPower ?? null;
-  const normalizedPowerValue = effectiveStreams && hasStreamPowerCandidate
+  const normalizedPowerValue = serverAnalysisSummary && !activePowerOverride
+    ? displayedSummary?.normalizedPower ?? null
+    : effectiveStreams && hasStreamPowerCandidate
     ? null
     : activity?.summary.normalizedPower ?? activity?.weightedAvgPower ?? null;
 
+  const [previewRequested, setPreviewRequested] = useState(false);
+  useEffect(() => { setPreviewRequested(false); }, [activityId, userId]);
   const recalculateVirtualPowerPreview = useCallback(() => {
     // 이 활동의 자전거를 모르면 다시 계산하지 않는다 — 추측한 파워는 데이터가 아니다.
-    if (!activityId || !isActivityOwner || !activityBike || !streams) return;
+    if (!activityId || !isActivityOwner || !activityBike) return;
+    if (!streams) {
+      setPreviewRequested(true);
+      requestStreams();
+      return;
+    }
     setWattsOverride(createActivityPowerOverride(
       activityId,
       streams,
       activityBike.virtualPower,
     ));
-  }, [activityBike, activityId, isActivityOwner, streams]);
+  }, [activityBike, activityId, isActivityOwner, requestStreams, streams]);
+  useEffect(() => {
+    if (previewRequested && streams) {
+      setPreviewRequested(false);
+      recalculateVirtualPowerPreview();
+    }
+  }, [previewRequested, recalculateVirtualPowerPreview, streams]);
   const revertVirtualPowerPreview = useCallback(() => {
+    setPreviewRequested(false);
     setWattsOverride(null);
   }, []);
 
@@ -315,7 +353,7 @@ export function useActivityAnalysisModel(
   }, [activePowerOverride, wattsOverride]);
 
   const analysisTabProps = useMemo<AnalysisTabProps | null>(() => {
-    if (!activity || (!analysisProjection && sport !== "run") || !displayedSummary) return null;
+    if (!activity || (!analysisProjection && !serverAnalysisSummary && sport !== "run") || !displayedSummary) return null;
     return {
       activityId: activityId ?? null,
       isOwner: isActivityOwner,
@@ -324,6 +362,7 @@ export function useActivityAnalysisModel(
       overviewRecovery: overview.response?.status === "available" ? overview.response.presentation.recovery ?? null : null,
       startTime: activity.startTime,
       streams: analysisProjection?.streams ?? { userId: activity.userId, time: [], distance: [] },
+      analysisSummary: activePowerOverride ? undefined : serverAnalysisSummary ?? undefined,
       summary: resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics),
       sport,
       suppressServerPowerMetrics,
@@ -345,6 +384,7 @@ export function useActivityAnalysisModel(
     isActivityOwner,
     sensorSelectionContext,
     serverMetrics,
+    serverAnalysisSummary,
     sport,
     suppressServerCadenceMetrics,
     suppressServerHeartRateMetrics,
@@ -364,6 +404,7 @@ export function useActivityAnalysisModel(
     showStreamSpinner,
     streamsError,
     retryStreams,
+    requestStreams,
     serverMetrics,
     overview,
     isActivityOwner,

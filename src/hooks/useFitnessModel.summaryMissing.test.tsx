@@ -22,6 +22,7 @@ vi.mock("./useMobile", () => ({ useMobile: () => false }));
 vi.mock("./usePdc", () => ({ usePdc: () => ({ pdc: null }) }));
 vi.mock("../features/fitness/useFitnessCurves", () => ({ useFitnessCurves: () => ({
   run: { recent28: [], prev28: [] }, swim: { recent28: [], prev28: [] },
+  activityWindow: null, activityWindowLoaded: true, activityWindowError: false,
 }) }));
 vi.mock("./useBikeFtpDecision", () => ({ useBikeFtpDecision: () => ({ decision: null }) }));
 vi.mock("./useCoachRiderInsight", () => ({ useCoachRiderInsight: () => ({ insight: null }) }));
@@ -49,74 +50,16 @@ function seed(activities: Activity[]) {
 beforeEach(()=>{clearTrainingSurfaceCache();mocks.timeseries=null;vi.mocked(getDoc).mockClear();});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 describe("retained activity without raw summary",()=>{
-  it.each([
-    { sport: "bike", type: "Ride", days: 56 },
-    { sport: "run", type: "Run", days: 56 },
-    { sport: "swim", type: "Swim", days: 90 },
-  ])("$sport reads metrics only inside its $days-day consumer window", async ({ sport, type, days }) => {
-    const now = Date.parse("2026-10-08T12:00:00Z");
-    vi.spyOn(Date, "now").mockReturnValue(now);
-    const cutoff = now - days * 86_400_000;
-    const activities = [
-      { ...activity(null, `${sport}-recent`), type, startTime: now },
-      { ...activity(null, `${sport}-boundary`), type, startTime: cutoff },
-      { ...activity(null, `${sport}-old`), type, startTime: cutoff - 1 },
-      { ...activity(null, `${sport}-future`), type, startTime: now + 1 },
-    ];
-    seed(activities);
+  it.each(["bike", "run", "swim", "tri"])("%s 체력은 활동별 metrics를 읽지 않고 게시된 부하를 유지한다", async sport => {
+    const a = activity(null);
+    seed([a]);
     const hook = renderHook(() => useFitnessModel(sport, options));
-    await waitFor(() => expect(hook.result.current.metricsMap.size).toBe(2));
-    const paths = vi.mocked(getDoc).mock.calls.map(([ref]) => (ref as { path: string }).path)
-      .filter(path => path.startsWith("activity_metrics/"));
-    expect(paths.sort()).toEqual([`activity_metrics/${sport}-boundary`, `activity_metrics/${sport}-recent`]);
-    expect(hook.result.current.activities).toEqual(activities);
-    expect(hook.result.current.derivedMetricsSettled).toBe(true);
-    expect(hook.result.current.derivedMetricsError).toBe(false);
-  });
-
-  it("tri reads bike/run for 56 days and swim for 90 days while retaining the long activity history", async () => {
-    const now = Date.parse("2026-10-08T12:00:00Z");
-    vi.spyOn(Date, "now").mockReturnValue(now);
-    const activities = [
-      { type: "VirtualRide", days: 56, id: "tri-bike-boundary" },
-      { type: "TrailRun", days: 56, id: "tri-run-boundary" },
-      { type: "Swim", days: 90, id: "tri-swim-boundary" },
-      { type: "Ride", days: 57, id: "tri-bike-old" },
-      { type: "Run", days: 57, id: "tri-run-old" },
-      { type: "Swim", days: 91, id: "tri-swim-old" },
-      { type: "Ride", days: 400, id: "tri-history" },
-    ].map(({ type, days, id }) => ({ ...activity(null, id), type, startTime: now - days * 86_400_000 }));
-    seed(activities);
-    const hook = renderHook(() => useFitnessModel("tri", options));
-    await waitFor(() => expect(hook.result.current.metricsMap.size).toBe(3));
-    const paths = vi.mocked(getDoc).mock.calls.map(([ref]) => (ref as { path: string }).path)
-      .filter(path => path.startsWith("activity_metrics/"));
-    expect(paths.sort()).toEqual([
-      "activity_metrics/tri-bike-boundary", "activity_metrics/tri-run-boundary", "activity_metrics/tri-swim-boundary",
-    ]);
-    expect(hook.result.current.activities).toEqual(activities);
-    expect(hook.result.current.derivedMetricsSettled).toBe(true);
-  });
-
-  it("older activities do not leave metrics loading when there are no activities inside the window", async () => {
-    const old = { ...activity(null, "old-only"), startTime: Date.now() - 100 * 86_400_000 };
-    seed([old]);
-    const hook = renderHook(() => useFitnessModel("bike", options));
-    await waitFor(() => expect(hook.result.current.activities).toEqual([old]));
-    expect(hook.result.current.derivedMetricsSettled).toBe(true);
+    await waitFor(() => expect(hook.result.current.activities).toEqual([a]));
     expect(hook.result.current.metricsMap.size).toBe(0);
+    expect(hook.result.current.derivedMetricsSettled).toBe(true);
     expect(vi.mocked(getDoc).mock.calls.some(([ref]) =>
       (ref as { path: string }).path.startsWith("activity_metrics/"))).toBe(false);
-  });
-
-  it.each([null, {distance:10000, ridingTimeMillis:3600000,averagePower:180}])("real model and derived reads preserve published load with summary %s",async summary=>{
-    const a=activity(summary as Activity["summary"]|null);seed([a]);
-    const h=renderHook(()=>useFitnessModel("bike",options));
-    await waitFor(()=>expect(h.result.current.metricsMap.get(a.id)).toEqual({tss:100}));
-    expect(h.result.current.activities).toEqual([a]);
-    expect(h.result.current.dailyData.at(-1)?.totalLoad).toBe(100);
-    expect(h.result.current.derivedMetricsSettled).toBe(true);
-    expect(vi.mocked(getDoc).mock.calls.some(([ref])=>(ref as {path:string}).path===`activity_metrics/${a.id}`)).toBe(true);
+    if (sport === "bike") expect(hook.result.current.dailyData.at(-1)?.totalLoad).toBe(100);
   });
   it("real desktop view preserves known partial load and unknown count without PMC",async()=>{
     const known=activity(null);const unknown={...activity(null,"unknown"),serverDerivedLoad:undefined};seed([known,unknown]);

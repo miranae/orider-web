@@ -31,7 +31,7 @@ vi.mock("firebase/firestore", () => ({
   }),
 }));
 
-const empty = { run: { recent28: [], prev28: [] }, swim: { recent28: [], prev28: [] } };
+const empty = { run: { recent28: [], prev28: [] }, swim: { recent28: [], prev28: [] }, activityWindow: null, activityWindowLoaded: false, activityWindowError: false };
 function snapshot(discipline: "run" | "swim", pace?: number): Snapshot {
   return {
     exists: () => true, metadata: { fromCache: false },
@@ -250,4 +250,45 @@ describe("useFitnessCurves", () => {
     expect(result.current.swim.recent28).toEqual([{ distanceM: 100, paceSecPer100m: 100 }]);
     expect(mocks.log).not.toHaveBeenCalled();
   });
+  it("activity_window 하나만 추가로 구독하며 개별 metrics 읽기를 만들지 않는다", () => {
+    const { result } = renderHook(() => useFitnessCurves("owner", true, true));
+    const windowSubscriptions = mocks.subscriptions.filter(subscription => subscription.ref.endsWith("activity_window"));
+    expect(windowSubscriptions).toHaveLength(1);
+    expect(mocks.subscriptions.some(subscription => subscription.ref.startsWith("activity_metrics/"))).toBe(false);
+    act(() => windowSubscriptions[0].next({ exists: () => true, metadata: { fromCache: false }, data: () => ({
+      version: 1, windowDays: 90, maxEntries: 768, entries: [], generation: 1, updatedAt: Date.now(), truncated: false,
+    }) }));
+    expect(result.current.activityWindow?.entries).toEqual([]);
+    expect(result.current.activityWindowLoaded).toBe(true);
+    expect(mocks.getDoc).not.toHaveBeenCalled();
+    expect(mocks.callable).not.toHaveBeenCalled();
+  });
+  it("윈도와 두 곡선 누락은 같은 callable 1회 후 3개 문서만 재조회하고 재누락에도 반복하지 않는다", async () => {
+    mocks.getDoc.mockResolvedValue(missing());
+    const { result } = renderHook(() => useFitnessCurves("owner", true, true));
+    act(() => mocks.subscriptions.forEach(subscription => subscription.next(missing())));
+    await waitFor(() => expect(mocks.getDoc).toHaveBeenCalledTimes(3));
+    expect(mocks.callable).toHaveBeenCalledTimes(1);
+    expect(mocks.getDoc.mock.calls.filter(([ref]) => ref.endsWith("activity_window"))).toHaveLength(1);
+    act(() => mocks.subscriptions.forEach(subscription => subscription.next(missing())));
+    expect(mocks.callable).toHaveBeenCalledTimes(1);
+    expect(result.current.activityWindow).toBeNull();
+    expect(result.current.activityWindowLoaded).toBe(true);
+  });
+
+  it("곡선 backfill 실패는 유효한 활동 윈도를 실패로 바꾸지 않는다", async () => {
+    mocks.callable.mockRejectedValue(new Error("failed"));
+    const { result } = renderHook(() => useFitnessCurves("owner", true, true));
+    act(() => {
+      mocks.subscriptions[2].next({ exists: () => true, metadata: { fromCache: false }, data: () => ({
+        version: 1, windowDays: 90, maxEntries: 768, entries: [], generation: 1, updatedAt: Date.now(), truncated: false,
+      }) });
+      mocks.subscriptions[0].next(missing());
+    });
+    await waitFor(() => expect(mocks.log).toHaveBeenCalledTimes(1));
+    expect(result.current.activityWindowLoaded).toBe(true);
+    expect(result.current.activityWindowError).toBe(false);
+    expect(result.current.activityWindow?.entries).toEqual([]);
+  });
+
 });

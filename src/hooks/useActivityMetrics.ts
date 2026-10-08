@@ -187,14 +187,24 @@ export function useActivityMetrics(activityId: string | null, isOwner = true): U
         // 캐스팅은 hook 사용자 책임 영역 — 서버 doc 스키마는 functions 쪽에서 강제.
         // 공개 문서는 부분집합이라 화이트리스트를 지난다.
         const raw = snap.data() as Record<string, unknown>;
+        // v3 수명주기 문서는 final의 metrics만 서빙한다. pending/invalid의 사본은 확정값이 아니다.
+        const isLifecycleDocument = Object.prototype.hasOwnProperty.call(raw, "status")
+          || Object.prototype.hasOwnProperty.call(raw, "schemaVersion");
+        if (isOwner && isLifecycleDocument && (raw.status !== "final"
+          || !raw.metrics || typeof raw.metrics !== "object" || Array.isArray(raw.metrics))) {
+          update({ status: raw.status === "pending" ? "loading" : "missing", metrics: null });
+          return;
+        }
         const data = isOwner
-          ? (raw as unknown as ActivityMetricsDoc)
+          ? ((isLifecycleDocument && raw.metrics && typeof raw.metrics === "object" && !Array.isArray(raw.metrics)
+            ? raw.metrics : raw) as unknown as ActivityMetricsDoc)
           : fromPublicActivityMetrics(raw);
         // version 이 클라 기대보다 낮으면 stale — 값은 그대로 노출하되 호출자가 표식을 붙인다.
         // version 필드가 아예 없는 옛 문서는 0 으로 본다 — 모름을 최신으로 그리면 안 된다 (#2237).
         const version = typeof data.version === "number" && Number.isSafeInteger(data.version)
           && data.version >= 0 ? data.version : 0;
-        const isStale = version < ACTIVITY_METRICS_VERSION;
+        const isStale = (isOwner && isLifecycleDocument && raw.stale === true)
+          || version < ACTIVITY_METRICS_VERSION;
         update({ status: isStale ? "stale" : "ready", metrics: data });
       },
       (err) => {
