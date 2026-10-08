@@ -47,6 +47,7 @@ import { useFtpHistory } from "./useFtpHistory";
 import { useMilestones } from "./useMilestones";
 import { useMobile } from "./useMobile";
 import { usePdc } from "./usePdc";
+import { useFitnessCurves } from "../features/fitness/useFitnessCurves";
 import { useRunRecords } from "./useRunRecords";
 import { useUserFitness } from "./useUserFitness";
 import { filterByDiscipline, type Discipline } from "../utils/disciplineFilter";
@@ -278,7 +279,7 @@ export function useFitnessModel(
     () => discipline === "tri" ? activities : filterByDiscipline(activities, discipline),
     [activities, discipline],
   );
-  const { streamsMap, metricsMap, metricStatusMap } = useActivityDerivedDocuments(user?.uid, activities);
+  const { metricsMap, metricStatusMap } = useActivityDerivedDocuments(user?.uid, activities);
   const currentMetricStatuses = disciplineActivities.map((activity) => {
     const status = metricStatusMap.get(activity.id);
     return status?.revision === activityDerivedDocumentRevision(activity) ? status.state : "loading";
@@ -295,6 +296,7 @@ export function useFitnessModel(
   const [, setGoalQueryDone] = useState(false);
   const isMobile = useMobile();
   const { pdc } = usePdc(user?.uid);
+  const { run: runPaceCurve, swim: swimCssCurve } = useFitnessCurves(user?.uid);
   // 다음 라이드 FTP 브리핑(#837) — 결정 문서를 구독하고 수락만 수행한다.
   // 임베드 표면은 decisionId 를 넘기지 않아 딥링크로 특정 결정을 열지 않는다.
   const {
@@ -863,20 +865,6 @@ export function useFitnessModel(
     ),
     [activities, fitnessClock, metricsMap, profile?.css, userFitness],
   );
-  const runPaceStreams = useMemo(() => {
-    const now = Date.now();
-    const period = 28 * 24 * 60 * 60 * 1000;
-    const recentStreams: { velocity: number[]; time?: number[] }[] = [];
-    const prevStreams: { velocity: number[]; time?: number[] }[] = [];
-    for (const activity of disciplineActivities) {
-      const stream = streamsMap.get(activity.id);
-      if (!stream?.velocity_smooth || stream.velocity_smooth.length < 30) continue;
-      const paceStream = { velocity: stream.velocity_smooth, time: stream.time };
-      if (activity.startTime >= now - period) recentStreams.push(paceStream);
-      else if (activity.startTime >= now - period * 2) prevStreams.push(paceStream);
-    }
-    return { recentStreams, prevStreams };
-  }, [disciplineActivities, streamsMap]);
 
   const mobilePageData = useMemo<MobileFitnessData>(() => {
     const ftp = canonicalFtpW ?? 0;
@@ -1011,7 +999,6 @@ export function useFitnessModel(
     canonicalFitness,
     activities,
     disciplineActivities,
-    streamsMap,
     metricsMap,
     derivedMetricsSettled,
     derivedMetricsError,
@@ -1066,7 +1053,8 @@ export function useFitnessModel(
     cyclingAbility,
     runEvidence,
     swimEvidence,
-    runPaceStreams,
+    runPaceCurve,
+    swimCssCurve,
     mobilePageProps: {
       data: mobilePageData,
       pmcHistoryPoints,

@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { doc, getDoc, onSnapshot, type DocumentReference } from "firebase/firestore";
-import type { Activity, ActivityStreams } from "@shared/types";
+import type { Activity } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
-import { getActivityStreamsWithAuth } from "../../services/personalDataApi";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import {
   getCachedActivityDerivedDocument,
@@ -67,7 +66,6 @@ export type ActivityMetricStatus = {
 
 type DerivedState = {
   ownerUid: string | null;
-  streamsMap: Map<string, ActivityStreams>;
   metricsMap: Map<string, ActivityMetrics>;
   metricStatusMap: Map<string, ActivityMetricStatus>;
 };
@@ -75,17 +73,12 @@ type DerivedState = {
 type ReadResources = {
   active: boolean;
   activeIds: Set<string>;
-  streamAttempts: DerivedDocumentReadAttempts;
   metricAttempts: DerivedDocumentReadAttempts;
-  streamWatches: Map<string, StopWatch>;
   metricWatches: Map<string, StopWatch>;
-  streamRechecks: RecheckQueue;
   metricRechecks: RecheckQueue;
-  streamLimiter: ReadLimiter;
   metricLimiter: ReadLimiter;
 };
 
-const EMPTY_STREAMS = new Map<string, ActivityStreams>();
 const EMPTY_METRICS = new Map<string, ActivityMetrics>();
 const EMPTY_METRIC_STATUSES = new Map<string, ActivityMetricStatus>();
 
@@ -129,13 +122,9 @@ function createResources(): ReadResources {
   return {
     active: true,
     activeIds: new Set(),
-    streamAttempts: new Map(),
     metricAttempts: new Map(),
-    streamWatches: new Map(),
     metricWatches: new Map(),
-    streamRechecks: createRecheckQueue(),
     metricRechecks: createRecheckQueue(),
-    streamLimiter: createReadLimiter(10),
     metricLimiter: createReadLimiter(20),
   };
 }
@@ -168,30 +157,19 @@ function cancelReadWaiters(limiter: ReadLimiter, keep?: ReadonlySet<string>): vo
 
 function pruneResources(resources: ReadResources, activeIds: ReadonlySet<string>): void {
   resources.activeIds = new Set(activeIds);
-  for (const attempts of [resources.streamAttempts, resources.metricAttempts]) {
-    for (const id of attempts.keys()) if (!activeIds.has(id)) attempts.delete(id);
+  for (const id of resources.metricAttempts.keys()) {
+    if (!activeIds.has(id)) resources.metricAttempts.delete(id);
   }
-  for (const watches of [resources.streamWatches, resources.metricWatches]) {
-    for (const [id, stop] of watches) {
-      if (!activeIds.has(id)) {
-        stop(false);
-        watches.delete(id);
-      }
+  for (const [id, stop] of resources.metricWatches) {
+    if (!activeIds.has(id)) {
+      stop(false);
+      resources.metricWatches.delete(id);
     }
   }
-  for (const queue of [resources.streamRechecks, resources.metricRechecks]) {
-    for (const id of queue.scheduled.keys()) {
-      if (!activeIds.has(id)) cancelRecheck(queue, id);
-    }
+  for (const id of resources.metricRechecks.scheduled.keys()) {
+    if (!activeIds.has(id)) cancelRecheck(resources.metricRechecks, id);
   }
-  cancelReadWaiters(resources.streamLimiter, activeIds);
   cancelReadWaiters(resources.metricLimiter, activeIds);
-}
-
-function parseStreams(data: Record<string, unknown>): ActivityStreams {
-  return typeof data.json === "string"
-    ? JSON.parse(data.json) as ActivityStreams
-    : data as unknown as ActivityStreams;
 }
 
 function compareActivityRecency(left: Activity, right: Activity): number {
@@ -268,11 +246,10 @@ export function useActivityDerivedDocuments(
   uid: string | null | undefined,
   activities: readonly Activity[],
 ): {
-  streamsMap: Map<string, ActivityStreams>;
   metricsMap: Map<string, ActivityMetrics>;
   metricStatusMap: Map<string, ActivityMetricStatus>;
 } {
-  const { auth, firestore } = useFirebaseServices();
+  const { firestore } = useFirebaseServices();
   const normalizedUid = uid ?? null;
   const generationRef = useRef(0);
   const currentUidRef = useRef(normalizedUid);
@@ -284,7 +261,6 @@ export function useActivityDerivedDocuments(
   const resources = useMemo(createResources, [firestore, normalizedUid]);
   const [state, setState] = useState<DerivedState>({
     ownerUid: normalizedUid,
-    streamsMap: new Map(),
     metricsMap: new Map(),
     metricStatusMap: new Map(),
   });
@@ -293,13 +269,9 @@ export function useActivityDerivedDocuments(
     resources.active = true;
     return () => {
       resources.active = false;
-      for (const id of resources.streamWatches.keys()) resources.streamAttempts.delete(id);
       for (const id of resources.metricWatches.keys()) resources.metricAttempts.delete(id);
-      stopWatches(resources.streamWatches);
       stopWatches(resources.metricWatches);
-      stopRechecks(resources.streamRechecks);
       stopRechecks(resources.metricRechecks);
-      cancelReadWaiters(resources.streamLimiter);
       cancelReadWaiters(resources.metricLimiter);
     };
   }, [resources]);
@@ -315,18 +287,10 @@ export function useActivityDerivedDocuments(
     pruneResources(resources, scopedReadIds);
     // 재마운트 전에 같은 revision 으로 읽어 둔 파생 문서는 다시 읽지 않고 모듈 캐시에서 채운다.
     prepareActivityDerivedDocumentCacheOwner(normalizedUid);
-    const cachedStreams = new Map<string, ActivityStreams>();
     const cachedMetrics = new Map<string, ActivityMetrics>();
     if (normalizedUid != null) {
       for (const activity of scopedActivities) {
         const revision = activityDerivedDocumentRevision(activity);
-        if (shouldReadDerivedDocument(resources.streamAttempts, activity)) {
-          const streams = getCachedActivityDerivedDocument(normalizedUid, "stream", activity.id, revision);
-          if (streams !== undefined) {
-            markDerivedDocumentReadComplete(resources.streamAttempts, activity);
-            cachedStreams.set(activity.id, streams);
-          }
-        }
         if (shouldReadDerivedDocument(resources.metricAttempts, activity)) {
           const metrics = getCachedActivityDerivedDocument(normalizedUid, "metrics", activity.id, revision);
           if (metrics !== undefined) {
@@ -338,9 +302,6 @@ export function useActivityDerivedDocuments(
     }
     setState((previous) => {
       const ownerChanged = previous.ownerUid !== normalizedUid;
-      const streamsChanged = ownerChanged
-        || [...previous.streamsMap.keys()].some((id) => !displayedIds.has(id))
-        || [...cachedStreams].some(([id, value]) => previous.streamsMap.get(id) !== value);
       const metricsChanged = ownerChanged
         || [...previous.metricsMap.keys()].some((id) => !displayedIds.has(id))
         || [...cachedMetrics].some(([id, value]) => previous.metricsMap.get(id) !== value);
@@ -356,14 +317,9 @@ export function useActivityDerivedDocuments(
           return status?.revision !== activityDerivedDocumentRevision(activity)
             || (expectedState != null && status.state !== expectedState);
         });
-      if (!streamsChanged && !metricsChanged && !metricStatusesChanged) return previous;
-      const streamsMap = new Map<string, ActivityStreams>();
+      if (!metricsChanged && !metricStatusesChanged) return previous;
       const metricsMap = new Map<string, ActivityMetrics>();
       const metricStatusMap = new Map<string, ActivityMetricStatus>();
-      if (!ownerChanged) {
-        for (const [id, value] of previous.streamsMap) if (displayedIds.has(id)) streamsMap.set(id, value);
-      }
-      for (const [id, value] of cachedStreams) streamsMap.set(id, value);
       for (const activity of activities) {
         const revision = activityDerivedDocumentRevision(activity);
         const previousStatus = previous.metricStatusMap.get(activity.id);
@@ -383,7 +339,7 @@ export function useActivityDerivedDocuments(
           metricStatusMap.set(activity.id, { revision, state: "loading" });
         }
       }
-      return { ownerUid: normalizedUid, streamsMap, metricsMap, metricStatusMap };
+      return { ownerUid: normalizedUid, metricsMap, metricStatusMap };
     });
     if (normalizedUid == null || scopedActivities.length === 0) return;
 
@@ -435,12 +391,12 @@ export function useActivityDerivedDocuments(
       watches: Map<string, StopWatch>,
       parse: (data: Record<string, unknown>) => T,
       apply: (id: string, value: T, revision: string) => void,
-      kind: "stream" | "metrics",
+      kind: "metrics",
       retryCount = 0,
       attemptToken = attempts.get(activity.id)?.token,
     ) => {
       const revision = activityDerivedDocumentRevision(activity);
-      const rechecks = kind === "stream" ? resources.streamRechecks : resources.metricRechecks;
+      const rechecks = resources.metricRechecks;
       if (!isCurrent(activity, attempts, revision, attemptToken) || watches.has(activity.id) ||
           !reserveWatchSlot(activity, watches)) return;
       let unsubscribe: () => void = () => undefined;
@@ -492,17 +448,10 @@ export function useActivityDerivedDocuments(
           });
         };
         const data = snapshot.data();
-        if (kind === "stream" && data.storage === "gcs" && typeof data.gcsPath === "string") {
-          void getActivityStreamsWithAuth(auth, activity.id).then(
-            (streams) => complete(streams as T),
-            reportError,
-          );
-        } else {
-          try {
-            complete(parse(data));
-          } catch (error) {
-            reportError(error);
-          }
+        try {
+          complete(parse(data));
+        } catch (error) {
+          reportError(error);
         }
       }, (error) => {
         const wasCurrent = isCurrent(activity, attempts, revision, attemptToken);
@@ -522,20 +471,20 @@ export function useActivityDerivedDocuments(
 
     const loadOne = async <T,>(
       activity: Activity,
-      collectionName: "activity_streams" | "activity_metrics",
+      collectionName: "activity_metrics",
       attempts: DerivedDocumentReadAttempts,
       watches: Map<string, StopWatch>,
       parse: (data: Record<string, unknown>) => T,
       apply: (id: string, value: T, revision: string) => void,
       watchIfMissing: boolean,
-      kind: "stream" | "metrics",
+      kind: "metrics",
       retryCount = 0,
       attemptToken = attempts.get(activity.id)?.token,
     ) => {
       const revision = activityDerivedDocumentRevision(activity);
+      const rechecks = resources.metricRechecks;
+      const limiter = resources.metricLimiter;
       if (!isCurrent(activity, attempts, revision, attemptToken)) return;
-      const rechecks = kind === "stream" ? resources.streamRechecks : resources.metricRechecks;
-      const limiter = kind === "stream" ? resources.streamLimiter : resources.metricLimiter;
       cancelRecheck(rechecks, activity.id);
       watches.get(activity.id)?.();
       const reference = doc(firestore, collectionName, activity.id);
@@ -554,10 +503,7 @@ export function useActivityDerivedDocuments(
         if (!isCurrent(activity, attempts, revision, attemptToken)) return;
         if (snapshot.exists()) {
           const data = snapshot.data();
-          const value = kind === "stream" && data.storage === "gcs" &&
-              typeof data.gcsPath === "string"
-            ? await getActivityStreamsWithAuth(auth, activity.id) as T
-            : parse(data);
+          const value = parse(data);
           if (!isCurrent(activity, attempts, revision, attemptToken)) return;
           markDerivedDocumentReadComplete(attempts, activity);
           apply(activity.id, value, revision);
@@ -570,7 +516,7 @@ export function useActivityDerivedDocuments(
           ? Date.now() + DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 2 ** (missingCount - 1)
           : Number.POSITIVE_INFINITY;
         markDerivedDocumentMissing(attempts, activity, nextEligibleAt);
-        if (kind === "metrics") applyMetricStatus(activity.id, revision, "missing");
+        applyMetricStatus(activity.id, revision, "missing");
         if (watchIfMissing) {
           watchCreation(activity, reference, attempts, watches, parse, apply, kind);
         }
@@ -595,7 +541,7 @@ export function useActivityDerivedDocuments(
           cancelRecheck(rechecks, activity.id);
         }
         if (wasCurrent) {
-          if (kind === "metrics") applyMetricStatus(activity.id, revision, "error");
+          applyMetricStatus(activity.id, revision, "error");
           const previous = attempts.get(activity.id);
           const failureCount = previous?.revision === revision ? previous.failureCount + 1 : 1;
           const canRecover = failureCount < DERIVED_DOCUMENT_MAX_FAILURE_READS;
@@ -655,15 +601,6 @@ export function useActivityDerivedDocuments(
     };
 
     const ownerUid = normalizedUid;
-    const applyStream = (id: string, value: ActivityStreams, revision: string) => {
-      setCachedActivityDerivedDocument(ownerUid, "stream", id, revision, value);
-      setState((previous) => {
-        if (previous.ownerUid !== normalizedUid) return previous;
-        const streamsMap = new Map(previous.streamsMap);
-        streamsMap.set(id, value);
-        return { ...previous, streamsMap };
-      });
-    };
     const applyMetric = (id: string, value: ActivityMetrics, revision: string) => {
       setCachedActivityDerivedDocument(ownerUid, "metrics", id, revision, value);
       setState((previous) => {
@@ -690,12 +627,6 @@ export function useActivityDerivedDocuments(
       return { ...previous, metricStatusMap };
     });
 
-    const streamActivities = scopedActivities.filter((activity) => {
-      if (!shouldReadDerivedDocument(resources.streamAttempts, activity)) return false;
-      const power = activity.summary?.averagePower ?? activity.avgPower ?? null;
-      const discipline = getDiscipline(activity.type);
-      return power != null && power > 0 || discipline === "run" || discipline === "swim";
-    });
     const metricActivities = scopedActivities.filter((activity) => (
       shouldReadDerivedDocument(resources.metricAttempts, activity)
     ));
@@ -705,27 +636,11 @@ export function useActivityDerivedDocuments(
         .slice(0, DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND)
         .map((activity) => activity.id),
     );
-    const streamWatchableIds = newestIds(streamActivities);
     const metricWatchableIds = newestIds(metricActivities);
-    const streamAttemptTokens = new Map(streamActivities.map((activity) => [
-      activity.id,
-      markDerivedDocumentReadAttempt(resources.streamAttempts, activity).token,
-    ]));
     const metricAttemptTokens = new Map(metricActivities.map((activity) => [
       activity.id,
       markDerivedDocumentReadAttempt(resources.metricAttempts, activity).token,
     ]));
-    const loadStreams = async () => {
-      for (let index = 0; index < streamActivities.length; index += 10) {
-        if (!resources.active || generationRef.current !== generation) return;
-        const batch = streamActivities.slice(index, index + 10);
-        await Promise.all(batch.map((activity) => loadOne(
-          activity, "activity_streams", resources.streamAttempts, resources.streamWatches,
-          parseStreams, applyStream, streamWatchableIds.has(activity.id), "stream",
-          0, streamAttemptTokens.get(activity.id)!,
-        )));
-      }
-    };
     const loadMetrics = async () => {
       for (let index = 0; index < metricActivities.length; index += 20) {
         if (!resources.active || generationRef.current !== generation) return;
@@ -737,18 +652,15 @@ export function useActivityDerivedDocuments(
         )));
       }
     };
-    void loadStreams();
     void loadMetrics();
-  }, [activities, auth, generation, normalizedUid, resources]);
+  }, [activities, generation, normalizedUid, resources]);
 
   return state.ownerUid === normalizedUid
     ? {
-      streamsMap: state.streamsMap,
       metricsMap: state.metricsMap,
       metricStatusMap: state.metricStatusMap,
     }
     : {
-      streamsMap: EMPTY_STREAMS,
       metricsMap: EMPTY_METRICS,
       metricStatusMap: EMPTY_METRIC_STATUSES,
     };

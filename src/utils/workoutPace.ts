@@ -106,7 +106,7 @@ export interface ThresholdPaceResolution {
  * 둘 다 없으면 null.
  *
  * @param confirmedSecPerKm `training_profile/current.thresholdPace`
- * @param best20MinSecPerKm `computeBestPace(streams, 1200)` 결과 (없으면 30분 값도 허용)
+ * @param best20MinSecPerKm 서버 `paceCurve`의 1200초 최고 페이스 (없으면 30분 값도 허용)
  */
 export function resolveThresholdPace(
   confirmedSecPerKm: number | null | undefined,
