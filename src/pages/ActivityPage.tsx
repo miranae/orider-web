@@ -7,7 +7,7 @@ import { useRunSplitLocation } from "../features/activity/detail/useRunSplitLoca
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 import Avatar from "../components/Avatar";
 import TabNav from "../components/TabNav";
-import AnalysisTab from "../components/AnalysisTab";
+import AnalysisTab, { AnalysisLapTable } from "../components/AnalysisTab";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
 import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
 import { ActivityZoneTimeline } from "../components/activity/ActivityZoneTimeline";
@@ -117,6 +117,7 @@ export default function ActivityPage() {
     streamsError,
     loadingStreams,
     retryStreams,
+    requestStreams,
     serverMetrics,
     overview,
     isActivityOwner,
@@ -127,7 +128,6 @@ export default function ActivityPage() {
     normalizedPowerValue,
     hasStreamPowerCandidate,
     hasAnalysisStreams,
-    analysisProjection,
     sensorSelectionContext,
     analysisTabProps,
     canRecalculateVirtualPowerPreview,
@@ -940,12 +940,16 @@ export default function ActivityPage() {
           { id: "overview", label: t("tab.overview") },
           { id: "analysis", label: t("tab.analysis") },
           { id: "segments", label: t("tab.segments"), count: segmentEfforts.length || undefined },
-          ...(sport === "run" && streams?.laps?.length ? [{ id: "splits", label: t("tab.splits"), count: streams.laps.length }] : []),
-          ...(streams?.laps?.length ? [{ id: "laps", label: sport === "swim" ? t("tab.sets") : t("tab.laps"), count: streams.laps.length }] : []),
+          ...(sport === "run" && (analysisTabProps?.analysisSummary?.laps.length || streams?.laps?.length) ? [{ id: "splits", label: t("tab.splits"), count: analysisTabProps?.analysisSummary?.laps.length ?? streams?.laps?.length }] : []),
+          ...((analysisTabProps?.analysisSummary?.laps.length || streams?.laps?.length) ? [{ id: "laps", label: sport === "swim" ? t("tab.sets") : t("tab.laps"), count: analysisTabProps?.analysisSummary?.laps.length ?? streams?.laps?.length }] : []),
           { id: "export", label: t("tab.export") },
         ]}
         activeTab={activeTab}
-        onChange={setActiveTab}
+        onChange={(tab) => {
+          setActiveTab(tab);
+          if (["splits", "segments", "export"].includes(tab)
+            || (tab === "laps" && !analysisTabProps?.analysisSummary)) requestStreams();
+        }}
       />
 
       {/* ── 분석 탭 ── */}
@@ -959,7 +963,7 @@ export default function ActivityPage() {
           <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
         </div>
       )}
-      {activeTab === "analysis" && sport !== "run" && hasAnalysisStreams && streams && analysisProjection && analysisTabProps && (
+      {activeTab === "analysis" && sport !== "run" && hasAnalysisStreams && analysisTabProps && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
               훅이 소유권과 활성 자전거를 함께 검증해 비소유자의 프로필로 활동 스트림을
@@ -1011,12 +1015,14 @@ export default function ActivityPage() {
       )}
 
       {/* ── 랩 탭 ── */}
-      {activeTab === "laps" && streams?.laps && (
+      {activeTab === "laps" && (analysisTabProps?.analysisSummary?.laps || streams?.laps) && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>
             {sport === "swim" ? t("page.swim.setAnalysis") : t("page.lapAnalysis")}
           </h3>
-          <LapTable laps={streams.laps} />
+          {analysisTabProps?.analysisSummary ? (
+            <AnalysisLapTable laps={analysisTabProps.analysisSummary.laps} ftp={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} />
+          ) : streams?.laps ? <LapTable laps={streams.laps} /> : null}
         </Card>
       )}
 
@@ -1072,6 +1078,12 @@ export default function ActivityPage() {
           summaryPreview={activity.aiSummaryPreview}
           summaryPreviewEn={activity.aiSummaryPreview_en}
         />
+      )}
+
+      {!streams && !loadingStreams && (
+        <Button variant="outline" onClick={requestStreams}>
+          {showElevation ? t("page.elevPerf") : sport === "swim" ? t("tab.sets") : t("tab.overview")}
+        </Button>
       )}
 
       {/* 분석 (고도 & 성능 차트) — 수영/기타는 고도 차트 숨김 */}

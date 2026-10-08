@@ -22,16 +22,13 @@ import { aggregateRecentZoneSeconds } from "../features/fitness/mobileFitnessMet
 import {
   authoritativeCombinedLoad,
   buildRunEvidence,
-  buildSwimEvidence,
   computeCyclingAbility,
-  computeIntegratedLoadFocus,
 } from "../features/fitness/multisportPerformance";
 import {
   buildCanonicalRiderFitnessView,
   cyclingAbilityFromCanonicalRider,
 } from "../features/fitness/riderInsightParity";
-import { useActivityDerivedDocuments } from "../features/fitness/useActivityDerivedDocuments";
-import { activityDerivedDocumentRevision } from "../features/fitness/derivedDocumentReadAttempts";
+import { buildWindowSwimEvidence, computeWindowLoadFocus, filterFitnessActivityWindowEntries, fitnessWindowMetrics } from "../features/fitness/fitnessActivityWindow";
 import {
   makeDurationLabel,
   secToMmss,
@@ -50,7 +47,7 @@ import { usePdc } from "./usePdc";
 import { useFitnessCurves } from "../features/fitness/useFitnessCurves";
 import { useRunRecords } from "./useRunRecords";
 import { useUserFitness } from "./useUserFitness";
-import { filterByDiscipline, getDiscipline, type Discipline } from "../utils/disciplineFilter";
+import { filterByDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { toLocalDate } from "../utils/dateUtils";
 import {
   aggregateDailyLoad,
@@ -286,23 +283,6 @@ export function useFitnessModel(
   const latestActivityStart = activities.reduce((latest, activity) => Math.max(latest, activity.startTime), 0);
   const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey, subscriptionActive);
-  // 활동 이력/PMC의 긴 조회 창은 유지하되 metrics는 실제 카드의 최대 소비 창만 읽는다.
-  // 파워 비교는 28일 두 구간, 수영 근거는 90일이며 철인은 활동 종목별 창을 적용한다.
-  const metricActivities = useMemo(() => activities.filter((activity) => {
-    const windowDays = discipline === "swim"
-      || (discipline === "tri" && getDiscipline(activity.type) === "swim") ? 90 : 56;
-    return activity.startTime >= fitnessClock - windowDays * 86_400_000
-      && activity.startTime <= fitnessClock;
-  }), [activities, discipline, fitnessClock]);
-  const { metricsMap, metricStatusMap } = useActivityDerivedDocuments(user?.uid, metricActivities, subscriptionActive);
-  const currentMetricStatuses = (discipline === "tri"
-    ? metricActivities
-    : filterByDiscipline(metricActivities, discipline)).map((activity) => {
-    const status = metricStatusMap.get(activity.id);
-    return status?.revision === activityDerivedDocumentRevision(activity) ? status.state : "loading";
-  });
-  const derivedMetricsSettled = currentMetricStatuses.every((status) => status !== "loading");
-  const derivedMetricsError = currentMetricStatuses.some((status) => status === "error");
   const [loading, setLoading] = useState(initialCache === null);
   const [cacheHit, setCacheHit] = useState(initialCache !== null);
   const [freshLoaded, setFreshLoaded] = useState(false);
@@ -317,7 +297,19 @@ export function useFitnessModel(
   const projection = goalOwnerKey.current === currentGoalOwnerKey ? projectionState : null;
   const isMobile = useMobile();
   const { pdc } = usePdc(user?.uid, subscriptionActive);
-  const { run: runPaceCurve, swim: swimCssCurve } = useFitnessCurves(user?.uid, subscriptionActive);
+  const { run: runPaceCurve, swim: swimCssCurve, activityWindow, activityWindowLoaded, activityWindowError } = useFitnessCurves(user?.uid, subscriptionActive, true);
+  // 잘린 윈도의 부분합계를 전체 합계처럼 표시하지 않는다.
+  const completeActivityWindow = activityWindow !== null && activityWindow !== undefined && !activityWindow.truncated;
+  const windowEntries = useMemo(() => completeActivityWindow
+    ? filterFitnessActivityWindowEntries(activityWindow!.entries, "tri", fitnessClock) : [],
+  [activityWindow, completeActivityWindow, fitnessClock]);
+  const selectedWindowEntries = useMemo(() => filterFitnessActivityWindowEntries(windowEntries, discipline, fitnessClock),
+    [discipline, fitnessClock, windowEntries]);
+  const zoneActivities = useMemo(() => selectedWindowEntries.map(entry => ({ id: entry.activityId, startTime: entry.startTime })), [selectedWindowEntries]);
+  const metricsMap = useMemo(() => fitnessWindowMetrics(windowEntries), [windowEntries]);
+  const derivedMetricsSettled = activityWindowLoaded ?? false;
+  const derivedMetricsError = (activityWindowLoaded === true && activityWindow == null)
+    || activityWindowError === true || activityWindow?.truncated === true;
   // 다음 라이드 FTP 브리핑(#837) — 결정 문서를 구독하고 수락만 수행한다.
   // 임베드 표면은 decisionId 를 넘기지 않아 딥링크로 특정 결정을 열지 않는다.
   const {
@@ -451,7 +443,14 @@ export function useFitnessModel(
         if (!active) return;
         try {
           const items = snapshot.docs
-            .map((entry) => ({ id: entry.id, ...entry.data() }) as Activity)
+            .map((entry) => {
+              // Web SDK는 필드 projection을 지원하지 않는다. 범위 조회는 유지하고
+              // 큰 경로/thumbnail은 상태와 계정별 메모리 캐시에 보관하지 않는다.
+              const data = entry.data();
+              const fields = ["userId", "type", "startTime", "endTime", "summary", "name", "source", "deletedAt",
+                "serverDerivedLoad", "tss", "ftp", "intensityFactor", "weightedAvgPower", "localSessionId", "stravaActivityId", "stravaTwinActivityId"];
+              return { id: entry.id, ...Object.fromEntries(fields.filter(key => key in data).map(key => [key, data[key]])) } as Activity;
+            })
             .filter((activity) => activity.userId === uid);
           loadedActivityKey.current = activityDataKey;
           setActivityState({ key: activityDataKey, items });
@@ -754,7 +753,7 @@ export function useFitnessModel(
       "1s": 1, "5s": 5, "10s": 10, "30s": 30, "1m": 60, "2m": 120,
       "5m": 300, "10m": 600, "20m": 1200, "30m": 1800, "1h": 3600,
     };
-    const now = Date.now();
+    const now = fitnessClock;
     const period = 28 * 24 * 60 * 60 * 1000;
     const aggregate = (items: ActivityMetrics[]) => {
       const maxima: Record<string, number> = {};
@@ -772,17 +771,17 @@ export function useFitnessModel(
     };
     const recent: ActivityMetrics[] = [];
     const previous: ActivityMetrics[] = [];
-    for (const activity of disciplineActivities) {
-      const metrics = metricsMap.get(activity.id);
+    for (const entry of selectedWindowEntries) {
+      const metrics = metricsMap.get(entry.activityId);
       if (!metrics) continue;
-      if (activity.startTime >= now - period) recent.push(metrics);
-      else if (activity.startTime >= now - period * 2) previous.push(metrics);
+      if (entry.startTime >= now - period) recent.push(metrics);
+      else if (entry.startTime >= now - period * 2) previous.push(metrics);
     }
     return [
       { label: t("period.recent"), color: "var(--lime)", points: aggregate(recent) },
       { label: t("period.previous"), color: "var(--ink-3)", points: aggregate(previous) },
     ];
-  }, [disciplineActivities, metricsMap, t]);
+  }, [fitnessClock, selectedWindowEntries, metricsMap, t]);
 
   const weeklyStats = useMemo(() => {
     // 기록점 개수가 아닌 현재 날짜까지의 실제 달력 창을 사용한다. 서버 날짜는 UTC,
@@ -838,23 +837,23 @@ export function useFitnessModel(
   }, [canonicalActive, canonicalWeeklySummaries, dailyData, discipline, fitnessClock, hasCanonicalTimeseries, resolvedTriFitness]);
   const zoneDistribution = useMemo(() => {
     const { counts, total } = aggregateRecentZoneSeconds(
-      disciplineActivities,
+      zoneActivities,
       metricsMap,
       "hrZoneSec",
       fitnessClock,
       30,
     );
     return total === 0 ? null : counts.map((count) => Math.round((count / total) * 100));
-  }, [disciplineActivities, fitnessClock, metricsMap]);
+  }, [zoneActivities, fitnessClock, metricsMap]);
   const mobileZoneDistribution = useMemo(() => {
     const { counts, total } = aggregateRecentZoneSeconds(
-      disciplineActivities,
+      zoneActivities,
       metricsMap,
       "hrZoneSec",
       fitnessClock,
     );
     return total === 0 ? null : counts.map((count) => Math.round((count / total) * 100));
-  }, [disciplineActivities, fitnessClock, metricsMap]);
+  }, [zoneActivities, fitnessClock, metricsMap]);
   const combinedLoad = useMemo(() => {
     if (canonicalActive) {
       const current = canonicalFitness.values;
@@ -887,8 +886,8 @@ export function useFitnessModel(
     return authoritativeCombinedLoad(userFitness, fitnessClock);
   }, [canonicalActive, canonicalFitness.values, discipline, fitnessClock, triFitnessTimeline, userFitness]);
   const integratedLoadFocus = useMemo(
-    () => canonicalActive ? null : computeIntegratedLoadFocus(activities, metricsMap, fitnessClock),
-    [activities, canonicalActive, fitnessClock, metricsMap],
+    () => canonicalActive || !completeActivityWindow ? null : computeWindowLoadFocus(windowEntries, fitnessClock),
+    [canonicalActive, completeActivityWindow, fitnessClock, windowEntries],
   );
   const canonicalRiderView = useMemo(
     () => buildCanonicalRiderFitnessView(pdc, coachRiderInsight),
@@ -905,13 +904,12 @@ export function useFitnessModel(
     [profile?.thresholdPace, runRecords, userFitness],
   );
   const swimEvidence = useMemo(
-    () => buildSwimEvidence(
+    () => buildWindowSwimEvidence(
       userFitness?.thresholds?.swim?.css ?? profile?.css,
-      activities,
-      metricsMap,
+      windowEntries,
       fitnessClock,
     ),
-    [activities, fitnessClock, metricsMap, profile?.css, userFitness],
+    [windowEntries, fitnessClock, profile?.css, userFitness],
   );
 
   const mobilePageData = useMemo<MobileFitnessData>(() => {
@@ -924,7 +922,7 @@ export function useFitnessModel(
     }));
     const weeklyTSS = weeklyStats.weeklyTSS;
     const { counts: powerZoneCounts, total: powerSamples } = discipline === "bike"
-      ? aggregateRecentZoneSeconds(disciplineActivities, metricsMap, "powerZoneSec", fitnessClock)
+      ? aggregateRecentZoneSeconds(zoneActivities, metricsMap, "powerZoneSec", fitnessClock)
       : { counts: [0, 0, 0, 0, 0, 0, 0], total: 0 };
     const hrFractions = mobileZoneDistribution ?? [0, 0, 0, 0, 0];
     const maxHr = profile?.maxHr ?? 200;
@@ -1031,7 +1029,7 @@ export function useFitnessModel(
     };
   }, [
     canonicalFtpW, canonicalRiderView, combinedLoad, currentPoint, cyclingAbility, hasCanonicalTimeseries,
-    discipline, disciplineActivities, fitnessClock, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
+    discipline, zoneActivities, fitnessClock, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
     metricsMap, mobileZoneDistribution, pdc, powerCurveProgressions, profile, projection,
     runEvidence, swimEvidence, t, thresholdDecision, weeklyStats,
   ]);
@@ -1050,6 +1048,7 @@ export function useFitnessModel(
     metricsMap,
     derivedMetricsSettled,
     derivedMetricsError,
+    activityWindowIncomplete: activityWindow?.truncated === true,
     loading: canonicalPending || canonicalProcessing || (!canonicalActive && loading),
     cacheHit: !canonicalActive && cacheHit && timeseriesCacheHit,
     freshLoaded: canonicalActive

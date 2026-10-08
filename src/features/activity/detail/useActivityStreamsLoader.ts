@@ -25,6 +25,7 @@ interface UseActivityStreamsLoaderArgs {
   userId: string | undefined;
   getStreams: (stravaId: number) => Promise<unknown>;
   t: (key: string) => string;
+  enabled?: boolean;
 }
 
 export function usesCanonicalActivityStreams(
@@ -71,6 +72,7 @@ export function useActivityStreamsLoader({
   userId,
   getStreams,
   t,
+  enabled = true,
 }: UseActivityStreamsLoaderArgs) {
   const { auth, firestore } = useFirebaseServices();
   const [streams, setStreams] = useState<ActivityStreams | null>(null);
@@ -80,8 +82,11 @@ export function useActivityStreamsLoader({
 
   const scope = useMemo(() => ({ activityId, userId, auth, firestore }), [activityId, userId, auth, firestore]);
   const [loadedScope, setLoadedScope] = useState(scope);
+  const [requestedScope, setRequestedScope] = useState<typeof scope | null>(null);
+  const requestStreams = useCallback(() => { setRequestedScope(scope); }, [scope]);
+  const shouldLoad = enabled || requestedScope === scope;
   const [retryKey, setRetryKey] = useState(0);
-  const retryStreams = useCallback(async () => { setRetryKey(key => key + 1); }, []);
+  const retryStreams = useCallback(async () => { setRequestedScope(scope); setRetryKey(key => key + 1); }, [scope]);
 
   useEffect(() => {
     let active = true;
@@ -90,7 +95,7 @@ export function useActivityStreamsLoader({
     setStreamsError(null);
     setLoadingStreams(false);
     setShowStreamSpinner(false);
-    if (!activity || activity.id !== activityId) return;
+    if (!shouldLoad || !activity || activity.id !== activityId) return;
 
     const source = (activity as Activity & { source?: string }).source;
     const stravaId = getStravaActivityId(activity);
@@ -150,11 +155,12 @@ export function useActivityStreamsLoader({
       setLoadingStreams(false);
     });
     return () => { active = false; clearTimeout(timer); };
-  }, [activity, activityId, auth, firestore, getStreams, retryKey, scope, t, userId]);
+  }, [activity, activityId, auth, firestore, getStreams, retryKey, scope, shouldLoad, t, userId]);
 
   return {
     streams: loadedScope === scope ? streams : null,
     retryStreams,
+    requestStreams,
     setStreams,
     showStreamSpinner: loadedScope === scope && showStreamSpinner,
     setShowStreamSpinner,

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import EmbeddedSurfaceState from "./EmbeddedSurfaceState";
 import MobileFitnessPage from "../../components/mobile/MobileFitnessPage";
 import CanonicalFitnessNotice from "../../features/fitness/components/CanonicalFitnessNotice";
+import FitnessActivityWindowNotice from "../../features/fitness/components/FitnessActivityWindowNotice";
 import { useFitnessModel } from "../../hooks/useFitnessModel";
 
 export interface FitnessSurfaceProps {
@@ -52,6 +53,7 @@ export default function FitnessSurface({ onReady, retryKey, active = true }: Fit
   return (
     <main className="orider-embedded-surface" data-testid="embedded-fitness">
       {model.canonicalFitness && <CanonicalFitnessNotice state={model.canonicalFitness} t={model.t} />}
+      <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={model.t} />
       <MobileFitnessPage
         {...model.mobilePageProps}
         embedded

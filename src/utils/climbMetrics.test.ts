@@ -33,7 +33,7 @@ describe("buildClimbTableRows", () => {
       avgGrade: 8,
       category: "Cat2",
       durationSec: 600,
-      entrySec: null,
+      entrySec: null, endSec: null,
       vam: 960,
       avgPower: 280,
       wPerKg: 4.2,
@@ -45,7 +45,7 @@ describe("buildClimbTableRows", () => {
   });
 
   it("falls back to client detection when the server field is missing", () => {
-    const expected = [{ ...fallback[0], category: null, entrySec: null, avgPower: null, wPerKg: null }];
+    const expected = [{ ...fallback[0], category: null, entrySec: null, endSec: null, avgPower: null, wPerKg: null }];
     expect(buildClimbTableRows(undefined, fallback)).toEqual(expected);
   });
 
@@ -59,7 +59,7 @@ describe("buildClimbTableRows", () => {
     ], fallback);
     expect(rows).toEqual([{
       startKm: 5, lengthKm: 2, elevationGain: 160, avgGrade: 8,
-      category: null, durationSec: 600, entrySec: null, vam: 960, avgPower: 0, wPerKg: 0,
+      category: null, durationSec: 600, entrySec: null, endSec: null, vam: 960, avgPower: 0, wPerKg: 0,
     }]);
   });
 
@@ -234,4 +234,13 @@ describe("formatClimbEntryTime", () => {
   ])("returns null for invalid start/entry values", (startTime, entrySec) => {
     expect(formatClimbEntryTime(startTime, entrySec, "en")).toBeNull();
   });
+});
+
+
+it("prefers explicit server climb entry/end and preserves null without stream synthesis", () => {
+  const climb = { startKm: 1, lengthKm: 1, elevationGainM: 100, avgGrade: 10, category: null, durationSec: 60 };
+  const streams = { distance: [0, 1000, 2000], time: [0, 50, 100] };
+  expect(buildClimbTableRows([{ ...climb, entrySec: 30, endSec: 90 }], [], streams)[0]).toMatchObject({ entrySec: 30, endSec: 90 });
+  expect(buildClimbTableRows([{ ...climb, entrySec: null, endSec: null }], [], streams)[0]).toMatchObject({ entrySec: null, endSec: null });
+  expect(buildClimbTableRows([climb], [], streams)[0]).toMatchObject({ entrySec: 50, endSec: 100 });
 });
