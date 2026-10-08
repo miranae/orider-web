@@ -173,6 +173,12 @@ describe("useActivityAnalysisModel", () => {
       expect.any(Function),
       expect.any(Function),
     );
+    expect(vi.mocked(onSnapshot).mock.calls.filter(([ref]) => (
+      ref as unknown as { path: string }
+    ).path === `activity_metrics/${activity.id}`)).toHaveLength(1);
+    expect(vi.mocked(onSnapshot).mock.calls.filter(([ref]) => (
+      ref as unknown as { path: string }
+    ).path === `activity_metrics_public/${activity.id}`)).toHaveLength(0);
   });
 
   it("loads Apple Health route and sensor streams through the canonical activity path", async () => {
@@ -323,6 +329,34 @@ describe("useActivityAnalysisModel", () => {
     expect(screen.getByText("998")).toBeInTheDocument();
     expect(screen.getByText("197")).toBeInTheDocument();
     expect(screen.getByText("사이클링 다이내믹스")).toBeInTheDocument();
+    expect(vi.mocked(onSnapshot).mock.calls.filter(([ref]) => (
+      ref as unknown as { path: string }
+    ).path === `activity_metrics_public/${activity.id}`)).toHaveLength(1);
+  });
+
+  it("updates the composed tab through one model subscription and preserves standalone tab reads", async () => {
+    const activity = makeActivity("composed_metrics");
+    seedActivity(activity);
+    setDocData(`activity_metrics/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, np: 190 });
+    function ComposedAnalysis() {
+      const model = useActivityAnalysisModel(activity.id);
+      return model.analysisTabProps ? <AnalysisTab {...model.analysisTabProps} /> : null;
+    }
+    const { unmount } = render(<ComposedAnalysis />);
+    await screen.findByText("190");
+    await act(async () => {
+      setDocData(`activity_metrics/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, np: 210 });
+    });
+    expect(screen.getByText("210")).toBeInTheDocument();
+    expect(screen.queryByText("190")).not.toBeInTheDocument();
+    const metricsReads = () => vi.mocked(onSnapshot).mock.calls.filter(([ref]) => (
+      ref as unknown as { path: string }
+    ).path === `activity_metrics/${activity.id}`);
+    expect(metricsReads()).toHaveLength(1);
+    unmount();
+    render(<AnalysisTab activityId={activity.id} isOwner streams={streams} />);
+    expect(screen.getByText("210")).toBeInTheDocument();
+    expect(metricsReads()).toHaveLength(2);
   });
 
   it("공개 비소유자의 거부된 파워·심박 후보는 AnalysisTab에서 과거 서버 지표로 되살아나지 않는다", async () => {
@@ -428,5 +462,84 @@ describe("useActivityAnalysisModel", () => {
       timerSpy.mockRestore();
       vi.useRealTimers();
     }
+  });
+
+  it("backs off processing reads, stops at six, and resets on manual retry, activity and account changes", async () => {
+    vi.useFakeTimers();
+    setDocData("activities/processing_a", { userId: "owner" });
+    setDocData("activities/processing_b", { userId: "owner" });
+    const reads = (id: string) => vi.mocked(getDoc).mock.calls.filter(([ref]) => (
+      ref as unknown as { path: string }
+    ).path === `activities/${id}`).length;
+    const { result, rerender, unmount } = renderHook(({ id }) => useActivityAnalysisModel(id), {
+      initialProps: { id: "processing_a" },
+    });
+    try {
+      await act(async () => { await Promise.resolve(); });
+      expect(reads("processing_a")).toBe(1);
+      for (const [index, delay] of [3000, 6000, 12000, 24000, 30000].entries()) {
+        await act(async () => { await vi.advanceTimersByTimeAsync(delay - 1); });
+        expect(reads("processing_a")).toBe(index + 1);
+        await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+        expect(reads("processing_a")).toBe(index + 2);
+      }
+      await act(async () => { await vi.advanceTimersByTimeAsync(300000); });
+      expect(reads("processing_a")).toBe(6);
+      expect(result.current.activityProcessing).toBe(false);
+      expect(result.current.activityLoadError).toBeInstanceOf(Error);
+
+      await act(async () => { result.current.retryActivity(); });
+      expect(reads("processing_a")).toBe(7);
+      expect(result.current.activityLoadError).toBeNull();
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+      expect(reads("processing_a")).toBe(8);
+
+      rerender({ id: "processing_b" });
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+      expect(reads("processing_b")).toBe(2);
+      expect(reads("processing_a")).toBe(8);
+
+      mocks.user = { uid: "new_account" };
+      rerender({ id: "processing_b" });
+      await act(async () => { await Promise.resolve(); });
+      expect(reads("processing_b")).toBe(3);
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+      expect(reads("processing_b")).toBe(4);
+      unmount();
+      await act(async () => { await vi.advanceTimersByTimeAsync(300000); });
+      expect(reads("processing_b")).toBe(4);
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores a stale in-flight processing read after navigation and unmount", async () => {
+    let completeRead!: (value: Awaited<ReturnType<typeof getDoc>>) => void;
+    vi.mocked(getDoc).mockImplementationOnce(() => new Promise((resolve) => { completeRead = resolve; }));
+    const activity = makeActivity("current_activity");
+    seedActivity(activity);
+    const { result, rerender, unmount } = renderHook(({ id }) => useActivityAnalysisModel(id), {
+      initialProps: { id: "stale_processing" },
+    });
+    rerender({ id: activity.id });
+    await waitFor(() => expect(result.current.activity?.id).toBe(activity.id));
+    await act(async () => {
+      completeRead({ id: "stale_processing", exists: () => true, data: () => ({ userId: "owner" }) } as Awaited<ReturnType<typeof getDoc>>);
+    });
+    expect(result.current.activity?.id).toBe(activity.id);
+    expect(result.current.activityProcessing).toBe(false);
+    unmount();
+
+    vi.mocked(getDoc).mockImplementationOnce(() => new Promise((resolve) => { completeRead = resolve; }));
+    const pending = renderHook(() => useActivityAnalysisModel("unmounted_processing"));
+    const timerSpy = vi.spyOn(window, "setTimeout");
+    pending.unmount();
+    await act(async () => {
+      completeRead({ id: "unmounted_processing", exists: () => true, data: () => ({ userId: "owner" }) } as Awaited<ReturnType<typeof getDoc>>);
+    });
+    expect(timerSpy).not.toHaveBeenCalledWith(expect.any(Function), 3000);
+    timerSpy.mockRestore();
   });
 });
