@@ -42,6 +42,17 @@ describe("ActivityCard", () => {
     expect(shouldReportMapCaptureError(new Error("canvas capture failed"))).toBe(true);
   });
 
+  it("composes an indoor marker with the sport badge for trainer runs", () => {
+    renderWithProviders(<ActivityCard activity={createMockActivity({ type: "Run", trainer: true })} showMap={false} hideAuthor />);
+    expect(screen.getByText("러닝 · 실내")).toBeInTheDocument();
+  });
+
+  it("does not mark outdoor trail runs as indoor", () => {
+    renderWithProviders(<ActivityCard activity={createMockActivity({ type: "TrailRun", trainer: false })} showMap={false} hideAuthor />);
+    expect(screen.getByText("러닝")).toBeInTheDocument();
+    expect(screen.queryByText(/실내/)).not.toBeInTheDocument();
+  });
+
   it("renders activity nickname and description", () => {
     const activity = createMockActivity({
       nickname: "한강 라이더",

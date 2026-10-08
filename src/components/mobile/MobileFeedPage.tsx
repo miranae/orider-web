@@ -9,6 +9,7 @@ import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
 import { timeAgo } from "../../utils/timeAgo";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
+import { isIndoorActivity } from "../../utils/indoorActivity";
 import { Button, Card, Text, buttonClass } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { isTrivialActivity } from "../../utils/activityFilter";
@@ -227,6 +228,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
           border: `1px solid color-mix(in oklch, ${sColor} 30%, transparent)`,
         }}>
           {sIcon} {sTag}
+          {isIndoorActivity(activity) && <span>· {t("common:sport.indoor")}</span>}
         </span>
         {showDataWarning && (
           <span

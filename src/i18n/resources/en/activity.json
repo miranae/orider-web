@@ -448,9 +448,12 @@
       "friends": "Friends",
       "private": "Private"
     },
-    "indoor": "Virtual Ride",
+    "indoorRun": "Indoor run",
+    "indoorRide": "Indoor ride",
+    "indoorActivity": "Indoor activity",
     "noGps": "No GPS data",
     "noGpsDesc": "No route data was recorded for this activity",
+    "indoorDesc": "This activity was recorded indoors, so there is no route to map",
     "swim": {
       "setTimeline": "Set Timeline",
       "setAnalysis": "Set Analysis",
