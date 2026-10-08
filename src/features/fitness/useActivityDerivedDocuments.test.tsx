@@ -54,6 +54,29 @@ describe("useActivityDerivedDocuments", () => {
     vi.mocked(onSnapshot).mockClear();
   });
 
+  it("숨은 동안 파생문서 watch를 정지하고 읽어 둔 스트림을 보존한다", async () => {
+    const current = activity("suspend-derived", "user-a");
+    setDocData("activity_streams/suspend-derived", { watts: [200] });
+    const stopped: Array<ReturnType<typeof vi.fn>> = [];
+    vi.mocked(onSnapshot).mockImplementation(((...args: unknown[]) => {
+      const cleanup = (defaultOnSnapshotImplementation as (...params: unknown[]) => () => void)(...args);
+      const stop = vi.fn(cleanup);
+      stopped.push(stop);
+      return stop;
+    }) as typeof onSnapshot);
+    const hook = renderHook(({ active }) => useActivityDerivedDocuments("user-a", [current], active),
+      { initialProps: { active: true } });
+    await waitFor(() => expect(hook.result.current.streamsMap.get(current.id)).toEqual({ watts: [200] }));
+    await waitFor(() => expect(stopped.length).toBeGreaterThan(0));
+    hook.rerender({ active: false });
+    expect(stopped.every(stop => stop.mock.calls.length > 0)).toBe(true);
+    expect(hook.result.current.streamsMap.get(current.id)).toEqual({ watts: [200] });
+    hook.rerender({ active: true });
+    expect(hook.result.current.streamsMap.get(current.id)).toEqual({ watts: [200] });
+    act(() => setDocData("activity_metrics/suspend-derived", { tss: 45 }));
+    await waitFor(() => expect(hook.result.current.metricsMap.get(current.id)).toEqual({ tss: 45 }));
+  });
+
   it("loads a GCS-backed stream through the authenticated API", async () => {
     setDocData("activity_streams/gcs-fitness", {
       storage: "gcs",

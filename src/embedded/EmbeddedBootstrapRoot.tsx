@@ -125,14 +125,6 @@ interface SurfaceSelectionState {
 }
 
 /**
- * 숨긴 표면을 유지하는 상한. 이보다 오래 숨겨지면 언마운트해 리스너를 놓는다.
- * 탭 왕복·잠깐의 백그라운드(알림 센터·설정 시트)는 대개 수 분 안이라 재사용 이득이 크고,
- * 그보다 오래 비운 화면은 숨긴 채 원격 변경 읽기를 계속 내기보다 다시 열어 일회성
- * 조회(계획 등)를 새로 받는 편이 낫다. 다시 열 때는 trainingSurfaceCache 가 즉시 화면을 채운다.
- */
-const HIDDEN_SURFACE_RELEASE_MS = 30 * 60 * 1000;
-
-/**
  * 숨겼다 다시 보인 계획 표면을 백그라운드로 다시 읽는 최소 간격. 계획은 일회성 조회라
  * 숨긴 동안의 변경을 받지 못하지만, 탭 왕복마다 다시 읽을 만큼 자주 바뀌지는 않는다.
  * (피트니스는 리스너라 해당 없음.)
@@ -334,12 +326,22 @@ function AuthorizedSurface({
   const user = services.auth.currentUser;
   const trainingSurface = mountedTrainingSurface !== null;
   const trainingShellVisible = trainingSurface && trainingSurfaceVisible;
+  const [warmupFinished, setWarmupFinished] = useState(false);
+  useEffect(() => {
+    setWarmupFinished(false);
+    const timer = window.setTimeout(() => setWarmupFinished(true), 30_000);
+    return () => window.clearTimeout(timer);
+  }, [mountedTrainingSurface, retryKey, surfaceMountKey]);
+  const subscriptionsActive = !trainingSurface || trainingSurfaceVisible || !warmupFinished;
+  const trainingReady = useCallback((status?: "cached" | "fresh" | "error", complete?: boolean) => {
+    if (status === "error" || status === "fresh" && complete !== false) setWarmupFinished(true);
+    onTrainingSurfaceReady(status, complete);
+  }, [onTrainingSurfaceReady]);
   const selectionRequestIdRef = useRef(selectionRequestId);
   selectionRequestIdRef.current = selectionRequestId;
 
   useEffect(() => {
-    if (!user) return undefined;
-    setProfileLoading(true);
+    if (!subscriptionsActive || !user) return undefined;
     return onSnapshot(
       doc(services.firestore, "users", user.uid),
       (snapshot) => {
@@ -356,7 +358,7 @@ function AuthorizedSurface({
         );
       },
     );
-  }, [bridge, services.firestore, surfaceKind, user]);
+  }, [bridge, services.firestore, subscriptionsActive, surfaceKind, user]);
 
   const logout = useCallback(async () => {
     await signOut(services.auth);
@@ -445,14 +447,16 @@ function AuthorizedSurface({
                 <FitnessSurface
                   key={`${surfaceMountKey}:${retryKey}`}
                   retryKey={retryKey}
-                  onReady={onTrainingSurfaceReady}
+                  active={subscriptionsActive}
+                  onReady={trainingReady}
                 />
               ) : mountedTrainingSurface === "plan" ? (
                 <PlanSurface
                   key={`${surfaceMountKey}:${retryKey}`}
                   retryKey={retryKey}
                   backgroundRefreshKey={planBackgroundRefreshKey}
-                  onReady={onTrainingSurfaceReady}
+                  active={subscriptionsActive}
+                  onReady={trainingReady}
                   scheduledRunStarter={session.hostCapabilities.includes(RUN_START_SCHEDULED_CAPABILITY)
                     ? runStartChannel
                     : null}
@@ -471,7 +475,7 @@ function AuthorizedSurface({
       : mountedTrainingSurface === "fitness" ? "피트니스" : "운동 계획";
     const loadingLabel = session.locale === "en" ? "Loading…" : "불러오는 중…";
     return (
-      // 비활성 동안에는 언마운트 대신 숨긴다 — 같은 표면으로 돌아올 때 리스너를 다시 열지 않는다.
+      // 비활성 동안에는 모델과 화면을 유지하고 리스너만 멈춘다.
       <section
         className="orider-embedded-shell"
         aria-labelledby="orider-training-surface-title"
@@ -833,7 +837,6 @@ export default function EmbeddedBootstrapRoot({
         const previous = mountedTrainingSurface.current;
         const retained = previous
           && previous.lastReady?.status !== "error"
-          && (previous.hiddenAt === null || now - previous.hiddenAt < HIDDEN_SURFACE_RELEASE_MS)
           ? previous
           : null;
         let next: MountedTrainingSurface | null;
@@ -1034,21 +1037,7 @@ export default function EmbeddedBootstrapRoot({
     handleTrainingSurfaceReady(surface, generation, requestId, lastReady.status, lastReady.contentComplete);
   }, [handleTrainingSurfaceReady, surfaceSelection]);
 
-  // 숨긴 표면을 상한보다 오래 두지 않는다. 백그라운드에서 타이머가 멈춰도 재선택 시
-  // hiddenAt 으로 한 번 더 판정하므로 오래된 표면을 재사용하지 않는다.
-  useEffect(() => {
-    if (surfaceSelection.surface !== null || surfaceSelection.mounted === null) return undefined;
-    const { generation } = surfaceSelection;
-    // null 이 반복돼도 상한은 처음 숨긴 시각부터 센다(타이머가 밀리지 않게 남은 시간만 건다).
-    const hiddenAt = mountedTrainingSurface.current?.hiddenAt ?? Date.now();
-    const remainingMs = Math.max(0, HIDDEN_SURFACE_RELEASE_MS - (Date.now() - hiddenAt));
-    const timer = window.setTimeout(() => {
-      if (selectionGeneration.current !== generation) return;
-      mountedTrainingSurface.current = null;
-      commitSurfaceSelection({ ...latestSelection.current, mounted: null, reuseReady: false });
-    }, remainingMs);
-    return () => window.clearTimeout(timer);
-  }, [commitSurfaceSelection, surfaceSelection]);
+  // 단일 현재 표면만 유지한다. 다른 표면·계정 전환은 기존 교체 경계를 따른다.
 
   return (
     <div
@@ -1059,6 +1048,7 @@ export default function EmbeddedBootstrapRoot({
     >
       {session && (surfaceKind !== "activity-analysis" || activityId) ? (
         <AuthorizedSurface
+          key={services.auth.currentUser?.uid ?? "signed-out"}
           activityId={activityId}
           bridge={bridge}
           mountedTrainingSurface={surfaceKind === "activity-analysis" ? null : surfaceSelection.mounted}

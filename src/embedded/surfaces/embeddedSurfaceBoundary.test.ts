@@ -26,8 +26,8 @@ describe("embedded Fitness and Plan sharing boundaries", () => {
     const presentation = read("src/features/training/plan/PlanPresentation.tsx");
     const mobileContent = read("src/features/training/plan/MobilePlanContent.tsx");
 
-    expect(page).toContain("usePlanModel(searchParams.get(\"sport\"))");
-    expect(surface).toContain("usePlanModel(searchParams.get(\"sport\"))");
+    expect(page).toContain("usePlanModel(searchParams.get(\"sport\")");
+    expect(surface).toContain("usePlanModel(searchParams.get(\"sport\")");
     expect(page).toContain("<PlanPresentation");
     expect(surface).toContain("<PlanPresentation");
     expect(surface).toContain('className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan"');

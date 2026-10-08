@@ -70,7 +70,7 @@ export interface PlanModel {
 }
 
 /** Plan data model shared by the full page and embedded surface. */
-export function usePlanModel(sport?: string | null): PlanModel {
+export function usePlanModel(sport?: string | null, active = true): PlanModel {
   const { firestore } = useFirebaseServices();
   const { user } = useAuth();
   const { i18n } = useTranslation();
@@ -112,11 +112,15 @@ export function usePlanModel(sport?: string | null): PlanModel {
       value: refreshGenerationRef.current.value + 1,
     };
   }
-  const { revalidating, justRecomputed } = useFreshTraining(discipline);
+  const { revalidating, justRecomputed } = useFreshTraining(discipline, active);
   const legacyRecoveryEnabled = getRuntimeConfig().trainingDecisionEnabled !== true;
   const { timeseries } = useFitnessTimeseries(
     legacyRecoveryEnabled ? user?.uid : undefined,
     discipline,
+    0,
+    undefined,
+    false,
+    active,
   );
   const tsbFresh = timeseries?.endDate != null
     && (Date.now() - new Date(`${timeseries.endDate}T00:00:00Z`).getTime()) <= 3 * DAY_MS;

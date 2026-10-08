@@ -25,6 +25,7 @@ export function useFitnessTimeseries(
   reloadKey = 0,
   cacheLocale?: string,
   cacheAnonymous = false,
+  subscriptionActive = true,
 ): {
   timeseries: FitnessTimeseriesDoc | null;
   loaded: boolean;
@@ -39,8 +40,21 @@ export function useFitnessTimeseries(
   const [cacheHit, setCacheHit] = useState(false);
   const [freshLoaded, setFreshLoaded] = useState(false);
   const generationRef = useRef(0);
+  const loadedKey = useRef<string | null>(null);
+  const currentKey = uid && discipline !== "tri" ? `${uid}:${discipline}:${cacheLocale ?? ""}` : null;
+  const ownerKey = useRef(currentKey);
 
   useEffect(() => {
+    if (ownerKey.current !== currentKey) {
+      ownerKey.current = currentKey;
+      loadedKey.current = null;
+      setTimeseries(null);
+      setError(null);
+      setLoaded(false);
+      setCacheHit(false);
+      setFreshLoaded(false);
+    }
+    if (!subscriptionActive && uid) return;
     const generation = ++generationRef.current;
     let active = true;
     if (!uid || discipline === "tri") {
@@ -62,10 +76,13 @@ export function useFitnessTimeseries(
     const cached = cacheEnabled
       ? getTrainingSurfaceCache<{ timeseries: FitnessTimeseriesDoc | null }>(cacheKey)
       : null;
-    const hasCachedValue = cached !== null;
+    const key = `${uid}:${discipline}:${cacheLocale ?? ""}`;
+    const retaining = loadedKey.current === key;
+    const hasCachedValue = cached !== null || retaining;
+    if (cached !== null) loadedKey.current = key;
     setLoaded(hasCachedValue);
     setError(null);
-    setTimeseries(cached?.timeseries ?? null);
+    if (!retaining) setTimeseries(cached?.timeseries ?? null);
     setCacheHit(hasCachedValue);
     setFreshLoaded(false);
     const ref = doc(firestore, "users", uid, "fitness", `timeseries_${discipline}`);
@@ -73,6 +90,7 @@ export function useFitnessTimeseries(
       ref,
       (snap) => {
         if (!active || generationRef.current !== generation) return;
+        loadedKey.current = key;
         const next = snap.exists() ? (snap.data() as FitnessTimeseriesDoc) : null;
         setTimeseries(next);
         setError(null);
@@ -93,7 +111,10 @@ export function useFitnessTimeseries(
       active = false;
       unsub();
     };
-  }, [cacheAnonymous, cacheLocale, discipline, firestore, reloadKey, uid]);
+  }, [cacheAnonymous, cacheLocale, currentKey, discipline, firestore, reloadKey, subscriptionActive, uid]);
 
+  if (ownerKey.current !== currentKey) {
+    return { timeseries: null, loaded: false, error: null, cacheHit: false, freshLoaded: false };
+  }
   return { timeseries, loaded, error, cacheHit, freshLoaded };
 }

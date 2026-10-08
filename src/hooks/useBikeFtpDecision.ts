@@ -25,6 +25,7 @@ interface Options {
   decisionId?: string | null;
   sourceActivityId?: string | null;
   enabled?: boolean;
+  active?: boolean;
 }
 
 interface State {
@@ -47,7 +48,7 @@ const EMPTY_STATE: State = {
   error: null,
 };
 
-export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled = true }: Options): State {
+export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled = true, active = true }: Options): State {
   const scopeKey = enabled && uid
     ? JSON.stringify([uid, decisionId ?? null, sourceActivityId ?? null])
     : "";
@@ -65,7 +66,13 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
       setState({ ...EMPTY_STATE, scopeKey });
       return;
     }
-    setState({ ...EMPTY_STATE, scopeKey, loading: true });
+    if (!active) {
+      setState((current) => current.scopeKey === scopeKey ? current : { ...EMPTY_STATE, scopeKey });
+      return;
+    }
+    setState((current) => current.scopeKey === scopeKey
+      ? current
+      : { ...EMPTY_STATE, scopeKey, loading: true });
     const coll = collection(firestore, "users", uid, "bike_threshold_decisions");
     const safeDecisionId = decisionId && decisionId.length <= 512 && !decisionId.includes("/")
       ? decisionId
@@ -112,11 +119,12 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
       if (decisionGeneration.current === generation) decisionGeneration.current += 1;
       unsubscribe();
     };
-  }, [decisionId, enabled, firestore, scopeKey, sourceActivityId, uid]);
+  }, [active, decisionId, enabled, firestore, scopeKey, sourceActivityId, uid]);
 
   const mutationId = state.scopeKey === scopeKey ? state.decision?.ftpMutationId ?? null : null;
   useEffect(() => {
     const generation = ++receiptGeneration.current;
+    if (!active && uid && enabled) return;
     if (!uid || !enabled || !mutationId) {
       setState((current) => current.scopeKey === scopeKey
         ? { ...current, receipt: null, deviceReceipts: [] }
@@ -151,7 +159,7 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
       unsubscribeReceipt();
       unsubscribeDevices();
     };
-  }, [enabled, firestore, mutationId, scopeKey, uid]);
+  }, [active, enabled, firestore, mutationId, scopeKey, uid]);
 
   if (state.scopeKey !== scopeKey) {
     return { ...EMPTY_STATE, loading: Boolean(uid && enabled) };

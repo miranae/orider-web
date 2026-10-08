@@ -97,3 +97,15 @@ describe("usePdc", () => {
     expect(mocks.log).toHaveBeenCalledWith("usePdc.invalidContract", expect.any(Error), { uid: "owner" });
   });
 });
+
+
+it.each(["owner-b", undefined])("숨은 계정 변경(%s)은 이전 PDC와 늦은 콜백을 무효화한다", uid => {
+  const hook = renderHook(({ uid, active }) => usePdc(uid, active),
+    { initialProps: { uid: "owner" as string | undefined, active: true } });
+  const stale = mocks.callback;
+  act(() => stale?.({ exists: () => true, data: () => structuredClone(parity.persistedPdc) }));
+  expect(hook.result.current.status).toBe("ready");
+  hook.rerender({ uid, active: false });
+  act(() => stale?.({ exists: () => true, data: () => structuredClone(parity.persistedPdc) }));
+  expect(hook.result.current.pdc).toBeNull();
+});

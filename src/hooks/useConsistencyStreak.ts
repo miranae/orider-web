@@ -33,6 +33,7 @@ function summarize(activities: Activity[], uid: string, nowMs: number): Consiste
 export function useConsistencyStreak(
   uid: string | null | undefined,
   preloaded?: PreloadedStreakActivities | null,
+  active = true,
 ) {
   const { firestore } = useFirebaseServices();
   const [queried, setQueried] = useState<{ uid: string; summary: ConsistencyStreakSummary | null } | null>(null);
@@ -55,6 +56,7 @@ export function useConsistencyStreak(
       return;
     }
 
+    if (!active) return;
     let cancelled = false;
     setLoading(true);
 
@@ -88,7 +90,7 @@ export function useConsistencyStreak(
     return () => {
       cancelled = true;
     };
-  }, [firestore, uid, usePreloaded]);
+  }, [active, firestore, uid, usePreloaded]);
 
   if (!uid) return { summary: null, loading: false };
   if (usePreloaded) return { summary: preloadedSummary, loading: !preloadedReady };

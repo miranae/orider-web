@@ -119,8 +119,8 @@ describe("usePlanModel", () => {
     expect(result.current.progress).toBe(50);
     expect(collection).toHaveBeenCalledWith(firestore, "goals");
     expect(collection).toHaveBeenCalledWith(firestore, "goals", "goal-run", "plan");
-    expect(mocks.freshTraining).toHaveBeenCalledWith("run");
-    expect(mocks.fitnessTimeseries).toHaveBeenCalledWith("owner", "run");
+    expect(mocks.freshTraining).toHaveBeenCalledWith("run", true);
+    expect(mocks.fitnessTimeseries).toHaveBeenCalledWith("owner", "run", 0, undefined, false, true);
   });
 
   it("uses the bike model for an unsupported embedded sport value", async () => {
@@ -131,8 +131,8 @@ describe("usePlanModel", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.discipline).toBe("bike");
     expect(result.current.goal).toBeNull();
-    expect(mocks.freshTraining).toHaveBeenCalledWith("bike");
-    expect(mocks.fitnessTimeseries).toHaveBeenCalledWith("owner", "bike");
+    expect(mocks.freshTraining).toHaveBeenCalledWith("bike", true);
+    expect(mocks.fitnessTimeseries).toHaveBeenCalledWith("owner", "bike", 0, undefined, false, true);
   });
 
   it("commits a fresh goal and its weeks atomically", async () => {

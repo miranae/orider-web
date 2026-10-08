@@ -7,7 +7,7 @@
  * 이 문서는 백엔드(orider-g1-web)가 쓴다. 없을 수도 있으므로(신규 사용자, 미배포 환경)
  * null 을 그대로 반환하고 소비처는 카드를 렌더하지 않는다 — 0 으로 채워 넣지 않는다.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { logClientError, debugLog } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
@@ -19,12 +19,21 @@ export interface UserFitnessState {
   loading: boolean;
 }
 
-export function useUserFitness(enabled = true): UserFitnessState {
+export function useUserFitness(enabled = true, active = true): UserFitnessState {
   const { user } = useAuth();
   const { firestore } = useFirebaseServices();
   const [state, setState] = useState<UserFitnessState>({ fitness: null, loading: true });
 
+  const uid = user?.uid ?? null;
+  const ownerUid = useRef(uid);
+  const generationRef = useRef(0);
   useEffect(() => {
+    const generation = ++generationRef.current;
+    if (ownerUid.current !== uid) {
+      setState({ fitness: null, loading: false });
+      ownerUid.current = uid;
+    }
+    if (!active && user && enabled) return;
     if (!user || !enabled) {
       setState({ fitness: null, loading: false });
       return;
@@ -33,6 +42,7 @@ export function useUserFitness(enabled = true): UserFitnessState {
     const unsub = onSnapshot(
       ref,
       (snap) => {
+        if (generationRef.current !== generation) return;
         const fitness = snap.exists() ? (snap.data() as UserFitness) : null;
         debugLog("useUserFitness.snapshot", {
           exists: snap.exists(),
@@ -42,12 +52,16 @@ export function useUserFitness(enabled = true): UserFitnessState {
         setState({ fitness, loading: false });
       },
       (err) => {
+        if (generationRef.current !== generation) return;
         logClientError("useUserFitness.subscribe", err);
         setState({ fitness: null, loading: false });
       },
     );
-    return unsub;
-  }, [enabled, firestore, user]);
+    return () => {
+      generationRef.current += 1;
+      unsub();
+    };
+  }, [active, enabled, firestore, uid, user]);
 
-  return state;
+  return ownerUid.current === uid ? state : { fitness: null, loading: false };
 }
