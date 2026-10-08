@@ -1,59 +1,11 @@
-import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { maxWeightedAverage, sampleDurationsSec } from "../../utils/sampleTime";
-import type { StreamTimeArray } from "../../utils/streamTime";
-
-export interface PaceStream {
-  velocity: number[];
-  time?: StreamTimeArray;
-}
+import type { RunPacePoint } from "../../features/fitness/fitnessCurveDocuments";
+import ChartEmptyState from "./ChartEmptyState";
 
 interface CriticalPaceCurveProps {
   color?: string;
-  /** 활동별 velocity_smooth/time 배열들 (최근 28일) */
-  recentStreams?: PaceStream[];
-  /** 활동별 velocity_smooth/time 배열들 (이전 28일) */
-  prevStreams?: PaceStream[];
-}
-
-const mockCurrent = [
-  { dur: 0.5, pace: 195 },
-  { dur: 1, pace: 210 },
-  { dur: 3, pace: 230 },
-  { dur: 5, pace: 245 },
-  { dur: 10, pace: 265 },
-  { dur: 20, pace: 278 },
-  { dur: 30, pace: 285 },
-  { dur: 60, pace: 300 },
-  { dur: 120, pace: 318 },
-];
-
-const mockPrevious = [
-  { dur: 0.5, pace: 202 },
-  { dur: 1, pace: 218 },
-  { dur: 3, pace: 238 },
-  { dur: 5, pace: 255 },
-  { dur: 10, pace: 275 },
-  { dur: 20, pace: 288 },
-  { dur: 30, pace: 296 },
-  { dur: 60, pace: 312 },
-  { dur: 120, pace: 330 },
-];
-
-// 지속시간 목록 (초)
-const DURATIONS = [30, 60, 180, 300, 600, 1200, 1800, 3600, 7200];
-
-export function computeBestPace(streams: PaceStream[], durationSec: number): number | null {
-  if (durationSec <= 0) return null;
-  let bestAvgVelocity = 0;
-  for (const stream of streams) {
-    if (stream.velocity.length < 2) continue;
-    const durations = sampleDurationsSec(stream.velocity.length, stream.time);
-    const avg = maxWeightedAverage(stream.velocity, durations, durationSec);
-    if (avg != null) bestAvgVelocity = Math.max(bestAvgVelocity, avg);
-  }
-  if (bestAvgVelocity <= 0) return null;
-  return 1000 / bestAvgVelocity; // m/s → sec/km
+  recentPoints?: readonly RunPacePoint[];
+  prevPoints?: readonly RunPacePoint[];
 }
 
 const xTicks = [0.5, 1, 5, 10, 30, 60, 120];
@@ -63,33 +15,17 @@ const REF_MARKER_BASE = [
   { dur: 46, label: "10K" },
 ];
 
-export default function CriticalPaceCurve({ color = "var(--amber)", recentStreams, prevStreams }: CriticalPaceCurveProps) {
+export default function CriticalPaceCurve({ color = "var(--amber)", recentPoints = [], prevPoints = [] }: CriticalPaceCurveProps) {
   const { t } = useTranslation("dashboard");
   const refMarkers = [
     ...REF_MARKER_BASE,
     { dur: 100, label: t("charts.criticalPace.half") },
   ];
-  const currentData = useMemo(() => {
-    if (!recentStreams || recentStreams.length === 0) return null;
-    const pts = DURATIONS.map(d => {
-      const pace = computeBestPace(recentStreams, d);
-      return pace !== null ? { dur: d / 60, pace } : null;
-    }).filter((p): p is { dur: number; pace: number } => p !== null);
-    return pts.length > 0 ? pts : null;
-  }, [recentStreams]);
-
-  const prevData = useMemo(() => {
-    if (!prevStreams || prevStreams.length === 0) return null;
-    const pts = DURATIONS.map(d => {
-      const pace = computeBestPace(prevStreams, d);
-      return pace !== null ? { dur: d / 60, pace } : null;
-    }).filter((p): p is { dur: number; pace: number } => p !== null);
-    return pts.length > 0 ? pts : null;
-  }, [prevStreams]);
-
-  // 실데이터 없으면 mock fallback
-  const current = currentData ?? mockCurrent;
-  const previous = prevData ?? mockPrevious;
+  const current = recentPoints.map(({ durationSec, paceSecPerKm }) => ({ dur: durationSec / 60, pace: paceSecPerKm }));
+  const previous = prevPoints.map(({ durationSec, paceSecPerKm }) => ({ dur: durationSec / 60, pace: paceSecPerKm }));
+  if (current.length === 0 && previous.length === 0) {
+    return <ChartEmptyState title={t("charts.fitness.noData")} description="" />;
+  }
 
   const w = 1080, h = 160;
   const padL = 40, padR = 20, padT = 10, padB = 30;
@@ -113,8 +49,9 @@ export default function CriticalPaceCurve({ color = "var(--amber)", recentStream
     pts.map(({ dur, pace }, i) => `${i === 0 ? "M" : "L"}${sx(dur).toFixed(1)} ${sy(pace).toFixed(1)}`).join(" ");
 
   const secToMmss = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = Math.round(s % 60);
+    const totalSeconds = Math.round(s);
+    const m = Math.floor(totalSeconds / 60);
+    const sec = totalSeconds % 60;
     return `${m}:${String(sec).padStart(2, "0")}`;
   };
 
@@ -143,10 +80,13 @@ export default function CriticalPaceCurve({ color = "var(--amber)", recentStream
       })}
 
       {/* 이전 시즌 (dashed, ink-3) */}
-      <path d={toPath(previous)} stroke="var(--ink-3)" strokeWidth="1.5" fill="none" strokeDasharray="5 4" />
+      {previous.length > 0 && <path d={toPath(previous)} stroke="var(--ink-3)" strokeWidth="1.5" fill="none" strokeDasharray="5 4" />}
+      {previous.map(({ dur, pace }, i) => (
+        <circle key={i} cx={sx(dur)} cy={sy(pace)} r="3" fill="var(--ink-3)" />
+      ))}
 
       {/* 현재 시즌 (amber) */}
-      <path d={toPath(current)} stroke={color} strokeWidth="2" fill="none" />
+      {current.length > 0 && <path d={toPath(current)} stroke={color} strokeWidth="2" fill="none" />}
       {current.map(({ dur, pace }, i) => (
         <circle key={i} cx={sx(dur)} cy={sy(pace)} r="3" fill={color} />
       ))}
@@ -159,7 +99,7 @@ export default function CriticalPaceCurve({ color = "var(--amber)", recentStream
       ))}
 
       {/* Y축 (페이스) */}
-      {current.filter((_, i) => i % 2 === 0).map(({ dur, pace }) => (
+      {(current.length > 0 ? current : previous).filter((_, i) => i % 2 === 0).map(({ dur, pace }) => (
         <text key={dur} x={padL - 4} y={sy(pace) + 4} fontSize="8" fontFamily="var(--font-mono)" fill="var(--ink-4)" textAnchor="end">
           {secToMmss(pace)}
         </text>

@@ -20,6 +20,9 @@ vi.mock("./useTrainingDecision", () => ({useTrainingDecision:()=>({enabled:false
 vi.mock("./useFtpHistory", () => ({ useFtpHistory: () => ({ entries: [] }) }));
 vi.mock("./useMobile", () => ({ useMobile: () => false }));
 vi.mock("./usePdc", () => ({ usePdc: () => ({ pdc: null }) }));
+vi.mock("../features/fitness/useFitnessCurves", () => ({ useFitnessCurves: () => ({
+  run: { recent28: [], prev28: [] }, swim: { recent28: [], prev28: [] },
+}) }));
 vi.mock("./useBikeFtpDecision", () => ({ useBikeFtpDecision: () => ({ decision: null }) }));
 vi.mock("./useCoachRiderInsight", () => ({ useCoachRiderInsight: () => ({ insight: null }) }));
 vi.mock("./useUserFitness", () => ({ useUserFitness: () => ({ fitness: null }) }));
