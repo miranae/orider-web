@@ -11,6 +11,7 @@ import { parseCoachRiderInsight } from "../services/coachRiderInsightContract";
 import FitnessSurface from "../embedded/surfaces/FitnessSurface";
 import { normalizeFitnessRange } from "../hooks/useFitnessModel";
 import FitnessPage, { fitnessGoalDisplayName } from "./FitnessPage";
+import * as personalDataApi from "../services/personalDataApi";
 
 const viewport = vi.hoisted(() => ({ isMobile: true }));
 const riderInsight = vi.hoisted(() => ({ enabled: false, insight: null as ReturnType<typeof parseCoachRiderInsight> | null, loading: false, unavailable: false }));
@@ -87,6 +88,44 @@ describe("FitnessPage", () => {
       rolloutState: "off", enabled: false, values: null, display: null, computedAt: null, status: null,
       metadata: null, showingLastGood: false, retry: vi.fn(),
     };
+  });
+
+  it.each(["desktop", "mobile", "embedded"].flatMap((surface) =>
+    ["bike", "run", "swim"].map((sport) => [surface, sport]),
+  ))("%s %s 체력 화면은 지표와 곡선 문서만 읽고 활동 스트림을 요청하지 않는다", async (surface, sport) => {
+    viewport.isMobile = surface !== "desktop";
+    const streamsRequest = vi.spyOn(personalDataApi, "getActivityStreamsWithAuth")
+      .mockResolvedValue({ velocity_smooth: Array(30).fill(3) });
+    const id = `${surface}-${sport}`;
+    const now = Date.now();
+    setCollectionDocs("activities", [{
+      id, userId: "test-uid", type: sport === "bike" ? "Ride" : sport === "run" ? "Run" : "Swim",
+      startTime: now, deletedAt: null,
+      summary: { distance: 10_000, ridingTimeMillis: 3_600_000, averagePower: 180 },
+    }]);
+    setDocData(`activity_streams/${id}`, { storage: "gcs", gcsPath: `activity-streams/${id}.json` });
+    setDocData(`activity_metrics/${id}`, { tss: 40 });
+    const contract = { version: 1, windowDays: 56, maxEntries: 256, generation: 1, updatedAt: now, truncated: false };
+    setDocData("users/test-uid/fitness/pace_run", {
+      ...contract, discipline: "run", entries: [{ activityId: id, startTime: now, curve: [{ durationSec: 30, paceSecPerKm: 240 }] }],
+    });
+    setDocData("users/test-uid/fitness/css_swim", {
+      ...contract, discipline: "swim", entries: [{ activityId: id, startTime: now, curve: [{ distanceM: 100, paceSecPer100m: 90 }] }],
+    });
+    vi.mocked(getDoc).mockClear();
+    vi.mocked(onSnapshot).mockClear();
+    const view = surface === "embedded" ? <FitnessSurface onReady={vi.fn()} retryKey={0} /> : <FitnessPage />;
+    const rendered = renderWithProviders(view, { authenticated: true, route: `/fitness?sport=${sport}` });
+    const readPaths = () => vi.mocked(getDoc).mock.calls.map(([reference]) => (reference as { path?: string }).path ?? "");
+    await waitFor(() => expect(readPaths()).toContain(`activity_metrics/${id}`));
+    expect(streamsRequest).not.toHaveBeenCalled();
+    expect(readPaths().some((path) => path.startsWith("activity_streams/"))).toBe(false);
+    const watchedPaths = vi.mocked(onSnapshot).mock.calls.map(([reference]) => (reference as { path?: string }).path ?? "");
+    expect(watchedPaths).toContain("users/test-uid/fitness/pace_run");
+    expect(watchedPaths).toContain("users/test-uid/fitness/css_swim");
+    expect(watchedPaths.some((path) => path.startsWith("activity_streams/"))).toBe(false);
+    rendered.unmount();
+    streamsRequest.mockRestore();
   });
 
   it.each([
@@ -376,7 +415,7 @@ describe("FitnessPage", () => {
     }
   });
 
-  it("attempts missing stream and metrics documents only once until activity lifecycle changes", async () => {
+  it("attempts missing metrics only once until activity lifecycle changes and never reads streams", async () => {
     const baseActivity = {
       id: "pending-analysis",
       userId: "test-uid",
@@ -392,16 +431,15 @@ describe("FitnessPage", () => {
     const readsFor = (path: string) => vi.mocked(getDoc).mock.calls
       .filter(([ref]) => (ref as { path?: string }).path === path).length;
     await waitFor(() => {
-      expect(readsFor("activity_streams/pending-analysis")).toBe(1);
+      expect(readsFor("activity_streams/pending-analysis")).toBe(0);
       expect(readsFor("activity_metrics/pending-analysis")).toBe(1);
     });
 
     setCollectionDocs("activities", [{ ...baseActivity }]);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(readsFor("activity_streams/pending-analysis")).toBe(1);
+    expect(readsFor("activity_streams/pending-analysis")).toBe(0);
     expect(readsFor("activity_metrics/pending-analysis")).toBe(1);
 
-    setDocData("activity_streams/pending-analysis", { watts: [180, 190] });
     setDocData("activity_metrics/pending-analysis", { tss: 45 });
     setCollectionDocs("activities", [{
       ...baseActivity,
@@ -409,7 +447,7 @@ describe("FitnessPage", () => {
     }]);
 
     await waitFor(() => {
-      expect(readsFor("activity_streams/pending-analysis")).toBe(2);
+      expect(readsFor("activity_streams/pending-analysis")).toBe(0);
       expect(readsFor("activity_metrics/pending-analysis")).toBe(2);
     });
   });

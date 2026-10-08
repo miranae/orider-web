@@ -54,9 +54,10 @@ describe("useActivityDerivedDocuments", () => {
     vi.mocked(onSnapshot).mockClear();
   });
 
-  it("숨은 동안 파생문서 watch를 정지하고 읽어 둔 스트림을 보존한다", async () => {
+  it("숨은 동안 metrics watch를 정지하고 읽어 둔 값을 보존한다", async () => {
     const current = activity("suspend-derived", "user-a");
-    setDocData("activity_streams/suspend-derived", { watts: [200] });
+    const pending = activity("pending-derived", "user-a");
+    setDocData("activity_metrics/suspend-derived", { tss: 42 });
     const stopped: Array<ReturnType<typeof vi.fn>> = [];
     vi.mocked(onSnapshot).mockImplementation(((...args: unknown[]) => {
       const cleanup = (defaultOnSnapshotImplementation as (...params: unknown[]) => () => void)(...args);
@@ -64,96 +65,34 @@ describe("useActivityDerivedDocuments", () => {
       stopped.push(stop);
       return stop;
     }) as typeof onSnapshot);
-    const hook = renderHook(({ active }) => useActivityDerivedDocuments("user-a", [current], active),
+    const hook = renderHook(({ active }) => useActivityDerivedDocuments("user-a", [current, pending], active),
       { initialProps: { active: true } });
-    await waitFor(() => expect(hook.result.current.streamsMap.get(current.id)).toEqual({ watts: [200] }));
+    await waitFor(() => expect(hook.result.current.metricsMap.get(current.id)).toEqual({ tss: 42 }));
     await waitFor(() => expect(stopped.length).toBeGreaterThan(0));
     hook.rerender({ active: false });
     expect(stopped.every(stop => stop.mock.calls.length > 0)).toBe(true);
-    expect(hook.result.current.streamsMap.get(current.id)).toEqual({ watts: [200] });
+    expect(hook.result.current.metricsMap.get(current.id)).toEqual({ tss: 42 });
     hook.rerender({ active: true });
-    expect(hook.result.current.streamsMap.get(current.id)).toEqual({ watts: [200] });
-    act(() => setDocData("activity_metrics/suspend-derived", { tss: 45 }));
-    await waitFor(() => expect(hook.result.current.metricsMap.get(current.id)).toEqual({ tss: 45 }));
-  });
-
-  it("loads a GCS-backed stream through the authenticated API", async () => {
-    setDocData("activity_streams/gcs-fitness", {
-      storage: "gcs",
-      gcsPath: "activity-streams/gcs-fitness.json",
-    });
-    vi.mocked(getActivityStreamsWithAuth).mockResolvedValue({
-      watts: [180, 190],
-    });
-    const hook = renderHook(() => useActivityDerivedDocuments(
-      "user-a",
-      [activity("gcs-fitness", "user-a")],
-    ));
-
-    await waitFor(() => {
-      expect(hook.result.current.streamsMap.get("gcs-fitness")).toEqual({ watts: [180, 190] });
-    });
-    expect(getActivityStreamsWithAuth).toHaveBeenCalledWith(expect.anything(), "gcs-fitness");
-  });
-
-  it("loads a GCS-backed stream created after the first read", async () => {
-    const hook = renderHook(() => useActivityDerivedDocuments(
-      "user-a",
-      [activity("late-gcs-fitness", "user-a")],
-    ));
-    await waitFor(() => expect(vi.mocked(onSnapshot)).toHaveBeenCalled());
-    vi.mocked(getActivityStreamsWithAuth).mockResolvedValue({ watts: [205] });
-
-    act(() => setDocData("activity_streams/late-gcs-fitness", {
-      storage: "gcs",
-      gcsPath: "activity-streams/late-gcs-fitness.json",
-    }));
-
-    await waitFor(() => {
-      expect(hook.result.current.streamsMap.get("late-gcs-fitness")).toEqual({ watts: [205] });
-    });
-  });
-
-  it("discards a GCS response after the account changes", async () => {
-    setDocData("activity_streams/gcs-stale", {
-      storage: "gcs",
-      gcsPath: "activity-streams/gcs-stale.json",
-    });
-    let resolveStreams!: (streams: { watts: number[] }) => void;
-    vi.mocked(getActivityStreamsWithAuth).mockImplementation(() => new Promise((resolve) => {
-      resolveStreams = resolve;
-    }));
-    const current = activity("gcs-stale", "user-a");
-    const hook = renderHook(
-      ({ uid, activities }) => useActivityDerivedDocuments(uid, activities),
-      { initialProps: { uid: "user-a", activities: [current] } },
-    );
-    await waitFor(() => expect(getActivityStreamsWithAuth).toHaveBeenCalled());
-
-    hook.rerender({ uid: "user-b", activities: [] });
-    await act(async () => resolveStreams({ watts: [230] }));
-
-    expect(hook.result.current.streamsMap.has("gcs-stale")).toBe(false);
+    expect(hook.result.current.metricsMap.get(current.id)).toEqual({ tss: 42 });
+    act(() => setDocData("activity_metrics/pending-derived", { tss: 45 }));
+    await waitFor(() => expect(hook.result.current.metricsMap.get(pending.id)).toEqual({ tss: 45 }));
   });
 
   it("observes a derived document created after an unchanged activity snapshot", async () => {
     const current = activity("late", "user-a");
     const hook = renderHook(() => useActivityDerivedDocuments("user-a", [current]));
 
-    await waitFor(() => expect(vi.mocked(getDoc).mock.calls.length).toBe(2));
-    expect(hook.result.current.streamsMap.has("late")).toBe(false);
+    await waitFor(() => expect(vi.mocked(getDoc).mock.calls.length).toBe(1));
     expect(hook.result.current.metricsMap.has("late")).toBe(false);
 
     act(() => {
-      setDocData("activity_streams/late", { watts: [180, 190] });
       setDocData("activity_metrics/late", { tss: 42 });
     });
 
     await waitFor(() => {
-      expect(hook.result.current.streamsMap.get("late")).toEqual({ watts: [180, 190] });
       expect(hook.result.current.metricsMap.get("late")).toEqual({ tss: 42 });
     });
-    expect(vi.mocked(getDoc).mock.calls.length).toBe(2);
+    expect(vi.mocked(getDoc).mock.calls.length).toBe(1);
   });
 
   it("settles a legitimate missing metrics document without waiting for its creation watch", async () => {
@@ -529,16 +468,16 @@ describe("useActivityDerivedDocuments", () => {
   });
 
   it("prunes maps and creation watches when an activity leaves the snapshot", async () => {
-    setDocData("activity_streams/pruned", { watts: [200] });
+    setDocData("activity_metrics/pruned", { tss: 20 });
     const current = activity("pruned", "user-a");
     const hook = renderHook(
       ({ activities }) => useActivityDerivedDocuments("user-a", activities),
       { initialProps: { activities: [current] } },
     );
-    await waitFor(() => expect(hook.result.current.streamsMap.has("pruned")).toBe(true));
+    await waitFor(() => expect(hook.result.current.metricsMap.has("pruned")).toBe(true));
 
     hook.rerender({ activities: [] });
-    await waitFor(() => expect(hook.result.current.streamsMap.size).toBe(0));
+    await waitFor(() => expect(hook.result.current.metricsMap.size).toBe(0));
 
     act(() => setDocData("activity_metrics/pruned", { tss: 30 }));
     expect(hook.result.current.metricsMap.size).toBe(0);
@@ -553,13 +492,10 @@ describe("useActivityDerivedDocuments", () => {
 
     const derivedWatchPaths = () => vi.mocked(onSnapshot).mock.calls
       .map(([reference]) => (reference as { path?: string }).path ?? "")
-      .filter((path) => path.startsWith("activity_streams/") || path.startsWith("activity_metrics/"));
+      .filter((path) => path.startsWith("activity_metrics/"));
     await waitFor(() => expect(derivedWatchPaths()).toHaveLength(
-      DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND * 2,
-    ));
-    expect(derivedWatchPaths().filter((path) => path.startsWith("activity_streams/"))).toHaveLength(
       DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND,
-    );
+    ));
     expect(derivedWatchPaths().filter((path) => path.startsWith("activity_metrics/"))).toHaveLength(
       DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND,
     );
@@ -611,101 +547,6 @@ describe("useActivityDerivedDocuments", () => {
     expect(activePaths.size).toBe(DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND - 1);
   });
 
-  it("keeps the creation watcher after malformed JSON and reflects a corrected document", async () => {
-    vi.useFakeTimers();
-    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
-    const current = activity("malformed", "user-a");
-    const hook = renderHook(() => useActivityDerivedDocuments("user-a", [current]));
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(vi.mocked(onSnapshot).mock.calls.some(
-      ([reference]) => (reference as { path?: string }).path === "activity_streams/malformed",
-    )).toBe(true);
-
-    act(() => setDocData("activity_streams/malformed", { json: "{broken" }));
-
-    expect(logSpy).toHaveBeenCalledWith(
-      "useActivityDerivedDocuments.creationWatch.parse",
-      expect.any(SyntaxError),
-      { kind: "stream", activityId: "malformed" },
-    );
-    expect(hook.result.current.streamsMap.has("malformed")).toBe(false);
-
-    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
-    act(() => setDocData("activity_streams/malformed", { watts: [210] }));
-    expect(hook.result.current.streamsMap.get("malformed")).toEqual({ watts: [210] });
-    hook.unmount();
-    logSpy.mockRestore();
-    vi.useRealTimers();
-  });
-
-  it("bounds repeated malformed creation documents after watcher TTL", async () => {
-    vi.useFakeTimers();
-    let streamReads = 0;
-    vi.mocked(getDoc).mockImplementation((reference) => {
-      const path = (reference as { path: string }).path;
-      if (path.startsWith("activity_metrics/")) {
-        return Promise.resolve({ exists: () => true, data: () => ({ tss: 12 }), ref: reference }) as ReturnType<typeof getDoc>;
-      }
-      streamReads += 1;
-      const data = streamReads === 1 ? null : { json: "{still-broken" };
-      return Promise.resolve({ exists: () => data !== null, data: () => data, ref: reference }) as ReturnType<typeof getDoc>;
-    });
-    const hook = renderHook(() => useActivityDerivedDocuments(
-      "user-a",
-      [activity("malformed-bounded", "user-a")],
-    ));
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    act(() => setDocData("activity_streams/malformed-bounded", { json: "{broken-watcher" }));
-    expect(streamReads).toBe(1);
-
-    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_WATCH_MS));
-    expect(streamReads).toBe(2);
-    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
-    expect(streamReads).toBe(3);
-    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS));
-    expect(streamReads).toBe(4);
-    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 10));
-    expect(streamReads).toBe(4);
-    expect(hook.result.current.streamsMap.has("malformed-bounded")).toBe(false);
-    hook.unmount();
-    vi.useRealTimers();
-  });
-
-  it("does not recover a malformed creation watcher after account cleanup", async () => {
-    vi.useFakeTimers();
-    let streamReads = 0;
-    vi.mocked(getDoc).mockImplementation((reference) => {
-      const path = (reference as { path: string }).path;
-      if (path === "activity_streams/malformed-cleanup") streamReads += 1;
-      return Promise.resolve({ exists: () => false, data: () => null, ref: reference }) as ReturnType<typeof getDoc>;
-    });
-    const current = activity("malformed-cleanup", "user-a");
-    const hook = renderHook(
-      ({ uid, activities }) => useActivityDerivedDocuments(uid, activities),
-      { initialProps: { uid: "user-a", activities: [current] } },
-    );
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    act(() => setDocData("activity_streams/malformed-cleanup", { json: "{broken" }));
-    expect(streamReads).toBe(1);
-
-    hook.rerender({ uid: "user-b", activities: [] });
-    act(() => setDocData("activity_streams/malformed-cleanup", { watts: [222] }));
-    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 10));
-    expect(streamReads).toBe(1);
-    expect(hook.result.current.streamsMap.has("malformed-cleanup")).toBe(false);
-    hook.unmount();
-    vi.useRealTimers();
-  });
-
   it("logs listener errors and performs only one bounded backoff retry", async () => {
     vi.useFakeTimers();
     const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
@@ -743,20 +584,17 @@ describe("useActivityDerivedDocuments", () => {
     vi.useRealTimers();
   });
 
-  it("awaits each batch so stream and metrics concurrency stay at 10 and 20", async () => {
-    const active = { stream: 0, metrics: 0 };
-    const maximum = { stream: 0, metrics: 0 };
+  it("awaits each metrics batch within the concurrency cap of 20", async () => {
+    let active = 0;
+    let maximum = 0;
     const pending: Array<() => void> = [];
     vi.mocked(getDoc).mockImplementation((reference) => {
-      const path = (reference as { path: string }).path;
-      const kind = path.startsWith("activity_streams/") ? "stream" : "metrics";
-      active[kind] += 1;
-      maximum[kind] = Math.max(maximum[kind], active[kind]);
+      active += 1;
+      maximum = Math.max(maximum, active);
       return new Promise((resolve) => {
         pending.push(() => {
-          active[kind] -= 1;
-          const data = kind === "stream" ? { watts: [200] } : { tss: 40 };
-          resolve({ exists: () => true, data: () => data, ref: reference });
+          active -= 1;
+          resolve({ exists: () => true, data: () => ({ tss: 40 }), ref: reference });
         });
       }) as ReturnType<typeof getDoc>;
     });
@@ -765,18 +603,12 @@ describe("useActivityDerivedDocuments", () => {
     ));
     renderHook(() => useActivityDerivedDocuments("user-a", activities));
 
-    await waitFor(() => expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(30));
-    expect(active).toEqual({ stream: 10, metrics: 20 });
-    expect(maximum).toEqual({ stream: 10, metrics: 20 });
-
+    await waitFor(() => expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(20));
+    expect(active).toBe(20);
     await act(async () => pending.splice(0).forEach((resolve) => resolve()));
-    await waitFor(() => expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(45));
-    expect(maximum).toEqual({ stream: 10, metrics: 20 });
-
+    await waitFor(() => expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(25));
+    expect(maximum).toBe(20);
     await act(async () => pending.splice(0).forEach((resolve) => resolve()));
-    await waitFor(() => expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(50));
-    await act(async () => pending.splice(0).forEach((resolve) => resolve()));
-    expect(maximum).toEqual({ stream: 10, metrics: 20 });
   });
 
   it("shares the metrics concurrency cap between active rechecks and new activities", async () => {
@@ -908,37 +740,6 @@ describe("useActivityDerivedDocuments", () => {
     vi.useRealTimers();
   });
 
-  it("recovers after repeated initial stream parse failures without an immediate loop", async () => {
-    vi.useFakeTimers();
-    let streamReads = 0;
-    vi.mocked(getDoc).mockImplementation((reference) => {
-      const path = (reference as { path: string }).path;
-      if (path.startsWith("activity_metrics/")) {
-        return Promise.resolve({ exists: () => true, data: () => ({ tss: 10 }), ref: reference }) as ReturnType<typeof getDoc>;
-      }
-      streamReads += 1;
-      const data = streamReads <= 2 ? { json: "{broken" } : { watts: [201, 208] };
-      return Promise.resolve({ exists: () => true, data: () => data, ref: reference }) as ReturnType<typeof getDoc>;
-    });
-    const hook = renderHook(() => useActivityDerivedDocuments(
-      "user-a",
-      [activity("parse-recovery", "user-a")],
-    ));
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(streamReads).toBe(1);
-
-    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
-    expect(streamReads).toBe(2);
-    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS));
-    expect(streamReads).toBe(3);
-    expect(hook.result.current.streamsMap.get("parse-recovery")).toEqual({ watts: [201, 208] });
-    hook.unmount();
-    vi.useRealTimers();
-  });
-
   it("keeps an evicted old retry timer eligible when a newer activity takes the capped slot", async () => {
     vi.useFakeTimers();
     const oldId = "old-failed";
@@ -990,7 +791,7 @@ describe("useActivityDerivedDocuments", () => {
     vi.useRealTimers();
   });
 
-  it("uses canonical discipline mapping for run and swim subtype stream eligibility", async () => {
+  it("reads metrics for canonical sport subtypes without loading streams", async () => {
     const activities = [
       { ...activity("trail", "user-a", null), type: "TrailRun" },
       { ...activity("virtual-run", "user-a", null), type: "VirtualRun" },
@@ -1000,56 +801,54 @@ describe("useActivityDerivedDocuments", () => {
     ] as Activity[];
     renderHook(() => useActivityDerivedDocuments("user-a", activities));
 
-    const streamReadIds = () => vi.mocked(getDoc).mock.calls
+    const metricReadIds = () => vi.mocked(getDoc).mock.calls
       .map(([reference]) => (reference as { path: string }).path)
-      .filter((path) => path.startsWith("activity_streams/"))
+      .filter((path) => path.startsWith("activity_metrics/"))
       .map((path) => path.split("/").at(-1));
-    await waitFor(() => expect(streamReadIds()).toHaveLength(4));
-    expect(new Set(streamReadIds())).toEqual(new Set(["trail", "virtual-run", "open-water", "pool"]));
-    expect(streamReadIds()).not.toContain("virtual-ride");
+    await waitFor(() => expect(metricReadIds()).toHaveLength(5));
+    expect(new Set(metricReadIds())).toEqual(new Set(["trail", "virtual-run", "open-water", "pool", "virtual-ride"]));
+    expect(getActivityStreamsWithAuth).not.toHaveBeenCalled();
+    expect(vi.mocked(getDoc).mock.calls.every(([reference]) =>
+      (reference as { path: string }).path.startsWith("activity_metrics/"),
+    )).toBe(true);
   });
 
   describe("재마운트 간 파생 문서 캐시", () => {
     const readCount = () => vi.mocked(getDoc).mock.calls.length;
 
     it("같은 revision 이면 재마운트해도 다시 읽지 않는다", async () => {
-      setDocData("activity_streams/remount", { watts: [200] });
       setDocData("activity_metrics/remount", { tss: 55 });
       const current = activity("remount", "user-a");
       const first = renderHook(() => useActivityDerivedDocuments("user-a", [current]));
       await waitFor(() => expect(first.result.current.metricsMap.get("remount")).toEqual({ tss: 55 }));
-      expect(readCount()).toBe(2);
+      expect(readCount()).toBe(1);
       first.unmount();
 
       const second = renderHook(() => useActivityDerivedDocuments("user-a", [{ ...current }]));
-      expect(second.result.current.streamsMap.get("remount")).toEqual({ watts: [200] });
       expect(second.result.current.metricsMap.get("remount")).toEqual({ tss: 55 });
       expect(second.result.current.metricStatusMap.get("remount")?.state).toBe("loaded");
       await act(async () => {
         await Promise.resolve();
       });
-      expect(readCount()).toBe(2);
+      expect(readCount()).toBe(1);
       second.unmount();
     });
 
     it("활동 revision 이 바뀌면 캐시 대신 다시 읽는다", async () => {
-      setDocData("activity_streams/revised", { watts: [200] });
       setDocData("activity_metrics/revised", { tss: 55 });
       const current = activity("revised", "user-a");
       const first = renderHook(() => useActivityDerivedDocuments("user-a", [current]));
       await waitFor(() => expect(first.result.current.metricsMap.get("revised")).toEqual({ tss: 55 }));
       first.unmount();
 
-      setDocData("activity_streams/revised", { watts: [210] });
       setDocData("activity_metrics/revised", { tss: 61 });
       const revised = activity("revised", "user-a", 190);
       const second = renderHook(() => useActivityDerivedDocuments("user-a", [revised]));
       expect(second.result.current.metricsMap.has("revised")).toBe(false);
       await waitFor(() => {
-        expect(second.result.current.streamsMap.get("revised")).toEqual({ watts: [210] });
         expect(second.result.current.metricsMap.get("revised")).toEqual({ tss: 61 });
       });
-      expect(readCount()).toBe(4);
+      expect(readCount()).toBe(2);
       second.unmount();
     });
 

@@ -10,14 +10,12 @@ import {
 } from "firebase/firestore";
 
 import type { Goal, PlanDay, PlanWeek } from "@shared/types/goal";
-import { hasFitnessLoadLifecycle, isFitnessInputInvalidated } from "../features/fitness/pmcHistory";
 import { planDayStartMs, planDayKey } from "@shared/training/planDate";
 import { computePlanProgress } from "@shared/training/planMetrics";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { getRuntimeConfig } from "../services/runtimeConfig";
-import { useFitnessTimeseries } from "./useFitnessTimeseries";
 import { useFreshTraining } from "./useFreshTraining";
 import {
   clearTrainingSurfaceCache,
@@ -112,27 +110,9 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
       value: refreshGenerationRef.current.value + 1,
     };
   }
-  const { revalidating, justRecomputed } = useFreshTraining(discipline, active);
+  const { revalidating, justRecomputed, currentTsb: projectionTsb } = useFreshTraining(discipline, true, active);
   const legacyRecoveryEnabled = getRuntimeConfig().trainingDecisionEnabled !== true;
-  const { timeseries } = useFitnessTimeseries(
-    legacyRecoveryEnabled ? user?.uid : undefined,
-    discipline,
-    0,
-    undefined,
-    false,
-    active,
-  );
-  const tsbFresh = timeseries?.endDate != null
-    && (Date.now() - new Date(`${timeseries.endDate}T00:00:00Z`).getTime()) <= 3 * DAY_MS;
-  const modernRecoveryReady = !timeseries || !("loadSnapshot" in timeseries || "pmc" in timeseries || "inputInvalidatedAt" in timeseries)
-    || hasFitnessLoadLifecycle(timeseries) && !isFitnessInputInvalidated(timeseries)
-      && timeseries.pmc!.status === "processed" && timeseries.pmc!.processedInputRevision === timeseries.loadSnapshot!.inputRevision
-      && timeseries.computedAt === timeseries.loadSnapshot!.asOf
-      && timeseries.pmc!.asOf !== null && timeseries.pmc!.asOf >= timeseries.loadSnapshot!.asOf
-      && timeseries.loadSnapshot!.points.every((point) => point.status === "final");
-  const currentTsb = legacyRecoveryEnabled && modernRecoveryReady && tsbFresh && timeseries!.points.length
-    ? timeseries!.points[timeseries!.points.length - 1]!.tsb
-    : null;
+  const currentTsb = legacyRecoveryEnabled ? projectionTsb : null;
 
   useEffect(() => {
     if (!user) {

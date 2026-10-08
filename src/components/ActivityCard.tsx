@@ -12,6 +12,7 @@ import type { PdcDoc } from "@shared/types/pdc";
 import Avatar from "./Avatar";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
 import { getSportLabelKey } from "../utils/sportType";
+import { isIndoorActivity } from "../utils/indoorActivity";
 import DisciplineBadge from "./redesign/DisciplineBadge";
 import { getDiscipline } from "../utils/disciplineFilter";
 import {
@@ -287,7 +288,7 @@ export default function ActivityCard({
              *  DisciplineBadge 가 [Bike 아이콘 + "사이클"] 을 자체 포함하므로 옆에 🚴 emoji 추가하면
              *  같은 정보 중복 — emoji 생략. */
             <div className="flex items-center gap-2 flex-wrap text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
-              {getDiscipline(activity.type) && <DisciplineBadge discipline={getDiscipline(activity.type)!} />}
+              {getDiscipline(activity.type) && <DisciplineBadge discipline={getDiscipline(activity.type)!} indoor={isIndoorActivity(activity)} />}
               <span>{timeAgo(activity.startTime)}</span>
               <span>·</span>
               <span>{formatDate(activity.startTime)}</span>
@@ -318,7 +319,7 @@ export default function ActivityCard({
                   )}
                   {/* DisciplineBadge 가 [Bike 아이콘 + "사이클"] 자체 포함 → 옆에 🚴 emoji 추가
                    *  하면 중복이라 생략. */}
-                  {getDiscipline(activity.type) && <DisciplineBadge discipline={getDiscipline(activity.type)!} />}
+                  {getDiscipline(activity.type) && <DisciplineBadge discipline={getDiscipline(activity.type)!} indoor={isIndoorActivity(activity)} />}
                   <span className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>{timeAgo(activity.startTime)}</span>
                 </div>
                 <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: 'var(--ink-3)' }}>{formatDate(activity.startTime)}</div>

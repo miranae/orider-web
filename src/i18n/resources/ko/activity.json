@@ -448,9 +448,12 @@
       "friends": "친구",
       "private": "비공개"
     },
-    "indoor": "가상 라이딩",
+    "indoorRun": "실내 러닝",
+    "indoorRide": "실내 라이딩",
+    "indoorActivity": "실내 활동",
     "noGps": "GPS 데이터 없음",
     "noGpsDesc": "이 활동에는 경로 데이터가 기록되지 않았습니다",
+    "indoorDesc": "실내에서 기록한 활동이라 지도에 표시할 경로가 없습니다",
     "swim": {
       "setTimeline": "세트 타임라인",
       "setAnalysis": "세트 분석",

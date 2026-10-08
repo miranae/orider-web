@@ -29,6 +29,7 @@ import { activitySocialErrorMessageKey, activitySocialMutations } from "../servi
 import { track, trackActivationStep } from "../services/analytics";
 import type { Activity, Visibility } from "@shared/types";
 import { getSportIcon, getSportLabelKey } from "../utils/sportType";
+import { isIndoorActivity, isVirtualActivityType } from "../utils/indoorActivity";
 import { getDiscipline } from "../utils/disciplineFilter";
 import { isImplausibleAvgSpeed, isImplausibleMaxSpeed } from "../utils/activitySanity";
 import { getStravaActivityId } from "../utils/stravaActivity";
@@ -771,6 +772,10 @@ export default function ActivityPage() {
                 title={tCommon(getSportLabelKey(activity.type))}
               >
                 {getSportIcon(activity.type)}{tCommon(getSportLabelKey(activity.type))}
+                {/* Virtual* 종목은 라벨이 이미 "가상 …" 이라 실내 표기를 덧붙이지 않는다. */}
+                {isIndoorActivity(activity) && !isVirtualActivityType(activity.type) && (
+                  <span style={{ color: 'var(--ink-3)' }}>· {tCommon("sport.indoor")}</span>
+                )}
               </span>
               {hasStreams && (
                 <span className="text-[length:var(--fs-xs)] px-1.5 py-0.5 rounded-[var(--r-sm)] font-medium" style={{ background: 'color-mix(in srgb, var(--lime) 15%, transparent)', color: 'var(--lime)' }}>GPS</span>
