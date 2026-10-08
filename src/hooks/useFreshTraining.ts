@@ -21,6 +21,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
+import type { FitnessProjection } from "@shared/types/goal";
 import { hasFitnessLoadLifecycle, isFitnessInputInvalidated } from "../features/fitness/pmcHistory";
 import { toUtcDate } from "../utils/dateUtils";
 import {
@@ -38,6 +39,8 @@ interface FreshTrainingState {
   justRecomputed: boolean;
   /** 마지막 revalidate 결과 (디버그/안내용) */
   lastStatus: "fresh" | "recomputed" | "deduped" | "error" | null;
+  /** 서버 확정 projection의 현재 TSB. 사용자/종목 전환과 stale 입력에는 null. */
+  currentTsb: number | null;
 }
 
 interface RevalidateResponse {
@@ -81,7 +84,7 @@ function isRetryableListenerError(err: unknown): boolean {
   return /(?:FirebaseError:\s*)?(?:aborted|deadline-exceeded|unavailable)\b/i.test(String(err));
 }
 
-export function useFreshTraining(discipline?: string): FreshTrainingState {
+export function useFreshTraining(discipline?: string, projectionOnly = false, active = true): FreshTrainingState {
   const { user, loading: authLoading } = useAuth();
   const { ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const uid = user?.uid;
@@ -89,6 +92,13 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
   const [justRecomputed, setJustRecomputed] = useState(false);
   const [lastStatus, setLastStatus] = useState<FreshTrainingState["lastStatus"]>(null);
   const [userListenerAttempt, setUserListenerAttempt] = useState(0);
+  const [projection, setProjection] = useState<{
+    uid: string;
+    discipline: string | undefined;
+    firestore: typeof firestore;
+    data: (FitnessProjection & Record<string, unknown>) | null;
+  } | null>(null);
+  const [ingest, setIngest] = useState<{ uid: string; firestore: typeof firestore; at: number } | null>(null);
   const disciplineRef = useRef(discipline);
   const userRetryRef = useRef({ uid, attempted: false });
   const userFreshnessRef = useRef({ uid: undefined as string | undefined, ready: false, failed: false, lastIngest: 0 });
@@ -98,9 +108,18 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
     userRetryRef.current = { uid, attempted: false };
   }
 
+  const stateOwnerUid = useRef(uid);
+
   // user 문서는 discipline과 무관하므로 사용자 세션 전체에서 구독을 유지한다.
   // 종목 전환 때 이 target까지 불필요하게 release/re-add하지 않는다.
   useEffect(() => {
+    if (stateOwnerUid.current !== uid) {
+      stateOwnerUid.current = uid;
+      userFreshnessRef.current = { uid, ready: false, failed: false, lastIngest: 0 };
+      setRevalidating(false);
+      setJustRecomputed(false);
+      setLastStatus(null);
+    }
     if (authLoading) {
       return;
     }
@@ -108,8 +127,11 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
       userFreshnessRef.current = { uid: undefined, ready: false, failed: false, lastIngest: 0 };
       setRevalidating(false);
       setLastStatus(null);
+      setIngest(null);
+      setProjection(null);
       return;
     }
+    if (!active) return;
     let cancelled = false;
     let listenerFailed = false;
     let unsubscribe: () => void = () => undefined;
@@ -125,6 +147,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
       if (!cancelled && isCurrentGeneration) {
         setLastStatus("error");
         setRevalidating(false);
+        setIngest(null);
         if (!recoveryKind && !userRetryRef.current.attempted && isRetryableListenerError(err)) {
           userRetryRef.current.attempted = true;
           setUserListenerAttempt((attempt) => attempt + 1);
@@ -142,6 +165,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
           userGeneration.lastIngest =
             (snapshot.data()?.lastActivityIngestAt as number | undefined) ?? 0;
           if (snapshot.metadata.fromCache) return;
+          if (projectionOnly) setIngest({ uid, firestore, at: userGeneration.lastIngest });
           const isFirstServerSnapshot = !userGeneration.ready;
           userGeneration.ready = true;
           if (isFirstServerSnapshot) evaluateCurrentProjectionRef.current();
@@ -156,17 +180,18 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
       cancelled = true;
       unsubscribe();
     };
-  }, [authLoading, firestore, uid, userListenerAttempt]);
+  }, [active, authLoading, firestore, uid, userListenerAttempt, projectionOnly]);
 
   useEffect(() => {
-    if (authLoading || !uid) return;
+    if (!active || authLoading || !uid) return;
     if (userFreshnessRef.current.uid === uid && userFreshnessRef.current.failed) return;
     const userGeneration = userFreshnessRef.current;
+    if (!active) return;
     let cancelled = false;
     let listenerFailed = false;
     let evaluationStarted = false;
     let projectionSnapshotReady = false;
-    const singleSport = discipline === "bike" || discipline === "run" || discipline === "swim";
+    const singleSport = !projectionOnly && (discipline === "bike" || discipline === "run" || discipline === "swim");
     let timeseriesSnapshotReady = !singleSport;
     let timeseries: FitnessTimeseriesDoc | null = null;
     let computedAt = 0;
@@ -185,6 +210,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
       if (!cancelled && hasCurrentUser) {
         setLastStatus("error");
         setRevalidating(false);
+        setProjection(null);
       }
     };
 
@@ -255,8 +281,11 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
         (snapshot) => {
           if (cancelled || listenerFailed || !hasCurrentUserGeneration()) return;
           noteFirestoreServerSuccess(snapshot.metadata);
-          if (projectionSnapshotReady) return;
           const data = snapshot.data();
+          if (projectionOnly && !snapshot.metadata.fromCache) {
+            setProjection({ uid, discipline, firestore, data: (data as FitnessProjection & Record<string, unknown> | undefined) ?? null });
+          }
+          if (projectionSnapshotReady) return;
           // 통합 문서 쓰기 시각은 다른 종목의 오래된 입력을 갱신하지 않는다.
           const triSourceAsOf = data?.processingState == null ? data?.computedAt : data?.processingSourceAsOf;
           const triComplete = (data?.processingState === "processed" || data?.processingState == null && data?.state === "final")
@@ -264,7 +293,11 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
             && typeof triSourceAsOf === "number" && Number.isFinite(new Date(triSourceAsOf).getTime())
             && toUtcDate(triSourceAsOf) === toUtcDate(Date.now())
             && ["bike", "run", "swim"].every(sport => new RegExp(`(?:^|\\|)${sport}:[1-9]\\d*(?:\\||$)`).test(data.inputRevision as string));
-          computedAt = discipline === "tri" ? triComplete ? triSourceAsOf : 0 : (data?.computedAt as number | undefined) ?? 0;
+          const projectionInvalidated = projectionOnly && data && (data.inputInvalidatedAt != null
+            || "loadSnapshot" in data || "pmc" in data
+            || data.state != null && data.state !== "final"
+            || data.processingState != null && data.processingState !== "processed");
+          computedAt = projectionInvalidated ? 0 : discipline === "tri" ? triComplete ? triSourceAsOf : 0 : (data?.computedAt as number | undefined) ?? 0;
           if (snapshot.metadata.fromCache) return;
           projectionSnapshotReady = true;
           evaluateWhenReady();
@@ -298,7 +331,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
       unsubscribe();
       unsubscribeTimeseries();
     };
-  }, [authLoading, discipline, ensureAppCheckReady, firestore, functions, uid, userListenerAttempt]);
+  }, [active, authLoading, discipline, ensureAppCheckReady, firestore, functions, uid, userListenerAttempt, projectionOnly]);
 
   // justRecomputed가 켜지면 1.5초 후 자동 해제 — "✓ 업데이트 완료" 트랜지언트 표시
   useEffect(() => {
@@ -307,5 +340,21 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
     return () => clearTimeout(t);
   }, [justRecomputed]);
 
-  return { revalidating, justRecomputed, lastStatus };
+  const data = projection && projection.uid === uid && projection.discipline === discipline && projection.firestore === firestore
+    ? projection.data : null;
+  // projection은 현재 TSB를 제공하지만 timeseries의 입력 lifecycle 증거는 제공하지 않는다.
+  // 명시적인 무효화/미완료 증거가 있으면 회복 처방에 사용하지 않는다.
+  const projectionFresh = projectionOnly && !authLoading && !!uid && ingest?.uid === uid && ingest.firestore === firestore
+    && data !== null && data.discipline === discipline && data.sentinel !== true
+    && Number.isSafeInteger(data.computedAt) && data.computedAt > 0
+    && data.computedAt <= Date.now() && Date.now() - data.computedAt <= STALE_THRESHOLD_MS
+    && ingest.at <= data.computedAt
+    && (data.state == null || data.state === "final")
+    && (data.processingState == null || data.processingState === "processed")
+    && data.inputInvalidatedAt == null && !("loadSnapshot" in data || "pmc" in data);
+  const currentTsb = projectionFresh && typeof data.currentTsb === "number" && Number.isFinite(data.currentTsb)
+    ? data.currentTsb : null;
+  return stateOwnerUid.current === uid
+    ? { revalidating, justRecomputed, lastStatus, currentTsb }
+    : { revalidating: false, justRecomputed: false, lastStatus: null, currentTsb: null };
 }

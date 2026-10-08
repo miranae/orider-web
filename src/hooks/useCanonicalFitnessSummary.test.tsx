@@ -76,6 +76,22 @@ describe("useCanonicalFitnessSummary", () => {
     mocks.user = { uid: "u1" };
   });
 
+  it("같은 owner 복귀는 캐시와 배너 상태를 유지하면서 백그라운드 갱신한다", async () => {
+    mocks.fetch.mockResolvedValueOnce(envelope({ data: values }));
+    const hook = renderHook(({ active }) => useCanonicalFitnessSummary("fitnessSummary", active),
+      { initialProps: { active: true } });
+    await waitFor(() => expect(hook.result.current.display).toBe("value"));
+    const ready = hook.result.current;
+    hook.rerender({ active: false });
+    mocks.fetch.mockImplementationOnce(() => new Promise(() => {}));
+    hook.rerender({ active: true });
+    expect(hook.result.current.values).toEqual(ready.values);
+    expect(hook.result.current.display).toBe(ready.display);
+    expect(hook.result.current.status).toBe(ready.status);
+    expect(hook.result.current.showingLastGood).toBe(ready.showingLastGood);
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("빌드 플래그가 꺼져 있으면 서버를 부르지 않는다 — 화면은 오늘과 똑같다", async () => {
     mocks.enabled.mockReturnValue(false);
     const { result } = renderHook(() => useCanonicalFitnessSummary());

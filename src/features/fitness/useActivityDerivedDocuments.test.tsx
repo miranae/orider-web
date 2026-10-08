@@ -54,6 +54,30 @@ describe("useActivityDerivedDocuments", () => {
     vi.mocked(onSnapshot).mockClear();
   });
 
+  it("숨은 동안 metrics watch를 정지하고 읽어 둔 값을 보존한다", async () => {
+    const current = activity("suspend-derived", "user-a");
+    const pending = activity("pending-derived", "user-a");
+    setDocData("activity_metrics/suspend-derived", { tss: 42 });
+    const stopped: Array<ReturnType<typeof vi.fn>> = [];
+    vi.mocked(onSnapshot).mockImplementation(((...args: unknown[]) => {
+      const cleanup = (defaultOnSnapshotImplementation as (...params: unknown[]) => () => void)(...args);
+      const stop = vi.fn(cleanup);
+      stopped.push(stop);
+      return stop;
+    }) as typeof onSnapshot);
+    const hook = renderHook(({ active }) => useActivityDerivedDocuments("user-a", [current, pending], active),
+      { initialProps: { active: true } });
+    await waitFor(() => expect(hook.result.current.metricsMap.get(current.id)).toEqual({ tss: 42 }));
+    await waitFor(() => expect(stopped.length).toBeGreaterThan(0));
+    hook.rerender({ active: false });
+    expect(stopped.every(stop => stop.mock.calls.length > 0)).toBe(true);
+    expect(hook.result.current.metricsMap.get(current.id)).toEqual({ tss: 42 });
+    hook.rerender({ active: true });
+    expect(hook.result.current.metricsMap.get(current.id)).toEqual({ tss: 42 });
+    act(() => setDocData("activity_metrics/pending-derived", { tss: 45 }));
+    await waitFor(() => expect(hook.result.current.metricsMap.get(pending.id)).toEqual({ tss: 45 }));
+  });
+
   it("observes a derived document created after an unchanged activity snapshot", async () => {
     const current = activity("late", "user-a");
     const hook = renderHook(() => useActivityDerivedDocuments("user-a", [current]));

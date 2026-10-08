@@ -1,11 +1,11 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { collection, getDoc, onSnapshot } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
+import { clearDocData, mockCallableInvocations, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import parity from "../features/coach/__fixtures__/rider-insight-parity.json";
 import { parseCoachRiderInsight } from "../services/coachRiderInsightContract";
 import FitnessSurface from "../embedded/surfaces/FitnessSurface";
@@ -73,6 +73,12 @@ vi.mock("./fitness/TriFitnessView", () => ({
   ),
 }));
 
+function seedWindowLoad(entries: Array<{ activityId: string; activityType: string; discipline: "bike" | "run"; startTime: number; load: number }>) {
+  setDocData("users/test-uid/fitness/activity_window", {version: 1, windowDays: 90, maxEntries: 768, generation: 1, updatedAt: Date.now(), truncated: false,
+    entries: entries.map(({load, ...entry}) => ({...entry, hrZoneSec: null, powerZoneSec: null, mmp: {}, swolf: null, distancePerStroke: null,
+      loadFocus: {load, source: "unclassified", allocations: [], hasAnaerobicBikeDetail: false}}))});
+}
+
 describe("FitnessPage", () => {
   it("uses the plan display formatter for generated goal names in the fitness header", () => {
     expect(fitnessGoalDisplayName({ title: "2026_비앙키그란폰도춘천_그란폰도_122.91km" })).toBe("비앙키그란폰도춘천");
@@ -80,6 +86,7 @@ describe("FitnessPage", () => {
   });
   beforeEach(() => {
     viewport.isMobile = true;
+    setDocData("users/test-uid/fitness/activity_window", { version: 1, windowDays: 90, maxEntries: 768, generation: 1, updatedAt: Date.now(), truncated: false, entries: [] });
     riderInsight.enabled = false;
     riderInsight.insight = null;
     riderInsight.loading = false;
@@ -92,7 +99,7 @@ describe("FitnessPage", () => {
 
   it.each(["desktop", "mobile", "embedded"].flatMap((surface) =>
     ["bike", "run", "swim"].map((sport) => [surface, sport]),
-  ))("%s %s 체력 화면은 지표와 곡선 문서만 읽고 활동 스트림을 요청하지 않는다", async (surface, sport) => {
+  ))("%s %s 체력 화면은 서버 윈도 1개와 곡선만 읽고 활동 지표·스트림은 요청하지 않는다", async (surface, sport) => {
     viewport.isMobile = surface !== "desktop";
     const streamsRequest = vi.spyOn(personalDataApi, "getActivityStreamsWithAuth")
       .mockResolvedValue({ velocity_smooth: Array(30).fill(3) });
@@ -105,6 +112,10 @@ describe("FitnessPage", () => {
     }]);
     setDocData(`activity_streams/${id}`, { storage: "gcs", gcsPath: `activity-streams/${id}.json` });
     setDocData(`activity_metrics/${id}`, { tss: 40 });
+    setDocData("users/test-uid/fitness/activity_window", { version: 1, windowDays: 90, maxEntries: 768, generation: 1, updatedAt: now, truncated: false,
+      entries: [{ activityId: id, startTime: now, activityType: sport === "bike" ? "Ride" : sport === "run" ? "Run" : "Swim", discipline: sport,
+        hrZoneSec: [100, 0, 0, 0, 0], powerZoneSec: null, mmp: {}, swolf: sport === "swim" ? 40 : null, distancePerStroke: null,
+        loadFocus: {load: 40, source: "unclassified", allocations: [], hasAnaerobicBikeDetail: false} }] });
     const contract = { version: 1, windowDays: 56, maxEntries: 256, generation: 1, updatedAt: now, truncated: false };
     setDocData("users/test-uid/fitness/pace_run", {
       ...contract, discipline: "run", entries: [{ activityId: id, startTime: now, curve: [{ durationSec: 30, paceSecPerKm: 240 }] }],
@@ -117,10 +128,14 @@ describe("FitnessPage", () => {
     const view = surface === "embedded" ? <FitnessSurface onReady={vi.fn()} retryKey={0} /> : <FitnessPage />;
     const rendered = renderWithProviders(view, { authenticated: true, route: `/fitness?sport=${sport}` });
     const readPaths = () => vi.mocked(getDoc).mock.calls.map(([reference]) => (reference as { path?: string }).path ?? "");
-    await waitFor(() => expect(readPaths()).toContain(`activity_metrics/${id}`));
+    await waitFor(() => expect(vi.mocked(onSnapshot).mock.calls.map(([reference]) =>
+      (reference as {path?:string}).path)).toContain("users/test-uid/fitness/activity_window"));
+    expect(readPaths().some(path => path.startsWith("activity_metrics/"))).toBe(false);
     expect(streamsRequest).not.toHaveBeenCalled();
     expect(readPaths().some((path) => path.startsWith("activity_streams/"))).toBe(false);
     const watchedPaths = vi.mocked(onSnapshot).mock.calls.map(([reference]) => (reference as { path?: string }).path ?? "");
+    expect(watchedPaths.filter(path => path === "users/test-uid/fitness/activity_window")).toHaveLength(1);
+    expect(watchedPaths.some(path => path.startsWith("activity_metrics/"))).toBe(false);
     expect(watchedPaths).toContain("users/test-uid/fitness/pace_run");
     expect(watchedPaths).toContain("users/test-uid/fitness/css_swim");
     expect(watchedPaths.some((path) => path.startsWith("activity_streams/"))).toBe(false);
@@ -189,6 +204,11 @@ describe("FitnessPage", () => {
         id: "orider-overlap", userId: "test-uid", source: "orider", type: "Ride", startTime: sharedStart + 30_000, deletedAt: null,
         summary: { distance: 40_000, ridingTimeMillis: 3_600_000, tss: 100 },
       },
+    ]);
+
+    seedWindowLoad([
+      {activityId: "strava-overlap", activityType: "Ride", discipline: "bike", startTime: sharedStart, load: 100},
+      {activityId: "orider-overlap", activityType: "Ride", discipline: "bike", startTime: sharedStart + 30000, load: 100},
     ]);
 
     renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=tri" });
@@ -415,41 +435,34 @@ describe("FitnessPage", () => {
     }
   });
 
-  it("attempts missing metrics only once until activity lifecycle changes and never reads streams", async () => {
-    const baseActivity = {
-      id: "pending-analysis",
-      userId: "test-uid",
-      type: "Ride",
-      startTime: Date.now(),
-      deletedAt: null,
-      summary: { distance: 20_000, ridingTimeMillis: 3_600_000, averagePower: 180 },
-    };
+  it("누락 윈도는 callable 1회와 재조회로 끝내고 활동 갱신에도 지표나 스트림을 읽지 않는다", async () => {
+    clearDocData("users/test-uid/fitness/activity_window");
+    const baseActivity = { id: "pending-analysis", userId: "test-uid", type: "Ride", startTime: Date.now(), deletedAt: null,
+      summary: {distance: 20000, ridingTimeMillis: 3600000, averagePower: 180} };
     setCollectionDocs("activities", [baseActivity]);
+    vi.mocked(getDoc).mockClear();
+    renderWithProviders(<FitnessPage />, {authenticated: true, route: "/fitness?sport=bike"});
+    const readPaths = () => vi.mocked(getDoc).mock.calls.map(([ref]) => (ref as {path?:string}).path ?? "");
+    await waitFor(() => expect(readPaths().filter(path => path === "users/test-uid/fitness/activity_window")).toHaveLength(1));
+    expect(mockCallableInvocations.filter(invocation => invocation.name === "ensureFitnessCurves")).toHaveLength(1);
+    await act(async () => setCollectionDocs("activities", [{...baseActivity, summary: {...baseActivity.summary, movingTimeSec: 3500}}]));
+    expect(readPaths().some(path => path.startsWith("activity_metrics/") || path.startsWith("activity_streams/"))).toBe(false);
+    expect(mockCallableInvocations.filter(invocation => invocation.name === "ensureFitnessCurves")).toHaveLength(1);
+  });
 
-    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
-
-    const readsFor = (path: string) => vi.mocked(getDoc).mock.calls
-      .filter(([ref]) => (ref as { path?: string }).path === path).length;
-    await waitFor(() => {
-      expect(readsFor("activity_streams/pending-analysis")).toBe(0);
-      expect(readsFor("activity_metrics/pending-analysis")).toBe(1);
-    });
-
-    setCollectionDocs("activities", [{ ...baseActivity }]);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(readsFor("activity_streams/pending-analysis")).toBe(0);
-    expect(readsFor("activity_metrics/pending-analysis")).toBe(1);
-
-    setDocData("activity_metrics/pending-analysis", { tss: 45 });
-    setCollectionDocs("activities", [{
-      ...baseActivity,
-      summary: { ...baseActivity.summary, movingTimeSec: 3_500 },
-    }]);
-
-    await waitFor(() => {
-      expect(readsFor("activity_streams/pending-analysis")).toBe(0);
-      expect(readsFor("activity_metrics/pending-analysis")).toBe(2);
-    });
+  it.each(["desktop", "mobile", "embedded"])("%s 잘린 서버 윈도는 부분 안내를 표시하고 완전한 부하 합계를 숨긴다", async surface => {
+    viewport.isMobile = surface !== "desktop";
+    setCollectionDocs("activities", [{ id: "truncated-ride", userId: "test-uid", type: "Ride", startTime: Date.now(), deletedAt: null,
+      summary: { distance: 20000, ridingTimeMillis: 3600000, tss: 100 } }]);
+    setDocData("users/test-uid/fitness/activity_window", {version: 1, windowDays: 90, maxEntries: 768, generation: 1, updatedAt: Date.now(), truncated: true,
+      entries: [{activityId: "truncated-ride", activityType: "Ride", discipline: "bike", startTime: Date.now(), hrZoneSec: [100,0,0,0,0], powerZoneSec: null,
+        mmp: {"5s": 900}, swolf: null, distancePerStroke: null,
+        loadFocus: {load: 100, source: "unclassified", allocations: [], hasAnaerobicBikeDetail: false}}]});
+    const view = surface === "embedded" ? <FitnessSurface onReady={vi.fn()} retryKey={0}/> : <FitnessPage/>;
+    renderWithProviders(view, {authenticated: true, route: "/fitness?sport=bike"});
+    const notices = await screen.findAllByTestId("fitness-activity-window-notice");
+    expect(notices[0]).toHaveTextContent("부분 집계");
+    if (surface !== "desktop") expect(screen.getByText("focus unavailable")).toBeInTheDocument();
   });
 
   it("keeps the dedicated tri dashboard on desktop", async () => {
@@ -870,6 +883,8 @@ describe("FitnessPage", () => {
       pointCount: 1,
       points: [{ date: "2026-07-14", ctl: 12, atl: 14, tsb: -2, dailyLoad: 40 }],
     });
+
+    seedWindowLoad([{activityId: "run-1", activityType: "Run", discipline: "run", startTime: now, load: 40}]);
 
     renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=run" });
 

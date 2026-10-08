@@ -48,6 +48,7 @@ export interface ActivityAnalysisModel {
   showStreamSpinner: boolean;
   streamsError: string | null;
   retryStreams: () => Promise<void>;
+  requestStreams: () => void;
   serverMetrics: ReturnType<typeof useActivityMetrics>;
   overview: ReturnType<typeof useActivityOverview>;
   isActivityOwner: boolean;
@@ -77,6 +78,7 @@ export function useActivityAnalysisModel(
   const { firestore } = firebaseServices;
   const { t } = useTranslation("activity");
   const { user } = useAuth();
+  const userId = user?.uid;
   const { getStreams } = useStrava();
   const [activity, setActivity] = useState<Activity | null>(null);
   const [loadingActivity, setLoadingActivity] = useState(true);
@@ -92,54 +94,79 @@ export function useActivityAnalysisModel(
     setLoadingActivity(true);
     setWattsOverride(null);
     setActivityLoadError(null);
+    setActivityProcessing(false);
 
     let cancelled = false;
     let processingTimer: number | undefined;
+    let attempts = 0;
 
-    getDoc(doc(firestore, "activities", activityId)).then((snap) => {
-      if (cancelled) return;
-      if (snap.exists()) {
-        const data = snap.data();
-        const usableIdentity = typeof data.userId === "string" && data.userId.length > 0
-          && typeof data.type === "string" && data.type.length > 0;
-        const usableSummary = data.summary !== null && typeof data.summary === "object" && !Array.isArray(data.summary);
-        if (!usableSummary && !usableIdentity) {
-          setActivity(null);
-          setActivityProcessing(true);
-          setLoadingActivity(false);
-          processingTimer = window.setTimeout(() => {
-            setActivityReloadKey((key) => key + 1);
-          }, 3000);
-          return;
+    const loadActivity = () => {
+      attempts += 1;
+      return getDoc(doc(firestore, "activities", activityId)).then((snap) => {
+        if (cancelled) return;
+        if (snap.exists()) {
+          const data = snap.data();
+          const usableIdentity = typeof data.userId === "string" && data.userId.length > 0
+            && typeof data.type === "string" && data.type.length > 0;
+          const usableSummary = data.summary !== null && typeof data.summary === "object" && !Array.isArray(data.summary);
+          if (!usableSummary && !usableIdentity) {
+            setActivity(null);
+            setActivityProcessing(true);
+            setLoadingActivity(false);
+            // 첫 조회 포함 최대 6회. 처리 지연은 3→6→12→24→30초로 기다린다.
+            // 상한 뒤에는 기존 오류·재시도 화면으로 전환한다.
+            if (attempts < 6) {
+              processingTimer = window.setTimeout(() => {
+                if (!cancelled) void loadActivity();
+              }, Math.min(3000 * 2 ** (attempts - 1), 30000));
+            } else {
+              setActivityProcessing(false);
+              setActivityLoadError(new Error("Activity processing timeout"));
+            }
+            return;
+          }
+          setActivityProcessing(false);
+          // 누락된 선택 요약이 정상 경로/센서/개요의 조회까지 막지 않는다. 수치 0은 만들지 않는다.
+          setActivity({ id: snap.id, ...data, summary: usableSummary ? data.summary : {} } as Activity);
+        } else {
+          setActivityProcessing(false);
         }
+        setLoadingActivity(false);
+      }).catch((error) => {
+        if (cancelled) return;
+        setActivityLoadError(error);
         setActivityProcessing(false);
-        // 누락된 선택 요약이 정상 경로/센서/개요의 조회까지 막지 않는다. 수치 0은 만들지 않는다.
-        setActivity({ id: snap.id, ...data, summary: usableSummary ? data.summary : {} } as Activity);
-      } else {
-        setActivityProcessing(false);
-      }
-      setLoadingActivity(false);
-    }).catch((error) => {
-      if (cancelled) return;
-      setActivityLoadError(error);
-      setActivityProcessing(false);
-      setLoadingActivity(false);
-      logClientError("ActivityPage.loadActivity", error, { activityId });
-    });
+        setLoadingActivity(false);
+        logClientError("ActivityPage.loadActivity", error, { activityId });
+      });
+    };
+    void loadActivity();
 
     return () => {
       cancelled = true;
       if (processingTimer !== undefined) window.clearTimeout(processingTimer);
     };
-  }, [activityId, activityReloadKey, firestore]);
+  }, [activityId, activityReloadKey, firestore, userId]);
 
   const retryActivity = useCallback(() => {
     setActivityReloadKey((key) => key + 1);
   }, []);
 
+  const isActivityOwner = !!activity
+    && activity.id === activityId
+    && !!user
+    && activity.userId === user.uid;
+  const serverMetrics = useActivityMetrics(activity?.id === activityId ? activityId ?? null : null, isActivityOwner);
+  // 확정 소유자 요약이 오기 전에는 스트림을 요청하지 않는다. 과거 문서만 기존 경로로 폴백한다.
+  const serverAnalysisSummary = isActivityOwner
+    && serverMetrics.metrics?.inputPending !== true
+    && serverMetrics.metrics?.inputCoverage !== "pending"
+    && serverMetrics.metrics?.analysisSummary?.schemaVersion === 1
+    ? serverMetrics.metrics.analysisSummary : null;
   const {
     streams,
     retryStreams,
+    requestStreams,
     showStreamSpinner,
     streamsError,
     loadingStreams,
@@ -149,13 +176,14 @@ export function useActivityAnalysisModel(
     userId: user?.uid,
     getStreams,
     t,
+    enabled: !!activity && (!isActivityOwner || (
+      serverMetrics.status !== "loading" && serverMetrics.status !== "disabled"
+      && serverMetrics.metrics?.inputPending !== true
+      && serverMetrics.metrics?.inputCoverage !== "pending"
+      && !serverAnalysisSummary
+    )),
   });
 
-  const isActivityOwner = !!activity
-    && activity.id === activityId
-    && !!user
-    && activity.userId === user.uid;
-  const serverMetrics = useActivityMetrics(activityId ?? null, isActivityOwner);
   const overviewActivity = activity as (Activity & Record<string, unknown>) | null;
   const overviewMetrics = serverMetrics.metrics as (NonNullable<typeof serverMetrics.metrics> & Record<string, unknown>) | null;
   // 메트릭 생성 시각이 그대로여도 개인정보·출처·선택 revision 변경은 캐시를 무효화한다.
@@ -214,8 +242,10 @@ export function useActivityAnalysisModel(
     [activity?.startTime, powerOverrideProvenance, selectionSummary],
   );
   const streamSensorSummary = useMemo(
-    () => deriveStreamSensorSummary(effectiveStreams, sensorSelectionContext),
-    [effectiveStreams, sensorSelectionContext],
+    () => serverAnalysisSummary && !activePowerOverride
+      ? serverAnalysisSummary.sensors
+      : deriveStreamSensorSummary(effectiveStreams, sensorSelectionContext),
+    [activePowerOverride, effectiveStreams, sensorSelectionContext, serverAnalysisSummary],
   );
   const rejectionLogState = useRef(createSensorRejectionLogState());
 
@@ -242,7 +272,8 @@ export function useActivityAnalysisModel(
     () => buildActivityAnalysisProjection(effectiveStreams, sensorSelectionContext),
     [effectiveStreams, sensorSelectionContext],
   );
-  const hasAnalysisStreams = !!effectiveStreams && (
+  const hasAnalysisStreams = serverAnalysisSummary && !activePowerOverride
+    ? serverAnalysisSummary.hasAnalysisStreams : !!effectiveStreams && (
     !!streamSensorSummary?.hasReliablePower
     || streamSensorSummary?.averageHeartRate != null
     || (effectiveStreams.distance?.length ?? 0) > 0
@@ -250,6 +281,9 @@ export function useActivityAnalysisModel(
   );
   const displayedSummary = useMemo(() => {
     const summary = activity?.summary;
+    if (summary && serverAnalysisSummary && !activePowerOverride) {
+      return { ...summary, ...serverAnalysisSummary.correctedAverages };
+    }
     if (!summary || !effectiveStreams || !streamSensorSummary) return summary ?? null;
     const hasHeartRateCandidate = streamSensorSummary.hasHeartRateStream
       || streamSensorSummary.hasRejectedHeartRateStream;
@@ -274,25 +308,43 @@ export function useActivityAnalysisModel(
       normalizedPower: hasStreamPowerCandidate ? null : summary.normalizedPower,
       tss: hasStreamPowerCandidate ? null : summary.tss,
     };
-  }, [activity?.summary, effectiveStreams, hasStreamCadenceCandidate, hasStreamPowerCandidate, streamSensorSummary]);
+  }, [activePowerOverride, activity?.summary, effectiveStreams, hasStreamCadenceCandidate, hasStreamPowerCandidate, serverAnalysisSummary, streamSensorSummary]);
 
-  const avgPowerValue = effectiveStreams && hasStreamPowerCandidate
+  const avgPowerValue = serverAnalysisSummary && !activePowerOverride
+    ? displayedSummary?.averagePower ?? null
+    : effectiveStreams && hasStreamPowerCandidate
     ? streamSensorSummary?.averagePower ?? null
     : activity?.summary.averagePower ?? activity?.avgPower ?? null;
-  const normalizedPowerValue = effectiveStreams && hasStreamPowerCandidate
+  const normalizedPowerValue = serverAnalysisSummary && !activePowerOverride
+    ? displayedSummary?.normalizedPower ?? null
+    : effectiveStreams && hasStreamPowerCandidate
     ? null
     : activity?.summary.normalizedPower ?? activity?.weightedAvgPower ?? null;
 
+  const [previewRequested, setPreviewRequested] = useState(false);
+  useEffect(() => { setPreviewRequested(false); }, [activityId, userId]);
   const recalculateVirtualPowerPreview = useCallback(() => {
     // 이 활동의 자전거를 모르면 다시 계산하지 않는다 — 추측한 파워는 데이터가 아니다.
-    if (!activityId || !isActivityOwner || !activityBike || !streams) return;
+    if (!activityId || !isActivityOwner || !activityBike) return;
+    if (!streams) {
+      setPreviewRequested(true);
+      requestStreams();
+      return;
+    }
     setWattsOverride(createActivityPowerOverride(
       activityId,
       streams,
       activityBike.virtualPower,
     ));
-  }, [activityBike, activityId, isActivityOwner, streams]);
+  }, [activityBike, activityId, isActivityOwner, requestStreams, streams]);
+  useEffect(() => {
+    if (previewRequested && streams) {
+      setPreviewRequested(false);
+      recalculateVirtualPowerPreview();
+    }
+  }, [previewRequested, recalculateVirtualPowerPreview, streams]);
   const revertVirtualPowerPreview = useCallback(() => {
+    setPreviewRequested(false);
     setWattsOverride(null);
   }, []);
 
@@ -301,14 +353,16 @@ export function useActivityAnalysisModel(
   }, [activePowerOverride, wattsOverride]);
 
   const analysisTabProps = useMemo<AnalysisTabProps | null>(() => {
-    if (!activity || (!analysisProjection && sport !== "run") || !displayedSummary) return null;
+    if (!activity || (!analysisProjection && !serverAnalysisSummary && sport !== "run") || !displayedSummary) return null;
     return {
       activityId: activityId ?? null,
       isOwner: isActivityOwner,
+      serverMetrics,
       canonicalPresentationAvailable: overview.response?.status === "available",
       overviewRecovery: overview.response?.status === "available" ? overview.response.presentation.recovery ?? null : null,
       startTime: activity.startTime,
       streams: analysisProjection?.streams ?? { userId: activity.userId, time: [], distance: [] },
+      analysisSummary: activePowerOverride ? undefined : serverAnalysisSummary ?? undefined,
       summary: resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics),
       sport,
       suppressServerPowerMetrics,
@@ -329,7 +383,8 @@ export function useActivityAnalysisModel(
     hasStreamPowerCandidate,
     isActivityOwner,
     sensorSelectionContext,
-    serverMetrics.metrics,
+    serverMetrics,
+    serverAnalysisSummary,
     sport,
     suppressServerCadenceMetrics,
     suppressServerHeartRateMetrics,
@@ -349,6 +404,7 @@ export function useActivityAnalysisModel(
     showStreamSpinner,
     streamsError,
     retryStreams,
+    requestStreams,
     serverMetrics,
     overview,
     isActivityOwner,

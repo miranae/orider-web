@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onSnapshot } from "firebase/firestore";
+import { createElement, type ReactNode } from "react";
 
 import * as errorLogger from "../services/errorLogger";
 import { ensureAppCheckReady } from "../services/firebase";
@@ -16,6 +17,7 @@ import {
 } from "../utils/firestoreSessionRecovery";
 import { useFreshTraining } from "./useFreshTraining";
 import { canonicalFitnessInputsLifecycle } from "@shared/training/fitnessLoadLifecycle";
+import { FirebaseServicesProvider } from "../contexts/FirebaseServicesContext";
 
 const mocks = vi.hoisted(() => ({
   authLoading: false,
@@ -90,6 +92,112 @@ describe("useFreshTraining", () => {
     setCallableResult("revalidateTraining", { data: { ok: true, status: "recomputed" } });
   });
 
+  it("projection-only mode delivers current TSB with no timeseries target and follows server updates", () => {
+    const listeners = installControlledSnapshots(true);
+    const { result } = renderHook(() => useFreshTraining("bike", true));
+    expect(listeners.map(listener => listener.path)).toEqual([
+      "users/training-user", "users/training-user/fitness/projection_bike",
+    ]);
+    const data = { discipline: "bike", computedAt: Date.now() - 10, currentTsb: -20 };
+    act(() => { emit(listeners[0], {}); emit(listeners[1], data, true); });
+    expect(result.current.currentTsb).toBeNull();
+    act(() => emit(listeners[1], data));
+    expect(result.current.currentTsb).toBe(-20);
+    act(() => emit(listeners[1], { ...data, currentTsb: -10 }));
+    expect(result.current.currentTsb).toBe(-10);
+    act(() => emit(listeners[0], { lastActivityIngestAt: data.computedAt + 1 }));
+    expect(result.current.currentTsb).toBeNull();
+    act(() => emit(listeners[1], { ...data, computedAt: data.computedAt + 1 }));
+    expect(result.current.currentTsb).toBe(-20);
+  });
+
+  it.each([
+    { computedAt: Date.now() - 4 * 3600000 },
+    { computedAt: Infinity },
+    { discipline: "run" },
+    { currentTsb: NaN },
+    { sentinel: true },
+    { state: "pending" },
+    { processingState: "failed" },
+    { inputInvalidatedAt: { seconds: 100, nanoseconds: 1 } },
+    { inputInvalidatedAt: false },
+    { loadSnapshot: {}, pmc: { status: "processed" } },
+  ])("projection-only mode rejects stale or invalid recovery evidence %j", (invalid) => {
+    const listeners = installControlledSnapshots(true);
+    const { result } = renderHook(() => useFreshTraining("bike", true));
+    act(() => {
+      emit(listeners[0], {});
+      emit(listeners[1], { discipline: "bike", computedAt: Date.now(), currentTsb: -20, ...invalid });
+    });
+    expect(result.current.currentTsb).toBeNull();
+  });
+
+  it("projection-only TSB is isolated across sport/account transitions and late listeners", () => {
+    const listeners = installControlledSnapshots(true);
+    const hook = renderHook(({ discipline }) => useFreshTraining(discipline, true), {
+      initialProps: { discipline: "bike" },
+    });
+    act(() => {
+      emit(listeners[0], {});
+      emit(listeners[1], { discipline: "bike", computedAt: Date.now(), currentTsb: -20 });
+    });
+    expect(hook.result.current.currentTsb).toBe(-20);
+    hook.rerender({ discipline: "run" });
+    expect(hook.result.current.currentTsb).toBeNull();
+    expect(listeners[1].unsubscribe).toHaveBeenCalledOnce();
+    act(() => emit(listeners[1], { discipline: "bike", computedAt: Date.now(), currentTsb: -99 }));
+    expect(hook.result.current.currentTsb).toBeNull();
+    act(() => emit(listeners[2], { discipline: "run", computedAt: Date.now(), currentTsb: 10 }));
+    expect(hook.result.current.currentTsb).toBe(10);
+
+    mocks.user = { uid: "next-user" };
+    hook.rerender({ discipline: "run" });
+    expect(hook.result.current.currentTsb).toBeNull();
+    act(() => emit(listeners[4], { discipline: "run", computedAt: Date.now(), currentTsb: 30 }));
+    expect(hook.result.current.currentTsb).toBeNull();
+    act(() => emit(listeners[3], {}));
+    expect(hook.result.current.currentTsb).toBe(30);
+    mocks.user = null;
+    hook.rerender({ discipline: "run" });
+    expect(hook.result.current.currentTsb).toBeNull();
+  });
+
+  it("projection-only TSB waits for the new Firestore instance with the same account", () => {
+    const listeners = installControlledSnapshots(true);
+    let services = { firestore: {}, auth: {}, functions: {}, ensureAppCheckReady: vi.fn() };
+    const hook = renderHook(() => useFreshTraining("bike", true), {
+      wrapper: ({ children }: { children: ReactNode }) => createElement(
+        FirebaseServicesProvider, { services: services as never, children },
+      ),
+    });
+    const data = { discipline: "bike", computedAt: Date.now() - 10, currentTsb: -20 };
+    act(() => { emit(listeners[0], {}); emit(listeners[1], data); });
+    expect(hook.result.current.currentTsb).toBe(-20);
+    services = { ...services, firestore: {} };
+    hook.rerender();
+    expect(hook.result.current.currentTsb).toBeNull();
+    act(() => { emit(listeners[0], {}); emit(listeners[1], data); });
+    expect(hook.result.current.currentTsb).toBeNull();
+    act(() => emit(listeners[3], data));
+    expect(hook.result.current.currentTsb).toBeNull();
+    act(() => emit(listeners[2], {}));
+    expect(hook.result.current.currentTsb).toBe(-20);
+  });
+
+  it("projection-only mode retains revalidation and fails closed after listener errors", async () => {
+    const listeners = installControlledSnapshots(true);
+    const { result } = renderHook(() => useFreshTraining("bike", true));
+    const data = { discipline: "bike", computedAt: Date.now() - 4 * 3600000, currentTsb: -20 };
+    act(() => { emit(listeners[0], {}); emit(listeners[1], data); });
+    await waitFor(() => expect(result.current.lastStatus).toBe("recomputed"));
+    expect(mockCallableInvocations).toEqual([{ name: "revalidateTraining", data: { discipline: "bike" } }]);
+    expect(result.current.currentTsb).toBeNull();
+    act(() => emit(listeners[1], { ...data, computedAt: Date.now() }));
+    expect(result.current.currentTsb).toBe(-20);
+    act(() => listeners[1].error(new Error("permission-denied")));
+    expect(result.current.currentTsb).toBeNull();
+  });
+
   it.each([
     { loadSnapshot: null, pmc: null },
     { loadSnapshot: null },
@@ -144,6 +252,30 @@ describe("useFreshTraining", () => {
     expect(mockCallableInvocations).toHaveLength(processed ? 0 : 1);
     unmount();
     expect(listeners.every(listener => listener.unsubscribe.mock.calls.length === 1)).toBe(true);
+  });
+
+  it("숨은 동안 listener를 닫고 복귀하면 재개하며 owner 변경은 상태를 지운다", () => {
+    const listeners = installControlledSnapshots(true);
+    const hook = renderHook(({ active }) => useFreshTraining("bike", false, active),
+      { initialProps: { active: true } });
+    expect(listeners).toHaveLength(3);
+    act(() => listeners[1]!.error(new Error("permission-denied")));
+    expect(hook.result.current.lastStatus).toBe("error");
+    hook.rerender({ active: false });
+    expect(listeners.every(listener => listener.unsubscribe.mock.calls.length === 1)).toBe(true);
+    expect(hook.result.current.lastStatus).toBe("error");
+    hook.rerender({ active: true });
+    expect(listeners).toHaveLength(6);
+    hook.rerender({ active: false });
+    mocks.user = { uid: "owner-b" };
+    hook.rerender({ active: false });
+    act(() => listeners[1]!.error(new Error("late-error")));
+    expect(hook.result.current.lastStatus).toBeNull();
+    expect(hook.result.current.revalidating).toBe(false);
+    expect(listeners).toHaveLength(6);
+    mocks.user = null;
+    hook.rerender({ active: false });
+    expect(hook.result.current.lastStatus).toBeNull();
   });
 
   it("과거 미확인 부하로 stale이어도 최신 revision 처리가 끝난 통합은 반복 계산하지 않는다", async () => {

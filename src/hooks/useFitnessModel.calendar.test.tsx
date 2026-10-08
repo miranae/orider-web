@@ -19,6 +19,7 @@ vi.mock("../hooks/useMobile", () => ({ useMobile: () => false }));
 vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ pdc: null }) }));
 vi.mock("../features/fitness/useFitnessCurves", () => ({ useFitnessCurves: () => ({
   run: { recent28: [], prev28: [] }, swim: { recent28: [], prev28: [] },
+  activityWindow: null, activityWindowLoaded: true, activityWindowError: false,
 }) }));
 vi.mock("../hooks/useBikeFtpDecision", () => ({ useBikeFtpDecision: () => ({ decision: null }) }));
 vi.mock("../hooks/useCoachRiderInsight", () => ({ useCoachRiderInsight: () => ({ insight: null }) }));

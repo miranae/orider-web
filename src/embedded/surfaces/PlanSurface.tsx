@@ -15,6 +15,7 @@ import type { ScheduledRunStarter } from "../runStartBridge";
 export interface PlanSurfaceProps {
   onReady: (status?: "cached" | "fresh" | "error") => void;
   retryKey: number;
+  active?: boolean;
   /** 호스트가 run-start-scheduled-v1 을 알렸을 때만 주어진다. null 이면 구버전 앱. */
   scheduledRunStarter?: ScheduledRunStarter | null;
   /**
@@ -27,12 +28,13 @@ export interface PlanSurfaceProps {
 export default function PlanSurface({
   onReady,
   retryKey,
+  active = true,
   scheduledRunStarter = null,
   backgroundRefreshKey = 0,
 }: PlanSurfaceProps) {
   const [searchParams] = useSearchParams();
   const { t } = useTranslation("training");
-  const model = usePlanModel(searchParams.get("sport"));
+  const model = usePlanModel(searchParams.get("sport"), active);
   const run30Enabled = model.discipline === "run";
   const run30 = useRun30Program(run30Enabled);
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);

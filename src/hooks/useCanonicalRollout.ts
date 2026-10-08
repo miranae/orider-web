@@ -89,7 +89,7 @@ const OFF: RolloutSnapshot = {
   verdictUid: null,
 };
 
-export function useCanonicalRollout(): CanonicalRolloutState {
+export function useCanonicalRollout(subscriptionActive = true): CanonicalRolloutState {
   const { user } = useAuth();
   const firebaseServices = useFirebaseServices();
   // 런타임 설정은 fetch 로 늦게 도착할 수 있다 — 렌더마다 읽어 도착 시 그대로 반영된다.
@@ -112,6 +112,7 @@ export function useCanonicalRollout(): CanonicalRolloutState {
       });
       return;
     }
+    if (!subscriptionActive) return;
     // 아래 함수 선언들은 호이스팅되므로 `uid` 의 null 좁히기가 닿지 않는다 — 여기서 고정한다.
     const verdictUid: string = uid;
     let active = true;
@@ -149,7 +150,7 @@ export function useCanonicalRollout(): CanonicalRolloutState {
         scheduleNext(result.expiresAt);
       });
     }
-    setState({
+    setState((previous) => previous.verdictUid === uid ? previous : {
       gateEnabled: true, loading: true, verdictOk: false,
       surfaces: canonicalRolloutAllOff(), verdictUid: null,
     });
@@ -165,7 +166,7 @@ export function useCanonicalRollout(): CanonicalRolloutState {
       window.removeEventListener("focus", refresh);
       clearTimeout(timer);
     };
-  }, [firebaseServices, gateEnabled, uid]);
+  }, [firebaseServices, gateEnabled, subscriptionActive, uid]);
 
   // 런타임 설정이 늦게 도착해 게이트가 방금 켜졌다면 effect 는 아직 돌지 않았다. 그 렌더에서
   // 옛 `gateEnabled: false` 를 그대로 돌려주면 한 프레임 동안 조용히 통과한다.

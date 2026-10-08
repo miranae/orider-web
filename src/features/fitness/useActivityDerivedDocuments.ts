@@ -245,6 +245,7 @@ function grantReadPermit(limiter: ReadLimiter, waiter: ReadPermitWaiter): void {
 export function useActivityDerivedDocuments(
   uid: string | null | undefined,
   activities: readonly Activity[],
+  active = true,
 ): {
   metricsMap: Map<string, ActivityMetrics>;
   metricStatusMap: Map<string, ActivityMetricStatus>;
@@ -266,6 +267,7 @@ export function useActivityDerivedDocuments(
   });
 
   useEffect(() => {
+    if (!active) return;
     resources.active = true;
     return () => {
       resources.active = false;
@@ -274,9 +276,10 @@ export function useActivityDerivedDocuments(
       stopRechecks(resources.metricRechecks);
       cancelReadWaiters(resources.metricLimiter);
     };
-  }, [resources]);
+  }, [active, resources]);
 
   useEffect(() => {
+    if (!active) return;
     const scopedActivities = normalizedUid == null
       ? []
       : activities.filter((activity) => (
@@ -653,7 +656,7 @@ export function useActivityDerivedDocuments(
       }
     };
     void loadMetrics();
-  }, [activities, generation, normalizedUid, resources]);
+  }, [active, activities, generation, normalizedUid, resources]);
 
   return state.ownerUid === normalizedUid
     ? {

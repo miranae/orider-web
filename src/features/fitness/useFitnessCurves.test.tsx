@@ -31,7 +31,7 @@ vi.mock("firebase/firestore", () => ({
   }),
 }));
 
-const empty = { run: { recent28: [], prev28: [] }, swim: { recent28: [], prev28: [] } };
+const empty = { run: { recent28: [], prev28: [] }, swim: { recent28: [], prev28: [] }, activityWindow: null, activityWindowLoaded: false, activityWindowError: false };
 function snapshot(discipline: "run" | "swim", pace?: number): Snapshot {
   return {
     exists: () => true, metadata: { fromCache: false },
@@ -62,6 +62,49 @@ describe("useFitnessCurves", () => {
     mocks.callable.mockResolvedValue({ data: {} });
     mocks.httpsCallable.mockReturnValue(mocks.callable);
     mocks.getDoc.mockImplementation(async (ref: string) => snapshot(ref.endsWith("pace_run") ? "run" : "swim", 100));
+  });
+
+  it("숨김은 구독만 해제하고 같은 owner 커브를 유지하며 복귀 시 최신 값으로 갱신한다", () => {
+    const hook = renderHook(({ uid, active }) => useFitnessCurves(uid, active),
+      { initialProps: { uid: "owner", active: true } });
+    act(() => mocks.subscriptions[0].next(snapshot("run", 300)));
+    hook.rerender({ uid: "owner", active: false });
+    expect(mocks.subscriptions.every(subscription => subscription.unsubscribe.mock.calls.length === 1)).toBe(true);
+    expect(hook.result.current.run.recent28).toEqual([{ durationSec: 60, paceSecPerKm: 300 }]);
+    act(() => mocks.subscriptions[0].next(snapshot("run", 200)));
+    expect(hook.result.current.run.recent28[0].paceSecPerKm).toBe(300);
+    hook.rerender({ uid: "owner", active: true });
+    expect(mocks.subscriptions).toHaveLength(4);
+    expect(hook.result.current.run.recent28[0].paceSecPerKm).toBe(300);
+    act(() => mocks.subscriptions[2].next(snapshot("run", 250)));
+    expect(hook.result.current.run.recent28[0].paceSecPerKm).toBe(250);
+    hook.rerender({ uid: "owner", active: false });
+    hook.rerender({ uid: "other", active: false });
+    expect(hook.result.current).toEqual(empty);
+    expect(mocks.subscriptions).toHaveLength(4);
+    act(() => mocks.subscriptions[2].next(snapshot("run", 100)));
+    expect(hook.result.current).toEqual(empty);
+    hook.rerender({ uid: "other", active: true });
+    expect(mocks.subscriptions).toHaveLength(6);
+    expect(mocks.subscriptions[4].ref).toBe("users/other/fitness/pace_run");
+  });
+
+  it("숨긴 상태에서 마운트하면 읽기를 시작하지 않는다", () => {
+    renderHook(() => useFitnessCurves("owner", false));
+    expect(mocks.subscriptions).toHaveLength(0);
+    expect(mocks.callable).not.toHaveBeenCalled();
+  });
+
+  it("App Check 대기 중 숨겨지면 불필요한 backfill 호출을 시작하지 않는다", async () => {
+    const readiness = deferred<void>();
+    mocks.ensureAppCheckReady.mockReturnValue(readiness.promise);
+    const hook = renderHook(({ active }) => useFitnessCurves("owner", active),
+      { initialProps: { active: true } });
+    act(() => mocks.subscriptions[0].next(missing()));
+    await waitFor(() => expect(mocks.ensureAppCheckReady).toHaveBeenCalledTimes(1));
+    hook.rerender({ active: false });
+    await act(async () => readiness.resolve());
+    expect(mocks.callable).not.toHaveBeenCalled();
   });
 
   it("reads only the two owner curve documents with injected services, and accepts valid empty curves", () => {
@@ -207,4 +250,45 @@ describe("useFitnessCurves", () => {
     expect(result.current.swim.recent28).toEqual([{ distanceM: 100, paceSecPer100m: 100 }]);
     expect(mocks.log).not.toHaveBeenCalled();
   });
+  it("activity_window 하나만 추가로 구독하며 개별 metrics 읽기를 만들지 않는다", () => {
+    const { result } = renderHook(() => useFitnessCurves("owner", true, true));
+    const windowSubscriptions = mocks.subscriptions.filter(subscription => subscription.ref.endsWith("activity_window"));
+    expect(windowSubscriptions).toHaveLength(1);
+    expect(mocks.subscriptions.some(subscription => subscription.ref.startsWith("activity_metrics/"))).toBe(false);
+    act(() => windowSubscriptions[0].next({ exists: () => true, metadata: { fromCache: false }, data: () => ({
+      version: 1, windowDays: 90, maxEntries: 768, entries: [], generation: 1, updatedAt: Date.now(), truncated: false,
+    }) }));
+    expect(result.current.activityWindow?.entries).toEqual([]);
+    expect(result.current.activityWindowLoaded).toBe(true);
+    expect(mocks.getDoc).not.toHaveBeenCalled();
+    expect(mocks.callable).not.toHaveBeenCalled();
+  });
+  it("윈도와 두 곡선 누락은 같은 callable 1회 후 3개 문서만 재조회하고 재누락에도 반복하지 않는다", async () => {
+    mocks.getDoc.mockResolvedValue(missing());
+    const { result } = renderHook(() => useFitnessCurves("owner", true, true));
+    act(() => mocks.subscriptions.forEach(subscription => subscription.next(missing())));
+    await waitFor(() => expect(mocks.getDoc).toHaveBeenCalledTimes(3));
+    expect(mocks.callable).toHaveBeenCalledTimes(1);
+    expect(mocks.getDoc.mock.calls.filter(([ref]) => ref.endsWith("activity_window"))).toHaveLength(1);
+    act(() => mocks.subscriptions.forEach(subscription => subscription.next(missing())));
+    expect(mocks.callable).toHaveBeenCalledTimes(1);
+    expect(result.current.activityWindow).toBeNull();
+    expect(result.current.activityWindowLoaded).toBe(true);
+  });
+
+  it("곡선 backfill 실패는 유효한 활동 윈도를 실패로 바꾸지 않는다", async () => {
+    mocks.callable.mockRejectedValue(new Error("failed"));
+    const { result } = renderHook(() => useFitnessCurves("owner", true, true));
+    act(() => {
+      mocks.subscriptions[2].next({ exists: () => true, metadata: { fromCache: false }, data: () => ({
+        version: 1, windowDays: 90, maxEntries: 768, entries: [], generation: 1, updatedAt: Date.now(), truncated: false,
+      }) });
+      mocks.subscriptions[0].next(missing());
+    });
+    await waitFor(() => expect(mocks.log).toHaveBeenCalledTimes(1));
+    expect(result.current.activityWindowLoaded).toBe(true);
+    expect(result.current.activityWindowError).toBe(false);
+    expect(result.current.activityWindow?.entries).toEqual([]);
+  });
+
 });

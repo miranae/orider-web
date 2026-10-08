@@ -1,3 +1,4 @@
+import type { ActivityAnalysisSummary } from "../analysis/activityAnalysisSummary";
 import type { FatMaxProfile, RideSubstrate } from "../training/metabolism";
 /**
  * 활동별 영속 분석 메트릭 — `activity_metrics/{activityId}` 컬렉션.
@@ -38,6 +39,7 @@ export interface CyclingDynamicsMetrics {
 }
 
 export interface ActivityMetrics {
+  analysisSummary?: ActivityAnalysisSummary;
   // ── 기본 (Coggan)
   np: number | null;
   if: number | null;
@@ -259,6 +261,8 @@ export interface ActivityMetrics {
 }
 
 export interface ClimbMetric {
+  entrySec?: number | null;
+  endSec?: number | null;
   startKm: number;
   endKm: number;
   lengthKm: number;

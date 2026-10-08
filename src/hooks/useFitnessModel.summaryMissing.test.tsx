@@ -22,6 +22,7 @@ vi.mock("./useMobile", () => ({ useMobile: () => false }));
 vi.mock("./usePdc", () => ({ usePdc: () => ({ pdc: null }) }));
 vi.mock("../features/fitness/useFitnessCurves", () => ({ useFitnessCurves: () => ({
   run: { recent28: [], prev28: [] }, swim: { recent28: [], prev28: [] },
+  activityWindow: null, activityWindowLoaded: true, activityWindowError: false,
 }) }));
 vi.mock("./useBikeFtpDecision", () => ({ useBikeFtpDecision: () => ({ decision: null }) }));
 vi.mock("./useCoachRiderInsight", () => ({ useCoachRiderInsight: () => ({ insight: null }) }));
@@ -49,14 +50,16 @@ function seed(activities: Activity[]) {
 beforeEach(()=>{clearTrainingSurfaceCache();mocks.timeseries=null;vi.mocked(getDoc).mockClear();});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 describe("retained activity without raw summary",()=>{
-  it.each([null, {distance:10000, ridingTimeMillis:3600000,averagePower:180}])("real model and derived reads preserve published load with summary %s",async summary=>{
-    const a=activity(summary as Activity["summary"]|null);seed([a]);
-    const h=renderHook(()=>useFitnessModel("bike",options));
-    await waitFor(()=>expect(h.result.current.metricsMap.get(a.id)).toEqual({tss:100}));
-    expect(h.result.current.activities).toEqual([a]);
-    expect(h.result.current.dailyData.at(-1)?.totalLoad).toBe(100);
-    expect(h.result.current.derivedMetricsSettled).toBe(true);
-    expect(vi.mocked(getDoc).mock.calls.some(([ref])=>(ref as {path:string}).path===`activity_metrics/${a.id}`)).toBe(true);
+  it.each(["bike", "run", "swim", "tri"])("%s 체력은 활동별 metrics를 읽지 않고 게시된 부하를 유지한다", async sport => {
+    const a = activity(null);
+    seed([a]);
+    const hook = renderHook(() => useFitnessModel(sport, options));
+    await waitFor(() => expect(hook.result.current.activities).toEqual([a]));
+    expect(hook.result.current.metricsMap.size).toBe(0);
+    expect(hook.result.current.derivedMetricsSettled).toBe(true);
+    expect(vi.mocked(getDoc).mock.calls.some(([ref]) =>
+      (ref as { path: string }).path.startsWith("activity_metrics/"))).toBe(false);
+    if (sport === "bike") expect(hook.result.current.dailyData.at(-1)?.totalLoad).toBe(100);
   });
   it("real desktop view preserves known partial load and unknown count without PMC",async()=>{
     const known=activity(null);const unknown={...activity(null,"unknown"),serverDerivedLoad:undefined};seed([known,unknown]);

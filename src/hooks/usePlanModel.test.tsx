@@ -18,7 +18,7 @@ import {
 const mocks = vi.hoisted(() => ({
   locale: "ko",
   user: { uid: "owner" } as { uid: string } | null,
-  freshTraining: vi.fn(() => ({ revalidating: false, justRecomputed: false })),
+  freshTraining: vi.fn(() => ({ revalidating: false, justRecomputed: false, currentTsb: null as number | null })),
   fitnessTimeseries: vi.fn(() => ({ timeseries: null, loaded: true })),
 }));
 
@@ -55,7 +55,7 @@ describe("usePlanModel", () => {
     clearTrainingSurfaceCache();
     mocks.locale = "ko";
     mocks.user = { uid: "owner" };
-    mocks.freshTraining.mockClear();
+    mocks.freshTraining.mockReset().mockReturnValue({revalidating: false, justRecomputed: false, currentTsb: null});
     mocks.fitnessTimeseries.mockReset().mockReturnValue({timeseries: null, loaded: true});
     resetRuntimeConfigForTests({trainingDecisionEnabled: false});
     vi.mocked(collection).mockClear();
@@ -119,8 +119,8 @@ describe("usePlanModel", () => {
     expect(result.current.progress).toBe(50);
     expect(collection).toHaveBeenCalledWith(firestore, "goals");
     expect(collection).toHaveBeenCalledWith(firestore, "goals", "goal-run", "plan");
-    expect(mocks.freshTraining).toHaveBeenCalledWith("run");
-    expect(mocks.fitnessTimeseries).toHaveBeenCalledWith("owner", "run");
+    expect(mocks.freshTraining).toHaveBeenCalledWith("run", true, true);
+    expect(mocks.fitnessTimeseries).not.toHaveBeenCalled();
   });
 
   it("uses the bike model for an unsupported embedded sport value", async () => {
@@ -131,8 +131,8 @@ describe("usePlanModel", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.discipline).toBe("bike");
     expect(result.current.goal).toBeNull();
-    expect(mocks.freshTraining).toHaveBeenCalledWith("bike");
-    expect(mocks.fitnessTimeseries).toHaveBeenCalledWith("owner", "bike");
+    expect(mocks.freshTraining).toHaveBeenCalledWith("bike", true, true);
+    expect(mocks.fitnessTimeseries).not.toHaveBeenCalled();
   });
 
   it("commits a fresh goal and its weeks atomically", async () => {
@@ -442,42 +442,21 @@ describe("usePlanModel", () => {
     await waitFor(() => expect(hook.result.current.user).toBeNull());
     expect(getTrainingSurfaceCache(cacheKey)).toBeNull();
   });
-  it.each([
-    { completedOffset: 100, revision: 2, expected: -20 },
-    { completedOffset: 0, revision: 2, expected: -20 },
-    { completedOffset: -1, revision: 2, expected: null },
-    { completedOffset: null, revision: 2, expected: null },
-    { completedOffset: 100, revision: 1, expected: null },
-  ])("같은 입력의 완료 시각과 revision을 확인해 회복 TSB를 소비한다 %j", ({ completedOffset, revision, expected }) => {
-    const date = new Date().toISOString().slice(0, 10);
-    const asOf = Date.now();
-    const timeseries = { discipline: "bike", schemaVersion: 1, computedAt: asOf,
-      startDate: date, endDate: date, pointCount: 1,
-      points: [{ date, ctl: 20, atl: 40, tsb: -20, dailyLoad: 10 }],
-      loadSnapshot: { inputRevision: 2, inputDigest: "a".repeat(64), asOf,
-        inputReadTime: { seconds: Math.floor(asOf / 1000), nanoseconds: (asOf % 1000) * 1_000_000 },
-        coverageStartDate: date, coverageEndDate: date,
-        points: [{ date, dailyLoad: 10, status: "final", quality: "precomputed" }],
-      },
-      pmc: { status: "processed", inputRevision: 2, processedInputRevision: revision, attemptId: "fixture",
-        asOf: completedOffset === null ? null : asOf + completedOffset, deadlineAt: asOf + 60000, errorCode: null },
-    };
-    mocks.fitnessTimeseries.mockReturnValue({ timeseries, loaded: true } as never);
-    const { result, unmount } = renderHook(() => usePlanModel("bike"), { wrapper });
-    expect(result.current.currentTsb).toBe(expected);
-    unmount();
-  });
+  it("uses projection TSB without subscribing to timeseries and respects the recovery flag", () => {
+    mocks.freshTraining.mockReturnValue({ revalidating: false, justRecomputed: false, currentTsb: -20 });
+    const hook = renderHook(() => usePlanModel("bike"), { wrapper });
+    expect(hook.result.current.currentTsb).toBe(-20);
+    expect(mocks.freshTraining).toHaveBeenCalledWith("bike", true, true);
+    expect(mocks.fitnessTimeseries).not.toHaveBeenCalled();
 
-  it("현대 입력 증거가 손상된 TSB는 회복 처방 근거로 승격하지 않는다", () => {
-    const date = new Date().toISOString().slice(0, 10);
-    const base = {discipline: "bike", schemaVersion: 1, computedAt: Date.now(), startDate: date, endDate: date, pointCount: 1, points: [{date, ctl: 20, atl: 40, tsb: -20, dailyLoad: 10}]};
-    mocks.fitnessTimeseries.mockReturnValue({timeseries: base, loaded: true} as never);
-    const legacy = renderHook(() => usePlanModel("bike"), {wrapper});
-    expect(legacy.result.current.currentTsb).toBe(-20);
-    legacy.unmount();
-    mocks.fitnessTimeseries.mockReturnValue({timeseries: {...base, loadSnapshot: {inputDigest: ""}, pmc: {status: "processed"}}, loaded: true} as never);
-    const modern = renderHook(() => usePlanModel("bike"), {wrapper});
-    expect(modern.result.current.currentTsb).toBeNull();
+    resetRuntimeConfigForTests({ trainingDecisionEnabled: true });
+    hook.rerender();
+    expect(hook.result.current.currentTsb).toBeNull();
+    expect(mocks.fitnessTimeseries).not.toHaveBeenCalled();
+
+    resetRuntimeConfigForTests({ trainingDecisionEnabled: false });
+    hook.rerender();
+    expect(hook.result.current.currentTsb).toBe(-20);
   });
 
 });

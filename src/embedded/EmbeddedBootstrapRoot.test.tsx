@@ -120,7 +120,8 @@ vi.mock("./surfaces/ActivityAnalysisSurface", () => ({
 }));
 
 vi.mock("./surfaces/FitnessSurface", () => ({
-  default: function MockFitnessSurface({ onReady }: {
+  default: function MockFitnessSurface({ onReady, active }: {
+    active?: boolean;
     onReady: (status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void;
   }) {
     mocks.fitnessSurfaceMounts();
@@ -129,7 +130,7 @@ vi.mock("./surfaces/FitnessSurface", () => ({
       mocks.surfaceLifecycle("fitness", "mount");
       return () => mocks.surfaceLifecycle("fitness", "unmount");
     }, []);
-    return <div data-testid="fitness-surface" />;
+    return <div data-testid="fitness-surface" data-active={String(active)} />;
   },
 }));
 
@@ -1451,7 +1452,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       expect(readyFor(bridge, "select-2")).toEqual([]);
     });
 
-    it("30분 넘게 숨긴 표면은 재사용하지 않고 새로 마운트한다", async () => {
+    it("30분 넘게 숨겨도 모델 캐시를 유지하고 같은 표면을 재사용한다", async () => {
       const bridge = createFakeBridge();
       await acceptFitnessSession(bridge);
       const start = Date.now();
@@ -1460,33 +1461,49 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       now.mockReturnValue(start + 30 * 60 * 1000);
 
       act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-2")));
-      await waitFor(() => expect(mountCount("fitness")).toBe(2));
-      expect(readyFor(bridge, "select-2")).toEqual([]);
+      expect(mountCount("fitness")).toBe(1);
+
     });
 
-    it("숨긴 채 30분이 지나면 표면을 언마운트해 리스너를 놓는다", async () => {
+    it("준비된 숨은 표면은 구독만 멈추고 다시 보이면 마운트 없이 재개한다", async () => {
       const bridge = createFakeBridge();
+      const unsubscribe = vi.fn();
+      const implementation = vi.mocked(onSnapshot).getMockImplementation()!;
+      vi.mocked(onSnapshot).mockImplementationOnce(((...args: unknown[]) => {
+        (implementation as (...parameters: unknown[]) => unknown)(...args);
+        return unsubscribe;
+      }) as typeof onSnapshot);
       await acceptFitnessSession(bridge);
-      const releaseTimers: Array<() => void> = [];
+      act(() => mocks.surfaceReadyCallbacks.fitness?.("fresh", true));
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive")));
+      expect(screen.getByTestId("fitness-surface")).toHaveAttribute("data-active", "false");
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+      expect(mountCount("fitness")).toBe(1);
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-2")));
+      expect(screen.getByTestId("fitness-surface")).toHaveAttribute("data-active", "true");
+      expect(mountCount("fitness")).toBe(1);
+    });
+
+    it("준비 전 숨은 preload도 30초 상한 뒤 구독을 멈춘다", async () => {
+      const warmupTimers: Array<() => void> = [];
       const realSetTimeout = window.setTimeout.bind(window);
       vi.spyOn(window, "setTimeout").mockImplementation(((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
-        if (typeof delay === "number" && delay >= 29 * 60 * 1000 && typeof handler === "function") {
-          releaseTimers.push(handler as () => void);
+        if (delay === 30_000 && typeof handler === "function") {
+          warmupTimers.push(handler as () => void);
           return 0;
         }
         return realSetTimeout(handler, delay, ...args);
       }) as typeof window.setTimeout);
-
-      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive")));
-      expect(releaseTimers).toHaveLength(1);
-      act(() => releaseTimers[0]());
-
-      await waitFor(() => expect(screen.queryByTestId("fitness-surface")).not.toBeInTheDocument());
-      expect(mocks.surfaceLifecycle).toHaveBeenCalledWith("fitness", "unmount");
-      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-2")));
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+      await act(async () => bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 })));
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
       await screen.findByTestId("fitness-surface");
-      expect(mountCount("fitness")).toBe(2);
-      expect(readyFor(bridge, "select-2")).toEqual([]);
+      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive")));
+      expect(screen.getByTestId("fitness-surface")).toHaveAttribute("data-active", "true");
+      act(() => warmupTimers.at(-1)!());
+      expect(screen.getByTestId("fitness-surface")).toHaveAttribute("data-active", "false");
+      expect(mountCount("fitness")).toBe(1);
     });
 
     it("재선택 메시지와 커밋 사이에 도착한 준비도 새 requestId 에 정확히 한 번 응답한다", async () => {
@@ -1508,25 +1525,6 @@ describe("EmbeddedBootstrapRoot session gate", () => {
 
       expect(readyFor(bridge, "select-2")).toHaveLength(1);
       expect(mountCount("fitness")).toBe(1);
-    });
-
-    it("null 이 반복돼도 해제 타이머는 처음 숨긴 시각부터 남은 시간만 건다", async () => {
-      const bridge = createFakeBridge();
-      await acceptFitnessSession(bridge);
-      const delays: number[] = [];
-      const realSetTimeout = window.setTimeout.bind(window);
-      vi.spyOn(window, "setTimeout").mockImplementation(((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
-        if (typeof delay === "number" && delay >= 60_000) delays.push(delay);
-        return realSetTimeout(handler, delay !== undefined && delay >= 60_000 ? 2_147_483_647 : delay, ...args);
-      }) as typeof window.setTimeout);
-      const start = Date.now();
-      const now = vi.spyOn(Date, "now").mockReturnValue(start);
-
-      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive-1")));
-      now.mockReturnValue(start + 20 * 60 * 1000);
-      act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null }, "inactive-2")));
-
-      expect(delays).toEqual([30 * 60 * 1000, 10 * 60 * 1000]);
     });
 
     async function acceptPlanSession(bridge: FakeBridge) {

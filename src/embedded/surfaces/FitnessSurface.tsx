@@ -5,20 +5,23 @@ import { useTranslation } from "react-i18next";
 import EmbeddedSurfaceState from "./EmbeddedSurfaceState";
 import MobileFitnessPage from "../../components/mobile/MobileFitnessPage";
 import CanonicalFitnessNotice from "../../features/fitness/components/CanonicalFitnessNotice";
+import FitnessActivityWindowNotice from "../../features/fitness/components/FitnessActivityWindowNotice";
 import { useFitnessModel } from "../../hooks/useFitnessModel";
 
 export interface FitnessSurfaceProps {
   onReady: (status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void;
   retryKey: number;
+  active?: boolean;
 }
 
-export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProps) {
+export default function FitnessSurface({ onReady, retryKey, active = true }: FitnessSurfaceProps) {
   const [searchParams] = useSearchParams();
   const { t: tCommon } = useTranslation("common");
   const model = useFitnessModel(searchParams.get("sport"), {
     // This REST client still owns the normal web Auth/App Check singleton. The embedded
     // surface uses the persisted PDC fallback until that client accepts injected services.
     enableCoachRiderInsight: false,
+    active,
   });
   const settledKeys = useRef(new Set<string>());
   const derivedContentReady = model.derivedMetricsSettled && !model.derivedMetricsError;
@@ -50,6 +53,7 @@ export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProp
   return (
     <main className="orider-embedded-surface" data-testid="embedded-fitness">
       {model.canonicalFitness && <CanonicalFitnessNotice state={model.canonicalFitness} t={model.t} />}
+      <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={model.t} />
       <MobileFitnessPage
         {...model.mobilePageProps}
         embedded

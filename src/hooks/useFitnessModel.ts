@@ -22,16 +22,13 @@ import { aggregateRecentZoneSeconds } from "../features/fitness/mobileFitnessMet
 import {
   authoritativeCombinedLoad,
   buildRunEvidence,
-  buildSwimEvidence,
   computeCyclingAbility,
-  computeIntegratedLoadFocus,
 } from "../features/fitness/multisportPerformance";
 import {
   buildCanonicalRiderFitnessView,
   cyclingAbilityFromCanonicalRider,
 } from "../features/fitness/riderInsightParity";
-import { useActivityDerivedDocuments } from "../features/fitness/useActivityDerivedDocuments";
-import { activityDerivedDocumentRevision } from "../features/fitness/derivedDocumentReadAttempts";
+import { buildWindowSwimEvidence, computeWindowLoadFocus, filterFitnessActivityWindowEntries, fitnessWindowMetrics } from "../features/fitness/fitnessActivityWindow";
 import {
   makeDurationLabel,
   secToMmss,
@@ -233,16 +230,17 @@ function calculateClientFitness(
 
 export function useFitnessModel(
   sportParam: string | null | undefined,
-  options: { enableCoachRiderInsight?: boolean; decisionId?: string | null } = {},
+  options: { enableCoachRiderInsight?: boolean; decisionId?: string | null; active?: boolean } = {},
 ) {
+  const subscriptionActive = options.active ?? true;
   const { t, i18n } = useTranslation("fitness");
   const durationLabel = makeDurationLabel(t);
   const { user, profile } = useAuth();
-  const canonicalFitness = useCanonicalFitnessSummary("fitnessSummary");
+  const canonicalFitness = useCanonicalFitnessSummary("fitnessSummary", subscriptionActive);
   const canonicalPending = canonicalFitness.rolloutState === "pending";
   const canonicalActive = canonicalFitness.rolloutState === "on";
   const { firestore } = useFirebaseServices();
-  const { entries: ftpHistory } = useFtpHistory(user?.uid);
+  const { entries: ftpHistory } = useFtpHistory(user?.uid, subscriptionActive);
   const { showToast } = useToast();
   const discipline = resolveFitnessDiscipline(sportParam);
   const [range, setRange] = useState<RangeOption | 42>(90);
@@ -272,6 +270,8 @@ export function useFitnessModel(
     key: activityDataKey,
     items: initialCache?.activities ?? [],
   });
+  const loadedActivityKey = useRef<string | null>(null);
+  const activityOwnerKey = useRef(activityDataKey);
   const activities = canonicalPending
     ? []
     : activityState.key === activityDataKey ? activityState.items : [];
@@ -279,24 +279,37 @@ export function useFitnessModel(
     () => discipline === "tri" ? activities : filterByDiscipline(activities, discipline),
     [activities, discipline],
   );
-  const { metricsMap, metricStatusMap } = useActivityDerivedDocuments(user?.uid, activities);
-  const currentMetricStatuses = disciplineActivities.map((activity) => {
-    const status = metricStatusMap.get(activity.id);
-    return status?.revision === activityDerivedDocumentRevision(activity) ? status.state : "loading";
-  });
-  const derivedMetricsSettled = currentMetricStatuses.every((status) => status !== "loading");
-  const derivedMetricsError = currentMetricStatuses.some((status) => status === "error");
+  const { fitness: userFitness } = useUserFitness(!!user, subscriptionActive);
+  const latestActivityStart = activities.reduce((latest, activity) => Math.max(latest, activity.startTime), 0);
+  const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
+  const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey, subscriptionActive);
   const [loading, setLoading] = useState(initialCache === null);
   const [cacheHit, setCacheHit] = useState(initialCache !== null);
   const [freshLoaded, setFreshLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
-  const [projection, setProjection] = useState<FitnessProjection | null>(null);
+  const [activeGoalState, setActiveGoal] = useState<Goal | null>(null);
+  const [projectionState, setProjection] = useState<FitnessProjection | null>(null);
   const [, setGoalQueryDone] = useState(false);
+  const currentGoalOwnerKey = user && discipline !== "tri" ? `${user.uid}:${discipline}` : null;
+  const goalOwnerKey = useRef(currentGoalOwnerKey);
+  const activeGoal = goalOwnerKey.current === currentGoalOwnerKey ? activeGoalState : null;
+  const projection = goalOwnerKey.current === currentGoalOwnerKey ? projectionState : null;
   const isMobile = useMobile();
-  const { pdc } = usePdc(user?.uid);
-  const { run: runPaceCurve, swim: swimCssCurve } = useFitnessCurves(user?.uid);
+  const { pdc } = usePdc(user?.uid, subscriptionActive);
+  const { run: runPaceCurve, swim: swimCssCurve, activityWindow, activityWindowLoaded, activityWindowError } = useFitnessCurves(user?.uid, subscriptionActive, true);
+  // 잘린 윈도의 부분합계를 전체 합계처럼 표시하지 않는다.
+  const completeActivityWindow = activityWindow !== null && activityWindow !== undefined && !activityWindow.truncated;
+  const windowEntries = useMemo(() => completeActivityWindow
+    ? filterFitnessActivityWindowEntries(activityWindow!.entries, "tri", fitnessClock) : [],
+  [activityWindow, completeActivityWindow, fitnessClock]);
+  const selectedWindowEntries = useMemo(() => filterFitnessActivityWindowEntries(windowEntries, discipline, fitnessClock),
+    [discipline, fitnessClock, windowEntries]);
+  const zoneActivities = useMemo(() => selectedWindowEntries.map(entry => ({ id: entry.activityId, startTime: entry.startTime })), [selectedWindowEntries]);
+  const metricsMap = useMemo(() => fitnessWindowMetrics(windowEntries), [windowEntries]);
+  const derivedMetricsSettled = activityWindowLoaded ?? false;
+  const derivedMetricsError = (activityWindowLoaded === true && activityWindow == null)
+    || activityWindowError === true || activityWindow?.truncated === true;
   // 다음 라이드 FTP 브리핑(#837) — 결정 문서를 구독하고 수락만 수행한다.
   // 임베드 표면은 decisionId 를 넘기지 않아 딥링크로 특정 결정을 열지 않는다.
   const {
@@ -307,15 +320,12 @@ export function useFitnessModel(
     uid: user?.uid,
     decisionId: options.decisionId ?? null,
     enabled: discipline === "bike",
+    active: subscriptionActive,
   });
   const riderInsightEnabled = options.enableCoachRiderInsight !== false
     && getRuntimeConfig().coachRiderInsightEnabled === true
     && discipline === "bike";
   const { insight: coachRiderInsight } = useCoachRiderInsight(user?.uid, riderInsightEnabled);
-  const { fitness: userFitness } = useUserFitness(!!user);
-  const latestActivityStart = activities.reduce((latest, activity) => Math.max(latest, activity.startTime), 0);
-  const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
-  const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
   // 연속 기록은 이미 읽은 체력 기간 활동으로 계산한다 — 기간이 연속 기록 기간(97일)을 덮을 때만.
   // 예전에는 화면을 열 때마다 최근 등록 200건을 따로 읽었다 (#1028).
   const streakPreload = useMemo(() => ({
@@ -323,7 +333,7 @@ export function useFitnessModel(
     coversSinceMs: Date.now() - (activityQueryRange + 42) * 24 * 60 * 60 * 1000,
     ready: !canonicalPending && !loading && activityState.key === activityDataKey,
   }), [activities, activityQueryRange, canonicalPending, loading, activityState.key, activityDataKey]);
-  const { summary: consistencyStreak } = useConsistencyStreak(user?.uid, streakPreload);
+  const { summary: consistencyStreak } = useConsistencyStreak(user?.uid, streakPreload, subscriptionActive);
   useEffect(() => {
     if (normalizedRange !== range) setRange(normalizedRange);
   }, [normalizedRange, range]);
@@ -350,8 +360,8 @@ export function useFitnessModel(
     }
   }
 
-  const { run: runRecords } = useRunRecords(discipline === "run");
-  const { achieved: milestones, markCelebrated } = useMilestones(discipline === "run");
+  const { run: runRecords } = useRunRecords(discipline === "run", subscriptionActive);
+  const { achieved: milestones, markCelebrated } = useMilestones(discipline === "run", subscriptionActive);
   const [dismissedMilestones, setDismissedMilestones] = useState<ReadonlySet<MilestoneId>>(new Set());
   const pendingMilestone = useMemo(() => {
     for (const milestone of milestones.values()) {
@@ -362,11 +372,18 @@ export function useFitnessModel(
 
   const { revalidating, justRecomputed } = useFreshTraining(
     discipline,
+    false,
+    subscriptionActive,
   );
   const projUnsubRef = useRef<(() => void) | null>(null);
   const projectionGoalIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (activityOwnerKey.current !== activityDataKey) {
+      activityOwnerKey.current = activityDataKey;
+      loadedActivityKey.current = null;
+      setActivityState({ key: activityDataKey, items: [] });
+    }
     if (!user) {
       clearTrainingSurfaceCache();
       setActivityState({ key: null, items: [] });
@@ -384,6 +401,11 @@ export function useFitnessModel(
       setError(null);
       return undefined;
     }
+    prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true);
+    if (!subscriptionActive) {
+      setActivityState((previous) => previous.key === activityDataKey ? previous : { key: activityDataKey, items: [] });
+      return;
+    }
     const uid = user.uid;
     let active = true;
     const nextCacheKey = cacheLocale
@@ -400,9 +422,11 @@ export function useFitnessModel(
     const cached = cacheEnabled
       ? getTrainingSurfaceCache<{ activities: Activity[] }>(nextCacheKey)
       : null;
-    setActivityState({ key: activityDataKey, items: cached?.activities ?? [] });
+    const retaining = loadedActivityKey.current === activityDataKey;
+    if (cached !== null) loadedActivityKey.current = activityDataKey;
+    setActivityState((previous) => previous.key === activityDataKey && retaining ? previous : { key: activityDataKey, items: cached?.activities ?? [] });
     setError(null);
-    setLoading(cached === null);
+    setLoading(!retaining && cached === null);
     setCacheHit(cached !== null);
     setFreshLoaded(false);
     const cutoff = Date.now() - (activityQueryRange + 42) * 24 * 60 * 60 * 1000;
@@ -419,33 +443,41 @@ export function useFitnessModel(
         if (!active) return;
         try {
           const items = snapshot.docs
-            .map((entry) => ({ id: entry.id, ...entry.data() }) as Activity)
+            .map((entry) => {
+              // Web SDK는 필드 projection을 지원하지 않는다. 범위 조회는 유지하고
+              // 큰 경로/thumbnail은 상태와 계정별 메모리 캐시에 보관하지 않는다.
+              const data = entry.data();
+              const fields = ["userId", "type", "startTime", "endTime", "summary", "name", "source", "deletedAt",
+                "serverDerivedLoad", "tss", "ftp", "intensityFactor", "weightedAvgPower", "localSessionId", "stravaActivityId", "stravaTwinActivityId"];
+              return { id: entry.id, ...Object.fromEntries(fields.filter(key => key in data).map(key => [key, data[key]])) } as Activity;
+            })
             .filter((activity) => activity.userId === uid);
+          loadedActivityKey.current = activityDataKey;
           setActivityState({ key: activityDataKey, items });
           setLoading(false);
           setFreshLoaded(true);
           if (cacheEnabled) setTrainingSurfaceCache(nextCacheKey, { activities: items });
         } catch (snapshotError) {
-          if (cached === null) {
+          if (cached === null && !retaining) {
             setError(snapshotError instanceof Error ? snapshotError.message : t("error.loadFailed"));
           }
           setLoading(false);
-          setFreshLoaded(cached === null);
+          setFreshLoaded(cached === null && !retaining);
         }
       },
       (subscriptionError) => {
         if (!active) return;
         logClientError("FitnessPage.activitiesSubscription", subscriptionError, { range: activityQueryRange });
-        if (cached === null) setError(t("error.loadFailed"));
+        if (cached === null && !retaining) setError(t("error.loadFailed"));
         setLoading(false);
-        setFreshLoaded(cached === null);
+        setFreshLoaded(cached === null && !retaining);
       },
     );
     return () => {
       active = false;
       unsubscribe();
     };
-  }, [activityDataKey, activityQueryRange, cacheLocale, canonicalPending, discipline, firestore, reloadKey, t, user]);
+  }, [activityDataKey, activityQueryRange, cacheLocale, canonicalPending, discipline, firestore, reloadKey, subscriptionActive, t, user]);
 
   const retryLoad = useCallback(() => {
     setError(null);
@@ -454,9 +486,13 @@ export function useFitnessModel(
   }, []);
 
   useEffect(() => {
-    if (!user || discipline === "tri") return undefined;
-    setActiveGoal(null);
-    setProjection(null);
+    if (goalOwnerKey.current !== currentGoalOwnerKey) {
+      goalOwnerKey.current = currentGoalOwnerKey;
+      setActiveGoal(null);
+      setProjection(null);
+    }
+    if (!subscriptionActive || !user || discipline === "tri") return undefined;
+    let current = true;
     setGoalQueryDone(false);
     if (projUnsubRef.current) {
       projUnsubRef.current();
@@ -472,8 +508,10 @@ export function useFitnessModel(
     const goalUnsubscribe = onSnapshot(
       goalQuery,
       (goalSnapshot) => {
+        if (!current) return;
         if (goalSnapshot.empty) {
           setActiveGoal(null);
+          setProjection(null);
           setGoalQueryDone(true);
           if (projUnsubRef.current) {
             projUnsubRef.current();
@@ -487,11 +525,13 @@ export function useFitnessModel(
         setActiveGoal(nextGoal);
         setGoalQueryDone(true);
         if (projectionGoalIdRef.current !== nextGoal.id) {
+          setProjection((previous) => previous?.goalId === nextGoal.id ? previous : null);
           if (projUnsubRef.current) projUnsubRef.current();
           projectionGoalIdRef.current = nextGoal.id;
           projUnsubRef.current = onSnapshot(
             doc(firestore, "users", user.uid, "fitness", `projection_${discipline}`),
             (snapshot) => {
+              if (!current || projectionGoalIdRef.current !== nextGoal.id) return;
               if (!snapshot.exists()) return;
               const nextProjection = snapshot.data() as FitnessProjection;
               if (nextProjection.goalId === nextGoal.id) setProjection(nextProjection);
@@ -504,11 +544,13 @@ export function useFitnessModel(
         }
       },
       (goalError) => {
+        if (!current) return;
         logClientError("FitnessPage.goalSubscription", goalError, { discipline });
         setGoalQueryDone(true);
       },
     );
     return () => {
+      current = false;
       goalUnsubscribe();
       if (projUnsubRef.current) {
         projUnsubRef.current();
@@ -516,7 +558,7 @@ export function useFitnessModel(
       }
       projectionGoalIdRef.current = null;
     };
-  }, [discipline, firestore, user]);
+  }, [currentGoalOwnerKey, discipline, firestore, subscriptionActive, user]);
 
   const clientFitness = useMemo(
     () => canonicalActive || canonicalPending || discipline === "tri"
@@ -537,6 +579,7 @@ export function useFitnessModel(
     reloadKey,
     cacheLocale ?? undefined,
     user?.isAnonymous === true,
+    subscriptionActive,
   );
   const triUid = discipline === "tri" && !canonicalActive && !canonicalPending ? user?.uid : undefined;
   const {
@@ -545,14 +588,14 @@ export function useFitnessModel(
     error: triRunTimeseriesError,
     cacheHit: triRunTimeseriesCacheHit,
     freshLoaded: triRunTimeseriesFreshLoaded,
-  } = useFitnessTimeseries(triUid, "run", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true);
+  } = useFitnessTimeseries(triUid, "run", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true, subscriptionActive);
   const {
     timeseries: triSwimTimeseries,
     loaded: triSwimTimeseriesLoaded,
     error: triSwimTimeseriesError,
     cacheHit: triSwimTimeseriesCacheHit,
     freshLoaded: triSwimTimeseriesFreshLoaded,
-  } = useFitnessTimeseries(triUid, "swim", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true);
+  } = useFitnessTimeseries(triUid, "swim", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true, subscriptionActive);
   const canonicalProcessing = canonicalActive
     && canonicalFitness.values === null
     && (canonicalFitness.display === null || canonicalFitness.display === "loading");
@@ -662,13 +705,17 @@ export function useFitnessModel(
     : hasCanonicalTimeseries;
   const [pmcHistoryTick, setPmcHistoryTick] = useState(0);
   useEffect(() => {
+    if (subscriptionActive) setPmcHistoryTick(Date.now());
+  }, [subscriptionActive]);
+  useEffect(() => {
+    if (!subscriptionActive) return;
     const now = Date.now();
     const deadlines = [timeseries, triRunTimeseries, triSwimTimeseries]
       .map(pmcHistoryDeadline).filter((deadline): deadline is number => deadline !== null && deadline >= now);
     if (!deadlines.length) return;
     const timer = setTimeout(() => setPmcHistoryTick(Date.now()), Math.min(...deadlines) - now + 1);
     return () => clearTimeout(timer);
-  }, [timeseries, triRunTimeseries, triSwimTimeseries, pmcHistoryTick]);
+  }, [subscriptionActive, timeseries, triRunTimeseries, triSwimTimeseries, pmcHistoryTick]);
   const pmcHistoryPoints = useMemo(() => {
     if (canonicalActive && discipline === "tri") return [];
     const source = (doc: FitnessTimeseriesDoc | null, sport: TimeseriesDiscipline) => doc?.discipline === sport
@@ -706,7 +753,7 @@ export function useFitnessModel(
       "1s": 1, "5s": 5, "10s": 10, "30s": 30, "1m": 60, "2m": 120,
       "5m": 300, "10m": 600, "20m": 1200, "30m": 1800, "1h": 3600,
     };
-    const now = Date.now();
+    const now = fitnessClock;
     const period = 28 * 24 * 60 * 60 * 1000;
     const aggregate = (items: ActivityMetrics[]) => {
       const maxima: Record<string, number> = {};
@@ -724,17 +771,17 @@ export function useFitnessModel(
     };
     const recent: ActivityMetrics[] = [];
     const previous: ActivityMetrics[] = [];
-    for (const activity of disciplineActivities) {
-      const metrics = metricsMap.get(activity.id);
+    for (const entry of selectedWindowEntries) {
+      const metrics = metricsMap.get(entry.activityId);
       if (!metrics) continue;
-      if (activity.startTime >= now - period) recent.push(metrics);
-      else if (activity.startTime >= now - period * 2) previous.push(metrics);
+      if (entry.startTime >= now - period) recent.push(metrics);
+      else if (entry.startTime >= now - period * 2) previous.push(metrics);
     }
     return [
       { label: t("period.recent"), color: "var(--lime)", points: aggregate(recent) },
       { label: t("period.previous"), color: "var(--ink-3)", points: aggregate(previous) },
     ];
-  }, [disciplineActivities, metricsMap, t]);
+  }, [fitnessClock, selectedWindowEntries, metricsMap, t]);
 
   const weeklyStats = useMemo(() => {
     // 기록점 개수가 아닌 현재 날짜까지의 실제 달력 창을 사용한다. 서버 날짜는 UTC,
@@ -790,23 +837,23 @@ export function useFitnessModel(
   }, [canonicalActive, canonicalWeeklySummaries, dailyData, discipline, fitnessClock, hasCanonicalTimeseries, resolvedTriFitness]);
   const zoneDistribution = useMemo(() => {
     const { counts, total } = aggregateRecentZoneSeconds(
-      disciplineActivities,
+      zoneActivities,
       metricsMap,
       "hrZoneSec",
       fitnessClock,
       30,
     );
     return total === 0 ? null : counts.map((count) => Math.round((count / total) * 100));
-  }, [disciplineActivities, fitnessClock, metricsMap]);
+  }, [zoneActivities, fitnessClock, metricsMap]);
   const mobileZoneDistribution = useMemo(() => {
     const { counts, total } = aggregateRecentZoneSeconds(
-      disciplineActivities,
+      zoneActivities,
       metricsMap,
       "hrZoneSec",
       fitnessClock,
     );
     return total === 0 ? null : counts.map((count) => Math.round((count / total) * 100));
-  }, [disciplineActivities, fitnessClock, metricsMap]);
+  }, [zoneActivities, fitnessClock, metricsMap]);
   const combinedLoad = useMemo(() => {
     if (canonicalActive) {
       const current = canonicalFitness.values;
@@ -839,8 +886,8 @@ export function useFitnessModel(
     return authoritativeCombinedLoad(userFitness, fitnessClock);
   }, [canonicalActive, canonicalFitness.values, discipline, fitnessClock, triFitnessTimeline, userFitness]);
   const integratedLoadFocus = useMemo(
-    () => canonicalActive ? null : computeIntegratedLoadFocus(activities, metricsMap, fitnessClock),
-    [activities, canonicalActive, fitnessClock, metricsMap],
+    () => canonicalActive || !completeActivityWindow ? null : computeWindowLoadFocus(windowEntries, fitnessClock),
+    [canonicalActive, completeActivityWindow, fitnessClock, windowEntries],
   );
   const canonicalRiderView = useMemo(
     () => buildCanonicalRiderFitnessView(pdc, coachRiderInsight),
@@ -857,13 +904,12 @@ export function useFitnessModel(
     [profile?.thresholdPace, runRecords, userFitness],
   );
   const swimEvidence = useMemo(
-    () => buildSwimEvidence(
+    () => buildWindowSwimEvidence(
       userFitness?.thresholds?.swim?.css ?? profile?.css,
-      activities,
-      metricsMap,
+      windowEntries,
       fitnessClock,
     ),
-    [activities, fitnessClock, metricsMap, profile?.css, userFitness],
+    [windowEntries, fitnessClock, profile?.css, userFitness],
   );
 
   const mobilePageData = useMemo<MobileFitnessData>(() => {
@@ -876,7 +922,7 @@ export function useFitnessModel(
     }));
     const weeklyTSS = weeklyStats.weeklyTSS;
     const { counts: powerZoneCounts, total: powerSamples } = discipline === "bike"
-      ? aggregateRecentZoneSeconds(disciplineActivities, metricsMap, "powerZoneSec", fitnessClock)
+      ? aggregateRecentZoneSeconds(zoneActivities, metricsMap, "powerZoneSec", fitnessClock)
       : { counts: [0, 0, 0, 0, 0, 0, 0], total: 0 };
     const hrFractions = mobileZoneDistribution ?? [0, 0, 0, 0, 0];
     const maxHr = profile?.maxHr ?? 200;
@@ -983,7 +1029,7 @@ export function useFitnessModel(
     };
   }, [
     canonicalFtpW, canonicalRiderView, combinedLoad, currentPoint, cyclingAbility, hasCanonicalTimeseries,
-    discipline, disciplineActivities, fitnessClock, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
+    discipline, zoneActivities, fitnessClock, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
     metricsMap, mobileZoneDistribution, pdc, powerCurveProgressions, profile, projection,
     runEvidence, swimEvidence, t, thresholdDecision, weeklyStats,
   ]);
@@ -1002,6 +1048,7 @@ export function useFitnessModel(
     metricsMap,
     derivedMetricsSettled,
     derivedMetricsError,
+    activityWindowIncomplete: activityWindow?.truncated === true,
     loading: canonicalPending || canonicalProcessing || (!canonicalActive && loading),
     cacheHit: !canonicalActive && cacheHit && timeseriesCacheHit,
     freshLoaded: canonicalActive
