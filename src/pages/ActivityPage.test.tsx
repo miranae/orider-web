@@ -552,7 +552,7 @@ describe("ActivityPage", () => {
 
     const stats = await screen.findByTestId("activity-stats-grid");
     await waitFor(() => expect(stats).not.toHaveTextContent("평균 파워"));
-    expect(screen.queryByRole("button", { name: "파워" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "가상 파워" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     fireEvent.click(await screen.findByRole("button", { name: "재계산 미리보기" }));
@@ -579,7 +579,7 @@ describe("ActivityPage", () => {
     expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([expect.objectContaining({ value: "333" })]));
     expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([expect.objectContaining({ value: "444" })]));
 
-    fireEvent.click(screen.getByRole("button", { name: "파워" }));
+    fireEvent.click(screen.getByRole("button", { name: "가상 파워" }));
     await waitFor(() => {
       const latestChart = elevationChartProps.mock.calls.at(-1)?.[0] as {
         overlays?: Array<{ label: string; data: number[] }>;
@@ -607,7 +607,7 @@ describe("ActivityPage", () => {
     expect(screen.queryByText("가상 파워")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "개요" }));
     await waitFor(() => expect(stats).not.toHaveTextContent("평균 파워"));
-    expect(screen.queryByRole("button", { name: "파워" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "가상 파워" })).not.toBeInTheDocument();
     expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ label: "평균 파워", value: "250" }),
     ]));

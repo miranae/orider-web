@@ -529,7 +529,15 @@
       "revertBtn": "Revert",
       "params": "Rider {{riderKg}}kg · Bike {{bikeKg}}kg · CdA {{cda}}",
       "heading": "Virtual Power Calibration"
-    }
+    },
+    "detailedCharts": "View detailed charts",
+    "hideDetailedCharts": "Hide detailed charts",
+    "chartMeasuredPower": "Measured power",
+    "chartVirtualPower": "Virtual power",
+    "chartsUnavailable": "No chart data is available for this activity.",
+    "selectChartRange": "Select range",
+    "clearChartRange": "Clear selection",
+    "chartRangeHint": "Drag either handle to select a range. Charts show observed samples; overall analysis keeps server metrics."
   },
   "overlay": {
     "speed": "Speed",
@@ -1301,5 +1309,60 @@
     "copy": "Copy share text",
     "copied": "Share text copied.",
     "error": "Could not copy. Please try again."
+  },
+  "growth": {
+    "title": "Activity changes and statistics",
+    "compare": "Compare a previous activity",
+    "statistics": "Activity statistics",
+    "conditions": "Route, weather, equipment and workout goals affect these values. A change alone does not establish progress or a training effect.",
+    "choose": "Previous activity to compare",
+    "none": "Choose an activity",
+    "loading": "Loading activities…",
+    "retry": "Retry",
+    "noPrevious": "No previous activity of the same sport is in the loaded records yet.",
+    "loadMore": "Load more previous activities",
+    "clear": "Clear comparison",
+    "stale": "Values use an earlier analysis version.",
+    "metricsMissing": "Final analysis metrics are unavailable for this activity.",
+    "metric": "Metric",
+    "current": "This activity",
+    "previous": "Previous activity",
+    "change": "Change",
+    "paceUnit": "/km",
+    "virtualPower": "Virtual power",
+    "measuredPower": "Measured power",
+    "powerUnknown": "Power source unknown",
+    "powerCurve": "Peak power by duration",
+    "speedCurve": "Peak speed by duration",
+    "powerZones": "Power zone distribution",
+    "hrZones": "Heart-rate zone distribution",
+    "zoneNote": "Distributions use each activity’s historical thresholds. The same zone can represent different intensities when thresholds differ.",
+    "week": "This week",
+    "month": "This month",
+    "periodNote": "Korea time · current ongoing period versus the full previous period",
+    "partial": "Only {{count}} loaded activities are confirmed. Full totals and changes are withheld.",
+    "currentPeriod": "Current period",
+    "previousPeriod": "Previous period",
+    "missingNote": "Unconfirmed values are shown as —.",
+    "sourceActivities": "View activities included in the totals",
+    "metrics": {
+      "distanceKm": "Distance",
+      "movingTimeSec": "Moving time",
+      "avgSpeedKph": "Average speed",
+      "pace": "Average pace",
+      "avgHr": "Average HR",
+      "avgPower": "Average power",
+      "np": "NP",
+      "elevationGainM": "Elevation gain"
+    },
+    "stats": {
+      "count": "Activities",
+      "distance": "Distance · {{unit}}",
+      "movingTime": "Moving time · h",
+      "elevation": "Elevation gain · {{unit}}"
+    },
+    "weeklyTrend": "Distance over 6 weeks · {{unit}}",
+    "trendNote": "Weeks start on Monday. The final bar is this week so far.",
+    "paceCurve": "Best pace by duration"
   }
 }

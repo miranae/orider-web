@@ -96,6 +96,8 @@ export interface OverlayConfig {
   color: string;
   dotColor: string;
   yAxisID: string;
+  formatValue?: (value: number) => string;
+  reverseAxis?: boolean;
   getValue: (d: SampledPoint) => number | null;
 }
 

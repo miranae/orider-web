@@ -529,7 +529,15 @@
       "heading": "가상 파워 보정"
     },
     "coRiders_one": "함께 탄 라이더 ({{count}}명)",
-    "coRiders_other": "함께 탄 라이더 ({{count}}명)"
+    "coRiders_other": "함께 탄 라이더 ({{count}}명)",
+    "detailedCharts": "상세 차트 보기",
+    "hideDetailedCharts": "상세 차트 접기",
+    "chartMeasuredPower": "실측 파워",
+    "chartVirtualPower": "가상 파워",
+    "chartsUnavailable": "이 기록에 표시할 차트 데이터가 없습니다.",
+    "selectChartRange": "구간 선택",
+    "clearChartRange": "선택 해제",
+    "chartRangeHint": "양쪽 손잡이를 움직여 구간을 선택하세요. 차트 수치는 실제 관측값이며 전체 분석은 서버 지표를 유지합니다."
   },
   "overlay": {
     "speed": "속도",
@@ -1301,5 +1309,60 @@
     "copy": "공유 문구 복사",
     "copied": "공유 문구를 복사했습니다.",
     "error": "복사하지 못했습니다. 다시 시도해 주세요."
+  },
+  "growth": {
+    "title": "활동 변화와 통계",
+    "compare": "지난 활동과 비교",
+    "statistics": "활동 통계",
+    "conditions": "코스·날씨·장비·운동 목적에 따라 수치가 달라집니다. 수치 변화만으로 성장이나 훈련 효과를 판단하지 않습니다.",
+    "choose": "비교할 지난 활동",
+    "none": "활동 선택",
+    "loading": "기록을 불러오는 중…",
+    "retry": "다시 불러오기",
+    "noPrevious": "아직 불러온 기록에 같은 종목의 지난 활동이 없습니다.",
+    "loadMore": "지난 기록 더 불러오기",
+    "clear": "비교 해제",
+    "stale": "이전 분석 버전의 수치입니다.",
+    "metricsMissing": "이 기록의 확정 분석 수치가 없습니다.",
+    "metric": "항목",
+    "current": "이 활동",
+    "previous": "지난 활동",
+    "change": "변화",
+    "paceUnit": "/km",
+    "virtualPower": "가상 파워",
+    "measuredPower": "실측 파워",
+    "powerUnknown": "파워 출처 미확인",
+    "powerCurve": "지속시간별 최대 파워",
+    "speedCurve": "지속시간별 최고 속도",
+    "powerZones": "파워 존 분포",
+    "hrZones": "심박 존 분포",
+    "zoneNote": "각 활동 당시의 기준으로 분석한 분포입니다. 기준이 다르면 같은 존도 강도가 다를 수 있습니다.",
+    "week": "이번 주",
+    "month": "이번 달",
+    "periodNote": "한국 시간 기준 · 현재 진행 중인 기간과 직전 전체 기간 비교",
+    "partial": "불러온 {{count}}개 기록만 확인했습니다. 전체 합계와 변화는 보류합니다.",
+    "currentPeriod": "이번 기간",
+    "previousPeriod": "지난 기간",
+    "missingNote": "확인되지 않은 수치는 —로 표시합니다.",
+    "sourceActivities": "합계에 포함된 활동 보기",
+    "metrics": {
+      "distanceKm": "거리",
+      "movingTimeSec": "이동시간",
+      "avgSpeedKph": "평균 속도",
+      "pace": "평균 페이스",
+      "avgHr": "평균 심박",
+      "avgPower": "평균 파워",
+      "np": "NP",
+      "elevationGainM": "상승고도"
+    },
+    "stats": {
+      "count": "활동 수",
+      "distance": "거리 · {{unit}}",
+      "movingTime": "이동시간 · h",
+      "elevation": "상승고도 · {{unit}}"
+    },
+    "weeklyTrend": "최근 6주 거리 · {{unit}}",
+    "trendNote": "월요일 시작 · 마지막 막대는 이번 주 현재까지의 기록입니다.",
+    "paceCurve": "지속시간별 최고 페이스"
   }
 }

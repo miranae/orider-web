@@ -185,6 +185,8 @@ export interface OverlayDataset {
   color: string;
   yAxisID: string;
   unit?: string;
+  formatValue?: (value: number) => string;
+  reverseAxis?: boolean;
 }
 
 interface OverlayChartPoint {
@@ -263,6 +265,7 @@ export interface ElevationChartMarker {
 interface ElevationChartProps {
   data: { distance: number; elevation: number }[];
   height?: number;
+  showElevation?: boolean;
   onHoverIndex?: (index: number | null) => void;
   overlays?: OverlayDataset[];
   /** 강조할 성능 지표. 해당 지표의 축과 선을 선명하게 표시한다. */
@@ -298,6 +301,7 @@ interface ElevationChartProps {
 export default function ElevationChart({
   data,
   height = 180,
+  showElevation = true,
   onHoverIndex,
   overlays,
   focusedOverlayKey,
@@ -479,7 +483,7 @@ export default function ElevationChart({
 
   const elevationDataset = {
     label: "고도 (m)",
-    data: data.map((d, i) => ({ x: distancesKm[i], y: d.elevation })),
+    data: showElevation ? data.map((d, i) => ({ x: distancesKm[i], y: d.elevation })) : [],
     fill: true,
     backgroundColor: `color-mix(in srgb, ${altitudeColor} 8%, transparent)`,
     borderColor: altitudeColor,
@@ -559,13 +563,14 @@ export default function ElevationChart({
         type: "linear" as const,
         position: "right" as const,
         display: focused,
+        reverse: o.reverseAxis ?? false,
         grid: { drawOnChartArea: false },
         border: { display: false },
         ticks: {
           color: tickColor,
           font: { size: 11, weight: focused ? "600" : "400" },
           maxTicksLimit: 4,
-          callback: (value: string | number) => `${value}${o.unit ? ` ${o.unit}` : ""}`,
+          callback: (value: string | number) => `${o.formatValue?.(Number(value)) ?? value}${o.unit ? ` ${o.unit}` : ""}`,
         },
         title: focused && o.unit
           ? { display: true, text: o.unit, color: tickColor, font: { size: 11, weight: "600" } }
@@ -653,6 +658,7 @@ export default function ElevationChart({
             },
             yElev: {
               type: "linear",
+              display: showElevation,
               position: "left",
               afterFit: (scale: { width: number }) => { scale.width = 54; },
               grid: { color: gridColor },
@@ -670,7 +676,7 @@ export default function ElevationChart({
               yElevSpacer: {
                 type: "linear" as const,
                 position: "right" as const,
-                afterFit: (scale: { width: number }) => { scale.width = 54; },
+                afterFit: (scale: { width: number }) => { scale.width = ELEVATION_PLOT_AXIS_WIDTH; },
                 grid: { display: false }, border: { display: false },
                 ticks: { color: "transparent", callback: () => "" },
               },
@@ -718,8 +724,9 @@ export default function ElevationChart({
                     grid: { display: false }, border: { display: false }, ticks: { color: "transparent", callback: () => "" },
                   },
                   yMetric: {
-                    type: "linear", position: "right", afterFit: (scale: { width: number }) => { scale.width = 54; }, grid: { color: gridColor }, border: { display: false },
-                    ticks: { color: tickColor, font: { size: 12, weight: "bold" }, maxTicksLimit: 3, callback: (value: string | number) => `${value} ${overlay.unit ?? ""}` },
+                    type: "linear", position: "right", afterFit: (scale: { width: number }) => { scale.width = ELEVATION_PLOT_AXIS_WIDTH; }, grid: { color: gridColor }, border: { display: false },
+                    reverse: overlay.reverseAxis ?? false,
+                    ticks: { color: tickColor, font: { size: 12, weight: "bold" }, maxTicksLimit: 3, callback: (value: string | number) => overlay.formatValue ? overlay.formatValue(Number(value)) : `${value} ${overlay.unit ?? ""}` },
                   },
                 },
               }}

@@ -1,4 +1,4 @@
-import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { collection, getDoc, onSnapshot } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,8 +6,11 @@ import type { ActivityAnalysisSummary } from "@shared/analysis/activityAnalysisS
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { setDocData } from "../__tests__/mocks/firebase";
+import ActivityDetailedCharts from "../features/activity/detail/ActivityDetailedCharts";
 import AnalysisTab from "../components/AnalysisTab";
 import { useActivityAnalysisModel } from "./useActivityAnalysisModel";
+
+vi.mock("../components/ElevationChart", () => ({ default: () => <div data-testid="performance-chart" /> }));
 
 const mocks = vi.hoisted(() => ({
   user: { uid: "owner" } as { uid: string } | null,
@@ -138,6 +141,27 @@ describe("useActivityAnalysisModel", () => {
   const streamReads = () => vi.mocked(getDoc).mock.calls.filter(([ref]) => (
     ref as unknown as { path: string }
   ).path.startsWith("activity_streams/"));
+
+  it("loads embedded detail streams once after the chart CTA and keeps summary entry at zero", async () => {
+    const activity = makeActivity("orider_chart_cta");
+    seedActivity(activity);
+    setDocData(`activity_metrics/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, analysisSummary });
+    function DetailHarness() {
+      const model = useActivityAnalysisModel(activity.id);
+      return <ActivityDetailedCharts model={model} />;
+    }
+    render(<DetailHarness />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "상세 차트 보기" })).toBeInTheDocument());
+    expect(streamReads()).toHaveLength(0);
+    expect(mocks.getStreams).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "상세 차트 보기" }));
+    await waitFor(() => expect(screen.getByTestId("performance-chart")).toBeInTheDocument());
+    expect(streamReads()).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "상세 차트 접기" }));
+    fireEvent.click(screen.getByRole("button", { name: "상세 차트 보기" }));
+    expect(streamReads()).toHaveLength(1);
+    expect(mocks.getStreams).not.toHaveBeenCalled();
+  });
 
   it("uses final owner summary with zero stream reads and loads only on explicit demand", async () => {
     const activity = makeActivity("orider_summary");

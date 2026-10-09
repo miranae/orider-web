@@ -1559,6 +1559,8 @@ export function buildChartOverlays(
       color: resolveCssColor(cfg.color),
       yAxisID: cfg.yAxisID,
       unit: cfg.unit,
+      formatValue: cfg.formatValue,
+      reverseAxis: cfg.reverseAxis,
     }));
 }
 

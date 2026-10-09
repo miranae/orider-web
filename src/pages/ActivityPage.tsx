@@ -2,7 +2,9 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import ElevationChart from "../components/ElevationChart";
+import { getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
+import { ActivityGrowthPanel } from "../features/activity/detail/ActivityGrowthPanel";
+import ActivityPerformanceCharts from "../features/activity/detail/ActivityPerformanceCharts";
 import { useRunSplitLocation } from "../features/activity/detail/useRunSplitLocation";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 import Avatar from "../components/Avatar";
@@ -10,7 +12,6 @@ import TabNav from "../components/TabNav";
 import AnalysisTab, { AnalysisLapTable } from "../components/AnalysisTab";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
 import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
-import { ActivityZoneTimeline } from "../components/activity/ActivityZoneTimeline";
 import LapTable from "../components/LapTable";
 import ExportTab from "../components/ExportTab";
 import { useAuth } from "../contexts/AuthContext";
@@ -55,7 +56,6 @@ import {
   buildChartOverlays,
   buildSampledData,
   buildSummaryStats,
-  getAvailableOverlays,
   getChartHighlightRange,
   getSegmentEfforts,
   getStreamPhotos,
@@ -472,12 +472,9 @@ export default function ActivityPage() {
     [effectiveStreams, sensorSelectionContext],
   );
   const recordedRunCadenceUnit = serverMetrics.metrics?.cadenceUnit ?? (activity?.source === "strava" ? "strides_per_minute" : activity?.source === "orider" ? "spm" : null);
-  const availableOverlays = useMemo(() => getAvailableOverlays(sampledData).map(cfg => {
-    if (sport !== "run") return cfg;
-    if (cfg.key === "speed") return { ...cfg, label: "pace", unit: units === "imperial" ? "min/mi" : "min/km", getValue: (d: typeof sampledData[number]) => d.speed > 0 ? 60 / d.speed * (units === "imperial" ? 1.609344 : 1) : null };
-    if (cfg.key === "cadence") return { ...cfg, unit: recordedRunCadenceUnit == null ? t("analysis.run.cadenceUnit") : "spm", getValue: (d: typeof sampledData[number]) => recordedRunCadenceUnit == null ? d.cadence : runningCadenceSpm(d.cadence, recordedRunCadenceUnit) };
-    return cfg;
-  }), [sampledData, sport, units, recordedRunCadenceUnit, t]);
+  const availableOverlays = useMemo(() => getPerformanceOverlays(
+    sampledData, sport, units, recordedRunCadenceUnit, t("analysis.run.cadenceUnit"),
+  ), [sampledData, sport, units, recordedRunCadenceUnit, t]);
   const summaryStats = useMemo(
     () => buildSummaryStats(effectiveStreams, streamSensorSummary),
     [effectiveStreams, streamSensorSummary],
@@ -638,7 +635,6 @@ export default function ActivityPage() {
 
   // Build chart overlays from active toggles
   const chartOverlays = buildChartOverlays(availableOverlays, activeOverlays, sampledData, (label) => t(`overlay.${label}`));
-  const focusedOverlay = availableOverlays.find((cfg) => cfg.key === focusedOverlayKey) ?? null;
 
   const hoverPoint = hoverIndex != null ? sampledData[hoverIndex] ?? null : null;
 
@@ -1068,6 +1064,9 @@ export default function ActivityPage() {
         />
       )}
 
+      {(activeTab === "overview" || activeTab === "analysis") && <ActivityGrowthPanel
+        activity={activity} metrics={serverMetrics.metrics} isOwner={isActivityOwner} />}
+
       {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}
       {canShowAiAnalysis && (
         <AiRideAnalysisCard
@@ -1102,96 +1101,13 @@ export default function ActivityPage() {
         </Card>
       )}
       {showElevation && elevData.length > 0 && (
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>
-            {availableOverlays.length > 0 ? t("page.elevTitleWithPerf") : t("page.elevProfile")}
-          </h3>
-
-          {/* Overlay toggle buttons */}
-          {hasStreams && availableOverlays.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 mb-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-full cursor-default" style={{ background: 'color-mix(in srgb, var(--lime) 12%, transparent)', color: 'var(--lime)', border: '1px solid color-mix(in srgb, var(--lime) 30%, transparent)' }}>
-                <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
-                {t("page.elevation")}
-              </span>
-              {availableOverlays.map((cfg) => (
-                <button
-                  key={cfg.key}
-                  onClick={() => toggleOverlay(cfg.key)}
-                  aria-pressed={activeOverlays.has(cfg.key)}
-                  aria-label={`${t(`overlay.${cfg.label}`)}${cfg.key === focusedOverlayKey ? `, ${t("page.chartCurrentScale", { metric: t(`overlay.${cfg.label}`) })}` : ""}`}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-full border transition-colors"
-                  style={activeOverlays.has(cfg.key) ? {
-                    color: cfg.dotColor,
-                    borderColor: cfg.dotColor,
-                    backgroundColor: `${cfg.dotColor}15`,
-                  } : {
-                    background: 'var(--bg-2)',
-                    color: 'var(--ink-3)',
-                    borderColor: 'var(--line-soft)',
-                  }}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: activeOverlays.has(cfg.key) ? cfg.dotColor : "var(--ink-4)" }}
-                  />
-                  {t(`overlay.${cfg.label}`)}
-                </button>
-              ))}
-            </div>
-          )}
-          {focusedOverlay && <p className="sr-only" aria-live="polite">{t("page.chartCurrentScale", { metric: t(`overlay.${focusedOverlay.label}`) })}</p>}
-          {/* Hover data panel */}
-          {hasStreams && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:var(--fs-xs)] mb-2 min-h-[20px]" style={{ color: 'var(--ink-2)' }}>
-              {hoverPoint ? (
-                <>
-                  <span className="font-medium" style={{ color: 'var(--ink-0)' }}>{formatDistance(hoverPoint.distance, units)}</span>
-                  <span style={{ color: 'var(--line)' }}>|</span>
-                  <span style={{ color: "var(--color-success)" }}>{t("page.elevationLabel", { value: Math.round(hoverPoint.altitude) })}</span>
-                  {availableOverlays.flatMap((cfg) => {
-                    if (!activeOverlays.has(cfg.key)) return [];
-                    const val = cfg.getValue(hoverPoint);
-                    if (val == null || val <= 0) return [];
-                    return [
-                      <span key={`${cfg.key}-sep`} style={{ color: 'var(--line)' }}>|</span>,
-                      <span key={cfg.key} style={{ color: cfg.dotColor }}>
-                        {t(`overlay.${cfg.label}`)} {cfg.key === "speed" ? val.toFixed(sport === "run" ? 2 : 1) : Math.round(val)} {cfg.unit}
-                      </span>,
-                    ];
-                  })}
-                </>
-              ) : summaryStats ? (
-                <>
-                  <span style={{ color: "var(--color-success)" }}>{t("page.elevationRange", { min: Math.round(summaryStats.minElev), max: Math.round(summaryStats.maxElev) })}</span>
-                  {availableOverlays.flatMap((cfg) => {
-                    const rawStat = summaryStats.overlays[cfg.key];
-                    const stat = rawStat && sport === "run" && cfg.key === "speed" ? { ...rawStat, avg: rawStat.avg > 0 ? 60 / rawStat.avg * (units === "imperial" ? 1.609344 : 1) : 0 }
-                      : rawStat && sport === "run" && cfg.key === "cadence" && recordedRunCadenceUnit != null ? { ...rawStat, avg: runningCadenceSpm(rawStat.avg, recordedRunCadenceUnit) ?? rawStat.avg } : rawStat;
-                    if (!stat || !activeOverlays.has(cfg.key)) return [];
-                    return [
-                      <span key={`${cfg.key}-sep`} style={{ color: 'var(--line)' }}>|</span>,
-                      <span key={cfg.key} style={{ color: cfg.dotColor }}>
-                        {t("page.avgPrefix")} {cfg.key === "speed" ? stat.avg.toFixed(sport === "run" ? 2 : 1) : Math.round(stat.avg)} {cfg.unit}
-                      </span>,
-                    ];
-                  })}
-                </>
-              ) : null}
-            </div>
-          )}
-
-          <ElevationChart
-            data={elevData}
-            height={chartOverlays.length > 0 ? 150 : 200}
-            onHoverIndex={hasStreams ? handleElevHover : undefined}
-            overlays={chartOverlays.length > 0 ? chartOverlays : undefined}
-            focusedOverlayKey={focusedOverlayKey}
-            separateOverlayLanes={chartOverlays.length > 0}
-            highlightRange={chartHighlightRange}
-          />
-          <ActivityZoneTimeline metrics={serverMetrics.metrics} />
-        </Card>
+        <ActivityPerformanceCharts
+          elevData={elevData} availableOverlays={availableOverlays} activeOverlays={activeOverlays}
+          focusedOverlayKey={focusedOverlayKey} toggleOverlay={toggleOverlay} chartOverlays={chartOverlays}
+          hoverPoint={hoverPoint} summaryStats={summaryStats} sport={sport} recordedRunCadenceUnit={recordedRunCadenceUnit}
+          onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
+          metrics={serverMetrics.metrics} powerSource={streamSensorSummary?.powerSource}
+        />
       )}
 
       {/* Streams error */}

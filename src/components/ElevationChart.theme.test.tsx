@@ -63,6 +63,25 @@ describe("ElevationChart theme colors", () => {
     checkColors();
   });
 
+  it("keeps matching gutters and clock-only pace ticks across elevation and sensor lanes", () => {
+    renderWithProviders(<ElevationChart data={[{ distance: 0, elevation: 0 }, { distance: 1000, elevation: 0 }]}
+      showElevation={false} separateOverlayLanes overlays={[
+        { key: "speed", label: "페이스", data: [5, 6], color: "green", yAxisID: "ySpeed", unit: "min/km", formatValue: value => `${value}:00`, reverseAxis: true },
+        { key: "heartRate", label: "심박", data: [140, 150], color: "red", yAxisID: "yHeartRate", unit: "bpm" },
+      ]} />);
+    const charts = line.mock.calls.map(call => call[0]);
+    expect(charts[0].options.scales.yElev.display).toBe(false);
+    expect(charts[0].data.datasets[0].data).toEqual([]);
+    const widths = charts.map(chart => {
+      const scale = { width: 0 };
+      (chart.options.scales.yElevSpacer ?? chart.options.scales.yMetric).afterFit(scale);
+      return scale.width;
+    });
+    expect(widths).toEqual([54, 54, 54]);
+    expect(charts[1].options.scales.yMetric.ticks.callback(10)).toBe("10:00");
+    expect(charts[1].options.scales.yMetric.reverse).toBe(true);
+  });
+
   it("keeps reverse-range start/end handles and direction arrow semantically distinct", () => {
     renderWithProviders(<ElevationChart data={[{ distance: 0, elevation: 100 }, { distance: 1000, elevation: 110 }]} rangeMode range={[1, 0]} />);
     const chart = line.mock.lastCall?.[0];
