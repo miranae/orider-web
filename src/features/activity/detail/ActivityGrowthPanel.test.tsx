@@ -5,7 +5,7 @@ import ko from "../../../i18n/resources/ko/activity.json";
 import en from "../../../i18n/resources/en/activity.json";
 import { ActivityGrowthPanel } from "./ActivityGrowthPanel";
 import { activityPeriods } from "./activityGrowth";
-import { periodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
+import { periodFixture, runningPeriodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
 const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn() }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: mocks.units }) }));
@@ -27,6 +27,17 @@ beforeEach(() => {
   mocks.metrics.mockReset().mockReturnValue({ status: "missing", metrics: null });
 });
 describe("ActivityGrowthPanel", () => {
+  it("reuses the canonical statistics response for running records and changing curve duration", () => {
+    mocks.periodAvailable = true;
+    mocks.periods.mockReturnValue({ state: "ready", response: runningPeriodFixture(), retry: vi.fn() });
+    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+    expect(screen.getByRole("region", { name: "러닝 기간별 최고 기록 비교" })).toHaveTextContent("20:00");
+    const reads = mocks.periods.mock.calls.length, history = mocks.history.mock.calls.length;
+    fireEvent.change(screen.getByRole("combobox", { name: "공통 시간 선택" }), { target: { value: "7200" } });
+    expect(mocks.periods).toHaveBeenCalledTimes(reads);
+    expect(mocks.history).toHaveBeenCalledTimes(history);
+  });
   it("keeps both history and selected metrics requests lazy and reuses opened sections", () => {
     render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
     expect(mocks.history).not.toHaveBeenCalled(); expect(mocks.metrics).not.toHaveBeenCalled();

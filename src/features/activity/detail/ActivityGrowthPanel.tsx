@@ -8,6 +8,7 @@ import { useActivityGrowthHistory } from "../../../hooks/useActivityGrowthHistor
 import { useActivityMetrics } from "../../../hooks/useActivityMetrics";
 import { useTrainingAnalysisPeriods } from "../../../hooks/useTrainingAnalysisPeriods";
 import { trainingAnalysisPeriodsAvailable } from "../../../services/trainingAnalysisPeriods";
+import RunPeriodComparisonPanel from "./RunPeriodComparisonPanel";
 import TrainingPeriodZonesPanel from "./TrainingPeriodZonesPanel";
 import { Button, Card, ChartFrame, Input, Select, Stack, Stat, Text } from "../../../theme";
 import "./activity-growth-panel.css";
@@ -201,6 +202,7 @@ function Statistics({ activity }: { activity: Activity }) {
       <Text as="p" variant="caption" tone="tertiary">{t(longPeriod ? "growth.monthlyTrendNote" : "growth.trendNote")} {t("growth.bucketHint")}</Text>
     </ChartFrame>}
     {selectedTrend && <Text as="p" variant="bodySmall">{date(selectedTrend.start)}–{date(selectedTrend.end - 1)} · {t("growth.bucketCount", { count: selectedTrend.sources.length })} <Button size="sm" variant="ghost" onClick={() => setSelectedBucket(null)}>{t("growth.clearBucket")}</Button></Text>}
+    {canonicalEnabled && <RunPeriodComparisonPanel response={canonical.response} />}
     {canonicalEnabled && <TrainingPeriodZonesPanel response={canonical.response} />}
     <details key={selectedBucket ?? "all"} open={selectedTrend ? true : undefined} className="activity-growth-sources"><summary><Text variant="bodySmall" weight={600}>{t("growth.sourceActivities")}</Text></summary><Stack gap="var(--space-2)" className="pt-3">{sourceList.map((source) => <a key={source.id} className="activity-growth-source-link" href={`/activity/${encodeURIComponent(source.id)}`}><Text variant="bodySmall">{date(source.startTime)} · {source.description || source.type}</Text></a>)}</Stack></details>
   </div>;

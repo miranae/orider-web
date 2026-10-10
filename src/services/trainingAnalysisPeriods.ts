@@ -1,5 +1,6 @@
+import { RUN_DISTANCE_M, RUN_DISTANCES } from "@shared/types/personal-records";
 import { httpsCallable } from "firebase/functions";
-import type { TrainingAnalysisPeriodsRequest, TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
+import type { PeriodRunSource, TrainingAnalysisPeriodsRequest, TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { validPowerCurvePeriodsRequest } from "./powerCurvePeriods";
@@ -84,6 +85,50 @@ export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalys
         } else if (!nonnegative(group.ftp) || group.ftp <= 0 || !["measured", "virtual"].includes(group.powerSource)) invalid();
       }
       if (seen.size !== zones.eligibleActivityCount || !near(zones.observedSeconds, zones.groups.reduce((sum, group) => sum + group.observedSeconds, 0))) invalid();
+    }
+    if (period.running != null) {
+      const running = period.running;
+      if (request.discipline !== "run" || !running.bestDistances || !Array.isArray(running.paceCurves) || running.paceCurves.length > 2) invalid();
+      const validRunningCoverage = (value: typeof running.bestDistances.coverage, status: string) => {
+        if (!value || ![value.candidateActivityCount, value.eligibleActivityCount, value.missingActivityCount, value.noObservedEffortActivityCount].every(count)
+          || value.candidateActivityCount !== coverage.representativeActivityCount || value.truncated !== coverage.truncated
+          || value.eligibleActivityCount + value.missingActivityCount + value.noObservedEffortActivityCount !== value.candidateActivityCount
+          || status !== (value.truncated || value.missingActivityCount > 0 ? "partial" : "complete")) invalid();
+      };
+      const validRunSource = (point: PeriodRunSource, eligible: number) => {
+        const activity = period.activities.find(activity => activity.activityId === point?.sourceActivityId);
+        if (!point || !id(point.sourceActivityId) || !activity || point.startTime !== activity.startTime
+          || !/^\d+:\d+$/u.test(point.metricsRevision) || !count(point.contributingActivityCount)
+          || point.contributingActivityCount < 1 || point.contributingActivityCount > eligible) invalid();
+      };
+      const best = running.bestDistances;
+      validRunningCoverage(best.coverage, best.status);
+      if (best.timingBasis !== "elapsed_including_stops" || !Array.isArray(best.points) || best.points.length > 5
+        || best.coverage.eligibleActivityCount === 0 && best.points.length > 0) invalid();
+      const distances = new Set<string>();
+      for (const point of best.points) {
+        validRunSource(point, best.coverage.eligibleActivityCount);
+        if (!RUN_DISTANCES.includes(point.distance) || point.distanceM !== RUN_DISTANCE_M[point.distance]
+          || !nonnegative(point.elapsedSec) || point.elapsedSec <= 0 || distances.has(point.distance)) invalid();
+        distances.add(point.distance);
+      }
+      const seenBases = new Set<string>();
+      const canonicalDurations = new Set([30, 60, 180, 300, 600, 1200, 1800, 3600, 7200]);
+      const convertedDurations = new Set([30, 60, 300, 600, 1200, 1800, 3600]);
+      for (const curve of running.paceCurves) {
+        if (!curve || !["run_metrics_pace_curve", "speed_curve_kmh_converted"].includes(curve.sourceBasis)
+          || seenBases.has(curve.sourceBasis) || curve.timingBasis !== "elapsed" || curve.unit !== "sec_per_km"
+          || !Array.isArray(curve.points) || curve.points.length > 11 || curve.coverage?.eligibleActivityCount === 0 && curve.points.length > 0) invalid();
+        seenBases.add(curve.sourceBasis);
+        validRunningCoverage(curve.coverage, curve.status);
+        let previousDuration = 0;
+        for (const point of curve.points) {
+          validRunSource(point, curve.coverage.eligibleActivityCount);
+          if (!(curve.sourceBasis === "run_metrics_pace_curve" ? canonicalDurations : convertedDurations).has(point.durationSeconds) || point.durationSeconds <= previousDuration || !nonnegative(point.paceSecPerKm) || point.paceSecPerKm <= 0
+            || (curve.sourceBasis === "run_metrics_pace_curve" ? point.speedKph !== null : !nonnegative(point.speedKph) || point.speedKph <= 0 || !near(point.paceSecPerKm, 3600 / point.speedKph))) invalid();
+          previousDuration = point.durationSeconds;
+        }
+      }
     }
     if (period.zones.power.reason !== (request.discipline === "bike" ? "recorded_ftp" : "not_applicable")
       || period.zones.pace?.status !== "unavailable" || period.zones.pace.reason !== "canonical_pace_zones_unavailable") invalid();

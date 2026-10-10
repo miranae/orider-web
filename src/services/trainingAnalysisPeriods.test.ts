@@ -5,7 +5,7 @@ import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import { loadTrainingAnalysisPeriods, trainingAnalysisPeriodsAvailable, validTrainingAnalysisPeriodsRequest, validateTrainingAnalysisPeriodsResponse } from "./trainingAnalysisPeriods";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), callable: vi.fn() }));
 vi.mock("firebase/functions", () => ({ httpsCallable: mocks.callable }));
-import { periodFixture, request } from "./trainingAnalysisPeriods.fixture";
+import { periodFixture, request, runningPeriodFixture } from "./trainingAnalysisPeriods.fixture";
 const stage = { appEnvironment: "stage", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net", trainingAnalysisPeriodsEnabled: true };
 beforeEach(() => { resetRuntimeConfigForTests(stage); mocks.call.mockReset().mockResolvedValue({ data: periodFixture() }); mocks.callable.mockReset().mockReturnValue(mocks.call); });
 describe("training period boundary", () => {
@@ -69,5 +69,38 @@ describe("training period boundary", () => {
     const value = periodFixture();
     for (const channel of [value.periods[0]!.zones.heartRate, value.periods[0]!.zones.power]) { channel.observedSeconds = 0; channel.groups[0]!.observedSeconds = 0; channel.groups[0]!.seconds.fill(0); }
     expect(validateTrainingAnalysisPeriodsResponse(value, request)).toEqual(value);
+  });
+});
+
+describe("additive running period evidence", () => {
+  const runRequest = (value: TrainingAnalysisPeriodsResponse) => ({ discipline: "run" as const, periods: value.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })) });
+  it("accepts legacy absence and canonical running distance/3-minute/2-hour sources", () => {
+    const value = runningPeriodFixture();
+    expect(validateTrainingAnalysisPeriodsResponse(value, runRequest(value))).toEqual(value);
+    value.periods.forEach(period => { delete period.running; });
+    expect(validateTrainingAnalysisPeriodsResponse(value, runRequest(value))).toEqual(value);
+  });
+  it.each(["source", "time", "revision", "contributors", "coverage", "unit", "duration", "duplicate-basis", "wrong-discipline"])("rejects contradictory running %s", kind => {
+    const value = runningPeriodFixture(), running = value.periods[0]!.running!, point = running.bestDistances.points[0]!;
+    if (kind === "source") point.sourceActivityId = "foreign";
+    if (kind === "time") point.startTime++;
+    if (kind === "revision") point.metricsRevision = "hash";
+    if (kind === "contributors") point.contributingActivityCount = 2;
+    if (kind === "coverage") running.bestDistances.coverage.eligibleActivityCount = 2;
+    if (kind === "unit") running.bestDistances.points[0]!.distanceM = 1000;
+    if (kind === "duration") running.paceCurves[0]!.points[0]!.durationSeconds = 5;
+    if (kind === "duplicate-basis") running.paceCurves.push(structuredClone(running.paceCurves[0]!));
+    if (kind === "wrong-discipline") value.discipline = "bike";
+    expect(() => validateTrainingAnalysisPeriodsResponse(value, { ...runRequest(value), discipline: value.discipline })).toThrow("invalid_training_analysis_periods_response");
+  });
+  it("validates exact speed conversion and excludes noncanonical durations", () => {
+    const value = runningPeriodFixture(), curve = value.periods[0]!.running!.paceCurves[0]!;
+    curve.sourceBasis = "speed_curve_kmh_converted";
+    curve.points = curve.points.filter(point => point.durationSeconds === 300).map(point => ({ ...point, speedKph: 15 }));
+    expect(validateTrainingAnalysisPeriodsResponse(value, runRequest(value))).toEqual(value);
+    curve.points[0]!.paceSecPerKm++;
+    expect(() => validateTrainingAnalysisPeriodsResponse(value, runRequest(value))).toThrow("invalid_training_analysis_periods_response");
+    curve.points[0]!.paceSecPerKm = 240; curve.points[0]!.durationSeconds = 7200;
+    expect(() => validateTrainingAnalysisPeriodsResponse(value, runRequest(value))).toThrow("invalid_training_analysis_periods_response");
   });
 });
