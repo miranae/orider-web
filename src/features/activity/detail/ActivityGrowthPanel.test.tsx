@@ -4,6 +4,7 @@ import type { Activity } from "@shared/types";
 import ko from "../../../i18n/resources/ko/activity.json";
 import en from "../../../i18n/resources/en/activity.json";
 import { ActivityGrowthPanel } from "./ActivityGrowthPanel";
+import { activityPeriods } from "./activityGrowth";
 const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn() }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: mocks.units }) }));
@@ -75,6 +76,30 @@ describe("ActivityGrowthPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
     fireEvent.click(screen.getByRole("button", { name: "다시 불러오기" }));
     expect(retry).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    ["metric", -0.04, "0.0 km"], ["metric", 0.04, "0.0 km"],
+    ["imperial", -0.08, "0.0 mi"], ["imperial", 0.08, "0.0 mi"],
+    ["metric", -0.12, "-0.1 km"], ["metric", 0.12, "+0.1 km"],
+    ["imperial", -0.16, "-0.1 mi"], ["imperial", 0.16, "+0.1 mi"],
+  ])("signs comparison changes at displayed precision after %s conversion (delta=%s)", (units, delta, displayed) => {
+    mocks.units = String(units);
+    mocks.metrics.mockReturnValue({ status: "ready", metrics: { distanceKm: 10 } });
+    render(<ActivityGrowthPanel activity={activity} metrics={{ distanceKm: 10 + Number(delta) }} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent === `변화 ${displayed}`)).toBeInTheDocument();
+  });
+  it.each([-40, 40])("shows a subprecision statistics distance change without a sign (delta=%s m)", (delta) => {
+    const periods = activityPeriods(Date.now(), "week");
+    mocks.history.mockReturnValue({ activities: [], coverage: "ready", sourceActivities: [
+      { ...activity, id: "this-week", startTime: periods.start, summary: { distance: 10000 + delta } },
+      { ...activity, id: "previous-week", startTime: periods.previousStart, summary: { distance: 10000 } },
+    ] });
+    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+    expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent === "지난 기간 10.0 · 변화 0.0")).toBeInTheDocument();
+    expect(screen.queryByText(/[-+]0.0/)).not.toBeInTheDocument();
   });
   it("honors imperial units without replacing missing metrics", () => {
     mocks.units = "imperial";

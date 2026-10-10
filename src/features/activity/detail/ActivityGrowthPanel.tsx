@@ -14,7 +14,13 @@ import { hrZoneDistribution, powerZoneDistribution, type MetricsLike } from "./m
 
 export interface ActivityGrowthPanelProps { activity: Activity; metrics: MetricsLike | null; isOwner: boolean; embedded?: boolean }
 function number(value: number | null, digits = 1): string {
-  return value == null ? "—" : value.toFixed(digits);
+  if (value == null) return "—";
+  const displayed = value.toFixed(digits);
+  return Number(displayed) === 0 ? (0).toFixed(digits) : displayed;
+}
+function signedNumber(value: number | null, digits = 1): string {
+  const displayed = number(value, digits);
+  return Number(displayed) > 0 ? `+${displayed}` : displayed;
 }
 function pace(seconds: number | null): string {
   if (seconds == null) return "—";
@@ -65,7 +71,7 @@ function Comparison({ activity, metrics }: Omit<ActivityGrowthPanelProps, "isOwn
           <thead><tr><th scope="col"><Text variant="bodySmall" weight={600} tone="secondary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="bodySmall" weight={600} tone="secondary">{t("growth.current")}</Text></th><th scope="col"><Text variant="bodySmall" weight={600} tone="secondary">{date(selected.startTime)}</Text></th></tr></thead>
           <tbody>{comparisonRows(metrics, baseline.metrics, running).map((row) => <tr key={row.key}>
             <th scope="row"><Text variant="bodySmall" tone="secondary">{t(`growth.metrics.${row.key === "avgSpeedKph" && running ? "pace" : row.key}`)} · {unit(row.key)}</Text></th>
-            <td><Text variant="bodyMedium" mono tone="primary">{format(row.value, row.key)}</Text>{row.delta != null && <Text as="p" variant="caption" tone="tertiary">{t("growth.change")} {row.delta > 0 ? "+" : ""}{number(convert(row.delta, row.key), 1)} {row.key === "avgSpeedKph" && running ? units === "imperial" ? "s/mi" : "s/km" : unit(row.key)}</Text>}</td>
+            <td><Text variant="bodyMedium" mono tone="primary">{format(row.value, row.key)}</Text>{row.delta != null && <Text as="p" variant="caption" tone="tertiary">{t("growth.change")} <span className="whitespace-nowrap">{signedNumber(convert(row.delta, row.key), 1)} {row.key === "avgSpeedKph" && running ? units === "imperial" ? "s/mi" : "s/km" : unit(row.key)}</span></Text>}</td>
             <td><Text variant="bodyMedium" mono tone="secondary">{format(row.baseline, row.key)}</Text></td>
           </tr>)}</tbody>
         </table>
@@ -122,7 +128,7 @@ function Statistics({ activity }: { activity: Activity }) {
         const digits = key === "count" || key === "elevation" ? 0 : 1;
         return <Stack key={key} gap="var(--dim-item-gap)" className="min-w-0">
           <Stat compact label={t(`growth.stats.${key}`, { unit: key === "distance" ? units === "imperial" ? "mi" : "km" : units === "imperial" ? "ft" : "m" })} value={number(a, digits)} />
-          <Text as="p" variant="caption" tone="tertiary">{t("growth.previousPeriod")} <Text mono>{number(b, digits)}</Text>{a != null && b != null && <> · {t("growth.change")} <Text mono>{a - b > 0 ? "+" : ""}{number(a - b)}</Text></>}</Text>
+          <Text as="p" variant="caption" tone="tertiary">{t("growth.previousPeriod")} <Text mono>{number(b, digits)}</Text>{a != null && b != null && <> · {t("growth.change")} <Text mono className="whitespace-nowrap">{signedNumber(a - b)}</Text></>}</Text>
         </Stack>;
       })}
     </div>
