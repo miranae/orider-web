@@ -995,7 +995,7 @@ export default function ActivityPage() {
           pendingPeakLocation.current = null;
           setActiveTab(tab);
           if (["splits", "segments", "export"].includes(tab)
-            || (tab === "laps" && !analysisTabProps?.analysisSummary)) requestStreams();
+            || (tab === "laps" && !analysisTabProps?.analysisSummary && !streams?.laps)) requestStreams();
         }}
       />
 
@@ -1083,8 +1083,8 @@ export default function ActivityPage() {
             {sport === "swim" ? t("page.swim.setAnalysis") : t("page.lapAnalysis")}
           </h3>
           {analysisTabProps?.analysisSummary ? (
-            <AnalysisLapTable laps={analysisTabProps.analysisSummary.laps} ftp={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} />
-          ) : streams?.laps ? <LapTable laps={streams.laps} /> : null}
+            <AnalysisLapTable laps={analysisTabProps.analysisSummary.laps} ftp={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} sport={sport} />
+          ) : streams?.laps ? sport === "run" ? <AnalysisLapTable laps={streams.laps} ftp={null} sport={sport} /> : <LapTable laps={streams.laps} /> : null}
         </Card>
       )}
 
