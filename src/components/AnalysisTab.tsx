@@ -16,6 +16,7 @@ import InfoTip from "./InfoTip";
 import { VirtualPowerBadge } from "./activity/VirtualPowerBadge";
 import { Chip, Text } from "../theme/components";
 import { useActivityMetrics, type ActivityMetricsDoc, type UseActivityMetricsState } from "../hooks/useActivityMetrics";
+import { ActivityAnalysisSignInCard } from "../features/activity/detail/ActivityDetailStates";
 import RunAnalysisPanel from "./activity/RunAnalysisPanel";
 import ServerMetricsBanner from "./activity/ServerMetricsBanner";
 import { buildCyclingDynamicsCards, type CyclingDynamicsCardDescriptor } from "../features/activity/detail/cyclingDynamicsPresentation";
@@ -149,6 +150,8 @@ interface AnalysisTabProps {
   analysisSummary?: ActivityAnalysisSummary;
   summary?: ActivitySummary;
   sport?: "ride" | "run" | "swim" | "other";
+  streamsSignInRequired?: boolean;
+  onSignIn?: () => void;
   isVirtualPower?: boolean;
   virtualPowerParams?: {
     riderWeightKg: number;
@@ -299,6 +302,7 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
 export default function AnalysisTab({
   activityId, isOwner = false, serverMetrics: suppliedServerMetrics, canonicalPresentationAvailable = false, overviewRecovery = null, startTime, streams, analysisSummary, summary, sport, isVirtualPower, virtualPowerParams,
   onSelectRunEffort, onSelectRunSplit, onViewRunSplitLocation, canViewRunSplitLocation,
+  streamsSignInRequired = false, onSignIn,
   suppressServerPowerMetrics = false, suppressServerHeartRateMetrics = false, suppressServerCadenceMetrics = false,
 }: AnalysisTabProps) {
   // 소유자는 정본(`activity_metrics`), 뷰어는 공개 projection(`activity_metrics_public`) 을 읽는다.
@@ -525,6 +529,7 @@ export default function AnalysisTab({
         </div>
       );
     }
+    if (streamsSignInRequired) return <ActivityAnalysisSignInCard onSignIn={onSignIn} />;
     if (serverMetrics.status === "missing") {
       return (
         <div className="rounded-[var(--r-lg)] border border-dashed px-4 py-8 text-center" style={{ background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }} data-testid="analysis-missing">

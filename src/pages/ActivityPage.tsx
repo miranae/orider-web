@@ -59,7 +59,7 @@ import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid
 import { resolveSummaryStripStats } from "../features/activity/detail/summaryStripStats";
 import { useRunActivityDetail, RunActivityIntro } from "../features/activity/detail/runActivityDetail";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
-import { ActivityProcessingState, DeletedActivityState, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
+import { ActivityProcessingState, DeletedActivityState, ActivityAnalysisSignInCard, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
 import {
   buildChartOverlays,
   buildSampledData,
@@ -124,6 +124,7 @@ export default function ActivityPage() {
     effectiveStreams,
     showStreamSpinner,
     streamsError,
+    streamsSignInRequired,
     loadingStreams,
     retryStreams,
     requestStreams,
@@ -994,8 +995,8 @@ export default function ActivityPage() {
         onChange={(tab) => {
           pendingPeakLocation.current = null;
           setActiveTab(tab);
-          if (["splits", "segments", "export"].includes(tab)
-            || (tab === "laps" && !analysisTabProps?.analysisSummary && !streams?.laps)) requestStreams();
+          if (!streamsSignInRequired && (["splits", "segments", "export"].includes(tab)
+            || (tab === "laps" && !analysisTabProps?.analysisSummary && !streams?.laps))) requestStreams();
         }}
       />
 
@@ -1004,10 +1005,10 @@ export default function ActivityPage() {
         <div className="space-y-4">
           <SummarySensorFallbackCard
             title={t("page.summarySensorTitle")}
-            description={t("page.summarySensorDesc")}
+            description={t(streamsSignInRequired ? "page.summarySensorSignInDesc" : "page.summarySensorDesc")}
             metrics={summarySensorMetrics}
           />
-          <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
+          {streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
         </div>
       )}
       {activeTab === "analysis" && activity?.id && <ActivityPersonalBenchmark activityId={activity.id}
@@ -1048,7 +1049,7 @@ export default function ActivityPage() {
               )}
             </div>
           )}
-          <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} />
+          <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} onSignIn={() => { void signInWithGoogle(); }} />
         </Card>
       )}
       {activeTab === "analysis" && sport === "run" && <AnalysisTab
@@ -1057,6 +1058,8 @@ export default function ActivityPage() {
         activityId={activityId}
         isOwner={isActivityOwner}
         sport="run"
+        streamsSignInRequired={streamsSignInRequired}
+        onSignIn={() => { void signInWithGoogle(); }}
         streams={streams ?? { userId: activity.userId, time: [], distance: [] }}
         summary={displayedSummary}
         canonicalPresentationAvailable={overview.response?.status === "available"}
@@ -1090,7 +1093,7 @@ export default function ActivityPage() {
 
       {/* ── 내보내기 탭 ── */}
       {activeTab === "export" && !streams && (
-        <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
+        streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
       )}
       {activeTab === "export" && streams && activity && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
@@ -1145,7 +1148,8 @@ export default function ActivityPage() {
         />
       )}
 
-      {!streams && !loadingStreams && (
+      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} />}
+      {!streamsSignInRequired && !streams && !loadingStreams && (
         <Button variant="outline" onClick={requestStreams}>
           {showElevation ? t("page.elevPerf") : sport === "swim" ? t("tab.sets") : t("tab.overview")}
         </Button>
@@ -1182,7 +1186,7 @@ export default function ActivityPage() {
       )}
 
       {/* Streams error */}
-      {showElevation && !hasStreams && !loadingStreams && !showStreamSpinner && streamsError && (
+      {!streamsSignInRequired && showElevation && !hasStreams && !loadingStreams && !showStreamSpinner && streamsError && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <div className="text-center text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
             <p>{streamsError}</p>
@@ -1406,7 +1410,7 @@ export default function ActivityPage() {
 
       {/* ── 세그먼트 탭 — 주요성과 + 세그먼트/코스 등록 ── */}
       {activeTab === "segments" && !streams && (
-        <StreamUnavailableCard title={t("page.segmentsUnavailableTitle")} message={streamUnavailableMessage} />
+        streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.segmentsUnavailableTitle")} message={streamUnavailableMessage} />
       )}
       {activeTab === "segments" && streams && (
       <div className="space-y-6">
