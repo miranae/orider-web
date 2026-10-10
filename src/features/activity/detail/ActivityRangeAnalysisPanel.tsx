@@ -85,7 +85,7 @@ export function ActivityRangeAnalysisReading({ selection, sport, analysis, previ
   const distanceFactor = units === "imperial" ? 1 / 1609.344 : 1 / 1000, speedFactor = units === "imperial" ? 1 / 1.609344 : 1;
   return <section className="activity-range-reading space-y-4" aria-label={t("rangeAnalysis.title")}>
     <Text as="h3" variant="subtitle">{t("rangeAnalysis.title")}</Text>
-    <Text as="p" variant="bodySmall" tone="secondary">{t(previewActive ? "rangeAnalysis.canonicalPreviewBasis" : "rangeAnalysis.canonicalBasis")}</Text>
+    {analysis.state === "available" && metrics && <Text as="p" variant="bodySmall" tone="secondary">{t(previewActive ? "rangeAnalysis.canonicalPreviewBasis" : "rangeAnalysis.canonicalBasis")}</Text>}
     <Text as="p" variant="bodySmall" mono>{t("rangeAnalysis.window", { start: duration(selection.selection.startOffsetSec), end: duration(selection.selection.endOffsetSec) })}</Text>
     {(selection.locationUnavailable || selection.clippedBoundary) && <Text as="p" variant="bodySmall" tone="secondary">{t(selection.locationUnavailable ? "rangeAnalysis.locationUnavailable" : "rangeAnalysis.clippedLocation")}</Text>}
     {!metrics ? <div role="status" className="space-y-3"><Text as="p" variant="bodySmall" tone="secondary">{t(analysis.reason === "api_unavailable" ? "rangeAnalysis.apiUnavailable" : `rangeAnalysis.${analysis.state}`)}</Text>

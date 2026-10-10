@@ -261,12 +261,12 @@ describe("ActivityPage", () => {
     expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 20, endIndex: 40 });
     if (enabled) await waitFor(() => expect(mockCallableInvocations.some(call => call.name === "getActivityRangeAnalysis")).toBe(true));
     else {
-      expect(screen.getByRole("status")).toHaveTextContent("서버 배포를 기다리고");
+      expect(screen.getByRole("status")).toHaveTextContent("구간 분석을 준비 중입니다");
       expect(mockCallableInvocations.filter(call => call.name === "getActivityRangeAnalysis")).toHaveLength(0);
     }
     fireEvent.click(screen.getByRole("button", { name: "범위 지우기" }));
     expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeUndefined();
-    expect(screen.queryByText("서버 배포를 기다리고", { exact: false })).not.toBeInTheDocument();
+    expect(screen.queryByText("구간 분석을 준비 중입니다", { exact: false })).not.toBeInTheDocument();
   });
   it.each(["ready", "cancel", "account", "activity", "navigate", "invalid"])("handles cold peak location once with %s intent", async (mode) => {
     mockRoute.activityId = `cold-peak-${mode}`;

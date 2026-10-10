@@ -72,7 +72,15 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
       if (!axis) return;
       const ordered: [number, number] = indices[0] < indices[1] ? indices : [indices[1], indices[0]];
       const range = elapsedRangeFromChartSelection(axis, sourceIndices, ordered);
-      if (range) select(range);
+      if (!range) return;
+      // 입력한 정확한 시간은 둘러싼 차트 표본과 다르다. 움직이지 않은 핸들을 표본 시각으로 바꾸지 않는다.
+      if (current.selection && chartRange) {
+        const sameStart = ordered[0] === chartRange[0], sameEnd = ordered[1] === chartRange[1];
+        if (sameStart && sameEnd) return;
+        if (sameStart) range.startOffsetSec = current.selection.startOffsetSec;
+        if (sameEnd) range.endOffsetSec = current.selection.endOffsetSec;
+      }
+      select(range);
     },
   };
 }

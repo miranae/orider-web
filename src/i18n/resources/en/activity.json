@@ -1430,7 +1430,7 @@
     "window": "Elapsed {{start}}–{{end}}",
     "locationUnavailable": "This range cannot be connected continuously on the route. Missing and uncovered positions are not filled in.",
     "clippedLocation": "The highlight includes observations enclosing the boundaries. Server metrics use the exact selected times.",
-    "apiUnavailable": "Range analysis is awaiting server deployment. You can inspect the selected location, but metrics are not available yet.",
+    "apiUnavailable": "Range analysis is being prepared. You can inspect the selected location.",
     "loading": "Loading server analysis for the selected range.",
     "pending": "Original inputs are still being prepared. Waiting for confirmed range analysis.",
     "unavailable": "Confirmed analysis is unavailable for this range.",

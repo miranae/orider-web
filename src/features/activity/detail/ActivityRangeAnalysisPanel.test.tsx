@@ -24,12 +24,19 @@ describe("canonical elapsed range reading", () => {
   it("keeps undeployed availability truthful and never passes an enable flag by default", () => {
     renderWithProviders(<Panel activityId="a" selection={selection} sport="bike" />);
     expect(mocks.hook).toHaveBeenLastCalledWith(expect.objectContaining({ callableEnabled: false, expectedInputRevision: undefined }));
-    expect(screen.getByRole("status").textContent).toMatch(/준비|배포|available|deploy/i);
+    expect(screen.getByRole("status")).toHaveTextContent("구간 분석을 준비 중입니다. 선택 위치는 확인할 수 있습니다.");
+    expect(screen.queryByText(/저장된 원본 입력을 기준으로 서버에서 분석한/)).toBeNull();
     expect(screen.queryByText("26.3")).toBeNull();
+  });
+  it.each(["loading", "pending", "unavailable", "changed_input"] as const)("does not describe %s as a completed server analysis", state => {
+    renderWithProviders(<ActivityRangeAnalysisReading selection={selection} sport="bike" previewActive analysis={{ ...unavailable, state, reason: null }} />);
+    expect(screen.queryByText(/저장된 원본 입력|차트의 파워 미리보기와 별개로/)).toBeNull();
+    expect(screen.getByRole("status")).toBeTruthy();
   });
   it("shows canonical results and sensor nulls without invented power or zone duration", () => {
     renderWithProviders(<ActivityRangeAnalysisReading selection={selection} sport="bike" analysis={{ ...unavailable, state: "available", reason: null, metrics }} />);
     expect(screen.getByText("26.3")).toBeTruthy(); expect(screen.getByText("2.19")).toBeTruthy();
+    expect(screen.getByText("저장된 원본 입력을 기준으로 서버에서 분석한 구간입니다.")).toBeTruthy();
     expect(screen.getAllByText("—")).toHaveLength(2);
     expect(screen.queryByText(/Z1/)).toBeNull();
     expect(screen.getByText(/^파워 · 관측 0.0초 · 0.0%$/)).toBeTruthy();

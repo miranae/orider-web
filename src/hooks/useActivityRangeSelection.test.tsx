@@ -27,6 +27,31 @@ describe("single elapsed range selection", () => {
     expect(result.current.routeRange).toBeUndefined();
     expect(result.current.selection).toBeNull();
   });
+  it("preserves the exact manual opposite boundary when keyboard or dragging moves a sampled handle", () => {
+    auth.uid = "owner";
+    const offsets = [0, 1194.354, 1214.8, 1498, 1519.345, 1534.567];
+    const rawOffsets = [...Array.from({ length: 120 }, (_, index) => index * 10), 1194.354, 1214.8, ...Array.from({ length: 28 }, (_, index) => 1220 + index * 10), 1498, 1519.345, 1534.567];
+    const input = { ...model, activity: { ...model.activity!, summary: { elapsedTimeMillis: 1600000 } },
+      streams: { time: rawOffsets.map(offset => epoch + offset * 1000), latlng: rawOffsets.map(() => [37, 127]) } } as ActivityAnalysisModel;
+    const points = offsets.map(offset => ({ sourceIndex: rawOffsets.indexOf(offset), distance: offset * 100 })) as SampledPoint[];
+    const { result } = renderHook(() => useActivityRangeSelection(input, points));
+    act(() => result.current.toggle());
+    act(() => result.current.select({ startOffsetSec: 1200, endOffsetSec: 1500 }));
+    expect(result.current.chartRange).toEqual([1, 4]);
+    // ArrowRight changes end index only; the manually typed 20:00 start stays exact.
+    act(() => result.current.selectChart([1, 5]));
+    expect(result.current.selection).toMatchObject({ startOffsetSec: 1200, endOffsetSec: 1534.567 });
+    act(() => result.current.select({ startOffsetSec: 1200.2, endOffsetSec: 1500.02 }));
+    // Shift+ArrowRight changes start index only; fractional manual end remains untouched.
+    act(() => result.current.selectChart([2, 4]));
+    expect(result.current.selection).toMatchObject({ startOffsetSec: 1214.8, endOffsetSec: 1500.02 });
+    const requestId = result.current.selection!.requestId;
+    act(() => result.current.selectChart([2, 4]));
+    expect(result.current.selection!.requestId).toBe(requestId);
+    // Moving both boundaries or crossing retains the existing ordered selection behavior.
+    act(() => result.current.selectChart([5, 1]));
+    expect(result.current.selection).toMatchObject({ startOffsetSec: 1194.354, endOffsetSec: 1534.567 });
+  });
   it("clears selection and control mode on revision/owner ABA rather than resurrecting an old range", () => {
     auth.uid = "owner";
     const { result, rerender } = renderHook(props => useActivityRangeSelection(props, sampled), { initialProps: model });
