@@ -70,3 +70,19 @@ test("rejects adding server rewrites to isolated stage", () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /isolated stage must have no server rewrites/);
 });
+
+test("stage CSP rejects the exact production AI source expression", () => {
+  const result = run(({ stage }) => {
+    const csp = stage.hosting.headers.find(rule => rule.source === "**").headers.find(header => header.key.toLowerCase() === "content-security-policy");
+    csp.value = csp.value.replace("connect-src ", "connect-src https://orider-ai-api-h5zqzw3n4a-du.a.run.app ");
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /must not allow production service origins/);
+});
+test("stage CSP does not mistake a production URL embedded in another source path for its origin", () => {
+  const result = run(({ stage }) => {
+    const csp = stage.hosting.headers.find(rule => rule.source === "**").headers.find(header => header.key.toLowerCase() === "content-security-policy");
+    csp.value = csp.value.replace("connect-src ", "connect-src https://example.invalid/https://orider-ai-api-h5zqzw3n4a-du.a.run.app ");
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
