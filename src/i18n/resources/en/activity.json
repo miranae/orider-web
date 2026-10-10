@@ -1576,5 +1576,17 @@
       "cadence": "Cadence",
       "speed": "Speed"
     }
+  },
+  "splitCompare": {
+    "title": "1 km split records",
+    "note": "Compare completed segments at the same distance progression in both activities. This does not establish the same route or improved fitness. Recorded pace may include stops depending on how it was recorded.",
+    "unavailable": "No complete 1 km segments are confirmed in both activities.",
+    "missingNote": "Final partial, duplicate and missing segments are excluded. — means unavailable. GAP is omitted because its calculation source is not recorded per split.",
+    "segment": "Distance segment",
+    "metric": "Metric",
+    "current": "Current activity",
+    "previous": "Selected previous activity",
+    "pace": "Recorded pace",
+    "heartRate": "Recorded average heart rate"
   }
 }
