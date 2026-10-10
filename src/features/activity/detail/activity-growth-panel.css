@@ -30,3 +30,9 @@
 .activity-comparison-zone-fill--previous { background: var(--ink-2); }
 
 .activity-comparison-hit { cursor: pointer; }
+
+.activity-comparison-curve-section { width: 100%; max-width: 28rem; container-type: inline-size; }
+.activity-comparison-zones-section { width: 100%; max-width: 44rem; }
+@container (min-width: 24rem) {
+  .activity-comparison-curve { font-size: var(--fs-xs); }
+}

@@ -40,7 +40,7 @@ function Curve({ points, power, running, imperial }: { points: CurvePoint[]; pow
   const delta = convert(selected.value) - convert(selected.baseline);
   const roundedDelta = Number(delta.toFixed(asPace || power ? 0 : 1));
   const deltaText = `${roundedDelta > 0 ? "+" : ""}${roundedDelta.toFixed(asPace || power ? 0 : 1)} ${asPace ? imperial ? "s/mi" : "s/km" : unit}`;
-  return <section className="space-y-3">
+  return <section className="activity-comparison-curve-section space-y-3">
     <ChartFrame variant="embedded" header={<Text as="h4" variant="subtitle">{title}</Text>}>
       <Legend />
       <svg className="activity-comparison-curve" viewBox="0 0 360 176" role="img" aria-label={title}>
@@ -86,7 +86,7 @@ function Zones({ current, previous, power }: { current: MetricsLike; previous: M
       ? entry.maxBpmExclusive == null ? `≥${entry.minBpm} bpm` : `${entry.minBpm}–<${entry.maxBpmExclusive} bpm` : "—";
   };
   const zones = [...new Set([...(left ?? []).map((zone) => zone.zone), ...(right ?? []).map((zone) => zone.zone)])];
-  return <section className="space-y-3"><Text as="h4" variant="subtitle">{t(power ? "growth.powerZones" : "growth.hrZones")}</Text><Legend />
+  return <section className="activity-comparison-zones-section space-y-3"><Text as="h4" variant="subtitle">{t(power ? "growth.powerZones" : "growth.hrZones")}</Text><Legend />
     <Text as="p" variant="caption" tone="tertiary">{t("growth.current")}: {left ? context(current) : "—"} · {t("growth.previous")}: {right ? context(previous) : "—"}</Text>
     <div className="space-y-3">{zones.map((zone) => <div key={zone} className="activity-comparison-zone"><Text variant="bodySmall" weight={600}>Z{zone}</Text><div className="space-y-2">{[left, right].map((distribution, index) => {
       const value = distribution?.find((item) => item.zone === zone);
