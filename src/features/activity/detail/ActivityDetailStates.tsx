@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../../components/LocalizedLink";
 import { Button, Card, Text } from "../../../theme/components";
 
@@ -35,6 +36,16 @@ export function StreamUnavailableCard({
       </div>
     </Card>
   );
+}
+
+/** 인증이 필요한 상세 reader는 데이터 결측·재시도 오류와 구분한다. */
+export function ActivityAnalysisSignInCard({ onSignIn }: { onSignIn?: () => void }) {
+  const { t } = useTranslation("activity");
+  return <Card padding="none" style={{ padding: "var(--space-5)" }}>
+    <h3 className="text-[length:var(--fs-md)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("page.analysisSignInTitle")}</h3>
+    <p className="mt-1 text-[length:var(--fs-md)] leading-6" style={{ color: "var(--ink-2)" }}>{t("page.analysisSignInDescription")}</p>
+    {onSignIn && <Button variant="primary" style={{ marginTop: "var(--space-3)" }} onClick={onSignIn}>{t("kudosCard.loginAction")}</Button>}
+  </Card>;
 }
 
 export function ActivityProcessingState({

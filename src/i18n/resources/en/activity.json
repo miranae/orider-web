@@ -479,6 +479,9 @@
     "unknown": "The change could not be saved. Please try again shortly."
   },
   "page": {
+    "summarySensorSignInDesc": "These values are saved in the activity record.",
+    "analysisSignInTitle": "Sign in to view detailed analysis",
+    "analysisSignInDescription": "Sign in to view detailed charts and activity streams. The public activity summary remains available.",
     "deleteConfirm": "Delete this activity?",
     "delete": "Delete",
     "deleteToast": "Activity deleted. You can restore it from this screen.",

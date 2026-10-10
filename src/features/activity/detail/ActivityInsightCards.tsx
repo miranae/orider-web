@@ -16,8 +16,8 @@ export function SummarySensorFallbackCard({
   return (
     <Card padding="none" style={{ padding: 'var(--space-5)' }}>
       <div className="mb-4">
-        <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{title}</h3>
-        <p className="mt-1 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{description}</p>
+        <h3 className="text-[length:var(--fs-md)] font-semibold" style={{ color: "var(--ink-0)" }}>{title}</h3>
+        <p className="mt-1 text-[length:var(--fs-md)] leading-6" style={{ color: "var(--ink-3)" }}>{description}</p>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {metrics.map((metric) => (

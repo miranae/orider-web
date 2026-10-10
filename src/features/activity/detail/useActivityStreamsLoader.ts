@@ -97,6 +97,8 @@ export function useActivityStreamsLoader({
   const [requestedScope, setRequestedScope] = useState<typeof scope | null>(null);
   const requestStreams = useCallback(() => { setRequestedScope(scope); }, [scope]);
   const shouldLoad = enabled || requestedScope === scope;
+  // stage reader는 인증이 필수다. 공개 요약을 결측 스트림으로 오해하지 않도록 별도 상태를 보존한다.
+  const streamsSignInRequired = getRuntimeConfig().appEnvironment === "stage" && !userId;
   const [retryKey, setRetryKey] = useState(0);
   const retryStreams = useCallback(async () => { setRequestedScope(scope); setRetryKey(key => key + 1); }, [scope]);
 
@@ -107,7 +109,7 @@ export function useActivityStreamsLoader({
     setStreamsError(null);
     setLoadingStreams(false);
     setShowStreamSpinner(false);
-    if (!shouldLoad || !activity || activity.id !== activityId) return;
+    if (!shouldLoad || !activity || activity.id !== activityId || streamsSignInRequired) return;
 
     const source = (activity as Activity & { source?: string }).source;
     const stravaId = getStravaActivityId(activity);
@@ -167,7 +169,7 @@ export function useActivityStreamsLoader({
       setLoadingStreams(false);
     });
     return () => { active = false; clearTimeout(timer); };
-  }, [activity, activityId, auth, firestore, getStreams, retryKey, scope, services, shouldLoad, t, userId]);
+  }, [activity, activityId, auth, firestore, getStreams, retryKey, scope, services, shouldLoad, streamsSignInRequired, t, userId]);
 
   return {
     streams: loadedScope === scope ? streams : null,
@@ -177,6 +179,7 @@ export function useActivityStreamsLoader({
     showStreamSpinner: loadedScope === scope && showStreamSpinner,
     setShowStreamSpinner,
     streamsError: loadedScope === scope ? streamsError : null,
+    streamsSignInRequired,
     setStreamsError,
     loadingStreams: loadedScope === scope && loadingStreams,
     setLoadingStreams,
