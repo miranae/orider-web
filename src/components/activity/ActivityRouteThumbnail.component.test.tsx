@@ -72,12 +72,65 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
     routeMapControl.delayedOnLoad = null;
   });
 
-  it("shows a route line immediately for the priority card while the map is deferred", () => {
+  it("shows a neutral skeleton for the priority card while the map is deferred", () => {
     const { container } = renderWithProviders(
       <ActivityRouteThumbnail {...baseProps} priority layout="mobile" />,
       { authenticated: false },
     );
-    expect(container.querySelector("[data-static-route-preview] path")).toBeInTheDocument();
+    expect(container.querySelector("[data-map-thumbnail-skeleton]")).toBeInTheDocument();
+    expect(container.querySelector("svg path")).not.toBeInTheDocument();
+  });
+
+  it("displays cached canonical images immediately on mount and remount without a load event", async () => {
+    const complete = vi.spyOn(HTMLImageElement.prototype, "complete", "get").mockReturnValue(true);
+    const width = vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(2560);
+    const fileName = "activity-123.r1.route-v2-fcfef7dfc9b21144.webp";
+    const mapImageUrl = `https://firebasestorage.googleapis.com/v0/b/test/o/${encodeURIComponent(`map_thumbnails/${baseProps.userId}/${fileName}`)}?alt=media`;
+    try {
+      for (let mount = 0; mount < 2; mount++) {
+        const { container, unmount, queryByTestId } = renderWithProviders(
+          <ActivityRouteThumbnail {...baseProps} mapImageUrl={mapImageUrl} contentRevision={3} contentSelectedRevision={1} priority />,
+          { authenticated: false },
+        );
+        await waitFor(() => expect(container.querySelector("img")).toHaveStyle({ opacity: "1" }));
+        expect(container.querySelector("[data-map-thumbnail-skeleton]")).not.toBeInTheDocument();
+        expect(queryByTestId("route-map")).not.toBeInTheDocument();
+        unmount();
+      }
+    } finally {
+      complete.mockRestore();
+      width.mockRestore();
+    }
+  });
+
+  it("does not transfer image readiness or stale events to a replacement URL", async () => {
+    const fileName = "activity-123.r1.route-v2-fcfef7dfc9b21144.webp";
+    const firstUrl = `https://firebasestorage.googleapis.com/v0/b/test/o/${encodeURIComponent(`map_thumbnails/${baseProps.userId}/${fileName}`)}?alt=media&token=first`;
+    const nextUrl = firstUrl.replace("token=first", "token=next");
+    const { container, rerender } = renderWithProviders(
+      <ActivityRouteThumbnail {...baseProps} mapImageUrl={firstUrl} contentRevision={3} contentSelectedRevision={1} priority />,
+      { authenticated: false },
+    );
+    const firstImage = await waitFor(() => {
+      const image = container.querySelector<HTMLImageElement>("img");
+      expect(image).toHaveAttribute("src", firstUrl);
+      return image!;
+    });
+    fireEvent.load(firstImage);
+    expect(firstImage).toHaveStyle({ opacity: "1" });
+    rerender(<ActivityRouteThumbnail {...baseProps} mapImageUrl={nextUrl} contentRevision={3} contentSelectedRevision={1} priority />);
+    const nextImage = await waitFor(() => {
+      const image = container.querySelector<HTMLImageElement>("img");
+      expect(image).toHaveAttribute("src", nextUrl);
+      return image!;
+    });
+    expect(nextImage).not.toBe(firstImage);
+    fireEvent.load(firstImage);
+    fireEvent.error(firstImage);
+    expect(nextImage).toHaveStyle({ opacity: "0" });
+    expect(container.querySelector("[data-map-thumbnail-skeleton]")).toBeInTheDocument();
+    fireEvent.load(nextImage);
+    expect(nextImage).toHaveStyle({ opacity: "1" });
   });
 
   it("shows the live route when a canonical image fails to load", async () => {

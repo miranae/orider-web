@@ -6,18 +6,11 @@ import { ensureAppCheckReady, functions, storage } from "../../services/firebase
 import { logClientError } from "../../services/errorLogger";
 import { lazyWithRetry as lazy } from "../../utils/lazyWithRetry";
 import { LocalizedLink as Link } from "../LocalizedLink";
-import { decodeTrack } from "../../utils/polyline";
-import { buildStaticRoutePath } from "../../utils/staticRoutePath";
 
 const RouteMap = lazy(() => import("../RouteMap"));
 
-function StaticRoutePreview({ path }: { path: string | null }) {
-  return <div data-static-route-preview className="w-full h-full" style={{ background: "linear-gradient(135deg, var(--bg-1), var(--bg-2))" }} aria-hidden="true">
-    {path && <svg viewBox="0 0 320 160" className="w-full h-full" preserveAspectRatio="none">
-      <path d={path} fill="none" stroke="color-mix(in oklch, var(--lime) 36%, transparent)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d={path} fill="none" stroke="var(--lime)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>}
-  </div>;
+function MapThumbnailSkeleton() {
+  return <div data-map-thumbnail-skeleton className="w-full h-full animate-pulse bg-[var(--bg-2)]" aria-hidden="true" />;
 }
 
 export const MAP_THUMBNAIL_RENDER_VERSION = "route-v2";
@@ -111,12 +104,14 @@ export default function ActivityRouteThumbnail({
   const containerRef = useRef<HTMLDivElement>(null);
   const captureRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const [loadedImageUrl, setLoadedImageUrl] = useState<string | null>(null);
   const [timedOutImageUrl, setTimedOutImageUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(mapImageUrl ?? null);
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const [captureSlot, setCaptureSlot] = useState<CaptureSlot | null>(null);
   const [derivedKey, setDerivedKey] = useState<CanonicalMapThumbnailKey | null>(null);
+  const [resolvedKeyIdentity, setResolvedKeyIdentity] = useState<string | null>(null);
   const captured = useRef(false);
   const mounted = useRef(true);
   const activeCanonicalKey = useRef("");
@@ -128,6 +123,7 @@ export default function ActivityRouteThumbnail({
     ? `managed:${revisionState.headRevision}:${revisionState.selectedRevision}`
     : revisionState.kind;
 
+  const keyIdentity = `${activityId}:${polyline}:${revisionIdentity}`;
   const canonicalKey = derivedKey?.activityId === activityId
     && derivedKey.sourcePolyline === polyline
     && derivedKey.revisionIdentity === revisionIdentity
@@ -143,18 +139,12 @@ export default function ActivityRouteThumbnail({
     canonicalFileName,
     storage.app.options.storageBucket,
   ) && imageUrl !== failedImageUrl ? imageUrl : null;
-  const routePath = useMemo(() => {
-    if (!priority && !visible) return null;
-    const positions = decodeTrack(polyline);
-    if (positions.length < 2) return null;
-    const step = Math.max(1, Math.ceil(positions.length / 500));
-    const sampled = positions.filter((_, index) => index % step === 0);
-    const last = positions[positions.length - 1]!;
-    if (sampled[sampled.length - 1] !== last) sampled.push(last);
-    return buildStaticRoutePath(sampled);
-  }, [polyline, priority, visible]);
-
-  useEffect(() => { setImageLoaded(false); }, [canonicalImageUrl]);
+  const imageLoaded = !!canonicalImageUrl && loadedImageUrl === canonicalImageUrl;
+  const setImageRef = useCallback((image: HTMLImageElement | null) => {
+    imageRef.current = image;
+    // 캐시 이미지는 ref가 연결되기 전에 로딩이 끝날 수 있다.
+    if (image) setLoadedImageUrl(image.complete && image.naturalWidth > 0 ? canonicalImageUrl : null);
+  }, [canonicalImageUrl]);
 
   useEffect(() => {
     if (!visible || !canonicalImageUrl || imageLoaded || timedOutImageUrl === canonicalImageUrl) return;
@@ -167,12 +157,18 @@ export default function ActivityRouteThumbnail({
     let cancelled = false;
     setDerivedKey(null);
     void deriveCanonicalMapThumbnailKey(activityId, polyline, revisionState).then((key) => {
-      if (!cancelled) setDerivedKey(key);
+      if (!cancelled) {
+        setDerivedKey(key);
+        setResolvedKeyIdentity(keyIdentity);
+      }
     }).catch((error) => {
-      if (!cancelled) logClientError("ActivityRouteThumbnail.deriveKey", error, { activityId });
+      if (!cancelled) {
+        setResolvedKeyIdentity(keyIdentity);
+        logClientError("ActivityRouteThumbnail.deriveKey", error, { activityId });
+      }
     });
     return () => { cancelled = true; };
-  }, [activityId, polyline, revisionIdentity, revisionState]);
+  }, [activityId, polyline, revisionIdentity, revisionState, keyIdentity]);
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; };
@@ -302,8 +298,8 @@ export default function ActivityRouteThumbnail({
   );
 
   let content;
-  const placeholder = <StaticRoutePreview path={routePath} />;
-  const liveRoute = visible ? (
+  const placeholder = <MapThumbnailSkeleton />;
+  const liveRoute = visible && resolvedKeyIdentity === keyIdentity ? (
     <Suspense fallback={placeholder}>
       <RouteMap
         key={`${canonicalFileName}:${canonicalVersion}:live`}
@@ -312,6 +308,7 @@ export default function ActivityRouteThumbnail({
         fitPadding={16}
         interactive={false}
         rounded={false}
+        loadingPlaceholder={placeholder}
         fallbackImageUrl={mapImageUrl === failedImageUrl ? null : mapImageUrl}
       />
     </Suspense>
@@ -321,13 +318,18 @@ export default function ActivityRouteThumbnail({
       <>
         {!imageLoaded && <div className="absolute inset-0">{timedOutImageUrl === canonicalImageUrl ? liveRoute : placeholder}</div>}
         <img
+          key={canonicalImageUrl}
+          ref={setImageRef}
           src={canonicalImageUrl}
           alt={isMobile ? "" : t("card.routeMapAlt")}
           className="relative w-full h-full object-cover"
           style={{ opacity: imageLoaded ? 1 : 0 }}
-          onLoad={() => setImageLoaded(true)}
-          onError={() => {
-            setImageLoaded(false);
+          onLoad={(event) => {
+            if (event.currentTarget === imageRef.current) setLoadedImageUrl(canonicalImageUrl);
+          }}
+          onError={(event) => {
+            if (event.currentTarget !== imageRef.current) return;
+            setLoadedImageUrl(null);
             setFailedImageUrl(canonicalImageUrl);
           }}
           loading={priority ? "eager" : "lazy"}

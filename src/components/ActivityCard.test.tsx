@@ -4,11 +4,11 @@ import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
 import { setCallableResult, setDocData } from "../__tests__/mocks/firebase";
 
-// Mock RouteMap to avoid Leaflet issues
+// 실제 지도 SDK 대신 표시 지도와 숨겨진 캡처 지도를 구분한다.
 vi.mock("./RouteMap", () => ({
-  default: ({ interactive, fallbackImageUrl }: { interactive?: boolean; fallbackImageUrl?: string | null }) => (
+  default: ({ interactive, fallbackImageUrl, preserveDrawingBuffer }: { interactive?: boolean; fallbackImageUrl?: string | null; preserveDrawingBuffer?: boolean }) => (
     <div
-      data-testid="route-map"
+      data-testid={preserveDrawingBuffer ? "capture-map" : "route-map"}
       data-interactive={String(interactive)}
       data-fallback-image-url={fallbackImageUrl ?? ""}
     >

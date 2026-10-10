@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useMemo, useEffect, useRef, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
@@ -39,6 +40,8 @@ interface RouteMapProps {
   flyToRange?: { startIndex: number; endIndex: number } | null;
   flyToPosition?: [number, number] | null;
   onLoad?: () => void;
+  /** 피드에서 배경 타일이 준비되기 전 보여줄 플레이스홀더 */
+  loadingPlaceholder?: ReactNode;
   preserveDrawingBuffer?: boolean;
   /** Mapbox resize 동안 강제로 적용할 pixel ratio (캡처 backing 해상도 고정용) */
   pixelRatio?: number;
@@ -253,6 +256,7 @@ export default function RouteMap({
   flyToRange,
   flyToPosition,
   onLoad,
+  loadingPlaceholder,
   preserveDrawingBuffer,
   pixelRatio,
   fitPadding = 20,
@@ -264,6 +268,7 @@ export default function RouteMap({
   const { t } = useTranslation("common");
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoMarker | null>(null);
   const [mapFailed, setMapFailed] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
   const [webglSupported] = useState(() => supportsWebGL());
 
   const positions: [number, number][] = useMemo(() => {
@@ -275,6 +280,8 @@ export default function RouteMap({
   useEffect(() => {
     setMapFailed(false);
   }, [polyline, latlng, fallbackImageUrl]);
+
+  useEffect(() => { setMapReady(false); }, [polyline, latlng]);
 
   // hook 호출은 early return 이전에 모두 마쳐야 한다 (Rules of Hooks).
   // positions 가 비어있을 때도 같은 순서로 hook 이 호출되도록 빈 GeoJSON 으로 폴백.
@@ -345,7 +352,8 @@ export default function RouteMap({
   }
 
   return (
-    <div className={containerClass}>
+    <div className={`${containerClass} relative`}>
+      {loadingPlaceholder && !mapReady && <div data-map-thumbnail-loading className="absolute inset-0 z-10">{loadingPlaceholder}</div>}
       <ErrorBoundary fallback={() => fallback} onError={() => setMapFailed(true)}>
         <Map
           mapboxAccessToken={mapboxToken}
@@ -357,6 +365,7 @@ export default function RouteMap({
             if (pixelRatio) resizeMapAtPixelRatio(e.target, pixelRatio);
             if (onLoad) { e.target.once("idle", onLoad); }
           }}
+          onIdle={loadingPlaceholder ? () => setMapReady(true) : undefined}
           onError={() => setMapFailed(true)}
           interactive={interactive}
           cooperativeGestures={interactive}
