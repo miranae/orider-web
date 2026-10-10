@@ -8,12 +8,12 @@ import { useActivityRangeSelection } from "../../../hooks/useActivityRangeSelect
 import ActivityRangeAnalysisPanel, { ActivityRangeControls } from "./ActivityRangeAnalysisPanel";
 import { Button } from "../../../theme/components";
 import ActivityPerformanceCharts from "./ActivityPerformanceCharts";
-import { StreamUnavailableCard } from "./ActivityDetailStates";
+import { ActivityAnalysisSignInCard, StreamUnavailableCard } from "./ActivityDetailStates";
 import { buildChartOverlays, buildSampledData, buildSummaryStats, selectChartOverlay } from "./activityDetailDerived";
 import { getPerformanceOverlays } from "./activityPerformancePresentation";
 
 /** 원시 스트림은 사용자가 상세 차트를 열 때만 기존 로더에 요청한다. */
-export default function ActivityDetailedCharts({ model, highlightedPeak = null, onClearHighlightedPeak }: { model: ActivityAnalysisModel; highlightedPeak?: RidePeakEffort | null; onClearHighlightedPeak?: () => void }) {
+export default function ActivityDetailedCharts({ model, highlightedPeak = null, onClearHighlightedPeak, onSignIn }: { model: ActivityAnalysisModel; highlightedPeak?: RidePeakEffort | null; onClearHighlightedPeak?: () => void; onSignIn?: () => void }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
   const [openedActivityId, setOpenedActivityId] = useState<string | null>(null);
@@ -46,15 +46,16 @@ export default function ActivityDetailedCharts({ model, highlightedPeak = null, 
         else {
           setOpenedActivityId(activityId);
           setActiveOverlays(null); setFocusedOverlayKey(null); setHoverIndex(null); rangeSelection.clear();
-          if (!model.streams && !model.loadingStreams) model.requestStreams();
+          if (!model.streamsSignInRequired && !model.streams && !model.loadingStreams) model.requestStreams();
         }
       }}>{t(opened ? "page.hideDetailedCharts" : "page.detailedCharts")}</Button>
-      {opened && (model.loadingStreams || model.showStreamSpinner) && <p role="status">{t("page.loadingGps")}</p>}
-      {opened && !model.loadingStreams && !model.showStreamSpinner && (model.streamsError || !sampled.length) && (
+      {opened && model.streamsSignInRequired && <ActivityAnalysisSignInCard onSignIn={onSignIn} />}
+      {opened && !model.streamsSignInRequired && (model.loadingStreams || model.showStreamSpinner) && <p role="status">{t("page.loadingGps")}</p>}
+      {opened && !model.streamsSignInRequired && !model.loadingStreams && !model.showStreamSpinner && (model.streamsError || !sampled.length) && (
         <StreamUnavailableCard title={t("page.detailedCharts")} message={model.streamsError ?? t("page.chartsUnavailable")}
           retryLabel={t("page.retry")} onRetry={() => { void model.retryStreams(); }} />
       )}
-      {opened && sampled.length > 0 && <ActivityPerformanceCharts
+      {opened && !model.streamsSignInRequired && sampled.length > 0 && <ActivityPerformanceCharts
         elevData={sampled.map(point => ({ distance: point.distance, elevation: point.altitude }))}
         availableOverlays={available} activeOverlays={selected} focusedOverlayKey={focusedOverlayKey}
         toggleOverlay={key => {

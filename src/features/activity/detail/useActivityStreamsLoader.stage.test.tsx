@@ -30,3 +30,31 @@ it.each([true, false])("opts into running effort facts only for the actual owner
   await waitFor(() => expect(result.current.streams).not.toBeNull());
   expect(getActivityStreamsWithAuth).toHaveBeenCalledExactlyOnceWith(expect.anything(), activity.id, expect.anything(), { includeRunEffortFacts: owner });
 });
+
+it("keeps stage sign-in-required distinct from missing data, skips anonymous reads, and clears it on account changes", async () => {
+  const activity = { id: "strava_public", userId: "owner", source: "strava" } as Activity;
+  const getStreams = vi.fn();
+  const t = (key: string) => key;
+  const beforeReads = vi.mocked(getDoc).mock.calls.length;
+  const { result, rerender } = renderHook(({ userId }: { userId?: string }) => useActivityStreamsLoader({ activityId: activity.id, activity, userId, getStreams, t }), { initialProps: { userId: undefined as string | undefined } });
+  expect(result.current.streamsSignInRequired).toBe(true);
+  expect(result.current.streamsError).toBeNull();
+  expect(result.current.loadingStreams).toBe(false);
+  expect(getActivityStreamsWithAuth).not.toHaveBeenCalled();
+  expect(vi.mocked(getDoc).mock.calls.length).toBe(beforeReads);
+  const ownedStreams = { userId: "owner", time: [0, 1] };
+  vi.mocked(getActivityStreamsWithAuth).mockResolvedValueOnce(ownedStreams);
+  rerender({ userId: "owner" });
+  await waitFor(() => expect(result.current.streams).toEqual(ownedStreams));
+  expect(result.current.streamsSignInRequired).toBe(false);
+  rerender({ userId: undefined });
+  expect(result.current.streams).toBeNull();
+  expect(result.current.streamsSignInRequired).toBe(true);
+  expect(getActivityStreamsWithAuth).toHaveBeenCalledTimes(1);
+  vi.mocked(getActivityStreamsWithAuth).mockRejectedValueOnce(new Error("STREAMS_MISSING"));
+  rerender({ userId: "other" });
+  await waitFor(() => expect(result.current.streamsError).toBe("page.streamsMissing"));
+  expect(result.current.streamsSignInRequired).toBe(false);
+  expect(result.current.streams).toBeNull();
+  expect(getStreams).not.toHaveBeenCalled();
+});

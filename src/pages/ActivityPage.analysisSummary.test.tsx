@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import type AnalysisTab from "../components/AnalysisTab";
@@ -6,6 +6,7 @@ import type { ActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import ActivityPage from "./ActivityPage";
+import { signInWithPopup } from "firebase/auth";
 
 const mocks = vi.hoisted(() => ({
   model: null as ActivityAnalysisModel | null,
@@ -37,7 +38,7 @@ beforeEach(() => {
   mocks.model = {
     activity, setActivity: vi.fn(), loadingActivity: false, activityLoadError: null,
     activityProcessing: false, retryActivity: vi.fn(), streams: null, effectiveStreams: null,
-    loadingStreams: false, showStreamSpinner: false, streamsError: null, retryStreams: vi.fn(),
+    loadingStreams: false, showStreamSpinner: false, streamsError: null, streamsSignInRequired: false, retryStreams: vi.fn(),
     requestStreams: mocks.requestStreams,
     serverMetrics: { status: "ready", metrics: { version: 35 } },
     overview: { loading: false, response: null, enabled: true, error: false, retry: vi.fn() },
@@ -97,6 +98,50 @@ describe("ActivityPage server summary presentation", () => {
     expect(mocks.lapProps.mock.lastCall?.[0]).toMatchObject({ sport: "run", ftp: null, laps });
     expect(mocks.lapProps.mock.lastCall?.[0].laps).toBe(laps);
     expect(mocks.requestStreams).not.toHaveBeenCalled();
+  });
+
+  it("공개 요약·분석·내보내기는 인증 필요를 결측이나 재시도로 표시하지 않고 기존 Google 로그인을 연다", async () => {
+    mocks.model!.isActivityOwner = false;
+    mocks.model!.hasAnalysisStreams = false;
+    mocks.model!.analysisTabProps = null;
+    mocks.model!.streamsSignInRequired = true;
+    mocks.model!.streamsError = "SIGN_IN_REQUIRED";
+    Object.assign(mocks.model!.serverMetrics.metrics!, { avgHr: 150, avgPower: 200, maxPower: 300, np: 210, avgCadence: 80 });
+    renderWithProviders(<ActivityPage />);
+    expect(screen.getByText("로그인하고 상세 분석을 확인하세요")).toBeInTheDocument();
+    expect(screen.queryByText("SIGN_IN_REQUIRED")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(screen.getByText("로그인하고 상세 분석을 확인하세요")).toBeInTheDocument();
+    expect(screen.queryByText("상세 분석 데이터를 찾을 수 없습니다")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
+    expect(mocks.model!.retryStreams).not.toHaveBeenCalled();
+    expect(screen.getByText("기록에 저장된 주요 수치입니다.")).toBeInTheDocument();
+    expect(screen.getByText("저장된 센서 요약")).toBeInTheDocument();
+    expect(screen.getAllByText("150").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("200").length).toBeGreaterThan(0);
+    expect(screen.getByText("NP 210 W")).toBeInTheDocument();
+    expect(screen.getAllByText("300").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("80").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("tab", { name: "내보내기" }));
+    expect(screen.getByText("로그인하고 상세 분석을 확인하세요")).toBeInTheDocument();
+    expect(mocks.requestStreams).not.toHaveBeenCalled();
+    const calls = vi.mocked(signInWithPopup).mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Google로 로그인" }));
+    await waitFor(() => expect(vi.mocked(signInWithPopup).mock.calls.length).toBe(calls + 1));
+    expect(screen.queryByText("SIGN_IN_REQUIRED")).not.toBeInTheDocument();
+  });
+
+  it("로그인된 사용자의 실제 스트림 오류는 기존 결측 제목과 재시도를 유지한다", () => {
+    mocks.model!.hasAnalysisStreams = false;
+    mocks.model!.analysisTabProps = null;
+    mocks.model!.streamsError = "network request failed";
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(screen.getByText("상세 분석 데이터를 찾을 수 없습니다")).toBeInTheDocument();
+    expect(screen.getByText("network request failed")).toBeInTheDocument();
+    expect(screen.queryByText("로그인하고 상세 분석을 확인하세요")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(mocks.model!.retryStreams).toHaveBeenCalledOnce();
   });
 
 });
