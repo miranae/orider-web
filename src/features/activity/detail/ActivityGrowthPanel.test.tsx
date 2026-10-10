@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import type { Activity } from "@shared/types";
 import ko from "../../../i18n/resources/ko/activity.json";
 import en from "../../../i18n/resources/en/activity.json";
@@ -27,6 +28,28 @@ beforeEach(() => {
   mocks.metrics.mockReset().mockReturnValue({ status: "missing", metrics: null });
 });
 describe("ActivityGrowthPanel", () => {
+  it("uses the selected ready run splits without extra reads and hides them while stale", () => {
+    const split = { km: 1, paceSec: 300, gapSec: 290, elevGain: 0, avgHr: null };
+    mocks.metrics.mockReturnValue({ status: "ready", metrics: { version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [{ ...split, paceSec: 330 }] } });
+    const r = render(<ActivityGrowthPanel activity={activity} metrics={{ version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [split] }} currentMetricsStatus="ready" isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    expect(screen.getByRole("region", { name: ko.splitCompare.title })).toHaveTextContent("5:30/km");
+    expect(screen.getByRole("link", { name: /선택한 지난 활동/ })).toHaveAttribute("href", "/ko/activity/previous");
+    expect(mocks.metrics).toHaveBeenLastCalledWith("previous");
+    mocks.metrics.mockReturnValue({ status: "stale", metrics: { version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [split] } });
+    r.rerender(<ActivityGrowthPanel activity={activity} metrics={{ version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [split] }} currentMetricsStatus="ready" isOwner />);
+    expect(screen.queryByRole("region", { name: ko.splitCompare.title })).not.toBeInTheDocument();
+  });
+  it.each(["stale", "loading", "missing", "disabled"] as const)("hides new split comparison for current %s while preserving legacy summary", (currentMetricsStatus) => {
+    const split = { km: 1, paceSec: 300, gapSec: 290, elevGain: 0, avgHr: 140 };
+    mocks.metrics.mockReturnValue({ status: "ready", metrics: { version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [split] } });
+    render(<ActivityGrowthPanel activity={activity} metrics={{ version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [split] }} currentMetricsStatus={currentMetricsStatus} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    expect(screen.queryByRole("region", { name: ko.splitCompare.title })).not.toBeInTheDocument();
+    expect(screen.getByRole("table")).toHaveTextContent("1.5");
+  });
   it("reuses the canonical statistics response for running records and changing curve duration", () => {
     mocks.periodAvailable = true;
     mocks.periods.mockReturnValue({ state: "ready", response: runningPeriodFixture(), retry: vi.fn() });

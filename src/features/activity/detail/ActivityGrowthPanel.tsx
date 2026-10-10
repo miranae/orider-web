@@ -5,9 +5,10 @@ import type { Activity } from "@shared/types";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useActivityGrowthHistory } from "../../../hooks/useActivityGrowthHistory";
-import { useActivityMetrics } from "../../../hooks/useActivityMetrics";
+import { useActivityMetrics, type UseActivityMetricsState } from "../../../hooks/useActivityMetrics";
 import { useTrainingAnalysisPeriods } from "../../../hooks/useTrainingAnalysisPeriods";
 import { trainingAnalysisPeriodsAvailable } from "../../../services/trainingAnalysisPeriods";
+import RunSplitComparisonPanel from "./RunSplitComparisonPanel";
 import RunPeriodComparisonPanel from "./RunPeriodComparisonPanel";
 import TrainingPeriodZonesPanel from "./TrainingPeriodZonesPanel";
 import { Button, Card, ChartFrame, Input, Select, Stack, Stat, Text } from "../../../theme";
@@ -18,7 +19,7 @@ import type { MetricsLike } from "./metricsPresentation";
 import { similarRouteCandidates } from "./routeSimilarity";
 import { ActivityComparisonVisuals } from "./ActivityComparisonVisuals";
 
-export interface ActivityGrowthPanelProps { activity: Activity; metrics: MetricsLike | null; isOwner: boolean; embedded?: boolean }
+export interface ActivityGrowthPanelProps { activity: Activity; metrics: MetricsLike | null; currentMetricsStatus?: UseActivityMetricsState["status"]; isOwner: boolean; embedded?: boolean }
 function number(value: number | null, digits = 1): string {
   if (value == null) return "—";
   const displayed = value.toFixed(digits);
@@ -33,7 +34,7 @@ function pace(seconds: number | null): string {
   const rounded = Math.round(seconds);
   return `${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, "0")}`;
 }
-function Comparison({ activity, metrics }: Omit<ActivityGrowthPanelProps, "isOwner">) {
+function Comparison({ activity, metrics, currentMetricsStatus }: Omit<ActivityGrowthPanelProps, "isOwner">) {
   const { t, i18n } = useTranslation("activity");
   const { user } = useAuth();
   const { units } = useLocale();
@@ -94,6 +95,10 @@ function Comparison({ activity, metrics }: Omit<ActivityGrowthPanelProps, "isOwn
       </div>
       <Text as="p" variant="caption" tone="tertiary">{t("growth.current")}: {powerLabel(metrics)} · {t("growth.previous")}: {powerLabel(baseline.metrics)}</Text>
       {metrics && baseline.metrics && settledMetrics(metrics) && settledMetrics(baseline.metrics) && <>
+        {running && currentMetricsStatus === "ready" && baseline.status === "ready" && <>
+          <Stack direction="row" wrap gap="var(--space-3)">{[activity, selected].map((source, index) => <a key={source.id} className="activity-growth-source-link" href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(source.id)}`}><Text variant="bodySmall">{t(index ? "splitCompare.previous" : "splitCompare.current")} · {date(source.startTime)}</Text></a>)}</Stack>
+          <RunSplitComparisonPanel current={metrics} previous={baseline.metrics} units={units} />
+        </>}
         <ActivityComparisonVisuals key={selected.id} current={metrics} previous={baseline.metrics} running={running} units={units} />
       </>}
     </>}
@@ -217,7 +222,7 @@ function GrowthSections(props: ActivityGrowthPanelProps) {
   const content = <Stack gap="var(--dim-section-gap)" className={props.embedded ? undefined : "activity-growth-content"}>
     <section className="activity-growth-section">
       <Text as="h3" variant="subtitle"><Button variant="ghost" size="sm" className="activity-growth-disclosure" trailingIcon={<ChevronDown />} aria-expanded={comparisonOpen} aria-controls={`${sectionId}-comparison`} onClick={() => { setComparisonLoaded(true); setComparisonOpen((open) => !open); }}>{t("growth.compare")}</Button></Text>
-      <div id={`${sectionId}-comparison`} hidden={!comparisonOpen} className="pt-4">{comparisonLoaded && <Comparison activity={props.activity} metrics={props.metrics} />}</div>
+      <div id={`${sectionId}-comparison`} hidden={!comparisonOpen} className="pt-4">{comparisonLoaded && <Comparison activity={props.activity} metrics={props.metrics} currentMetricsStatus={props.currentMetricsStatus} />}</div>
     </section>
     <section className="activity-growth-section">
       <Text as="h3" variant="subtitle"><Button variant="ghost" size="sm" className="activity-growth-disclosure" trailingIcon={<ChevronDown />} aria-expanded={statisticsOpen} aria-controls={`${sectionId}-statistics`} onClick={() => { setStatisticsLoaded(true); setStatisticsOpen((open) => !open); }}>{t("growth.statistics")}</Button></Text>

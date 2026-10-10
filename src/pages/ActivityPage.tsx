@@ -1108,9 +1108,9 @@ export default function ActivityPage() {
       <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null} />
 
       <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner}>
-        <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} isOwner={isActivityOwner} embedded />
+        <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} currentMetricsStatus={serverMetrics.status} isOwner={isActivityOwner} embedded />
       </ActivityOverviewSummary>
-      {!overview.enabled && <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} isOwner={isActivityOwner} />}
+      {!overview.enabled && <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} currentMetricsStatus={serverMetrics.status} isOwner={isActivityOwner} />}
 
       <EquipmentSignalCard
         key={activity.id}
