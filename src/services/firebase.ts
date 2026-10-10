@@ -9,7 +9,7 @@ import {
   ReCaptchaEnterpriseProvider,
   type AppCheck,
 } from "firebase/app-check";
-import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
+import { assertIsolatedStageRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 
 let app: FirebaseApp;
 let _auth: Auth;
@@ -43,6 +43,7 @@ function withAppCheckTimeout<T>(promise: Promise<T>): Promise<T> {
 /** main.tsx에서 렌더링 전 호출. Hosting site별 runtime-config.json 기반 config 사용. */
 export async function initFirebase() {
   const runtimeConfig = getRuntimeConfig();
+  assertIsolatedStageRuntime(runtimeConfig);
   const config = {
     apiKey: runtimeConfig.firebaseApiKey,
     authDomain: runtimeConfig.firebaseAuthDomain,

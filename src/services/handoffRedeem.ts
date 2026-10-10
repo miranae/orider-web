@@ -3,6 +3,9 @@ import { getFunctions, httpsCallableFromURL, type Functions } from "firebase/fun
 
 /** 일회용 코드 교환 전용이다. 이 FirebaseApp에는 Auth와 App Check를 초기화하지 않는다. */
 export async function redeemHandoffCode(source: Functions, code: string): Promise<string> {
+  if (source.app.options.projectId !== "miranae-orider-g1") {
+    throw new Error("handoff/unavailable-in-isolated-stage");
+  }
   const appName = `orider-handoff-redeem-${source.app.options.projectId}`;
   const app = getApps().find((candidate) => candidate.name === appName)
     ?? initializeApp(source.app.options, appName);

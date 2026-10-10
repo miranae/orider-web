@@ -149,3 +149,21 @@ export function resetRuntimeConfigForTests(config: RuntimeConfig = {}): void {
   runtimeConfig = { ...readBuildFallbackConfig(), ...withoutEmptyValues(config) };
   loaded = false;
 }
+
+/** Hosting stage는 runtime-config를 잘못 배포해도 운영 Firebase로 연결하지 않는다. */
+export function assertIsolatedStageRuntime(config: RuntimeConfig, hostname = globalThis.location?.hostname): void {
+  if (config.appEnvironment !== "stage" && hostname !== "orider-dev.web.app" && hostname !== "orider-dev.firebaseapp.com") return;
+  if (config.appEnvironment !== "stage" || config.firebaseProjectId !== "orider-dev"
+    || config.firebaseAuthDomain !== "orider-dev.firebaseapp.com"
+    || !/^orider-dev\.(?:firebasestorage\.app|appspot\.com)$/.test(config.firebaseStorageBucket ?? "")
+    || config.firebaseAppId !== "1:818364001341:web:57f361a334532e0ee64e54"
+    || config.firebaseMessagingSenderId !== "818364001341" || config.firebaseFunctionsRegion !== "asia-northeast3"
+    || config.useEmulators === true) throw new Error("stage/firebase-identity-mismatch");
+  for (const key of ["aiApiBase", "personalApiBase", "segmentTilesBase", "heatmapBase", "stravaRedirectUri"] as const) {
+    if (!config[key]) continue;
+    const url = new URL(config[key]);
+    const isolated = ["orider-dev.web.app", "orider-dev.firebaseapp.com", "asia-northeast3-orider-dev.cloudfunctions.net"].includes(url.hostname)
+      || (url.hostname === "storage.googleapis.com" && /^\/orider-dev\.(?:firebasestorage\.app|appspot\.com)\//.test(url.pathname));
+    if (url.protocol !== "https:" || !isolated || url.username || url.password) throw new Error(`stage/service-origin-mismatch:${key}`);
+  }
+}

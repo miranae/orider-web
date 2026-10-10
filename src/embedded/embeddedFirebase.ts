@@ -24,7 +24,7 @@ import {
   ReCaptchaEnterpriseProvider,
   type AppCheck,
 } from "firebase/app-check";
-import { getRuntimeConfig } from "../services/runtimeConfig";
+import { assertIsolatedStageRuntime, getRuntimeConfig } from "../services/runtimeConfig";
 import { clearActivityDerivedDocumentCache } from "../features/fitness/activityDerivedDocumentCache";
 
 const EMBEDDED_APP_NAME = "orider-embedded";
@@ -169,6 +169,7 @@ export function initEmbeddedFirebase(): EmbeddedFirebaseServices {
   }
 
   const runtimeConfig = getRuntimeConfig();
+  assertIsolatedStageRuntime(runtimeConfig);
   const config = {
     apiKey: runtimeConfig.firebaseApiKey,
     authDomain: runtimeConfig.firebaseAuthDomain,

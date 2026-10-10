@@ -8,6 +8,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { checkIsolatedStageConfig } from "./lib/isolated-stage-config.mjs";
 
 const args = process.argv.slice(2);
 const outIndex = args.indexOf("--out");
@@ -77,12 +78,15 @@ const required = [
   "aiApiBase",
 ];
 
-const missing = required.filter((key) => !config[key]);
+const stage = config.appEnvironment === "stage";
+const missing = required.filter((key) => !(stage && ["stravaClientId", "stravaRedirectUri", "aiApiBase"].includes(key)) && !config[key]);
 if (missing.length > 0) {
   console.error("[write-runtime-config] missing required runtime config:");
   for (const key of missing) console.error(`  - ${key}`);
   process.exit(1);
 }
+
+if (stage) checkIsolatedStageConfig(config);
 
 const publicConfig = Object.fromEntries(
   Object.entries(config).filter(([, value]) => value !== undefined && value !== ""),
