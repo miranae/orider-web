@@ -1,10 +1,10 @@
 name: Deploy (Hosting → stage)
 
-# main에 머지된 빌드를 운영 태그 배포 전에 검증할 수 있는 영구 stage Hosting site로 배포한다.
+# dev를 운영과 분리된 orider-dev Firebase 프로젝트에서 검증한다.
 on:
   push:
     branches:
-      - main
+      - dev
   workflow_dispatch:
 
 permissions:
@@ -17,12 +17,13 @@ concurrency:
 
 jobs:
   deploy-stage:
-    # 수동 실행도 main으로 제한해 PR/임의 ref 코드를 영구 러너에서 실행하지 않는다.
-    if: github.ref == 'refs/heads/main'
-    # main 승격 산출물만 실행하는 전용 로컬 Hosting 러너.
-    runs-on: [self-hosted, macOS, ARM64, web-hosting]
+    # 수동 실행도 dev로 제한하고 일회성 GitHub 러너를 사용한다.
+    if: github.ref == 'refs/heads/dev'
+    # dev 코드를 운영 전용 러너에서 실행하지 않는다.
+    runs-on: ubuntu-latest
     environment: stage
     env:
+      VITE_MODE: stage
       # Stage uses STAGE_* values only. Do not fall back to production repository
       # secrets/vars, otherwise OAuth/App Check issues are hidden until release.
       VITE_FIREBASE_API_KEY: ${{ secrets.STAGE_VITE_FIREBASE_API_KEY }}
@@ -31,6 +32,7 @@ jobs:
       VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.STAGE_VITE_FIREBASE_STORAGE_BUCKET }}
       VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.STAGE_VITE_FIREBASE_MESSAGING_SENDER_ID }}
       VITE_FIREBASE_APP_ID: ${{ secrets.STAGE_VITE_FIREBASE_APP_ID }}
+      VITE_FIREBASE_FUNCTIONS_BASE: ${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_BASE }}
       VITE_FIREBASE_FUNCTIONS_REGION: ${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION }}
       VITE_STRAVA_CLIENT_ID: ${{ secrets.STAGE_VITE_STRAVA_CLIENT_ID }}
       VITE_STRAVA_REDIRECT_URI: ${{ vars.STAGE_VITE_STRAVA_REDIRECT_URI }}
@@ -65,6 +67,10 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+      - name: Check isolated stage identity
+        env:
+          STAGE_FIREBASE_PROJECT_ID: ${{ vars.STAGE_FIREBASE_PROJECT_ID }}
+        run: node scripts/check-isolated-stage.mjs
       - name: Check canonical deploy flags
         run: node scripts/check-canonical-deploy-env.mjs
       - run: npm ci
@@ -82,12 +88,12 @@ jobs:
           service_account: ${{ vars.STAGE_GCP_SERVICE_ACCOUNT }}
           token_format: access_token
           create_credentials_file: true
-      - name: Verify stage backend social callable contract
+      - name: Verify isolated stage analysis callable contract
         env:
           SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: >-
-          node scripts/verify-social-callables.mjs
-          --project "${{ vars.STAGE_VITE_FIREBASE_PROJECT_ID }}"
+          node scripts/verify-stage-analysis-callables.mjs
+          --project "${{ vars.STAGE_FIREBASE_PROJECT_ID }}"
           --region "${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION }}"
       - name: Restore stage deploy authentication
         id: deploy-auth
@@ -123,7 +129,7 @@ jobs:
           echo "built entry: $built"
           ok=0
           for i in $(seq 1 10); do
-            live=$(curl -fsSL -H 'Cache-Control: no-cache' "https://miranae-orider-g1-stage.web.app/?cacheBust=${GITHUB_SHA}-$i" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -1 || true)
+            live=$(curl -fsSL -H 'Cache-Control: no-cache' "https://orider-dev.web.app/?cacheBust=${GITHUB_SHA}-$i" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -1 || true)
             echo "attempt $i: stage entry = ${live:-<none>}"
             if [ "$live" = "$built" ]; then ok=1; break; fi
             sleep 15

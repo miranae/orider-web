@@ -1,0 +1,23 @@
+import { renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { Activity } from "@shared/types";
+import { getDoc } from "firebase/firestore";
+import { getActivityStreamsWithAuth } from "../../../services/personalDataApi";
+import { resetRuntimeConfigForTests } from "../../../services/runtimeConfig";
+import { useActivityStreamsLoader } from "./useActivityStreamsLoader";
+vi.mock("../../../services/personalDataApi", () => ({ getActivityStreams: vi.fn(), getActivityStreamsWithAuth: vi.fn() }));
+beforeEach(() => { resetRuntimeConfigForTests({ appEnvironment: "stage" }); vi.mocked(getActivityStreamsWithAuth).mockReset(); });
+afterEach(() => resetRuntimeConfigForTests());
+it.each(["orider", "strava"])("routes %s raw activity data to the fenced stage reader with its service context", async source => {
+  const activity = { id: source === "strava" ? "strava_123" : "orider_abc", userId: "owner", source, stravaActivityId: 123 } as Activity;
+  const streams = { userId: "owner", time: [0, 1], watts: [100, 120] };
+  vi.mocked(getActivityStreamsWithAuth).mockResolvedValue(streams);
+  const providerGetStreams = vi.fn();
+  const firestoreCalls = vi.mocked(getDoc).mock.calls.length;
+  const { result, unmount } = renderHook(() => useActivityStreamsLoader({ activityId: activity.id, activity, userId: "owner", getStreams: providerGetStreams, t: key => key }));
+  await waitFor(() => expect(result.current.streams).toEqual(streams));
+  expect(getActivityStreamsWithAuth).toHaveBeenCalledWith(expect.anything(), activity.id, expect.objectContaining({ functions: expect.anything(), ensureAppCheckReady: expect.any(Function) }));
+  expect(providerGetStreams).not.toHaveBeenCalled();
+  expect(vi.mocked(getDoc).mock.calls.length).toBe(firestoreCalls);
+  unmount();
+});

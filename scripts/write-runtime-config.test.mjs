@@ -81,3 +81,23 @@ test("stage and production deployments forward the activity analysis runtime gat
   assert.match(stage, /VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED: \$\{\{ vars\.STAGE_VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED \}\}/);
   assert.match(production, /VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED: \$\{\{ vars\.VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED \}\}/);
 });
+
+const isolatedStage = {
+  VITE_MODE: "stage", VITE_FIREBASE_PROJECT_ID: "miranae-orider-g1", VITE_FIREBASE_AUTH_DOMAIN: "miranae-orider-g1.firebaseapp.com",
+  VITE_FIREBASE_STORAGE_BUCKET: "miranae-orider-g1.firebasestorage.app", VITE_FIREBASE_APP_ID: "1:289663940841:web:ba08cdae154286e6499878",
+  VITE_FIREBASE_MESSAGING_SENDER_ID: "289663940841", VITE_FIREBASE_FUNCTIONS_REGION: "asia-northeast3", VITE_FIREBASE_FUNCTIONS_BASE: "https://asia-northeast3-orider-dev.cloudfunctions.net",
+  VITE_STRAVA_CLIENT_ID: "", VITE_STRAVA_REDIRECT_URI: "", VITE_ORIDER_AI_API_BASE: "",
+  VITE_ORIDER_PERSONAL_API_BASE: "", VITE_SEGMENT_TILES_BASE: "", VITE_HEATMAP_BASE: "", VITE_USE_EMULATORS: "false",
+};
+test("writes isolated stage without enabling unavailable production providers", () => {
+  const config = render(isolatedStage);
+  assert.equal(config.appEnvironment, "stage");
+  assert.equal(config.firebaseProjectId, "miranae-orider-g1");
+  assert.equal(config.firebaseFunctionsBase, "https://asia-northeast3-orider-dev.cloudfunctions.net");
+  assert.equal(config.aiApiBase, undefined);
+});
+test("rejects fixture data Firebase or production callable services in stage output", () => {
+  for (const extra of [{ VITE_FIREBASE_PROJECT_ID: "orider-dev" }, { VITE_FIREBASE_STORAGE_BUCKET: "orider-dev.firebasestorage.app" }, { VITE_ORIDER_AI_API_BASE: "https://orider-ai-api-h5zqzw3n4a-du.a.run.app" }]) {
+    assert.throws(() => render({ ...isolatedStage, ...extra }));
+  }
+});

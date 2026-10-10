@@ -83,8 +83,8 @@ assert_contains .github/workflows/pr-gate.yml 'name: Check changed-file risk' \
   'PR metadata workflow must retain changed-file risk validation'
 assert_contains .github/workflows/deploy-stage.yml 'branches:' \
   'stage deploy must retain a push branch filter'
-assert_contains .github/workflows/deploy-stage.yml '^      - main$' \
-  'stage deploy must remain on main push'
+assert_contains .github/workflows/deploy-stage.yml '^      - dev$' \
+  'isolated stage deploy must run on dev push'
 
 # 재발 방지 계약 (#374 스티키 배너 장애)
 assert_contains scripts/merge-pr.sh 'REQUIRE_VISUAL_CHECK' \

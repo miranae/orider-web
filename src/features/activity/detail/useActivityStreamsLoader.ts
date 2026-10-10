@@ -7,7 +7,9 @@ import type { Activity, ActivityStreams } from "@shared/types";
 // (useActivityAnalysisModel)는 항상 services 를 넘기므로 이 기본값은 임베드에서 쓰이지
 // 않는다. services 유무가 익명/인증 fetch 분기도 결정하므로 필수화하면 동작이 바뀐다.
 // eslint-disable-next-line design-system/no-firebase-singleton-in-embed
-import { auth as defaultAuth, firestore as defaultFirestore } from "../../../services/firebase";
+import { auth as defaultAuth, firestore as defaultFirestore, functions as defaultFunctions, ensureAppCheckReady as defaultEnsureAppCheckReady } from "../../../services/firebase";
+import { getRuntimeConfig } from "../../../services/runtimeConfig";
+import type { Functions } from "firebase/functions";
 import { logClientError } from "../../../services/errorLogger";
 import {
   getActivityStreams,
@@ -42,9 +44,16 @@ export function usesCanonicalActivityStreams(
 export async function loadCanonicalActivityStreams(
   activityId: string,
   fallbackUserId?: string,
-  services?: { auth: Auth; firestore: Firestore },
+  services?: { auth: Auth; firestore: Firestore; functions?: Functions; ensureAppCheckReady?: (forceRefresh?: boolean) => Promise<void> },
 ): Promise<ActivityStreams> {
   const { auth, firestore } = services ?? { auth: defaultAuth, firestore: defaultFirestore };
+  if (getRuntimeConfig().appEnvironment === "stage") {
+    const provider = services
+      ? (services.functions && services.ensureAppCheckReady ? { functions: services.functions, ensureAppCheckReady: services.ensureAppCheckReady } : undefined)
+      : { functions: defaultFunctions, ensureAppCheckReady: defaultEnsureAppCheckReady };
+    if (!provider) throw new Error("stage/callable-context-missing");
+    return getActivityStreamsWithAuth(auth, activityId, provider);
+  }
   const snap = await getDoc(doc(firestore, "activity_streams", activityId));
   if (!snap.exists()) throw new Error("STREAMS_MISSING");
 
@@ -74,7 +83,8 @@ export function useActivityStreamsLoader({
   t,
   enabled = true,
 }: UseActivityStreamsLoaderArgs) {
-  const { auth, firestore } = useFirebaseServices();
+  const { auth, firestore, functions, ensureAppCheckReady } = useFirebaseServices();
+  const services = useMemo(() => ({ auth, firestore, functions, ensureAppCheckReady }), [auth, firestore, functions, ensureAppCheckReady]);
   const [streams, setStreams] = useState<ActivityStreams | null>(null);
   const [showStreamSpinner, setShowStreamSpinner] = useState(false);
   const [streamsError, setStreamsError] = useState<string | null>(null);
@@ -100,11 +110,11 @@ export function useActivityStreamsLoader({
     const source = (activity as Activity & { source?: string }).source;
     const stravaId = getStravaActivityId(activity);
 
-    if (activityId && usesCanonicalActivityStreams(activityId, source)) {
+    if (activityId && (getRuntimeConfig().appEnvironment === "stage" || usesCanonicalActivityStreams(activityId, source))) {
       setLoadingStreams(true);
       setStreamsError(null);
       const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
-      loadCanonicalActivityStreams(activityId, activity.userId, { auth, firestore }).then((parsed) => {
+      loadCanonicalActivityStreams(activityId, activity.userId, services).then((parsed) => {
         if (active) setStreams(parsed);
       }).catch((err) => {
         if (!active) return;
@@ -155,7 +165,7 @@ export function useActivityStreamsLoader({
       setLoadingStreams(false);
     });
     return () => { active = false; clearTimeout(timer); };
-  }, [activity, activityId, auth, firestore, getStreams, retryKey, scope, shouldLoad, t, userId]);
+  }, [activity, activityId, auth, firestore, getStreams, retryKey, scope, services, shouldLoad, t, userId]);
 
   return {
     streams: loadedScope === scope ? streams : null,

@@ -34,7 +34,8 @@ test("stage detail entries resolve to the site's SPA while production keeps SEO 
     assert.equal(production.hosting.rewrites.find(rule => rule.source === source)?.function?.functionId, "seoPrerender");
   }
   for (const source of ["/api/v1/**", "/api/strava/webhook", "/og-thumbnail/**", "/sitemap.xml"]) {
-    assert.deepEqual(stage.hosting.rewrites.find(rule => rule.source === source), production.hosting.rewrites.find(rule => rule.source === source));
+    assert.equal(stage.hosting.rewrites.find(rule => rule.source === source), undefined);
+    assert.ok(production.hosting.rewrites.find(rule => rule.source === source)?.function);
   }
   const result = run();
   assert.equal(result.status, 0, result.stderr);
@@ -64,8 +65,24 @@ test("rejects stage fallback ordering and assets being rewritten to HTML", () =>
     assert.match(result.stderr, /SPA rewrite/);
   }
 });
-test("rejects losing stage API routing", () => {
-  const result = run(({ stage }) => { stage.hosting.rewrites = stage.hosting.rewrites.filter(rule => rule.source !== "/api/v1/**"); });
+test("rejects adding server rewrites to isolated stage", () => {
+  const result = run(({ stage }) => { stage.hosting.rewrites.unshift({ source: "/api/v1/**", function: "api" }); });
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /must route \/api\/v1\/\*\* to api/);
+  assert.match(result.stderr, /isolated stage must have no server rewrites/);
+});
+
+test("stage CSP rejects the exact production AI source expression", () => {
+  const result = run(({ stage }) => {
+    const csp = stage.hosting.headers.find(rule => rule.source === "**").headers.find(header => header.key.toLowerCase() === "content-security-policy");
+    csp.value = csp.value.replace("connect-src ", "connect-src https://orider-ai-api-h5zqzw3n4a-du.a.run.app ");
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /must not allow production service origins/);
+});
+test("stage CSP does not mistake a production URL embedded in another source path for its origin", () => {
+  const result = run(({ stage }) => {
+    const csp = stage.hosting.headers.find(rule => rule.source === "**").headers.find(header => header.key.toLowerCase() === "content-security-policy");
+    csp.value = csp.value.replace("connect-src ", "connect-src https://example.invalid/https://orider-ai-api-h5zqzw3n4a-du.a.run.app ");
+  });
+  assert.equal(result.status, 0, result.stderr);
 });

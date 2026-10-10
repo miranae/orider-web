@@ -80,12 +80,13 @@ function checkHostingConfig(hosting, label, aiApiOrigin, stage = false) {
   }
 
   const predeploy = Array.isArray(hosting.predeploy) ? hosting.predeploy.join(" && ") : String(hosting.predeploy ?? "");
-  requireIncludes(predeploy, "scripts/predeploy-guard.mjs", `${label} hosting.predeploy`);
+  requireIncludes(predeploy, stage ? "scripts/check-isolated-stage.mjs" : "scripts/predeploy-guard.mjs", `${label} hosting.predeploy`);
   requireIncludes(predeploy, "scripts/check-env.mjs", `${label} hosting.predeploy`);
   requireIncludes(predeploy, "scripts/write-runtime-config.mjs", `${label} hosting.predeploy`);
 
-  checkCrawlerRewrites(hosting, label, stage ? CRAWLER_REWRITES.filter(rule => rule.functionId !== "seoPrerender") : CRAWLER_REWRITES);
+  checkCrawlerRewrites(hosting, label, stage ? [] : CRAWLER_REWRITES);
   if (stage) {
+    if ((hosting.rewrites ?? []).some(rule => rule.function || rule.run)) fail(`${label} isolated stage must have no server rewrites`);
     // seoPrerender는 운영 번들 URL을 담은 HTML을 반환하므로 stage 상세 URL은 로컬 SPA로 진입한다.
     const detailSources = CRAWLER_REWRITES.filter(rule => rule.functionId === "seoPrerender").map(rule => rule.source);
     for (const rule of hosting.rewrites ?? []) {
@@ -95,11 +96,11 @@ function checkHostingConfig(hosting, label, aiApiOrigin, stage = false) {
       }
     }
   }
-  for (const expected of [
+  for (const expected of (stage ? [] : [
     { source: "/api/v1/**", functionId: "api" },
     { source: "/api/strava/webhook", functionId: "stravaWebhookIngress" },
     { source: "/og-thumbnail/**", functionId: "ogThumbnail" },
-  ]) checkCrawlerRewrites(hosting, label, [expected]);
+  ])) checkCrawlerRewrites(hosting, label, [expected]);
 
   const globalHeaderRule = hosting.headers?.find((rule) => rule.source === "**");
   if (!globalHeaderRule) {
@@ -120,8 +121,12 @@ function checkHostingConfig(hosting, label, aiApiOrigin, stage = false) {
     requireIncludes(csp, "https://www.recaptcha.net", `${label} Content-Security-Policy frame-src`);
     const connectSrc = csp.split(";").map((directive) => directive.trim())
       .find((directive) => directive === "connect-src" || directive.startsWith("connect-src ")) ?? "";
-    requireIncludes(connectSrc, "https://auth.orider.co.kr", `${label} Content-Security-Policy connect-src`);
-    requireIncludes(connectSrc, aiApiOrigin, `${label} Content-Security-Policy connect-src`);
+    if (!stage) {
+      requireIncludes(connectSrc, "https://auth.orider.co.kr", `${label} Content-Security-Policy connect-src`);
+      requireIncludes(connectSrc, aiApiOrigin, `${label} Content-Security-Policy connect-src`);
+    } else if (connectSrc.split(/\s+/).some(source => source === PROD_AI_API_ORIGIN)) {
+      fail(`${label} must not allow production service origins`);
+    }
   }
 
   const rewrites = hosting.rewrites ?? [];
@@ -140,8 +145,8 @@ function checkHostingConfig(hosting, label, aiApiOrigin, stage = false) {
 
 checkHostingConfig(firebaseConfig.hosting, "firebase.json", PROD_AI_API_ORIGIN);
 checkHostingConfig(stageFirebaseConfig.hosting, "firebase.stage.json", PROD_AI_API_ORIGIN, true);
-if (stageFirebaseConfig.hosting?.site !== "miranae-orider-g1-stage") {
-  fail("firebase.stage.json hosting.site must be miranae-orider-g1-stage");
+if (stageFirebaseConfig.hosting?.site !== "orider-dev") {
+  fail("firebase.stage.json hosting.site must be orider-dev");
 }
 
 const ciWorkflow = readFileSync(".github/workflows/ci.yml", "utf8");
@@ -274,10 +279,10 @@ requireIncludes(stageDeployWorkflow,
   "VITE_RIDER_WORKOUT_DELIVERY_ENABLED: ${{ vars.STAGE_VITE_RIDER_WORKOUT_DELIVERY_ENABLED }}",
   "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "branches:", "deploy-stage.yml trigger");
-requireIncludes(stageDeployWorkflow, "- main", "deploy-stage.yml trigger");
+requireIncludes(stageDeployWorkflow, "- dev", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
-requireIncludes(stageDeployWorkflow, "if: github.ref == 'refs/heads/main'", "deploy-stage.yml main ref guard");
-requireIncludes(stageDeployWorkflow, hostingRunner, "deploy-stage.yml dedicated Hosting runner");
+requireIncludes(stageDeployWorkflow, "if: github.ref == 'refs/heads/dev'", "deploy-stage.yml dev ref guard");
+requireIncludes(stageDeployWorkflow, "runs-on: ubuntu-latest", "deploy-stage.yml disposable runner");
 checkSelfHostedSetupNodeCache(stageDeployWorkflow, "deploy-stage.yml");
 requireIncludes(stageDeployWorkflow, "--config firebase.stage.json", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "npm run write:runtime-config", "deploy-stage.yml runtime config");
@@ -299,12 +304,12 @@ requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_MAPBOX_TOKEN", "deploy-
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_ORIDER_AI_API_BASE", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_COACH_PMC_INSIGHT_ENABLED", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_COACH_RIDER_INSIGHT_ENABLED", "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow, "miranae-orider-g1-stage.web.app", "deploy-stage.yml verification");
-requireIncludes(stageDeployWorkflow, "node scripts/verify-social-callables.mjs", "deploy-stage.yml backend contract gate");
-requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_PROJECT_ID", "deploy-stage.yml backend contract project");
+requireIncludes(stageDeployWorkflow, "orider-dev.web.app", "deploy-stage.yml verification");
+requireIncludes(stageDeployWorkflow, "node scripts/verify-stage-analysis-callables.mjs", "deploy-stage.yml backend contract gate");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_FIREBASE_PROJECT_ID", "deploy-stage.yml backend contract project");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION", "deploy-stage.yml backend contract region");
 requireIncludes(stageDeployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}", "deploy-stage.yml backend contract credential");
-requireBefore(stageDeployWorkflow, "node scripts/verify-social-callables.mjs", "firebase deploy \\", "deploy-stage.yml backend contract gate");
+requireBefore(stageDeployWorkflow, "node scripts/verify-stage-analysis-callables.mjs", "firebase deploy \\", "deploy-stage.yml backend contract gate");
 
 const forbiddenStageFallbacks = [
   "secrets.VITE_FIREBASE_API_KEY",

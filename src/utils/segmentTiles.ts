@@ -1,13 +1,14 @@
 import { getRuntimeConfig } from "../services/runtimeConfig";
 
-const DEFAULT_SEGMENT_TILES_BASE =
-  "https://storage.googleapis.com/miranae-orider-g1.firebasestorage.app/segments/tiles";
+function tileBase(): string {
+  const config = getRuntimeConfig();
+  const bucket = config.firebaseStorageBucket || (config.firebaseProjectId
+    ? `${config.firebaseProjectId}.firebasestorage.app` : "miranae-orider-g1.firebasestorage.app");
+  return (config.segmentTilesBase || `https://storage.googleapis.com/${bucket}/segments/tiles`).replace(/\/+$/, "");
+}
 
-export const SEGMENT_TILES_BASE =
-  (getRuntimeConfig().segmentTilesBase || DEFAULT_SEGMENT_TILES_BASE).replace(/\/+$/, "");
+export const SEGMENT_TILES_BASE = tileBase();
 
 export function segmentTileUrl(path: string): string {
-  const cleanPath = path.replace(/^\/+/, "");
-  const base = (getRuntimeConfig().segmentTilesBase || SEGMENT_TILES_BASE).replace(/\/+$/, "");
-  return `${base}/${cleanPath}`;
+  return `${tileBase()}/${path.replace(/^\/+/, "")}`;
 }
