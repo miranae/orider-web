@@ -1041,7 +1041,10 @@ export default function ActivityPage() {
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
       <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null} />
 
-      <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />
+      <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner}>
+        <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} isOwner={isActivityOwner} embedded />
+      </ActivityOverviewSummary>
+      {!overview.enabled && <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} isOwner={isActivityOwner} />}
 
       <EquipmentSignalCard
         key={activity.id}
@@ -1063,9 +1066,6 @@ export default function ActivityPage() {
           lang={stravaSummaryLang}
         />
       )}
-
-      {(activeTab === "overview" || activeTab === "analysis") && <ActivityGrowthPanel
-        activity={activity} metrics={serverMetrics.metrics} isOwner={isActivityOwner} />}
 
       {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}
       {canShowAiAnalysis && (

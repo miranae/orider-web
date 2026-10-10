@@ -94,10 +94,10 @@ export default function ActivityAnalysisSurface({
 
   return (
     <main className="orider-embedded-surface" data-testid="embedded-activity-analysis">
-      {(model.sport === "run" || model.sport === "ride") && <ActivityDetailedCharts key={activityId} model={model} />}
       <ActivityOverviewEvidence isOwner={model.isActivityOwner} overview={model.overview} preview={model.activePowerOverride != null} />
       {model.activity?.summary && <ActivityGrowthPanel activity={model.activity}
         metrics={model.serverMetrics.metrics} isOwner={model.isActivityOwner} />}
+      {(model.sport === "run" || model.sport === "ride") && <ActivityDetailedCharts key={activityId} model={model} />}
       {model.sport === "run" && model.analysisTabProps ? <AnalysisTab {...model.analysisTabProps} /> : model.loadingStreams || model.showStreamSpinner ? <div className="orider-embedded-status" role="status">Loading analysis</div>
         : model.analysisTabProps ? <AnalysisTab {...model.analysisTabProps} />
           : <div className="orider-embedded-status" role="alert">Analysis is unavailable.</div>}

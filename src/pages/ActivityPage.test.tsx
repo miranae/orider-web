@@ -3,6 +3,7 @@ import { getDocs, onSnapshot, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import ActivityPage from "./ActivityPage";
+import * as overviewHook from "../hooks/useActivityOverview";
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { clearRideRouteIntentMemoryForTests } from "../features/activity/detail/RideActivityRouteButton";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
@@ -218,6 +219,20 @@ describe("ActivityPage", () => {
     expect(container.textContent).not.toMatch(/NaN|Infinity/);
   });
 
+  it.each([false, true])("shows owner history exactly once with the overview enabled=%s", async (enabled) => {
+    mockRoute.activityId = `growth-placement-${enabled}`;
+    const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid" });
+    setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
+    const overview = vi.spyOn(overviewHook, "useActivityOverview").mockReturnValue({ enabled, loading: false, response: null, error: false, retry: vi.fn() });
+    try {
+      renderWithProviders(<ActivityPage />, { authenticated: true });
+      const compare = await screen.findByRole("button", { name: "지난 활동과 비교" });
+      expect(screen.getAllByRole("button", { name: "지난 활동과 비교" })).toHaveLength(1);
+      expect(screen.getAllByRole("button", { name: "활동 통계" })).toHaveLength(1);
+      if (enabled) expect(screen.getByTestId("activity-overview-summary")).toContainElement(compare);
+      else expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
+    } finally { overview.mockRestore(); }
+  });
   it("shows canonical overview before sharing and reuses it across analysis tab switches", async () => {
     mockRoute.activityId = "overview-tab-owner";
     const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid" });
@@ -264,6 +279,8 @@ describe("ActivityPage", () => {
     } });
     renderWithProviders(<ActivityPage />, { authenticated: true });
     expect(await screen.findByText("306.9")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "지난 활동과 비교" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "활동 통계" })).not.toBeInTheDocument();
     expect(screen.getByText("164.9")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(await screen.findByTestId("activity-overview-evidence")).toBeInTheDocument();
