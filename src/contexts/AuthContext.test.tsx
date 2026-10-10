@@ -2,6 +2,7 @@ import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { onSnapshot } from "firebase/firestore";
+import * as runtimeConfig from "../services/runtimeConfig";
 import { AuthProvider, useAuth } from "./AuthContext";
 import {
   simulateLogin,
@@ -10,6 +11,7 @@ import {
   setCallableResult,
   mockSignInWithPopup,
   mockSignOut,
+  mockCallableInvocations,
 } from "../__tests__/mocks/firebase";
 import { createMockProfile } from "../__tests__/fixtures/mockData";
 
@@ -42,6 +44,31 @@ describe("AuthContext", () => {
     setCallableResult("ensureUserProfile", { data: {} });
   });
 
+  it("stage keeps the shared profile without calling profile provisioning", async () => {
+    const runtime = vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({ ...runtimeConfig.getRuntimeConfig(), appEnvironment: "stage" });
+    try {
+      setDocData("users/stage-owner", createMockProfile({ nickname: "Stage Owner" }) as unknown as Record<string, unknown>);
+      renderAuth();
+      act(() => { simulateLogin({ uid: "stage-owner" }); });
+      await waitFor(() => expect(screen.getByTestId("profile")).toHaveTextContent("Stage Owner"));
+      expect(screen.getByTestId("loading")).toHaveTextContent("false");
+      expect(screen.getByTestId("profile-loading")).toHaveTextContent("false");
+      expect(mockCallableInvocations.filter(({ name }) => name === "ensureUserProfile")).toHaveLength(0);
+    } finally { runtime.mockRestore(); }
+  });
+
+  it("stage leaves a missing profile absent without provisioning it", async () => {
+    const runtime = vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({ ...runtimeConfig.getRuntimeConfig(), appEnvironment: "stage" });
+    try {
+      renderAuth();
+      act(() => { simulateLogin({ uid: "stage-new-user" }); });
+      await waitFor(() => expect(screen.getByTestId("profile-loading")).toHaveTextContent("false"));
+      expect(screen.getByTestId("user")).toHaveTextContent("stage-new-user");
+      expect(screen.getByTestId("profile")).toHaveTextContent("null");
+      expect(mockCallableInvocations.filter(({ name }) => name === "ensureUserProfile")).toHaveLength(0);
+    } finally { runtime.mockRestore(); }
+  });
+
   it("starts with no user and loading becomes false", async () => {
     renderAuth();
     await waitFor(() => {
@@ -67,6 +94,7 @@ describe("AuthContext", () => {
     await waitFor(() => {
       expect(screen.getByTestId("profile")).toHaveTextContent("Rider");
     });
+    expect(mockCallableInvocations.some(({ name }) => name === "ensureUserProfile")).toBe(true);
   });
 
   it("로그인 전환 후 프로필 첫 스냅샷까지 profileLoading을 유지한다", async () => {

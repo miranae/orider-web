@@ -1,4 +1,5 @@
 import { captureError } from "./sentry";
+import { getRuntimeConfig } from "./runtimeConfig";
 import { httpsCallable, type HttpsCallable } from "firebase/functions";
 import { ensureAppCheckReady, functions } from "./firebase";
 
@@ -61,6 +62,9 @@ export function logClientError(
     error instanceof Error ? error : new Error(String(error)),
     { tags: { source }, extra: context }
   );
+
+  // Stage의 미배포 backup callable은 건너뛰고 Sentry 진단은 유지한다.
+  if (getRuntimeConfig().appEnvironment === "stage") return;
 
   // error_logs에도 기록 (백업). functions 미초기화 시 skip, 동기/비동기 실패 모두 흡수.
   const stack = error instanceof Error ? error.stack : undefined;
