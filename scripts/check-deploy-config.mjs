@@ -124,7 +124,7 @@ function checkHostingConfig(hosting, label, aiApiOrigin, stage = false) {
     if (!stage) {
       requireIncludes(connectSrc, "https://auth.orider.co.kr", `${label} Content-Security-Policy connect-src`);
       requireIncludes(connectSrc, aiApiOrigin, `${label} Content-Security-Policy connect-src`);
-    } else if (connectSrc.split(/\s+/).includes(PROD_AI_API_ORIGIN)) {
+    } else if (connectSrc.split(/\s+/).some(source => source === PROD_AI_API_ORIGIN)) {
       fail(`${label} must not allow production service origins`);
     }
   }
