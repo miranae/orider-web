@@ -497,7 +497,7 @@ export default function AnalysisTab({
       );
 
   if (sport === "run" && sm) {
-    return <div className="space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={isOwner ? streams.runningBestEffortsFacts : undefined} onSelectEffort={isOwner ? onSelectRunEffort : undefined} effortsReady={visibleServerMetrics.status === "ready"} metrics={sm as ActivityMetricsDoc} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} />}</div>;
+    return <div className="space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={isOwner ? streams.runningBestEffortsFacts : undefined} onSelectEffort={isOwner ? onSelectRunEffort : undefined} effortsReady={visibleServerMetrics.status === "ready"} metrics={sm as ActivityMetricsDoc} isOwner={isOwner} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} />}</div>;
   }
 
   // 공개 수치·존·파워곡선은 같은 서버 presentation에서 그린다. 기존 허용 그래프/랩은 보존한다.

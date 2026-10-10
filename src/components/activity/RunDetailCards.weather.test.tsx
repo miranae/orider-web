@@ -84,3 +84,30 @@ it("GAP는 서버 값만 사용하고 고도에서 다시 추정하지 않는다
   expect(screen.queryByText("5:37/km")).not.toBeInTheDocument();
   expect(screen.getByText("—")).toBeInTheDocument();
 });
+
+
+it("GAP 카드 평균 페이스도 전달된 정본 속도를 사용하고 GAP 원본은 유지한다", () => {
+  const summary = { averageSpeed: 10, tss: null } as ActivitySummary;
+  const { rerender } = renderCard({ summary, avgSpeedKph: 12, gapSecPerKm: 337.29 });
+  expect(screen.getByText("5:00/km")).toBeInTheDocument();
+  expect(screen.queryByText("6:00/km")).not.toBeInTheDocument();
+  expect(screen.getByText("5:37/km")).toBeInTheDocument();
+  rerender(<RunRightCards summary={summary} avgSpeedKph={null} gapSecPerKm={337.29} />);
+  expect(screen.getByText("—")).toBeInTheDocument();
+  expect(screen.queryByText("6:00/km")).not.toBeInTheDocument();
+  expect(screen.getByText("5:37/km")).toBeInTheDocument();
+  expect(summary.averageSpeed).toBe(10);
+});
+
+it.each([NaN, Infinity, 0, -1])("무효한 전달 평균속도 %s는 요약으로 다시 채우지 않는다", avgSpeedKph => {
+  renderCard({ summary: { averageSpeed: 10, tss: null } as ActivitySummary, avgSpeedKph, gapSecPerKm: 337.29 });
+  expect(screen.getByText("—")).toBeInTheDocument();
+  expect(screen.queryByText("6:00/km")).not.toBeInTheDocument();
+  expect(screen.getByText("5:37/km")).toBeInTheDocument();
+});
+
+it("정본 평균속도가 미전달된 기존 사용처만 요약 평균속도를 사용한다", () => {
+  renderCard({ summary: { averageSpeed: 10, tss: null } as ActivitySummary, gapSecPerKm: 337.29 });
+  expect(screen.getByText("6:00/km")).toBeInTheDocument();
+  expect(screen.getByText("5:37/km")).toBeInTheDocument();
+});

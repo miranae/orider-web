@@ -1393,6 +1393,7 @@ export default function ActivityPage() {
       <div className="lg:w-80 flex-shrink-0 space-y-6 lg:pl-6 lg:[border-left:1px_solid_var(--line-soft)]">
       {sport === "run" && (
         <RunRightCards
+          avgSpeedKph={stripStats.avgSpeedKph.value}
           hrLoad={serverMetrics.metrics?.streamTrimpTss ?? null}
           gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null}
           summary={s}

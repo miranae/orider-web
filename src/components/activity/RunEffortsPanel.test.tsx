@@ -12,6 +12,44 @@ const metrics = () => ({ discipline: "run", durationSec: 3600, inputCoverage: "c
 function open() { screen.getByTestId("run-efforts").setAttribute("open", ""); }
 
 describe("RunEffortsPanel", () => {
+  it("shows the prepared canonical four-duration curve instead of the contradictory legacy speed curve", () => {
+    locale.units = "metric";
+    const value = metrics();
+    value.runMetrics!.paceCurve = [
+      { durationSec: 30, paceSecPerKm: 700 }, { durationSec: 60, paceSecPerKm: 720 },
+      { durationSec: 180, paceSecPerKm: 740 }, { durationSec: 300, paceSecPerKm: 750 },
+    ];
+    value.runMetrics!.distanceRecords = {};
+    render(<RunEffortsPanel metrics={value} ready isOwner onSelectEffort={vi.fn()} />); open();
+    expect(screen.getAllByRole("option")).toHaveLength(4);
+    expect(screen.getByRole("combobox")).toHaveValue("300");
+    expect(screen.getByText("12:30/km")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "180" } });
+    expect(screen.getByText("12:20/km")).toBeInTheDocument();
+    expect(screen.getByText(/경과시간 축/)).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+  it("converts slow canonical pace to imperial without changing duration or inventing range anchors", () => {
+    locale.units = "imperial";
+    const value = metrics();
+    value.runMetrics!.paceCurve = [{ durationSec: 300, paceSecPerKm: 750 }];
+    value.runMetrics!.distanceRecords = {};
+    render(<RunEffortsPanel metrics={value} ready isOwner />); open();
+    expect(screen.getByRole("combobox")).toHaveValue("300");
+    expect(screen.getByText("20:07/mi")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    locale.units = "metric";
+  });
+  it("describes absent public curves and records only within the shared projection", () => {
+    const value = metrics();
+    delete value.speedCurve;
+    value.runMetrics!.distanceRecords = {};
+    render(<RunEffortsPanel metrics={value} ready isOwner={false} />); open();
+    expect(screen.getByText("공유된 분석에는 표시할 수 있는 페이스 커브가 제공되지 않았습니다.")).toBeInTheDocument();
+    expect(screen.getByText("공유된 분석에는 표시할 수 있는 거리별 최고 기록이 제공되지 않았습니다.")).toBeInTheDocument();
+    expect(screen.queryByText("이 활동에 확정된 거리별 최고 기록이 없습니다.")).not.toBeInTheDocument();
+  });
+
   it("shows canonical duration pace and elapsed distance records without inventing location", () => {
     locale.units = "metric";
     render(<RunEffortsPanel metrics={metrics()} ready />); open();

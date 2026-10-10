@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import type AnalysisTab from "../components/AnalysisTab";
@@ -59,6 +59,20 @@ beforeEach(() => {
 });
 
 describe("ActivityPage server summary presentation", () => {
+  it.each([12, null])("러닝 GAP 카드 평균도 요약 스트립의 정본 값 %s를 전달한다", avgSpeedKph => {
+    mocks.model!.sport = "run";
+    mocks.model!.activity!.summary.averageSpeed = 10;
+    mocks.model!.analysisTabProps!.sport = "run";
+    Object.assign(mocks.model!.serverMetrics.metrics!, { discipline: "run", avgSpeedKph, runMetrics: { gapAvgSec: 337.29 } });
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    const gapCard = screen.getByText("지형 보정 페이스 (GAP)").parentElement!;
+    expect(within(gapCard).getByText(avgSpeedKph == null ? "—" : "5:00/km")).toBeInTheDocument();
+    expect(within(gapCard).queryByText("6:00/km")).not.toBeInTheDocument();
+    expect(within(gapCard).getByText("5:37/km")).toBeInTheDocument();
+    expect(mocks.model!.activity!.summary.averageSpeed).toBe(10);
+    expect(mocks.requestStreams).not.toHaveBeenCalled();
+  });
+
   it("renders analysis with no downloaded streams or stream projection", () => {
     renderWithProviders(<ActivityPage />, { authenticated: true });
     expect(mocks.requestStreams).not.toHaveBeenCalled();
