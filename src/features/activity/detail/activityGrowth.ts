@@ -29,14 +29,14 @@ export function comparisonRows(current: MetricsLike | null, previous: MetricsLik
   });
 }
 export function comparableCurves(current: MetricsLike, previous: MetricsLike, power: boolean) {
-  if (!settledMetrics(current) || !settledMetrics(previous)) return [];
+  if (!settledMetrics(current) || !settledMetrics(previous) || (power && (typeof current.isVirtualPower !== "boolean" || current.isVirtualPower !== previous.isVirtualPower))) return [];
   const left = power ? powerCurvePoints(current).map((p) => ({ duration: p.durationSeconds, value: p.maxPower }))
     : speedCurvePoints(current).map((p) => ({ duration: p.durationSeconds, value: p.speedKmh }));
   const right = power ? powerCurvePoints(previous).map((p) => ({ duration: p.durationSeconds, value: p.maxPower }))
     : speedCurvePoints(previous).map((p) => ({ duration: p.durationSeconds, value: p.speedKmh }));
   return left.flatMap((point) => {
     const match = right.find((candidate) => candidate.duration === point.duration);
-    return match && knownNumber(point.value) != null && knownNumber(match.value) != null
+    return match && knownNumber(point.value) != null && knownNumber(match.value) != null && (power || (point.value > 0 && match.value > 0))
       ? [{ ...point, baseline: match.value, delta: point.value - match.value }] : [];
   });
 }

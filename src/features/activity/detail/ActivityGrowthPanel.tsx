@@ -9,8 +9,9 @@ import { useActivityMetrics } from "../../../hooks/useActivityMetrics";
 import { Button, Card, ChartFrame, Select, Stack, Stat, Text } from "../../../theme";
 import "./activity-growth-panel.css";
 import { getDiscipline } from "../../../utils/disciplineFilter";
-import { activityPeriods, comparableCurves, comparisonRows, sameActivitySport, settledMetrics, summarizePeriod } from "./activityGrowth";
-import { hrZoneDistribution, powerZoneDistribution, type MetricsLike } from "./metricsPresentation";
+import { activityPeriods, comparisonRows, sameActivitySport, settledMetrics, summarizePeriod } from "./activityGrowth";
+import type { MetricsLike } from "./metricsPresentation";
+import { ActivityComparisonVisuals } from "./ActivityComparisonVisuals";
 
 export interface ActivityGrowthPanelProps { activity: Activity; metrics: MetricsLike | null; isOwner: boolean; embedded?: boolean }
 function number(value: number | null, digits = 1): string {
@@ -46,7 +47,7 @@ function Comparison({ activity, metrics }: Omit<ActivityGrowthPanelProps, "isOwn
   const unit = (key: string) => key === "avgSpeedKph" ? running ? units === "imperial" ? "/mi" : "/km" : units === "imperial" ? "mph" : "km/h"
     : ({ distanceKm: units === "imperial" ? "mi" : "km", movingTimeSec: "s", avgHr: "bpm", avgPower: "W", np: "W", elevationGainM: units === "imperial" ? "ft" : "m" }[key] ?? "");
   const date = (time: number) => new Date(time).toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" });
-  const powerLabel = (source: MetricsLike | null) => source?.isVirtualPower === true ? t("growth.virtualPower")
+  const powerLabel = (source: MetricsLike | null) => !source || !settledMetrics(source) || ![source.avgPower, source.np, ...Object.values(source.mmp ?? {})].some((value) => typeof value === "number" && Number.isFinite(value) && value > 0) ? t("growth.visual.powerMissing") : source?.isVirtualPower === true ? t("growth.virtualPower")
     : source?.isVirtualPower === false ? t("growth.measuredPower") : t("growth.powerUnknown");
   return <div className="space-y-4">
     <Text as="p" variant="bodySmall" tone="secondary">{t("growth.conditions")}</Text>
@@ -78,19 +79,7 @@ function Comparison({ activity, metrics }: Omit<ActivityGrowthPanelProps, "isOwn
       </div>
       <Text as="p" variant="caption" tone="tertiary">{t("growth.current")}: {powerLabel(metrics)} · {t("growth.previous")}: {powerLabel(baseline.metrics)}</Text>
       {metrics && baseline.metrics && settledMetrics(metrics) && settledMetrics(baseline.metrics) && <>
-        {[false, true].map((power) => {
-          const points = comparableCurves(metrics, baseline.metrics!, power);
-          return points.length > 0 && <section key={String(power)} className="space-y-3"><Text as="h4" variant="bodySmall" weight={600} tone="secondary">{t(power ? "growth.powerCurve" : running ? "growth.paceCurve" : "growth.speedCurve")}</Text>
-            <div className="activity-growth-table-shell"><table className="activity-growth-table"><thead><tr><th scope="col"><Text variant="bodySmall" weight={600} tone="secondary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="bodySmall" weight={600} tone="secondary">{t("growth.current")}</Text></th><th scope="col"><Text variant="bodySmall" weight={600} tone="secondary">{t("growth.previous")}</Text></th></tr></thead><tbody>{points.map((point) => <tr key={point.duration}><th scope="row"><Text variant="bodySmall">{point.duration}s</Text></th><td><Text variant="bodySmall" mono tone="primary">{(power ? number(point.value) : running ? pace(point.value > 0 ? 3600 / point.value / distanceFactor : null) : number(point.value * distanceFactor))} {power ? "W" : running ? units === "imperial" ? "/mi" : "/km" : units === "imperial" ? "mph" : "km/h"}</Text></td><td><Text variant="bodySmall" mono tone="secondary">{(power ? number(point.baseline) : running ? pace(point.baseline > 0 ? 3600 / point.baseline / distanceFactor : null) : number(point.baseline * distanceFactor))} {power ? "W" : running ? units === "imperial" ? "/mi" : "/km" : units === "imperial" ? "mph" : "km/h"}</Text></td></tr>)}</tbody></table></div>
-          </section>;
-        })}
-        {[false, true].map((power) => {
-          const currentZones = power ? powerZoneDistribution(metrics) : hrZoneDistribution(metrics);
-          const previousZones = power ? powerZoneDistribution(baseline.metrics!) : hrZoneDistribution(baseline.metrics!);
-          return currentZones && previousZones && <section key={String(power)} className="space-y-3"><Text as="h4" variant="bodySmall" weight={600} tone="secondary">{t(power ? "growth.powerZones" : "growth.hrZones")}</Text><Text as="p" variant="caption" tone="tertiary">{t("growth.zoneNote")}</Text>
-            <div className="activity-growth-table-shell"><table className="activity-growth-table"><thead><tr><th scope="col"><Text variant="bodySmall" weight={600} tone="secondary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="bodySmall" weight={600} tone="secondary">{t("growth.current")}</Text></th><th scope="col"><Text variant="bodySmall" weight={600} tone="secondary">{t("growth.previous")}</Text></th></tr></thead><tbody>{currentZones.map((zone) => <tr key={zone.zone}><th scope="row"><Text variant="bodySmall">Z{zone.zone}</Text></th><td><Text variant="bodySmall" mono tone="primary">{number(zone.percentage)}%</Text></td><td><Text variant="bodySmall" mono tone="secondary">{number(previousZones.find((z) => z.zone === zone.zone)?.percentage ?? null)}%</Text></td></tr>)}</tbody></table></div>
-          </section>;
-        })}
+        <ActivityComparisonVisuals key={selected.id} current={metrics} previous={baseline.metrics} running={running} units={units} />
       </>}
     </>}
   </div>;

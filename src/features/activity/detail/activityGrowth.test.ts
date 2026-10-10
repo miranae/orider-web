@@ -29,7 +29,13 @@ describe("activity growth presentation", () => {
     expect(comparableCurves(current, previous, true)).toEqual([]);
   });
   it("compares only shared server curve windows", () => {
-    expect(comparableCurves({ mmp: { "1m": 300, "5m": 200 } }, { mmp: { "1m": 250 } }, true)).toEqual([{ duration: 60, value: 300, baseline: 250, delta: 50 }]);
+    expect(comparableCurves({ isVirtualPower: false, mmp: { "1m": 300, "5m": 200 } }, { isVirtualPower: false, mmp: { "1m": 250 } }, true)).toEqual([{ duration: 60, value: 300, baseline: 250, delta: 50 }]);
+  });
+  it("withholds incompatible or unknown power curves and invalid speed windows", () => {
+    const power = { mmp: { "1m": 300 }, isVirtualPower: false };
+    expect(comparableCurves(power, { ...power, isVirtualPower: true }, true)).toEqual([]);
+    expect(comparableCurves(power, { mmp: { "1m": 250 } }, true)).toEqual([]);
+    expect(comparableCurves({ speedCurve: { "5s": 0, "1m": 12 } }, { speedCurve: { "5s": 10, "1m": 10 } }, false)).toEqual([{ duration: 60, value: 12, baseline: 10, delta: 2 }]);
   });
   it("uses Monday midnight KST and exclusive period ends", () => {
     const now = Date.parse("2026-10-05T00:00:00+09:00");

@@ -1363,6 +1363,16 @@
     },
     "weeklyTrend": "Distance over 6 weeks · {{unit}}",
     "trendNote": "Weeks start on Monday. The final bar is this week so far.",
-    "paceCurve": "Best pace by duration"
+    "paceCurve": "Best pace by duration",
+    "visual": {
+      "duration": "Duration to compare",
+      "curveNote": "Best sustained average for each duration in each activity. These are not aligned route segments or a fitness improvement assessment.",
+      "zoneNote": "Each distribution uses that activity’s zone settings. Settings may differ or be unknown, so zone deltas are withheld. — means unavailable.",
+      "unknownContext": "Zone settings unknown",
+      "lthr": "Lactate threshold HR",
+      "maxHr": "Max HR",
+      "powerUnavailable": "Power curve comparison requires matching, confirmed power sources in both activities.",
+      "powerMissing": "Power analysis unavailable"
+    }
   }
 }

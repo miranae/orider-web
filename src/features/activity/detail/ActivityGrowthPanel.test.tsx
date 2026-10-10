@@ -69,6 +69,61 @@ describe("ActivityGrowthPanel", () => {
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
     expect(screen.queryByText("심박 존 분포")).toBeNull(); expect(screen.queryByText("지속시간별 최대 파워")).toBeNull();
   });
+  it("selects canonical common-duration values by graph or accessible control and resets baseline selection", () => {
+    const metrics = { speedCurve: { "1m": 12, "5m": 10 }, hrZoneSec: [10, 20, 30, 0, 0] };
+    mocks.metrics.mockReturnValue({ status: "ready", metrics: { ...metrics, speedCurve: { "1m": 10, "5m": 8 } } });
+    const r = render(<ActivityGrowthPanel activity={activity} metrics={metrics} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    const durationControl = screen.getByRole("combobox", { name: "비교할 지속시간" });
+    expect(durationControl).toHaveValue("300");
+    expect(screen.getByRole("img", { name: "지속시간별 최고 페이스" })).toBeInTheDocument();
+    fireEvent.click(r.container.querySelector('[data-duration="60"]')!);
+    expect(durationControl).toHaveValue("60");
+    expect(screen.getByText("-60 s/km")).toBeInTheDocument();
+    fireEvent.change(durationControl, { target: { value: "300" } });
+    expect(screen.getByText("-90 s/km")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "비교 해제" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    expect(screen.getByRole("combobox", { name: "비교할 지속시간" })).toHaveValue("300");
+    expect(screen.getByText("파워 분석 없음", { exact: false })).toBeInTheDocument();
+  });
+  it("converts running curve values and neutral deltas to imperial pace", () => {
+    mocks.units = "imperial";
+    mocks.metrics.mockReturnValue({ status: "ready", metrics: { speedCurve: { "5m": 8 } } });
+    render(<ActivityGrowthPanel activity={activity} metrics={{ speedCurve: { "5m": 10 } }} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    expect(screen.getByText("-145 s/mi")).toBeInTheDocument();
+    expect(screen.getAllByText("9:39").length).toBeGreaterThan(0);
+  });
+  it("withholds a power overlay for differing sources while retaining independently labeled zones", () => {
+    mocks.metrics.mockReturnValue({ status: "ready", metrics: { isVirtualPower: true, mmp: { "5m": 200 }, powerZoneSec: [10, 20, 0, 0, 0, 0, 0] } });
+    render(<ActivityGrowthPanel activity={activity} metrics={{ isVirtualPower: false, mmp: { "5m": 250 }, powerZoneSec: [10, 20, 0, 0, 0, 0, 0] }} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    expect(screen.queryByRole("img", { name: "지속시간별 최대 파워" })).toBeNull();
+    expect(screen.getByText("파워 존 분포")).toBeInTheDocument();
+    expect(screen.getByText(/파워 출처가 같고 확인된/)).toBeInTheDocument();
+  });
+  it("does not render partial or invalid zone distributions as zeros", () => {
+    mocks.metrics.mockReturnValue({ status: "ready", metrics: { hrZoneSec: [10, 20, 0, 0, 0] } });
+    render(<ActivityGrowthPanel activity={activity} metrics={{ hrZoneSec: [10, Number.NaN, 0, 0, 0], powerZoneSec: [10, 20], hrZoneBoundaries: null }} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    expect(screen.getByText("심박 존 분포")).toBeInTheDocument();
+    expect(screen.queryByText("파워 존 분포")).toBeNull();
+    expect(screen.queryByText(/NaN/)).toBeNull();
+  });
+  it.each([
+    [0, 0, 0, 0, 0], [-1, 10, 0, 0, 0], Object.assign(Array(5), { 0: 10 }),
+  ])("withholds zero-total, negative or sparse canonical zones (%s)", (...hrZoneSec) => {
+    mocks.metrics.mockReturnValue({ status: "ready", metrics: {} });
+    render(<ActivityGrowthPanel activity={activity} metrics={{ hrZoneSec }} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    expect(screen.queryByText("심박 존 분포")).toBeNull();
+  });
   it("offers a retry when statistics fail", () => {
     const retry = vi.fn();
     mocks.history.mockReturnValue({ sourceActivities: [], coverage: "error", error: true, retry });

@@ -16,3 +16,17 @@
 .activity-growth-source-link { color: var(--ink-1); text-decoration: underline; text-underline-offset: var(--space-1); overflow-wrap: anywhere; }
 .activity-growth-source-link:hover { color: var(--accent); }
 .activity-growth-source-link:focus-visible, .activity-growth-sources summary:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); border-radius: var(--r-sm); }
+.activity-comparison-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-block: var(--space-2); }
+.activity-comparison-line { display: inline-block; width: var(--space-5); border-top: 2px solid var(--accent); margin-right: var(--space-2); vertical-align: middle; }
+.activity-comparison-line--previous { border-color: var(--ink-2); border-top-style: dashed; }
+.activity-comparison-curve { display: block; width: 100%; max-width: 28rem; font-family: var(--font-mono); font-size: var(--fs-lg); }
+.activity-comparison-duration { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin-block: var(--space-3); }
+.activity-comparison-duration select { min-height: var(--space-8); width: auto; }
+.activity-comparison-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dim-section-gap); margin-bottom: var(--space-3); }
+.activity-comparison-zone { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: center; }
+.activity-comparison-zone-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); }
+.activity-comparison-zone-track { height: var(--space-2); background: var(--bg-2); border-radius: var(--r-sm); overflow: hidden; }
+.activity-comparison-zone-fill { display: block; height: 100%; background: var(--accent); }
+.activity-comparison-zone-fill--previous { background: var(--ink-2); }
+
+.activity-comparison-hit { cursor: pointer; }
