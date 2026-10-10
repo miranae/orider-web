@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
+import { getCurrentUser } from "../../__tests__/mocks/firebase";
 import MobileFitnessPage, { type MobileFitnessData } from "./MobileFitnessPage";
 
 const mocks = vi.hoisted(() => ({ periods: vi.fn((_ownerUid: string, _selection: unknown, _enabled: boolean) => ({ state: "idle", response: null })) }));
@@ -38,4 +39,23 @@ describe("mobile period power analysis", () => {
     await user.click(screen.getByRole("button", { name: "파워존" }));
     expect(screen.queryByText("기간별 실측 파워 비교")).not.toBeInTheDocument();
   });
+  it.each(["signed-out", "anonymous"])("hides period tools for %s users", async kind => {
+    mocks.periods.mockClear();
+    const user = userEvent.setup();
+    renderWithProviders(<MobileFitnessPage data={data} powerCurvePeriodsOwnerUid="test-uid" powerCurvePeriodsEnabled />, { authenticated: kind === "anonymous" });
+    if (kind === "anonymous") Object.assign(getCurrentUser()!, { isAnonymous: true });
+    await user.click(screen.getByRole("button", { name: "파워존" }));
+    expect(screen.queryByText("기간별 실측 파워 비교")).not.toBeInTheDocument();
+    expect(mocks.periods).not.toHaveBeenCalled();
+  });
+  it("keeps loading disabled when the stage capability is off", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<MobileFitnessPage data={data} powerCurvePeriodsOwnerUid="test-uid" />, { authenticated: true });
+    await user.click(screen.getByRole("button", { name: "파워존" }));
+    const disclosure = screen.getByText("기간별 실측 파워 비교").closest("details")!;
+    disclosure.open = true; fireEvent(disclosure, new Event("toggle"));
+    expect(screen.getByRole("button", { name: "기간 분석 불러오기" })).toBeDisabled();
+    expect(mocks.periods.mock.lastCall?.[2]).toBe(false);
+  });
+
 });
