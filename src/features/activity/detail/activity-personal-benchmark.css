@@ -5,7 +5,7 @@
 .activity-benchmark-chart {
   display: block;
   width: 100%;
-  max-width: 30rem;
+
   height: auto;
   font-size: var(--fs-sm);
   font-family: var(--font-ui);
@@ -46,3 +46,10 @@
 }
 .activity-benchmark-source:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
 .activity-benchmark-hit { cursor: pointer; }
+
+.activity-benchmark-reading { width: 100%; max-width: 28rem; }
+.activity-peak-reading { width: 100%; max-width: 44rem; }
+.activity-benchmark-help { font-size: var(--fs-sm); color: var(--ink-2); }
+.activity-benchmark-help summary { cursor: pointer; padding-block: var(--space-1); }
+.activity-benchmark-help summary:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
+.activity-benchmark-help > div { padding-top: var(--space-3); }

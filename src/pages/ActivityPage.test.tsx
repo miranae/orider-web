@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { getDocs, onSnapshot, where } from "firebase/firestore";
+import { getDoc, getDocs, onSnapshot, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import ActivityPage from "./ActivityPage";
@@ -233,6 +233,64 @@ describe("ActivityPage", () => {
       else expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
     } finally { overview.mockRestore(); }
   });
+  it.each(["ready", "cancel", "account", "activity", "navigate", "invalid"])("handles cold peak location once with %s intent", async (mode) => {
+    mockRoute.activityId = `cold-peak-${mode}`;
+    const id = mockRoute.activityId;
+    const activity = createMockActivity({ id, userId: "test-uid", source: "orider", summary: createMockSummary({ distance: 1000, ridingTimeMillis: 100000, elapsedTimeMillis: 100000 }) });
+    const distance = Array.from({ length: 101 }, (_, index) => index * 10);
+    const latlng = distance.map((_, index) => [37.5 + index / 10000, 127 + index / 10000]);
+    const peak = { durationSec: 60, startIndex: 10, endIndex: 70, startOffsetSec: 10, fromKm: mode === "invalid" ? 2 : 0.1,
+      toKm: mode === "invalid" ? 3 : 0.3, avgPowerW: 250, maxPowerW: 400, avgHr: null, maxHr: null, avgSpeedKmh: 36, maxSpeedKmh: 40, avgCadence: null };
+    setDocData(`activities/${id}`, activity as unknown as Record<string, unknown>);
+    setDocData(`activity_metrics/${id}`, { version: ACTIVITY_METRICS_VERSION, computedAt: 1, discipline: "bike", isVirtualPower: false,
+      peakEfforts: { peaks: [peak], highlight: peak, indexAxis: "route" } });
+    setDocData(`activity_streams/${id}`, { userId: "test-uid", json: JSON.stringify(createMockStreams({ userId: "test-uid", distance,
+      time: distance.map((_, index) => index), latlng: latlng as [number, number][], altitude: distance.map(() => 10),
+      watts: undefined, heartrate: undefined, cadence: undefined, velocity_smooth: undefined })) });
+    setCallableResult("getActivityOverview", { data: { status: "available", activityId: id, version: "activity-overview-v1", inputDigest: "fixture",
+      presentation: { coachSentence: "최고 노력 위치 테스트", session: { discipline: "bike", load: 42 } } } });
+    const original = vi.mocked(getDoc).getMockImplementation()!;
+    let release: (() => void) | null = null;
+    vi.mocked(getDoc).mockImplementation(async ref => {
+      if ((ref as unknown as { path: string }).path === `activity_streams/${id}`) {
+        return new Promise<Awaited<ReturnType<typeof getDoc>>>(resolve => { release = () => { void original(ref).then(resolve); }; });
+      }
+      return original(ref);
+    });
+    try {
+      const rendered = renderWithProviders(<ActivityPage />, { authenticated: true });
+      await screen.findByText("최고 노력 위치 테스트");
+      fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+      fireEvent.click(await screen.findByRole("button", { name: "최고 노력 자세히 보기" }));
+      fireEvent.click(screen.getByRole("button", { name: "차트·지도에서 구간 보기" }));
+      await waitFor(() => expect(release).not.toBeNull());
+      expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
+      if (mode === "cancel") fireEvent.click(screen.getByRole("button", { name: "최고 노력 자세히 보기" }));
+      if (mode === "account") act(() => simulateLogin({ uid: "another-owner", displayName: "Other" }));
+      if (mode === "activity") {
+        mockRoute.activityId = `${id}-next`;
+        setDocData(`activities/${mockRoute.activityId}`, { ...activity, id: mockRoute.activityId, description: "다음 활동으로 이동" });
+        rendered.rerender(<ActivityPage />);
+        await screen.findByText("다음 활동으로 이동");
+      }
+      if (mode === "navigate") {
+        fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+        fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+      }
+      await act(async () => { release!(); });
+      if (mode === "ready") {
+        await waitFor(() => expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true"));
+        expect(routeMapProps.mock.lastCall?.[0]).toMatchObject({ highlightRange: { startIndex: 10, endIndex: 30 } });
+        fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+        rendered.rerender(<ActivityPage />);
+        expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
+      } else {
+        await waitFor(() => expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true"));
+        if (mode === "invalid") expect(await screen.findByText("이 구간을 경로에 확실하게 연결할 수 없어 위치를 표시하지 않습니다.")).toBeInTheDocument();
+      }
+    } finally { vi.mocked(getDoc).mockImplementation(original); }
+  });
+
   it("shows canonical overview before sharing and reuses it across analysis tab switches", async () => {
     mockRoute.activityId = "overview-tab-owner";
     const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid" });

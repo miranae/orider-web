@@ -44,7 +44,10 @@ describe("ActivityPersonalBenchmark", () => {
     expect(screen.getByRole("link")).toHaveTextContent(pdc.mmpAll["1m"]!.date);
     fireEvent.click(r.container.querySelector('rect[data-duration="300"]')!);
     expect(screen.getByRole("combobox")).toHaveValue("300");
-    expect(screen.getByText("benchmark.timingNote")).toBeInTheDocument();
+    expect(screen.getByText("benchmark.timingShort")).toBeVisible();
+    expect(screen.getByText("benchmark.timingNote")).not.toBeVisible();
+    const guide = screen.getByText("benchmark.readingGuide").closest("details")!;
+    expect(guide).not.toHaveAttribute("open");
     expect(screen.getByText(/benchmark.scope/)).toBeInTheDocument();
   });
   it.each(["loading", "missing", "partial"] as const)("explains %s references without zero values or chart", status => {

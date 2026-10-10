@@ -1409,6 +1409,8 @@
     "partial": "Some activities are still being analysed. A complete recent 90-day comparison is not yet available.",
     "currentUnavailable": "This activity needs a complete measured-power analysis. Virtual power and provisional values are not compared with best records.",
     "referenceUnproven": "A complete measured-power reference for the recent 90 days has not been confirmed.",
-    "noCommonDurations": "No matching durations with measured power are available for comparison."
+    "noCommonDurations": "No matching durations with measured power are available for comparison.",
+    "timingShort": "May include this activity and later records; this is not a growth rate.",
+    "readingGuide": "Comparison basis and reading guide"
   }
 }

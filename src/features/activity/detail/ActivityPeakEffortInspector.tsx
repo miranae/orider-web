@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActivityMetrics, RidePeakEffort } from "@shared/types/activity-metrics";
-import { Button } from "../../../theme/components";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import "./activity-personal-benchmark.css";
+import { Button, Text } from "../../../theme/components";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { visiblePeakEfforts } from "./activityPeakEfforts";
 
@@ -29,6 +31,7 @@ function PeakEffortContent({ metrics, peaks, onLocate, locating, locationUnavail
   const { t } = useTranslation("activity");
   const { units } = useLocale();
   const [opened, setOpened] = useState(false);
+  const id = useId();
   const [duration, setDuration] = useState(peaks[0]!.durationSec);
   const peak = peaks.find(value => value.durationSec === duration) ?? peaks[0]!;
   const number = (value: number | null | undefined, unit: string, factor = 1, digits = 0) =>
@@ -45,11 +48,11 @@ function PeakEffortContent({ metrics, peaks, onLocate, locating, locationUnavail
     [t("peakInspector.cadence"), number(suppressCadence ? null : peak.avgCadence, "rpm"), "—"],
   ];
   return <section className="space-y-4" aria-label={t("peakInspector.title")}>
-    <Button variant="ghost" size="sm" aria-expanded={opened} onClick={() => {
+    <Button variant="ghost" size="sm" aria-expanded={opened} aria-controls={id} onClick={() => {
       setOpened(value => !value);
       if (opened) onLocate?.(null);
-    }}>{t("peakInspector.title")}</Button>
-    {opened && <div className="space-y-4">
+    }}><Text variant="subtitle">{t("peakInspector.title")}</Text>{opened ? <ChevronUp aria-hidden="true" size={16} /> : <ChevronDown aria-hidden="true" size={16} />}</Button>
+    {opened && <div id={id} className="activity-peak-reading space-y-4">
       <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{t("peakInspector.description")}</p>
       <div className="flex flex-wrap gap-2" role="group" aria-label={t("peakInspector.duration")}>
         {peaks.map(value => <Button key={value.durationSec} variant={peak.durationSec === value.durationSec ? "primary" : "outline"}

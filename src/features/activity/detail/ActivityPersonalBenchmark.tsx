@@ -34,7 +34,7 @@ function BenchmarkReading({ metrics, state }: { metrics: MetricsLike | null; sta
   const y = (watts: number) => 24 + (high - watts) / (high - low) * 118;
   const gap = Math.round(selected.watts - selected.referenceWatts);
   const fraction = selected.watts / selected.referenceWatts * 100;
-  return <div className="space-y-3">
+  return <div className="activity-benchmark-reading space-y-3">
     <Text as="p" variant="bodySmall" tone="secondary">{t("benchmark.scope", { date: new Date(asOf).toLocaleDateString(i18n.language) })}</Text>
     <ChartFrame variant="embedded">
       <div className="activity-benchmark-legend"><Text variant="bodySmall"><span className="activity-benchmark-line" />{t("benchmark.current")}</Text><Text variant="bodySmall" tone="secondary"><span className="activity-benchmark-line activity-benchmark-line--reference" />{t("benchmark.reference")}</Text></div>
@@ -55,8 +55,14 @@ function BenchmarkReading({ metrics, state }: { metrics: MetricsLike | null; sta
       <Text as="p" variant="bodySmall" tone="secondary">{t("benchmark.difference", { gap: `${gap > 0 ? "+" : ""}${gap}`, fraction: fraction.toFixed(1) })}</Text>
       <LocalizedLink className="activity-benchmark-source" to={`/activity/${encodeURIComponent(selected.activityId)}`}>{t("benchmark.source", { date: selected.date })}</LocalizedLink>
     </ChartFrame>
-    <Text as="p" variant="caption" tone="tertiary">{t("benchmark.timingNote")}</Text>
-    <Text as="p" variant="caption" tone="tertiary">{t("benchmark.curveNote")}</Text>
+    <Text as="p" variant="bodySmall" tone="secondary">{t("benchmark.timingShort")}</Text>
+    <details className="activity-benchmark-help">
+      <summary>{t("benchmark.readingGuide")}</summary>
+      <div className="space-y-3">
+        <Text as="p" variant="bodySmall" tone="secondary">{t("benchmark.timingNote")}</Text>
+        <Text as="p" variant="bodySmall" tone="secondary">{t("benchmark.curveNote")}</Text>
+      </div>
+    </details>
   </div>;
 }
 function LazyBenchmark({ ownerUid, metrics }: { ownerUid: string; metrics: MetricsLike | null }) {

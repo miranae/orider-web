@@ -160,7 +160,11 @@ export default function ActivityPage() {
   // 탭 네비게이션
   const [activeTab, setActiveTab] = useState("overview");
   const [peakSelection, setPeakSelection] = useState<{ activityId: string | undefined; peak: RidePeakEffort | null }>({ activityId, peak: null });
-  useEffect(() => { setPeakSelection({ activityId, peak: null }); }, [activityId, user?.uid, isActivityOwner, serverMetrics.metrics?.computedAt, activePowerOverride]);
+  const pendingPeakLocation = useRef<{ activityId: string | undefined; uid: string | undefined; peak: RidePeakEffort } | null>(null);
+  useEffect(() => {
+    pendingPeakLocation.current = null;
+    setPeakSelection({ activityId, peak: null });
+  }, [activityId, user?.uid, isActivityOwner, serverMetrics.metrics?.computedAt, activePowerOverride]);
   const selectedPeak = peakSelection.activityId === activityId
     && visiblePeakEfforts(serverMetrics.metrics, isActivityOwner, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true)
       .some(peak => peak.durationSec === peakSelection.peak?.durationSec && peak.startOffsetSec === peakSelection.peak?.startOffsetSec && peak.avgPowerW === peakSelection.peak?.avgPowerW)
@@ -494,11 +498,28 @@ export default function ActivityPage() {
   const peakLocation = useMemo(() => resolvePeakEffortLocation(selectedPeak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData),
     [selectedPeak, serverMetrics.metrics, streams, sampledData]);
   const locatePeak = useCallback((peak: RidePeakEffort | null) => {
+    pendingPeakLocation.current = null;
     setPeakSelection({ activityId, peak });
     if (!peak) return;
-    if (!streams) requestStreams();
+    if (!streams) {
+      pendingPeakLocation.current = { activityId, uid: user?.uid, peak };
+      requestStreams();
+    }
     else if (resolvePeakEffortLocation(peak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData)) viewRunSplitLocation();
-  }, [activityId, streams, requestStreams, viewRunSplitLocation, serverMetrics.metrics, sampledData]);
+  }, [activityId, user?.uid, streams, requestStreams, viewRunSplitLocation, serverMetrics.metrics, sampledData]);
+  useEffect(() => {
+    const pending = pendingPeakLocation.current;
+    if (!pending) return;
+    if (pending.activityId !== activityId || pending.uid !== user?.uid || !isActivityOwner
+      || pending.peak !== selectedPeak || streamsError) {
+      pendingPeakLocation.current = null;
+      return;
+    }
+    if (!streams || loadingStreams) return;
+    // 준비된 위치를 한 번만 보여 준다. 이후 사용자의 탭 선택은 바꾸지 않는다.
+    pendingPeakLocation.current = null;
+    if (peakLocation) viewRunSplitLocation();
+  }, [activityId, user?.uid, isActivityOwner, selectedPeak, streams, streamsError, loadingStreams, peakLocation, viewRunSplitLocation]);
   const markerPosition = useMemo(() => {
     if (hoverIndex == null || !sampledData[hoverIndex]) return runSplitLocation?.markerPosition ?? peakLocation?.markerPosition ?? null;
     return sampledData[hoverIndex].latlng;
@@ -961,6 +982,7 @@ export default function ActivityPage() {
         ]}
         activeTab={activeTab}
         onChange={(tab) => {
+          pendingPeakLocation.current = null;
           setActiveTab(tab);
           if (["splits", "segments", "export"].includes(tab)
             || (tab === "laps" && !analysisTabProps?.analysisSummary)) requestStreams();
