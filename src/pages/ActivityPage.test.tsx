@@ -1,8 +1,10 @@
+import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { getDocs, onSnapshot, where } from "firebase/firestore";
+import { getDoc, getDocs, onSnapshot, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import ActivityPage from "./ActivityPage";
+import * as overviewHook from "../hooks/useActivityOverview";
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { clearRideRouteIntentMemoryForTests } from "../features/activity/detail/RideActivityRouteButton";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
@@ -107,6 +109,7 @@ describe("ActivityPage", () => {
   vi.setConfig({ testTimeout: 15_000 });
 
   beforeEach(() => {
+    resetRuntimeConfigForTests({ activityAnalysisExpansionEnabled: false });
     mockFitnessTimeseries.mockReturnValue({ timeseries: null, loaded: true });
     mockPdc.mockReturnValue({ status: "missing", pdc: null });
     mockBikeProfiles.mockReturnValue({ profiles: [] });
@@ -218,6 +221,111 @@ describe("ActivityPage", () => {
     expect(container.textContent).not.toMatch(/NaN|Infinity/);
   });
 
+  it.each([false, true])("shows owner history exactly once with the overview enabled=%s", async (enabled) => {
+    mockRoute.activityId = `growth-placement-${enabled}`;
+    const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid" });
+    setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
+    const overview = vi.spyOn(overviewHook, "useActivityOverview").mockReturnValue({ enabled, loading: false, response: null, error: false, retry: vi.fn() });
+    try {
+      renderWithProviders(<ActivityPage />, { authenticated: true });
+      const compare = await screen.findByRole("button", { name: "지난 활동과 비교" });
+      expect(screen.getAllByRole("button", { name: "지난 활동과 비교" })).toHaveLength(1);
+      expect(screen.getAllByRole("button", { name: "활동 통계" })).toHaveLength(1);
+      if (enabled) expect(screen.getByTestId("activity-overview-summary")).toContainElement(compare);
+      else expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
+    } finally { overview.mockRestore(); }
+  });
+  it.each([false, true])("shares an elapsed range and plumbs expansion enabled=%s", async enabled => {
+    resetRuntimeConfigForTests({ activityAnalysisExpansionEnabled: enabled });
+    const epoch = 1791375809874;
+    const activity = createMockActivity({ id: "test-activity", userId: "test-uid", source: "orider", startTime: epoch,
+      summary: createMockSummary({ ridingTimeMillis: 100000, elapsedTimeMillis: 100000 }) });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    const count = 101;
+    setDocData("activity_streams/test-activity", { userId: "test-uid", json: JSON.stringify({
+      time: Array.from({ length: count }, (_, index) => epoch + index * 1000),
+      distance: Array.from({ length: count }, (_, index) => index < 50 ? 100 : index * 10),
+      altitude: Array(count).fill(10), latlng: Array.from({ length: count }, () => [37, 127]),
+    }) });
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "구간 분석" }));
+    const inputs = [screen.getByLabelText("시작 시간"), screen.getByLabelText("끝 시간")];
+    fireEvent.change(inputs[0]!, { target: { value: "0:20" } });
+    fireEvent.change(inputs[1]!, { target: { value: "0:40" } });
+    fireEvent.click(screen.getByRole("button", { name: "범위 적용" }));
+    await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 20, endIndex: 40 }));
+    expect(elevationChartProps.mock.lastCall?.[0].range).toEqual([20, 40]);
+    fireEvent.click(screen.getByRole("button", { name: "경과시간 축" }));
+    expect(elevationChartProps.mock.lastCall?.[0].xAxis).toBe("elapsed");
+    expect(elevationChartProps.mock.lastCall?.[0].elapsedAxisSec[20]).toBe(20);
+    expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 20, endIndex: 40 });
+    if (enabled) await waitFor(() => expect(mockCallableInvocations.some(call => call.name === "getActivityRangeAnalysis")).toBe(true));
+    else {
+      expect(screen.getByRole("status")).toHaveTextContent("구간 분석을 준비 중입니다");
+      expect(mockCallableInvocations.filter(call => call.name === "getActivityRangeAnalysis")).toHaveLength(0);
+    }
+    fireEvent.click(screen.getByRole("button", { name: "범위 지우기" }));
+    expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeUndefined();
+    expect(screen.queryByText("구간 분석을 준비 중입니다", { exact: false })).not.toBeInTheDocument();
+  });
+  it.each(["ready", "cancel", "account", "activity", "navigate", "invalid"])("handles cold peak location once with %s intent", async (mode) => {
+    mockRoute.activityId = `cold-peak-${mode}`;
+    const id = mockRoute.activityId;
+    const activity = createMockActivity({ id, userId: "test-uid", source: "orider", summary: createMockSummary({ distance: 1000, ridingTimeMillis: 100000, elapsedTimeMillis: 100000 }) });
+    const distance = Array.from({ length: 101 }, (_, index) => index * 10);
+    const latlng = distance.map((_, index) => [37.5 + index / 10000, 127 + index / 10000]);
+    const peak = { durationSec: 60, startIndex: 10, endIndex: 70, startOffsetSec: 10, fromKm: mode === "invalid" ? 2 : 0.1,
+      toKm: mode === "invalid" ? 3 : 0.3, avgPowerW: 250, maxPowerW: 400, avgHr: null, maxHr: null, avgSpeedKmh: 36, maxSpeedKmh: 40, avgCadence: null };
+    setDocData(`activities/${id}`, activity as unknown as Record<string, unknown>);
+    setDocData(`activity_metrics/${id}`, { version: ACTIVITY_METRICS_VERSION, computedAt: 1, discipline: "bike", isVirtualPower: false,
+      peakEfforts: { peaks: [peak], highlight: peak, indexAxis: "route" } });
+    setDocData(`activity_streams/${id}`, { userId: "test-uid", json: JSON.stringify(createMockStreams({ userId: "test-uid", distance,
+      time: distance.map((_, index) => index), latlng: latlng as [number, number][], altitude: distance.map(() => 10),
+      watts: undefined, heartrate: undefined, cadence: undefined, velocity_smooth: undefined })) });
+    setCallableResult("getActivityOverview", { data: { status: "available", activityId: id, version: "activity-overview-v1", inputDigest: "fixture",
+      presentation: { coachSentence: "최고 노력 위치 테스트", session: { discipline: "bike", load: 42 } } } });
+    const original = vi.mocked(getDoc).getMockImplementation()!;
+    let release: (() => void) | null = null;
+    vi.mocked(getDoc).mockImplementation(async ref => {
+      if ((ref as unknown as { path: string }).path === `activity_streams/${id}`) {
+        return new Promise<Awaited<ReturnType<typeof getDoc>>>(resolve => { release = () => { void original(ref).then(resolve); }; });
+      }
+      return original(ref);
+    });
+    try {
+      const rendered = renderWithProviders(<ActivityPage />, { authenticated: true });
+      await screen.findByText("최고 노력 위치 테스트");
+      fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+      fireEvent.click(await screen.findByRole("button", { name: "최고 노력 자세히 보기" }));
+      fireEvent.click(screen.getByRole("button", { name: "차트·지도에서 구간 보기" }));
+      await waitFor(() => expect(release).not.toBeNull());
+      expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
+      if (mode === "cancel") fireEvent.click(screen.getByRole("button", { name: "최고 노력 자세히 보기" }));
+      if (mode === "account") act(() => simulateLogin({ uid: "another-owner", displayName: "Other" }));
+      if (mode === "activity") {
+        mockRoute.activityId = `${id}-next`;
+        setDocData(`activities/${mockRoute.activityId}`, { ...activity, id: mockRoute.activityId, description: "다음 활동으로 이동" });
+        rendered.rerender(<ActivityPage />);
+        await screen.findByText("다음 활동으로 이동");
+      }
+      if (mode === "navigate") {
+        fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+        fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+      }
+      await act(async () => { release!(); });
+      if (mode === "ready") {
+        await waitFor(() => expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true"));
+        expect(routeMapProps.mock.lastCall?.[0]).toMatchObject({ highlightRange: { startIndex: 10, endIndex: 30 } });
+        fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+        rendered.rerender(<ActivityPage />);
+        expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
+      } else {
+        await waitFor(() => expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true"));
+        if (mode === "invalid") expect(await screen.findByText("이 구간을 경로에 확실하게 연결할 수 없어 위치를 표시하지 않습니다.")).toBeInTheDocument();
+      }
+    } finally { vi.mocked(getDoc).mockImplementation(original); }
+  });
+
   it("shows canonical overview before sharing and reuses it across analysis tab switches", async () => {
     mockRoute.activityId = "overview-tab-owner";
     const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid" });
@@ -264,6 +372,8 @@ describe("ActivityPage", () => {
     } });
     renderWithProviders(<ActivityPage />, { authenticated: true });
     expect(await screen.findByText("306.9")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "지난 활동과 비교" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "활동 통계" })).not.toBeInTheDocument();
     expect(screen.getByText("164.9")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(await screen.findByTestId("activity-overview-evidence")).toBeInTheDocument();
@@ -552,7 +662,7 @@ describe("ActivityPage", () => {
 
     const stats = await screen.findByTestId("activity-stats-grid");
     await waitFor(() => expect(stats).not.toHaveTextContent("평균 파워"));
-    expect(screen.queryByRole("button", { name: "파워" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "가상 파워" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     fireEvent.click(await screen.findByRole("button", { name: "재계산 미리보기" }));
@@ -579,7 +689,7 @@ describe("ActivityPage", () => {
     expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([expect.objectContaining({ value: "333" })]));
     expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([expect.objectContaining({ value: "444" })]));
 
-    fireEvent.click(screen.getByRole("button", { name: "파워" }));
+    fireEvent.click(screen.getByRole("button", { name: "가상 파워" }));
     await waitFor(() => {
       const latestChart = elevationChartProps.mock.calls.at(-1)?.[0] as {
         overlays?: Array<{ label: string; data: number[] }>;
@@ -607,7 +717,7 @@ describe("ActivityPage", () => {
     expect(screen.queryByText("가상 파워")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "개요" }));
     await waitFor(() => expect(stats).not.toHaveTextContent("평균 파워"));
-    expect(screen.queryByRole("button", { name: "파워" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "가상 파워" })).not.toBeInTheDocument();
     expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ label: "평균 파워", value: "250" }),
     ]));

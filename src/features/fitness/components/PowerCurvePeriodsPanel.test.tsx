@@ -1,0 +1,51 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { PowerCurvePeriodsResponse } from "@shared/types/power-curve-periods";
+import { PowerCurvePeriodsPanel, PowerCurvePeriodsView } from "./PowerCurvePeriodsPanel";
+const mocks = vi.hoisted(() => ({ hook: vi.fn(), owner: "owner" }));
+vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string, params?: Record<string, unknown>) => `${key}${params ? ` ${Object.values(params).join(" ")}` : ""}` }) }));
+vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: mocks.owner, isAnonymous: false } }) }));
+vi.mock("../../../hooks/usePowerCurvePeriods", () => ({ usePowerCurvePeriods: (...args: unknown[]) => mocks.hook(...args) }));
+const period = (partial = false): PowerCurvePeriodsResponse["periods"][number] => ({ fromInclusive: Date.UTC(2026, 0, 1), toExclusive: Date.UTC(2026, 9, 1), status: partial ? "partial" : "complete", points: [{ durationSeconds: 1, watts: 750.321, sourceActivityId: "sprint", startTime: Date.UTC(2026, 1, 1), source: "strava_api", cohortEligible: false, metricsRevision: "1:2" }, { durationSeconds: 300, watts: 250.123, sourceActivityId: "long", startTime: Date.UTC(2026, 2, 1), source: "direct_file", cohortEligible: true, metricsRevision: "1:2" }], coverage: { scannedActivityCount: partial ? 1000 : 2, candidateActivityCount: partial ? 1000 : 2, candidateCountKnown: !partial, includedActivityCount: 2, pendingActivityCount: partial ? 998 : 0, missingActivityCount: 0, incompleteActivityCount: 0, ineligibleActivityCount: 0, skippedActivityCount: 0, truncated: partial, scanLimit: 1000 } });
+const response = (): PowerCurvePeriodsResponse => ({ version: 1, discipline: "bike", unit: "W", asOf: Date.UTC(2026, 9, 10), inputDigest: "a".repeat(64), periods: [period(), { ...period(true), points: [period().points[1]!] }] });
+beforeEach(() => { mocks.owner = "owner"; mocks.hook.mockReset().mockReturnValue({ state: "preparing", response: null }); });
+describe("PowerCurvePeriodsPanel", () => {
+  it("preserves exact W, paired missing values, localized source navigation and partial/truncated diagnostics", () => {
+    const view = render(<MemoryRouter initialEntries={["/en/fitness"]}><Routes><Route path="/:lang/fitness" element={<PowerCurvePeriodsView response={response()} />} /></Routes></MemoryRouter>);
+    expect(screen.getAllByText("250.1")).toHaveLength(2);
+    expect(screen.getAllByText("2026-01-01 – 2026-09-30").length).toBeGreaterThanOrEqual(4);
+    const details = view.container.querySelector("details")!;
+    expect(details).not.toHaveAttribute("open");
+    fireEvent.click(view.container.querySelector("summary")!);
+    expect(details).toHaveAttribute("open");
+    expect(screen.getAllByText(/periodCurve.rawValue .*250\.123/u)).toHaveLength(2);
+    expect(screen.getAllByRole("link")[0]).toHaveAttribute("href", "/en/activity/long");
+    expect(screen.getByText("periodCurve.partialNote")).toBeInTheDocument();
+    expect(screen.getByText("periodCurve.truncated 1000")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "1" } });
+    expect(screen.getByText("750.3")).toBeInTheDocument();
+    expect(screen.getByText(/periodCurve.rawValue .*750\.321/u)).toBeInTheDocument(); expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/en/activity/sprint");
+    fireEvent.click(view.container.querySelector('[data-duration="300"]')!);
+    expect(screen.getByRole("combobox")).toHaveValue("300");
+  });
+  it("keeps API disabled by default and bounds comparison to two periods", () => {
+    render(<PowerCurvePeriodsPanel ownerUid="owner" />);
+    expect(mocks.hook).toHaveBeenLastCalledWith("owner", null, false);
+    expect(screen.getByRole("button", { name: "periodCurve.load" })).toBeDisabled();
+    fireEvent.click(screen.getByText("periodCurve.add")); expect(screen.getAllByRole("combobox")).toHaveLength(2);
+    fireEvent.click(screen.getByText("periodCurve.remove")); expect(screen.getAllByRole("combobox")).toHaveLength(1);
+  });
+  it("rejects reverse custom dates, submits UTC periods, then clears previous selection when edited", () => {
+    const view = render(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled />);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "custom" } });
+    const dates = view.container.querySelectorAll('input[type="date"]');
+    fireEvent.change(dates[0]!, { target: { value: "2026-02-02" } }); fireEvent.change(dates[1]!, { target: { value: "2026-02-01" } });
+    fireEvent.click(screen.getByText("periodCurve.load")); expect(screen.getByRole("alert")).toHaveTextContent("periodCurve.invalid");
+    fireEvent.change(dates[0]!, { target: { value: "2026-02-01" } }); fireEvent.click(screen.getByText("periodCurve.load"));
+    expect(mocks.hook.mock.lastCall?.[1].request.periods).toEqual([{ fromInclusive: Date.UTC(2026, 1, 1), toExclusive: Date.UTC(2026, 1, 2) }]);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "all" } }); expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
+  });
+  it("hides owner analysis for another account", () => { mocks.owner = "other"; const view = render(<PowerCurvePeriodsPanel ownerUid="owner" />); expect(view.container).toBeEmptyDOMElement(); expect(mocks.hook).not.toHaveBeenCalled(); });
+});

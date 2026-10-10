@@ -1,8 +1,17 @@
+import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import ElevationChart from "../components/ElevationChart";
+import { getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
+import { ActivityGrowthPanel } from "../features/activity/detail/ActivityGrowthPanel";
+import { ActivityPersonalBenchmark } from "../features/activity/detail/ActivityPersonalBenchmark";
+import ActivityPeakEffortInspector from "../features/activity/detail/ActivityPeakEffortInspector";
+import { resolvePeakEffortLocation, visiblePeakEfforts } from "../features/activity/detail/activityPeakEfforts";
+import type { RidePeakEffort } from "@shared/types/activity-metrics";
+import ActivityRangeAnalysisPanel, { ActivityRangeControls } from "../features/activity/detail/ActivityRangeAnalysisPanel";
+import { useActivityRangeSelection } from "../hooks/useActivityRangeSelection";
+import ActivityPerformanceCharts from "../features/activity/detail/ActivityPerformanceCharts";
 import { useRunSplitLocation } from "../features/activity/detail/useRunSplitLocation";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 import Avatar from "../components/Avatar";
@@ -10,7 +19,6 @@ import TabNav from "../components/TabNav";
 import AnalysisTab, { AnalysisLapTable } from "../components/AnalysisTab";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
 import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
-import { ActivityZoneTimeline } from "../components/activity/ActivityZoneTimeline";
 import LapTable from "../components/LapTable";
 import ExportTab from "../components/ExportTab";
 import { useAuth } from "../contexts/AuthContext";
@@ -42,6 +50,7 @@ import KudosCommentsCard from "../components/activity/KudosCommentsCard";
 import AiRideAnalysisCard from "../components/activity/AiRideAnalysisCard";
 import StravaSummaryPublishing from "../components/activity/StravaSummaryPublishing";
 import SegmentEffortsCard from "../components/activity/SegmentEffortsCard";
+import { segmentHistoryPath } from "../features/segments/segmentHistoryNavigation";
 import { logClientError } from "../services/errorLogger";
 import { Button, Card, Text, buttonClass } from "../theme/components";
 import { ErrorState } from "../components/redesign";
@@ -55,7 +64,6 @@ import {
   buildChartOverlays,
   buildSampledData,
   buildSummaryStats,
-  getAvailableOverlays,
   getChartHighlightRange,
   getSegmentEfforts,
   getStreamPhotos,
@@ -104,6 +112,7 @@ export default function ActivityPage() {
   const [showAllSegments, setShowAllSegments] = useState(false);
   const [activeOverlays, setActiveOverlays] = useState<Set<string>>(new Set());
   const [focusedOverlayKey, setFocusedOverlayKey] = useState<string | null>(null);
+  const analysisModel = useActivityAnalysisModel(activityId);
   const {
     activity,
     setActivity,
@@ -134,7 +143,7 @@ export default function ActivityPage() {
     recalculateVirtualPowerPreview,
     revertVirtualPowerPreview,
     activePowerOverride,
-  } = useActivityAnalysisModel(activityId);
+  } = analysisModel;
   const stravaSummaryLang = i18n.language?.startsWith("en") ? "en" : "ko";
   const shareDiscipline = getDiscipline(activity?.type);
   // 미지 종목(요가·근력 등)은 종목별 피트니스 시계열이 없다 — uid 를 주지 않아 조회를
@@ -143,7 +152,8 @@ export default function ActivityPage() {
     isActivityOwner && shareDiscipline ? user?.uid : undefined,
     shareDiscipline ?? "bike",
   );
-  const { pdc: bikePdc } = usePdc(isActivityOwner && shareDiscipline === "bike" ? user?.uid : null);
+  const bikePdcState = usePdc(isActivityOwner && shareDiscipline === "bike" ? user?.uid : null);
+  const bikePdc = bikePdcState.pdc;
   // Inline description editing
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionText, setDescriptionText] = useState("");
@@ -154,6 +164,16 @@ export default function ActivityPage() {
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
   // 탭 네비게이션
   const [activeTab, setActiveTab] = useState("overview");
+  const [peakSelection, setPeakSelection] = useState<{ activityId: string | undefined; peak: RidePeakEffort | null }>({ activityId, peak: null });
+  const pendingPeakLocation = useRef<{ activityId: string | undefined; uid: string | undefined; peak: RidePeakEffort } | null>(null);
+  useEffect(() => {
+    pendingPeakLocation.current = null;
+    setPeakSelection({ activityId, peak: null });
+  }, [activityId, user?.uid, isActivityOwner, serverMetrics.metrics?.computedAt, activePowerOverride]);
+  const selectedPeak = peakSelection.activityId === activityId
+    && visiblePeakEfforts(serverMetrics.metrics, isActivityOwner, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true)
+      .some(peak => peak.durationSec === peakSelection.peak?.durationSec && peak.startOffsetSec === peakSelection.peak?.startOffsetSec && peak.avgPowerW === peakSelection.peak?.avgPowerW)
+    ? peakSelection.peak : null;
   const runLocationAnchor = useRef<HTMLDivElement>(null);
   const viewRunSplitLocation = useCallback(() => {
     setActiveTab("overview");
@@ -471,26 +491,53 @@ export default function ActivityPage() {
     () => buildSampledData(effectiveStreams, sensorSelectionContext),
     [effectiveStreams, sensorSelectionContext],
   );
+  const rangeSelection = useActivityRangeSelection(analysisModel, sampledData);
   const recordedRunCadenceUnit = serverMetrics.metrics?.cadenceUnit ?? (activity?.source === "strava" ? "strides_per_minute" : activity?.source === "orider" ? "spm" : null);
-  const availableOverlays = useMemo(() => getAvailableOverlays(sampledData).map(cfg => {
-    if (sport !== "run") return cfg;
-    if (cfg.key === "speed") return { ...cfg, label: "pace", unit: units === "imperial" ? "min/mi" : "min/km", getValue: (d: typeof sampledData[number]) => d.speed > 0 ? 60 / d.speed * (units === "imperial" ? 1.609344 : 1) : null };
-    if (cfg.key === "cadence") return { ...cfg, unit: recordedRunCadenceUnit == null ? t("analysis.run.cadenceUnit") : "spm", getValue: (d: typeof sampledData[number]) => recordedRunCadenceUnit == null ? d.cadence : runningCadenceSpm(d.cadence, recordedRunCadenceUnit) };
-    return cfg;
-  }), [sampledData, sport, units, recordedRunCadenceUnit, t]);
+  const availableOverlays = useMemo(() => getPerformanceOverlays(
+    sampledData, sport, units, recordedRunCadenceUnit, t("analysis.run.cadenceUnit"),
+  ), [sampledData, sport, units, recordedRunCadenceUnit, t]);
   const summaryStats = useMemo(
     () => buildSummaryStats(effectiveStreams, streamSensorSummary),
     [effectiveStreams, streamSensorSummary],
   );
   const { location: runSplitLocation, onSelectSplit: selectRunSplit } = useRunSplitLocation(activityId, activity?.id, sport === "run", streams, sampledData, resolveObservedDistanceKm(serverMetrics.metrics ?? {}, activity?.summary?.distance));
+  const peakLocation = useMemo(() => resolvePeakEffortLocation(selectedPeak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData),
+    [selectedPeak, serverMetrics.metrics, streams, sampledData]);
+  const locatePeak = useCallback((peak: RidePeakEffort | null) => {
+    pendingPeakLocation.current = null;
+    setPeakSelection({ activityId, peak });
+    if (!peak) return;
+    if (!streams) {
+      pendingPeakLocation.current = { activityId, uid: user?.uid, peak };
+      requestStreams();
+    }
+    else if (resolvePeakEffortLocation(peak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData)) viewRunSplitLocation();
+  }, [activityId, user?.uid, streams, requestStreams, viewRunSplitLocation, serverMetrics.metrics, sampledData]);
+  useEffect(() => {
+    const pending = pendingPeakLocation.current;
+    if (!pending) return;
+    if (pending.activityId !== activityId || pending.uid !== user?.uid || !isActivityOwner
+      || pending.peak !== selectedPeak || streamsError) {
+      pendingPeakLocation.current = null;
+      return;
+    }
+    if (!streams || loadingStreams) return;
+    // 준비된 위치를 한 번만 보여 준다. 이후 사용자의 탭 선택은 바꾸지 않는다.
+    pendingPeakLocation.current = null;
+    if (peakLocation) viewRunSplitLocation();
+  }, [activityId, user?.uid, isActivityOwner, selectedPeak, streams, streamsError, loadingStreams, peakLocation, viewRunSplitLocation]);
   const markerPosition = useMemo(() => {
-    if (hoverIndex == null || !sampledData[hoverIndex]) return runSplitLocation?.markerPosition ?? null;
+    if (hoverIndex == null || !sampledData[hoverIndex]) {
+      if (rangeSelection.selection) return rangeSelection.routeRange ? streams?.latlng?.[rangeSelection.routeRange.endIndex] ?? null : null;
+      return runSplitLocation?.markerPosition ?? peakLocation?.markerPosition ?? null;
+    }
     return sampledData[hoverIndex].latlng;
-  }, [hoverIndex, sampledData, runSplitLocation]);
+  }, [hoverIndex, sampledData, runSplitLocation, peakLocation, rangeSelection.selection, rangeSelection.routeRange, streams]);
   const segmentEfforts = useMemo(() => getSegmentEfforts(streams), [streams]);
   const chartHighlightRange = useMemo(
-    () => getChartHighlightRange(hoveredSegment, streams) ?? runSplitLocation?.chartRange,
-    [hoveredSegment, streams, runSplitLocation],
+    () => rangeSelection.selection ? rangeSelection.chartRange
+      : getChartHighlightRange(hoveredSegment, streams) ?? runSplitLocation?.chartRange ?? peakLocation?.chartRange,
+    [hoveredSegment, streams, runSplitLocation, peakLocation, rangeSelection.selection, rangeSelection.chartRange],
   );
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
   const hasStreams = sampledData.length > 0;
@@ -638,7 +685,6 @@ export default function ActivityPage() {
 
   // Build chart overlays from active toggles
   const chartOverlays = buildChartOverlays(availableOverlays, activeOverlays, sampledData, (label) => t(`overlay.${label}`));
-  const focusedOverlay = availableOverlays.find((cfg) => cfg.key === focusedOverlayKey) ?? null;
 
   const hoverPoint = hoverIndex != null ? sampledData[hoverIndex] ?? null : null;
 
@@ -922,7 +968,7 @@ export default function ActivityPage() {
         summary={s}
         markerPosition={markerPosition}
         hoveredSegment={hoveredSegment}
-        selectedRunRange={runSplitLocation?.routeRange}
+        selectedRunRange={rangeSelection.selection ? rangeSelection.routeRange : runSplitLocation?.routeRange ?? peakLocation?.routeRange}
         photos={photos}
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
@@ -946,6 +992,7 @@ export default function ActivityPage() {
         ]}
         activeTab={activeTab}
         onChange={(tab) => {
+          pendingPeakLocation.current = null;
           setActiveTab(tab);
           if (["splits", "segments", "export"].includes(tab)
             || (tab === "laps" && !analysisTabProps?.analysisSummary)) requestStreams();
@@ -963,6 +1010,16 @@ export default function ActivityPage() {
           <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
         </div>
       )}
+      {activeTab === "analysis" && activity?.id && <ActivityPersonalBenchmark activityId={activity.id}
+        ownerUid={isActivityOwner ? user?.uid : null} sport={shareDiscipline ?? "other"}
+        metrics={activePowerOverride || analysisTabProps?.suppressServerPowerMetrics ? null : serverMetrics.metrics}
+        suppliedPdcState={bikePdcState} /> }
+      {activeTab === "analysis" && sport === "ride" && activity?.id && <ActivityPeakEffortInspector
+        activityId={activity.id} metrics={serverMetrics.metrics} isOwner={isActivityOwner}
+        invalidated={activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true}
+        suppressHeartRate={analysisTabProps?.suppressServerHeartRateMetrics} suppressCadence={analysisTabProps?.suppressServerCadenceMetrics}
+        onLocate={locatePeak} locating={loadingStreams && selectedPeak != null}
+        locationUnavailable={!!streams && selectedPeak != null && !peakLocation} /> }
       {activeTab === "analysis" && sport !== "run" && hasAnalysisStreams && analysisTabProps && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
@@ -1045,7 +1102,10 @@ export default function ActivityPage() {
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
       <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null} />
 
-      <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />
+      <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner}>
+        <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} isOwner={isActivityOwner} embedded />
+      </ActivityOverviewSummary>
+      {!overview.enabled && <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} isOwner={isActivityOwner} />}
 
       <EquipmentSignalCard
         key={activity.id}
@@ -1102,96 +1162,18 @@ export default function ActivityPage() {
         </Card>
       )}
       {showElevation && elevData.length > 0 && (
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>
-            {availableOverlays.length > 0 ? t("page.elevTitleWithPerf") : t("page.elevProfile")}
-          </h3>
-
-          {/* Overlay toggle buttons */}
-          {hasStreams && availableOverlays.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 mb-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-full cursor-default" style={{ background: 'color-mix(in srgb, var(--lime) 12%, transparent)', color: 'var(--lime)', border: '1px solid color-mix(in srgb, var(--lime) 30%, transparent)' }}>
-                <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
-                {t("page.elevation")}
-              </span>
-              {availableOverlays.map((cfg) => (
-                <button
-                  key={cfg.key}
-                  onClick={() => toggleOverlay(cfg.key)}
-                  aria-pressed={activeOverlays.has(cfg.key)}
-                  aria-label={`${t(`overlay.${cfg.label}`)}${cfg.key === focusedOverlayKey ? `, ${t("page.chartCurrentScale", { metric: t(`overlay.${cfg.label}`) })}` : ""}`}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-full border transition-colors"
-                  style={activeOverlays.has(cfg.key) ? {
-                    color: cfg.dotColor,
-                    borderColor: cfg.dotColor,
-                    backgroundColor: `${cfg.dotColor}15`,
-                  } : {
-                    background: 'var(--bg-2)',
-                    color: 'var(--ink-3)',
-                    borderColor: 'var(--line-soft)',
-                  }}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: activeOverlays.has(cfg.key) ? cfg.dotColor : "var(--ink-4)" }}
-                  />
-                  {t(`overlay.${cfg.label}`)}
-                </button>
-              ))}
-            </div>
-          )}
-          {focusedOverlay && <p className="sr-only" aria-live="polite">{t("page.chartCurrentScale", { metric: t(`overlay.${focusedOverlay.label}`) })}</p>}
-          {/* Hover data panel */}
-          {hasStreams && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:var(--fs-xs)] mb-2 min-h-[20px]" style={{ color: 'var(--ink-2)' }}>
-              {hoverPoint ? (
-                <>
-                  <span className="font-medium" style={{ color: 'var(--ink-0)' }}>{formatDistance(hoverPoint.distance, units)}</span>
-                  <span style={{ color: 'var(--line)' }}>|</span>
-                  <span style={{ color: "var(--color-success)" }}>{t("page.elevationLabel", { value: Math.round(hoverPoint.altitude) })}</span>
-                  {availableOverlays.flatMap((cfg) => {
-                    if (!activeOverlays.has(cfg.key)) return [];
-                    const val = cfg.getValue(hoverPoint);
-                    if (val == null || val <= 0) return [];
-                    return [
-                      <span key={`${cfg.key}-sep`} style={{ color: 'var(--line)' }}>|</span>,
-                      <span key={cfg.key} style={{ color: cfg.dotColor }}>
-                        {t(`overlay.${cfg.label}`)} {cfg.key === "speed" ? val.toFixed(sport === "run" ? 2 : 1) : Math.round(val)} {cfg.unit}
-                      </span>,
-                    ];
-                  })}
-                </>
-              ) : summaryStats ? (
-                <>
-                  <span style={{ color: "var(--color-success)" }}>{t("page.elevationRange", { min: Math.round(summaryStats.minElev), max: Math.round(summaryStats.maxElev) })}</span>
-                  {availableOverlays.flatMap((cfg) => {
-                    const rawStat = summaryStats.overlays[cfg.key];
-                    const stat = rawStat && sport === "run" && cfg.key === "speed" ? { ...rawStat, avg: rawStat.avg > 0 ? 60 / rawStat.avg * (units === "imperial" ? 1.609344 : 1) : 0 }
-                      : rawStat && sport === "run" && cfg.key === "cadence" && recordedRunCadenceUnit != null ? { ...rawStat, avg: runningCadenceSpm(rawStat.avg, recordedRunCadenceUnit) ?? rawStat.avg } : rawStat;
-                    if (!stat || !activeOverlays.has(cfg.key)) return [];
-                    return [
-                      <span key={`${cfg.key}-sep`} style={{ color: 'var(--line)' }}>|</span>,
-                      <span key={cfg.key} style={{ color: cfg.dotColor }}>
-                        {t("page.avgPrefix")} {cfg.key === "speed" ? stat.avg.toFixed(sport === "run" ? 2 : 1) : Math.round(stat.avg)} {cfg.unit}
-                      </span>,
-                    ];
-                  })}
-                </>
-              ) : null}
-            </div>
-          )}
-
-          <ElevationChart
-            data={elevData}
-            height={chartOverlays.length > 0 ? 150 : 200}
-            onHoverIndex={hasStreams ? handleElevHover : undefined}
-            overlays={chartOverlays.length > 0 ? chartOverlays : undefined}
-            focusedOverlayKey={focusedOverlayKey}
-            separateOverlayLanes={chartOverlays.length > 0}
-            highlightRange={chartHighlightRange}
-          />
-          <ActivityZoneTimeline metrics={serverMetrics.metrics} />
-        </Card>
+        <ActivityPerformanceCharts
+          elevData={elevData} availableOverlays={availableOverlays} activeOverlays={activeOverlays}
+          focusedOverlayKey={focusedOverlayKey} toggleOverlay={toggleOverlay} chartOverlays={chartOverlays}
+          hoverPoint={hoverPoint} summaryStats={summaryStats} sport={sport} recordedRunCadenceUnit={recordedRunCadenceUnit}
+          elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={rangeSelection.xAxis}
+          rangeControls={<ActivityRangeControls selection={rangeSelection} />}
+          rangeAnalysis={activity?.id ? <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /> : null}
+          range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampledData.length - 1]}
+          onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis ? rangeSelection.selectChart : undefined}
+          onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
+          metrics={serverMetrics.metrics} powerSource={streamSensorSummary?.powerSource}
+        />
       )}
 
       {/* Streams error */}
@@ -1527,7 +1509,7 @@ export default function ActivityPage() {
               return (
                 <Link
                   key={effort.id}
-                  to={`/segment/${String(effort.segment.id).startsWith("strava_") ? effort.segment.id : `strava_${effort.segment.id}`}`}
+                  to={segmentHistoryPath(effort.segment.id, effort.id, activityId)}
                   className="flex items-center gap-3 p-2 rounded-[var(--r-xl)] transition-colors hover:bg-[var(--bg-2)]"
                   onMouseEnter={() => setHoveredSegment(effort)}
                   onMouseLeave={() => setHoveredSegment(null)}
@@ -1560,6 +1542,7 @@ export default function ActivityPage() {
       {/* 세그먼트 목록 (전체) */}
       {segmentEfforts.length > 0 && (
         <SegmentEffortsCard
+          activityId={activityId}
           efforts={segmentEfforts}
           showAll={showAllSegments}
           setShowAll={setShowAllSegments}

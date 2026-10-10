@@ -1,0 +1,16 @@
+.segment-history-panel { padding: var(--space-4) var(--space-5); display: grid; gap: var(--space-3); }
+.segment-history-panel p { margin: 0; }
+.segment-history-current-card { display: grid; gap: var(--space-1); padding: var(--space-3); background: var(--bg-2); border: 1px solid var(--line-soft); border-radius: var(--r-md); }
+.segment-history-row { display: grid; gap: var(--space-1); padding-block: var(--space-3); border-bottom: 1px solid var(--line-soft); }
+.segment-history-row-current { background: var(--bg-2); border-inline-start: 2px solid var(--lime); border-radius: var(--r-md); padding-inline: var(--space-3); }
+.segment-history-row-heading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.segment-history-row-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
+.segment-history-row-action { justify-self: end; }
+.segment-history-seed { grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); }
+.segment-history-values { text-align: end; max-width: 100%; }
+.segment-history-panel a { color: var(--lime); font-size: var(--fs-sm); }
+.segment-history-record { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-3); }
+.segment-history-comparison { padding: var(--space-3); background: var(--bg-2); border-radius: var(--r-md); }
+.segment-history-basis { font-size: var(--fs-sm); color: var(--ink-3); }
+.segment-history-basis summary { cursor: pointer; }
+.segment-history-basis[open] p { padding-top: var(--space-2); }

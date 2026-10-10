@@ -1,0 +1,17 @@
+.period-curve-analysis { width: 100%; max-width: 28rem; }
+.period-curve-chart { display: block; width: 100%; max-width: 28rem; height: auto; font-size: var(--fs-sm); font-family: var(--font-ui); }
+.period-curve-legend, .period-curve-duration { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin-block: var(--space-3); }
+.period-curve-line { display: inline-block; width: var(--space-4); border-top: 2px solid var(--accent); margin-right: var(--space-2); vertical-align: middle; }
+.period-curve-line--second { border-top: 2px dashed var(--ink-2); }
+.period-curve-values, .period-curve-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.period-curve-form > :only-child { grid-column: 1 / -1; }
+.period-curve-dates { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+.period-curve-source { display: inline-block; color: var(--ink-2); font-size: var(--fs-sm); text-decoration: underline; }
+.period-curve-source:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
+.period-curve-hit { cursor: pointer; }
+@media (max-width: 30rem) { .period-curve-form { grid-template-columns: minmax(0, 1fr); } }
+
+.period-curve-details { border-top: 1px solid var(--line-soft); padding-top: var(--space-3); }
+.period-curve-details summary { cursor: pointer; color: var(--ink-2); font-size: var(--fs-sm); margin-bottom: var(--space-3); }
+.period-curve-details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
+.period-curve-details p { overflow-wrap: anywhere; }

@@ -1,3 +1,5 @@
+import { getRuntimeConfig } from "../services/runtimeConfig";
+import { PowerCurvePeriodsPanel } from "../features/fitness/components/PowerCurvePeriodsPanel";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTrainingDecision } from "../hooks/useTrainingDecision";
@@ -884,6 +886,8 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             </div>
           </Card>
 
+          {discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>}
+
           {/* 파워 커브 / 페이스 커브 (종목 분기) */}
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
             {discipline === "run" ? (
@@ -919,7 +923,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
                 <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
                   <div>
                     <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("powerCurve.title")}</h3>
-                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("powerCurve.sub", { range })}</div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("powerCurve.sub")}</div>
                   </div>
                   <div style={{ flex: 1 }} />
                   <div style={{ display: "flex", gap: 'var(--space-4)', flexWrap: "wrap" }}>

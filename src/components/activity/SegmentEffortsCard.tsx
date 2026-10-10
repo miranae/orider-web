@@ -1,9 +1,11 @@
 import { useTranslation } from "react-i18next";
+import { LocalizedLink } from "../LocalizedLink";
+import { segmentHistoryPath } from "../../features/segments/segmentHistoryNavigation";
 import { Card } from "../../theme/components";
 import { isImplausibleAvgSpeed } from "../../utils/activitySanity";
 
 export interface SegmentEffortData {
-  id: number;
+  id: string | number;
   name: string;
   elapsedTime: number;
   movingTime: number;
@@ -18,7 +20,7 @@ export interface SegmentEffortData {
   komRank: number | null;
   achievements: { type_id: number; type: string; rank: number }[];
   segment: {
-    id: number;
+    id: string | number;
     name: string;
     distance: number;
     averageGrade: number;
@@ -32,21 +34,23 @@ export interface SegmentEffortData {
 
 const CLIMB_CATEGORIES = ["", "4", "3", "2", "1", "HC"];
 
-interface SegmentEffortsCardProps {
-  efforts: SegmentEffortData[];
+interface SegmentEffortsCardProps<E extends SegmentEffortData> {
+  activityId?: string;
+  efforts: E[];
   showAll: boolean;
   setShowAll: (v: boolean) => void;
-  onHover: (effort: SegmentEffortData | null) => void;
+  onHover: (effort: E | null) => void;
   formatTime: (ms: number) => string;
 }
 
-export default function SegmentEffortsCard({
+export default function SegmentEffortsCard<E extends SegmentEffortData>({
   efforts,
+  activityId,
   showAll,
   setShowAll,
   onHover,
   formatTime,
-}: SegmentEffortsCardProps) {
+}: SegmentEffortsCardProps<E>) {
   const { t } = useTranslation("activity");
   const prCount = efforts.filter((e) => e.prRank != null && e.prRank <= 3).length;
   const komCount = efforts.filter((e) => e.komRank != null && e.komRank <= 10).length;
@@ -113,14 +117,11 @@ export default function SegmentEffortsCard({
               return (
                 <tr
                   key={effort.id}
-                  className="transition-colors hover:bg-[var(--bg-2)] cursor-pointer"
+                  className="transition-colors hover:bg-[var(--bg-2)]"
                   style={{ borderTop: "1px solid var(--line-soft)" }}
                   onMouseEnter={() => onHover(effort)}
                   onMouseLeave={() => onHover(null)}
-                  onClick={() => {
-                    const segId = String(effort.segment.id).startsWith("strava_") ? effort.segment.id : `strava_${effort.segment.id}`;
-                    window.location.href = `/segment/${segId}`;
-                  }}
+
                 >
                   <td style={{ padding: "12px 18px" }}>
                     <div className="flex items-center gap-2">
@@ -138,7 +139,7 @@ export default function SegmentEffortsCard({
                           {cat === "HC" ? "HC" : `C${cat}`}
                         </span>
                       )}
-                      <span className="font-medium truncate" style={{ color: "var(--ink-0)" }}>{effort.name}</span>
+                      <LocalizedLink to={segmentHistoryPath(effort.segment.id, effort.id, activityId)} className="font-medium truncate hover:underline" style={{ color: "var(--ink-0)" }}>{effort.name}</LocalizedLink>
                       {isPR && (
                         <span
                           className={`text-[length:var(--fs-xs)] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${

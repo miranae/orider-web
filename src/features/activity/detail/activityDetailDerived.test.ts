@@ -23,6 +23,21 @@ function withSparseSlot(values: number[], missingIndex: number): number[] {
 }
 
 describe("activityDetailDerived", () => {
+  it("preserves exact source indices when downsampling duplicate distances and sensor extrema", () => {
+    const count = 1200;
+    const distance = Array.from({ length: count }, (_, index) => Math.floor(index / 10) * 50);
+    const altitude = Array.from({ length: count }, (_, index) => index === 517 ? 900 : 10);
+    const points = buildSampledData({ distance, altitude } as never);
+    expect(points.length).toBeLessThan(count);
+    expect(points.some(point => point.sourceIndex === 517)).toBe(true);
+    expect(points.at(-1)?.sourceIndex).toBe(count - 1);
+    for (const [position, point] of points.entries()) {
+      expect(point.distance).toBe(distance[point.sourceIndex!]);
+      expect(point.altitude).toBe(altitude[point.sourceIndex!]);
+      if (position) expect(point.sourceIndex).toBeGreaterThan(points[position - 1]!.sourceIndex!);
+    }
+  });
+
   const streams = {
     distance: [0, 100, 200], time: [0, 1, 2],
     altitude: [10, 20, 15],

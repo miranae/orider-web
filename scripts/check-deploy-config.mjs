@@ -52,11 +52,11 @@ const CRAWLER_REWRITES = [
   { source: "/:lang/event/:eventId", functionId: "seoPrerender" },
 ];
 
-function checkCrawlerRewrites(hosting, label) {
+function checkCrawlerRewrites(hosting, label, crawlerRewrites = CRAWLER_REWRITES) {
   const rewrites = Array.isArray(hosting.rewrites) ? hosting.rewrites : [];
   const spaFallbackIndex = rewrites.findIndex((rule) => rule.destination === "/index.html");
 
-  for (const expected of CRAWLER_REWRITES) {
+  for (const expected of crawlerRewrites) {
     const index = rewrites.findIndex((rule) => rule.source === expected.source);
     if (index < 0) {
       fail(`${label} hosting.rewrites must route ${expected.source} to ${expected.functionId}`);
@@ -73,7 +73,7 @@ function checkCrawlerRewrites(hosting, label) {
   }
 }
 
-function checkHostingConfig(hosting, label, aiApiOrigin) {
+function checkHostingConfig(hosting, label, aiApiOrigin, stage = false) {
   if (!hosting) {
     fail(`${label} must contain hosting config`);
     return;
@@ -84,7 +84,22 @@ function checkHostingConfig(hosting, label, aiApiOrigin) {
   requireIncludes(predeploy, "scripts/check-env.mjs", `${label} hosting.predeploy`);
   requireIncludes(predeploy, "scripts/write-runtime-config.mjs", `${label} hosting.predeploy`);
 
-  checkCrawlerRewrites(hosting, label);
+  checkCrawlerRewrites(hosting, label, stage ? CRAWLER_REWRITES.filter(rule => rule.functionId !== "seoPrerender") : CRAWLER_REWRITES);
+  if (stage) {
+    // seoPrerender는 운영 번들 URL을 담은 HTML을 반환하므로 stage 상세 URL은 로컬 SPA로 진입한다.
+    const detailSources = CRAWLER_REWRITES.filter(rule => rule.functionId === "seoPrerender").map(rule => rule.source);
+    for (const rule of hosting.rewrites ?? []) {
+      const functionId = typeof rule.function === "string" ? rule.function : rule.function?.functionId;
+      if (functionId === "seoPrerender" || detailSources.includes(rule.source)) {
+        fail(`${label} detail routes must use the local SPA fallback, not a prerender rewrite: ${rule.source}`);
+      }
+    }
+  }
+  for (const expected of [
+    { source: "/api/v1/**", functionId: "api" },
+    { source: "/api/strava/webhook", functionId: "stravaWebhookIngress" },
+    { source: "/og-thumbnail/**", functionId: "ogThumbnail" },
+  ]) checkCrawlerRewrites(hosting, label, [expected]);
 
   const globalHeaderRule = hosting.headers?.find((rule) => rule.source === "**");
   if (!globalHeaderRule) {
@@ -124,7 +139,7 @@ function checkHostingConfig(hosting, label, aiApiOrigin) {
 }
 
 checkHostingConfig(firebaseConfig.hosting, "firebase.json", PROD_AI_API_ORIGIN);
-checkHostingConfig(stageFirebaseConfig.hosting, "firebase.stage.json", PROD_AI_API_ORIGIN);
+checkHostingConfig(stageFirebaseConfig.hosting, "firebase.stage.json", PROD_AI_API_ORIGIN, true);
 if (stageFirebaseConfig.hosting?.site !== "miranae-orider-g1-stage") {
   fail("firebase.stage.json hosting.site must be miranae-orider-g1-stage");
 }

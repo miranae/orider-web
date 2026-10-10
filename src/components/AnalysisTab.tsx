@@ -216,6 +216,7 @@ export function filterInvalidatedServerMetrics(
       zoneKj: undefined,
       wPrimeMinJ: null,
       mmp: {},
+      peakEfforts: undefined,
       aet: undefined,
       loadAxes: undefined,
       thresholdFlags: undefined,

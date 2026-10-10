@@ -69,3 +69,15 @@ test("boolean VITE flags read at runtime are all emitted by the writer", () => {
   assert.deepEqual(missingInWriter, [], `writer never emits: ${missingInWriter.join(", ")}`);
   assert.deepEqual(missingInReader, [], `runtime never reads: ${missingInReader.join(", ")}`);
 });
+
+test("writes coordinated activity analysis expansion gate default-off and only exact true opts in", () => {
+  for (const value of ["", "false", "1", "TRUE"]) assert.equal(render({ VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED: value }).activityAnalysisExpansionEnabled, false);
+  assert.equal(render({ VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED: "true" }).activityAnalysisExpansionEnabled, true);
+});
+
+test("stage and production deployments forward the activity analysis runtime gate independently", () => {
+  const stage = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
+  const production = readFileSync(".github/workflows/deploy.yml", "utf8");
+  assert.match(stage, /VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED: \$\{\{ vars\.STAGE_VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED \}\}/);
+  assert.match(production, /VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED: \$\{\{ vars\.VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED \}\}/);
+});

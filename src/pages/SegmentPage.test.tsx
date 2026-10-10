@@ -1,8 +1,10 @@
-import { screen, waitFor, within } from "@testing-library/react";
-import { where } from "firebase/firestore";
+import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
+import { screen, waitFor, within, fireEvent } from "@testing-library/react";
+import { where, limit } from "firebase/firestore";
 import SegmentPage from "./SegmentPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import { setDocData, setCollectionDocs } from "../__tests__/mocks/firebase";
+import { setDocData, setCollectionDocs, mockCallableInvocations } from "../__tests__/mocks/firebase";
+import koSegment from "../i18n/resources/ko/segment.json";
 import enSegment from "../i18n/resources/en/segment.json";
 
 // Mock heavy components
@@ -20,6 +22,44 @@ vi.mock("react-router-dom", async (importOriginal) => {
 });
 
 describe("SegmentPage", () => {
+  beforeEach(() => resetRuntimeConfigForTests({ activityAnalysisExpansionEnabled: false }));
+  it("lazily bounds owner history and excludes deleted source activities while API is preparing", async () => {
+    vi.mocked(limit).mockClear();
+    setDocData("segments/seg-1", { name: "History segment", distance: 1000, averageGrade: 0, maximumGrade: 0, elevationHigh: 1, elevationLow: 0 });
+    setDocData("activities/a-live", { userId: "test-uid" });
+    setDocData("activities/a-deleted", { userId: "test-uid", deletedAt: 1 });
+    setCollectionDocs("segment_efforts/seg-1/efforts", [
+      { id: "live", segmentId: "seg-1", activityId: "a-live", userId: "test-uid", nickname: "Owner", elapsedTime: 60000, averageSpeed: 20, startDate: 1700000000000 },
+      { id: "deleted", segmentId: "seg-1", activityId: "a-deleted", userId: "test-uid", nickname: "Owner", elapsedTime: 420000, averageSpeed: 20, startDate: 1700000000000 },
+    ]);
+    renderWithProviders(<SegmentPage />, { authenticated: true });
+    const toggle = await screen.findByRole("button", { name: koSegment.myHistory });
+    expect(limit).not.toHaveBeenCalledWith(50);
+    fireEvent.click(toggle);
+    const preparing = await screen.findByText(koSegment["history.preparing"]);
+    const panel = within(preparing.parentElement!);
+    await waitFor(() => expect(panel.getByText("1:00")).toBeInTheDocument());
+    expect(limit).toHaveBeenCalledWith(50);
+    expect(panel.queryByText("7:00")).not.toBeInTheDocument();
+    expect(panel.queryByRole("button", { name: koSegment["history.select"] })).not.toBeInTheDocument();
+  });
+
+  it.each([false, true])("opens explicit history with expansion enabled=%s", async enabled => {
+    resetRuntimeConfigForTests({ activityAnalysisExpansionEnabled: enabled });
+    setDocData("segments/seg-1", { name: "Context segment", distance: 1000, averageGrade: 0, maximumGrade: 0, elevationHigh: 1, elevationLow: 0 });
+    setDocData("activities/a", { userId: "test-uid" });
+    setCollectionDocs("segment_efforts/seg-1/efforts", [{ id: "e", segmentId: "seg-1", activityId: "a", userId: "test-uid", nickname: "Owner", elapsedTime: 60000, averageSpeed: 20, averageWatts: 100, startDate: 1700000000000 }]);
+    renderWithProviders(<SegmentPage />, { authenticated: true, route: "/ko/segment/seg-1?currentActivityId=a&currentEffortId=e" });
+    if (enabled) {
+      await waitFor(() => expect(mockCallableInvocations.some(call => call.name === "getMySegmentHistory")).toBe(true));
+      return;
+    }
+    expect(await screen.findByText(koSegment["history.preparing"])).toBeInTheDocument();
+    expect(mockCallableInvocations.filter(call => call.name === "getMySegmentHistory")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: koSegment.myHistory })).toHaveAttribute("aria-expanded", "true");
+    const panel = within(screen.getByText(koSegment["history.preparing"]).parentElement!);
+    await waitFor(() => expect(panel.getByText("20.0 km/h · 100 W")).toBeInTheDocument());
+  });
   it("shows loading state initially", () => {
     renderWithProviders(<SegmentPage />);
     const content = document.body.textContent ?? "";

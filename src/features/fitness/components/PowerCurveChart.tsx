@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Select, Stat, Text } from "../../../theme";
+import { LocalizedLink } from "../../../components/LocalizedLink";
 import { makeDurationLabel, type PowerCurvePoint } from "../fitnessPageUtils";
 
 export default function PowerCurveChart({
@@ -14,10 +16,14 @@ export default function PowerCurveChart({
 }) {
   const { t } = useTranslation("fitness");
   const durationLabel = makeDurationLabel(t);
+  const id = useId();
+  const [selectedDuration, setSelectedDuration] = useState(300);
+  const selected = current.find(point => point.durationSeconds === selectedDuration) ?? current[0];
+  const previousSelected = selected && previous.find(point => point.durationSeconds === selected.durationSeconds);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const w = 480;
   const h = 200;
-  const xMin = 5;
+  const xMin = 1;
   const xMax = 3600;
   const yMax = Math.max(
     ...current.map((p) => p.maxPower),
@@ -32,7 +38,7 @@ export default function PowerCurveChart({
   const line = (pts: PowerCurvePoint[]) =>
     pts.map(({ durationSeconds: x, maxPower: y }, i) => `${i ? "L" : "M"}${sx(x).toFixed(1)} ${sy(y).toFixed(1)}`).join(" ");
 
-  const xTicks = [5, 60, 300, 1200, 3600];
+  const xTicks = [1, 60, 300, 1200, 3600];
   const hover = hoverIdx != null ? current[hoverIdx] : null;
   const powerAt = (pts: PowerCurvePoint[], sec: number) =>
     pts.find((p) => p.durationSeconds === sec)?.maxPower;
@@ -52,7 +58,7 @@ export default function PowerCurveChart({
   const ttY = Math.max(hy - ttH - 8, 0);
 
   return (
-    <svg viewBox={`0 0 ${w} ${h + 20}`} style={{ width: "100%", height: 220 }}>
+    <div className="space-y-3"><svg viewBox={`0 0 ${w} ${h + 20}`} style={{ width: "100%", height: 220 }}>
       {[0.25, 0.5, 0.75].map((p) => (
         <line key={p} x1="0" x2={w} y1={h * p} y2={h * p} stroke="var(--grid-soft)" />
       ))}
@@ -77,6 +83,7 @@ export default function PowerCurveChart({
               fill="transparent"
               style={{ cursor: "default" }}
               onPointerEnter={() => setHoverIdx(i)}
+              onClick={() => setSelectedDuration(pt.durationSeconds)}
               onPointerLeave={() => setHoverIdx(null)}
             />
           ))}
@@ -103,5 +110,11 @@ export default function PowerCurveChart({
         </g>
       )}
     </svg>
+    {selected && <>
+      <label className="flex flex-wrap items-center gap-3" htmlFor={id}><Text variant="bodySmall" tone="secondary">{t("powerCurve.durationSelect")}</Text><Select id={id} value={selected.durationSeconds} onChange={event => setSelectedDuration(Number(event.target.value))}>{current.map(point => <option key={point.durationSeconds} value={point.durationSeconds}>{durationLabel(point.durationSeconds)}</option>)}</Select></label>
+      <div className="grid grid-cols-2 gap-4">{[selected, previousSelected].map((point, index) => <div key={index} className="space-y-2"><Stat compact label={t(index ? "period.previous" : "period.recent")} value={point ? point.maxPower.toFixed(0) : "—"} unit={point ? "W" : undefined} />{point?.sourceActivityId && point.startTime != null && <LocalizedLink className="underline" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}><Text variant="bodySmall">{t("powerCurve.source", { date: new Date(point.startTime).toLocaleDateString() })}</Text></LocalizedLink>}</div>)}</div>
+    </>}
+    <Text as="p" variant="caption" tone="tertiary">{t("powerCurve.windowNote")}</Text>
+    </div>
   );
 }

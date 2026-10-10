@@ -61,7 +61,7 @@ describe("fitness entry request budget", () => {
     expect(result.current.activities).toEqual([]);
     expect(result.current.zoneDistribution).toEqual([100, 0, 0, 0, 0]);
     expect(result.current.powerCurveProgressions.map(period => period.points)).toEqual([
-      [{durationSeconds: 5, maxPower: 351}], [{durationSeconds: 5, maxPower: 501}],
+      [{durationSeconds: 5, maxPower: 351, sourceActivityId: "recent-boundary", startTime: now - 28 * day}], [{durationSeconds: 5, maxPower: 501, sourceActivityId: "previous-boundary", startTime: now - 56 * day}],
     ]);
     expect(vi.mocked(httpsCallable).mock.calls.some(([, name]) => name === "ensureFitnessCurves")).toBe(false);
   });
