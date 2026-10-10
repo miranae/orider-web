@@ -38,7 +38,8 @@ vi.mock("firebase/app-check", () => ({
     constructor(readonly siteKey: string) {}
   },
 }));
-vi.mock("./runtimeConfig", () => ({
+vi.mock("./runtimeConfig", async (importOriginal) => ({
+  ...await importOriginal<typeof import("./runtimeConfig")>(),
   getRuntimeConfig: () => mocks.runtimeConfig,
   isEmulatorRuntime: () => false,
 }));
@@ -62,6 +63,13 @@ describe("ensureAppCheckReady", () => {
       firebaseAppId: "test-app",
       appCheckRecaptchaSiteKey: "site-key",
     };
+  });
+
+  it("rejects a production Firebase identity in stage before SDK initialization", async () => {
+    mocks.runtimeConfig.appEnvironment = "stage";
+    mocks.runtimeConfig.firebaseProjectId = "miranae-orider-g1";
+    const firebase = await import("./firebase");
+    await expect(firebase.initFirebase()).rejects.toThrow("stage/firebase-identity-mismatch");
   });
 
   it("does not resolve until a token exists and shares concurrent readiness", async () => {

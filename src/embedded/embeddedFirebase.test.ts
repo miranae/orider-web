@@ -50,7 +50,8 @@ vi.mock("firebase/app-check", () => ({
     constructor(readonly siteKey: string) {}
   },
 }));
-vi.mock("../services/runtimeConfig", () => ({
+vi.mock("../services/runtimeConfig", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../services/runtimeConfig")>(),
   getRuntimeConfig: () => mocks.runtimeConfig,
 }));
 
@@ -84,6 +85,14 @@ describe("embeddedFirebase", () => {
     mocks.initializeAppCheck.mockReturnValue(mocks.appCheck);
     mocks.getToken.mockResolvedValue({ token: "app-check-token" });
     mocks.terminate.mockResolvedValue(undefined);
+  });
+
+  it("rejects a production Firebase identity in stage before SDK initialization", async () => {
+    mocks.runtimeConfig.appEnvironment = "stage";
+    mocks.runtimeConfig.firebaseProjectId = "miranae-orider-g1";
+    const embeddedFirebase = await import("./embeddedFirebase");
+    expect(() => embeddedFirebase.initEmbeddedFirebase()).toThrow("stage/firebase-identity-mismatch");
+    expect(mocks.initializeApp).not.toHaveBeenCalled();
   });
 
   it("creates a named app with memory-only Auth and Firestore", async () => {
