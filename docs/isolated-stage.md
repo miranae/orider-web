@@ -8,7 +8,7 @@ Stage 웹·Functions 배포 프로젝트는 `orider-dev`, 실제 Auth·Firestore
 
 단일 production FirebaseApp의 Auth/App Check 문맥을 유지하면서 normal·embedded `getFunctions`에 정확한 stage custom domain을 전달한다. 모든 callable 이름은 stage namespace에서 호출한다. 미배포 기능을 운영 Functions로 우회하지 않는다. Stage Hosting은 서버 rewrite 없는 SPA이며 runtime writer와 Firebase 초기화는 공유 SDK identity와 stage callable endpoint를 검사한다. 운영 Functions 주소 또는 endpoint 누락이면 stage 초기화를 거절한다.
 
-Shared Auth SDK app의 reCAPTCHA Enterprise site key와 새 stage Hosting domain 등록이 필요하다. 보안 검증을 끄거나 App Check 디버그 토큰으로 실검증을 대신하지 않는다. 원래 production 웹의 보호 설정과 도메인을 보존한다. Stage native login handoff는 지원하지 않는다. AI·Strava 연결·personal REST API는 별도 stage 구현이 준비되기 전 빈 값과 꺼진 기능 플래그를 사용한다.
+Shared Auth SDK app의 reCAPTCHA Enterprise site key와 새 stage Hosting domain 등록이 필요하다. 보안 검증을 끄거나 App Check 디버그 토큰으로 실검증을 대신하지 않는다. 원래 production 웹의 보호 설정과 도메인을 보존한다. Stage native login handoff는 지원하지 않는다. Stage 로그인은 기존 운영 사용자 프로필을 Firestore snapshot으로 읽으며, 미배포 `ensureUserProfile` 생성 호출은 하지 않는다. 신규 프로필 생성·온보딩은 검증 범위에 포함하지 않는다. AI·Strava 연결·personal REST API는 별도 stage 구현이 준비되기 전 빈 값과 꺼진 기능 플래그를 사용한다.
 
 ## 분석 검증 범위
 
@@ -19,3 +19,5 @@ Stage에서는 native·Strava 활동 모두 `getActivityStreams`를 통해 같�
 조회 함수의 rate-limit/overview 파생 cache 쓰기가 발생할 수 있다. 정본 활동·stream·metrics의 재계산/백필/자동 수집은 이 분석 검증 배포에 포함하지 않는다. 공유 데이터의 사용자 기능 쓰기는 사용자가 별도로 허용했지만, 현재 배포는 위 분석 API와 검증 범위다. 미배포 social/동기화 기능을 지원 완료라고 보고하지 않는다.
 
 기존 stage site에서 새 주소로 redirect하는 작업은 이전 stage Hosting에만 적용한다. 운영 Hosting과 운영 Functions 배포는 별도 경계다. 최소 인스턴스 0, 최대 인스턴스 제한과 비용 알림은 stage 서버 설정에서 관리한다.
+
+Stage에서는 미배포 AI 내러티브 카드를 숨기고 자동 peek·생성 callable을 호출하지 않는다. 클라이언트 오류는 Sentry 진단을 유지하되 미배포 `logClientError` 서버 backup 호출은 건너뛴다. 운영 웹의 프로필 생성·AI 분석·서버 오류 기록은 기존 경로를 유지한다.

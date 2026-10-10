@@ -1,3 +1,4 @@
+import * as runtimeConfig from "./runtimeConfig";
 import { captureError } from "./sentry";
 import { mockCallableInvocations } from "../__tests__/mocks/firebase";
 import { __resetClientErrorDedupeForTests, logClientError } from "./errorLogger";
@@ -10,6 +11,18 @@ describe("logClientError", () => {
     __resetClientErrorDedupeForTests();
     vi.mocked(captureError).mockClear();
     vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
+  });
+
+  it("stage retains deduplicated Sentry diagnostics without a server backup request", async () => {
+    const runtime = vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({ ...runtimeConfig.getRuntimeConfig(), appEnvironment: "stage" });
+    try {
+      logClientError("stage.failure", new Error("stage error"));
+      logClientError("stage.failure", new Error("stage error"));
+      await Promise.resolve();
+      expect(captureError).toHaveBeenCalledTimes(1);
+      expect(ensureAppCheckReady).not.toHaveBeenCalled();
+      expect(mockCallableInvocations.filter(({ name }) => name === "logClientError")).toHaveLength(0);
+    } finally { runtime.mockRestore(); }
   });
 
   it("sends an identical immediate error only once", async () => {
