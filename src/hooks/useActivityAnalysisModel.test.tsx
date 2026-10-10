@@ -122,7 +122,8 @@ describe("useActivityAnalysisModel", () => {
 
   const analysisSummary: ActivityAnalysisSummary = {
     schemaVersion: 1,
-    laps: [{ number: 4, distanceKm: 1, durationMs: 100_000, avgSpeed: 10, avgHeartRate: 150 }, {}],
+    // native LapData 평균 속도는 km/h: 1km / 100초 = 36km/h (스트림 m/s와 구분).
+    laps: [{ number: 4, distanceKm: 1, durationMs: 100_000, avgSpeed: 36, avgHeartRate: 150 }, {}],
     caloriesFallbackKcal: 42.4,
     hasAnalysisStreams: true,
     sensors: {
