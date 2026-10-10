@@ -1,0 +1,10 @@
+.activity-range-controls { max-width: 44rem; margin-block: var(--space-4); }
+.activity-range-time-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); max-width: 28rem; }
+.activity-range-time-inputs label { display: grid; gap: var(--space-2); min-width: 0; }
+.activity-range-reading { max-width: 44rem; padding-block: var(--space-4); border-top: 1px solid var(--line-soft); }
+.activity-range-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.activity-range-details { font-size: var(--fs-sm); color: var(--ink-2); }
+.activity-range-details summary { cursor: pointer; padding-block: var(--space-2); }
+.activity-range-details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
+.activity-range-details > div { padding-top: var(--space-3); }
+@media (min-width: 48rem) { .activity-range-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

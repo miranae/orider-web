@@ -6,21 +6,31 @@
 
 ## ORider 현황과 증거 경계
 
-아래는 2026-10-10 읽기 전용 계약 감사(`85c9591` 기준)의 결과를 반영한다. 백엔드 main 소스는 생산자 계약의 근거이며 실제 배포 또는 사용자 데이터 완전성의 증거가 아니다. 감사 원본은 세션 조사 산출물 `analysis-next-contract-audit-20261010.md`다.
+현황 기준은 2026-10-10이다. stage에서 확인한 프론트엔드 기준은 `bd905a3`이며, 후속 구간 분석·세그먼트 개인 이력·기간 파워곡선은 현재 작업 트리의 미커밋 구현이다. backend PR #3068 / #3069 / #3070은 독립 소스 검수를 통과한 뒤 `dev` 머지 게이트 진행 중이며, 새 API와 실제 stage 통합은 아직 배포·검증되지 않았다. 소스 승인, 로컬 테스트, 합성 응답 UI 검수는 배포 또는 실제 사용자 데이터 수용의 증거가 아니다.
 
 | 항목 | 확인한 자산 / 상태 | 확인한 경계와 다음 단계 |
 |---|---|---|
-| 최근 stage 변화 | 상세 차트 공유 표면, 수동 이전 활동 비교, 활동 통계 및 비교 곡선 시각화가 stage 검증 범위에 들어갔다. 비교 시각화 기준 커밋은 `85c9591`. | 후속 R2 디자인의 stage 배포 완료가 작업 담당자에게서 전달되었다. 배포 아티팩트와 최종 화면 검증 증거는 해당 검증 기록으로 확인한다. 운영 반영이나 앱 실기기 검증으로 확장해 표현하지 않는다. |
-| 러닝 스플릿/GAP | canonical `activity_metrics.splits`, `RunAnalysisPanel`, `RunSplitProfile`, `useRunSplitLocation` 자산 존재. | 이미 구현된 연결을 재사용·확장한다. 이번 감사는 source 존재 확인이며 모든 입력에서 stage/폰 동작 성공을 증명하지 않는다. |
-| 임의 선택 구간 통계 | 현재 상세 차트 범위 강조와 활동 페이지 hover→지도 자산 존재. | owner 범위 분석 API/응답 계약은 감사 대상 경로에서 발견하지 못했다. 선택 범위의 평균·NP·존 시간을 renderer series로 새 계산하지 않는다. canonical backend 계약이 필요하다. |
-| 랩 분석 | `analysisSummary` 및 `AnalysisLapTable`의 시간·거리·속도·파워·FTP%·HR·cadence 행 존재. | 랩 start/end offset 또는 원본 index 계약은 부족하다. duration 누적으로 지도 정렬을 추정하지 않는다. 표 개선과 지도 연결의 완료 경계를 분리한다. |
-| 라이딩 최고 노력 구간 | canonical `peakEfforts` 생산자가 60/120/300초 구간과 센서 요약·offset·distance/indexAxis를 쓴다. overview는 단일 `peakMoment` 강조가 있다. | 다음 구현 후보: canonical 타입/검증 미러와 1/2/5분 구간 inspector. 실측 파워만 허용. route axis는 거리로 샘플 차트에 연결; sensor/unknown axis는 지도 버튼 비활성. live 필드 존재와 UI 검증은 추가 필요하다. |
-| 개인 최고 기준 곡선 | owner PDC의 `mmpAll`은 최근 90일 기준이며 activity/date/startTime/source·실측 출처·coverage 자산이 존재한다. | 다음 구현 후보: lazy owner-only 개인 기준 비교. 현재 활동과 과거 활동 이후의 기록이 포함될 수 있어 ‘활동 전 최고’라 부르지 않는다. 임의 기간/평생 최고로 확대하지 않는다. |
-| 개인 기록 및 역사 맥락 | 서버 records, 러닝 records 표면, overview의 evaluated record achievements·powerFingerprint·표본/완전성 자산 존재. | 상위 5개만으로 그 밖의 순위 또는 현재 활동을 제외한 이전 최고를 추정하지 않는다. 이미 평가된 서버 맥락을 노출한다. |
-| 동일 세그먼트 이력 | segment effort 자료, SegmentPage 개인 이력, 서버 중복 처리·이전 최고·추세 helper 자산 존재. | canonical 구조화 이력 응답이 필요하다. 정확한 attempt count/trend를 약속하려고 frontend 중복 알고리즘을 새로 만들지 않는다. |
-| 동일 전체 코스 비교 | 코스 catalog 추천/coach 매칭 자산 존재. | 이것은 반복 활동끼리의 정렬 계약이 아니다. geometry·방향·매칭 근거·좌표 정렬 계약과 검증이 필요하다. |
+| 최근 stage 변화 | `bd905a3`: 기존 상세 차트·수동 이전 활동 비교·활동 통계·비교 곡선에 canonical 최고 노력 구간 inspector와 최근 90일 개인 기준 곡선이 추가되어 stage 확인 범위에 들어갔다. | 이 기준과 현재 미커밋 후속 구현을 구별한다. 운영 반영·앱 embedded 실기기 확인 또는 전체 분석 완료로 확대하지 않는다. |
+| 러닝 스플릿/GAP | canonical `activity_metrics.splits`, `RunAnalysisPanel`, `RunSplitProfile`, `useRunSplitLocation` 자산 존재. | 기존 연결을 재사용한다. 모든 입력·단위계·정지/결측에서 stage/폰 동작 성공을 증명한 상태는 아니다. |
+| 임의 선택 구간 통계 (A02) | 미커밋 프론트엔드의 범위 선택·해제 및 canonical 응답 요약과 owner read-only `getActivityRangeAnalysis`(PR #3068) 소스가 독립 검수를 통과했다. | 로컬 합성 응답 UI 검수 95/100. API 미배포이므로 실제 활동의 선택 범위→센서/지도/범위 수치 통합은 미검증이다. 축약 차트에서 지표를 다시 계산하지 않는다. |
+| 랩 분석 | `analysisSummary` 및 `AnalysisLapTable`의 시간·거리·속도·파워·FTP%·HR·cadence 행 존재. | 랩 start/end offset 또는 원본 index 계약은 여전히 별도 과제다. duration 누적으로 지도 정렬을 추정하지 않는다. 임의 범위 API 추가가 랩 연결 완료를 뜻하지 않는다. |
+| 라이딩 최고 노력 구간 (B05 일부) | stage `bd905a3`의 inspector는 canonical `peakEfforts`의 60/120/300초 실측 구간·요약·위치를 사용한다. | route axis와 유효 거리 대응이 있을 때 차트/지도 위치를 연결한다. sensor/unknown 또는 정렬 불가에는 위치 근거를 만들지 않는다. 5초·20분 등 모든 duration의 정확한 원 구간 연결은 별도 미완료다. |
+| 최근 90일 개인 기준 곡선 (B06 일부) | stage `bd905a3`: owner-only lazy 개인 기준 비교. PDC의 final/complete·측정 출처 계약을 확인하고 duration별 source activity로 연결한다. | 최근 90일 기준이며 현재 활동 또는 해당 활동 이후 기록이 포함될 수 있다. ‘활동 전 최고’·올해 최고·평생 최고로 이름을 바꾸지 않는다. |
+| 기간 파워곡선 (B06 / D01 일부) | 미커밋 프론트엔드의 올해/전체/사용자 기간 선택·최대 두 기간 비교·점별 근거 활동 이동과 owner `getPowerCurvePeriods`(PR #3070) 소스가 독립 검수를 통과했다. | 로컬 합성 응답 UI 검수 95/100. W 기준, bounded scan과 partial/coverage를 표시한다. API 미배포·실제 stage 통합 미검증. W/kg 및 당시 체중 근거·기간 estimated FTP는 미완료다. |
+| 개인 기록 및 역사 맥락 | 서버 records, 러닝 records 표면, overview의 evaluated record achievements·powerFingerprint·표본/완전성 자산 존재. | 현재 canonical records는 duration별 상위 10개다. 상위 목록만으로 임의 기간 최고나 활동 이전 최고를 추정하지 않는다. 평가된 서버 맥락을 재사용한다. |
+| 동일 세그먼트 이력 (C03 일부) | 기존 개인 이력 자산에 미커밋 UI와 owner `getMySegmentHistory`(PR #3069)의 bounded 이력·완전성·근거 활동 응답이 추가되어 독립 소스 검수를 통과했다. | 로컬 합성 응답 UI 검수 95/100. API 미배포·실제 stage 통합 미검증. 부분 이력을 전체 횟수/최고로 단정하지 않는다. geometry revision·방향 근거가 없는 과거 기록의 비교 가능성은 명시한다. |
+| 거리별 노력 시간차 (C04) | 동일 세그먼트 이력과 센서 비교 자산은 있다. | C03 목록은 거리 정렬된 누적 시간차·scrub/playback 계약을 대체하지 않는다. canonical 서버 응답과 실제 반복 기록 수용이 필요하다. |
+| 동일 전체 코스 비교 (C01 / C02) | 코스 catalog 추천/coach 매칭 자산 존재. | 반복 활동의 전체 코스 정렬 계약은 아니다. geometry·방향·매칭 근거·좌표 정렬과 실제 반복 기록 검증이 필요하다. |
 
-`구현 소스 확인`, `로컬 테스트`, `stage UI 확인`, `앱 실기기 확인`, `운영 배포`는 별개 증거다. 위 표는 독립 구현 감사에 근거한 현재 작업 순서를 설명한다. 아래 수용 기준 25개가 모두 완료되었다는 뜻은 아니다.
+### 실제 데이터 조회와 갱신 준비 경계
+
+고정 90일 창의 ADC 로컬 읽기 전용 조회에서 구버전 final/nonstale 활동 66개(version 30: 64개, version 32: 2개)가 확인되었다. 기간 API의 현재 version 35 게이트에서는 이들이 제외되어 응답이 partial이다. 구버전이라는 사실은 ‘계산 중’ 또는 갱신 job이 등록되었다는 증거가 아니다. 최신 분석 필요 상태와 실제 pending을 구별해야 한다.
+
+후속 비공개 metadata preview에서는 66개 모두 소유권이 맞는 stream이 확인되었고, 이 중 19개가 현재 측정 파워곡선의 metadata 출처 조건을 통과했다. 나머지 47개는 가상파워 또는 실측 근거가 부족하다. **후속 검증에서 최대 3개(version 30 두 건, version 32 한 건)의 기존 canonical compute-only preflight가 통과했고, 나머지 63개는 preflight 미검증**이다. 해당 3개의 입력 로딩·계산 경로와 실행 전후 소유권/삭제 관련 읽기 검사·revision 안정성을 확인했으며 원본은 이 검증 범위에서만 읽었다. helper가 계산 결과를 반환하지 않으므로 **66개 모두 갱신된 실측 MMP·입력 coverage 출력은 미확인**이다. GCS 객체 존재와 finalized part metadata만으로 입력 완전성을 증명하지 않는다. 최종 게시 transaction·재분석 저장·job 등록·backend 쓰기는 수행하지 않았다. 갱신 후 version 35만 확인해서도 측정 곡선 수용을 완료할 수 없으며 final/nonstale·입력 coverage·실측 출처를 다시 확인해야 한다.
+
+계약 조사 및 preview 근거는 세션 산출물 `power-curve-version-compat-audit-20261010.md`, `activity-analysis-refresh-plan-20261010.md`, `activity-analysis-refresh-owner-preview-20261010.md`, `activity-analysis-refresh-preflight-20261010.md`에 기록했다. private manifest의 소유자/활동 ID는 이 문서에 포함하지 않는다. 현재 활동의 `contextSnapshot.weightKg`는 계산 입력 체중이며 재계산 시 현재 프로필을 읽을 수 있으므로 ‘활동 당시 체중’의 증거로 사용하지 않는다.
+
+`구현 소스 확인`, `독립 소스 승인`, `로컬 테스트`, `합성 응답 UI 검수`, `stage 실제 API/활동 확인`, `앱 실기기 확인`, `운영 배포`는 별개 증거다. 95/100은 해당 로컬 UI 검수 결과이며 기능 수용률이나 Strava 대비 우위 점수가 아니다. 아래 수용 기준 25개가 모두 완료되었다는 뜻은 아니다.
 
 ## A. 활동을 구간까지 설명하는 경험
 
@@ -115,6 +125,6 @@
 
 사용자 목표는 **다른 기능으로 전환하기 전에 분석을 충분히 좋게 만드는 것**이다. 이 문서는 그 목표의 완료 선언이 아니라 구현·독립 검증을 위한 기준선이다. 목표·챌린지는 제외하고 활동 통계의 현재 배치는 유지한다.
 
-구현 순서의 첫 묶음은 canonical 최고 노력 구간 inspector와 최근 90일 개인 기준 곡선이다. 그 뒤 임의 구간 집계, 랩 정렬, 반복 구간/전체 코스의 backend 계약을 순서대로 다룬다. 기존 분석·개인 기록·피트니스 자산을 다시 만드는 대신 사용자 질문에서 근거까지 연결한다.
+canonical 최고 노력 구간 inspector와 최근 90일 개인 기준 곡선은 stage `bd905a3` 확인 범위다. 현재 임의 구간 집계·동일 세그먼트 개인 이력·기간 파워곡선은 소스/로컬 검수 단계이며, 다음 수용 경계는 backend 머지·API 배포와 실제 stage 통합 검증이다. 랩 정렬, 거리별 노력 시간차, 반복 전체 코스 및 그 밖의 수용 여정은 별도 과제로 남는다. 기존 분석·개인 기록·피트니스 자산을 다시 만드는 대신 사용자 질문에서 근거까지 연결한다.
 
 각 완료 보고에는 관련 수용 ID, 실제 입력 종류, 로컬 테스트 결과, stage 웹의 모바일/데스크톱 화면과 상호작용, 앱 embedded 실기기 확인 여부, 미완료 계약/상태를 기록한다. 독립 문서 검수와 구현 검증은 별도 담당자가 수행한다. 문서 작성이나 디자인 점수만으로 기능 전체 또는 Strava 대비 우위를 완료 처리하지 않는다.

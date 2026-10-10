@@ -1,3 +1,4 @@
+import { aggregateWindowPowerCurve } from "../features/fitness/fitnessPageUtils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { describePmcHistory, hasFitnessLoadLifecycle, pmcHistoryDeadline } from "../features/fitness/pmcHistory";
@@ -9,7 +10,6 @@ import {
 import { collection, doc, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 
 import type { Activity } from "@shared/types";
-import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { Goal, FitnessProjection } from "@shared/types/goal";
 import type { MilestoneId } from "@shared/types/milestone";
 import { resolveBikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
@@ -749,39 +749,12 @@ export function useFitnessModel(
   const rangeStartPoint = rangeData.fitness[0] ?? null;
 
   const powerCurveProgressions = useMemo(() => {
-    const durationSeconds: Record<string, number> = {
-      "1s": 1, "5s": 5, "10s": 10, "30s": 30, "1m": 60, "2m": 120,
-      "5m": 300, "10m": 600, "20m": 1200, "30m": 1800, "1h": 3600,
-    };
-    const now = fitnessClock;
     const period = 28 * 24 * 60 * 60 * 1000;
-    const aggregate = (items: ActivityMetrics[]) => {
-      const maxima: Record<string, number> = {};
-      for (const metrics of items) {
-        if (!metrics.mmp) continue;
-        for (const [key, value] of Object.entries(metrics.mmp)) {
-          if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) continue;
-          if (!(key in maxima) || value > maxima[key]!) maxima[key] = value;
-        }
-      }
-      return Object.entries(maxima)
-        .map(([key, value]) => ({ durationSeconds: durationSeconds[key] ?? 0, maxPower: Math.round(value) }))
-        .filter((point) => point.durationSeconds > 0)
-        .sort((left, right) => left.durationSeconds - right.durationSeconds);
-    };
-    const recent: ActivityMetrics[] = [];
-    const previous: ActivityMetrics[] = [];
-    for (const entry of selectedWindowEntries) {
-      const metrics = metricsMap.get(entry.activityId);
-      if (!metrics) continue;
-      if (entry.startTime >= now - period) recent.push(metrics);
-      else if (entry.startTime >= now - period * 2) previous.push(metrics);
-    }
     return [
-      { label: t("period.recent"), color: "var(--lime)", points: aggregate(recent) },
-      { label: t("period.previous"), color: "var(--ink-3)", points: aggregate(previous) },
+      { label: t("period.recent"), color: "var(--lime)", points: aggregateWindowPowerCurve(selectedWindowEntries, fitnessClock - period, fitnessClock) },
+      { label: t("period.previous"), color: "var(--ink-3)", points: aggregateWindowPowerCurve(selectedWindowEntries, fitnessClock - period * 2, fitnessClock - period) },
     ];
-  }, [fitnessClock, selectedWindowEntries, metricsMap, t]);
+  }, [fitnessClock, selectedWindowEntries, t]);
 
   const weeklyStats = useMemo(() => {
     // 기록점 개수가 아닌 현재 날짜까지의 실제 달력 창을 사용한다. 서버 날짜는 UTC,

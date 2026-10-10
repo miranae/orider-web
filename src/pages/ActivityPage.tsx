@@ -1,3 +1,4 @@
+import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -8,6 +9,8 @@ import { ActivityPersonalBenchmark } from "../features/activity/detail/ActivityP
 import ActivityPeakEffortInspector from "../features/activity/detail/ActivityPeakEffortInspector";
 import { resolvePeakEffortLocation, visiblePeakEfforts } from "../features/activity/detail/activityPeakEfforts";
 import type { RidePeakEffort } from "@shared/types/activity-metrics";
+import ActivityRangeAnalysisPanel, { ActivityRangeControls } from "../features/activity/detail/ActivityRangeAnalysisPanel";
+import { useActivityRangeSelection } from "../hooks/useActivityRangeSelection";
 import ActivityPerformanceCharts from "../features/activity/detail/ActivityPerformanceCharts";
 import { useRunSplitLocation } from "../features/activity/detail/useRunSplitLocation";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
@@ -47,6 +50,7 @@ import KudosCommentsCard from "../components/activity/KudosCommentsCard";
 import AiRideAnalysisCard from "../components/activity/AiRideAnalysisCard";
 import StravaSummaryPublishing from "../components/activity/StravaSummaryPublishing";
 import SegmentEffortsCard from "../components/activity/SegmentEffortsCard";
+import { segmentHistoryPath } from "../features/segments/segmentHistoryNavigation";
 import { logClientError } from "../services/errorLogger";
 import { Button, Card, Text, buttonClass } from "../theme/components";
 import { ErrorState } from "../components/redesign";
@@ -108,6 +112,7 @@ export default function ActivityPage() {
   const [showAllSegments, setShowAllSegments] = useState(false);
   const [activeOverlays, setActiveOverlays] = useState<Set<string>>(new Set());
   const [focusedOverlayKey, setFocusedOverlayKey] = useState<string | null>(null);
+  const analysisModel = useActivityAnalysisModel(activityId);
   const {
     activity,
     setActivity,
@@ -138,7 +143,7 @@ export default function ActivityPage() {
     recalculateVirtualPowerPreview,
     revertVirtualPowerPreview,
     activePowerOverride,
-  } = useActivityAnalysisModel(activityId);
+  } = analysisModel;
   const stravaSummaryLang = i18n.language?.startsWith("en") ? "en" : "ko";
   const shareDiscipline = getDiscipline(activity?.type);
   // 미지 종목(요가·근력 등)은 종목별 피트니스 시계열이 없다 — uid 를 주지 않아 조회를
@@ -486,6 +491,7 @@ export default function ActivityPage() {
     () => buildSampledData(effectiveStreams, sensorSelectionContext),
     [effectiveStreams, sensorSelectionContext],
   );
+  const rangeSelection = useActivityRangeSelection(analysisModel, sampledData);
   const recordedRunCadenceUnit = serverMetrics.metrics?.cadenceUnit ?? (activity?.source === "strava" ? "strides_per_minute" : activity?.source === "orider" ? "spm" : null);
   const availableOverlays = useMemo(() => getPerformanceOverlays(
     sampledData, sport, units, recordedRunCadenceUnit, t("analysis.run.cadenceUnit"),
@@ -521,13 +527,17 @@ export default function ActivityPage() {
     if (peakLocation) viewRunSplitLocation();
   }, [activityId, user?.uid, isActivityOwner, selectedPeak, streams, streamsError, loadingStreams, peakLocation, viewRunSplitLocation]);
   const markerPosition = useMemo(() => {
-    if (hoverIndex == null || !sampledData[hoverIndex]) return runSplitLocation?.markerPosition ?? peakLocation?.markerPosition ?? null;
+    if (hoverIndex == null || !sampledData[hoverIndex]) {
+      if (rangeSelection.selection) return rangeSelection.routeRange ? streams?.latlng?.[rangeSelection.routeRange.endIndex] ?? null : null;
+      return runSplitLocation?.markerPosition ?? peakLocation?.markerPosition ?? null;
+    }
     return sampledData[hoverIndex].latlng;
-  }, [hoverIndex, sampledData, runSplitLocation, peakLocation]);
+  }, [hoverIndex, sampledData, runSplitLocation, peakLocation, rangeSelection.selection, rangeSelection.routeRange, streams]);
   const segmentEfforts = useMemo(() => getSegmentEfforts(streams), [streams]);
   const chartHighlightRange = useMemo(
-    () => getChartHighlightRange(hoveredSegment, streams) ?? runSplitLocation?.chartRange ?? peakLocation?.chartRange,
-    [hoveredSegment, streams, runSplitLocation, peakLocation],
+    () => rangeSelection.selection ? rangeSelection.chartRange
+      : getChartHighlightRange(hoveredSegment, streams) ?? runSplitLocation?.chartRange ?? peakLocation?.chartRange,
+    [hoveredSegment, streams, runSplitLocation, peakLocation, rangeSelection.selection, rangeSelection.chartRange],
   );
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
   const hasStreams = sampledData.length > 0;
@@ -958,7 +968,7 @@ export default function ActivityPage() {
         summary={s}
         markerPosition={markerPosition}
         hoveredSegment={hoveredSegment}
-        selectedRunRange={runSplitLocation?.routeRange ?? peakLocation?.routeRange}
+        selectedRunRange={rangeSelection.selection ? rangeSelection.routeRange : runSplitLocation?.routeRange ?? peakLocation?.routeRange}
         photos={photos}
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
@@ -1156,6 +1166,11 @@ export default function ActivityPage() {
           elevData={elevData} availableOverlays={availableOverlays} activeOverlays={activeOverlays}
           focusedOverlayKey={focusedOverlayKey} toggleOverlay={toggleOverlay} chartOverlays={chartOverlays}
           hoverPoint={hoverPoint} summaryStats={summaryStats} sport={sport} recordedRunCadenceUnit={recordedRunCadenceUnit}
+          elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={rangeSelection.xAxis}
+          rangeControls={<ActivityRangeControls selection={rangeSelection} />}
+          rangeAnalysis={activity?.id ? <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /> : null}
+          range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampledData.length - 1]}
+          onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis ? rangeSelection.selectChart : undefined}
           onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
           metrics={serverMetrics.metrics} powerSource={streamSensorSummary?.powerSource}
         />
@@ -1494,7 +1509,7 @@ export default function ActivityPage() {
               return (
                 <Link
                   key={effort.id}
-                  to={`/segment/${String(effort.segment.id).startsWith("strava_") ? effort.segment.id : `strava_${effort.segment.id}`}`}
+                  to={segmentHistoryPath(effort.segment.id, effort.id, activityId)}
                   className="flex items-center gap-3 p-2 rounded-[var(--r-xl)] transition-colors hover:bg-[var(--bg-2)]"
                   onMouseEnter={() => setHoveredSegment(effort)}
                   onMouseLeave={() => setHoveredSegment(null)}
@@ -1527,6 +1542,7 @@ export default function ActivityPage() {
       {/* 세그먼트 목록 (전체) */}
       {segmentEfforts.length > 0 && (
         <SegmentEffortsCard
+          activityId={activityId}
           efforts={segmentEfforts}
           showAll={showAllSegments}
           setShowAll={setShowAllSegments}

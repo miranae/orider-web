@@ -1,3 +1,4 @@
+import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { getDoc, getDocs, onSnapshot, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -108,6 +109,7 @@ describe("ActivityPage", () => {
   vi.setConfig({ testTimeout: 15_000 });
 
   beforeEach(() => {
+    resetRuntimeConfigForTests({ activityAnalysisExpansionEnabled: false });
     mockFitnessTimeseries.mockReturnValue({ timeseries: null, loaded: true });
     mockPdc.mockReturnValue({ status: "missing", pdc: null });
     mockBikeProfiles.mockReturnValue({ profiles: [] });
@@ -232,6 +234,39 @@ describe("ActivityPage", () => {
       if (enabled) expect(screen.getByTestId("activity-overview-summary")).toContainElement(compare);
       else expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
     } finally { overview.mockRestore(); }
+  });
+  it.each([false, true])("shares an elapsed range and plumbs expansion enabled=%s", async enabled => {
+    resetRuntimeConfigForTests({ activityAnalysisExpansionEnabled: enabled });
+    const epoch = 1791375809874;
+    const activity = createMockActivity({ id: "test-activity", userId: "test-uid", source: "orider", startTime: epoch,
+      summary: createMockSummary({ ridingTimeMillis: 100000, elapsedTimeMillis: 100000 }) });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    const count = 101;
+    setDocData("activity_streams/test-activity", { userId: "test-uid", json: JSON.stringify({
+      time: Array.from({ length: count }, (_, index) => epoch + index * 1000),
+      distance: Array.from({ length: count }, (_, index) => index < 50 ? 100 : index * 10),
+      altitude: Array(count).fill(10), latlng: Array.from({ length: count }, () => [37, 127]),
+    }) });
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "구간 분석" }));
+    const inputs = [screen.getByLabelText("시작 시간"), screen.getByLabelText("끝 시간")];
+    fireEvent.change(inputs[0]!, { target: { value: "0:20" } });
+    fireEvent.change(inputs[1]!, { target: { value: "0:40" } });
+    fireEvent.click(screen.getByRole("button", { name: "범위 적용" }));
+    await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 20, endIndex: 40 }));
+    expect(elevationChartProps.mock.lastCall?.[0].range).toEqual([20, 40]);
+    fireEvent.click(screen.getByRole("button", { name: "경과시간 축" }));
+    expect(elevationChartProps.mock.lastCall?.[0].xAxis).toBe("elapsed");
+    expect(elevationChartProps.mock.lastCall?.[0].elapsedAxisSec[20]).toBe(20);
+    expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 20, endIndex: 40 });
+    if (enabled) await waitFor(() => expect(mockCallableInvocations.some(call => call.name === "getActivityRangeAnalysis")).toBe(true));
+    else {
+      expect(screen.getByRole("status")).toHaveTextContent("서버 배포를 기다리고");
+      expect(mockCallableInvocations.filter(call => call.name === "getActivityRangeAnalysis")).toHaveLength(0);
+    }
+    fireEvent.click(screen.getByRole("button", { name: "범위 지우기" }));
+    expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeUndefined();
+    expect(screen.queryByText("서버 배포를 기다리고", { exact: false })).not.toBeInTheDocument();
   });
   it.each(["ready", "cancel", "account", "activity", "navigate", "invalid"])("handles cold peak location once with %s intent", async (mode) => {
     mockRoute.activityId = `cold-peak-${mode}`;

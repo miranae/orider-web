@@ -40,6 +40,7 @@ const config = {
   mapboxToken: readEnv("VITE_MAPBOX_TOKEN"),
   personalApiBase: readEnv("VITE_ORIDER_PERSONAL_API_BASE"),
   aiApiBase: readEnv("VITE_ORIDER_AI_API_BASE"),
+  activityAnalysisExpansionEnabled: readBoolEnv("VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED") ?? false,
   coachPmcInsightEnabled: readBoolEnv("VITE_COACH_PMC_INSIGHT_ENABLED") ?? false,
   coachRiderInsightEnabled: readBoolEnv("VITE_COACH_RIDER_INSIGHT_ENABLED") ?? false,
   coachProgressPlannerEnabled: readBoolEnv("VITE_COACH_PROGRESS_PLANNER_ENABLED") ?? false,

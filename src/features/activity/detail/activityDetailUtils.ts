@@ -80,6 +80,8 @@ export interface SegmentEffortData {
 }
 
 export interface SampledPoint {
+  /** 표시 표본이 가리키는 원시 route 인덱스. 거리·시간으로 역산하지 않는다. */
+  sourceIndex?: number;
   latlng: [number, number] | null;
   distance: number;
   altitude: number;

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "../../../contexts/LocaleContext";
 import ElevationChart, { type OverlayDataset } from "../../../components/ElevationChart";
@@ -10,6 +11,10 @@ import type { buildSummaryStats } from "./activityDetailDerived";
 import type { ActivityAnalysisModel } from "../../../hooks/useActivityAnalysisModel";
 
 interface ActivityPerformanceChartsProps {
+  rangeControls?: ReactNode;
+  rangeAnalysis?: ReactNode;
+  elapsedAxisSec?: readonly number[];
+  xAxis?: "distance" | "elapsed";
   elevData: Array<{ distance: number; elevation: number }>;
   availableOverlays: OverlayConfig[];
   activeOverlays: Set<string>;
@@ -34,6 +39,7 @@ export default function ActivityPerformanceCharts({
   elevData, availableOverlays, activeOverlays, focusedOverlayKey, toggleOverlay,
   chartOverlays, hoverPoint, summaryStats, sport, recordedRunCadenceUnit,
   onHoverIndex, chartHighlightRange, metrics, powerSource, hasElevation = true, range, onRangeChange,
+  rangeControls, rangeAnalysis, elapsedAxisSec, xAxis,
 }: ActivityPerformanceChartsProps) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
@@ -122,7 +128,9 @@ export default function ActivityPerformanceCharts({
             </div>
           )}
 
+          {rangeControls}
           <ElevationChart
+            elapsedAxisSec={elapsedAxisSec} xAxis={xAxis}
             data={elevData}
             height={!hasElevation ? 56 : chartOverlays.length > 0 ? 150 : 200}
             showElevation={hasElevation}
@@ -133,6 +141,7 @@ export default function ActivityPerformanceCharts({
             separateOverlayLanes={chartOverlays.length > 0}
             highlightRange={chartHighlightRange}
           />
+          {rangeAnalysis}
           <ActivityZoneTimeline metrics={metrics} />
         </Card>
   );

@@ -1,10 +1,11 @@
+import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { collection, query, orderBy, where, getDocs, limit, addDoc, onSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, where, getDocs, limit, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { firestore, storage } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
@@ -13,6 +14,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { useStrava } from "../hooks/useStrava";
 import RouteMap from "../components/RouteMap";
 import Avatar from "../components/Avatar";
+import SegmentHistoryPanel from "../features/segments/SegmentHistoryPanel";
+import { segmentHistoryContext } from "../features/segments/segmentHistoryNavigation";
 import { Button, Card, Text } from "../theme/components";
 import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { isImplausibleAvgSpeed } from "../utils/activitySanity";
@@ -161,6 +164,7 @@ const SEGMENT_TABLE_CELL_STYLE: React.CSSProperties = {
 };
 
 interface EffortData {
+  deletedAt?: unknown;
   id: string;
   segmentId: string;
   activityId: string;
@@ -265,6 +269,9 @@ function formatTime(ms: number): string {
 export default function SegmentPage() {
   const { t } = useTranslation("segment");
   const { segmentId } = useParams<{ segmentId: string }>();
+  const [searchParams] = useSearchParams();
+  const drilldown = useMemo(() => segmentHistoryContext(searchParams), [searchParams]);
+  const drilldownKey = JSON.stringify([segmentId, drilldown]);
   const { user, profile } = useAuth();
   const { getStreams } = useStrava();
   const { data: segment, loading: segLoading } = useDocument<SegmentData>("segments", segmentId);
@@ -485,31 +492,31 @@ export default function SegmentPage() {
     }).catch((err) => logClientError("SegmentPage.bg", err, {}));
   }, [segment, user, profile?.stravaConnected, efforts, loadingEfforts]);
 
-  // My all efforts (for personal history)
-  const [allEfforts, setAllEfforts] = useState<EffortData[]>([]);
-  const [showAllEfforts, setShowAllEfforts] = useState(false);
-
+  // 원본 이력은 사용자 요청 때 최대 50개만 읽는다. 현재 시도 선택은 패널에서 명시한다.
+  const [historySeed, setHistorySeed] = useState<{ key: string; epoch: object; rows: EffortData[]; error: boolean } | null>(null);
+  const [historyVisibility, setHistoryVisibility] = useState<{ key: string; open: boolean } | null>(null);
+  const showAllEfforts = historyVisibility?.key === drilldownKey ? historyVisibility.open : drilldown !== null;
+  const historySeedKey = user && segmentId ? JSON.stringify([user.uid, segmentId]) : null;
+  const historySeedEpoch = useMemo(() => ({}), [historySeedKey, user, showAllEfforts]);
   useEffect(() => {
-    if (!segmentId || !user || !showAllEfforts) return;
-
-    const fetchMyEfforts = async () => {
+    if (!segmentId || !user || user.isAnonymous || !showAllEfforts || !historySeedKey) return;
+    let active = true;
+    const uid = user.uid;
+    void (async () => {
       try {
-        const q = query(
-          collection(firestore, `segment_efforts/${segmentId}/efforts`),
-          where("userId", "==", user.uid),
-          orderBy("startDate", "desc"),
-        );
-        const snap = await getDocs(q);
-        setAllEfforts(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() }) as EffortData),
-        );
+        const snap = await getDocs(query(collection(firestore, `segment_efforts/${segmentId}/efforts`), where("userId", "==", uid), orderBy("startDate", "desc"), limit(50)));
+        const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }) as EffortData).filter(row => row.deletedAt == null && row.userId === uid && row.segmentId === segmentId && /^[A-Za-z0-9_-]{1,200}$/u.test(row.activityId) && Number.isFinite(row.elapsedTime) && row.elapsedTime > 0);
+        const sources = await Promise.all(rows.map(row => getDoc(doc(firestore, `activities/${row.activityId}`))));
+        const owned = rows.filter((_row, i) => sources[i]?.exists() && sources[i]?.data()?.userId === uid && sources[i]?.data()?.deletedAt == null);
+        if (active) setHistorySeed({ key: historySeedKey, epoch: historySeedEpoch, rows: owned, error: false });
       } catch (err) {
         logClientError("SegmentPage.fetchMyEfforts", err, { segmentId });
+        if (active) setHistorySeed({ key: historySeedKey, epoch: historySeedEpoch, rows: [], error: true });
       }
-    };
-
-    fetchMyEfforts();
-  }, [segmentId, user, showAllEfforts]);
+    })();
+    return () => { active = false; };
+  }, [segmentId, user, showAllEfforts, historySeedKey, historySeedEpoch]);
+  const currentHistorySeed = historySeed?.key === historySeedKey && historySeed.epoch === historySeedEpoch ? historySeed : null;
 
   // Segment stats
   const elevGain = useMemo(
@@ -989,10 +996,11 @@ export default function SegmentPage() {
       </Card>
 
       {/* My History */}
-      {user && myBestEffort && (
+      {user && !user.isAnonymous && myBestEffort && (
         <Card padding="none" className="overflow-hidden">
           <button
-            onClick={() => setShowAllEfforts(!showAllEfforts)}
+            onClick={() => setHistoryVisibility({ key: drilldownKey, open: !showAllEfforts })}
+            aria-expanded={showAllEfforts}
             className="w-full flex items-center justify-between transition-colors"
             style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-5)" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--bg-2)"; }}
@@ -1009,54 +1017,7 @@ export default function SegmentPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          {showAllEfforts && (
-            <div>
-              {allEfforts.length === 0 ? (
-                <div className="flex items-center justify-center py-6">
-                  <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--lime)", borderTopColor: "transparent" }} />
-                </div>
-              ) : (
-                allEfforts.map((effort) => {
-                  const isBest = effort.id === myBestEffort.id;
-                  return (
-                    <div
-                      key={effort.id}
-                      className="flex items-center justify-between"
-                      style={{
-                        borderBottom: "1px solid var(--line-soft)",
-                        background: isBest ? "color-mix(in oklch, var(--lime) 8%, var(--bg-1))" : undefined,
-                        padding: "var(--space-3) var(--space-5)",
-                      }}
-                    >
-                      <div>
-                        <div style={SEGMENT_INLINE_WRAP_STYLE}>
-                          <span className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{new Date(effort.startDate).toLocaleDateString(localeTag())}</span>
-                          {isBest && (
-                            <span className="text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)]" style={{ background: "color-mix(in oklch, var(--amber) 18%, var(--bg-2))", color: "var(--amber)", border: "1px solid color-mix(in oklch, var(--amber) 35%, transparent)", padding: "var(--space-1) var(--space-2)" }}>BEST</span>
-                          )}
-                          {effort.prRank != null && effort.prRank <= 3 && (
-                            <span className="text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)]" style={{ ...rankStyle(effort.prRank), padding: "var(--space-1) var(--space-2)" }}>
-                              PR #{effort.prRank}
-                            </span>
-                          )}
-                        </div>
-                        <Link to={`/activity/${effort.activityId}`} className="text-[length:var(--fs-xs)] hover:underline inline-block" style={{ color: "var(--lime)", marginTop: "var(--space-1)" }}>
-                          {t("activity.view")}
-                        </Link>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono font-semibold" style={{ color: "var(--ink-0)" }}>{formatTime(effort.elapsedTime)}</div>
-                        <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
-                          {formatEffortSpeed(effort.averageSpeed)}
-                          {effort.averageWatts != null && ` · ${effort.averageWatts}W`}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
+          {showAllEfforts && segmentId && <SegmentHistoryPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} key={`${historySeedKey}:${drilldownKey}`} initialSelection={drilldown} segmentId={segmentId} seeds={currentHistorySeed?.rows ?? []} seedLoading={!currentHistorySeed} seedError={currentHistorySeed?.error ?? false} />}
         </Card>
       )}
     </div>

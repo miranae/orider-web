@@ -6,6 +6,8 @@ export type TFn = (key: string, options?: Record<string, unknown>) => string;
 export interface PowerCurvePoint {
   durationSeconds: number;
   maxPower: number;
+  sourceActivityId?: string;
+  startTime?: number;
 }
 
 export function getRangeOptions(t: TFn): { value: RangeOption; label: string }[] {
@@ -121,4 +123,26 @@ export function buildTodayConclusion({
     return { case: "recoveredLowRecentLoad", restDays, loadPct };
   }
   return { case: "balancedFollowPlan", restDays, loadPct };
+}
+
+/** Recent/previous windows remain fixed at 28 days, independent of the PMC page range.
+ * Legacy window v1 carries activity identity, but no measured-power provenance. */
+export function aggregateWindowPowerCurve(entries: readonly { activityId: string; startTime: number; mmp: Record<string, number> }[], fromInclusive: number, toExclusive: number): PowerCurvePoint[] {
+  const best = new Map<number, PowerCurvePoint>();
+  const rawMaxima = new Map<number, number>();
+  for (const entry of entries) {
+    if (entry.startTime < fromInclusive || entry.startTime >= toExclusive) continue;
+    for (const [key, watts] of Object.entries(entry.mmp)) {
+      if (!Object.prototype.hasOwnProperty.call(POWER_DURATION_KEY_SEC, key)) continue;
+      const seconds = POWER_DURATION_KEY_SEC[key as PowerDurationKey];
+      if (!seconds || !Number.isFinite(watts) || watts <= 0) continue;
+      const previous = best.get(seconds);
+      if (!previous || watts > rawMaxima.get(seconds)! || (watts === rawMaxima.get(seconds)! && (entry.startTime > (previous.startTime ?? 0)
+          || (entry.startTime === previous.startTime && entry.activityId < (previous.sourceActivityId ?? ""))))) {
+        rawMaxima.set(seconds, watts);
+        best.set(seconds, { durationSeconds: seconds, maxPower: Math.round(watts), sourceActivityId: entry.activityId, startTime: entry.startTime });
+      }
+    }
+  }
+  return [...best.values()].sort((a, b) => a.durationSeconds - b.durationSeconds);
 }
