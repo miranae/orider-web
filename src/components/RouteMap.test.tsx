@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import RouteMap from "./RouteMap";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
@@ -9,6 +9,7 @@ const mapProps = vi.hoisted(() => ({
     cooperativeGestures?: boolean;
     dragPan?: boolean;
     scrollZoom?: boolean;
+    onIdle?: () => void;
     onLoad?: (event: { target: Record<string, unknown> }) => void;
   },
   layers: new Map<string, Record<string, unknown>>(),
@@ -29,15 +30,17 @@ vi.mock("react-map-gl/mapbox", () => ({
     dragPan,
     scrollZoom,
     onLoad,
+    onIdle,
   }: {
     children: ReactNode;
     onError?: () => void;
     cooperativeGestures?: boolean;
     dragPan?: boolean;
     scrollZoom?: boolean;
+    onIdle?: () => void;
     onLoad?: (event: { target: Record<string, unknown> }) => void;
   }) => {
-    mapProps.latest = { cooperativeGestures, dragPan, scrollZoom, onLoad };
+    mapProps.latest = { cooperativeGestures, dragPan, scrollZoom, onLoad, onIdle };
     return (
       <button type="button" data-testid="mock-map" onClick={() => onError?.()}>
         {children}
@@ -61,6 +64,41 @@ describe("RouteMap", () => {
   beforeEach(() => {
     mapProps.layers.clear();
     mapProps.sources.length = 0;
+  });
+
+  it("keeps its loading placeholder until basemap idle and exposes the error fallback", () => {
+    const { queryByTestId } = renderWithProviders(
+      <RouteMap polyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@" loadingPlaceholder={<div data-testid="map-loading" />} />,
+    );
+    expect(queryByTestId("map-loading")).toBeInTheDocument();
+    act(() => mapProps.latest?.onIdle?.());
+    expect(queryByTestId("map-loading")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(queryByTestId("map-loading")).not.toBeInTheDocument();
+    expect(queryByTestId("mock-map")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-route-fallback-badge]")).toBeInTheDocument();
+  });
+
+  it("exposes the route fallback when the map fails before idle", () => {
+    const { queryByTestId } = renderWithProviders(
+      <RouteMap polyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@" loadingPlaceholder={<div data-testid="map-loading" />} />,
+    );
+    expect(queryByTestId("map-loading")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(queryByTestId("map-loading")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-route-fallback-badge]")).toBeInTheDocument();
+  });
+
+  it("preserves ready basemaps on fallback URL changes and waits for idle after route changes", () => {
+    const props = { polyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@", loadingPlaceholder: <div data-testid="map-loading" /> };
+    const { queryByTestId, rerender } = renderWithProviders(<RouteMap {...props} />);
+    act(() => mapProps.latest?.onIdle?.());
+    rerender(<RouteMap {...props} fallbackImageUrl="https://example.test/map.webp" />);
+    expect(queryByTestId("map-loading")).not.toBeInTheDocument();
+    rerender(<RouteMap {...props} polyline="37.5665,126.9780;37.5670,126.9790" />);
+    expect(queryByTestId("map-loading")).toBeInTheDocument();
+    act(() => mapProps.latest?.onIdle?.());
+    expect(queryByTestId("map-loading")).not.toBeInTheDocument();
   });
 
   it("uses the generated recorded-track functional color in production layers", () => {
