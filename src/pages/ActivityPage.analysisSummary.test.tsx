@@ -10,6 +10,7 @@ import ActivityPage from "./ActivityPage";
 const mocks = vi.hoisted(() => ({
   model: null as ActivityAnalysisModel | null,
   analysisProps: vi.fn(),
+  lapProps: vi.fn(),
   requestStreams: vi.fn(),
 }));
 vi.mock("../hooks/useActivityAnalysisModel", () => ({ useActivityAnalysisModel: () => mocks.model }));
@@ -18,7 +19,7 @@ vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ pdc: null }) }));
 vi.mock("../components/AnalysisTab", () => ({ default: (props: ComponentProps<typeof AnalysisTab>) => {
   mocks.analysisProps(props);
   return <div data-testid="summary-analysis">Analysis</div>;
-}, AnalysisLapTable: () => <div data-testid="summary-laps">Laps</div> }));
+}, AnalysisLapTable: (props: Record<string, unknown>) => { mocks.lapProps(props); return <div data-testid="summary-laps">Laps</div>; } }));
 vi.mock("../components/RouteMap", () => ({ default: () => <div /> }));
 vi.mock("../components/ElevationChart", () => ({ default: () => <div /> }));
 vi.mock("../components/activity/AiRideAnalysisCard", () => ({ default: () => <div /> }));
@@ -30,6 +31,7 @@ vi.mock("react-router-dom", async (importOriginal) => ({
 
 beforeEach(() => {
   mocks.analysisProps.mockClear();
+  mocks.lapProps.mockClear();
   mocks.requestStreams.mockClear();
   const activity = createMockActivity({ id: "summary-only", userId: "test-uid", source: "orider" });
   mocks.model = {
@@ -83,4 +85,18 @@ describe("ActivityPage server summary presentation", () => {
     expect(screen.getByTestId("summary-laps")).toBeInTheDocument();
     expect(mocks.requestStreams).not.toHaveBeenCalled();
   });
+  it("raw 러닝 랩도 종목별 표에 그대로 전달하고 새 스트림을 요청하지 않는다", () => {
+    const laps = [{ number: 1, distanceKm: 1, durationMs: 360000, avgSpeed: 12, avgCadence: 88 }];
+    mocks.model!.sport = "run";
+    mocks.model!.streams = { time: [], distance: [], laps } as never;
+    mocks.model!.effectiveStreams = mocks.model!.streams;
+    mocks.model!.analysisTabProps!.sport = "run";
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(screen.getByRole("tab", { name: /랩/u }));
+    expect(screen.getByTestId("summary-laps")).toBeInTheDocument();
+    expect(mocks.lapProps.mock.lastCall?.[0]).toMatchObject({ sport: "run", ftp: null, laps });
+    expect(mocks.lapProps.mock.lastCall?.[0].laps).toBe(laps);
+    expect(mocks.requestStreams).not.toHaveBeenCalled();
+  });
+
 });

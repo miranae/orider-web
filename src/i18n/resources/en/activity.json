@@ -896,7 +896,10 @@
       "footnote": "GAP = actual pace × Minetti energy cost adjustment. Pace normalized to flat ground."
     },
     "lap": {
+      "runBasis": "Uses recorded lap time and average speed; when speed is missing, pace uses recorded time and distance. Pause inclusion depends on the source.",
       "header": {
+        "recordedTime": "Recorded time",
+        "pace": "Pace",
         "lap": "Lap",
         "time": "Time",
         "distance": "Distance",
