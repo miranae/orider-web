@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { RunPrTable } from "@shared/types/personal-records";
-import { distanceRecords, newRecordsForActivity } from "./runRecords";
+import { distanceRecords, storedBestRecordsForActivity } from "./runRecords";
 
 const e = (value: number, activityId: string, startTime = 0) => ({
   value,
@@ -36,72 +36,31 @@ describe("distanceRecords", () => {
   });
 });
 
-describe("newRecordsForActivity", () => {
-  it("이 활동이 현행 최고면 배너 대상, 직전 최고 대비 단축 초를 계산", () => {
-    const run: RunPrTable = {
-      "5km": [e(1600, "today"), e(1641, "old")],
-    };
-    const news = newRecordsForActivity(run, "today");
-    expect(news).toHaveLength(1);
-    expect(news[0]).toEqual({ distance: "5km", timeSec: 1600, improvedBySec: 41 });
+describe("storedBestRecordsForActivity", () => {
+  it.each([0, 50, 200])("does not infer improvement from earlier, unknown or later records (time=%s)", startTime => {
+    const run: RunPrTable = { "5km": [e(1600, "current", 100), e(1641, "other", startTime)] };
+    expect(storedBestRecordsForActivity(run, "current")).toEqual([{ distance: "5km", timeSec: 1600, tied: false }]);
   });
-
-  it("이 활동이 최고가 아니면 배너 없음", () => {
-    const run: RunPrTable = { "5km": [e(1600, "someone"), e(1650, "today")] };
-    expect(newRecordsForActivity(run, "today")).toEqual([]);
+  it("does not call a sole top-K entry the first ever record", () => {
+    expect(storedBestRecordsForActivity({ "1km": [e(280, "current")] }, "current")).toEqual([{ distance: "1km", timeSec: 280, tied: false }]);
   });
-
-  it("이 활동이 유일 기록이면 improvedBySec 는 null (첫 기록)", () => {
-    const run: RunPrTable = { "1km": [e(280, "today")] };
-    expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBeNull();
+  it("omits a slower activity and an absent table", () => {
+    expect(storedBestRecordsForActivity({ "5km": [e(1600, "other"), e(1650, "current")] }, "current")).toEqual([]);
+    expect(storedBestRecordsForActivity(undefined, "current")).toEqual([]);
   });
-
-  it("여러 거리에서 동시에 기록을 세우면 모두 반환", () => {
-    const run: RunPrTable = {
-      "1km": [e(275, "today"), e(280, "old")],
-      "5km": [e(1600, "today")],
-      "10km": [e(3500, "other")],
-    };
-    const news = newRecordsForActivity(run, "today");
-    expect(news.map((n) => n.distance)).toEqual(["1km", "5km"]);
+  it("keeps multiple distances and deduplicates entries for the same activity", () => {
+    const run: RunPrTable = { "1km": [e(275, "current"), e(275, "current")], "5km": [e(1600, "current")], "10km": [e(3500, "other")] };
+    expect(storedBestRecordsForActivity(run, "current")).toEqual([{ distance: "1km", timeSec: 275, tied: false }, { distance: "5km", timeSec: 1600, tied: false }]);
   });
-
-  it("직전 최고는 '이 활동보다 느린 것 중 가장 빠른 것'이다", () => {
-    const run: RunPrTable = {
-      "10km": [e(3400, "today"), e(3410, "b"), e(3600, "c")],
-    };
-    // 직전 최고는 3410 (b) — 3400 보다 느린 것 중 최소
-    expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBe(10);
+  it("shows joint best neutrally and independently of list order", () => {
+    const entries = [e(1600, "x"), e(1600, "y")];
+    for (const id of ["x", "y"]) {
+      const result = [{ distance: "5km", timeSec: 1600, tied: true }];
+      expect(storedBestRecordsForActivity({ "5km": entries }, id)).toEqual(result);
+      expect(storedBestRecordsForActivity({ "5km": [...entries].reverse() }, id)).toEqual(result);
+    }
   });
-
-  // 동률 처리 (코드리뷰 지적) — 더 빠르지 않은데 "신기록"이라 말하면 거짓말이다.
-  it("직전 최고와 동률이면 배너 없음 — 갱신이 아니다", () => {
-    const run: RunPrTable = { "5km": [e(1600, "today"), e(1600, "old")] };
-    expect(newRecordsForActivity(run, "today")).toEqual([]);
-  });
-
-  // 코드리뷰 지적 — 스트림 보간 값은 소수라 그대로 두면 "41.2999999초 단축" 이 공유된다.
-  it("단축 초는 정수로 반올림한다 (공유 문구에 그대로 들어간다)", () => {
-    const run: RunPrTable = { "5km": [e(1600.1, "today"), e(1641.4, "old")] };
-    expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBe(41);
-  });
-
-  // null(첫 기록) 과 0(1초 미만 단축) 은 다른 의미다 — 섞으면 소비처가 "첫 기록이에요" 라고
-  // 거짓말한다. 세 상태를 구분한다.
-  it("0.5초 미만 단축은 0 — null(첫 기록) 이 아니다", () => {
-    const run: RunPrTable = { "5km": [e(1600.1, "today"), e(1600.4, "old")] };
-    expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBe(0);
-  });
-
-  it("직전 최고가 없을 때만 null (첫 기록)", () => {
-    const run: RunPrTable = { "5km": [e(1600, "today")] };
-    expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBeNull();
-  });
-
-  it("동률이 섞여도 결과가 결정적이다 — 입력 순서가 바뀌어도 같은 답", () => {
-    const a: RunPrTable = { "5km": [e(1600, "x"), e(1600, "y")] };
-    const b: RunPrTable = { "5km": [e(1600, "y"), e(1600, "x")] };
-    expect(newRecordsForActivity(a, "x")).toEqual(newRecordsForActivity(b, "x"));
-    expect(newRecordsForActivity(a, "y")).toEqual(newRecordsForActivity(b, "y"));
+  it("ignores invalid times instead of calling them records", () => {
+    expect(storedBestRecordsForActivity({ "1km": [e(0, "current"), e(Number.NaN, "current"), e(-1, "current")] }, "current")).toEqual([]);
   });
 });

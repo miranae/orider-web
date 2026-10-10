@@ -19,3 +19,9 @@ describe("activity analysis expansion runtime gate", () => {
     await loadRuntimeConfig(); expect(getRuntimeConfig().activityAnalysisExpansionEnabled).toBe(true);
   });
 });
+
+it.each(["true", 1, null, {}, false])("training period capability rejects non-boolean runtime value %s", async value => {
+  resetRuntimeConfigForTests({ trainingAnalysisPeriodsEnabled: true });
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ trainingAnalysisPeriodsEnabled: value }) }));
+  await loadRuntimeConfig(); expect(getRuntimeConfig().trainingAnalysisPeriodsEnabled).toBe(false);
+});

@@ -16,8 +16,17 @@ it.each(["orider", "strava"])("routes %s raw activity data to the fenced stage r
   const firestoreCalls = vi.mocked(getDoc).mock.calls.length;
   const { result, unmount } = renderHook(() => useActivityStreamsLoader({ activityId: activity.id, activity, userId: "owner", getStreams: providerGetStreams, t: key => key }));
   await waitFor(() => expect(result.current.streams).toEqual(streams));
-  expect(getActivityStreamsWithAuth).toHaveBeenCalledWith(expect.anything(), activity.id, expect.objectContaining({ functions: expect.anything(), ensureAppCheckReady: expect.any(Function) }));
+  expect(getActivityStreamsWithAuth).toHaveBeenCalledWith(expect.anything(), activity.id, expect.objectContaining({ functions: expect.anything(), ensureAppCheckReady: expect.any(Function) }), { includeRunEffortFacts: false });
   expect(providerGetStreams).not.toHaveBeenCalled();
   expect(vi.mocked(getDoc).mock.calls.length).toBe(firestoreCalls);
   unmount();
+});
+it.each([true, false])("opts into running effort facts only for the actual owner (%s)", async owner => {
+  const activity = { id: "orider_run", userId: "owner", source: "orider", type: "Run" } as Activity;
+  vi.mocked(getActivityStreamsWithAuth).mockResolvedValue({ userId: "owner", time: [0, 1] });
+  const getStreams = vi.fn();
+  const t = (key: string) => key;
+  const { result } = renderHook(() => useActivityStreamsLoader({ activityId: activity.id, activity, userId: owner ? "owner" : "other", getStreams, t }));
+  await waitFor(() => expect(result.current.streams).not.toBeNull());
+  expect(getActivityStreamsWithAuth).toHaveBeenCalledExactlyOnceWith(expect.anything(), activity.id, expect.anything(), { includeRunEffortFacts: owner });
 });

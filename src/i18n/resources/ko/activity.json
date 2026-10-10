@@ -1,4 +1,40 @@
 {
+  "trainingPeriods": {
+    "title": "기간별 훈련 강도",
+    "basis": "기록 당시 심박 기준·FTP별로 나눠 표시합니다. 비율의 분모는 각 그룹에서 관측된 이동 중 존 시간이며, 센서 누락 시간은 포함하지 않습니다.",
+    "period": "기간 {{count}}",
+    "heartRate": "심박 존",
+    "power": "파워 존",
+    "virtual": "추정 파워",
+    "measured": "실측 파워",
+    "groupBasis": "{{count}}개 활동 · 관측 소계 {{time}}",
+    "zero": "이 그룹에서 관측된 이동 중 존 시간은 0초입니다.",
+    "coverage": "확인 {{eligible}}/{{total}}개 활동 · 센서/정본 누락 {{missing}}개 · 기록 당시 기준 미확인 {{unknown}}개",
+    "missing": "표시할 수 있는 확정 존 기록이 없습니다.",
+    "partial": "누락된 기록이 있어 확인된 활동만 표시합니다.",
+    "truncated": "조회 한도에 도달하여 이 기간의 일부 활동만 표시합니다.",
+    "powerNotApplicable": "이 종목의 파워 존은 제공하지 않습니다.",
+    "paceUnavailable": "기록 당시 기준을 보존한 페이스 존 정본이 없어 페이스 존 분포는 제공하지 않습니다."
+  },
+  "runEfforts": {
+    "selection": "구간",
+    "selectEffort": "{{distance}} 구간 선택",
+    "calculationBasis": "기록 계산 기준",
+    "title": "페이스 커브와 거리별 최고 기록",
+    "curveTitle": "시간별 최고 페이스",
+    "duration": "확인할 시간",
+    "seconds": "{{count}}초",
+    "minutes": "{{count}}분",
+    "pending": "확정 분석을 기다리고 있습니다. 처리 중이거나 불완전한 입력으로 최고 기록을 표시하지 않습니다.",
+    "curveMissing": "이 활동에 확정된 속도 커브가 없습니다.",
+    "curveBasis": "각 시간 동안 기록한 최고 평균 속도를 페이스로 표시합니다. 거리별 기록이나 체력 향상 판정과는 다릅니다.",
+    "distanceTitle": "이 활동의 거리별 최고 기록",
+    "distance": "거리",
+    "elapsed": "경과시간",
+    "recordsMissing": "이 활동에 확정된 거리별 최고 기록이 없습니다.",
+    "elapsedBasis": "거리별 기록은 정지 시간을 포함한 경과시간입니다. 킬로미터 구간 기록은 시간 기준이 달라 값이 다를 수 있습니다.",
+    "locationMissing": "저장된 기록에는 확정 위치가 없어 지도나 구간 선택으로 연결할 수 없습니다."
+  },
   "overviewSummary": {
     "thresholdMissingChip": "임계값 없음",
     "thresholdMissing": "FTP·최대심박을 설정하면 존 분포·강도·같은 유형 비교가 채워집니다.",
@@ -1260,8 +1296,14 @@
       "failed": "기록을 공유하거나 복사하지 못했어요",
       "improved": "{{dist}} 최고 기록 {{time}} — 이전보다 {{sec}}초 단축했어요! O-Rider에서 분석했어요.",
       "improvedTiny": "{{dist}} 최고 기록 {{time}} — 이전 기록을 갱신했어요! O-Rider에서 분석했어요.",
-      "first": "{{dist}} 첫 기록 {{time}}을 세웠어요! O-Rider에서 분석했어요."
-    }
+      "first": "{{dist}} 첫 기록 {{time}}을 세웠어요! O-Rider에서 분석했어요.",
+      "stored": "현재 저장된 내 {{dist}} 최고 기록: {{time}}. 저장된 상위 기록 기준 · O-Rider."
+    },
+    "storedTitle": "현재 저장된 {{dist}} 최고 기록 · {{time}}",
+    "storedTieTitle": "현재 저장된 {{dist}} 공동 최고 기록 · {{time}}",
+    "storedNote": "저장된 상위 기록 기준입니다. 최초 기록이나 이 활동 당시의 단축 여부를 뜻하지 않습니다.",
+    "storedMore": "다른 거리 {{count}}개도 현재 최고",
+    "source": "근거 활동 보기"
   },
   "stravaSummary": {
     "title": "Strava에 요약 게시",
@@ -1339,11 +1381,37 @@
     "zoneNote": "각 활동 당시의 기준으로 분석한 분포입니다. 기준이 다르면 같은 존도 강도가 다를 수 있습니다.",
     "week": "이번 주",
     "month": "이번 달",
+    "3months": "최근 3개월",
+    "6months": "최근 6개월",
+    "12months": "최근 12개월",
+    "custom": "기간 직접 선택",
+    "fromDate": "시작 날짜",
+    "toDate": "종료 날짜",
+    "applyDates": "기간 적용",
+    "customNote": "최대 366일 · 현재 날짜까지 선택할 수 있습니다. 적용할 때만 기록을 읽습니다.",
+    "invalidDates": "시작·종료 날짜를 확인해 주세요. 미래 날짜와 366일을 넘는 기간은 선택할 수 없습니다.",
+    "customPeriodNote": "한국 시간 기준 · 선택 기간과 직전 같은 일수의 기간 비교",
+    "loadStatistics": "통계 기록 200개 더 불러오기",
+    "statisticsLimit": "조회 한도 도달 · 기간을 좁혀 주세요",
+    "statisticsReadNote": "추가 조회는 버튼을 누를 때만 진행하며 최대 1,000개까지 확인합니다.",
+    "monthlyTrend": "최근 {{count}}개월 거리 · {{unit}}",
+    "monthlyTrendNote": "매월 1일 시작 · 마지막 막대는 선택 기간의 종료일까지입니다.",
+    "inspectBucket": "{{date}}부터의 원본 활동 {{count}}개 보기",
+    "bucketHint": "막대를 선택하면 그 기간의 원본 활동을 확인할 수 있습니다.",
+    "bucketCount": "활동 {{count}}개",
+    "clearBucket": "전체 기간 활동 보기",
+    "chooseBucket": "원본 활동을 볼 기간",
+    "trendMetric": "추세를 볼 항목",
+    "weeklyMetricTrend": "최근 {{count}}주 · {{metric}}",
+    "monthlyMetricTrend": "최근 {{count}}개월 · {{metric}}",
     "periodNote": "한국 시간 기준 · 현재 진행 중인 기간과 직전 전체 기간 비교",
     "partial": "불러온 {{count}}개 기록만 확인했습니다. 전체 합계와 변화는 보류합니다.",
     "currentPeriod": "이번 기간",
     "previousPeriod": "지난 기간",
     "missingNote": "확인되지 않은 수치는 —로 표시합니다.",
+    "observedSubtotal": "확인된 합계 {{value}} · {{total}}개 중 {{known}}개",
+    "previousObservedSubtotal": "지난 기간 확인된 합계 {{value}} · {{total}}개 중 {{known}}개",
+    "subtotalNote": "일부 활동의 수치가 없어 확인된 합계만 표시합니다. 전체 합계와 증감은 계산하지 않습니다.",
     "sourceActivities": "합계에 포함된 활동 보기",
     "metrics": {
       "distanceKm": "거리",
@@ -1361,7 +1429,7 @@
       "movingTime": "이동시간 · h",
       "elevation": "상승고도 · {{unit}}"
     },
-    "weeklyTrend": "최근 6주 거리 · {{unit}}",
+    "weeklyTrend": "최근 {{count}}주 거리 · {{unit}}",
     "trendNote": "월요일 시작 · 마지막 막대는 이번 주 현재까지의 기록입니다.",
     "paceCurve": "지속시간별 최고 페이스",
     "visual": {
@@ -1373,7 +1441,18 @@
       "maxHr": "최대심박",
       "powerUnavailable": "파워 출처가 같고 확인된 두 활동에만 파워 곡선 비교를 표시합니다.",
       "powerMissing": "파워 분석 없음"
-    }
+    },
+    "route": {
+      "all": "모든 지난 활동",
+      "similar": "유사 코스 후보 ({{count}})",
+      "note": "불러온 과거 활동 최대 50개 중 {{count}}개를 썸네일 경로의 진행 방향·거리·전체 모양으로 확인합니다. 원본 GPS로 동일 코스를 확정한 결과가 아니며, 비교할 활동은 직접 선택하세요. 더 불러와도 추천 검사는 첫 50개로 제한됩니다.",
+      "choose": "썸네일 경로가 비슷한 후보입니다. 거리·고도·정지시간과 기록 조건도 함께 확인하세요.",
+      "empty": "이 목록에서 유사 코스 후보를 찾지 못했습니다. 모든 지난 활동에서 자유롭게 선택할 수 있습니다.",
+      "unavailable": "현재 활동에 충분한 실외 경로가 없어 후보를 추천할 수 없습니다. 모든 지난 활동에서 비교할 수 있습니다.",
+      "context": "기록된 정지시간: 현재 {{current}}초 · 비교 {{previous}}초. 거리·고도와 정지 조건이 달라지면 속도 차이가 성장만을 뜻하지 않습니다.",
+      "retained": "직접 선택한 비교 활동 · 추천 후보 아님"
+    },
+    "canonicalPeriodBasis": "확정 분석 수치를 우선 사용합니다. 이전 기록은 저장된 활동 요약으로 보완하며, 심박·파워 존은 당시 기준을 확인한 기록만 포함합니다."
   },
   "peakInspector": {
     "title": "최고 노력 자세히 보기",
@@ -1414,6 +1493,11 @@
     "readingGuide": "비교 기준과 읽는 방법"
   },
   "rangeAnalysis": {
+    "zeroObservedZones": "선택 구간에서 관측된 이동 중 존 시간은 0초입니다.",
+    "orAbove": "이상",
+    "recordedFtp": "기록 당시 FTP {{ftp}} W 기준입니다.",
+    "recordedHrReference": "활동 당시 기록된 {{reference}} {{bpm}} bpm 기준입니다.",
+    "zoneBasis": "비율은 선택 구간 전체 시간이 아니라 해당 존으로 확인된 기록 시간의 합을 기준으로 합니다.",
     "title": "선택 구간 분석",
     "controls": "차트 축과 구간 선택",
     "distanceAxis": "거리 축",

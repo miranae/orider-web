@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getActivityStreamsWithAuth } from "./personalDataApi";
+import { getActivityStreamsWithAuth, validatedRunEffortFacts } from "./personalDataApi";
 import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import type { Auth } from "firebase/auth";
 import type { Functions } from "firebase/functions";
@@ -46,4 +46,21 @@ describe("shared-data stage stream callable", () => {
     await expect(getActivityStreamsWithAuth(auth, "native_1", services)).rejects.toThrow("stage/callable-context-mismatch");
     expect(mocks.call).not.toHaveBeenCalled();
   });
+});
+
+const effortFacts = { state: "available" as const, reason: null, streamInputRevision: available.streamInputRevision, metricsRevision: "b".repeat(64), facts: [{ distance: "1km" as const, distanceM: 1000, elapsedSec: 220, exactElapsedSec: 220, startOffsetSec: 10, endOffsetSec: 230, axis: "canonical_distance_observations" as const, startIndex: 0, endBeforeIndex: 219, endIndex: 220, endFraction: 1 }] };
+it("opts into canonical effort facts in the same stream read and preserves the raw arrays", async () => {
+  const { auth, services } = setup(); mocks.call.mockResolvedValue({ data: { ...available, runningBestEffortsFacts: effortFacts } });
+  const result = await getActivityStreamsWithAuth(auth, "native_1", services, { includeRunEffortFacts: true });
+  expect(mocks.call).toHaveBeenCalledExactlyOnceWith({ activityId: "native_1", includeRunEffortFacts: true });
+  expect(result.time).toBe(available.streams.time);
+  expect(result.runningBestEffortsFacts).toEqual(effortFacts);
+});
+it("withholds invalid anchors or changed revisions without inventing a fallback", () => {
+  expect(validatedRunEffortFacts({ ...effortFacts, streamInputRevision: "c".repeat(64) }, available.streamInputRevision)).toBeNull();
+  expect(validatedRunEffortFacts({ ...effortFacts, state: "changed_input", facts: [] }, available.streamInputRevision)?.facts).toEqual([]);
+  for (const patch of [{ endOffsetSec: Number.NaN }, { distanceM: 5000 }, { endBeforeIndex: 220 }, { exactElapsedSec: 200 }, { axis: "gps" }]) {
+    const value = structuredClone(effortFacts); Object.assign(value.facts[0]!, patch);
+    expect(validatedRunEffortFacts(value, available.streamInputRevision)).toBeNull();
+  }
 });

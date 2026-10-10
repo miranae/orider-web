@@ -18,6 +18,8 @@ export interface RuntimeConfig {
   aiApiBase?: string;
   /** 활동 구간·개인 구간 이력·기간 파워 API 배포와 검증 후 켜는 소비 스위치. 기본 꺼짐. */
   activityAnalysisExpansionEnabled?: boolean;
+  /** 배포 검증한 stage 기간 통계·존 읽기 API의 별도 스위치. */
+  trainingAnalysisPeriodsEnabled?: boolean;
   coachPmcInsightEnabled?: boolean;
   coachRiderInsightEnabled?: boolean;
   coachProgressPlannerEnabled?: boolean;
@@ -85,6 +87,7 @@ function readBuildFallbackConfig(): RuntimeConfig {
     personalApiBase: import.meta.env.VITE_ORIDER_PERSONAL_API_BASE,
     aiApiBase: import.meta.env.VITE_ORIDER_AI_API_BASE,
     activityAnalysisExpansionEnabled: import.meta.env.VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED === "true",
+    trainingAnalysisPeriodsEnabled: import.meta.env.VITE_TRAINING_ANALYSIS_PERIODS_ENABLED === "true",
     coachPmcInsightEnabled: import.meta.env.VITE_COACH_PMC_INSIGHT_ENABLED === "true",
     coachRiderInsightEnabled: import.meta.env.VITE_COACH_RIDER_INSIGHT_ENABLED === "true",
     coachProgressPlannerEnabled: import.meta.env.VITE_COACH_PROGRESS_PLANNER_ENABLED === "true",
@@ -112,6 +115,9 @@ function withoutEmptyValues(config: RuntimeConfig): RuntimeConfig {
   const normalized = { ...config };
   if (Object.prototype.hasOwnProperty.call(normalized, "activityAnalysisExpansionEnabled")) {
     normalized.activityAnalysisExpansionEnabled = normalized.activityAnalysisExpansionEnabled === true;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalized, "trainingAnalysisPeriodsEnabled")) {
+    normalized.trainingAnalysisPeriodsEnabled = normalized.trainingAnalysisPeriodsEnabled === true;
   }
   return Object.fromEntries(
     Object.entries(normalized).filter(([, value]) => value !== undefined && value !== ""),

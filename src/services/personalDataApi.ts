@@ -2,6 +2,8 @@ import { auth, functions, ensureAppCheckReady } from "./firebase";
 import { httpsCallable, type Functions } from "firebase/functions";
 import type { Auth } from "firebase/auth";
 import { getRuntimeConfig } from "./runtimeConfig";
+import type { RunningBestEffortsFacts } from "@shared/types/running-best-efforts-facts";
+import { RUN_DISTANCE_M } from "@shared/types/personal-records";
 import type { ActivityStreams } from "@shared/types";
 
 export type PersonalApiScope =
@@ -83,6 +85,7 @@ export async function getActivityStreamsWithAuth(
   authInstance: Auth,
   activityId: string,
   services?: { functions: Functions; ensureAppCheckReady: (forceRefresh?: boolean) => Promise<void> },
+  options?: { includeRunEffortFacts?: boolean },
 ): Promise<ActivityStreams> {
   if (getRuntimeConfig().appEnvironment === "stage") {
     const provider = services ?? { functions, ensureAppCheckReady };
@@ -91,10 +94,11 @@ export async function getActivityStreamsWithAuth(
     if (provider.functions.app !== authInstance.app || provider.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("stage/callable-context-mismatch");
     await provider.ensureAppCheckReady();
     if (authInstance.currentUser?.uid !== uid) throw new Error("account_changed");
-    const response = await httpsCallable<{ activityId: string }, {
+    const response = await httpsCallable<{ activityId: string; includeRunEffortFacts?: boolean }, {
       activityId: string; state: "available" | "pending" | "changed_input" | "unavailable";
+      runningBestEffortsFacts?: RunningBestEffortsFacts;
       streamInputRevision: string | null; sourceLayer: "raw_parts" | "api_streams" | null; streams: ActivityStreams | null;
-    }>(provider.functions, "getActivityStreams")({ activityId });
+    }>(provider.functions, "getActivityStreams")({ activityId, ...(options?.includeRunEffortFacts === true ? { includeRunEffortFacts: true } : {}) });
     if (authInstance.currentUser?.uid !== uid) throw new Error("account_changed");
     const data = response.data;
     if (data?.activityId !== activityId || !["available", "pending", "changed_input", "unavailable"].includes(data.state)) throw new Error("INVALID_PERSONAL_API_RESPONSE");
@@ -104,6 +108,10 @@ export async function getActivityStreamsWithAuth(
     if (!data.streamInputRevision || !/^[a-f0-9]{64}$/.test(data.streamInputRevision)
       || !["raw_parts", "api_streams"].includes(data.sourceLayer ?? "") || !data.streams
       || typeof data.streams !== "object" || Array.isArray(data.streams)) throw new Error("INVALID_PERSONAL_API_RESPONSE");
+    if (options?.includeRunEffortFacts === true) {
+      const facts = validatedRunEffortFacts(data.runningBestEffortsFacts, data.streamInputRevision);
+      return { ...data.streams, ...(facts ? { runningBestEffortsFacts: facts } : { runningBestEffortsFacts: undefined }) };
+    }
     return data.streams;
   }
   const payload = await apiFetch<{ data?: ActivityStreams }>(
@@ -114,4 +122,23 @@ export async function getActivityStreamsWithAuth(
     throw new Error("INVALID_PERSONAL_API_RESPONSE");
   }
   return payload.data;
+}
+
+/** 확인할 수 없는 위치를 버리고 원본 스트림 표시는 유지한다. */
+export function validatedRunEffortFacts(value: RunningBestEffortsFacts | undefined, revision: string): RunningBestEffortsFacts | null {
+  if (!value || !["available", "unavailable", "changed_input"].includes(value.state) || value.streamInputRevision !== revision
+    || !/^[a-f0-9]{64}$/u.test(value.metricsRevision ?? "") || !Array.isArray(value.facts)) return null;
+  if (value.state !== "available") return value.facts.length === 0 ? value : null;
+  const seen = new Set<string>();
+  for (const fact of value.facts) {
+    if (!fact || !Object.prototype.hasOwnProperty.call(RUN_DISTANCE_M, fact.distance) || fact.distanceM !== RUN_DISTANCE_M[fact.distance] || seen.has(fact.distance)
+      || ![fact.elapsedSec, fact.exactElapsedSec, fact.startOffsetSec, fact.endOffsetSec, fact.endFraction].every(Number.isFinite)
+      || fact.elapsedSec <= 0 || fact.exactElapsedSec <= 0 || fact.startOffsetSec < 0 || fact.endOffsetSec <= fact.startOffsetSec
+      || Math.abs(fact.endOffsetSec - fact.startOffsetSec - fact.exactElapsedSec) > 1e-5 || Math.abs(fact.elapsedSec - fact.exactElapsedSec) > 1
+      || !["canonical_distance_observations", "canonical_route"].includes(fact.axis)
+      || ![fact.startIndex, fact.endBeforeIndex, fact.endIndex].every(index => Number.isSafeInteger(index) && index >= 0)
+      || fact.startIndex > fact.endBeforeIndex || fact.endBeforeIndex >= fact.endIndex || fact.endFraction < 0 || fact.endFraction > 1) return null;
+    seen.add(fact.distance);
+  }
+  return value.facts.length ? value : null;
 }

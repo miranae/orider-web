@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 
+import { disciplineOfType } from "@shared/sport/discipline";
 import type { Activity, ActivityStreams } from "@shared/types";
 // 훅이 아니라
 // 순수 async 함수라 컨텍스트를 못 쓴다. 임베드 경로의 유일한 호출부
@@ -45,6 +46,7 @@ export async function loadCanonicalActivityStreams(
   activityId: string,
   fallbackUserId?: string,
   services?: { auth: Auth; firestore: Firestore; functions?: Functions; ensureAppCheckReady?: (forceRefresh?: boolean) => Promise<void> },
+  options?: { includeRunEffortFacts?: boolean },
 ): Promise<ActivityStreams> {
   const { auth, firestore } = services ?? { auth: defaultAuth, firestore: defaultFirestore };
   if (getRuntimeConfig().appEnvironment === "stage") {
@@ -52,7 +54,7 @@ export async function loadCanonicalActivityStreams(
       ? (services.functions && services.ensureAppCheckReady ? { functions: services.functions, ensureAppCheckReady: services.ensureAppCheckReady } : undefined)
       : { functions: defaultFunctions, ensureAppCheckReady: defaultEnsureAppCheckReady };
     if (!provider) throw new Error("stage/callable-context-missing");
-    return getActivityStreamsWithAuth(auth, activityId, provider);
+    return getActivityStreamsWithAuth(auth, activityId, provider, options);
   }
   const snap = await getDoc(doc(firestore, "activity_streams", activityId));
   if (!snap.exists()) throw new Error("STREAMS_MISSING");
@@ -114,7 +116,7 @@ export function useActivityStreamsLoader({
       setLoadingStreams(true);
       setStreamsError(null);
       const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
-      loadCanonicalActivityStreams(activityId, activity.userId, services).then((parsed) => {
+      loadCanonicalActivityStreams(activityId, activity.userId, services, { includeRunEffortFacts: !!userId && userId === activity.userId && disciplineOfType(activity.type) === "run" }).then((parsed) => {
         if (active) setStreams(parsed);
       }).catch((err) => {
         if (!active) return;

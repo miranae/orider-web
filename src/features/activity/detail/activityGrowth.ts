@@ -40,26 +40,55 @@ export function comparableCurves(current: MetricsLike, previous: MetricsLike, po
       ? [{ ...point, baseline: match.value, delta: point.value - match.value }] : [];
   });
 }
-export function activityPeriods(now: number, period: "week" | "month") {
+export type StatisticsPeriod = "week" | "month" | "3months" | "6months" | "12months";
+export function activityPeriods(now: number, period: StatisticsPeriod) {
   if (period === "week") {
     const start = seoulWeekStartMs(now);
     return { start, end: Math.min(now + 1, start + 7 * DAY), previousStart: start - 7 * DAY, previousEnd: start };
   }
   const date = new Date(now + KST);
-  const start = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) - KST;
-  return { start, end: now + 1, previousStart: Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1, 1) - KST, previousEnd: start };
+  const months = period === "month" ? 1 : Number.parseInt(period, 10);
+  const start = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - months + 1, 1) - KST;
+  return { start, end: now + 1, previousStart: Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 2 * months + 1, 1) - KST, previousEnd: start };
+}
+/** 날짜 입력은 KST의 하루 전체를 뜻한다. 직전 비교는 동일한 일수이며 미래 날짜는 거부한다. */
+export function customActivityPeriods(from: string, to: string, now: number) {
+  const parse = (input: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) return null;
+    const time = Date.parse(`${input}T00:00:00+09:00`);
+    return Number.isFinite(time) && new Date(time + KST).toISOString().slice(0, 10) === input ? time : null;
+  };
+  const start = parse(from), last = parse(to);
+  const today = Math.floor((now + KST) / DAY) * DAY - KST;
+  if (start == null || last == null || start < 0 || last < start || last > today || last - start >= 366 * DAY) return null;
+  const width = last + DAY - start;
+  if (start - width < 0) return null;
+  return { start, end: Math.min(last + DAY, now + 1), previousStart: start - width, previousEnd: start };
 }
 export function summarizePeriod(activities: Activity[], start: number, end: number, complete: boolean) {
   const sources = activities.filter((activity) => activity.startTime >= start && activity.startTime < end);
-  const sum = (read: (activity: Activity) => unknown) => {
+  const coverage = (read: (activity: Activity) => unknown) => {
     const values = sources.map((activity) => knownNumber(read(activity)));
-    return complete && values.every((value) => value != null) ? values.reduce<number>((total, value) => total + value!, 0) : null;
+    const known = values.filter((value): value is number => value != null);
+    return {
+      total: complete && known.length === sources.length ? known.reduce((sum, value) => sum + value, 0) : null,
+      observed: complete && known.length > 0 ? known.reduce((sum, value) => sum + value, 0) : null,
+      knownCount: complete ? known.length : null,
+      missingCount: complete ? sources.length - known.length : null,
+    };
+  };
+  const fields = {
+    distance: coverage((activity) => activity.summary?.distance),
+    // 경과시간(ridingTimeMillis)을 이동시간으로 대체하지 않는다.
+    movingTime: coverage((activity) => activity.summary?.movingTimeSec),
+    elevation: coverage((activity) => activity.summary?.elevationGain),
   };
   return {
     sources,
     count: complete ? sources.length : null,
-    distance: sum((activity) => activity.summary?.distance),
-    movingTime: sum((activity) => activity.summary?.movingTimeSec),
-    elevation: sum((activity) => activity.summary?.elevationGain),
+    distance: fields.distance.total,
+    movingTime: fields.movingTime.total,
+    elevation: fields.elevation.total,
+    fields,
   };
 }

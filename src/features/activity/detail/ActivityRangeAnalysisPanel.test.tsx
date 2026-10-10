@@ -1,4 +1,5 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { deriveHrZoneBoundaries } from "@shared/training/hrZoneTable";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityRangeAnalysisResponse } from "@shared/types/activity-range-analysis";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
@@ -21,6 +22,38 @@ const metrics: NonNullable<ActivityRangeAnalysisResponse["metrics"]> = {
 const unavailable = { state: "unavailable", metrics: null, response: null, reason: "api_unavailable", retry: vi.fn() } as ReturnType<typeof useActivityRangeAnalysis>;
 beforeEach(() => { mocks.hook.mockReset().mockReturnValue(unavailable); selection.select = vi.fn(); });
 describe("canonical elapsed range reading", () => {
+  it("shows zone durations and percentages of observed zone time rather than selected elapsed time", () => {
+    const result = { ...metrics, hrZoneSec: [20, 20, 0, 0, 0], powerZoneSec: null };
+    const analysis = { ...unavailable, state: "available", metrics: result } as ReturnType<typeof useActivityRangeAnalysis>;
+    renderWithProviders(<ActivityRangeAnalysisReading selection={selection} sport="run" analysis={analysis} />);
+    const region = screen.getByRole("region", { name: "심박 존 시간", hidden: true });
+    expect(within(region).getAllByText(/50.0%/)).toHaveLength(2);
+    expect(region).toHaveTextContent("0:20");
+    expect(region).not.toHaveTextContent("6.7%");
+  });
+  it("labels the exact recorded LTHR boundaries even when a different maximum HR exists", () => {
+    const bounds = deriveHrZoneBoundaries({ lthr: 170, maxHr: 191, sport: "run" });
+    const result = { ...metrics, hrZoneSec: [20, 20, 0, 0, 0], context: { ...metrics.context, lthr: 170, hrZoneBoundaries: bounds } };
+    renderWithProviders(<ActivityRangeAnalysisReading selection={selection} sport="run" analysis={{ ...unavailable, state: "available", metrics: result }} />);
+    const region = screen.getByRole("region", { name: "심박 존 시간", hidden: true });
+    expect(region).toHaveTextContent("LTHR");
+    expect(region).toHaveTextContent("170 bpm");
+    expect(region).toHaveTextContent(`${bounds!.zones[0]!.minBpm}–<${bounds!.zones[0]!.maxBpmExclusive} bpm`);
+  });
+  it("distinguishes a confirmed zero observed subtotal from missing zones", () => {
+    renderWithProviders(<ActivityRangeAnalysisReading selection={selection} sport="run" analysis={{ ...unavailable, state: "available", metrics: { ...metrics, hrZoneSec: [0, 0, 0, 0, 0] } }} />);
+    expect(screen.getByRole("region", { name: "심박 존 시간" })).toHaveTextContent("0초");
+    expect(screen.queryByRole("region", { name: "파워 존 시간" })).not.toBeInTheDocument();
+  });
+  it("withholds zone displays for missing historical context or invalid arrays", () => {
+    const result = { ...metrics, context: { mode: "unavailable", ftp: null, maxHr: null }, hrZoneSec: [20, 20, 0, 0, 0], powerZoneSec: null } as typeof metrics;
+    const analysis = { ...unavailable, state: "available", metrics: result } as ReturnType<typeof useActivityRangeAnalysis>;
+    const { rerender } = renderWithProviders(<ActivityRangeAnalysisReading selection={selection} sport="run" analysis={analysis} />);
+    expect(screen.queryByRole("region", { name: "심박 존 시간", hidden: true })).not.toBeInTheDocument();
+    rerender(<ActivityRangeAnalysisReading selection={selection} sport="run" analysis={{ ...analysis, metrics: { ...metrics, hrZoneSec: [20, Number.NaN, 0, 0, 0] } }} />);
+    expect(screen.queryByRole("region", { name: "심박 존 시간", hidden: true })).not.toBeInTheDocument();
+  });
+
   it("keeps undeployed availability truthful and never passes an enable flag by default", () => {
     renderWithProviders(<Panel activityId="a" selection={selection} sport="bike" />);
     expect(mocks.hook).toHaveBeenLastCalledWith(expect.objectContaining({ callableEnabled: false, expectedInputRevision: undefined }));

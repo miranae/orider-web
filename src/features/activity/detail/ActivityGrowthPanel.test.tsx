@@ -5,10 +5,13 @@ import ko from "../../../i18n/resources/ko/activity.json";
 import en from "../../../i18n/resources/en/activity.json";
 import { ActivityGrowthPanel } from "./ActivityGrowthPanel";
 import { activityPeriods } from "./activityGrowth";
-const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn() }));
+import { periodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
+const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn() }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: mocks.units }) }));
 vi.mock("../../../hooks/useActivityGrowthHistory", () => ({ useActivityGrowthHistory: mocks.history }));
+vi.mock("../../../services/trainingAnalysisPeriods", () => ({ trainingAnalysisPeriodsAvailable: () => mocks.periodAvailable }));
+vi.mock("../../../hooks/useTrainingAnalysisPeriods", () => ({ useTrainingAnalysisPeriods: mocks.periods }));
 vi.mock("../../../hooks/useActivityMetrics", () => ({ useActivityMetrics: mocks.metrics }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: { language: mocks.language }, t: (key: string, params?: Record<string, unknown>) => {
   let text: unknown = mocks.language === "ko" ? ko : en;
@@ -18,6 +21,7 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: { language: moc
 const activity = { id: "current", userId: "owner", startTime: 100, type: "Run", summary: {} } as Activity;
 const previous = { ...activity, id: "previous", startTime: 50, description: "earlier" };
 beforeEach(() => {
+  mocks.periodAvailable = false; mocks.periods.mockReset().mockReturnValue({ state: "idle", response: null, retry: vi.fn() });
   mocks.user = { uid: "owner" }; mocks.language = "ko"; mocks.units = "metric";
   mocks.history.mockReset().mockReturnValue({ activities: [previous, { ...previous, id: "bike", type: "Ride" }], sourceActivities: [], coverage: "ready", loading: false, error: false, hasMore: false });
   mocks.metrics.mockReset().mockReturnValue({ status: "missing", metrics: null });
@@ -39,6 +43,22 @@ describe("ActivityGrowthPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
     expect(screen.getByRole("combobox")).toHaveValue("");
   });
+  it("keeps route recommendations opt-in, manual selection and one selected metrics subscription", () => {
+    const thumbnailTrack = "37,127;37.003,127;37.006,127;37.009,127";
+    const current = { ...activity, thumbnailTrack, summary: { distance: 1000 } } as Activity;
+    mocks.history.mockReturnValue({ activities: [{ ...previous, thumbnailTrack, summary: { distance: 1000 } }, { ...previous, id: "unrelated", description: "unrelated" }], loading: false });
+    render(<ActivityGrowthPanel activity={current} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    expect(screen.getByRole("option", { name: /unrelated/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "유사 코스 후보 (1)" }));
+    expect(screen.queryByRole("option", { name: /unrelated/ })).toBeNull();
+    expect(mocks.metrics).toHaveBeenLastCalledWith(null);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    expect(mocks.metrics).toHaveBeenLastCalledWith("previous");
+    fireEvent.click(screen.getByRole("button", { name: "모든 지난 활동" }));
+    expect(screen.getByRole("option", { name: /unrelated/ })).toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toHaveValue("previous");
+  });
   it("never exposes owner history in a public or foreign-owner activity", () => {
     const r = render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner={false} />);
     expect(r.container).toBeEmptyDOMElement(); expect(mocks.history).not.toHaveBeenCalled();
@@ -59,6 +79,53 @@ describe("ActivityGrowthPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Activity statistics" }));
     expect(screen.getByText("Only 1 loaded activities are confirmed. Full totals and changes are withheld.")).toBeInTheDocument();
     expect(screen.getAllByText("—").length).toBe(8); expect(screen.queryByRole("img")).toBeNull();
+  });
+  it("shows known moving-time subtotal and coverage while withholding incomplete totals and deltas", () => {
+    const periods = activityPeriods(Date.now(), "week");
+    mocks.history.mockReturnValue({ activities: [], coverage: "ready", sourceActivities: [
+      { ...activity, id: "known", startTime: periods.start, summary: { distance: 10000, movingTimeSec: 3600, elevationGain: 100 } },
+      { ...activity, id: "missing", startTime: periods.start + 1, summary: { distance: 10000, ridingTimeMillis: 7200000, elevationGain: 100 } },
+    ] });
+    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+    expect(screen.getByText("확인된 합계 1.0 · 2개 중 1개")).toBeInTheDocument();
+    expect(screen.getByText(/일부 활동의 수치가 없어/)).toBeInTheDocument();
+    expect(screen.getByText("이동시간 · h", { selector: ".ds-stat__label" }).closest(".ds-stat")?.querySelector(".ds-stat__value")?.textContent).toBe("—");
+  });
+  it("uses owner period analysis without a parallel history query and keeps unknown time explicit", () => {
+    mocks.periodAvailable = true;
+    const bounds = activityPeriods(Date.now(), "week");
+    const response = periodFixture();
+    response.discipline = "run";
+    const currentPeriod = response.periods[0]!;
+    Object.assign(currentPeriod, { fromInclusive: bounds.start, toExclusive: Date.now() });
+    currentPeriod.activities = [
+      { ...currentPeriod.activities[0]!, activityId: "known", startTime: bounds.start, movingTimeSec: 3600 },
+      { ...currentPeriod.activities[0]!, activityId: "unknown", startTime: bounds.start + 1, movingTimeSec: null, sourceBasis: { distanceM: "canonical_metrics", movingTimeSec: "unavailable", elevationGainM: "canonical_metrics" } },
+    ];
+    const previousPeriod = structuredClone(currentPeriod);
+    Object.assign(previousPeriod, { fromInclusive: bounds.previousStart, toExclusive: bounds.previousEnd, activities: [] });
+    response.periods.push(previousPeriod);
+    mocks.periods.mockReturnValue({ state: "ready", response, retry: vi.fn() });
+    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+    expect(mocks.history).toHaveBeenLastCalledWith("statistics", expect.any(Number), false, expect.any(Object));
+    expect(mocks.periods).toHaveBeenLastCalledWith("owner", expect.objectContaining({ request: expect.objectContaining({ discipline: "run", periods: expect.any(Array) }) }), true);
+    expect(screen.getByText("확인된 합계 1.0 · 2개 중 1개")).toBeInTheDocument();
+    expect(screen.getByText("이동시간 · h", { selector: ".ds-stat__label" }).closest(".ds-stat")?.querySelector(".ds-stat__value")?.textContent).toBe("—");
+    expect(screen.getByText(/확정 분석 수치를 우선/)).toBeInTheDocument();
+  });
+  it("withholds full totals on a bounded period scan and retries through its owner hook", () => {
+    mocks.periodAvailable = true;
+    const response = periodFixture();
+    response.periods[0]!.coverage.truncated = true;
+    const retry = vi.fn();
+    mocks.periods.mockReturnValue({ state: "error", response, retry });
+    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+    expect(screen.getByText("이동시간 · h", { selector: ".ds-stat__label" }).closest(".ds-stat")?.querySelector(".ds-stat__value")?.textContent).toBe("—");
+    fireEvent.click(screen.getByRole("button", { name: "다시 불러오기" }));
+    expect(retry).toHaveBeenCalledOnce();
   });
   it.each(["current", "previous"])("hides curve and zone comparisons for pending %s input", (side) => {
     const ready = { avgPower: 200, mmp: { "1m": 300 }, hrZoneSec: [10, 20], powerZoneSec: [20, 30] };

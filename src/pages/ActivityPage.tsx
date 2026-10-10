@@ -1060,10 +1060,15 @@ export default function ActivityPage() {
         streams={streams ?? { userId: activity.userId, time: [], distance: [] }}
         summary={displayedSummary}
         canonicalPresentationAvailable={overview.response?.status === "available"}
+        onSelectRunEffort={getRuntimeConfig().appEnvironment === "stage" && getRuntimeConfig().activityAnalysisExpansionEnabled === true && rangeSelection.enabled && !rangeSelection.sourceLocked ? rangeSelection.select : undefined}
         onSelectRunSplit={selectRunSplit}
         onViewRunSplitLocation={viewRunSplitLocation}
         canViewRunSplitLocation={!!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
       />}
+      {activeTab === "analysis" && sport === "run" && isActivityOwner && activity?.id && <div className="space-y-4">
+        <ActivityRangeControls selection={rangeSelection} />
+        <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} />
+      </div>}
       {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />}
 
       {/* ── 스플릿 탭 (러닝 전용) ── */}

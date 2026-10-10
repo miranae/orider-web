@@ -1,3 +1,4 @@
+import type { RunningBestEffortsFacts } from "./types/running-best-efforts-facts";
 // ── ActivityType ────────────────────────────────────────────────────
 /** Strava 및 Orider 내부에서 사용하는 활동 종목 문자열. Activity.type은 하위 호환을 위해 string 유지. */
 export type ActivityType = 'Ride' | 'Run' | 'Swim' | 'Walk' | 'Hike' | 'VirtualRide' | 'VirtualRun' | 'cycling' | 'running' | 'swimming' | 'transition' | 'brick';
@@ -683,6 +684,8 @@ export interface BoardComment {
 
 // ── Streams ──────────────────────────────────────────────────────────
 export interface ActivityStreams {
+  /** stage 응답에서 확인한 정본 facts sidecar. 원본 센서·GPS 값이 아니다. */
+  runningBestEffortsFacts?: RunningBestEffortsFacts;
   userId: string;
   latlng?: [number, number][];
   altitude?: number[];

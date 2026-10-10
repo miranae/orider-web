@@ -1,3 +1,4 @@
+import type { HrZoneBoundaries } from "@shared/training/hrZoneTable";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Input, Stat, Text } from "../../../theme";
@@ -44,6 +45,23 @@ function RangeTimeControls({ selection }: { selection: ActivityRangeSelectionMod
     <Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.shortHint")}</Text>
     <details className="activity-range-details"><summary>{t("rangeAnalysis.howToSelect")}</summary><Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.selectionHint")}</Text></details>
   </div>;
+}
+
+function RangeZones({ values, count, title, boundaries }: { values: number[] | null; count: number; title: string; boundaries?: HrZoneBoundaries | null }) {
+  const { t } = useTranslation("activity");
+  if (!values || values.length !== count || Array.from(values).some(value => !Number.isFinite(value) || value < 0)) return null;
+  const total = values.reduce((sum, value) => sum + value, 0);
+  if (total === 0) return <section aria-label={title}><Text as="h4" variant="bodySmall" weight={600}>{title}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.zeroObservedZones")}</Text></section>;
+  return <section className="space-y-3" aria-label={title}>
+    <Text as="h4" variant="bodySmall" weight={600}>{title}</Text>
+    {values.map((seconds, index) => <div key={index} className="flex items-center gap-3">
+      <div><Text variant="bodySmall">Z{index + 1}</Text>{boundaries?.zones[index] && <Text as="div" variant="caption" tone="tertiary">{boundaries.zones[index]!.minBpm}{boundaries.zones[index]!.maxBpmExclusive != null ? `–<${boundaries.zones[index]!.maxBpmExclusive}` : ` ${t("rangeAnalysis.orAbove")}`} bpm</Text>}</div>
+      <div className="flex-1 rounded-[var(--r-sm)] overflow-hidden bg-[var(--bg-2)]" aria-hidden="true"><div className="py-1" style={{ width: `${seconds / total * 100}%`, background: `var(--zone-${Math.min(index + 1, 5)})` }} /></div>
+      <Text variant="bodySmall" mono>{formatElapsedBoundary(seconds)} · {(seconds / total * 100).toFixed(1)}%</Text>
+    </div>)}
+    {boundaries && <Text as="p" variant="caption" tone="tertiary">{t("rangeAnalysis.recordedHrReference", { reference: boundaries.reference === "lthr" ? "LTHR" : t("analysis.metric.maxHr"), bpm: boundaries.referenceBpm })}</Text>}
+    <Text as="p" variant="caption" tone="tertiary">{t("rangeAnalysis.zoneBasis")}</Text>
+  </section>;
 }
 
 export default function ActivityRangeAnalysisPanel({ activityId, selection, sport, callableEnabled = false, previewActive = false }: Props) {
@@ -104,14 +122,17 @@ export function ActivityRangeAnalysisReading({ selection, sport, analysis, previ
         </div>
         {sport === "run" && metrics.averageCadence != null && <Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.cadenceUnitUnknown")}</Text>}
         <Text as="p" variant="bodySmall" tone="secondary">{t(metrics.powerSource === "virtual" ? "rangeAnalysis.virtualPower" : "rangeAnalysis.measuredMeans")}</Text>
+        {metrics.context.mode === "recorded" && (metrics.hrZoneSec || metrics.powerZoneSec) && <div className="space-y-4">
+          <RangeZones values={metrics.hrZoneSec} boundaries={metrics.context.hrZoneBoundaries} count={5} title={t("rangeAnalysis.hrZones")} />
+          <RangeZones values={metrics.powerZoneSec} count={7} title={t("rangeAnalysis.powerZones")} />
+          {metrics.powerZoneSec && metrics.context.ftp != null && <Text as="p" variant="caption" tone="tertiary">{t("rangeAnalysis.recordedFtp", { ftp: metrics.context.ftp })}</Text>}
+        </div>}
         <details className="activity-range-details"><summary>{t("rangeAnalysis.coverage")}</summary>
           <div className="space-y-2"><Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.pause", { time: duration(metrics.pauseSec), heartRate: metrics.maxHr == null ? "—" : `${format(metrics.maxHr)} bpm` })}</Text>
             {metrics.speedBasis && <Text as="p" variant="bodySmall" tone="secondary">{t(metrics.speedBasis === "moving_time" ? "rangeAnalysis.movingSpeedBasis" : "rangeAnalysis.measuredSpeedBasis")}</Text>}
             {(["power", "heartrate", "cadence", "speed"] as const).map(key => <Text key={key} as="p" variant="bodySmall" tone="secondary">
             {t(`rangeAnalysis.channel.${key}`)} · {t("rangeAnalysis.observed", { seconds: format(metrics.channels[key].measuredSec, 1, 1), percent: format(metrics.channels[key].fraction, 100, 1) })}</Text>)}
             <Text as="p" variant="bodySmall" tone="secondary">{t(metrics.diagnostics.gaps ? "rangeAnalysis.gaps" : "rangeAnalysis.noGaps")}</Text>
-            {metrics.hrZoneSec && <Text as="p" variant="bodySmall">{t("rangeAnalysis.hrZones")} · {metrics.hrZoneSec.map((seconds, index) => `Z${index + 1} ${duration(seconds)}`).join(" · ")}</Text>}
-            {metrics.powerZoneSec && <Text as="p" variant="bodySmall">{t("rangeAnalysis.powerZones")} · {metrics.powerZoneSec.map((seconds, index) => `Z${index + 1} ${duration(seconds)}`).join(" · ")}</Text>}
           </div>
         </details>
       </>}

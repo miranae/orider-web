@@ -279,6 +279,8 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
           <MobileFitnessPage
             {...model.mobilePageProps}
+            powerCurvePeriodsOwnerUid={user.uid}
+            powerCurvePeriodsEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true}
             embedded={embedded}
             coachSlot={mobileCoachBriefing}
             todayDecisionState={decisionState}

@@ -1,3 +1,4 @@
+import type { RunDistanceKey } from "./personal-records";
 import type { ActivityAnalysisSummary } from "../analysis/activityAnalysisSummary";
 import type { FatMaxProfile, RideSubstrate } from "../training/metabolism";
 /**
@@ -203,6 +204,8 @@ export interface ActivityMetrics {
   // ── Run-specific
   splits?: SplitRow[];
   runMetrics?: {
+    /** 서버가 확정한 거리별 최단 경과시간(sec), 휴식 포함. 위치 앵커는 제공되지 않는다. */
+    distanceRecords?: Partial<Record<RunDistanceKey, number>>;
     gapAvgSec: number | null;       // grade-adjusted pace 평균 (sec/km)
     /** A.6: split paces 표준편차 — 페이스 일관성. splits<2 → null. */
     paceStdDevSec?: number | null;

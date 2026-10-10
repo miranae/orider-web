@@ -1,4 +1,40 @@
 {
+  "trainingPeriods": {
+    "title": "Training intensity by period",
+    "basis": "Groups retain the recorded heart-rate thresholds and FTP. Percentages use each group’s observed moving zone time; missing sensor time is excluded.",
+    "period": "Period {{count}}",
+    "heartRate": "Heart-rate zones",
+    "power": "Power zones",
+    "virtual": "Estimated power",
+    "measured": "Measured power",
+    "groupBasis": "{{count}} activities · observed subtotal {{time}}",
+    "zero": "Observed moving zone time in this group is 0 seconds.",
+    "coverage": "Confirmed {{eligible}}/{{total}} activities · sensor/canonical records missing {{missing}} · recorded thresholds unknown {{unknown}}",
+    "missing": "No confirmed zone records are available.",
+    "partial": "Some records are missing; only confirmed activities are shown.",
+    "truncated": "The scan limit was reached; only part of this period is shown.",
+    "powerNotApplicable": "Power zones are not provided for this sport.",
+    "paceUnavailable": "Pace zones are unavailable because canonical records do not preserve the recorded pace thresholds."
+  },
+  "runEfforts": {
+    "selection": "Selection",
+    "selectEffort": "Select {{distance}} effort",
+    "calculationBasis": "How these records are calculated",
+    "title": "Pace curve and distance efforts",
+    "curveTitle": "Best pace by duration",
+    "duration": "Duration to inspect",
+    "seconds": "{{count}} seconds",
+    "minutes": "{{count}} minutes",
+    "pending": "Confirmed analysis is not ready. Pending or incomplete inputs are not used for best efforts.",
+    "curveMissing": "No confirmed speed curve is available for this activity.",
+    "curveBasis": "Highest recorded average speed for each duration, shown as pace. This is not a distance record or a claim of improved fitness.",
+    "distanceTitle": "Best distance efforts in this activity",
+    "distance": "Distance",
+    "elapsed": "Elapsed time",
+    "recordsMissing": "No confirmed distance efforts are available for this activity.",
+    "elapsedBasis": "Distance efforts use elapsed time, including stops. Kilometer splits use their own timing basis and may differ.",
+    "locationMissing": "These saved efforts have no confirmed location anchors, so map and range selection are unavailable."
+  },
   "overviewSummary": {
     "thresholdMissingChip": "No threshold set",
     "thresholdMissing": "Set your FTP or max heart rate to fill in zones, intensity and same-type comparisons.",
@@ -1260,8 +1296,14 @@
       "failed": "Couldn't share or copy the record",
       "improved": "{{dist}} best {{time}} — {{sec}}s faster than before! Analyzed on O-Rider.",
       "improvedTiny": "{{dist}} best {{time}} — a new personal best! Analyzed on O-Rider.",
-      "first": "Set my first {{dist}} record: {{time}}! Analyzed on O-Rider."
-    }
+      "first": "Set my first {{dist}} record: {{time}}! Analyzed on O-Rider.",
+      "stored": "My current stored {{dist}} best: {{time}}. Based on stored top records · O-Rider."
+    },
+    "storedTitle": "Current stored {{dist}} best · {{time}}",
+    "storedTieTitle": "Current stored {{dist}} joint best · {{time}}",
+    "storedNote": "Based on stored top records. This does not establish a first record or improvement at the time of this activity.",
+    "storedMore": "Current best at {{count}} more distance(s)",
+    "source": "View source activity"
   },
   "stravaSummary": {
     "title": "Publish summary to Strava",
@@ -1339,11 +1381,37 @@
     "zoneNote": "Distributions use each activity’s historical thresholds. The same zone can represent different intensities when thresholds differ.",
     "week": "This week",
     "month": "This month",
+    "3months": "Last 3 months",
+    "6months": "Last 6 months",
+    "12months": "Last 12 months",
+    "custom": "Custom dates",
+    "fromDate": "Start date",
+    "toDate": "End date",
+    "applyDates": "Apply dates",
+    "customNote": "Choose up to 366 days ending no later than today. Records are read only when applied.",
+    "invalidDates": "Check the start and end dates. Future dates and periods longer than 366 days are unavailable.",
+    "customPeriodNote": "Korea time · selected period versus the preceding period with the same number of days",
+    "loadStatistics": "Load 200 more activities",
+    "statisticsLimit": "Read limit reached · choose a shorter period",
+    "statisticsReadNote": "More records are read only on request, up to 1,000 activities.",
+    "monthlyTrend": "Distance over {{count}} months · {{unit}}",
+    "monthlyTrendNote": "Months start on the first. The final bar ends at the selected period’s end.",
+    "inspectBucket": "View {{count}} source activities starting {{date}}",
+    "bucketHint": "Select a bar to inspect that period’s source activities.",
+    "bucketCount": "{{count}} activities",
+    "clearBucket": "View full-period activities",
+    "chooseBucket": "Period to inspect source activities",
+    "trendMetric": "Trend metric",
+    "weeklyMetricTrend": "{{metric}} over {{count}} weeks",
+    "monthlyMetricTrend": "{{metric}} over {{count}} months",
     "periodNote": "Korea time · current ongoing period versus the full previous period",
     "partial": "Only {{count}} loaded activities are confirmed. Full totals and changes are withheld.",
     "currentPeriod": "Current period",
     "previousPeriod": "Previous period",
     "missingNote": "Unconfirmed values are shown as —.",
+    "observedSubtotal": "Known subtotal {{value}} · {{known}} of {{total}} activities",
+    "previousObservedSubtotal": "Previous known subtotal {{value}} · {{known}} of {{total}} activities",
+    "subtotalNote": "Some activity values are missing. Only known subtotals are shown; full totals and changes are withheld.",
     "sourceActivities": "View activities included in the totals",
     "metrics": {
       "distanceKm": "Distance",
@@ -1361,7 +1429,7 @@
       "movingTime": "Moving time · h",
       "elevation": "Elevation gain · {{unit}}"
     },
-    "weeklyTrend": "Distance over 6 weeks · {{unit}}",
+    "weeklyTrend": "Distance over {{count}} weeks · {{unit}}",
     "trendNote": "Weeks start on Monday. The final bar is this week so far.",
     "paceCurve": "Best pace by duration",
     "visual": {
@@ -1373,7 +1441,18 @@
       "maxHr": "Max HR",
       "powerUnavailable": "Power curve comparison requires matching, confirmed power sources in both activities.",
       "powerMissing": "Power analysis unavailable"
-    }
+    },
+    "route": {
+      "all": "All previous activities",
+      "similar": "Similar route candidates ({{count}})",
+      "note": "Checks direction, length and overall shape in route thumbnails for {{count}} loaded activities, capped at 50. This does not confirm identical routes using original GPS. Choose the comparison yourself. Loading more keeps recommendations limited to the first 50.",
+      "choose": "These route thumbnails look similar. Check distance, elevation, pauses and recording conditions too.",
+      "empty": "No similar route candidates in this list. Choose freely from all previous activities.",
+      "unavailable": "This activity lacks a sufficiently complete outdoor route. You can still compare any previous activity.",
+      "context": "Recorded pause time: current {{current}} s · comparison {{previous}} s. Different distances, elevation and pauses mean a speed change alone does not prove improvement.",
+      "retained": "Your selected comparison · not a route candidate"
+    },
+    "canonicalPeriodBasis": "Final analysis values take precedence. Older activities may use recorded summaries; heart-rate and power zones include only activities with verified historical thresholds."
   },
   "peakInspector": {
     "title": "Inspect peak efforts",
@@ -1414,6 +1493,11 @@
     "readingGuide": "Comparison basis and reading guide"
   },
   "rangeAnalysis": {
+    "zeroObservedZones": "Observed moving zone time in this selection is 0 seconds.",
+    "orAbove": "or above",
+    "recordedFtp": "Based on the recorded FTP of {{ftp}} W.",
+    "recordedHrReference": "Uses the recorded activity-time {{reference}} of {{bpm}} bpm.",
+    "zoneBasis": "Zone percentages use the observed time assigned to these zones, rather than the entire selected range.",
     "title": "Selected range analysis",
     "controls": "Chart axis and range selection",
     "distanceAxis": "Distance axis",
