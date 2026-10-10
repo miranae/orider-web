@@ -1049,7 +1049,7 @@ export default function ActivityPage() {
               )}
             </div>
           )}
-          <AnalysisTab {...analysisTabProps} onSignIn={() => { void signInWithGoogle(); }} canonicalPresentationAvailable={overview.response?.status === "available"} />
+          <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} onSignIn={() => { void signInWithGoogle(); }} />
         </Card>
       )}
       {activeTab === "analysis" && sport === "run" && <AnalysisTab
