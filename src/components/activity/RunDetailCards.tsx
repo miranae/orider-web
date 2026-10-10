@@ -288,10 +288,12 @@ function CadenceCard({ laps, cadenceUnit }: { laps?: ActivityStreams["laps"]; ca
 
 // ── GAP 패널 ─────────────────────────────────────────────────────────────────
 
-function GapCard({ summary, gapSecPerKm }: { summary: ActivitySummary; gapSecPerKm?: number | null }) {
+function GapCard({ summary, avgSpeedKph, gapSecPerKm }: { summary: ActivitySummary; avgSpeedKph?: number | null; gapSecPerKm?: number | null }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
-  const avgPace = summary.averageSpeed > 0 ? formatPaceSec(3600 / summary.averageSpeed, units) : "—";
+  // 전달된 정본 null은 결측 그대로 둔다. 기존 독립 사용처는 미전달일 때만 요약을 쓴다.
+  const averageSpeed = avgSpeedKph === undefined ? summary.averageSpeed : avgSpeedKph;
+  const avgPace = averageSpeed != null && Number.isFinite(averageSpeed) && averageSpeed > 0 ? formatPaceSec(3600 / averageSpeed, units) : "—";
   const gapPace = gapSecPerKm != null && gapSecPerKm > 0 ? formatPaceSec(gapSecPerKm, units) : "—";
 
   return (
@@ -481,8 +483,9 @@ function GearCard({ gear }: { gear?: Activity["gear"] }) {
 }
 
 /** 러닝 활동 상세 — 우측 사이드바용 카드 */
-export function RunRightCards({ summary, activity, metricsWeather, metricsStatus, gapSecPerKm, hrLoad }: {
+export function RunRightCards({ summary, avgSpeedKph, activity, metricsWeather, metricsStatus, gapSecPerKm, hrLoad }: {
   summary: ActivitySummary;
+  avgSpeedKph?: number | null;
   gapSecPerKm?: number | null;
   hrLoad?: number | null;
   activity?: Activity;
@@ -492,7 +495,7 @@ export function RunRightCards({ summary, activity, metricsWeather, metricsStatus
   return (
     <>
       <RunLoadCard tss={hrLoad ?? null} />
-      <GapCard summary={summary} gapSecPerKm={gapSecPerKm} />
+      <GapCard summary={summary} avgSpeedKph={avgSpeedKph} gapSecPerKm={gapSecPerKm} />
       <WeatherCard weather={activity?.weather} metricsWeather={metricsWeather} metricsStatus={metricsStatus} />
       <GearCard gear={activity?.gear} />
     </>
