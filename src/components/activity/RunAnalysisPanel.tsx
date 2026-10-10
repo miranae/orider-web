@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import type { RunningBestEffortsFacts } from "@shared/types/running-best-efforts-facts";
 import type { ActivityMetricsDoc } from "../../hooks/useActivityMetrics";
 import { useLocale } from "../../contexts/LocaleContext";
 import { formatPace, formatElev, formatDistance } from "../../utils/units";
@@ -9,6 +10,7 @@ import { Card, Text } from "../../theme/components";
 import { MetricExplainerTrigger } from "../common/MetricExplainer";
 import type { InterpretationContext, MetricKey } from "../../utils/metricInterpretation";
 import { runningCadenceSpm } from "../../utils/runningCadence";
+import RunEffortsPanel from "./RunEffortsPanel";
 import RunSplitProfile from "./RunSplitProfile";
 import ZoneDistributionChart from "../ZoneDistributionChart";
 import { hrZoneDistribution } from "../../features/activity/detail/metricsPresentation";
@@ -23,8 +25,11 @@ function RunMetric({ label, value, description, unit, explain }: { label: string
 }
 
 /** 서버의 러닝 지표만 표시한다. 사이클 FTP 기반 수치는 러닝 파워에 적용하지 않는다. */
-export default function RunAnalysisPanel({ metrics, summary, suppressCadence = false, onSelectSplit, onViewSplitLocation, canViewSplitLocation = false }: {
+export default function RunAnalysisPanel({ metrics, summary, suppressCadence = false, onSelectSplit, onViewSplitLocation, canViewSplitLocation = false, effortsReady = false, effortFacts, onSelectEffort }: {
   metrics: ActivityMetricsDoc;
+  effortsReady?: boolean;
+  effortFacts?: RunningBestEffortsFacts;
+  onSelectEffort?: (range: { startOffsetSec: number; endOffsetSec: number }) => void;
   onSelectSplit?: (split: SplitRow | null) => void;
   onViewSplitLocation?: () => void;
   canViewSplitLocation?: boolean;
@@ -62,6 +67,7 @@ export default function RunAnalysisPanel({ metrics, summary, suppressCadence = f
       </details>}
     </Card>}
     <RunSplitProfile splits={splits} distanceKm={distanceKm} suppressCadence={suppressCadence} cadenceLabel={cadenceLabel} formatCadence={cadence} onSelectSplit={onSelectSplit} onViewSplitLocation={onViewSplitLocation} canViewSplitLocation={canViewSplitLocation} />
+    <RunEffortsPanel metrics={metrics} ready={effortsReady} facts={effortFacts} onSelectEffort={onSelectEffort} />
     {(metrics.avgHr != null || metrics.maxHr != null) && <div>
       <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3">{t("analysis.section.hr")}</h3>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

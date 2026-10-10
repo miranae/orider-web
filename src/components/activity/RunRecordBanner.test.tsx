@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render as renderBase, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import type { ReactElement } from "react";
+const render = (ui: ReactElement) => renderBase(<MemoryRouter>{ui}</MemoryRouter>);
 import RunRecordBanner from "./RunRecordBanner";
 import type { RunPrTable } from "@shared/types/personal-records";
 
@@ -9,16 +12,18 @@ import { track } from "../../services/analytics";
 const e = (value: number, activityId: string) => ({ value, activityId, date: "2026-07-10", startTime: 0 });
 
 describe("RunRecordBanner", () => {
-  it("이 활동이 현행 최고면 배너를 띄우고 단축 초를 보여준다", () => {
+  it("현재 저장된 최고를 중립적으로 보여주고 근거 활동으로 연결한다", () => {
     const run: RunPrTable = { "5km": [e(1600, "today"), e(1641, "old")] };
     render(<RunRecordBanner run={run} activityId="today" />);
-    expect(screen.getByText(/5km 최고 기록! 26'40"/)).toBeInTheDocument();
-    expect(screen.getByText(/41초 단축/)).toBeInTheDocument();
+    expect(screen.getByText(/현재 저장된 5km 최고 기록 · 26'40"/)).toBeInTheDocument();
+    expect(screen.queryByText(/41초 단축/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "근거 활동 보기" })).toHaveAttribute("href", "/ko/activity/today");
   });
 
-  it("첫 기록이면 '첫 기록이에요'", () => {
+  it("유일 상위 기록도 최초라고 주장하지 않는다", () => {
     render(<RunRecordBanner run={{ "1km": [e(280, "today")] }} activityId="today" />);
-    expect(screen.getByText(/첫 기록이에요/)).toBeInTheDocument();
+    expect(screen.queryByText(/첫 기록이에요/)).not.toBeInTheDocument();
+    expect(screen.getByText(/현재 저장된 1km 최고 기록/)).toBeInTheDocument();
   });
 
   it("이 활동이 최고가 아니면 렌더하지 않는다", () => {
@@ -35,9 +40,20 @@ describe("RunRecordBanner", () => {
     };
     render(<RunRecordBanner run={run} activityId="today" />);
     expect(screen.getByText(/5km 최고 기록/)).toBeInTheDocument();
-    expect(screen.getByText(/다른 거리 1개도 갱신/)).toBeInTheDocument();
+    expect(screen.getByText(/다른 거리 1개도 현재 최고/)).toBeInTheDocument();
   });
 
+  it("uses neutral joint-best wording for ties without an achievement claim", () => {
+    render(<RunRecordBanner run={{ "5km": [e(1600, "today"), e(1600, "other")] }} activityId="today" />);
+    expect(screen.getByText(/현재 저장된 5km 공동 최고 기록/)).toBeInTheDocument();
+    expect(screen.queryByText(/초 단축|첫 기록이에요|기록을 갱신/)).not.toBeInTheDocument();
+  });
+  it("does not report an improvement relative to a later activity", () => {
+    const run: RunPrTable = { "5km": [{ ...e(1600, "today"), startTime: 100 }, { ...e(1641, "future"), startTime: 200 }] };
+    render(<RunRecordBanner run={run} activityId="today" />);
+    expect(screen.getByText(/현재 저장된 5km 최고 기록/)).toBeInTheDocument();
+    expect(screen.queryByText(/41초 단축|첫 기록이에요/)).not.toBeInTheDocument();
+  });
   it("기록이 없으면 렌더하지 않는다", () => {
     const { container } = render(<RunRecordBanner run={undefined} activityId="today" />);
     expect(container).toBeEmptyDOMElement();
@@ -64,7 +80,8 @@ describe("RunRecordBanner — 공유", () => {
     await vi.waitFor(() => expect(shareSpy).toHaveBeenCalled());
     const arg = shareSpy.mock.calls[0][0];
     expect(arg.text).toContain("5km");
-    expect(arg.text).toContain("41초 단축");
+    expect(arg.text).toContain("현재 저장된 내 5km 최고 기록");
+    expect(arg.text).not.toMatch(/단축|첫 기록|갱신/);
     expect(arg.url).toContain("/activity/today");
   });
 

@@ -101,3 +101,10 @@ test("rejects fixture data Firebase or production callable services in stage out
     assert.throws(() => render({ ...isolatedStage, ...extra }));
   }
 });
+
+test("training period capability defaults off and stage workflow declares the separate deployment switch", () => {
+  for (const value of ["", "false", "1", "TRUE"]) assert.equal(render({ VITE_TRAINING_ANALYSIS_PERIODS_ENABLED: value }).trainingAnalysisPeriodsEnabled, false);
+  assert.equal(render({ VITE_TRAINING_ANALYSIS_PERIODS_ENABLED: "true" }).trainingAnalysisPeriodsEnabled, true);
+  const stage = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
+  assert.match(stage, /VITE_TRAINING_ANALYSIS_PERIODS_ENABLED: \$\{\{ vars\.STAGE_VITE_TRAINING_ANALYSIS_PERIODS_ENABLED \}\}/);
+});

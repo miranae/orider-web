@@ -1,3 +1,5 @@
+import type { HrZoneBoundaries } from "../training/hrZoneTable";
+
 /** Owner-only read contract. Selection is elapsed seconds, start-inclusive/end-exclusive. */
 export interface ActivityRangeAnalysisRequest {
   activityId: string;
@@ -43,5 +45,5 @@ export interface ActivityRangeMetrics {
   diagnostics: { clippedBoundary: boolean; gaps: boolean; distanceReason: string | null; zonesReason: string };
   powerSource: "measured" | "virtual" | null;
   isVirtualPower: boolean;
-  context: { mode: "recorded" | "unavailable"; ftp: number | null; maxHr: number | null };
+  context: { mode: "recorded" | "unavailable"; ftp: number | null; maxHr: number | null; lthr?: number | null; hrZoneBoundaries?: HrZoneBoundaries | null };
 }

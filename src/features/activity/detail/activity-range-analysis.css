@@ -8,3 +8,5 @@
 .activity-range-details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
 .activity-range-details > div { padding-top: var(--space-3); }
 @media (min-width: 48rem) { .activity-range-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.activity-range-controls .ds-btn--sm, .activity-range-reading .ds-btn--sm { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }

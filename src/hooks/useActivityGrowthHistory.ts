@@ -17,8 +17,9 @@ function boundedRead<T>(request: Promise<T>): Promise<T> {
 const ownerGenerations = new WeakMap<Firestore, { uid: string | null; generation: number }>();
 const historyRequests = new WeakMap<Firestore, Map<string, Promise<HistoryPage>>>();
 type HistoryState = { serverConfirmed: boolean; firestore: Firestore; key: string; activities: Activity[]; coverage: Coverage; hasMore: boolean; cursor: QueryDocumentSnapshot<DocumentData> | null };
-/** 소유자의 비교 목록/12주 통계 원본만 읽는다. 임베드 Firebase를 주입하고 프로필·스트림은 읽지 않는다. */
-export function useActivityGrowthHistory(mode: "comparison" | "statistics", now: number, enabled = true) {
+export interface StatisticsWindow { fromInclusive: number; toExclusive: number }
+/** 소유자 요약만 읽고 스트림은 읽지 않는다. 통계는 200건씩 명시적 추가 조회, 최대 1,000건이다. */
+export function useActivityGrowthHistory(mode: "comparison" | "statistics", now: number, enabled = true, window?: StatisticsWindow) {
   const { user } = useAuth();
   const { firestore } = useFirebaseServices();
   const uid = user?.uid ?? null;
@@ -28,7 +29,11 @@ export function useActivityGrowthHistory(mode: "comparison" | "statistics", now:
     ownerGenerations.set(firestore, ownerGeneration);
   }
   const requestGeneration = ownerGeneration.generation;
-  const key = `${uid}:${mode}:${mode === "statistics" ? now : "history"}`;
+  const fromInclusive = window?.fromInclusive ?? now - 12 * 7 * 86400000;
+  const toExclusive = window?.toExclusive;
+  const validWindow = !window || Number.isSafeInteger(fromInclusive) && fromInclusive >= 0 && Number.isSafeInteger(toExclusive) && toExclusive! > fromInclusive && toExclusive! <= now + 1;
+  const enabledForWindow = enabled && (mode !== "statistics" || validWindow);
+  const key = `${uid}:${mode}:${mode === "statistics" ? `${now}:${fromInclusive}:${toExclusive ?? "open"}` : "history"}`;
   const epoch = useRef(0);
   const servicesRef = useRef(firestore);
   if (servicesRef.current !== firestore) { servicesRef.current = firestore; epoch.current += 1; }
@@ -41,13 +46,13 @@ export function useActivityGrowthHistory(mode: "comparison" | "statistics", now:
     if (!uid) return null;
     let requests = historyRequests.get(firestore);
     if (!requests) { requests = new Map(); historyRequests.set(firestore, requests); }
-    const requestKey = JSON.stringify([uid, requestGeneration, mode, mode === "statistics" ? now : null, size, cursor?.ref.path ?? null]);
+    const requestKey = JSON.stringify([uid, requestGeneration, mode, mode === "statistics" ? [now, fromInclusive, toExclusive] : null, size, cursor?.ref.path ?? null]);
     const pending = requests.get(requestKey);
     if (pending) return pending;
     const request = (async (): Promise<HistoryPage> => {
       const snap = await boundedRead(getDocs(query(collection(firestore, "activities"),
         where("userId", "==", uid), where("deletedAt", "==", null),
-        ...(mode === "statistics" ? [where("startTime", ">=", now - 12 * 7 * 86400000)] : []),
+        ...(mode === "statistics" ? [where("startTime", ">=", fromInclusive), ...(toExclusive == null ? [] : [where("startTime", "<", toExclusive)])] : []),
         orderBy("startTime", "desc"), limit(size), ...(cursor ? [startAfter(cursor)] : []))));
       return {
         activities: snap.docs.map((doc) => ({ ...doc.data(), id: doc.id }) as Activity)
@@ -61,13 +66,13 @@ export function useActivityGrowthHistory(mode: "comparison" | "statistics", now:
     requests.set(requestKey, request);
     void request.finally(() => { if (requests?.get(requestKey) === request) requests.delete(requestKey); }).catch(() => {});
     return request;
-  }, [firestore, mode, now, requestGeneration, uid]);
+  }, [firestore, fromInclusive, mode, now, requestGeneration, toExclusive, uid]);
   useEffect(() => {
     const generation = ++epoch.current;
     let active = true;
     const current = () => active && generation === epoch.current && currentKey.current === key;
     setLoadingMore(false);
-    if (!uid || !enabled) { setState(null); return; }
+    if (!uid || !enabledForWindow) { setState(null); return; }
     setState({ firestore, key, activities: [], coverage: "loading", hasMore: false, cursor: null, serverConfirmed: false });
     const load = async () => {
       try {
@@ -93,14 +98,14 @@ export function useActivityGrowthHistory(mode: "comparison" | "statistics", now:
     };
     void load();
     return () => { active = false; };
-  }, [enabled, firestore, key, mode, read, retryGeneration, uid]);
-  const visible = state?.key === key && state.firestore === firestore && enabled && uid ? state : null;
+  }, [enabledForWindow, firestore, key, mode, read, retryGeneration, uid]);
+  const visible = state?.key === key && state.firestore === firestore && enabledForWindow && uid ? state : null;
   const loadMore = useCallback(async () => {
-    if (!visible?.hasMore || loadingMore || mode !== "comparison") return;
+    if (!visible?.hasMore || loadingMore || mode === "statistics" && visible.activities.length >= 1000) return;
     const generation = epoch.current;
     setLoadingMore(true);
     try {
-      const page = await read(10, visible.cursor);
+      const page = await read(mode === "statistics" ? 200 : 10, visible.cursor);
       if (!page || generation !== epoch.current || currentKey.current !== key) return;
       setState({ firestore, key, activities: [...visible.activities, ...page.activities], cursor: page.cursor, hasMore: page.hasMore, serverConfirmed: visible.serverConfirmed && page.serverConfirmed,
         coverage: visible.serverConfirmed && page.serverConfirmed && !page.hasMore ? "ready" : "partial" });
@@ -112,9 +117,10 @@ export function useActivityGrowthHistory(mode: "comparison" | "statistics", now:
   }, [firestore, key, loadingMore, mode, read, visible]);
   return {
     activities: visible?.activities ?? [], sourceActivities: visible?.activities ?? [],
-    coverage: visible?.coverage ?? (!enabled || !uid ? "unavailable" : "loading") as Coverage,
-    loading: visible?.coverage === "loading" || (!!uid && enabled && !visible),
+    coverage: visible?.coverage ?? (!enabledForWindow || !uid ? "unavailable" : "loading") as Coverage,
+    loading: visible?.coverage === "loading" || (!!uid && enabledForWindow && !visible),
     error: visible?.coverage === "error", hasMore: visible?.hasMore ?? false, loadingMore,
+    canLoadMore: !!visible?.hasMore && (mode !== "statistics" || visible.activities.length < 1000),
     loadMore, retry: () => setRetryGeneration((generation) => generation + 1),
   };
 }

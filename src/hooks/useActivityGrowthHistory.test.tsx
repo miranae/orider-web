@@ -32,6 +32,30 @@ describe("owner-only growth history", () => {
     const h = renderHook(() => useActivityGrowthHistory("statistics", 100));
     await waitFor(() => expect(h.result.current.coverage).toBe("partial"));
   });
+  it("reads only the applied statistics window and paginates on explicit request", async () => {
+    vi.mocked(getDocs).mockResolvedValueOnce(page(200)).mockResolvedValueOnce(page(1));
+    const h = renderHook(() => useActivityGrowthHistory("statistics", 1000, true, { fromInclusive: 10, toExclusive: 999 }));
+    await waitFor(() => expect(h.result.current.coverage).toBe("partial"));
+    expect(where).toHaveBeenCalledWith("startTime", ">=", 10);
+    expect(where).toHaveBeenCalledWith("startTime", "<", 999);
+    expect(getDocs).toHaveBeenCalledTimes(1);
+    await act(async () => h.result.current.loadMore());
+    expect(h.result.current.coverage).toBe("ready");
+    expect(h.result.current.activities).toHaveLength(201);
+  });
+  it("does not read invalid date windows or automatically exceed the 1,000-record budget", async () => {
+    const invalid = renderHook(() => useActivityGrowthHistory("statistics", 100, true, { fromInclusive: 90, toExclusive: 200 }));
+    expect(getDocs).not.toHaveBeenCalled(); expect(invalid.result.current.coverage).toBe("unavailable"); invalid.unmount();
+    vi.mocked(getDocs).mockResolvedValue(page(200));
+    const h = renderHook(() => useActivityGrowthHistory("statistics", 1000, true, { fromInclusive: 10, toExclusive: 999 }));
+    await waitFor(() => expect(h.result.current.canLoadMore).toBe(true));
+    for (let i = 0; i < 4; i++) await act(async () => h.result.current.loadMore());
+    expect(getDocs).toHaveBeenCalledTimes(5);
+    expect(h.result.current.coverage).toBe("partial"); expect(h.result.current.hasMore).toBe(true);
+    expect(h.result.current.canLoadMore).toBe(false);
+    await act(async () => h.result.current.loadMore());
+    expect(getDocs).toHaveBeenCalledTimes(5);
+  });
   it("paginates comparisons as 3 then 7, followed by an explicit 10", async () => {
     vi.mocked(getDocs).mockResolvedValueOnce(page(3)).mockResolvedValueOnce(page(7)).mockResolvedValueOnce(page(2));
     const h = renderHook(() => useActivityGrowthHistory("comparison", 0));

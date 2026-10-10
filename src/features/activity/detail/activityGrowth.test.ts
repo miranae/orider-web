@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Activity } from "@shared/types";
-import { activityPeriods, comparableCurves, comparisonRows, sameActivitySport, summarizePeriod } from "./activityGrowth";
+import { activityPeriods, comparableCurves, comparisonRows, customActivityPeriods, sameActivitySport, summarizePeriod } from "./activityGrowth";
 const activity = (startTime: number, distance: number | null = 1000) => ({ id: String(startTime), type: "Run", startTime, summary: { distance, movingTimeSec: 300, elevationGain: 0 } }) as unknown as Activity;
 describe("activity growth presentation", () => {
   it("compares aliases but keeps different sports separate", () => {
@@ -47,9 +47,33 @@ describe("activity growth presentation", () => {
     const p = activityPeriods(Date.parse("2027-01-01T00:00:00+09:00"), "month");
     expect(p.previousStart).toBe(Date.parse("2026-12-01T00:00:00+09:00"));
   });
+  it("compares calendar 3/6/12-month blocks across years without assuming equal month lengths", () => {
+    const now = Date.parse("2026-03-15T12:00:00+09:00");
+    expect(activityPeriods(now, "3months")).toEqual({ start: Date.parse("2026-01-01T00:00:00+09:00"), end: now + 1, previousStart: Date.parse("2025-10-01T00:00:00+09:00"), previousEnd: Date.parse("2026-01-01T00:00:00+09:00") });
+    expect(activityPeriods(now, "12months").previousStart).toBe(Date.parse("2024-04-01T00:00:00+09:00"));
+  });
+  it("validates inclusive KST dates, leap days and bounded custom windows", () => {
+    const now = Date.parse("2024-03-01T12:00:00+09:00");
+    const result = customActivityPeriods("2024-02-28", "2024-02-29", now)!;
+    expect(result.end).toBe(Date.parse("2024-03-01T00:00:00+09:00"));
+    expect(result.previousEnd - result.previousStart).toBe(2 * 86400000);
+    expect(customActivityPeriods("2023-02-29", "2024-02-29", now)).toBeNull();
+    expect(customActivityPeriods("2024-02-29", "2024-03-02", now)).toBeNull();
+    expect(customActivityPeriods("2024-03-01", "2024-02-29", now)).toBeNull();
+    expect(customActivityPeriods("2022-01-01", "2024-02-29", now)).toBeNull();
+  });
   it("withholds partial totals and missing fields rather than substituting zero", () => {
     expect(summarizePeriod([activity(100)], 0, 200, false)).toMatchObject({ count: null, distance: null });
     expect(summarizePeriod([activity(100, null)], 0, 200, true)).toMatchObject({ count: 1, distance: null, elevation: 0 });
     expect(summarizePeriod([], 0, 200, true)).toMatchObject({ count: 0, distance: 0 });
+  });
+  it("reports per-field observed subtotals without converting elapsed time to moving time", () => {
+    const missing = { ...activity(120, null), summary: { ridingTimeMillis: 900000, elevationGain: 12 } } as unknown as Activity;
+    const result = summarizePeriod([activity(100), missing], 0, 200, true);
+    expect(result).toMatchObject({ count: 2, distance: null, movingTime: null, elevation: 12 });
+    expect(result.fields.distance).toEqual({ total: null, observed: 1000, knownCount: 1, missingCount: 1 });
+    expect(result.fields.movingTime).toEqual({ total: null, observed: 300, knownCount: 1, missingCount: 1 });
+    expect(summarizePeriod([missing], 0, 200, true).fields.movingTime.observed).toBeNull();
+    expect(summarizePeriod([activity(100), missing], 0, 200, false).fields.distance).toEqual({ total: null, observed: null, knownCount: null, missingCount: null });
   });
 });

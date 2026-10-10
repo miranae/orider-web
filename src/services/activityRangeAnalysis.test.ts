@@ -1,3 +1,4 @@
+import { deriveHrZoneBoundaries } from "@shared/training/hrZoneTable";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityRangeAnalysisResponse } from "@shared/types/activity-range-analysis";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -18,6 +19,24 @@ function response(): ActivityRangeAnalysisResponse {
 }
 beforeEach(() => { mocks.call.mockReset().mockResolvedValue({ data: response() }); mocks.callable.mockReset().mockReturnValue(mocks.call); });
 describe("activity range callable boundary", () => {
+  it("accepts legacy threshold context and exact optional historical LTHR boundaries", () => {
+    expect(validateRangeResponse(response(), request)).toEqual(response());
+    const value = response();
+    value.metrics!.context = { mode: "recorded", ftp: null, maxHr: 190, lthr: 170,
+      hrZoneBoundaries: deriveHrZoneBoundaries({ lthr: 170, maxHr: 190, sport: "run" }) };
+    expect(validateRangeResponse(value, request).metrics!.context.hrZoneBoundaries?.reference).toBe("lthr");
+  });
+  it("rejects inconsistent or malformed historical boundaries without recomputing a fallback", () => {
+    const value = response();
+    value.metrics!.context = { mode: "recorded", ftp: null, maxHr: 190, lthr: 170,
+      hrZoneBoundaries: deriveHrZoneBoundaries({ lthr: 170, maxHr: 190, sport: "run" }) };
+    value.metrics!.context.hrZoneBoundaries!.referenceBpm = 180;
+    expect(() => validateRangeResponse(value, request)).toThrow("invalid_range_response");
+    value.metrics!.context.hrZoneBoundaries = null;
+    value.metrics!.context.lthr = Number.NaN;
+    expect(() => validateRangeResponse(value, request)).toThrow("invalid_range_response");
+  });
+
   it("reads the owner-only canonical callable and preserves absent channels, clipping and gaps", async () => {
     const services = { auth: { currentUser: { uid: "owner" } }, functions: {}, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices;
     const result = await loadActivityRangeAnalysis(services, "owner", request);

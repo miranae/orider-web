@@ -42,6 +42,21 @@ export function validateRangeResponse(response: ActivityRangeAnalysisResponse, r
   for (const zones of [metrics.hrZoneSec, metrics.powerZoneSec]) {
     if (zones !== null && (!Array.isArray(zones) || Array.from(zones).some(value => !Number.isFinite(value) || value < 0))) throw new Error("invalid_range_response");
   }
+  const context = metrics.context;
+  if (context?.lthr != null && (!Number.isFinite(context.lthr) || context.lthr < 50 || context.lthr > 250)) throw new Error("invalid_range_response");
+  const boundaries = context?.hrZoneBoundaries;
+  if (boundaries != null) {
+    const reference = boundaries.reference === "lthr" ? context.lthr : context.maxHr;
+    if (context.mode !== "recorded" || !["lthr", "max_hr"].includes(boundaries.reference)
+      || !["bike", "run", "other"].includes(boundaries.sport)
+      || !Number.isFinite(boundaries.referenceBpm) || boundaries.referenceBpm < 50 || boundaries.referenceBpm > 250
+      || reference !== boundaries.referenceBpm || !Array.isArray(boundaries.zones) || boundaries.zones.length !== 5
+      || boundaries.zones.some((zone, index) => !zone || zone.zone !== index + 1
+        || !Number.isFinite(zone.minPct) || zone.minPct < 0
+        || zone.maxPct !== null && (!Number.isFinite(zone.maxPct) || zone.maxPct <= zone.minPct)
+        || !Number.isFinite(zone.minBpm) || zone.minBpm < 0
+        || zone.maxBpmExclusive !== null && (!Number.isFinite(zone.maxBpmExclusive) || zone.maxBpmExclusive <= zone.minBpm))) throw new Error("invalid_range_response");
+  }
   return response;
 }
 

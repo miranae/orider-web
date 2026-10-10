@@ -10,9 +10,11 @@
  * 모든 데이터는 FitnessPage 가 미리 계산해 props 로 전달.
  */
 import { useEffect, useState, useRef, type ReactNode } from "react";
+import { useAuth } from "../../contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
+import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerCurvePeriodsPanel";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { toUtcDate } from "../../utils/dateUtils";
 import DetailsSection from "../redesign/DetailsSection";
@@ -535,6 +537,8 @@ function TodayDecisionPreview({ state, signedIn, hasDetails }: {
 // ── 메인 ──────────────────────────────────────────────────────
 export default function MobileFitnessPage({
   data,
+  powerCurvePeriodsOwnerUid,
+  powerCurvePeriodsEnabled = false,
   pmcHistoryPoints,
   pmcHistoryCanonical = false,
   coachSlot = null,
@@ -550,6 +554,8 @@ export default function MobileFitnessPage({
   sectionState = { trend: "ready", derived: "ready" },
 }: {
   data: MobileFitnessData;
+  powerCurvePeriodsOwnerUid?: string;
+  powerCurvePeriodsEnabled?: boolean;
   /** 표시 범위를 확장해도 활동 상세 조회는 늘리지 않는 전체 일별 이력. */
   pmcHistoryPoints?: readonly PmcHistoryPoint[];
   pmcHistoryCanonical?: boolean;
@@ -571,6 +577,9 @@ export default function MobileFitnessPage({
 }) {
   const { t } = useTranslation("dashboard");
   const { t: trainingT } = useTranslation("training");
+  const { user: periodsUser } = useAuth();
+  const [periodsMounted, setPeriodsMounted] = useState(false);
+  useEffect(() => { setPeriodsMounted(false); }, [powerCurvePeriodsOwnerUid]);
   const [tab, setTab] = useState<"overview" | "analysis">("overview");
   useEffect(() => {
     setTab("overview");
@@ -818,6 +827,11 @@ export default function MobileFitnessPage({
               </div>
             </SectionCard>
           )}
+
+          {isBike && powerCurvePeriodsOwnerUid && periodsUser?.uid === powerCurvePeriodsOwnerUid && !periodsUser.isAnonymous && <details className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3" onToggle={event => { if (event.currentTarget.open) setPeriodsMounted(true); }}>
+            <summary className="cursor-pointer py-3"><Text variant="label">{t("fitness:periodCurve.title")}</Text></summary>
+            {periodsMounted && <div className="pt-3"><PowerCurvePeriodsPanel ownerUid={powerCurvePeriodsOwnerUid} callableEnabled={powerCurvePeriodsEnabled} /></div>}
+          </details>}
 
           {/* 존 정의 */}
           {sectionState.derived === "ready" && showZones && (
