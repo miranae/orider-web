@@ -32,6 +32,7 @@ jobs:
       VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.STAGE_VITE_FIREBASE_STORAGE_BUCKET }}
       VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.STAGE_VITE_FIREBASE_MESSAGING_SENDER_ID }}
       VITE_FIREBASE_APP_ID: ${{ secrets.STAGE_VITE_FIREBASE_APP_ID }}
+      VITE_FIREBASE_FUNCTIONS_BASE: ${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_BASE }}
       VITE_FIREBASE_FUNCTIONS_REGION: ${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION }}
       VITE_STRAVA_CLIENT_ID: ${{ secrets.STAGE_VITE_STRAVA_CLIENT_ID }}
       VITE_STRAVA_REDIRECT_URI: ${{ vars.STAGE_VITE_STRAVA_REDIRECT_URI }}
@@ -92,7 +93,7 @@ jobs:
           SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: >-
           node scripts/verify-stage-analysis-callables.mjs
-          --project "${{ vars.STAGE_VITE_FIREBASE_PROJECT_ID }}"
+          --project "${{ vars.STAGE_FIREBASE_PROJECT_ID }}"
           --region "${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION }}"
       - name: Restore stage deploy authentication
         id: deploy-auth

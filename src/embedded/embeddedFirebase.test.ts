@@ -87,9 +87,22 @@ describe("embeddedFirebase", () => {
     mocks.terminate.mockResolvedValue(undefined);
   });
 
-  it("rejects a production Firebase identity in stage before SDK initialization", async () => {
+  it("keeps embedded production Auth/data app with exact stage callable transport", async () => {
+    mocks.runtimeConfig = {
+      firebaseApiKey: "public-api-key", appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1",
+      firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com", firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app",
+      firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878", firebaseMessagingSenderId: "289663940841",
+      firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net",
+      appCheckRecaptchaSiteKey: "site-key",
+    };
+    await loadEmbeddedFirebase();
+    expect(mocks.initializeApp).toHaveBeenCalledWith(expect.objectContaining({ projectId: "miranae-orider-g1" }), expect.any(String));
+    expect(mocks.getFunctions).toHaveBeenCalledWith(mocks.app, "https://asia-northeast3-orider-dev.cloudfunctions.net");
+  });
+
+  it("rejects a fixture Firebase identity in shared-data stage before SDK initialization", async () => {
     mocks.runtimeConfig.appEnvironment = "stage";
-    mocks.runtimeConfig.firebaseProjectId = "miranae-orider-g1";
+    mocks.runtimeConfig.firebaseProjectId = "orider-dev";
     const embeddedFirebase = await import("./embeddedFirebase");
     expect(() => embeddedFirebase.initEmbeddedFirebase()).toThrow("stage/firebase-identity-mismatch");
     expect(mocks.initializeApp).not.toHaveBeenCalled();

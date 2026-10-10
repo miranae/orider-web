@@ -1,4 +1,5 @@
-import { auth } from "./firebase";
+import { auth, functions, ensureAppCheckReady } from "./firebase";
+import { httpsCallable, type Functions } from "firebase/functions";
 import type { Auth } from "firebase/auth";
 import { getRuntimeConfig } from "./runtimeConfig";
 import type { ActivityStreams } from "@shared/types";
@@ -81,7 +82,30 @@ export async function getActivityStreams(activityId: string): Promise<ActivitySt
 export async function getActivityStreamsWithAuth(
   authInstance: Auth,
   activityId: string,
+  services?: { functions: Functions; ensureAppCheckReady: (forceRefresh?: boolean) => Promise<void> },
 ): Promise<ActivityStreams> {
+  if (getRuntimeConfig().appEnvironment === "stage") {
+    const provider = services ?? { functions, ensureAppCheckReady };
+    const uid = authInstance.currentUser?.uid;
+    if (!uid) throw new Error("SIGN_IN_REQUIRED");
+    if (provider.functions.app !== authInstance.app || provider.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("stage/callable-context-mismatch");
+    await provider.ensureAppCheckReady();
+    if (authInstance.currentUser?.uid !== uid) throw new Error("account_changed");
+    const response = await httpsCallable<{ activityId: string }, {
+      activityId: string; state: "available" | "pending" | "changed_input" | "unavailable";
+      streamInputRevision: string | null; sourceLayer: "raw_parts" | "api_streams" | null; streams: ActivityStreams | null;
+    }>(provider.functions, "getActivityStreams")({ activityId });
+    if (authInstance.currentUser?.uid !== uid) throw new Error("account_changed");
+    const data = response.data;
+    if (data?.activityId !== activityId || !["available", "pending", "changed_input", "unavailable"].includes(data.state)) throw new Error("INVALID_PERSONAL_API_RESPONSE");
+    if (data.state === "pending") throw new Error("활동 스트림을 준비 중입니다.");
+    if (data.state === "changed_input") throw new Error("활동 데이터가 변경되었습니다. 새로고침 후 다시 확인해 주세요.");
+    if (data.state === "unavailable") throw new Error("이 활동의 스트림을 사용할 수 없습니다.");
+    if (!data.streamInputRevision || !/^[a-f0-9]{64}$/.test(data.streamInputRevision)
+      || !["raw_parts", "api_streams"].includes(data.sourceLayer ?? "") || !data.streams
+      || typeof data.streams !== "object" || Array.isArray(data.streams)) throw new Error("INVALID_PERSONAL_API_RESPONSE");
+    return data.streams;
+  }
   const payload = await apiFetch<{ data?: ActivityStreams }>(
     authInstance,
     `/activities/${encodeURIComponent(activityId)}/streams`,

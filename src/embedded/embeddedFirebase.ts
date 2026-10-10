@@ -194,7 +194,7 @@ export function initEmbeddedFirebase(): EmbeddedFirebaseServices {
   embeddedFirestore = createEmbeddedFirestore(embeddedApp);
   embeddedFunctions = getFunctions(
     embeddedApp,
-    runtimeConfig.firebaseFunctionsRegion || "us-central1",
+    runtimeConfig.appEnvironment === "stage" ? runtimeConfig.firebaseFunctionsBase : runtimeConfig.firebaseFunctionsRegion || "us-central1",
   );
 
   if (emulatorRuntime) {

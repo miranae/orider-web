@@ -8,17 +8,20 @@ vi.unmock("firebase/auth");
 vi.unmock("firebase/functions");
 vi.unmock("firebase/app-check");
 
+import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import { redeemHandoffCode } from "./handoffRedeem";
 
 afterEach(async () => {
   vi.unstubAllGlobals();
+  resetRuntimeConfigForTests();
   await Promise.all(getApps().map(deleteApp));
 });
 
 describe("인계 코드 교환 전용 FirebaseApp", () => {
   it("분리된 stage에서 운영 인계 서버에 요청하지 않는다", async () => {
-    const app = initializeApp({ projectId: "orider-dev", apiKey: "public-key", appId: "test-app" });
+    const app = initializeApp({ projectId: "miranae-orider-g1", apiKey: "public-key", appId: "test-app" });
     const fetchMock = vi.fn();
+    resetRuntimeConfigForTests({ appEnvironment: "stage" });
     vi.stubGlobal("fetch", fetchMock);
     await expect(redeemHandoffCode(getFunctions(app), "A".repeat(43))).rejects.toThrow("handoff/unavailable-in-isolated-stage");
     expect(fetchMock).not.toHaveBeenCalled();

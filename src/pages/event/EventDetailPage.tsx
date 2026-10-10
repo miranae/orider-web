@@ -954,7 +954,7 @@ export default function EventDetailPage() {
                     <Button type="button" variant="secondary" size="sm">{t("group.viewNextEvent")}</Button>
                   </Link>
                 )}
-                <a href={`https://${getRuntimeConfig().firebaseFunctionsRegion || "us-central1"}-${getRuntimeConfig().firebaseProjectId}.cloudfunctions.net/groupEventCalendar?groupId=${encodeURIComponent(activeGroupId)}`}>
+                <a href={`${getRuntimeConfig().appEnvironment === "stage" ? getRuntimeConfig().firebaseFunctionsBase : `https://${getRuntimeConfig().firebaseFunctionsRegion || "us-central1"}-${getRuntimeConfig().firebaseProjectId}.cloudfunctions.net`}/groupEventCalendar?groupId=${encodeURIComponent(activeGroupId)}`}>
                   <Button type="button" variant="secondary" size="sm">📅 {t("group.subscribeCalendar")}</Button>
                 </a>
               </div>

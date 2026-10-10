@@ -6,7 +6,7 @@ const region = args[args.indexOf("--region") + 1];
 if (project !== "orider-dev" || region !== "asia-northeast3") throw new Error("stage analysis contract requires orider-dev/asia-northeast3");
 const token = process.env.SOCIAL_CALLABLES_ACCESS_TOKEN;
 if (!token) throw new Error("stage analysis contract requires metadata access token");
-for (const functionName of ["getActivityRangeAnalysis", "getMySegmentHistory", "getPowerCurvePeriods"]) {
+for (const functionName of ["getActivityRangeAnalysis", "getMySegmentHistory", "getPowerCurvePeriods", "getActivityOverview", "getActivityStreams"]) {
   const response = await fetch(functionApiUrl(project, region, functionName), { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10000) });
   if (!response.ok) throw new Error(`${functionName}: metadata HTTP ${response.status}`);
   assertActiveFunctionResource(await response.json(), { project, region, functionName });

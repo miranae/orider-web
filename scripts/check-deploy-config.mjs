@@ -124,7 +124,7 @@ function checkHostingConfig(hosting, label, aiApiOrigin, stage = false) {
     if (!stage) {
       requireIncludes(connectSrc, "https://auth.orider.co.kr", `${label} Content-Security-Policy connect-src`);
       requireIncludes(connectSrc, aiApiOrigin, `${label} Content-Security-Policy connect-src`);
-    } else if (connectSrc.includes("auth.orider.co.kr") || connectSrc.includes(PROD_AI_API_ORIGIN)) {
+    } else if (connectSrc.includes(PROD_AI_API_ORIGIN)) {
       fail(`${label} must not allow production service origins`);
     }
   }
@@ -306,7 +306,7 @@ requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_COACH_PMC_INSIGHT_ENABLED"
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_COACH_RIDER_INSIGHT_ENABLED", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "orider-dev.web.app", "deploy-stage.yml verification");
 requireIncludes(stageDeployWorkflow, "node scripts/verify-stage-analysis-callables.mjs", "deploy-stage.yml backend contract gate");
-requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_PROJECT_ID", "deploy-stage.yml backend contract project");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_FIREBASE_PROJECT_ID", "deploy-stage.yml backend contract project");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION", "deploy-stage.yml backend contract region");
 requireIncludes(stageDeployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}", "deploy-stage.yml backend contract credential");
 requireBefore(stageDeployWorkflow, "node scripts/verify-stage-analysis-callables.mjs", "firebase deploy \\", "deploy-stage.yml backend contract gate");
