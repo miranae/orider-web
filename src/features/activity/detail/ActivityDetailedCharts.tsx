@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActivityAnalysisModel } from "../../../hooks/useActivityAnalysisModel";
 import { useLocale } from "../../../contexts/LocaleContext";
+import type { RidePeakEffort } from "@shared/types/activity-metrics";
+import { resolvePeakEffortLocation } from "./activityPeakEfforts";
 import { Button } from "../../../theme/components";
 import ActivityPerformanceCharts from "./ActivityPerformanceCharts";
 import { StreamUnavailableCard } from "./ActivityDetailStates";
@@ -9,7 +11,7 @@ import { buildChartOverlays, buildSampledData, buildSummaryStats, selectChartOve
 import { getPerformanceOverlays } from "./activityPerformancePresentation";
 
 /** 원시 스트림은 사용자가 상세 차트를 열 때만 기존 로더에 요청한다. */
-export default function ActivityDetailedCharts({ model }: { model: ActivityAnalysisModel }) {
+export default function ActivityDetailedCharts({ model, highlightedPeak = null, onClearHighlightedPeak }: { model: ActivityAnalysisModel; highlightedPeak?: RidePeakEffort | null; onClearHighlightedPeak?: () => void }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
   const [openedActivityId, setOpenedActivityId] = useState<string | null>(null);
@@ -19,7 +21,7 @@ export default function ActivityDetailedCharts({ model }: { model: ActivityAnaly
   const [range, setRange] = useState<[number, number] | undefined>();
   const [selectingRange, setSelectingRange] = useState(false);
   const activityId = model.activity?.id;
-  const opened = !!activityId && openedActivityId === activityId;
+  const opened = !!activityId && (openedActivityId === activityId || highlightedPeak != null);
   const sampled = useMemo(() => buildSampledData(model.effectiveStreams, model.sensorSelectionContext),
     [model.effectiveStreams, model.sensorSelectionContext]);
   const cadenceUnit = model.serverMetrics?.metrics?.cadenceUnit
@@ -35,7 +37,10 @@ export default function ActivityDetailedCharts({ model }: { model: ActivityAnaly
   return (
     <section className="space-y-4" aria-label={t("page.detailedCharts")}>
       <Button variant="outline" aria-expanded={opened} onClick={() => {
-        if (opened) setOpenedActivityId(null);
+        if (opened) {
+          setOpenedActivityId(null);
+          onClearHighlightedPeak?.();
+        }
         else {
           setOpenedActivityId(activityId);
           setActiveOverlays(null); setFocusedOverlayKey(null); setHoverIndex(null); setRange(undefined); setSelectingRange(false);
@@ -63,6 +68,7 @@ export default function ActivityDetailedCharts({ model }: { model: ActivityAnaly
         chartOverlays={overlays} hoverPoint={hoverIndex == null ? null : sampled[hoverIndex] ?? null}
         summaryStats={buildSummaryStats(model.effectiveStreams, model.streamSensorSummary)}
         sport={model.sport} recordedRunCadenceUnit={cadenceUnit} hasElevation={hasElevation}
+        chartHighlightRange={resolvePeakEffortLocation(highlightedPeak, model.serverMetrics.metrics?.peakEfforts?.indexAxis, model.streams, sampled)?.chartRange}
         onHoverIndex={setHoverIndex} metrics={model.serverMetrics?.metrics} powerSource={model.streamSensorSummary?.powerSource}
         range={range ?? [0, sampled.length - 1]} onRangeChange={selectingRange ? setRange : undefined}
       />}

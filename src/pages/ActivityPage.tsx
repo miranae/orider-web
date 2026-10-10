@@ -4,6 +4,10 @@ import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
 import { ActivityGrowthPanel } from "../features/activity/detail/ActivityGrowthPanel";
+import { ActivityPersonalBenchmark } from "../features/activity/detail/ActivityPersonalBenchmark";
+import ActivityPeakEffortInspector from "../features/activity/detail/ActivityPeakEffortInspector";
+import { resolvePeakEffortLocation, visiblePeakEfforts } from "../features/activity/detail/activityPeakEfforts";
+import type { RidePeakEffort } from "@shared/types/activity-metrics";
 import ActivityPerformanceCharts from "../features/activity/detail/ActivityPerformanceCharts";
 import { useRunSplitLocation } from "../features/activity/detail/useRunSplitLocation";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
@@ -143,7 +147,8 @@ export default function ActivityPage() {
     isActivityOwner && shareDiscipline ? user?.uid : undefined,
     shareDiscipline ?? "bike",
   );
-  const { pdc: bikePdc } = usePdc(isActivityOwner && shareDiscipline === "bike" ? user?.uid : null);
+  const bikePdcState = usePdc(isActivityOwner && shareDiscipline === "bike" ? user?.uid : null);
+  const bikePdc = bikePdcState.pdc;
   // Inline description editing
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionText, setDescriptionText] = useState("");
@@ -154,6 +159,12 @@ export default function ActivityPage() {
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
   // 탭 네비게이션
   const [activeTab, setActiveTab] = useState("overview");
+  const [peakSelection, setPeakSelection] = useState<{ activityId: string | undefined; peak: RidePeakEffort | null }>({ activityId, peak: null });
+  useEffect(() => { setPeakSelection({ activityId, peak: null }); }, [activityId, user?.uid, isActivityOwner, serverMetrics.metrics?.computedAt, activePowerOverride]);
+  const selectedPeak = peakSelection.activityId === activityId
+    && visiblePeakEfforts(serverMetrics.metrics, isActivityOwner, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true)
+      .some(peak => peak.durationSec === peakSelection.peak?.durationSec && peak.startOffsetSec === peakSelection.peak?.startOffsetSec && peak.avgPowerW === peakSelection.peak?.avgPowerW)
+    ? peakSelection.peak : null;
   const runLocationAnchor = useRef<HTMLDivElement>(null);
   const viewRunSplitLocation = useCallback(() => {
     setActiveTab("overview");
@@ -480,14 +491,22 @@ export default function ActivityPage() {
     [effectiveStreams, streamSensorSummary],
   );
   const { location: runSplitLocation, onSelectSplit: selectRunSplit } = useRunSplitLocation(activityId, activity?.id, sport === "run", streams, sampledData, resolveObservedDistanceKm(serverMetrics.metrics ?? {}, activity?.summary?.distance));
+  const peakLocation = useMemo(() => resolvePeakEffortLocation(selectedPeak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData),
+    [selectedPeak, serverMetrics.metrics, streams, sampledData]);
+  const locatePeak = useCallback((peak: RidePeakEffort | null) => {
+    setPeakSelection({ activityId, peak });
+    if (!peak) return;
+    if (!streams) requestStreams();
+    else if (resolvePeakEffortLocation(peak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData)) viewRunSplitLocation();
+  }, [activityId, streams, requestStreams, viewRunSplitLocation, serverMetrics.metrics, sampledData]);
   const markerPosition = useMemo(() => {
-    if (hoverIndex == null || !sampledData[hoverIndex]) return runSplitLocation?.markerPosition ?? null;
+    if (hoverIndex == null || !sampledData[hoverIndex]) return runSplitLocation?.markerPosition ?? peakLocation?.markerPosition ?? null;
     return sampledData[hoverIndex].latlng;
-  }, [hoverIndex, sampledData, runSplitLocation]);
+  }, [hoverIndex, sampledData, runSplitLocation, peakLocation]);
   const segmentEfforts = useMemo(() => getSegmentEfforts(streams), [streams]);
   const chartHighlightRange = useMemo(
-    () => getChartHighlightRange(hoveredSegment, streams) ?? runSplitLocation?.chartRange,
-    [hoveredSegment, streams, runSplitLocation],
+    () => getChartHighlightRange(hoveredSegment, streams) ?? runSplitLocation?.chartRange ?? peakLocation?.chartRange,
+    [hoveredSegment, streams, runSplitLocation, peakLocation],
   );
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
   const hasStreams = sampledData.length > 0;
@@ -918,7 +937,7 @@ export default function ActivityPage() {
         summary={s}
         markerPosition={markerPosition}
         hoveredSegment={hoveredSegment}
-        selectedRunRange={runSplitLocation?.routeRange}
+        selectedRunRange={runSplitLocation?.routeRange ?? peakLocation?.routeRange}
         photos={photos}
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
@@ -959,6 +978,16 @@ export default function ActivityPage() {
           <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
         </div>
       )}
+      {activeTab === "analysis" && activity?.id && <ActivityPersonalBenchmark activityId={activity.id}
+        ownerUid={isActivityOwner ? user?.uid : null} sport={shareDiscipline ?? "other"}
+        metrics={activePowerOverride || analysisTabProps?.suppressServerPowerMetrics ? null : serverMetrics.metrics}
+        suppliedPdcState={bikePdcState} /> }
+      {activeTab === "analysis" && sport === "ride" && activity?.id && <ActivityPeakEffortInspector
+        activityId={activity.id} metrics={serverMetrics.metrics} isOwner={isActivityOwner}
+        invalidated={activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true}
+        suppressHeartRate={analysisTabProps?.suppressServerHeartRateMetrics} suppressCadence={analysisTabProps?.suppressServerCadenceMetrics}
+        onLocate={locatePeak} locating={loadingStreams && selectedPeak != null}
+        locationUnavailable={!!streams && selectedPeak != null && !peakLocation} /> }
       {activeTab === "analysis" && sport !== "run" && hasAnalysisStreams && analysisTabProps && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.

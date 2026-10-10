@@ -16,6 +16,24 @@ export type DurationKey =
   | "1s" | "5s" | "10s" | "30s"
   | "1m" | "2m" | "5m" | "10m" | "20m" | "30m" | "1h";
 
+export interface RidePeakEffort {
+  durationSec: number;
+  startIndex: number;
+  endIndex: number;
+  startOffsetSec: number;
+  fromKm: number;
+  toKm: number;
+  avgPowerW: number;
+  maxPowerW: number;
+  avgHr: number | null;
+  maxHr: number | null;
+  avgSpeedKmh: number | null;
+  maxSpeedKmh: number | null;
+  avgCadence: number | null;
+  containsMaxHr: boolean;
+  leadsToMaxHr: boolean;
+}
+
 export type ClimbCategory = "HC" | "Cat1" | "Cat2" | "Cat3" | "Cat4" | null;
 
 export type WorkoutType =
@@ -247,6 +265,12 @@ export interface ActivityMetrics {
   discipline: "bike" | "run" | "swim" | "other";
   activityType: string;            // raw a.type ("Ride", "VirtualRide", ...)
   startTime: number;
+  peakEfforts?: {
+    peaks: RidePeakEffort[];
+    highlight: RidePeakEffort | null;
+    /** 인덱스 축. 세그먼트 이름 매칭은 `"route"` 일 때만. */
+    indexAxis?: "route" | "sensor";
+  } | null;
   computedAt: number;
   version: number;                 // 스키마/계산식 변경 시 증가
   /** 계산 결과의 출처. 구버전 문서에는 없을 수 있다. */

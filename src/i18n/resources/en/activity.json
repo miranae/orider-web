@@ -1374,5 +1374,41 @@
       "powerUnavailable": "Power curve comparison requires matching, confirmed power sources in both activities.",
       "powerMissing": "Power analysis unavailable"
     }
+  },
+  "peakInspector": {
+    "title": "Inspect peak efforts",
+    "description": "Server-confirmed best 1, 2 and 5 minute windows from measured power. Compare average and maximum values within each effort.",
+    "duration": "Select effort duration",
+    "minutes": "{{count}} min",
+    "window": "Elapsed {{start}}–{{end}}",
+    "metric": "Metric",
+    "average": "Average",
+    "maximum": "Maximum",
+    "power": "Power",
+    "heartRate": "Heart rate",
+    "speed": "Speed",
+    "cadence": "Cadence",
+    "location": "Show window on chart and map",
+    "loadingLocation": "Preparing window location",
+    "noLocation": "This effort cannot be reliably aligned with the route, so location is unavailable.",
+    "chartLocation": "Show window on chart"
+  },
+  "benchmark": {
+    "title": "Compare with my recent 90-day best power",
+    "current": "This activity",
+    "reference": "Recent 90-day best",
+    "chart": "This activity versus recent 90-day best power curve",
+    "duration": "Duration to compare",
+    "scope": "As of {{date}} · Recent 90 days · Measured power",
+    "difference": "Difference from reference {{gap}} W · {{fraction}}% of reference",
+    "source": "View reference activity · {{date}}",
+    "timingNote": "This current reference may include this activity and activities recorded after it. It does not represent your best before this activity or a growth rate.",
+    "curveNote": "Only confirmed durations present in both records are compared. Select a point or duration to inspect its values and reference activity. Lines connect recorded points without estimating intermediate durations.",
+    "loading": "Loading your recent 90-day reference.",
+    "missing": "No recent 90-day power reference is available.",
+    "partial": "Some activities are still being analysed. A complete recent 90-day comparison is not yet available.",
+    "currentUnavailable": "This activity needs a complete measured-power analysis. Virtual power and provisional values are not compared with best records.",
+    "referenceUnproven": "A complete measured-power reference for the recent 90 days has not been confirmed.",
+    "noCommonDurations": "No matching durations with measured power are available for comparison."
   }
 }

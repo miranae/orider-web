@@ -109,3 +109,33 @@ it.each(["owner-b", undefined])("숨은 계정 변경(%s)은 이전 PDC와 늦�
   act(() => stale?.({ exists: () => true, data: () => structuredClone(parity.persistedPdc) }));
   expect(hook.result.current.pdc).toBeNull();
 });
+
+it("fences state and late callbacks when the same uid changes Firebase identity, including A→B→A", () => {
+  const projectA = {} as FirebaseServices["firestore"];
+  const projectB = {} as FirebaseServices["firestore"];
+  let selectedProject = projectA;
+  const wrapper = ({ children }: { children: ReactNode }) => <FirebaseServicesProvider services={{ auth: {} as FirebaseServices["auth"], firestore: selectedProject, functions: {} as FirebaseServices["functions"], ensureAppCheckReady: vi.fn() }}>{children}</FirebaseServicesProvider>;
+  const hook = renderHook(({ active }) => usePdc("owner", active), { wrapper, initialProps: { active: true } });
+  const staleA = mocks.callback;
+  act(() => staleA?.({ exists: () => true, data: v6Fixture }));
+  expect(hook.result.current.status).toBe("ready");
+  selectedProject = projectB;
+  hook.rerender({ active: true });
+  const staleB = mocks.callback;
+  expect(hook.result.current.pdc).toBeNull();
+  act(() => staleA?.({ exists: () => true, data: v6Fixture }));
+  expect(hook.result.current.pdc).toBeNull();
+  selectedProject = projectA;
+  hook.rerender({ active: true });
+  expect(hook.result.current.pdc).toBeNull();
+  act(() => staleB?.({ exists: () => true, data: v6Fixture }));
+  expect(hook.result.current.pdc).toBeNull();
+  act(() => mocks.callback?.({ exists: () => true, data: v6Fixture }));
+  expect(hook.result.current.status).toBe("ready");
+  hook.rerender({ active: false });
+  const stopped = mocks.callback;
+  hook.rerender({ active: true });
+  expect(hook.result.current.pdc).toBeNull();
+  act(() => stopped?.({ exists: () => true, data: v6Fixture }));
+  expect(hook.result.current.pdc).toBeNull();
+});
