@@ -204,6 +204,8 @@ export interface ActivityMetrics {
   // ── Run-specific
   splits?: SplitRow[];
   runMetrics?: {
+    /** 서버의 원시 경과시간 축 커브(sec/km). 클라이언트는 평균 속도 커브로 대체하지 않는다. */
+    paceCurve?: Array<{ durationSec: number; paceSecPerKm: number }>;
     /** 서버가 확정한 거리별 최단 경과시간(sec), 휴식 포함. 위치 앵커는 제공되지 않는다. */
     distanceRecords?: Partial<Record<RunDistanceKey, number>>;
     gapAvgSec: number | null;       // grade-adjusted pace 평균 (sec/km)

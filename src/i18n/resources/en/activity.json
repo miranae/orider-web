@@ -50,14 +50,17 @@
     "seconds": "{{count}} seconds",
     "minutes": "{{count}} minutes",
     "pending": "Confirmed analysis is not ready. Pending or incomplete inputs are not used for best efforts.",
-    "curveMissing": "No confirmed speed curve is available for this activity.",
+    "curveMissing": "No confirmed pace curve is currently available to display.",
+    "canonicalCurveBasis": "Best pace by duration confirmed by the server on the recorded elapsed-time axis. Only observed durations are shown; this is not GAP, a distance record, or a claim of improved fitness.",
+    "curveNotShared": "The shared analysis does not provide a pace curve to display.",
+    "recordsNotShared": "The shared analysis does not provide distance efforts to display.",
     "curveBasis": "Highest recorded average speed for each duration, shown as pace. This is not a distance record or a claim of improved fitness.",
     "distanceTitle": "Best distance efforts in this activity",
     "distance": "Distance",
     "elapsed": "Elapsed time",
     "recordsMissing": "No confirmed distance efforts are available for this activity.",
     "elapsedBasis": "Distance efforts use elapsed time, including stops. Kilometer splits use their own timing basis and may differ.",
-    "locationMissing": "These saved efforts have no confirmed location anchors, so map and range selection are unavailable."
+    "locationMissing": "The available analysis does not provide confirmed location anchors, so map and range selection are unavailable."
   },
   "overviewSummary": {
     "thresholdMissingChip": "No threshold set",
