@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useId, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Activity } from "@shared/types";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useActivityGrowthHistory } from "../../../hooks/useActivityGrowthHistory";
 import { useActivityMetrics } from "../../../hooks/useActivityMetrics";
-import { Button, ChartFrame, Text } from "../../../theme";
+import { Button, Card, ChartFrame, ChartHeader, Select, Stack, Text } from "../../../theme";
+import "./activity-growth-panel.css";
 import { getDiscipline } from "../../../utils/disciplineFilter";
 import { activityPeriods, comparableCurves, comparisonRows, sameActivitySport, settledMetrics, summarizePeriod } from "./activityGrowth";
 import { hrZoneDistribution, powerZoneDistribution, type MetricsLike } from "./metricsPresentation";
@@ -41,45 +43,47 @@ function Comparison({ activity, metrics }: Omit<ActivityGrowthPanelProps, "isOwn
   const powerLabel = (source: MetricsLike | null) => source?.isVirtualPower === true ? t("growth.virtualPower")
     : source?.isVirtualPower === false ? t("growth.measuredPower") : t("growth.powerUnknown");
   return <div className="space-y-4">
-    <Text as="p" variant="bodySmall">{t("growth.conditions")}</Text>
+    <Text as="p" variant="bodySmall" tone="secondary">{t("growth.conditions")}</Text>
     <label className="block space-y-2">
       <Text variant="label">{t("growth.choose")}</Text>
-      <select className="ds-input w-full" value={selected?.id ?? ""} onChange={(event) => setSelectedId(event.target.value)}>
+      <Select className="w-full min-w-0" value={selected?.id ?? ""} onChange={(event) => setSelectedId(event.target.value)}>
         <option value="">{t("growth.none")}</option>
         {candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{date(candidate.startTime)} · {candidate.description || candidate.type}</option>)}
-      </select>
+      </Select>
     </label>
     {history.loading && <Text as="p">{t("growth.loading")}</Text>}
-    {history.error && <Button onClick={history.retry}>{t("growth.retry")}</Button>}
+    {history.error && <Button size="sm" onClick={history.retry}>{t("growth.retry")}</Button>}
     {!history.loading && !history.error && candidates.length === 0 && <Text as="p">{t("growth.noPrevious")}</Text>}
-    {history.hasMore && <Button variant="outline" loading={history.loadingMore} onClick={history.loadMore}>{t("growth.loadMore")}</Button>}
+    {history.hasMore && <Button size="sm" variant="outline" loading={history.loadingMore} onClick={history.loadMore}>{t("growth.loadMore")}</Button>}
     {selected && <>
-      <Button variant="ghost" onClick={() => setSelectedId("")}>{t("growth.clear")}</Button>
+      <Button size="sm" variant="ghost" onClick={() => setSelectedId("")}>{t("growth.clear")}</Button>
       {baseline.status === "loading" && <Text as="p">{t("growth.loading")}</Text>}
       {baseline.status === "stale" && <Text as="p" tone="warning">{t("growth.stale")}</Text>}
       {!baseline.metrics && baseline.status !== "loading" && <Text as="p">{t("growth.metricsMissing")}</Text>}
-      <div className="space-y-3">
-        <div className="grid grid-cols-3 gap-2"><Text variant="label">{t("growth.metric")}</Text><Text variant="label">{t("growth.current")}</Text><Text variant="label">{date(selected.startTime)}</Text></div>
-        {comparisonRows(metrics, baseline.metrics, running).map((row) => <div key={row.key} className="grid grid-cols-3 gap-2">
-          <Text variant="bodySmall">{t(`growth.metrics.${row.key === "avgSpeedKph" && running ? "pace" : row.key}`)} · {unit(row.key)}</Text>
-          <div><Text variant="dataSmall">{format(row.value, row.key)}</Text>{row.delta != null && <Text as="p" variant="caption">{t("growth.change")} {row.delta > 0 ? "+" : ""}{number(convert(row.delta, row.key), 1)} {row.key === "avgSpeedKph" && running ? units === "imperial" ? "s/mi" : "s/km" : unit(row.key)}</Text>}</div>
-          <Text variant="dataSmall">{format(row.baseline, row.key)}</Text>
-        </div>)}
-      </div>
-      <Text as="p" variant="caption">{t("growth.current")}: {powerLabel(metrics)} · {t("growth.previous")}: {powerLabel(baseline.metrics)}</Text>
+      <Card variant="inset" padding="none" className="activity-growth-table-shell">
+        <table className="activity-growth-table">
+          <thead><tr><th scope="col"><Text variant="eyebrow" tone="tertiary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="eyebrow" tone="tertiary">{t("growth.current")}</Text></th><th scope="col"><Text variant="eyebrow" tone="tertiary">{date(selected.startTime)}</Text></th></tr></thead>
+          <tbody>{comparisonRows(metrics, baseline.metrics, running).map((row) => <tr key={row.key}>
+            <th scope="row"><Text variant="bodySmall" tone="secondary">{t(`growth.metrics.${row.key === "avgSpeedKph" && running ? "pace" : row.key}`)} · {unit(row.key)}</Text></th>
+            <td><Text variant="bodyMedium" mono tone="primary">{format(row.value, row.key)}</Text>{row.delta != null && <Text as="p" variant="caption" tone="tertiary">{t("growth.change")} {row.delta > 0 ? "+" : ""}{number(convert(row.delta, row.key), 1)} {row.key === "avgSpeedKph" && running ? units === "imperial" ? "s/mi" : "s/km" : unit(row.key)}</Text>}</td>
+            <td><Text variant="bodyMedium" mono tone="secondary">{format(row.baseline, row.key)}</Text></td>
+          </tr>)}</tbody>
+        </table>
+      </Card>
+      <Text as="p" variant="caption" tone="tertiary">{t("growth.current")}: {powerLabel(metrics)} · {t("growth.previous")}: {powerLabel(baseline.metrics)}</Text>
       {metrics && baseline.metrics && settledMetrics(metrics) && settledMetrics(baseline.metrics) && <>
         {[false, true].map((power) => {
           const points = comparableCurves(metrics, baseline.metrics!, power);
-          return points.length > 0 && <div key={String(power)} className="space-y-2"><Text as="h4" variant="subtitle">{t(power ? "growth.powerCurve" : running ? "growth.paceCurve" : "growth.speedCurve")}</Text>
-            {points.map((point) => <div key={point.duration} className="grid grid-cols-3 gap-2"><Text>{point.duration}s</Text><Text mono>{(power ? number(point.value) : running ? pace(point.value > 0 ? 3600 / point.value / distanceFactor : null) : number(point.value * distanceFactor))} {power ? "W" : running ? units === "imperial" ? "/mi" : "/km" : units === "imperial" ? "mph" : "km/h"}</Text><Text mono>{(power ? number(point.baseline) : running ? pace(point.baseline > 0 ? 3600 / point.baseline / distanceFactor : null) : number(point.baseline * distanceFactor))} {power ? "W" : running ? units === "imperial" ? "/mi" : "/km" : units === "imperial" ? "mph" : "km/h"}</Text></div>)}
-          </div>;
+          return points.length > 0 && <section key={String(power)} className="space-y-3"><Text as="h4" variant="bodySmall" weight={600} tone="secondary">{t(power ? "growth.powerCurve" : running ? "growth.paceCurve" : "growth.speedCurve")}</Text>
+            <Card variant="inset" padding="none" className="activity-growth-table-shell"><table className="activity-growth-table"><thead><tr><th scope="col"><Text variant="eyebrow" tone="tertiary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="eyebrow" tone="tertiary">{t("growth.current")}</Text></th><th scope="col"><Text variant="eyebrow" tone="tertiary">{t("growth.previous")}</Text></th></tr></thead><tbody>{points.map((point) => <tr key={point.duration}><th scope="row"><Text variant="bodySmall">{point.duration}s</Text></th><td><Text variant="bodySmall" mono>{(power ? number(point.value) : running ? pace(point.value > 0 ? 3600 / point.value / distanceFactor : null) : number(point.value * distanceFactor))} {power ? "W" : running ? units === "imperial" ? "/mi" : "/km" : units === "imperial" ? "mph" : "km/h"}</Text></td><td><Text variant="bodySmall" mono>{(power ? number(point.baseline) : running ? pace(point.baseline > 0 ? 3600 / point.baseline / distanceFactor : null) : number(point.baseline * distanceFactor))} {power ? "W" : running ? units === "imperial" ? "/mi" : "/km" : units === "imperial" ? "mph" : "km/h"}</Text></td></tr>)}</tbody></table></Card>
+          </section>;
         })}
         {[false, true].map((power) => {
           const currentZones = power ? powerZoneDistribution(metrics) : hrZoneDistribution(metrics);
           const previousZones = power ? powerZoneDistribution(baseline.metrics!) : hrZoneDistribution(baseline.metrics!);
-          return currentZones && previousZones && <div key={String(power)} className="space-y-2"><Text as="h4" variant="subtitle">{t(power ? "growth.powerZones" : "growth.hrZones")}</Text><Text as="p" variant="caption">{t("growth.zoneNote")}</Text>
-            {currentZones.map((zone) => <div key={zone.zone} className="grid grid-cols-3 gap-2"><Text>Z{zone.zone}</Text><Text mono>{number(zone.percentage)}%</Text><Text mono>{number(previousZones.find((z) => z.zone === zone.zone)?.percentage ?? null)}%</Text></div>)}
-          </div>;
+          return currentZones && previousZones && <section key={String(power)} className="space-y-3"><Text as="h4" variant="bodySmall" weight={600} tone="secondary">{t(power ? "growth.powerZones" : "growth.hrZones")}</Text><Text as="p" variant="caption" tone="tertiary">{t("growth.zoneNote")}</Text>
+            <Card variant="inset" padding="none" className="activity-growth-table-shell"><table className="activity-growth-table"><thead><tr><th scope="col"><Text variant="eyebrow" tone="tertiary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="eyebrow" tone="tertiary">{t("growth.current")}</Text></th><th scope="col"><Text variant="eyebrow" tone="tertiary">{t("growth.previous")}</Text></th></tr></thead><tbody>{currentZones.map((zone) => <tr key={zone.zone}><th scope="row"><Text variant="bodySmall">Z{zone.zone}</Text></th><td><Text variant="bodySmall" mono>{number(zone.percentage)}%</Text></td><td><Text variant="bodySmall" mono>{number(previousZones.find((z) => z.zone === zone.zone)?.percentage ?? null)}%</Text></td></tr>)}</tbody></table></Card>
+          </section>;
         })}
       </>}
     </>}
@@ -105,44 +109,53 @@ function Statistics({ activity }: { activity: Activity }) {
   const chartMax = Math.max(1, ...trend.map((week) => (week.distance ?? 0) / distanceScale));
   const date = (time: number) => new Date(time).toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" });
   return <div className="space-y-4">
-    <div className="flex flex-wrap gap-2">{(["week", "month"] as const).map((value) => <Button key={value} variant={period === value ? "primary" : "outline"} onClick={() => setPeriod(value)} aria-pressed={period === value}>{t(`growth.${value}`)}</Button>)}</div>
-    <Text as="p" variant="bodySmall">{t("growth.periodNote")} · {date(boundaries.start)}–{date(now.getTime())} / {date(boundaries.previousStart)}–{date(boundaries.previousEnd - 1)}</Text>
+    <Stack direction="row" wrap gap="var(--space-2)">{(["week", "month"] as const).map((value) => <Button size="sm" key={value} variant={period === value ? "secondary" : "ghost"} onClick={() => setPeriod(value)} aria-pressed={period === value}>{t(`growth.${value}`)}</Button>)}</Stack>
+    <Text as="p" variant="bodySmall" tone="secondary">{t("growth.periodNote")} · {date(boundaries.start)}–{date(now.getTime())} / {date(boundaries.previousStart)}–{date(boundaries.previousEnd - 1)}</Text>
     {stats.coverage === "loading" && <Text as="p">{t("growth.loading")}</Text>}
-    {stats.error && <Button onClick={stats.retry}>{t("growth.retry")}</Button>}
+    {stats.error && <Button size="sm" onClick={stats.retry}>{t("growth.retry")}</Button>}
     {!complete && stats.coverage !== "loading" && <Text as="p" tone="warning">{t("growth.partial", { count: sources.length })}</Text>}
-    <div className="grid grid-cols-3 gap-2"><Text variant="label">{t("growth.metric")}</Text><Text variant="label">{t("growth.currentPeriod")}</Text><Text variant="label">{t("growth.previousPeriod")}</Text></div>
+    <Card variant="inset" padding="none" className="activity-growth-table-shell"><table className="activity-growth-table"><thead><tr><th scope="col"><Text variant="eyebrow" tone="tertiary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="eyebrow" tone="tertiary">{t("growth.currentPeriod")}</Text></th><th scope="col"><Text variant="eyebrow" tone="tertiary">{t("growth.previousPeriod")}</Text></th></tr></thead><tbody>
     {(["count", "distance", "movingTime", "elevation"] as const).map((key) => {
       const scale = key === "distance" ? units === "imperial" ? 1609.344 : 1000 : key === "movingTime" ? 3600 : key === "elevation" && units === "imperial" ? 0.3048 : 1;
       const a = current[key] == null ? null : current[key]! / scale;
       const b = previous[key] == null ? null : previous[key]! / scale;
-      return <div key={key} className="grid grid-cols-3 gap-2"><Text>{t(`growth.stats.${key}`, { unit: key === "distance" ? units === "imperial" ? "mi" : "km" : units === "imperial" ? "ft" : "m" })}</Text><div><Text variant="dataSmall">{number(a, key === "count" || key === "elevation" ? 0 : 1)}</Text>{a != null && b != null && <Text as="p" variant="caption">{t("growth.change")} {a - b > 0 ? "+" : ""}{number(a - b)}</Text>}</div><Text variant="dataSmall">{number(b, key === "count" || key === "elevation" ? 0 : 1)}</Text></div>;
-    })}
-    <Text as="p" variant="caption">{t("growth.missingNote")}</Text>
-    {complete && trend.every((week) => week.distance != null) && <ChartFrame variant="embedded" header={<Text as="h4" variant="subtitle">{t("growth.weeklyTrend", { unit: units === "imperial" ? "mi" : "km" })}</Text>}>
-      <svg viewBox="0 0 360 130" role="img" aria-label={t("growth.weeklyTrend", { unit: units === "imperial" ? "mi" : "km" })}>
+      return <tr key={key}><th scope="row"><Text variant="bodySmall" tone="secondary">{t(`growth.stats.${key}`, { unit: key === "distance" ? units === "imperial" ? "mi" : "km" : units === "imperial" ? "ft" : "m" })}</Text></th><td><Text variant="bodyMedium" mono tone="primary">{number(a, key === "count" || key === "elevation" ? 0 : 1)}</Text>{a != null && b != null && <Text as="p" variant="caption" tone="tertiary">{t("growth.change")} {a - b > 0 ? "+" : ""}{number(a - b)}</Text>}</td><td><Text variant="bodyMedium" mono tone="secondary">{number(b, key === "count" || key === "elevation" ? 0 : 1)}</Text></td></tr>;
+    })}</tbody></table></Card>
+    <Text as="p" variant="caption" tone="tertiary">{t("growth.missingNote")}</Text>
+    {complete && trend.every((week) => week.distance != null) && <ChartFrame variant="embedded" header={<ChartHeader title={<Text as="h4">{t("growth.weeklyTrend", { unit: units === "imperial" ? "mi" : "km" })}</Text>} />}>
+      <svg className="activity-growth-trend" viewBox="0 0 360 130" role="img" aria-label={t("growth.weeklyTrend", { unit: units === "imperial" ? "mi" : "km" })}>
         {trend.map((week, index) => {
           const value = week.distance! / distanceScale;
           const height = value / chartMax * 75;
-          return <g key={week.start}><rect x={index * 60 + 12} y={100 - height} width={36} height={height} fill="var(--accent)" /><text x={index * 60 + 30} y={90 - height} textAnchor="middle" fill="var(--ink-1)">{number(value)}</text><text x={index * 60 + 30} y={120} textAnchor="middle" fill="var(--ink-1)">{new Date(week.start + 9 * 3600000).getUTCMonth() + 1}/{new Date(week.start + 9 * 3600000).getUTCDate()}</text></g>;
+          return <g key={week.start}><rect x={index * 60 + 12} y={100 - height} width={36} height={height} fill="var(--accent)" /><text x={index * 60 + 30} y={90 - height} textAnchor="middle" fill="var(--chart-grid-label)">{number(value)}</text><text x={index * 60 + 30} y={120} textAnchor="middle" fill="var(--chart-grid-label)">{new Date(week.start + 9 * 3600000).getUTCMonth() + 1}/{new Date(week.start + 9 * 3600000).getUTCDate()}</text></g>;
         })}
       </svg>
-      <Text as="p" variant="caption">{t("growth.trendNote")}</Text>
+      <Text as="p" variant="caption" tone="tertiary">{t("growth.trendNote")}</Text>
     </ChartFrame>}
-    <details><summary>{t("growth.sourceActivities")}</summary><div className="space-y-2">{[...current.sources, ...previous.sources].map((source) => <a key={source.id} className="block underline" href={`/activity/${encodeURIComponent(source.id)}`}>{date(source.startTime)} · {source.description || source.type}</a>)}</div></details>
+    <details className="activity-growth-sources"><summary><Text variant="bodySmall" weight={600}>{t("growth.sourceActivities")}</Text></summary><Stack gap="var(--space-2)" className="pt-3">{[...current.sources, ...previous.sources].map((source) => <a key={source.id} className="activity-growth-source-link" href={`/activity/${encodeURIComponent(source.id)}`}><Text variant="bodySmall">{date(source.startTime)} · {source.description || source.type}</Text></a>)}</Stack></details>
   </div>;
 }
 function GrowthSections(props: ActivityGrowthPanelProps) {
   const { t } = useTranslation("activity");
+  const sectionId = useId();
   const [comparisonOpen, setComparisonOpen] = useState(false);
   const [statisticsOpen, setStatisticsOpen] = useState(false);
   const [comparisonLoaded, setComparisonLoaded] = useState(false);
   const [statisticsLoaded, setStatisticsLoaded] = useState(false);
-  return <section className="space-y-4" aria-label={t("growth.title")}>
-    <Text as="h3" variant="subtitle">{t("growth.title")}</Text>
-    <Button variant="outline" aria-expanded={comparisonOpen} onClick={() => { setComparisonLoaded(true); setComparisonOpen((open) => !open); }}>{t("growth.compare")}</Button>
-    <div hidden={!comparisonOpen}>{comparisonLoaded && <Comparison activity={props.activity} metrics={props.metrics} />}</div>
-    <Button variant="outline" aria-expanded={statisticsOpen} onClick={() => { setStatisticsLoaded(true); setStatisticsOpen((open) => !open); }}>{t("growth.statistics")}</Button>
-    <div hidden={!statisticsOpen}>{statisticsLoaded && <Statistics activity={props.activity} />}</div>
+  return <section aria-label={t("growth.title")}>
+    <Card padding="none" className="min-w-0">
+      <Stack gap="var(--space-4)" className="activity-growth-content">
+        <Text as="h3" variant="subtitle" tone="primary">{t("growth.title")}</Text>
+        <div className="activity-growth-section">
+          <Button variant="ghost" block className="activity-growth-disclosure" trailingIcon={<ChevronDown />} aria-expanded={comparisonOpen} aria-controls={`${sectionId}-comparison`} onClick={() => { setComparisonLoaded(true); setComparisonOpen((open) => !open); }}>{t("growth.compare")}</Button>
+          <div id={`${sectionId}-comparison`} hidden={!comparisonOpen} className="pt-4">{comparisonLoaded && <Comparison activity={props.activity} metrics={props.metrics} />}</div>
+        </div>
+        <div className="activity-growth-section">
+          <Button variant="ghost" block className="activity-growth-disclosure" trailingIcon={<ChevronDown />} aria-expanded={statisticsOpen} aria-controls={`${sectionId}-statistics`} onClick={() => { setStatisticsLoaded(true); setStatisticsOpen((open) => !open); }}>{t("growth.statistics")}</Button>
+          <div id={`${sectionId}-statistics`} hidden={!statisticsOpen} className="pt-4">{statisticsLoaded && <Statistics activity={props.activity} />}</div>
+        </div>
+      </Stack>
+    </Card>
   </section>;
 }
 export function ActivityGrowthPanel(props: ActivityGrowthPanelProps) {
