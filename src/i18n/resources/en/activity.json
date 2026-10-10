@@ -1,4 +1,28 @@
 {
+  "runPeriods": {
+    "title": "Running best efforts by period",
+    "unavailable": "Canonical running best efforts are not yet available for these periods.",
+    "basis": "These are the best observed efforts from confirmed activities in each period. Distance efforts use elapsed time including stops.",
+    "current": "Selected period",
+    "previous": "Previous period",
+    "source": "{{date}} source activity",
+    "contributors": "{{count}} activities with observations for this effort",
+    "coverage": "Confirmed {{eligible}}/{{total}} activities · missing {{missing}} · no observed effort {{empty}}",
+    "truncated": "Only part of the period was scanned",
+    "partial": "Some records are missing. Only observed best values are shown; full-period records and reductions are withheld.",
+    "distances": "Observed distance best efforts",
+    "shortened": "Elapsed time reduction",
+    "deltaBasis": "Reduction is previous minus selected: positive is shorter, negative is longer. Missing or truncated records withhold changes. Routes and stops also affect results, so these values do not establish fitness improvement.",
+    "curve": "Observed best pace at common durations",
+    "curveBasis": "Curve source basis",
+    "run_metrics_pace_curve": "Canonical running pace curve",
+    "speed_curve_kmh_converted": "Pace converted from the speed curve",
+    "seconds": "{{count}} seconds",
+    "duration": "Select common duration",
+    "paceShortened": "Pace reduction per {{unit}}",
+    "noCommon": "No common durations with the same source basis are available for comparison.",
+    "curveNote": "Canonical pace and converted speed curves are compared separately. Empty or missing records are never filled with zero."
+  },
   "trainingPeriods": {
     "title": "Training intensity by period",
     "basis": "Groups retain the recorded heart-rate thresholds and FTP. Percentages use each group’s observed moving zone time; missing sensor time is excluded.",
