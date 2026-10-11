@@ -15,3 +15,4 @@
 .observed-route-history-axis { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); }
 
 .observed-route-history-trend { width: 100%; max-width: 28rem; }
+.observed-route-history .observed-route-history-content { min-inline-size: 0; }

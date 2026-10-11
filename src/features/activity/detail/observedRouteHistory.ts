@@ -1,6 +1,7 @@
+import { formatPace, formatSpeed, type Units } from "../../../utils/units";
 import { similarRouteMetricValue } from "./similarRouteHistory";
 import type { Activity } from "@shared/types";
-import type { ObservedRouteComparison } from "@shared/activity-route-comparison";
+import type { ActivityCanonicalAverage, ObservedRouteComparison } from "@shared/activity-route-comparison";
 import { getDiscipline } from "../../../utils/disciplineFilter";
 import { dedupeSamePhysicalRides, isSamePhysicalRide } from "../../../utils/samePhysicalRide";
 export const OBSERVED_ROUTE_HISTORY_MAX_SELECTED = 3;
@@ -50,4 +51,29 @@ export function observedRouteHistoryTrend(activities: readonly Activity[], metri
     const value = similarRouteMetricValue({ activity, distance: summary.distanceM, movingTime: summary.movingSec, pauseTime: summary.pauseSec }, metric, units);
     return { activity, value, x: last > first ? 65 + (activity.startTime - first) / (last - first) * 320 : 225 };
   });
+}
+
+/** 확정 평균 속도만 단위를 변환한다. 거리/시간 요약이나 GPS 시간축으로 대체하지 않는다. */
+export function observedRouteAverage(average: ActivityCanonicalAverage | null | undefined, activity: Activity, units: Units) {
+  const discipline = getDiscipline(activity.type);
+  if (average?.state !== "available" || average.discipline !== discipline || average.startTime !== activity.startTime
+    || average.avgSpeedKph === null || !known(average.avgSpeedKph)) return { value: null, formatted: "—" };
+  const speed = average.avgSpeedKph;
+  if (discipline === "run") {
+    const pace = speed > 0 ? 3600 / speed : null;
+    if (pace === null || !Number.isFinite(pace)) return { value: null, formatted: "—" };
+    const value = pace * (units === "imperial" ? 1.609344 : 1);
+    // 공용 formatter의 단위 변환·분/초 분해도 유한한 값일 때만 호출한다.
+    if (!Number.isFinite(value) || !Number.isFinite(Math.floor(value / 60) * 60)) return { value: null, formatted: "—" };
+    return { value, formatted: formatPace(pace, units) };
+  }
+  const value = speed / (units === "imperial" ? 1.609344 : 1), metersPerSecond = speed / 3.6;
+  // formatSpeed는 imperial에서 m/s×3600을 먼저 계산하므로 중간 곱도 검사한다.
+  if (!Number.isFinite(value) || !Number.isFinite(metersPerSecond * (units === "imperial" ? 3600 : 3.6))) return { value: null, formatted: "—" };
+  return { value, formatted: formatSpeed(metersPerSecond, units, "bike") };
+}
+export function observedRouteAverageTrend(rows: readonly { activity: Activity; canonicalAverage?: ActivityCanonicalAverage | null }[], units: Units) {
+  const byId = new Map(rows.map(row => [row.activity.id, row.canonicalAverage]));
+  // 기존 함수의 날짜 배치만 재사용한다. 요약 값은 반환하거나 대체 수치로 쓰지 않는다.
+  return observedRouteHistoryTrend(rows.map(row => row.activity), "distance", units).map(point => ({ activity: point.activity, x: point.x, ...observedRouteAverage(byId.get(point.activity.id), point.activity, units) }));
 }

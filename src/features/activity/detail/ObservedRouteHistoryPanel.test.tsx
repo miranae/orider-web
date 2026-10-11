@@ -2,16 +2,17 @@ import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
+import { routeAverageResponse } from "../../../services/activityRouteEvidence.fixture";
 import { compareObservedRoutes } from "@shared/observed-route-comparison";
 import { observedHistoryActivity, observedHistoryRoute } from "./observedRouteHistory.fixture";
 import ObservedRouteHistoryPanel from "./ObservedRouteHistoryPanel";
-const mocks = vi.hoisted(() => ({ inspect: vi.fn(), hook: vi.fn(), owner: true, ready: false, short: false }));
+const mocks = vi.hoisted(() => ({ inspect: vi.fn(), hook: vi.fn(), owner: true, ready: false, short: false, average: true, gap: "", runSpeed: 12, partialAnchor: false }));
 vi.mock("../../../hooks/useObservedRouteHistory", () => ({ useObservedRouteHistory: (anchor: ReturnType<typeof observedHistoryActivity>, selected: ReturnType<typeof observedHistoryActivity>[]) => {
-  mocks.hook(selected.map(a => a.id)); return { ownerAvailable: mocks.owner, enabled: selected.length > 0, state: mocks.ready ? "ready" : "idle", readCount: mocks.ready ? selected.length + 1 : 0, anchorState: "available", inspect: mocks.inspect,
-    rows: mocks.ready ? selected.map(activity => ({ activity, read: true, reason: null, state: "available", result: compareObservedRoutes(observedHistoryRoute(anchor.id), { ...observedHistoryRoute(activity.id), ...(mocks.short && activity.id === "short" ? { points: observedHistoryRoute(activity.id).points.slice(0, 2) } : {}) }) })) : [] };
+  mocks.hook(selected.map(a => a.id)); return { ownerAvailable: mocks.owner, enabled: selected.length > 0, state: mocks.ready ? "ready" : "idle", readCount: mocks.ready ? selected.length + 1 : 0, anchorState: "available", anchorAverage: mocks.average ? { ...routeAverageResponse(anchor.id,anchor.startTime,anchor.type === "Run" ? "run" : "bike", mocks.runSpeed).canonicalAverage!, inputCoverage: mocks.partialAnchor ? "partial_terminal" : "complete" } : null, inspect: mocks.inspect,
+    rows: mocks.ready ? selected.map(activity => ({ activity, canonicalAverage: mocks.average && activity.id !== mocks.gap ? routeAverageResponse(activity.id,activity.startTime,activity.type === "Run" ? "run" : "bike",activity.id === "fast" ? 18 : mocks.runSpeed).canonicalAverage : null, read: true, reason: null, state: "available", result: compareObservedRoutes(observedHistoryRoute(anchor.id), { ...observedHistoryRoute(activity.id), ...(mocks.short && activity.id === "short" ? { points: observedHistoryRoute(activity.id).points.slice(0, 2) } : {}) }) })) : [] };
 } }));
 const anchor = observedHistoryActivity("anchor"), choices = [1, 2, 3, 4].map(i => observedHistoryActivity(`activity${i}`, i));
-beforeEach(() => { mocks.owner = true; mocks.ready = false; mocks.short = false; mocks.inspect.mockReset(); mocks.hook.mockReset(); });
+beforeEach(() => { mocks.owner = true; mocks.ready = false; mocks.short = false; mocks.average = true; mocks.gap = ""; mocks.runSpeed=12; mocks.partialAnchor=false; mocks.inspect.mockReset(); mocks.hook.mockReset(); });
 describe("manual selected GPS history panel", () => {
   it("selection and year filtering make no GPS requests, preserve picks and cap free picks3", () => {
     const old = observedHistoryActivity("old", -365);
@@ -74,6 +75,7 @@ describe("manual selected GPS history panel", () => {
     const one = { ...observedHistoryActivity("missing", 1), summary: {} }, ten = observedHistoryActivity("ten", 10);
     const view = renderWithProviders(<ObservedRouteHistoryPanel anchor={anchor} activities={[one, ten]} observedMetricsIdentity="one" />); view.container.querySelector("details")!.open = true;
     for (const box of screen.getAllByRole("checkbox")) fireEvent.click(box);
+    fireEvent.click(screen.getByRole("button", { name: "저장 요약 이동시간" }));
     expect(view.container.querySelector('circle[data-source-id="missing"]')).not.toBeInTheDocument();
     expect(view.container.querySelectorAll("circle")).toHaveLength(2);
     expect(screen.queryByTestId("observed-history-segment")).not.toBeInTheDocument();
@@ -101,4 +103,27 @@ describe("manual selected GPS history panel", () => {
     mocks.owner = false; const view = renderWithProviders(<ObservedRouteHistoryPanel anchor={anchor} activities={choices} observedMetricsIdentity="one" />);
     expect(view.container).toBeEmptyDOMElement(); expect(mocks.inspect).not.toHaveBeenCalled();
   });
+});
+
+it("defaults to final averages, keeps canonicalnull gaps and never substitutes stored summary", () => {
+  mocks.ready=true;mocks.gap="activity1";const view=renderWithProviders(<ObservedRouteHistoryPanel anchor={anchor} activities={choices.slice(0,2)} observedMetricsIdentity="one"/>);view.container.querySelector("details")!.open=true;for(const b of screen.getAllByRole("checkbox"))fireEvent.click(b);
+  expect(screen.getByRole("button",{name:"확정 분석 평균 속도 · km/h"})).toHaveAttribute("aria-pressed","true");expect(view.container.querySelector('circle[data-source-id="activity1"]')).not.toBeInTheDocument();expect(screen.queryByTestId("observed-history-segment")).not.toBeInTheDocument();expect(screen.getByText(/저장 요약으로 대체하지 않습니다/)).toBeInTheDocument();expect(mocks.inspect).not.toHaveBeenCalled();
+});
+it("plots faster run pace higher and preserves realbike0 while run0 has no pace point", () => {
+  mocks.ready=true;mocks.runSpeed=0;const run={...anchor,type:"Run"},pick={...choices[0]!,type:"Run"};const view=renderWithProviders(<ObservedRouteHistoryPanel anchor={run} activities={[pick]} observedMetricsIdentity="one"/>);view.container.querySelector("details")!.open=true;fireEvent.click(screen.getByRole("checkbox"));expect(view.container.querySelectorAll("circle")).toHaveLength(0);
+  view.rerender(<ObservedRouteHistoryPanel anchor={anchor} activities={choices.slice(0,1)} observedMetricsIdentity="one"/>);view.container.querySelector("details")!.open=true;expect(view.container.querySelector('circle[data-source-id="activity1"]')).toBeInTheDocument();expect(screen.getAllByText(/0.0km\/h/).length).toBeGreaterThan(0);expect(mocks.inspect).not.toHaveBeenCalled();
+});
+
+it("places faster running average pace higher without reversing bike speed semantics", () => {
+  mocks.ready=true;const run={...anchor,type:"Run"},fast={...observedHistoryActivity("fast",1),type:"Run"};
+  const view=renderWithProviders(<ObservedRouteHistoryPanel anchor={run} activities={[fast]} observedMetricsIdentity="one"/>);view.container.querySelector("details")!.open=true;fireEvent.click(screen.getByRole("checkbox"));
+  const anchorY=Number(view.container.querySelector('circle[data-source-id="anchor"]')!.getAttribute("cy")),fastY=Number(view.container.querySelector('circle[data-source-id="fast"]')!.getAttribute("cy"));expect(fastY).toBeLessThan(anchorY);expect(mocks.inspect).not.toHaveBeenCalled();
+});
+
+it("uses a canonical chart caption and shows anchor computationtime/partial-terminal separately from activity x dates", () => {
+  mocks.ready=true;mocks.partialAnchor=true;
+  const view=renderWithProviders(<ObservedRouteHistoryPanel anchor={anchor} activities={choices.slice(0,1)} observedMetricsIdentity="one"/>);view.container.querySelector("details")!.open=true;fireEvent.click(screen.getByRole("checkbox"));
+  expect(screen.getByText(/숫자는 확정 분석 평균/)).toBeInTheDocument();expect(screen.queryByText(/활동에 저장된 요약입니다/)).not.toBeInTheDocument();
+  expect(screen.getByText(/기준 활동 · 분석 계산 시점/)).toHaveTextContent(/확정된 일부 누락/);
+  fireEvent.click(screen.getByRole("button",{name:"저장 요약 이동시간"}));expect(screen.getByText(/활동에 저장된 요약입니다.*날짜/)).toBeInTheDocument();expect(mocks.inspect).not.toHaveBeenCalled();
 });

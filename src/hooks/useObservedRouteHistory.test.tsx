@@ -89,3 +89,24 @@ describe("bounded manual observed route history", () => {
     mocks.uid = "owner"; mocks.anonymous = true; rerender(); expect(result.current.enabled).toBe(false);
   });
 });
+
+it("retains separately attributed averages within manual4 reads and clears scalars on auth ABA", async () => {
+  const { routeAverageResponse }=await import("../services/activityRouteEvidence.fixture");
+  mocks.load.mockImplementation((_services,_uid,id)=>Promise.resolve(routeAverageResponse(id,[anchor,...selected].find(a=>a.id===id)!.startTime)));
+  const view=renderHook(()=>useObservedRouteHistory(anchor,selected,"one"));expect(mocks.load).not.toHaveBeenCalled();await act(async()=>{await view.result.current.inspect();});
+  expect(mocks.load).toHaveBeenCalledTimes(4);for(const call of mocks.load.mock.calls)expect(call[4]).toMatchObject({includeCanonicalAverage:true,discipline:"bike"});
+  expect(view.result.current.anchorAverage?.state).toBe("available");expect(view.result.current.rows.every(r=>r.canonicalAverage?.state==="available")).toBe(true);
+  act(()=>{mocks.listener?.({uid:"other",isAnonymous:false});mocks.listener?.({uid:"owner",isAnonymous:false});});expect(view.result.current.anchorAverage).toBeNull();expect(view.result.current.rows).toHaveLength(0);expect(mocks.load).toHaveBeenCalledTimes(4);
+});
+
+it.each(["selection","metrics","services"])("rejects late canonical scalar snapshots after%s ABA without an automatic reread", async axis => {
+  const { routeAverageResponse }=await import("../services/activityRouteEvidence.fixture");let resolveOld!:(value:ReturnType<typeof routeAverageResponse>)=>void;
+  mocks.load.mockReturnValueOnce(new Promise(resolve=>{resolveOld=resolve;}));const originalServices=mocks.services;
+  const view=renderHook(({picks,identity})=>useObservedRouteHistory(anchor,picks,identity),{initialProps:{picks:selected.slice(0,1),identity:"one"}});
+  let pending!:Promise<void>;act(()=>{pending=view.result.current.inspect();});
+  if(axis==="services")mocks.services={auth:{currentUser:{uid:"owner",isAnonymous:false}}};
+  view.rerender({picks:axis==="selection"?selected.slice(1,2):selected.slice(0,1),identity:axis==="metrics"?"two":"one"});
+  mocks.services=originalServices;view.rerender({picks:selected.slice(0,1),identity:"one"});
+  await act(async()=>{resolveOld(routeAverageResponse(anchor.id,anchor.startTime));await pending;});
+  expect(view.result.current.anchorAverage).toBeNull();expect(view.result.current.rows).toHaveLength(0);expect(mocks.load).toHaveBeenCalledOnce();
+});

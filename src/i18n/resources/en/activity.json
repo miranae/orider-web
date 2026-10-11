@@ -1936,7 +1936,14 @@
     "visible": "{{visible}} displayed for this year / {{total}} checked results overall",
     "chart": "{{metric}} over actual date intervals",
     "trendNote": "Saved summaries from {{count}} activity sources with available GPS comparisons. Consider the actual date gaps and collection coverage together. Missing values remain unknown.",
-    "noTrend": "No confirmed source summaries are available to chart in this year."
+    "noTrend": "No confirmed source summaries are available to chart in this year.",
+    "averagePace": "Final analysis average pace · {{unit}}",
+    "averageSpeed": "Final analysis average speed · {{unit}}",
+    "averageBasis": "These averages come from the inspected final analysis, not saved summaries or the observed GPS window. Dates mark activity start; missing values break the line.",
+    "averageMissing": "The final analysis average is unavailable. Saved summaries are not substituted.",
+    "averageComputed": "Analysis computed: {{date}} (KST). This is the analysis inspected at read time, not a live value.",
+    "averagePartial": "The analysis input has settled missing portions. This does not establish an average over the entire input.",
+    "averageTrendNote": "Dates for {{count}} inspected activities. Values are final analysis averages; missing values break the line."
   },
   "cyclingDistancePeriods": {
     "title": "Cycling distance observations by period",

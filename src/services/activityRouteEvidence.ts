@@ -1,5 +1,5 @@
 import { httpsCallable } from "firebase/functions";
-import type { ActivityRouteEvidence, ActivityRouteEvidenceResponse, ObservedRouteComparison } from "@shared/activity-route-comparison";
+import type { ActivityCanonicalAverage, ActivityRouteEvidence, ActivityRouteEvidenceResponse, ObservedRouteComparison } from "@shared/activity-route-comparison";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { OBSERVED_ROUTE_POLICY_V1 } from "@shared/observed-route-comparison";
 import { getRuntimeConfig } from "./runtimeConfig";
@@ -15,10 +15,27 @@ export function observedRouteAvailable() {
   const config = getRuntimeConfig();
   return config.appEnvironment === "stage" && config.firebaseFunctionsBase === "https://asia-northeast3-orider-dev.cloudfunctions.net";
 }
-export function validateRouteEvidenceResponse(value: unknown, activityId: string, expectedRouteInputRevision?: string): ActivityRouteEvidenceResponse {
+// 별도 선택 채널의 서버 계약35다. 일반 프런트 지표 version34는 변경하지 않는다.
+export const ROUTE_CANONICAL_AVERAGE_VERSION = 35;
+export interface RouteCanonicalAverageOption { includeCanonicalAverage: true; startTime: number; discipline: "bike" | "run" }
+function validCanonicalAverage(value: unknown, expected?: RouteCanonicalAverageOption): value is ActivityCanonicalAverage {
+  const average = record(value);
+  if (!average || average.metricsRevision !== null && !digest(average.metricsRevision)) return false;
+  if (average.state === "available") return Object.keys(average).length === 10 && average.reason === null && typeof average.metricsRevision === "string"
+    && average.version === ROUTE_CANONICAL_AVERAGE_VERSION && ["bike", "run"].includes(String(average.discipline))
+    && finite(average.startTime) && average.startTime > 0 && Number.isFinite(new Date(average.startTime).getTime())
+    && finite(average.computedAt) && average.computedAt > 0 && Number.isFinite(new Date(average.computedAt).getTime())
+    && (average.avgSpeedKph === null || finite(average.avgSpeedKph))
+    && ["complete", "partial_terminal"].includes(String(average.inputCoverage)) && ["raw_parts", "inline_streams"].includes(String(average.sourceLayer))
+    && (!expected || average.startTime === expected.startTime && average.discipline === expected.discipline);
+  return Object.keys(average).length === 3 && (average.state === "pending" ? average.reason === "metrics_pending"
+    : average.state === "changed_input" ? average.reason === "metrics_revision_changed"
+      : average.state === "unavailable" && ["route_unconfirmed", "missing_metrics", "unsupported_metrics"].includes(String(average.reason)));
+}
+export function validateRouteEvidenceResponse(value: unknown, activityId: string, expectedRouteInputRevision?: string, canonical?: RouteCanonicalAverageOption): ActivityRouteEvidenceResponse {
   const invalid = () => { throw new Error("invalid_route_evidence_response"); };
   const data = record(value);
-  if (!data || Object.keys(data).length !== 7 || data.mode !== "route_evidence" || data.activityId !== activityId
+  if (!data || (Object.keys(data).length !== 7 && !(canonical && Object.prototype.hasOwnProperty.call(data, "canonicalAverage") && Object.keys(data).length === 8)) || data.mode !== "route_evidence" || data.activityId !== activityId
     || !["available", "pending", "changed_input", "unavailable"].includes(String(data.state))
     || data.routeInputRevision !== null && !digest(data.routeInputRevision)
     || data.sourceLayer !== null && !["raw_parts", "api_streams"].includes(String(data.sourceLayer))) return invalid();
@@ -45,18 +62,22 @@ export function validateRouteEvidenceResponse(value: unknown, activityId: string
     }
   }
   if (new TextEncoder().encode(JSON.stringify(value)).byteLength > ROUTE_RESPONSE_MAX_BYTES) throw new Error("route_input_limit");
+  if (Object.prototype.hasOwnProperty.call(data, "canonicalAverage") && (!canonical || !validCanonicalAverage(data.canonicalAverage, canonical) || record(data.canonicalAverage)?.state === "available" && data.state !== "available")) {
+    const { canonicalAverage: _invalidAverage, ...routeOnly } = data;
+    return routeOnly as ActivityRouteEvidenceResponse;
+  }
   return value as ActivityRouteEvidenceResponse;
 }
-export async function loadActivityRouteEvidence(services: FirebaseServices, uid: string, activityId: string, expectedRouteInputRevision?: string) {
+export async function loadActivityRouteEvidence(services: FirebaseServices, uid: string, activityId: string, expectedRouteInputRevision?: string, canonical?: RouteCanonicalAverageOption) {
   const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
   if (!matches()) throw new Error("account_changed");
   if (!observedRouteAvailable() || services.functions.app !== services.auth.app || services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("route_not_supported");
   if (!opaque(activityId) || activityId.includes("/") || expectedRouteInputRevision !== undefined && !digest(expectedRouteInputRevision)) throw new Error("invalid_route_request");
   await services.ensureAppCheckReady();
   if (!matches()) throw new Error("account_changed");
-  const response = await httpsCallable<{ activityId: string; mode: "route_evidence"; expectedRouteInputRevision?: string }, ActivityRouteEvidenceResponse>(services.functions, "getActivityStreams")({ activityId, mode: "route_evidence", ...(expectedRouteInputRevision ? { expectedRouteInputRevision } : {}) });
+  const response = await httpsCallable<{ activityId: string; mode: "route_evidence"; expectedRouteInputRevision?: string; includeCanonicalAverage?: true }, ActivityRouteEvidenceResponse>(services.functions, "getActivityStreams")({ activityId, mode: "route_evidence", ...(expectedRouteInputRevision ? { expectedRouteInputRevision } : {}), ...(canonical ? { includeCanonicalAverage: true as const } : {}) });
   if (!matches()) throw new Error("account_changed");
-  return validateRouteEvidenceResponse(response.data, activityId, expectedRouteInputRevision);
+  return validateRouteEvidenceResponse(response.data, activityId, expectedRouteInputRevision, canonical);
 }
 /** Worker 결과의 출처와 수치 경계를 메인 스레드에서도 검사한다. 재계산하지 않는다. */
 export function validRouteComparison(value: unknown, routes: readonly ActivityRouteEvidence[]): value is ObservedRouteComparison {
