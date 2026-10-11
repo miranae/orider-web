@@ -78,6 +78,13 @@ export interface PeriodRunningAnalysis {
     status: "complete" | "partial";
     timingBasis: "elapsed_including_stops";
     coverage: PeriodRunningCoverage;
+    /** 대표 활동별 거리 최고 경과 시간의 관측 분포. 일부·잘림은 전체 기간 기록이 아니다. */
+    observedStatistics?: Array<{
+      distance: RunDistanceKey;
+      bestTimeSeconds: number;
+      medianTimeSeconds: number;
+      contributingActivityCount: number;
+    }>;
     /** 일부 누락이면 포함된 입력 안에서의 최소값이며 기간 전체 최고 기록이 아니다. */
     points: Array<PeriodRunSource & { distance: RunDistanceKey; distanceM: number; elapsedSec: number }>;
   };

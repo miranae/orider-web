@@ -179,3 +179,35 @@ describe("optional observed running distribution boundary", () => {
     expect(validateTrainingAnalysisPeriodsResponse(empty, requestFor(empty))).toBe(empty);
   });
 });
+
+describe("optional distance observed statistics", () => {
+  const requestFor = (value: TrainingAnalysisPeriodsResponse) => ({ discipline: "run" as const, periods: value.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })) });
+  function suppliedDistance() {
+    const value = runningPeriodFixture();
+    value.periods.forEach(period => { period.running!.bestDistances.observedStatistics = period.running!.bestDistances.points.map(point => ({ distance: point.distance, bestTimeSeconds: point.elapsedSec, medianTimeSeconds: point.elapsedSec + 30, contributingActivityCount: point.contributingActivityCount })); });
+    return value;
+  }
+  it("accepts new observed statistics and unchanged old responses without recomputation", () => {
+    const value = suppliedDistance(); expect(validateTrainingAnalysisPeriodsResponse(value, requestFor(value))).toBe(value);
+    expect(value.periods[0]!.running!.bestDistances.observedStatistics![0]!.medianTimeSeconds).toBe(1230);
+    const old = runningPeriodFixture(); expect(validateTrainingAnalysisPeriodsResponse(old, requestFor(old))).toBe(old);
+    value.periods.forEach(period => { period.running!.bestDistances.observedStatistics = []; });
+    expect(validateTrainingAnalysisPeriodsResponse(value, requestFor(value))).toBe(value);
+  });
+  it.each(["object", "null", "duplicate", "over-five", "unsupported", "nan", "zero", "false-best", "median-too-fast", "n-zero", "n-over-source", "no-source"])("rejects malformed distance statistics %s", kind => {
+    const value = suppliedDistance(), best = value.periods[0]!.running!.bestDistances, statistic = best.observedStatistics![0]!;
+    if (kind === "object") best.observedStatistics = {} as never;
+    if (kind === "null") best.observedStatistics = null as never;
+    if (kind === "duplicate") best.observedStatistics!.push(structuredClone(statistic));
+    if (kind === "over-five") best.observedStatistics = Array(6).fill(statistic);
+    if (kind === "unsupported") statistic.distance = "2km" as never;
+    if (kind === "nan") statistic.medianTimeSeconds = NaN;
+    if (kind === "zero") statistic.bestTimeSeconds = 0;
+    if (kind === "false-best") statistic.bestTimeSeconds = 1;
+    if (kind === "median-too-fast") statistic.medianTimeSeconds = 1100;
+    if (kind === "n-zero") statistic.contributingActivityCount = 0;
+    if (kind === "n-over-source") statistic.contributingActivityCount = 2;
+    if (kind === "no-source") statistic.distance = "half";
+    expect(() => validateTrainingAnalysisPeriodsResponse(value, requestFor(value))).toThrow("invalid_training_analysis_periods_response");
+  });
+});

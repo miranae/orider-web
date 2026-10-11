@@ -93,6 +93,23 @@ describe("ActivityGrowthPanel", () => {
     expect(screen.getByRole("option", { name: /unrelated/ })).toBeInTheDocument();
     expect(screen.getByRole("combobox")).toHaveValue("previous");
   });
+  it("reuses loaded similar-route records and the existing selected metrics target", () => {
+    const thumbnailTrack = "37,127;37.003,127;37.006,127;37.009,127";
+    const current = { ...activity, thumbnailTrack, summary: { distance: 1000, movingTimeSec: 300, pauseTimeSec: 30 } } as Activity;
+    mocks.history.mockReturnValue({ activities: [{ ...previous, thumbnailTrack, summary: { distance: 1000, movingTimeSec: 320, pauseTimeSec: 20 } }], loading: false, hasMore: true });
+    render(<ActivityGrowthPanel activity={current} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    fireEvent.click(screen.getByRole("button", { name: "유사 코스 후보 (1)" }));
+    expect(screen.getByRole("region", { name: ko.similarRouteHistory.title })).toBeInTheDocument();
+    expect(mocks.metrics).toHaveBeenLastCalledWith(null);
+    fireEvent.click(screen.getByRole("button", { name: "이 활동과 비교" }));
+    expect(screen.getByRole("combobox")).toHaveValue("previous");
+    expect(mocks.metrics).toHaveBeenLastCalledWith("previous");
+    const metricsCalls = mocks.metrics.mock.calls.length, historyCalls = mocks.history.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "거리 · km" }));
+    expect(mocks.metrics).toHaveBeenCalledTimes(metricsCalls);
+    expect(mocks.history).toHaveBeenCalledTimes(historyCalls);
+  });
   it("never exposes owner history in a public or foreign-owner activity", () => {
     const r = render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner={false} />);
     expect(r.container).toBeEmptyDOMElement(); expect(mocks.history).not.toHaveBeenCalled();

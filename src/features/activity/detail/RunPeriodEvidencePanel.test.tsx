@@ -94,3 +94,58 @@ describe("observed running period evidence", () => {
     expect(within(screen.getByRole("region")).getAllByRole("combobox")).toHaveLength(2);
   });
 });
+
+describe("observed distance record mode", () => {
+  function distances() {
+    const response = evidenceFixture();
+    response.periods.forEach((period, index) => {
+      const best = period.running!.bestDistances;
+      best.observedStatistics = [{ distance: "5km", bestTimeSeconds: 1200 + index * 60, medianTimeSeconds: 1250 + index * 60, contributingActivityCount: 2 }];
+      period.running!.evidence!.activities.forEach((activity, position) => { activity.distanceRecords = [{ distance: "5km", elapsedSec: 1200 + index * 60 + position * 100 }]; });
+    });
+    return response;
+  }
+  const selectDistanceMode = () => fireEvent.change(screen.getByRole("combobox", { name: "확인할 기록" }), { target: { value: "distance" } });
+  it("shows supplied time best/median/N, official categories and chronologically ordered links without reads", () => {
+    renderWithProviders(<RunPeriodEvidencePanel response={distances()} />);
+    expect(screen.getByText("관측 활동의 최고 페이스: 12:30/km")).toBeInTheDocument();
+    selectDistanceMode();
+    expect(screen.getByText("관측 활동의 최고 기록: 20:00")).toBeInTheDocument();
+    expect(screen.getByText("관측 기록의 중앙값: 20:50")).toBeInTheDocument();
+    expect(screen.getAllByText("이 거리의 관측 활동 수: 2")).toHaveLength(2);
+    expect(screen.getByRole("combobox", { name: "관측 거리 선택" })).toHaveValue("5km");
+    expect(within(screen.getByRole("combobox", { name: "관측 거리 선택" })).getAllByRole("option").map(option => option.getAttribute("value"))).toEqual(["1km", "5km", "10km", "half", "full"]);
+    expect(screen.getAllByRole("link")[0]).toHaveAttribute("href", "/ko/activity/evidence-1-0");
+    expect(screen.getByText(/정지 시간을 포함한 경과시간/)).toBeInTheDocument();
+    expect(screen.queryByText(/test-revision/)).not.toBeInTheDocument();
+    expect(sourceReads.firestore).not.toHaveBeenCalled(); expect(sourceReads.callable).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("combobox", { name: "확인할 기록" }), { target: { value: "pace" } });
+    expect(screen.getByText("관측 활동의 최고 페이스: 12:30/km")).toBeInTheDocument();
+  });
+  it("keeps missing categories missing and observed partial/truncated scope explicit", () => {
+    const response = distances(); response.periods[0]!.running!.bestDistances.status = "partial"; response.periods[0]!.running!.bestDistances.coverage.truncated = true;
+    renderWithProviders(<RunPeriodEvidencePanel response={response} />); selectDistanceMode();
+    expect(screen.getByText(/전체 기간을 대표하지 않습니다/)).toBeInTheDocument();
+    expect(screen.getByText(/조회 한도로 일부/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "관측 거리 선택" }), { target: { value: "full" } });
+    expect(screen.getAllByText("관측 활동의 최고 기록: —")).toHaveLength(2);
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByText(/이 거리에 표시할 수 있는/)).toBeInTheDocument();
+  });
+  it("does not expose a distance mode to old responses and preserves imperial pace conversion", () => {
+    renderWithProviders(<LocaleProvider userId={null} profile={{ units: "imperial" }}><RunPeriodEvidencePanel response={evidenceFixture()} /></LocaleProvider>);
+    expect(screen.queryByRole("combobox", { name: "확인할 기록" })).not.toBeInTheDocument();
+    expect(screen.getByText("관측 활동의 최고 페이스: 20:07/mi")).toBeInTheDocument();
+  });
+  it("supports distance-only new responses without fabricating a pace basis or replacing empty statistics", () => {
+    const response = distances(); response.periods.forEach(period => { period.running!.paceCurves = []; period.running!.evidence!.activities.forEach(activity => { activity.paceCurve = null; }); });
+    const { rerender } = renderWithProviders(<RunPeriodEvidencePanel response={response} />);
+    expect(screen.getByRole("combobox", { name: "확인할 기록" })).toHaveValue("distance");
+    expect(screen.queryByRole("combobox", { name: "분포 기록 기준" })).not.toBeInTheDocument();
+    response.periods.forEach(period => { period.running!.bestDistances.observedStatistics = []; });
+    rerender(<RunPeriodEvidencePanel response={response} />);
+    expect(screen.getAllByText("관측 활동의 최고 기록: —")).toHaveLength(2);
+    expect(screen.getAllByRole("link")).toHaveLength(4);
+  });
+});
