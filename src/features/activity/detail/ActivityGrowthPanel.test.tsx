@@ -1,3 +1,4 @@
+vi.mock("./ActivityBikeDistanceEvidencePanel", () => ({ default: () => <div data-testid="manual-bike-distance-panel" /> }));
 vi.mock("./ActivityRunDistanceEvidencePanel", () => ({ default: (props: unknown) => { mocks.manual(props); return <div data-testid="manual-distance-panel" />; } }));
 import { useEffect } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -418,4 +419,17 @@ it("mounts manual distance inspection for owner run only independently of metric
   expect(screen.queryByTestId("manual-distance-panel")).not.toBeInTheDocument();
   view.rerender(<ActivityGrowthPanel activity={activity} metrics={null} isOwner={false} />);
   expect(screen.queryByTestId("manual-distance-panel")).not.toBeInTheDocument();
+});
+
+it("mounts manual BIKE13 inspection only for the owner bike without enabling history or period requests", () => {
+  const view = render(<ActivityGrowthPanel activity={{ ...activity, type: "Ride" }} metrics={null} isOwner />);
+  expect(screen.getByTestId("manual-bike-distance-panel")).toBeInTheDocument();
+  expect(screen.queryByTestId("manual-distance-panel")).not.toBeInTheDocument();
+  expect(mocks.history.mock.calls.every(call => call[2] === false)).toBe(true);
+  expect(mocks.periods.mock.calls.every(call => call[1] === null)).toBe(true);
+  view.rerender(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+  expect(screen.queryByTestId("manual-bike-distance-panel")).not.toBeInTheDocument();
+  expect(screen.getByTestId("manual-distance-panel")).toBeInTheDocument();
+  view.rerender(<ActivityGrowthPanel activity={{ ...activity, type: "Ride" }} metrics={null} isOwner={false} />);
+  expect(screen.queryByTestId("manual-bike-distance-panel")).not.toBeInTheDocument();
 });
