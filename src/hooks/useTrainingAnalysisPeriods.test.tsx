@@ -57,5 +57,13 @@ it("retries a failed read once without changing the submitted period", async () 
   act(() => r.result.current.retry());
   await waitFor(() => expect(r.result.current.state).toBe("ready"));
   expect(mocks.load).toHaveBeenCalledTimes(2);
-  expect(mocks.load.mock.lastCall?.[2]).toEqual(selection.request);
+  expect(mocks.load.mock.lastCall?.[2]).toEqual({ ...selection.request, includeCyclingDistanceObservations: true });
+});
+
+it("adds cycling distance opt-in to the one existing request, remains stable on rerender and leaves run/swim request bytes unchanged", async () => {
+  const view = renderHook(props => useTrainingAnalysisPeriods("owner", props, true), {initialProps:selection});
+  await waitFor(() => expect(view.result.current.state).toBe("ready"));
+  expect(mocks.load).toHaveBeenCalledOnce();expect(mocks.load.mock.calls[0]![2]).toEqual({...selection.request,includeCyclingDistanceObservations:true});
+  view.rerender({...selection,request:{...selection.request,periods:[...selection.request.periods]}});expect(mocks.load).toHaveBeenCalledOnce();view.unmount();
+  for (const discipline of ["run","swim"] as const) {const value={...selection,request:{...selection.request,discipline}};const other=renderHook(()=>useTrainingAnalysisPeriods("owner",value,true));await waitFor(()=>expect(other.result.current.state).toBe("ready"));expect(mocks.load.mock.lastCall?.[2]).toEqual(value.request);other.unmount();}
 });

@@ -1937,5 +1937,24 @@
     "chart": "{{metric}} over actual date intervals",
     "trendNote": "Saved summaries from {{count}} activity sources with available GPS comparisons. Consider the actual date gaps and collection coverage together. Missing values remain unknown.",
     "noTrend": "No confirmed source summaries are available to chart in this year."
+  },
+  "cyclingDistancePeriods": {
+    "title": "Cycling distance observations by period",
+    "basis": "Original elapsed time includes stops. Best and median values describe observed representative activities in the queried range, not account records or a growth rate. Input quality and coverage of entire activities are unknown.",
+    "distance": "Distance to compare",
+    "period": "Period {{count}} (KST)",
+    "periodColumn": "Period (KST)",
+    "best": "Observed best time",
+    "median": "Observed median",
+    "observed": "Observed activities",
+    "counts": "{{candidate}} representatives · {{supported}} supported ({{observed}} observed · {{empty}} not observed) · {{unsupported}} legacy unsupported · {{unavailable}} unavailable",
+    "unknown": "This distance channel is unavailable. It may be an older response or a channel that could not be validated; this does not establish absence of records.",
+    "truncated": "The scan reached its 200-activity limit before sport filtering. Only observations from the displayed representatives are compared.",
+    "partial": "Some activities are unsupported or unavailable. Differences describe only the observed inputs.",
+    "noObserved": "No effort at this distance was found in the supported observed inputs. This does not establish absence across all account records.",
+    "noSupport": "No observed input supports this distance. Unsupported activities are not treated as zero-second records.",
+    "sourceCount": "Showing {{shown}}/{{total}} source activities",
+    "moreSources": "Show 5 more sources",
+    "scrollHint": "Swipe the table horizontally to inspect both periods."
   }
 }

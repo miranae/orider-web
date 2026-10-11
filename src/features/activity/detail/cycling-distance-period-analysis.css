@@ -1,0 +1,13 @@
+.cycling-distance-periods { min-inline-size: 0; border-top: 1px solid var(--line-soft); padding-top: var(--space-3); font-size: var(--fs-md); }
+.cycling-distance-periods summary { display: list-item; min-height: calc(var(--dim-button-height) + var(--space-1)); cursor: pointer; font-weight: 600; }
+.cycling-distance-periods-body, .cycling-distance-periods-period { display: grid; gap: var(--space-3); min-inline-size: 0; }
+.cycling-distance-periods label { display: grid; gap: var(--space-2); }
+.cycling-distance-periods select, .cycling-distance-periods .ds-btn { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.cycling-distance-periods .ds-btn--outline { color: var(--ink-0); }
+.cycling-distance-periods-scroll { min-inline-size: 0; max-inline-size: 100%; overflow-x: auto; }
+.cycling-distance-periods table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
+.cycling-distance-periods th, .cycling-distance-periods td { padding: var(--space-2); text-align: start; white-space: nowrap; border-bottom: 1px solid var(--line-soft); }
+.cycling-distance-periods ul { list-style: none; padding: 0; margin: 0; }
+.cycling-distance-periods a { display: inline-flex; align-items: center; min-height: calc(var(--dim-button-height) + var(--space-1)); color: var(--ink-1); font-size: var(--fs-md); overflow-wrap: anywhere; text-decoration: underline; }
+.cycling-distance-periods a:hover { color: var(--accent-dark); }
+@media (min-width: 48rem) { .cycling-distance-periods .cycling-distance-periods-scroll-hint { display: none; } }

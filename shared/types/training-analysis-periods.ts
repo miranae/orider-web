@@ -1,3 +1,4 @@
+import type { BikeDistanceKey } from "../activity-bike-distance-evidence";
 import type { HrZoneBoundaries } from "../training/hrZoneTable";
 import type { PowerCurvePeriod } from "./power-curve-periods";
 import type { ExpandedRunDistanceKey, RunDistanceKey } from "./personal-records";
@@ -7,6 +8,7 @@ export interface TrainingAnalysisPeriodsRequest {
   periods: PowerCurvePeriod[];
   includeExpandedRunDistances?: true;
   includeCyclingClimbObservations?: true;
+  includeCyclingDistanceObservations?: true;
 }
 export interface PeriodObservedTotal {
   /** Known canonical subtotal; null means no observed values. */
@@ -158,9 +160,34 @@ export interface CyclingClimbObservations {
     sourceLayer: "raw_parts" | "inline_streams" | "unknown";
   }>;
 }
+export interface CyclingDistancePeriodAnalysis {
+  version: 1;
+  targetsVersion: 1;
+  timingBasis: "original_activity_elapsed";
+  scope: "observed_representatives";
+  quality: "unknown";
+  coverage: "unknown";
+  distances: Array<{
+    distance: BikeDistanceKey;
+    distanceM: number;
+    /** candidate = supported + unsupported + unavailable; supported = observed + noObserved. */
+    candidateActivityCount: number;
+    supportedActivityCount: number;
+    observedEffortActivityCount: number;
+    noObservedEffortActivityCount: number;
+    unsupportedActivityCount: number;
+    unavailableActivityCount: number;
+    truncated: boolean;
+    bestTimeSeconds: number | null;
+    medianTimeSeconds: number | null;
+    /** 최대 200개 대표 활동. 경과 시간/날짜/ID 순; 계정 PR 순위가 아니다. */
+    sources: Array<PeriodRunSource & { elapsedSec: number }>;
+  }>;
+}
 export interface TrainingAnalysisPeriodResult extends PowerCurvePeriod {
   status: "complete" | "partial";
   cyclingClimbObservations?: CyclingClimbObservations;
+  cyclingDistanceObservations?: CyclingDistancePeriodAnalysis;
   coverage: {
     scannedActivityCount: number;
     candidateActivityCount: number;

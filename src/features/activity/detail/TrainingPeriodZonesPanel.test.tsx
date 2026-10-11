@@ -36,3 +36,11 @@ describe("period zones display", () => {
     expect(screen.queryByText("기간별 훈련 강도")).not.toBeInTheDocument();
   });
 });
+
+it("adds a closed cycling distance section only beside existing bike period displays", () => {
+  const response = periodFixture(); const view=renderWithProviders(<TrainingPeriodZonesPanel response={response}/>);
+  expect(screen.getByText("기간별 사이클링 거리 관측 비교")).toBeInTheDocument();
+  expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  view.rerender(<TrainingPeriodZonesPanel response={{...response,discipline:"run"}}/>);
+  expect(screen.queryByText("기간별 사이클링 거리 관측 비교")).not.toBeInTheDocument();
+});
