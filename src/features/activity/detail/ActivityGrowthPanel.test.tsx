@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
@@ -242,6 +243,15 @@ describe("ActivityGrowthPanel", () => {
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
     expect(screen.queryByText("심박 존 분포")).toBeNull();
   });
+  it("offers a mobile scroll hint only for the long monthly chart", () => {
+    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+    expect(screen.queryByText(ko.observedYears.scrollHint)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: ko.growth["12months"] }));
+    expect(screen.getByText(ko.observedYears.scrollHint)).toHaveClass("activity-growth-scroll-hint");
+    fireEvent.click(screen.getByRole("button", { name: ko.growth.week }));
+    expect(screen.queryByText(ko.observedYears.scrollHint)).not.toBeInTheDocument();
+  });
   it("offers a retry when statistics fail", () => {
     const retry = vi.fn();
     mocks.history.mockReturnValue({ sourceActivities: [], coverage: "error", error: true, retry });
@@ -280,5 +290,80 @@ describe("ActivityGrowthPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
     expect(screen.getByText("거리 · mi")).toBeInTheDocument(); expect(screen.getByText("8:03")).toBeInTheDocument();
+  });
+});
+
+describe("observed year application", () => {
+  it.each(["flag-off", "unsupported-sport"])("does not offer annual controls for %s", scenario => {
+    mocks.periodAvailable = scenario !== "flag-off";
+    render(<ActivityGrowthPanel activity={scenario === "unsupported-sport" ? { ...activity, type: "Yoga" } : activity} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+    expect(screen.queryByRole("button", { name: "연도", exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "관측 연도" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/종목 필터 전 최대 200개 관측 범위/)).not.toBeInTheDocument();
+  });
+  it("disables the empty YTD at exact KST New Year without a future endpoint", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-01-01T00:00:00+09:00"));
+    try {
+      mocks.periodAvailable = true;
+      render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+      fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+      fireEvent.click(screen.getByRole("button", { name: "연도", exact: true }));
+      expect(screen.getByRole("button", { name: "연도 적용" })).toBeDisabled();
+      expect(screen.getByText(/새해 정각에는 올해 관측 기간이 아직 비어/)).toBeInTheDocument();
+      expect(mocks.periods.mock.lastCall?.[1]).toBeNull();
+      fireEvent.change(screen.getByRole("combobox", { name: "관측 연도" }), { target: { value: "2024" } });
+      expect(screen.getByRole("button", { name: "연도 적용" })).toBeEnabled();
+      fireEvent.click(screen.getByRole("button", { name: "연도 적용" }));
+      expect(mocks.periods.mock.lastCall?.[1].request.periods[0].toExclusive).toBe(Date.now());
+    } finally { vi.useRealTimers(); }
+  });
+  it("does not route an applied annual range to legacy history when support turns off", () => {
+    mocks.periodAvailable = true;
+    const view = render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+    fireEvent.click(screen.getByRole("button", { name: "연도", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "연도 적용" }));
+    mocks.periodAvailable = false;
+    view.rerender(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+    expect(screen.queryByRole("button", { name: "연도", exact: true })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "이번 달" })).toHaveAttribute("aria-pressed", "true");
+    expect(mocks.periods).toHaveBeenLastCalledWith("owner", null, false);
+    expect(mocks.history.mock.lastCall?.[2]).toBe(false);
+    expect(mocks.history.mock.lastCall?.[3].fromInclusive).toBeGreaterThan(Date.parse(`${new Date().getFullYear() - 1}-01-01T00:00:00+09:00`));
+    fireEvent.click(screen.getByRole("button", { name: "이번 달" }));
+    expect(mocks.history.mock.lastCall?.[2]).toBe(true);
+  });
+  it("does not request on draft changes and applies two periods in one existing request", () => {
+    mocks.periodAvailable = true;
+    const request = vi.fn();
+    mocks.periods.mockImplementation(function useMockPeriods(_uid, selection, enabled) {
+      useEffect(() => { if (enabled && selection) request(selection.request); }, [selection, enabled]);
+      return { state: "idle", response: null, retry: vi.fn() };
+    });
+    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+    expect(request).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "연도", exact: true }));
+    const select = screen.getByRole("combobox", { name: "관측 연도" });
+    const year = Number((select as HTMLSelectElement).value);
+    fireEvent.change(select, { target: { value: String(year - 1) } });
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/KST 선택 연도 전체/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "연도 적용" }));
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request.mock.lastCall?.[0].periods).toEqual([
+      { fromInclusive: Date.parse(`${year - 1}-01-01T00:00:00+09:00`), toExclusive: Date.parse(`${year}-01-01T00:00:00+09:00`) },
+      { fromInclusive: Date.parse(`${year - 2}-01-01T00:00:00+09:00`), toExclusive: Date.parse(`${year - 1}-01-01T00:00:00+09:00`) },
+    ]);
+    expect(screen.getByText(/KST 선택 연도 전체/)).toBeInTheDocument();
+    fireEvent.change(select, { target: { value: String(year) } });
+    expect(request).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole("button", { name: "연도 적용" }));
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(request.mock.lastCall?.[0].periods).toHaveLength(2);
+    expect(screen.getByText(/KST 올해 누적/)).toBeInTheDocument();
+    expect(mocks.history.mock.calls.filter(call => call[0] === "statistics").every(call => call[2] === false)).toBe(true);
   });
 });

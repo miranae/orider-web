@@ -15,7 +15,7 @@ import TrainingPeriodZonesPanel from "./TrainingPeriodZonesPanel";
 import { Button, Card, ChartFrame, Input, Select, Stack, Stat, Text } from "../../../theme";
 import "./activity-growth-panel.css";
 import { getDiscipline } from "../../../utils/disciplineFilter";
-import { activityPeriods, comparisonRows, customActivityPeriods, sameActivitySport, settledMetrics, summarizePeriod, type StatisticsPeriod } from "./activityGrowth";
+import { activityPeriods, comparisonRows, customActivityPeriods, observedYearPeriods, sameActivitySport, settledMetrics, summarizePeriod, type StatisticsPeriod } from "./activityGrowth";
 import type { MetricsLike } from "./metricsPresentation";
 import { similarRouteCandidates } from "./routeSimilarity";
 import { ActivityComparisonVisuals } from "./ActivityComparisonVisuals";
@@ -113,21 +113,27 @@ function Statistics({ activity }: { activity: Activity }) {
   const { user } = useAuth();
   const { t, i18n } = useTranslation("activity");
   const bucketId = useId();
-  const [period, setPeriod] = useState<StatisticsPeriod | "custom">("week");
+  const discipline = getDiscipline(activity.type);
+  const canonicalEnabled = trainingAnalysisPeriodsAvailable() && (discipline === "bike" || discipline === "run" || discipline === "swim");
+  const [requestedPeriod, setPeriod] = useState<StatisticsPeriod | "custom" | "year">("week");
+  const period = requestedPeriod === "year" && !canonicalEnabled ? "month" : requestedPeriod;
   const [now] = useState(() => new Date());
   const today = new Date(now.getTime() + 9 * 3600000).toISOString().slice(0, 10);
+  const currentYear = Number(today.slice(0, 4));
+  const [draftYear, setDraftYear] = useState(currentYear);
+  const [appliedYear, setAppliedYear] = useState<number | null>(null);
+  const yearBoundaries = appliedYear == null ? null : observedYearPeriods(now.getTime(), appliedYear);
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [custom, setCustom] = useState<ReturnType<typeof customActivityPeriods>>(null);
   const [selectedBucket, setSelectedBucket] = useState<number | null>(null);
   const [trendMetric, setTrendMetric] = useState<"distance" | "movingTime" | "elevation" | "count">("distance");
   const customDraft = customActivityPeriods(from, to, now.getTime());
-  const boundaries = period === "custom" ? custom ?? activityPeriods(now.getTime(), "week") : activityPeriods(now.getTime(), period);
-  const longPeriod = period === "3months" || period === "6months" || period === "12months";
+  const boundaries = period === "year" ? yearBoundaries ?? activityPeriods(now.getTime(), "week") : period === "custom" ? custom ?? activityPeriods(now.getTime(), "week") : activityPeriods(now.getTime(), period);
+  const longPeriod = period === "year" || period === "3months" || period === "6months" || period === "12months";
   const weekStart = activityPeriods(boundaries.end - 1, "week").start;
-  const discipline = getDiscipline(activity.type);
-  const canonicalEnabled = trainingAnalysisPeriodsAvailable() && (discipline === "bike" || discipline === "run" || discipline === "swim");
-  const applied = period !== "custom" || custom != null;
+  const unsupportedYear = requestedPeriod === "year" && !canonicalEnabled;
+  const applied = !unsupportedYear && (period === "year" ? yearBoundaries != null : period !== "custom" || custom != null);
   const selection = useMemo(() => applied && (discipline === "bike" || discipline === "run" || discipline === "swim") ? {
     request: { discipline, periods: [
       { fromInclusive: boundaries.start, toExclusive: Math.min(boundaries.end, now.getTime()) },
@@ -151,8 +157,8 @@ function Statistics({ activity }: { activity: Activity }) {
   const complete = stats.coverage === "ready";
   const current = summarizePeriod(sources, boundaries.start, boundaries.end, complete);
   const previous = summarizePeriod(sources, boundaries.previousStart, boundaries.previousEnd, complete);
-  const trendCount = longPeriod ? Math.min(Number.parseInt(period, 10) * 2, 12) : 6;
   const endDate = new Date(boundaries.end - 1 + 9 * 3600000);
+  const trendCount = period === "year" ? yearBoundaries?.ytd ? endDate.getUTCMonth() + 1 : 12 : longPeriod ? Math.min(Number.parseInt(period, 10) * 2, 12) : 6;
   const monthStart = (offset: number) => Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth() + offset, 1) - 9 * 3600000;
   const trend = Array.from({ length: trendCount }, (_, index) => {
     const start = longPeriod ? monthStart(index - trendCount + 1) : weekStart - (trendCount - 1 - index) * 7 * 86400000;
@@ -166,19 +172,25 @@ function Statistics({ activity }: { activity: Activity }) {
   const date = (time: number) => new Date(time).toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" });
   const trendTitle = trendMetric === "distance" ? t(longPeriod ? "growth.monthlyTrend" : "growth.weeklyTrend", { count: trend.length, unit: units === "imperial" ? "mi" : "km" }) : t(longPeriod ? "growth.monthlyMetricTrend" : "growth.weeklyMetricTrend", { count: trend.length, metric: t(`growth.stats.${trendMetric}`, { unit: units === "imperial" ? "ft" : "m" }) });
   return <div className="space-y-4">
-    <Stack direction="row" wrap gap="var(--space-2)">{(["week", "month", "3months", "6months", "12months", "custom"] as const).map((value) => <Button size="sm" key={value} variant={period === value ? "secondary" : "ghost"} onClick={() => { setPeriod(value); setSelectedBucket(null); }} aria-pressed={period === value}>{t(`growth.${value}`)}</Button>)}</Stack>
+    <Stack direction="row" wrap gap="var(--space-2)">{(["week", "month", "3months", "6months", "12months", "custom", "year"] as const).filter(value => value !== "year" || canonicalEnabled).map((value) => <Button size="sm" key={value} variant={period === value ? "secondary" : "ghost"} onClick={() => { setPeriod(value); setSelectedBucket(null); }} aria-pressed={period === value}>{t(value === "year" ? "observedYears.mode" : `growth.${value}`)}</Button>)}</Stack>
+    {period === "year" && <Stack gap="var(--space-2)"><Stack direction="row" wrap gap="var(--space-3)">
+      <label htmlFor={`${bucketId}-year`}><Text as="span" variant="bodyMedium">{t("observedYears.select")}</Text><Select id={`${bucketId}-year`} className="min-h-[calc(var(--dim-button-height)+var(--space-1))] text-[length:var(--fs-md)]" value={draftYear} onChange={event => setDraftYear(Number(event.target.value))}>{Array.from({ length: currentYear - 1971 }, (_, index) => currentYear - index).map(year => <option key={year} value={year}>{year}</option>)}</Select></label>
+      <Button size="sm" disabled={!observedYearPeriods(now.getTime(), draftYear)} onClick={() => { setAppliedYear(draftYear); setSelectedBucket(null); }}>{t("observedYears.apply")}</Button>
+    </Stack><Text as="p" variant="bodyMedium" tone="secondary">{t(observedYearPeriods(now.getTime(), draftYear) ? "observedYears.draftNote" : "observedYears.emptyYtd")}</Text></Stack>}
     {period === "custom" && <Stack gap="var(--space-2)"><Stack direction="row" wrap gap="var(--space-3)">
       <label><Text as="span" variant="label">{t("growth.fromDate")}</Text><Input type="date" value={from} max={today} onChange={(event) => setFrom(event.target.value)} /></label>
       <label><Text as="span" variant="label">{t("growth.toDate")}</Text><Input type="date" value={to} max={today} onChange={(event) => setTo(event.target.value)} /></label>
       <Button size="sm" disabled={!customDraft} onClick={() => { setCustom(customDraft); setSelectedBucket(null); }}>{t("growth.applyDates")}</Button>
-    </Stack><Text as="p" variant="bodySmall" tone="secondary">{t(customDraft ? "growth.customNote" : "growth.invalidDates")}</Text></Stack>}
-    {(period !== "custom" || custom) && <Text as="p" variant="bodySmall" tone="secondary">{t(period === "custom" ? "growth.customPeriodNote" : "growth.periodNote")} · {date(boundaries.start)}–{date(boundaries.end - 1)} / {date(boundaries.previousStart)}–{date(boundaries.previousEnd - 1)}</Text>}
+    </Stack><Text as="p" variant="bodyMedium" tone="secondary">{t(customDraft ? "growth.customNote" : "growth.invalidDates")}</Text></Stack>}
+    {!unsupportedYear && (period !== "year" || applied) && <>
+    {(period !== "custom" || custom) && <Text as="p" variant="bodyMedium" tone="secondary">{t(period === "year" ? yearBoundaries?.ytd ? "observedYears.ytd" : "observedYears.full" : period === "custom" ? "growth.customPeriodNote" : "growth.periodNote")} · {date(boundaries.start)}–{date(boundaries.end - 1)} / {date(boundaries.previousStart)}–{date(boundaries.previousEnd - 1)}</Text>}
+    {period === "year" && yearBoundaries?.leapClamped && <Text as="p" variant="bodyMedium" tone="secondary">{t("observedYears.leapNote")}</Text>}
     {stats.coverage === "loading" && <Text as="p">{t("growth.loading")}</Text>}
     {stats.error && <Button size="sm" onClick={stats.retry}>{t("growth.retry")}</Button>}
     {!complete && stats.coverage !== "loading" && <Text as="p" tone="warning">{t("growth.partial", { count: sources.length })}</Text>}
-    {canonicalEnabled && canonical.response?.periods.some((p) => p.coverage.truncated) && <Text as="p" variant="bodySmall" tone="secondary">{t("trainingPeriods.truncated")}</Text>}
-    {canonicalEnabled && canonical.response && <Text as="p" variant="bodySmall" tone="secondary">{t("growth.canonicalPeriodBasis")}</Text>}
-    {stats.hasMore && <><Button size="sm" variant="outline" disabled={!stats.canLoadMore} loading={stats.loadingMore} onClick={stats.loadMore}>{t(stats.canLoadMore ? "growth.loadStatistics" : "growth.statisticsLimit")}</Button><Text as="p" variant="caption" tone="tertiary">{t("growth.statisticsReadNote")}</Text></>}
+    {canonicalEnabled && canonical.response?.periods.some((p) => p.coverage.truncated) && <Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.truncated")}</Text>}
+    {canonicalEnabled && canonical.response && <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.canonicalPeriodBasis")}</Text>}
+    {stats.hasMore && <><Button size="sm" variant="outline" disabled={!stats.canLoadMore} loading={stats.loadingMore} onClick={stats.loadMore}>{t(stats.canLoadMore ? "growth.loadStatistics" : "growth.statisticsLimit")}</Button><Text as="p" variant="bodyMedium" tone="tertiary">{t("growth.statisticsReadNote")}</Text></>}
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--dim-section-gap)]">
       {(["count", "distance", "movingTime", "elevation"] as const).map((key) => {
         const scale = key === "distance" ? units === "imperial" ? 1609.344 : 1000 : key === "movingTime" ? 3600 : key === "elevation" && units === "imperial" ? 0.3048 : 1;
@@ -189,13 +201,13 @@ function Statistics({ activity }: { activity: Activity }) {
         const previousCoverage = key === "count" ? null : previous.fields[key];
         return <Stack key={key} gap="var(--dim-item-gap)" className="min-w-0">
           <Stat compact label={t(`growth.stats.${key}`, { unit: key === "distance" ? units === "imperial" ? "mi" : "km" : units === "imperial" ? "ft" : "m" })} value={number(a, digits)} />
-          {coverage?.missingCount != null && coverage.missingCount > 0 && <Text as="p" variant="bodySmall" tone="secondary">{t("growth.observedSubtotal", { value: number(coverage.observed == null ? null : coverage.observed / scale, digits), known: coverage.knownCount, total: current.sources.length })}</Text>}
-          <Text as="p" variant="caption" tone="tertiary">{t("growth.previousPeriod")} <Text mono>{number(b, digits)}</Text>{a != null && b != null && <> · {t("growth.change")} <Text mono className="whitespace-nowrap">{signedNumber(a - b)}</Text></>}</Text>
-          {previousCoverage?.missingCount != null && previousCoverage.missingCount > 0 && <Text as="p" variant="caption" tone="tertiary">{t("growth.previousObservedSubtotal", { value: number(previousCoverage.observed == null ? null : previousCoverage.observed / scale, digits), known: previousCoverage.knownCount, total: previous.sources.length })}</Text>}
+          {coverage?.missingCount != null && coverage.missingCount > 0 && <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.observedSubtotal", { value: number(coverage.observed == null ? null : coverage.observed / scale, digits), known: coverage.knownCount, total: current.sources.length })}</Text>}
+          <Text as="p" variant="bodyMedium" tone="tertiary">{t("growth.previousPeriod")} <Text mono>{number(b, digits)}</Text>{a != null && b != null && <> · {t("growth.change")} <Text mono className="whitespace-nowrap">{signedNumber(a - b)}</Text></>}</Text>
+          {previousCoverage?.missingCount != null && previousCoverage.missingCount > 0 && <Text as="p" variant="bodyMedium" tone="tertiary">{t("growth.previousObservedSubtotal", { value: number(previousCoverage.observed == null ? null : previousCoverage.observed / scale, digits), known: previousCoverage.knownCount, total: previous.sources.length })}</Text>}
         </Stack>;
       })}
     </div>
-    <Text as="p" variant="caption" tone="tertiary">{t("growth.missingNote")} {complete && [current, previous].some((p) => Object.values(p.fields).some((field) => (field.missingCount ?? 0) > 0)) && t("growth.subtotalNote")}</Text>
+    <Text as="p" variant="bodyMedium" tone="tertiary">{t("growth.missingNote")} {complete && [current, previous].some((p) => Object.values(p.fields).some((field) => (field.missingCount ?? 0) > 0)) && t("growth.subtotalNote")}</Text>
     <label className="activity-growth-selection block"><Text as="span" variant="label">{t("growth.trendMetric")}</Text><Select value={trendMetric} onChange={(event) => setTrendMetric(event.target.value as typeof trendMetric)}>{(["distance", "movingTime", "elevation", "count"] as const).map((key) => <option key={key} value={key}>{t(`growth.stats.${key}`, { unit: key === "distance" ? units === "imperial" ? "mi" : "km" : units === "imperial" ? "ft" : "m" })}</option>)}</Select></label>
     {complete && trend.every((week) => week[trendMetric] != null) && <ChartFrame variant="embedded" header={<Text as="h4" variant="subtitle">{trendTitle}</Text>}>
       <div className="activity-growth-trend-scroll"><svg className={`activity-growth-trend${trendCount > 6 ? " activity-growth-trend--long" : ""}`} viewBox="0 0 360 130" role="group" aria-label={trendTitle}>
@@ -204,16 +216,18 @@ function Statistics({ activity }: { activity: Activity }) {
           const height = value / chartMax * 75;
           const width = 360 / trend.length;
           const choose = () => setSelectedBucket(week.start);
-          return <g key={week.start} role="button" tabIndex={0} aria-label={t("growth.inspectBucket", { date: date(week.start), count: week.sources.length })} aria-pressed={selectedBucket === week.start} onClick={choose} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(); } }} className="activity-growth-bucket"><rect x={index * width + width * .2} y={100 - height} width={width * .6} height={height} fill="var(--accent)" /><text x={index * width + width / 2} y={90 - height} textAnchor="middle" fill="var(--chart-grid-label)">{number(value)}</text><text x={index * width + width / 2} y={120} textAnchor="middle" fill="var(--chart-grid-label)">{new Date(week.start + 9 * 3600000).getUTCMonth() + 1}{longPeriod ? "" : `/${new Date(week.start + 9 * 3600000).getUTCDate()}`}</text><rect x={index * width + width * .1} y={20} width={width * .8} height={90} fill="transparent" /></g>;
+          return <g key={week.start} role="button" tabIndex={0} aria-label={t("growth.inspectBucket", { date: date(week.start), count: week.sources.length })} aria-pressed={selectedBucket === week.start} onClick={choose} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(); } }} className="activity-growth-bucket"><rect x={index * width + width * .2} y={100 - height} width={width * .6} height={height} fill="var(--accent)" /><text x={trend.length === 1 ? 180 : index === 0 ? 3 : index === trend.length - 1 ? 357 : index * width + width / 2} y={90 - height} textAnchor={trend.length === 1 ? "middle" : index === 0 ? "start" : index === trend.length - 1 ? "end" : "middle"} fill="var(--chart-grid-label)">{number(value)}</text><text x={index * width + width / 2} y={120} textAnchor="middle" fill="var(--chart-grid-label)">{new Date(week.start + 9 * 3600000).getUTCMonth() + 1}{longPeriod ? "" : `/${new Date(week.start + 9 * 3600000).getUTCDate()}`}</text><rect x={index * width + width * .1} y={20} width={width * .8} height={90} fill="transparent" /></g>;
         })}
       </svg></div>
+      {trendCount > 6 && <Text as="p" variant="bodyMedium" tone="secondary" className="activity-growth-scroll-hint">{t("observedYears.scrollHint")}</Text>}
       <label htmlFor={bucketId} className="activity-growth-selection block"><Text as="span" variant="label">{t("growth.chooseBucket")}</Text><Select id={bucketId} value={selectedTrend?.start ?? ""} onChange={(event) => setSelectedBucket(event.target.value ? Number(event.target.value) : null)}><option value="">{t("growth.clearBucket")}</option>{trend.map((bucket) => <option key={bucket.start} value={bucket.start}>{date(bucket.start)}–{date(bucket.end - 1)} · {t("growth.bucketCount", { count: bucket.sources.length })}</option>)}</Select></label>
-      <Text as="p" variant="caption" tone="tertiary">{t(longPeriod ? "growth.monthlyTrendNote" : "growth.trendNote")} {t("growth.bucketHint")}</Text>
+      <Text as="p" variant="bodyMedium" tone="tertiary">{t(longPeriod ? "growth.monthlyTrendNote" : "growth.trendNote")} {t("growth.bucketHint")}</Text>
     </ChartFrame>}
-    {selectedTrend && <Text as="p" variant="bodySmall">{date(selectedTrend.start)}–{date(selectedTrend.end - 1)} · {t("growth.bucketCount", { count: selectedTrend.sources.length })} <Button size="sm" variant="ghost" onClick={() => setSelectedBucket(null)}>{t("growth.clearBucket")}</Button></Text>}
+    {selectedTrend && <Text as="p" variant="bodyMedium">{date(selectedTrend.start)}–{date(selectedTrend.end - 1)} · {t("growth.bucketCount", { count: selectedTrend.sources.length })} <Button size="sm" variant="ghost" onClick={() => setSelectedBucket(null)}>{t("growth.clearBucket")}</Button></Text>}
     {canonicalEnabled && <RunPeriodComparisonPanel response={canonical.response} />}
     {canonicalEnabled && <TrainingPeriodZonesPanel response={canonical.response} />}
-    <details key={selectedBucket ?? "all"} open={selectedTrend ? true : undefined} className="activity-growth-sources"><summary><Text variant="bodySmall" weight={600}>{t("growth.sourceActivities")}</Text></summary><Stack gap="var(--space-2)" className="pt-3">{sourceList.map((source) => <a key={source.id} className="activity-growth-source-link" href={`/activity/${encodeURIComponent(source.id)}`}><Text variant="bodySmall">{date(source.startTime)} · {source.description || source.type}</Text></a>)}</Stack></details>
+    <details key={selectedBucket ?? "all"} open={selectedTrend ? true : undefined} className="activity-growth-sources"><summary><Text variant="bodyMedium" weight={600}>{t("growth.sourceActivities")}</Text></summary><Stack gap="var(--space-2)" className="pt-3">{sourceList.map((source) => <a key={source.id} className="activity-growth-source-link" href={`/activity/${encodeURIComponent(source.id)}`}><Text variant="bodyMedium">{date(source.startTime)} · {source.description || source.type}</Text></a>)}</Stack></details>
+    </>}
   </div>;
 }
 function GrowthSections(props: ActivityGrowthPanelProps) {

@@ -1677,5 +1677,24 @@
       "missing_power": "No measured power interval is available in this range.",
       "input_limit": "This range exceeds the safe input limit for calculation."
     }
+  },
+  "observedYears": {
+    "mode": "Year",
+    "select": "Observed year",
+    "apply": "Apply year",
+    "draftNote": "Choose a year, then apply to load both periods in one request. Coverage is capped at 200 activities before sport filtering and does not guarantee the selected year’s full history.",
+    "ytd": "KST year to date / previous year to the same local date and time",
+    "full": "KST full selected year / full preceding year",
+    "leapNote": "For February 29, the previous period ends on February 28 at the same local time.",
+    "emptyYtd": "At the first instant of the new year, the year-to-date period is empty. Choose a past year or reopen statistics shortly.",
+    "scrollHint": "Swipe the chart sideways to see the remaining months."
+  },
+  "observedEfforts": {
+    "title": "Fast observed efforts (up to 3)",
+    "scope": "Elapsed efforts at this distance are ordered within representative activities from a query capped at 200 before sport filtering. This is not lifetime history or an official ranking.",
+    "medianDifference": "Observed sample median difference: {{difference}}s{{unit}} {{direction}} · activities N {{previous}}→{{current}}",
+    "shorter": "shorter",
+    "longer": "longer",
+    "equal": "unchanged"
   }
 }
