@@ -1,0 +1,5 @@
+import type { ActivityBikeDistanceEvidenceResponse } from "@shared/activity-bike-distance-evidence";
+export const manualBikeDistanceEpoch = Date.parse("2026-10-01T00:00:00+09:00");
+export function manualBikeDistanceFixture(): ActivityBikeDistanceEvidenceResponse {
+  return { mode: "bike_distance_evidence", activityId: "ride", distanceInputRevision: "a".repeat(64), state: "available", reason: null, sourceLayer: "raw_parts", evidence: { activityId: "ride", distanceInputRevision: "a".repeat(64), sourceLayer: "raw_parts", sourceSchemaVersion: "native-distance-v1", sourceTimingBasis: "original_activity_elapsed", originEpochMs: manualBikeDistanceEpoch, durationSec: 1300, coverage: "unknown", quality: "unknown", scope: "single_observed_activity", targetsVersion: 1, inputPointCount: 2, observedStartOffsetSec: 30, observedEndOffsetSec: 1230, facts: [{ distance: "10km", distanceM: 10000, elapsedSec: 1000, exactElapsedSec: 1000, startIndex: 0, endBeforeIndex: 0, endIndex: 1, endFraction: 10000 / 12000, startTimeSec: 30, endTimeSec: 1030, startOffsetSec: 30, endOffsetSec: 1030 }] } };
+}

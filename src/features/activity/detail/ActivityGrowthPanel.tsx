@@ -1,3 +1,4 @@
+import ActivityBikeDistanceEvidencePanel from "./ActivityBikeDistanceEvidencePanel";
 import ActivityRunDistanceEvidencePanel from "./ActivityRunDistanceEvidencePanel";
 import { useId, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
@@ -244,6 +245,7 @@ function GrowthSections(props: ActivityGrowthPanelProps) {
   const [statisticsLoaded, setStatisticsLoaded] = useState(false);
   const content = <Stack gap="var(--dim-section-gap)" className={props.embedded ? undefined : "activity-growth-content"}>
     {getDiscipline(props.activity.type) === "run" && <ActivityRunDistanceEvidencePanel activity={props.activity} metrics={props.metrics} />}
+    {getDiscipline(props.activity.type) === "bike" && <ActivityBikeDistanceEvidencePanel activity={props.activity} metrics={props.metrics} />}
     <section className="activity-growth-section">
       <Text as="h3" variant="subtitle"><Button variant="ghost" size="sm" className="activity-growth-disclosure" trailingIcon={<ChevronDown />} aria-expanded={comparisonOpen} aria-controls={`${sectionId}-comparison`} onClick={() => { setComparisonLoaded(true); setComparisonOpen((open) => !open); }}>{t("growth.compare")}</Button></Text>
       <div id={`${sectionId}-comparison`} hidden={!comparisonOpen} className="pt-4">{comparisonLoaded && <Comparison activity={props.activity} metrics={props.metrics} currentMetricsStatus={props.currentMetricsStatus} />}</div>
