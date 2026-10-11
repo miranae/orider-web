@@ -33,7 +33,7 @@ export default function CyclingDistancePeriodAnalysis({ response }: { response: 
             {(d.truncated || d.unsupportedActivityCount > 0 || d.unavailableActivityCount > 0) && <Text as="p" variant="bodyMedium" tone="secondary">{t(d.truncated ? "cyclingDistancePeriods.truncated" : "cyclingDistancePeriods.partial")}</Text>}
             {d.observedEffortActivityCount === 0 && <Text as="p" variant="bodyMedium" tone="secondary">{t(d.supportedActivityCount > 0 ? "cyclingDistancePeriods.noObserved" : "cyclingDistancePeriods.noSupport")}</Text>}
             {d.sources.length > 0 && <><Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingDistancePeriods.sourceCount", { shown: Math.min(sourceLimit, d.sources.length), total: d.sources.length })}</Text>
-              <ul>{d.sources.slice(0, sourceLimit).map(source => <li key={source.sourceActivityId}><a href={`/${locale}/activity/${encodeURIComponent(source.sourceActivityId)}`}>{date(source.startTime)} · {formatElapsedBoundary(source.elapsedSec)}</a></li>)}</ul>
+              <ul>{d.sources.slice(0, sourceLimit).map(source => <li key={source.sourceActivityId}><a href={`/${locale}/activity/${encodeURIComponent(source.sourceActivityId)}`}>{date(source.startTime)} · {formatElapsedBoundary(source.elapsedSec)} · {t("cyclingDistancePeriods.provenance", { source: t(`manualBikeEvidence.declaredSources.${source.provenance.declaredActivitySource ?? "unknown"}`), status: t(`cyclingDistancePeriods.provenanceStatuses.${source.provenance.status}`) })}</a></li>)}</ul>
               {d.sources.length > sourceLimit && <Button size="sm" variant="outline" onClick={() => setSourceLimit(value => value + 5)}>{t("cyclingDistancePeriods.moreSources")}</Button>}
             </>}
           </>}

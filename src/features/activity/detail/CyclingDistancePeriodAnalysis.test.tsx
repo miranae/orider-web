@@ -37,3 +37,13 @@ describe("cycling13 period presentation", () => {
     for(const locale of [ko,en]) {expect(Object.keys(locale.manualBikeEvidence.distances)).toEqual([...BIKE_DISTANCE_TARGETS]);expect(locale.cyclingDistancePeriods.basis).toBeTruthy();expect(locale.cyclingDistancePeriods.unknown).toBeTruthy();expect(locale.cyclingDistancePeriods.scrollHint).toBeTruthy();}
   });
 });
+
+it("shows stored attribution separately from neutral legacy source while preserving elapsed values",()=>{
+  const response=cyclingDistancePeriodFixture(), source=response.periods[0]!.cyclingDistanceObservations!.distances[1]!.sources[0]!;
+  source.provenance={...source.provenance,declaredActivitySource:"apple_health",status:"stored_explicit"};
+  const view=renderWithProviders(<CyclingDistancePeriodAnalysis response={response}/>);open();
+  expect(screen.getByRole("link")).toHaveTextContent("Apple Health");expect(screen.getByText(/원본 시계 연결/)).toBeInTheDocument();
+  source.provenance={...source.provenance,declaredActivitySource:null,status:"legacy_normalized"};
+  view.rerender(<CyclingDistancePeriodAnalysis response={{...response}}/>);
+  expect(screen.getByRole("link")).toHaveTextContent("이전 표본 · 출처 미확인");expect(screen.getByRole("link")).toHaveTextContent("16:40");
+});

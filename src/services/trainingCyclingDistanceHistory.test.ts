@@ -1,8 +1,12 @@
+import { compiledBikeProvenanceWire } from "./activityBikeDistanceEvidence.fixture";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CyclingDistanceHistoryResponse, CyclingDistanceHistoryRequest } from "@shared/types/training-cycling-distance-history";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import { loadCyclingDistanceHistory, validateCyclingDistanceHistoryResponse, validCyclingDistanceHistoryRequest } from "./trainingCyclingDistanceHistory";
+function neutralHistory(value: CyclingDistanceHistoryResponse): CyclingDistanceHistoryResponse {
+  return { ...value, provenanceVersion: 2, sourceBasis: "stored_distance_parts", originalClockVerified: false, timingBasis: "stored_explicit_activity_elapsed", activities: value.activities.map(row => ["observed", "no_observed_efforts"].includes(row.distanceObservations.state) ? { ...row, distanceObservations: { ...row.distanceObservations, provenance: { provenanceVersion: 2, sourceBasis: "stored_distance_parts", timingBasis: "stored_explicit_activity_elapsed", originalClockVerified: false, declaredActivitySource: null, status: "legacy_normalized" } } } : row) };
+}
 const mocks=vi.hoisted(()=>({call:vi.fn(),callable:vi.fn()}));
 vi.mock("firebase/functions",()=>({httpsCallable:mocks.callable}));
 // Actual compiled backend response, provenance SHA256 60a7dc6caa1b556ff04e1128797fe1381cf8c53c95e5a8e9c9ddf6cd6128ea94.
@@ -232,7 +236,7 @@ const NOW=wire.readTime.seconds*1000;
 const request: CyclingDistanceHistoryRequest={mode:"cycling_distance_history_page",discipline:"bike",calendarBasis:"Asia/Seoul",rangeBasis:"calendar_year",year:2026};
 beforeEach(()=>{vi.restoreAllMocks();vi.spyOn(Date,"now").mockReturnValue(NOW); resetRuntimeConfigForTests({appEnvironment:"stage",firebaseFunctionsBase:"https://asia-northeast3-orider-dev.cloudfunctions.net",trainingAnalysisPeriodsEnabled:true});mocks.call.mockReset().mockResolvedValue({data:structuredClone(wire)});mocks.callable.mockReset().mockReturnValue(mocks.call);});
 describe("strict actual cycling history wire contract",()=>{
- it("accepts actual backend response including unsupported and unavailable rows",()=>{expect(validateCyclingDistanceHistoryResponse(wire,request,NOW)).toEqual(wire);});
+ it("accepts actual backend response including unsupported and unavailable rows",()=>{expect(validateCyclingDistanceHistoryResponse(wire,request,NOW)).toEqual(neutralHistory(wire));});
  it.each([
   (r:CyclingDistanceHistoryResponse)=>{r.mode="history_page" as never;},
   (r:CyclingDistanceHistoryResponse)=>{r.targetsVersion=2 as 1;},
@@ -257,7 +261,7 @@ describe("strict actual cycling history wire contract",()=>{
  });
  it("binds exact Stage auth/AppCheck context and invokes only the existing callable",async()=>{
   const app={}; const services={auth:{currentUser:{uid:"owner",isAnonymous:false},app},functions:{app,customDomain:"https://asia-northeast3-orider-dev.cloudfunctions.net"},ensureAppCheckReady:vi.fn().mockResolvedValue(undefined)} as unknown as FirebaseServices;
-  expect(await loadCyclingDistanceHistory(services,"owner",request)).toEqual(wire);expect(mocks.callable).toHaveBeenCalledWith(services.functions,"getTrainingAnalysisPeriods");expect(mocks.call).toHaveBeenCalledExactlyOnceWith(request);
+  expect(await loadCyclingDistanceHistory(services,"owner",request)).toEqual(neutralHistory(wire));expect(mocks.callable).toHaveBeenCalledWith(services.functions,"getTrainingAnalysisPeriods");expect(mocks.call).toHaveBeenCalledExactlyOnceWith(request);
   (services.auth.currentUser as unknown as {isAnonymous:boolean}).isAnonymous=true;await expect(loadCyclingDistanceHistory(services,"owner",request)).rejects.toThrow("account_changed");expect(mocks.call).toHaveBeenCalledOnce();
  });
  it("rechecks owner after AppCheck and after a response without accepting leaked rows",async()=>{
@@ -273,17 +277,17 @@ it("accepts actual wire timestamps with microseconds and the Admin floored range
  // Actual compiled nanos wire eb2f744cf141c014e47537632b30be1615683caf5f90fe96773137a10abada2b.
  // Admin Timestamp.toMillis() floors the sub-millisecond part in these response fields.
  expect(r.range.toExclusive).toBe(NOW);expect(r.expiresAt).toBe(NOW+1800000);
- expect(validateCyclingDistanceHistoryResponse(r,request,NOW+1)).toEqual(r);
+ expect(validateCyclingDistanceHistoryResponse(r,request,NOW+1)).toEqual(neutralHistory(r));
  // Freshness still uses the fractional timestamp, not the floored display fields.
  expect(()=>validateCyclingDistanceHistoryResponse(r,request,NOW)).toThrow();
- expect(validateCyclingDistanceHistoryResponse(r,request,NOW+1800000)).toEqual(r);
+ expect(validateCyclingDistanceHistoryResponse(r,request,NOW+1800000)).toEqual(neutralHistory(r));
  expect(()=>validateCyclingDistanceHistoryResponse(r,request,NOW+1800001)).toThrow("history_snapshot_expired");
 });
 it("preserves exact microsecond cursor identity despite matching floored response fields",()=>{
  const r=structuredClone(wire);r.readTime.nanoseconds=1000;r.page.exhausted=false;r.page.scannedActivityCount=50;r.page.skippedActivityCount=50-r.activities.length;
  const last=r.activities[r.activities.length-1]!;
  r.page.nextCursor={scope:"cycling_distance_history_v1_targets1",readTime:{...r.readTime},range:{...r.range},after:{startTime:last.startTime+1000,activityId:"cursor"},requestBinding:"a".repeat(64)};
- expect(validateCyclingDistanceHistoryResponse(r,request,NOW+1)).toEqual(r);
+ expect(validateCyclingDistanceHistoryResponse(r,request,NOW+1)).toEqual(neutralHistory(r));
  r.page.nextCursor.readTime.nanoseconds=2000;
  expect(()=>validateCyclingDistanceHistoryResponse(r,request,NOW+1)).toThrow("invalid_cycling_distance_history_response");
 });
@@ -618,8 +622,8 @@ const totalsWire = {
 
 describe("optional activity totals isolation",()=>{
  const opted={...request,includeActivityTotals:true as const};
- it("accepts actual opt-in response, zero values and separate source bases without changing object identity",()=>{expect(validateCyclingDistanceHistoryResponse(totalsWire,opted,NOW)).toBe(totalsWire);expect(validCyclingDistanceHistoryRequest(opted,NOW)).toBe(true);expect(validCyclingDistanceHistoryRequest({...request,includeActivityTotals:false} as never,NOW)).toBe(false);expect(validateCyclingDistanceHistoryResponse(wire,request,NOW)).toBe(wire);});
- it("treats an absent true channel as unknown, while a legacy request rejects an unsolicited channel",()=>{expect(validateCyclingDistanceHistoryResponse(wire,opted,NOW)).toBe(wire);expect(()=>validateCyclingDistanceHistoryResponse(totalsWire,request,NOW)).toThrow();});
+ it("accepts actual opt-in response, zero values and separate source bases without changing object identity",()=>{expect(validateCyclingDistanceHistoryResponse(totalsWire,opted,NOW)).toEqual(neutralHistory(totalsWire));expect(validCyclingDistanceHistoryRequest(opted,NOW)).toBe(true);expect(validCyclingDistanceHistoryRequest({...request,includeActivityTotals:false} as never,NOW)).toBe(false);expect(validateCyclingDistanceHistoryResponse(wire,request,NOW)).toEqual(neutralHistory(wire));});
+ it("treats an absent true channel as unknown, while a legacy request rejects an unsolicited channel",()=>{expect(validateCyclingDistanceHistoryResponse(wire,opted,NOW)).toEqual(neutralHistory(wire));expect(()=>validateCyclingDistanceHistoryResponse(totalsWire,request,NOW)).toThrow();});
  it.each([
   (r:CyclingDistanceHistoryRow)=>{r.activityTotals!.distanceM=Infinity;},
   (r:CyclingDistanceHistoryRow)=>{r.activityTotals!.elevationGainM=-1;},
@@ -631,7 +635,7 @@ describe("optional activity totals isolation",()=>{
   (r:CyclingDistanceHistoryRow)=>{r.activityTotals!.elevationGainM=null;},
  ])("isolates bad totals without mutating or losing the strict 13-distance channel %#",mutate=>{
   const original=structuredClone(totalsWire),r=original.activities.find(row=>row.activityId==="native")!;mutate(r);const before=JSON.stringify(original);Object.freeze(r);Object.freeze(original.activities);Object.freeze(original);
-  const safe=validateCyclingDistanceHistoryResponse(original,opted,NOW);expect(safe).not.toBe(original);expect(safe.activities.find(row=>row.activityId==="native")!.activityTotals).toBeUndefined();expect(safe.activities.find(row=>row.activityId==="native")!.distanceObservations).toEqual(r.distanceObservations);expect(JSON.stringify(original)).toBe(before);expect(safe.activities.find(row=>row.activityId==="missing")!.activityTotals!.elevationGainM).toBe(0);
+  const safe=validateCyclingDistanceHistoryResponse(original,opted,NOW);expect(safe).not.toBe(original);expect(safe.activities.find(row=>row.activityId==="native")!.activityTotals).toBeUndefined();expect(safe.activities.find(row=>row.activityId==="native")!.distanceObservations).toEqual(neutralHistory(original).activities.find(row=>row.activityId===r.activityId)!.distanceObservations);expect(JSON.stringify(original)).toBe(before);expect(safe.activities.find(row=>row.activityId==="missing")!.activityTotals!.elevationGainM).toBe(0);
  });
  it("still rejects invalid mandatory effort evidence rather than concealing it in the optional channel",()=>{const r=structuredClone(totalsWire);r.activities.find(row=>row.activityId==="native")!.distanceObservations.points[0]!.elapsedSec=0;expect(()=>validateCyclingDistanceHistoryResponse(r,opted,NOW)).toThrow();});
  it("sends true through the existing callable once; false fails before IO",async()=>{const app={},s={auth:{app,currentUser:{uid:"owner",isAnonymous:false}},functions:{app,customDomain:"https://asia-northeast3-orider-dev.cloudfunctions.net"},ensureAppCheckReady:vi.fn().mockResolvedValue(undefined)} as unknown as FirebaseServices;mocks.call.mockResolvedValue({data:totalsWire});await loadCyclingDistanceHistory(s,"owner",opted);expect(mocks.call).toHaveBeenCalledExactlyOnceWith(opted);await expect(loadCyclingDistanceHistory(s,"owner",{...request,includeActivityTotals:false} as never)).rejects.toThrow();expect(mocks.call).toHaveBeenCalledOnce();});
@@ -682,19 +686,53 @@ describe("activity totals channel calculator 35 boundary", () => {
  const opted = {...request, includeActivityTotals:true as const};
  function oldWire() { const r=structuredClone(totalsWire);r.activities.push(structuredClone(emittedOutdated34));r.activities.sort((a,b)=>a.activityId < b.activityId ? -1 : a.activityId > b.activityId ? 1 : 0);r.page.scannedActivityCount=7;r.page.candidateActivityCount=7;r.page.observationCounts.unavailable=4;return r; }
  it("accepts the backend-emitted v34 outdated complete summary, including observed zero", () => {
-  const r=oldWire();expect(validateCyclingDistanceHistoryResponse(r,opted,NOW)).toBe(r);expect(r.activities.find(row=>row.activityId==="outdated34")!.activityTotals).toMatchObject({distanceM:66000,elevationGainM:0,sourceBasis:{distanceM:"activity_summary",elevationGainM:"activity_summary"}});
+  const r=oldWire();expect(validateCyclingDistanceHistoryResponse(r,opted,NOW)).toEqual(neutralHistory(r));expect(r.activities.find(row=>row.activityId==="outdated34")!.activityTotals).toMatchObject({distanceM:66000,elevationGainM:0,sourceBasis:{distanceM:"activity_summary",elevationGainM:"activity_summary"}});
  });
  it("isolates canonical v34 totals while preserving the unchanged mandatory distance channel", () => {
   const r=structuredClone(totalsWire),native=r.activities.find(row=>row.activityId==="native")!;native.analysis.calculatorVersion=34;
-  const safe=validateCyclingDistanceHistoryResponse(r,opted,NOW);expect(safe.activities.find(row=>row.activityId==="native")!.activityTotals).toBeUndefined();expect(safe.activities.find(row=>row.activityId==="native")!.distanceObservations).toEqual(native.distanceObservations);
-  const legacy=structuredClone(r);for(const row of legacy.activities)delete row.activityTotals;expect(validateCyclingDistanceHistoryResponse(legacy,request,NOW)).toBe(legacy);
+  const safe=validateCyclingDistanceHistoryResponse(r,opted,NOW);expect(safe.activities.find(row=>row.activityId==="native")!.activityTotals).toBeUndefined();expect(safe.activities.find(row=>row.activityId==="native")!.distanceObservations).toEqual(neutralHistory(r).activities.find(row=>row.activityId===native.activityId)!.distanceObservations);
+  const legacy=structuredClone(r);for(const row of legacy.activities)delete row.activityTotals;expect(validateCyclingDistanceHistoryResponse(legacy,request,NOW)).toEqual(neutralHistory(legacy));
  });
  it("keeps v35 canonical totals valid but rejects v35 summary fallback", () => {
-  expect(validateCyclingDistanceHistoryResponse(totalsWire,opted,NOW)).toBe(totalsWire);
+  expect(validateCyclingDistanceHistoryResponse(totalsWire,opted,NOW)).toEqual(neutralHistory(totalsWire));
   const r=oldWire();r.activities.find(row=>row.activityId==="outdated34")!.analysis.calculatorVersion=35;expect(validateCyclingDistanceHistoryResponse(r,opted,NOW).activities.find(row=>row.activityId==="outdated34")!.activityTotals).toBeUndefined();
  });
  it("preserves nullable old-summary distance independently of observed zero gain", () => {
   const r=oldWire(),old=r.activities.find(row=>row.activityId==="outdated34")!;old.activityTotals!.distanceM=null;old.activityTotals!.sourceBasis.distanceM="unavailable";
-  expect(validateCyclingDistanceHistoryResponse(r,opted,NOW)).toBe(r);expect(old.activityTotals!.distanceM).toBeNull();expect(old.activityTotals!.elevationGainM).toBe(0);
+  expect(validateCyclingDistanceHistoryResponse(r,opted,NOW)).toEqual(neutralHistory(r));expect(old.activityTotals!.distanceM).toBeNull();expect(old.activityTotals!.elevationGainM).toBe(0);
  });
+});
+
+describe("cycling provenance v2 with strict legacy compatibility", () => {
+  const opted={...request,includeActivityTotals:true as const};
+  it("keeps exact old wire immutable and neutralizes only supported observations", () => {
+    const before=JSON.stringify(wire), result=validateCyclingDistanceHistoryResponse(wire,request,NOW);
+    expect(result).toEqual(neutralHistory(wire)); expect(JSON.stringify(wire)).toBe(before);
+    expect(result.activities.find(row=>row.distanceObservations.state==="legacy_unsupported")!.distanceObservations.provenance).toBeUndefined();
+  });
+  it("accepts stored attribution and totals without changing canonical calculator35 or snapshot", () => {
+    const modern=neutralHistory(totalsWire);
+    for(const row of modern.activities) if(row.distanceObservations.provenance) Object.assign(row.distanceObservations.provenance,{status:"stored_explicit",declaredActivitySource:"health_connect"});
+    expect(validateCyclingDistanceHistoryResponse(modern,opted,NOW)).toBe(modern);
+    expect(modern.range).toEqual(totalsWire.range); expect(modern.readTime).toEqual(totalsWire.readTime);
+    expect(modern.activities.map(row=>row.activityTotals)).toEqual(totalsWire.activities.map(row=>row.activityTotals));
+  });
+  it.each([{provenanceVersion:3},{originalClockVerified:true},{declaredActivitySource:["strava"]},{timingBasis:"original_activity_elapsed"},{status:"legacy_normalized",declaredActivitySource:"orider"},{unexpected:true}])("rejects malformed mandatory source provenance without changing totals %j", delta => {
+    const modern=neutralHistory(totalsWire), row=modern.activities.find(row=>row.distanceObservations.state==="observed")!;
+    Object.assign(row.distanceObservations.provenance!,delta); const before=JSON.stringify(modern);
+    expect(()=>validateCyclingDistanceHistoryResponse(modern,opted,NOW)).toThrow("invalid_cycling_distance_history_response"); expect(JSON.stringify(modern)).toBe(before);
+  });
+  it("rejects a new field injected into old wire, rather than downgrading it",()=>{
+    expect(()=>validateCyclingDistanceHistoryResponse({...wire,provenanceVersion:undefined},request,NOW)).toThrow();
+    const modern=neutralHistory(wire); delete modern.activities.find(row=>row.distanceObservations.state==="observed")!.distanceObservations.provenance;
+    expect(()=>validateCyclingDistanceHistoryResponse(modern,request,NOW)).toThrow();
+  });
+});
+
+it("matches actual compiled legacy normalization and modern history with exact totals/snapshot",()=>{
+  const wires=compiledBikeProvenanceWire.history, now=wires.modernWire.result.readTime.seconds*1000;
+  const raw=wires.legacyWire.result, normalized=wires.normalizedLegacyWire.result, modern=wires.modernWire.result;
+  const request={mode:"cycling_distance_history_page",discipline:"bike",calendarBasis:"Asia/Seoul",rangeBasis:"calendar_year",year:2026,includeActivityTotals:true} as const;
+  expect(validateCyclingDistanceHistoryResponse(raw,request,now)).toEqual(normalized);
+  expect(validateCyclingDistanceHistoryResponse(modern,request,now)).toBe(modern);
 });

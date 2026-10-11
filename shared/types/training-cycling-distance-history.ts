@@ -1,3 +1,4 @@
+import type { NormalizedCyclingDistanceProvenance } from "./cycling-distance-observations";
 import type { BikeDistanceKey } from "../activity-bike-distance-evidence";
 
 export interface CyclingDistanceHistoryCursor {
@@ -51,6 +52,7 @@ export interface CyclingDistanceHistoryRow {
   };
   distanceObservations: {
     state: "observed" | "no_observed_efforts" | "legacy_unsupported" | "unavailable";
+    provenance?: NormalizedCyclingDistanceProvenance;
     points: Array<{ distance: BikeDistanceKey; elapsedSec: number }>;
   };
 }
@@ -62,7 +64,10 @@ export interface CyclingDistanceHistoryResponse {
   rangeBasis: CyclingDistanceHistoryRequest["rangeBasis"];
   year: number | null;
   targetsVersion: 1;
-  timingBasis: "original_activity_elapsed";
+  provenanceVersion: 2;
+  sourceBasis: "stored_distance_parts";
+  originalClockVerified: false;
+  timingBasis: "stored_explicit_activity_elapsed";
   quality: "unknown";
   coverage: "unknown";
   scope: "page";

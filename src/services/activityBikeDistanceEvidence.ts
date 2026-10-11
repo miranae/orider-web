@@ -16,17 +16,23 @@ export function manualBikeDistanceAvailable() {
 export function validateActivityBikeDistanceEvidence(value: unknown, activityId: string, expectedRevision?: string, activityStartMs?: number): ActivityBikeDistanceEvidenceResponse {
   const invalid = (): never => { throw new Error("invalid_bike_distance_evidence"); };
   if (!exact(value, ["mode", "activityId", "distanceInputRevision", "state", "reason", "sourceLayer", "evidence"])) invalid();
-  const r = value as ActivityBikeDistanceEvidenceResponse;
+  let r = value as ActivityBikeDistanceEvidenceResponse;
+  const legacyKeys = ["activityId", "distanceInputRevision", "sourceLayer", "sourceSchemaVersion", "sourceTimingBasis", "originEpochMs", "durationSec", "coverage", "quality", "scope", "targetsVersion", "inputPointCount", "observedStartOffsetSec", "observedEndOffsetSec", "facts"];
+  if (r.state === "available" && exact(r.evidence, legacyKeys) && (r.evidence as unknown as { sourceTimingBasis: string }).sourceTimingBasis === "original_activity_elapsed") {
+    const provider = r.evidence.sourceLayer === "api_streams";
+    r = { ...r, evidence: { ...r.evidence, provenanceVersion: 2, sourceBasis: provider ? "provider_distance_stream" : "stored_distance_parts", sourceTimingBasis: provider ? "provider_explicit_activity_elapsed" : "stored_explicit_activity_elapsed", originalClockVerified: false, declaredActivitySource: null } };
+  }
   if (r.mode !== "bike_distance_evidence" || r.activityId !== activityId || r.distanceInputRevision !== null && !digest(r.distanceInputRevision) || ![null, "raw_parts", "api_streams"].includes(r.sourceLayer)) invalid();
   if (r.state !== "available") {
     if (r.evidence !== null || !["pending", "changed_input", "unavailable"].includes(r.state)
       || (r.state === "pending" ? r.reason !== "incomplete_input" : r.state === "changed_input" ? r.reason !== "changed_input" : !["missing_distance", "unknown_axis", "invalid_input", "input_limit", "incomplete_input"].includes(r.reason))) invalid();
   } else {
     const e = r.evidence;
-    if (!exact(e, ["activityId", "distanceInputRevision", "sourceLayer", "sourceSchemaVersion", "sourceTimingBasis", "originEpochMs", "durationSec", "coverage", "quality", "scope", "targetsVersion", "inputPointCount", "observedStartOffsetSec", "observedEndOffsetSec", "facts"])
+    if (!exact(e, [...legacyKeys, "provenanceVersion", "sourceBasis", "originalClockVerified", "declaredActivitySource"])
       || r.reason !== null || !digest(r.distanceInputRevision) || e.activityId !== activityId || e.distanceInputRevision !== r.distanceInputRevision || expectedRevision !== undefined && e.distanceInputRevision !== expectedRevision
       || e.sourceLayer !== r.sourceLayer || !["raw_parts", "api_streams"].includes(e.sourceLayer) || typeof e.sourceSchemaVersion !== "string" || !e.sourceSchemaVersion.trim() || e.sourceSchemaVersion.length > 256
-      || e.sourceTimingBasis !== "original_activity_elapsed" || !finite(e.originEpochMs) || !Number.isFinite(new Date(e.originEpochMs).getTime()) || activityStartMs !== undefined && e.originEpochMs !== activityStartMs
+      || e.provenanceVersion !== 2 || e.originalClockVerified !== false || ![null, "orider", "strava", "apple_health", "health_connect"].includes(e.declaredActivitySource)
+      || (e.sourceLayer === "raw_parts" ? e.sourceBasis !== "stored_distance_parts" || e.sourceTimingBasis !== "stored_explicit_activity_elapsed" : e.sourceBasis !== "provider_distance_stream" || e.sourceTimingBasis !== "provider_explicit_activity_elapsed") || !finite(e.originEpochMs) || !Number.isFinite(new Date(e.originEpochMs).getTime()) || activityStartMs !== undefined && e.originEpochMs !== activityStartMs
       || !finite(e.durationSec) || e.durationSec <= 0 || e.coverage !== "unknown" || e.quality !== "unknown" || e.scope !== "single_observed_activity" || e.targetsVersion !== 1
       || !integer(e.inputPointCount) || e.inputPointCount < 2 || e.inputPointCount > 100000 || !finite(e.observedStartOffsetSec) || !finite(e.observedEndOffsetSec) || e.observedEndOffsetSec <= e.observedStartOffsetSec || e.observedEndOffsetSec > e.durationSec || !Array.isArray(e.facts) || e.facts.length > 13) invalid();
     let previous = -1;

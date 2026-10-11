@@ -30,6 +30,7 @@ export default function ActivityBikeDistanceEvidencePanel({ activity, metrics }:
       {fact && <Text as="p" variant="bodyMedium" tone="secondary">{t("manualBikeEvidence.window", { from: formatElapsedBoundary(fact.startOffsetSec), to: formatElapsedBoundary(fact.endOffsetSec) })}</Text>}
       <Text as="p" variant="bodyMedium" tone="secondary">{t("manualBikeEvidence.extent", { from: formatElapsedBoundary(evidence.observedStartOffsetSec), to: formatElapsedBoundary(evidence.observedEndOffsetSec), count: evidence.inputPointCount })}</Text>
       <Text as="p" variant="bodyMedium" tone="secondary">{t("manualBikeEvidence.snapshot")}</Text>
+      <Text as="p" variant="bodyMedium" tone="secondary">{t("manualBikeEvidence.provenance", { source: t(`manualBikeEvidence.declaredSources.${evidence.declaredActivitySource ?? "unknown"}`) })}</Text>
       <a className="manual-bike-evidence-source" href={`/${locale}/activity/${encodeURIComponent(activity.id)}`}>{t("manualBikeEvidence.source", { date, layer: t(`manualBikeEvidence.layers.${evidence.sourceLayer}`) })}</a>
     </>}
   </section>;
