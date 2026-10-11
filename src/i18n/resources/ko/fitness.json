@@ -846,5 +846,21 @@
   "densePeriod.hours": "{{count}}시간",
   "densePeriod.minutes": "{{count}}분",
   "densePeriod.seconds": "{{count}}초",
-  "densePeriod.scrollHint": "좌우로 밀어 두 기간의 수치를 확인하세요."
+  "densePeriod.scrollHint": "좌우로 밀어 두 기간의 수치를 확인하세요.",
+  "bikeObservedRecords.title": "조회 범위의 활동 요약 비교",
+  "bikeObservedRecords.scope": "조회된 사이클링 대표 활동의 기록 수치만 정렬합니다. 전체 이력이나 검증된 최고 기록을 뜻하지 않습니다.",
+  "bikeObservedRecords.metrics.distanceM": "관측된 긴 활동",
+  "bikeObservedRecords.metrics.elevationGainM": "관측된 누적 상승고도",
+  "bikeObservedRecords.chooseBasis": "수치 출처",
+  "bikeObservedRecords.basis.all": "확인된 모든 출처",
+  "bikeObservedRecords.basis.canonical_metrics": "서버 분석 수치",
+  "bikeObservedRecords.basis.activity_summary": "활동 요약 수치",
+  "bikeObservedRecords.period": "기간 {{period}}",
+  "bikeObservedRecords.count": "이 수치가 양수로 확인된 대표 활동 {{count}}개",
+  "bikeObservedRecords.partial": "일부 기록만 확인한 조회 범위입니다.",
+  "bikeObservedRecords.truncated": "조회 한도 {{limit}}개 적용 · 전체 후보 수는 알 수 없습니다.",
+  "bikeObservedRecords.empty": "이 출처와 수치에 표시할 활동이 없습니다. 결측 수치는 0으로 채우지 않습니다.",
+  "bikeObservedRecords.more": "상위 {{count}}개 펼치기",
+  "bikeObservedRecords.less": "3개만 보기",
+  "bikeObservedRecords.note": "상승고도는 활동 전체의 누적 값입니다. 개별 오르막·동일 코스·실측 GPS 여부는 확인하지 않습니다. 출처별 산정 기준이 다를 수 있으며 기간 간 차이를 성장으로 해석하지 않습니다."
 }
