@@ -2003,6 +2003,29 @@
       "outdated": "이전 계산",
       "partial": "일부 분석",
       "invalid": "근거 부족"
-    }
+    },
+    "category": "기록 종류",
+    "categories": {
+      "effort": "거리별 시간",
+      "distanceM": "긴 활동",
+      "elevationGainM": "전체 활동 상승고도"
+    },
+    "basisSelect": "비교할 출처 기준",
+    "bases": {
+      "canonical_metrics": "확정 분석",
+      "activity_summary": "저장 요약"
+    },
+    "totalLeaders": "받은 기록의 {{metric}} 상위 {{count}}개",
+    "totalCoverage": "양수 관측 {{observed}} · 0 관측 {{zero}} · 근거 부족 {{missing}} · 다른 기준 {{otherBasis}}",
+    "totalsUnknown": "순위에 표시할 양수 기록이 없습니다. 관측과 근거 부족 수를 함께 확인하세요.",
+    "totalsBasis": "전체 활동의 거리와 누적 상승고도를 비교합니다. 개별 업힐이나 GPS 개인기록을 뜻하지 않으며, 위치 정확도는 확인되지 않았습니다.",
+    "trendTitle": "관측 기록의 날짜별 변화",
+    "shorter": "경과시간이 짧을수록 작은 값",
+    "larger": "값이 클수록 많은 기록",
+    "trendNote": "받은 원본 {{count}}개에서 관측한 원본 경과시간입니다. 활동 사이를 추정하지 않습니다.",
+    "totalTrendNote": "선택한 출처 기준에서 받은 원본 {{count}}개의 전체 활동 수치입니다. 활동 사이를 추정하지 않습니다.",
+    "selectedSource": "원본 {{index}} / {{total}}",
+    "previousSource": "이전 원본",
+    "nextSource": "다음 원본"
   }
 }

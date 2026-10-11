@@ -2003,6 +2003,29 @@
       "outdated": "Outdated calculation",
       "partial": "Partial analysis",
       "invalid": "Insufficient evidence"
-    }
+    },
+    "category": "Record type",
+    "categories": {
+      "effort": "Time at distance",
+      "distanceM": "Long activities",
+      "elevationGainM": "Whole-activity elevation gain"
+    },
+    "basisSelect": "Source basis to compare",
+    "bases": {
+      "canonical_metrics": "Final analysis",
+      "activity_summary": "Saved summary"
+    },
+    "totalLeaders": "Top {{count}} received records · {{metric}}",
+    "totalCoverage": "Positive {{observed}} · Observed zero {{zero}} · Insufficient evidence {{missing}} · Other basis {{otherBasis}}",
+    "totalsUnknown": "There are no positive records to rank. Check the observation and insufficient-evidence counts together.",
+    "totalsBasis": "Compares whole-activity distance and accumulated elevation gain. These are not individual climbs or GPS personal records; location accuracy is unverified.",
+    "trendTitle": "Observed records over time",
+    "shorter": "Shorter elapsed time has a smaller value",
+    "larger": "A larger value means more recorded",
+    "trendNote": "Original elapsed observations from {{count}} received sources. No values between activities are inferred.",
+    "totalTrendNote": "Whole-activity values from {{count}} received sources at the selected basis. No values between activities are inferred.",
+    "selectedSource": "Source {{index}} / {{total}}",
+    "previousSource": "Previous source",
+    "nextSource": "Next source"
   }
 }

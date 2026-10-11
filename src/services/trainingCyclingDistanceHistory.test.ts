@@ -287,3 +287,414 @@ it("preserves exact microsecond cursor identity despite matching floored respons
  r.page.nextCursor.readTime.nanoseconds=2000;
  expect(()=>validateCyclingDistanceHistoryResponse(r,request,NOW+1)).toThrow("invalid_cycling_distance_history_response");
 });
+
+// Actual compiled opt-in wire 0a9a5b0aae9f0ebd539c7bdd747230121f4e407368b9c12cb14ece9071f67b4d.
+const totalsWire = {
+  "version": 1,
+  "mode": "cycling_distance_history_page",
+  "discipline": "bike",
+  "calendarBasis": "Asia/Seoul",
+  "rangeBasis": "calendar_year",
+  "year": 2026,
+  "targetsVersion": 1,
+  "timingBasis": "original_activity_elapsed",
+  "quality": "unknown",
+  "coverage": "unknown",
+  "scope": "page",
+  "queryScope": "owner_activities_with_valid_start_time",
+  "range": {
+    "fromInclusive": 1767193200000,
+    "toExclusive": 1791676800000
+  },
+  "readTime": {
+    "seconds": 1791676800,
+    "nanoseconds": 0
+  },
+  "expiresAt": 1791678600000,
+  "page": {
+    "limit": 50,
+    "scannedActivityCount": 6,
+    "candidateActivityCount": 6,
+    "skippedActivityCount": 0,
+    "exhausted": true,
+    "observationCounts": {
+      "observed": 1,
+      "noObserved": 1,
+      "unsupported": 1,
+      "unavailable": 3
+    },
+    "nextCursor": null
+  },
+  "activities": [
+    {
+      "activityTotals": {
+        "scope": "observed_activity_totals",
+        "distanceM": null,
+        "elevationGainM": 800,
+        "sourceBasis": {
+          "distanceM": "unavailable",
+          "elevationGainM": "canonical_metrics"
+        },
+        "distanceSource": null,
+        "sourceLayer": "raw_parts",
+        "elevationQuality": "reliable",
+        "gpsEligibility": "unknown"
+      },
+      "activityId": "bad",
+      "startTime": 1767225600000,
+      "activityRevision": "100:1",
+      "metricsRevision": "100:1",
+      "representativeInput": {
+        "source": "orider",
+        "type": "Ride",
+        "discipline": "bike",
+        "localSessionId": null,
+        "stravaActivityId": null,
+        "stravaTwinActivityId": null,
+        "endTime": 1767226600000,
+        "movingSec": null,
+        "hasLoad": false
+      },
+      "analysis": {
+        "state": "ready",
+        "calculatorVersion": 35,
+        "inputCoverage": "complete"
+      },
+      "distanceObservations": {
+        "state": "unavailable",
+        "points": []
+      }
+    },
+    {
+      "activityTotals": {
+        "scope": "observed_activity_totals",
+        "distanceM": 120000,
+        "elevationGainM": null,
+        "sourceBasis": {
+          "distanceM": "canonical_metrics",
+          "elevationGainM": "unavailable"
+        },
+        "distanceSource": "stream_counter",
+        "sourceLayer": "raw_parts",
+        "elevationQuality": "suspect",
+        "gpsEligibility": "unknown"
+      },
+      "activityId": "empty",
+      "startTime": 1767225600000,
+      "activityRevision": "100:1",
+      "metricsRevision": "100:1",
+      "representativeInput": {
+        "source": "orider",
+        "type": "Ride",
+        "discipline": "bike",
+        "localSessionId": null,
+        "stravaActivityId": null,
+        "stravaTwinActivityId": null,
+        "endTime": 1767226600000,
+        "movingSec": null,
+        "hasLoad": false
+      },
+      "analysis": {
+        "state": "ready",
+        "calculatorVersion": 35,
+        "inputCoverage": "complete"
+      },
+      "distanceObservations": {
+        "state": "no_observed_efforts",
+        "points": []
+      }
+    },
+    {
+      "activityTotals": {
+        "scope": "observed_activity_totals",
+        "distanceM": 66000,
+        "elevationGainM": 0,
+        "sourceBasis": {
+          "distanceM": "activity_summary",
+          "elevationGainM": "activity_summary"
+        },
+        "distanceSource": null,
+        "sourceLayer": null,
+        "elevationQuality": "unknown",
+        "gpsEligibility": "unknown"
+      },
+      "activityId": "missing",
+      "startTime": 1767225600000,
+      "activityRevision": "100:1",
+      "metricsRevision": null,
+      "representativeInput": {
+        "source": "orider",
+        "type": "Ride",
+        "discipline": "bike",
+        "localSessionId": null,
+        "stravaActivityId": null,
+        "stravaTwinActivityId": null,
+        "endTime": 1767226600000,
+        "movingSec": null,
+        "hasLoad": false
+      },
+      "analysis": {
+        "state": "missing",
+        "calculatorVersion": null,
+        "inputCoverage": null
+      },
+      "distanceObservations": {
+        "state": "unavailable",
+        "points": []
+      }
+    },
+    {
+      "activityTotals": {
+        "scope": "observed_activity_totals",
+        "distanceM": 120000,
+        "elevationGainM": 800,
+        "sourceBasis": {
+          "distanceM": "canonical_metrics",
+          "elevationGainM": "canonical_metrics"
+        },
+        "distanceSource": "stream_counter",
+        "sourceLayer": "raw_parts",
+        "elevationQuality": "reliable",
+        "gpsEligibility": "unknown"
+      },
+      "activityId": "native",
+      "startTime": 1767225600000,
+      "activityRevision": "100:1",
+      "metricsRevision": "100:1",
+      "representativeInput": {
+        "source": "orider",
+        "type": "Ride",
+        "discipline": "bike",
+        "localSessionId": null,
+        "stravaActivityId": null,
+        "stravaTwinActivityId": 123,
+        "endTime": 1767226600000,
+        "movingSec": null,
+        "hasLoad": false
+      },
+      "analysis": {
+        "state": "ready",
+        "calculatorVersion": 35,
+        "inputCoverage": "complete"
+      },
+      "distanceObservations": {
+        "state": "observed",
+        "points": [
+          {
+            "distance": "5miles",
+            "elapsedSec": 1000
+          },
+          {
+            "distance": "10km",
+            "elapsedSec": 999
+          },
+          {
+            "distance": "10miles",
+            "elapsedSec": 998
+          },
+          {
+            "distance": "20km",
+            "elapsedSec": 997
+          },
+          {
+            "distance": "30km",
+            "elapsedSec": 996
+          },
+          {
+            "distance": "40km",
+            "elapsedSec": 995
+          },
+          {
+            "distance": "50km",
+            "elapsedSec": 994
+          },
+          {
+            "distance": "80km",
+            "elapsedSec": 993
+          },
+          {
+            "distance": "50miles",
+            "elapsedSec": 992
+          },
+          {
+            "distance": "90km",
+            "elapsedSec": 991
+          },
+          {
+            "distance": "100km",
+            "elapsedSec": 990
+          },
+          {
+            "distance": "100miles",
+            "elapsedSec": 989
+          },
+          {
+            "distance": "180km",
+            "elapsedSec": 988
+          }
+        ]
+      }
+    },
+    {
+      "activityTotals": {
+        "scope": "observed_activity_totals",
+        "distanceM": null,
+        "elevationGainM": null,
+        "sourceBasis": {
+          "distanceM": "unavailable",
+          "elevationGainM": "unavailable"
+        },
+        "distanceSource": null,
+        "sourceLayer": null,
+        "elevationQuality": "unknown",
+        "gpsEligibility": "unknown"
+      },
+      "activityId": "pending",
+      "startTime": 1767225600000,
+      "activityRevision": "100:1",
+      "metricsRevision": "100:1",
+      "representativeInput": {
+        "source": "orider",
+        "type": "Ride",
+        "discipline": "bike",
+        "localSessionId": null,
+        "stravaActivityId": null,
+        "stravaTwinActivityId": null,
+        "endTime": 1767226600000,
+        "movingSec": null,
+        "hasLoad": false
+      },
+      "analysis": {
+        "state": "pending",
+        "calculatorVersion": null,
+        "inputCoverage": null
+      },
+      "distanceObservations": {
+        "state": "unavailable",
+        "points": []
+      }
+    },
+    {
+      "activityTotals": {
+        "scope": "observed_activity_totals",
+        "distanceM": 120000,
+        "elevationGainM": 800,
+        "sourceBasis": {
+          "distanceM": "canonical_metrics",
+          "elevationGainM": "canonical_metrics"
+        },
+        "distanceSource": "stream_counter",
+        "sourceLayer": "inline_streams",
+        "elevationQuality": "reliable",
+        "gpsEligibility": "unknown"
+      },
+      "activityId": "strava_123",
+      "startTime": 1767225600000,
+      "activityRevision": "100:1",
+      "metricsRevision": "100:1",
+      "representativeInput": {
+        "source": "strava",
+        "type": "Ride",
+        "discipline": "bike",
+        "localSessionId": null,
+        "stravaActivityId": 123,
+        "stravaTwinActivityId": null,
+        "endTime": 1767226600000,
+        "movingSec": null,
+        "hasLoad": false
+      },
+      "analysis": {
+        "state": "ready",
+        "calculatorVersion": 35,
+        "inputCoverage": "complete"
+      },
+      "distanceObservations": {
+        "state": "legacy_unsupported",
+        "points": []
+      }
+    }
+  ]
+} as CyclingDistanceHistoryResponse;
+
+describe("optional activity totals isolation",()=>{
+ const opted={...request,includeActivityTotals:true as const};
+ it("accepts actual opt-in response, zero values and separate source bases without changing object identity",()=>{expect(validateCyclingDistanceHistoryResponse(totalsWire,opted,NOW)).toBe(totalsWire);expect(validCyclingDistanceHistoryRequest(opted,NOW)).toBe(true);expect(validCyclingDistanceHistoryRequest({...request,includeActivityTotals:false} as never,NOW)).toBe(false);expect(validateCyclingDistanceHistoryResponse(wire,request,NOW)).toBe(wire);});
+ it("treats an absent true channel as unknown, while a legacy request rejects an unsolicited channel",()=>{expect(validateCyclingDistanceHistoryResponse(wire,opted,NOW)).toBe(wire);expect(()=>validateCyclingDistanceHistoryResponse(totalsWire,request,NOW)).toThrow();});
+ it.each([
+  (r:CyclingDistanceHistoryRow)=>{r.activityTotals!.distanceM=Infinity;},
+  (r:CyclingDistanceHistoryRow)=>{r.activityTotals!.elevationGainM=-1;},
+  (r:CyclingDistanceHistoryRow)=>{r.activityTotals!.scope="gps_pr" as never;},
+  (r:CyclingDistanceHistoryRow)=>{r.activityTotals!.gpsEligibility="eligible" as never;},
+  (r:CyclingDistanceHistoryRow)=>{r.activityTotals!.sourceBasis.distanceM="activity_summary";},
+  (r:CyclingDistanceHistoryRow)=>{r.activityTotals!.distanceSource=null;},
+  (r:CyclingDistanceHistoryRow)=>{r.activityTotals!.elevationQuality="suspect";},
+  (r:CyclingDistanceHistoryRow)=>{r.activityTotals!.elevationGainM=null;},
+ ])("isolates bad totals without mutating or losing the strict 13-distance channel %#",mutate=>{
+  const original=structuredClone(totalsWire),r=original.activities.find(row=>row.activityId==="native")!;mutate(r);const before=JSON.stringify(original);Object.freeze(r);Object.freeze(original.activities);Object.freeze(original);
+  const safe=validateCyclingDistanceHistoryResponse(original,opted,NOW);expect(safe).not.toBe(original);expect(safe.activities.find(row=>row.activityId==="native")!.activityTotals).toBeUndefined();expect(safe.activities.find(row=>row.activityId==="native")!.distanceObservations).toEqual(r.distanceObservations);expect(JSON.stringify(original)).toBe(before);expect(safe.activities.find(row=>row.activityId==="missing")!.activityTotals!.elevationGainM).toBe(0);
+ });
+ it("still rejects invalid mandatory effort evidence rather than concealing it in the optional channel",()=>{const r=structuredClone(totalsWire);r.activities.find(row=>row.activityId==="native")!.distanceObservations.points[0]!.elapsedSec=0;expect(()=>validateCyclingDistanceHistoryResponse(r,opted,NOW)).toThrow();});
+ it("sends true through the existing callable once; false fails before IO",async()=>{const app={},s={auth:{app,currentUser:{uid:"owner",isAnonymous:false}},functions:{app,customDomain:"https://asia-northeast3-orider-dev.cloudfunctions.net"},ensureAppCheckReady:vi.fn().mockResolvedValue(undefined)} as unknown as FirebaseServices;mocks.call.mockResolvedValue({data:totalsWire});await loadCyclingDistanceHistory(s,"owner",opted);expect(mocks.call).toHaveBeenCalledExactlyOnceWith(opted);await expect(loadCyclingDistanceHistory(s,"owner",{...request,includeActivityTotals:false} as never)).rejects.toThrow();expect(mocks.call).toHaveBeenCalledOnce();});
+});
+
+// Actual compiled backend emitted row: /tmp/orider-bike-history-activity-totals-v34-wire-fixture.json SHA256 f64c0a127243e0587004fdefb6d13bba1d2b9e57cb81ce81a1b2d7e0d7241c07. Fake Firestore only, operations0.
+const emittedOutdated34 = {
+  "activityTotals": {
+    "scope": "observed_activity_totals",
+    "distanceM": 66000,
+    "elevationGainM": 0,
+    "sourceBasis": {
+      "distanceM": "activity_summary",
+      "elevationGainM": "activity_summary"
+    },
+    "distanceSource": null,
+    "sourceLayer": null,
+    "elevationQuality": "unknown",
+    "gpsEligibility": "unknown"
+  },
+  "activityId": "outdated34",
+  "startTime": 1767225600000,
+  "activityRevision": "100:1",
+  "metricsRevision": "100:1",
+  "representativeInput": {
+    "source": "orider",
+    "type": "Ride",
+    "discipline": "bike",
+    "localSessionId": null,
+    "stravaActivityId": null,
+    "stravaTwinActivityId": null,
+    "endTime": 1767226600000,
+    "movingSec": null,
+    "hasLoad": false
+  },
+  "analysis": {
+    "state": "outdated",
+    "calculatorVersion": 34,
+    "inputCoverage": "complete"
+  },
+  "distanceObservations": {
+    "state": "unavailable",
+    "points": []
+  }
+} as CyclingDistanceHistoryRow;
+
+describe("activity totals channel calculator 35 boundary", () => {
+ const opted = {...request, includeActivityTotals:true as const};
+ function oldWire() { const r=structuredClone(totalsWire);r.activities.push(structuredClone(emittedOutdated34));r.activities.sort((a,b)=>a.activityId < b.activityId ? -1 : a.activityId > b.activityId ? 1 : 0);r.page.scannedActivityCount=7;r.page.candidateActivityCount=7;r.page.observationCounts.unavailable=4;return r; }
+ it("accepts the backend-emitted v34 outdated complete summary, including observed zero", () => {
+  const r=oldWire();expect(validateCyclingDistanceHistoryResponse(r,opted,NOW)).toBe(r);expect(r.activities.find(row=>row.activityId==="outdated34")!.activityTotals).toMatchObject({distanceM:66000,elevationGainM:0,sourceBasis:{distanceM:"activity_summary",elevationGainM:"activity_summary"}});
+ });
+ it("isolates canonical v34 totals while preserving the unchanged mandatory distance channel", () => {
+  const r=structuredClone(totalsWire),native=r.activities.find(row=>row.activityId==="native")!;native.analysis.calculatorVersion=34;
+  const safe=validateCyclingDistanceHistoryResponse(r,opted,NOW);expect(safe.activities.find(row=>row.activityId==="native")!.activityTotals).toBeUndefined();expect(safe.activities.find(row=>row.activityId==="native")!.distanceObservations).toEqual(native.distanceObservations);
+  const legacy=structuredClone(r);for(const row of legacy.activities)delete row.activityTotals;expect(validateCyclingDistanceHistoryResponse(legacy,request,NOW)).toBe(legacy);
+ });
+ it("keeps v35 canonical totals valid but rejects v35 summary fallback", () => {
+  expect(validateCyclingDistanceHistoryResponse(totalsWire,opted,NOW)).toBe(totalsWire);
+  const r=oldWire();r.activities.find(row=>row.activityId==="outdated34")!.analysis.calculatorVersion=35;expect(validateCyclingDistanceHistoryResponse(r,opted,NOW).activities.find(row=>row.activityId==="outdated34")!.activityTotals).toBeUndefined();
+ });
+ it("preserves nullable old-summary distance independently of observed zero gain", () => {
+  const r=oldWire(),old=r.activities.find(row=>row.activityId==="outdated34")!;old.activityTotals!.distanceM=null;old.activityTotals!.sourceBasis.distanceM="unavailable";
+  expect(validateCyclingDistanceHistoryResponse(r,opted,NOW)).toBe(r);expect(old.activityTotals!.distanceM).toBeNull();expect(old.activityTotals!.elevationGainM).toBe(0);
+ });
+});

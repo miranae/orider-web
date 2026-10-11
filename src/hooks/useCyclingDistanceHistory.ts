@@ -14,7 +14,7 @@ export function useCyclingDistanceHistory(ownerUid: string, activityId: string, 
   const sdkUser = services.auth.currentUser;
   const eligible = !!selection && validCyclingDistanceHistoryRequest(selection) && !selection.cursor && trainingAnalysisPeriodsAvailable()
     && !!user && !user.isAnonymous && user.uid === ownerUid && !!sdkUser && !sdkUser.isAnonymous && sdkUser.uid === ownerUid;
-  const scope = eligible ? JSON.stringify([ownerUid, activityId, headIdentity, selection!.rangeBasis, selection!.rangeBasis === "calendar_year" ? selection!.year : selection!.range]) : null;
+  const scope = eligible ? JSON.stringify([ownerUid, activityId, headIdentity, selection!.rangeBasis, selection!.rangeBasis === "calendar_year" ? selection!.year : selection!.range, selection!.includeActivityTotals === true]) : null;
   const identity = useRef({ scope, services }), epoch = useRef(0), busy = useRef(false), session = useRef<Session | null>(null);
   if (identity.current.scope !== scope || identity.current.services !== services) {
     identity.current = { scope, services }; epoch.current++; busy.current = false; session.current = null;

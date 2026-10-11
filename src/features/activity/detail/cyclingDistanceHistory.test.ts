@@ -1,6 +1,6 @@
 import type { CyclingDistanceHistoryRequest, CyclingDistanceHistoryResponse, CyclingDistanceHistoryRow } from "@shared/types/training-cycling-distance-history";
 import { describe, expect, it } from "vitest";
-import { cyclingDistanceHistory, cyclingDistanceHistoryLeaders } from "./cyclingDistanceHistory";
+import { cyclingDistanceHistory, cyclingDistanceHistoryLeaders, cyclingDistanceHistoryTrend, cyclingHistoryTotalLeaders, cyclingHistoryValueText } from "./cyclingDistanceHistory";
 // Derived from actual compiled backend fixture 60a7dc6caa1b556ff04e1128797fe1381cf8c53c95e5a8e9c9ddf6cd6128ea94; anonymous synthetic data only.
 const wire = {
   "version": 1,
@@ -163,3 +163,76 @@ describe("source-qualified cycling history",()=>{
 });
 
 it("retains the actual synthetic calendar binding",()=>{expect(selection.year).toBe(2026);expect(NOW).toBe(wire.readTime.seconds*1000);});
+
+describe("all observed cycling date scatter",()=>{
+ it("includes every qualified source beyond the annual five and range ten",()=>{
+  const rows=Array.from({length:13},(_,i)=>row(`source-${i}`,i*86400000));const leaders=cyclingDistanceHistoryLeaders(cyclingDistanceHistory([page(rows)]),"10km",5);
+  expect(leaders.sources).toHaveLength(5);expect(cyclingDistanceHistoryTrend(leaders.allSources, r => r.elapsedSec).points).toHaveLength(13);
+ });
+ it("places exact timestamp gaps rather than ordinal index positions",()=>{
+  const rows=[row("a",0),row("b",86400000),row("c",10*86400000)];const sources=cyclingDistanceHistoryLeaders(cyclingDistanceHistory([page(rows)]),"10km",10).allSources;
+  const points=cyclingDistanceHistoryTrend(sources, r => r.elapsedSec).points;expect(points.map(p=>p.x)).toEqual([65,97,385]);expect(cyclingDistanceHistoryTrend([...sources].reverse(), r => r.elapsedSec).points).toEqual(points);
+ });
+ it("keeps same-day milliseconds and tied timestamps without fictitious jitter",()=>{
+  const rows=[row("b",0),row("a",0),row("c",1),row("d",10)];const sources=cyclingDistanceHistoryLeaders(cyclingDistanceHistory([page(rows)]),"10km",5).allSources;const points=cyclingDistanceHistoryTrend(sources, r => r.elapsedSec).points;
+  expect(points.map(p=>p.source.activityId)).toEqual(["a","b","c","d"]);expect(points.map(p=>p.x)).toEqual([65,65,97,385]);
+ });
+ it("uses centered single/equal values and preserves smaller elapsed as lower plot values",()=>{
+  const a=row("a"),b=row("b");a.distanceObservations.points[1]!.elapsedSec=100;b.distanceObservations.points[1]!.elapsedSec=200;const values=cyclingDistanceHistoryLeaders(cyclingDistanceHistory([page([a,b])]),"10km",5).allSources;
+  const trend=cyclingDistanceHistoryTrend(values, r => r.elapsedSec);expect(trend.points.map(p=>p.x)).toEqual([225,225]);expect(trend.points[0]!.y).toBeGreaterThan(trend.points[1]!.y);expect(cyclingDistanceHistoryTrend([values[0]!], r => r.elapsedSec).points[0]).toMatchObject({x:225,y:80});expect(cyclingDistanceHistoryTrend([], () => 0).points).toEqual([]);
+ });
+ it("retains all 5000 already qualified observations with finite coordinates",()=>{
+  const base=cyclingDistanceHistoryLeaders(cyclingDistanceHistory([page()]),"10km",5).allSources[0]!;const sources=Array.from({length:5000},(_,i)=>({...base,activityId:`p${i}`,startTime:base.startTime+i,elapsedSec:i+1}));const trend=cyclingDistanceHistoryTrend(sources, r => r.elapsedSec);expect(trend.points).toHaveLength(5000);expect(trend.points.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))).toBe(true);expect(()=>cyclingDistanceHistoryTrend([...sources,base], r => r.elapsedSec)).toThrow();
+ });
+ it("rejects invalid date/time domains rather than inventing zero points",()=>{
+  const base=cyclingDistanceHistoryLeaders(cyclingDistanceHistory([page()]),"10km",5).allSources[0]!;expect(()=>cyclingDistanceHistoryTrend([{...base,startTime:1e100}], r => r.elapsedSec)).toThrow();expect(()=>cyclingDistanceHistoryTrend([{...base,elapsedSec:-1}], r => r.elapsedSec)).toThrow();expect(()=>cyclingDistanceHistoryTrend([{...base,elapsedSec:Infinity}], r => r.elapsedSec)).toThrow();
+ });
+});
+
+// Actual compiled totals wire 0a9a5b0aae9f0ebd539c7bdd747230121f4e407368b9c12cb14ece9071f67b4d.
+const nativeTotals = {
+  "scope": "observed_activity_totals",
+  "distanceM": 120000,
+  "elevationGainM": 800,
+  "sourceBasis": {
+    "distanceM": "canonical_metrics",
+    "elevationGainM": "canonical_metrics"
+  },
+  "distanceSource": "stream_counter",
+  "sourceLayer": "raw_parts",
+  "elevationQuality": "reliable",
+  "gpsEligibility": "unknown"
+} as NonNullable<CyclingDistanceHistoryRow["activityTotals"]>;
+
+describe("per-metric whole-activity source qualification",()=>{
+ it("preserves Strava canonical policy but chooses native gain when the preferred twin has no gain",()=>{
+  const native=row("native"),strava=row("strava_123",50000);native.activityTotals=structuredClone(nativeTotals);native.representativeInput.stravaTwinActivityId=123;strava.activityTotals={...structuredClone(nativeTotals),elevationGainM:null,elevationQuality:"suspect",sourceLayer:"inline_streams",sourceBasis:{distanceM:"canonical_metrics",elevationGainM:"unavailable"}};strava.representativeInput.source="strava";strava.representativeInput.stravaActivityId=123;
+  const summary=cyclingDistanceHistory([page([native],false),page([strava])]);expect(summary.representatives[0]!.activityId).toBe("strava_123");expect(cyclingHistoryTotalLeaders(summary,"distanceM","canonical_metrics",5).sources[0]!.activityId).toBe("strava_123");const gain=cyclingHistoryTotalLeaders(summary,"elevationGainM","canonical_metrics",5);expect(gain.sources[0]!.activityId).toBe("native");expect(gain.sources[0]!.canonicalActivityId).toBe("strava_123");expect(gain.underlyingSourceCount).toBe(1);
+ });
+ it("keeps canonical and summary observations separate, zero outside positive rankings but inside the plot",()=>{
+  const canon=row("canon"),saved=row("saved");canon.activityTotals=structuredClone(nativeTotals);saved.analysis={state:"missing",calculatorVersion:null,inputCoverage:null};saved.metricsRevision=null;saved.distanceObservations={state:"unavailable",points:[]};saved.activityTotals={...structuredClone(nativeTotals),distanceM:60000,elevationGainM:0,sourceBasis:{distanceM:"activity_summary",elevationGainM:"activity_summary"},sourceLayer:null,distanceSource:null,elevationQuality:"unknown"};
+  const summary=cyclingDistanceHistory([page([canon,saved])]);const savedGain=cyclingHistoryTotalLeaders(summary,"elevationGainM","activity_summary",5);expect(savedGain).toMatchObject({observed:0,zero:1,otherBasis:1,missing:0});expect(savedGain.sources).toHaveLength(0);expect(cyclingDistanceHistoryTrend(savedGain.allSources,r=>r.value).points[0]).toMatchObject({value:0,y:80});expect(cyclingHistoryTotalLeaders(summary,"distanceM","canonical_metrics",5).sources[0]!.activityId).toBe("canon");
+ });
+ it("uses the existing representative comparator within each eligible subgroup rather than fastest/largest twin",()=>{
+  const a=row("a"),b=row("b");a.activityTotals=structuredClone(nativeTotals);b.activityTotals={...structuredClone(nativeTotals),distanceM:200000};a.representativeInput.localSessionId=b.representativeInput.localSessionId="session";a.representativeInput.hasLoad=true;const leaders=cyclingHistoryTotalLeaders(cyclingDistanceHistory([page([a,b])]),"distanceM","canonical_metrics",10);expect(leaders.sources).toHaveLength(1);expect(leaders.sources[0]!.activityId).toBe("a");expect(leaders.sources[0]!.value).toBe(120000);
+ });
+ it("includes all whole-activity observations beyond leaders with exact dates and bigger values higher",()=>{
+  const rows=Array.from({length:12},(_,i)=>{const r=row(`t${i}`,i*86400000);r.activityTotals={...structuredClone(nativeTotals),distanceM:i*1000};return r;});const leaders=cyclingHistoryTotalLeaders(cyclingDistanceHistory([page(rows)]),"distanceM","canonical_metrics",5);expect(leaders.sources).toHaveLength(5);expect(leaders.zero).toBe(1);const trend=cyclingDistanceHistoryTrend(leaders.allSources,r=>r.value);expect(trend.points).toHaveLength(12);expect(trend.points[0]!.y).toBeGreaterThan(trend.points[11]!.y);
+ });
+ it("keeps absent optional evidence missing rather than zero",()=>{expect(cyclingHistoryTotalLeaders(cyclingDistanceHistory([page()]),"distanceM","canonical_metrics",5)).toMatchObject({observed:0,zero:0,missing:1});});
+ it("guards unit/domain extremes and very tiny values without Infinity, NaN or fabricated zero",()=>{
+  for(const value of [Number.MAX_VALUE,Number.MIN_VALUE,0,0.000001])for(const metric of ["elapsed","distanceM","elevationGainM"] as const)for(const units of ["metric","imperial"] as const){const text=cyclingHistoryValueText(value,metric,units);expect(text).not.toMatch(/Infinity|NaN/);if(value>0){if(metric==="elapsed")expect(text).not.toMatch(/^0(?::00|s)$/);else expect(Number.parseFloat(text)).toBeGreaterThan(0);}}
+  expect(cyclingHistoryValueText(Number.MAX_VALUE,"elevationGainM","imperial")).toBe(`${Number.MAX_VALUE}m`);expect(cyclingHistoryValueText(NaN,"distanceM","imperial")).toBe("—");
+ });
+});
+
+it("keeps finite whole-total scatter domains at finite SI/date extremes and tiny values", () => {
+ const sources = [row("max-date"),row("tiny"),row("zero")];
+ sources[0]!.startTime = 8640000000000000; sources[1]!.startTime = 1; sources[2]!.startTime = 0;
+ const values: Record<string,number> = {"max-date":Number.MAX_VALUE,tiny:Number.MIN_VALUE,zero:0};
+ const trend = cyclingDistanceHistoryTrend(sources, source => values[source.activityId]!);
+ expect(trend.points.map(point => point.source.activityId)).toEqual(["zero","tiny","max-date"]);
+ expect(trend.points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))).toBe(true);
+ expect(trend.points[0]).toMatchObject({x:65,y:135,value:0});expect(trend.points[2]).toMatchObject({x:385,y:25,value:Number.MAX_VALUE});
+ for(const point of trend.points) for(const units of ["metric","imperial"] as const) expect(cyclingHistoryValueText(point.value,"elevationGainM",units)).not.toMatch(/Infinity|NaN/);
+});
