@@ -37,10 +37,30 @@ describe("global annual representatives", () => {
     expect(() => annualRunHistory([...pages, historyPage([], false)])).toThrow("history_memory_cap");
     expect(() => annualRunHistory([historyPage(), historyPage()])).toThrow("history_repeated_activity");
   });
-  it("orders only explicit elapsed efforts, stable date/ID ties, and source-bearing top three", () => {
+  it("retains at most ten of eleven valid efforts with original source dates/revisions, stable ties and no mutation", () => {
+    const rows = Array.from({ length: 11 }, (_, i) => historyRow(`effort-${i}`, i * 86400000));
+    rows.forEach((row, i) => { row.distanceRecords.points[0]!.elapsedSec = 1000 + i; });
+    const before = structuredClone(rows);
+    const leaders = annualDistanceLeaders([...rows].reverse(), "5km");
+    expect(leaders).toHaveLength(10);
+    expect(leaders.map(row => row.activityId)).toEqual(rows.slice(0, 10).map(row => row.activityId));
+    expect(leaders[9]).toMatchObject({ startTime: rows[9]!.startTime, metricsRevision: rows[9]!.metricsRevision, elapsedSec: 1009 });
+    expect(rows).toEqual(before);
+    const tied = [historyRow("z", 1000), historyRow("a", 1000), historyRow("newer", 2000), historyRow("older", 0)];
+    expect(annualDistanceLeaders(tied, "5km").map(row => row.activityId)).toEqual(["newer", "a", "z", "older"]);
+  });
+  it("keeps the existing ready/observed qualification and excludes invalid elapsed values", () => {
+    const states = ["partial", "pending", "missing", "stale", "outdated", "invalid"] as const;
+    const excluded = states.map(state => { const row = historyRow(state); row.analysis.state = state; return row; });
+    const invalid = [0, -1, NaN, Infinity].map((value, i) => { const row = historyRow(`invalid-${i}`); row.distanceRecords.points[0]!.elapsedSec = value; return row; });
+    const unavailable = historyRow("unavailable"); unavailable.distanceRecords.state = "unavailable";
+    const empty = historyRow("empty"); empty.distanceRecords.state = "no_observed_efforts";
+    expect(annualDistanceLeaders([...excluded, ...invalid, unavailable, empty, historyRow("qualified")], "5km").map(row => row.activityId)).toEqual(["qualified"]);
+  });
+  it("orders only explicit elapsed efforts, stable date/ID ties, and source-bearing annual leaders", () => {
     const rows = [historyRow("z", 1000), historyRow("a", 1000), historyRow("old"), historyRow("fast", 2000)];
     rows[3]!.distanceRecords.points[0]!.elapsedSec = 1100.5;
-    expect(annualDistanceLeaders(rows, "5km").map(row => row.activityId)).toEqual(["fast", "a", "z"]);
+    expect(annualDistanceLeaders(rows, "5km").map(row => row.activityId)).toEqual(["fast", "a", "z", "old"]);
     expect(annualDistanceLeaders(rows, "full")).toEqual([]);
     expect(annualDistanceLeaders(rows, "5km")[0]).toMatchObject({ elapsedSec: 1100.5, metricsRevision: "124:0" });
   });

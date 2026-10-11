@@ -20,5 +20,5 @@ export function annualDistanceLeaders(rows: TrainingAnalysisHistoryRow[], distan
   return rows.flatMap(row => {
     const record = row.distanceRecords.points.find(point => point.distance === distance);
     return row.analysis.state === "ready" && row.distanceRecords.state === "observed" && record && Number.isFinite(record.elapsedSec) && record.elapsedSec > 0 ? [{ ...row, elapsedSec: record.elapsedSec }] : [];
-  }).sort((a, b) => a.elapsedSec - b.elapsedSec || b.startTime - a.startTime || (a.activityId < b.activityId ? -1 : a.activityId > b.activityId ? 1 : 0)).slice(0, 3);
+  }).sort((a, b) => a.elapsedSec - b.elapsedSec || b.startTime - a.startTime || (a.activityId < b.activityId ? -1 : a.activityId > b.activityId ? 1 : 0)).slice(0, 10);
 }
