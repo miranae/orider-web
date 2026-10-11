@@ -1,3 +1,4 @@
+import ObservedRouteHistoryPanel from "./ObservedRouteHistoryPanel";
 import ActivityBikeDistanceEvidencePanel from "./ActivityBikeDistanceEvidencePanel";
 import ActivityRunDistanceEvidencePanel from "./ActivityRunDistanceEvidencePanel";
 import { useId, useMemo, useState } from "react";
@@ -85,6 +86,7 @@ function Comparison({ activity, metrics, currentMetricsStatus }: Omit<ActivityGr
     {history.error && <Button size="sm" onClick={history.retry}>{t("growth.retry")}</Button>}
     {!history.loading && !history.error && candidates.length === 0 && <Text as="p">{t("growth.noPrevious")}</Text>}
     {history.hasMore && <Button size="sm" variant="outline" loading={history.loadingMore} onClick={history.loadMore}>{t("growth.loadMore")}</Button>}
+    <ObservedRouteHistoryPanel anchor={activity} activities={candidates} observedMetricsIdentity={JSON.stringify([currentMetricsStatus, metrics?.computedAt, metrics?.version, metrics?.inputPending, metrics?.inputCoverage, metrics?.sourceLayer])} />
     {selected && <>
       <ObservedRouteComparisonPanel current={activity} previous={selected} />
       <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.route.context", { current: number(activity.summary?.pauseTimeSec ?? null, 0), previous: number(selected.summary?.pauseTimeSec ?? null, 0) })}</Text>

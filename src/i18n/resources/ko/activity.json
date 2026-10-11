@@ -1882,5 +1882,60 @@
       "raw_parts": "앱 거리 원본",
       "api_streams": "가져온 거리 스트림"
     }
+  },
+  "observedRouteHistory": {
+    "title": "선택한 GPS 이력 비교",
+    "scope": "불러온 활동 중 최대 3개를 골라 기준 활동과 GPS 경로를 비교합니다.",
+    "year": "목록 연도",
+    "all": "모든 연도",
+    "choose": "비교 활동 선택 · {{count}}/3",
+    "noChoices": "이 목록에 선택 가능한 다른 대표 활동이 없습니다.",
+    "inspect": "선택한 GPS 이력 비교",
+    "budget": "선택한 활동만 확인합니다. 다시 확인하려면 버튼을 한 번 더 눌러주세요.",
+    "counts": "선택 {{selected}}개 · 확인 {{read}}개 · 비교 {{compared}}개 · 근거 부족 {{unsupported}}개 · 미확인 {{unavailable}}개 · 일부 관측 {{partial}}개",
+    "anchorState": "기준 활동: {{state}}. 기준 GPS를 확인할 수 없으면 나머지 활동은 비교하지 않습니다.",
+    "source": "출처 활동",
+    "anchor": "기준 활동",
+    "selected": "선택 활동",
+    "ratio": "관측 길이 비율 {{value}}%",
+    "separation": "평균 간격 {{mean}} · 95백분위 간격 {{p95}}",
+    "partial": "관측 공백 또는 일부·미확인 수집 범위가 있어 전체 경로로 해석할 수 없습니다.",
+    "details": "관측 범위 확인",
+    "diagnostic": "{{points}}개 지점 · 관측 길이 {{length}} · 공백 {{gaps}}개 / 제외된 시간 {{missing}}초",
+    "summary": "활동 요약 · 거리 {{distance}} · 이동 {{moving}} · 정지 {{pause}}. GPS 관측 시간과 다른 기준입니다.",
+    "limits": "선택한 기록에서 확인한 GPS 형태와 수집 범위를 보여줍니다. 정확도는 확인되지 않았습니다.",
+    "states": {
+      "idle": "아직 읽지 않음",
+      "loading": "읽는 중",
+      "available": "관측 가능",
+      "pending": "원본 준비 중",
+      "changed_input": "원본이 바뀜 · 다시 확인",
+      "unavailable": "GPS 관측 확인 불가",
+      "error": "이 활동 확인 실패"
+    },
+    "guidance": {
+      "observed_shapes_close": "기준과 관측 형태가 가까움",
+      "observed_shapes_differ": "기준과 관측 형태가 다름",
+      "insufficient": "비교 가능한 관측 길이 부족"
+    },
+    "direction": {
+      "forward": "같은 진행 방향의 형태 비교",
+      "reverse": "반대 진행 방향의 형태 비교",
+      "undetermined": "진행 방향 미확인"
+    },
+    "coverage": {
+      "complete": "수집 범위 완전",
+      "partial": "수집 범위 일부",
+      "unknown": "수집 범위 미확인"
+    },
+    "metrics": {
+      "distance": "저장 요약 거리 · {{unit}}",
+      "movingTime": "저장 요약 이동시간",
+      "pauseTime": "저장 요약 정지시간"
+    },
+    "visible": "선택 연도에 표시 {{visible}}개 / 전체 확인 결과 {{total}}개",
+    "chart": "날짜 간격에 따른 {{metric}}",
+    "trendNote": "확인 가능한 GPS 비교의 출처 {{count}}개 활동에 저장된 요약입니다. 날짜 간격과 수집 범위를 함께 확인하세요. 빈 수치는 확인되지 않은 값입니다.",
+    "noTrend": "이 연도에 차트로 표시할 확인된 출처 요약이 없습니다."
   }
 }
