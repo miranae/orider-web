@@ -8,6 +8,7 @@ import { ChartFrame, Select, Text } from "../../../theme";
 import { formatPace } from "../../../utils/units";
 import { formatElapsedBoundary } from "./activityRangeSelection";
 import "./activity-growth-panel.css";
+import { observedMedianDifference, observedRunEffortLeaders } from "./observedRunEffortLeaders";
 
 const DURATIONS = [30, 60, 180, 300, 600, 1200, 1800, 3600, 7200];
 const BASES = ["run_metrics_pace_curve", "speed_curve_kmh_converted"] as const;
@@ -52,6 +53,13 @@ export default function RunPeriodEvidencePanel({ response }: { response: Trainin
   const durations = DURATIONS.filter(seconds => observed.some(item => item.stats.some(stat => stat.key === seconds) || item.activities.some(activity => activity.points.some(point => point.key === seconds))));
   const selectedDuration = durations.includes(duration) ? duration : durations[0];
   const selectedKey = distanceMode ? distance : selectedDuration;
+  const leaders = distanceMode ? periods.map(period => observedRunEffortLeaders(period.running?.evidence, distance)) : [];
+  const medianSamples = observed.map(item => {
+    const stat = item.stats.find(stat => stat.key === selectedKey);
+    const curve = item.curve;
+    return stat ? { ...stat, basis: distanceMode ? curve?.timingBasis : curve && "sourceBasis" in curve ? curve.sourceBasis : undefined, timingBasis: curve?.timingBasis, unit: distanceMode ? "seconds" : curve && "unit" in curve ? curve.unit : undefined } : undefined;
+  });
+  const medianDifference = observedMedianDifference(medianSamples[0], medianSamples[1], units === "imperial");
   const formatValue = (value: number) => distanceMode ? formatElapsedBoundary(value) : formatPace(value, units);
   const points = observed.flatMap(item => item.activities.flatMap(activity => {
     const point = activity.points.find(value => value.key === selectedKey);
@@ -77,12 +85,18 @@ export default function RunPeriodEvidencePanel({ response }: { response: Trainin
         {(item.period.status === "partial" || item.curve?.status === "partial") && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEvidence.partial")}</Text>}
         {(item.period.coverage.truncated || item.curve?.coverage.truncated || item.bounded) && <Text as="p" variant="bodyMedium" tone="secondary">{t("runPeriods.truncated")}</Text>}
         <Text as="p" variant="bodyMedium">{t(distanceMode ? "runEvidence.distanceBest" : "runEvidence.best")}: {stat ? formatValue(stat.best) : "—"}</Text>
-        <Text as="p" variant="bodyMedium">{t(distanceMode ? "runEvidence.distanceMedian" : "runEvidence.median")}: {stat ? formatValue(stat.median) : "—"}</Text>
+        <Text as="p" variant="bodyMedium">{t(distanceMode ? "runEvidence.distanceMedian" : "runEvidence.median")}: {stat ? distanceMode ? formatElapsedBoundary(stat.median) : `${formatElapsedBoundary(stat.median * (units === "imperial" ? 1.609344 : 1))}${units === "imperial" ? "/mi" : "/km"}` : "—"}</Text>
         <Text as="p" variant="bodyMedium">{t(distanceMode ? "runEvidence.distanceCount" : "runEvidence.count")}: {stat ? stat.count : "—"}</Text>
         {!stat && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEvidence.notObserved")}</Text>}
         {!item.period.running?.evidence && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEvidence.notCollected")}</Text>}
       </div>;
     })}</div>
+    {medianDifference && <Text as="p" variant="bodyMedium" tone="secondary">{t("observedEfforts.medianDifference", {
+      difference: new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 6 }).format(Math.abs(medianDifference.deltaSeconds)),
+      unit: distanceMode ? "" : units === "imperial" ? "/mi" : "/km",
+      direction: t(medianDifference.deltaSeconds < 0 ? "observedEfforts.shorter" : medianDifference.deltaSeconds > 0 ? "observedEfforts.longer" : "observedEfforts.equal"),
+      previous: medianDifference.previousCount, current: medianDifference.currentCount,
+    })}</Text>}
     {points.length > 0 ? <div className="activity-comparison-curve-section"><ChartFrame variant="embedded" header={<Text as="h4" variant="subtitle">{t(distanceMode ? "runEvidence.distanceTimeline" : "runEvidence.timeline")}</Text>}>
       <svg viewBox="0 0 360 144" className="activity-comparison-curve" role="img" aria-label={t(distanceMode ? "runEvidence.distanceTimeline" : "runEvidence.timeline")}>
         <line x1={42} x2={318} y1={110} y2={110} stroke="var(--grid-soft)" />
@@ -96,5 +110,12 @@ export default function RunPeriodEvidencePanel({ response }: { response: Trainin
       <Text as="div" variant="bodyMedium" weight={600}>{t(point.index ? "runPeriods.previous" : "runPeriods.current")} · {formatValue(point.pace)}</Text>
       <a className="inline-flex items-center py-3 underline text-[length:var(--fs-md)] min-h-[calc(var(--dim-button-height)+var(--space-1))]" href={`/${locale}/activity/${encodeURIComponent(point.activityId)}`}>{t("runPeriods.source", { date: date(point.startTime) })}</a>
     </div>)}</div></details>}
+    {leaders.some(records => records.length > 0) && <section className="space-y-3" aria-label={t("observedEfforts.title")}>
+      <Text as="h4" variant="subtitle">{t("observedEfforts.title")}</Text>
+      <Text as="p" variant="bodyMedium" tone="secondary">{t("observedEfforts.scope")}</Text>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{leaders.map((records, index) => records.length > 0 && <div key={index} className="space-y-2"><Text as="h5" variant="bodyMedium" weight={600} tone="primary">{t(index ? "runPeriods.previous" : "runPeriods.current")} · {date(periods[index]!.fromInclusive)}–{date(periods[index]!.toExclusive - 1)}</Text>
+        <ul className="space-y-2">{records.map(record => <li key={record.activityId} data-metrics-revision={record.metricsRevision}><Text as="div" variant="bodyMedium" weight={600}>{formatElapsedBoundary(record.elapsedSec)}</Text><a className="inline-flex items-center py-3 underline text-[length:var(--fs-md)] min-h-[calc(var(--dim-button-height)+var(--space-1))]" href={`/${locale}/activity/${encodeURIComponent(record.activityId)}`}>{t("runPeriods.source", { date: date(record.startTime) })}</a></li>)}</ul>
+      </div>)}</div>
+    </section>}
   </section>;
 }

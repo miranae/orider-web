@@ -32,6 +32,34 @@ describe("observed running period evidence", () => {
     expect(screen.getByRole("img")).toBeInTheDocument();
     expect(sourceReads.firestore).not.toHaveBeenCalled(); expect(sourceReads.callable).not.toHaveBeenCalled();
   });
+  it.each([
+    ["metric", "8:31.5/km", "8:32/km", "0.5초/km"],
+    ["imperial", "13:43.179456/mi", "13:43.984128/mi", "0.804672초/mi"],
+  ] as const)("preserves %s median row precision alongside the sample difference and actual N", (units, current, previous, difference) => {
+    const response = evidenceFixture();
+    response.periods.forEach((period, index) => {
+      const stat = period.running!.paceCurves[0]!.observedStatistics![0]!;
+      stat.observedBestPaceSecPerKm = 500;
+      stat.observedMedianPaceSecPerKm = index ? 512 : 511.5;
+      stat.contributingActivityCount = index ? 6 : 8;
+    });
+    renderWithProviders(<LocaleProvider userId={null} profile={{ units }}><RunPeriodEvidencePanel response={response} /></LocaleProvider>);
+    expect(screen.getByText(`관측 활동의 중앙값: ${current}`)).toBeInTheDocument();
+    expect(screen.getByText(`관측 활동의 중앙값: ${previous}`)).toBeInTheDocument();
+    expect(screen.getByText(`관측 표본 중앙값 차이: ${difference} 짧음 · 활동 N 6→8`)).toBeInTheDocument();
+    expect(screen.getByText("이 시간의 관측 활동 수: 8")).toBeInTheDocument();
+    expect(screen.getByText("이 시간의 관측 활동 수: 6")).toBeInTheDocument();
+  });
+  it("shows only comparable pace sample differences and preserves imperial fractional seconds", () => {
+    const response = evidenceFixture();
+    response.periods[0]!.running!.paceCurves[0]!.observedStatistics![0]!.observedMedianPaceSecPerKm = 809.5;
+    const { rerender } = renderWithProviders(<LocaleProvider userId={null} profile={{ units: "imperial" }}><RunPeriodEvidencePanel response={response} /></LocaleProvider>);
+    expect(screen.getByText("관측 표본 중앙값 차이: 0.804672초/mi 짧음 · 활동 N 2→2")).toBeInTheDocument();
+    response.periods[1]!.running!.paceCurves[0]!.sourceBasis = "speed_curve_kmh_converted";
+    rerender(<LocaleProvider userId={null} profile={{ units: "imperial" }}><RunPeriodEvidencePanel response={response} /></LocaleProvider>);
+    expect(screen.queryByText(/관측 표본 중앙값 차이/)).not.toBeInTheDocument();
+    expect(sourceReads.firestore).not.toHaveBeenCalled(); expect(sourceReads.callable).not.toHaveBeenCalled();
+  });
   it("keeps legacy values separate and switches only through provided recording basis", () => {
     const response = evidenceFixture();
     const running = response.periods[0]!.running!;
@@ -79,6 +107,7 @@ describe("observed running period evidence", () => {
       period.running!.evidence!.activities.forEach(activity => { activity.paceCurve!.points = [{ durationSeconds: 47, paceSecPerKm: 750, speedKph: null }]; });
     });
     renderWithProviders(<RunPeriodEvidencePanel response={response} />);
+    expect(screen.queryByRole("region", { name: "관측된 빠른 기록 (최대 3개)" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(screen.getAllByText("이 시간의 관측 활동 수: —")).toHaveLength(2);
@@ -112,6 +141,10 @@ describe("observed distance record mode", () => {
     selectDistanceMode();
     expect(screen.getByText("관측 활동의 최고 기록: 20:00")).toBeInTheDocument();
     expect(screen.getByText("관측 기록의 중앙값: 20:50")).toBeInTheDocument();
+    const leaders = screen.getByRole("region", { name: "관측된 빠른 기록 (최대 3개)" });
+    expect(within(leaders).getAllByRole("link")).toHaveLength(4);
+    expect(within(leaders).getAllByRole("link")[0]).toHaveAttribute("href", "/ko/activity/evidence-0-0");
+    expect(within(leaders).getByText("20:00")).toBeInTheDocument();
     expect(screen.getAllByText("이 거리의 관측 활동 수: 2")).toHaveLength(2);
     expect(screen.getByRole("combobox", { name: "관측 거리 선택" })).toHaveValue("5km");
     expect(within(screen.getByRole("combobox", { name: "관측 거리 선택" })).getAllByRole("option").map(option => option.getAttribute("value"))).toEqual(["1km", "5km", "10km", "half", "full"]);
@@ -122,6 +155,21 @@ describe("observed distance record mode", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "확인할 기록" }), { target: { value: "pace" } });
     expect(screen.getByText("관측 활동의 최고 페이스: 12:30/km")).toBeInTheDocument();
   });
+  it("connects partial distance sample medians without hiding coverage or rounding half seconds", () => {
+    const response = distances();
+    const current = response.periods[0]!.running!.bestDistances;
+    const previous = response.periods[1]!.running!.bestDistances;
+    current.status = "partial"; current.coverage.truncated = true;
+    current.observedStatistics![0]!.medianTimeSeconds = 1250.5; current.observedStatistics![0]!.contributingActivityCount = 8;
+    previous.observedStatistics![0]!.medianTimeSeconds = 1251; previous.observedStatistics![0]!.contributingActivityCount = 6;
+    renderWithProviders(<RunPeriodEvidencePanel response={response} />); selectDistanceMode();
+    expect(screen.getByText("관측 표본 중앙값 차이: 0.5초 짧음 · 활동 N 6→8")).toBeInTheDocument();
+    expect(screen.getByText(/전체 기간을 대표하지 않습니다/)).toBeInTheDocument();
+    expect(screen.getByText(/조회 한도로 일부/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "관측 거리 선택" }), { target: { value: "full" } });
+    expect(screen.queryByText(/관측 표본 중앙값 차이/)).not.toBeInTheDocument();
+    expect(sourceReads.firestore).not.toHaveBeenCalled(); expect(sourceReads.callable).not.toHaveBeenCalled();
+  });
   it("keeps missing categories missing and observed partial/truncated scope explicit", () => {
     const response = distances(); response.periods[0]!.running!.bestDistances.status = "partial"; response.periods[0]!.running!.bestDistances.coverage.truncated = true;
     renderWithProviders(<RunPeriodEvidencePanel response={response} />); selectDistanceMode();
@@ -129,6 +177,7 @@ describe("observed distance record mode", () => {
     expect(screen.getByText(/조회 한도로 일부/)).toBeInTheDocument();
     fireEvent.change(screen.getByRole("combobox", { name: "관측 거리 선택" }), { target: { value: "full" } });
     expect(screen.getAllByText("관측 활동의 최고 기록: —")).toHaveLength(2);
+    expect(screen.queryByRole("region", { name: "관측된 빠른 기록 (최대 3개)" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(screen.getByText(/이 거리에 표시할 수 있는/)).toBeInTheDocument();
@@ -146,6 +195,6 @@ describe("observed distance record mode", () => {
     response.periods.forEach(period => { period.running!.bestDistances.observedStatistics = []; });
     rerender(<RunPeriodEvidencePanel response={response} />);
     expect(screen.getAllByText("관측 활동의 최고 기록: —")).toHaveLength(2);
-    expect(screen.getAllByRole("link")).toHaveLength(4);
+    expect(screen.getAllByRole("link")).toHaveLength(8);
   });
 });

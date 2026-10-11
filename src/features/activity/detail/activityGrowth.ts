@@ -69,6 +69,23 @@ export function activityPeriods(now: number, period: StatisticsPeriod) {
   const start = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - months + 1, 1) - KST;
   return { start, end: now + 1, previousStart: Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 2 * months + 1, 1) - KST, previousEnd: start };
 }
+/** 올해는 KST 같은 월일·시각의 YTD, 과거 연도는 두 달력 연도 전체를 비교한다. */
+export function observedYearPeriods(now: number, year: number) {
+  if (!Number.isFinite(now)) return null;
+  const local = new Date(now + KST);
+  const currentYear = local.getUTCFullYear();
+  if (!Number.isInteger(year) || year < 1972 || year > currentYear) return null;
+  const start = Date.UTC(year, 0, 1) - KST;
+  const previousStart = Date.UTC(year - 1, 0, 1) - KST;
+  const ytd = year === currentYear;
+  // API는 종료가 현재 시각 이하여야 하므로 새해 정각의 빈 YTD는 아직 조회하지 않는다.
+  if (ytd && now <= start) return null;
+  const lastDay = new Date(Date.UTC(year - 1, local.getUTCMonth() + 1, 0)).getUTCDate();
+  const previousDay = Math.min(local.getUTCDate(), lastDay);
+  const leapClamped = ytd && previousDay !== local.getUTCDate();
+  const previousEnd = ytd ? Date.UTC(year - 1, local.getUTCMonth(), previousDay, local.getUTCHours(), local.getUTCMinutes(), local.getUTCSeconds(), local.getUTCMilliseconds()) - KST : start;
+  return { start, end: ytd ? now : Date.UTC(year + 1, 0, 1) - KST, previousStart, previousEnd, ytd, leapClamped };
+}
 /** 날짜 입력은 KST의 하루 전체를 뜻한다. 직전 비교는 동일한 일수이며 미래 날짜는 거부한다. */
 export function customActivityPeriods(from: string, to: string, now: number) {
   const parse = (input: string) => {
