@@ -112,6 +112,21 @@ export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalys
           || !nonnegative(point.elapsedSec) || point.elapsedSec <= 0 || distances.has(point.distance)) invalid();
         distances.add(point.distance);
       }
+      if (best.observedStatistics !== undefined) {
+        const statistics = best.observedStatistics;
+        if (!Array.isArray(statistics) || statistics.length > RUN_DISTANCES.length) invalid();
+        const seen = new Set<string>();
+        for (const statistic of statistics) {
+          const source = best.points.find(point => point.distance === statistic?.distance);
+          if (!statistic || !RUN_DISTANCES.includes(statistic.distance) || seen.has(statistic.distance)
+            || !nonnegative(statistic.bestTimeSeconds) || statistic.bestTimeSeconds <= 0
+            || !nonnegative(statistic.medianTimeSeconds) || statistic.medianTimeSeconds < statistic.bestTimeSeconds
+            || !count(statistic.contributingActivityCount) || statistic.contributingActivityCount < 1
+            || statistic.contributingActivityCount > best.coverage.eligibleActivityCount
+            || !source || !near(source.elapsedSec, statistic.bestTimeSeconds) || source.contributingActivityCount !== statistic.contributingActivityCount) invalid();
+          seen.add(statistic.distance);
+        }
+      }
       const seenBases = new Set<string>();
       const canonicalDurations = new Set([30, 60, 180, 300, 600, 1200, 1800, 3600, 7200]);
       const convertedDurations = new Set([30, 60, 300, 600, 1200, 1800, 3600]);

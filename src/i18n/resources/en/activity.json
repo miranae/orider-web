@@ -1,5 +1,18 @@
 {
   "runEvidence": {
+    "distanceTitle": "Observed activity distance-record distribution",
+    "mode": "Record to view",
+    "paceMode": "Best pace by duration",
+    "distanceMode": "Best time by distance",
+    "distanceScope": "Distribution of each observed activity’s best elapsed time for completing this distance. This is not an entire-period or lifetime best record.",
+    "distanceBasis": "Elapsed time includes stops and is shown separately from duration-based pace curves.",
+    "distanceSelection": "Observed distance",
+    "distanceBest": "Best observed activity time",
+    "distanceMedian": "Observed time median",
+    "distanceCount": "Activities observed for this distance",
+    "distanceTimeline": "Distance records by activity date",
+    "distanceTimelineNote": "Both periods use the same elapsed-time axis, with shorter times higher. Unobserved dates are not connected or inferred.",
+    "distanceNoEvidence": "No displayable activity-level record evidence was provided for this distance.",
     "title": "Observed activity pace distribution",
     "scope": "Distribution of each observed activity’s best pace for the selected duration. This is not an average across all training or a judgment of fitness improvement.",
     "basis": "Distribution recording basis",

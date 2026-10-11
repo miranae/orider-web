@@ -1,5 +1,18 @@
 {
   "runEvidence": {
+    "distanceTitle": "관측 활동의 거리별 기록 분포",
+    "mode": "확인할 기록",
+    "paceMode": "시간별 최고 페이스",
+    "distanceMode": "거리별 최고 기록",
+    "distanceScope": "각 활동에서 해당 거리를 완주한 최고 경과시간의 관측 분포입니다. 전체 기간이나 평생 최고 기록을 뜻하지 않습니다.",
+    "distanceBasis": "정지 시간을 포함한 경과시간입니다. 시간별 페이스 커브와 별도로 확인합니다.",
+    "distanceSelection": "관측 거리 선택",
+    "distanceBest": "관측 활동의 최고 기록",
+    "distanceMedian": "관측 기록의 중앙값",
+    "distanceCount": "이 거리의 관측 활동 수",
+    "distanceTimeline": "활동 일자별 거리 기록",
+    "distanceTimelineNote": "두 기간에 같은 경과시간 축을 사용합니다. 짧은 기록이 위에 표시되며 관측하지 않은 일자의 값을 잇거나 추정하지 않습니다.",
+    "distanceNoEvidence": "이 거리에 표시할 수 있는 활동별 기록 근거가 없습니다.",
     "title": "관측 활동의 페이스 분포",
     "scope": "선택한 시간 동안 각 활동에서 관측한 최고 페이스의 분포입니다. 전체 훈련 평균이나 실력 향상 판정이 아닙니다.",
     "basis": "분포 기록 기준",
