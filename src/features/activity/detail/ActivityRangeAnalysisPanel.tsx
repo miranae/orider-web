@@ -1,3 +1,4 @@
+import type { ActivityRangeAnalysisResponse } from "@shared/types/activity-range-analysis";
 import type { HrZoneBoundaries } from "@shared/training/hrZoneTable";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -65,6 +66,35 @@ function RangeZones({ values, count, title, boundaries }: { values: number[] | n
   </section>;
 }
 
+/** 저장된 관측 구간의 양 끝 차이만 표시한다. 센서 분석의 성공 여부와 독립적이다. */
+function RangeElevationReading({ response }: { response: ActivityRangeAnalysisResponse }) {
+  const { t } = useTranslation("activity"), { units, locale } = useLocale();
+  const elevation = response.elevation;
+  if (!elevation || elevation.state !== "available") return <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.elevation.unavailable")}</Text>;
+  const number = (raw: number | null, factor = 1, signed = false) => {
+    if (raw === null) return "—";
+    const value = raw * factor;
+    if (!Number.isFinite(value) || raw !== 0 && value === 0) return "—";
+    const fixed = value.toFixed(2);
+    // 긴 유효 값과 반올림으로 0이 되는 작은 값을 같은 폭 안에서 보존한다.
+    const formatted = fixed.length > 12 || value !== 0 && Number(fixed) === 0
+      ? new Intl.NumberFormat(locale, { notation: "scientific", maximumSignificantDigits: 3 }).format(value)
+      : fixed;
+    return `${signed && value > 0 ? "+" : ""}${formatted}`;
+  };
+  return <section className="space-y-3" aria-label={t("rangeAnalysis.elevation.title")}>
+    <Text as="h4" variant="bodyMedium" weight={600}>{t("rangeAnalysis.elevation.title")}</Text>
+    <div className="activity-range-stats">
+      <Stat compact label={t("rangeAnalysis.elevation.netChange")} value={number(elevation.netElevationChangeM, units === "imperial" ? 1 / 0.3048 : 1, true)} unit={units === "imperial" ? "ft" : "m"} />
+      <Stat compact label={t("rangeAnalysis.elevation.counterDistance")} value={number(elevation.distanceM, units === "imperial" ? 1 / 1609.344 : 1 / 1000)} unit={units === "imperial" ? "mi" : "km"} />
+      <Stat compact label={t("rangeAnalysis.elevation.netGrade")} value={number(elevation.netMeanGradePct, 1, true)} unit={elevation.netMeanGradePct === null ? undefined : "%"} />
+    </div>
+    <Text as="p" variant="bodyMedium" mono>{t(elevation.boundaryCoverage === "inside_samples" ? "rangeAnalysis.elevation.insideSamples" : "rangeAnalysis.elevation.exactSamples", { start: formatElapsedBoundary(elevation.observedSelection.startOffsetSec), end: formatElapsedBoundary(elevation.observedSelection.endOffsetSec) })}</Text>
+    <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.elevation.basis", { source: t(`rangeAnalysis.elevation.sources.${elevation.declaredActivitySource ?? "unknown"}`) })}</Text>
+    <a className="inline-flex items-center min-h-[calc(var(--dim-button-height)+var(--space-1))] text-[length:var(--fs-md)] text-[var(--ink-0)] underline" href={`/${locale}/activity/${encodeURIComponent(response.activityId)}`}>{t("rangeAnalysis.elevation.sourceActivity")}</a>
+  </section>;
+}
+
 export default function ActivityRangeAnalysisPanel({ activityId, selection, sport, callableEnabled = false, previewActive = false }: Props) {
   const locked = selection.sourceLocked;
   // 서버 revision은 같은 입력의 다음 사용자 선택부터 고정한다. 응답 도착 자체는 추가 요청을 만들지 않는다.
@@ -75,7 +105,7 @@ export default function ActivityRangeAnalysisPanel({ activityId, selection, spor
     binding.current.requestRevision = binding.current.revision;
   }
   const analysis = useActivityRangeAnalysis({ activityId, ownerUid: selection.ownerUid, selection: locked ? null : selection.selection,
-    inputIdentity: selection.identity, expectedInputRevision: binding.current.requestRevision, callableEnabled, includePowerWindowInput: sport === "bike" || sport === "ride" });
+    inputIdentity: selection.identity, expectedInputRevision: binding.current.requestRevision, callableEnabled, includePowerWindowInput: sport === "bike" || sport === "ride", includeElevation: true });
   if (analysis.response?.state === "changed_input") {
     binding.current.revision = undefined;
     binding.current.requestRevision = undefined;
@@ -138,5 +168,6 @@ export function ActivityRangeAnalysisReading({ selection, sport, analysis, previ
           </div>
         </details>
       </>}
+    {analysis.response && <RangeElevationReading response={analysis.response} />}
   </section>;
 }

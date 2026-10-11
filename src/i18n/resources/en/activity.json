@@ -1630,6 +1630,24 @@
       "heartrate": "Heart rate",
       "cadence": "Cadence",
       "speed": "Speed"
+    },
+    "elevation": {
+      "title": "Elevation evidence for the selected range",
+      "netChange": "Net elevation change",
+      "counterDistance": "Observed counter distance",
+      "netGrade": "Net mean grade",
+      "insideSamples": "Observed samples inside the selection: {{start}}–{{end}}. These values do not cover the full requested boundaries.",
+      "exactSamples": "Observed samples at the requested boundaries: {{start}}–{{end}}",
+      "basis": "Stored activity samples · declared source: {{source}}. The original clock and elevation quality are unverified.",
+      "unavailable": "Elevation evidence is unavailable for this selection.",
+      "sourceActivity": "View the source activity",
+      "sources": {
+        "orider": "ORider",
+        "strava": "Strava",
+        "apple_health": "Apple Health",
+        "health_connect": "Health Connect",
+        "unknown": "Unknown"
+      }
     }
   },
   "splitCompare": {

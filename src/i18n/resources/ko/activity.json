@@ -1630,6 +1630,24 @@
       "heartrate": "심박",
       "cadence": "케이던스",
       "speed": "속도"
+    },
+    "elevation": {
+      "title": "선택 구간의 고도 근거",
+      "netChange": "순고도 변화",
+      "counterDistance": "관측 거리계 차이",
+      "netGrade": "순고도 기준 평균경사",
+      "insideSamples": "선택 범위 안의 관측 표본: {{start}}–{{end}}. 요청 경계 전체의 값은 아닙니다.",
+      "exactSamples": "요청 경계의 관측 표본: {{start}}–{{end}}",
+      "basis": "저장된 활동 표본 · 표시 출처: {{source}}. 원본 시계와 고도 품질은 검증되지 않았습니다.",
+      "unavailable": "이 선택 구간의 고도 근거를 확인할 수 없습니다.",
+      "sourceActivity": "이 활동의 출처 확인",
+      "sources": {
+        "orider": "ORider",
+        "strava": "Strava",
+        "apple_health": "Apple Health",
+        "health_connect": "Health Connect",
+        "unknown": "알 수 없음"
+      }
     }
   },
   "splitCompare": {

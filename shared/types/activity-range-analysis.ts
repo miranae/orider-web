@@ -6,8 +6,10 @@ export interface ActivityRangeAnalysisRequest {
   startOffsetSec: number;
   endOffsetSec: number;
   expectedInputRevision?: string;
-  /** 기존 요청의 측정 파워 구간만 선택적으로 포함한다. */
+  /** true일 때만 기존 소유자 파워 입력을 반환한다. */
   includePowerWindowInput?: boolean;
+  /** 저장된 epoch 파트 표본의 순고도·경사만 선택적으로 읽는다. */
+  includeElevation?: true;
 }
 export interface ActivityRangeAnalysisResponse {
   state: "available" | "pending" | "unavailable" | "changed_input";
@@ -21,6 +23,7 @@ export interface ActivityRangeAnalysisResponse {
   reason: string | null;
   metrics: ActivityRangeMetrics | null;
   powerWindowInput?: ActivityPowerWindowInput;
+  elevation?: ActivityRangeElevation;
 }
 export interface ActivityRangeChannelCoverage {
   measuredSec: number;
@@ -48,7 +51,9 @@ export interface ActivityRangeMetrics {
   diagnostics: { clippedBoundary: boolean; gaps: boolean; distanceReason: string | null; zonesReason: string };
   powerSource: "measured" | "virtual" | null;
   isVirtualPower: boolean;
-  context: { mode: "recorded" | "unavailable"; ftp: number | null; maxHr: number | null; lthr?: number | null; hrZoneBoundaries?: HrZoneBoundaries | null };
+  context: { mode: "recorded" | "unavailable"; ftp: number | null; maxHr: number | null;
+    /** Historical thresholds and the exact canonical HR boundaries used for these zones. */
+    lthr?: number | null; hrZoneBoundaries?: HrZoneBoundaries | null };
 }
 
 /** 동적 시간 창 계산용. 정지 시간을 압축하지 않은 관측 구간이며 결측 구간을 넘지 않는다. */
@@ -71,4 +76,27 @@ export type ActivityPowerWindowInput = {
 } | {
   state: "unavailable";
   reason: "virtual_power" | "unknown_provenance" | "unaligned_elapsed_axis" | "missing_power" | "input_limit";
+});
+
+/** 요청 전체의 상승량이 아닌 실제 관측 표본 양 끝의 차이다. */
+export type ActivityRangeElevation = {
+  scope: "selected_observed_range";
+  quality: "unknown";
+  timingBasis: "stored_explicit_activity_elapsed";
+  originalClockVerified: false;
+  declaredActivitySource: "orider" | "strava" | "apple_health" | "health_connect" | null;
+  inputRevision: string | null;
+  requestedSelection: { startOffsetSec: number; endOffsetSec: number };
+} & ({
+  state: "available";
+  reason: null;
+  sourceBasis: "stored_epoch_parts";
+  observedSelection: { startOffsetSec: number; endOffsetSec: number };
+  boundaryCoverage: "exact" | "inside_samples";
+  netElevationChangeM: number;
+  distanceM: number;
+  netMeanGradePct: number | null;
+} | {
+  state: "unavailable";
+  reason: "input_unavailable" | "unsupported_source" | "incomplete_input" | "invalid_clock" | "invalid_axis" | "missing_samples" | "internal_gap" | "invalid_arithmetic";
 });
