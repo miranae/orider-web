@@ -1696,5 +1696,42 @@
     "shorter": "짧음",
     "longer": "길음",
     "equal": "같음"
+  },
+  "annualHistory": {
+    "title": "{{year}}년 기록 페이지",
+    "scope": "기존 최대 200개 대표 표본 분석과 별도 조회입니다. 본인 활동 중 유효한 시작 시각이 있는 기록을 KST 연도 범위에서 50개씩 확인하며, 세션당 최대 5,000개를 탐색합니다. 시작 시각이 없는 활동이나 평생 이력까지 보장하지 않습니다.",
+    "start": "전체 연간 기록 확인",
+    "loading": "50개 기록 확인 중",
+    "partial": "아직 일부 페이지만 확인했습니다. 다음 페이지에 따라 대표 활동과 빠른 기록이 바뀔 수 있습니다.",
+    "more": "50개 더 확인",
+    "scanComplete": "유효 시작 시각이 있는 조회 범위의 탐색을 마쳤습니다. 분석의 결측·대기 상태는 별도로 확인하세요.",
+    "capped": "5,000개 탐색 한도에 도달했습니다. 이 연도의 전체 조회 완료를 보장하지 않습니다.",
+    "error": "조회하지 못했습니다. 이미 확인한 페이지는 유지됩니다.",
+    "retry": "같은 페이지 다시 확인",
+    "expired": "조회 기준 시간이 만료되었습니다. 처음부터 다시 확인하세요.",
+    "invalidated": "소유권이나 기록 기준이 바뀌어 이전 페이지를 비웠습니다. 처음부터 다시 확인하세요.",
+    "restart": "처음부터 다시 확인",
+    "unsupported": "이 서버에서는 연간 기록 페이지를 아직 확인할 수 없습니다.",
+    "snapshot": "KST {{from}}–{{to}} · 기준 시각 {{asOf}}",
+    "counts": "탐색 {{scanned}}개 · 러닝 후보 {{candidates}}개 · 현재 대표 {{representatives}}개 · 중복 제외 {{duplicates}}개",
+    "analysisStates": "확정 {{ready}} · 분석 없음 {{missing}} · 대기 {{pending}} · 기준 변경 {{stale}} · 이전 버전 {{outdated}} · 부분 분석 {{partial}} · 확인 불가 {{invalid}}",
+    "channelCoverage": "거리 기록 확인 불가 {{distance}}개 · 페이스 곡선 확인 불가 {{pace}}개",
+    "distance": "확인할 거리 기록",
+    "leaders": "관측된 빠른 기록 최대 3개 · 이 거리 활동 N {{count}}",
+    "timingBasis": "정지를 포함한 명시된 경과 기록만 표시합니다. 현재 확인된 대표 활동의 관측 기록이며 공식 순위나 새 개인기록 판정이 아닙니다.",
+    "source": "{{date}} 원본 활동",
+    "noEfforts": "확인된 대표 활동에서 이 거리의 확정 기록이 없습니다.",
+    "sources": "현재 대표 활동 {{count}}개 출처",
+    "states": {
+      "ready": "확정",
+      "missing": "분석 없음",
+      "pending": "대기",
+      "stale": "기준 변경",
+      "outdated": "이전 버전",
+      "partial": "부분 분석",
+      "invalid": "확인 불가"
+    },
+    "visibleSources": "현재 대표 활동 {{total}}개 중 {{visible}}개 표시",
+    "moreSources": "활동 목록 50개 더 보기"
   }
 }

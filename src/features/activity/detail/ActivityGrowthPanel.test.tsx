@@ -8,7 +8,8 @@ import en from "../../../i18n/resources/en/activity.json";
 import { ActivityGrowthPanel } from "./ActivityGrowthPanel";
 import { activityPeriods } from "./activityGrowth";
 import { periodFixture, runningPeriodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
-const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn() }));
+vi.mock("./AnnualRunHistoryPanel", () => ({ default: (props: { ownerUid: string; activityId: string; year: number }) => { mocks.annual(props); return <div data-testid="annual-history-year">{props.year}</div>; } }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: mocks.units }) }));
 vi.mock("../../../hooks/useActivityGrowthHistory", () => ({ useActivityGrowthHistory: mocks.history }));
@@ -23,6 +24,7 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: { language: moc
 const activity = { id: "current", userId: "owner", startTime: 100, type: "Run", summary: {} } as Activity;
 const previous = { ...activity, id: "previous", startTime: 50, description: "earlier" };
 beforeEach(() => {
+  mocks.annual.mockReset();
   mocks.periodAvailable = false; mocks.periods.mockReset().mockReturnValue({ state: "idle", response: null, retry: vi.fn() });
   mocks.user = { uid: "owner" }; mocks.language = "ko"; mocks.units = "metric";
   mocks.history.mockReset().mockReturnValue({ activities: [previous, { ...previous, id: "bike", type: "Ride" }], sourceActivities: [], coverage: "ready", loading: false, error: false, hasMore: false });
@@ -294,6 +296,21 @@ describe("ActivityGrowthPanel", () => {
 });
 
 describe("observed year application", () => {
+  it("passes only the explicitly applied run year to the separate manual-history panel", () => {
+    mocks.periodAvailable = true;
+    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+    expect(mocks.annual).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "연도", exact: true }));
+    const select = screen.getByRole("combobox", { name: "관측 연도" });
+    const year = Number((select as HTMLSelectElement).value);
+    fireEvent.change(select, { target: { value: String(year - 1) } });
+    expect(mocks.annual).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "연도 적용" }));
+    expect(mocks.annual).toHaveBeenLastCalledWith({ ownerUid: "owner", activityId: "current", year: year - 1 });
+    fireEvent.change(select, { target: { value: String(year) } });
+    expect(screen.getByTestId("annual-history-year")).toHaveTextContent(String(year - 1));
+  });
   it.each(["flag-off", "unsupported-sport"])("does not offer annual controls for %s", scenario => {
     mocks.periodAvailable = scenario !== "flag-off";
     render(<ActivityGrowthPanel activity={scenario === "unsupported-sport" ? { ...activity, type: "Yoga" } : activity} metrics={null} isOwner />);

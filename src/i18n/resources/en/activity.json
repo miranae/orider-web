@@ -1696,5 +1696,42 @@
     "shorter": "shorter",
     "longer": "longer",
     "equal": "unchanged"
+  },
+  "annualHistory": {
+    "title": "{{year}} activity pages",
+    "scope": "This query is separate from the existing analysis of up to 200 representative activities. Owner activities with a valid start time are scanned within the KST year, 50 at a time and up to 5,000 per session. Activities without a start time and lifetime history are not guaranteed.",
+    "start": "Check full annual records",
+    "loading": "Checking 50 records",
+    "partial": "Only some pages have been checked. Representatives and fast efforts may change as further pages arrive.",
+    "more": "Check 50 more",
+    "scanComplete": "The query scope with valid start times has been scanned. Missing and pending analyses remain separate.",
+    "capped": "The 5,000 scanned-record limit was reached. A complete annual scan is not guaranteed.",
+    "error": "This page could not be checked. Previously checked pages remain available.",
+    "retry": "Retry the same page",
+    "expired": "The snapshot expired. Restart from the first page.",
+    "invalidated": "Ownership or the record basis changed, so previous pages were cleared. Restart from the first page.",
+    "restart": "Restart from first page",
+    "unsupported": "Annual record pages are not yet available on this server.",
+    "snapshot": "KST {{from}}–{{to}} · as of {{asOf}}",
+    "counts": "Scanned {{scanned}} · running candidates {{candidates}} · current representatives {{representatives}} · duplicates excluded {{duplicates}}",
+    "analysisStates": "Ready {{ready}} · missing {{missing}} · pending {{pending}} · stale {{stale}} · older version {{outdated}} · partial {{partial}} · invalid {{invalid}}",
+    "channelCoverage": "Distance records unavailable {{distance}} · pace curves unavailable {{pace}}",
+    "distance": "Distance record to inspect",
+    "leaders": "Up to 3 fast observed efforts · activities at this distance N {{count}}",
+    "timingBasis": "Only explicit elapsed efforts including stops are shown. These are observations in the currently checked representatives, not official rankings or new personal-record decisions.",
+    "source": "{{date}} source activity",
+    "noEfforts": "No confirmed effort at this distance was found in the checked representatives.",
+    "sources": "Sources for {{count}} current representatives",
+    "states": {
+      "ready": "Ready",
+      "missing": "Missing",
+      "pending": "Pending",
+      "stale": "Stale",
+      "outdated": "Older version",
+      "partial": "Partial",
+      "invalid": "Invalid"
+    },
+    "visibleSources": "Showing {{visible}} of {{total}} current representatives",
+    "moreSources": "Show 50 more activities"
   }
 }

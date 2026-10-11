@@ -1,0 +1,82 @@
+import { fireEvent, screen, within, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
+import { historyPage, historyRow } from "../../../services/trainingAnalysisHistory.fixture";
+import AnnualRunHistoryPanel from "./AnnualRunHistoryPanel";
+const mocks = vi.hoisted(() => ({ hook: vi.fn(), start: vi.fn(), more: vi.fn(), restart: vi.fn() }));
+vi.mock("../../../hooks/useAnnualRunHistory", () => ({ useAnnualRunHistory: mocks.hook }));
+const idle = () => ({ available: true, status: "idle", pages: [] as ReturnType<typeof historyPage>[], start: mocks.start, loadMore: mocks.more, restart: mocks.restart });
+beforeEach(() => { mocks.start.mockReset(); mocks.more.mockReset(); mocks.restart.mockReset(); mocks.hook.mockReset().mockReturnValue(idle()); });
+describe("AnnualRunHistoryPanel", () => {
+  it("starts only on its explicit button and requests one further page per click", () => {
+    const view = renderWithProviders(<AnnualRunHistoryPanel ownerUid="owner" activityId="activity" year={2026} />);
+    expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.more).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "전체 연간 기록 확인" })); expect(mocks.start).toHaveBeenCalledTimes(1);
+    mocks.hook.mockReturnValue({ ...idle(), status: "partial", pages: [historyPage([], false)] });
+    view.rerender(<AnnualRunHistoryPanel ownerUid="owner" activityId="activity" year={2026} />);
+    expect(screen.getByText(/아직 일부 페이지만 확인/)).toBeInTheDocument();
+    expect(screen.queryByText(/조회 범위의 탐색을 마쳤습니다/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "50개 더 확인" })); expect(mocks.more).toHaveBeenCalledTimes(1);
+    fireEvent.change(screen.getByRole("combobox", { name: "확인할 거리 기록" }), { target: { value: "full" } }); expect(mocks.more).toHaveBeenCalledTimes(1);
+  });
+  it("shows as-of/KST/elapsed source rows, actual N and full-scan status separate from missing analyses", () => {
+    const row = historyRow("러닝😀"); row.distanceRecords.points[0]!.elapsedSec = 1200.5;
+    const missing = historyRow("missing", 50000); missing.analysis.state = "missing"; missing.distanceRecords = { state: "unavailable", reason: "metrics_unavailable", points: [] }; missing.paceCurve = { state: "unavailable", reason: "metrics_unavailable", value: null };
+    mocks.hook.mockReturnValue({ ...idle(), status: "complete", pages: [historyPage([row, missing])] });
+    renderWithProviders(<AnnualRunHistoryPanel ownerUid="owner" activityId="activity" year={2026} />);
+    const panel = screen.getByRole("region", { name: "2026년 기록 페이지" });
+    expect(within(panel).getByText(/조회 범위의 탐색을 마쳤습니다/)).toBeInTheDocument();
+    expect(within(panel).getByText(/확정 1 · 분석 없음 1/)).toBeInTheDocument();
+    expect(within(panel).getByText(/기준 시각/)).toHaveTextContent("KST");
+    expect(within(panel).getByText(/이 거리 활동 N 1/)).toBeInTheDocument();
+    expect(within(panel).getByText("20:00.5")).toBeInTheDocument();
+    expect(within(panel).getByRole("link", { name: /원본 활동/ })).toHaveAttribute("href", "/ko/activity/%EB%9F%AC%EB%8B%9D%F0%9F%98%80");
+    expect(screen.queryByRole("button", { name: "50개 더 확인" })).not.toBeInTheDocument();
+  });
+  it.each(["expired", "invalidated"])("requires explicit restart for %s and hides previous source rows", status => {
+    mocks.hook.mockReturnValue({ ...idle(), status });
+    renderWithProviders(<AnnualRunHistoryPanel ownerUid="owner" activityId="activity" year={2026} />);
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(mocks.restart).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "처음부터 다시 확인" })); expect(mocks.restart).toHaveBeenCalledTimes(1);
+  });
+  it("retains partial source rows during failure, retries manually and has no unsupported retry loop", () => {
+    mocks.hook.mockReturnValue({ ...idle(), status: "error", pages: [historyPage([historyRow()], false)] });
+    const view = renderWithProviders(<AnnualRunHistoryPanel ownerUid="owner" activityId="activity" year={2026} />);
+    expect(screen.getByRole("link", { name: /원본 활동/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "같은 페이지 다시 확인" })); expect(mocks.more).toHaveBeenCalledTimes(1);
+    mocks.hook.mockReturnValue({ ...idle(), status: "unsupported" }); view.rerender(<AnnualRunHistoryPanel ownerUid="owner" activityId="activity" year={2026} />);
+    expect(screen.getByText(/이 서버에서는 연간 기록 페이지/)).toBeInTheDocument(); expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+  it("creates source rows only when opened, reveals 50 more locally and resets across year/snapshot restarts", async () => {
+    const rows = Array.from({ length: 120 }, (_, i) => historyRow(`source-${i}`, i * 86400000));
+    const pages = [historyPage(rows)];
+    mocks.hook.mockReturnValue({ ...idle(), status: "complete", pages });
+    const view = renderWithProviders(<AnnualRunHistoryPanel ownerUid="owner" activityId="A" year={2026} />);
+    const details = screen.getByText("현재 대표 활동 120개 출처").closest("details")!;
+    expect(within(details).queryAllByRole("link")).toHaveLength(0);
+    (details as HTMLDetailsElement).open = true; fireEvent(details, new Event("toggle"));
+    await waitFor(() => expect(within(details).getAllByRole("link")).toHaveLength(50));
+    expect(within(details).getByText("현재 대표 활동 120개 중 50개 표시")).toBeInTheDocument();
+    fireEvent.click(within(details).getByRole("button", { name: "활동 목록 50개 더 보기" }));
+    expect(within(details).getAllByRole("link")).toHaveLength(100);
+    expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.more).not.toHaveBeenCalled();
+    view.rerender(<AnnualRunHistoryPanel ownerUid="owner" activityId="A" year={2025} />);
+    const next = screen.getByText("현재 대표 활동 120개 출처").closest("details")!;
+    expect(within(next).queryAllByRole("link")).toHaveLength(0);
+    (next as HTMLDetailsElement).open = true; fireEvent(next, new Event("toggle"));
+    await waitFor(() => expect(within(next).getAllByRole("link")).toHaveLength(50));
+    const restarted = structuredClone(pages); restarted[0]!.readTime.seconds++;
+    mocks.hook.mockReturnValue({ ...idle(), status: "complete", pages: restarted });
+    view.rerender(<AnnualRunHistoryPanel ownerUid="owner" activityId="B" year={2025} />);
+    const fresh = screen.getByText("현재 대표 활동 120개 출처").closest("details")!;
+    expect(within(fresh).queryAllByRole("link")).toHaveLength(0);
+    (fresh as HTMLDetailsElement).open = true; fireEvent(fresh, new Event("toggle"));
+    await waitFor(() => expect(within(fresh).getAllByRole("link")).toHaveLength(50));
+  });
+  it("hides owner-only unavailable panels", () => {
+    mocks.hook.mockReturnValue({ ...idle(), available: false });
+    renderWithProviders(<AnnualRunHistoryPanel ownerUid="owner" activityId="activity" year={2026} />);
+    expect(screen.queryByRole("region")).not.toBeInTheDocument(); expect(mocks.start).not.toHaveBeenCalled();
+  });
+});
