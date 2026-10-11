@@ -148,10 +148,7 @@
   "kpi.vo2max.subFormula": "FTP/체중 근사 {{value}}",
   "kpi.vo2max.descServer": "PDC 기반 서버 추정",
   "kpi.vo2max.descFormula": "FTP/체중 근사",
-  "hub.weekly.title": "이번 주 해석",
-  "hub.weekly.fatigueUnknown": "이번 주 부하는 {{tss}} TSS입니다.",
-  "hub.weekly.fatigueUp": "이번 주 피로 부하가 지난주보다 {{pct}}% 높습니다({{tss}} TSS).",
-  "hub.weekly.fatigueDown": "이번 주 피로 부하가 지난주보다 {{pct}}% 낮습니다({{tss}} TSS).",
+  "hub.weekly.title": "최근 7일 훈련부하",
   "hub.weekly.recommend.recover": "회복을 먼저 배치하세요.",
   "hub.weekly.recommend.interval": "다음 주에는 인터벌 1회를 넣어도 됩니다.",
   "hub.weekly.recommend.restart": "가벼운 Z2부터 다시 시작하세요.",
@@ -339,8 +336,8 @@
   "daily.title": "일별 운동 부하",
   "daily.sub": "최근 6주 · 일별 TSS",
   "daily.empty": "일별 부하 데이터가 없어요",
-  "daily.weekTSS": "이번 주 TSS",
-  "daily.avgWeekTSS": "주평균 TSS",
+  "daily.weekTSS": "최근 7일 관측 부하",
+  "daily.avgWeekTSS": "최근 42일 주평균 부하",
   "daily.restDays": "연속 휴식일",
   "daily.daysUnit": "일",
   "load.rest": "휴식",
@@ -883,5 +880,19 @@
       "inline_streams": "저장 스트림 기반 지표",
       "unknown": "계산 입력 출처 미확인"
     }
-  }
+  },
+  "hub.weekly.loadUnknown": "최근 7일 부하는 {{tss}} TSS 등가입니다. 이전 7일 기준 변화율은 계산할 수 없습니다.",
+  "hub.weekly.loadUp": "최근 7일 훈련부하가 이전 7일보다 {{pct}}% 높습니다({{tss}} TSS 등가).",
+  "hub.weekly.loadDown": "최근 7일 훈련부하가 이전 7일보다 {{pct}}% 낮습니다({{tss}} TSS 등가).",
+  "hub.weekly.partial": "최근 7일 관측 부하 {{tss}} TSS 등가. 최근 14일 중 {{count}}일이 불완전해 변화율과 훈련 권고를 표시하지 않습니다.",
+  "hub.weekly.basis.utc": "{{date}}까지 · UTC 날짜 기준",
+  "hub.weekly.basis.local": "{{date}}까지 · 기기 현지 날짜 기준",
+  "hub.weekly.basis.mixed": "종목별 UTC·현지 날짜가 달라 기간 비교를 표시하지 않습니다.",
+  "weekly.window": "{{start}}–{{end}}일 전",
+  "weekly.sub": "최근 7일 {{thisWeek}} · 42일 주평균 {{avg}} · 확인된 연속 휴식 {{restDays}}일",
+  "weekly.storedSummary": "저장된 주간 요약 {{thisWeek}} · 일별 기간 확인 불가",
+  "weekly.storedSummaryTitle": "저장된 주간 요약",
+  "weekly.partial": "누락·미확인 날짜는 휴식이나 0 부하로 계산하지 않습니다. 부하는 TSS 등가이며 Relative Effort와 다른 척도입니다.",
+  "weekly.title": "훈련부하 · 최근 28일",
+  "hub.weekly.pending": "훈련부하 확인 중입니다. 현재 입력이 확정되면 기간 비교와 훈련 권고를 표시합니다."
 }

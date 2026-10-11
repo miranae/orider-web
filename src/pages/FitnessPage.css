@@ -1,0 +1,24 @@
+/* Fitness 설명만 보강하고 수치·eyebrow·다른 제품 화면의 위계는 유지한다. */
+.fitness-reading .ds-text--body-small,
+.fitness-reading .ds-text--label,
+.fitness-reading .ds-text--caption:not(.ds-text--mono) {
+  font-size: var(--fs-md);
+  line-height: 1.5;
+}
+
+.fitness-reading .ds-text--body-small.ds-text--tone-2,
+.fitness-reading .ds-text--caption.ds-text--tone-2:not(.ds-text--mono) {
+  color: var(--ink-2);
+}
+
+/* 출처 링크의 인라인 강조색도 읽기 대비 기준을 따른다. */
+.fitness-reading a[href^="/web-manual/"] {
+  display: inline-flex;
+  align-items: center;
+  min-height: calc(var(--space-6) + var(--space-5));
+  max-width: 100%;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  color: var(--ink-2) !important;
+  overflow-wrap: anywhere;
+}

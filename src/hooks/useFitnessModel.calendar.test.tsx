@@ -85,28 +85,81 @@ describe("calendar load reaches actual fitness screens",()=>{
   seed([]);const h=renderHook(()=>useFitnessModel("bike",options));
   await waitFor(()=>expect(h.result.current.currentPoint?.ctl).toBe(40));
   expect(h.result.current.weeklyStats.thisWeekTSS).toBe(100);
-  expect(h.result.current.weeklyStats.avgWeekTSS).toBe(67);
-  expect(h.result.current.mobilePageProps.data.weeklyTSS).toEqual([0,100,0,100]);
+  expect(h.result.current.weeklyStats.avgWeekTSS).toBeNull();
+  expect(h.result.current.mobilePageProps.data.weeklyTSS).toEqual([null,null,null,null]);
   const desktop=render(<MemoryRouter><FitnessView model={h.result.current}/></MemoryRouter>);
-  expect(screen.getByText("이번 주 TSS").parentElement).toHaveTextContent("100");desktop.unmount();
+  expect(screen.getByText(h.result.current.weeklyStats.storedSummary ? "저장된 주간 요약" : "최근 7일 관측 부하").parentElement).toHaveTextContent("100");desktop.unmount();
   render(<MemoryRouter><MobileFitnessPage {...h.result.current.mobilePageProps} embedded/></MemoryRouter>);
-  expect(screen.getByText(/이번 주 100/)).toBeInTheDocument();
-  const label=screen.getByText("이번 주");expect(label.parentElement).toHaveTextContent("100");
-  expect(screen.getByText("2주 전").parentElement).toHaveTextContent("100");
+  expect(screen.getByText(/최근 7일 100/)).toBeInTheDocument();
+  const label=screen.getByText("0–6일 전");expect(label.parentElement).toHaveTextContent("–");
+  expect(screen.getByText("14–20일 전").parentElement).toHaveTextContent("–");
+ });
+ it("complete UTC dates expose an explicit current basis while stale publication blocks advice",async()=>{
+  const points=Array.from({length:14},(_,i)=>({...point,date:new Date(fixedNow-(13-i)*86_400_000).toISOString().slice(0,10),dailyLoad:20}));
+  mocks.timeseries=timeseries(points);seed([]);
+  const h=renderHook(()=>useFitnessModel("bike",options));await settle();
+  expect(h.result.current.weeklyStats).toMatchObject({asOf:"2026-09-28",dateBasis:"utc",insightReady:true,thisWeekTSS:140});
+  const desktop=render(<MemoryRouter><FitnessView model={h.result.current}/></MemoryRouter>);
+  expect(screen.getByText(/최근 7일 훈련부하가 이전 7일보다 0%/)).toBeInTheDocument();
+  desktop.unmount();h.unmount();
+  mocks.timeseries={...timeseries(points),computedAt:fixedNow-86_400_000};
+  const stale=renderHook(()=>useFitnessModel("bike",options));await settle();
+  expect(stale.result.current.weeklyStats).toMatchObject({insightReady:false,thisWeekTSS:140});
+  render(<MemoryRouter><FitnessView model={stale.result.current}/></MemoryRouter>);
+  expect(screen.getByText(/훈련부하 확인 중/)).toBeInTheDocument();
+  expect(screen.queryByText(/인터벌 1회/)).not.toBeInTheDocument();
+ });
+ it("does not use tomorrow's PMC as today's recovery advice",async()=>{
+  const points=Array.from({length:14},(_,i)=>({...point,date:new Date(fixedNow-(13-i)*86400000).toISOString().slice(0,10),dailyLoad:20}));
+  points.push({...point,date:"2026-09-29",ctl:100,atl:200,tsb:-100});
+  mocks.timeseries=timeseries(points);seed([]);const h=renderHook(()=>useFitnessModel("bike",options));await settle();
+  expect(h.result.current.weeklyStats.insightReady).toBe(false);
+ });
+ it.each([20,200].flatMap(snapshotLoad=>[false,true].map(canonical=>({snapshotLoad,canonical}))))("matches actual daily points to their finalized snapshot load=$snapshotLoad API=$canonical",async ({snapshotLoad,canonical})=>{
+  const points=Array.from({length:14},(_,i)=>({...point,date:new Date(fixedNow-(13-i)*86400000).toISOString().slice(0,10),dailyLoad:20}));
+  const doc=timeseries(points);
+  doc.loadSnapshot={inputRevision:201,inputDigest:"a".repeat(64),asOf:fixedNow,inputReadTime:{seconds:fixedNow/1000,nanoseconds:0},coverageStartDate:points[0]!.date,coverageEndDate:point.date,points:points.map(p=>({date:p.date,dailyLoad:snapshotLoad,status:"final",quality:"precomputed"}))};
+  doc.pmc={status:"processed",attemptId:"actual-201",inputRevision:201,processedInputRevision:201,asOf:fixedNow,deadlineAt:fixedNow+60000,errorCode:null};
+  if(canonical)enableCanonical(doc);else mocks.timeseries=doc;seed([]);const h=renderHook(()=>useFitnessModel("bike",options));await settle();
+  expect(h.result.current.weeklyStats.insightReady).toBe(snapshotLoad===20);
+  expect(h.result.current.weeklyStats.weeklyTSS.at(-1)).toBe(snapshotLoad===20?140:null);
+  expect(h.result.current.weeklyStats.thisWeekTSS).toBe(140);
+ });
+ it("advances the advice read clock when a valid document arrives 100ms after mount",async()=>{
+  let now=fixedNow;vi.mocked(Date.now).mockImplementation(()=>now);mocks.timeseries=null;seed([]);
+  const h=renderHook(()=>useFitnessModel("bike",options));await settle();
+  now+=100;const points=Array.from({length:14},(_,i)=>({...point,date:new Date(fixedNow-(13-i)*86400000).toISOString().slice(0,10),dailyLoad:20}));
+  mocks.timeseries=timeseries(points);h.rerender();await settle();
+  expect(h.result.current.weeklyStats.insightReady).toBe(true);
+ });
+ it("fails closed for finite but invalid source timestamps without crashing Fitness",async()=>{
+  mocks.timeseries={...timeseries([point]),computedAt:-Number.MAX_VALUE};seed([]);
+  const h=renderHook(()=>useFitnessModel("bike",options));await settle();
+  expect(h.result.current.weeklyStats.insightReady).toBe(false);
+ });
+ it("uses weekly UTC asOf for summary copy while preserving the existing local PMC marker",async()=>{
+  const oldTimezone=process.env.TZ;process.env.TZ="Asia/Seoul";
+  try {
+    vi.mocked(Date.now).mockReturnValue(Date.parse("2026-09-27T15:30:00Z"));
+    enableCanonical(null);weeklySummary("bike",Date.now(),100);seed([]);
+    const h=renderHook(()=>useFitnessModel("bike",options));await settle();
+    expect(h.result.current.weeklyStats).toMatchObject({asOf:"2026-09-27",dateBasis:"utc"});
+    expect(h.result.current.mobilePageProps.data).toMatchObject({today:"2026-09-28",weeklyLoadAsOf:"2026-09-27"});
+  } finally { if(oldTimezone===undefined)delete process.env.TZ;else process.env.TZ=oldTimezone; }
  });
  it("old-only sparse point is not current week and current day maps to latest mobile bar",async()=>{
   mocks.timeseries=timeseries([{...point,date:"2026-09-14"}]);seed([]);
   const h=renderHook(()=>useFitnessModel("bike",options));await settle();
-  expect(h.result.current.weeklyStats.thisWeekTSS).toBe(0);
+  expect(h.result.current.weeklyStats.thisWeekTSS).toBeNull();
   expect(h.result.current.weeklyStats.restDays).toBe(0);
   expect(h.result.current.currentPoint?.ctl).toBe(40);
   render(<MemoryRouter><FitnessView model={h.result.current}/></MemoryRouter>);
-  expect(screen.getByText("이번 주 TSS").parentElement).toHaveTextContent("0");
+  expect(screen.getByText(h.result.current.weeklyStats.storedSummary ? "저장된 주간 요약" : "최근 7일 관측 부하").parentElement).toHaveTextContent("–");
  });
  it("old unknown-only legacy filler cannot prove current rest",async()=>{
   seed([{...activity(null,"unknown-old"),startTime:Date.now()-14*86_400_000,serverDerivedLoad:undefined}]);
   const h=renderHook(()=>useFitnessModel("bike",options));await waitFor(()=>expect(h.result.current.derivedMetricsSettled).toBe(true));
-  expect(h.result.current.weeklyStats).toMatchObject({thisWeekTSS:0,hasKnownThisWeekLoad:false,restDays:0,unknownCount:1});
+  expect(h.result.current.weeklyStats).toMatchObject({thisWeekTSS:null,hasKnownThisWeekLoad:false,restDays:0,unknownCount:1});
   expect(h.result.current.currentPoint).toBeNull();
  });
  it("proven zero is known; missing yesterday cannot extend a rest streak",async()=>{
@@ -177,8 +230,8 @@ describe("calendar load reaches actual fitness screens",()=>{
   const h=renderHook(()=>useFitnessModel("bike",options));await settle();
   expect(h.result.current.weeklyStats.thisWeekTSS).toBe(100);
   await act(async()=>{await vi.advanceTimersByTimeAsync(11*60000);});
-  expect(h.result.current.weeklyStats.thisWeekTSS).toBe(0);
-  expect(h.result.current.mobilePageProps.data.weeklyTSS).toEqual([0,0,100,0]);
+  expect(h.result.current.weeklyStats.thisWeekTSS).toBeNull();
+  expect(h.result.current.mobilePageProps.data.weeklyTSS).toEqual([null,null,null,null]);
   expect(h.result.current.currentPoint?.ctl).toBe(40);
  });
 });
@@ -203,7 +256,7 @@ describe("actual canonical wire weekly proof without historical data",()=>{
   await act(async()=>{resolve(mocks.envelope);await Promise.resolve();});
   await waitFor(()=>expect(h.result.current.weeklyStats.thisWeekTSS).toBe(100));
   render(<MemoryRouter><MobileFitnessPage {...h.result.current.mobilePageProps} embedded/></MemoryRouter>);
-  expect(screen.getByText(/이번 주 100/)).toBeInTheDocument();
+  expect(screen.getByText(/저장된 주간 요약 100/)).toBeInTheDocument();
  });
  it.each(["processing","failed"])("no accepted values in %s cannot manufacture weekly zero or history",async status=>{
   enableCanonical(null);mocks.envelope={...(mocks.envelope as object),status,data:null,
@@ -212,7 +265,7 @@ describe("actual canonical wire weekly proof without historical data",()=>{
   expect(h.result.current.canonicalFitness.values).toBeNull();expect(h.result.current.currentPoint).toBeNull();
   expect(h.result.current.weeklyStats.thisWeekTSS).toBeNull();expect(h.result.current.mobilePageProps.data.weeklyTSS).toEqual([]);
   render(<MemoryRouter><MobileFitnessPage {...h.result.current.mobilePageProps} embedded/></MemoryRouter>);
-  expect(screen.queryByText(/이번 주 0/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/최근 7일 0/)).not.toBeInTheDocument();
  });
  it.each(["bike","tri"] as const)("%s preserves same-day weekly100/normalCTL0 and parsed savedCTL40 without historical zeros",async sport=>{
   for(const ctl of [0,40]) {
@@ -222,12 +275,12 @@ describe("actual canonical wire weekly proof without historical data",()=>{
     expect(h.result.current.mobilePageProps.data.weeklyTSS).toEqual([100]);
     expect(h.result.current.dailyData).toEqual([]);expect(h.result.current.currentPoint?.ctl).toBe(ctl);
     const desktop=render(<MemoryRouter><FitnessView model={h.result.current}/></MemoryRouter>);
-    if(sport==="bike")expect(screen.getByText("이번 주 TSS").parentElement).toHaveTextContent("100");
+    if(sport==="bike")expect(screen.getByText(h.result.current.weeklyStats.storedSummary ? "저장된 주간 요약" : "최근 7일 관측 부하").parentElement).toHaveTextContent("100");
     else expect(screen.getByText("총합").parentElement).toHaveTextContent("100 총합");
     desktop.unmount();
     const mobile=render(<MemoryRouter><MobileFitnessPage {...h.result.current.mobilePageProps} embedded/></MemoryRouter>);
-    expect(screen.getByText(/이번 주 100.*평균 –.*휴식 –/)).toBeInTheDocument();
-    expect(screen.queryByText("3주 전")).not.toBeInTheDocument();expect(screen.getByText("부분 집계")).toBeInTheDocument();
+    expect(screen.getByText(/저장된 주간 요약 100/)).toBeInTheDocument();
+    expect(screen.queryByText("21–27일 전")).not.toBeInTheDocument();expect(screen.getAllByText(/누락·미확인 날짜/)[0]).toBeInTheDocument();
     mobile.unmount();h.unmount();
   }
  });
@@ -236,7 +289,7 @@ describe("actual canonical wire weekly proof without historical data",()=>{
   const h=renderHook(()=>useFitnessModel(sport,options));await waitFor(()=>expect(h.result.current.canonicalFitness.values).not.toBeNull());
   expect(h.result.current.weeklyStats.thisWeekTSS).toBe(0);
   render(<MemoryRouter><MobileFitnessPage {...h.result.current.mobilePageProps} embedded/></MemoryRouter>);
-  expect(screen.getByText(/이번 주 0.*평균 –.*휴식 –/)).toBeInTheDocument();
+  expect(screen.getByText(/저장된 주간 요약 0/)).toBeInTheDocument();
  });
  it.each([undefined,null,"2026-09-28",1.5,Number.MAX_SAFE_INTEGER,fixedNow-86_400_000,fixedNow+86_400_000])("source clock %s cannot borrow a fresh envelope/global clock",async clock=>{
   enableCanonical(null);weeklySummary("bike",clock);seed([]);
@@ -245,9 +298,9 @@ describe("actual canonical wire weekly proof without historical data",()=>{
   expect(h.result.current.weeklyStats).toMatchObject({thisWeekTSS:null,avgWeekTSS:null,restDays:null,unknownCount:0});
   expect(h.result.current.mobilePageProps.data.weeklyTSS).toEqual([]);
   const d=render(<MemoryRouter><FitnessView model={h.result.current}/></MemoryRouter>);
-  expect(screen.getByText("이번 주 TSS").parentElement).toHaveTextContent("–");d.unmount();
+  expect(screen.getByText(h.result.current.weeklyStats.storedSummary ? "저장된 주간 요약" : "최근 7일 관측 부하").parentElement).toHaveTextContent("–");d.unmount();
   render(<MemoryRouter><MobileFitnessPage {...h.result.current.mobilePageProps} embedded/></MemoryRouter>);
-  expect(screen.getByText(/이번 주 –.*평균 –.*휴식 –/)).toBeInTheDocument();
+  expect(screen.getByText(/저장된 주간 요약 –/)).toBeInTheDocument();
  });
  it.each([true,false])("mixed sport preserves history50 plus same-day summary proof=%s without borrowing sport clocks",async fresh=>{
   enableCanonical(null);weeklySummary("bike",Date.now()-(fresh?0:86_400_000));
@@ -261,7 +314,7 @@ describe("actual canonical wire weekly proof without historical data",()=>{
   const d=render(<MemoryRouter><FitnessView model={h.result.current}/></MemoryRouter>);
   expect(screen.getByText("총합").parentElement).toHaveTextContent(`${fresh?150:50} 총합`);expect(screen.getByText("부분 집계")).toBeInTheDocument();d.unmount();
   render(<MemoryRouter><MobileFitnessPage {...h.result.current.mobilePageProps} embedded/></MemoryRouter>);
-  expect(screen.getByText(new RegExp(`이번 주 ${fresh?150:50}.*평균 –`))).toBeInTheDocument();
+  expect(screen.getByText(new RegExp(`저장된 주간 요약 ${fresh?150:50}`))).toBeInTheDocument();
  });
  it.each(["bike","tri"] as const)("%s source period crosses UTC midnight without rewriting saved CTL or creating new-week100",async sport=>{
   vi.restoreAllMocks();vi.useFakeTimers();vi.setSystemTime(Date.parse("2026-09-28T23:50:00Z"));
@@ -269,10 +322,10 @@ describe("actual canonical wire weekly proof without historical data",()=>{
   let model:ReturnType<typeof useFitnessModel>|undefined;
   function Page(){model=useFitnessModel(sport,options);return <MobileFitnessPage {...model.mobilePageProps} embedded/>;}
   render(<MemoryRouter><Page/></MemoryRouter>);await settle();
-  expect(screen.getByText(/이번 주 100/)).toBeInTheDocument();
+  expect(screen.getByText(/저장된 주간 요약 100/)).toBeInTheDocument();
   await act(async()=>{await vi.advanceTimersByTimeAsync(11*60000);});
   expect(model!.weeklyStats.thisWeekTSS).toBeNull();expect(model!.currentPoint?.ctl).toBe(40);
-  expect(screen.getByText(/이번 주 –/)).toBeInTheDocument();expect(model!.dailyData).toEqual([]);
+  expect(screen.getByText(/저장된 주간 요약 –/)).toBeInTheDocument();expect(model!.dailyData).toEqual([]);
  });
  it.each(["processing","failed"])("same-owner %s refresh preserves prior source clock rather than retagging last-good weekly100",async status=>{
   enableCanonical(null);weeklySummary("bike",fixedNow-86_400_000);seed([]);
@@ -282,7 +335,7 @@ describe("actual canonical wire weekly proof without historical data",()=>{
   expect(h.result.current.canonicalFitness.showingLastGood).toBe(true);expect(h.result.current.currentPoint?.ctl).toBe(40);
   expect(h.result.current.weeklyStats.thisWeekTSS).toBeNull();
   render(<MemoryRouter><MobileFitnessPage {...h.result.current.mobilePageProps} embedded/></MemoryRouter>);
-  expect(screen.getByText(/이번 주 –/)).toBeInTheDocument();
+  expect(screen.getByText(/저장된 주간 요약 –/)).toBeInTheDocument();
  });
 });
 
@@ -298,7 +351,7 @@ describe("actual producer/route null-history wire reaches actual mobile screen",
     expect(h.result.current.currentPoint?.ctl).toBe(0);expect(h.result.current.dailyData).toEqual([]);
     expect(h.result.current.weeklyStats.thisWeekTSS).toBe(expected);
     const r=render(<MemoryRouter><MobileFitnessPage {...h.result.current.mobilePageProps} embedded/></MemoryRouter>);
-    expect(screen.getByText(new RegExp(`이번 주 ${expected}.*평균 –.*휴식 –`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`저장된 주간 요약 ${expected}`))).toBeInTheDocument();
     r.unmount();h.unmount();
   }
  });
@@ -309,6 +362,6 @@ describe("actual producer/route null-history wire reaches actual mobile screen",
   seed([]);const h=renderHook(()=>useFitnessModel("bike",options));await waitFor(()=>expect(h.result.current.canonicalFitness.values).not.toBeNull());
   expect(h.result.current.currentPoint?.ctl).toBe(40);expect(h.result.current.weeklyStats.thisWeekTSS).toBeNull();
   render(<MemoryRouter><MobileFitnessPage {...h.result.current.mobilePageProps} embedded/></MemoryRouter>);
-  expect(screen.getByText(/이번 주 –/)).toBeInTheDocument();
+  expect(screen.getByText(/저장된 주간 요약 –/)).toBeInTheDocument();
  });
 });
