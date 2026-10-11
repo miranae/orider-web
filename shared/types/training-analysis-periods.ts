@@ -6,6 +6,7 @@ export interface TrainingAnalysisPeriodsRequest {
   discipline: "bike" | "run" | "swim";
   periods: PowerCurvePeriod[];
   includeExpandedRunDistances?: true;
+  includeCyclingClimbObservations?: true;
 }
 export interface PeriodObservedTotal {
   /** Known canonical subtotal; null means no observed values. */
@@ -136,8 +137,30 @@ export interface PeriodRunningAnalysis {
       speedKph: number | null }>;
   }>;
 }
+export interface CyclingClimbObservations {
+  version: 1;
+  scope: "observed_representatives";
+  climbQuality: "unknown";
+  /** supported = observed + noObserved; candidate = supported + unsupported + unavailable. */
+  candidateActivityCount: number;
+  supportedActivityCount: number;
+  observedActivityCount: number;
+  noObservedActivityCount: number;
+  unsupportedActivityCount: number;
+  unavailableActivityCount: number;
+  truncated: boolean;
+  /** 최대 5 sources; 활동별 가장 큰 단일 관측 상승만 기여한다. */
+  sources: Array<PeriodRunSource & {
+    startKm: number; endKm: number; lengthKm: number; elevationGainM: number; avgGrade: number;
+    durationSec: number | null; vam: number | null;
+    timingBasis: "stored_detector_time_unverified";
+    wholeActivityElevationQuality: "reliable";
+    sourceLayer: "raw_parts" | "inline_streams" | "unknown";
+  }>;
+}
 export interface TrainingAnalysisPeriodResult extends PowerCurvePeriod {
   status: "complete" | "partial";
+  cyclingClimbObservations?: CyclingClimbObservations;
   coverage: {
     scannedActivityCount: number;
     candidateActivityCount: number;

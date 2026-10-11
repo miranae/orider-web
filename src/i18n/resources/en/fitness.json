@@ -862,5 +862,26 @@
   "bikeObservedRecords.empty": "No activities can be shown for this source and metric. Missing values are not filled with zero.",
   "bikeObservedRecords.more": "Show up to {{count}} activities",
   "bikeObservedRecords.less": "Show 3 activities",
-  "bikeObservedRecords.note": "Elevation is the activity’s total gain. Individual climbs, matching courses and measured GPS eligibility are not verified. Calculation bases can differ by source; differences across periods do not establish growth."
+  "bikeObservedRecords.note": "Elevation is the activity’s total gain. Individual climbs, matching courses and measured GPS eligibility are not verified. Calculation bases can differ by source; differences across periods do not establish growth.",
+  "bikeObservedClimbs": {
+    "title": "Observed individual climbs",
+    "scope": "Compare the single stored climb with the greatest elevation gain from each loaded representative activity. This differs from total activity elevation gain and is not complete annual or lifetime history or a same-hill comparison.",
+    "period": "Observed climbs for period {{period}}",
+    "count": "{{total}} representatives · {{observed}} observed · {{empty}} with no observation · {{unsupported}} unsupported · {{unavailable}} unavailable",
+    "unknown": "This response has no individual-climb evidence. That does not mean there were no climbs.",
+    "truncated": "The scan is truncated. The complete candidate count and the best climb for the whole period are unknown.",
+    "empty": "No individual climb observations are available in this input. This does not establish that the complete history has no climbs.",
+    "gain": "Single-climb gain {{value}}",
+    "extent": "Activity segment {{start}}–{{end}}",
+    "shape": "Length {{length}} · Average grade {{grade}}%",
+    "source": "Source activity",
+    "more": "Show top {{count}}",
+    "less": "Show only 3",
+    "quality": "For the displayed source activities, whole-activity elevation quality is reliable, but individual-climb quality is unknown. These are stored detector results, not confirmed GPS route matches or best-climb records.",
+    "layer": {
+      "raw_parts": "Metrics from stored raw input",
+      "inline_streams": "Metrics from stored streams",
+      "unknown": "Calculation input source unknown"
+    }
+  }
 }

@@ -1,3 +1,4 @@
+import { validCyclingClimbObservations } from "./cyclingClimbObservations";
 import { validExpandedDistanceAnalysis } from "../utils/expandedRunDistances";
 import { RUN_DISTANCE_M, RUN_DISTANCES } from "@shared/types/personal-records";
 import { httpsCallable } from "firebase/functions";
@@ -19,6 +20,7 @@ export function trainingAnalysisPeriodsAvailable() {
 export function validTrainingAnalysisPeriodsRequest(request: TrainingAnalysisPeriodsRequest, now = Date.now()) {
   return !!request && ["bike", "run", "swim"].includes(request.discipline)
     && (request.includeExpandedRunDistances === undefined || request.includeExpandedRunDistances === true && request.discipline === "run")
+    && (request.includeCyclingClimbObservations === undefined || request.includeCyclingClimbObservations === true && request.discipline === "bike")
     && validPowerCurvePeriodsRequest({ unit: "W", periods: request.periods }, now);
 }
 export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalysisPeriodsResponse, request: TrainingAnalysisPeriodsRequest) {
@@ -88,6 +90,7 @@ export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalys
       }
       if (seen.size !== zones.eligibleActivityCount || !near(zones.observedSeconds, zones.groups.reduce((sum, group) => sum + group.observedSeconds, 0))) invalid();
     }
+    if (period.cyclingClimbObservations !== undefined && (request.includeCyclingClimbObservations !== true || request.discipline !== "bike" || !validCyclingClimbObservations(period.cyclingClimbObservations, period))) invalid();
     if (period.running != null) {
       const running = period.running;
       if (running.expandedDistanceAnalysis !== undefined && (request.includeExpandedRunDistances !== true || !validExpandedDistanceAnalysis(running.expandedDistanceAnalysis, period))) invalid();

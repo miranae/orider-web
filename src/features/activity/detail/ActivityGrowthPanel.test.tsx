@@ -33,6 +33,18 @@ beforeEach(() => {
   mocks.metrics.mockReset().mockReturnValue({ status: "missing", metrics: null });
 });
 describe("ActivityGrowthPanel", () => {
+  it("adds bike climb opt-in to the single existing request, never to run", () => {
+    mocks.periodAvailable = true;
+    const view = render(<ActivityGrowthPanel activity={{ ...activity, type: "Ride" }} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+    expect(mocks.periods.mock.lastCall?.[1].request.includeCyclingClimbObservations).toBe(true);
+    expect(mocks.periods.mock.lastCall?.[1].request.includeExpandedRunDistances).toBeUndefined();
+    view.rerender(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+    expect(mocks.periods.mock.lastCall?.[1].request.includeCyclingClimbObservations).toBeUndefined();
+    expect(mocks.periods.mock.lastCall?.[1].request.includeExpandedRunDistances).toBe(true);
+  });
+
   it("passes exactly the manually selected pair to route comparison without changing metric targets", () => {
     render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
     expect(mocks.route).not.toHaveBeenCalled();
