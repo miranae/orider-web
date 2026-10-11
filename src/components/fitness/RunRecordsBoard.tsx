@@ -1,7 +1,7 @@
 /**
  * 거리별 러닝 기록 보드 (설계 문서 §3.4a, 시안 6).
  *
- * 1/5/10km 현행 최고 기록. 미달성 거리도 자리를 남겨 "다음 목표"를 자연스럽게 제시한다.
+ * 1/5/10km·하프·풀의 현재 저장된 상위 기록. 미달성 거리도 자리를 남겨 "다음 목표"를 자연스럽게 제시한다.
  * 값은 전부 서버 확정(`users/{uid}/records/power`.run) — 클라이언트 근사 기록은 없다.
  *
  * 이중 레이어: 표(쉬운 레이어) 아래에 임계 페이스 곡선(디테일 레이어)을 접이식으로 둔다.
@@ -10,8 +10,9 @@
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { Card, Text } from "../../theme/components";
+import { Button, buttonClass, Card, Text } from "../../theme/components";
 import { formatPaceSec } from "../../utils/workoutPace";
+import { useLocale } from "../../contexts/LocaleContext";
 import { distanceRecords } from "../../utils/runRecords";
 import { RUN_DISTANCE_M } from "@shared/types/personal-records";
 import type { RunPrTable } from "@shared/types/personal-records";
@@ -24,101 +25,80 @@ export interface RunRecordsBoardProps {
 
 /** 총 시간(초) → `26'40"` 또는 `2:08'55"`. */
 function formatDuration(sec: number): string {
+  sec = Math.round(sec);
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
-  const s = Math.round(sec % 60);
+  const s = sec % 60;
   const mm = String(m).padStart(2, "0");
   const ss = String(s).padStart(2, "0");
   return h > 0 ? `${h}:${mm}'${ss}"` : `${m}'${ss}"`;
 }
 
-/** YYYY-MM-DD → 표시용 날짜. */
-function formatDate(date: string): string {
-  const [, m, d] = date.split("-");
-  return m && d ? `${Number(m)}/${Number(d)}` : date;
+/** 날짜 필드는 시간대로 옮기지 않고 저장된 달력 날짜 그대로 표시한다. */
+function formatDate(date: string, locale: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? "")) return "—";
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) return "—";
+  return new Intl.DateTimeFormat(locale.startsWith("ko") ? "ko-KR" : "en-US", {
+    year: "numeric", month: "numeric", day: "numeric", timeZone: "UTC",
+  }).format(parsed);
 }
 
 export default function RunRecordsBoard({ run, detailLayer }: RunRecordsBoardProps) {
-  const { t } = useTranslation("fitness");
+  const { t, i18n } = useTranslation("fitness");
+  const { units } = useLocale();
   const [expanded, setExpanded] = useState(false);
   const rows = distanceRecords(run);
 
   return (
     <Card>
-      <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-3)" }}>
+      <Text as="h2" variant="subtitle" style={{ marginBottom: "var(--space-3)" }}>
         {t("runRecords.title")}
       </Text>
 
+      <Text as="p" variant="body" tone="secondary" style={{ marginBottom: "var(--space-3)" }}>
+        {t("runRecords.scope")}
+      </Text>
       <div>
-        {rows.map((row) => {
-          const km = RUN_DISTANCE_M[row.distance] / 1000;
-          const paceSec = row.best ? row.best.value / km : null;
-          return (
-            <div
-              key={row.distance}
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: "var(--space-3)",
-                padding: "var(--space-2) 0",
-                borderBottom: "1px solid var(--line-soft)",
-              }}
-            >
-              <Text as="span" variant="bodySmall" tone="primary" weight={600} style={{ width: 56, flexShrink: 0 }}>
-                {t(`runRecords.dist.${row.distance}`)}
-              </Text>
-              {row.best ? (
-                <>
-                  <Text as="span" variant="dataSmall" mono tone="primary">
-                    {formatDuration(row.best.value)}
+        {rows.map(row => (
+          <section key={row.distance} style={{ padding: "var(--space-3) 0", borderBottom: "1px solid var(--line-soft)", minWidth: 0 }}>
+            <Text as="h3" variant="body" tone="primary" weight={600}>
+              {t(`runRecords.dist.${row.distance}`)}
+            </Text>
+            {row.top.length ? row.top.map((entry, index) => {
+              const paceSec = entry.value / (RUN_DISTANCE_M[row.distance] / 1000);
+              const sourceId = typeof entry.activityId === "string" && entry.activityId.trim() ? entry.activityId : null;
+              return (
+                <div key={sourceId ?? index} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)", paddingTop: "var(--space-2)" }}>
+                  <Text as="span" variant="body" tone="secondary">{t("runRecords.rank", { rank: index + 1 })}</Text>
+                  <Text as="span" variant="dataSmall" mono tone="primary">{formatDuration(entry.value)}</Text>
+                  <Text as="span" variant="body" tone="secondary" mono>
+                    {formatPaceSec(paceSec * (units === "imperial" ? 1.609344 : 1))}/{units === "imperial" ? "mi" : "km"}
                   </Text>
-                  {paceSec != null && (
-                    <Text as="span" variant="caption" tone="tertiary" mono>
-                      {formatPaceSec(paceSec)}/km
-                    </Text>
-                  )}
-                  <Text as="span" variant="caption" tone="tertiary" style={{ marginLeft: "auto" }}>
-                    {formatDate(row.best.date)}
+                  <Text as="span" variant="body" tone="secondary">
+                    {entry.value === row.best?.value ? t("runRecords.best") : t("runRecords.behind", { duration: formatDuration(entry.value - row.best!.value) })}
                   </Text>
-                </>
-              ) : (
-                <>
-                  <Text as="span" variant="dataSmall" mono tone="tertiary">
-                    —
-                  </Text>
-                  <Text as="span" variant="caption" tone="tertiary" style={{ marginLeft: "auto" }}>
-                    {t("runRecords.none")}
-                  </Text>
-                </>
-              )}
-            </div>
-          );
-        })}
+                  {sourceId ? (
+                    <a href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(sourceId)}`}
+                      className={buttonClass({ variant: "ghost" })}
+                      aria-label={t("runRecords.source", { distance: t(`runRecords.dist.${row.distance}`), rank: index + 1, date: formatDate(entry.date, i18n.language) })}>
+                      {formatDate(entry.date, i18n.language)} · {t("runRecords.viewActivity")}
+                    </a>
+                  ) : <Text as="span" variant="body" tone="secondary">{formatDate(entry.date, i18n.language)}</Text>}
+                </div>
+              );
+            }) : <Text as="p" variant="body" tone="tertiary"><span aria-hidden="true">— · </span><span>{t("runRecords.none")}</span></Text>}
+          </section>
+        ))}
       </div>
 
       {detailLayer && (
         <>
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--space-1)",
-              marginTop: "var(--space-3)",
-              background: "transparent",
-              border: 0,
-              padding: "var(--space-1) 0",
-              color: "var(--accent)",
-              fontSize: "var(--fs-xs)",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
+          <Button variant="ghost" onClick={() => setExpanded(v => !v)} aria-expanded={expanded}
+            style={{ marginTop: "var(--space-3)" }}
+            trailingIcon={expanded ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}>
             {t("runRecords.curveToggle")}
-            {expanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
-          </button>
+          </Button>
           {expanded && <div style={{ marginTop: "var(--space-2)" }}>{detailLayer}</div>}
         </>
       )}

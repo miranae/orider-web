@@ -13,18 +13,27 @@ export interface DistanceRecord {
   distance: RunDistanceKey;
   /** 현행 최고 기록. 해당 거리 기록이 없으면 null. */
   best: PrEntry | null;
+  /** 현재 저장된 상위 3개. 전체 이력이나 활동 당시 순위가 아니다. */
+  top: PrEntry[];
 }
 
 /** 표시 순서(짧은 거리 → 긴 거리)대로 각 거리의 현행 최고를 낸다. 없는 거리도 자리를 남긴다. */
 export function distanceRecords(run: RunPrTable | undefined): DistanceRecord[] {
   return RUN_DISTANCES.map((distance) => {
     const entries = run?.[distance];
-    // top-K 는 서버가 오름차순(빠른 순)으로 정렬해 저장하지만, 방어적으로 min 을 직접 고른다.
-    const best =
-      entries && entries.length > 0
-        ? entries.reduce((a, b) => (b.value < a.value ? b : a))
-        : null;
-    return { distance, best };
+    const sorted = Array.isArray(entries)
+      ? entries.filter(entry => entry && Number.isFinite(entry.value) && entry.value > 0)
+        .slice().sort((a, b) => a.value - b.value)
+      : [];
+    // 같은 원본 활동의 중복 항목은 가장 빠른 기록 하나만 표시한다.
+    const seen = new Set<string>();
+    const top = sorted.filter(entry => {
+      if (!entry.activityId) return true;
+      if (seen.has(entry.activityId)) return false;
+      seen.add(entry.activityId);
+      return true;
+    }).slice(0, 3);
+    return { distance, best: top[0] ?? null, top };
   });
 }
 

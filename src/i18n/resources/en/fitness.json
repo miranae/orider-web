@@ -823,5 +823,11 @@
   "periodCurve.included": "{{count}} included activities",
   "periodCurve.details": "Query criteria and included records",
   "periodCurve.exactBounds": "Exact UTC query bounds: from {{from}} inclusive to {{to}} exclusive",
-  "periodCurve.rawValue": "{{duration}} exact original value {{watts}} W"
+  "periodCurve.rawValue": "{{duration}} exact original value {{watts}} W",
+  "runRecords.scope": "These are the top 3 currently saved records, not a full history or personal-best progression at the time of each activity.",
+  "runRecords.rank": "Rank {{rank}}",
+  "runRecords.best": "Current saved best",
+  "runRecords.behind": "+{{duration}} behind saved best",
+  "runRecords.viewActivity": "View activity",
+  "runRecords.source": "View source activity for {{distance}} rank {{rank}} · {{date}}"
 }
