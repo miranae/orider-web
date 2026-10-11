@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { TrainingAnalysisPeriodsResponse, PeriodHrZoneGroup, PeriodPowerZoneGroup } from "@shared/types/training-analysis-periods";
+import BikeObservedPeriodRecordsPanel from "../../fitness/components/BikeObservedPeriodRecordsPanel";
 import { Text } from "../../../theme";
 import { formatElapsedBoundary } from "./activityRangeSelection";
 
@@ -23,7 +24,7 @@ export default function TrainingPeriodZonesPanel({ response }: { response: Train
   const { t, i18n } = useTranslation("activity");
   const date = (time: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(time);
   if (!response) return null;
-  return <details className="activity-growth-evidence text-[length:var(--fs-md)]">
+  return <><BikeObservedPeriodRecordsPanel response={response} /><details className="activity-growth-evidence text-[length:var(--fs-md)]">
     <summary className="cursor-pointer py-3 font-semibold">{t("trainingPeriods.title")}</summary>
     <div className="space-y-4 pt-3">
       <Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.basis")}</Text>
@@ -43,5 +44,5 @@ export default function TrainingPeriodZonesPanel({ response }: { response: Train
       </section>)}
       {response.discipline === "run" && <Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.paceUnavailable")}</Text>}
     </div>
-  </details>;
+  </details></>;
 }

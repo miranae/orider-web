@@ -846,5 +846,21 @@
   "densePeriod.hours": "{{count}} h",
   "densePeriod.minutes": "{{count}} min",
   "densePeriod.seconds": "{{count}} s",
-  "densePeriod.scrollHint": "Swipe sideways to view both periods."
+  "densePeriod.scrollHint": "Swipe sideways to view both periods.",
+  "bikeObservedRecords.title": "Compare activity summaries in the queried range",
+  "bikeObservedRecords.scope": "Only recorded values from queried cycling representatives are sorted. These are not full-history or verified best records.",
+  "bikeObservedRecords.metrics.distanceM": "Observed long activities",
+  "bikeObservedRecords.metrics.elevationGainM": "Observed total elevation gain",
+  "bikeObservedRecords.chooseBasis": "Value source",
+  "bikeObservedRecords.basis.all": "All known sources",
+  "bikeObservedRecords.basis.canonical_metrics": "Server analysis values",
+  "bikeObservedRecords.basis.activity_summary": "Activity summary values",
+  "bikeObservedRecords.period": "Period {{period}}",
+  "bikeObservedRecords.count": "{{count}} representatives with a confirmed positive value",
+  "bikeObservedRecords.partial": "Only some records were confirmed in this queried range.",
+  "bikeObservedRecords.truncated": "{{limit}}-activity scan limit applied · The full candidate count is unknown.",
+  "bikeObservedRecords.empty": "No activities can be shown for this source and metric. Missing values are not filled with zero.",
+  "bikeObservedRecords.more": "Show up to {{count}} activities",
+  "bikeObservedRecords.less": "Show 3 activities",
+  "bikeObservedRecords.note": "Elevation is the activity’s total gain. Individual climbs, matching courses and measured GPS eligibility are not verified. Calculation bases can differ by source; differences across periods do not establish growth."
 }
