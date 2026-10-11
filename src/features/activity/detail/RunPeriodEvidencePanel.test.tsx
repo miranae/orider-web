@@ -1,3 +1,5 @@
+import { RUN_DISTANCE_TARGETS_V2 } from "@shared/types/personal-records";
+import { expandedPeriodFixture } from "../../../utils/expandedRunDistances.fixture";
 import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
@@ -147,7 +149,7 @@ describe("observed distance record mode", () => {
     expect(within(leaders).getByText("20:00")).toBeInTheDocument();
     expect(screen.getAllByText("이 거리의 관측 활동 수: 2")).toHaveLength(2);
     expect(screen.getByRole("combobox", { name: "관측 거리 선택" })).toHaveValue("5km");
-    expect(within(screen.getByRole("combobox", { name: "관측 거리 선택" })).getAllByRole("option").map(option => option.getAttribute("value"))).toEqual(["1km", "5km", "10km", "half", "full"]);
+    expect(within(screen.getByRole("combobox", { name: "관측 거리 선택" })).getAllByRole("option").map(option => option.getAttribute("value"))).toEqual([...RUN_DISTANCE_TARGETS_V2]);
     expect(screen.getAllByRole("link")[0]).toHaveAttribute("href", "/ko/activity/evidence-1-0");
     expect(screen.getByText(/정지 시간을 포함한 경과시간/)).toBeInTheDocument();
     expect(screen.queryByText(/test-revision/)).not.toBeInTheDocument();
@@ -197,4 +199,30 @@ describe("observed distance record mode", () => {
     expect(screen.getAllByText("관측 활동의 최고 기록: —")).toHaveLength(2);
     expect(screen.getAllByRole("link")).toHaveLength(8);
   });
+});
+
+it("uses expanded400m source/median counts, keeps old5 and exposes unknown old-server support without reads", () => {
+  const response = evidenceFixture();
+  response.periods.forEach(period => { period.running!.expandedDistanceAnalysis = expandedPeriodFixture(period); });
+  const view = renderWithProviders(<RunPeriodEvidencePanel response={response} />);
+  fireEvent.change(screen.getByRole("combobox", { name: "확인할 기록" }), { target: { value: "distance" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "관측 거리 선택" }), { target: { value: "400m" } });
+  expect(screen.getAllByText("관측 기록의 중앙값: 1:30")).toHaveLength(2);
+  expect(screen.getAllByText(/대표 활동 1개 · 지원 1 · 관측 1/)).toHaveLength(2);
+  expect(screen.getAllByRole("link").some(link => link.getAttribute("href") === "/ko/activity/a")).toBe(true);
+  response.periods.forEach(period => { delete period.running!.expandedDistanceAnalysis; });
+  view.rerender(<RunPeriodEvidencePanel response={response} />);
+  expect(screen.getAllByText(/관측 기록을 확정할 수 없습니다/).length).toBeGreaterThan(0);
+  expect(sourceReads.firestore).not.toHaveBeenCalled(); expect(sourceReads.callable).not.toHaveBeenCalled();
+});
+
+it("restores missing pace evidence explanation after400m selection and return to pace", () => {
+  const response = evidenceFixture();
+  response.periods.forEach(period => { period.running!.expandedDistanceAnalysis = expandedPeriodFixture(period); delete period.running!.evidence; });
+  renderWithProviders(<RunPeriodEvidencePanel response={response} />);
+  fireEvent.change(screen.getByRole("combobox", { name: "확인할 기록" }), { target: { value: "distance" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "관측 거리 선택" }), { target: { value: "400m" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "확인할 기록" }), { target: { value: "pace" } });
+  expect(screen.getAllByText("활동별 근거가 아직 제공되지 않았습니다.")).toHaveLength(2);
+  expect(sourceReads.firestore).not.toHaveBeenCalled(); expect(sourceReads.callable).not.toHaveBeenCalled();
 });

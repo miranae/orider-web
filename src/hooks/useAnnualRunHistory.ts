@@ -9,10 +9,10 @@ import { ANNUAL_HISTORY_CAP } from "../features/activity/detail/annualRunHistory
 type Status = "idle" | "loading" | "partial" | "complete" | "capped" | "error" | "expired" | "invalidated" | "unsupported";
 interface Session { scope: string; epoch: number; pages: TrainingAnalysisHistoryResponse[]; status: Status }
 /** 수동 버튼만 한 페이지를 요청한다. 계정·활동·연도·서비스 변경 시 이전 응답을 버린다. */
-export function useAnnualRunHistory(ownerUid: string, activityId: string, year: number) {
+export function useAnnualRunHistory(ownerUid: string, activityId: string, year: number, includeExpandedRunDistances = true) {
   const { user } = useAuth();
   const services = useFirebaseServices();
-  const scope = user && !user.isAnonymous && user.uid === ownerUid && trainingAnalysisPeriodsAvailable() ? JSON.stringify([ownerUid, activityId, year]) : null;
+  const scope = user && !user.isAnonymous && user.uid === ownerUid && trainingAnalysisPeriodsAvailable() ? JSON.stringify([ownerUid, activityId, year, includeExpandedRunDistances ? "run-distance-v2" : "legacy-v1"]) : null;
   const identity = useRef({ scope, services });
   const epoch = useRef(0);
   const session = useRef<Session | null>(null);
@@ -49,7 +49,7 @@ export function useAnnualRunHistory(ownerUid: string, activityId: string, year: 
     if (restart) epoch.current++;
     const currentEpoch = epoch.current;
     const current = () => identity.current.scope === scope && identity.current.services === services && epoch.current === currentEpoch;
-    const request: TrainingAnalysisHistoryRequest = { mode: "history_page", discipline: "run", calendarBasis: "Asia/Seoul", year, ...(before?.page.nextCursor ? { cursor: before.page.nextCursor } : {}) };
+    const request: TrainingAnalysisHistoryRequest = { mode: "history_page", discipline: "run", calendarBasis: "Asia/Seoul", year, ...(includeExpandedRunDistances ? { includeExpandedRunDistances: true as const } : {}), ...(before?.page.nextCursor ? { cursor: before.page.nextCursor } : {}) };
     busy.current = true;
     const loading: Session = { scope, epoch: currentEpoch, pages, status: "loading" };
     session.current = loading; setResult(loading);
@@ -74,6 +74,6 @@ export function useAnnualRunHistory(ownerUid: string, activityId: string, year: 
       const value: Session = { scope, epoch: currentEpoch, pages: expired || invalidated || unsupported ? [] : pages, status: expired ? "expired" : invalidated ? "invalidated" : unsupported ? "unsupported" : "error" };
       session.current = value; setResult(value);
     } finally { if (current()) busy.current = false; }
-  }, [scope, services, year, ownerUid, expire]);
+  }, [scope, services, year, ownerUid, expire, includeExpandedRunDistances]);
   return { available: scope !== null, status: visible?.status ?? "idle", pages: visible?.pages ?? [], start: () => run(true), loadMore: () => run(false), restart: () => run(true) };
 }

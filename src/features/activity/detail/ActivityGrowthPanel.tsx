@@ -138,7 +138,7 @@ function Statistics({ activity }: { activity: Activity }) {
   const unsupportedYear = requestedPeriod === "year" && !canonicalEnabled;
   const applied = !unsupportedYear && (period === "year" ? yearBoundaries != null : period !== "custom" || custom != null);
   const selection = useMemo(() => applied && (discipline === "bike" || discipline === "run" || discipline === "swim") ? {
-    request: { discipline, periods: [
+    request: { discipline, ...(discipline === "run" ? { includeExpandedRunDistances: true as const } : {}), periods: [
       { fromInclusive: boundaries.start, toExclusive: Math.min(boundaries.end, now.getTime()) },
       { fromInclusive: boundaries.previousStart, toExclusive: boundaries.previousEnd },
     ] }, requestId: 0,

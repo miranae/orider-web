@@ -1,3 +1,4 @@
+import { validExpandedDistanceAnalysis } from "../utils/expandedRunDistances";
 import { RUN_DISTANCE_M, RUN_DISTANCES } from "@shared/types/personal-records";
 import { httpsCallable } from "firebase/functions";
 import type { PeriodRunSource, TrainingAnalysisPeriodsRequest, TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
@@ -17,6 +18,7 @@ export function trainingAnalysisPeriodsAvailable() {
 }
 export function validTrainingAnalysisPeriodsRequest(request: TrainingAnalysisPeriodsRequest, now = Date.now()) {
   return !!request && ["bike", "run", "swim"].includes(request.discipline)
+    && (request.includeExpandedRunDistances === undefined || request.includeExpandedRunDistances === true && request.discipline === "run")
     && validPowerCurvePeriodsRequest({ unit: "W", periods: request.periods }, now);
 }
 export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalysisPeriodsResponse, request: TrainingAnalysisPeriodsRequest) {
@@ -88,6 +90,7 @@ export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalys
     }
     if (period.running != null) {
       const running = period.running;
+      if (running.expandedDistanceAnalysis !== undefined && (request.includeExpandedRunDistances !== true || !validExpandedDistanceAnalysis(running.expandedDistanceAnalysis, period))) invalid();
       if (request.discipline !== "run" || !running.bestDistances || !Array.isArray(running.paceCurves) || running.paceCurves.length > 2) invalid();
       const validRunningCoverage = (value: typeof running.bestDistances.coverage, status: string) => {
         if (!value || ![value.candidateActivityCount, value.eligibleActivityCount, value.missingActivityCount, value.noObservedEffortActivityCount].every(count)

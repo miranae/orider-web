@@ -45,6 +45,20 @@ export const RUN_DISTANCE_M: Record<RunDistanceKey, number> = {
   "half": 21097.5,
   "full": 42195,
 };
+/** 향후 계산기 전용 확장 거리. 기존 API/PR/UI의 5개 거리 계약은 그대로 둔다. */
+export type ExpandedRunDistanceKey = RunDistanceKey | "400m" | "half_mile" | "1mile" | "2miles"
+  | "15km" | "10miles" | "20km" | "30km" | "50km";
+export const RUN_DISTANCE_TARGETS_V2: readonly ExpandedRunDistanceKey[] = Object.freeze([
+  "400m", "half_mile", "1km", "1mile", "2miles", "5km", "10km", "15km",
+  "10miles", "20km", "half", "30km", "full", "50km",
+]);
+/** half_mile은 800m가 아닌 정확한 804.672m다. */
+export const RUN_DISTANCE_TARGET_M_V2: Readonly<Record<ExpandedRunDistanceKey, number>> = Object.freeze({
+  ...RUN_DISTANCE_M, "400m": 400, "half_mile": 804.672, "1mile": 1609.344,
+  "2miles": 3218.688, "15km": 15000, "10miles": 16093.44, "20km": 20000,
+  "30km": 30000, "50km": 50000,
+});
+
 
 export interface PersonalRecords {
   /** bike power MMP 별 top-K PR (W). value 높을수록 좋음. */
@@ -54,9 +68,17 @@ export interface PersonalRecords {
   swim?: Record<string, PrEntry[]>;  // 미구현 (swimMetrics 자체 부재)
   updatedAt: number;
   version: number;
+  /** 활동별 판정 영수증의 활성 세대. 이전 활성 세대도 소비하되 실패한 staging 세대는 제외한다. */
+  recordGeneration?: string;
+  recordGenerationSequence?: number;
+  /** 실패한 staging 세대는 뒤의 epoch가 활성화되어도 소비하지 않는다. */
+  rejectedRecordGenerations?: string[];
+  /** 백필 staging 중 server-only fence. 존재하면 live PR writer는 retry한다. */
+  pendingRecordGeneration?: string;
+  pendingRecordGenerationStartedAt?: number;
 }
 
 /** v2: run PR(거리별 시간, 하프·풀 포함). 서버 미러(functions)와 동일해야 한다. */
 export const PERSONAL_RECORDS_VERSION = 2;
-/** duration/거리 별 PR 유지 개수. UI 가 top 3-5 표시 + LLM 컨텍스트 인용. */
-export const PR_TOP_K = 5;
+/** duration/거리 별 순위표 깊이 (#2863). 소비처는 맨 앞 항목(최고 기록)만 쓴다. 서버 미러와 동일. */
+export const PR_TOP_K = 10;

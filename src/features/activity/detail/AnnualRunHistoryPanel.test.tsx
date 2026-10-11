@@ -123,3 +123,21 @@ describe("AnnualRunHistoryPanel", () => {
     expect(screen.queryByRole("region")).not.toBeInTheDocument(); expect(mocks.start).not.toHaveBeenCalled();
   });
 });
+
+it("offers14 distances without reads and distinguishes unsupported from supported without observations", () => {
+  const row = historyRow();
+  row.expandedDistanceRecords = { version: 1, targetsVersion: 2, timingBasis: "elapsed_including_stops", state: "observed", points: [{ distance: "400m", elapsedSec: 90 }] };
+  mocks.hook.mockReturnValue({ ...idle(), status: "complete", pages: [historyPage([row])] });
+  const view = renderWithProviders(<AnnualRunHistoryPanel ownerUid="owner" activityId="a" year={2026} />);
+  const select = screen.getByRole("combobox"); expect(within(select).getAllByRole("option")).toHaveLength(14);
+  fireEvent.change(select, { target: { value: "400m" } }); expect(screen.getByText("1:30")).toBeInTheDocument();
+  expect(screen.getByText(/지원 1 · 관측 1/)).toBeInTheDocument();
+  row.expandedDistanceRecords = { ...row.expandedDistanceRecords, state: "legacy_unsupported", points: [] };
+  mocks.hook.mockReturnValue({ ...idle(), status: "complete", pages: [historyPage([row])] }); view.rerender(<AnnualRunHistoryPanel ownerUid="owner" activityId="a" year={2026} />);
+  expect(screen.getByText(/관측 기록을 확정할 수 없습니다/)).toBeInTheDocument();
+  expect(screen.getByText(/이전 분석 미지원 1/)).toBeInTheDocument();
+  row.expandedDistanceRecords = { ...row.expandedDistanceRecords, state: "no_observed_efforts", points: [] };
+  mocks.hook.mockReturnValue({ ...idle(), status: "complete", pages: [historyPage([row])] }); view.rerender(<AnnualRunHistoryPanel ownerUid="owner" activityId="a" year={2026} />);
+  expect(screen.queryByText(/관측 기록을 확정할 수 없습니다/)).not.toBeInTheDocument();
+  expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.more).not.toHaveBeenCalled();
+});

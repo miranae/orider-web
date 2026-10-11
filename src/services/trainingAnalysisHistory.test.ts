@@ -95,3 +95,17 @@ describe("manual annual history contract", () => {
     expect(mocks.call).toHaveBeenCalledTimes(1);
   });
 });
+
+it("requires opt-in for strict expanded row states while accepting absent old-server channels", () => {
+  const page = historyPage(), query = { ...historyRequest, includeExpandedRunDistances: true as const };
+  expect(validateTrainingAnalysisHistoryResponse(page, query, historyNow)).toBe(page);
+  page.activities[0]!.expandedDistanceRecords = { version: 1, targetsVersion: 2, timingBasis: "elapsed_including_stops", state: "observed", points: [{ distance: "400m", elapsedSec: 90 }] };
+  expect(() => validateTrainingAnalysisHistoryResponse(page, historyRequest, historyNow)).toThrow();
+  expect(validateTrainingAnalysisHistoryResponse(page, query, historyNow)).toBe(page);
+  page.activities[0]!.expandedDistanceRecords!.points.push({ distance: "400m", elapsedSec: 91 });
+  expect(() => validateTrainingAnalysisHistoryResponse(page, query, historyNow)).toThrow();
+  page.activities[0]!.expandedDistanceRecords = { version: 1, targetsVersion: 2, timingBasis: "elapsed_including_stops", state: "legacy_unsupported", points: [] };
+  expect(validateTrainingAnalysisHistoryResponse(page, query, historyNow)).toBe(page);
+  page.activities[0]!.expandedDistanceRecords!.state = "no_observed_efforts";
+  expect(validateTrainingAnalysisHistoryResponse(page, query, historyNow)).toBe(page);
+});

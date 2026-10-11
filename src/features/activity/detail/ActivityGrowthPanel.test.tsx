@@ -374,6 +374,7 @@ describe("observed year application", () => {
     render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
     expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.lastCall?.[0].includeExpandedRunDistances).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "연도", exact: true }));
     const select = screen.getByRole("combobox", { name: "관측 연도" });
     const year = Number((select as HTMLSelectElement).value);
