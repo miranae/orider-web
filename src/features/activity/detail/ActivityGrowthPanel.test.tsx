@@ -1,3 +1,4 @@
+vi.mock("./ActivityRunDistanceEvidencePanel", () => ({ default: (props: unknown) => { mocks.manual(props); return <div data-testid="manual-distance-panel" />; } }));
 import { useEffect } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,7 +9,7 @@ import en from "../../../i18n/resources/en/activity.json";
 import { ActivityGrowthPanel } from "./ActivityGrowthPanel";
 import { activityPeriods } from "./activityGrowth";
 import { periodFixture, runningPeriodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
-const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn(), route: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn(), route: vi.fn(), manual: vi.fn() }));
 vi.mock("./ObservedRouteComparisonPanel", () => ({ ObservedRouteComparisonPanel: (props: unknown) => { mocks.route(props); return null; } }));
 vi.mock("./AnnualRunHistoryPanel", () => ({ default: (props: { ownerUid: string; activityId: string; year: number }) => { mocks.annual(props); return <div data-testid="annual-history-year">{props.year}</div>; } }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
@@ -396,4 +397,13 @@ describe("observed year application", () => {
     expect(screen.getByText(/KST 올해 누적/)).toBeInTheDocument();
     expect(mocks.history.mock.calls.filter(call => call[0] === "statistics").every(call => call[2] === false)).toBe(true);
   });
+});
+
+it("mounts manual distance inspection for owner run only independently of metric records", () => {
+  const view = render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+  expect(screen.getByTestId("manual-distance-panel")).toBeInTheDocument();
+  view.rerender(<ActivityGrowthPanel activity={{ ...activity, type: "Ride" }} metrics={null} isOwner />);
+  expect(screen.queryByTestId("manual-distance-panel")).not.toBeInTheDocument();
+  view.rerender(<ActivityGrowthPanel activity={activity} metrics={null} isOwner={false} />);
+  expect(screen.queryByTestId("manual-distance-panel")).not.toBeInTheDocument();
 });
