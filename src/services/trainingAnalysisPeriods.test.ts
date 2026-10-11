@@ -239,3 +239,32 @@ describe("cycling climb opt-in channel", () => {
     expect(() => validateTrainingAnalysisPeriodsResponse(data, { ...request, includeCyclingClimbObservations: true })).toThrow("invalid_training_analysis_periods_response");
   });
 });
+
+it("validates bike-only true opt-in and isolates a malformed optional distance channel from existing strict data", async () => {
+  const { cyclingDistancePeriodFixture } = await import("../utils/cyclingDistancePeriods.fixture");
+  const response = cyclingDistancePeriodFixture(), opted = { ...request, includeCyclingDistanceObservations: true as const };
+  expect(validTrainingAnalysisPeriodsRequest(opted, 10000)).toBe(true);
+  expect(validTrainingAnalysisPeriodsRequest({ ...opted, discipline: "run" }, 10000)).toBe(false);
+  expect(validTrainingAnalysisPeriodsRequest({ ...opted, includeCyclingDistanceObservations: false } as unknown as typeof opted, 10000)).toBe(false);
+  expect(validateTrainingAnalysisPeriodsResponse(response,opted).periods[0]!.cyclingDistanceObservations).toEqual(response.periods[0]!.cyclingDistanceObservations);
+  const original = structuredClone(response); delete response.periods[0]!.cyclingDistanceObservations!.distances[12];
+  const safe = validateTrainingAnalysisPeriodsResponse(response,opted); expect(safe.periods[0]!.cyclingDistanceObservations).toBeUndefined();
+  expect(safe.periods[0]!.totals).toEqual(original.periods[0]!.totals);expect(safe.periods[0]!.zones).toEqual(original.periods[0]!.zones);
+  expect(response.periods[0]!.cyclingDistanceObservations).toBeDefined();
+  expect(validateTrainingAnalysisPeriodsResponse(original,request).periods[0]!.cyclingDistanceObservations).toBeUndefined();
+  original.periods[0]!.totals.distanceM.totalValue = -1; expect(() => validateTrainingAnalysisPeriodsResponse(original,opted)).toThrow("invalid_training_analysis_periods_response");
+});
+
+it.each(["pendingActivityCount", "missingActivityCount", "incompleteActivityCount"] as const)("isolates contradictory supported/unsupported claims on%s while preserving valid parent data", async state => {
+  const { cyclingDistancePeriodFixture } = await import("../utils/cyclingDistancePeriods.fixture");
+  for(const claim of ["supported","unsupported"] as const){
+    const response=cyclingDistancePeriodFixture(), p=response.periods[0]!;
+    p.coverage.includedActivityCount=0;p.coverage[state]=1;p.status="partial";
+    for(const field of ["distanceM","movingTimeSec","elevationGainM"] as const){p.activities[0]!.sourceBasis[field]="activity_summary";p.totals[field].sourceBasis="activity_summary";p.totals[field].summaryFallbackCount=1;}
+    for(const channel of ["heartRate","power"] as const){p.zones[channel].groups=[];p.zones[channel].eligibleActivityCount=0;p.zones[channel].missingSensorActivityCount=1;p.zones[channel].observedSeconds=0;}
+    if(claim === "unsupported") for(const d of p.cyclingDistanceObservations!.distances){d.supportedActivityCount=d.observedEffortActivityCount=d.noObservedEffortActivityCount=0;d.unsupportedActivityCount=1;d.sources=[];d.bestTimeSeconds=d.medianTimeSeconds=null;}
+    const before=structuredClone(response), safe=validateTrainingAnalysisPeriodsResponse(response,{...request,includeCyclingDistanceObservations:true});
+    expect(safe.periods[0]!.cyclingDistanceObservations).toBeUndefined();
+    expect(safe.periods[0]!.coverage).toEqual(before.periods[0]!.coverage);expect(safe.periods[0]!.zones).toEqual(before.periods[0]!.zones);expect(safe.periods[0]!.totals).toEqual(before.periods[0]!.totals);expect(response).toEqual(before);
+  }
+});

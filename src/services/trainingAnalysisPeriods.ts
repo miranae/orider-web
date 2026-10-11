@@ -1,3 +1,4 @@
+import { validCyclingDistanceAnalysis } from "../utils/cyclingDistancePeriods";
 import { validCyclingClimbObservations } from "./cyclingClimbObservations";
 import { validExpandedDistanceAnalysis } from "../utils/expandedRunDistances";
 import { RUN_DISTANCE_M, RUN_DISTANCES } from "@shared/types/personal-records";
@@ -21,6 +22,7 @@ export function validTrainingAnalysisPeriodsRequest(request: TrainingAnalysisPer
   return !!request && ["bike", "run", "swim"].includes(request.discipline)
     && (request.includeExpandedRunDistances === undefined || request.includeExpandedRunDistances === true && request.discipline === "run")
     && (request.includeCyclingClimbObservations === undefined || request.includeCyclingClimbObservations === true && request.discipline === "bike")
+    && (request.includeCyclingDistanceObservations === undefined || request.includeCyclingDistanceObservations === true && request.discipline === "bike")
     && validPowerCurvePeriodsRequest({ unit: "W", periods: request.periods }, now);
 }
 export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalysisPeriodsResponse, request: TrainingAnalysisPeriodsRequest) {
@@ -28,6 +30,13 @@ export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalys
   if (!response || response.version !== 1 || response.discipline !== request.discipline || !count(response.asOf)
     || !Number.isFinite(new Date(response.asOf).getTime()) || request.periods.some(period => period.toExclusive > response.asOf)
     || !/^[a-f0-9]{64}$/u.test(response.inputDigest) || !Array.isArray(response.periods) || response.periods.length !== request.periods.length) invalid();
+  // 새 선택 채널만 격리하고 기존 응답의 엄격한 검증은 유지한다.
+  const sanitizedPeriods = response.periods.map(period => {
+    if (period?.cyclingDistanceObservations === undefined || request.discipline === "bike" && request.includeCyclingDistanceObservations === true && validCyclingDistanceAnalysis(period.cyclingDistanceObservations, period)) return period;
+    const { cyclingDistanceObservations: _invalidChannel, ...rest } = period;
+    return rest;
+  });
+  if (sanitizedPeriods.some((period, index) => period !== response.periods[index])) response = { ...response, periods: sanitizedPeriods };
   response.periods.forEach((period, index) => {
     const expected = request.periods[index]!, coverage = period?.coverage;
     if (!period || period.fromInclusive !== expected.fromInclusive || period.toExclusive !== expected.toExclusive
