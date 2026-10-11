@@ -225,3 +225,17 @@ it("opts in only running expanded14 and preserves unflagged legacy response byte
   data.periods[0]!.running!.expandedDistanceAnalysis!.distances.pop();
   expect(() => validateTrainingAnalysisPeriodsResponse(data, { ...query, includeExpandedRunDistances: true })).toThrow();
 });
+
+describe("cycling climb opt-in channel", () => {
+  it("keeps legacy absence valid and only accepts bike true opt-in", () => {
+    expect(validateTrainingAnalysisPeriodsResponse(periodFixture(), request)).toEqual(periodFixture());
+    expect(validTrainingAnalysisPeriodsRequest({ ...request, includeCyclingClimbObservations: true }, 10000)).toBe(true);
+    expect(validTrainingAnalysisPeriodsRequest({ ...request, discipline: "run", includeCyclingClimbObservations: true }, 10000)).toBe(false);
+    expect(validTrainingAnalysisPeriodsRequest({ ...request, includeCyclingClimbObservations: false } as unknown as typeof request, 10000)).toBe(false);
+    const data = periodFixture(); data.periods[0]!.cyclingClimbObservations = { version: 1, scope: "observed_representatives", climbQuality: "unknown", candidateActivityCount: 1, supportedActivityCount: 0, observedActivityCount: 0, noObservedActivityCount: 0, unsupportedActivityCount: 1, unavailableActivityCount: 0, truncated: false, sources: [] };
+    expect(() => validateTrainingAnalysisPeriodsResponse(data, request)).toThrow("invalid_training_analysis_periods_response");
+    expect(validateTrainingAnalysisPeriodsResponse(data, { ...request, includeCyclingClimbObservations: true })).toBe(data);
+    data.periods[0]!.cyclingClimbObservations.observedActivityCount = 1;
+    expect(() => validateTrainingAnalysisPeriodsResponse(data, { ...request, includeCyclingClimbObservations: true })).toThrow("invalid_training_analysis_periods_response");
+  });
+});
