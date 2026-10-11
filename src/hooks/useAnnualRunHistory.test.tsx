@@ -87,3 +87,31 @@ describe("opt-in sequential annual history", () => {
     expect(mocks.load).toHaveBeenCalledTimes(1);
   });
 });
+
+it("keeps expanded version in session identity and sends flag only on manual requests", async () => {
+  const view = renderHook(({ expanded }) => useAnnualRunHistory("owner", "A", 2026, expanded), { initialProps: { expanded: true } });
+  expect(mocks.load).not.toHaveBeenCalled();
+  await act(async () => { await view.result.current.start(); });
+  expect(mocks.load.mock.calls[0]![2].includeExpandedRunDistances).toBe(true);
+  view.rerender({ expanded: false });
+  expect(view.result.current.pages).toHaveLength(0); expect(mocks.load).toHaveBeenCalledTimes(1);
+  await act(async () => { await view.result.current.start(); });
+  expect(mocks.load.mock.calls[1]![2]).not.toHaveProperty("includeExpandedRunDistances");
+  view.rerender({ expanded: true }); expect(view.result.current.pages).toHaveLength(0);
+  expect(mocks.load).toHaveBeenCalledTimes(2);
+});
+it("ignores delayed responses after expanded flag ABA and never mixes legacy cursor pages", async () => {
+  let resolve!: (value: ReturnType<typeof historyPage>) => void;
+  mocks.load.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  const view = renderHook(({ expanded }) => useAnnualRunHistory("owner", "A", 2026, expanded), { initialProps: { expanded: true } });
+  let pending!: Promise<void>;
+  act(() => { pending = view.result.current.start(); });
+  view.rerender({ expanded: false }); view.rerender({ expanded: true });
+  expect(view.result.current.pages).toHaveLength(0); expect(mocks.load).toHaveBeenCalledTimes(1);
+  await act(async () => { resolve(historyPage()); await pending; });
+  expect(view.result.current.status).toBe("idle"); expect(view.result.current.pages).toHaveLength(0);
+  await act(async () => { await view.result.current.start(); });
+  expect(mocks.load).toHaveBeenCalledTimes(2);
+  expect(mocks.load.mock.calls[1]![2]).toMatchObject({ includeExpandedRunDistances: true });
+  expect(mocks.load.mock.calls[1]![2]).not.toHaveProperty("cursor");
+});

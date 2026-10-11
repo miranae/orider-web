@@ -1,7 +1,8 @@
+import { expandedAnnualCoverage, isLegacyRunDistance } from "../../../utils/expandedRunDistances";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TrainingAnalysisHistoryRow } from "@shared/types/training-analysis-history";
-import { RUN_DISTANCES, type RunDistanceKey } from "@shared/types/personal-records";
+import { RUN_DISTANCE_TARGETS_V2, type ExpandedRunDistanceKey } from "@shared/types/personal-records";
 import { useAnnualRunHistory } from "../../../hooks/useAnnualRunHistory";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { Button, Select, Stack, Text } from "../../../theme";
@@ -39,12 +40,13 @@ export default function AnnualRunHistoryPanel({ ownerUid, activityId, year }: { 
   const { locale } = useLocale();
   const id = useId();
   const history = useAnnualRunHistory(ownerUid, activityId, year);
-  const [distance, setDistance] = useState<RunDistanceKey>("5km");
+  const [distance, setDistance] = useState<ExpandedRunDistanceKey>("5km");
   const summary = useMemo(() => annualRunHistory(history.pages), [history.pages]);
   if (!history.available) return null;
   const date = (time: number, full = false) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", ...(full ? { hour: "2-digit", minute: "2-digit", second: "2-digit" } as const : {}) }).format(time);
   const first = history.pages[0];
   const leaders = annualDistanceLeaders(summary.representatives, distance);
+  const expandedCoverage = expandedAnnualCoverage(summary.representatives, distance);
   return <section className="annual-run-history space-y-3 border-t border-[var(--line-soft)] pt-4" aria-label={t("annualHistory.title", { year })}>
     <Text as="h3" variant="subtitle">{t("annualHistory.title", { year })}</Text>
     <Text as="p" variant="bodyMedium" tone="secondary">{t("annualHistory.scope")}</Text>
@@ -61,10 +63,11 @@ export default function AnnualRunHistoryPanel({ ownerUid, activityId, year }: { 
       <Text as="p" variant="bodyMedium" tone="secondary">{t("annualHistory.counts", { scanned: summary.scanned, candidates: summary.candidateCount, representatives: summary.representatives.length, duplicates: summary.deduplicatedCount })}</Text>
       <Text as="p" variant="bodyMedium" tone="secondary">{t("annualHistory.analysisStates", summary.states)}</Text>
       <Text as="p" variant="bodyMedium" tone="secondary">{t("annualHistory.channelCoverage", summary.channels)}</Text>
-      <label htmlFor={`${id}-distance`}><Text as="span" variant="bodyMedium">{t("annualHistory.distance")}</Text><Select id={`${id}-distance`} className="min-h-[calc(var(--dim-button-height)+var(--space-1))] text-[length:var(--fs-md)]" value={distance} onChange={event => setDistance(event.target.value as RunDistanceKey)}>{RUN_DISTANCES.map(value => <option key={value} value={value}>{t(`runRecord.dist.${value}`)}</option>)}</Select></label>
-      <Text as="h4" variant="bodyMedium" weight={600}>{t("annualHistory.leaders.title", { count: summary.representatives.filter(row => row.analysis.state === "ready" && row.distanceRecords.state === "observed" && row.distanceRecords.points.some(point => point.distance === distance)).length })}</Text>
+      <label htmlFor={`${id}-distance`}><Text as="span" variant="bodyMedium">{t("annualHistory.distance")}</Text><Select id={`${id}-distance`} className="min-h-[calc(var(--dim-button-height)+var(--space-1))] text-[length:var(--fs-md)]" value={distance} onChange={event => setDistance(event.target.value as ExpandedRunDistanceKey)}>{RUN_DISTANCE_TARGETS_V2.map(value => <option key={value} value={value}>{t(`runRecord.dist.${value}`)}</option>)}</Select></label>
+      <Text as="h4" variant="bodyMedium" weight={600}>{t("annualHistory.leaders.title", { count: isLegacyRunDistance(distance) ? summary.representatives.filter(row => row.analysis.state === "ready" && row.distanceRecords.state === "observed" && row.distanceRecords.points.some(point => point.distance === distance)).length : expandedCoverage.observed })}</Text>
       <Text as="p" variant="bodyMedium" tone="secondary">{t("annualHistory.timingBasis")}</Text>
-      {leaders.length ? <AnnualHistoryLeaders key={JSON.stringify([ownerUid, activityId, year, first.readTime, distance])} rows={leaders} locale={locale} date={date} /> : <Text as="p" variant="bodyMedium" tone="secondary">{t("annualHistory.noEfforts")}</Text>}
+      {!isLegacyRunDistance(distance) && <><Text as="p" variant="bodyMedium" tone="secondary">{t("expandedRun.coverage", expandedCoverage)}</Text><Text as="p" variant="bodyMedium" tone="secondary">{t("expandedRun.supportNote")}</Text></>}
+      {leaders.length ? <AnnualHistoryLeaders key={JSON.stringify([ownerUid, activityId, year, first.readTime, distance])} rows={leaders} locale={locale} date={date} /> : <Text as="p" variant="bodyMedium" tone="secondary">{t(!isLegacyRunDistance(distance) && (expandedCoverage.unsupported > 0 || expandedCoverage.unavailable > 0) ? "expandedRun.unknown" : "annualHistory.noEfforts")}</Text>}
       <AnnualHistorySources key={JSON.stringify([ownerUid, activityId, year, first.readTime])} rows={summary.representatives} locale={locale} date={date} />
     </>}
   </section>;

@@ -1348,7 +1348,16 @@
       "5km": "5 km",
       "10km": "10 km",
       "half": "Half",
-      "full": "Full"
+      "full": "Full",
+      "400m": "400 m",
+      "half_mile": "Half mile",
+      "1mile": "1 mile",
+      "2miles": "2 miles",
+      "15km": "15 km",
+      "10miles": "10 miles",
+      "20km": "20 km",
+      "30km": "30 km",
+      "50km": "50 km"
     },
     "improved": "{{sec}}s faster than your previous best · confirmed by server",
     "improvedTiny": "A new personal best · confirmed by server",
@@ -1624,6 +1633,7 @@
     }
   },
   "splitCompare": {
+    "scrollHint": "Swipe horizontally to compare split values for both activities.",
     "title": "1 km split records",
     "note": "Compare completed segments at the same distance progression in both activities. This does not establish the same route or improved fitness. Recorded pace may include stops depending on how it was recorded.",
     "unavailable": "No complete 1 km segments are confirmed in both activities.",
@@ -1774,5 +1784,10 @@
       "partial": "Partial collection coverage",
       "unknown": "Collection coverage unknown"
     }
+  },
+  "expandedRun": {
+    "supportNote": "Only activities supporting the expanded distances are counted. Unsupported older activities or unavailable analysis do not establish that an effort is absent.",
+    "coverage": "Representative activities {{candidate}} · supported {{supported}} · observed {{observed}} · supported without an observation {{noObserved}} · older analysis unsupported {{unsupported}} · unavailable {{unavailable}}",
+    "unknown": "Observed efforts at this distance are unknown because unsupported or unavailable analysis is included."
   }
 }

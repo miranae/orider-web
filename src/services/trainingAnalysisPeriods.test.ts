@@ -1,3 +1,4 @@
+import { expandedPeriodFixture } from "../utils/expandedRunDistances.fixture";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -210,4 +211,17 @@ describe("optional distance observed statistics", () => {
     if (kind === "no-source") statistic.distance = "half";
     expect(() => validateTrainingAnalysisPeriodsResponse(value, requestFor(value))).toThrow("invalid_training_analysis_periods_response");
   });
+});
+
+it("opts in only running expanded14 and preserves unflagged legacy response bytes", () => {
+  const data = runningPeriodFixture(), query = { discipline: "run" as const, periods: data.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })) };
+  const before = JSON.stringify(data);
+  expect(validateTrainingAnalysisPeriodsResponse(data, query)).toBe(data);
+  expect(JSON.stringify(data)).toBe(before);
+  data.periods.forEach(period => { period.running!.expandedDistanceAnalysis = expandedPeriodFixture(period); });
+  expect(() => validateTrainingAnalysisPeriodsResponse(data, query)).toThrow();
+  expect(validateTrainingAnalysisPeriodsResponse(data, { ...query, includeExpandedRunDistances: true })).toBe(data);
+  expect(validTrainingAnalysisPeriodsRequest({ ...request, includeExpandedRunDistances: true })).toBe(false);
+  data.periods[0]!.running!.expandedDistanceAnalysis!.distances.pop();
+  expect(() => validateTrainingAnalysisPeriodsResponse(data, { ...query, includeExpandedRunDistances: true })).toThrow();
 });

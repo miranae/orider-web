@@ -1,3 +1,4 @@
+import { RUN_DISTANCES, type ExpandedRunDistanceKey } from "@shared/types/personal-records";
 import type { TrainingAnalysisHistoryResponse, TrainingAnalysisHistoryRow } from "@shared/types/training-analysis-history";
 import { dedupeSamePhysicalRides } from "../../../utils/samePhysicalRide";
 export const ANNUAL_HISTORY_CAP = 5000;
@@ -16,9 +17,10 @@ export function annualRunHistory(pages: TrainingAnalysisHistoryResponse[]) {
     channels: { distance: representatives.filter(row => row.distanceRecords.state === "unavailable").length, pace: representatives.filter(row => row.paceCurve.state === "unavailable").length },
   };
 }
-export function annualDistanceLeaders(rows: TrainingAnalysisHistoryRow[], distance: string) {
+export function annualDistanceLeaders(rows: TrainingAnalysisHistoryRow[], distance: string | ExpandedRunDistanceKey) {
   return rows.flatMap(row => {
-    const record = row.distanceRecords.points.find(point => point.distance === distance);
-    return row.analysis.state === "ready" && row.distanceRecords.state === "observed" && record && Number.isFinite(record.elapsedSec) && record.elapsedSec > 0 ? [{ ...row, elapsedSec: record.elapsedSec }] : [];
+    const channel = RUN_DISTANCES.some(key => key === distance) ? row.distanceRecords : row.expandedDistanceRecords;
+    const record = channel?.points.find(point => point.distance === distance);
+    return row.analysis.state === "ready" && channel?.state === "observed" && record && Number.isFinite(record.elapsedSec) && record.elapsedSec > 0 ? [{ ...row, elapsedSec: record.elapsedSec }] : [];
   }).sort((a, b) => a.elapsedSec - b.elapsedSec || b.startTime - a.startTime || (a.activityId < b.activityId ? -1 : a.activityId > b.activityId ? 1 : 0)).slice(0, 10);
 }

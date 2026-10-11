@@ -1,10 +1,11 @@
 import type { HrZoneBoundaries } from "../training/hrZoneTable";
 import type { PowerCurvePeriod } from "./power-curve-periods";
-import type { RunDistanceKey } from "./personal-records";
+import type { ExpandedRunDistanceKey, RunDistanceKey } from "./personal-records";
 
 export interface TrainingAnalysisPeriodsRequest {
   discipline: "bike" | "run" | "swim";
   periods: PowerCurvePeriod[];
+  includeExpandedRunDistances?: true;
 }
 export interface PeriodObservedTotal {
   /** Known canonical subtotal; null means no observed values. */
@@ -71,8 +72,36 @@ export interface PeriodRunningEvidence {
     } | null;
   }>;
 }
+export interface ExpandedRunDistanceRecords {
+  version: 1;
+  targetsVersion: 2;
+  timingBasis: "elapsed_including_stops";
+  state: "observed" | "no_observed_efforts" | "legacy_unsupported" | "unavailable";
+  points: Array<{ distance: ExpandedRunDistanceKey; elapsedSec: number }>;
+}
+export interface ExpandedRunDistanceAnalysis {
+  version: 1;
+  targetsVersion: 2;
+  timingBasis: "elapsed_including_stops";
+  scope: "observed_representatives";
+  distances: Array<{
+    distance: ExpandedRunDistanceKey;
+    distanceM: number;
+    candidateActivityCount: number;
+    supportedActivityCount: number;
+    observedEffortActivityCount: number;
+    noObservedEffortActivityCount: number;
+    unsupportedActivityCount: number;
+    unavailableActivityCount: number;
+    truncated: boolean;
+    bestTimeSeconds: number | null;
+    medianTimeSeconds: number | null;
+    sources: Array<PeriodRunSource & { elapsedSec: number }>;
+  }>;
+}
 export interface PeriodRunningAnalysis {
-  /** 원본 센서·위치 없이 기존 응답의 관측 근거만 표시한다. */
+  expandedDistanceAnalysis?: ExpandedRunDistanceAnalysis;
+  /** 추가 계약. 원본 센서·위치 없이 이미 읽은 정본의 관측 근거만 전달한다. */
   evidence?: PeriodRunningEvidence;
   bestDistances: {
     status: "complete" | "partial";

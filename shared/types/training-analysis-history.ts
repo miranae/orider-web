@@ -1,4 +1,4 @@
-import type { PeriodRunningEvidence } from "./training-analysis-periods";
+import type { ExpandedRunDistanceRecords, PeriodRunningEvidence } from "./training-analysis-periods";
 
 export interface TrainingAnalysisHistoryCursor {
   readTime: { seconds: number; nanoseconds: number };
@@ -13,6 +13,7 @@ export interface TrainingAnalysisHistoryRequest {
   calendarBasis: "Asia/Seoul";
   year: number;
   cursor?: TrainingAnalysisHistoryCursor;
+  includeExpandedRunDistances?: true;
 }
 export interface TrainingAnalysisHistoryRow {
   activityId: string;
@@ -36,6 +37,7 @@ export interface TrainingAnalysisHistoryRow {
     calculatorVersion: number | null;
     inputCoverage: "complete" | "partial_terminal" | "pending" | null;
   };
+  expandedDistanceRecords?: ExpandedRunDistanceRecords;
   distanceRecords: { state: "observed" | "no_observed_efforts" | "unavailable";
     reason: "metrics_unavailable" | "missing_or_invalid_field" | null;
     points: Array<{ distance: "1km" | "5km" | "10km" | "half" | "full"; elapsedSec: number }> };
