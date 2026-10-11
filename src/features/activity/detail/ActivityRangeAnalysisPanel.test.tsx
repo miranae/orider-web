@@ -74,6 +74,16 @@ describe("canonical elapsed range reading", () => {
     expect(screen.queryByText(/Z1/)).toBeNull();
     expect(screen.getByText(/^파워 · 관측 0.0초 · 0.0%$/)).toBeTruthy();
   });
+  it("connects actualride category to optional input in the existing request and preservesRun absence", () => {
+    const { rerender } = renderWithProviders(<Panel activityId="a" selection={selection} sport="ride" callableEnabled />);
+    expect(mocks.hook.mock.lastCall?.[0].includePowerWindowInput).toBe(true);
+    mocks.hook.mockReturnValue({ ...unavailable, state: "available", metrics, response: { state: "available", inputRevision: revision, powerWindowInput: { state: "unavailable", reason: "unknown_provenance", inputRevision: revision, algorithmVersion: "sample-time-weighted-v1", timingBasis: "elapsed", scope: "selected_range", rangeStartElapsedSec: 1200, rangeEndElapsedSec: 1500 } } });
+    rerender(<Panel activityId="a" selection={selection} sport="ride" callableEnabled />);
+    expect(screen.getByRole("region", { name: "선택 범위의 지속시간별 파워" })).toBeInTheDocument();
+    rerender(<Panel activityId="a" selection={selection} sport="run" callableEnabled />);
+    expect(mocks.hook.mock.lastCall?.[0].includePowerWindowInput).toBe(false);
+    expect(screen.queryByRole("region", { name: "선택 범위의 지속시간별 파워" })).not.toBeInTheDocument();
+  });
   it("pins a returned opaque revision only for the next user selection, and clears it when input changes", () => {
     const { rerender } = renderWithProviders(<Panel activityId="a" selection={selection} sport="bike" callableEnabled />);
     mocks.hook.mockReturnValue({ ...unavailable, state: "available", metrics, response: { inputRevision: revision, state: "available" } });

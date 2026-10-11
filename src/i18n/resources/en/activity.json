@@ -1017,7 +1017,8 @@
       "lapPace": "Pace by lap",
       "lapHr": "Heart rate by lap",
       "recapDistance": "The recorded distance was {{distance}}.",
-      "recapHr": "Your recorded average heart rate was {{bpm}} bpm."
+      "recapHr": "Your recorded average heart rate was {{bpm}} bpm.",
+      "periodScrollHint": "Swipe horizontally to compare both periods and time saved."
     }
   },
   "metabolism": {
@@ -1652,5 +1653,29 @@
       "pauseTime": "Stop time"
     },
     "recordOrder": "Records in date order · time intervals are not represented"
+  },
+  "powerWindows": {
+    "title": "Power by duration in selected range",
+    "scope": "Uses observed power only within {{start}}–{{end}}. This is not a whole-activity or period record.",
+    "basis": "Measured power from {{source}}, weighted by recorded elapsed time. Includes 0 W; missing intervals, gaps and stops are never joined or compressed.",
+    "limit": "Longest continuous measured interval: {{duration}}. Longer durations cannot be calculated.",
+    "duration": "Custom duration (seconds)",
+    "calculated": "Calculated durations",
+    "exact": "Each displayed duration has an exact maximum time-weighted average. Values between points are not interpolated as records.",
+    "invalid": "Enter a positive duration within the continuous measured range.",
+    "loading": "Calculating the selected duration.",
+    "failed": "Power windows cannot be calculated for this input.",
+    "source": {
+      "strava_api": "Strava",
+      "direct_file": "imported file",
+      "orider_native": "ORider recording"
+    },
+    "reason": {
+      "virtual_power": "Measured power windows are unavailable for virtual power.",
+      "unknown_provenance": "Measured power provenance could not be confirmed.",
+      "unaligned_elapsed_axis": "The recorded elapsed-time axis could not be confirmed.",
+      "missing_power": "No measured power interval is available in this range.",
+      "input_limit": "This range exceeds the safe input limit for calculation."
+    }
   }
 }

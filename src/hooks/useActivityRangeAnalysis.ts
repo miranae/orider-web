@@ -19,9 +19,10 @@ export interface ActivityRangeAnalysisOptions {
   expectedInputRevision?: string;
   /** 배포 확인 전에는 false. 이 훅이 아직 없는 API를 available로 꾸미지 않는다. */
   callableEnabled?: boolean;
+  includePowerWindowInput?: boolean;
 }
 
-export function useActivityRangeAnalysis({ activityId, ownerUid, selection, inputIdentity, expectedInputRevision, callableEnabled = false }: ActivityRangeAnalysisOptions) {
+export function useActivityRangeAnalysis({ activityId, ownerUid, selection, inputIdentity, expectedInputRevision, callableEnabled = false, includePowerWindowInput = false }: ActivityRangeAnalysisOptions) {
   const { user } = useAuth();
   const services = useFirebaseServices();
   const uid = user?.uid;
@@ -29,12 +30,12 @@ export function useActivityRangeAnalysis({ activityId, ownerUid, selection, inpu
   const retry = useCallback(() => setAttempt(value => value + 1), []);
   const startOffsetSec = selection?.startOffsetSec, endOffsetSec = selection?.endOffsetSec, requestId = selection?.requestId;
   const request = activityId && selection ? { activityId, startOffsetSec: selection.startOffsetSec,
-    endOffsetSec: selection.endOffsetSec, ...(expectedInputRevision ? { expectedInputRevision } : {}) } : null;
+    endOffsetSec: selection.endOffsetSec, ...(expectedInputRevision ? { expectedInputRevision } : {}), ...(includePowerWindowInput ? { includePowerWindowInput: true } : {}) } : null;
   const owner = !!uid && !!ownerUid && uid === ownerUid && !user?.isAnonymous;
   const valid = !!request && !!selection?.requestId && validRangeRequest(request);
   const allowed = owner && valid && callableEnabled;
   const key = allowed ? JSON.stringify([uid, activityId, selection?.requestId, selection?.startOffsetSec,
-    selection?.endOffsetSec, inputIdentity, expectedInputRevision, attempt]) : null;
+    selection?.endOffsetSec, inputIdentity, expectedInputRevision, includePowerWindowInput, attempt]) : null;
   const generationRef = useRef(0);
   const identityRef = useRef({ key, services });
   if (identityRef.current.key !== key || identityRef.current.services !== services) {
@@ -47,14 +48,14 @@ export function useActivityRangeAnalysis({ activityId, ownerUid, selection, inpu
     const generation = ++generationRef.current;
     let active = true;
     const payload = { activityId, startOffsetSec, endOffsetSec,
-      ...(expectedInputRevision ? { expectedInputRevision } : {}) };
+      ...(expectedInputRevision ? { expectedInputRevision } : {}), ...(includePowerWindowInput ? { includePowerWindowInput: true } : {}) };
     void loadActivityRangeAnalysis(services, uid, payload)
       .then(response => { if (active && generationRef.current === generation) setResult({ generation, key, services, response, reason: null }); })
       .catch(error => { if (active && generationRef.current === generation) setResult({ generation, key, services, response: null,
         reason: typeof error === "object" && error !== null && "code" in error
           && /not-found|unimplemented/u.test(String(error.code)) ? "api_unavailable" : "request_failed" }); });
     return () => { active = false; generationRef.current += 1; };
-  }, [key, services, uid, activityId, requestId, startOffsetSec, endOffsetSec, expectedInputRevision]);
+  }, [key, services, uid, activityId, requestId, startOffsetSec, endOffsetSec, expectedInputRevision, includePowerWindowInput]);
   const current = key && result?.key === key && result.services === services && result.generation === generationRef.current ? result : null;
   const response = current?.response ?? null;
   const state = !owner || !selection ? "idle" : !valid || !callableEnabled ? "unavailable"

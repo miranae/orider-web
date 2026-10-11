@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActivityAnalysisModel } from "../../../hooks/useActivityAnalysisModel";
+import { getRuntimeConfig } from "../../../services/runtimeConfig";
 import { useLocale } from "../../../contexts/LocaleContext";
 import type { RidePeakEffort } from "@shared/types/activity-metrics";
 import { resolvePeakEffortLocation } from "./activityPeakEfforts";
@@ -69,7 +70,7 @@ export default function ActivityDetailedCharts({ model, highlightedPeak = null, 
         onHoverIndex={setHoverIndex} metrics={model.serverMetrics?.metrics} powerSource={model.streamSensorSummary?.powerSource}
         elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={rangeSelection.xAxis}
         rangeControls={<ActivityRangeControls selection={rangeSelection} />}
-        rangeAnalysis={<ActivityRangeAnalysisPanel activityId={activityId} sport={model.sport} selection={rangeSelection} previewActive={model.activePowerOverride != null} />}
+        rangeAnalysis={<ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activityId} sport={model.sport} selection={rangeSelection} previewActive={model.activePowerOverride != null} />}
         range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampled.length - 1]}
         onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis ? rangeSelection.selectChart : undefined}
       />}
