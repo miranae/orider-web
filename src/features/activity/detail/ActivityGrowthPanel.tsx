@@ -24,6 +24,7 @@ import "./activity-growth-panel.css";
 import { getDiscipline } from "../../../utils/disciplineFilter";
 import { activityPeriods, comparisonRows, customActivityPeriods, observedYearPeriods, sameActivitySport, settledMetrics, summarizePeriod, type StatisticsPeriod } from "./activityGrowth";
 import type { MetricsLike } from "./metricsPresentation";
+import { formatElapsedBoundary } from "./activityRangeSelection";
 import { similarRouteCandidates } from "./routeSimilarity";
 import { ActivityComparisonVisuals } from "./ActivityComparisonVisuals";
 
@@ -42,6 +43,13 @@ function pace(seconds: number | null): string {
   const rounded = Math.round(seconds);
   return `${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, "0")}`;
 }
+/** 표의 기존 반올림 정밀도만 적용한다. 비교에 쓰는 초와 차이는 그대로 유지한다. */
+function comparisonDuration(value: number | null, delta = false): string {
+  if (value == null || !Number.isFinite(value) || !delta && value < 0) return "—";
+  const rounded = Number(Math.abs(value).toFixed(delta ? 1 : 0));
+  const display = Number.isFinite(rounded * 1e6) ? formatElapsedBoundary(rounded) : `${rounded} s`;
+  return `${delta && rounded > 0 ? value < 0 ? "-" : "+" : ""}${display}`;
+}
 function Comparison({ activity, metrics, currentMetricsStatus }: Omit<ActivityGrowthPanelProps, "isOwner">) {
   const { t, i18n } = useTranslation("activity");
   const { user } = useAuth();
@@ -59,11 +67,12 @@ function Comparison({ activity, metrics, currentMetricsStatus }: Omit<ActivityGr
   const baseline = useActivityMetrics(selected?.id ?? null);
   const running = getDiscipline(activity.type) === "run";
   const convert = (value: number | null, key: string) => value == null ? null : value * (key === "distanceKm" || (key === "avgSpeedKph" && !running) ? distanceFactor : key === "elevationGainM" ? elevationFactor : key === "avgSpeedKph" && running ? 1 / distanceFactor : 1);
-  const format = (raw: number | null, key: string) => { const value = convert(raw, key); return key === "avgSpeedKph" && running ? pace(value)
+  const format = (raw: number | null, key: string) => { const value = convert(raw, key); return key === "movingTimeSec" ? comparisonDuration(value) : key === "avgSpeedKph" && running ? pace(value)
     : number(value, ["avgHr", "avgPower", "np", "elevationGainM", "movingTimeSec"].includes(key) ? 0 : 1); };
   const unit = (key: string) => key === "avgSpeedKph" ? running ? units === "imperial" ? "/mi" : "/km" : units === "imperial" ? "mph" : "km/h"
-    : ({ distanceKm: units === "imperial" ? "mi" : "km", movingTimeSec: "s", avgHr: "bpm", avgPower: "W", np: "W", elevationGainM: units === "imperial" ? "ft" : "m" }[key] ?? "");
-  const date = (time: number) => new Date(time).toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" });
+    : ({ distanceKm: units === "imperial" ? "mi" : "km", movingTimeSec: "", avgHr: "bpm", avgPower: "W", np: "W", elevationGainM: units === "imperial" ? "ft" : "m" }[key] ?? "");
+  const date = (time: number) => Number.isFinite(time) && Number.isFinite(new Date(time).getTime())
+    ? new Date(time).toLocaleString(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }) : "—";
   const powerLabel = (source: MetricsLike | null) => !source || !settledMetrics(source) || ![source.avgPower, source.np, ...Object.values(source.mmp ?? {})].some((value) => typeof value === "number" && Number.isFinite(value) && value > 0) ? t("growth.visual.powerMissing") : source?.isVirtualPower === true ? t("growth.virtualPower")
     : source?.isVirtualPower === false ? t("growth.measuredPower") : t("growth.powerUnknown");
   return <div className="space-y-4">
@@ -100,9 +109,9 @@ function Comparison({ activity, metrics, currentMetricsStatus }: Omit<ActivityGr
         <table className="activity-growth-table">
           <thead><tr><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{t("growth.current")}</Text></th><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{date(selected.startTime)}</Text></th></tr></thead>
           <tbody>{comparisonRows(metrics, baseline.metrics, running).map((row) => <tr key={row.key}>
-            <th scope="row"><Text variant="bodyMedium" tone="secondary">{t(`growth.metrics.${row.key === "avgSpeedKph" && running ? "pace" : row.key}`)} · {unit(row.key)}</Text></th>
-            <td><Text variant="bodyMedium" mono tone="primary">{format(row.value, row.key)}</Text>{row.delta != null && <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.change")} <span className="whitespace-nowrap">{signedNumber(convert(row.delta, row.key), 1)} {row.key === "avgSpeedKph" && running ? units === "imperial" ? "s/mi" : "s/km" : unit(row.key)}</span></Text>}</td>
-            <td><Text variant="bodyMedium" mono tone="secondary">{format(row.baseline, row.key)}</Text></td>
+            <th scope="row"><Text variant="bodyMedium" tone="secondary">{t(`growth.metrics.${row.key === "avgSpeedKph" && running ? "pace" : row.key}`)}{unit(row.key) ? ` · ${unit(row.key)}` : ""}</Text></th>
+            <td><Text variant="bodyMedium" mono tone="primary" title={row.key === "movingTimeSec" && row.value != null ? `${row.value} s` : undefined}>{format(row.value, row.key)}</Text>{row.delta != null && <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.change")} <span className="whitespace-nowrap" title={row.key === "movingTimeSec" && row.delta != null ? `${row.delta} s` : undefined}>{row.key === "movingTimeSec" ? comparisonDuration(row.delta, true) : <>{signedNumber(convert(row.delta, row.key), 1)} {row.key === "avgSpeedKph" && running ? units === "imperial" ? "s/mi" : "s/km" : unit(row.key)}</>}</span></Text>}</td>
+            <td><Text variant="bodyMedium" mono tone="secondary" title={row.key === "movingTimeSec" && row.baseline != null ? `${row.baseline} s` : undefined}>{format(row.baseline, row.key)}</Text></td>
           </tr>)}</tbody>
         </table>
       </div>
