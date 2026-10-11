@@ -1,3 +1,4 @@
+vi.mock("./CyclingDistanceHistoryPanel", () => ({ default: (props: unknown) => { mocks.cyclingHistory(props); return <div data-testid="cycling-history-panel" />; } }));
 vi.mock("./ObservedRouteHistoryPanel", () => ({ default: (props: unknown) => { mocks.routeHistory(props); return <div data-testid="observed-route-history-panel" />; } }));
 vi.mock("./ActivityBikeDistanceEvidencePanel", () => ({ default: () => <div data-testid="manual-bike-distance-panel" /> }));
 vi.mock("./ActivityRunDistanceEvidencePanel", () => ({ default: (props: unknown) => { mocks.manual(props); return <div data-testid="manual-distance-panel" />; } }));
@@ -11,7 +12,7 @@ import en from "../../../i18n/resources/en/activity.json";
 import { ActivityGrowthPanel } from "./ActivityGrowthPanel";
 import { activityPeriods } from "./activityGrowth";
 import { periodFixture, runningPeriodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
-const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn(), route: vi.fn(), routeHistory: vi.fn(), manual: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn(), route: vi.fn(), routeHistory: vi.fn(), cyclingHistory: vi.fn(), manual: vi.fn() }));
 vi.mock("./ObservedRouteComparisonPanel", () => ({ ObservedRouteComparisonPanel: (props: unknown) => { mocks.route(props); return null; } }));
 vi.mock("./AnnualRunHistoryPanel", () => ({ default: (props: { ownerUid: string; activityId: string; year: number }) => { mocks.annual(props); return <div data-testid="annual-history-year">{props.year}</div>; } }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
@@ -28,6 +29,7 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: { language: moc
 const activity = { id: "current", userId: "owner", startTime: 100, type: "Run", summary: {} } as Activity;
 const previous = { ...activity, id: "previous", startTime: 50, description: "earlier" };
 beforeEach(() => {
+  mocks.cyclingHistory.mockReset();
   mocks.routeHistory.mockReset();
   mocks.annual.mockReset(); mocks.route.mockReset();
   mocks.periodAvailable = false; mocks.periods.mockReset().mockReturnValue({ state: "idle", response: null, retry: vi.fn() });
@@ -450,4 +452,17 @@ it("mounts manual BIKE13 inspection only for the owner bike without enabling his
   expect(screen.getByTestId("manual-distance-panel")).toBeInTheDocument();
   view.rerender(<ActivityGrowthPanel activity={{ ...activity, type: "Ride" }} metrics={null} isOwner={false} />);
   expect(screen.queryByTestId("manual-bike-distance-panel")).not.toBeInTheDocument();
+});
+
+it("adds cycling history only to owner BIKE statistics with the existing applied range",()=>{
+ mocks.periodAvailable=true;const bike={...activity,type:"Ride"};const view=render(<ActivityGrowthPanel activity={bike} metrics={null} isOwner/>);expect(mocks.cyclingHistory).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole("button",{name:"활동 통계"}));expect(mocks.cyclingHistory.mock.lastCall?.[0].activity).toEqual(bike);const selected=mocks.cyclingHistory.mock.lastCall?.[0].selection;expect(selected).toMatchObject({mode:"cycling_distance_history_page",discipline:"bike",rangeBasis:"explicit_range"});expect(selected.range.fromInclusive).toBeLessThan(selected.range.toExclusive);
+ view.rerender(<ActivityGrowthPanel activity={activity} metrics={null} isOwner/>);fireEvent.click(screen.getByRole("button",{name:"활동 통계"}));expect(screen.queryByTestId("cycling-history-panel")).not.toBeInTheDocument();
+ view.rerender(<ActivityGrowthPanel activity={bike} metrics={null} isOwner={false}/>);expect(screen.queryByTestId("cycling-history-panel")).not.toBeInTheDocument();
+});
+
+it("keeps the cycling annual history binding on the applied year while a new year is only drafted",()=>{
+ mocks.periodAvailable=true;render(<ActivityGrowthPanel activity={{...activity,type:"Ride"}} metrics={null} isOwner/>);fireEvent.click(screen.getByRole("button",{name:"활동 통계"}));fireEvent.click(screen.getByRole("button",{name:ko.observedYears.mode}));expect(screen.queryByTestId("cycling-history-panel")).not.toBeInTheDocument();
+ const select=screen.getByRole("combobox",{name:ko.observedYears.select}),year=Number((select as HTMLSelectElement).value);fireEvent.change(select,{target:{value:String(year-1)}});fireEvent.click(screen.getByRole("button",{name:ko.observedYears.apply}));
+ expect(mocks.cyclingHistory.mock.lastCall?.[0].selection).toEqual({mode:"cycling_distance_history_page",discipline:"bike",calendarBasis:"Asia/Seoul",rangeBasis:"calendar_year",year:year-1});fireEvent.change(select,{target:{value:String(year)}});expect(mocks.cyclingHistory.mock.lastCall?.[0].selection.year).toBe(year-1);
 });
