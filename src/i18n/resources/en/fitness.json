@@ -829,5 +829,22 @@
   "runRecords.best": "Current saved best",
   "runRecords.behind": "+{{duration}} behind saved best",
   "runRecords.viewActivity": "View activity",
-  "runRecords.source": "View source activity for {{distance}} rank {{rank}} · {{date}}"
+  "runRecords.source": "View source activity for {{distance}} rank {{rank}} · {{date}}",
+  "densePeriod.title": "Fixed-duration observed power",
+  "densePeriod.scope": "Measured power from the same queried candidates · Only the server’s up to 85 fixed durations are shown. This uses a different basis from the existing 11-point curve.",
+  "densePeriod.chart": "Observed fixed-duration power by period",
+  "densePeriod.n": "{{count}} observed activities",
+  "densePeriod.empty": "No confirmed fixed-duration observations are available.",
+  "densePeriod.unknown": "Availability of the new observations is unknown for this period.",
+  "densePeriod.partial": "Partial candidates · These observations are not confirmed period bests.",
+  "densePeriod.complete": "Candidate scan complete · Channels without observations are counted separately.",
+  "densePeriod.difference": "Observed maximum difference · Period 1 − period 2: {{watts}} W",
+  "densePeriod.details": "Observation scope and data states",
+  "densePeriod.coverage": "Period {{period}} · Candidates {{candidate}} · Available {{available}} · Missing {{missing}} · Pending {{pending}} · Incomplete {{incomplete}} · Malformed {{malformed}} · Unavailable {{unavailable}}",
+  "densePeriod.truncated": "1,000-activity scan limit · The full candidate count is unknown.",
+  "densePeriod.note": "Measured power uses sample-owned elapsed time. No interpolation or arbitrary-duration estimate is made. Differences compare observed samples and do not establish growth or lifetime bests.",
+  "densePeriod.hours": "{{count}} h",
+  "densePeriod.minutes": "{{count}} min",
+  "densePeriod.seconds": "{{count}} s",
+  "densePeriod.scrollHint": "Swipe sideways to view both periods."
 }

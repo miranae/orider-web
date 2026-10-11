@@ -1,3 +1,4 @@
+import type { PowerDurationPeriodObservations } from "./power-duration-periods";
 import type { PdcPowerSource } from "./pdc";
 
 export interface PowerCurvePeriod {
@@ -36,6 +37,8 @@ export interface PowerCurvePeriodCoverage {
   scanLimit: number;
 }
 export interface PowerCurvePeriodResult extends PowerCurvePeriod {
+  /** Optional fixed-grid observations from the same scanned candidates; old 11 points remain unchanged. */
+  powerDurationObservations?: PowerDurationPeriodObservations;
   status: "complete" | "partial";
   /** When partial, points are maxima of included records only, not period bests. */
   points: PeriodPowerPoint[];

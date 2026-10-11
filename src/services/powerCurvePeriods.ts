@@ -2,6 +2,9 @@ import { httpsCallable } from "firebase/functions";
 import type { PowerCurvePeriodsRequest, PowerCurvePeriodsResponse } from "@shared/types/power-curve-periods";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 const DURATIONS = new Set([1, 5, 10, 30, 60, 120, 300, 600, 1200, 1800, 3600]);
+export const POWER_DURATION_GRID = Object.freeze([...new Set([1, 5, 10, 30, 60, 120, 300, 600, 1200, 1800, 3600, 5400, 7200, 10800, 21600, 43200, 86400,
+  ...Array.from({ length: 79 }, (_, i) => Math.round(Math.exp(Math.log(86400) * i / 78))),
+])].sort((a, b) => a - b));
 const SOURCES = new Set(["strava_api", "direct_file", "orider_native", "apple_health", "health_connect"]);
 const integer = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 export function validPowerCurvePeriodsRequest(request: PowerCurvePeriodsRequest, now = Date.now()) {
@@ -43,6 +46,7 @@ export function validatePowerCurvePeriodsResponse(response: PowerCurvePeriodsRes
     const partial = coverage.truncated || coverage.pendingActivityCount > 0 || coverage.missingActivityCount > 0 || coverage.incompleteActivityCount > 0;
     if (period.status !== (partial ? "partial" : "complete") || period.points.length > 11
         || coverage.includedActivityCount === 0 && period.points.length > 0) invalid();
+    if (Object.prototype.hasOwnProperty.call(period, "powerDurationObservations")) validateDenseObservations(period.powerDurationObservations, period);
     let previous = 0;
     for (const point of period.points) {
       if (!point || !DURATIONS.has(point.durationSeconds) || point.durationSeconds <= previous
@@ -54,6 +58,39 @@ export function validatePowerCurvePeriodsResponse(response: PowerCurvePeriodsRes
     }
   });
   return response;
+}
+function validateDenseObservations(value: unknown, period: PowerCurvePeriodsResponse["periods"][number]) {
+  const invalid = () => { throw new Error("invalid_power_curve_periods_response"); };
+  const record = (input: unknown): Record<string, unknown> | null => input !== null && typeof input === "object" && !Array.isArray(input) ? input as Record<string, unknown> : null;
+  const data = record(value);
+  if (!data) return invalid();
+  const counts = record(data.counts), reasons = record(data.unavailableReasonCounts);
+  const countKeys = ["available", "missing", "pending", "incomplete", "malformed", "unavailable"];
+  const reasonKeys = ["incomplete_input", "virtual_power", "unknown_provenance", "unaligned_elapsed_axis", "missing_power", "input_limit"];
+  if (Object.keys(data).sort().join(",") !== ["algorithmVersion", "gridVersion", "timingBasis", "scope", "fromInclusive", "toExclusive", "partial", "scanTruncated", "inputCandidateCount", "counts", "unavailableReasonCounts", "points"].sort().join(",")
+    || data.algorithmVersion !== "power-duration-grid-v1" || data.gridVersion !== 1 || data.timingBasis !== "sample_owned_elapsed"
+    || data.scope !== "observed_power_candidates" || data.fromInclusive !== period.fromInclusive || data.toExclusive !== period.toExclusive
+    || typeof data.partial !== "boolean" || data.scanTruncated !== period.coverage.truncated
+    || !integer(data.inputCandidateCount) || data.inputCandidateCount !== period.coverage.candidateActivityCount
+    || !counts || !reasons || Object.keys(counts).length !== countKeys.length || Object.keys(reasons).length !== reasonKeys.length
+    || !countKeys.every(key => integer(counts[key])) || !reasonKeys.every(key => integer(reasons[key]))
+    || data.partial !== (data.scanTruncated || countKeys.slice(1).some(key => Number(counts[key]) > 0))
+    || countKeys.reduce((sum, key) => sum + Number(counts[key]), 0) !== data.inputCandidateCount
+    || reasonKeys.reduce((sum, key) => sum + Number(reasons[key]), 0) !== counts.unavailable
+    || !Array.isArray(data.points) || data.points.length > POWER_DURATION_GRID.length) return invalid();
+  let previous = 0;
+  for (const raw of Array.from(data.points)) {
+    const point = record(raw);
+    if (!point || Object.keys(point).sort().join(",") !== ["durationSeconds", "maxAveragePowerW", "sourceActivityId", "startTime", "parentRevision", "provenance", "observedActivityCount"].sort().join(",")
+      || !POWER_DURATION_GRID.includes(Number(point.durationSeconds)) || point.durationSeconds !== Number(point.durationSeconds)
+      || Number(point.durationSeconds) <= previous || typeof point.maxAveragePowerW !== "number" || !Number.isFinite(point.maxAveragePowerW) || point.maxAveragePowerW < 0
+      || !integer(point.observedActivityCount) || point.observedActivityCount < 1 || point.observedActivityCount > Number(counts.available)
+      || typeof point.sourceActivityId !== "string" || !point.sourceActivityId.trim() || point.sourceActivityId.length > 256 || point.sourceActivityId.includes("/")
+      || typeof point.parentRevision !== "string" || !point.parentRevision.trim() || point.parentRevision.length > 256
+      || typeof point.provenance !== "string" || !["strava_api", "direct_file", "orider_native"].includes(point.provenance)
+      || !integer(point.startTime) || point.startTime < period.fromInclusive || point.startTime >= period.toExclusive) return invalid();
+    previous = Number(point.durationSeconds);
+  }
 }
 export async function loadPowerCurvePeriods(services: FirebaseServices, uid: string, request: PowerCurvePeriodsRequest) {
   const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;

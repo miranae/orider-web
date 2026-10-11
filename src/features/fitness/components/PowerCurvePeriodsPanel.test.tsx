@@ -13,6 +13,7 @@ beforeEach(() => { mocks.owner = "owner"; mocks.hook.mockReset().mockReturnValue
 describe("PowerCurvePeriodsPanel", () => {
   it("preserves exact W, paired missing values, localized source navigation and partial/truncated diagnostics", () => {
     const view = render(<MemoryRouter initialEntries={["/en/fitness"]}><Routes><Route path="/:lang/fitness" element={<PowerCurvePeriodsView response={response()} />} /></Routes></MemoryRouter>);
+    expect(view.container.querySelector(".dense-period-power")).toBeNull();
     expect(screen.getAllByText("250.1")).toHaveLength(2);
     expect(screen.getAllByText("2026-01-01 – 2026-09-30").length).toBeGreaterThanOrEqual(4);
     const details = view.container.querySelector("details")!;

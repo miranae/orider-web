@@ -1,0 +1,21 @@
+.dense-period-power { container-type: inline-size; border-top: 1px solid var(--line-soft); padding-top: var(--space-4); display: grid; gap: var(--space-3); max-width: 28rem; }
+.dense-period-chart { width: 100%; display: block; height: auto; font-family: var(--font-ui); font-size: var(--fs-lg); }
+.dense-period-power select { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.dense-period-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.dense-period-duration { display: grid; gap: var(--space-2); margin-block: var(--space-3); }
+.dense-period-source { display: inline-flex; align-items: center; min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); color: var(--ink-2); text-decoration: underline; overflow-wrap: anywhere; }
+.dense-period-details summary { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); color: var(--ink-2); cursor: pointer; }
+.dense-period-dot { display: inline-block; width: var(--space-2); height: var(--space-2); border-radius: 50%; margin-right: var(--space-2); background: var(--accent-dark); }
+.dense-period-dot--second { background: var(--ink-2); }
+@media (max-width: 30rem) { .dense-period-values { grid-template-columns: minmax(0, 1fr); } }
+
+.dense-period-details { min-inline-size: 0; }
+.dense-period-table-scroll { min-inline-size: 0; max-inline-size: 100%; overflow-x: auto; }
+.dense-period-table { width: 100%; font-size: var(--fs-md); border-collapse: collapse; }
+.dense-period-table th, .dense-period-table td { min-width: calc(var(--space-8) * 3); padding: var(--space-2); border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: top; }
+.dense-period-table th:first-child { min-width: calc(var(--space-8) * 2); }
+
+@container (min-width: 24rem) { .dense-period-chart { font-size: var(--fs-xs); } }
+
+.dense-period-scroll-hint { display: none; }
+@container (max-width: 24rem) { .dense-period-scroll-hint { display: block; } }

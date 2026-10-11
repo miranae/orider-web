@@ -46,3 +46,46 @@ describe("powerCurvePeriods contract", () => {
     await expect(loadPowerCurvePeriods(services, "owner", request)).rejects.toThrow("account_changed");
   });
 });
+
+describe("optional dense power observations", () => {
+  const dense = () => ({ algorithmVersion: "power-duration-grid-v1" as const, gridVersion: 1 as const, timingBasis: "sample_owned_elapsed" as const, scope: "observed_power_candidates" as const,
+    fromInclusive: 1000, toExclusive: 10000, partial: false, scanTruncated: false, inputCandidateCount: 1,
+    counts: { available: 1, missing: 0, pending: 0, incomplete: 0, malformed: 0, unavailable: 0 },
+    unavailableReasonCounts: { incomplete_input: 0, virtual_power: 0, unknown_provenance: 0, unaligned_elapsed_axis: 0, missing_power: 0, input_limit: 0 },
+    points: [{ durationSeconds: 300, maxAveragePowerW: 0, sourceActivityId: "ride", startTime: 2000, parentRevision: "opaque-revision", provenance: "direct_file" as const, observedActivityCount: 1 }] });
+  it("accepts optional absence unchanged and zero measured watts without changing old points", () => {
+    const old = response(), data = response(); data.periods[0]!.powerDurationObservations = dense();
+    expect(validatePowerCurvePeriodsResponse(old, request)).toBe(old);
+    expect(validatePowerCurvePeriodsResponse(data, request)).toBe(data);
+    expect(data.periods[0]!.points).toEqual(old.periods[0]!.points);
+  });
+  it("keeps dense partial independent of old11 status", () => {
+    const data = response(), value = dense();
+    value.counts.available = 0; value.counts.missing = 1; value.points = []; value.partial = true;
+    data.periods[0]!.powerDurationObservations = value;
+    expect(validatePowerCurvePeriodsResponse(data, request)).toBe(data);
+    expect(data.periods[0]!.status).toBe("complete");
+  });
+  it.each(["null", "version", "basis", "scope", "bounds", "counts", "n", "nan", "negative", "duration", "duplicate", "hole", "source", "revision", "date", "partial", "truncated", "unknown"])("fails closed for malformed optional %s", field => {
+    const data = response(), value: any = dense(); data.periods[0]!.powerDurationObservations = value;
+    if (field === "null") data.periods[0]!.powerDurationObservations = null as any;
+    if (field === "version") value.gridVersion = 2;
+    if (field === "basis") value.timingBasis = "moving";
+    if (field === "scope") value.scope = "all";
+    if (field === "bounds") value.toExclusive++;
+    if (field === "counts") value.counts.available = 2;
+    if (field === "n") value.points[0].observedActivityCount = 2;
+    if (field === "nan") value.points[0].maxAveragePowerW = NaN;
+    if (field === "negative") value.points[0].maxAveragePowerW = -1;
+    if (field === "duration") value.points[0].durationSeconds = 12345;
+    if (field === "duplicate") value.points.push(value.points[0]);
+    if (field === "hole") delete value.points[0];
+    if (field === "source") value.points[0].provenance = "virtual";
+    if (field === "revision") value.points[0].parentRevision = "";
+    if (field === "date") value.points[0].startTime = 10000;
+    if (field === "partial") value.partial = true;
+    if (field === "truncated") value.scanTruncated = true;
+    if (field === "unknown") value.growth = 12;
+    expect(() => validatePowerCurvePeriodsResponse(data, request)).toThrow("invalid_power_curve_periods_response");
+  });
+});
