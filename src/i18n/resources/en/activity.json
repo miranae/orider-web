@@ -1733,5 +1733,42 @@
     },
     "visibleSources": "Showing {{visible}} of {{total}} current representatives",
     "moreSources": "Show 50 more activities"
+  },
+  "observedRoute": {
+    "title": "Compare observed routes",
+    "actionNote": "Press the button to load GPS for these two activities. Missing or partially collected routes can limit the comparison.",
+    "compare": "Compare these two routes",
+    "limits": "This compares GPS samples fetched by your request. It does not verify a course or road; parallel roads, detours and different loop starting points may not be distinguished.",
+    "current": "Current activity",
+    "previous": "Comparison activity",
+    "mean": "Mean path separation",
+    "p95": "95th percentile separation",
+    "lengthRatio": "Observed length ratio {{percent}}%",
+    "partial": "GPS gaps or partial/unknown collection coverage are present. Observed portions cannot represent the full route.",
+    "details": "Coverage and endpoint separation",
+    "endpoints": "Start {{start}} · End {{end}}",
+    "coverage": "Observed length {{length}} · {{count}} GPS points · {{gaps}} gaps / {{seconds}} s omitted",
+    "states": {
+      "loading": "Loading and comparing GPS for the selected activities.",
+      "pending": "GPS for at least one activity is pending. Other comparison metrics remain available.",
+      "changed_input": "An activity route has changed. Refresh and select the activities again.",
+      "unavailable": "GPS for at least one activity is missing or cannot be compared. Other metrics remain available.",
+      "error": "The routes could not be compared. No automatic request will be made."
+    },
+    "guidance": {
+      "observed_shapes_close": "The observed route shapes appear close.",
+      "observed_shapes_differ": "The observed route shapes differ.",
+      "insufficient": "There is not enough observed distance to compare."
+    },
+    "direction": {
+      "forward": "Forward order is closer",
+      "reverse": "Reverse order is closer",
+      "undetermined": "Direction cannot be distinguished"
+    },
+    "collection": {
+      "complete": "Declared source coverage met",
+      "partial": "Partial collection coverage",
+      "unknown": "Collection coverage unknown"
+    }
   }
 }

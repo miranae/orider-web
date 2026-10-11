@@ -8,6 +8,7 @@ import { useActivityGrowthHistory } from "../../../hooks/useActivityGrowthHistor
 import { useActivityMetrics, type UseActivityMetricsState } from "../../../hooks/useActivityMetrics";
 import { useTrainingAnalysisPeriods } from "../../../hooks/useTrainingAnalysisPeriods";
 import { trainingAnalysisPeriodsAvailable } from "../../../services/trainingAnalysisPeriods";
+import { ObservedRouteComparisonPanel } from "./ObservedRouteComparisonPanel";
 import SimilarRouteHistoryPanel from "./SimilarRouteHistoryPanel";
 import RunSplitComparisonPanel from "./RunSplitComparisonPanel";
 import RunPeriodComparisonPanel from "./RunPeriodComparisonPanel";
@@ -61,18 +62,18 @@ function Comparison({ activity, metrics, currentMetricsStatus }: Omit<ActivityGr
   const powerLabel = (source: MetricsLike | null) => !source || !settledMetrics(source) || ![source.avgPower, source.np, ...Object.values(source.mmp ?? {})].some((value) => typeof value === "number" && Number.isFinite(value) && value > 0) ? t("growth.visual.powerMissing") : source?.isVirtualPower === true ? t("growth.virtualPower")
     : source?.isVirtualPower === false ? t("growth.measuredPower") : t("growth.powerUnknown");
   return <div className="space-y-4">
-    <Text as="p" variant="bodySmall" tone="secondary">{t("growth.conditions")}</Text>
+    <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.conditions")}</Text>
     <Stack direction="row" wrap gap="var(--space-2)">
       <Button size="sm" variant={!routeOnly ? "secondary" : "ghost"} aria-pressed={!routeOnly} onClick={() => setRouteOnly(false)}>{t("growth.route.all")}</Button>
       <Button size="sm" variant={routeOnly ? "secondary" : "ghost"} aria-pressed={routeOnly} onClick={() => setRouteOnly(true)}>{t("growth.route.similar", { count: routes.candidates.length })}</Button>
     </Stack>
-    {routeOnly && !routes.available && <Text as="p" variant="bodySmall" tone="secondary">{t("growth.route.note", { count: routes.checked })}</Text>}
-    {routeOnly && (!routes.available || !routes.candidates.length) && <Text as="p" variant="bodySmall" tone="secondary">{t(routes.available ? routes.candidates.length ? "growth.route.choose" : "growth.route.empty" : "growth.route.unavailable")}</Text>}
+    {routeOnly && !routes.available && <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.route.note", { count: routes.checked })}</Text>}
+    {routeOnly && (!routes.available || !routes.candidates.length) && <Text as="p" variant="bodyMedium" tone="secondary">{t(routes.available ? routes.candidates.length ? "growth.route.choose" : "growth.route.empty" : "growth.route.unavailable")}</Text>}
     {routeOnly && routes.available && <SimilarRouteHistoryPanel current={activity} candidates={routes.candidates}
       checkedCount={routes.checked} loadedCount={candidates.length} hasMore={history.hasMore}
       selectedId={selectedId} units={units} onCompare={setSelectedId} />}
     <label className="block space-y-2 activity-growth-selection">
-      <Text variant="label">{t("growth.choose")}</Text>
+      <Text variant="bodyMedium">{t("growth.choose")}</Text>
       <Select className="w-full min-w-0" value={selected?.id ?? ""} onChange={(event) => setSelectedId(event.target.value)}>
         <option value="">{t("growth.none")}</option>
         {(selected && !choices.some((candidate) => candidate.id === selected.id) ? [selected, ...choices] : choices).map((candidate) => <option key={candidate.id} value={candidate.id}>{date(candidate.startTime)} · {candidate.description || candidate.type}{routeOnly && !routes.candidates.some((match) => match.id === candidate.id) ? ` · ${t("growth.route.retained")}` : ""}</option>)}
@@ -83,25 +84,26 @@ function Comparison({ activity, metrics, currentMetricsStatus }: Omit<ActivityGr
     {!history.loading && !history.error && candidates.length === 0 && <Text as="p">{t("growth.noPrevious")}</Text>}
     {history.hasMore && <Button size="sm" variant="outline" loading={history.loadingMore} onClick={history.loadMore}>{t("growth.loadMore")}</Button>}
     {selected && <>
-      <Text as="p" variant="bodySmall" tone="secondary">{t("growth.route.context", { current: number(activity.summary?.pauseTimeSec ?? null, 0), previous: number(selected.summary?.pauseTimeSec ?? null, 0) })}</Text>
+      <ObservedRouteComparisonPanel current={activity} previous={selected} />
+      <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.route.context", { current: number(activity.summary?.pauseTimeSec ?? null, 0), previous: number(selected.summary?.pauseTimeSec ?? null, 0) })}</Text>
       <Button size="sm" variant="ghost" onClick={() => setSelectedId("")}>{t("growth.clear")}</Button>
       {baseline.status === "loading" && <Text as="p">{t("growth.loading")}</Text>}
       {baseline.status === "stale" && <Text as="p" tone="warning">{t("growth.stale")}</Text>}
       {!baseline.metrics && baseline.status !== "loading" && <Text as="p">{t("growth.metricsMissing")}</Text>}
       <div className="activity-growth-table-shell">
         <table className="activity-growth-table">
-          <thead><tr><th scope="col"><Text variant="bodySmall" weight={600} tone="secondary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="bodySmall" weight={600} tone="secondary">{t("growth.current")}</Text></th><th scope="col"><Text variant="bodySmall" weight={600} tone="secondary">{date(selected.startTime)}</Text></th></tr></thead>
+          <thead><tr><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{t("growth.current")}</Text></th><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{date(selected.startTime)}</Text></th></tr></thead>
           <tbody>{comparisonRows(metrics, baseline.metrics, running).map((row) => <tr key={row.key}>
-            <th scope="row"><Text variant="bodySmall" tone="secondary">{t(`growth.metrics.${row.key === "avgSpeedKph" && running ? "pace" : row.key}`)} · {unit(row.key)}</Text></th>
-            <td><Text variant="bodyMedium" mono tone="primary">{format(row.value, row.key)}</Text>{row.delta != null && <Text as="p" variant="caption" tone="tertiary">{t("growth.change")} <span className="whitespace-nowrap">{signedNumber(convert(row.delta, row.key), 1)} {row.key === "avgSpeedKph" && running ? units === "imperial" ? "s/mi" : "s/km" : unit(row.key)}</span></Text>}</td>
+            <th scope="row"><Text variant="bodyMedium" tone="secondary">{t(`growth.metrics.${row.key === "avgSpeedKph" && running ? "pace" : row.key}`)} · {unit(row.key)}</Text></th>
+            <td><Text variant="bodyMedium" mono tone="primary">{format(row.value, row.key)}</Text>{row.delta != null && <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.change")} <span className="whitespace-nowrap">{signedNumber(convert(row.delta, row.key), 1)} {row.key === "avgSpeedKph" && running ? units === "imperial" ? "s/mi" : "s/km" : unit(row.key)}</span></Text>}</td>
             <td><Text variant="bodyMedium" mono tone="secondary">{format(row.baseline, row.key)}</Text></td>
           </tr>)}</tbody>
         </table>
       </div>
-      <Text as="p" variant="caption" tone="tertiary">{t("growth.current")}: {powerLabel(metrics)} · {t("growth.previous")}: {powerLabel(baseline.metrics)}</Text>
+      <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.current")}: {powerLabel(metrics)} · {t("growth.previous")}: {powerLabel(baseline.metrics)}</Text>
       {metrics && baseline.metrics && settledMetrics(metrics) && settledMetrics(baseline.metrics) && <>
         {running && currentMetricsStatus === "ready" && baseline.status === "ready" && <>
-          <Stack direction="row" wrap gap="var(--space-3)">{[activity, selected].map((source, index) => <a key={source.id} className="activity-growth-source-link" href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(source.id)}`}><Text variant="bodySmall">{t(index ? "splitCompare.previous" : "splitCompare.current")} · {date(source.startTime)}</Text></a>)}</Stack>
+          <Stack direction="row" wrap gap="var(--space-3)">{[activity, selected].map((source, index) => <a key={source.id} className="activity-growth-source-link" href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(source.id)}`}><Text variant="bodyMedium">{t(index ? "splitCompare.previous" : "splitCompare.current")} · {date(source.startTime)}</Text></a>)}</Stack>
           <RunSplitComparisonPanel current={metrics} previous={baseline.metrics} units={units} />
         </>}
         <ActivityComparisonVisuals key={selected.id} current={metrics} previous={baseline.metrics} running={running} units={units} />
