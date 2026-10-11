@@ -1017,7 +1017,8 @@
       "lapPace": "랩별 페이스",
       "lapHr": "랩별 심박",
       "recapDistance": "기록된 거리는 {{distance}}예요.",
-      "recapHr": "기록된 평균 심박은 {{bpm}} bpm이에요."
+      "recapHr": "기록된 평균 심박은 {{bpm}} bpm이에요.",
+      "periodScrollHint": "좌우로 넘겨 두 기간과 단축 시간을 비교하세요."
     }
   },
   "metabolism": {
@@ -1652,5 +1653,29 @@
       "pauseTime": "정지시간"
     },
     "recordOrder": "날짜순 기록 · 시간 간격은 반영하지 않음"
+  },
+  "powerWindows": {
+    "title": "선택 범위의 지속시간별 파워",
+    "scope": "선택 범위 {{start}}–{{end}}의 관측 파워만 사용합니다. 전체 활동이나 기간 최고 기록을 뜻하지 않습니다.",
+    "basis": "{{source}}의 측정 파워를 기록의 경과시간으로 가중합니다. 0W를 포함하며 결측·끊긴 구간과 정지 시간을 이어 붙이거나 압축하지 않습니다.",
+    "limit": "연속 측정된 최장 구간: {{duration}}. 이보다 긴 지속시간은 계산할 수 없습니다.",
+    "duration": "지속시간 직접 입력 (초)",
+    "calculated": "계산한 지속시간",
+    "exact": "표시한 지속시간은 각각 정확한 시간가중 최고 평균입니다. 점 사이 값을 기록으로 보간하지 않습니다.",
+    "invalid": "연속 측정 범위 안의 양수 지속시간을 입력하세요.",
+    "loading": "선택한 지속시간을 계산하고 있습니다.",
+    "failed": "이 입력의 파워 창을 계산할 수 없습니다.",
+    "source": {
+      "strava_api": "Strava",
+      "direct_file": "가져온 파일",
+      "orider_native": "오라이더 기록"
+    },
+    "reason": {
+      "virtual_power": "가상 파워에서는 측정 파워 창을 제공하지 않습니다.",
+      "unknown_provenance": "측정 파워 출처를 확인할 수 없습니다.",
+      "unaligned_elapsed_axis": "기록의 경과시간 축을 확인할 수 없습니다.",
+      "missing_power": "이 범위에 측정 파워 구간이 없습니다.",
+      "input_limit": "안전한 입력 한도를 넘어 이 범위의 계산을 제공하지 않습니다."
+    }
   }
 }

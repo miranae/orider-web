@@ -7,6 +7,7 @@ import { useActivityRangeAnalysis } from "../../../hooks/useActivityRangeAnalysi
 import type { ActivityRangeSelectionModel } from "../../../hooks/useActivityRangeSelection";
 import { validElapsedRange, formatElapsedBoundary, parseElapsedBoundary } from "./activityRangeSelection";
 import "./activity-range-analysis.css";
+import PowerDurationWindowsPanel from "./PowerDurationWindowsPanel";
 
 interface Props { activityId: string; selection: ActivityRangeSelectionModel; sport: string; callableEnabled?: boolean; previewActive?: boolean }
 
@@ -74,7 +75,7 @@ export default function ActivityRangeAnalysisPanel({ activityId, selection, spor
     binding.current.requestRevision = binding.current.revision;
   }
   const analysis = useActivityRangeAnalysis({ activityId, ownerUid: selection.ownerUid, selection: locked ? null : selection.selection,
-    inputIdentity: selection.identity, expectedInputRevision: binding.current.requestRevision, callableEnabled });
+    inputIdentity: selection.identity, expectedInputRevision: binding.current.requestRevision, callableEnabled, includePowerWindowInput: sport === "bike" || sport === "ride" });
   if (analysis.response?.state === "changed_input") {
     binding.current.revision = undefined;
     binding.current.requestRevision = undefined;
@@ -127,6 +128,7 @@ export function ActivityRangeAnalysisReading({ selection, sport, analysis, previ
           <RangeZones values={metrics.powerZoneSec} count={7} title={t("rangeAnalysis.powerZones")} />
           {metrics.powerZoneSec && metrics.context.ftp != null && <Text as="p" variant="caption" tone="tertiary">{t("rangeAnalysis.recordedFtp", { ftp: metrics.context.ftp })}</Text>}
         </div>}
+        {(sport === "bike" || sport === "ride") && analysis.response?.powerWindowInput && <PowerDurationWindowsPanel input={analysis.response.powerWindowInput} identity={`${selection.identity}:${selection.ownerUid}:${selection.selection.requestId}`} />}
         <details className="activity-range-details"><summary>{t("rangeAnalysis.coverage")}</summary>
           <div className="space-y-2"><Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.pause", { time: duration(metrics.pauseSec), heartRate: metrics.maxHr == null ? "—" : `${format(metrics.maxHr)} bpm` })}</Text>
             {metrics.speedBasis && <Text as="p" variant="bodySmall" tone="secondary">{t(metrics.speedBasis === "moving_time" ? "rangeAnalysis.movingSpeedBasis" : "rangeAnalysis.measuredSpeedBasis")}</Text>}

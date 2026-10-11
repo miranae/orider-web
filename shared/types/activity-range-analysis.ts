@@ -6,6 +6,8 @@ export interface ActivityRangeAnalysisRequest {
   startOffsetSec: number;
   endOffsetSec: number;
   expectedInputRevision?: string;
+  /** 기존 요청의 측정 파워 구간만 선택적으로 포함한다. */
+  includePowerWindowInput?: boolean;
 }
 export interface ActivityRangeAnalysisResponse {
   state: "available" | "pending" | "unavailable" | "changed_input";
@@ -18,6 +20,7 @@ export interface ActivityRangeAnalysisResponse {
   inputCoverage: "complete" | "partial" | "unknown";
   reason: string | null;
   metrics: ActivityRangeMetrics | null;
+  powerWindowInput?: ActivityPowerWindowInput;
 }
 export interface ActivityRangeChannelCoverage {
   measuredSec: number;
@@ -47,3 +50,25 @@ export interface ActivityRangeMetrics {
   isVirtualPower: boolean;
   context: { mode: "recorded" | "unavailable"; ftp: number | null; maxHr: number | null; lthr?: number | null; hrZoneBoundaries?: HrZoneBoundaries | null };
 }
+
+/** 동적 시간 창 계산용. 정지 시간을 압축하지 않은 관측 구간이며 결측 구간을 넘지 않는다. */
+export type ActivityPowerWindowInput = {
+  inputRevision: string;
+  algorithmVersion: "sample-time-weighted-v1";
+  scope: "selected_range";
+  rangeStartElapsedSec: number;
+  rangeEndElapsedSec: number;
+  timingBasis: "elapsed";
+} & ({
+  state: "available";
+  reason: null;
+  provenance: "strava_api" | "direct_file" | "orider_native";
+  startsSec: number[];
+  durationsSec: number[];
+  watts: number[];
+  segmentStarts: boolean[];
+  longestContinuousSeconds: number;
+} | {
+  state: "unavailable";
+  reason: "virtual_power" | "unknown_provenance" | "unaligned_elapsed_axis" | "missing_power" | "input_limit";
+});

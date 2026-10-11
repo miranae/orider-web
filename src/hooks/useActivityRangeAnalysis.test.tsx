@@ -28,6 +28,14 @@ describe("owner lazy range analysis", () => {
     await waitFor(() => expect(result.current.state).toBe("available"));
     expect(mocks.load).toHaveBeenCalledWith(mocks.services, "owner", { activityId: "a", startOffsetSec: 10, endOffsetSec: 20, expectedInputRevision: revision });
   });
+  it("requests optional power input in the same single selected-range call and ignores client duration changes", async () => {
+    const { result, rerender } = renderHook(props => useActivityRangeAnalysis(props), { initialProps: { ...options, includePowerWindowInput: true } });
+    await waitFor(() => expect(result.current.state).toBe("available"));
+    expect(mocks.load).toHaveBeenCalledOnce();
+    expect(mocks.load).toHaveBeenCalledWith(mocks.services, "owner", { activityId: "a", startOffsetSec: 10, endOffsetSec: 20, expectedInputRevision: revision, includePowerWindowInput: true });
+    rerender({ ...options, includePowerWindowInput: true });
+    expect(mocks.load).toHaveBeenCalledOnce();
+  });
   it.each(["pending", "unavailable", "changed_input"] as const)("exposes %s and clears the old metrics when the new selection is unresolved", async state => {
     const { result, rerender } = renderHook(props => useActivityRangeAnalysis(props), { initialProps: options });
     await waitFor(() => expect(result.current.metrics?.averagePowerW).toBe(200));

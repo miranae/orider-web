@@ -95,3 +95,39 @@ describe("activity range callable boundary", () => {
     await expect(loadActivityRangeAnalysis(services, "owner", request)).rejects.toMatchObject({ code: "functions/not-found" });
   });
 });
+
+function powerInput(): NonNullable<ActivityRangeAnalysisResponse["powerWindowInput"]> {
+  return { state: "available", reason: null, inputRevision: revision, algorithmVersion: "sample-time-weighted-v1", scope: "selected_range", timingBasis: "elapsed", rangeStartElapsedSec: 10, rangeEndElapsedSec: 20, provenance: "orider_native", startsSec: [10, 15], durationsSec: [5, 5], watts: [0, 200], segmentStarts: [true, false], longestContinuousSeconds: 10 };
+}
+function powerResponse() { const value = response(); value.metrics!.powerSource = "measured"; value.powerWindowInput = powerInput(); return value; }
+describe("optional selected-range normalized power input", () => {
+  it("accepts legacy absence, measured0W and unavailable contracts while preserving one callable", async () => {
+    expect(validateRangeResponse(response(), request)).toEqual(response());
+    expect(() => validateRangeResponse(powerResponse(), request)).toThrow("invalid_range_response");
+    expect(validateRangeResponse(powerResponse(), { ...request, includePowerWindowInput: true }).powerWindowInput).toEqual(powerInput());
+    const value = response(); value.powerWindowInput = { inputRevision: revision, algorithmVersion: "sample-time-weighted-v1", scope: "selected_range", timingBasis: "elapsed", rangeStartElapsedSec: 10, rangeEndElapsedSec: 20, state: "unavailable", reason: "unknown_provenance" };
+    expect(validateRangeResponse(value, { ...request, includePowerWindowInput: true }).powerWindowInput).toEqual(value.powerWindowInput);
+    mocks.call.mockResolvedValueOnce({ data: powerResponse() });
+    const services = { auth: { currentUser: { uid: "owner" } }, ensureAppCheckReady: vi.fn(), functions: {} } as unknown as FirebaseServices;
+    await loadActivityRangeAnalysis(services, "owner", { ...request, includePowerWindowInput: true });
+    expect(mocks.call).toHaveBeenCalledOnce(); expect(mocks.call).toHaveBeenCalledWith({ ...request, includePowerWindowInput: true });
+  });
+  it.each(["revision", "selection", "provenance", "virtual", "axis", "arrays", "gap", "overlap", "longest", "negative", "cap", "reason"])("rejects malformed %s before rendering or Worker dispatch", kind => {
+    const value = powerResponse(); const input = value.powerWindowInput!;
+    if (kind === "revision") input.inputRevision = "b".repeat(64);
+    if (kind === "selection") input.rangeStartElapsedSec = 0;
+    if (input.state === "available") {
+      if (kind === "provenance") Object.assign(input, { provenance: "health" });
+      if (kind === "virtual") { value.metrics!.powerSource = "virtual"; value.metrics!.isVirtualPower = true; }
+      if (kind === "axis") input.startsSec[0] = Number.NaN;
+      if (kind === "arrays") Object.assign(input, { watts: {} });
+      if (kind === "gap") input.startsSec[1] = 16;
+      if (kind === "overlap") input.startsSec[1] = 14;
+      if (kind === "longest") input.longestContinuousSeconds = 20;
+      if (kind === "negative") input.watts[0] = -1;
+      if (kind === "cap") input.watts = Array(100001).fill(200);
+      if (kind === "reason") Object.assign(input, { reason: "unknown" });
+    }
+    expect(() => validateRangeResponse(value, { ...request, includePowerWindowInput: true })).toThrow("invalid_range_response");
+  });
+});

@@ -1,3 +1,4 @@
+import { validPowerWindowInput } from "../utils/powerDurationWindows";
 import { httpsCallable } from "firebase/functions";
 import type { ActivityRangeAnalysisRequest, ActivityRangeAnalysisResponse } from "@shared/types/activity-range-analysis";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -6,6 +7,7 @@ export function validRangeRequest(request: ActivityRangeAnalysisRequest): boolea
   return typeof request.activityId === "string" && /^[A-Za-z0-9_-]{1,160}$/.test(request.activityId)
     && Number.isFinite(request.startOffsetSec) && request.startOffsetSec >= 0
     && Number.isFinite(request.endOffsetSec) && request.endOffsetSec > request.startOffsetSec && request.endOffsetSec <= 604800
+    && (request.includePowerWindowInput === undefined || typeof request.includePowerWindowInput === "boolean")
     && (request.expectedInputRevision === undefined || /^[a-f0-9]{64}$/.test(request.expectedInputRevision));
 }
 
@@ -16,6 +18,10 @@ export function validateRangeResponse(response: ActivityRangeAnalysisResponse, r
     || !["available", "pending", "unavailable", "changed_input"].includes(response.state)
     || (!Number.isFinite(response.computedAt) || response.computedAt < 0)
     || (response.inputRevision !== null && !/^[a-f0-9]{64}$/.test(response.inputRevision))) throw new Error("invalid_range_response");
+  const powerInput = response.powerWindowInput;
+  if (powerInput !== undefined && (request.includePowerWindowInput !== true || !validPowerWindowInput(powerInput) || powerInput.inputRevision !== response.inputRevision
+    || powerInput.rangeStartElapsedSec !== request.startOffsetSec || powerInput.rangeEndElapsedSec !== request.endOffsetSec
+    || powerInput.state === "available" && (response.state !== "available" || response.metrics?.powerSource !== "measured" || response.metrics.isVirtualPower))) throw new Error("invalid_range_response");
   if (response.state !== "available") return { ...response, metrics: null };
   if (!response.inputRevision || request.expectedInputRevision && response.inputRevision !== request.expectedInputRevision) {
     throw new Error("input_changed");
