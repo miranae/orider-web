@@ -2,6 +2,7 @@ import type { Activity } from "@shared/types";
 import { getDiscipline } from "../../../utils/disciplineFilter";
 import { seoulWeekStartMs } from "../../../utils/seoulWeek";
 import { powerCurvePoints, speedCurvePoints, type MetricsLike } from "./metricsPresentation";
+import { runningPaceCurve, type RunningPaceCurvePresentation } from "./runningPaceCurve";
 
 const DAY = 86400000;
 const KST = 9 * 3600000;
@@ -39,6 +40,23 @@ export function comparableCurves(current: MetricsLike, previous: MetricsLike, po
     return match && knownNumber(point.value) != null && knownNumber(match.value) != null && (power || (point.value > 0 && match.value > 0))
       ? [{ ...point, baseline: match.value, delta: point.value - match.value }] : [];
   });
+}
+/** 정본 경과 축과 이전 속도 환산 축을 섞지 않고 양쪽 관측 기간만 비교한다. */
+export function comparableRunningPaceCurves(current: MetricsLike, previous: MetricsLike): {
+  points: Array<{ duration: number; value: number; baseline: number; delta: number }>;
+  sourceBasis: RunningPaceCurvePresentation["sourceBasis"];
+  reason: "unavailable" | "basis_mismatch" | "no_common_duration" | null;
+} {
+  const unavailable = { points: [], sourceBasis: null, reason: "unavailable" } as const;
+  if (!settledMetrics(current) || !settledMetrics(previous)) return { ...unavailable, points: [] };
+  const left = runningPaceCurve(current), right = runningPaceCurve(previous);
+  if (!left.points.length || !right.points.length) return { ...unavailable, points: [] };
+  if (left.sourceBasis !== right.sourceBasis) return { points: [], sourceBasis: null, reason: "basis_mismatch" };
+  const points = left.points.flatMap(point => {
+    const match = right.points.find(candidate => candidate.durationSeconds === point.durationSeconds);
+    return match ? [{ duration: point.durationSeconds, value: point.paceSecPerKm, baseline: match.paceSecPerKm, delta: point.paceSecPerKm - match.paceSecPerKm }] : [];
+  });
+  return { points, sourceBasis: left.sourceBasis, reason: points.length ? null : "no_common_duration" };
 }
 export type StatisticsPeriod = "week" | "month" | "3months" | "6months" | "12months";
 export function activityPeriods(now: number, period: StatisticsPeriod) {

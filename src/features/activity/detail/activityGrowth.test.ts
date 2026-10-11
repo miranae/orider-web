@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Activity } from "@shared/types";
-import { activityPeriods, comparableCurves, comparisonRows, customActivityPeriods, sameActivitySport, summarizePeriod } from "./activityGrowth";
+import { activityPeriods, comparableCurves, comparableRunningPaceCurves, comparisonRows, customActivityPeriods, sameActivitySport, summarizePeriod } from "./activityGrowth";
 const activity = (startTime: number, distance: number | null = 1000) => ({ id: String(startTime), type: "Run", startTime, summary: { distance, movingTimeSec: 300, elevationGain: 0 } }) as unknown as Activity;
 describe("activity growth presentation", () => {
   it("compares aliases but keeps different sports separate", () => {
@@ -75,5 +75,27 @@ describe("activity growth presentation", () => {
     expect(result.fields.movingTime).toEqual({ total: null, observed: 300, knownCount: 1, missingCount: 1 });
     expect(summarizePeriod([missing], 0, 200, true).fields.movingTime.observed).toBeNull();
     expect(summarizePeriod([activity(100), missing], 0, 200, false).fields.distance).toEqual({ total: null, observed: null, knownCount: null, missingCount: null });
+  });
+});
+
+
+describe("canonical running curve comparison", () => {
+  const canonical = (paceCurve: unknown) => ({ runMetrics: { gapAvgSec: null, paceCurve }, speedCurve: { "5m": 36 } }) as unknown as Parameters<typeof comparableRunningPaceCurves>[0];
+  it("intersects valid durations directly in sec/km, permitting slow and single-point curves", () => {
+    expect(comparableRunningPaceCurves(canonical([{ durationSec: 180, paceSecPerKm: 750 }, { durationSec: 7200, paceSecPerKm: 800 }]), canonical([{ durationSec: 7200, paceSecPerKm: 850 }]))).toEqual({ sourceBasis: "run_metrics_pace_curve", reason: null, points: [{ duration: 7200, value: 800, baseline: 850, delta: -50 }] });
+  });
+  it.each([null, [], [{ durationSec: 300, paceSecPerKm: NaN }], [{ durationSec: 300, paceSecPerKm: 750 }, { durationSec: 47, paceSecPerKm: 800 }]])("does not compare or fallback from explicitly invalid canonical %j", invalid => {
+    expect(comparableRunningPaceCurves(canonical(invalid), canonical([{ durationSec: 300, paceSecPerKm: 750 }]))).toMatchObject({ reason: "unavailable", points: [] });
+  });
+  it("blocks comparison across canonical and legacy recording bases", () => {
+    expect(comparableRunningPaceCurves(canonical([{ durationSec: 300, paceSecPerKm: 750 }]), { speedCurve: { "5m": 12 } })).toMatchObject({ reason: "basis_mismatch", points: [] });
+  });
+  it("retains legacy source provenance when both canonical fields are absent", () => {
+    expect(comparableRunningPaceCurves({ speedCurve: { "5m": 12 } }, { speedCurve: { "5m": 10 } })).toEqual({ reason: null, sourceBasis: "speed_curve_kmh_converted", points: [{ duration: 300, value: 300, baseline: 360, delta: -60 }] });
+  });
+  it("withholds pending records and distinguishes disjoint observed durations", () => {
+    const metrics = canonical([{ durationSec: 300, paceSecPerKm: 750 }]);
+    expect(comparableRunningPaceCurves({ ...metrics, inputPending: true }, metrics)).toMatchObject({ reason: "unavailable", points: [] });
+    expect(comparableRunningPaceCurves(metrics, canonical([{ durationSec: 180, paceSecPerKm: 750 }]))).toMatchObject({ reason: "no_common_duration", sourceBasis: "run_metrics_pace_curve", points: [] });
   });
 });

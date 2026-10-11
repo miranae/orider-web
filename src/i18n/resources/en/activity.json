@@ -1466,6 +1466,11 @@
     "trendNote": "Weeks start on Monday. The final bar is this week so far.",
     "paceCurve": "Best pace by duration",
     "visual": {
+      "canonicalPaceBasis": "Compares confirmed best pace on both activities’ recorded elapsed-time axes. This is not GAP or a comparison of the same route or segment.",
+      "legacyPaceBasis": "Compares both legacy best-average-speed curves converted to pace, separately from canonical pace curves.",
+      "paceBasisMismatch": "The pace curves use different recording bases and cannot be compared. Canonical elapsed-time curves are not mixed with legacy speed-converted curves.",
+      "paceNoCommonDuration": "The activities have no commonly observed duration for pace-curve comparison.",
+      "paceUnavailable": "Confirmed pace curves for comparison were not provided for both activities. Missing values are not inferred or filled from older curves.",
       "duration": "Duration to compare",
       "curveNote": "Best sustained average for each duration in each activity. These are not aligned route segments or a fitness improvement assessment.",
       "zoneNote": "Each distribution uses that activity’s zone settings. Settings may differ or be unknown, so zone deltas are withheld. — means unavailable.",
