@@ -1733,5 +1733,42 @@
     },
     "visibleSources": "현재 대표 활동 {{total}}개 중 {{visible}}개 표시",
     "moreSources": "활동 목록 50개 더 보기"
+  },
+  "observedRoute": {
+    "title": "두 활동의 관측 경로 비교",
+    "actionNote": "버튼을 누르면 선택한 두 활동의 GPS를 불러옵니다. 경로가 없거나 일부만 수집된 활동은 비교가 제한될 수 있습니다.",
+    "compare": "선택한 두 경로 비교",
+    "limits": "조회한 GPS 표본의 모양을 비교한 안내입니다. 같은 코스나 도로를 확인하지 않으며, 평행 도로·우회·순환 경로의 다른 출발점은 구별하지 못할 수 있습니다.",
+    "current": "현재 활동",
+    "previous": "비교 활동",
+    "mean": "평균 경로 간격",
+    "p95": "95% 표본의 경로 간격",
+    "lengthRatio": "관측 거리 비율 {{percent}}%",
+    "partial": "GPS 공백이 있거나 수집 범위가 일부·불명입니다. 표시된 관측 부분을 전체 경로로 해석할 수 없습니다.",
+    "details": "관측 범위와 출발·도착 간격",
+    "endpoints": "출발 {{start}} · 도착 {{end}}",
+    "coverage": "관측 거리 {{length}} · GPS {{count}}개 · 공백 {{gaps}}개 / 제외 시간 {{seconds}}초",
+    "states": {
+      "loading": "선택한 두 활동의 GPS를 확인하고 비교 중입니다.",
+      "pending": "한 활동 이상의 GPS가 준비 중입니다. 현재 활동의 다른 비교 수치는 계속 확인할 수 있습니다.",
+      "changed_input": "활동 경로가 변경되었습니다. 화면을 새로고침하고 다시 선택해 주세요.",
+      "unavailable": "한 활동 이상의 GPS가 없거나 비교에 사용할 수 없습니다. 다른 비교 수치는 계속 확인할 수 있습니다.",
+      "error": "두 경로를 비교하지 못했습니다. 자동으로 다시 요청하지 않습니다."
+    },
+    "guidance": {
+      "observed_shapes_close": "관측한 경로 모양이 가까워 보입니다.",
+      "observed_shapes_differ": "관측한 경로 모양에 차이가 있습니다.",
+      "insufficient": "비교할 관측 거리가 충분하지 않습니다."
+    },
+    "direction": {
+      "forward": "같은 진행 순서가 더 가까움",
+      "reverse": "반대 진행 순서가 더 가까움",
+      "undetermined": "진행 방향을 구분하기 어려움"
+    },
+    "collection": {
+      "complete": "원본 선언 수집 범위 충족",
+      "partial": "일부 수집 범위",
+      "unknown": "수집 범위 불명"
+    }
   }
 }

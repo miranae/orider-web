@@ -8,7 +8,8 @@ import en from "../../../i18n/resources/en/activity.json";
 import { ActivityGrowthPanel } from "./ActivityGrowthPanel";
 import { activityPeriods } from "./activityGrowth";
 import { periodFixture, runningPeriodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
-const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn(), route: vi.fn() }));
+vi.mock("./ObservedRouteComparisonPanel", () => ({ ObservedRouteComparisonPanel: (props: unknown) => { mocks.route(props); return null; } }));
 vi.mock("./AnnualRunHistoryPanel", () => ({ default: (props: { ownerUid: string; activityId: string; year: number }) => { mocks.annual(props); return <div data-testid="annual-history-year">{props.year}</div>; } }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: mocks.units }) }));
@@ -24,13 +25,24 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: { language: moc
 const activity = { id: "current", userId: "owner", startTime: 100, type: "Run", summary: {} } as Activity;
 const previous = { ...activity, id: "previous", startTime: 50, description: "earlier" };
 beforeEach(() => {
-  mocks.annual.mockReset();
+  mocks.annual.mockReset(); mocks.route.mockReset();
   mocks.periodAvailable = false; mocks.periods.mockReset().mockReturnValue({ state: "idle", response: null, retry: vi.fn() });
   mocks.user = { uid: "owner" }; mocks.language = "ko"; mocks.units = "metric";
   mocks.history.mockReset().mockReturnValue({ activities: [previous, { ...previous, id: "bike", type: "Ride" }], sourceActivities: [], coverage: "ready", loading: false, error: false, hasMore: false });
   mocks.metrics.mockReset().mockReturnValue({ status: "missing", metrics: null });
 });
 describe("ActivityGrowthPanel", () => {
+  it("passes exactly the manually selected pair to route comparison without changing metric targets", () => {
+    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+    expect(mocks.route).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    expect(mocks.route).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    expect(mocks.route).toHaveBeenLastCalledWith({ current: activity, previous });
+    expect(mocks.metrics).toHaveBeenLastCalledWith("previous");
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "" } });
+    expect(mocks.metrics).toHaveBeenLastCalledWith(null);
+  });
   it("uses the selected ready run splits without extra reads and hides them while stale", () => {
     const split = { km: 1, paceSec: 300, gapSec: 290, elevGain: 0, avgHr: null };
     mocks.metrics.mockReturnValue({ status: "ready", metrics: { version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [{ ...split, paceSec: 330 }] } });

@@ -16,7 +16,7 @@ function recordedTime(seconds: number) {
 }
 function Legend() {
   const { t } = useTranslation("activity");
-  return <div className="activity-comparison-legend"><Text variant="bodySmall"><span className="activity-comparison-line" />{t("growth.current")}</Text><Text variant="bodySmall" tone="secondary"><span className="activity-comparison-line activity-comparison-line--previous" />{t("growth.previous")}</Text></div>;
+  return <div className="activity-comparison-legend"><Text variant="bodyMedium"><span className="activity-comparison-line" />{t("growth.current")}</Text><Text variant="bodyMedium" tone="secondary"><span className="activity-comparison-line activity-comparison-line--previous" />{t("growth.previous")}</Text></div>;
 }
 function Curve({ points, power, running, imperial, paceBasis }: { points: CurvePoint[]; power: boolean; running: boolean; imperial: boolean; paceBasis?: ReturnType<typeof comparableRunningPaceCurves>["sourceBasis"] }) {
   const { t } = useTranslation("activity");
@@ -61,11 +61,11 @@ function Curve({ points, power, running, imperial, paceBasis }: { points: CurveP
         })}
         <text x={62} y={15} fill="var(--chart-grid-label)">{unit}</text>
       </svg>
-      <label className="activity-comparison-duration" htmlFor={id}><Text variant="bodySmall" tone="secondary">{t("growth.visual.duration")}</Text><Select id={id} value={selected.duration} onChange={(event) => setSelectedDuration(Number(event.target.value))}>{points.map((point) => <option key={point.duration} value={point.duration}>{duration(point.duration)}</option>)}</Select></label>
+      <label className="activity-comparison-duration" htmlFor={id}><Text variant="bodyMedium" tone="secondary">{t("growth.visual.duration")}</Text><Select id={id} value={selected.duration} onChange={(event) => setSelectedDuration(Number(event.target.value))}>{points.map((point) => <option key={point.duration} value={point.duration}>{duration(point.duration)}</option>)}</Select></label>
       <div className="activity-comparison-values"><Stat compact label={t("growth.current")} value={format(convert(selected.value))} unit={unit} /><Stat compact label={t("growth.previous")} value={format(convert(selected.baseline))} unit={unit} /></div>
-      <Text as="p" variant="bodySmall" tone="secondary">{t("growth.change")} <span className="whitespace-nowrap">{deltaText}</span></Text>
+      <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.change")} <span className="whitespace-nowrap">{deltaText}</span></Text>
       {asPace && <Text as="p" variant="bodyMedium" tone="secondary">{t(paceBasis === "run_metrics_pace_curve" ? "growth.visual.canonicalPaceBasis" : "growth.visual.legacyPaceBasis")}</Text>}
-      <Text as="p" variant="caption" tone="tertiary">{t("growth.visual.curveNote")}</Text>
+      <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.visual.curveNote")}</Text>
     </ChartFrame>
   </section>;
 }
@@ -88,11 +88,11 @@ function Zones({ current, previous, power }: { current: MetricsLike; previous: M
   };
   const zones = [...new Set([...(left ?? []).map((zone) => zone.zone), ...(right ?? []).map((zone) => zone.zone)])];
   return <section className="activity-comparison-zones-section space-y-3"><Text as="h4" variant="subtitle">{t(power ? "growth.powerZones" : "growth.hrZones")}</Text><Legend />
-    <Text as="p" variant="caption" tone="tertiary">{t("growth.current")}: {left ? context(current) : "—"} · {t("growth.previous")}: {right ? context(previous) : "—"}</Text>
-    <div className="space-y-3">{zones.map((zone) => <div key={zone} className="activity-comparison-zone"><Text variant="bodySmall" weight={600}>Z{zone}</Text><div className="space-y-2">{[left, right].map((distribution, index) => {
+    <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.current")}: {left ? context(current) : "—"} · {t("growth.previous")}: {right ? context(previous) : "—"}</Text>
+    <div className="space-y-3">{zones.map((zone) => <div key={zone} className="activity-comparison-zone"><Text variant="bodyMedium" weight={600}>Z{zone}</Text><div className="space-y-2">{[left, right].map((distribution, index) => {
       const value = distribution?.find((item) => item.zone === zone);
-      return <div key={index} className="activity-comparison-zone-row"><div className="activity-comparison-zone-track" aria-hidden="true">{value && <span className={index ? "activity-comparison-zone-fill activity-comparison-zone-fill--previous" : "activity-comparison-zone-fill"} style={{ width: `${value.percentage}%` }} />}</div><Text variant="bodySmall" mono><span className="sr-only">{t(index ? "growth.previous" : "growth.current")} </span>{value ? `${value.percentage.toFixed(1)}% · ${recordedTime(value.seconds)}` : "—"}</Text></div>;
-    })}{!power && <Text as="p" variant="caption" tone="tertiary">{t("growth.current")}: {boundary(current, zone)} · {t("growth.previous")}: {boundary(previous, zone)}</Text>}</div></div>)}</div><Text as="p" variant="caption" tone="tertiary">{t("growth.visual.zoneNote")}</Text>
+      return <div key={index} className="activity-comparison-zone-row"><div className="activity-comparison-zone-track" aria-hidden="true">{value && <span className={index ? "activity-comparison-zone-fill activity-comparison-zone-fill--previous" : "activity-comparison-zone-fill"} style={{ width: `${value.percentage}%` }} />}</div><Text variant="bodyMedium" mono><span className="sr-only">{t(index ? "growth.previous" : "growth.current")} </span>{value ? `${value.percentage.toFixed(1)}% · ${recordedTime(value.seconds)}` : "—"}</Text></div>;
+    })}{!power && <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.current")}: {boundary(current, zone)} · {t("growth.previous")}: {boundary(previous, zone)}</Text>}</div></div>)}</div><Text as="p" variant="bodyMedium" tone="secondary">{t("growth.visual.zoneNote")}</Text>
   </section>;
 }
 export function ActivityComparisonVisuals({ current, previous, running, units }: { current: MetricsLike; previous: MetricsLike; running: boolean; units: string }) {
@@ -102,8 +102,8 @@ export function ActivityComparisonVisuals({ current, previous, running, units }:
     const paceComparison = running && !power ? comparableRunningPaceCurves(current, previous) : null;
     const points = paceComparison?.points ?? comparableCurves(current, previous, power);
     return points.length > 0 ? <Curve key={String(power)} points={points} power={power} running={running} imperial={units === "imperial"} paceBasis={paceComparison?.sourceBasis} />
-      : paceComparison ? <Text key="pace-unavailable" as="p" variant="bodySmall" tone="secondary">{t(paceComparison.reason === "basis_mismatch" ? "growth.visual.paceBasisMismatch" : paceComparison.reason === "no_common_duration" ? "growth.visual.paceNoCommonDuration" : "growth.visual.paceUnavailable")}</Text> : null;
-  })}{incompatiblePower && (Object.keys(current.mmp ?? {}).length > 0 || Object.keys(previous.mmp ?? {}).length > 0) && <Text as="p" variant="caption" tone="tertiary">{t("growth.visual.powerUnavailable")}</Text>}
+      : paceComparison ? <Text key="pace-unavailable" as="p" variant="bodyMedium" tone="secondary">{t(paceComparison.reason === "basis_mismatch" ? "growth.visual.paceBasisMismatch" : paceComparison.reason === "no_common_duration" ? "growth.visual.paceNoCommonDuration" : "growth.visual.paceUnavailable")}</Text> : null;
+  })}{incompatiblePower && (Object.keys(current.mmp ?? {}).length > 0 || Object.keys(previous.mmp ?? {}).length > 0) && <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.visual.powerUnavailable")}</Text>}
     <Zones current={current} previous={previous} power={false} /><Zones current={current} previous={previous} power />
   </div>;
 }
