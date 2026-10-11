@@ -829,5 +829,22 @@
   "runRecords.best": "현재 저장된 최고",
   "runRecords.behind": "저장된 최고보다 +{{duration}}",
   "runRecords.viewActivity": "활동 보기",
-  "runRecords.source": "{{distance}} {{rank}}위 원본 활동 보기 · {{date}}"
+  "runRecords.source": "{{distance}} {{rank}}위 원본 활동 보기 · {{date}}",
+  "densePeriod.title": "고정 지속시간 관측 파워",
+  "densePeriod.scope": "같은 조회 후보의 실측 파워 · 서버의 최대 85개 고정 지속시간만 표시합니다. 기존 11개 곡선과 계산 기준이 다릅니다.",
+  "densePeriod.chart": "기간별 고정 지속시간 관측 파워",
+  "densePeriod.n": "관측 활동 {{count}}개",
+  "densePeriod.empty": "확인된 고정 지속시간 관측값이 없습니다.",
+  "densePeriod.unknown": "이 기간의 새 관측곡선 제공 여부를 확인할 수 없습니다.",
+  "densePeriod.partial": "일부 후보만 확인 · 표시된 관측값은 전체 기간 최고 기록이 아닙니다.",
+  "densePeriod.complete": "후보 조회 완료 · 관측값이 없는 채널은 별도로 집계합니다.",
+  "densePeriod.difference": "관측 최대값 차이 · 기간 1 − 기간 2: {{watts}} W",
+  "densePeriod.details": "관측 범위와 데이터 상태",
+  "densePeriod.coverage": "기간 {{period}} · 후보 {{candidate}} · 관측 가능 {{available}} · 결측 {{missing}} · 대기 {{pending}} · 불완전 {{incomplete}} · 형식 오류 {{malformed}} · 제공 불가 {{unavailable}}",
+  "densePeriod.truncated": "최대 1,000개 조회 범위 · 전체 후보 수는 알 수 없습니다.",
+  "densePeriod.note": "표본이 소유한 경과시간 기준의 실측 파워입니다. 점 사이를 보간하거나 임의 지속시간을 추정하지 않습니다. 차이는 관측 표본 비교이며 성장이나 평생 최고 기록을 확정하지 않습니다.",
+  "densePeriod.hours": "{{count}}시간",
+  "densePeriod.minutes": "{{count}}분",
+  "densePeriod.seconds": "{{count}}초",
+  "densePeriod.scrollHint": "좌우로 밀어 두 기간의 수치를 확인하세요."
 }
