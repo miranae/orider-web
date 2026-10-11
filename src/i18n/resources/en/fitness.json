@@ -148,10 +148,7 @@
   "kpi.vo2max.subFormula": "FTP/weight formula {{value}}",
   "kpi.vo2max.descServer": "PDC-based server estimate",
   "kpi.vo2max.descFormula": "FTP/weight formula",
-  "hub.weekly.title": "This week's read",
-  "hub.weekly.fatigueUnknown": "This week's load is {{tss}} TSS.",
-  "hub.weekly.fatigueUp": "This week's fatigue load is {{pct}}% higher than last week ({{tss}} TSS).",
-  "hub.weekly.fatigueDown": "This week's fatigue load is {{pct}}% lower than last week ({{tss}} TSS).",
+  "hub.weekly.title": "Last 7 days training load",
   "hub.weekly.recommend.recover": "Put recovery first.",
   "hub.weekly.recommend.interval": "Next week can take one interval session.",
   "hub.weekly.recommend.restart": "Restart with an easy Z2 session.",
@@ -339,8 +336,8 @@
   "daily.title": "Daily training load",
   "daily.sub": "Last 6 weeks · daily TSS",
   "daily.empty": "No daily load data yet",
-  "daily.weekTSS": "This week TSS",
-  "daily.avgWeekTSS": "Avg weekly TSS",
+  "daily.weekTSS": "Observed load · last 7 days",
+  "daily.avgWeekTSS": "Weekly average · last 42 days",
   "daily.restDays": "Consecutive rest days",
   "daily.daysUnit": "d",
   "load.rest": "Rest",
@@ -883,5 +880,19 @@
       "inline_streams": "Metrics from stored streams",
       "unknown": "Calculation input source unknown"
     }
-  }
+  },
+  "hub.weekly.loadUnknown": "Last 7 days: {{tss}} TSS equivalent. A percentage change from the previous period is unavailable.",
+  "hub.weekly.loadUp": "Last 7 days training load is {{pct}}% higher than the previous 7 days ({{tss}} TSS equivalent).",
+  "hub.weekly.loadDown": "Last 7 days training load is {{pct}}% lower than the previous 7 days ({{tss}} TSS equivalent).",
+  "hub.weekly.partial": "Observed load in the last 7 days: {{tss}} TSS equivalent. {{count}} of the last 14 days are incomplete; change and training advice are unavailable.",
+  "hub.weekly.basis.utc": "Through {{date}} · UTC dates",
+  "hub.weekly.basis.local": "Through {{date}} · device local dates",
+  "hub.weekly.basis.mixed": "Period comparison unavailable across mixed UTC and local dates.",
+  "weekly.window": "{{start}}–{{end}} days back",
+  "weekly.sub": "Last 7 days {{thisWeek}} · 42-day weekly avg {{avg}} · {{restDays}} confirmed rest days",
+  "weekly.storedSummary": "Stored weekly summary {{thisWeek}} · daily period unverified",
+  "weekly.storedSummaryTitle": "Stored weekly summary",
+  "weekly.partial": "Missing or unknown dates are not rest or zero load. Load is TSS equivalent, a different scale from Relative Effort.",
+  "weekly.title": "Training load · last 28 days",
+  "hub.weekly.pending": "Training load is being verified. Period comparison and advice require confirmed current inputs."
 }
