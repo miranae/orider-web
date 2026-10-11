@@ -4,7 +4,7 @@ vi.mock("./ObservedRouteHistoryPanel", () => ({ default: (props: unknown) => { m
 vi.mock("./ActivityBikeDistanceEvidencePanel", () => ({ default: () => <div data-testid="manual-bike-distance-panel" /> }));
 vi.mock("./ActivityRunDistanceEvidencePanel", () => ({ default: (props: unknown) => { mocks.manual(props); return <div data-testid="manual-distance-panel" />; } }));
 import { useEffect } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import type { Activity } from "@shared/types";
@@ -480,4 +480,51 @@ it("offers thin route candidate history only for the owner run/bike without open
   expect(screen.queryByTestId("route-index-history-panel")).not.toBeInTheDocument();
   view.rerender(<ActivityGrowthPanel activity={activity} metrics={null} isOwner={false} />);
   expect(screen.queryByTestId("route-index-history-panel")).not.toBeInTheDocument();
+});
+
+describe("owner comparison readable moving time", () => {
+  it.each([
+    [5936, 5263, "1:38:56", "1:27:43", "+11:13"],
+    [5263, 5936, "1:27:43", "1:38:56", "-11:13"],
+    [0, 0, "0:00", "0:00", "0:00"],
+    [360000, 0, "100:00:00", "0:00", "+100:00:00"],
+    [59.6, 59.4, "1:00", "0:59", "+0:00.2"],
+    [null, 60, "—", "1:00", null],
+    [NaN, 60, "—", "1:00", null],
+    [Infinity, null, "—", "—", null],
+    [1e308, 0, "1e+308 s", "0:00", "+1e+308 s"],
+  ] as const)("presents %s versus %s without changing raw seconds or delta", (currentSeconds, previousSeconds, currentClock, previousClock, deltaClock) => {
+    const currentMetrics = { movingTimeSec: currentSeconds }, previousMetrics = { movingTimeSec: previousSeconds };
+    mocks.metrics.mockReturnValue({ status: "ready", metrics: previousMetrics });
+    render(<ActivityGrowthPanel activity={activity} metrics={currentMetrics} isOwner />);
+    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    const row = screen.getByRole("rowheader", { name: "이동시간" }).closest("tr")!;
+    const cells = within(row).getAllByRole("cell");
+    expect(cells[0]!.querySelector(".ds-text")?.textContent).toBe(currentClock);
+    expect(cells[1]).toHaveTextContent(previousClock);
+    expect(row).not.toHaveTextContent("이동시간 · s");
+    if (currentSeconds !== null && Number.isFinite(currentSeconds)) expect(within(cells[0]!).getAllByTitle(`${currentSeconds} s`).map(node => node.textContent)).toContain(currentClock);
+    if (previousSeconds !== null && Number.isFinite(previousSeconds)) expect(within(cells[1]!).getByTitle(`${previousSeconds} s`)).toHaveTextContent(previousClock);
+    if (deltaClock !== null) {
+      expect(cells[0]).toHaveTextContent(`변화 ${deltaClock}`);
+      expect(within(cells[0]!).getAllByTitle(`${currentSeconds! - previousSeconds!} s`).map(node => node.textContent)).toContain(deltaClock);
+    } else expect(cells[0]).not.toHaveTextContent("변화");
+    expect(currentMetrics.movingTimeSec).toBe(currentSeconds); expect(previousMetrics.movingTimeSec).toBe(previousSeconds);
+    expect(mocks.metrics).toHaveBeenLastCalledWith("previous");
+  });
+  it.each(["ko", "en"])("distinguishes same-day options and headers by KST start time in %s without changing IDs", language => {
+    mocks.language = language;
+    const current = { ...activity, startTime: Date.UTC(2026, 9, 6, 17, 30) }, first = { ...previous, startTime: Date.UTC(2026, 9, 6, 17, 10), description: "Ride" }, second = { ...previous, id: "second", startTime: Date.UTC(2026, 9, 6, 17, 20), description: "Ride" };
+    mocks.history.mockReturnValue({ activities: [first, second], sourceActivities: [], coverage: "ready", loading: false, error: false, hasMore: false });
+    mocks.metrics.mockReturnValue({ status: "ready", metrics: { movingTimeSec: 60 } });
+    render(<ActivityGrowthPanel activity={current} metrics={{ movingTimeSec: 120 }} isOwner />);
+    expect(mocks.history).not.toHaveBeenCalled(); expect(mocks.metrics).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: language === "ko" ? ko.growth.compare : en.growth.compare }));
+    expect(screen.getByRole("option", { name: /02:10:00.*Ride/ })).toHaveValue("previous");
+    expect(screen.getByRole("option", { name: /02:20:00.*Ride/ })).toHaveValue("second");
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    expect(screen.getByRole("columnheader", { name: /02:10:00/ })).toHaveTextContent(language === "ko" ? "2026. 10. 07." : "10/07/2026");
+    expect(mocks.metrics).toHaveBeenLastCalledWith("previous"); expect(mocks.route).toHaveBeenLastCalledWith({ current, previous: first }); expect(mocks.periods).not.toHaveBeenCalled();
+  });
 });
