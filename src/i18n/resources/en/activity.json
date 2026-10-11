@@ -1,4 +1,22 @@
 {
+  "runEvidence": {
+    "title": "Observed activity pace distribution",
+    "scope": "Distribution of each observed activity’s best pace for the selected duration. This is not an average across all training or a judgment of fitness improvement.",
+    "basis": "Distribution recording basis",
+    "canonicalBasis": "Confirmed pace on the recorded elapsed-time axis, without separately removing stops.",
+    "legacyBasis": "Legacy best-average-speed curves converted to pace, kept separate from canonical elapsed-time pace.",
+    "duration": "Observed duration",
+    "partial": "Some inputs are missing. The distribution covers collected activities and does not represent the entire period.",
+    "best": "Best observed activity pace",
+    "median": "Observed activity median",
+    "count": "Activities observed for this duration",
+    "notObserved": "No confirmed distribution was provided for this basis and duration. Missing values are not filled with zero.",
+    "notCollected": "Activity-level evidence has not been provided yet.",
+    "timeline": "Observed pace by activity date",
+    "timelineNote": "Both periods use the same pace axis, with faster pace higher. Unobserved dates are not connected or inferred.",
+    "noEvidence": "No displayable activity-level pace evidence was provided for this basis and duration.",
+    "sources": "View {{count}} evidence activities"
+  },
   "runPeriods": {
     "title": "Running best efforts by period",
     "unavailable": "Canonical running best efforts are not yet available for these periods.",
@@ -1466,6 +1484,11 @@
     "trendNote": "Weeks start on Monday. The final bar is this week so far.",
     "paceCurve": "Best pace by duration",
     "visual": {
+      "canonicalPaceBasis": "Compares confirmed best pace on both activities’ recorded elapsed-time axes. This is not GAP or a comparison of the same route or segment.",
+      "legacyPaceBasis": "Compares both legacy best-average-speed curves converted to pace, separately from canonical pace curves.",
+      "paceBasisMismatch": "The pace curves use different recording bases and cannot be compared. Canonical elapsed-time curves are not mixed with legacy speed-converted curves.",
+      "paceNoCommonDuration": "The activities have no commonly observed duration for pace-curve comparison.",
+      "paceUnavailable": "Confirmed pace curves for comparison were not provided for both activities. Missing values are not inferred or filled from older curves.",
       "duration": "Duration to compare",
       "curveNote": "Best sustained average for each duration in each activity. These are not aligned route segments or a fitness improvement assessment.",
       "zoneNote": "Each distribution uses that activity’s zone settings. Settings may differ or be unknown, so zone deltas are withheld. — means unavailable.",

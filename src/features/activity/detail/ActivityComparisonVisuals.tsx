@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChartFrame, Select, Stat, Text } from "../../../theme";
-import { comparableCurves } from "./activityGrowth";
+import { comparableCurves, comparableRunningPaceCurves } from "./activityGrowth";
 import { hrZoneDistribution, powerZoneDistribution, type MetricsLike } from "./metricsPresentation";
 
 type CurvePoint = ReturnType<typeof comparableCurves>[number];
@@ -18,14 +18,14 @@ function Legend() {
   const { t } = useTranslation("activity");
   return <div className="activity-comparison-legend"><Text variant="bodySmall"><span className="activity-comparison-line" />{t("growth.current")}</Text><Text variant="bodySmall" tone="secondary"><span className="activity-comparison-line activity-comparison-line--previous" />{t("growth.previous")}</Text></div>;
 }
-function Curve({ points, power, running, imperial }: { points: CurvePoint[]; power: boolean; running: boolean; imperial: boolean }) {
+function Curve({ points, power, running, imperial, paceBasis }: { points: CurvePoint[]; power: boolean; running: boolean; imperial: boolean; paceBasis?: ReturnType<typeof comparableRunningPaceCurves>["sourceBasis"] }) {
   const { t } = useTranslation("activity");
   const id = useId();
   const [selectedDuration, setSelectedDuration] = useState(300);
   const selected = points.find((point) => point.duration === selectedDuration) ?? points[0]!;
   const factor = imperial ? 1 / 1.609344 : 1;
   const asPace = running && !power;
-  const convert = (value: number) => power ? value : asPace ? 3600 / value / factor : value * factor;
+  const convert = (value: number) => power ? value : asPace ? value / factor : value * factor;
   const format = (value: number) => asPace ? pace(value) : value.toFixed(power ? 0 : 1);
   const unit = power ? "W" : asPace ? imperial ? "/mi" : "/km" : imperial ? "mph" : "km/h";
   const title = t(power ? "growth.powerCurve" : running ? "growth.paceCurve" : "growth.speedCurve");
@@ -64,6 +64,7 @@ function Curve({ points, power, running, imperial }: { points: CurvePoint[]; pow
       <label className="activity-comparison-duration" htmlFor={id}><Text variant="bodySmall" tone="secondary">{t("growth.visual.duration")}</Text><Select id={id} value={selected.duration} onChange={(event) => setSelectedDuration(Number(event.target.value))}>{points.map((point) => <option key={point.duration} value={point.duration}>{duration(point.duration)}</option>)}</Select></label>
       <div className="activity-comparison-values"><Stat compact label={t("growth.current")} value={format(convert(selected.value))} unit={unit} /><Stat compact label={t("growth.previous")} value={format(convert(selected.baseline))} unit={unit} /></div>
       <Text as="p" variant="bodySmall" tone="secondary">{t("growth.change")} <span className="whitespace-nowrap">{deltaText}</span></Text>
+      {asPace && <Text as="p" variant="bodyMedium" tone="secondary">{t(paceBasis === "run_metrics_pace_curve" ? "growth.visual.canonicalPaceBasis" : "growth.visual.legacyPaceBasis")}</Text>}
       <Text as="p" variant="caption" tone="tertiary">{t("growth.visual.curveNote")}</Text>
     </ChartFrame>
   </section>;
@@ -98,8 +99,10 @@ export function ActivityComparisonVisuals({ current, previous, running, units }:
   const { t } = useTranslation("activity");
   const incompatiblePower = typeof current.isVirtualPower !== "boolean" || current.isVirtualPower !== previous.isVirtualPower;
   return <div className="space-y-6">{[false, true].map((power) => {
-    const points = comparableCurves(current, previous, power);
-    return points.length > 0 ? <Curve key={String(power)} points={points} power={power} running={running} imperial={units === "imperial"} /> : null;
+    const paceComparison = running && !power ? comparableRunningPaceCurves(current, previous) : null;
+    const points = paceComparison?.points ?? comparableCurves(current, previous, power);
+    return points.length > 0 ? <Curve key={String(power)} points={points} power={power} running={running} imperial={units === "imperial"} paceBasis={paceComparison?.sourceBasis} />
+      : paceComparison ? <Text key="pace-unavailable" as="p" variant="bodySmall" tone="secondary">{t(paceComparison.reason === "basis_mismatch" ? "growth.visual.paceBasisMismatch" : paceComparison.reason === "no_common_duration" ? "growth.visual.paceNoCommonDuration" : "growth.visual.paceUnavailable")}</Text> : null;
   })}{incompatiblePower && (Object.keys(current.mmp ?? {}).length > 0 || Object.keys(previous.mmp ?? {}).length > 0) && <Text as="p" variant="caption" tone="tertiary">{t("growth.visual.powerUnavailable")}</Text>}
     <Zones current={current} previous={previous} power={false} /><Zones current={current} previous={previous} power />
   </div>;

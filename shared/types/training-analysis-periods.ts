@@ -53,7 +53,27 @@ export interface PeriodRunSource {
   metricsRevision: string;
   contributingActivityCount: number;
 }
+export interface PeriodRunningEvidence {
+  version: 1;
+  /** 확정 입력에서 수치가 관측된 대표 활동만 포함. 누락·잘림은 채널 coverage로 확인한다. */
+  scope: "observed_representatives";
+  timingBasis: "elapsed_including_stops";
+  /** 최대 200개, 활동별 거리 5개·페이스 9개 이하. */
+  activities: Array<{
+    activityId: string;
+    startTime: number;
+    metricsRevision: string;
+    distanceRecords: Array<{ distance: RunDistanceKey; elapsedSec: number }>;
+    paceCurve: {
+      sourceBasis: "run_metrics_pace_curve" | "speed_curve_kmh_converted";
+      unit: "sec_per_km";
+      points: Array<{ durationSeconds: number; paceSecPerKm: number; speedKph: number | null }>;
+    } | null;
+  }>;
+}
 export interface PeriodRunningAnalysis {
+  /** 원본 센서·위치 없이 기존 응답의 관측 근거만 표시한다. */
+  evidence?: PeriodRunningEvidence;
   bestDistances: {
     status: "complete" | "partial";
     timingBasis: "elapsed_including_stops";
@@ -68,6 +88,13 @@ export interface PeriodRunningAnalysis {
     timingBasis: "elapsed";
     unit: "sec_per_km";
     coverage: PeriodRunningCoverage;
+    /** 활동별 duration 최고 페이스의 관측 분포. 전체 훈련 평균·실력 변화가 아니다. */
+    observedStatistics?: Array<{
+      durationSeconds: number;
+      observedBestPaceSecPerKm: number;
+      observedMedianPaceSecPerKm: number;
+      contributingActivityCount: number;
+    }>;
     points: Array<PeriodRunSource & { durationSeconds: number; paceSecPerKm: number;
       /** 속도 변환에서만 원래 반올림된 km/h를 보존한다. 정본 페이스는 null이다. */
       speedKph: number | null }>;

@@ -823,5 +823,11 @@
   "periodCurve.included": "포함 활동 {{count}}개",
   "periodCurve.details": "조회 기준과 포함 기록",
   "periodCurve.exactBounds": "UTC 정확한 조회 범위: {{from}} 이상 ~ {{to}} 미만",
-  "periodCurve.rawValue": "{{duration}} 원본 값 {{watts}} W"
+  "periodCurve.rawValue": "{{duration}} 원본 값 {{watts}} W",
+  "runRecords.scope": "현재 저장된 상위 3개 기록입니다. 전체 이력이나 활동 당시 개인 최고 갱신을 뜻하지 않습니다.",
+  "runRecords.rank": "{{rank}}위",
+  "runRecords.best": "현재 저장된 최고",
+  "runRecords.behind": "저장된 최고보다 +{{duration}}",
+  "runRecords.viewActivity": "활동 보기",
+  "runRecords.source": "{{distance}} {{rank}}위 원본 활동 보기 · {{date}}"
 }
