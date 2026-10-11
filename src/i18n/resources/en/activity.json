@@ -1882,5 +1882,60 @@
       "raw_parts": "App distance input",
       "api_streams": "Imported distance stream"
     }
+  },
+  "observedRouteHistory": {
+    "title": "Compare selected GPS history",
+    "scope": "Choose up to 3 loaded activities to compare their GPS routes with the anchor.",
+    "year": "List year",
+    "all": "All years",
+    "choose": "Choose comparison activities · {{count}}/3",
+    "noChoices": "This loaded list has no other eligible representative activities.",
+    "inspect": "Compare selected GPS history",
+    "budget": "Only selected activities are checked. Press the button again to refresh the observations.",
+    "counts": "{{selected}} selected · {{read}} checked · {{compared}} compared · {{unsupported}} lacking evidence · {{unavailable}} unconfirmed · {{partial}} partial observations",
+    "anchorState": "Anchor: {{state}}. If anchor GPS is unavailable, other activities are not compared.",
+    "source": "Source activity",
+    "anchor": "Anchor activity",
+    "selected": "Selected activity",
+    "ratio": "Observed length ratio {{value}}%",
+    "separation": "Mean separation {{mean}} · 95th percentile {{p95}}",
+    "partial": "Gaps or partial/unknown collection coverage prevent interpretation as a complete route.",
+    "details": "Inspect observation coverage",
+    "diagnostic": "{{points}} points · {{length}} observed length · {{gaps}} gaps / {{missing}} seconds omitted",
+    "summary": "Activity summary · {{distance}} distance · {{moving}} moving · {{pause}} paused. This uses a different basis from GPS observation time.",
+    "limits": "These selected records show observed GPS shapes and collection coverage. Accuracy has not been confirmed.",
+    "states": {
+      "idle": "Not read yet",
+      "loading": "Reading",
+      "available": "Observations available",
+      "pending": "Source pending",
+      "changed_input": "Source changed · check again",
+      "unavailable": "GPS observations unavailable",
+      "error": "This activity could not be checked"
+    },
+    "guidance": {
+      "observed_shapes_close": "Observed shape close to the anchor",
+      "observed_shapes_differ": "Observed shape differs from the anchor",
+      "insufficient": "Insufficient observed length"
+    },
+    "direction": {
+      "forward": "Forward-direction shape comparison",
+      "reverse": "Reverse-direction shape comparison",
+      "undetermined": "Direction unknown"
+    },
+    "coverage": {
+      "complete": "Complete collection coverage",
+      "partial": "Partial collection coverage",
+      "unknown": "Collection coverage unknown"
+    },
+    "metrics": {
+      "distance": "Saved summary distance · {{unit}}",
+      "movingTime": "Saved summary moving time",
+      "pauseTime": "Saved summary paused time"
+    },
+    "visible": "{{visible}} displayed for this year / {{total}} checked results overall",
+    "chart": "{{metric}} over actual date intervals",
+    "trendNote": "Saved summaries from {{count}} activity sources with available GPS comparisons. Consider the actual date gaps and collection coverage together. Missing values remain unknown.",
+    "noTrend": "No confirmed source summaries are available to chart in this year."
   }
 }
