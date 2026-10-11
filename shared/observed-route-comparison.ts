@@ -133,3 +133,21 @@ export function compareObservedRoutes(first: ActivityRouteEvidence, second: Acti
   return { ...common, state: "available", reason: null, sampleCount: aa.length, forward, reverse, direction,
     shapeGuidance: close ? "observed_shapes_close" : "observed_shapes_differ" };
 }
+
+/** 실제 원본 시계로 공백을 제외한 준비 결과다. 압축 좌표를 가짜 시계로 재입력하지 않는다. */
+export function prepareObservedRouteGeometry(evidence: ActivityRouteEvidence) {
+  if (Array.isArray(evidence?.points) && evidence.points.length > OBSERVED_ROUTE_POLICY_V1.maxInputPoints) {
+    return { state: 'unavailable' as const, reason: 'input_limit' as const };
+  }
+  if (!validEvidence(evidence)) return { state: 'unavailable' as const, reason: 'invalid_input' as const };
+  const prepared = prepare(evidence);
+  if (prepared.diagnostics.observedLengthM <= OBSERVED_ROUTE_POLICY_V1.minimumObservedMeters) {
+    return { state: 'unavailable' as const, reason: 'insufficient_observed_length' as const };
+  }
+  const coordinate = (point: ObservedRoutePoint) => Object.freeze({ lat: point.lat, lon: point.lon });
+  return Object.freeze({ state: 'available' as const,
+    source: Object.freeze(attribution(evidence)), diagnostics: Object.freeze({ ...prepared.diagnostics }),
+    actualStart: coordinate(evidence.points[0]!), actualEnd: coordinate(evidence.points[evidence.points.length - 1]!),
+    samples: Object.freeze(samples(prepared).map(coordinate)),
+  });
+}
