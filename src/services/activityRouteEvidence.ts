@@ -18,7 +18,7 @@ export function observedRouteAvailable() {
 // 별도 선택 채널의 서버 계약35다. 일반 프런트 지표 version34는 변경하지 않는다.
 export const ROUTE_CANONICAL_AVERAGE_VERSION = 35;
 export interface RouteCanonicalAverageOption { includeCanonicalAverage: true; startTime: number; discipline: "bike" | "run" }
-function validCanonicalAverage(value: unknown, expected?: RouteCanonicalAverageOption): value is ActivityCanonicalAverage {
+export function validCanonicalAverage(value: unknown, expected?: RouteCanonicalAverageOption): value is ActivityCanonicalAverage {
   const average = record(value);
   if (!average || average.metricsRevision !== null && !digest(average.metricsRevision)) return false;
   if (average.state === "available") return Object.keys(average).length === 10 && average.reason === null && typeof average.metricsRevision === "string"

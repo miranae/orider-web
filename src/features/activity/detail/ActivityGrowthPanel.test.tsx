@@ -1,3 +1,4 @@
+vi.mock("./ActivityRouteIndexHistoryPanel", () => ({ default: (props: unknown) => { mocks.routeIndex(props); return <div data-testid="route-index-history-panel" />; } }));
 vi.mock("./CyclingDistanceHistoryPanel", () => ({ default: (props: unknown) => { mocks.cyclingHistory(props); return <div data-testid="cycling-history-panel" />; } }));
 vi.mock("./ObservedRouteHistoryPanel", () => ({ default: (props: unknown) => { mocks.routeHistory(props); return <div data-testid="observed-route-history-panel" />; } }));
 vi.mock("./ActivityBikeDistanceEvidencePanel", () => ({ default: () => <div data-testid="manual-bike-distance-panel" /> }));
@@ -12,7 +13,7 @@ import en from "../../../i18n/resources/en/activity.json";
 import { ActivityGrowthPanel } from "./ActivityGrowthPanel";
 import { activityPeriods } from "./activityGrowth";
 import { periodFixture, runningPeriodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
-const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn(), route: vi.fn(), routeHistory: vi.fn(), cyclingHistory: vi.fn(), manual: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn(), route: vi.fn(), routeHistory: vi.fn(), cyclingHistory: vi.fn(), routeIndex: vi.fn(), manual: vi.fn() }));
 vi.mock("./ObservedRouteComparisonPanel", () => ({ ObservedRouteComparisonPanel: (props: unknown) => { mocks.route(props); return null; } }));
 vi.mock("./AnnualRunHistoryPanel", () => ({ default: (props: { ownerUid: string; activityId: string; year: number }) => { mocks.annual(props); return <div data-testid="annual-history-year">{props.year}</div>; } }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
@@ -29,6 +30,7 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: { language: moc
 const activity = { id: "current", userId: "owner", startTime: 100, type: "Run", summary: {} } as Activity;
 const previous = { ...activity, id: "previous", startTime: 50, description: "earlier" };
 beforeEach(() => {
+  mocks.routeIndex.mockReset();
   mocks.cyclingHistory.mockReset();
   mocks.routeHistory.mockReset();
   mocks.annual.mockReset(); mocks.route.mockReset();
@@ -465,4 +467,17 @@ it("keeps the cycling annual history binding on the applied year while a new yea
  mocks.periodAvailable=true;render(<ActivityGrowthPanel activity={{...activity,type:"Ride"}} metrics={null} isOwner/>);fireEvent.click(screen.getByRole("button",{name:"활동 통계"}));fireEvent.click(screen.getByRole("button",{name:ko.observedYears.mode}));expect(screen.queryByTestId("cycling-history-panel")).not.toBeInTheDocument();
  const select=screen.getByRole("combobox",{name:ko.observedYears.select}),year=Number((select as HTMLSelectElement).value);fireEvent.change(select,{target:{value:String(year-1)}});fireEvent.click(screen.getByRole("button",{name:ko.observedYears.apply}));
  expect(mocks.cyclingHistory.mock.lastCall?.[0].selection).toEqual({mode:"cycling_distance_history_page",discipline:"bike",calendarBasis:"Asia/Seoul",rangeBasis:"calendar_year",year:year-1});fireEvent.change(select,{target:{value:String(year)}});expect(mocks.cyclingHistory.mock.lastCall?.[0].selection.year).toBe(year-1);
+});
+
+it("offers thin route candidate history only for the owner run/bike without opening previous activity queries", () => {
+  const view = render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
+  expect(screen.getByTestId("route-index-history-panel")).toBeInTheDocument();
+  expect(mocks.history).not.toHaveBeenCalled(); expect(mocks.periods).not.toHaveBeenCalled();
+  expect(mocks.routeIndex).toHaveBeenLastCalledWith({ activity, observedMetricsIdentity: JSON.stringify([undefined, undefined, undefined, undefined, undefined, undefined]) });
+  view.rerender(<ActivityGrowthPanel activity={{ ...activity, type: "Ride" }} metrics={null} isOwner />);
+  expect(screen.getByTestId("route-index-history-panel")).toBeInTheDocument();
+  view.rerender(<ActivityGrowthPanel activity={{ ...activity, type: "Swim" }} metrics={null} isOwner />);
+  expect(screen.queryByTestId("route-index-history-panel")).not.toBeInTheDocument();
+  view.rerender(<ActivityGrowthPanel activity={activity} metrics={null} isOwner={false} />);
+  expect(screen.queryByTestId("route-index-history-panel")).not.toBeInTheDocument();
 });

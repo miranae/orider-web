@@ -2063,5 +2063,41 @@
       "stored_explicit": "Stored sample attribution",
       "legacy_normalized": "Earlier samples · attribution unverified"
     }
+  },
+  "routeIndexHistory": {
+    "title": "Same-direction route candidate history",
+    "scope": "Find stored activity records with a nearby start and similar observed route. Each click checks a bounded page. The existing manual GPS comparison remains available separately.",
+    "find": "Find route candidates",
+    "restart": "Check again from the start",
+    "more": "Check next records",
+    "year": "Year of received records",
+    "allYears": "All received years",
+    "counts": "Checked {{scanned}} stored records · {{count}} candidate activity records",
+    "snapshot": "Snapshot checked on {{date}}. This covers stored routes near this start, rather than your entire activity history.",
+    "pace": "Average pace from confirmed analysis",
+    "speed": "Average speed from confirmed analysis",
+    "chart": "Confirmed averages by activity date: {{known}} values among {{count}} activity records",
+    "averageNote": "Points show confirmed averages at activity dates. Records without an average have no point. Distance and time summaries are not used as substitutes.",
+    "computed": "Analysis computed on {{date}}",
+    "averageMissing": "A confirmed average is unavailable for this record.",
+    "partialAverage": "Analyzed from partial samples",
+    "showSources": "Show more activity sources · {{shown}}/{{count}}",
+    "emptyPage": "No displayable candidate was found in this page. Check the next records when available.",
+    "quality": "These are similar observed shapes in the forward direction. GPS accuracy is unverified; this does not establish an identical course or fitness improvement.",
+    "states": {
+      "idle": "",
+      "loading": "Checking stored route candidates.",
+      "partial": "Some records have been checked. Use the button to check the next records.",
+      "complete": "Finished checking the stored route range near this start.",
+      "capped": "This session checked the maximum of 5,000 records. It does not establish complete activity history.",
+      "error": "The next records could not be checked. Received results remain available; use the button to try again.",
+      "expired": "The snapshot has expired. Check again from the start.",
+      "invalidated": "The activity or account changed. Check again from the start.",
+      "unsupported": "Stored route candidates are unavailable for this activity. Manual GPS comparison remains available.",
+      "index_missing": "This activity has no stored route information. Manual GPS comparison remains available.",
+      "budget": "This check reached its read limit. Only received candidates are shown."
+    },
+    "singleAverage": "{{date}} · {{value}}. One confirmed average does not establish a trend.",
+    "noAverage": "No confirmed average is available in the received records, so no trend is shown. Activity sources remain available below."
   }
 }
