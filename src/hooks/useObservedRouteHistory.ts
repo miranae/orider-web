@@ -1,14 +1,15 @@
+import { getDiscipline } from "../utils/disciplineFilter";
 import { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import type { Activity } from "@shared/types";
-import type { ActivityRouteEvidence, ActivityRouteEvidenceResponse, ObservedRouteComparison } from "@shared/activity-route-comparison";
+import type { ActivityCanonicalAverage, ActivityRouteEvidence, ActivityRouteEvidenceResponse, ObservedRouteComparison } from "@shared/activity-route-comparison";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadActivityRouteEvidence, observedRouteAvailable, validRouteComparison } from "../services/activityRouteEvidence";
 import type { RouteWorkerRequest, RouteWorkerResponse } from "../utils/observedRouteComparison.worker";
 import { validObservedRouteHistorySelection } from "../features/activity/detail/observedRouteHistory";
-export type ObservedRouteHistoryRow = { activity: Activity; read: boolean; reason: ActivityRouteEvidenceResponse["reason"] | ObservedRouteComparison["reason"] | "request_error" | "worker_error"; state: "available" | "pending" | "changed_input" | "unavailable" | "error"; result: ObservedRouteComparison | null };
-type Batch = { generation: number; epoch: number; state: "loading" | "ready"; readCount: number; rows: ObservedRouteHistoryRow[]; anchorState: string };
+export type ObservedRouteHistoryRow = { activity: Activity; read: boolean; reason: ActivityRouteEvidenceResponse["reason"] | ObservedRouteComparison["reason"] | "request_error" | "worker_error"; state: "available" | "pending" | "changed_input" | "unavailable" | "error"; result: ObservedRouteComparison | null; canonicalAverage?: ActivityCanonicalAverage | null };
+type Batch = { generation: number; epoch: number; state: "loading" | "ready"; readCount: number; rows: ObservedRouteHistoryRow[]; anchorState: string; anchorAverage: ActivityCanonicalAverage | null };
 /** 메모리 안의 수동 배치만 유지한다. 기준 활동 1회 + 선택 활동 최대3회, 순차 조회한다. */
 export function useObservedRouteHistory(anchor: Activity, selected: readonly Activity[], observedMetricsIdentity: string) {
   const { user } = useAuth(), services = useFirebaseServices(), uid = user?.uid;
@@ -38,12 +39,15 @@ export function useObservedRouteHistory(anchor: Activity, selected: readonly Act
       && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
     let readCount = 0;
     const rows: ObservedRouteHistoryRow[] = [];
-    const publish = (state: Batch["state"], anchorState: string) => { if (current()) setBatch({ generation, epoch: requestId, state, readCount, rows: [...rows], anchorState }); };
+    let anchorAverage: ActivityCanonicalAverage | null = null;
+    const averageOption = (activity: Activity) => { const discipline = getDiscipline(activity.type); return discipline === "bike" || discipline === "run" ? { includeCanonicalAverage: true as const, startTime: activity.startTime, discipline } : undefined; };
+    const publish = (state: Batch["state"], anchorState: string) => { if (current()) setBatch({ generation, epoch: requestId, state, readCount, rows: [...rows], anchorState, anchorAverage }); };
     publish("loading", "loading");
     try {
       readCount++;
-      const first = await loadActivityRouteEvidence(services, uid, anchor.id);
+      const first = await loadActivityRouteEvidence(services, uid, anchor.id, undefined, averageOption(anchor));
       if (!current()) return;
+      anchorAverage = first.canonicalAverage ?? null;
       if (first.state !== "available") {
         picks.forEach(activity => rows.push({ activity, read: false, reason: first.reason, state: first.state, result: null })); publish("ready", first.state); return;
       }
@@ -51,9 +55,9 @@ export function useObservedRouteHistory(anchor: Activity, selected: readonly Act
         if (!current()) return;
         try {
           readCount++;
-          const candidate = await loadActivityRouteEvidence(services, uid, activity.id);
+          const candidate = await loadActivityRouteEvidence(services, uid, activity.id, undefined, averageOption(activity));
           if (!current()) return;
-          if (candidate.state !== "available") rows.push({ activity, read: true, reason: candidate.reason, state: candidate.state, result: null });
+          if (candidate.state !== "available") rows.push({ activity, read: true, reason: candidate.reason, state: candidate.state, result: null, canonicalAverage: candidate.canonicalAverage ?? null });
           else {
             const routes: [ActivityRouteEvidence, ActivityRouteEvidence] = [first.route, candidate.route];
             const result = await new Promise<ObservedRouteComparison | null>(resolve => {
@@ -70,7 +74,7 @@ export function useObservedRouteHistory(anchor: Activity, selected: readonly Act
               instance.postMessage({ requestId, routes } satisfies RouteWorkerRequest);
             });
             if (!current()) return;
-            rows.push({ activity, read: true, reason: result?.reason ?? (result ? null : "worker_error"), state: result ? result.state === "unavailable" ? "unavailable" : "available" : "error", result });
+            rows.push({ activity, read: true, reason: result?.reason ?? (result ? null : "worker_error"), state: result ? result.state === "unavailable" ? "unavailable" : "available" : "error", result, canonicalAverage: candidate.canonicalAverage ?? null });
           }
         } catch { stop(); if (!current()) return; rows.push({ activity, read: true, reason: "request_error", state: "error", result: null }); }
         publish("loading", "available");
@@ -80,5 +84,5 @@ export function useObservedRouteHistory(anchor: Activity, selected: readonly Act
     finally { if (current()) busy.current = null; }
   };
   const visible = eligible && batch?.generation === generation && batch.epoch === epoch.current ? batch : null;
-  return { ownerAvailable, enabled: eligible, state: visible?.state ?? "idle", rows: visible?.rows ?? [], readCount: visible?.readCount ?? 0, anchorState: visible?.anchorState ?? "idle", inspect };
+  return { ownerAvailable, enabled: eligible, state: visible?.state ?? "idle", rows: visible?.rows ?? [], readCount: visible?.readCount ?? 0, anchorState: visible?.anchorState ?? "idle", anchorAverage: visible?.anchorAverage ?? null, inspect };
 }

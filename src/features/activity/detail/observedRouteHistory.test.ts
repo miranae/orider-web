@@ -38,3 +38,18 @@ describe("loaded route-history representative choices", () => {
     expect(observedRouteHistorySummary({ ...anchor, summary: { movingTimeSec: 4000, elapsedTimeMillis: 3600000 } }).pauseSec).toBeNull();
   });
 });
+
+it("uses canonical dimensions only: runsec/km→sec/mi, bikespeedkm/h→mph,0bike!=0runpace and nullgaps", async () => {
+  const { observedRouteAverage, observedRouteAverageTrend }=await import("./observedRouteHistory");const { routeAverageResponse }=await import("../../../services/activityRouteEvidence.fixture");
+  const bike=observedHistoryActivity("bike"),run={...bike,id:"run",type:"Run"};const average=(activity:typeof bike,speed:number|null)=>routeAverageResponse(activity.id,activity.startTime,activity.type==="Run"?"run":"bike",speed).canonicalAverage;
+  expect(observedRouteAverage(average(run,12),run,"metric")).toEqual({value:300,formatted:"5:00/km"});expect(observedRouteAverage(average(run,12),run,"imperial").value).toBeCloseTo(482.8032);
+  expect(observedRouteAverage(average(bike,16.09344),bike,"imperial")).toEqual({value:10,formatted:"10.0mph"});
+  expect(observedRouteAverage(average(bike,0),bike,"metric")).toEqual({value:0,formatted:"0.0km/h"});expect(observedRouteAverage(average(run,0),run,"metric").value).toBeNull();expect(observedRouteAverage(average(bike,null),bike,"metric").value).toBeNull();
+  const missing={...bike,id:"missing",startTime:bike.startTime+86400000},ten={...bike,id:"ten",startTime:bike.startTime+10*86400000};
+  expect(observedRouteAverageTrend([{activity:ten,canonicalAverage:average(ten,20)},{activity:bike,canonicalAverage:average(bike,10)},{activity:missing}],"metric").map(p=>[p.x,p.value])).toEqual([[65,10],[97,null],[385,20]]);
+});
+
+it.each([["run",2.4e-305],["bike",1e308]] as const)("isolates nonfinite%s unit/formatter conversions as a point gap while preserving finite raw input", async (discipline,speed) => {
+  const { observedRouteAverage }=await import("./observedRouteHistory"),{routeAverageResponse}=await import("../../../services/activityRouteEvidence.fixture");const activity={...observedHistoryActivity("extreme"),type:discipline==="run"?"Run":"Ride"};const average=routeAverageResponse(activity.id,activity.startTime,discipline,speed).canonicalAverage;
+  expect(observedRouteAverage(average,activity,"imperial")).toEqual({value:null,formatted:"—"});expect(average?.state==="available"&&average.avgSpeedKph).toBe(speed);
+});

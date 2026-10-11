@@ -14,11 +14,30 @@ export interface ActivityRouteEvidence {
 }
 export interface ObservedRoutePoint { lat: number; lon: number; elapsedSec: number }
 
+/** 확정 지표 문서의 별도 근거다. GPS 입력 revision이나 시간축을 공유하지 않는다. */
+export type ActivityCanonicalAverage = {
+  metricsRevision: string | null;
+} & ({
+  state: "available";
+  reason: null;
+  version: number;
+  discipline: "bike" | "run";
+  startTime: number;
+  computedAt: number;
+  avgSpeedKph: number | null;
+  inputCoverage: "complete" | "partial_terminal";
+  sourceLayer: "raw_parts" | "inline_streams";
+} | {
+  state: "pending" | "unavailable" | "changed_input";
+  reason: "route_unconfirmed" | "missing_metrics" | "unsupported_metrics" | "metrics_revision_changed" | "metrics_pending";
+});
+
 /** reader의 실패와 순수 경로 비교의 실패는 별개이며, 기존 streams revision을 대체하지 않는다. */
 export type ActivityRouteEvidenceResponse = {
   mode: "route_evidence";
   activityId: string;
   routeInputRevision: string | null;
+  canonicalAverage?: ActivityCanonicalAverage;
 } & ({
   state: "available";
   reason: null;
