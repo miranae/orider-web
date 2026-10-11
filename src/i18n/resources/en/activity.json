@@ -1789,5 +1789,52 @@
     "supportNote": "Only activities supporting the expanded distances are counted. Unsupported older activities or unavailable analysis do not establish that an effort is absent.",
     "coverage": "Representative activities {{candidate}} · supported {{supported}} · observed {{observed}} · supported without an observation {{noObserved}} · older analysis unsupported {{unsupported}} · unavailable {{unavailable}}",
     "unknown": "Observed efforts at this distance are unknown because unsupported or unavailable analysis is included."
+  },
+  "manualRunEvidence": {
+    "title": "Distance observations for this activity",
+    "scope": "The button checks only the distance input for this activity. Stored records, personal records and period statistics stay unchanged.",
+    "inspect": "Check distance input",
+    "refresh": "Check distance input again",
+    "distance": "Distance to inspect",
+    "elapsed": "Elapsed time including stops: {{value}}",
+    "notObserved": "No effort at this distance was found in the inspected input. This does not establish absence across all records.",
+    "window": "Window {{from}}–{{to}} from activity start",
+    "extent": "Observed input extent {{from}}–{{to}} · {{count}} samples",
+    "snapshot": "This is the distance input inspected at read time. Quality and coverage of the entire activity are unknown. Changes are checked on the next explicit inspection.",
+    "source": "Source: {{date}} · {{layer}}",
+    "distances": {
+      "400m": "400 m",
+      "half_mile": "Half mile",
+      "1km": "1 km",
+      "1mile": "1 mile",
+      "2miles": "2 miles",
+      "5km": "5 km",
+      "10km": "10 km",
+      "15km": "15 km",
+      "10miles": "10 miles",
+      "20km": "20 km",
+      "half": "Half marathon",
+      "30km": "30 km",
+      "full": "Marathon",
+      "50km": "50 km"
+    },
+    "states": {
+      "loading": "Checking distance input.",
+      "pending": "Distance input is not ready. Check again manually later.",
+      "changed_input": "Distance input changed while reading. Results were cleared. Check again to read the latest input.",
+      "unavailable": "Distance observations are unavailable. Existing analysis remains available.",
+      "error": "The inspection failed. Use the button to try again."
+    },
+    "reasons": {
+      "missing_distance": "Distance input is missing for this activity.",
+      "unknown_axis": "The input time axis cannot be linked to activity start.",
+      "invalid_input": "Input values or attribution could not be validated.",
+      "input_limit": "The input exceeds the inspection size limit.",
+      "incomplete_input": "Measurement gaps or incomplete input prevent displaying an effort."
+    },
+    "layers": {
+      "raw_parts": "App distance input",
+      "api_streams": "Imported distance stream"
+    }
   }
 }
