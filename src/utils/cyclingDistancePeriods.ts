@@ -1,7 +1,33 @@
 import { BIKE_DISTANCE_TARGETS, BIKE_DISTANCE_M } from "@shared/activity-bike-distance-evidence";
 import type { CyclingDistancePeriodAnalysis, PeriodRunSource, TrainingAnalysisPeriodResult } from "@shared/types/training-analysis-periods";
+import type { NormalizedCyclingDistanceProvenance } from "@shared/types/cycling-distance-observations";
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const exact = (value: unknown, keys: string[]) => object(value) && Object.keys(value).length === keys.length && Object.keys(value).every(key => keys.includes(key));
+export const legacyCyclingProvenance: NormalizedCyclingDistanceProvenance = {
+  provenanceVersion: 2, sourceBasis: "stored_distance_parts", timingBasis: "stored_explicit_activity_elapsed", originalClockVerified: false, declaredActivitySource: null, status: "legacy_normalized",
+};
+export function validCyclingProvenance(value: unknown): value is NormalizedCyclingDistanceProvenance {
+  return exact(value, ["provenanceVersion", "sourceBasis", "timingBasis", "originalClockVerified", "declaredActivitySource", "status"])
+    && object(value) && value.provenanceVersion === 2 && value.sourceBasis === "stored_distance_parts" && value.timingBasis === "stored_explicit_activity_elapsed" && value.originalClockVerified === false
+    && [null, "orider", "strava", "apple_health", "health_connect"].includes(value.declaredActivitySource as string | null)
+    && (value.status === "stored_explicit" || value.status === "legacy_normalized" && value.declaredActivitySource === null);
+}
+/** 구 응답은 출처를 추정하지 않고 중립 표식으로 정규화한다. 새 필드가 하나라도 있으면 구 계약으로 강등하지 않는다. */
+export function normalizeCyclingDistanceAnalysis(value: unknown, period: TrainingAnalysisPeriodResult): CyclingDistancePeriodAnalysis | undefined {
+  if (!object(value)) return undefined;
+  const legacy = exact(value, ["version", "targetsVersion", "timingBasis", "scope", "quality", "coverage", "distances"]) && value.timingBasis === "original_activity_elapsed";
+  if (!legacy) return validCurrentCyclingDistanceAnalysis(value, period) ? value : undefined;
+  if (!dense(value.distances, 13)) return undefined;
+  const distances = (value.distances as unknown[]).map(d => {
+    if (!object(d) || !dense(d.sources, 200)) return d;
+    return { ...d, sources: (d.sources as unknown[]).map(source => exact(source, ["sourceActivityId", "startTime", "metricsRevision", "contributingActivityCount", "elapsedSec"]) ? { ...source as object, provenance: { ...legacyCyclingProvenance } } : source) };
+  });
+  const normalized = { ...value, provenanceVersion: 2, sourceBasis: "stored_distance_parts", originalClockVerified: false, timingBasis: "stored_explicit_activity_elapsed", distances };
+  return validCurrentCyclingDistanceAnalysis(normalized, period) ? normalized : undefined;
+}
+export function validCyclingDistanceAnalysis(value: unknown, period: TrainingAnalysisPeriodResult): boolean {
+  return normalizeCyclingDistanceAnalysis(value, period) !== undefined;
+}
 /** 배열의 빈 슬롯이나 prototype의 요소를 DTO 실요소로 받지 않는다. */
 function dense(value: unknown, max: number): boolean {
   if (!Array.isArray(value) || value.length > max) return false;
@@ -11,11 +37,11 @@ function dense(value: unknown, max: number): boolean {
 const count = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) >= 0;
 const positive = (value: unknown): value is number => count(value) && Number(value) > 0;
 export const compareCyclingSources = (a: PeriodRunSource & { elapsedSec: number }, b: PeriodRunSource & { elapsedSec: number }) => a.elapsedSec - b.elapsedSec || b.startTime - a.startTime || a.sourceActivityId.localeCompare(b.sourceActivityId);
-export function validCyclingDistanceAnalysis(value: unknown, period: TrainingAnalysisPeriodResult): value is CyclingDistancePeriodAnalysis {
+function validCurrentCyclingDistanceAnalysis(value: unknown, period: TrainingAnalysisPeriodResult): value is CyclingDistancePeriodAnalysis {
   if (!period?.coverage || !Array.isArray(period.activities)) return false;
-  if (!exact(value, ["version", "targetsVersion", "timingBasis", "scope", "quality", "coverage", "distances"])) return false;
+  if (!exact(value, ["version", "targetsVersion", "provenanceVersion", "sourceBasis", "originalClockVerified", "timingBasis", "scope", "quality", "coverage", "distances"])) return false;
   const a = value as CyclingDistancePeriodAnalysis;
-  if (a.version !== 1 || a.targetsVersion !== 1 || a.timingBasis !== "original_activity_elapsed" || a.scope !== "observed_representatives" || a.quality !== "unknown" || a.coverage !== "unknown" || !dense(a.distances, 13) || a.distances.length !== 13 || new Set(a.distances.map(d => d?.distance)).size !== 13) return false;
+  if (a.version !== 1 || a.targetsVersion !== 1 || a.provenanceVersion !== 2 || a.sourceBasis !== "stored_distance_parts" || a.originalClockVerified !== false || a.timingBasis !== "stored_explicit_activity_elapsed" || a.scope !== "observed_representatives" || a.quality !== "unknown" || a.coverage !== "unknown" || !dense(a.distances, 13) || a.distances.length !== 13 || new Set(a.distances.map(d => d?.distance)).size !== 13) return false;
   return a.distances.every((d, distanceIndex) => {
     if (!exact(d, ["distance", "distanceM", "candidateActivityCount", "supportedActivityCount", "observedEffortActivityCount", "noObservedEffortActivityCount", "unsupportedActivityCount", "unavailableActivityCount", "truncated", "bestTimeSeconds", "medianTimeSeconds", "sources"]) || d.distance !== BIKE_DISTANCE_TARGETS[distanceIndex] || d.distanceM !== BIKE_DISTANCE_M[d.distance]
       || ![d.candidateActivityCount, d.supportedActivityCount, d.observedEffortActivityCount, d.noObservedEffortActivityCount, d.unsupportedActivityCount, d.unavailableActivityCount].every(count)
@@ -24,7 +50,7 @@ export function validCyclingDistanceAnalysis(value: unknown, period: TrainingAna
       || d.candidateActivityCount !== period.coverage.representativeActivityCount || d.truncated !== period.coverage.truncated
       || d.supportedActivityCount !== d.observedEffortActivityCount + d.noObservedEffortActivityCount || d.candidateActivityCount !== d.supportedActivityCount + d.unsupportedActivityCount + d.unavailableActivityCount
       || !dense(d.sources, 200) || d.sources.length !== d.observedEffortActivityCount || new Set(d.sources.map(s => s?.sourceActivityId)).size !== d.sources.length) return false;
-    if (!d.sources.every((s, index) => exact(s, ["sourceActivityId", "startTime", "metricsRevision", "contributingActivityCount", "elapsedSec"]) && typeof s.sourceActivityId === "string" && !!s.sourceActivityId && count(s.startTime) && s.startTime >= period.fromInclusive && s.startTime < period.toExclusive && positive(s.elapsedSec) && s.contributingActivityCount === 1 && typeof s.metricsRevision === "string" && /^\d+:\d+$/u.test(s.metricsRevision) && period.activities.some(row => row.activityId === s.sourceActivityId && row.startTime === s.startTime) && (index === 0 || compareCyclingSources(d.sources[index - 1]!, s) <= 0))) return false;
+    if (!d.sources.every((s, index) => exact(s, ["sourceActivityId", "startTime", "metricsRevision", "contributingActivityCount", "elapsedSec", "provenance"]) && validCyclingProvenance(s.provenance) && typeof s.sourceActivityId === "string" && !!s.sourceActivityId && count(s.startTime) && s.startTime >= period.fromInclusive && s.startTime < period.toExclusive && positive(s.elapsedSec) && s.contributingActivityCount === 1 && typeof s.metricsRevision === "string" && /^\d+:\d+$/u.test(s.metricsRevision) && period.activities.some(row => row.activityId === s.sourceActivityId && row.startTime === s.startTime) && (index === 0 || compareCyclingSources(d.sources[index - 1]!, s) <= 0))) return false;
     const times = d.sources.map(s => s.elapsedSec).sort((x, y) => x - y), middle = Math.floor(times.length / 2);
     if (!times.length) return d.bestTimeSeconds === null && d.medianTimeSeconds === null;
     const median = times.length % 2 ? times[middle]! : times[middle - 1]! / 2 + times[middle]! / 2;

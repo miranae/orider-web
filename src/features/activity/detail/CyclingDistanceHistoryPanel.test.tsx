@@ -151,7 +151,7 @@ describe("compact observed cycling history",()=>{
  it("uses actual native source even when the canonical twin is unsupported",()=>{
   const a=row("러닝😀");a.representativeInput.stravaTwinActivityId=123;const b=row("strava_123",50000);b.representativeInput.source="strava";b.representativeInput.stravaActivityId=123;b.distanceObservations={state:"legacy_unsupported",points:[]};
   mocks.hook.mockReturnValue({...idle(),status:"partial",pages:[page([a],false),page([b])]});render(<CyclingDistanceHistoryPanel activity={activity} selection={selection}/>);open();
-  const leaders=screen.getByText("1 · 16:39").closest("li")!;expect(within(leaders).getByRole("link")).toHaveAttribute("href","/ko/activity/%EB%9F%AC%EB%8B%9D%F0%9F%98%80");expect(leaders).toHaveAttribute("data-metrics-revision",a.metricsRevision);expect(within(leaders).getByRole("link")).toHaveTextContent("orider");expect(screen.getByText(ko.cyclingDistanceHistory.underlyingSource)).toBeInTheDocument();
+  const leaders=screen.getByText("1 · 16:39").closest("li")!;expect(within(leaders).getByRole("link")).toHaveAttribute("href","/ko/activity/%EB%9F%AC%EB%8B%9D%F0%9F%98%80");expect(leaders).toHaveAttribute("data-metrics-revision",a.metricsRevision);expect(within(leaders).getByRole("link")).toHaveTextContent("출처 미확인");expect(screen.getByText(ko.cyclingDistanceHistory.underlyingSource)).toBeInTheDocument();
  });
  it("shows top three then five locally in a year and ten for an explicit range",()=>{
   const rows=Array.from({length:12},(_,i)=>row(`r${i}`,i*1000));mocks.hook.mockReturnValue({...idle(),status:"complete",pages:[page(rows)]});

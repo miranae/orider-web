@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { manualBikeDistanceFixture, manualBikeDistanceEpoch } from "./activityBikeDistanceEvidence.fixture";
+import { manualBikeDistanceFixture, manualBikeDistanceEpoch, legacyManualBikeDistanceFixture, compiledBikeProvenanceWire } from "./activityBikeDistanceEvidence.fixture";
 import { loadActivityBikeDistanceEvidence, validateActivityBikeDistanceEvidence } from "./activityBikeDistanceEvidence";
 import { resetRuntimeConfigForTests } from "./runtimeConfig";
 const mocks = vi.hoisted(() => ({ callable: vi.fn(), call: vi.fn() }));
@@ -11,7 +11,7 @@ describe("manual single-activity distance facts", () => {
   it("accepts measured12000m10km fractional anchor, empty facts and API16000m without speed computation", () => {
     const r = manualBikeDistanceFixture(); expect(validateActivityBikeDistanceEvidence(r, "ride", undefined, manualBikeDistanceEpoch)).toBe(r);
     if (r.state !== "available") throw new Error("fixture");
-    r.sourceLayer = r.evidence.sourceLayer = "api_streams";
+    r.sourceLayer = r.evidence.sourceLayer = "api_streams"; r.evidence.sourceBasis = "provider_distance_stream"; r.evidence.sourceTimingBasis = "provider_explicit_activity_elapsed";
     const f = r.evidence.facts[0]!; f.exactElapsedSec = 750; f.elapsedSec = 750; f.endFraction = 10000 / 16000; f.endTimeSec = f.endOffsetSec = 780; r.evidence.observedEndOffsetSec = 1230;
     expect(validateActivityBikeDistanceEvidence(r, "ride")).toBe(r);
     r.evidence.facts = []; expect(validateActivityBikeDistanceEvidence(r, "ride")).toBe(r);
@@ -84,4 +84,33 @@ it("stops before the callable if authentication changes during AppCheck readines
   const services = { auth, functions: { app, customDomain: stage.firebaseFunctionsBase }, ensureAppCheckReady: vi.fn(async () => { auth.currentUser.uid = "other"; }) } as unknown as FirebaseServices;
   await expect(loadActivityBikeDistanceEvidence(services, "owner", "ride")).rejects.toThrow("account_changed");
   expect(mocks.call).not.toHaveBeenCalled();
+});
+
+ it("normalizes exact legacy wire neutrally and leaves source anchors unchanged", () => {
+   const raw = legacyManualBikeDistanceFixture(), before = JSON.stringify(raw);
+   const safe = validateActivityBikeDistanceEvidence(raw, "ride");
+   expect(safe).not.toBe(raw);
+   expect(safe.state === "available" && safe.evidence).toMatchObject({ provenanceVersion: 2, originalClockVerified: false, declaredActivitySource: null, sourceBasis: "stored_distance_parts", sourceTimingBasis: "stored_explicit_activity_elapsed", facts: raw.evidence.facts });
+   expect(JSON.stringify(raw)).toBe(before);
+ });
+ it.each([{ provenanceVersion: 3 }, { provenanceVersion: undefined }, { declaredActivitySource: "garmin" }, { originalClockVerified: true }, { sourceBasis: "native_distance_parts" }, { sourceTimingBasis: "original_activity_elapsed" }])("rejects malformed new provenance without legacy downgrade %j", delta => {
+   const raw = manualBikeDistanceFixture(); if (raw.state !== "available") throw new Error("fixture");
+   Object.assign(raw.evidence, delta); expect(() => validateActivityBikeDistanceEvidence(raw, "ride")).toThrow();
+ });
+ it.each(["orider", "strava", "apple_health", "health_connect", null])("accepts declared source %s without attesting original clock", source => {
+   const raw = manualBikeDistanceFixture(); if (raw.state !== "available") throw new Error("fixture");
+   raw.evidence.declaredActivitySource = source as typeof raw.evidence.declaredActivitySource;
+   expect(validateActivityBikeDistanceEvidence(raw, "ride")).toBe(raw);
+ });
+
+it("accepts exact compiled legacy/stored/provider BIKE wire with anchors intact",()=>{
+  for(const kind of ["legacyWire","modernWire","providerWire"] as const){
+    const raw=compiledBikeProvenanceWire.selected[kind].result;
+    const safe=validateActivityBikeDistanceEvidence(raw,raw.activityId);
+    expect(safe.state).toBe("available");
+    if(safe.state!=="available" || raw.state!=="available")throw new Error("wire");
+    expect(safe.evidence.facts).toEqual(raw.evidence.facts);
+    expect(safe.evidence.originalClockVerified).toBe(false);
+    if(kind!=="legacyWire")expect(safe).toEqual(raw);
+  }
 });

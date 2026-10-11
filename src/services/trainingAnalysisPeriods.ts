@@ -1,4 +1,4 @@
-import { validCyclingDistanceAnalysis } from "../utils/cyclingDistancePeriods";
+import { normalizeCyclingDistanceAnalysis } from "../utils/cyclingDistancePeriods";
 import { validCyclingClimbObservations } from "./cyclingClimbObservations";
 import { validExpandedDistanceAnalysis } from "../utils/expandedRunDistances";
 import { RUN_DISTANCE_M, RUN_DISTANCES } from "@shared/types/personal-records";
@@ -32,7 +32,9 @@ export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalys
     || !/^[a-f0-9]{64}$/u.test(response.inputDigest) || !Array.isArray(response.periods) || response.periods.length !== request.periods.length) invalid();
   // 새 선택 채널만 격리하고 기존 응답의 엄격한 검증은 유지한다.
   const sanitizedPeriods = response.periods.map(period => {
-    if (period?.cyclingDistanceObservations === undefined || request.discipline === "bike" && request.includeCyclingDistanceObservations === true && validCyclingDistanceAnalysis(period.cyclingDistanceObservations, period)) return period;
+    if (period?.cyclingDistanceObservations === undefined) return period;
+    const channel = request.discipline === "bike" && request.includeCyclingDistanceObservations === true ? normalizeCyclingDistanceAnalysis(period.cyclingDistanceObservations, period) : undefined;
+    if (channel) return channel === period.cyclingDistanceObservations ? period : { ...period, cyclingDistanceObservations: channel };
     const { cyclingDistanceObservations: _invalidChannel, ...rest } = period;
     return rest;
   });

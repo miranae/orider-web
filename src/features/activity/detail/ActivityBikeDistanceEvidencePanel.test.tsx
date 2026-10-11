@@ -68,3 +68,14 @@ describe("manual BIKE13 observations", () => {
     }
   });
 });
+
+it.each(["strava", "apple_health", "health_connect", null])("displays declared stored source without calling it native or verified: %s", source => {
+  const response=manualBikeDistanceFixture(); if(response.state!=="available")throw new Error("fixture");
+  response.evidence.declaredActivitySource=source as typeof response.evidence.declaredActivitySource;
+  mocks.state="available";mocks.response=response;
+  renderWithProviders(<ActivityBikeDistanceEvidencePanel activity={activity} metrics={null}/>);
+  expect(screen.getByText(/원본 시계 연결은 검증되지 않았습니다/)).toBeInTheDocument();
+  expect(screen.getByRole("link")).toHaveTextContent("저장된 거리 표본");
+  expect(screen.getByText(new RegExp(ko.manualBikeEvidence.declaredSources[source ?? "unknown"]))).toBeInTheDocument();
+  expect(mocks.inspect).not.toHaveBeenCalled();
+});

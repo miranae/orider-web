@@ -1,3 +1,4 @@
+import type { DeclaredCyclingActivitySource } from "./types/cycling-distance-observations";
 /** 고정 SI 거리. 80km와 50miles는 서로 다른 관측 구간이다. */
 export const BIKE_DISTANCE_TARGETS = ["5miles", "10km", "10miles", "20km", "30km", "40km", "50km", "80km", "50miles", "90km", "100km", "100miles", "180km"] as const;
 export type BikeDistanceKey = typeof BIKE_DISTANCE_TARGETS[number];
@@ -7,13 +8,17 @@ export const BIKE_DISTANCE_M: Readonly<Record<BikeDistanceKey, number>> = {
   "100km": 100000, "100miles": 160934.4, "180km": 180000,
 };
 
-/** 저장 PR·전체 계정 순위가 아닌, 명시적으로 읽은 단일 활동의 원본 관측 근거다. */
+/** 저장 PR·전체 계정 순위가 아닌, 명시적으로 읽은 단일 활동의 저장 관측 근거다. */
 export interface ActivityBikeDistanceEvidence {
   activityId: string;
   distanceInputRevision: string;
   sourceLayer: "raw_parts" | "api_streams";
   sourceSchemaVersion: string;
-  sourceTimingBasis: "original_activity_elapsed";
+  provenanceVersion: 2;
+  sourceBasis: "stored_distance_parts" | "provider_distance_stream";
+  sourceTimingBasis: "stored_explicit_activity_elapsed" | "provider_explicit_activity_elapsed";
+  originalClockVerified: false;
+  declaredActivitySource: DeclaredCyclingActivitySource | null;
   originEpochMs: number;
   durationSec: number;
   coverage: "unknown";

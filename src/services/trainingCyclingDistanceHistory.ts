@@ -1,3 +1,4 @@
+import { legacyCyclingProvenance, validCyclingProvenance } from "../utils/cyclingDistancePeriods";
 import { httpsCallable } from "firebase/functions";
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { BIKE_DISTANCE_TARGETS } from "@shared/activity-bike-distance-evidence";
@@ -66,10 +67,13 @@ function validActivityTotals(row: CyclingDistanceHistoryRow): boolean {
 export function validateCyclingDistanceHistoryResponse(value: unknown, request: CyclingDistanceHistoryRequest, now = Date.now()): CyclingDistanceHistoryResponse {
   const invalid = (): never => { throw new Error("invalid_cycling_distance_history_response"); };
   if (request.cursor && time(request.cursor.readTime) && now >= cyclingHistoryTimeMs(request.cursor.readTime) + CYCLING_HISTORY_TTL_MS) throw new Error("history_snapshot_expired");
-  if (!validCyclingDistanceHistoryRequest(request, now) || !exact(value, ["version", "mode", "discipline", "calendarBasis", "rangeBasis", "year", "targetsVersion", "timingBasis", "quality", "coverage", "scope", "queryScope", "range", "readTime", "expiresAt", "page", "activities"])) invalid();
-  const r = value as CyclingDistanceHistoryResponse;
+  const legacyKeys = ["version", "mode", "discipline", "calendarBasis", "rangeBasis", "year", "targetsVersion", "timingBasis", "quality", "coverage", "scope", "queryScope", "range", "readTime", "expiresAt", "page", "activities"];
+  const legacy = exact(value, legacyKeys) && (value as { timingBasis?: unknown }).timingBasis === "original_activity_elapsed";
+  if (!validCyclingDistanceHistoryRequest(request, now) || !exact(value, [...legacyKeys, ...(legacy ? [] : ["provenanceVersion", "sourceBasis", "originalClockVerified"])])) invalid();
+  const raw = value as CyclingDistanceHistoryResponse;
+  const r: CyclingDistanceHistoryResponse = legacy ? { ...raw, provenanceVersion: 2, sourceBasis: "stored_distance_parts", originalClockVerified: false, timingBasis: "stored_explicit_activity_elapsed" } : raw;
   if (r.version !== 1 || r.mode !== request.mode || r.discipline !== "bike" || r.calendarBasis !== "Asia/Seoul" || r.rangeBasis !== request.rangeBasis || r.year !== (request.rangeBasis === "calendar_year" ? request.year : null)
-    || r.targetsVersion !== 1 || r.timingBasis !== "original_activity_elapsed" || r.quality !== "unknown" || r.coverage !== "unknown" || r.scope !== "page" || r.queryScope !== "owner_activities_with_valid_start_time"
+    || r.targetsVersion !== 1 || r.provenanceVersion !== 2 || r.sourceBasis !== "stored_distance_parts" || r.originalClockVerified !== false || r.timingBasis !== "stored_explicit_activity_elapsed" || r.quality !== "unknown" || r.coverage !== "unknown" || r.scope !== "page" || r.queryScope !== "owner_activities_with_valid_start_time"
     || !time(r.readTime) || !exact(r.range, ["fromInclusive", "toExclusive"])) invalid();
   const asOf = cyclingHistoryTimeMs(r.readTime), responseMillis = r.readTime.seconds * 1000 + Math.floor(r.readTime.nanoseconds / 1e6), bounds = cyclingHistoryBounds(request);
   if (now - asOf >= CYCLING_HISTORY_TTL_MS) throw new Error("history_snapshot_expired");
@@ -88,7 +92,9 @@ export function validateCyclingDistanceHistoryResponse(value: unknown, request: 
   let isolatedTotals = false;
   const seen = new Set<string>(), observed = { observed: 0, noObserved: 0, unsupported: 0, unavailable: 0 };
   let previous = request.cursor?.after;
-  for (const row of r.activities) {
+  for (let rowIndex = 0; rowIndex < r.activities.length; rowIndex++) {
+    if (!Object.prototype.hasOwnProperty.call(r.activities, rowIndex)) invalid();
+    const row = r.activities[rowIndex]!;
     if (!exact(row, ["activityId", "startTime", "activityRevision", "metricsRevision", "representativeInput", "analysis", "distanceObservations", ...(request.includeActivityTotals === true && Object.prototype.hasOwnProperty.call(row, "activityTotals") ? ["activityTotals"] : [])]) || !validHistoryDocumentId(row.activityId) || seen.has(row.activityId) || !date(row.startTime) || row.startTime < r.range.fromInclusive || row.startTime >= r.range.toExclusive
       || !revision(row.activityRevision) || row.metricsRevision !== null && !revision(row.metricsRevision) || previous && !historyPositionAfter(row, previous)) invalid();
     seen.add(row.activityId); previous = row;
@@ -99,22 +105,26 @@ export function validateCyclingDistanceHistoryResponse(value: unknown, request: 
     if (!exact(a, ["state", "calculatorVersion", "inputCoverage"]) || !["ready", "missing", "pending", "stale", "outdated", "partial", "invalid"].includes(a.state) || a.calculatorVersion !== null && !count(a.calculatorVersion)
       || ![null, "complete", "partial_terminal", "pending"].includes(a.inputCoverage) || a.state === "ready" && (a.inputCoverage !== "complete" || a.calculatorVersion === null || a.calculatorVersion < ACTIVITY_METRICS_VERSION || row.metricsRevision === null)
       || a.state === "missing" && (a.calculatorVersion !== null || a.inputCoverage !== null || row.metricsRevision !== null)) invalid();
-    if (!exact(d, ["state", "points"]) || !["observed", "no_observed_efforts", "legacy_unsupported", "unavailable"].includes(d.state) || !Array.isArray(d.points) || d.points.length > BIKE_DISTANCE_TARGETS.length
+    if (!exact(d, ["state", "points", ...(!legacy && record(d) && (d.state === "observed" || d.state === "no_observed_efforts") ? ["provenance"] : [])]) || !["observed", "no_observed_efforts", "legacy_unsupported", "unavailable"].includes(d.state) || !Array.isArray(d.points) || d.points.length > BIKE_DISTANCE_TARGETS.length
       || (d.state === "observed" ? a.state !== "ready" || d.points.length === 0 : d.points.length !== 0) || (d.state === "no_observed_efforts" || d.state === "legacy_unsupported") && a.state !== "ready") invalid();
+    if (!legacy && (d.state === "observed" || d.state === "no_observed_efforts") && !validCyclingProvenance(d.provenance)) invalid();
+    const normalizedRow = legacy && (d.state === "observed" || d.state === "no_observed_efforts") ? { ...row, distanceObservations: { ...d, provenance: { ...legacyCyclingProvenance } } } : row;
     const distances = new Set<string>();
-    for (const point of d.points) {
+    for (let pointIndex = 0; pointIndex < d.points.length; pointIndex++) {
+      if (!Object.prototype.hasOwnProperty.call(d.points, pointIndex)) invalid();
+      const point = d.points[pointIndex]!;
       if (!exact(point, ["distance", "elapsedSec"]) || !BIKE_DISTANCE_TARGETS.includes(point.distance) || distances.has(point.distance) || !count(point.elapsedSec) || point.elapsedSec <= 0
         || input.endTime !== null && point.elapsedSec > Math.round((input.endTime - row.startTime) / 1000)) invalid();
       distances.add(point.distance);
     }
     if (Object.prototype.hasOwnProperty.call(row, "activityTotals") && !validActivityTotals(row)) {
-      const { activityTotals: _invalidTotals, ...safe } = row; void _invalidTotals; cleanActivities.push(safe); isolatedTotals = true;
-    } else cleanActivities.push(row);
+      const { activityTotals: _invalidTotals, ...safe } = normalizedRow; void _invalidTotals; cleanActivities.push(safe); isolatedTotals = true;
+    } else cleanActivities.push(normalizedRow);
     observed[d.state === "observed" ? "observed" : d.state === "no_observed_efforts" ? "noObserved" : d.state === "legacy_unsupported" ? "unsupported" : "unavailable"]++;
   }
   if (Object.keys(observed).some(key => observed[key as keyof typeof observed] !== p.observationCounts[key as keyof typeof observed])) invalid();
   if (p.nextCursor && previous && (historyPositionAfter(previous, p.nextCursor.after) || p.candidateActivityCount === p.scannedActivityCount && (previous.startTime !== p.nextCursor.after.startTime || previous.activityId !== p.nextCursor.after.activityId))) invalid();
-  return isolatedTotals ? { ...r, activities: cleanActivities } : r;
+  return isolatedTotals || legacy ? { ...r, activities: cleanActivities } : r;
 }
 export async function loadCyclingDistanceHistory(services: FirebaseServices, uid: string, request: CyclingDistanceHistoryRequest) {
   if (!trainingAnalysisPeriodsAvailable()) throw new Error("api_unavailable");

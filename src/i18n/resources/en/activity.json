@@ -1897,8 +1897,16 @@
       "incomplete_input": "Measurement gaps or incomplete input prevent displaying an effort."
     },
     "layers": {
-      "raw_parts": "App distance input",
-      "api_streams": "Imported distance stream"
+      "raw_parts": "Stored distance samples",
+      "api_streams": "Provider distance stream"
+    },
+    "provenance": "Declared source: {{source}} · Original clock alignment is unverified.",
+    "declaredSources": {
+      "orider": "O-Rider",
+      "strava": "Strava",
+      "apple_health": "Apple Health",
+      "health_connect": "Health Connect",
+      "unknown": "Source unverified"
     }
   },
   "observedRouteHistory": {
@@ -1965,7 +1973,7 @@
   },
   "cyclingDistancePeriods": {
     "title": "Cycling distance observations by period",
-    "basis": "Original elapsed time includes stops. Best and median values describe observed representative activities in the queried range, not account records or a growth rate. Input quality and coverage of entire activities are unknown.",
+    "basis": "Elapsed time from stored samples includes stops. Best and median values describe observed representative activities in the queried range, not account records or a growth rate. Original clock alignment and whole-activity quality and coverage are unverified.",
     "distance": "Distance to compare",
     "period": "Period {{count}} (KST)",
     "periodColumn": "Period (KST)",
@@ -1980,7 +1988,12 @@
     "noSupport": "No observed input supports this distance. Unsupported activities are not treated as zero-second records.",
     "sourceCount": "Showing {{shown}}/{{total}} source activities",
     "moreSources": "Show 5 more sources",
-    "scrollHint": "Swipe the table horizontally to inspect both periods."
+    "scrollHint": "Swipe the table horizontally to inspect both periods.",
+    "provenance": "{{source}} · {{status}}",
+    "provenanceStatuses": {
+      "stored_explicit": "Stored sample attribution",
+      "legacy_normalized": "Earlier samples · attribution unverified"
+    }
   },
   "cyclingDistanceHistory": {
     "yearTitle": "Observed distance records in {{year}}",
@@ -2012,7 +2025,7 @@
     "sourceStates": "Ready {{ready}} · Missing {{missing}} · Pending {{pending}} · Changed {{stale}} · Outdated {{outdated}} · Partial {{partial}} · Invalid {{invalid}}",
     "visibleSources": "Showing {{shown}} of {{total}} sources",
     "moreSources": "Show 50 more sources",
-    "basis": "Uses measured distance and original activity elapsed time. Location accuracy is unverified; activities without a start time or supported analysis may be absent.",
+    "basis": "Uses stored distance samples and elapsed time including stops. Original clock alignment and location accuracy are unverified; activities without a start time or supported analysis may be absent.",
     "states": {
       "ready": "Final analysis",
       "missing": "Missing analysis",
@@ -2040,10 +2053,15 @@
     "trendTitle": "Observed records over time",
     "shorter": "Shorter elapsed time has a smaller value",
     "larger": "A larger value means more recorded",
-    "trendNote": "Original elapsed observations from {{count}} received sources. No values between activities are inferred.",
+    "trendNote": "Stored elapsed observations from {{count}} received sources. No values between activities are inferred.",
     "totalTrendNote": "Whole-activity values from {{count}} received sources at the selected basis. No values between activities are inferred.",
     "selectedSource": "Source {{index}} / {{total}}",
     "previousSource": "Previous source",
-    "nextSource": "Next source"
+    "nextSource": "Next source",
+    "provenance": "{{source}} · {{status}}",
+    "provenanceStatuses": {
+      "stored_explicit": "Stored sample attribution",
+      "legacy_normalized": "Earlier samples · attribution unverified"
+    }
   }
 }

@@ -1,3 +1,4 @@
+import type { NormalizedCyclingDistanceProvenance } from "./cycling-distance-observations";
 import type { BikeDistanceKey } from "../activity-bike-distance-evidence";
 import type { HrZoneBoundaries } from "../training/hrZoneTable";
 import type { PowerCurvePeriod } from "./power-curve-periods";
@@ -163,7 +164,10 @@ export interface CyclingClimbObservations {
 export interface CyclingDistancePeriodAnalysis {
   version: 1;
   targetsVersion: 1;
-  timingBasis: "original_activity_elapsed";
+  provenanceVersion: 2;
+  sourceBasis: "stored_distance_parts";
+  originalClockVerified: false;
+  timingBasis: "stored_explicit_activity_elapsed";
   scope: "observed_representatives";
   quality: "unknown";
   coverage: "unknown";
@@ -181,7 +185,7 @@ export interface CyclingDistancePeriodAnalysis {
     bestTimeSeconds: number | null;
     medianTimeSeconds: number | null;
     /** 최대 200개 대표 활동. 경과 시간/날짜/ID 순; 계정 PR 순위가 아니다. */
-    sources: Array<PeriodRunSource & { elapsedSec: number }>;
+    sources: Array<PeriodRunSource & { elapsedSec: number; provenance: NormalizedCyclingDistanceProvenance }>;
   }>;
 }
 export interface TrainingAnalysisPeriodResult extends PowerCurvePeriod {

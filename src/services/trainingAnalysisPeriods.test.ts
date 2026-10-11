@@ -1,3 +1,4 @@
+import { compiledBikeProvenanceWire } from "./activityBikeDistanceEvidence.fixture";
 import { expandedPeriodFixture } from "../utils/expandedRunDistances.fixture";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
@@ -267,4 +268,25 @@ it.each(["pendingActivityCount", "missingActivityCount", "incompleteActivityCoun
     expect(safe.periods[0]!.cyclingDistanceObservations).toBeUndefined();
     expect(safe.periods[0]!.coverage).toEqual(before.periods[0]!.coverage);expect(safe.periods[0]!.zones).toEqual(before.periods[0]!.zones);expect(safe.periods[0]!.totals).toEqual(before.periods[0]!.totals);expect(response).toEqual(before);
   }
+});
+
+it("isolates malformed v2 cycling provenance while preserving every existing period field",async()=>{
+  const { cyclingDistancePeriodFixture } = await import("../utils/cyclingDistancePeriods.fixture");
+  const response=cyclingDistancePeriodFixture(), period=response.periods[0]!;
+  Object.assign(period.cyclingDistanceObservations!.distances[1]!.sources[0]!.provenance,{originalClockVerified:true});
+  const before=JSON.stringify(response), safe=validateTrainingAnalysisPeriodsResponse(response,{...request,includeCyclingDistanceObservations:true});
+  expect(safe.periods[0]!.cyclingDistanceObservations).toBeUndefined();
+  for(const field of ["activities","coverage","totals","zones"] as const)expect(safe.periods[0]![field]).toBe(period[field]);
+  expect(JSON.stringify(response)).toBe(before);
+});
+
+it("accepts full actual compiled period wire and exactly matches backend legacy normalization",()=>{
+  const wires=compiledBikeProvenanceWire.period;
+  const raw=wires.legacyWire.result as TrainingAnalysisPeriodsResponse;
+  const normalized=wires.normalizedLegacyWire.result as TrainingAnalysisPeriodsResponse;
+  const modern=wires.modernWire.result as TrainingAnalysisPeriodsResponse;
+  const request={discipline:"bike" as const,includeCyclingDistanceObservations:true as const,periods:raw.periods.map(({fromInclusive,toExclusive})=>({fromInclusive,toExclusive}))};
+  expect(validateTrainingAnalysisPeriodsResponse(raw,request)).toEqual(normalized);
+  expect(validateTrainingAnalysisPeriodsResponse(modern,request)).toBe(modern);
+  expect(validateTrainingAnalysisPeriodsResponse(periodFixture(),{...request,periods:periodFixture().periods.map(({fromInclusive,toExclusive})=>({fromInclusive,toExclusive}))})).toEqual(periodFixture());
 });
