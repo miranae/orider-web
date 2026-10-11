@@ -11,6 +11,7 @@ import { trainingAnalysisPeriodsAvailable } from "../../../services/trainingAnal
 import SimilarRouteHistoryPanel from "./SimilarRouteHistoryPanel";
 import RunSplitComparisonPanel from "./RunSplitComparisonPanel";
 import RunPeriodComparisonPanel from "./RunPeriodComparisonPanel";
+import AnnualRunHistoryPanel from "./AnnualRunHistoryPanel";
 import TrainingPeriodZonesPanel from "./TrainingPeriodZonesPanel";
 import { Button, Card, ChartFrame, Input, Select, Stack, Stat, Text } from "../../../theme";
 import "./activity-growth-panel.css";
@@ -224,6 +225,7 @@ function Statistics({ activity }: { activity: Activity }) {
       <Text as="p" variant="bodyMedium" tone="tertiary">{t(longPeriod ? "growth.monthlyTrendNote" : "growth.trendNote")} {t("growth.bucketHint")}</Text>
     </ChartFrame>}
     {selectedTrend && <Text as="p" variant="bodyMedium">{date(selectedTrend.start)}–{date(selectedTrend.end - 1)} · {t("growth.bucketCount", { count: selectedTrend.sources.length })} <Button size="sm" variant="ghost" onClick={() => setSelectedBucket(null)}>{t("growth.clearBucket")}</Button></Text>}
+    {canonicalEnabled && discipline === "run" && period === "year" && yearBoundaries && appliedYear != null && <AnnualRunHistoryPanel ownerUid={activity.userId} activityId={activity.id} year={appliedYear} />}
     {canonicalEnabled && <RunPeriodComparisonPanel response={canonical.response} />}
     {canonicalEnabled && <TrainingPeriodZonesPanel response={canonical.response} />}
     <details key={selectedBucket ?? "all"} open={selectedTrend ? true : undefined} className="activity-growth-sources"><summary><Text variant="bodyMedium" weight={600}>{t("growth.sourceActivities")}</Text></summary><Stack gap="var(--space-2)" className="pt-3">{sourceList.map((source) => <a key={source.id} className="activity-growth-source-link" href={`/activity/${encodeURIComponent(source.id)}`}><Text variant="bodyMedium">{date(source.startTime)} · {source.description || source.type}</Text></a>)}</Stack></details>
