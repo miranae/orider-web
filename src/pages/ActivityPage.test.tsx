@@ -1015,7 +1015,7 @@ describe("ActivityPage", () => {
     setCallableResult("createCourseFromActivity", { data: { courseId: "course-from-activity" } });
     setCallableResult("sendCourseToApp", { data: {} });
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
 
     const button = await screen.findByRole("button", { name: "이 경로로 라이드" });
     fireEvent.click(button);
@@ -1054,7 +1054,7 @@ describe("ActivityPage", () => {
     }]);
     setCallableResult("sendCourseToApp", { data: {} });
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
 
     expect(await findSentButton()).toBeDisabled();
@@ -1072,7 +1072,7 @@ describe("ActivityPage", () => {
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     vi.mocked(getDocs).mockRejectedValueOnce(new Error("index unavailable"));
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("기존 코스를 확인하지 못했습니다");
@@ -1118,12 +1118,16 @@ describe("ActivityPage", () => {
     }));
     setCallableResult("sendCourseToApp", { data: {} });
 
-    const first = renderWithProviders(<ActivityPage />, { authenticated: true });
+    let first!: ReturnType<typeof renderWithProviders>;
+
+    await act(async () => { first = renderWithProviders(<ActivityPage />, { authenticated: true }); });
     const firstButton = await screen.findByRole("button", { name: "이 경로로 라이드" });
     await waitFor(() => expect(firstButton).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
     first.unmount();
 
-    const second = renderWithProviders(<ActivityPage />, { authenticated: true });
+    let second!: ReturnType<typeof renderWithProviders>;
+
+    await act(async () => { second = renderWithProviders(<ActivityPage />, { authenticated: true }); });
     try {
       const secondButton = await screen.findByRole("button", { name: "이 경로로 라이드" });
       await waitFor(() => expect(secondButton).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
@@ -1150,7 +1154,7 @@ describe("ActivityPage", () => {
     setCallableResult("createCourseFromActivity", createResponse);
     setCallableResult("sendCourseToApp", { data: {} });
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     await waitForCallableCount("createCourseFromActivity", 1);
 
@@ -1180,7 +1184,9 @@ describe("ActivityPage", () => {
     void createResponse.catch(() => undefined);
     setCallableResult("createCourseFromActivity", createResponse);
 
-    const view = renderWithProviders(<ActivityPage />, { authenticated: true });
+    let view!: ReturnType<typeof renderWithProviders>;
+
+    await act(async () => { view = renderWithProviders(<ActivityPage />, { authenticated: true }); });
     try {
       const button = await screen.findByRole("button", { name: "이 경로로 라이드" });
       await waitFor(() => expect(button).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
@@ -1254,7 +1260,7 @@ describe("ActivityPage", () => {
     // 이 테스트가 도중에 실패하면 Storage 스파이가 남아 뒤따르는 테스트가 전부 "blocked" 로
     // 죽는다 — 원인 케이스를 가리므로 복원은 finally 에서 보장한다.
     try {
-      renderWithProviders(<ActivityPage />, { authenticated: true });
+      await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
       fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
 
       expect(await findSentButton()).toBeDisabled();
@@ -1276,7 +1282,9 @@ describe("ActivityPage", () => {
     let resolveCreate!: (value: { data: { courseId: string } }) => void;
     setCallableResult("createCourseFromActivity", new Promise((resolve) => { resolveCreate = resolve; }));
 
-    const view = renderWithProviders(<ActivityPage />, { authenticated: true });
+    let view!: ReturnType<typeof renderWithProviders>;
+
+    await act(async () => { view = renderWithProviders(<ActivityPage />, { authenticated: true }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     await waitForCallableCount("createCourseFromActivity", 1);
 
@@ -1296,7 +1304,9 @@ describe("ActivityPage", () => {
     let resolveCreate!: (value: { data: { courseId: string } }) => void;
     setCallableResult("createCourseFromActivity", new Promise((resolve) => { resolveCreate = resolve; }));
 
-    const view = renderWithProviders(<ActivityPage />, { authenticated: true });
+    let view!: ReturnType<typeof renderWithProviders>;
+
+    await act(async () => { view = renderWithProviders(<ActivityPage />, { authenticated: true }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     await waitForCallableCount("createCourseFromActivity", 1);
     view.unmount();
@@ -1313,7 +1323,7 @@ describe("ActivityPage", () => {
     let resolveUserACreate!: (value: { data: { courseId: string } }) => void;
     setCallableResult("createCourseFromActivity", new Promise((resolve) => { resolveUserACreate = resolve; }));
 
-    renderWithProviders(<ActivityPage />, { authenticated: true, user: { uid: "user-a" } });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true, user: { uid: "user-a" } }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     await waitForCallableCount("createCourseFromActivity", 1);
 
@@ -1343,7 +1353,7 @@ describe("ActivityPage", () => {
     void rejectedDelivery.catch(() => undefined);
     setCallableResult("sendCourseToApp", rejectedDelivery);
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
 
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     expect(await screen.findByRole("alert", undefined, { timeout: 5000 }))
@@ -1362,7 +1372,7 @@ describe("ActivityPage", () => {
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     mockSignInWithPopup.mockClear();
 
-    renderWithProviders(<ActivityPage />, { authenticated: false });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: false }); });
 
     fireEvent.click(await screen.findByRole("button", { name: "로그인하고 이 경로로 라이드" }));
 
