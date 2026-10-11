@@ -104,3 +104,78 @@ describe("additive running period evidence", () => {
     expect(() => validateTrainingAnalysisPeriodsResponse(value, runRequest(value))).toThrow("invalid_training_analysis_periods_response");
   });
 });
+
+describe("optional observed running distribution boundary", () => {
+  const requestFor = (value: TrainingAnalysisPeriodsResponse) => ({ discipline: "run" as const, periods: value.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })) });
+  function supplied() {
+    const value = runningPeriodFixture();
+    value.periods.forEach(period => {
+      const running = period.running!, curve = running.paceCurves[0]!, source = period.activities[0]!;
+      curve.observedStatistics = curve.points.map(point => ({ durationSeconds: point.durationSeconds, observedBestPaceSecPerKm: point.paceSecPerKm, observedMedianPaceSecPerKm: point.paceSecPerKm + 20, contributingActivityCount: point.contributingActivityCount }));
+      running.evidence = { version: 1, scope: "observed_representatives", timingBasis: "elapsed_including_stops", activities: [{ activityId: source.activityId, startTime: source.startTime, metricsRevision: "opaque-revision", distanceRecords: [{ distance: "5km", elapsedSec: 1200 }], paceCurve: { sourceBasis: curve.sourceBasis, unit: "sec_per_km", points: curve.points.map(({ durationSeconds, paceSecPerKm, speedKph }) => ({ durationSeconds, paceSecPerKm, speedKph })) } }] };
+    });
+    return value;
+  }
+  it("accepts additive absence, valid opaque provenance and unknown fields without recalculating statistics", () => {
+    const old = runningPeriodFixture(); expect(validateTrainingAnalysisPeriodsResponse(old, requestFor(old))).toBe(old);
+    const value = supplied(); Object.assign(value.periods[0]!.running!.evidence!, { futureMetadata: { version: 2 } });
+    expect(validateTrainingAnalysisPeriodsResponse(value, requestFor(value))).toBe(value);
+    expect(value.periods[0]!.running!.paceCurves[0]!.observedStatistics![0]!.observedMedianPaceSecPerKm).toBe(280);
+  });
+  it.each(["activities-object", "statistics-object", "evidence-null", "duplicate-activity", "foreign-source", "wrong-date", "revision-empty", "revision-long", "wrong-unit", "wrong-timing", "unknown-basis", "points-object", "duplicate-duration", "unsupported-duration", "invalid-pace", "canonical-speed", "bad-distance", "duplicate-distance", "count-zero", "count-over-source", "invalid-median", "duplicate-statistic", "too-many-activities", "too-many-statistics"])("rejects malformed optional %s through the normal invalid-response error", kind => {
+    const value = supplied(), running = value.periods[0]!.running!, evidence = running.evidence!, activity = evidence.activities[0]!, pace = activity.paceCurve!, stats = running.paceCurves[0]!.observedStatistics!;
+    if (kind === "activities-object") evidence.activities = {} as never;
+    if (kind === "statistics-object") running.paceCurves[0]!.observedStatistics = {} as never;
+    if (kind === "evidence-null") running.evidence = null as never;
+    if (kind === "duplicate-activity") evidence.activities.push(structuredClone(activity));
+    if (kind === "foreign-source") activity.activityId = "foreign";
+    if (kind === "wrong-date") activity.startTime++;
+    if (kind === "revision-empty") activity.metricsRevision = " ";
+    if (kind === "revision-long") activity.metricsRevision = "a".repeat(257);
+    if (kind === "wrong-unit") pace.unit = "kmh" as never;
+    if (kind === "wrong-timing") evidence.timingBasis = "moving" as never;
+    if (kind === "unknown-basis") pace.sourceBasis = "unknown" as never;
+    if (kind === "points-object") pace.points = {} as never;
+    if (kind === "duplicate-duration") pace.points.push(structuredClone(pace.points[0]!));
+    if (kind === "unsupported-duration") pace.points[0]!.durationSeconds = 47;
+    if (kind === "invalid-pace") pace.points[0]!.paceSecPerKm = Infinity;
+    if (kind === "canonical-speed") pace.points[0]!.speedKph = 12;
+    if (kind === "bad-distance") activity.distanceRecords[0]!.elapsedSec = -1;
+    if (kind === "duplicate-distance") activity.distanceRecords.push(structuredClone(activity.distanceRecords[0]!));
+    if (kind === "count-zero") stats[0]!.contributingActivityCount = 0;
+    if (kind === "count-over-source") stats[0]!.contributingActivityCount = 2;
+    if (kind === "invalid-median") stats[0]!.observedMedianPaceSecPerKm = NaN;
+    if (kind === "duplicate-statistic") stats.push(structuredClone(stats[0]!));
+    if (kind === "too-many-activities") evidence.activities = Array(201).fill(activity);
+    if (kind === "too-many-statistics") running.paceCurves[0]!.observedStatistics = Array(10).fill(stats[0]);
+    expect(() => validateTrainingAnalysisPeriodsResponse(value, requestFor(value))).toThrow("invalid_training_analysis_periods_response");
+  });
+  it("rejects an observed best that disagrees with the existing winning curve point", () => {
+    const value = supplied();
+    value.periods[0]!.running!.paceCurves[0]!.observedStatistics![0]!.observedBestPaceSecPerKm = 1;
+    expect(() => validateTrainingAnalysisPeriodsResponse(value, requestFor(value))).toThrow("invalid_training_analysis_periods_response");
+  });
+  it("rejects a malformed optional payload through the callable error path with one request", async () => {
+    const value = supplied(); value.periods[0]!.running!.evidence!.activities = {} as never;
+    const app = {};
+    const services = { auth: { app, currentUser: { uid: "owner", isAnonymous: false } }, functions: { app, customDomain: stage.firebaseFunctionsBase }, ensureAppCheckReady: vi.fn(async () => {}) } as unknown as FirebaseServices;
+    mocks.call.mockResolvedValueOnce({ data: value });
+    await expect(loadTrainingAnalysisPeriods(services, "owner", requestFor(value))).rejects.toThrow("invalid_training_analysis_periods_response");
+    expect(mocks.call).toHaveBeenCalledTimes(1);
+  });
+  it("allows canonical emptiness and keeps legacy seven-duration/kmh contracts separate", () => {
+    const value = supplied(), running = value.periods[0]!.running!, curve = running.paceCurves[0]!;
+    curve.sourceBasis = "speed_curve_kmh_converted";
+    curve.points = curve.points.filter(point => point.durationSeconds === 300).map(point => ({ ...point, speedKph: 15 }));
+    curve.observedStatistics = curve.observedStatistics!.filter(point => point.durationSeconds === 300);
+    const pace = running.evidence!.activities[0]!.paceCurve!;
+    pace.sourceBasis = curve.sourceBasis; pace.points = curve.points.map(({ durationSeconds, paceSecPerKm, speedKph }) => ({ durationSeconds, paceSecPerKm, speedKph }));
+    expect(validateTrainingAnalysisPeriodsResponse(value, requestFor(value))).toBe(value);
+    pace.points[0]!.durationSeconds = 180;
+    expect(() => validateTrainingAnalysisPeriodsResponse(value, requestFor(value))).toThrow("invalid_training_analysis_periods_response");
+    const empty = supplied(), r = empty.periods[0]!.running!;
+    r.paceCurves[0]!.points = []; r.paceCurves[0]!.observedStatistics = []; r.paceCurves[0]!.coverage.eligibleActivityCount = 0; r.paceCurves[0]!.coverage.noObservedEffortActivityCount = 1;
+    r.evidence!.activities[0]!.paceCurve = null;
+    expect(validateTrainingAnalysisPeriodsResponse(empty, requestFor(empty))).toBe(empty);
+  });
+});

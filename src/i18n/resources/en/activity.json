@@ -1,4 +1,22 @@
 {
+  "runEvidence": {
+    "title": "Observed activity pace distribution",
+    "scope": "Distribution of each observed activity’s best pace for the selected duration. This is not an average across all training or a judgment of fitness improvement.",
+    "basis": "Distribution recording basis",
+    "canonicalBasis": "Confirmed pace on the recorded elapsed-time axis, without separately removing stops.",
+    "legacyBasis": "Legacy best-average-speed curves converted to pace, kept separate from canonical elapsed-time pace.",
+    "duration": "Observed duration",
+    "partial": "Some inputs are missing. The distribution covers collected activities and does not represent the entire period.",
+    "best": "Best observed activity pace",
+    "median": "Observed activity median",
+    "count": "Activities observed for this duration",
+    "notObserved": "No confirmed distribution was provided for this basis and duration. Missing values are not filled with zero.",
+    "notCollected": "Activity-level evidence has not been provided yet.",
+    "timeline": "Observed pace by activity date",
+    "timelineNote": "Both periods use the same pace axis, with faster pace higher. Unobserved dates are not connected or inferred.",
+    "noEvidence": "No displayable activity-level pace evidence was provided for this basis and duration.",
+    "sources": "View {{count}} evidence activities"
+  },
   "runPeriods": {
     "title": "Running best efforts by period",
     "unavailable": "Canonical running best efforts are not yet available for these periods.",

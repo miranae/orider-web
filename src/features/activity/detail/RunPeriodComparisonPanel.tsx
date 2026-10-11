@@ -6,6 +6,7 @@ import { useLocale } from "../../../contexts/LocaleContext";
 import { ChartFrame, Select, Text } from "../../../theme";
 import { formatPace } from "../../../utils/units";
 import { formatElapsedBoundary } from "./activityRangeSelection";
+import RunPeriodEvidencePanel from "./RunPeriodEvidencePanel";
 
 /** 같은 통계 응답을 읽는다. 기간이나 종목을 다시 조회하지 않는다. */
 export default function RunPeriodComparisonPanel({ response }: { response: TrainingAnalysisPeriodsResponse | null }) {
@@ -50,5 +51,6 @@ export default function RunPeriodComparisonPanel({ response }: { response: Train
         <Text as="p" variant="bodySmall" tone="secondary">{t("runPeriods.curveNote")}</Text>
       </ChartFrame>
     </>}
+    <RunPeriodEvidencePanel response={response} />
   </section>;
 }
