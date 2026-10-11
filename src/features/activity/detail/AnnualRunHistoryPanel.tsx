@@ -24,6 +24,16 @@ function AnnualHistorySources({ rows, locale, date }: { rows: TrainingAnalysisHi
   </details>;
 }
 
+function AnnualHistoryLeaders({ rows, locale, date }: { rows: ReturnType<typeof annualDistanceLeaders>; locale: string; date: (time: number) => string }) {
+  const { t } = useTranslation("activity");
+  const [expanded, setExpanded] = useState(false);
+  const id = useId();
+  return <div className="space-y-2">
+    <ul id={id} className="space-y-2">{rows.slice(0, expanded ? 10 : 3).map(row => <li key={row.activityId} data-metrics-revision={row.metricsRevision}><Text as="p" variant="bodyMedium" weight={600}>{formatElapsedBoundary(row.elapsedSec)}</Text><a className="activity-growth-source-link text-[length:var(--fs-md)]" href={`/${locale}/activity/${encodeURIComponent(row.activityId)}`}>{t("annualHistory.source", { date: date(row.startTime) })}</a></li>)}</ul>
+    {rows.length > 3 && <Button size="md" className="min-h-[calc(var(--dim-button-height)+var(--space-1))] text-[length:var(--fs-md)]" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>{t(expanded ? "annualHistory.leaders.showLess" : "annualHistory.leaders.showMore")}</Button>}
+  </div>;
+}
+
 export default function AnnualRunHistoryPanel({ ownerUid, activityId, year }: { ownerUid: string; activityId: string; year: number }) {
   const { t, i18n } = useTranslation("activity");
   const { locale } = useLocale();
@@ -35,7 +45,7 @@ export default function AnnualRunHistoryPanel({ ownerUid, activityId, year }: { 
   const date = (time: number, full = false) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", ...(full ? { hour: "2-digit", minute: "2-digit", second: "2-digit" } as const : {}) }).format(time);
   const first = history.pages[0];
   const leaders = annualDistanceLeaders(summary.representatives, distance);
-  return <section className="space-y-3 border-t border-[var(--line-soft)] pt-4" aria-label={t("annualHistory.title", { year })}>
+  return <section className="annual-run-history space-y-3 border-t border-[var(--line-soft)] pt-4" aria-label={t("annualHistory.title", { year })}>
     <Text as="h3" variant="subtitle">{t("annualHistory.title", { year })}</Text>
     <Text as="p" variant="bodyMedium" tone="secondary">{t("annualHistory.scope")}</Text>
     {history.status === "idle" && <Button size="sm" onClick={() => void history.start()}>{t("annualHistory.start")}</Button>}
@@ -52,9 +62,9 @@ export default function AnnualRunHistoryPanel({ ownerUid, activityId, year }: { 
       <Text as="p" variant="bodyMedium" tone="secondary">{t("annualHistory.analysisStates", summary.states)}</Text>
       <Text as="p" variant="bodyMedium" tone="secondary">{t("annualHistory.channelCoverage", summary.channels)}</Text>
       <label htmlFor={`${id}-distance`}><Text as="span" variant="bodyMedium">{t("annualHistory.distance")}</Text><Select id={`${id}-distance`} className="min-h-[calc(var(--dim-button-height)+var(--space-1))] text-[length:var(--fs-md)]" value={distance} onChange={event => setDistance(event.target.value as RunDistanceKey)}>{RUN_DISTANCES.map(value => <option key={value} value={value}>{t(`runRecord.dist.${value}`)}</option>)}</Select></label>
-      <Text as="h4" variant="bodyMedium" weight={600}>{t("annualHistory.leaders", { count: summary.representatives.filter(row => row.analysis.state === "ready" && row.distanceRecords.state === "observed" && row.distanceRecords.points.some(point => point.distance === distance)).length })}</Text>
+      <Text as="h4" variant="bodyMedium" weight={600}>{t("annualHistory.leaders.title", { count: summary.representatives.filter(row => row.analysis.state === "ready" && row.distanceRecords.state === "observed" && row.distanceRecords.points.some(point => point.distance === distance)).length })}</Text>
       <Text as="p" variant="bodyMedium" tone="secondary">{t("annualHistory.timingBasis")}</Text>
-      {leaders.length ? <ul className="space-y-2">{leaders.map(row => <li key={row.activityId} data-metrics-revision={row.metricsRevision}><Text as="p" variant="bodyMedium" weight={600}>{formatElapsedBoundary(row.elapsedSec)}</Text><a className="activity-growth-source-link text-[length:var(--fs-md)]" href={`/${locale}/activity/${encodeURIComponent(row.activityId)}`}>{t("annualHistory.source", { date: date(row.startTime) })}</a></li>)}</ul> : <Text as="p" variant="bodyMedium" tone="secondary">{t("annualHistory.noEfforts")}</Text>}
+      {leaders.length ? <AnnualHistoryLeaders key={JSON.stringify([ownerUid, activityId, year, first.readTime, distance])} rows={leaders} locale={locale} date={date} /> : <Text as="p" variant="bodyMedium" tone="secondary">{t("annualHistory.noEfforts")}</Text>}
       <AnnualHistorySources key={JSON.stringify([ownerUid, activityId, year, first.readTime])} rows={summary.representatives} locale={locale} date={date} />
     </>}
   </section>;

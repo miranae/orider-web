@@ -1717,7 +1717,11 @@
     "analysisStates": "확정 {{ready}} · 분석 없음 {{missing}} · 대기 {{pending}} · 기준 변경 {{stale}} · 이전 버전 {{outdated}} · 부분 분석 {{partial}} · 확인 불가 {{invalid}}",
     "channelCoverage": "거리 기록 확인 불가 {{distance}}개 · 페이스 곡선 확인 불가 {{pace}}개",
     "distance": "확인할 거리 기록",
-    "leaders": "관측된 빠른 기록 최대 3개 · 이 거리 활동 N {{count}}",
+    "leaders": {
+      "title": "관측된 빠른 기록 최대 10개 · 이 거리 활동 N {{count}}",
+      "showMore": "관측된 상위 기록 최대 10개 보기",
+      "showLess": "상위 3개만 보기"
+    },
     "timingBasis": "정지를 포함한 명시된 경과 기록만 표시합니다. 현재 확인된 대표 활동의 관측 기록이며 공식 순위나 새 개인기록 판정이 아닙니다.",
     "source": "{{date}} 원본 활동",
     "noEfforts": "확인된 대표 활동에서 이 거리의 확정 기록이 없습니다.",

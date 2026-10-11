@@ -1717,7 +1717,11 @@
     "analysisStates": "Ready {{ready}} · missing {{missing}} · pending {{pending}} · stale {{stale}} · older version {{outdated}} · partial {{partial}} · invalid {{invalid}}",
     "channelCoverage": "Distance records unavailable {{distance}} · pace curves unavailable {{pace}}",
     "distance": "Distance record to inspect",
-    "leaders": "Up to 3 fast observed efforts · activities at this distance N {{count}}",
+    "leaders": {
+      "title": "Up to 10 fast observed efforts · activities at this distance N {{count}}",
+      "showMore": "Show up to 10 top observed efforts",
+      "showLess": "Show only the top 3"
+    },
     "timingBasis": "Only explicit elapsed efforts including stops are shown. These are observations in the currently checked representatives, not official rankings or new personal-record decisions.",
     "source": "{{date}} source activity",
     "noEfforts": "No confirmed effort at this distance was found in the checked representatives.",

@@ -23,6 +23,7 @@
 .activity-growth-sources summary, .activity-growth-source-link { min-height: calc(var(--space-7) + var(--space-3)); display: flex; align-items: center; }
 .activity-growth-source-link { color: var(--ink-1); text-decoration: underline; text-underline-offset: var(--space-1); overflow-wrap: anywhere; }
 .activity-growth-source-link:hover { color: var(--accent); }
+.annual-run-history .activity-growth-source-link:hover { color: var(--accent-dark); }
 .activity-growth-source-link:focus-visible, .activity-growth-sources summary:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); border-radius: var(--r-sm); }
 .activity-comparison-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-block: var(--space-2); }
 .activity-comparison-line { display: inline-block; width: var(--space-5); border-top: 2px solid var(--accent); margin-right: var(--space-2); vertical-align: middle; }
