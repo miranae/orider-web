@@ -1,3 +1,4 @@
+import ActivityRouteIndexHistoryPanel from "./ActivityRouteIndexHistoryPanel";
 import CyclingDistanceHistoryPanel from "./CyclingDistanceHistoryPanel";
 import ObservedRouteHistoryPanel from "./ObservedRouteHistoryPanel";
 import ActivityBikeDistanceEvidencePanel from "./ActivityBikeDistanceEvidencePanel";
@@ -252,6 +253,7 @@ function GrowthSections(props: ActivityGrowthPanelProps) {
   const content = <Stack gap="var(--dim-section-gap)" className={props.embedded ? undefined : "activity-growth-content"}>
     {getDiscipline(props.activity.type) === "run" && <ActivityRunDistanceEvidencePanel activity={props.activity} metrics={props.metrics} />}
     {getDiscipline(props.activity.type) === "bike" && <ActivityBikeDistanceEvidencePanel activity={props.activity} metrics={props.metrics} />}
+    {["run", "bike"].includes(getDiscipline(props.activity.type) ?? "") && <ActivityRouteIndexHistoryPanel activity={props.activity} observedMetricsIdentity={JSON.stringify([props.currentMetricsStatus, props.metrics?.computedAt, props.metrics?.version, props.metrics?.inputPending, props.metrics?.inputCoverage, props.metrics?.sourceLayer])} />}
     <section className="activity-growth-section">
       <Text as="h3" variant="subtitle"><Button variant="ghost" size="sm" className="activity-growth-disclosure" trailingIcon={<ChevronDown />} aria-expanded={comparisonOpen} aria-controls={`${sectionId}-comparison`} onClick={() => { setComparisonLoaded(true); setComparisonOpen((open) => !open); }}>{t("growth.compare")}</Button></Text>
       <div id={`${sectionId}-comparison`} hidden={!comparisonOpen} className="pt-4">{comparisonLoaded && <Comparison activity={props.activity} metrics={props.metrics} currentMetricsStatus={props.currentMetricsStatus} />}</div>
