@@ -1,3 +1,4 @@
+import CyclingDistanceHistoryPanel from "./CyclingDistanceHistoryPanel";
 import ObservedRouteHistoryPanel from "./ObservedRouteHistoryPanel";
 import ActivityBikeDistanceEvidencePanel from "./ActivityBikeDistanceEvidencePanel";
 import ActivityRunDistanceEvidencePanel from "./ActivityRunDistanceEvidencePanel";
@@ -231,6 +232,9 @@ function Statistics({ activity }: { activity: Activity }) {
       <Text as="p" variant="bodyMedium" tone="tertiary">{t(longPeriod ? "growth.monthlyTrendNote" : "growth.trendNote")} {t("growth.bucketHint")}</Text>
     </ChartFrame>}
     {selectedTrend && <Text as="p" variant="bodyMedium">{date(selectedTrend.start)}–{date(selectedTrend.end - 1)} · {t("growth.bucketCount", { count: selectedTrend.sources.length })} <Button size="sm" variant="ghost" onClick={() => setSelectedBucket(null)}>{t("growth.clearBucket")}</Button></Text>}
+    {canonicalEnabled && discipline === "bike" && applied && <CyclingDistanceHistoryPanel activity={activity} selection={period === "year" && appliedYear != null
+      ? { mode: "cycling_distance_history_page", discipline: "bike", calendarBasis: "Asia/Seoul", rangeBasis: "calendar_year", year: appliedYear }
+      : { mode: "cycling_distance_history_page", discipline: "bike", calendarBasis: "Asia/Seoul", rangeBasis: "explicit_range", range: { fromInclusive: boundaries.start, toExclusive: Math.min(boundaries.end, now.getTime()) } }} />}
     {canonicalEnabled && discipline === "run" && period === "year" && yearBoundaries && appliedYear != null && <AnnualRunHistoryPanel ownerUid={activity.userId} activityId={activity.id} year={appliedYear} />}
     {canonicalEnabled && <RunPeriodComparisonPanel response={canonical.response} />}
     {canonicalEnabled && <TrainingPeriodZonesPanel response={canonical.response} />}
