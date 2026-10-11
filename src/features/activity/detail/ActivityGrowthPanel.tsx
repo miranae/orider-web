@@ -8,6 +8,7 @@ import { useActivityGrowthHistory } from "../../../hooks/useActivityGrowthHistor
 import { useActivityMetrics, type UseActivityMetricsState } from "../../../hooks/useActivityMetrics";
 import { useTrainingAnalysisPeriods } from "../../../hooks/useTrainingAnalysisPeriods";
 import { trainingAnalysisPeriodsAvailable } from "../../../services/trainingAnalysisPeriods";
+import SimilarRouteHistoryPanel from "./SimilarRouteHistoryPanel";
 import RunSplitComparisonPanel from "./RunSplitComparisonPanel";
 import RunPeriodComparisonPanel from "./RunPeriodComparisonPanel";
 import TrainingPeriodZonesPanel from "./TrainingPeriodZonesPanel";
@@ -64,8 +65,11 @@ function Comparison({ activity, metrics, currentMetricsStatus }: Omit<ActivityGr
       <Button size="sm" variant={!routeOnly ? "secondary" : "ghost"} aria-pressed={!routeOnly} onClick={() => setRouteOnly(false)}>{t("growth.route.all")}</Button>
       <Button size="sm" variant={routeOnly ? "secondary" : "ghost"} aria-pressed={routeOnly} onClick={() => setRouteOnly(true)}>{t("growth.route.similar", { count: routes.candidates.length })}</Button>
     </Stack>
-    {routeOnly && <Text as="p" variant="bodySmall" tone="secondary">{t("growth.route.note", { count: routes.checked })}</Text>}
-    {routeOnly && <Text as="p" variant="bodySmall" tone="secondary">{t(routes.available ? routes.candidates.length ? "growth.route.choose" : "growth.route.empty" : "growth.route.unavailable")}</Text>}
+    {routeOnly && !routes.available && <Text as="p" variant="bodySmall" tone="secondary">{t("growth.route.note", { count: routes.checked })}</Text>}
+    {routeOnly && (!routes.available || !routes.candidates.length) && <Text as="p" variant="bodySmall" tone="secondary">{t(routes.available ? routes.candidates.length ? "growth.route.choose" : "growth.route.empty" : "growth.route.unavailable")}</Text>}
+    {routeOnly && routes.available && <SimilarRouteHistoryPanel current={activity} candidates={routes.candidates}
+      checkedCount={routes.checked} loadedCount={candidates.length} hasMore={history.hasMore}
+      selectedId={selectedId} units={units} onCompare={setSelectedId} />}
     <label className="block space-y-2 activity-growth-selection">
       <Text variant="label">{t("growth.choose")}</Text>
       <Select className="w-full min-w-0" value={selected?.id ?? ""} onChange={(event) => setSelectedId(event.target.value)}>

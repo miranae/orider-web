@@ -1633,5 +1633,24 @@
     "previous": "Selected previous activity",
     "pace": "Recorded pace",
     "heartRate": "Recorded average heart rate"
+  },
+  "similarRouteHistory": {
+    "title": "Similar route candidates by date",
+    "note": "These previous activities have similar thumbnail routes. This is not confirmed same-course history, a complete history, or a best-record verdict. Route, weather, equipment and stops can affect the values.",
+    "scope": "Candidates are drawn from {{checked}} checked records among {{loaded}} loaded eligible previous activities. Recommendations check at most {{limit}} records.",
+    "moreAvailable": "More records are not loaded yet. You can load more below, but recommendations still check only the first 50 records.",
+    "loadedOnly": "Only candidates within the currently loaded records are shown. This list does not guarantee all similar-route history.",
+    "current": "Current activity · shown separately from the chart",
+    "chart": "{{metric}} records by date",
+    "noMetric": "No confirmed values are available for the selected metric.",
+    "missing": "Only explicitly recorded distance, moving time and stop time are shown. Missing values remain — and break the chart line. Elapsed time never substitutes for moving time.",
+    "sources": "View candidate activities and sources ({{count}})",
+    "compare": "Compare this activity",
+    "metrics": {
+      "distance": "Distance · {{unit}}",
+      "movingTime": "Moving time",
+      "pauseTime": "Stop time"
+    },
+    "recordOrder": "Records in date order · time intervals are not represented"
   }
 }
