@@ -8,9 +8,54 @@ export interface TrainingAnalysisPeriodsRequest {
   discipline: "bike" | "run" | "swim";
   periods: PowerCurvePeriod[];
   includeExpandedRunDistances?: true;
+  includeRunningPaceZones?: true;
   includeCyclingClimbObservations?: true;
   includeCyclingDistanceObservations?: true;
 }
+
+/** 오라이더 정책이며 Strava의 구간 공식과 동일하다는 뜻이 아니다. */
+export interface RunningPaceZoneAnalysis {
+  version: 1;
+  policy: "orider_gap_threshold_v1";
+  basis: "calculation_snapshot";
+  timingBasis: "observed_elapsed_intervals";
+  state: "observed" | "unavailable";
+  reason: "threshold_missing" | "gap_input_unavailable" | "profile_read_failed" | null;
+  thresholdPaceSecPerKm: number | null;
+  thresholdSource: "training.thresholdPace" | "thresholdPace" | null;
+  calculatedAt: number;
+  /** 계산 입력으로 읽은 프로필 문서 수정 revision. 주행 당시 역치의 증거가 아니다. */
+  thresholdProfileRevision?: string;
+  upperSpeedRatios: number[];
+  zoneSeconds: number[];
+  eligibleGapSeconds: number;
+  /** 실제 제공된 경과 관측 간격의 부분 집계. 전체 활동시간의 분모가 아니다. */
+  intervalCoverage: {
+    scope: "provided_elapsed_intervals";
+    observedIntervalSeconds: number;
+    eligibleGapSeconds: number;
+    stoppedSeconds: number;
+    missingAltitudeMovingSeconds: number;
+    gapExcludedSeconds: number;
+    invalidDistanceSeconds: number;
+  } | null;
+}
+export interface PeriodRunningPaceZones {
+  status: "observed" | "unavailable";
+  reason: "observed_canonical_gap_zones" | "canonical_pace_zones_unavailable";
+  candidateActivityCount: number;
+  eligibleActivityCount: number;
+  legacyUnsupportedActivityCount: number;
+  unavailableActivityCount: number;
+  thresholdMissingActivityCount: number;
+  gapInputUnavailableActivityCount: number;
+  profileReadFailedActivityCount: number;
+  truncated: boolean;
+  groups: Array<Omit<RunningPaceZoneAnalysis, "calculatedAt" | "thresholdProfileRevision"> & {
+    sources: Array<PeriodRunSource & { calculatedAt: number; thresholdProfileRevision?: string }>;
+  }>;
+}
+
 export interface PeriodObservedTotal {
   /** Known canonical subtotal; null means no observed values. */
   observedValue: number | null;
@@ -218,7 +263,7 @@ export interface TrainingAnalysisPeriodResult extends PowerCurvePeriod {
     /** Groups have distinct recorded boundaries; never treat them as one fixed threshold. */
     heartRate: PeriodZoneCoverage & { groups: PeriodHrZoneGroup[] };
     power: PeriodZoneCoverage & { groups: PeriodPowerZoneGroup[]; reason: "recorded_ftp" | "not_applicable" };
-    pace: { status: "unavailable"; reason: "canonical_pace_zones_unavailable" };
+    pace: { status: "unavailable"; reason: "canonical_pace_zones_unavailable" } | PeriodRunningPaceZones;
   };
 }
 export interface TrainingAnalysisPeriodsResponse {

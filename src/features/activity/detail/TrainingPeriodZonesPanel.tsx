@@ -1,9 +1,14 @@
+import { useState } from "react";
+import { useAuth } from "../../../contexts/AuthContext";
+import { useTrainingAnalysisPeriods, type TrainingAnalysisPeriodsSelection } from "../../../hooks/useTrainingAnalysisPeriods";
+import { trainingAnalysisPeriodsAvailable } from "../../../services/trainingAnalysisPeriods";
+import RunningPaceZonesPanel from "../../../components/activity/RunningPaceZonesPanel";
 import CyclingDistancePeriodAnalysis from "./CyclingDistancePeriodAnalysis";
 import BikeObservedClimbRecordsPanel from "../../fitness/components/BikeObservedClimbRecordsPanel";
 import { useTranslation } from "react-i18next";
 import type { TrainingAnalysisPeriodsResponse, PeriodHrZoneGroup, PeriodPowerZoneGroup } from "@shared/types/training-analysis-periods";
 import BikeObservedPeriodRecordsPanel from "../../fitness/components/BikeObservedPeriodRecordsPanel";
-import { Text } from "../../../theme";
+import { Button, Text } from "../../../theme";
 import { formatElapsedBoundary } from "./activityRangeSelection";
 
 function ZoneGroup({ group }: { group: PeriodHrZoneGroup | PeriodPowerZoneGroup }) {
@@ -21,9 +26,40 @@ function ZoneGroup({ group }: { group: PeriodHrZoneGroup | PeriodPowerZoneGroup 
     </div>)}
   </section>;
 }
-/** 부모의 기간 통계 응답을 표시한다. 이 컴포넌트는 추가 요청을 만들지 않는다. */
-export default function TrainingPeriodZonesPanel({ response }: { response: TrainingAnalysisPeriodsResponse | null }) {
+/** 별도 클릭 시 적용된 기간만 조회한다. 기존 심박/파워 응답과 같은 snapshot이라고 주장하지 않는다. */
+function ManualRunningPaceZones({ response, ownerUid }: { response: TrainingAnalysisPeriodsResponse; ownerUid: string }) {
   const { t, i18n } = useTranslation("activity");
+  const [selection, setSelection] = useState<TrainingAnalysisPeriodsSelection | null>(null);
+  const enabled = trainingAnalysisPeriodsAvailable();
+  const result = useTrainingAnalysisPeriods(ownerUid, selection, enabled);
+  const date = (value: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(value);
+  return <section className="space-y-3" aria-label={t("runningPaceZones.periodTitle")}>
+    <Text as="h3" variant="subtitle">{t("runningPaceZones.periodTitle")}</Text>
+    <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.manualNote")}</Text>
+    <Button size="sm" disabled={!enabled || result.state === "loading"} onClick={() => setSelection(current => ({ request: { discipline: "run", includeRunningPaceZones: true,
+      periods: response.periods.map(period => ({ fromInclusive: period.fromInclusive, toExclusive: period.toExclusive })) }, requestId: (current?.requestId ?? 0) + 1 }))}>{t("runningPaceZones.load")}</Button>
+    {!enabled && <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.preparing")}</Text>}
+    {result.state === "loading" && <Text as="p" variant="bodyMedium" role="status">{t("runningPaceZones.loading")}</Text>}
+    {result.state === "error" && <Text as="p" variant="bodyMedium" role="alert">{t("runningPaceZones.error")}</Text>}
+    {result.response && <div className="space-y-4"><Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.readAt", { date: date(result.response.asOf) })}</Text>{result.response.periods.map((period, index) => {
+      const pace = period.zones.pace;
+      return <section key={index} className="space-y-3"><Text as="h4" variant="bodyMedium" weight={600}>{date(period.fromInclusive)} – {date(period.toExclusive - 1)}</Text>
+        {"candidateActivityCount" in pace ? <>
+          <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.coverage", { ...pace })}</Text>
+          <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.unavailableCounts", { ...pace })}</Text>
+          {pace.truncated && <Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.truncated")}</Text>}
+          <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.groupLimit")}</Text>
+          {pace.groups.length ? pace.groups.map((group, groupIndex) => <RunningPaceZonesPanel key={groupIndex} analysis={group} />) : <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.noObserved")}</Text>}
+        </> : <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.legacyUnsupported")}</Text>}
+      </section>;
+    })}</div>}
+  </section>;
+}
+/** 부모의 기간 통계 응답을 표시한다. 이 컴포넌트는 추가 요청을 만들지 않는다. */
+export default function TrainingPeriodZonesPanel({ response, ownerUid }: { response: TrainingAnalysisPeriodsResponse | null; ownerUid?: string }) {
+  const { t, i18n } = useTranslation("activity");
+  const { user } = useAuth();
+  const paceOwner = !!ownerUid && user?.uid === ownerUid && !user.isAnonymous;
   const date = (time: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(time);
   if (!response) return null;
   return <><CyclingDistancePeriodAnalysis response={response} /><BikeObservedPeriodRecordsPanel response={response} /><BikeObservedClimbRecordsPanel response={response} /><details className="activity-growth-evidence text-[length:var(--fs-md)]">
@@ -44,7 +80,7 @@ export default function TrainingPeriodZonesPanel({ response }: { response: Train
           </section>;
         })}
       </section>)}
-      {response.discipline === "run" && <Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.paceUnavailable")}</Text>}
+      {response.discipline === "run" && (paceOwner ? <ManualRunningPaceZones key={JSON.stringify([ownerUid, response.discipline, response.periods.map(period => [period.fromInclusive, period.toExclusive])])} response={response} ownerUid={ownerUid!} /> : <Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.paceUnavailable")}</Text>)}
     </div>
   </details></>;
 }

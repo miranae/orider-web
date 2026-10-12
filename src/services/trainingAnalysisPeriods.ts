@@ -3,7 +3,7 @@ import { validCyclingClimbObservations } from "./cyclingClimbObservations";
 import { validExpandedDistanceAnalysis } from "../utils/expandedRunDistances";
 import { RUN_DISTANCE_M, RUN_DISTANCES } from "@shared/types/personal-records";
 import { httpsCallable } from "firebase/functions";
-import type { PeriodRunSource, TrainingAnalysisPeriodsRequest, TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
+import type { RunningPaceZoneAnalysis, PeriodRunningPaceZones, PeriodRunSource, TrainingAnalysisPeriodsRequest, TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { validPowerCurvePeriodsRequest } from "./powerCurvePeriods";
@@ -20,6 +20,7 @@ export function trainingAnalysisPeriodsAvailable() {
 }
 export function validTrainingAnalysisPeriodsRequest(request: TrainingAnalysisPeriodsRequest, now = Date.now()) {
   return !!request && ["bike", "run", "swim"].includes(request.discipline)
+    && (request.includeRunningPaceZones === undefined || request.includeRunningPaceZones === true && request.discipline === "run")
     && (request.includeExpandedRunDistances === undefined || request.includeExpandedRunDistances === true && request.discipline === "run")
     && (request.includeCyclingClimbObservations === undefined || request.includeCyclingClimbObservations === true && request.discipline === "bike")
     && (request.includeCyclingDistanceObservations === undefined || request.includeCyclingDistanceObservations === true && request.discipline === "bike")
@@ -219,14 +220,72 @@ export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalys
           || running.paceCurves.some(curve => (observedByBasis.get(curve.sourceBasis) ?? 0) > curve.coverage.eligibleActivityCount)) invalid();
       }
     }
-    if (period.zones.power.reason !== (request.discipline === "bike" ? "recorded_ftp" : "not_applicable")
-      || period.zones.pace?.status !== "unavailable" || period.zones.pace.reason !== "canonical_pace_zones_unavailable") invalid();
+    if (period.zones.power.reason !== (request.discipline === "bike" ? "recorded_ftp" : "not_applicable")) invalid();
+    const pace = period.zones.pace;
+    if (pace && "candidateActivityCount" in pace) {
+      if (request.discipline !== "run" || request.includeRunningPaceZones !== true || !validPeriodRunningPaceZones(pace, period)) invalid();
+    } else if (pace?.status !== "unavailable" || pace.reason !== "canonical_pace_zones_unavailable") invalid();
     const partial = coverage.truncated || Object.values(period.totals).some(total => total.missingActivityCount > 0)
       || period.zones.heartRate.missingSensorActivityCount + period.zones.heartRate.contextUnknownActivityCount
       + period.zones.power.missingSensorActivityCount + period.zones.power.contextUnknownActivityCount > 0;
     if (period.status !== (partial ? "partial" : "complete")) invalid();
   });
   return response;
+}
+/** Private single-activity snapshots and observed period groups share this fixed GAP policy. */
+export function validRunningPaceZoneAnalysis(value: unknown): value is RunningPaceZoneAnalysis {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as RunningPaceZoneAnalysis;
+  const revision = data.thresholdProfileRevision;
+  if (data.version !== 1 || data.policy !== "orider_gap_threshold_v1" || data.basis !== "calculation_snapshot"
+    || data.timingBasis !== "observed_elapsed_intervals" || !count(data.calculatedAt) || data.calculatedAt <= 0
+    || !Number.isFinite(new Date(data.calculatedAt).getTime())
+    || revision !== undefined && (typeof revision !== "string" || !revision.trim() || revision.length > 256)
+    || !Array.isArray(data.upperSpeedRatios) || data.upperSpeedRatios.length !== 5 || JSON.stringify(data.upperSpeedRatios) !== "[0.75,0.85,0.95,1.05,1.15]"
+    || !Array.isArray(data.zoneSeconds) || data.zoneSeconds.length !== 6 || !Array.from(data.zoneSeconds).every(nonnegative)
+    || !nonnegative(data.eligibleGapSeconds) || !near(data.zoneSeconds.reduce((sum, seconds) => sum + seconds, 0), data.eligibleGapSeconds)) return false;
+  const threshold = data.thresholdPaceSecPerKm;
+  const configured = typeof threshold === "number" && Number.isFinite(threshold) && threshold >= 120 && threshold <= 1200
+    && ["training.thresholdPace", "thresholdPace"].includes(data.thresholdSource ?? "");
+  if (!configured && (threshold !== null || data.thresholdSource !== null)) return false;
+  const interval = data.intervalCoverage;
+  if (interval !== null) {
+    if (!interval || interval.scope !== "provided_elapsed_intervals"
+      || ![interval.observedIntervalSeconds, interval.eligibleGapSeconds, interval.stoppedSeconds, interval.missingAltitudeMovingSeconds, interval.gapExcludedSeconds, interval.invalidDistanceSeconds].every(nonnegative)
+      || !near(interval.observedIntervalSeconds, interval.eligibleGapSeconds + interval.stoppedSeconds + interval.missingAltitudeMovingSeconds + interval.gapExcludedSeconds + interval.invalidDistanceSeconds)
+      || !near(interval.eligibleGapSeconds, data.eligibleGapSeconds)) return false;
+  }
+  if (data.state === "observed") return configured && data.reason === null && interval !== null && data.eligibleGapSeconds > 0;
+  if (data.state !== "unavailable" || data.eligibleGapSeconds !== 0) return false;
+  return data.reason === "gap_input_unavailable" ? configured : ["threshold_missing", "profile_read_failed"].includes(data.reason ?? "") && !configured;
+}
+function validPeriodRunningPaceZones(pace: PeriodRunningPaceZones, period: TrainingAnalysisPeriodsResponse["periods"][number]) {
+  const counts = [pace.candidateActivityCount, pace.eligibleActivityCount, pace.legacyUnsupportedActivityCount,
+    pace.unavailableActivityCount, pace.thresholdMissingActivityCount, pace.gapInputUnavailableActivityCount, pace.profileReadFailedActivityCount];
+  if (!counts.every(count) || pace.candidateActivityCount !== period.coverage.representativeActivityCount
+    || counts.slice(1).reduce((sum, value) => sum + value, 0) !== pace.candidateActivityCount
+    || pace.truncated !== period.coverage.truncated || !Array.isArray(pace.groups) || pace.groups.length > pace.eligibleActivityCount
+    || pace.status !== (pace.eligibleActivityCount > 0 ? "observed" : "unavailable")
+    || pace.reason !== (pace.eligibleActivityCount > 0 ? "observed_canonical_gap_zones" : "canonical_pace_zones_unavailable")) return false;
+  const seen = new Set<string>(), groups = new Set<string>();
+  for (const group of pace.groups) {
+    if (!group || !Array.isArray(group.sources) || !group.sources.length || group.sources.length > pace.eligibleActivityCount) return false;
+    const first = group.sources[0];
+    if (!first) return false;
+    if (!validRunningPaceZoneAnalysis({ ...group, calculatedAt: first.calculatedAt, thresholdProfileRevision: first.thresholdProfileRevision }) || group.state !== "observed") return false;
+    const basis = JSON.stringify([group.thresholdPaceSecPerKm, group.thresholdSource]);
+    if (groups.has(basis)) return false;
+    groups.add(basis);
+    for (const source of group.sources) {
+      const representative = period.activities.find(activity => activity.activityId === source?.sourceActivityId);
+      if (!source || !id(source.sourceActivityId) || seen.has(source.sourceActivityId) || !representative || source.startTime !== representative.startTime
+        || source.contributingActivityCount !== 1 || typeof source.metricsRevision !== "string" || !source.metricsRevision.trim() || source.metricsRevision.length > 256
+        || !count(source.calculatedAt) || source.calculatedAt <= 0 || !Number.isFinite(new Date(source.calculatedAt).getTime())
+        || source.thresholdProfileRevision !== undefined && (typeof source.thresholdProfileRevision !== "string" || !source.thresholdProfileRevision.trim() || source.thresholdProfileRevision.length > 256)) return false;
+      seen.add(source.sourceActivityId);
+    }
+  }
+  return seen.size === pace.eligibleActivityCount;
 }
 export async function loadTrainingAnalysisPeriods(services: FirebaseServices, uid: string, request: TrainingAnalysisPeriodsRequest) {
   if (!trainingAnalysisPeriodsAvailable()) throw new Error("api_unavailable");

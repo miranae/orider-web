@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,6 +31,17 @@ describe("PowerCurvePeriodsPanel", () => {
     expect(screen.getByRole("link")).toHaveAttribute("href", "/en/activity/sprint");
     fireEvent.click(view.container.querySelector('[data-duration="300"]')!);
     expect(screen.getByRole("combobox")).toHaveValue("300");
+  });
+  it("keeps a desktop heading and named embedded region without duplicate mobile heading", () => {
+    const view = render(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled />);
+    expect(screen.getByRole("heading", { level: 3, name: "periodCurve.title" })).toBeInTheDocument();
+    view.rerender(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled embedded />);
+    expect(screen.queryByRole("heading", { level: 3, name: "periodCurve.title" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "periodCurve.title" })).toBeInTheDocument();
+    const unit = screen.getByRole("combobox", { name: "periodCurve.unit" });
+    expect(unit.closest("label")).toHaveClass("period-curve-unit");
+    const css = readFileSync("src/features/fitness/components/power-curve-periods.css", "utf8");
+    expect(css).toContain(".period-curve-unit select, .period-curve-form select, .period-curve-form input { min-height: calc(var(--dim-button-height) + var(--space-1));");
   });
   it("keeps API disabled by default and bounds comparison to two periods", () => {
     render(<PowerCurvePeriodsPanel ownerUid="owner" />);

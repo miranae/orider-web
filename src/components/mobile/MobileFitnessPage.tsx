@@ -539,7 +539,7 @@ function MobilePowerCurvePeriods({ ownerUid, enabled }: { ownerUid: string; enab
   if (!user || user.isAnonymous || user.uid !== ownerUid) return null;
   return <details className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3" onToggle={event => { if (event.currentTarget.open) setMounted(true); }}>
     <summary className="cursor-pointer py-3"><Text variant="label">{t("periodCurve.title")}</Text></summary>
-    {mounted && <div className="pt-3"><PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} /></div>}
+    {mounted && <div className="pt-3"><PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} embedded /></div>}
   </details>;
 }
 

@@ -64,7 +64,7 @@ export function PowerCurvePeriodsView({ response, unit = "W" }: { response: Powe
     {(normalized ? response.periods.some(period => period.weightNormalized?.powerDurationObservations !== undefined) : periods.some(period => period.powerDurationObservations !== undefined)) && <PowerDurationPeriodsView response={response} unit={unit} />}
   </div>;
 }
-function PeriodsForm({ ownerUid, callableEnabled }: { ownerUid: string; callableEnabled: boolean }) {
+function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string; callableEnabled: boolean; embedded: boolean }) {
   const { t } = useTranslation("fitness");
   const id = useId();
   const today = new Date().toISOString().slice(0, 10);
@@ -83,10 +83,10 @@ function PeriodsForm({ ownerUid, callableEnabled }: { ownerUid: string; callable
     if (periods.some(period => !period || period.fromInclusive >= period.toExclusive)) { setInvalid(true); setSelection(null); return; }
     setInvalid(false); setSelection(current => ({ request: { unit: "W", periods: periods as PowerCurvePeriod[], ...(unit === "W/kg" ? { includeWeightNormalized: true } : {}) }, requestId: (current?.requestId ?? 0) + 1 }));
   };
-  return <section className="space-y-4">
-    <Text as="h3" variant="subtitle">{t("periodCurve.title")}</Text>
+  return <section className="space-y-4" aria-label={t("periodCurve.title")}>
+    {!embedded && <Text as="h3" variant="subtitle">{t("periodCurve.title")}</Text>}
     <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.timezone")}</Text>
-    <label className="space-y-2 block" htmlFor={`${id}-unit`}><Text as="span" variant="bodyMedium">{t("periodCurve.unit")}</Text><Select id={`${id}-unit`} value={unit} onChange={event => { setUnit(event.target.value === "W/kg" ? "W/kg" : "W"); setSelection(null); setInvalid(false); }}><option value="W">W</option><option value="W/kg">W/kg</option></Select></label>
+    <label className="period-curve-unit space-y-2 block" htmlFor={`${id}-unit`}><Text as="span" variant="bodyMedium">{t("periodCurve.unit")}</Text><Select id={`${id}-unit`} value={unit} onChange={event => { setUnit(event.target.value === "W/kg" ? "W/kg" : "W"); setSelection(null); setInvalid(false); }}><option value="W">W</option><option value="W/kg">W/kg</option></Select></label>
     {unit === "W/kg" && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
     <div className="period-curve-form">{drafts.map((draft, index) => <div key={index} className="space-y-3"><label className="space-y-2 block" htmlFor={`${id}-${index}`}><Text as="span" variant="bodyMedium">{t("periodCurve.period", { n: index + 1 })}</Text><Select id={`${id}-${index}`} value={draft.preset} onChange={event => update(index, { preset: event.target.value as Draft["preset"] })}><option value="year">{t("periodCurve.year")}</option><option value="all">{t("periodCurve.all")}</option><option value="custom">{t("periodCurve.custom")}</option></Select></label>{draft.preset === "custom" && <div className="period-curve-dates">{(["from", "through"] as const).map(field => <label key={field} className="space-y-2 block"><Text as="span" variant="bodyMedium">{t(`periodCurve.${field}`)}</Text><Input type="date" max={today} value={draft[field]} onChange={event => update(index, { [field]: event.target.value })} /></label>)}</div>}</div>)}</div>
     <div className="flex flex-wrap gap-3"><Button variant="ghost" size="sm" onClick={() => { setDrafts(values => values.length === 1 ? [...values, makeDraft()] : values.slice(0, 1)); setSelection(null); }}>{t(drafts.length === 1 ? "periodCurve.add" : "periodCurve.remove")}</Button><Button size="sm" disabled={!callableEnabled || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>
@@ -97,8 +97,8 @@ function PeriodsForm({ ownerUid, callableEnabled }: { ownerUid: string; callable
     {result.response && <PowerCurvePeriodsView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} />}
   </section>;
 }
-export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false }: { ownerUid: string | null | undefined; callableEnabled?: boolean }) {
+export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false, embedded = false }: { ownerUid: string | null | undefined; callableEnabled?: boolean; embedded?: boolean }) {
   const { user } = useAuth();
   if (!ownerUid || !user || user.isAnonymous || user.uid !== ownerUid) return null;
-  return <PeriodsForm key={ownerUid} ownerUid={ownerUid} callableEnabled={callableEnabled} />;
+  return <PeriodsForm key={ownerUid} ownerUid={ownerUid} callableEnabled={callableEnabled} embedded={embedded} />;
 }

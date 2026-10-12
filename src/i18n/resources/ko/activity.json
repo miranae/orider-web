@@ -2099,5 +2099,48 @@
     },
     "singleAverage": "{{date}} · {{value}}. 평균이 확인된 기록 1개로는 추세를 표시하지 않습니다.",
     "noAverage": "받은 기록에서 확인된 평균이 없어 추세를 표시하지 않습니다. 활동 출처는 아래에서 확인할 수 있습니다."
+  },
+  "runningPaceZones": {
+    "title": "GAP 페이스존",
+    "periodTitle": "기간별 GAP 페이스존",
+    "policy": "오라이더 GAP 정책의 6개 존입니다. Z1은 느린 구간, Z6은 빠른 구간입니다.",
+    "snapshot": "분석 계산 당시 저장된 역치를 사용합니다. 활동 당시 역치와 다를 수 있습니다.",
+    "threshold": "기준 역치 {{pace}} · {{source}}",
+    "trainingSource": "훈련 설정",
+    "profileSource": "프로필 설정",
+    "denominator": "GAP을 확인한 관측 시간 {{time}} 기준",
+    "slower": "{{pace}} 이상",
+    "faster": "{{pace}} 미만",
+    "evidence": "관측 범위와 계산 근거",
+    "intervalScope": "제공된 경과 관측 간격만 합산합니다. 전체 활동시간의 분모가 아니며, Strava의 존 공식과 동일하다고 주장하지 않습니다.",
+    "intervalUnknown": "제공된 관측 간격의 범위를 확인할 수 없습니다.",
+    "calculated": "분석 계산 {{date}} (한국 시간)",
+    "revision": "기준 프로필 저장 버전 {{revision}}",
+    "sourceActivity": "근거 활동 {{date}} (한국 시간)",
+    "invalid": "페이스존 계산 근거를 확인할 수 없습니다.",
+    "manualNote": "적용된 기간의 페이스존을 별도로 조회합니다. 기존 심박·파워 통계와 조회 시점이 다를 수 있습니다.",
+    "load": "GAP 페이스존 근거 불러오기",
+    "preparing": "기간별 페이스존 조회를 준비하고 있습니다.",
+    "loading": "기간별 페이스존을 조회하고 있습니다.",
+    "error": "기간별 페이스존을 불러오지 못했습니다.",
+    "readAt": "페이스존 조회 기준 {{date}} (한국 시간)",
+    "coverage": "GAP 확인 {{eligibleActivityCount}} / 후보 {{candidateActivityCount}}건 · 이전 형식 미지원 {{legacyUnsupportedActivityCount}}건 · 분석 미확인 {{unavailableActivityCount}}건",
+    "unavailableCounts": "역치 없음 {{thresholdMissingActivityCount}}건 · GAP 입력 없음 {{gapInputUnavailableActivityCount}}건 · 프로필 읽기 실패 {{profileReadFailedActivityCount}}건",
+    "groupLimit": "역치와 설정 출처가 다른 그룹은 각각 표시합니다. 다른 기준의 분포 차이를 성장으로 해석하지 않습니다.",
+    "noObserved": "확인된 GAP 페이스존 기록이 없습니다.",
+    "legacyUnsupported": "이전 분석 응답에는 GAP 페이스존 근거가 없습니다.",
+    "reason": {
+      "threshold_missing": "계산 기준 역치가 없어 페이스존을 표시할 수 없습니다.",
+      "gap_input_unavailable": "계산 기준 역치는 있지만 사용할 GAP 관측 구간이 없습니다.",
+      "profile_read_failed": "계산 시 프로필을 읽지 못해 역치를 확인할 수 없습니다."
+    },
+    "interval": {
+      "observedIntervalSeconds": "제공된 관측 간격",
+      "eligibleGapSeconds": "GAP 확인",
+      "stoppedSeconds": "정지 관측",
+      "missingAltitudeMovingSeconds": "이동 중 고도 없음",
+      "gapExcludedSeconds": "기록 간격 제외",
+      "invalidDistanceSeconds": "유효하지 않은 거리 구간"
+    }
   }
 }
