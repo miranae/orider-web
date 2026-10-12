@@ -997,5 +997,22 @@
       "non_finite_result": "참고 시간을 계산할 수 없습니다."
     },
     "savedAccountUnverified": "결과는 저장되었지만 저장 직후 계정 기준을 확인하지 못했습니다. 저장이 취소된 것은 아닙니다. 같은 요청으로 다시 확인해 주세요."
+  },
+  "powerSkills": {
+    "title": "12개 구간 비교",
+    "freePeriods": "기간 자유 선택",
+    "preset": "최근 56일 / 전체 기간 비교",
+    "requestNote": "조회 버튼을 누르면 같은 시점을 기준으로 최근 56일과 전체 기간을 확인합니다.",
+    "recent": "최근 56일",
+    "allObserved": "확인한 전체 기간",
+    "scope": "동일한 측정 파워 관측에서 확인한 최대값입니다. 전체 기간은 최근 56일을 포함하며, 성장률이나 전체 활동의 최고 기록을 의미하지 않습니다. 현재 저장된 구간에는 15초·3분·15분·45분의 정확한 기록이 없습니다.",
+    "scanned": "활동 {{scanned}}개 확인 · 구간 자료가 있는 활동 {{included}}개",
+    "missing_exact_duration": "정확한 구간 기록 없음",
+    "channel_unavailable": "구간 관측 자료 없음",
+    "qualification_unverified": "측정 기준 확인 불가",
+    "weight_unavailable": "계산 당시 체중 자료 없음",
+    "table": "12개 구간 모두 보기",
+    "cutoff": "비교 기준 시각 {{date}} (한국 시간)",
+    "evidence": "정확한 구간 {{duration}}초 · 원값 {{value}} · 자료 버전 {{revision}}"
   }
 }

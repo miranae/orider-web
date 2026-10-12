@@ -9,6 +9,7 @@ import { utcPowerCurvePeriod } from "../../../services/powerCurvePeriods";
 import { makeDurationLabel } from "../fitnessPageUtils";
 import "./power-curve-periods.css";
 import { PowerDurationPeriodsView } from "./PowerDurationPeriodsView";
+import { PowerSkillsObservedView } from "./PowerSkillsObservedView";
 type Draft = { preset: "year" | "all" | "custom"; from: string; through: string };
 export function PowerCurvePeriodsView({ response, unit = "W" }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg" }) {
   const { t } = useTranslation("fitness");
@@ -69,6 +70,7 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
   const id = useId();
   const today = new Date().toISOString().slice(0, 10);
   const makeDraft = (): Draft => ({ preset: "year", from: `${today.slice(0, 4)}-01-01`, through: today });
+  const [skillsMode, setSkillsMode] = useState(false);
   const [drafts, setDrafts] = useState<Draft[]>(() => [makeDraft()]);
   const [selection, setSelection] = useState<PowerCurvePeriodsSelection | null>(null);
   const [invalid, setInvalid] = useState(false);
@@ -77,7 +79,7 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
   const update = (index: number, patch: Partial<Draft>) => { setDrafts(values => values.map((value, i) => index === i ? { ...value, ...patch } : value)); setSelection(null); setInvalid(false); };
   const submit = () => {
     const now = Date.now();
-    const periods = drafts.map(draft => draft.preset === "all" ? { fromInclusive: 0, toExclusive: now }
+    const periods = skillsMode ? [{ fromInclusive: Math.max(0, now - 56 * 86400000), toExclusive: now }, { fromInclusive: 0, toExclusive: now }] : drafts.map(draft => draft.preset === "all" ? { fromInclusive: 0, toExclusive: now }
       : draft.preset === "year" ? { fromInclusive: Date.UTC(new Date(now).getUTCFullYear(), 0, 1), toExclusive: now }
       : utcPowerCurvePeriod(draft.from, draft.through, now));
     if (periods.some(period => !period || period.fromInclusive >= period.toExclusive)) { setInvalid(true); setSelection(null); return; }
@@ -88,13 +90,15 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
     <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.timezone")}</Text>
     <label className="period-curve-unit space-y-2 block" htmlFor={`${id}-unit`}><Text as="span" variant="bodyMedium">{t("periodCurve.unit")}</Text><Select id={`${id}-unit`} value={unit} onChange={event => { setUnit(event.target.value === "W/kg" ? "W/kg" : "W"); setSelection(null); setInvalid(false); }}><option value="W">W</option><option value="W/kg">W/kg</option></Select></label>
     {unit === "W/kg" && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
-    <div className="period-curve-form">{drafts.map((draft, index) => <div key={index} className="space-y-3"><label className="space-y-2 block" htmlFor={`${id}-${index}`}><Text as="span" variant="bodyMedium">{t("periodCurve.period", { n: index + 1 })}</Text><Select id={`${id}-${index}`} value={draft.preset} onChange={event => update(index, { preset: event.target.value as Draft["preset"] })}><option value="year">{t("periodCurve.year")}</option><option value="all">{t("periodCurve.all")}</option><option value="custom">{t("periodCurve.custom")}</option></Select></label>{draft.preset === "custom" && <div className="period-curve-dates">{(["from", "through"] as const).map(field => <label key={field} className="space-y-2 block"><Text as="span" variant="bodyMedium">{t(`periodCurve.${field}`)}</Text><Input type="date" max={today} value={draft[field]} onChange={event => update(index, { [field]: event.target.value })} /></label>)}</div>}</div>)}</div>
-    <div className="flex flex-wrap gap-3"><Button variant="ghost" size="sm" onClick={() => { setDrafts(values => values.length === 1 ? [...values, makeDraft()] : values.slice(0, 1)); setSelection(null); }}>{t(drafts.length === 1 ? "periodCurve.add" : "periodCurve.remove")}</Button><Button size="sm" disabled={!callableEnabled || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>
+    <div className="flex flex-wrap gap-3"><Button variant="ghost" size="sm" aria-pressed={!skillsMode} onClick={() => { setSkillsMode(false); setSelection(null); setInvalid(false); }}>{t("powerSkills.freePeriods")}</Button><Button variant="ghost" size="sm" aria-pressed={skillsMode} onClick={() => { setSkillsMode(true); setSelection(null); setInvalid(false); }}>{t("powerSkills.preset")}</Button></div>
+    {skillsMode && <Text as="p" variant="bodyMedium" tone="secondary">{t("powerSkills.requestNote")}</Text>}
+    {!skillsMode && <div className="period-curve-form">{drafts.map((draft, index) => <div key={index} className="space-y-3"><label className="space-y-2 block" htmlFor={`${id}-${index}`}><Text as="span" variant="bodyMedium">{t("periodCurve.period", { n: index + 1 })}</Text><Select id={`${id}-${index}`} value={draft.preset} onChange={event => update(index, { preset: event.target.value as Draft["preset"] })}><option value="year">{t("periodCurve.year")}</option><option value="all">{t("periodCurve.all")}</option><option value="custom">{t("periodCurve.custom")}</option></Select></label>{draft.preset === "custom" && <div className="period-curve-dates">{(["from", "through"] as const).map(field => <label key={field} className="space-y-2 block"><Text as="span" variant="bodyMedium">{t(`periodCurve.${field}`)}</Text><Input type="date" max={today} value={draft[field]} onChange={event => update(index, { [field]: event.target.value })} /></label>)}</div>}</div>)}</div>}
+    <div className="flex flex-wrap gap-3">{!skillsMode && <Button variant="ghost" size="sm" onClick={() => { setDrafts(values => values.length === 1 ? [...values, makeDraft()] : values.slice(0, 1)); setSelection(null); }}>{t(drafts.length === 1 ? "periodCurve.add" : "periodCurve.remove")}</Button>}<Button size="sm" disabled={!callableEnabled || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>
     {!callableEnabled && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.preparing")}</Text>}
     {invalid && <Text as="p" variant="bodyMedium" role="alert">{t("periodCurve.invalid")}</Text>}
     {result.state === "loading" && <Text as="p" variant="bodyMedium">{t("periodCurve.loading")}</Text>}
     {result.state === "error" && <Text as="p" variant="bodyMedium" role="alert">{t("periodCurve.error")}</Text>}
-    {result.response && <PowerCurvePeriodsView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} />}
+    {result.response && (skillsMode ? <PowerSkillsObservedView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} /> : <PowerCurvePeriodsView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} />)}
   </section>;
 }
 export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false, embedded = false }: { ownerUid: string | null | undefined; callableEnabled?: boolean; embedded?: boolean }) {
