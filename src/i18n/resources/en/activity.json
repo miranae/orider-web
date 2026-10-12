@@ -1,4 +1,23 @@
 {
+  "cyclingEffortPreference": {
+    "title": "Manage this activity’s distance selections (Stage)",
+    "scope": "Only this activity’s distance selections are saved. Original distance and the activity are retained; current period, annual statistics and all-time records are not updated yet.",
+    "inspect": "Check / refresh management state",
+    "loading": "Checking selection state.",
+    "changed": "The analysis basis changed. Check again.",
+    "error": "Could not check or save selection state. Check again.",
+    "saved": "Selection saved. Current period and annual statistics are not updated yet. Check again before another selection.",
+    "unknown": "Unknown",
+    "original": "Original observed elapsed time: {{value}}",
+    "excluded": "Saved selection: excluded · effective elapsed time: {{value}}",
+    "selected": "Saved selection: included · effective elapsed time: {{value}}",
+    "source_missing": "No observation for this distance in this check. Only an existing excluded selection can be restored.",
+    "source_unavailable": "Observation evidence is unavailable. Only an existing excluded selection can be restored.",
+    "restore": "Restore this distance selection",
+    "exclude": "Exclude this distance selection",
+    "basis": "Selection management basis",
+    "basisNote": "Uses stored elapsed time including stops. Original device clock, observation quality and input completeness are unverified. This selection does not represent a change to period rankings, annual statistics or all-time records."
+  },
   "powerHistory": {
     "noSelectable": "No calculated records · no selectable records available",
     "fullPeriod": "Period {{period}} · start {{from}} inclusive / end {{to}} exclusive (Korea time)",

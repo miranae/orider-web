@@ -9,9 +9,16 @@ import en from "../../../i18n/resources/en/activity.json";
 import { manualBikeDistanceEpoch, manualBikeDistanceFixture } from "../../../services/activityBikeDistanceEvidence.fixture";
 import ActivityBikeDistanceEvidencePanel from "./ActivityBikeDistanceEvidencePanel";
 const mocks = vi.hoisted(() => ({ inspect: vi.fn(), available: true, state: "idle", response: null as ActivityBikeDistanceEvidenceResponse | null }));
+const management = vi.hoisted(() => ({ panel: vi.fn() }));
+vi.mock("./StageCyclingDistanceEffortPreferencePanel", () => ({ default: (props: unknown) => { management.panel(props); return null; } }));
 vi.mock("../../../hooks/useActivityBikeDistanceEvidence", () => ({ useActivityBikeDistanceEvidence: () => mocks }));
 const activity = { id: "ride", userId: "owner", type: "Ride", startTime: manualBikeDistanceEpoch, summary: { distance: 12000 } } as Activity;
-beforeEach(() => { mocks.inspect.mockReset(); mocks.available = true; mocks.state = "idle"; mocks.response = null; });
+beforeEach(() => { mocks.inspect.mockReset(); management.panel.mockClear(); mocks.available = true; mocks.state = "idle"; mocks.response = null; });
+it("passes the actual activity and existing metrics cancellation identity to its separate manual management tool", () => {
+  renderWithProviders(<ActivityBikeDistanceEvidencePanel activity={activity} metrics={null} />);
+  expect(management.panel).toHaveBeenCalledWith({ activity, scopeKey: JSON.stringify([undefined, undefined, undefined, undefined, undefined]) });
+  expect(mocks.inspect).not.toHaveBeenCalled();
+});
 describe("manual BIKE13 observations", () => {
   it("starts without requests and inspects only on the explicit CTA", () => {
     renderWithProviders(<ActivityBikeDistanceEvidencePanel activity={activity} metrics={null} />);
