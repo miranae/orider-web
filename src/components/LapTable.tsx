@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { LapData } from "@shared/types";
+import { Button, Text } from "../theme/components";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatDistance, formatSpeed } from "../utils/units";
 
@@ -14,9 +15,11 @@ function formatDuration(ms: number): string {
 
 interface LapTableProps {
   laps: LapData[];
+  onSelectLap?: (lap: LapData) => void;
+  canSelectLap?: (lap: LapData) => boolean;
 }
 
-export default function LapTable({ laps }: LapTableProps) {
+export default function LapTable({ laps, onSelectLap, canSelectLap }: LapTableProps) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
   if (laps.length === 0) {
@@ -55,7 +58,7 @@ export default function LapTable({ laps }: LapTableProps) {
         <tbody style={{ borderColor: 'var(--line-soft)' }}>
           {laps.map((lap) => (
             <tr key={lap.number} style={{ borderBottom: '1px solid var(--line-soft)' }} className="hover:bg-white/5">
-              <td className="py-2 px-2 font-medium">{lap.number}</td>
+              <td className="py-2 px-2 font-medium">{onSelectLap && canSelectLap?.(lap) ? <Button size="sm" variant="outline" onClick={() => onSelectLap(lap)} aria-label={t("analysis.lap.viewRange", { number: lap.number })}>{lap.number} · {t("analysis.lap.viewRangeShort")}</Button> : lap.number}</td>
               <td className="py-2 px-2 text-right tabular-nums">{formatDistance(finite(lap.distanceKm) * 1000, units)}</td>
               <td className="py-2 px-2 text-right tabular-nums font-mono">{formatDuration(finite(lap.durationMs))}</td>
               <td className="py-2 px-2 text-right tabular-nums">{formatSpeed(finite(lap.avgSpeed) / 3.6, units, 'bike')}</td>
@@ -79,6 +82,7 @@ export default function LapTable({ laps }: LapTableProps) {
           </tr>
         </tfoot>
       </table>
+      {onSelectLap && <Text as="p" variant="bodyMedium" tone="secondary" className="mt-3">{t("analysis.lap.locationBasis")}</Text>}
     </div>
   );
 }

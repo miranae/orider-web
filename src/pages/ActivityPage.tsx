@@ -12,6 +12,8 @@ import type { RidePeakEffort } from "@shared/types/activity-metrics";
 import ActivityRangeAnalysisPanel, { ActivityRangeControls } from "../features/activity/detail/ActivityRangeAnalysisPanel";
 import { useActivityRangeSelection } from "../hooks/useActivityRangeSelection";
 import ActivityPerformanceCharts from "../features/activity/detail/ActivityPerformanceCharts";
+import { recordedLapElapsedRange, resolveRecordedLapRange, type RecordedLap } from "../features/activity/detail/recordedLapRange";
+import { normalizeEpochMilliseconds } from "../utils/timestampUnit";
 import { useRunSplitLocation } from "../features/activity/detail/useRunSplitLocation";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 import Avatar from "../components/Avatar";
@@ -527,6 +529,39 @@ export default function ActivityPage() {
     pendingPeakLocation.current = null;
     if (peakLocation) viewRunSplitLocation();
   }, [activityId, user?.uid, isActivityOwner, selectedPeak, streams, streamsError, loadingStreams, peakLocation, viewRunSplitLocation]);
+  const lapContext = { source: activity?.source, activityStartMs: normalizeEpochMilliseconds(activity?.startTime) ?? 0, durationSec: rangeSelection.durationSec };
+  const [unlinkedLapIdentity, setUnlinkedLapIdentity] = useState<string | null>(null);
+  const pendingLap = useRef<{ identity: string; lap: RecordedLap } | null>(null);
+  if (pendingLap.current?.identity !== rangeSelection.identity) pendingLap.current = null;
+  const canSelectLap = (lap: RecordedLap) => !!rangeSelection.ownerUid && activity?.id === activityId
+    && !rangeSelection.sourceLocked && !loadingStreams && (streams
+      ? !!resolveRecordedLapRange(lap, lapContext, streams.time, streams.laps)
+      : !!recordedLapElapsedRange(lap, lapContext));
+  const selectLap = (lap: RecordedLap) => {
+    if (!canSelectLap(lap) || pendingLap.current) return;
+    setUnlinkedLapIdentity(null);
+    if (!streams) {
+      pendingLap.current = { identity: rangeSelection.identity, lap };
+      requestStreams();
+      return;
+    }
+    const range = resolveRecordedLapRange(lap, lapContext, streams.time, streams.laps);
+    if (range) { rangeSelection.selectAndEnable(range); viewRunSplitLocation(); }
+  };
+  useEffect(() => {
+    const pending = pendingLap.current;
+    if (!pending) return;
+    if (pending.identity !== rangeSelection.identity || !rangeSelection.ownerUid || rangeSelection.sourceLocked || streamsError) {
+      pendingLap.current = null;
+      return;
+    }
+    if (!streams || loadingStreams) return;
+    pendingLap.current = null;
+    const range = resolveRecordedLapRange(pending.lap, { source: activity?.source,
+      activityStartMs: normalizeEpochMilliseconds(activity?.startTime) ?? 0, durationSec: rangeSelection.durationSec }, streams.time, streams.laps);
+    if (range) { rangeSelection.selectAndEnable(range); viewRunSplitLocation(); }
+    else setUnlinkedLapIdentity(rangeSelection.identity);
+  }, [rangeSelection, streams, loadingStreams, streamsError, activity?.source, activity?.startTime, viewRunSplitLocation]);
   const markerPosition = useMemo(() => {
     if (hoverIndex == null || !sampledData[hoverIndex]) {
       if (rangeSelection.selection) return rangeSelection.routeRange ? streams?.latlng?.[rangeSelection.routeRange.endIndex] ?? null : null;
@@ -994,11 +1029,14 @@ export default function ActivityPage() {
         activeTab={activeTab}
         onChange={(tab) => {
           pendingPeakLocation.current = null;
+          pendingLap.current = null;
           setActiveTab(tab);
           if (!streamsSignInRequired && (["splits", "segments", "export"].includes(tab)
             || (tab === "laps" && !analysisTabProps?.analysisSummary && !streams?.laps))) requestStreams();
         }}
       />
+
+      {unlinkedLapIdentity === rangeSelection.identity && rangeSelection.ownerUid && <Text as="p" variant="bodyMedium" tone="secondary" role="status">{t("analysis.lap.locationUnavailable")}</Text>}
 
       {/* ── 분석 탭 ── */}
       {activeTab === "analysis" && sport !== "run" && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
@@ -1064,6 +1102,8 @@ export default function ActivityPage() {
         summary={displayedSummary}
         canonicalPresentationAvailable={overview.response?.status === "available"}
         onSelectRunEffort={getRuntimeConfig().appEnvironment === "stage" && getRuntimeConfig().activityAnalysisExpansionEnabled === true && rangeSelection.enabled && !rangeSelection.sourceLocked ? rangeSelection.select : undefined}
+        onSelectLap={rangeSelection.ownerUid ? selectLap : undefined}
+        canSelectLap={canSelectLap}
         onSelectRunSplit={selectRunSplit}
         onViewRunSplitLocation={viewRunSplitLocation}
         canViewRunSplitLocation={!!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
@@ -1086,8 +1126,8 @@ export default function ActivityPage() {
             {sport === "swim" ? t("page.swim.setAnalysis") : t("page.lapAnalysis")}
           </h3>
           {analysisTabProps?.analysisSummary ? (
-            <AnalysisLapTable laps={analysisTabProps.analysisSummary.laps} ftp={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} sport={sport} />
-          ) : streams?.laps ? sport === "run" ? <AnalysisLapTable laps={streams.laps} ftp={null} sport={sport} /> : <LapTable laps={streams.laps} /> : null}
+            <AnalysisLapTable laps={analysisTabProps.analysisSummary.laps} ftp={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} sport={sport} onSelectLap={rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} />
+          ) : streams?.laps ? sport === "run" ? <AnalysisLapTable laps={streams.laps} ftp={null} sport={sport} onSelectLap={rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} /> : <LapTable laps={streams.laps} onSelectLap={rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} /> : null}
         </Card>
       )}
 
