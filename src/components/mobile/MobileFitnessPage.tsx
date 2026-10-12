@@ -616,7 +616,7 @@ export default function MobileFitnessPage({
     : t("mobileFitness.trendTitle");
 
   const analysisTabLabel = data.discipline === "bike"
-    ? t("mobileFitness.tabZonesBike")
+    ? t("mobileFitness.tabAnalysis")
     : data.discipline === "run"
     ? t("mobileFitness.tabZonesRun")
     : t("mobileFitness.tabZonesSwim");
@@ -797,6 +797,12 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
+          {sectionState.derived === "ready" && !data.threshold && (data.discipline === "run" || data.discipline === "swim") && (
+            <SectionCard>
+              <Text variant="body">{t(data.discipline === "run" ? "mobileFitness.thresholdMissingRun" : "mobileFitness.thresholdMissingSwim")}</Text>
+            </SectionCard>
+          )}
+
           {/* 존 분포 */}
           {sectionState.derived === "ready" && showZones && (
             <SectionCard
@@ -851,7 +857,13 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
-          {sectionState.derived === "ready" && !showZones && !data.threshold && (
+          {sectionState.derived === "ready" && !showZones && (data.discipline === "run" || data.discipline === "swim") && (
+            <SectionCard>
+              <Text variant="body">{t("mobileFitness.hrZonesMissing")}</Text>
+            </SectionCard>
+          )}
+
+          {sectionState.derived === "ready" && isBike && !showZones && !data.threshold && (
             <div style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
               {t("mobileFitness.analysisInsufficient")}
             </div>

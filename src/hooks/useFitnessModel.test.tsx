@@ -11,6 +11,7 @@ import { useFitnessModel } from "./useFitnessModel";
 const mocks = vi.hoisted(() => ({
   user: { uid: "rider-a", isAnonymous: false },
   firestore: {},
+  profile: null as null | { ftp: number; thresholdPace?: number; css?: number },
   t: (key: string) => key,
   status: new Map<string, ActivityMetricStatus>(),
   windowEntries: [] as FitnessActivityWindowEntry[],
@@ -23,7 +24,7 @@ const mocks = vi.hoisted(() => ({
   timeseries: null as FitnessTimeseriesDoc | null,
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: mocks.t, i18n: { language: "ko" } }) }));
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, profile: null }) }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, profile: mocks.profile }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => ({ firestore: mocks.firestore }) }));
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: vi.fn() }) }));
 vi.mock("firebase/firestore", () => ({
@@ -84,6 +85,7 @@ function seed(sport: string, activities = [bike, run]) {
 }
 beforeEach(() => {
   mocks.user = { uid: "rider-a", isAnonymous: false };
+  mocks.profile = null;
   mocks.timeseries = null;
   mocks.status.clear();
   mocks.windowEntries = [];
@@ -99,6 +101,22 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("useFitnessModel", () => {
+  it.each(["run", "swim", "tri"])("does not use cycling FTP as the %s threshold when its threshold is missing", sport => {
+    mocks.profile = { ftp: 182 };
+    seed(sport);
+    const { result } = renderHook(() => useFitnessModel(sport, options));
+    expect(result.current.mobilePageProps.data.threshold).toBeNull();
+  });
+  it.each([
+    { sport: "bike", profile: { ftp: 182 }, label: "FTP", value: "182", unit: "W" },
+    { sport: "run", profile: { ftp: 182, thresholdPace: 300 }, label: "mobile.threshold.runLabel", value: "5:00", unit: "/km" },
+    { sport: "swim", profile: { ftp: 182, css: 110 }, label: "CSS", value: "1:50", unit: "/100m" },
+  ])("preserves configured $sport threshold and units", ({ sport, profile, label, value, unit }) => {
+    mocks.profile = profile;
+    seed(sport);
+    const { result } = renderHook(() => useFitnessModel(sport, options));
+    expect(result.current.mobilePageProps.data.threshold).toMatchObject({ label, value, unit });
+  });
   it.each([{ loadSnapshot: null, pmc: null }, { loadSnapshot: null }, { pmc: null }, { inputInvalidatedAt: null }, {}])("현대 계약 필드 %j의 무효 근거와 legacy 차트를 보존한다", fields => {
     seed("bike");
     const now = Date.parse("2026-09-06T12:00:00Z");

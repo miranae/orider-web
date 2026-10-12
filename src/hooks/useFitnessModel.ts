@@ -983,7 +983,7 @@ export function useFitnessModel(
       threshold = { label: t("mobile.threshold.runLabel"), value: secToMmss(profile.thresholdPace), unit: "/km", sub: t("mobile.threshold.runSub") };
     } else if (discipline === "swim" && profile?.css) {
       threshold = { label: "CSS", value: secToMmss(profile.css), unit: "/100m", sub: t("mobile.threshold.swimSub") };
-    } else if (ftp > 0) {
+    } else if (discipline === "bike" && ftp > 0) {
       threshold = { label: "FTP", value: String(ftp), unit: "W", sub: t("mobile.threshold.bikeSub") };
     }
     return {
