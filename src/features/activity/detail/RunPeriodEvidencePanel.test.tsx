@@ -35,9 +35,9 @@ describe("observed running period evidence", () => {
     expect(sourceReads.firestore).not.toHaveBeenCalled(); expect(sourceReads.callable).not.toHaveBeenCalled();
   });
   it.each([
-    ["metric", "8:31.5/km", "8:32/km", "0.5초/km"],
-    ["imperial", "13:43.179456/mi", "13:43.984128/mi", "0.804672초/mi"],
-  ] as const)("preserves %s median row precision alongside the sample difference and actual N", (units, current, previous, difference) => {
+    ["metric", "8:31.5/km", "8:32/km", "8:32/km", "8:32/km", "0.5초/km"],
+    ["imperial", "13:43.179456/mi", "13:43.984128/mi", "13:43/mi", "13:44/mi", "0.804672초/mi"],
+  ] as const)("preserves %s median row precision alongside the sample difference and actual N", (units, current, previous, currentDisplay, previousDisplay, difference) => {
     const response = evidenceFixture();
     response.periods.forEach((period, index) => {
       const stat = period.running!.paceCurves[0]!.observedStatistics![0]!;
@@ -46,8 +46,8 @@ describe("observed running period evidence", () => {
       stat.contributingActivityCount = index ? 6 : 8;
     });
     renderWithProviders(<LocaleProvider userId={null} profile={{ units }}><RunPeriodEvidencePanel response={response} /></LocaleProvider>);
-    expect(screen.getByText(`관측 활동의 중앙값: ${current}`)).toBeInTheDocument();
-    expect(screen.getByText(`관측 활동의 중앙값: ${previous}`)).toBeInTheDocument();
+    expect(screen.getByTitle(current)).toHaveTextContent(`관측 활동의 중앙값: ${currentDisplay}`);
+    expect(screen.getByTitle(previous)).toHaveTextContent(`관측 활동의 중앙값: ${previousDisplay}`);
     expect(screen.getByText(`관측 표본 중앙값 차이: ${difference} 짧음 · 활동 N 6→8`)).toBeInTheDocument();
     expect(screen.getByText("이 시간의 관측 활동 수: 8")).toBeInTheDocument();
     expect(screen.getByText("이 시간의 관측 활동 수: 6")).toBeInTheDocument();

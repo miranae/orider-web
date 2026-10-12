@@ -1,7 +1,8 @@
+import { validRunEffortStageOverlay } from "./runEffortStagePreferences";
 import { normalizeCyclingDistanceAnalysis } from "../utils/cyclingDistancePeriods";
 import { validCyclingClimbObservations } from "./cyclingClimbObservations";
 import { validExpandedDistanceAnalysis } from "../utils/expandedRunDistances";
-import { RUN_DISTANCE_M, RUN_DISTANCES } from "@shared/types/personal-records";
+import { RUN_DISTANCE_M, RUN_DISTANCES, RUN_DISTANCE_TARGETS_V2 } from "@shared/types/personal-records";
 import { httpsCallable } from "firebase/functions";
 import type { RunningPaceZoneAnalysis, PeriodRunningPaceZones, PeriodRunSource, TrainingAnalysisPeriodsRequest, TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -20,6 +21,7 @@ export function trainingAnalysisPeriodsAvailable() {
 }
 export function validTrainingAnalysisPeriodsRequest(request: TrainingAnalysisPeriodsRequest, now = Date.now()) {
   return !!request && ["bike", "run", "swim"].includes(request.discipline)
+    && (request.includeStageRunEffortPreferences === undefined || request.includeStageRunEffortPreferences === true && request.discipline === "run")
     && (request.includeRunningPaceZones === undefined || request.includeRunningPaceZones === true && request.discipline === "run")
     && (request.includeExpandedRunDistances === undefined || request.includeExpandedRunDistances === true && request.discipline === "run")
     && (request.includeCyclingClimbObservations === undefined || request.includeCyclingClimbObservations === true && request.discipline === "bike")
@@ -105,12 +107,13 @@ export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalys
     if (period.cyclingClimbObservations !== undefined && (request.includeCyclingClimbObservations !== true || request.discipline !== "bike" || !validCyclingClimbObservations(period.cyclingClimbObservations, period))) invalid();
     if (period.running != null) {
       const running = period.running;
-      if (running.expandedDistanceAnalysis !== undefined && (request.includeExpandedRunDistances !== true || !validExpandedDistanceAnalysis(running.expandedDistanceAnalysis, period))) invalid();
+      if (running.expandedDistanceAnalysis !== undefined && (request.includeExpandedRunDistances !== true || !validExpandedDistanceAnalysis(running.expandedDistanceAnalysis, period, request.includeStageRunEffortPreferences === true))) invalid();
       if (request.discipline !== "run" || !running.bestDistances || !Array.isArray(running.paceCurves) || running.paceCurves.length > 2) invalid();
-      const validRunningCoverage = (value: typeof running.bestDistances.coverage, status: string) => {
-        if (!value || ![value.candidateActivityCount, value.eligibleActivityCount, value.missingActivityCount, value.noObservedEffortActivityCount].every(count)
+      const validRunningCoverage = (value: typeof running.bestDistances.coverage, status: string, stageEffortOptIn = false) => {
+        const excludedOnly = stageEffortOptIn && value?.excludedOnlyActivityCount !== undefined ? value.excludedOnlyActivityCount : 0;
+        if (!count(excludedOnly) || !value || ![value.candidateActivityCount, value.eligibleActivityCount, value.missingActivityCount, value.noObservedEffortActivityCount].every(count)
           || value.candidateActivityCount !== coverage.representativeActivityCount || value.truncated !== coverage.truncated
-          || value.eligibleActivityCount + value.missingActivityCount + value.noObservedEffortActivityCount !== value.candidateActivityCount
+          || value.eligibleActivityCount + value.missingActivityCount + value.noObservedEffortActivityCount + excludedOnly !== value.candidateActivityCount
           || status !== (value.truncated || value.missingActivityCount > 0 ? "partial" : "complete")) invalid();
       };
       const validRunSource = (point: PeriodRunSource, eligible: number) => {
@@ -120,7 +123,7 @@ export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalys
           || point.contributingActivityCount < 1 || point.contributingActivityCount > eligible) invalid();
       };
       const best = running.bestDistances;
-      validRunningCoverage(best.coverage, best.status);
+      validRunningCoverage(best.coverage, best.status, request.includeStageRunEffortPreferences === true);
       if (best.timingBasis !== "elapsed_including_stops" || !Array.isArray(best.points) || best.points.length > 5
         || best.coverage.eligibleActivityCount === 0 && best.points.length > 0) invalid();
       const distances = new Set<string>();
@@ -225,6 +228,23 @@ export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalys
     if (pace && "candidateActivityCount" in pace) {
       if (request.discipline !== "run" || request.includeRunningPaceZones !== true || !validPeriodRunningPaceZones(pace, period)) invalid();
     } else if (pace?.status !== "unavailable" || pace.reason !== "canonical_pace_zones_unavailable") invalid();
+    if (period.running?.stageEffortOverlay !== undefined) {
+      if (request.discipline !== "run" || request.includeStageRunEffortPreferences !== true
+        || !validRunEffortStageOverlay(period.running.stageEffortOverlay, coverage.candidateActivityCount)) invalid();
+      const bindings = new Map(period.running.stageEffortOverlay.preferenceBindings.map(binding => [binding.activityId, binding]));
+      const retainedSource = (activityId: string, metricsRevision: string, target: typeof RUN_DISTANCES[number] | typeof RUN_DISTANCE_TARGETS_V2[number]) => {
+        const binding = bindings.get(activityId);
+        return !!binding && binding.metricsRevision === metricsRevision && !binding.excludedTargets.includes(target);
+      };
+      if (period.running.bestDistances.points.some(point => !retainedSource(point.sourceActivityId, point.metricsRevision, point.distance))
+        || period.running.evidence?.activities.some(activity => activity.distanceRecords.some(record => !retainedSource(activity.activityId, activity.metricsRevision, record.distance)))
+        || period.running.expandedDistanceAnalysis?.distances.some(distance => distance.sources.some(source => !retainedSource(source.sourceActivityId, source.metricsRevision, distance.distance)))) invalid();
+      const excluded = period.running.bestDistances.excludedEffortActivityCount;
+      if (!count(excluded) || excluded > coverage.representativeActivityCount) invalid();
+      for (const distance of period.running.expandedDistanceAnalysis?.distances ?? []) {
+        if (distance.excludedEffortActivityCount !== undefined && (!count(distance.excludedEffortActivityCount) || distance.excludedEffortActivityCount > coverage.representativeActivityCount)) invalid();
+      }
+    }
     const partial = coverage.truncated || Object.values(period.totals).some(total => total.missingActivityCount > 0)
       || period.zones.heartRate.missingSensorActivityCount + period.zones.heartRate.contextUnknownActivityCount
       + period.zones.power.missingSensorActivityCount + period.zones.power.contextUnknownActivityCount > 0;

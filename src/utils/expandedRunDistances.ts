@@ -23,16 +23,17 @@ export function validExpandedDistanceRecords(value: unknown, ready: boolean): va
     && new Set(r.points.map(point => point?.distance)).size === r.points.length
     && r.points.every(point => exact(point, ["distance", "elapsedSec"]) && RUN_DISTANCE_TARGETS_V2.includes(point.distance) && positive(point.elapsedSec));
 }
-export function validExpandedDistanceAnalysis(value: unknown, period: TrainingAnalysisPeriodResult): value is ExpandedRunDistanceAnalysis {
+export function validExpandedDistanceAnalysis(value: unknown, period: TrainingAnalysisPeriodResult, stageEffortOptIn = false): value is ExpandedRunDistanceAnalysis {
   if (!exact(value, ["version", "targetsVersion", "timingBasis", "scope", "distances"])) return false;
   const a = value as ExpandedRunDistanceAnalysis;
   if (a.version !== 1 || a.targetsVersion !== 2 || a.timingBasis !== "elapsed_including_stops" || a.scope !== "observed_representatives" || !dense(a.distances, 14) || a.distances.length !== 14 || new Set(a.distances.map(d => d?.distance)).size !== 14) return false;
   return a.distances.every(d => {
-    if (!exact(d, ["distance", "distanceM", "candidateActivityCount", "supportedActivityCount", "observedEffortActivityCount", "noObservedEffortActivityCount", "unsupportedActivityCount", "unavailableActivityCount", "truncated", "bestTimeSeconds", "medianTimeSeconds", "sources"]) || !RUN_DISTANCE_TARGETS_V2.includes(d.distance) || d.distanceM !== RUN_DISTANCE_TARGET_M_V2[d.distance]
+    const excluded = stageEffortOptIn ? d?.excludedEffortActivityCount ?? 0 : 0;
+    if (!count(excluded) || !exact(d, ["distance", "distanceM", "candidateActivityCount", "supportedActivityCount", "observedEffortActivityCount", "noObservedEffortActivityCount", "unsupportedActivityCount", "unavailableActivityCount", "truncated", "bestTimeSeconds", "medianTimeSeconds", "sources", ...(stageEffortOptIn && d?.excludedEffortActivityCount !== undefined ? ["excludedEffortActivityCount"] : [])]) || !RUN_DISTANCE_TARGETS_V2.includes(d.distance) || d.distanceM !== RUN_DISTANCE_TARGET_M_V2[d.distance]
       || ![d.candidateActivityCount, d.supportedActivityCount, d.observedEffortActivityCount, d.noObservedEffortActivityCount, d.unsupportedActivityCount, d.unavailableActivityCount].every(count)
       || (["supportedActivityCount", "unsupportedActivityCount", "unavailableActivityCount"] as const).some(key => d[key] !== a.distances[0]![key])
       || d.candidateActivityCount !== period.coverage.representativeActivityCount || d.truncated !== period.coverage.truncated
-      || d.supportedActivityCount !== d.observedEffortActivityCount + d.noObservedEffortActivityCount || d.candidateActivityCount !== d.supportedActivityCount + d.unsupportedActivityCount + d.unavailableActivityCount
+      || d.supportedActivityCount !== d.observedEffortActivityCount + excluded + d.noObservedEffortActivityCount || d.candidateActivityCount !== d.supportedActivityCount + d.unsupportedActivityCount + d.unavailableActivityCount
       || !dense(d.sources, 200) || d.sources.length !== d.observedEffortActivityCount || new Set(d.sources.map(s => s?.sourceActivityId)).size !== d.sources.length) return false;
     if (!d.sources.every(s => exact(s, ["sourceActivityId", "startTime", "metricsRevision", "contributingActivityCount", "elapsedSec"]) && positive(s.elapsedSec) && s.contributingActivityCount === 1 && typeof s.metricsRevision === "string" && /^\d+:\d+$/u.test(s.metricsRevision) && period.activities.some(row => row.activityId === s.sourceActivityId && row.startTime === s.startTime))) return false;
     const times = d.sources.map(s => s.elapsedSec).sort((x, y) => x - y), middle = Math.floor(times.length / 2);

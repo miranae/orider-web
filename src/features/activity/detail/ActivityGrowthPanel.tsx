@@ -18,6 +18,7 @@ import SimilarRouteHistoryPanel from "./SimilarRouteHistoryPanel";
 import RunSplitComparisonPanel from "./RunSplitComparisonPanel";
 import RunPeriodComparisonPanel from "./RunPeriodComparisonPanel";
 import AnnualRunHistoryPanel from "./AnnualRunHistoryPanel";
+import RunEffortStageManagementPanel from "./RunEffortStageManagementPanel";
 import TrainingPeriodZonesPanel from "./TrainingPeriodZonesPanel";
 import { Button, Card, ChartFrame, Input, Select, Stack, Stat, Text } from "../../../theme";
 import "./activity-growth-panel.css";
@@ -246,6 +247,7 @@ function Statistics({ activity }: { activity: Activity }) {
       ? { mode: "cycling_distance_history_page", discipline: "bike", calendarBasis: "Asia/Seoul", rangeBasis: "calendar_year", year: appliedYear }
       : { mode: "cycling_distance_history_page", discipline: "bike", calendarBasis: "Asia/Seoul", rangeBasis: "explicit_range", range: { fromInclusive: boundaries.start, toExclusive: Math.min(boundaries.end, now.getTime()) } }} />}
     {canonicalEnabled && discipline === "run" && period === "year" && yearBoundaries && appliedYear != null && <AnnualRunHistoryPanel ownerUid={activity.userId} activityId={activity.id} year={appliedYear} />}
+    {canonicalEnabled && discipline === "run" && canonical.response && user?.uid === activity.userId && !user.isAnonymous && <RunEffortStageManagementPanel key={JSON.stringify([user.uid, canonical.response.periods.map(period => [period.fromInclusive, period.toExclusive])])} ownerUid={activity.userId} appliedResponse={canonical.response} />}
     {canonicalEnabled && <RunPeriodComparisonPanel response={canonical.response} />}
     {canonicalEnabled && <TrainingPeriodZonesPanel response={canonical.response} ownerUid={user?.uid === activity.userId && !user.isAnonymous ? activity.userId : undefined} />}
     <details key={selectedBucket ?? "all"} open={selectedTrend ? true : undefined} className="activity-growth-sources"><summary><Text variant="bodyMedium" weight={600}>{t("growth.sourceActivities")}</Text></summary><Stack gap="var(--space-2)" className="pt-3">{sourceList.map((source) => <a key={source.id} className="activity-growth-source-link" href={`/activity/${encodeURIComponent(source.id)}`}><Text variant="bodyMedium">{date(source.startTime)} · {source.description || source.type}</Text></a>)}</Stack></details>

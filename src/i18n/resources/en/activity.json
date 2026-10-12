@@ -2141,6 +2141,45 @@
       "missingAltitudeMovingSeconds": "Moving intervals without altitude",
       "gapExcludedSeconds": "Excluded recording gaps",
       "invalidDistanceSeconds": "Invalid distance intervals"
+    },
+    "selectedPeriod": "Selected period",
+    "comparisonPeriod": "Comparison period",
+    "periodEvidence": "Period bounds and saved analysis evidence",
+    "exactBounds": "Korea time: from {{from}} inclusive to {{to}} exclusive",
+    "savedCountsNote": "Missing-reason counts come from saved activity analyses. Zero missing thresholds does not confirm a threshold in your current profile."
+  },
+  "runEffortTool": {
+    "cancelPending": "End confirmation for this request",
+    "cancelledUnknown": "Confirmation for this request has ended. Saved choices are not undone, and the outcome may remain unknown. Reload the analysis to check the current state.",
+    "alias": "Applies only to this distance record in the selected activity. Other records of the same session may remain separately.",
+    "title": "Compare selected distance records",
+    "scope": "Changes apply only to this analysis view.",
+    "limit": "Compares observed records in the applied periods. This does not establish an account-wide historical best.",
+    "load": "Load distance record choices",
+    "preparing": "Distance record choices are being prepared.",
+    "loading": "Loading analysis for the selected periods.",
+    "saving": "Saving the distance record choice.",
+    "unsupported": "This response does not include record-choice evidence for this comparison.",
+    "storedPending": "The choice was saved. Reload the analysis to check its current application basis.",
+    "choiceConfirmed": "The saved choice is confirmed in the latest comparison.",
+    "retry": "Retry the same request",
+    "readError": "Could not load period analysis. Please load it again.",
+    "asOf": "Choice comparison snapshot {{date}} (Korea time)",
+    "target": "Distance to select",
+    "excludedCount": "Period {{period}} · excluded observed activities for this distance: {{amount}}",
+    "timeUnknown": "Activity time unknown",
+    "excluded": "This distance record is excluded from this comparison.",
+    "exclude": "Exclude from this comparison",
+    "restore": "Restore to this comparison",
+    "restoreNamed": "Restore {{date}} · {{distance}} to this comparison",
+    "excludeNamed": "Exclude {{date}} · {{distance}} from this comparison",
+    "sourceUnverified": "The current analysis source cannot be verified, so this choice cannot be changed.",
+    "noCandidates": "No observed records can be changed for this distance.",
+    "failure": {
+      "source_unverified": "The choice was saved, but its source could not be verified immediately afterward. Load the latest analysis.",
+      "source_changed": "The choice was saved, but its source changed immediately afterward. Load the latest analysis.",
+      "rejected": "The change basis could not be verified. Load the latest analysis or check the same request again.",
+      "unknown": "The save outcome could not be confirmed. Retry the same request or reload the analysis."
     }
   }
 }
