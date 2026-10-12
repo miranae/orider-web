@@ -460,3 +460,9 @@ it("shared controls precede choice-adjusted results; original results and safe r
  oldDetails.open=true;fireEvent(oldDetails,new Event("toggle"));expect(mocks.apply).not.toHaveBeenCalled();expect(mocks.start).not.toHaveBeenCalled();expect(mocks.more).not.toHaveBeenCalled();
  fireEvent.change(selector,{target:{value:"5miles"}});expect(screen.getByRole("heading",{name:/선택을 반영한 .* 기록/})).toHaveTextContent("8.0km");expect(mocks.apply).not.toHaveBeenCalled();
 });
+
+it("public clock evidence stays in closed technical details and makes no request",()=>{
+ const original=row("native"),timing={readTimes:{sourceInitial:{seconds:190,nanoseconds:0},sourceFinal:{seconds:201,nanoseconds:1000},stageInitial:{seconds:191,nanoseconds:0},stageFinal:{seconds:192,nanoseconds:0}},clientObservedAtMillis:200000,maxAheadMillis:1001};
+ mocks.hook.mockReturnValue({...idle(),status:"complete",pages:[page([original])]});mocks.overlay.mockReturnValue({available:true,status:"invalidated",evidence:[],session:null,reason:"read_times_future",timing,confirmPage:mocks.apply,cancel:mocks.invalidate});
+ render(<CyclingDistanceHistoryPanel activity={activity} selection={selection}/>);open();const observation=document.querySelector('[data-overlay-time-ahead-ms="1001"]')!;expect(observation).not.toBeVisible();expect(observation.textContent).toContain("1001ms");expect(screen.getByText("분석 최종 확인 · 201:000001000")).not.toBeVisible();expect(mocks.apply).not.toHaveBeenCalled();expect(mocks.start).not.toHaveBeenCalled();
+});

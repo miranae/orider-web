@@ -13,9 +13,21 @@ const count = (v: unknown): v is number => typeof v === "number" && Number.isSaf
 const before = (a: CyclingCoveredStamp, b: CyclingCoveredStamp) => a.seconds < b.seconds || a.seconds === b.seconds && a.nanoseconds < b.nanoseconds;
 const stamp = (v: CyclingCoveredStamp, now: number) => exact(v, ["seconds", "nanoseconds"]) && count(v.seconds) && count(v.nanoseconds) && v.nanoseconds < 1e9 && v.nanoseconds % 1000 === 0 && v.seconds * 1000 + v.nanoseconds / 1e6 <= now;
 const revision = (v: unknown) => typeof v === "string" && /^(0|[1-9]\d{0,11}):(0|[1-9]\d{0,8})$/u.test(v) && Number(v.split(":")[1]) < 1e9;
-export const CYCLING_HISTORY_OVERLAY_REASON_CODES = ["request_scope", "response_shape", "response_size", "session_binding", "read_times", "evidence_shape", "activity_binding", "preference_shape", "original_efforts", "original_row_schema", "budget", "history_identity", "auth_epoch", "preference_changed", "expired", "server_input_changed", "transport"] as const;
+export const CYCLING_HISTORY_OVERLAY_REASON_CODES = ["request_scope", "response_shape", "response_size", "session_binding", "read_times", "read_times_shape", "read_times_quantum", "read_times_future", "read_times_source_binding", "read_times_stage_binding", "read_times_order", "evidence_shape", "activity_binding", "preference_shape", "original_efforts", "original_row_schema", "budget", "history_identity", "auth_epoch", "preference_changed", "expired", "server_input_changed", "transport"] as const;
 export type CyclingHistoryOverlayReason = typeof CYCLING_HISTORY_OVERLAY_REASON_CODES[number];
-function invalid(reason: CyclingHistoryOverlayReason = "response_shape"): never { throw Object.assign(new Error("invalid_cycling_history_overlay_response"), { overlayReason: reason }); }
+export interface CyclingHistoryOverlayTiming { readTimes: Response["readTimes"]; clientObservedAtMillis: number; maxAheadMillis: number }
+export function safeCyclingHistoryOverlayTiming(value: unknown): value is CyclingHistoryOverlayTiming {
+  if (!exact(value, ["readTimes", "clientObservedAtMillis", "maxAheadMillis"])) return false;
+  const t = value as CyclingHistoryOverlayTiming;
+  if (!count(t.clientObservedAtMillis) || !Number.isFinite(new Date(t.clientObservedAtMillis).getTime()) || !count(t.maxAheadMillis)
+    || !exact(t.readTimes, ["sourceInitial", "sourceFinal", "stageInitial", "stageFinal"])) return false;
+  const stamps = Object.values(t.readTimes);
+  if (!stamps.every(s => exact(s, ["seconds", "nanoseconds"]) && count(s.seconds) && count(s.nanoseconds) && s.nanoseconds < 1e9 && Number.isFinite(new Date(s.seconds * 1000 + s.nanoseconds / 1e6).getTime()))) return false;
+  return t.maxAheadMillis === Math.max(0, Math.ceil(Math.max(...stamps.map(s => s.seconds * 1000 + s.nanoseconds / 1e6)) - t.clientObservedAtMillis));
+}
+function invalid(reason: CyclingHistoryOverlayReason = "response_shape", timing?: CyclingHistoryOverlayTiming): never {
+  throw Object.assign(new Error("invalid_cycling_history_overlay_response"), { overlayReason: reason, ...(timing && safeCyclingHistoryOverlayTiming(timing) ? { overlayTiming: timing } : {}) });
+}
 /** 서버와 같은 정렬 JSON. digest는 상관관계이며 인증 수단이 아니다. */
 export async function cyclingOverlayDigest(value: unknown): Promise<string> {
   const canonical = (v: unknown): unknown => Array.isArray(v) ? v.map(canonical) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([k, item]) => [k, canonical(item)])) : v;
@@ -39,9 +51,14 @@ export async function validateCyclingHistoryOverlayResponse(value: unknown, requ
     || s.ownerBinding !== await cyclingOverlayDigest([uid, s.scope]) || s.requestBinding !== await cyclingOverlayDigest([uid, h, s.calculatorArtifactHash, s.observedCalculatorArtifactHash, s.stageReadTime, s.scope])
     || request.session && await cyclingOverlayDigest(request.session) !== await cyclingOverlayDigest(s)
     || r.subsetBinding !== await cyclingOverlayDigest(request.activities) || r.batchBinding !== await cyclingOverlayDigest([s, r.pageBinding, r.subsetBinding])) invalid("session_binding");
-  if (!exact(r.readTimes, ["sourceInitial", "sourceFinal", "stageInitial", "stageFinal"]) || !Object.values(r.readTimes).every(t => stamp(t, now))
-    || await cyclingOverlayDigest(r.readTimes.sourceInitial) !== await cyclingOverlayDigest(s.sourceReadTime) || await cyclingOverlayDigest(r.readTimes.stageInitial) !== await cyclingOverlayDigest(s.stageReadTime)
-    || before(r.readTimes.stageFinal, s.stageReadTime) || [s.sourceReadTime, s.stageReadTime, r.readTimes.stageFinal].some(t => before(r.readTimes.sourceFinal, t))) invalid("read_times");
+  if (!exact(r.readTimes, ["sourceInitial", "sourceFinal", "stageInitial", "stageFinal"]) || !Object.values(r.readTimes).every(t => exact(t, ["seconds", "nanoseconds"]) && count(t.seconds) && count(t.nanoseconds) && t.nanoseconds < 1e9)) invalid("read_times_shape");
+  const timing: CyclingHistoryOverlayTiming = { readTimes: Object.fromEntries(Object.entries(r.readTimes).map(([key, t]) => [key, { seconds: t.seconds, nanoseconds: t.nanoseconds }])) as Response["readTimes"], clientObservedAtMillis: now,
+    maxAheadMillis: Math.max(0, Math.ceil(Math.max(...Object.values(r.readTimes).map(t => t.seconds * 1000 + t.nanoseconds / 1e6)) - now)) };
+  if (Object.values(r.readTimes).some(t => t.nanoseconds % 1000 !== 0)) invalid("read_times_quantum", timing);
+  if (Object.values(r.readTimes).some(t => t.seconds * 1000 + t.nanoseconds / 1e6 > now)) invalid("read_times_future", timing);
+  if (await cyclingOverlayDigest(r.readTimes.sourceInitial) !== await cyclingOverlayDigest(s.sourceReadTime)) invalid("read_times_source_binding", timing);
+  if (await cyclingOverlayDigest(r.readTimes.stageInitial) !== await cyclingOverlayDigest(s.stageReadTime)) invalid("read_times_stage_binding", timing);
+  if (before(r.readTimes.stageFinal, s.stageReadTime) || [s.sourceReadTime, s.stageReadTime, r.readTimes.stageFinal].some(t => before(r.readTimes.sourceFinal, t))) invalid("read_times_order", timing);
   if (!Array.isArray(r.evidence) || r.evidence.length !== request.activities.length || r.evidence.length < 1 || r.evidence.length > 20) invalid("evidence_shape");
   for (const [index, e] of r.evidence.entries()) {
     const a = request.activities[index]!;

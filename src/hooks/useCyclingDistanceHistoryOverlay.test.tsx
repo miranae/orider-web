@@ -31,3 +31,9 @@ it("Auth epoch and preference changes have distinct fixed diagnostic reasons wit
  const page=overlayPage(),view=renderHook(()=>useCyclingDistanceHistoryOverlay("owner","a",[page]));await act(async()=>{await view.result.current.confirmPage(page);});act(()=>{mocks.listener!(mocks.services.auth.currentUser);mocks.listener!(mocks.services.auth.currentUser);});expect(view.result.current.reason).toBe("auth_epoch");expect(mocks.load).toHaveBeenCalledOnce();
  await act(async()=>{await view.result.current.confirmPage(page);});act(()=>invalidateCyclingCoveredPreferences("owner"));expect(view.result.current.reason).toBe("preference_changed");expect(mocks.load).toHaveBeenCalledTimes(2);
 });
+
+it("read-time rejection preserves only the allowlisted public timing envelope",async()=>{
+ const page=overlayPage(),view=renderHook(()=>useCyclingDistanceHistoryOverlay("owner","a",[page])),now=200000,timing={readTimes:{sourceInitial:{seconds:190,nanoseconds:0},sourceFinal:{seconds:201,nanoseconds:0},stageInitial:{seconds:191,nanoseconds:0},stageFinal:{seconds:192,nanoseconds:0}},clientObservedAtMillis:now,maxAheadMillis:1000};
+ mocks.load.mockRejectedValueOnce(Object.assign(new Error("invalid_cycling_history_overlay_response"),{overlayReason:"read_times_future",overlayTiming:timing}));await act(async()=>{await view.result.current.confirmPage(page);});expect(view.result.current.reason).toBe("read_times_future");expect(view.result.current.timing).toEqual(timing);expect(view.result.current.evidence).toHaveLength(0);expect(mocks.load).toHaveBeenCalledOnce();
+ mocks.load.mockRejectedValueOnce(Object.assign(new Error("invalid_cycling_history_overlay_response"),{overlayReason:"read_times_future",overlayTiming:{...timing,token:"private"}}));await act(async()=>{await view.result.current.confirmPage(page);});expect(view.result.current.timing).toBeNull();expect(mocks.load).toHaveBeenCalledTimes(2);
+});
