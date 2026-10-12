@@ -18,3 +18,19 @@ it("Native AppCheck readiness rejects request/private fields and sameUID replace
  mocks.ready.mockImplementation(async () => { services.auth.currentUser = { uid: "owner", isAnonymous: false }; }); await expect(loadCyclingHistoryOverlay(typed, request, new AbortController().signal)).rejects.toThrow("account_changed");expect(mocks.call).not.toHaveBeenCalled();
 });
 it("Native token ABA after dispatch discards the entire response", async () => { const { loadCyclingHistoryOverlay } = await import("./stageCyclingDistanceHistoryOverlay");const app = { options: { projectId: "miranae-orider-g1" } }, original = { uid: "owner", isAnonymous: false }, services = { auth: { app, currentUser: original }, functions: { app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: mocks.ready };const request=overlayRequest(); mocks.ready.mockReset().mockResolvedValue(undefined);mocks.call.mockReset().mockImplementation(async () => { mocks.listener!(original);mocks.listener!({uid:"other",isAnonymous:false});mocks.listener!(original);return {data:await overlayResponse(request)}; });await expect(loadCyclingHistoryOverlay(services as unknown as import("../contexts/FirebaseServicesContext").FirebaseServices,request,new AbortController().signal)).rejects.toThrow("account_changed");expect(mocks.call).toHaveBeenCalledOnce(); });
+
+it.each([
+ ["session_binding", (r: Awaited<ReturnType<typeof overlayResponse>>) => { r.session.ownerBinding="f".repeat(64); }],
+ ["read_times", (r: Awaited<ReturnType<typeof overlayResponse>>) => { r.readTimes.sourceFinal={...r.readTimes.sourceInitial}; }],
+ ["activity_binding", (r: Awaited<ReturnType<typeof overlayResponse>>) => { r.evidence[0]!.activityRevision="101:0"; }],
+ ["original_row_schema", (r: Awaited<ReturnType<typeof overlayResponse>>) => { Object.assign(r.evidence[0]!.row,{privateToken:"not-public"}); }],
+ ["budget", (r: Awaited<ReturnType<typeof overlayResponse>>) => { r.io.sourceDocs++; }],
+] as const)("reports only safe enum %s for decoder failure, preserving rejection", async (reason, mutate) => {
+ const request=overlayRequest(),response=await overlayResponse(request);mutate(response);await expect(validateCyclingHistoryOverlayResponse(response,request,"owner")).rejects.toMatchObject({message:"invalid_cycling_history_overlay_response",overlayReason:reason});
+});
+it("transport preserves the safe decoder reason and never copies private response values", async () => {
+ const {loadCyclingHistoryOverlay}=await import("./stageCyclingDistanceHistoryOverlay"),app={options:{projectId:"miranae-orider-g1"}},services={auth:{app,currentUser:{uid:"owner",isAnonymous:false}},functions:{app,customDomain:"https://asia-northeast3-orider-dev.cloudfunctions.net"},ensureAppCheckReady:mocks.ready},request=overlayRequest();
+ mocks.ready.mockReset().mockResolvedValue(undefined);mocks.call.mockReset().mockResolvedValue({data:{privateToken:"do-not-copy"}});
+ const error=await loadCyclingHistoryOverlay(services as unknown as import("../contexts/FirebaseServicesContext").FirebaseServices,request,new AbortController().signal).catch(error=>error);
+ expect(error).toMatchObject({message:"invalid_cycling_history_overlay_response",overlayReason:"response_shape"});expect(JSON.stringify(error)).not.toContain("do-not-copy");
+});

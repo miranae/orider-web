@@ -2156,12 +2156,12 @@
       "legacy_normalized": "Earlier samples · attribution unverified"
     },
     "overlay": {
-      "title": "Choices for loaded activities",
+      "title": "{{distance}} records with your choices",
       "counts": "Checked {{checked}} / loaded {{loaded}}",
       "apply": "Apply this page’s choices · page {{page}}, {{count}} activities",
       "loading": "Checking choices for this page.",
       "error": "Verified results were kept. Use the button to retry unchecked activities.",
-      "invalidated": "Choices or inputs changed. Check again with the button.",
+      "invalidated": "Verification changed. Check again.",
       "expired": "The snapshot expired. Restart the activity history.",
       "details": "Scope and cost",
       "cost": "Checks one already loaded page. Up to 50 activities use 20/20/10 in at most 3 checks, up to 836 logical document reads and 100 metadata checks. Earlier history enumeration has separate cost. No raw reads or writes.",
@@ -2173,6 +2173,29 @@
       "bases": {
         "canonical_metrics": "Stored analysis",
         "stage_distance_snapshot": "Stored observations"
+      },
+      "choicesTitle": "Choices for loaded activities",
+      "originalTitle": "Original stored-analysis results",
+      "evidenceNote": "{{basis}} · original clock and location accuracy unverified",
+      "reason": "Verification: {{reason}}",
+      "reasons": {
+        "request_scope": "Query scope validation failed",
+        "response_shape": "Response shape validation failed",
+        "response_size": "Response size validation failed",
+        "session_binding": "Fixed snapshot binding validation failed",
+        "read_times": "Analysis or choice timestamps failed validation",
+        "evidence_shape": "Evidence count validation failed",
+        "activity_binding": "Activity or analysis revision validation failed",
+        "preference_shape": "Choice schema validation failed",
+        "original_efforts": "Original effort validation failed",
+        "original_row_schema": "Activity values or record schema validation failed",
+        "budget": "Read budget validation failed",
+        "history_identity": "History identity changed",
+        "auth_epoch": "Login session refreshed",
+        "preference_changed": "Saved choices changed",
+        "expired": "Snapshot expired",
+        "server_input_changed": "Server input or access changed",
+        "transport": "Network verification failed"
       }
     }
   },
