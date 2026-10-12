@@ -276,7 +276,8 @@ function validStageDerivedDistances(value: StageDerivedRunDistancePeriod, period
     if (qualifiedLegacy && (source.qualification !== "legacy_manifest_revision_and_gcs_token_pinned" || source.manifestObjectIncarnationVerified !== false
       || !Object.prototype.hasOwnProperty.call(source, "qualification") || !Object.prototype.hasOwnProperty.call(source, "manifestObjectIncarnationVerified"))) return false;
     if (!source || typeof source !== "object" || Object.keys(source).sort().join(",") !== ["activityId", "startTime", "derivedRevision", "observedTargets", "excludedTargets", "records", ...(qualifiedLegacy ? ["qualification", "manifestObjectIncarnationVerified"] : []), ...(hasWallClockBasis ? ["timeBasis"] : [])].sort().join(",")
-      || source.activityId !== request.stageRunDistanceSnapshotActivityIds[0] || !binding || !activity || source.startTime !== activity.startTime
+      || source.activityId !== request.stageRunDistanceSnapshotActivityIds[0] || !binding || !nonnegative(source.startTime) || !Number.isFinite(new Date(source.startTime).getTime())
+      || source.startTime < period.fromInclusive || source.startTime >= period.toExclusive || activity !== undefined && source.startTime !== activity.startTime
       || typeof source.derivedRevision !== "string" || !/^[a-f0-9]{64}$/u.test(source.derivedRevision) || source.derivedRevision !== binding.derivedRevision
       || !Array.isArray(source.observedTargets) || source.observedTargets.length > 14 || new Set(source.observedTargets).size !== source.observedTargets.length
       || source.observedTargets.some(target => !RUN_DISTANCE_TARGETS_V2.includes(target))

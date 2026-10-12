@@ -114,3 +114,35 @@ it("describes a stored start/end clock window inside the folded method note with
   expect(screen.getByText(/처음 기록된 데이터와의 연결은 확인되지/)).toBeInTheDocument();
   expect(screen.queryByText(/stored_activity_wall_clock_window|timeBasis|ridingTime/)).not.toBeInTheDocument();
 });
+
+it("adds the current owned Run alias to applied options without selecting or fetching it", () => {
+  const response = stageRunEffortFixture();
+  const currentActivity = { id: "native-alias", userId: "test-uid", type: "Run", source: "orider", startTime: response.periods[0]!.fromInclusive } as NonNullable<Parameters<typeof RunEffortStageManagementPanel>[0]["currentActivity"]>;
+  const view = renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} currentActivity={currentActivity} />);
+  const picker = screen.getByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true });
+  expect(within(picker).getByRole("option", { name: /현재 활동.*ORider/, hidden: true })).toHaveValue("native-alias");
+  expect(picker).toHaveValue(""); expect(mocks.hook.mock.lastCall?.[2]).toBeNull();
+  fireEvent.change(picker, { target: { value: "native-alias" } });
+  expect(mocks.hook.mock.lastCall?.[2]).toBe("native-alias"); expect(mocks.refresh).not.toHaveBeenCalled();
+  view.rerender(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} currentActivity={{ ...currentActivity, id: response.periods[0]!.activities[0]!.activityId }} />);
+  const ids = within(picker).getAllByRole("option", { hidden: true }).map(option => (option as HTMLOptionElement).value);
+  expect(ids).toHaveLength(new Set(ids).size);
+});
+
+it.each([{ userId: "other" }, { type: "Ride" }, { deletedAt: 1 }, { startTime: NaN }, { startTime: Infinity }, { startTime: 0 }, { id: "../native" }, { id: "a".repeat(201) }, { startTime: -1 }])("does not add an invalid current detail option: %j", patch => {
+  const response = stageRunEffortFixture();
+  const currentActivity = { id: "native-alias", userId: "test-uid", type: "Run", startTime: response.periods[0]!.fromInclusive, ...patch } as NonNullable<Parameters<typeof RunEffortStageManagementPanel>[0]["currentActivity"]>;
+  renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} currentActivity={currentActivity} />);
+  expect(screen.queryByRole("option", { name: /현재 활동/, hidden: true })).not.toBeInTheDocument();
+  expect(mocks.refresh).not.toHaveBeenCalled();
+});
+
+it("does not add a current Run outside all applied periods or expose options to a non-owner", () => {
+  const response = stageRunEffortFixture();
+  const currentActivity = { id: "native-alias", userId: "test-uid", type: "Run", startTime: Math.max(...response.periods.map(p => p.toExclusive)) } as NonNullable<Parameters<typeof RunEffortStageManagementPanel>[0]["currentActivity"]>;
+  const view = renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} currentActivity={currentActivity} />);
+  expect(screen.queryByRole("option", { name: /현재 활동/, hidden: true })).not.toBeInTheDocument();
+  mocks.hook.mockReturnValue({ ...state(), owner: false });
+  view.rerender(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} currentActivity={{ ...currentActivity, startTime: response.periods[0]!.fromInclusive }} />);
+  expect(screen.queryByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true })).not.toBeInTheDocument();
+});

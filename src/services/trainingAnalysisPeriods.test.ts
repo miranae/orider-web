@@ -515,3 +515,29 @@ describe("stored activity start/end clock window", () => {
     }
   });
 });
+
+it("accepts only the explicitly selected bound native alias absent from canonical timeline", async () => {
+  const { default: wire } = await import("./stageRunDistanceSelectedAlias.fixture.json");
+  const response = structuredClone(wire.cases.before) as TrainingAnalysisPeriodsResponse;
+  const period = response.periods[0]!;
+  expect(period.activities.map(row => row.activityId)).toEqual(["strava_123"]);
+  expect(period.coverage).toMatchObject({ candidateActivityCount: 2, representativeActivityCount: 1 });
+  for (const field of ["activities", "coverage", "totals", "zones"] as const) expect(period[field]).toEqual(wire.cases.baseline.periods[0]![field]);
+  const request = { discipline: "run" as const, periods: response.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })),
+    includeStageRunEffortPreferences: true as const, includeExpandedRunDistances: true as const, stageRunDistanceSnapshotActivityIds: ["a"] as [string] };
+  expect(validateTrainingAnalysisPeriodsResponse(response, request)).toBe(response);
+  for (const patch of [
+    (p: typeof period) => { p.stageDerivedRunDistances!.sources[0]!.activityId = "unbound"; },
+    (p: typeof period) => { p.running!.stageEffortOverlay!.preferenceBindings[0]!.activityId = "unbound"; },
+    (p: typeof period) => { p.running!.stageEffortOverlay!.preferenceBindings[0]!.derivedRevision = "b".repeat(64); },
+    (p: typeof period) => { p.stageDerivedRunDistances!.sources[0]!.startTime = p.toExclusive; },
+    (p: typeof period) => { p.stageDerivedRunDistances!.sources[0]!.startTime = p.fromInclusive - 1; },
+    (p: typeof period) => { p.stageDerivedRunDistances!.sources[0]!.startTime = NaN; },
+    (p: typeof period) => { p.running!.stageEffortOverlay!.preferenceBindings[0]!.activityIncarnation = ""; },
+    (p: typeof period) => { p.activities[0]!.activityId = "a"; p.activities[0]!.startTime += 1; },
+  ]) {
+    const invalid = structuredClone(response); patch(invalid.periods[0]!);
+    expect(() => validateTrainingAnalysisPeriodsResponse(invalid, request)).toThrow();
+  }
+  expect(() => validateTrainingAnalysisPeriodsResponse(response, { ...request, stageRunDistanceSnapshotActivityIds: ["different"] })).toThrow();
+});

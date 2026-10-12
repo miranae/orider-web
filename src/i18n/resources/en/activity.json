@@ -2149,6 +2149,7 @@
     "savedCountsNote": "Missing-reason counts come from saved activity analyses. Zero missing thresholds does not confirm a threshold in your current profile."
   },
   "runEffortTool": {
+    "currentActivity": "Current activity",
     "storedWallClockLimit": "Calculated from stored distance data within the recorded activity start and end times.",
     "storedLegacyLimit": "Calculated from an earlier storage format. Its connection to the originally recorded data has not been verified.",
     "storedSource": "Activity to check with stored distance data",
