@@ -2344,6 +2344,18 @@
       "metric_unavailable": "평균 비교에서 제외 · 분석 미확인",
       "partial_terminal": "평균 비교에서 제외 · 일부 표본 분석",
       "null_or_zero_speed": "평균 비교에서 제외 · 양수 평균 미확인"
-    }
+    },
+    "partialGeometry": "이 활동의 경로 데이터가 일부만 있어 전체 경로 그룹 비교에서 제외했습니다. 기존 GPS 비교는 계속 사용할 수 있습니다."
+  },
+  "cyclingSnapshotPreference": {
+    "basisLabel": "기록 기준",
+    "metrics": "저장 지표",
+    "snapshot": "계산된 거리 기록",
+    "original": "계산된 경과시간: {{value}}",
+    "elapsedBasis": "저장된 경과시간 기준",
+    "missing": "계산된 거리 기록이 아직 준비되지 않았습니다.",
+    "no_observed_efforts": "이 거리의 계산된 기록시간이 없습니다.",
+    "basisNote": "저장된 거리와 경과시간으로 계산했습니다. 실제 시계 검증과 데이터 품질·전체 구간 확인은 아직 완료되지 않았습니다. 저장 지표의 선택과 별도로 관리됩니다.",
+    "canonicalLegacy": "저장 지표는 이전 분석 형식입니다."
   }
 }

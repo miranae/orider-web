@@ -5,6 +5,7 @@ import type { ActivityMatchedRouteGroupResponse } from "@shared/activity-matched
 import ko from "../../../i18n/resources/ko/activity.json";
 import en from "../../../i18n/resources/en/activity.json";
 import ActivityMatchedRouteGroupPanel from "./ActivityMatchedRouteGroupPanel";
+import { validateActivityMatchedRouteGroupResponse } from "../../../services/activityMatchedRouteGroups";
 const mocks = vi.hoisted(() => ({ available: true, status: "idle", pages: [] as ActivityMatchedRouteGroupResponse[], start: vi.fn(), more: vi.fn(), language: "ko", units: "metric", hook: vi.fn() }));
 vi.mock("../../../hooks/useActivityMatchedRouteGroups", () => ({ useActivityMatchedRouteGroups: (...args: unknown[]) => { mocks.hook(...args); return { available: mocks.available, status: mocks.status, pages: mocks.pages, start: mocks.start, loadMore: mocks.more }; } }));
 vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: mocks.units, locale: mocks.language }) }));
@@ -52,6 +53,23 @@ describe("bounded route group panel", () => {
     mocks.available = false; const view = render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="observed" />);
     expect(view.container).toBeEmptyDOMElement(); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", "bike", expect.stringContaining("observed"));
     view.rerender(<ActivityMatchedRouteGroupPanel activity={{ ...activity, deletedAt: 1 }} observedMetricsIdentity="changed" />); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", null, expect.stringContaining("changed"));
+  });
+  it.each(["ko", "en"])("explains the verified early anchor partial-geometry exclusion in %s without calls", language => {
+    const time = 1791792000000;
+    const response: ActivityMatchedRouteGroupResponse = { mode: "matched_route_group_page", anchorActivityId: "anchor", discipline: "bike", state: "anchor_unsupported", readTime: { seconds: time / 1000, nanoseconds: 0 }, expiresAt: time + 1800000, groupToken: null, nextCursor: null,
+      scope: { kind: "bounded_owner_stored_index_cohort", indexQueryPolicy: "document_id_first20_v1", groupPolicy: "observed-complete-link-v1", descriptorLimit: 20, validatedLimit: 6 },
+      coverage: { indexCohort: "not_inspected", sourceValidation: "not_inspected", wholeHistory: "unknown", geometry: "unavailable", gpsAccuracy: "unknown", deduplication: "unknown" },
+      omittedCounts: { partialGeometry: 1, gapGeometry: 0, unsupportedDescriptor: 0, changedSource: 0, validationCap: 0, nonAnchorCluster: 0 }, members: [], summary: null,
+      io: { logicalDocuments: 16, metadataRequests: 0, descriptorComparisons: 0, rawDownloads: 0, writes: 0 } };
+    mocks.pages = [validateActivityMatchedRouteGroupResponse(response, { mode: "matched_route_group_page", anchorActivityId: "anchor", discipline: "bike" }, time + 1)]; mocks.status = "unsupported"; mocks.language = language;
+    const translations = language === "ko" ? ko : en;
+    const view = render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="head" />);
+    expect(screen.getByText(translations.routeGroup.partialGeometry)).toBeInTheDocument(); expect(screen.queryByText(translations.routeGroup.states.unsupported)).not.toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument(); expect(screen.queryByRole("link")).not.toBeInTheDocument(); expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.more).not.toHaveBeenCalled();
+    // 후보 집계의 부분 경로 수만으로 현재 활동의 제외 이유를 단정하지 않는다.
+    mocks.pages = [{ ...response, groupToken: "mrgg1." + "a".repeat(40), coverage: { ...response.coverage, indexCohort: "exhausted", sourceValidation: "omitted" } }];
+    view.rerender(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="head" />);
+    expect(screen.getByText(translations.routeGroup.states.unsupported)).toBeInTheDocument(); expect(screen.queryByText(translations.routeGroup.partialGeometry)).not.toBeInTheDocument();
   });
   it.each(["expired", "invalidated", "index_missing", "unsupported", "error"])("keeps %s honest without empty history claims", status => {
     mocks.status = status; render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="head" />);

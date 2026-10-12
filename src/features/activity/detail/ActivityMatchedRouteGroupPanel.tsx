@@ -14,6 +14,10 @@ export default function ActivityMatchedRouteGroupPanel({ activity, observedMetri
   const query = useActivityMatchedRouteGroups(activity.userId, activity.id, activity.deletedAt == null ? discipline : null, head);
   const [filter, setFilter] = useState<{ token: string | null; year: number | null }>({ token: null, year: null });
   const latest = query.pages[query.pages.length - 1], summary = latest?.summary, year = filter.token === latest?.groupToken ? filter.year : null;
+  // 후보 조회 전 anchor 경로가 부분 표본으로 제외된 응답만 구체적으로 설명한다.
+  const partialAnchor = query.status === "unsupported" && latest?.state === "anchor_unsupported" && latest.groupToken === null
+    && latest.coverage.indexCohort === "not_inspected" && latest.coverage.sourceValidation === "not_inspected" && latest.omittedCounts.partialGeometry === 1
+    && Object.entries(latest.omittedCounts).every(([key, count]) => count === (key === "partialGeometry" ? 1 : 0));
   const data = matchedRoutePresentation(query.pages, discipline ?? "bike", units, year, i18n.language);
   const selectedSummary = year === null ? summary : summary?.years.find(value => value.year === year);
   const measured = data.points.filter(point => point.y !== null).sort((a, b) => a.y! - b.y!);
@@ -25,7 +29,7 @@ export default function ActivityMatchedRouteGroupPanel({ activity, observedMetri
       <div className="matched-route-group-body">
         <Text as="p" variant="bodyMedium" tone="secondary">{t("routeGroup.scope")}</Text>
         <Button size="sm" variant="outline" loading={query.status === "loading"} disabled={query.status === "loading"} onClick={() => { setFilter({ token: null, year: null }); void query.start(); }}>{t(query.status === "idle" ? "routeGroup.find" : "routeGroup.refresh")}</Button>
-        {query.status !== "idle" && <Text as="p" variant="bodyMedium" tone="secondary">{t(`routeGroup.states.${query.status}`)}</Text>}
+        {query.status !== "idle" && <Text as="p" variant="bodyMedium" tone="secondary">{t(partialAnchor ? "routeGroup.partialGeometry" : `routeGroup.states.${query.status}`)}</Text>}
         {summary && <>
           <Text as="p" variant="bodyMedium" tone="secondary">{t("routeGroup.counts", { loaded: data.allCount, total: summary.memberCount, known: summary.knownMetricCount, eligible: summary.rankEligibleCount })}</Text>
           <Text as="p" variant="bodyMedium" tone="secondary">{t("routeGroup.snapshot", { date: date(latest!.readTime.seconds * 1000 + latest!.readTime.nanoseconds / 1e6) })}</Text>
