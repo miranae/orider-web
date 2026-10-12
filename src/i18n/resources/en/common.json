@@ -73,6 +73,17 @@
     "collapse": "Collapse"
   },
   "nav": {
+    "coachTab": "Coach",
+    "feed": "Feed",
+    "club": "Clubs",
+    "people": "People",
+    "records": "Records",
+    "training": "Training",
+    "goalsPlans": "Goals & Plans",
+    "myClubs": "My Clubs",
+    "meetings": "Meetups & Participation",
+    "developer": "Developer",
+    "about": "About",
     "dashboard": "Dashboard",
     "fitness": "Fitness",
     "plan": "Plan",

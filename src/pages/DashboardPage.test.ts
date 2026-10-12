@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Activity } from "@shared/types";
+import { parseRelationshipScope } from "../components/dashboard/feedRelationshipScope";
 import { dashboardPlanDiscipline, filterFeedActivities, normalizeDashboardDiscipline } from "./DashboardPage";
 
 function activity(id: string, userId: string): Activity {
@@ -83,8 +84,9 @@ describe("normalizeDashboardDiscipline", () => {
 describe("desktop dashboard information hierarchy", () => {
   it("normalizes guest feed scope and hides personal scope choices", () => {
     const source = readFileSync(join(process.cwd(), "src/pages/DashboardPage.tsx"), "utf8");
-    expect(source).toContain('const feedScope: ActivityFeedScope = user ? dashboardPreferences.feedScope : "all"');
-    expect(source).toContain('{user && <div className="flex gap-0.5"');
+    expect(parseRelationshipScope(new URLSearchParams("scope=friends"), "self", false)).toMatchObject({ scope: "public", feedScope: "all" });
+    expect(source).toContain("parseRelationshipScope(searchParams, dashboardPreferences.feedScope, !!user)");
+    expect(source).toContain("{user && <FeedScopeSelector");
   });
 
   it("keeps Home focused on activity and informational cards without a workout decision", () => {

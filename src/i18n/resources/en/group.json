@@ -361,10 +361,10 @@
   "card.join": "Request to join",
   "card.joining": "Joining...",
   "card.joinPending": "Pending approval",
-  "subNav.overview": "Overview",
+  "subNav.overview": "Group news",
   "subNav.contextLabel": "Group navigation",
   "subNav.groupList": "← Group list",
-  "subNav.eventList": "All events",
+  "subNav.eventList": "Events & participation",
   "invite.modalTitle": "Invite Members",
   "invite.copied": "Copied!",
   "invite.directLabel": "Direct Invite",
@@ -391,5 +391,8 @@
   "leaderboard.refreshNow": "Refresh now",
   "leaderboard.refreshFailed": "Could not refresh the leaderboard. Showing the saved result.",
   "leaderboard.staleWarning": "Leaderboard calculation is delayed. Recent membership or activity changes may not be reflected yet.",
-  "leaderboard.weekBoundary": "Weekly TSS runs from Monday 00:00 KST and includes public activities only."
+  "leaderboard.weekBoundary": "Weekly TSS runs from Monday 00:00 KST and includes public activities only.",
+  "subNav.rides": "Shared activities",
+  "subNav.members": "Members & management",
+  "subNav.otherGroups": "Other clubs"
 }

@@ -31,8 +31,12 @@ function toMillis(value: unknown): number {
 export function useGroupPosts(groupId: string | undefined) {
   const [posts, setPosts] = useState<GroupPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    setPosts([]);
+    setError(null);
     if (!groupId) {
       setPosts([]);
       setLoading(false);
@@ -57,13 +61,14 @@ export function useGroupPosts(groupId: string | undefined) {
       },
       (err) => {
         logClientError("useGroupPosts.snapshot", err, { groupId });
+        setError(err);
         setPosts([]);
         setLoading(false);
       },
     );
-  }, [groupId]);
+  }, [groupId, reloadKey]);
 
-  return { posts, loading };
+  return { posts, loading, error, retry: () => setReloadKey((key) => key + 1) };
 }
 
 export async function createGroupPost(input: {

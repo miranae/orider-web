@@ -46,9 +46,10 @@ describe("Layout", () => {
     await waitFor(() => {
       expect(screen.getAllByText("내 운동").length).toBeGreaterThan(0);
     });
-    expect(screen.getAllByText("AI 코치").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("소식").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("동호회").length).toBeGreaterThan(0);
     expect(screen.getAllByText("탐색").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("커뮤니티").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("사람·교류").length).toBeGreaterThan(0);
     const tabBar = screen.getByRole("navigation", { name: "메인 내비게이션" });
     expect(within(tabBar).queryByRole("link", { name: "설정" })).not.toBeInTheDocument();
   });
@@ -252,7 +253,7 @@ describe("Layout", () => {
     expect(footer.className).toContain("lg:hidden");
   });
 
-  it("has five ordered localized mobile tabs including AI Coach", async () => {
+  it("has five ordered localized mobile tabs including Clubs and People", async () => {
     renderWithProviders(<Layout />);
     // 페이지 내 다른 탐색 영역과 구분하기 위해 접근성 이름으로 모바일 탭바를 스코프.
     await waitFor(() => {
@@ -260,14 +261,23 @@ describe("Layout", () => {
     });
     const tabBar = screen.getByRole("navigation", { name: "메인 내비게이션" });
     const tabs = within(tabBar).getAllByRole("link");
-    expect(tabs.map((tab) => tab.textContent)).toEqual(["홈", "내 운동", "AI 코치", "탐색", "커뮤니티"]);
-    expect(within(tabBar).getByRole("link", { name: "AI 코치" })).toHaveAttribute("href", "/ko/coach");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["소식", "내 운동", "동호회", "탐색", "사람·교류"]);
+    expect(within(tabBar).getByRole("link", { name: "내 운동" })).toHaveAttribute("href", "/ko/log");
   });
 
-  it("selects AI Coach routes but no primary tab on settings routes", async () => {
+  it.each([false, true])("keeps utility destinations accessible in the mobile menu (authenticated=%s)", async (authenticated) => {
+    renderWithProviders(<Layout />, { authenticated, user: { uid: "viewer" } });
+    await userEvent.click((await screen.findAllByRole("button", { name: "더보기" }))[0]!);
+    const menu = within(screen.getByRole("button", { name: "닫기" }).parentElement!.parentElement!);
+    expect(menu.getByRole("link", { name: "개발자" })).toHaveAttribute("href", "/ko/creator");
+    expect(menu.getByRole("link", { name: "소개" })).toHaveAttribute("href", "/ko/about");
+    expect(menu.getAllByRole("link", { name: "코치" }).some((link) => link.getAttribute("href") === "/ko/coach")).toBe(true);
+  });
+
+  it("selects training for AI Coach routes but no primary tab on settings routes", async () => {
     const coachView = renderWithProviders(<Layout />, { route: "/ko/coach/thread-1" });
     const coachTabBar = await screen.findByRole("navigation", { name: "메인 내비게이션" });
-    expect(within(coachTabBar).getByRole("link", { name: "AI 코치" })).toHaveAttribute("aria-current", "page");
+    expect(within(coachTabBar).getByRole("link", { name: "내 운동" })).toHaveAttribute("aria-current", "page");
     coachView.unmount();
 
     renderWithProviders(<Layout />, { route: "/ko/settings", authenticated: true, user: { uid: "viewer" } });

@@ -73,6 +73,17 @@
     "collapse": "접기"
   },
   "nav": {
+    "coachTab": "코치",
+    "feed": "소식",
+    "club": "동호회",
+    "people": "사람·교류",
+    "records": "기록",
+    "training": "훈련",
+    "goalsPlans": "목표·계획",
+    "myClubs": "내 동호회",
+    "meetings": "모임·참가",
+    "developer": "개발자",
+    "about": "소개",
     "dashboard": "대시보드",
     "fitness": "피트니스",
     "plan": "운동 계획",

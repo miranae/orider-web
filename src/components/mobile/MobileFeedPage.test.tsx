@@ -25,6 +25,24 @@ vi.mock("../activity/ActivitySocialFooter", () => ({
 }));
 
 describe("MobileFeedPage", () => {
+  it("shows equal relationship choices and personal subfilters", async () => {
+    const user = userEvent.setup();
+    const changeScope = vi.fn();
+    const changeFilter = vi.fn();
+    renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="self" onFeedScopeChange={changeFilter} relationshipScope="personal" onRelationshipScopeChange={changeScope} />, { authenticated: true });
+    expect(screen.getByRole("button", { name: "나·친구" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "내 활동" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "전체 공개" })).toHaveAttribute("title");
+    await user.click(screen.getByRole("button", { name: "현재 동호회" }));
+    expect(changeScope).toHaveBeenCalledWith("club");
+    await user.click(screen.getByRole("button", { name: "친구", exact: true }));
+    expect(changeFilter).toHaveBeenCalledWith("friends");
+  });
+  it("replaces the activity feed with the selected club feed", () => {
+    renderWithProviders(<MobileFeedPage activities={[createMockActivity({ description: "Hidden activity" })]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="self" onFeedScopeChange={vi.fn()} relationshipScope="club" onRelationshipScopeChange={vi.fn()} clubFeed={<div>Selected club news</div>} />, { authenticated: true });
+    expect(screen.getByText("Selected club news")).toBeInTheDocument();
+    expect(screen.queryByText("Hidden activity")).not.toBeInTheDocument();
+  });
   it("searches the server for 설레임 even when the activity is outside the loaded feed", async () => {
     const user = userEvent.setup();
     setCollectionDocs("activities", [

@@ -50,14 +50,14 @@ function selectedMobileTab() {
 }
 
 describe("Layout activity hub ownership", () => {
-  it("직접 연 타인 활동은 홈 탭을 활성화한다", async () => {
+  it("직접 연 타인 활동은 소식 탭을 활성화한다", async () => {
     renderWithProviders(<ActivityHubRoutes />, {
       route: "/activity/theirs",
       authenticated: true,
       user: { uid: "viewer" },
     });
 
-    await waitFor(() => expect(selectedMobileTab()).toHaveTextContent("홈"));
+    await waitFor(() => expect(selectedMobileTab()).toHaveTextContent("소식"));
   });
 
   it("본인 활동에서 타인 활동으로 전환하면 내 운동 선택을 해제한다", async () => {
@@ -70,6 +70,6 @@ describe("Layout activity hub ownership", () => {
 
     await waitFor(() => expect(selectedMobileTab()).toHaveTextContent("내 운동"));
     await user.click(screen.getByRole("button", { name: "다른 사람 활동으로 이동" }));
-    await waitFor(() => expect(selectedMobileTab()).toHaveTextContent("홈"));
+    await waitFor(() => expect(selectedMobileTab()).toHaveTextContent("소식"));
   });
 });

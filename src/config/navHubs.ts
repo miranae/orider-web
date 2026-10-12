@@ -1,26 +1,23 @@
-import { Home, Activity, Bot, Map, Users, Settings, type LucideIcon } from "lucide-react";
+import { Home, Activity, Map, Users, UsersRound, Settings, type LucideIcon } from "lucide-react";
 
 /**
- * 웹 IA 단일 진실원 — 5개 기본 허브와 설정 유틸리티 허브.
+ * 웹 IA 단일 진실원 — 운동 SNS 공유 5개 허브와 유틸리티(설정) 허브.
  *
- * 위계 없이 평면 나열되던 9개 기능을 5개 허브로 묶고, 각 허브 내부를 서브탭으로 깊이를 준다.
  * 데스크톱 TopNav · 모바일 MobileTabBar · Layout active 판정 · 허브 서브탭바(HubSubNav)가
  * 모두 이 설정 하나를 소비해 cross-device 일관성을 보장한다.
  *
- * 허브 구성:
- *  - 홈        : 대시보드(/)                                  — 단일, 서브탭 없음
- *  - 내 운동   : 피트니스(/fitness) · 계획(/plan) · 기록(/log)  — "내 데이터" 성격
- *  - AI 코치   : 새 질문·대화 내역(/coach)
+ * 허브 구성 (SNS 기획 P0 — 개인 운동과 동호회를 같은 위계의 주 메뉴로):
+ *  - 소식      : 대시보드(/) — 나·친구 / 현재 동호회 / 전체 공개 관계 범위는 화면 안에서 선택
+ *  - 내 운동   : 기록(/log) · 훈련(/fitness) · 목표·계획(/plan) · 코치(/coach)
+ *  - 동호회    : 내 동호회(/groups) · 모임·참가(/events) — 그룹 상세는 GroupSubNav 가 맥락 표시
  *  - 탐색      : 도전(/discover) · 세그먼트(/explore) · 리더보드(/leaderboard) · 코스(/courses)
- *               — '발견→처방→도전' 동선(#486). 데이터 출처가 아니라 사용자 의도로 서열화.
-  *  - 커뮤니티  : 게시판(/board) · 그룹(/groups) · 이벤트(/events) · 친구(/friends) — "사람·소통"
- *  - 설정      : 프로필(/my) · 계정(/settings) — 기본 탭이 아닌 유틸리티 허브
+ *  - 사람·교류 : 친구(/friends) · 게시판(/board)
+ *  - 설정      : 프로필(/my) · 계정(/settings) · 개발자(/creator) · 소개(/about) — 기본 탭이 아닌 유틸리티
  *
- * 친구(/friends)는 시안 미명시였으나 "사람·소통" 동질성으로 커뮤니티 허브에 편입(이슈 #385 결정).
- * 기존 고아 경로였던 /friends·/social 진입점을 동시에 복구한다.
+ * 관계 범위 전환·메뉴 이동은 표시 문맥일 뿐 활동 공개 범위나 그룹/이벤트 권한을 바꾸지 않는다.
  */
 
-export type HubKey = "home" | "train" | "coach" | "explore" | "community" | "settings";
+export type HubKey = "feed" | "train" | "club" | "explore" | "people" | "settings";
 
 export interface ActiveHubContext {
   /** 현재 로그인 사용자. 비로그인 상태는 null. */
@@ -61,8 +58,8 @@ export interface Hub {
 
 export const HUBS: Hub[] = [
   {
-    key: "home",
-    labelKey: "nav.home",
+    key: "feed",
+    labelKey: "nav.feed",
     icon: Home,
     to: "/",
     subs: [],
@@ -72,26 +69,34 @@ export const HUBS: Hub[] = [
     key: "train",
     labelKey: "nav.train",
     icon: Activity,
-    to: "/fitness",
+    to: "/log",
     subs: [
-      { labelKey: "nav.fitness", to: "/fitness" },
-      { labelKey: "nav.plan", to: "/plan" },
-      { labelKey: "nav.log", to: "/log" },
+      { labelKey: "nav.records", to: "/log" },
+      { labelKey: "nav.training", to: "/fitness" },
+      { labelKey: "nav.goalsPlans", to: "/plan" },
+      { labelKey: "nav.coachTab", to: "/coach" },
     ],
     match: (p) =>
       p === "/fitness" ||
       p.startsWith("/activity/") ||
       p === "/plan" ||
       p === "/goal-setup" ||
-      p === "/log",
+      p === "/log" ||
+      p === "/coach" ||
+      p.startsWith("/coach/") ||
+      p === "/goal/climb" ||
+      p === "/year-recap",
   },
   {
-    key: "coach",
-    labelKey: "nav.coach",
-    icon: Bot,
-    to: "/coach",
-    subs: [],
-    match: (p) => p === "/coach" || p.startsWith("/coach/"),
+    key: "club",
+    labelKey: "nav.club",
+    icon: UsersRound,
+    to: "/groups",
+    subs: [
+      { labelKey: "nav.myClubs", to: "/groups" },
+      { labelKey: "nav.meetings", to: "/events" },
+    ],
+    match: (p) => p === "/groups" || p.startsWith("/group/") || p === "/events" || p.startsWith("/event/"),
   },
   {
     key: "explore",
@@ -114,33 +119,17 @@ export const HUBS: Hub[] = [
       p.startsWith("/course/"),
   },
   {
-    key: "community",
-    labelKey: "nav.community",
+    key: "people",
+    labelKey: "nav.people",
     icon: Users,
-    to: "/board",
+    to: "/friends",
     subs: [
-      { labelKey: "nav.board", to: "/board" },
-      { labelKey: "nav.creator", to: "/creator" },
-      { labelKey: "nav.groups", to: "/groups" },
-      { labelKey: "nav.events", to: "/events" },
       { labelKey: "nav.friends", to: "/friends" },
-      { labelKey: "nav.aboutOrider", to: "/about" },
+      { labelKey: "nav.board", to: "/board" },
     ],
     match: (p) =>
-      p === "/board" ||
-      p.startsWith("/board/") ||
-      p === "/creator" ||
-      p.startsWith("/creator/") ||
-      p === "/groups" ||
-      p.startsWith("/group/") ||
-      p === "/events" ||
-      p.startsWith("/event/") ||
-      p === "/friends" ||
-      p.startsWith("/friend/") ||
-      p.startsWith("/athlete/") ||
-      p === "/community" ||
-      p === "/about" ||
-      p === "/social",
+      p === "/friends" || p.startsWith("/friend/") || p.startsWith("/athlete/") ||
+      p === "/social" || p === "/board" || p.startsWith("/board/") || p === "/community",
   },
   {
     key: "settings",
@@ -151,23 +140,33 @@ export const HUBS: Hub[] = [
       { labelKey: "nav.profile", to: "/my" },
       { labelKey: "nav.account", to: "/settings" },
     ],
-    match: (p) => p === "/my" || p === "/settings",
+    match: (p) => p === "/my" || p === "/settings" || p === "/creator" || p.startsWith("/creator/") || p === "/about",
   },
+];
+
+/**
+ * 유틸리티 진입(헤더·사용자 메뉴·모바일 메뉴). 설정 허브 active 판정에는 속하지만 서브탭은 아니다 —
+ * 공개 페이지(/about, /creator)에 로그인 전용 프로필·계정 탭이 붙지 않게 분리한다.
+ */
+export const UTILITY_LINKS: HubSub[] = [
+  { labelKey: "nav.coach", to: "/coach" },
+  { labelKey: "nav.developer", to: "/creator" },
+  { labelKey: "nav.about", to: "/about" },
 ];
 
 /** 데스크톱·모바일 기본 내비게이션에 노출되는 정확히 5개 허브. */
 export const PRIMARY_HUBS: Hub[] = HUBS.filter((hub) => hub.key !== "settings");
 
-/** 경로와 상세 화면 문맥 → 활성 허브 key (매칭 없으면 home 폴백). */
+/** 경로와 상세 화면 문맥 → 활성 허브 key (매칭 없으면 feed 폴백). */
 export function getActiveHub(path: string, context: ActiveHubContext = {}): HubKey {
   // 활동 상세는 경로만으로 "내 운동"인지 판단할 수 없다. 소유자가 확인된 본인 활동만
   // 내 운동으로 표시하고, 타인 활동과 로딩 중인 직접 진입은 홈 피드 문맥을 유지한다.
   if (getActivityIdFromDetailPath(path) !== null) {
     return context.viewerUid != null && context.viewerUid === context.activityOwnerId
       ? "train"
-      : "home";
+      : "feed";
   }
-  return HUBS.find((h) => h.match(path))?.key ?? "home";
+  return HUBS.find((h) => h.match(path))?.key ?? "feed";
 }
 
 /** 활성 허브 객체 (서브탭바 렌더용). */
