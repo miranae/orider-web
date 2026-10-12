@@ -1,13 +1,14 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
+import timeWire from "../../../services/stageRunTimeCorrections.fixture.json";
 import { stageRunEffortFixture } from "../../../services/trainingAnalysisPeriods.fixture";
 import RunEffortStageManagementPanel from "./RunEffortStageManagementPanel";
-const mocks = vi.hoisted(() => ({ hook: vi.fn(), refresh: vi.fn(), change: vi.fn(), retry: vi.fn(), cancel: vi.fn(), comparison: vi.fn() }));
+const mocks = vi.hoisted(() => ({ hook: vi.fn(), refresh: vi.fn(), change: vi.fn(), retry: vi.fn(), cancel: vi.fn(), comparison: vi.fn(), saveTime: vi.fn(), clearTime: vi.fn() }));
 vi.mock("../../../hooks/useRunEffortStageManagement", () => ({ useRunEffortStageManagement: (...args: unknown[]) => mocks.hook(...args) }));
 vi.mock("./RunPeriodComparisonPanel", () => ({ default: (props: unknown) => { mocks.comparison(props); return <div data-testid="filtered-five-fourteen-view" />; } }));
-const state = () => ({ owner: true, available: true, state: "idle", response: null, outcome: null, failure: null, confirmedOutcome: false, canRetry: false, pendingRequest: false, cancelledUnknown: false, cancelPending: mocks.cancel, busy: false, refresh: mocks.refresh, change: mocks.change, retry: mocks.retry });
-beforeEach(() => { mocks.hook.mockReset().mockReturnValue(state()); mocks.refresh.mockClear(); mocks.change.mockClear(); mocks.retry.mockClear(); mocks.cancel.mockClear(); mocks.comparison.mockClear(); });
+const state = () => ({ owner: true, available: true, state: "idle", response: null, outcome: null, failure: null, confirmedOutcome: false, canRetry: false, pendingRequest: false, cancelledUnknown: false, cancelPending: mocks.cancel, busy: false, refresh: mocks.refresh, change: mocks.change, retry: mocks.retry, saveTime: mocks.saveTime, clearTime: mocks.clearTime });
+beforeEach(() => { mocks.hook.mockReset().mockReturnValue(state()); mocks.refresh.mockClear(); mocks.change.mockClear(); mocks.retry.mockClear(); mocks.cancel.mockClear(); mocks.comparison.mockClear(); mocks.saveTime.mockClear(); mocks.clearTime.mockClear(); });
 it("keeps requests manual and scoped to the applied periods without new date/sport reads", () => {
   const applied = stageRunEffortFixture(); const view = renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={applied} />);
   expect(mocks.refresh).not.toHaveBeenCalled();
@@ -177,4 +178,39 @@ it("keeps missing canonical exclusion counts unknown and positive canonical coun
   expect(within(fold).getByText("기간 1 · 기간 기록에서 제외한 활동 —건")).toBeInTheDocument();
   expect(within(fold).getByText("기간 2 · 기간 기록에서 제외한 활동 2건")).toBeInTheDocument();
   expect(fold).not.toHaveAttribute("open"); expect(mocks.refresh).not.toHaveBeenCalled();
+});
+
+const renderTime = (mode: string) => {
+  const response = structuredClone(timeWire.cases.find(value => value.mode === mode)!.response) as unknown as Parameters<typeof RunEffortStageManagementPanel>[0]["appliedResponse"];
+  mocks.hook.mockReturnValue({ ...state(), state: "ready", response });
+  renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} />);
+  fireEvent.change(screen.getByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true }), { target: { value: "inside" } });
+  if (mode.startsWith("canonical")) fireEvent.change(screen.getByRole("combobox", { name: "수정할 시간의 근거", hidden: true }), { target: { value: "canonical" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "선택할 거리", hidden: true }), { target: { value: mode.startsWith("derived") ? "400m" : "5km" } });
+  return response.periods[0]!.stageTimeAdjustedEfforts!;
+};
+it("keeps exact time drafts and optional kind local until an explicit save, with a folded editor", () => {
+  const channel = renderTime("canonical_available");
+  expect(screen.getByText("시간 수정").closest("details")).not.toHaveAttribute("open");
+  const input = screen.getByRole("textbox", { name: "수정할 시간 (시:분:초)", hidden: true });
+  fireEvent.change(input, { target: { value: "3:51.1251" } });
+  expect(screen.getByRole("button", { name: "수정 시간 저장", hidden: true })).toBeDisabled();
+  fireEvent.change(input, { target: { value: "3:51.125" } });
+  expect(mocks.saveTime).not.toHaveBeenCalled(); expect(mocks.refresh).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "수정 시간 저장", hidden: true }));
+  expect(mocks.saveTime).toHaveBeenCalledWith(channel.efforts[0], 231.125, undefined);
+  expect(mocks.hook.mock.lastCall?.[3]).toBe("canonical");
+});
+it("allows excluded observed time edits while keeping its unapplied status visible", () => {
+  renderTime("canonical_corrected_excluded");
+  expect(screen.getByRole("button", { name: "수정 시간 저장", hidden: true })).toBeEnabled();
+  expect(screen.getByText(/현재 기간 기록에서 제외되어 수정 시간도 반영되지/)).toBeInTheDocument();
+});
+it("missing original records offer only clearing the existing correction without inventing a current time", () => {
+  const channel = renderTime("derived_snapshot_missing_orphan");
+  expect(screen.queryByRole("textbox", { name: "수정할 시간 (시:분:초)", hidden: true })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "수정 시간 저장", hidden: true })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "시간 수정 해제", hidden: true }));
+  expect(mocks.clearTime).toHaveBeenCalledWith(channel, channel.orphanedCorrections[0]!.target);
+  expect(mocks.saveTime).not.toHaveBeenCalled(); expect(mocks.refresh).not.toHaveBeenCalled();
 });

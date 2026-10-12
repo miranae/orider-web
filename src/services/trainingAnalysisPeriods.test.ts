@@ -1,3 +1,6 @@
+import { webcrypto } from "node:crypto";
+import timeWire from "./stageRunTimeCorrections.fixture.json";
+import type { TrainingAnalysisPeriodsRequest } from "@shared/types/training-analysis-periods";
 import { compiledBikeProvenanceWire } from "./activityBikeDistanceEvidence.fixture";
 import { expandedPeriodFixture } from "../utils/expandedRunDistances.fixture";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -540,4 +543,19 @@ it("accepts only the explicitly selected bound native alias absent from canonica
     expect(() => validateTrainingAnalysisPeriodsResponse(invalid, request)).toThrow();
   }
   expect(() => validateTrainingAnalysisPeriodsResponse(response, { ...request, stageRunDistanceSnapshotActivityIds: ["different"] })).toThrow();
+});
+
+it("rechecks the owner after asynchronous native time-source digest verification without further network reads", async () => {
+  const fixture = timeWire.cases.find(value => value.mode === "canonical_available")!;
+  const app = {}, auth = { app, currentUser: { uid: "owner", isAnonymous: false } };
+  const services = { auth, functions: { app, customDomain: stage.firebaseFunctionsBase }, ensureAppCheckReady: vi.fn(async () => {}) } as unknown as FirebaseServices;
+  let entered!: () => void, release!: () => void;
+  const started = new Promise<void>(done => { entered = done; }), blocked = new Promise<void>(done => { release = done; });
+  vi.stubGlobal("crypto", { subtle: { digest: async (algorithm: AlgorithmIdentifier, data: Parameters<typeof webcrypto.subtle.digest>[1]) => { entered(); await blocked; return webcrypto.subtle.digest(algorithm, data); } } });
+  mocks.call.mockResolvedValueOnce({ data: fixture.response });
+  const pending = loadTrainingAnalysisPeriods(services, "owner", fixture.request as TrainingAnalysisPeriodsRequest);
+  const rejected = expect(pending).rejects.toThrow("account_changed");
+  await started; auth.currentUser.uid = "other"; release(); await rejected;
+  expect(mocks.call).toHaveBeenCalledTimes(1); expect(services.ensureAppCheckReady).toHaveBeenCalledTimes(1);
+  vi.unstubAllGlobals();
 });

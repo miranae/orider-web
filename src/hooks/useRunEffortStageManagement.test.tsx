@@ -1,5 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
+import wire from "../services/stageRunTimeCorrections.fixture.json";
+import type { TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
 import { stageRunEffortFixture } from "../services/trainingAnalysisPeriods.fixture";
 import { useRunEffortStageManagement } from "./useRunEffortStageManagement";
 const mocks = vi.hoisted(() => ({ uid: "owner", anonymous: false, services: {}, read: vi.fn(), write: vi.fn() }));
@@ -149,4 +151,58 @@ it("a forced selector change during a write keeps the original idempotent reques
   expect(view.result.current.outcome).toBeNull(); await act(async () => { await view.result.current.refresh(); });
   act(() => { view.result.current.change(binding, "1km", true); }); expect(mocks.write).toHaveBeenCalledTimes(1);
   act(() => { view.result.current.retry(); }); expect(mocks.write.mock.lastCall?.[2]).toEqual(original);
+});
+
+const timeCase = (mode: string) => structuredClone(wire.cases.find(value => value.mode === mode)!.response) as unknown as TrainingAnalysisPeriodsResponse;
+const timePeriods = wire.cases[0]!.request.periods;
+it("selected canonical loads only its correction channel; basis changes make no calls and fence ABA results", async () => {
+  let resolve!: (value: unknown) => void;
+  mocks.read.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  const view = renderHook(basis => useRunEffortStageManagement("owner", timePeriods, "inside", basis), { initialProps: "canonical" as "canonical" | "stored" });
+  expect(mocks.read).not.toHaveBeenCalled();
+  let pending!: Promise<void>; act(() => { pending = view.result.current.refresh(); });
+  expect(mocks.read.mock.lastCall?.[2]).toEqual(wire.cases[0]!.request);
+  view.rerender("stored"); view.rerender("canonical");
+  await act(async () => { resolve(timeCase("canonical_available")); await pending; });
+  expect(view.result.current.response).toBeNull();
+  view.rerender("stored"); expect(mocks.read).toHaveBeenCalledTimes(1);
+  mocks.read.mockResolvedValueOnce(timeCase("derived_corrected"));
+  await act(async () => { await view.result.current.refresh(); });
+  expect(mocks.read.mock.lastCall?.[2]).toEqual(wire.cases.find(value => value.mode === "derived_corrected")!.request);
+});
+it("saves the genuine current source with exact owner time and preserves an immutable retry payload", async () => {
+  mocks.read.mockResolvedValue(timeCase("canonical_available")); mocks.write.mockRejectedValueOnce(new Error("network"));
+  const view = renderHook(() => useRunEffortStageManagement("owner", timePeriods, "inside", "canonical"));
+  await act(async () => { await view.result.current.refresh(); });
+  const channel = view.result.current.response!.periods[0]!.stageTimeAdjustedEfforts!, effort = channel.efforts[0]!;
+  act(() => { view.result.current.saveTime({ ...effort, sourceAuthorityRevision: "f".repeat(64) }, 231.125); view.result.current.saveTime(effort, 231.1251); });
+  expect(mocks.write).not.toHaveBeenCalled();
+  await act(async () => { view.result.current.saveTime(effort, 231.125, "chip_time"); });
+  const request = mocks.write.mock.lastCall?.[2];
+  expect(request).toMatchObject({ action: "set_time", activityId: "inside", target: "5km", reportedElapsedSeconds: 231.125, reportedKind: "chip_time", expectedSourceAuthorityRevision: effort.sourceAuthorityRevision, expectedPreferenceRevision: channel.selected!.preferenceRevision });
+  expect(request).not.toHaveProperty("expectedDerivedRevision"); expect(mocks.read).toHaveBeenCalledTimes(1);
+  await act(async () => { await view.result.current.refresh(); });
+  act(() => { view.result.current.saveTime(effort, 999); }); expect(mocks.write).toHaveBeenCalledTimes(1);
+  mocks.write.mockResolvedValueOnce({}); await act(async () => { view.result.current.retry(); });
+  expect(mocks.write.mock.lastCall?.[2]).toEqual(request); expect(view.result.current.response).toBeNull();
+});
+it("clears a missing derived source with only current base authority, and refuses forged orphan channels", async () => {
+  mocks.read.mockResolvedValueOnce(timeCase("derived_snapshot_missing_orphan")); mocks.write.mockResolvedValue({});
+  const view = renderHook(() => useRunEffortStageManagement("owner", timePeriods, "inside", "stored"));
+  await act(async () => { await view.result.current.refresh(); });
+  const channel = view.result.current.response!.periods[0]!.stageTimeAdjustedEfforts!, target = channel.orphanedCorrections[0]!.target;
+  act(() => { view.result.current.clearTime({ ...channel, selected: { ...channel.selected!, preferenceRevision: 999 } }, target); });
+  expect(mocks.write).not.toHaveBeenCalled();
+  await act(async () => { view.result.current.clearTime(channel, target); });
+  expect(Object.keys(mocks.write.mock.lastCall?.[2]).sort()).toEqual(["action", "activityId", "target", "expectedPreferenceRevision", "expectedMetricsRevision", "expectedActivityIncarnation", "idempotencyKey"].sort());
+  expect(mocks.write.mock.lastCall?.[2].action).toBe("clear_time"); expect(mocks.read).toHaveBeenCalledTimes(1);
+});
+it("a time write settling after a basis ABA cannot settle a new draft or clear its unresolved request", async () => {
+  let resolve!: (value: unknown) => void; mocks.write.mockReturnValueOnce(new Promise(done => { resolve = done; })); mocks.read.mockResolvedValue(timeCase("canonical_available"));
+  const view = renderHook(basis => useRunEffortStageManagement("owner", timePeriods, "inside", basis), { initialProps: "canonical" as "canonical" | "stored" });
+  await act(async () => { await view.result.current.refresh(); });
+  act(() => { view.result.current.saveTime(view.result.current.response!.periods[0]!.stageTimeAdjustedEfforts!.efforts[0]!, 232); });
+  view.rerender("stored"); view.rerender("canonical");
+  await act(async () => { resolve({}); });
+  expect(view.result.current.outcome).toBeNull(); expect(view.result.current.response).toBeNull(); expect(view.result.current.pendingRequest).toBe(true);
 });
