@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  qaRequested: false,
+  qaValidate: vi.fn(),
+  qaInitialRefresh: vi.fn(),
+  qaProvider: { kind: "qa" },
   getToken: vi.fn(),
   initializeAppCheck: vi.fn(() => ({ app: "check" })),
   runtimeConfig: {
@@ -13,6 +17,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.unmock("./firebase");
+vi.mock("./stageQaAppCheck", () => ({
+  hasStageQaAppCheckGrant: () => mocks.qaRequested,
+  getStageQaAppCheckSession: () => ({ validate: mocks.qaValidate, forceInitialRefresh: mocks.qaInitialRefresh, provider: mocks.qaProvider }),
+}));
 vi.mock("firebase/app", () => ({ initializeApp: vi.fn(() => ({ name: "app" })) }));
 vi.mock("firebase/auth", () => ({
   getAuth: vi.fn(() => ({})),
@@ -53,6 +61,9 @@ async function loadFirebase() {
 describe("ensureAppCheckReady", () => {
   beforeEach(() => {
     vi.resetModules();
+    mocks.qaRequested = false;
+    mocks.qaValidate.mockReset().mockResolvedValue(undefined);
+    mocks.qaInitialRefresh.mockReset().mockReturnValueOnce(true).mockReturnValue(false);
     vi.useRealTimers();
     mocks.getToken.mockReset();
     mocks.initializeAppCheck.mockClear();
@@ -115,6 +126,26 @@ describe("ensureAppCheckReady", () => {
     await expect(firebase.ensureAppCheckReady()).resolves.toBeUndefined();
     expect(mocks.initializeAppCheck).toHaveBeenCalledTimes(1);
     expect(mocks.getToken).toHaveBeenCalledTimes(2);
+  });
+
+  it("QA forces a fresh custom token and disables background refresh", async () => {
+    mocks.qaRequested = true;
+    mocks.getToken.mockResolvedValue({ token: "qa-token" });
+    const firebase = await loadFirebase();
+    await firebase.ensureAppCheckReady();
+    expect(mocks.initializeAppCheck).toHaveBeenCalledWith(expect.anything(), { provider: mocks.qaProvider, isTokenAutoRefreshEnabled: false });
+    expect(mocks.getToken).toHaveBeenCalledWith(expect.anything(), true);
+    expect(mocks.qaValidate).toHaveBeenCalledTimes(2);
+  });
+
+  it("QA rejects changed Auth even with an already resolved readiness cache", async () => {
+    mocks.qaRequested = true;
+    mocks.getToken.mockResolvedValue({ token: "qa-token" });
+    const firebase = await loadFirebase();
+    await firebase.ensureAppCheckReady();
+    mocks.qaValidate.mockRejectedValue(new Error("stage-qa/session-denied"));
+    await expect(firebase.ensureAppCheckReady()).rejects.toThrow("stage-qa/session-denied");
+    expect(mocks.getToken).toHaveBeenCalledTimes(1);
   });
 
   it("fails closed when the production runtime site key is missing", async () => {

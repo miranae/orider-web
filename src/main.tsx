@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { auth, ensureAppCheckReady, initFirebase } from "./services/firebase";
 import { consumeAppHandoffCode, stashHandoffCode } from "./services/appHandoff";
 import { applyImpersonationTokenFromUrl, stashImpersonationToken } from "./services/impersonation";
+import { stashStageQaAppCheckGrant } from "./services/stageQaAppCheck";
 import { loadRuntimeConfig } from "./services/runtimeConfig";
 import { reportWebVitals } from "./services/webVitals";
 import { installSlowFetchTracker } from "./services/slowRequests";
@@ -24,8 +25,9 @@ import AppRoot from "./AppRoot";
 // 느린 fetch (>= 2s) 자동 기록 — Firebase / Firestore SDK 가 fetch 참조를 캡쳐하기
 // 전에 install 해야 Firestore 슬로우 쿼리까지 wrap 됨. analytics 미초기화 시점 호출은
 // track() 의 null-guard 가 흡수.
-// 앱→웹 로그인 인계 코드는 **모듈 본문 첫 문장**에서 URL 로부터 제거해 보관 —
+// QA grant와 앱→웹 로그인 인계 코드는 모듈 본문 시작에서 URL 로부터 제거해 보관 —
 // 에러 리스너/Sentry/후속 리소스 로드가 코드 포함 URL 을 관측하는 창을 최소화(리뷰 MINOR).
+stashStageQaAppCheckGrant();
 stashHandoffCode();
 // 위임 로그인 토큰(fragment)도 같은 이유로 모듈 본문에서 즉시 제거해 보관한다 —
 // TTL 1시간짜리 실제 자격증명이라 Sentry Replay 초기 녹화에 남으면 그대로 유출된다.
