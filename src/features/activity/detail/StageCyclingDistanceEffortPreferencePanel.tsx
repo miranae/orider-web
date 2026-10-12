@@ -25,9 +25,12 @@ export default function StageCyclingDistanceEffortPreferencePanel({ activity, sc
         <label htmlFor={id}><Text variant="bodyMedium">{t("manualBikeEvidence.distance")}</Text></label>
         <Select id={id} className="min-h-[calc(var(--dim-button-height)+var(--space-1))]" value={target} onChange={event => setTarget(event.target.value as BikeDistanceKey)}>{BIKE_DISTANCE_TARGETS.map(key => <option key={key} value={key}>{t(`manualBikeEvidence.distances.${key}`)}</option>)}</Select>
         {row && <>
-          <Text as="p" variant="bodyMedium">{t("cyclingEffortPreference.original", { value: elapsed(row.originalElapsedSeconds) })}</Text>
-          <Text as="p" variant="bodyMedium">{t(row.excluded ? "cyclingEffortPreference.excluded" : "cyclingEffortPreference.selected", { value: elapsed(row.effectiveElapsedSeconds) })}</Text>
-          {row.sourceStatus !== "observed" && <Text as="p" variant="bodyMedium" tone="secondary">{t(`cyclingEffortPreference.${row.sourceStatus}`)}</Text>}
+          {!row.excluded && row.originalElapsedSeconds === null && row.effectiveElapsedSeconds === null ? <Text as="p" variant="bodyMedium">{t("cyclingEffortPreference.cannotExclude")}</Text> : <>
+            <Text as="p" variant="bodyMedium">{t("cyclingEffortPreference.original", { value: elapsed(row.originalElapsedSeconds) })}</Text>
+            <Text as="p" variant="bodyMedium">{t(row.excluded ? "cyclingEffortPreference.excluded" : "cyclingEffortPreference.selected", { value: elapsed(row.effectiveElapsedSeconds) })}</Text>
+          </>}
+          {row.sourceStatus !== "observed" && <Text as="p" variant="bodyMedium" tone="secondary">{t(tool.read.observationState === "legacy_unsupported" ? "cyclingEffortPreference.legacyUnsupported" : `cyclingEffortPreference.${row.sourceStatus}`)}</Text>}
+          {row.excluded && row.restoreBinding && <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingEffortPreference.restoreAvailable")}</Text>}
           <Button size="sm" variant="outline" className="min-h-[calc(var(--dim-button-height)+var(--space-1))]" disabled={tool.busy || !enabled} onClick={() => void tool.save(target)}>{t(row.excluded ? "cyclingEffortPreference.restore" : "cyclingEffortPreference.exclude")}</Button>
         </>}
         <details><summary className="cursor-pointer py-3">{t("cyclingEffortPreference.basis")}</summary><Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingEffortPreference.basisNote")}</Text></details>
