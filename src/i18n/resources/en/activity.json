@@ -1,6 +1,9 @@
 {
   "cyclingEffortPreference": {
-    "title": "Manage this activity’s distance selections (Stage)",
+    "restoreAvailable": "The existing excluded selection can be restored.",
+    "legacyUnsupported": "This older analysis format does not allow checking the record time for this distance.",
+    "cannotExclude": "The record time is unavailable, so this distance cannot be excluded.",
+    "title": "Manage this activity’s distance selections",
     "scope": "Only this activity’s distance selections are saved. Original distance and the activity are retained; current period, annual statistics and all-time records are not updated yet.",
     "inspect": "Check / refresh management state",
     "loading": "Checking selection state.",
@@ -11,8 +14,8 @@
     "original": "Original observed elapsed time: {{value}}",
     "excluded": "Saved selection: excluded · effective elapsed time: {{value}}",
     "selected": "Saved selection: included · effective elapsed time: {{value}}",
-    "source_missing": "No observation for this distance in this check. Only an existing excluded selection can be restored.",
-    "source_unavailable": "Observation evidence is unavailable. Only an existing excluded selection can be restored.",
+    "source_missing": "No observation for this distance in this check.",
+    "source_unavailable": "Observation evidence is unavailable.",
     "restore": "Restore this distance selection",
     "exclude": "Exclude this distance selection",
     "basis": "Selection management basis",
