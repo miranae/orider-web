@@ -18,7 +18,8 @@ export function stageActivityPowerAvailable() {
   return config.appEnvironment === "stage" && config.firebaseFunctionsBase === ENDPOINT;
 }
 function validSource(source: StageActivityPowerSourceMetadataResponse["source"]): boolean {
-  return !!source && keys(source, ["activityStartEpochMs", "activityIncarnation", "baseMetricsRevision", "snapshotRevision", "sourceDigest", "qualification", "manifestObjectIncarnationVerified", "timingBasis", "originalClockVerified", "sensorBucketOriginVerified", "quality", "collectionCompleteness"])
+  const hasStoredOrigin = !!source && Object.prototype.hasOwnProperty.call(source, "powerSource");
+  return !!source && (!hasStoredOrigin || source.powerSource === "stored_native_watts_unverified") && keys(source, ["activityStartEpochMs", "activityIncarnation", "baseMetricsRevision", "snapshotRevision", "sourceDigest", "qualification", "manifestObjectIncarnationVerified", "timingBasis", "originalClockVerified", "sensorBucketOriginVerified", "quality", "collectionCompleteness", ...(hasStoredOrigin ? ["powerSource"] : [])])
     && timestamp(source.activityStartEpochMs) && revision(source.activityIncarnation) && revision(source.baseMetricsRevision)
     && digest(source.snapshotRevision) && digest(source.sourceDigest)
     && ["native_manifest_and_gcs_token_pinned", "legacy_manifest_revision_and_gcs_token_pinned"].includes(source.qualification)
@@ -59,8 +60,12 @@ export function validateStagePowerDuration(value: StageActivityPowerDurationResp
     return value;
   }
   const result = value.result;
+  const hasStoredOrigin = Object.prototype.hasOwnProperty.call(result, "powerSource");
   if (!validSource(value.source) || !metadata.source || !Object.keys(metadata.source).every(key => value.source![key as keyof NonNullable<typeof value.source>] === metadata.source![key as keyof NonNullable<typeof metadata.source>])
-    || !keys(result, ["version", "scope", "timingBasis", "sensorBucketOriginVerified", "originalClockVerified", "quality", "collectionCompleteness", "unit", "state", "reason", "requestedDurationSeconds", "maxAveragePowerW", "windowStartElapsedSec", "windowEndElapsedSec", "observedSeconds", "longestContinuousSeconds"])
+    || Object.prototype.hasOwnProperty.call(value.source ?? {}, "powerSource") !== Object.prototype.hasOwnProperty.call(metadata.source ?? {}, "powerSource")
+    || hasStoredOrigin !== Object.prototype.hasOwnProperty.call(value.source ?? {}, "powerSource")
+    || hasStoredOrigin && result.powerSource !== "stored_native_watts_unverified"
+    || !keys(result, ["version", "scope", "timingBasis", "sensorBucketOriginVerified", "originalClockVerified", "quality", "collectionCompleteness", "unit", "state", "reason", "requestedDurationSeconds", "maxAveragePowerW", "windowStartElapsedSec", "windowEndElapsedSec", "observedSeconds", "longestContinuousSeconds", ...(hasStoredOrigin ? ["powerSource"] : [])])
     || result.version !== 1 || result.scope !== "whole_activity_observed_intervals" || result.timingBasis !== "stored_native_one_second_slot_policy"
     || result.sensorBucketOriginVerified !== false || result.originalClockVerified !== false || result.quality !== "unknown" || result.collectionCompleteness !== "unknown"
     || result.unit !== "W" || result.requestedDurationSeconds !== request.durationSeconds || result.state !== value.state || result.reason !== value.reason

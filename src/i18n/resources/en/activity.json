@@ -1,5 +1,7 @@
 {
   "stagePowerDuration": {
+    "storedOrigin": "Calculated from stored power values · measurement origin unverified",
+    "sourceUnavailable": "Stored power data is missing or verification criteria changed. Choose another activity or check again.",
     "current": "Current activity · {{date}}",
     "title": "Maximum average power for your duration",
     "scope": "Choose a duration using observed power in this activity.",
