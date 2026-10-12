@@ -194,15 +194,58 @@ describe("authoritativeCombinedLoad", () => {
 });
 
 describe("sport evidence", () => {
-  it("uses only real run threshold and best persisted records", () => {
-    const result = buildRunEvidence(285, {
+  it("keeps configured threshold separate and retains legacy candidate provenance without certifying time", () => {
+    const input = {
       "5km": [
-        { value: 1300, date: "2026-07-01" },
-        { value: 1250, date: "2026-07-10" },
+        { value: 1300, date: "2026-07-01", activityId: "older", startTime: now - day },
+        { value: 1250, date: "2026-07-10", activityId: "source/id", startTime: now, context: "race" },
       ],
-    } as never);
+    };
+    const result = buildRunEvidence(285, input);
     expect(result.thresholdPaceSec).toBe(285);
-    expect(result.records).toEqual([{ distance: "5km", seconds: 1250, date: "2026-07-10" }]);
+    expect(result.records).toEqual([]);
+    expect(result.unverifiedRecords).toEqual([{
+      distance: "5km", storedValue: 1250, date: "2026-07-10", activityId: "source/id",
+      startTime: now, context: "race", qualification: "legacy_unverified", unit: "unverified",
+    }]);
+    expect(input["5km"].map(record => record.activityId)).toEqual(["older", "source/id"]);
+  });
+
+  it("never promotes positive legacy values to measured run records or derives a threshold", () => {
+    const result = buildRunEvidence(null, {
+      "1km": [{ value: 39, date: "2023-11-03", activityId: "bike", startTime: now, context: "Ride" }],
+      "5km": [{ value: 206, date: "2023-11-03", activityId: "pending", startTime: now }],
+      "10km": [{ value: 413, date: "2023-11-03", activityId: "stale", startTime: now }],
+      "half": [{ value: 2762, date: "2023-11-03", activityId: "deleted", startTime: now }],
+    });
+    expect(result.records).toEqual([]);
+    expect(result.thresholdPaceSec).toBeNull();
+    expect(result.unverifiedRecords?.map(record => record.activityId)).toEqual(["bike", "pending", "stale", "deleted"]);
+    expect(result.unverifiedRecords?.every(record => record.qualification === "legacy_unverified" && record.unit === "unverified")).toBe(true);
+  });
+
+  it("does not certify a plausible run or race context without a source receipt", () => {
+    const result = buildRunEvidence(undefined, {
+      "5km": [{ value: 1500, date: "2026-07-01", activityId: "real-run", startTime: now, context: "Run" }],
+    });
+    expect(result.records).toEqual([]);
+    expect(result.unverifiedRecords?.[0]?.storedValue).toBe(1500);
+  });
+
+  it.each([undefined, {}, { "5km": null }, { "5km": {} }, { "5km": [null, { value: 0 }, { value: -1 }, { value: Number.NaN }, { value: Infinity }, { value: "1250" }] }])(
+    "handles absent and malformed legacy records without zero or invented evidence (%j)", (input) => {
+      const result = buildRunEvidence(Number.NaN, input as never);
+      expect(result).toEqual({ thresholdPaceSec: null, records: [], unverifiedRecords: [] });
+    },
+  );
+
+  it("keeps an unlinked positive legacy value unknown when source metadata is missing", () => {
+    const result = buildRunEvidence(0, { "5km": [{ value: 1500, startTime: Infinity }] } as never);
+    expect(result.unverifiedRecords).toEqual([{
+      distance: "5km", storedValue: 1500, date: "", activityId: null, startTime: null,
+      qualification: "legacy_unverified", unit: "unverified",
+    }]);
+    expect(result.records).toEqual([]);
   });
 
   it("averages only measured swim efficiency samples and never creates records", () => {

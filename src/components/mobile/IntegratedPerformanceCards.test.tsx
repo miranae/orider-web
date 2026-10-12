@@ -2,6 +2,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
+import { buildRunEvidence } from "../../features/fitness/multisportPerformance";
 import type { LoadFocusResult } from "../../features/fitness/multisportPerformance";
 import IntegratedLoadCard from "./IntegratedLoadCard";
 import SportPerformanceCard from "./SportPerformanceCard";
@@ -175,7 +176,7 @@ describe("SportPerformanceCard", () => {
     renderWithProviders(<SportPerformanceCard
       discipline="run"
       cycling={null}
-      run={{ thresholdPaceSec: 285, records: [{ distance: "5km", seconds: 1250, date: "2026-07-10" }] }}
+      run={{ thresholdPaceSec: 285, records: [{ distance: "5km", seconds: 1250, date: "2026-07-10", activityId: "qualified", startTime: 1783641600000, qualification: "source_qualified", unit: "seconds" }] }}
       swim={{ windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 }}
     />);
     expect(screen.getByText("4:45/km")).toBeInTheDocument();
@@ -187,13 +188,50 @@ describe("SportPerformanceCard", () => {
     renderWithProviders(<SportPerformanceCard
       discipline="run"
       cycling={null}
-      run={{ thresholdPaceSec: 359.6, records: [{ distance: "5km", seconds: 3599.6, date: "2026-07-10" }] }}
+      run={{ thresholdPaceSec: 359.6, records: [{ distance: "5km", seconds: 3599.6, date: "2026-07-10", activityId: "qualified", startTime: 1783641600000, qualification: "source_qualified", unit: "seconds" }] }}
       swim={{ windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 }}
     />);
 
     expect(screen.getByText("6:00/km")).toBeInTheDocument();
     expect(screen.getByText("1:00:00 · 2026-07-10")).toBeInTheDocument();
     expect(screen.queryByText(/:60/)).not.toBeInTheDocument();
+  });
+
+  it("hides unqualified times and exposes original activity links in a folded section", async () => {
+    const run = buildRunEvidence(null, {
+      "5km": [{ value: 206, date: "2023-11-03", activityId: "source/id", startTime: 1698969600000, context: "Ride" }],
+    });
+    renderWithProviders(<SportPerformanceCard discipline="run" cycling={null} run={run}
+      swim={{ windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 }} />);
+    expect(screen.getByText("원본 적격성이 확인된 거리 기록이 없습니다.")).toBeInTheDocument();
+    expect(screen.queryByText(/3:26|206/)).not.toBeInTheDocument();
+    const summary = screen.getByText("출처 미확인 기록 1개");
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    await userEvent.click(summary);
+    expect(summary.closest("details")).toHaveAttribute("open");
+    expect(screen.getByRole("link", { name: /2023-11-03/ })).toHaveAttribute("href", "/ko/activity/source%2Fid");
+    expect(screen.getByText(/기록 시간을 표시하지 않습니다/)).toBeInTheDocument();
+  });
+
+  it("never renders bare legacy numbers as qualified seconds, even when supplied directly", () => {
+    renderWithProviders(<SportPerformanceCard discipline="run" cycling={null}
+      run={{ thresholdPaceSec: null, records: [{ distance: "5km", seconds: 206, date: "2023-11-03" }] } as never}
+      swim={{ windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 }} />);
+    expect(screen.queryByText(/3:26/)).not.toBeInTheDocument();
+    expect(screen.getByText("원본 적격성이 확인된 거리 기록이 없습니다.")).toBeInTheDocument();
+  });
+
+  it.each([
+    { qualification: "legacy_unverified", unit: "seconds", activityId: "other", startTime: 1 },
+    { qualification: "source_qualified", unit: "milliseconds", activityId: "other", startTime: 1 },
+    { qualification: "source_qualified", unit: "seconds", activityId: "", startTime: 1 },
+    { qualification: "source_qualified", unit: "seconds", activityId: "other", startTime: Number.NaN },
+  ])("does not render a record with unqualified source or unit (%j)", metadata => {
+    renderWithProviders(<SportPerformanceCard discipline="run" cycling={null}
+      run={{ thresholdPaceSec: null, records: [{ distance: "5km", seconds: 206, date: "2023-11-03", ...metadata }] } as never}
+      swim={{ windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 }} />);
+    expect(screen.queryByText(/3:26/)).not.toBeInTheDocument();
+    expect(screen.getByText("원본 적격성이 확인된 거리 기록이 없습니다.")).toBeInTheDocument();
   });
 
   it("states the explicit swim evidence period in the rendered contract", () => {
