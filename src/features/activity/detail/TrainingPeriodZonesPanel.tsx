@@ -48,7 +48,7 @@ function ManualRunningPaceZones({ response, ownerUid }: { response: TrainingAnal
       const pace = period.zones.pace;
       return <section key={index} className="space-y-3"><Text as="h4" variant="bodyMedium" weight={600}>{t(index === 0 ? "runningPaceZones.selectedPeriod" : "runningPaceZones.comparisonPeriod")} · {date(period.fromInclusive)} – {date(period.toExclusive - 1)}</Text>
         {"candidateActivityCount" in pace && <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.coverage", { ...pace })}</Text>}
-        <details className="space-y-2"><summary className="cursor-pointer inline-flex items-center min-h-[calc(var(--dim-button-height)+var(--space-1))]">{t("runningPaceZones.periodEvidence")}</summary>
+        <details className="space-y-2"><summary className="cursor-pointer list-item font-semibold min-h-[calc(var(--dim-button-height)+var(--space-1))]">{t("runningPaceZones.periodEvidence")}</summary>
             <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.exactBounds", { from: exactTime(period.fromInclusive), to: exactTime(period.toExclusive) })}</Text>
             {"candidateActivityCount" in pace && <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.unavailableCounts", { ...pace })}</Text>}
             <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.savedCountsNote")}</Text>
