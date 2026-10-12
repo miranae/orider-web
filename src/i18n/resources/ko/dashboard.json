@@ -362,7 +362,7 @@
     "thresholdMissingSwim": "수영 임계 속도(CSS)가 설정되지 않았어요. 설정한 속도가 있을 때 표시합니다.",
     "hrZonesMissing": "저장된 심박존 분포가 아직 없어요. 확인된 심박존 데이터가 있을 때 표시합니다.",
     "tabZonesBike": "파워존",
-    "tabZonesRun": "심박존",
+    "tabZonesRun": "러닝 분석",
     "tabZonesSwim": "수영",
     "metricCtl": "CTL (체력)",
     "metricAtl": "ATL (피로)",
@@ -501,11 +501,11 @@
       "run": {
         "cardAria": "러닝 설정과 기록 출처",
         "title": "러닝 근거",
-        "basis": "설정된 임계 페이스와 원본 적격성이 확인된 기록을 구분합니다.",
+        "basis": "기록 시간은 출처 확인 전 표시하지 않습니다.",
         "threshold": "설정된 임계 페이스",
         "noQualifiedEvidence": "원본 적격성이 확인된 거리 기록이 없습니다.",
-        "unverifiedTitle": "출처 미확인 기록 {{count}}개",
-        "unverifiedBasis": "과거 기록의 종목과 시간 단위를 확인할 수 없어 기록 시간을 표시하지 않습니다. 원본 활동을 확인해 주세요.",
+        "unverifiedTitle": "거리 기록 {{count}}개 · 확인 가능한 활동 {{activityCount}}개",
+        "unverifiedBasis": "원본 활동에서 종목과 기록을 확인해 주세요.",
         "sourceMissing": "원본 활동 정보 없음"
       },
       "swim": {

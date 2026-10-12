@@ -77,7 +77,7 @@ describe("mobile sport threshold information", () => {
     }
   });
   it.each([
-    { discipline: "run" as const, button: "심박존", missing: "러닝 역치 페이스가 설정되지 않았어요. 설정한 페이스가 있을 때 표시합니다." },
+    { discipline: "run" as const, button: "러닝 분석", missing: "러닝 역치 페이스가 설정되지 않았어요. 설정한 페이스가 있을 때 표시합니다." },
     { discipline: "swim" as const, button: "수영", missing: "수영 임계 속도(CSS)가 설정되지 않았어요. 설정한 속도가 있을 때 표시합니다." },
   ])("shows precise missing $discipline threshold and zones, including embedded views", async ({ discipline, button, missing }) => {
     mocks.periods.mockClear();
@@ -93,7 +93,7 @@ describe("mobile sport threshold information", () => {
   it.each(["loading", "error"] as const)("does not report unset data before derived sections are %s", async derived => {
     const user = userEvent.setup();
     renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run" }} sectionState={{ trend: "ready", derived }} />);
-    await user.click(screen.getByRole("button", { name: "심박존" }));
+    await user.click(screen.getByRole("button", { name: "러닝 분석" }));
     expect(screen.queryByText("러닝 역치 페이스가 설정되지 않았어요. 설정한 페이스가 있을 때 표시합니다.")).not.toBeInTheDocument();
     expect(screen.queryByText("저장된 심박존 분포가 아직 없어요. 확인된 심박존 데이터가 있을 때 표시합니다.")).not.toBeInTheDocument();
     expect(screen.getByRole(derived === "loading" ? "status" : "alert")).toBeInTheDocument();
@@ -101,7 +101,7 @@ describe("mobile sport threshold information", () => {
   it("keeps measured HR zones visible when the running threshold is missing", async () => {
     const user = userEvent.setup();
     renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run", zoneSource: "hr", zones: [{ name: "Easy", pct: 100, color: "var(--aqua)", rangeLabel: "100–120 bpm", percentLabel: "50–60%" }] }} />);
-    await user.click(screen.getByRole("button", { name: "심박존" }));
+    await user.click(screen.getByRole("button", { name: "러닝 분석" }));
     expect(screen.getByText("러닝 역치 페이스가 설정되지 않았어요. 설정한 페이스가 있을 때 표시합니다.")).toBeInTheDocument();
     expect(screen.getByText("심박 존 분포 · 최근 4주")).toBeInTheDocument();
     expect(screen.queryByText("저장된 심박존 분포가 아직 없어요. 확인된 심박존 데이터가 있을 때 표시합니다.")).not.toBeInTheDocument();
