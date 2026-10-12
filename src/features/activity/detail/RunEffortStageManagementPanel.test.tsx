@@ -29,7 +29,7 @@ it("restores excluded bindings even when every selected time/source row was remo
   target.sources = []; target.bestTimeSeconds = null; target.medianTimeSeconds = null; target.observedEffortActivityCount = 0; target.noObservedEffortActivityCount = 1; target.excludedEffortActivityCount = 1;
   mocks.hook.mockReturnValue({ ...state(), state: "ready", response });
   renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} />);
-  expect(screen.getByText("기간 1 · 이 거리에서 제외한 관측 활동 1건")).toBeInTheDocument();
+  expect(screen.getByText("기간 1 · 기간 기록에서 제외한 활동 1건")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /기록을 이 비교에 복원/, hidden: true }));
   expect(mocks.change).toHaveBeenCalledWith(binding, "5km", false);
   expect(mocks.comparison).toHaveBeenLastCalledWith({ response });
@@ -62,9 +62,9 @@ it("selects only applied activity IDs without fetching and keeps stored-axis rec
   fireEvent.change(picker, { target: { value: "a" } }); expect(mocks.refresh).not.toHaveBeenCalled(); expect(mocks.hook.mock.lastCall?.[2]).toBe("a");
   fireEvent.change(screen.getByRole("combobox", { name: "선택할 거리", hidden: true }), { target: { value: "400m" } });
   expect(screen.getByText("저장된 거리 데이터로 계산")).toBeInTheDocument();
-  expect(screen.queryByText(/이전 저장 형식의 거리로 계산했습니다/)).not.toBeInTheDocument();
-  expect(screen.getByText("6:07")).toHaveAttribute("title", expect.stringContaining("6:06.666667"));
-  expect(screen.getByText(/원래 센서 시계와 활동 전체의 수집 완전성은 확인되지/)).toBeInTheDocument();
+  expect(screen.queryByText(/이전 저장 형식이며/)).not.toBeInTheDocument();
+  expect(screen.getByText("6:07").closest("p")).toHaveAttribute("title", expect.stringContaining("6:06.666667"));
+  expect(screen.getByText(/원래 센서 시계와 수집 완전성은 확인되지/)).toBeInTheDocument();
   const exclude = screen.getAllByRole("button", { name: /기록을 이 비교에서 제외/, hidden: true }); expect(exclude).toHaveLength(1);
   fireEvent.click(exclude[0]!); expect(mocks.change).toHaveBeenCalledWith(response.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0], "400m", true, true);
   expect(mocks.comparison).toHaveBeenLastCalledWith({ response });
@@ -95,9 +95,9 @@ it("qualifies earlier stored formats in the folded method note and keeps origina
   renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} />);
   fireEvent.change(screen.getByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true }), { target: { value: "a" } });
   fireEvent.change(screen.getByRole("combobox", { name: "선택할 거리", hidden: true }), { target: { value: "400m" } });
-  const note = screen.getByText("이전 저장 형식의 거리로 계산했습니다. 처음 기록된 데이터와의 연결은 확인되지 않았습니다.");
+  const note = screen.getByText("이전 저장 형식이며, 최초 데이터와의 연결은 확인되지 않았습니다.");
   expect(note.closest("details")).not.toHaveAttribute("open");
-  expect(screen.getByText(/원래 센서 시계와 활동 전체의 수집 완전성은 확인되지/)).toBeInTheDocument();
+  expect(screen.getByText(/원래 센서 시계와 수집 완전성은 확인되지/)).toBeInTheDocument();
   expect(screen.getByText("6:07")).toBeInTheDocument();
   expect(screen.queryByText(/legacy_manifest|manifestObject|gcsIncarnationToken/)).not.toBeInTheDocument();
 });
@@ -108,10 +108,10 @@ it("describes a stored start/end clock window inside the folded method note with
   mocks.hook.mockReturnValue({ ...state(), state: "ready", response });
   renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} />);
   fireEvent.change(screen.getByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true }), { target: { value: "a" } });
-  const note = screen.getByText("저장된 활동 시작·종료 시각 범위의 거리 데이터로 계산했습니다.");
+  const note = screen.getByText("저장된 거리와 활동 시작·종료 시각으로 계산했습니다.");
   expect(note.closest("details")).not.toHaveAttribute("open");
-  expect(screen.getByText(/원래 센서 시계와 활동 전체의 수집 완전성은 확인되지/)).toBeInTheDocument();
-  expect(screen.getByText(/처음 기록된 데이터와의 연결은 확인되지/)).toBeInTheDocument();
+  expect(screen.getByText(/원래 센서 시계와 수집 완전성은 확인되지/)).toBeInTheDocument();
+  expect(screen.getByText(/최초 데이터와의 연결은 확인되지/)).toBeInTheDocument();
   expect(screen.queryByText(/stored_activity_wall_clock_window|timeBasis|ridingTime/)).not.toBeInTheDocument();
 });
 
@@ -145,4 +145,36 @@ it("does not add a current Run outside all applied periods or expose options to 
   mocks.hook.mockReturnValue({ ...state(), owner: false });
   view.rerender(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} currentActivity={{ ...currentActivity, startTime: response.periods[0]!.fromInclusive }} />);
   expect(screen.queryByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true })).not.toBeInTheDocument();
+});
+
+it("emphasizes the selected distance result and separates zero canonical exclusions inside a closed period fold", async () => {
+  const { default: wire } = await import("../../../services/stageRunDistanceSelectedAlias.fixture.json");
+  const response = structuredClone(wire.cases.before) as Parameters<typeof RunEffortStageManagementPanel>[0]["appliedResponse"];
+  mocks.hook.mockReturnValue({ ...state(), state: "ready", response });
+  renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} currentActivity={{ id: "a", userId: "test-uid", type: "Run", startTime: response.periods[0]!.fromInclusive } as NonNullable<Parameters<typeof RunEffortStageManagementPanel>[0]["currentActivity"]>} />);
+  fireEvent.change(screen.getByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true }), { target: { value: "a" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "선택할 거리", hidden: true }), { target: { value: "400m" } });
+  const result = screen.getByText("6:07").closest("p")!;
+  expect(result).toHaveTextContent("400m · 6:07"); expect(result).toHaveClass("ds-text--data-medium"); expect(result).toHaveStyle({ fontWeight: 600 });
+  const fold = screen.getByText("기간 기록 비교").closest("details")!;
+  expect(fold).not.toHaveAttribute("open");
+  expect(within(fold).queryByText(/기간 기록에서 제외한 활동 0건/)).not.toBeInTheDocument();
+  expect(result.closest("details")).not.toBe(fold);
+  expect(screen.getByTestId("filtered-five-fourteen-view").closest("details")).toBe(fold);
+  fireEvent.click(screen.getByText("기간 기록 비교"));
+  expect(mocks.refresh).not.toHaveBeenCalled(); expect(mocks.change).not.toHaveBeenCalled();
+  expect(mocks.comparison).toHaveBeenLastCalledWith({ response });
+});
+
+it("keeps missing canonical exclusion counts unknown and positive canonical counts separate", () => {
+  const response = stageRunEffortFixture();
+  const distances = response.periods[0]!.running!.expandedDistanceAnalysis!.distances;
+  distances.find(distance => distance.distance === "5km")!.excludedEffortActivityCount = undefined;
+  response.periods[1]!.running!.expandedDistanceAnalysis!.distances.find(distance => distance.distance === "5km")!.excludedEffortActivityCount = 2;
+  mocks.hook.mockReturnValue({ ...state(), state: "ready", response });
+  renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} />);
+  const fold = screen.getByText("기간 기록 비교").closest("details")!;
+  expect(within(fold).getByText("기간 1 · 기간 기록에서 제외한 활동 —건")).toBeInTheDocument();
+  expect(within(fold).getByText("기간 2 · 기간 기록에서 제외한 활동 2건")).toBeInTheDocument();
+  expect(fold).not.toHaveAttribute("open"); expect(mocks.refresh).not.toHaveBeenCalled();
 });
