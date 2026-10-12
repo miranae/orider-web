@@ -894,5 +894,13 @@
   "weekly.storedSummaryTitle": "저장된 주간 요약",
   "weekly.partial": "누락·미확인 날짜는 휴식이나 0 부하로 계산하지 않습니다. 부하는 TSS 등가이며 Relative Effort와 다른 척도입니다.",
   "weekly.title": "훈련부하 · 최근 28일",
-  "hub.weekly.pending": "훈련부하 확인 중입니다. 현재 입력이 확정되면 기간 비교와 훈련 권고를 표시합니다."
+  "hub.weekly.pending": "훈련부하 확인 중입니다. 현재 입력이 확정되면 기간 비교와 훈련 권고를 표시합니다.",
+  "periodCurve.unit": "단위",
+  "periodCurve.weightBasis": "분석 계산 당시 프로필 체중 기준입니다. 활동 당시 측정 체중과 다를 수 있습니다.",
+  "periodCurve.weightUnsupported": "이 기간 응답에는 W/kg 분석이 없습니다. W 값이나 현재 체중으로 대신 계산하지 않습니다.",
+  "periodCurve.weightWinner": "원본 {{watts}} W · 계산 기준 체중 {{kg}} kg",
+  "periodCurve.weightCoverage": "체중 확인 {{includedActivityCount}}건 · 체중 없음 {{missingWeightActivityCount}}건 · 유효하지 않음 {{invalidWeightActivityCount}}건 · 호환 불가 {{incompatibleWeightActivityCount}}건",
+  "periodCurve.weightDifference": "선택 구간 차이 {{watts}} W/kg",
+  "periodCurve.weightPointNote": "계산 당시 체중 정보가 확인된 활동의 W/kg 수치를 비교합니다. 선은 저장된 점을 연결하며 중간 지속시간을 추정하지 않습니다.",
+  "periodCurve.weightEmpty": "체중 기준이 확인된 W/kg 기록이 없습니다."
 }

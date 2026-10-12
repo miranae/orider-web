@@ -26,6 +26,54 @@ describe("fixed-duration period observations", () => {
     fireEvent(details, new Event("toggle"));
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
+  it("keeps normalized dense winners, zero, snapshot kg and separate source table", () => {
+    const data = fixture();
+    data.periods.forEach((period, index) => {
+      const original = period.powerDurationObservations!;
+      period.weightNormalized = { unit: "W/kg", basis: "calculation_profile_snapshot", status: "partial", coverage: period.coverage,
+        weightCounts: { includedActivityCount: 1, missingWeightActivityCount: 0, invalidWeightActivityCount: 0, incompatibleWeightActivityCount: 0 }, points: [],
+        powerDurationObservations: { ...original, unit: "W/kg", basis: "calculation_profile_snapshot",
+          weightCounts: { includedActivityCount: 1, missingWeightActivityCount: 0, invalidWeightActivityCount: 0, incompatibleWeightActivityCount: 0 },
+          points: [{ ...original.points[0]!, sourceActivityId: "normalized-dense", maxAveragePowerW: index ? 100 : 0, maxAveragePowerWPerKg: index ? 2 : 0, weightKg: 50, weightRevision: "SECRET-OPAQUE" }] } };
+    });
+    const view = render(<MemoryRouter><PowerDurationPeriodsView response={data} unit="W/kg" /></MemoryRouter>);
+    expect(screen.getByText("0.00 W/kg · densePeriod.n 1")).toBeInTheDocument();
+    expect(screen.getByText("periodCurve.weightDifference -2.00")).toBeInTheDocument();
+    expect(screen.getByText("periodCurve.weightWinner 0 50")).toBeInTheDocument();
+    expect(view.container.textContent).not.toContain("SECRET-OPAQUE");
+    const details = view.container.querySelector("details")!; details.open = true; fireEvent(details, new Event("toggle"));
+    expect(screen.getByRole("table")).toHaveTextContent("0.00 W/kg");
+    expect(screen.getByRole("table")).toHaveTextContent("periodCurve.weightWinner 100 50");
+  });
+  it("distinguishes a positive subprecision W/kg observation from a measured zero", () => {
+    const data = fixture();
+    data.periods.forEach((period, index) => {
+      const original = period.powerDurationObservations!;
+      period.weightNormalized = { unit: "W/kg", basis: "calculation_profile_snapshot", status: "partial", coverage: period.coverage,
+        weightCounts: { includedActivityCount: 1, missingWeightActivityCount: 0, invalidWeightActivityCount: 0, incompatibleWeightActivityCount: 0 }, points: [],
+        powerDurationObservations: { ...original, unit: "W/kg", basis: "calculation_profile_snapshot",
+          weightCounts: { includedActivityCount: 1, missingWeightActivityCount: 0, invalidWeightActivityCount: 0, incompatibleWeightActivityCount: 0 },
+          points: [{ ...original.points[0]!, maxAveragePowerW: index ? 0 : 0.2, maxAveragePowerWPerKg: index ? 0 : 0.004, weightKg: 50, weightRevision: "SECRET-OPAQUE" }] } };
+    });
+    const view = render(<MemoryRouter><PowerDurationPeriodsView response={data} unit="W/kg" /></MemoryRouter>);
+    expect(view.container.querySelector("svg")?.textContent).toContain("0.005");
+    expect(screen.getByText("<0.01 W/kg · densePeriod.n 1")).toBeInTheDocument();
+    expect(screen.getByText("periodCurve.weightDifference <0.01")).toBeInTheDocument();
+    expect(screen.getByText("0.00 W/kg · densePeriod.n 1")).toBeInTheDocument();
+    expect(screen.getByText("periodCurve.weightWinner 0.2 50")).toBeInTheDocument();
+  });
+  it("uses weight-specific empty copy when W observations exist but calculation weight is missing", () => {
+    const data = fixture(); data.periods = [data.periods[0]!];
+    const period = data.periods[0]!, original = period.powerDurationObservations!;
+    period.weightNormalized = { unit: "W/kg", basis: "calculation_profile_snapshot", status: "partial", coverage: { ...period.coverage, includedActivityCount: 0 },
+      weightCounts: { includedActivityCount: 0, missingWeightActivityCount: 1, invalidWeightActivityCount: 0, incompatibleWeightActivityCount: 0 }, points: [],
+      powerDurationObservations: { ...original, unit: "W/kg", basis: "calculation_profile_snapshot", counts: { ...original.counts, available: 0 },
+        weightCounts: { includedActivityCount: 0, missingWeightActivityCount: 1, invalidWeightActivityCount: 0, incompatibleWeightActivityCount: 0 }, points: [] } };
+    render(<MemoryRouter><PowerDurationPeriodsView response={data} unit="W/kg" /></MemoryRouter>);
+    expect(screen.getByText("periodCurve.weightEmpty")).toBeInTheDocument();
+    expect(screen.queryByText("densePeriod.empty")).not.toBeInTheDocument();
+    expect(original.points).toHaveLength(2);
+  });
   it("formats arbitrary fixed-grid integer seconds as exact hours minutes seconds", () => {
     const data = fixture(), observation = data.periods[0]!.powerDurationObservations!;
     observation.points = [68, 4685, 86400].map(durationSeconds => ({ ...observation.points[0]!, durationSeconds }));
