@@ -1,17 +1,27 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import koActivity from "../i18n/resources/ko/activity.json";
 import { AnalysisLapTable } from "./AnalysisTab";
 
 const state = vi.hoisted(() => ({ units: "metric" as "metric" | "imperial" }));
 vi.mock("../contexts/LocaleContext", () => ({ useLocale: () => ({ units: state.units }) }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key.split(".").reduce<unknown>((node, part) => node && typeof node === "object" ? (node as Record<string, unknown>)[part] : undefined, koActivity) ?? key }) }));
+vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string, values?: { number?: number }) => { const value = key.split(".").reduce<unknown>((node, part) => node && typeof node === "object" ? (node as Record<string, unknown>)[part] : undefined, koActivity); return typeof value === "string" ? value.replace("{{number}}", String(values?.number)) : key; } }) }));
 afterEach(() => { cleanup(); state.units = "metric"; });
 
 // 앱 LapManager는 km/h를 평균하고 업로더가 avgSpeed에 그대로 보존한다.
 const lap = { number: 1, durationMs: 360000, distanceKm: 1, avgSpeed: 3600 / 300, avgHeartRate: 151, avgCadence: 88, avgPower: 240 };
 
 describe("기록 랩 종목 표시", () => {
+  it("offers a keyboard-accessible range action only for a validated row, preserving its source object", () => {
+    const onSelectLap = vi.fn();
+    const located = { ...lap, startTimeMs: 1791375809000, endTimeMs: 1791375869000 };
+    render(<AnalysisLapTable laps={[located, { ...lap, number: 2 }]} ftp={null} onSelectLap={onSelectLap} canSelectLap={value => value === located} />);
+    const button = screen.getByRole("button", { name: "랩 1 구간 보기" });
+    fireEvent.click(button);
+    expect(onSelectLap).toHaveBeenCalledExactlyOnceWith(located);
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByRole("table")).toHaveTextContent("6:00");
+  });
   it("러닝은 기록 평균 속도의 페이스를 우선하며 사이클 FTP와 RPM을 제거한다", () => {
     render(<AnalysisLapTable laps={[lap]} ftp={200} sport="run" />);
     const table = screen.getByRole("table");

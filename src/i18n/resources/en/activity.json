@@ -1037,7 +1037,11 @@
         "ftpPercent": "% FTP",
         "hr": "HR",
         "rpm": "RPM"
-      }
+      },
+      "viewRange": "View lap {{number}} range",
+      "viewRangeShort": "View range",
+      "locationBasis": "Locations use stored lap timestamps and activity samples. Laps without confirmed boundaries or a usable time axis have no location link.",
+      "locationUnavailable": "This lap could not be linked to the stored time axis, so its location is not shown."
     },
     "run": {
       "recordedCadence": "Recorded cadence",

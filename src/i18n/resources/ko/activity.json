@@ -1037,7 +1037,11 @@
         "ftpPercent": "% FTP",
         "hr": "심박",
         "rpm": "RPM"
-      }
+      },
+      "viewRange": "랩 {{number}} 구간 보기",
+      "viewRangeShort": "구간 보기",
+      "locationBasis": "저장된 랩 시각과 활동 표본을 연결합니다. 경계나 시간축이 확인되지 않는 랩은 위치를 표시하지 않습니다.",
+      "locationUnavailable": "이 랩을 저장된 시간축에 연결할 수 없어 위치를 표시하지 않습니다."
     },
     "run": {
       "recordedCadence": "기록 케이던스",

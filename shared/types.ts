@@ -724,6 +724,9 @@ export interface ActivityStreams {
 }
 
 export interface LapData {
+  /** 저장된 native 랩 epoch-ms 경계. 이동시간 누적으로 복원하지 않는다. */
+  startTimeMs?: number;
+  endTimeMs?: number;
   number: number;
   distanceKm: number;
   durationMs: number;

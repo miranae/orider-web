@@ -37,9 +37,9 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
   if (sourceLocked && sourceLock.refreshing && model.streams && !model.loadingStreams && model.streams !== sourceLock.source) setSourceLock(null);
   const sequence = useRef(0);
   const current = state.identity === identity && owner ? state : { identity, enabled: false, selection: null, xAxis: "distance" as const };
-  const select = (range: ElapsedRange | null) => {
+  const select = (range: ElapsedRange | null, enable = false) => {
     if (!owner || range && !validElapsedRange(range, durationSec)) return;
-    setState({ ...current, selection: range ? { ...range, requestId: String(++sequence.current) } : null });
+    setState({ ...current, enabled: current.enabled || enable, selection: range ? { ...range, requestId: String(++sequence.current) } : null });
   };
   const gaps = axis ? axis.slice(1).map((value, index) => value - axis[index]!).sort((a, b) => a - b) : [];
   const interpolationLimit = (gaps[Math.floor(gaps.length / 2)] ?? 0) * 3;
@@ -66,7 +66,7 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
     }, identity, ownerUid: owner ? user?.uid : null, enabled: current.enabled, selection: current.selection,
     xAxis: current.xAxis, durationSec, axis, sampledAxis, chartRange, routeRange,
     clippedBoundary: bounds?.clippedBoundary ?? false, locationUnavailable: !!current.selection && !routeRange,
-    toggle: () => setState({ ...current, enabled: !current.enabled, selection: null }), clear: () => select(null), select,
+    toggle: () => setState({ ...current, enabled: !current.enabled, selection: null }), clear: () => select(null), select, selectAndEnable: (range: ElapsedRange) => select(range, true),
     setXAxis: (xAxis: "distance" | "elapsed") => { if (xAxis === "distance" || sampledAxis) setState({ ...current, xAxis }); },
     selectChart: (indices: [number, number]) => {
       if (!axis) return;

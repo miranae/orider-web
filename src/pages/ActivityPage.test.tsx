@@ -235,6 +235,68 @@ describe("ActivityPage", () => {
       else expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
     } finally { overview.mockRestore(); }
   });
+  it("links a recorded native lap to the exact elapsed chart/map range without accumulating moving duration", async () => {
+    const epoch = 1791375809000;
+    const activity = createMockActivity({ id: "test-activity", userId: "test-uid", source: "orider", startTime: epoch,
+      summary: createMockSummary({ ridingTimeMillis: 60000, elapsedTimeMillis: 100000 }) });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", { userId: "test-uid", json: JSON.stringify({
+      time: Array.from({ length: 101 }, (_, index) => epoch + index * 1000), distance: Array(101).fill(100),
+      altitude: Array(101).fill(10), latlng: Array.from({ length: 101 }, () => [37, 127]),
+      laps: [{ number: 2, startTimeMs: epoch + 20000, endTimeMs: epoch + 40000, durationMs: 12000, distanceKm: 0.4, avgSpeed: 20 }],
+    }) });
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("tab", { name: /^랩\s*\(1\)$/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "랩 2 구간 보기" }));
+    await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 20, endIndex: 40 }));
+    expect(elevationChartProps.mock.lastCall?.[0].highlightRange).toEqual([20, 40]);
+    expect(screen.getByLabelText("시작 시간")).toHaveValue("0:20");
+    expect(screen.getByLabelText("끝 시간")).toHaveValue("0:40");
+    expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
+  });
+  it.each(["ready", "account", "head", "unknown-clock", "navigate"])("manually loads a cold stored lap once and fences %s", async mode => {
+    const epoch = 1791375809000, id = `cold-lap-${mode}`;
+    mockRoute.activityId = id;
+    const activity = createMockActivity({ id, userId: "test-uid", source: "orider", startTime: epoch,
+      summary: createMockSummary({ ridingTimeMillis: 60000, elapsedTimeMillis: 100000 }) });
+    const lap = { number: 2, startTimeMs: epoch + 20000, endTimeMs: epoch + 40000, durationMs: 12000, distanceKm: 0.4 };
+    const metric = { version: ACTIVITY_METRICS_VERSION, computedAt: 1, discipline: "bike", inputCoverage: "complete", inputPending: false,
+      analysisSummary: { schemaVersion: 1, laps: [lap], hasAnalysisStreams: true, caloriesFallbackKcal: null, sensors: null,
+        correctedAverages: { averageHeartRate: null, maxHeartRate: null, averageCadence: null, maxCadence: null,
+          averagePower: null, maxPower: null, normalizedPower: null, tss: null } } };
+    setDocData(`activities/${id}`, activity as unknown as Record<string, unknown>);
+    setDocData(`activity_metrics/${id}`, metric);
+    setDocData(`activity_streams/${id}`, { userId: "test-uid", json: JSON.stringify({ time: Array.from({ length: 101 }, (_, index) => mode === "unknown-clock" ? index : epoch + index * 1000),
+      distance: Array(101).fill(100), altitude: Array(101).fill(10), latlng: Array.from({ length: 101 }, () => [37, 127]), laps: [lap] }) });
+    const original = vi.mocked(getDoc).getMockImplementation()!;
+    let release: (() => void) | null = null;
+    vi.mocked(getDoc).mockImplementation(async ref => (ref as unknown as { path: string }).path === `activity_streams/${id}`
+      ? new Promise<Awaited<ReturnType<typeof getDoc>>>(resolve => { release = () => { void original(ref).then(resolve); }; }) : original(ref));
+    const sourceCalls = () => vi.mocked(getDoc).mock.calls.filter(([ref]) => (ref as unknown as { path: string }).path === `activity_streams/${id}`).length;
+    try {
+      renderWithProviders(<ActivityPage />, { authenticated: true });
+      fireEvent.click(await screen.findByRole("tab", { name: /^랩\s*\(1\)$/ }));
+      const action = await screen.findByRole("button", { name: "랩 2 구간 보기" });
+      expect(sourceCalls()).toBe(0);
+      fireEvent.click(action); fireEvent.click(action);
+      await waitFor(() => expect(release).not.toBeNull());
+      expect(sourceCalls()).toBe(1);
+      if (mode === "account") act(() => simulateLogin({ uid: "another-owner", displayName: "Other" }));
+      if (mode === "head") act(() => setDocData(`activity_metrics/${id}`, { ...metric, computedAt: 2 }));
+      if (mode === "navigate") fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+      await act(async () => { release!(); });
+      if (mode === "ready") await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 20, endIndex: 40 }));
+      else {
+        expect(routeMapProps.mock.lastCall?.[0]?.highlightRange).toBeUndefined();
+        if (mode === "navigate") expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
+        if (mode === "unknown-clock") expect(await screen.findByText("이 랩을 저장된 시간축에 연결할 수 없어 위치를 표시하지 않습니다.")).toBeInTheDocument();
+      }
+      // Account switching preserves the existing public-view loader, which may perform its own reads.
+      // The explicit lap action was proved to issue exactly one read before that unrelated transition.
+      if (mode === "account") expect(screen.queryByRole("button", { name: "랩 2 구간 보기" })).not.toBeInTheDocument();
+      else expect(sourceCalls()).toBe(1);
+    } finally { vi.mocked(getDoc).mockImplementation(original); }
+  });
   it.each([false, true])("shares an elapsed range and plumbs expansion enabled=%s", async enabled => {
     resetRuntimeConfigForTests({ activityAnalysisExpansionEnabled: enabled });
     const epoch = 1791375809874;
