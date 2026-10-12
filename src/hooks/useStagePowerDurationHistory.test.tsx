@@ -1,0 +1,73 @@
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import { useStagePowerDurationHistory, parseHistoryDuration } from "./useStagePowerDurationHistory";
+import { historyCandidate, historyCompute, historyPage, historySelection } from "../services/stagePowerDurationHistory.testFixture";
+const mocks = vi.hoisted(() => ({ uid: "owner", anonymous: false, services: {}, page: vi.fn(), compute: vi.fn(), available: true }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: mocks.uid, isAnonymous: mocks.anonymous } }) }));
+vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
+vi.mock("../services/stageActivityPowerDuration", () => ({ stageActivityPowerAvailable: () => mocks.available }));
+vi.mock("../services/stagePowerDurationHistory", async original => ({ ...await original<typeof import("../services/stagePowerDurationHistory")>(), loadStagePowerHistoryPage: mocks.page, computeStagePowerHistory: mocks.compute }));
+beforeEach(() => { mocks.uid = "owner"; mocks.anonymous = false; mocks.available = true; mocks.services = {}; mocks.page.mockReset().mockResolvedValue(historyPage()); mocks.compute.mockReset().mockResolvedValue(historyCompute()); });
+it.each([["1",1],["17",17],["137",137],["2:17",137],["1:02:03",3723],["0",null],["1.5",null],["2:61",null],["1:00:60",null],["604801",null]])("parses free duration %s as %s without clamping", (draft, value) => { expect(parseHistoryDuration(String(draft))).toBe(value); });
+it("performs manual start/compute only and unit projection changes issue no additional calls", async () => {
+  const view = renderHook(({ unit }) => useStagePowerDurationHistory("owner", historySelection.periods, "17", unit), { initialProps: { unit: "W" as "W" | "W/kg" } });
+  expect(mocks.page).not.toHaveBeenCalled(); expect(mocks.compute).not.toHaveBeenCalled();
+  await act(async () => { await view.result.current.start(0); }); expect(mocks.page).toHaveBeenCalledOnce();
+  await act(async () => { await view.result.current.calculate(0, ["a"]); });
+  expect(mocks.compute.mock.lastCall?.[2]).toMatchObject({ ...historySelection, candidates: [historyCandidate()], mode: "stage_power_duration_history_compute", session: historyPage().session });
+  view.rerender({ unit: "W/kg" }); expect(view.result.current.computed).toHaveLength(1); expect(mocks.compute).toHaveBeenCalledOnce();
+});
+it("paginates only on a next action using the returned cursor, and does not calculate unqualified or unselected IDs", async () => {
+  const first = historyPage(); first.page.exhausted = false; first.page.enumerationState = "partial"; first.page.nextCursor = { after: { startTime: 2000, activityId: "a" } };
+  mocks.page.mockResolvedValueOnce(first).mockResolvedValueOnce(historyPage([historyCandidate("b",2001)]));
+  const view = renderHook(() => useStagePowerDurationHistory("owner", historySelection.periods, "17", "W"));
+  await act(async () => { await view.result.current.start(0); }); expect(mocks.page).toHaveBeenCalledOnce();
+  await act(async () => { await view.result.current.next(0); }); expect(mocks.page.mock.lastCall?.[2].cursor).toEqual(first.page.nextCursor);
+  await act(async () => { await view.result.current.calculate(0,["unknown"]); await view.result.current.calculate(0,["a","b","c"]); }); expect(mocks.compute).not.toHaveBeenCalled();
+});
+it("hides late range/draft/owner A-B-A and unit A-B-A computations without automatic reloading", async () => {
+  let resolve!: (v: unknown) => void;
+  const view = renderHook(({ periods, draft, unit }) => useStagePowerDurationHistory("owner", periods, draft, unit), { initialProps: { periods: historySelection.periods, draft: "17", unit: "W" as "W" | "W/kg" } });
+  await act(async () => { await view.result.current.start(0); });
+  mocks.compute.mockImplementationOnce(() => new Promise(done => { resolve = done; })); let pending!: Promise<void>;
+  act(() => { pending = view.result.current.calculate(0,["a"]); });
+  view.rerender({ periods: historySelection.periods, draft: "137", unit: "W" }); view.rerender({ periods: historySelection.periods, draft: "17", unit: "W" });
+  await act(async () => { resolve(historyCompute()); await pending; }); expect(view.result.current.computed).toHaveLength(0);
+  await act(async () => { await view.result.current.start(0); }); mocks.compute.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  act(() => { pending = view.result.current.calculate(0,["a"]); }); view.rerender({ periods: historySelection.periods, draft: "17", unit: "W/kg" }); view.rerender({ periods: historySelection.periods, draft: "17", unit: "W" });
+  await act(async () => { resolve(historyCompute()); await pending; }); expect(view.result.current.computed).toHaveLength(0); expect(view.result.current.busy).toBe(false);
+  mocks.uid = "foreign"; view.rerender({ periods: historySelection.periods, draft: "17", unit: "W" }); expect(view.result.current.periods[0]!.page).toBeNull();
+  await act(async () => { await view.result.current.start(0); }); expect(mocks.page).toHaveBeenCalledTimes(2);
+});
+it("requires manual restart after source change and clears old cross-period receipts", async () => {
+  const view = renderHook(() => useStagePowerDurationHistory("owner", historySelection.periods, "17", "W"));
+  await act(async () => { await view.result.current.start(0); }); mocks.compute.mockRejectedValueOnce({ code: "functions/failed-precondition" });
+  await act(async () => { await view.result.current.calculate(0,["a"]); }); expect(view.result.current.failure).toBe("source_changed");
+  await act(async () => { await view.result.current.calculate(0,["a"]); }); expect(mocks.compute).toHaveBeenCalledOnce();
+  await act(async () => { await view.result.current.start(0); }); expect(view.result.current.failure).toBeNull(); expect(view.result.current.computed).toHaveLength(0);
+});
+it("ignores range and authenticated UID ABA late pages and rejects anonymous/invalid applied ranges without IO", async () => {
+  let resolve!: (v: unknown) => void;
+  mocks.page.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  const view = renderHook(({ ranges }) => useStagePowerDurationHistory("owner", ranges, "17", "W"), { initialProps: { ranges: historySelection.periods } });
+  let pending!: Promise<void>; act(() => { pending = view.result.current.start(0); });
+  view.rerender({ ranges: historySelection.periods.map(p => ({ ...p, fromInclusive: p.fromInclusive + 1 })) }); view.rerender({ ranges: historySelection.periods });
+  await act(async () => { resolve(historyPage()); await pending; }); expect(view.result.current.periods[0]!.page).toBeNull();
+  mocks.page.mockImplementationOnce(() => new Promise(done => { resolve = done; })); act(() => { pending = view.result.current.start(0); });
+  mocks.uid = "other"; view.rerender({ ranges: historySelection.periods }); mocks.uid = "owner"; view.rerender({ ranges: historySelection.periods });
+  await act(async () => { resolve(historyPage()); await pending; }); expect(view.result.current.periods[0]!.page).toBeNull();
+  mocks.anonymous = true; view.rerender({ ranges: historySelection.periods }); await act(async () => { await view.result.current.start(0); });
+  mocks.anonymous = false; view.rerender({ ranges: [{ fromInclusive: 10, toExclusive: 9 }] }); expect(view.result.current.available).toBe(false);
+  expect(mocks.page).toHaveBeenCalledTimes(2); expect(mocks.compute).not.toHaveBeenCalled();
+});
+it("admits every same-session page within the scanned capacity, including start on an unopened period", async () => {
+  const capped = historyPage(); capped.activities = []; capped.page = { ...capped.page, scannedActivityCount: 20, candidateActivityCount: 0, skippedActivityCount: 20, exhausted: false, enumerationState: "partial", nextCursor: { after: { startTime: 2000, activityId: "a" } } };
+  mocks.page.mockResolvedValue(capped);
+  const view = renderHook(() => useStagePowerDurationHistory("owner", historySelection.periods, "17", "W"));
+  await act(async () => { await view.result.current.start(0); });
+  for (let i=1;i<250;i++) await act(async () => { await view.result.current.next(0); });
+  expect(view.result.current.periods[0]!.scanned).toBe(5000);
+  expect(view.result.current.canNext(0)).toBe(false); expect(view.result.current.canStart(1)).toBe(false);
+  await act(async () => { await view.result.current.start(1); await view.result.current.next(0); }); expect(mocks.page).toHaveBeenCalledTimes(250);
+  await act(async () => { await view.result.current.start(0); }); expect(mocks.page).toHaveBeenCalledTimes(251); expect(view.result.current.periods[0]!.scanned).toBe(20);
+});

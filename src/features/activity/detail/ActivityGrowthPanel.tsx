@@ -20,6 +20,7 @@ import RunPeriodComparisonPanel from "./RunPeriodComparisonPanel";
 import AnnualRunHistoryPanel from "./AnnualRunHistoryPanel";
 import RunEffortStageManagementPanel from "./RunEffortStageManagementPanel";
 import StageActivityPowerDurationPanel from "./StageActivityPowerDurationPanel";
+import StagePowerDurationHistoryPanel from "./StagePowerDurationHistoryPanel";
 import TrainingPeriodZonesPanel from "./TrainingPeriodZonesPanel";
 import { Button, Card, ChartFrame, Input, Select, Stack, Stat, Text } from "../../../theme";
 import "./activity-growth-panel.css";
@@ -212,6 +213,7 @@ function Statistics({ activity }: { activity: Activity }) {
     {canonicalEnabled && canonical.response?.periods.some((p) => p.coverage.truncated) && <Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.truncated")}</Text>}
     {canonicalEnabled && canonical.response && <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.canonicalPeriodBasis")}</Text>}
     {stats.hasMore && <><Button size="sm" variant="outline" disabled={!stats.canLoadMore} loading={stats.loadingMore} onClick={stats.loadMore}>{t(stats.canLoadMore ? "growth.loadStatistics" : "growth.statisticsLimit")}</Button><Text as="p" variant="bodyMedium" tone="tertiary">{t("growth.statisticsReadNote")}</Text></>}
+    {discipline === "bike" && selection && <StagePowerDurationHistoryPanel ownerUid={activity.userId} periods={selection.request.periods} />}
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--dim-section-gap)]">
       {(["count", "distance", "movingTime", "elevation"] as const).map((key) => {
         const scale = key === "distance" ? units === "imperial" ? 1609.344 : 1000 : key === "movingTime" ? 3600 : key === "elevation" && units === "imperial" ? 0.3048 : 1;
