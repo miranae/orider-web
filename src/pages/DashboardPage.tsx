@@ -309,11 +309,11 @@ export default function DashboardPage() {
   const changeFeedScope = (value: ActivityFeedScope) => {
     if (value !== "all") lastPersonalScope.current = value;
     updateDashboardPreferences({ feedScope: value });
-    setSearchParams((previous) => { const next = new URLSearchParams(previous); next.set("scope", value); return next; });
+    setSearchParams((previous) => { const next = new URLSearchParams(previous); next.set("scope", value); return next; }, { replace: true });
   };
   const changeRelationshipScope = (value: RelationshipScope) => {
     if (value !== "club") { changeFeedScope(scopeToFeedScope(value, lastPersonalScope.current)); return; }
-    setSearchParams((previous) => { const next = new URLSearchParams(previous); next.set("scope", "club"); return next; });
+    setSearchParams((previous) => { const next = new URLSearchParams(previous); next.set("scope", "club"); return next; }, { replace: true });
   };
   const changeClub = (id: string, replace = false) => setSearchParams((previous) => { const next = new URLSearchParams(previous); next.set("scope", "club"); next.set("club", id); return next; }, { replace });
   const feedFilter = ({ all: 0, friends: 1, self: 2 } as const)[feedScope];
@@ -715,7 +715,7 @@ export default function DashboardPage() {
         onFeedScopeChange={changeFeedScope}
         relationshipScope={relationshipScope}
         onRelationshipScopeChange={changeRelationshipScope}
-        clubFeed={user ? <ClubScopeFeed uid={user.uid} clubId={clubId} onClubChange={changeClub} /> : undefined}
+        clubFeed={user ? <ClubScopeFeed key={user.uid} uid={user.uid} clubId={clubId} onClubChange={changeClub} /> : undefined}
         sportFilter={mobileSportFilter}
         onSportFilterChange={(sportFilter) => {
           updateDashboardPreferences({ sportFilter });
@@ -850,7 +850,7 @@ export default function DashboardPage() {
               {user && <FeedScopeSelector scope={relationshipScope} feedScope={feedScope} onScopeChange={changeRelationshipScope} onFeedScopeChange={changeFeedScope} />}
             </div>
 
-            {relationshipScope === "club" && user ? <ClubScopeFeed uid={user.uid} clubId={clubId} onClubChange={changeClub} /> : <>
+            {relationshipScope === "club" && user ? <ClubScopeFeed key={user.uid} uid={user.uid} clubId={clubId} onClubChange={changeClub} /> : <>
             {/* 검색 입력 */}
             <form onSubmit={handleSearch} style={{ marginBottom: "var(--space-3)" }}>
               <div className="flex gap-2 items-center">

@@ -58,7 +58,7 @@ describe("navHubs", () => {
 
   describe("isHubSubRoute", () => {
     it("허브 서브 목적지(목록/루트)에선 true", () => {
-      for (const p of ["/fitness", "/plan", "/log", "/coach", "/discover", "/explore", "/leaderboard", "/courses", "/board", "/creator", "/groups", "/events", "/friends", "/about", "/my", "/settings"]) {
+      for (const p of ["/fitness", "/plan", "/log", "/coach", "/discover", "/explore", "/leaderboard", "/courses", "/board", "/groups", "/events", "/friends", "/my", "/settings"]) {
         expect(isHubSubRoute(p)).toBe(true);
       }
     });
@@ -75,7 +75,10 @@ describe("navHubs", () => {
     expect(getHub("explore").subs.map((s) => s.to)).toEqual(["/discover", "/explore", "/leaderboard", "/courses"]);
     expect(getHub("club").subs.map((s) => s.to)).toEqual(["/groups", "/events"]);
     expect(getHub("people").subs.map((s) => s.to)).toEqual(["/friends", "/board"]);
-    expect(getHub("settings").subs.map((s) => s.to)).toEqual(["/my", "/settings", "/creator", "/about"]);
+    expect(getHub("settings").subs.map((s) => s.to)).toEqual(["/my", "/settings"]);
+    // 공개 페이지에 로그인 전용 설정 서브탭이 붙지 않는다
+    expect(isHubSubRoute("/about")).toBe(false);
+    expect(isHubSubRoute("/creator")).toBe(false);
     expect(getHub("feed").subs).toHaveLength(0);
   });
 

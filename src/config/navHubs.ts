@@ -139,11 +139,19 @@ export const HUBS: Hub[] = [
     subs: [
       { labelKey: "nav.profile", to: "/my" },
       { labelKey: "nav.account", to: "/settings" },
-      { labelKey: "nav.developer", to: "/creator" },
-      { labelKey: "nav.about", to: "/about" },
     ],
     match: (p) => p === "/my" || p === "/settings" || p === "/creator" || p.startsWith("/creator/") || p === "/about",
   },
+];
+
+/**
+ * 유틸리티 진입(헤더·사용자 메뉴·모바일 메뉴). 설정 허브 active 판정에는 속하지만 서브탭은 아니다 —
+ * 공개 페이지(/about, /creator)에 로그인 전용 프로필·계정 탭이 붙지 않게 분리한다.
+ */
+export const UTILITY_LINKS: HubSub[] = [
+  { labelKey: "nav.coach", to: "/coach" },
+  { labelKey: "nav.developer", to: "/creator" },
+  { labelKey: "nav.about", to: "/about" },
 ];
 
 /** 데스크톱·모바일 기본 내비게이션에 노출되는 정확히 5개 허브. */

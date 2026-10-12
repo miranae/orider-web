@@ -101,7 +101,7 @@
       "public": "All public"
     },
     "club": {
-      "roleUnknown": "Role unavailable",
+      "roleUnknown": "Checking role",
       "posts": "Club news",
       "events": "Upcoming events",
       "error": "Unable to load club updates. Please try again.",

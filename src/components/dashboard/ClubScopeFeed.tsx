@@ -127,9 +127,10 @@ export default function ClubScopeFeed({ uid, clubId, onClubChange }: { uid: stri
   const { t } = useTranslation("dashboard");
   const { groups, loading, error, retry } = useMyGroups(uid);
 
-  // URL 에 동호회가 없거나 더 이상 내 동호회가 아니면 첫 동호회로 정규화(히스토리는 남기지 않음).
+  // URL 에 동호회가 없을 때만 첫 동호회로 정규화(히스토리는 남기지 않음). 명시된 club= 은
+  // 목록 일부 조회 실패로 빠졌을 수 있어 덮어쓰지 않고, 화면만 첫 동호회로 대체 표시한다.
   useEffect(() => {
-    if (!loading && !error && groups[0] && !groups.some((group) => group.id === clubId)) onClubChange(groups[0].id, true);
+    if (!loading && !error && groups[0] && !clubId) onClubChange(groups[0].id, true);
   }, [loading, error, groups, clubId, onClubChange]);
 
   if (loading) return <Text as="p" variant="bodySmall" tone="tertiary" role="status">{t("feed.loading")}</Text>;

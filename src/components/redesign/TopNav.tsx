@@ -10,17 +10,14 @@ import { useGlobalSearch } from "../../hooks/useGlobalSearch";
 import { LanguageToggle } from "../i18n/LanguageToggle";
 import type { Notification } from "@shared/types";
 import { Button, Text } from "../../theme/components";
-import { PRIMARY_HUBS, getHub, type HubKey } from "../../config/navHubs";
+import { PRIMARY_HUBS, UTILITY_LINKS, type HubKey } from "../../config/navHubs";
 import { timeAgo } from "../../utils/timeAgo";
 
 const navFocusClass = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]";
 const navFocusWithinClass = "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--lime)]";
 const navIconButtonClass = `flex items-center justify-center ${navFocusClass}`;
 const mobileMenuItemClass = `rounded-[var(--r-md)] ${navFocusClass}`;
-const utilityDestinations = [
-  ...getHub("train").subs.filter((sub) => sub.to === "/coach").map((sub) => ({ ...sub, labelKey: "nav.coach" })),
-  ...getHub("settings").subs.filter((sub) => sub.to === "/creator" || sub.to === "/about"),
-];
+const utilityDestinations = UTILITY_LINKS;
 
 // 네비 IA(5개 기본 허브)는 단일 진실원 config/navHubs.ts 가 보유. 데스크톱 nav 행은
 // 허브만 노출하고, 모바일 슬라이드 메뉴는 허브+서브를 펼쳐 9개 목적지를 모두 발견 가능하게 한다.
@@ -822,7 +819,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
             </div>
 
             <div className="flex flex-col gap-1" style={{ padding: "var(--space-2)", borderTop: "1px solid var(--line-soft)" }}>
-              {getHub("settings").subs.filter((sub) => sub.to === "/creator" || sub.to === "/about").map((sub) => (
+              {UTILITY_LINKS.filter((sub) => sub.to !== "/coach").map((sub) => (
                 <Link key={sub.to} to={sub.to} onClick={closeMobileMenuForNavigation} className={mobileMenuItemClass} style={{ padding: "var(--space-2) var(--space-3)", color: "var(--ink-1)", fontSize: "var(--fs-sm)" }}>
                   {t(sub.labelKey)}
                 </Link>
