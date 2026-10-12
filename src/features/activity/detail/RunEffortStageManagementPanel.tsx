@@ -1,3 +1,5 @@
+import type { Activity } from "@shared/types";
+import { getDiscipline } from "../../../utils/disciplineFilter";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RUN_DISTANCE_TARGETS_V2 } from "@shared/types/personal-records";
@@ -11,10 +13,17 @@ import { formatElapsedBoundary } from "./activityRangeSelection";
 import RunPeriodComparisonPanel from "./RunPeriodComparisonPanel";
 
 /** 원본이나 계정 전체 기록을 수정하지 않고 적용된 기간의 수동 비교만 다룬다. */
-function RunEffortStageManagementScope({ ownerUid, appliedResponse }: { ownerUid: string; appliedResponse: TrainingAnalysisPeriodsResponse }) {
+interface RunEffortStageManagementProps { ownerUid: string; appliedResponse: TrainingAnalysisPeriodsResponse; currentActivity?: Activity }
+function RunEffortStageManagementScope({ ownerUid, appliedResponse, currentActivity }: RunEffortStageManagementProps) {
   const { t, i18n } = useTranslation("activity");
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
-  const candidates = [...new Map(appliedResponse.periods.flatMap(period => period.activities).map(activity => [activity.activityId, activity])).values()];
+  const current = currentActivity?.userId === ownerUid && currentActivity.deletedAt == null
+    && getDiscipline(currentActivity.type) === "run" && typeof currentActivity.id === "string" && /^[A-Za-z0-9_-]{1,200}$/u.test(currentActivity.id)
+    && Number.isFinite(currentActivity.startTime) && currentActivity.startTime > 0 && Number.isFinite(new Date(currentActivity.startTime).getTime())
+    && appliedResponse.periods.some(period => currentActivity.startTime >= period.fromInclusive && currentActivity.startTime < period.toExclusive)
+    ? currentActivity : null;
+  const candidates = [...new Map([...appliedResponse.periods.flatMap(period => period.activities),
+    ...(current ? [{ activityId: current.id, startTime: current.startTime }] : [])].map(activity => [activity.activityId, activity])).values()];
   const selected = candidates.some(activity => activity.activityId === selectedActivityId) ? selectedActivityId : null;
   const [target, setTarget] = useState<ExpandedRunDistanceKey>("5km");
   const tool = useRunEffortStageManagement(ownerUid, appliedResponse.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })), selected);
@@ -40,7 +49,7 @@ function RunEffortStageManagementScope({ ownerUid, appliedResponse }: { ownerUid
       <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.alias")}</Text>
       <label className="space-y-2 block"><Text as="span" variant="bodyMedium">{t("runEffortTool.storedSource")}</Text><Select value={selected ?? ""} className="min-h-[calc(var(--dim-button-height)+var(--space-1))]" disabled={tool.busy || tool.pendingRequest} onChange={event => {
         const id = event.target.value; setSelectedActivityId(candidates.some(activity => activity.activityId === id) ? id : null);
-      }}><option value="">{t("runEffortTool.canonicalOnly")}</option>{candidates.map(activity => <option key={activity.activityId} value={activity.activityId}>{date(activity.startTime)}</option>)}</Select></label>
+      }}><option value="">{t("runEffortTool.canonicalOnly")}</option>{candidates.map(activity => <option key={activity.activityId} value={activity.activityId}>{activity.activityId === current?.id ? `${t("runEffortTool.currentActivity")} · ${date(activity.startTime)}${current.source === "orider" ? " · ORider" : current.source === "strava" ? " · Strava" : ""}` : date(activity.startTime)}</option>)}</Select></label>
       <Button className="min-h-[calc(var(--dim-button-height)+var(--space-1))]" size="sm" disabled={!tool.available || tool.busy} onClick={() => void tool.refresh()}>{t("runEffortTool.load")}</Button>
       {!tool.available && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.preparing")}</Text>}
       {tool.busy && <Text as="p" variant="bodyMedium" role="status">{t(tool.state === "mutating" ? "runEffortTool.saving" : "runEffortTool.loading")}</Text>}
@@ -80,7 +89,7 @@ function RunEffortStageManagementScope({ ownerUid, appliedResponse }: { ownerUid
   </details>;
 }
 
-export default function RunEffortStageManagementPanel(props: { ownerUid: string; appliedResponse: TrainingAnalysisPeriodsResponse }) {
+export default function RunEffortStageManagementPanel(props: RunEffortStageManagementProps) {
   if (props.appliedResponse.discipline !== "run") return null;
   return <RunEffortStageManagementScope key={JSON.stringify([props.ownerUid, props.appliedResponse.periods.map(period => [period.fromInclusive, period.toExclusive])])} {...props} />;
 }
