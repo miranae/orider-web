@@ -1,5 +1,5 @@
 import type { StageDerivedRunDistancePeriod } from "@shared/types/stage-run-distance-snapshot";
-import { validRunEffortStageOverlay } from "./runEffortStagePreferences";
+import { validRunEffortStageOverlay, validStageTimeAdjustedEfforts, verifyRunTimeResponseDigests } from "./runEffortStagePreferences";
 import { normalizeCyclingDistanceAnalysis } from "../utils/cyclingDistancePeriods";
 import { validCyclingClimbObservations } from "./cyclingClimbObservations";
 import { validExpandedDistanceAnalysis } from "../utils/expandedRunDistances";
@@ -25,6 +25,12 @@ export function validTrainingAnalysisPeriodsRequest(request: TrainingAnalysisPer
     && (request.stageRunDistanceSnapshotActivityIds === undefined || request.includeStageRunEffortPreferences === true && request.discipline === "run"
       && Array.isArray(request.stageRunDistanceSnapshotActivityIds) && request.stageRunDistanceSnapshotActivityIds.length === 1
       && typeof request.stageRunDistanceSnapshotActivityIds[0] === "string" && /^[A-Za-z0-9_-]{1,200}$/u.test(request.stageRunDistanceSnapshotActivityIds[0]))
+    && (request.includeStageRunTimeCorrections === undefined || request.includeStageRunTimeCorrections === true && request.discipline === "run"
+      && request.includeStageRunEffortPreferences === true && request.includeExpandedRunDistances === true && request.stageRunTimeCorrectionActivityIds !== undefined)
+    && (request.stageRunTimeCorrectionActivityIds === undefined || request.includeStageRunTimeCorrections === true && Array.isArray(request.stageRunTimeCorrectionActivityIds)
+      && request.stageRunTimeCorrectionActivityIds.length === 1 && typeof request.stageRunTimeCorrectionActivityIds[0] === "string" && /^[A-Za-z0-9_-]{1,200}$/u.test(request.stageRunTimeCorrectionActivityIds[0])
+      && (request.stageRunDistanceSnapshotActivityIds === undefined || request.stageRunDistanceSnapshotActivityIds[0] === request.stageRunTimeCorrectionActivityIds[0]))
+    && (!request.includeStageRunTimeCorrections || Object.keys(request).every(key => ["discipline", "periods", "includeStageRunEffortPreferences", "includeExpandedRunDistances", "includeRunningPaceZones", "stageRunDistanceSnapshotActivityIds", "includeStageRunTimeCorrections", "stageRunTimeCorrectionActivityIds"].includes(key)))
     && (request.includeStageRunEffortPreferences === undefined || request.includeStageRunEffortPreferences === true && request.discipline === "run")
     && (request.includeRunningPaceZones === undefined || request.includeRunningPaceZones === true && request.discipline === "run")
     && (request.includeExpandedRunDistances === undefined || request.includeExpandedRunDistances === true && request.discipline === "run")
@@ -252,6 +258,7 @@ export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalys
     if (request.stageRunDistanceSnapshotActivityIds && period.stageDerivedRunDistances === undefined) invalid();
     if (period.stageDerivedRunDistances !== undefined && !validStageDerivedDistances(period.stageDerivedRunDistances, period, request)) invalid();
     if (!request.stageRunDistanceSnapshotActivityIds && period.running?.stageEffortOverlay?.preferenceBindings.some(binding => binding.derivedRevision !== undefined)) invalid();
+    if (request.includeStageRunTimeCorrections ? !validStageTimeAdjustedEfforts(period.stageTimeAdjustedEfforts, period, request) : period.stageTimeAdjustedEfforts !== undefined) invalid();
     const partial = coverage.truncated || Object.values(period.totals).some(total => total.missingActivityCount > 0)
       || period.zones.heartRate.missingSensorActivityCount + period.zones.heartRate.contextUnknownActivityCount
       + period.zones.power.missingSensorActivityCount + period.zones.power.contextUnknownActivityCount > 0;
@@ -361,5 +368,8 @@ export async function loadTrainingAnalysisPeriods(services: FirebaseServices, ui
   if (!matches()) throw new Error("account_changed");
   const result = await httpsCallable<TrainingAnalysisPeriodsRequest, TrainingAnalysisPeriodsResponse>(services.functions, "getTrainingAnalysisPeriods")(request);
   if (!matches()) throw new Error("account_changed");
-  return validateTrainingAnalysisPeriodsResponse(result.data, request);
+  const response = validateTrainingAnalysisPeriodsResponse(result.data, request);
+  if (request.includeStageRunTimeCorrections) await verifyRunTimeResponseDigests(response);
+  if (!matches()) throw new Error("account_changed");
+  return response;
 }

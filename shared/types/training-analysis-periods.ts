@@ -1,5 +1,5 @@
 import type { StageDerivedRunDistancePeriod } from "./stage-run-distance-snapshot";
-import type { RunEffortStageOverlay } from "./run-effort-stage-preferences";
+import type { RunEffortStageOverlay, StageTimeAdjustedRunEffortPeriod } from "./run-effort-stage-preferences";
 import type { NormalizedCyclingDistanceProvenance } from "./cycling-distance-observations";
 import type { BikeDistanceKey } from "../activity-bike-distance-evidence";
 import type { HrZoneBoundaries } from "../training/hrZoneTable";
@@ -12,6 +12,9 @@ export interface TrainingAnalysisPeriodsRequest {
   includeExpandedRunDistances?: true;
   includeRunningPaceZones?: true;
   includeStageRunEffortPreferences?: true;
+  /** Stage 선별 활동의 사용자 시간 수정만 별도 채널로 읽는다. */
+  includeStageRunTimeCorrections?: true;
+  stageRunTimeCorrectionActivityIds?: [string];
   /** 현재 후보 안에서 명시적으로 선택한 최대 한 활동만 읽는다. */
   stageRunDistanceSnapshotActivityIds?: [string];
   includeCyclingClimbObservations?: true;
@@ -246,6 +249,7 @@ export interface CyclingDistancePeriodAnalysis {
 }
 export interface TrainingAnalysisPeriodResult extends PowerCurvePeriod {
   stageDerivedRunDistances?: StageDerivedRunDistancePeriod;
+  stageTimeAdjustedEfforts?: StageTimeAdjustedRunEffortPeriod;
   status: "complete" | "partial";
   cyclingClimbObservations?: CyclingClimbObservations;
   cyclingDistanceObservations?: CyclingDistancePeriodAnalysis;
