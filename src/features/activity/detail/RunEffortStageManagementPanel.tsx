@@ -63,27 +63,42 @@ function RunEffortStageManagementScope({ ownerUid, appliedResponse, currentActiv
         <label className="space-y-2 block"><Text as="span" variant="bodyMedium">{t("runEffortTool.target")}</Text><Select value={target} className="min-h-[calc(var(--dim-button-height)+var(--space-1))]" onChange={event => setTarget(event.target.value as ExpandedRunDistanceKey)}>{RUN_DISTANCE_TARGETS_V2.map(distance => <option key={distance} value={distance}>{t(`runRecord.dist.${distance}`)}</option>)}</Select></label>
         {selected && <section className="space-y-2" aria-label={t("runEffortTool.storedCalculated")}>
           <Text as="p" variant="bodyMedium" className="font-semibold">{t("runEffortTool.storedCalculated")}</Text>
-          <details className="text-[length:var(--fs-md)]"><summary className="cursor-pointer py-3">{t("runEffortTool.storedBasis")}</summary><Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.storedLimit")}</Text>{storedSources.some(source => source.timeBasis === "stored_activity_wall_clock_window") && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.storedWallClockLimit")}</Text>}{storedSources.some(source => source.qualification === "legacy_manifest_revision_and_gcs_token_pinned") && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.storedLegacyLimit")}</Text>}</details>
           {storedSources.map(source => {
             const binding = tool.response!.periods.flatMap(period => period.running?.stageEffortOverlay?.preferenceBindings ?? []).find(value => value.activityId === source.activityId);
             const anchor = source.records[target], excluded = source.excludedTargets.includes(target), observed = source.observedTargets.includes(target);
             if (!binding) return null;
             return <div key={source.activityId} className="space-y-2">
-              <LocalizedLink className="inline-flex min-h-[calc(var(--dim-button-height)+var(--space-1))] items-center underline" to={`/activity/${encodeURIComponent(source.activityId)}`}>{date(source.startTime)}</LocalizedLink>
-              <Text as="p" variant="bodyMedium" title={anchor ? `${formatElapsedBoundary(anchor.startTimeSec)}–${formatElapsedBoundary(anchor.endTimeSec)} · ${formatElapsedBoundary(anchor.exactElapsedSec)}` : undefined}>{observed && excluded ? t("runEffortTool.excluded") : anchor ? formatElapsedBoundary(anchor.elapsedSec) : t("runEffortTool.storedNoDistance")}</Text>
-              {(anchor || observed && excluded) && <Button className="min-h-[calc(var(--dim-button-height)+var(--space-1))]" variant="outline" size="sm" disabled={!binding.mutationReady || tool.busy || tool.pendingRequest} onClick={() => tool.change(binding, target, !excluded, true)} aria-label={t(excluded ? "runEffortTool.restoreNamed" : "runEffortTool.excludeNamed", { date: date(source.startTime), distance: t(`runRecord.dist.${target}`) })}>{t(excluded ? "runEffortTool.restore" : "runEffortTool.exclude")}</Button>}
+              {anchor && !excluded ? <Text as="p" variant="dataMedium" weight={600} title={`${formatElapsedBoundary(anchor.startTimeSec)}–${formatElapsedBoundary(anchor.endTimeSec)} · ${formatElapsedBoundary(anchor.exactElapsedSec)}`}><span>{t(`runRecord.dist.${target}`)}</span> · <span>{formatElapsedBoundary(anchor.elapsedSec)}</span></Text>
+                : <Text as="p" variant="bodyMedium">{t(`runRecord.dist.${target}`)} · {observed && excluded ? t("runEffortTool.excluded") : t("runEffortTool.storedNoDistance")}</Text>}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <LocalizedLink className="inline-flex min-h-[calc(var(--dim-button-height)+var(--space-1))] items-center underline" to={`/activity/${encodeURIComponent(source.activityId)}`}>{date(source.startTime)}</LocalizedLink>
+                {(anchor || observed && excluded) && <Button className="min-h-[calc(var(--dim-button-height)+var(--space-1))]" variant="outline" size="sm" disabled={!binding.mutationReady || tool.busy || tool.pendingRequest} onClick={() => tool.change(binding, target, !excluded, true)} aria-label={t(excluded ? "runEffortTool.restoreNamed" : "runEffortTool.excludeNamed", { date: date(source.startTime), distance: t(`runRecord.dist.${target}`) })}>{t(excluded ? "runEffortTool.restore" : "runEffortTool.exclude")}</Button>}
+              </div>
             </div>;
           })}
           {!storedSources.length && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.storedUnavailable")}</Text>}
+          <details className="text-[length:var(--fs-md)]"><summary className="cursor-pointer py-3">{t("runEffortTool.storedBasis")}</summary>
+            <div className="space-y-1">
+              <Text as="p" variant="bodyMedium" tone="secondary">{t(storedSources.some(source => source.timeBasis === "stored_activity_wall_clock_window") ? "runEffortTool.storedWallClockLimit" : "runEffortTool.storedLimit")}</Text>
+              <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.storedUnknown")}</Text>
+              <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.storedSeparate")}</Text>
+              {storedSources.some(source => source.qualification === "legacy_manifest_revision_and_gcs_token_pinned") && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.storedLegacyLimit")}</Text>}
+            </div>
+          </details>
         </section>}
-        <div className="space-y-3">{tool.response.periods.map((period, index) => <Text key={index} as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.excludedCount", { period: index + 1, amount: period.running?.expandedDistanceAnalysis?.distances.find(distance => distance.distance === target)?.excludedEffortActivityCount ?? "—" })}</Text>)}</div>
-        <div className="space-y-3">{[...rows.values()].map(({ binding, startTime, elapsed }) => {
-          const excluded = binding.excludedTargets.includes(target);
-          const label = startTime === undefined ? t("runEffortTool.timeUnknown") : date(startTime);
-          return <section key={binding.activityId} className="space-y-2"><LocalizedLink className="inline-flex items-center underline" style={{ minHeight: "calc(var(--dim-button-height) + var(--space-1))" }} to={`/activity/${encodeURIComponent(binding.activityId)}`}>{label}</LocalizedLink><Text as="p" variant="bodyMedium">{excluded ? t("runEffortTool.excluded") : elapsed !== undefined ? formatElapsedBoundary(elapsed) : "—"}</Text><Button className="min-h-[calc(var(--dim-button-height)+var(--space-1))]" variant="outline" size="sm" disabled={!binding.mutationReady || tool.busy || tool.pendingRequest} onClick={() => tool.change(binding, target, !excluded)} aria-label={t(excluded ? "runEffortTool.restoreNamed" : "runEffortTool.excludeNamed", { date: label, distance: t(`runRecord.dist.${target}`) })}>{t(excluded ? "runEffortTool.restore" : "runEffortTool.exclude")}</Button>{!binding.mutationReady && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.sourceUnverified")}</Text>}</section>;
-        })}</div>
-        {!rows.size && !selected && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.noCandidates")}</Text>}
-        <RunPeriodComparisonPanel response={tool.response} />
+        <details className="text-[length:var(--fs-md)]"><summary className="cursor-pointer py-3 font-semibold">{t("runEffortTool.periodComparison")}</summary>
+          <div className="space-y-3 pt-3">{tool.response.periods.map((period, index) => {
+            const amount = period.running?.expandedDistanceAnalysis?.distances.find(distance => distance.distance === target)?.excludedEffortActivityCount;
+            return amount === 0 ? null : <Text key={index} as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.excludedCount", { period: index + 1, amount: amount ?? "—" })}</Text>;
+          })}</div>
+          <div className="space-y-3">{[...rows.values()].map(({ binding, startTime, elapsed }) => {
+            const excluded = binding.excludedTargets.includes(target);
+            const label = startTime === undefined ? t("runEffortTool.timeUnknown") : date(startTime);
+            return <section key={binding.activityId} className="space-y-2"><LocalizedLink className="inline-flex items-center underline" style={{ minHeight: "calc(var(--dim-button-height) + var(--space-1))" }} to={`/activity/${encodeURIComponent(binding.activityId)}`}>{label}</LocalizedLink><Text as="p" variant="bodyMedium">{excluded ? t("runEffortTool.excluded") : elapsed !== undefined ? formatElapsedBoundary(elapsed) : "—"}</Text><Button className="min-h-[calc(var(--dim-button-height)+var(--space-1))]" variant="outline" size="sm" disabled={!binding.mutationReady || tool.busy || tool.pendingRequest} onClick={() => tool.change(binding, target, !excluded)} aria-label={t(excluded ? "runEffortTool.restoreNamed" : "runEffortTool.excludeNamed", { date: label, distance: t(`runRecord.dist.${target}`) })}>{t(excluded ? "runEffortTool.restore" : "runEffortTool.exclude")}</Button>{!binding.mutationReady && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.sourceUnverified")}</Text>}</section>;
+          })}</div>
+          {!rows.size && !selected && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.noCandidates")}</Text>}
+          <RunPeriodComparisonPanel response={tool.response} />
+        </details>
       </>}
     </div>
   </details>;
