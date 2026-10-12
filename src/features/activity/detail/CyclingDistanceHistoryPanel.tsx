@@ -1,7 +1,9 @@
+import { useCyclingDistanceHistoryOverlay } from "../../../hooks/useCyclingDistanceHistoryOverlay";
+import { cyclingDistanceHistoryOverlay } from "./cyclingDistanceHistoryOverlay";
 import CyclingDistanceCoveredRankingsPanel from "./CyclingDistanceCoveredRankingsPanel";
 import { stageCyclingPreferenceAvailable } from "../../../services/stageCyclingDistanceEffortPreference";
 import "./cycling-distance-history.css";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Activity } from "@shared/types";
 import { BIKE_DISTANCE_M, BIKE_DISTANCE_TARGETS, type BikeDistanceKey } from "@shared/activity-bike-distance-evidence";
@@ -20,6 +22,9 @@ export default function CyclingDistanceHistoryPanel({ activity, selection }: { a
   const [category, setCategory] = useState<"effort" | CyclingHistoryTotalMetric>("effort"), [basis, setBasis] = useState<CyclingHistoryTotalBasis>("canonical_metrics");
   const headIdentity = JSON.stringify([activity.userId, activity.type, activity.startTime, activity.endTime, activity.deletedAt, activity.contentRevision, activity.contentSelectedRevision, activity.source, activity.localSessionId, activity.stravaActivityId, activity.stravaTwinActivityId]);
   const history = useCyclingDistanceHistory(activity.userId, activity.id, activity.deletedAt == null ? { ...selection, includeActivityTotals: true } : null, headIdentity);
+  const overlay = useCyclingDistanceHistoryOverlay(activity.userId, headIdentity, history.pages);
+  const overlayLeaders = useMemo(() => cyclingDistanceHistoryOverlay(history.pages, overlay.evidence, distance, selection.rangeBasis === "calendar_year" ? 5 : 10), [history.pages, overlay.evidence, distance, selection.rangeBasis]);
+  useEffect(() => { if (overlayLeaders.invalidated) overlay.cancel(); }, [overlayLeaders.invalidated, overlay.cancel]);
   const summary = useMemo(() => cyclingDistanceHistory(history.pages), [history.pages]);
   const limit = selection.rangeBasis === "calendar_year" ? 5 : 10;
   const leaders = useMemo(() => cyclingDistanceHistoryLeaders(summary, distance, limit), [summary, distance, limit]);
@@ -68,6 +73,19 @@ export default function CyclingDistanceHistoryPanel({ activity, selection }: { a
       {first && <>
         <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingDistanceHistory.snapshot", { from: date(first.range.fromInclusive), to: date(Math.max(first.range.fromInclusive, first.range.toExclusive - 1)), asOf: date(cyclingHistoryTimeMs(first.readTime), true) })}</Text>
         <Text as="p" variant="bodyMedium">{t("cyclingDistanceHistory.counts", { scanned: summary.scanned, candidates: summary.candidateCount, groups: summary.groups.length, duplicates: summary.duplicateCount, skipped: summary.skipped })}</Text>
+        {overlay.available && <Stack gap="var(--space-2)">
+          <Text as="h4" variant="bodyMedium" weight={600}>{t("cyclingDistanceHistory.overlay.title")}</Text>
+          <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingDistanceHistory.overlay.counts", { checked: overlay.evidence.length, loaded: summary.rows.length })}</Text>
+          {history.pages.map((page, index) => { const remaining = page.activities.filter(a => !overlay.evidence.some(e => e.row.activityId === a.activityId)).length; return remaining > 0 && <Button key={`${page.readTime.seconds}-${index}`} className={control} size="sm" variant="outline" disabled={overlay.status === "loading" || history.status === "loading" || ["expired", "invalidated"].includes(history.status)} onClick={() => void overlay.confirmPage(page)}>{t("cyclingDistanceHistory.overlay.apply", { page: index + 1, count: remaining })}</Button>; })}
+          {overlay.status === "loading" && <Text as="p" variant="bodyMedium" role="status">{t("cyclingDistanceHistory.overlay.loading")}</Text>}
+          {["error", "invalidated", "expired"].includes(overlay.status) && <Text as="p" variant="bodyMedium" tone="secondary">{t(`cyclingDistanceHistory.overlay.${overlay.status}`)}</Text>}
+          <details><summary className={`cursor-pointer ${control}`}><Text variant="bodyMedium">{t("cyclingDistanceHistory.overlay.details")}</Text></summary><Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingDistanceHistory.overlay.cost")}</Text><Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingDistanceHistory.overlay.scope")}</Text>{overlay.session && <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingDistanceHistory.overlay.asOf", { source: date(cyclingHistoryTimeMs(overlay.session.sourceReadTime), true), stage: date(cyclingHistoryTimeMs(overlay.session.stageReadTime), true) })}</Text>}</details>
+          {overlay.evidence.length > 0 && category === "effort" && <>
+            <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingDistanceHistory.overlay.coverage", { unresolved: overlayLeaders.unresolved, excluded: overlayLeaders.excluded })}</Text>
+            {overlayLeaders.sources.length ? <ul className="space-y-2">{overlayLeaders.sources.map((row, index) => <li key={row.activityId}><Text as="p" variant="bodyMedium" weight={600}>{index + 1} · {cyclingHistoryValueText(Math.round(row.effectiveElapsedSec * 10) / 10, "elapsed", units)}</Text><a className="activity-growth-source-link text-[length:var(--fs-md)]" href={`/${locale}/activity/${encodeURIComponent(row.activityId)}`}>{date(row.startTime)} · {t(`cyclingDistanceHistory.overlay.bases.${row.basis}`)}</a></li>)}</ul> : <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingDistanceHistory.overlay.empty")}</Text>}
+          </>}
+          <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingDistanceHistory.overlay.canonicalSeparate")}</Text>
+        </Stack>}
         <label htmlFor={`${id}-category`}><Text as="span" variant="bodyMedium">{t("cyclingDistanceHistory.category")}</Text><Select className={control} id={`${id}-category`} value={category} onChange={event => setCategory(event.target.value as typeof category)}>{(["effort", "distanceM", "elevationGainM"] as const).map(key => <option key={key} value={key}>{t(`cyclingDistanceHistory.categories.${key}`)}</option>)}</Select></label>
         {category === "effort" ? <label htmlFor={id}><Text as="span" variant="bodyMedium">{t("cyclingDistanceHistory.distance")}</Text><Select className={control} id={id} value={distance} onChange={event => setDistance(event.target.value as BikeDistanceKey)}>{BIKE_DISTANCE_TARGETS.map(key => <option key={key} value={key}>{t(`manualBikeEvidence.distances.${key}`)}</option>)}</Select></label>
           : <label htmlFor={`${id}-basis`}><Text as="span" variant="bodyMedium">{t("cyclingDistanceHistory.basisSelect")}</Text><Select className={control} id={`${id}-basis`} value={basis} onChange={event => setBasis(event.target.value as CyclingHistoryTotalBasis)}>{(["canonical_metrics", "activity_summary"] as const).map(key => <option key={key} value={key}>{t(`cyclingDistanceHistory.bases.${key}`)}</option>)}</Select></label>}
