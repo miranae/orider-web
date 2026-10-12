@@ -8,6 +8,7 @@ import { Button, Select, Text } from "../../../theme";
 import { formatElapsedBoundary } from "./activityRangeSelection";
 import type { MetricsLike } from "./metricsPresentation";
 import "./activity-bike-distance-evidence.css";
+import StageCyclingDistanceEffortPreferencePanel from "./StageCyclingDistanceEffortPreferencePanel";
 export default function ActivityBikeDistanceEvidencePanel({ activity, metrics }: { activity: Activity; metrics: MetricsLike | null }) {
   const { t, i18n } = useTranslation("activity"), { locale } = useLocale();
   const id = useId(), [distance, setDistance] = useState<BikeDistanceKey>("10km");
@@ -33,5 +34,6 @@ export default function ActivityBikeDistanceEvidencePanel({ activity, metrics }:
       <Text as="p" variant="bodyMedium" tone="secondary">{t("manualBikeEvidence.provenance", { source: t(`manualBikeEvidence.declaredSources.${evidence.declaredActivitySource ?? "unknown"}`) })}</Text>
       <a className="manual-bike-evidence-source" href={`/${locale}/activity/${encodeURIComponent(activity.id)}`}>{t("manualBikeEvidence.source", { date, layer: t(`manualBikeEvidence.layers.${evidence.sourceLayer}`) })}</a>
     </>}
+    <StageCyclingDistanceEffortPreferencePanel activity={activity} scopeKey={identity} />
   </section>;
 }
