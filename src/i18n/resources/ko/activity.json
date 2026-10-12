@@ -2154,6 +2154,26 @@
     "provenanceStatuses": {
       "stored_explicit": "저장 표본의 출처 표기",
       "legacy_normalized": "이전 표본 · 출처 미확인"
+    },
+    "overlay": {
+      "title": "불러온 활동의 선택 반영",
+      "counts": "확인 {{checked}} / 불러온 활동 {{loaded}}",
+      "apply": "이 페이지 선택 반영 · {{page}}페이지 {{count}}개",
+      "loading": "이 페이지의 선택을 확인하고 있어요.",
+      "error": "확인한 결과는 유지했습니다. 미확인 활동은 버튼으로 다시 확인하세요.",
+      "invalidated": "선택 또는 입력이 바뀌었습니다. 버튼으로 다시 확인하세요.",
+      "expired": "조회 시간이 만료되었습니다. 활동 이력을 처음부터 확인하세요.",
+      "details": "확인 범위와 비용",
+      "cost": "이미 불러온 한 페이지만 확인합니다. 최대 50개는 20/20/10으로 최대 3회 확인하며, 논리 문서 읽기 최대 836회와 메타데이터 확인 100회입니다. 앞선 활동 이력 조회 비용은 별도입니다. 원본 읽기와 저장은 없습니다.",
+      "scope": "확인하지 않은 활동은 미확인 상태입니다. 두 저장소의 고정 시점에서 불러오고 확인한 활동만 비교하며 전체 계정의 개인기록을 의미하지 않습니다.",
+      "asOf": "분석 시점 {{source}} · 선택 시점 {{stage}}",
+      "coverage": "미확인 주행 {{unresolved}} · 선택 제외 {{excluded}}",
+      "empty": "확인한 범위에서 비교 가능한 기록이 없습니다.",
+      "canonicalSeparate": "아래 저장 분석 순위는 선택 반영 결과와 별도로 표시합니다.",
+      "bases": {
+        "canonical_metrics": "저장 분석",
+        "stage_distance_snapshot": "저장 관측"
+      }
     }
   },
   "routeIndexHistory": {

@@ -5,9 +5,11 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ko from "../../../i18n/resources/ko/activity.json";
 import en from "../../../i18n/resources/en/activity.json";
+import { overlayEvidence, overlayRow } from "../../../services/stageCyclingDistanceHistoryOverlay.fixture";
 import CyclingDistanceHistoryPanel from "./CyclingDistanceHistoryPanel";
-const mocks=vi.hoisted(()=>({hook:vi.fn(),start:vi.fn(),more:vi.fn(),restart:vi.fn(),language:"ko",units:"metric"}));
+const mocks=vi.hoisted(()=>({hook:vi.fn(),start:vi.fn(),more:vi.fn(),restart:vi.fn(),overlay:vi.fn(),apply:vi.fn(),invalidate:vi.fn(),language:"ko",units:"metric"}));
 vi.mock("../../../hooks/useCyclingDistanceHistory",()=>({useCyclingDistanceHistory:mocks.hook}));
+vi.mock("../../../hooks/useCyclingDistanceHistoryOverlay", () => ({ useCyclingDistanceHistoryOverlay: mocks.overlay }));
 vi.mock("../../../contexts/LocaleContext",()=>({useLocale:()=>({units:mocks.units,locale:mocks.language})}));
 vi.mock("react-i18next",()=>({useTranslation:()=>({i18n:{language:mocks.language},t:(key:string,params?:Record<string,unknown>)=>{let text:unknown=mocks.language==="ko"?ko:en;for(const part of key.split("."))text=(text as Record<string,unknown>)?.[part];return typeof text==="string"?text.replace(/{{(\w+)}}/g,(_,name:string)=>String(params?.[name]??"")):key;}})}));
 // Derived from actual compiled backend fixture 60a7dc6caa1b556ff04e1128797fe1381cf8c53c95e5a8e9c9ddf6cd6128ea94; anonymous synthetic data only.
@@ -19,7 +21,10 @@ const wire = {
   "rangeBasis": "calendar_year",
   "year": 2026,
   "targetsVersion": 1,
-  "timingBasis": "original_activity_elapsed",
+  "timingBasis": "stored_explicit_activity_elapsed",
+  "provenanceVersion": 2,
+  "sourceBasis": "stored_distance_parts",
+  "originalClockVerified": false,
   "quality": "unknown",
   "coverage": "unknown",
   "scope": "page",
@@ -142,7 +147,7 @@ function page(rows: CyclingDistanceHistoryRow[] = [row()], exhausted = true, off
 const activity={id:"current",userId:"owner",type:"Ride",startTime:NOW-1000000} as Activity;
 const idle=()=>({available:true,status:"idle",pages:[] as CyclingDistanceHistoryResponse[],start:mocks.start,loadMore:mocks.more,restart:mocks.restart});
 function open(){const details=document.querySelector("details")!;details.open=true;fireEvent(details,new Event("toggle"));return details;}
-beforeEach(()=>{mocks.hook.mockReset().mockReturnValue(idle());mocks.start.mockReset();mocks.more.mockReset();mocks.restart.mockReset();mocks.language="ko";mocks.units="metric";});
+beforeEach(()=>{mocks.overlay.mockReset().mockReturnValue({available:false,status:"idle",evidence:[],session:null,confirmPage:mocks.apply,cancel:mocks.invalidate});mocks.apply.mockReset();mocks.invalidate.mockReset();mocks.hook.mockReset().mockReturnValue(idle());mocks.start.mockReset();mocks.more.mockReset();mocks.restart.mockReset();mocks.language="ko";mocks.units="metric";});
 describe("compact observed cycling history",()=>{
  it("starts collapsed and reads only via manual button",()=>{
   render(<CyclingDistanceHistoryPanel activity={activity} selection={selection}/>);expect(document.querySelector("details")!.open).toBe(false);expect(screen.queryByRole("button")).not.toBeInTheDocument();expect(mocks.start).not.toHaveBeenCalled();
@@ -222,3 +227,228 @@ it("supports native keyboard source navigation without reading more history", as
  await user.tab();expect(screen.getByRole("button",{name:ko.cyclingDistanceHistory.nextSource})).toHaveFocus();await user.keyboard(" ");
  expect(document.querySelector("[data-selected-source]")).toHaveAttribute("href","/ko/activity/keyboard-c");expect(mocks.start).not.toHaveBeenCalled();expect(mocks.more).not.toHaveBeenCalled();
 });
+
+it("loaded-page overlay is explicit and its closed costs disclose three checks separately from enumeration", () => {
+ const accepted = page([row("checked")]); mocks.hook.mockReturnValue({...idle(),status:"complete",pages:[accepted]}); mocks.overlay.mockReturnValue({available:true,status:"idle",evidence:[],session:null,confirmPage:mocks.apply,cancel:mocks.invalidate});
+ render(<CyclingDistanceHistoryPanel activity={activity} selection={selection}/>);open(); expect(mocks.apply).not.toHaveBeenCalled(); expect(screen.getByText("확인 0 / 불러온 활동 1")).toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:/이 페이지 선택 반영/}));expect(mocks.apply).toHaveBeenCalledExactlyOnceWith(accepted);expect(mocks.start).not.toHaveBeenCalled();expect(mocks.more).not.toHaveBeenCalled();
+ const details=screen.getByText(ko.cyclingDistanceHistory.overlay.details).closest("details")!;expect(details.open).toBe(false);expect(details.textContent).toContain("836");expect(details.textContent).toContain("100");expect(details.textContent).toContain("최대 3회");
+});
+
+it.each(["pending", "stale", "invalid"] as const)("optional %s overlay leaves canonical history render usable despite derived load differences", state => {
+ const original = row("native");original.analysis.state = state;original.distanceObservations = {state:"unavailable",points:[]};original.representativeInput.hasLoad = false;
+ const evidence = overlayEvidence(structuredClone(compiledLifecycleRow));evidence.activityRevision=original.activityRevision;evidence.metricsRevision=original.metricsRevision;evidence.row.startTime=original.startTime;evidence.row.representativeInput={...original.representativeInput,hasLoad:true};
+ mocks.hook.mockReturnValue({...idle(),status:"complete",pages:[page([original])]});mocks.overlay.mockReturnValue({available:true,status:"ready",evidence:[evidence],session:null,confirmPage:mocks.apply,cancel:mocks.invalidate});
+ render(<CyclingDistanceHistoryPanel activity={activity} selection={selection}/>);open();expect(screen.getByText(ko.cyclingDistanceHistory.overlay.canonicalSeparate)).toBeInTheDocument();expect(screen.getByRole("combobox",{name:ko.cyclingDistanceHistory.category})).toBeInTheDocument();expect(mocks.invalidate).not.toHaveBeenCalled();expect(mocks.apply).not.toHaveBeenCalled();
+});
+it("true overlay identity mismatch invalidates only optional results without a render crash or fetch", () => {
+ const original=row("native"), evidence=overlayEvidence(overlayRow("native"));evidence.row.startTime=original.startTime;evidence.activityRevision="101:0";
+ mocks.hook.mockReturnValue({...idle(),status:"complete",pages:[page([original])]});mocks.overlay.mockReturnValue({available:true,status:"ready",evidence:[evidence],session:null,confirmPage:mocks.apply,cancel:mocks.invalidate});
+ render(<CyclingDistanceHistoryPanel activity={activity} selection={selection}/>);open();expect(screen.getByRole("combobox",{name:ko.cyclingDistanceHistory.category})).toBeInTheDocument();expect(mocks.invalidate).toHaveBeenCalled();expect(mocks.apply).not.toHaveBeenCalled();expect(mocks.start).not.toHaveBeenCalled();expect(mocks.more).not.toHaveBeenCalled();
+});
+
+// Actual compiled coveredEvidenceRow pending/stale/invalid fixture receipt SHA256 75b1c351bdb3e6e9a9fd969522da58ea9aaaf6482c681152ba804b906d4007f9. Synthetic docs; SDK/Auth/cloud calls0.
+const compiledLifecycleRow: ReturnType<typeof overlayRow> = {
+  "activityId": "native",
+  "startTime": 2000,
+  "type": "Ride",
+  "source": "orider",
+  "representativeInput": {
+    "source": "orider",
+    "type": "Ride",
+    "discipline": "bike",
+    "localSessionId": null,
+    "stravaActivityId": null,
+    "stravaTwinActivityId": null,
+    "endTime": null,
+    "movingSec": null,
+    "hasLoad": true
+  },
+  "activityTotals": {
+    "scope": "observed_activity_totals",
+    "distanceM": null,
+    "elevationGainM": null,
+    "sourceBasis": {
+      "distanceM": "unavailable",
+      "elevationGainM": "unavailable"
+    },
+    "distanceSource": null,
+    "sourceLayer": null,
+    "elevationQuality": "unknown",
+    "gpsEligibility": "unknown"
+  },
+  "canonicalState": "unavailable",
+  "snapshotState": "missing",
+  "duplicateUncertain": false,
+  "efforts": [
+    {
+      "target": "5miles",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    },
+    {
+      "target": "10km",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    },
+    {
+      "target": "10miles",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    },
+    {
+      "target": "20km",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    },
+    {
+      "target": "30km",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    },
+    {
+      "target": "40km",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    },
+    {
+      "target": "50km",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    },
+    {
+      "target": "80km",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    },
+    {
+      "target": "50miles",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    },
+    {
+      "target": "90km",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    },
+    {
+      "target": "100km",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    },
+    {
+      "target": "100miles",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    },
+    {
+      "target": "180km",
+      "originalElapsedSec": null,
+      "effectiveElapsedSec": null,
+      "basis": "unavailable",
+      "excluded": false,
+      "canonicalActivityId": "native",
+      "effortSourceActivityId": null,
+      "conflict": false,
+      "originalClockVerified": false,
+      "coverage": "unknown",
+      "quality": "unknown"
+    }
+  ]
+};
