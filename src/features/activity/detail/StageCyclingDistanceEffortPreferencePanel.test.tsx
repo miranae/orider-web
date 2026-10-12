@@ -16,7 +16,10 @@ it("starts folded without reads and uses manual inspection only", () => {
   renderWithProviders(<Panel activity={activity} scopeKey="metrics" />);
   const title = screen.getByText("이 활동의 거리 기록 선택 관리"); expect(title.closest("details")).not.toHaveAttribute("open"); fireEvent.click(title);
   expect(mocks.inspect).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole("button", { name: "관리 상태 확인 / 새로 확인", hidden: true })); expect(mocks.inspect).toHaveBeenCalledOnce();
-  expect(screen.getByText(/현재 기간·연간 통계와 통산 기록에는 아직 반영되지 않습니다/)).toBeInTheDocument();
+  const scope = screen.getByText(/이 활동의 거리 기록 선택을 저장합니다/);
+  expect(scope).toHaveTextContent("원본 활동과 누적 거리·고도는 바뀌지 않습니다.");
+  expect(scope).toHaveTextContent("‘확인한 활동의 거리 순위’가 제공되는 경우 직접 다시 확인하면 선택이 반영됩니다.");
+  expect(scope).toHaveTextContent("기존 기간·연간 통계와 전역 개인기록은 바뀌지 않습니다.");
 });
 it("preserves all exact13 distance choices and one original observed value without automatic IO", () => {
   mocks.hook.mockReturnValue({ ...state(), read: fixture.original.response }); renderWithProviders(<Panel activity={activity} scopeKey="metrics" />);
