@@ -2304,5 +2304,46 @@
       "rejected": "The change basis could not be verified. Load the latest analysis or check the same request again.",
       "unknown": "The save outcome could not be confirmed. Retry the same request or reload the analysis."
     }
+  },
+  "routeGroup": {
+    "title": "Checked route group",
+    "scope": "Inspect the first 20 stored route records and verify sources for up to 6 activities. This does not search your entire history.",
+    "find": "Check route group",
+    "refresh": "Check again",
+    "more": "Check remaining group records",
+    "counts": "Showing {{loaded}} of {{total}} group activities · {{known}} confirmed averages · {{eligible}} averages eligible for comparison",
+    "snapshot": "Read on {{date}} KST",
+    "year": "Activity year",
+    "allYears": "All checked years",
+    "yearCounts": "Showing {{loaded}} of {{total}} group activities in {{year}}",
+    "pace": "Confirmed average pace",
+    "speed": "Confirmed average speed",
+    "chart": "{{count}} confirmed averages by activity start date",
+    "single": "{{date}} · {{value}}. One average is insufficient to establish a trend.",
+    "noAverage": "No confirmed average to display. Source records remain available below.",
+    "averageBasis": "Averages from confirmed analysis. Saved activity summaries and GPS segment speeds do not fill missing values.",
+    "noTrend": "Too few comparable averages on distinct dates, or the trend cannot be displayed.",
+    "anchor": "Current activity",
+    "fastest": "Fast average in the checked group",
+    "computed": "Analysis computed on {{date}} KST",
+    "missing": "Confirmed average unavailable",
+    "partial": "Some stored records could not have their source or route verified, or fall outside the inspected range. Any group shown reflects only the checked range.",
+    "quality": "Activity records grouped by observed route shape. The same road or course, GPS accuracy and duplicate rides are not verified. These differences alone do not establish fitness improvement.",
+    "states": {
+      "loading": "Checking the route group.",
+      "partial": "Use the button to check the remaining group records.",
+      "complete": "All group records in this read scope are displayed.",
+      "budget": "Only some sources in this read scope were verified. Any verified group is shown below.",
+      "error": "Could not read the group. Check again or retry the remaining records.",
+      "expired": "This read has expired. Check again.",
+      "invalidated": "The account or activity source changed. Check again.",
+      "unsupported": "A route group is unavailable for this activity. Existing GPS comparison remains available.",
+      "index_missing": "No prepared route record is available for this activity. Existing GPS comparison remains available."
+    },
+    "exclusions": {
+      "metric_unavailable": "Excluded from average comparison · analysis unavailable",
+      "partial_terminal": "Excluded from average comparison · partial samples",
+      "null_or_zero_speed": "Excluded from average comparison · no positive average"
+    }
   }
 }

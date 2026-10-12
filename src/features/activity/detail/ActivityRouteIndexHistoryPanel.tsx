@@ -7,6 +7,7 @@ import { getDiscipline } from "../../../utils/disciplineFilter";
 import { Button, Select, Text } from "../../../theme";
 import { routeIndexHistory } from "./activityRouteIndexHistory";
 import "./activity-route-index-history.css";
+import ActivityMatchedRouteGroupPanel from "./ActivityMatchedRouteGroupPanel";
 export default function ActivityRouteIndexHistoryPanel({ activity, observedMetricsIdentity }: { activity: Activity; observedMetricsIdentity: string }) {
   const { t, i18n } = useTranslation("activity"), { units, locale } = useLocale(), id = useId();
   const sport = getDiscipline(activity.type), discipline = sport === "run" || sport === "bike" ? sport : null;
@@ -22,7 +23,7 @@ export default function ActivityRouteIndexHistoryPanel({ activity, observedMetri
   const ticks = firstTick ? firstTick.y === lastTick?.y ? [firstTick] : [firstTick, lastTick!] : [];
   const date = (time: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(time);
   if (!query.available) return null;
-  return <section className="route-index-history" aria-label={t("routeIndexHistory.title")}>
+  return <><ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity={observedMetricsIdentity} /><section className="route-index-history" aria-label={t("routeIndexHistory.title")}>
     <details>
       <summary><Text variant="bodyMedium" weight={600}>{t("routeIndexHistory.title")}</Text></summary>
       <div className="route-index-history-body">
@@ -53,5 +54,5 @@ export default function ActivityRouteIndexHistoryPanel({ activity, observedMetri
         </>}
       </div>
     </details>
-  </section>;
+  </section></>;
 }
