@@ -1,3 +1,4 @@
+vi.mock("./StageActivityPowerDurationPanel", () => ({ default: (props: unknown) => { mocks.powerDuration(props); return <div data-testid="manual-whole-activity-power" />; } }));
 vi.mock("./RunEffortStageManagementPanel", () => ({ default: (props: unknown) => { mocks.effortTool(props); return <div data-testid="effort-choice-tool" />; } }));
 vi.mock("./ActivityRouteIndexHistoryPanel", () => ({ default: (props: unknown) => { mocks.routeIndex(props); return <div data-testid="route-index-history-panel" />; } }));
 vi.mock("./CyclingDistanceHistoryPanel", () => ({ default: (props: unknown) => { mocks.cyclingHistory(props); return <div data-testid="cycling-history-panel" />; } }));
@@ -14,7 +15,7 @@ import en from "../../../i18n/resources/en/activity.json";
 import { ActivityGrowthPanel } from "./ActivityGrowthPanel";
 import { activityPeriods } from "./activityGrowth";
 import { periodFixture, runningPeriodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
-const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn(), route: vi.fn(), routeHistory: vi.fn(), cyclingHistory: vi.fn(), routeIndex: vi.fn(), effortTool: vi.fn(), manual: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn(), route: vi.fn(), routeHistory: vi.fn(), cyclingHistory: vi.fn(), routeIndex: vi.fn(), effortTool: vi.fn(), powerDuration: vi.fn(), manual: vi.fn() }));
 vi.mock("./ObservedRouteComparisonPanel", () => ({ ObservedRouteComparisonPanel: (props: unknown) => { mocks.route(props); return null; } }));
 vi.mock("./AnnualRunHistoryPanel", () => ({ default: (props: { ownerUid: string; activityId: string; year: number }) => { mocks.annual(props); return <div data-testid="annual-history-year">{props.year}</div>; } }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
@@ -31,7 +32,7 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: { language: moc
 const activity = { id: "current", userId: "owner", startTime: 100, type: "Run", summary: {} } as Activity;
 const previous = { ...activity, id: "previous", startTime: 50, description: "earlier" };
 beforeEach(() => {
-  mocks.effortTool.mockReset();
+  mocks.effortTool.mockReset(); mocks.powerDuration.mockReset();
   mocks.routeIndex.mockReset();
   mocks.cyclingHistory.mockReset();
   mocks.routeHistory.mockReset();
@@ -532,4 +533,15 @@ describe("owner comparison readable moving time", () => {
     expect(screen.getByRole("columnheader", { name: /02:10:00/ })).toHaveTextContent(language === "ko" ? "2026. 10. 07." : "10/07/2026");
     expect(mocks.metrics).toHaveBeenLastCalledWith("previous"); expect(mocks.route).toHaveBeenLastCalledWith({ current, previous: first }); expect(mocks.periods).not.toHaveBeenCalled();
   });
+});
+
+
+it("mounts the current bike power tool only in opened statistics without changing period request flags", () => {
+  const bike = { ...activity, type: "Ride" };
+  const view = render(<ActivityGrowthPanel activity={bike} metrics={null} isOwner />);
+  expect(mocks.powerDuration).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
+  expect(mocks.powerDuration).toHaveBeenLastCalledWith(expect.objectContaining({ activity: bike, scopeKey: expect.any(String) }));
+  view.rerender(<ActivityGrowthPanel activity={{ ...bike, type: "Run" }} metrics={null} isOwner />);
+  expect(screen.queryByTestId("manual-whole-activity-power")).not.toBeInTheDocument();
 });

@@ -192,7 +192,7 @@ const renderTime = (mode: string) => {
 it("keeps exact time drafts and optional kind local until an explicit save, with a folded editor", () => {
   const channel = renderTime("canonical_available");
   expect(screen.getByText("시간 수정").closest("details")).not.toHaveAttribute("open");
-  const input = screen.getByRole("textbox", { name: "수정할 시간 (시:분:초)", hidden: true });
+  const input = screen.getByRole("textbox", { name: "수정할 시간 (분:초 / 시:분:초)", hidden: true });
   fireEvent.change(input, { target: { value: "3:51.1251" } });
   expect(screen.getByRole("button", { name: "수정 시간 저장", hidden: true })).toBeDisabled();
   fireEvent.change(input, { target: { value: "3:51.125" } });
@@ -208,9 +208,42 @@ it("allows excluded observed time edits while keeping its unapplied status visib
 });
 it("missing original records offer only clearing the existing correction without inventing a current time", () => {
   const channel = renderTime("derived_snapshot_missing_orphan");
-  expect(screen.queryByRole("textbox", { name: "수정할 시간 (시:분:초)", hidden: true })).not.toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: "수정할 시간 (분:초 / 시:분:초)", hidden: true })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "수정 시간 저장", hidden: true })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "시간 수정 해제", hidden: true }));
   expect(mocks.clearTime).toHaveBeenCalledWith(channel, channel.orphanedCorrections[0]!.target);
+  expect(mocks.saveTime).not.toHaveBeenCalled(); expect(mocks.refresh).not.toHaveBeenCalled();
+});
+
+it("labels corrected stored time as original while keeping the original, reported and applied numbers distinct", () => {
+  const channel = renderTime("derived_corrected");
+  const original = screen.getByText("400m", { selector: "span" }).closest("p")!;
+  expect(original).toHaveTextContent("원본 관측 시간 · 400m · 3:52");
+  expect(original).toHaveAttribute("title", "0:12–4:04.253747 · 3:52.253747");
+  expect(screen.getByText(/사용자 수정 시간:/)).toHaveTextContent("3:51.125");
+  expect(screen.getByText(/이 화면에 적용되는 시간:/)).toHaveTextContent("3:51.125");
+  expect(channel.efforts[0]!.originalElapsedSeconds).toBe(232.253747);
+  expect(screen.getByRole("textbox", { name: "수정할 시간 (분:초 / 시:분:초)", hidden: true })).toHaveValue("3:51.125");
+  expect(screen.getByText("시간 수정").closest("details")).not.toHaveAttribute("open");
+  expect(mocks.saveTime).not.toHaveBeenCalled(); expect(mocks.refresh).not.toHaveBeenCalled();
+});
+it("labels a corrected canonical number as original without changing its exact time", () => {
+  const channel = renderTime("canonical_corrected"), effort = channel.efforts[0]!;
+  const original = screen.getByTitle(String(effort.originalElapsedSeconds));
+  expect(original).toHaveTextContent("원본 관측 시간"); expect(original).toHaveTextContent("5km");
+  expect(effort.timeCorrection).not.toBeNull(); expect(mocks.saveTime).not.toHaveBeenCalled();
+});
+it("keeps the plain compact stored result when no correction is saved, even after changing the local draft", () => {
+  const response = structuredClone(timeWire.cases.find(value => value.mode === "derived_corrected")!.response) as unknown as Parameters<typeof RunEffortStageManagementPanel>[0]["appliedResponse"];
+  const channel = response.periods[0]!.stageTimeAdjustedEfforts!, effort = channel.efforts[0]!;
+  effort.timeCorrection = null; effort.correctionStatus = "none"; effort.effectiveElapsedSeconds = effort.originalElapsedSeconds;
+  mocks.hook.mockReturnValue({ ...state(), state: "ready", response });
+  renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} />);
+  fireEvent.change(screen.getByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true }), { target: { value: "inside" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "선택할 거리", hidden: true }), { target: { value: "400m" } });
+  const original = screen.getByText("400m", { selector: "span" }).closest("p")!;
+  expect(original).toHaveTextContent(/^400m · 3:52$/); expect(original).not.toHaveTextContent("원본");
+  fireEvent.change(screen.getByRole("textbox", { name: "수정할 시간 (분:초 / 시:분:초)", hidden: true }), { target: { value: "0:03:50.125" } });
+  expect(original).toHaveTextContent(/^400m · 3:52$/); expect(original).not.toHaveTextContent("원본");
   expect(mocks.saveTime).not.toHaveBeenCalled(); expect(mocks.refresh).not.toHaveBeenCalled();
 });

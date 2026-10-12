@@ -19,6 +19,7 @@ import RunSplitComparisonPanel from "./RunSplitComparisonPanel";
 import RunPeriodComparisonPanel from "./RunPeriodComparisonPanel";
 import AnnualRunHistoryPanel from "./AnnualRunHistoryPanel";
 import RunEffortStageManagementPanel from "./RunEffortStageManagementPanel";
+import StageActivityPowerDurationPanel from "./StageActivityPowerDurationPanel";
 import TrainingPeriodZonesPanel from "./TrainingPeriodZonesPanel";
 import { Button, Card, ChartFrame, Input, Select, Stack, Stat, Text } from "../../../theme";
 import "./activity-growth-panel.css";
@@ -191,6 +192,7 @@ function Statistics({ activity }: { activity: Activity }) {
   const date = (time: number) => new Date(time).toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" });
   const trendTitle = trendMetric === "distance" ? t(longPeriod ? "growth.monthlyTrend" : "growth.weeklyTrend", { count: trend.length, unit: units === "imperial" ? "mi" : "km" }) : t(longPeriod ? "growth.monthlyMetricTrend" : "growth.weeklyMetricTrend", { count: trend.length, metric: t(`growth.stats.${trendMetric}`, { unit: units === "imperial" ? "ft" : "m" }) });
   return <div className="space-y-4">
+    {discipline === "bike" && <StageActivityPowerDurationPanel activity={activity} scopeKey={JSON.stringify([period, boundaries])} />}
     <Stack direction="row" wrap gap="var(--space-2)">{(["week", "month", "3months", "6months", "12months", "custom", "year"] as const).filter(value => value !== "year" || canonicalEnabled).map((value) => <Button size="sm" key={value} variant={period === value ? "secondary" : "ghost"} onClick={() => { setPeriod(value); setSelectedBucket(null); }} aria-pressed={period === value}>{t(value === "year" ? "observedYears.mode" : `growth.${value}`)}</Button>)}</Stack>
     {period === "year" && <Stack gap="var(--space-2)"><Stack direction="row" wrap gap="var(--space-3)">
       <label htmlFor={`${bucketId}-year`}><Text as="span" variant="bodyMedium">{t("observedYears.select")}</Text><Select id={`${bucketId}-year`} className="min-h-[calc(var(--dim-button-height)+var(--space-1))] text-[length:var(--fs-md)]" value={draftYear} onChange={event => setDraftYear(Number(event.target.value))}>{Array.from({ length: currentYear - 1971 }, (_, index) => currentYear - index).map(year => <option key={year} value={year}>{year}</option>)}</Select></label>
