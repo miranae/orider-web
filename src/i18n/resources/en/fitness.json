@@ -997,5 +997,22 @@
       "non_finite_result": "A reference time could not be calculated."
     },
     "savedAccountUnverified": "The result was saved, but account state could not be confirmed afterward. Saving was not undone. Retry the same request to confirm."
+  },
+  "powerSkills": {
+    "title": "12-duration comparison",
+    "freePeriods": "Choose periods freely",
+    "preset": "Recent 56 days / all observed",
+    "requestNote": "Press Load to compare the rolling last 56 days and all time using one cutoff.",
+    "recent": "Recent 56 days",
+    "allObserved": "All observed time",
+    "scope": "Maxima among confirmed observations of measured power. All time includes the recent 56 days; this is not a growth rate or a best across every activity. The stored grid has no exact 15-second, 3-minute, 15-minute or 45-minute records.",
+    "scanned": "{{scanned}} activities scanned · {{included}} activities with duration observations",
+    "missing_exact_duration": "No exact-duration record",
+    "channel_unavailable": "Duration observations unavailable",
+    "qualification_unverified": "Measurement qualification unverified",
+    "weight_unavailable": "Calculation-time weight unavailable",
+    "table": "View all 12 durations",
+    "cutoff": "Comparison cutoff {{date}} (Korea time)",
+    "evidence": "Exact duration {{duration}} seconds · raw value {{value}} · revision {{revision}}"
   }
 }

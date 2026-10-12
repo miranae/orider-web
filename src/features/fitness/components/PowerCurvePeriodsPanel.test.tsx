@@ -118,4 +118,23 @@ describe("PowerCurvePeriodsPanel", () => {
     expect(screen.queryByText("250.1")).not.toBeInTheDocument();
   });
   it("hides owner analysis for another account", () => { mocks.owner = "other"; const view = render(<PowerCurvePeriodsPanel ownerUid="owner" />); expect(view.container).toBeEmptyDOMElement(); expect(mocks.hook).not.toHaveBeenCalled(); });
+  it("loads rolling56 and all observed only after an explicit load and keeps edits manual", () => {
+    const cutoff = Date.UTC(2026, 9, 13, 3, 45, 12);
+    const clock = vi.spyOn(Date, "now").mockReturnValue(cutoff);
+    try {
+      render(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled />);
+      fireEvent.click(screen.getByText("powerSkills.preset"));
+      expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
+      fireEvent.click(screen.getByText("periodCurve.load"));
+      expect(mocks.hook.mock.lastCall?.[1].request.periods).toEqual([
+        { fromInclusive: cutoff - 56 * 86400000, toExclusive: cutoff },
+        { fromInclusive: 0, toExclusive: cutoff },
+      ]);
+      fireEvent.change(screen.getByRole("combobox", { name: "periodCurve.unit" }), { target: { value: "W/kg" } });
+      expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
+      fireEvent.click(screen.getByText("powerSkills.freePeriods"));
+      expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
+      expect(screen.getByRole("combobox", { name: "periodCurve.period 1" })).toBeInTheDocument();
+    } finally { clock.mockRestore(); }
+  });
 });
