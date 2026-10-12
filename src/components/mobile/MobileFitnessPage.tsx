@@ -1,3 +1,4 @@
+import RunningRaceEstimatesPanel from "../../features/fitness/RunningRaceEstimatesPanel";
 /**
  * 모바일 피트니스 페이지.
  *
@@ -546,6 +547,7 @@ function MobilePowerCurvePeriods({ ownerUid, enabled }: { ownerUid: string; enab
 // ── 메인 ──────────────────────────────────────────────────────
 export default function MobileFitnessPage({
   data,
+  runningRaceEstimatesOwnerUid,
   powerCurvePeriodsOwnerUid,
   powerCurvePeriodsEnabled = false,
   pmcHistoryPoints,
@@ -563,6 +565,7 @@ export default function MobileFitnessPage({
   sectionState = { trend: "ready", derived: "ready" },
 }: {
   data: MobileFitnessData;
+  runningRaceEstimatesOwnerUid?: string;
   powerCurvePeriodsOwnerUid?: string;
   powerCurvePeriodsEnabled?: boolean;
   /** 표시 범위를 확장해도 활동 상세 조회는 늘리지 않는 전체 일별 이력. */
@@ -840,6 +843,8 @@ export default function MobileFitnessPage({
               </div>
             </SectionCard>
           )}
+
+          {data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
 
           {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
 

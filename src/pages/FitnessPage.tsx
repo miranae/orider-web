@@ -1,3 +1,4 @@
+import RunningRaceEstimatesPanel from "../features/fitness/RunningRaceEstimatesPanel";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import "./FitnessPage.css";
 import { PowerCurvePeriodsPanel } from "../features/fitness/components/PowerCurvePeriodsPanel";
@@ -280,6 +281,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
           <MobileFitnessPage
             {...model.mobilePageProps}
+            runningRaceEstimatesOwnerUid={user.isAnonymous ? undefined : user.uid}
             powerCurvePeriodsOwnerUid={user.uid}
             powerCurvePeriodsEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true}
             embedded={embedded}
@@ -893,6 +895,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             </div>
           </Card>
 
+          {discipline === "run" && !user.isAnonymous && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}
           {discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>}
 
           {/* 파워 커브 / 페이스 커브 (종목 분기) */}
