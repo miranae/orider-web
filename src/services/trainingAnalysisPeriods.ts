@@ -271,9 +271,11 @@ function validStageDerivedDistances(value: StageDerivedRunDistancePeriod, period
     const binding = period.running?.stageEffortOverlay?.preferenceBindings.find(row => row.activityId === source?.activityId);
     const activity = period.activities.find(row => row.activityId === source?.activityId);
     const qualifiedLegacy = !!source && (Object.prototype.hasOwnProperty.call(source, "qualification") || Object.prototype.hasOwnProperty.call(source, "manifestObjectIncarnationVerified"));
+    const hasWallClockBasis = !!source && Object.prototype.hasOwnProperty.call(source, "timeBasis");
+    if (hasWallClockBasis && source.timeBasis !== "stored_activity_wall_clock_window") return false;
     if (qualifiedLegacy && (source.qualification !== "legacy_manifest_revision_and_gcs_token_pinned" || source.manifestObjectIncarnationVerified !== false
       || !Object.prototype.hasOwnProperty.call(source, "qualification") || !Object.prototype.hasOwnProperty.call(source, "manifestObjectIncarnationVerified"))) return false;
-    if (!source || typeof source !== "object" || Object.keys(source).sort().join(",") !== ["activityId", "startTime", "derivedRevision", "observedTargets", "excludedTargets", "records", ...(qualifiedLegacy ? ["qualification", "manifestObjectIncarnationVerified"] : [])].sort().join(",")
+    if (!source || typeof source !== "object" || Object.keys(source).sort().join(",") !== ["activityId", "startTime", "derivedRevision", "observedTargets", "excludedTargets", "records", ...(qualifiedLegacy ? ["qualification", "manifestObjectIncarnationVerified"] : []), ...(hasWallClockBasis ? ["timeBasis"] : [])].sort().join(",")
       || source.activityId !== request.stageRunDistanceSnapshotActivityIds[0] || !binding || !activity || source.startTime !== activity.startTime
       || typeof source.derivedRevision !== "string" || !/^[a-f0-9]{64}$/u.test(source.derivedRevision) || source.derivedRevision !== binding.derivedRevision
       || !Array.isArray(source.observedTargets) || source.observedTargets.length > 14 || new Set(source.observedTargets).size !== source.observedTargets.length

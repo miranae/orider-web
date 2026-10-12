@@ -30,6 +30,7 @@ export interface StageRunDistanceSnapshot {
     decodedBytes: number;
     decodedDigest: string;
     calculatorArtifactHash: string;
+    timeBasis?: "stored_activity_wall_clock_window";
   } & ({ ingestIncarnation: string } | {
     ingestIncarnation: null;
     qualification: "legacy_manifest_revision_and_gcs_token_pinned";
@@ -53,6 +54,7 @@ export interface StageDerivedRunDistancePeriod {
     observedTargets: ExpandedRunDistanceKey[];
     excludedTargets: ExpandedRunDistanceKey[];
     records: StageRunDistanceSnapshot["records"];
+    timeBasis?: "stored_activity_wall_clock_window";
     qualification?: "legacy_manifest_revision_and_gcs_token_pinned";
     manifestObjectIncarnationVerified?: false;
   }>;

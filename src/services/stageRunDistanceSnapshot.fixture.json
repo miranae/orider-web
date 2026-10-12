@@ -1,11 +1,11 @@
 {
-  "parent": "d7ffa3b6f537ce28304d3fa1b9f1912f0085ef03",
+  "parent": "de32c6d3edc388a63e2c1f7866e2f0eca4d2720f",
   "execution": "actual compiled snapshot decoder/validator, period reader, preference mutation; synthetic local fake Firestore/GCS metadata only",
   "liveIO": 0,
   "rawDownloads": 0,
   "productionWrites": 0,
   "syntheticStageWrites": 4,
-  "calculatorArtifactHash": "8c768849358a906fae7e2c8fb957ba8cd74a9335887b8a2a11e0bd9aa7190e60",
+  "calculatorArtifactHash": "0392346f5b43aabaa6cf7db2c0c907c589280fc1567878bcd03789075cae0620",
   "replayOutcomes": [
     {
       "scenario": "missing",
@@ -671,7 +671,7 @@
                   "excludedTargets": [],
                   "metricsRevision": "100:1",
                   "mutationReady": true,
-                  "derivedRevision": "82fb8bb9971d59c4dc4301c411402ab54591b973796bc713568d58c21b9338df"
+                  "derivedRevision": "86cdbdae080d56c6054d083208e4436e5bf3c461e71318b6fc8d8863eae1b723"
                 }
               ]
             },
@@ -914,7 +914,7 @@
               {
                 "activityId": "a",
                 "startTime": 1789830000000,
-                "derivedRevision": "82fb8bb9971d59c4dc4301c411402ab54591b973796bc713568d58c21b9338df",
+                "derivedRevision": "86cdbdae080d56c6054d083208e4436e5bf3c461e71318b6fc8d8863eae1b723",
                 "observedTargets": [
                   "400m"
                 ],
@@ -1145,7 +1145,7 @@
                   ],
                   "metricsRevision": "100:1",
                   "mutationReady": true,
-                  "derivedRevision": "82fb8bb9971d59c4dc4301c411402ab54591b973796bc713568d58c21b9338df"
+                  "derivedRevision": "86cdbdae080d56c6054d083208e4436e5bf3c461e71318b6fc8d8863eae1b723"
                 }
               ]
             },
@@ -1388,7 +1388,7 @@
               {
                 "activityId": "a",
                 "startTime": 1789830000000,
-                "derivedRevision": "82fb8bb9971d59c4dc4301c411402ab54591b973796bc713568d58c21b9338df",
+                "derivedRevision": "86cdbdae080d56c6054d083208e4436e5bf3c461e71318b6fc8d8863eae1b723",
                 "observedTargets": [
                   "400m"
                 ],
@@ -1608,7 +1608,7 @@
                   "excludedTargets": [],
                   "metricsRevision": "100:1",
                   "mutationReady": true,
-                  "derivedRevision": "82fb8bb9971d59c4dc4301c411402ab54591b973796bc713568d58c21b9338df"
+                  "derivedRevision": "86cdbdae080d56c6054d083208e4436e5bf3c461e71318b6fc8d8863eae1b723"
                 }
               ]
             },
@@ -1851,7 +1851,7 @@
               {
                 "activityId": "a",
                 "startTime": 1789830000000,
-                "derivedRevision": "82fb8bb9971d59c4dc4301c411402ab54591b973796bc713568d58c21b9338df",
+                "derivedRevision": "86cdbdae080d56c6054d083208e4436e5bf3c461e71318b6fc8d8863eae1b723",
                 "observedTargets": [
                   "400m"
                 ],

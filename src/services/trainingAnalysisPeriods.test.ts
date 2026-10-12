@@ -490,3 +490,28 @@ describe("qualified earlier stored-distance format", () => {
     expect(() => validateTrainingAnalysisPeriodsResponse(modern, request)).toThrow();
   });
 });
+
+describe("stored activity start/end clock window", () => {
+  it("accepts actual modern and legacy fallback wire while retaining unknown original clocks and canonical stats", async () => {
+    const modern = await import("./stageRunDistanceSnapshotWall.fixture.json");
+    const legacy = await import("./stageRunDistanceSnapshotLegacyWall.fixture.json");
+    for (const wire of [modern.default, legacy.default]) for (const name of ["before", "excluded", "restored"] as const) {
+      const response = wire.cases[name] as TrainingAnalysisPeriodsResponse;
+      const request = { discipline: "run" as const, periods: response.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })),
+        includeStageRunEffortPreferences: true as const, includeExpandedRunDistances: true as const, stageRunDistanceSnapshotActivityIds: ["a"] as [string] };
+      expect(validateTrainingAnalysisPeriodsResponse(response, request)).toBe(response);
+      expect(response.periods[0]!.stageDerivedRunDistances).toMatchObject({ originalClockVerified: false, coverage: "unknown", quality: "unknown", sources: [{ timeBasis: "stored_activity_wall_clock_window" }] });
+      expect(response.periods[0]!.running!.expandedDistanceAnalysis).toEqual(wire.cases.baseline.periods[0]!.running!.expandedDistanceAnalysis);
+    }
+  });
+  it("rejects present undefined/null/unknown time bases without treating them as the older omitted wire", async () => {
+    const { default: wire } = await import("./stageRunDistanceSnapshotWall.fixture.json");
+    const request = { discipline: "run" as const, periods: wire.cases.before.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })),
+      includeStageRunEffortPreferences: true as const, includeExpandedRunDistances: true as const, stageRunDistanceSnapshotActivityIds: ["a"] as [string] };
+    for (const value of [undefined, null, "unknown", "measured_sensor_elapsed", true]) {
+      const response = structuredClone(wire.cases.before) as TrainingAnalysisPeriodsResponse;
+      (response.periods[0]!.stageDerivedRunDistances!.sources[0]! as any).timeBasis = value;
+      expect(() => validateTrainingAnalysisPeriodsResponse(response, request)).toThrow();
+    }
+  });
+});

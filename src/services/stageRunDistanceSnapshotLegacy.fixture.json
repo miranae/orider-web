@@ -1,11 +1,11 @@
 {
-  "parent": "d7ffa3b6f537ce28304d3fa1b9f1912f0085ef03",
+  "parent": "de32c6d3edc388a63e2c1f7866e2f0eca4d2720f",
   "execution": "actual compiled snapshot decoder/validator, period reader, preference mutation; synthetic local fake Firestore/GCS metadata only",
   "liveIO": 0,
   "rawDownloads": 0,
   "productionWrites": 0,
   "syntheticStageWrites": 4,
-  "calculatorArtifactHash": "8c768849358a906fae7e2c8fb957ba8cd74a9335887b8a2a11e0bd9aa7190e60",
+  "calculatorArtifactHash": "0392346f5b43aabaa6cf7db2c0c907c589280fc1567878bcd03789075cae0620",
   "replayOutcomes": [
     {
       "scenario": "missing",
@@ -671,7 +671,7 @@
                   "excludedTargets": [],
                   "metricsRevision": "100:1",
                   "mutationReady": true,
-                  "derivedRevision": "1ae7d4fe4fc29d9ab43e3389814791a40afadad7ffe23b4a789d63f85b96f826"
+                  "derivedRevision": "4bfef1d44f5ad3db87f8adf7ed7876776b2b238d1df232f71a8a8943d191cca8"
                 }
               ]
             },
@@ -914,7 +914,7 @@
               {
                 "activityId": "a",
                 "startTime": 1789830000000,
-                "derivedRevision": "1ae7d4fe4fc29d9ab43e3389814791a40afadad7ffe23b4a789d63f85b96f826",
+                "derivedRevision": "4bfef1d44f5ad3db87f8adf7ed7876776b2b238d1df232f71a8a8943d191cca8",
                 "qualification": "legacy_manifest_revision_and_gcs_token_pinned",
                 "manifestObjectIncarnationVerified": false,
                 "observedTargets": [
@@ -1147,7 +1147,7 @@
                   ],
                   "metricsRevision": "100:1",
                   "mutationReady": true,
-                  "derivedRevision": "1ae7d4fe4fc29d9ab43e3389814791a40afadad7ffe23b4a789d63f85b96f826"
+                  "derivedRevision": "4bfef1d44f5ad3db87f8adf7ed7876776b2b238d1df232f71a8a8943d191cca8"
                 }
               ]
             },
@@ -1390,7 +1390,7 @@
               {
                 "activityId": "a",
                 "startTime": 1789830000000,
-                "derivedRevision": "1ae7d4fe4fc29d9ab43e3389814791a40afadad7ffe23b4a789d63f85b96f826",
+                "derivedRevision": "4bfef1d44f5ad3db87f8adf7ed7876776b2b238d1df232f71a8a8943d191cca8",
                 "qualification": "legacy_manifest_revision_and_gcs_token_pinned",
                 "manifestObjectIncarnationVerified": false,
                 "observedTargets": [
@@ -1612,7 +1612,7 @@
                   "excludedTargets": [],
                   "metricsRevision": "100:1",
                   "mutationReady": true,
-                  "derivedRevision": "1ae7d4fe4fc29d9ab43e3389814791a40afadad7ffe23b4a789d63f85b96f826"
+                  "derivedRevision": "4bfef1d44f5ad3db87f8adf7ed7876776b2b238d1df232f71a8a8943d191cca8"
                 }
               ]
             },
@@ -1855,7 +1855,7 @@
               {
                 "activityId": "a",
                 "startTime": 1789830000000,
-                "derivedRevision": "1ae7d4fe4fc29d9ab43e3389814791a40afadad7ffe23b4a789d63f85b96f826",
+                "derivedRevision": "4bfef1d44f5ad3db87f8adf7ed7876776b2b238d1df232f71a8a8943d191cca8",
                 "qualification": "legacy_manifest_revision_and_gcs_token_pinned",
                 "manifestObjectIncarnationVerified": false,
                 "observedTargets": [

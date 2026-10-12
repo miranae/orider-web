@@ -101,3 +101,16 @@ it("qualifies earlier stored formats in the folded method note and keeps origina
   expect(screen.getByText("6:07")).toBeInTheDocument();
   expect(screen.queryByText(/legacy_manifest|manifestObject|gcsIncarnationToken/)).not.toBeInTheDocument();
 });
+
+it("describes a stored start/end clock window inside the folded method note without claiming measured hardware elapsed", async () => {
+  const { default: wire } = await import("../../../services/stageRunDistanceSnapshotLegacyWall.fixture.json");
+  const response = wire.cases.before as unknown as Parameters<typeof RunEffortStageManagementPanel>[0]["appliedResponse"];
+  mocks.hook.mockReturnValue({ ...state(), state: "ready", response });
+  renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} />);
+  fireEvent.change(screen.getByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true }), { target: { value: "a" } });
+  const note = screen.getByText("저장된 활동 시작·종료 시각 범위의 거리 데이터로 계산했습니다.");
+  expect(note.closest("details")).not.toHaveAttribute("open");
+  expect(screen.getByText(/원래 센서 시계와 활동 전체의 수집 완전성은 확인되지/)).toBeInTheDocument();
+  expect(screen.getByText(/처음 기록된 데이터와의 연결은 확인되지/)).toBeInTheDocument();
+  expect(screen.queryByText(/stored_activity_wall_clock_window|timeBasis|ridingTime/)).not.toBeInTheDocument();
+});

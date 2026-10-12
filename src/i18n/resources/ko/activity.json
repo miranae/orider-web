@@ -2149,6 +2149,7 @@
     "savedCountsNote": "누락 사유는 저장된 활동 분석의 집계입니다. 역치 없음 0건이 현재 프로필에 역치가 설정되어 있다는 뜻은 아닙니다."
   },
   "runEffortTool": {
+    "storedWallClockLimit": "저장된 활동 시작·종료 시각 범위의 거리 데이터로 계산했습니다.",
     "storedLegacyLimit": "이전 저장 형식의 거리로 계산했습니다. 처음 기록된 데이터와의 연결은 확인되지 않았습니다.",
     "storedSource": "저장 거리 데이터로 확인할 활동",
     "canonicalOnly": "기존 분석만 불러오기",
