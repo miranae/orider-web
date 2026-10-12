@@ -2195,7 +2195,20 @@
         "preference_changed": "Saved choices changed",
         "expired": "Snapshot expired",
         "server_input_changed": "Server input or access changed",
-        "transport": "Network verification failed"
+        "transport": "Network verification failed",
+        "read_times_shape": "Read-time shape validation failed",
+        "read_times_quantum": "Read-time precision validation failed",
+        "read_times_future": "Server read time is ahead of the browser clock",
+        "read_times_source_binding": "Source snapshot time binding failed",
+        "read_times_stage_binding": "Choice snapshot time binding failed",
+        "read_times_order": "Final read-time order validation failed"
+      },
+      "clockObservation": "Maximum server read-time lead at validation: {{ahead}}ms · browser clock {{client}}ms",
+      "timeFrames": {
+        "sourceInitial": "Source snapshot read",
+        "sourceFinal": "Source final verification",
+        "stageInitial": "Choice snapshot read",
+        "stageFinal": "Choice final verification"
       }
     }
   },

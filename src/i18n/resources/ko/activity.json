@@ -2195,7 +2195,20 @@
         "preference_changed": "저장한 선택 변경",
         "expired": "조회 시간 만료",
         "server_input_changed": "서버 입력 또는 접근 상태 변경",
-        "transport": "통신 확인 실패"
+        "transport": "통신 확인 실패",
+        "read_times_shape": "조회 시각 형식 확인 실패",
+        "read_times_quantum": "조회 시각의 정밀도 확인 실패",
+        "read_times_future": "서버 조회 시각이 브라우저 시각보다 앞섬",
+        "read_times_source_binding": "분석 고정 시각의 연결 확인 실패",
+        "read_times_stage_binding": "선택 고정 시각의 연결 확인 실패",
+        "read_times_order": "최종 조회 시각의 순서 확인 실패"
+      },
+      "clockObservation": "확인 당시 서버 조회 시각의 최대 선행 {{ahead}}ms · 브라우저 시각 {{client}}ms",
+      "timeFrames": {
+        "sourceInitial": "분석 고정 조회",
+        "sourceFinal": "분석 최종 확인",
+        "stageInitial": "선택 고정 조회",
+        "stageFinal": "선택 최종 확인"
       }
     }
   },
