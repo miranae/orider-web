@@ -258,7 +258,7 @@ describe("MobileFitnessPage tri", () => {
       <MobileFitnessPage data={{ ...base, discipline: "bike" } satisfies MobileFitnessData} />,
     );
 
-    await user.click(screen.getByRole("button", { name: "파워존" }));
+    await user.click(screen.getByRole("button", { name: "분석" }));
     expect(screen.getByRole("button", { name: "개요" })).not.toHaveAttribute("aria-pressed");
 
     rerender(<MobileFitnessPage data={{ ...base, discipline: "tri" } satisfies MobileFitnessData} />);
