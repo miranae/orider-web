@@ -6,7 +6,7 @@ import type { CyclingDistanceHistoryRequest } from "@shared/types/training-cycli
 import type { StageCyclingDistanceCoveredRankingsRequest as Request } from "@shared/types/stage-cycling-distance-covered-rankings";
 import { useStageCyclingDistanceCoveredRankings } from "../../../hooks/useStageCyclingDistanceCoveredRankings";
 import { cyclingDistanceCoveredRankings } from "./cyclingDistanceCoveredRankings";
-import { Button, ChartFrame, Select, Stack, Text } from "../../../theme";
+import { Button, ChartFrame, Input, Select, Stack, Text } from "../../../theme";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { formatElapsedBoundary } from "./activityRangeSelection";
 function Content({ activity, selection, headIdentity }: { activity: Activity; selection: CyclingDistanceHistoryRequest; headIdentity: string }) {
@@ -29,21 +29,38 @@ function Content({ activity, selection, headIdentity }: { activity: Activity; se
   const scatter = points.map(point => { const x = points.length <= 1 ? 225 : 65 + (point.startTime - points[0]!.startTime) * 320 / Math.max(1, points[points.length - 1]!.startTime - points[0]!.startTime), y = min === max ? 80 : 25 + (point.effectiveElapsedSec - min) * 110 / (max - min); return `M${x},${y}m-3,0a3,3 0 1,0 6,0a3,3 0 1,0 -6,0z`; }).join(" ");
   return <Stack gap="var(--space-3)">
     <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.scope")}</Text>
-    <label htmlFor={`${id}-range`}><Text variant="bodyMedium">{t("cyclingCoveredRankings.range")}</Text><Select id={`${id}-range`} className={control} value={mode} onChange={event => { setMode(event.target.value as typeof mode); setLimit(event.target.value === "calendar_year" ? 5 : 10); }}>{["calendar_year", "custom", "lifetime"].map(key => <option key={key} value={key}>{t(`cyclingCoveredRankings.${key}`)}</option>)}</Select></label>
-    {mode === "calendar_year" && <label htmlFor={`${id}-year`}><Text variant="bodyMedium">{t("cyclingCoveredRankings.year")}</Text><input className={control} id={`${id}-year`} type="number" min={1972} max={new Date(now + 32400000).getUTCFullYear()} value={year} onChange={event => setYear(event.target.value)} /></label>}
-    {mode === "custom" && <Stack direction="row" wrap gap="var(--space-2)"><label htmlFor={`${id}-from`}><Text variant="bodyMedium">{t("cyclingCoveredRankings.from")}</Text><input className={control} id={`${id}-from`} type="date" value={from} onChange={event => setFrom(event.target.value)} /></label><label htmlFor={`${id}-to`}><Text variant="bodyMedium">{t("cyclingCoveredRankings.to")}</Text><input className={control} id={`${id}-to`} type="date" max={day(now)} value={to} onChange={event => setTo(event.target.value)} /></label></Stack>}
+    <div className="grid gap-[var(--space-3)] sm:grid-cols-2">
+      <label className={`block space-y-2 min-w-0 ${mode === "calendar_year" ? "" : "sm:col-span-2"}`} htmlFor={`${id}-range`}><Text as="span" className="block" variant="bodyMedium">{t("cyclingCoveredRankings.range")}</Text><Select id={`${id}-range`} className={control} value={mode} onChange={event => { setMode(event.target.value as typeof mode); setLimit(event.target.value === "calendar_year" ? 5 : 10); }}>{["calendar_year", "custom", "lifetime"].map(key => <option key={key} value={key}>{t(`cyclingCoveredRankings.${key}`)}</option>)}</Select></label>
+      {mode === "calendar_year" && <label className="block space-y-2 min-w-0" htmlFor={`${id}-year`}><Text as="span" className="block" variant="bodyMedium">{t("cyclingCoveredRankings.year")}</Text><Input className={control} id={`${id}-year`} type="number" min={1972} max={new Date(now + 32400000).getUTCFullYear()} value={year} onChange={event => setYear(event.target.value)} /></label>}
+      {mode === "custom" && <>
+        <label className="block space-y-2 min-w-0" htmlFor={`${id}-from`}><Text as="span" className="block" variant="bodyMedium">{t("cyclingCoveredRankings.from")}</Text><Input className={control} id={`${id}-from`} type="date" value={from} onChange={event => setFrom(event.target.value)} /></label>
+        <label className="block space-y-2 min-w-0" htmlFor={`${id}-to`}><Text as="span" className="block" variant="bodyMedium">{t("cyclingCoveredRankings.to")}</Text><Input className={control} id={`${id}-to`} type="date" max={day(now)} value={to} onChange={event => setTo(event.target.value)} /></label>
+      </>}
+    </div>
     <Stack direction="row" wrap gap="var(--space-2)">{([10, 20] as const).map(profile => <Button className={control} size="sm" variant="outline" key={profile} disabled={!tool.available || tool.status === "loading"} onClick={() => void tool.confirm(profile)}>{t("cyclingCoveredRankings.confirm", { count: profile })}</Button>)}{tool.status === "loading" && <Button className={control} size="sm" variant="outline" onClick={tool.cancel}>{t("cyclingCoveredRankings.cancel")}</Button>}{["invalidated", "error", "ready"].includes(tool.status) && <Button className={control} size="sm" variant="outline" disabled={!tool.available} onClick={() => void tool.confirm(tool.response?.requestScope.profile ?? 10)}>{t("cyclingCoveredRankings.recheck")}</Button>}</Stack>
-    <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.cost")}</Text>
+    <details>
+      <summary className={`cursor-pointer py-3 ${control}`}><Text as="span" variant="bodyMedium">{t("cyclingCoveredRankings.costDetails")}</Text></summary>
+      <Stack gap="var(--space-2)">
+        <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.cost")}</Text>
+        {tool.response && <>
+          <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.technicalAsOf", { source: date(tool.response.readTimes.sourceFinal.seconds * 1000, true), stage: date(tool.response.readTimes.stageFinal.seconds * 1000, true) })}</Text>
+          <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.technicalStates", tool.response.coverage)}</Text>
+          <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.io", { docs: tool.response.io.sourceDocs + tool.response.io.stageDocs, metadata: tool.response.io.metadata })}</Text>
+          {tool.response.cohort.queryExhausted && <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.technicalExhausted")}</Text>}
+        </>}
+      </Stack>
+    </details>
     {tool.status === "loading" && <Text as="p" variant="bodyMedium" role="status">{t("cyclingCoveredRankings.loading")}</Text>}
     {["invalidated", "error"].includes(tool.status) && <Text as="p" variant="bodyMedium" role="status">{t(`cyclingCoveredRankings.${tool.status}`)}</Text>}
     {tool.response && <>
       <Text as="p" variant="bodyMedium">{t("cyclingCoveredRankings.coverage", { count: tool.response.cohort.loadedActivityCount, scanned: tool.response.cohort.scannedActivityCount, from: date(tool.response.requestScope.range.fromInclusive), to: date(tool.response.requestScope.range.toExclusive - 1) })}</Text>
       <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.asOf", { source: date(tool.response.readTimes.sourceFinal.seconds * 1000, true), stage: date(tool.response.readTimes.stageFinal.seconds * 1000, true) })}</Text>
       <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.states", tool.response.coverage)} · {t(tool.response.cohort.queryExhausted ? "cyclingCoveredRankings.exhausted" : "cyclingCoveredRankings.capped")}</Text>
-      <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.io", { docs: tool.response.io.sourceDocs + tool.response.io.stageDocs, metadata: tool.response.io.metadata })}</Text>
       {!["in_prefix", "included", "not_requested"].includes(tool.response.requestScope.anchor.outcome) && <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.anchorMissing")}</Text>}
-      <label htmlFor={`${id}-target`}><Text variant="bodyMedium">{t("manualBikeEvidence.distance")}</Text><Select id={`${id}-target`} className={control} value={target} onChange={event => setTarget(event.target.value as BikeDistanceKey)}>{BIKE_DISTANCE_TARGETS.map(key => <option key={key} value={key}>{t(`manualBikeEvidence.distances.${key}`)}</option>)}</Select></label>
-      <label htmlFor={`${id}-limit`}><Text variant="bodyMedium">{t("cyclingCoveredRankings.top")}</Text><Select id={`${id}-limit`} className={control} value={limit} onChange={event => setLimit(Number(event.target.value) as 5 | 10)}><option value={5}>Top 5</option><option value={10}>Top 10</option></Select></label>
+      <div className="grid gap-[var(--space-3)] sm:grid-cols-2">
+        <label className="block space-y-2 min-w-0" htmlFor={`${id}-target`}><Text as="span" className="block" variant="bodyMedium">{t("manualBikeEvidence.distance")}</Text><Select id={`${id}-target`} className={control} value={target} onChange={event => setTarget(event.target.value as BikeDistanceKey)}>{BIKE_DISTANCE_TARGETS.map(key => <option key={key} value={key}>{t(`manualBikeEvidence.distances.${key}`)}</option>)}</Select></label>
+        <label className="block space-y-2 min-w-0" htmlFor={`${id}-limit`}><Text as="span" className="block" variant="bodyMedium">{t("cyclingCoveredRankings.top")}</Text><Select id={`${id}-limit`} className={control} value={limit} onChange={event => setLimit(Number(event.target.value) as 5 | 10)}><option value={5}>Top 5</option><option value={10}>Top 10</option></Select></label>
+      </div>
       <Text as="h4" variant="bodyMedium" weight={600}>{t("cyclingCoveredRankings.best")}</Text>
       {projection.winner ? <Text as="p" variant="bodyMedium">{formatElapsedBoundary(projection.winner.effectiveElapsedSec)}</Text> : <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.empty")}</Text>}
       <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingCoveredRankings.next", { value: projection.nextBest ? formatElapsedBoundary(projection.nextBest.effectiveElapsedSec) : t("cyclingCoveredRankings.noNext") })}</Text>

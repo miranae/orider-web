@@ -63,3 +63,35 @@ it.each(["excluded", "unavailable"])("never charts %s efforts or invents a slope
   expect(path).toHaveAttribute("data-observation-count", "1"); expect(path.getAttribute("d")).toMatch(/^M225,80m/);
   expect(mocks.confirm).not.toHaveBeenCalled();
 });
+
+it.each(["ko", "en"])("uses design-system year/date fields and folds read costs without requests in %s", locale => {
+  mocks.locale = locale;
+  render(<Panel activity={activity} selection={selection} headIdentity="a" />); open();
+  const copy = locale === "ko" ? ko : en;
+  const year = screen.getByRole("spinbutton", { name: copy.cyclingCoveredRankings.year });
+  expect(year).toHaveClass("ds-input"); expect(year.closest("label")).toHaveClass("block", "space-y-2");
+  fireEvent.change(screen.getByRole("combobox", { name: copy.cyclingCoveredRankings.range }), { target: { value: "custom" } });
+  for (const name of [copy.cyclingCoveredRankings.from, copy.cyclingCoveredRankings.to]) {
+    const input = screen.getByLabelText(name);
+    expect(input).toHaveClass("ds-input"); expect(input).toHaveAttribute("type", "date"); expect(input.closest("label")).toHaveClass("block", "space-y-2");
+  }
+  const summary = screen.getByText(copy.cyclingCoveredRankings.costDetails).closest("summary")!;
+  const details = summary.closest("details")!;
+  expect(details.open).toBe(false); expect(summary.className).toContain("var(--dim-button-height)");
+  expect(screen.getByText(copy.cyclingCoveredRankings.cost)).not.toBeVisible();
+  details.open = true; fireEvent(details, new Event("toggle"));
+  expect(screen.getByText(copy.cyclingCoveredRankings.cost)).toBeVisible();
+  expect(mocks.confirm).not.toHaveBeenCalled(); expect(mocks.cancel).not.toHaveBeenCalled();
+});
+it.each(["ko", "en"])("keeps technical timestamps and receipts folded while describing checked records plainly in %s", locale => {
+  mocks.locale = locale; mocks.hook.mockReturnValue({ ...idle(), status: "ready", response: coveredFixture() });
+  const { container } = render(<Panel activity={activity} selection={selection} headIdentity="a" />); open();
+  const copy = locale === "ko" ? ko : en;
+  expect(screen.getByText(copy.cyclingCoveredRankings.title)).not.toHaveTextContent("Stage");
+  const details = screen.getByText(copy.cyclingCoveredRankings.costDetails).closest("details")!;
+  const technicalStamp = screen.getByText(/^Source .*Stage /);
+  expect(technicalStamp.closest("details")).toBe(details); expect(technicalStamp).not.toBeVisible();
+  for (const row of container.querySelectorAll("p, a")) if (row.closest("details") !== details) expect(row.textContent).not.toMatch(/Source|Stage|snapshot|owner|metadata/);
+  details.open = true; fireEvent(details, new Event("toggle")); expect(technicalStamp).toBeVisible();
+  expect(mocks.confirm).not.toHaveBeenCalled();
+});

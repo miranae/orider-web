@@ -2361,8 +2361,9 @@
     "canonicalLegacy": "Stored metrics use an older analysis format."
   },
   "cyclingCoveredRankings": {
-    "asOf": "Observed at · Source {{source}} · Stage {{stage}} (separate observation windows)",
-    "title": "Covered Stage distance rankings (opt in)",
+    "asOf": "Checked at · Activity analysis {{source}} · Selection management {{stage}}",
+    "technicalAsOf": "Source {{source}} · Stage {{stage}} (separate observation windows)",
+    "title": "Distance rankings among checked activities",
     "scope": "Check the first 10 or 20 of your activities in the selected period. Exclusions affect distance efforts within this checked cohort. This does not establish all-history or global personal records.",
     "range": "Period",
     "calendar_year": "Calendar year",
@@ -2374,13 +2375,16 @@
     "confirm": "Check {{count}} activities",
     "recheck": "Check rankings again",
     "cancel": "Cancel",
+    "costDetails": "Read scope and cost",
     "cost": "Each check reads a fresh whole cohort. Up to 188 logical documents for 10 activities (execution limit 200), or 358 for 20 (limit 370). No raw download or writes.",
     "loading": "Checking activities and exclusion preferences together.",
     "invalidated": "Preferences changed. Previous rankings were cleared. Check rankings again manually.",
     "error": "The whole-cohort check failed. Previous rankings are cleared. Try a manual check again.",
-    "coverage": "{{from}}–{{to}} · {{scanned}} scanned · {{count}} checked",
-    "states": "Canonical {{canonicalSupported}} · snapshot {{snapshotSupported}} · missing {{missing}} · legacy unsupported {{legacyUnsupported}} · unobserved {{noObserved}} · uncertain duplicates {{duplicateUncertain}} · skipped {{skipped}}",
-    "exhausted": "The owner/start-time query reached its end. This does not confirm complete history across all providers.",
+    "coverage": "{{from}}–{{to}} · {{scanned}} activities inspected · {{count}} activities checked",
+    "states": "Activity analysis {{canonicalSupported}} · calculated distance records {{snapshotSupported}} · records unavailable {{missing}} · older format {{legacyUnsupported}} · unobserved {{noObserved}} · uncertain duplicates {{duplicateUncertain}} · skipped {{skipped}}",
+    "technicalStates": "Canonical {{canonicalSupported}} · snapshot {{snapshotSupported}} · missing {{missing}} · legacy unsupported {{legacyUnsupported}} · unobserved {{noObserved}} · uncertain duplicates {{duplicateUncertain}} · skipped {{skipped}}",
+    "exhausted": "This period’s query reached its end. This does not confirm all records across other providers.",
+    "technicalExhausted": "The owner/start-time query reached its end. This does not confirm complete history across all providers.",
     "capped": "Additional or anchor-displaced activities remain outside this cohort.",
     "io": "This check: {{docs}} logical documents · {{metadata}} metadata reads · raw 0 · writes 0",
     "anchorMissing": "The current activity was outside the period or unavailable and was not ranked.",
@@ -2393,8 +2397,8 @@
     "progress": "Distance effort progress among checked activities",
     "progressNote": "Only {{count}} effective observed efforts are shown. Unobserved periods are not interpolated.",
     "bases": {
-      "canonical_metrics": "Canonical metrics",
-      "stage_distance_snapshot": "Stage distance snapshot",
+      "canonical_metrics": "Activity analysis",
+      "stage_distance_snapshot": "Calculated distance record",
       "unavailable": "Unavailable"
     }
   }
