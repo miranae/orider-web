@@ -1,3 +1,4 @@
+import { getStageQaAppCheckSession, hasStageQaAppCheckGrant } from "./stageQaAppCheck";
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, connectAuthEmulator, signInWithEmailAndPassword, type Auth } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, type Firestore } from "firebase/firestore";
@@ -101,7 +102,7 @@ export function getFirebaseApp(): FirebaseApp | undefined {
  * 먼저 실행되면 피드 이미지 discovery 가 밀린다. Callable Functions 는 호출 전에
  * 이 promise 를 await 해서 enforceAppCheck 보안 경로를 유지한다.
  */
-export function ensureAppCheckReady(forceRefresh = false): Promise<void> {
+function ensureAppCheckReadyUnchecked(forceRefresh = false): Promise<void> {
   if (isEmulatorRuntime()) return Promise.resolve();
   if (forceRefresh && appCheckRefreshPromise) return appCheckRefreshPromise;
   if (!forceRefresh && appCheckPromise) return appCheckPromise;
@@ -110,13 +111,14 @@ export function ensureAppCheckReady(forceRefresh = false): Promise<void> {
     const runtimeConfig = getRuntimeConfig();
     const appCheckSiteKey = runtimeConfig.appCheckRecaptchaSiteKey;
     if (!app) throw new Error("app-check/firebase-not-initialized");
-    if (!appCheckSiteKey) throw new Error("app-check/missing-site-key");
+    const qa = hasStageQaAppCheckGrant() ? getStageQaAppCheckSession(_auth) : null;
+    if (!qa && !appCheckSiteKey) throw new Error("app-check/missing-site-key");
     appCheck ??= initializeAppCheck(app, {
-      provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
-      isTokenAutoRefreshEnabled: true,
+      provider: qa?.provider ?? new ReCaptchaEnterpriseProvider(appCheckSiteKey!),
+      isTokenAutoRefreshEnabled: !qa,
     });
 
-    const tokenResult = await withAppCheckTimeout(getToken(appCheck, forceRefresh));
+    const tokenResult = await withAppCheckTimeout(getToken(appCheck, forceRefresh || qa?.forceInitialRefresh() === true));
     if (!tokenResult.token) throw new Error("app-check/empty-token");
   }).catch((err) => {
     if (forceRefresh) appCheckRefreshPromise = null;
@@ -134,6 +136,17 @@ export function ensureAppCheckReady(forceRefresh = false): Promise<void> {
   return appCheckPromise;
 }
 
+/** QA는 SDK/readiness 캐시가 있어도 현재 Auth 및 짧은 세션을 먼저 확인한다. */
+export function ensureAppCheckReady(forceRefresh = false): Promise<void> {
+  if (!hasStageQaAppCheckGrant()) return ensureAppCheckReadyUnchecked(forceRefresh);
+  return Promise.resolve().then(async () => {
+    const qa = getStageQaAppCheckSession(_auth);
+    await qa.validate();
+    await ensureAppCheckReadyUnchecked(forceRefresh);
+    await qa.validate();
+  });
+}
+
 /** Authenticated REST APIs that enforce App Check use this short-lived token. */
 export async function getAppCheckToken(forceRefresh = false): Promise<string | null> {
   if (isEmulatorRuntime()) return null;
@@ -141,5 +154,6 @@ export async function getAppCheckToken(forceRefresh = false): Promise<string | n
   if (!appCheck) throw new Error("app-check/not-initialized");
   const tokenResult = await withAppCheckTimeout(getToken(appCheck, forceRefresh));
   if (!tokenResult.token) throw new Error("app-check/empty-token");
+  if (hasStageQaAppCheckGrant()) await getStageQaAppCheckSession(_auth).validate();
   return tokenResult.token;
 }
