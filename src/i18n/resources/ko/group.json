@@ -362,10 +362,10 @@
   "card.join": "가입 신청",
   "card.joining": "가입 중...",
   "card.joinPending": "승인 대기",
-  "subNav.overview": "개요",
+  "subNav.overview": "그룹 소식",
   "subNav.contextLabel": "그룹 탐색",
   "subNav.groupList": "← 그룹 목록",
-  "subNav.eventList": "전체 이벤트",
+  "subNav.eventList": "모임·참가",
   "invite.modalTitle": "멤버 초대",
   "invite.copied": "복사됨!",
   "invite.directLabel": "직접 초대",
@@ -391,5 +391,8 @@
   "leaderboard.refreshNow": "지금 갱신",
   "leaderboard.refreshFailed": "랭킹을 갱신하지 못했습니다. 현재 저장된 결과를 표시합니다.",
   "leaderboard.staleWarning": "랭킹 계산이 지연되고 있습니다. 멤버 변경이나 새 활동이 아직 반영되지 않았을 수 있습니다.",
-  "leaderboard.weekBoundary": "주간 TSS는 매주 월요일 00:00 KST부터 집계하며, 공개 활동만 포함합니다."
+  "leaderboard.weekBoundary": "주간 TSS는 매주 월요일 00:00 KST부터 집계하며, 공개 활동만 포함합니다.",
+  "subNav.rides": "함께한 기록",
+  "subNav.members": "회원·운영",
+  "subNav.otherGroups": "다른 동호회"
 }

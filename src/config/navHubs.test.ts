@@ -4,24 +4,27 @@ import { getActiveHub, getHub, isHubSubRoute, PRIMARY_HUBS } from "./navHubs";
 describe("navHubs", () => {
   describe("getActiveHub", () => {
     it("허브 루트/서브 경로를 올바른 허브로 매핑", () => {
-      expect(getActiveHub("/")).toBe("home");
+      expect(getActiveHub("/")).toBe("feed");
       expect(getActiveHub("/fitness")).toBe("train");
       expect(getActiveHub("/plan")).toBe("train");
       expect(getActiveHub("/log")).toBe("train");
       expect(getActiveHub("/goal-setup")).toBe("train");
-      expect(getActiveHub("/coach")).toBe("coach");
+      expect(getActiveHub("/goal/climb")).toBe("train");
+      expect(getActiveHub("/year-recap")).toBe("train");
+      expect(getActiveHub("/creator/docs")).toBe("settings");
+      expect(getActiveHub("/coach")).toBe("train");
       expect(getActiveHub("/courses")).toBe("explore");
       expect(getActiveHub("/explore")).toBe("explore");
       expect(getActiveHub("/discover")).toBe("explore");
       expect(getActiveHub("/leaderboard")).toBe("explore");
-      expect(getActiveHub("/board")).toBe("community");
-      expect(getActiveHub("/creator")).toBe("community");
-      expect(getActiveHub("/groups")).toBe("community");
-      expect(getActiveHub("/events")).toBe("community");
-      expect(getActiveHub("/friends")).toBe("community");
-      expect(getActiveHub("/community")).toBe("community");
-      expect(getActiveHub("/about")).toBe("community");
-      expect(getActiveHub("/social")).toBe("community");
+      expect(getActiveHub("/board")).toBe("people");
+      expect(getActiveHub("/creator")).toBe("settings");
+      expect(getActiveHub("/groups")).toBe("club");
+      expect(getActiveHub("/events")).toBe("club");
+      expect(getActiveHub("/friends")).toBe("people");
+      expect(getActiveHub("/community")).toBe("people");
+      expect(getActiveHub("/about")).toBe("settings");
+      expect(getActiveHub("/social")).toBe("people");
       expect(getActiveHub("/my")).toBe("settings");
       expect(getActiveHub("/settings")).toBe("settings");
     });
@@ -30,32 +33,32 @@ describe("navHubs", () => {
       expect(getActiveHub("/course/abc")).toBe("explore");
       expect(getActiveHub("/segment/create")).toBe("explore");
       expect(getActiveHub("/segment/abc")).toBe("explore");
-      expect(getActiveHub("/board/123")).toBe("community");
-      expect(getActiveHub("/group/g1")).toBe("community");
-      expect(getActiveHub("/event/e1")).toBe("community");
-      expect(getActiveHub("/athlete/u1")).toBe("community");
-      expect(getActiveHub("/friend/invite-code")).toBe("community");
-      expect(getActiveHub("/coach/thread-1")).toBe("coach");
-      expect(getActiveHub("/policies/ai-coach")).toBe("home");
+      expect(getActiveHub("/board/123")).toBe("people");
+      expect(getActiveHub("/group/g1")).toBe("club");
+      expect(getActiveHub("/event/e1")).toBe("club");
+      expect(getActiveHub("/athlete/u1")).toBe("people");
+      expect(getActiveHub("/friend/invite-code")).toBe("people");
+      expect(getActiveHub("/coach/thread-1")).toBe("train");
+      expect(getActiveHub("/policies/ai-coach")).toBe("feed");
     });
 
     it("활동 상세는 확인된 소유권에 따라 홈 또는 내 운동으로 매핑", () => {
-      expect(getActiveHub("/activity/xyz")).toBe("home");
-      expect(getActiveHub("/activity/xyz", { viewerUid: "me", activityOwnerId: null })).toBe("home");
-      expect(getActiveHub("/activity/xyz", { viewerUid: "me", activityOwnerId: "other" })).toBe("home");
+      expect(getActiveHub("/activity/xyz")).toBe("feed");
+      expect(getActiveHub("/activity/xyz", { viewerUid: "me", activityOwnerId: null })).toBe("feed");
+      expect(getActiveHub("/activity/xyz", { viewerUid: "me", activityOwnerId: "other" })).toBe("feed");
       expect(getActiveHub("/activity/xyz", { viewerUid: "me", activityOwnerId: "me" })).toBe("train");
-      expect(getActiveHub("/activity/xyz", { viewerUid: null, activityOwnerId: "me" })).toBe("home");
+      expect(getActiveHub("/activity/xyz", { viewerUid: null, activityOwnerId: "me" })).toBe("feed");
       expect(getActiveHub("/activity/xyz/edit")).toBe("train");
     });
 
-    it("매칭 없는 경로는 home 폴백", () => {
-      expect(getActiveHub("/unknown")).toBe("home");
+    it("매칭 없는 경로는 feed 폴백", () => {
+      expect(getActiveHub("/unknown")).toBe("feed");
     });
   });
 
   describe("isHubSubRoute", () => {
     it("허브 서브 목적지(목록/루트)에선 true", () => {
-      for (const p of ["/fitness", "/plan", "/log", "/discover", "/explore", "/leaderboard", "/courses", "/board", "/creator", "/groups", "/events", "/friends", "/about", "/my", "/settings"]) {
+      for (const p of ["/fitness", "/plan", "/log", "/coach", "/discover", "/explore", "/leaderboard", "/courses", "/board", "/creator", "/groups", "/events", "/friends", "/about", "/my", "/settings"]) {
         expect(isHubSubRoute(p)).toBe(true);
       }
     });
@@ -68,16 +71,17 @@ describe("navHubs", () => {
   });
 
   it("getHub 은 key 로 허브를 반환", () => {
-    expect(getHub("train").subs.map((s) => s.to)).toEqual(["/fitness", "/plan", "/log"]);
+    expect(getHub("train").subs.map((s) => s.to)).toEqual(["/log", "/fitness", "/plan", "/coach"]);
     expect(getHub("explore").subs.map((s) => s.to)).toEqual(["/discover", "/explore", "/leaderboard", "/courses"]);
-    expect(getHub("community").subs.map((s) => s.to)).toEqual(["/board", "/creator", "/groups", "/events", "/friends", "/about"]);
-    expect(getHub("home").subs).toHaveLength(0);
-    expect(getHub("coach").subs).toHaveLength(0);
+    expect(getHub("club").subs.map((s) => s.to)).toEqual(["/groups", "/events"]);
+    expect(getHub("people").subs.map((s) => s.to)).toEqual(["/friends", "/board"]);
+    expect(getHub("settings").subs.map((s) => s.to)).toEqual(["/my", "/settings", "/creator", "/about"]);
+    expect(getHub("feed").subs).toHaveLength(0);
   });
 
   it("exposes exactly five ordered primary hubs while keeping settings utility-only", () => {
-    expect(PRIMARY_HUBS.map((hub) => hub.key)).toEqual(["home", "train", "coach", "explore", "community"]);
-    expect(PRIMARY_HUBS.map((hub) => hub.to)).toEqual(["/", "/fitness", "/coach", "/discover", "/board"]);
+    expect(PRIMARY_HUBS.map((hub) => hub.key)).toEqual(["feed", "train", "club", "explore", "people"]);
+    expect(PRIMARY_HUBS.map((hub) => hub.to)).toEqual(["/", "/log", "/groups", "/discover", "/friends"]);
     expect(PRIMARY_HUBS.some((hub) => hub.key === "settings")).toBe(false);
     expect(getActiveHub("/settings")).toBe("settings");
   });

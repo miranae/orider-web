@@ -43,6 +43,9 @@ import { useCanonicalFitnessSummary } from "../hooks/useCanonicalFitnessSummary"
 import { canonicalKpiPresentation, canonicalKpiSource, canonicalWeekTotals } from "../features/home/canonicalKpiSource";
 import { useDashboardPreferences } from "../hooks/useDashboardPreferences";
 import type { FitnessProjection } from "@shared/types/goal";
+import ClubScopeFeed from "../components/dashboard/ClubScopeFeed";
+import FeedScopeSelector from "../components/dashboard/FeedScopeSelector";
+import { parseRelationshipScope, scopeToFeedScope, type RelationshipScope } from "../components/dashboard/feedRelationshipScope";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import AppInstallLinks from "../components/AppInstallLinks";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
@@ -297,7 +300,22 @@ export default function DashboardPage() {
   const isMobile = useMobile();
   const { friends } = useFriends();
   const friendIds = useMemo(() => new Set(friends.map((friend) => friend.userId)), [friends]);
-  const feedScope: ActivityFeedScope = user ? dashboardPreferences.feedScope : "all";
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { scope: relationshipScope, feedScope, clubId } = parseRelationshipScope(searchParams, dashboardPreferences.feedScope, !!user);
+  const lastPersonalScope = useRef<ActivityFeedScope>(dashboardPreferences.feedScope === "friends" ? "friends" : "self");
+  useEffect(() => {
+    if (feedScope !== "all") lastPersonalScope.current = feedScope;
+  }, [feedScope]);
+  const changeFeedScope = (value: ActivityFeedScope) => {
+    if (value !== "all") lastPersonalScope.current = value;
+    updateDashboardPreferences({ feedScope: value });
+    setSearchParams((previous) => { const next = new URLSearchParams(previous); next.set("scope", value); return next; });
+  };
+  const changeRelationshipScope = (value: RelationshipScope) => {
+    if (value !== "club") { changeFeedScope(scopeToFeedScope(value, lastPersonalScope.current)); return; }
+    setSearchParams((previous) => { const next = new URLSearchParams(previous); next.set("scope", "club"); return next; });
+  };
+  const changeClub = (id: string, replace = false) => setSearchParams((previous) => { const next = new URLSearchParams(previous); next.set("scope", "club"); next.set("club", id); return next; }, { replace });
   const feedFilter = ({ all: 0, friends: 1, self: 2 } as const)[feedScope];
   const { activities, loading, loadMore, hasMore, loadingMore, totalCount, error: feedError, retry: retryFeed } = useActivities(feedScope, [...friendIds]);
   // 정본(서버 집계) 홈 요약 — `homeSummary` 서버 전환 판정 AND 빌드 플래그 뒤에 있다.
@@ -307,7 +325,6 @@ export default function DashboardPage() {
   const activitySearch = useActivitySearch(friendIds);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
-  const [searchParams, setSearchParams] = useSearchParams();
   const sportParam = searchParams.get("sport");
   const requestedDiscipline = normalizeDashboardDiscipline(sportParam);
   const discipline: Discipline = requestedDiscipline ?? "bike";
@@ -695,7 +712,10 @@ export default function DashboardPage() {
         currentUserId={user?.uid ?? null}
         friendIds={[...friendIds]}
         feedScope={feedScope}
-        onFeedScopeChange={(scope) => updateDashboardPreferences({ feedScope: scope })}
+        onFeedScopeChange={changeFeedScope}
+        relationshipScope={relationshipScope}
+        onRelationshipScopeChange={changeRelationshipScope}
+        clubFeed={user ? <ClubScopeFeed uid={user.uid} clubId={clubId} onClubChange={changeClub} /> : undefined}
         sportFilter={mobileSportFilter}
         onSportFilterChange={(sportFilter) => {
           updateDashboardPreferences({ sportFilter });
@@ -813,7 +833,7 @@ export default function DashboardPage() {
             {/* 헤더: 제목 + 카운트 + 필터 */}
             <div className="flex items-center gap-2" style={{ marginBottom: "var(--space-2)" }}>
               <h2 style={{ fontSize: "var(--fs-base)", fontWeight: 600, color: "var(--ink-0)" }}>{t("feed.title")}</h2>
-              {totalCount > 0 && (
+              {relationshipScope !== "club" && totalCount > 0 && (
                 /* 카운트 옆에 "건 · 전체 피드" 컨텍스트 부연 — 이전엔 "1,573" 만 떠 본인/전체 모호.
                    tooltip 은 실제 쿼리(본인 OR visibility==everyone)와 일치하게 "전체 공개 + 내 활동" 으로 표기 (#231). */
                 <span
@@ -827,23 +847,10 @@ export default function DashboardPage() {
                 </span>
               )}
               <div className="flex-1" />
-              {user && <div className="flex gap-0.5" style={{ background: "var(--bg-1)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
-                {([t("feed.filter.all"), t("feed.filter.friends"), t("feed.filter.self")] as const).map((label, i) => (
-                  <button
-                    key={i}
-                    onClick={() => updateDashboardPreferences({ feedScope: (["all", "friends", "self"] as const)[i] })}
-                    style={{
-                      padding: "5px 10px", fontSize: "var(--fs-xs)", borderRadius: "var(--r-sm)", border: "none", cursor: "pointer",
-                      background: feedFilter === i ? "var(--bg-3)" : "transparent",
-                      color: feedFilter === i ? "var(--ink-0)" : "var(--ink-3)",
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>}
+              {user && <FeedScopeSelector scope={relationshipScope} feedScope={feedScope} onScopeChange={changeRelationshipScope} onFeedScopeChange={changeFeedScope} />}
             </div>
 
+            {relationshipScope === "club" && user ? <ClubScopeFeed uid={user.uid} clubId={clubId} onClubChange={changeClub} /> : <>
             {/* 검색 입력 */}
             <form onSubmit={handleSearch} style={{ marginBottom: "var(--space-3)" }}>
               <div className="flex gap-2 items-center">
@@ -1002,6 +1009,7 @@ export default function DashboardPage() {
               </>
             )}
             </div>{/* 스크롤 영역 끝 */}
+            </>}
           </div>
 
           {/* 사이드바 */}

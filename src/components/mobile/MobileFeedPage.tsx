@@ -22,6 +22,8 @@ import type { DashboardDatePreset, DashboardSportFilter } from "../../hooks/useD
 import { useLocale } from "../../contexts/LocaleContext";
 import { formatDistance, formatElev, formatPace, formatSpeed } from "../../utils/units";
 import { isImplausibleActivityHeartRate } from "../../utils/activitySanity";
+import FeedScopeSelector from "../dashboard/FeedScopeSelector";
+import type { RelationshipScope } from "../dashboard/feedRelationshipScope";
 import "./MobileFeedPage.css";
 
 const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
@@ -64,6 +66,9 @@ interface MobileFeedPageProps {
   datePreset?: DashboardDatePreset;
   onDatePresetChange?: (datePreset: DashboardDatePreset) => void;
   runningJourney?: ReactNode;
+  relationshipScope?: RelationshipScope;
+  onRelationshipScopeChange?: (scope: RelationshipScope) => void;
+  clubFeed?: ReactNode;
 }
 
 function SportSummaryFilter({
@@ -309,6 +314,7 @@ export default function MobileFeedPage({
   datePreset: controlledDatePreset,
   onDatePresetChange,
   runningJourney,
+  relationshipScope, onRelationshipScopeChange, clubFeed,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
@@ -472,6 +478,8 @@ export default function MobileFeedPage({
         </div>
       )}
 
+      {user && onRelationshipScopeChange && <div style={{ padding: "var(--space-3) var(--space-4)" }}><FeedScopeSelector scope={relationshipScope ?? (feedScope === "all" ? "public" : "personal")} feedScope={feedScope} onScopeChange={onRelationshipScopeChange} onFeedScopeChange={onFeedScopeChange} /></div>}
+      {relationshipScope === "club" && user ? <div style={{ padding: "var(--space-4)" }}>{clubFeed}</div> : <>
       <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-2) var(--space-4)" }}>
         <div className="flex" style={{ gap: "var(--space-2)" }}>
           {activitySearch && <form onSubmit={(event) => {
@@ -526,7 +534,7 @@ export default function MobileFeedPage({
           </Button>
         </div>
         {filtersOpen && <div id="mobile-feed-filters" style={{ display: "grid", gridTemplateColumns: user ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
-          {user && <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden", display: "flex", alignItems: "center", paddingLeft: "var(--space-2)" }}>
+          {user && !onRelationshipScopeChange && <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden", display: "flex", alignItems: "center", paddingLeft: "var(--space-2)" }}>
             <span style={{ flexShrink: 0, color: "var(--ink-3)", fontSize: "var(--fs-2xs)" }}>{t("feed.filter.label")}</span>
             <select
               value={feedScope}
@@ -630,6 +638,7 @@ export default function MobileFeedPage({
         </div>
       )}
 
+      </>}
       <div style={{ height: 80 }} />
     </div>
   );

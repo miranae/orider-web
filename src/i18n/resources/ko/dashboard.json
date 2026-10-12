@@ -92,6 +92,27 @@
       "title": "추가 활동을 불러오지 못했어요",
       "description": "활동 목록의 일부만 불러왔습니다. 목록 전체를 다시 불러올 수 있어요.",
       "retry": "목록 다시 불러오기"
+    },
+    "relationship": {
+      "label": "소식 범위",
+      "personal": "나·친구",
+      "self": "내 활동",
+      "club": "현재 동호회",
+      "public": "전체 공개"
+    },
+    "club": {
+      "roleUnknown": "역할 확인 중",
+      "posts": "그룹 소식",
+      "events": "다가오는 모임",
+      "error": "동호회 소식을 불러오지 못했습니다. 다시 시도해 주세요.",
+      "noPosts": "아직 그룹 소식이 없습니다.",
+      "noEvents": "다가오는 모임이 없습니다.",
+      "open": "동호회로 이동",
+      "noClubs": "가입한 동호회가 없습니다.",
+      "findEvents": "공개 모임",
+      "findClubs": "동호회 찾기",
+      "myTraining": "내 운동",
+      "select": "동호회 선택"
     }
   },
   "yearRecap": {

@@ -31,6 +31,9 @@ vi.mock("../../hooks/useGroup", () => ({
     loading: false,
   }),
   useGroupMembers: () => ({ members: mockMembers, loading: false }),
+  // GroupSubNav 의 역할 칩·다른 동호회 선택기가 읽는 훅
+  useGroupMemberRole: () => ({ role: "leader", loading: false }),
+  useMyGroups: () => ({ groups: [], loading: false, error: null, retry: () => {} }),
 }));
 
 vi.mock("../../hooks/useGroupRides", () => ({

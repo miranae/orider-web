@@ -61,7 +61,7 @@ export default function MobileTabBar({
             >
               <span className="relative">
                 <Icon size={20} strokeWidth={isActive ? 2.2 : 1.7} />
-                {key === "community" && friendRequestCount > 0 && (
+                {key === "people" && friendRequestCount > 0 && (
                   <span
                     className="absolute -right-2 -top-1 min-w-[18px] h-[18px] px-1 rounded-full text-[length:var(--fs-xs)] font-bold leading-none flex items-center justify-center"
                     style={{ background: "var(--color-error)", color: "var(--primary-fg)" }}

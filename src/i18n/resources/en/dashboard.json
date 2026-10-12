@@ -92,6 +92,27 @@
       "title": "Could not load more activities",
       "description": "Only part of the activity list loaded. Reload the full list to try again.",
       "retry": "Reload list"
+    },
+    "relationship": {
+      "label": "Feed scope",
+      "personal": "Me & friends",
+      "self": "My activities",
+      "club": "Current club",
+      "public": "All public"
+    },
+    "club": {
+      "roleUnknown": "Role unavailable",
+      "posts": "Club news",
+      "events": "Upcoming events",
+      "error": "Unable to load club updates. Please try again.",
+      "noPosts": "No club posts yet.",
+      "noEvents": "No upcoming events.",
+      "open": "Go to club",
+      "noClubs": "You have not joined a club yet.",
+      "findEvents": "Public events",
+      "findClubs": "Find clubs",
+      "myTraining": "My training",
+      "select": "Choose club"
     }
   },
   "yearRecap": {
