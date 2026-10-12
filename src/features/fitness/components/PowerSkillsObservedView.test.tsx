@@ -27,4 +27,18 @@ describe("PowerSkillsObservedView", () => {
     expect(screen.getAllByText("powerSkills.weight_unavailable").length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText("250.1 W/kg")).not.toBeInTheDocument();
   });
+  it("keeps absent-channel counts unknown and technical epoch bounds in evidence only", () => {
+    const data = response();
+    data.periods.forEach(period => { delete period.powerDurationObservations; });
+    const view = render(<MemoryRouter><PowerSkillsObservedView response={data} /></MemoryRouter>);
+    expect(screen.getAllByText("powerSkills.scannedUnavailable 1000")).toHaveLength(2);
+    expect(screen.queryByText(/powerSkills.scanned .*—/)).not.toBeInTheDocument();
+    expect(screen.getByText("powerSkills.through 2026-10-12")).toBeInTheDocument();
+    expect(screen.queryByText("1970-01-01 – 2026-10-12")).not.toBeInTheDocument();
+    expect(screen.getByText("powerSkills.gridNote").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText(/periodCurve.exactBounds 1970-01-01/).closest("details")).not.toHaveAttribute("open");
+    expect(view.container.querySelectorAll('tbody span[aria-label="powerSkills.channel_unavailable"]')).toHaveLength(24);
+    expect(view.container.querySelectorAll("tbody tr")).toHaveLength(12);
+    expect(screen.getByText("powerSkills.tableUnavailable")).toBeInTheDocument();
+  });
 });

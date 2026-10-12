@@ -1005,14 +1005,18 @@
     "requestNote": "조회 버튼을 누르면 같은 시점을 기준으로 최근 56일과 전체 기간을 확인합니다.",
     "recent": "최근 56일",
     "allObserved": "확인한 전체 기간",
-    "scope": "동일한 측정 파워 관측에서 확인한 최대값입니다. 전체 기간은 최근 56일을 포함하며, 성장률이나 전체 활동의 최고 기록을 의미하지 않습니다. 현재 저장된 구간에는 15초·3분·15분·45분의 정확한 기록이 없습니다.",
+    "scope": "확인한 측정 파워의 자기 비교입니다. 전체 기간은 최근 56일을 포함하며, 성장률이나 모든 활동의 최고 기록을 뜻하지 않습니다.",
     "scanned": "활동 {{scanned}}개 확인 · 구간 자료가 있는 활동 {{included}}개",
     "missing_exact_duration": "정확한 구간 기록 없음",
-    "channel_unavailable": "구간 관측 자료 없음",
+    "channel_unavailable": "구간별 파워 기록 확인 불가",
     "qualification_unverified": "측정 기준 확인 불가",
     "weight_unavailable": "계산 당시 체중 자료 없음",
     "table": "12개 구간 모두 보기",
     "cutoff": "비교 기준 시각 {{date}} (한국 시간)",
-    "evidence": "정확한 구간 {{duration}}초 · 원값 {{value}} · 자료 버전 {{revision}}"
+    "evidence": "정확한 구간 {{duration}}초 · 원값 {{value}} · 자료 버전 {{revision}}",
+    "gridNote": "현재 저장되는 구간 격자에는 15초·3분·15분·45분의 정확한 기록이 없습니다. 구간 관측 자료 자체가 없는 기간은 12개 구간 모두 확인할 수 없습니다.",
+    "scannedUnavailable": "활동 {{scanned}}개 확인 · 구간별 파워 기록 확인 불가",
+    "through": "{{date}}까지",
+    "tableUnavailable": "— 정확한 구간 기록 또는 필요한 측정·체중 자료를 확인할 수 없습니다."
   }
 }
