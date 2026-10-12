@@ -84,3 +84,16 @@ it.each(["hole", "inherited", "null", "nonfinite"])("rejects3 sources with two v
   else { delete sources[2]; if (fault === "inherited") Object.setPrototypeOf(sources, Object.assign(Object.create(Array.prototype), { 2: last })); }
   expect(validExpandedDistanceAnalysis(data, period)).toBe(false);
 });
+
+it("accepts the excluded partition only with explicit Stage opt-in and rejects double counting", () => {
+  const period = runningPeriodFixture().periods[0]!, data = expandedPeriodFixture(period);
+  const target = data.distances.find(row => row.distance === "400m")!;
+  Object.assign(target, { excludedEffortActivityCount: 1, observedEffortActivityCount: 0, noObservedEffortActivityCount: 0, sources: [], bestTimeSeconds: null, medianTimeSeconds: null });
+  expect(validExpandedDistanceAnalysis(data, period)).toBe(false);
+  expect(validExpandedDistanceAnalysis(data, period, true)).toBe(true);
+  target.noObservedEffortActivityCount = 1;
+  expect(validExpandedDistanceAnalysis(data, period, true)).toBe(false);
+  target.noObservedEffortActivityCount = 0;
+  target.excludedEffortActivityCount = -1;
+  expect(validExpandedDistanceAnalysis(data, period, true)).toBe(false);
+});

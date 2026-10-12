@@ -1,0 +1,2186 @@
+{
+  "generator": "actual compiled getTrainingAnalysisPeriodsForOwner with synthetic fakeSource/fakePreferences only",
+  "cases": {
+    "allRemoved": {
+      "request": {
+        "discipline": "run",
+        "periods": [
+          {
+            "fromInclusive": 1000,
+            "toExclusive": 10000
+          }
+        ],
+        "includeExpandedRunDistances": true,
+        "includeStageRunEffortPreferences": true
+      },
+      "response": {
+        "version": 1,
+        "discipline": "run",
+        "asOf": 200010,
+        "inputDigest": "d40b1f2b81dd45a61077cfc2d3e40feca597def5dd06cdd92356a943ef1d97f4",
+        "periods": [
+          {
+            "fromInclusive": 1000,
+            "toExclusive": 10000,
+            "status": "partial",
+            "coverage": {
+              "scannedActivityCount": 1,
+              "candidateActivityCount": 1,
+              "representativeActivityCount": 1,
+              "deduplicatedActivityCount": 0,
+              "includedActivityCount": 1,
+              "pendingActivityCount": 0,
+              "missingActivityCount": 0,
+              "incompleteActivityCount": 0,
+              "skippedActivityCount": 0,
+              "candidateCountKnown": true,
+              "truncated": false,
+              "scanLimit": 200,
+              "deduplicationBasis": "explicit_identity_within_period"
+            },
+            "totals": {
+              "distanceM": {
+                "observedValue": 5000,
+                "totalValue": 5000,
+                "knownActivityCount": 1,
+                "missingActivityCount": 0,
+                "summaryFallbackCount": 0,
+                "sourceBasis": "canonical_metrics",
+                "sourceActivityIds": [
+                  "a"
+                ]
+              },
+              "movingTimeSec": {
+                "observedValue": 1500,
+                "totalValue": 1500,
+                "knownActivityCount": 1,
+                "missingActivityCount": 0,
+                "summaryFallbackCount": 0,
+                "sourceBasis": "canonical_metrics",
+                "sourceActivityIds": [
+                  "a"
+                ]
+              },
+              "elevationGainM": {
+                "observedValue": 0,
+                "totalValue": 0,
+                "knownActivityCount": 1,
+                "missingActivityCount": 0,
+                "summaryFallbackCount": 0,
+                "sourceBasis": "canonical_metrics",
+                "sourceActivityIds": [
+                  "a"
+                ]
+              }
+            },
+            "activities": [
+              {
+                "activityId": "a",
+                "startTime": 2000,
+                "distanceM": 5000,
+                "movingTimeSec": 1500,
+                "elevationGainM": 0,
+                "sourceBasis": {
+                  "distanceM": "canonical_metrics",
+                  "movingTimeSec": "canonical_metrics",
+                  "elevationGainM": "canonical_metrics"
+                }
+              }
+            ],
+            "running": {
+              "evidence": {
+                "version": 1,
+                "scope": "observed_representatives",
+                "timingBasis": "elapsed_including_stops",
+                "activities": []
+              },
+              "bestDistances": {
+                "status": "complete",
+                "timingBasis": "elapsed_including_stops",
+                "coverage": {
+                  "candidateActivityCount": 1,
+                  "eligibleActivityCount": 0,
+                  "missingActivityCount": 0,
+                  "noObservedEffortActivityCount": 0,
+                  "truncated": false,
+                  "excludedOnlyActivityCount": 1
+                },
+                "observedStatistics": [],
+                "points": [],
+                "excludedEffortActivityCount": 1
+              },
+              "paceCurves": [
+                {
+                  "status": "complete",
+                  "sourceBasis": "run_metrics_pace_curve",
+                  "timingBasis": "elapsed",
+                  "unit": "sec_per_km",
+                  "coverage": {
+                    "candidateActivityCount": 1,
+                    "eligibleActivityCount": 0,
+                    "missingActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "truncated": false
+                  },
+                  "observedStatistics": [],
+                  "points": []
+                },
+                {
+                  "status": "partial",
+                  "sourceBasis": "speed_curve_kmh_converted",
+                  "timingBasis": "elapsed",
+                  "unit": "sec_per_km",
+                  "coverage": {
+                    "candidateActivityCount": 1,
+                    "eligibleActivityCount": 0,
+                    "missingActivityCount": 1,
+                    "noObservedEffortActivityCount": 0,
+                    "truncated": false
+                  },
+                  "observedStatistics": [],
+                  "points": []
+                }
+              ],
+              "stageEffortOverlay": {
+                "version": 1,
+                "scope": "stage_readtime_overlay",
+                "selectionBasis": "observed_period_representatives",
+                "aliasPolicy": "selected_activity_incarnation_only",
+                "globalRecords": "unchanged",
+                "checkedActivityCount": 1,
+                "preferenceBindings": [
+                  {
+                    "activityId": "a",
+                    "activityIncarnation": "50:0",
+                    "preferenceRevision": 1,
+                    "excludedTargets": [
+                      "5km"
+                    ],
+                    "metricsRevision": "100:1",
+                    "mutationReady": true
+                  }
+                ]
+              },
+              "expandedDistanceAnalysis": {
+                "version": 1,
+                "targetsVersion": 2,
+                "timingBasis": "elapsed_including_stops",
+                "scope": "observed_representatives",
+                "distances": [
+                  {
+                    "distance": "400m",
+                    "distanceM": 400,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "half_mile",
+                    "distanceM": 804.672,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "1km",
+                    "distanceM": 1000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "1mile",
+                    "distanceM": 1609.344,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "2miles",
+                    "distanceM": 3218.688,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "5km",
+                    "distanceM": 5000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 1,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "10km",
+                    "distanceM": 10000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "15km",
+                    "distanceM": 15000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "10miles",
+                    "distanceM": 16093.44,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "20km",
+                    "distanceM": 20000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "half",
+                    "distanceM": 21097.5,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "30km",
+                    "distanceM": 30000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "full",
+                    "distanceM": 42195,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "50km",
+                    "distanceM": 50000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  }
+                ]
+              }
+            },
+            "zones": {
+              "heartRate": {
+                "candidateActivityCount": 1,
+                "eligibleActivityCount": 0,
+                "missingSensorActivityCount": 1,
+                "contextUnknownActivityCount": 0,
+                "observedSeconds": 0,
+                "groups": []
+              },
+              "power": {
+                "candidateActivityCount": 0,
+                "eligibleActivityCount": 0,
+                "missingSensorActivityCount": 0,
+                "contextUnknownActivityCount": 0,
+                "observedSeconds": 0,
+                "groups": [],
+                "reason": "not_applicable"
+              },
+              "pace": {
+                "status": "unavailable",
+                "reason": "canonical_pace_zones_unavailable"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "partial": {
+      "request": {
+        "discipline": "run",
+        "periods": [
+          {
+            "fromInclusive": 1000,
+            "toExclusive": 10000
+          }
+        ],
+        "includeExpandedRunDistances": true,
+        "includeStageRunEffortPreferences": true
+      },
+      "response": {
+        "version": 1,
+        "discipline": "run",
+        "asOf": 200010,
+        "inputDigest": "7f3f82dc9aff98cdcc1d6c3ab03f59f8c8bfdfa3c0d3a95c4432df92bf244fef",
+        "periods": [
+          {
+            "fromInclusive": 1000,
+            "toExclusive": 10000,
+            "status": "partial",
+            "coverage": {
+              "scannedActivityCount": 2,
+              "candidateActivityCount": 2,
+              "representativeActivityCount": 2,
+              "deduplicatedActivityCount": 0,
+              "includedActivityCount": 2,
+              "pendingActivityCount": 0,
+              "missingActivityCount": 0,
+              "incompleteActivityCount": 0,
+              "skippedActivityCount": 0,
+              "candidateCountKnown": true,
+              "truncated": false,
+              "scanLimit": 200,
+              "deduplicationBasis": "explicit_identity_within_period"
+            },
+            "totals": {
+              "distanceM": {
+                "observedValue": 10000,
+                "totalValue": 10000,
+                "knownActivityCount": 2,
+                "missingActivityCount": 0,
+                "summaryFallbackCount": 0,
+                "sourceBasis": "canonical_metrics",
+                "sourceActivityIds": [
+                  "a",
+                  "b"
+                ]
+              },
+              "movingTimeSec": {
+                "observedValue": 3000,
+                "totalValue": 3000,
+                "knownActivityCount": 2,
+                "missingActivityCount": 0,
+                "summaryFallbackCount": 0,
+                "sourceBasis": "canonical_metrics",
+                "sourceActivityIds": [
+                  "a",
+                  "b"
+                ]
+              },
+              "elevationGainM": {
+                "observedValue": 0,
+                "totalValue": 0,
+                "knownActivityCount": 2,
+                "missingActivityCount": 0,
+                "summaryFallbackCount": 0,
+                "sourceBasis": "canonical_metrics",
+                "sourceActivityIds": [
+                  "a",
+                  "b"
+                ]
+              }
+            },
+            "activities": [
+              {
+                "activityId": "a",
+                "startTime": 2000,
+                "distanceM": 5000,
+                "movingTimeSec": 1500,
+                "elevationGainM": 0,
+                "sourceBasis": {
+                  "distanceM": "canonical_metrics",
+                  "movingTimeSec": "canonical_metrics",
+                  "elevationGainM": "canonical_metrics"
+                }
+              },
+              {
+                "activityId": "b",
+                "startTime": 2000,
+                "distanceM": 5000,
+                "movingTimeSec": 1500,
+                "elevationGainM": 0,
+                "sourceBasis": {
+                  "distanceM": "canonical_metrics",
+                  "movingTimeSec": "canonical_metrics",
+                  "elevationGainM": "canonical_metrics"
+                }
+              }
+            ],
+            "running": {
+              "evidence": {
+                "version": 1,
+                "scope": "observed_representatives",
+                "timingBasis": "elapsed_including_stops",
+                "activities": [
+                  {
+                    "activityId": "a",
+                    "startTime": 2000,
+                    "metricsRevision": "100:1",
+                    "distanceRecords": [
+                      {
+                        "distance": "1km",
+                        "elapsedSec": 300
+                      }
+                    ],
+                    "paceCurve": null
+                  },
+                  {
+                    "activityId": "b",
+                    "startTime": 2000,
+                    "metricsRevision": "100:1",
+                    "distanceRecords": [
+                      {
+                        "distance": "5km",
+                        "elapsedSec": 1600
+                      }
+                    ],
+                    "paceCurve": null
+                  }
+                ]
+              },
+              "bestDistances": {
+                "status": "complete",
+                "timingBasis": "elapsed_including_stops",
+                "coverage": {
+                  "candidateActivityCount": 2,
+                  "eligibleActivityCount": 2,
+                  "missingActivityCount": 0,
+                  "noObservedEffortActivityCount": 0,
+                  "truncated": false,
+                  "excludedOnlyActivityCount": 0
+                },
+                "observedStatistics": [
+                  {
+                    "distance": "1km",
+                    "bestTimeSeconds": 300,
+                    "medianTimeSeconds": 300,
+                    "contributingActivityCount": 1
+                  },
+                  {
+                    "distance": "5km",
+                    "bestTimeSeconds": 1600,
+                    "medianTimeSeconds": 1600,
+                    "contributingActivityCount": 1
+                  }
+                ],
+                "points": [
+                  {
+                    "distance": "1km",
+                    "distanceM": 1000,
+                    "elapsedSec": 300,
+                    "sourceActivityId": "a",
+                    "startTime": 2000,
+                    "metricsRevision": "100:1",
+                    "contributingActivityCount": 1
+                  },
+                  {
+                    "distance": "5km",
+                    "distanceM": 5000,
+                    "elapsedSec": 1600,
+                    "sourceActivityId": "b",
+                    "startTime": 2000,
+                    "metricsRevision": "100:1",
+                    "contributingActivityCount": 1
+                  }
+                ],
+                "excludedEffortActivityCount": 1
+              },
+              "paceCurves": [
+                {
+                  "status": "complete",
+                  "sourceBasis": "run_metrics_pace_curve",
+                  "timingBasis": "elapsed",
+                  "unit": "sec_per_km",
+                  "coverage": {
+                    "candidateActivityCount": 2,
+                    "eligibleActivityCount": 0,
+                    "missingActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "truncated": false
+                  },
+                  "observedStatistics": [],
+                  "points": []
+                },
+                {
+                  "status": "partial",
+                  "sourceBasis": "speed_curve_kmh_converted",
+                  "timingBasis": "elapsed",
+                  "unit": "sec_per_km",
+                  "coverage": {
+                    "candidateActivityCount": 2,
+                    "eligibleActivityCount": 0,
+                    "missingActivityCount": 2,
+                    "noObservedEffortActivityCount": 0,
+                    "truncated": false
+                  },
+                  "observedStatistics": [],
+                  "points": []
+                }
+              ],
+              "stageEffortOverlay": {
+                "version": 1,
+                "scope": "stage_readtime_overlay",
+                "selectionBasis": "observed_period_representatives",
+                "aliasPolicy": "selected_activity_incarnation_only",
+                "globalRecords": "unchanged",
+                "checkedActivityCount": 2,
+                "preferenceBindings": [
+                  {
+                    "activityId": "a",
+                    "activityIncarnation": "50:0",
+                    "preferenceRevision": 1,
+                    "excludedTargets": [
+                      "5km"
+                    ],
+                    "metricsRevision": "100:1",
+                    "mutationReady": true
+                  },
+                  {
+                    "activityId": "b",
+                    "activityIncarnation": "50:0",
+                    "preferenceRevision": 0,
+                    "excludedTargets": [],
+                    "metricsRevision": "100:1",
+                    "mutationReady": true
+                  }
+                ]
+              },
+              "expandedDistanceAnalysis": {
+                "version": 1,
+                "targetsVersion": 2,
+                "timingBasis": "elapsed_including_stops",
+                "scope": "observed_representatives",
+                "distances": [
+                  {
+                    "distance": "400m",
+                    "distanceM": 400,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "half_mile",
+                    "distanceM": 804.672,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "1km",
+                    "distanceM": 1000,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 1,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": 300,
+                    "medianTimeSeconds": 300,
+                    "sources": [
+                      {
+                        "sourceActivityId": "a",
+                        "startTime": 2000,
+                        "metricsRevision": "100:1",
+                        "contributingActivityCount": 1,
+                        "elapsedSec": 300
+                      }
+                    ]
+                  },
+                  {
+                    "distance": "1mile",
+                    "distanceM": 1609.344,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "2miles",
+                    "distanceM": 3218.688,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "5km",
+                    "distanceM": 5000,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 1,
+                    "excludedEffortActivityCount": 1,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": 1600,
+                    "medianTimeSeconds": 1600,
+                    "sources": [
+                      {
+                        "sourceActivityId": "b",
+                        "startTime": 2000,
+                        "metricsRevision": "100:1",
+                        "contributingActivityCount": 1,
+                        "elapsedSec": 1600
+                      }
+                    ]
+                  },
+                  {
+                    "distance": "10km",
+                    "distanceM": 10000,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "15km",
+                    "distanceM": 15000,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "10miles",
+                    "distanceM": 16093.44,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "20km",
+                    "distanceM": 20000,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "half",
+                    "distanceM": 21097.5,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "30km",
+                    "distanceM": 30000,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "full",
+                    "distanceM": 42195,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "50km",
+                    "distanceM": 50000,
+                    "candidateActivityCount": 2,
+                    "supportedActivityCount": 2,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 2,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  }
+                ]
+              }
+            },
+            "zones": {
+              "heartRate": {
+                "candidateActivityCount": 2,
+                "eligibleActivityCount": 0,
+                "missingSensorActivityCount": 2,
+                "contextUnknownActivityCount": 0,
+                "observedSeconds": 0,
+                "groups": []
+              },
+              "power": {
+                "candidateActivityCount": 0,
+                "eligibleActivityCount": 0,
+                "missingSensorActivityCount": 0,
+                "contextUnknownActivityCount": 0,
+                "observedSeconds": 0,
+                "groups": [],
+                "reason": "not_applicable"
+              },
+              "pace": {
+                "status": "unavailable",
+                "reason": "canonical_pace_zones_unavailable"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "recomputedMissing": {
+      "request": {
+        "discipline": "run",
+        "periods": [
+          {
+            "fromInclusive": 1000,
+            "toExclusive": 10000
+          }
+        ],
+        "includeExpandedRunDistances": true,
+        "includeStageRunEffortPreferences": true
+      },
+      "response": {
+        "version": 1,
+        "discipline": "run",
+        "asOf": 200010,
+        "inputDigest": "d40b1f2b81dd45a61077cfc2d3e40feca597def5dd06cdd92356a943ef1d97f4",
+        "periods": [
+          {
+            "fromInclusive": 1000,
+            "toExclusive": 10000,
+            "status": "partial",
+            "coverage": {
+              "scannedActivityCount": 1,
+              "candidateActivityCount": 1,
+              "representativeActivityCount": 1,
+              "deduplicatedActivityCount": 0,
+              "includedActivityCount": 1,
+              "pendingActivityCount": 0,
+              "missingActivityCount": 0,
+              "incompleteActivityCount": 0,
+              "skippedActivityCount": 0,
+              "candidateCountKnown": true,
+              "truncated": false,
+              "scanLimit": 200,
+              "deduplicationBasis": "explicit_identity_within_period"
+            },
+            "totals": {
+              "distanceM": {
+                "observedValue": 5000,
+                "totalValue": 5000,
+                "knownActivityCount": 1,
+                "missingActivityCount": 0,
+                "summaryFallbackCount": 0,
+                "sourceBasis": "canonical_metrics",
+                "sourceActivityIds": [
+                  "a"
+                ]
+              },
+              "movingTimeSec": {
+                "observedValue": 1500,
+                "totalValue": 1500,
+                "knownActivityCount": 1,
+                "missingActivityCount": 0,
+                "summaryFallbackCount": 0,
+                "sourceBasis": "canonical_metrics",
+                "sourceActivityIds": [
+                  "a"
+                ]
+              },
+              "elevationGainM": {
+                "observedValue": 0,
+                "totalValue": 0,
+                "knownActivityCount": 1,
+                "missingActivityCount": 0,
+                "summaryFallbackCount": 0,
+                "sourceBasis": "canonical_metrics",
+                "sourceActivityIds": [
+                  "a"
+                ]
+              }
+            },
+            "activities": [
+              {
+                "activityId": "a",
+                "startTime": 2000,
+                "distanceM": 5000,
+                "movingTimeSec": 1500,
+                "elevationGainM": 0,
+                "sourceBasis": {
+                  "distanceM": "canonical_metrics",
+                  "movingTimeSec": "canonical_metrics",
+                  "elevationGainM": "canonical_metrics"
+                }
+              }
+            ],
+            "running": {
+              "evidence": {
+                "version": 1,
+                "scope": "observed_representatives",
+                "timingBasis": "elapsed_including_stops",
+                "activities": []
+              },
+              "bestDistances": {
+                "status": "complete",
+                "timingBasis": "elapsed_including_stops",
+                "coverage": {
+                  "candidateActivityCount": 1,
+                  "eligibleActivityCount": 0,
+                  "missingActivityCount": 0,
+                  "noObservedEffortActivityCount": 1,
+                  "truncated": false,
+                  "excludedOnlyActivityCount": 0
+                },
+                "observedStatistics": [],
+                "points": [],
+                "excludedEffortActivityCount": 0
+              },
+              "paceCurves": [
+                {
+                  "status": "complete",
+                  "sourceBasis": "run_metrics_pace_curve",
+                  "timingBasis": "elapsed",
+                  "unit": "sec_per_km",
+                  "coverage": {
+                    "candidateActivityCount": 1,
+                    "eligibleActivityCount": 0,
+                    "missingActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "truncated": false
+                  },
+                  "observedStatistics": [],
+                  "points": []
+                },
+                {
+                  "status": "partial",
+                  "sourceBasis": "speed_curve_kmh_converted",
+                  "timingBasis": "elapsed",
+                  "unit": "sec_per_km",
+                  "coverage": {
+                    "candidateActivityCount": 1,
+                    "eligibleActivityCount": 0,
+                    "missingActivityCount": 1,
+                    "noObservedEffortActivityCount": 0,
+                    "truncated": false
+                  },
+                  "observedStatistics": [],
+                  "points": []
+                }
+              ],
+              "stageEffortOverlay": {
+                "version": 1,
+                "scope": "stage_readtime_overlay",
+                "selectionBasis": "observed_period_representatives",
+                "aliasPolicy": "selected_activity_incarnation_only",
+                "globalRecords": "unchanged",
+                "checkedActivityCount": 1,
+                "preferenceBindings": [
+                  {
+                    "activityId": "a",
+                    "activityIncarnation": "50:0",
+                    "preferenceRevision": 1,
+                    "excludedTargets": [
+                      "5km"
+                    ],
+                    "metricsRevision": "100:1",
+                    "mutationReady": true
+                  }
+                ]
+              },
+              "expandedDistanceAnalysis": {
+                "version": 1,
+                "targetsVersion": 2,
+                "timingBasis": "elapsed_including_stops",
+                "scope": "observed_representatives",
+                "distances": [
+                  {
+                    "distance": "400m",
+                    "distanceM": 400,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "half_mile",
+                    "distanceM": 804.672,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "1km",
+                    "distanceM": 1000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "1mile",
+                    "distanceM": 1609.344,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "2miles",
+                    "distanceM": 3218.688,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "5km",
+                    "distanceM": 5000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "10km",
+                    "distanceM": 10000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "15km",
+                    "distanceM": 15000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "10miles",
+                    "distanceM": 16093.44,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "20km",
+                    "distanceM": 20000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "half",
+                    "distanceM": 21097.5,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "30km",
+                    "distanceM": 30000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "full",
+                    "distanceM": 42195,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "50km",
+                    "distanceM": 50000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 1,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 1,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 0,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  }
+                ]
+              }
+            },
+            "zones": {
+              "heartRate": {
+                "candidateActivityCount": 1,
+                "eligibleActivityCount": 0,
+                "missingSensorActivityCount": 1,
+                "contextUnknownActivityCount": 0,
+                "observedSeconds": 0,
+                "groups": []
+              },
+              "power": {
+                "candidateActivityCount": 0,
+                "eligibleActivityCount": 0,
+                "missingSensorActivityCount": 0,
+                "contextUnknownActivityCount": 0,
+                "observedSeconds": 0,
+                "groups": [],
+                "reason": "not_applicable"
+              },
+              "pace": {
+                "status": "unavailable",
+                "reason": "canonical_pace_zones_unavailable"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "metricsAbsent": {
+      "request": {
+        "discipline": "run",
+        "periods": [
+          {
+            "fromInclusive": 1000,
+            "toExclusive": 10000
+          }
+        ],
+        "includeExpandedRunDistances": true,
+        "includeStageRunEffortPreferences": true
+      },
+      "response": {
+        "version": 1,
+        "discipline": "run",
+        "asOf": 200010,
+        "inputDigest": "accdbb0945ebc05f77f2017bdb4ab8900f4b871a00e7fc1527dbdd81753468f8",
+        "periods": [
+          {
+            "fromInclusive": 1000,
+            "toExclusive": 10000,
+            "status": "partial",
+            "coverage": {
+              "scannedActivityCount": 1,
+              "candidateActivityCount": 1,
+              "representativeActivityCount": 1,
+              "deduplicatedActivityCount": 0,
+              "includedActivityCount": 0,
+              "pendingActivityCount": 0,
+              "missingActivityCount": 1,
+              "incompleteActivityCount": 0,
+              "skippedActivityCount": 0,
+              "candidateCountKnown": true,
+              "truncated": false,
+              "scanLimit": 200,
+              "deduplicationBasis": "explicit_identity_within_period"
+            },
+            "totals": {
+              "distanceM": {
+                "observedValue": null,
+                "totalValue": null,
+                "knownActivityCount": 0,
+                "missingActivityCount": 1,
+                "summaryFallbackCount": 0,
+                "sourceBasis": "unavailable",
+                "sourceActivityIds": []
+              },
+              "movingTimeSec": {
+                "observedValue": null,
+                "totalValue": null,
+                "knownActivityCount": 0,
+                "missingActivityCount": 1,
+                "summaryFallbackCount": 0,
+                "sourceBasis": "unavailable",
+                "sourceActivityIds": []
+              },
+              "elevationGainM": {
+                "observedValue": null,
+                "totalValue": null,
+                "knownActivityCount": 0,
+                "missingActivityCount": 1,
+                "summaryFallbackCount": 0,
+                "sourceBasis": "unavailable",
+                "sourceActivityIds": []
+              }
+            },
+            "activities": [
+              {
+                "activityId": "a",
+                "startTime": 2000,
+                "distanceM": null,
+                "movingTimeSec": null,
+                "elevationGainM": null,
+                "sourceBasis": {
+                  "distanceM": "unavailable",
+                  "movingTimeSec": "unavailable",
+                  "elevationGainM": "unavailable"
+                }
+              }
+            ],
+            "running": {
+              "evidence": {
+                "version": 1,
+                "scope": "observed_representatives",
+                "timingBasis": "elapsed_including_stops",
+                "activities": []
+              },
+              "bestDistances": {
+                "status": "partial",
+                "timingBasis": "elapsed_including_stops",
+                "coverage": {
+                  "candidateActivityCount": 1,
+                  "eligibleActivityCount": 0,
+                  "missingActivityCount": 1,
+                  "noObservedEffortActivityCount": 0,
+                  "truncated": false
+                },
+                "observedStatistics": [],
+                "points": [],
+                "excludedEffortActivityCount": 0
+              },
+              "paceCurves": [
+                {
+                  "status": "partial",
+                  "sourceBasis": "run_metrics_pace_curve",
+                  "timingBasis": "elapsed",
+                  "unit": "sec_per_km",
+                  "coverage": {
+                    "candidateActivityCount": 1,
+                    "eligibleActivityCount": 0,
+                    "missingActivityCount": 1,
+                    "noObservedEffortActivityCount": 0,
+                    "truncated": false
+                  },
+                  "observedStatistics": [],
+                  "points": []
+                },
+                {
+                  "status": "partial",
+                  "sourceBasis": "speed_curve_kmh_converted",
+                  "timingBasis": "elapsed",
+                  "unit": "sec_per_km",
+                  "coverage": {
+                    "candidateActivityCount": 1,
+                    "eligibleActivityCount": 0,
+                    "missingActivityCount": 1,
+                    "noObservedEffortActivityCount": 0,
+                    "truncated": false
+                  },
+                  "observedStatistics": [],
+                  "points": []
+                }
+              ],
+              "stageEffortOverlay": {
+                "version": 1,
+                "scope": "stage_readtime_overlay",
+                "selectionBasis": "observed_period_representatives",
+                "aliasPolicy": "selected_activity_incarnation_only",
+                "globalRecords": "unchanged",
+                "checkedActivityCount": 1,
+                "preferenceBindings": [
+                  {
+                    "activityId": "a",
+                    "activityIncarnation": "50:0",
+                    "preferenceRevision": 1,
+                    "excludedTargets": [
+                      "5km"
+                    ],
+                    "metricsRevision": null,
+                    "mutationReady": false
+                  }
+                ]
+              },
+              "expandedDistanceAnalysis": {
+                "version": 1,
+                "targetsVersion": 2,
+                "timingBasis": "elapsed_including_stops",
+                "scope": "observed_representatives",
+                "distances": [
+                  {
+                    "distance": "400m",
+                    "distanceM": 400,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "half_mile",
+                    "distanceM": 804.672,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "1km",
+                    "distanceM": 1000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "1mile",
+                    "distanceM": 1609.344,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "2miles",
+                    "distanceM": 3218.688,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "5km",
+                    "distanceM": 5000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "10km",
+                    "distanceM": 10000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "15km",
+                    "distanceM": 15000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "10miles",
+                    "distanceM": 16093.44,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "20km",
+                    "distanceM": 20000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "half",
+                    "distanceM": 21097.5,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "30km",
+                    "distanceM": 30000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "full",
+                    "distanceM": 42195,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  },
+                  {
+                    "distance": "50km",
+                    "distanceM": 50000,
+                    "candidateActivityCount": 1,
+                    "supportedActivityCount": 0,
+                    "observedEffortActivityCount": 0,
+                    "excludedEffortActivityCount": 0,
+                    "noObservedEffortActivityCount": 0,
+                    "unsupportedActivityCount": 0,
+                    "unavailableActivityCount": 1,
+                    "truncated": false,
+                    "bestTimeSeconds": null,
+                    "medianTimeSeconds": null,
+                    "sources": []
+                  }
+                ]
+              }
+            },
+            "zones": {
+              "heartRate": {
+                "candidateActivityCount": 1,
+                "eligibleActivityCount": 0,
+                "missingSensorActivityCount": 1,
+                "contextUnknownActivityCount": 0,
+                "observedSeconds": 0,
+                "groups": []
+              },
+              "power": {
+                "candidateActivityCount": 0,
+                "eligibleActivityCount": 0,
+                "missingSensorActivityCount": 0,
+                "contextUnknownActivityCount": 0,
+                "observedSeconds": 0,
+                "groups": [],
+                "reason": "not_applicable"
+              },
+              "pace": {
+                "status": "unavailable",
+                "reason": "canonical_pace_zones_unavailable"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "default": {
+    "request": {
+      "discipline": "run",
+      "periods": [
+        {
+          "fromInclusive": 1000,
+          "toExclusive": 10000
+        }
+      ],
+      "includeExpandedRunDistances": true
+    },
+    "response": {
+      "version": 1,
+      "discipline": "run",
+      "asOf": 200010,
+      "inputDigest": "f4ad6e79a90ea5f4409cb84c5b549ed29599064c591ca64089774a70da73a870",
+      "periods": [
+        {
+          "fromInclusive": 1000,
+          "toExclusive": 10000,
+          "status": "partial",
+          "coverage": {
+            "scannedActivityCount": 2,
+            "candidateActivityCount": 2,
+            "representativeActivityCount": 2,
+            "deduplicatedActivityCount": 0,
+            "includedActivityCount": 2,
+            "pendingActivityCount": 0,
+            "missingActivityCount": 0,
+            "incompleteActivityCount": 0,
+            "skippedActivityCount": 0,
+            "candidateCountKnown": true,
+            "truncated": false,
+            "scanLimit": 200,
+            "deduplicationBasis": "explicit_identity_within_period"
+          },
+          "totals": {
+            "distanceM": {
+              "observedValue": 10000,
+              "totalValue": 10000,
+              "knownActivityCount": 2,
+              "missingActivityCount": 0,
+              "summaryFallbackCount": 0,
+              "sourceBasis": "canonical_metrics",
+              "sourceActivityIds": [
+                "a",
+                "b"
+              ]
+            },
+            "movingTimeSec": {
+              "observedValue": 3000,
+              "totalValue": 3000,
+              "knownActivityCount": 2,
+              "missingActivityCount": 0,
+              "summaryFallbackCount": 0,
+              "sourceBasis": "canonical_metrics",
+              "sourceActivityIds": [
+                "a",
+                "b"
+              ]
+            },
+            "elevationGainM": {
+              "observedValue": 0,
+              "totalValue": 0,
+              "knownActivityCount": 2,
+              "missingActivityCount": 0,
+              "summaryFallbackCount": 0,
+              "sourceBasis": "canonical_metrics",
+              "sourceActivityIds": [
+                "a",
+                "b"
+              ]
+            }
+          },
+          "activities": [
+            {
+              "activityId": "a",
+              "startTime": 2000,
+              "distanceM": 5000,
+              "movingTimeSec": 1500,
+              "elevationGainM": 0,
+              "sourceBasis": {
+                "distanceM": "canonical_metrics",
+                "movingTimeSec": "canonical_metrics",
+                "elevationGainM": "canonical_metrics"
+              }
+            },
+            {
+              "activityId": "b",
+              "startTime": 2000,
+              "distanceM": 5000,
+              "movingTimeSec": 1500,
+              "elevationGainM": 0,
+              "sourceBasis": {
+                "distanceM": "canonical_metrics",
+                "movingTimeSec": "canonical_metrics",
+                "elevationGainM": "canonical_metrics"
+              }
+            }
+          ],
+          "running": {
+            "evidence": {
+              "version": 1,
+              "scope": "observed_representatives",
+              "timingBasis": "elapsed_including_stops",
+              "activities": [
+                {
+                  "activityId": "a",
+                  "startTime": 2000,
+                  "metricsRevision": "100:1",
+                  "distanceRecords": [
+                    {
+                      "distance": "1km",
+                      "elapsedSec": 300
+                    },
+                    {
+                      "distance": "5km",
+                      "elapsedSec": 1500
+                    }
+                  ],
+                  "paceCurve": null
+                },
+                {
+                  "activityId": "b",
+                  "startTime": 2000,
+                  "metricsRevision": "100:1",
+                  "distanceRecords": [
+                    {
+                      "distance": "5km",
+                      "elapsedSec": 1600
+                    }
+                  ],
+                  "paceCurve": null
+                }
+              ]
+            },
+            "bestDistances": {
+              "status": "complete",
+              "timingBasis": "elapsed_including_stops",
+              "coverage": {
+                "candidateActivityCount": 2,
+                "eligibleActivityCount": 2,
+                "missingActivityCount": 0,
+                "noObservedEffortActivityCount": 0,
+                "truncated": false
+              },
+              "observedStatistics": [
+                {
+                  "distance": "1km",
+                  "bestTimeSeconds": 300,
+                  "medianTimeSeconds": 300,
+                  "contributingActivityCount": 1
+                },
+                {
+                  "distance": "5km",
+                  "bestTimeSeconds": 1500,
+                  "medianTimeSeconds": 1550,
+                  "contributingActivityCount": 2
+                }
+              ],
+              "points": [
+                {
+                  "distance": "1km",
+                  "distanceM": 1000,
+                  "elapsedSec": 300,
+                  "sourceActivityId": "a",
+                  "startTime": 2000,
+                  "metricsRevision": "100:1",
+                  "contributingActivityCount": 1
+                },
+                {
+                  "distance": "5km",
+                  "distanceM": 5000,
+                  "elapsedSec": 1500,
+                  "sourceActivityId": "a",
+                  "startTime": 2000,
+                  "metricsRevision": "100:1",
+                  "contributingActivityCount": 2
+                }
+              ]
+            },
+            "paceCurves": [
+              {
+                "status": "complete",
+                "sourceBasis": "run_metrics_pace_curve",
+                "timingBasis": "elapsed",
+                "unit": "sec_per_km",
+                "coverage": {
+                  "candidateActivityCount": 2,
+                  "eligibleActivityCount": 0,
+                  "missingActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "truncated": false
+                },
+                "observedStatistics": [],
+                "points": []
+              },
+              {
+                "status": "partial",
+                "sourceBasis": "speed_curve_kmh_converted",
+                "timingBasis": "elapsed",
+                "unit": "sec_per_km",
+                "coverage": {
+                  "candidateActivityCount": 2,
+                  "eligibleActivityCount": 0,
+                  "missingActivityCount": 2,
+                  "noObservedEffortActivityCount": 0,
+                  "truncated": false
+                },
+                "observedStatistics": [],
+                "points": []
+              }
+            ],
+            "expandedDistanceAnalysis": {
+              "version": 1,
+              "targetsVersion": 2,
+              "timingBasis": "elapsed_including_stops",
+              "scope": "observed_representatives",
+              "distances": [
+                {
+                  "distance": "400m",
+                  "distanceM": 400,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": null,
+                  "medianTimeSeconds": null,
+                  "sources": []
+                },
+                {
+                  "distance": "half_mile",
+                  "distanceM": 804.672,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": null,
+                  "medianTimeSeconds": null,
+                  "sources": []
+                },
+                {
+                  "distance": "1km",
+                  "distanceM": 1000,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 1,
+                  "noObservedEffortActivityCount": 1,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": 300,
+                  "medianTimeSeconds": 300,
+                  "sources": [
+                    {
+                      "sourceActivityId": "a",
+                      "startTime": 2000,
+                      "metricsRevision": "100:1",
+                      "contributingActivityCount": 1,
+                      "elapsedSec": 300
+                    }
+                  ]
+                },
+                {
+                  "distance": "1mile",
+                  "distanceM": 1609.344,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": null,
+                  "medianTimeSeconds": null,
+                  "sources": []
+                },
+                {
+                  "distance": "2miles",
+                  "distanceM": 3218.688,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": null,
+                  "medianTimeSeconds": null,
+                  "sources": []
+                },
+                {
+                  "distance": "5km",
+                  "distanceM": 5000,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 2,
+                  "noObservedEffortActivityCount": 0,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": 1500,
+                  "medianTimeSeconds": 1550,
+                  "sources": [
+                    {
+                      "sourceActivityId": "a",
+                      "startTime": 2000,
+                      "metricsRevision": "100:1",
+                      "contributingActivityCount": 1,
+                      "elapsedSec": 1500
+                    },
+                    {
+                      "sourceActivityId": "b",
+                      "startTime": 2000,
+                      "metricsRevision": "100:1",
+                      "contributingActivityCount": 1,
+                      "elapsedSec": 1600
+                    }
+                  ]
+                },
+                {
+                  "distance": "10km",
+                  "distanceM": 10000,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": null,
+                  "medianTimeSeconds": null,
+                  "sources": []
+                },
+                {
+                  "distance": "15km",
+                  "distanceM": 15000,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": null,
+                  "medianTimeSeconds": null,
+                  "sources": []
+                },
+                {
+                  "distance": "10miles",
+                  "distanceM": 16093.44,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": null,
+                  "medianTimeSeconds": null,
+                  "sources": []
+                },
+                {
+                  "distance": "20km",
+                  "distanceM": 20000,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": null,
+                  "medianTimeSeconds": null,
+                  "sources": []
+                },
+                {
+                  "distance": "half",
+                  "distanceM": 21097.5,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": null,
+                  "medianTimeSeconds": null,
+                  "sources": []
+                },
+                {
+                  "distance": "30km",
+                  "distanceM": 30000,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": null,
+                  "medianTimeSeconds": null,
+                  "sources": []
+                },
+                {
+                  "distance": "full",
+                  "distanceM": 42195,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": null,
+                  "medianTimeSeconds": null,
+                  "sources": []
+                },
+                {
+                  "distance": "50km",
+                  "distanceM": 50000,
+                  "candidateActivityCount": 2,
+                  "supportedActivityCount": 2,
+                  "observedEffortActivityCount": 0,
+                  "noObservedEffortActivityCount": 2,
+                  "unsupportedActivityCount": 0,
+                  "unavailableActivityCount": 0,
+                  "truncated": false,
+                  "bestTimeSeconds": null,
+                  "medianTimeSeconds": null,
+                  "sources": []
+                }
+              ]
+            }
+          },
+          "zones": {
+            "heartRate": {
+              "candidateActivityCount": 2,
+              "eligibleActivityCount": 0,
+              "missingSensorActivityCount": 2,
+              "contextUnknownActivityCount": 0,
+              "observedSeconds": 0,
+              "groups": []
+            },
+            "power": {
+              "candidateActivityCount": 0,
+              "eligibleActivityCount": 0,
+              "missingSensorActivityCount": 0,
+              "contextUnknownActivityCount": 0,
+              "observedSeconds": 0,
+              "groups": [],
+              "reason": "not_applicable"
+            },
+            "pace": {
+              "status": "unavailable",
+              "reason": "canonical_pace_zones_unavailable"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

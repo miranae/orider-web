@@ -7,7 +7,7 @@ import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import { loadTrainingAnalysisPeriods, trainingAnalysisPeriodsAvailable, validTrainingAnalysisPeriodsRequest, validRunningPaceZoneAnalysis, validateTrainingAnalysisPeriodsResponse } from "./trainingAnalysisPeriods";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), callable: vi.fn() }));
 vi.mock("firebase/functions", () => ({ httpsCallable: mocks.callable }));
-import { periodFixture, request, runningPeriodFixture, runningPacePeriodFixture, runningPaceAnalysisFixture } from "./trainingAnalysisPeriods.fixture";
+import { periodFixture, request, runningPeriodFixture, runningPacePeriodFixture, runningPaceAnalysisFixture, stageRunEffortFixture } from "./trainingAnalysisPeriods.fixture";
 const stage = { appEnvironment: "stage", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net", trainingAnalysisPeriodsEnabled: true };
 beforeEach(() => { resetRuntimeConfigForTests(stage); mocks.call.mockReset().mockResolvedValue({ data: periodFixture() }); mocks.callable.mockReset().mockReturnValue(mocks.call); });
 describe("training period boundary", () => {
@@ -354,4 +354,74 @@ describe("explicit running GAP pace-zone channel", () => {
     expect(validRunningPaceZoneAnalysis(analysis)).toBe(true);
     expect(analysis.intervalCoverage).toBeNull();
   });
+});
+
+describe("manual running effort preference read", () => {
+  it("preserves default RUN response identity and strictly validates opt-in overlay bindings", () => {
+    const old = runningPeriodFixture(), bytes = JSON.stringify(old), plain = { discipline: "run" as const, periods: old.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })) };
+    expect(validateTrainingAnalysisPeriodsResponse(old, plain)).toBe(old); expect(JSON.stringify(old)).toBe(bytes);
+    expect(validTrainingAnalysisPeriodsRequest({ ...plain, includeStageRunEffortPreferences: true })).toBe(true);
+    expect(validTrainingAnalysisPeriodsRequest({ ...plain, discipline: "bike", includeStageRunEffortPreferences: true })).toBe(false);
+    const data = stageRunEffortFixture(); const request = { ...plain, includeStageRunEffortPreferences: true as const, includeExpandedRunDistances: true as const };
+    expect(validateTrainingAnalysisPeriodsResponse(data, request)).toBe(data);
+    expect(() => validateTrainingAnalysisPeriodsResponse(data, plain)).toThrow();
+  });
+  it.each(["scope", "revision", "ready", "target", "duplicate", "legacyExcluded", "expandedExcluded"])("rejects inconsistent effort overlay %s", field => {
+    const data = stageRunEffortFixture(), running = data.periods[0]!.running!, overlay: any = running.stageEffortOverlay!, binding = overlay.preferenceBindings[0];
+    if (field === "scope") overlay.scope = "global";
+    if (field === "revision") binding.metricsRevision = "stale";
+    if (field === "ready") binding.metricsRevision = null;
+    if (field === "target") binding.excludedTargets = ["3km"];
+    if (field === "duplicate") overlay.preferenceBindings.push(binding);
+    if (field === "legacyExcluded") binding.excludedTargets = ["5km"];
+    if (field === "expandedExcluded") binding.excludedTargets = ["400m"];
+    const request = { discipline: "run" as const, includeStageRunEffortPreferences: true as const, includeExpandedRunDistances: true as const, periods: data.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })) };
+    expect(() => validateTrainingAnalysisPeriodsResponse(data, request)).toThrow();
+  });
+});
+
+it("parses actual compiled backend Stage wire after target filtering, including all-removed and missing recomputation", async () => {
+  const { default: wire } = await import("./runEffortStageWire.fixture.json");
+  for (const [name, scenario] of Object.entries(wire.cases)) {
+    const data = scenario.response as unknown as TrainingAnalysisPeriodsResponse;
+    const request = scenario.request as unknown as Parameters<typeof validateTrainingAnalysisPeriodsResponse>[1];
+    expect(validateTrainingAnalysisPeriodsResponse(data, request)).toBe(data);
+    const services = { auth: { currentUser: { uid: "owner", isAnonymous: false } }, functions: {}, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices;
+    Object.assign(services.functions, { app: services.auth.app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" });
+    mocks.call.mockResolvedValueOnce({ data });
+    expect(await loadTrainingAnalysisPeriods(services, "owner", request)).toEqual(data);
+    expect(mocks.call).toHaveBeenLastCalledWith(request);
+    const running = data.periods[0]!.running!;
+    const expanded = running.expandedDistanceAnalysis!.distances.find(row => row.distance === "5km")!;
+    if (name === "allRemoved") {
+      expect(running.bestDistances.coverage).toMatchObject({ eligibleActivityCount: 0, excludedOnlyActivityCount: 1, noObservedEffortActivityCount: 0 });
+      expect(running.bestDistances.points).toEqual([]);
+      expect(expanded).toMatchObject({ observedEffortActivityCount: 0, excludedEffortActivityCount: 1, noObservedEffortActivityCount: 0, sources: [], bestTimeSeconds: null });
+    }
+    if (name === "partial") {
+      expect(running.bestDistances.coverage).toMatchObject({ eligibleActivityCount: 2, excludedOnlyActivityCount: 0 });
+      expect(running.bestDistances.points.find(point => point.distance === "5km")!.sourceActivityId).toBe("b");
+      expect(expanded.sources.map(source => source.sourceActivityId)).toEqual(["b"]);
+    }
+    if (name === "recomputedMissing") expect(expanded).toMatchObject({ excludedEffortActivityCount: 0, noObservedEffortActivityCount: 1 });
+    if (name === "metricsAbsent") expect(running.stageEffortOverlay!.preferenceBindings[0]).toMatchObject({ metricsRevision: null, mutationReady: false, excludedTargets: ["5km"] });
+    const doubleCounted = structuredClone(data);
+    if (name === "allRemoved") {
+      doubleCounted.periods[0]!.running!.bestDistances.coverage.noObservedEffortActivityCount = 1;
+      expect(() => validateTrainingAnalysisPeriodsResponse(doubleCounted, request)).toThrow();
+    }
+  }
+  const old = wire.default.response as unknown as TrainingAnalysisPeriodsResponse;
+  expect(validateTrainingAnalysisPeriodsResponse(old, wire.default.request as unknown as Parameters<typeof validateTrainingAnalysisPeriodsResponse>[1])).toBe(old);
+  expect(old.periods[0]!.running!.stageEffortOverlay).toBeUndefined();
+  expect(old.periods[0]!.running!.bestDistances.coverage.excludedOnlyActivityCount).toBeUndefined();
+});
+
+
+it.each([null, NaN, -1])("rejects explicit malformed excluded-only coverage %s", async excludedOnlyActivityCount => {
+  const { default: wire } = await import("./runEffortStageWire.fixture.json");
+  const data = structuredClone(wire.cases.partial.response) as unknown as TrainingAnalysisPeriodsResponse;
+  Object.assign(data.periods[0]!.running!.bestDistances.coverage, { excludedOnlyActivityCount });
+  const request = wire.cases.partial.request as unknown as Parameters<typeof validateTrainingAnalysisPeriodsResponse>[1];
+  expect(() => validateTrainingAnalysisPeriodsResponse(data, request)).toThrow("invalid_training_analysis_periods_response");
 });

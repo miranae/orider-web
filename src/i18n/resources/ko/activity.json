@@ -2141,6 +2141,45 @@
       "missingAltitudeMovingSeconds": "이동 중 고도 없음",
       "gapExcludedSeconds": "기록 간격 제외",
       "invalidDistanceSeconds": "유효하지 않은 거리 구간"
+    },
+    "selectedPeriod": "선택 기간",
+    "comparisonPeriod": "비교 기간",
+    "periodEvidence": "기간 범위와 저장 분석 근거",
+    "exactBounds": "한국 시간 {{from}} 이상 · {{to}} 미만",
+    "savedCountsNote": "누락 사유는 저장된 활동 분석의 집계입니다. 역치 없음 0건이 현재 프로필에 역치가 설정되어 있다는 뜻은 아닙니다."
+  },
+  "runEffortTool": {
+    "cancelPending": "이 요청 확인 종료",
+    "cancelledUnknown": "이 요청의 확인을 종료했습니다. 이미 저장된 선택은 되돌리지 않으며 결과가 미확인일 수 있습니다. 분석을 다시 불러와 현재 상태를 확인해 주세요.",
+    "alias": "선택한 활동의 이 거리 기록에만 적용됩니다. 같은 주행의 다른 기록은 별도로 남을 수 있습니다.",
+    "title": "거리 기록 선택 비교",
+    "scope": "이 분석 화면에만 반영됩니다.",
+    "limit": "적용된 기간에서 확인한 관측 기록을 비교합니다. 계정 전체 최고 기록을 확정하지 않습니다.",
+    "load": "거리 기록 선택 불러오기",
+    "preparing": "거리 기록 선택 기능을 준비하고 있습니다.",
+    "loading": "선택한 기간의 분석을 불러오고 있습니다.",
+    "saving": "거리 기록 선택을 저장하고 있습니다.",
+    "unsupported": "현재 응답에는 이 비교의 거리 기록 선택 근거가 없습니다.",
+    "storedPending": "선택이 저장되었습니다. 분석을 다시 불러와 현재 적용 기준을 확인해 주세요.",
+    "choiceConfirmed": "최신 비교에서 저장된 선택을 확인했습니다.",
+    "retry": "같은 요청으로 재시도",
+    "readError": "기간 분석을 불러오지 못했습니다. 다시 불러와 주세요.",
+    "asOf": "선택 비교 조회 기준 {{date}} (한국 시간)",
+    "target": "선택할 거리",
+    "excludedCount": "기간 {{period}} · 이 거리에서 제외한 관측 활동 {{amount}}건",
+    "timeUnknown": "활동 시각 미확인",
+    "excluded": "이 거리 기록은 이 비교에서 제외되었습니다.",
+    "exclude": "이 비교에서 제외",
+    "restore": "이 비교에 복원",
+    "restoreNamed": "{{date}} · {{distance}} 기록을 이 비교에 복원",
+    "excludeNamed": "{{date}} · {{distance}} 기록을 이 비교에서 제외",
+    "sourceUnverified": "현재 분석 근거를 확인할 수 없어 선택을 변경할 수 없습니다.",
+    "noCandidates": "현재 거리에서 변경할 수 있는 관측 기록이 없습니다.",
+    "failure": {
+      "source_unverified": "선택은 저장되었지만 저장 직후 분석 근거를 확인할 수 없었습니다. 최신 분석을 다시 불러와 주세요.",
+      "source_changed": "선택은 저장되었지만 저장 직후 분석 근거가 바뀌었습니다. 최신 분석을 다시 불러와 주세요.",
+      "rejected": "변경 기준을 확인하지 못했습니다. 최신 분석을 불러오거나 같은 요청으로 다시 확인해 주세요.",
+      "unknown": "저장 결과를 확인하지 못했습니다. 같은 요청으로 재시도하거나 분석을 다시 불러와 주세요."
     }
   }
 }

@@ -1,3 +1,4 @@
+vi.mock("./RunEffortStageManagementPanel", () => ({ default: (props: unknown) => { mocks.effortTool(props); return <div data-testid="effort-choice-tool" />; } }));
 vi.mock("./ActivityRouteIndexHistoryPanel", () => ({ default: (props: unknown) => { mocks.routeIndex(props); return <div data-testid="route-index-history-panel" />; } }));
 vi.mock("./CyclingDistanceHistoryPanel", () => ({ default: (props: unknown) => { mocks.cyclingHistory(props); return <div data-testid="cycling-history-panel" />; } }));
 vi.mock("./ObservedRouteHistoryPanel", () => ({ default: (props: unknown) => { mocks.routeHistory(props); return <div data-testid="observed-route-history-panel" />; } }));
@@ -13,7 +14,7 @@ import en from "../../../i18n/resources/en/activity.json";
 import { ActivityGrowthPanel } from "./ActivityGrowthPanel";
 import { activityPeriods } from "./activityGrowth";
 import { periodFixture, runningPeriodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
-const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn(), route: vi.fn(), routeHistory: vi.fn(), cyclingHistory: vi.fn(), routeIndex: vi.fn(), manual: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string } | null, language: "ko", units: "metric", history: vi.fn(), metrics: vi.fn(), periodAvailable: false, periods: vi.fn(), annual: vi.fn(), route: vi.fn(), routeHistory: vi.fn(), cyclingHistory: vi.fn(), routeIndex: vi.fn(), effortTool: vi.fn(), manual: vi.fn() }));
 vi.mock("./ObservedRouteComparisonPanel", () => ({ ObservedRouteComparisonPanel: (props: unknown) => { mocks.route(props); return null; } }));
 vi.mock("./AnnualRunHistoryPanel", () => ({ default: (props: { ownerUid: string; activityId: string; year: number }) => { mocks.annual(props); return <div data-testid="annual-history-year">{props.year}</div>; } }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
@@ -30,6 +31,7 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: { language: moc
 const activity = { id: "current", userId: "owner", startTime: 100, type: "Run", summary: {} } as Activity;
 const previous = { ...activity, id: "previous", startTime: 50, description: "earlier" };
 beforeEach(() => {
+  mocks.effortTool.mockReset();
   mocks.routeIndex.mockReset();
   mocks.cyclingHistory.mockReset();
   mocks.routeHistory.mockReset();
@@ -214,6 +216,7 @@ describe("ActivityGrowthPanel", () => {
     expect(mocks.history).toHaveBeenLastCalledWith("statistics", expect.any(Number), false, expect.any(Object));
     expect(mocks.periods).toHaveBeenNthCalledWith(1, "owner", expect.objectContaining({ request: expect.objectContaining({ discipline: "run", periods: expect.any(Array) }) }), true);
     expect(mocks.periods).toHaveBeenLastCalledWith("owner", null, true);
+    expect(mocks.effortTool).toHaveBeenLastCalledWith({ ownerUid: "owner", appliedResponse: response });
     expect(mocks.periods.mock.calls.filter(call => call[1] !== null)).toHaveLength(1);
     expect(screen.getByText("확인된 합계 1.0 · 2개 중 1개")).toBeInTheDocument();
     expect(screen.getByText("이동시간 · h", { selector: ".ds-stat__label" }).closest(".ds-stat")?.querySelector(".ds-stat__value")?.textContent).toBe("—");

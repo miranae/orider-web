@@ -112,4 +112,35 @@ describe("owner manual pace-period evidence", () => {
     expect(screen.getByText(/역치 없음 1건 · GAP 입력 없음 0건 · 프로필 읽기 실패 1건/)).toBeInTheDocument();
     expect(screen.queryByText(/Z1 ·/)).not.toBeInTheDocument();
   });
+  it("shows one empty hint while preserving per-period reasons and exact bounds in collapsed evidence", () => {
+    const response = runningPacePeriodFixture();
+    response.asOf = Date.UTC(2026, 9, 12, 6, 7, 8);
+    response.periods[0]!.fromInclusive += 123;
+    response.periods[0]!.toExclusive += 456;
+    const empty = structuredClone(response.periods[0]!);
+    response.periods = [response.periods[0]!, empty];
+    for (const period of response.periods) {
+      const pace = period.zones.pace;
+      if (!("groups" in pace)) throw new Error("fixture");
+      Object.assign(pace, { groups: [], eligibleActivityCount: 0, thresholdMissingActivityCount: 0 });
+    }
+    mocks.hook.mockReturnValue({ state: "ready", response });
+    renderWithProviders(<TrainingPeriodZonesPanel response={runningPeriodFixture()} ownerUid="test-uid" />, { authenticated: true });
+    expect(screen.getAllByText("확인된 GAP 페이스존 기록이 없습니다.")).toHaveLength(1);
+    expect(screen.getAllByText(/GAP 확인 0 \/ 후보 1건/)).toHaveLength(2);
+    expect(screen.getByText(/페이스존 조회 기준.*15:07/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^선택 기간 ·/, hidden: true }).textContent).not.toMatch(/\d{2}:\d{2}/);
+    expect(screen.getByRole("heading", { name: /^비교 기간 ·/, hidden: true })).toBeInTheDocument();
+    expect(screen.queryByText(/다른 기준의 분포 차이를 성장으로 해석하지 않습니다/)).not.toBeInTheDocument();
+    for (const summary of screen.getAllByText("기간 범위와 저장 분석 근거")) {
+      const details = summary.closest("details")!;
+      expect(details).not.toHaveAttribute("open");
+      expect(details.textContent).toMatch(/한국 시간.*\.123.*이상.*\.456.*미만/);
+      expect(details.textContent).toContain("역치 없음 0건 · GAP 입력 없음 0건 · 프로필 읽기 실패 0건");
+      expect(details.textContent).toContain("현재 프로필에 역치가 설정되어 있다는 뜻은 아닙니다");
+      fireEvent.click(summary);
+      expect(details.textContent).toContain("저장된 활동 분석의 집계");
+    }
+  });
+
 });

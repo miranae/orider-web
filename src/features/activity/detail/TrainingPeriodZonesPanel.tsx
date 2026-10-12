@@ -32,7 +32,10 @@ function ManualRunningPaceZones({ response, ownerUid }: { response: TrainingAnal
   const [selection, setSelection] = useState<TrainingAnalysisPeriodsSelection | null>(null);
   const enabled = trainingAnalysisPeriodsAvailable();
   const result = useTrainingAnalysisPeriods(ownerUid, selection, enabled);
-  const date = (value: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(value);
+  const date = (value: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(value);
+  const readTime = (value: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(value);
+  const exactTime = (value: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3, hourCycle: "h23" } as Intl.DateTimeFormatOptions & { fractionalSecondDigits: 3 }).format(value);
+  const noObservedGroups = !!result.response && result.response.periods.every(period => !("groups" in period.zones.pace) || period.zones.pace.groups.length === 0);
   return <section className="space-y-3" aria-label={t("runningPaceZones.periodTitle")}>
     <Text as="h3" variant="subtitle">{t("runningPaceZones.periodTitle")}</Text>
     <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.manualNote")}</Text>
@@ -41,15 +44,18 @@ function ManualRunningPaceZones({ response, ownerUid }: { response: TrainingAnal
     {!enabled && <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.preparing")}</Text>}
     {result.state === "loading" && <Text as="p" variant="bodyMedium" role="status">{t("runningPaceZones.loading")}</Text>}
     {result.state === "error" && <Text as="p" variant="bodyMedium" role="alert">{t("runningPaceZones.error")}</Text>}
-    {result.response && <div className="space-y-4"><Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.readAt", { date: date(result.response.asOf) })}</Text>{result.response.periods.map((period, index) => {
+    {result.response && <div className="space-y-4"><Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.readAt", { date: readTime(result.response.asOf) })}</Text>{noObservedGroups && <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.noObserved")}</Text>}{result.response.periods.map((period, index) => {
       const pace = period.zones.pace;
-      return <section key={index} className="space-y-3"><Text as="h4" variant="bodyMedium" weight={600}>{date(period.fromInclusive)} – {date(period.toExclusive - 1)}</Text>
+      return <section key={index} className="space-y-3"><Text as="h4" variant="bodyMedium" weight={600}>{t(index === 0 ? "runningPaceZones.selectedPeriod" : "runningPaceZones.comparisonPeriod")} · {date(period.fromInclusive)} – {date(period.toExclusive - 1)}</Text>
+        {"candidateActivityCount" in pace && <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.coverage", { ...pace })}</Text>}
+        <details className="space-y-2"><summary className="cursor-pointer inline-flex items-center min-h-[calc(var(--dim-button-height)+var(--space-1))]">{t("runningPaceZones.periodEvidence")}</summary>
+            <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.exactBounds", { from: exactTime(period.fromInclusive), to: exactTime(period.toExclusive) })}</Text>
+            {"candidateActivityCount" in pace && <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.unavailableCounts", { ...pace })}</Text>}
+            <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.savedCountsNote")}</Text>
+          </details>
         {"candidateActivityCount" in pace ? <>
-          <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.coverage", { ...pace })}</Text>
-          <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.unavailableCounts", { ...pace })}</Text>
           {pace.truncated && <Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.truncated")}</Text>}
-          <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.groupLimit")}</Text>
-          {pace.groups.length ? pace.groups.map((group, groupIndex) => <RunningPaceZonesPanel key={groupIndex} analysis={group} />) : <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.noObserved")}</Text>}
+          {pace.groups.length > 0 && <><Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.groupLimit")}</Text>{pace.groups.map((group, groupIndex) => <RunningPaceZonesPanel key={groupIndex} analysis={group} />)}</>}
         </> : <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.legacyUnsupported")}</Text>}
       </section>;
     })}</div>}

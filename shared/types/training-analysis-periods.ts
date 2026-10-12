@@ -1,3 +1,4 @@
+import type { RunEffortStageOverlay } from "./run-effort-stage-preferences";
 import type { NormalizedCyclingDistanceProvenance } from "./cycling-distance-observations";
 import type { BikeDistanceKey } from "../activity-bike-distance-evidence";
 import type { HrZoneBoundaries } from "../training/hrZoneTable";
@@ -9,6 +10,7 @@ export interface TrainingAnalysisPeriodsRequest {
   periods: PowerCurvePeriod[];
   includeExpandedRunDistances?: true;
   includeRunningPaceZones?: true;
+  includeStageRunEffortPreferences?: true;
   includeCyclingClimbObservations?: true;
   includeCyclingDistanceObservations?: true;
 }
@@ -89,6 +91,8 @@ export interface PeriodPowerZoneGroup {
   activityIds: string[];
 }
 export interface PeriodRunningCoverage {
+  /** 명시 선택으로 검증된 거리 기록이 모두 빠진 활동. noObserved와 중복되지 않는다. */
+  excludedOnlyActivityCount?: number;
   candidateActivityCount: number;
   eligibleActivityCount: number;
   /** 정본 부재·대기·구버전·영구 일부 누락 또는 해당 필드 부재·무효 건수. */
@@ -126,6 +130,7 @@ export interface ExpandedRunDistanceRecords {
   targetsVersion: 2;
   timingBasis: "elapsed_including_stops";
   state: "observed" | "no_observed_efforts" | "legacy_unsupported" | "unavailable";
+  excludedObservedTargets?: ExpandedRunDistanceKey[];
   points: Array<{ distance: ExpandedRunDistanceKey; elapsedSec: number }>;
 }
 export interface ExpandedRunDistanceAnalysis {
@@ -138,6 +143,7 @@ export interface ExpandedRunDistanceAnalysis {
     distanceM: number;
     candidateActivityCount: number;
     supportedActivityCount: number;
+    excludedEffortActivityCount?: number;
     observedEffortActivityCount: number;
     noObservedEffortActivityCount: number;
     unsupportedActivityCount: number;
@@ -149,10 +155,12 @@ export interface ExpandedRunDistanceAnalysis {
   }>;
 }
 export interface PeriodRunningAnalysis {
+  stageEffortOverlay?: RunEffortStageOverlay;
   expandedDistanceAnalysis?: ExpandedRunDistanceAnalysis;
   /** 추가 계약. 원본 센서·위치 없이 이미 읽은 정본의 관측 근거만 전달한다. */
   evidence?: PeriodRunningEvidence;
   bestDistances: {
+    excludedEffortActivityCount?: number;
     status: "complete" | "partial";
     timingBasis: "elapsed_including_stops";
     coverage: PeriodRunningCoverage;
