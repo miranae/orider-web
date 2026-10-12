@@ -212,7 +212,9 @@ describe("ActivityGrowthPanel", () => {
     render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
     expect(mocks.history).toHaveBeenLastCalledWith("statistics", expect.any(Number), false, expect.any(Object));
-    expect(mocks.periods).toHaveBeenLastCalledWith("owner", expect.objectContaining({ request: expect.objectContaining({ discipline: "run", periods: expect.any(Array) }) }), true);
+    expect(mocks.periods).toHaveBeenNthCalledWith(1, "owner", expect.objectContaining({ request: expect.objectContaining({ discipline: "run", periods: expect.any(Array) }) }), true);
+    expect(mocks.periods).toHaveBeenLastCalledWith("owner", null, true);
+    expect(mocks.periods.mock.calls.filter(call => call[1] !== null)).toHaveLength(1);
     expect(screen.getByText("확인된 합계 1.0 · 2개 중 1개")).toBeInTheDocument();
     expect(screen.getByText("이동시간 · h", { selector: ".ds-stat__label" }).closest(".ds-stat")?.querySelector(".ds-stat__value")?.textContent).toBe("—");
     expect(screen.getByText(/확정 분석 수치를 우선/)).toBeInTheDocument();

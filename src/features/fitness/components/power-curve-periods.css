@@ -16,5 +16,5 @@
 .period-curve-details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
 .period-curve-details p { overflow-wrap: anywhere; }
 
-.period-curve-analysis select, .period-curve-form select, .period-curve-form input { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.period-curve-analysis select, .period-curve-unit select, .period-curve-form select, .period-curve-form input { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
 @container (min-width: 24rem) { .period-curve-chart { font-size: var(--fs-xs); } }

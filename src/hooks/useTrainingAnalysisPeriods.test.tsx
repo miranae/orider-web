@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
-import { useTrainingAnalysisPeriods } from "./useTrainingAnalysisPeriods";
+import { useTrainingAnalysisPeriods, type TrainingAnalysisPeriodsSelection } from "./useTrainingAnalysisPeriods";
 const mocks = vi.hoisted(() => ({ uid: "owner", anonymous: false, services: {}, load: vi.fn() }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: mocks.uid, isAnonymous: mocks.anonymous } }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
@@ -66,4 +66,21 @@ it("adds cycling distance opt-in to the one existing request, remains stable on 
   expect(mocks.load).toHaveBeenCalledOnce();expect(mocks.load.mock.calls[0]![2]).toEqual({...selection.request,includeCyclingDistanceObservations:true});
   view.rerender({...selection,request:{...selection.request,periods:[...selection.request.periods]}});expect(mocks.load).toHaveBeenCalledOnce();view.unmount();
   for (const discipline of ["run","swim"] as const) {const value={...selection,request:{...selection.request,discipline}};const other=renderHook(()=>useTrainingAnalysisPeriods("owner",value,true));await waitFor(()=>expect(other.result.current.state).toBe("ready"));expect(mocks.load.mock.lastCall?.[2]).toEqual(value.request);other.unmount();}
+});
+
+it("keeps GAP pace opt-in manual and fences late responses after date selection changes", async () => {
+  let resolveOld!: (value: any) => void;
+  mocks.load.mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve; }));
+  const r = renderHook((selected: TrainingAnalysisPeriodsSelection | null) => useTrainingAnalysisPeriods("owner", selected, true), { initialProps: null as TrainingAnalysisPeriodsSelection | null });
+  expect(mocks.load).not.toHaveBeenCalled();
+  const pace = { request: { discipline: "run" as const, includeRunningPaceZones: true as const, periods: selection.request.periods }, requestId: 1 };
+  r.rerender(pace);
+  expect(mocks.load).toHaveBeenLastCalledWith(mocks.services, "owner", pace.request);
+  r.rerender(null);
+  await act(async () => resolveOld({ inputDigest: "old-date" }));
+  expect(r.result.current.response).toBeNull();
+  const next = { ...pace, request: { ...pace.request, periods: [{ fromInclusive: 2000, toExclusive: 9000 }] }, requestId: 2 };
+  r.rerender(next);
+  await waitFor(() => expect(r.result.current.response?.inputDigest).toBe("new"));
+  expect(mocks.load).toHaveBeenLastCalledWith(mocks.services, "owner", next.request);
 });

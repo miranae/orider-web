@@ -4,10 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { resetRuntimeConfigForTests } from "./runtimeConfig";
-import { loadTrainingAnalysisPeriods, trainingAnalysisPeriodsAvailable, validTrainingAnalysisPeriodsRequest, validateTrainingAnalysisPeriodsResponse } from "./trainingAnalysisPeriods";
+import { loadTrainingAnalysisPeriods, trainingAnalysisPeriodsAvailable, validTrainingAnalysisPeriodsRequest, validRunningPaceZoneAnalysis, validateTrainingAnalysisPeriodsResponse } from "./trainingAnalysisPeriods";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), callable: vi.fn() }));
 vi.mock("firebase/functions", () => ({ httpsCallable: mocks.callable }));
-import { periodFixture, request, runningPeriodFixture } from "./trainingAnalysisPeriods.fixture";
+import { periodFixture, request, runningPeriodFixture, runningPacePeriodFixture, runningPaceAnalysisFixture } from "./trainingAnalysisPeriods.fixture";
 const stage = { appEnvironment: "stage", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net", trainingAnalysisPeriodsEnabled: true };
 beforeEach(() => { resetRuntimeConfigForTests(stage); mocks.call.mockReset().mockResolvedValue({ data: periodFixture() }); mocks.callable.mockReset().mockReturnValue(mocks.call); });
 describe("training period boundary", () => {
@@ -289,4 +289,69 @@ it("accepts full actual compiled period wire and exactly matches backend legacy 
   expect(validateTrainingAnalysisPeriodsResponse(raw,request)).toEqual(normalized);
   expect(validateTrainingAnalysisPeriodsResponse(modern,request)).toBe(modern);
   expect(validateTrainingAnalysisPeriodsResponse(periodFixture(),{...request,periods:periodFixture().periods.map(({fromInclusive,toExclusive})=>({fromInclusive,toExclusive}))})).toEqual(periodFixture());
+});
+
+describe("explicit running GAP pace-zone channel", () => {
+  it("requires true RUN-only opt-in and keeps the default response wire identical", () => {
+    const old = runningPeriodFixture(), before = JSON.stringify(old);
+    const base = { discipline: "run" as const, periods: old.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })) };
+    expect(validateTrainingAnalysisPeriodsResponse(old, base)).toBe(old);
+    expect(JSON.stringify(old)).toBe(before);
+    expect(validTrainingAnalysisPeriodsRequest(base)).toBe(true);
+    expect(validTrainingAnalysisPeriodsRequest({ ...base, includeRunningPaceZones: true })).toBe(true);
+    for (const request of [{ ...base, includeRunningPaceZones: false }, { ...base, includeRunningPaceZones: "true" }, { ...base, discipline: "bike", includeRunningPaceZones: true }]) expect(validTrainingAnalysisPeriodsRequest(request as any)).toBe(false);
+  });
+  it("validates observed groups with their own source snapshot and accepts an unsupported legacy response", () => {
+    const data = runningPacePeriodFixture();
+    const request = { discipline: "run" as const, includeRunningPaceZones: true as const, periods: data.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })) };
+    expect(validateTrainingAnalysisPeriodsResponse(data, request)).toBe(data);
+    const legacy = structuredClone(data); legacy.periods[0]!.zones.pace = { status: "unavailable", reason: "canonical_pace_zones_unavailable" };
+    expect(validateTrainingAnalysisPeriodsResponse(legacy, request)).toBe(legacy);
+    expect(() => validateTrainingAnalysisPeriodsResponse(data, { ...request, includeRunningPaceZones: undefined })).toThrow();
+  });
+  it.each(["count", "candidate", "truncated", "status", "reason", "groups", "policy", "basis", "timing", "threshold", "thresholdSource", "boundaries", "zones", "zoneNan", "eligible", "intervalNull", "intervalScope", "intervalPartition", "sourceId", "sourceTime", "sourceCount", "revision", "profileRevision", "calculatedAt", "duplicateSource", "duplicateGroup"])("rejects malformed observed pace %s", field => {
+    const data = runningPacePeriodFixture(), pace: any = data.periods[0]!.zones.pace, group = pace.groups[0], source = group.sources[0];
+    if (field === "count") pace.eligibleActivityCount++;
+    if (field === "candidate") pace.candidateActivityCount++;
+    if (field === "truncated") pace.truncated = true;
+    if (field === "status") pace.status = "unavailable";
+    if (field === "reason") pace.reason = "canonical_pace_zones_unavailable";
+    if (field === "groups") pace.groups = [];
+    if (field === "policy") group.policy = "strava";
+    if (field === "basis") group.basis = "activity_time";
+    if (field === "timing") group.timingBasis = "moving_time";
+    if (field === "threshold") group.thresholdPaceSecPerKm = 0;
+    if (field === "thresholdSource") group.thresholdSource = "current_profile";
+    if (field === "boundaries") group.upperSpeedRatios[0] = 0.8;
+    if (field === "zones") group.zoneSeconds.pop();
+    if (field === "zoneNan") group.zoneSeconds[0] = NaN;
+    if (field === "eligible") group.eligibleGapSeconds++;
+    if (field === "intervalNull") group.intervalCoverage = null;
+    if (field === "intervalScope") group.intervalCoverage.scope = "whole_activity";
+    if (field === "intervalPartition") group.intervalCoverage.observedIntervalSeconds++;
+    if (field === "sourceId") source.sourceActivityId = "other";
+    if (field === "sourceTime") source.startTime++;
+    if (field === "sourceCount") source.contributingActivityCount = 2;
+    if (field === "revision") source.metricsRevision = "";
+    if (field === "profileRevision") source.thresholdProfileRevision = "";
+    if (field === "calculatedAt") source.calculatedAt = NaN;
+    if (field === "duplicateSource") group.sources.push(source);
+    if (field === "duplicateGroup") pace.groups.push(group);
+    const request = { discipline: "run" as const, includeRunningPaceZones: true as const, periods: data.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })) };
+    expect(() => validateTrainingAnalysisPeriodsResponse(data, request)).toThrow("invalid_training_analysis_periods_response");
+  });
+  it.each(["thresholdMissingActivityCount", "profileReadFailedActivityCount", "gapInputUnavailableActivityCount", "legacyUnsupportedActivityCount"] as const)("accepts a distinct unavailable period bucket %s", bucket => {
+    const data = runningPacePeriodFixture(), pace = data.periods[0]!.zones.pace;
+    if (!("groups" in pace)) throw new Error("fixture");
+    pace.status = "unavailable"; pace.reason = "canonical_pace_zones_unavailable"; pace.eligibleActivityCount = 0; pace[bucket] = 1; pace.groups = [];
+    const request = { discipline: "run" as const, includeRunningPaceZones: true as const, periods: data.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })) };
+    expect(validateTrainingAnalysisPeriodsResponse(data, request)).toBe(data);
+  });
+  it.each(["threshold_missing", "profile_read_failed", "gap_input_unavailable"] as const)("keeps %s unavailable without inventing zero observations", reason => {
+    const analysis = runningPaceAnalysisFixture();
+    analysis.state = "unavailable"; analysis.reason = reason; analysis.zoneSeconds.fill(0); analysis.eligibleGapSeconds = 0; analysis.intervalCoverage = null;
+    if (reason !== "gap_input_unavailable") { analysis.thresholdPaceSecPerKm = null; analysis.thresholdSource = null; }
+    expect(validRunningPaceZoneAnalysis(analysis)).toBe(true);
+    expect(analysis.intervalCoverage).toBeNull();
+  });
 });

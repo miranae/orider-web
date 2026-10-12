@@ -27,6 +27,10 @@ describe("mobile period power analysis", () => {
     const disclosure = summary.closest("details")!;
     disclosure.open = true; fireEvent(disclosure, new Event("toggle"));
     await waitFor(() => expect(mocks.periods).toHaveBeenCalled());
+    expect(screen.getAllByText("기간별 실측 파워 비교")).toHaveLength(1);
+    expect(screen.queryByRole("heading", { level: 3, name: "기간별 실측 파워 비교" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "기간별 실측 파워 비교" })).toBeInTheDocument();
+
     expect(mocks.periods.mock.calls.every(call => call[1] === null)).toBe(true);
     await user.click(screen.getByRole("button", { name: "기간 분석 불러오기" }));
     expect(mocks.periods.mock.lastCall?.[1]).not.toBeNull();

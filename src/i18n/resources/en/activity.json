@@ -2099,5 +2099,48 @@
     },
     "singleAverage": "{{date}} · {{value}}. One confirmed average does not establish a trend.",
     "noAverage": "No confirmed average is available in the received records, so no trend is shown. Activity sources remain available below."
+  },
+  "runningPaceZones": {
+    "title": "GAP pace zones",
+    "periodTitle": "GAP pace zones by period",
+    "policy": "Six zones follow the ORider GAP policy. Z1 is slower and Z6 is faster.",
+    "snapshot": "Uses the threshold stored when this analysis was calculated. It may differ from the activity-time threshold.",
+    "threshold": "Threshold {{pace}} · {{source}}",
+    "trainingSource": "Training settings",
+    "profileSource": "Profile settings",
+    "denominator": "Based on {{time}} of confirmed GAP observations",
+    "slower": "{{pace}} or slower",
+    "faster": "Faster than {{pace}}",
+    "evidence": "Observation scope and calculation basis",
+    "intervalScope": "Only provided elapsed observation intervals are summed. This is not the entire activity-time denominator or a claim of Strava formula equivalence.",
+    "intervalUnknown": "The scope of provided observation intervals is unknown.",
+    "calculated": "Analysis calculated {{date}} (Korea time)",
+    "revision": "Threshold profile storage revision {{revision}}",
+    "sourceActivity": "Source activity {{date}} (Korea time)",
+    "invalid": "The pace-zone calculation basis could not be verified.",
+    "manualNote": "Reads pace zones for the applied periods separately. Its snapshot may differ from the heart-rate and power statistics.",
+    "load": "Load GAP pace-zone evidence",
+    "preparing": "Period pace-zone queries are being prepared.",
+    "loading": "Loading period pace zones.",
+    "error": "Could not load period pace zones.",
+    "readAt": "Pace-zone snapshot {{date}} (Korea time)",
+    "coverage": "GAP confirmed {{eligibleActivityCount}} / {{candidateActivityCount}} candidates · legacy unsupported {{legacyUnsupportedActivityCount}} · analysis unknown {{unavailableActivityCount}}",
+    "unavailableCounts": "Threshold missing {{thresholdMissingActivityCount}} · GAP input unavailable {{gapInputUnavailableActivityCount}} · profile read failed {{profileReadFailedActivityCount}}",
+    "groupLimit": "Groups with different thresholds or setting sources are shown separately. Differences between bases do not establish growth.",
+    "noObserved": "No confirmed GAP pace-zone records are available.",
+    "legacyUnsupported": "The older analysis response contains no GAP pace-zone evidence.",
+    "reason": {
+      "threshold_missing": "The calculation threshold is missing, so pace zones are unavailable.",
+      "gap_input_unavailable": "The calculation threshold is known, but no usable GAP observation intervals are available.",
+      "profile_read_failed": "The profile could not be read during calculation, so its threshold is unknown."
+    },
+    "interval": {
+      "observedIntervalSeconds": "Provided observation intervals",
+      "eligibleGapSeconds": "GAP confirmed",
+      "stoppedSeconds": "Observed stopped time",
+      "missingAltitudeMovingSeconds": "Moving intervals without altitude",
+      "gapExcludedSeconds": "Excluded recording gaps",
+      "invalidDistanceSeconds": "Invalid distance intervals"
+    }
   }
 }
