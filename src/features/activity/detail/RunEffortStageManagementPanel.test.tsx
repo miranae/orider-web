@@ -51,3 +51,66 @@ it("blocks unverified current sources and keeps committed-pending distinct from 
   fireEvent.click(screen.getByRole("button", { name: "같은 요청으로 재시도", hidden: true })); expect(mocks.retry).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", { name: "이 요청 확인 종료", hidden: true })); expect(mocks.cancel).toHaveBeenCalledTimes(1);
 });
+
+it("selects only applied activity IDs without fetching and keeps stored-axis records separate with one action", async () => {
+  const { default: wire } = await import("../../../services/stageRunDistanceSnapshot.fixture.json");
+  const response = wire.cases.before as unknown as Parameters<typeof RunEffortStageManagementPanel>[0]["appliedResponse"];
+  mocks.hook.mockReturnValue({ ...state(), state: "ready", response });
+  renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} />);
+  const picker = screen.getByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true });
+  expect(within(picker).getAllByRole("option", { hidden: true }).map(option => (option as HTMLOptionElement).value)).toEqual(["", "a"]);
+  fireEvent.change(picker, { target: { value: "a" } }); expect(mocks.refresh).not.toHaveBeenCalled(); expect(mocks.hook.mock.lastCall?.[2]).toBe("a");
+  fireEvent.change(screen.getByRole("combobox", { name: "선택할 거리", hidden: true }), { target: { value: "400m" } });
+  expect(screen.getByText("저장된 거리 데이터로 계산")).toBeInTheDocument();
+  expect(screen.queryByText(/이전 저장 형식의 거리로 계산했습니다/)).not.toBeInTheDocument();
+  expect(screen.getByText("6:07")).toHaveAttribute("title", expect.stringContaining("6:06.666667"));
+  expect(screen.getByText(/원래 센서 시계와 활동 전체의 수집 완전성은 확인되지/)).toBeInTheDocument();
+  const exclude = screen.getAllByRole("button", { name: /기록을 이 비교에서 제외/, hidden: true }); expect(exclude).toHaveLength(1);
+  fireEvent.click(exclude[0]!); expect(mocks.change).toHaveBeenCalledWith(response.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0], "400m", true, true);
+  expect(mocks.comparison).toHaveBeenLastCalledWith({ response });
+});
+
+it("renders one stored-source action when identical or overlapping periods repeat the same activity revision", async () => {
+  const { default: wire } = await import("../../../services/stageRunDistanceSnapshot.fixture.json");
+  const response = structuredClone(wire.cases.before) as unknown as Parameters<typeof RunEffortStageManagementPanel>[0]["appliedResponse"];
+  response.periods.push(structuredClone(response.periods[0]!));
+  mocks.hook.mockReturnValue({ ...state(), state: "ready", response });
+  const view = renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} />);
+  fireEvent.change(screen.getByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true }), { target: { value: "a" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "선택할 거리", hidden: true }), { target: { value: "400m" } });
+  expect(screen.getAllByText("6:07")).toHaveLength(1);
+  expect(screen.getAllByRole("button", { name: /기록을 이 비교에서 제외/, hidden: true })).toHaveLength(1);
+  const overlap = structuredClone(response); overlap.periods[1]!.fromInclusive += 1;
+  mocks.hook.mockReturnValue({ ...state(), state: "ready", response: overlap });
+  view.rerender(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} />);
+  expect(screen.getAllByText("6:07")).toHaveLength(1);
+  expect(screen.getAllByRole("button", { name: /기록을 이 비교에서 제외/, hidden: true })).toHaveLength(1);
+  expect(mocks.refresh).not.toHaveBeenCalled();
+});
+
+it("qualifies earlier stored formats in the folded method note and keeps original clock/completeness unknown", async () => {
+  const { default: wire } = await import("../../../services/stageRunDistanceSnapshotLegacy.fixture.json");
+  const response = wire.cases.before as unknown as Parameters<typeof RunEffortStageManagementPanel>[0]["appliedResponse"];
+  mocks.hook.mockReturnValue({ ...state(), state: "ready", response });
+  renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} />);
+  fireEvent.change(screen.getByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true }), { target: { value: "a" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "선택할 거리", hidden: true }), { target: { value: "400m" } });
+  const note = screen.getByText("이전 저장 형식의 거리로 계산했습니다. 처음 기록된 데이터와의 연결은 확인되지 않았습니다.");
+  expect(note.closest("details")).not.toHaveAttribute("open");
+  expect(screen.getByText(/원래 센서 시계와 활동 전체의 수집 완전성은 확인되지/)).toBeInTheDocument();
+  expect(screen.getByText("6:07")).toBeInTheDocument();
+  expect(screen.queryByText(/legacy_manifest|manifestObject|gcsIncarnationToken/)).not.toBeInTheDocument();
+});
+
+it("describes a stored start/end clock window inside the folded method note without claiming measured hardware elapsed", async () => {
+  const { default: wire } = await import("../../../services/stageRunDistanceSnapshotLegacyWall.fixture.json");
+  const response = wire.cases.before as unknown as Parameters<typeof RunEffortStageManagementPanel>[0]["appliedResponse"];
+  mocks.hook.mockReturnValue({ ...state(), state: "ready", response });
+  renderWithProviders(<RunEffortStageManagementPanel ownerUid="test-uid" appliedResponse={response} />);
+  fireEvent.change(screen.getByRole("combobox", { name: "저장 거리 데이터로 확인할 활동", hidden: true }), { target: { value: "a" } });
+  const note = screen.getByText("저장된 활동 시작·종료 시각 범위의 거리 데이터로 계산했습니다.");
+  expect(note.closest("details")).not.toHaveAttribute("open");
+  expect(screen.getByText(/원래 센서 시계와 활동 전체의 수집 완전성은 확인되지/)).toBeInTheDocument();
+  expect(screen.getByText(/처음 기록된 데이터와의 연결은 확인되지/)).toBeInTheDocument();
+  expect(screen.queryByText(/stored_activity_wall_clock_window|timeBasis|ridingTime/)).not.toBeInTheDocument();
+});

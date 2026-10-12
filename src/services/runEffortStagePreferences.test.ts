@@ -40,3 +40,9 @@ describe("explicit distance preference write", () => {
     missing.preferenceBindings[0]!.mutationReady = true; expect(validRunEffortStageOverlay(missing, 1)).toBe(false);
   });
 });
+
+it("accepts only optional SHA derived CAS and preserves the original base request shape", () => {
+  expect(validRunEffortStageMutation(request)).toBe(true);
+  expect(validRunEffortStageMutation({ ...request, expectedDerivedRevision: "a".repeat(64) })).toBe(true);
+  for (const value of [null, "short", "A".repeat(64), 1]) expect(validRunEffortStageMutation({ ...request, expectedDerivedRevision: value } as any)).toBe(false);
+});

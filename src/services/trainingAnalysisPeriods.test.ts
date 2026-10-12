@@ -425,3 +425,93 @@ it.each([null, NaN, -1])("rejects explicit malformed excluded-only coverage %s",
   const request = wire.cases.partial.request as unknown as Parameters<typeof validateTrainingAnalysisPeriodsResponse>[1];
   expect(() => validateTrainingAnalysisPeriodsResponse(data, request)).toThrow("invalid_training_analysis_periods_response");
 });
+
+describe("separate stored-distance snapshot wire", () => {
+  it("accepts actual compiled backend before/excluded/restored responses without changing canonical stats", async () => {
+    const { default: wire } = await import("./stageRunDistanceSnapshot.fixture.json");
+    for (const name of ["before", "excluded", "restored"] as const) {
+      const response = wire.cases[name] as TrainingAnalysisPeriodsResponse;
+      const request = { discipline: "run" as const, periods: response.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })),
+        includeStageRunEffortPreferences: true as const, includeExpandedRunDistances: true as const, stageRunDistanceSnapshotActivityIds: ["a"] as [string] };
+      expect(validateTrainingAnalysisPeriodsResponse(response, request)).toBe(response);
+      expect(response.periods[0]!.running!.expandedDistanceAnalysis).toEqual(wire.cases.baseline.periods[0]!.running!.expandedDistanceAnalysis);
+    }
+  });
+  it("rejects unrequested derived data, false provenance, corrupted anchors, mismatched source/binding and extra rank claims", async () => {
+    const { default: wire } = await import("./stageRunDistanceSnapshot.fixture.json");
+    const response = wire.cases.before as TrainingAnalysisPeriodsResponse;
+    const request = { discipline: "run" as const, periods: response.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })),
+      includeStageRunEffortPreferences: true as const, includeExpandedRunDistances: true as const, stageRunDistanceSnapshotActivityIds: ["a"] as [string] };
+    expect(() => validateTrainingAnalysisPeriodsResponse(response, { ...request, stageRunDistanceSnapshotActivityIds: undefined })).toThrow();
+    for (const patch of [
+      (value: any) => { value.originalClockVerified = true; }, (value: any) => { value.coverage = "complete"; },
+      (value: any) => { value.sources[0].records["400m"].exactElapsedSec = -1; },
+      (value: any) => { value.sources[0].derivedRevision = "b".repeat(64); },
+      (value: any) => { value.sources[0].activityId = "foreign"; }, (value: any) => { value.sources[0].observedTargets = []; },
+      (value: any) => { value.sources[0].records["400m"].startIndex = 20; }, (value: any) => { value.rank = 1; },
+    ]) {
+      const altered = structuredClone(response); patch(altered.periods[0]!.stageDerivedRunDistances);
+      expect(() => validateTrainingAnalysisPeriodsResponse(altered, request)).toThrow();
+    }
+    for (const ids of [[], ["a", "b"], ["../a"], [null]]) expect(validTrainingAnalysisPeriodsRequest({ ...request, stageRunDistanceSnapshotActivityIds: ids } as any)).toBe(false);
+    expect(validTrainingAnalysisPeriodsRequest({ ...request, includeStageRunEffortPreferences: undefined })).toBe(false);
+  });
+});
+
+describe("qualified earlier stored-distance format", () => {
+  it("accepts actual compiled qualified legacy before/excluded/restored wire without promoting canonical metrics", async () => {
+    const { default: wire } = await import("./stageRunDistanceSnapshotLegacy.fixture.json");
+    for (const name of ["before", "excluded", "restored"] as const) {
+      const response = wire.cases[name] as TrainingAnalysisPeriodsResponse;
+      const request = { discipline: "run" as const, periods: response.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })),
+        includeStageRunEffortPreferences: true as const, includeExpandedRunDistances: true as const, stageRunDistanceSnapshotActivityIds: ["a"] as [string] };
+      expect(validateTrainingAnalysisPeriodsResponse(response, request)).toBe(response);
+      expect(response.periods[0]!.running!.expandedDistanceAnalysis).toEqual(wire.cases.baseline.periods[0]!.running!.expandedDistanceAnalysis);
+      expect(response.periods[0]!.stageDerivedRunDistances!.sources[0]).toMatchObject({ qualification: "legacy_manifest_revision_and_gcs_token_pinned", manifestObjectIncarnationVerified: false });
+    }
+  });
+  it("requires both exact legacy fields, rejects explicit undefined, stale revisions and tokens in period output", async () => {
+    const { default: wire } = await import("./stageRunDistanceSnapshotLegacy.fixture.json");
+    const response = wire.cases.before as TrainingAnalysisPeriodsResponse;
+    const request = { discipline: "run" as const, periods: response.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })),
+      includeStageRunEffortPreferences: true as const, includeExpandedRunDistances: true as const, stageRunDistanceSnapshotActivityIds: ["a"] as [string] };
+    for (const patch of [
+      (source: any) => { delete source.qualification; }, (source: any) => { delete source.manifestObjectIncarnationVerified; },
+      (source: any) => { source.qualification = "unknown"; }, (source: any) => { source.manifestObjectIncarnationVerified = true; },
+      (source: any) => { source.qualification = undefined; source.manifestObjectIncarnationVerified = undefined; },
+      (source: any) => { source.gcsIncarnationToken = "must-not-be-exposed"; }, (source: any) => { source.derivedRevision = "b".repeat(64); },
+    ]) {
+      const copy = structuredClone(response); patch(copy.periods[0]!.stageDerivedRunDistances!.sources[0]);
+      expect(() => validateTrainingAnalysisPeriodsResponse(copy, request)).toThrow();
+    }
+    const { default: modernWire } = await import("./stageRunDistanceSnapshot.fixture.json");
+    const modern = structuredClone(modernWire.cases.before) as TrainingAnalysisPeriodsResponse;
+    modern.periods[0]!.stageDerivedRunDistances!.sources[0]!.manifestObjectIncarnationVerified = false;
+    expect(() => validateTrainingAnalysisPeriodsResponse(modern, request)).toThrow();
+  });
+});
+
+describe("stored activity start/end clock window", () => {
+  it("accepts actual modern and legacy fallback wire while retaining unknown original clocks and canonical stats", async () => {
+    const modern = await import("./stageRunDistanceSnapshotWall.fixture.json");
+    const legacy = await import("./stageRunDistanceSnapshotLegacyWall.fixture.json");
+    for (const wire of [modern.default, legacy.default]) for (const name of ["before", "excluded", "restored"] as const) {
+      const response = wire.cases[name] as TrainingAnalysisPeriodsResponse;
+      const request = { discipline: "run" as const, periods: response.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })),
+        includeStageRunEffortPreferences: true as const, includeExpandedRunDistances: true as const, stageRunDistanceSnapshotActivityIds: ["a"] as [string] };
+      expect(validateTrainingAnalysisPeriodsResponse(response, request)).toBe(response);
+      expect(response.periods[0]!.stageDerivedRunDistances).toMatchObject({ originalClockVerified: false, coverage: "unknown", quality: "unknown", sources: [{ timeBasis: "stored_activity_wall_clock_window" }] });
+      expect(response.periods[0]!.running!.expandedDistanceAnalysis).toEqual(wire.cases.baseline.periods[0]!.running!.expandedDistanceAnalysis);
+    }
+  });
+  it("rejects present undefined/null/unknown time bases without treating them as the older omitted wire", async () => {
+    const { default: wire } = await import("./stageRunDistanceSnapshotWall.fixture.json");
+    const request = { discipline: "run" as const, periods: wire.cases.before.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })),
+      includeStageRunEffortPreferences: true as const, includeExpandedRunDistances: true as const, stageRunDistanceSnapshotActivityIds: ["a"] as [string] };
+    for (const value of [undefined, null, "unknown", "measured_sensor_elapsed", true]) {
+      const response = structuredClone(wire.cases.before) as TrainingAnalysisPeriodsResponse;
+      (response.periods[0]!.stageDerivedRunDistances!.sources[0]! as any).timeBasis = value;
+      expect(() => validateTrainingAnalysisPeriodsResponse(response, request)).toThrow();
+    }
+  });
+});

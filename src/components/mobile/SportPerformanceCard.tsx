@@ -36,30 +36,42 @@ export default function SportPerformanceCard({
     && record.unit === "seconds" && Number.isFinite(record.seconds) && record.seconds > 0
     && typeof record.activityId === "string" && record.activityId.trim()
     && Number.isFinite(record.startTime));
+  const unverifiedGroups: Array<{ activityId: string | null; records: NonNullable<RunEvidence["unverifiedRecords"]> }> = [];
+  const groupsByActivity = new Map<string, (typeof unverifiedGroups)[number]>();
+  for (const record of run.unverifiedRecords ?? []) {
+    const activityId = typeof record.activityId === "string" && record.activityId.trim() ? record.activityId : null;
+    const existing = activityId ? groupsByActivity.get(activityId) : undefined;
+    if (existing) existing.records.push(record);
+    else {
+      const group = { activityId, records: [record] };
+      unverifiedGroups.push(group);
+      if (activityId) groupsByActivity.set(activityId, group);
+    }
+  }
   if (discipline === "tri") return null;
   if (discipline === "bike") return <CyclingAbilityCard cycling={cycling} />;
 
   return (
     <section aria-label={t(discipline === "run" ? "mobileFitness.sport.run.cardAria" : "mobileFitness.sport.cardAria")} style={{ background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)" }}>
-      <Text variant="eyebrow">{t(`mobileFitness.sport.${discipline}.title`)}</Text>
+      <Text variant={discipline === "run" ? "bodyMedium" : "eyebrow"} weight={600}>{t(`mobileFitness.sport.${discipline}.title`)}</Text>
 
       {discipline === "run" && (
         <>
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{t("mobileFitness.sport.run.basis")}</div>
+          <Text as="p" variant="bodyMedium" tone="secondary" style={{ marginTop: "var(--space-1)" }}>{t("mobileFitness.sport.run.basis")}</Text>
           {run.thresholdPaceSec != null && <EvidenceRow label={t("mobileFitness.sport.run.threshold")} value={`${formatPace(run.thresholdPaceSec)}/km`} />}
           {qualifiedRunRecords.map((record) => <div key={record.distance}>
             <EvidenceRow label={t(`fitness:runRecords.dist.${record.distance}`)} value={`${formatDuration(record.seconds)} · ${record.date}`} />
-            <a href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(record.activityId)}`} className={buttonClass({ variant: "ghost" })}>{t("fitness:runRecords.viewActivity")}</a>
+            <a href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(record.activityId)}`} className={buttonClass({ variant: "ghost" })} style={{ minHeight: "var(--space-8)", fontSize: "var(--fs-md)" }}>{t("fitness:runRecords.viewActivity")}</a>
           </div>)}
-          {run.thresholdPaceSec == null && qualifiedRunRecords.length === 0 && <EmptyEvidence text={t("mobileFitness.sport.run.noQualifiedEvidence")} />}
+          {run.thresholdPaceSec == null && qualifiedRunRecords.length === 0 && <Text as="p" variant="bodyMedium" tone="secondary" style={{ marginTop: "var(--space-3)" }}>{t("mobileFitness.sport.run.noQualifiedEvidence")}</Text>}
           {!!run.unverifiedRecords?.length && <details style={{ marginTop: "var(--space-3)" }}>
-            <summary style={{ minHeight: "var(--space-8)", cursor: "pointer", fontSize: "var(--fs-sm)", padding: "var(--space-3) 0" }}>{t("mobileFitness.sport.run.unverifiedTitle", { count: run.unverifiedRecords.length })}</summary>
-            <Text as="p" variant="body" tone="secondary">{t("mobileFitness.sport.run.unverifiedBasis")}</Text>
-            {run.unverifiedRecords.map((record) => <div key={record.distance} style={{ padding: "var(--space-3) 0", borderBottom: "1px solid var(--line-soft)" }}>
-              <Text as="p" variant="body" weight={600}>{t(`fitness:runRecords.dist.${record.distance}`)}</Text>
-              {record.activityId ? <a href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(record.activityId)}`} className={buttonClass({ variant: "ghost" })}>
-                {record.date || "—"} · {t("fitness:runRecords.viewActivity")}
-              </a> : <Text as="p" variant="body" tone="secondary">{record.date || "—"} · {t("mobileFitness.sport.run.sourceMissing")}</Text>}
+            <summary style={{ minHeight: "var(--space-8)", cursor: "pointer", fontSize: "var(--fs-md)", fontWeight: 600, padding: "var(--space-3) 0" }}>{t("mobileFitness.sport.run.unverifiedTitle", { count: run.unverifiedRecords.length, activityCount: groupsByActivity.size })}</summary>
+            <Text as="p" variant="bodyMedium" tone="secondary">{t("mobileFitness.sport.run.unverifiedBasis")}</Text>
+            {unverifiedGroups.map((group, index) => <div key={group.activityId ?? `missing-${index}`} style={{ padding: "var(--space-3) 0", borderBottom: "1px solid var(--line-soft)" }}>
+              <Text as="p" variant="bodyMedium" weight={600}>{[...new Set(group.records.map(record => record.distance))].map(distance => t(`fitness:runRecords.dist.${distance}`)).join(" · ")}</Text>
+              {group.activityId ? <a href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(group.activityId)}`} className={buttonClass({ variant: "ghost" })} style={{ minHeight: "var(--space-8)", fontSize: "var(--fs-md)" }}>
+                {[...new Set(group.records.map(record => record.date).filter(Boolean))].join(" · ") || "—"} · {t("fitness:runRecords.viewActivity")}
+              </a> : <Text as="p" variant="bodyMedium" tone="secondary">{group.records[0]?.date || "—"} · {t("mobileFitness.sport.run.sourceMissing")}</Text>}
             </div>)}
           </details>}
         </>

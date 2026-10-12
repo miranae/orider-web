@@ -362,7 +362,7 @@
     "thresholdMissingSwim": "Your critical swim speed (CSS) is not configured. It will appear when configured.",
     "hrZonesMissing": "No stored heart rate zone distribution is available yet. It will appear when measured zone data is available.",
     "tabZonesBike": "Power Zones",
-    "tabZonesRun": "HR Zones",
+    "tabZonesRun": "Run analysis",
     "tabZonesSwim": "Swim",
     "metricCtl": "CTL (Fitness)",
     "metricAtl": "ATL (Fatigue)",
@@ -501,11 +501,11 @@
       "run": {
         "cardAria": "Running settings and record sources",
         "title": "Running evidence",
-        "basis": "Configured threshold pace and source-qualified records are distinguished.",
+        "basis": "Record times remain hidden until their source is verified.",
         "threshold": "Configured threshold pace",
         "noQualifiedEvidence": "No source-qualified distance records are available.",
-        "unverifiedTitle": "Unverified saved records ({{count}})",
-        "unverifiedBasis": "The sport and time unit of these historical records could not be verified, so record times are hidden. Check the source activities.",
+        "unverifiedTitle": "Distance records: {{count}} · Identifiable activities: {{activityCount}}",
+        "unverifiedBasis": "Review the sport and records in the source activities.",
         "sourceMissing": "Source activity unavailable"
       },
       "swim": {

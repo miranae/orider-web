@@ -1,3 +1,4 @@
+import type { StageDerivedRunDistancePeriod } from "./stage-run-distance-snapshot";
 import type { RunEffortStageOverlay } from "./run-effort-stage-preferences";
 import type { NormalizedCyclingDistanceProvenance } from "./cycling-distance-observations";
 import type { BikeDistanceKey } from "../activity-bike-distance-evidence";
@@ -11,6 +12,8 @@ export interface TrainingAnalysisPeriodsRequest {
   includeExpandedRunDistances?: true;
   includeRunningPaceZones?: true;
   includeStageRunEffortPreferences?: true;
+  /** 현재 후보 안에서 명시적으로 선택한 최대 한 활동만 읽는다. */
+  stageRunDistanceSnapshotActivityIds?: [string];
   includeCyclingClimbObservations?: true;
   includeCyclingDistanceObservations?: true;
 }
@@ -242,6 +245,7 @@ export interface CyclingDistancePeriodAnalysis {
   }>;
 }
 export interface TrainingAnalysisPeriodResult extends PowerCurvePeriod {
+  stageDerivedRunDistances?: StageDerivedRunDistancePeriod;
   status: "complete" | "partial";
   cyclingClimbObservations?: CyclingClimbObservations;
   cyclingDistanceObservations?: CyclingDistancePeriodAnalysis;

@@ -19,18 +19,25 @@ type Result = {
   cancelledUnknown: boolean;
 };
 /** 조회·변경은 명시 클릭만 수행한다. effect는 unmount 시 늦은 결과를 차단한다. */
-export function useRunEffortStageManagement(ownerUid: string | null | undefined, periods: readonly PowerCurvePeriod[]) {
+export function useRunEffortStageManagement(ownerUid: string | null | undefined, periods: readonly PowerCurvePeriod[], selectedActivityId: string | null = null) {
   const { user } = useAuth();
   const services = useFirebaseServices();
   const owner = !!ownerUid && user?.uid === ownerUid && !user.isAnonymous;
   const identity = JSON.stringify([owner ? ownerUid : null, periods]);
-  const context = useRef({ identity, services, generation: 0 });
+  const context = useRef({ identity, services, selectedActivityId, generation: 0 });
   const inflight = useRef(false);
+  const [result, setResult] = useState<Result | null>(null);
   if (context.current.identity !== identity || context.current.services !== services) {
-    context.current = { identity, services, generation: context.current.generation + 1 };
+    context.current = { identity, services, selectedActivityId, generation: context.current.generation + 1 };
     inflight.current = false;
   }
-  const [result, setResult] = useState<Result | null>(null);
+  if (context.current.selectedActivityId !== selectedActivityId) {
+    context.current.selectedActivityId = selectedActivityId;
+    context.current.generation++;
+    inflight.current = false;
+    if (result?.identity === identity) setResult({ ...result, generation: context.current.generation, response: null, state: "idle",
+      failure: result.state === "mutating" && result.action ? { kind: "unknown", storedOutcome: null } : result.failure });
+  }
   useEffect(() => () => { context.current.generation++; inflight.current = false; }, []);
   const current = result?.identity === identity && result.generation === context.current.generation ? result : null;
   const available = owner && trainingAnalysisPeriodsAvailable();
@@ -42,7 +49,7 @@ export function useRunEffortStageManagement(ownerUid: string | null | undefined,
     const captured = capture();
     setResult({ identity, generation: captured.generation, state: "loading", response: null, action: current?.action ?? null, outcome: current?.outcome ?? null, failure: current?.failure ?? null, cancelledUnknown: current?.cancelledUnknown ?? false });
     try {
-      const response = await loadTrainingAnalysisPeriods(services, ownerUid, { discipline: "run", includeStageRunEffortPreferences: true, includeExpandedRunDistances: true, periods: periods.map(period => ({ ...period })) });
+      const response = await loadTrainingAnalysisPeriods(services, ownerUid, { discipline: "run", includeStageRunEffortPreferences: true, includeExpandedRunDistances: true, periods: periods.map(period => ({ ...period })), ...(selectedActivityId ? { stageRunDistanceSnapshotActivityIds: [selectedActivityId] } : {}) });
       if (active(captured)) setResult({ identity, generation: captured.generation, state: runEffortStageOverlaySupported(response) ? "ready" : "unsupported", response: runEffortStageOverlaySupported(response) ? response : null, action: current?.action ?? null, outcome: current?.outcome ?? null, failure: current?.failure ?? null, cancelledUnknown: current?.cancelledUnknown ?? false });
     } catch {
       if (active(captured)) setResult({ identity, generation: captured.generation, state: "error", response: null, action: current?.action ?? null, outcome: current?.outcome ?? null, failure: current?.failure ?? null, cancelledUnknown: current?.cancelledUnknown ?? false });
@@ -60,12 +67,14 @@ export function useRunEffortStageManagement(ownerUid: string | null | undefined,
       if (active(captured)) setResult({ identity, generation: captured.generation, state: "error", response: null, action: request, outcome: null, failure: runEffortStageFailure(error), cancelledUnknown: false });
     } finally { if (active(captured)) inflight.current = false; }
   };
-  const change = (binding: RunEffortStageOverlay["preferenceBindings"][number], target: ExpandedRunDistanceKey, excluded: boolean) => {
+  const change = (binding: RunEffortStageOverlay["preferenceBindings"][number], target: ExpandedRunDistanceKey, excluded: boolean, derived = false) => {
     if (current?.state !== "ready" || !current.response || !binding.mutationReady || !binding.metricsRevision || inflight.current || current.action && current.failure) return;
     const genuine = current.response.periods.flatMap(period => period.running?.stageEffortOverlay?.preferenceBindings ?? []).some(value => JSON.stringify(value) === JSON.stringify(binding));
     if (!genuine || binding.excludedTargets.includes(target) === excluded) return;
+    if (derived && excluded && (!binding.derivedRevision || !current.response.periods.some(period => period.stageDerivedRunDistances?.sources.some(source =>
+      source.activityId === binding.activityId && source.derivedRevision === binding.derivedRevision && source.records[target] !== undefined)))) return;
     void submit({ activityId: binding.activityId, target, excluded, expectedPreferenceRevision: binding.preferenceRevision,
-      expectedMetricsRevision: binding.metricsRevision, expectedActivityIncarnation: binding.activityIncarnation, idempotencyKey: crypto.randomUUID() });
+      expectedMetricsRevision: binding.metricsRevision, ...(derived && excluded ? { expectedDerivedRevision: binding.derivedRevision } : {}), expectedActivityIncarnation: binding.activityIncarnation, idempotencyKey: crypto.randomUUID() });
   };
   const confirmedOutcome = !!current?.outcome && !!current.response && current.response.periods.some(period => period.running?.stageEffortOverlay?.preferenceBindings.some(binding => binding.activityId === current.outcome!.activityId
     && binding.activityIncarnation === current.outcome!.activityIncarnation && binding.preferenceRevision >= current.outcome!.preferenceRevision
