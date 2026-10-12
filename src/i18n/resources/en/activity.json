@@ -2178,7 +2178,7 @@
     "timeReported": "Owner-reported time",
     "timeEffective": "Time applied in this view",
     "timeOriginal": "Original observed time",
-    "timeInput": "Reported time (h:mm:ss)",
+    "timeInput": "Reported time (m:ss / h:mm:ss)",
     "timeKind": "Time type (optional)",
     "timeKindNone": "Unspecified",
     "timeKindChip": "Chip time",

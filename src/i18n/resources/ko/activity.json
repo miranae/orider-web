@@ -2178,7 +2178,7 @@
     "timeReported": "사용자 수정 시간",
     "timeEffective": "이 화면에 적용되는 시간",
     "timeOriginal": "원본 관측 시간",
-    "timeInput": "수정할 시간 (시:분:초)",
+    "timeInput": "수정할 시간 (분:초 / 시:분:초)",
     "timeKind": "수정 종류 (선택)",
     "timeKindNone": "선택하지 않음",
     "timeKindChip": "칩타임",

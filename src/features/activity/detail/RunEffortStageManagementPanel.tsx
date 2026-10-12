@@ -71,9 +71,14 @@ function RunEffortStageManagementScope({ ownerUid, appliedResponse, currentActiv
           {storedSources.map(source => {
             const binding = tool.response!.periods.flatMap(period => period.running?.stageEffortOverlay?.preferenceBindings ?? []).find(value => value.activityId === source.activityId);
             const anchor = source.records[target], excluded = source.excludedTargets.includes(target), observed = source.observedTargets.includes(target);
+            const corrected = tool.response!.periods.some(period => {
+              const adjusted = period.stageTimeAdjustedEfforts;
+              return adjusted?.selected?.activityId === source.activityId && (adjusted.efforts.some(row => row.sourceAuthority.target === target && row.timeCorrection !== null)
+                || adjusted.orphanedCorrections.some(row => row.target === target));
+            });
             if (!binding) return null;
             return <div key={source.activityId} className="space-y-2">
-              {anchor && !excluded ? <Text as="p" variant="dataMedium" weight={600} title={`${formatElapsedBoundary(anchor.startTimeSec)}–${formatElapsedBoundary(anchor.endTimeSec)} · ${formatElapsedBoundary(anchor.exactElapsedSec)}`}><span>{t(`runRecord.dist.${target}`)}</span> · <span>{formatElapsedBoundary(anchor.elapsedSec)}</span></Text>
+              {anchor && !excluded ? <Text as="p" variant="dataMedium" weight={600} title={`${formatElapsedBoundary(anchor.startTimeSec)}–${formatElapsedBoundary(anchor.endTimeSec)} · ${formatElapsedBoundary(anchor.exactElapsedSec)}`}>{corrected && <span className="text-[length:var(--fs-md)] font-normal">{t("runEffortTool.timeOriginal")} · </span>}<span>{t(`runRecord.dist.${target}`)}</span> · <span>{formatElapsedBoundary(anchor.elapsedSec)}</span></Text>
                 : <Text as="p" variant="bodyMedium">{t(`runRecord.dist.${target}`)} · {observed && excluded ? t("runEffortTool.excluded") : t("runEffortTool.storedNoDistance")}</Text>}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <LocalizedLink className="inline-flex min-h-[calc(var(--dim-button-height)+var(--space-1))] items-center underline" to={`/activity/${encodeURIComponent(source.activityId)}`}>{date(source.startTime)}</LocalizedLink>
@@ -122,7 +127,7 @@ function RunTimeEditor({ channel, target, tool, showOriginal }: { channel: Stage
   const seconds = parseReportedRunTime(draft);
   if (!effort && !orphan) return <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.timeNoSource")}</Text>;
   return <section className="space-y-2" aria-label={t("runEffortTool.timeTitle")}>
-    {showOriginal && effort && <Text as="p" variant="dataMedium" weight={600} title={String(effort.originalElapsedSeconds)}>{t(`runRecord.dist.${target}`)} · {formatElapsedBoundary(effort.originalElapsedSeconds)}</Text>}
+    {showOriginal && effort && <Text as="p" variant="dataMedium" weight={600} title={String(effort.originalElapsedSeconds)}>{correction && <span className="text-[length:var(--fs-md)] font-normal">{t("runEffortTool.timeOriginal")} · </span>}{t(`runRecord.dist.${target}`)} · {formatElapsedBoundary(effort.originalElapsedSeconds)}</Text>}
     {correction && <Text as="p" variant="bodyMedium">{t("runEffortTool.timeReported")}: <span className="font-semibold">{formatReportedRunTime(correction.reportedElapsedSeconds)}</span></Text>}
     {correction && effort?.effectiveElapsedSeconds !== null && effort?.effectiveElapsedSeconds !== undefined && <Text as="p" variant="bodyMedium">{t("runEffortTool.timeEffective")}: {formatReportedRunTime(effort.effectiveElapsedSeconds)}</Text>}
     {effort?.excluded && <Text as="p" variant="bodyMedium" tone="secondary">{t("runEffortTool.timeExcluded")}</Text>}
