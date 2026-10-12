@@ -47,10 +47,11 @@ it("plots faster elapsed seconds above slower observations on chronological X", 
   const chart = screen.getByRole("img");
   const points = [...chart.querySelector("path")!.getAttribute("d")!.matchAll(/M([\d.]+),([\d.]+)/g)].map(match => [Number(match[1]), Number(match[2])]);
   expect(points).toEqual([[65, 25], [385, 135]]); expect(points[0]![1]).toBeLessThan(points[1]![1]!);
-  expect(chart).toHaveAttribute("data-y-axis", "elapsedSec"); expect(chart).toHaveAccessibleDescription(/100.*200 s/);
+  expect(chart).toHaveAttribute("data-y-axis", "elapsedSec"); expect(chart).toHaveAccessibleDescription(/1:40\.0.*3:20\.0/);
+  expect(chart.closest(".cycling-distance-history-trend")).not.toBeNull();
   expect(mocks.confirm).not.toHaveBeenCalled();
 });
-it.each(["excluded", "unavailable"])("never charts %s efforts or invents a slope for one point", state => {
+it.each(["excluded", "unavailable"])("omits the change chart when %s efforts leave only one observation", state => {
   const response = coveredFixture("10km");
   if (state === "unavailable") for (const row of response.rows.filter(row => row.activityId !== "other")) {
     const e = row.efforts.find(e => e.target === "10km")!;
@@ -59,8 +60,9 @@ it.each(["excluded", "unavailable"])("never charts %s efforts or invents a slope
   if (state === "unavailable") response.coverage.excludedByTarget["10km"] = 0;
   mocks.hook.mockReturnValue({ ...idle(), status: "ready", response });
   render(<Panel activity={activity} selection={selection} headIdentity="a" />); open();
-  const path = document.querySelector("path[data-observation-count]")!;
-  expect(path).toHaveAttribute("data-observation-count", "1"); expect(path.getAttribute("d")).toMatch(/^M225,80m/);
+  expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  expect(screen.getByText(ko.cyclingCoveredRankings.insufficientTrend)).toBeInTheDocument();
+  expect(screen.getByRole("link")).toHaveAttribute("href", "/ko/activity/other");
   expect(mocks.confirm).not.toHaveBeenCalled();
 });
 
@@ -94,4 +96,36 @@ it.each(["ko", "en"])("keeps technical timestamps and receipts folded while desc
   for (const row of container.querySelectorAll("p, a")) if (row.closest("details") !== details) expect(row.textContent).not.toMatch(/Source|Stage|snapshot|owner|metadata/);
   details.open = true; fireEvent(details, new Event("toggle")); expect(technicalStamp).toBeVisible();
   expect(mocks.confirm).not.toHaveBeenCalled();
+});
+
+it("rounds only displayed clocks to tenths while retaining exact winner, rank, titles and plot values", () => {
+  const response = coveredFixture(), native = 966.4259018112487, other = 966.42999;
+  for (const row of response.rows) { const effort = row.efforts.find(e => e.target === "10km")!; effort.originalElapsedSec = effort.effectiveElapsedSec = row.activityId === "other" ? other : native; }
+  const target = response.targets.find(t => t.target === "10km")!;
+  for (const rank of target.top10) rank.originalElapsedSec = rank.effectiveElapsedSec = rank.activityId === "other" ? other : native;
+  const before = structuredClone(response);
+  mocks.hook.mockReturnValue({ ...idle(), status: "ready", response });
+  const { container } = render(<Panel activity={activity} selection={selection} headIdentity="a" />); open();
+  expect(screen.getByText("16:06.4")).toHaveAttribute("title", `표시 전 경과시간: ${native}초`);
+  expect(screen.getByText("1 · 16:06.4")).toHaveAttribute("title", `표시 전 경과시간: ${native}초`);
+  expect(screen.getByText("2 · 16:06.4")).toHaveAttribute("title", `표시 전 경과시간: ${other}초`);
+  expect(screen.getAllByRole("link")[0]).toHaveAttribute("href", "/ko/activity/native");
+  expect(screen.getByRole("img")).toHaveAccessibleDescription(/16:06\.4–16:06\.4/);
+  expect(container.querySelector("path")!.getAttribute("d")).toMatch(/^M65,25m.*M385,135m/);
+  expect(response).toEqual(before); expect(mocks.confirm).not.toHaveBeenCalled();
+});
+it.each(["ko", "en"])("distinguishes inspected cohort rows from effective target efforts and uses24hour timestamps in %s", locale => {
+  mocks.locale = locale; const response = coveredFixture("10km");
+  for (const stamp of Object.values(response.readTimes)) stamp.seconds = 13 * 3600;
+  mocks.hook.mockReturnValue({ ...idle(), status: "ready", response });
+  render(<Panel activity={activity} selection={selection} headIdentity="a" />); open();
+  const copy = locale === "ko" ? ko : en;
+  const coverage = screen.getByText(locale === "ko" ? /살펴본 활동 3개 · 이 거리의 유효 기록 1개/ : /3 activities inspected · 1 effective efforts at this distance/);
+  expect(coverage).toBeVisible();
+  const details = screen.getByText(copy.cyclingCoveredRankings.costDetails).closest("details")!;
+  const loaded = screen.getByText(locale === "ko" ? "살펴본 활동 3개 · 확인한 활동 3개" : "3 activities inspected · 3 activities checked");
+  expect(loaded.closest("details")).toBe(details); expect(loaded).not.toBeVisible();
+  const timestamp = screen.getByText(locale === "ko" ? /^확인 시각/ : /^Checked at/);
+  expect(timestamp).toHaveTextContent("22:00"); expect(timestamp.textContent).not.toMatch(/AM|PM/);
+  expect(screen.queryByRole("img")).not.toBeInTheDocument(); expect(mocks.confirm).not.toHaveBeenCalled();
 });
