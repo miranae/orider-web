@@ -8,7 +8,7 @@ export const POWER_DURATION_GRID = Object.freeze([...new Set([1, 5, 10, 30, 60, 
 const SOURCES = new Set(["strava_api", "direct_file", "orider_native", "apple_health", "health_connect"]);
 const integer = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 export function validPowerCurvePeriodsRequest(request: PowerCurvePeriodsRequest, now = Date.now()) {
-  return request?.unit === "W" && Array.isArray(request.periods) && request.periods.length >= 1 && request.periods.length <= 2
+  return request?.unit === "W" && (request.includeWeightNormalized === undefined || typeof request.includeWeightNormalized === "boolean") && Array.isArray(request.periods) && request.periods.length >= 1 && request.periods.length <= 2
     && request.periods.every(period => integer(period?.fromInclusive) && integer(period?.toExclusive)
       && period.fromInclusive < period.toExclusive && period.toExclusive <= now);
 }
@@ -47,6 +47,7 @@ export function validatePowerCurvePeriodsResponse(response: PowerCurvePeriodsRes
     if (period.status !== (partial ? "partial" : "complete") || period.points.length > 11
         || coverage.includedActivityCount === 0 && period.points.length > 0) invalid();
     if (Object.prototype.hasOwnProperty.call(period, "powerDurationObservations")) validateDenseObservations(period.powerDurationObservations, period);
+    if (Object.prototype.hasOwnProperty.call(period, "weightNormalized")) validateWeightNormalized(period, response);
     let previous = 0;
     for (const point of period.points) {
       if (!point || !DURATIONS.has(point.durationSeconds) || point.durationSeconds <= previous
@@ -91,6 +92,58 @@ function validateDenseObservations(value: unknown, period: PowerCurvePeriodsResp
       || !integer(point.startTime) || point.startTime < period.fromInclusive || point.startTime >= period.toExclusive) return invalid();
     previous = Number(point.durationSeconds);
   }
+}
+/** Validate the separate server-selected W/kg winners; never divide a W winner for display. */
+function validateWeightNormalized(period: PowerCurvePeriodsResponse["periods"][number], response: PowerCurvePeriodsResponse) {
+  const invalid = () => { throw new Error("invalid_power_curve_periods_response"); };
+  const data = period.weightNormalized;
+  const keys = (value: object, expected: string[]) => Object.keys(value).sort().join(",") === expected.sort().join(",");
+  const countKeys = ["includedActivityCount", "missingWeightActivityCount", "invalidWeightActivityCount", "incompatibleWeightActivityCount"] as const;
+  const validateCounts = (counts: NonNullable<typeof data>["weightCounts"], total: number) => {
+    if (!counts || !keys(counts, [...countKeys]) || !countKeys.every(key => integer(counts[key]))
+      || countKeys.reduce((sum, key) => sum + counts[key], 0) !== total) invalid();
+  };
+  const validWeight = (kg: number) => Number.isFinite(kg) && kg >= 25 && kg <= 250;
+  if (!data || !keys(data, ["unit", "basis", "status", "coverage", "weightCounts", "points", ...(Object.prototype.hasOwnProperty.call(data, "powerDurationObservations") ? ["powerDurationObservations"] : [])])
+    || data.unit !== "W/kg" || data.basis !== "calculation_profile_snapshot" || !data.coverage || !Array.isArray(data.points)) return invalid();
+  validateCounts(data.weightCounts, period.coverage.includedActivityCount);
+  if (!keys(data.coverage, Object.keys(period.coverage)) || Object.keys(period.coverage).some(key => {
+    const field = key as keyof typeof period.coverage;
+    return data.coverage[field] !== (field === "includedActivityCount" ? data.weightCounts.includedActivityCount : period.coverage[field]);
+  })) invalid();
+  for (const point of data.points) {
+    if (!point || !keys(point, ["durationSeconds", "watts", "sourceActivityId", "startTime", "source", "cohortEligible", "metricsRevision", "wattsPerKg", "weightKg", "weightRevision"])
+      || !validWeight(point.weightKg) || point.weightRevision !== point.metricsRevision || !Number.isFinite(point.wattsPerKg)
+      || point.wattsPerKg !== point.watts / point.weightKg) invalid();
+  }
+  // Reuse the unchanged W point validator for original watts, provenance, order and period bounds.
+  const plain = { ...period, points: data.points };
+  delete plain.weightNormalized;
+  validatePowerCurvePeriodsResponse({ ...response, periods: [plain] }, { unit: "W", periods: [{ fromInclusive: period.fromInclusive, toExclusive: period.toExclusive }] });
+  if (!data.weightCounts.includedActivityCount && data.points.length) invalid();
+  const dense = data.powerDurationObservations;
+  if (Object.prototype.hasOwnProperty.call(data, "powerDurationObservations")) {
+    const original = period.powerDurationObservations;
+    if (!dense || !original || !keys(dense, [...Object.keys(original), "unit", "basis", "weightCounts"])
+      || dense.unit !== "W/kg" || dense.basis !== "calculation_profile_snapshot" || !Array.isArray(dense.points)) return invalid();
+    validateCounts(dense.weightCounts, original.counts.available);
+    if (!dense.counts || !keys(dense.counts, Object.keys(original.counts)) || dense.counts.available !== dense.weightCounts.includedActivityCount
+      || Object.keys(original.counts).some(key => key !== "available" && dense.counts[key as keyof typeof dense.counts] !== original.counts[key as keyof typeof original.counts])) invalid();
+    const excluded = original.counts.available - dense.weightCounts.includedActivityCount;
+    if (dense.partial !== (original.partial || excluded > 0)) invalid();
+    const points = dense.points.map(point => {
+      if (!point || !validWeight(point.weightKg) || point.weightRevision !== point.parentRevision
+        || !Number.isFinite(point.maxAveragePowerWPerKg) || point.maxAveragePowerWPerKg !== point.maxAveragePowerW / point.weightKg
+        || !integer(point.observedActivityCount) || point.observedActivityCount > dense.weightCounts.includedActivityCount
+        || !keys(point, ["durationSeconds", "maxAveragePowerW", "sourceActivityId", "startTime", "parentRevision", "provenance", "observedActivityCount", "maxAveragePowerWPerKg", "weightKg", "weightRevision"])) invalid();
+      const { maxAveragePowerWPerKg: _normalized, weightKg: _weight, weightRevision: _revision, ...originalPoint } = point;
+      return originalPoint;
+    });
+    const { unit: _unit, basis: _basis, weightCounts: _counts, ...observation } = dense;
+    validateDenseObservations({ ...observation, counts: original.counts, partial: original.partial, points }, period);
+  }
+  const excluded = period.coverage.includedActivityCount - data.weightCounts.includedActivityCount;
+  if (data.status !== (period.status === "partial" || excluded > 0 || dense?.partial ? "partial" : "complete")) invalid();
 }
 export async function loadPowerCurvePeriods(services: FirebaseServices, uid: string, request: PowerCurvePeriodsRequest) {
   const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;

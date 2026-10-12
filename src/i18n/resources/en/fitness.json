@@ -894,5 +894,13 @@
   "weekly.storedSummaryTitle": "Stored weekly summary",
   "weekly.partial": "Missing or unknown dates are not rest or zero load. Load is TSS equivalent, a different scale from Relative Effort.",
   "weekly.title": "Training load · last 28 days",
-  "hub.weekly.pending": "Training load is being verified. Period comparison and advice require confirmed current inputs."
+  "hub.weekly.pending": "Training load is being verified. Period comparison and advice require confirmed current inputs.",
+  "periodCurve.unit": "Unit",
+  "periodCurve.weightBasis": "Based on profile weight stored when the analysis was calculated. This may differ from weight measured at activity time.",
+  "periodCurve.weightUnsupported": "This period response does not include W/kg analysis. Watts or current weight are not used as a substitute.",
+  "periodCurve.weightWinner": "Original {{watts}} W · calculation weight {{kg}} kg",
+  "periodCurve.weightCoverage": "Weight included {{includedActivityCount}} · missing {{missingWeightActivityCount}} · invalid {{invalidWeightActivityCount}} · incompatible {{incompatibleWeightActivityCount}}",
+  "periodCurve.weightDifference": "Selected duration difference {{watts}} W/kg",
+  "periodCurve.weightPointNote": "Compares W/kg records with confirmed calculation-time weight. Lines connect stored points without estimating intermediate durations.",
+  "periodCurve.weightEmpty": "No W/kg records with a confirmed weight basis are available."
 }

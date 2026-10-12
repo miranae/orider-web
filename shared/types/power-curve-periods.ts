@@ -1,4 +1,4 @@
-import type { PowerDurationPeriodObservations } from "./power-duration-periods";
+import type { ObservedPeriodPowerDurationPoint, PowerDurationPeriodObservations } from "./power-duration-periods";
 import type { PdcPowerSource } from "./pdc";
 
 export interface PowerCurvePeriod {
@@ -9,6 +9,8 @@ export interface PowerCurvePeriod {
 }
 export interface PowerCurvePeriodsRequest {
   unit: "W";
+  /** 저장된 계산 당시 프로필 체중만 사용한다. 활동 당시 체중은 주장하지 않는다. */
+  includeWeightNormalized?: boolean;
   periods: PowerCurvePeriod[];
 }
 export interface PeriodPowerPoint {
@@ -36,7 +38,39 @@ export interface PowerCurvePeriodCoverage {
   truncated: boolean;
   scanLimit: number;
 }
+export interface CalculationWeightCounts {
+  includedActivityCount: number;
+  missingWeightActivityCount: number;
+  invalidWeightActivityCount: number;
+  incompatibleWeightActivityCount: number;
+}
+export interface WeightNormalizedPowerPoint extends PeriodPowerPoint {
+  wattsPerKg: number;
+  weightKg: number;
+  weightRevision: string;
+}
+export interface WeightNormalizedDurationPoint extends ObservedPeriodPowerDurationPoint {
+  maxAveragePowerWPerKg: number;
+  weightKg: number;
+  weightRevision: string;
+}
+export interface WeightNormalizedDurationObservations extends Omit<PowerDurationPeriodObservations, "points"> {
+  unit: "W/kg";
+  basis: "calculation_profile_snapshot";
+  weightCounts: CalculationWeightCounts;
+  points: WeightNormalizedDurationPoint[];
+}
+export interface WeightNormalizedPowerPeriod {
+  unit: "W/kg";
+  basis: "calculation_profile_snapshot";
+  status: "complete" | "partial";
+  coverage: PowerCurvePeriodCoverage;
+  weightCounts: CalculationWeightCounts;
+  points: WeightNormalizedPowerPoint[];
+  powerDurationObservations?: WeightNormalizedDurationObservations;
+}
 export interface PowerCurvePeriodResult extends PowerCurvePeriod {
+  weightNormalized?: WeightNormalizedPowerPeriod;
   /** Optional fixed-grid observations from the same scanned candidates; old 11 points remain unchanged. */
   powerDurationObservations?: PowerDurationPeriodObservations;
   status: "complete" | "partial";

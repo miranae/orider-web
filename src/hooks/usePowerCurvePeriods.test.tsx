@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
-import { usePowerCurvePeriods } from "./usePowerCurvePeriods";
+import { usePowerCurvePeriods, type PowerCurvePeriodsSelection } from "./usePowerCurvePeriods";
 const mocks = vi.hoisted(() => ({ uid: "owner", anonymous: false, services: {}, load: vi.fn() }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: mocks.uid, isAnonymous: mocks.anonymous } }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
@@ -34,4 +34,21 @@ it.each(["owner", "selection", "services"])("rejects stale responses through %s 
 it("does not load until a valid explicit selection is submitted", () => {
   const r = renderHook(() => usePowerCurvePeriods("owner", null, true));
   expect(r.result.current.state).toBe("idle"); expect(mocks.load).not.toHaveBeenCalled();
+});
+
+it("binds opt-in to explicit selection and fences a late W response after W/kg selection", async () => {
+  let resolveWatts!: (value: any) => void;
+  mocks.load.mockReturnValueOnce(new Promise(resolve => { resolveWatts = resolve; }));
+  const r = renderHook((selected: PowerCurvePeriodsSelection | null) => usePowerCurvePeriods("owner", selected, true), { initialProps: selection as PowerCurvePeriodsSelection | null });
+  expect(mocks.load).toHaveBeenLastCalledWith(mocks.services, "owner", selection.request);
+  const normalized = { request: { ...selection.request, includeWeightNormalized: true }, requestId: 2 };
+  r.rerender(normalized);
+  await waitFor(() => expect(r.result.current.response?.inputDigest).toBe("new"));
+  expect(mocks.load).toHaveBeenLastCalledWith(mocks.services, "owner", normalized.request);
+  await act(async () => resolveWatts({ inputDigest: "old-watts" }));
+  expect(r.result.current.response?.inputDigest).toBe("new");
+  const count = mocks.load.mock.calls.length;
+  r.rerender(null);
+  expect(r.result.current.state).toBe("idle");
+  expect(mocks.load).toHaveBeenCalledTimes(count);
 });
