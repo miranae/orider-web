@@ -12,7 +12,8 @@ export function validRunEffortStageMutation(request: RunEffortStageMutationReque
   return !!request && activityId(request.activityId) && RUN_DISTANCE_TARGETS_V2.includes(request.target) && typeof request.excluded === "boolean"
     && integer(request.expectedPreferenceRevision) && request.expectedPreferenceRevision < Number.MAX_SAFE_INTEGER && revision(request.expectedMetricsRevision) && revision(request.expectedActivityIncarnation)
     && typeof request.idempotencyKey === "string" && /^[A-Za-z0-9_-]{16,100}$/u.test(request.idempotencyKey)
-    && Object.keys(request).sort().join(",") === ["activityId", "target", "excluded", "expectedPreferenceRevision", "expectedMetricsRevision", "expectedActivityIncarnation", "idempotencyKey"].sort().join(",");
+    && (request.expectedDerivedRevision === undefined || typeof request.expectedDerivedRevision === "string" && /^[a-f0-9]{64}$/u.test(request.expectedDerivedRevision))
+    && Object.keys(request).filter(key => key !== "expectedDerivedRevision").sort().join(",") === ["activityId", "target", "excluded", "expectedPreferenceRevision", "expectedMetricsRevision", "expectedActivityIncarnation", "idempotencyKey"].sort().join(",");
 }
 export function validRunEffortStageOverlay(value: unknown, expectedCandidateCount: number): value is RunEffortStageOverlay {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -25,6 +26,7 @@ export function validRunEffortStageOverlay(value: unknown, expectedCandidateCoun
   for (const binding of overlay.preferenceBindings) {
     if (!binding || !activityId(binding.activityId) || seen.has(binding.activityId) || !revision(binding.activityIncarnation)
       || !integer(binding.preferenceRevision) || binding.metricsRevision !== null && !revision(binding.metricsRevision)
+      || binding.derivedRevision !== undefined && (typeof binding.derivedRevision !== "string" || !/^[a-f0-9]{64}$/u.test(binding.derivedRevision))
       || typeof binding.mutationReady !== "boolean" || binding.mutationReady && binding.metricsRevision === null
       || !Array.isArray(binding.excludedTargets) || binding.excludedTargets.length > RUN_DISTANCE_TARGETS_V2.length
       || new Set(binding.excludedTargets).size !== binding.excludedTargets.length || !binding.excludedTargets.every(target => RUN_DISTANCE_TARGETS_V2.includes(target))) return false;

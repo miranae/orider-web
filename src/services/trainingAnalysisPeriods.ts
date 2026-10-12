@@ -1,3 +1,4 @@
+import type { StageDerivedRunDistancePeriod } from "@shared/types/stage-run-distance-snapshot";
 import { validRunEffortStageOverlay } from "./runEffortStagePreferences";
 import { normalizeCyclingDistanceAnalysis } from "../utils/cyclingDistancePeriods";
 import { validCyclingClimbObservations } from "./cyclingClimbObservations";
@@ -21,6 +22,9 @@ export function trainingAnalysisPeriodsAvailable() {
 }
 export function validTrainingAnalysisPeriodsRequest(request: TrainingAnalysisPeriodsRequest, now = Date.now()) {
   return !!request && ["bike", "run", "swim"].includes(request.discipline)
+    && (request.stageRunDistanceSnapshotActivityIds === undefined || request.includeStageRunEffortPreferences === true && request.discipline === "run"
+      && Array.isArray(request.stageRunDistanceSnapshotActivityIds) && request.stageRunDistanceSnapshotActivityIds.length === 1
+      && typeof request.stageRunDistanceSnapshotActivityIds[0] === "string" && /^[A-Za-z0-9_-]{1,200}$/u.test(request.stageRunDistanceSnapshotActivityIds[0]))
     && (request.includeStageRunEffortPreferences === undefined || request.includeStageRunEffortPreferences === true && request.discipline === "run")
     && (request.includeRunningPaceZones === undefined || request.includeRunningPaceZones === true && request.discipline === "run")
     && (request.includeExpandedRunDistances === undefined || request.includeExpandedRunDistances === true && request.discipline === "run")
@@ -245,12 +249,48 @@ export function validateTrainingAnalysisPeriodsResponse(response: TrainingAnalys
         if (distance.excludedEffortActivityCount !== undefined && (!count(distance.excludedEffortActivityCount) || distance.excludedEffortActivityCount > coverage.representativeActivityCount)) invalid();
       }
     }
+    if (request.stageRunDistanceSnapshotActivityIds && period.stageDerivedRunDistances === undefined) invalid();
+    if (period.stageDerivedRunDistances !== undefined && !validStageDerivedDistances(period.stageDerivedRunDistances, period, request)) invalid();
+    if (!request.stageRunDistanceSnapshotActivityIds && period.running?.stageEffortOverlay?.preferenceBindings.some(binding => binding.derivedRevision !== undefined)) invalid();
     const partial = coverage.truncated || Object.values(period.totals).some(total => total.missingActivityCount > 0)
       || period.zones.heartRate.missingSensorActivityCount + period.zones.heartRate.contextUnknownActivityCount
       + period.zones.power.missingSensorActivityCount + period.zones.power.contextUnknownActivityCount > 0;
     if (period.status !== (partial ? "partial" : "complete")) invalid();
   });
   return response;
+}
+/** 별도 저장축 근거만 검증한다. 정본 기록/집계의 eligibility에 끼워 넣지 않는다. */
+function validStageDerivedDistances(value: StageDerivedRunDistancePeriod, period: TrainingAnalysisPeriodsResponse["periods"][number], request: TrainingAnalysisPeriodsRequest): boolean {
+  if (!request.stageRunDistanceSnapshotActivityIds || request.includeStageRunEffortPreferences !== true || request.discipline !== "run"
+    || !value || typeof value !== "object" || Array.isArray(value)
+    || Object.keys(value).sort().join(",") !== ["version", "basis", "originalClockVerified", "coverage", "quality", "targetsVersion", "scope", "sources"].sort().join(",")
+    || value.version !== 1 || value.basis !== "stage_derived_from_stored_elapsed_axis" || value.originalClockVerified !== false
+    || value.coverage !== "unknown" || value.quality !== "unknown" || value.targetsVersion !== 2 || value.scope !== "explicit_selected_snapshot"
+    || !Array.isArray(value.sources) || value.sources.length > 1) return false;
+  for (const source of value.sources) {
+    const binding = period.running?.stageEffortOverlay?.preferenceBindings.find(row => row.activityId === source?.activityId);
+    const activity = period.activities.find(row => row.activityId === source?.activityId);
+    const qualifiedLegacy = !!source && (Object.prototype.hasOwnProperty.call(source, "qualification") || Object.prototype.hasOwnProperty.call(source, "manifestObjectIncarnationVerified"));
+    if (qualifiedLegacy && (source.qualification !== "legacy_manifest_revision_and_gcs_token_pinned" || source.manifestObjectIncarnationVerified !== false
+      || !Object.prototype.hasOwnProperty.call(source, "qualification") || !Object.prototype.hasOwnProperty.call(source, "manifestObjectIncarnationVerified"))) return false;
+    if (!source || typeof source !== "object" || Object.keys(source).sort().join(",") !== ["activityId", "startTime", "derivedRevision", "observedTargets", "excludedTargets", "records", ...(qualifiedLegacy ? ["qualification", "manifestObjectIncarnationVerified"] : [])].sort().join(",")
+      || source.activityId !== request.stageRunDistanceSnapshotActivityIds[0] || !binding || !activity || source.startTime !== activity.startTime
+      || typeof source.derivedRevision !== "string" || !/^[a-f0-9]{64}$/u.test(source.derivedRevision) || source.derivedRevision !== binding.derivedRevision
+      || !Array.isArray(source.observedTargets) || source.observedTargets.length > 14 || new Set(source.observedTargets).size !== source.observedTargets.length
+      || source.observedTargets.some(target => !RUN_DISTANCE_TARGETS_V2.includes(target))
+      || !Array.isArray(source.excludedTargets) || JSON.stringify(source.excludedTargets) !== JSON.stringify(binding.excludedTargets)
+      || !source.records || typeof source.records !== "object" || Array.isArray(source.records)) return false;
+    const retained = source.observedTargets.filter(target => !source.excludedTargets.includes(target)).sort();
+    if (JSON.stringify(Object.keys(source.records).sort()) !== JSON.stringify(retained)) return false;
+    for (const anchor of Object.values(source.records)) {
+      if (!anchor || Object.keys(anchor).sort().join(",") !== ["elapsedSec", "exactElapsedSec", "startIndex", "endBeforeIndex", "endIndex", "endFraction", "startTimeSec", "endTimeSec"].sort().join(",")
+        || !count(anchor.elapsedSec) || anchor.elapsedSec < 1 || !nonnegative(anchor.exactElapsedSec) || anchor.exactElapsedSec <= 0 || anchor.elapsedSec !== Math.round(anchor.exactElapsedSec)
+        || !count(anchor.startIndex) || !count(anchor.endIndex) || anchor.endIndex <= anchor.startIndex || anchor.endIndex >= 10_000 || anchor.endBeforeIndex !== anchor.endIndex - 1
+        || !nonnegative(anchor.endFraction) || anchor.endFraction > 1 || !nonnegative(anchor.startTimeSec) || !nonnegative(anchor.endTimeSec)
+        || !near(anchor.endTimeSec - anchor.startTimeSec, anchor.exactElapsedSec)) return false;
+    }
+  }
+  return !period.running?.stageEffortOverlay?.preferenceBindings.some(binding => binding.derivedRevision !== undefined && !value.sources.some(source => source.activityId === binding.activityId));
 }
 /** Private single-activity snapshots and observed period groups share this fixed GAP policy. */
 export function validRunningPaceZoneAnalysis(value: unknown): value is RunningPaceZoneAnalysis {

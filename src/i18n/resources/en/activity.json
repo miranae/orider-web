@@ -2149,6 +2149,14 @@
     "savedCountsNote": "Missing-reason counts come from saved activity analyses. Zero missing thresholds does not confirm a threshold in your current profile."
   },
   "runEffortTool": {
+    "storedLegacyLimit": "Calculated from an earlier storage format. Its connection to the originally recorded data has not been verified.",
+    "storedSource": "Activity to check with stored distance data",
+    "canonicalOnly": "Load existing analysis only",
+    "storedCalculated": "Calculated from stored distance data",
+    "storedBasis": "How this was calculated",
+    "storedLimit": "Calculated from stored distance samples and elapsed time. The original sensor clock and completeness of the whole activity have not been verified. These results remain separate from existing best records, rankings, and statistics.",
+    "storedNoDistance": "No continuous observation for this distance.",
+    "storedUnavailable": "No prepared distance data for the selected activity.",
     "cancelPending": "End confirmation for this request",
     "cancelledUnknown": "Confirmation for this request has ended. Saved choices are not undone, and the outcome may remain unknown. Reload the analysis to check the current state.",
     "alias": "Applies only to this distance record in the selected activity. Other records of the same session may remain separately.",

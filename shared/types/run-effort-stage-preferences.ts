@@ -6,6 +6,8 @@ export interface RunEffortStageMutationRequest {
   excluded: boolean;
   expectedPreferenceRevision: number;
   expectedMetricsRevision: string;
+  /** Stage 파생 거리로 제외할 때만 현재 snapshot revision을 CAS로 지정한다. */
+  expectedDerivedRevision?: string;
   expectedActivityIncarnation: string;
   idempotencyKey: string;
 }
@@ -33,6 +35,7 @@ export interface RunEffortStageOverlay {
     /** 현재 마스크된 메트릭 문서 updateTime. 문서 부재 시 null. */
     metricsRevision: string | null;
     mutationReady: boolean;
+    derivedRevision?: string;
     excludedTargets: ExpandedRunDistanceKey[];
   }>;
 }
