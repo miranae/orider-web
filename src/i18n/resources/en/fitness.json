@@ -1005,14 +1005,18 @@
     "requestNote": "Press Load to compare the rolling last 56 days and all time using one cutoff.",
     "recent": "Recent 56 days",
     "allObserved": "All observed time",
-    "scope": "Maxima among confirmed observations of measured power. All time includes the recent 56 days; this is not a growth rate or a best across every activity. The stored grid has no exact 15-second, 3-minute, 15-minute or 45-minute records.",
+    "scope": "Self-comparison of confirmed measured power. All observed time includes the recent 56 days; this is not a growth rate or a best across every activity.",
     "scanned": "{{scanned}} activities scanned · {{included}} activities with duration observations",
     "missing_exact_duration": "No exact-duration record",
-    "channel_unavailable": "Duration observations unavailable",
+    "channel_unavailable": "Interval power records cannot be confirmed",
     "qualification_unverified": "Measurement qualification unverified",
     "weight_unavailable": "Calculation-time weight unavailable",
     "table": "View all 12 durations",
     "cutoff": "Comparison cutoff {{date}} (Korea time)",
-    "evidence": "Exact duration {{duration}} seconds · raw value {{value}} · revision {{revision}}"
+    "evidence": "Exact duration {{duration}} seconds · raw value {{value}} · revision {{revision}}",
+    "gridNote": "The stored grid has no exact 15-second, 3-minute, 15-minute or 45-minute records. When duration observations are unavailable, none of the 12 durations can be confirmed.",
+    "scannedUnavailable": "{{scanned}} activities scanned · interval power records cannot be confirmed",
+    "through": "Through {{date}}",
+    "tableUnavailable": "— Exact-duration records or required measurement/weight evidence cannot be confirmed."
   }
 }
