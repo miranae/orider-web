@@ -46,8 +46,8 @@ describe("native delegated QA provider", () => {
 it("selects QA only for the exact Stage origin and shared-data app/config",()=>{
  const base={appEnvironment:"stage",firebaseProjectId:"miranae-orider-g1",firebaseAppId:"1:289663940841:web:ba08cdae154286e6499878",firebaseFunctionsBase:"https://asia-northeast3-orider-dev.cloudfunctions.net"};
  try {
-  vi.stubGlobal("window",{location:{origin:"https://miranae-orider-g1-stage.web.app"}});mocks.config=base;expect(()=>assertStageQaConfig()).not.toThrow();
+  vi.stubGlobal("window",{location:{origin:"https://orider-dev.web.app"}});mocks.config=base;expect(()=>assertStageQaConfig()).not.toThrow();
   for(const patch of [{appEnvironment:"production"},{firebaseProjectId:"orider-dev"},{firebaseAppId:"foreign"},{firebaseFunctionsBase:"https://asia-northeast3-miranae-orider-g1.cloudfunctions.net"}]){mocks.config={...base,...patch};expect(()=>assertStageQaConfig()).toThrow();}
-  mocks.config=base;vi.stubGlobal("window",{location:{origin:"https://orider.co.kr"}});expect(()=>assertStageQaConfig()).toThrow();
+  mocks.config=base;for(const origin of ["https://orider.co.kr","https://miranae-orider-g1-stage.web.app"]){vi.stubGlobal("window",{location:{origin}});expect(()=>assertStageQaConfig()).toThrow();}
  } finally {vi.unstubAllGlobals();}
 });
