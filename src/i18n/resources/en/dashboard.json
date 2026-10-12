@@ -499,9 +499,14 @@
         }
       },
       "run": {
+        "cardAria": "Running settings and record sources",
         "title": "Running evidence",
-        "basis": "Only your configured threshold pace and persisted measured distance records are shown.",
-        "threshold": "Threshold pace"
+        "basis": "Configured threshold pace and source-qualified records are distinguished.",
+        "threshold": "Configured threshold pace",
+        "noQualifiedEvidence": "No source-qualified distance records are available.",
+        "unverifiedTitle": "Unverified saved records ({{count}})",
+        "unverifiedBasis": "The sport and time unit of these historical records could not be verified, so record times are hidden. Check the source activities.",
+        "sourceMissing": "Source activity unavailable"
       },
       "swim": {
         "title": "Swimming evidence",

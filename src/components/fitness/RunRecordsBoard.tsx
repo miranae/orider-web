@@ -2,7 +2,7 @@
  * 거리별 러닝 기록 보드 (설계 문서 §3.4a, 시안 6).
  *
  * 1/5/10km·하프·풀의 현재 저장된 상위 기록. 미달성 거리도 자리를 남겨 "다음 목표"를 자연스럽게 제시한다.
- * 값은 전부 서버 확정(`users/{uid}/records/power`.run) — 클라이언트 근사 기록은 없다.
+ * 서버 저장값이며, 이 구형 PR 문서만으로 원본 적격성·시간 단위를 검증할 수 없다.
  *
  * 이중 레이어: 표(쉬운 레이어) 아래에 임계 페이스 곡선(디테일 레이어)을 접이식으로 둔다.
  * 곡선 컴포넌트는 호출부가 스트림과 함께 children 으로 주입한다(이 컴포넌트는 records 만 안다).
@@ -11,27 +11,13 @@ import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { Button, buttonClass, Card, Text } from "../../theme/components";
-import { formatPaceSec } from "../../utils/workoutPace";
-import { useLocale } from "../../contexts/LocaleContext";
 import { distanceRecords } from "../../utils/runRecords";
-import { RUN_DISTANCE_M } from "@shared/types/personal-records";
 import type { RunPrTable } from "@shared/types/personal-records";
 
 export interface RunRecordsBoardProps {
   run: RunPrTable | undefined;
   /** 접이식 디테일 레이어 — 보통 CriticalPaceCurve. 없으면 접이 UI 를 숨긴다. */
   detailLayer?: ReactNode;
-}
-
-/** 총 시간(초) → `26'40"` 또는 `2:08'55"`. */
-function formatDuration(sec: number): string {
-  sec = Math.round(sec);
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = sec % 60;
-  const mm = String(m).padStart(2, "0");
-  const ss = String(s).padStart(2, "0");
-  return h > 0 ? `${h}:${mm}'${ss}"` : `${m}'${ss}"`;
 }
 
 /** 날짜 필드는 시간대로 옮기지 않고 저장된 달력 날짜 그대로 표시한다. */
@@ -46,7 +32,6 @@ function formatDate(date: string, locale: string): string {
 
 export default function RunRecordsBoard({ run, detailLayer }: RunRecordsBoardProps) {
   const { t, i18n } = useTranslation("fitness");
-  const { units } = useLocale();
   const [expanded, setExpanded] = useState(false);
   const rows = distanceRecords(run);
 
@@ -59,6 +44,9 @@ export default function RunRecordsBoard({ run, detailLayer }: RunRecordsBoardPro
       <Text as="p" variant="body" tone="secondary" style={{ marginBottom: "var(--space-3)" }}>
         {t("runRecords.scope")}
       </Text>
+      {rows.some(row => row.top.length > 0) && <Text as="p" variant="body" tone="secondary" style={{ marginBottom: "var(--space-3)" }}>
+        {t("runRecords.unverified")}
+      </Text>}
       <div>
         {rows.map(row => (
           <section key={row.distance} style={{ padding: "var(--space-3) 0", borderBottom: "1px solid var(--line-soft)", minWidth: 0 }}>
@@ -66,18 +54,10 @@ export default function RunRecordsBoard({ run, detailLayer }: RunRecordsBoardPro
               {t(`runRecords.dist.${row.distance}`)}
             </Text>
             {row.top.length ? row.top.map((entry, index) => {
-              const paceSec = entry.value / (RUN_DISTANCE_M[row.distance] / 1000);
               const sourceId = typeof entry.activityId === "string" && entry.activityId.trim() ? entry.activityId : null;
               return (
                 <div key={sourceId ?? index} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)", paddingTop: "var(--space-2)" }}>
-                  <Text as="span" variant="body" tone="secondary">{t("runRecords.rank", { rank: index + 1 })}</Text>
-                  <Text as="span" variant="dataSmall" mono tone="primary">{formatDuration(entry.value)}</Text>
-                  <Text as="span" variant="body" tone="secondary" mono>
-                    {formatPaceSec(paceSec * (units === "imperial" ? 1.609344 : 1))}/{units === "imperial" ? "mi" : "km"}
-                  </Text>
-                  <Text as="span" variant="body" tone="secondary">
-                    {entry.value === row.best?.value ? t("runRecords.best") : t("runRecords.behind", { duration: formatDuration(entry.value - row.best!.value) })}
-                  </Text>
+                  <Text as="span" variant="body" tone="secondary">{t("runRecords.unverifiedLabel")}</Text>
                   {sourceId ? (
                     <a href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(sourceId)}`}
                       className={buttonClass({ variant: "ghost" })}

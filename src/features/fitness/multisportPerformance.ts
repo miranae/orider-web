@@ -44,7 +44,26 @@ export interface CyclingAbilityResult {
 
 export interface RunEvidence {
   thresholdPaceSec: number | null;
-  records: Array<{ distance: RunDistanceKey; seconds: number; date: string }>;
+  /** 적격 원본 영수증이 없는 통산 PR은 실측 근거로 사용하지 않는다. */
+  records: Array<{
+    distance: RunDistanceKey;
+    seconds: number;
+    date: string;
+    activityId: string;
+    startTime: number;
+    qualification: "source_qualified";
+    unit: "seconds";
+  }>;
+  unverifiedRecords?: Array<{
+    distance: RunDistanceKey;
+    storedValue: number;
+    date: string;
+    activityId: string | null;
+    startTime: number | null;
+    context?: string;
+    qualification: "legacy_unverified";
+    unit: "unverified";
+  }>;
 }
 
 export interface SwimEvidence {
@@ -249,9 +268,24 @@ export function buildRunEvidence(thresholdPaceSec: number | null | undefined, re
   const order: RunDistanceKey[] = ["1km", "5km", "10km", "half", "full"];
   return {
     thresholdPaceSec: finitePositive(thresholdPaceSec) ? thresholdPaceSec : null,
-    records: order.flatMap((distance) => {
-      const best = records?.[distance]?.filter((entry) => finitePositive(entry.value)).sort((a, b) => a.value - b.value)[0];
-      return best ? [{ distance, seconds: best.value, date: best.date }] : [];
+    records: [],
+    // 기존 PrEntry에는 단위·소유권·종목·원본/metrics 세대를 결속하는 영수증이 없다.
+    // 양수 값이나 현실적인 속도, 현재 activity type만으로 과거 기록을 인증하지 않는다.
+    unverifiedRecords: order.flatMap((distance) => {
+      const candidates = records?.[distance];
+      const best = Array.isArray(candidates)
+        ? candidates.filter((entry) => entry && finitePositive(entry.value)).slice().sort((a, b) => a.value - b.value)[0]
+        : undefined;
+      return best ? [{
+        distance,
+        storedValue: best.value,
+        date: typeof best.date === "string" ? best.date : "",
+        activityId: typeof best.activityId === "string" && best.activityId.trim() ? best.activityId : null,
+        startTime: typeof best.startTime === "number" && Number.isFinite(best.startTime) ? best.startTime : null,
+        ...(typeof best.context === "string" ? { context: best.context } : {}),
+        qualification: "legacy_unverified" as const,
+        unit: "unverified" as const,
+      }] : [];
     }),
   };
 }
