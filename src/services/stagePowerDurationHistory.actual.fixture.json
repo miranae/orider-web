@@ -1,0 +1,1045 @@
+{
+  "provenance": {
+    "parent": "df232b77173b0159e88b7927e175b57a8183f6f8",
+    "calculatorArtifactHash": "e36e6e5dc078bf96c4a6e3b39f9c172419a161b24beb69bb8320b1a58bbb478c",
+    "proofBoundary": "actual compiled reader/kernel/native wrapper/identity and reducer, fake source/GCS IO only; no helper bodies mocked",
+    "liveIO": 0,
+    "rawDownloads": 0,
+    "writes": 0
+  },
+  "separateOriginsAndWeight": {
+    "page": {
+      "version": 1,
+      "mode": "stage_power_duration_history_page",
+      "unit": "W",
+      "durationSeconds": 2,
+      "periods": [
+        {
+          "fromInclusive": 1760000000000,
+          "toExclusive": 1760000050000
+        },
+        {
+          "fromInclusive": 1760000010000,
+          "toExclusive": 1760000030000
+        }
+      ],
+      "periodIndex": 0,
+      "includeWeightNormalized": true,
+      "scope": "observed_manual_history_page",
+      "queryScope": "owner_activities_with_valid_start_time",
+      "session": {
+        "readTime": {
+          "seconds": 1760000050,
+          "nanoseconds": 0
+        },
+        "expiresAt": 1760001850000,
+        "requestBinding": "31ae424edd9d42db53fc998eb9b581c5f1e59584f42b9ad111b4755fdaee162b"
+      },
+      "page": {
+        "limit": 20,
+        "scannedActivityCount": 2,
+        "candidateActivityCount": 2,
+        "skippedActivityCount": 0,
+        "exhausted": true,
+        "enumerationState": "exhausted",
+        "nextCursor": null
+      },
+      "activities": [
+        {
+          "activityId": "a00",
+          "startTime": 1760000000000,
+          "activityIncarnation": "99:1",
+          "activityRevision": "100:1",
+          "baseMetricsRevision": "100:1",
+          "sourcePowerOrigin": "measured",
+          "analysisState": "ready",
+          "snapshotState": "present_unverified",
+          "snapshotRevision": "cf77e9c0d0292536187eed93bd7af17b0d742570512bf4d63768963b33730199",
+          "candidateBinding": "4854a41d83b6876b62063074b7fac0b4fc80f2cf565684c2bb858d63a4439be0",
+          "physicalIdentity": {
+            "source": "orider",
+            "localSessionId": "session-a00",
+            "stravaActivityId": null,
+            "stravaTwinActivityId": null
+          }
+        },
+        {
+          "activityId": "a01",
+          "startTime": 1760000001000,
+          "activityIncarnation": "99:1",
+          "activityRevision": "100:1",
+          "baseMetricsRevision": "100:1",
+          "sourcePowerOrigin": "stored_native_watts_unverified",
+          "analysisState": "ready",
+          "snapshotState": "present_unverified",
+          "snapshotRevision": "5c2c0909edb05aea7b67d4ce14e315a41f9a735ee66f9b801c72acfc0a9a5cba",
+          "candidateBinding": "711e667dedf752168730bfaa861bb512c364d647724f5b607bdd8221fbd9db87",
+          "physicalIdentity": {
+            "source": "orider",
+            "localSessionId": "session-a01",
+            "stravaActivityId": null,
+            "stravaTwinActivityId": null
+          }
+        }
+      ],
+      "collectionCompleteness": "unknown",
+      "originalClockVerified": false,
+      "costs": {
+        "documents": 35,
+        "metadata": 0,
+        "snapshotBodies": 0,
+        "queries": 1,
+        "rawPayloads": 0,
+        "writes": 0
+      }
+    },
+    "response": {
+      "version": 1,
+      "mode": "stage_power_duration_history_compute",
+      "unit": "W",
+      "durationSeconds": 2,
+      "periods": [
+        {
+          "fromInclusive": 1760000000000,
+          "toExclusive": 1760000050000
+        },
+        {
+          "fromInclusive": 1760000010000,
+          "toExclusive": 1760000030000
+        }
+      ],
+      "periodIndex": 0,
+      "includeWeightNormalized": true,
+      "session": {
+        "readTime": {
+          "seconds": 1760000050,
+          "nanoseconds": 0
+        },
+        "expiresAt": 1760001850000,
+        "requestBinding": "31ae424edd9d42db53fc998eb9b581c5f1e59584f42b9ad111b4755fdaee162b"
+      },
+      "scope": "observed_explicit_history_candidates",
+      "candidates": [
+        {
+          "activityId": "a00",
+          "startTime": 1760000000000,
+          "activityIncarnation": "99:1",
+          "activityRevision": "100:1",
+          "baseMetricsRevision": "100:1",
+          "sourcePowerOrigin": "measured",
+          "analysisState": "ready",
+          "snapshotState": "present_unverified",
+          "snapshotRevision": "cf77e9c0d0292536187eed93bd7af17b0d742570512bf4d63768963b33730199",
+          "candidateBinding": "4854a41d83b6876b62063074b7fac0b4fc80f2cf565684c2bb858d63a4439be0",
+          "physicalIdentity": {
+            "source": "orider",
+            "localSessionId": "session-a00",
+            "stravaActivityId": null,
+            "stravaTwinActivityId": null
+          },
+          "timingBasis": "stored_native_one_second_slot_policy",
+          "originalClockVerified": false,
+          "sensorBucketOriginVerified": false,
+          "quality": "unknown",
+          "collectionCompleteness": "unknown",
+          "weightNormalized": {
+            "unit": "W/kg",
+            "basis": "calculation_profile_snapshot",
+            "state": "available",
+            "weightKg": 76,
+            "weightRevision": "100:1",
+            "computedAt": 123,
+            "maxAveragePowerWPerKg": 3.289473684210526,
+            "comparison": {
+              "numerator": "125",
+              "denominator": "38"
+            }
+          },
+          "state": "available",
+          "reason": null,
+          "result": {
+            "version": 1,
+            "scope": "whole_activity_observed_intervals",
+            "timingBasis": "stored_native_one_second_slot_policy",
+            "originalClockVerified": false,
+            "quality": "unknown",
+            "collectionCompleteness": "unknown",
+            "unit": "W",
+            "sensorBucketOriginVerified": false,
+            "state": "available",
+            "reason": null,
+            "requestedDurationSeconds": 2,
+            "maxAveragePowerW": 250,
+            "windowStartElapsedSec": 2,
+            "windowEndElapsedSec": 4,
+            "observedSeconds": 4,
+            "longestContinuousSeconds": 4
+          },
+          "comparison": {
+            "sourcePowerOrigin": "measured",
+            "energyWattMilliseconds": "500000",
+            "durationMilliseconds": 2000
+          },
+          "sourceDigest": "2a9ee416930919ade9250df6d1779fc30c8034a0bc71021766f12081f5c16482"
+        },
+        {
+          "activityId": "a01",
+          "startTime": 1760000001000,
+          "activityIncarnation": "99:1",
+          "activityRevision": "100:1",
+          "baseMetricsRevision": "100:1",
+          "sourcePowerOrigin": "stored_native_watts_unverified",
+          "analysisState": "ready",
+          "snapshotState": "present_unverified",
+          "snapshotRevision": "5c2c0909edb05aea7b67d4ce14e315a41f9a735ee66f9b801c72acfc0a9a5cba",
+          "candidateBinding": "711e667dedf752168730bfaa861bb512c364d647724f5b607bdd8221fbd9db87",
+          "physicalIdentity": {
+            "source": "orider",
+            "localSessionId": "session-a01",
+            "stravaActivityId": null,
+            "stravaTwinActivityId": null
+          },
+          "timingBasis": "stored_native_one_second_slot_policy",
+          "originalClockVerified": false,
+          "sensorBucketOriginVerified": false,
+          "quality": "unknown",
+          "collectionCompleteness": "unknown",
+          "weightNormalized": {
+            "unit": "W/kg",
+            "basis": "calculation_profile_snapshot",
+            "state": "available",
+            "weightKg": 70.1,
+            "weightRevision": "100:1",
+            "computedAt": null,
+            "maxAveragePowerWPerKg": 3.566333808844508,
+            "comparison": {
+              "numerator": "8796093022208000",
+              "denominator": "2466424483427123"
+            }
+          },
+          "state": "available",
+          "reason": null,
+          "result": {
+            "version": 1,
+            "scope": "whole_activity_observed_intervals",
+            "timingBasis": "stored_native_one_second_slot_policy",
+            "originalClockVerified": false,
+            "quality": "unknown",
+            "collectionCompleteness": "unknown",
+            "unit": "W",
+            "sensorBucketOriginVerified": false,
+            "powerSource": "stored_native_watts_unverified",
+            "state": "available",
+            "reason": null,
+            "requestedDurationSeconds": 2,
+            "maxAveragePowerW": 250,
+            "windowStartElapsedSec": 2,
+            "windowEndElapsedSec": 4,
+            "observedSeconds": 4,
+            "longestContinuousSeconds": 4
+          },
+          "comparison": {
+            "sourcePowerOrigin": "stored_native_watts_unverified",
+            "energyWattMilliseconds": "500000",
+            "durationMilliseconds": 2000
+          },
+          "sourceDigest": "b9b4ebd5caee11b90c6d848e907634be58250533231652d77e7ca0ed431b1d2f"
+        }
+      ],
+      "analysisCoverage": {
+        "origins": [
+          {
+            "sourcePowerOrigin": "measured",
+            "weightCounts": {
+              "includedActivityCount": 1,
+              "missingWeightActivityCount": 0,
+              "invalidWeightActivityCount": 0,
+              "incompatibleWeightActivityCount": 0
+            },
+            "inspectedActivityCount": 1,
+            "computedActivityCount": 1,
+            "missingSnapshotCount": 0,
+            "noContinuousWindowCount": 0
+          },
+          {
+            "sourcePowerOrigin": "stored_native_watts_unverified",
+            "weightCounts": {
+              "includedActivityCount": 1,
+              "missingWeightActivityCount": 0,
+              "invalidWeightActivityCount": 0,
+              "incompatibleWeightActivityCount": 0
+            },
+            "inspectedActivityCount": 1,
+            "computedActivityCount": 1,
+            "missingSnapshotCount": 0,
+            "noContinuousWindowCount": 0
+          }
+        ],
+        "inspectedActivityCount": 2,
+        "computedActivityCount": 2,
+        "missingSnapshotCount": 0,
+        "noContinuousWindowCount": 0
+      },
+      "costs": {
+        "documents": 64,
+        "metadata": 4,
+        "snapshotBodies": 2,
+        "queries": 0,
+        "rawPayloads": 0,
+        "writes": 0
+      },
+      "enumerationState": "not_certified",
+      "collectionCompleteness": "unknown",
+      "originalClockVerified": false
+    },
+    "reduced": {
+      "periods": [
+        {
+          "periodIndex": 0,
+          "origins": [
+            {
+              "sourcePowerOrigin": "measured",
+              "winner": {
+                "activityId": "a00",
+                "startTime": 1760000000000,
+                "activityIncarnation": "99:1",
+                "activityRevision": "100:1",
+                "baseMetricsRevision": "100:1",
+                "sourcePowerOrigin": "measured",
+                "analysisState": "ready",
+                "snapshotState": "present_unverified",
+                "snapshotRevision": "cf77e9c0d0292536187eed93bd7af17b0d742570512bf4d63768963b33730199",
+                "candidateBinding": "4854a41d83b6876b62063074b7fac0b4fc80f2cf565684c2bb858d63a4439be0",
+                "physicalIdentity": {
+                  "source": "orider",
+                  "localSessionId": "session-a00",
+                  "stravaActivityId": null,
+                  "stravaTwinActivityId": null
+                },
+                "timingBasis": "stored_native_one_second_slot_policy",
+                "originalClockVerified": false,
+                "sensorBucketOriginVerified": false,
+                "quality": "unknown",
+                "collectionCompleteness": "unknown",
+                "weightNormalized": {
+                  "unit": "W/kg",
+                  "basis": "calculation_profile_snapshot",
+                  "state": "available",
+                  "weightKg": 76,
+                  "weightRevision": "100:1",
+                  "computedAt": 123,
+                  "maxAveragePowerWPerKg": 3.289473684210526,
+                  "comparison": {
+                    "numerator": "125",
+                    "denominator": "38"
+                  }
+                },
+                "state": "available",
+                "reason": null,
+                "result": {
+                  "version": 1,
+                  "scope": "whole_activity_observed_intervals",
+                  "timingBasis": "stored_native_one_second_slot_policy",
+                  "originalClockVerified": false,
+                  "quality": "unknown",
+                  "collectionCompleteness": "unknown",
+                  "unit": "W",
+                  "sensorBucketOriginVerified": false,
+                  "state": "available",
+                  "reason": null,
+                  "requestedDurationSeconds": 2,
+                  "maxAveragePowerW": 250,
+                  "windowStartElapsedSec": 2,
+                  "windowEndElapsedSec": 4,
+                  "observedSeconds": 4,
+                  "longestContinuousSeconds": 4
+                },
+                "comparison": {
+                  "sourcePowerOrigin": "measured",
+                  "energyWattMilliseconds": "500000",
+                  "durationMilliseconds": 2000
+                },
+                "sourceDigest": "2a9ee416930919ade9250df6d1779fc30c8034a0bc71021766f12081f5c16482"
+              },
+              "weightNormalized": {
+                "unit": "W/kg",
+                "basis": "calculation_profile_snapshot",
+                "winner": {
+                  "activityId": "a00",
+                  "startTime": 1760000000000,
+                  "activityIncarnation": "99:1",
+                  "activityRevision": "100:1",
+                  "baseMetricsRevision": "100:1",
+                  "sourcePowerOrigin": "measured",
+                  "analysisState": "ready",
+                  "snapshotState": "present_unverified",
+                  "snapshotRevision": "cf77e9c0d0292536187eed93bd7af17b0d742570512bf4d63768963b33730199",
+                  "candidateBinding": "4854a41d83b6876b62063074b7fac0b4fc80f2cf565684c2bb858d63a4439be0",
+                  "physicalIdentity": {
+                    "source": "orider",
+                    "localSessionId": "session-a00",
+                    "stravaActivityId": null,
+                    "stravaTwinActivityId": null
+                  },
+                  "timingBasis": "stored_native_one_second_slot_policy",
+                  "originalClockVerified": false,
+                  "sensorBucketOriginVerified": false,
+                  "quality": "unknown",
+                  "collectionCompleteness": "unknown",
+                  "weightNormalized": {
+                    "unit": "W/kg",
+                    "basis": "calculation_profile_snapshot",
+                    "state": "available",
+                    "weightKg": 76,
+                    "weightRevision": "100:1",
+                    "computedAt": 123,
+                    "maxAveragePowerWPerKg": 3.289473684210526,
+                    "comparison": {
+                      "numerator": "125",
+                      "denominator": "38"
+                    }
+                  },
+                  "state": "available",
+                  "reason": null,
+                  "result": {
+                    "version": 1,
+                    "scope": "whole_activity_observed_intervals",
+                    "timingBasis": "stored_native_one_second_slot_policy",
+                    "originalClockVerified": false,
+                    "quality": "unknown",
+                    "collectionCompleteness": "unknown",
+                    "unit": "W",
+                    "sensorBucketOriginVerified": false,
+                    "state": "available",
+                    "reason": null,
+                    "requestedDurationSeconds": 2,
+                    "maxAveragePowerW": 250,
+                    "windowStartElapsedSec": 2,
+                    "windowEndElapsedSec": 4,
+                    "observedSeconds": 4,
+                    "longestContinuousSeconds": 4
+                  },
+                  "comparison": {
+                    "sourcePowerOrigin": "measured",
+                    "energyWattMilliseconds": "500000",
+                    "durationMilliseconds": 2000
+                  },
+                  "sourceDigest": "2a9ee416930919ade9250df6d1779fc30c8034a0bc71021766f12081f5c16482"
+                },
+                "computedPhysicalCandidateCount": 1,
+                "weightCounts": {
+                  "includedActivityCount": 1,
+                  "missingWeightActivityCount": 0,
+                  "invalidWeightActivityCount": 0,
+                  "incompatibleWeightActivityCount": 0
+                }
+              },
+              "inspectedActivityCount": 1,
+              "physicalCandidateCount": 1,
+              "computedPhysicalCandidateCount": 1,
+              "duplicateActivityCount": 0,
+              "missingSnapshotCount": 0,
+              "noContinuousWindowCount": 0,
+              "analysisCoverage": "observed_only",
+              "enumerationState": "not_certified"
+            },
+            {
+              "sourcePowerOrigin": "stored_native_watts_unverified",
+              "winner": {
+                "activityId": "a01",
+                "startTime": 1760000001000,
+                "activityIncarnation": "99:1",
+                "activityRevision": "100:1",
+                "baseMetricsRevision": "100:1",
+                "sourcePowerOrigin": "stored_native_watts_unverified",
+                "analysisState": "ready",
+                "snapshotState": "present_unverified",
+                "snapshotRevision": "5c2c0909edb05aea7b67d4ce14e315a41f9a735ee66f9b801c72acfc0a9a5cba",
+                "candidateBinding": "711e667dedf752168730bfaa861bb512c364d647724f5b607bdd8221fbd9db87",
+                "physicalIdentity": {
+                  "source": "orider",
+                  "localSessionId": "session-a01",
+                  "stravaActivityId": null,
+                  "stravaTwinActivityId": null
+                },
+                "timingBasis": "stored_native_one_second_slot_policy",
+                "originalClockVerified": false,
+                "sensorBucketOriginVerified": false,
+                "quality": "unknown",
+                "collectionCompleteness": "unknown",
+                "weightNormalized": {
+                  "unit": "W/kg",
+                  "basis": "calculation_profile_snapshot",
+                  "state": "available",
+                  "weightKg": 70.1,
+                  "weightRevision": "100:1",
+                  "computedAt": null,
+                  "maxAveragePowerWPerKg": 3.566333808844508,
+                  "comparison": {
+                    "numerator": "8796093022208000",
+                    "denominator": "2466424483427123"
+                  }
+                },
+                "state": "available",
+                "reason": null,
+                "result": {
+                  "version": 1,
+                  "scope": "whole_activity_observed_intervals",
+                  "timingBasis": "stored_native_one_second_slot_policy",
+                  "originalClockVerified": false,
+                  "quality": "unknown",
+                  "collectionCompleteness": "unknown",
+                  "unit": "W",
+                  "sensorBucketOriginVerified": false,
+                  "powerSource": "stored_native_watts_unverified",
+                  "state": "available",
+                  "reason": null,
+                  "requestedDurationSeconds": 2,
+                  "maxAveragePowerW": 250,
+                  "windowStartElapsedSec": 2,
+                  "windowEndElapsedSec": 4,
+                  "observedSeconds": 4,
+                  "longestContinuousSeconds": 4
+                },
+                "comparison": {
+                  "sourcePowerOrigin": "stored_native_watts_unverified",
+                  "energyWattMilliseconds": "500000",
+                  "durationMilliseconds": 2000
+                },
+                "sourceDigest": "b9b4ebd5caee11b90c6d848e907634be58250533231652d77e7ca0ed431b1d2f"
+              },
+              "weightNormalized": {
+                "unit": "W/kg",
+                "basis": "calculation_profile_snapshot",
+                "winner": {
+                  "activityId": "a01",
+                  "startTime": 1760000001000,
+                  "activityIncarnation": "99:1",
+                  "activityRevision": "100:1",
+                  "baseMetricsRevision": "100:1",
+                  "sourcePowerOrigin": "stored_native_watts_unverified",
+                  "analysisState": "ready",
+                  "snapshotState": "present_unverified",
+                  "snapshotRevision": "5c2c0909edb05aea7b67d4ce14e315a41f9a735ee66f9b801c72acfc0a9a5cba",
+                  "candidateBinding": "711e667dedf752168730bfaa861bb512c364d647724f5b607bdd8221fbd9db87",
+                  "physicalIdentity": {
+                    "source": "orider",
+                    "localSessionId": "session-a01",
+                    "stravaActivityId": null,
+                    "stravaTwinActivityId": null
+                  },
+                  "timingBasis": "stored_native_one_second_slot_policy",
+                  "originalClockVerified": false,
+                  "sensorBucketOriginVerified": false,
+                  "quality": "unknown",
+                  "collectionCompleteness": "unknown",
+                  "weightNormalized": {
+                    "unit": "W/kg",
+                    "basis": "calculation_profile_snapshot",
+                    "state": "available",
+                    "weightKg": 70.1,
+                    "weightRevision": "100:1",
+                    "computedAt": null,
+                    "maxAveragePowerWPerKg": 3.566333808844508,
+                    "comparison": {
+                      "numerator": "8796093022208000",
+                      "denominator": "2466424483427123"
+                    }
+                  },
+                  "state": "available",
+                  "reason": null,
+                  "result": {
+                    "version": 1,
+                    "scope": "whole_activity_observed_intervals",
+                    "timingBasis": "stored_native_one_second_slot_policy",
+                    "originalClockVerified": false,
+                    "quality": "unknown",
+                    "collectionCompleteness": "unknown",
+                    "unit": "W",
+                    "sensorBucketOriginVerified": false,
+                    "powerSource": "stored_native_watts_unverified",
+                    "state": "available",
+                    "reason": null,
+                    "requestedDurationSeconds": 2,
+                    "maxAveragePowerW": 250,
+                    "windowStartElapsedSec": 2,
+                    "windowEndElapsedSec": 4,
+                    "observedSeconds": 4,
+                    "longestContinuousSeconds": 4
+                  },
+                  "comparison": {
+                    "sourcePowerOrigin": "stored_native_watts_unverified",
+                    "energyWattMilliseconds": "500000",
+                    "durationMilliseconds": 2000
+                  },
+                  "sourceDigest": "b9b4ebd5caee11b90c6d848e907634be58250533231652d77e7ca0ed431b1d2f"
+                },
+                "computedPhysicalCandidateCount": 1,
+                "weightCounts": {
+                  "includedActivityCount": 1,
+                  "missingWeightActivityCount": 0,
+                  "invalidWeightActivityCount": 0,
+                  "incompatibleWeightActivityCount": 0
+                }
+              },
+              "inspectedActivityCount": 1,
+              "physicalCandidateCount": 1,
+              "computedPhysicalCandidateCount": 1,
+              "duplicateActivityCount": 0,
+              "missingSnapshotCount": 0,
+              "noContinuousWindowCount": 0,
+              "analysisCoverage": "observed_only",
+              "enumerationState": "not_certified"
+            }
+          ]
+        },
+        {
+          "periodIndex": 1,
+          "origins": [
+            {
+              "sourcePowerOrigin": "measured",
+              "winner": null,
+              "weightNormalized": {
+                "unit": "W/kg",
+                "basis": "calculation_profile_snapshot",
+                "winner": null,
+                "computedPhysicalCandidateCount": 0,
+                "weightCounts": {
+                  "includedActivityCount": 0,
+                  "missingWeightActivityCount": 0,
+                  "invalidWeightActivityCount": 0,
+                  "incompatibleWeightActivityCount": 0
+                }
+              },
+              "inspectedActivityCount": 0,
+              "physicalCandidateCount": 0,
+              "computedPhysicalCandidateCount": 0,
+              "duplicateActivityCount": 0,
+              "missingSnapshotCount": 0,
+              "noContinuousWindowCount": 0,
+              "analysisCoverage": "observed_only",
+              "enumerationState": "not_certified"
+            },
+            {
+              "sourcePowerOrigin": "stored_native_watts_unverified",
+              "winner": null,
+              "weightNormalized": {
+                "unit": "W/kg",
+                "basis": "calculation_profile_snapshot",
+                "winner": null,
+                "computedPhysicalCandidateCount": 0,
+                "weightCounts": {
+                  "includedActivityCount": 0,
+                  "missingWeightActivityCount": 0,
+                  "invalidWeightActivityCount": 0,
+                  "incompatibleWeightActivityCount": 0
+                }
+              },
+              "inspectedActivityCount": 0,
+              "physicalCandidateCount": 0,
+              "computedPhysicalCandidateCount": 0,
+              "duplicateActivityCount": 0,
+              "missingSnapshotCount": 0,
+              "noContinuousWindowCount": 0,
+              "analysisCoverage": "observed_only",
+              "enumerationState": "not_certified"
+            }
+          ]
+        }
+      ],
+      "scope": "observed_explicit_history_candidates",
+      "collectionCompleteness": "unknown"
+    }
+  },
+  "missingWeight": {
+    "response": {
+      "version": 1,
+      "mode": "stage_power_duration_history_compute",
+      "unit": "W",
+      "durationSeconds": 2,
+      "periods": [
+        {
+          "fromInclusive": 1760000000000,
+          "toExclusive": 1760000050000
+        },
+        {
+          "fromInclusive": 1760000010000,
+          "toExclusive": 1760000030000
+        }
+      ],
+      "periodIndex": 0,
+      "includeWeightNormalized": true,
+      "session": {
+        "readTime": {
+          "seconds": 1760000050,
+          "nanoseconds": 0
+        },
+        "expiresAt": 1760001850000,
+        "requestBinding": "31ae424edd9d42db53fc998eb9b581c5f1e59584f42b9ad111b4755fdaee162b"
+      },
+      "scope": "observed_explicit_history_candidates",
+      "candidates": [
+        {
+          "activityId": "a00",
+          "startTime": 1760000000000,
+          "activityIncarnation": "99:1",
+          "activityRevision": "100:1",
+          "baseMetricsRevision": "100:1",
+          "sourcePowerOrigin": "measured",
+          "analysisState": "ready",
+          "snapshotState": "present_unverified",
+          "snapshotRevision": "e7b2162663cd410e64fa3baeb6060414ce466ddacc7b9ca9de22b91263b9234f",
+          "candidateBinding": "19f592efd5de0273dbad6f8e928d9df1ede9eb56d97baff40cffbd6db976920f",
+          "physicalIdentity": {
+            "source": "orider",
+            "localSessionId": "session-a00",
+            "stravaActivityId": null,
+            "stravaTwinActivityId": null
+          },
+          "timingBasis": "stored_native_one_second_slot_policy",
+          "originalClockVerified": false,
+          "sensorBucketOriginVerified": false,
+          "quality": "unknown",
+          "collectionCompleteness": "unknown",
+          "weightNormalized": {
+            "unit": "W/kg",
+            "basis": "calculation_profile_snapshot",
+            "state": "missing",
+            "weightKg": null,
+            "weightRevision": "100:1",
+            "computedAt": null,
+            "maxAveragePowerWPerKg": null,
+            "comparison": null
+          },
+          "state": "available",
+          "reason": null,
+          "result": {
+            "version": 1,
+            "scope": "whole_activity_observed_intervals",
+            "timingBasis": "stored_native_one_second_slot_policy",
+            "originalClockVerified": false,
+            "quality": "unknown",
+            "collectionCompleteness": "unknown",
+            "unit": "W",
+            "sensorBucketOriginVerified": false,
+            "state": "available",
+            "reason": null,
+            "requestedDurationSeconds": 2,
+            "maxAveragePowerW": 250,
+            "windowStartElapsedSec": 2,
+            "windowEndElapsedSec": 4,
+            "observedSeconds": 4,
+            "longestContinuousSeconds": 4
+          },
+          "comparison": {
+            "sourcePowerOrigin": "measured",
+            "energyWattMilliseconds": "500000",
+            "durationMilliseconds": 2000
+          },
+          "sourceDigest": "2a9ee416930919ade9250df6d1779fc30c8034a0bc71021766f12081f5c16482"
+        }
+      ],
+      "analysisCoverage": {
+        "origins": [
+          {
+            "sourcePowerOrigin": "measured",
+            "weightCounts": {
+              "includedActivityCount": 0,
+              "missingWeightActivityCount": 1,
+              "invalidWeightActivityCount": 0,
+              "incompatibleWeightActivityCount": 0
+            },
+            "inspectedActivityCount": 1,
+            "computedActivityCount": 1,
+            "missingSnapshotCount": 0,
+            "noContinuousWindowCount": 0
+          },
+          {
+            "sourcePowerOrigin": "stored_native_watts_unverified",
+            "weightCounts": {
+              "includedActivityCount": 0,
+              "missingWeightActivityCount": 0,
+              "invalidWeightActivityCount": 0,
+              "incompatibleWeightActivityCount": 0
+            },
+            "inspectedActivityCount": 0,
+            "computedActivityCount": 0,
+            "missingSnapshotCount": 0,
+            "noContinuousWindowCount": 0
+          }
+        ],
+        "inspectedActivityCount": 1,
+        "computedActivityCount": 1,
+        "missingSnapshotCount": 0,
+        "noContinuousWindowCount": 0
+      },
+      "costs": {
+        "documents": 34,
+        "metadata": 2,
+        "snapshotBodies": 1,
+        "queries": 0,
+        "rawPayloads": 0,
+        "writes": 0
+      },
+      "enumerationState": "not_certified",
+      "collectionCompleteness": "unknown",
+      "originalClockVerified": false
+    },
+    "reduced": {
+      "periods": [
+        {
+          "periodIndex": 0,
+          "origins": [
+            {
+              "sourcePowerOrigin": "measured",
+              "winner": {
+                "activityId": "a00",
+                "startTime": 1760000000000,
+                "activityIncarnation": "99:1",
+                "activityRevision": "100:1",
+                "baseMetricsRevision": "100:1",
+                "sourcePowerOrigin": "measured",
+                "analysisState": "ready",
+                "snapshotState": "present_unverified",
+                "snapshotRevision": "e7b2162663cd410e64fa3baeb6060414ce466ddacc7b9ca9de22b91263b9234f",
+                "candidateBinding": "19f592efd5de0273dbad6f8e928d9df1ede9eb56d97baff40cffbd6db976920f",
+                "physicalIdentity": {
+                  "source": "orider",
+                  "localSessionId": "session-a00",
+                  "stravaActivityId": null,
+                  "stravaTwinActivityId": null
+                },
+                "timingBasis": "stored_native_one_second_slot_policy",
+                "originalClockVerified": false,
+                "sensorBucketOriginVerified": false,
+                "quality": "unknown",
+                "collectionCompleteness": "unknown",
+                "weightNormalized": {
+                  "unit": "W/kg",
+                  "basis": "calculation_profile_snapshot",
+                  "state": "missing",
+                  "weightKg": null,
+                  "weightRevision": "100:1",
+                  "computedAt": null,
+                  "maxAveragePowerWPerKg": null,
+                  "comparison": null
+                },
+                "state": "available",
+                "reason": null,
+                "result": {
+                  "version": 1,
+                  "scope": "whole_activity_observed_intervals",
+                  "timingBasis": "stored_native_one_second_slot_policy",
+                  "originalClockVerified": false,
+                  "quality": "unknown",
+                  "collectionCompleteness": "unknown",
+                  "unit": "W",
+                  "sensorBucketOriginVerified": false,
+                  "state": "available",
+                  "reason": null,
+                  "requestedDurationSeconds": 2,
+                  "maxAveragePowerW": 250,
+                  "windowStartElapsedSec": 2,
+                  "windowEndElapsedSec": 4,
+                  "observedSeconds": 4,
+                  "longestContinuousSeconds": 4
+                },
+                "comparison": {
+                  "sourcePowerOrigin": "measured",
+                  "energyWattMilliseconds": "500000",
+                  "durationMilliseconds": 2000
+                },
+                "sourceDigest": "2a9ee416930919ade9250df6d1779fc30c8034a0bc71021766f12081f5c16482"
+              },
+              "weightNormalized": {
+                "unit": "W/kg",
+                "basis": "calculation_profile_snapshot",
+                "winner": null,
+                "computedPhysicalCandidateCount": 0,
+                "weightCounts": {
+                  "includedActivityCount": 0,
+                  "missingWeightActivityCount": 1,
+                  "invalidWeightActivityCount": 0,
+                  "incompatibleWeightActivityCount": 0
+                }
+              },
+              "inspectedActivityCount": 1,
+              "physicalCandidateCount": 1,
+              "computedPhysicalCandidateCount": 1,
+              "duplicateActivityCount": 0,
+              "missingSnapshotCount": 0,
+              "noContinuousWindowCount": 0,
+              "analysisCoverage": "observed_only",
+              "enumerationState": "not_certified"
+            },
+            {
+              "sourcePowerOrigin": "stored_native_watts_unverified",
+              "winner": null,
+              "weightNormalized": {
+                "unit": "W/kg",
+                "basis": "calculation_profile_snapshot",
+                "winner": null,
+                "computedPhysicalCandidateCount": 0,
+                "weightCounts": {
+                  "includedActivityCount": 0,
+                  "missingWeightActivityCount": 0,
+                  "invalidWeightActivityCount": 0,
+                  "incompatibleWeightActivityCount": 0
+                }
+              },
+              "inspectedActivityCount": 0,
+              "physicalCandidateCount": 0,
+              "computedPhysicalCandidateCount": 0,
+              "duplicateActivityCount": 0,
+              "missingSnapshotCount": 0,
+              "noContinuousWindowCount": 0,
+              "analysisCoverage": "observed_only",
+              "enumerationState": "not_certified"
+            }
+          ]
+        },
+        {
+          "periodIndex": 1,
+          "origins": [
+            {
+              "sourcePowerOrigin": "measured",
+              "winner": null,
+              "weightNormalized": {
+                "unit": "W/kg",
+                "basis": "calculation_profile_snapshot",
+                "winner": null,
+                "computedPhysicalCandidateCount": 0,
+                "weightCounts": {
+                  "includedActivityCount": 0,
+                  "missingWeightActivityCount": 0,
+                  "invalidWeightActivityCount": 0,
+                  "incompatibleWeightActivityCount": 0
+                }
+              },
+              "inspectedActivityCount": 0,
+              "physicalCandidateCount": 0,
+              "computedPhysicalCandidateCount": 0,
+              "duplicateActivityCount": 0,
+              "missingSnapshotCount": 0,
+              "noContinuousWindowCount": 0,
+              "analysisCoverage": "observed_only",
+              "enumerationState": "not_certified"
+            },
+            {
+              "sourcePowerOrigin": "stored_native_watts_unverified",
+              "winner": null,
+              "weightNormalized": {
+                "unit": "W/kg",
+                "basis": "calculation_profile_snapshot",
+                "winner": null,
+                "computedPhysicalCandidateCount": 0,
+                "weightCounts": {
+                  "includedActivityCount": 0,
+                  "missingWeightActivityCount": 0,
+                  "invalidWeightActivityCount": 0,
+                  "incompatibleWeightActivityCount": 0
+                }
+              },
+              "inspectedActivityCount": 0,
+              "physicalCandidateCount": 0,
+              "computedPhysicalCandidateCount": 0,
+              "duplicateActivityCount": 0,
+              "missingSnapshotCount": 0,
+              "noContinuousWindowCount": 0,
+              "analysisCoverage": "observed_only",
+              "enumerationState": "not_certified"
+            }
+          ]
+        }
+      ],
+      "scope": "observed_explicit_history_candidates",
+      "collectionCompleteness": "unknown"
+    }
+  },
+  "exactRoundedTie": {
+    "low": {
+      "result": {
+        "version": 1,
+        "scope": "whole_activity_observed_intervals",
+        "timingBasis": "stored_native_one_second_slot_policy",
+        "originalClockVerified": false,
+        "quality": "unknown",
+        "collectionCompleteness": "unknown",
+        "unit": "W",
+        "sensorBucketOriginVerified": false,
+        "state": "available",
+        "reason": null,
+        "requestedDurationSeconds": 1,
+        "maxAveragePowerW": 9007199254740990,
+        "windowStartElapsedSec": 0,
+        "windowEndElapsedSec": 1,
+        "observedSeconds": 1,
+        "longestContinuousSeconds": 1
+      },
+      "comparison": {
+        "sourcePowerOrigin": "measured",
+        "energyWattMilliseconds": "9007199254740990000",
+        "durationMilliseconds": 1000
+      }
+    },
+    "high": {
+      "result": {
+        "version": 1,
+        "scope": "whole_activity_observed_intervals",
+        "timingBasis": "stored_native_one_second_slot_policy",
+        "originalClockVerified": false,
+        "quality": "unknown",
+        "collectionCompleteness": "unknown",
+        "unit": "W",
+        "sensorBucketOriginVerified": false,
+        "state": "available",
+        "reason": null,
+        "requestedDurationSeconds": 1,
+        "maxAveragePowerW": 9007199254740990,
+        "windowStartElapsedSec": 0,
+        "windowEndElapsedSec": 1,
+        "observedSeconds": 1,
+        "longestContinuousSeconds": 1
+      },
+      "comparison": {
+        "sourcePowerOrigin": "measured",
+        "energyWattMilliseconds": "9007199254740990001",
+        "durationMilliseconds": 1000
+      }
+    },
+    "winningActivityId": "high"
+  },
+  "discoveryPageBounds": {
+    "page": {
+      "limit": 20,
+      "scannedActivityCount": 20,
+      "candidateActivityCount": 20,
+      "skippedActivityCount": 0,
+      "exhausted": false,
+      "enumerationState": "partial",
+      "nextCursor": {
+        "after": {
+          "startTime": 1760000019000,
+          "activityId": "a19"
+        }
+      }
+    },
+    "costs": {
+      "documents": 126,
+      "metadata": 0,
+      "snapshotBodies": 0,
+      "queries": 1,
+      "rawPayloads": 0,
+      "writes": 0
+    },
+    "secondPage": {
+      "limit": 20,
+      "scannedActivityCount": 2,
+      "candidateActivityCount": 2,
+      "skippedActivityCount": 0,
+      "exhausted": true,
+      "enumerationState": "exhausted",
+      "nextCursor": null
+    }
+  }
+}
