@@ -38,3 +38,30 @@ it("does not display zero for missing data and disables unsupported duration whe
   expect(screen.getByText("이 활동에 준비된 파워 데이터가 없습니다.")).toBeInTheDocument(); expect(screen.queryByText(/0 W/)).not.toBeInTheDocument();
   mocks.hook.mockReturnValue({ ...state(), available: false }); view.rerender(<Panel activity={activity} />); expect(screen.queryByText("파워 데이터 확인")).not.toBeInTheDocument();
 });
+it("keeps the duration input at the existing touch-size token and source preconditions distinct from network errors", () => {
+  mocks.hook.mockReturnValue({ ...state(), metadata: fixture[0]!.metadata, error: true, failureKind: "source_precondition" });
+  const view = renderWithProviders(<Panel activity={activity} />);
+  expect(screen.getByRole("textbox", { name: "시간 (정수 초)", hidden: true })).toHaveClass("min-h-[calc(var(--dim-button-height)+var(--space-1))]");
+  expect(screen.getByRole("alert")).toHaveTextContent("저장된 파워 데이터가 없거나 확인 기준이 바뀌었습니다. 다른 활동을 선택하거나 새로 확인하세요.");
+  mocks.hook.mockReturnValue({ ...state(), error: true, reloadRequired: true, failureKind: "generic" }); view.rerender(<Panel activity={activity} />);
+  expect(screen.getByRole("alert")).toHaveTextContent("파워 데이터를 확인하지 못했습니다. 다시 확인해 주세요.");
+  expect(screen.queryByText(/확인 기준이 바뀌었습니다/)).not.toBeInTheDocument();
+});
+it("shows the stored-origin qualifier beside positive power while keeping hardware uncertainty in the closed basis fold", async () => {
+  const { default: stored } = await import("../../../services/stageActivityPowerStoredOrigin.fixture.json");
+  mocks.hook.mockReturnValue({ ...state(), metadata: stored.metadataResponse, response: stored.response });
+  renderWithProviders(<Panel activity={{ ...activity, id: stored.response.activityId, startTime: stored.metadataResponse.activityStartEpochMs }} />);
+  const qualifier = screen.getByText("저장된 파워값으로 계산 · 측정 출처 미확인");
+  expect(screen.getByText("250 W · 0:02").nextElementSibling).toBe(qualifier);
+  expect(qualifier.closest("details")?.querySelector("summary")).toHaveTextContent("원하는 시간의 최대 평균 파워");
+  expect(screen.getByText(/센서의 원래 집계 구간/).closest("details")).not.toHaveAttribute("open");
+  expect(screen.queryByText(/stored_native_watts|sourceDigest|generation/)).not.toBeInTheDocument();
+  expect(mocks.load).not.toHaveBeenCalled(); expect(mocks.calculate).not.toHaveBeenCalled();
+});
+it("does not add an unverified measurement label to the qualified metadata channel", () => {
+  mocks.hook.mockReturnValue({ ...state(), metadata: fixture[0]!.metadata, response: fixture[0]!.result });
+  renderWithProviders(<Panel activity={activity} />);
+  expect(screen.getByText("250 W · 0:02")).toBeInTheDocument();
+  expect(screen.queryByText("저장된 파워값으로 계산 · 측정 출처 미확인")).not.toBeInTheDocument();
+  expect(screen.getByText(/센서의 원래 집계 구간/)).toBeInTheDocument();
+});

@@ -1,5 +1,7 @@
 {
   "stagePowerDuration": {
+    "storedOrigin": "저장된 파워값으로 계산 · 측정 출처 미확인",
+    "sourceUnavailable": "저장된 파워 데이터가 없거나 확인 기준이 바뀌었습니다. 다른 활동을 선택하거나 새로 확인하세요.",
     "current": "현재 활동 · {{date}}",
     "title": "원하는 시간의 최대 평균 파워",
     "scope": "이 활동의 관측된 파워에서 직접 시간을 지정해 비교합니다.",

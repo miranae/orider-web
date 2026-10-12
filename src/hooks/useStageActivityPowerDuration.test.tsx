@@ -65,3 +65,10 @@ it("uses the server's 160-character ID boundary and alphanumeric first character
   for (const id of ["a".repeat(161), "_a", "-a"]) { view.rerender({ id }); expect(view.result.current.available).toBe(false); }
   expect(mocks.metadata).not.toHaveBeenCalled(); expect(mocks.duration).not.toHaveBeenCalled();
 });
+it.each(["functions/failed-precondition", "failed-precondition", "functions/unavailable", "functions/unauthenticated", "functions/permission-denied", null])("classifies only the exact source precondition code without guessing other failures: %s", async code => {
+  mocks.metadata.mockRejectedValueOnce(code ? { code, message: "private SDK text" } : Error("private SDK text"));
+  const view = renderHook(() => useStageActivityPowerDuration(activity, "2"));
+  await act(async () => { await view.result.current.load(); });
+  expect(view.result.current.failureKind).toBe(code === "functions/failed-precondition" || code === "failed-precondition" ? "source_precondition" : "generic");
+  expect(view.result.current.metadata).toBeNull(); expect(mocks.duration).not.toHaveBeenCalled(); expect(mocks.metadata).toHaveBeenCalledOnce();
+});

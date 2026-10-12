@@ -82,3 +82,30 @@ it("accepts safe scalar watt precision and rejects power outside the stored-slot
     expect(() => validateStagePowerDuration(value, stagePowerDurationRequest(metadata, 2), metadata)).toThrow();
   }
 });
+
+it("accepts the actual compiled stored-origin fixture only with aligned explicit source and result markers", async () => {
+  const { default: stored } = await import("./stageActivityPowerStoredOrigin.fixture.json");
+  const meta = stored.metadataResponse as StageActivityPowerSourceMetadataResponse, value = stored.response as StageActivityPowerDurationResponse;
+  expect(validateStagePowerMetadata(meta, meta.activityId, meta.activityStartEpochMs)).toBe(meta);
+  const request = stagePowerDurationRequest(meta, stored.request.durationSeconds);
+  expect(request).toEqual(stored.request); expect(validateStagePowerDuration(value, request, meta)).toBe(value);
+  for (const patch of [(v: any) => { delete v.result.powerSource; }, (v: any) => { delete v.source.powerSource; }, (v: any) => { v.result.powerSource = "measured"; }, (v: any) => { v.source.powerSource = "future"; }, (v: any) => { delete v.result.powerSource; delete v.source.powerSource; }, (v: any) => { v.source.originalClockVerified = true; }]) {
+    const changed = structuredClone(value); patch(changed); expect(() => validateStagePowerDuration(changed, request, meta)).toThrow();
+  }
+  for (const powerSource of ["measured", "future", null, undefined]) {
+    const changed = structuredClone(meta); Object.assign(changed.source!, { powerSource });
+    expect(() => validateStagePowerMetadata(changed, changed.activityId, changed.activityStartEpochMs)).toThrow();
+  }
+  const noMarker = structuredClone(meta); delete noMarker.source!.powerSource;
+  expect(() => validateStagePowerDuration(value, request, noMarker)).toThrow();
+});
+it("returns qualified measured metadata and scalar objects byte-identically with no marker addition", () => {
+  for (const f of fixture) {
+    const meta = f.metadata as StageActivityPowerSourceMetadataResponse, value = f.result as StageActivityPowerDurationResponse;
+    const before = JSON.stringify({ metadata: meta, response: value });
+    expect(validateStagePowerMetadata(meta, meta.activityId, meta.activityStartEpochMs)).toBe(meta);
+    expect(validateStagePowerDuration(value, stagePowerDurationRequest(meta, 2), meta)).toBe(value);
+    expect(JSON.stringify({ metadata: meta, response: value })).toBe(before);
+    expect(meta.source).not.toHaveProperty("powerSource"); expect(value.result).not.toHaveProperty("powerSource");
+  }
+});

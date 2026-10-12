@@ -38,7 +38,8 @@ export type StageActivityPowerDurationResponse =
         snapshotRevision: string; sourceDigest: string;
         qualification: StageActivityPowerSource["qualification"]; manifestObjectIncarnationVerified: boolean;
         timingBasis: "stored_native_one_second_slot_policy"; originalClockVerified: false;
-        sensorBucketOriginVerified: false; quality: "unknown"; collectionCompleteness: "unknown" } };
+        sensorBucketOriginVerified: false; quality: "unknown"; collectionCompleteness: "unknown" } &
+        ({ powerSource?: never } | { powerSource: "stored_native_watts_unverified" }) };
 
 export interface StageActivityPowerSourceMetadataRequest {
   mode: "stage_activity_source_metadata";

@@ -29,7 +29,13 @@ interface StagePowerDurationBasis {
   collectionCompleteness: "unknown";
   unit: "W";
 }
-export type StagePowerDurationKernelResult = StagePowerDurationBasis & (
+/** 일반 실측 경로는 기존 wire를 유지한다. 미확인 저장 WATTS는 native-ms에서만 명시한다. */
+type StagePowerResultProvenance = { powerSource?: never } | {
+  powerSource: "stored_native_watts_unverified";
+  timingBasis: "stored_native_one_second_slot_policy";
+  sensorBucketOriginVerified: false;
+};
+export type StagePowerDurationKernelResult = StagePowerDurationBasis & StagePowerResultProvenance & (
   { state: "available"; reason: null; requestedDurationSeconds: number; maxAveragePowerW: number;
     /** 내부 끝점/요청 길이는 정확한 이진 유리수다. 반환 앵커는 nearest-even Float64 표현이다. */
     windowStartElapsedSec: number; windowEndElapsedSec: number;
@@ -41,7 +47,7 @@ export type StagePowerDurationKernelResult = StagePowerDurationBasis & (
 
 /** 정수 ms 끝점을 seconds Float64로 바꾸기 전에 정확히 계산하는 저장 구간 분기. */
 export interface StageStoredNativePowerIntervals {
-  version: 1; unit: "W"; powerSource: "measured"; virtualPower: false;
+  version: 1; unit: "W"; powerSource: "measured" | "stored_native_watts_unverified"; virtualPower: false;
   state: "final"; inputPending: false;
   timingBasis: "stored_native_one_second_slot_policy";
   timeUnit: "integer_milliseconds";

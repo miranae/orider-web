@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getDiscipline } from "../utils/disciplineFilter";
 import { loadStagePowerDuration, loadStagePowerMetadata, stageActivityPowerAvailable } from "../services/stageActivityPowerDuration";
-interface State { generation: number; metadata: StageActivityPowerSourceMetadataResponse | null; response: StageActivityPowerDurationResponse | null; busy: boolean; error: boolean; reloadRequired: boolean }
+interface State { generation: number; metadata: StageActivityPowerSourceMetadataResponse | null; response: StageActivityPowerDurationResponse | null; busy: boolean; error: boolean; failureKind: "source_precondition" | "generic" | null; reloadRequired: boolean }
 /** 명시 버튼만 조회한다. 활동·입력의 세대로 ABA 전환의 늦은 응답을 숨긴다. */
 export function useStageActivityPowerDuration(activity: Activity, draft: string, scopeKey = "") {
   const { user } = useAuth(), services = useFirebaseServices();
@@ -28,22 +28,24 @@ export function useStageActivityPowerDuration(activity: Activity, draft: string,
     const captured = { generation: context.current.generation, draftGeneration: context.current.draftGeneration };
     const active = () => context.current.generation === captured.generation;
     context.current.busy = true;
-    setState({ generation: captured.generation, metadata: current?.metadata ?? null, response: null, busy: true, error: false, reloadRequired: calculate ? current?.reloadRequired ?? false : false });
+    setState({ generation: captured.generation, metadata: current?.metadata ?? null, response: null, busy: true, error: false, failureKind: null, reloadRequired: calculate ? current?.reloadRequired ?? false : false });
     try {
       if (calculate && current?.metadata) {
         const result = await loadStagePowerDuration(services, activity.userId, current.metadata, duration);
         if (active()) {
           resultDraftGeneration.current = captured.draftGeneration;
-          setState({ generation: captured.generation, metadata: current.metadata, response: result, busy: false, error: false, reloadRequired: result.reason === "snapshot_missing" });
+          setState({ generation: captured.generation, metadata: current.metadata, response: result, busy: false, error: false, failureKind: null, reloadRequired: result.reason === "snapshot_missing" });
         }
       } else {
         const metadata = await loadStagePowerMetadata(services, activity.userId, activity.id, activity.startTime);
-        if (active()) setState({ generation: captured.generation, metadata, response: null, busy: false, error: false, reloadRequired: false });
+        if (active()) setState({ generation: captured.generation, metadata, response: null, busy: false, error: false, failureKind: null, reloadRequired: false });
       }
-    } catch {
-      if (active()) setState({ generation: captured.generation, metadata: calculate ? current?.metadata ?? null : null, response: null, busy: false, error: true, reloadRequired: calculate });
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? error.code : null;
+      const failureKind = code === "functions/failed-precondition" || code === "failed-precondition" ? "source_precondition" : "generic";
+      if (active()) setState({ generation: captured.generation, metadata: calculate ? current?.metadata ?? null : null, response: null, busy: false, error: true, failureKind, reloadRequired: calculate });
     } finally { if (active()) context.current.busy = false; }
   };
-  return { owner, available, metadata: current?.metadata ?? null, response, busy: current?.busy ?? false, error: current?.error ?? false, reloadRequired: current?.reloadRequired ?? false, canCalculate,
+  return { owner, available, metadata: current?.metadata ?? null, response, busy: current?.busy ?? false, error: current?.error ?? false, failureKind: current?.failureKind ?? null, reloadRequired: current?.reloadRequired ?? false, canCalculate,
     load: () => run(false), calculate: () => run(true) };
 }
