@@ -22,3 +22,12 @@ it("true immutable mismatch clears all earlier batches without automatic fetch",
  mocks.load.mockImplementationOnce((_s,r) => overlayResponse(r)).mockImplementationOnce(async (_s,r) => { const value = await overlayResponse(r);value.evidence[0]!.row.startTime++;return value; });
  await act(async () => { await view.result.current.confirmPage(page); });expect(view.result.current.status).toBe("invalidated");expect(view.result.current.evidence).toHaveLength(0);expect(mocks.load).toHaveBeenCalledTimes(2);
 });
+it("safe decoder reason survives manual invalidation; untrusted reason is never exposed", async () => {
+ const page=overlayPage(),view=renderHook(()=>useCyclingDistanceHistoryOverlay("owner","a",[page]));
+ mocks.load.mockRejectedValueOnce(Object.assign(new Error("invalid_cycling_history_overlay_response"),{overlayReason:"read_times"}));await act(async()=>{await view.result.current.confirmPage(page);});expect(view.result.current.status).toBe("invalidated");expect(view.result.current.reason).toBe("read_times");expect(mocks.load).toHaveBeenCalledOnce();
+ mocks.load.mockRejectedValueOnce(Object.assign(new Error("invalid_cycling_history_overlay_response"),{overlayReason:"private/raw/token"}));await act(async()=>{await view.result.current.confirmPage(page);});expect(view.result.current.reason).toBe("server_input_changed");expect(mocks.load).toHaveBeenCalledTimes(2);
+});
+it("Auth epoch and preference changes have distinct fixed diagnostic reasons with zero automatic requests",async()=>{
+ const page=overlayPage(),view=renderHook(()=>useCyclingDistanceHistoryOverlay("owner","a",[page]));await act(async()=>{await view.result.current.confirmPage(page);});act(()=>{mocks.listener!(mocks.services.auth.currentUser);mocks.listener!(mocks.services.auth.currentUser);});expect(view.result.current.reason).toBe("auth_epoch");expect(mocks.load).toHaveBeenCalledOnce();
+ await act(async()=>{await view.result.current.confirmPage(page);});act(()=>invalidateCyclingCoveredPreferences("owner"));expect(view.result.current.reason).toBe("preference_changed");expect(mocks.load).toHaveBeenCalledTimes(2);
+});

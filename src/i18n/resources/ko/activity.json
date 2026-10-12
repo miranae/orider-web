@@ -2156,12 +2156,12 @@
       "legacy_normalized": "이전 표본 · 출처 미확인"
     },
     "overlay": {
-      "title": "불러온 활동의 선택 반영",
+      "title": "선택을 반영한 {{distance}} 기록",
       "counts": "확인 {{checked}} / 불러온 활동 {{loaded}}",
       "apply": "이 페이지 선택 반영 · {{page}}페이지 {{count}}개",
       "loading": "이 페이지의 선택을 확인하고 있어요.",
       "error": "확인한 결과는 유지했습니다. 미확인 활동은 버튼으로 다시 확인하세요.",
-      "invalidated": "선택 또는 입력이 바뀌었습니다. 버튼으로 다시 확인하세요.",
+      "invalidated": "확인 상태가 바뀌었습니다. 다시 확인하세요.",
       "expired": "조회 시간이 만료되었습니다. 활동 이력을 처음부터 확인하세요.",
       "details": "확인 범위와 비용",
       "cost": "이미 불러온 한 페이지만 확인합니다. 최대 50개는 20/20/10으로 최대 3회 확인하며, 논리 문서 읽기 최대 836회와 메타데이터 확인 100회입니다. 앞선 활동 이력 조회 비용은 별도입니다. 원본 읽기와 저장은 없습니다.",
@@ -2173,6 +2173,29 @@
       "bases": {
         "canonical_metrics": "저장 분석",
         "stage_distance_snapshot": "저장 관측"
+      },
+      "choicesTitle": "불러온 활동의 선택 반영",
+      "originalTitle": "이전 저장 분석 결과",
+      "evidenceNote": "{{basis}} · 원본 시계와 위치 정확도 미확인",
+      "reason": "확인 상태: {{reason}}",
+      "reasons": {
+        "request_scope": "조회 범위 확인 실패",
+        "response_shape": "응답 형식 확인 실패",
+        "response_size": "응답 크기 확인 실패",
+        "session_binding": "고정 조회 시점의 연결 확인 실패",
+        "read_times": "분석·선택 조회 시각 확인 실패",
+        "evidence_shape": "활동 근거 개수 확인 실패",
+        "activity_binding": "활동과 분석 버전 확인 실패",
+        "preference_shape": "선택 정보 형식 확인 실패",
+        "original_efforts": "원본 기록 정보 확인 실패",
+        "original_row_schema": "활동 수치·기록 형식 확인 실패",
+        "budget": "조회 횟수 확인 실패",
+        "history_identity": "활동 이력의 식별 정보 변경",
+        "auth_epoch": "로그인 세션 갱신",
+        "preference_changed": "저장한 선택 변경",
+        "expired": "조회 시간 만료",
+        "server_input_changed": "서버 입력 또는 접근 상태 변경",
+        "transport": "통신 확인 실패"
       }
     }
   },

@@ -452,3 +452,11 @@ const compiledLifecycleRow: ReturnType<typeof overlayRow> = {
     }
   ]
 };
+it("shared controls precede choice-adjusted results; original results and safe reason are collapsed details without queries",()=>{
+ const original=row("native"),evidence=overlayEvidence(overlayRow("native"));evidence.activityRevision=original.activityRevision;evidence.metricsRevision=original.metricsRevision;evidence.row.startTime=original.startTime;evidence.row.representativeInput={...original.representativeInput};
+ mocks.hook.mockReturnValue({...idle(),status:"complete",pages:[page([original])]});mocks.overlay.mockReturnValue({available:true,status:"ready",evidence:[evidence],session:null,reason:"read_times",confirmPage:mocks.apply,cancel:mocks.invalidate});
+ render(<CyclingDistanceHistoryPanel activity={activity} selection={selection}/>);open();const title=screen.getByRole("heading",{name:"선택을 반영한 10.0km 기록"}),selector=screen.getByRole("combobox",{name:ko.cyclingDistanceHistory.distance});expect(selector.compareDocumentPosition(title)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+ const oldDetails=screen.getByText(ko.cyclingDistanceHistory.overlay.originalTitle).closest("details")!;expect(oldDetails.open).toBe(false);const reason=document.querySelector('[data-overlay-validation-reason="read_times"]')!;expect(reason).not.toBeVisible();expect(reason.textContent).toContain(ko.cyclingDistanceHistory.overlay.reasons.read_times);expect(screen.getByText(/원본 시계와 위치 정확도 미확인/)).toBeInTheDocument();
+ oldDetails.open=true;fireEvent(oldDetails,new Event("toggle"));expect(mocks.apply).not.toHaveBeenCalled();expect(mocks.start).not.toHaveBeenCalled();expect(mocks.more).not.toHaveBeenCalled();
+ fireEvent.change(selector,{target:{value:"5miles"}});expect(screen.getByRole("heading",{name:/선택을 반영한 .* 기록/})).toHaveTextContent("8.0km");expect(mocks.apply).not.toHaveBeenCalled();
+});
