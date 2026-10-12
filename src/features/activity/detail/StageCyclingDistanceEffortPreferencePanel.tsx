@@ -1,3 +1,4 @@
+import SnapshotContent from "./StageCyclingSnapshotEffortPreferenceContent";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Activity } from "@shared/types";
@@ -5,17 +6,14 @@ import { BIKE_DISTANCE_TARGETS, type BikeDistanceKey } from "@shared/activity-bi
 import { useStageCyclingDistanceEffortPreference } from "../../../hooks/useStageCyclingDistanceEffortPreference";
 import { Button, Select, Text } from "../../../theme";
 import { formatElapsedBoundary } from "./activityRangeSelection";
-export default function StageCyclingDistanceEffortPreferencePanel({ activity, scopeKey }: { activity: Activity; scopeKey: string }) {
+function MetricsContent({ tool }: { tool: ReturnType<typeof useStageCyclingDistanceEffortPreference> }) {
   const { t } = useTranslation("activity"), id = useId();
   const [target, setTarget] = useState<BikeDistanceKey>("10km");
-  const tool = useStageCyclingDistanceEffortPreference(activity, scopeKey);
   if (!tool.available) return null;
   const row = tool.read?.efforts.find(v => v.target === target);
   const enabled = row?.excluded ? !!row.restoreBinding : !!row?.excludeBinding;
   const elapsed = (value: number | null) => value === null ? t("cyclingEffortPreference.unknown") : formatElapsedBoundary(value);
-  return <details className="text-[length:var(--fs-md)]">
-    <summary className="cursor-pointer py-3 font-semibold">{t("cyclingEffortPreference.title")}</summary>
-    <div className="space-y-3 pt-3">
+  return <div className="space-y-3 pt-3">
       <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingEffortPreference.scope")}</Text>
       <Button size="sm" variant="outline" className="min-h-[calc(var(--dim-button-height)+var(--space-1))]" disabled={tool.busy} onClick={() => void tool.inspect()}>{t("cyclingEffortPreference.inspect")}</Button>
       {tool.busy && <Text as="p" variant="bodyMedium" role="status">{t("cyclingEffortPreference.loading")}</Text>}
@@ -35,6 +33,20 @@ export default function StageCyclingDistanceEffortPreferencePanel({ activity, sc
         </>}
         <details><summary className="cursor-pointer py-3">{t("cyclingEffortPreference.basis")}</summary><Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingEffortPreference.basisNote")}</Text></details>
       </>}
-    </div>
+    </div>;
+}
+
+export default function StageCyclingDistanceEffortPreferencePanel(props: { activity: Activity; scopeKey: string }) {
+  const { t } = useTranslation("activity"), id = useId();
+  const [basis, setBasis] = useState("metrics");
+  const tool = useStageCyclingDistanceEffortPreference(props.activity, `${props.scopeKey}:${basis}`);
+  if (!tool.available) return null;
+  return <details className="text-[length:var(--fs-md)]">
+    <summary className="cursor-pointer py-3 font-semibold">{t("cyclingEffortPreference.title")}</summary>
+    <label htmlFor={id}><Text variant="bodyMedium">{t("cyclingSnapshotPreference.basisLabel")}</Text></label>
+    <Select id={id} className="min-h-[calc(var(--dim-button-height)+var(--space-1))]" value={basis} onChange={event => setBasis(event.target.value)}>
+      <option value="metrics">{t("cyclingSnapshotPreference.metrics")}</option><option value="snapshot">{t("cyclingSnapshotPreference.snapshot")}</option>
+    </Select>
+    {basis === "snapshot" ? <SnapshotContent key={basis} {...props} /> : <MetricsContent key={basis} tool={tool} />}
   </details>;
 }

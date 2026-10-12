@@ -2344,6 +2344,18 @@
       "metric_unavailable": "Excluded from average comparison · analysis unavailable",
       "partial_terminal": "Excluded from average comparison · partial samples",
       "null_or_zero_speed": "Excluded from average comparison · no positive average"
-    }
+    },
+    "partialGeometry": "This activity has only partial route data, so it was excluded from whole-route group comparison. Existing GPS comparison remains available."
+  },
+  "cyclingSnapshotPreference": {
+    "basisLabel": "Record basis",
+    "metrics": "Stored metrics",
+    "snapshot": "Calculated distance records",
+    "original": "Calculated elapsed time: {{value}}",
+    "elapsedBasis": "Based on stored elapsed time",
+    "missing": "Calculated distance records are not ready yet.",
+    "no_observed_efforts": "No calculated elapsed time for this distance.",
+    "basisNote": "Calculated from stored distance and elapsed time. Original clock, data quality and complete coverage are unverified. These selections are managed separately from stored metrics.",
+    "canonicalLegacy": "Stored metrics use an older analysis format."
   }
 }
