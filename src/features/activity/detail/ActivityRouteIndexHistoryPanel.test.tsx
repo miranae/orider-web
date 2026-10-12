@@ -6,6 +6,7 @@ import ko from "../../../i18n/resources/ko/activity.json";
 import en from "../../../i18n/resources/en/activity.json";
 import ActivityRouteIndexHistoryPanel from "./ActivityRouteIndexHistoryPanel";
 const mocks = vi.hoisted(() => ({ available: true, status: "idle", pages: [] as ActivityRouteIndexPageResponse[], start: vi.fn(), more: vi.fn(), language: "ko", units: "metric", hook: vi.fn() }));
+vi.mock("./ActivityMatchedRouteGroupPanel", () => ({ default: ({ activity, observedMetricsIdentity }: { activity: Activity; observedMetricsIdentity: string }) => mocks.available ? <span data-testid="adjacent-route-group" data-activity={activity.id} data-identity={observedMetricsIdentity} /> : null }));
 vi.mock("../../../hooks/useActivityRouteIndexHistory", () => ({ useActivityRouteIndexHistory: (...args: unknown[]) => { mocks.hook(...args); return { available: mocks.available, status: mocks.status, pages: mocks.pages, start: mocks.start, loadMore: mocks.more }; } }));
 vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: mocks.units, locale: mocks.language }) }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: { language: mocks.language }, t: (key: string, values?: Record<string, unknown>) => {
@@ -21,6 +22,13 @@ function page(count = 7): ActivityRouteIndexPageResponse {
 }
 beforeEach(() => { mocks.available = true; mocks.status = "idle"; mocks.pages = []; mocks.start.mockReset(); mocks.more.mockReset(); mocks.hook.mockReset(); mocks.language = "ko"; mocks.units = "metric"; });
 describe("route candidate compact panel", () => {
+  it("provides the adjacent group with the exact current activity and observation scope without initiating candidate reads", () => {
+    render(<ActivityRouteIndexHistoryPanel activity={activity} observedMetricsIdentity="exact-head" />);
+    expect(screen.getByTestId("adjacent-route-group")).toHaveAttribute("data-activity", "anchor");
+    expect(screen.getByTestId("adjacent-route-group")).toHaveAttribute("data-identity", "exact-head");
+    expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.more).not.toHaveBeenCalled();
+  });
+
   it("opening and local controls do not fetch; explicit start and next page are distinct", () => {
     const view = render(<ActivityRouteIndexHistoryPanel activity={activity} observedMetricsIdentity="head" />);
     fireEvent.click(screen.getByText(ko.routeIndexHistory.title)); expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.more).not.toHaveBeenCalled();
