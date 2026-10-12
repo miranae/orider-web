@@ -1,3 +1,4 @@
+import { invalidateCyclingCoveredPreferences } from "../services/stageCyclingDistanceCoveredRankings";
 import { useEffect, useRef, useState } from "react";
 import type { Activity } from "@shared/types";
 import type { BikeDistanceKey } from "@shared/activity-bike-distance-evidence";
@@ -27,6 +28,7 @@ export function useStageCyclingDistanceEffortPreference(activity: Activity, scop
     try {
       if (target && read) {
         await saveCyclingPreference(services, activity.userId, read, target, crypto.randomUUID());
+        invalidateCyclingCoveredPreferences(activity.userId);
         if (active()) setState({ generation, read: null, busy: false, saved: true, failure: null });
       } else {
         const response = await loadCyclingPreference(services, activity.userId, activity.id);

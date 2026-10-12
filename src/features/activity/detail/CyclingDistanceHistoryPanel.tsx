@@ -1,3 +1,5 @@
+import CyclingDistanceCoveredRankingsPanel from "./CyclingDistanceCoveredRankingsPanel";
+import { stageCyclingPreferenceAvailable } from "../../../services/stageCyclingDistanceEffortPreference";
 import "./cycling-distance-history.css";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -53,6 +55,7 @@ export default function CyclingDistanceHistoryPanel({ activity, selection }: { a
   return <details className="cycling-distance-history border-t border-[var(--line-soft)]" onToggle={event => setOpen(event.currentTarget.open)}>
     <summary className={`cursor-pointer py-3 ${control}`}><Text as="span" variant="bodyMedium" weight={600}>{t(selection.rangeBasis === "calendar_year" ? "cyclingDistanceHistory.yearTitle" : "cyclingDistanceHistory.rangeTitle", { year: selection.rangeBasis === "calendar_year" ? selection.year : "" })}</Text></summary>
     {open && <Stack gap="var(--space-3)">
+      {stageCyclingPreferenceAvailable() && <CyclingDistanceCoveredRankingsPanel activity={activity} selection={selection} headIdentity={headIdentity} />}
       <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingDistanceHistory.scope")}</Text>
       {history.status === "idle" && <Button className={control} size="sm" onClick={() => void history.start()}>{t("cyclingDistanceHistory.start")}</Button>}
       {history.status === "loading" && <Button className={control} size="sm" disabled loading>{t("cyclingDistanceHistory.loading")}</Button>}

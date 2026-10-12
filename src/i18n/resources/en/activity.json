@@ -4,12 +4,12 @@
     "legacyUnsupported": "This older analysis format does not allow checking the record time for this distance.",
     "cannotExclude": "The record time is unavailable, so this distance cannot be excluded.",
     "title": "Manage this activity’s distance selections",
-    "scope": "Only this activity’s distance selections are saved. Original distance and the activity are retained; current period, annual statistics and all-time records are not updated yet.",
+    "scope": "Save distance selections for this activity. The original activity and total distance/elevation stay unchanged. Where covered distance rankings are available, manually check them again to apply the selections. Existing period/annual statistics and global personal records stay unchanged.",
     "inspect": "Check / refresh management state",
     "loading": "Checking selection state.",
     "changed": "The analysis basis changed. Check again.",
     "error": "Could not check or save selection state. Check again.",
-    "saved": "Selection saved. Current period and annual statistics are not updated yet. Check again before another selection.",
+    "saved": "Selection saved. Where covered distance rankings are available, select Check rankings again to apply it. Existing period/annual statistics and global personal records stay unchanged. Refresh management state before saving another selection.",
     "unknown": "Unknown",
     "original": "Original observed elapsed time: {{value}}",
     "excluded": "Saved selection: excluded · effective elapsed time: {{value}}",
@@ -19,7 +19,7 @@
     "restore": "Restore this distance selection",
     "exclude": "Exclude this distance selection",
     "basis": "Selection management basis",
-    "basisNote": "Uses stored elapsed time including stops. Original device clock, observation quality and input completeness are unverified. This selection does not represent a change to period rankings, annual statistics or all-time records."
+    "basisNote": "Uses stored elapsed time including stops. Original device clock, observation quality and input completeness remain unverified. Saving a selection does not update existing period/annual statistics or global personal records. Where covered distance rankings are available, selections apply only after a manual recheck."
   },
   "powerHistory": {
     "noSelectable": "No calculated records · no selectable records available",
@@ -368,6 +368,8 @@
     },
     "recordStates": {
       "evaluated": "Personal records verified",
+      "evaluatedWithEvidence": "Personal record comparisons were checked for the displayed records.",
+      "evaluatedEmpty": "Personal record comparisons were checked, but no records can be displayed.",
       "not_applicable": "Personal records not applicable",
       "private": "Private personal records",
       "unavailable": "Personal record verification pending · ranks are not PR awards."
@@ -2357,5 +2359,43 @@
     "no_observed_efforts": "No calculated elapsed time for this distance.",
     "basisNote": "Calculated from stored distance and elapsed time. Original clock, data quality and complete coverage are unverified. These selections are managed separately from stored metrics.",
     "canonicalLegacy": "Stored metrics use an older analysis format."
+  },
+  "cyclingCoveredRankings": {
+    "asOf": "Observed at · Source {{source}} · Stage {{stage}} (separate observation windows)",
+    "title": "Covered Stage distance rankings (opt in)",
+    "scope": "Check the first 10 or 20 of your activities in the selected period. Exclusions affect distance efforts within this checked cohort. This does not establish all-history or global personal records.",
+    "range": "Period",
+    "calendar_year": "Calendar year",
+    "custom": "Custom dates",
+    "lifetime": "Covered activities across lifetime",
+    "year": "Year",
+    "from": "Start date",
+    "to": "End date",
+    "confirm": "Check {{count}} activities",
+    "recheck": "Check rankings again",
+    "cancel": "Cancel",
+    "cost": "Each check reads a fresh whole cohort. Up to 188 logical documents for 10 activities (execution limit 200), or 358 for 20 (limit 370). No raw download or writes.",
+    "loading": "Checking activities and exclusion preferences together.",
+    "invalidated": "Preferences changed. Previous rankings were cleared. Check rankings again manually.",
+    "error": "The whole-cohort check failed. Previous rankings are cleared. Try a manual check again.",
+    "coverage": "{{from}}–{{to}} · {{scanned}} scanned · {{count}} checked",
+    "states": "Canonical {{canonicalSupported}} · snapshot {{snapshotSupported}} · missing {{missing}} · legacy unsupported {{legacyUnsupported}} · unobserved {{noObserved}} · uncertain duplicates {{duplicateUncertain}} · skipped {{skipped}}",
+    "exhausted": "The owner/start-time query reached its end. This does not confirm complete history across all providers.",
+    "capped": "Additional or anchor-displaced activities remain outside this cohort.",
+    "io": "This check: {{docs}} logical documents · {{metadata}} metadata reads · raw 0 · writes 0",
+    "anchorMissing": "The current activity was outside the period or unavailable and was not ranked.",
+    "top": "Displayed ranks",
+    "best": "Period best among checked activities",
+    "empty": "No displayable observed effort for this distance.",
+    "next": "Next effort from another ride: {{value}}",
+    "noNext": "No other checked eligible ride",
+    "preferenceLink": "Open the activity, inspect the selected record, then exclude or restore it. Check rankings again manually afterward.",
+    "progress": "Distance effort progress among checked activities",
+    "progressNote": "Only {{count}} effective observed efforts are shown. Unobserved periods are not interpolated.",
+    "bases": {
+      "canonical_metrics": "Canonical metrics",
+      "stage_distance_snapshot": "Stage distance snapshot",
+      "unavailable": "Unavailable"
+    }
   }
 }

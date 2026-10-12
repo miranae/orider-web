@@ -27,6 +27,8 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
   const powerEstimated = p.session.discipline === "bike" && p.availability?.power === "estimated";
   const hrVisible = p.availability?.heartRate !== "private";
   const recordsVisible = p.availability?.records === "evaluated";
+  const runRecordsVisible = recordsVisible && p.session.discipline === "run";
+  const recordEvidenceVisible = powerVisible && !!p.powerFingerprint?.length || runRecordsVisible && !!p.runRecordAchievements?.length;
   const effort = powerVisible ? p.thresholdWork : undefined;
   const zones = (p.zones ?? []).filter((zone) => zone.kind === "power" ? powerVisible : hrVisible);
   const highZone = zones.find((zone) => zone.kind === "power") ?? zones.find((zone) => zone.kind === "heartRate");
@@ -88,8 +90,8 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
         number(row.medianWatts, " W"), delta(row.deltaPct, "%"), number(row.competitionRank), number(row.priorSampleCount), recordsVisible ? record(row.recordAchievement) : "—"])) : <Text as="p" variant="caption">{label(powerVisible ? "missing" : "private")}</Text>) : null}
       {powerVisible && p.powerFingerprint?.some((row) => bestPct(row) != null) && <Text as="p" variant="caption" tone="tertiary">{label("bestScope")}</Text>}
       {powerVisible && recordsVisible && p.powerFingerprint?.some((row) => row.previousBestPct != null) && <Text as="p" variant="caption" tone="tertiary">{label("previousBestScope")}</Text>}
-      {recordsVisible && p.runRecordAchievements?.length ? table([label("distance"), label("duration"), "PR"], p.runRecordAchievements.map((row) => [row.distance, seconds(row.valueSec), record(row.recordAchievement)])) : null}
-      <Text as="p" variant="caption" tone="tertiary">{label(`recordStates.${p.availability?.records ?? "unavailable"}`)}</Text>
+      {runRecordsVisible && p.runRecordAchievements?.length ? table([label("distance"), label("duration"), "PR"], p.runRecordAchievements.map((row) => [row.distance, seconds(row.valueSec), record(row.recordAchievement)])) : null}
+      <Text as="p" variant="caption" tone="tertiary">{label(`recordStates.${recordsVisible ? recordEvidenceVisible ? "evaluatedWithEvidence" : "evaluatedEmpty" : p.availability?.records ?? "unavailable"}`)}</Text>
     </section>
     <section className="space-y-3">{heading("zones")}
       {zones.length ? zones.map((zone) => <div key={zone.kind} className="space-y-3"><Stack direction="row" align="center" wrap><Chip variant={zone.kind === "power" ? "accent" : "default"}>{label(zone.kind)}</Chip><Text variant="caption" tone="tertiary">{label("samples")} {number(zone.priorSampleCount)}</Text>

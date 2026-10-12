@@ -17,6 +17,22 @@ const rich: ActivityOverviewPresentation = {
 };
 
 describe("activity overview evidence", () => {
+  it("labels evaluated comparisons without visible records as empty", () => {
+    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, powerFingerprint: [], runRecordAchievements: [] }} />);
+    expect(screen.getByText("개인기록 비교를 확인했지만 표시할 수 있는 기록이 없습니다.")).toBeInTheDocument();
+    expect(screen.queryByText("개인기록 검증 완료")).not.toBeInTheDocument();
+  });
+  it("labels displayed comparisons without creating extra PR achievements", () => {
+    render(<ActivityOverviewEvidenceContent presentation={rich} />);
+    expect(screen.getByText("표시된 기록의 개인기록 비교를 확인했습니다.")).toBeInTheDocument();
+    expect(screen.getAllByText("전체 기간 PR")).toHaveLength(1);
+  });
+  it("does not count private power or inapplicable running rows as visible evidence", () => {
+    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, availability: { ...rich.availability!, power: "private" }, runRecordAchievements: [{ distance: "5km", valueSec: 1200, recordAchievement: "new" }] }} />);
+    expect(screen.getByText("개인기록 비교를 확인했지만 표시할 수 있는 기록이 없습니다.")).toBeInTheDocument();
+    expect(screen.queryByText("5km")).not.toBeInTheDocument();
+    expect(screen.queryByText("전체 기간 PR")).not.toBeInTheDocument();
+  });
   it("uses analysis-native metric cards and keyboard-scrollable comparison tables", () => {
     const { container } = render(<ActivityOverviewEvidenceContent presentation={rich} />);
     expect(screen.getByText("NP").closest(".ds-card")).toHaveClass("ds-card--inset");

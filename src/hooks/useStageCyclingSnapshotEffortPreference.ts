@@ -1,3 +1,4 @@
+import { invalidateCyclingCoveredPreferences } from "../services/stageCyclingDistanceCoveredRankings";
 import { onIdTokenChanged } from "firebase/auth";
 import { stageCyclingPreferenceAvailable, validCyclingPreferenceId } from "../services/stageCyclingDistanceEffortPreference";
 import { useEffect, useRef, useState } from "react";
@@ -34,6 +35,7 @@ export function useStageCyclingSnapshotEffortPreference(activity: Activity, scop
     try {
       if (target && read) {
         await saveCyclingSnapshotPreference(services, activity.userId, read, target, crypto.randomUUID());
+        invalidateCyclingCoveredPreferences(activity.userId);
         if (active()) setState({ expiresAt: Date.now() + READ_TTL, generation, read: null, busy: false, saved: true, failure: null });
       } else {
         const response = await loadCyclingSnapshotPreference(services, activity.userId, activity.id);
