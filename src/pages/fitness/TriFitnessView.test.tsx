@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import TriFitnessView from "./TriFitnessView";
 import { buildTriFitnessTimeline, type TriFitnessBreakdown } from "../../hooks/useFitnessModel";
@@ -45,6 +45,16 @@ function triProps(values: { bike?: number; run?: number; swim?: number } = {}) {
 }
 
 describe("TriFitnessView parity", () => {
+  // 달력 기준 컷오프를 검사하므로 실행 날짜를 고정한다(dev #1138 과 같은 기준일).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("shows the history chart before the integrated summary while retaining both", () => {
     renderWithProviders(
       <TriFitnessView
