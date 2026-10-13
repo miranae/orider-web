@@ -9,7 +9,7 @@ import { getHub, type HubKey } from "../config/navHubs";
  * 각 서브탭은 정확 경로 매칭(end)으로 active 판정 — `/courses` 와 `/explore` 처럼
  * 형제 경로가 서로를 prefix 로 오활성화하지 않게 한다.
  */
-export default function HubSubNav({ hubKey, friendRequestCount = 0 }: { hubKey: HubKey; friendRequestCount?: number }) {
+export default function HubSubNav({ hubKey }: { hubKey: HubKey }) {
   const { t } = useTranslation("common");
   const hub = getHub(hubKey);
   if (hub.subs.length <= 1) return null;
@@ -18,9 +18,7 @@ export default function HubSubNav({ hubKey, friendRequestCount = 0 }: { hubKey: 
       <RouteTabNav
         tabs={hub.subs.map((s) => ({
           to: s.to,
-          label: s.to === "/friends" && friendRequestCount > 0
-            ? `${t(s.labelKey)} ${friendRequestCount > 9 ? "9+" : friendRequestCount}`
-            : t(s.labelKey),
+          label: t(s.labelKey),
           end: true,
         }))}
       />

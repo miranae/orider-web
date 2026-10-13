@@ -88,6 +88,14 @@ describe("GroupsPage join results", () => {
     expect(screen.getByRole("button", { name: "가입" })).toBeEnabled();
   });
 
+  it("shows the club discovery notice above the list when no clubs are joined", () => {
+    renderPage();
+
+    const notice = screen.getByText("아직 가입한 클럽이 없어요 — 클럽 찾기");
+    const discovery = screen.getByRole("heading", { name: "그룹 찾기" });
+    expect(notice.compareDocumentPosition(discovery) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("disables the public group query before authentication", () => {
     renderPage(false);
 
