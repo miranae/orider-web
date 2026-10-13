@@ -147,6 +147,8 @@ describe("embeddedFirebase", () => {
     });
     await expect(embeddedFirebase.ensureEmbeddedAppCheckReady()).resolves.toBeUndefined();
     expect(mocks.getToken).toHaveBeenCalledWith(mocks.appCheck, false);
+    await expect(embeddedFirebase.getEmbeddedAppCheckToken()).resolves.toBe("app-check-token");
+    expect(mocks.getToken).toHaveBeenLastCalledWith(mocks.appCheck, false);
   });
 
   it("connects only the named services to emulators when configured", async () => {

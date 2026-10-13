@@ -4,8 +4,11 @@ import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { canonicalEventCapacityCounts, participantEventCapacityCounts, unknownEventCapacityCounts, type EventCapacityCounts } from "../../features/event/eventCapacityCounts";
 import { httpsCallable } from "firebase/functions";
-import { firestore, functions } from "../../services/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, firestore, functions, getAppCheckToken } from "../../services/firebase";
+import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, DateField, TimeField } from "../../components/redesign";
@@ -19,7 +22,7 @@ type Visibility = "PUBLIC" | "GROUP" | "PRIVATE";
 type FeeType = "FREE" | "PAID";
 type Status = "DRAFT" | "OPEN" | "LIVE" | "FINISHED" | "CANCELLED" | "UNKNOWN";
 
-type CategoryRow = EditableCategoryRow;
+type CategoryRow = Omit<EditableCategoryRow, "filled"> & { filled: number | null };
 
 interface CourseInfo {
   id: string;
@@ -89,21 +92,63 @@ export default function EventEditPage() {
   const [course, setCourse] = useState<CourseInfo | null>(null);
   const [initialData, setInitialData] = useState<FormData | null>(null);
   const [data, setData] = useState<FormData | null>(null);
+  const loadGeneration = useRef(0);
   const [loading, setLoading] = useState(true);
+  const [capacityCounts, setCapacityCounts] = useState<EventCapacityCounts>(unknownEventCapacityCounts([]));
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ type: "ok" | "warn" | "err"; msg: string } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [activeSection, setActiveSection] = useState<string>("basic");
+  const [cancelling, setCancelling] = useState(false);
+  const updateGeneration = useRef(0);
+  const updateMounted = useRef(false);
+  const pendingUpdate = useRef<{ uid: string; eventId: string; generation: number } | null>(null);
+  const cancelNavigation = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    updateMounted.current = true;
+    const unsubscribe = onAuthStateChanged(auth, () => {
+      updateGeneration.current += 1;
+      pendingUpdate.current = null;
+      if (cancelNavigation.current) clearTimeout(cancelNavigation.current);
+      setSaving(false);
+      setCancelling(false);
+    });
+    return () => {
+      unsubscribe();
+      updateMounted.current = false;
+      updateGeneration.current += 1;
+      pendingUpdate.current = null;
+      if (cancelNavigation.current) clearTimeout(cancelNavigation.current);
+    };
+  }, [eventId]);
+
+  function currentUpdate(context: { uid: string; eventId: string; generation: number }): boolean {
+    return updateMounted.current && updateGeneration.current === context.generation
+      && context.eventId === eventId && auth.currentUser?.uid === context.uid;
+  }
+
+  async function readyUpdate(context: { uid: string; eventId: string; generation: number }) {
+    if (!currentUpdate(context)) throw new Error("functions/unauthenticated");
+    const token = await getAppCheckToken();
+    if (!token && !isEmulatorRuntime()) throw new Error("app-check/empty-token");
+    if (!currentUpdate(context)) throw new Error("functions/unauthenticated");
+    return httpsCallable(functions, "updateEvent");
+  }
+
 
   // load event
   const loadEvent = useCallback(async () => {
     if (!eventId) return;
+    const generation = ++loadGeneration.current;
+    setCapacityCounts(unknownEventCapacityCounts([]));
     setLoading(true);
     setLoadError(null);
     try {
       const snap = await getDoc(doc(firestore, "events", eventId));
+      if (generation !== loadGeneration.current) return;
       if (!snap.exists()) {
         setEvent(null);
         return;
@@ -116,26 +161,33 @@ export default function EventEditPage() {
       // 카테고리 로드 + 신청수 집계
       const rawCategories: Array<{ id: string; name?: string; label?: string; capacity?: number; slots?: number; req?: string }> =
         Array.isArray(info.categories) && info.categories.length > 0 ? info.categories : [];
-      const counts: Record<string, number> = {};
-      try {
-        const partsSnap = await getDocs(collection(firestore, `events/${eventId}/participants`));
-        partsSnap.forEach((p) => {
-          const cat = (p.data() as { category?: string }).category;
-          if (cat) counts[cat] = (counts[cat] ?? 0) + 1;
-        });
-      } catch (err) {
-        logClientError("EventEditPage.loadParticipantCounts", err, { eventId });
+      const categoryIds = rawCategories.map(c => c.id);
+      let counts = unknownEventCapacityCounts(categoryIds);
+      if (snap.metadata && !snap.metadata.fromCache && !snap.metadata.hasPendingWrites) {
+        counts = canonicalEventCapacityCounts(d.counters, categoryIds) ?? counts;
+        if (counts.source === "unknown" && !!user && (info.creatorId === user.uid || (Array.isArray(info.hostIds) && info.hostIds.includes(user.uid)))) {
+          try {
+            const partsSnap = await getDocs(collection(firestore, `events/${eventId}/participants`));
+            if (partsSnap.metadata && !partsSnap.metadata.fromCache && !partsSnap.metadata.hasPendingWrites) {
+              counts = participantEventCapacityCounts(categoryIds, partsSnap.docs.map(p => p.data()));
+            }
+          } catch (err) {
+            logClientError("EventEditPage.loadParticipantCounts", err, { eventId });
+          }
+        }
       }
+      if (generation !== loadGeneration.current) return;
+      setCapacityCounts(counts);
 
       const categories: CategoryRow[] = rawCategories.length
         ? rawCategories.map((c) => ({
             id: c.id,
             label: c.name ?? c.label ?? "",
             slots: typeof c.capacity === "number" ? c.capacity : typeof c.slots === "number" ? c.slots : 0,
-            filled: counts[c.id] ?? 0,
+            filled: counts.byCategory[c.id] ?? null,
             req: c.req ?? "",
           }))
-        : [{ id: "c1", label: t("create.defaultCategory"), slots: info.settings?.maxParticipants || 50, filled: 0, req: "" }];
+        : [{ id: "c1", label: t("create.defaultCategory"), slots: info.settings?.maxParticipants || 50, filled: null, req: "" }];
 
       const form: FormData = {
         name: info.name || "",
@@ -193,12 +245,13 @@ export default function EventEditPage() {
       logClientError("EventEditPage.loadEvent", err, { eventId });
       setLoadError(err instanceof Error ? err.message : t("edit.errLoad"));
     } finally {
-      setLoading(false);
+      if (generation === loadGeneration.current) setLoading(false);
     }
-  }, [eventId, t]);
+  }, [eventId, t, user]);
 
   useEffect(() => {
     void loadEvent();
+    return () => { loadGeneration.current += 1; };
   }, [loadEvent]);
 
   // scroll spy
@@ -244,10 +297,7 @@ export default function EventEditPage() {
     );
   }, [initialData, data]);
 
-  const totalFilled = useMemo(
-    () => (data?.categories ?? []).reduce((s, c) => s + (c.filled || 0), 0),
-    [data]
-  );
+  const totalFilled = capacityCounts.total;
   const totalSlots = useMemo(
     () => (data?.categories ?? []).reduce((s, c) => s + Number(c.slots || 0), 0),
     [data]
@@ -280,7 +330,7 @@ export default function EventEditPage() {
   function removeCategory(id: string) {
     if (!data) return;
     const cat = data.categories.find((c) => c.id === id);
-    if (cat?.filled && cat.filled > 0) {
+    if (cat && (cat.filled === null || cat.filled > 0)) {
       setToast({ type: "err", msg: t("confirm.deleteCategory") });
       return;
     }
@@ -297,16 +347,19 @@ export default function EventEditPage() {
   }
 
   async function save() {
-    if (!eventId || !data || saving) return;
+    if (!eventId || !data || saving || pendingUpdate.current || !user || event?.id !== eventId
+      || auth.currentUser?.uid !== user.uid) return;
     if (data.name.trim().length < 2) {
       setToast({ type: "err", msg: t("edit.errNameTooShort") });
       return;
     }
+    const context = { uid: user.uid, eventId, generation: updateGeneration.current };
+    pendingUpdate.current = context;
     setSaving(true);
     try {
       const startTimestamp = joinStartTimeKst(data.date, data.startTime);
 
-      const fn = httpsCallable(functions, "updateEvent");
+      const fn = await readyUpdate(context);
       await fn({
         eventId,
         name: data.name.trim(),
@@ -332,14 +385,16 @@ export default function EventEditPage() {
         cutoff: { enabled: data.cutoffEnabled, bufferMin: data.cutoffBuffer },
         safety: { sos: data.sosEnabled, liveTracking: data.liveTracking, mechanicalSag: data.mechanicalSag },
       });
+      if (!currentUpdate(context)) return;
       setInitialData(data);
       setToast({
         type: notifyDirty ? "warn" : "ok",
         msg: notifyDirty
-          ? t("edit.savedWithNotice", { count: totalFilled })
+          ? (totalFilled === null ? t("detail.participantsUnavailable") : t("edit.savedWithNotice", { count: totalFilled }))
           : t("edit.saved"),
       });
     } catch (err) {
+      if (!currentUpdate(context)) return;
       logClientError("EventEditPage.save", err, { eventId });
       const fbErr = err as { code?: string; message?: string };
       const msg =
@@ -350,24 +405,42 @@ export default function EventEditPage() {
             : t("edit.errSave");
       setToast({ type: "err", msg });
     } finally {
-      setSaving(false);
+      if (pendingUpdate.current === context) {
+        pendingUpdate.current = null;
+        if (currentUpdate(context)) setSaving(false);
+      }
     }
   }
 
   async function cancelEvent() {
-    if (!eventId || !data) return;
+    if (!eventId || !data || pendingUpdate.current || !user || event?.id !== eventId
+      || auth.currentUser?.uid !== user.uid) return;
+    const context = { uid: user.uid, eventId, generation: updateGeneration.current };
+    pendingUpdate.current = context;
+    setCancelling(true);
     setDeleteConfirm(false);
+    let cancelled = false;
     try {
-      const fn = httpsCallable(functions, "updateEvent");
+      const fn = await readyUpdate(context);
       await fn({ eventId, cancel: true });
+      if (!currentUpdate(context)) return;
+      cancelled = true;
       setToast({
         type: "warn",
-        msg: t("edit.cancelledWithRefund", { count: totalFilled }),
+        msg: (totalFilled === null ? t("detail.participantsUnavailable") : t("edit.cancelledWithRefund", { count: totalFilled })),
       });
-      setTimeout(() => navigate(`/event/${eventId}`), 1500);
+      cancelNavigation.current = setTimeout(() => {
+        if (currentUpdate(context)) navigate(`/event/${eventId}`);
+      }, 1500);
     } catch (err) {
+      if (!currentUpdate(context)) return;
       logClientError("EventEditPage.cancel", err, { eventId });
       setToast({ type: "err", msg: t("edit.errCancel") });
+    } finally {
+      if (!cancelled && pendingUpdate.current === context) {
+        pendingUpdate.current = null;
+        if (currentUpdate(context)) setCancelling(false);
+      }
     }
   }
 
@@ -469,7 +542,7 @@ export default function EventEditPage() {
               {data.name}
             </h1>
             <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>
-              {t("edit.participantSummary", { filled: totalFilled, total: totalSlots, date: data.date, time: data.startTime })}
+              {t("edit.capacitySummary", { filled: totalFilled ?? "—", total: totalSlots, date: data.date, time: data.startTime })}
             </div>
           </div>
           <div className="flex flex-wrap" style={{ gap: 'var(--space-2)' }}>
@@ -545,7 +618,7 @@ export default function EventEditPage() {
               <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)", color: "var(--amber)", fontWeight: 500 }}>
                 ⚠ {t("edit.noticeRequired")}
               </div>
-              {t("edit.noticeWillSend", { count: totalFilled })}
+              {(totalFilled === null ? t("detail.participantsUnavailable") : t("edit.noticeWillSend", { count: totalFilled }))}
             </div>
           )}
         </nav>
@@ -737,12 +810,12 @@ export default function EventEditPage() {
                   </div>
                 )}
               </div>
-              {data.fee !== initialData.fee && event.status === "OPEN" && totalFilled > 0 && (
+              {data.fee !== initialData.fee && event.status === "OPEN" && (totalFilled === null || totalFilled > 0) && (
                 <div
                   className="flex items-center"
                   style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--amber)", gap: "var(--space-1-5)" }}
                 >
-                  ⚠ {t("edit.feeChangeNotice", { count: totalFilled })}
+                  ⚠ {(totalFilled === null ? t("detail.participantsUnavailable") : t("edit.feeChangeNotice", { count: totalFilled }))}
                 </div>
               )}
             </Field>
@@ -750,8 +823,8 @@ export default function EventEditPage() {
             <Field label={t("field.category")}>
               <div className="flex flex-col" style={{ gap: 'var(--space-2)' }}>
                 {data.categories.map((c) => {
-                  const locked = c.filled > 0;
-                  const pct = c.slots ? Math.min(100, Math.round((c.filled / c.slots) * 100)) : 0;
+                  const locked = c.filled === null || c.filled > 0;
+                  const pct = c.filled !== null && c.slots ? Math.min(100, Math.round((c.filled / c.slots) * 100)) : null;
                   return (
                     <div
                       key={c.id}
@@ -816,14 +889,14 @@ export default function EventEditPage() {
                         <div style={{ flex: 1, height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
                           <div
                             style={{
-                              width: `${pct}%`,
+                              width: `${pct ?? 0}%`,
                               height: "100%",
-                              background: pct > 85 ? "var(--amber)" : "var(--lime)",
+                              background: pct !== null && pct > 85 ? "var(--amber)" : "var(--lime)",
                             }}
                           />
                         </div>
                         <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
-                          {c.filled}/{c.slots} ({pct}%)
+                          {c.filled ?? "—"}/{c.slots} ({pct === null ? "—" : `${pct}%`})
                         </span>
                       </div>
                     </div>
@@ -950,11 +1023,12 @@ export default function EventEditPage() {
                     {t("edit.cancelEventTitle")}
                   </div>
                   <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", lineHeight: 1.6 }}>
-                    {t("edit.cancelEventDesc", { count: totalFilled })}
+                    {(totalFilled === null ? t("detail.participantsUnavailable") : t("edit.cancelEventDesc", { count: totalFilled }))}
                   </div>
                 </div>
                 <Button
                   type="button"
+                  disabled={saving || cancelling}
                   onClick={() => {
                     setDeleteConfirm(true);
                     setDeleteConfirmText("");
@@ -1007,7 +1081,7 @@ export default function EventEditPage() {
               <Button
                 type="button"
                 onClick={save} variant="primary" size="sm" className="disabled:opacity-50"
-                disabled={saving}
+                disabled={saving || cancelling}
               >
                 {saving ? t("edit.saving") : `${t("message.saveChanges")} ✓`}
               </Button>
@@ -1088,7 +1162,7 @@ export default function EventEditPage() {
                   {t("edit.confirmCancelTitle")}
                 </div>
                 <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", lineHeight: 1.5 }}>
-                  {t("edit.confirmCancelDesc", { name: data.name, count: totalFilled })}
+                  {(totalFilled === null ? t("detail.participantsUnavailable") : t("edit.confirmCancelDesc", { name: data.name, count: totalFilled }))}
                 </div>
               </div>
             </div>
@@ -1108,7 +1182,7 @@ export default function EventEditPage() {
               <Button
                 type="button"
                 onClick={cancelEvent}
-                disabled={deleteConfirmText.trim() !== data.name} variant="secondary" size="sm" className="disabled:opacity-50"
+                disabled={saving || cancelling || deleteConfirmText.trim() !== data.name} variant="secondary" size="sm" className="disabled:opacity-50"
                 style={{
                   background: deleteConfirmText.trim() === data.name ? "var(--rose)" : "var(--bg-3)",
                   color: deleteConfirmText.trim() === data.name ? "var(--ink-0)" : "var(--ink-3)",

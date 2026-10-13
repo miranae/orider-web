@@ -5,7 +5,9 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { doc, getDoc, getDocs, collection, onSnapshot } from "firebase/firestore";
 import { loadPrivateSnapshotWithRetry } from "./privateSnapshotPages";
 import { httpsCallable } from "firebase/functions";
-import { firestore as db, functions } from "../../services/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, firestore as db, functions, getAppCheckToken } from "../../services/firebase";
+import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
@@ -157,7 +159,7 @@ export default function EventDashboardPage() {
     { label: string; color: string; emoji: string }
   > = {
     RIDING: { label: t("dashboard.status.riding"), color: "var(--lime)", emoji: "🟢" },
-    FINISHED: { label: t("stats.finished"), color: "var(--aqua)", emoji: "🏁" },
+    FINISHED: { label: t("dashboard.status.resultPending"), color: "var(--aqua)", emoji: "⏹" },
     DNF: { label: t("stats.dnf"), color: "var(--ink-3)", emoji: "❌" },
     SOS: { label: t("dashboard.status.sos"), color: "var(--rose)", emoji: "🆘" },
     OFFCOURSE: { label: t("dashboard.status.offCourse"), color: "var(--amber)", emoji: "🟠" },
@@ -168,9 +170,53 @@ export default function EventDashboardPage() {
   const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  const [authEpoch, setAuthEpoch] = useState(0);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
   const [finishing, setFinishing] = useState(false);
+  const finishGeneration = useRef(0);
+  const finishMounted = useRef(false);
+  const pendingFinish = useRef<{ uid: string; eventId: string; generation: number } | null>(null);
+  const finishContext = useRef({ uid: user?.uid, eventId });
+  if (finishContext.current.uid !== user?.uid || finishContext.current.eventId !== eventId) {
+    finishContext.current = { uid: user?.uid, eventId };
+    finishGeneration.current += 1;
+  }
+
+  useEffect(() => {
+    finishMounted.current = true;
+    let observedUid = auth.currentUser?.uid;
+    const unsubscribe = onAuthStateChanged(auth, next => {
+      if (next?.uid !== observedUid) {
+        observedUid = next?.uid;
+        finishGeneration.current += 1;
+        pendingFinish.current = null;
+        setFinishing(false);
+        setEventInfo(null);
+        setLoadError(null);
+        setSnapshot(null);
+        setSnapshotError(null);
+        setSelectedUid(null);
+        setAlerts([]);
+        prevStatusRef.current.clear();
+        prevCpRef.current.clear();
+        setLoading(true);
+        setAuthEpoch(epoch => epoch + 1);
+      }
+    });
+    return () => {
+      finishMounted.current = false;
+      finishGeneration.current += 1;
+      pendingFinish.current = null;
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    pendingFinish.current = null;
+    setFinishing(false);
+  }, [eventId, user?.uid]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [coursePolylines, setCoursePolylines] = useState<string[]>([]);
   const [courseLatlngs, setCourseLatlngs] = useState<Array<Array<[number, number]>>>([]);
@@ -200,15 +246,20 @@ export default function EventDashboardPage() {
 
   useEffect(() => {
     if (!eventId) return;
+    let active = true;
+    setEventInfo(null);
+    setLoadError(null);
     const unsub = onSnapshot(
       doc(db, `events/${eventId}`),
       (snap) => {
+        if (!active) return;
         if (!snap.exists()) {
           setLoadError(t("empty.noResults"));
           return;
         }
         const d = snap.data();
         const info = d.info || {};
+        setLoadError(null);
         setEventInfo({
           name: info.name || t("noName"),
           status: info.status || "UNKNOWN",
@@ -290,19 +341,29 @@ export default function EventDashboardPage() {
         })();
       },
       (err) => {
+        if (!active) return;
         logClientError("EventDashboard.eventSnapshot", err, { eventId });
         setLoadError(err.message ?? t("dashboard.errorLoadEvent"));
       }
     );
     return () => {
+      active = false;
       unsub();
       courseLoadAbortRef.current();
     };
-  }, [eventId, t]);
+  }, [authEpoch, eventId, t]);
 
   useEffect(() => {
     if (!eventId) return;
     let revision = 0;
+    let active = true;
+    const snapshotUid = user?.uid;
+    const snapshotGeneration = finishGeneration.current;
+    const isCurrentSnapshot = () => active && snapshotGeneration === finishGeneration.current
+      && auth.currentUser?.uid === snapshotUid;
+    setSnapshot(null);
+    setSnapshotError(null);
+    setLoading(true);
     const latestRef = doc(db, `events/${eventId}/snapshots/latest`);
     const readPage = async (id: string): Promise<SnapshotLocation[]> => {
       const page = await getDoc(doc(db, `events/${eventId}/snapshots/${id}`));
@@ -312,6 +373,7 @@ export default function EventDashboardPage() {
     const unsub = onSnapshot(
       latestRef,
       (snap) => {
+        if (!isCurrentSnapshot()) return;
         if (snap.exists()) {
           const currentRevision = ++revision;
           void (async () => {
@@ -321,7 +383,7 @@ export default function EventDashboardPage() {
                 return latest.exists() ? latest.data() as SnapshotData : null;
               },
             );
-            if (currentRevision !== revision) return;
+            if (currentRevision !== revision || !isCurrentSnapshot()) return;
             const data: SnapshotData = {
               ...raw,
               locations: locations.map((l) => ({
@@ -330,7 +392,7 @@ export default function EventDashboardPage() {
               })),
             };
             setSnapshot(data);
-            setLoadError(null);
+            setSnapshotError(null);
 
             const newAlerts: AlertItem[] = [];
             const now = data.timestamp || Date.now();
@@ -342,10 +404,9 @@ export default function EventDashboardPage() {
                   newAlerts.push({
                     key: `${loc.uid}-fin-${now}`,
                     ts: now,
-                    emoji: "🏁",
+                    emoji: "⏹",
                     color: "var(--aqua)",
-                    message: t("dashboard.alert.finished", { bib: bibLabel, name: loc.displayName }),
-                    sub: loc.overallRank ? t("dashboard.alert.overallRank", { rank: loc.overallRank }) : undefined,
+                    message: t("dashboard.alert.resultPending", { bib: bibLabel, name: loc.displayName }),
                   });
                 } else if (loc.status === "DNF") {
                   newAlerts.push({
@@ -397,36 +458,57 @@ export default function EventDashboardPage() {
               setAlerts((prev) => [...newAlerts, ...prev].slice(0, 30));
             }
           })().catch((err: unknown) => {
-            if (currentRevision !== revision) return;
+            if (currentRevision !== revision || !isCurrentSnapshot()) return;
             logClientError("EventDashboard.snapshotPages", err, { eventId });
-            setLoadError(t("dashboard.errorLoadSnapshot"));
+            setSnapshot(null);
+            setSnapshotError(t("dashboard.errorLoadSnapshot"));
           });
+        } else {
+          revision++;
+          setSnapshot(null);
+          setSnapshotError(null);
         }
         setLoading(false);
       },
       (err) => {
+        if (!isCurrentSnapshot()) return;
+        revision++;
         logClientError("EventDashboard.liveSnapshot", err, { eventId });
-        setLoadError(err.message ?? t("dashboard.errorLoadSnapshot"));
+        setSnapshot(null);
+        setSnapshotError(err.message ?? t("dashboard.errorLoadSnapshot"));
         setLoading(false);
       }
     );
-    return () => { revision++; unsub(); };
-  }, [eventId, t]);
+    return () => { active = false; revision++; unsub(); };
+  }, [authEpoch, eventId, t, user?.uid]);
 
   const handleFinishEvent = useCallback(async () => {
-    if (!eventId || finishing) return;
-    if (!(await dialog.confirm(t("dashboard.confirm.finish"), { destructive: true }))) return;
+    if (!eventId || !user || finishing || pendingFinish.current || auth.currentUser?.uid !== user.uid) return;
+    const context = { uid: user.uid, eventId, generation: finishGeneration.current };
+    const currentFinish = () => finishMounted.current && pendingFinish.current === context
+      && finishGeneration.current === context.generation && finishContext.current.uid === context.uid
+      && finishContext.current.eventId === context.eventId && auth.currentUser?.uid === context.uid;
+    pendingFinish.current = context;
     setFinishing(true);
     try {
+      if (!(await dialog.confirm(t("dashboard.confirm.finish"), { destructive: true })) || !currentFinish()) return;
+      const token = await getAppCheckToken();
+      if (!token && !isEmulatorRuntime()) throw new Error("app-check/empty-token");
+      if (!currentFinish()) return;
       const finishEvent = httpsCallable(functions, "finishEvent");
       await finishEvent({ eventId });
-      navigate(`/event/${eventId}/results`);
+      if (currentFinish()) navigate(`/event/${eventId}/results`);
     } catch (err) {
+      if (!currentFinish()) return;
       logClientError("EventDashboard.handleFinishEvent", err, { eventId });
       void dialog.alert(t("dashboard.error.finish"), { variant: "danger" });
-      setFinishing(false);
+    } finally {
+      if (pendingFinish.current === context) {
+        pendingFinish.current = null;
+        if (finishMounted.current && finishGeneration.current === context.generation) setFinishing(false);
+      }
     }
-  }, [dialog, eventId, finishing, navigate, t]);
+  }, [dialog, eventId, finishing, navigate, t, user]);
 
   const handleSendAlert = useCallback(async () => {
     if (!eventId) return;
@@ -590,6 +672,12 @@ export default function EventDashboardPage() {
         </div>
       </div>
 
+      {snapshotError && (
+        <div role="alert" style={{ padding: "var(--space-2) var(--space-4)", color: "var(--rose)" }}>
+          {t("dashboard.errorLoadSnapshot")}: {snapshotError}
+        </div>
+      )}
+
       {categories.length > 0 && (
         <div
           className="flex items-center flex-wrap"
@@ -641,11 +729,17 @@ export default function EventDashboardPage() {
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>
             {t("dashboard.statusTitle", { category: categoryFilter === "ALL" ? t("filter.all") : categoryFilter })}
           </Text>
-          <StatusRow kind="RIDING" count={filteredCounts.riding} total={filteredCounts.total} statusMeta={STATUS_META} />
-          <StatusRow kind="FINISHED" count={filteredCounts.finished} total={filteredCounts.total} statusMeta={STATUS_META} />
-          <StatusRow kind="DNF" count={filteredCounts.dnf} total={filteredCounts.total} statusMeta={STATUS_META} />
-          <StatusRow kind="SOS" count={filteredCounts.sos} total={filteredCounts.total} statusMeta={STATUS_META} />
-          <StatusRow kind="OFFCOURSE" count={filteredCounts.offCourse} total={filteredCounts.total} statusMeta={STATUS_META} />
+          {snapshot ? (
+            <>
+              <StatusRow kind="RIDING" count={filteredCounts.riding} total={filteredCounts.total} statusMeta={STATUS_META} />
+              <StatusRow kind="FINISHED" count={filteredCounts.finished} total={filteredCounts.total} statusMeta={STATUS_META} />
+              <StatusRow kind="DNF" count={filteredCounts.dnf} total={filteredCounts.total} statusMeta={STATUS_META} />
+              <StatusRow kind="SOS" count={filteredCounts.sos} total={filteredCounts.total} statusMeta={STATUS_META} />
+              <StatusRow kind="OFFCOURSE" count={filteredCounts.offCourse} total={filteredCounts.total} statusMeta={STATUS_META} />
+            </>
+          ) : (
+            <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("dashboard.snapshotUnavailable")}</p>
+          )}
 
           {/* 전체 강조 */}
           <div
@@ -744,13 +838,18 @@ export default function EventDashboardPage() {
             </div>
           </div>
           <div style={{ height: 300, borderTop: "1px solid var(--line-soft)", flexShrink: 0, overflow: "hidden" }}>
-            {filteredLocations.length === 0 ? (
+            {!snapshot ? (
+              <div className="flex items-center justify-center h-full">
+                <EmptyState icon="📡" title={t("dashboard.snapshotUnavailable")} compact />
+              </div>
+            ) : filteredLocations.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <EmptyState icon="👥" title={t("dashboard.noParticipantsMatch")} compact />
               </div>
             ) : (
               <ParticipantTable
                 locations={filteredLocations}
+                pendingFinish
                 selectedUid={selectedUid}
                 onSelectParticipant={setSelectedUid}
               />

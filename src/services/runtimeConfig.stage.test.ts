@@ -21,3 +21,32 @@ describe("isolated stage Firebase identity", () => {
   });
   it("preserves production behavior", () => expect(() => assertIsolatedStageRuntime({ firebaseProjectId: "miranae-orider-g1" }, "orider.co.kr")).not.toThrow());
 });
+
+
+it("allows only the exact reviewed personal API host for its own config key", () => {
+  const uri = "https://qapersonalapi-ldfyfyx5da-du.a.run.app";
+  expect(() => assertIsolatedStageRuntime({ ...stage, personalApiBase: uri })).not.toThrow();
+  expect(() => assertIsolatedStageRuntime({ ...stage, aiApiBase: uri })).toThrow("stage/service-origin-mismatch");
+  expect(() => assertIsolatedStageRuntime({ ...stage, personalApiBase: "https://unreviewed-ldfyfyx5da-du.a.run.app" })).toThrow("stage/service-origin-mismatch");
+  expect(() => assertIsolatedStageRuntime({ ...stage, personalApiBase: uri + ".evil.example" })).toThrow("stage/service-origin-mismatch");
+  expect(() => assertIsolatedStageRuntime({ ...stage, personalApiBase: uri + ":8443" })).toThrow("stage/service-origin-mismatch");
+});
+
+
+it("allows only the exact reviewed AI API origin for its own config key", () => {
+  const uri = "https://orider-ai-api-qa-firstpass-ldfyfyx5da-du.a.run.app";
+  expect(() => assertIsolatedStageRuntime({ ...stage, aiApiBase: uri })).not.toThrow();
+  for (const key of ["personalApiBase", "segmentTilesBase", "heatmapBase", "stravaRedirectUri"] as const) {
+    expect(() => assertIsolatedStageRuntime({ ...stage, [key]: uri })).toThrow("stage/service-origin-mismatch");
+  }
+  for (const aiApiBase of [
+    "https://orider-ai-api-h5zqzw3n4a-du.a.run.app",
+    "https://unreviewed-ldfyfyx5da-du.a.run.app",
+    uri + ".evil.example",
+    uri + ":8443",
+    uri.replace("https:", "http:"),
+    uri.replace("https://", "https://user:pass@"),
+  ]) {
+    expect(() => assertIsolatedStageRuntime({ ...stage, aiApiBase })).toThrow("stage/service-origin-mismatch");
+  }
+});

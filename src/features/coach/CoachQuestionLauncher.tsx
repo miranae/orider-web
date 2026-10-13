@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import type { User } from "firebase/auth";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import { History, Sparkles, X } from "lucide-react";
 import { Alert, Button, Card, Chip, Text, Textarea } from "../../theme/components";
 import { useDialog } from "../../contexts/DialogContext";
@@ -23,6 +23,7 @@ import {
 } from "../../services/coachV2Contract";
 import { getCoachConsentPolicy, type CoachConsentPolicy } from "../../services/coachConsentClient";
 import { isCoachRidePlanRespondToken } from "../../services/coachRidePlanContract";
+import { auth } from "../../services/firebase";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 import { FirstUseCoachConsent } from "./FirstUseCoachConsent";
@@ -140,6 +141,10 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const pendingPmcFocusRef = useRef(false);
   const openGenerationRef = useRef(0);
   const sessionGenerationRef = useRef(0);
+  const contextRef = useRef({ uid: user?.uid, discipline });
+  contextRef.current = { uid: user?.uid, discipline };
+  const admissionRef = useRef<{ body: CoachRequest; source: QuestionSource; session: number; open: number; uid: string; sdkUser: User | null; discipline: CoachDiscipline } | null>(null);
+  const confirmationRef = useRef<object | null>(null);
   const [phase, setPhase] = useState<Phase>("closed");
   const [draft, setDraft] = useState("");
   const [source, setSource] = useState<QuestionSource>("free_text");
@@ -171,6 +176,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }, [phase, pmcSnapshotId, riderSnapshotId]);
 
   const clearSession = useCallback(() => {
+    admissionRef.current = null; confirmationRef.current = null;
     inFlightRef.current = false;
     openGenerationRef.current += 1;
     sessionGenerationRef.current += 1;
@@ -181,10 +187,17 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     setConsentOpen(false); setPolicy(null); setQuota(null); setPhase("closed");
   }, []);
 
+  useEffect(() => {
+    let observedUser = auth.currentUser;
+    return onAuthStateChanged(auth, next => {
+      if (next !== observedUser) { observedUser = next; clearSession(); }
+    });
+  }, [clearSession]);
   useEffect(() => subscribeCoachConsentSessionReset(clearSession), [clearSession]);
   useEffect(() => clearSession(), [clearSession, discipline, user?.uid]);
   useEffect(() => () => {
     sessionGenerationRef.current += 1;
+    admissionRef.current = null; confirmationRef.current = null;
     inFlightRef.current = false;
     activeRequestRef.current = null;
   }, []);
@@ -262,6 +275,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
       && isCoachRidePlanRespondToken(ridePlanSelection.context.contextToken);
     if (validSelection && selectionId === ridePlanSelectionRef.current) return;
     if (!validSelection && ridePlanSelectionRef.current === null) return;
+    admissionRef.current = null; confirmationRef.current = null;
+    setConsentOpen(false);
     openGenerationRef.current += 1; sessionGenerationRef.current += 1; inFlightRef.current = false;
     activeRequestRef.current = null; activeBodyRef.current = null;
     setDraft(""); setRidePlanContext(null); setRequestId(null); setResponse(null); setClarificationOption(null); setProductSlice(null);
@@ -280,6 +295,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
 
   function closeSheet() {
     if (inFlightRef.current || consentOpen) return;
+    admissionRef.current = null; confirmationRef.current = null;
     setCheckInIntent(false);
     setManualCheckIn(false);
     openGenerationRef.current += 1;
@@ -288,7 +304,10 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   async function execute(body: CoachRequest, submitSource: QuestionSource, trackSubmit = true) {
-    if (inFlightRef.current) return;
+    const actor = contextRef.current.uid;
+    if (inFlightRef.current || !actor || user?.uid !== actor || auth.currentUser?.uid !== actor
+      || contextRef.current.discipline !== discipline) return;
+    const sdkUser = auth.currentUser;
     const id = body.requestId;
     const sessionGeneration = sessionGenerationRef.current;
     inFlightRef.current = true; activeRequestRef.current = id; activeBodyRef.current = body; setSubmitFailure(null); setPhase("submitting");
@@ -296,7 +315,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     if (trackSubmit) coachAnalytics.submit(submitSource, body.capabilityVersion);
     try {
       const result = body.capabilityVersion === COACH_P2_CAPABILITY_VERSION ? await askCoachP2(body) : await askCoachV2(body);
-      if (sessionGenerationRef.current !== sessionGeneration) return;
+      if (sessionGenerationRef.current !== sessionGeneration || auth.currentUser?.uid !== actor || auth.currentUser !== sdkUser) return;
       if (result.requestId !== id || activeRequestRef.current !== id) throw new CoachClientError("contract", "REQUEST_ID_MISMATCH");
       // Runtime parser only returns V2. This guard preserves mounted P0 fixtures during a rolling web rollout.
       const legacy = !("outcome" in result) ? result as unknown as CoachResponse : null;
@@ -313,11 +332,11 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
         coachAnalytics.complete(analyticsStatus, Date.now() - startedAt, remaining);
         if (result.quota.consumed) {
           void getCoachStatus().then((refreshedStatus) => {
-            if (sessionGenerationRef.current !== sessionGeneration) return;
+            if (sessionGenerationRef.current !== sessionGeneration || auth.currentUser?.uid !== actor || auth.currentUser !== sdkUser) return;
             setQuota(refreshedStatus.quota);
             if (refreshedStatus.quota.remaining === 0) coachAnalytics.limitSeen(0);
           }).catch((error) => {
-            if (sessionGenerationRef.current !== sessionGeneration) return;
+            if (sessionGenerationRef.current !== sessionGeneration || auth.currentUser?.uid !== actor || auth.currentUser !== sdkUser) return;
             logClientError("CoachQuestionLauncher.refreshP2Quota", error, { capabilityVersion: "p2" });
             setQuota(null);
           });
@@ -331,12 +350,12 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
         setQuota((previous) => ({ limit: result.quota.limit, remaining: result.quota.remaining, resetAt: result.quota.resetAt,
           timezone: result.answer?.freshness.timezone ?? previous?.timezone ?? "UTC" }));
       }
-      if (sessionGenerationRef.current !== sessionGeneration) return;
+      if (sessionGenerationRef.current !== sessionGeneration || auth.currentUser?.uid !== actor || auth.currentUser !== sdkUser) return;
       setPhase("complete");
       coachAnalytics.complete(analyticsStatus, Date.now() - startedAt, remaining);
       if (remaining === 0) coachAnalytics.limitSeen(0);
     } catch (error) {
-      if (sessionGenerationRef.current !== sessionGeneration) return;
+      if (sessionGenerationRef.current !== sessionGeneration || auth.currentUser?.uid !== actor || auth.currentUser !== sdkUser) return;
       if (body.capabilityVersion === COACH_P2_CAPABILITY_VERSION) {
         logClientError("CoachQuestionLauncher.askP2", error, { capabilityVersion: "p2" });
       }
@@ -348,12 +367,22 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
         setSubmitFailure(providerUnavailable ? "serviceUnavailable" : compatibility ? "compatibility" : "terminal"); setPhase("terminal_error");
       }
     }
-    finally { if (sessionGenerationRef.current === sessionGeneration) inFlightRef.current = false; }
+    finally {
+      if (sessionGenerationRef.current === sessionGeneration && auth.currentUser === sdkUser) inFlightRef.current = false;
+      else if (sessionGenerationRef.current === sessionGeneration && activeRequestRef.current === id) clearSession();
+    }
+  }
+
+  function isCurrentAdmission(admission: NonNullable<typeof admissionRef.current>) {
+    return admissionRef.current === admission && sessionGenerationRef.current === admission.session
+      && openGenerationRef.current === admission.open && contextRef.current.uid === admission.uid
+      && auth.currentUser?.uid === admission.uid && auth.currentUser === admission.sdkUser
+      && contextRef.current.discipline === admission.discipline;
   }
 
   async function submit(submitSource = source, forceNew = false) {
     const question = draft.trim();
-    if (inFlightRef.current || question.length < 2 || question.length > 1000 || !user || !quota || quota.remaining === 0) return;
+    if (inFlightRef.current || admissionRef.current || question.length < 2 || question.length > 1000 || !user || auth.currentUser?.uid !== user.uid || !quota || quota.remaining === 0) return;
     const id = forceNew || !requestId ? crypto.randomUUID() : requestId;
     setRequestId(id); setSource(submitSource);
     const contextFilters = currentContextFilters();
@@ -369,10 +398,23 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
         apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION,
         capabilityVersion: COACH_P1_CAPABILITY_VERSION, contextFilters, responseFormat: "auto" };
     activeBodyRef.current = body;
+    const admission = { body, source: submitSource, session: sessionGenerationRef.current,
+      open: openGenerationRef.current, uid: user.uid, sdkUser: auth.currentUser, discipline };
+    admissionRef.current = admission;
     let currentPolicy: CoachConsentPolicy;
-    try { currentPolicy = await getCoachConsentPolicy(); setPolicy(currentPolicy); }
-    catch { setPhase("load_error"); return; }
+    try { currentPolicy = await getCoachConsentPolicy(); }
+    catch {
+      if (isCurrentAdmission(admission)) { admissionRef.current = null; setPhase("load_error"); }
+      else if (admissionRef.current === admission) admissionRef.current = null;
+      return;
+    }
+    if (!isCurrentAdmission(admission)) {
+      if (admissionRef.current === admission) admissionRef.current = null;
+      return;
+    }
+    setPolicy(currentPolicy);
     if (!isConsentActive(currentPolicy)) { setConsentOpen(true); return; }
+    admissionRef.current = null;
     await execute(body, submitSource);
   }
 
@@ -389,7 +431,18 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
       : [response.reasonCode, response.retry.reasonCode];
     const action = retryActionFor(response.retry.mode, ...reasonCodes);
     if (action === "new") {
+      if (confirmationRef.current) return;
+      const confirmation = {}; confirmationRef.current = confirmation;
+      const session = sessionGenerationRef.current; const generation = openGenerationRef.current;
+      const sdkUser = auth.currentUser;
       const confirmed = await dialog.confirm(t("retry.newTurnConfirm"), { title: t("retry.newTurnTitle"), confirmLabel: t("retry.newTurnAction") });
+      if (confirmationRef.current !== confirmation || sessionGenerationRef.current !== session
+        || openGenerationRef.current !== generation || contextRef.current.uid !== user?.uid
+        || contextRef.current.discipline !== discipline || auth.currentUser?.uid !== user?.uid || auth.currentUser !== sdkUser) {
+        if (confirmationRef.current === confirmation) confirmationRef.current = null;
+        return;
+      }
+      confirmationRef.current = null;
       if (confirmed) await submit(source, true);
       return;
     }
@@ -510,7 +563,18 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
         apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION, capabilityVersion: COACH_P1_CAPABILITY_VERSION }, source, false);
       return;
     }
+    if (confirmationRef.current) return;
+    const confirmation = {}; confirmationRef.current = confirmation;
+    const session = sessionGenerationRef.current; const generation = openGenerationRef.current;
+    const sdkUser = auth.currentUser;
     const confirmed = await dialog.confirm(t("clarification.newTurnConfirm"), { title: t("retry.newTurnTitle"), confirmLabel: t("retry.newTurnAction") });
+    if (confirmationRef.current !== confirmation || sessionGenerationRef.current !== session
+      || openGenerationRef.current !== generation || contextRef.current.uid !== user?.uid
+      || contextRef.current.discipline !== discipline || auth.currentUser?.uid !== user?.uid || auth.currentUser !== sdkUser) {
+      if (confirmationRef.current === confirmation) confirmationRef.current = null;
+      return;
+    }
+    confirmationRef.current = null;
     if (!confirmed) return;
     const prompt = clarificationQuestion(draft.trim(), spec.promptKey, clarificationOption, i18n.language);
     const id = crypto.randomUUID(); setRequestId(id);
@@ -650,9 +714,16 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
           </section>
         </div>, document.body,
       )}
-      {policy && <FirstUseCoachConsent open={consentOpen} policy={policy} onCancel={() => setConsentOpen(false)} onConsented={(saved) => {
+      {policy && <FirstUseCoachConsent open={consentOpen} policy={policy} onCancel={() => { admissionRef.current = null; setConsentOpen(false); }} onConsented={(saved) => {
+        const admission = admissionRef.current;
+        if (!admission || inFlightRef.current) return;
+        if (!isCurrentAdmission(admission)) {
+          if (admissionRef.current === admission) { admissionRef.current = null; setConsentOpen(false); }
+          return;
+        }
+        admissionRef.current = null;
         setPolicy(saved); setConsentOpen(false);
-        if (activeBodyRef.current && !inFlightRef.current) void execute(activeBodyRef.current, source);
+        void execute(admission.body, admission.source);
       }} />}
     </>
   );

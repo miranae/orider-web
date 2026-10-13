@@ -34,7 +34,7 @@ async function apiGet(path) {
   if (!res.ok) {
     throw new Error(payload?.error?.message || payload?.message || `HTTP ${res.status} ${path}`);
   }
-  return payload.data;
+  return payload;
 }
 
 async function apiText(path) {
@@ -53,29 +53,51 @@ function readActivityTimeMs(activity) {
   return Number.isFinite(start) ? start : 0;
 }
 
+function metric(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function activityMetric(activity, canonicalField, recordedFields) {
+  const canonical = activity.effectiveFacts?.status === "canonical"
+    ? metric(activity.effectiveFacts.metrics?.[canonicalField]) : null;
+  if (canonical !== null) return canonical;
+  for (const [field, divisor] of recordedFields) {
+    const recorded = metric(activity.summary?.[field]);
+    if (recorded !== null) return recorded / divisor;
+  }
+  return null;
+}
+
 function activityDistanceKm(activity) {
-  return Number(activity.distanceMeters || 0) / 1000;
+  return activityMetric(activity, "distanceKm", [["distance", 1000]]);
 }
 
 function activityMovingMin(activity) {
-  return Math.round(Number(activity.movingTimeSeconds || 0) / 60);
+  const seconds = activityMetric(activity, "movingTimeSec", [
+    ["movingTimeSec", 1], ["movingTimeMillis", 1000], ["ridingTimeMillis", 1000],
+  ]);
+  return seconds === null ? null : seconds / 60;
 }
 
 function activityElevationM(activity) {
-  return Number(activity.elevationGainMeters || 0);
+  return activityMetric(activity, "elevationGainM", [["elevationGain", 1]]);
 }
 
 function activityLoad(activity) {
-  return Number(activity.tss || 0);
+  return activityMetric(activity, "tss", [["tss", 1]]);
+}
+
+function addMetric(total, value) {
+  return total === null || value === null ? null : total + value;
 }
 
 function totals(activities) {
   return activities.reduce((acc, activity) => {
     acc.sessions += 1;
-    acc.distanceKm += activityDistanceKm(activity);
-    acc.movingMin += activityMovingMin(activity);
-    acc.elevationM += activityElevationM(activity);
-    acc.load += activityLoad(activity);
+    acc.distanceKm = addMetric(acc.distanceKm, activityDistanceKm(activity));
+    acc.movingMin = addMetric(acc.movingMin, activityMovingMin(activity));
+    acc.elevationM = addMetric(acc.elevationM, activityElevationM(activity));
+    acc.load = addMetric(acc.load, activityLoad(activity));
     acc.activeDates.add(isoDate(new Date(readActivityTimeMs(activity))));
     return acc;
   }, {
@@ -89,14 +111,17 @@ function totals(activities) {
 }
 
 function formatDuration(minutes) {
-  const h = Math.floor(minutes / 60);
-  const m = Math.round(minutes % 60);
+  if (minutes === null) return "—";
+  const rounded = Math.round(minutes);
+  const h = Math.floor(rounded / 60);
+  const m = rounded % 60;
   if (h <= 0) return `${m} min`;
   if (m === 0) return `${h} h`;
   return `${h} h ${m} min`;
 }
 
 function delta(current, previous, suffix = "") {
+  if (current === null || previous === null) return "unavailable";
   if (previous <= 0 && current <= 0) return "no change";
   if (previous <= 0) return `new ${Math.round(current)}${suffix}`;
   const diff = current - previous;
@@ -106,6 +131,13 @@ function delta(current, previous, suffix = "") {
 }
 
 function classifyLoad(weekLoad, previousLoad) {
+  if (weekLoad === null || previousLoad === null) {
+    return {
+      state: "load unavailable",
+      lead: "Training load is unavailable for one or more activities.",
+      action: "Review the activities with missing TSS before interpreting this week’s load.",
+    };
+  }
   const deltaPct = previousLoad > 0 ? ((weekLoad - previousLoad) / previousLoad) * 100 : 0;
   if (weekLoad >= 450 || deltaPct >= 35) {
     return {
@@ -137,25 +169,25 @@ function dailyLoadBars(activities) {
   for (const activity of activities) {
     const key = isoDate(new Date(readActivityTimeMs(activity)));
     const day = byDate.get(key);
-    if (day) day.value += activityLoad(activity);
+    if (day) day.value = addMetric(day.value, activityLoad(activity));
   }
   return days;
 }
 
 function renderBarChart(bars) {
-  const max = Math.max(...bars.map((bar) => bar.value), 1);
+  const max = Math.max(...bars.map((bar) => bar.value ?? 0), 1);
   const width = 640;
   const height = 180;
   const baseY = 132;
   const gap = 18;
   const barW = (width - gap * (bars.length + 1)) / bars.length;
   const rects = bars.map((bar, index) => {
-    const h = Math.max(4, Math.round((bar.value / max) * 96));
+    const h = Math.max(4, Math.round(((bar.value ?? 0) / max) * 96));
     const x = gap + index * (barW + gap);
     const y = baseY - h;
-    const fill = bar.value >= 80 ? "#dc2626" : bar.value >= 45 ? "#d97706" : bar.value > 0 ? "#65a30d" : "#e5e7eb";
+    const fill = bar.value === null ? "#9ca3af" : bar.value >= 80 ? "#dc2626" : bar.value >= 45 ? "#d97706" : bar.value > 0 ? "#65a30d" : "#e5e7eb";
     return `
-      <text x="${x + barW / 2}" y="${y - 8}" text-anchor="middle" font-size="11" fill="#6b7280">${Math.round(bar.value) || "-"}</text>
+      <text x="${x + barW / 2}" y="${y - 8}" text-anchor="middle" font-size="11" fill="#6b7280">${bar.value === null ? "?" : Math.round(bar.value) || "-"}</text>
       <rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="7" fill="${fill}" />
       <text x="${x + barW / 2}" y="158" text-anchor="middle" font-size="12" font-weight="650" fill="#374151">${bar.label}</text>
     `;
@@ -192,7 +224,7 @@ function renderHtml(summary, bars, thumbnails) {
             <article class="thumb">
               ${svg}
               <strong>${escapeHtml(isoDate(new Date(readActivityTimeMs(activity))))}</strong>
-              <span>${Math.round(activityDistanceKm(activity))} km · ${formatDuration(activityMovingMin(activity))} · load ${Math.round(activityLoad(activity))}</span>
+          <span>${activityDistanceKm(activity) === null ? "—" : Math.round(activityDistanceKm(activity))} km · ${formatDuration(activityMovingMin(activity))} · load ${activityLoad(activity) === null ? "—" : Math.round(activityLoad(activity))}</span>
             </article>
           `).join("")}
         </div>
@@ -236,8 +268,8 @@ function renderHtml(summary, bars, thumbnails) {
     </header>
 
     <section class="kpis">
-      <div class="kpi"><span>Load</span><strong>${Math.round(summary.week.load)}</strong><small>${escapeHtml(summary.loadDelta)} vs previous 7 days</small></div>
-      <div class="kpi"><span>Distance</span><strong>${Math.round(summary.week.distanceKm)} km</strong><small>${escapeHtml(summary.distanceDelta)} vs previous</small></div>
+    <div class="kpi"><span>Load</span><strong>${summary.week.load === null ? "—" : Math.round(summary.week.load)}</strong><small>${escapeHtml(summary.loadDelta)} vs previous 7 days</small></div>
+    <div class="kpi"><span>Distance</span><strong>${summary.week.distanceKm === null ? "—" : Math.round(summary.week.distanceKm)} km</strong><small>${escapeHtml(summary.distanceDelta)} vs previous</small></div>
       <div class="kpi"><span>Moving time</span><strong>${escapeHtml(formatDuration(summary.week.movingMin))}</strong><small>${summary.week.sessions} sessions · ${summary.week.activeDays} active days</small></div>
     </section>
 
@@ -253,7 +285,7 @@ function renderHtml(summary, bars, thumbnails) {
       <h2>Readout</h2>
       <ul>
         <li>State: ${escapeHtml(summary.state)}</li>
-        <li>Elevation: ${Math.round(summary.week.elevationM)} m</li>
+        <li>Elevation: ${summary.week.elevationM === null ? "—" : Math.round(summary.week.elevationM)} m</li>
         <li>Next action: ${escapeHtml(summary.action)}</li>
       </ul>
     </section>
@@ -262,15 +294,35 @@ function renderHtml(summary, bars, thumbnails) {
 </html>`;
 }
 
-const activities = await apiGet("/activities?limit=100");
-const fitness = await apiGet("/fitness/summary").catch((err) => {
+const activities = [];
+let cursor = null;
+let ownerUid = null;
+const seenCursors = new Set();
+for (;;) {
+  const query = new URLSearchParams({ limit: "100", since: String(now.getTime() - 14 * MS_DAY) });
+  if (cursor) query.set("cursor", cursor);
+  const page = await apiGet(`/activities?${query}`);
+  if (!Array.isArray(page.data)) throw new Error("Invalid activities response");
+  for (const activity of page.data) {
+    if (!activity.userId || (ownerUid !== null && activity.userId !== ownerUid)) {
+      throw new Error("Activity owner mismatch");
+    }
+    ownerUid = activity.userId;
+    activities.push(activity);
+  }
+  if (!page.paging?.hasMore) break;
+  cursor = page.paging.nextCursor;
+  if (typeof cursor !== "string" || !cursor || seenCursors.has(cursor)) {
+    throw new Error("Invalid activities cursor");
+  }
+  seenCursors.add(cursor);
+}
+const fitness = await apiGet("/fitness/summary").then((payload) => payload.data).catch((err) => {
   console.warn(`Fitness summary unavailable: ${err.message}`);
   return null;
 });
 
-const withStart = Array.isArray(activities)
-  ? activities.filter((activity) => readActivityTimeMs(activity) > 0)
-  : [];
+const withStart = activities.filter((activity) => readActivityTimeMs(activity) > 0);
 const recent7 = withStart.filter((activity) => readActivityTimeMs(activity) >= now.getTime() - 7 * MS_DAY);
 const previous7 = withStart.filter((activity) => {
   const t = readActivityTimeMs(activity);
@@ -299,7 +351,7 @@ const summary = {
 
 const bars = dailyLoadBars(recent7);
 const thumbnails = await loadPrivateThumbnails(recent7);
-const publicSummary = `${week.sessions} sessions · ${Math.round(week.distanceKm)} km · ${formatDuration(week.movingMin)} · load ${Math.round(week.load)}. ${load.action}`;
+const publicSummary = `${week.sessions} sessions · ${week.distanceKm === null ? "—" : Math.round(week.distanceKm)} km · ${formatDuration(week.movingMin)} · load ${week.load === null ? "—" : Math.round(week.load)}. ${load.action}`;
 
 await writeFile("weekly-load-summary.json", `${JSON.stringify(summary, null, 2)}\n`);
 await writeFile("weekly-load-public-summary.txt", `${publicSummary}\n`);

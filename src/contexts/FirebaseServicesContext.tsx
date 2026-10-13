@@ -9,6 +9,7 @@ import type { Functions } from "firebase/functions";
 import {
   auth,
   ensureAppCheckReady,
+  getAppCheckToken,
   firestore,
   functions,
 } from "../services/firebase";
@@ -18,6 +19,7 @@ export interface FirebaseServices {
   firestore: Firestore;
   functions: Functions;
   ensureAppCheckReady: (forceRefresh?: boolean) => Promise<void>;
+  getAppCheckToken: (forceRefresh?: boolean) => Promise<string | null>;
 }
 
 // 주입이 없으면 `null` — 기본값을 **모듈 평가 시점에 객체로 만들지 않는다**.
@@ -40,7 +42,7 @@ function liveSingletonServices(): FirebaseServices {
     || singletonServices.firestore !== firestore
     || singletonServices.functions !== functions
   ) {
-    singletonServices = { auth, firestore, functions, ensureAppCheckReady };
+    singletonServices = { auth, firestore, functions, ensureAppCheckReady, getAppCheckToken };
   }
   return singletonServices;
 }

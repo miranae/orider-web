@@ -24,6 +24,7 @@ vi.mock("firebase/firestore", () => ({
 vi.mock("../services/firebase", () => ({
   auth: {},
   ensureAppCheckReady: vi.fn(),
+  getAppCheckToken: vi.fn().mockResolvedValue(null),
   firestore: {},
   functions: {},
 }));

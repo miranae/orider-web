@@ -24,6 +24,20 @@ const model = {
 afterEach(() => vi.restoreAllMocks());
 
 describe("PlanPresentation responsive layout", () => {
+  it("passes the scoped goal discipline through embedded and standalone mobile presentation", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
+      matches: query === "(max-width: 1023px)", media: query, onchange: null,
+      addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(),
+      removeEventListener: vi.fn(), dispatchEvent: vi.fn(),
+    }));
+    const scopedModel = { ...model, discipline: "bike", goal: { ...model.goal, discipline: "run" } } as unknown as PlanModel;
+    const mobile = vi.fn((props) => <div>{props.goalDiscipline}</div>);
+    const view = renderWithProviders(<PlanPresentation model={scopedModel} embedded mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} renderMobile={mobile} />);
+    expect(screen.getByText("run")).toBeInTheDocument();
+    view.rerender(<PlanPresentation model={{ ...scopedModel, goal: { ...scopedModel.goal, discipline: "swim" } } as unknown as PlanModel} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} renderMobile={mobile} />);
+    expect(screen.getByText("swim")).toBeInTheDocument();
+  });
+
   it("uses the weekly list at tablet widths where the nine-column calendar cannot fit", () => {
     vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
       matches: query === "(max-width: 1023px)",

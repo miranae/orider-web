@@ -76,7 +76,7 @@
   "empty.goToList": "Back to Groups",
   "empty.noBlockedUsers": "No blocked users",
   "error.joinFailed": "Failed to join group",
-  "error.invalidInviteCode": "Invalid invite code",
+  "error.invalidInviteCode": "Invalid or expired invite code",
   "error.loadFailed": "Failed to load groups.",
   "error.rideStatsUnavailable": "Group ride stats are temporarily unavailable.",
   "error.rideStatsLoadFailed": "Could not load group ride stats.",
@@ -148,6 +148,12 @@
   "dashboard.posts.success": "Posted to the group.",
   "dashboard.posts.failed": "Could not post to the group.",
   "dashboard.posts.empty": "No announcements or updates yet.",
+  "dashboard.posts.edit": "Edit",
+  "dashboard.posts.editContent": "Edit post content",
+  "dashboard.posts.save": "Save changes",
+  "dashboard.posts.cancel": "Cancel",
+  "dashboard.posts.updated": "Post updated.",
+  "dashboard.posts.updateFailed": "Could not update the post.",
   "dashboard.posts.announcement": "Announcement",
   "dashboard.posts.memberFallback": "Group member",
   "list.groupCount": "Participating in {{count}} groups",
@@ -391,5 +397,10 @@
   "leaderboard.refreshNow": "Refresh now",
   "leaderboard.refreshFailed": "Could not refresh the leaderboard. Showing the saved result.",
   "leaderboard.staleWarning": "Leaderboard calculation is delayed. Recent membership or activity changes may not be reflected yet.",
-  "leaderboard.weekBoundary": "Weekly TSS runs from Monday 00:00 KST and includes public activities only."
+  "leaderboard.weekBoundary": "Weekly TSS runs from Monday 00:00 KST and includes public activities only.",
+  "invite.loading": "Loading invite code…",
+  "invite.denied": "Only group managers can manage invite codes.",
+  "invite.failed": "Could not load the invite code.",
+  "invite.retry": "Retry",
+  "invite.createdNotReady": "The group was created. You can retry loading its invite code on the members page."
 }

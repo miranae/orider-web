@@ -5,7 +5,7 @@ import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { doc, updateDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { firestore, functions } from "../../services/firebase";
+import { auth, ensureAppCheckReady, firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
@@ -72,6 +72,12 @@ export default function GroupSettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const leaveIntent = useRef(0);
+  useEffect(() => {
+    leaveIntent.current += 1;
+    setLeaving(false);
+    return () => { leaveIntent.current += 1; };
+  }, [groupId, user?.uid]);
   const [regeneratingCode, setRegeneratingCode] = useState(false);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
   const [invite, setInvite] = useState<GroupInviteAdminResult | null>(null);
@@ -182,17 +188,25 @@ export default function GroupSettingsPage() {
           </p>
           <Button variant="danger"
             onClick={async () => {
+              if (!groupId || !user || leaving) return;
+              const uid = user.uid;
+              const intent = leaveIntent.current;
               setLeaving(true);
               try {
+                await ensureAppCheckReady();
+                if (leaveIntent.current !== intent || auth.currentUser?.uid !== uid) return;
                 const leaveFn = httpsCallable(functions, "leaveGroup");
                 await leaveFn({ groupId });
+                if (leaveIntent.current !== intent || auth.currentUser?.uid !== uid) return;
                 showToast(t("settings.leaveSuccess"));
                 navigate("/groups");
               } catch (err) {
+                if (leaveIntent.current !== intent || auth.currentUser?.uid !== uid) return;
                 logClientError("GroupSettingsPage.leaveGroup", err, { groupId });
                 showToast(t("error.leaveFailed"), "error");
+              } finally {
+                if (leaveIntent.current === intent) setLeaving(false);
               }
-              setLeaving(false);
             }}
             disabled={leaving}
           >

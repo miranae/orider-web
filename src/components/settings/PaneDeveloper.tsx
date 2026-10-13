@@ -34,7 +34,7 @@ export function PaneDeveloper() {
   const dialog = useDialog();
   const [keys, setKeys] = useState<PersonalApiKeySummary[]>([]);
   const [createdKey, setCreatedKey] = useState<CreatedPersonalApiKey | null>(null);
-  const [name, setName] = useState("Personal dashboard");
+  const [name, setName] = useState(() => t("pane.developer.defaultName"));
   const [scopes, setScopes] = useState<PersonalApiScope[]>(["profile:read", "activities:read", "fitness:read"]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);

@@ -15,6 +15,7 @@ vi.mock("../services/firebase", () => ({
   get firestore() { return live.firestore; },
   get functions() { return live.functions; },
   ensureAppCheckReady: async () => {},
+  getAppCheckToken: async () => "context-app-check",
 }));
 
 // 컨텍스트 모듈은 여기서(= initFirebase 전에) 평가된다. 프로덕션의 import 순서와 같다.
@@ -56,6 +57,7 @@ describe("useFirebaseServices", () => {
       firestore: { name: "embed-firestore" },
       functions: { name: "embed-functions" },
       ensureAppCheckReady: async () => {},
+  getAppCheckToken: async () => "context-app-check",
     } as unknown as FirebaseServices;
 
     const { result } = renderHook(() => useFirebaseServices(), {

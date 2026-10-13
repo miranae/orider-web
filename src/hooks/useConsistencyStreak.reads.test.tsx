@@ -8,6 +8,7 @@ vi.mock("../services/firebase", () => ({
   get firestore() { return live.firestore; },
   get functions() { return undefined; },
   ensureAppCheckReady: async () => {},
+  getAppCheckToken: vi.fn().mockResolvedValue(null),
 }));
 
 const getDocs = vi.hoisted(() => vi.fn());

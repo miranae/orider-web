@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+import { canonicalEventCapacityCounts, unknownEventCapacityCounts, type EventCapacityCounts } from "../../features/event/eventCapacityCounts";
 import { httpsCallable } from "firebase/functions";
-import { firestore, functions } from "../../services/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, firestore, functions, getAppCheckToken } from "../../services/firebase";
+import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -68,6 +71,24 @@ interface FormData {
     marketing: boolean;
   };
   payMethod: "card" | "bank" | "toss" | "kakao";
+}
+
+function emptyRegistrationForm(): FormData {
+  return {
+    categoryId: "",
+    name: "",
+    birth: "",
+    gender: "",
+    bloodType: "",
+    phone: "",
+    shirtSize: "M",
+    emName: "",
+    emRel: "",
+    emPhone: "",
+    medical: "",
+    agreements: { terms: false, privacy: false, liability: false, marketing: false },
+    payMethod: "card",
+  };
 }
 
 interface StepInfo {
@@ -183,28 +204,49 @@ export default function EventRegisterPage() {
   const { showToast } = useToast();
 
   const [event, setEvent] = useState<EventSummary | null>(null);
-  const [filledByCategory, setFilledByCategory] = useState<Record<string, number>>({});
+  const [capacityCounts, setCapacityCounts] = useState<EventCapacityCounts>(unknownEventCapacityCounts([]));
+  const loadGeneration = useRef(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [stepIdx, setStepIdx] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const pendingRegistration = useRef<{ uid: string; eventId: string; generation: number } | null>(null);
   const [registrationNumber, setRegistrationNumber] = useState<string | null>(null);
 
-  const [data, setData] = useState<FormData>({
-    categoryId: "",
-    name: "",
-    birth: "",
-    gender: "",
-    bloodType: "",
-    phone: "",
-    shirtSize: "M",
-    emName: "",
-    emRel: "",
-    emPhone: "",
-    medical: "",
-    agreements: { terms: false, privacy: false, liability: false, marketing: false },
-    payMethod: "card",
-  });
+  const [data, setData] = useState<FormData>(emptyRegistrationForm);
+  const participantGeneration = useRef(0);
+  const participantMounted = useRef(false);
+  const participantContext = useRef({ uid: user?.uid, eventId });
+  if (participantContext.current.uid !== user?.uid || participantContext.current.eventId !== eventId) {
+    participantContext.current = { uid: user?.uid, eventId };
+    participantGeneration.current += 1;
+  }
+
+  useEffect(() => {
+    participantMounted.current = true;
+    let observedUid = auth.currentUser?.uid;
+    const unsubscribe = onAuthStateChanged(auth, next => {
+      if (next?.uid !== observedUid) {
+        observedUid = next?.uid;
+        participantGeneration.current += 1;
+        pendingRegistration.current = null;
+        setSubmitting(false);
+      }
+    });
+    return () => {
+      participantMounted.current = false;
+      participantGeneration.current += 1;
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    pendingRegistration.current = null;
+    setSubmitting(false);
+    setRegistrationNumber(null);
+    setData(emptyRegistrationForm());
+    setStepIdx(0);
+  }, [user?.uid, eventId]);
 
   // 약관 항목 — 번역된 레이블과 미리보기 텍스트
   const TERM_ITEMS = useMemo(() => [
@@ -236,10 +278,13 @@ export default function EventRegisterPage() {
 
   const loadEvent = useCallback(async () => {
     if (!eventId) return;
+    const generation = ++loadGeneration.current;
+    setCapacityCounts(unknownEventCapacityCounts([]));
     setLoading(true);
     setLoadError(null);
     try {
       const snap = await getDoc(doc(firestore, "events", eventId));
+      if (generation !== loadGeneration.current) return;
       if (!snap.exists()) {
         setEvent(null);
         return;
@@ -247,6 +292,8 @@ export default function EventRegisterPage() {
       const d = snap.data();
       const info = d.info || {};
       const register = d.register || {};
+      const closeAtMillis = normalizeStartTime(info.closeAt);
+      const closeAtDate = new Date(closeAtMillis);
       const categoriesRaw: EventCategory[] = Array.isArray(info.categories) && info.categories.length > 0
         ? info.categories
         : Array.isArray(register.categories) ? register.categories : [];
@@ -256,7 +303,8 @@ export default function EventRegisterPage() {
         type: info.type || "TOUR",
         status: info.status || "UNKNOWN",
         startTime: normalizeStartTime(info.startTime),
-        closeAt: info.closeAt || undefined,
+        closeAt: typeof info.closeAt === "string" ? info.closeAt || undefined
+          : closeAtMillis > 0 && Number.isFinite(closeAtDate.getTime()) ? closeAtDate.toISOString() : undefined,
         fee: typeof info.entryFee === "number" ? info.entryFee : register.fee,
         feeType: info.feeType || register.feeType,
         categories: categoriesRaw,
@@ -265,21 +313,20 @@ export default function EventRegisterPage() {
         insuranceFee: typeof info.insuranceFee === "number" ? info.insuranceFee : undefined,
       });
 
-      // 카테고리별 신청 수 집계
-      try {
-        const partsSnap = await getDocs(collection(firestore, `events/${eventId}/participants`));
-        const counts: Record<string, number> = {};
-        partsSnap.forEach((p) => {
-          const cat = (p.data() as { category?: string }).category;
-          if (cat) counts[cat] = (counts[cat] ?? 0) + 1;
-        });
-        setFilledByCategory(counts);
-      } catch (err) {
-        logClientError("EventRegisterPage.loadCategoryCounts", err, { eventId });
+      const categoryIds = categoriesRaw.map(c => c.id);
+      let counts = unknownEventCapacityCounts(categoryIds);
+      if (snap.metadata && !snap.metadata.fromCache && !snap.metadata.hasPendingWrites) {
+        counts = canonicalEventCapacityCounts(d.counters, categoryIds) ?? counts;
       }
+      if (generation !== loadGeneration.current) return;
+      setCapacityCounts(counts);
       if (user) {
         try {
+          const context = { uid: user.uid, eventId, generation: participantGeneration.current };
           const participantSnap = await getDoc(doc(firestore, "events", eventId, "participants", user.uid));
+          if (!participantMounted.current || generation !== loadGeneration.current
+            || context.generation !== participantGeneration.current || auth.currentUser?.uid !== context.uid
+            || participantContext.current.uid !== context.uid || participantContext.current.eventId !== context.eventId) return;
           if (participantSnap.exists()) {
             const participant = participantSnap.data() as {
               category?: string;
@@ -306,12 +353,13 @@ export default function EventRegisterPage() {
       logClientError("EventRegisterPage.loadEvent", err, { eventId });
       setLoadError(err instanceof Error ? err.message : t("register.errLoad"));
     } finally {
-      setLoading(false);
+      if (generation === loadGeneration.current) setLoading(false);
     }
   }, [eventId, t, user]);
 
   useEffect(() => {
     void loadEvent();
+    return () => { loadGeneration.current += 1; };
   }, [loadEvent]);
 
   // 동적 step 목록 — 카테고리 없으면 1단계 스킵, 무료면 결제 스킵
@@ -347,9 +395,17 @@ export default function EventRegisterPage() {
   const totalAmount = (event?.fee ?? 0) + insurance;
 
   const handleSubmit = async () => {
-    if (!eventId || !user || submitting) return;
+    if (!eventId || !user || submitting || pendingRegistration.current || auth.currentUser?.uid !== user.uid) return;
+    const context = { uid: user.uid, eventId, generation: participantGeneration.current };
+    const currentSubmit = () => participantMounted.current && pendingRegistration.current === context
+      && participantGeneration.current === context.generation && participantContext.current.uid === context.uid
+      && participantContext.current.eventId === context.eventId && auth.currentUser?.uid === context.uid;
+    pendingRegistration.current = context;
     setSubmitting(true);
     try {
+      const token = await getAppCheckToken();
+      if (!token && !isEmulatorRuntime()) throw new Error("app-check/empty-token");
+      if (!currentSubmit()) return;
       const join = httpsCallable<unknown, { eventId: string; isNew: boolean; registrationNumber?: string }>(
         functions,
         "joinOrCreateEvent"
@@ -376,8 +432,9 @@ export default function EventRegisterPage() {
           ? { payment: { method: data.payMethod, amount: totalAmount } }
           : {}),
       });
-      setRegistrationNumber(result.data.registrationNumber ?? null);
+      if (currentSubmit()) setRegistrationNumber(result.data.registrationNumber ?? null);
     } catch (err: unknown) {
+      if (!currentSubmit()) return;
       logClientError("EventRegisterPage.submit", err, { eventId });
       const fbErr = err as { code?: string; message?: string };
       const msg = fbErr?.code === "functions/already-exists"
@@ -393,7 +450,10 @@ export default function EventRegisterPage() {
       }
       showToast(msg, "error");
     } finally {
-      setSubmitting(false);
+      if (pendingRegistration.current === context) {
+        pendingRegistration.current = null;
+        if (participantMounted.current && participantGeneration.current === context.generation) setSubmitting(false);
+      }
     }
   };
 
@@ -574,9 +634,9 @@ export default function EventRegisterPage() {
             <div role="radiogroup" aria-label={t("message.selectCategory")} className="flex flex-col" style={{ gap: "var(--space-2)" }}>
               {event.categories.map((c) => {
                 const slots = c.slots ?? c.capacity ?? 0;
-                const filled = filledByCategory[c.id] ?? 0;
-                const pct = slots > 0 ? Math.min(100, Math.round((filled / slots) * 100)) : 0;
-                const full = slots > 0 && filled >= slots;
+                const filled = capacityCounts.byCategory[c.id] ?? null;
+                const pct = filled !== null && slots > 0 ? Math.min(100, Math.round((filled / slots) * 100)) : null;
+                const full = filled !== null && slots > 0 && filled >= slots;
                 const active = data.categoryId === c.id;
                 return (
                   <button
@@ -626,20 +686,20 @@ export default function EventRegisterPage() {
                       {slots > 0 && (
                         <div style={{ width: 140 }}>
                           <div className="flex justify-between" style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-3)", marginBottom: 'var(--space-1)' }}>
-                            <span>{filled}/{slots}</span>
-                            <span>{pct}%</span>
+                            <span>{filled ?? "—"}/{slots}</span>
+                            <span>{pct === null ? "—" : `${pct}%`}</span>
                           </div>
                           <div style={{ height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
                             <div
                               style={{
-                                width: `${pct}%`,
+                                width: `${pct ?? 0}%`,
                                 height: "100%",
-                                background: pct > 85 ? "var(--amber)" : "var(--lime)",
+                                background: pct !== null && pct > 85 ? "var(--amber)" : "var(--lime)",
                               }}
                             />
                           </div>
                           <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)', textAlign: "right" }}>
-                            {t("register.remaining", { count: Math.max(0, slots - filled) })}
+                            {filled === null ? t("detail.participantsUnavailable") : t("register.remaining", { count: Math.max(0, slots - filled) })}
                           </div>
                         </div>
                       )}

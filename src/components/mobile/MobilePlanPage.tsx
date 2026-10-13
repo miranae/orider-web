@@ -7,12 +7,14 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { AddPlanSheet } from "../training";
 import AdaptationBanner from "../training/AdaptationBanner";
 import { Button } from "../../theme/components";
+import type { Discipline } from "../../utils/disciplineFilter";
 
 export interface MobilePlanPageProps {
   currentWeek: PlanWeek | null;
   weekLabel: string;
   goalId?: string;
   goalTitle?: string;
+  goalDiscipline?: Discipline;
   daysLeft?: number;
   progressPct?: number;
   completedTSS?: number;
@@ -40,6 +42,7 @@ export default function MobilePlanPage({
   weekLabel,
   goalId,
   goalTitle,
+  goalDiscipline,
   daysLeft,
   progressPct,
   completedTSS,
@@ -68,6 +71,7 @@ export default function MobilePlanPage({
       currentWeek={currentWeek}
       weekLabel={weekLabel}
       goalTitle={goalTitle}
+      goalDiscipline={goalDiscipline}
       daysLeft={daysLeft}
       progressPct={progressPct}
       completedTSS={completedTSS}

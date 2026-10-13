@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../services/firebase";
+import { auth, ensureAppCheckReady, functions } from "../services/firebase";
+import { useAuth } from "../contexts/AuthContext";
 import { logClientError } from "../services/errorLogger";
 
 export interface GroupRideActivity {
@@ -77,7 +78,9 @@ export function normalizeGroupRideAggregate(value: unknown): GroupRideAggregate 
   };
 }
 
-export function useGroupRideStats(groupId: string | undefined) {
+export function useGroupRideStats(groupId: string | undefined, accessKey?: string) {
+  const { user } = useAuth();
+  const uid = user?.uid;
   const [rides, setRides] = useState<GroupRideSummary[]>([]);
   const [memberStats, setMemberStats] = useState<Record<string, MemberRideStat>>({});
   const [loading, setLoading] = useState(true);
@@ -92,21 +95,24 @@ export function useGroupRideStats(groupId: string | undefined) {
   const retry = useCallback(() => setRetryKey((key) => key + 1), []);
 
   const loadMore = useCallback(async () => {
-    if (!groupId || !nextCursor || loadingMore) return;
+    if (!uid || !groupId || !nextCursor || loadingMore) return;
     const requestedGroup = groupId;
     const requestedGeneration = generation.current;
+    const isCurrent = () => generation.current === requestedGeneration && auth.currentUser?.uid === uid;
     setLoadingMore(true);
     try {
+      await ensureAppCheckReady();
+      if (!isCurrent()) return;
       const fn = httpsCallable<{ groupId: string; pageSize: number; cursor: GroupRideCursor; pageOnly: true }, RideStatsResponse>(functions, "getGroupRideStats");
       const { data } = await fn({ groupId, pageSize: 20, cursor: nextCursor, pageOnly: true });
-      if (generation.current !== requestedGeneration || requestedGroup !== groupId) return;
+      if (!isCurrent() || requestedGroup !== groupId) return;
       setRides((previous) => {
         const existing = new Set(previous.map((ride) => ride.groupRideId));
         return [...previous, ...(data.rides ?? []).filter((ride) => !existing.has(ride.groupRideId))];
       });
       setNextCursor(data.nextCursor ?? null);
     } catch (error) {
-      if (generation.current === requestedGeneration) {
+      if (isCurrent()) {
         setRides([]);
         setMemberStats({});
         setAggregate(null);
@@ -118,14 +124,14 @@ export function useGroupRideStats(groupId: string | undefined) {
         logClientError("useGroupRideStats.loadMore", error, { groupId });
       }
     } finally {
-      if (generation.current === requestedGeneration) setLoadingMore(false);
+      if (isCurrent()) setLoadingMore(false);
     }
-  }, [groupId, loadingMore, nextCursor]);
+  }, [groupId, loadingMore, nextCursor, uid]);
 
   useEffect(() => {
     generation.current += 1;
     setError(null);
-    if (!groupId) {
+    if (!groupId || !uid) {
       setRides([]);
       setMemberStats({});
       setLoading(false);
@@ -138,6 +144,7 @@ export function useGroupRideStats(groupId: string | undefined) {
     }
 
     let cancelled = false;
+    const isCurrent = () => !cancelled && auth.currentUser?.uid === uid;
     setLoading(true);
     setLoadingMore(false);
     setRides([]);
@@ -149,9 +156,11 @@ export function useGroupRideStats(groupId: string | undefined) {
 
     (async () => {
       try {
+        await ensureAppCheckReady();
+        if (!isCurrent()) return;
         const fn = httpsCallable<{ groupId: string; pageSize: number }, RideStatsResponse>(functions, "getGroupRideStats");
         const { data } = await fn({ groupId, pageSize: 20 });
-        if (cancelled) return;
+        if (!isCurrent()) return;
         setRides(data.rides ?? []);
         setMemberStats(data.memberStats ?? {});
         setAggregate(normalizeGroupRideAggregate(data.aggregate));
@@ -159,7 +168,7 @@ export function useGroupRideStats(groupId: string | undefined) {
         setMemberWeekStats(data.memberWeekStats ?? null);
         setNextCursor(data.nextCursor ?? null);
       } catch (err) {
-        if (cancelled) return;
+        if (!isCurrent()) return;
         setRides([]);
         setMemberStats({});
         setAggregate(null);
@@ -172,14 +181,15 @@ export function useGroupRideStats(groupId: string | undefined) {
           logClientError("useGroupRideStats", err, { groupId });
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
+      generation.current += 1;
     };
-  }, [groupId, retryKey]);
+  }, [groupId, retryKey, uid, accessKey]);
 
   return { rides, memberStats, aggregate, weeklyStats, memberWeekStats, loading, loadingMore, error, retry, hasMore: nextCursor !== null, loadMore };
 }

@@ -28,3 +28,5 @@ API contract:
 
 - Swagger UI: `/api/v1/docs`
 - OpenAPI YAML: `/api/v1/docs/openapi.yaml`
+
+The activity list uses `summary` for recorded values and `effectiveFacts.metrics` when its status is `canonical`. The script reads every page in the last 14 days. If a metric is absent from both sources, the report shows `—` instead of counting that value as zero. Keep the generated JSON and HTML private; the JSON includes the personal fitness response.

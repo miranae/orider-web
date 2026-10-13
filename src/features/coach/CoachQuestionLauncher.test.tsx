@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "firebase/auth";
+import { simulateLogin as mockLogin, simulateLogout as mockLogout, getCurrentUser } from "../../__tests__/mocks/firebase";
+import { auth } from "../../services/firebase";
 import { DialogProvider } from "../../contexts/DialogContext";
 import { CoachQuestionLauncher, retryActionFor } from "./CoachQuestionLauncher";
 import { CoachClientError } from "../../services/coachClient";
@@ -34,6 +36,13 @@ vi.mock("./CoachRiderInsightCard", () => ({
 vi.mock("./FirstUseCoachConsent", () => ({ FirstUseCoachConsent: ({ open, policy, onConsented }: {
   open: boolean; policy: unknown; onConsented: (value: unknown) => void;
 }) => open ? <button data-testid="complete-consent" onClick={() => onConsented(policy)}>complete consent</button> : null }));
+
+// Firebase SDK preserves currentUser object identity; the shared mock getter clones it.
+function simulateLogin(value: { uid: string }) {
+  mockLogin(value);
+  auth.currentUser = getCurrentUser() as unknown as User;
+}
+function simulateLogout() { mockLogout(); auth.currentUser = null; }
 
 const user = { uid: "u1" } as User;
 const quota = { limit: 3, consumed: 0, pending: 0, remaining: 3, timezone: "Asia/Seoul", resetAt: "2026-07-19T15:00:00Z" };
@@ -166,6 +175,7 @@ function setupPmc() {
 describe("CoachQuestionLauncher", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    simulateLogin({ uid: user.uid });
     mocks.status.mockResolvedValue({ status: "available", quota });
     mocks.policy.mockResolvedValue(activePolicy);
     mocks.capabilities.mockResolvedValue(plannerCapabilities);
@@ -744,6 +754,147 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.queryByRole("alert", { name: /일부 최신 계산/ })).not.toBeInTheDocument();
   });
 
+  it.each(["close", "unmount", "discipline", "user", "reset"])("discards late policy admission after %s", async (boundary) => {
+    const view = setup();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    let finish!: (value: typeof activePolicy) => void;
+    mocks.policy.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    if (boundary === "close") fireEvent.click(screen.getByRole("button", { name: "AI 코치 닫기" }));
+    if (boundary === "unmount") view.unmount();
+    if (boundary === "reset") act(() => window.dispatchEvent(new CustomEvent("orider:coach-consent-revoked")));
+    if (boundary === "discipline" || boundary === "user") view.rerender(<MemoryRouter><DialogProvider>
+      <CoachQuestionLauncher user={boundary === "user" ? { uid: "u2" } as User : user}
+        discipline={boundary === "discipline" ? "run" : "bike"} onSignIn={vi.fn()} />
+    </DialogProvider></MemoryRouter>);
+    await act(async () => finish(activePolicy));
+    expect(mocks.ask).not.toHaveBeenCalled();
+    expect(mocks.askP2).not.toHaveBeenCalled();
+  });
+
+  it.each(["switch", "logout", "relogin"])("rejects stale policy when SDK auth changes by %s before props update", async (boundary) => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    let finish!: (value: typeof activePolicy) => void;
+    mocks.policy.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    if (boundary === "switch") simulateLogin({ uid: "u2" });
+    else { simulateLogout(); if (boundary === "relogin") simulateLogin({ uid: user.uid }); }
+    await act(async () => finish(activePolicy));
+    expect(mocks.ask).not.toHaveBeenCalled();
+    expect(mocks.askP2).not.toHaveBeenCalled();
+  });
+
+  it.each(["switch", "logout", "relogin"])("rejects stale confirmation when SDK auth changes by %s before props update", async (boundary) => {
+    mocks.ask.mockResolvedValue({ ...answer,
+      retry: { ...answer.retry, mode: "new_request_required", quotaImpact: "one_new_turn", retryable: true, reasonCode: "new_turn_required" } });
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await screen.findByText("이번 주 훈련량이 높았습니다.");
+    await userEvent.click(screen.getByRole("button", { name: "1회 사용하고 다시 질문" }));
+    const confirmation = await screen.findByRole("dialog", { name: "새 질문으로 다시 시도" });
+    if (boundary === "switch") simulateLogin({ uid: "u2" });
+    else { simulateLogout(); if (boundary === "relogin") simulateLogin({ uid: user.uid }); }
+    await userEvent.click(within(confirmation).getByRole("button", { name: "1회 사용하고 다시 질문" }));
+    expect(mocks.ask).toHaveBeenCalledOnce();
+  });
+
+  it.each(["switch", "logout", "relogin"])("rejects consent continuation when SDK auth changes by %s", async (boundary) => {
+    mocks.policy.mockResolvedValue(inactivePolicy);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    const complete = await screen.findByTestId("complete-consent");
+    if (boundary === "switch") simulateLogin({ uid: "u2" });
+    else { simulateLogout(); if (boundary === "relogin") simulateLogin({ uid: user.uid }); }
+    await userEvent.click(complete);
+    expect(mocks.ask).not.toHaveBeenCalled();
+    expect(mocks.askP2).not.toHaveBeenCalled();
+  });
+
+  it.each(["switch", "logout"])("rejects a memory-body retry when SDK auth changes by %s", async (boundary) => {
+    mocks.ask.mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"));
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    const retry = await screen.findByRole("button", { name: "같은 요청 다시 확인" });
+    if (boundary === "switch") simulateLogin({ uid: "u2" }); else simulateLogout();
+    await userEvent.click(retry);
+    expect(mocks.ask).toHaveBeenCalledOnce();
+  });
+
+  it("releases stale same-owner admission so an intentional new submit can proceed", async () => {
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    let finish!: (value: typeof activePolicy) => void;
+    mocks.policy.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    simulateLogout(); simulateLogin({ uid: user.uid });
+    await act(async () => finish(activePolicy));
+    expect(mocks.ask).not.toHaveBeenCalled();
+    mocks.ask.mockResolvedValue(answer);
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "새 세션의 운동을 요약해줘");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledOnce());
+  });
+
+  it.each(["response", "error"])("discards deferred ask %s after same-owner SDK relogin", async (outcome) => {
+    let resolve!: (value: typeof answer) => void;
+    let reject!: (value: Error) => void;
+    mocks.ask.mockImplementationOnce(() => new Promise((done, fail) => { resolve = done; reject = fail; }));
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    act(() => { simulateLogout(); simulateLogin({ uid: user.uid }); });
+    await act(async () => { if (outcome === "response") resolve(answer); else reject(new CoachClientError("transport", "NETWORK_ERROR")); });
+    expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).toBeNull();
+    expect(mocks.analytics.complete).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+  });
+
+  it("discards deferred P2 quota refresh after same-owner SDK relogin", async () => {
+    let finish!: (value: { status: string; quota: typeof quota }) => void;
+    mocks.capabilities.mockResolvedValue(p2Capabilities);
+    mocks.status.mockResolvedValueOnce({ status: "available", quota }).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(finish).toBeDefined());
+    act(() => { simulateLogout(); simulateLogin({ uid: user.uid }); });
+    await act(async () => finish({ status: "available", quota: { ...quota, remaining: 0 } }));
+    expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).toBeNull();
+    expect(mocks.analytics.limitSeen).not.toHaveBeenCalled();
+  });
+
+  it("admits only one submit while policy is unresolved", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    let finish!: (value: typeof activePolicy) => void;
+    mocks.policy.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const button = screen.getByRole("button", { name: "질문하기" });
+    fireEvent.click(button); fireEvent.click(button);
+    expect(mocks.policy).toHaveBeenCalledTimes(2);
+    mocks.ask.mockResolvedValue(answer);
+    await act(async () => finish(activePolicy));
+    expect(mocks.ask).toHaveBeenCalledOnce();
+  });
+
   it("single-flights rapid submit and resumes consent with exactly the same memory-only requestId", async () => {
     mocks.policy.mockResolvedValue(inactivePolicy);
     mocks.ask.mockResolvedValue(answer);
@@ -773,6 +924,21 @@ describe("CoachQuestionLauncher", () => {
     expect(mocks.ask.mock.calls[0]?.[0].requestId).toBe(mocks.ask.mock.calls[1]?.[0].requestId);
     expect(mocks.ask.mock.calls.map((call) => call[0].responseFormat)).toEqual(["auto", "auto"]);
     expect(mocks.analytics.submit).toHaveBeenCalledOnce();
+  });
+
+  it("discards a confirmed paid retry after the launcher session closes", async () => {
+    mocks.ask.mockResolvedValue({ ...answer,
+      retry: { ...answer.retry, mode: "new_request_required", quotaImpact: "one_new_turn", retryable: true, reasonCode: "new_turn_required" } });
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await screen.findByText("이번 주 훈련량이 높았습니다.");
+    await userEvent.click(screen.getByRole("button", { name: "1회 사용하고 다시 질문" }));
+    const confirmation = await screen.findByRole("dialog", { name: "새 질문으로 다시 시도" });
+    act(() => window.dispatchEvent(new CustomEvent("orider:coach-consent-revoked")));
+    await userEvent.click(within(confirmation).getByRole("button", { name: "1회 사용하고 다시 질문" }));
+    expect(mocks.ask).toHaveBeenCalledOnce();
   });
 
   it("creates a new requestId only after confirming one additional turn", async () => {
@@ -1056,6 +1222,25 @@ describe("CoachQuestionLauncher", () => {
     await waitFor(() => expect(mocks.ask).toHaveBeenCalledTimes(2));
     expect(mocks.ask.mock.calls[1]?.[0]).toEqual({ requestId: childId, parentRequestId: parentId,
       turnToken: clarification.clarification.turnToken, optionId: "this_week", apiVersion: "v2", schemaVersion: "coach-respond-v2", capabilityVersion: "p1" });
+  });
+
+  it("discards a confirmed new-turn clarification after a consent reset", async () => {
+    const clarification = { ...p1Base, requestId: answer.requestId, outcome: "clarification_required",
+      clarification: { clarificationId: "clarify_reset", promptKey: "coach.clarification.time_range",
+        options: [{ optionId: "last_week", labelKey: "coach.clarification.last_week" }], turnToken: "",
+        expiresAt: "2099-07-19T15:00:00Z", resolutionMode: "new_turn_required", consumesQuota: false,
+        providerCalls: 0, reasonCode: "time_range_required" } };
+    mocks.ask.mockResolvedValueOnce(clarification);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(await screen.findByRole("radio", { name: "지난주" }));
+    await userEvent.click(screen.getByRole("button", { name: "이 조건으로 계속" }));
+    const confirmation = await screen.findByRole("dialog", { name: "새 질문으로 다시 시도" });
+    act(() => window.dispatchEvent(new CustomEvent("orider:coach-consent-revoked")));
+    await userEvent.click(within(confirmation).getByRole("button", { name: "1회 사용하고 다시 질문" }));
+    expect(mocks.ask).toHaveBeenCalledOnce();
   });
 
   it("requires confirmation before a new-turn clarification and sends a new natural-language request", async () => {

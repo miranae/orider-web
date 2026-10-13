@@ -679,6 +679,7 @@ export default function PlanPresentation({
       canPrevWeek: mobilePlanViewModel.canPrevWeek,
       canNextWeek: mobilePlanViewModel.canNextWeek,
       goalTitle: goal?.title ?? goal?.courseName,
+      goalDiscipline: goal?.discipline,
       daysLeft,
       progressPct: progress,
       completedTSS,

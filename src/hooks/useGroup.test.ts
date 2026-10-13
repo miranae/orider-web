@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { getDocs, limit, orderBy, query, where } from "firebase/firestore";
+import { getDocs, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicUserProfile } from "../services/publicProfiles";
 import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
@@ -330,5 +330,37 @@ describe("group list hooks", () => {
     expect(directoryFilterOrder).toBeLessThan(vi.mocked(limit).mock.invocationCallOrder.at(-1)!);
     expect(cityFilterOrder).toBeLessThan(vi.mocked(limit).mock.invocationCallOrder.at(-1)!);
     expect(query).toHaveBeenCalled();
+  });
+});
+
+
+describe("membership access changes", () => {
+  it("resubscribes a denied group document when membership is approved", async () => {
+    setDocData("groups/approval", { name: "Approved group", isActive: true });
+    vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
+      const onError = args[2];
+      if (typeof onError === "function") onError(Object.assign(new Error("denied"), { code: "permission-denied" }));
+      return () => {};
+    });
+    const { result, rerender } = renderHook(({ accessKey }) => useGroup("approval", accessKey), { initialProps: { accessKey: "user:" } });
+    await waitFor(() => expect(result.current.error).toBeTruthy());
+    rerender({ accessKey: "user:member" });
+    await waitFor(() => expect(result.current.group?.name).toBe("Approved group"));
+    expect(result.current.error).toBeNull();
+  });
+
+  it("resubscribes the denied member list after approval", async () => {
+    vi.mocked(getPublicUserProfile).mockResolvedValue(profile("approved"));
+    setCollectionDocs("groups/approval/members", [{ id: "approved", role: "member" }]);
+    vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
+      const onError = args[2];
+      if (typeof onError === "function") onError(new Error("denied"));
+      return () => {};
+    });
+    const { result, rerender } = renderHook(({ accessKey }) => useGroupMembers("approval", 8, accessKey), { initialProps: { accessKey: "user:" } });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.members).toEqual([]);
+    rerender({ accessKey: "user:member" });
+    await waitFor(() => expect(result.current.members.map(member => member.id)).toEqual(["approved"]));
   });
 });

@@ -17,7 +17,7 @@
  */
 import type { Auth } from "firebase/auth";
 
-import { auth, ensureAppCheckReady } from "./firebase";
+import { auth, ensureAppCheckReady, getAppCheckToken } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 import {
   CANONICAL_SCHEMA_VERSION,
@@ -79,11 +79,13 @@ function failedEnvelope<T>(code: string, message: string): CanonicalEnvelope<T> 
 export interface CanonicalApiFirebaseServices {
   auth: Auth;
   ensureAppCheckReady: (forceRefresh?: boolean) => Promise<void>;
+  getAppCheckToken: (forceRefresh?: boolean) => Promise<string | null>;
 }
 
 const singletonCanonicalApiServices: CanonicalApiFirebaseServices = {
   get auth() { return auth; },
   ensureAppCheckReady,
+  getAppCheckToken,
 };
 
 async function fetchCanonical<T>(
@@ -92,6 +94,7 @@ async function fetchCanonical<T>(
   expectedUid?: string,
 ): Promise<CanonicalEnvelope<T>> {
   const requestUser = services.auth.currentUser;
+  const requestUid = requestUser?.uid;
   if (expectedUid !== undefined && requestUser?.uid !== expectedUid) {
     return failedEnvelope<T>("auth_changed", "로그인 계정이 변경되었습니다");
   }
@@ -104,32 +107,44 @@ async function fetchCanonical<T>(
       error: { code: "unauthenticated", message: "로그인이 필요합니다", retryable: false },
     };
   }
+  let appCheckToken: string | null;
+  const config = getRuntimeConfig();
+  const apiBase = (config.personalApiBase || "").replace(/\/$/, "");
+  const protectedStageApi = config.appEnvironment === "stage" && apiBase === "https://qapersonalapi-ldfyfyx5da-du.a.run.app";
   try {
     // 임베드에서는 별도 Firebase app/App Check 인스턴스를 쓴다. 해당 provider 의 준비 함수를
     // 거쳐야 뒤이은 인증 API 호출이 전역 앱과 섞이지 않는다.
     await services.ensureAppCheckReady();
+    appCheckToken = protectedStageApi ? await services.getAppCheckToken() : null;
+    if (protectedStageApi && !appCheckToken) throw new Error("app-check/empty-token");
   } catch {
     return failedEnvelope<T>("app_check_failed", "요청 보안 확인에 실패했습니다");
   }
-  const apiBase = (getRuntimeConfig().personalApiBase || "").replace(/\/$/, "");
+  if (services.auth.currentUser?.uid !== requestUid) {
+    return failedEnvelope<T>("auth_changed", "로그인 계정이 변경되었습니다");
+  }
   let response: Response;
   try {
     response = await fetch(`${apiBase}/api/v1${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, ...(appCheckToken ? { "X-Firebase-AppCheck": appCheckToken } : {}) },
     });
   } catch {
     return failedEnvelope<T>("network_failed", "네트워크에 연결할 수 없습니다");
   }
   // 토큰을 받은 계정과 응답을 소비하는 계정이 같아야 한다. A 요청이 진행 중일 때 B로
   // 전환되면 A의 payload를 hook state에 한 번이라도 넣지 않는다.
-  if (expectedUid !== undefined && services.auth.currentUser?.uid !== expectedUid) {
+  if (services.auth.currentUser?.uid !== requestUid) {
     return failedEnvelope<T>("auth_changed", "로그인 계정이 변경되었습니다");
   }
   if (!response.ok) {
     return failedEnvelope<T>(`http_${response.status}`, `서버 응답 ${response.status}`);
   }
   try {
-    return (await response.json()) as CanonicalEnvelope<T>;
+    const envelope = (await response.json()) as CanonicalEnvelope<T>;
+    if (services.auth.currentUser?.uid !== requestUid) {
+      return failedEnvelope<T>("auth_changed", "로그인 계정이 변경되었습니다");
+    }
+    return envelope;
   } catch {
     return failedEnvelope<T>("parse_failed", "서버 응답을 읽을 수 없습니다");
   }

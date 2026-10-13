@@ -1,12 +1,14 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { doc, getDoc, collection, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import { firestore, functions } from "../../services/firebase";
+import { auth, firestore, functions, getAppCheckToken } from "../../services/firebase";
+import { getEventPublicParticipants, publicParticipantTimestampMs } from "../../services/eventPublicParticipants";
 import { logClientError } from "../../services/errorLogger";
 import { getPublicUserProfile } from "../../services/publicProfiles";
 import { useAuth } from "../../contexts/AuthContext";
@@ -40,13 +42,24 @@ import { cancelEventRegistration } from "../../features/event/detail/cancelRegis
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 import { buildEventIcs, downloadIcsFile, icsFileName } from "../../features/event/detail/generateIcs";
 import { createEventShareImage, shareEventImage } from "../../features/event/share/eventShareCard";
-import { getRuntimeConfig } from "../../services/runtimeConfig";
+import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
 import { buildEventFollowPayload, followerExists } from "../../features/event/detail/eventFollow";
 import { useGroup } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 
 /** 이보다 트랙에서 멀리 떨어진 웨이포인트는 프로필·지도에 찍지 않는다(m). */
 const OFF_TRACK_LIMIT_M = 2_000;
+
+export function eventTypeLabelKey(type: string): string | null {
+  switch (type) {
+    case "GRANFONDO": return "type.granfondo";
+    case "TOUR": return "type.tour";
+    case "TT": return "type.timetrail";
+    case "TRAINING": return "type.training";
+    case "GROUP_RIDE": return "type.groupRide";
+    default: return null;
+  }
+}
 
 export function shouldShowHostGroupCard(
   groupId: string | undefined,
@@ -78,14 +91,26 @@ export default function EventDetailPage() {
   ) as Record<WpLane, { label: string; color: string; icon: string }>;
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isParticipant, setIsParticipant] = useState(false);
+  const [isParticipant, setIsParticipant] = useState<boolean | null>(null);
   const [isHost, setIsHost] = useState(false);
-  const [participantCount, setParticipantCount] = useState(0);
+  const [canCancelRegistration, setCanCancelRegistration] = useState(false);
+  const [participantCount, setParticipantCount] = useState<number | null>(null);
   const [starting, setStarting] = useState(false);
+  const startGeneration = useRef(0);
+  const startMounted = useRef(false);
+  const pendingStart = useRef<{ uid: string; eventId: string; generation: number; sdkUser: User | null } | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
+  const cancelBusy = useRef(false);
+  const pendingCancel = useRef<object | null>(null);
+  const participantContext = useRef({ eventId, uid: user?.uid });
+  if (participantContext.current.eventId !== eventId || participantContext.current.uid !== user?.uid) {
+    participantContext.current = { eventId, uid: user?.uid };
+    startGeneration.current += 1;
+  }
   const [sending, setSending] = useState(false);
   const [showStartConfirm, setShowStartConfirm] = useState(false);
   const [recentParticipants, setRecentParticipants] = useState<RecentParticipant[]>([]);
+  const [recentParticipantsUnavailable, setRecentParticipantsUnavailable] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [followingEvent, setFollowingEvent] = useState(false);
   const [followPending, setFollowPending] = useState(false);
@@ -98,6 +123,32 @@ export default function EventDetailPage() {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   }, []);
+
+  useEffect(() => {
+    startMounted.current = true;
+    let observedUser = auth.currentUser;
+    const unsubscribe = onAuthStateChanged(auth, next => {
+      if (next !== observedUser) {
+        observedUser = next;
+        startGeneration.current += 1;
+        pendingStart.current = null;
+        setStarting(false);
+        pendingCancel.current = null; cancelBusy.current = false; setWithdrawing(false);
+      }
+    });
+    return () => {
+      startMounted.current = false;
+      startGeneration.current += 1;
+      pendingStart.current = null;
+      pendingCancel.current = null; cancelBusy.current = false;
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    pendingStart.current = null;
+    setStarting(false);
+  }, [eventId, user?.uid]);
 
   useEffect(() => {
     if (groupError) logClientError("EventDetailPage.loadHostGroup", groupError, { eventId, groupId });
@@ -122,42 +173,64 @@ export default function EventDetailPage() {
   }, [eventId, user]);
 
   const handleStartEvent = useCallback(async () => {
-    if (!eventId || !event) return;
+    if (!eventId || !event || !user || starting || pendingStart.current || auth.currentUser?.uid !== user.uid) return;
+    const context = { uid: user.uid, eventId, generation: startGeneration.current, sdkUser: auth.currentUser };
+    const currentStart = () => startMounted.current && pendingStart.current === context
+      && startGeneration.current === context.generation && participantContext.current.eventId === context.eventId
+      && participantContext.current.uid === context.uid && auth.currentUser?.uid === context.uid
+      && auth.currentUser === context.sdkUser;
+    pendingStart.current = context;
     setShowStartConfirm(false);
     setStarting(true);
     try {
+      const token = await getAppCheckToken();
+      if (!token && !isEmulatorRuntime()) throw new Error("app-check/empty-token");
+      if (!currentStart()) return;
       const startEvent = httpsCallable(functions, "startEvent");
       await startEvent({ eventId });
-      navigate(`/event/${eventId}/dashboard`);
+      if (currentStart()) navigate(`/event/${eventId}/dashboard`);
     } catch (err: unknown) {
+      if (!currentStart()) return;
       logClientError("EventDetailPage.startEvent", err, { eventId });
       const fbErr = err as { code?: string };
       const msg = fbErr?.code === "functions/failed-precondition"
         ? t("detail.error.alreadyStarted")
         : t("detail.error.startFailed");
       showToast(msg);
-      setStarting(false);
+    } finally {
+      if (pendingStart.current === context) {
+        pendingStart.current = null;
+        if (startMounted.current && startGeneration.current === context.generation) setStarting(false);
+      }
     }
-  }, [eventId, event, navigate, showToast, t]);
+  }, [eventId, event, navigate, showToast, starting, t, user]);
 
   const handleCancelRegistration = useCallback(async () => {
-    if (!eventId || !user || withdrawing) return;
-    if (!(await dialog.confirm(t("detail.confirm.cancelRegistration"), {
-      destructive: true,
-      confirmLabel: t("detail.button.cancelRegistration"),
-    }))) return;
-
+    if (!eventId || !user || cancelBusy.current || !canCancelRegistration) return;
+    const context = participantContext.current;
+    const sdkUser = auth.currentUser;
+    const operation = {};
+    const isCurrent = () => startMounted.current && pendingCancel.current === operation
+      && participantContext.current === context && auth.currentUser?.uid === context.uid && auth.currentUser === sdkUser;
+    pendingCancel.current = operation;
+    if (!isCurrent()) return;
+    cancelBusy.current = true;
     setWithdrawing(true);
     try {
+      if (!(await dialog.confirm(t("detail.confirm.cancelRegistration"), {
+        destructive: true,
+        confirmLabel: t("detail.button.cancelRegistration"),
+      })) || !isCurrent()) return;
       await cancelEventRegistration(eventId);
+      if (!isCurrent()) return;
       setIsParticipant(false);
-      // `withdrawing` prevents duplicate requests; a successful server transaction
-      // therefore decrements this optimistic count exactly once.
-      setParticipantCount((count) => Math.max(0, count - 1));
+      setCanCancelRegistration(false);
+      setParticipantCount((count) => count == null ? null : Math.max(0, count - 1));
       setRecentParticipants((items) => items.filter((participant) => participant.uid !== user.uid));
       showToast(t("detail.toast.registrationCancelled"));
     } catch (err) {
       logClientError("EventDetailPage.cancelRegistration", err, { eventId });
+      if (!isCurrent()) return;
       const code = (err as { code?: string } | null)?.code;
       void dialog.alert(
         code === "functions/failed-precondition"
@@ -166,9 +239,12 @@ export default function EventDetailPage() {
         { variant: "danger" },
       );
     } finally {
-      setWithdrawing(false);
+      if (pendingCancel.current === operation) {
+        pendingCancel.current = null; cancelBusy.current = false;
+        if (startMounted.current) setWithdrawing(false);
+      }
     }
-  }, [dialog, eventId, showToast, t, user, withdrawing]);
+  }, [dialog, eventId, showToast, t, user, withdrawing, canCancelRegistration]);
 
   const handleAddToCalendar = useCallback(() => {
     if (!event) return;
@@ -199,17 +275,25 @@ export default function EventDetailPage() {
   // Fetch event data
   useEffect(() => {
     if (!eventId) return;
+    let cancelled = false;
+    setLoading(true);
+    setEvent(null);
+    setIsHost(false);
+    setParticipantCount(null);
     (async () => {
       try {
         const docRef = doc(firestore, "events", eventId);
         const docSnap = await getDoc(docRef);
-        let hostSource: Pick<EventDetail, "creatorId" | "hostIds"> | null = null;
+        if (cancelled) return;
         if (docSnap.exists()) {
           const d = docSnap.data();
           const info = d.info || {};
           const creatorId = info.creatorId || "";
           const hostIds = Array.isArray(info.hostIds) ? info.hostIds : [];
-          hostSource = { creatorId, hostIds };
+          setIsHost(isEventHost(user?.uid, { creatorId, hostIds }));
+          const totalRegistered = d.counters?.totalRegistered;
+          setParticipantCount(typeof totalRegistered === "number" && Number.isInteger(totalRegistered) && totalRegistered >= 0
+            ? totalRegistered : null);
           let creatorName = "";
           if (creatorId) {
             try {
@@ -219,6 +303,7 @@ export default function EventDetailPage() {
               creatorName = "";
             }
           }
+          if (cancelled) return;
           setEvent({
             id: docSnap.id,
             name: info.name || t("noName"),
@@ -245,23 +330,30 @@ export default function EventDetailPage() {
             bibStartTime: typeof info.bibStartTime === "string" ? info.bibStartTime : undefined,
           });
         }
-        const participantsSnap = await getDocs(collection(firestore, `events/${eventId}/participants`));
-        setParticipantCount(participantsSnap.size);
-        if (user) {
-          const myDoc = participantsSnap.docs.find((d) => d.id === user.uid);
-          const participantRole = typeof myDoc?.data()?.role === "string" ? myDoc.data().role : null;
-          setIsParticipant(!!myDoc);
-          setIsHost(isEventHost(user.uid, hostSource, participantRole));
-        } else {
-          setIsParticipant(false);
-          setIsHost(false);
-        }
       } catch (err) {
         logClientError("EventDetailPage.loadEvent", err, { eventId });
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => { cancelled = true; };
+  }, [eventId, user]);
+
+  // 자기 문서 GET은 비공개 목록 조회와 독립적이다. 조회 실패를 미등록으로 표시하지 않는다.
+  useEffect(() => {
+    let cancelled = false;
+    setIsParticipant(user ? null : false);
+    setCanCancelRegistration(false);
+    if (!eventId || !user) return;
+    void getDoc(doc(firestore, "events", eventId, "participants", user.uid)).then((snapshot) => {
+      if (cancelled) return;
+      const own = snapshot.data();
+      setIsParticipant(snapshot.exists() && !["CANCELLED", "REFUNDED"].includes(own?.status));
+      setCanCancelRegistration(snapshot.exists() && own?.status === "REGISTERED" && own?.role === "RIDER");
+    }).catch((err) => {
+      logClientError("EventDetailPage.loadOwnParticipant", err, { eventId });
+    });
+    return () => { cancelled = true; };
   }, [eventId, user]);
 
   // Fetch GPX and parse course data
@@ -324,43 +416,35 @@ export default function EventDetailPage() {
 
   // Fetch top 5 recent participants with denormalized nicknames
   useEffect(() => {
-    if (!eventId) return;
+    if (!eventId || !event?.type) return;
     let cancelled = false;
+    setRecentParticipants([]);
+    setRecentParticipantsUnavailable(event.type === "GROUP_RIDE");
+    if (event.type === "GROUP_RIDE") return;
+    const owner = auth.currentUser?.uid;
     (async () => {
       try {
-        const q = query(
-          collection(firestore, `events/${eventId}/participants`),
-          orderBy("joinedAt", "desc"),
-          limit(5)
-        );
-        const snap = await getDocs(q);
-        const items: RecentParticipant[] = [];
-        for (const d of snap.docs) {
-          const data = d.data() as { userId?: string; category?: string | null; joinedAt?: { _seconds?: number; seconds?: number } | number };
-          const uid = data.userId || d.id;
-          const ts = data.joinedAt;
-          const joinedAt =
-            typeof ts === "number"
-              ? ts
-              : ts && typeof ts === "object"
-                ? ((ts as { _seconds?: number; seconds?: number })._seconds ?? (ts as { _seconds?: number; seconds?: number }).seconds ?? 0) * 1000
-                : 0;
-          let nickname = t("detail.defaultNickname");
+        const { participants } = await getEventPublicParticipants(eventId);
+        const recent = participants.map((data): RecentParticipant => {
+          const joinedAt = publicParticipantTimestampMs(data.joinedAt) ?? 0;
+          return { uid: data.userId, nickname: data.displayName || t("detail.defaultNickname"),
+            category: data.category ?? null, joinedAt };
+        }).sort((a, b) => b.joinedAt - a.joinedAt).slice(0, 5);
+        if (cancelled || auth.currentUser?.uid !== owner) return;
+        const items = await Promise.all(recent.map(async (participant) => {
           try {
-            const profile = await getPublicUserProfile(uid);
-            nickname = profile?.nickname ?? t("detail.defaultNickname");
-          } catch {
-            // ignore
-          }
-          items.push({ uid, nickname, category: data.category ?? null, joinedAt });
-        }
-        if (!cancelled) setRecentParticipants(items);
+            const profile = await getPublicUserProfile(participant.uid);
+            return { ...participant, nickname: profile?.nickname ?? participant.nickname };
+          } catch { return participant; }
+        }));
+        if (!cancelled && auth.currentUser?.uid === owner) setRecentParticipants(items);
       } catch (err) {
+        if (!cancelled && auth.currentUser?.uid === owner) setRecentParticipantsUnavailable(true);
         logClientError("EventDetailPage.loadRecentParticipants", err, { eventId });
       }
     })();
     return () => { cancelled = true; };
-  }, [eventId]);
+  }, [eventId, event?.type, user?.uid, t]);
 
   const handleSendCourseToParticipants = async (course: Course) => {
     if (!user || sending) return;
@@ -470,6 +554,7 @@ export default function EventDetailPage() {
   }
 
   const isGranFondo = event.type === "GRANFONDO";
+  const typeLabelKey = eventTypeLabelKey(event.type);
   const courses = event.courses || [];
 
   const activeWpIdx = hoveredWpIdx ?? selectedWpIdx;
@@ -494,7 +579,7 @@ export default function EventDetailPage() {
     }
   })();
 
-  const fillPct = event.maxParticipants
+  const fillPct = event.maxParticipants && participantCount != null
     ? Math.min(100, Math.round((participantCount / event.maxParticipants) * 100))
     : null;
   const activeGroupId = shouldShowHostGroupCard(groupId, group?.id, groupLoading, groupInactive, !!groupError) ? groupId : undefined;
@@ -527,7 +612,7 @@ export default function EventDetailPage() {
             {/* 칩 행 */}
             <div className="flex flex-wrap" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-2)" }}>
               <Chip style={{ fontSize: "var(--fs-xs)", color: "var(--amber)", display: "inline-flex", alignItems: "center", gap: 'var(--space-1)' }}>
-                <span aria-hidden="true">🏔️</span> {isGranFondo ? t("type.granfondo") : t("type.tour")}
+                <span aria-hidden="true">🏔️</span> {typeLabelKey ? t(typeLabelKey) : event.type}
               </Chip>
               <Chip
                 style={{
@@ -577,7 +662,8 @@ export default function EventDetailPage() {
                 <Button type="button" variant="secondary" size="sm" onClick={handleAddToCalendar}>
                   📅 {t("detail.button.addToCalendar")}
                 </Button>
-                {event.status === "OPEN" && !isParticipant && isRegistrationTimeOpen(event.startTime, event.closeAt) && (
+                {user && isParticipant == null && <Text variant="unit">{t("detail.registrationStateUnknown")}</Text>}
+                {event.status === "OPEN" && isParticipant === false && isRegistrationTimeOpen(event.startTime, event.closeAt) && (
                   <><Button type="button" variant="secondary" size="sm" disabled={followPending || followLoading} onClick={async () => {
                     if (!user || !eventId) { navigate("/login"); return; }
                     const next = !followingEvent;
@@ -607,7 +693,7 @@ export default function EventDetailPage() {
                     }
                   }}>🖼️ {t("shareCard.registration")}</Button><Button
                     type="button" variant="secondary" size="sm"
-                    disabled={withdrawing}
+                    disabled={withdrawing || !canCancelRegistration}
                     onClick={() => { void handleCancelRegistration(); }}
                     style={{ color: "var(--amber)", borderColor: "color-mix(in oklch, var(--amber) 40%, transparent)" }}
                   >
@@ -658,7 +744,7 @@ export default function EventDetailPage() {
                 [t("label.totalDistance"), courseData ? (courseData.distance / 1000).toFixed(1) : "—", "km"],
                 [t("label.totalElevation"), courseData ? Math.round(courseData.elevationGain).toString() : "—", "m"],
                 [t("label.maxElevation"), courseData ? Math.round(courseData.maxElevation).toString() : "—", "m"],
-                [t("participants"), event.maxParticipants ? `${participantCount}/${event.maxParticipants}` : `${participantCount}`, t("detail.unit.person")],
+                [t("participants"), participantCount == null ? "—" : event.maxParticipants ? `${participantCount}/${event.maxParticipants}` : `${participantCount}`, t("detail.unit.person")],
                 [t("label.fillRate"), fillPct != null ? fillPct.toString() : "—", "%"],
               ].map(([k, v, u]) => (
                 <div key={k} style={{ padding: "14px 16px", background: "var(--bg-1)" }}>
@@ -964,7 +1050,7 @@ export default function EventDetailPage() {
           <Card padding="none" style={{ padding: "var(--space-4)" }}>
             <h2 className="text-[length:var(--fs-sm)] font-semibold mb-2" style={{ color: "var(--ink-1)" }}>{t("label.recruitmentStatus")}</h2>
             <div className="flex items-baseline" style={{ gap: "var(--space-1-5)" }}>
-              <span style={{ fontSize: "var(--fs-3xl)", fontWeight: 600, color: "var(--ink-0)" }}>{participantCount}</span>
+              <span style={{ fontSize: "var(--fs-3xl)", fontWeight: 600, color: "var(--ink-0)" }}>{participantCount ?? "—"}</span>
               {event.maxParticipants ? (
                 <Text variant="unit" style={{ color: "var(--ink-3)" }}>/ {event.maxParticipants}{t("detail.unit.person")}</Text>
               ) : (
@@ -983,7 +1069,7 @@ export default function EventDetailPage() {
                   />
                 </div>
                 <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1-5)", fontFamily: "var(--font-mono)" }}>
-                  {t("label.fillRate")} {fillPct}% · {t("label.remaining")} {Math.max(0, event.maxParticipants - participantCount)}{t("detail.unit.person")}
+                  {t("label.fillRate")} {fillPct}% · {t("label.remaining")} {Math.max(0, event.maxParticipants - (participantCount ?? 0))}{t("detail.unit.person")}
                 </div>
               </>
             )}
@@ -1030,7 +1116,9 @@ export default function EventDetailPage() {
                 {t("action.viewAll")}
               </button>
             </div>
-            {recentParticipants.length === 0 ? (
+            {recentParticipantsUnavailable ? (
+              <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("detail.participantsUnavailable")}</p>
+            ) : recentParticipants.length === 0 ? (
               <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("empty.noParticipants")}</p>
             ) : (
               <div className="flex flex-col" style={{ gap: "var(--space-2)" }}>
@@ -1152,7 +1240,7 @@ export default function EventDetailPage() {
                   {t("confirm.startEvent")}
                 </div>
                 <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", lineHeight: 1.5 }}>
-                  {t("detail.confirm.startEventWithCount", { count: participantCount })}
+                  {participantCount == null ? t("confirm.startEventDesc") : t("detail.confirm.startEventWithCount", { count: participantCount })}
                 </div>
               </div>
             </div>

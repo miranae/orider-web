@@ -160,7 +160,7 @@ function RiderCard({
   const pct = totalDistKm > 0 ? Math.min(100, (distKm / totalDistKm) * 100) : 0;
   const initial = loc.displayName?.charAt(0) ?? "?";
   const statusText =
-    loc.status === "FINISHED" ? t("liveView.finished") :
+    loc.status === "FINISHED" ? t("liveView.resultPending") :
     loc.status === "DNF" ? "DNF" :
     loc.status === "SOS" ? "SOS" :
     t("liveView.riding");
@@ -198,7 +198,7 @@ function RiderCard({
         <div style={{ textAlign: "right", flexShrink: 0 }}>
           <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", letterSpacing: "0.05em" }}>{t("liveView.rankLabel")}</div>
           <div style={{ fontSize: "var(--fs-xl)", fontFamily: "var(--font-mono)", color, fontWeight: 600 }}>
-            {loc.overallRank ?? "—"}
+            {loc.status === "FINISHED" ? "—" : loc.overallRank ?? "—"}
           </div>
         </div>
         <Button
@@ -501,8 +501,7 @@ export default function EventLivePage() {
               bib: loc.bib,
               name: loc.displayName,
               color: colorFor(loc.bib),
-              message: t("liveView.highlight.finished", { name: loc.displayName }),
-              sub: loc.overallRank ? t("liveView.highlight.overallRank", { rank: loc.overallRank }) : undefined,
+              message: t("liveView.highlight.resultPending", { name: loc.displayName }),
             });
           } else if (loc.status === "DNF") {
             newHighlights.push({
@@ -859,7 +858,7 @@ export default function EventLivePage() {
                 )}
               </div>
               <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-0-5)", fontFamily: "var(--font-mono)" }}>
-                {searchedParticipant.overallRank != null ? `${t("liveView.highlight.overallRank", { rank: searchedParticipant.overallRank })} · ` : ""}
+                {searchedParticipant.status !== "FINISHED" && searchedParticipant.overallRank != null ? `${t("liveView.highlight.overallRank", { rank: searchedParticipant.overallRank })} · ` : ""}
                 CP{searchedParticipant.lastCp ?? 0} · {(searchedParticipant.distance / 1000).toFixed(1)}km · {searchedParticipant.speed.toFixed(1)}km/h
               </div>
             </div>

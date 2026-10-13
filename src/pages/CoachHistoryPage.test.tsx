@@ -1,12 +1,14 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CoachHistoryPage from "./CoachHistoryPage";
+import type { CoachConsentPolicy } from "../services/coachConsentClient";
 
 const mocks = vi.hoisted(() => ({
   list: vi.fn(), detail: vi.fn(), more: vi.fn(), remove: vi.fn(), removeAll: vi.fn(), status: vi.fn(), policy: vi.fn(),
   navigate: vi.fn(), confirm: vi.fn(), signIn: vi.fn(), user: { uid: "u1" } as { uid: string } | null,
+  consentCallbacks: [] as Array<{ onCancel: () => void; onConsented: (saved: CoachConsentPolicy) => void }>,
 }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({
   user: mocks.user, profile: { primaryDiscipline: "run" }, signInWithGoogle: mocks.signIn,
@@ -22,7 +24,13 @@ vi.mock("../services/coachHistoryClient", () => ({
 vi.mock("../services/coachClient", () => ({ getCoachStatus: () => mocks.status() }));
 vi.mock("../services/coachConsentClient", () => ({ getCoachConsentPolicy: () => mocks.policy() }));
 vi.mock("../features/coach/CoachAnswerDocument", () => ({ CoachAnswerDocumentView: ({ response }: { response: { requestId: string } }) => <div>answer {response.requestId}</div> }));
-vi.mock("../features/coach/FirstUseCoachConsent", () => ({ FirstUseCoachConsent: () => null }));
+vi.mock("../features/coach/FirstUseCoachConsent", () => ({ FirstUseCoachConsent: ({ open, onCancel, onConsented }: {
+  open: boolean; onCancel: () => void; onConsented: (saved: CoachConsentPolicy) => void,
+}) => {
+  if (!open) return null;
+  mocks.consentCallbacks.push({ onCancel, onConsented });
+  return <button onClick={onCancel} data-testid="consent-open">consent-cancel-test</button>;
+} }));
 
 const threadId = "123e4567-e89b-42d3-a456-426614174000";
 const requestId = "223e4567-e89b-42d3-a456-426614174001";
@@ -42,13 +50,15 @@ function setup(route = "/ko/coach") {
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => { resolve = done; });
-  return { promise, resolve };
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
+  return { promise, resolve, reject };
 }
 
 describe("CoachHistoryPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.consentCallbacks = [];
     mocks.user = { uid: "u1" };
     mocks.list.mockResolvedValue({ threads: [summary], nextCursor: null });
     mocks.status.mockResolvedValue({ quota: { limit: 3, remaining: 3, resetAt: "2026-07-20T00:00:00Z", timezone: "Asia/Seoul" } });
@@ -86,7 +96,7 @@ describe("CoachHistoryPage", () => {
     const followUpId = "323e4567-e89b-42d3-a456-426614174002";
     const canonicalPage = { thread: { ...summary, turnCount: 3, revision: 3, updatedAt: "2026-07-19T03:00:00Z", turns: [
       ...originalPage.thread.turns, { turnId: followUpId, requestId: followUpId, question: "지난주와 비교해줘",
-        createdAt: "2026-07-19T03:00:00Z", response: { ...response, requestId: followUpId }, sessionRevision: 3 },
+        createdAt: "2026-07-19T03:00:00Z", response: { ...response, requestId: followUpId, outcome: "answer" }, sessionRevision: 3 },
     ] }, nextCursor: null };
     mocks.detail.mockReset().mockResolvedValueOnce(originalPage).mockResolvedValueOnce(canonicalPage);
     setup(`/ko/coach/${threadId}`);
@@ -108,6 +118,152 @@ describe("CoachHistoryPage", () => {
     expect(original.compareDocumentPosition(appended) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("status")).toHaveTextContent("답변을 저장하고 최신 대화를 불러왔습니다.");
     expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
+  });
+
+  it("admits only one follow-up while consent policy lookup is pending", async () => {
+    const followUpId = "323e4567-e89b-42d3-a456-426614174002";
+    const randomUUID = vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
+    const policy = deferred<Awaited<ReturnType<typeof mocks.policy>>>();
+    const followUp = deferred<typeof response>();
+    mocks.policy.mockReturnValue(policy.promise);
+    mocks.more.mockReturnValue(followUp.promise);
+    setup(`/ko/coach/${threadId}`);
+    await screen.findByText(`answer ${requestId}`);
+    await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
+    const button = screen.getByRole("button", { name: "이어 묻기" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(randomUUID).toHaveBeenCalledTimes(1);
+    expect(mocks.policy).toHaveBeenCalledTimes(1);
+    expect(mocks.more).not.toHaveBeenCalled();
+
+    policy.resolve({ policyVersion: "v1", consent: { active: true, current: true, revoked: false,
+      currentPolicyVersion: "v1", storedPolicyVersion: "v1" } });
+    await waitFor(() => expect(mocks.more).toHaveBeenCalledTimes(1));
+    expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({ requestId: followUpId }));
+  });
+
+  it.each(["resolved", "rejected"])("ignores a stale %s policy result after editing and admitting a new follow-up", async oldResult => {
+    const firstId = "323e4567-e89b-42d3-a456-426614174002";
+    const secondId = "423e4567-e89b-42d3-a456-426614174003";
+    vi.spyOn(crypto, "randomUUID").mockReturnValueOnce(firstId).mockReturnValueOnce(secondId);
+    const oldPolicy = deferred<Awaited<ReturnType<typeof mocks.policy>>>();
+    const newPolicy = deferred<Awaited<ReturnType<typeof mocks.policy>>>();
+    mocks.policy.mockReturnValueOnce(oldPolicy.promise).mockReturnValueOnce(newPolicy.promise);
+    mocks.more.mockReturnValue(deferred<typeof response>().promise);
+    setup(`/ko/coach/${threadId}`);
+    await screen.findByText(`answer ${requestId}`);
+    const editor = screen.getByLabelText("이 대화에서 이어 묻기");
+    await userEvent.type(editor, "첫 질문");
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    await userEvent.clear(editor);
+    await userEvent.type(editor, "둘째 질문");
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    expect(mocks.policy).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      if (oldResult === "resolved") oldPolicy.resolve({ policyVersion: "v1", consent: { active: false, current: false,
+        revoked: false, currentPolicyVersion: "v1", storedPolicyVersion: "v1" } });
+      else oldPolicy.reject(new Error("old policy lookup failed"));
+    });
+    expect(screen.queryByTestId("consent-open")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mocks.more).not.toHaveBeenCalled();
+
+    newPolicy.resolve({ policyVersion: "v1", consent: { active: true, current: true, revoked: false,
+      currentPolicyVersion: "v1", storedPolicyVersion: "v1" } });
+    await waitFor(() => expect(mocks.more).toHaveBeenCalledTimes(1));
+    expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({ requestId: secondId, question: "둘째 질문" }));
+    expect(screen.queryByTestId("consent-open")).not.toBeInTheDocument();
+  });
+
+  it("releases the pending request when first-use consent is cancelled", async () => {
+    const firstId = "323e4567-e89b-42d3-a456-426614174002";
+    const secondId = "423e4567-e89b-42d3-a456-426614174003";
+    vi.spyOn(crypto, "randomUUID").mockReturnValueOnce(firstId).mockReturnValueOnce(secondId);
+    mocks.policy.mockResolvedValueOnce({ policyVersion: "v1", consent: { active: false, current: false,
+      revoked: false, currentPolicyVersion: "v1", storedPolicyVersion: "v1" } }).mockResolvedValueOnce({
+      policyVersion: "v1", consent: { active: true, current: true, revoked: false,
+        currentPolicyVersion: "v1", storedPolicyVersion: "v1" },
+    });
+    mocks.more.mockReturnValue(deferred<typeof response>().promise);
+    setup(`/ko/coach/${threadId}`);
+    await screen.findByText(`answer ${requestId}`);
+    await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    await userEvent.click(await screen.findByTestId("consent-open"));
+    expect(screen.queryByTestId("consent-open")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    await waitFor(() => expect(mocks.more).toHaveBeenCalledTimes(1));
+    expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({ requestId: secondId }));
+    expect(mocks.policy).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["accepted", "cancelled"])("keeps a new consent dialog when the previous %s callback arrives late", async previous => {
+    const firstId = "323e4567-e89b-42d3-a456-426614174002";
+    const secondId = "423e4567-e89b-42d3-a456-426614174003";
+    vi.spyOn(crypto, "randomUUID").mockReturnValueOnce(firstId).mockReturnValueOnce(secondId);
+    const inactive = { policyVersion: "v1", consent: { active: false, current: false, revoked: false,
+      currentPolicyVersion: "v1", storedPolicyVersion: "v1" } } as CoachConsentPolicy;
+    const active = { ...inactive, consent: { ...inactive.consent, active: true, current: true } };
+    mocks.policy.mockResolvedValue(inactive);
+    mocks.more.mockReturnValue(deferred<typeof response>().promise);
+    setup(`/ko/coach/${threadId}`);
+    await screen.findByText(`answer ${requestId}`);
+    const editor = screen.getByLabelText("이 대화에서 이어 묻기");
+    await userEvent.type(editor, "첫 질문");
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    await screen.findByTestId("consent-open");
+    const oldCallback = mocks.consentCallbacks.at(-1)!;
+    fireEvent.change(editor, { target: { value: "둘째 질문" } });
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    await screen.findByTestId("consent-open");
+    const newCallback = mocks.consentCallbacks.at(-1)!;
+    expect(newCallback).not.toBe(oldCallback);
+
+    act(() => { if (previous === "accepted") oldCallback.onConsented(active); else oldCallback.onCancel(); });
+    expect(screen.getByTestId("consent-open")).toBeInTheDocument();
+    expect(mocks.more).not.toHaveBeenCalled();
+    act(() => newCallback.onConsented(active));
+    await waitFor(() => expect(mocks.more).toHaveBeenCalledTimes(1));
+    expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({ requestId: secondId, question: "둘째 질문" }));
+  });
+
+  it.each(["route ABA", "account switch"])("does not apply an old consent acceptance after %s", async transition => {
+    const firstId = "323e4567-e89b-42d3-a456-426614174002";
+    const secondId = "423e4567-e89b-42d3-a456-426614174003";
+    vi.spyOn(crypto, "randomUUID").mockReturnValueOnce(firstId).mockReturnValueOnce(secondId);
+    const inactive = { policyVersion: "v1", consent: { active: false, current: false, revoked: false,
+      currentPolicyVersion: "v1", storedPolicyVersion: "v1" } } as CoachConsentPolicy;
+    const active = { ...inactive, consent: { ...inactive.consent, active: true, current: true } };
+    mocks.policy.mockResolvedValue(inactive);
+    mocks.more.mockReturnValue(deferred<typeof response>().promise);
+    const view = setup(`/ko/coach/${threadId}`);
+    await screen.findByText(`answer ${requestId}`);
+    await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "첫 질문");
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    await screen.findByTestId("consent-open");
+    const oldCallback = mocks.consentCallbacks.at(-1)!;
+
+    if (transition === "route ABA") {
+      await userEvent.click(screen.getByRole("link", { name: "대화 목록으로 돌아가기" }));
+      await userEvent.click(screen.getByRole("link", { name: /이번 주 운동량/ }));
+    } else {
+      mocks.user = { uid: "u2" };
+      view.rerender(app(`/ko/coach/${threadId}`));
+    }
+    await waitFor(() => expect(mocks.detail).toHaveBeenCalledTimes(2));
+    await screen.findByText(`answer ${requestId}`);
+    await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "둘째 질문");
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    await screen.findByTestId("consent-open");
+    const newCallback = mocks.consentCallbacks.at(-1)!;
+    act(() => oldCallback.onConsented(active));
+    expect(screen.getByTestId("consent-open")).toBeInTheDocument();
+    expect(mocks.more).not.toHaveBeenCalled();
+    act(() => newCallback.onConsented(active));
+    await waitFor(() => expect(mocks.more).toHaveBeenCalledTimes(1));
+    expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({ requestId: secondId, question: "둘째 질문" }));
   });
 
   it("renders a stored P2 AnswerDocument through the existing answer renderer", async () => {
@@ -140,6 +296,27 @@ describe("CoachHistoryPage", () => {
     expect(screen.getByRole("region", { name: "대화 2 · O·RIDER 코치" })).toHaveTextContent(`answer ${requestId}`);
   });
 
+  it.each([false, true])("does not announce a saved answer for a 503 envelope without its canonical request advanced=%s", async advanced => {
+    const followUpId = "323e4567-e89b-42d3-a456-426614174002";
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
+    mocks.more.mockResolvedValue({ ...response, requestId: followUpId, outcome: "failed", httpOk: false, httpStatus: 503 });
+    const original = { thread: { ...summary, turns: [{ turnId: requestId, requestId, question: "이번 주 운동량이 어땠어?",
+      createdAt: "2026-07-19T02:00:00Z", response, sessionRevision: 2 }] }, nextCursor: null };
+    const canonical = advanced ? { ...original, thread: { ...original.thread, revision: 3, turnCount: 3 } } : original;
+    mocks.detail.mockReset().mockResolvedValueOnce(original).mockResolvedValue(canonical);
+    setup(`/ko/coach/${threadId}`);
+    await screen.findByText(`answer ${requestId}`);
+    await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    expect(await screen.findByRole("button", { name: "같은 요청 결과 다시 확인" })).toBeInTheDocument();
+    expect(screen.queryByText("답변을 저장하고 최신 대화를 불러왔습니다.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("이 대화에서 이어 묻기")).toHaveValue("지난주와 비교해줘");
+    await userEvent.click(screen.getByRole("button", { name: "같은 요청 결과 다시 확인" }));
+    await waitFor(() => expect(mocks.more).toHaveBeenCalledTimes(2));
+    expect(mocks.more.mock.calls[1]?.[1]).toEqual(mocks.more.mock.calls[0]?.[1]);
+  });
+
   it("treats a stored terminal follow-up as confirmed instead of offering a transport retry", async () => {
     const followUpId = "323e4567-e89b-42d3-a456-426614174002";
     vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
@@ -152,22 +329,25 @@ describe("CoachHistoryPage", () => {
         createdAt: "2026-07-19T03:00:00Z", response: failed, sessionRevision: 3 },
     ] }, nextCursor: null };
     mocks.detail.mockReset().mockResolvedValueOnce(originalPage).mockResolvedValueOnce(canonicalPage);
-    mocks.more.mockResolvedValue(failed);
+    mocks.more.mockResolvedValue({ ...failed, httpOk: false, httpStatus: 503 });
     setup(`/ko/coach/${threadId}`);
     await screen.findByText(`answer ${requestId}`);
     await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
     await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
     expect(await screen.findByText("답변을 완성하지 못했습니다. 표시된 일부 결과가 있다면 안전하게 확인된 범위입니다.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "같은 요청 결과 다시 확인" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("요청 결과가 대화 기록에 저장되었습니다.");
+    expect(screen.queryByText("답변을 저장하고 최신 대화를 불러왔습니다.")).not.toBeInTheDocument();
     expect(mocks.more).toHaveBeenCalledOnce();
   });
 
-  it("reloads only the thread after a confirmed follow-up cannot refresh its canonical history", async () => {
+  it("keeps the same request available when canonical confirmation cannot be loaded", async () => {
     const followUpId = "323e4567-e89b-42d3-a456-426614174002";
     vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
     const originalPage = { thread: { ...summary, turns: [{ turnId: requestId, requestId, question: "이번 주 운동량이 어땠어?",
       createdAt: "2026-07-19T02:00:00Z", response, sessionRevision: 2 }] }, nextCursor: null };
-    const canonicalPage = { thread: { ...summary, turnCount: 3, revision: 3, turns: originalPage.thread.turns }, nextCursor: null };
+    const canonicalPage = { thread: { ...summary, turnCount: 3, revision: 3, turns: [...originalPage.thread.turns, { turnId: followUpId, requestId: followUpId, question: "지난주와 비교해줘",
+      createdAt: "2026-07-19T03:00:00Z", response: { ...response, requestId: followUpId, outcome: "answer" }, sessionRevision: 3 }] }, nextCursor: null };
     mocks.detail.mockReset().mockResolvedValueOnce(originalPage).mockRejectedValueOnce(new Error("refresh failed"))
       .mockResolvedValueOnce(canonicalPage);
     mocks.more.mockResolvedValue({ ...response, requestId: followUpId });
@@ -175,11 +355,15 @@ describe("CoachHistoryPage", () => {
     await screen.findByText(`answer ${requestId}`);
     await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
     await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
-    const retryReload = await screen.findByRole("button", { name: "다시 시도" });
-    expect(screen.queryByRole("button", { name: "같은 요청 결과 다시 확인" })).not.toBeInTheDocument();
-    await userEvent.click(retryReload);
+    await screen.findByRole("button", { name: "다시 시도" });
+    expect(screen.getByText("선택한 대화를 불러오지 못했습니다.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "같은 요청 결과 다시 확인" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "같은 요청 결과 다시 확인" }));
     await waitFor(() => expect(mocks.detail).toHaveBeenCalledTimes(3));
-    expect(mocks.more).toHaveBeenCalledOnce();
+    expect(mocks.more).toHaveBeenCalledTimes(2);
+    expect(mocks.more.mock.calls[1]?.[1]).toEqual(mocks.more.mock.calls[0]?.[1]);
+    expect(screen.queryByText("선택한 대화를 불러오지 못했습니다.")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("답변을 저장하고 최신 대화를 불러왔습니다.");
   });
 
   it("drops a late user A list response after the authenticated user changes to B", async () => {
@@ -259,6 +443,13 @@ describe("CoachHistoryPage", () => {
     vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
     const transportError = new Error("transport unknown"); transportError.name = "CoachHistoryTransportError";
     mocks.more.mockRejectedValueOnce(transportError).mockResolvedValueOnce({ ...response, requestId: followUpId });
+    const originalPage = { thread: { ...summary, turns: [{ turnId: requestId, requestId, question: "이번 주 운동량이 어땠어?",
+      createdAt: "2026-07-19T02:00:00Z", response, sessionRevision: 2 }] }, nextCursor: null };
+    const canonicalPage = { thread: { ...summary, revision: 3, turnCount: 3, turns: [
+      ...originalPage.thread.turns, { turnId: followUpId, requestId: followUpId, question: "지난주와 비교해줘",
+        createdAt: "2026-07-19T03:00:00Z", response: { ...response, requestId: followUpId, outcome: "answer" }, sessionRevision: 3 },
+    ] }, nextCursor: null };
+    mocks.detail.mockReset().mockResolvedValueOnce(originalPage).mockResolvedValueOnce(canonicalPage);
     setup(`/ko/coach/${threadId}`);
     await screen.findByText(`answer ${requestId}`);
     await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");

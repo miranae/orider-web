@@ -1,12 +1,12 @@
 import { useState, useMemo } from "react";
 import { collection, doc, writeBatch } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
-import { firestore } from "../../services/firebase";
+import { auth, firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
 import Modal from "../Modal";
-import { generateInviteCode } from "../../utils/inviteCode";
+import { getGroupInviteCode } from "../../features/group/groupInviteAdmin";
 import type { GroupKind, GroupApproval } from "@shared/types";
 import { Button, Card, Text } from "../../theme/components";
 
@@ -118,7 +118,6 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
         creatorId: user.uid,
         createdAt: now,
         isActive: true,
-        inviteCode: generateInviteCode(),
         visibility,
         kind,
         city: city.trim() || null,
@@ -148,14 +147,25 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
       });
       await batch.commit();
 
+      // 그룹 생성 성공은 초대 코드 발급 실패와 분리한다. 상세에서 발급을 재시도할 수 있다.
+      try {
+        await getGroupInviteCode(groupId);
+      } catch (err) {
+        logClientError("CreateGroupModal.inviteCode", err, { groupId });
+        if (auth.currentUser?.uid === user.uid) {
+          void dialog.alert(t("invite.createdNotReady"));
+        }
+      }
+      if (auth.currentUser?.uid !== user.uid) return;
       const createdName = name.trim();
       reset();
       onCreated(groupId, createdName);
     } catch (err) {
       logClientError("CreateGroupModal.createGroup", err, { kind, approval });
       void dialog.alert(err instanceof Error ? err.message : t("create.failed"), { variant: "danger" });
+    } finally {
+      setCreating(false);
     }
-    setCreating(false);
   };
 
   return (
