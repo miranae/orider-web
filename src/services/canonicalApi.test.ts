@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { ensureAppCheckReady } = vi.hoisted(() => ({
+const { ensureAppCheckReady, getAppCheckToken } = vi.hoisted(() => ({
   ensureAppCheckReady: vi.fn(async () => undefined),
+  getAppCheckToken: vi.fn(async () => "singleton-app-check"),
 }));
 const currentUser = { getIdToken: vi.fn(async () => "tok") };
 vi.mock("./firebase", () => ({
   auth: { get currentUser() { return currentUser; } },
   ensureAppCheckReady,
+  getAppCheckToken,
 }));
 vi.mock("./runtimeConfig", () => ({
   getRuntimeConfig: () => runtimeConfig,
@@ -33,6 +35,7 @@ describe("canonicalApi", () => {
     runtimeConfig = { personalApiBase: "https://api.example" };
     currentUser.getIdToken.mockResolvedValue("tok");
     ensureAppCheckReady.mockClear().mockResolvedValue(undefined);
+    getAppCheckToken.mockReset().mockResolvedValue("singleton-app-check");
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -95,15 +98,17 @@ describe("canonicalApi", () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ status: "canonical" }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
+    runtimeConfig = { appEnvironment: "stage", personalApiBase: "https://qapersonalapi-ldfyfyx5da-du.a.run.app" };
     await fetchCanonicalHomeSummary({
       auth: embeddedAuth as never,
       ensureAppCheckReady: embeddedReady,
+      getAppCheckToken: vi.fn(async () => "embedded-app-check"),
     });
 
     expect(embeddedReady).toHaveBeenCalledOnce();
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.example/api/v1/home/summary",
-      { headers: { Authorization: "Bearer embedded-token" } },
+      "https://qapersonalapi-ldfyfyx5da-du.a.run.app/api/v1/home/summary",
+      { headers: { Authorization: "Bearer embedded-token", "X-Firebase-AppCheck": "embedded-app-check" } },
     );
     expect(ensureAppCheckReady).not.toHaveBeenCalled();
   });
@@ -117,6 +122,7 @@ describe("canonicalApi", () => {
     const request = fetchCanonicalFitnessSummary("u1", {
       auth: embeddedAuth as never,
       ensureAppCheckReady: vi.fn(async () => undefined),
+      getAppCheckToken: vi.fn(async () => "embedded-app-check"),
     });
     await vi.waitFor(() => expect(resolveResponse).toBeTypeOf("function"));
     embeddedAuth.currentUser = { uid: "u2", getIdToken: vi.fn(async () => "u2-token") };
@@ -136,6 +142,7 @@ describe("canonicalApi", () => {
     const envelope = await fetchCanonicalFitnessSummary("expected", {
       auth: { currentUser: { uid: "other", getIdToken } } as never,
       ensureAppCheckReady: vi.fn(async () => undefined),
+      getAppCheckToken: vi.fn(async () => "embedded-app-check"),
     });
 
     expect(envelope.error?.code).toBe("auth_changed");
@@ -283,4 +290,40 @@ describe("parseCanonicalFitnessSummary", () => {
   ])("%s 이면 전체가 null 이다 — 0 을 만들지 않는다", (_label, value) => {
     expect(parseCanonicalFitnessSummary(value)).toBeNull();
   });
+});
+
+
+describe("REST App Check account fence", () => {
+  beforeEach(() => { runtimeConfig = { appEnvironment: "stage", personalApiBase: "https://qapersonalapi-ldfyfyx5da-du.a.run.app" }; });
+  afterEach(() => vi.unstubAllGlobals());
+  it("uses only the supplied provider's token and blocks an account switch while pending", async () => {
+    let finish!: (token: string) => void;
+    const auth = { currentUser: { uid: "owner", getIdToken: vi.fn(async () => "owner-id") } };
+    const providerToken = vi.fn(() => new Promise<string>(resolve => { finish = resolve; }));
+    const fetchMock = vi.fn(); vi.stubGlobal("fetch", fetchMock);
+    const request = fetchCanonicalHomeSummary({ auth: auth as never, ensureAppCheckReady: vi.fn(async () => undefined), getAppCheckToken: providerToken });
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    auth.currentUser = { uid: "other", getIdToken: vi.fn(async () => "other-id") };
+    finish("embedded-app-check");
+    expect((await request).error?.code).toBe("auth_changed");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it("does not fall back to singleton tokens when the injected getter fails", async () => {
+    const fetchMock = vi.fn(); vi.stubGlobal("fetch", fetchMock);
+    getAppCheckToken.mockClear();
+    const envelope = await fetchCanonicalHomeSummary({ auth: { currentUser: { uid: "owner", getIdToken: vi.fn(async () => "owner-id") } } as never, ensureAppCheckReady: vi.fn(async () => undefined), getAppCheckToken: vi.fn(async () => { throw new Error("embedded-token-failed"); }) });
+    expect(envelope.error?.code).toBe("app_check_failed");
+    expect(getAppCheckToken).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+
+it("fails closed for a missing stage App Check token", async () => {
+  runtimeConfig = { appEnvironment: "stage", personalApiBase: "https://qapersonalapi-ldfyfyx5da-du.a.run.app" };
+  const fetchMock = vi.fn(); vi.stubGlobal("fetch", fetchMock);
+  const envelope = await fetchCanonicalHomeSummary({ auth: { currentUser: { uid: "owner", getIdToken: vi.fn(async () => "id") } } as never, ensureAppCheckReady: vi.fn(async () => undefined), getAppCheckToken: vi.fn(async () => null) });
+  expect(envelope.error?.code).toBe("app_check_failed");
+  expect(fetchMock).not.toHaveBeenCalled();
+  vi.unstubAllGlobals();
 });

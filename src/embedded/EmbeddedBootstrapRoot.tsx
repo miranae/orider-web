@@ -33,6 +33,7 @@ import {
   embeddedAccountReady,
   embeddedFirestoreOwnerUid,
   ensureEmbeddedAppCheckReady,
+  getEmbeddedAppCheckToken,
   getEmbeddedFirestore,
   initEmbeddedFirebase,
   isolateEmbeddedAccount,
@@ -548,6 +549,7 @@ export default function EmbeddedBootstrapRoot({
     auth: embedded.auth,
     functions: embedded.functions,
     ensureAppCheckReady: ensureEmbeddedAppCheckReady,
+    getAppCheckToken: getEmbeddedAppCheckToken,
   }), [embedded.auth, embedded.functions]);
   const [firestore, setFirestore] = useState(() => embedded.firestore);
   const services = useMemo<FirebaseServices>(

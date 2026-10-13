@@ -252,3 +252,12 @@ export function ensureEmbeddedAppCheckReady(forceRefresh = false): Promise<void>
   appCheckPromise = readiness;
   return appCheckPromise;
 }
+
+export async function getEmbeddedAppCheckToken(forceRefresh = false): Promise<string | null> {
+  if (emulatorRuntime) return null;
+  await ensureEmbeddedAppCheckReady(forceRefresh);
+  if (!embeddedAppCheck) throw new Error("embedded-app-check/not-initialized");
+  const result = await withTimeout(getToken(embeddedAppCheck, forceRefresh));
+  if (!result.token) throw new Error("embedded-app-check/empty-token");
+  return result.token;
+}
