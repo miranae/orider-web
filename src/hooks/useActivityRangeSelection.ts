@@ -14,7 +14,7 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
   const metricsRevision = metrics as (typeof metrics & Record<string, unknown>);
   const identity = JSON.stringify([user?.uid, activity?.id, activity?.startTime, activity?.source, model.isActivityOwner, metrics?.computedAt,
     activity?.contentRevision, activity?.contentSelectedRevision, activity?.sourceMeta, activity?.visibility, activity?.isVirtualPower,
-    activityRevision?.hidePower, activityRevision?.hideHr, activityRevision?.metadataRevision, activityRevision?.updatedAt,
+    activityRevision?.metadataRevision, activityRevision?.updatedAt,
     metricsRevision?.metricsRevision, metricsRevision?.inputDigest, metricsRevision?.etag, metricsRevision?.sourceLayer,
     metrics?.inputPending, metrics?.isVirtualPower, model.activePowerOverride?.sourceFingerprint,
     model.analysisTabProps?.suppressServerPowerMetrics, model.analysisTabProps?.suppressServerHeartRateMetrics]);
