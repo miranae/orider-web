@@ -1,0 +1,3 @@
+.run-period-comparison-table { min-width: calc(var(--space-8) * 16); }
+.run-period-comparison-series-dot { display: inline-block; width: var(--space-2); height: var(--space-2); margin-inline-end: var(--space-2); border-radius: var(--r-sm); }
+.run-period-comparison > section:last-child { border-top: 1px solid var(--line-soft); padding-top: var(--dim-section-gap); }
