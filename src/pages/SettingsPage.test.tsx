@@ -113,8 +113,8 @@ describe("SettingsPage", () => {
   it("opens Developer API from section query", async () => {
     renderWithProviders(<SettingsPage />, { authenticated: true, route: "/settings?section=developer" });
     await waitFor(() => {
-      expect(screen.getByText("Personal Data API key 만들기")).toBeInTheDocument();
-      expect(screen.getByText("내 API keys")).toBeInTheDocument();
+      expect(screen.getByText("개인 데이터 API 키 만들기")).toBeInTheDocument();
+      expect(screen.getByText("내 API 키")).toBeInTheDocument();
     });
   });
 
