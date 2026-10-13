@@ -1,3 +1,4 @@
+import { PowerEffortPreferencePanel } from "../../fitness/components/PowerEffortPreferencePanel";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Activity } from "@shared/types";
@@ -41,6 +42,7 @@ export default function StageActivityPowerDurationPanel({ activity, scopeKey = "
           <Text as="p" variant="bodyMedium" tone="secondary">{t("stagePowerDuration.separate")}</Text>
           {tool.response?.source?.qualification === "legacy_manifest_revision_and_gcs_token_pinned" && <Text as="p" variant="bodyMedium" tone="secondary">{t("stagePowerDuration.legacy")}</Text>}
         </details>
+        <PowerEffortPreferencePanel ownerUid={activity.userId} mode="stage_power_effort_adjusted_v1" activityIds={[activity.id]} periods={[]} durationSeconds={result.requestedDurationSeconds} scopeKey={JSON.stringify([scopeKey, tool.response?.source])}/>
       </section>}
     </div>
   </details>;

@@ -1,3 +1,4 @@
+import { PowerEffortPreferencePanel } from "./PowerEffortPreferencePanel";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PowerCurvePeriod, PowerCurvePeriodsResponse, PeriodPowerPoint, WeightNormalizedPowerPoint } from "@shared/types/power-curve-periods";
@@ -102,6 +103,7 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
     {result.state === "loading" && <Text as="p" variant="bodyMedium">{t("periodCurve.loading")}</Text>}
     {result.state === "error" && <Text as="p" variant="bodyMedium" role="alert">{t("periodCurve.error")}</Text>}
     {result.response && (skillsMode ? <PowerSkillsObservedView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} /> : <PowerCurvePeriodsView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} />)}
+    {result.response && stageActivityPowerAvailable() && <PowerEffortPreferencePanel ownerUid={ownerUid} mode="stage_power_effort_adjusted_canonical" activityIds={[...new Set(result.response.periods.flatMap(p=>[...p.points.map(v=>v.sourceActivityId),...(p.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[])]))].slice(0,20)} periods={result.response.periods.map((p,i)=>({id:`period_${i}`,fromInclusiveMs:p.fromInclusive,toExclusiveMs:p.toExclusive}))} scopeKey={JSON.stringify([selection,result.response.inputDigest])}/>}
   </section>;
 }
 export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false, embedded = false, nativeActivities = [] }: { nativeActivities?: readonly NativePowerLoadedActivity[]; ownerUid: string | null | undefined; callableEnabled?: boolean; embedded?: boolean }) {
