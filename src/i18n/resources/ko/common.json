@@ -287,5 +287,11 @@
   "embeddedStatus": {
     "loading": "기록과 훈련 데이터를 불러오고 있어요.",
     "unavailable": "잠시 연결할 수 없어요. 연결 상태를 확인한 후 다시 시도해 주세요."
+  },
+  "dialog": {
+    "alertTitle": "알림",
+    "confirmTitle": "확인",
+    "promptTitle": "입력",
+    "ok": "확인"
   }
 }

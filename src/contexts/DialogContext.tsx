@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { Alert, Button, Input, Textarea, type AlertVariant } from "../theme/components";
 
 type DialogKind = "alert" | "confirm" | "prompt";
@@ -49,20 +50,15 @@ const fallbackDialog: DialogContextValue = {
 
 const DialogContext = createContext<DialogContextValue>(fallbackDialog);
 
-function defaultLabels() {
-  const lang = typeof navigator === "undefined" ? "ko" : navigator.language;
-  const english = lang.toLowerCase().startsWith("en");
-  return {
-    alertTitle: english ? "Notice" : "알림",
-    confirmTitle: english ? "Confirm" : "확인",
-    promptTitle: english ? "Input" : "입력",
-    ok: english ? "OK" : "확인",
-    cancel: english ? "Cancel" : "취소",
-  };
-}
-
 export function DialogProvider({ children }: { children: ReactNode }) {
-  const labels = useMemo(defaultLabels, []);
+  const { t } = useTranslation("common");
+  const labels = {
+    alertTitle: t("dialog.alertTitle"),
+    confirmTitle: t("dialog.confirmTitle"),
+    promptTitle: t("dialog.promptTitle"),
+    ok: t("dialog.ok"),
+    cancel: t("button.cancel"),
+  };
   const [request, setRequest] = useState<DialogRequest | null>(null);
   const [promptValue, setPromptValue] = useState("");
   const previouslyFocused = useRef<HTMLElement | null>(null);
