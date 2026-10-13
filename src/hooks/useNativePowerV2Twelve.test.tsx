@@ -1,0 +1,22 @@
+import { renderHook,act,waitFor } from "@testing-library/react";
+import {describe,it,expect,vi,beforeEach} from "vitest";
+import {useNativePowerV2Twelve} from "./useNativePowerV2Twelve";
+import {nativeTwelveFixture} from "../dev/nativeTwelveFixture";
+const mock=vi.hoisted(()=>({load:vi.fn(),services:{auth:{currentUser:{uid:"owner",isAnonymous:false}}},authChanged:null as (()=>void)|null}));
+vi.mock("../contexts/AuthContext",()=>({useAuth:()=>({user:mock.services.auth.currentUser})}));
+vi.mock("../contexts/FirebaseServicesContext",()=>({useFirebaseServices:()=>mock.services}));
+vi.mock("../services/stageActivityPowerDuration",()=>({stageActivityPowerAvailable:()=>true}));
+vi.mock("../services/nativePowerV2Twelve",()=>({loadNativePowerTwelve:mock.load}));
+vi.mock("firebase/auth",()=>({onIdTokenChanged:(_:unknown,callback:()=>void)=>{mock.authChanged=callback;return()=>{};}}));
+const activities=[{activityId:"orider_fixture_a",title:"synthetic",headBinding:"head1"}];
+const periods=[{id:"all",fromInclusiveMs:0,toExclusiveMs:Date.UTC(2026,9,13)}];
+beforeEach(()=>{mock.load.mockReset();});
+describe("native12 manual hook fences",()=>{
+ it("never calls on mount/draft changes",()=>{const {rerender}=renderHook(({ids})=>useNativePowerV2Twelve("owner",activities,ids,periods,true),{initialProps:{ids:[] as string[]}});rerender({ids:["orider_fixture_a"]});expect(mock.load).not.toHaveBeenCalled();});
+ it("requires checked candidate and replaces results",async()=>{const response=nativeTwelveFixture(periods);mock.load.mockResolvedValue(response);const {result}=renderHook(()=>useNativePowerV2Twelve("owner",activities,["orider_fixture_a"],periods,true));await act(()=>result.current.load());expect(mock.load).not.toHaveBeenCalled();await act(()=>result.current.inspect("orider_fixture_a"));expect(result.current.inspectedIds).toEqual(["orider_fixture_a"]);await act(()=>result.current.load());expect(mock.load).toHaveBeenCalledTimes(2);expect(result.current.response).toEqual(response);});
+ it("discards late inspected reply after activity-head change",async()=>{let finish!:(v:unknown)=>void;mock.load.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));const {result,rerender}=renderHook(({head})=>useNativePowerV2Twelve("owner",[{...activities[0]!,headBinding:head}],["orider_fixture_a"],periods,true),{initialProps:{head:"a"}});let request!:Promise<void>;act(()=>{request=result.current.inspect("orider_fixture_a");});rerender({head:"b"});await act(async()=>{finish(nativeTwelveFixture(periods));await request;});expect(result.current.inspectedIds).toEqual([]);expect(result.current.response).toBeNull();});
+ it("clears checked records on native auth epoch change",async()=>{mock.load.mockResolvedValue(nativeTwelveFixture(periods));const {result}=renderHook(()=>useNativePowerV2Twelve("owner",activities,["orider_fixture_a"],periods,true));await act(()=>result.current.inspect("orider_fixture_a"));act(()=>mock.authChanged!());await waitFor(()=>expect(result.current.inspectedIds).toEqual([]));});
+ it("synchronously hides an existing result for sameUID SDK replacement/null/foreignUID",async()=>{mock.load.mockResolvedValue(nativeTwelveFixture(periods));const original=mock.services.auth.currentUser;const {result,rerender}=renderHook(()=>useNativePowerV2Twelve("owner",activities,["orider_fixture_a"],periods,true));await act(()=>result.current.inspect("orider_fixture_a"));await act(()=>result.current.load());expect(result.current.response).not.toBeNull();mock.services.auth.currentUser={uid:"owner",isAnonymous:false};rerender();expect(result.current.response).toBeNull();mock.services.auth.currentUser={uid:"foreign",isAnonymous:false};rerender();expect(result.current.available).toBe(false);mock.services.auth.currentUser=null as never;rerender();expect(result.current.available).toBe(false);mock.services.auth.currentUser=original;rerender();expect(result.current.response).toBeNull();});
+ it("rejects pending reply on token ABA before decode completes",async()=>{let finish!:(v:unknown)=>void;mock.load.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));const {result}=renderHook(()=>useNativePowerV2Twelve("owner",activities,["orider_fixture_a"],periods,true));let pending!:Promise<void>;act(()=>{pending=result.current.inspect("orider_fixture_a");});act(()=>mock.authChanged!());await act(async()=>{finish(nativeTwelveFixture(periods));await pending;});expect(result.current.inspectedIds).toEqual([]);});
+
+});
