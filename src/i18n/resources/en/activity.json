@@ -2456,5 +2456,27 @@
       "stage_distance_snapshot": "Calculated distance record",
       "unavailable": "Unavailable"
     }
+  },
+  "nativePowerV2": {
+    "title": "Maximum average power for your chosen duration",
+    "scope": "See maximum average power over your chosen duration in this activity.",
+    "duration": "Duration to compare (seconds)",
+    "confirm": "Check available duration",
+    "calculate": "Calculate maximum average power",
+    "cancel": "Cancel · clear result",
+    "loading": "Checking record…",
+    "reconfirm": "The record changed or could not be checked. Check the input record again.",
+    "continuous": "Longest continuous observed window {{duration}}",
+    "unavailable": "No verified continuous record is available for this input or duration.",
+    "result": "Maximum average power",
+    "window": "Continuous window at elapsed {{from}}–{{through}}",
+    "measured": "Sensor power · stored interval basis",
+    "stored": "Unverified power origin · stored interval basis",
+    "source": "View source activity",
+    "clock": "Based on stored one-second slots. Original clock and sensor bucket origin are unverified.",
+    "inputExample": "Example: 300 seconds = 5 minutes",
+    "confirmFirst": "Check the available duration first.",
+    "proof": "Display evidence",
+    "map": "Stored power windows cannot be confirmed as the same source as the current map, so map locations are not aligned automatically."
   }
 }
