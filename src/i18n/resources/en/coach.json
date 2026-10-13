@@ -137,6 +137,7 @@
     "loadingQuota": "Checking today's available uses…",
     "quotaLoadFailed": "AI Coach availability could not be checked",
     "retryQuota": "Check availability again",
+    "followUpTerminalSaved": "The request outcome was saved to this conversation. Check the result for its completion status.",
     "followUpSaved": "The answer was saved and the latest conversation was loaded.",
     "submitFailed": "The question could not be sent. Your draft is preserved.",
     "sameRequestRetry": "Check the same request again",
