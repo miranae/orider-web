@@ -38,8 +38,10 @@ export const HUBS: Hub[] = [
     to: "/coach/condition",
     subs: [
       { labelKey: "nav.fitness", to: "/coach/condition" },
+      { labelKey: "nav.todayTraining", to: "/coach/today" },
       { labelKey: "nav.plan", to: "/coach/plan" },
       { labelKey: "nav.goals", to: "/coach/goals" },
+      { labelKey: "nav.analysis", to: "/coach/analysis" },
       { labelKey: "nav.chat", to: "/coach/chat" },
     ],
     match: (p) =>

@@ -3,10 +3,18 @@ import HubSubNav from "./HubSubNav";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 
 describe("HubSubNav", () => {
-  it("renders the four coach tabs in specification order", () => {
+  it("renders the six coach tabs in specification order", () => {
     renderWithProviders(<HubSubNav hubKey="coach" />, { route: "/coach/condition" });
-    expect(screen.getAllByRole("link").map(link => link.textContent)).toEqual(["컨디션", "계획", "목표", "대화"]);
-    expect(screen.getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/ko/coach/condition", "/ko/coach/plan", "/ko/coach/goals", "/ko/coach/chat"]);
+    expect(screen.getAllByRole("link").map(link => link.textContent)).toEqual(["컨디션", "오늘 운동", "계획", "목표", "분석", "대화"]);
+    expect(screen.getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/ko/coach/condition", "/ko/coach/today", "/ko/coach/plan", "/ko/coach/goals", "/ko/coach/analysis", "/ko/coach/chat"]);
+  });
+
+  it("preserves sport alone on every coach transition", () => {
+    renderWithProviders(<HubSubNav hubKey="coach" />, { route: "/coach/today?sport=run&date=2026-10-14" });
+    for (const link of screen.getAllByRole("link")) {
+      expect(link.getAttribute("href")).toMatch(/\?sport=run$/);
+      expect(link.getAttribute("href")).not.toContain("date=");
+    }
   });
 
   it("renders explore destinations without the removed leaderboard tab", () => {

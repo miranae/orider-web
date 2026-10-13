@@ -73,6 +73,8 @@
     "collapse": "접기"
   },
   "nav": {
+    "todayTraining": "오늘 운동",
+    "analysis": "분석",
     "fitness": "컨디션",
     "plan": "계획",
     "log": "활동",

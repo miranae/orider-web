@@ -122,6 +122,8 @@ describe('legacy route declarations (App.tsx)', () => {
 
   it('declares static routes before their parameter siblings', () => {
     expect(indexOf('path="coach/condition"')).toBeLessThan(indexOf('path="coach/:threadId"'));
+    expect(indexOf('path="coach/today"')).toBeLessThan(indexOf('path="coach/:threadId"'));
+    expect(indexOf('path="coach/analysis"')).toBeLessThan(indexOf('path="coach/:threadId"'));
     expect(indexOf('path="coach/chat"')).toBeLessThan(indexOf('path="coach/:threadId"'));
     expect(indexOf('path="club/join"')).toBeLessThan(indexOf('path="club/:groupId"'));
     expect(indexOf('path="community/board/write"')).toBeLessThan(indexOf('path="community/board/:postId"'));

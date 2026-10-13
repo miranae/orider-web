@@ -1089,5 +1089,24 @@
     },
     "briefCounts": "Checked groups {{physicalGroups}} · excluded {{excluded}}",
     "evidence": "Comparison evidence"
+  },
+  "today": {
+    "header": {
+      "title": "What should I do today?"
+    },
+    "guest": "Sign in to choose today’s training",
+    "conditionLink": "View condition",
+    "planLink": "View plan",
+    "simpleWorkout": "Simple workout — separate from the planned session",
+    "runProgramLink": "View running program",
+    "runAppOnly": "Start in the app. Adjust the schedule in your plan.",
+    "openApp": "Open in app"
+  },
+  "analysis": {
+    "header": {
+      "title": "Analysis"
+    },
+    "guest": "Sign in to analyze your performance",
+    "chooseSport": "Choose a sport to analyze"
   }
 }

@@ -23,6 +23,7 @@ export interface MobileFitnessPdcSummary {
 }
 
 interface BikePerformanceSummaryCardProps {
+  part?: "all" | "condition" | "analysis";
   decision?: BikeThresholdDecision;
   pdc?: MobileFitnessPdcSummary | null;
   weightKg?: number;
@@ -44,7 +45,7 @@ function estimateVo2max(ftp: number | null, weightKg: number | undefined): numbe
   return Math.round((ftp / weightKg) * 15.7 + 3.5);
 }
 
-export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, progression = [], ftpHistory = [], ftpDecision = null, ftpReceipt = null, ftpDeviceReceipts = [], decisionBusy = false, onAcceptDecision = () => undefined }: BikePerformanceSummaryCardProps) {
+export default function BikePerformanceSummaryCard({ part = "all", decision, pdc, weightKg, progression = [], ftpHistory = [], ftpDecision = null, ftpReceipt = null, ftpDeviceReceipts = [], decisionBusy = false, onAcceptDecision = () => undefined }: BikePerformanceSummaryCardProps) {
   const { t } = useTranslation("dashboard");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const evidenceId = useId();
@@ -83,6 +84,7 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
   return (
     <section className="mobile-fitness-performance" aria-label={t("mobileFitness.performance.ariaLabel")} style={{ marginBottom: "var(--space-3)", padding: "var(--space-4)", background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)" }}>
       <Text as="h2" variant="title" style={{ margin: 0 }}>{t("mobileFitness.performance.title")}</Text>
+      {part !== "analysis" && <>
       <Text as="div" variant="eyebrow" tone="secondary" style={{ marginTop: "var(--space-3)" }}>{t("fitness:thresholdDecision.activeLabel")}</Text>
       <div className="mobile-fitness-performance__ftp">
         <Text as="span" variant="dataHero" style={{ color: "var(--lime)" }}>{activeFtp ?? "—"}</Text>
@@ -93,6 +95,8 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
         <Text as="span" variant="caption" tone="tertiary">{t("mobileFitness.performance.canonical")}</Text>
       </div>
 
+      </>}
+      {part !== "condition" && <>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
         <Chip variant={riderType ? "accent" : "default"} dot={!!riderType}>{riderType ?? t("mobileFitness.performance.riderUnknown")}</Chip>
       </div>
@@ -119,6 +123,8 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
         ))}
       </div>
 
+      </>}
+      {part !== "analysis" && <>
       <div className="mobile-fitness-performance__trend"><FtpProgressionCard points={progression} history={ftpHistory} currentFtpW={activeFtp} breakthrough={null} embedded compact /></div>
 
       <BikeFtpDecisionActionPanel
@@ -129,6 +135,7 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
         onAccept={onAcceptDecision}
       />
 
+      </>}
       <Button variant="secondary" size="sm" aria-expanded={evidenceOpen} aria-controls={evidenceId} onClick={() => setEvidenceOpen((open) => !open)} style={{ width: "100%", marginTop: "var(--space-4)" }}>
         {t(evidenceOpen ? "mobileFitness.performance.evidenceClose" : "mobileFitness.performance.evidenceOpen")}
       </Button>
@@ -137,10 +144,12 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
           ? evidenceRows.map((row) => <EvidenceRow key={row.label} label={row.label} value={row.value} />)
           : <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.performance.insufficient")}</Text>}
         <Text as="p" variant="caption" tone="secondary">{ftpEvidence}</Text>
+        {part !== "condition" && <>
         <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.snapshot.riderSource")}</Text>
         <Text as="p" variant="caption" tone="secondary">
           {vo2Source === "pdc" ? t("mobileFitness.snapshot.vo2PdcSource", { count: pdc?.activityCount ?? 0 }) : vo2Source === "formula" ? t("mobileFitness.snapshot.vo2FormulaSource") : t("mobileFitness.snapshot.insufficient")}
         </Text>
+        </>}
         <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.performance.modelEvidence")}</Text>
         <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--aqua)", fontWeight: 600 }}>
           {t("mobileFitness.sport.bike.manualLink")}

@@ -1089,5 +1089,24 @@
     },
     "briefCounts": "확인 그룹 {{physicalGroups}} · 제외 {{excluded}}",
     "evidence": "비교 근거"
+  },
+  "today": {
+    "header": {
+      "title": "오늘 무엇을 할까?"
+    },
+    "guest": "로그인하면 오늘 할 운동을 정해 드려요",
+    "conditionLink": "컨디션 자세히",
+    "planLink": "계획에서 보기",
+    "simpleWorkout": "간단 운동을 기기로 — 계획 세션과 별개",
+    "runProgramLink": "프로그램 전체 보기",
+    "runAppOnly": "앱에서 시작해 주세요. 일정 변경은 계획에서 할 수 있어요.",
+    "openApp": "앱에서 시작"
+  },
+  "analysis": {
+    "header": {
+      "title": "분석"
+    },
+    "guest": "로그인하면 내 운동 능력을 분석해 드려요",
+    "chooseSport": "분석할 종목을 선택해 주세요"
   }
 }

@@ -8,10 +8,10 @@ import { parseTodayTrainingDecisionProjection } from "../../services/trainingDec
 import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
 import TodayTrainingDecisionCard, { type TrainingDecisionSurface } from "./TodayTrainingDecisionCard";
 
-const mocks = vi.hoisted(() => ({ hook: vi.fn() }));
+const mocks = vi.hoisted(() => ({ hook: vi.fn(), proposal: vi.fn() }));
 vi.mock("../../hooks/useTodayTrainingDecision", () => ({ useTodayTrainingDecision: mocks.hook }));
 vi.mock("../coach/CoachQuestionLauncher", () => ({ CoachQuestionLauncher: () => createElement("button", null, "Coach") }));
-vi.mock("./useTrainingProposalController", () => ({ useTrainingProposalController: () => ({ state: "unavailable", proposal: null }) }));
+vi.mock("./useTrainingProposalController", () => ({ useTrainingProposalController: mocks.proposal }));
 vi.mock("./TrainingExecutionPanel", () => ({ TrainingExecutionPanel: () => createElement("button", null, "Execution") }));
 
 const user = { uid: "owner" } as never;
@@ -25,12 +25,13 @@ function renderSurface(surface: TrainingDecisionSurface) {
 describe("training decision surface boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.proposal.mockReturnValue({ state: "unavailable", proposal: null });
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
   });
 
   it("keeps the identical authoritative tuple on Fitness and Plan adjustment surfaces", () => {
-    for (const surface of ["fitness", "plan"] as const) {
+    for (const surface of ["fitness", "today", "plan"] as const) {
       const card = renderSurface(surface);
       expect(card).toHaveAttribute("data-decision-id", "today_cccccccccccccccccccccccc");
       expect(card).toHaveAttribute("data-facts-id", "facts_123");
@@ -54,13 +55,38 @@ describe("training decision surface boundary", () => {
     expect(fitness.querySelector("a")).toBeNull();
 
     const plan = renderSurface("plan")!;
-    expect(plan).toHaveTextContent("계획 변경 검토");
+    expect(plan).toHaveTextContent("원래 계획");
+    expect(plan).toHaveTextContent("조정 권고");
+    expect(plan).not.toHaveTextContent("계획 변경 검토");
     expect(plan).not.toHaveTextContent("Coach");
     expect(plan).not.toHaveTextContent("Execution");
-    expect(plan.querySelector("a")).toBeNull();
+    expect(plan.querySelector("a")).toHaveAttribute("href", "/ko/coach/today?sport=bike");
+    expect(plan.querySelector("button")).toBeNull();
+
+    const today = renderSurface("today")!;
+    expect(today).toHaveTextContent("계획 변경 검토");
+    expect(today).toHaveTextContent("Execution");
+    expect(today).toHaveTextContent("Coach");
+    expect(today.querySelector("a")).toHaveAttribute("href", expect.stringContaining("/coach/plan?sport=bike&date="));
   });
 
-  it("keeps proposal review mounted when the Plan calendar fails", () => {
+  it.each([false, true])("keeps one run execution owner when suppression is %s", (suppressExecution) => {
+    const view = render(createElement(MemoryRouter, null,
+      createElement(TodayTrainingDecisionCard, { user, discipline: "run", surface: "today", suppressExecution })));
+    const card = view.container.querySelector("[data-decision-id]")!;
+    expect(card).toHaveTextContent("원래 계획");
+    expect(card).toHaveTextContent("계획 변경 검토");
+    expect(card).toHaveTextContent("Coach");
+    if (suppressExecution) expect(card).not.toHaveTextContent("Execution");
+    else expect(card).toHaveTextContent("Execution");
+  });
+
+  it("never instantiates the mutation controller on Plan", () => {
+    renderSurface("plan");
+    expect(mocks.proposal).not.toHaveBeenCalled();
+  });
+
+  it("keeps comparison mounted when the Plan calendar fails", () => {
     const source = readFileSync(join(process.cwd(), "src/pages/PlanPage.tsx"), "utf8");
     const errorBranch = source.slice(source.indexOf("if (!loading && loadError)"), source.indexOf("if (!loading && !goal)"));
     expect(errorBranch).toContain('<TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />');

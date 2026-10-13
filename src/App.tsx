@@ -75,7 +75,10 @@ const EventResultsPage = lazyTimed("EventResultsPage", () => import("./pages/eve
 const EventRegisterPage = lazyTimed("EventRegisterPage", () => import("./pages/event/EventRegisterPage"));
 const EventEditPage = lazyTimed("EventEditPage", () => import("./pages/event/EventEditPage"));
 const EventParticipantsPage = lazyTimed("EventParticipantsPage", () => import("./pages/event/EventParticipantsPage"));
-const FitnessPage = lazyTimed("FitnessPage", () => import("./pages/FitnessPage"));
+const CoachFitnessLayout = lazyTimed("CoachFitnessLayout", () => import("./pages/coach/CoachFitnessLayout"));
+const CoachConditionPage = lazyTimed("CoachConditionPage", () => import("./pages/coach/CoachConditionPage"));
+const CoachTodayPage = lazyTimed("CoachTodayPage", () => import("./pages/coach/CoachTodayPage"));
+const CoachAnalysisPage = lazyTimed("CoachAnalysisPage", () => import("./pages/coach/CoachAnalysisPage"));
 const LabPage = lazyTimed("LabPage", () => import("./pages/LabPage"));
 const ClimbGoalSetupPage = lazyTimed("ClimbGoalSetupPage", () => import("./pages/ClimbGoalSetupPage"));
 const GoalSetupPage = lazyTimed("GoalSetupPage", () => import("./pages/GoalSetupPage"));
@@ -111,7 +114,11 @@ export function AppRoutes() {
           <Route path="activity/:activityId" element={<ActivityPage />} />
           <Route path="activity/:activityId/edit" element={<ActivityEditPage />} />
           {/* 코치 — 정적(condition·plan·goals·chat)이 옛 coach/:threadId 보다 먼저 매칭 */}
-          <Route path="coach/condition" element={<FitnessPage />} />
+          <Route element={<CoachFitnessLayout />}>
+            <Route path="coach/condition" element={<CoachConditionPage />} />
+            <Route path="coach/today" element={<CoachTodayPage />} />
+            <Route path="coach/analysis" element={<CoachAnalysisPage />} />
+          </Route>
           <Route path="coach/plan" element={<PlanPage />} />
           <Route path="coach/goals" element={<GoalSetupPage />} />
           <Route path="coach/chat" element={<CoachHistoryPage />} />

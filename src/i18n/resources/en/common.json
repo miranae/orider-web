@@ -73,6 +73,8 @@
     "collapse": "Collapse"
   },
   "nav": {
+    "todayTraining": "Today’s workout",
+    "analysis": "Analysis",
     "fitness": "Condition",
     "plan": "Plan",
     "log": "Activities",

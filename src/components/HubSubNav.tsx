@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { RouteTabNav } from "./TabNav";
 import { getHub, type HubKey } from "../config/navHubs";
@@ -12,12 +13,15 @@ import { getHub, type HubKey } from "../config/navHubs";
 export default function HubSubNav({ hubKey }: { hubKey: HubKey }) {
   const { t } = useTranslation("common");
   const hub = getHub(hubKey);
+  const { search } = useLocation();
+  const sport = new URLSearchParams(search).get("sport");
+  const coachSearch = hubKey === "coach" && sport ? `?${new URLSearchParams({ sport })}` : "";
   if (hub.subs.length <= 1) return null;
   return (
     <div style={{ marginBottom: "var(--space-4)" }}>
       <RouteTabNav
         tabs={hub.subs.map((s) => ({
-          to: s.to,
+          to: `${s.to}${coachSearch}`,
           label: t(s.labelKey),
           end: true,
         }))}
