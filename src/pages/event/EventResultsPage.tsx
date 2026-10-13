@@ -140,6 +140,8 @@ export default function EventResultsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [privateResultsUnavailable, setPrivateResultsUnavailable] = useState(false);
   const [eventDateStr, setEventDateStr] = useState<string>("");
+  const [csvNotice, setCsvNotice] = useState<{ eventId: string | undefined; sequence: number } | null>(null);
+  useEffect(() => { setCsvNotice(null); }, [eventId]);
   const groupId = eventHead?.groupId;
   const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
   const { eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
@@ -612,7 +614,10 @@ export default function EventResultsPage() {
               <div className="flex" style={{ gap: "var(--space-1-5)", marginLeft: "auto" }}>
                 <Button
                   type="button" variant="secondary" size="sm"
-                  onClick={() => void dialog.alert(t("resultsView.csvComingSoon"))}
+                  onClick={() => setCsvNotice(previous => ({
+                    eventId,
+                    sequence: previous && previous.eventId === eventId ? previous.sequence + 1 : 1,
+                  }))}
                 >
                   ⬇ CSV
                 </Button>
@@ -624,6 +629,11 @@ export default function EventResultsPage() {
                 </Button>
               </div>
             </div>
+            {csvNotice !== null && csvNotice.eventId === eventId && (
+              <Text key={csvNotice.sequence} as="p" variant="caption" role="status" style={{ padding: "var(--space-3) var(--space-5)" }}>
+                {t("resultsView.csvComingSoon")}
+              </Text>
+            )}
 
             {resultsUnavailable ? (
               <div style={{ padding: 'var(--space-7)', textAlign: "center", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>
