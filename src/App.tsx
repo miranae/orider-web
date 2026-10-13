@@ -166,8 +166,10 @@ export function AppRoutes() {
           <Route path="community/board" element={<BoardPage />} />
           <Route path="community/board/write" element={<CreatePostPage />} />
           <Route path="community/board/:postId" element={<PostDetailPage />} />
-          <Route path="community/recipes" element={<CreatorHubPage />} />
-          <Route path="community/recipes/:section" element={<CreatorHubPage />} />
+          <Route path="explore/recipes" element={<CreatorHubPage />} />
+          <Route path="explore/recipes/:section" element={<CreatorHubPage />} />
+          <Route path="community/recipes" element={<LegacyRedirect to="/explore/recipes" />} />
+          <Route path="community/recipes/:section" element={<LegacyRedirect to="/explore/recipes/:section" />} />
           <Route path="tools/virtual-power" element={<VirtualPowerToolPage />} />
           {/* 상대 경로 — /:lang 프리픽스 보존 */}
           <Route path="feedback" element={<Navigate to="../community/board?type=inquiry" replace />} />
@@ -215,8 +217,8 @@ export function AppRoutes() {
           <Route path="board" element={<LegacyRedirect to="/community/board" />} />
           <Route path="board/write" element={<LegacyRedirect to="/community/board/write" />} />
           <Route path="board/:postId" element={<LegacyRedirect to="/community/board/:postId" />} />
-          <Route path="creator" element={<LegacyRedirect to="/community/recipes" />} />
-          <Route path="creator/:section" element={<LegacyRedirect to="/community/recipes/:section" />} />
+          <Route path="creator" element={<LegacyRedirect to="/explore/recipes" />} />
+          <Route path="creator/:section" element={<LegacyRedirect to="/explore/recipes/:section" />} />
           <Route path="community" element={<LegacyRedirect to="/policies/community" />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

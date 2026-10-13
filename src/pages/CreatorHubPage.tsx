@@ -349,7 +349,7 @@ function buildCopy(language: string) {
           ? "AI 일기 생성, 주간 부하 차트 미리보기, 공유 카드 복사처럼 화면 안에서 끝나는 기능입니다. 로그인하면 내 활동 데이터로 계산되고, 비로그인 상태에서는 데모 데이터가 보입니다."
           : "Use in-product actions such as AI diary generation, weekly load preview, and share-card copy. Signed-in riders use their own data; signed-out visitors see demo data.",
         action: ko ? "자랑 카드 보기" : "View share cards",
-        to: "/community/recipes/share",
+        to: "/explore/recipes/share",
       },
       {
         title: ko ? "내 도구에 직접 연결하기" : "Connect it to your own tools",
@@ -357,7 +357,7 @@ function buildCopy(language: string) {
           ? "설정의 Developer API에서 개인 API key를 만들고, 필요한 scope만 골라 Notion, Slack, n8n, 개인 대시보드 같은 도구에서 본인 데이터를 읽어갑니다. 이 단계는 간단한 자동화나 개발 지식이 필요합니다."
           : "Create a personal API key in Developer API settings, choose only the scopes you need, and read your own data from tools like Notion, Slack, n8n, or a personal dashboard. This path needs basic automation or development knowledge.",
         action: ko ? "활용 예시 보기" : "View examples",
-        to: "/community/recipes/examples",
+        to: "/explore/recipes/examples",
       },
       {
         title: ko ? "아이디어만 제안하기" : "Request an idea",
@@ -619,15 +619,15 @@ export default function CreatorHubPage() {
 
   const setTab = (nextTab: CreatorTab, scrollTarget?: CreatorScrollTarget) => {
     if (scrollTarget === "deploy") {
-      navigate("/community/recipes/deploy");
+      navigate("/explore/recipes/deploy");
       return;
     }
     if (scrollTarget === "share" || nextTab === "share") {
-      navigate("/community/recipes/share");
+      navigate("/explore/recipes/share");
       return;
     }
     if (scrollTarget === "recipes" || nextTab === "recipes") {
-      navigate("/community/recipes/recipes");
+      navigate("/explore/recipes/recipes");
       return;
     }
     setTabState(nextTab);
@@ -771,7 +771,7 @@ export default function CreatorHubPage() {
                 <MessageSquareText size={15} aria-hidden />
                 {copy.actions.post}
             </Link>
-            <Link to="/community/recipes/recipes" className={buttonClass({ variant: "secondary", size: "sm", className: recipeActionClass })}>
+            <Link to="/explore/recipes/recipes" className={buttonClass({ variant: "secondary", size: "sm", className: recipeActionClass })}>
                 <BookOpen size={15} />
                 {copy.actions.recipe}
             </Link>
@@ -783,7 +783,7 @@ export default function CreatorHubPage() {
           </>
           ) : (
           <>
-            <Link to="/community/recipes" className="inline-flex items-center gap-2 text-[length:var(--fs-sm)] font-medium no-underline" style={{ color: "var(--lime)" }}>
+            <Link to="/explore/recipes" className="inline-flex items-center gap-2 text-[length:var(--fs-sm)] font-medium no-underline" style={{ color: "var(--lime)" }}>
               <BookOpen size={15} />
               Creator Hub
             </Link>

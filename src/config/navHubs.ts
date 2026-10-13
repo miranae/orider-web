@@ -63,21 +63,20 @@ export const HUBS: Hub[] = [
       { labelKey: "nav.segments", to: "/explore/segments" },
       { labelKey: "nav.events", to: "/explore/events" },
       { labelKey: "nav.discover", to: "/explore/challenges" },
+      { labelKey: "nav.creator", to: "/explore/recipes" },
     ],
     match: (p) =>
       p.startsWith("/explore/") || p.startsWith("/course/") ||
-      p.startsWith("/segment/") || p.startsWith("/event/") || p.startsWith("/live/"),
+      p.startsWith("/segment/") || p.startsWith("/event/") || p.startsWith("/live/") ||
+      p.startsWith("/explore/recipes"),
   },
   {
     key: "community",
     labelKey: "nav.community",
     icon: MessageSquare,
     to: "/community/board",
-    subs: [
-      { labelKey: "nav.board", to: "/community/board" },
-      { labelKey: "nav.creator", to: "/community/recipes" },
-    ],
-    match: (p) => p.startsWith("/community/"),
+    subs: [],
+    match: (p) => p.startsWith("/community/board"),
   },
   {
     key: "settings",

@@ -105,8 +105,10 @@ describe('legacy route declarations (App.tsx)', () => {
     ['board', '/community/board'],
     ['board/write', '/community/board/write'],
     ['board/:postId', '/community/board/:postId'],
-    ['creator', '/community/recipes'],
-    ['creator/:section', '/community/recipes/:section'],
+    ['creator', '/explore/recipes'],
+    ['community/recipes', '/explore/recipes'],
+    ['creator/:section', '/explore/recipes/:section'],
+    ['community/recipes/:section', '/explore/recipes/:section'],
     ['community', '/policies/community'],
   ])('redirects %s → %s', (from, to) => {
     indexOf(`<Route path="${from}" element={<LegacyRedirect to="${to}" />} />`);

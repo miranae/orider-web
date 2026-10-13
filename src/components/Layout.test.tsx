@@ -51,7 +51,7 @@ describe("Layout", () => {
     });
     expect(screen.getAllByText("코치").length).toBeGreaterThan(0);
     expect(screen.getAllByText("탐색").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("커뮤니티").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("게시판").length).toBeGreaterThan(0);
     const tabBar = screen.getByRole("navigation", { name: "메인 내비게이션" });
     expect(within(tabBar).queryByRole("link", { name: "설정" })).not.toBeInTheDocument();
   });
@@ -269,7 +269,7 @@ describe("Layout", () => {
     });
     const tabBar = screen.getByRole("navigation", { name: "메인 내비게이션" });
     const tabs = within(tabBar).getAllByRole("link");
-    expect(tabs.map((tab) => tab.textContent)).toEqual(["홈", "코치", "클럽", "탐색", "커뮤니티"]);
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["홈", "코치", "클럽", "탐색", "게시판"]);
     expect(within(tabBar).getByRole("link", { name: "코치" })).toHaveAttribute("href", "/ko/coach/condition");
   });
 

@@ -11,13 +11,13 @@ describe("HubSubNav", () => {
 
   it("renders explore destinations without the removed leaderboard tab", () => {
     renderWithProviders(<HubSubNav hubKey="explore" />, { route: "/explore/courses" });
-    expect(screen.getAllByRole("link").map(link => link.textContent)).toEqual(["코스", "세그먼트", "이벤트", "챌린지"]);
-    expect(screen.getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/ko/explore/courses", "/ko/explore/segments", "/ko/explore/events", "/ko/explore/challenges"]);
+    expect(screen.getAllByRole("link").map(link => link.textContent)).toEqual(["코스", "세그먼트", "이벤트", "챌린지", "레시피"]);
+    expect(screen.getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/ko/explore/courses", "/ko/explore/segments", "/ko/explore/events", "/ko/explore/challenges", "/ko/explore/recipes"]);
   });
 
-  it("renders only board and recipes under community", () => {
+  it("renders nothing for the board hub (single screen, no subtabs)", () => {
     renderWithProviders(<HubSubNav hubKey="community" />, { route: "/community/board" });
-    expect(screen.getAllByRole("link").map(link => link.textContent)).toEqual(["게시판", "레시피"]);
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 
   it.each(["home", "club"] as const)("does not show subtabs for %s", hubKey => {

@@ -195,7 +195,7 @@
   "toolbar.tableSizePrompt": "표 크기 선택",
   "toolbar.linkPrompt": "링크 URL:",
   "toolbar.tagsLabel": "태그",
-  "page.communityTitle": "커뮤니티",
+  "page.communityTitle": "게시판",
   "page.communitySubtitle": "라이더들과 자유롭게 소통해보세요",
   "error.loadFailed": "데이터를 불러오지 못했습니다",
   "error.loginRequired": "로그인이 필요합니다."
