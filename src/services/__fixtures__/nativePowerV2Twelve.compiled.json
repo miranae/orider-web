@@ -1,0 +1,1655 @@
+{
+  "status": "SYNTHETIC_ACTUAL_COMPILED_READER_NOT_OWNER_DATA",
+  "request": {
+    "version": 1,
+    "mode": "stage_native_power_v2_twelve_personal_periods",
+    "periods": [
+      {
+        "id": "all",
+        "fromInclusiveMs": 0,
+        "toExclusiveMs": 1791807200000
+      }
+    ],
+    "selectedSources": [
+      {
+        "activityId": "orider_fixture_a",
+        "activityRevision": "2:0",
+        "baseMetricsRevision": "2:0",
+        "sourceBinding": "78339bb93d28d7390284d18e1cd287b62061368c7e06b00a45246fd88965dc0a"
+      },
+      {
+        "activityId": "orider_fixture_b",
+        "activityRevision": "2:0",
+        "baseMetricsRevision": "2:0",
+        "sourceBinding": "cd3a24c29aac9f3116890d076de31e68d5845e5e7dad5b05ecee5d93c191af7a"
+      }
+    ]
+  },
+  "response": {
+    "version": 1,
+    "mode": "stage_native_power_v2_twelve_personal_periods",
+    "scope": "selected_and_checked_native_activities",
+    "timingBasis": "stored_native_timestamp_one_second_slots",
+    "comparisonChannel": "native_stored_bucket_unverified",
+    "originalClockVerified": false,
+    "sensorBucketOriginVerified": false,
+    "collectionCompleteness": "unknown",
+    "consumerRuntimeHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "sources": [
+      {
+        "candidate": {
+          "activityId": "orider_fixture_a",
+          "activityRevision": "2:0",
+          "baseMetricsRevision": "2:0",
+          "originEpochMs": 1791800000000,
+          "sourceBinding": "78339bb93d28d7390284d18e1cd287b62061368c7e06b00a45246fd88965dc0a"
+        },
+        "powerSource": "measured",
+        "physicalGroupBinding": "b73937c512af60310faf89e0c99b80ed99e68323b90452d96655032380825115",
+        "unresolvedKnownTwin": false,
+        "state": "available",
+        "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+        "publicationRevision": "b5a346b629b02e28c9f73fb5541d8b83f432562cfbd2c719850e7ce792b74b10",
+        "bounds": {
+          "observedMs": 3600000,
+          "longestContinuousMs": 3600000
+        },
+        "weight": {
+          "state": "available",
+          "weightKg": 76,
+          "computedAtMs": 1791800000000
+        },
+        "slots": [
+          {
+            "durationSeconds": 15,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+              "powerSource": "measured",
+              "durationMs": 15000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 15000,
+              "energyNumerator": "4500000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 300,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 3.9473684210526314,
+            "weightRatio": {
+              "numerator": "75",
+              "denominator": "19"
+            }
+          },
+          {
+            "durationSeconds": 30,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+              "powerSource": "measured",
+              "durationMs": 30000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 30000,
+              "energyNumerator": "9000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 300,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 3.9473684210526314,
+            "weightRatio": {
+              "numerator": "75",
+              "denominator": "19"
+            }
+          },
+          {
+            "durationSeconds": 60,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+              "powerSource": "measured",
+              "durationMs": 60000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 60000,
+              "energyNumerator": "18000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 300,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 3.9473684210526314,
+            "weightRatio": {
+              "numerator": "75",
+              "denominator": "19"
+            }
+          },
+          {
+            "durationSeconds": 120,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+              "powerSource": "measured",
+              "durationMs": 120000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 120000,
+              "energyNumerator": "36000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 300,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 3.9473684210526314,
+            "weightRatio": {
+              "numerator": "75",
+              "denominator": "19"
+            }
+          },
+          {
+            "durationSeconds": 180,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+              "powerSource": "measured",
+              "durationMs": 180000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 180000,
+              "energyNumerator": "54000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 300,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 3.9473684210526314,
+            "weightRatio": {
+              "numerator": "75",
+              "denominator": "19"
+            }
+          },
+          {
+            "durationSeconds": 300,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+              "powerSource": "measured",
+              "durationMs": 300000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 300000,
+              "energyNumerator": "90000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 300,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 3.9473684210526314,
+            "weightRatio": {
+              "numerator": "75",
+              "denominator": "19"
+            }
+          },
+          {
+            "durationSeconds": 600,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+              "powerSource": "measured",
+              "durationMs": 600000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 600000,
+              "energyNumerator": "180000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 300,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 3.9473684210526314,
+            "weightRatio": {
+              "numerator": "75",
+              "denominator": "19"
+            }
+          },
+          {
+            "durationSeconds": 900,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+              "powerSource": "measured",
+              "durationMs": 900000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 900000,
+              "energyNumerator": "270000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 300,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 3.9473684210526314,
+            "weightRatio": {
+              "numerator": "75",
+              "denominator": "19"
+            }
+          },
+          {
+            "durationSeconds": 1200,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+              "powerSource": "measured",
+              "durationMs": 1200000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 1200000,
+              "energyNumerator": "360000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 300,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 3.9473684210526314,
+            "weightRatio": {
+              "numerator": "75",
+              "denominator": "19"
+            }
+          },
+          {
+            "durationSeconds": 1800,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+              "powerSource": "measured",
+              "durationMs": 1800000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 1800000,
+              "energyNumerator": "540000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 300,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 3.9473684210526314,
+            "weightRatio": {
+              "numerator": "75",
+              "denominator": "19"
+            }
+          },
+          {
+            "durationSeconds": 2700,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+              "powerSource": "measured",
+              "durationMs": 2700000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 2700000,
+              "energyNumerator": "810000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 300,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 3.9473684210526314,
+            "weightRatio": {
+              "numerator": "75",
+              "denominator": "19"
+            }
+          },
+          {
+            "durationSeconds": 3600,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+              "powerSource": "measured",
+              "durationMs": 3600000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 3600000,
+              "energyNumerator": "1080000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 300,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 3.9473684210526314,
+            "weightRatio": {
+              "numerator": "75",
+              "denominator": "19"
+            }
+          }
+        ]
+      },
+      {
+        "candidate": {
+          "activityId": "orider_fixture_b",
+          "activityRevision": "2:0",
+          "baseMetricsRevision": "2:0",
+          "originEpochMs": 1791800010000,
+          "sourceBinding": "cd3a24c29aac9f3116890d076de31e68d5845e5e7dad5b05ecee5d93c191af7a"
+        },
+        "powerSource": "measured",
+        "physicalGroupBinding": "8d1cddf89b9d52a9bb2b59ae57f27538f20b9b5d00839540f970666423cfa95a",
+        "unresolvedKnownTwin": false,
+        "state": "available",
+        "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+        "publicationRevision": "4c7600ab9725e8ee3989082211ecf85ee4e1d60e9cfa8d743f90aeb80faa1228",
+        "bounds": {
+          "observedMs": 3600000,
+          "longestContinuousMs": 3600000
+        },
+        "weight": {
+          "state": "available",
+          "weightKg": 70.1,
+          "computedAtMs": 1791800010000
+        },
+        "slots": [
+          {
+            "durationSeconds": 15,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+              "powerSource": "measured",
+              "durationMs": 15000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 15000,
+              "energyNumerator": "4350000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 290,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 4.136947218259629,
+            "weightRatio": {
+              "numerator": "10203467905761280",
+              "denominator": "2466424483427123"
+            }
+          },
+          {
+            "durationSeconds": 30,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+              "powerSource": "measured",
+              "durationMs": 30000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 30000,
+              "energyNumerator": "8700000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 290,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 4.136947218259629,
+            "weightRatio": {
+              "numerator": "10203467905761280",
+              "denominator": "2466424483427123"
+            }
+          },
+          {
+            "durationSeconds": 60,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+              "powerSource": "measured",
+              "durationMs": 60000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 60000,
+              "energyNumerator": "17400000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 290,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 4.136947218259629,
+            "weightRatio": {
+              "numerator": "10203467905761280",
+              "denominator": "2466424483427123"
+            }
+          },
+          {
+            "durationSeconds": 120,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+              "powerSource": "measured",
+              "durationMs": 120000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 120000,
+              "energyNumerator": "34800000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 290,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 4.136947218259629,
+            "weightRatio": {
+              "numerator": "10203467905761280",
+              "denominator": "2466424483427123"
+            }
+          },
+          {
+            "durationSeconds": 180,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+              "powerSource": "measured",
+              "durationMs": 180000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 180000,
+              "energyNumerator": "52200000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 290,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 4.136947218259629,
+            "weightRatio": {
+              "numerator": "10203467905761280",
+              "denominator": "2466424483427123"
+            }
+          },
+          {
+            "durationSeconds": 300,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+              "powerSource": "measured",
+              "durationMs": 300000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 300000,
+              "energyNumerator": "87000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 290,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 4.136947218259629,
+            "weightRatio": {
+              "numerator": "10203467905761280",
+              "denominator": "2466424483427123"
+            }
+          },
+          {
+            "durationSeconds": 600,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+              "powerSource": "measured",
+              "durationMs": 600000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 600000,
+              "energyNumerator": "174000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 290,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 4.136947218259629,
+            "weightRatio": {
+              "numerator": "10203467905761280",
+              "denominator": "2466424483427123"
+            }
+          },
+          {
+            "durationSeconds": 900,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+              "powerSource": "measured",
+              "durationMs": 900000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 900000,
+              "energyNumerator": "261000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 290,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 4.136947218259629,
+            "weightRatio": {
+              "numerator": "10203467905761280",
+              "denominator": "2466424483427123"
+            }
+          },
+          {
+            "durationSeconds": 1200,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+              "powerSource": "measured",
+              "durationMs": 1200000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 1200000,
+              "energyNumerator": "348000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 290,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 4.136947218259629,
+            "weightRatio": {
+              "numerator": "10203467905761280",
+              "denominator": "2466424483427123"
+            }
+          },
+          {
+            "durationSeconds": 1800,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+              "powerSource": "measured",
+              "durationMs": 1800000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 1800000,
+              "energyNumerator": "522000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 290,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 4.136947218259629,
+            "weightRatio": {
+              "numerator": "10203467905761280",
+              "denominator": "2466424483427123"
+            }
+          },
+          {
+            "durationSeconds": 2700,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+              "powerSource": "measured",
+              "durationMs": 2700000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 2700000,
+              "energyNumerator": "783000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 290,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 4.136947218259629,
+            "weightRatio": {
+              "numerator": "10203467905761280",
+              "denominator": "2466424483427123"
+            }
+          },
+          {
+            "durationSeconds": 3600,
+            "state": "available",
+            "witness": {
+              "version": 2,
+              "calculatorPolicyVersion": "native_power_integer_ms_v2",
+              "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+              "powerSource": "measured",
+              "durationMs": 3600000,
+              "windowStartElapsedMs": 0,
+              "windowEndElapsedMs": 3600000,
+              "energyNumerator": "1044000000",
+              "energyDenominator": "1",
+              "maxAveragePowerW": 290,
+              "originalClockVerified": false,
+              "sensorBucketOriginVerified": false
+            },
+            "wattsPerKg": 4.136947218259629,
+            "weightRatio": {
+              "numerator": "10203467905761280",
+              "denominator": "2466424483427123"
+            }
+          }
+        ]
+      }
+    ],
+    "periods": [
+      {
+        "period": {
+          "id": "all",
+          "fromInclusiveMs": 0,
+          "toExclusiveMs": 1791807200000
+        },
+        "counts": {
+          "selected": 2,
+          "checked": 2,
+          "available": 2,
+          "snapshotMissing": 0,
+          "unresolvedPhysicalGroups": 0
+        },
+        "rows": [
+          {
+            "durationSeconds": 15,
+            "measured": {
+              "watts": {
+                "activityId": "orider_fixture_a",
+                "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                "slot": {
+                  "durationSeconds": 15,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                    "powerSource": "measured",
+                    "durationMs": 15000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 15000,
+                    "energyNumerator": "4500000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 300,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 3.9473684210526314,
+                  "weightRatio": {
+                    "numerator": "75",
+                    "denominator": "19"
+                  }
+                }
+              },
+              "wattsPerKg": {
+                "activityId": "orider_fixture_b",
+                "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                "slot": {
+                  "durationSeconds": 15,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                    "powerSource": "measured",
+                    "durationMs": 15000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 15000,
+                    "energyNumerator": "4350000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 290,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 4.136947218259629,
+                  "weightRatio": {
+                    "numerator": "10203467905761280",
+                    "denominator": "2466424483427123"
+                  }
+                }
+              }
+            },
+            "storedNativeUnverified": {
+              "watts": null,
+              "wattsPerKg": null
+            },
+            "counts": {
+              "available": 2,
+              "shortWindow": 0,
+              "snapshotMissing": 0,
+              "weightUnavailable": 0
+            }
+          },
+          {
+            "durationSeconds": 30,
+            "measured": {
+              "watts": {
+                "activityId": "orider_fixture_a",
+                "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                "slot": {
+                  "durationSeconds": 30,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                    "powerSource": "measured",
+                    "durationMs": 30000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 30000,
+                    "energyNumerator": "9000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 300,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 3.9473684210526314,
+                  "weightRatio": {
+                    "numerator": "75",
+                    "denominator": "19"
+                  }
+                }
+              },
+              "wattsPerKg": {
+                "activityId": "orider_fixture_b",
+                "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                "slot": {
+                  "durationSeconds": 30,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                    "powerSource": "measured",
+                    "durationMs": 30000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 30000,
+                    "energyNumerator": "8700000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 290,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 4.136947218259629,
+                  "weightRatio": {
+                    "numerator": "10203467905761280",
+                    "denominator": "2466424483427123"
+                  }
+                }
+              }
+            },
+            "storedNativeUnverified": {
+              "watts": null,
+              "wattsPerKg": null
+            },
+            "counts": {
+              "available": 2,
+              "shortWindow": 0,
+              "snapshotMissing": 0,
+              "weightUnavailable": 0
+            }
+          },
+          {
+            "durationSeconds": 60,
+            "measured": {
+              "watts": {
+                "activityId": "orider_fixture_a",
+                "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                "slot": {
+                  "durationSeconds": 60,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                    "powerSource": "measured",
+                    "durationMs": 60000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 60000,
+                    "energyNumerator": "18000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 300,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 3.9473684210526314,
+                  "weightRatio": {
+                    "numerator": "75",
+                    "denominator": "19"
+                  }
+                }
+              },
+              "wattsPerKg": {
+                "activityId": "orider_fixture_b",
+                "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                "slot": {
+                  "durationSeconds": 60,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                    "powerSource": "measured",
+                    "durationMs": 60000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 60000,
+                    "energyNumerator": "17400000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 290,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 4.136947218259629,
+                  "weightRatio": {
+                    "numerator": "10203467905761280",
+                    "denominator": "2466424483427123"
+                  }
+                }
+              }
+            },
+            "storedNativeUnverified": {
+              "watts": null,
+              "wattsPerKg": null
+            },
+            "counts": {
+              "available": 2,
+              "shortWindow": 0,
+              "snapshotMissing": 0,
+              "weightUnavailable": 0
+            }
+          },
+          {
+            "durationSeconds": 120,
+            "measured": {
+              "watts": {
+                "activityId": "orider_fixture_a",
+                "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                "slot": {
+                  "durationSeconds": 120,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                    "powerSource": "measured",
+                    "durationMs": 120000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 120000,
+                    "energyNumerator": "36000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 300,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 3.9473684210526314,
+                  "weightRatio": {
+                    "numerator": "75",
+                    "denominator": "19"
+                  }
+                }
+              },
+              "wattsPerKg": {
+                "activityId": "orider_fixture_b",
+                "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                "slot": {
+                  "durationSeconds": 120,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                    "powerSource": "measured",
+                    "durationMs": 120000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 120000,
+                    "energyNumerator": "34800000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 290,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 4.136947218259629,
+                  "weightRatio": {
+                    "numerator": "10203467905761280",
+                    "denominator": "2466424483427123"
+                  }
+                }
+              }
+            },
+            "storedNativeUnverified": {
+              "watts": null,
+              "wattsPerKg": null
+            },
+            "counts": {
+              "available": 2,
+              "shortWindow": 0,
+              "snapshotMissing": 0,
+              "weightUnavailable": 0
+            }
+          },
+          {
+            "durationSeconds": 180,
+            "measured": {
+              "watts": {
+                "activityId": "orider_fixture_a",
+                "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                "slot": {
+                  "durationSeconds": 180,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                    "powerSource": "measured",
+                    "durationMs": 180000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 180000,
+                    "energyNumerator": "54000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 300,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 3.9473684210526314,
+                  "weightRatio": {
+                    "numerator": "75",
+                    "denominator": "19"
+                  }
+                }
+              },
+              "wattsPerKg": {
+                "activityId": "orider_fixture_b",
+                "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                "slot": {
+                  "durationSeconds": 180,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                    "powerSource": "measured",
+                    "durationMs": 180000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 180000,
+                    "energyNumerator": "52200000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 290,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 4.136947218259629,
+                  "weightRatio": {
+                    "numerator": "10203467905761280",
+                    "denominator": "2466424483427123"
+                  }
+                }
+              }
+            },
+            "storedNativeUnverified": {
+              "watts": null,
+              "wattsPerKg": null
+            },
+            "counts": {
+              "available": 2,
+              "shortWindow": 0,
+              "snapshotMissing": 0,
+              "weightUnavailable": 0
+            }
+          },
+          {
+            "durationSeconds": 300,
+            "measured": {
+              "watts": {
+                "activityId": "orider_fixture_a",
+                "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                "slot": {
+                  "durationSeconds": 300,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                    "powerSource": "measured",
+                    "durationMs": 300000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 300000,
+                    "energyNumerator": "90000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 300,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 3.9473684210526314,
+                  "weightRatio": {
+                    "numerator": "75",
+                    "denominator": "19"
+                  }
+                }
+              },
+              "wattsPerKg": {
+                "activityId": "orider_fixture_b",
+                "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                "slot": {
+                  "durationSeconds": 300,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                    "powerSource": "measured",
+                    "durationMs": 300000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 300000,
+                    "energyNumerator": "87000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 290,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 4.136947218259629,
+                  "weightRatio": {
+                    "numerator": "10203467905761280",
+                    "denominator": "2466424483427123"
+                  }
+                }
+              }
+            },
+            "storedNativeUnverified": {
+              "watts": null,
+              "wattsPerKg": null
+            },
+            "counts": {
+              "available": 2,
+              "shortWindow": 0,
+              "snapshotMissing": 0,
+              "weightUnavailable": 0
+            }
+          },
+          {
+            "durationSeconds": 600,
+            "measured": {
+              "watts": {
+                "activityId": "orider_fixture_a",
+                "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                "slot": {
+                  "durationSeconds": 600,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                    "powerSource": "measured",
+                    "durationMs": 600000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 600000,
+                    "energyNumerator": "180000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 300,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 3.9473684210526314,
+                  "weightRatio": {
+                    "numerator": "75",
+                    "denominator": "19"
+                  }
+                }
+              },
+              "wattsPerKg": {
+                "activityId": "orider_fixture_b",
+                "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                "slot": {
+                  "durationSeconds": 600,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                    "powerSource": "measured",
+                    "durationMs": 600000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 600000,
+                    "energyNumerator": "174000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 290,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 4.136947218259629,
+                  "weightRatio": {
+                    "numerator": "10203467905761280",
+                    "denominator": "2466424483427123"
+                  }
+                }
+              }
+            },
+            "storedNativeUnverified": {
+              "watts": null,
+              "wattsPerKg": null
+            },
+            "counts": {
+              "available": 2,
+              "shortWindow": 0,
+              "snapshotMissing": 0,
+              "weightUnavailable": 0
+            }
+          },
+          {
+            "durationSeconds": 900,
+            "measured": {
+              "watts": {
+                "activityId": "orider_fixture_a",
+                "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                "slot": {
+                  "durationSeconds": 900,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                    "powerSource": "measured",
+                    "durationMs": 900000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 900000,
+                    "energyNumerator": "270000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 300,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 3.9473684210526314,
+                  "weightRatio": {
+                    "numerator": "75",
+                    "denominator": "19"
+                  }
+                }
+              },
+              "wattsPerKg": {
+                "activityId": "orider_fixture_b",
+                "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                "slot": {
+                  "durationSeconds": 900,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                    "powerSource": "measured",
+                    "durationMs": 900000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 900000,
+                    "energyNumerator": "261000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 290,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 4.136947218259629,
+                  "weightRatio": {
+                    "numerator": "10203467905761280",
+                    "denominator": "2466424483427123"
+                  }
+                }
+              }
+            },
+            "storedNativeUnverified": {
+              "watts": null,
+              "wattsPerKg": null
+            },
+            "counts": {
+              "available": 2,
+              "shortWindow": 0,
+              "snapshotMissing": 0,
+              "weightUnavailable": 0
+            }
+          },
+          {
+            "durationSeconds": 1200,
+            "measured": {
+              "watts": {
+                "activityId": "orider_fixture_a",
+                "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                "slot": {
+                  "durationSeconds": 1200,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                    "powerSource": "measured",
+                    "durationMs": 1200000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 1200000,
+                    "energyNumerator": "360000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 300,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 3.9473684210526314,
+                  "weightRatio": {
+                    "numerator": "75",
+                    "denominator": "19"
+                  }
+                }
+              },
+              "wattsPerKg": {
+                "activityId": "orider_fixture_b",
+                "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                "slot": {
+                  "durationSeconds": 1200,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                    "powerSource": "measured",
+                    "durationMs": 1200000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 1200000,
+                    "energyNumerator": "348000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 290,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 4.136947218259629,
+                  "weightRatio": {
+                    "numerator": "10203467905761280",
+                    "denominator": "2466424483427123"
+                  }
+                }
+              }
+            },
+            "storedNativeUnverified": {
+              "watts": null,
+              "wattsPerKg": null
+            },
+            "counts": {
+              "available": 2,
+              "shortWindow": 0,
+              "snapshotMissing": 0,
+              "weightUnavailable": 0
+            }
+          },
+          {
+            "durationSeconds": 1800,
+            "measured": {
+              "watts": {
+                "activityId": "orider_fixture_a",
+                "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                "slot": {
+                  "durationSeconds": 1800,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                    "powerSource": "measured",
+                    "durationMs": 1800000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 1800000,
+                    "energyNumerator": "540000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 300,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 3.9473684210526314,
+                  "weightRatio": {
+                    "numerator": "75",
+                    "denominator": "19"
+                  }
+                }
+              },
+              "wattsPerKg": {
+                "activityId": "orider_fixture_b",
+                "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                "slot": {
+                  "durationSeconds": 1800,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                    "powerSource": "measured",
+                    "durationMs": 1800000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 1800000,
+                    "energyNumerator": "522000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 290,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 4.136947218259629,
+                  "weightRatio": {
+                    "numerator": "10203467905761280",
+                    "denominator": "2466424483427123"
+                  }
+                }
+              }
+            },
+            "storedNativeUnverified": {
+              "watts": null,
+              "wattsPerKg": null
+            },
+            "counts": {
+              "available": 2,
+              "shortWindow": 0,
+              "snapshotMissing": 0,
+              "weightUnavailable": 0
+            }
+          },
+          {
+            "durationSeconds": 2700,
+            "measured": {
+              "watts": {
+                "activityId": "orider_fixture_a",
+                "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                "slot": {
+                  "durationSeconds": 2700,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                    "powerSource": "measured",
+                    "durationMs": 2700000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 2700000,
+                    "energyNumerator": "810000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 300,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 3.9473684210526314,
+                  "weightRatio": {
+                    "numerator": "75",
+                    "denominator": "19"
+                  }
+                }
+              },
+              "wattsPerKg": {
+                "activityId": "orider_fixture_b",
+                "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                "slot": {
+                  "durationSeconds": 2700,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                    "powerSource": "measured",
+                    "durationMs": 2700000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 2700000,
+                    "energyNumerator": "783000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 290,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 4.136947218259629,
+                  "weightRatio": {
+                    "numerator": "10203467905761280",
+                    "denominator": "2466424483427123"
+                  }
+                }
+              }
+            },
+            "storedNativeUnverified": {
+              "watts": null,
+              "wattsPerKg": null
+            },
+            "counts": {
+              "available": 2,
+              "shortWindow": 0,
+              "snapshotMissing": 0,
+              "weightUnavailable": 0
+            }
+          },
+          {
+            "durationSeconds": 3600,
+            "measured": {
+              "watts": {
+                "activityId": "orider_fixture_a",
+                "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                "slot": {
+                  "durationSeconds": 3600,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+                    "powerSource": "measured",
+                    "durationMs": 3600000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 3600000,
+                    "energyNumerator": "1080000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 300,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 3.9473684210526314,
+                  "weightRatio": {
+                    "numerator": "75",
+                    "denominator": "19"
+                  }
+                }
+              },
+              "wattsPerKg": {
+                "activityId": "orider_fixture_b",
+                "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                "slot": {
+                  "durationSeconds": 3600,
+                  "state": "available",
+                  "witness": {
+                    "version": 2,
+                    "calculatorPolicyVersion": "native_power_integer_ms_v2",
+                    "snapshotRevision": "01aa5e68f5dd30ccc75b2ee3270e0b346dc3dabafa94a50b453ec77a3589386a",
+                    "powerSource": "measured",
+                    "durationMs": 3600000,
+                    "windowStartElapsedMs": 0,
+                    "windowEndElapsedMs": 3600000,
+                    "energyNumerator": "1044000000",
+                    "energyDenominator": "1",
+                    "maxAveragePowerW": 290,
+                    "originalClockVerified": false,
+                    "sensorBucketOriginVerified": false
+                  },
+                  "wattsPerKg": 4.136947218259629,
+                  "weightRatio": {
+                    "numerator": "10203467905761280",
+                    "denominator": "2466424483427123"
+                  }
+                }
+              }
+            },
+            "storedNativeUnverified": {
+              "watts": null,
+              "wattsPerKg": null
+            },
+            "counts": {
+              "available": 2,
+              "shortWindow": 0,
+              "snapshotMissing": 0,
+              "weightUnavailable": 0
+            }
+          }
+        ]
+      }
+    ],
+    "costs": {
+      "reserved": {
+        "documents": 56,
+        "metadata": 4,
+        "auth": 2,
+        "snapshotBodies": 2
+      },
+      "delivered": {
+        "documents": 52,
+        "metadata": 4,
+        "auth": 2,
+        "snapshotBodies": 2
+      },
+      "snapshotDecodeCalls": 2,
+      "wireFullPublicationDocuments": 4,
+      "encodedResponseBytes": 33964,
+      "queries": 0,
+      "raw": 0,
+      "writes": 0
+    }
+  },
+  "inspectResponse": {
+    "version": 1,
+    "mode": "stage_native_power_v2_twelve_inspect",
+    "scope": "selected_and_checked_native_activities",
+    "timingBasis": "stored_native_timestamp_one_second_slots",
+    "comparisonChannel": "native_stored_bucket_unverified",
+    "originalClockVerified": false,
+    "sensorBucketOriginVerified": false,
+    "collectionCompleteness": "unknown",
+    "consumerRuntimeHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "sources": [
+      {
+        "candidate": {
+          "activityId": "orider_fixture_a",
+          "activityRevision": "2:0",
+          "baseMetricsRevision": "2:0",
+          "originEpochMs": 1791800000000,
+          "sourceBinding": "78339bb93d28d7390284d18e1cd287b62061368c7e06b00a45246fd88965dc0a"
+        },
+        "powerSource": "measured",
+        "physicalGroupBinding": "b73937c512af60310faf89e0c99b80ed99e68323b90452d96655032380825115",
+        "unresolvedKnownTwin": false,
+        "state": "available",
+        "snapshotRevision": "bd836c3c80538919b40d94bb7dd9dc2f050913229e42750435159d54c482268f",
+        "publicationRevision": "b5a346b629b02e28c9f73fb5541d8b83f432562cfbd2c719850e7ce792b74b10",
+        "bounds": {
+          "observedMs": 3600000,
+          "longestContinuousMs": 3600000
+        },
+        "weight": {
+          "state": "available",
+          "weightKg": 76,
+          "computedAtMs": 1791800000000
+        },
+        "slots": [
+          {
+            "durationSeconds": 15,
+            "state": "not_requested",
+            "witness": null,
+            "wattsPerKg": null,
+            "weightRatio": null
+          },
+          {
+            "durationSeconds": 30,
+            "state": "not_requested",
+            "witness": null,
+            "wattsPerKg": null,
+            "weightRatio": null
+          },
+          {
+            "durationSeconds": 60,
+            "state": "not_requested",
+            "witness": null,
+            "wattsPerKg": null,
+            "weightRatio": null
+          },
+          {
+            "durationSeconds": 120,
+            "state": "not_requested",
+            "witness": null,
+            "wattsPerKg": null,
+            "weightRatio": null
+          },
+          {
+            "durationSeconds": 180,
+            "state": "not_requested",
+            "witness": null,
+            "wattsPerKg": null,
+            "weightRatio": null
+          },
+          {
+            "durationSeconds": 300,
+            "state": "not_requested",
+            "witness": null,
+            "wattsPerKg": null,
+            "weightRatio": null
+          },
+          {
+            "durationSeconds": 600,
+            "state": "not_requested",
+            "witness": null,
+            "wattsPerKg": null,
+            "weightRatio": null
+          },
+          {
+            "durationSeconds": 900,
+            "state": "not_requested",
+            "witness": null,
+            "wattsPerKg": null,
+            "weightRatio": null
+          },
+          {
+            "durationSeconds": 1200,
+            "state": "not_requested",
+            "witness": null,
+            "wattsPerKg": null,
+            "weightRatio": null
+          },
+          {
+            "durationSeconds": 1800,
+            "state": "not_requested",
+            "witness": null,
+            "wattsPerKg": null,
+            "weightRatio": null
+          },
+          {
+            "durationSeconds": 2700,
+            "state": "not_requested",
+            "witness": null,
+            "wattsPerKg": null,
+            "weightRatio": null
+          },
+          {
+            "durationSeconds": 3600,
+            "state": "not_requested",
+            "witness": null,
+            "wattsPerKg": null,
+            "weightRatio": null
+          }
+        ]
+      }
+    ],
+    "periods": [],
+    "costs": {
+      "reserved": {
+        "documents": 28,
+        "metadata": 2,
+        "auth": 2,
+        "snapshotBodies": 1
+      },
+      "delivered": {
+        "documents": 28,
+        "metadata": 2,
+        "auth": 2,
+        "snapshotBodies": 1
+      },
+      "snapshotDecodeCalls": 1,
+      "wireFullPublicationDocuments": 2,
+      "encodedResponseBytes": 2597,
+      "queries": 0,
+      "raw": 0,
+      "writes": 0
+    }
+  }
+}
