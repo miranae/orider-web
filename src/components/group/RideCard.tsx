@@ -31,7 +31,7 @@ export default function RideCard({ ride }: RideCardProps) {
 
   return (
     <Link
-      to={`/group/${groupId}/ride/${ride.groupRideId}`}
+      to={`/club/${groupId}/rides/${ride.groupRideId}`}
       className="block rounded-[var(--r-lg)] shadow-sm p-4 hover:shadow-md transition-shadow border"
       style={{ background: "var(--bg-0)", borderColor: "var(--line-soft)" }}
     >

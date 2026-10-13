@@ -120,7 +120,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
         discipline: 'run',
       });
       const data = result.data as { goalId: string };
-      navigate(`/plan?goalId=${data.goalId}`);
+      navigate(`/coach/plan?goalId=${data.goalId}`);
     } catch (err) {
       logClientError('RunGoalSetupWizard.handleStart', err, { eventId, goalType, eventDate, weeklySessions });
       setCreateError(t('errors.creationError'));

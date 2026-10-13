@@ -65,10 +65,10 @@ interface Props {
 }
 
 const actionRoutes: Record<CoachActionCode, string> = {
-  FOLLOW_EXISTING_PLAN: "/plan",
-  REVIEW_RECOVERY_BEFORE_TRAINING: "/fitness",
-  CHECK_MISSING_DATA: "/my",
-  OPEN_PLAN: "/plan",
+  FOLLOW_EXISTING_PLAN: "/coach/plan",
+  REVIEW_RECOVERY_BEFORE_TRAINING: "/coach/condition",
+  CHECK_MISSING_DATA: "/athlete/me",
+  OPEN_PLAN: "/coach/plan",
   NO_ACTIVE_GOAL: "/goal-setup",
 };
 
@@ -542,7 +542,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     coachAnalytics.actionClick(code);
     clearSession();
     if (code === "OPEN_ACTIVITY" && entity?.entityType === "activity") navigate(`/activity/${encodeURIComponent(entity.entityId)}`);
-    else navigate(code === "VIEW_TRAINING_LOAD" ? "/fitness" : "/my");
+    else navigate(code === "VIEW_TRAINING_LOAD" ? "/coach/condition" : "/athlete/me");
   }
 
   function sendFeedback(helpful: boolean) {
@@ -616,7 +616,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                 <Text as="p" variant="bodySmall" tone="secondary">{t("subtitle")}</Text></div>
               <div className="coach-sheet__header-actions">
                 {user && <Button dense variant="ghost" size="sm" leadingIcon={<History size={17} />} disabled={phase === "submitting" || consentOpen}
-                  onClick={() => { clearSession(); navigate("/coach"); }}>{t("history.open")}</Button>}
+                  onClick={() => { clearSession(); navigate("/coach/chat"); }}>{t("history.open")}</Button>}
                 <Button iconOnly dense variant="ghost" aria-label={t("close")} disabled={phase === "submitting" || consentOpen} onClick={closeSheet}><X size={20} /></Button>
               </div>
             </header>

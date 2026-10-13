@@ -18,7 +18,7 @@ describe("ActivityFtpDecisionCard", () => {
     };
     renderWithProviders(<ActivityFtpDecisionCard uid="uid-1" activityId="activity-1" enabled />);
     expect(screen.getByRole("link", { name: "Fitness에서 검토" }))
-      .toHaveAttribute("href", "/ko/fitness?sport=bike&decisionId=bike-ftp-1234567890abcdef1234567890abcdef");
+      .toHaveAttribute("href", "/ko/coach/condition?sport=bike&decisionId=bike-ftp-1234567890abcdef1234567890abcdef");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 

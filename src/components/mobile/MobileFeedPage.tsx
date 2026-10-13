@@ -402,7 +402,7 @@ export default function MobileFeedPage({
             <Text variant="eyebrow" tone="secondary">{t("yearRecap.eyebrow")}</Text>
             <Text as="h2" variant="subtitle" weight={700} style={{ display: "block", marginTop: "var(--space-1)", color: "var(--ink-0)" }}>{t("yearRecap.title")}</Text>
             <Text variant="bodySmall" tone="tertiary" style={{ display: "block", marginTop: "var(--space-1)", marginBottom: "var(--space-3)" }}>{t("yearRecap.desc")}</Text>
-            <Link to="/year-recap" className={buttonClass({ variant: "primary", size: "sm", block: true })} style={{ textDecoration: "none" }}>{t("yearRecap.cta")}</Link>
+            <Link to="/athlete/me/records" className={buttonClass({ variant: "primary", size: "sm", block: true })} style={{ textDecoration: "none" }}>{t("yearRecap.cta")}</Link>
           </Card>
         </div>
       )}
@@ -443,7 +443,7 @@ export default function MobileFeedPage({
                 </button>
               )}
             </div>
-            <Link to="/my" className="ds-tap-target" style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, textDecoration: "none" }}>
+            <Link to="/athlete/me" className="ds-tap-target" style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, textDecoration: "none" }}>
               {t("mobileFeed.viewAll")}
             </Link>
           </div>

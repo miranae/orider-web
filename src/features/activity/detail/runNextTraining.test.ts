@@ -49,7 +49,7 @@ describe("persisted next running plan selector", () => {
  });
  it("builds exact saved-day navigation and rejects malformed boundaries/overrides", () => {
   const session = toRunNextTrainingSession(goal.id, week([day()]), 0)!;
-  expect(buildRunPlanTarget(session)).toEqual({ pathname: "/plan", search: "?sport=run&goalId=run-goal&weekId=week-01&dayIndex=0&date=2026-10-01" });
+  expect(buildRunPlanTarget(session)).toEqual({ pathname: "/coach/plan", search: "?sport=run&goalId=run-goal&weekId=week-01&dayIndex=0&date=2026-10-01" });
   expect(toRunNextTrainingSession(goal.id, week([day(1, { date: now })]), 0)).toBeNull();
   expect(toRunNextTrainingSession(goal.id, week([day(1, { executionWorkoutOverride: "recoveryRun" })]), 0)).toBeNull();
  });

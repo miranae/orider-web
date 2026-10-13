@@ -48,21 +48,21 @@ export default function GroupInvitePage() {
         if (isPendingGroupJoinResult(result.data)) {
           showToast(t("join.pendingToast"));
           setProcessed(true);
-          navigate("/groups", { replace: true });
+          navigate("/clubs", { replace: true });
           return;
         }
         const groupId = result.data.groupId;
         if (!groupId) throw new Error("Missing group id");
         showToast(t("inviteLink.joined"));
         setProcessed(true);
-        navigate(`/group/${groupId}`, { replace: true });
+        navigate(`/club/${groupId}`, { replace: true });
       })
       .catch((err) => {
         if (!current()) return;
         logClientError("GroupInvitePage.join", err, { inviteCode });
         showToast((!["functions/permission-denied", "functions/unauthenticated"].includes(err?.code) && (err?.code === "functions/not-found" || err?.message === "Invalid invite code" || err?.message === "Invalid or expired invite code" || (err?.code === "functions/invalid-argument" && err?.message === "유효한 초대 코드가 필요합니다."))) ? t("error.invalidInviteCode") : t("error.joinFailed"), "error");
         setProcessed(true);
-        navigate("/groups", { replace: true });
+        navigate("/clubs", { replace: true });
       })
       .finally(() => { if (current()) setProcessing(false); });
     return () => { cancelled = true; };

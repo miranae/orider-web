@@ -9,11 +9,11 @@ vi.mock("../../hooks/useGlobalSearch", () => ({
 }));
 
 const accountLinks = [
-  ["내 프로필", "/ko/my"],
-  ["활동", "/ko/log"],
-  ["친구", "/ko/friends"],
-  ["장비", "/ko/settings?section=equipment"],
-  ["설정", "/ko/settings"],
+  ["내 프로필", "/ko/athlete/me"],
+  ["활동", "/ko/athlete/me/activities"],
+  ["친구", "/ko/athlete/me/friends"],
+  ["장비", "/ko/athlete/me/gear"],
+  ["설정", "/ko/settings/account"],
 ];
 
 describe("menu IA v2", () => {
@@ -52,7 +52,7 @@ describe("menu IA v2", () => {
       expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
     }
     expect(screen.getByRole("link", { name: "오라이더 소개" })).toHaveAttribute("href", "/ko/about");
-    expect(screen.getByRole("link", { name: "개발자 문서" })).toHaveAttribute("href", "/ko/creator");
+    expect(screen.getByRole("link", { name: "개발자 문서" })).toHaveAttribute("href", "/ko/community/recipes");
     expect(screen.getByRole("link", { name: "이용약관" })).toHaveAttribute("href", "/ko/terms");
   });
 });

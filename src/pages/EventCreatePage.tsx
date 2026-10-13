@@ -485,7 +485,7 @@ export default function EventCreatePage() {
           >
             {t("create.viewEvent")}
           </Button>
-          <Button type="button" onClick={() => navigate("/events")} variant="secondary">
+          <Button type="button" onClick={() => navigate("/explore/events")} variant="secondary">
             {t("create.eventList")}
           </Button>
         </div>
@@ -502,7 +502,7 @@ export default function EventCreatePage() {
     <div style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6)" }}>
       {/* Breadcrumb */}
       <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
-        <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
+        <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
         <span style={{ color: "var(--ink-4)" }}>›</span>
         <span style={{ color: "var(--ink-2)" }}>{t("createTitle")}</span>
       </div>

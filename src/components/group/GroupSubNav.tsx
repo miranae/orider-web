@@ -12,7 +12,7 @@ interface GroupSubNavProps {
 export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
   const { t } = useTranslation("group");
   const { groupId } = useParams();
-  const base = `/group/${groupId}`;
+  const base = `/club/${groupId}`;
 
   const tabs = [
     { to: base, label: t("subNav.overview"), end: true },
@@ -29,8 +29,8 @@ export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
         className="flex flex-wrap items-center mb-3 text-[length:var(--fs-sm)]"
         style={{ gap: "var(--space-3)", color: "var(--ink-3)" }}
       >
-        <Link to="/groups" style={{ color: "var(--ink-2)" }}>{t("subNav.groupList")}</Link>
-        <Link to="/events" style={{ color: "var(--ink-2)" }}>{t("subNav.eventList")}</Link>
+        <Link to="/clubs" style={{ color: "var(--ink-2)" }}>{t("subNav.groupList")}</Link>
+        <Link to="/explore/events" style={{ color: "var(--ink-2)" }}>{t("subNav.eventList")}</Link>
       </nav>
       <div className="flex items-center justify-between mb-4">
         <div>

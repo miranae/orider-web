@@ -224,7 +224,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           title={t("empty.noActivities")}
           description={t("empty.hint")}
           actions={[
-            { label: t("empty.connectStrava"), variant: "primary", href: "/settings?section=connections" },
+            { label: t("empty.connectStrava"), variant: "primary", href: "/settings/connections" },
           ]}
         />
       </div>
@@ -396,7 +396,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         </Text>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-1) var(--space-3)", color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
           <span>{subtitle}</span>
-          {goalForecast && <Link to="/plan" title={t("header.subtitle.goal", goalForecast)} aria-label={t("header.subtitle.goal", goalForecast)} style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}>
+          {goalForecast && <Link to="/coach/plan" title={t("header.subtitle.goal", goalForecast)} aria-label={t("header.subtitle.goal", goalForecast)} style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}>
             {t("header.subtitle.goalShort", goalForecast)} →
           </Link>}
         </div>
@@ -446,7 +446,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             title={t("empty.noActivities")}
             description={t("empty.hint")}
             actions={[
-              { label: t("empty.connectStrava"), variant: "primary", href: "/settings?section=connections" },
+              { label: t("empty.connectStrava"), variant: "primary", href: "/settings/connections" },
             ]}
           />
         </div>
@@ -503,7 +503,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         )}
         {(activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
           <DetailsSection title={t("conclusion.evidenceToggle")}>
-            {/* Plan 적응 한 줄 요약 — warn/critical 일 때만 노출. 클릭 시 /plan 으로 이동. */}
+            {/* Plan 적응 한 줄 요약 — warn/critical 일 때만 노출. 클릭 시 /coach/plan 으로 이동. */}
             {activeGoal?.adaptationFlag && (
               <AdaptationSummary
                 flag={activeGoal.adaptationFlag}
@@ -711,7 +711,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
                     <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>—</span>
                   )}
                 </div>
-                <a href="/plan" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`} style={{ whiteSpace: "nowrap", fontSize: "var(--fs-xs)" }}>
+                <a href="/coach/plan" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`} style={{ whiteSpace: "nowrap", fontSize: "var(--fs-xs)" }}>
                   {t("goal.viewPlan")}
                 </a>
               </div>

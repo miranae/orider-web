@@ -95,7 +95,7 @@ const PostDetailPage: React.FC = () => {
     if (!(await dialog.confirm(t('message.deleteConfirm', { label: t('message.deleteLabel') }), { destructive: true }))) return;
     try {
       await deletePost(postId);
-      navigate('/board', { replace: true });
+      navigate('/community/board', { replace: true });
     } catch {
       showToast(t('message.postDeleteFailed'), "error");
     }
@@ -121,7 +121,7 @@ const PostDetailPage: React.FC = () => {
         createdAt: Date.now(),
       }, { merge: true });
       showToast(t("block.done", { nickname: post.nickname }));
-      navigate("/board", { replace: true });
+      navigate("/community/board", { replace: true });
     } catch {
       showToast(t("block.failed"), "error");
     }
@@ -162,7 +162,7 @@ const PostDetailPage: React.FC = () => {
         <EmptyState
           icon="📝"
           title={t('label.postNotFound')}
-          actions={[{ label: t('label.backToBoard'), variant: "primary", onClick: () => navigate('/board') }]}
+          actions={[{ label: t('label.backToBoard'), variant: "primary", onClick: () => navigate('/community/board') }]}
         />
       </div>
     );
@@ -174,7 +174,7 @@ const PostDetailPage: React.FC = () => {
         <EmptyState
           icon="🗑️"
           title={t('label.deletedPostText')}
-          actions={[{ label: t('label.backToBoard'), variant: "primary", onClick: () => navigate('/board') }]}
+          actions={[{ label: t('label.backToBoard'), variant: "primary", onClick: () => navigate('/community/board') }]}
         />
       </div>
     );
@@ -376,7 +376,7 @@ const PostDetailPage: React.FC = () => {
           <Card className="mb-6" padding="compact">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("comment.loginRequired")}</span>
-              <Button type="button" variant="secondary" size="sm" onClick={() => navigate("/settings")}>
+              <Button type="button" variant="secondary" size="sm" onClick={() => navigate("/settings/account")}>
                 {t("comment.loginAction")}
               </Button>
             </div>

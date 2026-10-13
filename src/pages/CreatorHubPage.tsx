@@ -112,7 +112,7 @@ export function creatorApiDocsLinks(config: RuntimeConfig = getRuntimeConfig()) 
   return { docs: `${apiBase}/api/v1/docs`, openapi: `${apiBase}/api/v1/docs/openapi.yaml` };
 }
 const CREATOR_RECIPE_REQUEST_LINK = {
-  pathname: "/board/write",
+  pathname: "/community/board/write",
   search: "?type=inquiry&template=creator-recipe",
 };
 const recipeActionClass = "w-full justify-center min-[420px]:w-auto";
@@ -349,7 +349,7 @@ function buildCopy(language: string) {
           ? "AI 일기 생성, 주간 부하 차트 미리보기, 공유 카드 복사처럼 화면 안에서 끝나는 기능입니다. 로그인하면 내 활동 데이터로 계산되고, 비로그인 상태에서는 데모 데이터가 보입니다."
           : "Use in-product actions such as AI diary generation, weekly load preview, and share-card copy. Signed-in riders use their own data; signed-out visitors see demo data.",
         action: ko ? "자랑 카드 보기" : "View share cards",
-        to: "/creator/share",
+        to: "/community/recipes/share",
       },
       {
         title: ko ? "내 도구에 직접 연결하기" : "Connect it to your own tools",
@@ -357,7 +357,7 @@ function buildCopy(language: string) {
           ? "설정의 Developer API에서 개인 API key를 만들고, 필요한 scope만 골라 Notion, Slack, n8n, 개인 대시보드 같은 도구에서 본인 데이터를 읽어갑니다. 이 단계는 간단한 자동화나 개발 지식이 필요합니다."
           : "Create a personal API key in Developer API settings, choose only the scopes you need, and read your own data from tools like Notion, Slack, n8n, or a personal dashboard. This path needs basic automation or development knowledge.",
         action: ko ? "활용 예시 보기" : "View examples",
-        to: "/creator/examples",
+        to: "/community/recipes/examples",
       },
       {
         title: ko ? "아이디어만 제안하기" : "Request an idea",
@@ -383,8 +383,8 @@ function buildCopy(language: string) {
         result: ko ? "월요일 아침에는 개인 HTML 리포트가 생기고, Notion에는 '3회 · 125km · 5시간 · load 97 · 다음 고강도 전 회복 확인' 같은 안전한 요약만 쌓입니다." : "On Monday morning, you get a private HTML report, while Notion stores a safe summary such as '3 sessions · 125 km · 5 h · load 97 · check recovery before the next hard session.'",
         safety: ko ? "Notion과 Slack에는 집 근처 출발지, 상세 경로, 활동명, stream 좌표를 남기지 말고 집계값과 다음 행동만 저장하세요." : "Keep home-area starts, detailed routes, activity titles, and stream coordinates out of Notion and Slack; store aggregates and next actions only.",
         aiPrompt: ko
-          ? "너는 자동화 구현 담당자야. 오라이더 공개 저장소의 레시피 문서를 기준으로 주간 부하 리포트 자동화를 바로 만들 수 있게 구현안을 작성해줘.\n\n목표: 매주 월요일 오전, 오라이더 Personal Data API로 최근 7일 훈련을 읽어 개인 HTML 리포트와 Notion용 집계 요약을 만든다.\n참고 경로: API key 생성 화면은 /ko/settings?section=developer, API 가이드는 docs/PERSONAL_DATA_API.md, 정식 API 계약은 Swagger UI /api/v1/docs 또는 OpenAPI YAML /api/v1/docs/openapi.yaml, 레시피 문서는 docs/recipes/weekly-load-report.md, 리포트 템플릿은 docs/recipes/report-template.md, 실행 예제는 examples/recipes/weekly-load-report/weekly-load-report.mjs다.\nAPI 계약 확인: X-API-Key 헤더, endpoint path, request/response schema, content type, error code는 Swagger/OpenAPI를 기준으로 확인한다. 사용 가능한 endpoint나 응답 필드를 md 문서만 보고 임의로 만들지 않는다.\n필요 권한: 기본은 Orider activities:read, fitness:read만 사용한다. 지도/경로 썸네일은 private HTML에만 넣고 싶을 때 streams:read를 명시적으로 추가하고 Swagger/OpenAPI에 문서화된 route thumbnail endpoint를 호출한다. Notion은 대상 데이터베이스에 page를 생성할 권한만 사용한다.\n사용자가 준비해야 할 값: ORIDER_API_KEY, NOTION_TOKEN, NOTION_DATABASE_ID, 실행 시간대, 월요일 실행 시각.\n산출물: weekly-load-report.html, weekly-load-summary.json, weekly-load-public-summary.txt, Notion row.\n리포트 구성: 상단 판정, KPI 카드, 최근 7일 일별 load 막대 차트, 직전 7일 대비 변화, 대표 활동 요약, 다음 행동.\n저장 금지: 위치, 경로 좌표, 출발/도착 지점, 활동 상세 이름, 심박/파워 상세 스트림, API key.\n출력 형식: 파일 구조, API 호출 순서, 데이터 변환 함수, HTML 템플릿 구조, Notion 속성 설계, n8n 또는 GitHub Actions 실행 예시, 환경변수 목록, 오류 처리, 테스트 순서, 완료 조건을 순서대로 써줘.\n중요: Swagger/OpenAPI에 없는 endpoint나 응답 필드는 임의로 만들지 말고 확인 필요 항목으로 표시해줘."
-          : "You are the automation implementer. Write an implementation-ready plan for a weekly load report using Orider's public recipe docs.\n\nGoal: every Monday morning, read the last 7 days from the Orider Personal Data API and create both a private HTML report and an aggregate Notion summary.\nReference paths: create API keys at /en/settings?section=developer; API guide is docs/PERSONAL_DATA_API-en.md; the formal API contract is Swagger UI /api/v1/docs or OpenAPI YAML /api/v1/docs/openapi.yaml; recipe docs are docs/recipes/weekly-load-report-en.md; report template is docs/recipes/report-template-en.md; runnable example is examples/recipes/weekly-load-report/weekly-load-report.mjs.\nAPI contract check: confirm the X-API-Key header, endpoint paths, request/response schemas, content types, and error codes in Swagger/OpenAPI. Do not invent endpoints or response fields from markdown docs alone.\nRequired scopes: default to Orider activities:read and fitness:read only. Add streams:read only when the rider explicitly wants private HTML route/map thumbnails, then call the route thumbnail endpoint documented in Swagger/OpenAPI. Notion should only be allowed to create pages in the target database.\nValues the user must provide: ORIDER_API_KEY, NOTION_TOKEN, NOTION_DATABASE_ID, timezone, Monday run time.\nOutputs: weekly-load-report.html, weekly-load-summary.json, weekly-load-public-summary.txt, and a Notion row.\nReport sections: top readout, KPI cards, 7-day daily load bar chart, previous-7-day comparison, key-session summary, and next action.\nNever store: location, route coordinates, start/end areas, detailed activity names, detailed HR/power streams, or API keys.\nOutput format: file structure, API call order, data transform functions, HTML template structure, Notion property schema, n8n or GitHub Actions runner, environment variables, error handling, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented in Swagger/OpenAPI, mark it as needs confirmation instead of inventing it.",
+          ? "너는 자동화 구현 담당자야. 오라이더 공개 저장소의 레시피 문서를 기준으로 주간 부하 리포트 자동화를 바로 만들 수 있게 구현안을 작성해줘.\n\n목표: 매주 월요일 오전, 오라이더 Personal Data API로 최근 7일 훈련을 읽어 개인 HTML 리포트와 Notion용 집계 요약을 만든다.\n참고 경로: API key 생성 화면은 /ko/settings/developer, API 가이드는 docs/PERSONAL_DATA_API.md, 정식 API 계약은 Swagger UI /api/v1/docs 또는 OpenAPI YAML /api/v1/docs/openapi.yaml, 레시피 문서는 docs/recipes/weekly-load-report.md, 리포트 템플릿은 docs/recipes/report-template.md, 실행 예제는 examples/recipes/weekly-load-report/weekly-load-report.mjs다.\nAPI 계약 확인: X-API-Key 헤더, endpoint path, request/response schema, content type, error code는 Swagger/OpenAPI를 기준으로 확인한다. 사용 가능한 endpoint나 응답 필드를 md 문서만 보고 임의로 만들지 않는다.\n필요 권한: 기본은 Orider activities:read, fitness:read만 사용한다. 지도/경로 썸네일은 private HTML에만 넣고 싶을 때 streams:read를 명시적으로 추가하고 Swagger/OpenAPI에 문서화된 route thumbnail endpoint를 호출한다. Notion은 대상 데이터베이스에 page를 생성할 권한만 사용한다.\n사용자가 준비해야 할 값: ORIDER_API_KEY, NOTION_TOKEN, NOTION_DATABASE_ID, 실행 시간대, 월요일 실행 시각.\n산출물: weekly-load-report.html, weekly-load-summary.json, weekly-load-public-summary.txt, Notion row.\n리포트 구성: 상단 판정, KPI 카드, 최근 7일 일별 load 막대 차트, 직전 7일 대비 변화, 대표 활동 요약, 다음 행동.\n저장 금지: 위치, 경로 좌표, 출발/도착 지점, 활동 상세 이름, 심박/파워 상세 스트림, API key.\n출력 형식: 파일 구조, API 호출 순서, 데이터 변환 함수, HTML 템플릿 구조, Notion 속성 설계, n8n 또는 GitHub Actions 실행 예시, 환경변수 목록, 오류 처리, 테스트 순서, 완료 조건을 순서대로 써줘.\n중요: Swagger/OpenAPI에 없는 endpoint나 응답 필드는 임의로 만들지 말고 확인 필요 항목으로 표시해줘."
+          : "You are the automation implementer. Write an implementation-ready plan for a weekly load report using Orider's public recipe docs.\n\nGoal: every Monday morning, read the last 7 days from the Orider Personal Data API and create both a private HTML report and an aggregate Notion summary.\nReference paths: create API keys at /en/settings/developer; API guide is docs/PERSONAL_DATA_API-en.md; the formal API contract is Swagger UI /api/v1/docs or OpenAPI YAML /api/v1/docs/openapi.yaml; recipe docs are docs/recipes/weekly-load-report-en.md; report template is docs/recipes/report-template-en.md; runnable example is examples/recipes/weekly-load-report/weekly-load-report.mjs.\nAPI contract check: confirm the X-API-Key header, endpoint paths, request/response schemas, content types, and error codes in Swagger/OpenAPI. Do not invent endpoints or response fields from markdown docs alone.\nRequired scopes: default to Orider activities:read and fitness:read only. Add streams:read only when the rider explicitly wants private HTML route/map thumbnails, then call the route thumbnail endpoint documented in Swagger/OpenAPI. Notion should only be allowed to create pages in the target database.\nValues the user must provide: ORIDER_API_KEY, NOTION_TOKEN, NOTION_DATABASE_ID, timezone, Monday run time.\nOutputs: weekly-load-report.html, weekly-load-summary.json, weekly-load-public-summary.txt, and a Notion row.\nReport sections: top readout, KPI cards, 7-day daily load bar chart, previous-7-day comparison, key-session summary, and next action.\nNever store: location, route coordinates, start/end areas, detailed activity names, detailed HR/power streams, or API keys.\nOutput format: file structure, API call order, data transform functions, HTML template structure, Notion property schema, n8n or GitHub Actions runner, environment variables, error handling, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented in Swagger/OpenAPI, mark it as needs confirmation instead of inventing it.",
       },
       {
         name: "Slack",
@@ -399,8 +399,8 @@ function buildCopy(language: string) {
         result: ko ? "아침에 Slack DM으로 '오늘은 회복주 추천' 알림을 받고, 민감한 위치·심박 데이터는 공개하지 않습니다." : "You receive a private Slack DM recommending recovery without exposing sensitive location or heart-rate data.",
         safety: ko ? "팀 채널에 자동 전송하기 전에는 반드시 본인 DM으로 며칠 테스트하세요." : "Test in a private DM for several days before sending anything to a team channel.",
         aiPrompt: ko
-          ? "너는 자동화 구현 담당자야. 오라이더 Personal Data API와 Slack DM을 연결해 개인 회복 알림 자동화를 바로 만들 수 있게 구현안을 작성해줘.\n\n목표: 매일 오전 최근 훈련 부하를 확인하고, 과부하 조건이면 내 Slack DM으로만 회복 알림을 보낸다.\n참고 경로: API key 생성 화면은 /ko/settings?section=developer, API 가이드는 docs/PERSONAL_DATA_API.md, 정식 API 계약은 Swagger UI /api/v1/docs 또는 OpenAPI YAML /api/v1/docs/openapi.yaml이다.\nAPI 계약 확인: X-API-Key 헤더, endpoint path, request/response schema, content type, error code는 Swagger/OpenAPI를 기준으로 확인한다.\n필요 권한: Orider activities:read만 사용한다. Slack은 개인 DM 또는 Incoming Webhook 전송 권한만 사용한다.\n사용자가 준비해야 할 값: ORIDER_API_KEY, SLACK_WEBHOOK_URL 또는 SLACK_BOT_TOKEN, SLACK_USER_ID, 실행 시간대, 매일 실행 시각.\n판정 규칙: 최근 3일 중 2일 이상 고강도이거나, 최근 7일 부하가 평소 기준보다 30% 이상 증가하면 알림을 보낸다. 평소 기준이 없으면 첫 2주 동안은 알림 대신 기준값을 쌓는다.\n메시지 내용: 오늘 권장 강도, 판단 이유 한 줄, 최근 7일 요약만 포함한다.\n전송 금지: 위치, 경로, 활동명, 심박 상세값, 팀 채널 자동 전송.\n출력 형식: 실행 흐름, Slack 설정 방법, API 호출 순서, 의사코드 또는 n8n 노드 구성, 중복 알림 방지, 테스트 순서, 완료 조건을 순서대로 써줘.\n중요: Swagger/OpenAPI에 없는 endpoint나 응답 필드는 임의로 만들지 말고 확인 필요 항목으로 표시해줘."
-          : "You are the automation implementer. Write an implementation-ready plan that connects the Orider Personal Data API to a private Slack recovery alert.\n\nGoal: every morning, check recent training load and send a Slack DM only when overload conditions match.\nReference paths: create API keys at /en/settings?section=developer; API guide is docs/PERSONAL_DATA_API-en.md; the formal API contract is Swagger UI /api/v1/docs or OpenAPI YAML /api/v1/docs/openapi.yaml.\nAPI contract check: confirm the X-API-Key header, endpoint paths, request/response schemas, content types, and error codes in Swagger/OpenAPI.\nRequired scopes: use only Orider activities:read. Slack should only be able to send a private DM or webhook message.\nValues the user must provide: ORIDER_API_KEY, SLACK_WEBHOOK_URL or SLACK_BOT_TOKEN, SLACK_USER_ID, timezone, daily run time.\nRules: alert when 2 of the last 3 days were hard or the last 7 days of load are 30% above the rider's normal baseline. If no baseline exists, collect baseline data for the first 2 weeks instead of alerting.\nMessage content: today's suggested intensity, one-line reason, and a 7-day aggregate summary only.\nNever send: location, routes, activity names, detailed heart-rate values, or automatic team-channel posts.\nOutput format: execution flow, Slack setup, API call order, pseudocode or n8n nodes, duplicate-alert prevention, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented in Swagger/OpenAPI, mark it as needs confirmation instead of inventing it.",
+          ? "너는 자동화 구현 담당자야. 오라이더 Personal Data API와 Slack DM을 연결해 개인 회복 알림 자동화를 바로 만들 수 있게 구현안을 작성해줘.\n\n목표: 매일 오전 최근 훈련 부하를 확인하고, 과부하 조건이면 내 Slack DM으로만 회복 알림을 보낸다.\n참고 경로: API key 생성 화면은 /ko/settings/developer, API 가이드는 docs/PERSONAL_DATA_API.md, 정식 API 계약은 Swagger UI /api/v1/docs 또는 OpenAPI YAML /api/v1/docs/openapi.yaml이다.\nAPI 계약 확인: X-API-Key 헤더, endpoint path, request/response schema, content type, error code는 Swagger/OpenAPI를 기준으로 확인한다.\n필요 권한: Orider activities:read만 사용한다. Slack은 개인 DM 또는 Incoming Webhook 전송 권한만 사용한다.\n사용자가 준비해야 할 값: ORIDER_API_KEY, SLACK_WEBHOOK_URL 또는 SLACK_BOT_TOKEN, SLACK_USER_ID, 실행 시간대, 매일 실행 시각.\n판정 규칙: 최근 3일 중 2일 이상 고강도이거나, 최근 7일 부하가 평소 기준보다 30% 이상 증가하면 알림을 보낸다. 평소 기준이 없으면 첫 2주 동안은 알림 대신 기준값을 쌓는다.\n메시지 내용: 오늘 권장 강도, 판단 이유 한 줄, 최근 7일 요약만 포함한다.\n전송 금지: 위치, 경로, 활동명, 심박 상세값, 팀 채널 자동 전송.\n출력 형식: 실행 흐름, Slack 설정 방법, API 호출 순서, 의사코드 또는 n8n 노드 구성, 중복 알림 방지, 테스트 순서, 완료 조건을 순서대로 써줘.\n중요: Swagger/OpenAPI에 없는 endpoint나 응답 필드는 임의로 만들지 말고 확인 필요 항목으로 표시해줘."
+          : "You are the automation implementer. Write an implementation-ready plan that connects the Orider Personal Data API to a private Slack recovery alert.\n\nGoal: every morning, check recent training load and send a Slack DM only when overload conditions match.\nReference paths: create API keys at /en/settings/developer; API guide is docs/PERSONAL_DATA_API-en.md; the formal API contract is Swagger UI /api/v1/docs or OpenAPI YAML /api/v1/docs/openapi.yaml.\nAPI contract check: confirm the X-API-Key header, endpoint paths, request/response schemas, content types, and error codes in Swagger/OpenAPI.\nRequired scopes: use only Orider activities:read. Slack should only be able to send a private DM or webhook message.\nValues the user must provide: ORIDER_API_KEY, SLACK_WEBHOOK_URL or SLACK_BOT_TOKEN, SLACK_USER_ID, timezone, daily run time.\nRules: alert when 2 of the last 3 days were hard or the last 7 days of load are 30% above the rider's normal baseline. If no baseline exists, collect baseline data for the first 2 weeks instead of alerting.\nMessage content: today's suggested intensity, one-line reason, and a 7-day aggregate summary only.\nNever send: location, routes, activity names, detailed heart-rate values, or automatic team-channel posts.\nOutput format: execution flow, Slack setup, API call order, pseudocode or n8n nodes, duplicate-alert prevention, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented in Swagger/OpenAPI, mark it as needs confirmation instead of inventing it.",
       },
       {
         name: "n8n",
@@ -415,8 +415,8 @@ function buildCopy(language: string) {
         result: ko ? "매월 초 본인 이메일로 공개 가능한 배지 문구가 오고, 확인한 뒤 개인 사이트에 붙일 수 있습니다." : "At the start of each month, you receive safe badge copy by email and can paste it into your site.",
         safety: ko ? "자동 공개보다 '이메일로 먼저 받기 → 확인 후 게시' 흐름을 권장합니다." : "Prefer 'email to myself first → review → publish' over automatic public posting.",
         aiPrompt: ko
-          ? "너는 n8n 자동화 구현 담당자야. 오라이더 Personal Data API로 월간 라이딩 배지 초안을 만들고 이메일로 먼저 보내는 n8n 워크플로를 바로 만들 수 있게 작성해줘.\n\n목표: 매월 1일 오전 9시, 지난달 라이딩 집계로 공개 가능한 배지 문구를 만들고 내 이메일로 보낸다.\n참고 경로: API key 생성 화면은 /ko/settings?section=developer, API 가이드는 docs/PERSONAL_DATA_API.md, 정식 API 계약은 Swagger UI /api/v1/docs 또는 OpenAPI YAML /api/v1/docs/openapi.yaml이다.\nAPI 계약 확인: X-API-Key 헤더, endpoint path, request/response schema, content type, error code는 Swagger/OpenAPI를 기준으로 확인한다.\n필요 권한: Orider activities:read만 사용한다. 이메일 노드는 본인 주소로만 발송한다.\n사용자가 준비해야 할 값: ORIDER_API_KEY, 이메일 발송 계정 또는 SMTP 설정, 받는 이메일, 실행 시간대.\n계산 항목: 지난달 총 거리, 상승고도, 활동 수, 최장 라이딩 거리.\n공개 문구 예시: '6월 18회 · 642km · 7,820m 상승 · 최장 112km'.\n자동 공개 금지: 블로그, 프로필, SNS에는 자동 게시하지 않고 이메일 확인 후 사용자가 직접 게시한다.\n출력 형식: n8n Cron, HTTP Request, Set, Email 노드별 설정값, 각 노드 입력/출력, 실패 시 재시도, 샘플 JSON, 테스트 순서, 완료 조건을 순서대로 써줘.\n중요: Swagger/OpenAPI에 없는 endpoint나 응답 필드는 임의로 만들지 말고 확인 필요 항목으로 표시해줘."
-          : "You are the n8n automation implementer. Write an implementation-ready n8n workflow that uses the Orider Personal Data API to draft a monthly riding badge and email it to me first.\n\nGoal: at 9 AM on the first day of each month, create public-safe badge copy from last month's riding aggregates and email it to me.\nReference paths: create API keys at /en/settings?section=developer; API guide is docs/PERSONAL_DATA_API-en.md; the formal API contract is Swagger UI /api/v1/docs or OpenAPI YAML /api/v1/docs/openapi.yaml.\nAPI contract check: confirm the X-API-Key header, endpoint paths, request/response schemas, content types, and error codes in Swagger/OpenAPI.\nRequired scopes: use only Orider activities:read. The email node sends only to my address.\nValues the user must provide: ORIDER_API_KEY, email/SMTP account settings, recipient email, timezone.\nCalculated fields: last month's total distance, elevation, ride count, and longest ride distance.\nExample public copy: 'June: 18 rides · 642 km · 7,820 m climbed · longest 112 km'.\nDo not auto-publish: do not post to a blog, profile, or social channel automatically; the user reviews the email and posts manually.\nOutput format: n8n Cron, HTTP Request, Set, and Email node settings, each node's input/output, retry behavior, sample JSON, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented in Swagger/OpenAPI, mark it as needs confirmation instead of inventing it.",
+          ? "너는 n8n 자동화 구현 담당자야. 오라이더 Personal Data API로 월간 라이딩 배지 초안을 만들고 이메일로 먼저 보내는 n8n 워크플로를 바로 만들 수 있게 작성해줘.\n\n목표: 매월 1일 오전 9시, 지난달 라이딩 집계로 공개 가능한 배지 문구를 만들고 내 이메일로 보낸다.\n참고 경로: API key 생성 화면은 /ko/settings/developer, API 가이드는 docs/PERSONAL_DATA_API.md, 정식 API 계약은 Swagger UI /api/v1/docs 또는 OpenAPI YAML /api/v1/docs/openapi.yaml이다.\nAPI 계약 확인: X-API-Key 헤더, endpoint path, request/response schema, content type, error code는 Swagger/OpenAPI를 기준으로 확인한다.\n필요 권한: Orider activities:read만 사용한다. 이메일 노드는 본인 주소로만 발송한다.\n사용자가 준비해야 할 값: ORIDER_API_KEY, 이메일 발송 계정 또는 SMTP 설정, 받는 이메일, 실행 시간대.\n계산 항목: 지난달 총 거리, 상승고도, 활동 수, 최장 라이딩 거리.\n공개 문구 예시: '6월 18회 · 642km · 7,820m 상승 · 최장 112km'.\n자동 공개 금지: 블로그, 프로필, SNS에는 자동 게시하지 않고 이메일 확인 후 사용자가 직접 게시한다.\n출력 형식: n8n Cron, HTTP Request, Set, Email 노드별 설정값, 각 노드 입력/출력, 실패 시 재시도, 샘플 JSON, 테스트 순서, 완료 조건을 순서대로 써줘.\n중요: Swagger/OpenAPI에 없는 endpoint나 응답 필드는 임의로 만들지 말고 확인 필요 항목으로 표시해줘."
+          : "You are the n8n automation implementer. Write an implementation-ready n8n workflow that uses the Orider Personal Data API to draft a monthly riding badge and email it to me first.\n\nGoal: at 9 AM on the first day of each month, create public-safe badge copy from last month's riding aggregates and email it to me.\nReference paths: create API keys at /en/settings/developer; API guide is docs/PERSONAL_DATA_API-en.md; the formal API contract is Swagger UI /api/v1/docs or OpenAPI YAML /api/v1/docs/openapi.yaml.\nAPI contract check: confirm the X-API-Key header, endpoint paths, request/response schemas, content types, and error codes in Swagger/OpenAPI.\nRequired scopes: use only Orider activities:read. The email node sends only to my address.\nValues the user must provide: ORIDER_API_KEY, email/SMTP account settings, recipient email, timezone.\nCalculated fields: last month's total distance, elevation, ride count, and longest ride distance.\nExample public copy: 'June: 18 rides · 642 km · 7,820 m climbed · longest 112 km'.\nDo not auto-publish: do not post to a blog, profile, or social channel automatically; the user reviews the email and posts manually.\nOutput format: n8n Cron, HTTP Request, Set, and Email node settings, each node's input/output, retry behavior, sample JSON, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented in Swagger/OpenAPI, mark it as needs confirmation instead of inventing it.",
       },
       {
         name: ko ? "개인 웹사이트" : "Personal site",
@@ -431,8 +431,8 @@ function buildCopy(language: string) {
         result: ko ? "정확한 경로나 시작 위치 없이도 프로필에 라이더 정체성을 보여줄 수 있습니다." : "Your profile shows rider identity without exposing exact routes or start areas.",
         safety: ko ? "API key는 서버나 자동화 도구에만 두고, 공개 HTML/JS에는 절대 넣지 마세요." : "Keep API keys on a server or automation tool; never put them in public HTML or JavaScript.",
         aiPrompt: ko
-          ? "너는 웹 자동화 구현 담당자야. 개인 웹사이트에 붙일 오라이더 공개 프로필 배지를 바로 만들 수 있게 서버/자동화 구조와 프론트엔드 코드를 작성해줘.\n\n목표: 브라우저에 API key를 노출하지 않고, 하루 1회 오라이더 월간 집계를 읽어 공개 JSON을 갱신한 뒤 개인 사이트에서 배지로 보여준다.\n참고 경로: API key 생성 화면은 /ko/settings?section=developer, API 가이드는 docs/PERSONAL_DATA_API.md, 정식 API 계약은 Swagger UI /api/v1/docs 또는 OpenAPI YAML /api/v1/docs/openapi.yaml이다.\nAPI 계약 확인: X-API-Key 헤더, endpoint path, request/response schema, content type, error code는 Swagger/OpenAPI를 기준으로 확인한다.\n필요 권한: Orider activities:read 또는 OpenAPI/가이드에 월간 집계 전용 scope가 있으면 그 최소 scope만 사용한다.\n사용자가 준비해야 할 값: ORIDER_API_KEY, 공개 JSON을 저장할 위치, 배지를 붙일 사이트 경로, 실행 시간대.\n공개 JSON 스키마: month, distanceKm, elevationM, rideCount, updatedAt만 포함한다.\n제외 항목: 경로, 출발지, 도착지, 활동명, 심박/파워 상세값, API key.\n출력 형식: 권장 아키텍처, GitHub Actions 또는 서버 함수 예시, 환경변수 목록, public JSON 예시, 프론트엔드 배지 컴포넌트, 캐시/오류 처리, 테스트 순서, 완료 조건을 순서대로 써줘.\n중요: Swagger/OpenAPI에 없는 endpoint나 응답 필드는 임의로 만들지 말고 확인 필요 항목으로 표시해줘."
-          : "You are the web automation implementer. Write an implementation-ready server/automation design and frontend code for a public Orider profile badge on a personal website.\n\nGoal: never expose the API key in the browser. Once per day, read Orider monthly aggregates, update public JSON, and render that JSON as a small badge on the site.\nReference paths: create API keys at /en/settings?section=developer; API guide is docs/PERSONAL_DATA_API-en.md; the formal API contract is Swagger UI /api/v1/docs or OpenAPI YAML /api/v1/docs/openapi.yaml.\nAPI contract check: confirm the X-API-Key header, endpoint paths, request/response schemas, content types, and error codes in Swagger/OpenAPI.\nRequired scopes: use Orider activities:read, or a more limited monthly aggregate scope if OpenAPI/the guide provides one.\nValues the user must provide: ORIDER_API_KEY, public JSON storage location, site path for the badge, timezone.\nPublic JSON schema: include only month, distanceKm, elevationM, rideCount, and updatedAt.\nExclude: routes, start/end areas, activity names, detailed heart-rate/power values, and API keys.\nOutput format: recommended architecture, GitHub Actions or server-function example, environment variables, public JSON example, frontend badge component, cache/error handling, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented in Swagger/OpenAPI, mark it as needs confirmation instead of inventing it.",
+          ? "너는 웹 자동화 구현 담당자야. 개인 웹사이트에 붙일 오라이더 공개 프로필 배지를 바로 만들 수 있게 서버/자동화 구조와 프론트엔드 코드를 작성해줘.\n\n목표: 브라우저에 API key를 노출하지 않고, 하루 1회 오라이더 월간 집계를 읽어 공개 JSON을 갱신한 뒤 개인 사이트에서 배지로 보여준다.\n참고 경로: API key 생성 화면은 /ko/settings/developer, API 가이드는 docs/PERSONAL_DATA_API.md, 정식 API 계약은 Swagger UI /api/v1/docs 또는 OpenAPI YAML /api/v1/docs/openapi.yaml이다.\nAPI 계약 확인: X-API-Key 헤더, endpoint path, request/response schema, content type, error code는 Swagger/OpenAPI를 기준으로 확인한다.\n필요 권한: Orider activities:read 또는 OpenAPI/가이드에 월간 집계 전용 scope가 있으면 그 최소 scope만 사용한다.\n사용자가 준비해야 할 값: ORIDER_API_KEY, 공개 JSON을 저장할 위치, 배지를 붙일 사이트 경로, 실행 시간대.\n공개 JSON 스키마: month, distanceKm, elevationM, rideCount, updatedAt만 포함한다.\n제외 항목: 경로, 출발지, 도착지, 활동명, 심박/파워 상세값, API key.\n출력 형식: 권장 아키텍처, GitHub Actions 또는 서버 함수 예시, 환경변수 목록, public JSON 예시, 프론트엔드 배지 컴포넌트, 캐시/오류 처리, 테스트 순서, 완료 조건을 순서대로 써줘.\n중요: Swagger/OpenAPI에 없는 endpoint나 응답 필드는 임의로 만들지 말고 확인 필요 항목으로 표시해줘."
+          : "You are the web automation implementer. Write an implementation-ready server/automation design and frontend code for a public Orider profile badge on a personal website.\n\nGoal: never expose the API key in the browser. Once per day, read Orider monthly aggregates, update public JSON, and render that JSON as a small badge on the site.\nReference paths: create API keys at /en/settings/developer; API guide is docs/PERSONAL_DATA_API-en.md; the formal API contract is Swagger UI /api/v1/docs or OpenAPI YAML /api/v1/docs/openapi.yaml.\nAPI contract check: confirm the X-API-Key header, endpoint paths, request/response schemas, content types, and error codes in Swagger/OpenAPI.\nRequired scopes: use Orider activities:read, or a more limited monthly aggregate scope if OpenAPI/the guide provides one.\nValues the user must provide: ORIDER_API_KEY, public JSON storage location, site path for the badge, timezone.\nPublic JSON schema: include only month, distanceKm, elevationM, rideCount, and updatedAt.\nExclude: routes, start/end areas, activity names, detailed heart-rate/power values, and API keys.\nOutput format: recommended architecture, GitHub Actions or server-function example, environment variables, public JSON example, frontend badge component, cache/error handling, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented in Swagger/OpenAPI, mark it as needs confirmation instead of inventing it.",
       },
     ],
     apiPath: {
@@ -441,7 +441,7 @@ function buildCopy(language: string) {
         ? "외부 도구에서 쓰려면 완성 기능을 복사하는 것이 아니라, Personal Data API로 본인 데이터를 읽어 직접 연결합니다. API key는 본인 계정에서 만들고 언제든 폐기할 수 있으며, 배치할 때 필요한 scope와 실행 주기만 선택해야 합니다."
         : "External tools do not copy a finished feature from this page. They connect to your own data through the Personal Data API. Create and revoke keys from your account, then choose only the scopes and schedule each deployment needs.",
       steps: [
-        ko ? "1. /ko/settings?section=developer에서 개인 API key 생성" : "1. Create a personal API key at /en/settings?section=developer",
+        ko ? "1. /ko/settings/developer에서 개인 API key 생성" : "1. Create a personal API key at /en/settings/developer",
         ko ? "2. Swagger/OpenAPI의 endpoint 계약에 맞춰 Notion, Slack, n8n, 개인 서버에서 호출" : "2. Call endpoints from Swagger/OpenAPI in Notion, Slack, n8n, or your own server",
         ko ? "3. 실행 주기 선택: 수동, 매일 1회, 매주 월요일, 라이딩 완료 후" : "3. Choose a trigger: manual, daily, Monday morning, or after a ride",
         ko ? "4. 공유 전 위치·민감 지표를 집계하거나 제거하고, 필요하면 API key를 폐기" : "4. Aggregate or remove sensitive data before sharing, and revoke the key when needed",
@@ -619,15 +619,15 @@ export default function CreatorHubPage() {
 
   const setTab = (nextTab: CreatorTab, scrollTarget?: CreatorScrollTarget) => {
     if (scrollTarget === "deploy") {
-      navigate("/creator/deploy");
+      navigate("/community/recipes/deploy");
       return;
     }
     if (scrollTarget === "share" || nextTab === "share") {
-      navigate("/creator/share");
+      navigate("/community/recipes/share");
       return;
     }
     if (scrollTarget === "recipes" || nextTab === "recipes") {
-      navigate("/creator/recipes");
+      navigate("/community/recipes/recipes");
       return;
     }
     setTabState(nextTab);
@@ -767,11 +767,11 @@ export default function CreatorHubPage() {
             {copy.subtitle}
           </p>
           <div className="mt-6 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
-            <Link to="/board/write" className={buttonClass({ variant: "primary", size: "sm", className: recipeActionClass })}>
+            <Link to="/community/board/write" className={buttonClass({ variant: "primary", size: "sm", className: recipeActionClass })}>
                 <MessageSquareText size={15} aria-hidden />
                 {copy.actions.post}
             </Link>
-            <Link to="/creator/recipes" className={buttonClass({ variant: "secondary", size: "sm", className: recipeActionClass })}>
+            <Link to="/community/recipes/recipes" className={buttonClass({ variant: "secondary", size: "sm", className: recipeActionClass })}>
                 <BookOpen size={15} />
                 {copy.actions.recipe}
             </Link>
@@ -783,7 +783,7 @@ export default function CreatorHubPage() {
           </>
           ) : (
           <>
-            <Link to="/creator" className="inline-flex items-center gap-2 text-[length:var(--fs-sm)] font-medium no-underline" style={{ color: "var(--lime)" }}>
+            <Link to="/community/recipes" className="inline-flex items-center gap-2 text-[length:var(--fs-sm)] font-medium no-underline" style={{ color: "var(--lime)" }}>
               <BookOpen size={15} />
               Creator Hub
             </Link>
@@ -878,7 +878,7 @@ export default function CreatorHubPage() {
             <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.deployTitle}</h2>
             <p className="mt-2 max-w-4xl text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{copy.deployBody}</p>
           </div>
-          <Link to="/settings?section=developer" className={buttonClass({ variant: "secondary", size: "sm" })}>
+          <Link to="/settings/developer" className={buttonClass({ variant: "secondary", size: "sm" })}>
             <KeyRound size={15} aria-hidden />
             {copy.actions.manageApiKeys}
           </Link>
@@ -1254,7 +1254,7 @@ export default function CreatorHubPage() {
                 <Clipboard size={15} />
                 {copied ? copy.actions.copied : copy.actions.copy}
               </Button>
-              <Link to="/board/write" className={buttonClass({ variant: "primary", size: "sm" })}>
+              <Link to="/community/board/write" className={buttonClass({ variant: "primary", size: "sm" })}>
                   <MessageSquareText size={15} aria-hidden />
                   {copy.actions.post}
               </Link>
@@ -1295,7 +1295,7 @@ export default function CreatorHubPage() {
               <Clipboard size={15} />
               {copied ? copy.actions.copied : copy.actions.copy}
             </Button>
-            <Link to="/board/write" className={buttonClass({ variant: "primary", size: "sm" })}>
+            <Link to="/community/board/write" className={buttonClass({ variant: "primary", size: "sm" })}>
               <MessageSquareText size={15} aria-hidden />
               {copy.actions.post}
             </Link>
@@ -1408,7 +1408,7 @@ export default function CreatorHubPage() {
               ))}
             </ol>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Link to="/settings?section=developer" className={buttonClass({ variant: "secondary", size: "sm" })}>
+              <Link to="/settings/developer" className={buttonClass({ variant: "secondary", size: "sm" })}>
                 <KeyRound size={15} aria-hidden />
                 {copy.actions.manageApiKeys}
               </Link>
@@ -1431,7 +1431,7 @@ export default function CreatorHubPage() {
         <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.builderTitle}</h2>
         <p className="mt-1 max-w-4xl text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.builderBody}</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Link to="/settings?section=developer" className={buttonClass({ variant: "primary", size: "sm" })}>
+          <Link to="/settings/developer" className={buttonClass({ variant: "primary", size: "sm" })}>
             <KeyRound size={15} aria-hidden />
             {copy.actions.manageApiKeys}
           </Link>

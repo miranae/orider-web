@@ -28,7 +28,7 @@ function renderPage(authenticated = true) {
   return renderWithProviders(
     <Routes>
       <Route path="/ko/groups" element={<GroupsPage />} />
-      <Route path="/ko/group/:groupId" element={<div>group destination</div>} />
+      <Route path="/ko/club/:groupId" element={<div>group destination</div>} />
     </Routes>,
     { route: "/ko/groups", authenticated },
   );

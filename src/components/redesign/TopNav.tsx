@@ -40,11 +40,11 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   );
   const settingsActive = active === "settings";
   const accountItems = [
-    { to: "/my", labelKey: "nav.my", icon: User },
-    { to: "/log", labelKey: "nav.log", icon: Activity },
-    { to: "/friends", labelKey: "nav.friends", icon: Users },
-    { to: "/settings?section=equipment", labelKey: "nav.equipment", icon: Bike },
-    { to: "/settings", labelKey: "nav.settings", icon: Settings },
+    { to: "/athlete/me", labelKey: "nav.my", icon: User },
+    { to: "/athlete/me/activities", labelKey: "nav.log", icon: Activity },
+    { to: "/athlete/me/friends", labelKey: "nav.friends", icon: Users },
+    { to: "/athlete/me/gear", labelKey: "nav.equipment", icon: Bike },
+    { to: "/settings/account", labelKey: "nav.settings", icon: Settings },
   ];
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -269,7 +269,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 onKeyDown={e => {
                   if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(""); }
                   if (e.key === 'Enter' && searchQuery.trim()) {
-                    navigate(`/discover?q=${encodeURIComponent(searchQuery.trim())}`);
+                    navigate(`/explore/challenges?q=${encodeURIComponent(searchQuery.trim())}`);
                     setSearchOpen(false);
                     setSearchQuery("");
                   }
@@ -756,12 +756,12 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
             {/* 법적 링크 (모바일 — 데스크톱 푸터 대체. 약관/개인정보 접근성 보장) */}
             <div style={{ padding: 'var(--space-3) var(--space-4)', borderTop: '1px solid var(--line-soft)', display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
               <Link to="/about" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('nav.aboutOrider')}</Link>
-              <Link to="/creator" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('nav.developerDocs')}</Link>
+              <Link to="/community/recipes" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('nav.developerDocs')}</Link>
               <Link to="/terms" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.terms')}</Link>
               <Link to="/privacy" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.privacy')}</Link>
-              <Link to="/community" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.community')}</Link>
+              <Link to="/policies/community" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.community')}</Link>
               <Link to="/feedback" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.feedback')}</Link>
-              <Link to="/board?type=inquiry" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.contact')}</Link>
+              <Link to="/community/board?type=inquiry" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.contact')}</Link>
               <span style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', width: '100%', marginTop: 'var(--space-1)' }}>&copy; 2026 Orider</span>
             </div>
           </div>
