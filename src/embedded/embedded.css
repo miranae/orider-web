@@ -130,3 +130,9 @@
   padding: var(--space-3) var(--space-4);
   font-size: var(--fs-md);
 }
+
+.orider-embedded-author { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-2) 0 var(--space-4); }
+.orider-embedded-author__text { min-width: 0; }
+.orider-embedded-author__name { color: var(--ink-0); font-size: var(--fs-sm); font-weight: 600; }
+.orider-embedded-author__title { color: var(--ink-0); font-size: var(--fs-base); font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.orider-embedded-author__date { color: var(--ink-2); font-size: var(--fs-xs); }
