@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { Card, Text } from "../../theme/components";
 import type { Goal, PlanWeek } from "@shared/types/goal";
-import { buildFitnessWeeklyInsight, buildPlanAdjustmentInsight } from "./trainingHubInsights";
+import { buildFitnessWeeklyInsight, buildPlanAdjustmentInsight, type DailyLoadPoint } from "./trainingHubInsights";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 type T = (key: string, values?: Record<string, unknown>) => string;
@@ -13,26 +13,35 @@ export function FitnessWeeklyInsight({
   atl,
   tsb,
   dailyData,
+  asOf,
+  dateBasis,
+  ready,
   t,
 }: {
   ctlDelta: number;
   ctl: number;
   atl: number;
   tsb: number;
-  dailyData: Array<{ totalLoad: number }>;
+  dailyData: DailyLoadPoint[];
+  asOf: string;
+  dateBasis: "utc" | "local" | "mixed";
+  ready?: boolean;
   t: T;
 }) {
-  const insight = buildFitnessWeeklyInsight({ ctlDelta, ctl, atl, tsb, dailyData });
-  const fatigueText = insight.fatiguePct == null
-    ? t("hub.weekly.fatigueUnknown", { tss: insight.thisWeek })
-    : t(insight.fatiguePct >= 0 ? "hub.weekly.fatigueUp" : "hub.weekly.fatigueDown", { pct: Math.abs(insight.fatiguePct), tss: insight.thisWeek });
+  const insight = buildFitnessWeeklyInsight({ ctlDelta, ctl, atl, tsb, dailyData, asOf, dateBasis, ready });
+  const loadText = ready === false ? t("hub.weekly.pending") : !insight.complete
+    ? t("hub.weekly.partial", { tss: insight.thisWeek ?? "–", count: insight.missingDays })
+    : insight.loadChangePct == null
+      ? t("hub.weekly.loadUnknown", { tss: insight.thisWeek })
+      : t(insight.loadChangePct >= 0 ? "hub.weekly.loadUp" : "hub.weekly.loadDown", { pct: Math.abs(insight.loadChangePct), tss: insight.thisWeek });
 
   return (
     <Card padding="none" style={{ padding: "var(--space-4)", marginBottom: "var(--space-4)" }}>
       <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("hub.weekly.title")}</Text>
       <Text as="p" variant="bodyMedium" style={{ margin: 0 }}>
-        {fatigueText} {t(`hub.weekly.recommend.${insight.recommendation}`)}
+        {loadText} {insight.recommendation && t(`hub.weekly.recommend.${insight.recommendation}`)}
       </Text>
+      <Text as="p" variant="bodyMedium" tone="secondary" style={{ margin: 0, overflowWrap: "anywhere" }}>{t(`hub.weekly.basis.${dateBasis}`, { date: asOf })}</Text>
     </Card>
   );
 }

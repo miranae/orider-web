@@ -1,18 +1,31 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityAnalysisModel } from "../../../hooks/useActivityAnalysisModel";
 import type { RidePeakEffort } from "@shared/types/activity-metrics";
 import ActivityDetailedCharts from "./ActivityDetailedCharts";
+const mocks = vi.hoisted(() => ({ enabled: undefined as boolean | undefined, range: vi.fn() }));
+vi.mock("../../../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ activityAnalysisExpansionEnabled: mocks.enabled }) }));
+vi.mock("./ActivityRangeAnalysisPanel", () => ({ default: (props: unknown) => { mocks.range(props); return <div data-testid="range-analysis" />; }, ActivityRangeControls: () => null }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: "metric" }) }));
-vi.mock("./ActivityPerformanceCharts", () => ({ default: () => <div data-testid="performance-chart" /> }));
+vi.mock("./ActivityPerformanceCharts", () => ({ default: ({ rangeAnalysis }: { rangeAnalysis: ReactNode }) => <div data-testid="performance-chart">{rangeAnalysis}</div> }));
 const request = vi.fn();
 const peak = { durationSec: 60, startOffsetSec: 0, fromKm: 0, toKm: 0.2 } as RidePeakEffort;
 const streams = { distance: [0, 100, 200], time: [0, 10, 20], altitude: [0, 1, 2] };
 const model = { activity: { id: "a" }, sport: "ride", streams, effectiveStreams: streams,
   serverMetrics: { metrics: null }, requestStreams: request, loadingStreams: false } as unknown as ActivityAnalysisModel;
+beforeEach(() => { mocks.enabled = undefined; mocks.range.mockClear(); request.mockClear(); });
 describe("ActivityDetailedCharts peak selection", () => {
+  it.each([undefined, false, true])("passes the existing deployment flag(%s) only after explicit opening, retaining actualride selection and zero additional reads", enabled => {
+    mocks.enabled = enabled;
+    render(<ActivityDetailedCharts model={model} />);
+    expect(mocks.range).not.toHaveBeenCalled(); expect(request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "page.detailedCharts" }));
+    expect(mocks.range).toHaveBeenCalledOnce();
+    expect(mocks.range.mock.lastCall?.[0]).toMatchObject({ activityId: "a", sport: "ride", callableEnabled: enabled === true, selection: { enabled: false, selection: null } });
+    expect(request).not.toHaveBeenCalled();
+  });
   it("로그인 필요는 재시도·오류 코드를 숨기고 기존 로그인 액션을 실행한다", () => {
     const signIn = vi.fn();
     const requiredModel = { ...model, streams: null, effectiveStreams: null, streamsSignInRequired: true, streamsError: "SIGN_IN_REQUIRED" };

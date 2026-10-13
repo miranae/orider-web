@@ -1,3 +1,4 @@
+import type { ActivityRangeAnalysisResponse } from "@shared/types/activity-range-analysis";
 import type { HrZoneBoundaries } from "@shared/training/hrZoneTable";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,6 +8,7 @@ import { useActivityRangeAnalysis } from "../../../hooks/useActivityRangeAnalysi
 import type { ActivityRangeSelectionModel } from "../../../hooks/useActivityRangeSelection";
 import { validElapsedRange, formatElapsedBoundary, parseElapsedBoundary } from "./activityRangeSelection";
 import "./activity-range-analysis.css";
+import PowerDurationWindowsPanel from "./PowerDurationWindowsPanel";
 
 interface Props { activityId: string; selection: ActivityRangeSelectionModel; sport: string; callableEnabled?: boolean; previewActive?: boolean }
 
@@ -20,8 +22,8 @@ export function ActivityRangeControls({ selection }: { selection: ActivityRangeS
       <Button size="sm" variant="outline" aria-pressed={selection.enabled} onClick={selection.toggle}>{t(selection.enabled ? "rangeAnalysis.endSelection" : "rangeAnalysis.select")}</Button>
     </div>
     {selection.enabled && (Number.isFinite(selection.durationSec) && selection.durationSec > 0 ? <RangeTimeControls key={`${selection.identity}:${selection.selection?.requestId ?? "none"}`} selection={selection} />
-      : <Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.unknownAxis")}</Text>)}
-    {selection.enabled && selection.selection && <Text as="p" variant="bodySmall" mono>{t("rangeAnalysis.boundaryLegend", { start: formatElapsedBoundary(selection.selection.startOffsetSec), end: formatElapsedBoundary(selection.selection.endOffsetSec) })}</Text>}
+      : <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.unknownAxis")}</Text>)}
+    {selection.enabled && selection.selection && <Text as="p" variant="bodyMedium" mono>{t("rangeAnalysis.boundaryLegend", { start: formatElapsedBoundary(selection.selection.startOffsetSec), end: formatElapsedBoundary(selection.selection.endOffsetSec) })}</Text>}
   </section>;
 }
 
@@ -35,15 +37,15 @@ function RangeTimeControls({ selection }: { selection: ActivityRangeSelectionMod
   const valid = range != null && validElapsedRange(range, selection.durationSec);
   return <div className="space-y-3">
     <div className="activity-range-time-inputs">
-      <label htmlFor={`${id}-start`}><Text variant="bodySmall">{t("rangeAnalysis.start")}</Text><Input id={`${id}-start`} mono type="text" inputMode="text" placeholder="mm:ss" aria-invalid={!valid} aria-describedby={!valid ? `${id}-error` : undefined} value={start} onChange={event => setStart(event.target.value)} /></label>
-      <label htmlFor={`${id}-end`}><Text variant="bodySmall">{t("rangeAnalysis.end")}</Text><Input id={`${id}-end`} mono type="text" inputMode="text" placeholder="mm:ss" aria-invalid={!valid} aria-describedby={!valid ? `${id}-error` : undefined} value={end} onChange={event => setEnd(event.target.value)} /></label>
+      <label htmlFor={`${id}-start`}><Text variant="bodyMedium">{t("rangeAnalysis.start")}</Text><Input id={`${id}-start`} mono type="text" inputMode="text" placeholder="mm:ss" aria-invalid={!valid} aria-describedby={!valid ? `${id}-error` : undefined} value={start} onChange={event => setStart(event.target.value)} /></label>
+      <label htmlFor={`${id}-end`}><Text variant="bodyMedium">{t("rangeAnalysis.end")}</Text><Input id={`${id}-end`} mono type="text" inputMode="text" placeholder="mm:ss" aria-invalid={!valid} aria-describedby={!valid ? `${id}-error` : undefined} value={end} onChange={event => setEnd(event.target.value)} /></label>
     </div>
     <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={!valid} onClick={() => { if (valid && range) selection.select(range); }}>{t("rangeAnalysis.apply")}</Button>
       <Button size="sm" variant="ghost" disabled={!selection.selection} onClick={selection.clear}>{t("rangeAnalysis.clear")}</Button></div>
-    {!valid && <Text id={`${id}-error`} as="p" variant="bodySmall" tone="secondary" role="alert">{t("rangeAnalysis.invalidTime")}</Text>}
-    {!selection.axis && <Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.noRouteAxis")}</Text>}
-    <Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.shortHint")}</Text>
-    <details className="activity-range-details"><summary>{t("rangeAnalysis.howToSelect")}</summary><Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.selectionHint")}</Text></details>
+    {!valid && <Text id={`${id}-error`} as="p" variant="bodyMedium" tone="secondary" role="alert">{t("rangeAnalysis.invalidTime")}</Text>}
+    {!selection.axis && <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.noRouteAxis")}</Text>}
+    <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.shortHint")}</Text>
+    <details className="activity-range-details"><summary>{t("rangeAnalysis.howToSelect")}</summary><Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.selectionHint")}</Text></details>
   </div>;
 }
 
@@ -51,16 +53,45 @@ function RangeZones({ values, count, title, boundaries }: { values: number[] | n
   const { t } = useTranslation("activity");
   if (!values || values.length !== count || Array.from(values).some(value => !Number.isFinite(value) || value < 0)) return null;
   const total = values.reduce((sum, value) => sum + value, 0);
-  if (total === 0) return <section aria-label={title}><Text as="h4" variant="bodySmall" weight={600}>{title}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.zeroObservedZones")}</Text></section>;
+  if (total === 0) return <section aria-label={title}><Text as="h4" variant="bodyMedium" weight={600}>{title}</Text><Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.zeroObservedZones")}</Text></section>;
   return <section className="space-y-3" aria-label={title}>
-    <Text as="h4" variant="bodySmall" weight={600}>{title}</Text>
+    <Text as="h4" variant="bodyMedium" weight={600}>{title}</Text>
     {values.map((seconds, index) => <div key={index} className="flex items-center gap-3">
-      <div><Text variant="bodySmall">Z{index + 1}</Text>{boundaries?.zones[index] && <Text as="div" variant="caption" tone="tertiary">{boundaries.zones[index]!.minBpm}{boundaries.zones[index]!.maxBpmExclusive != null ? `–<${boundaries.zones[index]!.maxBpmExclusive}` : ` ${t("rangeAnalysis.orAbove")}`} bpm</Text>}</div>
+      <div><Text variant="bodyMedium">Z{index + 1}</Text>{boundaries?.zones[index] && <Text as="div" variant="bodyMedium" tone="tertiary">{boundaries.zones[index]!.minBpm}{boundaries.zones[index]!.maxBpmExclusive != null ? `–<${boundaries.zones[index]!.maxBpmExclusive}` : ` ${t("rangeAnalysis.orAbove")}`} bpm</Text>}</div>
       <div className="flex-1 rounded-[var(--r-sm)] overflow-hidden bg-[var(--bg-2)]" aria-hidden="true"><div className="py-1" style={{ width: `${seconds / total * 100}%`, background: `var(--zone-${Math.min(index + 1, 5)})` }} /></div>
-      <Text variant="bodySmall" mono>{formatElapsedBoundary(seconds)} · {(seconds / total * 100).toFixed(1)}%</Text>
+      <Text variant="bodyMedium" mono>{formatElapsedBoundary(seconds)} · {(seconds / total * 100).toFixed(1)}%</Text>
     </div>)}
-    {boundaries && <Text as="p" variant="caption" tone="tertiary">{t("rangeAnalysis.recordedHrReference", { reference: boundaries.reference === "lthr" ? "LTHR" : t("analysis.metric.maxHr"), bpm: boundaries.referenceBpm })}</Text>}
-    <Text as="p" variant="caption" tone="tertiary">{t("rangeAnalysis.zoneBasis")}</Text>
+    {boundaries && <Text as="p" variant="bodyMedium" tone="tertiary">{t("rangeAnalysis.recordedHrReference", { reference: boundaries.reference === "lthr" ? "LTHR" : t("analysis.metric.maxHr"), bpm: boundaries.referenceBpm })}</Text>}
+    <Text as="p" variant="bodyMedium" tone="tertiary">{t("rangeAnalysis.zoneBasis")}</Text>
+  </section>;
+}
+
+/** 저장된 관측 구간의 양 끝 차이만 표시한다. 센서 분석의 성공 여부와 독립적이다. */
+function RangeElevationReading({ response }: { response: ActivityRangeAnalysisResponse }) {
+  const { t } = useTranslation("activity"), { units, locale } = useLocale();
+  const elevation = response.elevation;
+  if (!elevation || elevation.state !== "available") return <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.elevation.unavailable")}</Text>;
+  const number = (raw: number | null, factor = 1, signed = false) => {
+    if (raw === null) return "—";
+    const value = raw * factor;
+    if (!Number.isFinite(value) || raw !== 0 && value === 0) return "—";
+    const fixed = value.toFixed(2);
+    // 긴 유효 값과 반올림으로 0이 되는 작은 값을 같은 폭 안에서 보존한다.
+    const formatted = fixed.length > 12 || value !== 0 && Number(fixed) === 0
+      ? new Intl.NumberFormat(locale, { notation: "scientific", maximumSignificantDigits: 3 }).format(value)
+      : fixed;
+    return `${signed && value > 0 ? "+" : ""}${formatted}`;
+  };
+  return <section className="space-y-3" aria-label={t("rangeAnalysis.elevation.title")}>
+    <Text as="h4" variant="bodyMedium" weight={600}>{t("rangeAnalysis.elevation.title")}</Text>
+    <div className="activity-range-stats">
+      <Stat compact label={t("rangeAnalysis.elevation.netChange")} value={number(elevation.netElevationChangeM, units === "imperial" ? 1 / 0.3048 : 1, true)} unit={units === "imperial" ? "ft" : "m"} />
+      <Stat compact label={t("rangeAnalysis.elevation.counterDistance")} value={number(elevation.distanceM, units === "imperial" ? 1 / 1609.344 : 1 / 1000)} unit={units === "imperial" ? "mi" : "km"} />
+      <Stat compact label={t("rangeAnalysis.elevation.netGrade")} value={number(elevation.netMeanGradePct, 1, true)} unit={elevation.netMeanGradePct === null ? undefined : "%"} />
+    </div>
+    <Text as="p" variant="bodyMedium" mono>{t(elevation.boundaryCoverage === "inside_samples" ? "rangeAnalysis.elevation.insideSamples" : "rangeAnalysis.elevation.exactSamples", { start: formatElapsedBoundary(elevation.observedSelection.startOffsetSec), end: formatElapsedBoundary(elevation.observedSelection.endOffsetSec) })}</Text>
+    <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.elevation.basis", { source: t(`rangeAnalysis.elevation.sources.${elevation.declaredActivitySource ?? "unknown"}`) })}</Text>
+    <a className="inline-flex items-center min-h-[calc(var(--dim-button-height)+var(--space-1))] text-[length:var(--fs-md)] text-[var(--ink-0)] underline" href={`/${locale}/activity/${encodeURIComponent(response.activityId)}`}>{t("rangeAnalysis.elevation.sourceActivity")}</a>
   </section>;
 }
 
@@ -74,7 +105,7 @@ export default function ActivityRangeAnalysisPanel({ activityId, selection, spor
     binding.current.requestRevision = binding.current.revision;
   }
   const analysis = useActivityRangeAnalysis({ activityId, ownerUid: selection.ownerUid, selection: locked ? null : selection.selection,
-    inputIdentity: selection.identity, expectedInputRevision: binding.current.requestRevision, callableEnabled });
+    inputIdentity: selection.identity, expectedInputRevision: binding.current.requestRevision, callableEnabled, includePowerWindowInput: sport === "bike" || sport === "ride", includeElevation: true });
   if (analysis.response?.state === "changed_input") {
     binding.current.revision = undefined;
     binding.current.requestRevision = undefined;
@@ -103,10 +134,10 @@ export function ActivityRangeAnalysisReading({ selection, sport, analysis, previ
   const distanceFactor = units === "imperial" ? 1 / 1609.344 : 1 / 1000, speedFactor = units === "imperial" ? 1 / 1.609344 : 1;
   return <section className="activity-range-reading space-y-4" aria-label={t("rangeAnalysis.title")}>
     <Text as="h3" variant="subtitle">{t("rangeAnalysis.title")}</Text>
-    {analysis.state === "available" && metrics && <Text as="p" variant="bodySmall" tone="secondary">{t(previewActive ? "rangeAnalysis.canonicalPreviewBasis" : "rangeAnalysis.canonicalBasis")}</Text>}
-    <Text as="p" variant="bodySmall" mono>{t("rangeAnalysis.window", { start: duration(selection.selection.startOffsetSec), end: duration(selection.selection.endOffsetSec) })}</Text>
-    {(selection.locationUnavailable || selection.clippedBoundary) && <Text as="p" variant="bodySmall" tone="secondary">{t(selection.locationUnavailable ? "rangeAnalysis.locationUnavailable" : "rangeAnalysis.clippedLocation")}</Text>}
-    {!metrics ? <div role="status" className="space-y-3"><Text as="p" variant="bodySmall" tone="secondary">{t(analysis.reason === "api_unavailable" ? "rangeAnalysis.apiUnavailable" : `rangeAnalysis.${analysis.state}`)}</Text>
+    {analysis.state === "available" && metrics && <Text as="p" variant="bodyMedium" tone="secondary">{t(previewActive ? "rangeAnalysis.canonicalPreviewBasis" : "rangeAnalysis.canonicalBasis")}</Text>}
+    <Text as="p" variant="bodyMedium" mono>{t("rangeAnalysis.window", { start: duration(selection.selection.startOffsetSec), end: duration(selection.selection.endOffsetSec) })}</Text>
+    {(selection.locationUnavailable || selection.clippedBoundary) && <Text as="p" variant="bodyMedium" tone="secondary">{t(selection.locationUnavailable ? "rangeAnalysis.locationUnavailable" : "rangeAnalysis.clippedLocation")}</Text>}
+    {!metrics ? <div role="status" className="space-y-3"><Text as="p" variant="bodyMedium" tone="secondary">{t(analysis.reason === "api_unavailable" ? "rangeAnalysis.apiUnavailable" : `rangeAnalysis.${analysis.state}`)}</Text>
       {analysis.reason === "source_reload_required" && onReloadSource && <Button variant="outline" size="sm" onClick={onReloadSource}>{t("rangeAnalysis.reloadSource")}</Button>}
       {analysis.reason === "request_failed" && <Button variant="outline" size="sm" onClick={analysis.retry}>{t("page.retry")}</Button>}</div>
       : <>
@@ -120,21 +151,23 @@ export function ActivityRangeAnalysisReading({ selection, sport, analysis, previ
           <Stat compact label={t("peakInspector.heartRate")} value={format(metrics.averageHr)} unit={metrics.averageHr != null ? "bpm" : undefined} />
           <Stat compact label={t("peakInspector.cadence")} value={format(metrics.averageCadence)} unit={metrics.averageCadence != null && sport !== "run" ? "rpm" : undefined} />
         </div>
-        {sport === "run" && metrics.averageCadence != null && <Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.cadenceUnitUnknown")}</Text>}
-        <Text as="p" variant="bodySmall" tone="secondary">{t(metrics.powerSource === "virtual" ? "rangeAnalysis.virtualPower" : "rangeAnalysis.measuredMeans")}</Text>
+        {sport === "run" && metrics.averageCadence != null && <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.cadenceUnitUnknown")}</Text>}
+        <Text as="p" variant="bodyMedium" tone="secondary">{t(metrics.powerSource === "virtual" ? "rangeAnalysis.virtualPower" : "rangeAnalysis.measuredMeans")}</Text>
         {metrics.context.mode === "recorded" && (metrics.hrZoneSec || metrics.powerZoneSec) && <div className="space-y-4">
           <RangeZones values={metrics.hrZoneSec} boundaries={metrics.context.hrZoneBoundaries} count={5} title={t("rangeAnalysis.hrZones")} />
           <RangeZones values={metrics.powerZoneSec} count={7} title={t("rangeAnalysis.powerZones")} />
-          {metrics.powerZoneSec && metrics.context.ftp != null && <Text as="p" variant="caption" tone="tertiary">{t("rangeAnalysis.recordedFtp", { ftp: metrics.context.ftp })}</Text>}
+          {metrics.powerZoneSec && metrics.context.ftp != null && <Text as="p" variant="bodyMedium" tone="tertiary">{t("rangeAnalysis.recordedFtp", { ftp: metrics.context.ftp })}</Text>}
         </div>}
+        {(sport === "bike" || sport === "ride") && analysis.response?.powerWindowInput && <div className="activity-range-power-windows"><PowerDurationWindowsPanel input={analysis.response.powerWindowInput} identity={`${selection.identity}:${selection.ownerUid}:${selection.selection.requestId}`} /></div>}
         <details className="activity-range-details"><summary>{t("rangeAnalysis.coverage")}</summary>
-          <div className="space-y-2"><Text as="p" variant="bodySmall" tone="secondary">{t("rangeAnalysis.pause", { time: duration(metrics.pauseSec), heartRate: metrics.maxHr == null ? "—" : `${format(metrics.maxHr)} bpm` })}</Text>
-            {metrics.speedBasis && <Text as="p" variant="bodySmall" tone="secondary">{t(metrics.speedBasis === "moving_time" ? "rangeAnalysis.movingSpeedBasis" : "rangeAnalysis.measuredSpeedBasis")}</Text>}
-            {(["power", "heartrate", "cadence", "speed"] as const).map(key => <Text key={key} as="p" variant="bodySmall" tone="secondary">
+          <div className="space-y-2"><Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.pause", { time: duration(metrics.pauseSec), heartRate: metrics.maxHr == null ? "—" : `${format(metrics.maxHr)} bpm` })}</Text>
+            {metrics.speedBasis && <Text as="p" variant="bodyMedium" tone="secondary">{t(metrics.speedBasis === "moving_time" ? "rangeAnalysis.movingSpeedBasis" : "rangeAnalysis.measuredSpeedBasis")}</Text>}
+            {(["power", "heartrate", "cadence", "speed"] as const).map(key => <Text key={key} as="p" variant="bodyMedium" tone="secondary">
             {t(`rangeAnalysis.channel.${key}`)} · {t("rangeAnalysis.observed", { seconds: format(metrics.channels[key].measuredSec, 1, 1), percent: format(metrics.channels[key].fraction, 100, 1) })}</Text>)}
-            <Text as="p" variant="bodySmall" tone="secondary">{t(metrics.diagnostics.gaps ? "rangeAnalysis.gaps" : "rangeAnalysis.noGaps")}</Text>
+            <Text as="p" variant="bodyMedium" tone="secondary">{t(metrics.diagnostics.gaps ? "rangeAnalysis.gaps" : "rangeAnalysis.noGaps")}</Text>
           </div>
         </details>
       </>}
+    {analysis.response && <RangeElevationReading response={analysis.response} />}
   </section>;
 }

@@ -4,6 +4,7 @@
 .activity-growth-disclosure { padding-inline: 0; font-size: inherit; font-weight: inherit; color: inherit; text-align: left; gap: var(--dim-item-gap); }
 .activity-growth-disclosure[aria-expanded="true"] .ds-btn__icon { transform: rotate(180deg); }
 .activity-growth-selection { max-width: 32rem; }
+.activity-growth-selection select { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
 .activity-growth-table-shell { min-width: 0; }
 .activity-growth-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .activity-growth-table th, .activity-growth-table td { padding: var(--space-3) var(--space-2); text-align: right; vertical-align: top; overflow-wrap: anywhere; font-weight: inherit; }
@@ -11,9 +12,9 @@
 .activity-growth-table th:last-child, .activity-growth-table td:last-child { padding-right: 0; }
 .activity-growth-table thead th, .activity-growth-table tbody tr:not(:last-child) > * { border-bottom: 1px solid var(--line-soft); }
 .activity-growth-table td p { margin-top: var(--space-1); }
-.activity-growth-trend { display: block; width: 100%; max-width: 30rem; height: auto; font-family: var(--font-mono); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
-.activity-growth-trend-scroll { max-width: 100%; overflow-x: auto; }
-.activity-growth-trend--long { min-width: calc(var(--space-8) * 12); }
+.activity-growth-trend { display: block; width: 100%; max-width: 30rem; height: auto; font-family: var(--font-mono); font-size: var(--fs-lg); font-variant-numeric: tabular-nums; }
+.activity-growth-trend-scroll { max-width: 100%; overflow-x: auto; container-type: inline-size; }
+.activity-growth-trend.activity-growth-trend--long { font-size: calc(var(--fs-md) * 15 / 32); min-width: calc(var(--space-8) * 16); }
 .activity-growth-bucket { cursor: pointer; }
 .activity-growth-bucket[aria-pressed="true"] rect { fill: var(--ink-1); }
 .activity-growth-bucket:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
@@ -22,6 +23,9 @@
 .activity-growth-sources summary, .activity-growth-source-link { min-height: calc(var(--space-7) + var(--space-3)); display: flex; align-items: center; }
 .activity-growth-source-link { color: var(--ink-1); text-decoration: underline; text-underline-offset: var(--space-1); overflow-wrap: anywhere; }
 .activity-growth-source-link:hover { color: var(--accent); }
+.annual-run-history .activity-growth-source-link:hover { color: var(--accent-dark); }
+.cycling-distance-history .activity-growth-source-link:hover { color: var(--accent-dark); }
+.cycling-distance-history .ds-btn--outline { color: var(--ink-0); }
 .activity-growth-source-link:focus-visible, .activity-growth-sources summary:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); border-radius: var(--r-sm); }
 .activity-comparison-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-block: var(--space-2); }
 .activity-comparison-line { display: inline-block; width: var(--space-5); border-top: 2px solid var(--accent); margin-right: var(--space-2); vertical-align: middle; }
@@ -41,5 +45,10 @@
 .activity-comparison-curve-section { width: 100%; max-width: 28rem; container-type: inline-size; }
 .activity-comparison-zones-section { width: 100%; max-width: 44rem; }
 @container (min-width: 24rem) {
+  .activity-growth-trend { font-size: var(--fs-xs); }
   .activity-comparison-curve { font-size: var(--fs-xs); }
+}
+
+@media (min-width: 48rem) {
+  .activity-growth-scroll-hint { display: none; }
 }

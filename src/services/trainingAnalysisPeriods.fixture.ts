@@ -1,5 +1,6 @@
+import { expandedPeriodFixture } from "../utils/expandedRunDistances.fixture";
 import { deriveHrZoneBoundaries } from "@shared/training/hrZoneTable";
-import type { TrainingAnalysisPeriodsRequest, TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
+import type { RunningPaceZoneAnalysis, TrainingAnalysisPeriodsRequest, TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
 export const request: TrainingAnalysisPeriodsRequest = { discipline: "bike", periods: [{ fromInclusive: 1000, toExclusive: 10000 }] };
 export function periodFixture(): TrainingAnalysisPeriodsResponse {
   const total = { observedValue: 100, totalValue: 100, knownActivityCount: 1, missingActivityCount: 0, summaryFallbackCount: 0, sourceBasis: "canonical_metrics" as const, sourceActivityIds: ["a"] };
@@ -35,5 +36,41 @@ export function runningPeriodFixture(): TrainingAnalysisPeriodsResponse {
   previous.running!.bestDistances.points.forEach(point => { point.sourceActivityId = "b"; point.startTime -= 86400000; point.elapsedSec += 60; });
   previous.running!.paceCurves.forEach(curve => curve.points.forEach(point => { point.sourceActivityId = "b"; point.startTime -= 86400000; point.paceSecPerKm += 10; }));
   result.periods.push(previous);
+  return result;
+}
+
+export function runningPaceAnalysisFixture(): RunningPaceZoneAnalysis {
+  return { version: 1, policy: "orider_gap_threshold_v1", basis: "calculation_snapshot", timingBasis: "observed_elapsed_intervals",
+    state: "observed", reason: null, thresholdPaceSecPerKm: 300, thresholdSource: "training.thresholdPace", calculatedAt: Date.parse("2026-10-03T14:30:00Z"),
+    thresholdProfileRevision: "2026-10-03T14:00:00.000Z", upperSpeedRatios: [0.75, 0.85, 0.95, 1.05, 1.15],
+    zoneSeconds: [60, 60, 0, 0, 0, 0], eligibleGapSeconds: 120,
+    intervalCoverage: { scope: "provided_elapsed_intervals", observedIntervalSeconds: 200, eligibleGapSeconds: 120, stoppedSeconds: 40,
+      missingAltitudeMovingSeconds: 20, gapExcludedSeconds: 10, invalidDistanceSeconds: 10 } };
+}
+export function runningPacePeriodFixture(): TrainingAnalysisPeriodsResponse {
+  const result = runningPeriodFixture(); result.periods = [result.periods[0]!];
+  const period = result.periods[0]!, analysis = runningPaceAnalysisFixture();
+  const { calculatedAt, thresholdProfileRevision, ...group } = analysis;
+  period.zones.pace = { status: "observed", reason: "observed_canonical_gap_zones", candidateActivityCount: 1, eligibleActivityCount: 1,
+    legacyUnsupportedActivityCount: 0, unavailableActivityCount: 0, thresholdMissingActivityCount: 0, gapInputUnavailableActivityCount: 0,
+    profileReadFailedActivityCount: 0, truncated: false, groups: [{ ...group, sources: [{ sourceActivityId: period.activities[0]!.activityId,
+      startTime: period.activities[0]!.startTime, metricsRevision: "1:2", contributingActivityCount: 1, calculatedAt, thresholdProfileRevision }] }] };
+  return result;
+}
+
+export function stageRunEffortFixture(): TrainingAnalysisPeriodsResponse {
+  const result = runningPeriodFixture();
+  for (const period of result.periods) {
+    const running = period.running!;
+    running.bestDistances.excludedEffortActivityCount = 0;
+    running.expandedDistanceAnalysis = expandedPeriodFixture(period);
+    for (const distance of running.expandedDistanceAnalysis.distances) {
+      distance.excludedEffortActivityCount = 0;
+      const source = running.bestDistances.points.find(point => point.distance === distance.distance);
+      if (source) { distance.sources = [{ sourceActivityId: source.sourceActivityId, startTime: source.startTime, metricsRevision: source.metricsRevision, contributingActivityCount: source.contributingActivityCount, elapsedSec: source.elapsedSec }]; distance.bestTimeSeconds = source.elapsedSec; distance.medianTimeSeconds = source.elapsedSec; distance.observedEffortActivityCount = 1; distance.noObservedEffortActivityCount = 0; }
+    }
+    running.stageEffortOverlay = { version: 1, scope: "stage_readtime_overlay", selectionBasis: "observed_period_representatives", aliasPolicy: "selected_activity_incarnation_only", globalRecords: "unchanged",
+      checkedActivityCount: period.coverage.candidateActivityCount, preferenceBindings: period.activities.map(activity => ({ activityId: activity.activityId, activityIncarnation: "90:1", preferenceRevision: 0, metricsRevision: "100:1", mutationReady: true, excludedTargets: [] })) };
+  }
   return result;
 }

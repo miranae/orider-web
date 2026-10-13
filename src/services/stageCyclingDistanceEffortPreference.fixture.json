@@ -1,0 +1,755 @@
+{
+  "original": {
+    "request": {
+      "version": 1,
+      "activityId": "fixture_bike_a"
+    },
+    "response": {
+      "version": 1,
+      "scope": "explicit_selected_activity",
+      "activityId": "fixture_bike_a",
+      "activityIncarnation": "1:0",
+      "activityRevision": "2:0",
+      "metricsRevision": "2:0",
+      "preferenceRevision": 0,
+      "excludedTargets": [],
+      "observationState": "observed",
+      "provenance": {
+        "provenanceVersion": 2,
+        "sourceBasis": "stored_distance_parts",
+        "timingBasis": "stored_explicit_activity_elapsed",
+        "originalClockVerified": false,
+        "declaredActivitySource": "orider",
+        "status": "stored_explicit"
+      },
+      "originalClockVerified": false,
+      "quality": "unknown",
+      "coverage": "unknown",
+      "globalRecords": "unchanged",
+      "aggregateEffect": "not_applied",
+      "readTimes": {
+        "source": {
+          "seconds": 100,
+          "nanoseconds": 0
+        },
+        "preference": {
+          "seconds": 100,
+          "nanoseconds": 0
+        }
+      },
+      "efforts": [
+        {
+          "target": "5miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "10km",
+          "originalElapsedSeconds": 1500,
+          "excluded": false,
+          "effectiveElapsedSeconds": 1500,
+          "sourceStatus": "observed",
+          "excludeBinding": {
+            "activityId": "fixture_bike_a",
+            "expectedPreferenceRevision": 0,
+            "expectedActivityIncarnation": "1:0",
+            "expectedActivityRevision": "2:0",
+            "expectedMetricsRevision": "2:0",
+            "target": "10km",
+            "excluded": true,
+            "expectedSourceAuthorityRevision": "0948942cdfd0b7aa793d2adeb597b5b6b38115132979e13892720f5e06f449b7"
+          },
+          "restoreBinding": null
+        },
+        {
+          "target": "10miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "20km",
+          "originalElapsedSeconds": 3400,
+          "excluded": false,
+          "effectiveElapsedSeconds": 3400,
+          "sourceStatus": "observed",
+          "excludeBinding": {
+            "activityId": "fixture_bike_a",
+            "expectedPreferenceRevision": 0,
+            "expectedActivityIncarnation": "1:0",
+            "expectedActivityRevision": "2:0",
+            "expectedMetricsRevision": "2:0",
+            "target": "20km",
+            "excluded": true,
+            "expectedSourceAuthorityRevision": "109db1dc58c09ec6409717fc5b6c7209d217a9f2c8ccc5a915f6da6e6271bdc1"
+          },
+          "restoreBinding": null
+        },
+        {
+          "target": "30km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "40km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "50km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "80km",
+          "originalElapsedSeconds": 8000,
+          "excluded": false,
+          "effectiveElapsedSeconds": 8000,
+          "sourceStatus": "observed",
+          "excludeBinding": {
+            "activityId": "fixture_bike_a",
+            "expectedPreferenceRevision": 0,
+            "expectedActivityIncarnation": "1:0",
+            "expectedActivityRevision": "2:0",
+            "expectedMetricsRevision": "2:0",
+            "target": "80km",
+            "excluded": true,
+            "expectedSourceAuthorityRevision": "e76136d96c23cc0358aeff83265fc0cd705e45a166d407fdea5debc304eb094d"
+          },
+          "restoreBinding": null
+        },
+        {
+          "target": "50miles",
+          "originalElapsedSeconds": 8100,
+          "excluded": false,
+          "effectiveElapsedSeconds": 8100,
+          "sourceStatus": "observed",
+          "excludeBinding": {
+            "activityId": "fixture_bike_a",
+            "expectedPreferenceRevision": 0,
+            "expectedActivityIncarnation": "1:0",
+            "expectedActivityRevision": "2:0",
+            "expectedMetricsRevision": "2:0",
+            "target": "50miles",
+            "excluded": true,
+            "expectedSourceAuthorityRevision": "5da8704696592df08d19611c9b9fc3a0d7e05ffb1bd7304d7ebf0dcc5e98165e"
+          },
+          "restoreBinding": null
+        },
+        {
+          "target": "90km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "100km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "100miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "180km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        }
+      ]
+    },
+    "io": {
+      "documents": 18,
+      "writes": 0,
+      "raw": 0,
+      "list": 0
+    }
+  },
+  "excluded": {
+    "request": {
+      "version": 1,
+      "activityId": "fixture_bike_a"
+    },
+    "response": {
+      "version": 1,
+      "scope": "explicit_selected_activity",
+      "activityId": "fixture_bike_a",
+      "activityIncarnation": "1:0",
+      "activityRevision": "2:0",
+      "metricsRevision": "2:0",
+      "preferenceRevision": 1,
+      "excludedTargets": [
+        "10km"
+      ],
+      "observationState": "observed",
+      "provenance": {
+        "provenanceVersion": 2,
+        "sourceBasis": "stored_distance_parts",
+        "timingBasis": "stored_explicit_activity_elapsed",
+        "originalClockVerified": false,
+        "declaredActivitySource": "orider",
+        "status": "stored_explicit"
+      },
+      "originalClockVerified": false,
+      "quality": "unknown",
+      "coverage": "unknown",
+      "globalRecords": "unchanged",
+      "aggregateEffect": "not_applied",
+      "readTimes": {
+        "source": {
+          "seconds": 100,
+          "nanoseconds": 0
+        },
+        "preference": {
+          "seconds": 100,
+          "nanoseconds": 0
+        }
+      },
+      "efforts": [
+        {
+          "target": "5miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "10km",
+          "originalElapsedSeconds": 1500,
+          "excluded": true,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "observed",
+          "excludeBinding": null,
+          "restoreBinding": {
+            "activityId": "fixture_bike_a",
+            "expectedPreferenceRevision": 1,
+            "expectedActivityIncarnation": "1:0",
+            "expectedActivityRevision": "2:0",
+            "expectedMetricsRevision": "2:0",
+            "target": "10km",
+            "excluded": false,
+            "expectedSourceAuthorityRevision": null
+          }
+        },
+        {
+          "target": "10miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "20km",
+          "originalElapsedSeconds": 3400,
+          "excluded": false,
+          "effectiveElapsedSeconds": 3400,
+          "sourceStatus": "observed",
+          "excludeBinding": {
+            "activityId": "fixture_bike_a",
+            "expectedPreferenceRevision": 1,
+            "expectedActivityIncarnation": "1:0",
+            "expectedActivityRevision": "2:0",
+            "expectedMetricsRevision": "2:0",
+            "target": "20km",
+            "excluded": true,
+            "expectedSourceAuthorityRevision": "109db1dc58c09ec6409717fc5b6c7209d217a9f2c8ccc5a915f6da6e6271bdc1"
+          },
+          "restoreBinding": null
+        },
+        {
+          "target": "30km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "40km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "50km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "80km",
+          "originalElapsedSeconds": 8000,
+          "excluded": false,
+          "effectiveElapsedSeconds": 8000,
+          "sourceStatus": "observed",
+          "excludeBinding": {
+            "activityId": "fixture_bike_a",
+            "expectedPreferenceRevision": 1,
+            "expectedActivityIncarnation": "1:0",
+            "expectedActivityRevision": "2:0",
+            "expectedMetricsRevision": "2:0",
+            "target": "80km",
+            "excluded": true,
+            "expectedSourceAuthorityRevision": "e76136d96c23cc0358aeff83265fc0cd705e45a166d407fdea5debc304eb094d"
+          },
+          "restoreBinding": null
+        },
+        {
+          "target": "50miles",
+          "originalElapsedSeconds": 8100,
+          "excluded": false,
+          "effectiveElapsedSeconds": 8100,
+          "sourceStatus": "observed",
+          "excludeBinding": {
+            "activityId": "fixture_bike_a",
+            "expectedPreferenceRevision": 1,
+            "expectedActivityIncarnation": "1:0",
+            "expectedActivityRevision": "2:0",
+            "expectedMetricsRevision": "2:0",
+            "target": "50miles",
+            "excluded": true,
+            "expectedSourceAuthorityRevision": "5da8704696592df08d19611c9b9fc3a0d7e05ffb1bd7304d7ebf0dcc5e98165e"
+          },
+          "restoreBinding": null
+        },
+        {
+          "target": "90km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "100km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "100miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "180km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        }
+      ]
+    },
+    "io": {
+      "documents": 18,
+      "writes": 0,
+      "raw": 0,
+      "list": 0
+    }
+  },
+  "orphaned": {
+    "request": {
+      "version": 1,
+      "activityId": "fixture_bike_a"
+    },
+    "response": {
+      "version": 1,
+      "scope": "explicit_selected_activity",
+      "activityId": "fixture_bike_a",
+      "activityIncarnation": "1:0",
+      "activityRevision": "2:0",
+      "metricsRevision": "3:0",
+      "preferenceRevision": 1,
+      "excludedTargets": [
+        "10km"
+      ],
+      "observationState": "legacy_unsupported",
+      "provenance": null,
+      "originalClockVerified": false,
+      "quality": "unknown",
+      "coverage": "unknown",
+      "globalRecords": "unchanged",
+      "aggregateEffect": "not_applied",
+      "readTimes": {
+        "source": {
+          "seconds": 100,
+          "nanoseconds": 0
+        },
+        "preference": {
+          "seconds": 100,
+          "nanoseconds": 0
+        }
+      },
+      "efforts": [
+        {
+          "target": "5miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "10km",
+          "originalElapsedSeconds": null,
+          "excluded": true,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": {
+            "activityId": "fixture_bike_a",
+            "expectedPreferenceRevision": 1,
+            "expectedActivityIncarnation": "1:0",
+            "expectedActivityRevision": "2:0",
+            "expectedMetricsRevision": "3:0",
+            "target": "10km",
+            "excluded": false,
+            "expectedSourceAuthorityRevision": null
+          }
+        },
+        {
+          "target": "10miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "20km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "30km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "40km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "50km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "80km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "50miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "90km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "100km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "100miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "180km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        }
+      ]
+    },
+    "io": {
+      "documents": 18,
+      "writes": 0,
+      "raw": 0,
+      "list": 0
+    }
+  },
+  "restored": {
+    "request": {
+      "version": 1,
+      "activityId": "fixture_bike_a"
+    },
+    "response": {
+      "version": 1,
+      "scope": "explicit_selected_activity",
+      "activityId": "fixture_bike_a",
+      "activityIncarnation": "1:0",
+      "activityRevision": "2:0",
+      "metricsRevision": "3:0",
+      "preferenceRevision": 2,
+      "excludedTargets": [],
+      "observationState": "legacy_unsupported",
+      "provenance": null,
+      "originalClockVerified": false,
+      "quality": "unknown",
+      "coverage": "unknown",
+      "globalRecords": "unchanged",
+      "aggregateEffect": "not_applied",
+      "readTimes": {
+        "source": {
+          "seconds": 100,
+          "nanoseconds": 0
+        },
+        "preference": {
+          "seconds": 100,
+          "nanoseconds": 0
+        }
+      },
+      "efforts": [
+        {
+          "target": "5miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "10km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "10miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "20km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "30km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "40km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "50km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "80km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "50miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "90km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "100km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "100miles",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        },
+        {
+          "target": "180km",
+          "originalElapsedSeconds": null,
+          "excluded": false,
+          "effectiveElapsedSeconds": null,
+          "sourceStatus": "source_missing",
+          "excludeBinding": null,
+          "restoreBinding": null
+        }
+      ]
+    },
+    "io": {
+      "documents": 18,
+      "writes": 0,
+      "raw": 0,
+      "list": 0
+    }
+  },
+  "excludedMutation": {
+    "version": 1,
+    "scope": "stage_cycling_distance_readtime_overlay",
+    "outcome": "stored_pending_analysis_refresh",
+    "activityId": "fixture_bike_a",
+    "activityIncarnation": "1:0",
+    "preferenceRevision": 1,
+    "target": "10km",
+    "excluded": true,
+    "globalRecords": "unchanged"
+  },
+  "restoredMutation": {
+    "version": 1,
+    "scope": "stage_cycling_distance_readtime_overlay",
+    "outcome": "stored_pending_analysis_refresh",
+    "activityId": "fixture_bike_a",
+    "activityIncarnation": "1:0",
+    "preferenceRevision": 2,
+    "target": "10km",
+    "excluded": false,
+    "globalRecords": "unchanged"
+  }
+}

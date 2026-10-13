@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { BikeActionAccordion } from "./TrainingHubOpportunityPanel";
+import { BikeActionAccordion, FitnessWeeklyInsight } from "./TrainingHubOpportunityPanel";
 
 const t = (key: string, values?: Record<string, unknown>) => values?.count == null ? key : `${key}:${values.count}`;
 
@@ -39,5 +39,20 @@ describe("BikeActionAccordion progressive disclosure", () => {
     expect(tte).toHaveAttribute("aria-expanded", "false");
     rerender(<MemoryRouter><BikeActionAccordion ftp={250} hasPdcModel={false} hasZoneData t={(key, values) => t(key, values)} /></MemoryRouter>);
     expect(screen.getByRole("button", { name: /hub.actions.tte.title/ })).toHaveAttribute("aria-expanded", "false");
+  });
+});
+
+describe("weekly insight disclosure", () => {
+  const props = {ctlDelta:3,ctl:40,atl:42,tsb:-5,asOf:"2026-10-12",dateBasis:"utc" as const,t};
+  it("does not show interval or restart for a stale sparse day", () => {
+    render(<FitnessWeeklyInsight {...props} dailyData={[{date:"2026-01-01",totalLoad:70}]}/>);
+    expect(screen.getByText("hub.weekly.partial:14")).toBeInTheDocument();
+    expect(screen.queryByText(/recommend/)).not.toBeInTheDocument();
+    expect(screen.getByText("hub.weekly.basis.utc")).toBeInTheDocument();
+  });
+  it("discloses pending refresh without a training recommendation", () => {
+    render(<FitnessWeeklyInsight {...props} ready={false} dailyData={[]}/>);
+    expect(screen.getByText("hub.weekly.pending")).toBeInTheDocument();
+    expect(screen.queryByText(/recommend/)).not.toBeInTheDocument();
   });
 });

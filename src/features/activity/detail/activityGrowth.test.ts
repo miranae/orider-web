@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Activity } from "@shared/types";
-import { activityPeriods, comparableCurves, comparisonRows, customActivityPeriods, sameActivitySport, summarizePeriod } from "./activityGrowth";
+import { activityPeriods, comparableCurves, comparableRunningPaceCurves, comparisonRows, customActivityPeriods, observedYearPeriods, sameActivitySport, summarizePeriod } from "./activityGrowth";
 const activity = (startTime: number, distance: number | null = 1000) => ({ id: String(startTime), type: "Run", startTime, summary: { distance, movingTimeSec: 300, elevationGain: 0 } }) as unknown as Activity;
 describe("activity growth presentation", () => {
   it("compares aliases but keeps different sports separate", () => {
@@ -75,5 +75,44 @@ describe("activity growth presentation", () => {
     expect(result.fields.movingTime).toEqual({ total: null, observed: 300, knownCount: 1, missingCount: 1 });
     expect(summarizePeriod([missing], 0, 200, true).fields.movingTime.observed).toBeNull();
     expect(summarizePeriod([activity(100), missing], 0, 200, false).fields.distance).toEqual({ total: null, observed: null, knownCount: null, missingCount: null });
+  });
+});
+
+
+describe("canonical running curve comparison", () => {
+  const canonical = (paceCurve: unknown) => ({ runMetrics: { gapAvgSec: null, paceCurve }, speedCurve: { "5m": 36 } }) as unknown as Parameters<typeof comparableRunningPaceCurves>[0];
+  it("intersects valid durations directly in sec/km, permitting slow and single-point curves", () => {
+    expect(comparableRunningPaceCurves(canonical([{ durationSec: 180, paceSecPerKm: 750 }, { durationSec: 7200, paceSecPerKm: 800 }]), canonical([{ durationSec: 7200, paceSecPerKm: 850 }]))).toEqual({ sourceBasis: "run_metrics_pace_curve", reason: null, points: [{ duration: 7200, value: 800, baseline: 850, delta: -50 }] });
+  });
+  it.each([null, [], [{ durationSec: 300, paceSecPerKm: NaN }], [{ durationSec: 300, paceSecPerKm: 750 }, { durationSec: 47, paceSecPerKm: 800 }]])("does not compare or fallback from explicitly invalid canonical %j", invalid => {
+    expect(comparableRunningPaceCurves(canonical(invalid), canonical([{ durationSec: 300, paceSecPerKm: 750 }]))).toMatchObject({ reason: "unavailable", points: [] });
+  });
+  it("blocks comparison across canonical and legacy recording bases", () => {
+    expect(comparableRunningPaceCurves(canonical([{ durationSec: 300, paceSecPerKm: 750 }]), { speedCurve: { "5m": 12 } })).toMatchObject({ reason: "basis_mismatch", points: [] });
+  });
+  it("retains legacy source provenance when both canonical fields are absent", () => {
+    expect(comparableRunningPaceCurves({ speedCurve: { "5m": 12 } }, { speedCurve: { "5m": 10 } })).toEqual({ reason: null, sourceBasis: "speed_curve_kmh_converted", points: [{ duration: 300, value: 300, baseline: 360, delta: -60 }] });
+  });
+  it("withholds pending records and distinguishes disjoint observed durations", () => {
+    const metrics = canonical([{ durationSec: 300, paceSecPerKm: 750 }]);
+    expect(comparableRunningPaceCurves({ ...metrics, inputPending: true }, metrics)).toMatchObject({ reason: "unavailable", points: [] });
+    expect(comparableRunningPaceCurves(metrics, canonical([{ durationSec: 180, paceSecPerKm: 750 }]))).toMatchObject({ reason: "no_common_duration", sourceBasis: "run_metrics_pace_curve", points: [] });
+  });
+});
+
+describe("observed KST year periods", () => {
+  it("clamps leap-day YTD to the preceding February 28 at the same local time", () => {
+    const now = Date.parse("2024-02-29T12:34:56.789+09:00");
+    expect(observedYearPeriods(now, 2024)).toEqual({ start: Date.parse("2024-01-01T00:00:00+09:00"), end: now, previousStart: Date.parse("2023-01-01T00:00:00+09:00"), previousEnd: Date.parse("2023-02-28T12:34:56.789+09:00"), ytd: true, leapClamped: true });
+  });
+  it("uses KST year boundaries and complete historical years", () => {
+    const now = Date.parse("2024-12-31T15:00:00Z");
+    expect(observedYearPeriods(now, 2024)).toMatchObject({ start: Date.parse("2024-01-01T00:00:00+09:00"), end: now, previousEnd: Date.parse("2024-01-01T00:00:00+09:00"), ytd: false });
+    expect(observedYearPeriods(now, 2025)).toBeNull();
+    expect(observedYearPeriods(now + 1, 2025)).toMatchObject({ ytd: true, end: now + 1, previousEnd: Date.parse("2024-01-01T00:00:00+09:00") + 1 });
+    expect(observedYearPeriods(now, 2026)).toBeNull();
+    expect(observedYearPeriods(now, 1971)).toBeNull();
+    expect(observedYearPeriods(now, 2024.5)).toBeNull();
+    expect(observedYearPeriods(NaN, 2024)).toBeNull();
   });
 });

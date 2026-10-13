@@ -1,0 +1,1005 @@
+{
+  "fixtureOnly": true,
+  "generatedFrom": "actual compiled runStageRaceEstimates",
+  "notAuthenticatedRuntimeEvidence": true,
+  "notUserData": true,
+  "sourceHashes": {
+    "shared/types/running-race-estimates.ts": "fbbdbfad4b456ecd5e17895870b1ef3c300f0f366d75ecda60c208aedc269604",
+    "shared/training/runningRaceEstimates.ts": "8a0d0643b634874513c92fe540a47aef3d993b7b928823239fbf0e3d8d49515d",
+    "shared/training/runningRaceEstimates.test.ts": "ace9c9bdb3b93b11fb7b2039d3d0ec6f135b2dc44b145613a2d14e150bc8c6c4",
+    "shared/types/running-race-estimates-stage.ts": "231f0a2fcd1cbb97a1adb4c840ae5ffe0f4b3fc44315463da6b8b4f176b8c282",
+    "functions/src/analysis/run-race-estimates-stage.ts": "0df090afb31ce06cfce643ae47853629308b53085ce81a3d7c359f506879d19d",
+    "functions/src/analysis/run-race-estimates-stage.test.ts": "0b97d5db81f4f988f7e8da8788cb0c5eca6d3a6a5bdfab48f2c5c3e03191dad5"
+  },
+  "compiledModuleSha256": "6c0b728f59d66507898eec882b60c088ab4debcb8704b033e6df0339fd6cf180",
+  "cases": [
+    {
+      "label": "manual_positive_preview",
+      "request": {
+        "mode": "preview",
+        "activities": [],
+        "manualRaces": [
+          {
+            "id": "fixture_race_one",
+            "target": "half",
+            "elapsedSeconds": 7200,
+            "occurredAt": 1791158400000,
+            "maximalEffortAttested": true
+          }
+        ],
+        "typicalMileage": {
+          "value": 40,
+          "unit": "miles_per_week",
+          "attestedTypicalTraining": true
+        }
+      },
+      "now": 1791763200000,
+      "response": {
+        "mode": "preview",
+        "snapshot": {
+          "version": 1,
+          "scope": "stage_only_race_estimate",
+          "snapshotId": null,
+          "asOf": 1791763200000,
+          "estimates": [
+            {
+              "target": "5k",
+              "distanceMeters": 5000,
+              "asOf": 1791763200000,
+              "status": "estimate",
+              "elapsedSeconds": 1542.777284629665,
+              "reason": null,
+              "method": "riegel_race_equivalent_1_07_v1",
+              "source": {
+                "sourceId": "manual:fixture_race_one",
+                "distanceMeters": 21097.5,
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true,
+                "provenance": "user_supplied_race",
+                "timeBasis": "user_supplied_race_time",
+                "distanceQualified": true,
+                "clockVerified": false,
+                "excluded": false,
+                "deleted": false,
+                "supported": true
+              },
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            },
+            {
+              "target": "10k",
+              "distanceMeters": 10000,
+              "asOf": 1791763200000,
+              "status": "estimate",
+              "elapsedSeconds": 3238.958109580906,
+              "reason": null,
+              "method": "riegel_race_equivalent_1_07_v1",
+              "source": {
+                "sourceId": "manual:fixture_race_one",
+                "distanceMeters": 21097.5,
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true,
+                "provenance": "user_supplied_race",
+                "timeBasis": "user_supplied_race_time",
+                "distanceQualified": true,
+                "clockVerified": false,
+                "excluded": false,
+                "deleted": false,
+                "supported": true
+              },
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            },
+            {
+              "target": "half",
+              "distanceMeters": 21097.5,
+              "asOf": 1791763200000,
+              "status": "historical_reference",
+              "elapsedSeconds": 7200,
+              "reason": null,
+              "method": "same_distance_reference_v1",
+              "source": {
+                "sourceId": "manual:fixture_race_one",
+                "distanceMeters": 21097.5,
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true,
+                "provenance": "user_supplied_race",
+                "timeBasis": "user_supplied_race_time",
+                "distanceQualified": true,
+                "clockVerified": false,
+                "excluded": false,
+                "deleted": false,
+                "supported": true
+              },
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            },
+            {
+              "target": "marathon",
+              "distanceMeters": 42195,
+              "asOf": 1791763200000,
+              "status": "estimate",
+              "elapsedSeconds": 15421.295719559197,
+              "reason": null,
+              "method": "vickers_one_race_raw_mileage_v1",
+              "source": {
+                "sourceId": "manual:fixture_race_one",
+                "distanceMeters": 21097.5,
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true,
+                "provenance": "user_supplied_race",
+                "timeBasis": "user_supplied_race_time",
+                "distanceQualified": true,
+                "clockVerified": false,
+                "excluded": false,
+                "deleted": false,
+                "supported": true
+              },
+              "typicalMileageMilesPerWeek": 40,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability",
+                "raw_adaptation_of_adjusted_input_study",
+                "self_reported_typical_training_mileage"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            }
+          ],
+          "inputs": {
+            "activities": [],
+            "manualRaces": [
+              {
+                "id": "fixture_race_one",
+                "target": "half",
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true
+              }
+            ],
+            "typicalMileage": {
+              "value": 40,
+              "unit": "miles_per_week",
+              "attestedTypicalTraining": true
+            }
+          },
+          "typicalMileage": {
+            "value": 40,
+            "unit": "miles_per_week",
+            "basis": "self_reported_typical_pre_marathon_training",
+            "statedAt": 1791763200000
+          },
+          "sourceWitnesses": [],
+          "domainPolicy": "adjusted_training_bounds_applied_to_raw_inputs_not_raw_endpoint_validation"
+        }
+      },
+      "proof": {
+        "fakeOnly": true,
+        "rawDownloads": 0,
+        "liveDatabaseReads": 0,
+        "liveDatabaseWrites": 0,
+        "stageFakeWriteCount": 0
+      }
+    },
+    {
+      "label": "producer_elapsed_v2_positive_preview",
+      "request": {
+        "mode": "preview",
+        "activities": [
+          {
+            "activityId": "fixture_run_a",
+            "target": "half",
+            "maximalEffortAttested": true,
+            "expectedActivityIncarnation": "1:0",
+            "expectedMetricsRevision": "2:0",
+            "expectedPreferenceRevision": 0
+          }
+        ],
+        "manualRaces": [],
+        "typicalMileage": {
+          "value": 40,
+          "unit": "miles_per_week",
+          "attestedTypicalTraining": true
+        }
+      },
+      "now": 1791763200000,
+      "response": {
+        "mode": "preview",
+        "snapshot": {
+          "version": 1,
+          "scope": "stage_only_race_estimate",
+          "snapshotId": null,
+          "asOf": 1791763200000,
+          "estimates": [
+            {
+              "target": "5k",
+              "distanceMeters": 5000,
+              "asOf": 1791763200000,
+              "status": "estimate",
+              "elapsedSeconds": 1542.777284629665,
+              "reason": null,
+              "method": "riegel_race_equivalent_1_07_v1",
+              "source": {
+                "sourceId": "activity:fixture_run_a:half",
+                "distanceMeters": 21097.5,
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true,
+                "provenance": "trusted_server_elapsed",
+                "timeBasis": "elapsed_including_stops",
+                "distanceQualified": true,
+                "clockVerified": true,
+                "excluded": false,
+                "deleted": false,
+                "supported": true,
+                "metricsRevision": "2:0",
+                "incarnation": "1:0",
+                "preferencesRevision": "0"
+              },
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            },
+            {
+              "target": "10k",
+              "distanceMeters": 10000,
+              "asOf": 1791763200000,
+              "status": "estimate",
+              "elapsedSeconds": 3238.958109580906,
+              "reason": null,
+              "method": "riegel_race_equivalent_1_07_v1",
+              "source": {
+                "sourceId": "activity:fixture_run_a:half",
+                "distanceMeters": 21097.5,
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true,
+                "provenance": "trusted_server_elapsed",
+                "timeBasis": "elapsed_including_stops",
+                "distanceQualified": true,
+                "clockVerified": true,
+                "excluded": false,
+                "deleted": false,
+                "supported": true,
+                "metricsRevision": "2:0",
+                "incarnation": "1:0",
+                "preferencesRevision": "0"
+              },
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            },
+            {
+              "target": "half",
+              "distanceMeters": 21097.5,
+              "asOf": 1791763200000,
+              "status": "historical_reference",
+              "elapsedSeconds": 7200,
+              "reason": null,
+              "method": "same_distance_reference_v1",
+              "source": {
+                "sourceId": "activity:fixture_run_a:half",
+                "distanceMeters": 21097.5,
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true,
+                "provenance": "trusted_server_elapsed",
+                "timeBasis": "elapsed_including_stops",
+                "distanceQualified": true,
+                "clockVerified": true,
+                "excluded": false,
+                "deleted": false,
+                "supported": true,
+                "metricsRevision": "2:0",
+                "incarnation": "1:0",
+                "preferencesRevision": "0"
+              },
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            },
+            {
+              "target": "marathon",
+              "distanceMeters": 42195,
+              "asOf": 1791763200000,
+              "status": "estimate",
+              "elapsedSeconds": 15421.295719559197,
+              "reason": null,
+              "method": "vickers_one_race_raw_mileage_v1",
+              "source": {
+                "sourceId": "activity:fixture_run_a:half",
+                "distanceMeters": 21097.5,
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true,
+                "provenance": "trusted_server_elapsed",
+                "timeBasis": "elapsed_including_stops",
+                "distanceQualified": true,
+                "clockVerified": true,
+                "excluded": false,
+                "deleted": false,
+                "supported": true,
+                "metricsRevision": "2:0",
+                "incarnation": "1:0",
+                "preferencesRevision": "0"
+              },
+              "typicalMileageMilesPerWeek": 40,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability",
+                "raw_adaptation_of_adjusted_input_study",
+                "self_reported_typical_training_mileage"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            }
+          ],
+          "inputs": {
+            "activities": [
+              {
+                "activityId": "fixture_run_a",
+                "target": "half",
+                "maximalEffortAttested": true,
+                "expectedActivityIncarnation": "1:0",
+                "expectedMetricsRevision": "2:0",
+                "expectedPreferenceRevision": 0
+              }
+            ],
+            "manualRaces": [],
+            "typicalMileage": {
+              "value": 40,
+              "unit": "miles_per_week",
+              "attestedTypicalTraining": true
+            }
+          },
+          "typicalMileage": {
+            "value": 40,
+            "unit": "miles_per_week",
+            "basis": "self_reported_typical_pre_marathon_training",
+            "statedAt": 1791763200000
+          },
+          "sourceWitnesses": [
+            {
+              "activityId": "fixture_run_a",
+              "target": "half",
+              "activityIncarnation": "1:0",
+              "activityRevision": "2:0",
+              "metricsRevision": "2:0",
+              "preferenceRevision": 0,
+              "preferenceDocumentRevision": "missing",
+              "qualification": "producer_elapsed_axis_v2",
+              "originalSensorClock": "not_independently_verified",
+              "reason": null
+            }
+          ],
+          "domainPolicy": "adjusted_training_bounds_applied_to_raw_inputs_not_raw_endpoint_validation"
+        }
+      },
+      "proof": {
+        "fakeOnly": true,
+        "rawDownloads": 0,
+        "liveDatabaseReads": 0,
+        "liveDatabaseWrites": 0,
+        "stageFakeWriteCount": 0
+      }
+    },
+    {
+      "label": "excluded_unavailable_preview",
+      "request": {
+        "mode": "preview",
+        "activities": [
+          {
+            "activityId": "fixture_run_a",
+            "target": "half",
+            "maximalEffortAttested": true,
+            "expectedActivityIncarnation": "1:0",
+            "expectedMetricsRevision": "2:0",
+            "expectedPreferenceRevision": 1
+          }
+        ],
+        "manualRaces": [],
+        "typicalMileage": {
+          "value": 40,
+          "unit": "miles_per_week",
+          "attestedTypicalTraining": true
+        }
+      },
+      "now": 1791763200000,
+      "response": {
+        "mode": "preview",
+        "snapshot": {
+          "version": 1,
+          "scope": "stage_only_race_estimate",
+          "snapshotId": null,
+          "asOf": 1791763200000,
+          "estimates": [
+            {
+              "target": "5k",
+              "distanceMeters": 5000,
+              "asOf": 1791763200000,
+              "status": "unavailable",
+              "elapsedSeconds": null,
+              "reason": "no_qualified_source",
+              "method": null,
+              "source": null,
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            },
+            {
+              "target": "10k",
+              "distanceMeters": 10000,
+              "asOf": 1791763200000,
+              "status": "unavailable",
+              "elapsedSeconds": null,
+              "reason": "no_qualified_source",
+              "method": null,
+              "source": null,
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            },
+            {
+              "target": "half",
+              "distanceMeters": 21097.5,
+              "asOf": 1791763200000,
+              "status": "unavailable",
+              "elapsedSeconds": null,
+              "reason": "no_qualified_source",
+              "method": null,
+              "source": null,
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            },
+            {
+              "target": "marathon",
+              "distanceMeters": 42195,
+              "asOf": 1791763200000,
+              "status": "unavailable",
+              "elapsedSeconds": null,
+              "reason": "no_qualified_source",
+              "method": null,
+              "source": null,
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            }
+          ],
+          "inputs": {
+            "activities": [
+              {
+                "activityId": "fixture_run_a",
+                "target": "half",
+                "maximalEffortAttested": true,
+                "expectedActivityIncarnation": "1:0",
+                "expectedMetricsRevision": "2:0",
+                "expectedPreferenceRevision": 1
+              }
+            ],
+            "manualRaces": [],
+            "typicalMileage": {
+              "value": 40,
+              "unit": "miles_per_week",
+              "attestedTypicalTraining": true
+            }
+          },
+          "typicalMileage": {
+            "value": 40,
+            "unit": "miles_per_week",
+            "basis": "self_reported_typical_pre_marathon_training",
+            "statedAt": 1791763200000
+          },
+          "sourceWitnesses": [
+            {
+              "activityId": "fixture_run_a",
+              "target": "half",
+              "activityIncarnation": "1:0",
+              "activityRevision": "2:0",
+              "metricsRevision": "2:0",
+              "preferenceRevision": 1,
+              "preferenceDocumentRevision": "2:0",
+              "qualification": "unavailable",
+              "originalSensorClock": "not_independently_verified",
+              "reason": "excluded"
+            }
+          ],
+          "domainPolicy": "adjusted_training_bounds_applied_to_raw_inputs_not_raw_endpoint_validation"
+        }
+      },
+      "proof": {
+        "fakeOnly": true,
+        "rawDownloads": 0,
+        "liveDatabaseReads": 0,
+        "liveDatabaseWrites": 0,
+        "stageFakeWriteCount": 0
+      }
+    },
+    {
+      "label": "empty_actual_history",
+      "request": {
+        "mode": "history_page",
+        "windowMonths": 6
+      },
+      "now": 1791763200000,
+      "response": {
+        "mode": "history_page",
+        "windowMonths": 6,
+        "windowDays": 180,
+        "scope": "latest_64_actual_snapshots_within_180_days",
+        "registryRevision": "missing",
+        "snapshots": [],
+        "nextCursor": null,
+        "capped": false
+      },
+      "proof": {
+        "fakeOnly": true,
+        "rawDownloads": 0,
+        "liveDatabaseReads": 0,
+        "liveDatabaseWrites": 0,
+        "stageFakeWriteCount": 0
+      }
+    },
+    {
+      "label": "manual_actual_snapshot_save",
+      "request": {
+        "mode": "save_snapshot",
+        "activities": [],
+        "manualRaces": [
+          {
+            "id": "fixture_race_one",
+            "target": "half",
+            "elapsedSeconds": 7200,
+            "occurredAt": 1791158400000,
+            "maximalEffortAttested": true
+          }
+        ],
+        "typicalMileage": {
+          "value": 40,
+          "unit": "miles_per_week",
+          "attestedTypicalTraining": true
+        },
+        "idempotencyKey": "fixture_save_request_123456789"
+      },
+      "now": 1791763200000,
+      "response": {
+        "mode": "save_snapshot",
+        "snapshot": {
+          "version": 1,
+          "scope": "stage_only_race_estimate",
+          "snapshotId": "2e92b48ffe7904f68f83b08461f71b29f7e2d7fe31182cb076ff8fc6ea6040a6",
+          "asOf": 1791763200000,
+          "estimates": [
+            {
+              "target": "5k",
+              "distanceMeters": 5000,
+              "asOf": 1791763200000,
+              "status": "estimate",
+              "elapsedSeconds": 1542.777284629665,
+              "reason": null,
+              "method": "riegel_race_equivalent_1_07_v1",
+              "source": {
+                "sourceId": "manual:fixture_race_one",
+                "distanceMeters": 21097.5,
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true,
+                "provenance": "user_supplied_race",
+                "timeBasis": "user_supplied_race_time",
+                "distanceQualified": true,
+                "clockVerified": false,
+                "excluded": false,
+                "deleted": false,
+                "supported": true
+              },
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            },
+            {
+              "target": "10k",
+              "distanceMeters": 10000,
+              "asOf": 1791763200000,
+              "status": "estimate",
+              "elapsedSeconds": 3238.958109580906,
+              "reason": null,
+              "method": "riegel_race_equivalent_1_07_v1",
+              "source": {
+                "sourceId": "manual:fixture_race_one",
+                "distanceMeters": 21097.5,
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true,
+                "provenance": "user_supplied_race",
+                "timeBasis": "user_supplied_race_time",
+                "distanceQualified": true,
+                "clockVerified": false,
+                "excluded": false,
+                "deleted": false,
+                "supported": true
+              },
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            },
+            {
+              "target": "half",
+              "distanceMeters": 21097.5,
+              "asOf": 1791763200000,
+              "status": "historical_reference",
+              "elapsedSeconds": 7200,
+              "reason": null,
+              "method": "same_distance_reference_v1",
+              "source": {
+                "sourceId": "manual:fixture_race_one",
+                "distanceMeters": 21097.5,
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true,
+                "provenance": "user_supplied_race",
+                "timeBasis": "user_supplied_race_time",
+                "distanceQualified": true,
+                "clockVerified": false,
+                "excluded": false,
+                "deleted": false,
+                "supported": true
+              },
+              "typicalMileageMilesPerWeek": null,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            },
+            {
+              "target": "marathon",
+              "distanceMeters": 42195,
+              "asOf": 1791763200000,
+              "status": "estimate",
+              "elapsedSeconds": 15421.295719559197,
+              "reason": null,
+              "method": "vickers_one_race_raw_mileage_v1",
+              "source": {
+                "sourceId": "manual:fixture_race_one",
+                "distanceMeters": 21097.5,
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true,
+                "provenance": "user_supplied_race",
+                "timeBasis": "user_supplied_race_time",
+                "distanceQualified": true,
+                "clockVerified": false,
+                "excluded": false,
+                "deleted": false,
+                "supported": true
+              },
+              "typicalMileageMilesPerWeek": 40,
+              "accuracy": "not_validated_for_orider",
+              "assumptions": [
+                "comparable_maximal_effort",
+                "comparable_course_conditions",
+                "raw_elapsed_no_gap_or_course_adjustment",
+                "historical_source_not_current_measured_ability",
+                "raw_adaptation_of_adjusted_input_study",
+                "self_reported_typical_training_mileage"
+              ],
+              "policyVersion": "qualified_race_equivalent_v1"
+            }
+          ],
+          "inputs": {
+            "activities": [],
+            "manualRaces": [
+              {
+                "id": "fixture_race_one",
+                "target": "half",
+                "elapsedSeconds": 7200,
+                "occurredAt": 1791158400000,
+                "maximalEffortAttested": true
+              }
+            ],
+            "typicalMileage": {
+              "value": 40,
+              "unit": "miles_per_week",
+              "attestedTypicalTraining": true
+            }
+          },
+          "typicalMileage": {
+            "value": 40,
+            "unit": "miles_per_week",
+            "basis": "self_reported_typical_pre_marathon_training",
+            "statedAt": 1791763200000
+          },
+          "sourceWitnesses": [],
+          "domainPolicy": "adjusted_training_bounds_applied_to_raw_inputs_not_raw_endpoint_validation"
+        },
+        "outcome": "stored_source_checked"
+      },
+      "proof": {
+        "fakeOnly": true,
+        "rawDownloads": 0,
+        "liveDatabaseReads": 0,
+        "liveDatabaseWrites": 0,
+        "stageFakeWriteCount": 3
+      }
+    },
+    {
+      "label": "saved_actual_history",
+      "request": {
+        "mode": "history_page",
+        "windowMonths": 6
+      },
+      "now": 1791763200001,
+      "response": {
+        "mode": "history_page",
+        "windowMonths": 6,
+        "windowDays": 180,
+        "scope": "latest_64_actual_snapshots_within_180_days",
+        "registryRevision": "3:0",
+        "snapshots": [
+          {
+            "snapshot": {
+              "version": 1,
+              "scope": "stage_only_race_estimate",
+              "snapshotId": "2e92b48ffe7904f68f83b08461f71b29f7e2d7fe31182cb076ff8fc6ea6040a6",
+              "asOf": 1791763200000,
+              "estimates": [
+                {
+                  "target": "5k",
+                  "distanceMeters": 5000,
+                  "asOf": 1791763200000,
+                  "status": "estimate",
+                  "elapsedSeconds": 1542.777284629665,
+                  "reason": null,
+                  "method": "riegel_race_equivalent_1_07_v1",
+                  "source": {
+                    "sourceId": "manual:fixture_race_one",
+                    "distanceMeters": 21097.5,
+                    "elapsedSeconds": 7200,
+                    "occurredAt": 1791158400000,
+                    "maximalEffortAttested": true,
+                    "provenance": "user_supplied_race",
+                    "timeBasis": "user_supplied_race_time",
+                    "distanceQualified": true,
+                    "clockVerified": false,
+                    "excluded": false,
+                    "deleted": false,
+                    "supported": true
+                  },
+                  "typicalMileageMilesPerWeek": null,
+                  "accuracy": "not_validated_for_orider",
+                  "assumptions": [
+                    "comparable_maximal_effort",
+                    "comparable_course_conditions",
+                    "raw_elapsed_no_gap_or_course_adjustment",
+                    "historical_source_not_current_measured_ability"
+                  ],
+                  "policyVersion": "qualified_race_equivalent_v1"
+                },
+                {
+                  "target": "10k",
+                  "distanceMeters": 10000,
+                  "asOf": 1791763200000,
+                  "status": "estimate",
+                  "elapsedSeconds": 3238.958109580906,
+                  "reason": null,
+                  "method": "riegel_race_equivalent_1_07_v1",
+                  "source": {
+                    "sourceId": "manual:fixture_race_one",
+                    "distanceMeters": 21097.5,
+                    "elapsedSeconds": 7200,
+                    "occurredAt": 1791158400000,
+                    "maximalEffortAttested": true,
+                    "provenance": "user_supplied_race",
+                    "timeBasis": "user_supplied_race_time",
+                    "distanceQualified": true,
+                    "clockVerified": false,
+                    "excluded": false,
+                    "deleted": false,
+                    "supported": true
+                  },
+                  "typicalMileageMilesPerWeek": null,
+                  "accuracy": "not_validated_for_orider",
+                  "assumptions": [
+                    "comparable_maximal_effort",
+                    "comparable_course_conditions",
+                    "raw_elapsed_no_gap_or_course_adjustment",
+                    "historical_source_not_current_measured_ability"
+                  ],
+                  "policyVersion": "qualified_race_equivalent_v1"
+                },
+                {
+                  "target": "half",
+                  "distanceMeters": 21097.5,
+                  "asOf": 1791763200000,
+                  "status": "historical_reference",
+                  "elapsedSeconds": 7200,
+                  "reason": null,
+                  "method": "same_distance_reference_v1",
+                  "source": {
+                    "sourceId": "manual:fixture_race_one",
+                    "distanceMeters": 21097.5,
+                    "elapsedSeconds": 7200,
+                    "occurredAt": 1791158400000,
+                    "maximalEffortAttested": true,
+                    "provenance": "user_supplied_race",
+                    "timeBasis": "user_supplied_race_time",
+                    "distanceQualified": true,
+                    "clockVerified": false,
+                    "excluded": false,
+                    "deleted": false,
+                    "supported": true
+                  },
+                  "typicalMileageMilesPerWeek": null,
+                  "accuracy": "not_validated_for_orider",
+                  "assumptions": [
+                    "comparable_maximal_effort",
+                    "comparable_course_conditions",
+                    "raw_elapsed_no_gap_or_course_adjustment",
+                    "historical_source_not_current_measured_ability"
+                  ],
+                  "policyVersion": "qualified_race_equivalent_v1"
+                },
+                {
+                  "target": "marathon",
+                  "distanceMeters": 42195,
+                  "asOf": 1791763200000,
+                  "status": "estimate",
+                  "elapsedSeconds": 15421.295719559197,
+                  "reason": null,
+                  "method": "vickers_one_race_raw_mileage_v1",
+                  "source": {
+                    "sourceId": "manual:fixture_race_one",
+                    "distanceMeters": 21097.5,
+                    "elapsedSeconds": 7200,
+                    "occurredAt": 1791158400000,
+                    "maximalEffortAttested": true,
+                    "provenance": "user_supplied_race",
+                    "timeBasis": "user_supplied_race_time",
+                    "distanceQualified": true,
+                    "clockVerified": false,
+                    "excluded": false,
+                    "deleted": false,
+                    "supported": true
+                  },
+                  "typicalMileageMilesPerWeek": 40,
+                  "accuracy": "not_validated_for_orider",
+                  "assumptions": [
+                    "comparable_maximal_effort",
+                    "comparable_course_conditions",
+                    "raw_elapsed_no_gap_or_course_adjustment",
+                    "historical_source_not_current_measured_ability",
+                    "raw_adaptation_of_adjusted_input_study",
+                    "self_reported_typical_training_mileage"
+                  ],
+                  "policyVersion": "qualified_race_equivalent_v1"
+                }
+              ],
+              "inputs": {
+                "activities": [],
+                "manualRaces": [
+                  {
+                    "id": "fixture_race_one",
+                    "target": "half",
+                    "elapsedSeconds": 7200,
+                    "occurredAt": 1791158400000,
+                    "maximalEffortAttested": true
+                  }
+                ],
+                "typicalMileage": {
+                  "value": 40,
+                  "unit": "miles_per_week",
+                  "attestedTypicalTraining": true
+                }
+              },
+              "typicalMileage": {
+                "value": 40,
+                "unit": "miles_per_week",
+                "basis": "self_reported_typical_pre_marathon_training",
+                "statedAt": 1791763200000
+              },
+              "sourceWitnesses": [],
+              "domainPolicy": "adjusted_training_bounds_applied_to_raw_inputs_not_raw_endpoint_validation"
+            },
+            "sourceValidity": "unchanged"
+          }
+        ],
+        "nextCursor": null,
+        "capped": false
+      },
+      "proof": {
+        "fakeOnly": true,
+        "rawDownloads": 0,
+        "liveDatabaseReads": 0,
+        "liveDatabaseWrites": 0,
+        "stageFakeWriteCount": 3
+      }
+    }
+  ],
+  "blockedNetworkAttempts": 0
+}

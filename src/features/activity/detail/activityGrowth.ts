@@ -2,6 +2,7 @@ import type { Activity } from "@shared/types";
 import { getDiscipline } from "../../../utils/disciplineFilter";
 import { seoulWeekStartMs } from "../../../utils/seoulWeek";
 import { powerCurvePoints, speedCurvePoints, type MetricsLike } from "./metricsPresentation";
+import { runningPaceCurve, type RunningPaceCurvePresentation } from "./runningPaceCurve";
 
 const DAY = 86400000;
 const KST = 9 * 3600000;
@@ -40,6 +41,23 @@ export function comparableCurves(current: MetricsLike, previous: MetricsLike, po
       ? [{ ...point, baseline: match.value, delta: point.value - match.value }] : [];
   });
 }
+/** 정본 경과 축과 이전 속도 환산 축을 섞지 않고 양쪽 관측 기간만 비교한다. */
+export function comparableRunningPaceCurves(current: MetricsLike, previous: MetricsLike): {
+  points: Array<{ duration: number; value: number; baseline: number; delta: number }>;
+  sourceBasis: RunningPaceCurvePresentation["sourceBasis"];
+  reason: "unavailable" | "basis_mismatch" | "no_common_duration" | null;
+} {
+  const unavailable = { points: [], sourceBasis: null, reason: "unavailable" } as const;
+  if (!settledMetrics(current) || !settledMetrics(previous)) return { ...unavailable, points: [] };
+  const left = runningPaceCurve(current), right = runningPaceCurve(previous);
+  if (!left.points.length || !right.points.length) return { ...unavailable, points: [] };
+  if (left.sourceBasis !== right.sourceBasis) return { points: [], sourceBasis: null, reason: "basis_mismatch" };
+  const points = left.points.flatMap(point => {
+    const match = right.points.find(candidate => candidate.durationSeconds === point.durationSeconds);
+    return match ? [{ duration: point.durationSeconds, value: point.paceSecPerKm, baseline: match.paceSecPerKm, delta: point.paceSecPerKm - match.paceSecPerKm }] : [];
+  });
+  return { points, sourceBasis: left.sourceBasis, reason: points.length ? null : "no_common_duration" };
+}
 export type StatisticsPeriod = "week" | "month" | "3months" | "6months" | "12months";
 export function activityPeriods(now: number, period: StatisticsPeriod) {
   if (period === "week") {
@@ -50,6 +68,23 @@ export function activityPeriods(now: number, period: StatisticsPeriod) {
   const months = period === "month" ? 1 : Number.parseInt(period, 10);
   const start = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - months + 1, 1) - KST;
   return { start, end: now + 1, previousStart: Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 2 * months + 1, 1) - KST, previousEnd: start };
+}
+/** 올해는 KST 같은 월일·시각의 YTD, 과거 연도는 두 달력 연도 전체를 비교한다. */
+export function observedYearPeriods(now: number, year: number) {
+  if (!Number.isFinite(now)) return null;
+  const local = new Date(now + KST);
+  const currentYear = local.getUTCFullYear();
+  if (!Number.isInteger(year) || year < 1972 || year > currentYear) return null;
+  const start = Date.UTC(year, 0, 1) - KST;
+  const previousStart = Date.UTC(year - 1, 0, 1) - KST;
+  const ytd = year === currentYear;
+  // API는 종료가 현재 시각 이하여야 하므로 새해 정각의 빈 YTD는 아직 조회하지 않는다.
+  if (ytd && now <= start) return null;
+  const lastDay = new Date(Date.UTC(year - 1, local.getUTCMonth() + 1, 0)).getUTCDate();
+  const previousDay = Math.min(local.getUTCDate(), lastDay);
+  const leapClamped = ytd && previousDay !== local.getUTCDate();
+  const previousEnd = ytd ? Date.UTC(year - 1, local.getUTCMonth(), previousDay, local.getUTCHours(), local.getUTCMinutes(), local.getUTCSeconds(), local.getUTCMilliseconds()) - KST : start;
+  return { start, end: ytd ? now : Date.UTC(year + 1, 0, 1) - KST, previousStart, previousEnd, ytd, leapClamped };
 }
 /** 날짜 입력은 KST의 하루 전체를 뜻한다. 직전 비교는 동일한 일수이며 미래 날짜는 거부한다. */
 export function customActivityPeriods(from: string, to: string, now: number) {

@@ -55,7 +55,7 @@ describe("MobileFitnessPage tri", () => {
     expect(screen.getByRole("button", { name: "🚴 사이클" })).toBeInTheDocument();
     expect(container.querySelector(".mobile-fitness-toolbar__sports .mobile-fitness-mode-toggle")).toBeNull();
     expect(container.querySelector(".mobile-fitness-toolbar > .mobile-fitness-mode-toggle")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "심박존" })).not.toHaveAttribute("aria-pressed");
+    expect(screen.getByRole("button", { name: "러닝 분석" })).not.toHaveAttribute("aria-pressed");
   });
 
   it("shows current status and today's entry before PMC, then keeps the full coach action after the chart", () => {
@@ -258,7 +258,7 @@ describe("MobileFitnessPage tri", () => {
       <MobileFitnessPage data={{ ...base, discipline: "bike" } satisfies MobileFitnessData} />,
     );
 
-    await user.click(screen.getByRole("button", { name: "파워존" }));
+    await user.click(screen.getByRole("button", { name: "분석" }));
     expect(screen.getByRole("button", { name: "개요" })).not.toHaveAttribute("aria-pressed");
 
     rerender(<MobileFitnessPage data={{ ...base, discipline: "tri" } satisfies MobileFitnessData} />);
@@ -266,7 +266,7 @@ describe("MobileFitnessPage tri", () => {
 
     rerender(<MobileFitnessPage data={{ ...base, discipline: "run" } satisfies MobileFitnessData} />);
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "심박존" })).not.toHaveAttribute("aria-pressed");
+      expect(screen.getByRole("button", { name: "러닝 분석" })).not.toHaveAttribute("aria-pressed");
     });
     expect(screen.getByRole("group", { name: "종목 선택" })).toBeInTheDocument();
   });

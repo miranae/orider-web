@@ -95,3 +95,197 @@ describe("activity range callable boundary", () => {
     await expect(loadActivityRangeAnalysis(services, "owner", request)).rejects.toMatchObject({ code: "functions/not-found" });
   });
 });
+
+function powerInput(): NonNullable<ActivityRangeAnalysisResponse["powerWindowInput"]> {
+  return { state: "available", reason: null, inputRevision: revision, algorithmVersion: "sample-time-weighted-v1", scope: "selected_range", timingBasis: "elapsed", rangeStartElapsedSec: 10, rangeEndElapsedSec: 20, provenance: "orider_native", startsSec: [10, 15], durationsSec: [5, 5], watts: [0, 200], segmentStarts: [true, false], longestContinuousSeconds: 10 };
+}
+function powerResponse() { const value = response(); value.metrics!.powerSource = "measured"; value.powerWindowInput = powerInput(); return value; }
+describe("optional selected-range normalized power input", () => {
+  it("accepts legacy absence, measured0W and unavailable contracts while preserving one callable", async () => {
+    expect(validateRangeResponse(response(), request)).toEqual(response());
+    expect(() => validateRangeResponse(powerResponse(), request)).toThrow("invalid_range_response");
+    expect(validateRangeResponse(powerResponse(), { ...request, includePowerWindowInput: true }).powerWindowInput).toEqual(powerInput());
+    const value = response(); value.powerWindowInput = { inputRevision: revision, algorithmVersion: "sample-time-weighted-v1", scope: "selected_range", timingBasis: "elapsed", rangeStartElapsedSec: 10, rangeEndElapsedSec: 20, state: "unavailable", reason: "unknown_provenance" };
+    expect(validateRangeResponse(value, { ...request, includePowerWindowInput: true }).powerWindowInput).toEqual(value.powerWindowInput);
+    mocks.call.mockResolvedValueOnce({ data: powerResponse() });
+    const services = { auth: { currentUser: { uid: "owner" } }, ensureAppCheckReady: vi.fn(), functions: {} } as unknown as FirebaseServices;
+    await loadActivityRangeAnalysis(services, "owner", { ...request, includePowerWindowInput: true });
+    expect(mocks.call).toHaveBeenCalledOnce(); expect(mocks.call).toHaveBeenCalledWith({ ...request, includePowerWindowInput: true });
+  });
+  it.each(["revision", "selection", "provenance", "virtual", "axis", "arrays", "gap", "overlap", "longest", "negative", "cap", "reason"])("rejects malformed %s before rendering or Worker dispatch", kind => {
+    const value = powerResponse(); const input = value.powerWindowInput!;
+    if (kind === "revision") input.inputRevision = "b".repeat(64);
+    if (kind === "selection") input.rangeStartElapsedSec = 0;
+    if (input.state === "available") {
+      if (kind === "provenance") Object.assign(input, { provenance: "health" });
+      if (kind === "virtual") { value.metrics!.powerSource = "virtual"; value.metrics!.isVirtualPower = true; }
+      if (kind === "axis") input.startsSec[0] = Number.NaN;
+      if (kind === "arrays") Object.assign(input, { watts: {} });
+      if (kind === "gap") input.startsSec[1] = 16;
+      if (kind === "overlap") input.startsSec[1] = 14;
+      if (kind === "longest") input.longestContinuousSeconds = 20;
+      if (kind === "negative") input.watts[0] = -1;
+      if (kind === "cap") input.watts = Array(100001).fill(200);
+      if (kind === "reason") Object.assign(input, { reason: "unknown" });
+    }
+    expect(() => validateRangeResponse(value, { ...request, includePowerWindowInput: true })).toThrow("invalid_range_response");
+  });
+});
+
+// Exact compiled synthetic reader response; wire SHA256 ad3cbde2c17f7c150f482f42e830027858714192859e933851e94f9bb7491cde. No operational data.
+const compiledElevationWire: ActivityRangeAnalysisResponse = {
+  "state": "available",
+  "activityId": "ride",
+  "selection": {
+    "startOffsetSec": 5,
+    "endOffsetSec": 35
+  },
+  "inputRevision": "c07775614db1c7259fb23e142a2790d27cbec7283d319f2e116dcc5d261be418",
+  "computedAt": 1791731910501,
+  "algorithmVersion": "activity-range-v1",
+  "sourceLayer": "raw_parts",
+  "inputCoverage": "complete",
+  "reason": null,
+  "metrics": {
+    "elapsedSec": 30,
+    "movingSec": null,
+    "pauseSec": null,
+    "distanceM": null,
+    "avgSpeedKph": null,
+    "speedBasis": null,
+    "paceSecPerKm": null,
+    "averagePowerW": 100,
+    "normalizedPowerW": 100,
+    "averageHr": null,
+    "maxHr": null,
+    "averageCadence": null,
+    "hrZoneSec": null,
+    "powerZoneSec": null,
+    "averageBasis": "measured_elapsed",
+    "channels": {
+      "power": {
+        "measuredSec": 30,
+        "fraction": 1,
+        "reason": null
+      },
+      "heartrate": {
+        "measuredSec": 0,
+        "fraction": 0,
+        "reason": "missing"
+      },
+      "cadence": {
+        "measuredSec": 0,
+        "fraction": 0,
+        "reason": "missing"
+      },
+      "speed": {
+        "measuredSec": 0,
+        "fraction": 0,
+        "reason": "missing"
+      }
+    },
+    "diagnostics": {
+      "clippedBoundary": false,
+      "gaps": false,
+      "distanceReason": "unobserved_boundary_or_gap",
+      "zonesReason": "heart_rate:recorded_hr_threshold_unavailable;power:recorded_ftp_unavailable"
+    },
+    "powerSource": "measured",
+    "isVirtualPower": false,
+    "context": {
+      "mode": "unavailable",
+      "ftp": null,
+      "maxHr": null,
+      "lthr": null,
+      "hrZoneBoundaries": null
+    }
+  },
+  "elevation": {
+    "scope": "selected_observed_range",
+    "quality": "unknown",
+    "timingBasis": "stored_explicit_activity_elapsed",
+    "originalClockVerified": false,
+    "declaredActivitySource": "strava",
+    "inputRevision": "c07775614db1c7259fb23e142a2790d27cbec7283d319f2e116dcc5d261be418",
+    "requestedSelection": {
+      "startOffsetSec": 5,
+      "endOffsetSec": 35
+    },
+    "state": "available",
+    "reason": null,
+    "sourceBasis": "stored_epoch_parts",
+    "observedSelection": {
+      "startOffsetSec": 10,
+      "endOffsetSec": 30
+    },
+    "boundaryCoverage": "inside_samples",
+    "netElevationChangeM": 4,
+    "distanceM": 200,
+    "netMeanGradePct": 2
+  }
+};
+
+const elevationRequest = { activityId: "ride", startOffsetSec: 5, endOffsetSec: 35, includeElevation: true as const };
+describe("optional stored elevation evidence", () => {
+  it("accepts exact compiled reader wire and preserves measured power100 and inside sample bounds", () => {
+    const result = validateRangeResponse(compiledElevationWire, elevationRequest);
+    expect(result).toBe(compiledElevationWire);
+    expect(result.metrics?.averagePowerW).toBe(100);
+    expect(result.elevation).toMatchObject({ state: "available", netElevationChangeM: 4, distanceM: 200, netMeanGradePct: 2, originalClockVerified: false, observedSelection: { startOffsetSec: 10, endOffsetSec: 30 } });
+  });
+  it("preserves legacy response identity and true-only default request bytes with one opted-in call", async () => {
+    const old = response(); expect(validateRangeResponse(old, request)).toBe(old);
+    expect(validRangeRequest({ ...request, includeElevation: true })).toBe(true);
+    expect(validRangeRequest({ ...request, includeElevation: false } as unknown as typeof request)).toBe(false);
+    expect(validateRangeResponse(compiledElevationWire, { ...elevationRequest, includeElevation: undefined }).elevation).toBeUndefined();
+    mocks.call.mockResolvedValueOnce({ data: compiledElevationWire });
+    const services = { auth: { currentUser: { uid: "owner" } }, functions: {}, ensureAppCheckReady: vi.fn() } as unknown as FirebaseServices;
+    await loadActivityRangeAnalysis(services, "owner", elevationRequest);
+    expect(mocks.call).toHaveBeenCalledOnce(); expect(mocks.call).toHaveBeenCalledWith(elevationRequest);
+  });
+  it.each([
+    { inputRevision: "b".repeat(64) }, { requestedSelection: { startOffsetSec: 6, endOffsetSec: 35 } },
+    { observedSelection: { startOffsetSec: 0, endOffsetSec: 30 } }, { observedSelection: { startOffsetSec: 10, endOffsetSec: 36 } },
+    { observedSelection: { startOffsetSec: 30, endOffsetSec: 10 } }, { boundaryCoverage: "exact" },
+    { netElevationChangeM: NaN }, { distanceM: -1 }, { distanceM: Infinity }, { netMeanGradePct: null }, { netMeanGradePct: 3 },
+    { sourceBasis: "raw_parts" }, { originalClockVerified: true }, { timingBasis: "original_activity_elapsed" },
+    { declaredActivitySource: new String("strava") }, { quality: "reliable" }, { reason: "input_unavailable" }, { extra: 1 },
+  ])("isolates malformed elevation without changing old metrics: %#", patch => {
+    const original = structuredClone(compiledElevationWire);
+    Object.assign(original.elevation!, patch);
+    const result = validateRangeResponse(original, elevationRequest);
+    expect(result.elevation).toBeUndefined(); expect(result.metrics).toBe(original.metrics);
+    expect(original.elevation).toBeDefined();
+  });
+  it.each([-4, 0, 4])("preserves signed net change%s and exact arithmetic", netElevationChangeM => {
+    const value = structuredClone(compiledElevationWire);
+    Object.assign(value.elevation!, { netElevationChangeM, netMeanGradePct: netElevationChangeM / 200 * 100 });
+    expect(validateRangeResponse(value, elevationRequest).elevation).toEqual(value.elevation);
+  });
+  it("preserves zero counter distance with null grade, rejects fabricated zero grade and overflow", () => {
+    const value = structuredClone(compiledElevationWire);
+    Object.assign(value.elevation!, { distanceM: 0, netMeanGradePct: null });
+    expect(validateRangeResponse(value, elevationRequest).elevation).toEqual(value.elevation);
+    Object.assign(value.elevation!, { netMeanGradePct: 0 });
+    expect(validateRangeResponse(value, elevationRequest).elevation).toBeUndefined();
+    Object.assign(value.elevation!, { distanceM: Number.MIN_VALUE, netElevationChangeM: 1e308, netMeanGradePct: 1e308 });
+    expect(validateRangeResponse(value, elevationRequest).elevation).toBeUndefined();
+  });
+  it("keeps available elevation when sensor analysis unavailable, but never accepts pending or changed values", () => {
+    const value = { ...compiledElevationWire, state: "unavailable" as const, metrics: null };
+    expect(validateRangeResponse(value, elevationRequest).elevation).toEqual(compiledElevationWire.elevation);
+    for (const state of ["pending", "changed_input"] as const) expect(validateRangeResponse({ ...value, state }, elevationRequest).elevation).toBeUndefined();
+  });
+  it("accepts bounded unavailable evidence and treats absent evidence as unknown without failing sensors", () => {
+    const base = compiledElevationWire.elevation!;
+    const elevation = { scope: base.scope, quality: base.quality, timingBasis: base.timingBasis, originalClockVerified: base.originalClockVerified, declaredActivitySource: null, inputRevision: base.inputRevision, requestedSelection: base.requestedSelection, state: "unavailable" as const, reason: "missing_samples" as const };
+    expect(validateRangeResponse({ ...compiledElevationWire, elevation }, elevationRequest).elevation).toEqual(elevation);
+    expect(validateRangeResponse(response(), { ...request, includeElevation: true }).metrics).toBeDefined();
+  });
+});
+
+it.each([{ sourceLayer: "api_streams" as const }, { inputCoverage: "partial" as const }, { inputCoverage: "unknown" as const }])("isolates elevation provenance contradictory to overall stored parts: %#", patch => {
+  const value = { ...compiledElevationWire, ...patch };
+  const result = validateRangeResponse(value, elevationRequest);
+  expect(result.elevation).toBeUndefined(); expect(result.metrics).toBe(value.metrics);
+});

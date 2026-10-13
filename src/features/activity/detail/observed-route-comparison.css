@@ -1,0 +1,5 @@
+.observed-route-comparison { border-top: 1px solid var(--line-soft); padding-top: var(--space-4); display: grid; gap: var(--space-3); min-inline-size: 0; }
+.observed-route-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.observed-route-comparison button, .observed-route-comparison summary { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.observed-route-comparison summary { cursor: pointer; color: var(--ink-2); }
+.observed-route-comparison p { overflow-wrap: anywhere; }

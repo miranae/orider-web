@@ -1,8 +1,14 @@
-import { screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getCurrentUser } from "../../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
-import { periodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
+import { periodFixture, runningPeriodFixture, runningPacePeriodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
 import TrainingPeriodZonesPanel from "./TrainingPeriodZonesPanel";
+
+const mocks = vi.hoisted(() => ({ hook: vi.fn(), enabled: true }));
+vi.mock("../../../hooks/useTrainingAnalysisPeriods", () => ({ useTrainingAnalysisPeriods: (...args: unknown[]) => mocks.hook(...args) }));
+vi.mock("../../../services/trainingAnalysisPeriods", async original => ({ ...await original<typeof import("../../../services/trainingAnalysisPeriods")>(), trainingAnalysisPeriodsAvailable: () => mocks.enabled }));
+beforeEach(() => { mocks.enabled = true; mocks.hook.mockReset().mockReturnValue({ state: "idle", response: null }); });
 
 describe("period zones display", () => {
   it("keeps recorded thresholds and measured/virtual groups separate, with observed denominators", () => {
@@ -35,4 +41,106 @@ describe("period zones display", () => {
     rerender(<TrainingPeriodZonesPanel response={null} />);
     expect(screen.queryByText("기간별 훈련 강도")).not.toBeInTheDocument();
   });
+});
+
+it("adds a closed cycling distance section only beside existing bike period displays", () => {
+  const response = periodFixture(); const view=renderWithProviders(<TrainingPeriodZonesPanel response={response}/>);
+  expect(screen.getByText("기간별 사이클링 거리 관측 비교")).toBeInTheDocument();
+  expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  view.rerender(<TrainingPeriodZonesPanel response={{...response,discipline:"run"}}/>);
+  expect(screen.queryByText("기간별 사이클링 거리 관측 비교")).not.toBeInTheDocument();
+});
+
+describe("owner manual pace-period evidence", () => {
+  it("does not submit at mount and snapshots the applied periods only on explicit action", () => {
+    const response = runningPeriodFixture();
+    const view = renderWithProviders(<TrainingPeriodZonesPanel response={response} ownerUid="test-uid" />, { authenticated: true });
+    expect(mocks.hook).toHaveBeenLastCalledWith("test-uid", null, true);
+    fireEvent.click(screen.getByRole("button", { name: "GAP 페이스존 근거 불러오기", hidden: true }));
+    expect(mocks.hook.mock.lastCall?.[1].request).toEqual({ discipline: "run", includeRunningPaceZones: true, periods: response.periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive })) });
+    const next = structuredClone(response); next.periods[0]!.fromInclusive += 1000;
+    view.rerender(<TrainingPeriodZonesPanel response={next} ownerUid="test-uid" />);
+    expect(mocks.hook).toHaveBeenLastCalledWith("test-uid", null, true);
+    view.rerender(<TrainingPeriodZonesPanel response={{ ...next, discipline: "bike" }} ownerUid="test-uid" />);
+    expect(screen.queryByText("GAP 페이스존 근거 불러오기")).not.toBeInTheDocument();
+  });
+  it("keeps a different owner, anonymous or unavailable capability from issuing pace queries", () => {
+    const response = runningPeriodFixture();
+    const view = renderWithProviders(<TrainingPeriodZonesPanel response={response} ownerUid="other-owner" />, { authenticated: true });
+    expect(mocks.hook).not.toHaveBeenCalled();
+    expect(screen.queryByText("GAP 페이스존 근거 불러오기")).not.toBeInTheDocument();
+    Object.assign(getCurrentUser()!, { isAnonymous: true });
+    view.rerender(<TrainingPeriodZonesPanel response={response} ownerUid="test-uid" />);
+    expect(mocks.hook).not.toHaveBeenCalled();
+    expect(screen.queryByText("GAP 페이스존 근거 불러오기")).not.toBeInTheDocument();
+    Object.assign(getCurrentUser()!, { isAnonymous: false });
+    mocks.enabled = false;
+    view.rerender(<TrainingPeriodZonesPanel response={response} ownerUid="test-uid" />);
+    expect(screen.getByRole("button", { name: "GAP 페이스존 근거 불러오기", hidden: true })).toBeDisabled();
+    expect(mocks.hook).toHaveBeenLastCalledWith("test-uid", null, false);
+  });
+  it("shows own pace snapshot and recorded groups without implying the HR snapshot is the same", () => {
+    const response = runningPacePeriodFixture();
+    mocks.hook.mockReturnValue({ state: "ready", response });
+    renderWithProviders(<TrainingPeriodZonesPanel response={runningPeriodFixture()} ownerUid="test-uid" />, { authenticated: true });
+    expect(screen.getByText(/페이스존 조회 기준/)).toBeInTheDocument();
+    expect(screen.getByText(/기존 심박·파워 통계와 조회 시점이 다를 수/)).toBeInTheDocument();
+    expect(screen.getByText(/GAP 확인 1 \/ 후보 1건/)).toBeInTheDocument();
+    expect(screen.getByText(/역치 없음 0건 · GAP 입력 없음 0건 · 프로필 읽기 실패 0건/)).toBeInTheDocument();
+    expect(screen.getByText(/기준 역치 5:00/)).toBeInTheDocument();
+  });
+  it("keeps different recorded threshold/source groups separate rather than merging as growth", () => {
+    const response = runningPacePeriodFixture(), pace = response.periods[0]!.zones.pace;
+    if (!("groups" in pace)) throw new Error("fixture");
+    pace.groups.push({ ...structuredClone(pace.groups[0]!), thresholdPaceSecPerKm: 360, thresholdSource: "thresholdPace", sources: [{ ...pace.groups[0]!.sources[0]!, sourceActivityId: "second" }] });
+    pace.eligibleActivityCount = 2; pace.candidateActivityCount = 2;
+    mocks.hook.mockReturnValue({ state: "ready", response });
+    renderWithProviders(<TrainingPeriodZonesPanel response={runningPeriodFixture()} ownerUid="test-uid" />, { authenticated: true });
+    expect(screen.getByText("기준 역치 5:00/km · 훈련 설정")).toBeInTheDocument();
+    expect(screen.getByText("기준 역치 6:00/km · 프로필 설정")).toBeInTheDocument();
+    expect(screen.getByText(/다른 기준의 분포 차이를 성장으로 해석하지 않습니다/)).toBeInTheDocument();
+    expect(screen.getAllByRole("region", { name: "GAP 페이스존", hidden: true })).toHaveLength(2);
+  });
+  it("keeps threshold missing, profile failure and legacy unsupported counts distinct", () => {
+    const response = runningPacePeriodFixture(), pace = response.periods[0]!.zones.pace;
+    if (!("groups" in pace)) throw new Error("fixture");
+    Object.assign(pace, { status: "unavailable", reason: "canonical_pace_zones_unavailable", candidateActivityCount: 3, eligibleActivityCount: 0,
+      thresholdMissingActivityCount: 1, profileReadFailedActivityCount: 1, legacyUnsupportedActivityCount: 1, groups: [] });
+    mocks.hook.mockReturnValue({ state: "ready", response });
+    renderWithProviders(<TrainingPeriodZonesPanel response={runningPeriodFixture()} ownerUid="test-uid" />, { authenticated: true });
+    expect(screen.getByText(/이전 형식 미지원 1건/)).toBeInTheDocument();
+    expect(screen.getByText(/역치 없음 1건 · GAP 입력 없음 0건 · 프로필 읽기 실패 1건/)).toBeInTheDocument();
+    expect(screen.queryByText(/Z1 ·/)).not.toBeInTheDocument();
+  });
+  it("shows one empty hint while preserving per-period reasons and exact bounds in collapsed evidence", () => {
+    const response = runningPacePeriodFixture();
+    response.asOf = Date.UTC(2026, 9, 12, 6, 7, 8);
+    response.periods[0]!.fromInclusive += 123;
+    response.periods[0]!.toExclusive += 456;
+    const empty = structuredClone(response.periods[0]!);
+    response.periods = [response.periods[0]!, empty];
+    for (const period of response.periods) {
+      const pace = period.zones.pace;
+      if (!("groups" in pace)) throw new Error("fixture");
+      Object.assign(pace, { groups: [], eligibleActivityCount: 0, thresholdMissingActivityCount: 0 });
+    }
+    mocks.hook.mockReturnValue({ state: "ready", response });
+    renderWithProviders(<TrainingPeriodZonesPanel response={runningPeriodFixture()} ownerUid="test-uid" />, { authenticated: true });
+    expect(screen.getAllByText("확인된 GAP 페이스존 기록이 없습니다.")).toHaveLength(1);
+    expect(screen.getAllByText(/GAP 확인 0 \/ 후보 1건/)).toHaveLength(2);
+    expect(screen.getByText(/페이스존 조회 기준.*15:07/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^선택 기간 ·/, hidden: true }).textContent).not.toMatch(/\d{2}:\d{2}/);
+    expect(screen.getByRole("heading", { name: /^비교 기간 ·/, hidden: true })).toBeInTheDocument();
+    expect(screen.queryByText(/다른 기준의 분포 차이를 성장으로 해석하지 않습니다/)).not.toBeInTheDocument();
+    for (const summary of screen.getAllByText("기간 범위와 저장 분석 근거")) {
+      const details = summary.closest("details")!;
+      expect(details).not.toHaveAttribute("open");
+      expect(details.textContent).toMatch(/한국 시간.*\.123.*이상.*\.456.*미만/);
+      expect(details.textContent).toContain("역치 없음 0건 · GAP 입력 없음 0건 · 프로필 읽기 실패 0건");
+      expect(details.textContent).toContain("현재 프로필에 역치가 설정되어 있다는 뜻은 아닙니다");
+      fireEvent.click(summary);
+      expect(details.textContent).toContain("저장된 활동 분석의 집계");
+    }
+  });
+
 });

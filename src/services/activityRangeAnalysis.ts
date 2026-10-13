@@ -1,12 +1,44 @@
+import { validPowerWindowInput } from "../utils/powerDurationWindows";
 import { httpsCallable } from "firebase/functions";
-import type { ActivityRangeAnalysisRequest, ActivityRangeAnalysisResponse } from "@shared/types/activity-range-analysis";
+import type { ActivityRangeAnalysisRequest, ActivityRangeAnalysisResponse, ActivityRangeElevation } from "@shared/types/activity-range-analysis";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 
 export function validRangeRequest(request: ActivityRangeAnalysisRequest): boolean {
   return typeof request.activityId === "string" && /^[A-Za-z0-9_-]{1,160}$/.test(request.activityId)
     && Number.isFinite(request.startOffsetSec) && request.startOffsetSec >= 0
     && Number.isFinite(request.endOffsetSec) && request.endOffsetSec > request.startOffsetSec && request.endOffsetSec <= 604800
+    && (request.includeElevation === undefined || request.includeElevation === true)
+    && (request.includePowerWindowInput === undefined || typeof request.includePowerWindowInput === "boolean")
     && (request.expectedInputRevision === undefined || /^[a-f0-9]{64}$/.test(request.expectedInputRevision));
+}
+
+const elevationRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
+const elevationExact = (value: unknown, keys: string[]) => elevationRecord(value) && Object.keys(value).length === keys.length && keys.every(key => Object.prototype.hasOwnProperty.call(value, key));
+/** 고도 근거는 기존 센서 분석과 별도 채널이다. 잘못된 채널만 제외한다. */
+function validRangeElevation(value: unknown, response: ActivityRangeAnalysisResponse, request: ActivityRangeAnalysisRequest): value is ActivityRangeElevation {
+  if (request.includeElevation !== true || !elevationRecord(value)) return false;
+  const base = ["scope", "quality", "timingBasis", "originalClockVerified", "declaredActivitySource", "inputRevision", "requestedSelection", "state", "reason"];
+  const available = value.state === "available";
+  if (!elevationExact(value, available ? [...base, "sourceBasis", "observedSelection", "boundaryCoverage", "netElevationChangeM", "distanceM", "netMeanGradePct"] : base)
+    || value.scope !== "selected_observed_range" || value.quality !== "unknown" || value.timingBasis !== "stored_explicit_activity_elapsed"
+    || value.originalClockVerified !== false || !["orider", "strava", "apple_health", "health_connect", null].includes(value.declaredActivitySource as string | null)
+    || value.inputRevision !== response.inputRevision || value.inputRevision !== null && (typeof value.inputRevision !== "string" || !/^[a-f0-9]{64}$/u.test(value.inputRevision))
+    || !elevationExact(value.requestedSelection, ["startOffsetSec", "endOffsetSec"])) return false;
+  const requested = value.requestedSelection as { startOffsetSec: number; endOffsetSec: number };
+  if (requested.startOffsetSec !== request.startOffsetSec || requested.endOffsetSec !== request.endOffsetSec) return false;
+  if (!available) return value.state === "unavailable" && ["input_unavailable", "unsupported_source", "incomplete_input", "invalid_clock", "invalid_axis", "missing_samples", "internal_gap", "invalid_arithmetic"].includes(String(value.reason)) && typeof value.reason === "string";
+  if (!["available", "unavailable"].includes(response.state) || response.sourceLayer !== "raw_parts" || response.inputCoverage !== "complete" || value.inputRevision === null || request.expectedInputRevision !== undefined && request.expectedInputRevision !== value.inputRevision
+    || value.reason !== null || value.sourceBasis !== "stored_epoch_parts" || !elevationExact(value.observedSelection, ["startOffsetSec", "endOffsetSec"])) return false;
+  const observed = value.observedSelection as { startOffsetSec: number; endOffsetSec: number };
+  if (![observed.startOffsetSec, observed.endOffsetSec, value.netElevationChangeM, value.distanceM].every(v => typeof v === "number" && Number.isFinite(v))
+    || observed.startOffsetSec < requested.startOffsetSec || observed.endOffsetSec > requested.endOffsetSec || observed.endOffsetSec <= observed.startOffsetSec
+    || (value.distanceM as number) < 0 || !["exact", "inside_samples"].includes(String(value.boundaryCoverage))) return false;
+  const exact = observed.startOffsetSec === requested.startOffsetSec && observed.endOffsetSec === requested.endOffsetSec;
+  if ((value.boundaryCoverage === "exact") !== exact) return false;
+  if (value.distanceM === 0) return value.netMeanGradePct === null;
+  const grade = (value.netElevationChangeM as number) / (value.distanceM as number) * 100;
+  return typeof value.netMeanGradePct === "number" && Number.isFinite(value.netMeanGradePct) && Number.isFinite(grade)
+    && Math.abs(value.netMeanGradePct - grade) <= Number.EPSILON * 16 * Math.max(1, Math.abs(grade), Math.abs(value.netMeanGradePct));
 }
 
 /** 요청과 응답의 창·정본 revision이 다르면 과거 구간을 현재 결과로 표시하지 않는다. */
@@ -16,6 +48,14 @@ export function validateRangeResponse(response: ActivityRangeAnalysisResponse, r
     || !["available", "pending", "unavailable", "changed_input"].includes(response.state)
     || (!Number.isFinite(response.computedAt) || response.computedAt < 0)
     || (response.inputRevision !== null && !/^[a-f0-9]{64}$/.test(response.inputRevision))) throw new Error("invalid_range_response");
+  if (response.elevation !== undefined && !validRangeElevation(response.elevation, response, request)) {
+    const { elevation: _invalidElevation, ...remaining } = response;
+    response = remaining;
+  }
+  const powerInput = response.powerWindowInput;
+  if (powerInput !== undefined && (request.includePowerWindowInput !== true || !validPowerWindowInput(powerInput) || powerInput.inputRevision !== response.inputRevision
+    || powerInput.rangeStartElapsedSec !== request.startOffsetSec || powerInput.rangeEndElapsedSec !== request.endOffsetSec
+    || powerInput.state === "available" && (response.state !== "available" || response.metrics?.powerSource !== "measured" || response.metrics.isVirtualPower))) throw new Error("invalid_range_response");
   if (response.state !== "available") return { ...response, metrics: null };
   if (!response.inputRevision || request.expectedInputRevision && response.inputRevision !== request.expectedInputRevision) {
     throw new Error("input_changed");
@@ -67,7 +107,7 @@ export async function loadActivityRangeAnalysis(services: FirebaseServices, uid:
   if (!validRangeRequest(request)) throw new Error("invalid_range_selection");
   await services.ensureAppCheckReady();
   if (!ownerMatches()) throw new Error("account_changed");
-  const result = await httpsCallable<ActivityRangeAnalysisRequest, ActivityRangeAnalysisResponse>(services.functions, "getActivityRangeAnalysis")(request);
+  const result = await httpsCallable<ActivityRangeAnalysisRequest, ActivityRangeAnalysisResponse, ActivityRangeElevation>(services.functions, "getActivityRangeAnalysis")(request);
   if (!ownerMatches()) throw new Error("account_changed");
   return validateRangeResponse(result.data, request);
 }

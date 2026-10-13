@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { RunningBestEffortsFacts } from "@shared/types/running-best-efforts-facts";
 import type { ActivityMetricsDoc } from "../../hooks/useActivityMetrics";
+import { useAuth } from "../../contexts/AuthContext";
 import { useLocale } from "../../contexts/LocaleContext";
 import { formatPace, formatElev, formatDistance } from "../../utils/units";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
@@ -10,6 +11,7 @@ import { Card, Text } from "../../theme/components";
 import { MetricExplainerTrigger } from "../common/MetricExplainer";
 import type { InterpretationContext, MetricKey } from "../../utils/metricInterpretation";
 import { runningCadenceSpm } from "../../utils/runningCadence";
+import RunningPaceZonesPanel from "./RunningPaceZonesPanel";
 import RunEffortsPanel from "./RunEffortsPanel";
 import RunSplitProfile from "./RunSplitProfile";
 import ZoneDistributionChart from "../ZoneDistributionChart";
@@ -39,6 +41,7 @@ export default function RunAnalysisPanel({ metrics, summary, isOwner = false, su
 }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
+  const { user } = useAuth();
   const pace = (sec: number | null | undefined) => sec != null && Number.isFinite(sec) && sec > 0 ? formatPace(sec, units) : "—";
   const number = (n: number | null | undefined, unit: string) => n != null && Number.isFinite(n) ? `${Math.round(n)} ${unit}` : "—";
   const avgPace = metrics.avgSpeedKph != null && Number.isFinite(metrics.avgSpeedKph) && metrics.avgSpeedKph > 0 ? 3600 / metrics.avgSpeedKph : null;
@@ -68,6 +71,7 @@ export default function RunAnalysisPanel({ metrics, summary, isOwner = false, su
       </details>}
     </Card>}
     <RunSplitProfile splits={splits} distanceKm={distanceKm} suppressCadence={suppressCadence} cadenceLabel={cadenceLabel} formatCadence={cadence} onSelectSplit={onSelectSplit} onViewSplitLocation={onViewSplitLocation} canViewSplitLocation={canViewSplitLocation} />
+    {isOwner && user && !user.isAnonymous && metrics.runMetrics?.paceZoneAnalysis && <Card padding="compact"><RunningPaceZonesPanel analysis={metrics.runMetrics.paceZoneAnalysis} /></Card>}
     <RunEffortsPanel metrics={metrics} isOwner={isOwner} ready={effortsReady} facts={effortFacts} onSelectEffort={onSelectEffort} />
     {(metrics.avgHr != null || metrics.maxHr != null) && <div>
       <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3">{t("analysis.section.hr")}</h3>

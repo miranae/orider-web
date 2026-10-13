@@ -1,0 +1,17 @@
+.matched-route-group { min-inline-size: 0; border-top: 1px solid var(--line-soft); padding-top: var(--dim-section-gap); }
+.matched-route-group summary { min-height: calc(var(--dim-button-height) + var(--space-1)); display: list-item; align-content: center; cursor: pointer; }
+.matched-route-group-body { display: grid; gap: var(--space-3); min-inline-size: 0; padding-top: var(--space-3); }
+.matched-route-group label { display: grid; gap: var(--space-2); }
+.matched-route-group select, .matched-route-group .ds-btn { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.matched-route-group .ds-btn--outline { color: var(--ink-0); }
+.matched-route-group-chart { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); column-gap: var(--space-2); max-inline-size: 28rem; inline-size: 100%; min-inline-size: 0; }
+.matched-route-group-chart svg { grid-column: 2; inline-size: 100%; display: block; overflow: visible; }
+.matched-route-group-chart line { stroke: var(--line-soft); }
+.matched-route-group-chart circle { fill: var(--accent-dark); }
+.matched-route-group-axis { grid-column: 2; display: flex; justify-content: space-between; gap: var(--space-2); color: var(--ink-1); font-size: var(--fs-md); }
+.matched-route-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.matched-route-group a { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-height: calc(var(--dim-button-height) + var(--space-1)); color: var(--ink-1); font-size: var(--fs-md); text-decoration: underline; overflow-wrap: anywhere; }
+.matched-route-group a:hover { color: var(--accent-dark); }
+
+.matched-route-group-value-axis { position: relative; min-inline-size: 0; inline-size: calc(var(--space-8) * 3); color: var(--ink-1); font-size: var(--fs-md); }
+.matched-route-group-value-axis span { position: absolute; inset-inline: 0; transform: translateY(-50%); overflow-wrap: anywhere; }

@@ -1,0 +1,208 @@
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import wire from "../services/stageRunTimeCorrections.fixture.json";
+import type { TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
+import { stageRunEffortFixture } from "../services/trainingAnalysisPeriods.fixture";
+import { useRunEffortStageManagement } from "./useRunEffortStageManagement";
+const mocks = vi.hoisted(() => ({ uid: "owner", anonymous: false, services: {}, read: vi.fn(), write: vi.fn() }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: mocks.uid, isAnonymous: mocks.anonymous } }) }));
+vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
+vi.mock("../services/trainingAnalysisPeriods", async original => ({ ...await original<typeof import("../services/trainingAnalysisPeriods")>(), trainingAnalysisPeriodsAvailable: () => true, loadTrainingAnalysisPeriods: mocks.read }));
+vi.mock("../services/runEffortStagePreferences", async original => ({ ...await original<typeof import("../services/runEffortStagePreferences")>(), setRunEffortStagePreference: mocks.write }));
+const periods = stageRunEffortFixture().periods.map(({ fromInclusive, toExclusive }) => ({ fromInclusive, toExclusive }));
+beforeEach(() => { mocks.uid = "owner"; mocks.anonymous = false; mocks.services = {}; mocks.read.mockReset().mockResolvedValue(stageRunEffortFixture()); mocks.write.mockReset(); });
+it("loads only on explicit action, and blocks foreign or anonymous owner calls", async () => {
+  const view = renderHook(() => useRunEffortStageManagement("owner", periods));
+  expect(mocks.read).not.toHaveBeenCalled();
+  await act(async () => { await view.result.current.refresh(); });
+  expect(mocks.read).toHaveBeenCalledTimes(1);
+  expect(mocks.read.mock.lastCall?.[2]).toEqual({ discipline: "run", includeStageRunEffortPreferences: true, includeExpandedRunDistances: true, periods });
+  mocks.uid = "foreign"; view.rerender(); await act(async () => { await view.result.current.refresh(); }); expect(mocks.read).toHaveBeenCalledTimes(1);
+  mocks.uid = "owner"; mocks.anonymous = true; view.rerender(); await act(async () => { await view.result.current.refresh(); }); expect(mocks.read).toHaveBeenCalledTimes(1);
+});
+it("clears stale context across a date A→B→A and ignores a late response", async () => {
+  let resolve!: (value: unknown) => void;
+  mocks.read.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+  const view = renderHook(range => useRunEffortStageManagement("owner", range), { initialProps: periods });
+  let pending!: Promise<void>; act(() => { pending = view.result.current.refresh(); });
+  view.rerender([{ fromInclusive: periods[0]!.fromInclusive + 1000, toExclusive: periods[0]!.toExclusive }]);
+  view.rerender(periods);
+  await act(async () => { resolve(stageRunEffortFixture()); await pending; });
+  expect(view.result.current.response).toBeNull(); expect(view.result.current.state).toBe("idle");
+  await act(async () => { await view.result.current.refresh(); });
+  expect(view.result.current.state).toBe("ready");
+  mocks.uid = "other"; view.rerender(periods); mocks.uid = "owner"; view.rerender(periods);
+  expect(view.result.current.response).toBeNull();
+});
+it("uses a fixed idempotent payload on retry, prevents double submission and makes refresh deliberate", async () => {
+  let reject!: (error: unknown) => void;
+  mocks.write.mockReturnValueOnce(new Promise((_done, fail) => { reject = fail; }));
+  const view = renderHook(() => useRunEffortStageManagement("owner", periods));
+  await act(async () => { await view.result.current.refresh(); });
+  const binding = view.result.current.response!.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0]!;
+  act(() => { view.result.current.change(binding, "5km", true); view.result.current.change(binding, "5km", true); });
+  expect(mocks.write).toHaveBeenCalledTimes(1); expect(view.result.current.response).toBeNull();
+  const request = mocks.write.mock.calls[0]![2];
+  await act(async () => { reject({ code: "functions/deadline-exceeded" }); });
+  expect(view.result.current.failure?.kind).toBe("unknown");
+  await act(async () => { await view.result.current.refresh(); });
+  expect(view.result.current.pendingRequest).toBe(true);
+  expect(view.result.current.canRetry).toBe(true);
+  const freshBinding = view.result.current.response!.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0]!;
+  act(() => { view.result.current.change(freshBinding, "400m", true); });
+  expect(mocks.write).toHaveBeenCalledTimes(1);
+
+  mocks.write.mockResolvedValueOnce({ version: 1, scope: "stage_readtime_overlay", outcome: "stored_pending_analysis_refresh", activityId: "a", activityIncarnation: "90:1", target: "5km", excluded: true, preferenceRevision: 1 });
+  await act(async () => { view.result.current.retry(); });
+  expect(mocks.write).toHaveBeenLastCalledWith(mocks.services, "owner", request);
+  expect(view.result.current.response).toBeNull(); expect(mocks.read).toHaveBeenCalledTimes(2);
+  const current = stageRunEffortFixture(); current.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0]!.preferenceRevision = 1;
+  current.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0]!.excludedTargets = ["5km"];
+  const running = current.periods[0]!.running!;
+  running.bestDistances.points = []; running.bestDistances.coverage.eligibleActivityCount = 0; running.bestDistances.coverage.noObservedEffortActivityCount = 0; running.bestDistances.coverage.excludedOnlyActivityCount = 1; running.bestDistances.excludedEffortActivityCount = 1;
+  const distance = running.expandedDistanceAnalysis!.distances.find(value => value.distance === "5km")!;
+  Object.assign(distance, { sources: [], bestTimeSeconds: null, medianTimeSeconds: null, observedEffortActivityCount: 0, noObservedEffortActivityCount: 0, excludedEffortActivityCount: 1 });
+  mocks.read.mockResolvedValueOnce(current);
+  await act(async () => { await view.result.current.refresh(); });
+  expect(view.result.current.confirmedOutcome).toBe(true);
+});
+it("retains stored-pending source verification failures and blocks a forged/unready binding", async () => {
+  const view = renderHook(() => useRunEffortStageManagement("owner", periods));
+  await act(async () => { await view.result.current.refresh(); });
+  const binding = view.result.current.response!.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0]!;
+  act(() => { view.result.current.change({ ...binding, metricsRevision: "200:2" }, "5km", true); view.result.current.change({ ...binding, mutationReady: false }, "5km", true); });
+  expect(mocks.write).not.toHaveBeenCalled();
+  mocks.write.mockRejectedValueOnce({ code: "functions/failed-precondition", details: { reason: "source_unverified_after_stage_write", storedOutcome: "stored_pending_analysis_refresh" } });
+  await act(async () => { view.result.current.change(binding, "5km", true); });
+  expect(view.result.current.failure).toEqual({ kind: "source_unverified", storedOutcome: "stored_pending_analysis_refresh" });
+  expect(view.result.current.response).toBeNull();
+});
+it("only clears an unresolved request on explicit cancellation and requires a fresh read afterward", async () => {
+  mocks.write.mockRejectedValueOnce({ code: "functions/deadline-exceeded" });
+  const view = renderHook(() => useRunEffortStageManagement("owner", periods)); await act(async () => { await view.result.current.refresh(); });
+  const binding = view.result.current.response!.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0]!;
+  await act(async () => { view.result.current.change(binding, "5km", true); });
+  expect(view.result.current.pendingRequest).toBe(true);
+  act(() => { view.result.current.cancelPending(); });
+  expect(view.result.current.pendingRequest).toBe(false); expect(view.result.current.canRetry).toBe(false);
+  expect(view.result.current.cancelledUnknown).toBe(true); expect(view.result.current.response).toBeNull();
+  act(() => { view.result.current.change(binding, "400m", true); }); expect(mocks.write).toHaveBeenCalledTimes(1);
+  expect(view.result.current.failure?.kind).toBe("unknown");
+});
+it("ignores a late mutation outcome after the owner context changes", async () => {
+  let resolve!: (value: unknown) => void; mocks.write.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+  const view = renderHook(() => useRunEffortStageManagement("owner", periods)); await act(async () => { await view.result.current.refresh(); });
+  const binding = view.result.current.response!.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0]!;
+  act(() => { view.result.current.change(binding, "5km", true); });
+  mocks.uid = "other"; view.rerender(); mocks.uid = "owner"; view.rerender();
+  await act(async () => { resolve({ outcome: "stored_pending_analysis_refresh" }); });
+  expect(view.result.current.outcome).toBeNull(); expect(view.result.current.response).toBeNull(); expect(view.result.current.state).toBe("idle");
+});
+it("does not enable mutation when the old backend has no overlay response", async () => {
+  const old = stageRunEffortFixture(); old.periods.forEach(period => { delete period.running!.stageEffortOverlay; }); mocks.read.mockResolvedValueOnce(old);
+  const view = renderHook(() => useRunEffortStageManagement("owner", periods)); await act(async () => { await view.result.current.refresh(); });
+  expect(view.result.current.state).toBe("unsupported"); expect(view.result.current.response).toBeNull();
+});
+
+it("selection changes clear old responses without fetching; explicit load requests exactly one selected ID", async () => {
+  const view = renderHook(selected => useRunEffortStageManagement("owner", periods, selected), { initialProps: null as string | null });
+  await act(async () => { await view.result.current.refresh(); });
+  expect(mocks.read.mock.lastCall?.[2]).not.toHaveProperty("stageRunDistanceSnapshotActivityIds");
+  view.rerender("a"); expect(view.result.current.response).toBeNull(); expect(mocks.read).toHaveBeenCalledTimes(1);
+  await act(async () => { await view.result.current.refresh(); });
+  expect(mocks.read.mock.lastCall?.[2].stageRunDistanceSnapshotActivityIds).toEqual(["a"]);
+});
+it("derived exclude carries source CAS while restore works with base authority", async () => {
+  const { default: wire } = await import("../services/stageRunDistanceSnapshot.fixture.json");
+  mocks.read.mockResolvedValueOnce(wire.cases.before); mocks.write.mockResolvedValue(wire.cases.excludedMutation);
+  const view = renderHook(() => useRunEffortStageManagement("owner", periods, "a"));
+  await act(async () => { await view.result.current.refresh(); });
+  const binding = view.result.current.response!.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0]!;
+  await act(async () => { view.result.current.change(binding, "400m", true, true); });
+  expect(mocks.write.mock.lastCall?.[2].expectedDerivedRevision).toBe(binding.derivedRevision);
+  mocks.read.mockResolvedValueOnce(wire.cases.excluded); await act(async () => { await view.result.current.refresh(); });
+  const excluded = view.result.current.response!.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0]!;
+  await act(async () => { view.result.current.change(excluded, "400m", false, true); });
+  expect(mocks.write.mock.lastCall?.[2]).not.toHaveProperty("expectedDerivedRevision");
+});
+it("selector changes fence an old pending read and retain unknown-write notices", async () => {
+  let resolve!: (value: unknown) => void;
+  mocks.read.mockImplementationOnce(() => new Promise(value => { resolve = value; }));
+  const view = renderHook(selected => useRunEffortStageManagement("owner", periods, selected), { initialProps: null as string | null });
+  let pending!: Promise<void>; act(() => { pending = view.result.current.refresh(); }); view.rerender("a");
+  await act(async () => { resolve(stageRunEffortFixture()); await pending; });
+  expect(view.result.current.response).toBeNull();
+  mocks.read.mockResolvedValueOnce(stageRunEffortFixture()); await act(async () => { await view.result.current.refresh(); });
+  mocks.write.mockRejectedValueOnce(new Error("network"));
+  const binding = view.result.current.response!.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0]!;
+  await act(async () => { view.result.current.change(binding, "5km", true); });
+  expect(view.result.current.pendingRequest).toBe(true); view.rerender("b");
+  expect(view.result.current.pendingRequest).toBe(true); expect(view.result.current.failure).not.toBeNull();
+});
+
+it("a forced selector change during a write keeps the original idempotent request unresolved and blocks competing actions", async () => {
+  let resolve!: (value: unknown) => void; mocks.write.mockImplementationOnce(() => new Promise(value => { resolve = value; }));
+  const view = renderHook(selected => useRunEffortStageManagement("owner", periods, selected), { initialProps: "a" });
+  await act(async () => { await view.result.current.refresh(); });
+  const binding = view.result.current.response!.periods[0]!.running!.stageEffortOverlay!.preferenceBindings[0]!;
+  act(() => { view.result.current.change(binding, "5km", true); }); const original = mocks.write.mock.lastCall?.[2];
+  view.rerender("b"); expect(view.result.current.pendingRequest).toBe(true); expect(view.result.current.failure?.kind).toBe("unknown");
+  await act(async () => { resolve({ outcome: "stored_pending_analysis_refresh" }); });
+  expect(view.result.current.outcome).toBeNull(); await act(async () => { await view.result.current.refresh(); });
+  act(() => { view.result.current.change(binding, "1km", true); }); expect(mocks.write).toHaveBeenCalledTimes(1);
+  act(() => { view.result.current.retry(); }); expect(mocks.write.mock.lastCall?.[2]).toEqual(original);
+});
+
+const timeCase = (mode: string) => structuredClone(wire.cases.find(value => value.mode === mode)!.response) as unknown as TrainingAnalysisPeriodsResponse;
+const timePeriods = wire.cases[0]!.request.periods;
+it("selected canonical loads only its correction channel; basis changes make no calls and fence ABA results", async () => {
+  let resolve!: (value: unknown) => void;
+  mocks.read.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  const view = renderHook(basis => useRunEffortStageManagement("owner", timePeriods, "inside", basis), { initialProps: "canonical" as "canonical" | "stored" });
+  expect(mocks.read).not.toHaveBeenCalled();
+  let pending!: Promise<void>; act(() => { pending = view.result.current.refresh(); });
+  expect(mocks.read.mock.lastCall?.[2]).toEqual(wire.cases[0]!.request);
+  view.rerender("stored"); view.rerender("canonical");
+  await act(async () => { resolve(timeCase("canonical_available")); await pending; });
+  expect(view.result.current.response).toBeNull();
+  view.rerender("stored"); expect(mocks.read).toHaveBeenCalledTimes(1);
+  mocks.read.mockResolvedValueOnce(timeCase("derived_corrected"));
+  await act(async () => { await view.result.current.refresh(); });
+  expect(mocks.read.mock.lastCall?.[2]).toEqual(wire.cases.find(value => value.mode === "derived_corrected")!.request);
+});
+it("saves the genuine current source with exact owner time and preserves an immutable retry payload", async () => {
+  mocks.read.mockResolvedValue(timeCase("canonical_available")); mocks.write.mockRejectedValueOnce(new Error("network"));
+  const view = renderHook(() => useRunEffortStageManagement("owner", timePeriods, "inside", "canonical"));
+  await act(async () => { await view.result.current.refresh(); });
+  const channel = view.result.current.response!.periods[0]!.stageTimeAdjustedEfforts!, effort = channel.efforts[0]!;
+  act(() => { view.result.current.saveTime({ ...effort, sourceAuthorityRevision: "f".repeat(64) }, 231.125); view.result.current.saveTime(effort, 231.1251); });
+  expect(mocks.write).not.toHaveBeenCalled();
+  await act(async () => { view.result.current.saveTime(effort, 231.125, "chip_time"); });
+  const request = mocks.write.mock.lastCall?.[2];
+  expect(request).toMatchObject({ action: "set_time", activityId: "inside", target: "5km", reportedElapsedSeconds: 231.125, reportedKind: "chip_time", expectedSourceAuthorityRevision: effort.sourceAuthorityRevision, expectedPreferenceRevision: channel.selected!.preferenceRevision });
+  expect(request).not.toHaveProperty("expectedDerivedRevision"); expect(mocks.read).toHaveBeenCalledTimes(1);
+  await act(async () => { await view.result.current.refresh(); });
+  act(() => { view.result.current.saveTime(effort, 999); }); expect(mocks.write).toHaveBeenCalledTimes(1);
+  mocks.write.mockResolvedValueOnce({}); await act(async () => { view.result.current.retry(); });
+  expect(mocks.write.mock.lastCall?.[2]).toEqual(request); expect(view.result.current.response).toBeNull();
+});
+it("clears a missing derived source with only current base authority, and refuses forged orphan channels", async () => {
+  mocks.read.mockResolvedValueOnce(timeCase("derived_snapshot_missing_orphan")); mocks.write.mockResolvedValue({});
+  const view = renderHook(() => useRunEffortStageManagement("owner", timePeriods, "inside", "stored"));
+  await act(async () => { await view.result.current.refresh(); });
+  const channel = view.result.current.response!.periods[0]!.stageTimeAdjustedEfforts!, target = channel.orphanedCorrections[0]!.target;
+  act(() => { view.result.current.clearTime({ ...channel, selected: { ...channel.selected!, preferenceRevision: 999 } }, target); });
+  expect(mocks.write).not.toHaveBeenCalled();
+  await act(async () => { view.result.current.clearTime(channel, target); });
+  expect(Object.keys(mocks.write.mock.lastCall?.[2]).sort()).toEqual(["action", "activityId", "target", "expectedPreferenceRevision", "expectedMetricsRevision", "expectedActivityIncarnation", "idempotencyKey"].sort());
+  expect(mocks.write.mock.lastCall?.[2].action).toBe("clear_time"); expect(mocks.read).toHaveBeenCalledTimes(1);
+});
+it("a time write settling after a basis ABA cannot settle a new draft or clear its unresolved request", async () => {
+  let resolve!: (value: unknown) => void; mocks.write.mockReturnValueOnce(new Promise(done => { resolve = done; })); mocks.read.mockResolvedValue(timeCase("canonical_available"));
+  const view = renderHook(basis => useRunEffortStageManagement("owner", timePeriods, "inside", basis), { initialProps: "canonical" as "canonical" | "stored" });
+  await act(async () => { await view.result.current.refresh(); });
+  act(() => { view.result.current.saveTime(view.result.current.response!.periods[0]!.stageTimeAdjustedEfforts!.efforts[0]!, 232); });
+  view.rerender("stored"); view.rerender("canonical");
+  await act(async () => { resolve({}); });
+  expect(view.result.current.outcome).toBeNull(); expect(view.result.current.response).toBeNull(); expect(view.result.current.pendingRequest).toBe(true);
+});

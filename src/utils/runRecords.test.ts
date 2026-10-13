@@ -7,9 +7,22 @@ const e = (value: number, activityId: string, startTime = 0) => ({
   activityId,
   date: "2026-07-01",
   startTime,
+
+
 });
 
 describe("distanceRecords", () => {
+  it("shows only the three fastest distinct activity records without mutating the saved table", () => {
+    const entries = [e(320, "d"), e(300, "b"), e(280, "a"), e(310, "c"), e(285, "a")];
+    const original = [...entries];
+    expect(distanceRecords({ "1km": entries })[0].top.map(entry => entry.activityId)).toEqual(["a", "b", "c"]);
+    expect(entries).toEqual(original);
+  });
+  it("filters invalid stored times and tolerates malformed absent distance entries", () => {
+    const run = { "1km": [null, e(0, "a"), e(-1, "b"), e(Number.NaN, "c"), e(Infinity, "d"), e(310, "valid")], "5km": null } as unknown as RunPrTable;
+    expect(distanceRecords(run)[0].top.map(entry => entry.value)).toEqual([310]);
+    expect(distanceRecords(run)[1].best).toBeNull();
+  });
   it("모든 거리를 표시 순서대로, 각 거리의 최고(최소 초)를 낸다", () => {
     const run: RunPrTable = {
       "1km": [e(281, "a"), e(290, "b")],
