@@ -51,6 +51,30 @@ import AnalysisTab from "./AnalysisTab";
 import RunAnalysisPanel from "./activity/RunAnalysisPanel";
 
 describe("러닝 분석 게이트", () => {
+  it("인증 대기 러닝 분석은 데이터 결측을 단정하지 않고 로그인 후 실제 상태로 전환한다", () => {
+    state.language = "ko";
+    state.metrics = { status: "missing", metrics: null } as UseActivityMetricsState;
+    const signIn = vi.fn();
+    const props = { sport: "run" as const, streams: { time: [], distance: [] } as unknown as ActivityStreams };
+    const { rerender } = render(<AnalysisTab {...props} streamsSignInRequired onSignIn={signIn} />);
+    expect(screen.getByText("로그인하고 상세 분석을 확인하세요")).toBeInTheDocument();
+    expect(screen.queryByTestId("analysis-missing")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Google로 로그인" }));
+    expect(signIn).toHaveBeenCalledOnce();
+    rerender(<AnalysisTab {...props} streamsSignInRequired={false} onSignIn={signIn} />);
+    expect(screen.getByTestId("analysis-missing")).toBeInTheDocument();
+    expect(screen.queryByText("로그인하고 상세 분석을 확인하세요")).not.toBeInTheDocument();
+  });
+
+  it("로그인 대기 상태에서도 이미 공개된 러닝 페이스·심박 요약은 표시한다", () => {
+    state.language = "ko";
+    state.metrics = gpsOnlyRunMetrics();
+    Object.assign(state.metrics.metrics!, { avgHr: 150, avgSpeedKph: 12 });
+    render(<AnalysisTab sport="run" streams={{ time: [], distance: [] } as unknown as ActivityStreams} streamsSignInRequired />);
+    expect(screen.getByTestId("run-recap")).toHaveTextContent("5:00/km");
+    expect(screen.getByText("150")).toBeInTheDocument();
+  });
+
   it.each(["ko", "en"] as const)("서버 근거로만 쉬운 요약을 보여주고 고급 지표를 접어 둔다 locale=%s", language => {
     state.language = language;
     state.metrics = gpsOnlyRunMetrics();

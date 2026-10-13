@@ -129,6 +129,18 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.queryByText(/Z1 \+15/)).not.toBeInTheDocument();
     expect(screen.getByText("전체 기간 PR")).toBeInTheDocument();
   });
+  it("keeps the owner history slot across summary states and suppresses it when the card is disabled or unavailable to a viewer", () => {
+    const overview = { enabled: false, loading: false, response: null, error: false, retry: vi.fn() };
+    const child = <section aria-label="Owner history">History</section>;
+    const { rerender } = render(<ActivityOverviewSummary overview={overview}>{child}</ActivityOverviewSummary>);
+    expect(screen.queryByRole("region", { name: "Owner history" })).not.toBeInTheDocument();
+    for (const state of [{ loading: true }, { error: true }, { response: { status: "unavailable" as const, activityId: "a", reason: "rollout_disabled" as const } }]) {
+      rerender(<ActivityOverviewSummary overview={{ ...overview, enabled: true, ...state }}>{child}</ActivityOverviewSummary>);
+      expect(screen.getByRole("region", { name: "Owner history" })).toBeInTheDocument();
+      rerender(<ActivityOverviewSummary overview={{ ...overview, enabled: true, ...state }} isOwner={false}>{child}</ActivityOverviewSummary>);
+      expect(screen.queryByRole("region", { name: "Owner history" })).not.toBeInTheDocument();
+    }
+  });
   it("preserves owner, loading, retry and rollout states", () => {
     const overview = { enabled: false, loading: false, response: null, error: false, retry: vi.fn() };
     const { rerender } = render(<ActivityOverviewSummary overview={overview} />);

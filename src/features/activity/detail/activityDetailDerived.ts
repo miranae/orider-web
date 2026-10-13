@@ -1445,6 +1445,7 @@ export function buildSampledData(
   const alignedCadence = alignSensorChannelForChart(chartCadence, "legacy", streams, context, len);
   const selectedIndexes = new Set<number>();
   for (let i = 0; i < len; i += interval) selectedIndexes.add(i);
+  if (len > 0) selectedIndexes.add(len - 1);
   const chartChannels: Array<readonly (number | null)[] | undefined> = [
     streams.altitude,
     streams.velocity_smooth,
@@ -1476,6 +1477,7 @@ export function buildSampledData(
   const points: SampledPoint[] = [];
   for (const i of [...selectedIndexes].sort((a, b) => a - b)) {
     points.push({
+      sourceIndex: i,
       latlng: streams.latlng?.[i] as [number, number] ?? null,
       distance: dist[i] ?? 0,
       altitude: (streams.altitude as number[] | undefined)?.[i] ?? 0,
@@ -1559,6 +1561,8 @@ export function buildChartOverlays(
       color: resolveCssColor(cfg.color),
       yAxisID: cfg.yAxisID,
       unit: cfg.unit,
+      formatValue: cfg.formatValue,
+      reverseAxis: cfg.reverseAxis,
     }));
 }
 

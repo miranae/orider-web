@@ -6,6 +6,7 @@ import type { SplitRow } from "@shared/types/activity-metrics";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
 import { buildClimbTableRows, formatClimbEntryTime } from "../utils/climbMetrics";
+import { formatPace as formatDisplayPace } from "../utils/units";
 import { useLocale } from "../contexts/LocaleContext";
 import ZoneDistributionChart from "./ZoneDistributionChart";
 import PowerCurveChart from "./PowerCurveChart";
@@ -15,6 +16,7 @@ import InfoTip from "./InfoTip";
 import { VirtualPowerBadge } from "./activity/VirtualPowerBadge";
 import { Chip, Text } from "../theme/components";
 import { useActivityMetrics, type ActivityMetricsDoc, type UseActivityMetricsState } from "../hooks/useActivityMetrics";
+import { ActivityAnalysisSignInCard } from "../features/activity/detail/ActivityDetailStates";
 import RunAnalysisPanel from "./activity/RunAnalysisPanel";
 import ServerMetricsBanner from "./activity/ServerMetricsBanner";
 import { buildCyclingDynamicsCards, type CyclingDynamicsCardDescriptor } from "../features/activity/detail/cyclingDynamicsPresentation";
@@ -125,6 +127,7 @@ function formatPace(secPerKm: number): string {
 }
 
 interface AnalysisTabProps {
+  onSelectRunEffort?: (range: { startOffsetSec: number; endOffsetSec: number }) => void;
   onSelectRunSplit?: (split: SplitRow | null) => void;
   onViewRunSplitLocation?: () => void;
   canViewRunSplitLocation?: boolean;
@@ -147,6 +150,8 @@ interface AnalysisTabProps {
   analysisSummary?: ActivityAnalysisSummary;
   summary?: ActivitySummary;
   sport?: "ride" | "run" | "swim" | "other";
+  streamsSignInRequired?: boolean;
+  onSignIn?: () => void;
   isVirtualPower?: boolean;
   virtualPowerParams?: {
     riderWeightKg: number;
@@ -216,6 +221,7 @@ export function filterInvalidatedServerMetrics(
       zoneKj: undefined,
       wPrimeMinJ: null,
       mmp: {},
+      peakEfforts: undefined,
       aet: undefined,
       loadAxes: undefined,
       thresholdFlags: undefined,
@@ -295,7 +301,8 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
 
 export default function AnalysisTab({
   activityId, isOwner = false, serverMetrics: suppliedServerMetrics, canonicalPresentationAvailable = false, overviewRecovery = null, startTime, streams, analysisSummary, summary, sport, isVirtualPower, virtualPowerParams,
-  onSelectRunSplit, onViewRunSplitLocation, canViewRunSplitLocation,
+  onSelectRunEffort, onSelectRunSplit, onViewRunSplitLocation, canViewRunSplitLocation,
+  streamsSignInRequired = false, onSignIn,
   suppressServerPowerMetrics = false, suppressServerHeartRateMetrics = false, suppressServerCadenceMetrics = false,
 }: AnalysisTabProps) {
   // 소유자는 정본(`activity_metrics`), 뷰어는 공개 projection(`activity_metrics_public`) 을 읽는다.
@@ -490,7 +497,7 @@ export default function AnalysisTab({
       );
 
   if (sport === "run" && sm) {
-    return <div className="space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel metrics={sm as ActivityMetricsDoc} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} />}</div>;
+    return <div className="space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={isOwner ? streams.runningBestEffortsFacts : undefined} onSelectEffort={isOwner ? onSelectRunEffort : undefined} effortsReady={visibleServerMetrics.status === "ready"} metrics={sm as ActivityMetricsDoc} isOwner={isOwner} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} />}</div>;
   }
 
   // 공개 수치·존·파워곡선은 같은 서버 presentation에서 그린다. 기존 허용 그래프/랩은 보존한다.
@@ -498,7 +505,7 @@ export default function AnalysisTab({
     return <div className="space-y-6" data-testid="public-analysis-charts">
       {cyclingDynamicsSection}
       {speedCurve.length > 0 && <div><h3 className="text-[length:var(--fs-sm)] font-semibold mb-3">{t("analysis.section.speedCurve")}</h3><SpeedCurveChart points={speedCurve} /></div>}
-      {laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={null} />}
+      {laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={null} sport={sport} />}
     </div>;
   }
 
@@ -522,6 +529,7 @@ export default function AnalysisTab({
         </div>
       );
     }
+    if (streamsSignInRequired) return <ActivityAnalysisSignInCard onSignIn={onSignIn} />;
     if (serverMetrics.status === "missing") {
       return (
         <div className="rounded-[var(--r-lg)] border border-dashed px-4 py-8 text-center" style={{ background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }} data-testid="analysis-missing">
@@ -1082,15 +1090,16 @@ export default function AnalysisTab({
 
       {/* 랩 분석 */}
       {laps && laps.length > 0 && (
-        <AnalysisLapTable laps={laps} ftp={ftp} />
+        <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} />
       )}
     </div>
   );
 }
 
-export function AnalysisLapTable({ laps, ftp }: { laps: ActivityAnalysisSummary["laps"]; ftp: number | null }) {
+export function AnalysisLapTable({ laps, ftp, sport = "ride" }: { laps: ActivityAnalysisSummary["laps"]; ftp: number | null; sport?: "ride" | "run" | "swim" | "other" }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
+  const isRun = sport === "run";
   const M_PER_MI = 1609.344;
   const distVal = (km: number) => units === 'imperial' ? (km * 1000 / M_PER_MI).toFixed(2) : km.toFixed(2);
   const distUnit = units === 'imperial' ? 'mi' : 'km';
@@ -1098,44 +1107,46 @@ export function AnalysisLapTable({ laps, ftp }: { laps: ActivityAnalysisSummary[
   const speedUnit = units === 'imperial' ? 'mph' : 'km/h';
   return (
     <div>
-      <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.lapAnalysis")}</h3>
+      <h3 className="text-[length:var(--fs-md)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.lapAnalysis")}</h3>
       <div className="rounded-[var(--r-lg)] overflow-x-auto" style={{ background: 'var(--bg-2)' }}>
-        <table className="w-full text-[length:var(--fs-sm)]">
+        <table className="w-full whitespace-nowrap text-[length:var(--fs-md)]">
           <thead>
-            <tr className="text-[length:var(--fs-xs)] uppercase tracking-wide" style={{ color: 'var(--ink-3)' }}>
+            <tr className="text-[length:var(--fs-md)] uppercase tracking-wide" style={{ color: 'var(--ink-3)' }}>
               <th className="text-left px-3 py-2">{t("analysis.lap.header.lap")}</th>
-              <th className="text-right px-3 py-2">{t("analysis.lap.header.time")}</th>
+              <th className="text-right px-3 py-2">{t(isRun ? "analysis.lap.header.recordedTime" : "analysis.lap.header.time")}</th>
               <th className="text-right px-3 py-2">{t("analysis.lap.header.distance")}</th>
-              <th className="text-right px-3 py-2">{t("analysis.lap.header.speed")}</th>
+              <th className="text-right px-3 py-2">{t(isRun ? "analysis.lap.header.pace" : "analysis.lap.header.speed")}</th>
               <th className="text-right px-3 py-2">{t("analysis.lap.header.power")}</th>
-              <th className="text-right px-3 py-2">{t("analysis.lap.header.ftpPercent")}</th>
+              {!isRun && <th className="text-right px-3 py-2">{t("analysis.lap.header.ftpPercent")}</th>}
               <th className="text-right px-3 py-2">{t("analysis.lap.header.hr")}</th>
-              <th className="text-right px-3 py-2">{t("analysis.lap.header.rpm")}</th>
+              <th className="text-right px-3 py-2">{isRun ? `${t("analysis.run.recordedCadence")} (${t("analysis.run.cadenceUnit")})` : t("analysis.lap.header.rpm")}</th>
             </tr>
           </thead>
           <tbody>
             {laps.map((l, index) => {
-              const sec = l.durationMs == null ? null : l.durationMs / 1000;
-              const pacePerKm = sec != null && l.distanceKm != null && l.distanceKm > 0 ? sec / l.distanceKm : 0;
+              const sec = l.durationMs != null && Number.isFinite(l.durationMs) && l.durationMs >= 0 ? l.durationMs / 1000 : null;
+              const pacePerKm = sec != null && l.distanceKm != null && Number.isFinite(l.distanceKm) && l.distanceKm > 0 ? sec / l.distanceKm : 0;
+              // LapData.avgSpeed는 native LapManager/upload가 보존한 km/h다 (스트림 velocity m/s와 다름).
+              const recordedPace = l.avgSpeed != null && Number.isFinite(l.avgSpeed) && l.avgSpeed > 0 ? 3600 / l.avgSpeed : pacePerKm;
               return (
                 <tr key={l.number ?? index} className="border-t" style={{ borderColor: 'var(--bg-3)' }}>
                   <td className="px-3 py-2" style={{ color: 'var(--ink-1)' }}>{l.number ?? "—"}</td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{sec == null ? "—" : formatDuration(sec)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>{l.distanceKm == null ? "—" : `${distVal(l.distanceKm)} ${distUnit}`}</td>
+                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>{l.distanceKm == null || !Number.isFinite(l.distanceKm) || l.distanceKm < 0 ? "—" : `${distVal(l.distanceKm)} ${distUnit}`}</td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                    {l.avgSpeed != null && l.avgSpeed > 0 ? `${speedVal(l.avgSpeed * 3.6)} ${speedUnit}` : pacePerKm > 0 ? `${formatPace(pacePerKm)}/km` : "-"}
+                    {isRun ? recordedPace > 0 && Number.isFinite(recordedPace) ? formatDisplayPace(recordedPace, units) : "—" : l.avgSpeed != null && l.avgSpeed > 0 ? `${speedVal(l.avgSpeed)} ${speedUnit}` : pacePerKm > 0 ? `${formatPace(pacePerKm)}/km` : "-"}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>
-                    {l.avgPower != null && l.avgPower > 0 ? `${Math.round(l.avgPower)}W` : "-"}
+                    {l.avgPower != null && Number.isFinite(l.avgPower) && l.avgPower > 0 ? `${Math.round(l.avgPower)}W` : "-"}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
+                  {!isRun && <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
                     {l.avgPower != null && l.avgPower > 0 && ftp != null && ftp > 0 ? `${Math.round((l.avgPower / ftp) * 100)}%` : "-"}
+                  </td>}
+                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
+                    {l.avgHeartRate != null && Number.isFinite(l.avgHeartRate) && l.avgHeartRate > 0 ? `${Math.round(l.avgHeartRate)}` : "-"}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                    {l.avgHeartRate != null && l.avgHeartRate > 0 ? `${Math.round(l.avgHeartRate)}` : "-"}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                    {l.avgCadence != null && l.avgCadence > 0 ? `${Math.round(l.avgCadence)}` : "-"}
+                    {l.avgCadence != null && Number.isFinite(l.avgCadence) && l.avgCadence > 0 ? `${Math.round(l.avgCadence)}` : "-"}
                   </td>
                 </tr>
               );
@@ -1143,6 +1154,7 @@ export function AnalysisLapTable({ laps, ftp }: { laps: ActivityAnalysisSummary[
           </tbody>
         </table>
       </div>
+      {isRun && <p className="mt-3 text-[length:var(--fs-md)]" style={{ color: "var(--ink-2)" }}>{t("analysis.lap.runBasis")} {t("analysis.run.cadenceDesc")}</p>}
     </div>
   );
 }

@@ -157,7 +157,7 @@ function endpoint(path: string): string {
   return `${configured.replace(/\/$/, "")}/v1/coach${path}`;
 }
 
-async function request(path: string, init?: RequestInit, acceptTerminalData = false): Promise<unknown> {
+async function request(path: string, init?: RequestInit, acceptTerminalData = false): Promise<{ payload: unknown; httpOk: boolean; httpStatus: number }> {
   const idToken = await auth.currentUser?.getIdToken();
   if (!idToken) throw new Error("SIGN_IN_REQUIRED");
   const appCheckToken = await getAppCheckToken();
@@ -175,7 +175,7 @@ async function request(path: string, init?: RequestInit, acceptTerminalData = fa
   } catch (cause) {
     throw new CoachHistoryTransportError(cause);
   }
-  if (response.status === 204) return {};
+  if (response.status === 204) return { payload: {}, httpOk: response.ok, httpStatus: response.status };
   let payload: unknown;
   try {
     payload = await response.json();
@@ -187,7 +187,7 @@ async function request(path: string, init?: RequestInit, acceptTerminalData = fa
     const error = record(record(payload)?.error);
     throw new Error(typeof error?.code === "string" ? error.code : `HTTP_${response.status}`);
   }
-  return payload;
+  return { payload, httpOk: response.ok, httpStatus: response.status };
 }
 
 export async function getCoachThreads(limit = 20, cursor?: string): Promise<CoachThreadPage> {
@@ -197,7 +197,7 @@ export async function getCoachThreads(limit = 20, cursor?: string): Promise<Coac
     if (cursor.length > MAX_CURSOR_LENGTH) throw new Error("INVALID_COACH_HISTORY_CURSOR");
     params.set("cursor", cursor);
   }
-  return parseCoachThreadPage(await request(`/threads?${params}`), safeLimit);
+  return parseCoachThreadPage((await request(`/threads?${params}`)).payload, safeLimit);
 }
 
 export async function getCoachThread(threadId: string, limit = 20, cursor?: string): Promise<CoachThreadDetailPage> {
@@ -207,15 +207,18 @@ export async function getCoachThread(threadId: string, limit = 20, cursor?: stri
     if (cursor.length > MAX_CURSOR_LENGTH) throw new Error("INVALID_COACH_HISTORY_CURSOR");
     params.set("cursor", cursor);
   }
-  return parseCoachThread(await request(`/threads/${encodeURIComponent(threadId)}?${params}`), safeLimit);
+  const page = parseCoachThread((await request(`/threads/${encodeURIComponent(threadId)}?${params}`)).payload, safeLimit);
+  if (page.thread.threadId !== threadId) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
+  return page;
 }
 
-export async function continueCoachThread(threadId: string, body: CoachV2QuestionRequest): Promise<CoachV2Response> {
-  const response = parseCoachV2Response(await request(`/threads/${encodeURIComponent(threadId)}/respond`, {
+export async function continueCoachThread(threadId: string, body: CoachV2QuestionRequest): Promise<CoachV2Response & { httpOk: boolean; httpStatus: number }> {
+  const result = await request(`/threads/${encodeURIComponent(threadId)}/respond`, {
     method: "POST", body: JSON.stringify(body),
-  }, true));
+  }, true);
+  const response = parseCoachV2Response(result.payload);
   if (response.requestId !== body.requestId) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
-  return response;
+  return { ...response, httpOk: result.httpOk, httpStatus: result.httpStatus };
 }
 
 export async function deleteCoachThread(threadId: string): Promise<void> {

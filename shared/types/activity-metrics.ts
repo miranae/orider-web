@@ -1,3 +1,5 @@
+import type { RunningPaceZoneAnalysis } from "./training-analysis-periods";
+import type { RunDistanceKey } from "./personal-records";
 import type { ActivityAnalysisSummary } from "../analysis/activityAnalysisSummary";
 import type { FatMaxProfile, RideSubstrate } from "../training/metabolism";
 /**
@@ -15,6 +17,24 @@ import type { FatMaxProfile, RideSubstrate } from "../training/metabolism";
 export type DurationKey =
   | "1s" | "5s" | "10s" | "30s"
   | "1m" | "2m" | "5m" | "10m" | "20m" | "30m" | "1h";
+
+export interface RidePeakEffort {
+  durationSec: number;
+  startIndex: number;
+  endIndex: number;
+  startOffsetSec: number;
+  fromKm: number;
+  toKm: number;
+  avgPowerW: number;
+  maxPowerW: number;
+  avgHr: number | null;
+  maxHr: number | null;
+  avgSpeedKmh: number | null;
+  maxSpeedKmh: number | null;
+  avgCadence: number | null;
+  containsMaxHr: boolean;
+  leadsToMaxHr: boolean;
+}
 
 export type ClimbCategory = "HC" | "Cat1" | "Cat2" | "Cat3" | "Cat4" | null;
 
@@ -185,6 +205,11 @@ export interface ActivityMetrics {
   // ── Run-specific
   splits?: SplitRow[];
   runMetrics?: {
+    paceZoneAnalysis?: RunningPaceZoneAnalysis;
+    /** 서버의 원시 경과시간 축 커브(sec/km). 클라이언트는 평균 속도 커브로 대체하지 않는다. */
+    paceCurve?: Array<{ durationSec: number; paceSecPerKm: number }>;
+    /** 서버가 확정한 거리별 최단 경과시간(sec), 휴식 포함. 위치 앵커는 제공되지 않는다. */
+    distanceRecords?: Partial<Record<RunDistanceKey, number>>;
     gapAvgSec: number | null;       // grade-adjusted pace 평균 (sec/km)
     /** A.6: split paces 표준편차 — 페이스 일관성. splits<2 → null. */
     paceStdDevSec?: number | null;
@@ -247,6 +272,12 @@ export interface ActivityMetrics {
   discipline: "bike" | "run" | "swim" | "other";
   activityType: string;            // raw a.type ("Ride", "VirtualRide", ...)
   startTime: number;
+  peakEfforts?: {
+    peaks: RidePeakEffort[];
+    highlight: RidePeakEffort | null;
+    /** 인덱스 축. 세그먼트 이름 매칭은 `"route"` 일 때만. */
+    indexAxis?: "route" | "sensor";
+  } | null;
   computedAt: number;
   version: number;                 // 스키마/계산식 변경 시 증가
   /** 계산 결과의 출처. 구버전 문서에는 없을 수 있다. */

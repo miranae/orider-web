@@ -1,0 +1,18 @@
+.observed-route-history-content { display: grid; gap: var(--space-3); }
+.observed-route-history { min-inline-size: 0; border-top: 1px solid var(--line-soft); padding-top: var(--space-4); }
+.observed-route-history-filter { display: grid; gap: var(--space-2); }
+.observed-route-history select, .observed-route-history button, .observed-route-history summary { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.observed-route-history fieldset { min-inline-size: 0; padding: 0; border: 0; }
+.observed-route-history-options { display: grid; gap: var(--space-2); max-height: calc(var(--space-8) * 8); overflow-y: auto; }
+.observed-route-history-options label { display: flex; align-items: center; gap: var(--space-2); min-height: calc(var(--dim-button-height) + var(--space-1)); overflow-wrap: anywhere; }
+.observed-route-history-results { display: grid; gap: var(--space-4); list-style: none; padding: 0; }
+.observed-route-history-results li { display: grid; gap: var(--space-2); }
+.observed-route-history-source { display: inline-flex; align-items: center; min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); color: var(--ink-2); text-decoration: underline; overflow-wrap: anywhere; }
+.observed-route-history-source:hover { color: var(--accent-dark); }
+.observed-route-history p { overflow-wrap: anywhere; }
+
+.observed-route-history-chart { display: block; width: 100%; height: auto; }
+.observed-route-history-axis { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); }
+
+.observed-route-history-trend { width: 100%; max-width: 28rem; }
+.observed-route-history .observed-route-history-content { min-inline-size: 0; }

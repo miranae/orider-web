@@ -1,11 +1,13 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { httpsCallable } from "firebase/functions";
+import { onAuthStateChanged } from "firebase/auth";
 import { collection, doc, getDoc, query, where, getDocs } from "firebase/firestore";
-import { functions, firestore } from "../services/firebase";
+import { auth, functions, firestore, getAppCheckToken } from "../services/firebase";
+import { isEmulatorRuntime } from "../services/runtimeConfig";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { DateField, TimeField, EmptyState } from "../components/redesign";
@@ -133,6 +135,40 @@ export default function EventCreatePage() {
   const [repeatSummary, setRepeatSummary] = useState<RepeatSummary | null>(null);
   const [failedRepeatPayloads, setFailedRepeatPayloads] = useState<Record<string, unknown>[]>([]);
   const [retryingRepeat, setRetryingRepeat] = useState(false);
+  const createGeneration = useRef(0);
+  const createMounted = useRef(false);
+  const pendingCreate = useRef<{ uid: string; generation: number } | null>(null);
+  const failedRepeatOwner = useRef<string | null>(null);
+
+  useEffect(() => {
+    createMounted.current = true;
+    const unsubscribe = onAuthStateChanged(auth, () => {
+      createGeneration.current += 1;
+      pendingCreate.current = null;
+      setSubmitting(false);
+      setRetryingRepeat(false);
+    });
+    return () => {
+      unsubscribe();
+      createMounted.current = false;
+      createGeneration.current += 1;
+      pendingCreate.current = null;
+    };
+  }, []);
+
+  function currentCreate(context: { uid: string; generation: number }): boolean {
+    return createMounted.current && context.generation === createGeneration.current
+      && auth.currentUser?.uid === context.uid;
+  }
+
+  async function readyCreate(context: { uid: string; generation: number }) {
+    if (!currentCreate(context)) throw new Error("functions/unauthenticated");
+    const token = await getAppCheckToken();
+    if (!token && !isEmulatorRuntime()) throw new Error("app-check/empty-token");
+    if (!currentCreate(context)) throw new Error("functions/unauthenticated");
+    return httpsCallable<unknown, { eventId: string }>(functions, "createEvent");
+  }
+
 
   // 코스
   const { courses: availableCourses, loading: loadingCourses } = useCourses();
@@ -202,12 +238,14 @@ export default function EventCreatePage() {
   }
 
   async function submit(asDraft: boolean) {
-    if (submitting || !user) return;
+    if (submitting || pendingCreate.current || !user || auth.currentUser?.uid !== user.uid) return;
     if (!asDraft && !canSubmit) return;
     if (asDraft && data.name.trim().length < 2) {
       setSubmitError(t("create.errDraftName"));
       return;
     }
+    const context = { uid: user.uid, generation: createGeneration.current };
+    pendingCreate.current = context;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -265,8 +303,9 @@ export default function EventCreatePage() {
         payload.round = 1;
       }
 
-      const fn = httpsCallable<unknown, { eventId: string }>(functions, "createEvent");
+      const fn = await readyCreate(context);
       const result = await fn(payload);
+      if (!currentCreate(context)) return;
       const firstEventId = result.data.eventId;
 
       // 반복(정기) 일정 — 초안이 아닐 때만, 기존/신규 그룹과 관계없이 매주 N-1회 추가 생성.
@@ -298,46 +337,69 @@ export default function EventCreatePage() {
             ...(data.closeAt ? { closeAt: shiftDtLocalByWeeks(data.closeAt, i) } : {}),
             ...(seriesGroupId ? { groupId: seriesGroupId } : {}),
           };
+          if (!currentCreate(context)) return;
           try {
             await fn(weekPayload);
+            if (!currentCreate(context)) return;
             successCount += 1;
           } catch (err) {
+            if (!currentCreate(context)) return;
             failedCount += 1;
             failedPayloads.push(weekPayload);
             logClientError("EventCreatePage.repeatSeries.createWeek", err, { week: i });
           }
         }
         summary = { totalWeeks: data.repeatWeeks, successCount, failedCount };
+        failedRepeatOwner.current = context.uid;
         setFailedRepeatPayloads(failedPayloads);
       }
 
+      if (!currentCreate(context)) return;
       setCreatedEventId(firstEventId);
       setCreatedAsDraft(asDraft);
       setRepeatSummary(summary);
     } catch (err: unknown) {
+      if (!currentCreate(context)) return;
       const msg = err instanceof Error ? err.message : t("create.errCreate");
       setSubmitError(msg);
     } finally {
-      setSubmitting(false);
+      if (pendingCreate.current === context) {
+        pendingCreate.current = null;
+        if (currentCreate(context)) setSubmitting(false);
+      }
     }
   }
 
   async function retryFailedRepeats() {
-    if (!repeatSummary || failedRepeatPayloads.length === 0) return;
+    if (!repeatSummary || failedRepeatPayloads.length === 0 || pendingCreate.current || !user
+      || auth.currentUser?.uid !== user.uid || failedRepeatOwner.current !== user.uid) return;
+    const context = { uid: user.uid, generation: createGeneration.current };
+    pendingCreate.current = context;
     setRetryingRepeat(true);
-    const fn = httpsCallable<unknown, { eventId: string }>(functions, "createEvent");
-    const stillFailed: Record<string, unknown>[] = [];
-    let recovered = 0;
-    for (const payload of failedRepeatPayloads) {
-      try { await fn(payload); recovered += 1; }
-      catch (err) {
-        stillFailed.push(payload);
-        logClientError("EventCreatePage.repeatSeries.retryWeek", err, { round: payload.round });
+    try {
+      const fn = await readyCreate(context);
+      const stillFailed: Record<string, unknown>[] = [];
+      let recovered = 0;
+      for (const payload of failedRepeatPayloads) {
+        if (!currentCreate(context)) return;
+        try { await fn(payload); recovered += 1; }
+        catch (err) {
+          if (!currentCreate(context)) return;
+          stillFailed.push(payload);
+          logClientError("EventCreatePage.repeatSeries.retryWeek", err, { round: payload.round });
+        }
+      }
+      if (!currentCreate(context)) return;
+      setFailedRepeatPayloads(stillFailed);
+      setRepeatSummary({ ...repeatSummary, successCount: repeatSummary.successCount + recovered, failedCount: stillFailed.length });
+    } catch (err) {
+      if (currentCreate(context)) setSubmitError(err instanceof Error ? err.message : t("create.errCreate"));
+    } finally {
+      if (pendingCreate.current === context) {
+        pendingCreate.current = null;
+        if (currentCreate(context)) setRetryingRepeat(false);
       }
     }
-    setFailedRepeatPayloads(stillFailed);
-    setRepeatSummary({ ...repeatSummary, successCount: repeatSummary.successCount + recovered, failedCount: stillFailed.length });
-    setRetryingRepeat(false);
   }
 
   if (authLoading) {

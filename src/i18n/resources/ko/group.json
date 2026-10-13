@@ -76,7 +76,7 @@
   "empty.goToList": "그룹 목록으로",
   "empty.noBlockedUsers": "차단된 사용자가 없습니다",
   "error.joinFailed": "가입에 실패했습니다.",
-  "error.invalidInviteCode": "유효하지 않은 초대 코드입니다.",
+  "error.invalidInviteCode": "유효하지 않거나 만료된 초대 코드입니다.",
   "error.loadFailed": "그룹 정보를 불러오지 못했습니다.",
   "error.rideStatsUnavailable": "그룹 라이드 통계를 준비하고 있습니다.",
   "error.rideStatsLoadFailed": "그룹 라이드 통계를 불러오지 못했습니다.",
@@ -148,6 +148,12 @@
   "dashboard.posts.success": "그룹에 게시했습니다.",
   "dashboard.posts.failed": "그룹에 게시하지 못했습니다.",
   "dashboard.posts.empty": "아직 등록된 공지나 소식이 없습니다.",
+  "dashboard.posts.edit": "수정",
+  "dashboard.posts.editContent": "게시글 내용 수정",
+  "dashboard.posts.save": "수정 저장",
+  "dashboard.posts.cancel": "취소",
+  "dashboard.posts.updated": "게시글을 수정했습니다.",
+  "dashboard.posts.updateFailed": "게시글을 수정하지 못했습니다.",
   "dashboard.posts.announcement": "공지",
   "dashboard.posts.memberFallback": "그룹 멤버",
   "list.groupCount": "{{count}}개의 그룹에 참여 중",
@@ -391,5 +397,10 @@
   "leaderboard.refreshNow": "지금 갱신",
   "leaderboard.refreshFailed": "랭킹을 갱신하지 못했습니다. 현재 저장된 결과를 표시합니다.",
   "leaderboard.staleWarning": "랭킹 계산이 지연되고 있습니다. 멤버 변경이나 새 활동이 아직 반영되지 않았을 수 있습니다.",
-  "leaderboard.weekBoundary": "주간 TSS는 매주 월요일 00:00 KST부터 집계하며, 공개 활동만 포함합니다."
+  "leaderboard.weekBoundary": "주간 TSS는 매주 월요일 00:00 KST부터 집계하며, 공개 활동만 포함합니다.",
+  "invite.loading": "초대 코드를 불러오는 중입니다.",
+  "invite.denied": "초대 코드는 그룹 운영진만 관리할 수 있습니다.",
+  "invite.failed": "초대 코드를 불러오지 못했습니다.",
+  "invite.retry": "다시 시도",
+  "invite.createdNotReady": "그룹은 생성되었습니다. 초대 코드는 멤버 화면에서 다시 불러올 수 있습니다."
 }

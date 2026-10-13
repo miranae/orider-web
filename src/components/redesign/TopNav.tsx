@@ -625,13 +625,15 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
               </div>
 
               {/* 비로그인: Google 로그인 버튼 (데스크톱) */}
-              <Button
-                onClick={handleSignInWithGoogle} variant="primary" size="sm" className="hidden lg:flex"
-                disabled={signInPending}
-                style={{ gap: "var(--space-1-5)" }}
-              >
-                <LogIn size={14} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
-              </Button>
+              <div className="hidden lg:block">
+                <Button
+                  onClick={handleSignInWithGoogle} variant="primary" size="sm"
+                  disabled={signInPending}
+                  style={{ gap: "var(--space-1-5)" }}
+                >
+                  <LogIn size={14} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
+                </Button>
+              </div>
 
               {/* 비로그인: 모바일 햄버거 */}
               <button

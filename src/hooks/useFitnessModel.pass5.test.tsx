@@ -134,8 +134,8 @@ describe("pass5 accepted fitness IO", () => {
     const old = {...bike,id:"old",startTime:Date.now()-14*86400000,summary:{...bike.summary,tss:100}};
     seed("bike",[old,{...bike,summary:null} as unknown as Activity]);
     const {result}=renderHook(()=>useFitnessModel("bike",options));
-    expect(result.current.mobilePageProps.data).toMatchObject({thisWeekTSS:0,thisWeekUnknownCount:1,hasKnownThisWeekLoad:false,hasKnownWeeklyLoad:true});
-    expect(result.current.weeklyStats.avgWeekTSS).toBeGreaterThan(0);
+    expect(result.current.mobilePageProps.data).toMatchObject({thisWeekTSS:null,thisWeekUnknownCount:1,hasKnownThisWeekLoad:false,hasKnownWeeklyLoad:true});
+    expect(result.current.weeklyStats.avgWeekTSS).toBeNull();
   });
   it("unknown-only input remains unconfirmed instead of a confirmed rest zero", () => {
     seed("bike", [{...bike,summary:null} as unknown as Activity]);

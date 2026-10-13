@@ -136,7 +136,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   </Stack>;
 }
 
-export default function ActivityOverviewSummary({ overview, preview = false, isOwner = true }: { overview: ReturnType<typeof useActivityOverview>; preview?: boolean; isOwner?: boolean }) {
+export default function ActivityOverviewSummary({ overview, preview = false, isOwner = true, children }: { overview: ReturnType<typeof useActivityOverview>; preview?: boolean; isOwner?: boolean; children?: ReactNode }) {
   const { t } = useTranslation("activity");
   if (!overview.enabled) return null;
   const reason = overview.response?.status === "unavailable" ? overview.response.reason : null;
@@ -149,5 +149,6 @@ export default function ActivityOverviewSummary({ overview, preview = false, isO
       <ActivityOverviewSummaryContent presentation={overview.response.presentation} isOwner={isOwner} />
       {!!overview.response.partialReasons?.length && <Text as="p" variant="caption">{t("overviewEvidence.partial")} {overview.response.partialReasons.map((value) => t(`overviewEvidence.partialReasons.${value}`)).join(" · ")}</Text>}
     </> : <Stack><Text as="p" variant="body">{t(overview.error ? "overviewEvidence.error" : reason ? `overviewEvidence.unavailable.${reason}` : "overviewEvidence.missing")}</Text>{reason !== "rollout_disabled" && <Button size="sm" variant="outline" onClick={overview.retry}>{t("overviewEvidence.retry")}</Button>}</Stack>}
+    {children}
   </Stack></Card>;
 }

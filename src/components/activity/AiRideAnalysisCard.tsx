@@ -1,3 +1,4 @@
+import { getRuntimeConfig } from "../../services/runtimeConfig";
 import ActivitySocialSummary from "./ActivitySocialSummary";
 /**
  * AI 라이딩 분석 카드 (활동 개요).
@@ -243,7 +244,8 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   // 1단계: 캐시 peek (LLM 호출 없이 빠른 확인).
   //   공개(everyone) 활동의 캐시 조회는 비로그인도 허용(CF getActivityNarrative cacheOnly) →
   //   이미 생성된 분석은 로그아웃 상태에서도 hit 으로 표시된다. 언어별 슬롯 조회.
-  const peek = useActivityNarrativePeek(activityId, enabled, lang);
+  const narrativeEnabled = enabled && getRuntimeConfig().appEnvironment !== "stage";
+  const peek = useActivityNarrativePeek(activityId, narrativeEnabled, lang);
   // 2단계: 사용자가 "분석시작"을 눌렀을 때만 full 생성 호출.
   //   생성(LLM)은 인증 필수 → 비로그인은 호출 금지. cacheMiss 분기에서 비로그인엔 로그인 CTA 노출
   //   (= 결과는 공개로 보되, 새 생성은 로그인 필요).
@@ -253,7 +255,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   const setTriggerFull = (trigger: boolean) => setTriggerScope(trigger ? scope : null);
   const [forceRefresh, setForceRefresh] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const full = useActivityNarrativeWithOptions(activityId, enabled && triggerFull && !!user, lang, forceRefresh, refreshKey);
+  const full = useActivityNarrativeWithOptions(activityId, narrativeEnabled && triggerFull && !!user, lang, forceRefresh, refreshKey);
   const [expanded, setExpanded] = useState(true);
   const [appCheckRecoveryAttempted, setAppCheckRecoveryAttempted] = useState(false);
   const appCheckThrottled = appCheckThrottleRetryAfterMs(full.error) != null;
@@ -274,7 +276,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
 
   const data = full.data ?? peek.data;
 
-  if (!enabled) return null;
+  if (!narrativeEnabled) return null;
 
   // peek 로딩 중 (첫 열람, 빠름)
   if (peek.loading) {

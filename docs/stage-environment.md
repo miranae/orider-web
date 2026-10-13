@@ -93,3 +93,5 @@ site and its deployment workflow are separate. Its `STAGE_*` browser values
 must point to the production Firebase project, backend services, AI API, and
 integrations. Do not repoint them to a development Firebase project or a
 stage-only backend.
+
+Stage 활동·세그먼트·코스·이벤트 상세 URL은 해당 사이트의 SPA로 직접 진입하며, 운영 번들 URL을 담는 SEO prerender HTML을 참조하지 않습니다.

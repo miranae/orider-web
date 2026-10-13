@@ -25,16 +25,17 @@ export type UsePdcState =
  */
 export function usePdc(uid: string | null | undefined, active = true): UsePdcState {
   const { firestore } = useFirebaseServices();
-  const [state, setState] = useState<UsePdcState>({ status: "loading", pdc: null });
-
-  const ownerUid = useRef(uid);
+  const [snapshot, setSnapshot] = useState<{ uid: typeof uid; firestore: typeof firestore; generation: number; state: UsePdcState } | null>(null);
   const generationRef = useRef(0);
+  const identityRef = useRef({ uid, firestore });
+  if (identityRef.current.uid !== uid || identityRef.current.firestore !== firestore) {
+    identityRef.current = { uid, firestore };
+    generationRef.current += 1;
+  }
   useEffect(() => {
     const generation = ++generationRef.current;
-    if (ownerUid.current !== uid) {
-      setState({ status: "loading", pdc: null });
-      ownerUid.current = uid;
-    }
+    const setState = (state: UsePdcState) => setSnapshot({ uid, firestore, generation, state });
+
     if (!active && uid) return;
     if (!uid) {
       setState({ status: "loading", pdc: null });
@@ -76,5 +77,5 @@ export function usePdc(uid: string | null | undefined, active = true): UsePdcSta
     };
   }, [active, firestore, uid]);
 
-  return ownerUid.current === uid ? state : { status: "loading", pdc: null };
+  return snapshot && snapshot.uid === uid && snapshot.firestore === firestore && snapshot.generation === generationRef.current ? snapshot.state : { status: "loading", pdc: null };
 }

@@ -141,7 +141,7 @@ describe("mobile fitness action", () => {
     const overview = source.slice(source.indexOf('      {activeTab === "overview" && ('), source.indexOf('      {activeTab === "analysis" && ('));
 
     expect(colorSetup).toContain('const weeklyLoadColor = data.discipline === "tri" ? PMC_LINE_PALETTE.ctl.color : ringColor;');
-    expect(overview).toContain('<WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />');
+    expect(overview).toContain('<WeeklyTssBars values={data.weeklyLoadStoredSummary ? [] : data.weeklyTSS} color={weeklyLoadColor} t={t} />');
     expect(overview).not.toContain('<WeeklyTssBars values={data.weeklyTSS} color={pmcCtlColor}');
     expect(source).toContain('<PowerCurveMini points={data.powerCurve} color={ringColor}');
   });

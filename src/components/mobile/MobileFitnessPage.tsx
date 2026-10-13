@@ -1,3 +1,4 @@
+import RunningRaceEstimatesPanel from "../../features/fitness/RunningRaceEstimatesPanel";
 /**
  * 모바일 피트니스 페이지.
  *
@@ -10,9 +11,11 @@
  * 모든 데이터는 FitnessPage 가 미리 계산해 props 로 전달.
  */
 import { useEffect, useState, useRef, type ReactNode } from "react";
+import { useAuth } from "../../contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
+import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerCurvePeriodsPanel";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { toUtcDate } from "../../utils/dateUtils";
 import DetailsSection from "../redesign/DetailsSection";
@@ -67,11 +70,14 @@ export interface MobileFitnessData {
   pmcProjection?: MobileFitnessProjPoint[] | null;  // 미래 예측 (있을 때만)
   today?: string;                       // YYYY-MM-DD (오늘 마커용)
   // 주간 TSS
-  weeklyTSS: number[];   // 오래된 → 최신 (최근 4주)
+  weeklyTSS: (number | null)[];   // 오래된 → 최신 (최근 4주)
   thisWeekTSS: number | null;
   avgWeekTSS: number | null;
   restDays: number | null;
   weeklyLoadPartial?: boolean;
+  weeklyLoadStoredSummary?: boolean;
+  weeklyLoadAsOf?: string;
+  weeklyLoadDateBasis?: "utc" | "local" | "mixed";
   loadUnknownCount?: number;
   thisWeekUnknownCount?: number;
   hasKnownWeeklyLoad?: boolean;
@@ -293,7 +299,7 @@ function PmcMiniChart({ history, projection, today, ctlColor, ctlLabel, ariaLabe
             position: "absolute", left: `${(PAD_L / W) * 100}%`, top: `${(sy(v) / H) * 100}%`,
             transform: "translate(calc(-100% - var(--space-0-5)), -50%)", color: "var(--ink-2)", fontFamily: "var(--font-mono)",
             fontSize: "var(--fs-xs)", fontWeight: 500, fontVariantNumeric: "tabular-nums", lineHeight: 1,
-          }}>{Math.round(v)}</span>
+          }}>{v === null ? "–" : Math.round(v)}</span>
         ))}
         {xLabels.map((l, i) => (
           <span key={i} style={{
@@ -349,22 +355,16 @@ function WeeklyTssBars({
   color,
   t,
 }: {
-  values: number[];
+  values: (number | null)[];
   color: string;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
-  const max = Math.max(1, ...values);
-  // #400 §8: "−3/−2/−1" 상대 인덱스 대신 사람이 바로 읽을 수 있는 "N주 전/지난주/이번 주".
-  const labels = values.map((_, i, arr) => {
-    if (i === arr.length - 1) return t("mobileFitness.weeklyTssThisWeek");
-    const weeksAgo = arr.length - 1 - i;
-    if (weeksAgo === 1) return t("fitness:mobile.week.lastWeek");
-    return t("fitness:mobile.week.nWeeksAgo", { n: weeksAgo });
-  });
+  const max = Math.max(1, ...values.filter((value): value is number => value !== null));
+  const labels = values.map((_, i, arr) => t("fitness:weekly.window", { start: (arr.length - 1 - i) * 7, end: (arr.length - i) * 7 - 1 }));
   return (
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(values.length, 1)}, 1fr)`, gap: "var(--space-2)", alignItems: "end" }}>
       {values.map((v, i) => {
-        const h = Math.round((v / max) * 70);
+        const h = v === null ? 0 : Math.round((v / max) * 70);
         const isCurrentWeek = i === values.length - 1;
         return (
           <div
@@ -373,12 +373,12 @@ function WeeklyTssBars({
               display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)",
             }}
           >
-            <div className="text-[length:var(--fs-xs)]" style={{ fontFamily: "var(--font-mono)", color: isCurrentWeek ? "var(--ink-0)" : "var(--ink-2)", fontWeight: isCurrentWeek ? 600 : 400 }}>{Math.round(v)}</div>
+            <div className="ds-text ds-text--body-medium" style={{ fontFamily: "var(--font-mono)", color: isCurrentWeek ? "var(--ink-0)" : "var(--ink-2)", fontWeight: isCurrentWeek ? 600 : 400 }}>{v === null ? "–" : Math.round(v)}</div>
             <div style={{ width: "100%", height: 70, display: "flex", alignItems: "end" }}>
               {/* borderRadius 3px: --r-sm(4px) 보다 작은 미니 막대 전용 — 토큰 없음, 시각 동일 위해 리터럴 유지 */}
-              <div style={{ width: "100%", height: `${h}px`, minHeight: v > 0 ? 4 : 0, background: isCurrentWeek ? color : "var(--bg-3)", borderRadius: "var(--r-xs)" }} />
+              <div style={{ width: "100%", height: `${h}px`, minHeight: v !== null && v > 0 ? 4 : 0, background: isCurrentWeek ? color : "var(--bg-3)", borderRadius: "var(--r-xs)" }} />
             </div>
-            <div className="text-[length:var(--fs-xs)]" style={{ color: isCurrentWeek ? "var(--ink-2)" : "var(--ink-4)", fontWeight: isCurrentWeek ? 600 : 400 }}>{labels[i] ?? ""}</div>
+            <div className="ds-text ds-text--body-medium" style={{ color: isCurrentWeek ? "var(--ink-2)" : "var(--ink-2)", fontWeight: isCurrentWeek ? 600 : 400 }}>{labels[i] ?? ""}</div>
           </div>
         );
       })}
@@ -454,7 +454,7 @@ function PowerCurveMini({ points, color, ariaLabel }: { points: MobilePowerCurve
 }
 
 // ── 카드 컨테이너 ─────────────────────────────────────────────
-function SectionCard({ children, title, sub, accentColor, ariaLabel, compact = false }: { children: React.ReactNode; title?: string; sub?: string; accentColor?: string; ariaLabel?: string; compact?: boolean }) {
+function SectionCard({ children, title, sub, accentColor, ariaLabel, compact = false, readableSub = false }: { children: React.ReactNode; title?: string; sub?: string; accentColor?: string; ariaLabel?: string; compact?: boolean; readableSub?: boolean }) {
   // 모바일은 화면이 좁아 모든 카드를 화면 전폭으로 쓴다(섹션 스타일). Layout 컨텐츠 래퍼
   // (max-w mx-auto px-4 = 좌우 16px) 인셋을 음수 마진(-16)으로 상쇄해 좌우 끝까지 채우고,
   // 좌우 border·radius 는 제거하고 상하 구분선만 둔다. 콘텐츠는 좌우 16px padding 으로 가독성 유지.
@@ -469,7 +469,7 @@ function SectionCard({ children, title, sub, accentColor, ariaLabel, compact = f
       {(title || sub) && (
         <div style={{ marginBottom: "var(--space-2)" }}>
           {title && <Text variant="eyebrow">{title}</Text>}
-          {sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginTop: "var(--space-1)" }}>{sub}</div>}
+          {sub && <div className={readableSub ? "ds-text ds-text--body-medium" : undefined} style={{ overflowWrap: readableSub ? "anywhere" : undefined, fontSize: readableSub ? undefined : "var(--fs-xs)", color: "var(--ink-2)", marginTop: "var(--space-1)" }}>{sub}</div>}
         </div>
       )}
       {children}
@@ -532,9 +532,24 @@ function TodayDecisionPreview({ state, signedIn, hasDetails }: {
   </div>;
 }
 
+/** 기간 읽기 인증과 열기 상태는 실제 사이클 상세 도구에서만 구독한다. */
+function MobilePowerCurvePeriods({ ownerUid, enabled }: { ownerUid: string; enabled: boolean }) {
+  const { t } = useTranslation("fitness");
+  const { user } = useAuth();
+  const [mounted, setMounted] = useState(false);
+  if (!user || user.isAnonymous || user.uid !== ownerUid) return null;
+  return <details className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3" onToggle={event => { if (event.currentTarget.open) setMounted(true); }}>
+    <summary className="cursor-pointer py-3"><Text variant="label">{t("periodCurve.title")}</Text></summary>
+    {mounted && <div className="pt-3"><PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} embedded /></div>}
+  </details>;
+}
+
 // ── 메인 ──────────────────────────────────────────────────────
 export default function MobileFitnessPage({
   data,
+  runningRaceEstimatesOwnerUid,
+  powerCurvePeriodsOwnerUid,
+  powerCurvePeriodsEnabled = false,
   pmcHistoryPoints,
   pmcHistoryCanonical = false,
   coachSlot = null,
@@ -550,6 +565,9 @@ export default function MobileFitnessPage({
   sectionState = { trend: "ready", derived: "ready" },
 }: {
   data: MobileFitnessData;
+  runningRaceEstimatesOwnerUid?: string;
+  powerCurvePeriodsOwnerUid?: string;
+  powerCurvePeriodsEnabled?: boolean;
   /** 표시 범위를 확장해도 활동 상세 조회는 늘리지 않는 전체 일별 이력. */
   pmcHistoryPoints?: readonly PmcHistoryPoint[];
   pmcHistoryCanonical?: boolean;
@@ -601,7 +619,7 @@ export default function MobileFitnessPage({
     : t("mobileFitness.trendTitle");
 
   const analysisTabLabel = data.discipline === "bike"
-    ? t("mobileFitness.tabZonesBike")
+    ? t("mobileFitness.tabAnalysis")
     : data.discipline === "run"
     ? t("mobileFitness.tabZonesRun")
     : t("mobileFitness.tabZonesSwim");
@@ -740,9 +758,10 @@ export default function MobileFitnessPage({
 
           {/* 주간 TSS */}
           {sectionState.trend === "ready" && (data.weeklyTSS.length > 0 || data.weeklyLoadPartial) && (
-            <SectionCard title={t("mobileFitness.weeklyLoadTitle")} sub={t("mobileFitness.weeklyLoadSub", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS ?? "–", avg: data.loadUnknownCount && !data.hasKnownWeeklyLoad ? "–" : data.avgWeekTSS ?? "–", restDays: data.restDays ?? "–" })}>
-              {(!data.loadUnknownCount || data.hasKnownWeeklyLoad) && <WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />}
-              {data.weeklyLoadPartial && <Text variant="caption">{t("fitness:history.partial")}</Text>}
+            <SectionCard readableSub title={t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummaryTitle" : "fitness:weekly.title")} sub={t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummary" : "fitness:weekly.sub", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS ?? "–", avg: data.loadUnknownCount && !data.hasKnownWeeklyLoad ? "–" : data.avgWeekTSS ?? "–", restDays: data.restDays ?? "–" })}>
+              {(!data.loadUnknownCount || data.hasKnownWeeklyLoad) && <WeeklyTssBars values={data.weeklyLoadStoredSummary ? [] : data.weeklyTSS} color={weeklyLoadColor} t={t} />}
+              {data.weeklyLoadPartial && <Text variant="bodyMedium">{t("fitness:weekly.partial")}</Text>}
+              <Text variant="bodyMedium">{t(`fitness:hub.weekly.basis.${data.weeklyLoadDateBasis ?? "local"}`, { date: data.weeklyLoadAsOf ?? "–" })}</Text>
               {!!data.loadUnknownCount && <Text variant="caption">{trainingT("log.loadPartial", { count: data.loadUnknownCount })}</Text>}
             </SectionCard>
           )}
@@ -778,6 +797,12 @@ export default function MobileFitnessPage({
                 {data.threshold.unit && <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginLeft: "var(--space-1)" }}>{data.threshold.unit}</span>}
               </div>
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{data.threshold.sub}</div>
+            </SectionCard>
+          )}
+
+          {sectionState.derived === "ready" && !data.threshold && (data.discipline === "run" || data.discipline === "swim") && (
+            <SectionCard>
+              <Text variant="body">{t(data.discipline === "run" ? "mobileFitness.thresholdMissingRun" : "mobileFitness.thresholdMissingSwim")}</Text>
             </SectionCard>
           )}
 
@@ -819,6 +844,10 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
+          {data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
+
+          {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
+
           {/* 존 정의 */}
           {sectionState.derived === "ready" && showZones && (
             <SectionCard title={t("mobileFitness.zoneDefsSectionTitle")}>
@@ -833,7 +862,13 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
-          {sectionState.derived === "ready" && !showZones && !data.threshold && (
+          {sectionState.derived === "ready" && !showZones && (data.discipline === "run" || data.discipline === "swim") && (
+            <SectionCard>
+              <Text variant="body">{t("mobileFitness.hrZonesMissing")}</Text>
+            </SectionCard>
+          )}
+
+          {sectionState.derived === "ready" && isBike && !showZones && !data.threshold && (
             <div style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
               {t("mobileFitness.analysisInsufficient")}
             </div>

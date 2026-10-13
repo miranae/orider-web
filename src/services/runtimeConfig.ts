@@ -6,6 +6,8 @@ export interface RuntimeConfig {
   firebaseMessagingSenderId?: string;
   firebaseAppId?: string;
   firebaseFunctionsRegion?: string;
+  /** Stage compute endpoint; Auth and data stay on the shared FirebaseApp. */
+  firebaseFunctionsBase?: string;
   appCheckRecaptchaSiteKey?: string;
   stravaClientId?: string;
   stravaRedirectUri?: string;
@@ -14,6 +16,10 @@ export interface RuntimeConfig {
   mapboxToken?: string;
   personalApiBase?: string;
   aiApiBase?: string;
+  /** 활동 구간·개인 구간 이력·기간 파워 API 배포와 검증 후 켜는 소비 스위치. 기본 꺼짐. */
+  activityAnalysisExpansionEnabled?: boolean;
+  /** 배포 검증한 stage 기간 통계·존 읽기 API의 별도 스위치. */
+  trainingAnalysisPeriodsEnabled?: boolean;
   coachPmcInsightEnabled?: boolean;
   coachRiderInsightEnabled?: boolean;
   coachProgressPlannerEnabled?: boolean;
@@ -71,6 +77,7 @@ function readBuildFallbackConfig(): RuntimeConfig {
     firebaseMessagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     firebaseAppId: import.meta.env.VITE_FIREBASE_APP_ID,
     firebaseFunctionsRegion: import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION,
+    firebaseFunctionsBase: import.meta.env.VITE_FIREBASE_FUNCTIONS_BASE,
     appCheckRecaptchaSiteKey: import.meta.env.VITE_APPCHECK_RECAPTCHA_SITE_KEY,
     stravaClientId: import.meta.env.VITE_STRAVA_CLIENT_ID,
     stravaRedirectUri: import.meta.env.VITE_STRAVA_REDIRECT_URI,
@@ -79,6 +86,8 @@ function readBuildFallbackConfig(): RuntimeConfig {
     mapboxToken: import.meta.env.VITE_MAPBOX_TOKEN,
     personalApiBase: import.meta.env.VITE_ORIDER_PERSONAL_API_BASE,
     aiApiBase: import.meta.env.VITE_ORIDER_AI_API_BASE,
+    activityAnalysisExpansionEnabled: import.meta.env.VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED === "true",
+    trainingAnalysisPeriodsEnabled: import.meta.env.VITE_TRAINING_ANALYSIS_PERIODS_ENABLED === "true",
     coachPmcInsightEnabled: import.meta.env.VITE_COACH_PMC_INSIGHT_ENABLED === "true",
     coachRiderInsightEnabled: import.meta.env.VITE_COACH_RIDER_INSIGHT_ENABLED === "true",
     coachProgressPlannerEnabled: import.meta.env.VITE_COACH_PROGRESS_PLANNER_ENABLED === "true",
@@ -103,8 +112,15 @@ function readBuildFallbackConfig(): RuntimeConfig {
 }
 
 function withoutEmptyValues(config: RuntimeConfig): RuntimeConfig {
+  const normalized = { ...config };
+  if (Object.prototype.hasOwnProperty.call(normalized, "activityAnalysisExpansionEnabled")) {
+    normalized.activityAnalysisExpansionEnabled = normalized.activityAnalysisExpansionEnabled === true;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalized, "trainingAnalysisPeriodsEnabled")) {
+    normalized.trainingAnalysisPeriodsEnabled = normalized.trainingAnalysisPeriodsEnabled === true;
+  }
   return Object.fromEntries(
-    Object.entries(config).filter(([, value]) => value !== undefined && value !== ""),
+    Object.entries(normalized).filter(([, value]) => value !== undefined && value !== ""),
   ) as RuntimeConfig;
 }
 
@@ -141,4 +157,25 @@ export function isEmulatorRuntime(): boolean {
 export function resetRuntimeConfigForTests(config: RuntimeConfig = {}): void {
   runtimeConfig = { ...readBuildFallbackConfig(), ...withoutEmptyValues(config) };
   loaded = false;
+}
+
+/** Shared data is intentional; stage must never fall back to production Functions. */
+export function assertIsolatedStageRuntime(config: RuntimeConfig, hostname = globalThis.location?.hostname): void {
+  if (config.appEnvironment !== "stage" && hostname !== "orider-dev.web.app" && hostname !== "orider-dev.firebaseapp.com") return;
+  if (config.appEnvironment !== "stage" || config.firebaseProjectId !== "miranae-orider-g1"
+    || config.firebaseAuthDomain !== "miranae-orider-g1.firebaseapp.com"
+    || !/^miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)$/.test(config.firebaseStorageBucket ?? "")
+    || config.firebaseAppId !== "1:289663940841:web:ba08cdae154286e6499878"
+    || config.firebaseMessagingSenderId !== "289663940841" || config.firebaseFunctionsRegion !== "asia-northeast3"
+    || config.useEmulators === true) throw new Error("stage/firebase-identity-mismatch");
+  if (config.firebaseFunctionsBase !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("stage/callable-endpoint-mismatch");
+  for (const key of ["aiApiBase", "personalApiBase", "segmentTilesBase", "heatmapBase", "stravaRedirectUri"] as const) {
+    if (!config[key]) continue;
+    const url = new URL(config[key]);
+    const isolated = ["orider-dev.web.app", "orider-dev.firebaseapp.com", "asia-northeast3-orider-dev.cloudfunctions.net"].includes(url.hostname)
+      || (key === "personalApiBase" && url.origin === "https://qapersonalapi-ldfyfyx5da-du.a.run.app")
+      || (key === "aiApiBase" && url.origin === "https://orider-ai-api-qa-firstpass-ldfyfyx5da-du.a.run.app")
+      || (["segmentTilesBase", "heatmapBase"].includes(key) && url.hostname === "storage.googleapis.com" && /^\/miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)\//.test(url.pathname));
+    if (url.protocol !== "https:" || !isolated || url.username || url.password) throw new Error(`stage/service-origin-mismatch:${key}`);
+  }
 }

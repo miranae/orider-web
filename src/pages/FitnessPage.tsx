@@ -1,3 +1,7 @@
+import RunningRaceEstimatesPanel from "../features/fitness/RunningRaceEstimatesPanel";
+import { getRuntimeConfig } from "../services/runtimeConfig";
+import "./FitnessPage.css";
+import { PowerCurvePeriodsPanel } from "../features/fitness/components/PowerCurvePeriodsPanel";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTrainingDecision } from "../hooks/useTrainingDecision";
@@ -178,7 +182,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
 
   if (renderMobile && (loading || !timeseriesLoaded)) {
     return (
-      <div style={{ padding: "20px 16px 40px" }}>
+      <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         <LoadingSkeleton kind="chart" />
       </div>
     );
@@ -186,7 +190,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
 
   if (renderMobile && error) {
     return (
-      <div style={{ padding: "20px 16px 40px" }}>
+      <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
           <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
         </div>}
@@ -198,12 +202,12 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   if (renderMobile && model.canonicalFitness.enabled && model.canonicalFitness.values === null) {
     const state = model.canonicalFitness;
     if (state.display === "error") {
-      return <div style={{ padding: "20px 16px 40px" }}>
+      return <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         <ErrorState title={t("canonical.errorTitle")} description={t("canonical.errorBody")} onRetry={state.retry} />
       </div>;
     }
     if (state.display === "empty") {
-      return <div style={{ padding: "20px 16px 40px" }}>
+      return <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         <EmptyState icon="📈" title={t("canonical.emptyTitle")} description={t("canonical.emptyBody")} />
       </div>;
     }
@@ -211,7 +215,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
 
   if (renderMobile && activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
     return (
-      <div style={{ padding: "20px 16px 40px" }}>
+      <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
           <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
         </div>}
@@ -231,7 +235,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   // MobileFitnessPage 로 보내 좁은 화면에서 헤더와 카드가 눌리지 않게 한다.
   if (!renderMobile && discipline === "tri") {
     return (
-      <div>
+      <div className="fitness-reading">
         <div className="site-shell" style={{ padding: "var(--space-4) var(--space-6) 0" }}>
           <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
           <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
@@ -272,17 +276,20 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         />
       ) : null;
       return (
-        <>
+        <div className="fitness-reading">
           <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
           <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
           <MobileFitnessPage
             {...model.mobilePageProps}
+            runningRaceEstimatesOwnerUid={user.isAnonymous ? undefined : user.uid}
+            powerCurvePeriodsOwnerUid={user.uid}
+            powerCurvePeriodsEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true}
             embedded={embedded}
             coachSlot={mobileCoachBriefing}
             todayDecisionState={decisionState}
             todayDecisionSignedIn={Boolean(user)}
           />
-        </>
+        </div>
       );
     };
     return discipline === "tri" ? renderMobileContent() : (
@@ -407,7 +414,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   // tri·미인증 early-return 뒤라 discipline 은 bike/run/swim, user 는 truthy 로 좁혀져 있다.)
   if (loading || !timeseriesLoaded) {
     return (
-      <div>
+      <div className="fitness-reading">
         {pageHeader}
         <div className="site-shell" style={bodyPad}><LoadingSkeleton kind="chart" /></div>
       </div>
@@ -415,7 +422,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   }
   if (error) {
     return (
-      <div>
+      <div className="fitness-reading">
         {pageHeader}
         <div className="site-shell" style={bodyPad}>
           {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
@@ -428,7 +435,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   }
   if (activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
     return (
-      <div>
+      <div className="fitness-reading">
         {pageHeader}
         <div className="site-shell" style={bodyPad}>
           {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
@@ -448,7 +455,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   }
 
   return (
-    <div>
+    <div className="fitness-reading">
       {pageHeader}
 
       <div className="site-shell" style={bodyPad}>
@@ -517,6 +524,9 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
                 atl={atl}
                 tsb={tsb}
                 dailyData={dailyData}
+                asOf={weeklyStats.asOf}
+                dateBasis={weeklyStats.dateBasis}
+                ready={weeklyStats.insightReady}
                 t={t}
               />
             )}
@@ -867,9 +877,10 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             </div>
             <div style={{ marginTop: 'var(--space-4)', paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)" }}>
               <div>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("daily.weekTSS")}</Text>
+                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t(weeklyStats.storedSummary ? "weekly.storedSummaryTitle" : "daily.weekTSS")}</Text>
                 <div><Text variant="dataMedium">{weeklyStats.thisWeekUnknownCount && !weeklyStats.hasKnownThisWeekLoad ? "–" : weeklyStats.thisWeekTSS ?? "–"}</Text></div>
-                {weeklyStats.partial && <Text variant="caption">{t("history.partial")}</Text>}
+                <Text variant="bodyMedium">{t(`hub.weekly.basis.${weeklyStats.dateBasis}`, { date: weeklyStats.asOf })}</Text>
+                {weeklyStats.partial && <Text variant="bodyMedium">{t("weekly.partial")}</Text>}
                 {weeklyStats.thisWeekUnknownCount > 0 && <Text variant="caption">{trainingT("log.loadPartial", { count: weeklyStats.thisWeekUnknownCount })}</Text>}
               </div>
               <div>
@@ -883,6 +894,9 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
               </div>
             </div>
           </Card>
+
+          {discipline === "run" && !user.isAnonymous && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}
+          {discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>}
 
           {/* 파워 커브 / 페이스 커브 (종목 분기) */}
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
@@ -919,7 +933,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
                 <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
                   <div>
                     <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("powerCurve.title")}</h3>
-                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("powerCurve.sub", { range })}</div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("powerCurve.sub")}</div>
                   </div>
                   <div style={{ flex: 1 }} />
                   <div style={{ display: "flex", gap: 'var(--space-4)', flexWrap: "wrap" }}>

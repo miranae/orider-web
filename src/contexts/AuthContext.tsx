@@ -26,6 +26,7 @@ import { httpsCallable } from "firebase/functions";
 // eslint-disable-next-line design-system/no-firebase-singleton-in-embed
 import { auth, ensureAppCheckReady, firestore, functions, googleProvider } from "../services/firebase";
 import { track } from "../services/analytics";
+import { getRuntimeConfig } from "../services/runtimeConfig";
 import { logClientError } from "../services/errorLogger";
 import type { UserProfile } from "@shared/types";
 
@@ -96,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       setUser(firebaseUser);
       setProfileLoading(Boolean(firebaseUser));
-      if (firebaseUser) {
+      if (firebaseUser && getRuntimeConfig().appEnvironment !== "stage") {
         // 프로필 생성 — 3회 지수 백오프 retry
         try {
           await callWithRetry(async () => {
@@ -108,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           logClientError("AuthContext.ensureUserProfile", err, { uid: firebaseUser.uid });
           if (!cancelled) setProfile(null);
         }
-      } else {
+      } else if (!firebaseUser) {
         if (!cancelled) {
           setProfile(null);
           setProfileLoading(false);

@@ -24,7 +24,7 @@ import {
   ReCaptchaEnterpriseProvider,
   type AppCheck,
 } from "firebase/app-check";
-import { getRuntimeConfig } from "../services/runtimeConfig";
+import { assertIsolatedStageRuntime, getRuntimeConfig } from "../services/runtimeConfig";
 import { clearActivityDerivedDocumentCache } from "../features/fitness/activityDerivedDocumentCache";
 
 const EMBEDDED_APP_NAME = "orider-embedded";
@@ -169,6 +169,7 @@ export function initEmbeddedFirebase(): EmbeddedFirebaseServices {
   }
 
   const runtimeConfig = getRuntimeConfig();
+  assertIsolatedStageRuntime(runtimeConfig);
   const config = {
     apiKey: runtimeConfig.firebaseApiKey,
     authDomain: runtimeConfig.firebaseAuthDomain,
@@ -193,7 +194,7 @@ export function initEmbeddedFirebase(): EmbeddedFirebaseServices {
   embeddedFirestore = createEmbeddedFirestore(embeddedApp);
   embeddedFunctions = getFunctions(
     embeddedApp,
-    runtimeConfig.firebaseFunctionsRegion || "us-central1",
+    runtimeConfig.appEnvironment === "stage" ? runtimeConfig.firebaseFunctionsBase : runtimeConfig.firebaseFunctionsRegion || "us-central1",
   );
 
   if (emulatorRuntime) {
@@ -250,4 +251,13 @@ export function ensureEmbeddedAppCheckReady(forceRefresh = false): Promise<void>
   }
   appCheckPromise = readiness;
   return appCheckPromise;
+}
+
+export async function getEmbeddedAppCheckToken(forceRefresh = false): Promise<string | null> {
+  if (emulatorRuntime) return null;
+  await ensureEmbeddedAppCheckReady(forceRefresh);
+  if (!embeddedAppCheck) throw new Error("embedded-app-check/not-initialized");
+  const result = await withTimeout(getToken(embeddedAppCheck, forceRefresh));
+  if (!result.token) throw new Error("embedded-app-check/empty-token");
+  return result.token;
 }

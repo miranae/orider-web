@@ -1,4 +1,5 @@
-import { useRef, useCallback, useState, useEffect } from "react";
+import { useRef, useCallback, useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Line } from "react-chartjs-2";
 import type { ChartEvent, ActiveElement, Chart, Plugin } from "chart.js";
 import { isDarkTheme } from "../contexts/ThemeContext";
@@ -185,6 +186,8 @@ export interface OverlayDataset {
   color: string;
   yAxisID: string;
   unit?: string;
+  formatValue?: (value: number) => string;
+  reverseAxis?: boolean;
 }
 
 interface OverlayChartPoint {
@@ -262,7 +265,11 @@ export interface ElevationChartMarker {
 
 interface ElevationChartProps {
   data: { distance: number; elevation: number }[];
+  /** 확인된 원시 route elapsed 좌표만 전달한다. */
+  elapsedAxisSec?: readonly number[];
+  xAxis?: "distance" | "elapsed";
   height?: number;
+  showElevation?: boolean;
   onHoverIndex?: (index: number | null) => void;
   overlays?: OverlayDataset[];
   /** 강조할 성능 지표. 해당 지표의 축과 선을 선명하게 표시한다. */
@@ -297,7 +304,10 @@ interface ElevationChartProps {
 
 export default function ElevationChart({
   data,
+  elapsedAxisSec,
+  xAxis = "distance",
   height = 180,
+  showElevation = true,
   onHoverIndex,
   overlays,
   focusedOverlayKey,
@@ -311,21 +321,28 @@ export default function ElevationChart({
   reserveLaneGutter = false,
 }: ElevationChartProps) {
    
+  const { t } = useTranslation("activity");
   const chartRef = useRef<Chart<"line", any>>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [dragTarget, setDragTarget] = useState<"start" | "end" | null>(null);
-  const { variant } = useOriderTheme();
+  const { variant, theme } = useOriderTheme();
+
+  const elapsedAxis = xAxis === "elapsed" && elapsedAxisSec?.length === data.length
+    && Array.from(elapsedAxisSec).every((value, index) => Number.isFinite(value) && value >= 0
+      && (index === 0 || value > elapsedAxisSec[index - 1]!));
+  const axisCoordinates = useMemo(() => elapsedAxis ? elapsedAxisSec!.map(value => value / 60)
+    : data.map(point => point.distance / 1000), [elapsedAxis, elapsedAxisSec, data]);
 
   // For Ctrl+drag fine control
   const lastDragClientX = useRef(0);
   const accumulatedDelta = useRef(0);
 
   // Convert data index to km value for LinearScale
-  const indexToKm = useCallback((idx: number): number => {
+  const indexToAxis = useCallback((idx: number): number => {
     if (data.length === 0) return 0;
     const clamped = Math.max(0, Math.min(data.length - 1, idx));
-    return data[clamped]!.distance / 1000;
-  }, [data]);
+    return axisCoordinates[clamped]!;
+  }, [data, axisCoordinates]);
 
   // Convert pixel X to data index (via km value → nearest point)
   const pixelToIndex = useCallback((clientX: number): number | null => {
@@ -341,11 +358,11 @@ export default function ElevationChart({
     let best = 0;
     let bestDiff = Infinity;
     for (let i = 0; i < data.length; i++) {
-      const diff = Math.abs(data[i]!.distance / 1000 - kmVal);
+      const diff = Math.abs(axisCoordinates[i]! - kmVal);
       if (diff < bestDiff) { bestDiff = diff; best = i; }
     }
     return best;
-  }, [data]);
+  }, [data, axisCoordinates]);
 
   // Check proximity to a handle (returns 'start' | 'end' | null)
   const getHandleNear = useCallback((clientX: number): "start" | "end" | null => {
@@ -356,14 +373,14 @@ export default function ElevationChart({
     const xScale = chart.scales.x;
     if (!xScale) return null;
 
-    const startPx = xScale.getPixelForValue(indexToKm(range[0]));
-    const endPx = xScale.getPixelForValue(indexToKm(range[1]));
-    const threshold = 12;
-
-    if (Math.abs(x - startPx) < threshold) return "start";
-    if (Math.abs(x - endPx) < threshold) return "end";
+    const startPx = xScale.getPixelForValue(indexToAxis(range[0]));
+    const endPx = xScale.getPixelForValue(indexToAxis(range[1]));
+    // DS paddingL supplies a 48px-wide touch strip; choose the closer boundary when strips overlap.
+    const threshold = theme.dimens.paddingL;
+    const startDistance = Math.abs(x - startPx), endDistance = Math.abs(x - endPx);
+    if (Math.min(startDistance, endDistance) <= threshold) return startDistance <= endDistance ? "start" : "end";
     return null;
-  }, [range, indexToKm]);
+  }, [range, indexToAxis, theme.dimens.paddingL]);
 
   // Pointer down — start drag if near a handle.
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -474,12 +491,12 @@ export default function ElevationChart({
   };
 
   // X축 값을 km 단위 숫자로 변환
-  const distancesKm = data.map((d) => d.distance / 1000);
+  const distancesKm = axisCoordinates;
   const gradeColors = colorByGrade ? readGradeBandColors(variant.colors) : [];
 
   const elevationDataset = {
     label: "고도 (m)",
-    data: data.map((d, i) => ({ x: distancesKm[i], y: d.elevation })),
+    data: showElevation ? data.map((d, i) => ({ x: distancesKm[i], y: d.elevation })) : [],
     fill: true,
     backgroundColor: `color-mix(in srgb, ${altitudeColor} 8%, transparent)`,
     borderColor: altitudeColor,
@@ -512,7 +529,7 @@ export default function ElevationChart({
    * 마커 거리와 프로필 거리는 같은 누적 거리 축(코스엔진 cumulativeDistances)에서 나오므로
    * 같은 원점·같은 단위를 공유한다.
    */
-  const markerDataset = markers && markers.length > 0 ? {
+  const markerDataset = !elapsedAxis && markers && markers.length > 0 ? {
     label: "지점",
     data: markers.map((marker) => ({ x: marker.distance / 1000, y: marker.elevation })),
     showLine: false,
@@ -559,13 +576,14 @@ export default function ElevationChart({
         type: "linear" as const,
         position: "right" as const,
         display: focused,
+        reverse: o.reverseAxis ?? false,
         grid: { drawOnChartArea: false },
         border: { display: false },
         ticks: {
           color: tickColor,
           font: { size: 11, weight: focused ? "600" : "400" },
           maxTicksLimit: 4,
-          callback: (value: string | number) => `${value}${o.unit ? ` ${o.unit}` : ""}`,
+          callback: (value: string | number) => `${o.formatValue?.(Number(value)) ?? value}${o.unit ? ` ${o.unit}` : ""}`,
         },
         title: focused && o.unit
           ? { display: true, text: o.unit, color: tickColor, font: { size: 11, weight: "600" } }
@@ -574,22 +592,32 @@ export default function ElevationChart({
     }
   }
 
-  const plugins = rangeMode
-    ? [crosshairPlugin, rangeHighlightPlugin]
-    : [crosshairPlugin, segmentHighlightPlugin];
+  // react-chartjs-2 installs local plugins only when mounting. Both modes must exist before a user toggles selection.
+  const plugins = [crosshairPlugin, rangeHighlightPlugin, segmentHighlightPlugin];
 
   const rangeHighlightOpts = rangeMode && range
-    ? { start: indexToKm(range[0]), end: indexToKm(range[1]), ...rangeColors }
+    ? { start: indexToAxis(range[0]), end: indexToAxis(range[1]), ...rangeColors }
     : undefined;
 
   const segmentHighlightOpts = !rangeMode && highlightRange
-    ? { start: indexToKm(highlightRange[0]), end: indexToKm(highlightRange[1]), ...rangeColors }
+    ? { start: indexToAxis(highlightRange[0]), end: indexToAxis(highlightRange[1]), ...rangeColors }
     : undefined;
   const showLanes = separateOverlayLanes && (overlays?.length ?? 0) > 0;
+  const sensorAxisWidth = ELEVATION_PLOT_AXIS_WIDTH + theme.dimens.paddingS;
 
   return (
     <div
       ref={wrapperRef}
+      tabIndex={rangeMode ? 0 : undefined}
+      aria-label={rangeMode ? t("rangeAnalysis.chartKeyboard") : undefined}
+      onKeyDown={event => {
+        if (!rangeMode || !range || !onRangeChange || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
+        event.preventDefault();
+        const side = event.shiftKey ? 0 : 1;
+        const next: [number, number] = [...range];
+        next[side] = Math.max(0, Math.min(data.length - 1, next[side] + (event.key === "ArrowRight" ? 1 : -1)));
+        if (next[0] < next[1]) onRangeChange(next);
+      }}
       style={{ touchAction: rangeMode ? "none" : "pan-y", paddingBottom: showLanes ? 8 : 0 }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -603,6 +631,7 @@ export default function ElevationChart({
           plugins={plugins}
           options={{
           responsive: true,
+          layout: { padding: { right: showLanes ? theme.dimens.paddingS : 0 } },
           maintainAspectRatio: false,
           interaction: { mode: "index", intersect: false },
           onHover: handleHover,
@@ -649,10 +678,11 @@ export default function ElevationChart({
                 maxTicksLimit: 10,
                 callback: (v) => `${Number(v).toFixed(1)}`,
               },
-              title: { display: true, text: "km", font: { size: 12 }, color: tickColor },
+              title: { display: true, text: elapsedAxis ? "min" : "km", font: { size: 12 }, color: tickColor },
             },
             yElev: {
               type: "linear",
+              display: showElevation,
               position: "left",
               afterFit: (scale: { width: number }) => { scale.width = 54; },
               grid: { color: gridColor },
@@ -670,7 +700,7 @@ export default function ElevationChart({
               yElevSpacer: {
                 type: "linear" as const,
                 position: "right" as const,
-                afterFit: (scale: { width: number }) => { scale.width = 54; },
+                afterFit: (scale: { width: number }) => { scale.width = showLanes ? sensorAxisWidth : ELEVATION_PLOT_AXIS_WIDTH; },
                 grid: { display: false }, border: { display: false },
                 ticks: { color: "transparent", callback: () => "" },
               },
@@ -704,13 +734,16 @@ export default function ElevationChart({
                   yAxisID: "yMetric",
                 }],
               }}
-              plugins={[crosshairPlugin]}
+              plugins={plugins}
               options={{
                 responsive: true,
+                layout: { padding: { right: theme.dimens.paddingS } },
                 maintainAspectRatio: false,
                 interaction: { mode: "index", intersect: false },
                 onHover: handleHover,
-                plugins: { tooltip: { enabled: false }, legend: { display: false }, crosshair: { color: variant.chartColors.gridAxis } } as Record<string, unknown>,
+                plugins: { tooltip: { enabled: false }, legend: { display: false }, crosshair: { color: variant.chartColors.gridAxis },
+                  ...(rangeHighlightOpts ? { rangeHighlight: rangeHighlightOpts } : {}),
+                  ...(segmentHighlightOpts ? { segmentHighlight: segmentHighlightOpts } : {}) } as Record<string, unknown>,
                 scales: {
                   x: { type: "linear", min: 0, max: distancesKm[distancesKm.length - 1], display: false },
                   yMetricSpacer: {
@@ -718,8 +751,9 @@ export default function ElevationChart({
                     grid: { display: false }, border: { display: false }, ticks: { color: "transparent", callback: () => "" },
                   },
                   yMetric: {
-                    type: "linear", position: "right", afterFit: (scale: { width: number }) => { scale.width = 54; }, grid: { color: gridColor }, border: { display: false },
-                    ticks: { color: tickColor, font: { size: 12, weight: "bold" }, maxTicksLimit: 3, callback: (value: string | number) => `${value} ${overlay.unit ?? ""}` },
+                    type: "linear", position: "right", afterFit: (scale: { width: number }) => { scale.width = sensorAxisWidth; }, grid: { color: gridColor }, border: { display: false },
+                    reverse: overlay.reverseAxis ?? false,
+                    ticks: { color: tickColor, font: { size: 12, weight: "bold" }, maxTicksLimit: 3, callback: (value: string | number) => overlay.formatValue ? overlay.formatValue(Number(value)) : `${value} ${overlay.unit ?? ""}` },
                   },
                 },
               }}

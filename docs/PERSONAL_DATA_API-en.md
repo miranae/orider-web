@@ -114,16 +114,13 @@ Activity responses should prefer public-safe, documented fields over raw Firesto
 ```json
 {
   "id": "act_123",
+  "userId": "rider_123",
   "type": "Ride",
-  "startTime": "2026-06-28T07:30:00.000Z",
-  "distanceMeters": 42195,
-  "movingTimeSeconds": 5820,
-  "elevationGainMeters": 610,
-  "averageSpeedKph": 26.1,
-  "averageHeartRate": 148,
-  "averagePower": 202,
-  "normalizedPower": 229,
-  "tss": 86,
+  "discipline": "bike",
+  "startTime": 1782631800000,
+  "summarySource": "recorded",
+  "summary": { "distance": 42195, "ridingTimeMillis": 5820000, "elevationGain": 610, "tss": 86 },
+  "effectiveFacts": { "status": "canonical", "metrics": { "distanceKm": 42.195, "movingTimeSec": 5700, "elevationGainM": 610, "tss": 84 } },
   "visibility": "private"
 }
 ```

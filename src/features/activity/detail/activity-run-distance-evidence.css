@@ -1,0 +1,6 @@
+.manual-run-evidence { display: grid; gap: var(--space-3); min-inline-size: 0; border-top: 1px solid var(--line-soft); padding-top: var(--dim-section-gap); }
+.manual-run-evidence label { display: grid; gap: var(--space-2); }
+.manual-run-evidence .ds-btn, .manual-run-evidence select { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.manual-run-evidence .ds-btn--outline { color: var(--ink-0); }
+.manual-run-evidence-source { display: inline-flex; align-items: center; min-height: calc(var(--dim-button-height) + var(--space-1)); color: var(--ink-1); font-size: var(--fs-md); text-decoration: underline; overflow-wrap: anywhere; }
+.manual-run-evidence .manual-run-evidence-source:hover { color: var(--accent-dark); }

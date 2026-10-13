@@ -1,0 +1,103 @@
+{
+  "provenance": {
+    "kind": "ACTUAL_COMPILED_SYNTHETIC",
+    "operationalIO": 0,
+    "ownerRuntimeVerified": false,
+    "rawHardwareProvenanceVerified": false,
+    "sourceReaderSha256": "74a60050eb7b20a965ba7f4039854ca6e2a49d663ca7ef999d76f55fc774cdb1",
+    "compiledReaderSha256": "62da63dbe48dec1050f29770eb243e7a676c7c93cb1bce044a90b260f226ea06",
+    "calculatorArtifactHash": "e36e6e5dc078bf96c4a6e3b39f9c172419a161b24beb69bb8320b1a58bbb478c",
+    "preparationArtifactHash": "b0e460409c045b3c45cca6da8574a698732673f8d844cb7a8cd75d08b72376a0",
+    "injectedIO": {
+      "documents": 60,
+      "metadata": 4,
+      "payloads": 0,
+      "writes": 0
+    },
+    "newMigrationToolSha256": "19811781bb5c8e9cf00c59b72468ce5164f3017dc3c922cf32ccc7be63861724"
+  },
+  "metadataRequest": {
+    "mode": "stage_activity_source_metadata",
+    "activityId": "synthetic_activity"
+  },
+  "metadataResponse": {
+    "version": 1,
+    "mode": "stage_activity_source_metadata",
+    "activityId": "synthetic_activity",
+    "state": "available",
+    "reason": null,
+    "activityStartEpochMs": 1760000000000,
+    "activityIncarnation": "99:1",
+    "baseMetricsRevision": "100:1",
+    "snapshotRevision": "e9456ae85c7b82f728d8ae0d14b1c8c0a12a80660a9d4cf77c6f063226c11534",
+    "observedMilliseconds": 4000,
+    "longestContinuousMilliseconds": 4000,
+    "minIntegerDurationSeconds": 1,
+    "maxIntegerDurationSeconds": 4,
+    "source": {
+      "activityStartEpochMs": 1760000000000,
+      "activityIncarnation": "99:1",
+      "baseMetricsRevision": "100:1",
+      "snapshotRevision": "e9456ae85c7b82f728d8ae0d14b1c8c0a12a80660a9d4cf77c6f063226c11534",
+      "sourceDigest": "2a9ee416930919ade9250df6d1779fc30c8034a0bc71021766f12081f5c16482",
+      "qualification": "native_manifest_and_gcs_token_pinned",
+      "manifestObjectIncarnationVerified": true,
+      "timingBasis": "stored_native_one_second_slot_policy",
+      "originalClockVerified": false,
+      "sensorBucketOriginVerified": false,
+      "quality": "unknown",
+      "collectionCompleteness": "unknown",
+      "powerSource": "stored_native_watts_unverified"
+    }
+  },
+  "request": {
+    "mode": "stage_activity_duration",
+    "activityId": "synthetic_activity",
+    "durationSeconds": 2,
+    "expectedActivityIncarnation": "99:1",
+    "expectedBaseMetricsRevision": "100:1",
+    "expectedSnapshotRevision": "e9456ae85c7b82f728d8ae0d14b1c8c0a12a80660a9d4cf77c6f063226c11534"
+  },
+  "response": {
+    "version": 1,
+    "mode": "stage_activity_duration",
+    "activityId": "synthetic_activity",
+    "state": "available",
+    "reason": null,
+    "requestedDurationSeconds": 2,
+    "result": {
+      "version": 1,
+      "scope": "whole_activity_observed_intervals",
+      "timingBasis": "stored_native_one_second_slot_policy",
+      "originalClockVerified": false,
+      "quality": "unknown",
+      "collectionCompleteness": "unknown",
+      "unit": "W",
+      "sensorBucketOriginVerified": false,
+      "powerSource": "stored_native_watts_unverified",
+      "state": "available",
+      "reason": null,
+      "requestedDurationSeconds": 2,
+      "maxAveragePowerW": 250,
+      "windowStartElapsedSec": 2,
+      "windowEndElapsedSec": 4,
+      "observedSeconds": 4,
+      "longestContinuousSeconds": 4
+    },
+    "source": {
+      "activityStartEpochMs": 1760000000000,
+      "activityIncarnation": "99:1",
+      "baseMetricsRevision": "100:1",
+      "snapshotRevision": "e9456ae85c7b82f728d8ae0d14b1c8c0a12a80660a9d4cf77c6f063226c11534",
+      "sourceDigest": "2a9ee416930919ade9250df6d1779fc30c8034a0bc71021766f12081f5c16482",
+      "qualification": "native_manifest_and_gcs_token_pinned",
+      "manifestObjectIncarnationVerified": true,
+      "timingBasis": "stored_native_one_second_slot_policy",
+      "originalClockVerified": false,
+      "sensorBucketOriginVerified": false,
+      "quality": "unknown",
+      "collectionCompleteness": "unknown",
+      "powerSource": "stored_native_watts_unverified"
+    }
+  }
+}

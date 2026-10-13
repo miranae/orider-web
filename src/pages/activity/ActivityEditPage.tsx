@@ -27,8 +27,6 @@ interface ActivityEditData {
   perceivedExertion: number | null;
   isRace: boolean;
   workoutType: WorkoutType;
-  hideHr: boolean;
-  hidePower: boolean;
 }
 
 function pad2(n: number): string {
@@ -81,8 +79,6 @@ export default function ActivityEditPage() {
   const [perceivedExertion, setPerceivedExertion] = useState<number | null>(null);
   const [isRace, setIsRace] = useState(false);
   const [workoutType, setWorkoutType] = useState<WorkoutType>("");
-  const [hideHr, setHideHr] = useState(false);
-  const [hidePower, setHidePower] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [startTimeOfDay, setStartTimeOfDay] = useState("");
 
@@ -135,8 +131,6 @@ export default function ActivityEditPage() {
         perceivedExertion: typeof d.perceivedExertion === "number" ? d.perceivedExertion : null,
         isRace: !!d.isRace,
         workoutType: (d.workoutType as WorkoutType) ?? "",
-        hideHr: !!d.hideHr,
-        hidePower: !!d.hidePower,
       };
       setData(parsed);
       setName(parsed.name);
@@ -146,8 +140,6 @@ export default function ActivityEditPage() {
       setPerceivedExertion(parsed.perceivedExertion);
       setIsRace(parsed.isRace);
       setWorkoutType(parsed.workoutType);
-      setHideHr(parsed.hideHr);
-      setHidePower(parsed.hidePower);
       setStartDate(tsToDateStr(parsed.startTime));
       setStartTimeOfDay(tsToTimeStr(parsed.startTime));
     } catch (err) {
@@ -177,8 +169,6 @@ export default function ActivityEditPage() {
         perceivedExertion: perceivedExertion,
         isRace,
         workoutType,
-        hideHr,
-        hidePower,
         startTime: newStartTime,
       });
       showToast(t("edit.toastSaved"));
@@ -416,22 +406,6 @@ export default function ActivityEditPage() {
           </div>
           <div className="text-[length:var(--fs-xs)] mt-2" style={{ color: "var(--ink-3)" }}>
             {t("edit.rpeHint")}
-          </div>
-        </div>
-
-        {/* 데이터 숨기기 */}
-        <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)', borderTop: "1px solid var(--line-soft)" }}>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("edit.sectionHideData")}</Text>
-          <label className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: "var(--space-1-5)" }}>
-            <input type="checkbox" checked={hideHr} onChange={(e) => setHideHr(e.target.checked)} />
-            <span className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-1)" }}>{t("edit.hideHr")}</span>
-          </label>
-          <label className="flex items-center" style={{ gap: 'var(--space-2)' }}>
-            <input type="checkbox" checked={hidePower} onChange={(e) => setHidePower(e.target.checked)} />
-            <span className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-1)" }}>{t("edit.hidePower")}</span>
-          </label>
-          <div className="text-[length:var(--fs-xs)] mt-2" style={{ color: "var(--ink-3)" }}>
-            {t("edit.hideDataHint")}
           </div>
         </div>
       </Card>

@@ -26,6 +26,7 @@ vi.mock("../services/firebase", () => ({
   auth: {},
   functions: {},
   ensureAppCheckReady: vi.fn().mockResolvedValue(undefined),
+  getAppCheckToken: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 vi.mock("../features/bikeProfileLayout/client", () => ({

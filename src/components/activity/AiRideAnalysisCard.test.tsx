@@ -1,3 +1,4 @@
+import * as runtimeConfig from "../../services/runtimeConfig";
 import i18n from "i18next";
 import enActivity from "../../i18n/resources/en/activity.json";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -69,6 +70,17 @@ function narrative(segments: NarrativeSegment[]): ActivityNarrative & { hit: tru
 }
 
 describe("AiRideAnalysisCard", () => {
+  it("stage hides unsupported AI analysis and makes no peek or generation requests", async () => {
+    const runtime = vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({ ...runtimeConfig.getRuntimeConfig(), appEnvironment: "stage" });
+    try {
+      const { container } = renderWithProviders(<AiRideAnalysisCard activityId="stage-ai-hidden" enabled summaryPreview="Saved AI preview" />, { authenticated: true });
+      await act(async () => { await Promise.resolve(); });
+      expect(container).toBeEmptyDOMElement();
+      expect(narrativeApiMocks.peek).not.toHaveBeenCalled();
+      expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
+    } finally { runtime.mockRestore(); }
+  });
+
   it("keeps a legacy saved analysis and its timestamp visible through refresh failure and retry", async () => {
     const generatedAt = Date.UTC(2026, 8, 30, 4, 25);
     const saved = { ...narrative([segment(0, 10, "생성 당시 구간 코칭")]), narrativeVersion: "rsn-v9", generatedAt, stale: true };

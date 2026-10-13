@@ -34,6 +34,7 @@ interface PendingFollowUp {
   uid: string;
   generation: number;
   routeGeneration: number;
+  turnCount: number;
 }
 
 function consentActive(policy: CoachConsentPolicy): boolean {
@@ -110,6 +111,8 @@ export default function CoachHistoryPage() {
   const userGeneration = generationRef.current;
   const routeGeneration = routeGenerationRef.current;
   const pendingBodyRef = useRef<PendingFollowUp | null>(null);
+  const executingFollowUpRef = useRef<PendingFollowUp | null>(null);
+  const consentPendingRef = useRef<PendingFollowUp | null>(null);
   const followUpRef = useRef<HTMLTextAreaElement>(null);
   const [threads, setThreads] = useState<CoachThreadSummary[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -123,14 +126,14 @@ export default function CoachHistoryPage() {
   const [threadError, setThreadError] = useState(false);
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<"transport" | "rejected" | null>(null);
+  const [submitError, setSubmitError] = useState<"transport" | "rejected" | "unavailable" | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [policy, setPolicy] = useState<CoachConsentPolicy | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
   const [quota, setQuota] = useState<CoachQuota | null>(null);
   const [loadingQuota, setLoadingQuota] = useState(false);
   const [quotaError, setQuotaError] = useState(false);
-  const [followUpSuccess, setFollowUpSuccess] = useState(false);
+  const [followUpSuccess, setFollowUpSuccess] = useState<"answer" | "terminal" | null>(null);
   const [stateUid, setStateUid] = useState(uid);
 
   const current = useCallback((generation: number, expectedUid: string, expectedThread?: string, expectedRouteGeneration?: number) =>
@@ -175,16 +178,18 @@ export default function CoachHistoryPage() {
     const generation = userGeneration;
     setStateUid(uid);
     pendingBodyRef.current = null;
+    consentPendingRef.current = null;
     setThreads([]); setCursor(null); setThread(null); setThreadCursor(null); setQuota(null); setPolicy(null);
     setLoadingList(Boolean(uid)); setLoadingThread(false); setLoadingMore(false); setLoadingEarlierTurns(false); setLoadingQuota(false);
-    setLoadError(false); setThreadError(false); setQuotaError(false); setDraft(""); setSubmitError(null); setFollowUpSuccess(false);
+    setLoadError(false); setThreadError(false); setQuotaError(false); setDraft(""); setSubmitError(null); setFollowUpSuccess(null);
     setSubmitting(false); setDeleting(false); setConsentOpen(false);
     if (uid) { void loadList(generation, uid); void loadQuota(generation, uid); }
   }, [loadList, loadQuota, uid, userGeneration]);
 
   useEffect(() => {
     pendingBodyRef.current = null;
-    setThread(null); setThreadCursor(null); setThreadError(false); setDraft(""); setSubmitError(null); setFollowUpSuccess(false);
+    consentPendingRef.current = null;
+    setThread(null); setThreadCursor(null); setThreadError(false); setDraft(""); setSubmitError(null); setFollowUpSuccess(null);
     setSubmitting(false); setConsentOpen(false);
     if (uid && threadId) void loadThread(threadId, userGeneration, uid, routeGeneration);
   }, [loadThread, routeGeneration, threadId, uid, userGeneration]);
@@ -251,37 +256,52 @@ export default function CoachHistoryPage() {
   }
 
   async function executeFollowUp(pending: PendingFollowUp) {
-    if (submitting || !current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
-    setSubmitting(true); setSubmitError(null); setFollowUpSuccess(false);
+    if (submitting || executingFollowUpRef.current === pending || pendingBodyRef.current !== pending
+      || !current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
+    executingFollowUpRef.current = pending;
+    setSubmitting(true); setSubmitError(null); setFollowUpSuccess(null);
     try {
       const response = await continueCoachThread(pending.threadId, pending.body);
       if (!current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
-      setDraft(""); pendingBodyRef.current = null;
       setQuota((current) => current ? { ...current, remaining: response.quota.remaining, resetAt: response.quota.resetAt } : current);
       let canonical: Awaited<ReturnType<typeof getCoachThread>>;
       try {
         canonical = await getCoachThread(pending.threadId, PAGE_SIZE);
       } catch {
-        if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) setThreadError(true);
+        if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) { setThreadError(true); setSubmitError("transport"); }
         return;
       }
       if (!current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
+      setThreadError(false);
       setThread(canonical.thread); setThreadCursor(canonical.nextCursor);
       setThreads((items) => items.map((item) => item.threadId === canonical.thread.threadId
         ? { ...item, updatedAt: canonical.thread.updatedAt, turnCount: canonical.thread.turnCount,
           revision: canonical.thread.revision, title: canonical.thread.title } : item));
-      setFollowUpSuccess(true);
+      const persisted = canonical.thread.turns.find((turn) => turn.requestId === pending.body.requestId
+        && turn.response.requestId === pending.body.requestId && turn.question === pending.body.question
+        && turn.sessionRevision > pending.body.expectedSessionRevision!
+        && turn.sessionRevision <= canonical.thread.revision);
+      if (!persisted || canonical.thread.revision <= pending.body.expectedSessionRevision!
+        || canonical.thread.turnCount <= pending.turnCount) {
+        setSubmitError(response.httpOk ? "transport" : "unavailable");
+        return;
+      }
+      setDraft(""); pendingBodyRef.current = null;
+      setFollowUpSuccess(persisted.response.outcome === "answer" ? "answer" : "terminal");
     } catch (error) {
       if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) {
         if (isCoachHistoryTransportError(error)) setSubmitError("transport");
         else { pendingBodyRef.current = null; setSubmitError("rejected"); }
       }
     }
-    finally { if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) setSubmitting(false); }
+    finally {
+      if (executingFollowUpRef.current === pending) executingFollowUpRef.current = null;
+      if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) setSubmitting(false);
+    }
   }
 
   async function submitFollowUp() {
-    if (!thread || !uid || submitting || !quota || quota.remaining === 0) return;
+    if (!thread || !uid || submitting || pendingBodyRef.current || !quota || quota.remaining === 0) return;
     const question = draft.trim();
     if (question.length < 2 || question.length > 1000) return;
     const body: CoachV2QuestionRequest = {
@@ -290,16 +310,16 @@ export default function CoachHistoryPage() {
       schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION, capabilityVersion: COACH_P1_CAPABILITY_VERSION,
       contextFilters: {}, responseFormat: "auto", expectedSessionRevision: thread.revision,
     };
-    const pending = { body, threadId: thread.threadId, uid, generation: generationRef.current, routeGeneration: routeGenerationRef.current };
+    const pending = { body, threadId: thread.threadId, uid, generation: generationRef.current, routeGeneration: routeGenerationRef.current, turnCount: thread.turnCount };
     pendingBodyRef.current = pending;
     try {
       const loadedPolicy = await getCoachConsentPolicy();
-      if (!current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
+      if (pendingBodyRef.current !== pending || !current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
       setPolicy(loadedPolicy);
-      if (!consentActive(loadedPolicy)) { setConsentOpen(true); return; }
+      if (!consentActive(loadedPolicy)) { consentPendingRef.current = pending; setConsentOpen(true); return; }
       await executeFollowUp(pending);
     } catch {
-      if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) {
+      if (pendingBodyRef.current === pending && current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) {
         pendingBodyRef.current = null; setSubmitError("rejected");
       }
     }
@@ -313,8 +333,9 @@ export default function CoachHistoryPage() {
 
   function startEditedFollowUp() {
     pendingBodyRef.current = null;
+    if (consentPendingRef.current) { consentPendingRef.current = null; setConsentOpen(false); }
     setSubmitError(null);
-    setFollowUpSuccess(false);
+    setFollowUpSuccess(null);
   }
 
   function answerAction(code: CoachAnswerActionCode, entity?: CoachEntityRef) {
@@ -326,6 +347,7 @@ export default function CoachHistoryPage() {
   const coachDiscipline = profile?.primaryDiscipline && profile.primaryDiscipline !== "tri"
     ? profile.primaryDiscipline
     : "bike";
+  const dialogPending = consentOpen ? consentPendingRef.current : null;
   const launcher = <CoachQuestionLauncher
     user={user}
     discipline={coachDiscipline}
@@ -419,12 +441,12 @@ export default function CoachHistoryPage() {
             {quotaError && <Alert variant="warning" title={t("history.quotaLoadFailed")}><Button variant="outline" size="sm" onClick={() => void loadQuota()}>{t("history.retryQuota")}</Button></Alert>}
             {submitError && <div className="coach-thread-composer__retry">
               <Text as="p" variant="bodySmall" tone="danger" role="alert">{t("history.submitFailed")}</Text>
-              {submitError === "transport" && pendingBodyRef.current && <>
+              {(submitError === "transport" || submitError === "unavailable") && pendingBodyRef.current && <>
                 <Text as="p" variant="caption" tone="tertiary">{t("history.sameRequestRetryNote")}</Text>
                 <Button variant="outline" size="sm" disabled={submitting} onClick={() => void retryPendingFollowUp()}>{t("history.sameRequestRetry")}</Button>
               </>}
             </div>}
-            {followUpSuccess && <Text as="p" variant="bodySmall" tone="success" role="status" aria-live="polite">{t("history.followUpSaved")}</Text>}
+            {followUpSuccess && <Text as="p" variant="bodySmall" tone={followUpSuccess === "answer" ? "success" : "secondary"} role="status" aria-live="polite">{t(followUpSuccess === "answer" ? "history.followUpSaved" : "history.followUpTerminalSaved")}</Text>}
             <div className="coach-thread-composer__actions">{loadingQuota && <Text variant="caption" tone="tertiary">{t("history.loadingQuota")}</Text>}
               {quota && <Text variant="caption" tone={quota.remaining === 0 ? "warning" : "tertiary"}>{t("quota.remaining", { count: quota.remaining })}</Text>}
               <Button variant="primary" loading={submitting} disabled={draft.trim().length < 2 || loadingQuota || quotaError || !quota || quota.remaining === 0
@@ -434,8 +456,17 @@ export default function CoachHistoryPage() {
         </>}
       </section>
     </div>
-    {policy && <FirstUseCoachConsent open={consentOpen} policy={policy} onCancel={() => setConsentOpen(false)} onConsented={(saved) => {
-      setPolicy(saved); setConsentOpen(false); if (pendingBodyRef.current) void executeFollowUp(pendingBodyRef.current);
+    {policy && dialogPending && <FirstUseCoachConsent
+      key={`${dialogPending.uid}:${dialogPending.generation}:${dialogPending.routeGeneration}:${dialogPending.body.requestId}`}
+      open policy={policy} onCancel={() => {
+      if (pendingBodyRef.current !== dialogPending || consentPendingRef.current !== dialogPending
+        || !current(dialogPending.generation, dialogPending.uid, dialogPending.threadId, dialogPending.routeGeneration)) return;
+      pendingBodyRef.current = null; consentPendingRef.current = null; setConsentOpen(false);
+    }} onConsented={(saved) => {
+      if (pendingBodyRef.current !== dialogPending || consentPendingRef.current !== dialogPending
+        || !current(dialogPending.generation, dialogPending.uid, dialogPending.threadId, dialogPending.routeGeneration)) return;
+      consentPendingRef.current = null; setConsentOpen(false); setPolicy(saved);
+      void executeFollowUp(dialogPending);
     }} />}
   </main>;
 }

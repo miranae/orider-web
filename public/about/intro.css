@@ -376,10 +376,14 @@ p {
 }
 
 table {
+  width: 100%;
+  table-layout: fixed;
+  overflow-wrap: anywhere;
   font-size: 0.94rem;
 }
 
 th {
+  white-space: normal;
   background: color-mix(in oklab, var(--brand) 9%, transparent);
   color: var(--brand-dark);
 }

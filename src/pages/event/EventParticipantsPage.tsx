@@ -13,6 +13,7 @@ import { useDialog } from "../../contexts/DialogContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
 import { Button, Card, Chip, Text } from "../../theme/components";
+import { isVerifiedEventFinisher } from "../../features/event/resultVerification";
 
 type ParticipantStatus = "REGISTERED" | "PAID" | "CHECKED_IN" | "RACING" | "FINISHED" | "DNF" | "DSQ" | "REFUNDED" | "NO_SHOW" | "CANCELLED";
 
@@ -39,6 +40,7 @@ interface EventHead {
   feeType: "FREE" | "PAID";
   categories: CategoryDef[];
   checkpoints: Checkpoint[];
+  resultContractVersion?: number;
 }
 
 interface ParticipantRow {
@@ -51,6 +53,8 @@ interface ParticipantRow {
   gender: "M" | "F" | "X" | null;
   phone: string;
   status: ParticipantStatus;
+  verifiedFinisher: boolean;
+  verificationPending: boolean;
   cpProgress: number;
   bestTime: string;
   team: string;
@@ -70,7 +74,7 @@ function bestTimeSortValue(value: string): number {
   return Number.POSITIVE_INFINITY;
 }
 
-function StatusChip({ status }: { status: ParticipantStatus }) {
+function StatusChip({ status, verificationPending = false }: { status: ParticipantStatus; verificationPending?: boolean }) {
   const { t } = useTranslation("event");
   const STATUS_META: Record<ParticipantStatus, { labelKey: string; color: string; bg: string }> = {
     REGISTERED: { labelKey: "label.registrationStatus", color: "var(--ink-3)", bg: "var(--bg-2)" },
@@ -95,7 +99,7 @@ function StatusChip({ status }: { status: ParticipantStatus }) {
         padding: "2px 8px",
       }}
     >
-      {t(m.labelKey)}
+      {verificationPending ? t("resultsView.verificationPending") : t(m.labelKey)}
     </Chip>
   );
 }
@@ -213,6 +217,7 @@ export default function EventParticipantsPage() {
         feeType,
         categories,
         checkpoints,
+        resultContractVersion: typeof info.resultContractVersion === "number" ? info.resultContractVersion : undefined,
       });
 
       const partsSnap = await getDocs(collection(firestore, `events/${eventId}/participants`));
@@ -238,6 +243,10 @@ export default function EventParticipantsPage() {
         const data = p.data();
         const u = userMap.get(p.id);
         const status = (data.status as ParticipantStatus) || "REGISTERED";
+        const finishedAt = typeof data.finishedAt === "number" ? data.finishedAt
+          : data.finishedAt?.toMillis?.() ?? (typeof data.finishedAt?._seconds === "number" ? data.finishedAt._seconds * 1000 : null);
+        const verifiedFinisher = isVerifiedEventFinisher(info.resultContractVersion, status, data.resultVerified, finishedAt, normalizeStartTime(info.startTime));
+        const verificationPending = info.resultContractVersion >= 2 && ["FINISHED", "RIDING", "RACING"].includes(status) && !verifiedFinisher;
         return {
           userId: p.id,
           bib: typeof data.bib === "number" ? data.bib : null,
@@ -248,8 +257,10 @@ export default function EventParticipantsPage() {
           gender: data.gender ?? null,
           phone: data.phone || "",
           status,
+          verifiedFinisher,
+          verificationPending,
           cpProgress: typeof data.cpProgress === "number" ? data.cpProgress : 0,
-          bestTime: data.bestTime || "—",
+          bestTime: info.resultContractVersion >= 2 && !verifiedFinisher ? "—" : data.bestTime || "—",
           team: u?.team || "—",
           // 무료 이벤트: REFUNDED 외 모두 paid 취급. 유료 이벤트: REGISTERED는 미결제, 그 외 paid.
           // 명시적인 data.paid 필드가 있으면 우선.
@@ -307,12 +318,14 @@ export default function EventParticipantsPage() {
     const total = participants.length;
     const paid = participants.filter((p) => p.paid).length;
     const racing = participants.filter((p) => p.status === "RACING").length;
-    const finished = participants.filter((p) => p.status === "FINISHED").length;
+    const finished = participants.filter((p) => p.verifiedFinisher).length;
+    const pending = participants.filter((p) => p.verificationPending).length;
     const dnf = participants.filter((p) => p.status === "DNF" || p.status === "DSQ").length;
     const noBib = participants.filter((p) => p.paid && !p.bib && p.status !== "REFUNDED").length;
-    const finishRate = finished + dnf > 0 ? Math.round((finished / (finished + dnf)) * 100) : 0;
-    return { total, paid, racing, finished, dnf, noBib, finishRate };
-  }, [participants]);
+    const rateDenominator = finished + dnf + (event?.resultContractVersion && event.resultContractVersion >= 2 ? pending : 0);
+    const finishRate = rateDenominator > 0 ? Math.round((finished / rateDenominator) * 100) : 0;
+    return { total, paid, racing, finished, pending, dnf, noBib, finishRate };
+  }, [participants, event?.resultContractVersion]);
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -509,10 +522,10 @@ export default function EventParticipantsPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))", gap: "var(--space-2)", marginBottom: 'var(--space-5)' }}>
           <StatCard label={t("stats.total")} value={stats.total} sub={t("participantsView.paidSub", { count: stats.paid })} />
           <StatCard label={t("stats.racing")} value={stats.racing} tone="var(--lime)" />
-          <StatCard label={t("stats.finished")} value={stats.finished} />
+          <StatCard label={event.resultContractVersion && event.resultContractVersion >= 2 ? t("resultsView.verifiedFinishCount") : t("stats.finished")} value={stats.finished} />
           <StatCard label={t("stats.dnf")} value={stats.dnf} tone="var(--amber)" />
           <StatCard label={t("stats.noBib")} value={stats.noBib} tone={stats.noBib > 0 ? "var(--amber)" : undefined} />
-          <StatCard label={t("label.finishRate")} value={`${stats.finishRate}%`} sub={t("participantsView.finishRateSub", { count: stats.finished + stats.dnf })} />
+          <StatCard label={event.resultContractVersion && event.resultContractVersion >= 2 ? t("resultsView.verifiedFinishRate") : t("label.finishRate")} value={`${stats.finishRate}%`} sub={t("participantsView.finishRateSub", { count: stats.finished + stats.dnf + (event.resultContractVersion && event.resultContractVersion >= 2 ? stats.pending : 0) })} />
         </div>
 
         {/* 배번 부여 알림 */}
@@ -850,7 +863,7 @@ export default function EventParticipantsPage() {
                           {p.age ?? "—"} · {p.gender ?? "—"}
                         </td>
                         <td style={{ padding: "var(--space-3) var(--space-2)" }}>
-                          <StatusChip status={p.status} />
+                          <StatusChip status={p.status} verificationPending={p.verificationPending} />
                         </td>
                         <td style={{ padding: "var(--space-3) var(--space-2)" }}>
                           <CpProgress progress={p.cpProgress} total={Math.max(1, event.checkpoints.length)} />
@@ -938,7 +951,7 @@ export default function EventParticipantsPage() {
             </div>
 
             <div style={{ padding: 'var(--space-5)' }}>
-              <StatusChip status={drawer.status} />
+              <StatusChip status={drawer.status} verificationPending={drawer.verificationPending} />
               {drawer.dnfReason && (
                 <div
                   style={{

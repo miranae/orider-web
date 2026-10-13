@@ -1,0 +1,113 @@
+import { validPowerWindowInput } from "../utils/powerDurationWindows";
+import { httpsCallable } from "firebase/functions";
+import type { ActivityRangeAnalysisRequest, ActivityRangeAnalysisResponse, ActivityRangeElevation } from "@shared/types/activity-range-analysis";
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
+
+export function validRangeRequest(request: ActivityRangeAnalysisRequest): boolean {
+  return typeof request.activityId === "string" && /^[A-Za-z0-9_-]{1,160}$/.test(request.activityId)
+    && Number.isFinite(request.startOffsetSec) && request.startOffsetSec >= 0
+    && Number.isFinite(request.endOffsetSec) && request.endOffsetSec > request.startOffsetSec && request.endOffsetSec <= 604800
+    && (request.includeElevation === undefined || request.includeElevation === true)
+    && (request.includePowerWindowInput === undefined || typeof request.includePowerWindowInput === "boolean")
+    && (request.expectedInputRevision === undefined || /^[a-f0-9]{64}$/.test(request.expectedInputRevision));
+}
+
+const elevationRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
+const elevationExact = (value: unknown, keys: string[]) => elevationRecord(value) && Object.keys(value).length === keys.length && keys.every(key => Object.prototype.hasOwnProperty.call(value, key));
+/** 고도 근거는 기존 센서 분석과 별도 채널이다. 잘못된 채널만 제외한다. */
+function validRangeElevation(value: unknown, response: ActivityRangeAnalysisResponse, request: ActivityRangeAnalysisRequest): value is ActivityRangeElevation {
+  if (request.includeElevation !== true || !elevationRecord(value)) return false;
+  const base = ["scope", "quality", "timingBasis", "originalClockVerified", "declaredActivitySource", "inputRevision", "requestedSelection", "state", "reason"];
+  const available = value.state === "available";
+  if (!elevationExact(value, available ? [...base, "sourceBasis", "observedSelection", "boundaryCoverage", "netElevationChangeM", "distanceM", "netMeanGradePct"] : base)
+    || value.scope !== "selected_observed_range" || value.quality !== "unknown" || value.timingBasis !== "stored_explicit_activity_elapsed"
+    || value.originalClockVerified !== false || !["orider", "strava", "apple_health", "health_connect", null].includes(value.declaredActivitySource as string | null)
+    || value.inputRevision !== response.inputRevision || value.inputRevision !== null && (typeof value.inputRevision !== "string" || !/^[a-f0-9]{64}$/u.test(value.inputRevision))
+    || !elevationExact(value.requestedSelection, ["startOffsetSec", "endOffsetSec"])) return false;
+  const requested = value.requestedSelection as { startOffsetSec: number; endOffsetSec: number };
+  if (requested.startOffsetSec !== request.startOffsetSec || requested.endOffsetSec !== request.endOffsetSec) return false;
+  if (!available) return value.state === "unavailable" && ["input_unavailable", "unsupported_source", "incomplete_input", "invalid_clock", "invalid_axis", "missing_samples", "internal_gap", "invalid_arithmetic"].includes(String(value.reason)) && typeof value.reason === "string";
+  if (!["available", "unavailable"].includes(response.state) || response.sourceLayer !== "raw_parts" || response.inputCoverage !== "complete" || value.inputRevision === null || request.expectedInputRevision !== undefined && request.expectedInputRevision !== value.inputRevision
+    || value.reason !== null || value.sourceBasis !== "stored_epoch_parts" || !elevationExact(value.observedSelection, ["startOffsetSec", "endOffsetSec"])) return false;
+  const observed = value.observedSelection as { startOffsetSec: number; endOffsetSec: number };
+  if (![observed.startOffsetSec, observed.endOffsetSec, value.netElevationChangeM, value.distanceM].every(v => typeof v === "number" && Number.isFinite(v))
+    || observed.startOffsetSec < requested.startOffsetSec || observed.endOffsetSec > requested.endOffsetSec || observed.endOffsetSec <= observed.startOffsetSec
+    || (value.distanceM as number) < 0 || !["exact", "inside_samples"].includes(String(value.boundaryCoverage))) return false;
+  const exact = observed.startOffsetSec === requested.startOffsetSec && observed.endOffsetSec === requested.endOffsetSec;
+  if ((value.boundaryCoverage === "exact") !== exact) return false;
+  if (value.distanceM === 0) return value.netMeanGradePct === null;
+  const grade = (value.netElevationChangeM as number) / (value.distanceM as number) * 100;
+  return typeof value.netMeanGradePct === "number" && Number.isFinite(value.netMeanGradePct) && Number.isFinite(grade)
+    && Math.abs(value.netMeanGradePct - grade) <= Number.EPSILON * 16 * Math.max(1, Math.abs(grade), Math.abs(value.netMeanGradePct));
+}
+
+/** 요청과 응답의 창·정본 revision이 다르면 과거 구간을 현재 결과로 표시하지 않는다. */
+export function validateRangeResponse(response: ActivityRangeAnalysisResponse, request: ActivityRangeAnalysisRequest): ActivityRangeAnalysisResponse {
+  if (!response || response.activityId !== request.activityId || response.algorithmVersion !== "activity-range-v1"
+    || response.selection?.startOffsetSec !== request.startOffsetSec || response.selection?.endOffsetSec !== request.endOffsetSec
+    || !["available", "pending", "unavailable", "changed_input"].includes(response.state)
+    || (!Number.isFinite(response.computedAt) || response.computedAt < 0)
+    || (response.inputRevision !== null && !/^[a-f0-9]{64}$/.test(response.inputRevision))) throw new Error("invalid_range_response");
+  if (response.elevation !== undefined && !validRangeElevation(response.elevation, response, request)) {
+    const { elevation: _invalidElevation, ...remaining } = response;
+    response = remaining;
+  }
+  const powerInput = response.powerWindowInput;
+  if (powerInput !== undefined && (request.includePowerWindowInput !== true || !validPowerWindowInput(powerInput) || powerInput.inputRevision !== response.inputRevision
+    || powerInput.rangeStartElapsedSec !== request.startOffsetSec || powerInput.rangeEndElapsedSec !== request.endOffsetSec
+    || powerInput.state === "available" && (response.state !== "available" || response.metrics?.powerSource !== "measured" || response.metrics.isVirtualPower))) throw new Error("invalid_range_response");
+  if (response.state !== "available") return { ...response, metrics: null };
+  if (!response.inputRevision || request.expectedInputRevision && response.inputRevision !== request.expectedInputRevision) {
+    throw new Error("input_changed");
+  }
+  const metrics = response.metrics;
+  if (!metrics || metrics.averageBasis !== "measured_elapsed" || !Number.isFinite(metrics.elapsedSec)
+    || Math.abs(metrics.elapsedSec - (request.endOffsetSec - request.startOffsetSec)) > 1e-6) throw new Error("invalid_range_response");
+  if (!["complete", "partial", "unknown"].includes(response.inputCoverage)
+    || !["raw_parts", "api_streams"].includes(response.sourceLayer ?? "")
+    || !["measured", "virtual", null].includes(metrics.powerSource)
+    || typeof metrics.isVirtualPower !== "boolean"
+    || metrics.powerSource === "virtual" && !metrics.isVirtualPower
+    || metrics.powerSource === "measured" && metrics.isVirtualPower
+    || metrics.movingSec != null && metrics.movingSec > metrics.elapsedSec
+    || metrics.pauseSec != null && metrics.pauseSec > metrics.elapsedSec) throw new Error("invalid_range_response");
+  const values = [metrics.movingSec, metrics.pauseSec, metrics.distanceM, metrics.avgSpeedKph, metrics.paceSecPerKm,
+    metrics.averagePowerW, metrics.normalizedPowerW, metrics.averageHr, metrics.maxHr, metrics.averageCadence];
+  if (values.some(value => value !== null && (typeof value !== "number" || !Number.isFinite(value) || value < 0))) throw new Error("invalid_range_response");
+  for (const key of ["power", "heartrate", "cadence", "speed"] as const) {
+    const channel = metrics.channels?.[key];
+    if (!channel || !Number.isFinite(channel.measuredSec) || channel.measuredSec < 0 || channel.measuredSec > metrics.elapsedSec + 1e-6
+      || !Number.isFinite(channel.fraction) || channel.fraction < 0 || channel.fraction > 1) throw new Error("invalid_range_response");
+  }
+  for (const zones of [metrics.hrZoneSec, metrics.powerZoneSec]) {
+    if (zones !== null && (!Array.isArray(zones) || Array.from(zones).some(value => !Number.isFinite(value) || value < 0))) throw new Error("invalid_range_response");
+  }
+  const context = metrics.context;
+  if (context?.lthr != null && (!Number.isFinite(context.lthr) || context.lthr < 50 || context.lthr > 250)) throw new Error("invalid_range_response");
+  const boundaries = context?.hrZoneBoundaries;
+  if (boundaries != null) {
+    const reference = boundaries.reference === "lthr" ? context.lthr : context.maxHr;
+    if (context.mode !== "recorded" || !["lthr", "max_hr"].includes(boundaries.reference)
+      || !["bike", "run", "other"].includes(boundaries.sport)
+      || !Number.isFinite(boundaries.referenceBpm) || boundaries.referenceBpm < 50 || boundaries.referenceBpm > 250
+      || reference !== boundaries.referenceBpm || !Array.isArray(boundaries.zones) || boundaries.zones.length !== 5
+      || boundaries.zones.some((zone, index) => !zone || zone.zone !== index + 1
+        || !Number.isFinite(zone.minPct) || zone.minPct < 0
+        || zone.maxPct !== null && (!Number.isFinite(zone.maxPct) || zone.maxPct <= zone.minPct)
+        || !Number.isFinite(zone.minBpm) || zone.minBpm < 0
+        || zone.maxBpmExclusive !== null && (!Number.isFinite(zone.maxBpmExclusive) || zone.maxBpmExclusive <= zone.minBpm))) throw new Error("invalid_range_response");
+  }
+  return response;
+}
+
+/** 소유자용 read-only callable. 결과 캐시와 클라이언트 지표 계산은 만들지 않는다. */
+export async function loadActivityRangeAnalysis(services: FirebaseServices, uid: string, request: ActivityRangeAnalysisRequest): Promise<ActivityRangeAnalysisResponse> {
+  const ownerMatches = () => !!uid && services.auth.currentUser?.uid === uid;
+  if (!ownerMatches()) throw new Error("account_changed");
+  if (!validRangeRequest(request)) throw new Error("invalid_range_selection");
+  await services.ensureAppCheckReady();
+  if (!ownerMatches()) throw new Error("account_changed");
+  const result = await httpsCallable<ActivityRangeAnalysisRequest, ActivityRangeAnalysisResponse, ActivityRangeElevation>(services.functions, "getActivityRangeAnalysis")(request);
+  if (!ownerMatches()) throw new Error("account_changed");
+  return validateRangeResponse(result.data, request);
+}

@@ -13,14 +13,14 @@ import { normalizeFitnessRange } from "../hooks/useFitnessModel";
 import FitnessPage, { fitnessGoalDisplayName } from "./FitnessPage";
 import * as personalDataApi from "../services/personalDataApi";
 
-const viewport = vi.hoisted(() => ({ isMobile: true }));
+const viewport = vi.hoisted(() => ({ isMobile: true, expansionEnabled: false }));
 const riderInsight = vi.hoisted(() => ({ enabled: false, insight: null as ReturnType<typeof parseCoachRiderInsight> | null, loading: false, unavailable: false }));
 const canonicalSummary = vi.hoisted(() => ({ state: null as any }));
 
 vi.mock("../hooks/useMobile", () => ({
   useMobile: () => viewport.isMobile,
 }));
-vi.mock("../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ coachRiderInsightEnabled: riderInsight.enabled }) }));
+vi.mock("../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ coachRiderInsightEnabled: riderInsight.enabled, activityAnalysisExpansionEnabled: viewport.expansionEnabled }) }));
 vi.mock("../hooks/useCoachRiderInsight", () => ({ useCoachRiderInsight: () => riderInsight }));
 vi.mock("../hooks/useCanonicalFitnessSummary", () => ({ useCanonicalFitnessSummary: () => canonicalSummary.state }));
 vi.mock("../features/trainingDecision/TodayTrainingDecisionCard", () => ({
@@ -86,6 +86,7 @@ describe("FitnessPage", () => {
   });
   beforeEach(() => {
     viewport.isMobile = true;
+    viewport.expansionEnabled = false;
     setDocData("users/test-uid/fitness/activity_window", { version: 1, windowDays: 90, maxEntries: 768, generation: 1, updatedAt: Date.now(), truncated: false, entries: [] });
     riderInsight.enabled = false;
     riderInsight.insight = null;
@@ -95,6 +96,17 @@ describe("FitnessPage", () => {
       rolloutState: "off", enabled: false, values: null, display: null, computedAt: null, status: null,
       metadata: null, showingLastGood: false, retry: vi.fn(),
     };
+  });
+
+  it.each([false, true])("plumbs period API expansion enabled=%s without eager requests", async enabled => {
+    viewport.isMobile = false; viewport.expansionEnabled = enabled;
+    const today = new Date().toISOString().slice(0, 10);
+    setDocData("users/test-uid/fitness/timeseries_bike", { discipline: "bike", schemaVersion: 1, computedAt: Date.now(), startDate: today, endDate: today, pointCount: 1, points: [{ date: today, ctl: 30, atl: 25, tsb: 5, dailyLoad: 0 }] });
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+    const load = await screen.findByRole("button", { name: "기간 분석 불러오기" });
+    expect(mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods")).toHaveLength(0);
+    if (!enabled) expect(load).toBeDisabled();
+    else { fireEvent.click(load); await waitFor(() => expect(mockCallableInvocations.some(call => call.name === "getPowerCurvePeriods")).toBe(true)); }
   });
 
   it.each(["desktop", "mobile", "embedded"].flatMap((surface) =>

@@ -77,6 +77,7 @@ vi.mock("./embeddedFirebase", () => ({
     functions: mocks.functions,
   }),
   ensureEmbeddedAppCheckReady: vi.fn().mockResolvedValue(undefined),
+  getEmbeddedAppCheckToken: vi.fn().mockResolvedValue("embedded-app-check"),
   embeddedAccountReady: (uid: string) => mocks.account.owner === null || mocks.account.owner === uid,
   embeddedFirestoreOwnerUid: () => mocks.account.owner,
   getEmbeddedFirestore: () => mocks.account.firestore ?? mocks.firestore,

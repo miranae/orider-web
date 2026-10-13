@@ -137,6 +137,7 @@
     "loadingQuota": "오늘의 사용 가능 횟수를 확인하고 있습니다…",
     "quotaLoadFailed": "AI 코치 사용 가능 횟수를 확인하지 못했습니다",
     "retryQuota": "사용 횟수 다시 확인",
+    "followUpTerminalSaved": "요청 결과가 대화 기록에 저장되었습니다. 답변 완료 여부는 표시된 결과를 확인해 주세요.",
     "followUpSaved": "답변을 저장하고 최신 대화를 불러왔습니다.",
     "submitFailed": "질문을 보내지 못했습니다. 입력 내용은 유지됩니다.",
     "sameRequestRetry": "같은 요청 결과 다시 확인",

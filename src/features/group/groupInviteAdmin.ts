@@ -1,5 +1,5 @@
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../../services/firebase";
+import { ensureAppCheckReady, functions } from "../../services/firebase";
 
 export interface GroupInviteAdminResult {
   inviteCode: string;
@@ -9,11 +9,13 @@ export interface GroupInviteAdminResult {
 }
 
 export async function getGroupInviteCode(groupId: string): Promise<GroupInviteAdminResult> {
+  await ensureAppCheckReady();
   const fn = httpsCallable<{ groupId: string }, GroupInviteAdminResult>(functions, "getGroupInviteCode");
   return (await fn({ groupId })).data;
 }
 
 export async function regenerateGroupInviteCode(groupId: string): Promise<GroupInviteAdminResult> {
+  await ensureAppCheckReady();
   const fn = httpsCallable<{ groupId: string }, GroupInviteAdminResult>(functions, "regenerateGroupInviteCode");
   return (await fn({ groupId })).data;
 }

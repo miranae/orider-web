@@ -47,6 +47,7 @@ export interface ActivityAnalysisModel {
   loadingStreams: boolean;
   showStreamSpinner: boolean;
   streamsError: string | null;
+  streamsSignInRequired: boolean;
   retryStreams: () => Promise<void>;
   requestStreams: () => void;
   serverMetrics: ReturnType<typeof useActivityMetrics>;
@@ -169,6 +170,7 @@ export function useActivityAnalysisModel(
     requestStreams,
     showStreamSpinner,
     streamsError,
+    streamsSignInRequired,
     loadingStreams,
   } = useActivityStreamsLoader({
     activityId,
@@ -194,7 +196,7 @@ export function useActivityAnalysisModel(
     overviewMetrics?.inputPending, overviewMetrics?.sourceLayer, overviewMetrics?.isVirtualPower,
     activity?.contentRevision, activity?.contentSelectedRevision, activity?.source, activity?.sourceMeta,
     activity?.isVirtualPower, activity?.virtualPowerParams, activity?.visibility,
-    overviewActivity?.hidePower, overviewActivity?.hideHr, overviewActivity?.metadataRevision,
+    overviewActivity?.metadataRevision,
     overviewActivity?.updatedAt,
   ]));
   const isStrava = activity?.source === "strava";
@@ -365,6 +367,7 @@ export function useActivityAnalysisModel(
       analysisSummary: activePowerOverride ? undefined : serverAnalysisSummary ?? undefined,
       summary: resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics),
       sport,
+      streamsSignInRequired,
       suppressServerPowerMetrics,
       suppressServerHeartRateMetrics,
       suppressServerCadenceMetrics,
@@ -386,6 +389,7 @@ export function useActivityAnalysisModel(
     serverMetrics,
     serverAnalysisSummary,
     sport,
+    streamsSignInRequired,
     suppressServerCadenceMetrics,
     suppressServerHeartRateMetrics,
     suppressServerPowerMetrics,
@@ -403,6 +407,7 @@ export function useActivityAnalysisModel(
     loadingStreams,
     showStreamSpinner,
     streamsError,
+    streamsSignInRequired,
     retryStreams,
     requestStreams,
     serverMetrics,

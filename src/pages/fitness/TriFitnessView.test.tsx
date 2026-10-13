@@ -45,7 +45,6 @@ function triProps(values: { bike?: number; run?: number; swim?: number } = {}) {
 }
 
 describe("TriFitnessView parity", () => {
-  // 달력 기준 컷오프를 검사하므로 실행 날짜를 고정한다(dev #1138 과 같은 기준일).
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
@@ -86,7 +85,7 @@ describe("TriFitnessView parity", () => {
     expect(screen.getByTestId("tri-legacy-range-note")).toHaveTextContent("최근 90일 데이터로 고정");
   });
 
-  it("filters a sparse legacy stack by calendar cutoff rather than point count", () => {
+  it("filters sparse PMC by latest-record cutoff and daily load by the current 42-day window", () => {
     const value: TriFitnessBreakdown = {
       bike: {
         canonical: true,
@@ -107,6 +106,19 @@ describe("TriFitnessView parity", () => {
     expect(container.querySelector("svg[data-point-count]")).toHaveAttribute("data-point-count", "1");
     expect(container.querySelector("[data-daily-point-count]")).toHaveAttribute("data-daily-point-count", "1");
     expect(screen.getByTestId("tri-legacy-range-note")).toHaveTextContent("최신 기록일 기준 최근 42일");
+  });
+
+  it("retains the historical PMC when its load records fall outside the current daily window", () => {
+    vi.setSystemTime(new Date("2026-10-14T12:00:00.000Z"));
+    const value = breakdown({ bike: 35.2 });
+    const { container } = renderWithProviders(
+      <TriFitnessView range={42} selectedHistoryRange={42} onRangeChange={vi.fn()} breakdown={value} timeline={buildTriFitnessTimeline(value)} combinedLoad={null} loadFocus={emptyLoadFocus} />,
+      { authenticated: true, route: "/fitness?sport=tri" },
+    );
+
+    expect(container.querySelector("svg[data-point-count]")).toHaveAttribute("data-point-count", "1");
+    expect(container.querySelector("[data-daily-point-count]")).toBeNull();
+    expect(screen.getByText("일별 부하 데이터가 없어요")).toBeInTheDocument();
   });
 
   it("renders the authoritative integrated detail exactly once without a workout card", () => {

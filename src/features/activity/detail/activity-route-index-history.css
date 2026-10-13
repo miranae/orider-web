@@ -1,0 +1,17 @@
+.route-index-history { min-inline-size: 0; border-top: 1px solid var(--line-soft); padding-top: var(--dim-section-gap); }
+.route-index-history summary { min-height: calc(var(--dim-button-height) + var(--space-1)); display: flex; align-items: center; cursor: pointer; }
+.route-index-history-body { display: grid; gap: var(--space-3); min-inline-size: 0; padding-top: var(--space-3); }
+.route-index-history label { display: grid; gap: var(--space-2); }
+.route-index-history select, .route-index-history .ds-btn { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.route-index-history .ds-btn--outline { color: var(--ink-0); }
+.route-index-history-chart { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); column-gap: var(--space-2); max-inline-size: 28rem; inline-size: 100%; min-inline-size: 0; }
+.route-index-history-chart svg { grid-column: 2; inline-size: 100%; display: block; overflow: visible; }
+.route-index-history-chart line { stroke: var(--line-soft); }
+.route-index-history-chart circle { fill: var(--accent-dark); }
+.route-index-history-axis { grid-column: 2; display: flex; justify-content: space-between; gap: var(--space-2); color: var(--ink-1); font-size: var(--fs-md); }
+.route-index-history ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.route-index-history a { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-height: calc(var(--dim-button-height) + var(--space-1)); color: var(--ink-1); font-size: var(--fs-md); text-decoration: underline; overflow-wrap: anywhere; }
+.route-index-history a:hover { color: var(--accent-dark); }
+
+.route-index-history-value-axis { position: relative; min-inline-size: 0; inline-size: calc(var(--space-8) * 3); color: var(--ink-1); font-size: var(--fs-md); }
+.route-index-history-value-axis span { position: absolute; inset-inline: 0; transform: translateY(-50%); overflow-wrap: anywhere; }

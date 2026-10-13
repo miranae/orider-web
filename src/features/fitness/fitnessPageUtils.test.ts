@@ -64,3 +64,29 @@ describe("fitnessPageUtils", () => {
     });
   });
 });
+
+it("keeps canonical source identity and deterministic latest/time/ID ties in fixed half-open periods", async () => {
+  const { aggregateWindowPowerCurve } = await import("./fitnessPageUtils");
+  const points = aggregateWindowPowerCurve([
+    { activityId: "older", startTime: 10, mmp: { "5s": 400, "1m": 200 } },
+    { activityId: "z", startTime: 20, mmp: { "5s": 400 } },
+    { activityId: "a", startTime: 20, mmp: { "5s": 400, "1m": NaN, "2m": 0, "3m": 100 } },
+    { activityId: "excluded-end", startTime: 30, mmp: { "5s": 999 } },
+    { activityId: "excluded-start", startTime: 9, mmp: { "5s": 999 } },
+  ], 10, 30);
+  expect(points).toEqual([{ durationSeconds: 5, maxPower: 400, sourceActivityId: "a", startTime: 20 },
+    { durationSeconds: 60, maxPower: 200, sourceActivityId: "older", startTime: 10 }]);
+});
+
+it("keeps legacy rounded watts but selects source using raw maxima, not rounded ties", async () => {
+  const { aggregateWindowPowerCurve } = await import("./fitnessPageUtils");
+  expect(aggregateWindowPowerCurve([
+    { activityId: "raw-best", startTime: 10, mmp: { "5s": 400.49 } },
+    { activityId: "newer-but-lower", startTime: 20, mmp: { "5s": 400.4 } },
+  ], 0, 30)).toEqual([{ durationSeconds: 5, maxPower: 400, sourceActivityId: "raw-best", startTime: 10 }]);
+});
+it("does not accept Object prototype names as durations", async () => {
+  const { aggregateWindowPowerCurve } = await import("./fitnessPageUtils");
+  expect(aggregateWindowPowerCurve([{ activityId: "invalid", startTime: 10,
+    mmp: JSON.parse('{"constructor":700,"toString":600,"__proto__":500}') }], 0, 30)).toEqual([]);
+});

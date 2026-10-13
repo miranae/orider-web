@@ -115,6 +115,13 @@ describe("coachHistoryClient", () => {
     expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({ method: "DELETE" });
   });
 
+  it("rejects a detail response bound to another thread", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      data: { thread: { ...summary, threadId: olderTurnId, turns: [] }, nextCursor: null },
+    })));
+    await expect(getCoachThread(threadId)).rejects.toThrow("INVALID_COACH_HISTORY_RESPONSE");
+  });
+
   it("rejects every non-2xx response even when the body contains data", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: { threads: [summary], nextCursor: null } }), { status: 500 }));
     await expect(getCoachThreads()).rejects.toThrow("HTTP_500");
@@ -130,7 +137,7 @@ describe("coachHistoryClient", () => {
       requestId: turnId, question: "지난주와 비교해줘", discipline: "bike", locale: "ko-KR",
       apiVersion: "v2", schemaVersion: "coach-respond-v2", capabilityVersion: "p1",
       contextFilters: {}, responseFormat: "auto", expectedSessionRevision: 75,
-    })).resolves.toMatchObject({ requestId: turnId, outcome: "failed", error: { code: "token_cap_exceeded" } });
+    })).resolves.toMatchObject({ requestId: turnId, outcome: "failed", httpOk: false, httpStatus: 500, error: { code: "token_cap_exceeded" } });
   });
 
   it("rejects an error-only non-2xx continuation response", async () => {

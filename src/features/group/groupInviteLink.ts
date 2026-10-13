@@ -1,5 +1,5 @@
-export function normalizeGroupInviteCode(code: string): string {
-  return code.trim().toUpperCase();
+export function normalizeGroupInviteCode(code: unknown): string {
+  return (typeof code === "string" ? code : "").trim().toUpperCase();
 }
 
 export function buildGroupInvitePath(code: string, language: string): string {

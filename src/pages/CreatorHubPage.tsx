@@ -38,6 +38,7 @@ import {
 import { functions } from "../services/firebase";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { formatCreatorEmailQuotaLabel, useCreatorRecipeEmail } from "../hooks/useCreatorRecipeEmail";
+import { assertIsolatedStageRuntime, getRuntimeConfig, type RuntimeConfig } from "../services/runtimeConfig";
 
 type CreatorTab = "featured" | "recipes" | "share";
 type CreatorSection = "overview" | "deploy" | "examples" | "recipes" | "share";
@@ -98,8 +99,18 @@ const kindTone: Record<CreatorRecipeKind, string> = {
 const marketStageIcons: LucideIcon[] = [BookOpen, ShieldCheck, KeyRound, LineChart];
 
 const PUBLIC_REPOSITORY_URL = "https://github.com/miranae/orider-web";
-const API_DOCS_URL = "/api/v1/docs";
-const OPENAPI_YAML_URL = "/api/v1/docs/openapi.yaml";
+export function creatorApiDocsLinks(config: RuntimeConfig = getRuntimeConfig()) {
+  assertIsolatedStageRuntime(config);
+  const base = (config.personalApiBase || "").trim();
+  if (base) {
+    const url = new URL(base);
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
+      throw new Error("personal-api/invalid-docs-base");
+    }
+  }
+  const apiBase = base.replace(/\/+$/, "");
+  return { docs: `${apiBase}/api/v1/docs`, openapi: `${apiBase}/api/v1/docs/openapi.yaml` };
+}
 const CREATOR_RECIPE_REQUEST_LINK = {
   pathname: "/board/write",
   search: "?type=inquiry&template=creator-recipe",
@@ -482,6 +493,7 @@ export default function CreatorHubPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { weeklyStats } = useWeeklyStats();
   const copy = useMemo(() => buildCopy(i18n.language), [i18n.language]);
+  const apiDocsLinks = creatorApiDocsLinks();
   const section = parseCreatorSection(sectionParam);
   const tabParam = searchParams.get("tab");
   const [tab, setTabState] = useState<CreatorTab>(() => sectionDefaultTab(section, tabParam));
@@ -1150,11 +1162,11 @@ export default function CreatorHubPage() {
             </div>
             <p className="mt-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.apiDocs.body}</p>
             <div className="mt-4 grid gap-2 min-[420px]:grid-cols-2 lg:grid-cols-1">
-              <a href={API_DOCS_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
+              <a href={apiDocsLinks.docs} className={buttonClass({ variant: "secondary", size: "sm" })}>
                 <ExternalLink size={15} aria-hidden />
                 {copy.apiDocs.swagger}
               </a>
-              <a href={OPENAPI_YAML_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
+              <a href={apiDocsLinks.openapi} className={buttonClass({ variant: "secondary", size: "sm" })}>
                 <FileText size={15} aria-hidden />
                 {copy.apiDocs.yaml}
               </a>

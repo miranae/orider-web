@@ -28,7 +28,7 @@ function toMillis(value: unknown): number {
   return 0;
 }
 
-export function useGroupPosts(groupId: string | undefined) {
+export function useGroupPosts(groupId: string | undefined, accessKey?: string) {
   const [posts, setPosts] = useState<GroupPost[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,6 +38,7 @@ export function useGroupPosts(groupId: string | undefined) {
       setLoading(false);
       return;
     }
+    setPosts([]);
     setLoading(true);
     return onSnapshot(
       query(collection(firestore, "groups", groupId, "posts"), orderBy("createdAt", "desc"), limit(5)),
@@ -61,7 +62,7 @@ export function useGroupPosts(groupId: string | undefined) {
         setLoading(false);
       },
     );
-  }, [groupId]);
+  }, [groupId, accessKey]);
 
   return { posts, loading };
 }
@@ -76,4 +77,16 @@ export async function createGroupPost(input: {
     { postId: string }
   >(functions, "createGroupPost");
   await fn({ groupId: input.groupId, content: normalizeGroupPostContent(input.content), kind: input.kind });
+}
+
+export async function updateGroupPost(input: {
+  groupId: string;
+  postId: string;
+  content: string;
+}): Promise<void> {
+  const fn = httpsCallable<
+    { groupId: string; postId: string; content: string },
+    { success: boolean }
+  >(functions, "updateGroupPost");
+  await fn({ groupId: input.groupId, postId: input.postId, content: normalizeGroupPostContent(input.content) });
 }

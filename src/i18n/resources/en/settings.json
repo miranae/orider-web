@@ -400,6 +400,7 @@
       "intro": "A read-only API key for using your own Orider data in personal charts, alerts, reports, and automation.",
       "keyName": "Key name",
       "keyNameHint": "e.g. Notion weekly report, personal dashboard",
+      "defaultName": "Personal dashboard",
       "scopes": "Allowed data",
       "once": "The full key is shown only once right after creation. After that, only the prefix is visible.",
       "create": "Create key",
