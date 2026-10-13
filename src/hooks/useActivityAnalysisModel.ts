@@ -196,7 +196,7 @@ export function useActivityAnalysisModel(
     overviewMetrics?.inputPending, overviewMetrics?.sourceLayer, overviewMetrics?.isVirtualPower,
     activity?.contentRevision, activity?.contentSelectedRevision, activity?.source, activity?.sourceMeta,
     activity?.isVirtualPower, activity?.virtualPowerParams, activity?.visibility,
-    overviewActivity?.hidePower, overviewActivity?.hideHr, overviewActivity?.metadataRevision,
+    overviewActivity?.metadataRevision,
     overviewActivity?.updatedAt,
   ]));
   const isStrava = activity?.source === "strava";

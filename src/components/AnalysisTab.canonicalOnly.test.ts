@@ -19,8 +19,8 @@ describe("activity analysis canonical-only boundary", () => {
     const embedded = readFileSync("src/embedded/surfaces/ActivityAnalysisSurface.tsx", "utf8");
     expect(embedded.indexOf("<ActivityOverviewEvidence")).toBeLessThan(embedded.indexOf("<AnalysisTab {..."));
   });
-  it("includes privacy and source metadata in the overview request identity", () => {
+  it("includes visibility and source metadata in the overview request identity", () => {
     const source = readFileSync("src/hooks/useActivityAnalysisModel.ts", "utf8");
-    for (const field of ["overviewActivity?.hidePower", "overviewActivity?.hideHr", "activity?.isVirtualPower", "activity?.contentRevision", "serverMetrics.status", "overviewMetrics?.metricsRevision", "overviewMetrics?.etag"]) expect(source).toContain(field);
+    for (const field of ["activity?.visibility", "activity?.isVirtualPower", "activity?.contentRevision", "serverMetrics.status", "overviewMetrics?.metricsRevision", "overviewMetrics?.etag"]) expect(source).toContain(field);
   });
 });
