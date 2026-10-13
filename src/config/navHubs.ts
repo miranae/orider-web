@@ -35,68 +35,63 @@ export const HUBS: Hub[] = [
     key: "coach",
     labelKey: "nav.coach",
     icon: Bot,
-    to: "/fitness",
+    to: "/coach/condition",
     subs: [
-      { labelKey: "nav.fitness", to: "/fitness" },
-      { labelKey: "nav.plan", to: "/plan" },
-      { labelKey: "nav.goals", to: "/goal-setup" },
-      { labelKey: "nav.chat", to: "/coach" },
+      { labelKey: "nav.fitness", to: "/coach/condition" },
+      { labelKey: "nav.plan", to: "/coach/plan" },
+      { labelKey: "nav.goals", to: "/coach/goals" },
+      { labelKey: "nav.chat", to: "/coach/chat" },
     ],
     match: (p) =>
-      p === "/fitness" || p === "/plan" || p === "/goal-setup" ||
-      p === "/goal/climb" || p === "/coach" || p.startsWith("/coach/") ||
-      p === "/log" || p === "/year-recap",
+      p.startsWith("/coach/") || p === "/goal-setup" || p === "/goal/climb",
   },
   {
     key: "club",
     labelKey: "nav.clubs",
     icon: Users,
-    to: "/groups",
+    to: "/clubs",
     subs: [],
-    match: (p) => p === "/groups" || p.startsWith("/group/"),
+    match: (p) => p === "/clubs" || p.startsWith("/club/") || p.startsWith("/group/join/"),
   },
   {
     key: "explore",
     labelKey: "nav.explore",
     icon: Map,
-    to: "/courses",
+    to: "/explore/courses",
     subs: [
-      { labelKey: "nav.courses", to: "/courses" },
-      { labelKey: "nav.segments", to: "/explore" },
-      { labelKey: "nav.events", to: "/events" },
-      { labelKey: "nav.discover", to: "/discover" },
+      { labelKey: "nav.courses", to: "/explore/courses" },
+      { labelKey: "nav.segments", to: "/explore/segments" },
+      { labelKey: "nav.events", to: "/explore/events" },
+      { labelKey: "nav.discover", to: "/explore/challenges" },
+      { labelKey: "nav.exploreClubs", to: "/explore/clubs" },
     ],
     match: (p) =>
-      p === "/courses" || p.startsWith("/course/") || p === "/explore" ||
-      p.startsWith("/segment/") || p === "/leaderboard" || p === "/events" ||
-      p.startsWith("/event/") || p.startsWith("/live/") || p === "/discover",
+      p.startsWith("/explore/") || p.startsWith("/course/") ||
+      p.startsWith("/segment/") || p.startsWith("/event/") || p.startsWith("/live/"),
   },
   {
     key: "community",
     labelKey: "nav.community",
     icon: MessageSquare,
-    to: "/board",
+    to: "/community/board",
     subs: [
-      { labelKey: "nav.board", to: "/board" },
-      { labelKey: "nav.creator", to: "/creator" },
+      { labelKey: "nav.board", to: "/community/board" },
+      { labelKey: "nav.creator", to: "/community/recipes" },
     ],
-    match: (p) =>
-      p === "/board" || p.startsWith("/board/") ||
-      p === "/creator" || p.startsWith("/creator/"),
+    match: (p) => p.startsWith("/community/"),
   },
   {
     key: "settings",
     labelKey: "nav.settings",
     icon: Settings,
-    to: "/my",
+    to: "/athlete/me",
     subs: [
-      { labelKey: "nav.profile", to: "/my" },
-      { labelKey: "nav.account", to: "/settings" },
+      { labelKey: "nav.profile", to: "/athlete/me" },
+      { labelKey: "nav.account", to: "/settings/account" },
     ],
     match: (p) =>
-      p === "/my" || p === "/settings" || p === "/friends" ||
-      p.startsWith("/friend/") || p.startsWith("/athlete/") ||
-      p === "/social" || p === "/about",
+      p === "/settings" || p.startsWith("/settings/") ||
+      p.startsWith("/athlete/") || p.startsWith("/friend/") || p === "/about",
   },
 ];
 

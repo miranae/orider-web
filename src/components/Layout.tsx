@@ -29,11 +29,13 @@ export function shouldBypassOnboardingRedirect(path: string): boolean {
   return (
     path === "/onboarding" ||
     path === "/settings" ||
+    path.startsWith("/settings/") ||
     path === "/strava/callback" ||
     path === "/migrate" ||
     path === "/terms" ||
     path === "/privacy" ||
     path === "/community" ||
+    path.startsWith("/policies/") ||
     path === "/strava-terms"
   );
 }
@@ -242,8 +244,8 @@ export default function Layout() {
           <div className="site-shell px-4 md:px-6 py-6 animate-page-in" data-page-shell="content">
             {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} />}
             <Suspense fallback={<div style={{ height: 200 }} />}>
-              {path === "/explore" && <ExplorePage />}
-              {path === "/courses" && <CoursesPage />}
+              {path === "/explore/segments" && <ExplorePage />}
+              {path === "/explore/courses" && <CoursesPage />}
             </Suspense>
             <Outlet />
           </div>
@@ -269,8 +271,8 @@ export default function Layout() {
             <Link to="/feedback" className="transition-colors hover:opacity-80">{tCommon("footer.feedback")}</Link>
             <Link to="/terms" className="transition-colors hover:opacity-80">{tCommon("footer.terms")}</Link>
             <Link to="/privacy" className="transition-colors hover:opacity-80">{tCommon("footer.privacy")}</Link>
-            <Link to="/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
-            <Link to="/board?type=inquiry" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</Link>
+            <Link to="/policies/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
+            <Link to="/community/board?type=inquiry" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</Link>
           </div>
         </div>
       </footer>

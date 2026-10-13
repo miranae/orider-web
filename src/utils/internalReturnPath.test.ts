@@ -15,6 +15,8 @@ describe("sanitizeInternalReturnPath", () => {
     "/ko/onboarding?returnTo=%2Fplan",
     "/friends?source=onboarding&returnTo=%2Fplan",
     "/en/goal-setup?returnTo=%2Fonboarding",
+    "/ko/athlete/me/friends?source=onboarding&returnTo=%2Fko%2F",
+    "/en/coach/goals?returnTo=%2Fonboarding",
   ])("rejects onboarding handoff loop target %s", (path) => {
     expect(sanitizeInternalReturnPath(path)).toBe("/");
   });

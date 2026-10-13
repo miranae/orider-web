@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "react-router-dom";
+import { stripLangPrefix } from "../../i18n/detector";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { httpsCallable } from "firebase/functions";
 import { auth, ensureAppCheckReady, functions } from "../../services/firebase";
@@ -47,6 +49,13 @@ export default function GroupsPage() {
     maxCount: 30,
   });
   const navigate = useNavigate();
+  const location = useLocation();
+  // /explore/clubs 는 같은 페이지의 별칭 — 찾기 섹션으로 스크롤한다.
+  const isFindAlias = stripLangPrefix(location.pathname) === "/explore/clubs";
+  const findSectionRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (isFindAlias && !myLoading) findSectionRef.current?.scrollIntoView?.({ block: "start" });
+  }, [isFindAlias, myLoading, uid]);
 
   const myGroupIds = new Set(myGroups.map((g) => g.id));
   const myGroupIdList = useMemo(() => myGroups.map((g) => g.id), [myGroups]);
@@ -85,7 +94,7 @@ export default function GroupsPage() {
         showToast(t("join.pendingToast"));
         return;
       }
-      navigate(`/group/${result.data.groupId}`);
+      navigate(`/club/${result.data.groupId}`);
     } catch (err: any) {
       if (!isCurrent()) return;
       setError((!["functions/permission-denied", "functions/unauthenticated"].includes(err?.code) && (err?.code === "functions/not-found" || err?.message === "Invalid invite code" || err?.message === "Invalid or expired invite code" || (err?.code === "functions/invalid-argument" && err?.message === "유효한 초대 코드가 필요합니다."))) ? t("error.invalidInviteCode") : t("error.joinFailed"));
@@ -107,7 +116,7 @@ export default function GroupsPage() {
         showToast(t("join.pendingToast"));
         return;
       }
-      navigate(`/group/${group.id}`);
+      navigate(`/club/${group.id}`);
     } catch {
       setError(t("error.joinFailed"));
     } finally {
@@ -211,7 +220,7 @@ export default function GroupsPage() {
 
       <GroupChallengesPanel userId={user.uid} groups={myGroups} />
 
-      <h2 className="text-[length:var(--fs-lg)] font-bold mb-4" style={{ color: "var(--ink-0)" }}>{t("find.section")}</h2>
+      <h2 ref={findSectionRef} className="text-[length:var(--fs-lg)] font-bold mb-4" style={{ color: "var(--ink-0)" }}>{t("find.section")}</h2>
 
       {pendingNotice && (
         <Card padding="compact" className="mb-4" role="status" style={{ borderColor: "color-mix(in oklch, var(--amber) 45%, var(--line-soft))" }}>
@@ -276,7 +285,7 @@ export default function GroupsPage() {
       <CreateGroupModal
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onCreated={(groupId) => { setShowCreate(false); navigate(`/group/${groupId}`); }}
+        onCreated={(groupId) => { setShowCreate(false); navigate(`/club/${groupId}`); }}
       />
     </div>
   );

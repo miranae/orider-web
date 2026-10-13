@@ -27,6 +27,7 @@ import { didHandoffFail } from "./services/appHandoff";
 import { takeImpersonationFailure } from "./services/impersonation";
 import { LocaleRoot } from "./components/i18n/LocaleRoot";
 import { LocaleRedirect } from "./components/i18n/LocaleRedirect";
+import { LegacyRedirect } from "./components/routing/LegacyRedirect";
 import { firestore } from "./services/firebase";
 
 const ActivityPage = lazyTimed("ActivityPage", () => import("./pages/ActivityPage"));
@@ -41,6 +42,7 @@ const GroupLeaderboardPage = lazyTimed("GroupLeaderboardPage", () => import("./p
 const GroupSettingsPage = lazyTimed("GroupSettingsPage", () => import("./pages/group/GroupSettingsPage"));
 const SegmentPage = lazyTimed("SegmentPage", () => import("./pages/SegmentPage"));
 const AthletePage = lazyTimed("AthletePage", () => import("./pages/AthletePage"));
+const AthleteMePage = lazyTimed("AthleteMePage", () => import("./pages/AthleteMePage"));
 const StravaCallbackPage = lazyTimed("StravaCallbackPage", () => import("./pages/StravaCallbackPage"));
 const SettingsPage = lazyTimed("SettingsPage", () => import("./pages/SettingsPage"));
 const FriendsPage = lazyTimed("FriendsPage", () => import("./pages/FriendsPage"));
@@ -80,8 +82,6 @@ const GoalSetupPage = lazyTimed("GoalSetupPage", () => import("./pages/GoalSetup
 const PlanPage = lazyTimed("PlanPage", () => import("./pages/PlanPage"));
 const TrainingLogPage = lazyTimed("TrainingLogPage", () => import("./pages/TrainingLogPage"));
 const VirtualPowerToolPage = lazyTimed("VirtualPowerToolPage", () => import("./pages/tools/VirtualPowerToolPage"));
-const SocialPage = lazyTimed("SocialPage", () => import("./pages/SocialPage"));
-const MyPage = lazyTimed("MyPage", () => import("./pages/MyPage"));
 const YearRecapPage = lazyTimed("YearRecapPage", () => import("./pages/YearRecapPage"));
 const OnboardingPage = lazyTimed("OnboardingPage", () => import("./pages/OnboardingPage"));
 const NotFoundPage = lazyTimed("NotFoundPage", () => import("./pages/NotFoundPage"));
@@ -110,67 +110,114 @@ export function AppRoutes() {
           <Route index element={null} />
           <Route path="activity/:activityId" element={<ActivityPage />} />
           <Route path="activity/:activityId/edit" element={<ActivityEditPage />} />
-          <Route path="fitness" element={<FitnessPage />} />
+          {/* 코치 — 정적(condition·plan·goals·chat)이 옛 coach/:threadId 보다 먼저 매칭 */}
+          <Route path="coach/condition" element={<FitnessPage />} />
+          <Route path="coach/plan" element={<PlanPage />} />
+          <Route path="coach/goals" element={<GoalSetupPage />} />
+          <Route path="coach/chat" element={<CoachHistoryPage />} />
+          <Route path="coach/chat/:threadId" element={<CoachHistoryPage />} />
           <Route path="lab" element={<LabPage />} />
           <Route path="goal/climb" element={<ClimbGoalSetupPage />} />
           <Route path="goal-setup" element={<GoalSetupPage />} />
-          <Route path="plan" element={<PlanPage />} />
-          <Route path="log" element={<TrainingLogPage />} />
-          <Route path="groups" element={<GroupsPage />} />
-          <Route path="group/:groupId" element={<GroupDashboardPage />} />
-          <Route path="group/:groupId/rides" element={<GroupRidesPage />} />
-          <Route path="group/:groupId/ride/:rideId" element={<GroupRidePage />} />
-          <Route path="group/:groupId/leaderboard" element={<GroupLeaderboardPage />} />
-          <Route path="group/:groupId/members" element={<GroupMembersPage />} />
-          <Route path="group/:groupId/settings" element={<GroupSettingsPage />} />
+          {/* 내 선수 프로필 — athlete/me 는 :userId 보다 먼저 */}
+          <Route path="athlete/me" element={<AthleteMePage />} />
+          <Route path="athlete/me/activities" element={<TrainingLogPage />} />
+          <Route path="athlete/me/records" element={<YearRecapPage />} />
+          <Route path="athlete/me/friends" element={<FriendsPage />} />
+          <Route path="athlete/me/gear" element={<SettingsPage tab="gear" />} />
+          <Route path="athlete/:userId" element={<AthletePage />} />
+          {/* 설정 탭 = 하위 경로. 옛 /settings?section= 은 SettingsPage(tab 없음)가 리디렉션 */}
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="settings/account" element={<SettingsPage tab="account" />} />
+          <Route path="settings/connections" element={<SettingsPage tab="connections" />} />
+          <Route path="settings/data" element={<SettingsPage tab="data" />} />
+          <Route path="settings/display" element={<SettingsPage tab="display" />} />
+          <Route path="settings/developer" element={<SettingsPage tab="developer" />} />
+          <Route path="settings/training" element={<SettingsPage tab="training" />} />
+          <Route path="settings/*" element={<LegacyRedirect to="/settings/account" />} />
+          {/* 클럽 — club/join 정적이 club/:groupId 보다 먼저. 발급 정본은 group/join/:code */}
+          <Route path="clubs" element={<GroupsPage />} />
+          <Route path="club/join" element={<NotFoundPage />} />
+          <Route path="club/join/:code" element={<GroupInvitePage />} />
+          <Route path="club/:groupId" element={<GroupDashboardPage />} />
+          <Route path="club/:groupId/rides" element={<GroupRidesPage />} />
+          <Route path="club/:groupId/rides/:rideId" element={<GroupRidePage />} />
+          <Route path="club/:groupId/leaderboard" element={<GroupLeaderboardPage />} />
+          <Route path="club/:groupId/members" element={<GroupMembersPage />} />
+          <Route path="club/:groupId/settings" element={<GroupSettingsPage />} />
           <Route path="group/join/:code" element={<GroupInvitePage />} />
           <Route path="segment/create" element={<CreateSegmentPage />} />
           <Route path="segment/:segmentId" element={<SegmentPage />} />
-          {/* Layout에서 직접 렌더 — element={null} 유지 필수 (변경 시 이중 렌더) */}
-          <Route path="courses" element={null} />
+          {/* 탐색 — explore/courses·explore/segments 는 Layout에서 직접 렌더: element={null} 유지 필수 (변경 시 이중 렌더) */}
+          <Route path="explore/courses" element={null} />
+          <Route path="explore/segments" element={null} />
+          <Route path="explore/segments/leaderboard" element={<LeaderboardPage />} />
+          <Route path="explore/events" element={<EventsPage />} />
+          <Route path="explore/events/organize" element={<EventOrganizerPage />} />
+          <Route path="explore/challenges" element={<DiscoverPage />} />
+          <Route path="explore/clubs" element={<GroupsPage />} />
           <Route path="course/create" element={<CreateCoursePage />} />
           <Route path="course/:courseId/edit" element={<CourseEditPage />} />
           <Route path="course/:courseId" element={<CoursePage />} />
-          <Route path="leaderboard" element={<LeaderboardPage />} />
-          <Route path="discover" element={<DiscoverPage />} />
-          <Route path="athlete/:userId" element={<AthletePage />} />
-          {/* Layout에서 직접 렌더 — element={null} 유지 필수 (변경 시 이중 렌더) */}
-          <Route path="explore" element={null} />
           <Route path="strava/callback" element={<StravaCallbackPage />} />
           <Route path="friend/:code" element={<FriendInvitePage />} />
-          <Route path="friends" element={<FriendsPage />} />
-          <Route path="social" element={<SocialPage />} />
-          <Route path="my" element={<MyPage />} />
-          <Route path="year-recap" element={<YearRecapPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="coach" element={<CoachHistoryPage />} />
-          <Route path="coach/:threadId" element={<CoachHistoryPage />} />
           <Route path="migrate" element={<MigrationPage />} />
-          <Route path="board" element={<BoardPage />} />
-          <Route path="board/write" element={<CreatePostPage />} />
-          <Route path="board/:postId" element={<PostDetailPage />} />
-          <Route path="creator" element={<CreatorHubPage />} />
-          <Route path="creator/:section" element={<CreatorHubPage />} />
+          {/* 커뮤니티 — board/write 정적이 board/:postId 보다 먼저 */}
+          <Route path="community/board" element={<BoardPage />} />
+          <Route path="community/board/write" element={<CreatePostPage />} />
+          <Route path="community/board/:postId" element={<PostDetailPage />} />
+          <Route path="community/recipes" element={<CreatorHubPage />} />
+          <Route path="community/recipes/:section" element={<CreatorHubPage />} />
           <Route path="tools/virtual-power" element={<VirtualPowerToolPage />} />
           {/* 상대 경로 — /:lang 프리픽스 보존 */}
-          <Route path="feedback" element={<Navigate to="../board?type=inquiry" replace />} />
-          <Route path="feedback/board" element={<Navigate to="../board?type=inquiry" replace />} />
+          <Route path="feedback" element={<Navigate to="../community/board?type=inquiry" replace />} />
+          <Route path="feedback/board" element={<Navigate to="../community/board?type=inquiry" replace />} />
           <Route path="terms" element={<TermsPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="policies/ai-coach" element={<AiCoachPolicyPage />} />
-          <Route path="community" element={<CommunityGuidelinesPage />} />
+          <Route path="policies/community" element={<CommunityGuidelinesPage />} />
           <Route path="about" element={<AboutPage />} />
           <Route path="strava-terms" element={<StravaTermsPage />} />
-          <Route path="events" element={<EventsPage />} />
           <Route path="event/create" element={<EventCreatePage />} />
-          <Route path="events/organize" element={<EventOrganizerPage />} />
           {/* Event detail page route */}
           <Route path="event/:eventId" element={<EventDetailPage />} />
-          <Route path="event/:eventId/dashboard" element={<EventDashboardPage />} />
+          <Route path="event/:eventId/host" element={<EventDashboardPage />} />
+          <Route path="event/:eventId/host/edit" element={<EventEditPage />} />
+          <Route path="event/:eventId/host/participants" element={<EventParticipantsPage />} />
           <Route path="event/:eventId/results" element={<EventResultsPage />} />
           <Route path="event/:eventId/register" element={<EventRegisterPage />} />
-          <Route path="event/:eventId/edit" element={<EventEditPage />} />
-          <Route path="event/:eventId/participants" element={<EventParticipantsPage />} />
+          {/* 옛 경로 → 새 경로 영구 리디렉션(외부 유입·푸시·북마크용). params 치환 + search·hash 보존 */}
+          <Route path="fitness" element={<LegacyRedirect to="/coach/condition" />} />
+          <Route path="coach" element={<LegacyRedirect to="/coach/chat" />} />
+          <Route path="coach/:threadId" element={<LegacyRedirect to="/coach/chat/:threadId" />} />
+          <Route path="plan" element={<LegacyRedirect to="/coach/plan" />} />
+          <Route path="my" element={<LegacyRedirect to="/athlete/me" />} />
+          <Route path="log" element={<LegacyRedirect to="/athlete/me/activities" />} />
+          <Route path="year-recap" element={<LegacyRedirect to="/athlete/me/records" />} />
+          <Route path="friends" element={<LegacyRedirect to="/athlete/me/friends" />} />
+          <Route path="social" element={<LegacyRedirect to="/athlete/me/friends" />} />
+          <Route path="groups" element={<LegacyRedirect to="/clubs" />} />
+          <Route path="group/:groupId" element={<LegacyRedirect to="/club/:groupId" />} />
+          <Route path="group/:groupId/rides" element={<LegacyRedirect to="/club/:groupId/rides" />} />
+          <Route path="group/:groupId/ride/:rideId" element={<LegacyRedirect to="/club/:groupId/rides/:rideId" />} />
+          <Route path="group/:groupId/leaderboard" element={<LegacyRedirect to="/club/:groupId/leaderboard" />} />
+          <Route path="group/:groupId/members" element={<LegacyRedirect to="/club/:groupId/members" />} />
+          <Route path="group/:groupId/settings" element={<LegacyRedirect to="/club/:groupId/settings" />} />
+          <Route path="courses" element={<LegacyRedirect to="/explore/courses" />} />
+          <Route path="explore" element={<LegacyRedirect to="/explore/segments" />} />
+          <Route path="discover" element={<LegacyRedirect to="/explore/challenges" />} />
+          <Route path="leaderboard" element={<LegacyRedirect to="/explore/segments/leaderboard" />} />
+          <Route path="events" element={<LegacyRedirect to="/explore/events" />} />
+          <Route path="events/organize" element={<LegacyRedirect to="/explore/events/organize" />} />
+          <Route path="event/:eventId/dashboard" element={<LegacyRedirect to="/event/:eventId/host" />} />
+          <Route path="event/:eventId/edit" element={<LegacyRedirect to="/event/:eventId/host/edit" />} />
+          <Route path="event/:eventId/participants" element={<LegacyRedirect to="/event/:eventId/host/participants" />} />
+          <Route path="board" element={<LegacyRedirect to="/community/board" />} />
+          <Route path="board/write" element={<LegacyRedirect to="/community/board/write" />} />
+          <Route path="board/:postId" element={<LegacyRedirect to="/community/board/:postId" />} />
+          <Route path="creator" element={<LegacyRedirect to="/community/recipes" />} />
+          <Route path="creator/:section" element={<LegacyRedirect to="/community/recipes/:section" />} />
+          <Route path="community" element={<LegacyRedirect to="/policies/community" />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

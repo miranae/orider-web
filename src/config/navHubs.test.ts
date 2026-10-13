@@ -5,37 +5,45 @@ describe("navHubs", () => {
   describe("getActiveHub", () => {
     it("허브 루트/서브 경로를 올바른 허브로 매핑", () => {
       expect(getActiveHub("/")).toBe("home");
-      expect(getActiveHub("/fitness")).toBe("coach");
-      expect(getActiveHub("/plan")).toBe("coach");
-      expect(getActiveHub("/log")).toBe("coach");
+      expect(getActiveHub("/coach/condition")).toBe("coach");
+      expect(getActiveHub("/coach/plan")).toBe("coach");
+      expect(getActiveHub("/coach/goals")).toBe("coach");
       expect(getActiveHub("/goal-setup")).toBe("coach");
-      expect(getActiveHub("/coach")).toBe("coach");
-      expect(getActiveHub("/courses")).toBe("explore");
-      expect(getActiveHub("/explore")).toBe("explore");
-      expect(getActiveHub("/discover")).toBe("explore");
-      expect(getActiveHub("/leaderboard")).toBe("explore");
-      expect(getActiveHub("/board")).toBe("community");
-      expect(getActiveHub("/creator")).toBe("community");
-      expect(getActiveHub("/groups")).toBe("club");
-      expect(getActiveHub("/events")).toBe("explore");
-      expect(getActiveHub("/friends")).toBe("settings");
-      expect(getActiveHub("/community")).toBe("home");
+      expect(getActiveHub("/coach/chat")).toBe("coach");
+      expect(getActiveHub("/explore/courses")).toBe("explore");
+      expect(getActiveHub("/explore/segments")).toBe("explore");
+      expect(getActiveHub("/explore/challenges")).toBe("explore");
+      expect(getActiveHub("/explore/segments/leaderboard")).toBe("explore");
+      expect(getActiveHub("/explore/events")).toBe("explore");
+      expect(getActiveHub("/explore/clubs")).toBe("explore");
+      expect(getActiveHub("/community/board")).toBe("community");
+      expect(getActiveHub("/community/recipes")).toBe("community");
+      expect(getActiveHub("/clubs")).toBe("club");
+      expect(getActiveHub("/athlete/me")).toBe("settings");
+      expect(getActiveHub("/athlete/me/activities")).toBe("settings");
+      expect(getActiveHub("/athlete/me/records")).toBe("settings");
+      expect(getActiveHub("/athlete/me/friends")).toBe("settings");
+      expect(getActiveHub("/athlete/me/gear")).toBe("settings");
+      expect(getActiveHub("/policies/community")).toBe("home");
       expect(getActiveHub("/about")).toBe("settings");
-      expect(getActiveHub("/social")).toBe("settings");
-      expect(getActiveHub("/my")).toBe("settings");
-      expect(getActiveHub("/settings")).toBe("settings");
+      expect(getActiveHub("/settings/account")).toBe("settings");
+      expect(getActiveHub("/settings/training")).toBe("settings");
     });
 
     it("상세 경로도 부모 허브로 매핑", () => {
       expect(getActiveHub("/course/abc")).toBe("explore");
       expect(getActiveHub("/segment/create")).toBe("explore");
       expect(getActiveHub("/segment/abc")).toBe("explore");
-      expect(getActiveHub("/board/123")).toBe("community");
-      expect(getActiveHub("/group/g1")).toBe("club");
+      expect(getActiveHub("/community/board/123")).toBe("community");
+      expect(getActiveHub("/community/recipes/deploy")).toBe("community");
+      expect(getActiveHub("/club/g1")).toBe("club");
+      expect(getActiveHub("/club/g1/rides/r1")).toBe("club");
+      expect(getActiveHub("/group/join/CODE")).toBe("club");
       expect(getActiveHub("/event/e1")).toBe("explore");
+      expect(getActiveHub("/event/e1/host")).toBe("explore");
       expect(getActiveHub("/athlete/u1")).toBe("settings");
       expect(getActiveHub("/friend/invite-code")).toBe("settings");
-      expect(getActiveHub("/coach/thread-1")).toBe("coach");
+      expect(getActiveHub("/coach/chat/thread-1")).toBe("coach");
       expect(getActiveHub("/policies/ai-coach")).toBe("home");
     });
 
@@ -44,9 +52,8 @@ describe("navHubs", () => {
       expect(getActiveHub("/activity/xyz/edit")).toBe("home");
     });
 
-    it("목표·연간 기록·라이브를 지정 허브로 매핑", () => {
+    it("목표·라이브를 지정 허브로 매핑", () => {
       expect(getActiveHub("/goal/climb")).toBe("coach");
-      expect(getActiveHub("/year-recap")).toBe("coach");
       expect(getActiveHub("/live/event-1")).toBe("explore");
     });
 
@@ -57,30 +64,31 @@ describe("navHubs", () => {
 
   describe("isHubSubRoute", () => {
     it("허브 서브 목적지(목록/루트)에선 true", () => {
-      for (const p of ["/fitness", "/plan", "/goal-setup", "/coach", "/discover", "/explore", "/courses", "/board", "/creator", "/events", "/my", "/settings"]) {
+      for (const p of ["/coach/condition", "/coach/plan", "/coach/goals", "/coach/chat", "/explore/challenges", "/explore/segments", "/explore/courses", "/explore/events", "/explore/clubs", "/community/board", "/community/recipes", "/athlete/me", "/settings/account"]) {
         expect(isHubSubRoute(p)).toBe(true);
       }
     });
 
     it("상세·흐름·홈 경로에선 false (서브탭바 미노출)", () => {
-      for (const p of ["/", "/board/123", "/group/g1", "/segment/s1", "/segment/create", "/course/c1", "/event/e1", "/goal/climb", "/activity/xyz", "/social", "/groups", "/log", "/year-recap", "/leaderboard", "/friends", "/about"]) {
+      for (const p of ["/", "/community/board/123", "/club/g1", "/segment/s1", "/segment/create", "/course/c1", "/event/e1", "/goal/climb", "/goal-setup", "/activity/xyz", "/clubs", "/athlete/me/activities", "/athlete/me/records", "/explore/segments/leaderboard", "/athlete/me/friends", "/about"]) {
         expect(isHubSubRoute(p)).toBe(false);
       }
     });
   });
 
   it("getHub 은 key 로 허브를 반환", () => {
-    expect(getHub("coach").subs.map((s) => s.to)).toEqual(["/fitness", "/plan", "/goal-setup", "/coach"]);
-    expect(getHub("explore").subs.map((s) => s.to)).toEqual(["/courses", "/explore", "/events", "/discover"]);
-    expect(getHub("community").subs.map((s) => s.to)).toEqual(["/board", "/creator"]);
+    expect(getHub("coach").subs.map((s) => s.to)).toEqual(["/coach/condition", "/coach/plan", "/coach/goals", "/coach/chat"]);
+    expect(getHub("explore").subs.map((s) => s.to)).toEqual(["/explore/courses", "/explore/segments", "/explore/events", "/explore/challenges", "/explore/clubs"]);
+    expect(getHub("community").subs.map((s) => s.to)).toEqual(["/community/board", "/community/recipes"]);
+    expect(getHub("settings").subs.map((s) => s.to)).toEqual(["/athlete/me", "/settings/account"]);
     expect(getHub("home").subs).toHaveLength(0);
     expect(getHub("club").subs).toHaveLength(0);
   });
 
   it("exposes exactly five ordered primary hubs while keeping settings utility-only", () => {
     expect(PRIMARY_HUBS.map((hub) => hub.key)).toEqual(["home", "coach", "club", "explore", "community"]);
-    expect(PRIMARY_HUBS.map((hub) => hub.to)).toEqual(["/", "/fitness", "/groups", "/courses", "/board"]);
+    expect(PRIMARY_HUBS.map((hub) => hub.to)).toEqual(["/", "/coach/condition", "/clubs", "/explore/courses", "/community/board"]);
     expect(PRIMARY_HUBS.some((hub) => hub.key === "settings")).toBe(false);
-    expect(getActiveHub("/settings")).toBe("settings");
+    expect(getActiveHub("/settings/account")).toBe("settings");
   });
 });

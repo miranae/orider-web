@@ -14,7 +14,7 @@ describe("mobile architecture r4", () => {
     expect(tabBar).toContain("PRIMARY_HUBS.map");
     expect(hubs).toContain('key: "club"');
     expect(hubs).toContain('labelKey: "nav.clubs"');
-    expect(hubs).toContain('to: "/groups"');
+    expect(hubs).toContain('to: "/clubs"');
   });
 
   it("treats coarse pointer landscape phones as mobile", () => {
