@@ -77,9 +77,8 @@ vi.mock("chart.js", () => ({
   Filler: class {},
 }));
 
-const { mockRoute, mockSetActivityOwner } = vi.hoisted(() => ({
+const { mockRoute } = vi.hoisted(() => ({
   mockRoute: { activityId: "test-activity" },
-  mockSetActivityOwner: vi.fn(),
 }));
 const COURSE_ASYNC_TIMEOUT = 10_000;
 const findSentButton = () => screen.findByRole(
@@ -98,7 +97,6 @@ vi.mock("react-router-dom", async (importOriginal) => {
   return {
     ...actual,
     useParams: () => ({ activityId: mockRoute.activityId }),
-    useOutletContext: () => ({ setActivityOwner: mockSetActivityOwner }),
   };
 });
 
@@ -124,7 +122,6 @@ describe("ActivityPage", () => {
     vi.mocked(onAuthStateChanged).mockClear();
     vi.mocked(where).mockClear();
     vi.mocked(httpsCallable).mockClear();
-    mockSetActivityOwner.mockClear();
     window.sessionStorage.clear();
     clearRideRouteIntentMemoryForTests();
   });
@@ -402,41 +399,6 @@ describe("ActivityPage", () => {
     expect(screen.queryByTestId("activity-overview-evidence")).not.toBeInTheDocument();
     expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
     expect(screen.queryByText("평가 근거 다시 불러오기")).not.toBeInTheDocument();
-  });
-
-  it("publishes the current owner and clears stale ownership across route changes", async () => {
-    const first = createMockActivity({
-      id: "test-activity",
-      userId: "owner-a",
-      description: "첫 활동",
-    });
-    const second = createMockActivity({
-      id: "next-activity",
-      userId: "owner-b",
-      description: "다음 활동",
-    });
-    setDocData("activities/test-activity", first as unknown as Record<string, unknown>);
-    setDocData("activities/next-activity", second as unknown as Record<string, unknown>);
-
-    const view = renderWithProviders(<ActivityPage />);
-    await screen.findByText("첫 활동");
-    await waitFor(() => expect(mockSetActivityOwner).toHaveBeenCalledWith({
-      activityId: "test-activity",
-      ownerId: "owner-a",
-    }));
-
-    const callsBeforeTransition = mockSetActivityOwner.mock.calls.length;
-    mockRoute.activityId = "next-activity";
-    view.rerender(<ActivityPage />);
-    expect(mockSetActivityOwner.mock.calls.slice(callsBeforeTransition)).toContainEqual([null]);
-    await screen.findByText("다음 활동");
-    await waitFor(() => expect(mockSetActivityOwner).toHaveBeenCalledWith({
-      activityId: "next-activity",
-      ownerId: "owner-b",
-    }));
-
-    view.unmount();
-    expect(mockSetActivityOwner).toHaveBeenLastCalledWith(null);
   });
 
   it("passes activity identity and visibility context to the share action", async () => {

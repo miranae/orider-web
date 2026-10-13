@@ -16,7 +16,7 @@ export default function EventOrganizerPage() {
     <Card padding="none" style={{ padding: "var(--space-5)", borderColor: "color-mix(in oklch, var(--lime) 35%, var(--line-soft))" }}>
       <Text as="h2" variant="title">{t("organizerLanding.compare.title")}</Text>
       <p style={{ color: "var(--ink-2)", margin: "var(--space-2) 0 var(--space-4)" }}>{t("organizerLanding.compare.description")}</p>
-      <div className="flex flex-wrap" style={{ gap: "var(--space-2)" }}><Link to="/login" className={buttonClass({ variant: "primary" })}>{t("organizerLanding.cta")}</Link><Link to="/events" className={buttonClass({ variant: "secondary" })}>{t("organizerLanding.events")}</Link></div>
+      <div className="flex flex-wrap" style={{ gap: "var(--space-2)" }}><Link to="/login" className={buttonClass({ variant: "primary" })}>{t("organizerLanding.cta")}</Link><Link to="/explore/events" className={buttonClass({ variant: "secondary" })}>{t("organizerLanding.events")}</Link></div>
     </Card>
   </main>;
 }

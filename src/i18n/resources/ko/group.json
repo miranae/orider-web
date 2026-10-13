@@ -62,7 +62,7 @@
   "filter.tri": "통합",
   "filter.roles": "모든 역할",
   "filter.byParticipants": "참가자",
-  "empty.noGroups": "아직 가입한 그룹이 없어요",
+  "empty.noGroups": "아직 가입한 클럽이 없어요 — 클럽 찾기",
   "empty.noPublicGroups": "공개 그룹이 없습니다",
   "empty.noRides": "그룹 라이드가 없습니다",
   "empty.noPendingRequests": "대기 중인 가입 요청이 없어요",

@@ -647,7 +647,7 @@ export default function EventDashboardPage() {
           </Button>
           <Button
             type="button"
-            onClick={() => navigate(`/event/${eventId}/participants`)} variant="secondary" size="sm"
+            onClick={() => navigate(`/event/${eventId}/host/participants`)} variant="secondary" size="sm"
           >
             👥 {t("participants")}
           </Button>

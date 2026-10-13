@@ -17,13 +17,13 @@ describe("GroupSubNav", () => {
   it("provides localized routes back to the group and event lists", () => {
     renderWithProviders(
       <Routes>
-        <Route path="/:lang/group/:groupId" element={<GroupSubNav group={group} isCreator={false} />} />
+        <Route path="/:lang/club/:groupId" element={<GroupSubNav group={group} isCreator={false} />} />
       </Routes>,
-      { route: "/ko/group/group-1" },
+      { route: "/ko/club/group-1" },
     );
 
     expect(screen.getByRole("navigation", { name: "그룹 탐색" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "← 그룹 목록" })).toHaveAttribute("href", "/ko/groups");
-    expect(screen.getByRole("link", { name: "전체 이벤트" })).toHaveAttribute("href", "/ko/events");
+    expect(screen.getByRole("link", { name: "← 그룹 목록" })).toHaveAttribute("href", "/ko/clubs");
+    expect(screen.getByRole("link", { name: "전체 이벤트" })).toHaveAttribute("href", "/ko/explore/events");
   });
 });

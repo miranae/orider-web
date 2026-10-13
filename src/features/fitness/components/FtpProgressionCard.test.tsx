@@ -21,7 +21,7 @@ describe("FtpProgressionCard", () => {
     expect(screen.getAllByText(/월별 자동 추정 eFTP/).length).toBeGreaterThan(0);
     expect(screen.getByText(/현재 적용 FTP 250W/)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /월별 추정 FTP 추이 차트:.*250W.*265W/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "훈련 설정에서 검토" })).toHaveAttribute("href", "/ko/settings?section=training");
+    expect(screen.getByRole("link", { name: "훈련 설정에서 검토" })).toHaveAttribute("href", "/ko/settings/training");
   });
 
   it("hides when neither a two-point trend nor a breakthrough is available", () => {

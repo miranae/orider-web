@@ -170,7 +170,7 @@ export default function GroupSettingsPage() {
         <EmptyState
           icon="👥"
           title={t("empty.groupNotFound")}
-          actions={[{ label: t("empty.goToList"), variant: "primary", href: "/groups" }]}
+          actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}
         />
       </div>
     );
@@ -199,7 +199,7 @@ export default function GroupSettingsPage() {
                 await leaveFn({ groupId });
                 if (leaveIntent.current !== intent || auth.currentUser?.uid !== uid) return;
                 showToast(t("settings.leaveSuccess"));
-                navigate("/groups");
+                navigate("/clubs");
               } catch (err) {
                 if (leaveIntent.current !== intent || auth.currentUser?.uid !== uid) return;
                 logClientError("GroupSettingsPage.leaveGroup", err, { groupId });
@@ -268,7 +268,7 @@ export default function GroupSettingsPage() {
     try {
       await updateDoc(doc(firestore, "groups", groupId), { isActive: false });
       showToast(t("settings.deleteSuccess"));
-      navigate("/groups");
+      navigate("/clubs");
     } catch (err) {
       logClientError("GroupSettingsPage.handleDelete", err, { groupId });
       showToast(t("error.deleteFailed"), "error");
@@ -282,9 +282,9 @@ export default function GroupSettingsPage() {
 
       {/* Breadcrumb */}
       <div className="text-[length:var(--fs-xs)] flex items-center mb-3" style={{ gap: "var(--space-1-5)", color: "var(--ink-3)" }}>
-        <Link to="/groups" style={{ color: "var(--ink-3)" }}>{t("breadcrumb.groups")}</Link>
+        <Link to="/clubs" style={{ color: "var(--ink-3)" }}>{t("breadcrumb.groups")}</Link>
         <span style={{ color: "var(--ink-4)" }}>/</span>
-        <Link to={`/group/${groupId}`} style={{ color: "var(--ink-1)", fontWeight: 500 }}>{group.name}</Link>
+        <Link to={`/club/${groupId}`} style={{ color: "var(--ink-1)", fontWeight: 500 }}>{group.name}</Link>
         <span style={{ color: "var(--ink-4)" }}>/</span>
         <span style={{ color: "var(--ink-0)" }}>{t("breadcrumb.settings")}</span>
       </div>
@@ -559,7 +559,7 @@ export default function GroupSettingsPage() {
           {/* #379: 그룹장의 유일한 출구가 '삭제'로 보이지 않도록 이임 동선을 위험 구역에서 직접 노출 */}
           <p className="text-[length:var(--fs-xs)] mb-4" style={{ color: "var(--ink-2)" }}>
             {t("settings.transferHint")}{" "}
-            <Link to={`/group/${groupId}/members`} style={{ color: "var(--lime)", fontWeight: 500 }}>
+            <Link to={`/club/${groupId}/members`} style={{ color: "var(--lime)", fontWeight: 500 }}>
               {t("settings.transferLink")}
             </Link>
           </p>

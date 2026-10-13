@@ -85,7 +85,7 @@ export default function GroupsPage() {
         showToast(t("join.pendingToast"));
         return;
       }
-      navigate(`/group/${result.data.groupId}`);
+      navigate(`/club/${result.data.groupId}`);
     } catch (err: any) {
       if (!isCurrent()) return;
       setError((!["functions/permission-denied", "functions/unauthenticated"].includes(err?.code) && (err?.code === "functions/not-found" || err?.message === "Invalid invite code" || err?.message === "Invalid or expired invite code" || (err?.code === "functions/invalid-argument" && err?.message === "유효한 초대 코드가 필요합니다."))) ? t("error.invalidInviteCode") : t("error.joinFailed"));
@@ -107,7 +107,7 @@ export default function GroupsPage() {
         showToast(t("join.pendingToast"));
         return;
       }
-      navigate(`/group/${group.id}`);
+      navigate(`/club/${group.id}`);
     } catch {
       setError(t("error.joinFailed"));
     } finally {
@@ -276,7 +276,7 @@ export default function GroupsPage() {
       <CreateGroupModal
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onCreated={(groupId) => { setShowCreate(false); navigate(`/group/${groupId}`); }}
+        onCreated={(groupId) => { setShowCreate(false); navigate(`/club/${groupId}`); }}
       />
     </div>
   );

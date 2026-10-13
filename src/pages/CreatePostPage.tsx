@@ -721,9 +721,9 @@ const CreatePostPage: React.FC = () => {
           status: 'new',
           view: 'my',
         });
-        navigate(`/board?${params.toString()}`);
+        navigate(`/community/board?${params.toString()}`);
       } else {
-        navigate(`/board/${postId}`);
+        navigate(`/community/board/${postId}`);
       }
       if (draftKey) clearPostDraft(draftKey);
     } catch (err) {
@@ -851,8 +851,8 @@ const CreatePostPage: React.FC = () => {
 
   // 권한 가드 — 모든 hook 호출 이후로 이동 (rules-of-hooks 준수).
   // Why: 이전엔 hook 선언 위에 early return 이 있어 user→login 전환 시 hook 순서 불일치.
-  if (!user) return <Navigate to="/board" replace />;
-  if (isDevlog) return <Navigate to="/board?type=devlog" replace />;
+  if (!user) return <Navigate to="/community/board" replace />;
+  if (isDevlog) return <Navigate to="/community/board?type=devlog" replace />;
 
   return (
     /* 복합 에디터의 도구 모음과 입력 행은 기존 1120px 작업 폭을 유지한다. */

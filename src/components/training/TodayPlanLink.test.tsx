@@ -9,7 +9,7 @@ describe("TodayPlanLink", () => {
     renderWithProviders(<TodayPlanLink />, { route: "/ko/" });
 
     const link = screen.getByRole("link", { name: "오늘 계획 보기" });
-    expect(link).toHaveAttribute("href", "/ko/plan");
+    expect(link).toHaveAttribute("href", "/ko/coach/plan");
     expect(link).toHaveClass("ds-btn--ghost", "ds-btn--sm");
   });
 
@@ -17,7 +17,7 @@ describe("TodayPlanLink", () => {
     renderWithProviders(<TodayPlanLink discipline="run" />, { route: "/ko/?sport=run" });
 
     expect(screen.getByRole("link", { name: "오늘 계획 보기" }))
-      .toHaveAttribute("href", "/ko/plan?sport=run");
+      .toHaveAttribute("href", "/ko/coach/plan?sport=run");
   });
 
   it("renders the localized swim route under the English URL", () => {
@@ -30,6 +30,6 @@ describe("TodayPlanLink", () => {
     );
 
     expect(screen.getByRole("link", { name: "오늘 계획 보기" }))
-      .toHaveAttribute("href", "/en/plan?sport=swim");
+      .toHaveAttribute("href", "/en/coach/plan?sport=swim");
   });
 });

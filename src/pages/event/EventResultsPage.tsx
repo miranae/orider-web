@@ -392,7 +392,7 @@ export default function EventResultsPage() {
         <EmptyState
           icon="🏆"
           title={t("empty.noResults")}
-          actions={[{ label: t("create.eventList"), variant: "primary", onClick: () => navigate("/events") }]}
+          actions={[{ label: t("create.eventList"), variant: "primary", onClick: () => navigate("/explore/events") }]}
         />
       </div>
     );
@@ -414,7 +414,7 @@ export default function EventResultsPage() {
       >
         <div className="site-shell" style={{ padding: "14px 24px 0" }}>
           <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
-            <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
+            <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
             <span style={{ color: "var(--ink-4)" }}>›</span>
             <Link to={`/event/${eventId}`} style={{ color: "var(--ink-3)" }} className="truncate">
               {eventHead.name}
@@ -846,7 +846,7 @@ export default function EventResultsPage() {
                       {t("resultsView.nextAction.nextEvent", { name: nextEvents.get(activeGroupId)!.name })} →
                     </Link>
                   )}
-                  <Link to={`/group/${activeGroupId}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--aqua)" }}>
+                  <Link to={`/club/${activeGroupId}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--aqua)" }}>
                     {t("resultsView.nextAction.group", { name: group?.name || t("group.fallbackName") })} →
                   </Link>
                 </div>

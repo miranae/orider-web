@@ -519,6 +519,10 @@
     "deviceHint": "Mobile app sync",
     "appLabel": "App & Data",
     "appHint": "Language, units, export",
+    "displayLabel": "Display & language",
+    "displayHint": "Language, units, theme",
+    "dataLabel": "My data",
+    "dataHint": "Export, cache, deletion",
     "mobileHubLabel": "Settings categories",
     "backToProfile": "Back to profile",
     "backToSettings": "Back to settings categories"

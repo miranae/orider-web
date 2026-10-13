@@ -35,7 +35,7 @@ describe("normal group leave App Check readiness", () => {
     await act(async () => ready());
     expect(mockCallableInvocations).toEqual([{ name: "leaveGroup", data: { groupId: "group-1" } }]);
     expect(state.showToast).toHaveBeenCalledWith("그룹에서 탈퇴했습니다.");
-    expect(state.navigate).toHaveBeenCalledWith("/groups");
+    expect(state.navigate).toHaveBeenCalledWith("/clubs");
   });
   it("fails closed on readiness rejection with localized failure", async () => {
     vi.mocked(ensureAppCheckReady).mockRejectedValue(new Error("app-check/token-timeout"));

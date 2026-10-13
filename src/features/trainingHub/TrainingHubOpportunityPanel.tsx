@@ -58,12 +58,12 @@ export function BikeActionAccordion({
   t: T;
 }) {
   const rows = useMemo(() => [
-    { id: "ftp", needed: !ftp, href: "/settings?section=training" },
-    { id: "tte", needed: !hasPdcModel, href: "/plan" },
-    { id: "zones", needed: !hasZoneData, href: "/log" },
-    { id: "vo2", needed: !hasPdcModel, href: "/fitness?sport=bike" },
-    { id: "recovery", needed: false, href: "/plan" },
-    { id: "endurance", needed: false, href: "/plan" },
+    { id: "ftp", needed: !ftp, href: "/settings/training" },
+    { id: "tte", needed: !hasPdcModel, href: "/coach/plan" },
+    { id: "zones", needed: !hasZoneData, href: "/athlete/me/activities" },
+    { id: "vo2", needed: !hasPdcModel, href: "/coach/condition?sport=bike" },
+    { id: "recovery", needed: false, href: "/coach/plan" },
+    { id: "endurance", needed: false, href: "/coach/plan" },
   ].sort((a, b) => Number(b.needed) - Number(a.needed)), [ftp, hasPdcModel, hasZoneData]);
   const primaryId = rows.find((row) => row.needed)?.id ?? rows[0]!.id;
   const [open, setOpen] = useState<string | null>(primaryId);

@@ -26,7 +26,7 @@ describe("next planned running card", () => {
     expect(card).toHaveTextContent(language === "ko" ? "30분" : "30 min");
     expect(within(card).getAllByRole("listitem")).toHaveLength(3);
     const target = new URL(within(card).getByRole("link").getAttribute("href")!, "https://example.test");
-    expect(target.pathname).toBe(`/${language}/plan`);
+    expect(target.pathname).toBe(`/${language}/coach/plan`);
     expect(Object.fromEntries(target.searchParams)).toEqual({ sport: "run", goalId: "goal exact", weekId: "week-02", dayIndex: "3", date: "2026-10-01" });
     expect(card).not.toHaveTextContent(/FTP|\bW\b|km\/h|\/km|\/mi|170|185|analysis\.|today\.|workouts\./);
   });
@@ -34,7 +34,7 @@ describe("next planned running card", () => {
     state.language = "ko";
     render(<MemoryRouter><RunNextTrainingCard state={{ status, session: null }} /></MemoryRouter>);
     expect(screen.queryByTestId("run-training-facts")).not.toBeInTheDocument();
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/ko/plan?sport=run");
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/ko/coach/plan?sport=run");
     expect(screen.getByTestId("run-next-training-card")).toHaveTextContent(ko.analysis.run.nextPlan[status]);
   });
   it("does not synthesize blocks when server composition is unavailable", () => {

@@ -50,8 +50,8 @@ it("offers owner navigation to running plan and fitness without starting a worko
  renderWithProviders(<RunActivityIntro detail={introDetail} activityId="run" gapSecPerKm={340} />);
  const links = screen.getByTestId("run-next-actions").querySelectorAll("a");
  expect(links).toHaveLength(2);
- expect(links[0]).toHaveAttribute("href", "/ko/plan?sport=run");
- expect(links[1]).toHaveAttribute("href", "/ko/fitness?sport=run");
+ expect(links[0]).toHaveAttribute("href", "/ko/coach/plan?sport=run");
+ expect(links[1]).toHaveAttribute("href", "/ko/coach/condition?sport=run");
 });
 it("shows no owner actions on a public run", () => {
  renderWithProviders(<RunActivityIntro detail={{ ...introDetail, isOwner: false }} activityId="run" gapSecPerKm={340} />);

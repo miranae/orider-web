@@ -1,6 +1,6 @@
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useOutletContext, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
@@ -78,7 +78,6 @@ import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { ActivityShareButton } from "../features/activity/share/ActivityShareButton";
 import type { ActivityShareMetric } from "../features/activity/share/activityShareCard";
 import { SummarySensorFallbackCard, type SummarySensorMetric } from "../features/activity/detail/ActivityInsightCards";
-import type { LayoutOutletContext } from "../components/Layout";
 import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignalCard";
 import { useActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { ActivityFtpDecisionCard } from "../features/activity/detail/ActivityFtpDecisionCard";
@@ -89,8 +88,6 @@ export default function ActivityPage() {
   const timeAgo = useTimeAgo();
   const formatFullDate = useFormatFullDate();
   const { activityId } = useParams<{ activityId: string }>();
-  const outletContext = useOutletContext<LayoutOutletContext | null>();
-  const setActivityOwner = outletContext?.setActivityOwner;
   const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
   const { units } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
@@ -180,16 +177,6 @@ export default function ActivityPage() {
     setActiveTab("overview");
     runLocationAnchor.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
   }, []);
-
-  // Layout의 허브 판정에 소유권을 전달한다. 같은 ActivityPage 인스턴스에서 activityId만
-  // 바뀔 때 이전 활동의 owner가 남지 않도록 현재 문서와 route id가 일치할 때만 publish한다.
-  useEffect(() => {
-    const owner = activity && activity.id === activityId
-      ? { activityId, ownerId: activity.userId }
-      : null;
-    setActivityOwner?.(owner);
-    return () => setActivityOwner?.(null);
-  }, [activity?.id, activity?.userId, activityId, setActivityOwner]);
 
   useEffect(() => {
     // 분석 데이터는 useActivityAnalysisModel 이 초기화한다. 페이지 전용 소셜 상태는

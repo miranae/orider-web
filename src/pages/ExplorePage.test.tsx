@@ -79,12 +79,12 @@ describe("ExplorePage", () => {
     mockOverviewFetch([]);
   });
 
-  // ExplorePage는 라우트가 정확히 /explore (또는 /{lang}/explore) 일 때만 렌더한다
-  // (Layout 직접 렌더 최적화). 따라서 모든 테스트는 route:"/explore" 로 마운트한다.
+  // ExplorePage는 라우트가 정확히 /explore/segments (또는 /{lang}/explore/segments) 일 때만 렌더한다
+  // (Layout 직접 렌더 최적화). 따라서 모든 테스트는 route:"/explore/segments" 로 마운트한다.
 
   it("renders explore page heading", async () => {
     const ExplorePage = await loadExplorePage();
-    renderWithProviders(<ExplorePage />, { route: "/explore" });
+    renderWithProviders(<ExplorePage />, { route: "/explore/segments" });
     await waitFor(() => {
       const content = document.body.textContent ?? "";
       expect(
@@ -97,7 +97,7 @@ describe("ExplorePage", () => {
 
   it("shows category filter buttons", async () => {
     const ExplorePage = await loadExplorePage();
-    renderWithProviders(<ExplorePage />, { route: "/explore" });
+    renderWithProviders(<ExplorePage />, { route: "/explore/segments" });
     await waitFor(() => {
       expect(screen.getByText(/전체/)).toBeInTheDocument();
       expect(screen.getByText(/힐클라임/)).toBeInTheDocument();
@@ -107,7 +107,7 @@ describe("ExplorePage", () => {
 
   it("shows empty state when no segments", async () => {
     const ExplorePage = await loadExplorePage();
-    renderWithProviders(<ExplorePage />, { route: "/explore" });
+    renderWithProviders(<ExplorePage />, { route: "/explore/segments" });
     await waitFor(() => {
       const content = document.body.textContent ?? "";
       expect(
@@ -119,7 +119,7 @@ describe("ExplorePage", () => {
   it("renders segments from overview tiles", async () => {
     mockOverviewFetch([SEG_CLIMB]);
     const ExplorePage = await loadExplorePage();
-    renderWithProviders(<ExplorePage />, { route: "/explore" });
+    renderWithProviders(<ExplorePage />, { route: "/explore/segments" });
     await waitFor(() => {
       expect(screen.getByText("남산 업힐")).toBeInTheDocument();
     });
@@ -130,7 +130,7 @@ describe("ExplorePage", () => {
     const ExplorePage = await loadExplorePage();
     const user = userEvent.setup();
 
-    renderWithProviders(<ExplorePage />, { route: "/explore" });
+    renderWithProviders(<ExplorePage />, { route: "/explore/segments" });
     await waitFor(() => {
       expect(screen.getByText("남산 업힐")).toBeInTheDocument();
       expect(screen.getByText("탄천 평지")).toBeInTheDocument();

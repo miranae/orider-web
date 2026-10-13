@@ -188,7 +188,7 @@ export default function EventDetailPage() {
       if (!currentStart()) return;
       const startEvent = httpsCallable(functions, "startEvent");
       await startEvent({ eventId });
-      if (currentStart()) navigate(`/event/${eventId}/dashboard`);
+      if (currentStart()) navigate(`/event/${eventId}/host`);
     } catch (err: unknown) {
       if (!currentStart()) return;
       logClientError("EventDetailPage.startEvent", err, { eventId });
@@ -546,7 +546,7 @@ export default function EventDetailPage() {
           title={t("empty.noResults")}
           description={t("detail.notFound.description")}
           actions={[
-            { label: t("detail.button.eventList"), variant: "primary", onClick: () => navigate("/events") },
+            { label: t("detail.button.eventList"), variant: "primary", onClick: () => navigate("/explore/events") },
           ]}
         />
       </div>
@@ -588,7 +588,7 @@ export default function EventDetailPage() {
     <>
       {/* Breadcrumb */}
       <div className="site-shell flex items-center" style={{ padding: "14px 24px 0", gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-        <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
+        <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
         <span style={{ color: "var(--ink-4)" }}>›</span>
         <span className="truncate" style={{ color: "var(--ink-2)" }}>{event.name}</span>
       </div>
@@ -711,7 +711,7 @@ export default function EventDetailPage() {
                 {event.status === "LIVE" && (
                   <Button
                     type="button"
-                    onClick={() => navigate(`/event/${eventId}/dashboard`)} variant="primary" size="sm"
+                    onClick={() => navigate(`/event/${eventId}/host`)} variant="primary" size="sm"
                   >
                     📊 {t("detail.button.liveDashboard")}
                   </Button>
@@ -1032,7 +1032,7 @@ export default function EventDetailPage() {
                 </div>
               )}
               <div className="flex flex-wrap" style={{ gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
-                <Link to={`/group/${activeGroupId}`}>
+                <Link to={`/club/${activeGroupId}`}>
                   <Button type="button" variant="primary" size="sm">{t("group.viewAndJoin")}</Button>
                 </Link>
                 {nextEvents.get(activeGroupId) && (
@@ -1110,7 +1110,7 @@ export default function EventDetailPage() {
               <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("label.recentParticipants")}</h2>
               <button
                 type="button"
-                onClick={() => navigate(`/event/${eventId}/participants`)}
+                onClick={() => navigate(`/event/${eventId}/host/participants`)}
                 style={{ background: "none", border: "none", fontSize: "var(--fs-xs)", color: "var(--ink-3)", cursor: "pointer", padding: 0 }}
               >
                 {t("action.viewAll")}
@@ -1162,7 +1162,7 @@ export default function EventDetailPage() {
                 {(event.status === "DRAFT" || event.status === "OPEN") && (
                   <Button
                     type="button"
-                    onClick={() => navigate(`/event/${eventId}/edit`)} variant="secondary" size="sm"
+                    onClick={() => navigate(`/event/${eventId}/host/edit`)} variant="secondary" size="sm"
                     style={{ justifyContent: "flex-start", width: "100%" }}
                   >
                     ✏️ {t("action.editEvent")}
@@ -1178,7 +1178,7 @@ export default function EventDetailPage() {
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => navigate(`/event/${eventId}/participants`)} variant="secondary" size="sm"
+                  onClick={() => navigate(`/event/${eventId}/host/participants`)} variant="secondary" size="sm"
                   style={{ justifyContent: "flex-start", width: "100%" }}
                 >
                   👥 {t("action.manageParticipants")}

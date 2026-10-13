@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { Search, Bell, Settings, LogIn, LogOut, User, Menu, X } from "lucide-react";
+import { Search, Bell, Settings, LogIn, LogOut, User, Users, Bike, Activity, Menu, X } from "lucide-react";
 import iconSvg from "../../assets/icon.svg";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -18,8 +18,7 @@ const navFocusWithinClass = "focus-within:outline focus-within:outline-2 focus-w
 const navIconButtonClass = `flex items-center justify-center ${navFocusClass}`;
 const mobileMenuItemClass = `rounded-[var(--r-md)] ${navFocusClass}`;
 
-// 네비 IA(5개 기본 허브)는 단일 진실원 config/navHubs.ts 가 보유. 데스크톱 nav 행은
-// 허브만 노출하고, 모바일 슬라이드 메뉴는 허브+서브를 펼쳐 9개 목적지를 모두 발견 가능하게 한다.
+// 데스크톱 메뉴와 모바일 하단 탭은 config/navHubs.ts 의 기본 허브를 공유한다.
 interface TopNavProps {
   active: HubKey;
   notifications?: Notification[];
@@ -40,6 +39,13 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
     [t]
   );
   const settingsActive = active === "settings";
+  const accountItems = [
+    { to: "/athlete/me", labelKey: "nav.my", icon: User },
+    { to: "/athlete/me/activities", labelKey: "nav.log", icon: Activity },
+    { to: "/athlete/me/friends", labelKey: "nav.friends", icon: Users },
+    { to: "/athlete/me/gear", labelKey: "nav.equipment", icon: Bike },
+    { to: "/settings/account", labelKey: "nav.settings", icon: Settings },
+  ];
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -149,7 +155,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
   const dropdownItemStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-    padding: '8px 10px', fontSize: "var(--fs-xs)", color: 'var(--ink-1)',
+    padding: 'var(--space-2) var(--space-3)', fontSize: "var(--fs-xs)", color: 'var(--ink-1)',
     borderRadius: 'var(--r-md)', textDecoration: 'none',
   };
 
@@ -212,27 +218,6 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 }}
               >
                 {label}
-                {key === "community" && friendRequestCount > 0 && (
-                  <span
-                    aria-label={t("nav.friendRequests", { count: friendRequestCount })}
-                    style={{
-                      minWidth: 16,
-                      height: 16,
-                      borderRadius: "var(--r-xl)",
-                      backgroundColor: "var(--color-error)",
-                      color: "var(--primary-fg)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "var(--fs-2xs)",
-                      fontWeight: 700,
-                      marginLeft: 5,
-                      paddingInline: "var(--space-1)",
-                    }}
-                  >
-                    {friendRequestCount > 9 ? "9+" : friendRequestCount}
-                  </span>
-                )}
                 {isActive && (
                   <span
                     style={{
@@ -284,7 +269,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 onKeyDown={e => {
                   if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(""); }
                   if (e.key === 'Enter' && searchQuery.trim()) {
-                    navigate(`/discover?q=${encodeURIComponent(searchQuery.trim())}`);
+                    navigate(`/explore/challenges?q=${encodeURIComponent(searchQuery.trim())}`);
                     setSearchOpen(false);
                     setSearchQuery("");
                   }
@@ -505,34 +490,20 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 <LanguageToggle variant="header" />
               </div>
 
-              {/* 설정 (데스크톱만) */}
-              <Link
-                to="/settings"
-                className={`hidden lg:flex ${navFocusClass}`}
-                aria-label={t('label.settings')}
-                aria-current={settingsActive ? 'page' : undefined}
-                style={{
-                  width: 44, height: 44,
-                  alignItems: 'center', justifyContent: 'center',
-                  borderRadius: "var(--r-md)",
-                  color: settingsActive ? 'var(--lime)' : 'var(--ink-3)',
-                  backgroundColor: settingsActive ? 'var(--bg-2)' : 'transparent',
-                }}
-              >
-                <Settings size={16} />
-              </Link>
-
               {/* 아바타 + 드롭다운 */}
               <div ref={menuRef} style={{ position: 'relative' }}>
                 <button
                   onClick={() => { setMenuOpen(!menuOpen); setNotifOpen(false); }}
                   className={navFocusClass}
                   aria-label={t('label.profile')}
+                  aria-expanded={menuOpen}
+                  aria-current={settingsActive ? 'page' : undefined}
                   style={{
                     width: 44, height: 44, borderRadius: '50%',
                     border: 'none', background: 'transparent',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', padding: 0,
+                    cursor: 'pointer', padding: 0, position: 'relative',
+                    outline: settingsActive ? 'var(--space-0-5) solid var(--lime)' : undefined,
                   }}
                 >
                   <span
@@ -552,6 +523,15 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                       avatarInitials || <User size={14} />
                     )}
                   </span>
+                  {friendRequestCount > 0 && (
+                    <span
+                      aria-label={t("nav.friendRequests", { count: friendRequestCount })}
+                      className="absolute right-0 top-0 rounded-full px-1 text-[length:var(--fs-2xs)] font-bold"
+                      style={{ background: "var(--color-error)", color: "var(--primary-fg)" }}
+                    >
+                      {friendRequestCount > 9 ? "9+" : friendRequestCount}
+                    </span>
+                  )}
                 </button>
 
                 {menuOpen && (
@@ -565,26 +545,19 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                     <div style={{ padding: '8px 10px', fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', borderBottom: '1px solid var(--line-soft)', marginBottom: 'var(--space-1)' }}>
                       {nickname || t('label.rider')}
                     </div>
-                    <Link
-                      to={`/athlete/${user.uid}`}
-                      onClick={() => setMenuOpen(false)}
-                      className={mobileMenuItemClass}
-                      style={dropdownItemStyle}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-2)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      <User size={14} /> {t('label.profile')}
-                    </Link>
-                    <Link
-                      to="/settings"
-                      onClick={() => setMenuOpen(false)}
-                      className={mobileMenuItemClass}
-                      style={dropdownItemStyle}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-2)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      <Settings size={14} /> {t('label.settings')}
-                    </Link>
+                    {accountItems.map(({ to, labelKey, icon: Icon }) => (
+                      <Link
+                        key={to}
+                        to={to}
+                        onClick={() => setMenuOpen(false)}
+                        className={mobileMenuItemClass}
+                        style={dropdownItemStyle}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-2)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <Icon size={14} /> {t(labelKey)}
+                      </Link>
+                    ))}
                     <button
                       onClick={() => { logout(); setMenuOpen(false); }}
                       className={mobileMenuItemClass}
@@ -728,120 +701,21 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
               </div>
             )}
 
-            {/* 네비게이션 링크 — 허브별 섹션 + 서브 펼침 (9개 목적지 모두 발견 가능) */}
-            <div style={{ padding: 'var(--space-2)' }}>
-              {PRIMARY_HUBS.map((hub) => {
-                const hubActive = active === hub.key;
-                // 단일 허브(홈) — 서브 없이 바로 링크
-                if (hub.subs.length === 0) {
-                  return (
-                    <Link
-                      key={hub.key}
-                      to={hub.to}
-                      onClick={closeMobileMenuForNavigation}
-                      aria-current={hubActive ? 'page' : undefined}
-                      className={mobileMenuItemClass}
-                      style={{
-                        display: 'flex', alignItems: 'center',
-                        padding: '10px 12px', fontSize: "var(--fs-sm)",
-                        fontWeight: hubActive ? 600 : 400,
-                        color: hubActive ? 'var(--lime)' : 'var(--ink-1)',
-                        borderRadius: 'var(--r-md)', textDecoration: 'none',
-                        backgroundColor: hubActive ? 'var(--bg-2)' : 'transparent',
-                      }}
-                      onMouseEnter={e => { if (!hubActive) e.currentTarget.style.backgroundColor = 'var(--bg-2)'; }}
-                      onMouseLeave={e => { if (!hubActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
-                    >
-                      {t(hub.labelKey)}
-                    </Link>
-                  );
-                }
-                return (
-                  <div key={hub.key} style={{ marginBottom: 'var(--space-1)' }}>
-                    <div style={{
-                      padding: '10px 12px 4px', fontSize: "var(--fs-xs)", fontWeight: 600,
-                      letterSpacing: '0.04em',
-                      color: hubActive ? 'var(--lime)' : 'var(--ink-3)',
-                    }}>
-                      {t(hub.labelKey)}
-                    </div>
-                    {hub.subs.map((s) => (
-                      <Link
-                        key={s.to}
-                        to={s.to}
-                        onClick={closeMobileMenuForNavigation}
-                        className={mobileMenuItemClass}
-                        style={{
-                          display: 'flex', alignItems: 'center',
-                          padding: '9px 12px 9px 22px', fontSize: "var(--fs-sm)",
-                          color: 'var(--ink-1)', borderRadius: 'var(--r-md)', textDecoration: 'none',
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
-                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                      >
-                        {t(s.labelKey)}
-                          {s.to === "/friends" && friendRequestCount > 0 && (
-                            <span
-                              aria-label={t("nav.friendRequests", { count: friendRequestCount })}
-                              style={{
-                                minWidth: 16,
-                                height: 16,
-                                borderRadius: "var(--r-xl)",
-                                backgroundColor: "var(--color-error)",
-                                color: "var(--primary-fg)",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: "var(--fs-2xs)",
-                                fontWeight: 700,
-                                marginLeft: "auto",
-                                paddingInline: "var(--space-1)",
-                              }}
-                            >
-                              {friendRequestCount > 9 ? "9+" : friendRequestCount}
-                            </span>
-                          )}
-                      </Link>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-
             {/* 하단: 계정 */}
             <div style={{ marginTop: 'auto', padding: 'var(--space-2)', borderTop: '1px solid var(--line-soft)' }}>
               {user ? (
                 <>
-                  <Link
-                    to={`/athlete/${user.uid}`}
-                    onClick={closeMobileMenuForNavigation}
-                    className={mobileMenuItemClass}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                      padding: '10px 12px', fontSize: "var(--fs-sm)", color: 'var(--ink-1)',
-                      borderRadius: 'var(--r-md)', textDecoration: 'none',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  >
-                    <User size={15} /> {t('label.profile')}
-                  </Link>
-                  <Link
-                    to="/settings"
-                    onClick={closeMobileMenuForNavigation}
-                    className={mobileMenuItemClass}
-                    aria-current={settingsActive ? 'page' : undefined}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                      padding: '10px 12px', fontSize: "var(--fs-sm)", color: settingsActive ? 'var(--lime)' : 'var(--ink-1)',
-                      borderRadius: 'var(--r-md)', textDecoration: 'none',
-                      backgroundColor: settingsActive ? 'var(--bg-2)' : 'transparent',
-                    }}
-                    onMouseEnter={e => { if (!settingsActive) e.currentTarget.style.backgroundColor = 'var(--bg-2)'; }}
-                    onMouseLeave={e => { if (!settingsActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
-                  >
-                    <Settings size={15} /> {t('label.settings')}
-                  </Link>
+                  {accountItems.map(({ to, labelKey, icon: Icon }) => (
+                    <Link
+                      key={to}
+                      to={to}
+                      onClick={closeMobileMenuForNavigation}
+                      className={mobileMenuItemClass}
+                      style={dropdownItemStyle}
+                    >
+                      <Icon size={15} /> {t(labelKey)}
+                    </Link>
+                  ))}
                   <button
                     className={mobileMenuItemClass}
                     onClick={() => { logout(); closeMobileMenuForNavigation(); }}
@@ -881,11 +755,13 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
             {/* 법적 링크 (모바일 — 데스크톱 푸터 대체. 약관/개인정보 접근성 보장) */}
             <div style={{ padding: 'var(--space-3) var(--space-4)', borderTop: '1px solid var(--line-soft)', display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
+              <Link to="/about" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('nav.aboutOrider')}</Link>
+              <Link to="/explore/recipes" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('nav.developerDocs')}</Link>
               <Link to="/terms" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.terms')}</Link>
               <Link to="/privacy" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.privacy')}</Link>
-              <Link to="/community" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.community')}</Link>
+              <Link to="/policies/community" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.community')}</Link>
               <Link to="/feedback" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.feedback')}</Link>
-              <Link to="/board?type=inquiry" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.contact')}</Link>
+              <Link to="/community/board?type=inquiry" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.contact')}</Link>
               <span style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', width: '100%', marginTop: 'var(--space-1)' }}>&copy; 2026 Orider</span>
             </div>
           </div>

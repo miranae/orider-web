@@ -131,5 +131,5 @@ export default function GroupCard({ group, showJoinButton, onJoin, joining, join
   );
 
   if (showJoinButton) return content;
-  return <Link to={`/group/${group.id}`} style={{ textDecoration: "none" }}>{content}</Link>;
+  return <Link to={`/club/${group.id}`} style={{ textDecoration: "none" }}>{content}</Link>;
 }
