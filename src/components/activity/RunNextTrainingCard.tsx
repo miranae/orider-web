@@ -26,7 +26,7 @@ export default function RunNextTrainingCard({ state }: { state: RunNextTrainingS
   return <Card padding="compact" className="min-w-0" data-testid="run-next-training-card">
     <Text as="h3" variant="subtitle" style={{ marginBottom: "var(--space-3)" }}>{t("analysis.run.nextPlan.title")}</Text>
     {ready ? <RunTrainingFacts session={ready} /> : <Text as="p" variant="bodySmall" tone="secondary" role={state.status === "loading" ? "status" : undefined}>{t(`analysis.run.nextPlan.${state.status}`)}</Text>}
-    <LocalizedLink to={ready ? buildRunPlanTarget(ready) : { pathname: "/plan", search: "?sport=run" }} className={buttonClass({ variant: "primary", size: "sm" })} style={{ marginTop: "var(--space-3)" }}>
+    <LocalizedLink to={ready ? buildRunPlanTarget(ready) : { pathname: "/coach/plan", search: "?sport=run" }} className={buttonClass({ variant: "primary", size: "sm" })} style={{ marginTop: "var(--space-3)" }}>
       {t(ready ? "analysis.run.nextPlan.open" : "analysis.run.nextPlan.viewPlan")}
     </LocalizedLink>
   </Card>;

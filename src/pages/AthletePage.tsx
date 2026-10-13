@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useParams, useSearchParams } from "react-router-dom";
+import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import {
   collection, query, where, orderBy, getDocs, limit, startAfter,
@@ -102,9 +103,22 @@ function AthleteIdentityChips({
   );
 }
 
-export default function AthletePage() {
-  const { userId } = useParams<{ userId: string }>();
-  const { user: currentUser, profile: currentProfile } = useAuth();
+/** meUserId: /athlete/me 라우트가 로그인 uid 로 해석해 넘긴다. 없으면 :userId 파라미터. */
+export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
+  const { userId: paramUserId } = useParams<{ userId: string }>();
+  const userId = meUserId ?? paramUserId;
+  const { user: currentUser, profile: currentProfile, loading: authLoading } = useAuth();
+  const location = useLocation();
+  const localizedNavigate = useLocalizedNavigate();
+  const ownRedirectDoneRef = useRef(false);
+  // /athlete/<본인 uid> → 인증 확정 뒤 한 번만 /athlete/me 로 replace(쿼리·hash 보존).
+  // 공유·복사 주소는 계속 uid 로 만든다.
+  useEffect(() => {
+    if (meUserId || authLoading || ownRedirectDoneRef.current) return;
+    if (!currentUser || !paramUserId || currentUser.uid !== paramUserId) return;
+    ownRedirectDoneRef.current = true;
+    localizedNavigate(`/athlete/me${location.search}${location.hash}`, { replace: true });
+  }, [meUserId, authLoading, currentUser, paramUserId, localizedNavigate, location.search, location.hash]);
   const { showToast } = useToast();
   const dialog = useDialog();
   const { t } = useTranslation("athlete");
@@ -169,14 +183,16 @@ export default function AthletePage() {
       .map((d) => ({ id: d.id, ...d.data() }) as Activity)
       .filter((a) => a.summary != null);
 
+  // 월간 누적 로더(loadAthleteChartActivities)는 summary 가 없는 활동도 건수에 넣어 돌려주므로
+  // 합계는 summary 가 있는 활동만 더한다. 본인 프로필(/athlete/me)에서 실제로 크래시가 났던 지점.
   const aggregateActivityStats = (items: Activity[]) => ({
     count: items.length,
-    distance: items.reduce((sumDistance, a) => sumDistance + (Number.isFinite(a.summary.distance) ? a.summary.distance : 0), 0),
+    distance: items.reduce((sumDistance, a) => sumDistance + (Number.isFinite(a.summary?.distance) ? a.summary.distance : 0), 0),
     time: items.reduce((sumTime, a) => {
-      const duration = resolveDuration(a.summary).displayMs;
+      const duration = a.summary ? resolveDuration(a.summary).displayMs : NaN;
       return sumTime + (Number.isFinite(duration) ? duration : 0);
     }, 0),
-    elevation: items.reduce((sumElevation, a) => sumElevation + (Number.isFinite(a.summary.elevationGain) ? a.summary.elevationGain : 0), 0),
+    elevation: items.reduce((sumElevation, a) => sumElevation + (Number.isFinite(a.summary?.elevationGain) ? a.summary.elevationGain : 0), 0),
   });
 
   useEffect(() => {
@@ -748,7 +764,7 @@ export default function AthletePage() {
           {canViewFriends && <Card padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--line-soft)] flex items-center justify-between">
               <h3 className="text-[length:var(--fs-sm)] font-semibold text-[var(--ink-0)]">{t("friends.title", { count: friendCount })}</h3>
-              <Link to="/friends" className="text-[length:var(--fs-xs)] text-[var(--lime)] hover:opacity-80 font-medium">
+              <Link to="/athlete/me/friends" className="text-[length:var(--fs-xs)] text-[var(--lime)] hover:opacity-80 font-medium">
                 {t("friends.viewAll")}
               </Link>
             </div>

@@ -384,7 +384,7 @@ export default function ExplorePage() {
   const navigate = useNavigate();
   const isMobile = useMobile();
   const location = useLocation();
-  const isVisible = stripLangPrefix(location.pathname) === "/explore";
+  const isVisible = stripLangPrefix(location.pathname) === "/explore/segments";
   const [hasRendered, setHasRendered] = useState(isVisible);
 
   const CATEGORIES: { id: Category; label: string; icon: string }[] = [

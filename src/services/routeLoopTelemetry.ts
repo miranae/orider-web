@@ -28,6 +28,7 @@ export function normalizeRouteForTelemetry(path: string): string {
     .replace(/\/course\/[^/?#]+/g, "/course/:id")
     .replace(/\/athlete\/[^/?#]+/g, "/athlete/:id")
     .replace(/\/group\/[^/?#]+/g, "/group/:id")
+    .replace(/\/club\/[^/?#]+/g, "/club/:id")
     .replace(/\/event\/[^/?#]+/g, "/event/:id")
     .replace(/\/board\/[^/?#]+/g, "/board/:id");
 }

@@ -7,13 +7,11 @@ const mobileTabFocusClass = "focus-visible:outline focus-visible:outline-2 focus
 
 // 모바일 5탭 = 5개 기본 허브. 데스크톱 nav 와 동일한 단일 진실원(config/navHubs.ts)을
 // 공유해 cross-device 일관성 보장. active 는 허브 매칭(서브 경로 포함)으로 판정 — 예: /plan·/log
-// 진입 시에도 "내 운동" 탭이 활성.
+// 진입 시에도 "코치" 탭이 활성.
 export default function MobileTabBar({
   active,
-  friendRequestCount = 0,
 }: {
   active: HubKey;
-  friendRequestCount?: number;
 }) {
   const { t } = useTranslation("common");
   const { lang } = useParams();
@@ -38,7 +36,7 @@ export default function MobileTabBar({
 
   return (
     <div
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-50"
       style={{
         background: "var(--bg-1)",
         borderTop: "1px solid var(--line-soft)",
@@ -61,14 +59,6 @@ export default function MobileTabBar({
             >
               <span className="relative">
                 <Icon size={20} strokeWidth={isActive ? 2.2 : 1.7} />
-                {key === "community" && friendRequestCount > 0 && (
-                  <span
-                    className="absolute -right-2 -top-1 min-w-[18px] h-[18px] px-1 rounded-full text-[length:var(--fs-xs)] font-bold leading-none flex items-center justify-center"
-                    style={{ background: "var(--color-error)", color: "var(--primary-fg)" }}
-                  >
-                    {friendRequestCount > 9 ? "9+" : friendRequestCount}
-                  </span>
-                )}
               </span>
               <span className="text-[length:var(--fs-xs)] font-medium" style={{ letterSpacing: "-0.01em" }}>
                 {label}

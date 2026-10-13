@@ -56,7 +56,7 @@ export default function CoursesPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryParam = searchParams.get("q")?.trim() ?? "";
-  const isVisible = stripLangPrefix(location.pathname) === "/courses";
+  const isVisible = stripLangPrefix(location.pathname) === "/explore/courses";
   const [hasRendered, setHasRendered] = useState(isVisible);
 
   useEffect(() => {

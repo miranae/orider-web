@@ -36,7 +36,7 @@ const TONE: Record<"warn" | "critical", { bg: string; border: string; ink: strin
   },
 };
 
-export default function AdaptationSummary({ flag, href = "/plan", style }: Props) {
+export default function AdaptationSummary({ flag, href = "/coach/plan", style }: Props) {
   const { t } = useTranslation("training");
 
   // AdaptationBanner 와 동일한 노출 조건

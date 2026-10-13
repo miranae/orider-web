@@ -31,7 +31,7 @@ describe("AboutPage document navigation", () => {
     expect(koDocument).toContain('<main id="main">');
     expect(koDocument).toMatch(/<section[^>]+id="club"/);
     expect(koDocument).toMatch(/<section[^>]+id="experience"/);
-    expect(koDocument).toContain('href="/ko/groups"');
+    expect(koDocument).toContain('href="/ko/clubs"');
     expect(enDocument).toContain("From my ride records to our shared riding platform.");
     expect(enDocument).toContain("From a tool built by one person to a platform improved together");
   });

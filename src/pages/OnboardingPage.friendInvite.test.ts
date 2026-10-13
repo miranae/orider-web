@@ -8,7 +8,7 @@ describe("onboarding friend invite handoff", () => {
   it("keeps the persisted enum unchanged and completes before navigating", () => {
     expect(source).not.toContain('type Step = "discipline" | "strava" | "goal" | "social"');
     expect(source).toContain('await updateDoc(userRef, { onboardingStep: "done" });');
-    expect(source).toContain('await finishOnboarding(`/friends?source=onboarding&returnTo=');
+    expect(source).toContain('await finishOnboarding(`/athlete/me/friends?source=onboarding&returnTo=');
   });
 
   it("keeps existing goal setup and skip completion paths", () => {

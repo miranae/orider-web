@@ -1361,7 +1361,7 @@ function LegacyLayoutCard({
       </div>
       <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
         <LocalizedLink
-          to="/settings/equipment"
+          to="/athlete/me/gear"
           className={buttonClass({ variant: "secondary", size: "sm" })}
           data-testid="legacy-layout-open-equipment"
         >

@@ -167,7 +167,7 @@ export function PaneConnections() {
       brand: "#FC4C02",
       icon: <StravaIcon size={22} />,
       connected: stravaConnected,
-      onConnect: () => connectStrava("/settings"),
+      onConnect: () => connectStrava("/settings/connections"),
       onDisconnect: handleStravaDisconnect,
     },
     {

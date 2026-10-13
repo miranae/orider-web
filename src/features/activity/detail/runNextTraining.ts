@@ -83,5 +83,5 @@ export function selectRunNextTraining(goal: Goal | null, weeks: PlanWeek[], uid:
 export function buildRunPlanTarget(session: Pick<RunNextTrainingSession, "goalId" | "weekId" | "dayIndex" | "localDate">) {
   const params = new URLSearchParams({ sport: "run", goalId: session.goalId, weekId: session.weekId,
     dayIndex: String(session.dayIndex), date: session.localDate });
-  return { pathname: "/plan", search: `?${params.toString()}` };
+  return { pathname: "/coach/plan", search: `?${params.toString()}` };
 }

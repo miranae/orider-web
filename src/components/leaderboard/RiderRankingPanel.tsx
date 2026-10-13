@@ -78,7 +78,7 @@ function GroupScope({ uid }: { uid: string | undefined }) {
   if (!uid) return <EmptyState icon="🏢" title={t("leaderboardPage.rider.loginTitle")} description={t("leaderboardPage.rider.loginDesc")} />;
   if (error) return <ErrorState onRetry={retry} compact />;
   if (loading) return <LoadingSkeleton kind="list" count={5} />;
-  if (groups.length === 0) return <EmptyState icon="🏢" title={t("leaderboardPage.rider.noGroup")} description={t("leaderboardPage.rider.noGroupDesc")} actions={[{ label: t("leaderboardPage.rider.findGroup"), variant: "primary", href: "/groups" }]} />;
+  if (groups.length === 0) return <EmptyState icon="🏢" title={t("leaderboardPage.rider.noGroup")} description={t("leaderboardPage.rider.noGroupDesc")} actions={[{ label: t("leaderboardPage.rider.findGroup"), variant: "primary", href: "/clubs" }]} />;
 
   const entries = snapshot?.entries ?? [];
   return (

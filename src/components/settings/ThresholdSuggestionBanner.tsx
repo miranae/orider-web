@@ -188,7 +188,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
         </button>}
         {hasConfirmedV2Ftp && (
           <LocalizedLink
-            to={{ pathname: "/fitness", search: "?sport=bike" }}
+            to={{ pathname: "/coach/condition", search: "?sport=bike" }}
             className={buttonClass({ variant: "secondary", size: "sm" })}
           >
             {t("threshold.reviewFtpInFitness")}

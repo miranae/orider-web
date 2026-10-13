@@ -32,7 +32,7 @@ export default function ClimbGoalSetupPage() {
         targetDate: date, weeklySessions: Number(sessions) as 1 | 2 | 3 | 4 | 5 | 6,
       });
       const result = await httpsCallable(functions, 'createGoal')(payload);
-      navigate(`/plan?goalId=${(result.data as { goalId: string }).goalId}`);
+      navigate(`/coach/plan?goalId=${(result.data as { goalId: string }).goalId}`);
     } catch { setError(true); setSubmitting(false); }
   };
 

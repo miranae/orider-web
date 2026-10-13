@@ -500,7 +500,7 @@ export default function EventRegisterPage() {
         <EmptyState
           icon="🗓️"
           title={t("empty.noResults")}
-          actions={[{ label: t("register.goEventList"), variant: "primary", onClick: () => navigate("/events") }]}
+          actions={[{ label: t("register.goEventList"), variant: "primary", onClick: () => navigate("/explore/events") }]}
         />
       </div>
     );
@@ -594,7 +594,7 @@ export default function EventRegisterPage() {
           <Button type="button" onClick={() => navigate(`/event/${eventId}`)} variant="primary">
             {t("register.goEventDetail")}
           </Button>
-          <Button type="button" onClick={() => navigate("/events")} variant="secondary">
+          <Button type="button" onClick={() => navigate("/explore/events")} variant="secondary">
             {t("register.goEventList")}
           </Button>
         </div>
@@ -608,7 +608,7 @@ export default function EventRegisterPage() {
     <div style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6)" }}>
       {/* Breadcrumb */}
       <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
-        <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
+        <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
         <span style={{ color: "var(--ink-4)" }}>›</span>
         <Link to={`/event/${eventId}`} style={{ color: "var(--ink-3)" }} className="truncate">
           {event.name}

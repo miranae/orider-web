@@ -1,31 +1,15 @@
-import { useEffect } from "react";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   Route,
   Routes,
   useNavigate,
-  useOutletContext,
-  useParams,
 } from "react-router-dom";
-import Layout, { type LayoutOutletContext } from "./Layout";
+import Layout from "./Layout";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 
-const owners: Record<string, string | undefined> = {
-  mine: "viewer",
-  theirs: "other",
-};
-
 function ActivityOwnerProbe() {
-  const { activityId } = useParams<{ activityId: string }>();
-  const { setActivityOwner } = useOutletContext<LayoutOutletContext>();
   const navigate = useNavigate();
-  const ownerId = activityId ? owners[activityId] ?? null : null;
-
-  useEffect(() => {
-    setActivityOwner(activityId && ownerId ? { activityId, ownerId } : null);
-    return () => setActivityOwner(null);
-  }, [activityId, ownerId, setActivityOwner]);
 
   return (
     <button type="button" onClick={() => navigate("/activity/theirs")}>
@@ -49,7 +33,7 @@ function selectedMobileTab() {
   return within(tabBar).getByRole("link", { current: "page" });
 }
 
-describe("Layout activity hub ownership", () => {
+describe("Layout activity hub", () => {
   it("직접 연 타인 활동은 홈 탭을 활성화한다", async () => {
     renderWithProviders(<ActivityHubRoutes />, {
       route: "/activity/theirs",
@@ -60,7 +44,7 @@ describe("Layout activity hub ownership", () => {
     await waitFor(() => expect(selectedMobileTab()).toHaveTextContent("홈"));
   });
 
-  it("본인 활동에서 타인 활동으로 전환하면 내 운동 선택을 해제한다", async () => {
+  it("본인 활동과 타인 활동 전환 모두 홈을 유지한다", async () => {
     const user = userEvent.setup();
     renderWithProviders(<ActivityHubRoutes />, {
       route: "/activity/mine",
@@ -68,7 +52,7 @@ describe("Layout activity hub ownership", () => {
       user: { uid: "viewer" },
     });
 
-    await waitFor(() => expect(selectedMobileTab()).toHaveTextContent("내 운동"));
+    await waitFor(() => expect(selectedMobileTab()).toHaveTextContent("홈"));
     await user.click(screen.getByRole("button", { name: "다른 사람 활동으로 이동" }));
     await waitFor(() => expect(selectedMobileTab()).toHaveTextContent("홈"));
   });

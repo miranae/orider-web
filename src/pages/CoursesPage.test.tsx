@@ -98,7 +98,7 @@ describe("CoursesPage mobile layout", () => {
   });
 
   it("keeps the map hidden by default and shows it from the mobile toggle", async () => {
-    renderWithProviders(<CoursesPage />, { route: "/courses" });
+    renderWithProviders(<CoursesPage />, { route: "/explore/courses" });
 
     expect(screen.getByText("남한강 자전거길")).toBeInTheDocument();
     expect(screen.getByTestId("courses-map")).toHaveClass("hidden");
@@ -111,7 +111,7 @@ describe("CoursesPage mobile layout", () => {
   });
 
   it("logs a fatal map failure and lets the user retry without leaving the page", async () => {
-    renderWithProviders(<CoursesPage />, { route: "/courses" });
+    renderWithProviders(<CoursesPage />, { route: "/explore/courses" });
 
     await userEvent.click(screen.getByRole("button", { name: "지도 실패" }));
 

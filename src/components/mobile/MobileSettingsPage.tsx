@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { LocalizedLink } from "../LocalizedLink";
-import { NAV_GROUPS } from "../settings/settingsNavigation";
+import { NAV_GROUPS, settingsTabPath } from "../settings/settingsNavigation";
 import { Text, buttonClass } from "../../theme/components";
 
 /** Mobile settings root: a short category hub; settings themselves live on dedicated subpages. */
@@ -13,7 +13,7 @@ export default function MobileSettingsPage() {
     <div className="mobile-settings-hub">
       <header className="mobile-settings-header">
         <LocalizedLink
-          to="/my"
+          to="/athlete/me"
           className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })}
           aria-label={t("nav.backToProfile")}
         >
@@ -32,7 +32,7 @@ export default function MobileSettingsPage() {
                 return (
                   <LocalizedLink
                     key={item.id}
-                    to={`/settings?section=${item.id}`}
+                    to={settingsTabPath(item.id)}
                     className="mobile-settings-item"
                   >
                     <span className="mobile-settings-item-icon" aria-hidden="true"><Icon /></span>

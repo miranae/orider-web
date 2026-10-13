@@ -13,7 +13,7 @@ describe("Strava empty-state settings links", () => {
       const source = readFileSync(join(process.cwd(), file), "utf8");
 
       expect(source).not.toContain("/settings#integrations");
-      expect(source).toContain('href: "/settings?section=connections"');
+      expect(source).toContain('href: "/settings/connections"');
     }
   });
 });

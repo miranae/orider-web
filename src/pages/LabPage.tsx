@@ -320,7 +320,7 @@ export default function LabPage() {
               <Link to="/course/create" style={{ padding: "var(--space-2) var(--space-3)", borderRadius: "var(--r-md)", background: "var(--lime)", color: "var(--primary-fg)", fontSize: "var(--fs-sm)", fontWeight: 600 }}>
                 {t("course.createLink")}
               </Link>
-              <Link to="/courses" style={{ padding: "var(--space-2) var(--space-3)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", color: "var(--ink-1)", fontSize: "var(--fs-sm)", fontWeight: 600 }}>
+              <Link to="/explore/courses" style={{ padding: "var(--space-2) var(--space-3)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", color: "var(--ink-1)", fontSize: "var(--fs-sm)", fontWeight: 600 }}>
                 {t("course.exploreLink")}
               </Link>
             </div>

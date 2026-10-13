@@ -103,10 +103,10 @@ export function RunActivityIntro({
       {detail.isOwner && detail.nextTraining && <RunNextTrainingCard state={detail.nextTraining} />}
       {detail.isOwner && (
         <div className="flex flex-wrap gap-2" data-testid="run-next-actions">
-          {!detail.nextTraining && <LocalizedLink to={{ pathname: "/plan", search: "?sport=run" }} className={buttonClass({ variant: "primary", size: "sm" })}>
+          {!detail.nextTraining && <LocalizedLink to={{ pathname: "/coach/plan", search: "?sport=run" }} className={buttonClass({ variant: "primary", size: "sm" })}>
             {t("analysis.run.nextTraining")}
           </LocalizedLink>}
-          <LocalizedLink to={{ pathname: "/fitness", search: "?sport=run" }} className={buttonClass({ variant: "ghost", size: "sm" })}>
+          <LocalizedLink to={{ pathname: "/coach/condition", search: "?sport=run" }} className={buttonClass({ variant: "ghost", size: "sm" })}>
             {t("analysis.run.trainingFlow")}
           </LocalizedLink>
         </div>

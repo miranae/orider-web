@@ -36,7 +36,7 @@ describe("group invite join App Check readiness", () => {
     expect(ensureAppCheckReady).toHaveBeenCalledOnce();
     expect(httpsCallable).not.toHaveBeenCalled();
     resolveReady();
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/group/qa-group", { replace: true }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/club/qa-group", { replace: true }));
     expect(mockCallableInvocations).toEqual([{ name: "joinGroupByCode", data: { inviteCode: "ABCD-EFGH" } }]);
   });
 
@@ -54,14 +54,14 @@ describe("group invite join App Check readiness", () => {
     setCallableImplementation("joinGroupByCode", () => { throw Object.assign(new Error(message), { code }); });
     renderInvite();
     await waitFor(() => expect(showToast).toHaveBeenCalledWith(expected, "error"));
-    expect(navigate).toHaveBeenCalledWith("/groups", { replace: true });
-    expect(navigate).not.toHaveBeenCalledWith(expect.stringContaining("/group/qa"), expect.anything());
+    expect(navigate).toHaveBeenCalledWith("/clubs", { replace: true });
+    expect(navigate).not.toHaveBeenCalledWith(expect.stringContaining("/club/qa"), expect.anything());
   });
 
   it("shows join failure without sending a protected request when App Check cannot initialize", async () => {
     vi.mocked(ensureAppCheckReady).mockRejectedValue(new Error("app-check/token-timeout"));
     renderInvite();
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/groups", { replace: true }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/clubs", { replace: true }));
     expect(showToast).toHaveBeenCalledWith(expect.any(String), "error");
     expect(httpsCallable).not.toHaveBeenCalled();
   });
@@ -85,7 +85,7 @@ describe("group invite join App Check readiness", () => {
     fireEvent.click(screen.getByRole("link", { name: "another invite" }));
     await act(async () => { resolveReady(); });
     expect(mockCallableInvocations).toEqual([{ name: "joinGroupByCode", data: { inviteCode: "WXYZ-2345" } }]);
-    expect(navigate).toHaveBeenCalledWith("/group/qa-new-group", { replace: true });
+    expect(navigate).toHaveBeenCalledWith("/club/qa-new-group", { replace: true });
   });
 
 });

@@ -8,7 +8,7 @@ export function ActivityFtpDecisionCard({ uid, activityId, enabled }: { uid: str
   const { t } = useTranslation("activity");
   const { decision } = useBikeFtpDecision({ uid, sourceActivityId: activityId, enabled });
   if (!enabled || !decision || !["actionable", "blocked"].includes(decision.status)) return null;
-  const link = { pathname: "/fitness", search: `?sport=bike&decisionId=${encodeURIComponent(decision.decisionId)}` };
+  const link = { pathname: "/coach/condition", search: `?sport=bike&decisionId=${encodeURIComponent(decision.decisionId)}` };
   return (
     <Card padding="none" data-activity-ftp-decision style={{ padding: "var(--space-5)" }}>
       <Text as="div" variant="eyebrow" style={{ color: "var(--aqua)" }}>{t("ftpDecision.eyebrow")}</Text>

@@ -70,7 +70,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
         if (data.failed > 0) parts.push(t("import.successFailed", { count: data.failed }));
         showToast(parts.join(" · ") || t("import.successDone"));
         onClose();
-        navigate("/log");
+        navigate("/athlete/me/activities");
       } else {
         if (data.skipped) {
           showToast(t("import.alreadyExists"));
@@ -214,7 +214,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
           </button>
 
           <p className="text-center" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-3)" }}>
-            {t("import.stravaNote")} <Link to="/settings" className="hover:underline" style={{ color: "var(--strava)" }} onClick={handleClose}>{t("import.stravaSettingsLink")}</Link>{t("import.stravaNoteSuffix")}
+            {t("import.stravaNote")} <Link to="/settings/connections" className="hover:underline" style={{ color: "var(--strava)" }} onClick={handleClose}>{t("import.stravaSettingsLink")}</Link>{t("import.stravaNoteSuffix")}
           </p>
         </div>
       </div>
