@@ -12,6 +12,21 @@ const model = { activity: { id: "a", userId: "owner", startTime: epoch, summary:
     latlng: Array.from({ length: 10 }, () => [37, 127]) } } as unknown as ActivityAnalysisModel;
 const sampled = [0, 2, 4, 6, 8, 9].map(sourceIndex => ({ sourceIndex, distance: 100 })) as SampledPoint[];
 describe("single elapsed range selection", () => {
+  it("atomically opens an explicit lap range and clears it on auth/context ABA", () => {
+    auth.uid = "owner";
+    const { result, rerender } = renderHook(props => useActivityRangeSelection(props, sampled), { initialProps: model });
+    act(() => result.current.selectAndEnable({ startOffsetSec: 2.2, endOffsetSec: 6.2 }));
+    expect(result.current.enabled).toBe(true);
+    expect(result.current.selection).toMatchObject({ startOffsetSec: 2.2, endOffsetSec: 6.2 });
+    expect(result.current.routeRange).toEqual({ startIndex: 2, endIndex: 6 });
+    auth.uid = "other"; rerender(model);
+    expect(result.current.enabled).toBe(false);
+    expect(result.current.selection).toBeNull();
+    auth.uid = "owner"; rerender(model);
+    expect(result.current.selection).toBeNull();
+    act(() => result.current.selectAndEnable({ startOffsetSec: 3, endOffsetSec: 2 }));
+    expect(result.current.enabled).toBe(false);
+  });
   it("preserves epoch offsets and uses raw indices even when every distance is identical during stops", () => {
     auth.uid = "owner";
     const { result } = renderHook(() => useActivityRangeSelection(model, sampled));

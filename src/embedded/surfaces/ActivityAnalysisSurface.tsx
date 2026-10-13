@@ -7,6 +7,10 @@ import { ActivityPersonalBenchmark } from "../../features/activity/detail/Activi
 import ActivityPeakEffortInspector from "../../features/activity/detail/ActivityPeakEffortInspector";
 import { visiblePeakEfforts, resolvePeakEffortLocation } from "../../features/activity/detail/activityPeakEfforts";
 import type { RidePeakEffort } from "@shared/types/activity-metrics";
+import { useTranslation } from "react-i18next";
+import Avatar from "../../components/Avatar";
+import { useFormatFullDate } from "../../features/activity/detail/activityDisplay";
+import { getSportLabelKey } from "../../utils/sportType";
 import { useAuth } from "../../contexts/AuthContext";
 import AnalysisTab from "../../components/AnalysisTab";
 import ActivityOverviewEvidence from "../../features/activity/detail/ActivityOverviewEvidence";
@@ -30,6 +34,8 @@ export default function ActivityAnalysisSurface({
   const [peakSelection, setPeakSelection] = useState<{ activityId: string; peak: RidePeakEffort | null }>({ activityId, peak: null });
   const model = useActivityAnalysisModel(activityId);
   const { user } = useAuth();
+  const { t: tCommon } = useTranslation("common");
+  const formatFullDate = useFormatFullDate();
   useEffect(() => { setPeakSelection({ activityId, peak: null }); }, [activityId, user?.uid, model.isActivityOwner, model.serverMetrics?.metrics?.computedAt, model.activePowerOverride]);
   const selectedPeak = peakSelection.activityId === activityId
     && visiblePeakEfforts(model.serverMetrics?.metrics ?? null, model.isActivityOwner, model.activePowerOverride != null || model.analysisTabProps?.suppressServerPowerMetrics === true)
@@ -110,6 +116,16 @@ export default function ActivityAnalysisSurface({
 
   return (
     <main className="orider-embedded-surface" data-testid="embedded-activity-analysis">
+      {!model.isActivityOwner && model.activity && (
+        <header className="orider-embedded-author" data-testid="embedded-activity-author">
+          <Avatar name={model.activity.nickname} imageUrl={model.activity.profileImage} size="md" />
+          <div className="orider-embedded-author__text">
+            <div className="orider-embedded-author__name">{model.activity.nickname || tCommon("label.rider")}</div>
+            <div className="orider-embedded-author__title">{model.activity.description || tCommon(getSportLabelKey(model.activity.type))}</div>
+            <div className="orider-embedded-author__date">{formatFullDate(model.activity.startTime)}</div>
+          </div>
+        </header>
+      )}
       <ActivityOverviewEvidence isOwner={model.isActivityOwner} overview={model.overview} preview={model.activePowerOverride != null} />
       {model.activity?.summary && <ActivityGrowthPanel activity={model.activity}
         metrics={model.serverMetrics?.metrics ?? null} isOwner={model.isActivityOwner} />}

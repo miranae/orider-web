@@ -14,7 +14,7 @@ import SpeedCurveChart from "./SpeedCurveChart";
 import MetabolismCard from "./MetabolismCard";
 import InfoTip from "./InfoTip";
 import { VirtualPowerBadge } from "./activity/VirtualPowerBadge";
-import { Chip, Text } from "../theme/components";
+import { Button, Chip, Text } from "../theme/components";
 import { useActivityMetrics, type ActivityMetricsDoc, type UseActivityMetricsState } from "../hooks/useActivityMetrics";
 import { ActivityAnalysisSignInCard } from "../features/activity/detail/ActivityDetailStates";
 import RunAnalysisPanel from "./activity/RunAnalysisPanel";
@@ -127,6 +127,8 @@ function formatPace(secPerKm: number): string {
 }
 
 interface AnalysisTabProps {
+  onSelectLap?: (lap: ActivityAnalysisSummary["laps"][number]) => void;
+  canSelectLap?: (lap: ActivityAnalysisSummary["laps"][number]) => boolean;
   onSelectRunEffort?: (range: { startOffsetSec: number; endOffsetSec: number }) => void;
   onSelectRunSplit?: (split: SplitRow | null) => void;
   onViewRunSplitLocation?: () => void;
@@ -301,7 +303,7 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
 
 export default function AnalysisTab({
   activityId, isOwner = false, serverMetrics: suppliedServerMetrics, canonicalPresentationAvailable = false, overviewRecovery = null, startTime, streams, analysisSummary, summary, sport, isVirtualPower, virtualPowerParams,
-  onSelectRunEffort, onSelectRunSplit, onViewRunSplitLocation, canViewRunSplitLocation,
+  onSelectLap, canSelectLap, onSelectRunEffort, onSelectRunSplit, onViewRunSplitLocation, canViewRunSplitLocation,
   streamsSignInRequired = false, onSignIn,
   suppressServerPowerMetrics = false, suppressServerHeartRateMetrics = false, suppressServerCadenceMetrics = false,
 }: AnalysisTabProps) {
@@ -497,7 +499,7 @@ export default function AnalysisTab({
       );
 
   if (sport === "run" && sm) {
-    return <div className="space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={isOwner ? streams.runningBestEffortsFacts : undefined} onSelectEffort={isOwner ? onSelectRunEffort : undefined} effortsReady={visibleServerMetrics.status === "ready"} metrics={sm as ActivityMetricsDoc} isOwner={isOwner} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} />}</div>;
+    return <div className="space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={isOwner ? streams.runningBestEffortsFacts : undefined} onSelectEffort={isOwner ? onSelectRunEffort : undefined} effortsReady={visibleServerMetrics.status === "ready"} metrics={sm as ActivityMetricsDoc} isOwner={isOwner} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={isOwner ? onSelectLap : undefined} canSelectLap={canSelectLap} />}</div>;
   }
 
   // 공개 수치·존·파워곡선은 같은 서버 presentation에서 그린다. 기존 허용 그래프/랩은 보존한다.
@@ -1090,13 +1092,13 @@ export default function AnalysisTab({
 
       {/* 랩 분석 */}
       {laps && laps.length > 0 && (
-        <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} />
+        <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={isOwner ? onSelectLap : undefined} canSelectLap={canSelectLap} />
       )}
     </div>
   );
 }
 
-export function AnalysisLapTable({ laps, ftp, sport = "ride" }: { laps: ActivityAnalysisSummary["laps"]; ftp: number | null; sport?: "ride" | "run" | "swim" | "other" }) {
+export function AnalysisLapTable({ laps, ftp, sport = "ride", onSelectLap, canSelectLap }: { onSelectLap?: (lap: ActivityAnalysisSummary["laps"][number]) => void; canSelectLap?: (lap: ActivityAnalysisSummary["laps"][number]) => boolean; laps: ActivityAnalysisSummary["laps"]; ftp: number | null; sport?: "ride" | "run" | "swim" | "other" }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
   const isRun = sport === "run";
@@ -1130,7 +1132,7 @@ export function AnalysisLapTable({ laps, ftp, sport = "ride" }: { laps: Activity
               const recordedPace = l.avgSpeed != null && Number.isFinite(l.avgSpeed) && l.avgSpeed > 0 ? 3600 / l.avgSpeed : pacePerKm;
               return (
                 <tr key={l.number ?? index} className="border-t" style={{ borderColor: 'var(--bg-3)' }}>
-                  <td className="px-3 py-2" style={{ color: 'var(--ink-1)' }}>{l.number ?? "—"}</td>
+                  <td className="px-3 py-2" style={{ color: 'var(--ink-1)' }}>{onSelectLap && canSelectLap?.(l) ? <Button size="sm" variant="outline" onClick={() => onSelectLap(l)} aria-label={t("analysis.lap.viewRange", { number: l.number ?? index + 1 })}>{l.number ?? "—"} · {t("analysis.lap.viewRangeShort")}</Button> : l.number ?? "—"}</td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{sec == null ? "—" : formatDuration(sec)}</td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>{l.distanceKm == null || !Number.isFinite(l.distanceKm) || l.distanceKm < 0 ? "—" : `${distVal(l.distanceKm)} ${distUnit}`}</td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
@@ -1154,6 +1156,7 @@ export function AnalysisLapTable({ laps, ftp, sport = "ride" }: { laps: Activity
           </tbody>
         </table>
       </div>
+      {onSelectLap && <Text as="p" variant="bodyMedium" tone="secondary" className="mt-3">{t("analysis.lap.locationBasis")}</Text>}
       {isRun && <p className="mt-3 text-[length:var(--fs-md)]" style={{ color: "var(--ink-2)" }}>{t("analysis.lap.runBasis")} {t("analysis.run.cadenceDesc")}</p>}
     </div>
   );

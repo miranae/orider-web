@@ -1,5 +1,5 @@
 import { getRuntimeConfig } from "../services/runtimeConfig";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -11,7 +11,9 @@ import { firestore, storage } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useDocument } from "../hooks/useFirestore";
 import { useAuth } from "../contexts/AuthContext";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useStrava } from "../hooks/useStrava";
+import { decodePolyline } from "../utils/polyline";
 import RouteMap from "../components/RouteMap";
 import Avatar from "../components/Avatar";
 import SegmentHistoryPanel from "../features/segments/SegmentHistoryPanel";
@@ -89,6 +91,7 @@ interface SegmentData {
   startLatlng?: [number, number] | null;
   endLatlng?: [number, number] | null;
   segmentLatlng?: string | null;
+  polyline?: string | null;
   source?: string;
   status?: string;
   description?: string;
@@ -270,9 +273,11 @@ export default function SegmentPage() {
   const { t } = useTranslation("segment");
   const { segmentId } = useParams<{ segmentId: string }>();
   const [searchParams] = useSearchParams();
+  const cachedGapEntry = getRuntimeConfig().appEnvironment === "stage" && searchParams.get("cachedComparison") === "1";
   const drilldown = useMemo(() => segmentHistoryContext(searchParams), [searchParams]);
   const drilldownKey = JSON.stringify([segmentId, drilldown]);
   const { user, profile } = useAuth();
+  const gapServices = useFirebaseServices();
   const { getStreams } = useStrava();
   const { data: segment, loading: segLoading } = useDocument<SegmentData>("segments", segmentId);
 
@@ -281,6 +286,8 @@ export default function SegmentPage() {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [userPhotos, setUserPhotos] = useState<{ id: string; url: string; location: [number, number]; caption?: string; uploaderNickname: string }[]>([]);
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
+  const [gapMarker, setGapMarker] = useState<{ user: typeof user; segment: typeof segment; position: [number, number] } | null>(null);
+  const onGapMarker = useCallback((position: [number, number] | null) => setGapMarker(position ? { user, segment, position } : null), [user, segment]);
   const [toast, setToast] = useState<string | null>(null);
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
@@ -462,7 +469,7 @@ export default function SegmentPage() {
 
   // Auto-resolve segment route: if segmentLatlng is missing, fetch activity streams to populate it
   useEffect(() => {
-    if (fetchedRef.current) return;
+    if (cachedGapEntry || fetchedRef.current) return;
     if (!segment || (segment.segmentLatlng && segment.segmentLatlng.length > 2)) return;
     if (!user || !profile?.stravaConnected) return;
     if (efforts.length === 0 || loadingEfforts) return;
@@ -490,7 +497,7 @@ export default function SegmentPage() {
       const slice = streams.latlng.slice(matchingEffort.startIndex, matchingEffort.endIndex + 1);
       if (slice.length > 0) setResolvedLatlng(slice);
     }).catch((err) => logClientError("SegmentPage.bg", err, {}));
-  }, [segment, user, profile?.stravaConnected, efforts, loadingEfforts]);
+  }, [cachedGapEntry, segment, user, profile?.stravaConnected, efforts, loadingEfforts]);
 
   // 원본 이력은 사용자 요청 때 최대 50개만 읽는다. 현재 시도 선택은 패널에서 명시한다.
   const [historySeed, setHistorySeed] = useState<{ key: string; epoch: object; rows: EffortData[]; error: boolean } | null>(null);
@@ -626,7 +633,11 @@ export default function SegmentPage() {
 
       {/* Map */}
       {(() => {
-        const parsed = parseSegmentLatlng(segment.segmentLatlng);
+        const storedPolyline = cachedGapEntry && typeof segment.polyline === "string" && segment.polyline.length <= 32768
+          ? decodePolyline(segment.polyline, 4097) : null;
+        const parsed = parseSegmentLatlng(segment.segmentLatlng)
+          ?? (storedPolyline && storedPolyline.length >= 2 && storedPolyline.length <= 4096
+            && storedPolyline.every(p => Number.isFinite(p[0]) && Math.abs(p[0]) <= 90 && Number.isFinite(p[1]) && Math.abs(p[1]) <= 180) ? storedPolyline : null);
         const latlng = (parsed && parsed.length > 0)
           ? parsed
           : resolvedLatlng
@@ -641,6 +652,7 @@ export default function SegmentPage() {
             interactive
             rounded
             flyToPosition={flyToPosition}
+            markerPosition={cachedGapEntry && gapServices.auth.currentUser?.uid === user?.uid && !gapServices.auth.currentUser?.isAnonymous && gapMarker?.user === user && gapMarker.segment === segment ? gapMarker.position : null}
             photos={[
               ...(segment.photos?.map((p, i) => ({
                 id: `seg-photo-${i}`,
@@ -1017,7 +1029,7 @@ export default function SegmentPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          {showAllEfforts && segmentId && <SegmentHistoryPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} key={`${historySeedKey}:${drilldownKey}`} initialSelection={drilldown} segmentId={segmentId} seeds={currentHistorySeed?.rows ?? []} seedLoading={!currentHistorySeed} seedError={currentHistorySeed?.error ?? false} />}
+          {showAllEfforts && segmentId && <SegmentHistoryPanel cachedGapEntry={cachedGapEntry} sourceIdentity={JSON.stringify([segment])} onGapMarker={onGapMarker} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} key={`${historySeedKey}:${drilldownKey}`} initialSelection={drilldown} segmentId={segmentId} seeds={currentHistorySeed?.rows ?? []} seedLoading={!currentHistorySeed} seedError={currentHistorySeed?.error ?? false} />}
         </Card>
       )}
     </div>

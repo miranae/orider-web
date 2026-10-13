@@ -1037,7 +1037,11 @@
         "ftpPercent": "% FTP",
         "hr": "심박",
         "rpm": "RPM"
-      }
+      },
+      "viewRange": "랩 {{number}} 구간 보기",
+      "viewRangeShort": "구간 보기",
+      "locationBasis": "저장된 랩 시각과 활동 표본을 연결합니다. 경계나 시간축이 확인되지 않는 랩은 위치를 표시하지 않습니다.",
+      "locationUnavailable": "이 랩을 저장된 시간축에 연결할 수 없어 위치를 표시하지 않습니다."
     },
     "run": {
       "recordedCadence": "기록 케이던스",
@@ -2456,5 +2460,27 @@
       "stage_distance_snapshot": "계산된 거리 기록",
       "unavailable": "근거 없음"
     }
+  },
+  "nativePowerV2": {
+    "title": "원하는 시간의 최대 평균 파워",
+    "scope": "이 활동에서 선택한 시간 동안의 최대 평균 파워를 확인합니다.",
+    "duration": "비교할 시간 (초)",
+    "confirm": "비교 가능 시간 확인",
+    "calculate": "최대 평균 파워 계산",
+    "cancel": "취소 · 결과 지우기",
+    "loading": "기록 확인 중…",
+    "reconfirm": "기록이 변경되었거나 확인을 완료하지 못했습니다. 입력 기록을 다시 확인해 주세요.",
+    "continuous": "가장 긴 연속 관측 구간 {{duration}}",
+    "unavailable": "이 입력 또는 시간에 확인 가능한 연속 기록이 없습니다.",
+    "result": "최대 평균 파워",
+    "window": "활동 경과 {{from}}–{{through}}의 연속 구간",
+    "measured": "센서 파워 · 저장 구간 기준",
+    "stored": "출처 미확인 파워 · 저장 구간 기준",
+    "source": "기록 활동 보기",
+    "clock": "저장된 1초 구간 기준이며 원본 시계와 센서 구간의 정확성은 확인되지 않았습니다.",
+    "inputExample": "예: 300초 = 5분",
+    "confirmFirst": "먼저 비교 가능한 시간을 확인해 주세요.",
+    "proof": "표시 근거",
+    "map": "저장 파워 구간과 현재 지도 자료의 동일 출처를 확인할 수 없어 지도 위치로 자동 연결하지 않습니다."
   }
 }
