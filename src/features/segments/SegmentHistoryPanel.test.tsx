@@ -1,10 +1,12 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { MySegmentHistoryResponse } from "@shared/types/segment-history";
 import SegmentHistoryPanel from "./SegmentHistoryPanel";
-const mocks = vi.hoisted(() => ({ value: { response: null as MySegmentHistoryResponse | null, rows: [] as MySegmentHistoryResponse["attempts"], loading: false, error: false, loadMore: vi.fn(), retry: vi.fn() } }));
+const mocks = vi.hoisted(() => ({ gap: vi.fn(), value: { response: null as MySegmentHistoryResponse | null, rows: [] as MySegmentHistoryResponse["attempts"], loading: false, error: false, loadMore: vi.fn(), retry: vi.fn() } }));
+vi.mock("../../services/segmentDistanceTimeGap", () => ({ segmentGapAvailable: () => true }));
+vi.mock("./SegmentDistanceTimeGapPanel", () => ({ default: (props: unknown) => { mocks.gap(props); return <div data-testid="gap-panel" />; } }));
 vi.mock("../../hooks/useMySegmentHistory", () => ({ useMySegmentHistory: () => mocks.value }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string, options?: Record<string, unknown>) => key === "history.rawSnapshot" ? `raw snapshot ${options?.count}` : (key === "history.loaded" || key === "history.observedPartial") ? `loaded ${options?.count}` : key }) }));
+vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string, options?: Record<string, unknown>) => key === "timeGap.choice" ? `choice ${options?.count}` : key === "history.rawSnapshot" ? `raw snapshot ${options?.count}` : (key === "history.loaded" || key === "history.observedPartial") ? `loaded ${options?.count}` : key }) }));
 vi.mock("../../components/LocalizedLink", () => ({ LocalizedLink: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a> }));
 const row = { effortId: "current", activityId: "a", segmentId: "s", elapsedMs: 90000, startDateMs: null, averageSpeedKph: 25, averageHeartrate: 130, averageWatts: 0, averageCadence: 80, isVirtualPower: false, source: "orider", matchAlgorithmVersion: null, direction: "unknown" as const, geometryRevision: null };
 describe("segment history source states", () => {
@@ -26,4 +28,39 @@ describe("segment history source states", () => {
     expect(document.querySelector('[aria-current="true"]')).toHaveClass("segment-history-row-current");
     expect(screen.queryByRole("button", { name: "history.select" })).not.toBeInTheDocument();
   });
+  it("only supplies the explicitly selected pair, keeping history selection and default callers intact", () => {
+    mocks.value.rows = []; mocks.value.response = null;
+    render(<SegmentHistoryPanel segmentId="s" seeds={[{ id: "ea", activityId: "a", elapsedTime: 1000 }, { id: "eb", activityId: "b", elapsedTime: 2000 }]} seedLoading={false} seedError={false} callableEnabled cachedGapEntry />);
+    expect(mocks.gap.mock.lastCall?.[0]).toMatchObject({ pair: null });
+    const selects = screen.getAllByRole("combobox");
+    fireEvent.change(selects[0]!, { target: { value: "ea" } }); fireEvent.change(selects[1]!, { target: { value: "eb" } });
+    expect(mocks.gap.mock.lastCall?.[0]).toMatchObject({ pair: [{ activityId: "a", effortId: "ea" }, { activityId: "b", effortId: "eb" }] });
+    fireEvent.change(selects[1]!, { target: { value: "ea" } }); expect(mocks.gap.mock.lastCall?.[0]).toMatchObject({ pair: null });
+  });
+
+  it("distinguishes KST seconds and unknown ties without exposing IDs as option labels", () => {
+    mocks.value.rows = []; mocks.value.response = null;
+    render(<SegmentHistoryPanel segmentId="s" seeds={[
+      { id: "ea", activityId: "a", elapsedTime: 90000, startDate: Date.UTC(2026, 9, 7, 0, 1, 2), source: "orider" },
+      { id: "eb", activityId: "b", elapsedTime: 90000, startDate: Date.UTC(2026, 9, 7, 0, 1, 3), source: "orider" },
+      { id: "ec", activityId: "c", elapsedTime: Number.NaN },
+      { id: "ed", activityId: "d", elapsedTime: Number.NaN },
+    ]} seedLoading={false} seedError={false} callableEnabled cachedGapEntry />);
+    const select = screen.getAllByRole("combobox")[0]!;
+    const options = within(select).getAllByRole("option");
+    expect(options.slice(1).map(o => o.getAttribute("value"))).toEqual(["ea", "eb", "ec", "ed"]);
+    expect(options[1]).toHaveTextContent("09:01:02 KST · 1:30 · timeGap.sources.orider");
+    expect(options[2]).toHaveTextContent("09:01:03 KST · 1:30 · timeGap.sources.orider");
+    expect(options[3]).toHaveTextContent("history.unknownDate · timeGap.unknownTime · history.unknownSource · choice 3");
+    expect(options[4]).toHaveTextContent("choice 4");
+    fireEvent.change(select, { target: { value: "ea" } });
+    const proof = screen.getByText("timeGap.proof").closest("details")!;
+    expect(proof).not.toHaveAttribute("open");
+    expect(proof).toHaveTextContent("timeGap.activityId: a");
+    expect(proof).toHaveTextContent("timeGap.effortId: ea");
+    expect(mocks.gap.mock.lastCall?.[0]).toMatchObject({ pair: null });
+    fireEvent.change(screen.getAllByRole("combobox")[1]!, { target: { value: "eb" } });
+    expect(mocks.gap.mock.lastCall?.[0]).toMatchObject({ pair: [{ activityId: "a", effortId: "ea" }, { activityId: "b", effortId: "eb" }] });
+  });
+
 });
