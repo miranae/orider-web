@@ -10,6 +10,7 @@ vi.mock('../services/firebase', () => ({
   auth: {},
   functions: {},
   ensureAppCheckReady: vi.fn().mockResolvedValue(undefined),
+  getAppCheckToken: vi.fn().mockResolvedValue(null),
 }));
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn(),
