@@ -1017,6 +1017,30 @@
     "gridNote": "현재 저장되는 구간 격자에는 15초·3분·15분·45분의 정확한 기록이 없습니다. 구간 관측 자료 자체가 없는 기간은 12개 구간 모두 확인할 수 없습니다.",
     "scannedUnavailable": "활동 {{scanned}}개 확인 · 구간별 파워 기록 확인 불가",
     "through": "{{date}}까지",
-    "tableUnavailable": "— 정확한 구간 기록 또는 필요한 측정·체중 자료를 확인할 수 없습니다."
+    "tableUnavailable": "— 정확한 구간 기록 또는 필요한 측정·체중 자료를 확인할 수 없습니다.",
+    "native": {
+      "title": "선택 활동의 12구간 파워 비교",
+      "scope": "불러온 오라이더 활동을 최대 2개 선택해 비교합니다. 계정 전체의 최고 기록은 아닙니다.",
+      "selectActivities": "활동 선택 · {{count}}개",
+      "inspect": "기록 확인",
+      "reinspect": "다시 확인",
+      "noActivities": "불러온 오라이더 활동이 없습니다.",
+      "presets": "최근 56일 · 전체 기간으로 설정",
+      "load": "선택 활동 분석",
+      "loading": "분석 중…",
+      "error": "활동이 변경되었거나 분석을 완료하지 못했습니다. 기록을 다시 확인해 주세요.",
+      "preparing": "이 분석은 준비 중입니다.",
+      "measured": "센서 파워",
+      "storedNativeUnverified": "출처 미확인 파워",
+      "source": "기록 활동 보기",
+      "checked": "선택 {{selected}}개 · 확인 {{checked}}개 · 일부 활동 비교",
+      "notLoaded": "활동을 선택하고 기록을 확인해 주세요.",
+      "clock": "저장된 1초 구간을 기준으로 비교합니다. 원본 시계와 센서 구간의 정확성은 확인되지 않았습니다.",
+      "missing": "—는 해당 기간에 확인된 기록 또는 연속 구간이 없다는 뜻입니다. 0 W와 구분합니다.",
+      "unavailable": "확인 불가",
+      "tableOrigin": "표에 표시할 파워 출처",
+      "window": "활동 경과 {{from}}–{{through}}초의 연속 구간",
+      "calendarBasis": "UTC 날짜 기준 · 종료 날짜 포함 · 오늘은 조회 시각까지"
+    }
   }
 }

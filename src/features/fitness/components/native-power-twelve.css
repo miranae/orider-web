@@ -1,0 +1,14 @@
+.native-twelve { display: grid; gap: var(--space-4); min-inline-size: 0; border-top: 1px solid var(--line-soft); padding-block: var(--space-5); }
+.native-twelve-controls { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); }
+.native-twelve-controls label { display: grid; gap: var(--space-2); flex: 1; min-inline-size: calc(var(--space-8) * 3); }
+.native-twelve select, .native-twelve-details summary, .native-twelve-link { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.native-twelve-details summary { cursor: pointer; color: var(--ink-2); }
+.native-twelve-candidates { display: grid; gap: var(--space-2); }
+.native-twelve-candidate { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); border-bottom: 1px solid var(--line-soft); padding-block: var(--space-2); }
+.native-twelve-candidate label { display: flex; align-items: center; gap: var(--space-3); min-height: calc(var(--dim-button-height) + var(--space-1)); overflow-wrap: anywhere; }
+.native-twelve-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); }
+.native-twelve-link { display: inline-flex; align-items: center; color: var(--ink-2); text-decoration: underline; }
+.native-twelve-table-scroll { max-inline-size: 100%; overflow-x: auto; }
+.native-twelve-table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
+.native-twelve-table th, .native-twelve-table td { padding: var(--space-3); border-bottom: 1px solid var(--line-soft); text-align: start; vertical-align: top; }
+@media (max-width: 30rem) { .native-twelve-values { grid-template-columns: minmax(0, 1fr); } .native-twelve-candidate { align-items: start; } }

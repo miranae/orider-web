@@ -896,7 +896,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           </Card>
 
           {discipline === "run" && !user.isAnonymous && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}
-          {discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>}
+          {discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel nativeActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>}
 
           {/* 파워 커브 / 페이스 커브 (종목 분기) */}
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
