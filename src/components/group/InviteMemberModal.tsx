@@ -13,6 +13,8 @@ interface InviteMemberModalProps {
   onClose: () => void;
   groupId: string;
   inviteCode: string;
+  inviteStatus: string;
+  onRetry: () => void;
 }
 
 interface SearchResult {
@@ -20,7 +22,7 @@ interface SearchResult {
   profile: PublicUserProfile;
 }
 
-export default function InviteMemberModal({ open, onClose, groupId, inviteCode }: InviteMemberModalProps) {
+export default function InviteMemberModal({ open, onClose, groupId, inviteCode, inviteStatus, onRetry }: InviteMemberModalProps) {
   const { t, i18n } = useTranslation("group");
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -54,6 +56,7 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode }
   };
 
   const handleCopy = async () => {
+    if (!inviteCode) return;
     try {
       if (!navigator.clipboard?.writeText) return;
       await navigator.clipboard.writeText(buildGroupInviteUrl(inviteCode, i18n.language));
@@ -70,10 +73,11 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode }
         <label className="block text-[length:var(--fs-sm)] font-medium mb-2" style={{ color: "var(--ink-1)" }}>{t("members.inviteLink")}</label>
         <div className="flex items-center gap-2">
           <code className="flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] font-mono" style={{ background: "var(--bg-1)", color: "var(--ink-0)", wordBreak: "break-all" }}>
-            {buildGroupInviteUrl(inviteCode, i18n.language)}
+            {inviteCode ? buildGroupInviteUrl(inviteCode, i18n.language) : ""}
           </code>
           <button
             onClick={handleCopy}
+            disabled={!inviteCode}
             className="px-3 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-md)] transition-colors" style={{ background: "var(--bg-2)", color: "var(--ink-1)" }}
           >
             {copied ? t("invite.copied") : t("button.copy")}
@@ -81,6 +85,8 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode }
         </div>
       </div>
 
+      {inviteStatus !== "ready" && <p role="status">{t(`invite.${inviteStatus}`)}</p>}
+      {inviteStatus === "failed" && <button onClick={onRetry}>{t("invite.retry")}</button>}
       <div>
         <label className="block text-[length:var(--fs-sm)] font-medium mb-2" style={{ color: "var(--ink-1)" }}>{t("invite.directLabel")}</label>
         <div className="flex gap-2 mb-3">

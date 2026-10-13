@@ -13,7 +13,7 @@ export interface GroupMemberWithProfile extends GroupMember {
 }
 
 // 그룹 메타데이터 실시간 구독
-export function useGroup(groupId: string | undefined) {
+export function useGroup(groupId: string | undefined, accessKey?: string) {
   const [group, setGroup] = useState<Group | null>(null);
   const [inactive, setInactive] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -52,7 +52,7 @@ export function useGroup(groupId: string | undefined) {
       setInactive(false);
       setLoading(false);
     });
-  }, [groupId]);
+  }, [groupId, accessKey]);
 
   return { group, loading, error, inactive };
 }
@@ -68,31 +68,37 @@ export function useGroupMemberRole(groupId: string | undefined, userId: string |
       setLoading(false);
       return;
     }
+    let cancelled = false;
+    setRole(null);
     setLoading(true);
-    return onSnapshot(doc(firestore, "groups", groupId, "members", userId), (snap) => {
+    const unsubscribe = onSnapshot(doc(firestore, "groups", groupId, "members", userId), (snap) => {
+      if (cancelled) return;
       const data = snap.exists() ? snap.data() : null;
       const value = data?.role;
       const isActive = data && ["active", "approved"].includes(String(data.status ?? ""));
       setRole(isActive && (value === "leader" || value === "co-leader" || value === "member") ? value : null);
       setLoading(false);
     }, (err) => {
+      if (cancelled) return;
       logClientError("useGroupMemberRole.snapshot", err, { groupId, userId });
       setRole(null);
       setLoading(false);
     });
+    return () => { cancelled = true; unsubscribe(); };
   }, [groupId, userId]);
 
   return { role, loading };
 }
 
 // 그룹 멤버 목록 + 프로필 조회
-export function useGroupMembers(groupId: string | undefined, maxCount?: number) {
+export function useGroupMembers(groupId: string | undefined, maxCount?: number, accessKey?: string) {
   const [members, setMembers] = useState<GroupMemberWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const snapshotEpochRef = useRef(0);
 
   useEffect(() => {
-    if (!groupId) return;
+    setMembers([]);
+    if (!groupId) { setLoading(false); return; }
     setLoading(true);
     let cancelled = false;
 
@@ -122,7 +128,7 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number) 
     }, () => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; unsub(); };
-  }, [groupId, maxCount]);
+  }, [groupId, maxCount, accessKey]);
 
   return { members, loading };
 }

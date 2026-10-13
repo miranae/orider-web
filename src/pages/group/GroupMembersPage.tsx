@@ -18,6 +18,7 @@ import InviteMemberModal from "../../components/group/InviteMemberModal";
 import { EmptyState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
+import { useGroupInviteCode } from "../../hooks/useGroupInviteCode";
 import { localeTag } from "../../utils/localeDate";
 import { normalizeStartTime } from "../../utils/event-time";
 import { setGroupMemberRole, transferGroupLeadership } from "../../features/group/groupLeadership";
@@ -48,6 +49,7 @@ export default function GroupMembersPage() {
   const navigate = useLocalizedNavigate();
   const { group, loading: groupLoading } = useGroup(groupId);
   const { members, loading: membersLoading } = useGroupMembers(groupId);
+  const invite = useGroupInviteCode(groupId, user?.uid);
 
   const ROLE_LABELS: Record<string, string> = {
     leader: t("members.role.leader"),
@@ -634,12 +636,19 @@ export default function GroupMembersPage() {
           <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("members.inviteLink")}</h2>
           <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
             <code style={{ padding: "var(--space-2) var(--space-3)", background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", fontFamily: "var(--font-mono)", color: "var(--lime)", flex: 1 }}>
-              {buildGroupInviteUrl(group.inviteCode, i18n.language)}
+              {invite.code ? buildGroupInviteUrl(invite.code, i18n.language) : ""}
             </code>
             <Button
               type="button"
+              disabled={!invite.code}
               onClick={async () => {
-                await navigator.clipboard.writeText(buildGroupInviteUrl(group.inviteCode, i18n.language));
+                if (!invite.code) return;
+                try {
+                  await navigator.clipboard.writeText(buildGroupInviteUrl(invite.code, i18n.language));
+                } catch (err) {
+                  logClientError("GroupMembersPage.copyInvite", err, { groupId });
+                  return;
+                }
                 setInviteLinkCopied(true);
                 setTimeout(() => setInviteLinkCopied(false), 2000);
               }} variant="secondary" size="sm"
@@ -651,6 +660,8 @@ export default function GroupMembersPage() {
             {t("members.inviteCodeDesc")}
           </p>
 
+          {invite.status !== "ready" && <p role="status">{t(`invite.${invite.status}`)}</p>}
+          {invite.status === "failed" && <Button onClick={invite.retry}>{t("invite.retry")}</Button>}
           {invitations.length > 0 && (
             <div>
               <h3 className="text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-1)", marginBottom: 'var(--space-2)' }}>{t("members.sentInvitations")}</h3>
@@ -673,7 +684,9 @@ export default function GroupMembersPage() {
         open={showInvite}
         onClose={() => setShowInvite(false)}
         groupId={groupId!}
-        inviteCode={group.inviteCode}
+        inviteCode={invite.code}
+        inviteStatus={invite.status}
+        onRetry={invite.retry}
       />
     </div>
   );

@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../../services/firebase";
+import { auth, ensureAppCheckReady, functions } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useMyGroups, usePublicGroups } from "../../hooks/useGroup";
@@ -22,6 +22,12 @@ import type { Group } from "@shared/types";
 export default function GroupsPage() {
   const { t } = useTranslation("group");
   const { user } = useAuth();
+  const uid = user?.uid;
+  const joinIntent = useRef(0);
+  useEffect(() => {
+    setJoining(false);
+    return () => { joinIntent.current += 1; };
+  }, [uid]);
   const { showToast } = useToast();
   const { groups: myGroups, loading: myLoading, error: myGroupsError, retry: retryMyGroups } = useMyGroups(user?.uid);
   const [showCreate, setShowCreate] = useState(false);
@@ -62,13 +68,18 @@ export default function GroupsPage() {
   );
 
   const handleJoinByCode = async () => {
-    if (!inviteCode.trim()) return;
+    if (!uid || !inviteCode.trim() || joining) return;
+    const intent = joinIntent.current;
+    const isCurrent = () => intent === joinIntent.current && auth.currentUser?.uid === uid;
     setJoining(true);
     setError("");
     setPendingNotice("");
     try {
+      await ensureAppCheckReady();
+      if (!isCurrent()) return;
       const joinFn = httpsCallable<{ inviteCode: string }, JoinGroupByCodeResult>(functions, "joinGroupByCode");
       const result = await joinFn({ inviteCode: inviteCode.trim() });
+      if (!isCurrent()) return;
       if (isPendingGroupJoinResult(result.data)) {
         setPendingNotice(t("join.pendingByCode"));
         showToast(t("join.pendingToast"));
@@ -76,9 +87,10 @@ export default function GroupsPage() {
       }
       navigate(`/group/${result.data.groupId}`);
     } catch (err: any) {
-      setError(err.message === "Invalid invite code" ? t("error.invalidInviteCode") : t("error.joinFailed"));
+      if (!isCurrent()) return;
+      setError((!["functions/permission-denied", "functions/unauthenticated"].includes(err?.code) && (err?.code === "functions/not-found" || err?.message === "Invalid invite code" || err?.message === "Invalid or expired invite code" || (err?.code === "functions/invalid-argument" && err?.message === "유효한 초대 코드가 필요합니다."))) ? t("error.invalidInviteCode") : t("error.joinFailed"));
     } finally {
-      setJoining(false);
+      if (isCurrent()) setJoining(false);
     }
   };
 

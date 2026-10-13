@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { collection, doc, getDoc, getDocs, query, where, orderBy, limit } from "firebase/firestore";
-import { firestore } from "../../services/firebase";
+import { auth, ensureAppCheckReady, firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { isPermissionDeniedError } from "../../utils/firebaseErrors";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useGroup, useGroupMemberRole, useGroupMembers } from "../../hooks/useGroup";
 import { useGroupRideStats } from "../../hooks/useGroupRides";
-import { createGroupPost, useGroupPosts } from "../../hooks/useGroupPosts";
+import { createGroupPost, updateGroupPost, useGroupPosts } from "../../hooks/useGroupPosts";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
 import Avatar from "../../components/Avatar";
@@ -31,15 +31,27 @@ export default function GroupDashboardPage() {
   const { groupId } = useParams();
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
-  const { members, loading: membersLoading } = useGroupMembers(groupId, 8);
   const { role: currentMemberRole } = useGroupMemberRole(groupId, user?.uid);
+  const accessKey = `${user?.uid ?? ""}:${currentMemberRole ?? ""}`;
+  const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId, accessKey);
+  const { members, loading: membersLoading } = useGroupMembers(groupId, 8, accessKey);
 
   const { rides, aggregate, weeklyStats: serverWeeklyStats, memberWeekStats: serverMemberWeekStats,
-    loading: ridesLoading, error: ridesError, retry: retryRides } = useGroupRideStats(groupId);
-  const { posts, loading: postsLoading } = useGroupPosts(groupId);
+    loading: ridesLoading, error: ridesError, retry: retryRides } = useGroupRideStats(groupId, accessKey);
+  const { posts, loading: postsLoading } = useGroupPosts(groupId, accessKey);
   const [postContent, setPostContent] = useState("");
   const [posting, setPosting] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
+  const [savingPost, setSavingPost] = useState(false);
+  const editIntent = useRef(0);
+  useEffect(() => {
+    editIntent.current += 1;
+    setEditingPostId(null);
+    setEditingContent("");
+    setSavingPost(false);
+    return () => { editIntent.current += 1; };
+  }, [groupId, accessKey]);
 
   // 다가오는 그룹 이벤트
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
@@ -89,7 +101,7 @@ export default function GroupDashboardPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [groupId, t, user?.uid]);
+  }, [groupId, t, user?.uid, accessKey]);
 
   // 이번 주 통계 계산
   const weekStats = useMemo(() => {
@@ -230,6 +242,30 @@ export default function GroupDashboardPage() {
     }
   };
 
+  const savePost = async () => {
+    if (!groupId || !user || !editingPostId || savingPost) return;
+    const uid = user.uid;
+    const intent = editIntent.current;
+    const post = posts.find((item) => item.id === editingPostId);
+    if (!post || currentMemberRole === null || (!canManage && post.authorId !== uid)) return;
+    setSavingPost(true);
+    try {
+      await ensureAppCheckReady();
+      if (editIntent.current !== intent || auth.currentUser?.uid !== uid) return;
+      await updateGroupPost({ groupId, postId: post.id, content: editingContent });
+      if (editIntent.current !== intent || auth.currentUser?.uid !== uid) return;
+      setEditingPostId(null);
+      setEditingContent("");
+      showToast(t("dashboard.posts.updated"));
+    } catch (err) {
+      if (editIntent.current !== intent || auth.currentUser?.uid !== uid) return;
+      logClientError("GroupDashboardPage.updatePost", err, { groupId, postId: post.id });
+      showToast(t("dashboard.posts.updateFailed"), "error");
+    } finally {
+      if (editIntent.current === intent) setSavingPost(false);
+    }
+  };
+
   return (
     <div>
       <GroupSubNav group={group} isCreator={canManage} />
@@ -317,7 +353,36 @@ export default function GroupDashboardPage() {
                   <span className="text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-1)" }}>{post.authorName || t("dashboard.posts.memberFallback")}</span>
                   {post.createdAt > 0 && <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>{new Date(post.createdAt).toLocaleDateString()}</span>}
                 </div>
-                <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)", margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{post.content}</p>
+                {editingPostId === post.id ? (
+                  <div className="space-y-2">
+                    <textarea
+                      aria-label={t("dashboard.posts.editContent")}
+                      className="ds-input"
+                      value={editingContent}
+                      onChange={(event) => setEditingContent(event.target.value.slice(0, 1_000))}
+                      maxLength={1_000}
+                      rows={3}
+                      disabled={savingPost}
+                    />
+                    <div className="flex gap-2">
+                      <button type="button" className={buttonClass({ variant: "primary", size: "sm" })} disabled={savingPost || !editingContent.trim()} onClick={() => { void savePost(); }}>
+                        {t("dashboard.posts.save")}
+                      </button>
+                      <button type="button" className={buttonClass({ variant: "secondary", size: "sm" })} disabled={savingPost} onClick={() => { setEditingPostId(null); setEditingContent(""); }}>
+                        {t("dashboard.posts.cancel")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)", margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{post.content}</p>
+                    {currentMemberRole !== null && (canManage || post.authorId === user?.uid) && (
+                      <button type="button" className={buttonClass({ variant: "ghost", size: "sm" })} disabled={savingPost} onClick={() => { setEditingPostId(post.id); setEditingContent(post.content); }}>
+                        {t("dashboard.posts.edit")}
+                      </button>
+                    )}
+                  </>
+                )}
               </li>
             ))}
           </ul>

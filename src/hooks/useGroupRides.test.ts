@@ -1,9 +1,95 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { setCallableImplementation, setCallableResult } from "../__tests__/mocks/firebase";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockCallableInvocations, setCallableImplementation, setCallableResult } from "../__tests__/mocks/firebase";
 import { normalizeGroupRideAggregate, useGroupRideStats } from "./useGroupRides";
 
+import { httpsCallable } from "firebase/functions";
+import { auth, ensureAppCheckReady } from "../services/firebase";
+const context = vi.hoisted(() => ({ uid: "qa-owner" }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: context.uid } }) }));
+beforeEach(() => {
+  context.uid = "qa-owner";
+  Object.assign(auth, { currentUser: { uid: context.uid } });
+  vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
+  vi.mocked(httpsCallable).mockClear();
+  mockCallableInvocations.length = 0;
+});
+
 describe("useGroupRideStats", () => {
+
+  it.each(["initial", "page"] as const)("dispatches the %s payload only after readiness succeeds", async (phase) => {
+    const cursor = { startTime: 1, groupRideId: "r" };
+    setCallableResult("getGroupRideStats", { data: { rides: [], memberStats: {}, nextCursor: cursor } });
+    let resolveReady!: () => void;
+    const gate = new Promise<void>((resolve) => { resolveReady = resolve; });
+    if (phase === "initial") vi.mocked(ensureAppCheckReady).mockReturnValue(gate);
+    const { result } = renderHook(() => useGroupRideStats("qa-group"));
+    if (phase === "page") {
+      await waitFor(() => expect(result.current.hasMore).toBe(true));
+      vi.mocked(ensureAppCheckReady).mockReturnValue(gate);
+      mockCallableInvocations.length = 0;
+      vi.mocked(httpsCallable).mockClear();
+      act(() => { void result.current.loadMore(); });
+    }
+    expect(httpsCallable).not.toHaveBeenCalled();
+    await act(async () => { resolveReady(); });
+    expect(mockCallableInvocations).toEqual([{ name: "getGroupRideStats", data: phase === "initial"
+      ? { groupId: "qa-group", pageSize: 20 }
+      : { groupId: "qa-group", pageSize: 20, cursor, pageOnly: true } }]);
+  });
+
+  it.each(["initial", "page"] as const)("gates the %s request and propagates readiness failure without dispatch", async (phase) => {
+    setCallableResult("getGroupRideStats", { data: { rides: [], memberStats: {}, nextCursor: { startTime: 1, groupRideId: "r" } } });
+    let rejectReady!: (error: Error) => void;
+    const gate = new Promise<void>((_, reject) => { rejectReady = reject; });
+    if (phase === "initial") vi.mocked(ensureAppCheckReady).mockReturnValue(gate);
+    const { result } = renderHook(() => useGroupRideStats("qa-group"));
+    if (phase === "page") {
+      await waitFor(() => expect(result.current.hasMore).toBe(true));
+      vi.mocked(ensureAppCheckReady).mockReturnValue(gate);
+      vi.mocked(httpsCallable).mockClear();
+      act(() => { void result.current.loadMore(); });
+    }
+    expect(httpsCallable).not.toHaveBeenCalled();
+    await act(async () => { rejectReady(new Error("app-check/token-timeout")); });
+    expect(httpsCallable).not.toHaveBeenCalled();
+    expect(result.current.error).toBe("failed");
+    expect(result.current.loadingMore).toBe(false);
+  });
+
+  it.each(["initial", "page"] as const)("does not dispatch a pending %s request after unmount or account change", async (phase) => {
+    setCallableResult("getGroupRideStats", { data: { rides: [], memberStats: {}, nextCursor: { startTime: 1, groupRideId: "r" } } });
+    for (const change of ["unmount", "account"] as const) {
+      Object.assign(auth, { currentUser: { uid: context.uid } });
+      vi.mocked(ensureAppCheckReady).mockResolvedValue(undefined);
+      let resolveReady!: () => void;
+      const gate = new Promise<void>((resolve) => { resolveReady = resolve; });
+      if (phase === "initial") vi.mocked(ensureAppCheckReady).mockReturnValue(gate);
+      const view = renderHook(() => useGroupRideStats("qa-group"));
+      if (phase === "page") {
+        await waitFor(() => expect(view.result.current.hasMore).toBe(true));
+        vi.mocked(ensureAppCheckReady).mockReturnValue(gate);
+        act(() => { void view.result.current.loadMore(); });
+      }
+      vi.mocked(httpsCallable).mockClear();
+      if (change === "unmount") view.unmount();
+      else Object.assign(auth, { currentUser: { uid: "other-owner" } });
+      await act(async () => { resolveReady(); });
+      expect(httpsCallable).not.toHaveBeenCalled();
+      view.unmount();
+    }
+  });
+
+  it("dispatches only the current group after pending readiness resolves", async () => {
+    let resolveReady!: () => void;
+    vi.mocked(ensureAppCheckReady).mockReturnValue(new Promise<void>((resolve) => { resolveReady = resolve; }));
+    setCallableResult("getGroupRideStats", { data: { rides: [], memberStats: {} } });
+    const { rerender } = renderHook(({ groupId }) => useGroupRideStats(groupId), { initialProps: { groupId: "old" } });
+    rerender({ groupId: "new" });
+    await act(async () => { resolveReady(); });
+    expect(mockCallableInvocations).toEqual([{ name: "getGroupRideStats", data: { groupId: "new", pageSize: 20 } }]);
+  });
+
   it("reports an unavailable callable and clears the error on retry", async () => {
     let calls = 0;
     setCallableImplementation("getGroupRideStats", () => {
@@ -79,6 +165,7 @@ describe("useGroupRideStats", () => {
     await waitFor(() => expect(result.current.hasMore).toBe(true));
     act(() => { void result.current.loadMore(); });
     expect(result.current.loadingMore).toBe(true);
+    await waitFor(() => expect(resolveOldPage).toBeTypeOf("function"));
 
     rerender({ groupId: "group-b" });
     expect(result.current.loadingMore).toBe(false);
@@ -228,4 +315,16 @@ describe("normalizeGroupRideAggregate", () => {
     expect(normalizeGroupRideAggregate({ monthKey: "2026-07", monthlyDistance: Number.NaN })).toBeNull();
     expect(normalizeGroupRideAggregate({ monthKey: "July" })).toBeNull();
   });
+});
+
+
+it("reloads previously denied stats when the same user's membership is approved", async () => {
+  setCallableImplementation("getGroupRideStats", async () => { throw Object.assign(new Error("nonmember"), { code: "functions/permission-denied" }); });
+  const { result, rerender } = renderHook(({ accessKey }) => useGroupRideStats("approval", accessKey), { initialProps: { accessKey: "qa-owner:" } });
+  await waitFor(() => expect(result.current.error).toBe("failed"));
+  setCallableImplementation("getGroupRideStats", async () => ({ data: { rides: [], memberStats: { approved: { distance: 42, rideCount: 1, lastActivityAt: 10 } } } }));
+  rerender({ accessKey: "qa-owner:member" });
+  await waitFor(() => expect(result.current.memberStats.approved?.distance).toBe(42));
+  expect(result.current.error).toBeNull();
+  expect(mockCallableInvocations.filter(call => call.name === "getGroupRideStats")).toHaveLength(2);
 });

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../../services/firebase";
+import { auth, ensureAppCheckReady, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -33,14 +33,18 @@ export default function GroupInvitePage() {
   const [processing, setProcessing] = useState(false);
   const [processed, setProcessed] = useState(false);
 
+  const uid = user?.uid;
   useEffect(() => {
     const inviteCode = code ? normalizeGroupInviteCode(code) : "";
-    if (!user || !inviteCode || processed || processing) return;
+    if (!uid || !inviteCode || processed) return;
+    let cancelled = false;
+    const current = () => !cancelled && auth.currentUser?.uid === uid;
     setProcessing(true);
 
-    const joinFn = httpsCallable<{ inviteCode: string }, JoinGroupByCodeResult>(functions, "joinGroupByCode");
-    joinFn({ inviteCode })
+    ensureAppCheckReady()
+      .then(() => current() ? httpsCallable<{ inviteCode: string }, JoinGroupByCodeResult>(functions, "joinGroupByCode")({ inviteCode }) : undefined)
       .then((result) => {
+        if (!current() || !result) return;
         if (isPendingGroupJoinResult(result.data)) {
           showToast(t("join.pendingToast"));
           setProcessed(true);
@@ -54,13 +58,15 @@ export default function GroupInvitePage() {
         navigate(`/group/${groupId}`, { replace: true });
       })
       .catch((err) => {
+        if (!current()) return;
         logClientError("GroupInvitePage.join", err, { inviteCode });
-        showToast(err?.message === "Invalid invite code" ? t("error.invalidInviteCode") : t("error.joinFailed"), "error");
+        showToast((!["functions/permission-denied", "functions/unauthenticated"].includes(err?.code) && (err?.code === "functions/not-found" || err?.message === "Invalid invite code" || err?.message === "Invalid or expired invite code" || (err?.code === "functions/invalid-argument" && err?.message === "유효한 초대 코드가 필요합니다."))) ? t("error.invalidInviteCode") : t("error.joinFailed"), "error");
         setProcessed(true);
         navigate("/groups", { replace: true });
       })
-      .finally(() => setProcessing(false));
-  }, [code, navigate, processed, processing, showToast, t, user]);
+      .finally(() => { if (current()) setProcessing(false); });
+    return () => { cancelled = true; };
+  }, [code, navigate, processed, showToast, t, uid]);
 
   if (authLoading) {
     return <InviteSpinner label={t("inviteLink.loading")} />;
