@@ -6,7 +6,9 @@ import {
   collection, query, where, getDocs, doc, getDoc,
 } from "firebase/firestore";
 import { firestore, functions } from "../../services/firebase";
-import { logClientError } from "../../services/errorLogger";
+import { debugLog, logClientError } from "../../services/errorLogger";
+import { getActivityStreams } from "../../services/personalDataApi";
+import { isPermissionDeniedError } from "../../utils/firebaseErrors";
 import { httpsCallable } from "firebase/functions";
 import { useAuth } from "../../contexts/AuthContext";
 import type { Activity, ActivityStreams } from "@shared/types";
@@ -117,8 +119,18 @@ export default function GroupRidePage() {
             setStreams((prev) => ({ ...prev, [a.id]: result.data as unknown as ActivityStreams }));
           }
         } else if (a.source === "orider") {
-          // Orider 활동은 activity_streams/{activityId}에서 직접 읽기 (본인 데이터)
-          const streamSnap = await getDoc(doc(firestore, "activity_streams", a.id));
+          // Orider 활동은 activity_streams/{activityId}에서 직접 읽는다. 함께 탄 다른 라이더가
+          // 심박·파워를 숨겨 직접 읽기가 막히면, 숨긴 채널을 빼 주는 스트림 API 로 받는다.
+          let streamSnap;
+          try {
+            streamSnap = await getDoc(doc(firestore, "activity_streams", a.id));
+          } catch (readErr) {
+            if (!isPermissionDeniedError(readErr)) throw readErr;
+            debugLog("groupRide.streams.direct_read_denied_api_fallback", { activityId: a.id, rideId });
+            const viaApi = await getActivityStreams(a.id);
+            if (!cancelled) setStreams((prev) => ({ ...prev, [a.id]: viaApi }));
+            return;
+          }
           if (cancelled) return;
           if (streamSnap.exists()) {
             const data = streamSnap.data();
