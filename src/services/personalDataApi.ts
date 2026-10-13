@@ -1,4 +1,4 @@
-import { auth, functions, ensureAppCheckReady } from "./firebase";
+import { auth, functions, ensureAppCheckReady, getAppCheckToken } from "./firebase";
 import { httpsCallable, type Functions } from "firebase/functions";
 import type { Auth } from "firebase/auth";
 import { getRuntimeConfig } from "./runtimeConfig";
@@ -31,20 +31,29 @@ export interface CreatedPersonalApiKey {
 }
 
 async function apiFetch<T>(authInstance: Auth, path: string, init?: RequestInit): Promise<T> {
+  const requestUid = authInstance.currentUser?.uid;
   const token = await authInstance.currentUser?.getIdToken();
   if (!token) throw new Error("SIGN_IN_REQUIRED");
-  const apiBase = (getRuntimeConfig().personalApiBase || "").replace(/\/$/, "");
+  const config = getRuntimeConfig();
+  const apiBase = (config.personalApiBase || "").replace(/\/$/, "");
+  const protectedStageApi = config.appEnvironment === "stage" && apiBase === "https://qapersonalapi-ldfyfyx5da-du.a.run.app";
+  const appCheckToken = protectedStageApi ? await getAppCheckToken() : null;
+  if (authInstance.currentUser?.uid !== requestUid) throw new Error("account_changed");
+  if (protectedStageApi && !appCheckToken) throw new Error("app-check/empty-token");
 
   const response = await fetch(`${apiBase}/api/v1${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
+      ...(appCheckToken ? { "X-Firebase-AppCheck": appCheckToken } : {}),
       ...init?.headers,
     },
   });
 
+  if (authInstance.currentUser?.uid !== requestUid) throw new Error("account_changed");
   const payload = await response.json().catch(() => ({}));
+  if (authInstance.currentUser?.uid !== requestUid) throw new Error("account_changed");
   if (!response.ok) {
     const message = payload?.error?.message || payload?.message || `HTTP ${response.status}`;
     throw new Error(message);
