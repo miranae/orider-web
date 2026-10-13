@@ -34,6 +34,7 @@ vi.mock("../../services/firebase", () => ({
   functions: {},
   auth: {},
   ensureAppCheckReady: vi.fn().mockResolvedValue(undefined),
+  getAppCheckToken: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("../../contexts/AuthContext", () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => children,
