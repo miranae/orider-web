@@ -19,7 +19,7 @@ const accountLinks = [
 describe("menu IA v2", () => {
   it("shares the five ordered destinations across desktop and mobile", () => {
     const { container } = renderWithProviders(<><TopNav active="club" /><MobileTabBar active="club" /></>);
-    const expected = ["홈", "코치", "내 클럽", "탐색", "커뮤니티"];
+    const expected = ["홈", "코치", "클럽", "탐색", "커뮤니티"];
     const desktop = container.querySelector(".hidden.lg\\:flex")!;
     const mobile = screen.getByRole("navigation", { name: "메인 내비게이션" });
     expect(within(desktop as HTMLElement).getAllByRole("link").map(link => link.textContent)).toEqual(expected);
@@ -28,7 +28,7 @@ describe("menu IA v2", () => {
     expect(desktop).toHaveClass("hidden", "lg:flex");
     expect(mobile.parentElement).toHaveClass("lg:hidden");
     expect(mobile.parentElement).not.toHaveClass("md:hidden");
-    expect(within(mobile).getByRole("link", { name: "내 클럽" })).toHaveAttribute("aria-current", "page");
+    expect(within(mobile).getByRole("link", { name: "클럽" })).toHaveAttribute("aria-current", "page");
   });
 
   it("shows account destinations and the request badge on the avatar", async () => {

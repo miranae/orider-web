@@ -63,7 +63,6 @@ export const HUBS: Hub[] = [
       { labelKey: "nav.segments", to: "/explore/segments" },
       { labelKey: "nav.events", to: "/explore/events" },
       { labelKey: "nav.discover", to: "/explore/challenges" },
-      { labelKey: "nav.exploreClubs", to: "/explore/clubs" },
     ],
     match: (p) =>
       p.startsWith("/explore/") || p.startsWith("/course/") ||

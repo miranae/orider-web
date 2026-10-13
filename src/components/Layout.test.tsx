@@ -47,7 +47,7 @@ describe("Layout", () => {
   it("shows the five primary hub labels and keeps settings out of primary navigation", async () => {
     renderWithProviders(<Layout />);
     await waitFor(() => {
-      expect(screen.getAllByText("내 클럽").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("클럽").length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText("코치").length).toBeGreaterThan(0);
     expect(screen.getAllByText("탐색").length).toBeGreaterThan(0);
@@ -269,7 +269,7 @@ describe("Layout", () => {
     });
     const tabBar = screen.getByRole("navigation", { name: "메인 내비게이션" });
     const tabs = within(tabBar).getAllByRole("link");
-    expect(tabs.map((tab) => tab.textContent)).toEqual(["홈", "코치", "내 클럽", "탐색", "커뮤니티"]);
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["홈", "코치", "클럽", "탐색", "커뮤니티"]);
     expect(within(tabBar).getByRole("link", { name: "코치" })).toHaveAttribute("href", "/ko/coach/condition");
   });
 
@@ -320,6 +320,6 @@ describe("Layout", () => {
     expect(screen.getByRole("button", { name: "KO" }).className).toContain("focus-visible:outline");
     const moreButtons = screen.getAllByRole("button", { name: "더보기" });
     expect(moreButtons.some((button) => button.className.includes("focus-visible:outline"))).toBe(true);
-    expect(screen.getAllByRole("link", { name: /내 클럽/ }).some((link) => link.className.includes("focus-visible:outline"))).toBe(true);
+    expect(screen.getAllByRole("link", { name: /^클럽$/ }).some((link) => link.className.includes("focus-visible:outline"))).toBe(true);
   });
 });

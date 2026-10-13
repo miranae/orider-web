@@ -155,7 +155,7 @@ export function AppRoutes() {
           <Route path="explore/events" element={<EventsPage />} />
           <Route path="explore/events/organize" element={<EventOrganizerPage />} />
           <Route path="explore/challenges" element={<DiscoverPage />} />
-          <Route path="explore/clubs" element={<GroupsPage />} />
+          <Route path="explore/clubs" element={<LegacyRedirect to="/clubs" />} />
           <Route path="course/create" element={<CreateCoursePage />} />
           <Route path="course/:courseId/edit" element={<CourseEditPage />} />
           <Route path="course/:courseId" element={<CoursePage />} />
