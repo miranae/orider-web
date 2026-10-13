@@ -8,7 +8,7 @@ import type { Activity, ActivityStreams } from "@shared/types";
 // 않는다. services 유무가 익명/인증 fetch 분기도 결정하므로 필수화하면 동작이 바뀐다.
 // eslint-disable-next-line design-system/no-firebase-singleton-in-embed
 import { auth as defaultAuth, firestore as defaultFirestore } from "../../../services/firebase";
-import { logClientError } from "../../../services/errorLogger";
+import { debugLog, logClientError } from "../../../services/errorLogger";
 import {
   getActivityStreams,
   getActivityStreamsWithAuth,
@@ -18,6 +18,7 @@ import type { Auth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 import { getStravaActivityId } from "../../../utils/stravaActivity";
 import { isStreamNotCachedError } from "./activityDetailUtils";
+import { isPermissionDeniedError } from "../../../utils/firebaseErrors";
 
 interface UseActivityStreamsLoaderArgs {
   activityId: string | undefined;
@@ -45,7 +46,23 @@ export async function loadCanonicalActivityStreams(
   services?: { auth: Auth; firestore: Firestore },
 ): Promise<ActivityStreams> {
   const { auth, firestore } = services ?? { auth: defaultAuth, firestore: defaultFirestore };
-  const snap = await getDoc(doc(firestore, "activity_streams", activityId));
+  const loadFromApi = async () => {
+    const streams = services
+      ? await getActivityStreamsWithAuth(auth, activityId)
+      : await getActivityStreams(activityId);
+    if (fallbackUserId) streams.userId = fallbackUserId;
+    return streams;
+  };
+  let snap;
+  try {
+    snap = await getDoc(doc(firestore, "activity_streams", activityId));
+  } catch (err) {
+    // 주인이 심박·파워를 숨긴 남의 활동은 rules 가 직접 읽기를 막는다. 이때는 숨긴 채널을
+    // 빼 주는 스트림 API 로 받는다. 권한 거부가 아닌 오류는 그대로 올린다.
+    if (!isPermissionDeniedError(err)) throw err;
+    debugLog("streams.direct_read_denied_api_fallback", { activityId });
+    return loadFromApi();
+  }
   if (!snap.exists()) throw new Error("STREAMS_MISSING");
 
   const data = snap.data();
