@@ -21,6 +21,7 @@ interface ParticipantTableProps {
   locations: LocationData[];
   selectedUid: string | null;
   onSelectParticipant: (uid: string) => void;
+  pendingFinish?: boolean;
 }
 
 const STATUS_KEYS: Record<string, string> = {
@@ -56,6 +57,7 @@ export default function ParticipantTable({
   locations,
   selectedUid,
   onSelectParticipant,
+  pendingFinish = false,
 }: ParticipantTableProps) {
   const { t } = useTranslation("event");
   const [search, setSearch] = useState("");
@@ -80,11 +82,13 @@ export default function ParticipantTable({
         const matchName = loc.displayName.toLowerCase().includes(q);
         return matchBib || matchName;
       })
-      .sort((a, b) => (a.overallRank ?? 9999) - (b.overallRank ?? 9999));
-  }, [locations, search]);
+      .sort((a, b) => (pendingFinish && a.status === "FINISHED" ? 9999 : a.overallRank ?? 9999)
+        - (pendingFinish && b.status === "FINISHED" ? 9999 : b.overallRank ?? 9999));
+  }, [locations, pendingFinish, search]);
 
   const getStatusLabel = (status: string): string => {
     const key = (status || "").toUpperCase();
+    if (pendingFinish && key === "FINISHED") return t("dashboard.status.resultPending");
     const i18nKey = STATUS_KEYS[key];
     if (!i18nKey) return status;
     // SOS and DNF are proper nouns / abbreviations — return as-is
@@ -147,7 +151,7 @@ export default function ParticipantTable({
             {filtered.map((loc) => {
               const statusKey = (loc.status || "").toUpperCase();
               const color = STATUS_COLORS[statusKey] ?? "var(--ink-3)";
-              const emoji = STATUS_EMOJIS[statusKey] ?? "·";
+              const emoji = pendingFinish && statusKey === "FINISHED" ? "⏹" : STATUS_EMOJIS[statusKey] ?? "·";
               const label = getStatusLabel(loc.status);
               const sel = loc.uid === selectedUid;
               const distKm = loc.distance / 1000;
@@ -166,11 +170,11 @@ export default function ParticipantTable({
                       padding: "9px 14px",
                       textAlign: "right",
                       fontFamily: "var(--font-mono)",
-                      color: loc.overallRank ? "var(--ink-0)" : "var(--ink-3)",
-                      fontWeight: loc.overallRank ? 500 : 400,
+                      color: !pendingFinish || statusKey !== "FINISHED" ? (loc.overallRank ? "var(--ink-0)" : "var(--ink-3)") : "var(--ink-3)",
+                      fontWeight: !pendingFinish || statusKey !== "FINISHED" ? (loc.overallRank ? 500 : 400) : 400,
                     }}
                   >
-                    {loc.overallRank ?? "–"}
+                    {pendingFinish && statusKey === "FINISHED" ? "–" : loc.overallRank ?? "–"}
                   </td>
                   <td style={{ padding: "9px 14px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--ink-1)" }}>
                     {loc.bib != null ? `#${String(loc.bib).padStart(3, "0")}` : "–"}
