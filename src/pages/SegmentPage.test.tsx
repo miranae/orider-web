@@ -7,6 +7,8 @@ import { setDocData, setCollectionDocs, mockCallableInvocations } from "../__tes
 import koSegment from "../i18n/resources/ko/segment.json";
 import enSegment from "../i18n/resources/en/segment.json";
 
+const cachedComparisonMocks = vi.hoisted(() => ({ getStreams: vi.fn(async () => null) }));
+vi.mock("../hooks/useStrava", () => ({ useStrava: () => ({ getStreams: cachedComparisonMocks.getStreams }) }));
 // Mock heavy components
 vi.mock("../components/RouteMap", () => ({
   default: () => <div data-testid="route-map">Map</div>,
@@ -23,6 +25,17 @@ vi.mock("react-router-dom", async (importOriginal) => {
 
 describe("SegmentPage", () => {
   beforeEach(() => resetRuntimeConfigForTests({ activityAnalysisExpansionEnabled: false }));
+  it.each([false, true])("gates write-prone route resolution only in the explicit Stage cached entry=%s", async cached => {
+    cachedComparisonMocks.getStreams.mockClear();
+    resetRuntimeConfigForTests({ appEnvironment: "stage", activityAnalysisExpansionEnabled: false });
+    setDocData("segments/seg-1", { name: "Cached route", source: "strava", stravaSegmentId: 7, distance: 1000, averageGrade: 0, maximumGrade: 0, climbCategory: 0 });
+    setCollectionDocs("segment_efforts/seg-1/efforts", [{ id: "e", segmentId: "seg-1", activityId: "strava_42", userId: "test-uid", nickname: "Owner", elapsedTime: 60000, averageSpeed: 20 }]);
+    renderWithProviders(<SegmentPage />, { authenticated: true, profile: { stravaConnected: true }, route: `/ko/segment/seg-1${cached ? "?cachedComparison=1" : ""}` });
+    await screen.findByText("Cached route");
+    if (cached) { await waitFor(() => expect(screen.getAllByText("Owner").length).toBeGreaterThan(0)); expect(cachedComparisonMocks.getStreams).not.toHaveBeenCalled(); }
+    else await waitFor(() => expect(cachedComparisonMocks.getStreams).toHaveBeenCalledExactlyOnceWith(42));
+    expect(mockCallableInvocations.some(c => c.name === "getActivityStreams" && (c.data as { mode?: string }).mode === "segment_distance_time_gap")).toBe(false);
+  });
   it("lazily bounds owner history and excludes deleted source activities while API is preparing", async () => {
     vi.mocked(limit).mockClear();
     setDocData("segments/seg-1", { name: "History segment", distance: 1000, averageGrade: 0, maximumGrade: 0, elevationHigh: 1, elevationLow: 0 });

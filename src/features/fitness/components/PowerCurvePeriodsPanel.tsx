@@ -1,3 +1,4 @@
+import { PowerEffortPreferencePanel } from "./PowerEffortPreferencePanel";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PowerCurvePeriod, PowerCurvePeriodsResponse, PeriodPowerPoint, WeightNormalizedPowerPoint } from "@shared/types/power-curve-periods";
@@ -9,6 +10,9 @@ import { utcPowerCurvePeriod } from "../../../services/powerCurvePeriods";
 import { makeDurationLabel } from "../fitnessPageUtils";
 import "./power-curve-periods.css";
 import { PowerDurationPeriodsView } from "./PowerDurationPeriodsView";
+import { stageActivityPowerAvailable } from "../../../services/stageActivityPowerDuration";
+import { NativePowerTwelvePersonalPanel } from "./NativePowerTwelvePersonalPanel";
+import type { NativePowerLoadedActivity } from "./NativePowerTwelvePersonalView";
 import { PowerSkillsObservedView } from "./PowerSkillsObservedView";
 type Draft = { preset: "year" | "all" | "custom"; from: string; through: string };
 export function PowerCurvePeriodsView({ response, unit = "W" }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg" }) {
@@ -99,10 +103,11 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
     {result.state === "loading" && <Text as="p" variant="bodyMedium">{t("periodCurve.loading")}</Text>}
     {result.state === "error" && <Text as="p" variant="bodyMedium" role="alert">{t("periodCurve.error")}</Text>}
     {result.response && (skillsMode ? <PowerSkillsObservedView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} /> : <PowerCurvePeriodsView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} />)}
+    {result.response && stageActivityPowerAvailable() && <PowerEffortPreferencePanel ownerUid={ownerUid} mode="stage_power_effort_adjusted_canonical" activityIds={[...new Set(result.response.periods.flatMap(p=>[...p.points.map(v=>v.sourceActivityId),...(p.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[])]))].slice(0,20)} periods={result.response.periods.map((p,i)=>({id:`period_${i}`,fromInclusiveMs:p.fromInclusive,toExclusiveMs:p.toExclusive}))} scopeKey={JSON.stringify([selection,result.response.inputDigest])}/>}
   </section>;
 }
-export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false, embedded = false }: { ownerUid: string | null | undefined; callableEnabled?: boolean; embedded?: boolean }) {
+export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false, embedded = false, nativeActivities = [] }: { nativeActivities?: readonly NativePowerLoadedActivity[]; ownerUid: string | null | undefined; callableEnabled?: boolean; embedded?: boolean }) {
   const { user } = useAuth();
   if (!ownerUid || !user || user.isAnonymous || user.uid !== ownerUid) return null;
-  return <PeriodsForm key={ownerUid} ownerUid={ownerUid} callableEnabled={callableEnabled} embedded={embedded} />;
+  return <><PeriodsForm key={ownerUid} ownerUid={ownerUid} callableEnabled={callableEnabled} embedded={embedded} />{stageActivityPowerAvailable() && <NativePowerTwelvePersonalPanel key={`native-${ownerUid}`} ownerUid={ownerUid} activities={nativeActivities} enabled={callableEnabled} />}</>;
 }

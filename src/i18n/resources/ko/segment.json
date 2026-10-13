@@ -1,4 +1,53 @@
 {
+  "timeGap": {
+    "title": "공통 관측 구간 시간차",
+    "choose": "저장된 두 시도 비교",
+    "chooseAttempt": "시도를 선택하세요",
+    "a": "시도 A",
+    "b": "시도 B",
+    "actionNote": "선택한 두 활동의 저장된 GPS만 조회합니다. 캐시 또는 시계 근거가 없으면 비교할 수 없습니다.",
+    "compare": "구간 비교하기",
+    "basis": "조회한 저장 표본 기준입니다. 원래 시계의 정확성과 과거 경로의 동일성은 확인하지 못했습니다.",
+    "span": "관측 범위 {{from}}–{{to}}",
+    "full": "현재 경로 끝점까지 관측",
+    "partial": "공통으로 관측된 일부 구간",
+    "chart": "거리별 A와 B의 경과시간 차이",
+    "position": "거리 위치",
+    "sign": "양수는 A가 B보다 늦게 도착했음을 뜻합니다. 성장이나 기록 순위를 의미하지 않습니다.",
+    "events": "같은 위치에 머문 관측과 수집 공백이 있습니다. 공백을 선으로 연결하지 않습니다.",
+    "interval": "도착–출발 경과시간: A {{a}}–{{aEnd}}, B {{b}}–{{bEnd}}",
+    "states": {
+      "loading": "저장된 두 구간을 확인 중입니다.",
+      "error": "비교하지 못했습니다. 버튼을 눌러 다시 확인할 수 있습니다.",
+      "unavailable": "이 입력으로 비교할 수 없습니다.",
+      "changed_input": "조회 중 입력이 바뀌었습니다. 다시 확인해주세요."
+    },
+    "reasons": {
+      "missing_cache": "저장된 GPS 캐시가 없어 비교할 수 없습니다.",
+      "missing_geometry": "저장된 전체 경로를 확인할 수 없습니다.",
+      "unknown_clock": "저장된 표본의 시계 근거를 확인할 수 없습니다.",
+      "ambiguous_index_axis": "이 시도의 원래 표본 범위를 확인할 수 없습니다.",
+      "invalid_input": "저장된 비교 입력을 확인할 수 없습니다.",
+      "input_limit": "한 번에 확인 가능한 표본 범위를 넘었습니다.",
+      "geometry_not_forward": "현재 경로에서 두 시도의 진행 방향과 위치를 확인하지 못했습니다.",
+      "no_common_observation": "함께 관측된 비교 구간이 없습니다.",
+      "changed_input": "조회 중 입력이 바뀌었습니다. 다시 확인해주세요."
+    },
+    "refresh": "다시 확인",
+    "calculationDetails": "계산 기준과 한계",
+    "calculation": "현재 저장 경로를 다시 검증한 결과입니다. 공통 시작점의 첫 도착부터 정지를 포함한 경과시간을 비교합니다. 표본 사이 값은 추정입니다.",
+    "proof": "선택한 기록 출처",
+    "activityId": "활동 ID",
+    "effortId": "시도 ID",
+    "unknownTime": "시간 미확인",
+    "choice": "선택 {{count}}",
+    "sources": {
+      "orider": "ORider",
+      "strava": "Strava",
+      "apple_health": "Apple Health",
+      "health_connect": "Health Connect"
+    }
+  },
   "title": "세그먼트",
   "subtitle": "세그먼트를 찾아보고 도전해보세요",
   "createTitle": "세그먼트 만들기",

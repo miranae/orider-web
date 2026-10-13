@@ -1,0 +1,6 @@
+import type {NativePowerV2ReaderResponse} from "@shared/types/stage-native-power-v2-publication";
+/** 합성 스칼라 UI 예시. 실제 서버 세션이나 계정 자료가 아니다. */
+export function nativePowerV2DurationFixture(durationSeconds:number,compute=false):NativePowerV2ReaderResponse {
+ const available=durationSeconds<=3600;
+ return {version:2,mode:compute?"stage_native_power_v2_duration":"stage_native_power_v2_metadata",activityId:"orider_fixture_a",scope:"whole_activity_observed_intervals",collectionCompleteness:"unknown",timingBasis:"stored_native_timestamp_one_second_slots",comparisonChannel:"native_stored_bucket_unverified",state:compute&&!available?"no_continuous_window":"available",session:"synthetic_opaque_session_not_a_credential",witness:compute&&available?{version:2,calculatorPolicyVersion:"native_power_integer_ms_v2",snapshotRevision:"a".repeat(64),powerSource:"measured",durationMs:durationSeconds*1000,windowStartElapsedMs:120000,windowEndElapsedMs:120000+durationSeconds*1000,energyNumerator:String(300*durationSeconds*1000),energyDenominator:"1",maxAveragePowerW:300,originalClockVerified:false,sensorBucketOriginVerified:false}:null,bounds:{observedMs:3600000,longestContinuousMs:3600000},costs:{documents:compute?20:28,metadata:2,auth:2,snapshotBodies:1,raw:0,writes:0}};
+}

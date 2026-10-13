@@ -6,16 +6,42 @@ import { LocalizedLink } from "../../components/LocalizedLink";
 import { useMySegmentHistory } from "../../hooks/useMySegmentHistory";
 import { localeTag } from "../../utils/localeDate";
 import "./segmentHistory.css";
+import SegmentDistanceTimeGapPanel from "./SegmentDistanceTimeGapPanel";
+import { segmentGapAvailable } from "../../services/segmentDistanceTimeGap";
+import { formatElapsedBoundary } from "../activity/detail/activityRangeSelection";
 export interface SegmentHistorySeed { id: string; activityId: string; elapsedTime: number; startDate?: number; source?: string; averageSpeed?: number; averageWatts?: number | null }
-interface Props { initialSelection?: { activityId: string; effortId: string } | null; segmentId: string; seeds: SegmentHistorySeed[]; seedLoading: boolean; seedError: boolean; callableEnabled?: boolean }
+interface Props { cachedGapEntry?: boolean; sourceIdentity?: string; onGapMarker?: (position: [number, number] | null) => void; initialSelection?: { activityId: string; effortId: string } | null; segmentId: string; seeds: SegmentHistorySeed[]; seedLoading: boolean; seedError: boolean; callableEnabled?: boolean }
 const elapsed = (ms: number) => `${Math.floor(ms / 60000)}:${Math.floor(ms / 1000 % 60).toString().padStart(2, "0")}`;
-export default function SegmentHistoryPanel({ initialSelection, segmentId, seeds, seedLoading, seedError, callableEnabled = false }: Props) {
+export default function SegmentHistoryPanel({ initialSelection, segmentId, seeds, seedLoading, seedError, callableEnabled = false, cachedGapEntry = false, sourceIdentity = "", onGapMarker }: Props) {
   const { t } = useTranslation("segment");
   const [selection, setSelection] = useState<{ activityId: string; effortId: string; nonce: number } | null>(() => initialSelection ? { ...initialSelection, nonce: 1 } : null);
   const history = useMySegmentHistory(segmentId, selection, callableEnabled);
   const response = history.response?.state === "available" ? history.response : null;
+  const [gapSelection, setGapSelection] = useState<[string, string]>(["", ""]);
+  const gapRows = useMemo(() => {
+    const candidates = [...(response?.currentAttempt ? [response.currentAttempt] : []), ...history.rows,
+      ...seeds.map(s => ({ effortId: s.id, activityId: s.activityId, startDateMs: s.startDate ?? null, elapsedMs: s.elapsedTime, source: s.source }))];
+    return [...new Map(candidates.map(r => [r.effortId, r])).values()];
+  }, [response, history.rows, seeds]);
+  const selectedGap = gapSelection.map(id => gapRows.find(r => r.effortId === id));
+  const gapPair = selectedGap[0] && selectedGap[1] && selectedGap[0].activityId !== selectedGap[1].activityId
+    ? selectedGap.map(r => ({ activityId: r!.activityId, effortId: r!.effortId })) as [{ activityId: string; effortId: string }, { activityId: string; effortId: string }] : null;
+
   const rows = useMemo(() => [...history.rows].sort((a, b) => (b.startDateMs ?? -1) - (a.startDateMs ?? -1) || a.effortId.localeCompare(b.effortId)), [history.rows]);
   const date = (value?: number | null) => value != null && Number.isFinite(value) && value > 0 ? new Date(value).toLocaleDateString(localeTag()) : t("history.unknownDate");
+  const gapDate = (value: number | null) => value !== null && Number.isFinite(value) && Number.isFinite(new Date(value).getTime())
+    ? `${new Date(value).toLocaleString(localeTag(), { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" })} KST`
+    : t("history.unknownDate");
+  const gapLabels = gapRows.map(row => {
+    const time = Number.isFinite(row.elapsedMs) && row.elapsedMs >= 0 && Number.isFinite(row.elapsedMs / 1000 * 1e6)
+      ? formatElapsedBoundary(row.elapsedMs / 1000) : t("timeGap.unknownTime");
+    const declaredSource = typeof row.source === "string" && row.source ? row.source : null;
+    const sourceName = declaredSource && ["orider", "strava", "apple_health", "health_connect"].includes(declaredSource)
+      ? t(`timeGap.sources.${declaredSource}`) : declaredSource ?? t("history.unknownSource");
+    return `${gapDate(row.startDateMs)} · ${time} · ${sourceName}`;
+  });
+  const gapLabelCounts = new Map<string, number>();
+  for (const label of gapLabels) gapLabelCounts.set(label, (gapLabelCounts.get(label) ?? 0) + 1);
   const select = (activityId: string, effortId: string) => setSelection(old => ({ activityId, effortId, nonce: (old?.nonce ?? 0) + 1 }));
   const source = (row: SegmentHistoryAttempt) => typeof row.source === "string" && row.source ? row.source : t("history.unknownSource");
   const sensors = (row: SegmentHistoryAttempt) => `${row.averageSpeedKph == null ? "—" : row.averageSpeedKph.toFixed(1)} km/h · ${row.averageHeartrate ?? "—"} bpm · ${row.averageWatts ?? "—"} W${row.isVirtualPower ? ` (${t("history.virtual")})` : ""} · ${row.averageCadence ?? "—"} rpm`;
@@ -62,6 +88,22 @@ export default function SegmentHistoryPanel({ initialSelection, segmentId, seeds
       {rows.map(row => attempt(row, row.effortId === response.currentEffortId))}
       {response.nextCursor && <Button size="sm" variant="ghost" disabled={history.loading} onClick={history.loadMore}>{t("history.more")}</Button>}
     </>}
+    {cachedGapEntry && callableEnabled && segmentGapAvailable() && <section className="segment-gap-selection">
+      <Text as="h3" variant="bodyMedium" weight={600}>{t("timeGap.choose")}</Text>
+      {[0, 1].map(index => <label key={index}><Text variant="bodyMedium">{t(index ? "timeGap.b" : "timeGap.a")}</Text>
+        <select className="ds-input" value={gapSelection[index]} onChange={e => { onGapMarker?.(null); setGapSelection(old => index ? [old[0], e.target.value] : [e.target.value, old[1]]); }}>
+          <option value="">{t("timeGap.chooseAttempt")}</option>
+          {gapRows.map((row, i) => <option key={row.effortId} value={row.effortId}>{gapLabels[i]}{(gapLabelCounts.get(gapLabels[i]!) ?? 0) > 1 ? ` · ${t("timeGap.choice", { count: i + 1 })}` : ""}</option>)}
+        </select>
+      </label>)}
+      {selectedGap.some(Boolean) && <details className="segment-gap-proof"><summary>{t("timeGap.proof")}</summary>
+        {selectedGap.map((row, i) => row && <div key={i}><Text as="p" variant="bodyMedium" weight={600}>{t(i ? "timeGap.b" : "timeGap.a")}</Text>
+          <Text as="p" variant="bodyMedium" mono>{t("timeGap.activityId")}: {row.activityId}</Text>
+          <Text as="p" variant="bodyMedium" mono>{t("timeGap.effortId")}: {row.effortId}</Text>
+        </div>)}
+      </details>}
+      <SegmentDistanceTimeGapPanel segmentId={segmentId} pair={gapPair} sourceIdentity={JSON.stringify([sourceIdentity, history.response?.inputRevision])} onMarker={onGapMarker} />
+    </section>}
     <Text as="p" variant="caption" tone="tertiary">{t("history.alignment")}</Text>
   </div>;
 }

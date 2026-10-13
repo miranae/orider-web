@@ -1,0 +1,18 @@
+import {fireEvent,screen,render} from "@testing-library/react";
+import {beforeEach,expect,it,vi} from "vitest";
+import {MemoryRouter} from "react-router-dom";
+import type {ReactElement} from "react";
+import "@testing-library/jest-dom/vitest";
+const renderWithProviders=(ui:ReactElement)=>render(<MemoryRouter>{ui}</MemoryRouter>);
+import {PowerEffortPreferencePanel} from "./PowerEffortPreferencePanel";
+const mock=vi.hoisted(()=>({model:null as unknown,change:vi.fn(),refresh:vi.fn(),cancel:vi.fn()}));
+vi.mock("../../../hooks/usePowerEffortPreferences",()=>({usePowerEffortPreferences:()=>mock.model}));
+const ready={activityId:"orider_synthetic",expectedActivityIncarnation:"a".repeat(64),durationSeconds:300,basisVersion:"stage_native_v2",powerSource:"stored_native_watts_unverified",excluded:true};
+const source={activityId:"orider_synthetic",originEpochMs:1791800000000,points:[{durationSeconds:300,basisVersion:"stage_native_v2",powerSource:"stored_native_watts_unverified",state:"available",originalWatts:300,originalWattsPerKg:4,excluded:false,excludeReady:ready,restoreReady:null}]};
+const state=()=>({available:true,busy:false,pending:null,outcome:null,failure:false,cancelledUnknown:false,handles:[],response:{sources:[source],periods:[]},change:mock.change,refresh:mock.refresh,cancel:mock.cancel,reloadHandles:vi.fn()});
+const props={ownerUid:"synthetic",mode:"stage_power_effort_adjusted_native12" as const,activityIds:[source.activityId],periods:[]};
+beforeEach(()=>{mock.change.mockReset();mock.refresh.mockReset();mock.cancel.mockReset();mock.model=state();});
+it("shows original duration and power beside an issued exclusion action",()=>{renderWithProviders(<PowerEffortPreferencePanel {...props}/>);expect(screen.getByText("5:00 · 300 W")).toBeInTheDocument();fireEvent.click(screen.getByRole("button",{name:"이 기록 제외",hidden:true}));expect(mock.change).toHaveBeenCalledWith(ready);expect(mock.refresh).not.toHaveBeenCalled();expect(screen.queryByRole("button",{name:"확인 중단",hidden:true})).not.toBeInTheDocument();});
+it("missing originals remain absent and unissued actions are hidden",()=>{mock.model={...state(),response:{sources:[{...source,points:[{...source.points[0],state:"missing",originalWatts:null,originalWattsPerKg:null,excludeReady:null}]}],periods:[]}};renderWithProviders(<PowerEffortPreferencePanel {...props}/>);expect(screen.getByText("5:00 · — W")).toBeInTheDocument();expect(screen.queryByRole("button",{name:"이 기록 제외",hidden:true})).not.toBeInTheDocument();});
+it("shows checked-group and excluded counts while keeping other evidence folded",()=>{const winner={activityId:source.activityId,watts:300,wattsPerKg:4};mock.model={...state(),response:{sources:[source],periods:[{period:{id:"one",fromInclusiveMs:1791800000000,toExclusiveMs:1791803600000},rows:[{...source.points[0],watts:winner,wattsPerKg:winner,counts:{physicalGroups:2,qualified:1,excluded:1,unresolved:0,missing:0,short:0}}]}]}};renderWithProviders(<PowerEffortPreferencePanel {...props}/>);expect(screen.getByText("확인 그룹 2 · 제외 1")).toBeInTheDocument();expect(screen.getByText("비교 근거").closest("details")).not.toHaveAttribute("open");});
+it("cancel appears only during an active operation",()=>{mock.model={...state(),busy:true};const view=renderWithProviders(<PowerEffortPreferencePanel {...props}/>);fireEvent.click(screen.getByRole("button",{name:"확인 중단",hidden:true}));expect(mock.cancel).toHaveBeenCalledOnce();mock.model={...state(),response:null,outcome:"stored_verified"};view.rerender(<PowerEffortPreferencePanel {...props}/>);expect(screen.queryByRole("button",{name:"확인 중단",hidden:true})).not.toBeInTheDocument();});

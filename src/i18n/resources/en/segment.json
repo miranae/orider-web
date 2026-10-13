@@ -1,4 +1,53 @@
 {
+  "timeGap": {
+    "title": "Time gap over the common observed section",
+    "choose": "Compare two stored attempts",
+    "chooseAttempt": "Choose an attempt",
+    "a": "Attempt A",
+    "b": "Attempt B",
+    "actionNote": "Loads only the two selected activities' cached GPS. Missing cache or clock evidence may prevent comparison.",
+    "compare": "Compare sections",
+    "basis": "Based on stored samples at read time. Original clock accuracy and historical route identity are unverified.",
+    "span": "Observed span {{from}}–{{to}}",
+    "full": "Observed through the current route endpoints",
+    "partial": "Partial common observed section",
+    "chart": "Elapsed time difference A minus B by distance",
+    "position": "Distance position",
+    "sign": "Positive means A arrived later than B. This does not establish fitness growth or a record rank.",
+    "events": "Repeated positions and collection gaps are present. Lines do not bridge unobserved gaps.",
+    "interval": "Arrival–departure elapsed: A {{a}}–{{aEnd}}, B {{b}}–{{bEnd}}",
+    "states": {
+      "loading": "Checking the two stored sections.",
+      "error": "Comparison failed. Press the button to try again.",
+      "unavailable": "This input cannot be compared.",
+      "changed_input": "Input changed during the read. Please check again."
+    },
+    "reasons": {
+      "missing_cache": "No cached GPS is available for comparison.",
+      "missing_geometry": "The complete stored route could not be confirmed.",
+      "unknown_clock": "Stored sample clock evidence is unavailable.",
+      "ambiguous_index_axis": "The original sample bounds of this attempt are unverified.",
+      "invalid_input": "The stored comparison input could not be confirmed.",
+      "input_limit": "The input exceeds the bounded comparison size.",
+      "geometry_not_forward": "Progress and direction of both attempts on the current route could not be verified.",
+      "no_common_observation": "There is no common observed section to compare.",
+      "changed_input": "Input changed during the read. Please check again."
+    },
+    "refresh": "Check again",
+    "calculationDetails": "Calculation and limitations",
+    "calculation": "Both attempts are rechecked against the current stored route. Elapsed time includes stops and starts at first arrival at the common start. Values between samples are estimates.",
+    "proof": "Selected record references",
+    "activityId": "Activity ID",
+    "effortId": "Attempt ID",
+    "unknownTime": "Time unknown",
+    "choice": "Choice {{count}}",
+    "sources": {
+      "orider": "ORider",
+      "strava": "Strava",
+      "apple_health": "Apple Health",
+      "health_connect": "Health Connect"
+    }
+  },
   "title": "Segments",
   "subtitle": "Explore segments and take on challenges",
   "createTitle": "Create Segment",

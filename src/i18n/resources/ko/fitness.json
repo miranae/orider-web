@@ -1017,6 +1017,77 @@
     "gridNote": "현재 저장되는 구간 격자에는 15초·3분·15분·45분의 정확한 기록이 없습니다. 구간 관측 자료 자체가 없는 기간은 12개 구간 모두 확인할 수 없습니다.",
     "scannedUnavailable": "활동 {{scanned}}개 확인 · 구간별 파워 기록 확인 불가",
     "through": "{{date}}까지",
-    "tableUnavailable": "— 정확한 구간 기록 또는 필요한 측정·체중 자료를 확인할 수 없습니다."
+    "tableUnavailable": "— 정확한 구간 기록 또는 필요한 측정·체중 자료를 확인할 수 없습니다.",
+    "native": {
+      "title": "선택 활동의 12구간 파워 비교",
+      "scope": "불러온 오라이더 활동을 최대 2개 선택해 비교합니다. 계정 전체의 최고 기록은 아닙니다.",
+      "selectActivities": "활동 선택 · {{count}}개",
+      "inspect": "기록 확인",
+      "reinspect": "다시 확인",
+      "noActivities": "불러온 오라이더 활동이 없습니다.",
+      "presets": "최근 56일 · 전체 기간으로 설정",
+      "load": "선택 활동 분석",
+      "loading": "분석 중…",
+      "error": "활동이 변경되었거나 분석을 완료하지 못했습니다. 기록을 다시 확인해 주세요.",
+      "preparing": "이 분석은 준비 중입니다.",
+      "measured": "센서 파워",
+      "storedNativeUnverified": "출처 미확인 파워",
+      "source": "기록 활동 보기",
+      "checked": "선택 {{selected}}개 · 확인 {{checked}}개 · 일부 활동 비교",
+      "notLoaded": "활동을 선택하고 기록을 확인해 주세요.",
+      "clock": "저장된 1초 구간을 기준으로 비교합니다. 원본 시계와 센서 구간의 정확성은 확인되지 않았습니다.",
+      "missing": "—는 해당 기간에 확인된 기록 또는 연속 구간이 없다는 뜻입니다. 0 W와 구분합니다.",
+      "unavailable": "확인 불가",
+      "tableOrigin": "표에 표시할 파워 출처",
+      "window": "활동 경과 {{from}}–{{through}}초의 연속 구간",
+      "calendarBasis": "UTC 날짜 기준 · 종료 날짜 포함 · 오늘은 조회 시각까지"
+    }
+  },
+  "powerEffort": {
+    "title": "파워 기록 제외·복원",
+    "scope": "선택·확인한 활동 안에서 제외 후 다음 적격 기록을 비교합니다. 원본 활동은 유지되며 계정 전체 최고 기록은 아닙니다.",
+    "load": "제외 적용 기록 확인",
+    "saved": "보관한 복원 기록 찾기",
+    "loading": "기록을 확인하고 있어요.",
+    "saving": "선택을 저장하고 있어요.",
+    "confirmed": "저장했어요. 다시 확인을 눌러 새 비교 결과를 확인하세요.",
+    "pending": "저장 내역의 현재 상태 확인이 필요해요. 다시 확인하세요.",
+    "unknown": "저장 결과를 확인하지 못했어요. 같은 요청으로 재확인하거나 나중에 보관한 복원 기록을 확인하세요.",
+    "error": "기록을 확인하지 못했어요. 다시 시도하세요.",
+    "retry": "같은 저장 요청 재확인",
+    "cancel": "확인 중단",
+    "cancelledUnknown": "화면 확인을 중단했어요. 이미 보낸 저장 요청은 취소되지 않을 수 있어요.",
+    "restoreSaved": "보관한 기록 복원",
+    "inspectSaved": "보관 기록 {{n}} 확인",
+    "savedActivity": "보관한 활동",
+    "duration": "비교 시간",
+    "unit": "단위",
+    "weight": "W와 W/kg의 최고 활동은 다를 수 있습니다. W/kg은 저장된 계산 당시 체중으로 비교합니다.",
+    "adjusted": "제외를 반영한 비교",
+    "manage": "활동별 제외·복원",
+    "counts": "확인 그룹 {{physicalGroups}} · 적격 {{qualified}} · 제외 {{excluded}} · 미확인 {{unresolved}} · 누락 {{missing}} · 짧음 {{short}}",
+    "excluded": "비교에서 제외됨",
+    "original": "원래 기록 상세값",
+    "exclude": "이 기록 제외",
+    "restore": "이 기록 복원",
+    "empty": "복원하거나 비교할 기록이 없어요.",
+    "state": {
+      "available": "비교 가능",
+      "missing": "기록 없음",
+      "short": "비교 시간보다 짧음",
+      "unresolved": "비교 근거 미확인"
+    },
+    "basis": {
+      "canonical_measured_85": "상세 측정 기록",
+      "legacy_measured_mmp": "기존 측정 기록",
+      "stage_native_v1": "저장 파워 · 1초 구간",
+      "stage_native_v2": "저장 파워 · 시간 구간"
+    },
+    "origin": {
+      "measured": "측정 파워",
+      "stored_native_watts_unverified": "센서 출처 미확인"
+    },
+    "briefCounts": "확인 그룹 {{physicalGroups}} · 제외 {{excluded}}",
+    "evidence": "비교 근거"
   }
 }
