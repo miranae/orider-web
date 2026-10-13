@@ -1042,5 +1042,52 @@
       "window": "Continuous window at elapsed {{from}}–{{through}} seconds",
       "calendarBasis": "UTC dates · end date included · today ends at the request time"
     }
+  },
+  "powerEffort": {
+    "title": "Exclude or restore power efforts",
+    "scope": "Compare the next eligible effort after exclusions within selected, checked activities. Originals are unchanged; this is not an account lifetime best.",
+    "load": "Check adjusted efforts",
+    "saved": "Find saved restore hints",
+    "loading": "Checking efforts…",
+    "saving": "Saving your choice…",
+    "confirmed": "Saved. Check again to see the updated comparison.",
+    "pending": "The saved decision needs a current-source check. Check again.",
+    "unknown": "The save outcome is unknown. Retry the same request or inspect the saved restore hint later.",
+    "error": "Could not check efforts. Try again.",
+    "retry": "Recheck the same save request",
+    "cancel": "Stop checking",
+    "cancelledUnknown": "Stopped checking on this screen. An already sent save may still complete.",
+    "restoreSaved": "Restore saved efforts",
+    "inspectSaved": "Inspect saved effort {{n}}",
+    "savedActivity": "Saved activity",
+    "duration": "Duration",
+    "unit": "Unit",
+    "weight": "W and W/kg can have different winning activities. W/kg uses weight saved with the original calculation.",
+    "adjusted": "Comparison after exclusions",
+    "manage": "Manage activity efforts",
+    "counts": "Checked groups {{physicalGroups}} · eligible {{qualified}} · excluded {{excluded}} · unresolved {{unresolved}} · missing {{missing}} · short {{short}}",
+    "excluded": "Excluded from comparison",
+    "original": "Original effort details",
+    "exclude": "Exclude this effort",
+    "restore": "Restore this effort",
+    "empty": "No efforts available to compare or restore.",
+    "state": {
+      "available": "Eligible",
+      "missing": "Missing effort",
+      "short": "Shorter than duration",
+      "unresolved": "Unresolved evidence"
+    },
+    "basis": {
+      "canonical_measured_85": "Detailed measured efforts",
+      "legacy_measured_mmp": "Legacy measured efforts",
+      "stage_native_v1": "Stored power · one-second slots",
+      "stage_native_v2": "Stored power · time intervals"
+    },
+    "origin": {
+      "measured": "Measured power",
+      "stored_native_watts_unverified": "Sensor origin unverified"
+    },
+    "briefCounts": "Checked groups {{physicalGroups}} · excluded {{excluded}}",
+    "evidence": "Comparison evidence"
   }
 }

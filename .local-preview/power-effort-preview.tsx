@@ -1,0 +1,15 @@
+import React from "react";
+import {createRoot} from "react-dom/client";
+import {BrowserRouter} from "react-router-dom";
+import i18next from "i18next";
+import {initReactI18next} from "react-i18next";
+import ko from "../src/i18n/resources/ko/fitness.json";
+import en from "../src/i18n/resources/en/fitness.json";
+import common from "../src/i18n/resources/ko/common.json";
+import {ThemeProvider} from "../src/contexts/ThemeContext";
+import {OriderThemeProvider,Card,Text} from "../src/theme";
+import {PowerEffortPreferencePanel} from "../src/features/fitness/components/PowerEffortPreferencePanel";
+import "../src/index.css";import "../src/theme/generated.css";import "../src/theme/components/components.css";import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";import "@fontsource/jetbrains-mono";
+if(!import.meta.env.DEV||!["localhost","127.0.0.1"].includes(location.hostname))throw Error("local_preview_only");
+void i18next.use(initReactI18next).init({lng:new URLSearchParams(location.search).get("lang")??"ko",resources:{ko:{fitness:ko,common},en:{fitness:en,common}},interpolation:{escapeValue:false}});
+createRoot(document.getElementById("root")!).render(<React.StrictMode><BrowserRouter><ThemeProvider><OriderThemeProvider><main className="mx-auto max-w-5xl p-4 space-y-5"><Text as="h1" variant="pageTitle">파워 분석</Text><Text as="p" variant="bodyMedium" tone="secondary">로컬 검수용 합성 활동입니다. 로그인과 서버 요청 없이 실제 화면 구성 요소를 확인합니다.</Text><Card><PowerEffortPreferencePanel ownerUid="synthetic" mode="stage_power_effort_adjusted_native12" activityIds={["orider_synthetic_0","orider_synthetic_1"]} periods={[]}/></Card></main></OriderThemeProvider></ThemeProvider></BrowserRouter></React.StrictMode>);
