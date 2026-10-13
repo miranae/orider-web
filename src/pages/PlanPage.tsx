@@ -122,6 +122,7 @@ export default function PlanPage() {
           weekLabel={props.weekLabel}
           goalId={serverManagedPlan ? undefined : goal?.id}
           goalTitle={props.goalTitle}
+          goalDiscipline={props.goalDiscipline}
           daysLeft={props.daysLeft}
           progressPct={props.progressPct}
           completedTSS={props.completedTSS}

@@ -12,8 +12,8 @@ import { formatPlanGoalTitle } from "./planDisplay";
 import "./MobilePlanContent.css";
 
 /** rest → bike 폴백으로 Discipline 타입 보장 (색상/아이콘 표시용) */
-function getWorkoutDisciplineForDisplay(workout: string): Discipline {
-  const d = _gwDiscipline(workout);
+function getWorkoutDisciplineForDisplay(workout: string, goalDiscipline?: Discipline): Discipline {
+  const d = _gwDiscipline(workout, goalDiscipline);
   return d === 'rest' ? 'bike' : d;
 }
 
@@ -71,6 +71,7 @@ export interface MobilePlanContentProps {
   canPrevWeek?: boolean;
   canNextWeek?: boolean;
   goalTitle?: string;
+  goalDiscipline?: Discipline;
   daysLeft?: number;
   progressPct?: number;
   completedTSS?: number;
@@ -93,6 +94,7 @@ export default function MobilePlanContent({
   canPrevWeek = true,
   canNextWeek = true,
   goalTitle,
+  goalDiscipline,
   daysLeft,
   progressPct,
   completedTSS,
@@ -215,9 +217,9 @@ export default function MobilePlanContent({
         const m = totalMins % 60;
         const sessions = scheduledDays.length;
 
-        const bikeTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "bike").reduce((s, d) => s + effectivePlanTSS(d), 0);
-        const runTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "run").reduce((s, d) => s + effectivePlanTSS(d), 0);
-        const swimTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "swim").reduce((s, d) => s + effectivePlanTSS(d), 0);
+        const bikeTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout, goalDiscipline) === "bike").reduce((s, d) => s + effectivePlanTSS(d), 0);
+        const runTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout, goalDiscipline) === "run").reduce((s, d) => s + effectivePlanTSS(d), 0);
+        const swimTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout, goalDiscipline) === "swim").reduce((s, d) => s + effectivePlanTSS(d), 0);
         const stackTotal = bikeTSS + runTSS + swimTSS || 1;
 
         return (
@@ -319,11 +321,11 @@ export default function MobilePlanContent({
                 {dayOfMonth ?? ""}
               </div>
             </div>
-            <div style={{ width: 3, height: 36, background: getDisciplineColor(getWorkoutDisciplineForDisplay(day.workout)), borderRadius: "var(--r-xs)", flexShrink: 0 }} />
+            <div style={{ width: 3, height: 36, background: getDisciplineColor(getWorkoutDisciplineForDisplay(day.workout, goalDiscipline)), borderRadius: "var(--r-xs)", flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginBottom: "var(--space-0-5)" }}>
                 {(() => {
-                  const d = getWorkoutDisciplineForDisplay(day.workout);
+                  const d = getWorkoutDisciplineForDisplay(day.workout, goalDiscipline);
                   const c = getDisciplineColor(d);
                   return (
                     <span style={{

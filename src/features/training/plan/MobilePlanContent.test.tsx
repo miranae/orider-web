@@ -29,6 +29,25 @@ const week: PlanWeek = {
 };
 
 describe("MobilePlanContent product hierarchy", () => {
+  it("renders generic run load and preserves explicit mixed sessions and edit identities", () => {
+    const edit = vi.fn();
+    const mixedWeek = { ...week, days: [workout, { ...workout, date: today + 86_400_000, workout: "easySwim" as const }] };
+    const view = renderWithProviders(<MobilePlanContent currentWeek={mixedWeek} weekLabel="W1" goalDiscipline="run" onEditWorkout={edit} />);
+    expect(screen.getByText("🏃 러닝")).toBeInTheDocument();
+    expect(screen.getByText("🏊 수영")).toBeInTheDocument();
+    expect(screen.queryByText("🚴 사이클")).not.toBeInTheDocument();
+    const summary = screen.getByRole("region", { name: "이번 주 요약" });
+    expect(summary).toHaveTextContent("러닝 60");
+    expect(summary).toHaveTextContent("수영 60");
+    fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
+    expect(edit).toHaveBeenCalledWith(workout, "week-04", 0);
+    view.rerender(<MobilePlanContent embedded currentWeek={week} weekLabel="W2" goalDiscipline="bike" />);
+    expect(screen.getByText("🚴 사이클")).toBeInTheDocument();
+    expect(screen.queryByText("🏃 러닝")).not.toBeInTheDocument();
+    expect(workout.workout).toBe("z2");
+    expect(workout.plannedTSS).toBe(60);
+  });
+
   it("keeps the goal compact, exposes the full title, and brings today's workout forward", () => {
     const edit = vi.fn();
     renderWithProviders(
