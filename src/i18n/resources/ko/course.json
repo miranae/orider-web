@@ -278,5 +278,14 @@
   "grade.steep": "7% 이상",
   "detail.lane.kom": "KOM",
   "detail.lane.seg": "구간",
-  "detail.lane.amenity": "편의"
+  "detail.lane.amenity": "편의",
+  "myCourses": "내 코스",
+  "recommendations": "인기 코스",
+  "detailTabs": {
+    "overview": "개요·지형",
+    "prepare": "준비"
+  },
+  "segmentSearch.loadFailed": "세그먼트를 불러오지 못했어요",
+  "segmentSearch.retry": "다시 불러오기",
+  "segmentSearch.loading": "세그먼트를 불러오는 중이에요"
 }

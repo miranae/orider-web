@@ -17,29 +17,38 @@ const constructedRegistrations = () => vi.mocked(httpsCallable).mock.calls.filte
 
 async function readyForm() {
   setDocData("events/qa-new-event", { info: { name: "New private registration", status: "OPEN", type: "TOUR",
-    feeType: "FREE", categories: [], startTime: Date.now() + 86_400_000,
-    closeAt: new Date(Date.now() + 43_200_000).toISOString() } });
+    feeType: "FREE", categories: [], startTime: new Date("2026-10-16T12:00:00+09:00").getTime(),
+    closeAt: "2026-10-16T00:00:00+09:00" } });
   const view = renderWithProviders(<Routes><Route path="/ko/event/:eventId/register" element={<EventRegisterPage />} /></Routes>,
     { route: "/ko/event/qa-new-event/register", authenticated: true });
   fireEvent.change(await screen.findByPlaceholderText("홍길동"), { target: { value: "QA Rider" } });
   fireEvent.click(screen.getByRole("button", { name: "생년월일 선택" }));
-  fireEvent.click(screen.getByRole("button", { name: "오늘" }));
+  // 생일은 UTC 기반 max와 로컬 오늘 날짜 모두보다 이전이어야 한다.
+  fireEvent.click(screen.getByRole("gridcell", { name: "2026-10-01" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "남성" }));
   fireEvent.change(screen.getByPlaceholderText("010-0000-0000"), { target: { value: "010-1234-5678" } });
   fireEvent.change(screen.getByPlaceholderText("전화번호"), { target: { value: "010-0000-0000" } });
-  fireEvent.click(screen.getByRole("button", { name: /다음/ }));
+  fireEvent.click(screen.getByRole("button", { name: "다음 →", exact: true }));
   fireEvent.click(screen.getByRole("checkbox", { name: /이벤트 참가 약관/ }));
   fireEvent.click(screen.getByRole("checkbox", { name: /개인정보 수집·이용 동의/ }));
   fireEvent.click(screen.getByRole("checkbox", { name: /면책 동의서/ }));
   return view;
 }
 
-describe("EventRegisterPage cold authenticated App Check admission", () => {
+describe.each([
+  "2026-10-14T23:59:00+09:00",
+  "2026-10-15T00:00:00+09:00",
+])("EventRegisterPage cold authenticated App Check admission at %s", (now) => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(now));
     vi.mocked(httpsCallable).mockClear();
     vi.mocked(getAppCheckToken).mockReset().mockResolvedValue("warm-token");
     setCallableResult("joinOrCreateEvent", { data: { registrationNumber: "QA-NEW-001" } });
   });
+
+  afterEach(() => { vi.useRealTimers(); });
 
   it("waits for the first token and sends one registration despite duplicate clicks", async () => {
     const token = deferred<string | null>();
@@ -47,6 +56,7 @@ describe("EventRegisterPage cold authenticated App Check admission", () => {
     await readyForm();
     const submit = screen.getByRole("button", { name: /참가 신청/ });
     fireEvent.click(submit);
+    expect(submit).toBeDisabled();
     fireEvent.click(submit);
     expect(constructedRegistrations()).toHaveLength(0);
     expect(registrations()).toHaveLength(0);

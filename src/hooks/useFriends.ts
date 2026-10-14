@@ -9,21 +9,35 @@ import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
 import type { FriendRelation, FriendRequest } from "@shared/types";
 
+export async function cancelFriendRequest(uid: string, targetId: string): Promise<void> {
+  try { await deleteDoc(doc(firestore, "friend_requests", targetId, "items", uid)); }
+  catch (error) { logClientError("useFriends.cancelRequest", error, { targetId }); throw error; }
+}
+
 function toMillis(value: unknown): number {
-  if (typeof value === "number") return value;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (value instanceof Date || typeof value === "string") {
+    const millis = value instanceof Date ? value.getTime() : Date.parse(value);
+    return Number.isFinite(millis) ? millis : 0;
+  }
   if (value && typeof value === "object") {
     const timestamp = value as { toMillis?: () => number; _seconds?: number; seconds?: number; _nanoseconds?: number; nanoseconds?: number };
-    if (typeof timestamp.toMillis === "function") return timestamp.toMillis();
+    if (typeof timestamp.toMillis === "function") {
+      const millis = timestamp.toMillis();
+      return Number.isFinite(millis) ? millis : 0;
+    }
     const seconds = timestamp._seconds ?? timestamp.seconds;
     const nanoseconds = timestamp._nanoseconds ?? timestamp.nanoseconds ?? 0;
-    if (typeof seconds === "number") return seconds * 1000 + Math.floor(nanoseconds / 1_000_000);
+    if (typeof seconds === "number" && Number.isFinite(seconds) && Number.isFinite(nanoseconds)) return seconds * 1000 + Math.floor(nanoseconds / 1_000_000);
   }
-  return Date.now();
+  return 0;
 }
 
 export function useFriends() {
   const { user, profile } = useAuth();
   const [friends, setFriends] = useState<FriendRelation[]>([]);
+  const [sentRequests, setSentRequests] = useState<{ targetId: string; nickname: string; profileImage: string | null; createdAt: number }[]>([]);
+  const [readError, setReadError] = useState<unknown>(null);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [friendCodeState, setFriendCodeState] = useState<{ uid: string; code: string | null } | null>(null);
   const [friendCodeLoadingUid, setFriendCodeLoadingUid] = useState<string | null>(null);
@@ -57,7 +71,7 @@ export function useFriends() {
         );
         setLoading(false);
       },
-      () => setLoading(false),
+      (error) => { setReadError(error); setLoading(false); },
     );
   }, [user]);
 
@@ -82,9 +96,25 @@ export function useFriends() {
           }),
         );
       },
-      () => {},
+      (error) => { setReadError(error); },
     );
   }, [user]);
+
+  useEffect(() => {
+    setSentRequests([]); setReadError(null);
+    if (!user) return;
+    return onSnapshot(collection(firestore, "users", user.uid, "sent_friend_requests"), snapshot => {
+      setSentRequests(snapshot.docs.map(doc => {
+        const data = doc.data();
+        return { targetId: doc.id, nickname: data.targetNickname ?? "", profileImage: data.targetPhotoURL ?? null, createdAt: toMillis(data.createdAt) };
+      }));
+    }, error => { setSentRequests([]); setReadError(error); logClientError("useFriends.sentRequests", error); });
+  }, [user?.uid]);
+
+  const cancelRequest = useCallback(async (targetId: string) => {
+    if (!user) return;
+    await cancelFriendRequest(user.uid, targetId);
+  }, [user?.uid]);
 
   // Fetch friend code from Firestore
   useEffect(() => {
@@ -178,6 +208,9 @@ export function useFriends() {
   return {
     friends,
     requests,
+    sentRequests,
+    readError,
+    cancelRequest,
     friendCode,
     friendCodeLoading,
     loading,

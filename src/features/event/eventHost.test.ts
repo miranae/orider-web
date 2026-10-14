@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isEventHost } from "./eventHost";
+import { eventPermissions, isEventHost } from "./eventHost";
 
 describe("isEventHost", () => {
   it("treats the creator as host even when they are not a participant leader", () => {
@@ -17,5 +17,18 @@ describe("isEventHost", () => {
   it("rejects signed-out and unrelated users", () => {
     expect(isEventHost(null, { creatorId: "creator-1", hostIds: ["host-1"] }, "LEADER")).toBe(false);
     expect(isEventHost("viewer-1", { creatorId: "creator-1", hostIds: ["host-1"] }, "RIDER")).toBe(false);
+  });
+});
+
+describe("event operation scopes", () => {
+  it.each([
+    ["creator", null, true, true, false, false],
+    ["host", null, true, true, false, false],
+    ["other", "LEADER", true, false, true, true],
+    ["other", "STAFF", true, false, false, true],
+    ["other", "RIDER", false, false, false, false],
+    [null, "LEADER", false, false, false, false],
+  ])("separates access scopes for %s role %s", (uid, role, canEnter, canReadData, canStartFinish, canAnnounce) => {
+    expect(eventPermissions(uid, { creatorId: "creator", hostIds: ["host"] }, role)).toEqual({ canEnter, canReadData, canStartFinish, canAnnounce });
   });
 });

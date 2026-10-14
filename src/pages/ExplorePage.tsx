@@ -20,6 +20,8 @@ import { Button, Card, Chip, Text } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
 import { useAuth } from "../contexts/AuthContext";
 import { usePersonalHeatmap } from "../hooks/usePersonalHeatmap";
+import LeaderboardPage from "./LeaderboardPage";
+import { LocalizedLink } from "../components/LocalizedLink";
 import { useExplorationGrid } from "../hooks/useExplorationGrid";
 
 interface SegmentData {
@@ -34,6 +36,8 @@ interface SegmentData {
   city?: string;
   state?: string;
   source?: string;
+  discipline?: string;
+  sport?: string;
   polyline?: string | null;
   segmentLatlng?: string | null;
   startLatlng?: [number, number] | null;
@@ -58,6 +62,8 @@ interface TileOverview {
     climbCategory: number;
     city?: string;
     state?: string;
+    discipline?: string;
+    sport?: string;
     startLatlng: [number, number] | null;
     sl?: [number, number][]; // simplified line for overview-level map
     gh: string;
@@ -380,6 +386,7 @@ const moduleCache = {
 
 export default function ExplorePage() {
   const mapboxToken = getMapboxToken();
+  const [mapFailed, setMapFailed] = useState(false);
   const { t } = useTranslation("segment");
   const navigate = useNavigate();
   const isMobile = useMobile();
@@ -484,6 +491,7 @@ export default function ExplorePage() {
           elevationHigh: s.elevationHigh,
           elevationLow: s.elevationLow,
           climbCategory: s.climbCategory,
+          discipline: s.discipline ?? s.sport ?? "bike",
           city: s.city,
           state: s.state,
           startLatlng: s.startLatlng,
@@ -547,8 +555,11 @@ export default function ExplorePage() {
     });
   }, [mapBounds, mapZoom]);
 
+  const [listTab, setListTab] = useState<"bounds" | "notable" | "challenged">("bounds");
+  const [discipline, setDiscipline] = useState<"bike" | "run">("bike");
+
   const displaySegments = useMemo(() => {
-    let filtered = allSegments;
+    let filtered = allSegments.filter((s) => (s.discipline ?? s.sport ?? "bike") === discipline);
 
     if (category === "climb") {
       filtered = filtered.filter((s) => s.climbCategory > 0);
@@ -566,16 +577,16 @@ export default function ExplorePage() {
 
     // 비현실 획득고도 세그먼트가 상위로 노출되지 않도록 sanitized gain 으로 정렬.
     return [...filtered].sort((a, b) => rankingElevGain(b) - rankingElevGain(a));
-  }, [allSegments, category, searchQuery]);
+  }, [allSegments, category, searchQuery, discipline]);
 
   const visibleOnMap = useMemo(() => {
-    if (!mapBounds) return displaySegments;
+    if (!mapBounds || !mapboxToken || mapFailed) return displaySegments;
     return displaySegments.filter((s) => isInBounds(s, mapBounds, polylineCache.current));
-  }, [displaySegments, mapBounds]);
+  }, [displaySegments, mapBounds, mapboxToken, mapFailed]);
 
   // 리스트는 항상 현재 지도 뷰를 반영(#488) — 선택 시 frozen 시키던 동작 제거(드래그 후 새로
   // 보이는 세그먼트가 리스트에 안 뜨던 문제 해소). 검색 중엔 뷰 무관 전체 결과.
-  const listSource = searchQuery ? displaySegments : visibleOnMap;
+  const listSource = listTab === "notable" ? displaySegments.filter((s) => s.climbCategory >= 1).sort((a, b) => b.climbCategory - a.climbCategory || b.distance - a.distance || a.id.localeCompare(b.id)).slice(0, 4) : searchQuery ? displaySegments : visibleOnMap;
   const listSegments = useMemo(
     () => listSource.slice(0, listLimit),
     [listSource, listLimit],
@@ -584,7 +595,7 @@ export default function ExplorePage() {
 
   useEffect(() => {
     setListLimit(LIST_PAGE_SIZE);
-  }, [category, searchQuery, mapBounds]);
+  }, [category, searchQuery, mapBounds, listTab, discipline]);
 
   const handleSelectSegment = useCallback((id: string) => {
     setSelectedId((prev) => (prev === id ? null : id));
@@ -717,7 +728,7 @@ export default function ExplorePage() {
       <div className="flex flex-col -mx-4 -my-6 lg:h-[calc(100dvh-56px)]">
         <div className="flex-shrink-0 px-4 pb-4 space-y-4 bg-[var(--bg-1)] border-b border-[var(--line-soft)]">
           <div className="flex items-center justify-between pt-3 md:pt-6">
-            <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("title")}</h1>
+            <h1 data-testid="E2-0" className="text-[length:var(--fs-2xl)] font-bold">{t("title")}</h1>
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
@@ -744,9 +755,10 @@ export default function ExplorePage() {
               {t("subtitle")}
             </p>
           </div>
-          <div className="flex gap-2" />
+          {user && <LocalizedLink data-testid="E2-0-1" to="/segment/create">{t("leaderboardPage.create")}</LocalizedLink>}
         </div>
 
+        <div className="flex gap-2">{(["bike", "run"] as const).map((sport) => <Button key={sport} size="sm" variant="secondary" aria-pressed={discipline === sport} onClick={() => setDiscipline(sport)}>{t(`leaderboardPage.filter.${sport}`)}</Button>)}</div>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <button
@@ -757,7 +769,7 @@ export default function ExplorePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
-            <input
+            <input data-testid="E2-2-1"
               type="text"
               placeholder={t("search.placeholder")}
               value={inputValue}
@@ -792,12 +804,12 @@ export default function ExplorePage() {
       ) : (
         <div className="flex-1 flex flex-col lg:flex-row min-h-0">
           {/* 지도 — 모바일은 짧게(목록에 공간 양보), 데스크톱은 좌측 분할 영역 채움 */}
-          <div className="h-[55vh] lg:h-auto lg:flex-[2] relative">
+          <div data-testid="E2-1" className="h-[55vh] lg:h-auto lg:flex-[2] relative">
             {/* 히트맵 토글 (#493) */}
             <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
               <div className="flex gap-1">
               {(["off", "global", "recent30", ...(user ? ["mine" as const] : [])] as HeatMode[]).map((m) => (
-                <button
+                <button data-testid="E2-1-2"
                   key={m}
                   onClick={() => setHeatMode(m)}
                   aria-pressed={heatMode === m}
@@ -823,7 +835,7 @@ export default function ExplorePage() {
               )}
               {/* 탐험 그리드 토글(#363) — 로그인 사용자만 노출 */}
               {user && (
-                <button
+                <button data-testid="E2-1-3"
                   onClick={() => setShowExplorationGrid((prev) => !prev)}
                   aria-pressed={showExplorationGrid}
                   className={`px-2 py-1 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-medium transition-colors ${
@@ -851,11 +863,12 @@ export default function ExplorePage() {
                 </div>
               )}
             </div>
-            <MapGL
+            {!mapboxToken || mapFailed ? <ErrorState title={t("explore.mapUnavailable")} onRetry={mapboxToken ? () => setMapFailed(false) : undefined} /> : <div data-testid="E2-1-1" className="h-full"><MapGL
               mapboxAccessToken={mapboxToken}
               mapStyle={MAP_STYLE}
               initialViewState={initialView}
               onLoad={(e) => applyKoreaCyclingStyle(e.target)}
+              onError={(event) => { logClientError("ExplorePage.map", event.error); setMapFailed(true); }}
               onMoveEnd={handleMoveEnd}
               onClick={handleMapClick}
               onDblClick={handleMapDblClick}
@@ -926,13 +939,15 @@ export default function ExplorePage() {
                   </div>
                 </Popup>
               )}
-            </MapGL>
+            </MapGL></div>}
           </div>
 
           {/* 목록 */}
-          <div className="flex-1 lg:flex-[1] lg:max-w-md overflow-y-auto border-t lg:border-t-0 lg:border-l border-[var(--line-soft)] bg-[var(--bg-0)]">
+          <div data-testid="E2-2" className="flex-1 lg:flex-[1] lg:max-w-md overflow-y-auto border-t lg:border-t-0 lg:border-l border-[var(--line-soft)] bg-[var(--bg-0)]">
             {/* 모바일: 좌우 패딩 제거해 카드를 화면 전폭으로. lg에서는 p-3 유지 */}
-            <div className={isMobile ? "pt-3 pb-3" : "p-3"}>
+            <div data-testid={listTab === "bounds" ? undefined : "E2-3"} className={isMobile ? "pt-3 pb-3" : "p-3"}>
+              <div className="flex gap-2 mb-3">{(["bounds", "notable", "challenged"] as const).map((tab) => <Button key={tab} variant="secondary" size="sm" aria-pressed={listTab === tab} onClick={() => setListTab(tab)}>{t(`explore.listTab.${tab}`)}</Button>)}</div>
+              {listTab === "challenged" ? <LeaderboardPage search={searchQuery} discipline={discipline} category={category} /> : <>
               {/* 선택된 세그먼트 상세 패널 */}
               {selectedId && (() => {
                 const sel = allSegments.find((s) => s.id === selectedId);
@@ -998,7 +1013,7 @@ export default function ExplorePage() {
                     </div>
                     <div style={{ padding: "10px 16px", display: "flex", gap: 'var(--space-2)' }}>
                       <Button
-                        onClick={() => navigate(`/segment/${sel.id}`)} variant="primary" size="sm"
+                        data-testid="E2-2-2" onClick={() => navigate(`/segment/${sel.id}`)} variant="primary" size="sm"
                         style={{ flex: 1, justifyContent: "center" }}
                       >
                         {t("button.detailView")}
@@ -1022,7 +1037,7 @@ export default function ExplorePage() {
                       : t("empty.noSegmentsInArea")}
                 </div>
               ) : (
-                <div className={isMobile ? "space-y-0" : "space-y-2"}>
+                <div data-testid="E2-3-1" className={isMobile ? "space-y-0" : "space-y-2"}>
                   {listSegments.map((segment) => (
                     <MemoSegmentCard
                       key={segment.id}
@@ -1049,6 +1064,7 @@ export default function ExplorePage() {
                   )}
                 </div>
               )}
+            </>}
             </div>
           </div>
         </div>
@@ -1101,7 +1117,7 @@ const MemoSegmentCard = memo(function SegmentCard({ segment, isHovered, isSelect
         border: highlighted ? "1px solid var(--lime)" : "1px solid var(--line-soft)",
         borderLeft: highlighted ? "2px solid var(--lime)" : "2px solid transparent",
       }}
-      onClick={() => onSelect(segment.id)}
+      data-testid="E2-2-2" onClick={() => onSelect(segment.id)}
       onDoubleClick={() => onNavigate(`/segment/${segment.id}`)}
       onMouseEnter={() => onHover(segment.id)}
       onMouseLeave={() => onHover(null)}

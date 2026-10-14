@@ -1,6 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { PaneDeveloper } from "./PaneDeveloper";
 import i18n from "i18next";
 import enSettings from "../../i18n/resources/en/settings.json";
@@ -21,9 +22,11 @@ afterEach(async () => { await i18n.changeLanguage("ko"); });
 
 describe("PaneDeveloper locale", () => {
   it("localizes Korean labels and default name while keeping wire scopes intact", async () => {
-    render(<PaneDeveloper />);
+    render(<MemoryRouter><PaneDeveloper /></MemoryRouter>);
     expect(await screen.findByText("개인 데이터 API 키 만들기")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /키 이름/ })).toHaveValue("개인 대시보드");
+    expect(screen.getByRole("link", { name: "활용 예시 →" })).toHaveAttribute("href", "/ko/explore/recipes/examples");
+    expect(screen.getByRole("link", { name: "API 문서" }).getAttribute("href")).toMatch(/\/api\/v1\/docs$/);
     expect(screen.getByRole("button", { name: "키 생성" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "profile:read" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "activities:read" })).toBeInTheDocument();
@@ -32,7 +35,7 @@ describe("PaneDeveloper locale", () => {
 
   it("uses the English default on mount and preserves edited names on locale changes", async () => {
     await i18n.changeLanguage("en");
-    render(<PaneDeveloper />);
+    render(<MemoryRouter><PaneDeveloper /></MemoryRouter>);
     const input = screen.getByRole("textbox", { name: /Key name/ });
     expect(input).toHaveValue("Personal dashboard");
     await userEvent.clear(input);

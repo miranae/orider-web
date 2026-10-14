@@ -139,7 +139,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
   };
 
   return (
-    <div
+    <div data-testid="K1-5-2"
       style={{
         margin: "8px 0 16px",
         padding: "12px 14px",
@@ -188,7 +188,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
         </button>}
         {hasConfirmedV2Ftp && (
           <LocalizedLink
-            to={{ pathname: "/coach/condition", search: "?sport=bike" }}
+            to={{ pathname: "/coach/condition", search: "?sport=bike", hash: "#ftp-decision" }}
             className={buttonClass({ variant: "secondary", size: "sm" })}
           >
             {t("threshold.reviewFtpInFitness")}

@@ -67,10 +67,10 @@ export default function GroupRidesPage() {
     <div>
       <GroupSubNav group={group} isCreator={isCreator} />
 
-      <div className="flex items-center gap-3 mb-4">
+      <div data-testid="C2-0" className="flex items-center gap-3 mb-4">
         <span className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{t("filter.byParticipants")}:</span>
         {[0, 2, 5].map((n) => (
-          <button
+          <button data-testid="C2-0-1"
             key={n}
             onClick={() => setMinParticipants(n)}
             className="px-3 py-1 text-[length:var(--fs-xs)] rounded-full transition-colors"
@@ -90,12 +90,12 @@ export default function GroupRidesPage() {
       ) : filteredRides.length === 0 && !hasMore ? (
         <EmptyState icon="🚴" title={t("empty.noRides")} compact />
       ) : (
-        <div className="space-y-3">
+        <div data-testid="C2-1" className="space-y-3">
           {filteredRides.map((r) => (
             <RideCard key={r.groupRideId} ride={r} />
           ))}
           {hasMore && (
-            <button
+            <button data-testid="C2-1-2"
               type="button"
               onClick={() => { void loadMore(); }}
               disabled={loadingMore}

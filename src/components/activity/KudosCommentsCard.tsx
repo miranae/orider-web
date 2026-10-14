@@ -21,6 +21,8 @@ export interface CommentItem {
   profileImage: string | null;
   text: string;
   createdAt: number;
+  hiddenByOwner?: boolean;
+  deletedAt?: number | null;
 }
 
 interface KudosCommentsCardProps {
@@ -44,6 +46,11 @@ interface KudosCommentsCardProps {
   onSaveEditComment: () => void;
   onSignIn: () => void;
   formatTimeAgo: (ts: number) => string;
+  activityOwnerId?: string;
+  hiddenComments?: CommentItem[];
+  moderationBusy?: boolean;
+  onReportComment?: (id: string) => void;
+  onSetCommentHidden?: (id: string, hidden: boolean) => void;
 }
 
 export default function KudosCommentsCard({
@@ -67,11 +74,12 @@ export default function KudosCommentsCard({
   onSaveEditComment,
   onSignIn,
   formatTimeAgo,
+  activityOwnerId, hiddenComments = [], moderationBusy = false, onReportComment, onSetCommentHidden,
 }: KudosCommentsCardProps) {
   const { t } = useTranslation("activity");
   const dialog = useDialog();
   const hydratedKudos = useHydratedSocialProfiles(kudos, "KudosCommentsCard.kudos");
-  const hydratedComments = useHydratedSocialProfiles(comments, "KudosCommentsCard.comments");
+  const hydratedComments = useHydratedSocialProfiles(comments.filter(comment => comment.deletedAt == null && comment.hiddenByOwner !== true), "KudosCommentsCard.comments");
   const displayedKudosCount = Math.max(hydratedKudos.length, kudosCount ?? 0);
   const displayedCommentCount = Math.max(hydratedComments.length, commentCount ?? 0);
   const currentProfileImage = profile?.photoURL ?? user?.photoURL ?? null;
@@ -117,6 +125,8 @@ export default function KudosCommentsCard({
                 <div className="flex items-center gap-2">
                   <Link to={`/athlete/${c.userId}`} className="text-[length:var(--fs-xs)] font-semibold hover:underline" style={{ color: 'var(--ink-1)' }}>{c.nickname}</Link>
                   <span className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>{formatTimeAgo(c.createdAt)}</span>
+                  {user && user.uid !== c.userId && onReportComment && <button disabled={moderationBusy} onClick={() => onReportComment(c.id)} className="text-[length:var(--fs-xs)] hover:underline">{t("kudosCard.report")}</button>}
+                  {user?.uid === activityOwnerId && onSetCommentHidden && <button disabled={moderationBusy} onClick={() => onSetCommentHidden(c.id, true)} className="text-[length:var(--fs-xs)] hover:underline">{t("kudosCard.hide")}</button>}
                   {user?.uid === c.userId && editingCommentId !== c.id && (
                     <span className="ml-auto flex gap-1">
                       <button
@@ -156,6 +166,14 @@ export default function KudosCommentsCard({
           ))}
         </div>
       )}
+
+      {user?.uid === activityOwnerId && hiddenComments.length > 0 && <details data-testid="D1-6-hidden" className="py-3">
+        <summary>{t("kudosCard.hiddenComments", { count: hiddenComments.length })}</summary>
+        {hiddenComments.map(comment => <div key={comment.id} className="flex items-center gap-2 py-2">
+          <span>{comment.nickname}: {comment.text}</span>
+          <button disabled={moderationBusy} onClick={() => onSetCommentHidden?.(comment.id, false)}>{t("kudosCard.restore")}</button>
+        </div>)}
+      </details>}
 
       {user && (
         <div className="pt-3 flex items-start gap-2">

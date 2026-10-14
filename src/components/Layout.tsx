@@ -1,4 +1,5 @@
 import { Suspense, useState, useEffect, useRef } from "react";
+import AppInstallLinks from "./AppInstallLinks";
 import { Outlet, useLocation } from "react-router-dom";
 import { lazyWithRetry as lazy } from "../utils/lazyWithRetry";
 import { stripLangPrefix } from "../i18n/detector";
@@ -19,8 +20,9 @@ const CoursesPage = lazy(() => import("../pages/CoursesPage"));
 import { TopNav } from "./redesign";
 import MobileTabBar from "./mobile/MobileTabBar";
 import HubSubNav from "./HubSubNav";
-import { getActiveHub, isHubSubRoute } from "../config/navHubs";
+import { resolveDetailHub, isHubSubRoute } from "../config/navHubs";
 import { logClientError } from "../services/errorLogger";
+import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
 import { recordRouteRedirect } from "../services/routeLoopTelemetry";
 // 네비 IA는 5개 기본 허브와 설정 유틸리티 허브를 config/navHubs.ts 에서 공유한다.
 const NotifSheet = lazy(() => import("./mobile/NotifSheet"));
@@ -45,6 +47,23 @@ export function buildOnboardingRedirectTarget(pathname: string, search = "", has
   if (path === "/") return "/onboarding";
   const returnTo = `${path}${search}${hash}`;
   return `/onboarding?returnTo=${encodeURIComponent(returnTo)}`;
+}
+
+export function notificationTarget(notification: Notification): string | null {
+  if (notification.activityId) return `/activity/${encodeURIComponent(notification.activityId)}`;
+  if (notification.segmentId) return `/segment/${encodeURIComponent(notification.segmentId)}`;
+  if (notification.type === "friend_request") return "/athlete/me/friends?tab=requests";
+  if (notification.type === "friend_accept") {
+    const uid = notification.fromUserId;
+    return typeof uid === "string" && uid.trim() && uid !== "." && uid !== ".." && !uid.includes("/") && !uid.includes("\\")
+      && !Array.from(uid).some(character => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127)
+      ? `/athlete/${encodeURIComponent(uid)}` : "/athlete/me/friends";
+  }
+  if (notification.type === "group_invite" || notification.type === "group_request_approved") return notification.groupId ? `/club/${encodeURIComponent(notification.groupId)}` : "/clubs";
+  if (notification.type === "group_request_rejected") return "/clubs";
+  if (notification.eventId) return `/event/${encodeURIComponent(notification.eventId)}`;
+  if (notification.type === "coach_prescription") return notification.threadId ? `/coach/chat/${encodeURIComponent(notification.threadId)}` : "/coach/chat";
+  return notification.deepLink ? sanitizeInternalReturnPath(notification.deepLink) : null;
 }
 
 function DashboardShell() {
@@ -78,7 +97,7 @@ export default function Layout() {
   const { t: tCommon } = useTranslation("common");
   const navigate = useNavigate();
   const path = stripLangPrefix(location.pathname);
-  const activeNav = getActiveHub(path);
+  const activeNav = resolveDetailHub(path, location.state);
   const mainRef = useRef<HTMLElement>(null);
   const [friendRequestCount, setFriendRequestCount] = useState(0);
 
@@ -184,11 +203,10 @@ export default function Layout() {
     if (!user) return;
     const visible = notifications;
     if (visible.length === 0) return;
-    const dismissedAt = Date.now();
-    setNotifications([]);
+    setNotifications(items => items.map(item => ({ ...item, read: true })));
     try {
       await Promise.all(visible.map((n) =>
-        updateDoc(doc(firestore, "notifications", user.uid, "items", n.id), { read: true, dismissedAt }),
+        updateDoc(doc(firestore, "notifications", user.uid, "items", n.id), { read: true }),
       ));
     } catch (err) {
       setNotifications(visible);
@@ -198,10 +216,7 @@ export default function Layout() {
 
   const handleNotificationClick = async (notification: Notification) => {
     if (!user) return;
-    const target =
-      notification.activityId ? `/activity/${notification.activityId}` :
-      notification.segmentId ? `/segment/${notification.segmentId}` :
-      null;
+    const target = notificationTarget(notification);
     try {
       if (!notification.read) {
         await updateDoc(doc(firestore, "notifications", user.uid, "items", notification.id), { read: true });
@@ -252,27 +267,27 @@ export default function Layout() {
         </main>
       )}
 
-      {/* Footer — 데스크톱 전용.
-       *  모바일에서는 하단 탭 바와 겹쳐 항상 보이는 군더더기 chrome 이 되어 숨긴다.
-       *  법적 링크(약관/개인정보/커뮤니티/문의/피드백)는 모바일 햄버거 메뉴 하단으로 이전해
-       *  접근성을 유지한다 (TopNav.tsx 슬라이드 패널).
-       *  메인화면(`/`)에서는 푸터가 세로 공간을 과하게 선점해 숨기고, 동일 링크를
-       *  대시보드 사이드바 "웹 사용 매뉴얼" 카드의 접이식 더보기로 이전한다 (DashboardPage).
-       *  단 사이드바는 `lg:flex`(lg+) 에서만 렌더되므로, 메인화면 푸터는 `lg:hidden` 으로
-       *  lg+ 에서만 숨긴다 — md~lg(태블릿)에서는 푸터를 유지해 법적 링크 접근성을 보존. */}
-      <footer
-        className={`${path === "/" ? "hidden md:block lg:hidden" : "hidden md:block"} flex-shrink-0 border-t`}
+      {/* Common desktop footer; mobile legal links remain in the utility menu. */}
+      <footer data-testid={path === "/" ? "H-F" : undefined}
+        className="hidden md:block flex-shrink-0 border-t"
         style={{ borderColor: 'var(--line)', background: 'var(--bg-1)' }}
       >
         <div className="site-shell px-4 md:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
           <span className="flex items-center gap-2">&copy; 2026 Orider <span className="inline-block px-1.5 py-0.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-medium" style={{ background: 'var(--amber)', color: 'var(--bg-0)', opacity: 0.85 }}>Beta</span><span className="flex items-center gap-1" style={{ color: 'var(--ink-3)' }}><svg className="w-3 h-3 text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" /></svg>Powered by Strava</span></span>
-          <div className="flex items-center gap-4">
-            <Link to="/about" className="transition-colors hover:opacity-80">{tCommon("nav.aboutOrider")}</Link>
+          <div data-testid={path === "/" ? "H-F-1" : undefined} className="flex flex-wrap items-center gap-4">
+            <Link data-testid="X2-1" to="/about" className="transition-colors hover:opacity-80">{tCommon("nav.aboutOrider")}</Link>
             <Link to="/feedback" className="transition-colors hover:opacity-80">{tCommon("footer.feedback")}</Link>
-            <Link to="/terms" className="transition-colors hover:opacity-80">{tCommon("footer.terms")}</Link>
-            <Link to="/privacy" className="transition-colors hover:opacity-80">{tCommon("footer.privacy")}</Link>
-            <Link to="/policies/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
-            <Link to="/community/board?type=inquiry" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</Link>
+            <Link data-testid="X2-3" to="/terms" className="transition-colors hover:opacity-80">{tCommon("footer.terms")}</Link>
+            <Link data-testid="X2-3" to="/privacy" className="transition-colors hover:opacity-80">{tCommon("footer.privacy")}</Link>
+            <Link data-testid="X2-3" to="/policies/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
+            <Link data-testid="X2-6" to="/community/board?type=inquiry" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</Link>
+            <Link data-testid="X2-2" to="/manual">{tCommon("footer.appManual")}</Link>
+            <Link data-testid="X2-2" to="/web-manual">{tCommon("footer.webManual")}</Link>
+            <Link data-testid="X2-3" to="/policies/ai-coach">{tCommon("footer.aiPolicy")}</Link>
+            <Link data-testid="X2-3" to="/strava-terms">{tCommon("footer.stravaTerms")}</Link>
+            <Link data-testid="X2-4" to="/explore/recipes/deploy">{tCommon("nav.developerDocs")}</Link>
+            <Link data-testid="X2-5" to="/tools/virtual-power">{tCommon("footer.calculator")}</Link>
+            <div data-testid="X2-6"><AppInstallLinks compact appStoreLabel="App Store" playStoreLabel="Google Play" /></div>
           </div>
         </div>
       </footer>

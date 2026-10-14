@@ -1,16 +1,18 @@
+import GroupRequestHistory from "../../components/group/GroupRequestHistory";
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { doc, updateDoc } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { auth, ensureAppCheckReady, firestore, functions } from "../../services/firebase";
+import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useGroup, useGroupMemberRole } from "../../hooks/useGroup";
+import GroupMembersPage from "./GroupMembersPage";
+import { canManageGroup } from "../../features/group/groupPermissions";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import VisibilityToggle from "../../components/group/VisibilityToggle";
 import { EmptyState } from "../../components/redesign";
@@ -71,26 +73,19 @@ export default function GroupSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [leaving, setLeaving] = useState(false);
-  const leaveIntent = useRef(0);
-  useEffect(() => {
-    leaveIntent.current += 1;
-    setLeaving(false);
-    return () => { leaveIntent.current += 1; };
-  }, [groupId, user?.uid]);
   const [regeneratingCode, setRegeneratingCode] = useState(false);
-  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
   const [invite, setInvite] = useState<GroupInviteAdminResult | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const seededGroupIdRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
+  const [dirty, setDirty] = useState(false);
 
   const markDirty = () => {
-    dirtyRef.current = true;
+    dirtyRef.current = true; setDirty(true);
   };
 
   useEffect(() => {
-    dirtyRef.current = false;
+    dirtyRef.current = false; setDirty(false);
     seededGroupIdRef.current = null;
   }, [groupId]);
 
@@ -128,7 +123,7 @@ export default function GroupSettingsPage() {
   };
 
   const isCreator = !!user && !!group && user.uid === group.creatorId;
-  const canManage = isCreator || currentMemberRole === "co-leader";
+  const canManage = canManageGroup(group, user?.uid, currentMemberRole);
 
   useEffect(() => {
     if (!groupId || !canManage) {
@@ -176,46 +171,7 @@ export default function GroupSettingsPage() {
     );
   }
 
-  // 일반 멤버: 탈퇴만 표시
-  if (!canManage) {
-    return (
-      <div>
-        <GroupSubNav group={group} isCreator={false} />
-        <Card padding="none" className="p-6" style={{ borderRadius: "var(--r-md)" }}>
-          <h2 className="text-[length:var(--fs-lg)] font-bold mb-4" style={{ color: "var(--ink-0)" }}>{t("button.leave")}</h2>
-          <p className="text-[length:var(--fs-sm)] mb-4" style={{ color: "var(--ink-2)" }}>
-            {t("settings.leaveDescription")}
-          </p>
-          <Button variant="danger"
-            onClick={async () => {
-              if (!groupId || !user || leaving) return;
-              const uid = user.uid;
-              const intent = leaveIntent.current;
-              setLeaving(true);
-              try {
-                await ensureAppCheckReady();
-                if (leaveIntent.current !== intent || auth.currentUser?.uid !== uid) return;
-                const leaveFn = httpsCallable(functions, "leaveGroup");
-                await leaveFn({ groupId });
-                if (leaveIntent.current !== intent || auth.currentUser?.uid !== uid) return;
-                showToast(t("settings.leaveSuccess"));
-                navigate("/clubs");
-              } catch (err) {
-                if (leaveIntent.current !== intent || auth.currentUser?.uid !== uid) return;
-                logClientError("GroupSettingsPage.leaveGroup", err, { groupId });
-                showToast(t("error.leaveFailed"), "error");
-              } finally {
-                if (leaveIntent.current === intent) setLeaving(false);
-              }
-            }}
-            disabled={leaving}
-          >
-            {leaving ? t("button.saving") : t("button.leave")}
-          </Button>
-        </Card>
-      </div>
-    );
-  }
+  if (!canManage) return <Navigate to=".." relative="path" replace />;
 
   const handleSave = async () => {
     if (!groupId || !name.trim()) return;
@@ -237,7 +193,7 @@ export default function GroupSettingsPage() {
         toggles,
         monthlyGoalKm: Math.max(0, Math.min(1_000_000, monthlyGoalKm)),
       });
-      dirtyRef.current = false;
+      dirtyRef.current = false; setDirty(false);
       showToast(t("settings.saveSuccess"));
     } catch (err) {
       logClientError("GroupSettingsPage.handleSave", err, { groupId, visibility, kind, approval });
@@ -279,6 +235,8 @@ export default function GroupSettingsPage() {
   return (
     <div>
       <GroupSubNav group={group} isCreator={canManage} />
+      {isCreator && <GroupRequestHistory groupId={groupId} />}
+      {isCreator && <section id="member-management"><GroupMembersPage management /></section>}
 
       {/* Breadcrumb */}
       <div className="text-[length:var(--fs-xs)] flex items-center mb-3" style={{ gap: "var(--space-1-5)", color: "var(--ink-3)" }}>
@@ -291,7 +249,7 @@ export default function GroupSettingsPage() {
 
       <div className="max-w-2xl space-y-6">
         {/* 프로필 */}
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+        <Card data-testid="C7-4" padding="none" style={{ padding: 'var(--space-5)' }}>
           <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.profile")}</h2>
           <div className="grid gap-3" style={{ gridTemplateColumns: "100px 1fr", marginBottom: 'var(--space-4)' }}>
             <div>
@@ -311,7 +269,7 @@ export default function GroupSettingsPage() {
             </div>
             <div>
               <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.name")}</Text>
-              <input
+              <input data-testid="C7-4-1"
                 type="text"
                 value={name}
                 onChange={(e) => {
@@ -397,7 +355,7 @@ export default function GroupSettingsPage() {
         </Card>
 
         {/* 공개 & 가입 */}
-        {isCreator && <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+        {isCreator && <Card data-testid="C7-4-2" padding="none" style={{ padding: 'var(--space-5)' }}>
           <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.visibility")}</h2>
           <div style={{ marginBottom: 'var(--space-4)' }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.visibilityLabel")}</Text>
@@ -435,7 +393,7 @@ export default function GroupSettingsPage() {
         </Card>}
 
         {/* 권한 토글 */}
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+        <section data-testid="C7-5"><Card data-testid="C7-5-1" padding="none" style={{ padding: 'var(--space-5)' }}>
           <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.permissions")}</h2>
           <div className="flex flex-col" style={{ gap: "var(--space-2)" }}>
             {(Object.keys(TOGGLE_LABELS) as (keyof GroupToggles)[]).map((k) => {
@@ -452,7 +410,7 @@ export default function GroupSettingsPage() {
               );
             })}
           </div>
-        </Card>
+        </Card></section>
 
         {/* 월간 팀 목표 */}
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
@@ -496,16 +454,16 @@ export default function GroupSettingsPage() {
 
         {/* 저장 */}
         <div className="flex items-center justify-end" style={{ gap: 'var(--space-2)' }}>
-          <Button
+          <Button data-testid="C7-0"
             onClick={handleSave}
-            disabled={!name.trim() || saving} variant="primary"
+            disabled={!dirty || !name.trim() || saving} variant="primary"
           >
             {saving ? t("button.saving") : t("button.save")}
           </Button>
         </div>
 
         {/* 초대 코드 */}
-        <Card padding="none" className="p-6" style={{ borderRadius: "var(--r-md)" }}>
+        <Card data-testid="C7-6" padding="none" className="p-6" style={{ borderRadius: "var(--r-md)" }}>
           <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.inviteLink")}</h2>
           <div className="flex items-center gap-2 mb-3">
             <code
@@ -514,23 +472,10 @@ export default function GroupSettingsPage() {
             >
               {inviteLoading ? t("settings.inviteLoading") : invite ? buildGroupInviteUrl(invite.inviteCode, i18n.language) : t("settings.inviteUnavailable")}
             </code>
-            <button
-              onClick={async () => {
-                if (!invite) return;
-                await navigator.clipboard.writeText(buildGroupInviteUrl(invite.inviteCode, i18n.language));
-                setInviteLinkCopied(true);
-                showToast(t("members.codeCopied"));
-                setTimeout(() => setInviteLinkCopied(false), 2000);
-              }}
-              disabled={!invite}
-              className="px-3 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-md)] transition-colors disabled:opacity-50"
-              style={{ background: "var(--bg-2)", color: "var(--ink-1)", border: "1px solid var(--line)" }}
-            >
-              {inviteLinkCopied ? t("invite.copied") : t("button.copy")}
-            </button>
+
           </div>
           {invite && (
-            <p className="text-[length:var(--fs-xs)] mb-2" style={{ color: "var(--ink-3)" }}>
+            <p data-testid="C7-6-1" className="text-[length:var(--fs-xs)] mb-2" style={{ color: "var(--ink-3)" }}>
               {t("settings.inviteLifecycle", {
                 date: new Date(invite.expiresAt).toLocaleDateString(i18n.language?.startsWith("en") ? "en-US" : "ko-KR"),
                 used: invite.useCount,
@@ -538,7 +483,7 @@ export default function GroupSettingsPage() {
               })}
             </p>
           )}
-          <button
+          <button data-testid="C7-6-2"
             onClick={handleRegenerateCode}
             disabled={regeneratingCode}
             className="text-[length:var(--fs-xs)]"
@@ -549,7 +494,7 @@ export default function GroupSettingsPage() {
         </Card>
 
         {/* 그룹 삭제는 소유권이 있는 생성자에게만 허용한다. */}
-        {isCreator && <Card padding="none" className="p-6"
+        {isCreator && <section data-testid="C7-7"><Card data-testid="C7-7-1" padding="none" className="p-6"
           style={{ borderRadius: "var(--r-md)", borderColor: "color-mix(in srgb, var(--rose) 30%, transparent)" }}
         >
           <h2 className="text-[length:var(--fs-sm)] font-semibold text-[var(--color-error)] mb-2">{t("settings.dangerZone")}</h2>
@@ -559,9 +504,9 @@ export default function GroupSettingsPage() {
           {/* #379: 그룹장의 유일한 출구가 '삭제'로 보이지 않도록 이임 동선을 위험 구역에서 직접 노출 */}
           <p className="text-[length:var(--fs-xs)] mb-4" style={{ color: "var(--ink-2)" }}>
             {t("settings.transferHint")}{" "}
-            <Link to={`/club/${groupId}/members`} style={{ color: "var(--lime)", fontWeight: 500 }}>
+            <a data-testid="C7-7-2" href="#member-management" style={{ color: "var(--lime)", fontWeight: 500 }}>
               {t("settings.transferLink")}
-            </Link>
+            </a>
           </p>
           {showDeleteConfirm ? (
             <div className="flex gap-2">
@@ -584,7 +529,7 @@ export default function GroupSettingsPage() {
               {t("button.deleteGroup")}
             </Button>
           )}
-        </Card>}
+        </Card></section>}
       </div>
     </div>
   );

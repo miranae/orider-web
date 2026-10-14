@@ -1,4 +1,4 @@
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft } from "lucide-react";
 
@@ -9,7 +9,6 @@ import MobileSettingsPage from "../components/mobile/MobileSettingsPage";
 import "../components/settings/settings.css";
 
 import { PaneAccount } from "../components/settings/PaneAccount";
-import { PaneTraining } from "../components/settings/PaneTraining";
 import { PaneEquipment } from "../components/settings/PaneEquipment";
 import { PaneConnections } from "../components/settings/PaneConnections";
 import { PaneHealthSources } from "../components/settings/PaneHealthSources";
@@ -26,8 +25,8 @@ function SettingsPanes({ section }: { section: SectionId }) {
   return (
     <>
       {section === "account" && <><PaneAccount /><PaneAiCoach /></>}
-      {section === "training" && <PaneTraining />}
-      {section === "gear" && <><PaneEquipment /><PaneDevice /></>}
+      {section === "gear" && <PaneEquipment />}
+      {section === "device" && <><PaneDevice /><PaneEquipment part="device" /></>}
       {section === "connections" && <><PaneConnections /><PaneHealthSources /></>}
       {section === "developer" && <PaneDeveloper />}
       {section === "display" && <PaneApp part="display" />}
@@ -46,12 +45,14 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
   const isMobile = useMobile();
   const navigate = useLocalizedNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  if (tab === "gear" && searchParams.get("panel") === "data-pages") return <Navigate to={{ pathname: location.pathname.replace(/athlete\/me\/gear$/, "settings/device"), search: location.search, hash: location.hash }} replace />;
 
   if (!tab && !(isMobile && !searchParams.has("section"))) return <LegacySettingsRedirect />;
 
   if (!user) {
     return (
-      <div className="text-center py-12" style={{ color: "var(--ink-2)" }}>
+      <div data-testid={tab === "gear" ? "P4.guest" : "S.guest"} className="text-center py-12" style={{ color: "var(--ink-2)" }}>
         {t("loginRequired")}
       </div>
     );
@@ -68,14 +69,14 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
       <div>
         <header className="mobile-settings-header">
           <LocalizedLink
-            to="/settings"
+            to={section === "gear" ? "/athlete/me" : "/settings"}
             className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })}
-            aria-label={t("nav.backToSettings")}
+            aria-label={t(section === "gear" ? "nav.backToProfile" : "nav.backToSettings")}
           >
             <ChevronLeft aria-hidden="true" />
           </LocalizedLink>
           <Text as="h1" variant="subtitle" weight={700}>
-            {current && t(current.labelKey)}
+            {section === "gear" ? t("nav.equipmentLabel") : current && t(current.labelKey)}
           </Text>
         </header>
         <main className="mobile-settings-detail" style={{ padding: "var(--space-4)" }}>
@@ -84,6 +85,8 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
       </div>
     );
   }
+
+  if (section === "gear") return <main className="space-y-4"><Text as="h1" variant="pageTitle">{t("nav.equipmentLabel")}</Text><PaneEquipment /></main>;
 
   return (
     <div className="settings-layout">

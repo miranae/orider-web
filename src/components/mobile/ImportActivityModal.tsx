@@ -5,7 +5,7 @@ import { X, Upload, CheckCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
-import { Text } from "../../theme/components";
+import { Button, Card, Text } from "../../theme/components";
 import { LocalizedLink as Link } from "../LocalizedLink";
 
 interface ImportActivityModalProps {
@@ -20,6 +20,8 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
   const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const [completion, setCompletion] = useState<{ activityId?: string } | null>(null);
+  const finish = () => { const target = completion?.activityId ? `/activity/${completion.activityId}` : "/athlete/me/activities"; setCompletion(null); onClose(); navigate(target); };
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [visibility, setVisibility] = useState<"everyone" | "friends" | "private">("everyone");
@@ -27,6 +29,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
+  if (completion) return <div role="dialog" aria-modal="true" aria-label={t("import.successDone")} className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"><Card><Text as="h2" variant="subtitle">{t("import.successDone")}</Text><div className="flex gap-3 mt-4"><Button onClick={finish}>{t("import.viewResult")}</Button><Link to="/coach/condition" onClick={() => { setCompletion(null); onClose(); }}>{t("import.viewCoach")}</Link></div></Card></div>;
 
   const fileExt = file?.name.toLowerCase().split(".").pop();
   const isValidExt = fileExt === "fit" || fileExt === "gpx" || fileExt === "tcx" || fileExt === "zip";
@@ -69,16 +72,14 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
         if (data.skipped > 0) parts.push(t("import.successSkipped", { count: data.skipped }));
         if (data.failed > 0) parts.push(t("import.successFailed", { count: data.failed }));
         showToast(parts.join(" · ") || t("import.successDone"));
-        onClose();
-        navigate("/athlete/me/activities");
+        setCompletion({});
       } else {
         if (data.skipped) {
           showToast(t("import.alreadyExists"));
         } else {
           showToast(t("import.imported"));
         }
-        onClose();
-        navigate(`/activity/${data.activityId}`);
+        setCompletion({ activityId: data.activityId });
       }
     } catch (e) {
       showToast(e instanceof Error ? e.message : t("import.errImportFailedSimple"));
@@ -112,7 +113,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col" role="dialog" aria-modal="true" aria-label={t("import.modalTitle")}>
+    <div className="fixed inset-0 z-[200] flex flex-col" data-testid="P1-3" role="dialog" aria-modal="true" aria-label={t("import.modalTitle")}>
       <div className="flex-1" style={{ background: "color-mix(in srgb, var(--bg-0) 50%, transparent)" }} onClick={handleClose} />
       <div
         className="overflow-y-auto"
@@ -165,7 +166,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
                 </>
               )}
             </div>
-            <input ref={fileRef} type="file" accept=".fit,.gpx,.tcx,.zip" hidden
+            <input data-testid="P1-3-1" ref={fileRef} type="file" accept=".fit,.gpx,.tcx,.zip" hidden
               onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f); }} />
           </div>
 

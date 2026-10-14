@@ -5,7 +5,7 @@ export default function NotFoundPage() {
   const { t } = useTranslation("common");
 
   return (
-    <section
+    <section data-testid="X3-2"
       style={{
         maxWidth: 720,
         margin: "0 auto",

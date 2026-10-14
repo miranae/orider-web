@@ -49,10 +49,10 @@ export default function SportPerformanceCard({
     }
   }
   if (discipline === "tri") return null;
-  if (discipline === "bike") return <CyclingAbilityCard cycling={cycling} />;
+  if (discipline === "bike") return <div data-testid="K5-1m"><CyclingAbilityCard cycling={cycling} /></div>;
 
   return (
-    <section aria-label={t(discipline === "run" ? "mobileFitness.sport.run.cardAria" : "mobileFitness.sport.cardAria")} style={{ background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)" }}>
+    <section data-testid="K5-1m" aria-label={t(discipline === "run" ? "mobileFitness.sport.run.cardAria" : "mobileFitness.sport.cardAria")} style={{ background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)" }}>
       <Text variant={discipline === "run" ? "bodyMedium" : "eyebrow"} weight={600}>{t(`mobileFitness.sport.${discipline}.title`)}</Text>
 
       {discipline === "run" && (

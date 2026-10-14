@@ -35,7 +35,7 @@ export default function BikeFtpDecisionActionPanel({
 
   return (
     <section
-      data-bike-ftp-decision={decision.decisionId}
+      data-testid="K1-6-1" data-bike-ftp-decision={decision.decisionId}
       aria-label={t("ftpDecision.ariaLabel")}
       style={{ marginTop: "var(--space-4)", padding: "var(--space-4)", border: "1px solid var(--accent-soft-border)", borderRadius: "var(--r-md)", background: "var(--accent-soft-bg)" }}
     >
@@ -57,7 +57,7 @@ export default function BikeFtpDecisionActionPanel({
         {t("ftpDecision.impact", { scale: decision.impactPreview.workoutScalePct })}
       </Text>
       {canAccept && (
-        <Button variant="primary" size="sm" block loading={busy} onClick={onAccept} style={{ marginTop: "var(--space-3)" }}>
+        <Button data-testid="K1-6-2" variant="primary" size="sm" block loading={busy} onClick={onAccept} style={{ marginTop: "var(--space-3)" }}>
           {t("ftpDecision.accept")}
         </Button>
       )}

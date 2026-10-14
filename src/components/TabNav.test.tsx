@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import TabNav, { RouteTabNav } from "./TabNav";
 
 describe("TabNav", () => {
@@ -71,5 +71,32 @@ describe("RouteTabNav narrow overflow", () => {
     const previous = screen.getByRole("button", { name: /이전 탭 보기|Previous tabs|button.previousTabs/ });
     fireEvent.click(previous);
     expect(scroller.scrollLeft).toBe(0);
+  });
+});
+
+function EventRouteTabs({ forwardState }: { forwardState: boolean }) {
+  const location = useLocation();
+  return <>
+    <RouteTabNav tabs={[{ to: "/event/event-1?view=detail", label: "Event detail" }, { to: "/event/event-1/results?view=results#finish", label: "Event results" }]} state={forwardState ? location.state : undefined} />
+    <output data-testid="tab-location">{location.pathname}{location.search}{location.hash}</output>
+    <output data-testid="tab-state">{JSON.stringify(location.state)}</output>
+  </>;
+}
+describe("RouteTabNav optional navigation state", () => {
+  it("preserves detail/results origin and caller state in both directions with the locale", () => {
+    const state = { fromHub: "club", selectedGroupId: "group-1" };
+    render(<MemoryRouter initialEntries={[{ pathname: "/en/event/event-1", state }]}><Routes><Route path="/:lang/*" element={<EventRouteTabs forwardState />} /></Routes></MemoryRouter>);
+    fireEvent.click(screen.getByRole("link", { name: "Event results" }));
+    expect(screen.getByTestId("tab-location")).toHaveTextContent("/en/event/event-1/results?view=results#finish");
+    expect(JSON.parse(screen.getByTestId("tab-state").textContent!)).toEqual(state);
+    fireEvent.click(screen.getByRole("link", { name: "Event detail" }));
+    expect(screen.getByTestId("tab-location")).toHaveTextContent("/en/event/event-1?view=detail");
+    expect(JSON.parse(screen.getByTestId("tab-state").textContent!)).toEqual(state);
+  });
+  it("keeps the original navigation behavior when state is omitted", () => {
+    render(<MemoryRouter initialEntries={[{ pathname: "/ko/event/event-1", state: { fromHub: "club" } }]}><Routes><Route path="/:lang/*" element={<EventRouteTabs forwardState={false} />} /></Routes></MemoryRouter>);
+    fireEvent.click(screen.getByRole("link", { name: "Event results" }));
+    expect(screen.getByTestId("tab-location")).toHaveTextContent("/ko/event/event-1/results?view=results#finish");
+    expect(screen.getByTestId("tab-state")).toHaveTextContent("null");
   });
 });

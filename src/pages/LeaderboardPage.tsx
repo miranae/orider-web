@@ -5,13 +5,11 @@ import { useTranslation } from "react-i18next";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
-import { EmptyState, LoadingSkeleton, PageHeader } from "../components/redesign";
-import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
-import RiderRankingPanel from "../components/leaderboard/RiderRankingPanel";
+import { EmptyState, LoadingSkeleton } from "../components/redesign";
+import { Card, Chip, Text } from "../theme/components";
 import { formatElapsedMillis } from "../features/leaderboard/leaderboardFormat";
 import { localizeRegionName } from "../utils/regionName";
 
-type LeaderboardTab = "segments" | "riders";
 
 interface SegmentInfo {
   id: string;
@@ -21,6 +19,7 @@ interface SegmentInfo {
   discipline?: string;
   region?: string;
   totalEfforts?: number;
+  climbCategory?: number;
 }
 
 interface UserPrInfo {
@@ -30,18 +29,19 @@ interface UserPrInfo {
   prRank?: number;
 }
 
-export default function LeaderboardPage() {
+export default function LeaderboardPage({ search = "", discipline = "bike", category = "all" }: { search?: string; discipline?: string; category?: "all" | "climb" | "flat" }) {
   const { user } = useAuth();
   const { t, i18n } = useTranslation("segment");
   const [segments, setSegments] = useState<SegmentInfo[]>([]);
   const [myBest, setMyBest] = useState<Map<string, number>>(new Map());
   const [myRanks, setMyRanks] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [disciplineFilter, setDisciplineFilter] = useState<string>("ALL");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [tab, setTab] = useState<LeaderboardTab>("segments");
+  const searchQuery = search;
+  const disciplineFilter = discipline;
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
     (async () => {
       try {
         setMyBest(new Map());
@@ -64,8 +64,10 @@ export default function LeaderboardPage() {
             discipline: data.discipline ?? data.sport ?? "bike",
             region: data.region,
             totalEfforts: data.totalEfforts,
+            climbCategory: data.climbCategory ?? 0,
           };
         });
+        if (cancelled) return;
         setSegments(segs);
 
         // 내 최고 기록은 본인 소유 PR 컬렉션에서 읽는다.
@@ -83,6 +85,7 @@ export default function LeaderboardPage() {
               const rank = typeof data.rank === "number" ? data.rank : data.prRank;
               if (typeof rank === "number" && rank > 0) ranks.set(prDoc.id, rank);
             });
+            if (cancelled) return;
             setMyBest(best);
             setMyRanks(ranks);
           } catch (err) {
@@ -92,20 +95,17 @@ export default function LeaderboardPage() {
       } catch (err) {
         logClientError("LeaderboardPage.loadSegments", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [user, t]);
-
-  const disciplines = useMemo(() => {
-    const set = new Set<string>();
-    for (const s of segments) if (s.discipline) set.add(s.discipline);
-    return Array.from(set).sort();
-  }, [segments]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return segments.filter((s) => {
+      if (category === "climb" && !s.climbCategory) return false;
+      if (category === "flat" && s.climbCategory) return false;
       if (disciplineFilter !== "ALL" && s.discipline !== disciplineFilter) return false;
       if (q) {
         const text = `${s.name} ${s.region ?? ""}`.toLowerCase();
@@ -113,98 +113,13 @@ export default function LeaderboardPage() {
       }
       return true;
     });
-  }, [segments, disciplineFilter, searchQuery]);
-
-  const disciplineLabel = (d: string) => {
-    if (d === "bike") return t("leaderboardPage.filter.bike");
-    if (d === "run") return t("leaderboardPage.filter.run");
-    if (d === "swim") return t("leaderboardPage.filter.swim");
-    return d;
-  };
+  }, [segments, disciplineFilter, searchQuery, category]);
 
   return (
     /* 순위 목록은 한 행의 시선 이동 거리를 제한해 기존 정보 밀도를 보존한다. */
     <div className="mx-auto max-w-[1120px] space-y-4">
-      <PageHeader
-        eyebrow={t("leaderboardPage.eyebrow")}
-        title={t("leaderboardPage.title")}
-        subtitle={t("leaderboardPage.subtitle")}
-        right={
-          <Link to="/segment/create" className={`${buttonClass({ variant: 'primary', size: 'sm' })}`}>
-            {t("leaderboardPage.create")}
-          </Link>
-        }
-      />
-
-      {/* 탭: 세그먼트 브라우저 / 라이더 W/kg 순위(#492) */}
-      <div className="flex items-center" style={{ gap: 'var(--space-1)' }}>
-        {(["segments", "riders"] as LeaderboardTab[]).map((tb) => {
-          const active = tab === tb;
-          return (
-            <Button
-              key={tb}
-              type="button"
-              onClick={() => setTab(tb)}
-              aria-pressed={active}
-              variant="secondary"
-              size="sm"
-              style={{ background: active ? "var(--bg-3)" : "transparent", fontWeight: active ? 600 : 400 }}
-            >
-              {t(`leaderboardPage.tab.${tb}`)}
-            </Button>
-          );
-        })}
-      </div>
-
-      {tab === "riders" && <RiderRankingPanel />}
-
-      {tab === "segments" && loading && <LoadingSkeleton kind="list" count={8} />}
-
-      {tab === "segments" && !loading && (
-        <>
-      {/* Filter bar */}
-      <div className="flex items-center flex-wrap" style={{ gap: 'var(--space-2)' }}>
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={t("leaderboardPage.searchPlaceholder")}
-          aria-label={t("leaderboardPage.searchAria")}
-          className="flex-1 min-w-[200px] px-3 py-2 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
-          style={{ background: "var(--bg-2)", border: "1px solid var(--line-soft)", color: "var(--ink-0)" }}
-        />
-        <div className="flex items-center flex-wrap" style={{ gap: 'var(--space-1)' }}>
-          <Button
-            type="button"
-            onClick={() => setDisciplineFilter("ALL")}
-            aria-pressed={disciplineFilter === "ALL"} variant="secondary" size="sm"
-            style={{
-              background: disciplineFilter === "ALL" ? "var(--bg-3)" : "transparent",
-              fontWeight: disciplineFilter === "ALL" ? 600 : 400,
-            }}
-          >
-            {t("leaderboardPage.filter.all")}
-          </Button>
-          {disciplines.map((d) => {
-            const active = disciplineFilter === d;
-            return (
-              <Button
-                key={d}
-                type="button"
-                onClick={() => setDisciplineFilter(d)}
-                aria-pressed={active} variant="secondary" size="sm"
-                style={{
-                  background: active ? "var(--bg-3)" : "transparent",
-                  fontWeight: active ? 600 : 400,
-                }}
-              >
-                {disciplineLabel(d)}
-              </Button>
-            );
-          })}
-        </div>
-      </div>
-
+      {loading && <LoadingSkeleton kind="list" count={8} />}
+      {!loading && (<>
       {/* List */}
       {filtered.length === 0 ? (
         <EmptyState
@@ -221,7 +136,7 @@ export default function LeaderboardPage() {
               const myRank = myRanks.get(s.id);
               return (
                 <li key={s.id} style={{ borderBottom: "1px solid var(--line-soft)" }}>
-                  <Link
+                  <Link data-testid="E2-3-2"
                     to={`/segment/${s.id}`}
                     className="flex items-center justify-between"
                     style={{ padding: "var(--space-3) var(--space-4)", gap: 'var(--space-3)' }}
@@ -240,7 +155,7 @@ export default function LeaderboardPage() {
                     <div className="text-right flex-shrink-0">
                       {best != null ? (
                         <>
-                          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-0-5)" }}>{t("leaderboardPage.myBest")}</Text>
+                          <Text data-testid="E2-3-3" as="div" variant="eyebrow" style={{ marginBottom: "var(--space-0-5)" }}>{t("leaderboardPage.myBest")}</Text>
                           {myRank != null && (
                             <div className="text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)] inline-block" style={{ color: "var(--lime)", border: "1px solid color-mix(in oklch, var(--lime) 35%, transparent)", padding: "var(--space-0-5) var(--space-1)", marginBottom: "var(--space-1)" }}>
                               {t("leaderboardPage.myRankShort", { rank: myRank })}

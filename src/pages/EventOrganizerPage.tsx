@@ -6,7 +6,7 @@ export const ORGANIZER_BENEFITS = ["live", "results", "group"] as const;
 
 export default function EventOrganizerPage() {
   const { t } = useTranslation("event");
-  return <main style={{ maxWidth: 1040, margin: "0 auto", padding: "var(--space-7) 24px" }}>
+  return <main data-testid="E3-5-2" style={{ maxWidth: 1040, margin: "0 auto", padding: "var(--space-7) 24px" }}>
     <Text as="div" variant="eyebrow">{t("organizerLanding.eyebrow")}</Text>
     <Text as="h1" variant="pageTitle" style={{ marginTop: "var(--space-2)", maxWidth: 720 }}>{t("organizerLanding.title")}</Text>
     <p style={{ color: "var(--ink-2)", marginTop: "var(--space-3)", maxWidth: 680 }}>{t("organizerLanding.description")}</p>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useTranslation } from "react-i18next";
@@ -7,7 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { useDialog } from "../contexts/DialogContext";
 import Avatar from "../components/Avatar";
-import { Button, Card, Text } from "../theme/components";
+import { Button, Card, Text, buttonClass } from "../theme/components";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { buildFriendInviteUrl, shareFriendInvite } from "../utils/friendInviteShare";
 import i18n from "../i18n";
@@ -16,7 +16,7 @@ import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
 export default function FriendsPage() {
   const { user } = useAuth();
   const { t } = useTranslation("friends");
-  const { friends, requests, friendCode, friendCodeLoading, loading, actionLoading, addByCode, acceptRequest, declineRequest, removeFriend } = useFriends();
+  const { friends, requests, sentRequests = [], readError, cancelRequest, friendCode, friendCodeLoading, loading, actionLoading, addByCode, acceptRequest, declineRequest, removeFriend } = useFriends();
   const { showToast } = useToast();
   const dialog = useDialog();
   const navigate = useNavigate();
@@ -24,7 +24,9 @@ export default function FriendsPage() {
   const fromOnboarding = searchParams.get("source") === "onboarding";
   const continueTo = sanitizeInternalReturnPath(searchParams.get("returnTo"));
   const [codeInput, setCodeInput] = useState("");
-  const [tab, setTab] = useState<"friends" | "requests">("friends");
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState<"friends" | "requests" | "sent">(requestedTab === "requests" || requestedTab === "sent" ? requestedTab : "friends");
+  useEffect(() => { if (requestedTab === "requests" || requestedTab === "sent") setTab(requestedTab); }, [requestedTab]);
   const [pendingRequests, setPendingRequests] = useState<Set<string>>(() => new Set());
 
   const handleShareInvite = async () => {
@@ -37,7 +39,7 @@ export default function FriendsPage() {
 
   if (!user) {
     return (
-      <div className="text-center py-12 text-[var(--ink-3)]">
+      <div className="text-center py-12 text-[var(--ink-3)]" data-testid="P3.guest">
         {t("loginRequired")}
       </div>
     );
@@ -52,6 +54,7 @@ export default function FriendsPage() {
         showToast(t("toast.alreadyFriends"));
       } else if (result?.success) {
         showToast(t("toast.added", { nickname: result.friendNickname || t("defaultNickname") }));
+        setTab("sent");
       }
       setCodeInput("");
     } catch (err: any) {
@@ -113,11 +116,14 @@ export default function FriendsPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">{t("title")}</h1>
+    <div data-testid="P3-0" className="max-w-2xl mx-auto space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">{t("title")}</h1>
+        <a data-testid="P3-0-2" href="#friend-invite" className={buttonClass({ variant: "secondary", size: "sm" })}>{t("inviteButton")}</a>
+      </div>
 
       {fromOnboarding && (
-        <Card padding="none" className="rounded-[var(--r-lg)] p-5">
+        <Card data-testid="P3.onboarding" padding="none" className="rounded-[var(--r-lg)] p-5">
           <Text as="h2" className="font-semibold text-[var(--ink-0)]">{t("onboarding.title")}</Text>
           <Text as="p" className="mt-1 text-[var(--ink-3)]">{t("onboarding.description")}</Text>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -132,7 +138,7 @@ export default function FriendsPage() {
       )}
 
       {/* Friend code + add by code */}
-      <Card padding="none" className="rounded-[var(--r-lg)] p-5">
+      <Card id="friend-invite" data-testid="P3-3" padding="none" className="rounded-[var(--r-lg)] p-5">
         {friendCode && (
           <div className="flex items-center gap-3 mb-4">
             <span className="text-[length:var(--fs-sm)] text-[var(--ink-3)]">{t("myCode")}</span>
@@ -153,7 +159,7 @@ export default function FriendsPage() {
         <div className="flex gap-2">
           <input
             type="text"
-            value={codeInput}
+            data-testid="P3-3-1" value={codeInput}
             onChange={(e) => setCodeInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.nativeEvent.isComposing) {
@@ -184,7 +190,7 @@ export default function FriendsPage() {
       </Card>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[var(--line-soft)]" role="tablist" aria-label={t("tabsLabel")}>
+      <div className="flex gap-1 border-b border-[var(--line-soft)]" role="tablist" data-testid="P3-0-1" aria-label={t("tabsLabel")}>
         <button
           type="button"
           role="tab"
@@ -217,23 +223,34 @@ export default function FriendsPage() {
             </span>
           )}
         </button>
+        <button type="button" role="tab" aria-selected={tab === "sent"} onClick={() => setTab("sent")} className="px-4 py-2.5 border-b-2" style={{ borderColor: tab === "sent" ? "var(--lime)" : "transparent" }}>{t("tab.sent", { count: sentRequests.length })}</button>
       </div>
+
+      {readError != null && <p role="alert" data-testid="P3.error">{t("readFailed")}</p>}
+      {tab === "sent" && <Card data-testid="P3-5">{sentRequests.length === 0 ? <p>{t("sentEmpty")}</p> : sentRequests.map(request => <div key={request.targetId} data-testid="P3-5-1" className="flex items-center justify-between gap-3 py-2"><Link to={`/athlete/${request.targetId}`} className="flex items-center gap-2"><Avatar name={request.nickname || t("defaultNickname")} imageUrl={request.profileImage} size="md" /><span>{request.nickname || t("defaultNickname")}<Text as="time" variant="caption" tone="secondary">{request.createdAt > 0 ? new Date(request.createdAt).toLocaleString() : "—"}</Text></span></Link><Button size="sm" disabled={pendingRequests.has(`cancel:${request.targetId}`)} onClick={async () => {
+        const key = `cancel:${request.targetId}`;
+        if (pendingRequests.has(key)) return;
+        setPendingRequests(prev => new Set(prev).add(key));
+        try { if (!await dialog.confirm(t("cancelConfirm"))) return; await cancelRequest(request.targetId); showToast(t("cancelSuccess")); }
+        catch { showToast(t("cancelFailed"), "error"); }
+        finally { setPendingRequests(prev => { const next = new Set(prev); next.delete(key); return next; }); }
+      }}>{t("cancelRequest")}</Button></div>)}</Card>}
 
       {/* Friend list */}
       {tab === "friends" && (
-        <Card padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
+        <Card data-testid="P3-1" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
+            <div data-testid="P3.loading" className="flex items-center justify-center py-12">
               <div className="w-6 h-6 border-2 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : friends.length === 0 ? (
-            <div className="px-4 py-12 text-center text-[length:var(--fs-sm)] text-[var(--ink-3)]">
+            <div data-testid="P3.empty" className="px-4 py-12 text-center text-[length:var(--fs-sm)] text-[var(--ink-3)]">
               {t("empty.friends")}
             </div>
           ) : (
             <div className="divide-y divide-[var(--line-soft)]">
               {friends.map((f) => (
-                <div key={f.userId} className="px-4 py-3 flex items-center gap-3 hover:bg-[var(--bg-2)] transition-colors">
+                <div data-testid="P3-1-1" key={f.userId} className="px-4 py-3 flex items-center gap-3 hover:bg-[var(--bg-2)] transition-colors">
                   <Link to={`/athlete/${f.userId}`} className="flex items-center gap-3 flex-1 min-w-0">
                     <Avatar name={f.nickname} imageUrl={f.profileImage} size="md" />
                     <div className="min-w-0">
@@ -258,7 +275,7 @@ export default function FriendsPage() {
 
       {/* Friend requests */}
       {tab === "requests" && (
-        <Card padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
+        <Card data-testid="P3-2" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
           {requests.length === 0 ? (
             <div className="px-4 py-12 text-center text-[length:var(--fs-sm)] text-[var(--ink-3)]">
               {t("empty.requests")}
@@ -270,7 +287,7 @@ export default function FriendsPage() {
                 const declining = pendingRequests.has(`decline:${r.requesterId}`);
                 const requestPending = accepting || declining;
                 return (
-                  <div key={r.requesterId} className="px-4 py-3 flex items-center gap-3">
+                  <div data-testid="P3-2-1" key={r.requesterId} className="px-4 py-3 flex items-center gap-3">
                   <Link to={`/athlete/${r.requesterId}`} className="flex items-center gap-3 flex-1 min-w-0">
                     <Avatar name={r.nickname} imageUrl={r.profileImage} size="md" />
                     <span className="text-[length:var(--fs-sm)] font-medium text-[var(--ink-0)] truncate">{r.nickname}</span>

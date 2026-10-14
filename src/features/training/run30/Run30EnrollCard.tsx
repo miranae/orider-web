@@ -91,7 +91,7 @@ export default function Run30EnrollCard({ api, variant, onEnrolled, today: today
 
   return (
     <section className="run30-card run30-enroll" aria-labelledby="run30-enroll-title" data-testid={`run30-enroll-${variant}`}>
-      <h2 id="run30-enroll-title" className="run30-title">
+      <h2 data-testid="K4-R-1" id="run30-enroll-title" className="run30-title">
         {variant === "offer" ? t("run30.enroll.offerTitle") : t("run30.title")}
       </h2>
       <p className="run30-lead">{t("run30.subtitle")}</p>
@@ -103,7 +103,7 @@ export default function Run30EnrollCard({ api, variant, onEnrolled, today: today
           <Text as="p" variant="bodySmall" tone="tertiary">{t("run30.purpose")}</Text>
           <Text as="p" variant="bodySmall" tone="tertiary">{t("run30.phoneOnly")}</Text>
           <Field label={t("run30.enroll.startDate")} htmlFor={dateId}>
-            <Select
+            <Select data-testid="K4-R-2"
               id={dateId}
               value={startDate}
               disabled={busy || phase === "enrolled"}
@@ -123,7 +123,7 @@ export default function Run30EnrollCard({ api, variant, onEnrolled, today: today
             </Select>
           </Field>
           {!preview && (
-            <Button type="button" variant="primary" loading={phase === "previewing"} disabled={busy} onClick={() => { void requestPreview(); }}>
+            <Button type="button" variant="primary" loading={phase === "previewing"} disabled={busy} data-testid="K4-R-2" onClick={() => { void requestPreview(); }}>
               {phase === "previewing" ? t("run30.enroll.previewing") : t("run30.enroll.preview")}
             </Button>
           )}
@@ -160,7 +160,7 @@ export default function Run30EnrollCard({ api, variant, onEnrolled, today: today
                 block
                 loading={phase === "enrolling"}
                 disabled={busy || phase === "enrolled" || (preview.replacementRequired && !consent)}
-                onClick={() => { void enroll(); }}
+                data-testid="K4-R-3" onClick={() => { void enroll(); }}
               >
                 {phase === "enrolling" ? t("run30.enroll.enrolling") : t("run30.enroll.confirm")}
               </Button>
@@ -171,7 +171,7 @@ export default function Run30EnrollCard({ api, variant, onEnrolled, today: today
         </>
       )}
       {showCustomGoalLink && (
-        <LocalizedLink className="run30-link" to={{ pathname: "/goal-setup", search: "?sport=run" }}>
+        <LocalizedLink data-testid="K4-R-4" className="run30-link" to={{ pathname: "/coach/goals", search: "?sport=run" }}>
           {t("run30.enroll.customGoal")}
         </LocalizedLink>
       )}

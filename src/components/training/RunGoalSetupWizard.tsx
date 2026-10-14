@@ -1,3 +1,5 @@
+import { useSearchParams } from "react-router-dom";
+import { goalCreatedPath } from "../../utils/internalReturnPath";
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -66,6 +68,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
   const { t } = useTranslation('training');
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [step, setStep] = useState(1);
   const [eventId, setEventId] = useState<string>('half');
@@ -120,7 +123,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
         discipline: 'run',
       });
       const data = result.data as { goalId: string };
-      navigate(`/coach/plan?goalId=${data.goalId}`);
+      navigate(goalCreatedPath(searchParams, "run", data.goalId));
     } catch (err) {
       logClientError('RunGoalSetupWizard.handleStart', err, { eventId, goalType, eventDate, weeklySessions });
       setCreateError(t('errors.creationError'));
@@ -140,7 +143,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
       {/* Step 1: 이벤트 선택 */}
       {step === 1 && (
-        <Card padding="none" style={{ padding: 26 }}>
+        <Card data-testid="K3-3-3" padding="none" style={{ padding: 26 }}>
           <div style={{ marginBottom: 'var(--space-4)' }}>
             <div style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: 'var(--ink-0)', marginBottom: 'var(--space-1)' }}>
               {t('runWizard.selectHeading')}
@@ -183,7 +186,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
       {/* Step 2: 목표 설정 */}
       {step === 2 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)' }}>
+        <div data-testid="K3-3-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)' }}>
           <div>
             {/* 목표 유형 */}
             <Text as="label" variant="eyebrow" style={{ display: 'block', marginBottom: 'var(--space-2)' }}>{t('runWizard.goalTypeLabel')}</Text>
@@ -278,7 +281,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
           </div>
 
           {/* Feasibility 패널 */}
-          <div style={{ padding: 'var(--space-5)', background: 'var(--bg-2)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)', borderLeft: `3px solid ${feasColor}`, alignSelf: 'start' }}>
+          <div data-testid="K3-3-5" style={{ padding: 'var(--space-5)', background: 'var(--bg-2)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)', borderLeft: `3px solid ${feasColor}`, alignSelf: 'start' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-2)', fontWeight: 500, marginBottom: 'var(--space-3)' }}>
               {t('runWizard.feasibilityLabel')}
             </div>
@@ -333,7 +336,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
       {/* Step 3: 계획 확인 */}
       {step === 3 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        <div data-testid="K3-3-6" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           {/* KPI */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: "var(--space-2)" }}>
             {([
@@ -455,7 +458,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
       {/* 에러 */}
       {createError && (
-        <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-3) var(--space-4)', background: 'color-mix(in oklch, var(--rose) 10%, var(--bg-1))', border: '1px solid var(--rose)', borderRadius: 'var(--r-md)', fontSize: "var(--fs-sm)", color: 'var(--rose)' }}>
+        <div data-testid="K3-3-8" style={{ marginTop: 'var(--space-4)', padding: 'var(--space-3) var(--space-4)', background: 'color-mix(in oklch, var(--rose) 10%, var(--bg-1))', border: '1px solid var(--rose)', borderRadius: 'var(--r-md)', fontSize: "var(--fs-sm)", color: 'var(--rose)' }}>
           {createError}
         </div>
       )}
@@ -483,7 +486,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
             {t('footerButtons.next')}
           </Button>
         ) : (
-          <Button variant="primary" onClick={handleStart} disabled={submitting}>
+          <Button variant="primary" data-testid="K3-3-7" onClick={handleStart} disabled={submitting}>
             {submitting ? t('footerButtons.starting') : t('footerButtons.start')}
           </Button>
         )}

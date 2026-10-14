@@ -58,7 +58,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
   };
 
   return (
-    <section className="mb-8" aria-labelledby="group-challenges-title">
+    <section data-testid="E4-2" className="mb-8" aria-labelledby="group-challenges-title">
       <div className="flex items-end justify-between mb-3" style={{ gap: "var(--space-3)" }}>
         <div>
           <h2 id="group-challenges-title" className="text-[length:var(--fs-lg)] font-bold" style={{ color: "var(--ink-0)" }}>{t("challenges.title")}</h2>
@@ -79,7 +79,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
               <span className="block mb-1">{t("challenges.name")}</span>
               <input value={name} onChange={(event) => setName(event.target.value.slice(0, 80))} maxLength={80} placeholder={t("challenges.namePlaceholder")} className="w-full px-3 py-2 rounded-[var(--r-md)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }} />
             </label>
-            <Button onClick={() => { void create(); }} disabled={submitting || name.trim().length < 2} size="sm">
+            <Button data-testid="E4-2-3" onClick={() => { void create(); }} disabled={submitting || name.trim().length < 2} size="sm">
               {submitting ? t("challenges.creating") : t("challenges.create")}
             </Button>
           </div>
@@ -87,20 +87,20 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
       )}
 
       {loading ? <LoadingSkeleton kind="list" count={2} /> : challenges.length === 0 ? (
-        <Card padding="compact"><Text as="p" variant="body" tone="tertiary">{t("challenges.empty")}</Text></Card>
+        <Card padding="compact"><Text data-testid="E4-2-4" as="p" variant="body" tone="tertiary">{t("challenges.empty")}</Text></Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: "var(--space-3)" }}>
           {challenges.map((challenge) => {
             const alreadyJoined = !!groupId && challenge.participantGroupIds.includes(groupId);
             return (
-              <Card key={challenge.id} padding="none" style={{ padding: "var(--space-4)" }}>
+              <Card data-testid="E4-2-1" key={challenge.id} padding="none" style={{ padding: "var(--space-4)" }}>
                 <div className="flex items-center justify-between mb-3" style={{ gap: "var(--space-2)" }}>
                   <div className="min-w-0">
                     <h3 className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-1)" }}>{challenge.name}</h3>
                     <Text as="span" variant="eyebrow">{challenge.monthKey} · {t("challenges.distance")}</Text>
                   </div>
                   {groupId && (alreadyJoined ? <Chip>{t("challenges.joined")}</Chip> : (
-                    <Button variant="secondary" size="sm" disabled={joiningId === challenge.id} onClick={() => { void join(challenge.id); }}>
+                    <Button data-testid="E4-2-2" variant="secondary" size="sm" disabled={joiningId === challenge.id} onClick={() => { void join(challenge.id); }}>
                       {joiningId === challenge.id ? t("challenges.joining") : t("challenges.join")}
                     </Button>
                   ))}

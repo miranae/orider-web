@@ -113,6 +113,7 @@ function ScopeBadge({ scope }: { scope: Scope }) {
 }
 
 interface EditableCardProps {
+  specId: string;
   title: string;
   scope: Scope;
   isEditing: boolean;
@@ -132,6 +133,7 @@ interface EditableCardProps {
 }
 
 function EditableCard({
+  specId,
   title,
   scope,
   isEditing,
@@ -154,7 +156,7 @@ function EditableCard({
   const canBroadcast = !hideBroadcast && scope !== "device" && showBroadcastToggle;
 
   return (
-    <SettingsCard
+    <SettingsCard data-testid={specId}
       title={
         <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
           {title}
@@ -749,7 +751,7 @@ export function PaneDevice() {
 
   if (!uid) {
     return (
-      <SettingsCard title={t("device.mobileSync")}>
+      <SettingsCard data-testid="S6.guest" title={t("device.mobileSync")}>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
           {t("device.loginRequired")}
         </div>
@@ -758,7 +760,7 @@ export function PaneDevice() {
   }
   if (loading) {
     return (
-      <SettingsCard title={t("device.mobileSync")}>
+      <SettingsCard data-testid="S6.loading" title={t("device.mobileSync")}>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
           {t("device.loading")}
         </div>
@@ -767,7 +769,7 @@ export function PaneDevice() {
   }
   if (error) {
     return (
-      <SettingsCard title={t("device.mobileSync")} danger>
+      <SettingsCard data-testid="S6.error" title={t("device.mobileSync")} danger>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--rose)" }}>
           {t("device.loadFailed", { message: error.message })}
         </div>
@@ -776,7 +778,7 @@ export function PaneDevice() {
   }
   if (!record) {
     return (
-      <SettingsCard title={t("device.mobileSync")}>
+      <SettingsCard data-testid="S6.noDevice" title={t("device.mobileSync")}>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
           {t("device.noDevice")}
         </div>
@@ -846,7 +848,7 @@ export function PaneDevice() {
 
   return (
     <>
-      <Card padding="none"
+      <Card data-testid="S6-0-1" padding="none"
         style={{
           padding: "var(--space-4) var(--space-5)",
           marginBottom: 'var(--space-4)',
@@ -982,6 +984,7 @@ export function PaneDevice() {
         <ScopeBadge scope="device" />
       </div>
 
+      <LocalizedLink to="/coach/condition#thresholds">{t("device.thresholdSource")}</LocalizedLink>
       <div
         style={{
           display: "grid",
@@ -991,7 +994,7 @@ export function PaneDevice() {
         }}
       >
         <EditableCard
-          title={t("device.cardRider")}
+          specId="S6-2-1" title={t("device.cardRider")}
           scope="user"
           showBroadcastToggle={records.length > 1}
           isEditing={editingCard === "rider"}
@@ -1025,7 +1028,7 @@ export function PaneDevice() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 'var(--space-3)' }}>
         <EditableCard
-          title={t("device.cardAuto")}
+          specId="S6-1-1" title={t("device.cardAuto")}
           scope="user"
           showBroadcastToggle={records.length > 1}
           isEditing={editingCard === "auto"}
@@ -1069,7 +1072,7 @@ export function PaneDevice() {
         />
 
         <EditableCard
-          title={t("device.cardAlert")}
+          specId="S6-1-2" title={t("device.cardAlert")}
           scope="user"
           showBroadcastToggle={records.length > 1}
           isEditing={editingCard === "alert"}
@@ -1095,7 +1098,7 @@ export function PaneDevice() {
         />
 
         <EditableCard
-          title={t("device.cardDisplaySound")}
+          specId="S6-1-3" title={t("device.cardDisplaySound")}
           scope="mixed"
           showBroadcastToggle={records.length > 1}
           isEditing={editingCard === "displaySound"}
@@ -1147,7 +1150,7 @@ export function PaneDevice() {
         />
 
         <EditableCard
-          title={t("device.cardBatteryGps")}
+          specId="S6-1-4" title={t("device.cardBatteryGps")}
           scope="device"
           showBroadcastToggle={records.length > 1}
           isEditing={editingCard === "batteryGps"}
@@ -1171,7 +1174,7 @@ export function PaneDevice() {
         />
 
         <EditableCard
-          title={t("device.cardNetwork")}
+          specId="S6-1-5" title={t("device.cardNetwork")}
           scope="mixed"
           showBroadcastToggle={records.length > 1}
           isEditing={editingCard === "network"}
@@ -1267,7 +1270,7 @@ function SensorPairingCard({ settings }: { settings: AppSettings }) {
     },
   ];
   return (
-    <SettingsCard
+    <SettingsCard data-testid="S6-1-6"
       title={
         <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
           {t("device.sensorPairing")}
@@ -1304,7 +1307,7 @@ function SoundPathsCard({ settings }: { settings: AppSettings }) {
     { k: t("device.soundRadar"), v: soundLabel(ss.radarSoundPath, defaultSound) },
   ];
   return (
-    <SettingsCard
+    <SettingsCard data-testid="S6-1-6"
       title={
         <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
           {t("device.soundFiles")}
@@ -1351,7 +1354,7 @@ function LegacyLayoutCard({
   if (!migrated) return <LayoutEditorCard config={config} onSave={onSave} />;
 
   return (
-    <SettingsCard title={t("device.legacyLayoutTitle")}>
+    <SettingsCard data-testid="S6-3-2" title={t("device.legacyLayoutTitle")}>
       <div
         role="status"
         style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)", marginBottom: "var(--space-2)" }}
@@ -1361,7 +1364,7 @@ function LegacyLayoutCard({
       </div>
       <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
         <LocalizedLink
-          to="/athlete/me/gear"
+          to="/settings/device?panel=data-pages"
           className={buttonClass({ variant: "secondary", size: "sm" })}
           data-testid="legacy-layout-open-equipment"
         >

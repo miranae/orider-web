@@ -80,6 +80,11 @@ export interface Activity {
   sourceMeta?: {
     deviceModel?: string;
     originPackage?: string;
+    readonly extra?: Readonly<{
+      gearId?: string | null;
+      stravaGearId?: string | null;
+      [key: string]: unknown;
+    }>;
   };
   weather?: {
     temperature?: number;     // °C
@@ -91,6 +96,8 @@ export interface Activity {
     weatherCode?: number;     // WMO weather code
     airQuality?: string;      // 좋음/보통/나쁨
   };
+  /** Provider gear identity persisted by the activity producer; distinct from bikeProfileId. */
+  readonly gearId?: string | null;
   gear?: {
     name: string;             // "Nike Vaporfly 3"
     type: string;             // "shoes" | "bike" | "watch"
@@ -173,13 +180,17 @@ export interface Comment {
 
 export interface Notification {
   id: string;
-  type: 'kudos' | 'comment' | 'follow' | 'friend_request' | 'friend_accept' | 'group_invite' | 'kom' | 'segment_approved' | 'segment_rejected';
+  type: 'kudos' | 'comment' | 'follow' | 'friend_request' | 'friend_accept' | 'group_invite' | 'kom' | 'segment_approved' | 'segment_rejected' | 'pr' | 'group_request_approved' | 'group_request_rejected' | 'event_alert' | 'coach_prescription';
   fromUserId: string;
   fromNickname: string;
   fromProfileImage: string | null;
   activityId: string | null;
   segmentId: string | null;
   message: string;
+  groupId?: string | null;
+  eventId?: string | null;
+  threadId?: string | null;
+  deepLink?: string | null;
   read: boolean;
   createdAt: number;
   dismissedAt?: number | null;
@@ -309,7 +320,7 @@ export interface Group {
   monthlyGoalKm?: number;
 }
 
-export type GroupMemberRole = 'leader' | 'co-leader' | 'member';
+export type GroupMemberRole = 'owner' | 'leader' | 'co-leader' | 'member';
 
 export interface GroupMember {
   userId: string;

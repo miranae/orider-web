@@ -52,5 +52,15 @@
   "activities.loadMoreRemaining": "더 보기 ({{count}}개 남음)",
   "monthly.loading": "전체 월간 활동을 불러오는 중…",
   "monthly.error": "월간 활동을 불러오지 못했습니다.",
-  "monthly.retry": "다시 시도"
+  "monthly.retry": "다시 시도",
+  "self": {
+    "edit": "프로필 편집",
+    "share": "공유",
+    "shared": "프로필 주소를 복사했어요",
+    "shareFailed": "주소 복사에 실패했어요",
+    "activities": "운동일지",
+    "records": "기록",
+    "friends": "친구",
+    "gear": "장비"
+  }
 }

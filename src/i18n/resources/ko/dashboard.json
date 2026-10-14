@@ -18,6 +18,7 @@
     "runWeekGroup": "최근 7일 내 러닝·걷기·하이킹",
     "trainingGroup": "훈련 상태",
     "weekDistance": "거리",
+    "activities": "전체 활동 수",
     "rides": "라이드 수",
     "runs": "활동 수",
     "runUnavailable": "러닝·걷기·하이킹 통계를 확인할 수 없어요",
@@ -622,5 +623,28 @@
     "empty": "최근 7일에 집계할 활동이 없습니다.",
     "stale": "마지막으로 확정된 최근 7일 요약을 표시합니다.",
     "staleChip": "이전 집계"
+  },
+  "todayStrip": {
+    "allSportsRecent7d": "모든 종목 · 최근 7일",
+    "today": "오늘 운동",
+    "choose": "정하기 →",
+    "loading": "불러오는 중…",
+    "noToday": "오늘 운동을 코치에서 정해보세요",
+    "unavailable": "잠시 불러올 수 없어요",
+    "goal": "목표",
+    "createGoal": "목표 만들기 →",
+    "monthFlow": "이번 달 흐름",
+    "monthFlowValue": "{{distance}} km · 평소 주평균 기준 {{percent}}%",
+    "events": "내 일정",
+    "noEvents": "다가오는 참가 일정이 없어요",
+    "condition": "컨디션",
+    "conditionLink": "컨디션 보기 →",
+    "week": "이번 주 · 운동일지 →",
+    "more": "일정·시작 안내 더 보기",
+    "support": "앱 설치·도움말",
+    "recap": "연간 회고 보기 →",
+    "firstRecord": "첫 운동 기록하기 · 앱 설치",
+    "importHistory": "기존 기록 가져오기",
+    "goalCtl": "목표일 예상 CTL {{value}}"
   }
 }

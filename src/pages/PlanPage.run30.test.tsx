@@ -94,6 +94,6 @@ describe("PlanPage with server-managed Run30 goals", () => {
     mocks.model = planModel(null);
     renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/plan?sport=run" });
     expect(screen.getByTestId("run30-enroll-intro")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "다른 러닝 목표 만들기" })).toHaveAttribute("href", "/ko/goal-setup?sport=run");
+    expect(screen.getByRole("link", { name: "다른 러닝 목표 만들기" })).toHaveAttribute("href", "/ko/coach/goals?sport=run");
   });
 });

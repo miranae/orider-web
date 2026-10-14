@@ -62,7 +62,7 @@ export default function OnboardingPage() {
   // 비인증 가드
   if (!loading && !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-0)", color: "var(--ink-3)" }}>
+      <div data-testid="X3-1" className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-0)", color: "var(--ink-3)" }}>
         <div className="text-center">
           <p className="text-[length:var(--fs-lg)] font-semibold mb-2" style={{ color: "var(--ink-1)" }}>{t("loginRequired")}</p>
           <button onClick={() => navigate("/", { replace: true })} className="text-[length:var(--fs-sm)]" style={{ color: "var(--lime)" }}>
@@ -75,7 +75,7 @@ export default function OnboardingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-0)" }}>
+      <div data-testid="X3.loading" className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-0)" }}>
         <div style={{ width: 32, height: 32, border: "3px solid var(--line-soft)", borderTopColor: "var(--lime)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
         <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
       </div>
@@ -156,7 +156,7 @@ export default function OnboardingPage() {
   };
 
   const handleGoalSetup = async () => {
-    await finishOnboarding(`/goal-setup?returnTo=${encodeURIComponent(returnTo)}`);
+    await finishOnboarding(`/goal-setup?source=onboarding&sport=${selected === "run" || selected === "swim" ? selected : "bike"}&returnTo=${encodeURIComponent(returnTo)}`);
   };
 
   const handleInviteFriends = async () => {
@@ -174,7 +174,7 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div
+    <div data-testid="X3-1"
       className="min-h-screen flex flex-col items-center justify-center px-4"
       style={{ background: "var(--bg-0)", color: "var(--ink-1)" }}
     >

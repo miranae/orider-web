@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   logClientError: vi.fn(),
   showToast: vi.fn(),
   currentUser: { uid: "u1" } as { uid: string } | null,
+  callable: vi.fn(),
+  confirm: vi.fn(async () => true),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -18,12 +20,13 @@ vi.mock("react-i18next", () => ({
 }));
 
 vi.mock("firebase/functions", () => ({
-  httpsCallable: vi.fn(() => vi.fn(async () => ({ data: { updated: 0 } }))),
+  httpsCallable: (_functions: unknown, name: string) => (input: unknown) => mocks.callable(name, input),
 }));
 
 vi.mock("firebase/firestore", () => ({
   doc: vi.fn((...args: unknown[]) => ({ kind: "doc", args })),
-  getDoc: vi.fn(async () => ({ data: () => ({}) })),
+  getDoc: vi.fn(async () => ({ exists: () => false, data: () => ({}) })),
+  setDoc: vi.fn(async () => undefined),
   updateDoc: (...args: unknown[]) => mocks.updateDoc(...args),
   collection: vi.fn((...args: unknown[]) => ({ kind: "collection", args })),
   query: vi.fn((...args: unknown[]) => ({ kind: "query", args })),
@@ -66,7 +69,7 @@ vi.mock("../../contexts/ToastContext", () => ({
 vi.mock("../../contexts/DialogContext", () => ({
   useDialog: () => ({
     prompt: vi.fn(async () => mocks.promptValue),
-    confirm: vi.fn(async () => true),
+    confirm: mocks.confirm,
     alert: vi.fn(async () => undefined),
   }),
 }));
@@ -93,6 +96,8 @@ describe("PaneAccount nickname save", () => {
     mocks.updateProfile.mockClear().mockResolvedValue(undefined);
     mocks.logClientError.mockClear();
     mocks.showToast.mockClear();
+    mocks.confirm.mockClear().mockResolvedValue(true);
+    mocks.callable.mockReset().mockImplementation(async (name, input) => ({ data: name === "applyVisibilityToExistingActivities" ? input.dryRun ? { count: 2 } : { updated: 2 } : { updated: 0, scope: "default" } }));
   });
 
   afterEach(() => {
@@ -127,4 +132,54 @@ describe("PaneAccount nickname save", () => {
     expect(mocks.showToast).toHaveBeenCalledWith("profile.nicknameAuthSyncFailed");
     expect(mocks.showToast).toHaveBeenCalledWith("profile.nicknameUpdated");
   });
+  it("does not read existing activity counts on mount or when changing defaults", async () => {
+    render(<PaneAccount />);
+    expect(mocks.callable).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /privacy.visOptEveryone/ }));
+    await waitFor(() => expect(mocks.callable).toHaveBeenCalledWith("updateDefaultVisibility", { visibility: "everyone" }));
+    expect(mocks.callable).not.toHaveBeenCalledWith("applyVisibilityToExistingActivities", expect.anything());
+  });
+  it("a failed lazy bulk count does not lock new activity defaults", async () => {
+    mocks.callable.mockImplementation(async name => { if (name === "applyVisibilityToExistingActivities") throw new Error("unavailable"); return { data: { updated: 0, scope: "default" } }; });
+    render(<PaneAccount />);
+    fireEvent.click(screen.getByTestId("S1-2-1b"));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("privacy.existingFailed"));
+    expect(screen.getByRole("button", { name: /privacy.visOptEveryone/ })).not.toBeDisabled();
+  });
+  it("changes only new-activity defaults and never calls bulk execution", async () => {
+    render(<PaneAccount />);
+    const everyone = screen.getByRole("button", { name: /privacy.visOptEveryone/ });
+    await waitFor(() => expect(everyone).not.toBeDisabled());
+    fireEvent.click(everyone);
+    await waitFor(() => expect(mocks.callable).toHaveBeenCalledWith("updateDefaultVisibility", { visibility: "everyone" }));
+    expect(mocks.callable).not.toHaveBeenCalledWith("applyVisibilityToExistingActivities", { visibility: "everyone" });
+    expect(mocks.showToast).toHaveBeenCalledWith("privacy.visibilityChanged");
+  });
+  it("refreshes the count and requires confirmation before a separate existing-activity write", async () => {
+    render(<PaneAccount />);
+    const apply = screen.getByTestId("S1-2-1b");
+    await waitFor(() => expect(apply).not.toBeDisabled());
+    fireEvent.click(apply);
+    await waitFor(() => expect(mocks.callable).toHaveBeenCalledWith("applyVisibilityToExistingActivities", { visibility: "private" }));
+    expect(mocks.confirm).toHaveBeenCalledWith("privacy.existingConfirm", { destructive: true });
+    expect(mocks.callable).not.toHaveBeenCalledWith("updateDefaultVisibility", expect.anything());
+  });
+  it("cancelling confirmation leaves all existing activity visibility unchanged", async () => {
+    mocks.confirm.mockResolvedValue(false);
+    render(<PaneAccount />);
+    const apply = screen.getByTestId("S1-2-1b");
+    await waitFor(() => expect(apply).not.toBeDisabled()); fireEvent.click(apply);
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalled());
+    expect(mocks.callable).not.toHaveBeenCalledWith("applyVisibilityToExistingActivities", { visibility: "private" });
+  });
+
+  it("rejects an unsupported default-scope response and locks further default changes", async () => {
+    mocks.callable.mockImplementation(async name => ({ data: name === "applyVisibilityToExistingActivities" ? { count: 2 } : { updated: 2 } }));
+    render(<PaneAccount />);
+    const everyone = screen.getByRole("button", { name: /privacy.visOptEveryone/ });
+    await waitFor(() => expect(everyone).not.toBeDisabled()); fireEvent.click(everyone);
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("privacy.changeFailed"));
+    expect(everyone).toBeDisabled(); expect(mocks.showToast).not.toHaveBeenCalledWith("privacy.visibilityChanged");
+  });
+
 });

@@ -50,7 +50,7 @@ export default function BikeThresholdDecisionCard({
       <Text as="div" variant="eyebrow" style={{ color: "var(--aqua)" }}>{t("thresholdDecision.eyebrow")}</Text>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "var(--space-4)", marginTop: "var(--space-3)" }}>
         <div>
-          <Text as="div" variant="caption" tone="secondary">{t("thresholdDecision.activeLabel")}</Text>
+          <Text data-testid="K1-6-1" as="div" variant="caption" tone="secondary">{t("thresholdDecision.activeLabel")}</Text>
           <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)" }}>
             <Text variant="dataHero" style={{ color: "var(--lime)" }}>{decision.activeFtpW ?? "—"}</Text>
             {decision.activeFtpW != null && <Text variant="unit">W</Text>}
@@ -83,7 +83,7 @@ export default function BikeThresholdDecisionCard({
         onAccept={onAcceptDecision}
       />
 
-      <button
+      <button data-testid="K1-6-3"
         type="button"
         aria-expanded={evidenceOpen}
         aria-controls="bike-threshold-evidence"
@@ -115,18 +115,18 @@ export default function BikeThresholdDecisionCard({
       {(decision.activeFtpW == null || missingPdc || !hasZoneData) && (
         <div style={{ marginTop: "var(--space-4)", display: "grid", gap: "var(--space-2)" }}>
           <Text as="div" variant="eyebrow">{t("thresholdDecision.actionsTitle")}</Text>
-          {decision.activeFtpW == null && <ActionLink to="/settings/training" label={t("thresholdDecision.action.setFtp")} />}
-          {missingPdc && <ActionLink to="/athlete/me/activities" label={t("thresholdDecision.action.addPowerRide")} />}
-          {!hasZoneData && <ActionLink to="/athlete/me/activities" label={t("thresholdDecision.action.addZoneData")} />}
+          {decision.activeFtpW == null && <ActionLink specId="K1-6-4" to="/coach/condition?sport=bike#thresholds" label={t("thresholdDecision.action.setFtp")} />}
+          {missingPdc && <ActionLink specId="K1-6-5" to="/athlete/me/activities" label={t("thresholdDecision.action.addPowerRide")} />}
+          {!hasZoneData && <ActionLink specId="K1-6-5" to="/athlete/me/activities" label={t("thresholdDecision.action.addZoneData")} />}
         </div>
       )}
     </Card>
   );
 }
 
-function ActionLink({ to, label }: { to: string; label: string }) {
+function ActionLink({ to, label, specId }: { to: string; label: string; specId: string }) {
   return (
-    <LocalizedLink to={to} className={buttonClass({ variant: "secondary", size: "sm" })} style={{ minHeight: 44, justifyContent: "flex-start" }}>
+    <LocalizedLink data-testid={specId} to={to} className={buttonClass({ variant: "secondary", size: "sm" })} style={{ minHeight: 44, justifyContent: "flex-start" }}>
       {label}
     </LocalizedLink>
   );

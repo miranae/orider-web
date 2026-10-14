@@ -71,7 +71,7 @@ function CyclingAbilityContent({ cycling }: Pick<CyclingAbilityCardProps, "cycli
       }) ?? <div style={{ marginTop: "var(--space-3)", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("mobileFitness.sport.insufficient")}</div>}
       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-2)" }}>
         {t("mobileFitness.sport.bike.notGarmin")}{" "}
-        <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--aqua)", fontWeight: 600 }}>
+        <a data-testid="K5-1-2" href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--aqua)", fontWeight: 600 }}>
           {t("mobileFitness.sport.bike.manualLink")}
         </a>
       </div>
@@ -83,13 +83,13 @@ export default function CyclingAbilityCard({ cycling, variant = "mobile" }: Cycl
   const { t } = useTranslation("dashboard");
   if (variant === "desktop") {
     return (
-      <Card padding="none" aria-label={t("mobileFitness.sport.cardAria")} style={{ marginTop: "var(--space-4)", padding: "var(--space-4) var(--space-6)" }}>
+      <Card data-testid="K5-1-1" padding="none" aria-label={t("mobileFitness.sport.cardAria")} style={{ marginTop: "var(--space-4)", padding: "var(--space-4) var(--space-6)" }}>
         <CyclingAbilityContent cycling={cycling} />
       </Card>
     );
   }
   return (
-    <section aria-label={t("mobileFitness.sport.cardAria")} style={{ background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)" }}>
+    <section data-testid="K5-1-1" aria-label={t("mobileFitness.sport.cardAria")} style={{ background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)" }}>
       <CyclingAbilityContent cycling={cycling} />
     </section>
   );

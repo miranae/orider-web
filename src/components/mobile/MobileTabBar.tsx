@@ -45,7 +45,7 @@ export default function MobileTabBar({
         transition: "transform 160ms ease",
       }}
     >
-      <nav className="flex items-start pt-1.5" aria-label={t("nav.mainNavAria")} style={{ minHeight: 46 }}>
+      <nav data-testid="X1-1" className="flex items-start pt-1.5" aria-label={t("nav.mainNavAria")} style={{ minHeight: 46 }}>
         {PRIMARY_HUBS.map(({ key, to, icon: Icon, labelKey }) => {
           const label = t(labelKey);
           const isActive = active === key;

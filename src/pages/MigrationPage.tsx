@@ -196,7 +196,7 @@ export default function MigrationPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto pb-20 space-y-6">
+    <div data-testid="S3-3-1" className="max-w-2xl mx-auto pb-20 space-y-6">
       {/* Step Indicator */}
       {step !== "report" && (
         <StepIndicator current={currentStepIndex} steps={[t("userMigration.stepConnect"), t("userMigration.stepImport"), t("userMigration.stepDone")]} />

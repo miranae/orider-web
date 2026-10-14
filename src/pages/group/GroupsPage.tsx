@@ -1,3 +1,5 @@
+import GroupRequestHistory from "../../components/group/GroupRequestHistory";
+import { useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -9,7 +11,7 @@ import { useMyGroups, usePublicGroups } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 import GroupCard from "../../components/group/GroupCard";
 import CreateGroupModal from "../../components/group/CreateGroupModal";
-import GroupChallengesPanel from "../../components/group/GroupChallengesPanel";
+import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
 import { Button, Card } from "../../theme/components";
 import {
@@ -30,15 +32,20 @@ export default function GroupsPage() {
   }, [uid]);
   const { showToast } = useToast();
   const { groups: myGroups, loading: myLoading, error: myGroupsError, retry: retryMyGroups } = useMyGroups(user?.uid);
-  const [showCreate, setShowCreate] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showCreate, setShowCreate] = useState(() => searchParams.get("new") === "1");
+  useEffect(() => { if (searchParams.get("new") === "1") { setShowCreate(true); const next = new URLSearchParams(searchParams); next.delete("new"); setSearchParams(next, { replace: true }); } }, [searchParams, setSearchParams]);
   const [inviteCode, setInviteCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [joiningPublic, setJoiningPublic] = useState<string | null>(null);
   const [pendingNotice, setPendingNotice] = useState("");
   const [error, setError] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState<"ALL" | "bike" | "run" | "swim" | "tri">("ALL");
+  const [myDisciplineFilter, setMyDisciplineFilter] = useState<"ALL" | "bike" | "run" | "swim" | "tri">("ALL");
   const [cityFilter, setCityFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [mySearch, setMySearch] = useState("");
+  const findSearchRef = useRef<HTMLInputElement>(null);
   const { groups: publicGroups, loading: publicLoading, error: publicGroupsError, retry: retryPublicGroups } = usePublicGroups({
     enabled: !!user,
     searchText: searchQuery,
@@ -53,15 +60,15 @@ export default function GroupsPage() {
   const { byGroup: nextEventLabels } = useGroupNextEvents(myGroupIdList);
 
   const filterGroups = <T extends { name: string; discipline?: string }>(list: T[]): T[] => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = mySearch.trim().toLowerCase();
     return list.filter((g) => {
-      if (disciplineFilter !== "ALL" && (g.discipline ?? "bike") !== disciplineFilter) return false;
+      if (myDisciplineFilter !== "ALL" && (g.discipline ?? "bike") !== myDisciplineFilter) return false;
       if (q && !g.name.toLowerCase().includes(q)) return false;
       return true;
     });
   };
 
-  const filteredMyGroups = useMemo(() => filterGroups(myGroups), [myGroups, disciplineFilter, searchQuery]);
+  const filteredMyGroups = useMemo(() => filterGroups(myGroups), [myGroups, myDisciplineFilter, mySearch]);
   const filteredPublicGroups = useMemo(
     () => publicGroups.filter((g) => !myGroupIds.has(g.id)),
     [publicGroups, myGroupIds]
@@ -123,23 +130,58 @@ export default function GroupsPage() {
     );
   }
 
+  const myClubSection = <section data-testid="C0-1">
+      {myGroups.length > 0 && <div data-testid="C0-1-1" className="mb-4"><select aria-label={t("filter.all")} value={myDisciplineFilter} onChange={event => setMyDisciplineFilter(event.target.value as typeof myDisciplineFilter)}>{["ALL", "bike", "run", "swim", "tri"].map(sport => <option key={sport} value={sport}>{t(sport === "ALL" ? "filter.all" : `filter.${sport}`)}</option>)}</select><input type="search" value={mySearch} onChange={event => setMySearch(event.target.value)} aria-label={t("search.groupName")} placeholder={t("search.groupName")} className="ds-input" /></div>}
+      {myGroupsError ? (
+        <div className="mb-8">
+          <ErrorState title={t("error.loadFailed")} onRetry={retryMyGroups} compact />
+        </div>
+      ) : myLoading ? (
+        <div className="mb-8">
+          <LoadingSkeleton kind="list" count={3} />
+        </div>
+      ) : myGroups.length === 0 ? null : filteredMyGroups.length === 0 ? (
+        <div className="mb-8">
+          <EmptyState
+            icon="👥"
+            title={t("list.noGroupsFiltered")}
+            description={t("list.noGroupsFilteredDesc")}
+            compact
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          {filteredMyGroups.map((g) => (
+            <GroupCard key={g.id} group={g} showMyRole nextEvent={nextEventLabels.get(g.id)} />
+          ))}
+        </div>
+      )}
+
+      <GroupRequestHistory userId={user.uid} />
+    </section>;
+
   return (
     <div>
-      <PageHeader
+      <PageHeader data-testid="C0-0"
         eyebrow={t("title")}
-        title={t("myGroups")}
-        subtitle={t("list.groupCount", { count: myGroups.length })}
+        title={t("clubsTitle")}
+        subtitle={<span data-testid="C0-0-1">{t("list.groupCount", { count: myGroups.length })}</span>}
         right={
-          <Button onClick={() => setShowCreate(true)} variant="primary" size="sm">
+          <div className="flex gap-2">{myGroups.length > 0 && <Button data-testid="C0-0-2" variant="secondary" size="sm" onClick={() => { document.getElementById("club-find")?.scrollIntoView({ block: "start" }); findSearchRef.current?.focus({ preventScroll: true }); }}>{t("list.findClubs")}</Button>}<Button data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary" size="sm">
             {t("button.create")}
-          </Button>
+          </Button></div>
         }
       />
 
+      {(myGroups.length > 0 || myLoading || Boolean(myGroupsError)) && myClubSection}
+
+      <h2 data-testid="C0-2" id="club-find" className="text-[length:var(--fs-lg)] font-bold mb-4" style={{ color: "var(--ink-0)" }}>{t("find.section")}</h2>
+      {!myLoading && !myGroupsError && myGroups.length === 0 && <p data-testid="C0.noClub">{t("empty.noGroups")} {t("list.noGroupsDesc")}</p>}
       {/* 검색 + 종목 필터 */}
-      <div className="flex items-center flex-wrap mb-4" style={{ gap: 'var(--space-2)' }}>
+      <div data-testid="C0-2-1" className="flex items-center flex-wrap mb-4" style={{ gap: 'var(--space-2)' }}>
         <input
           type="search"
+          ref={findSearchRef}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("search.groupName")}
@@ -184,34 +226,7 @@ export default function GroupsPage() {
         </div>
       </div>
 
-      {myGroupsError ? (
-        <div className="mb-8">
-          <ErrorState title={t("error.loadFailed")} onRetry={retryMyGroups} compact />
-        </div>
-      ) : myLoading ? (
-        <div className="mb-8">
-          <LoadingSkeleton kind="list" count={3} />
-        </div>
-      ) : filteredMyGroups.length === 0 ? (
-        <div className="mb-8">
-          <EmptyState
-            icon="👥"
-            title={myGroups.length === 0 ? t("empty.noGroups") : t("list.noGroupsFiltered")}
-            description={myGroups.length === 0 ? t("list.noGroupsDesc") : t("list.noGroupsFilteredDesc")}
-            compact
-          />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {filteredMyGroups.map((g) => (
-            <GroupCard key={g.id} group={g} nextEvent={nextEventLabels.get(g.id)} />
-          ))}
-        </div>
-      )}
 
-      <GroupChallengesPanel userId={user.uid} groups={myGroups} />
-
-      <h2 className="text-[length:var(--fs-lg)] font-bold mb-4" style={{ color: "var(--ink-0)" }}>{t("find.section")}</h2>
 
       {pendingNotice && (
         <Card padding="compact" className="mb-4" role="status" style={{ borderColor: "color-mix(in oklch, var(--amber) 45%, var(--line-soft))" }}>
@@ -224,8 +239,35 @@ export default function GroupsPage() {
         </Card>
       )}
 
-      <div className="flex gap-2 mb-6">
-        <input
+      <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("find.publicGroups")}</h3>
+      {publicGroupsError ? (
+        <ErrorState title={t("error.loadFailed")} onRetry={retryPublicGroups} compact />
+      ) : publicLoading ? (
+        <LoadingSkeleton kind="list" count={3} />
+      ) : filteredPublicGroups.length === 0 ? (
+        <div data-testid="C0-2-4"><EmptyState
+          icon="👥"
+          actions={[{ label: t("button.create"), onClick: () => setShowCreate(true) }]}
+          title={publicGroups.filter((g) => !myGroupIds.has(g.id)).length === 0 ? t("empty.noPublicGroups") : t("list.noGroupsFiltered")}
+          description={publicGroups.filter((g) => !myGroupIds.has(g.id)).length > 0 ? t("list.noPublicGroupsFilteredDesc") : undefined}
+          compact
+        /></div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredPublicGroups.map((g) => (
+            <GroupCard
+              key={g.id}
+              group={g}
+              showJoinButton
+              onJoin={() => handleJoinPublic(g)}
+              joining={joiningPublic === g.id}
+            />
+          ))}
+        </div>
+      )}
+
+      <div data-testid="C0-3" className="flex gap-2 mb-6">
+        <input data-testid="C0-3-1"
           type="text"
           value={inviteCode}
           onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
@@ -247,31 +289,9 @@ export default function GroupsPage() {
       </div>
       {error && <p className="text-[length:var(--fs-sm)] text-red-500 mb-4">{error}</p>}
 
-      <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("find.publicGroups")}</h3>
-      {publicGroupsError ? (
-        <ErrorState title={t("error.loadFailed")} onRetry={retryPublicGroups} compact />
-      ) : publicLoading ? (
-        <LoadingSkeleton kind="list" count={3} />
-      ) : filteredPublicGroups.length === 0 ? (
-        <EmptyState
-          icon="👥"
-          title={publicGroups.filter((g) => !myGroupIds.has(g.id)).length === 0 ? t("empty.noPublicGroups") : t("list.noGroupsFiltered")}
-          description={publicGroups.filter((g) => !myGroupIds.has(g.id)).length > 0 ? t("list.noPublicGroupsFilteredDesc") : undefined}
-          compact
-        />
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredPublicGroups.map((g) => (
-            <GroupCard
-              key={g.id}
-              group={g}
-              showJoinButton
-              onJoin={() => handleJoinPublic(g)}
-              joining={joiningPublic === g.id}
-            />
-          ))}
-        </div>
-      )}
+
+      {!myLoading && !myGroupsError && myGroups.length === 0 && <GroupRequestHistory userId={user.uid} sectionId="C0-1" />}
+      <Link data-testid="C0-4" to="/explore/challenges">{t("challenges.title")}</Link>
 
       <CreateGroupModal
         open={showCreate}

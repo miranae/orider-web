@@ -111,7 +111,7 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
           : <Text as="div" variant="label">{t("mobileFitness.performance.abilityUnknown")}</Text>}
       </div>
       <div className="mobile-fitness-performance__metrics">
-        {metrics.map((metric) => (
+        {metrics.filter(metric => part !== "analysis" || metric.key !== "vo2max").map((metric) => (
           <div key={metric.key} data-performance-metric={metric.key} className="mobile-fitness-performance__metric">
             <Text as="div" variant="caption" tone="secondary">{metric.label}</Text>
             <div className="mobile-fitness-performance__metric-value">

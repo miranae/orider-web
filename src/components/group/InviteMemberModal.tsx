@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../../services/firebase";
+import { ensureAppCheckReady, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { searchPublicUserProfilesByNickname, type PublicUserProfile } from "../../services/publicProfiles";
 import Avatar from "../Avatar";
@@ -46,6 +46,7 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode, 
   const handleInvite = async (targetUserId: string) => {
     setInviting(targetUserId);
     try {
+      await ensureAppCheckReady();
       const inviteFn = httpsCallable(functions, "inviteToGroup");
       await inviteFn({ groupId, targetUserId });
       setInvitedIds((prev) => new Set(prev).add(targetUserId));

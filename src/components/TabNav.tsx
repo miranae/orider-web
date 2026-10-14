@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink, useParams } from "react-router-dom";
+import { NavLink, useParams, type NavLinkProps } from "react-router-dom";
 import { SUPPORTED_LANGS } from "../i18n/detector";
 import "./TabNav.css";
 
@@ -17,7 +17,7 @@ function localizeTo(to: string, lang: string | undefined): string {
 }
 
 interface TabNavProps {
-  tabs: { id: string; label: string; count?: number }[];
+  tabs: { id: string; label: string; count?: number; specId?: string }[];
   activeTab: string;
   onChange: (id: string) => void;
 }
@@ -28,6 +28,7 @@ export default function TabNav({ tabs, activeTab, onChange }: TabNavProps) {
       {tabs.map((tab) => (
         <button
           key={tab.id}
+          data-testid={tab.specId}
           type="button"
           role="tab"
           aria-selected={activeTab === tab.id}
@@ -53,13 +54,15 @@ interface RouteTab {
   to: string;
   label: string;
   end?: boolean;
+  specId?: string;
 }
 
 interface RouteTabNavProps {
   tabs: RouteTab[];
+  state?: NavLinkProps["state"];
 }
 
-export function RouteTabNav({ tabs }: RouteTabNavProps) {
+export function RouteTabNav({ tabs, state }: RouteTabNavProps) {
   const { lang } = useParams();
   const { t } = useTranslation("common");
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -92,8 +95,10 @@ export function RouteTabNav({ tabs }: RouteTabNavProps) {
       {tabs.map((tab) => (
         <NavLink
           key={tab.to}
+          data-testid={tab.specId}
           to={localizeTo(tab.to, lang)}
           end={tab.end}
+          state={state}
           className={({ isActive }) =>
             `flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-2 sm:px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${
               isActive

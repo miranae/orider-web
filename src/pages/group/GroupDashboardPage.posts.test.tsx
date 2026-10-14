@@ -3,16 +3,17 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { auth, ensureAppCheckReady } from "../../services/firebase";
 import { updateGroupPost } from "../../hooks/useGroupPosts";
+import { setCollectionDocs, setDocData } from "../../__tests__/mocks/firebase";
 import GroupDashboardPage from "./GroupDashboardPage";
 
 const state = vi.hoisted(() => ({
-  uid: "owner", role: "leader" as string | null, creatorId: "owner", authorId: "owner",
+  visibility: "public", uid: "owner", role: "leader" as string | null, creatorId: "owner", authorId: "owner",
   showToast: vi.fn(), posts: [{ id: "post-1", content: "Original announcement", authorId: "owner", authorName: "Original author", kind: "announcement", createdAt: 1 }],
 }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: state.uid } }) }));
 vi.mock("../../contexts/ToastContext", () => ({ useToast: () => ({ showToast: state.showToast }) }));
 vi.mock("../../hooks/useGroup", () => ({
-  useGroup: () => ({ group: { id: "group-1", creatorId: state.creatorId, name: "QA group", memberCount: 2 }, loading: false }),
+  useGroup: () => ({ group: { id: "group-1", creatorId: state.creatorId, name: "QA group", description: "Private introduction", rules: "Private rules", visibility: state.visibility, memberCount: 2 }, loading: false }),
   useGroupMemberRole: () => ({ role: state.role }),
   useGroupMembers: () => ({ members: [], loading: false }),
 }));
@@ -29,13 +30,26 @@ function edit() {
   return screen.getByRole("textbox", { name: "게시글 내용 수정" });
 }
 beforeEach(() => {
-  state.uid = "owner"; state.role = "leader"; state.creatorId = "owner"; state.authorId = "owner";
+  state.visibility = "public"; state.uid = "owner"; state.role = "leader"; state.creatorId = "owner"; state.authorId = "owner";
   state.showToast.mockReset();
   vi.mocked(updateGroupPost).mockReset().mockResolvedValue(undefined);
   vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
   Object.assign(auth, { currentUser: { uid: "owner" } });
 });
 describe("group post editing", () => {
+  it("does not expose a private club introduction or rules to a nonmember", () => {
+    state.role = null; state.visibility = "private";
+    render(<Page />);
+    expect(screen.getByTestId("C1.private")).toBeInTheDocument();
+    expect(screen.queryByText("Private introduction")).not.toBeInTheDocument();
+    expect(screen.queryByText("Private rules")).not.toBeInTheDocument();
+  });
+  it("restores an approval-pending state from the request mirror on page entry", async () => {
+    state.role = null;
+    setCollectionDocs("users/owner/group_requests", [{ id: "request", groupId: "group-1", status: "pending" }]);
+    render(<Page />);
+    expect(await screen.findByRole("button", { name: "승인 대기" })).toBeDisabled();
+  });
   it("loads original content and updates only content through the protected callable", async () => {
     render(<Page />);
     expect(edit()).toHaveValue("Original announcement");
@@ -55,7 +69,7 @@ describe("group post editing", () => {
     expect(screen.getByRole("textbox", { name: "게시글 내용 수정" })).toHaveValue("Retry draft");
   });
   it.each([
-    ["member", "other", false], ["member", "owner", true], ["co-leader", "other", true], [null, "owner", false],
+    ["member", "other", false], ["member", "owner", false], ["co-leader", "other", true], [null, "owner", false],
   ])("matches author/manager authority for role %s and author %s", (role, authorId, allowed) => {
     state.role = role; state.creatorId = "another-leader"; state.authorId = authorId;
     render(<Page />);
@@ -108,5 +122,17 @@ describe("group post editing", () => {
     render(<Page />); edit(); fireEvent.click(screen.getByRole("button", { name: "수정 저장" }));
     await waitFor(() => expect(state.showToast).toHaveBeenCalledWith("게시글을 수정하지 못했습니다.", "error"));
     expect(updateGroupPost).not.toHaveBeenCalled();
+  });
+});
+
+// Upcoming-event CTA must use the same canonical status contract as the club event list.
+describe("club dashboard registration actions", () => {
+  it.each(["REGISTERED", "PAID", "CHECKED_IN", "RIDING", "REFUNDED", "CANCELLED", "PENDING", "FUTURE_STATUS"])("renders the correct action for %s", async status => {
+    setCollectionDocs("events", [{ id: "event-1", info: { name: "Upcoming fixture", groupId: "group-1", status: "OPEN", startTime: Date.now() + 86400000 } }]);
+    setDocData("events/event-1/participants/owner", { status });
+    render(<Page />);
+    const active = ["REGISTERED", "PAID", "CHECKED_IN", "RIDING"].includes(status);
+    expect(await screen.findByRole("link", { name: active ? "확인 · 취소" : "참가 신청" })).toHaveAttribute("href", active ? "/ko/event/event-1" : "/ko/event/event-1/register");
+    expect(screen.queryByRole("link", { name: active ? "참가 신청" : "확인 · 취소" })).not.toBeInTheDocument();
   });
 });

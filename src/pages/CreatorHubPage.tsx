@@ -762,7 +762,7 @@ export default function CreatorHubPage() {
             {copy.eyebrow}
           </div>
           <Text as="div" variant="eyebrow">{copy.title}</Text>
-          <h1 className="mt-2 max-w-4xl text-[length:var(--fs-3xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{copy.headline}</h1>
+          <h1 data-testid="E6-0" className="mt-2 max-w-4xl text-[length:var(--fs-3xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{copy.headline}</h1>
           <p className="mt-3 max-w-4xl text-[length:var(--fs-base)] leading-7" style={{ color: "var(--ink-3)" }}>
             {copy.subtitle}
           </p>
@@ -928,7 +928,7 @@ export default function CreatorHubPage() {
       )}
 
       {section === "examples" && (
-      <section className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+      <section data-testid="E6-4" className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           <h2 className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.integrationsTitle}</h2>
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
             {copy.integrations.map((item) => (
@@ -965,7 +965,7 @@ export default function CreatorHubPage() {
                       <FileText size={14} style={{ color: "var(--lime)" }} />
                       <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "AI에게 전달할 작업 지시" : "Prompt for your AI assistant"}</Text>
                     </div>
-                    <Button size="sm" variant="ghost" loading={copyingPromptId === item.name} onClick={() => void handleCopyPrompt(item.name, item.aiPrompt)}>
+                    <Button data-testid="E6-4-1" size="sm" variant="ghost" loading={copyingPromptId === item.name} onClick={() => void handleCopyPrompt(item.name, item.aiPrompt)}>
                       <Clipboard size={14} aria-hidden />
                       {copiedPromptId === item.name ? copy.actions.promptCopied : copy.actions.copyPrompt}
                     </Button>
@@ -985,7 +985,7 @@ export default function CreatorHubPage() {
         {(["featured", "recipes", "share"] as CreatorTab[]).map((nextTab) => {
           const active = tab === nextTab;
           return (
-            <button
+            <button data-testid="E6-1-1"
               key={nextTab}
               type="button"
               role="tab"
@@ -1006,7 +1006,7 @@ export default function CreatorHubPage() {
 
       {section === "recipes" && (
       <section className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="grid items-start gap-3 md:grid-cols-2">
+        <div data-testid="E6-1" className="grid items-start gap-3 md:grid-cols-2">
           {visibleItems.map((item) => {
             const Icon = item.icon;
             const quotaLabel = formatCreatorEmailQuotaLabel(copy.actions.emailQuota, emailQuota);
@@ -1069,7 +1069,7 @@ export default function CreatorHubPage() {
 
                 <div className="mt-4 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
                   {hasShareCardPreview(item) && (
-                    <Button
+                    <Button data-testid="E6-1-2"
                       className={recipeActionClass}
                       size="sm"
                       variant={item.id === "ai-diary" ? "primary" : "secondary"}
@@ -1082,7 +1082,7 @@ export default function CreatorHubPage() {
                       {copy.actions.preview}
                     </Button>
                   )}
-                  <Button
+                  <Button data-testid="E6-1-4"
                     className={recipeActionClass}
                     size="sm"
                     variant="secondary"
@@ -1133,7 +1133,7 @@ export default function CreatorHubPage() {
                     <KeyRound size={15} />
                     {copy.actions.deploy}
                   </Button>
-                  <Button
+                  <Button data-testid="E6-1-6"
                     className={recipeActionClass}
                     size="sm"
                     variant="ghost"
@@ -1166,7 +1166,7 @@ export default function CreatorHubPage() {
                 <ExternalLink size={15} aria-hidden />
                 {copy.apiDocs.swagger}
               </a>
-              <a href={apiDocsLinks.openapi} className={buttonClass({ variant: "secondary", size: "sm" })}>
+              <a data-testid="E6-4-2" href={apiDocsLinks.openapi} className={buttonClass({ variant: "secondary", size: "sm" })}>
                 <FileText size={15} aria-hidden />
                 {copy.apiDocs.yaml}
               </a>
@@ -1254,7 +1254,7 @@ export default function CreatorHubPage() {
                 <Clipboard size={15} />
                 {copied ? copy.actions.copied : copy.actions.copy}
               </Button>
-              <Link to="/community/board/write" className={buttonClass({ variant: "primary", size: "sm" })}>
+              <Link to="/community/board/write" state={{ postTemplate: diary ? { title: diary.diary.title, body: diary.diary.body } : undefined }} className={buttonClass({ variant: "primary", size: "sm" })}>
                   <MessageSquareText size={15} aria-hidden />
                   {copy.actions.post}
               </Link>
@@ -1285,7 +1285,7 @@ export default function CreatorHubPage() {
             </div>
           </div>
           {diary && (
-            <div className="mt-4 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+            <div data-testid="E6-2" className="mt-4 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
               <Text as="div" variant="eyebrow">{diary.diary.title}</Text>
               <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{diary.diary.body}</p>
             </div>
@@ -1295,7 +1295,7 @@ export default function CreatorHubPage() {
               <Clipboard size={15} />
               {copied ? copy.actions.copied : copy.actions.copy}
             </Button>
-            <Link to="/community/board/write" className={buttonClass({ variant: "primary", size: "sm" })}>
+            <Link data-testid="E6-2-1" to="/community/board/write" state={{ postTemplate: diary ? { title: diary.diary.title, body: diary.diary.body } : undefined }} className={buttonClass({ variant: "primary", size: "sm" })}>
               <MessageSquareText size={15} aria-hidden />
               {copy.actions.post}
             </Link>
@@ -1318,7 +1318,7 @@ export default function CreatorHubPage() {
               ))}
             </ul>
             <div className="mt-3">
-              <Button size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating}>
+              <Button data-testid="E6-1-3" size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating}>
                 <Sparkles size={15} />
                 {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
               </Button>
@@ -1355,7 +1355,7 @@ export default function CreatorHubPage() {
               <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.weekly.title}</h2>
               <p className="mt-1 max-w-3xl text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.weekly.body}</p>
             </div>
-            <Button size="sm" variant="secondary" onClick={handleCopyChart}>
+            <Button data-testid="E6-2-2" size="sm" variant="secondary" onClick={handleCopyChart}>
               <Clipboard size={15} />
               {chartCopied ? copy.actions.copied : copy.actions.copyChart}
             </Button>
@@ -1397,7 +1397,7 @@ export default function CreatorHubPage() {
 
         <aside className="space-y-4">
           <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-            <div className="flex items-center gap-2">
+            <div data-testid="E6-3" className="flex items-center gap-2">
               <Send size={18} style={{ color: "var(--lime)" }} />
               <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.apiPath.title}</h2>
             </div>
@@ -1431,15 +1431,15 @@ export default function CreatorHubPage() {
         <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.builderTitle}</h2>
         <p className="mt-1 max-w-4xl text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.builderBody}</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Link to="/settings/developer" className={buttonClass({ variant: "primary", size: "sm" })}>
+          <Link data-testid="E6-3-1" to="/settings/developer" className={buttonClass({ variant: "primary", size: "sm" })}>
             <KeyRound size={15} aria-hidden />
             {copy.actions.manageApiKeys}
           </Link>
-          <a href={PUBLIC_REPOSITORY_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
+          <a data-testid="E6-1-8" href={PUBLIC_REPOSITORY_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
             <GitPullRequest size={15} aria-hidden />
             {copy.actions.submitRecipe}
           </a>
-          <Link to={CREATOR_RECIPE_REQUEST_LINK} className={buttonClass({ variant: "primary", size: "sm" })}>
+          <Link data-testid="E6-1-7" to={CREATOR_RECIPE_REQUEST_LINK} className={buttonClass({ variant: "primary", size: "sm" })}>
             <MessageSquareText size={15} aria-hidden />
             {copy.actions.requestRecipe}
           </Link>

@@ -728,5 +728,16 @@
   "detail.participantsUnavailable": "Participant information is unavailable.",
   "resultsView.privateResultsUnavailable": "Results for this group ride are private.",
   "detail.registrationStateUnknown": "Your registration status has not been confirmed.",
-  "edit.capacitySummary": "RIDER capacity {{filled}}/{{total}} · {{date}} {{time}}"
+  "edit.capacitySummary": "RIDER capacity {{filled}}/{{total}} · {{date}} {{time}}",
+  "detail.overviewTab": "Overview",
+  "detail.liveSpectator": "Watch live →",
+  "host.operation": "Manage event",
+  "host.permissionDenied": "You do not have event operator permission",
+  "host.dataPermissionDenied": "Only the creator and designated hosts can view private map/participant data or edit this event.",
+  "create.groupContextChecking": "Checking whether you can create an event for this club.",
+  "create.groupContextDenied": "The selected club’s creator permission or active status could not be confirmed. Choose another eligible club or explicitly create a public event without a club.",
+  "create.groupContextAlternative": "Choose another eligible club",
+  "create.groupContextPublic": "Create a public event without a club",
+  "action.participantView": "Participant view",
+  "detail.participationTab": "Participation"
 }

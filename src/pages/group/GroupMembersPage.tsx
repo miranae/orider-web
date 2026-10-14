@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
-import { collection, getDocs, deleteDoc, doc as fsDoc, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { firestore, functions } from "../../services/firebase";
+import { auth, ensureAppCheckReady, firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
@@ -21,6 +21,7 @@ import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 import { useGroupInviteCode } from "../../hooks/useGroupInviteCode";
 import { localeTag } from "../../utils/localeDate";
 import { normalizeStartTime } from "../../utils/event-time";
+import { canManageGroup } from "../../features/group/groupPermissions";
 import { setGroupMemberRole, transferGroupLeadership } from "../../features/group/groupLeadership";
 import { useLocalizedNavigate } from "../../hooks/useLocalizedNavigate";
 
@@ -40,7 +41,7 @@ interface InvitationDoc {
   status: string;
 }
 
-export default function GroupMembersPage() {
+export default function GroupMembersPage({ management = false }: { management?: boolean }) {
   const { t, i18n } = useTranslation("group");
   const { groupId } = useParams();
   const { user } = useAuth();
@@ -49,7 +50,11 @@ export default function GroupMembersPage() {
   const navigate = useLocalizedNavigate();
   const { group, loading: groupLoading } = useGroup(groupId);
   const { members, loading: membersLoading } = useGroupMembers(groupId);
-  const invite = useGroupInviteCode(groupId, user?.uid);
+  const isOwner = !!user && !!group && user.uid === group.creatorId;
+  const activeMembership = members.find(member => member.id === user?.uid && ["active", "approved"].includes(member.status));
+  const currentRole = activeMembership?.role ?? null;
+  const canManage = canManageGroup(group, user?.uid, currentRole);
+  const invite = useGroupInviteCode(canManage ? groupId : undefined, canManage ? user?.uid : undefined);
 
   const ROLE_LABELS: Record<string, string> = {
     leader: t("members.role.leader"),
@@ -65,8 +70,13 @@ export default function GroupMembersPage() {
   const { memberStats } = useGroupRideStats(groupId);
   const [pending, setPending] = useState<PendingRequest[]>([]);
   const [pendingProfiles, setPendingProfiles] = useState<Map<string, PublicUserProfile>>(new Map());
+  const [pendingError, setPendingError] = useState(false);
   const [pendingLoading, setPendingLoading] = useState(false);
+  const [invitationsError, setInvitationsError] = useState(false);
   const [invitations, setInvitations] = useState<InvitationDoc[]>([]);
+  const [leaving, setLeaving] = useState(false);
+  const leaveIntent = useRef(0);
+  useEffect(() => { leaveIntent.current += 1; setLeaving(false); return () => { leaveIntent.current += 1; }; }, [groupId, user?.uid]);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [roleBusyId, setRoleBusyId] = useState<string | null>(null);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
@@ -78,9 +88,9 @@ export default function GroupMembersPage() {
 
   // 가입 요청 (pending 컬렉션)
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || !management || !isOwner) { setPending([]); return; }
     let cancelled = false;
-    setPendingLoading(true);
+    setPendingLoading(true); setPendingError(false);
     let snapshotEpoch = 0;
     const unsubscribe = onSnapshot(
       collection(firestore, "groups", groupId, "pending"),
@@ -106,30 +116,30 @@ export default function GroupMembersPage() {
       },
       (err) => {
         logClientError("GroupMembersPage.pending", err, { groupId });
-        if (!cancelled) setPendingLoading(false);
+        if (!cancelled) { setPendingLoading(false); setPendingError(true); }
       },
     );
     return () => {
       cancelled = true;
       unsubscribe();
     };
-  }, [groupId]);
+  }, [groupId, management, isOwner]);
 
-  // 초대 발송 내역
+  // Invitation reads use the same active manager predicate as the deployed rules.
   useEffect(() => {
-    if (!groupId || tab !== "invite") return;
-    (async () => {
-      try {
-        const snap = await getDocs(collection(firestore, "groups", groupId, "invitations"));
-        const list: InvitationDoc[] = snap.docs.map((d) => d.data() as InvitationDoc);
-        setInvitations(list);
-      } catch {
-        setInvitations([]);
-      }
-    })();
-  }, [groupId, tab]);
+    let cancelled = false;
+    setInvitations([]); setInvitationsError(false);
+    if (!groupId || tab !== "invite" || !canManage || !activeMembership) return;
+    getDocs(collection(firestore, "groups", groupId, "invitations")).then(snapshot => {
+      if (!cancelled) setInvitations(snapshot.docs.map(doc => doc.data() as InvitationDoc));
+    }).catch(error => {
+      logClientError("GroupMembersPage.invitations", error, { groupId });
+      if (!cancelled) setInvitationsError(true);
+    });
+    return () => { cancelled = true; };
+  }, [groupId, tab, canManage, !!activeMembership]);
 
-  const isCreator = !!user && !!group && user.uid === group.creatorId;
+  const isCreator = management && !!user && !!group && user.uid === group.creatorId;
 
   const filteredMembers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -298,7 +308,8 @@ export default function GroupMembersPage() {
   const handleReject = async (userId: string) => {
     if (!groupId) return;
     try {
-      await deleteDoc(fsDoc(firestore, "groups", groupId, "pending", userId));
+      await ensureAppCheckReady();
+      await httpsCallable(functions, "rejectGroupRequest")({ groupId, userId });
       setPending((prev) => prev.filter((p) => p.userId !== userId));
       showToast(t("members.rejectSuccess"));
     } catch (err) {
@@ -329,8 +340,26 @@ export default function GroupMembersPage() {
 
   return (
     <div>
-      <GroupSubNav group={group} isCreator={isCreator} />
+      {!management && <GroupSubNav group={group} isCreator={canManageGroup(group, user?.uid, members.find(member => member.id === user?.uid && ["active", "approved"].includes(member.status))?.role ?? null)} />}
 
+      {!management && !isOwner && user && members.some(member => member.id === user.uid) && <details data-testid="C6-0-3"><summary aria-label={t("members.menu")}>⋯</summary><Button variant="danger" disabled={leaving} onClick={async () => {
+        if (!groupId || !user || leaving) return;
+        const uid = user.uid;
+        const intent = leaveIntent.current;
+        if (!(await dialog.confirm(t("settings.leaveDescription"), { destructive: true }))) return;
+        if (leaveIntent.current !== intent || auth.currentUser?.uid !== uid) return;
+        setLeaving(true);
+        try {
+          await ensureAppCheckReady();
+          if (leaveIntent.current !== intent || auth.currentUser?.uid !== uid) return;
+          await httpsCallable(functions, "leaveGroup")({ groupId });
+          if (leaveIntent.current !== intent || auth.currentUser?.uid !== uid) return;
+          showToast(t("settings.leaveSuccess")); navigate("/clubs");
+        } catch (error) {
+          if (leaveIntent.current !== intent || auth.currentUser?.uid !== uid) return;
+          logClientError("GroupMembersPage.leave", error, { groupId }); showToast(t("error.leaveFailed"), "error");
+        } finally { if (leaveIntent.current === intent) setLeaving(false); }
+      }}>{t("button.leave")}</Button></details>}
       {/* Breadcrumb */}
       <div className="text-[length:var(--fs-xs)] flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-3)', color: "var(--ink-3)" }}>
         <Link to="/clubs" style={{ color: "var(--ink-3)" }}>{t("breadcrumb.groups")}</Link>
@@ -341,14 +370,15 @@ export default function GroupMembersPage() {
       </div>
 
       {/* Tabs */}
-      <div role="tablist" aria-label={t("breadcrumb.memberManagement")} className="flex items-center" style={{ gap: "var(--space-0-5)", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-4)' }}>
+      <div data-testid="C6-0" role="tablist" aria-label={t("breadcrumb.memberManagement")} className="flex items-center" style={{ gap: "var(--space-0-5)", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-4)' }}>
         {([
           ["members", `${t("members.tab.members")} ${members.length}`],
-          ["pending", `${t("members.tab.pending")} ${pending.length}`],
-          ["invite", t("members.tab.invite")],
+          ...(isCreator ? [["pending", `${t("members.tab.pending")} ${pending.length}`] as [Tab, string]] : []),
+          ...(!management && canManage ? [["invite", t("members.tab.invite")] as [Tab, string]] : []),
         ] as [Tab, string][]).map(([id, label]) => (
           <button
             key={id}
+            data-testid={id === "members" ? "C6-0-1" : undefined}
             type="button"
             role="tab"
             aria-selected={tab === id}
@@ -368,11 +398,12 @@ export default function GroupMembersPage() {
         ))}
       </div>
 
+      {pendingError && <p role="alert">{t("error.loadFailed")}</p>}
       {/* MEMBERS TAB */}
       {tab === "members" && (
         <>
           {isCreator && (
-            <Card padding="none" className="mb-4" style={{ padding: "var(--space-4)" }}>
+            <Card data-testid="C7-3" padding="none" className="mb-4" style={{ padding: "var(--space-4)" }}>
               <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>
                 {t("members.leadership.title")}
               </h2>
@@ -409,7 +440,7 @@ export default function GroupMembersPage() {
                     />
                     {t("members.leadership.leaveAfterTransfer")}
                   </label>
-                  <Button
+                  <Button data-testid="C7-3-1"
                     type="button"
                     variant="secondary"
                     size="sm"
@@ -424,8 +455,8 @@ export default function GroupMembersPage() {
             </Card>
           )}
           {/* Toolbar */}
-          <div className="flex items-center flex-wrap" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-            <input
+          <div data-testid="C6-1" className="flex items-center flex-wrap" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+            <input data-testid="C6-1-1"
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -460,7 +491,7 @@ export default function GroupMembersPage() {
               </div>
             )}
             <div style={{ flex: 1 }} />
-            <Button onClick={() => setShowInvite(true)} variant="primary" size="sm">{t("button.invite")}</Button>
+            {!management && canManage && <Button data-testid="C6-0-2" onClick={() => setTab("invite")} variant="primary" size="sm">{t("button.invite")}</Button>}
           </div>
 
           {membersLoading ? (
@@ -468,7 +499,7 @@ export default function GroupMembersPage() {
           ) : filteredMembers.length === 0 ? (
             <EmptyState icon="🔍" title={t("empty.noMembers")} compact />
           ) : (
-            <Card padding="none" style={{ padding: 0, overflowX: "auto" }}>
+            <Card data-testid={management ? "C7-2" : "C6-2"} padding="none" style={{ padding: 0, overflowX: "auto" }}>
               {/* Header */}
               <div
                 style={{
@@ -532,7 +563,7 @@ export default function GroupMembersPage() {
                         />
                       )}
                     </div>
-                    <Link to={`/athlete/${m.id}`} className="flex items-center min-w-0" style={{ gap: 'var(--space-2)' }}>
+                    <Link data-testid="C6-2-1" to={`/athlete/${m.id}`} className="flex items-center min-w-0" style={{ gap: 'var(--space-2)' }}>
                       <Avatar name={m.profile?.nickname ?? "?"} imageUrl={m.profile?.photoURL} size="sm" />
                       <Text variant="bodyMedium" truncate tone="primary">
                         {m.profile?.nickname ?? m.id}
@@ -549,7 +580,7 @@ export default function GroupMembersPage() {
                     <div className="flex items-center justify-end" style={{ gap: "var(--space-1)" }}>
                       {isCreator && !isMe && m.id !== group.creatorId && role !== "leader" && (role === "member" || role === "co-leader") && (
                         <>
-                          <Button
+                          <Button data-testid="C7-2-1"
                             type="button"
                             onClick={() => void handleRoleChange(m.id, m.profile?.nickname ?? m.id, role)}
                             disabled={roleBusyId === m.id || bulkBusy}
@@ -564,7 +595,7 @@ export default function GroupMembersPage() {
                               ? t("button.saving")
                               : t(role === "co-leader" ? "members.action.demote" : "members.action.promote")}
                           </Button>
-                          <Button
+                          <Button data-testid="C7-2-2"
                             type="button"
                             onClick={() => void handleRemoveMember(m.id, m.profile?.nickname ?? m.id)}
                             disabled={bulkBusy || roleBusyId === m.id}
@@ -593,7 +624,7 @@ export default function GroupMembersPage() {
           ) : pending.length === 0 ? (
             <EmptyState icon="📭" title={t("empty.noPendingRequests")} description={t("members.pendingDesc")} compact />
           ) : (
-            <Card padding="none" style={{ padding: 0 }}>
+            <Card data-testid="C7-1" padding="none" style={{ padding: 0 }}>
               <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {pending.map((p) => {
                   const profile = pendingProfiles.get(p.userId) ?? null;
@@ -617,7 +648,7 @@ export default function GroupMembersPage() {
                       </div>
                       {isCreator && (
                         <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
-                          <Button type="button" onClick={() => handleApprove(p.userId)} variant="primary" size="sm">{t("button.approve")}</Button>
+                          <Button data-testid="C7-1-1" type="button" onClick={() => handleApprove(p.userId)} variant="primary" size="sm">{t("button.approve")}</Button>
                           <Button type="button" onClick={() => handleReject(p.userId)} variant="secondary" size="sm" style={{ color: "var(--rose)" }}>{t("button.reject")}</Button>
                         </div>
                       )}
@@ -631,14 +662,14 @@ export default function GroupMembersPage() {
       )}
 
       {/* INVITE TAB */}
-      {tab === "invite" && (
-        <Card padding="none" style={{ padding: 'var(--space-4)' }}>
+      {tab === "invite" && canManage && (
+        <Card data-testid="C6-3" padding="none" style={{ padding: 'var(--space-4)' }}>
           <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("members.inviteLink")}</h2>
           <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
             <code style={{ padding: "var(--space-2) var(--space-3)", background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", fontFamily: "var(--font-mono)", color: "var(--lime)", flex: 1 }}>
               {invite.code ? buildGroupInviteUrl(invite.code, i18n.language) : ""}
             </code>
-            <Button
+            <Button data-testid="C6-3-1"
               type="button"
               disabled={!invite.code}
               onClick={async () => {
@@ -660,10 +691,12 @@ export default function GroupMembersPage() {
             {t("members.inviteCodeDesc")}
           </p>
 
+          <Button onClick={() => setShowInvite(true)} variant="secondary" size="sm">{t("invite.directLabel")}</Button>
+          {invitationsError && <p role="alert">{t("error.loadFailed")}</p>}
           {invite.status !== "ready" && <p role="status">{t(`invite.${invite.status}`)}</p>}
           {invite.status === "failed" && <Button onClick={invite.retry}>{t("invite.retry")}</Button>}
           {invitations.length > 0 && (
-            <div>
+            <div data-testid="C6-3-2">
               <h3 className="text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-1)", marginBottom: 'var(--space-2)' }}>{t("members.sentInvitations")}</h3>
               <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {invitations.map((inv, i) => (

@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   toasts: [] as string[],
 }));
 
+vi.mock("../../hooks/useMaintenanceSnapshot", () => ({ useMaintenanceSnapshot: () => ({ envelope: null, display: null }) }));
+vi.mock("../../hooks/useRunHistory", () => ({ useRunHistory: () => ({ runs: [], loading: false, available: true }) }));
+vi.mock("../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: "metric" }) }));
 vi.mock("../../hooks/useActiveBikeProfile", () => ({
   useActiveBikeProfile: () => ({
     active: mocks.profiles[0] ?? null,
@@ -60,7 +63,7 @@ function profile(id: string, name: string) {
 function renderPane(initialEntry = "/settings/equipment") {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
-      <PaneEquipment />
+      <PaneEquipment part="device" />
     </MemoryRouter>,
   );
 }
@@ -85,9 +88,27 @@ describe("PaneEquipment 데이터 페이지", () => {
     };
   });
 
+  it("프로필 장비에는 작동값 편집과 데이터 페이지가 없고 기기 링크를 보여준다", () => {
+    render(<MemoryRouter><PaneEquipment /></MemoryRouter>);
+    expect(screen.queryByTestId("bike-data-pages-road")).toBeNull();
+    expect(screen.queryByRole("spinbutton")).toBeNull();
+    expect(screen.getAllByRole("link").some((link) => link.getAttribute("href")?.includes("/settings/device"))).toBe(true);
+  });
+
+  it("기기 자전거에는 이름 편집과 삭제를 숨기고 프로필 장비에 보존한다", () => {
+    const device = renderPane();
+    expect(screen.queryByRole("button", { name: "이름 변경" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "삭제" })).toBeNull();
+    device.unmount();
+    render(<MemoryRouter><PaneEquipment part="gear" /></MemoryRouter>);
+    expect(screen.getAllByRole("button", { name: "이름 변경" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "삭제" }).length).toBeGreaterThan(0);
+  });
+
   it("자전거 행에서 데이터 페이지를 연다", async () => {
     renderPane();
 
+    await userEvent.selectOptions(screen.getAllByRole("combobox")[0], "gravel");
     await userEvent.click(screen.getByTestId("bike-data-pages-gravel"));
 
     await waitFor(() => expect(screen.getByTestId("layout-editor")).toBeTruthy());

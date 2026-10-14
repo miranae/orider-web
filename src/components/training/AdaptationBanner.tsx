@@ -87,7 +87,7 @@ export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
 
   return (
     <div
-      className="adaptation-banner"
+      data-testid="K4-1" className="adaptation-banner"
       role={flag.severity === "critical" ? "alert" : "status"}
       style={{
         margin: "var(--space-2) 0",
@@ -98,12 +98,12 @@ export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
         borderRadius: "var(--r-md)",
       }}
     >
-      <div className="adaptation-banner__main">
+      <div data-testid="K4-1-1" className="adaptation-banner__main">
         <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", background: style.ink, flexShrink: 0 }} />
         <strong style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-sm)", color: "var(--ink-1)", lineHeight: 1.35 }}>
           {flag.severity === "critical" ? "⚠ " : ""}{flag.reason}
         </strong>
-        <span className="adaptation-banner__action"><Button type="button" variant="secondary" size="sm" onClick={onReroll} disabled={busy} style={{ flexShrink: 0, color: style.ink, borderColor: style.border }}>
+        <span className="adaptation-banner__action"><Button type="button" variant="secondary" size="sm" data-testid="K4-1-2" onClick={onReroll} disabled={busy} style={{ flexShrink: 0, color: style.ink, borderColor: style.border }}>
           {t("adaptation.rerollNow")}
         </Button></span>
       </div>
@@ -117,7 +117,7 @@ export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
               : ""}
           </div>
         )}
-        <Button type="button" variant="ghost" size="sm" onClick={onSnooze} disabled={busy}>{t("adaptation.snooze")}</Button>
+        <Button type="button" variant="ghost" size="sm" data-testid="K4-1-3" onClick={onSnooze} disabled={busy}>{t("adaptation.snooze")}</Button>
       </details>
     </div>
   );

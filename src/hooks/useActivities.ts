@@ -759,6 +759,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
       recent7DayDistances: emptyRecent7DayDistances,
       recent7DayCount: 0,
       monthlyActivityDistance: 0,
+      monthlyFlowPercent: null,
       coverage: "unavailable" as const,
       recent7DayCoverage: "unavailable" as const,
     };
@@ -844,6 +845,8 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
     recent7DayDistances,
     recent7DayCount: allRecent7DayActivities.length,
     monthlyActivityDistance,
+    monthlyFlowPercent: coverageStatus === "ready" && weeks.length && weeks.some(week => week.distance > 0)
+      ? Math.round((monthlyActivityDistance / 1000) / (weeks.reduce((sum, week) => sum + week.distance, 0) / weeks.length * 4.3) * 100) : null,
     coverage: coverageStatus,
     recent7DayCoverage,
   };

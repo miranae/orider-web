@@ -25,6 +25,7 @@ const calls = (name: string) => mockCallableInvocations.filter((call) => call.na
 const constructed = (name: string) => vi.mocked(httpsCallable).mock.calls.filter((call) => call[1] === name);
 
 function event(status: "OPEN" | "LIVE") {
+  setDocData("events/qa-lifecycle/participants/test-uid", { userId: "test-uid", role: "LEADER", status: "REGISTERED" });
   setDocData("events/qa-lifecycle", { info: { name: "QA private lifecycle", creatorId: "test-uid", status,
     type: "TOUR", visibility: "PRIVATE", startTime: Date.now() + 86_400_000, categories: [] },
     counters: { totalRegistered: 1 } });
@@ -136,4 +137,20 @@ describe("event lifecycle cold App Check admission", () => {
     expect(constructed("finishEvent")).toHaveLength(0);
     expect(calls("finishEvent")).toHaveLength(0);
   });
+  it("fences role-only LEADER Finish after an auth ABA while preserving the token barrier", async () => {
+    event("LIVE");
+    setDocData("events/qa-lifecycle", { info: { name: "Role-only event", creatorId: "another-creator", hostIds: [], status: "LIVE", type: "TOUR" } });
+    const token = deferred<string | null>(); vi.mocked(getAppCheckToken).mockReturnValueOnce(token.promise);
+    renderWithProviders(<Routes><Route path="/ko/event/:eventId/host" element={<EventDashboardPage />} /></Routes>,
+      { route: "/ko/event/qa-lifecycle/host", authenticated: true });
+    auth.currentUser = getCurrentUser() as unknown as User;
+    expect(await screen.findByTestId("O1-role-only")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /이벤트 종료/ }));
+    await waitFor(() => expect(dialog.confirm).toHaveBeenCalled());
+    expect(constructed("finishEvent")).toHaveLength(0);
+    await act(async () => { simulateLogin({ uid: "other-uid" }); simulateLogin({ uid: "test-uid" }); });
+    await act(async () => token.resolve("old-token"));
+    expect(constructed("finishEvent")).toHaveLength(0); expect(calls("finishEvent")).toHaveLength(0);
+  });
+
 });

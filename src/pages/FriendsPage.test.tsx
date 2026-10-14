@@ -1,5 +1,6 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { DialogProvider } from "../contexts/DialogContext";
 import FriendsPage from "./FriendsPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import {
@@ -31,6 +32,14 @@ describe("FriendsPage", () => {
     await waitFor(() => {
       expect(screen.getByText("친구")).toBeInTheDocument();
     });
+  });
+
+  it("opens the existing invitation card from the header invitation control", async () => {
+    renderWithProviders(<FriendsPage />, { authenticated: true });
+    const invite = await screen.findByRole("link", { name: "초대" });
+    expect(invite).toHaveAttribute("data-testid", "P3-0-2");
+    expect(invite).toHaveAttribute("href", "#friend-invite");
+    expect(screen.getByTestId("P3-3")).toHaveAttribute("id", "friend-invite");
   });
 
   it("shows friend code input", async () => {
@@ -74,7 +83,7 @@ describe("FriendsPage", () => {
     renderWithProviders(<FriendsPage />, { authenticated: true });
     await waitFor(() => {
       expect(screen.getByText(/친구 \(/)).toBeInTheDocument();
-      expect(screen.getByText(/요청 \(/)).toBeInTheDocument();
+      expect(screen.getByText(/^요청 \(/)).toBeInTheDocument();
     });
   });
 
@@ -88,10 +97,10 @@ describe("FriendsPage", () => {
     renderWithProviders(<FriendsPage />, { authenticated: true });
 
     await waitFor(() => {
-      expect(screen.getByText(/요청 \(/)).toBeInTheDocument();
+      expect(screen.getByText(/^요청 \(/)).toBeInTheDocument();
     });
 
-    await user.click(screen.getByText(/요청 \(/));
+    await user.click(screen.getByText(/^요청 \(/));
 
     await waitFor(() => {
       expect(screen.getByText("요청자")).toBeInTheDocument();
@@ -114,4 +123,35 @@ describe("FriendsPage", () => {
       expect(addBtn).toBeDisabled();
     });
   });
+  it("cancels a sent mirror request by deleting the original recipient request", async () => {
+    setCollectionDocs("users/test-uid/sent_friend_requests", [{ id: "target-user", targetNickname: "Recipient", createdAt: 1 }]);
+    renderWithProviders(<DialogProvider><FriendsPage /></DialogProvider>, { authenticated: true });
+    expect(await screen.findAllByRole("tab")).toHaveLength(3);
+    await userEvent.click(screen.getByRole("tab", { name: "보낸 요청 (1)" }));
+    expect(screen.getByText("Recipient")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "요청 취소" }));
+    expect(mockDeleteDoc).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "확인" }));
+    await waitFor(() => expect(mockDeleteDoc).toHaveBeenCalledWith(expect.objectContaining({ path: "friend_requests/target-user/items/test-uid" })));
+  });
+
+  it("keeps the request when cancellation confirmation is declined", async () => {
+    mockDeleteDoc.mockClear();
+    setCollectionDocs("users/test-uid/sent_friend_requests", [{ id: "target-user", targetNickname: "Recipient", targetPhotoURL: "https://example.com/avatar.jpg", createdAt: 1000 }]);
+    renderWithProviders(<DialogProvider><FriendsPage /></DialogProvider>, { authenticated: true, route: "/ko/athlete/me/friends?tab=sent" });
+    expect(await screen.findByText("Recipient")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "보낸 요청 (1)" })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(screen.getByRole("button", { name: "요청 취소" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "취소" }));
+    expect(mockDeleteDoc).not.toHaveBeenCalled();
+    expect(screen.getByText("Recipient")).toBeInTheDocument();
+  });
+
+  it("shows an unknown marker instead of fabricating a missing sent-request timestamp", async () => {
+    setCollectionDocs("users/test-uid/sent_friend_requests", [{ id: "target-user", targetNickname: "No timestamp" }]);
+    renderWithProviders(<FriendsPage />, { authenticated: true, route: "/ko/athlete/me/friends?tab=sent" });
+    expect(await screen.findByText("No timestamp")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
+
 });

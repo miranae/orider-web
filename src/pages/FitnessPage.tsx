@@ -1,8 +1,10 @@
+import FitnessPeriodEvidence from "../features/fitness/components/FitnessPeriodEvidence";
+import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 import RunningRaceEstimatesPanel from "../features/fitness/RunningRaceEstimatesPanel";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import "./FitnessPage.css";
 import { PowerCurvePeriodsPanel } from "../features/fitness/components/PowerCurvePeriodsPanel";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useTrainingDecision } from "../hooks/useTrainingDecision";
 import { useSearchParams } from "react-router-dom";
@@ -31,6 +33,8 @@ import DetailsSection from "../components/redesign/DetailsSection";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import SectionHeader from "../components/redesign/SectionHeader";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
+import FtpDecisionSection from "../features/fitness/components/FtpDecisionSection";
+import RunRecordsSummary from "../features/fitness/components/RunRecordsSummary";
 import BikeThresholdDecisionCard from "../features/fitness/components/BikeThresholdDecisionCard";
 import FitnessCoachBriefing from "../features/fitness/components/FitnessCoachBriefing";
 import DailyTSSChart from "../features/fitness/components/DailyTSSChart";
@@ -56,7 +60,7 @@ import type { TodayTrainingDecisionState } from "../hooks/useTodayTrainingDecisi
 import { useFitnessModel, type FitnessModel } from "../hooks/useFitnessModel";
 import CanonicalFitnessNotice from "../features/fitness/components/CanonicalFitnessNotice";
 import FitnessActivityWindowNotice from "../features/fitness/components/FitnessActivityWindowNotice";
-import { Card, Chip, Text, buttonClass } from "../theme/components";
+import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import { getDisciplineColor } from "../utils/disciplineFilter";
 import { toLocalDate, toUtcDate } from "../utils/dateUtils";
 import TriFitnessView from "./fitness/TriFitnessView";
@@ -66,6 +70,7 @@ export interface FitnessViewProps {
   embedded?: boolean;
   part?: "all" | "condition" | "analysis";
   model: FitnessModel;
+  thresholdsSlot?: ReactNode;
 }
 
 export function fitnessGoalDisplayName(goal: { title?: string | null; courseName?: string | null } | null): string | null {
@@ -76,7 +81,14 @@ export function fitnessGoalDisplayName(goal: { title?: string | null; courseName
   return raw ? formatPlanGoalTitle(raw).name : null;
 }
 
-export function FitnessView({ embedded = false, part = "all", model }: FitnessViewProps) {
+export function FitnessView({ thresholdsSlot, ...props }: FitnessViewProps) {
+  return <>
+    <FitnessViewContent {...props} thresholdsSlot={thresholdsSlot} />
+    {!props.embedded && thresholdsSlot && props.model.activities.length === 0 && props.model.fitnessData.length === 0 && !props.model.currentPoint && props.model.pmcHistoryPoints.length === 0 && <div className="site-shell" style={{ padding: "var(--space-4) var(--space-6)" }}>{thresholdsSlot}</div>}
+  </>;
+}
+
+function FitnessViewContent({ embedded = false, part = "all", model, thresholdsSlot }: FitnessViewProps) {
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   // Form 구간 정본(#886). 전환이 꺼져 있으면 envelope 은 null 이고 카드는 기존 로컬 표시로 남는다.
   const trainingDecision = useTrainingDecision(
@@ -141,6 +153,12 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
     setHistoryRangeOverride(null);
     setRange(nextRange);
   };
+  const weekChangeSlot = part === "condition" && currentPoint ? <FitnessWeeklyInsight loadSummaryOnly ctlDelta={0}
+    ctl={currentPoint.ctl} atl={currentPoint.atl} tsb={currentPoint.tsb} dailyData={dailyData}
+    asOf={weeklyStats.asOf} dateBasis={weeklyStats.dateBasis} ready={weeklyStats.insightReady} t={t} /> : null;
+  const periodControls = !embedded && part !== "all" ? <div data-testid={part === "analysis" ? "K5-0-3" : "K1-0-3"} role="group" aria-label={t("history.range")} className="flex flex-wrap gap-2">
+    {([30, 90, 180, 365] as const).map(days => <Button key={days} size="sm" variant={range === days ? "outline" : "ghost"} aria-pressed={range === days} onClick={() => changePageRange(days)}>{t(`range.${days}`)}</Button>)}
+  </div> : null;
   const changeHistoryRange = (nextRange: PmcRange) => {
     if (typeof nextRange === "number") {
       setHistoryRangeOverride(null);
@@ -176,6 +194,24 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
     : pendingImpactActivity?.id ?? activityImpacts[0]?.activity.id ?? null;
   const recoveryForecast = currentPoint ? forecastFitness48Hours(currentPoint, 35) : null;
   const goalDisplayName = fitnessGoalDisplayName(activeGoal);
+
+  const vo2maxTrend = discipline === "bike"
+    ? deriveMonthlyCyclingVo2maxTrend(pdc?.history, profile?.weightKg ?? pdc?.weightKgSnapshot)
+    : [];
+
+  // 강점/약점 — mmpAll(duration 별 best)과 CP 모델 기대파워 갭 분류.
+  const powerGaps: GapEntry[] =
+    discipline === "bike" && pdc?.cp != null && pdc.mmpAll
+      ? classifyGaps(
+          Object.fromEntries(
+            (Object.entries(pdc.mmpAll) as [PowerDurationKey, { value: number } | undefined][])
+              .filter(([k, v]) => v != null && k in POWER_DURATION_KEY_SEC)
+              .map(([k, v]) => [POWER_DURATION_KEY_SEC[k], v!.value]),
+          ),
+          pdc.cp.value,
+          pdc.cp.wPrime,
+        )
+      : [];
 
   if (!user) {
     return <GuestValuePreview kind="fitness" lang={i18n.language} />;
@@ -225,6 +261,7 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
           title={t("empty.noActivities")}
           description={t("empty.hint")}
           actions={[
+            ...(part === "condition" ? [{ label: "Google Play", variant: "primary" as const, href: ORIDER_PLAY_STORE_URL }, { label: "App Store", variant: "secondary" as const, href: ORIDER_APP_STORE_URL }, { label: t("empty.importHistory"), variant: "secondary" as const, href: "/athlete/me/activities?import=1" }] : []),
             { label: t("empty.connectStrava"), variant: "primary", href: "/settings/connections" },
           ]}
         />
@@ -259,6 +296,7 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
     const renderMobileContent = (decisionState?: TodayTrainingDecisionState) => {
       const mobileCoachBriefing = discipline !== "tri" && currentPoint ? (
         <FitnessCoachBriefing
+          weekChangeSlot={weekChangeSlot}
           part={part === "condition" ? "condition" : "all"}
           key={`${discipline}-${currentPoint.date}`}
           impacts={activityImpacts}
@@ -283,6 +321,9 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
           <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
           <MobileFitnessPage
             {...model.mobilePageProps}
+            periodSlot={periodControls}
+            thresholdsSlot={thresholdsSlot}
+            data={{ ...model.mobilePageProps.data, monthlyVo2maxTrend: vo2maxTrend, powerGaps }}
             runningRaceEstimatesOwnerUid={user.isAnonymous || (part !== "all" && getRuntimeConfig().appEnvironment !== "stage") ? undefined : user.uid}
             part={part}
             powerCurvePeriodsOwnerUid={user.uid}
@@ -360,24 +401,8 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
       ? computeOutdoorPacingGuide(pdc.cp.value, profile?.weightKg)
       : null;
 
-  const vo2maxTrend = discipline === "bike"
-    ? deriveMonthlyCyclingVo2maxTrend(pdc?.history, profile?.weightKg ?? pdc?.weightKgSnapshot)
-    : [];
-
   const ftpProgression = deriveEstimatedFtpProgression(pdc?.history);
-  // 강점/약점 — mmpAll(duration 별 best)과 CP 모델 기대파워 갭 분류.
-  const powerGaps: GapEntry[] =
-    discipline === "bike" && pdc?.cp != null && pdc.mmpAll
-      ? classifyGaps(
-          Object.fromEntries(
-            (Object.entries(pdc.mmpAll) as [PowerDurationKey, { value: number } | undefined][])
-              .filter(([k, v]) => v != null && k in POWER_DURATION_KEY_SEC)
-              .map(([k, v]) => [POWER_DURATION_KEY_SEC[k], v!.value]),
-          ),
-          pdc.cp.value,
-          pdc.cp.wPrime,
-        )
-      : [];
+
   const strengths = powerGaps.filter((g) => g.label === "strength");
   const weaknesses = powerGaps.filter((g) => g.label === "weakness");
 
@@ -385,26 +410,27 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
   // 동일 헤더를 공유한다. 콜드 진입 시 차트 데이터가 도착하기 전에도 헤더(h1)가 즉시
   // 페인트돼 LCP 요소가 늦게 뜨는 차트가 아닌 정적 헤더로 고정 → LCP 꼬리 제거.
   const pageHeader = (
-    <div className="site-shell" style={{ padding: "var(--space-4) var(--space-6) var(--space-3)", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
+    <div data-testid={part === "analysis" ? "K5-0" : "K1-0"} className="site-shell" style={{ padding: "var(--space-4) var(--space-6) var(--space-3)", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
       <div style={{ flex: 1 }}>
         <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)', display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
           <span>{t("header.eyebrow", { date: formatMonthDay(i18n.language) })}</span>
-          <RevalidatingIndicator
+          {(revalidating || justRecomputed) && <span data-testid="K1-0-4"><RevalidatingIndicator
             visible={revalidating || justRecomputed}
             mode={revalidating ? "updating" : "success"}
-          />
+          /></span>}
         </Text>
-        <Text as="h1" variant="pageTitle" style={{ marginBottom: "var(--space-1-5)" }}>
+        <Text data-testid={part === "analysis" ? "K5-0-1" : "K1-0-1"} as="h1" variant="pageTitle" style={{ marginBottom: "var(--space-1-5)" }}>
           {t(part === "analysis" ? "analysis.header.title" : "header.title")}
         </Text>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-1) var(--space-3)", color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
           <span>{subtitle}</span>
-          {goalForecast && <Link to="/coach/plan" title={t("header.subtitle.goal", goalForecast)} aria-label={t("header.subtitle.goal", goalForecast)} style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}>
+          {goalForecast && <Link to={`/coach/plan?sport=${discipline}`} title={t("header.subtitle.goal", goalForecast)} aria-label={t("header.subtitle.goal", goalForecast)} style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}>
             {t("header.subtitle.goalShort", goalForecast)} →
           </Link>}
         </div>
       </div>
-      <DisciplineTabs includeTri />
+      <div data-testid={part === "analysis" ? "K5-0-2" : "K1-0-2"}><DisciplineTabs includeTri /></div>
+      {periodControls}
     </div>
   );
 
@@ -449,7 +475,8 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
             title={t("empty.noActivities")}
             description={t("empty.hint")}
             actions={[
-              { label: t("empty.connectStrava"), variant: "primary", href: "/settings/connections" },
+              ...(part === "condition" ? [{ label: "Google Play", variant: "primary" as const, href: ORIDER_PLAY_STORE_URL }, { label: "App Store", variant: "secondary" as const, href: ORIDER_APP_STORE_URL }, { label: t("empty.importHistory"), variant: "secondary" as const, href: "/athlete/me/activities?import=1" }] : []),
+            { label: t("empty.connectStrava"), variant: "primary", href: "/settings/connections" },
             ]}
           />
         </div>
@@ -466,6 +493,7 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
         <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
         {part !== "analysis" && discipline !== "tri" && currentPoint && (
           <FitnessCoachBriefing
+            weekChangeSlot={weekChangeSlot}
           part={part === "condition" ? "condition" : "all"}
             key={`${discipline}-${currentPoint.date}`}
             impacts={activityImpacts}
@@ -506,10 +534,11 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
           />
         )}
         {part !== "analysis" && (activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
-          <DetailsSection title={t("conclusion.evidenceToggle")}>
+          <div data-testid="K1-4"><DetailsSection title={t("conclusion.evidenceToggle")}>
             {/* Plan 적응 한 줄 요약 — warn/critical 일 때만 노출. 클릭 시 /coach/plan 으로 이동. */}
             {activeGoal?.adaptationFlag && (
               <AdaptationSummary
+                href={`/coach/plan?sport=${discipline}`}
                 flag={activeGoal.adaptationFlag}
                 style={{ marginBottom: 'var(--space-4)' }}
               />
@@ -523,6 +552,7 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
 
             {currentPoint && (
               <FitnessWeeklyInsight
+                includeLoadSummary={part !== "condition"}
                 ctlDelta={ctlDelta}
                 ctl={ctl}
                 atl={atl}
@@ -548,18 +578,20 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
                 decisionPaused={trainingDecision.paused}
               />
             )}
-          </DetailsSection>
+          </DetailsSection></div>
         )}
 
         {/* 거리별 기록 보드 — 러닝 탭 (§3.4a). 임계 페이스 곡선은 페이지 하단에 이미 있어
             여기선 표만 둔다(중복 방지). */}
-        {part !== "condition" && discipline === "run" && <RunRecordsBoard run={runRecords} />}
+        {part === "all" && discipline === "run" && <RunRecordsBoard run={runRecords} />}
+
+        {part === "analysis" && discipline === "run" && <RunRecordsSummary evidence={model.runEvidence} />}
 
         {/* 마일스톤 그리드 — 러닝 탭 (§3.4b) */}
-        {part !== "condition" && discipline === "run" && <MilestonesGrid achieved={milestones} />}
+        {part === "all" && discipline === "run" && <MilestonesGrid achieved={milestones} />}
 
         {/* 신규 달성 축하 — celebrated:false 하나. 닫으면 서버에 celebrated:true 기록. */}
-        {pendingMilestone && (
+        {part === "all" && pendingMilestone && (
           <MilestoneCelebration
             milestoneId={pendingMilestone}
             onClose={() => {
@@ -569,7 +601,7 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
           />
         )}
 
-        {part !== "analysis" && <DetailsSection title={t("history.dailyDetails")}>
+        {part !== "analysis" && <div data-testid="K1-2-5"><DetailsSection title={t("history.dailyDetails")}>
         <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
           <div style={{ display: "flex", alignItems: "flex-end", marginBottom: "var(--space-3)" }}>
             <div>
@@ -715,19 +747,19 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
                     <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>—</span>
                   )}
                 </div>
-                <a href="/coach/plan" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`} style={{ whiteSpace: "nowrap", fontSize: "var(--fs-xs)" }}>
+                <Link data-testid="K1-2-6" to={`/coach/plan?sport=${discipline}`} className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`} style={{ whiteSpace: "nowrap", fontSize: "var(--fs-xs)" }}>
                   {t("goal.viewPlan")}
-                </a>
+                </Link>
               </div>
             );
           })()}
         </Card>
 
-        </DetailsSection>}
+        </DetailsSection></div>}
 
         {/* 상세 분석 — 바이크 개선 액션·VO2max·강점/약점·야외 페이싱·라이더 유형. */}
         {discipline === "bike" && (
-        <DetailsSection title={t("conclusion.detailToggle")}>
+        <div data-testid={part === "analysis" ? "K5-1" : undefined}><DetailsSection title={t("conclusion.detailToggle")}>
         {/* PDC 기반 VO2max 근거와 월별 추이. 현재 적용 FTP 공식값과 구분한다. */}
         {part !== "condition" && pdc?.vo2maxEst != null && (
           <Card padding="none" style={{ marginTop: "var(--space-4)", padding: "16px 24px" }}>
@@ -800,7 +832,7 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
 
         {/* 야외 페이싱 가이드 — 장거리/그란폰도 지속 목표. CP(임계파워)의 −10~−5%. bike + pdc.cp 있을 때만 */}
         {part !== "analysis" && pacingGuide && pdc?.cp != null && (
-          <Card padding="none" style={{ marginTop: 'var(--space-4)', padding: "16px 24px" }}>
+          <Card data-testid="K1-6-6" padding="none" style={{ marginTop: 'var(--space-4)', padding: "16px 24px" }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("pacing.title")}</Text>
             <Text as="div" variant="num" style={{ fontSize: "var(--fs-xl)", color: "var(--ink-0)", lineHeight: 1.1 }}>
               {pacingGuide.lowerW}–{pacingGuide.upperW}
@@ -821,11 +853,12 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
         {part !== "condition" && discipline === "bike" && cyclingAbility && (
           <CyclingAbilityCard cycling={cyclingAbility} variant="desktop" />
         )}
-        </DetailsSection>
+        </DetailsSection></div>
         )}
 
+        {!embedded && part === "condition" && thresholdsSlot}
         {part !== "analysis" && discipline === "bike" && (
-          <DetailsSection title={t("conclusion.performanceDetailToggle")}>
+          <FtpDecisionSection title={t("conclusion.performanceDetailToggle")} anchorEnabled={!embedded && part === "condition"}>
             <BikeThresholdDecisionCard
               decision={thresholdDecision}
               hasZoneData={!!zoneDistribution}
@@ -838,14 +871,14 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
               ftpHistory={ftpHistory}
               t={t}
             />
-          </DetailsSection>
+          </FtpDecisionSection>
         )}
 
         {/* 종목별 CTL 요약 dead block (2026-05-28 제거) — tri 뷰에서만 표시하던
             컴포넌트. 시안 검토 결과 단일 뷰 (bike/run/swim) 에선 불필요로 결정.
             복구 필요 시 git history 참조: commit 5d00cf2 이전. */}
 
-        <DetailsSection title={t("conclusion.trainingDetailToggle")}>
+        <div data-testid={part === "condition" ? "K1-7" : "K5-2"}><DetailsSection title={t("conclusion.trainingDetailToggle")}>
         {/* 2열 하단: 일별 운동 부하 + 파워 커브 */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 'var(--space-5)', marginTop: 'var(--space-5)' }}>
           {part !== "analysis" && <>
@@ -859,7 +892,7 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
             </div>
             {rangeData.daily.length > 0 ? (
               <>
-                <DailyTSSChart data={rangeData.daily} />
+                <div data-testid="K1-7-1"><DailyTSSChart data={rangeData.daily} /></div>
                 {rangeData.daily.some(day => day.unknownCount) && <Text variant="caption">{trainingT("log.loadPartial", { count: rangeData.daily.reduce((sum, day) => sum + (day.unknownCount ?? 0), 0) })}</Text>}
               </>
             ) : (
@@ -880,7 +913,7 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
                 </span>
               ))}
             </div>
-            <div style={{ marginTop: 'var(--space-4)', paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)" }}>
+            <div data-testid="K1-7-2" style={{ marginTop: 'var(--space-4)', paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)" }}>
               <div>
                 <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t(weeklyStats.storedSummary ? "weekly.storedSummaryTitle" : "daily.weekTSS")}</Text>
                 <div><Text variant="dataMedium">{weeklyStats.thisWeekUnknownCount && !weeklyStats.hasKnownThisWeekLoad ? "–" : weeklyStats.thisWeekTSS ?? "–"}</Text></div>
@@ -920,7 +953,7 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
                     <span style={{ width: 10, height: 2, borderTop: "1px dashed var(--ink-3)", display: "inline-block" }} /> {t("powerCurve.prevSeason")}
                   </span>
                 </div>
-                <CriticalPaceCurve recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} />
+                <div data-testid="K5-2-3"><CriticalPaceCurve recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></div>
               </>
             ) : discipline === "swim" ? (
               <>
@@ -934,7 +967,7 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
                     <span style={{ width: 10, height: 2, borderTop: "1px dashed var(--ink-3)", display: "inline-block" }} /> {t("powerCurve.prevSeason")}
                   </span>
                 </div>
-                <CSSCurve css={profile?.css} recentPoints={swimCssCurve.recent28} prevPoints={swimCssCurve.prev28} />
+                <div data-testid="K5-2-4"><CSSCurve css={profile?.css} recentPoints={swimCssCurve.recent28} prevPoints={swimCssCurve.prev28} /></div>
               </>
             ) : (
               <>
@@ -961,17 +994,17 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
                   </div>
                 </div>
                 {currentPowerCurve && currentPowerCurve.points.length > 0 ? (
-                  <PowerCurveChart
+                  <div data-testid="K5-2-1"><PowerCurveChart
                     current={currentPowerCurve.points}
                     previous={prevPowerCurve?.points ?? []}
                     expected={expectedCurvePoints}
-                  />
+                  /></div>
                 ) : (
                   <div style={{ height: 240, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
                     {t("powerCurve.empty")}
                   </div>
                 )}
-                <div style={{ marginTop: "var(--space-3)", paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))", gap: "var(--space-2)" }}>
+                <div data-testid="K5-2-2" style={{ marginTop: "var(--space-3)", paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))", gap: "var(--space-2)" }}>
                   {pcKeyDurations.map((_, i) => (
                     <div key={i}>
                       <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{pcKeyNames[i]} · {pcKeyLabels[i]}</Text>
@@ -988,8 +1021,10 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
           </>}
         </div>
 
+        {!embedded && part === "analysis" && discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} />}
+
         {/* 존 분포 — 단독 풀폭 (오늘의 권장은 상단 hero 로 이동) */}
-        {part !== "condition" && <div style={{ marginTop: 'var(--space-5)' }}>
+        {part !== "condition" && <div data-testid="K5-3" style={{ marginTop: 'var(--space-5)' }}>
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
             {(() => {
               const threshPace = profile?.thresholdPace ?? null;
@@ -1050,7 +1085,7 @@ export function FitnessView({ embedded = false, part = "all", model }: FitnessVi
           </Card>
 
         </div>}
-        </DetailsSection>
+        </DetailsSection></div>
       </div>
     </div>
   );

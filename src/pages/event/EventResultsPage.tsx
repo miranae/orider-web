@@ -1,3 +1,4 @@
+import EventDetailNavigation from "../../features/event/EventDetailNavigation";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -368,23 +369,24 @@ export default function EventResultsPage() {
     return Math.max(0, Math.min(finishHistogram.counts.length - 1, i));
   }, [finishHistogram, myResult]);
 
+  const navigation = eventId ? <div className="site-shell"><EventDetailNavigation eventId={eventId} live={eventHead?.status === "LIVE"} results={eventHead?.status === "LIVE" || eventHead?.status === "FINISHED"} /></div> : null;
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto py-8">
+      <>{navigation}<div className="max-w-3xl mx-auto py-8">
         <LoadingSkeleton kind="chart" />
-      </div>
+      </div></>
     );
   }
 
   if (privateResultsUnavailable) {
-    return <div className="max-w-xl mx-auto py-16"><EmptyState icon="🔒" title={t("resultsView.privateResultsUnavailable")} /></div>;
+    return <>{navigation}<div className="max-w-xl mx-auto py-16"><EmptyState icon="🔒" title={t("resultsView.privateResultsUnavailable")} /></div></>;
   }
 
   if (loadError) {
     return (
-      <div className="max-w-xl mx-auto py-16">
+      <>{navigation}<div className="max-w-xl mx-auto py-16">
         <ErrorState title={t("resultsView.loadError")} description={loadError} onRetry={() => window.location.reload()} />
-      </div>
+      </div></>
     );
   }
 
@@ -406,7 +408,8 @@ export default function EventResultsPage() {
   const activeGroupId = shouldShowResultsGroupCta(groupId, group?.id, groupLoading, groupInactive, !!groupError) ? groupId : undefined;
 
   return (
-    <div>
+    <div data-testid="D4-3">
+      {navigation}
       {/* 헤더 — aqua gradient */}
       <div
         style={{

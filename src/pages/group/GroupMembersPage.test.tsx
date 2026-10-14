@@ -56,7 +56,7 @@ describe("GroupMembersPage", () => {
   it("loads the pending badge before its tab is selected and shows requester profile details", async () => {
     renderWithProviders(
       <Routes>
-        <Route path="/ko/group/:groupId/members" element={<GroupMembersPage />} />
+        <Route path="/ko/group/:groupId/members" element={<GroupMembersPage management />} />
       </Routes>,
       { route: "/ko/group/group-1/members", authenticated: true },
     );
@@ -213,7 +213,7 @@ describe("GroupMembersPage", () => {
 function renderMembersPage() {
   return renderWithProviders(
     <Routes>
-      <Route path="/ko/group/:groupId/members" element={<GroupMembersPage />} />
+      <Route path="/ko/group/:groupId/members" element={<GroupMembersPage management />} />
     </Routes>,
     { route: "/ko/group/group-1/members", authenticated: true },
   );

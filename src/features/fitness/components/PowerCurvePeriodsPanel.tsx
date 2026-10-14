@@ -109,5 +109,5 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
 export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false, embedded = false, nativeActivities = [] }: { nativeActivities?: readonly NativePowerLoadedActivity[]; ownerUid: string | null | undefined; callableEnabled?: boolean; embedded?: boolean }) {
   const { user } = useAuth();
   if (!ownerUid || !user || user.isAnonymous || user.uid !== ownerUid) return null;
-  return <><PeriodsForm key={ownerUid} ownerUid={ownerUid} callableEnabled={callableEnabled} embedded={embedded} />{stageActivityPowerAvailable() && <NativePowerTwelvePersonalPanel key={`native-${ownerUid}`} ownerUid={ownerUid} activities={nativeActivities} enabled={callableEnabled} />}</>;
+  return <div data-testid="K5-5"><PeriodsForm key={ownerUid} ownerUid={ownerUid} callableEnabled={callableEnabled} embedded={embedded} />{stageActivityPowerAvailable() && <NativePowerTwelvePersonalPanel key={`native-${ownerUid}`} ownerUid={ownerUid} activities={nativeActivities} enabled={callableEnabled} />}</div>;
 }

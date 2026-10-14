@@ -43,10 +43,10 @@ export function CoachRiderInsightCard({ user, discipline, onQuestionSelect }: Pr
   const enabled = isCoachRiderInsightFeatureEnabled() && discipline === "bike";
   const { insight, loading, unavailable } = useCoachRiderInsight(user.uid, enabled);
   if (!enabled) return null;
-  if (loading) return <Card className="coach-rider-card" role="status" aria-live="polite">
+  if (loading) return <Card data-testid="K6-S-9" className="coach-rider-card" role="status" aria-live="polite">
     <div className="coach-rider-card__loading"><span className="ds-btn__spinner" aria-hidden /><Text>{t("coach:rider.loading")}</Text></div>
   </Card>;
-  if (!insight) return unavailable ? <Card className="coach-rider-card" role="status" aria-live="polite">
+  if (!insight) return unavailable ? <Card data-testid="K6-S-9" className="coach-rider-card" role="status" aria-live="polite">
     <Text as="h2" variant="subtitle">{t("coach:rider.title")}</Text>
     <Text as="p" variant="bodySmall" tone="secondary">{t("coach:rider.unavailable")}</Text>
   </Card> : null;
@@ -54,7 +54,7 @@ export function CoachRiderInsightCard({ user, discipline, onQuestionSelect }: Pr
   const trusted = insight.status === "ok" && insight.profile !== null;
   const statusLabel = t(`coach:rider.status.${insight.status}`);
   const rows = insight.ability?.byDuration ?? [];
-  return <Card className="coach-rider-card" role="region" aria-labelledby={titleId}>
+  return <Card data-testid="K6-S-9" className="coach-rider-card" role="region" aria-labelledby={titleId}>
     <header className="coach-rider-card__header">
       <div className="coach-rider-card__heading"><Gauge aria-hidden /><div>
         <Text id={titleId} as="h2" variant="subtitle">{t("coach:rider.title")}</Text>
