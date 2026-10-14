@@ -82,7 +82,7 @@ export default function FriendInvitePage() {
           );
         }
         setProcessed(true);
-        navigate("/friends", { replace: true });
+        navigate("/athlete/me/friends", { replace: true });
       })
       .catch((err: any) => {
         const code = typeof err?.code === "string" ? err.code : "";
@@ -199,7 +199,7 @@ export default function FriendInvitePage() {
             </Button>
             <button
               type="button"
-              onClick={() => navigate("/friends", { replace: true })}
+              onClick={() => navigate("/athlete/me/friends", { replace: true })}
               className="px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] text-[var(--ink-1)]"
               style={{ background: "var(--bg-2)", border: "1px solid var(--line-soft)" }}
             >

@@ -43,7 +43,7 @@ export default function MyPage() {
           )}
         </div>
         <Link
-          to={`/athlete/${user.uid}`}
+          to="/athlete/me"
           style={{
             padding: "6px 14px", background: "transparent", border: "1px solid var(--line)",
             borderRadius: "var(--r-md)", fontSize: "var(--fs-xs)", color: "var(--ink-2)", textDecoration: "none",
@@ -82,9 +82,9 @@ export default function MyPage() {
         <Text variant="eyebrow">{t("section.account")}</Text>
       </div>
       {[
-        { label: t("menu.yearRecap"), icon: "🗓️", to: "/year-recap" },
-        { label: t("menu.settings"), icon: "⚙️", to: "/settings" },
-        { label: t("menu.strava"), icon: "🔗", to: "/settings" },
+        { label: t("menu.yearRecap"), icon: "🗓️", to: "/athlete/me/records" },
+        { label: t("menu.settings"), icon: "⚙️", to: "/settings/account" },
+        { label: t("menu.strava"), icon: "🔗", to: "/settings/connections" },
         { label: t("menu.manual"), icon: "📖", to: "/terms" },
       ].map((item) => (
         <Link

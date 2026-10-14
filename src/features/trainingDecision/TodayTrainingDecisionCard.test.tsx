@@ -61,7 +61,7 @@ describe("TodayTrainingDecisionCard", () => {
       : { receipt: appliedReceipt }) };
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, refresh: vi.fn() });
     mocks.proposal = { ...mocks.proposal, state: kind === "proposal" ? "pending" : "applied" };
-    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="today" /></MemoryRouter>);
     expect(screen.getByText("계획 변경 검토")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(kind === "proposal" ? "승인 대기" : "적용됨");
   });
@@ -105,7 +105,7 @@ describe("TodayTrainingDecisionCard", () => {
     mocks.hook.mockReturnValue({ decision: { ...decision, proposal: { proposalId: `proposal_${"d".repeat(24)}`,
       status: "pending" as const, expiresAt: "2026-08-15T01:00:00.000Z", confirmNonce: null } },
     loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
-    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="today" /></MemoryRouter>);
 
     expect(screen.queryByText("기존 오늘 운동")).not.toBeInTheDocument();
   });
@@ -326,7 +326,7 @@ describe("TodayTrainingDecisionCard", () => {
       }) }),
     }));
     fitness.unmount();
-    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="today" /></MemoryRouter>);
     expect(screen.getByRole("button", { name: "원래 계획으로 되돌리기" })).toBeInTheDocument();
   });
 
@@ -439,7 +439,7 @@ describe("TodayTrainingDecisionCard", () => {
         reasonCodes: [], recommendations: [] },
     }));
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
-    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="today" /></MemoryRouter>);
     expect(screen.queryByRole("button", { name: "변경안 만들기" })).not.toBeInTheDocument();
   });
 
@@ -447,7 +447,7 @@ describe("TodayTrainingDecisionCard", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
     mocks.proposal = { ...mocks.proposal, state: "pending" };
-    const { container } = render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    const { container } = render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="today" /></MemoryRouter>);
     const actions = container.querySelector(".training-decision-proposal__actions")!;
     const buttons = within(actions).getAllByRole("button");
     expect(buttons.map((button) => button.textContent)).toEqual(["이 변경 적용", "원래 계획 유지"]);
@@ -472,7 +472,7 @@ describe("TodayTrainingDecisionCard", () => {
     mocks.proposal = { ...mocks.proposal, state: "pending", proposal: { changes: [{ weekId: "week_01", dayIndex: 2,
       localDate: "2026-08-15", before: { workout: { kind: "tempo", durationMin: 60 } },
       workout: { kind: "recovery", durationMin: 40 } }] } } as never;
-    const { container } = render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    const { container } = render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="today" /></MemoryRouter>);
     expect(container.querySelector(".training-decision-proposal__change")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "이 변경 적용" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "원래 계획 유지" })).toBeInTheDocument();
@@ -489,9 +489,9 @@ describe("TodayTrainingDecisionCard", () => {
     }));
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
     mocks.proposal = { ...mocks.proposal, state: "pending" };
-    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="today" /></MemoryRouter>);
     expect(screen.getByText("계획 변경 검토")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "오늘 예정된 계획" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "오늘 예정된 계획" })).toBeInTheDocument();
     expect(screen.queryByText("조정 권고")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "이 변경 적용" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "원래 계획 유지" })).toBeInTheDocument();
@@ -507,7 +507,7 @@ describe("TodayTrainingDecisionCard", () => {
     } }));
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
     mocks.proposal = { ...mocks.proposal, state };
-    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="today" /></MemoryRouter>);
     expect(screen.getByRole("status")).toHaveTextContent(announcement);
     expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
     expect(screen.getByRole("status").querySelector("button, a, input, select")).toBeNull();

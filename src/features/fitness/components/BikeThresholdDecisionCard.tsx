@@ -115,9 +115,9 @@ export default function BikeThresholdDecisionCard({
       {(decision.activeFtpW == null || missingPdc || !hasZoneData) && (
         <div style={{ marginTop: "var(--space-4)", display: "grid", gap: "var(--space-2)" }}>
           <Text as="div" variant="eyebrow">{t("thresholdDecision.actionsTitle")}</Text>
-          {decision.activeFtpW == null && <ActionLink to="/settings?section=training" label={t("thresholdDecision.action.setFtp")} />}
-          {missingPdc && <ActionLink to="/log" label={t("thresholdDecision.action.addPowerRide")} />}
-          {!hasZoneData && <ActionLink to="/log" label={t("thresholdDecision.action.addZoneData")} />}
+          {decision.activeFtpW == null && <ActionLink to="/settings/training" label={t("thresholdDecision.action.setFtp")} />}
+          {missingPdc && <ActionLink to="/athlete/me/activities" label={t("thresholdDecision.action.addPowerRide")} />}
+          {!hasZoneData && <ActionLink to="/athlete/me/activities" label={t("thresholdDecision.action.addZoneData")} />}
         </div>
       )}
     </Card>

@@ -14,7 +14,7 @@ import { buildOriderSharePayload, shareOrCopy } from "../features/share/oriderSh
 type Step = "verifying" | "exchanging" | "done" | "error";
 
 const AUTH_RESTORE_TIMEOUT_MS = 5000;
-const SETTINGS_CONNECTIONS_PATH = "/settings?section=connections";
+const SETTINGS_CONNECTIONS_PATH = "/settings/connections";
 const SUMMARY_POLL_ATTEMPTS = 4;
 const SUMMARY_POLL_DELAY_MS = 1200;
 

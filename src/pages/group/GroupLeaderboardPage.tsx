@@ -118,7 +118,7 @@ export default function GroupLeaderboardPage() {
         <EmptyState
           icon="👥"
           title={t("empty.groupNotFound")}
-          actions={[{ label: t("empty.goToList"), variant: "primary", href: "/groups" }]}
+          actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}
         />
       </div>
     );

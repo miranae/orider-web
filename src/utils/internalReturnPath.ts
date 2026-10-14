@@ -13,7 +13,7 @@ export function sanitizeInternalReturnPath(value: string | null | undefined, fal
   if (parsed.origin !== "https://orider.invalid") return fallback;
   const appPath = parsed.pathname.replace(LOCALIZED_PREFIX, "") || "/";
   if (appPath === "/onboarding" || appPath.startsWith("/onboarding/")) return fallback;
-  if (appPath === "/friends" && parsed.searchParams.get("source") === "onboarding") return fallback;
-  if (appPath === "/goal-setup" && parsed.searchParams.has("returnTo")) return fallback;
+  if ((appPath === "/friends" || appPath === "/athlete/me/friends") && parsed.searchParams.get("source") === "onboarding") return fallback;
+  if ((appPath === "/goal-setup" || appPath === "/coach/goals") && parsed.searchParams.has("returnTo")) return fallback;
   return `${parsed.pathname}${parsed.search}${parsed.hash}`;
 }

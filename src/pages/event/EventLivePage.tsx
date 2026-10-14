@@ -760,7 +760,7 @@ export default function EventLivePage() {
           </Button>
           <Button
             type="button"
-            onClick={() => navigate(`/event/${eventId}/dashboard`)} variant="secondary" size="sm"
+            onClick={() => navigate(`/event/${eventId}/host`)} variant="secondary" size="sm"
             style={{ color: "var(--ink-2)" }}
           >
             {t("label.hostView")}

@@ -11,7 +11,7 @@ describe("FitnessPage desktop hierarchy", () => {
     expect(source).toContain("<FitnessCoachBriefing");
     expect(source).toContain("trendSlot={<PmcHistoryPanel");
     expect(source.indexOf("trendSlot={<PmcHistoryPanel")).toBeLessThan(source.indexOf("{/* 상세 분석 —"));
-    expect(source).toContain("decisionSlot={<TodayTrainingDecisionCard");
+    expect(source).toContain('decisionSlot={part === "all" ? <TodayTrainingDecisionCard');
     expect(source).toContain("mobilePriority");
     expect(source).toContain("activityMarkers={activityImpacts.map");
     expect(source).toContain('discipline === "tri" || !hasCanonicalTimeseries');

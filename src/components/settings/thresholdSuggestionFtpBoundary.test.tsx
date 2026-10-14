@@ -69,7 +69,7 @@ describe("Settings FTP suggestion producer compatibility", () => {
     mocks.decision = { evidence: { activityId: "activity-1" } };
     renderWithProviders(<ThresholdSuggestionBanner />);
     expect(screen.getByRole("link", { name: "FTP는 Fitness에서 검토" }))
-      .toHaveAttribute("href", "/ko/fitness?sport=bike");
+      .toHaveAttribute("href", "/ko/coach/condition?sport=bike");
     expect(screen.queryByRole("button", { name: "전부 적용" })).not.toBeInTheDocument();
   });
 });

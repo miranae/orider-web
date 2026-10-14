@@ -1,44 +1,7 @@
-import { Home, Activity, Bot, Map, Users, Settings, type LucideIcon } from "lucide-react";
+import { Home, Bot, Map, Users, MessageSquare, Settings, type LucideIcon } from "lucide-react";
 
-/**
- * 웹 IA 단일 진실원 — 5개 기본 허브와 설정 유틸리티 허브.
- *
- * 위계 없이 평면 나열되던 9개 기능을 5개 허브로 묶고, 각 허브 내부를 서브탭으로 깊이를 준다.
- * 데스크톱 TopNav · 모바일 MobileTabBar · Layout active 판정 · 허브 서브탭바(HubSubNav)가
- * 모두 이 설정 하나를 소비해 cross-device 일관성을 보장한다.
- *
- * 허브 구성:
- *  - 홈        : 대시보드(/)                                  — 단일, 서브탭 없음
- *  - 내 운동   : 피트니스(/fitness) · 계획(/plan) · 기록(/log)  — "내 데이터" 성격
- *  - AI 코치   : 새 질문·대화 내역(/coach)
- *  - 탐색      : 도전(/discover) · 세그먼트(/explore) · 리더보드(/leaderboard) · 코스(/courses)
- *               — '발견→처방→도전' 동선(#486). 데이터 출처가 아니라 사용자 의도로 서열화.
-  *  - 커뮤니티  : 게시판(/board) · 그룹(/groups) · 이벤트(/events) · 친구(/friends) — "사람·소통"
- *  - 설정      : 프로필(/my) · 계정(/settings) — 기본 탭이 아닌 유틸리티 허브
- *
- * 친구(/friends)는 시안 미명시였으나 "사람·소통" 동질성으로 커뮤니티 허브에 편입(이슈 #385 결정).
- * 기존 고아 경로였던 /friends·/social 진입점을 동시에 복구한다.
- */
-
-export type HubKey = "home" | "train" | "coach" | "explore" | "community" | "settings";
-
-export interface ActiveHubContext {
-  /** 현재 로그인 사용자. 비로그인 상태는 null. */
-  viewerUid?: string | null;
-  /** 활동 상세가 로드한 실제 소유자. 아직 로드되지 않았으면 null. */
-  activityOwnerId?: string | null;
-}
-
-/** `/activity/:activityId` 상세 경로의 활동 ID. 편집 등 하위 경로는 제외한다. */
-export function getActivityIdFromDetailPath(path: string): string | null {
-  const match = /^\/activity\/([^/]+)\/?$/.exec(path);
-  if (!match?.[1]) return null;
-  try {
-    return decodeURIComponent(match[1]);
-  } catch {
-    return match[1];
-  }
-}
+/** 메뉴 IA 단일 진실원: 데스크톱·모바일의 기본 허브와 설정 유틸리티. */
+export type HubKey = "home" | "coach" | "club" | "explore" | "community" | "settings";
 
 export interface HubSub {
   /** i18n 키 (common 네임스페이스) */
@@ -51,11 +14,11 @@ export interface Hub {
   key: HubKey;
   labelKey: string;
   icon: LucideIcon;
-  /** 허브 진입 경로 (탭/메뉴 클릭 시 = 첫 서브) */
+  /** 허브 진입 경로 */
   to: string;
   /** 허브 내 서브탭 (길이 ≤1 이면 서브탭바 미표시) */
   subs: HubSub[];
-  /** 이 경로가 이 허브에 속하는지 (active 판정 + 상세 경로 포함) */
+  /** 이 경로가 이 허브에 속하는지 (상세 경로 포함) */
   match: (path: string) => boolean;
 }
 
@@ -66,107 +29,77 @@ export const HUBS: Hub[] = [
     icon: Home,
     to: "/",
     subs: [],
-    match: (p) => p === "/",
-  },
-  {
-    key: "train",
-    labelKey: "nav.train",
-    icon: Activity,
-    to: "/fitness",
-    subs: [
-      { labelKey: "nav.fitness", to: "/fitness" },
-      { labelKey: "nav.plan", to: "/plan" },
-      { labelKey: "nav.log", to: "/log" },
-    ],
-    match: (p) =>
-      p === "/fitness" ||
-      p.startsWith("/activity/") ||
-      p === "/plan" ||
-      p === "/goal-setup" ||
-      p === "/log",
+    match: (p) => p === "/" || p.startsWith("/activity/"),
   },
   {
     key: "coach",
     labelKey: "nav.coach",
     icon: Bot,
-    to: "/coach",
+    to: "/coach/condition",
+    subs: [
+      { labelKey: "nav.fitness", to: "/coach/condition" },
+      { labelKey: "nav.todayTraining", to: "/coach/today" },
+      { labelKey: "nav.plan", to: "/coach/plan" },
+      { labelKey: "nav.goals", to: "/coach/goals" },
+      { labelKey: "nav.analysis", to: "/coach/analysis" },
+      { labelKey: "nav.chat", to: "/coach/chat" },
+    ],
+    match: (p) =>
+      p.startsWith("/coach/") || p === "/goal-setup" || p === "/goal/climb",
+  },
+  {
+    key: "club",
+    labelKey: "nav.clubs",
+    icon: Users,
+    to: "/clubs",
     subs: [],
-    match: (p) => p === "/coach" || p.startsWith("/coach/"),
+    match: (p) => p === "/clubs" || p.startsWith("/club/") || p.startsWith("/group/join/"),
   },
   {
     key: "explore",
     labelKey: "nav.explore",
     icon: Map,
-    to: "/discover",
+    to: "/explore/courses",
     subs: [
-      { labelKey: "nav.discover", to: "/discover" },
-      { labelKey: "nav.segments", to: "/explore" },
-      { labelKey: "nav.leaderboard", to: "/leaderboard" },
-      { labelKey: "nav.courses", to: "/courses" },
+      { labelKey: "nav.courses", to: "/explore/courses" },
+      { labelKey: "nav.segments", to: "/explore/segments" },
+      { labelKey: "nav.events", to: "/explore/events" },
+      { labelKey: "nav.discover", to: "/explore/challenges" },
+      { labelKey: "nav.creator", to: "/explore/recipes" },
     ],
     match: (p) =>
-      p === "/discover" ||
-      p === "/explore" ||
-      p === "/segment/create" ||
-      p.startsWith("/segment/") ||
-      p === "/leaderboard" ||
-      p === "/courses" ||
-      p.startsWith("/course/"),
+      p.startsWith("/explore/") || p.startsWith("/course/") ||
+      p.startsWith("/segment/") || p.startsWith("/event/") || p.startsWith("/live/") ||
+      p.startsWith("/explore/recipes"),
   },
   {
     key: "community",
     labelKey: "nav.community",
-    icon: Users,
-    to: "/board",
-    subs: [
-      { labelKey: "nav.board", to: "/board" },
-      { labelKey: "nav.creator", to: "/creator" },
-      { labelKey: "nav.groups", to: "/groups" },
-      { labelKey: "nav.events", to: "/events" },
-      { labelKey: "nav.friends", to: "/friends" },
-      { labelKey: "nav.aboutOrider", to: "/about" },
-    ],
-    match: (p) =>
-      p === "/board" ||
-      p.startsWith("/board/") ||
-      p === "/creator" ||
-      p.startsWith("/creator/") ||
-      p === "/groups" ||
-      p.startsWith("/group/") ||
-      p === "/events" ||
-      p.startsWith("/event/") ||
-      p === "/friends" ||
-      p.startsWith("/friend/") ||
-      p.startsWith("/athlete/") ||
-      p === "/community" ||
-      p === "/about" ||
-      p === "/social",
+    icon: MessageSquare,
+    to: "/community/board",
+    subs: [],
+    match: (p) => p.startsWith("/community/board"),
   },
   {
     key: "settings",
     labelKey: "nav.settings",
     icon: Settings,
-    to: "/my",
+    to: "/athlete/me",
     subs: [
-      { labelKey: "nav.profile", to: "/my" },
-      { labelKey: "nav.account", to: "/settings" },
+      { labelKey: "nav.profile", to: "/athlete/me" },
+      { labelKey: "nav.account", to: "/settings/account" },
     ],
-    match: (p) => p === "/my" || p === "/settings",
+    match: (p) =>
+      p === "/settings" || p.startsWith("/settings/") ||
+      p.startsWith("/athlete/") || p.startsWith("/friend/") || p === "/about",
   },
 ];
 
 /** 데스크톱·모바일 기본 내비게이션에 노출되는 정확히 5개 허브. */
 export const PRIMARY_HUBS: Hub[] = HUBS.filter((hub) => hub.key !== "settings");
 
-/** 경로와 상세 화면 문맥 → 활성 허브 key (매칭 없으면 home 폴백). */
-export function getActiveHub(path: string, context: ActiveHubContext = {}): HubKey {
-  // 활동 상세는 경로만으로 "내 운동"인지 판단할 수 없다. 소유자가 확인된 본인 활동만
-  // 내 운동으로 표시하고, 타인 활동과 로딩 중인 직접 진입은 홈 피드 문맥을 유지한다.
-  if (getActivityIdFromDetailPath(path) !== null) {
-    return context.viewerUid != null && context.viewerUid === context.activityOwnerId
-      ? "train"
-      : "home";
-  }
+/** 경로 → 활성 허브 key (매칭 없으면 home 폴백). */
+export function getActiveHub(path: string): HubKey {
   return HUBS.find((h) => h.match(path))?.key ?? "home";
 }
 
@@ -175,11 +108,7 @@ export function getHub(key: HubKey): Hub {
   return HUBS.find((h) => h.key === key) ?? HUBS[0]!;
 }
 
-/**
- * 현재 경로가 어느 허브의 **서브 목적지(목록/허브 루트)** 인지 — 서브탭바 노출 여부 판정용.
- * 상세 경로(`/board/:id`·`/group/:id`·`/segment/:id` 등)나 흐름 경로(`/goal-setup`)에선 false 라
- * 서브탭바를 띄우지 않는다(상세 화면에 형제 허브 탭이 얹히는 군더더기 chrome 방지, #385 후속).
- */
+/** 정확히 서브탭 목적지에서만 서브탭바를 노출한다. */
 export function isHubSubRoute(path: string): boolean {
   return HUBS.some((h) => h.subs.some((s) => s.to === path));
 }

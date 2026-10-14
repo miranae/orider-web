@@ -31,7 +31,7 @@ export default function CommunityGuidelinesPage() {
             <Link to="/" className={buttonClass({ variant: "primary", size: "sm", className: "justify-center" })}>
               {t("guidelines.actions.home")}
             </Link>
-            <Link to="/board" className={buttonClass({ variant: "secondary", size: "sm", className: "justify-center" })}>
+            <Link to="/community/board" className={buttonClass({ variant: "secondary", size: "sm", className: "justify-center" })}>
               {t("guidelines.actions.board")}
             </Link>
           </div>
@@ -67,10 +67,10 @@ export default function CommunityGuidelinesPage() {
           <Link to="/" className={buttonClass({ variant: "primary", size: "sm", className: "justify-center" })}>
             {t("guidelines.actions.home")}
           </Link>
-          <Link to="/board" className={buttonClass({ variant: "secondary", size: "sm", className: "justify-center" })}>
+          <Link to="/community/board" className={buttonClass({ variant: "secondary", size: "sm", className: "justify-center" })}>
             {t("guidelines.actions.board")}
           </Link>
-          <Link to="/board/write" className={buttonClass({ variant: "secondary", size: "sm", className: "justify-center" })}>
+          <Link to="/community/board/write" className={buttonClass({ variant: "secondary", size: "sm", className: "justify-center" })}>
             {t("guidelines.actions.write")}
           </Link>
           <Link to="/feedback" className={buttonClass({ variant: "ghost", size: "sm", className: "justify-center" })}>

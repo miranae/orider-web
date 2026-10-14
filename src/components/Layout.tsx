@@ -19,7 +19,7 @@ const CoursesPage = lazy(() => import("../pages/CoursesPage"));
 import { TopNav } from "./redesign";
 import MobileTabBar from "./mobile/MobileTabBar";
 import HubSubNav from "./HubSubNav";
-import { getActiveHub, getActivityIdFromDetailPath, isHubSubRoute } from "../config/navHubs";
+import { getActiveHub, isHubSubRoute } from "../config/navHubs";
 import { logClientError } from "../services/errorLogger";
 import { recordRouteRedirect } from "../services/routeLoopTelemetry";
 // 네비 IA는 5개 기본 허브와 설정 유틸리티 허브를 config/navHubs.ts 에서 공유한다.
@@ -29,11 +29,13 @@ export function shouldBypassOnboardingRedirect(path: string): boolean {
   return (
     path === "/onboarding" ||
     path === "/settings" ||
+    path.startsWith("/settings/") ||
     path === "/strava/callback" ||
     path === "/migrate" ||
     path === "/terms" ||
     path === "/privacy" ||
     path === "/community" ||
+    path.startsWith("/policies/") ||
     path === "/strava-terms"
   );
 }
@@ -43,10 +45,6 @@ export function buildOnboardingRedirectTarget(pathname: string, search = "", has
   if (path === "/") return "/onboarding";
   const returnTo = `${path}${search}${hash}`;
   return `/onboarding?returnTo=${encodeURIComponent(returnTo)}`;
-}
-
-export interface LayoutOutletContext {
-  setActivityOwner: (activityOwner: { activityId: string; ownerId: string } | null) => void;
 }
 
 function DashboardShell() {
@@ -80,10 +78,7 @@ export default function Layout() {
   const { t: tCommon } = useTranslation("common");
   const navigate = useNavigate();
   const path = stripLangPrefix(location.pathname);
-  const [activityOwner, setActivityOwner] = useState<{ activityId: string; ownerId: string } | null>(null);
-  const routeActivityId = getActivityIdFromDetailPath(path);
-  const activityOwnerId = routeActivityId === activityOwner?.activityId ? activityOwner.ownerId : null;
-  const activeNav = getActiveHub(path, { viewerUid: user?.uid, activityOwnerId });
+  const activeNav = getActiveHub(path);
   const mainRef = useRef<HTMLElement>(null);
   const [friendRequestCount, setFriendRequestCount] = useState(0);
 
@@ -234,7 +229,7 @@ export default function Layout() {
 
       {/* 대시보드: 데스크톱/모바일 모두 페이지 전체 스크롤 (워크아웃·KPI 포함) */}
       {path === "/" && (
-        <main ref={mainRef} tabIndex={-1} className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] md:pb-0">
+        <main ref={mainRef} tabIndex={-1} className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
           <div className="site-shell md:px-6 md:py-6" data-page-shell="home">
             <Suspense fallback={<DashboardShell />}>
               <DashboardPage />
@@ -245,14 +240,14 @@ export default function Layout() {
 
       {/* 다른 페이지: main 영역 내부 스크롤 */}
       {path !== "/" && (
-        <main ref={mainRef} tabIndex={-1} className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] md:pb-0">
+        <main ref={mainRef} tabIndex={-1} className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
           <div className="site-shell px-4 md:px-6 py-6 animate-page-in" data-page-shell="content">
-            {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} friendRequestCount={friendRequestCount} />}
+            {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} />}
             <Suspense fallback={<div style={{ height: 200 }} />}>
-              {path === "/explore" && <ExplorePage />}
-              {path === "/courses" && <CoursesPage />}
+              {path === "/explore/segments" && <ExplorePage />}
+              {path === "/explore/courses" && <CoursesPage />}
             </Suspense>
-            <Outlet context={{ setActivityOwner } satisfies LayoutOutletContext} />
+            <Outlet />
           </div>
         </main>
       )}
@@ -272,17 +267,18 @@ export default function Layout() {
         <div className="site-shell px-4 md:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
           <span className="flex items-center gap-2">&copy; 2026 Orider <span className="inline-block px-1.5 py-0.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-medium" style={{ background: 'var(--amber)', color: 'var(--bg-0)', opacity: 0.85 }}>Beta</span><span className="flex items-center gap-1" style={{ color: 'var(--ink-3)' }}><svg className="w-3 h-3 text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" /></svg>Powered by Strava</span></span>
           <div className="flex items-center gap-4">
+            <Link to="/about" className="transition-colors hover:opacity-80">{tCommon("nav.aboutOrider")}</Link>
             <Link to="/feedback" className="transition-colors hover:opacity-80">{tCommon("footer.feedback")}</Link>
             <Link to="/terms" className="transition-colors hover:opacity-80">{tCommon("footer.terms")}</Link>
             <Link to="/privacy" className="transition-colors hover:opacity-80">{tCommon("footer.privacy")}</Link>
-            <Link to="/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
-            <Link to="/board?type=inquiry" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</Link>
+            <Link to="/policies/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
+            <Link to="/community/board?type=inquiry" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</Link>
           </div>
         </div>
       </footer>
 
       {/* Mobile bottom tab bar */}
-      <MobileTabBar active={activeNav} friendRequestCount={friendRequestCount} />
+      <MobileTabBar active={activeNav} />
 
       {/* Mobile notification bottom sheet */}
       {notifOpen && (

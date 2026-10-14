@@ -820,6 +820,8 @@
     }
   },
   "decision": {
+    "changeInToday": "Go to today’s workout →",
+    "viewInPlan": "View in plan →",
     "eyebrow": "Today's plan",
     "loading": "Checking today's plan…",
     "noScheduled": "No session is scheduled for today.",

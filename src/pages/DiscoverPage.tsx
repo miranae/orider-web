@@ -78,9 +78,9 @@ export default function DiscoverPage() {
   const empty = !!q && !loading && segResults.length === 0 && courseResults.length === 0;
 
   const entries = [
-    { to: "/explore", icon: MapIcon, label: t("nav.segments"), desc: t("discover.entrySegmentsDesc") },
-    { to: "/leaderboard", icon: Trophy, label: t("nav.leaderboard"), desc: t("discover.entryLeaderboardDesc") },
-    { to: "/courses", icon: RouteIcon, label: t("nav.courses"), desc: t("discover.entryCoursesDesc") },
+    { to: "/explore/segments", icon: MapIcon, label: t("nav.segments"), desc: t("discover.entrySegmentsDesc") },
+    { to: "/explore/segments/leaderboard", icon: Trophy, label: t("nav.leaderboard"), desc: t("discover.entryLeaderboardDesc") },
+    { to: "/explore/courses", icon: RouteIcon, label: t("nav.courses"), desc: t("discover.entryCoursesDesc") },
   ];
 
   return (
@@ -113,7 +113,7 @@ export default function DiscoverPage() {
             <section>
               <div className="flex items-center justify-between mb-2">
                 <Text as="div" variant="eyebrow">{t("nav.segments")}</Text>
-                <Link to={`/explore?q=${encodeURIComponent(q)}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("discover.viewAll")}</Link>
+                <Link to={`/explore/segments?q=${encodeURIComponent(q)}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("discover.viewAll")}</Link>
               </div>
               <div className="space-y-2">
                 {segResults.map((s) => (
@@ -137,7 +137,7 @@ export default function DiscoverPage() {
             <section>
               <div className="flex items-center justify-between mb-2">
                 <Text as="div" variant="eyebrow">{t("nav.courses")}</Text>
-                <Link to={`/courses?q=${encodeURIComponent(q)}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("discover.viewAll")}</Link>
+                <Link to={`/explore/courses?q=${encodeURIComponent(q)}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("discover.viewAll")}</Link>
               </div>
               <div className="space-y-2">
                 {courseResults.map((c) => (

@@ -769,7 +769,7 @@ export default function DashboardPage() {
                   {t("yearRecap.desc")}
                 </Text>
               </div>
-              <Link to="/year-recap" className={buttonClass({ variant: "primary", size: "sm" })} style={{ textDecoration: "none", flexShrink: 0 }}>
+              <Link to="/athlete/me/records" className={buttonClass({ variant: "primary", size: "sm" })} style={{ textDecoration: "none", flexShrink: 0 }}>
                 {t("yearRecap.cta")}
               </Link>
             </div>
@@ -967,7 +967,7 @@ export default function DashboardPage() {
                     title={activities.length > 0 ? t("feed.noMatches.title") : t("feed.empty.title")}
                     description={activities.length > 0 ? t("feed.noMatches.description") : t("feed.empty.description")}
                     actions={activities.length > 0 ? [] : [user
-                      ? { label: t("feed.empty.ctaConnectStrava"), variant: "primary", href: "/settings?section=connections" }
+                      ? { label: t("feed.empty.ctaConnectStrava"), variant: "primary", href: "/settings/connections" }
                       : { label: signInPending ? t("header.signingIn") : t("header.anonCta"), variant: "primary", onClick: () => { void handleGuestSignIn(); } },
                     ]}
                   />
@@ -1073,7 +1073,7 @@ export default function DashboardPage() {
               <SectionHeader title={t("sidebar.runMonth.title", { month: new Date(Date.now() + 9 * 3600000).getUTCMonth() + 1 })} sub={t("sidebar.runMonth.sub")} />
               {runStats.coverage !== "ready" ? <Text variant="caption">{t("kpi.runUnavailable")}</Text>
                 : <Text variant="dataMedium" mono>{formatDistance(monthlyActivityDistance, units)}</Text>}
-              <Link to="/plan?sport=run" className={buttonClass({ size: "sm", variant: "outline" })}>{t("sidebar.runMonth.plan")}</Link>
+              <Link to="/coach/plan?sport=run" className={buttonClass({ size: "sm", variant: "outline" })}>{t("sidebar.runMonth.plan")}</Link>
             </Card>}
             {user && !isRunTab && (() => {
               const now = new Date();
@@ -1233,8 +1233,8 @@ export default function DashboardPage() {
                     <Link to="/feedback" className="transition-colors hover:opacity-80">{tCommon("footer.feedback")}</Link>
                     <Link to="/terms" className="transition-colors hover:opacity-80">{tCommon("footer.terms")}</Link>
                     <Link to="/privacy" className="transition-colors hover:opacity-80">{tCommon("footer.privacy")}</Link>
-                    <Link to="/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
-                    <Link to="/board?type=inquiry" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</Link>
+                    <Link to="/policies/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
+                    <Link to="/community/board?type=inquiry" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</Link>
                     <div className="flex items-center gap-1.5 pt-1.5 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>
                       <span>&copy; 2026 Orider</span>
                       <span className="flex items-center gap-1">

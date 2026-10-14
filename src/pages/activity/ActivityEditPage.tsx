@@ -188,7 +188,7 @@ export default function ActivityEditPage() {
     try {
       await updateDoc(doc(firestore, "activities", activityId), { deletedAt: Date.now() });
       showToast(t("edit.toastDeleted"));
-      navigate("/log");
+      navigate("/athlete/me/activities");
     } catch (err) {
       logClientError("ActivityEditPage.handleDelete", err, { activityId });
       showToast(t("edit.toastDeleteFailed"));
@@ -226,7 +226,7 @@ export default function ActivityEditPage() {
         <EmptyState
           icon="🗒️"
           title={t("edit.notFound")}
-          actions={[{ label: t("edit.logBtn"), variant: "primary", onClick: () => navigate("/log") }]}
+          actions={[{ label: t("edit.logBtn"), variant: "primary", onClick: () => navigate("/athlete/me/activities") }]}
         />
       </div>
     );

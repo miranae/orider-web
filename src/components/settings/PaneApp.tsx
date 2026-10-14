@@ -18,7 +18,8 @@ const LANG_LABELS: Record<Lang, string> = {
   en: "English",
 };
 
-export function PaneApp() {
+/** display: 언어·단위·테마 / data: 내보내기·캐시·전체 삭제 (/settings/display · /settings/data). */
+export function PaneApp({ part }: { part: "display" | "data" }) {
   const { t } = useTranslation("settings");
   const { t: tCommon } = useTranslation("common");
   const { showToast } = useToast();
@@ -50,7 +51,7 @@ export function PaneApp() {
     }
   }
 
-  return (
+  if (part === "display") return (
     <>
       <SettingsCard title={t("pane.app.cardLocaleUnits")} dense>
         <FieldGrid cols={2}>
@@ -165,7 +166,11 @@ export function PaneApp() {
           </div>
         </Field>
       </SettingsCard>
+    </>
+  );
 
+  return (
+    <>
       <SettingsCard title={t("pane.app.cardExport")}>
         <div style={{ marginBottom: "var(--space-3)" }}>
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>

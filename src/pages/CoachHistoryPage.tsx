@@ -234,7 +234,7 @@ export default function CoachHistoryPage() {
       await deleteCoachThread(target.threadId);
       if (!current(generation, expectedUid)) return;
       setThreads((current) => current.filter((item) => item.threadId !== target.threadId));
-      if (routeThreadRef.current === target.threadId) navigate("/coach");
+      if (routeThreadRef.current === target.threadId) navigate("/coach/chat");
     } catch { if (current(generation, expectedUid)) setThreadError(true); }
     finally { if (current(generation, expectedUid)) setDeleting(false); }
   }
@@ -250,7 +250,7 @@ export default function CoachHistoryPage() {
     try {
       await deleteAllCoachThreads();
       if (!current(generation, expectedUid)) return;
-      setThreads([]); setCursor(null); setThread(null); navigate("/coach");
+      setThreads([]); setCursor(null); setThread(null); navigate("/coach/chat");
     } catch { if (current(generation, expectedUid)) setLoadError(true); }
     finally { if (current(generation, expectedUid)) setDeleting(false); }
   }
@@ -340,7 +340,7 @@ export default function CoachHistoryPage() {
 
   function answerAction(code: CoachAnswerActionCode, entity?: CoachEntityRef) {
     if (code === "OPEN_ACTIVITY" && entity?.entityType === "activity") navigate(`/activity/${encodeURIComponent(entity.entityId)}`);
-    else navigate(code === "VIEW_TRAINING_LOAD" ? "/fitness" : "/my");
+    else navigate(code === "VIEW_TRAINING_LOAD" ? "/coach/condition" : "/athlete/me");
   }
 
   const followUpUnavailable = submitting || loadingQuota || quotaError || threadError || !quota || quota.remaining === 0;
@@ -382,7 +382,7 @@ export default function CoachHistoryPage() {
         {loadError && <Alert variant="danger" title={t("history.loadFailed")}><Button variant="outline" onClick={() => void loadList()}>{t("history.retry")}</Button></Alert>}
         {!loadingList && !loadError && threads.length === 0 && <Card className="coach-history-empty"><History aria-hidden /><Text as="h3" variant="subtitle">{t("history.emptyTitle")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("history.emptyBody")}</Text></Card>}
         <div className="coach-history-list__items">{threads.map((item) => <article key={item.threadId} className={`coach-history-item${threadId === item.threadId ? " is-active" : ""}`}>
-          <LocalizedLink to={`/coach/${item.threadId}`} className="coach-history-item__link" aria-current={threadId === item.threadId ? "page" : undefined}
+          <LocalizedLink to={`/coach/chat/${item.threadId}`} className="coach-history-item__link" aria-current={threadId === item.threadId ? "page" : undefined}
             aria-disabled={submitting && threadId === item.threadId ? true : undefined}
             onClick={(event) => { if (submitting && threadId === item.threadId) event.preventDefault(); }}>
             <Text as="strong" variant="body">{item.title}</Text>
@@ -401,7 +401,7 @@ export default function CoachHistoryPage() {
         </Alert>}
         {threadId && thread?.threadId === threadId && !loadingThread && <>
           <header className="coach-thread-detail__header">
-            <LocalizedLink to="/coach" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("history.back")}><ArrowLeft aria-hidden /></LocalizedLink>
+            <LocalizedLink to="/coach/chat" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("history.back")}><ArrowLeft aria-hidden /></LocalizedLink>
             <div><Text id="coach-thread-title" as="h2" variant="subtitle">{thread.title}</Text><Text as="p" variant="caption" tone="tertiary">{t(`discipline.${thread.discipline}`)} · {formatDate(thread.updatedAt, i18n.language)}</Text></div>
             <Button className="coach-thread-detail__delete" iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: thread.title })}
               disabled={deleting || submitting} onClick={() => void removeThread(thread)}><Trash2 size={18} /></Button>

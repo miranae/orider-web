@@ -180,7 +180,7 @@ export default function GroupDashboardPage() {
             icon="🔒"
             title={t("empty.groupAccessDenied")}
             description={t("empty.groupAccessDeniedDesc")}
-            actions={[{ label: t("empty.goToList"), variant: "primary", href: "/groups" }]}
+            actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}
           />
         </div>
       );
@@ -199,7 +199,7 @@ export default function GroupDashboardPage() {
           icon="👥"
           title={groupInactive ? t("empty.groupInactive") : t("empty.groupNotFound")}
           description={groupInactive ? t("empty.groupInactiveDesc") : undefined}
-          actions={[{ label: t("empty.goToList"), variant: "primary", href: "/groups" }]}
+          actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}
         />
       </div>
     );
@@ -298,8 +298,8 @@ export default function GroupDashboardPage() {
           </div>
           {canManage && (
             <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
-              <Link to="/events" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>{t("dashboard.events")}</Link>
-              <Link to={`/group/${groupId}/settings`} className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>{t("dashboard.manage")}</Link>
+              <Link to="/explore/events" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>{t("dashboard.events")}</Link>
+              <Link to={`/club/${groupId}/settings`} className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>{t("dashboard.manage")}</Link>
             </div>
           )}
         </div>
@@ -444,7 +444,7 @@ export default function GroupDashboardPage() {
         <Card padding="none" className="mb-5 p-4" style={{ borderRadius: "var(--r-lg)" }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("dashboard.upcomingEvents")}</h2>
-            <Link to="/events" className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreEvents")}</Link>
+            <Link to="/explore/events" className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreEvents")}</Link>
           </div>
           <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" style={{ listStyle: "none", margin: 0, padding: 0, gap: "var(--space-2)" }}>
             {upcomingEvents.map((e) => (
@@ -582,7 +582,7 @@ export default function GroupDashboardPage() {
           <div className="mt-5">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("dashboard.recentRides")}</h2>
-              <Link to={`/group/${groupId}/rides`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreRides")}</Link>
+              <Link to={`/club/${groupId}/rides`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreRides")}</Link>
             </div>
             {ridesLoading ? (
               <LoadingSkeleton kind="list" count={3} />
@@ -604,7 +604,7 @@ export default function GroupDashboardPage() {
           <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-lg)" }}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("dashboard.memberPreview")}</h2>
-              <Link to={`/group/${groupId}/members`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreMembers")}</Link>
+              <Link to={`/club/${groupId}/members`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreMembers")}</Link>
             </div>
             {membersLoading ? (
               <div className="flex gap-3">
@@ -621,7 +621,7 @@ export default function GroupDashboardPage() {
                 ))}
                 {group.memberCount > members.length && (
                   <Link
-                    to={`/group/${groupId}/members`}
+                    to={`/club/${groupId}/members`}
                     className="w-10 h-10 rounded-full flex items-center justify-center text-[length:var(--fs-xs)]"
                     style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}
                   >

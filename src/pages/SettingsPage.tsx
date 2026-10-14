@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft } from "lucide-react";
 
 import { useAuth } from "../contexts/AuthContext";
 import { useMobile } from "../hooks/useMobile";
+import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import MobileSettingsPage from "../components/mobile/MobileSettingsPage";
 import "../components/settings/settings.css";
 
@@ -18,33 +18,36 @@ import { PaneApp } from "../components/settings/PaneApp";
 import { PaneDeveloper } from "../components/settings/PaneDeveloper";
 import { PaneAiCoach } from "../components/settings/PaneAiCoach";
 import { LocalizedLink } from "../components/LocalizedLink";
+import { LegacySettingsRedirect } from "../components/routing/LegacyRedirect";
 import { Text, buttonClass } from "../theme/components";
-import { NAV_GROUPS, SECTION_IDS, type SectionId } from "../components/settings/settingsNavigation";
+import { NAV_GROUPS, settingsTabPath, type SectionId } from "../components/settings/settingsNavigation";
 
-function parseSection(value: string | null): SectionId {
-  return value && SECTION_IDS.includes(value as SectionId) ? (value as SectionId) : "account";
+function SettingsPanes({ section }: { section: SectionId }) {
+  return (
+    <>
+      {section === "account" && <><PaneAccount /><PaneAiCoach /></>}
+      {section === "training" && <PaneTraining />}
+      {section === "gear" && <><PaneEquipment /><PaneDevice /></>}
+      {section === "connections" && <><PaneConnections /><PaneHealthSources /></>}
+      {section === "developer" && <PaneDeveloper />}
+      {section === "display" && <PaneApp part="display" />}
+      {section === "data" && <PaneApp part="data" />}
+    </>
+  );
 }
 
-export default function SettingsPage() {
+/**
+ * 설정 — 탭은 하위 경로(/settings/<tab>, gear 는 /athlete/me/gear).
+ * tab 이 없으면 옛 /settings 진입: 모바일 카테고리 허브(section 없음)이거나 새 경로로 리디렉션.
+ */
+export default function SettingsPage({ tab }: { tab?: SectionId }) {
   const { t } = useTranslation("settings");
   const { user } = useAuth();
   const isMobile = useMobile();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const hasRequestedSection = searchParams.has("section");
-  const requestedSection = parseSection(searchParams.get("section"));
-  const [section, setSectionState] = useState<SectionId>(requestedSection);
-  const flatItems = NAV_GROUPS.flatMap((g) => g.items);
-  const current = flatItems.find((i) => i.id === section);
-  const currentGroup = NAV_GROUPS.find((g) => g.items.some((i) => i.id === section));
+  const navigate = useLocalizedNavigate();
+  const [searchParams] = useSearchParams();
 
-  useEffect(() => {
-    setSectionState(requestedSection);
-  }, [requestedSection]);
-
-  function setSection(next: SectionId) {
-    setSectionState(next);
-    setSearchParams(next === "account" ? {} : { section: next });
-  }
+  if (!tab && !(isMobile && !searchParams.has("section"))) return <LegacySettingsRedirect />;
 
   if (!user) {
     return (
@@ -53,7 +56,14 @@ export default function SettingsPage() {
       </div>
     );
   }
-  if (isMobile && hasRequestedSection) {
+  if (!tab) return <MobileSettingsPage />;
+
+  const section = tab;
+  const flatItems = NAV_GROUPS.flatMap((g) => g.items);
+  const current = flatItems.find((i) => i.id === section);
+  const currentGroup = NAV_GROUPS.find((g) => g.items.some((i) => i.id === section));
+
+  if (isMobile) {
     return (
       <div>
         <header className="mobile-settings-header">
@@ -69,20 +79,11 @@ export default function SettingsPage() {
           </Text>
         </header>
         <main className="mobile-settings-detail" style={{ padding: "var(--space-4)" }}>
-          {section === "account" && <PaneAccount />}
-          {section === "training" && <PaneTraining />}
-          {section === "equipment" && <PaneEquipment />}
-          {section === "connections" && <PaneConnections />}
-          {section === "health_sources" && <PaneHealthSources />}
-          {section === "ai_coach" && <PaneAiCoach />}
-          {section === "developer" && <PaneDeveloper />}
-          {section === "device" && <PaneDevice />}
-          {section === "app" && <PaneApp />}
+          <SettingsPanes section={section} />
         </main>
       </div>
     );
   }
-  if (isMobile) return <MobileSettingsPage />;
 
   return (
     <div className="settings-layout">
@@ -101,7 +102,7 @@ export default function SettingsPage() {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setSection(item.id)}
+                  onClick={() => navigate(settingsTabPath(item.id))}
                   className={"settings-navitem" + (active ? " is-active" : "")}
                 >
                   <Ic size={15} />
@@ -123,15 +124,7 @@ export default function SettingsPage() {
           <p>{current && t(current.hintKey)}</p>
         </div>
 
-        {section === "account" && <PaneAccount />}
-        {section === "training" && <PaneTraining />}
-        {section === "equipment" && <PaneEquipment />}
-        {section === "connections" && <PaneConnections />}
-        {section === "health_sources" && <PaneHealthSources />}
-        {section === "ai_coach" && <PaneAiCoach />}
-        {section === "developer" && <PaneDeveloper />}
-        {section === "device" && <PaneDevice />}
-        {section === "app" && <PaneApp />}
+        <SettingsPanes section={section} />
       </main>
     </div>
   );

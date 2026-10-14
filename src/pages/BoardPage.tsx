@@ -214,7 +214,7 @@ const BoardPage: React.FC = () => {
           </div>
           {selectedBoard !== 'devlog' && (
             <Button
-              onClick={() => navigate(selectedBoard === 'inquiry' ? '/board/write?type=inquiry' : '/board/write')} variant="secondary" className="px-4 py-2 text-[length:var(--fs-sm)] font-medium whitespace-nowrap"
+              onClick={() => navigate(selectedBoard === 'inquiry' ? '/community/board/write?type=inquiry' : '/community/board/write')} variant="secondary" className="px-4 py-2 text-[length:var(--fs-sm)] font-medium whitespace-nowrap"
             >
               {selectedBoard === 'inquiry' ? t("label.writingForm") : t("label.writingPost")}
             </Button>
@@ -267,7 +267,7 @@ const BoardPage: React.FC = () => {
             {selectedBoard !== 'devlog' && (
               <div className="md:hidden shrink-0">
                 <Button
-                  onClick={() => navigate(selectedBoard === 'inquiry' ? '/board/write?type=inquiry' : '/board/write')} variant="secondary" className="px-3 py-1.5 text-[length:var(--fs-sm)] font-medium whitespace-nowrap"
+                  onClick={() => navigate(selectedBoard === 'inquiry' ? '/community/board/write?type=inquiry' : '/community/board/write')} variant="secondary" className="px-3 py-1.5 text-[length:var(--fs-sm)] font-medium whitespace-nowrap"
                 >
                   {selectedBoard === 'inquiry' ? t("label.writingForm") : t("label.writingPost")}
                 </Button>
@@ -450,7 +450,7 @@ const BoardPage: React.FC = () => {
             icon="📝"
             title={isMyInquiryView ? t("inquiry.emptyMine") : submittedQuery || filteredOutAllPosts ? t("label.noResults") : selectedBoard === "archive" ? t("label.noResultsArchive") : t("empty.noPosts")}
             description={isMyInquiryView ? t("inquiry.emptyMineDesc") : submittedQuery || filteredOutAllPosts ? undefined : t("label.firstAuthor")}
-            actions={submittedQuery || selectedBoard === "archive" ? undefined : [{ label: selectedBoard === "inquiry" ? t("label.writingForm") : t("label.writingPost"), variant: "primary", onClick: () => navigate(selectedBoard === "inquiry" ? "/board/write?type=inquiry" : "/board/write") }]}
+            actions={submittedQuery || selectedBoard === "archive" ? undefined : [{ label: selectedBoard === "inquiry" ? t("label.writingForm") : t("label.writingPost"), variant: "primary", onClick: () => navigate(selectedBoard === "inquiry" ? "/community/board/write?type=inquiry" : "/community/board/write") }]}
           />
         ) : (
           /* 모바일: 카드 간 gap 제거, 상하 구분선만 (전폭 섹션 스타일) */
@@ -466,7 +466,7 @@ const BoardPage: React.FC = () => {
                 onClick={() => {
                   const main = document.querySelector('main');
                   if (main) sessionStorage.setItem('board-scroll', String(main.scrollTop));
-                  navigate(`/board/${post.id}`);
+                  navigate(`/community/board/${post.id}`);
                 }} padding="none" className="block p-4! md:p-6! hover:border-[var(--lime)]/50 transition-colors cursor-pointer"
                 style={isMobile ? {
                   // 전폭 카드: Layout px-4(16px) 인셋 음수마진으로 상쇄, 좌우 border·radius 제거

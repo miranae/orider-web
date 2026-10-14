@@ -231,3 +231,19 @@ describe("FitnessCoachBriefing", () => {
     expect(screen.queryByRole("button", { name: "G1 전송 준비" })).not.toBeInTheDocument();
   });
 });
+
+
+describe("coach screen ownership", () => {
+  it("condition keeps evidence and removes workout choices and delivery", () => {
+    renderBriefing({ part: "condition", decisionSlot: null });
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2 })).toBeInTheDocument();
+    expect(screen.queryByText("decision slot")).not.toBeInTheDocument();
+  });
+  it("today keeps choices and removes the condition briefing and impact details", () => {
+    renderBriefing({ part: "today", decisionSlot: null });
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
+    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "실제 하루 변화" })).not.toBeInTheDocument();
+  });
+});

@@ -547,6 +547,7 @@ function MobilePowerCurvePeriods({ ownerUid, enabled }: { ownerUid: string; enab
 // ── 메인 ──────────────────────────────────────────────────────
 export default function MobileFitnessPage({
   data,
+  part = "all",
   runningRaceEstimatesOwnerUid,
   powerCurvePeriodsOwnerUid,
   powerCurvePeriodsEnabled = false,
@@ -565,6 +566,7 @@ export default function MobileFitnessPage({
   sectionState = { trend: "ready", derived: "ready" },
 }: {
   data: MobileFitnessData;
+  part?: "all" | "condition" | "analysis";
   runningRaceEstimatesOwnerUid?: string;
   powerCurvePeriodsOwnerUid?: string;
   powerCurvePeriodsEnabled?: boolean;
@@ -623,7 +625,7 @@ export default function MobileFitnessPage({
     : data.discipline === "run"
     ? t("mobileFitness.tabZonesRun")
     : t("mobileFitness.tabZonesSwim");
-  const activeTab = data.discipline === "tri" ? "overview" : tab;
+  const activeTab = part === "analysis" ? "analysis" : part === "condition" || data.discipline === "tri" ? "overview" : tab;
   const tsbValue = data.hasLoadData && Number.isFinite(data.tsb) ? Number(data.tsb.toFixed(1)) : null;
   const tsbInterpretation = tsbValue == null ? t("mobileFitness.tsbMeaning.noData")
     : tsbValue < 0 ? t("mobileFitness.tsbMeaning.fatigueHigher")
@@ -650,7 +652,7 @@ export default function MobileFitnessPage({
         <div className="mobile-fitness-toolbar__sports">
           <SportFilterTabs value={sportSegment} onChange={setSportSegment} allLabelKey="discipline.tri" />
         </div>
-        {data.discipline !== "tri" && <button type="button" className="mobile-fitness-mode-toggle"
+        {part === "all" && data.discipline !== "tri" && <button type="button" className="mobile-fitness-mode-toggle"
           onClick={() => setTab(activeTab === "overview" ? "analysis" : "overview")}>
           {activeTab === "overview" ? analysisTabLabel : t("mobileFitness.tabOverview")}
         </button>}
@@ -722,6 +724,7 @@ export default function MobileFitnessPage({
 
           {data.discipline === "bike" && (
             <BikePerformanceSummaryCard
+              part={part}
               decision={data.thresholdDecision}
               pdc={data.pdcSummary}
               weightKg={data.weightKg}
@@ -738,7 +741,7 @@ export default function MobileFitnessPage({
           )}
 
 
-          {!embedded && data.discipline !== "tri" && (
+          {part === "all" && !embedded && data.discipline !== "tri" && (
             <div style={{ marginBottom: "var(--space-3)" }}>
               <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={data.runEvidence} swim={data.swimEvidence} />
             </div>
@@ -777,6 +780,7 @@ export default function MobileFitnessPage({
       )}
 
       {activeTab === "analysis" && (
+
         <div style={{ paddingTop: 14 }}>
           {sectionState.derived === "loading" && (
             <div role="status" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>
@@ -788,6 +792,8 @@ export default function MobileFitnessPage({
               {t("mobileFitness.derivedError")}
             </div>
           )}
+          {part === "analysis" && isBike && <BikePerformanceSummaryCard part="analysis" decision={data.thresholdDecision} pdc={data.pdcSummary} weightKg={data.weightKg} />}
+          {part === "analysis" && <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={data.runEvidence} swim={data.swimEvidence} />}
           {/* 임계값 카드 */}
           {sectionState.derived === "ready" && data.threshold && !isBike && (
             <SectionCard>

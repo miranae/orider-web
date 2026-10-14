@@ -14,6 +14,7 @@ type ImpactMode = "marginal" | "actual";
 type TrainingChoice = "rest" | "recovery" | "endurance";
 
 interface FitnessCoachBriefingProps {
+  part?: "all" | "condition" | "today";
   impacts: ActivityImpactEntry[];
   selectedActivityId: string | null;
   onSelectActivity: (activityId: string) => void;
@@ -88,7 +89,7 @@ function initialTrainingChoice(tsb: number): TrainingChoice {
   return "endurance";
 }
 
-export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false }: FitnessCoachBriefingProps) {
+export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false }: FitnessCoachBriefingProps) {
   const { t } = useTranslation("fitness");
   const [mode, setMode] = useState<ImpactMode>("marginal");
   const [trainingChoice, setTrainingChoice] = useState<TrainingChoice>(() => initialTrainingChoice(current.tsb));
@@ -118,7 +119,7 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
 
   return (
     <section aria-labelledby={mobilePriority ? undefined : "fitness-coach-title"} className={mobilePriority ? "fitness-coach fitness-coach--mobile-priority" : "fitness-coach"}>
-      {!mobilePriority && <Card padding="none" style={{ padding: "var(--space-5)", marginBottom: "var(--space-4)" }}>
+      {part !== "today" && !mobilePriority && <Card padding="none" style={{ padding: "var(--space-5)", marginBottom: "var(--space-4)" }}>
         <div className="fitness-coach__summary">
           <div className="fitness-coach__summary-copy">
             <Chip variant={conclusion.tone} dot>{t("coach.eyebrow")}</Chip>
@@ -138,7 +139,7 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
         <div className="fitness-coach__today" id="fitness-coach-today">{decisionSlot}</div>
       </div>
 
-      <DetailsSection title={t("coach.range.detailsTitle")}>
+      {part !== "today" && <DetailsSection title={t("coach.range.detailsTitle")}>
         <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("coach.range.body")}</Text>
       <div className="fitness-coach__primary-grid">
         <Card className="fitness-coach__impact-card" padding="none" style={{ padding: "var(--space-5)" }}>
@@ -183,9 +184,9 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
           )}
         </Card>
       </div>
-      </DetailsSection>
+      </DetailsSection>}
 
-      <div className="fitness-coach__primary-grid fitness-coach__primary-grid--choice">
+      {part !== "condition" && <div className="fitness-coach__primary-grid fitness-coach__primary-grid--choice">
         <Card className="fitness-coach__choice-card" padding="none" style={{ padding: "var(--space-5)" }}>
           <Text as="div" variant="eyebrow">{t("coach.choice.eyebrow")}</Text>
           <Text as="h3" variant="title" style={{ margin: "var(--space-2) 0" }}>{t("coach.choice.title")}</Text>
@@ -225,9 +226,9 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
             <RiderWorkoutDeliveryPanel uid={userId} workoutType={trainingChoice} targetTss={CHOICE_LOAD[trainingChoice] as 20 | 45} onBusyChange={setDeliveryBusy} />
           ) : !awaitingAggregate ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-4) 0 0" }}>{t("coach.choice.localOnly")}</Text> : null}
         </Card>
-      </div>
+      </div>}
 
-      {(pendingActivity || impacts.length > 0) && (
+      {part !== "today" && (pendingActivity || impacts.length > 0) && (
         <Card padding="none" style={{ padding: "var(--space-5)", marginTop: "var(--space-4)" }}>
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-3)" }}>{t("coach.recent.title")}</Text>
           <div className="fitness-coach__recent-grid">

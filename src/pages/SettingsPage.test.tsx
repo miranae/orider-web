@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Route, Routes } from "react-router-dom";
 import SettingsPage from "./SettingsPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { createMockProfile, createMockStravaProfile } from "../__tests__/fixtures/mockData";
@@ -22,31 +23,24 @@ vi.mock("../services/personalDataApi", () => ({
   revokePersonalApiKey: vi.fn(),
 }));
 
-// SettingsPage 가 좌측 nav + 우측 pane 의 탭 레이아웃으로 재설계되었다(PR i18n/리디자인).
-// 기본 탭은 "계정 & 프로필"(account)이고, Strava 연동/데이터 내보내기 등은
-// 별도 탭(connections / 앱 & 데이터)에서 렌더되므로 해당 탭으로 먼저 이동해야 한다.
-//
-// nav 항목은 라벨/힌트 span 으로 구성되며, 라벨 텍스트를 클릭하면 버튼으로 이벤트가 전파된다.
-async function gotoTab(user: ReturnType<typeof userEvent.setup>, label: string) {
-  await waitFor(() => expect(screen.getByText("설정")).toBeInTheDocument());
-  await user.click(screen.getByText(label));
-}
+// SettingsPage 탭은 하위 경로(/settings/<tab>)다. 라우트가 tab prop 으로 넘기므로
+// 테스트는 해당 탭을 직접 렌더한다. Strava 연동은 connections, 내보내기는 data 탭.
 
 describe("SettingsPage", () => {
   it("shows login required when not authenticated", () => {
-    renderWithProviders(<SettingsPage />, { authenticated: false });
+    renderWithProviders(<SettingsPage tab="account" />, { authenticated: false });
     expect(screen.getByText("로그인이 필요합니다.")).toBeInTheDocument();
   });
 
   it("renders settings heading when authenticated", async () => {
-    renderWithProviders(<SettingsPage />, { authenticated: true });
+    renderWithProviders(<SettingsPage tab="account" />, { authenticated: true });
     await waitFor(() => {
       expect(screen.getByText("설정")).toBeInTheDocument();
     });
   });
 
   it("shows profile section with user info", async () => {
-    renderWithProviders(<SettingsPage />, {
+    renderWithProviders(<SettingsPage tab="account" />, {
       authenticated: true,
       user: { displayName: "라이더", email: "rider@test.com" },
       profile: { nickname: "라이더" },
@@ -58,13 +52,11 @@ describe("SettingsPage", () => {
   });
 
   it("shows Strava 연결하기 button when not connected", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<SettingsPage />, {
+    renderWithProviders(<SettingsPage tab="connections" />, {
       authenticated: true,
       profile: { stravaConnected: false },
     });
     // Strava 연동 카드는 "연결된 앱"(connections) 탭에 있다.
-    await gotoTab(user, "연결된 앱");
     await waitFor(() => {
       // 미연결 시 서비스 카드의 액션 버튼 라벨은 "연결" (pane.connections.btnConnect).
       // nav 그룹 제목 "연결" 과 구분하기 위해 button role 로 조회한다.
@@ -73,7 +65,7 @@ describe("SettingsPage", () => {
   });
 
   it("shows Strava 연결됨 status when connected", async () => {
-    renderWithProviders(<SettingsPage />, {
+    renderWithProviders(<SettingsPage tab="account" />, {
       authenticated: true,
       profile: { stravaConnected: true, stravaNickname: "StravaUser" },
     });
@@ -85,12 +77,10 @@ describe("SettingsPage", () => {
   });
 
   it("shows 해제 button when Strava is connected", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<SettingsPage />, {
+    renderWithProviders(<SettingsPage tab="connections" />, {
       authenticated: true,
       profile: { stravaConnected: true, stravaNickname: "StravaUser" },
     });
-    await gotoTab(user, "연결된 앱");
     await waitFor(() => {
       // 연결 시 액션 버튼 라벨은 "연결 해제" (pane.connections.btnDisconnect).
       expect(screen.getByRole("button", { name: "연결 해제" })).toBeInTheDocument();
@@ -98,11 +88,9 @@ describe("SettingsPage", () => {
   });
 
   it("shows data management section", async () => {
-    const user = userEvent.setup();
     // PaneApp 등이 useOriderTheme() 를 쓰므로 OriderThemeProvider 필요 —
     // 이제 renderWithProviders 가 전역으로 감싸므로 로컬 wrap 불필요.
-    renderWithProviders(<SettingsPage />, { authenticated: true });
-    await gotoTab(user, "앱 & 데이터");
+    renderWithProviders(<SettingsPage tab="data" />, { authenticated: true });
     await waitFor(() => {
       // 데이터 내보내기 카드 (pane.app.cardExport / exportAllLabel).
       expect(screen.getByText("데이터 내보내기")).toBeInTheDocument();
@@ -110,8 +98,8 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("opens Developer API from section query", async () => {
-    renderWithProviders(<SettingsPage />, { authenticated: true, route: "/settings?section=developer" });
+  it("opens Developer API on its own tab path", async () => {
+    renderWithProviders(<SettingsPage tab="developer" />, { authenticated: true, route: "/settings/developer" });
     await waitFor(() => {
       expect(screen.getByText("개인 데이터 API 키 만들기")).toBeInTheDocument();
       expect(screen.getByText("내 API 키")).toBeInTheDocument();
@@ -119,7 +107,7 @@ describe("SettingsPage", () => {
   });
 
   it("shows danger zone", async () => {
-    renderWithProviders(<SettingsPage />, { authenticated: true });
+    renderWithProviders(<SettingsPage tab="account" />, { authenticated: true });
     // 위험 영역(pane.account.cardDanger)은 기본(계정) 탭에 있다.
     await waitFor(() => {
       expect(screen.getByText("위험 영역")).toBeInTheDocument();
@@ -128,7 +116,7 @@ describe("SettingsPage", () => {
   });
 
   it("shows visibility options", async () => {
-    renderWithProviders(<SettingsPage />, { authenticated: true });
+    renderWithProviders(<SettingsPage tab="account" />, { authenticated: true });
     // 공개 범위 카드(pane.account.cardVisibility)는 기본(계정) 탭에 있다.
     await waitFor(() => {
       expect(screen.getByText("공개 범위")).toBeInTheDocument();
@@ -138,7 +126,7 @@ describe("SettingsPage", () => {
   });
 
   it("shows friend code when available", async () => {
-    renderWithProviders(<SettingsPage />, {
+    renderWithProviders(<SettingsPage tab="account" />, {
       authenticated: true,
       profile: { nickname: "테스트", friendCode: "XYZ789" },
     });
@@ -147,26 +135,52 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("uses a category hub and dedicated mobile subpages for every desktop setting section", () => {
+  it("redirects the legacy section query to the tab path", async () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/:lang/settings" element={<SettingsPage />} />
+        <Route path="/:lang/settings/developer" element={<SettingsPage tab="developer" />} />
+      </Routes>,
+      { authenticated: true, route: "/ko/settings?section=developer" },
+    );
+    await waitFor(() => expect(screen.getByText("개인 데이터 API 키 만들기")).toBeInTheDocument());
+  });
+
+  it("navigates between tabs by path instead of the section query", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Routes>
+        <Route path="/:lang/settings/account" element={<SettingsPage tab="account" />} />
+        <Route path="/:lang/settings/connections" element={<SettingsPage tab="connections" />} />
+      </Routes>,
+      { authenticated: true, route: "/ko/settings/account", profile: { stravaConnected: false } },
+    );
+    await waitFor(() => expect(screen.getByText("설정")).toBeInTheDocument());
+    await user.click(screen.getByText("연결된 앱"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "연결" })).toBeInTheDocument());
+  });
+
+  it("uses a category hub and dedicated mobile subpages for every desktop setting tab", () => {
     const settingsPage = readFileSync(join(process.cwd(), "src/pages/SettingsPage.tsx"), "utf8");
     const mobileSettings = readFileSync(join(process.cwd(), "src/components/mobile/MobileSettingsPage.tsx"), "utf8");
 
-    expect(settingsPage).toContain("if (isMobile && hasRequestedSection)");
-    expect(settingsPage).toContain('section === "account" && <PaneAccount />');
-    for (const [section, pane] of [
-      ["training", "PaneTraining"],
-      ["equipment", "PaneEquipment"],
-      ["connections", "PaneConnections"],
-      ["health_sources", "PaneHealthSources"],
-      ["developer", "PaneDeveloper"],
-      ["device", "PaneDevice"],
-      ["app", "PaneApp"],
+    expect(settingsPage).toContain("if (isMobile)");
+    expect(settingsPage).toContain("if (!tab) return <MobileSettingsPage />;");
+    for (const [section, panes] of [
+      ["account", "<PaneAccount /><PaneAiCoach />"],
+      ["training", "<PaneTraining />"],
+      ["gear", "<PaneEquipment /><PaneDevice />"],
+      ["connections", "<PaneConnections /><PaneHealthSources />"],
+      ["developer", "<PaneDeveloper />"],
+      ["display", '<PaneApp part="display" />'],
+      ["data", '<PaneApp part="data" />'],
     ]) {
-      expect(settingsPage).toContain(`section === "${section}" && <${pane} />`);
+      expect(settingsPage).toContain(`section === "${section}" && `);
+      expect(settingsPage).toContain(panes);
     }
     expect(settingsPage).toContain('aria-label={t("nav.backToSettings")}');
     expect(mobileSettings).toContain("NAV_GROUPS.map");
-    expect(mobileSettings).toContain("`/settings?section=${item.id}`");
+    expect(mobileSettings).toContain("to={settingsTabPath(item.id)}");
     expect(mobileSettings).toContain('aria-label={t("nav.backToProfile")}');
     expect(mobileSettings).not.toContain("useStrava");
   });

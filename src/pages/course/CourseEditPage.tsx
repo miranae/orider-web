@@ -129,7 +129,7 @@ export default function CourseEditPage() {
       const fn = httpsCallable(functions, "deleteMyCourse");
       await fn({ courseId });
       showToast(t("edit.deleteSuccess"));
-      navigate("/courses");
+      navigate("/explore/courses");
     } catch (err) {
       logClientError("CourseEditPage.handleDelete", err, { courseId });
       void dialog.alert(err instanceof Error ? err.message : t("error.deleteFailed"), { variant: "danger" });
@@ -167,7 +167,7 @@ export default function CourseEditPage() {
         <EmptyState
           icon="🗺️"
           title={t("error.notFound")}
-          actions={[{ label: t("button.courseList"), variant: "primary", href: "/courses" }]}
+          actions={[{ label: t("button.courseList"), variant: "primary", href: "/explore/courses" }]}
         />
       </div>
     );

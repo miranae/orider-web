@@ -471,7 +471,7 @@ export default function EventEditPage() {
         <EmptyState
           icon="🗓️"
           title={t("empty.noResults")}
-          actions={[{ label: t("create.eventList"), variant: "primary", onClick: () => navigate("/events") }]}
+          actions={[{ label: t("create.eventList"), variant: "primary", onClick: () => navigate("/explore/events") }]}
         />
       </div>
     );
@@ -515,7 +515,7 @@ export default function EventEditPage() {
       {/* 상단 */}
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6) var(--space-3)" }}>
         <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
-          <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
+          <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
           <span style={{ color: "var(--ink-4)" }}>›</span>
           <Link to={`/event/${eventId}`} style={{ color: "var(--ink-3)" }} className="truncate">
             {data.name || event.id}
@@ -551,7 +551,7 @@ export default function EventEditPage() {
             </Button>
             <Button
               type="button"
-              onClick={() => navigate(`/event/${eventId}/participants`)} variant="secondary" size="sm"
+              onClick={() => navigate(`/event/${eventId}/host/participants`)} variant="secondary" size="sm"
             >
               👥 {t("action.manageParticipants")}
             </Button>
