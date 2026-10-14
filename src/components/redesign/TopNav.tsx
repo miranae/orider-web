@@ -171,7 +171,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
   return (
     <>
-      <nav data-testid="X1-1"
+      <nav data-testid="X1-1" className="gap-2 px-3 lg:gap-6 lg:px-5"
         style={{
           height: 52,
           position: 'sticky',
@@ -181,8 +181,6 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
           borderBottom: '1px solid var(--line-soft)',
           display: 'flex',
           alignItems: 'center',
-          paddingInline: 'var(--space-5)',
-          gap: 'var(--space-6)',
         }}
       >
         {/* 로고 */}
@@ -192,7 +190,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
           style={{ textDecoration: 'none', flexShrink: 0 }}
         >
           <img src={iconSvg} alt="Orider" style={{ width: 24, height: 24, borderRadius: "var(--r-sm)", flexShrink: 0 }} />
-          <span
+          <span className="hidden sm:inline"
             style={{
               fontWeight: 700,
               fontSize: "var(--fs-sm)",
@@ -254,7 +252,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
           <Link to="/settings/account" data-testid="X1-6" className={navIconButtonClass} aria-label={t("nav.settings")}><Settings size={19} /></Link>
           <div data-testid="X1-3" ref={createRef} className="relative">
             <Button size="sm" variant="secondary" aria-expanded={createOpen} aria-haspopup="menu" onClick={() => setCreateOpen(value => !value)}>{t("nav.create")}</Button>
-            {createOpen && <div role="menu" className="fixed inset-x-0 bottom-0 lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-full z-50 min-w-48 rounded-[var(--r-lg)] border border-[var(--line)] bg-[var(--bg-1)] p-2 shadow-lg">
+            {createOpen && <div role="menu" className="fixed inset-x-0 bottom-[calc(var(--space-7)+var(--space-6)+env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-var(--space-7)-var(--space-6)-var(--space-8)-var(--space-4)-env(safe-area-inset-bottom,0px))] overflow-y-auto lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-full lg:max-h-none lg:overflow-visible z-50 min-w-48 rounded-[var(--r-lg)] border border-[var(--line)] bg-[var(--bg-1)] p-2 shadow-lg">
               {user ? ([
                 ["course", "/course/create"], ["segment", "/segment/create"], ["event", "/event/create"], ["club", "/clubs?new=1"], ["post", "/community/board/write"], ["import", "/athlete/me/activities?import=1"], ["goal", "/coach/goals?new=1"],
               ] as [string, string][]).map(([key, to]) => <Link key={key} role="menuitem" data-testid={({ course: "M1-1-1", segment: "M1-1-2", event: "M1-1-3", club: "M1-1-4", post: "M1-1-5", import: "M1-1-6", goal: "M1-1-7" } as Record<string, string>)[key]} to={to} onClick={() => setCreateOpen(false)} className="block rounded-[var(--r-md)] px-3 py-2">{t(`nav.create.${key}`)}</Link>) : <Button disabled={signInPending} onClick={() => { setCreateOpen(false); void handleSignInWithGoogle(); }}>{t("auth.loginValue")}</Button>}
