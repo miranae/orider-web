@@ -267,7 +267,7 @@ export default function GroupMembersPage() {
       showToast(t(result.leftGroup
         ? "members.leadership.transferAndLeaveSuccess"
         : "members.leadership.transferSuccess", { name }));
-      navigate(result.leftGroup ? "/groups" : `/group/${groupId}`, { replace: true });
+      navigate(result.leftGroup ? "/clubs" : `/club/${groupId}`, { replace: true });
     } catch (err) {
       logClientError("GroupMembersPage.handleLeadershipTransfer", err, {
         groupId,
@@ -321,7 +321,7 @@ export default function GroupMembersPage() {
         <EmptyState
           icon="👥"
           title={t("empty.groupNotFound")}
-          actions={[{ label: t("empty.goToList"), variant: "primary", href: "/groups" }]}
+          actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}
         />
       </div>
     );
@@ -333,9 +333,9 @@ export default function GroupMembersPage() {
 
       {/* Breadcrumb */}
       <div className="text-[length:var(--fs-xs)] flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-3)', color: "var(--ink-3)" }}>
-        <Link to="/groups" style={{ color: "var(--ink-3)" }}>{t("breadcrumb.groups")}</Link>
+        <Link to="/clubs" style={{ color: "var(--ink-3)" }}>{t("breadcrumb.groups")}</Link>
         <span style={{ color: "var(--ink-4)" }}>/</span>
-        <Link to={`/group/${groupId}`} style={{ color: "var(--ink-1)", fontWeight: 500 }}>{group.name}</Link>
+        <Link to={`/club/${groupId}`} style={{ color: "var(--ink-1)", fontWeight: 500 }}>{group.name}</Link>
         <span style={{ color: "var(--ink-4)" }}>/</span>
         <span style={{ color: "var(--ink-0)" }}>{t("breadcrumb.memberManagement")}</span>
       </div>

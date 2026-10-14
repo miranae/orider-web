@@ -193,6 +193,6 @@ describe("StravaCallbackPage", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "stravaCallback.action.settings" }));
 
-    expect(mocks.navigate).toHaveBeenCalledWith("/settings?section=connections");
+    expect(mocks.navigate).toHaveBeenCalledWith("/settings/connections");
   });
 });

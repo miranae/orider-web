@@ -85,7 +85,7 @@ export function PaneAiCoach() {
         </InlineRow>
         {policy && <InlineRow label={t("coach.policyVersion")}><code>{policy.policyVersion}</code></InlineRow>}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
-          <LocalizedLink to="/coach" className={buttonClass({ variant: "secondary" })}><History size={16} aria-hidden />{t("coach.manageHistory")}</LocalizedLink>
+          <LocalizedLink to="/coach/chat" className={buttonClass({ variant: "secondary" })}><History size={16} aria-hidden />{t("coach.manageHistory")}</LocalizedLink>
           {!valid && <Button disabled={loading || saving} onClick={() => setSheetOpen(true)}>{t("coach.reviewConsent")}</Button>}
           {valid && <Button variant="danger" disabled={saving} onClick={() => void revoke()}>{t("coach.revoke")}</Button>}
         </div>

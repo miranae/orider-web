@@ -236,7 +236,7 @@ describe("missing threshold is stated as a dead end, not as pending work", () =>
     expect(screen.getByText("임계값 없음")).toBeInTheDocument();
     expect(screen.queryByText("성격 확인 중")).not.toBeInTheDocument();
     expect(screen.getByText(/FTP·최대심박을 설정하면/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "임계값 설정하기" })).toHaveAttribute("href", "/settings?section=training");
+    expect(screen.getByRole("link", { name: "임계값 설정하기" })).toHaveAttribute("href", "/settings/training");
   });
 
   it("tells a viewer whose threshold is missing, without offering them the setting", () => {

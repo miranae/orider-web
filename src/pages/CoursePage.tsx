@@ -734,7 +734,7 @@ export default function CoursePage() {
     try {
       const fn = httpsCallable(functions, "deleteMyCourse");
       await fn({ courseId });
-      navigate("/courses", { replace: true });
+      navigate("/explore/courses", { replace: true });
     } catch (err) {
       logClientError("CoursePage.handleDelete", err, { courseId });
       void dialog.alert(t("error.deleteFailed"), { variant: "danger" });
@@ -896,7 +896,7 @@ export default function CoursePage() {
           icon="🗺️"
           title={t("error.notFound")}
           description={course?.deletedAt || course?.hidden ? t("error.deleted") : undefined}
-          actions={[{ label: t("button.courseList"), variant: "primary", href: "/courses" }]}
+          actions={[{ label: t("button.courseList"), variant: "primary", href: "/explore/courses" }]}
         />
       </div>
     );
@@ -1487,7 +1487,7 @@ export default function CoursePage() {
       {/* Back */}
       <div className="flex items-center">
         <Link
-          to="/courses"
+          to="/explore/courses"
           className="text-[length:var(--fs-sm)] transition-colors hover:underline"
           style={{ color: "var(--ink-3)", padding: "var(--space-2) var(--space-4)" }}
         >
@@ -1543,7 +1543,7 @@ export function ClimbPredictionStatus({
   }
   return (
     <Link
-      to="/settings?section=training"
+      to="/settings/training"
       className="course-climb-prediction block text-[length:var(--fs-xs)] hover:underline"
       style={{ color: "var(--lime)", marginTop: "var(--space-2)" }}
     >

@@ -195,7 +195,7 @@
   "toolbar.tableSizePrompt": "Select table size",
   "toolbar.linkPrompt": "Link URL:",
   "toolbar.tagsLabel": "Tags",
-  "page.communityTitle": "Community",
+  "page.communityTitle": "Board",
   "page.communitySubtitle": "Share freely with fellow riders",
   "error.loadFailed": "Failed to load data",
   "error.loginRequired": "Login required."

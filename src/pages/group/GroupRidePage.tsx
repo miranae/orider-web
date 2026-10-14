@@ -418,7 +418,7 @@ export default function GroupRidePage() {
         <EmptyState
           icon="🚴"
           title={t("empty.rideNotFound")}
-          actions={[{ label: t("rides.groupRides"), variant: "primary", href: `/group/${groupId}/rides` }]}
+          actions={[{ label: t("rides.groupRides"), variant: "primary", href: `/club/${groupId}/rides` }]}
         />
       </div>
     );
@@ -429,7 +429,7 @@ export default function GroupRidePage() {
 
   return (
     <div>
-      <Link to={`/group/${groupId}/rides`} className="text-[length:var(--fs-sm)] mb-4 inline-block" style={{ color: "var(--lime)" }}>{t("ridePage.back")}</Link>
+      <Link to={`/club/${groupId}/rides`} className="text-[length:var(--fs-sm)] mb-4 inline-block" style={{ color: "var(--lime)" }}>{t("ridePage.back")}</Link>
       <h1 className="text-[length:var(--fs-xl)] font-bold mb-1" style={{ color: "var(--ink-0)" }}>{dateStr} {t("rides.groupRides")}</h1>
       <p className="text-[length:var(--fs-sm)] mb-6" style={{ color: "var(--ink-2)" }}>{t("ridePage.participants", { count: activities.length })}</p>
 

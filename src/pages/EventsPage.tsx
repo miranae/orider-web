@@ -480,7 +480,7 @@ export default function EventsPage() {
             <div className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)", marginTop: "var(--space-1)" }}>{t("organizer.title")}</div>
             <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{t("organizer.description")}</div>
           </div>
-          <Link to="/events/organize" className={buttonClass({ variant: "primary", size: "sm" })}>{t("organizer.cta")}</Link>
+          <Link to="/explore/events/organize" className={buttonClass({ variant: "primary", size: "sm" })}>{t("organizer.cta")}</Link>
         </Card>
       )}
 

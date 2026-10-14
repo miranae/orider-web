@@ -79,7 +79,7 @@ export default function SocialPage() {
       </div>
 
       {tab === "friends" && <FriendsTab />}
-      {tab === "groups" && <GroupsTab onNavigate={(id) => navigate(`/group/${id}`)} />}
+      {tab === "groups" && <GroupsTab onNavigate={(id) => navigate(`/club/${id}`)} />}
     </div>
   );
 }
@@ -124,7 +124,7 @@ function FriendsTab() {
           />
         </div>
         <Link
-          to="/friends"
+          to="/athlete/me/friends"
           style={{
             padding: "8px 14px", background: "var(--bg-2)", border: "1px solid var(--line-soft)",
             borderRadius: "var(--r-md)", fontSize: "var(--fs-xs)", fontWeight: 600,
@@ -187,7 +187,7 @@ function FriendsTab() {
             <>
               <div style={{ marginTop: "var(--space-1)", color: "var(--ink-3)" }}>{t("social.noFriendsDesc")}</div>
               <Link
-                to="/friends"
+                to="/athlete/me/friends"
                 style={{
                   display: "inline-flex", alignItems: "center", gap: "var(--space-1)",
                   marginTop: "var(--space-4)", padding: "9px 14px",
@@ -221,7 +221,7 @@ function GroupsTab({ onNavigate }: { onNavigate: (id: string) => void }) {
     <>
       <div style={{ padding: "var(--space-3) var(--space-4) var(--space-2)" }}>
         <Link
-          to="/groups"
+          to="/clubs"
           style={{
             display: "block", width: "100%", padding: 11, textAlign: "center",
             background: "var(--bg-2)", border: "1px dashed var(--line)",

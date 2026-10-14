@@ -160,7 +160,7 @@ export default function OnboardingPage() {
   };
 
   const handleInviteFriends = async () => {
-    await finishOnboarding(`/friends?source=onboarding&returnTo=${encodeURIComponent(returnTo)}`);
+    await finishOnboarding(`/athlete/me/friends?source=onboarding&returnTo=${encodeURIComponent(returnTo)}`);
   };
 
   const handleSkipAll = async () => {

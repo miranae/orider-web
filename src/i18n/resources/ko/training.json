@@ -820,6 +820,8 @@
     }
   },
   "decision": {
+    "changeInToday": "오늘 운동으로 →",
+    "viewInPlan": "계획에서 보기 →",
     "eyebrow": "오늘의 계획",
     "loading": "오늘 계획을 확인하는 중…",
     "noScheduled": "오늘 예정된 세션이 없습니다.",

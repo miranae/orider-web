@@ -426,7 +426,7 @@ export default function EventParticipantsPage() {
         <EmptyState
           icon="🗓️"
           title={t("participantsView.eventNotFound")}
-          actions={[{ label: t("participantsView.eventListLink"), variant: "primary", onClick: () => navigate("/events") }]}
+          actions={[{ label: t("participantsView.eventListLink"), variant: "primary", onClick: () => navigate("/explore/events") }]}
         />
       </div>
     );
@@ -454,7 +454,7 @@ export default function EventParticipantsPage() {
       {/* 헤더 */}
       <div className="site-shell" style={{ padding: "var(--space-5) var(--space-6) var(--space-4)" }}>
         <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
-          <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
+          <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
           <span style={{ color: "var(--ink-4)" }}>›</span>
           <Link to={`/event/${eventId}`} style={{ color: "var(--ink-3)" }} className="truncate">
             {event.name}
@@ -498,7 +498,7 @@ export default function EventParticipantsPage() {
             </h1>
           </div>
           <div className="flex flex-wrap" style={{ gap: 'var(--space-2)' }}>
-            <Button type="button" onClick={() => navigate(`/event/${eventId}/edit`)} variant="secondary" size="sm">
+            <Button type="button" onClick={() => navigate(`/event/${eventId}/host/edit`)} variant="secondary" size="sm">
               ✎ {t("action.editEvent")}
             </Button>
             <Button
@@ -1064,7 +1064,7 @@ export default function EventParticipantsPage() {
                 <Button
                   type="button" variant="secondary" size="sm"
                   style={{ justifyContent: "flex-start", width: "100%" }}
-                  onClick={() => navigate(`/event/${eventId}/dashboard`)}
+                  onClick={() => navigate(`/event/${eventId}/host`)}
                 >
                   📍 {t("participantsView.action.liveView")}
                 </Button>

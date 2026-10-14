@@ -78,7 +78,7 @@ export default function CrossDisciplineLoadCard({ fitness, discipline }: CrossDi
       </div>
 
       <LocalizedLink
-        to="/fitness?sport=tri"
+        to="/coach/condition?sport=tri"
         style={{
           display: "inline-block",
           marginTop: "var(--space-3)",

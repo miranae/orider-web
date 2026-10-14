@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { NAV_GROUPS, SECTION_IDS } from "./settingsNavigation";
+import { NAV_GROUPS, SECTION_IDS, settingsTabPath } from "./settingsNavigation";
 
 describe("settings navigation vocabulary", () => {
   it("exposes every settings section once, including account, to desktop and mobile", () => {
@@ -11,5 +11,17 @@ describe("settings navigation vocabulary", () => {
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("account");
     expect(items.every((item) => item.labelKey.startsWith("nav.") && item.hintKey.startsWith("nav."))).toBe(true);
+  });
+
+  it("maps every tab to its sub-path and keeps gear under the athlete profile", () => {
+    expect(SECTION_IDS.map(settingsTabPath)).toEqual([
+      "/settings/account",
+      "/settings/training",
+      "/athlete/me/gear",
+      "/settings/connections",
+      "/settings/developer",
+      "/settings/display",
+      "/settings/data",
+    ]);
   });
 });

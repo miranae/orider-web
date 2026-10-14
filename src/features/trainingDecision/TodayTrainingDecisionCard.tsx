@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { User } from "firebase/auth";
 import { useTodayTrainingDecision } from "../../hooks/useTodayTrainingDecision";
 import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
+import { LocalizedLink } from "../../components/LocalizedLink";
 import { Alert, Button, Card, Chip, Text } from "../../theme/components";
 import {
   canShowRecommendation, decisionAction, primaryEffectiveSession, primaryRecommendedAdjustment,
@@ -14,7 +15,7 @@ import { CoachQuestionLauncher } from "../coach/CoachQuestionLauncher";
 import { TrainingExecutionPanel } from "./TrainingExecutionPanel";
 import "./training-decision.css";
 
-export type TrainingDecisionSurface = "fitness" | "plan";
+export type TrainingDecisionSurface = "fitness" | "today" | "plan";
 
 function ProposalPanel({ decision, recommendationVisible, refresh }: {
   decision: NonNullable<ReturnType<typeof useTodayTrainingDecision>["decision"]>;
@@ -61,6 +62,8 @@ interface TodayTrainingDecisionCardProps {
   user: User | null;
   discipline: "bike" | "run" | "swim";
   surface?: TrainingDecisionSurface;
+  /** Run30 등 별도 실행 정본이 있는 화면에서는 중복 실행 경로를 숨긴다. */
+  suppressExecution?: boolean;
   onSignIn?: () => void;
   decisionState?: TodayTrainingDecisionState;
 }
@@ -86,7 +89,7 @@ export default function TodayTrainingDecisionCard(props: TodayTrainingDecisionCa
     : <ConnectedTodayTrainingDecisionCard {...props} />;
 }
 
-function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness", onSignIn = () => undefined, decisionState }: TodayTrainingDecisionCardProps & { decisionState: TodayTrainingDecisionState }) {
+function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness", suppressExecution = false, onSignIn = () => undefined, decisionState }: TodayTrainingDecisionCardProps & { decisionState: TodayTrainingDecisionState }) {
   const { t, i18n } = useTranslation("training");
   const { decision, loading, scheduledOnly, unavailableReason, refresh } = decisionState;
   if (!user) return null;
@@ -109,15 +112,7 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
   const recommendationVisible = decision.healthGate.state === "clear" && canShowRecommendation(decision);
   const hasPlanAdjustment = (recommendationVisible && presentedRecommendedAdjustments(decision).length > 0)
     || decision.proposal !== null || decision.receipt !== null;
-  if (surface === "plan") {
-    if (!hasPlanAdjustment) return null;
-    return <Card className="training-decision-card training-decision-card--plan"
-      data-decision-id={decision.projectionId}
-      data-facts-id={decision.recommendationSource?.factsId ?? ""}
-      data-plan-revision={decision.planSource?.planRevision ?? ""}>
-      <ProposalPanel decision={decision} recommendationVisible={recommendationVisible} refresh={refresh} />
-    </Card>;
-  }
+  if (surface === "plan" && !hasPlanAdjustment) return null;
 
   const scheduled = primaryScheduledSession(decision);
   const recommendedAdjustment = recommendationVisible ? primaryRecommendedAdjustment(decision) : null;
@@ -203,9 +198,12 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
           {t(`decision.confidence.signal.${signal}`)}</li>)}
       </ul>
     </Alert>}
-    <TrainingExecutionPanel decision={decision} sessions={executableSessions} onChanged={refresh} />
+    {surface === "today" && <ProposalPanel decision={decision} recommendationVisible={recommendationVisible} refresh={refresh} />}
+    {surface !== "plan" && !suppressExecution && <TrainingExecutionPanel decision={decision} sessions={executableSessions} onChanged={refresh} />}
     <footer className="training-decision-card__actions">
-      {recommendationVisible && decision.capabilities.explain === "available" && decision.recommendationSource
+      {surface === "plan" && <LocalizedLink to={`/coach/today?sport=${discipline}`}>{t("decision.changeInToday")}</LocalizedLink>}
+      {surface === "today" && <LocalizedLink to={`/coach/plan?sport=${discipline}&date=${decision.localDate}`}>{t("decision.viewInPlan")}</LocalizedLink>}
+      {surface !== "plan" && recommendationVisible && decision.capabilities.explain === "available" && decision.recommendationSource
         && <CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
         triggerBlock={false} triggerLabel={t("decision.askCoach")} progressPlannerSelection={{ question: t("decision.coachQuestion"),
           context: { prescriptionId: decision.recommendationSource.prescriptionId, sourceRequestId: decision.recommendationSource.sourceRequestId } }} />}

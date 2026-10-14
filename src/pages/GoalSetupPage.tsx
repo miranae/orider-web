@@ -523,7 +523,7 @@ export default function GoalSetupPage() {
         discipline: discipline,
       });
       const data = result.data as { goalId: string };
-      navigate(`/plan?goalId=${data.goalId}`);
+      navigate(`/coach/plan?goalId=${data.goalId}`);
     } catch (err) {
       logClientError('GoalSetupPage.handleStart', err, {
         courseId: selectedCourseId,

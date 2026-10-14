@@ -60,8 +60,8 @@
     "redirects": [
       {
         "source": "/community",
-        "destination": "/ko/community-guide/",
-        "type": 302
+        "destination": "/ko/policies/community",
+        "type": 301
       },
       {
         "source": "/platform",
@@ -70,8 +70,8 @@
       },
       {
         "source": "/ko/community",
-        "destination": "/ko/community-guide/",
-        "type": 302
+        "destination": "/ko/policies/community",
+        "type": 301
       },
       {
         "source": "/ko/platform",
@@ -80,8 +80,8 @@
       },
       {
         "source": "/en/community",
-        "destination": "/en/community-guide/",
-        "type": 302
+        "destination": "/en/policies/community",
+        "type": 301
       },
       {
         "source": "/en/platform",

@@ -64,6 +64,7 @@ import { formatPlanGoalTitle } from "../features/training/plan/planDisplay";
 
 export interface FitnessViewProps {
   embedded?: boolean;
+  part?: "all" | "condition" | "analysis";
   model: FitnessModel;
 }
 
@@ -75,7 +76,7 @@ export function fitnessGoalDisplayName(goal: { title?: string | null; courseName
   return raw ? formatPlanGoalTitle(raw).name : null;
 }
 
-export function FitnessView({ embedded = false, model }: FitnessViewProps) {
+export function FitnessView({ embedded = false, part = "all", model }: FitnessViewProps) {
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   // Form 구간 정본(#886). 전환이 꺼져 있으면 envelope 은 null 이고 카드는 기존 로컬 표시로 남는다.
   const trainingDecision = useTrainingDecision(
@@ -191,7 +192,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   if (renderMobile && error) {
     return (
       <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
-        {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
+        {part === "all" && discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
           <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
         </div>}
         <ErrorState title={t("error.dataFailed")} description={error} />
@@ -216,7 +217,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   if (renderMobile && activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
     return (
       <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
-        {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
+        {part === "all" && discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
           <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
         </div>}
         <EmptyState
@@ -224,7 +225,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           title={t("empty.noActivities")}
           description={t("empty.hint")}
           actions={[
-            { label: t("empty.connectStrava"), variant: "primary", href: "/settings?section=connections" },
+            { label: t("empty.connectStrava"), variant: "primary", href: "/settings/connections" },
           ]}
         />
       </div>
@@ -233,7 +234,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
 
   // TriFitnessView 는 데스크톱 전용 레이아웃이다. 모바일 tri 는 아래의
   // MobileFitnessPage 로 보내 좁은 화면에서 헤더와 카드가 눌리지 않게 한다.
-  if (!renderMobile && discipline === "tri") {
+  if (!renderMobile && discipline === "tri" && part !== "analysis") {
     return (
       <div className="fitness-reading">
         <div className="site-shell" style={{ padding: "var(--space-4) var(--space-6) 0" }}>
@@ -258,6 +259,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     const renderMobileContent = (decisionState?: TodayTrainingDecisionState) => {
       const mobileCoachBriefing = discipline !== "tri" && currentPoint ? (
         <FitnessCoachBriefing
+          part={part === "condition" ? "condition" : "all"}
           key={`${discipline}-${currentPoint.date}`}
           impacts={activityImpacts}
           selectedActivityId={effectiveSelectedActivityId}
@@ -272,7 +274,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           discipline={discipline}
           userId={user.uid}
           mobilePriority
-          decisionSlot={<TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" decisionState={decisionState} />}
+          decisionSlot={part === "all" ? <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" decisionState={decisionState} /> : null}
         />
       ) : null;
       return (
@@ -281,7 +283,8 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
           <MobileFitnessPage
             {...model.mobilePageProps}
-            runningRaceEstimatesOwnerUid={user.isAnonymous ? undefined : user.uid}
+            runningRaceEstimatesOwnerUid={user.isAnonymous || (part !== "all" && getRuntimeConfig().appEnvironment !== "stage") ? undefined : user.uid}
+            part={part}
             powerCurvePeriodsOwnerUid={user.uid}
             powerCurvePeriodsEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true}
             embedded={embedded}
@@ -292,7 +295,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         </div>
       );
     };
-    return discipline === "tri" ? renderMobileContent() : (
+    return discipline === "tri" || part !== "all" ? renderMobileContent() : (
       <TodayTrainingDecisionSource user={user} discipline={discipline}>
         {(decisionState) => renderMobileContent(decisionState)}
       </TodayTrainingDecisionSource>
@@ -392,11 +395,11 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           />
         </Text>
         <Text as="h1" variant="pageTitle" style={{ marginBottom: "var(--space-1-5)" }}>
-          {t("header.title")}
+          {t(part === "analysis" ? "analysis.header.title" : "header.title")}
         </Text>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-1) var(--space-3)", color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
           <span>{subtitle}</span>
-          {goalForecast && <Link to="/plan" title={t("header.subtitle.goal", goalForecast)} aria-label={t("header.subtitle.goal", goalForecast)} style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}>
+          {goalForecast && <Link to="/coach/plan" title={t("header.subtitle.goal", goalForecast)} aria-label={t("header.subtitle.goal", goalForecast)} style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}>
             {t("header.subtitle.goalShort", goalForecast)} →
           </Link>}
         </div>
@@ -425,7 +428,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
       <div className="fitness-reading">
         {pageHeader}
         <div className="site-shell" style={bodyPad}>
-          {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
+          {part === "all" && discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
             <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
           </div>}
           <ErrorState title={t("error.dataFailed")} description={error} />
@@ -438,7 +441,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
       <div className="fitness-reading">
         {pageHeader}
         <div className="site-shell" style={bodyPad}>
-          {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
+          {part === "all" && discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
             <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
           </div>}
           <EmptyState
@@ -446,7 +449,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             title={t("empty.noActivities")}
             description={t("empty.hint")}
             actions={[
-              { label: t("empty.connectStrava"), variant: "primary", href: "/settings?section=connections" },
+              { label: t("empty.connectStrava"), variant: "primary", href: "/settings/connections" },
             ]}
           />
         </div>
@@ -461,8 +464,9 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
       <div className="site-shell" style={bodyPad}>
         <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
         <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
-        {discipline !== "tri" && currentPoint && (
+        {part !== "analysis" && discipline !== "tri" && currentPoint && (
           <FitnessCoachBriefing
+          part={part === "condition" ? "condition" : "all"}
             key={`${discipline}-${currentPoint.date}`}
             impacts={activityImpacts}
             selectedActivityId={effectiveSelectedActivityId}
@@ -476,7 +480,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             metricsMap={metricsMap}
             discipline={discipline}
             userId={user.uid}
-            decisionSlot={<TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />}
+            decisionSlot={part === "all" ? <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" /> : null}
             trendSlot={<PmcHistoryPanel
               key={`${user.uid}-${discipline}`}
               points={model.pmcHistoryPoints}
@@ -489,7 +493,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             />}
           />
         )}
-        {discipline !== "tri" && !currentPoint && (
+        {part !== "analysis" && discipline !== "tri" && !currentPoint && (
           <PmcHistoryPanel
             key={`${user.uid}-${discipline}`}
             points={model.pmcHistoryPoints}
@@ -501,9 +505,9 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             ctlColor={getDisciplineColor(discipline)}
           />
         )}
-        {(activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
+        {part !== "analysis" && (activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
           <DetailsSection title={t("conclusion.evidenceToggle")}>
-            {/* Plan 적응 한 줄 요약 — warn/critical 일 때만 노출. 클릭 시 /plan 으로 이동. */}
+            {/* Plan 적응 한 줄 요약 — warn/critical 일 때만 노출. 클릭 시 /coach/plan 으로 이동. */}
             {activeGoal?.adaptationFlag && (
               <AdaptationSummary
                 flag={activeGoal.adaptationFlag}
@@ -549,10 +553,10 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
 
         {/* 거리별 기록 보드 — 러닝 탭 (§3.4a). 임계 페이스 곡선은 페이지 하단에 이미 있어
             여기선 표만 둔다(중복 방지). */}
-        {discipline === "run" && <RunRecordsBoard run={runRecords} />}
+        {part !== "condition" && discipline === "run" && <RunRecordsBoard run={runRecords} />}
 
         {/* 마일스톤 그리드 — 러닝 탭 (§3.4b) */}
-        {discipline === "run" && <MilestonesGrid achieved={milestones} />}
+        {part !== "condition" && discipline === "run" && <MilestonesGrid achieved={milestones} />}
 
         {/* 신규 달성 축하 — celebrated:false 하나. 닫으면 서버에 celebrated:true 기록. */}
         {pendingMilestone && (
@@ -565,7 +569,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           />
         )}
 
-        <DetailsSection title={t("history.dailyDetails")}>
+        {part !== "analysis" && <DetailsSection title={t("history.dailyDetails")}>
         <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
           <div style={{ display: "flex", alignItems: "flex-end", marginBottom: "var(--space-3)" }}>
             <div>
@@ -711,7 +715,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
                     <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>—</span>
                   )}
                 </div>
-                <a href="/plan" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`} style={{ whiteSpace: "nowrap", fontSize: "var(--fs-xs)" }}>
+                <a href="/coach/plan" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`} style={{ whiteSpace: "nowrap", fontSize: "var(--fs-xs)" }}>
                   {t("goal.viewPlan")}
                 </a>
               </div>
@@ -719,13 +723,13 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           })()}
         </Card>
 
-        </DetailsSection>
+        </DetailsSection>}
 
         {/* 상세 분석 — 바이크 개선 액션·VO2max·강점/약점·야외 페이싱·라이더 유형. */}
         {discipline === "bike" && (
         <DetailsSection title={t("conclusion.detailToggle")}>
         {/* PDC 기반 VO2max 근거와 월별 추이. 현재 적용 FTP 공식값과 구분한다. */}
-        {pdc?.vo2maxEst != null && (
+        {part !== "condition" && pdc?.vo2maxEst != null && (
           <Card padding="none" style={{ marginTop: "var(--space-4)", padding: "16px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", flexWrap: "wrap" }}>
               <div>
@@ -763,7 +767,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           </Card>
         )}
         {/* 강점/약점 — CP 모델 기대파워 대비 실제 best 갭. bike + pdc.cp + 분류 결과 있을 때만 */}
-        {discipline === "bike" && pdc?.cp != null && (strengths.length > 0 || weaknesses.length > 0) && (
+        {part !== "condition" && discipline === "bike" && pdc?.cp != null && (strengths.length > 0 || weaknesses.length > 0) && (
           <Card padding="none" style={{ marginTop: 'var(--space-4)', padding: "16px 24px" }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>{t("gapCard.title")}</Text>
             <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-3)' }}>
@@ -795,7 +799,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         )}
 
         {/* 야외 페이싱 가이드 — 장거리/그란폰도 지속 목표. CP(임계파워)의 −10~−5%. bike + pdc.cp 있을 때만 */}
-        {pacingGuide && pdc?.cp != null && (
+        {part !== "analysis" && pacingGuide && pdc?.cp != null && (
           <Card padding="none" style={{ marginTop: 'var(--space-4)', padding: "16px 24px" }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("pacing.title")}</Text>
             <Text as="div" variant="num" style={{ fontSize: "var(--fs-xl)", color: "var(--ink-0)", lineHeight: 1.1 }}>
@@ -814,13 +818,13 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         )}
 
         {/* 사이클링 능력 — 모바일과 동일한 최근 90일 PDC 3축 실측 근거. */}
-        {discipline === "bike" && cyclingAbility && (
+        {part !== "condition" && discipline === "bike" && cyclingAbility && (
           <CyclingAbilityCard cycling={cyclingAbility} variant="desktop" />
         )}
         </DetailsSection>
         )}
 
-        {discipline === "bike" && (
+        {part !== "analysis" && discipline === "bike" && (
           <DetailsSection title={t("conclusion.performanceDetailToggle")}>
             <BikeThresholdDecisionCard
               decision={thresholdDecision}
@@ -844,6 +848,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         <DetailsSection title={t("conclusion.trainingDetailToggle")}>
         {/* 2열 하단: 일별 운동 부하 + 파워 커브 */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 'var(--space-5)', marginTop: 'var(--space-5)' }}>
+          {part !== "analysis" && <>
           {/* 일별 운동 부하 */}
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
             <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
@@ -895,7 +900,10 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             </div>
           </Card>
 
-          {discipline === "run" && !user.isAnonymous && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}
+          </>}
+
+          {part !== "condition" && <>
+          {discipline === "run" && !user.isAnonymous && (part === "all" || getRuntimeConfig().appEnvironment === "stage") && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}
           {discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel nativeActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>}
 
           {/* 파워 커브 / 페이스 커브 (종목 분기) */}
@@ -977,10 +985,11 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
               </>
             )}
           </Card>
+          </>}
         </div>
 
         {/* 존 분포 — 단독 풀폭 (오늘의 권장은 상단 hero 로 이동) */}
-        <div style={{ marginTop: 'var(--space-5)' }}>
+        {part !== "condition" && <div style={{ marginTop: 'var(--space-5)' }}>
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
             {(() => {
               const threshPace = profile?.thresholdPace ?? null;
@@ -1040,7 +1049,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             })()}
           </Card>
 
-        </div>
+        </div>}
         </DetailsSection>
       </div>
     </div>

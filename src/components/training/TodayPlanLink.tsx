@@ -10,8 +10,8 @@ interface TodayPlanLinkProps {
 export default function TodayPlanLink({ discipline }: TodayPlanLinkProps) {
   const { t } = useTranslation("training");
   const to = discipline
-    ? { pathname: "/plan", search: `?sport=${discipline}` }
-    : "/plan";
+    ? { pathname: "/coach/plan", search: `?sport=${discipline}` }
+    : "/coach/plan";
 
   return (
     <LocalizedLink

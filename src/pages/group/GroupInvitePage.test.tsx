@@ -9,8 +9,8 @@ function renderInvite(route = "/ko/group/join/abcd1234", authenticated = true) {
   return renderWithProviders(
     <Routes>
       <Route path="/ko/group/join/:code" element={<GroupInvitePage />} />
-      <Route path="/ko/group/:groupId" element={<div>group destination</div>} />
-      <Route path="/ko/groups" element={<div>groups fallback</div>} />
+      <Route path="/ko/club/:groupId" element={<div>group destination</div>} />
+      <Route path="/ko/clubs" element={<div>groups fallback</div>} />
     </Routes>,
     { route, authenticated },
   );

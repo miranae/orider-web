@@ -483,9 +483,9 @@ export default function MigrationPage() {
                 <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mb-3">{t("userMigration.nextSteps")}</p>
                 <div className="flex flex-wrap gap-2 justify-center">
                   {[
-                    { label: t("userMigration.nextProfile"), path: user ? `/athlete/${user.uid}` : "/" },
-                    { label: t("userMigration.nextLeaderboard"), path: "/explore" },
-                    { label: t("userMigration.nextFriends"), path: "/friends" },
+                    { label: t("userMigration.nextProfile"), path: user ? "/athlete/me" : "/" },
+                    { label: t("userMigration.nextLeaderboard"), path: "/explore/segments" },
+                    { label: t("userMigration.nextFriends"), path: "/athlete/me/friends" },
                   ].map(item => (
                     <button key={item.label} onClick={() => navigate(item.path)} className="text-[length:var(--fs-xs)] px-3 py-1.5 rounded-full bg-[var(--bg-2)] text-[var(--ink-1)] hover:bg-[var(--bg-3)] transition-colors">
                       {item.label}

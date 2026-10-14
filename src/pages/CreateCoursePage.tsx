@@ -559,7 +559,7 @@ export default function CreateCoursePage() {
           description={t("createAuth.description")}
           actions={[
             { label: t("createAuth.login"), variant: "primary", onClick: () => { void signInWithGoogle(); } },
-            { label: t("button.courseList"), variant: "secondary", href: "/courses" },
+            { label: t("button.courseList"), variant: "secondary", href: "/explore/courses" },
           ]}
         />
       </div>
@@ -589,7 +589,7 @@ export default function CreateCoursePage() {
               {t("button.viewCourse")}
             </Link>
             <Link
-              to="/courses"
+              to="/explore/courses"
               className="px-6 py-2.5 bg-[var(--bg-2)] text-[var(--ink-1)] font-medium rounded-[var(--r-lg)] hover:bg-[var(--bg-3)] transition-colors"
             >
               {t("button.courseList")}

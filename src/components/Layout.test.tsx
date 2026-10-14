@@ -16,6 +16,9 @@ vi.mock("../assets/icon.svg", () => ({ default: "/icon.svg" }));
 describe("Layout", () => {
   it("allows Strava connection routes before onboarding is done", () => {
     expect(shouldBypassOnboardingRedirect("/settings")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/settings/connections")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/policies/community")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/policies/ai-coach")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/strava/callback")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/migrate")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/onboarding")).toBe(true);
@@ -44,11 +47,11 @@ describe("Layout", () => {
   it("shows the five primary hub labels and keeps settings out of primary navigation", async () => {
     renderWithProviders(<Layout />);
     await waitFor(() => {
-      expect(screen.getAllByText("내 운동").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("클럽").length).toBeGreaterThan(0);
     });
-    expect(screen.getAllByText("AI 코치").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("코치").length).toBeGreaterThan(0);
     expect(screen.getAllByText("탐색").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("커뮤니티").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("게시판").length).toBeGreaterThan(0);
     const tabBar = screen.getByRole("navigation", { name: "메인 내비게이션" });
     expect(within(tabBar).queryByRole("link", { name: "설정" })).not.toBeInTheDocument();
   });
@@ -207,15 +210,14 @@ describe("Layout", () => {
     await user.click(await screen.findByRole("button", { name: "프로필" }));
 
     await waitFor(() => {
-      expect(screen.getByText("프로필")).toBeInTheDocument();
+      expect(screen.getByText("내 프로필")).toBeInTheDocument();
     });
-    // "설정" 은 드롭다운 외에 5허브 nav(데스크톱)·모바일 탭바에도 존재하므로 getAllByText 로 단언.
     expect(screen.getAllByText("설정").length).toBeGreaterThan(0);
     expect(screen.getByText("로그아웃")).toBeInTheDocument();
   });
 
   it("shows footer with copyright", async () => {
-    renderWithProviders(<Layout />, { route: "/explore" });
+    renderWithProviders(<Layout />, { route: "/explore/segments" });
     await waitFor(() => {
       expect(screen.getByText(/2026 Orider/)).toBeInTheDocument();
     });
@@ -252,7 +254,14 @@ describe("Layout", () => {
     expect(footer.className).toContain("lg:hidden");
   });
 
-  it("has five ordered localized mobile tabs including AI Coach", async () => {
+  it("reserves bottom tab space through tablet widths", async () => {
+    renderWithProviders(<Layout />, { route: "/coach/condition" });
+    const main = await screen.findByRole("main");
+    expect(main.className).toContain("lg:pb-0");
+    expect(main.className).not.toContain("md:pb-0");
+  });
+
+  it("has five ordered localized mobile tabs including Coach", async () => {
     renderWithProviders(<Layout />);
     // 페이지 내 다른 탐색 영역과 구분하기 위해 접근성 이름으로 모바일 탭바를 스코프.
     await waitFor(() => {
@@ -260,22 +269,23 @@ describe("Layout", () => {
     });
     const tabBar = screen.getByRole("navigation", { name: "메인 내비게이션" });
     const tabs = within(tabBar).getAllByRole("link");
-    expect(tabs.map((tab) => tab.textContent)).toEqual(["홈", "내 운동", "AI 코치", "탐색", "커뮤니티"]);
-    expect(within(tabBar).getByRole("link", { name: "AI 코치" })).toHaveAttribute("href", "/ko/coach");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["홈", "코치", "클럽", "탐색", "게시판"]);
+    expect(within(tabBar).getByRole("link", { name: "코치" })).toHaveAttribute("href", "/ko/coach/condition");
   });
 
-  it("selects AI Coach routes but no primary tab on settings routes", async () => {
-    const coachView = renderWithProviders(<Layout />, { route: "/ko/coach/thread-1" });
+  it("selects Coach routes but no primary tab on settings routes", async () => {
+    const coachView = renderWithProviders(<Layout />, { route: "/ko/coach/chat/thread-1" });
     const coachTabBar = await screen.findByRole("navigation", { name: "메인 내비게이션" });
-    expect(within(coachTabBar).getByRole("link", { name: "AI 코치" })).toHaveAttribute("aria-current", "page");
+    expect(within(coachTabBar).getByRole("link", { name: "코치" })).toHaveAttribute("aria-current", "page");
     coachView.unmount();
 
-    renderWithProviders(<Layout />, { route: "/ko/settings", authenticated: true, user: { uid: "viewer" } });
+    renderWithProviders(<Layout />, { route: "/ko/settings/account", authenticated: true, user: { uid: "viewer" } });
     const settingsTabBar = await screen.findByRole("navigation", { name: "메인 내비게이션" });
     expect(within(settingsTabBar).getAllByRole("link").every((link) => !link.hasAttribute("aria-current"))).toBe(true);
-    expect(screen.getByRole("link", { name: "설정" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "계정" })).toHaveAttribute("aria-current", "page");
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
-    expect(screen.getAllByRole("link", { name: "설정" }).every((link) => link.getAttribute("aria-current") === "page")).toBe(true);
+    expect(screen.getByRole("link", { name: "설정" })).toHaveAttribute("href", "/ko/settings/account");
+    expect(screen.getByRole("button", { name: "프로필" })).toHaveAttribute("aria-current", "page");
   });
 
   it("closes the mobile slide menu when browser back is pressed", async () => {
@@ -310,6 +320,6 @@ describe("Layout", () => {
     expect(screen.getByRole("button", { name: "KO" }).className).toContain("focus-visible:outline");
     const moreButtons = screen.getAllByRole("button", { name: "더보기" });
     expect(moreButtons.some((button) => button.className.includes("focus-visible:outline"))).toBe(true);
-    expect(screen.getAllByRole("link", { name: /내 운동/ }).some((link) => link.className.includes("focus-visible:outline"))).toBe(true);
+    expect(screen.getAllByRole("link", { name: /^클럽$/ }).some((link) => link.className.includes("focus-visible:outline"))).toBe(true);
   });
 });
