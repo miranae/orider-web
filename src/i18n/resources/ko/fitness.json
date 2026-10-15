@@ -1164,5 +1164,12 @@
   "sufficiency.action.ride_effort_3_20min": "다음 라이딩에 5~20분 꾸준한 최대 노력을 넣어 보세요",
   "sufficiency.action.ride_long_1h": "1시간 이상 꾸준히 타는 라이딩이 도움이 돼요",
   "sufficiency.action.ride_varied_efforts": "짧은 스프린트부터 긴 언덕까지 다양한 노력이 도움이 돼요",
-  "sufficiency.action.wait_analysis": "기록 분석이 끝나면 반영돼요"
+  "sufficiency.action.wait_analysis": "기록 분석이 끝나면 반영돼요",
+  "sufficiency.feature.load_history": "부하 추이(CTL·ATL·TSB)",
+  "sufficiency.req.load_days.met": "부하가 잡힌 날 {{current}}일",
+  "sufficiency.req.load_days.not_met": "부하(TSS)가 잡힌 운동 기록이 아직 없어요",
+  "sufficiency.req.load_history_period.met": "기록 {{current}}일째 — 컨디션 해석에 충분해요",
+  "sufficiency.req.load_history_period.not_met": "첫 기록 {{current}}일째 · {{target}}일째부터 컨디션 해석이 정확해져요",
+  "sufficiency.action.record_activity": "운동 기록 가져오기",
+  "sufficiency.action.keep_recording": "지금처럼 기록을 이어가 주세요"
 }

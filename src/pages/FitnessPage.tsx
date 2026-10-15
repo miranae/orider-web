@@ -116,6 +116,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     discipline,
     pdc,
     pdcSufficiency,
+    loadSufficiency,
     runRecords,
     milestones,
     consistencyStreak,
@@ -409,6 +410,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const vo2maxBlock = findSufficiencyBlock(pdcSufficiency, "vo2max");
   const powerModelBlock = findSufficiencyBlock(pdcSufficiency, "power_model");
   const riderBlock = findSufficiencyBlock(pdcSufficiency, "rider_profile");
+  const loadTrendBlock = findSufficiencyBlock(loadSufficiency, "load_history", "trend");
+  const loadFormBlock = findSufficiencyBlock(loadSufficiency, "load_history", "form");
   const weaknesses = powerGaps.filter((g) => g.label === "weakness");
 
   // 페이지 헤더 — PageHeader 패턴. const 로 추출해 loading/error/empty/정상 4상태가
@@ -499,6 +502,9 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {part !== "analysis" && discipline !== "tri" && currentPoint && (
           <FitnessCoachBriefing
             weekChangeSlot={weekChangeSlot}
+            metricsNoteSlot={loadSufficiency && loadFormBlock
+              ? <SufficiencyInline set={loadSufficiency} block={loadFormBlock} testId="K1-1-1-sufficiency-inline" />
+              : null}
           part={part === "condition" ? "condition" : "all"}
             key={`${discipline}-${currentPoint.date}`}
             impacts={activityImpacts}
@@ -527,16 +533,19 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           />
         )}
         {part !== "analysis" && discipline !== "tri" && !currentPoint && (
-          <PmcHistoryPanel
-            key={`${user.uid}-${discipline}`}
-            points={model.pmcHistoryPoints}
-            today={toUtcDate(Date.now())}
-            canonical={model.hasCanonicalHistory}
-            controlledRange={historyRange}
-            onControlledRangeChange={changeHistoryRange}
-            rangeChoices={[30, 90, 180, 365, "3y", "all"]}
-            ctlColor={getDisciplineColor(discipline)}
-          />
+          // 부하가 잡힌 날이 없다고 owner 가 판정했으면 빈 차트 대신 무엇이 필요한지 보인다.
+          loadSufficiency && needsSufficiencyCard(loadSufficiency, loadTrendBlock)
+            ? <SufficiencyCard set={loadSufficiency} block={loadTrendBlock} testId="K1-2-sufficiency" />
+            : <PmcHistoryPanel
+              key={`${user.uid}-${discipline}`}
+              points={model.pmcHistoryPoints}
+              today={toUtcDate(Date.now())}
+              canonical={model.hasCanonicalHistory}
+              controlledRange={historyRange}
+              onControlledRangeChange={changeHistoryRange}
+              rangeChoices={[30, 90, 180, 365, "3y", "all"]}
+              ctlColor={getDisciplineColor(discipline)}
+            />
         )}
         {part !== "analysis" && (activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
           <div data-testid="K1-4"><DetailsSection title={t("conclusion.evidenceToggle")}>

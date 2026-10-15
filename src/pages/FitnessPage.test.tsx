@@ -993,6 +993,59 @@ describe("FitnessPage", () => {
       expect(await screen.findByText("sufficiency blocks 2")).toBeInTheDocument();
     });
 
+    const loadSet = (trendState: "open" | "locked", formState: "open" | "low_evidence" | "locked", days: number) =>
+      sufficiencySet([
+        sufficiencyBlock({ featureId: "load_history", viewId: "trend", state: trendState,
+          remainingRequirementCount: trendState === "open" ? 0 : 1,
+          nextAction: trendState === "open" ? null : { code: "record_activity" },
+          requirements: [{ requirementId: "load_days", kind: "count", satisfaction: trendState === "open" ? "met" : "not_met",
+            guarantee: "sufficient", target: { value: 1, unit: "day" }, current: { value: trendState === "open" ? 3 : 0, unit: "day" } }] }),
+        sufficiencyBlock({ featureId: "load_history", viewId: "form", state: formState,
+          remainingRequirementCount: formState === "open" ? 0 : 1,
+          nextAction: formState === "low_evidence" ? { code: "keep_recording" } : formState === "locked" ? { code: "record_activity" } : null,
+          requirements: [{ requirementId: "load_history_period", kind: "period", satisfaction: formState === "open" ? "met" : "not_met",
+            guarantee: "sufficient", target: { value: 42, unit: "day" }, current: { value: days, unit: "day" } }] }),
+      ], { catalogVersion: "load-history-sufficiency-v1", ownerOutput: "timeseries_bike" });
+
+    it("K1 현재 지표 아래에 기록 기간이 모자란 컨디션 해석을 낮은 근거로 알린다", async () => {
+      viewport.isMobile = false;
+      const today = new Date().toISOString().slice(0, 10);
+      setDocData("users/test-uid/fitness/timeseries_bike", { discipline: "bike", schemaVersion: 1, computedAt: Date.now(),
+        startDate: today, endDate: today, pointCount: 1, points: [{ date: today, ctl: 30, atl: 25, tsb: 5, dailyLoad: 0 }],
+        sufficiency: loadSet("open", "low_evidence", 10) });
+      setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride",
+        startTime: Date.now(), deletedAt: null, summary: { distance: 20_000, ridingTimeMillis: 3_600_000 } }]);
+      renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+      expect(await screen.findByTestId("K1-1-1-sufficiency-inline")).toBeInTheDocument();
+      expect(screen.getByTestId("K1-1-1-sufficiency-inline-requirement").textContent).toContain("10일째");
+      expect(screen.getByTestId("K1-1-1-sufficiency-inline-action").textContent).toContain("기록을 이어가");
+    });
+
+    it("기록 기간이 충분하면 K1 현재 지표에 아무것도 덧붙이지 않는다", async () => {
+      viewport.isMobile = false;
+      const today = new Date().toISOString().slice(0, 10);
+      setDocData("users/test-uid/fitness/timeseries_bike", { discipline: "bike", schemaVersion: 1, computedAt: Date.now(),
+        startDate: today, endDate: today, pointCount: 1, points: [{ date: today, ctl: 30, atl: 25, tsb: 5, dailyLoad: 0 }],
+        sufficiency: loadSet("open", "open", 42) });
+      setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride",
+        startTime: Date.now(), deletedAt: null, summary: { distance: 20_000, ridingTimeMillis: 3_600_000 } }]);
+      renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+      expect(await screen.findByText("30.0")).toBeInTheDocument();
+      expect(screen.queryByTestId("K1-1-1-sufficiency-inline")).toBeNull();
+    });
+
+    it("부하가 잡힌 날이 없으면 추이 자리에 잠김 카드가 선다", async () => {
+      viewport.isMobile = false;
+      setDocData("users/test-uid/fitness/timeseries_bike", { discipline: "bike", schemaVersion: 1, computedAt: Date.now(),
+        startDate: null, endDate: null, pointCount: 0, points: [], sufficiency: loadSet("locked", "locked", 0) });
+      setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride",
+        startTime: Date.now(), deletedAt: null, summary: {} }]);
+      renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+      expect(await screen.findByTestId("K1-2-sufficiency")).toBeInTheDocument();
+      expect(screen.getByTestId("K1-2-sufficiency-state").textContent).toContain("바로 열려요");
+      expect(screen.getByTestId("K1-2-sufficiency-action").getAttribute("href")).toContain("/settings/connections");
+    });
+
     it("블록이 없는 문서(도입 이전)는 기존 화면 그대로다", async () => {
       viewport.isMobile = false;
       setDocData("users/test-uid/fitness/pdc_bike", parity.persistedPdc);

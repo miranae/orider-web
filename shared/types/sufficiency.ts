@@ -66,7 +66,11 @@ export type SufficiencyActionCode =
   | "ride_effort_3_20min"
   | "ride_long_1h"
   | "ride_varied_efforts"
-  | "wait_analysis";
+  | "wait_analysis"
+  /** 부하(TSS)가 잡히는 기록을 남긴다 — 종목 무관(부하 이력). */
+  | "record_activity"
+  /** 지금처럼 계속 기록한다 — 기간이 차야 하는 요건(부하 이력 해석). */
+  | "keep_recording";
 
 export interface SufficiencyBlock {
   featureId: string;
