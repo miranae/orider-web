@@ -27,9 +27,9 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   const thresholdMissing = p.thresholdBasis === "none";
   const duration = (value: number) => `${Math.floor(Math.round(value) / 60)}${copy("minute")} ${Math.round(value) % 60}${copy("second")}`;
   const powerDuration = (value: string) => i18n.language.startsWith("ko") ? value.replace(/s$/, "초").replace(/m$/, "분").replace(/h$/, "시간") : value;
-  const powerVisible = p.availability?.power !== "private" && p.session.discipline === "bike";
+  const powerVisible = p.session.discipline === "bike";
   const powerEstimated = p.session.discipline === "bike" && p.availability?.power === "estimated";
-  const zones = (p.zones ?? []).filter((zone) => zone.kind === "power" ? powerVisible : p.availability?.heartRate !== "private");
+  const zones = (p.zones ?? []).filter((zone) => zone.kind !== "power" || powerVisible);
   const highZone = zones.find((zone) => zone.kind === "power") ?? zones.find((zone) => zone.kind === "heartRate");
   // Format the canonical zone-time aggregate exactly as the share formatter does.
   const zoneTotal = highZone?.seconds.reduce((sum, value) => sum + value, 0) ?? 0;

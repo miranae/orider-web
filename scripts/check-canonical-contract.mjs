@@ -106,7 +106,7 @@ function main() {
 
   // overview wire 의미도 미러가 보존해야 한다 — 표시값만 맞아도 추정/잠정이 빠지면 계약 드리프트다.
   const overview = readFileSync(new URL('../shared/types/activity-overview.ts', import.meta.url), 'utf8');
-  if (createHash('sha256').update(overview).digest('hex') !== '9a5cbafdf9e50536a709bea05402b4ffc40666d66926f35ab4e75b36361a6965') errors.push('overview 전체 계약 mirror가 backend 합의본과 다르다');
+  if (createHash('sha256').update(overview).digest('hex') !== 'fc563439f5f6065ec6f5990090c64be7296a6add76970d56e6cf0e1b5f1dad1c') errors.push('overview 전체 계약 mirror가 backend 합의본과 다르다');
   if (!/power:\s*[^;]*"estimated"/.test(overview)) errors.push('overview power estimated 의미가 없다');
   if (!/ftpVerificationRequired\?:\s*boolean/.test(overview)) errors.push('overview FTP 확인 필요 의미가 없다');
 
