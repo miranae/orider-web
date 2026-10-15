@@ -47,9 +47,9 @@ const FIRST_FEED_CHUNK_SIZE = 3;
 const FEED_LOAD_RETRY_DELAYS_MS = [600, 1600] as const;
 const FEED_LOAD_TIMEOUT_MS = 12_000;
 // 친구 피드는 userId(in)의 각 후보마다 rules의 양방향 친구 exists() 검사를 수행한다.
-// 단일 쿼리의 rules 문서 접근 호출 한도(10)를 넘지 않도록 10명씩 나눈다. visibility(in)
-// 두 값과 곱해진 DNF 분기도 20개라 Firestore의 30-disjunction 한도 안에 남는다.
-const FRIEND_QUERY_CHUNK_SIZE = 10;
+// 단일 쿼리의 rules 문서 접근 호출 한도(10)를 넘지 않도록 5명씩 나눈다.
+// visibility(in) 두 값과 곱해진 DNF 분기도 Firestore의 30-disjunction 한도 안에 남는다.
+const FRIEND_QUERY_CHUNK_SIZE = 5;
 
 class ActivityFeedTimeoutError extends Error {
   constructor() {
@@ -210,9 +210,8 @@ export function useActivities(
     () => Array.from(new Set(friendIds.filter(Boolean))).sort().join("\u0000"),
     [friendIds],
   );
-  // 전체/본인 피드는 친구 목록을 사용하지 않는다. 로그인 직후 useFriends가 []에서
-  // 실제 목록으로 바뀌어도 이 두 범위의 피드·커서가 불필요하게 초기화되지 않게 한다.
-  const activeFriendIdsKey = scope === "friends" ? friendIdsKey : "";
+  // 전체와 친구 피드는 친구 목록 갱신 시 조회 범위와 커서를 함께 갱신한다.
+  const activeFriendIdsKey = scope !== "self" && user ? friendIdsKey : "";
   const stableFriendIds = useMemo(
     () => activeFriendIdsKey ? activeFriendIdsKey.split("\u0000") : [],
     [activeFriendIdsKey],
@@ -260,15 +259,18 @@ export function useActivities(
     }
     if (scope === "friends") {
       if (!uid) return [];
-      return chunkFriendIds(stableFriendIds).map((ownerIds) => ({
-        ownerIds,
-        composite: null,
-        filters: [
-          where("deletedAt", "==", null),
-          where("userId", "in", ownerIds),
-          where("visibility", "in", ["everyone", "friends"]),
-        ],
-      }));
+      return [
+        { ownerIds: null, composite: null, filters: [where("deletedAt", "==", null), where("userId", "==", uid)] },
+        ...chunkFriendIds(stableFriendIds.filter((id) => id !== uid)).map((ownerIds) => ({
+          ownerIds,
+          composite: null,
+          filters: [
+            where("deletedAt", "==", null),
+            where("userId", "in", ownerIds),
+            where("visibility", "in", ["everyone", "friends"]),
+          ],
+        })),
+      ];
     }
     return [{
       ownerIds: null,
@@ -276,7 +278,15 @@ export function useActivities(
         ? and(where("deletedAt", "==", null), or(where("userId", "==", uid), where("visibility", "==", "everyone")))
         : null,
       filters: uid ? [] : [where("deletedAt", "==", null), where("visibility", "==", "everyone")],
-    }];
+    }, ...uid ? chunkFriendIds(stableFriendIds.filter((id) => id !== uid)).map((ownerIds) => ({
+      ownerIds,
+      composite: null,
+      filters: [
+        where("deletedAt", "==", null),
+        where("userId", "in", ownerIds),
+        where("visibility", "==", "friends"),
+      ],
+    })) : []];
   }, [scope, stableFriendIds]);
 
   // Total count (경량 메타데이터 쿼리, 문서 데이터 전송 없음).

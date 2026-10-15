@@ -383,7 +383,7 @@ export default function MobileFeedPage({
   const filteredBySport = sportFilter === "all" ? visibleActivities
     : visibleActivities.filter(a => getDiscipline(a.type) === sportFilter);
   const filteredByScope = filteredBySport.filter((a) => {
-    if (effectiveFeedScope === "friends") return friendIdSet.has(a.userId);
+    if (effectiveFeedScope === "friends") return a.userId === currentUserId || friendIdSet.has(a.userId);
     if (effectiveFeedScope === "self") return currentUserId != null && a.userId === currentUserId;
     return true;
   });

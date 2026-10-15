@@ -514,6 +514,7 @@ describe("MobileFeedPage", () => {
   it("filters the feed scope from the select beside the date range", async () => {
     const user = userEvent.setup();
     const onFeedScopeChange = vi.fn();
+    const ownActivity = createMockActivity({ id: "own-private", userId: "test-uid", visibility: "private", description: "내 비공개 활동" });
     const friendActivity = createMockActivity({
       id: "friend-activity",
       userId: "friend-1",
@@ -527,11 +528,12 @@ describe("MobileFeedPage", () => {
 
     const { rerender } = renderWithProviders(
       <MobileFeedPage
-        activities={[friendActivity, publicActivity]}
+        activities={[ownActivity, friendActivity, publicActivity]}
         loading={false}
         hasMore={false}
         loadingMore={false}
         onLoadMore={vi.fn()}
+        currentUserId="test-uid"
         friendIds={["friend-1"]}
         feedScope="all"
         onFeedScopeChange={onFeedScopeChange}
@@ -556,17 +558,19 @@ describe("MobileFeedPage", () => {
 
     rerender(
       <MobileFeedPage
-        activities={[friendActivity, publicActivity]}
+        activities={[ownActivity, friendActivity, publicActivity]}
         loading={false}
         hasMore={false}
         loadingMore={false}
         onLoadMore={vi.fn()}
+        currentUserId="test-uid"
         friendIds={["friend-1"]}
         feedScope="friends"
         onFeedScopeChange={onFeedScopeChange}
       />,
     );
 
+    expect(screen.getByText("내 비공개 활동")).toBeInTheDocument();
     expect(screen.getByText("친구 활동")).toBeInTheDocument();
     expect(screen.queryByText("전체 활동")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "필터: 친구" })).toBeVisible();

@@ -8,7 +8,7 @@ import { ToastProvider } from "../contexts/ToastContext";
 import React from "react";
 import * as publicProfiles from "../services/publicProfiles";
 import * as errorLogger from "../services/errorLogger";
-import { getDocs, onSnapshot, orderBy, where } from "firebase/firestore";
+import { getDocs, getCountFromServer, query, onSnapshot, orderBy, where } from "firebase/firestore";
 import {
   __resetFirestoreSessionRecoveryForTests,
   FIRESTORE_B815_RECOVERY_SESSION_KEY,
@@ -425,8 +425,85 @@ describe("useActivities", () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     const ownerCalls = vi.mocked(where).mock.calls.filter(([field, operator]) => field === "userId" && operator === "in");
-    expect(ownerCalls.map(([, , ids]) => (ids as string[]).length)).toEqual([10, 6]);
+    expect(ownerCalls.map(([, , ids]) => (ids as string[]).length)).toEqual([5, 5, 5, 1]);
     expect(where).toHaveBeenCalledWith("visibility", "in", ["everyone", "friends"]);
+  });
+
+  it.each(["self", "friends", "all"] as const)("applies %s visibility across pages and counts without duplicate own/public activities", async (scope) => {
+    type Constraint = { type: string; args: unknown[] };
+    type MockQuery = { constraints: Constraint[] };
+    const rows = ["owner-1", "friend-1", "stranger"].flatMap((userId, ownerIndex) =>
+      (["everyone", "friends", "private"] as const).flatMap((visibility, visibilityIndex) =>
+        Array.from({ length: 4 }, (_, index) => createMockActivity({
+          id: `${userId}-${visibility}-${index}`, userId, visibility,
+          deletedAt: null, startTime: 1000 - index * 100 - ownerIndex * 10 - visibilityIndex,
+          profileImage: "https://example.com/avatar.jpg",
+        })),
+      ),
+    );
+    rows.push(createMockActivity({ id: "deleted", userId: "owner-1", deletedAt: 1, startTime: 2000 }));
+    const matches = (row: typeof rows[number], constraint: Constraint): boolean => {
+      if (constraint.type === "and") return (constraint.args as Constraint[]).every((part) => matches(row, part));
+      if (constraint.type === "or") return (constraint.args as Constraint[]).some((part) => matches(row, part));
+      if (constraint.type !== "where") return true;
+      const [field, operator, value] = constraint.args;
+      const actual = row[field as keyof typeof row];
+      return operator === "in" ? (value as unknown[]).includes(actual) : actual === value;
+    };
+    const selectedRows = (request: MockQuery) => rows
+      .filter((row) => request.constraints.every((constraint) => matches(row, constraint)))
+      .sort((a, b) => b.startTime - a.startTime);
+    const queryMock = vi.mocked(query);
+    const docsMock = vi.mocked(getDocs);
+    const countMock = vi.mocked(getCountFromServer);
+    const originalQuery = queryMock.getMockImplementation();
+    const originalDocs = docsMock.getMockImplementation();
+    const originalCount = countMock.getMockImplementation();
+    queryMock.mockImplementation(((_col: unknown, ...constraints: Constraint[]) => ({ constraints })) as never);
+    docsMock.mockImplementation((async (request: MockQuery) => {
+      let selected = selectedRows(request);
+      const cursor = request.constraints.find((constraint) => constraint.type === "startAfter")?.args[0] as { id: string } | undefined;
+      if (cursor) selected = selected.slice(selected.findIndex((row) => row.id === cursor.id) + 1);
+      const pageLimit = request.constraints.find((constraint) => constraint.type === "limit")?.args[0] as number | undefined;
+      if (pageLimit) selected = selected.slice(0, pageLimit);
+      return { docs: selected.map((row) => ({ id: row.id, data: () => row, ref: { path: `activities/${row.id}` } })) };
+    }) as never);
+    countMock.mockImplementation((async (request: MockQuery) => ({ data: () => ({ count: selectedRows(request).length }) })) as never);
+    try {
+      simulateLogin({ uid: "owner-1" });
+      // 본인 UID나 중복된 친구가 섞여도 소스는 서로 겹치지 않아야 한다.
+      const { result, unmount } = renderHook(() => useActivities(scope, ["friend-1", "owner-1", "friend-1"]), { wrapper });
+      const expected = rows.filter((row) => row.deletedAt === null && (
+        row.userId === "owner-1" ||
+        (scope !== "self" && row.userId === "friend-1" && row.visibility !== "private") ||
+        (scope === "all" && row.visibility === "everyone")
+      )).sort((a, b) => b.startTime - a.startTime).map((row) => row.id);
+      await waitFor(() => expect(result.current.activities.length).toBe(Math.min(expected.length, 10)));
+      await waitFor(() => expect(result.current.loadingMore).toBe(false));
+      while (result.current.hasMore) {
+        await act(async () => { await result.current.loadMore(); });
+      }
+      expect(result.current.activities.map((row) => row.id)).toEqual(expected);
+      expect(new Set(result.current.activities.map((row) => row.id)).size).toBe(expected.length);
+      await waitFor(() => expect(result.current.totalCount).toBe(expected.length), { timeout: 5500 });
+      unmount();
+    } finally {
+      queryMock.mockReset(); docsMock.mockReset(); countMock.mockReset();
+      if (originalQuery) queryMock.mockImplementation(originalQuery);
+      if (originalDocs) docsMock.mockImplementation(originalDocs);
+      if (originalCount) countMock.mockImplementation(originalCount);
+    }
+  }, 10000);
+
+  it("keeps own private activities in the friends feed with no friends", async () => {
+    simulateLogin({ uid: "owner-1" });
+    vi.mocked(where).mockClear();
+    setCollectionDocs("activities", [{ ...createMockActivity({ id: "mine", userId: "owner-1", visibility: "private" }), id: "mine" }]);
+    const { result } = renderHook(() => useActivities("friends"), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.activities.map((row) => row.id)).toEqual(["mine"]);
+    expect(where).toHaveBeenCalledWith("userId", "==", "owner-1");
+    expect(vi.mocked(where).mock.calls.some(([field, operator]) => field === "userId" && operator === "in")).toBe(false);
   });
 
   it("orders the feed by ride time, not upload time", async () => {
@@ -511,10 +588,11 @@ describe("useActivities", () => {
     }
   });
 
-  it("does not reload all-scope activities when the async friend list changes", async () => {
+  it("reloads all-scope activities when the async friend list changes", async () => {
     const mockedGetDocs = vi.mocked(getDocs);
     mockedGetDocs.mockClear();
 
+    simulateLogin({ uid: "owner-1" });
     const { result, rerender } = renderHook(
       ({ friendIds }: { friendIds: string[] }) => useActivities("all", friendIds),
       { wrapper, initialProps: { friendIds: [] } },
@@ -526,7 +604,7 @@ describe("useActivities", () => {
     rerender({ friendIds: ["friend-loaded-later"] });
     await act(async () => { await Promise.resolve(); });
 
-    expect(mockedGetDocs).toHaveBeenCalledTimes(callsAfterInitialLoad);
+    await waitFor(() => expect(mockedGetDocs.mock.calls.length).toBeGreaterThan(callsAfterInitialLoad));
   });
 
   it("does not append an old load-more response after an all-self-all scope cycle", async () => {
