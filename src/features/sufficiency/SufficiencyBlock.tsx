@@ -21,6 +21,7 @@ const ACTION_TARGETS: Partial<Record<string, string>> = {
   confirm_weight: "/coach/condition#thresholds",
   connect_power_meter: "/settings/device",
   record_power_ride: "/settings/connections",
+  record_activity: "/settings/connections",
 };
 
 /** 남은 요건이 충분조건 하나뿐인가 — 「바로 열려요」를 써도 되는 유일한 경우. */
@@ -98,18 +99,24 @@ export function SufficiencyInline({ set, block, testId }: { set: SufficiencySet;
   useEffect(() => { if (visible) trackSufficiencyView(set, block, state, "inline"); }, [set, block, state, visible]);
   if (!visible) return null;
   const assumed = block.source.assumedInputs.length > 0;
+  // 가정값이 아니면 무엇이 모자란지 한 줄로 말한다(서버 요건을 그대로, 예: "첫 기록 10일째 · 42일째부터").
+  const unmet = assumed ? undefined : block.requirements.find(row => row.satisfaction !== "met");
   return <div data-testid={testId} className="flex flex-wrap items-center gap-2 mt-1">
     <Chip variant="warning">{t(assumed ? "sufficiency.chip.assumed" : "sufficiency.chip.lowEvidence")}</Chip>
     {assumed && <Text as="span" variant="caption" tone="tertiary">
       {block.source.assumedInputs.map(input => t(`sufficiency.assumedInput.${input}`)).join(", ")}
+    </Text>}
+    {unmet && <Text data-testid={`${testId}-requirement`} as="span" variant="caption" tone="tertiary">
+      {t(`sufficiency.req.${unmet.requirementId}.not_met`, { target: unmet.target?.value, current: unmet.current?.value })}
     </Text>}
     <ActionLine block={block} testId={testId} />
   </div>;
 }
 
 /** 이 기능의 블록. 블록이 없으면(도입 이전 문서·모양 오류) undefined — 호출부는 기존 표시를 쓴다. */
-export function findSufficiencyBlock(set: SufficiencySet | null | undefined, featureId: string): SufficiencyBlock | undefined {
-  return set?.blocks.find(block => block.featureId === featureId);
+export function findSufficiencyBlock(set: SufficiencySet | null | undefined, featureId: string,
+  viewId?: string): SufficiencyBlock | undefined {
+  return set?.blocks.find(block => block.featureId === featureId && (viewId === undefined || block.viewId === viewId));
 }
 
 /** 잠긴 자리를 카드로 대신해야 하는가. 열림·낮은 근거·해당 없음이면 아니다. */

@@ -26,6 +26,16 @@ describe("parseSufficiencySet", () => {
     expect(parsed?.set.blocks).toEqual([]);
   });
 
+  it("부하 이력 블록(일 단위 기간 요건)을 받는다", () => {
+    const block = sufficiencyBlock({ featureId: "load_history", viewId: "form", state: "low_evidence",
+      nextAction: { code: "keep_recording" }, requirements: [{ requirementId: "load_history_period", kind: "period",
+        satisfaction: "not_met", guarantee: "sufficient", target: { value: 42, unit: "day" }, current: { value: 10, unit: "day" } }] });
+    const parsed = parseSufficiencySet(sufficiencySet([block, sufficiencyBlock({ featureId: "load_history", viewId: "trend",
+      state: "locked", nextAction: { code: "record_activity" }, requirements: [] })]));
+    expect(parsed?.dropped).toBe(0);
+    expect(parsed?.set.blocks.map(row => row.viewId)).toEqual(["form", "trend"]);
+  });
+
   it("묶음 모양이 틀리면 null", () => {
     expect(parseSufficiencySet({ ...sufficiencySet(), schemaVersion: 2 })).toBeNull();
     expect(parseSufficiencySet({ ...sufficiencySet(), subjectKey: "raw-uid" })).toBeNull();

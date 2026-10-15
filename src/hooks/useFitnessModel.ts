@@ -62,6 +62,7 @@ import {
 import { acceptedActivityLoad } from "@shared/training/acceptedActivityLoad";
 import { acceptedTrainingActivities } from "../utils/estimateTSS";
 import { logClientError } from "../services/errorLogger";
+import { readSufficiencyField } from "../services/sufficiencyContract";
 import { useBikeFtpDecision } from "./useBikeFtpDecision";
 import { useCanonicalFitnessSummary } from "./useCanonicalFitnessSummary";
 import { getRuntimeConfig } from "../services/runtimeConfig";
@@ -583,6 +584,12 @@ export function useFitnessModel(
     user?.isAnonymous === true,
     subscriptionActive,
   );
+  // 부하 이력 충분도 — 이 종목 시계열 문서가 함께 가진 블록. tri 는 종목별 근거를 합치지 않는다(블록 없음).
+  const loadSufficiency = useMemo(
+    () => discipline === "tri" || !user?.uid || timeseries?.discipline !== discipline ? null
+      : readSufficiencyField(timeseries, user.uid, "useFitnessModel.loadHistory"),
+    [discipline, timeseries, user?.uid],
+  );
   const triUid = discipline === "tri" && !canonicalActive && !canonicalPending ? user?.uid : undefined;
   const {
     timeseries: triRunTimeseries,
@@ -1081,6 +1088,7 @@ export function useFitnessModel(
     discipline,
     pdc,
     pdcSufficiency: pdcSufficiency ?? null,
+    loadSufficiency,
     runRecords,
     milestones,
     consistencyStreak,

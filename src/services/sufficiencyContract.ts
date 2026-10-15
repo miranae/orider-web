@@ -6,6 +6,7 @@
  * 보여 준다(블록이 없는 사용자와 같은 경로). 모르는 기능·요건·행동 코드는 그 블록만 버린다 —
  * 서버가 카탈로그를 먼저 늘려도 화면이 깨지지 않게.
  */
+import { logClientError } from "./errorLogger";
 import type {
   SufficiencyActionCode, SufficiencyBlock, SufficiencyExclusionReason, SufficiencyGuarantee,
   SufficiencyRequirement, SufficiencyRequirementKind, SufficiencySet, SufficiencyState,
@@ -16,12 +17,14 @@ const GUARANTEES: SufficiencyGuarantee[] = ["sufficient", "minimum", "unpredicta
 const KINDS: SufficiencyRequirementKind[] = ["input", "count", "channel", "period", "quality", "eligibility", "freshness", "self_report"];
 const EXCLUSIONS: SufficiencyExclusionReason[] = ["virtual_power", "metrics_pending"];
 export const KNOWN_SUFFICIENCY_ACTIONS: SufficiencyActionCode[] = ["input_weight", "confirm_weight", "connect_power_meter",
-  "record_power_ride", "ride_effort_3_20min", "ride_long_1h", "ride_varied_efforts", "wait_analysis"];
+  "record_power_ride", "ride_effort_3_20min", "ride_long_1h", "ride_varied_efforts", "wait_analysis",
+  "record_activity", "keep_recording"];
 /** 웹이 문구를 가진 기능·요건. 여기 없는 것은 그 블록만 표시하지 않는다. */
-export const KNOWN_SUFFICIENCY_FEATURES = ["power_model", "ftp_estimate", "vo2max", "rider_profile"] as const;
+export const KNOWN_SUFFICIENCY_FEATURES = ["power_model", "ftp_estimate", "vo2max", "rider_profile", "load_history"] as const;
 const KNOWN_REQUIREMENTS = ["measured_power_activities", "effort_3_20min_points", "cp_fit", "long_rides_1h", "curve_fit",
-  "estimate_agreement", "weight", "power_5min_or_cp", "vo2max_plausible", "classification_confidence"];
-const UNITS = ["activity", "point", "ride_1h", "kg"];
+  "estimate_agreement", "weight", "power_5min_or_cp", "vo2max_plausible", "classification_confidence",
+  "load_days", "load_history_period"];
+const UNITS = ["activity", "point", "ride_1h", "kg", "day"];
 
 const object = (value: unknown): Record<string, unknown> | null =>
   value != null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -77,6 +80,24 @@ export function parseSufficiencySet(input: unknown): { set: SufficiencySet; drop
       || typeof raw.digest !== "string" || !Array.isArray(raw.blocks)) return null;
   const blocks = raw.blocks.map(block).filter((item): item is SufficiencyBlock => item != null);
   return { set: { ...(raw as unknown as SufficiencySet), blocks }, dropped: raw.blocks.length - blocks.length };
+}
+
+/**
+ * 소유 산출물 문서의 `sufficiency` 필드를 읽는다. 필드가 없으면(도입 전 문서) null — 호출부는
+ * 기존 표시를 쓴다. 모양이 틀리거나 블록을 버렸으면 `${scope}.*` 로 남긴다.
+ */
+export function readSufficiencyField(raw: unknown, uid: string, scope: string): SufficiencySet | null {
+  const value = raw != null && typeof raw === "object" ? (raw as { sufficiency?: unknown }).sufficiency : undefined;
+  if (value === undefined) return null;
+  const parsed = parseSufficiencySet(value);
+  if (!parsed) {
+    logClientError(`${scope}.invalidSufficiency`, new Error("INVALID_SUFFICIENCY_SET"), { uid });
+    return null;
+  }
+  if (parsed.dropped > 0) {
+    logClientError(`${scope}.droppedSufficiencyBlocks`, new Error(String(parsed.dropped)), { uid });
+  }
+  return parsed.set;
 }
 
 /**

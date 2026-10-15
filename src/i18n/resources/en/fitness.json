@@ -1164,5 +1164,12 @@
   "sufficiency.action.ride_effort_3_20min": "Add a steady 5–20 min max effort to your next ride",
   "sufficiency.action.ride_long_1h": "Steady rides of 1 h or longer help",
   "sufficiency.action.ride_varied_efforts": "A mix of efforts, from sprints to long climbs, helps",
-  "sufficiency.action.wait_analysis": "This updates when the ride analysis finishes"
+  "sufficiency.action.wait_analysis": "This updates when the ride analysis finishes",
+  "sufficiency.feature.load_history": "Load trend (CTL·ATL·TSB)",
+  "sufficiency.req.load_days.met": "{{current}} day(s) with training load",
+  "sufficiency.req.load_days.not_met": "No workouts with training load (TSS) yet",
+  "sufficiency.req.load_history_period.met": "Day {{current}} of your history — enough to read your form",
+  "sufficiency.req.load_history_period.not_met": "Day {{current}} since your first workout · form reads accurately from day {{target}}",
+  "sufficiency.action.record_activity": "Import workouts",
+  "sufficiency.action.keep_recording": "Keep recording as you do now"
 }

@@ -35,6 +35,8 @@ interface FitnessCoachBriefingProps {
   deliveryEnabled?: boolean;
   choiceTitle?: string;
   weekChangeSlot?: ReactNode;
+  /** 현재 지표(CTL/ATL/TSB) 바로 아래 한 줄 — 부하 이력 해석의 충분도(낮은 근거일 때만 그려진다). */
+  metricsNoteSlot?: ReactNode;
 }
 
 const CHOICE_LOAD: Record<TrainingChoice, number> = { rest: 0, recovery: 20, endurance: 45 };
@@ -93,7 +95,7 @@ function initialTrainingChoice(tsb: number): TrainingChoice {
   return "endurance";
 }
 
-export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false, deliveryEnabled = true, choiceTitle, weekChangeSlot }: FitnessCoachBriefingProps) {
+export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false, deliveryEnabled = true, choiceTitle, weekChangeSlot, metricsNoteSlot }: FitnessCoachBriefingProps) {
   const { t } = useTranslation("fitness");
   const [mode, setMode] = useState<ImpactMode>("marginal");
   const [trainingChoice, setTrainingChoice] = useState<TrainingChoice>(() => part === "today" && !canonicalAvailable ? "rest" : initialTrainingChoice(current.tsb));
@@ -136,6 +138,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
             <div><Text as="div" variant="eyebrow">{t("coach.metric.tsb")}</Text><Text variant="dataMedium" style={{ color: "var(--amber)" }}>{signed(current.tsb)}</Text></div>
           </div>
         </div>
+        {metricsNoteSlot}
         {part === "condition" && <LocalizedLink data-testid="K1-1-3" to={`/coach/today?sport=${discipline}`}>{t("today.header.title")} →</LocalizedLink>}
       </Card>}
 

@@ -9,6 +9,7 @@
  * functions/src/training/fitness-timeseries.ts(FitnessTimeseriesDoc)에 둔다 — 양쪽 동기화 필수.
  */
 import type { FitnessPoint } from '../training/fitness'
+import type { SufficiencySet } from './sufficiency'
 
 export const FITNESS_TIMESERIES_SCHEMA_VERSION = 1
 
@@ -29,6 +30,8 @@ export interface FitnessTimeseriesDoc {
   loadSnapshot?: FitnessLoadSnapshot
   pmc?: FitnessPmcState
   inputInvalidatedAt?: { seconds: number; nanoseconds: number }
+  /** 부하 이력 충분도 블록(trend·form) — 이 시계열을 계산한 같은 실행이 만든다. */
+  sufficiency?: SufficiencySet
 }
 
 /** final은 이 입력 snapshot의 부하 계산 완료이며 향후 동기화/하루 최종 확정이 아니다. */
