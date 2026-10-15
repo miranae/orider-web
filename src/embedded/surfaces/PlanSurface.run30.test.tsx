@@ -75,6 +75,14 @@ describe("PlanSurface Run30 mode", () => {
     expect(mocks.programViewProps?.startMode).toEqual({ kind: "host-unsupported" });
   });
 
+  it("프로그램 변경 후 Run30와 일반 계획을 모두 강제 갱신한다", async () => {
+    mocks.run30 = { ...mocks.run30, program };
+    render(wrapper(<PlanSurface onReady={vi.fn()} retryKey={0} />));
+    await (mocks.programViewProps?.onRefresh as () => Promise<void>)();
+    expect(mocks.run30.refresh).toHaveBeenCalledWith();
+    expect(loadedPlan.retryLoad).toHaveBeenCalledOnce();
+  });
+
   it("passes the host starter when the capability was negotiated", () => {
     mocks.run30 = { ...mocks.run30, program };
     const starter = { start: vi.fn() };
@@ -105,6 +113,26 @@ describe("PlanSurface Run30 mode", () => {
     expect(onReady).not.toHaveBeenCalled();
     mocks.run30 = { ...mocks.run30, status: "ready" };
     rerender(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
+  });
+
+  it("캐시 Run30 프로그램은 로딩 대기 없이 표시하며 cached만 보고한다", async () => {
+    mocks.planModel = { ...loadedPlan, goalLoading: true, loading: true, freshLoaded: false };
+    mocks.run30 = { ...mocks.run30, program, cacheHit: true };
+    const onReady = vi.fn();
+    render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    expect(screen.getByTestId("run30-program-view")).toBeInTheDocument();
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
+    expect(onReady).not.toHaveBeenCalledWith("fresh");
+  });
+
+  it("Run30 조회 중에도 성공한 일반 계획 캐시는 가리지 않는다", async () => {
+    mocks.planModel = { ...loadedPlan, goal: { id: "half", discipline: "run" }, cacheHit: true, freshLoaded: false };
+    mocks.run30 = { ...mocks.run30, status: "loading" };
+    const onReady = vi.fn();
+    render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    expect(screen.getByTestId("plan-presentation")).toBeInTheDocument();
+    expect(screen.queryByTestId("run30-enroll-offer")).not.toBeInTheDocument();
     await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
   });
 

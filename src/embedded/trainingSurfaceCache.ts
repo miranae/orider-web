@@ -7,7 +7,7 @@ const CACHE_MAX_BYTES = 512 * 1024;
 const STORAGE_PREFIX = "orider.trainingSurfaceCache.";
 const STORAGE_KEY = `${STORAGE_PREFIX}v2`;
 
-export type TrainingCacheSurface = "fitness" | "fitness-timeseries" | "fitness-summary" | "plan";
+export type TrainingCacheSurface = "fitness" | "fitness-timeseries" | "fitness-summary" | "plan" | "plan-snapshot" | "run30";
 
 export interface TrainingSurfaceCacheKey {
   uid: string;
@@ -18,7 +18,7 @@ export interface TrainingSurfaceCacheKey {
 }
 
 function cacheTtl(surface: TrainingCacheSurface): number {
-  return surface === "fitness-summary" ? SUMMARY_CACHE_TTL_MS : CACHE_TTL_MS;
+  return ["fitness-summary", "plan-snapshot", "run30"].includes(surface) ? SUMMARY_CACHE_TTL_MS : CACHE_TTL_MS;
 }
 
 interface CacheEntry {
@@ -54,7 +54,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function validKey(value: unknown, uid: string): value is TrainingSurfaceCacheKey {
   if (!isRecord(value) || value.uid !== uid) return false;
-  return ["fitness", "fitness-timeseries", "fitness-summary", "plan"].includes(String(value.surface))
+  return ["fitness", "fitness-timeseries", "fitness-summary", "plan", "plan-snapshot", "run30"].includes(String(value.surface))
     && typeof value.sport === "string" && value.sport.length > 0 && value.sport.length <= 64
     && typeof value.locale === "string" && value.locale.length > 0 && value.locale.length <= 64
     && (value.range === undefined || (typeof value.range === "string" && value.range.length <= 64)
@@ -76,6 +76,13 @@ function validJson(value: unknown, depth = 0): boolean {
 
 function validSnapshot(surface: TrainingCacheSurface, value: unknown, uid: string): boolean {
   if (!isRecord(value) || !validJson(value)) return false;
+  if (surface === "plan-snapshot" || surface === "run30") {
+    return Object.keys(value).length === 4 && typeof value.invalidated === "boolean" && typeof value.savedAt === "number"
+      && Number.isFinite(value.savedAt) && typeof value.timezone === "string"
+      && (surface === "plan-snapshot" ? validSnapshot("plan", value.data, uid)
+        : value.data === null || (isRecord(value.data) && typeof value.data.goalId === "string"
+          && value.data.template === "run-30-intro-v1" && Array.isArray(value.data.sessions)));
+  }
   if (surface === "fitness-summary") {
     return Object.keys(value).length === 2 && isRecord(value.envelope)
       && value.envelope.status === "canonical" && isRecord(value.envelope.data)
@@ -208,6 +215,7 @@ export function setTrainingSurfaceCache<T>(key: TrainingSurfaceCacheKey, value: 
     if (new TextEncoder().encode(encoded).byteLength > CACHE_MAX_BYTES) return;
     detached = JSON.parse(encoded) as T;
   } catch { return; }
+  if (["plan-snapshot", "run30"].includes(key.surface) && !validSnapshot(key.surface, detached, key.uid)) return;
   const serialized = serializeKey(key);
   entries.delete(serialized);
   entries.set(serialized, { key: { ...key }, expiresAt: Date.now() + cacheTtl(key.surface), value: detached });
@@ -222,6 +230,19 @@ export function setTrainingSurfaceCache<T>(key: TrainingSurfaceCacheKey, value: 
 export function removeTrainingSurfaceCache(key: TrainingSurfaceCacheKey): void {
   if (ownerUid !== key.uid || ownerScope !== trainingSurfaceCacheScope()) return;
   entries.delete(serializeKey(key));
+  persist();
+}
+
+/** 변경 성공 후 같은 종목의 다른 언어 스냅샷도 fresh로 재사용하지 않는다. */
+export function removeTrainingSurfaceCacheForSport(uid: string, sport: string): void {
+  if (ownerUid !== uid || ownerScope !== trainingSurfaceCacheScope()) return;
+  for (const [serialized, entry] of entries) {
+    if (entry.key.uid !== uid || entry.key.sport !== sport) continue;
+    if (entry.key.surface === "plan") entries.delete(serialized);
+    else if (["plan-snapshot", "run30"].includes(entry.key.surface) && isRecord(entry.value)) {
+      entry.value = { ...entry.value, invalidated: true };
+    }
+  }
   persist();
 }
 
