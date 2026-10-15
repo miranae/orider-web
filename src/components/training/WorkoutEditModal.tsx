@@ -214,6 +214,8 @@ export default function WorkoutEditModal({
         plannedTSS: TSS_MAP[newKind],
         plannedDurationMin: DURATION_MAP[newKind],
       };
+      // 프리셋 선택은 절대 강도 입력이 아니다. 이전 생성기의 구간 증명을 새 프리셋에 붙이지 않는다.
+      delete days[dayIndex]!.prescriptionIntensityProvenance;
       delete days[dayIndex]!.adjustedTSS;
       delete days[dayIndex]!.adjustedDurationMin;
       delete (days[dayIndex]! as PlanDay & { closedLoopAdjustment?: unknown }).closedLoopAdjustment;
@@ -232,9 +234,14 @@ export default function WorkoutEditModal({
     try {
       const parsed = parseWorkoutFile(file.name, await file.text());
       if (!parsed) { void dialog.alert(t('edit.importUnsupported'), { variant: "warning" }); setLoading(false); return; }
-      // 플랜 snapshot FTP 로 watts 환산(없으면 200 기본).
+      // 상대 강도 파일은 현재 계획과 같은 값·출처의 근거로 환산한다. 과거 시작값을 섞지 않는다.
       const goalSnap = await getDoc(doc(firestore, "goals", goalId));
-      const ftp = (goalSnap.data()?.snapshot?.ftp as number | undefined) ?? 200;
+      const goal = goalSnap.data();
+      const planInputs = goal?.planInputSources ?? goal?.snapshot;
+      const rawFtp = planInputs?.ftp;
+      if ((planInputs?.ftpSource === "user" || planInputs?.ftpSource === "pdc_estimate")
+        && (typeof rawFtp !== "number" || !Number.isFinite(rawFtp) || rawFtp <= 0)) throw new Error("Invalid plan FTP basis");
+      const ftp = (rawFtp as number | undefined) ?? 200;
       const intervals = toIntervalBlocks(parsed, ftp);
       const load = estimateWorkoutLoad(parsed);
       // run() 이 자체 finally 로 로딩 해제 + onClose 처리.
@@ -247,6 +254,8 @@ export default function WorkoutEditModal({
           plannedDurationMin: load.durationMin,
           plannedTSS: load.tss,
         };
+        // 파일은 FTP 분율을 환산한 값이다. 사용자 절대 입력으로 승격하거나 원래 생성기 증명을 재사용하지 않는다.
+        delete days[dayIndex]!.prescriptionIntensityProvenance;
         delete days[dayIndex]!.executionWorkoutOverride;
         delete days[dayIndex]!.adjustedTSS;
         delete days[dayIndex]!.adjustedDurationMin;

@@ -7,11 +7,6 @@ import WorkoutEditModal from "./WorkoutEditModal";
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => ({ alert: vi.fn() }) }));
-vi.mock("@shared/training/workoutImport", () => ({
-  parseWorkoutFile: () => ({ name: "새 임포트" }),
-  toIntervalBlocks: () => [{ label: "Z2", durationMin: 30 }],
-  estimateWorkoutLoad: () => ({ durationMin: 30, tss: 25 }),
-}));
 const original: PlanDay = { date: 1000000, dayOfWeek: 1, workout: "vo2", plannedTSS: 95,
   plannedDurationMin: 60, completed: false, skipped: false,
   intervals: [{ label: "Z5", durationMin: 10 }], workoutName: "원본 고강도" };
@@ -19,7 +14,7 @@ function show(day: PlanDay, weekAdjustmentReason?: string) {
   return render(<WorkoutEditModal day={day} weekId="week-01" dayIndex={0} goalId="goal"
     weekAdjustmentReason={weekAdjustmentReason} goalDiscipline="bike" onClose={vi.fn()} onUpdate={vi.fn()} />);
 }
-beforeEach(() => { vi.mocked(updateDoc).mockClear(); });
+beforeEach(() => { vi.mocked(updateDoc).mockClear(); vi.mocked(getDoc).mockReset(); });
 afterEach(cleanup);
 
 describe("강도 교체와 원본 임포트", () => {
@@ -65,8 +60,9 @@ describe("강도 교체와 원본 임포트", () => {
       adjustedTSS: 10, adjustedDurationMin: 20, closedLoopAdjustment: { originalWorkout: "vo2", suggestedWorkout: "rec" } };
     vi.mocked(getDoc).mockResolvedValue({ exists: () => true, data: () => ({ days: [old], snapshot: { ftp: 200 } }) } as unknown as Awaited<ReturnType<typeof getDoc>>);
     const { container } = show(old);
-    const file = new File(["workout"], "workout.zwo");
-    Object.defineProperty(file, "text", { value: async () => "workout" });
+    const content = '<workout_file><name>새 임포트</name><workout><SteadyState Duration="1800" Power="0.8"/></workout></workout_file>';
+    const file = new File([content], "workout.zwo");
+    Object.defineProperty(file, "text", { value: async () => content });
     fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
     await waitFor(() => expect(updateDoc).toHaveBeenCalled());
     const saved = (vi.mocked(updateDoc).mock.calls[0]?.[1] as { days: Record<string, unknown>[] }).days[0]!;
@@ -99,4 +95,87 @@ describe("Firestore rules 가 거부하는 완료·건너뛰기 쓰기 잠금", 
     expect(screen.getByRole("button", { name: "edit.markCompleted" })).toBeEnabled();
     expect(screen.queryByText("edit.serverOutcomeLocked")).not.toBeInTheDocument();
   });
+});
+
+
+const generatedProof: NonNullable<PlanDay["prescriptionIntensityProvenance"]> = {
+  origin: "generator", basis: { discipline: "bike", value: 200, source: "assumed", revision: null }, contentRevision: "old-generator-proof",
+};
+const relativeWorkout = '<workout_file><name>상대 구간</name><workout><SteadyState Duration="600" Power="0.8"/></workout></workout_file>';
+async function importFile(container: HTMLElement, filename: string, content: string) {
+  const file = new File([content], filename);
+  Object.defineProperty(file, "text", { value: async () => content });
+  fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+}
+function savedDays(): PlanDay[] {
+  return (vi.mocked(updateDoc).mock.calls[0]?.[1] as { days: PlanDay[] }).days;
+}
+
+describe("워크아웃 작성 행위와 강도 근거", () => {
+  it.each([160, 190])("같거나 바뀐 %iW 구간 임포트도 이전 생성기 증명을 재사용하지 않는다", async power => {
+    const day = { ...original, intervals: [{ label: "Z2" as const, durationMin: 10, targetPowerW: [power, power] as [number, number] }], prescriptionIntensityProvenance: generatedProof };
+    vi.mocked(getDoc).mockResolvedValueOnce({ exists: () => true, data: () => ({ snapshot: { ftp: 200, ftpSource: "assumed" } }) } as never)
+      .mockResolvedValueOnce({ exists: () => true, data: () => ({ days: [day] }) } as never);
+    const { container } = show(day);
+    await importFile(container, "relative.zwo", relativeWorkout);
+    await waitFor(() => expect(updateDoc).toHaveBeenCalledOnce());
+    expect(savedDays()[0]?.intervals?.[0]?.targetPowerW).toEqual([160, 160]);
+    expect(savedDays()[0]).not.toHaveProperty("prescriptionIntensityProvenance");
+  });
+
+  it("현재 계획의 값으로 상대 파일을 환산하며 과거 가정 시작값과 섞지 않는다", async () => {
+    const day = { ...original, prescriptionIntensityProvenance: generatedProof };
+    vi.mocked(getDoc).mockResolvedValueOnce({ exists: () => true, data: () => ({ snapshot: { ftp: 200, ftpSource: "assumed" }, planInputSources: { ftp: 250, ftpSource: "user" } }) } as never)
+      .mockResolvedValueOnce({ exists: () => true, data: () => ({ days: [day] }) } as never);
+    const { container } = show(day);
+    await importFile(container, "relative.zwo", relativeWorkout);
+    await waitFor(() => expect(updateDoc).toHaveBeenCalledOnce());
+    expect(savedDays()[0]?.intervals?.[0]?.targetPowerW).toEqual([200, 200]);
+    expect(savedDays()[0]).not.toHaveProperty("prescriptionIntensityProvenance");
+  });
+
+  it("JSON 직접 편집 경로는 없고 지원하지 않는 JSON 파일은 저장하지 않는다", async () => {
+    const { container } = show({ ...original, prescriptionIntensityProvenance: generatedProof });
+    await importFile(container, "absolute.json", '{"target":{"type":"POWER","watts":160}}');
+    await waitFor(() => expect(container.querySelector('input[type="file"]')).not.toBeDisabled());
+    expect(updateDoc).not.toHaveBeenCalled();
+    expect(getDoc).not.toHaveBeenCalled();
+  });
+
+  it("프리셋 교체는 사용자 절대 입력으로 승격하지 않고 기존 생성기 증명을 제거한다", async () => {
+    const day = { ...original, prescriptionIntensityProvenance: generatedProof };
+    vi.mocked(getDoc).mockResolvedValue({ exists: () => true, data: () => ({ days: [day] }) } as never);
+    show(day);
+    fireEvent.click(screen.getByRole("button", { name: "edit.changeWorkout" }));
+    fireEvent.click(screen.getByRole("button", { name: "workouts.rec" }));
+    await waitFor(() => expect(updateDoc).toHaveBeenCalledOnce());
+    expect(savedDays()[0]).toMatchObject({ workout: "rec", executionWorkoutOverride: "rec", intervals: original.intervals });
+    expect(savedDays()[0]).not.toHaveProperty("prescriptionIntensityProvenance");
+  });
+
+  it.each(["edit.markCompleted", "edit.skip"])("%s 결과 변경은 강도 내용과 작성 근거를 보존한다", async action => {
+    const day = { ...original, prescriptionIntensityProvenance: generatedProof };
+    vi.mocked(getDoc).mockResolvedValue({ exists: () => true, data: () => ({ days: [day] }) } as never);
+    show(day);
+    fireEvent.click(screen.getByRole("button", { name: action }));
+    await waitFor(() => expect(updateDoc).toHaveBeenCalledOnce());
+    expect(savedDays()[0]).toMatchObject({ prescriptionIntensityProvenance: generatedProof, intervals: original.intervals, workoutName: original.workoutName });
+  });
+});
+
+it("폼 열기와 이름 표시만으로 기존 강도 근거를 사용자 확인으로 바꾸지 않는다", () => {
+  show({ ...original, workoutName: "이름만 다른 원본", prescriptionIntensityProvenance: generatedProof });
+  expect(screen.getByText(/이름만 다른 원본/)).toBeInTheDocument();
+  expect(updateDoc).not.toHaveBeenCalled();
+});
+
+it("기존 이웃일 교환은 강도 구간과 각 날짜의 출처 메타를 그대로 보존한다", async () => {
+  const day = { ...original, prescriptionIntensityProvenance: generatedProof };
+  const next: PlanDay = { ...original, date: original.date + 86400000, workout: "z2", prescriptionIntensityProvenance: { origin: "user" } };
+  vi.mocked(getDoc).mockResolvedValue({ exists: () => true, data: () => ({ days: [day, next] }) } as never);
+  show(day);
+  fireEvent.click(screen.getByRole("button", { name: "edit.swapNext" }));
+  await waitFor(() => expect(updateDoc).toHaveBeenCalledOnce());
+  expect(savedDays()[0]).toMatchObject({ workout: "z2", intervals: original.intervals, prescriptionIntensityProvenance: generatedProof });
+  expect(savedDays()[1]).toMatchObject({ workout: "vo2", prescriptionIntensityProvenance: { origin: "user" } });
 });
