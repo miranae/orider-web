@@ -9,17 +9,17 @@ import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import { clearTrainingSurfaceCache } from "../embedded/trainingSurfaceCache";
 import { useFitnessModel } from "../hooks/useFitnessModel";
 import { FitnessView } from "../pages/FitnessPage";
-const mocks = vi.hoisted(() => ({user:{uid:"rider-a",isAnonymous:false},firestore:{},services:{firestore:{}},timeseries:null as FitnessTimeseriesDoc|null, canonicalOn: false, envelope: null as unknown, pendingFetch: null as Promise<unknown> | null}));
+const mocks = vi.hoisted(() => ({user:{uid:"rider-a",isAnonymous:false},firestore:{},services:{firestore:{}},timeseries:null as FitnessTimeseriesDoc|null, canonicalOn: false, envelope: null as unknown, pendingFetch: null as Promise<unknown> | null, activityWindow: null as unknown, pdcSufficiency: null as unknown}));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, profile: null }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: vi.fn() }) }));
 vi.mock("../hooks/useTrainingDecision", () => ({useTrainingDecision:()=>({enabled:false,envelope:null})}));
 vi.mock("../hooks/useFtpHistory", () => ({ useFtpHistory: () => ({ entries: [] }) }));
 vi.mock("../hooks/useMobile", () => ({ useMobile: () => false }));
-vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ pdc: null }) }));
+vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ pdc: null, sufficiency: mocks.pdcSufficiency }) }));
 vi.mock("../features/fitness/useFitnessCurves", () => ({ useFitnessCurves: () => ({
   run: { recent28: [], prev28: [] }, swim: { recent28: [], prev28: [] },
-  activityWindow: null, activityWindowLoaded: true, activityWindowError: false,
+  activityWindow: mocks.activityWindow, activityWindowLoaded: true, activityWindowError: false,
 }) }));
 vi.mock("../hooks/useBikeFtpDecision", () => ({ useBikeFtpDecision: () => ({ decision: null }) }));
 vi.mock("../hooks/useCoachRiderInsight", () => ({ useCoachRiderInsight: () => ({ insight: null }) }));
@@ -44,7 +44,7 @@ function seed(activities: Activity[]) {
   setCollectionDocs("activities", activities as unknown as Array<Record<string,unknown>&{id:string}>);
   for (const a of activities) setDocData(`activity_metrics/${a.id}`,{tss:100});
 }
-beforeEach(()=>{clearTrainingSurfaceCache();mocks.timeseries=null;mocks.canonicalOn=false;mocks.pendingFetch=null;vi.mocked(getDoc).mockClear();vi.spyOn(Date,"now").mockReturnValue(fixedNow);});
+beforeEach(()=>{clearTrainingSurfaceCache();mocks.timeseries=null;mocks.activityWindow=null;mocks.pdcSufficiency=null;mocks.canonicalOn=false;mocks.pendingFetch=null;vi.mocked(getDoc).mockClear();vi.spyOn(Date,"now").mockReturnValue(fixedNow);});
 afterEach(()=>{cleanup();vi.restoreAllMocks();vi.useRealTimers();});
 
 
@@ -364,4 +364,53 @@ describe("actual producer/route null-history wire reaches actual mobile screen",
   render(<MemoryRouter><MobileFitnessPage {...h.result.current.mobilePageProps} embedded/></MemoryRouter>);
   expect(screen.getByText(/저장된 주간 요약 –/)).toBeInTheDocument();
  });
+});
+
+
+describe("충분도는 수치와 동일한 canonical 통로와 실제 모바일 소비자를 탄다", () => {
+ it.each([false, true])("K1 낮은 근거/잠김을 실제 모바일에 표시한다 (canonical=%s)", async canonical => {
+  const { sufficiencyBlock, sufficiencySet } = await import("../features/sufficiency/__fixtures__");
+  const sufficiency = sufficiencySet([
+   sufficiencyBlock({ featureId: "load_history", viewId: "trend", state: "locked", nextAction: {code:"record_activity"} }),
+   sufficiencyBlock({ featureId: "load_history", viewId: "form", state: "low_evidence", nextAction: {code:"keep_recording"} }),
+  ], {ownerOutput:"timeseries_bike"});
+  const doc = {...timeseries([point]), sufficiency};
+  if(canonical) enableCanonical(doc); else mocks.timeseries=doc;
+  seed([]);const h=renderHook(()=>useFitnessModel("bike",options));
+  await waitFor(()=>expect(h.result.current.loadSufficiency?.digest).toBe(sufficiency.digest));
+  render(<MemoryRouter><FitnessView model={h.result.current} part="condition" embedded /></MemoryRouter>);
+  expect(screen.getAllByTestId("K1-1-1-sufficiency-inline").length).toBeGreaterThan(0);
+  expect(screen.getByTestId("K1-2-sufficiency")).toBeInTheDocument();
+ });
+ it("실제 모바일 라이더 능력 수치 옆에 가정값과 확인 행동을 함께 둔다", async()=>{
+  const { sufficiencyBlock, sufficiencySet } = await import("../features/sufficiency/__fixtures__");
+  seed([]);const h=renderHook(()=>useFitnessModel("bike",options));await settle();
+  const data={...h.result.current.mobilePageProps.data,
+   cyclingAbility:{activityCount:12,axes:[],overallScore:50} as any,
+   pdcSufficiency:sufficiencySet([sufficiencyBlock({featureId:"rider_profile",viewId:"ability",state:"low_evidence",nextAction:{code:"confirm_weight"},source:{basis:"measured",assumedInputs:["weightKg"]}})])};
+  render(<MemoryRouter><MobileFitnessPage {...h.result.current.mobilePageProps} data={data} part="analysis" /></MemoryRouter>);
+  expect(screen.getByTestId("K5-1-1-sufficiency-inline")).toHaveTextContent("가정값");
+  expect(screen.getByTestId("K5-1-1-sufficiency-inline-action")).toHaveTextContent("내 체중 확인");
+ });
+});
+
+
+it("canonical data null이어도 top-level 소유 블록의 처리 실패를 실제 모바일에 전달한다",async()=>{
+ const {sufficiencyBlock,sufficiencySet}=await import("../features/sufficiency/__fixtures__");
+ enableCanonical(null);
+ const set=sufficiencySet([sufficiencyBlock({featureId:"load_history",viewId:"trend",state:"delayed",nextAction:null})]);
+ mocks.envelope={...(mocks.envelope as object),status:"failed",data:null,error:{code:"processing_failed",message:"failed",retryable:true},sufficiency:{pdcBike:null,activityWindow:null,timeseries:{bike:set,run:null,swim:null}}};
+ seed([]);const h=renderHook(()=>useFitnessModel("bike",options));
+ await waitFor(()=>expect(h.result.current.loadSufficiency?.blocks[0]?.state).toBe("delayed"));
+ render(<MemoryRouter><FitnessView model={h.result.current} part="condition" embedded/></MemoryRouter>);
+ expect(screen.getByTestId("K1-2-sufficiency-state")).toHaveTextContent("지금은 확인할 수 없어요");
+});
+
+
+it.each([true,false])("owner의 run-only 문맥이 완전할 때만 bike 블록을 제외한다 (complete=%s)",async complete=>{
+ const {sufficiencySet}=await import("../features/sufficiency/__fixtures__");
+ mocks.pdcSufficiency=sufficiencySet();
+ mocks.activityWindow={version:1,windowDays:90,maxEntries:768,generation:1,updatedAt:fixedNow,truncated:!complete,entries:[],sportContext:{usedSports:["run"],complete}};
+ seed([]);const h=renderHook(()=>useFitnessModel("bike",options));await settle();
+ expect(h.result.current.pdcSufficiency).toEqual(complete ? null : mocks.pdcSufficiency);
 });

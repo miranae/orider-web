@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "../../i18n";
 import i18n from "../../i18n";
-import { SufficiencyCard, SufficiencyInline } from "./SufficiencyBlock";
+import { SufficiencyCard, SufficiencyInline, SufficiencyGroup } from "./SufficiencyBlock";
 import { resetSufficiencyViewDedupeForTest } from "./sufficiencyAnalytics";
 import { sufficiencyBlock, sufficiencySet } from "./__fixtures__";
 
@@ -78,4 +78,23 @@ describe("SufficiencyInline", () => {
     expect(screen.queryByTestId("I")).toBeNull();
     expect(track).not.toHaveBeenCalled();
   });
+});
+
+
+describe("충분도 표시의 대기·묶음 규칙", () => {
+ it("만료된 값 옆에서도 가정값 칩을 보존하고 현재 요건·행동은 숨긴다",()=>{
+  const block=sufficiencyBlock({state:"low_evidence",nextAction:{code:"confirm_weight"},source:{basis:"measured",assumedInputs:["weightKg"]}});
+  renderUi(<SufficiencyInline set={sufficiencySet([block],{staleAfter:1})} block={block} testId="I"/>);
+  expect(screen.getByTestId("I")).toHaveTextContent("가정값");
+  expect(screen.getByTestId("I")).toHaveTextContent("지금은 확인할 수 없어요");
+  expect(screen.queryByTestId("I-action")).toBeNull();
+  expect(screen.queryByTestId("I-requirement")).toBeNull();
+ });
+ it("기능 4개의 남은 수를 더하지 않고 대표 행동은 하나만 표시한다",()=>{
+  const blocks=["power_model","vo2max","ftp_estimate","rider_profile"].map(featureId=>sufficiencyBlock({featureId,remainingRequirementCount:2}));
+  renderUi(<SufficiencyGroup set={sufficiencySet(blocks)} testId="G"/>);
+  expect(screen.getByTestId("G")).toHaveTextContent("잠긴 기능 4개");
+  expect(screen.getAllByTestId("G-action")).toHaveLength(1);
+  expect(screen.getByTestId("G")).not.toHaveTextContent("남은 요건 8개");
+ });
 });

@@ -25,9 +25,12 @@ import {
   parseCanonicalFitnessSummary,
   type CanonicalFitnessSummaryData,
 } from "../services/canonicalApi";
+import type { SufficiencySet } from "@shared/types/sufficiency";
+import { parseSufficiencySet } from "../services/sufficiencyContract";
 import { canonicalRolloutAllows, useCanonicalRollout } from "./useCanonicalRollout";
 
 export interface CanonicalFitnessSummaryState {
+  sufficiency?: { pdcBike: SufficiencySet | null; activityWindow: SufficiencySet | null; timeseries: Record<"bike" | "run" | "swim", SufficiencySet | null> };
   rolloutState: "pending" | "off" | "on";
   /** false 면 화면은 오늘과 똑같이 클라 계산을 그린다. */
   enabled: boolean;
@@ -98,6 +101,16 @@ export function useCanonicalFitnessSummary(
     const requestScope = trainingSurfaceCacheScope();
     const envelope = cached?.envelope ?? await fetchCanonicalFitnessSummary(uid, firebaseServices);
     if (generation.current !== myGeneration || trainingSurfaceCacheScope() !== requestScope) return;
+    const rawSufficiency = (envelope as typeof envelope & { sufficiency?: {pdcBike?: unknown; activityWindow?: unknown; timeseries?: Partial<Record<"bike" | "run" | "swim", unknown>>} }).sufficiency;
+    const sufficiency = rawSufficiency ? {
+      pdcBike: parseSufficiencySet(rawSufficiency.pdcBike)?.set ?? null,
+      activityWindow: parseSufficiencySet(rawSufficiency.activityWindow)?.set ?? null,
+      timeseries: {
+        bike: parseSufficiencySet(rawSufficiency.timeseries?.bike)?.set ?? null,
+        run: parseSufficiencySet(rawSufficiency.timeseries?.run)?.set ?? null,
+        swim: parseSufficiencySet(rawSufficiency.timeseries?.swim)?.set ?? null,
+      },
+    } : undefined;
     const parsed = parseCanonicalFitnessSummary(envelope.data);
     if (envelope.data !== null && parsed === null) {
       // 값이 실려 왔는데 읽을 수 없다 — 조용히 빈 화면으로 넘기지 않고 남긴다.
@@ -137,6 +150,7 @@ export function useCanonicalFitnessSummary(
     setState({
       rolloutState: "on",
       enabled: true,
+      sufficiency,
       // processing/failed/unavailable 에서도 동일 계정의 마지막 성공값은 버리지 않는다.
       // display/status 가 별도로 남으므로 낡은 값을 최신처럼 오인시키지 않는다.
       values: accepted ?? lastGood.current,
@@ -184,6 +198,7 @@ export function useCanonicalFitnessSummary(
     setState((previous) => resuming && previous.ownerUid === uid ? previous : ({
       rolloutState: "on",
       enabled: true,
+
       values: !uidChanged && previous.enabled ? previous.values : null,
       display: null,
       computedAt: !uidChanged && previous.enabled ? previous.computedAt : null,
@@ -215,6 +230,7 @@ export function useCanonicalFitnessSummary(
     return {
       rolloutState: "on",
       enabled: true,
+
       values: null,
       display: null,
       computedAt: null,

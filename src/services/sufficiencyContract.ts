@@ -20,11 +20,11 @@ export const KNOWN_SUFFICIENCY_ACTIONS: SufficiencyActionCode[] = ["input_weight
   "record_power_ride", "ride_effort_3_20min", "ride_long_1h", "ride_varied_efforts", "wait_analysis",
   "record_activity", "keep_recording"];
 /** 웹이 문구를 가진 기능·요건. 여기 없는 것은 그 블록만 표시하지 않는다. */
-export const KNOWN_SUFFICIENCY_FEATURES = ["power_model", "ftp_estimate", "vo2max", "rider_profile", "load_history"] as const;
+export const KNOWN_SUFFICIENCY_FEATURES = ["power_model", "ftp_estimate", "vo2max", "rider_profile", "load_history", "power_curve", "training_zones"] as const;
 const KNOWN_REQUIREMENTS = ["measured_power_activities", "effort_3_20min_points", "cp_fit", "long_rides_1h", "curve_fit",
   "estimate_agreement", "weight", "power_5min_or_cp", "vo2max_plausible", "classification_confidence",
-  "load_days", "load_history_period"];
-const UNITS = ["activity", "point", "ride_1h", "kg", "day"];
+  "load_days", "load_history_period", "load_quality", "power_curve_points", "zone_samples", "vo2max_months"];
+const UNITS = ["activity", "point", "ride_1h", "kg", "day", "month", "second"];
 
 const object = (value: unknown): Record<string, unknown> | null =>
   value != null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -63,7 +63,7 @@ function block(value: unknown): SufficiencyBlock | null {
   const action = row.nextAction === null ? null : object(row.nextAction);
   if (row.nextAction !== null && !(action && KNOWN_SUFFICIENCY_ACTIONS.includes(action.code as SufficiencyActionCode))) return null;
   const source = object(row.source);
-  if (!source || (source.basis !== "measured" && source.basis !== "profile") || !Array.isArray(source.assumedInputs)
+  if (!source || (source.basis !== "measured" && source.basis !== "profile" && source.basis !== "estimated") || !Array.isArray(source.assumedInputs)
       || source.assumedInputs.some(item => typeof item !== "string")) return null;
   return row as unknown as SufficiencyBlock;
 }
@@ -78,6 +78,7 @@ export function parseSufficiencySet(input: unknown): { set: SufficiencySet; drop
       || typeof raw.subjectKey !== "string" || !/^[a-f0-9]{32}$/u.test(raw.subjectKey)
       || !time(raw.asOf) || !time(raw.computedAt) || !(raw.staleAfter === null || time(raw.staleAfter))
       || typeof raw.digest !== "string" || !Array.isArray(raw.blocks)) return null;
+  if (raw.nextUpdateAt != null && !time(raw.nextUpdateAt)) return null;
   const blocks = raw.blocks.map(block).filter((item): item is SufficiencyBlock => item != null);
   return { set: { ...(raw as unknown as SufficiencySet), blocks }, dropped: raw.blocks.length - blocks.length };
 }
