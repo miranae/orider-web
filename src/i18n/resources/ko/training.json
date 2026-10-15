@@ -171,25 +171,31 @@
   },
   "plan.rerollSuccess": "운동 계획을 재생성했습니다.",
   "goalHub": {
-  "pickSegment": "세그먼트에서 고르기 →",
-  "minutes": "{{value}}분",
-  "goalType": {"program": "러닝 프로그램", "climb": "오르막 기록", "completion": "완주", "time": "시간 목표", "race": "대회 목표"},
-  "askCoach": "코치에게 묻기",
-  "title": "목표",
-  "retry": "다시 시도",
-  "progress": "목표 진행률",
-  "plan": "계획 보기 →",
-  "change": "목표 변경",
-  "program": "30분 달리기 프로그램",
-  "other": "다른 목표를 세우려면",
-  "new": "새 목표 만들기",
-  "replaces": "지금 목표({{name}})는 새 목표 시작 시 포기 처리됩니다.",
-  "types": {
-    "bike": "대회·코스 완주",
-    "run": "러닝 대회",
-    "swim": "수영 대회"
-  }
-},
+    "pickSegment": "세그먼트에서 고르기 →",
+    "minutes": "{{value}}분",
+    "goalType": {
+      "program": "러닝 프로그램",
+      "climb": "오르막 기록",
+      "completion": "완주",
+      "time": "시간 목표",
+      "race": "대회 목표"
+    },
+    "askCoach": "코치에게 묻기",
+    "title": "목표",
+    "retry": "다시 시도",
+    "progress": "목표 진행률",
+    "plan": "계획 보기 →",
+    "change": "목표 변경",
+    "program": "30분 달리기 프로그램",
+    "other": "다른 목표를 세우려면",
+    "new": "새 목표 만들기",
+    "replaces": "지금 목표({{name}})는 새 목표 시작 시 포기 처리됩니다.",
+    "types": {
+      "bike": "대회·코스 완주",
+      "run": "러닝 대회",
+      "swim": "수영 대회"
+    }
+  },
   "goals": {
     "wizardTitle": {
       "bike": "3분 안에 나만의 운동 계획 만들기",
@@ -1131,5 +1137,12 @@
       "load": "프로그램을 불러오지 못했어요.",
       "generic": "요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요."
     }
+  },
+  "assumptions": {
+    "chip": "가정값",
+    "baseline": "가정값 시작값",
+    "estimated": "PDC 추정값 · 낮은 근거",
+    "basis": "가정값 기준",
+    "confirm": "기준값 입력·확인"
   }
 }

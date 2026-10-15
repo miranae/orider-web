@@ -255,7 +255,9 @@
     "syncBikeConfirm": "체중을 {{count}}대의 자전거 프로필 가상 파워에도 반영할까요?\n(다른 라이더가 사용하는 자전거가 섞여 있다면 취소하세요)",
     "syncDeviceFail": "디바이스 {{count}}개 실패 ({{names}})",
     "syncDeviceError": "디바이스: {{message}}",
-    "syncBikeError": "자전거: {{message}}"
+    "syncBikeError": "자전거: {{message}}",
+    "confirmWeight": "내 체중 확인",
+    "confirmThreshold": "이 기준값 확인"
   },
   "strava": {
     "account": "Strava 계정",

@@ -255,7 +255,9 @@
     "syncBikeConfirm": "Apply this weight to virtual power on {{count}} bike profile(s)?\n(Cancel if other riders share any of these bikes)",
     "syncDeviceFail": "{{count}} device(s) failed ({{names}})",
     "syncDeviceError": "device: {{message}}",
-    "syncBikeError": "bike: {{message}}"
+    "syncBikeError": "bike: {{message}}",
+    "confirmWeight": "Confirm my weight",
+    "confirmThreshold": "Confirm this threshold"
   },
   "strava": {
     "account": "Strava account",

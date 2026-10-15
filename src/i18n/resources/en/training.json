@@ -171,25 +171,31 @@
   },
   "plan.rerollSuccess": "Workout plan regenerated.",
   "goalHub": {
-  "pickSegment": "Choose a segment →",
-  "minutes": "{{value}} min",
-  "goalType": {"program": "Running program", "climb": "Climb record", "completion": "Completion", "time": "Time goal", "race": "Race goal"},
-  "askCoach": "Ask the coach",
-  "title": "Goals",
-  "retry": "Retry",
-  "progress": "Goal progress",
-  "plan": "View plan →",
-  "change": "Change goal",
-  "program": "30-minute running program",
-  "other": "Choose another goal",
-  "new": "Create a goal",
-  "replaces": "Starting this goal will abandon your current goal ({{name}}).",
-  "types": {
-    "bike": "Race or course completion",
-    "run": "Running race",
-    "swim": "Swimming race"
-  }
-},
+    "pickSegment": "Choose a segment →",
+    "minutes": "{{value}} min",
+    "goalType": {
+      "program": "Running program",
+      "climb": "Climb record",
+      "completion": "Completion",
+      "time": "Time goal",
+      "race": "Race goal"
+    },
+    "askCoach": "Ask the coach",
+    "title": "Goals",
+    "retry": "Retry",
+    "progress": "Goal progress",
+    "plan": "View plan →",
+    "change": "Change goal",
+    "program": "30-minute running program",
+    "other": "Choose another goal",
+    "new": "Create a goal",
+    "replaces": "Starting this goal will abandon your current goal ({{name}}).",
+    "types": {
+      "bike": "Race or course completion",
+      "run": "Running race",
+      "swim": "Swimming race"
+    }
+  },
   "goals": {
     "wizardTitle": {
       "bike": "Create Your Training Plan in 3 Minutes",
@@ -1131,5 +1137,12 @@
       "load": "Couldn't load the program.",
       "generic": "Couldn't process the request. Try again in a moment."
     }
+  },
+  "assumptions": {
+    "chip": "Assumed value",
+    "baseline": "Assumed starting value",
+    "estimated": "PDC estimate · limited evidence",
+    "basis": "Based on assumed values",
+    "confirm": "Enter or confirm thresholds"
   }
 }

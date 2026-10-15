@@ -1,15 +1,15 @@
-import { collection, doc, getDocs, setDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 
 import type { AppSettings } from "@shared/types/deviceSettings";
 
-import { firestore } from "./firebase";
+import { firestore, functions } from "./firebase";
+import { httpsCallable } from "firebase/functions";
 import {
   fetchAllDeviceSettings,
   putDeviceSettings,
 } from "./deviceSettingsClient";
 import { parseBikeProfile } from "../types/bikeProfile";
 import {
-  ftpHistoryEntryWrite,
   type FtpHistorySource,
 } from "@shared/training/ftpHistory";
 
@@ -47,39 +47,23 @@ export async function persistRiderMetrics(
   patch: RiderMetricsSync,
   options: RiderMetricsPersistOptions = {},
 ): Promise<RiderMetricsSyncResult> {
+  // 정본을 먼저 확정한다. 기기 쓰기가 먼저 도착해 사용자의 출처를 잃지 않게 한다.
+  if (typeof patch.ftp === "number" && Number.isFinite(patch.ftp)) {
+    await httpsCallable(functions, "updateFtp")({ expectedUid: uid, ftp: patch.ftp,
+      source: options.ftpHistorySource ?? "manual", mutationId: crypto.randomUUID() });
+  }
+  if (typeof patch.weightKg === "number" && Number.isFinite(patch.weightKg)) {
+    await httpsCallable(functions, "updateProfileMetrics")({ mutationId: crypto.randomUUID(), patch: { weightKg: patch.weightKg } });
+  }
+  if (typeof patch.maxHr === "number" && Number.isFinite(patch.maxHr)) {
+    await updateDoc(doc(firestore, "users", uid), { maxHr: patch.maxHr });
+  }
   let result: RiderMetricsSyncResult;
   try {
     result = await syncRiderMetricsToDevices(uid, patch);
   } catch (error) {
-    result = {
-      updatedDevices: 0,
-      failures: [{
-        deviceId: "*",
-        deviceName: "",
-        error: error instanceof Error ? error.message : String(error),
-      }],
-    };
-  }
-  const rootPatch = Object.fromEntries(
-    Object.entries(patch).filter((entry): entry is [string, number] => (
-      typeof entry[1] === "number" && Number.isFinite(entry[1])
-    )),
-  );
-  if (Object.keys(rootPatch).length > 0) {
-    const ftp = rootPatch.ftp;
-    if (typeof ftp === "number" && options.ftpHistorySource) {
-      // 프로필 정본과 변경 이력을 한 batch로 커밋해 둘 중 하나만 남는 상태를 막는다.
-      // 랜덤 entry id는 사용자가 같은 값으로 다시 돌아온 변경도 별도 audit event로 보존한다.
-      const batch = writeBatch(firestore);
-      batch.update(doc(firestore, "users", uid), rootPatch);
-      batch.set(
-        doc(collection(firestore, "users", uid, "ftpHistory")),
-        ftpHistoryEntryWrite(ftp, options.ftpHistorySource, options.changedAt),
-      );
-      await batch.commit();
-    } else {
-      await updateDoc(doc(firestore, "users", uid), rootPatch);
-    }
+    result = { updatedDevices: 0, failures: [{ deviceId: "*", deviceName: "",
+      error: error instanceof Error ? error.message : String(error) }] };
   }
   return result;
 }

@@ -4,10 +4,12 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 
 
-import { firestore } from "../../services/firebase";
+import { firestore, functions } from "../../services/firebase";
+import { httpsCallable } from "firebase/functions";
 import { logClientError } from "../../services/errorLogger";
 import {
   persistRiderMetrics,
+  syncRiderMetricsToDevices,
   syncRiderWeightToBikeProfiles,
 } from "../../services/syncRiderMetrics";
 import { useAuth } from "../../contexts/AuthContext";
@@ -97,6 +99,9 @@ export function PaneThresholds() {
   const [saving, setSaving] = useState(false);
 
   const baseline = useRef<Record<string, string>>({});
+  const revisions = useRef<Record<string, string | null>>({});
+  const [weightConfirmed, setWeightConfirmed] = useState(false);
+  const [confirmedThresholds, setConfirmedThresholds] = useState({ ftp: false, thresholdPace: false, css: false });
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -117,6 +122,11 @@ export function PaneThresholds() {
         heightCm: typeof d.heightCm === "number" ? String(d.heightCm) : "",
       };
       baseline.current = values;
+      revisions.current = { weightKg: d.weightRevision ?? null, thresholdPace: d.thresholdPaceRevision ?? null, css: d.cssRevision ?? null };
+      setWeightConfirmed(Boolean(d.weightRevision) || Number(d.weightKg) !== 70);
+      setConfirmedThresholds({ ftp: Boolean(d.ftpRevision) || d.ftp !== 200,
+        thresholdPace: Boolean(d.thresholdPaceRevision) || d.thresholdPace !== 275,
+        css: Boolean(d.cssRevision) || d.css !== 108 });
       setFtp(values.ftp); setSavedFtp(d.ftp ?? null);
       setMaxHr(values.maxHr); setLthr(values.lthr);
       setThresholdPace(values.thresholdPace); setCss(values.css);
@@ -142,12 +152,12 @@ export function PaneThresholds() {
   // 사이클링 우선 앱 — 설정 프리뷰는 Friel 사이클 %LTHR 경계를 사용 (#365).
   const hrZonePreview = deriveHrZones({ maxHr: Number(maxHr), lthr: Number(lthr), sport: "bike" });
 
-  async function handleSave() {
+  async function handleSave(confirmMetric?: "weightKg" | "ftp" | "thresholdPace" | "css") {
     if (!user || !loaded || saving) return;
     const values = { ftp, maxHr, lthr, thresholdPace, css, weightKg, heightCm };
     const updates: Record<string, unknown> = {};
 
-    if (ftp !== baseline.current.ftp) {
+    if (ftp !== baseline.current.ftp || confirmMetric === "ftp") {
       if (ftp.trim() === "") {
         updates.ftp = null;
       } else {
@@ -187,7 +197,7 @@ export function PaneThresholds() {
       showToast(t("training.lthrBelowMaxHr"));
       return;
     }
-    if (thresholdPace !== baseline.current.thresholdPace) {
+    if (thresholdPace !== baseline.current.thresholdPace || confirmMetric === "thresholdPace") {
       if (thresholdPace.trim() === "") {
         updates.thresholdPace = null;
       } else {
@@ -199,7 +209,7 @@ export function PaneThresholds() {
         updates.thresholdPace = s;
       }
     }
-    if (css !== baseline.current.css) {
+    if (css !== baseline.current.css || confirmMetric === "css") {
       if (css.trim() === "") {
         updates.css = null;
       } else {
@@ -212,12 +222,12 @@ export function PaneThresholds() {
       }
     }
 
-    if (weightKg !== baseline.current.weightKg) {
+    if (weightKg !== baseline.current.weightKg || confirmMetric === "weightKg") {
       if (weightKg.trim() === "") {
         updates.weightKg = null;
       } else {
         const v = Number(weightKg);
-        if (!Number.isFinite(v) || v < 20 || v > 300) {
+        if (!Number.isFinite(v) || v < 25 || v > 250) {
           showToast(t("personal.weightRange"));
           return;
         }
@@ -253,6 +263,18 @@ export function PaneThresholds() {
         maxHrForSync !== undefined ||
         weightForSync !== undefined;
 
+      // 값·출처·리비전·이력은 서버 transaction 하나에서 저장한다. 같은 70도 명시 확인 가능.
+      const metricPatch = Object.fromEntries(["weightKg", "thresholdPace", "css"]
+        .filter(field => field in updates).map(field => [field, updates[field]]));
+      if (Object.keys(metricPatch).length) {
+        const result = await httpsCallable<unknown, { revision: string }>(functions, "updateProfileMetrics")({
+          mutationId: crypto.randomUUID(), patch: metricPatch, expectedRevisions: { ...revisions.current },
+        });
+        for (const field of Object.keys(metricPatch)) revisions.current[field] = result.data.revision;
+        if ("weightKg" in metricPatch) setWeightConfirmed(true);
+        setConfirmedThresholds(previous => ({ ...previous,
+          ...("thresholdPace" in metricPatch ? { thresholdPace: true } : {}), ...("css" in metricPatch ? { css: true } : {}) }));
+      }
       const syncErrors: string[] = [];
       if (needDeviceSync) {
         const ftpHistorySource = ftpHistorySourceForChange(
@@ -266,7 +288,7 @@ export function PaneThresholds() {
         const result = await persistRiderMetrics(user.uid, {
           ftp: ftpForSync,
           maxHr: maxHrForSync,
-          weightKg: weightForSync,
+          weightKg: undefined,
         }, { ftpHistorySource });
         for (const key of ["ftp", "maxHr", "weightKg"] as const) {
           if (typeof updates[key] === "number") baseline.current[key] = values[key];
@@ -275,6 +297,7 @@ export function PaneThresholds() {
           // FTP 정본+이력 커밋은 여기서 이미 완료됐다. 이후 다른 프로필 저장이
           // 실패해도 재시도가 같은 FTP 이력을 다시 append하지 않도록 기준을 즉시 확정한다.
           setSavedFtp(ftpForSync);
+          setConfirmedThresholds(previous => ({ ...previous, ftp: true }));
           setFtpChangeSource("manual");
         }
         if (result.failures.length > 0) {
@@ -285,12 +308,17 @@ export function PaneThresholds() {
         }
       }
 
+      if (weightForSync !== undefined) {
+        const weightResult = await syncRiderMetricsToDevices(user.uid, { weightKg: weightForSync });
+        if (weightResult.failures.length) syncErrors.push(t("training.syncDeviceFail", { count: weightResult.failures.length,
+          names: weightResult.failures.map(f => f.deviceName || f.deviceId).join(", ") }));
+      }
       // persistRiderMetrics가 기기 동기화와 root 정본 갱신을 함께 처리하므로,
       // 나머지 프로필 필드만 이 update에 포함한다.
       const rootUpdates: Record<string, unknown> = { ...updates };
       if (ftpForSync !== undefined) delete rootUpdates.ftp;
       if (maxHrForSync !== undefined) delete rootUpdates.maxHr;
-      if (weightForSync !== undefined) delete rootUpdates.weightKg;
+      for (const field of ["weightKg", "thresholdPace", "css"]) delete rootUpdates[field];
       if (Object.keys(rootUpdates).length > 0) {
         await updateDoc(doc(firestore, "users", user.uid), rootUpdates);
       }
@@ -386,6 +414,9 @@ export function PaneThresholds() {
               placeholder={bodyUnit === "imperial" ? "150" : "68"}
               style={monoInputStyle}
             />
+            {!weightConfirmed && Number(weightKg) === 70 && <Button size="sm" variant="secondary" onClick={() => { void handleSave("weightKg"); }} disabled={saving}>
+              {t("training.confirmWeight")}
+            </Button>}
           </Field>
           <Field
             label={bodyUnit === "imperial" ? t("training.fieldHeightIn") : t("training.fieldHeight")}
@@ -499,6 +530,9 @@ export function PaneThresholds() {
               }}
               style={monoInputStyle}
             />
+            {!confirmedThresholds.ftp && Number(ftp) === 200 && <Button size="sm" variant="secondary" onClick={() => { void handleSave("ftp"); }} disabled={saving}>
+              {t("training.confirmThreshold")}
+            </Button>}
           </Field>
           <Field label={t("training.maxHr")} hint={t("training.fieldMaxHrHint")}>
             <input
@@ -521,6 +555,9 @@ export function PaneThresholds() {
               placeholder="4:35"
               style={monoInputStyle}
             />
+            {!confirmedThresholds.thresholdPace && mmssToSecs(thresholdPace) === 275 && <Button size="sm" variant="secondary" onClick={() => { void handleSave("thresholdPace"); }} disabled={saving}>
+              {t("training.confirmThreshold")}
+            </Button>}
           </Field>
           <Field label="CSS" hint={t("training.fieldCssHint")}>
             <input
@@ -529,6 +566,9 @@ export function PaneThresholds() {
               placeholder="1:45"
               style={monoInputStyle}
             />
+            {!confirmedThresholds.css && mmssToSecs(css) === 108 && <Button size="sm" variant="secondary" onClick={() => { void handleSave("css"); }} disabled={saving}>
+              {t("training.confirmThreshold")}
+            </Button>}
           </Field>
         </FieldGrid>
       </SettingsCard>
@@ -549,7 +589,7 @@ export function PaneThresholds() {
         </Button>
         <Button variant="primary"
           data-testid="K1-5-7"
-          onClick={handleSave}
+          onClick={() => { void handleSave(); }}
           disabled={saving}
         >
           {saving ? t("training.btnSaving") : t("training.btnSave")}
