@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import i18n from "i18next";
+import enTraining from "../../i18n/resources/en/training.json";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
@@ -17,6 +19,18 @@ function activity(id: string, day: number): Activity {
 }
 
 describe("MobileLogPage", () => {
+  it.each([["ko", "계획"], ["en", "Plan"]])("renders planned-day labels in %s without leaking a namespace key", async (language, label) => {
+    i18n.addResourceBundle("en", "training", enTraining, true, true);
+    await i18n.changeLanguage(language);
+    try {
+      render(<MemoryRouter><MobileLogPage activities={[]} plannedDates={["2026-09-03"]} plannedSports={{ "2026-09-03": "run" }} year={2026} month={8} onChangeMonth={vi.fn()} /></MemoryRouter>);
+      expect(screen.getByTestId("P1-2-2")).toHaveTextContent(label);
+      expect(screen.queryByText("log.planLabel")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId("P1-2-2"));
+      expect(navigate).toHaveBeenCalledWith("/coach/plan?sport=run&date=2026-09-03");
+    } finally { await i18n.changeLanguage("ko"); }
+  });
+
   it("shows recent rides before the compact monthly metrics and keeps full-list navigation", () => {
     const unnamedRide = activity("a", 3);
     unnamedRide.description = "";

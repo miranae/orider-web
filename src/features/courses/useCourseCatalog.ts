@@ -28,7 +28,7 @@ function orderFieldForSort(sortMode: SortMode) {
   return sortMode === "popular" ? "likeCount" : "createdAt";
 }
 
-export function useCourseCatalog(sortMode: SortMode = "latest") {
+export function useCourseCatalog(sortMode: SortMode = "latest", creatorId?: string, pageSize = PAGE_SIZE, enabled = true) {
   const [courses, setCourses] = useState<CourseData[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -61,10 +61,11 @@ export function useCourseCatalog(sortMode: SortMode = "latest") {
     try {
       const constraints: QueryConstraint[] = [
         orderBy(orderFieldForSort(sortMode), "desc"),
-        limit(PAGE_SIZE),
+        limit(pageSize),
       ];
+      if (creatorId) constraints.unshift(where("creatorId", "==", creatorId));
       if (!reset && cursorRef.current) {
-        constraints.splice(1, 0, startAfter(cursorRef.current));
+        constraints.splice(creatorId ? 2 : 1, 0, startAfter(cursorRef.current));
       }
       const snapshot = await getDocs(query(collection(firestore, "courses"), ...constraints));
       if (requestId !== requestIdRef.current) return;
@@ -73,7 +74,7 @@ export function useCourseCatalog(sortMode: SortMode = "latest") {
         .filter((item) => isVisibleCourseDocData(item.data));
       const nextCourses = replaceCourseSnapshotDocs(docs, polylineCache.current, polylineValueCache.current);
       cursorRef.current = snapshot.docs[snapshot.docs.length - 1] ?? cursorRef.current;
-      const nextHasMore = snapshot.docs.length === PAGE_SIZE;
+      const nextHasMore = snapshot.docs.length === pageSize;
       hasMoreRef.current = nextHasMore;
       setHasMore(nextHasMore);
       setCourses((prev) => reset ? nextCourses : [...prev, ...nextCourses]);
@@ -90,11 +91,12 @@ export function useCourseCatalog(sortMode: SortMode = "latest") {
         loadingMoreRef.current = false;
       }
     }
-  }, [sortMode]);
+  }, [sortMode, creatorId, pageSize]);
 
   useEffect(() => {
-    void fetchPage(true);
-  }, [fetchPage]);
+    if (enabled) void fetchPage(true);
+    else { setLoading(false); setCourses([]); }
+  }, [fetchPage, enabled]);
 
   return {
     courses,
@@ -113,12 +115,14 @@ export async function searchVisibleCoursesByName(
   maxCount = SEARCH_LIMIT,
   polylineCache: Map<string, LatLngTuple[]> = new Map(),
   polylineValueCache: Map<string, string> = new Map(),
+  creatorId?: string,
 ): Promise<CourseData[]> {
   const text = searchText.trim();
   if (!text) return [];
 
   const snapshot = await getDocs(query(
     collection(firestore, "courses"),
+    ...(creatorId ? [where("creatorId", "==", creatorId)] : []),
     where("name", ">=", text),
     where("name", "<=", `${text}\uf8ff`),
     orderBy("name"),

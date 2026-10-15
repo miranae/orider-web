@@ -14,6 +14,8 @@ import { CourseList } from "../features/courses/CourseList";
 import { CoursesMap, isCourseInBounds } from "../features/courses/CoursesMap";
 import { filterAndSortCourses, type SortMode, type SurfaceFilter } from "../features/courses/courseCatalog";
 import type { CourseData, LatLngTuple } from "../features/courses/courseSnapshot";
+import ChallengeFeed from "../components/discover/ChallengeFeed";
+import CourseSegmentSearch from "../components/discover/CourseSegmentSearch";
 import { searchVisibleCoursesByName, useCourseCatalog } from "../features/courses/useCourseCatalog";
 
 const COURSES_CONTROL_STACK_STYLE: React.CSSProperties = {
@@ -63,6 +65,7 @@ export default function CoursesPage() {
     if (isVisible) setHasRendered(true);
   }, [isVisible]);
 
+  const mineOnly = !!user && searchParams.get("mine") === "1";
   const [sortMode, setSortMode] = useState<SortMode>("latest");
   const {
     courses: allCourses,
@@ -73,7 +76,7 @@ export default function CoursesPage() {
     loadMore,
     retry,
     polylineCache,
-  } = useCourseCatalog(sortMode);
+  } = useCourseCatalog(sortMode, mineOnly ? user?.uid : undefined);
   const [surfaceFilter, setSurfaceFilter] = useState<SurfaceFilter>("");
   const [difficultyFilter, setDifficultyFilter] = useState<number | null>(null);
   const [distanceMinKm, setDistanceMinKm] = useState(0);
@@ -121,7 +124,7 @@ export default function CoursesPage() {
     let cancelled = false;
     setServerSearchLoading(true);
     setServerSearchError(null);
-    searchVisibleCoursesByName(q, 80, searchPolylineCache.current, searchPolylineValueCache.current)
+    searchVisibleCoursesByName(q, 80, searchPolylineCache.current, searchPolylineValueCache.current, mineOnly ? user?.uid : undefined)
       .then((results) => {
         if (cancelled) return;
         setServerSearchCourses(results);
@@ -137,7 +140,7 @@ export default function CoursesPage() {
       });
 
     return () => { cancelled = true; };
-  }, [searchQuery, serverSearchReloadKey]);
+  }, [searchQuery, serverSearchReloadKey, mineOnly, user?.uid]);
 
   const activeCourses = searchQuery ? serverSearchCourses : allCourses;
   const activePolylineCache = searchQuery ? searchPolylineCache : polylineCache;
@@ -212,6 +215,16 @@ export default function CoursesPage() {
     else nextParams.delete("q");
     setSearchParams(nextParams, { replace: true });
   };
+  useEffect(() => {
+    if (inputValue.trim() === queryParam) return;
+    const timer = setTimeout(() => {
+      const next = new URLSearchParams(searchParams);
+      const q = inputValue.trim();
+      if (q) next.set("q", q); else next.delete("q");
+      setSearchParams(next, { replace: true });
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [inputValue, queryParam, searchParams, setSearchParams]);
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSearch();
   };
@@ -258,24 +271,25 @@ export default function CoursesPage() {
       <div className="flex-shrink-0" style={COURSES_CONTROL_STACK_STYLE}>
         <div className="flex items-center justify-between">
           <div>
-            <Text as="h1" variant="pageTitle">{t("title")}</Text>
+            <Text data-testid="E1-0" as="h1" variant="pageTitle">{t("title")}</Text>
             <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
               {t("subtitle")}
             </p>
           </div>
           {user ? (
-            <Link to="/course/create" className={`${buttonClass({ variant: 'primary', className: 'whitespace-nowrap' })}`}>
+            <span data-testid="E1-5"><Link data-testid="E1-5-1" to="/course/create" className={`${buttonClass({ variant: 'primary', className: 'whitespace-nowrap' })}`}>
               {t("button.create")}
-            </Link>
+            </Link></span>
           ) : (
-            <Link to="/tools/virtual-power" className={`${buttonClass({ variant: 'secondary', className: 'whitespace-nowrap' })}`}>
+            <Link data-testid="E1-5-2" to="/tools/virtual-power" className={`${buttonClass({ variant: 'secondary', className: 'whitespace-nowrap' })}`}>
               {t("guest.compareCta", { defaultValue: "이 코스 내 기록과 비교하기" })}
             </Link>
           )}
         </div>
 
+        {user && <Button data-testid="E1-3-7" size="sm" variant="secondary" aria-pressed={mineOnly} onClick={() => { const next = new URLSearchParams(searchParams); if (mineOnly) next.delete("mine"); else next.set("mine", "1"); setSearchParams(next); }}>{t("myCourses")}</Button>}
         <div className="flex flex-col sm:flex-row" style={{ gap: "var(--space-3)" }}>
-          <div className="relative flex-1">
+          <div data-testid="E1-1" className="relative flex-1">
             <button
               onClick={handleSearch}
               className="absolute left-3 top-1/2 -translate-y-1/2 transition-colors"
@@ -285,7 +299,7 @@ export default function CoursesPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
-            <input
+            <input data-testid="E1-1-1"
               type="text"
               placeholder={t("search.placeholder")}
               value={inputValue}
@@ -300,7 +314,7 @@ export default function CoursesPage() {
               { id: "latest" as SortMode, label: t("sort.latest") },
               { id: "popular" as SortMode, label: t("sort.popular") },
             ]).map((s) => (
-              <Button
+              <Button data-testid="E1-3-5"
                 key={s.id}
                 onClick={() => setSortMode(s.id)} variant="secondary" className="whitespace-nowrap"
                 style={sortMode === s.id ? { background: "var(--lime)", color: "var(--primary-fg)", borderColor: "var(--lime)", fontWeight: 600 } : undefined}
@@ -312,7 +326,7 @@ export default function CoursesPage() {
         </div>
 
         {/* 노면/난이도 다축 필터(#489) + 거리/고도/지역 탐색 필터(#243) */}
-        <div className="overflow-x-auto overscroll-x-contain lg:flex-wrap lg:overflow-visible" style={COURSES_FILTER_ROW_STYLE}>
+        <div data-testid="E1-3" className="overflow-x-auto overscroll-x-contain lg:flex-wrap lg:overflow-visible" style={COURSES_FILTER_ROW_STYLE}>
           <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("edit.surface")}</span>
             {([
@@ -323,7 +337,7 @@ export default function CoursesPage() {
             ]).map((o) => {
               const active = surfaceFilter === o.v;
               return (
-                <button key={o.v || "all"} type="button" onClick={() => setSurfaceFilter(o.v)}
+                <button data-testid="E1-3-1" key={o.v || "all"} type="button" onClick={() => setSurfaceFilter(o.v)}
                   className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
                   style={active ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
                   {o.label}
@@ -335,7 +349,7 @@ export default function CoursesPage() {
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.distance")}</span>
             <label className="flex items-center" style={{ gap: "var(--space-1)" }}>
               <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.min")}</span>
-              <input
+              <input data-testid="E1-3-2"
                 type="range"
                 min={0}
                 max={DISTANCE_FILTER_MAX_KM}
@@ -400,7 +414,7 @@ export default function CoursesPage() {
           {regionOptions.length > 0 && (
             <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
               <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.region")}</span>
-              <button type="button" onClick={() => setRegionFilter("")}
+              <button data-testid="E1-3-3" type="button" onClick={() => setRegionFilter("")}
                 className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
                 style={!regionFilter ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
                 {t("filter.all")}
@@ -418,7 +432,7 @@ export default function CoursesPage() {
             </div>
           )}
           {hasAdvancedFilters && (
-            <Button
+            <Button data-testid="E1-3-6"
               type="button"
               variant="secondary"
               size="sm"
@@ -439,7 +453,7 @@ export default function CoursesPage() {
             {([10, 20, 50] as const).map((km) => {
               const active = myLoc != null && radiusKm === km;
               return (
-                <button key={km} type="button" disabled={locating}
+                <button data-testid="E1-3-4" key={km} type="button" disabled={locating}
                   onClick={() => {
                     if (active) { setRadiusKm(null); return; }
                     if (myLoc) { setRadiusKm(km); return; }
@@ -488,7 +502,7 @@ export default function CoursesPage() {
         )}
         {!mapUnavailable && (
           <div className="lg:hidden">
-            <Button
+            <Button data-testid="E1-4-1"
               type="button"
               variant="secondary"
               size="sm"
@@ -512,7 +526,7 @@ export default function CoursesPage() {
           <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--lime) transparent var(--lime) var(--lime)" }} />
         </div>
       ) : (
-        <div className={mapUnavailable ? "flex-1 flex flex-col min-h-0" : "flex-1 flex flex-col lg:flex-row min-h-0"} style={{ background: "var(--bg-0)" }}>
+        <div data-testid="E1-4" className={mapUnavailable ? "flex-1 flex flex-col min-h-0" : "flex-1 flex flex-col lg:flex-row min-h-0"} style={{ background: "var(--bg-0)" }}>
           {!mapUnavailable && (
             <CoursesMap
               allCourses={activeCourses}
@@ -533,6 +547,7 @@ export default function CoursesPage() {
           )}
 
           <div className={mapUnavailable ? "flex-1 overflow-y-auto" : "flex-1 lg:flex-[1] lg:max-w-md overflow-y-auto"} style={{ borderTop: "1px solid var(--line-soft)", background: "var(--bg-0)" }}>
+            {searchQuery ? <CourseSegmentSearch query={searchQuery} /> : !mineOnly && <details className="p-3"><summary>{t("recommendations")}</summary><ChallengeFeed part="courses" /></details>}
             <CourseList
               courses={listCourses}
               allCourseCount={activeCourses.length}
@@ -549,7 +564,7 @@ export default function CoursesPage() {
             />
             {!searchQuery && hasMore && (
               <div style={{ padding: "0 var(--space-4) var(--space-4)" }}>
-                <Button
+                <Button data-testid="E1-4-3"
                   type="button"
                   variant="secondary"
                   className="w-full justify-center"

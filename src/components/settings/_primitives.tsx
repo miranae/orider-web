@@ -23,6 +23,7 @@ export const monoInputStyle: CSSProperties = {
 };
 
 interface SettingsCardProps {
+  "data-testid"?: string;
   title?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
@@ -35,9 +36,9 @@ interface SettingsCardProps {
  * 일반 카드(`<Card>`)와 다른 의미: settings section 구조 prefab.
  * 후속 PR 에서 `<Section>` 프리미티브로 추출 검토.
  */
-export function SettingsCard({ title, action, children, dense, danger }: SettingsCardProps) {
+export function SettingsCard({ title, action, children, dense, danger, "data-testid": testId }: SettingsCardProps) {
   return (
-    <Card padding="none"
+    <Card padding="none" data-testid={testId}
       style={{
         padding: dense ? "16px 20px" : "20px",
         marginBottom: 'var(--space-5)',
@@ -130,13 +131,15 @@ export function InlineRow({
   label,
   hint,
   children,
+  "data-testid": testId,
 }: {
   label: ReactNode;
   hint?: ReactNode;
   children: ReactNode;
+  "data-testid"?: string;
 }) {
   return (
-    <div
+    <div data-testid={testId}
       style={{
         display: "flex",
         justifyContent: "space-between",

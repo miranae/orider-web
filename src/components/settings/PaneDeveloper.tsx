@@ -13,6 +13,8 @@ import {
   type PersonalApiKeySummary,
   type PersonalApiScope,
 } from "../../services/personalDataApi";
+import { LocalizedLink } from "../LocalizedLink";
+import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { Field, SettingsCard, fieldInputStyle } from "./_primitives";
 
 const AVAILABLE_SCOPES: PersonalApiScope[] = [
@@ -111,7 +113,7 @@ export function PaneDeveloper() {
 
   return (
     <>
-      <SettingsCard title={t("pane.developer.cardCreate")}>
+      <SettingsCard data-testid="S5-1-1" title={t("pane.developer.cardCreate")}>
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
           <div>
             <Text as="p" variant="bodySmall" style={{ color: "var(--ink-2)" }}>
@@ -164,7 +166,7 @@ export function PaneDeveloper() {
       </SettingsCard>
 
       {createdKey && (
-        <SettingsCard title={t("pane.developer.cardNewKey")}>
+        <SettingsCard data-testid="S5-1-1" title={t("pane.developer.cardNewKey")}>
           <Text as="p" variant="bodySmall" style={{ color: "var(--ink-2)" }}>
             {t("pane.developer.newKeyWarning")}
           </Text>
@@ -180,7 +182,7 @@ export function PaneDeveloper() {
         </SettingsCard>
       )}
 
-      <SettingsCard title={t("pane.developer.cardKeys")} action={<Button size="sm" variant="secondary" onClick={() => void loadKeys()}>{t("pane.developer.refresh")}</Button>}>
+      <SettingsCard data-testid="S5-1-2" title={t("pane.developer.cardKeys")} action={<Button size="sm" variant="secondary" onClick={() => void loadKeys()}>{t("pane.developer.refresh")}</Button>}>
         {loading ? (
           <Text variant="bodySmall" style={{ color: "var(--ink-2)" }}>{t("pane.developer.loading")}</Text>
         ) : keys.length === 0 ? (
@@ -210,7 +212,7 @@ export function PaneDeveloper() {
         )}
       </SettingsCard>
 
-      <SettingsCard title={t("pane.developer.cardExample")}>
+      <SettingsCard data-testid="S5-1-2" title={t("pane.developer.cardExample")}>
         <Text as="p" variant="bodySmall" style={{ color: "var(--ink-2)" }}>
           {t("pane.developer.exampleHint")}
         </Text>
@@ -222,6 +224,12 @@ export function PaneDeveloper() {
             <Copy size={15} />
             {t("pane.developer.copy")}
           </Button>
+        </div>
+      </SettingsCard>
+      <SettingsCard data-testid="S5-2-1" title={t("pane.developer.docsTitle")}>
+        <div className="flex flex-wrap gap-3">
+          <LocalizedLink to="/explore/recipes/examples">{t("pane.developer.examplesLink")}</LocalizedLink>
+          <a href={`${(getRuntimeConfig().personalApiBase || "").replace(/\/+$/, "")}/api/v1/docs`}>{t("pane.developer.apiDocsLink")}</a>
         </div>
       </SettingsCard>
     </>

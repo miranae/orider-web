@@ -89,7 +89,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       {!personal.length && (thresholdMissing
         ? <Stack gap="var(--dim-item-gap)">
             {note(p.session.discipline === "run" && isOwner ? copy("runThresholdMissing") : voice("thresholdMissing"))}
-            {isOwner && <Link to="/settings/training" className={buttonClass({ size: "sm", variant: "outline" })}>
+            {isOwner && <Link to="/coach/condition?sport=bike#thresholds" className={buttonClass({ size: "sm", variant: "outline" })}>
               {copy("thresholdMissingCta")}
             </Link>}
           </Stack>

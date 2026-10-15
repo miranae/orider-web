@@ -1,6 +1,6 @@
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
@@ -22,6 +22,7 @@ import AnalysisTab, { AnalysisLapTable } from "../components/AnalysisTab";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
 import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
 import LapTable from "../components/LapTable";
+import Modal from "../components/Modal";
 import ExportTab from "../components/ExportTab";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
@@ -48,7 +49,7 @@ import { usePdc } from "../hooks/usePdc";
 import { runningCadenceSpm } from "../utils/runningCadence";
 import { RunLeftCards, RunRightCards } from "../components/activity/RunDetailCards";
 import { SwimLeftCards, SwimRightCards } from "../components/activity/SwimDetailCards";
-import KudosCommentsCard from "../components/activity/KudosCommentsCard";
+import KudosCommentsCard, { type CommentItem } from "../components/activity/KudosCommentsCard";
 import AiRideAnalysisCard from "../components/activity/AiRideAnalysisCard";
 import StravaSummaryPublishing from "../components/activity/StravaSummaryPublishing";
 import SegmentEffortsCard from "../components/activity/SegmentEffortsCard";
@@ -101,7 +102,11 @@ export default function ActivityPage() {
   const [kudosList, setKudosList] = useState<{ userId: string; nickname: string; profileImage?: string | null }[]>([]);
   const [kudosLoaded, setKudosLoaded] = useState(false);
   const [kudosTouched, setKudosTouched] = useState(false);
-  const [commentsList, setCommentsList] = useState<{ id: string; userId: string; nickname: string; profileImage: string | null; text: string; createdAt: number }[]>([]);
+  const [commentsList, setCommentsList] = useState<CommentItem[]>([]);
+  const [hiddenComments, setHiddenComments] = useState<CommentItem[]>([]);
+  const [moderationBusy, setModerationBusy] = useState(false);
+  const moderationScope = `${activityId}:${user?.uid}`;
+  const moderationContext = useRef(moderationScope); moderationContext.current = moderationScope;
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -163,7 +168,21 @@ export default function ActivityPage() {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
   // 탭 네비게이션
-  const [activeTab, setActiveTab] = useState("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const [showExport, setShowExport] = useState(searchParams.get("tab") === "export");
+  const requestedTab = searchParams.get("tab") ?? "overview";
+  const activeTab = requestedTab === "splits" || requestedTab === "laps" ? "segments"
+    : ["overview", "analysis", "segments"].includes(requestedTab) || (requestedTab === "compare" && isActivityOwner) ? requestedTab : "overview";
+  const setActiveTab = useCallback((tab: string) => setSearchParams(previous => {
+    const next = new URLSearchParams(previous); next.set("tab", tab); return next;
+  }, { state: location.state }), [setSearchParams, location.state]);
+  useEffect(() => {
+    if (requestedTab === "export") setShowExport(true);
+  }, [requestedTab]);
+  useEffect(() => {
+    if (["segments", "splits", "laps", "export"].includes(requestedTab) && activity && !streams && !streamsSignInRequired) requestStreams();
+  }, [requestedTab, activity, streams, streamsSignInRequired, requestStreams]);
   const [peakSelection, setPeakSelection] = useState<{ activityId: string | undefined; peak: RidePeakEffort | null }>({ activityId, peak: null });
   const pendingPeakLocation = useRef<{ activityId: string | undefined; uid: string | undefined; peak: RidePeakEffort } | null>(null);
   useEffect(() => {
@@ -178,7 +197,7 @@ export default function ActivityPage() {
   const viewRunSplitLocation = useCallback(() => {
     setActiveTab("overview");
     runLocationAnchor.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
-  }, []);
+  }, [setActiveTab]);
 
   useEffect(() => {
     // 분석 데이터는 useActivityAnalysisModel 이 초기화한다. 페이지 전용 소셜 상태는
@@ -262,13 +281,40 @@ export default function ActivityPage() {
     );
     return onSnapshot(commentsRef, (snap) => {
       setCommentsList(
-        snap.docs.map((d) => ({ id: d.id, ...d.data() } as typeof commentsList[0])),
+        snap.docs.map((d) => ({ id: d.id, ...d.data() } as CommentItem)).filter(comment => comment.hiddenByOwner !== true && comment.deletedAt == null),
       );
     }, (err) => {
       logClientError("ActivityPage.comments", err, { path: `activities/${activityId}/comments` });
     });
      
   }, [activityId, authLoading, user]);
+
+  useEffect(() => {
+    setHiddenComments([]);
+    if (authLoading || !user || !activityId || !isActivityOwner) return;
+    return onSnapshot(query(collection(firestore, "activities", activityId, "comments"), where("hiddenByOwner", "==", true)), snap => {
+      setHiddenComments(snap.docs.map(d => ({ id: d.id, ...d.data() } as CommentItem)));
+    }, error => logClientError("ActivityPage.hiddenComments", error, {}));
+  }, [activityId, authLoading, user?.uid, isActivityOwner]);
+
+  async function handleReportComment(commentId: string) {
+    const comment = commentsList.find(comment => comment.id === commentId);
+    if (!user || !activityId || !comment || comment.userId === user.uid || moderationBusy) return;
+    const note = await dialog.prompt(t("kudosCard.reportReason"), { multiline: true });
+    if (!note?.trim() || moderationContext.current !== moderationScope) return;
+    setModerationBusy(true);
+    try { await activitySocialMutations.reportComment(activityId, commentId, note.trim()); if (moderationContext.current === moderationScope) showToast(t("kudosCard.reported")); }
+    catch (error) { showToast(t(activitySocialErrorMessageKey(error)), "error"); }
+    finally { setModerationBusy(false); }
+  }
+  async function handleSetCommentHidden(commentId: string, hidden: boolean) {
+    if (!user || !activityId || !isActivityOwner || moderationBusy) return;
+    if (!await dialog.confirm(t(hidden ? "kudosCard.hideConfirm" : "kudosCard.restoreConfirm")) || moderationContext.current !== moderationScope) return;
+    setModerationBusy(true);
+    try { await activitySocialMutations.setCommentHidden(activityId, commentId, hidden); if (moderationContext.current === moderationScope) showToast(t(hidden ? "kudosCard.hidden" : "kudosCard.restored")); }
+    catch (error) { showToast(t(activitySocialErrorMessageKey(error)), "error"); }
+    finally { setModerationBusy(false); }
+  }
 
   const handleToggleKudos = async () => {
     if (!user || !activityId || !profile) return;
@@ -521,7 +567,7 @@ export default function ActivityPage() {
   const pendingLap = useRef<{ identity: string; lap: RecordedLap } | null>(null);
   if (pendingLap.current?.identity !== rangeSelection.identity) pendingLap.current = null;
   const canSelectLap = (lap: RecordedLap) => !!rangeSelection.ownerUid && activity?.id === activityId
-    && !rangeSelection.sourceLocked && !loadingStreams && (streams
+    && !rangeSelection.sourceLocked && (!loadingStreams || !streams) && (streams
       ? !!resolveRecordedLapRange(lap, lapContext, streams.time, streams.laps)
       : !!recordedLapElapsedRange(lap, lapContext));
   const selectLap = (lap: RecordedLap) => {
@@ -886,7 +932,7 @@ export default function ActivityPage() {
                   </Text>
                 </button>
               ) : (
-                <Text as="h1" variant="pageTitle">
+                <Text data-testid="D1-0" as="h1" variant="pageTitle">
                   {activity.description || tCommon(getSportLabelKey(activity.type))}
                 </Text>
               )
@@ -906,7 +952,7 @@ export default function ActivityPage() {
                 </a>
               )}
             </div>
-            <div className="mt-3">
+            <div data-testid="D1-7" className="mt-3">
               <ActivityShareButton
                 card={{
                   title: activity.description || tCommon(getSportLabelKey(activity.type)),
@@ -941,8 +987,23 @@ export default function ActivityPage() {
                 </span>
               )}
             </div>
+            {user?.uid !== activity.userId && <details className="mt-2">
+              <summary aria-label={t("page.more")} className="cursor-pointer">⋯</summary>
+              <Button data-testid="D1-0-M5" variant="ghost" onClick={() => { setShowExport(true); if (!streamsSignInRequired) requestStreams(); }}>{t("tab.export")}</Button>
+            </details>}
             {user?.uid === activity.userId && (
-              <div className="flex items-center flex-wrap gap-1.5 mt-2">
+              <details data-testid="D1-0-M" className="mt-2">
+                <summary aria-label={t("page.more")} className="cursor-pointer">⋯</summary>
+                <div className="flex flex-wrap items-center gap-2 py-3">
+                  <Link data-testid="D1-0-M1" to={`/activity/${activityId}/edit`}>{t("page.editActivity")}</Link>
+                  <Button data-testid="D1-0-M2" variant="ghost" onClick={() => photoInputRef.current?.click()}>{t("page.addPhoto")}</Button>
+                  <Link data-testid="D1-0-M3" to={`/course/create?activityId=${activityId}`}>{t("page.menuCourse")}</Link>
+                  <Link data-testid="D1-0-M4" to={`/segment/create?activityId=${activityId}`}>{t("page.menuSegment")}</Link>
+                  <Button variant="ghost" onClick={() => { setShowExport(true); if (!streamsSignInRequired) requestStreams(); }}>{t("tab.export")}</Button>
+                  {canRecalculateVirtualPowerPreview && <Button data-testid="D1-0-M6" variant="ghost" onClick={recalculateVirtualPowerPreview}>{t("page.vp.recalcBtn")}</Button>}
+                  {activePowerOverride && <Button variant="ghost" onClick={revertVirtualPowerPreview}>{t("page.vp.revertBtn")}</Button>}
+                  <Link data-testid="D1-0-M8" to="/explore/recipes/share">{t("page.menuShareRecipe")}</Link>
+
                 {([
                   { value: "everyone", label: t("page.visibility.everyone"), icon: "🌐" },
                   { value: "friends", label: t("page.visibility.friends"), icon: "👥" },
@@ -964,7 +1025,7 @@ export default function ActivityPage() {
                     {opt.icon} {opt.label}
                   </button>
                 ))}
-                <button
+                <button data-testid="D1-0-M7"
                   onClick={handleDeleteActivity}
                   className="ml-auto px-2 py-1 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
                   style={{
@@ -975,14 +1036,15 @@ export default function ActivityPage() {
                 >
                   {t("page.delete")}
                 </button>
-              </div>
+                </div>
+              </details>
             )}
           </div>
         </div>
       </Card>
 
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
-      <div ref={runLocationAnchor} style={{ scrollMarginTop: "var(--space-8)" }}>
+      <div data-testid="D1-1" ref={runLocationAnchor} style={{ scrollMarginTop: "var(--space-8)" }}>
       <ActivityMediaPanel
         activity={activity}
         streams={streams}
@@ -1006,25 +1068,22 @@ export default function ActivityPage() {
       {/* ── 탭 네비게이션 ── */}
       <TabNav
         tabs={[
-          { id: "overview", label: t("tab.overview") },
-          { id: "analysis", label: t("tab.analysis") },
-          { id: "segments", label: t("tab.segments"), count: segmentEfforts.length || undefined },
-          ...(sport === "run" && (analysisTabProps?.analysisSummary?.laps.length || streams?.laps?.length) ? [{ id: "splits", label: t("tab.splits"), count: analysisTabProps?.analysisSummary?.laps.length ?? streams?.laps?.length }] : []),
-          ...((analysisTabProps?.analysisSummary?.laps.length || streams?.laps?.length) ? [{ id: "laps", label: sport === "swim" ? t("tab.sets") : t("tab.laps"), count: analysisTabProps?.analysisSummary?.laps.length ?? streams?.laps?.length }] : []),
-          { id: "export", label: t("tab.export") },
+          { id: "overview", label: t("tab.overview"), specId: "D1-T" },
+          { id: "analysis", label: t("tab.analysis"), specId: "D1-T" },
+          { id: "segments", label: t("tab.segments"), specId: "D1-T", count: segmentEfforts.length || undefined },
+          ...(isActivityOwner ? [{ id: "compare", label: t("tab.compare"), specId: "D1-T" }] : []),
         ]}
         activeTab={activeTab}
         onChange={(tab) => {
           pendingPeakLocation.current = null;
           pendingLap.current = null;
           setActiveTab(tab);
-          if (!streamsSignInRequired && (["splits", "segments", "export"].includes(tab)
-            || (tab === "laps" && !analysisTabProps?.analysisSummary && !streams?.laps))) requestStreams();
         }}
       />
 
       {unlinkedLapIdentity === rangeSelection.identity && rangeSelection.ownerUid && <Text as="p" variant="bodyMedium" tone="secondary" role="status">{t("analysis.lap.locationUnavailable")}</Text>}
 
+      {activeTab === "analysis" && <section data-testid="D1-3">
       {/* ── 분석 탭 ── */}
       {activeTab === "analysis" && sport !== "run" && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
         <div className="space-y-4">
@@ -1051,29 +1110,6 @@ export default function ActivityPage() {
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
               훅이 소유권과 활성 자전거를 함께 검증해 비소유자의 프로필로 활동 스트림을
               다시 추정하지 않도록 한다. */}
-          {canRecalculateVirtualPowerPreview && (
-            <div
-              className="flex flex-col gap-2 mb-4 pb-4"
-              style={{ borderBottom: "1px solid var(--line-soft)" }}
-            >
-              <div className="flex items-center flex-wrap gap-2">
-                <Text variant="eyebrow" tone="tertiary">{t("page.vp.heading")}</Text>
-                <Button size="sm" variant="outline" onClick={recalculateVirtualPowerPreview}>
-                  {t("page.vp.recalcBtn")}
-                </Button>
-                {activePowerOverride && (
-                  <Button size="sm" variant="ghost" onClick={revertVirtualPowerPreview}>
-                    {t("page.vp.revertBtn")}
-                  </Button>
-                )}
-              </div>
-              {activePowerOverride && (
-                <Text variant="caption" tone="tertiary" as="p" mono>
-                  {t("page.vp.params", { riderKg: activePowerOverride.params.riderWeightKg, bikeKg: activePowerOverride.params.bikeWeightKg, cda: activePowerOverride.params.cdA })}
-                </Text>
-              )}
-            </div>
-          )}
           <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} onSignIn={() => { void signInWithGoogle(); }} />
         </Card>
       )}
@@ -1101,13 +1137,14 @@ export default function ActivityPage() {
       </div>}
       {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />}
 
+      </section>}
       {/* ── 스플릿 탭 (러닝 전용) ── */}
-      {activeTab === "splits" && sport === "run" && streams && (
+      {activeTab === "segments" && sport === "run" && streams && (
         <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={isActivityOwner ? profile?.thresholdPace ?? null : null} hrZoneSec={serverMetrics.metrics?.hrZoneSec} />
       )}
 
       {/* ── 랩 탭 ── */}
-      {activeTab === "laps" && (analysisTabProps?.analysisSummary?.laps || streams?.laps) && (
+      {activeTab === "segments" && (analysisTabProps?.analysisSummary?.laps || streams?.laps) && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>
             {sport === "swim" ? t("page.swim.setAnalysis") : t("page.lapAnalysis")}
@@ -1118,29 +1155,25 @@ export default function ActivityPage() {
         </Card>
       )}
 
-      {/* ── 내보내기 탭 ── */}
-      {activeTab === "export" && !streams && (
-        streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
-      )}
-      {activeTab === "export" && streams && activity && (
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <ExportTab activity={activity} streams={streams} />
-        </Card>
-      )}
+      <Modal open={showExport} onClose={() => setShowExport(false)} title={t("tab.export")} maxWidth="max-w-3xl">
+        <div role="dialog" aria-modal="true" aria-label={t("tab.export")}>
+        {streams ? <ExportTab activity={activity} streams={streams} /> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
+        <Button variant="secondary" onClick={() => setShowExport(false)}>{tCommon("button.close")}</Button>
+        </div>
+      </Modal>
+      <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+      {activeTab === "compare" && isActivityOwner && <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} currentMetricsStatus={serverMetrics.status} isOwner={isActivityOwner} comparisonOnly />}
 
       {/* ── Two-column layout: Main | Sidebar (개요 탭) ── */}
       {activeTab === "overview" && (
       <div className="flex flex-col lg:flex-row gap-6">
       {/* ── Left: 분석 / 스탯 / 사진 / 댓글 ── */}
-      <div className="flex-1 min-w-0 space-y-6">
+      <div data-testid="D1-2" className="flex-1 min-w-0 space-y-6">
 
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
       <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null} />
 
-      <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner}>
-        <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} currentMetricsStatus={serverMetrics.status} isOwner={isActivityOwner} embedded />
-      </ActivityOverviewSummary>
-      {!overview.enabled && <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} currentMetricsStatus={serverMetrics.status} isOwner={isActivityOwner} />}
+      <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />
 
       <EquipmentSignalCard
         key={activity.id}
@@ -1336,13 +1369,7 @@ export default function ActivityPage() {
               </button>
             )}
           </div>
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handlePhotoUpload}
-            className="hidden"
-          />
+
         </Card>
       )}
 
@@ -1390,7 +1417,7 @@ export default function ActivityPage() {
       )}
 
       {/* ── 6. 좋아요 & 댓글 ── */}
-      <KudosCommentsCard
+      <section data-testid="D1-6"><KudosCommentsCard
         user={user}
         profile={profile}
         liked={displayLiked}
@@ -1410,8 +1437,13 @@ export default function ActivityPage() {
         onDeleteComment={handleDeleteComment}
         onSaveEditComment={handleSaveEditComment}
         onSignIn={() => { void signInWithGoogle(); }}
+        activityOwnerId={activity.userId}
+        hiddenComments={hiddenComments}
+        moderationBusy={moderationBusy}
+        onReportComment={handleReportComment}
+        onSetCommentHidden={handleSetCommentHidden}
         formatTimeAgo={timeAgo}
-      />
+      /></section>
 
       </div>{/* end left column */}
 
@@ -1438,10 +1470,10 @@ export default function ActivityPage() {
 
       {/* ── 세그먼트 탭 — 주요성과 + 세그먼트/코스 등록 ── */}
       {activeTab === "segments" && !streams && (
-        streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.segmentsUnavailableTitle")} message={streamUnavailableMessage} />
+        streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.segmentsUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
       )}
       {activeTab === "segments" && streams && (
-      <div className="space-y-6">
+      <div data-testid="D1-4" className="space-y-6">
 
       {/* 주요 성과 */}
       {topResults.length > 0 && (

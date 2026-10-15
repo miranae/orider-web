@@ -13,6 +13,7 @@ import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import type { Activity } from "@shared/types";
 import ko from "../../../i18n/resources/ko/activity.json";
 import en from "../../../i18n/resources/en/activity.json";
+import { resetRuntimeConfigForTests } from "../../../services/runtimeConfig";
 import { ActivityGrowthPanel } from "./ActivityGrowthPanel";
 import { activityPeriods } from "./activityGrowth";
 import { periodFixture, runningPeriodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
@@ -30,6 +31,7 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: { language: moc
   for (const part of key.split(".")) text = (text as Record<string, unknown>)?.[part];
   return typeof text === "string" ? text.replace(/{{(\w+)}}/g, (_, name: string) => String(params?.[name] ?? "")) : key;
 } }) }));
+vi.mock("../../../components/LocalizedLink", () => ({ LocalizedLink: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a> }));
 const activity = { id: "current", userId: "owner", startTime: 100, type: "Run", summary: {} } as Activity;
 const previous = { ...activity, id: "previous", startTime: 50, description: "earlier" };
 beforeEach(() => {
@@ -39,11 +41,31 @@ beforeEach(() => {
   mocks.routeHistory.mockReset();
   mocks.annual.mockReset(); mocks.route.mockReset();
   mocks.periodAvailable = false; mocks.periods.mockReset().mockReturnValue({ state: "idle", response: null, retry: vi.fn() });
+  resetRuntimeConfigForTests({ appEnvironment: "production" });
   mocks.user = { uid: "owner" }; mocks.language = "ko"; mocks.units = "metric";
   mocks.history.mockReset().mockReturnValue({ activities: [previous, { ...previous, id: "bike", type: "Ride" }], sourceActivities: [], coverage: "ready", loading: false, error: false, hasMore: false });
   mocks.metrics.mockReset().mockReturnValue({ status: "missing", metrics: null });
 });
 describe("ActivityGrowthPanel", () => {
+  it("web comparison keeps only normal activity comparison in production, without period/stage sections", () => {
+    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner comparisonOnly />);
+    expect(screen.getByTestId("D1-5")).toBeInTheDocument();
+    expect(mocks.history).toHaveBeenCalledWith("comparison", 0);
+    expect(screen.queryByRole("button", { name: "활동 통계" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("manual-distance-panel")).not.toBeInTheDocument();
+    expect(mocks.routeIndex).not.toHaveBeenCalled();
+    expect(mocks.routeHistory).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: /기간 분석은 코치/ })).toHaveAttribute("href", "/coach/analysis?sport=run");
+  });
+  it("Stage comparison retains its distance/route/arbitrary-power tools without period statistics", () => {
+    resetRuntimeConfigForTests({ appEnvironment: "stage" });
+    render(<ActivityGrowthPanel activity={{ ...activity, type: "Ride" }} metrics={null} isOwner comparisonOnly />);
+    expect(screen.getByTestId("manual-bike-distance-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("route-index-history-panel")).toBeInTheDocument();
+    expect(mocks.routeHistory).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("manual-whole-activity-power")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "활동 통계" })).not.toBeInTheDocument();
+  });
   it("shares existing lazy loaded owner choices and bounded metric identity with GPS history without a second query", () => {
     const wrongOwner = { ...previous, id: "other", userId: "other" }, future = { ...previous, id: "future", startTime: 200 };
     mocks.history.mockReturnValue({ activities: [previous, wrongOwner, future], sourceActivities: [], coverage: "ready", loading: false, error: false, hasMore: false });

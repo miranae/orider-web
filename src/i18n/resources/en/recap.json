@@ -1,6 +1,6 @@
 {
   "title": "Year in Review",
-  "subtitle": "My {{year}} riding",
+  "subtitle": "My {{year}} activities",
   "rider": "Rider",
   "loginRequired": "Please sign in.",
   "loading": "Loading...",
@@ -10,7 +10,7 @@
   "monthShort": "{{month}}",
   "empty": {
     "title": "No activities in {{year}} yet",
-    "desc": "Record a ride and your year in review will fill up."
+    "desc": "Record an activity and your year in review will fill up."
   },
   "section": {
     "totals": "Yearly totals",

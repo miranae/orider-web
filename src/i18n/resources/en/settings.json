@@ -106,7 +106,18 @@
     "visOptEveryone": "Public",
     "visOptFriends": "Friends only",
     "visOptPrivate": "Private",
-    "newActivityDefault": "Default for new activities"
+    "newActivityDefault": "Default for new activities",
+    "existingTitle": "Apply to existing activities",
+    "existingCount": "{{count}} activities · use the current default visibility",
+    "existingApply": "Apply to existing activities",
+    "existingApplying": "Applying…",
+    "existingConfirm": "Change {{count}} existing, non-deleted activities to {{visibility}}? This will replace each activity’s visibility setting.",
+    "existingApplied": "Updated visibility for {{count}} existing activities",
+    "existingEmpty": "There are no existing activities to update",
+    "existingFailed": "Could not update existing activity visibility. Please check and retry.",
+    "defaultSafetyChecking": "Checking whether new and existing activity visibility can be saved separately.",
+    "defaultSafetyUnavailable": "The server could not confirm separate visibility saving. Changes are temporarily disabled; please retry.",
+    "existingCountOnDemand": "Check the affected count when you choose to apply"
   },
   "personal": {
     "weight": "Weight",
@@ -131,6 +142,8 @@
     "phoneRequired": "Both name and phone are required to use an emergency contact"
   },
   "training": {
+    "loadFailed": "Could not load your thresholds.",
+    "deviceStatus": "View device synchronization →",
     "sport": {
       "bike": "Cycling",
       "run": "Running",
@@ -425,7 +438,10 @@
       "exampleHint": "The smallest example that reads your own activity list with a generated key.",
       "copy": "Copy",
       "copyFailed": "Failed to copy",
-      "copied": "Copied"
+      "copied": "Copied",
+      "docsTitle": "Developer documentation",
+      "examplesLink": "Examples →",
+      "apiDocsLink": "API documentation"
     }
   },
   "coach": {
@@ -501,25 +517,25 @@
     "groupMe": "Me",
     "groupConnections": "Connections",
     "groupApp": "App",
-    "accountLabel": "Account & Profile",
+    "accountLabel": "Account",
     "accountHint": "Profile, visibility, theme",
     "trainingLabel": "Training profile",
     "trainingHint": "Body, FTP, HR zones",
     "equipmentLabel": "Equipment",
     "equipmentHint": "Bikes, virtual power",
-    "connectionsLabel": "Connected apps",
+    "connectionsLabel": "Connections",
     "connectionsHint": "Strava, Garmin, etc.",
     "healthSourcesLabel": "Health sources",
     "healthSourcesHint": "Apple Health, Health Connect, primary source",
     "aiCoachLabel": "AI Coach",
     "aiCoachHint": "Personal training data consent",
-    "developerLabel": "Developer API",
+    "developerLabel": "Developer",
     "developerHint": "Personal Data API keys",
-    "deviceLabel": "Device",
-    "deviceHint": "Mobile app sync",
+    "deviceLabel": "Devices",
+    "deviceHint": "Device behavior, sensors and data pages",
     "appLabel": "App & Data",
     "appHint": "Language, units, export",
-    "displayLabel": "Display & language",
+    "displayLabel": "Display",
     "displayHint": "Language, units, theme",
     "dataLabel": "My data",
     "dataHint": "Export, cache, deletion",
@@ -789,7 +805,8 @@
     "legacyImportDone": "Imported to {{name}}.",
     "legacyImportFailed": "Couldn't import. Please try again.",
     "legacyImportBlocked": "Import is paused because the target bike's saved layout couldn't be read.",
-    "legacyImportNoBikes": "No bikes to import into. Create a bike first."
+    "legacyImportNoBikes": "No bikes to import into. Create a bike first.",
+    "thresholdSource": "Manage canonical thresholds in Coach > Condition →"
   },
   "layout": {
     "cardTitle": "Data screen layout",
@@ -975,5 +992,25 @@
     "save": "Save",
     "cancel": "Cancel",
     "weightUnit": "kg"
+  },
+  "shoeSnapshot": {
+    "title": "Shoes from recent activities",
+    "coverage": "Latest snapshots per shoe found in the last eight weeks of activities, not a complete inventory. Records without an ID show only the most recent shoe.",
+    "loading": "Loading shoe information…",
+    "unavailable": "Recent activity shoe information is unavailable. Please check again later.",
+    "empty": "Recent activities contain no shoe information with a replacement distance.",
+    "total": "Accumulated {{distance}}",
+    "remaining": "Remaining {{distance}} · replacement distance {{maximum}}",
+    "replacementDue": "Replacement due · less than 15% remaining",
+    "identity": "Shoe ID {{id}}",
+    "legacyIdentity": "Latest shoe without an ID",
+    "conflictingIdentity": "Shoe snapshots with conflicting identifiers were excluded."
+  },
+  "bikeMileage": {
+    "total": "Accumulated {{distance}}",
+    "loading": "Calculating accumulated distance",
+    "error": "Unable to load accumulated distance.",
+    "unavailable": "Accumulated distance unavailable",
+    "stale": "Previous aggregate"
   }
 }

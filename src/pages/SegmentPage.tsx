@@ -1,9 +1,10 @@
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
+import TabNav from "../components/TabNav";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { collection, query, orderBy, where, getDocs, limit, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -270,6 +271,10 @@ function formatTime(ms: number): string {
 }
 
 export default function SegmentPage() {
+  const detailLocation = useLocation();
+  const [detailParams, setDetailParams] = useSearchParams();
+  const requestedTab = detailParams.get("tab") ?? (detailParams.has("currentActivityId") || detailParams.has("cachedComparison") ? "mine" : "overview");
+  const setDetailTab = (tab: string) => { const next = new URLSearchParams(detailParams); if (tab === "overview") next.delete("tab"); else next.set("tab", tab); setDetailParams(next, { replace: true, state: detailLocation.state }); };
   const { t } = useTranslation("segment");
   const { segmentId } = useParams<{ segmentId: string }>();
   const [searchParams] = useSearchParams();
@@ -277,6 +282,7 @@ export default function SegmentPage() {
   const drilldown = useMemo(() => segmentHistoryContext(searchParams), [searchParams]);
   const drilldownKey = JSON.stringify([segmentId, drilldown]);
   const { user, profile } = useAuth();
+  const detailTab = requestedTab === "ranking" ? "ranking" : requestedTab === "mine" && user && !user.isAnonymous ? "mine" : "overview";
   const gapServices = useFirebaseServices();
   const { getStreams } = useStrava();
   const { data: segment, loading: segLoading } = useDocument<SegmentData>("segments", segmentId);
@@ -631,6 +637,63 @@ export default function SegmentPage() {
         document.body,
       )}
 
+      {/* Header */}
+      <Card data-testid="D3-0">
+        <div style={{ ...SEGMENT_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
+          {cat && (
+            <span className={`text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)] ${cat.bg}`} style={{ padding: "var(--space-1) var(--space-2)" }}>
+              {cat.label}
+            </span>
+          )}
+          <h1 className="text-[length:var(--fs-2xl)] font-bold" style={{ color: "var(--ink-0)" }}>{segment.name}</h1>
+          <Button data-testid="D3-0-share" variant="secondary" size="sm" onClick={async () => {
+            const url = window.location.origin + window.location.pathname;
+            try {
+              if (navigator.share) await navigator.share({ title: segment.name, url });
+              else { await navigator.clipboard.writeText(url); showToast(t("detail.shareCopied")); }
+            } catch (error) { if (!(error instanceof DOMException && error.name === "AbortError")) { logClientError("SegmentPage.share", error, { segmentId }); showToast(t("detail.shareFailed")); } }
+          }}>{t("detail.share")}</Button>
+          {(() => {
+            const badgeStyle = segment.status ? STATUS_BADGE_STYLES[segment.status] : null;
+            const badgeLabel = segment.status && (segment.status === "pending" || segment.status === "rejected" || segment.status === "hidden")
+              ? t(`status.${segment.status}`)
+              : null;
+            return badgeStyle && badgeLabel && (
+              <span className="text-[length:var(--fs-xs)] font-semibold rounded-[var(--r-sm)]" style={{ ...badgeStyle, padding: "var(--space-1) var(--space-2)" }}>
+                {badgeLabel}
+              </span>
+            );
+          })()}
+        </div>
+        {(segment.city || segment.state) && (
+          <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-1)" }}>
+            {[segment.city, segment.state].filter(Boolean).join(", ")}
+          </p>
+        )}
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+          <div style={SEGMENT_SECTION_STACK_STYLE}>
+            <Text as="div" variant="eyebrow">{t("distance")}</Text>
+            <Text as="div" variant="dataMedium">{(segment.distance / 1000).toFixed(2)}<Text variant="unit">km</Text></Text>
+          </div>
+          <div style={SEGMENT_SECTION_STACK_STYLE}>
+            <Text as="div" variant="eyebrow">{t("elevationGain")}</Text>
+            <Text as="div" variant="dataMedium">{Math.round(elevGain)}<Text variant="unit">m</Text></Text>
+          </div>
+          <div style={SEGMENT_SECTION_STACK_STYLE}>
+            <Text as="div" variant="eyebrow">{t("averageGrade")}</Text>
+            <Text as="div" variant="dataMedium">{segment.averageGrade.toFixed(1)}<Text variant="unit">%</Text></Text>
+          </div>
+          <div style={SEGMENT_SECTION_STACK_STYLE}>
+            <Text as="div" variant="eyebrow">{t("maxGrade")}</Text>
+            <Text as="div" variant="dataMedium">{segment.maximumGrade.toFixed(1)}<Text variant="unit">%</Text></Text>
+          </div>
+        </div>
+      </Card>
+
+      <TabNav tabs={[{ id: "overview", label: t("detailTabs.overview"), specId: "D3-T" }, { id: "ranking", label: t("detailTabs.ranking"), specId: "D3-T" }, ...(user && !user.isAnonymous ? [{ id: "mine", label: t("myRecord"), specId: "D3-T" }] : [])]} activeTab={detailTab} onChange={setDetailTab} />
+      <div data-testid="D3-1" style={detailTab !== "overview" ? { display: "none" } : undefined}>
       {/* Map */}
       {(() => {
         const storedPolyline = cachedGapEntry && typeof segment.polyline === "string" && segment.polyline.length <= 32768
@@ -755,58 +818,11 @@ export default function SegmentPage() {
         </Card>
       )}
 
-      {/* Header */}
-      <Card>
-        <div style={{ ...SEGMENT_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
-          {cat && (
-            <span className={`text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)] ${cat.bg}`} style={{ padding: "var(--space-1) var(--space-2)" }}>
-              {cat.label}
-            </span>
-          )}
-          <h1 className="text-[length:var(--fs-2xl)] font-bold" style={{ color: "var(--ink-0)" }}>{segment.name}</h1>
-          {(() => {
-            const badgeStyle = segment.status ? STATUS_BADGE_STYLES[segment.status] : null;
-            const badgeLabel = segment.status && (segment.status === "pending" || segment.status === "rejected" || segment.status === "hidden")
-              ? t(`status.${segment.status}`)
-              : null;
-            return badgeStyle && badgeLabel && (
-              <span className="text-[length:var(--fs-xs)] font-semibold rounded-[var(--r-sm)]" style={{ ...badgeStyle, padding: "var(--space-1) var(--space-2)" }}>
-                {badgeLabel}
-              </span>
-            );
-          })()}
-        </div>
-        {(segment.city || segment.state) && (
-          <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-1)" }}>
-            {[segment.city, segment.state].filter(Boolean).join(", ")}
-          </p>
-        )}
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
-          <div style={SEGMENT_SECTION_STACK_STYLE}>
-            <Text as="div" variant="eyebrow">{t("distance")}</Text>
-            <Text as="div" variant="dataMedium">{(segment.distance / 1000).toFixed(2)}<Text variant="unit">km</Text></Text>
-          </div>
-          <div style={SEGMENT_SECTION_STACK_STYLE}>
-            <Text as="div" variant="eyebrow">{t("elevationGain")}</Text>
-            <Text as="div" variant="dataMedium">{Math.round(elevGain)}<Text variant="unit">m</Text></Text>
-          </div>
-          <div style={SEGMENT_SECTION_STACK_STYLE}>
-            <Text as="div" variant="eyebrow">{t("averageGrade")}</Text>
-            <Text as="div" variant="dataMedium">{segment.averageGrade.toFixed(1)}<Text variant="unit">%</Text></Text>
-          </div>
-          <div style={SEGMENT_SECTION_STACK_STYLE}>
-            <Text as="div" variant="eyebrow">{t("maxGrade")}</Text>
-            <Text as="div" variant="dataMedium">{segment.maximumGrade.toFixed(1)}<Text variant="unit">%</Text></Text>
-          </div>
-        </div>
-      </Card>
-
+      </div>
       {/* KOM + My Best */}
       <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-4)" }}>
         {/* KOM */}
-        <Card>
+        {detailTab === "ranking" && <Card data-testid="D3-2">
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("kom.title")}</Text>
           {komEffort ? (
             <div style={{ ...SEGMENT_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
@@ -825,10 +841,10 @@ export default function SegmentPage() {
           ) : (
             <div className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{t("kom.noRecord")}</div>
           )}
-        </Card>
+        </Card>}
 
         {/* My Best */}
-        <Card>
+        {detailTab === "mine" && <Card data-testid="D3-3">
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("myRecord")}</Text>
           {myBestEffort ? (
             <div>
@@ -857,11 +873,11 @@ export default function SegmentPage() {
           ) : (
             <div className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{t("empty.loginRequired")}</div>
           )}
-        </Card>
+        </Card>}
       </div>
 
       {/* Local Legend — 90일 최다완주(#490) */}
-      <Card>
+      {detailTab === "ranking" && <Card>
         <div className="flex items-baseline justify-between" style={{ marginBottom: "var(--space-2)" }}>
           <Text as="div" variant="eyebrow">👑 {t("legend.title")}</Text>
           <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>{t("legend.subtitle")}</span>
@@ -885,10 +901,10 @@ export default function SegmentPage() {
         ) : (
           <div className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{t("legend.empty")}</div>
         )}
-      </Card>
+      </Card>}
 
       {/* 이 세그먼트를 쓰는 코스 — 역링크(#495) */}
-      {usedByCourses.length > 0 && (
+      {detailTab === "overview" && usedByCourses.length > 0 && (
         <Card>
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("usedByCourses")}</Text>
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-2)" }}>
@@ -905,7 +921,7 @@ export default function SegmentPage() {
       )}
 
       {/* Leaderboard */}
-      <Card padding="none" className="overflow-hidden">
+      {detailTab === "ranking" && <Card padding="none" className="overflow-hidden">
         <div className="flex items-center justify-between" style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-5)" }}>
           <h2 className="font-semibold text-[length:var(--fs-sm)]" style={{ color: "var(--ink-0)" }}>
             {t("stats.leaderboardCount", { count: validEfforts.length })}
@@ -1005,10 +1021,10 @@ export default function SegmentPage() {
           </table>
           </div>
         )}
-      </Card>
+      </Card>}
 
       {/* My History */}
-      {user && !user.isAnonymous && myBestEffort && (
+      {detailTab === "mine" && user && !user.isAnonymous && myBestEffort && (
         <Card padding="none" className="overflow-hidden">
           <button
             onClick={() => setHistoryVisibility({ key: drilldownKey, open: !showAllEfforts })}

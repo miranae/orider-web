@@ -1,7 +1,8 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { PlanWeek } from "@shared/types/goal";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
+import { Route, Routes, useLocation } from "react-router-dom";
 import MobilePlanPage from "./MobilePlanPage";
 
 const week: PlanWeek = {
@@ -15,6 +16,12 @@ const week: PlanWeek = {
 };
 
 describe("MobilePlanPage goal discipline", () => {
+  it.each(["run", "swim"] as const)("preserves %s when the empty mobile plan opens goal setup", sport => {
+    function GoalLocation() { const location = useLocation(); return <output>{location.search}</output>; }
+    renderWithProviders(<Routes><Route path="/:lang/coach/plan" element={<MobilePlanPage currentWeek={null} weekLabel="" />} /><Route path="/:lang/goal-setup" element={<GoalLocation />} /></Routes>, { route: `/ko/coach/plan?sport=${sport}` });
+    fireEvent.click(screen.getByRole("button", { name: /추가/ }));
+    expect(screen.getByRole("status")).toHaveTextContent(`?sport=${sport}`);
+  });
   it("uses the goal sport for a shared workout code across week and goal changes", () => {
     const view = renderWithProviders(<MobilePlanPage currentWeek={week} weekLabel="W1" goalDiscipline="run" />);
     expect(screen.getByText("🏃 러닝")).toBeInTheDocument();

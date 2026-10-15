@@ -26,6 +26,7 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { logClientError } from "../../services/errorLogger";
 
 import { SettingsCard, FieldGrid, Field, InlineRow, Toggle, fieldInputStyle } from "./_primitives";
+import { PaneMedical } from "./PaneMedical";
 import { ProfileHero } from "./ProfileHero";
 import { Button } from "../../theme/components";
 
@@ -54,6 +55,9 @@ export function PaneAccount() {
     profile?.friendRequestsAllowed ?? true,
   );
   const [visibilitySaving, setVisibilitySaving] = useState(false);
+  const [bulkVisibilitySaving, setBulkVisibilitySaving] = useState(false);
+  const [visibilityAvailability, setVisibilityAvailability] = useState<"ready" | "error">("ready");
+  const [existingActivityCount, setExistingActivityCount] = useState<number | null>(null);
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -79,6 +83,11 @@ export function PaneAccount() {
       if (typeof code === "string") setFriendCode(code);
     });
   }, [user]);
+
+  useEffect(() => {
+    setVisibilityAvailability("ready");
+    setExistingActivityCount(null);
+  }, [user?.uid]);
 
   if (!user) return null;
   const currentVisibility: Visibility = profile?.defaultVisibility ?? "private";
@@ -184,19 +193,46 @@ export function PaneAccount() {
   }
 
   async function handleVisibilityChange(v: Visibility) {
+    if (!user || visibilityAvailability !== "ready" || visibilitySaving || bulkVisibilitySaving) return;
     setVisibilitySaving(true);
     try {
-      const fn = httpsCallable<{ visibility: string }, { updated: number }>(
+      const fn = httpsCallable<{ visibility: string }, { updated: number; scope: string }>(
         functions,
         "updateDefaultVisibility",
       );
-      await fn({ visibility: v });
+      const result = await fn({ visibility: v });
+      if (result.data.scope !== "default" || result.data.updated !== 0) {
+        setVisibilityAvailability("error");
+        throw new Error("Unsupported default visibility response");
+      }
       showToast(t("privacy.visibilityChanged"));
     } catch {
       showToast(t("privacy.changeFailed"));
     } finally {
       setVisibilitySaving(false);
     }
+  }
+
+  async function handleApplyExistingVisibility() {
+    if (!user || visibilityAvailability !== "ready" || visibilitySaving || bulkVisibilitySaving) return;
+    setBulkVisibilitySaving(true);
+    try {
+      const preview = httpsCallable<{ visibility: Visibility; dryRun: true }, { count: number }>(functions, "applyVisibilityToExistingActivities");
+      const result = await preview({ visibility: currentVisibility, dryRun: true });
+      const count = result.data.count;
+      if (!Number.isSafeInteger(count) || count < 0) throw new Error("Invalid visibility preview");
+      setExistingActivityCount(count);
+      if (count === 0) { showToast(t("privacy.existingEmpty")); return; }
+      const option = VIS_OPTS.find(option => option.value === currentVisibility)!;
+      if (!await dialog.confirm(t("privacy.existingConfirm", { count, visibility: t(option.labelKey) }), { destructive: true })) return;
+      const apply = httpsCallable<{ visibility: Visibility }, { updated: number }>(functions, "applyVisibilityToExistingActivities");
+      const applied = await apply({ visibility: currentVisibility });
+      if (!Number.isSafeInteger(applied.data.updated) || applied.data.updated < 0) throw new Error("Invalid visibility result");
+      showToast(t("privacy.existingApplied", { count: applied.data.updated }));
+    } catch (error) {
+      logClientError("PaneAccount.applyExistingVisibility", error, {});
+      showToast(t("privacy.existingFailed"));
+    } finally { setBulkVisibilitySaving(false); }
   }
 
   async function handleToggleSetting(
@@ -247,7 +283,7 @@ export function PaneAccount() {
 
   return (
     <>
-      <ProfileHero
+      <div data-testid="S1-1-1"><ProfileHero
         nickname={profile?.nickname ?? ""}
         email={profile?.email}
         photoURL={profile?.photoURL}
@@ -287,9 +323,9 @@ export function PaneAccount() {
             />
           </>
         }
-      />
+      /></div>
 
-      <SettingsCard title={t("pane.account.cardProfile")}>
+      <SettingsCard data-testid="S1-1-1" title={t("pane.account.cardProfile")}>
         <FieldGrid cols={1}>
           <Field label={t("pane.account.fieldBio")} full>
             <textarea
@@ -304,7 +340,7 @@ export function PaneAccount() {
         </FieldGrid>
       </SettingsCard>
 
-      <SettingsCard title={t("pane.account.cardVisibility")} dense>
+      <SettingsCard data-testid="S1-2-1" title={t("pane.account.cardVisibility")} dense>
         <div
           style={{
             display: "grid",
@@ -320,7 +356,7 @@ export function PaneAccount() {
               <button
                 key={o.value}
                 onClick={() => handleVisibilityChange(o.value)}
-                disabled={visibilitySaving}
+                disabled={visibilitySaving || bulkVisibilitySaving || visibilityAvailability !== "ready"}
                 style={{
                   padding: "14px 12px",
                   borderRadius: "var(--r-md)",
@@ -343,21 +379,30 @@ export function PaneAccount() {
             );
           })}
         </div>
-        <InlineRow label={t("privacy.profilePublicInline")} hint={t("privacy.profilePublicInlineDesc")}>
+        {visibilityAvailability !== "ready" && <div role="status">
+          {t("privacy.defaultSafetyUnavailable")}
+        </div>}
+        <InlineRow label={t("privacy.existingTitle")} hint={existingActivityCount === null ? t("privacy.existingCountOnDemand") : t("privacy.existingCount", { count: existingActivityCount })}>
+          <Button data-testid="S1-2-1b" variant="secondary" onClick={() => void handleApplyExistingVisibility()}
+            disabled={visibilityAvailability !== "ready" || visibilitySaving || bulkVisibilitySaving}>
+            {t(bulkVisibilitySaving ? "privacy.existingApplying" : "privacy.existingApply")}
+          </Button>
+        </InlineRow>
+        <InlineRow data-testid="S1-2-2" label={t("privacy.profilePublicInline")} hint={t("privacy.profilePublicInlineDesc")}>
           <Toggle
             on={profilePublic}
             ariaLabel={t("privacy.profilePublicInline")}
             onChange={(v) => handleToggleSetting("profilePublic", v, setProfilePublic)}
           />
         </InlineRow>
-        <InlineRow label={t("privacy.leaderboard")} hint={t("privacy.leaderboardInlineDesc")}>
+        <InlineRow data-testid="S1-2-2" label={t("privacy.leaderboard")} hint={t("privacy.leaderboardInlineDesc")}>
           <Toggle
             on={leaderboardOptIn}
             ariaLabel={t("privacy.leaderboard")}
             onChange={(v) => handleToggleSetting("leaderboardOptIn", v, setLeaderboardOptIn)}
           />
         </InlineRow>
-        <InlineRow label={t("privacy.friendRequests")}>
+        <InlineRow data-testid="S1-2-2" label={t("privacy.friendRequests")}>
           <Toggle
             on={friendRequestsAllowed}
             ariaLabel={t("privacy.friendRequests")}
@@ -368,7 +413,7 @@ export function PaneAccount() {
         </InlineRow>
       </SettingsCard>
 
-      <SettingsCard title={t("pane.account.cardAppearance")} dense>
+      <SettingsCard data-testid="S4-1-1" title={t("pane.account.cardAppearance")} dense>
         <InlineRow label={t("theme.label")} hint={t("pane.account.themeHint")}>
           <div
             style={{
@@ -408,7 +453,9 @@ export function PaneAccount() {
         </InlineRow>
       </SettingsCard>
 
-      <SettingsCard title={t("pane.account.cardDanger")} danger dense>
+      <PaneMedical />
+
+      <SettingsCard data-testid="S1-5-1" title={t("pane.account.cardDanger")} danger dense>
         <InlineRow label={t("pane.account.logoutLabel")} hint={t("pane.account.logoutHint")}>
           <Button variant="secondary" onClick={handleLogout}>
             {t("pane.account.logoutBtn")}

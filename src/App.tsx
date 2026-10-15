@@ -38,7 +38,8 @@ const GroupRidesPage = lazyTimed("GroupRidesPage", () => import("./pages/group/G
 const GroupRidePage = lazyTimed("GroupRidePage", () => import("./pages/group/GroupRidePage"));
 const GroupMembersPage = lazyTimed("GroupMembersPage", () => import("./pages/group/GroupMembersPage"));
 const GroupInvitePage = lazyTimed("GroupInvitePage", () => import("./pages/group/GroupInvitePage"));
-const GroupLeaderboardPage = lazyTimed("GroupLeaderboardPage", () => import("./pages/group/GroupLeaderboardPage"));
+const GroupWeekPage = lazyTimed("GroupWeekPage", () => import("./pages/group/GroupWeekPage"));
+const GroupEventsPage = lazyTimed("GroupEventsPage", () => import("./pages/group/GroupEventsPage"));
 const GroupSettingsPage = lazyTimed("GroupSettingsPage", () => import("./pages/group/GroupSettingsPage"));
 const SegmentPage = lazyTimed("SegmentPage", () => import("./pages/SegmentPage"));
 const AthletePage = lazyTimed("AthletePage", () => import("./pages/AthletePage"));
@@ -63,8 +64,7 @@ const CreateSegmentPage = lazyTimed("CreateSegmentPage", () => import("./pages/C
 const CoursePage = lazyTimed("CoursePage", () => import("./pages/CoursePage"));
 const CreateCoursePage = lazyTimed("CreateCoursePage", () => import("./pages/CreateCoursePage"));
 const CourseEditPage = lazyTimed("CourseEditPage", () => import("./pages/course/CourseEditPage"));
-const LeaderboardPage = lazyTimed("LeaderboardPage", () => import("./pages/LeaderboardPage"));
-const DiscoverPage = lazyTimed("DiscoverPage", () => import("./pages/DiscoverPage"));
+const ChallengesPage = lazyTimed("ChallengesPage", () => import("./pages/ChallengesPage"));
 const EventsPage = lazyTimed("EventsPage", () => import("./pages/EventsPage"));
 const EventCreatePage = lazyTimed("EventCreatePage", () => import("./pages/EventCreatePage"));
 const EventOrganizerPage = lazyTimed("EventOrganizerPage", () => import("./pages/EventOrganizerPage"));
@@ -140,7 +140,8 @@ export function AppRoutes() {
           <Route path="settings/data" element={<SettingsPage tab="data" />} />
           <Route path="settings/display" element={<SettingsPage tab="display" />} />
           <Route path="settings/developer" element={<SettingsPage tab="developer" />} />
-          <Route path="settings/training" element={<SettingsPage tab="training" />} />
+          <Route path="settings/device" element={<SettingsPage tab="device" />} />
+          <Route path="settings/training" element={<LegacyRedirect to="/coach/condition#thresholds" />} />
           <Route path="settings/*" element={<LegacyRedirect to="/settings/account" />} />
           {/* 클럽 — club/join 정적이 club/:groupId 보다 먼저. 발급 정본은 group/join/:code */}
           <Route path="clubs" element={<GroupsPage />} />
@@ -149,7 +150,9 @@ export function AppRoutes() {
           <Route path="club/:groupId" element={<GroupDashboardPage />} />
           <Route path="club/:groupId/rides" element={<GroupRidesPage />} />
           <Route path="club/:groupId/rides/:rideId" element={<GroupRidePage />} />
-          <Route path="club/:groupId/leaderboard" element={<GroupLeaderboardPage />} />
+          <Route path="club/:groupId/week" element={<GroupWeekPage />} />
+          <Route path="club/:groupId/events" element={<GroupEventsPage />} />
+          <Route path="club/:groupId/leaderboard" element={<LegacyRedirect to="/club/:groupId/week" />} />
           <Route path="club/:groupId/members" element={<GroupMembersPage />} />
           <Route path="club/:groupId/settings" element={<GroupSettingsPage />} />
           <Route path="group/join/:code" element={<GroupInvitePage />} />
@@ -158,10 +161,10 @@ export function AppRoutes() {
           {/* 탐색 — explore/courses·explore/segments 는 Layout에서 직접 렌더: element={null} 유지 필수 (변경 시 이중 렌더) */}
           <Route path="explore/courses" element={null} />
           <Route path="explore/segments" element={null} />
-          <Route path="explore/segments/leaderboard" element={<LeaderboardPage />} />
+          <Route path="explore/segments/leaderboard" element={<LegacyRedirect to="/explore/segments" />} />
           <Route path="explore/events" element={<EventsPage />} />
           <Route path="explore/events/organize" element={<EventOrganizerPage />} />
-          <Route path="explore/challenges" element={<DiscoverPage />} />
+          <Route path="explore/challenges" element={<ChallengesPage />} />
           <Route path="explore/clubs" element={<LegacyRedirect to="/clubs" />} />
           <Route path="course/create" element={<CreateCoursePage />} />
           <Route path="course/:courseId/edit" element={<CourseEditPage />} />
@@ -209,13 +212,13 @@ export function AppRoutes() {
           <Route path="group/:groupId" element={<LegacyRedirect to="/club/:groupId" />} />
           <Route path="group/:groupId/rides" element={<LegacyRedirect to="/club/:groupId/rides" />} />
           <Route path="group/:groupId/ride/:rideId" element={<LegacyRedirect to="/club/:groupId/rides/:rideId" />} />
-          <Route path="group/:groupId/leaderboard" element={<LegacyRedirect to="/club/:groupId/leaderboard" />} />
+          <Route path="group/:groupId/leaderboard" element={<LegacyRedirect to="/club/:groupId/week" />} />
           <Route path="group/:groupId/members" element={<LegacyRedirect to="/club/:groupId/members" />} />
           <Route path="group/:groupId/settings" element={<LegacyRedirect to="/club/:groupId/settings" />} />
           <Route path="courses" element={<LegacyRedirect to="/explore/courses" />} />
           <Route path="explore" element={<LegacyRedirect to="/explore/segments" />} />
-          <Route path="discover" element={<LegacyRedirect to="/explore/challenges" />} />
-          <Route path="leaderboard" element={<LegacyRedirect to="/explore/segments/leaderboard" />} />
+          <Route path="discover" element={<LegacyRedirect to="/explore/courses" />} />
+          <Route path="leaderboard" element={<LegacyRedirect to="/explore/segments" />} />
           <Route path="events" element={<LegacyRedirect to="/explore/events" />} />
           <Route path="events/organize" element={<LegacyRedirect to="/explore/events/organize" />} />
           <Route path="event/:eventId/dashboard" element={<LegacyRedirect to="/event/:eventId/host" />} />

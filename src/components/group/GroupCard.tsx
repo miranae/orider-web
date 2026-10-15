@@ -1,6 +1,8 @@
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { Bike, Footprints, Triangle, Waves } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../../contexts/AuthContext";
+import { useGroupMemberRole } from "../../hooks/useGroup";
 import type { ReactNode } from "react";
 import type { Group, GroupKind } from "@shared/types";
 import { Button, Card, Chip, Text } from "../../theme/components";
@@ -8,6 +10,7 @@ import { Button, Card, Chip, Text } from "../../theme/components";
 interface GroupCardProps {
   group: Group & { isLeader?: boolean };
   showJoinButton?: boolean;
+  showMyRole?: boolean;
   onJoin?: () => void;
   joining?: boolean;
   joinPending?: boolean;
@@ -47,7 +50,9 @@ function badgeText(name: string): string {
   return trimmed.slice(0, 2);
 }
 
-export default function GroupCard({ group, showJoinButton, onJoin, joining, joinPending, why, nextEvent, weekDistKm, newPosts }: GroupCardProps) {
+export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, joining, joinPending, why, nextEvent, weekDistKm, newPosts }: GroupCardProps) {
+  const { user } = useAuth();
+  const { role: ownRole } = useGroupMemberRole(showMyRole ? group.id : undefined, showMyRole ? user?.uid : undefined);
   const { t } = useTranslation("group");
   const primarySport = (group.sports && group.sports[0]) ?? group.discipline ?? "bike";
   const meta = DISCIPLINE_META[primarySport] ?? DISCIPLINE_META.bike!;
@@ -79,10 +84,17 @@ export default function GroupCard({ group, showJoinButton, onJoin, joining, join
       {/* Body */}
       <div className="min-w-0">
         <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-1)' }}>
+          {showJoinButton ? <Link data-testid="C0-2-2" to={`/club/${group.id}`}>
           <Text as="h3" variant="bodyMedium" truncate tone="primary" style={{ margin: 0 }}>
             {group.name}
           </Text>
-          {group.isLeader && (
+          </Link> : <>
+          <Text as="h3" variant="bodyMedium" truncate tone="primary" style={{ margin: 0 }}>
+            {group.name}
+          </Text>
+          </>}
+          {showMyRole && ownRole && <Chip>{t(ownRole === "member" ? "members.role.member" : ownRole === "co-leader" ? "members.role.coLeader" : "members.role.leader")}</Chip>}
+          {!showMyRole && group.isLeader && (
             <Chip style={{ color: "var(--lime)", fontSize: "var(--fs-2xs)", padding: "1px 6px", whiteSpace: "nowrap" }}>{t("card.leader")}</Chip>
           )}
         </div>
@@ -117,7 +129,7 @@ export default function GroupCard({ group, showJoinButton, onJoin, joining, join
 
         {showJoinButton && onJoin && (
           <div style={{ marginTop: "var(--space-2)" }}>
-            <Button
+            <Button data-testid="C0-2-3"
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onJoin(); }}
               disabled={joining || joinPending} variant="primary" size="sm"
@@ -131,5 +143,5 @@ export default function GroupCard({ group, showJoinButton, onJoin, joining, join
   );
 
   if (showJoinButton) return content;
-  return <Link to={`/club/${group.id}`} style={{ textDecoration: "none" }}>{content}</Link>;
+  return <Link data-testid="C0-1-2" to={`/club/${group.id}`} style={{ textDecoration: "none" }}>{content}</Link>;
 }

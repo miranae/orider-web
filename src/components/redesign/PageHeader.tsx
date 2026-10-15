@@ -2,15 +2,16 @@ import React from "react";
 import { Text } from "../../theme/components";
 
 interface PageHeaderProps {
+  "data-testid"?: string;
   eyebrow?: string;
   title: string;
   subtitle?: React.ReactNode;
   right?: React.ReactNode;
 }
 
-export default function PageHeader({ eyebrow, title, subtitle, right }: PageHeaderProps) {
+export default function PageHeader({ eyebrow, title, subtitle, right, "data-testid": testId }: PageHeaderProps) {
   return (
-    <div
+    <div data-testid={testId}
       className="flex items-end justify-between"
       style={{
         borderBottom: '1px solid var(--line-soft)',

@@ -194,7 +194,7 @@ const PostDetailPage: React.FC = () => {
         </button>
       </div>
 
-      <Card padding="none" className="rounded-[var(--r-lg)] p-6! md:p-8!">
+      <Card data-testid="M2-P-1" padding="none" className="rounded-[var(--r-lg)] p-6! md:p-8!">
         <header className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <span className="bg-[var(--lime)]/10 text-[var(--lime)] px-2 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold uppercase">
@@ -207,7 +207,7 @@ const PostDetailPage: React.FC = () => {
               {t('label.views')} {post.viewCount}
               {user?.uid !== post.userId && (
                 <>
-                  <button
+                  <button data-testid="M2-P-3"
                     onClick={() => openReport({
                       targetType: "post",
                       postId: post.id,
@@ -230,7 +230,7 @@ const PostDetailPage: React.FC = () => {
                 </>
               )}
               {user && user.uid === post.userId && (
-                <button
+                <button data-testid="M2-P-2"
                   onClick={handleDeletePost}
                   disabled={postDeleting}
                   className="text-[var(--rose)] hover:opacity-70 transition-colors disabled:opacity-50"
@@ -240,7 +240,7 @@ const PostDetailPage: React.FC = () => {
               )}
             </span>
           </div>
-          <h1 className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)] mb-4">{post.title}</h1>
+          <h1 data-testid="M2-P" className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)] mb-4">{post.title}</h1>
           <div className="flex items-center gap-2">
             {post.profileImage ? (
               <SafeImage src={post.profileImage} alt={post.nickname} fallbackLabel={post.nickname} className="w-8 h-8 rounded-full object-cover" loading="lazy" decoding="async" />
@@ -357,21 +357,21 @@ const PostDetailPage: React.FC = () => {
       </Card>
 
       {/* Comments Section */}
-      <section className="space-y-4 mb-10">
+      <section data-testid="M2-C" className="space-y-4 mb-10">
         <h2 className="font-bold text-[length:var(--fs-lg)] text-[var(--ink-0)] flex items-center gap-2">
           {t('comments')} <span className="text-[var(--lime)]">{comments.length}</span>
         </h2>
 
         {/* Comment Input */}
         {user ? (
-          <BoardCommentComposer
+          <div data-testid="M2-C-1"><BoardCommentComposer
             value={commentText}
             onChange={setCommentText}
             onSubmit={handleCommentSubmit}
             submitting={commentSubmitting}
             placeholder={t('placeholder.comment')}
             submitLabel={t('button.submit')}
-          />
+          /></div>
         ) : (
           <Card className="mb-6" padding="compact">
             <div className="flex items-center justify-between gap-3">

@@ -32,6 +32,28 @@ describe("EventCreatePage recurring series", () => {
     setCallableResult("createEvent", { data: { eventId: "event-base" } });
   });
 
+  it("prefills a verified creator club from context", async () => {
+    renderWithProviders(<EventCreatePage />, { authenticated: true, route: "/ko/event/create?groupId=group-1" });
+    expect(await screen.findByText("공개")).toBeInTheDocument();
+    fireEvent.change(await screen.findByPlaceholderText("남한강 그란폰도 2026"), { target: { value: "클럽 이벤트" } });
+    fireEvent.change(screen.getByPlaceholderText("010-0000-0000"), { target: { value: "010-1234-5678" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: /^다음/ })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: /^다음/ }));
+    expect(await screen.findByRole("combobox")).toHaveValue("group-1");
+  });
+  it("blocks an unauthorized/stale club link until explicit public recovery clears the context", async () => {
+    renderWithProviders(<EventCreatePage />, { authenticated: true, route: "/ko/event/create?groupId=not-my-group" });
+    fireEvent.change(await screen.findByPlaceholderText("남한강 그란폰도 2026"), { target: { value: "클럽 이벤트" } });
+    fireEvent.change(screen.getByPlaceholderText("010-0000-0000"), { target: { value: "010-1234-5678" } });
+    await screen.findByText(/선택한 클럽의 생성 권한/);
+    expect(screen.getByRole("button", { name: /^다음/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /임시 저장/ })).toBeDisabled();
+    expect(mockCallableInvocations.filter(call => call.name === "createEvent")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "클럽 없이 공개 이벤트 작성" }));
+    await waitFor(() => expect(screen.queryByTestId("event-group-context")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /^다음/ }));
+    expect(await screen.findByRole("combobox")).toHaveValue("");
+  });
   it("calls createEvent once per week, spaced 7 days apart, reusing the selected group", async () => {
     renderWithProviders(<EventCreatePage />, { authenticated: true, route: "/ko/event/create" });
 

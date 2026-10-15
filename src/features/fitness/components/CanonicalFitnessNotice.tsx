@@ -14,7 +14,7 @@ export default function CanonicalFitnessNotice({ state, t }: CanonicalFitnessNot
   return (
     <div
       role={key === "failed" ? "alert" : "status"}
-      data-testid="canonical-fitness-notice"
+      data-testid="K1-1-4"
       style={{
         padding: "var(--space-3) var(--space-4)",
         border: "1px solid var(--line-soft)",

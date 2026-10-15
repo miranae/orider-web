@@ -1,3 +1,4 @@
+import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 import { Fragment, useState, useRef, useMemo, useEffect } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { Search, X, ChevronDown } from "lucide-react";
@@ -43,6 +44,7 @@ import { useCanonicalFitnessSummary } from "../hooks/useCanonicalFitnessSummary"
 import { canonicalKpiPresentation, canonicalKpiSource, canonicalWeekTotals } from "../features/home/canonicalKpiSource";
 import { useDashboardPreferences } from "../hooks/useDashboardPreferences";
 import type { FitnessProjection } from "@shared/types/goal";
+import HomeTodayStrip from "../components/dashboard/HomeTodayStrip";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import AppInstallLinks from "../components/AppInstallLinks";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
@@ -310,8 +312,8 @@ export default function DashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const sportParam = searchParams.get("sport");
   const requestedDiscipline = normalizeDashboardDiscipline(sportParam);
-  const discipline: Discipline = requestedDiscipline ?? "bike";
   const mobileSportFilter = requestedDiscipline === "tri" ? "all" : requestedDiscipline ?? dashboardPreferences.sportFilter;
+  const discipline: Discipline = isMobile ? (mobileSportFilter === "all" ? "tri" : mobileSportFilter) : requestedDiscipline ?? "bike";
   const selectedDiscipline = isMobile ? mobileSportFilter : discipline;
   const runStats = useWeeklyStats({
     includeMonthlyDistance: true,
@@ -323,9 +325,10 @@ export default function DashboardPage() {
   // 8주 창 하나로 리캡(3주)과 러너 레벨(8주)을 함께 커버한다 — 쿼리 1회.
   const isRunTab = discipline === "run";
   const isRunningJourneyActive = isMobile ? mobileSportFilter === "run" : isRunTab;
-  const showOwnerRunningJourney = isRunningJourneyActive && !!user && !user.isAnonymous && !authLoading && (!isMobile || feedScope === "self");
+  const showOwnerRunningSummary = isRunningJourneyActive && !!user && !user.isAnonymous && !authLoading;
+  const showOwnerRunningJourney = showOwnerRunningSummary && (!isMobile || feedScope === "self");
   const RUN_HISTORY_WEEKS = 8;
-  const runHistory = useRunHistory(RUN_HISTORY_WEEKS, showOwnerRunningJourney);
+  const runHistory = useRunHistory(RUN_HISTORY_WEEKS, showOwnerRunningSummary);
   const { fitness: userFitness } = useUserFitness(showOwnerRunningJourney);
   // 창 길이·계정 생성일을 함께 넘긴다 — 창이 계정 수명을 못 덮으면 "첫 러닝" 축하를 하지 않는다.
   const firstSync = useFirstSyncCelebration(
@@ -337,8 +340,8 @@ export default function DashboardPage() {
   );
 
   const runRecap = useMemo(
-    () => (showOwnerRunningJourney ? computeRunWeeklyRecap(runHistory.runs, Date.now()) : null),
-    [showOwnerRunningJourney, runHistory.runs],
+    () => (showOwnerRunningSummary ? computeRunWeeklyRecap(runHistory.runs, Date.now()) : null),
+    [showOwnerRunningSummary, runHistory.runs],
   );
   const showRecap = runRecap != null && isRecapVisible(Date.now(), seoulWeekday);
 
@@ -428,7 +431,7 @@ export default function DashboardPage() {
    * 오늘과 똑같은 클라 집계다. **미계산·실패는 여기로 오지 않는다** — 그 경우
    * `weekSource.kind === "state"` 라 아래에서 숫자 자체를 그리지 않는다.
    */
-  const sportSpecificWeek = selectedDiscipline === "bike" || selectedDiscipline === "run" || selectedDiscipline === "swim";
+  const sportSpecificWeek = !canonicalHome.enabled && (selectedDiscipline === "bike" || selectedDiscipline === "run" || selectedDiscipline === "swim");
   const weekTotals = sportSpecificWeek ? thisWeek : weekSource.kind === "server"
     ? canonicalWeekTotals(weekSource.values)
     : thisWeek;
@@ -491,12 +494,16 @@ export default function DashboardPage() {
 
   // 권위 CTL/ATL/TSB — 서버 projection_{종목} 의 "오늘(마지막 과거)" 포인트. 피트니스 페이지/
   // 서버와 동일 소스라 스냅샷이 일치한다. (computeCurrentFitness ~120일 시드 → 42일 EMA 정확.)
-  const [projFitness, setProjFitness] = useState<{ ctl: number; atl: number; tsb: number } | null>(null);
+  type ProjectionFitness = { ctl: number; atl: number; tsb: number; goalId?: string | null; goalDayCtl?: number };
+  const [projectionSnapshot, setProjectionSnapshot] = useState<{ uid: string; discipline: Discipline; value: ProjectionFitness } | null>(null);
+  const projFitness = projectionSnapshot?.uid === user?.uid && projectionSnapshot?.discipline === discipline ? projectionSnapshot.value : null;
   useEffect(() => {
-    if (!user || discipline === "tri") { setProjFitness(null); return; }
+    if (!user || discipline === "tri") { setProjectionSnapshot(null); return; }
+    let cancelled = false;
     const ref = doc(firestore, "users", user.uid, "fitness", `projection_${discipline}`);
     const unsub = onSnapshot(ref, (snap) => {
-      if (!snap.exists()) { setProjFitness(null); return; }
+      if (cancelled) return;
+      if (!snap.exists()) { setProjectionSnapshot(null); return; }
       const data = snap.data() as FitnessProjection;
       const now = Date.now();
       // series 는 과거→미래 정렬. date<=now 중 마지막(=현재) 포인트가 실측 CTL/ATL/TSB.
@@ -504,9 +511,9 @@ export default function DashboardPage() {
       for (const p of data.series ?? []) {
         if (p.date <= now) cur = p; else break;
       }
-      setProjFitness(cur && Number.isFinite(cur.ctl) ? { ctl: cur.ctl, atl: cur.atl, tsb: cur.tsb } : null);
+      setProjectionSnapshot(cur && Number.isFinite(cur.ctl) ? { uid: user.uid, discipline, value: { ctl: cur.ctl, atl: cur.atl, tsb: cur.tsb, goalId: data.goalId, goalDayCtl: data.goalDay?.ctl } } : null);
     }, (err) => logClientError("DashboardPage.projectionSubscription", err, { discipline }));
-    return () => unsub();
+    return () => { cancelled = true; unsub(); };
   }, [user, discipline]);
 
   // 정본 시계열 — FitnessPage(PMC) 와 동일한 `timeseries_{종목}` doc 의 현재(마지막) 포인트.
@@ -579,7 +586,7 @@ export default function DashboardPage() {
   // 서버 값이 손에 있을 때만 갈아탄다. 상태(계산중·실패·없음)면 숫자를 그리지 않는다 —
   // 클라 계산으로 조용히 되돌아가면 사용자는 서버가 멈춘 것을 영영 모른다.
   const kpiFitness = fitnessSource.kind === "server"
-    ? isRunTab ? fitnessSource.values.breakdown.run : fitnessSource.values
+    ? discipline === "tri" ? fitnessSource.values : fitnessSource.values.breakdown[discipline]
     : fitness;
   const fitnessPresentation = canonicalKpiPresentation(fitnessSource, {
     // 값이 보일 때의 서브 문구는 아래에서 CTL/TSB 로 다시 만든다 — 여기서는 자리만 채운다.
@@ -611,7 +618,7 @@ export default function DashboardPage() {
 
   const KPI = [
     weekKpi(t("kpi.weekDistance"), thisWeekDistValue, distUnit),
-    weekKpi(t(isRunTab ? "kpi.runs" : "kpi.rides"), String(weekTotals.rides), null),
+    weekKpi(t(canonicalHome.enabled ? "kpi.activities" : isRunTab ? "kpi.runs" : "kpi.rides"), String(weekTotals.rides), null),
     weekKpi(t("kpi.movingTime"), thisWeekTimeStr, "h"),
     weekKpi(
       t("kpi.elevation"),
@@ -625,7 +632,7 @@ export default function DashboardPage() {
   ];
 
   const desktopRoutine = !isRunTab && consistencyStreak && (
-    <div style={{ marginTop: "var(--space-3)" }}>
+    <div data-testid="H1-2-2" style={{ marginTop: "var(--space-3)" }}>
       <ConsistencyStreakCard summary={consistencyStreak} compact />
     </div>
   );
@@ -637,13 +644,6 @@ export default function DashboardPage() {
             <RunEmptyState stravaConnected={!!profile?.stravaConnected} />
           </div>
         )}
-        {/* 지난주 리캡 — 주 초반(월~수)에만. 변화가 헤드라인이다 (§3.4c) */}
-        {showOwnerRunningJourney && showRecap && runRecap && !hasNoRuns && (
-          <div style={{ marginTop: 'var(--space-5)' }}>
-            <WeeklyRecapCard recap={runRecap} />
-          </div>
-        )}
-
         {/* 임계 페이스 설정 유도 — regular 러너에게만 (§3.1) */}
         {showThresholdNudge && (
           <div style={{ marginTop: 'var(--space-4)' }}>
@@ -672,9 +672,90 @@ export default function DashboardPage() {
 
   </div> : null;
 
+  const todayStrip = user && !user.isAnonymous ? <HomeTodayStrip discipline={discipline === "tri" ? "bike" : discipline} conditionDiscipline={discipline}
+    fitness={showFitnessNumbers ? kpiFitness : null} mobile={isMobile}
+    goalProjection={projFitness?.goalId && Number.isFinite(projFitness.goalDayCtl) ? { goalId: projFitness.goalId, ctl: projFitness.goalDayCtl! } : undefined}
+    monthlyFlowPercent={runStats.monthlyFlowPercent}
+    runningRecap={showRecap && runRecap && !hasNoRuns ? <WeeklyRecapCard recap={runRecap} /> : null}
+    monthlyKm={monthlyActivityDistance / 1000}
+    weeklyAverageKm={weeklyStats.length ? weeklyStats.reduce((sum, week) => sum + week.distance, 0) / weeklyStats.length : 0}
+    weeklySummary={<Text>{canonicalHome.enabled && <Text as="span">{t("todayStrip.allSportsRecent7d")} · </Text>}{showWeekNumbers ? `${formatDistance(weekTotals.distance, units)} · ${t("feed.countSuffix", { value: weekTotals.rides })} · ${formatDuration(weekTotals.time)} · ${formatElev(weekTotals.elevation, units)}` : "—"}</Text>}
+    weeklyDetails={isMobile ? null : <>            {user && isRunTab && <Card padding="none" style={{ padding: "var(--space-4)" }} data-testid="run-weekly-activity">
+              <SectionHeader title={t("sidebar.runWeekly.title")} sub={t("sidebar.runWeekly.sub")} />
+              {runStats.coverage !== "ready" ? <Text variant="caption">{t("kpi.runUnavailable")}</Text> : (
+                <div className="flex flex-col gap-2">
+                  {weeklyStats.slice(-8).map((week) => <div key={week.week} className="flex justify-between gap-2">
+                    <Text variant="bodySmall">{week.week}</Text>
+                    <Text variant="bodySmall" mono>{t("sidebar.runWeekly.value", { count: week.rides, distance: formatDistance(week.distance * 1000, units) })}</Text>
+                  </div>)}
+                </div>
+              )}
+            </Card>}
+            {/* 주간 TSS 차트 — 실데이터 바인딩 */}
+            {user && !isRunTab && (() => {
+              // 부하를 알 수 없는 주(tss=null)는 평균·피크·추세에서 제외한다 — 0 으로 세면
+              // 쉬지 않은 주가 휴식 주처럼 평균을 끌어내린다 (#2237).
+              const knownTssWeeks = weeklyStats.filter((w): w is typeof w & { tss: number } => w.tss != null);
+              const avgTSS = knownTssWeeks.length
+                ? Math.round(knownTssWeeks.reduce((s, w) => s + w.tss, 0) / knownTssWeeks.length)
+                : null;
+              const peakTSS = knownTssWeeks.length ? Math.max(...knownTssWeeks.map((w) => w.tss)) : null;
+              const lastTwo = weeklyStats.slice(-2);
+              const trendKnown = lastTwo.length === 2 && lastTwo.every((week) => week.tss !== null && !week.tssEstimated && !week.tssUnknownCount);
+              const trendUp = trendKnown && lastTwo[1]!.tss! >= lastTwo[0]!.tss!;
+              const unknownCount = weeklyStats.reduce((sum, week) => sum + (week.tssUnknownCount ?? 0), 0);
+              const hasEstimates = weeklyStats.some((week) => week.tssEstimated);
+              return (
+                <Card padding="none" style={{ padding: "var(--space-4)" }}>
+                  <SectionHeader title={t("sidebar.weeklyTss.title")} sub={t("sidebar.weeklyTss.sub")} right={<Chip>TSS</Chip>} />
+                  <WeeklyTssBars
+                    weeks={weeklyStats.map((w) => ({ week: w.week, tss: w.tss ?? null, tssEstimated: w.tssEstimated, tssUnknownCount: w.tssUnknownCount ?? 0 }))}
+                    tooltipFor={(w) => `${w.week}: ${formatTrainingLoad(w, t)}`}
+                  />
+                  <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>
+                    {weeklyStats.length > 0 && (
+                      <>
+                        <span>{weeklyStats[0]!.week}</span>
+                        <span>{weeklyStats[Math.floor(weeklyStats.length / 2)]?.week ?? ""}</span>
+                        <span>{weeklyStats[weeklyStats.length - 1]!.week}</span>
+                      </>
+                    )}
+                  </div>
+                  {(unknownCount > 0 || hasEstimates) && <Text variant="caption">{unknownCount > 0 && t("charts.weeklyChart.tssPartial", { count: unknownCount })}{unknownCount > 0 && hasEstimates ? " · " : ""}{hasEstimates && t("charts.weeklyChart.tssEstimated")}</Text>}
+                  <div className="flex justify-between" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: "1px solid var(--line-soft)" }}>
+                    <div>
+                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.avgPerWeek")}</Text>
+                      <div><Text variant="dataMedium">{avgTSS ?? "—"}</Text><Text variant="unit">TSS</Text></div>
+                    </div>
+                    <div>
+                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.peakWeek")}</Text>
+                      <div><Text variant="dataMedium">{peakTSS ?? "—"}</Text><Text variant="unit">TSS</Text></div>
+                    </div>
+                    <div>
+                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.trend")}</Text>
+                      <div style={{ color: trendUp ? "var(--lime)" : "var(--rose)", fontSize: "var(--fs-sm)", fontWeight: 600 }}>
+                        {!trendKnown ? t("charts.weeklyChart.tssUnknown") : trendUp ? t("sidebar.weeklyTss.trendUp") : t("sidebar.weeklyTss.trendDown")}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })()}
+
+            {user && isRunTab && <Card padding="none" style={{ padding: "var(--space-4)" }} data-testid="run-monthly-distance">
+              <SectionHeader title={t("sidebar.runMonth.title", { month: new Date(Date.now() + 9 * 3600000).getUTCMonth() + 1 })} sub={t("sidebar.runMonth.sub")} />
+              {runStats.coverage !== "ready" ? <Text variant="caption">{t("kpi.runUnavailable")}</Text>
+                : <Text variant="dataMedium" mono>{formatDistance(monthlyActivityDistance, units)}</Text>}
+              <Link to="/coach/plan?sport=run" className={buttonClass({ size: "sm", variant: "outline" })}>{t("sidebar.runMonth.plan")}</Link>
+            </Card>}
+</>}
+    guidance={showThresholdNudge ? <ThresholdPaceNudge visible /> : showYearRecapBanner ? <Link to="/athlete/me/records">{t("todayStrip.recap")}</Link> : !profile?.stravaConnected ? <Link to="/settings/connections">{t("feed.empty.ctaConnectStrava")}</Link> : null}
+  /> : null;
+
   if (isMobile) {
     return (
       <MobileFeedPage
+        todayStrip={todayStrip}
         activitySearch={activitySearch}
         runningJourney={runningJourney}
         activities={activities}
@@ -727,9 +808,9 @@ export default function DashboardPage() {
                 <span style={{ color: "var(--lime)", fontFamily: "var(--font-mono)", fontWeight: 500 }}>
                   {/* KPI 와 같은 출처·같은 규칙. 미계산을 여기서만 클라 집계로 그리면 한 화면에
                       서로 다른 숫자가 선다. */}
-                  {showWeekNumbers ? `${weekTotals.rides}${isRunTab ? t("header.runCountUnit") : ""} · ${thisWeekDistFormatted}` : "—"}
+                  {showWeekNumbers ? `${canonicalHome.enabled ? t("feed.countSuffix", { value: weekTotals.rides }) : `${weekTotals.rides}${isRunTab ? t("header.runCountUnit") : ""}`} · ${thisWeekDistFormatted}` : "—"}
                 </span>
-                {t(isRunTab ? "header.runSubtitleSuffix" : "header.subtitleSuffix")}
+                {t(canonicalHome.enabled ? "todayStrip.allSportsRecent7d" : isRunTab ? "header.runSubtitleSuffix" : "header.subtitleSuffix")}
               </span>
             )
           }
@@ -742,7 +823,7 @@ export default function DashboardPage() {
                   {t("header.anonCta")}
                 </Button>
               )}
-              <DisciplineTabs />
+              <div data-testid="H-0"><div data-testid="H-0-1"><DisciplineTabs /></div></div>
             </>
           }
         />
@@ -781,7 +862,7 @@ export default function DashboardPage() {
           <div className="dashboard-kpi-overview grid gap-3" style={{ marginTop: "var(--space-2)" }}>
             <Card padding="none" style={{ overflow: "hidden" }}>
               <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
-                <Text as="h2" variant="eyebrow" tone="secondary">{t(isRunTab ? "kpi.runWeekGroup" : "kpi.weekGroup")}</Text>
+                <Text as="h2" variant="eyebrow" tone="secondary">{t(canonicalHome.enabled ? "kpi.weekGroup" : isRunTab ? "kpi.runWeekGroup" : "kpi.weekGroup")}</Text>
               </div>
               <div className="dashboard-kpi-week grid">
                 {KPI.slice(0, 4).map((stat) => (
@@ -827,9 +908,9 @@ export default function DashboardPage() {
                 </span>
               )}
               <div className="flex-1" />
-              {user && <div className="flex gap-0.5" style={{ background: "var(--bg-1)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
+              {user && <div data-testid="H1-1" className="flex gap-0.5" style={{ background: "var(--bg-1)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
                 {([t("feed.filter.all"), t("feed.filter.friends"), t("feed.filter.self")] as const).map((label, i) => (
-                  <button
+                  <button data-testid="H1-1-1"
                     key={i}
                     onClick={() => updateDashboardPreferences({ feedScope: (["all", "friends", "self"] as const)[i] })}
                     style={{
@@ -847,7 +928,7 @@ export default function DashboardPage() {
             {/* 검색 입력 */}
             <form onSubmit={handleSearch} style={{ marginBottom: "var(--space-3)" }}>
               <div className="flex gap-2 items-center">
-                <div style={{ flex: 1, position: "relative" }}>
+                <div data-testid="H-0-2" style={{ flex: 1, position: "relative" }}>
                   <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--ink-3)", pointerEvents: "none" }} />
                   <input
                     ref={searchInputRef}
@@ -910,7 +991,7 @@ export default function DashboardPage() {
             {activitySearch.active && (
               <>
                 {activitySearch.loading && (
-                  <div className="flex flex-col gap-3.5">
+                  <div data-testid="H1-2" className="flex flex-col gap-3.5">
                     <FeedSkeleton />
                     <FeedSkeleton />
                   </div>
@@ -923,10 +1004,10 @@ export default function DashboardPage() {
                 )}
                 {!activitySearch.loading && activitySearch.results.length === 0 && desktopRoutine}
                 {!activitySearch.loading && activitySearch.results.length > 0 && (
-                  <div className="flex flex-col gap-3.5">
+                  <div data-testid="H1-2" className="flex flex-col gap-3.5">
                     {activitySearch.results.map((activity, i) => (
                       <Fragment key={activity.id}>
-                        <ActivityCard activity={activity} priority={i === 0} />
+                        <div data-testid="H1-2-1"><ActivityCard activity={activity} priority={i === 0} /></div>
                         {i === 0 && desktopRoutine}
                       </Fragment>
                     ))}
@@ -944,7 +1025,7 @@ export default function DashboardPage() {
             {!activitySearch.active && (
               <>
                 {loading && (
-                  <div className="flex flex-col gap-3.5">
+                  <div data-testid="H1-2" className="flex flex-col gap-3.5">
                     <FeedSkeleton />
                     <FeedSkeleton />
                     <FeedSkeleton />
@@ -966,19 +1047,20 @@ export default function DashboardPage() {
                     icon="🚴"
                     title={activities.length > 0 ? t("feed.noMatches.title") : t("feed.empty.title")}
                     description={activities.length > 0 ? t("feed.noMatches.description") : t("feed.empty.description")}
-                    actions={activities.length > 0 ? [] : [user
-                      ? { label: t("feed.empty.ctaConnectStrava"), variant: "primary", href: "/settings/connections" }
-                      : { label: signInPending ? t("header.signingIn") : t("header.anonCta"), variant: "primary", onClick: () => { void handleGuestSignIn(); } },
-                    ]}
+                    actions={activities.length > 0 ? [] : user ? [
+                      { label: "Google Play", variant: "primary", href: ORIDER_PLAY_STORE_URL },
+                      { label: "App Store", variant: "secondary", href: ORIDER_APP_STORE_URL },
+                      { label: t("todayStrip.importHistory"), variant: "secondary", href: "/athlete/me/activities?import=1" },
+                    ] : [{ label: signInPending ? t("header.signingIn") : t("header.anonCta"), variant: "primary", onClick: () => { void handleGuestSignIn(); } }]}
                   />
                 )}
                 {!loading && !feedError && filteredActivities.length === 0 && desktopRoutine}
 
                 {!loading && filteredActivities.length > 0 && (
-                  <div className="flex flex-col gap-3.5">
+                  <div data-testid="H1-2" className="flex flex-col gap-3.5">
                     {filteredActivities.map((activity, i) => (
                       <Fragment key={activity.id}>
-                        <ActivityCard activity={activity} priority={i === 0} />
+                        <div data-testid="H1-2-1"><ActivityCard activity={activity} priority={i === 0} /></div>
                         {i === 0 && desktopRoutine}
                       </Fragment>
                     ))}
@@ -987,7 +1069,7 @@ export default function DashboardPage() {
 
                 {!loading && !feedError && hasMore && (
                   <Button variant="secondary"
-                    onClick={loadMore}
+                    data-testid="H1-2-3" onClick={loadMore}
                     disabled={loadingMore}
                     style={{ width: "100%" }}
                   >
@@ -1004,160 +1086,9 @@ export default function DashboardPage() {
             </div>{/* 스크롤 영역 끝 */}
           </div>
 
-          {/* 사이드바 */}
-          <div className="hidden lg:flex w-[340px] flex-shrink-0 flex-col gap-4.5 sticky self-start top-0" style={{ paddingBottom: 'var(--space-5)' }}>
-            {user && isRunTab && <Card padding="none" style={{ padding: "var(--space-4)" }} data-testid="run-weekly-activity">
-              <SectionHeader title={t("sidebar.runWeekly.title")} sub={t("sidebar.runWeekly.sub")} />
-              {runStats.coverage !== "ready" ? <Text variant="caption">{t("kpi.runUnavailable")}</Text> : (
-                <div className="flex flex-col gap-2">
-                  {weeklyStats.slice(-8).map((week) => <div key={week.week} className="flex justify-between gap-2">
-                    <Text variant="bodySmall">{week.week}</Text>
-                    <Text variant="bodySmall" mono>{t("sidebar.runWeekly.value", { count: week.rides, distance: formatDistance(week.distance * 1000, units) })}</Text>
-                  </div>)}
-                </div>
-              )}
-            </Card>}
-            {/* 주간 TSS 차트 — 실데이터 바인딩 */}
-            {user && !isRunTab && (() => {
-              // 부하를 알 수 없는 주(tss=null)는 평균·피크·추세에서 제외한다 — 0 으로 세면
-              // 쉬지 않은 주가 휴식 주처럼 평균을 끌어내린다 (#2237).
-              const knownTssWeeks = weeklyStats.filter((w): w is typeof w & { tss: number } => w.tss != null);
-              const avgTSS = knownTssWeeks.length
-                ? Math.round(knownTssWeeks.reduce((s, w) => s + w.tss, 0) / knownTssWeeks.length)
-                : null;
-              const peakTSS = knownTssWeeks.length ? Math.max(...knownTssWeeks.map((w) => w.tss)) : null;
-              const lastTwo = weeklyStats.slice(-2);
-              const trendKnown = lastTwo.length === 2 && lastTwo.every((week) => week.tss !== null && !week.tssEstimated && !week.tssUnknownCount);
-              const trendUp = trendKnown && lastTwo[1]!.tss! >= lastTwo[0]!.tss!;
-              const unknownCount = weeklyStats.reduce((sum, week) => sum + (week.tssUnknownCount ?? 0), 0);
-              const hasEstimates = weeklyStats.some((week) => week.tssEstimated);
-              return (
-                <Card padding="none" style={{ padding: "var(--space-4)" }}>
-                  <SectionHeader title={t("sidebar.weeklyTss.title")} sub={t("sidebar.weeklyTss.sub")} right={<Chip>TSS</Chip>} />
-                  <WeeklyTssBars
-                    weeks={weeklyStats.map((w) => ({ week: w.week, tss: w.tss ?? null, tssEstimated: w.tssEstimated, tssUnknownCount: w.tssUnknownCount ?? 0 }))}
-                    tooltipFor={(w) => `${w.week}: ${formatTrainingLoad(w, t)}`}
-                  />
-                  <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>
-                    {weeklyStats.length > 0 && (
-                      <>
-                        <span>{weeklyStats[0]!.week}</span>
-                        <span>{weeklyStats[Math.floor(weeklyStats.length / 2)]?.week ?? ""}</span>
-                        <span>{weeklyStats[weeklyStats.length - 1]!.week}</span>
-                      </>
-                    )}
-                  </div>
-                  {(unknownCount > 0 || hasEstimates) && <Text variant="caption">{unknownCount > 0 && t("charts.weeklyChart.tssPartial", { count: unknownCount })}{unknownCount > 0 && hasEstimates ? " · " : ""}{hasEstimates && t("charts.weeklyChart.tssEstimated")}</Text>}
-                  <div className="flex justify-between" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: "1px solid var(--line-soft)" }}>
-                    <div>
-                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.avgPerWeek")}</Text>
-                      <div><Text variant="dataMedium">{avgTSS ?? "—"}</Text><Text variant="unit">TSS</Text></div>
-                    </div>
-                    <div>
-                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.peakWeek")}</Text>
-                      <div><Text variant="dataMedium">{peakTSS ?? "—"}</Text><Text variant="unit">TSS</Text></div>
-                    </div>
-                    <div>
-                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.trend")}</Text>
-                      <div style={{ color: trendUp ? "var(--lime)" : "var(--rose)", fontSize: "var(--fs-sm)", fontWeight: 600 }}>
-                        {!trendKnown ? t("charts.weeklyChart.tssUnknown") : trendUp ? t("sidebar.weeklyTss.trendUp") : t("sidebar.weeklyTss.trendDown")}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })()}
-
-            {/* 월간 목표 — 운동 계획 기반 */}
-            {user && isRunTab && <Card padding="none" style={{ padding: "var(--space-4)" }} data-testid="run-monthly-distance">
-              <SectionHeader title={t("sidebar.runMonth.title", { month: new Date(Date.now() + 9 * 3600000).getUTCMonth() + 1 })} sub={t("sidebar.runMonth.sub")} />
-              {runStats.coverage !== "ready" ? <Text variant="caption">{t("kpi.runUnavailable")}</Text>
-                : <Text variant="dataMedium" mono>{formatDistance(monthlyActivityDistance, units)}</Text>}
-              <Link to="/coach/plan?sport=run" className={buttonClass({ size: "sm", variant: "outline" })}>{t("sidebar.runMonth.plan")}</Link>
-            </Card>}
-            {user && !isRunTab && (() => {
-              const now = new Date();
-              const monthLabel = t("sidebar.monthlyGoal.title", { month: now.getMonth() + 1 });
-              const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-              const daysLeft = daysInMonth - now.getDate();
-              const actualKm = Math.round(monthlyActivityDistance / 1000);
-              // 월간 목표: 운동 계획이 있으면 주간 평균 × 4.3, 없으면 최근 4주 평균 × 1.1
-              const weeklyAvgKm = weeklyStats.length > 0
-                ? Math.round(weeklyStats.reduce((s, w) => s + w.distance, 0) / weeklyStats.length)
-                : 0;
-              const goalKm = weeklyAvgKm > 0 ? Math.round(weeklyAvgKm * 4.3) : 0;
-
-              if (goalKm === 0) {
-                return (
-                  <a href="/goal-setup" style={{ textDecoration: "none" }}>
-                    <Card padding="none" style={{ padding: "var(--space-4)", textAlign: "center" }}>
-                      <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>{t("sidebar.monthlyGoal.setupTitle")}</div>
-                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("sidebar.monthlyGoal.setupHint")}</div>
-                    </Card>
-                  </a>
-                );
-              }
-
-              const pct = Math.min(100, Math.round((actualKm / goalKm) * 100));
-              const remaining = Math.max(0, goalKm - actualKm);
-              const goalDistFormatted = formatDistance(goalKm * 1000, units);
-              const actualDispNum = units === 'imperial' ? Math.round(actualKm * 1000 / M_PER_MI) : actualKm;
-              return (
-                <Card padding="none" style={{ padding: "var(--space-4)" }}>
-                  {/* sub 에 "목표 N" 명시 — 이전엔 "N km" 만 있어 진행 N 과 목표 N 의 위계 혼동.
-                      "목표" 접두사는 i18n 키화 (#235, 영어 로케일 한글 노출 방지). */}
-                  <SectionHeader title={monthLabel} sub={`${t("sidebar.monthlyGoal.subPrefix")}${goalDistFormatted}`} />
-                  <div className="flex items-baseline gap-1.5" style={{ marginBottom: "var(--space-2)" }}>
-                    <Text variant="dataHero" style={{ fontSize: "var(--fs-3xl)" }}>{actualDispNum}</Text>
-                    <Text variant="unit" style={{ fontSize: "var(--fs-sm)" }}>/ {goalDistFormatted} · {pct}%</Text>
-                  </div>
-                  <div style={{ height: 6, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden", marginBottom: "var(--space-2)" }}>
-                    <div style={{ width: `${pct}%`, height: "100%", background: "var(--lime)" }} />
-                  </div>
-                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-                    {t("sidebar.monthlyGoal.remainingPrefix")}<Text variant="mono" style={{ color: "var(--ink-1)" }}>{formatDistance(remaining * 1000, units)}</Text>{t("sidebar.monthlyGoal.remainingSuffix", { days: daysLeft })}
-                  </div>
-                </Card>
-              );
-            })()}
-
-            {/* 피트니스 스냅샷 */}
-            {user && <Card padding="none" style={{ padding: "var(--space-4)" }}>
-              <SectionHeader title={t("sidebar.fitness.title")} sub={t("sidebar.fitness.sub")} />
-              {fitness.ctl === 0 ? (
-                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", padding: "8px 0" }}>{t("sidebar.fitness.insufficient")}</div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.fitness.ctl")}</Text>
-                    <div><Text variant="dataMedium">{fitness.ctl.toFixed(1)}</Text></div>
-                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>{t("sidebar.fitness.ctlHint")}</div>
-                  </div>
-                  <div>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.fitness.atl")}</Text>
-                    <div><Text variant="dataMedium">{fitness.atl.toFixed(1)}</Text></div>
-                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>{t("sidebar.fitness.atlHint")}</div>
-                  </div>
-                  <div>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.fitness.tsb")}</Text>
-                    <div>
-                      <Text variant="dataMedium" style={{ color: fitness.tsb >= 5 ? "var(--lime)" : fitness.tsb <= -10 ? "var(--rose)" : "var(--amber)" }}>
-                        {fitness.tsb >= 0 ? `+${fitness.tsb.toFixed(1)}` : fitness.tsb.toFixed(1)}
-                      </Text>
-                    </div>
-                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>{t("sidebar.fitness.tsbHint")}</div>
-                  </div>
-                  <div>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.fitness.recommend")}</Text>
-                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", fontWeight: 500, marginTop: "var(--space-1)" }}>
-                      {fitness.tsb >= 5 ? t("sidebar.fitness.recoMaintain") : fitness.tsb <= -10 ? t("sidebar.fitness.recoRecovery") : t("sidebar.fitness.recoModerate")}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>}
-
-            {/* 한국 자전거 커뮤니티 */}
+          <aside className="hidden lg:block w-[340px] flex-shrink-0">{todayStrip}</aside>
+        </div>
+        <details className="hidden lg:block"><summary>{t("todayStrip.support")}</summary><div className="grid gap-4 md:grid-cols-2">            {/* 한국 자전거 커뮤니티 */}
             {!isRunTab && <Card padding="none" style={{ padding: 'var(--space-4)' }}>
               <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("sidebar.community.title")}</Text>
               <div className="flex flex-col gap-2">
@@ -1246,8 +1177,7 @@ export default function DashboardPage() {
                 </div>
               )}
             </Card>
-          </div>
-        </div>
+</div></details>
       </div>
   );
 }

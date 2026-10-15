@@ -169,7 +169,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
   };
 
   return (
-    <Modal open={open} onClose={close} title={t("create.modalTitle")}>
+    <Modal open={open} onClose={close} title={t("create.modalTitle")}><div data-testid="C0-5">
       {/* Stepper */}
       <ol role="list" className="flex items-center" style={{ gap: 'var(--space-2)', listStyle: "none", padding: 0, marginBottom: 'var(--space-5)' }}>
         {STEPS.map((label, i) => {
@@ -232,7 +232,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
           <div className="grid gap-2" style={{ gridTemplateColumns: "1fr 100px" }}>
             <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
               <Text variant="eyebrow">{t("create.nameLabel")}</Text>
-              <input
+              <input data-testid="C0-5-1"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -369,7 +369,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
 
           <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
             <Text variant="eyebrow">{t("create.rulesLabel")}</Text>
-            <textarea
+            <textarea data-testid="C0-5-2"
               value={rules}
               onChange={(e) => setRules(e.target.value)}
               rows={4}
@@ -419,7 +419,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
             {t("create.next")}
           </Button>
         ) : (
-          <Button
+          <Button data-testid="C0-5-3"
             type="button"
             onClick={handleCreate}
             disabled={creating || !name.trim()} variant="primary"
@@ -428,6 +428,6 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
           </Button>
         )}
       </div>
-    </Modal>
+    </div></Modal>
   );
 }

@@ -49,7 +49,7 @@ export default function StravaSummarySettings() {
   };
 
   return (
-    <InlineRow label={t("stravaSummary.automatic")} hint={t("stravaSummary.automaticHint")}>
+    <InlineRow data-testid="S2-1-3" label={t("stravaSummary.automatic")} hint={t("stravaSummary.automaticHint")}>
       <div className="space-y-2">
         <Toggle on={settings?.enabled ?? false} ariaLabel={t("stravaSummary.automatic")} disabled={loading || saving || !settings} onChange={(enabled) => { void save(enabled); }} />
         {!settings && <Button variant="secondary" size="sm" disabled={loading} onClick={() => { setMessage(null); setReloadKey((key) => key + 1); }}>{t("stravaSummary.loadSettings")}</Button>}

@@ -1,6 +1,6 @@
 {
   "title": "연말결산",
-  "subtitle": "{{year}}년 나의 라이딩",
+  "subtitle": "{{year}}년 나의 활동",
   "rider": "라이더",
   "loginRequired": "로그인이 필요합니다.",
   "loading": "불러오는 중...",
@@ -10,7 +10,7 @@
   "monthShort": "{{month}}월",
   "empty": {
     "title": "{{year}}년 활동이 아직 없어요",
-    "desc": "라이딩을 기록하면 연말결산이 채워집니다."
+    "desc": "활동을 기록하면 연말결산이 채워집니다."
   },
   "section": {
     "totals": "한 해 총합",

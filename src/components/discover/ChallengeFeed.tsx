@@ -5,15 +5,13 @@
  * 공개 클라이언트는 정적 overview와 공개 코스 메타데이터만 사용해 탐색용 카드를 렌더링한다.
  */
 import { useEffect, useMemo, useState } from "react";
-import { collection, getDocs, query } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { Mountain, Route as RouteIcon, Trophy } from "lucide-react";
-import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { MONTHLY_CHALLENGE_TIERS, useMonthlyChallenge, type MonthlyChallengeTier } from "../../hooks/useMonthlyChallenge";
-import { isVisibleCourseDocData } from "../../features/courses/courseVisibility";
+import { useCourseCatalog } from "../../features/courses/useCourseCatalog";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import { fetchStaticJson } from "../../utils/staticJson";
@@ -28,26 +26,20 @@ interface OverviewSeg {
   city?: string;
 }
 
-interface CourseHit {
-  id: string;
-  name: string;
-  distance: number;
-  elevationGain: number;
-  likeCount: number;
-}
-
 const km = (m: number) => (m / 1000).toFixed(1);
 const catLabel = (c: number) => (c >= 5 ? "HC" : c >= 1 ? `Cat ${c}` : "");
 
-export default function ChallengeFeed() {
+export default function ChallengeFeed({ part = "all" }: { part?: "all" | "monthly" | "courses" }) {
   const { t } = useTranslation("common");
   const { user } = useAuth();
   const { showToast } = useToast();
-  const monthly = useMonthlyChallenge(user?.uid);
+  const monthly = useMonthlyChallenge(part === "all" || part === "monthly" ? user?.uid : undefined);
   const [segments, setSegments] = useState<OverviewSeg[] | null>(null);
-  const [courses, setCourses] = useState<CourseHit[] | null>(null);
+  const catalog = useCourseCatalog("popular", undefined, 4, part !== "monthly");
+  const courses = catalog.loading ? null : catalog.courses;
 
   useEffect(() => {
+    if (part !== "all") return;
     let cancelled = false;
     fetchStaticJson<{ segments: OverviewSeg[] }>(segmentTileUrl("overview.json"))
       .then((data) => { if (!cancelled) setSegments(data.segments); })
@@ -56,31 +48,7 @@ export default function ChallengeFeed() {
         if (!cancelled) setSegments([]);
       });
     return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    getDocs(query(collection(firestore, "courses")))
-      .then((snap) => {
-        const items = snap.docs
-          .map((docSnap) => ({ id: docSnap.id, data: docSnap.data() }))
-          .filter((item) => isVisibleCourseDocData(item.data))
-          .map((item) => ({
-            id: item.id,
-            name: item.data.name ?? "",
-            distance: item.data.distance ?? 0,
-            elevationGain: item.data.elevationGain ?? 0,
-            likeCount: item.data.likeCount ?? 0,
-          } as CourseHit));
-        items.sort((a, b) => b.likeCount - a.likeCount || b.distance - a.distance);
-        if (!cancelled) setCourses(items.slice(0, 4));
-      })
-      .catch((err) => {
-        logClientError("ChallengeFeed.courses", err, {});
-        if (!cancelled) setCourses([]);
-      });
-    return () => { cancelled = true; };
-  }, []);
+  }, [part]);
 
   const notable = useMemo(() => {
     if (!segments) return null;
@@ -92,8 +60,8 @@ export default function ChallengeFeed() {
 
   return (
     <div className="space-y-5">
-      {user && (
-        <section aria-labelledby="personal-monthly-challenge-title">
+      {user && part !== "courses" && (
+        <section data-testid="E4-1" aria-labelledby="personal-monthly-challenge-title">
           <SectionHeader icon={Trophy} title={t("discover.challenge.monthlyTitle")} />
           <Card padding="none" className="p-4!" style={{ borderRadius: "var(--r-lg)" }}>
             <div className="flex items-start justify-between gap-3">
@@ -109,7 +77,7 @@ export default function ChallengeFeed() {
               <Text as="p" variant="body" tone="tertiary" style={{ marginTop: "var(--space-3)" }}>{t("discover.challenge.loading")}</Text>
             ) : monthly.participation && monthly.progress ? (
               <div className="mt-4">
-                <div className="flex justify-between text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>
+                <div data-testid="E4-1-2" className="flex justify-between text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>
                   <span>{monthly.progress.distanceKm.toLocaleString(undefined, { maximumFractionDigits: 1 })} km</span>
                   <span>{monthly.participation.tierKm.toLocaleString()} km</span>
                 </div>
@@ -133,7 +101,7 @@ export default function ChallengeFeed() {
             ) : (
               <div className="flex flex-wrap gap-2 mt-4">
                 {MONTHLY_CHALLENGE_TIERS.map((tier) => (
-                  <Button
+                  <Button data-testid="E4-1-1"
                     key={tier}
                     variant="secondary"
                     size="sm"
@@ -156,14 +124,14 @@ export default function ChallengeFeed() {
         </section>
       )}
 
-      <FallbackSegments segments={notable} />
+      {part === "all" && <FallbackSegments segments={notable} />}
 
-      {courses && courses.length > 0 && (
-        <section>
+      {part !== "monthly" && courses && courses.length > 0 && (
+        <section data-testid="E1-2">
           <SectionHeader icon={RouteIcon} title={t("discover.challenge.popularCourses")} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {courses.map((course) => (
-              <Link key={course.id} to={`/course/${course.id}`}>
+              <Link data-testid="E1-2-1" key={course.id} to={`/course/${course.id}`}>
                 <Card padding="none" className="p-3! h-full hover:border-[var(--lime)]/50 transition-colors" style={{ borderRadius: "var(--r-lg)" }}>
                   <span className="font-semibold text-[length:var(--fs-sm)] truncate" style={{ color: "var(--ink-0)" }}>{course.name}</span>
                   <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>

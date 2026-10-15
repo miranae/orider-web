@@ -106,7 +106,18 @@
     "visOptEveryone": "모두에게 공개",
     "visOptFriends": "친구에게만",
     "visOptPrivate": "비공개",
-    "newActivityDefault": "새 활동의 기본값"
+    "newActivityDefault": "새 활동의 기본값",
+    "existingTitle": "기존 활동에도 적용",
+    "existingCount": "대상 활동 {{count}}건 · 현재 기본 공개 범위로 변경",
+    "existingApply": "기존 활동에도 적용",
+    "existingApplying": "적용 중…",
+    "existingConfirm": "삭제되지 않은 기존 활동 {{count}}건을 {{visibility}}으로 변경할까요? 활동마다 설정한 공개 범위도 바뀝니다.",
+    "existingApplied": "기존 활동 {{count}}건의 공개 범위를 변경했습니다",
+    "existingEmpty": "변경할 기존 활동이 없습니다",
+    "existingFailed": "기존 활동 공개 범위를 변경하지 못했습니다. 다시 확인해 주세요.",
+    "defaultSafetyChecking": "새 활동과 기존 활동의 공개 범위를 따로 저장할 수 있는지 확인 중입니다.",
+    "defaultSafetyUnavailable": "서버에서 공개 범위 저장 분리를 확인하지 못해 변경을 잠시 막았습니다. 다시 확인해 주세요.",
+    "existingCountOnDemand": "버튼을 누르면 대상 건수를 확인합니다"
   },
   "personal": {
     "weight": "몸무게",
@@ -131,6 +142,8 @@
     "phoneRequired": "비상연락처를 사용하려면 이름과 전화번호가 모두 필요합니다"
   },
   "training": {
+    "loadFailed": "기준값을 불러오지 못했습니다.",
+    "deviceStatus": "기기 반영 상태 보기 →",
     "sport": {
       "bike": "자전거",
       "run": "달리기",
@@ -425,7 +438,10 @@
       "exampleHint": "생성한 키로 본인 활동 목록을 읽는 가장 작은 예시입니다.",
       "copy": "복사",
       "copyFailed": "복사에 실패했습니다",
-      "copied": "복사되었습니다"
+      "copied": "복사되었습니다",
+      "docsTitle": "개발자 문서",
+      "examplesLink": "활용 예시 →",
+      "apiDocsLink": "API 문서"
     }
   },
   "coach": {
@@ -501,25 +517,25 @@
     "groupMe": "나",
     "groupConnections": "연결",
     "groupApp": "앱",
-    "accountLabel": "계정 & 프로필",
+    "accountLabel": "계정",
     "accountHint": "프로필, 공개 범위, 테마",
     "trainingLabel": "운동 프로필",
     "trainingHint": "체격, FTP, 심박 존",
     "equipmentLabel": "장비",
     "equipmentHint": "자전거, 가상 파워",
-    "connectionsLabel": "연결된 앱",
+    "connectionsLabel": "연결 앱",
     "connectionsHint": "Strava, Garmin 등",
     "healthSourcesLabel": "헬스 소스",
     "healthSourcesHint": "Apple Health, Health Connect, 주 소스",
     "aiCoachLabel": "AI 코치",
     "aiCoachHint": "개인 운동데이터 처리 동의",
-    "developerLabel": "개발자 API",
+    "developerLabel": "개발자",
     "developerHint": "개인 데이터 API 키",
-    "deviceLabel": "디바이스",
-    "deviceHint": "모바일 앱 동기화",
+    "deviceLabel": "기기",
+    "deviceHint": "기기 동작·센서·데이터 페이지",
     "appLabel": "앱 & 데이터",
     "appHint": "언어, 단위, 내보내기",
-    "displayLabel": "화면 & 언어",
+    "displayLabel": "표시",
     "displayHint": "언어, 단위, 테마",
     "dataLabel": "내 데이터",
     "dataHint": "내보내기, 캐시, 삭제",
@@ -789,7 +805,8 @@
     "legacyImportDone": "{{name}}(으)로 가져왔어요.",
     "legacyImportFailed": "가져오지 못했어요. 다시 시도해 주세요.",
     "legacyImportBlocked": "대상 자전거의 저장된 구성을 읽지 못해 가져오기를 막았어요.",
-    "legacyImportNoBikes": "가져갈 자전거가 없어요. 자전거를 먼저 만들어 주세요."
+    "legacyImportNoBikes": "가져갈 자전거가 없어요. 자전거를 먼저 만들어 주세요.",
+    "thresholdSource": "정본 기준값은 코치 > 컨디션에서 관리하세요 →"
   },
   "layout": {
     "cardTitle": "데이터 화면 레이아웃",
@@ -975,5 +992,25 @@
     "save": "저장",
     "cancel": "취소",
     "weightUnit": "kg"
+  },
+  "shoeSnapshot": {
+    "title": "최근 활동의 신발",
+    "coverage": "최근 8주 활동에서 확인한 신발별 마지막 스냅샷입니다. 전체 신발 목록은 아니며, ID 없는 기록은 최근 신발 한 건만 표시합니다.",
+    "loading": "신발 정보를 불러오는 중…",
+    "unavailable": "최근 활동의 신발 정보를 확인할 수 없습니다. 잠시 후 다시 확인해 주세요.",
+    "empty": "최근 활동에 교체 권장 거리가 있는 신발 정보가 없습니다.",
+    "total": "누적 {{distance}}",
+    "remaining": "남은 거리 {{distance}} · 교체 권장 {{maximum}}",
+    "replacementDue": "교체 임박 · 남은 거리 15% 미만",
+    "identity": "신발 ID {{id}}",
+    "legacyIdentity": "ID 없는 최근 신발",
+    "conflictingIdentity": "신발 식별자가 서로 다른 활동의 정보는 제외했습니다."
+  },
+  "bikeMileage": {
+    "total": "누적 {{distance}}",
+    "loading": "누적 거리 계산 중",
+    "error": "누적 거리를 불러오지 못했습니다.",
+    "unavailable": "누적 거리 확인 불가",
+    "stale": "이전 집계"
   }
 }

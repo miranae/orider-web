@@ -18,6 +18,7 @@
     "runWeekGroup": "My runs, walks and hikes · last 7 days",
     "trainingGroup": "Training status",
     "weekDistance": "Distance",
+    "activities": "All activity count",
     "rides": "Rides",
     "runs": "Activities",
     "runUnavailable": "Run, walk and hike stats are unavailable",
@@ -622,5 +623,28 @@
     "empty": "There are no activities to summarize in the last seven days.",
     "stale": "Showing the last confirmed seven-day summary.",
     "staleChip": "Earlier summary"
+  },
+  "todayStrip": {
+    "allSportsRecent7d": "All sports · last 7 days",
+    "today": "Today's training",
+    "choose": "Decide →",
+    "loading": "Loading…",
+    "noToday": "Choose today’s training in Coach",
+    "unavailable": "Currently unavailable",
+    "goal": "Goal",
+    "createGoal": "Create a goal →",
+    "monthFlow": "This month’s progress",
+    "monthFlowValue": "{{distance}} km · {{percent}}% of your usual weekly pace",
+    "events": "My schedule",
+    "noEvents": "No upcoming registered events",
+    "condition": "Condition",
+    "conditionLink": "View condition →",
+    "week": "This week · Training log →",
+    "more": "More schedule and getting started",
+    "support": "Apps and help",
+    "recap": "View annual recap →",
+    "firstRecord": "Record your first activity · Get the app",
+    "importHistory": "Import existing activities",
+    "goalCtl": "Projected goal-day CTL {{value}}"
   }
 }

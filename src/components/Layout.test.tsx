@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import Layout, { buildOnboardingRedirectTarget, shouldBypassOnboardingRedirect } from "./Layout";
+import Layout, { notificationTarget, buildOnboardingRedirectTarget, shouldBypassOnboardingRedirect } from "./Layout";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import {
   setCollectionDocs,
@@ -14,6 +14,33 @@ import { createMockNotification } from "../__tests__/fixtures/mockData";
 vi.mock("../assets/icon.svg", () => ({ default: "/icon.svg" }));
 
 describe("Layout", () => {
+  it.each([
+    [{ type: "friend_request" }, "/athlete/me/friends?tab=requests"],
+    [{ type: "friend_accept", fromUserId: "friend-uid" }, "/athlete/friend-uid"],
+    [{ type: "friend_accept", fromUserId: "uid?value#fragment" }, "/athlete/uid%3Fvalue%23fragment"],
+    ...["", "..", ".", "bad/uid", "bad\\uid", "bad uid"].map(fromUserId => [{ type: "friend_accept", fromUserId }, "/athlete/me/friends"] as const),
+    [{ type: "group_invite" }, "/clubs"],
+    [{ type: "group_request_approved", groupId: "g 1" }, "/club/g%201"],
+    [{ type: "group_request_rejected", groupId: "g1" }, "/clubs"],
+    [{ type: "event_alert", eventId: "e1" }, "/event/e1"],
+    [{ type: "coach_prescription", threadId: "t1" }, "/coach/chat/t1"],
+    [{ type: "comment", activityId: "a1" }, "/activity/a1"],
+    [{ type: "pr", segmentId: "s1" }, "/segment/s1"],
+    [{ type: "comment", deepLink: "https://example.com" }, "/"],
+  ] as const)("routes supported notification payload %j to its real destination", (payload, target) => {
+    expect(notificationTarget(createMockNotification({ activityId: undefined, ...payload }))).toBe(target);
+  });
+  it("provides utility footer links and app installation destinations", async () => {
+    renderWithProviders(<Layout />);
+    const footer = await screen.findByRole("contentinfo");
+    expect(footer).toHaveAttribute("data-testid", "H-F");
+    expect(within(screen.getByTestId("H-F-1")).getByRole("link", { name: "App Store" })).toHaveAttribute("target", "_blank");
+    expect(within(footer).getByRole("link", { name: "앱 설명서" })).toHaveAttribute("href", "/ko/manual");
+    expect(within(footer).getByRole("link", { name: "웹 설명서" })).toHaveAttribute("href", "/ko/web-manual");
+    expect(within(footer).getByRole("link", { name: "공개 계산기" })).toHaveAttribute("href", "/ko/tools/virtual-power");
+    expect(within(footer).getByRole("link", { name: "App Store" })).toHaveAttribute("target", "_blank");
+  });
+
   it("allows Strava connection routes before onboarding is done", () => {
     expect(shouldBypassOnboardingRedirect("/settings")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/settings/connections")).toBe(true);
@@ -139,7 +166,7 @@ describe("Layout", () => {
     });
   });
 
-  it("clears every visible notification from the mobile sheet", async () => {
+  it("marks visible notifications read while retaining the list", async () => {
     mockUpdateDoc.mockClear();
     const user = userEvent.setup();
     renderWithProviders(<Layout />, {
@@ -160,21 +187,21 @@ describe("Layout", () => {
     await waitFor(() => {
       expect(mockUpdateDoc).toHaveBeenCalledWith(
         expect.objectContaining({ path: "notifications/uid-1/items/n1" }),
-        expect.objectContaining({ read: true, dismissedAt: expect.any(Number) }),
+        { read: true },
       );
       expect(mockUpdateDoc).toHaveBeenCalledWith(
         expect.objectContaining({ path: "notifications/uid-1/items/n2" }),
-        expect.objectContaining({ read: true, dismissedAt: expect.any(Number) }),
+        { read: true },
       );
     });
     expect(mockUpdateDoc).toHaveBeenCalledWith(
       expect.objectContaining({ path: "notifications/uid-1/items/n3" }),
-      expect.objectContaining({ read: true, dismissedAt: expect.any(Number) }),
+      { read: true },
     );
-    await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "모두 읽음" })).not.toBeInTheDocument();
-    });
-    expect(screen.getByText("알림이 없습니다")).toBeInTheDocument();
+    expect(screen.getByText("첫 번째 알림")).toBeInTheDocument();
+    expect(screen.getByText("두 번째 알림")).toBeInTheDocument();
+    expect(screen.getByText("이미 읽은 알림")).toBeInTheDocument();
+    expect(screen.queryByText("알림이 없습니다")).not.toBeInTheDocument();
   });
 
   it("shows the mobile clear action when all notifications are already read", async () => {
@@ -241,17 +268,18 @@ describe("Layout", () => {
     expect(container.querySelector('[data-page-shell="home"]')).not.toBeInTheDocument();
   });
 
-  it("hides main-screen footer at lg+ but keeps it on tablet (md~lg)", async () => {
-    // 메인화면(`/`)에서는 푸터 링크를 사이드바(lg:flex) 더보기로 흡수하므로 푸터를 lg+ 에서만
-    // 숨긴다. 사이드바가 렌더되지 않는 md~lg(태블릿)에서는 푸터를 유지해 법적 링크 접근성을 보존.
-    // jsdom 은 CSS 를 적용하지 않으므로 가시성 대신 반응형 클래스(lg:hidden)로 단언한다.
+  it("keeps the main-screen footer available at tablet and large desktop widths", async () => {
+    // 홈도 다른 데스크톱 화면처럼 공통 법적 링크를 제공한다.
+    // 모바일 링크는 햄버거 메뉴에서 제공하므로 md 이상 표시하고 lg에서도 숨기지 않는다.
     renderWithProviders(<Layout />, { route: "/" });
     await waitFor(() => {
       expect(screen.getByAltText("Orider")).toBeInTheDocument();
     });
     const footer = screen.getByRole("contentinfo");
     expect(footer.className).toContain("md:block");
-    expect(footer.className).toContain("lg:hidden");
+    expect(footer.className).not.toContain("lg:hidden");
+    expect(footer).toHaveTextContent("이용약관");
+    expect(footer).toHaveTextContent("개인정보처리방침");
   });
 
   it("reserves bottom tab space through tablet widths", async () => {
@@ -284,7 +312,7 @@ describe("Layout", () => {
     expect(within(settingsTabBar).getAllByRole("link").every((link) => !link.hasAttribute("aria-current"))).toBe(true);
     expect(screen.getByRole("link", { name: "계정" })).toHaveAttribute("aria-current", "page");
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
-    expect(screen.getByRole("link", { name: "설정" })).toHaveAttribute("href", "/ko/settings/account");
+    expect(screen.getAllByRole("link", { name: "설정" }).every(link => link.getAttribute("href") === "/ko/settings/account")).toBe(true);
     expect(screen.getByRole("button", { name: "프로필" })).toHaveAttribute("aria-current", "page");
   });
 

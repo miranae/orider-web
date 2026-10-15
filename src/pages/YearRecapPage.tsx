@@ -1,4 +1,11 @@
 import { useMemo, useState, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
+import RunRecordsBoard from "../components/fitness/RunRecordsBoard";
+import MilestonesGrid from "../components/fitness/MilestonesGrid";
+import MilestoneCelebration from "../components/fitness/MilestoneCelebration";
+import DisciplineTabs from "../components/redesign/DisciplineTabs";
+import { useRunRecords } from "../hooks/useRunRecords";
+import { filterByDiscipline, type Discipline as SportDiscipline } from "../utils/disciplineFilter";
 import { useTranslation } from "react-i18next";
 import { saveAs } from "file-saver";
 import { Download, Share2, Mountain, Clock, Route } from "lucide-react";
@@ -39,24 +46,31 @@ function int(v: number): string {
 export default function YearRecapPage() {
   const { user, profile } = useAuth();
   const { t } = useTranslation("recap");
-  const { activities, loading } = useYearActivities(user?.uid);
+  const { activities: allActivities, loading } = useYearActivities(user?.uid);
+  const [params, setParams] = useSearchParams();
+  const sport = params.get("sport");
+  const discipline: SportDiscipline = sport === "run" || sport === "swim" || sport === "bike" ? sport : "tri";
+  const activities = useMemo(() => discipline === "tri" ? allActivities : filterByDiscipline(allActivities, discipline), [allActivities, discipline]);
+  const { run } = useRunRecords(discipline === "run");
+  const [dismissedMilestones, setDismissedMilestones] = useState<Set<string>>(new Set());
   const [shareBusy, setShareBusy] = useState(false);
   const lastRatio = useRef<RecapShareRatio>("square");
 
   const years = useMemo(() => availableRecapYears(activities), [activities]);
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  const year = selectedYear ?? years[0] ?? new Date().getFullYear();
+  const queryYear = Number(params.get("year"));
+  const year = params.has("year") && Number.isInteger(queryYear) && queryYear >= 2000 && queryYear <= new Date().getFullYear() ? queryYear : years[0] ?? new Date().getFullYear();
 
   const recap = useMemo(() => computeYearRecap(activities, year), [activities, year]);
   // 마일스톤 달성 판정 주체는 `canonical` 플래그가 가른다 — 서버 누적 원장이 러닝 전용이라
   // 기본은 꺼짐(클라 판정 유지). 그리드가 직접 분기한다 (#2237).
-  const { achieved: milestones, loading: milestonesLoading } = useMilestones();
+  const { achieved: milestones, loading: milestonesLoading, markCelebrated } = useMilestones();
+  const pendingMilestone = discipline === "run" ? Array.from(milestones.values()).find((milestone) => !milestone.celebrated && !dismissedMilestones.has(milestone.id)) : null;
 
   const nickname = profile?.nickname || user?.displayName || t("rider");
 
   if (!user) {
     return (
-      <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)" }}>
+      <div data-testid="P2.guest" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)" }}>
         <Text tone="tertiary">{t("loginRequired")}</Text>
       </div>
     );
@@ -106,9 +120,12 @@ export default function YearRecapPage() {
   const isEmpty = !loading && recap.totalCount === 0;
 
   return (
-    <div className="max-w-2xl mx-auto pb-20" style={{ padding: "var(--space-5) var(--space-4)" }}>
+    <div data-testid="P2-4-1" className="max-w-2xl mx-auto pb-20" style={{ padding: "var(--space-5) var(--space-4)" }}>
+      <div data-testid="P2-0-1"><DisciplineTabs includeTri value={discipline} onChange={(value) => { const next = new URLSearchParams(params); next.set("sport", value); setParams(next); }} /></div>
+      {discipline === "run" && <><div data-testid="P2-1"><div data-testid="P2-1-1"><RunRecordsBoard run={run} /></div></div><div data-testid="P2-2"><div data-testid="P2-2-1"><MilestonesGrid achieved={milestones} /></div></div></>}
+      {pendingMilestone && <MilestoneCelebration milestoneId={pendingMilestone.id} onClose={() => { void markCelebrated(pendingMilestone.id); setDismissedMilestones((previous) => new Set(previous).add(pendingMilestone.id)); }} />}
       {/* 헤더 + 연도 선택 */}
-      <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-5)" }}>
+      <div data-testid="P2-0" className="flex items-center justify-between" style={{ marginBottom: "var(--space-5)" }}>
         <div>
           <Text as="h1" variant="title" weight={700}>
             {t("title")}
@@ -118,9 +135,9 @@ export default function YearRecapPage() {
           </Text>
         </div>
         {years.length > 1 && (
-          <select
+          <select data-testid="P2-0-1"
             value={year}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            onChange={(e) => { const next = new URLSearchParams(params); next.set("year", e.target.value); setParams(next); }}
             aria-label={t("selectYear")}
             style={{
               padding: "8px 12px",
@@ -141,11 +158,11 @@ export default function YearRecapPage() {
       </div>
 
       {loading ? (
-        <Card>
+        <Card data-testid="P2.loading">
           <Text tone="tertiary">{t("loading")}</Text>
         </Card>
       ) : isEmpty ? (
-        <Card>
+        <Card data-testid="P2.emptyYear">
           <Stack gap="var(--space-3)" align="center">
             <Text variant="dataMedium" tone="tertiary">
               🗓️
@@ -159,7 +176,7 @@ export default function YearRecapPage() {
       ) : (
         <Stack gap="var(--space-4)">
           {/* 총합 KPI */}
-          <Card title={t("section.totals")}>
+          <Card data-testid="P2-4" title={t("section.totals")}>
             <div className="grid grid-cols-2" style={{ gap: "var(--space-4)" }}>
               <Stat label={t("stat.distance")} value={km(recap.totalDistanceMeters)} unit="km" />
               <Stat label={t("stat.time")} value={hours(recap.totalDurationMillis)} unit={t("unit.hour")} />
@@ -235,7 +252,7 @@ export default function YearRecapPage() {
           </Card>
 
           {/* 공유 */}
-          <Card title={t("section.share")}>
+          <Card data-testid="P2-4-2" title={t("section.share")}>
             <Text tone="tertiary" variant="bodySmall">
               {t("share.desc")}
             </Text>

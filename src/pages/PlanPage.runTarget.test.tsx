@@ -19,6 +19,13 @@ function setup() {
 }
 const route = "/ko/plan?sport=run&goalId=goal-owned&weekId=week-next&dayIndex=0&date=2026-10-01";
 describe("read-only running plan target route", () => {
+  it("opens a date-only log handoff in the requested week without a run-start preview", async () => {
+    setup(); model.mobile = true;
+    renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/coach/plan?sport=run&date=2026-10-01" });
+    expect(await screen.findByTestId("plan-presentation")).toHaveAttribute("data-week-offset", "1");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("workout-editor")).not.toBeInTheDocument();
+  });
   it.each([false, true])("opens exact preview without workout editor or execution and focuses target week mobile=%s", async mobile => {
     setup(); model.mobile = mobile;
     const priorCalls = mockCallableInvocations.length;

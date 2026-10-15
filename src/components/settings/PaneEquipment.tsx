@@ -26,7 +26,10 @@ import {
   monoInputStyle,
 } from "./_primitives";
 import { BackfillStatusCard } from "./BackfillStatusCard";
+import { BikeMileage } from "./BikeMileage";
+import { GearShoeStatus } from "./GearShoeStatus";
 import { GearKitSection } from "./GearKitSection";
+import { LocalizedLink } from "../LocalizedLink";
 import { Button, Text } from "../../theme/components";
 
 const CDA_PRESETS = [
@@ -131,6 +134,7 @@ function SensorRow({ sensor, onRemove }: SensorRowProps) {
 }
 
 interface ProfileCardProps {
+  deviceControls: boolean;
   profile: BikeProfile;
   isActive: boolean;
   canDelete: boolean;
@@ -146,6 +150,7 @@ interface ProfileCardProps {
 
 function ProfileCard({
   profile,
+  deviceControls,
   isActive,
   canDelete,
   onSetActive,
@@ -230,7 +235,7 @@ function ProfileCard({
   }
 
   return (
-    <div
+    <div data-testid={deviceControls ? "S6-3-0" : "P4-1-1"}
       style={{
         padding: "14px 16px",
         borderRadius: "var(--r-lg)",
@@ -319,6 +324,7 @@ function ProfileCard({
               </>
             )}
           </div>
+          {!deviceControls && <BikeMileage profileId={profile.id} />}
           <div
             style={{
               fontSize: "var(--fs-xs)",
@@ -340,13 +346,12 @@ function ProfileCard({
         </div>
         {!editing && (
           <div style={{ display: "flex", gap: 'var(--space-1)' }}>
-            {!isActive && (
+            {deviceControls && !isActive && (
               <Button variant="secondary" size="sm" onClick={handleSetActive} disabled={busy}>
                 {t("equipment.bikeSetActive")}
               </Button>
             )}
-            {/* 데이터 페이지는 **자전거의 속성**이다 — 기기 화면이 아니라 이 행에서 연다(§5.1). */}
-            <Button
+            {deviceControls && <Button
               variant="secondary"
               size="sm"
               onClick={onOpenDataPages}
@@ -354,8 +359,9 @@ function ProfileCard({
               data-testid={`bike-data-pages-${profile.id}`}
             >
               {t("equipment.bikeDataPages")}
-            </Button>
-            <Button variant="ghost"
+            </Button>}
+            {!deviceControls && <LocalizedLink to={`/settings/device?profileId=${encodeURIComponent(profile.id)}`}>{t("nav.deviceLabel")}</LocalizedLink>}
+            {!deviceControls && <Button variant="ghost"
               onClick={() => {
                 setEditing(true);
                 setNameInput(profile.name);
@@ -364,8 +370,8 @@ function ProfileCard({
               aria-label={t("equipment.bikeRename")}
             >
               <Pencil size={12} />
-            </Button>
-            {canDelete && (
+            </Button>}
+            {!deviceControls && canDelete && (
               <Button variant="ghost"
                 onClick={handleDelete}
                 disabled={busy}
@@ -379,8 +385,8 @@ function ProfileCard({
         )}
       </div>
 
-      {/* 펼침 영역 — 휠 둘레 + 센서 목록 */}
-      <div
+      {/* 기기 동작 값은 설정 > 기기에서만 편집한다. */}
+      {deviceControls && <div
         style={{
           marginTop: 'var(--space-3)',
           paddingTop: 'var(--space-2)',
@@ -445,12 +451,12 @@ function ProfileCard({
             ))
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
 
-export function PaneEquipment() {
+export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
   const { t } = useTranslation("settings");
   const { user, profile } = useAuth();
   const { showToast } = useToast();
@@ -485,6 +491,12 @@ export function PaneEquipment() {
   const editingProfileId = panel === "data-pages" ? (urlProfileId ?? active?.id ?? null) : null;
   const editingProfile = profiles.find((p) => p.id === editingProfileId) ?? null;
 
+  useEffect(() => {
+    if (panel === "data-pages" && editingProfile) {
+      document.querySelector('[data-testid="S6-3-1"]')?.scrollIntoView?.({ block: "start" });
+    }
+  }, [panel, editingProfile]);
+
   function openDataPages(profileId: string) {
     const next = new URLSearchParams(searchParams);
     next.set("profileId", profileId);
@@ -499,24 +511,27 @@ export function PaneEquipment() {
     setSearchParams(next);
   }
 
-  if (!uid) return null;
+  if (!uid) return <p data-testid="P4.guest">{t("device.loginRequired")}</p>;
   if (loading) {
     return (
-      <SettingsCard title={t("equipment.bikeProfile")}>
+      <SettingsCard data-testid="P4.loading" title={t("equipment.bikeProfile")}>
         <div style={{ padding: 'var(--space-3)', color: "var(--ink-3)" }}>{t("equipment.bikeLoading")}</div>
       </SettingsCard>
     );
   }
   if (!active) {
     return (
-      <SettingsCard title={t("equipment.bikeProfile")}>
-        <div style={{ padding: 'var(--space-3)', color: "var(--ink-3)" }}>
-          {t("equipment.bikeNoProfile")}
-        </div>
-      </SettingsCard>
+      <>
+        <SettingsCard data-testid="P4.empty" title={t("equipment.bikeProfile")}>
+          <div style={{ padding: 'var(--space-3)', color: "var(--ink-3)" }}>{t("equipment.bikeNoProfile")}</div>
+        </SettingsCard>
+        {part === "gear" && <><GearKitSection uid={uid} /><GearShoeStatus /></>}
+      </>
     );
   }
 
+  const selectedProfileId = urlProfileId ?? active.id;
+  const selectedProfile = profiles.find((p) => p.id === selectedProfileId) ?? active;
   const sortedProfiles = [...profiles].sort((a, b) => {
     if (a.id === active.id) return -1;
     if (b.id === active.id) return 1;
@@ -547,7 +562,7 @@ export function PaneEquipment() {
 
   // 편집기는 **자전거 하나**에 대한 화면이다. 목록 위에 겹쳐 띄우지 않고 자리를 바꾼다 —
   // 어느 자전거를 고치는 중인지가 화면의 유일한 주제여야 잘못된 자전거에 저장하지 않는다.
-  if (editingProfile) {
+  if (part === "device" && editingProfile) {
     return (
       <BikeDataPagesPanel
         uid={uid}
@@ -559,7 +574,9 @@ export function PaneEquipment() {
 
   return (
     <>
+      {part === "gear" && <div data-testid="P4-0"><LocalizedLink data-testid="P4-0-1" to="/settings/device">{t("nav.deviceLabel")} →</LocalizedLink></div>}
       <SettingsCard
+        data-testid={part === "gear" ? "P4-1" : "S6-3-0"}
         title={t("equipment.bikeProfile")}
         action={
           <Text variant="eyebrow" style={{ color: "var(--ink-3)" }}>
@@ -574,10 +591,12 @@ export function PaneEquipment() {
           </div>
         )}
         <div style={{ display: "grid", gap: "var(--space-2)" }}>
-          {sortedProfiles.map((p) => (
+          {part === "device" && <Field label={t("equipment.bikeProfile")}><select style={fieldInputStyle} value={selectedProfile.id} onChange={(e) => { const next = new URLSearchParams(searchParams); next.set("profileId", e.target.value); next.delete("panel"); setSearchParams(next); }}>{sortedProfiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>}
+          {(part === "device" ? [selectedProfile] : sortedProfiles).map((p) => (
             <ProfileCard
               key={p.id}
               profile={p}
+              deviceControls={part === "device"}
               isActive={p.id === active.id}
               canDelete={canDelete}
               onSetActive={() => setActive(p.id)}
@@ -591,8 +610,8 @@ export function PaneEquipment() {
         </div>
       </SettingsCard>
 
-      <SettingsCard
-        title={t("equipment.virtualPower")}
+      {part === "device" && <><SettingsCard
+        data-testid="S6-4-1" title={t("equipment.virtualPower")}
         action={
           <Toggle
             on={vpDraft?.enabled ?? true}
@@ -602,6 +621,7 @@ export function PaneEquipment() {
         }
       >
         <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-3)", lineHeight: 1.5 }}>
+          <Text as="p" weight={700}>{t("equipment.bikeActive")}: {active.name}</Text>
           {t("equipment.virtualPowerDesc", { name: active.name, weight: weightDisplay })}
         </div>
         <FieldGrid cols={2}>
@@ -681,9 +701,9 @@ export function PaneEquipment() {
         </FieldGrid>
       </SettingsCard>
 
-      <BackfillStatusCard uid={uid} />
+      <BackfillStatusCard uid={uid} /></> }
 
-      <GearKitSection uid={uid} />
+      {part === "gear" && <><GearKitSection uid={uid} /><GearShoeStatus /></>}
     </>
   );
 }
@@ -734,7 +754,7 @@ function BikeDataPagesPanel({
   }
 
   return (
-    <>
+    <section data-testid="S6-3-1">
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
         <Button variant="ghost" size="sm" onClick={onBack} data-testid="bike-data-pages-back">
           {t("equipment.dataPagesBack")}
@@ -758,6 +778,6 @@ function BikeDataPagesPanel({
       {config && (
         <LayoutEditorCard config={config} onSave={handleSave} readOnly={!canSave} />
       )}
-    </>
+    </section>
   );
 }

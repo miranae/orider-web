@@ -97,7 +97,7 @@ function parseDuration(str: string): number {
   return NaN;
 }
 
-export default function LabPage() {
+export default function LabPage({ presetCourseId, embedded = false }: { presetCourseId?: string; embedded?: boolean } = {}) {
   const { t } = useTranslation("lab");
   const { user, profile } = useAuth();
   const uid = user?.uid ?? null;
@@ -109,7 +109,7 @@ export default function LabPage() {
   const appliedUrlCourseIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!uid) {
+    if (!uid || embedded) {
       setCourses([]);
       return;
     }
@@ -132,10 +132,10 @@ export default function LabPage() {
       );
     });
     return () => unsub();
-  }, [uid]);
+  }, [uid, embedded]);
 
   // URL ?courseId= 우선 — 내 코스 아니어도 직접 로드해 옵션에 추가.
-  const urlCourseId = searchParams.get("courseId");
+  const urlCourseId = presetCourseId ?? searchParams.get("courseId");
   useEffect(() => {
     if (!urlCourseId) return;
     if (courses.some((c) => c.id === urlCourseId)) {
@@ -285,7 +285,7 @@ export default function LabPage() {
   }
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto", padding: "var(--space-4)" }}>
+    <div data-testid={embedded ? "course-prepare-calculator" : undefined} style={{ maxWidth: 760, margin: "0 auto", padding: "var(--space-4)" }}>
       <Stack gap="var(--space-4)">
         <div>
           <Text as="h1" variant="title" size="xl">
@@ -304,6 +304,7 @@ export default function LabPage() {
         <Card title={t("course.title")}>
           <Field label={t("course.select")}>
             <Select
+              disabled={embedded}
               value={selectedId}
               onChange={(e) => setSelectedId(e.target.value)}
             >

@@ -1,3 +1,8 @@
+import FitnessPeriodEvidence from "../../features/fitness/components/FitnessPeriodEvidence";
+import { LocalizedLink } from "../LocalizedLink";
+import type { MonthlyCyclingVo2maxPoint } from "../../features/fitness/deriveMonthlyCyclingVo2maxTrend";
+import type { GapEntry } from "@shared/training/expectedPower";
+import { makeDurationLabel } from "../../features/fitness/fitnessPageUtils";
 import RunningRaceEstimatesPanel from "../../features/fitness/RunningRaceEstimatesPanel";
 /**
  * 모바일 피트니스 페이지.
@@ -18,11 +23,13 @@ import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
 import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerCurvePeriodsPanel";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { toUtcDate } from "../../utils/dateUtils";
+import FtpDecisionSection from "../../features/fitness/components/FtpDecisionSection";
+import RunRecordsSummary from "../../features/fitness/components/RunRecordsSummary";
 import DetailsSection from "../redesign/DetailsSection";
 import SportFilterTabs from "./SportFilterTabs";
 import { getDisciplineColor } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
-import { Text } from "../../theme/components";
+import { Chip, Text } from "../../theme/components";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import ConsistencyStreakCard from "../training/ConsistencyStreakCard";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
@@ -89,6 +96,8 @@ export interface MobileFitnessData {
   weightKg?: number;
   hasLoadData: boolean;
   pdcSummary?: MobileFitnessPdcSummary | null;
+  monthlyVo2maxTrend?: MonthlyCyclingVo2maxPoint[];
+  powerGaps?: GapEntry[];
   combinedLoad?: CombinedLoadStatus | null;
   loadFocus: LoadFocusResult | null;
   cyclingAbility: CyclingAbilityResult | null;
@@ -454,12 +463,12 @@ function PowerCurveMini({ points, color, ariaLabel }: { points: MobilePowerCurve
 }
 
 // ── 카드 컨테이너 ─────────────────────────────────────────────
-function SectionCard({ children, title, sub, accentColor, ariaLabel, compact = false, readableSub = false }: { children: React.ReactNode; title?: string; sub?: string; accentColor?: string; ariaLabel?: string; compact?: boolean; readableSub?: boolean }) {
+function SectionCard({ specId, children, title, sub, accentColor, ariaLabel, compact = false, readableSub = false }: { specId?: string; children: React.ReactNode; title?: string; sub?: string; accentColor?: string; ariaLabel?: string; compact?: boolean; readableSub?: boolean }) {
   // 모바일은 화면이 좁아 모든 카드를 화면 전폭으로 쓴다(섹션 스타일). Layout 컨텐츠 래퍼
   // (max-w mx-auto px-4 = 좌우 16px) 인셋을 음수 마진(-16)으로 상쇄해 좌우 끝까지 채우고,
   // 좌우 border·radius 는 제거하고 상하 구분선만 둔다. 콘텐츠는 좌우 16px padding 으로 가독성 유지.
   return (
-    <div className="mobile-fitness-section" role={ariaLabel ? "region" : undefined} aria-label={ariaLabel} style={{
+    <div data-testid={specId} className="mobile-fitness-section" role={ariaLabel ? "region" : undefined} aria-label={ariaLabel} style={{
       margin: compact ? "0 -16px var(--space-2)" : "0 -16px 12px",
       background: "var(--bg-1)",
       borderTop: accentColor ? `var(--space-0-5) solid ${accentColor}` : "1px solid var(--line-soft)",
@@ -538,10 +547,53 @@ function MobilePowerCurvePeriods({ ownerUid, enabled }: { ownerUid: string; enab
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   if (!user || user.isAnonymous || user.uid !== ownerUid) return null;
-  return <details className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3" onToggle={event => { if (event.currentTarget.open) setMounted(true); }}>
+  return <details data-testid="K5-5-1" className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3" onToggle={event => { if (event.currentTarget.open) setMounted(true); }}>
     <summary className="cursor-pointer py-3"><Text variant="label">{t("periodCurve.title")}</Text></summary>
     {mounted && <div className="pt-3"><PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} embedded /></div>}
   </details>;
+}
+
+/** 웹 분석에서만 추가되는 실측 월별 VO₂max·CP 기대값 비교. */
+function MobileCyclingEvidence({ data }: { data: MobileFitnessData }) {
+  const { t } = useTranslation("fitness");
+  const trend = data.monthlyVo2maxTrend ?? [];
+  const gaps = data.powerGaps ?? [];
+  const durationLabel = makeDurationLabel(t);
+  const values = trend.map(point => point.v);
+  const first = trend[0], last = trend[trend.length - 1];
+  const low = values.length ? Math.min(...values) : 0, high = values.length ? Math.max(...values) : 0;
+  const path = values.map((value, index) => `${index ? "L" : "M"}${(index / Math.max(1, values.length - 1) * 132).toFixed(1)} ${(40 - (value - low) / (high - low || 1) * 40).toFixed(1)}`).join(" ");
+  const delta = first && last ? last.v - first.v : 0;
+  const deltaLabel = `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`;
+  const trendLabel = first && last ? t("vo2maxCard.trendAriaValues", { startPeriod: first.period, start: first.v, endPeriod: last.period, end: last.v, delta: deltaLabel }) : "";
+  return <>
+    {data.pdcSummary?.vo2maxEst != null && <SectionCard title={t("vo2maxCard.pdcLabel")}>
+      <div data-testid="K5-1-3">
+        <Text variant="dataLarge">~{data.pdcSummary.vo2maxEst}</Text> <Text variant="unit">ml/kg/min</Text>
+        <Text as="p" variant="caption" tone="tertiary">{t("vo2maxCard.pdcSub")}</Text>
+        {trend.length >= 2 && <>
+          <svg viewBox="0 0 132 40" role="img" aria-label={trendLabel} className="w-full" preserveAspectRatio="none">
+            <desc>{trendLabel}</desc><path d={path} stroke="var(--aqua)" strokeWidth="1.5" fill="none" />
+          </svg>
+          <Text as="p" variant="mono">{deltaLabel} · {t("vo2maxCard.trendSpan", { n: trend.length })}</Text>
+        </>}
+      </div>
+    </SectionCard>}
+    {gaps.some(gap => gap.label === "strength" || gap.label === "weakness") && <SectionCard title={t("gapCard.title")}>
+      <div data-testid="K5-1-4">
+        {(["strength", "weakness"] as const).map(label => {
+          const group = gaps.filter(gap => gap.label === label);
+          return group.length > 0 ? <div key={label} className="flex flex-wrap items-center gap-2 mb-3">
+            <Text variant="eyebrow">{t(label === "strength" ? "gapCard.strengthLabel" : "gapCard.weaknessLabel")}</Text>
+            {group.map(gap => <Chip key={gap.durationSeconds} variant={label === "strength" ? "success" : "warning"}>
+              {durationLabel(gap.durationSeconds)} {gap.gapPct > 0 ? "+" : ""}{Math.round(gap.gapPct)}%
+            </Chip>)}
+          </div> : null;
+        })}
+        <Text as="p" variant="caption" tone="tertiary">{t("gapCard.sub")}</Text>
+      </div>
+    </SectionCard>}
+  </>;
 }
 
 // ── 메인 ──────────────────────────────────────────────────────
@@ -554,6 +606,8 @@ export default function MobileFitnessPage({
   pmcHistoryPoints,
   pmcHistoryCanonical = false,
   coachSlot = null,
+  thresholdsSlot = null,
+  periodSlot = null,
   todayDecisionState,
   todayDecisionSignedIn = true,
   consistencyStreak = null,
@@ -575,6 +629,8 @@ export default function MobileFitnessPage({
   pmcHistoryCanonical?: boolean;
   /** 단일 종목에서 활동 영향과 오늘 선택을 먼저 보여주는 공용 코치 브리핑. */
   coachSlot?: ReactNode;
+  thresholdsSlot?: ReactNode;
+  periodSlot?: ReactNode;
   /** 오늘 결정 상세와 공유하는 단일 서버 판정 상태. 모바일 소스가 한 번만 조회한다. */
   todayDecisionState?: TodayTrainingDecisionState;
   todayDecisionSignedIn?: boolean;
@@ -646,10 +702,10 @@ export default function MobileFitnessPage({
 
   return (
     <div className={embedded ? "mobile-fitness-page mobile-fitness-page--embedded" : "mobile-fitness-page"}>
-      <h1 className={embedded ? "orider-embedded-page-title" : "sr-only"}>{t("mobileFitness.title")}</h1>
+      <h1 data-testid={part === "analysis" ? "K5-0-1" : part === "condition" ? "K1-0-1" : undefined} className={embedded ? "orider-embedded-page-title" : "sr-only"}>{t("mobileFitness.title")}</h1>
 
       <div className="mobile-fitness-toolbar">
-        <div className="mobile-fitness-toolbar__sports">
+        <div data-testid={part === "analysis" ? "K5-0-2" : part === "condition" ? "K1-0-2" : undefined} className="mobile-fitness-toolbar__sports">
           <SportFilterTabs value={sportSegment} onChange={setSportSegment} allLabelKey="discipline.tri" />
         </div>
         {part === "all" && data.discipline !== "tri" && <button type="button" className="mobile-fitness-mode-toggle"
@@ -658,15 +714,17 @@ export default function MobileFitnessPage({
         </button>}
       </div>
 
+      {periodSlot}
       {activeTab === "overview" && (
         <div style={{ paddingTop: "var(--space-2)" }}>
-          <SectionCard ariaLabel={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")} compact>
+          <SectionCard specId={part === "condition" ? "K1-1" : undefined} ariaLabel={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")} compact>
             <div data-mobile-fitness-status className="mobile-fitness-status">
               <Text as="div" variant="eyebrow" className="mobile-fitness-status__label">{t("mobileFitness.kpiTsbLabel")}<span className="mobile-fitness-status__meaning">{tsbInterpretation}</span></Text>
               <span className="mobile-fitness-status__value">
                 {tsbValue == null ? "—" : tsbValue.toFixed(1)}
               </span>
             </div>
+            {part === "condition" && data.discipline !== "tri" && <LocalizedLink data-testid="K1-1-3" to={`/coach/today?sport=${data.discipline}`}>{t("fitness:today.header.title")} →</LocalizedLink>}
             {data.discipline !== "tri" && todayDecisionState && !deferDisabledDecision && <TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} />}
           </SectionCard>
 
@@ -722,7 +780,9 @@ export default function MobileFitnessPage({
             </div>
           )}
 
+          {!embedded && thresholdsSlot}
           {data.discipline === "bike" && (
+            <FtpDecisionSection title={t("fitness:conclusion.performanceDetailToggle")} anchorEnabled={part === "condition" && !embedded} preserveExpanded>
             <BikePerformanceSummaryCard
               part={part}
               decision={data.thresholdDecision}
@@ -738,6 +798,7 @@ export default function MobileFitnessPage({
               decisionBusy={decisionBusy}
               onAcceptDecision={onAcceptDecision}
             />
+            </FtpDecisionSection>
           )}
 
 
@@ -761,7 +822,7 @@ export default function MobileFitnessPage({
 
           {/* 주간 TSS */}
           {sectionState.trend === "ready" && (data.weeklyTSS.length > 0 || data.weeklyLoadPartial) && (
-            <SectionCard readableSub title={t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummaryTitle" : "fitness:weekly.title")} sub={t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummary" : "fitness:weekly.sub", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS ?? "–", avg: data.loadUnknownCount && !data.hasKnownWeeklyLoad ? "–" : data.avgWeekTSS ?? "–", restDays: data.restDays ?? "–" })}>
+            <SectionCard specId="K1-7-2" readableSub title={t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummaryTitle" : "fitness:weekly.title")} sub={t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummary" : "fitness:weekly.sub", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS ?? "–", avg: data.loadUnknownCount && !data.hasKnownWeeklyLoad ? "–" : data.avgWeekTSS ?? "–", restDays: data.restDays ?? "–" })}>
               {(!data.loadUnknownCount || data.hasKnownWeeklyLoad) && <WeeklyTssBars values={data.weeklyLoadStoredSummary ? [] : data.weeklyTSS} color={weeklyLoadColor} t={t} />}
               {data.weeklyLoadPartial && <Text variant="bodyMedium">{t("fitness:weekly.partial")}</Text>}
               <Text variant="bodyMedium">{t(`fitness:hub.weekly.basis.${data.weeklyLoadDateBasis ?? "local"}`, { date: data.weeklyLoadAsOf ?? "–" })}</Text>
@@ -793,7 +854,9 @@ export default function MobileFitnessPage({
             </div>
           )}
           {part === "analysis" && isBike && <BikePerformanceSummaryCard part="analysis" decision={data.thresholdDecision} pdc={data.pdcSummary} weightKg={data.weightKg} />}
-          {part === "analysis" && <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={data.runEvidence} swim={data.swimEvidence} />}
+          {part === "analysis" && <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
+          {part === "analysis" && !embedded && data.discipline === "run" && <RunRecordsSummary evidence={data.runEvidence} />}
+          {part === "analysis" && !embedded && isBike && sectionState.derived === "ready" && <MobileCyclingEvidence data={data} />}
           {/* 임계값 카드 */}
           {sectionState.derived === "ready" && data.threshold && !isBike && (
             <SectionCard>
@@ -814,7 +877,7 @@ export default function MobileFitnessPage({
 
           {/* 존 분포 */}
           {sectionState.derived === "ready" && showZones && (
-            <SectionCard
+            <SectionCard specId="K5-3-2"
               title={isBike ? t("mobileFitness.zonePowerTitle") : t("mobileFitness.zoneHrTitle")}
               sub={
                 data.zoneSource === "power" ? t("mobileFitness.zoneSourcePowerHistorical") :
@@ -836,7 +899,7 @@ export default function MobileFitnessPage({
 
           {/* 파워 커브 (bike) */}
           {sectionState.derived === "ready" && isBike && data.powerCurve && data.powerCurve.length >= 2 && (
-            <SectionCard>
+            <SectionCard specId="K5-2-1">
               <div data-power-curve-copy style={{ marginBottom: "var(--space-2)" }}>
                 <Text variant="eyebrow">{powerCurveTitle}</Text>
                 <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{powerCurveSub}</div>
@@ -852,11 +915,13 @@ export default function MobileFitnessPage({
 
           {data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
 
+          {!embedded && part === "analysis" && data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} />}
+
           {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
 
           {/* 존 정의 */}
           {sectionState.derived === "ready" && showZones && (
-            <SectionCard title={t("mobileFitness.zoneDefsSectionTitle")}>
+            <SectionCard specId="K5-3-1" title={t("mobileFitness.zoneDefsSectionTitle")}>
               {data.zones.map((z, i) => (
                 <div key={i} className="flex items-center" style={{ padding: "8px 0", borderBottom: i < data.zones.length - 1 ? "1px solid var(--line-soft)" : "none", gap: "var(--space-3)" }}>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", width: 20 }}>Z{i + 1}</span>
@@ -883,6 +948,7 @@ export default function MobileFitnessPage({
       )}
 
       {!embedded && <div style={{ height: 80 }} />}
+
     </div>
   );
 }

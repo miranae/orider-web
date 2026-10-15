@@ -408,7 +408,7 @@ export default function EventsPage() {
 
   const advancedFilters = (
     <>
-      <div className="event-type-filters" role="group" aria-label={t("filter.typeLabel")}>
+      <div data-testid="E3-1" className="event-type-filters" role="group" aria-label={t("filter.typeLabel")}>
         {TYPE_FILTERS.map((item) => {
           const active = typeFilter === item.k;
           return <Button key={item.k} size="sm" variant={active ? "outline" : "secondary"} dense onClick={() => setTypeFilter(item.k)} aria-pressed={active}>
@@ -416,7 +416,7 @@ export default function EventsPage() {
           </Button>;
         })}
       </div>
-      {regions.length > 0 && <Select aria-label={t("filter.region")} value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)}>
+      {regions.length > 0 && <Select data-testid="E3-1-1" aria-label={t("filter.region")} value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)}>
         <option value="ALL">{t("filter.allRegions")}</option>
         {regions.map((region) => <option key={region} value={region}>{region}</option>)}
       </Select>}
@@ -449,13 +449,13 @@ export default function EventsPage() {
             <p>{t("page.subtitleMobile")}</p>
           </div>
           {user && (
-            <Link to="/event/create" className={buttonClass({ variant: "primary", size: "sm" })}>
+            <Link data-testid="E3-0-1" to="/event/create" className={buttonClass({ variant: "primary", size: "sm" })}>
               + {t("button.create")}
             </Link>
           )}
         </header>
       ) : (
-        <PageHeader
+        <PageHeader data-testid="E3-0"
           eyebrow={t("page.eyebrow")}
           title={t("title")}
           subtitle={t("page.subtitle")}
@@ -480,7 +480,7 @@ export default function EventsPage() {
             <div className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)", marginTop: "var(--space-1)" }}>{t("organizer.title")}</div>
             <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{t("organizer.description")}</div>
           </div>
-          <Link to="/explore/events/organize" className={buttonClass({ variant: "primary", size: "sm" })}>{t("organizer.cta")}</Link>
+          <span data-testid="E3-5"><Link data-testid="E3-5-1" to="/explore/events/organize" className={buttonClass({ variant: "primary", size: "sm" })}>{t("organizer.cta")}</Link></span>
         </Card>
       )}
 
@@ -579,15 +579,15 @@ export default function EventsPage() {
       <div className="flex items-center justify-between flex-wrap" style={{ gap: "var(--space-2)" }}>
         <div className="flex" role="group" aria-label={t("view.label")} style={{ gap: "var(--space-1)" }}>
           {(["LIST", "CALENDAR", "MAP"] as const).map((item) => (
-            <Button key={item} size="sm" dense variant={view === item ? "outline" : "secondary"} aria-pressed={view === item} onClick={() => setView(item)}>
+            <Button data-testid="E3-0-2" key={item} size="sm" dense variant={view === item ? "outline" : "secondary"} aria-pressed={view === item} onClick={() => setView(item)}>
               {t(`view.${item.toLowerCase()}`)}
             </Button>
           ))}
         </div>
-        <span className="event-view-count">{filtered.length} / {events.length}</span>
+        <span data-testid="E3-1-2" className="event-view-count">{filtered.length} / {events.length}</span>
         {view === "CALENDAR" && (
           <div className="flex items-center" style={{ gap: "var(--space-2)" }}>
-            <Button size="sm" dense aria-label={t("view.previousMonth")} onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}>←</Button>
+            <Button data-testid="E3-3-1" size="sm" dense aria-label={t("view.previousMonth")} onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}>←</Button>
             <strong>{calendarMonth.toLocaleDateString(localeTag(), { year: "numeric", month: "long" })}</strong>
             <Button size="sm" dense aria-label={t("view.nextMonth")} onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}>→</Button>
           </div>
@@ -613,7 +613,7 @@ export default function EventsPage() {
           ]}
         />
       ) : view === "CALENDAR" ? (
-        <div className="event-calendar" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
+        <div data-testid="E3-3" className="event-calendar" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
           {calendarCells.map((cell) => (
             <div key={cell.date.toISOString()} style={{ minHeight: 112, padding: "var(--space-2)", borderRight: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)", opacity: cell.inMonth ? 1 : 0.45 }}>
               <Text as="div" variant="eyebrow">{cell.date.getDate()}</Text>
@@ -625,16 +625,16 @@ export default function EventsPage() {
         </div>
       ) : view === "MAP" ? (
         <Card padding="none" style={{ overflow: "hidden" }}>
-          <div style={{ height: 560 }}>
+          <div data-testid="E3-4" style={{ height: 560 }}>
             <MapGL initialViewState={DEFAULT_VIEW} mapStyle={MAP_STYLE} mapboxAccessToken={getMapboxToken()} style={{ width: "100%", height: "100%" }}>
               {mapEvents.map(({ event, point }) => point && <Marker key={event.id} latitude={point[0]} longitude={point[1]} anchor="bottom"><button type="button" aria-label={event.name} onClick={() => setMapEventId(event.id)} style={{ border: 0, background: "var(--lime)", color: "var(--primary-fg)", borderRadius: "50%", width: 32, height: 32, cursor: "pointer" }}>🚴</button></Marker>)}
-              {(() => { const selected = mapEvents.find(({ event }) => event.id === mapEventId); return selected?.point ? <Popup latitude={selected.point[0]} longitude={selected.point[1]} onClose={() => setMapEventId(null)} anchor="bottom" offset={36}><div style={{ minWidth: 180 }}><strong>{selected.event.name}</strong><div style={{ color: "var(--ink-3)", margin: "var(--space-1) 0" }}>{selected.event.meetLocation || selected.event.region || t("view.routeStart")}</div><Link to={`/event/${selected.event.id}`}>{t("action.viewDetails")} →</Link></div></Popup> : null; })()}
+              {(() => { const selected = mapEvents.find(({ event }) => event.id === mapEventId); return selected?.point ? <Popup latitude={selected.point[0]} longitude={selected.point[1]} onClose={() => setMapEventId(null)} anchor="bottom" offset={36}><div style={{ minWidth: 180 }}><strong>{selected.event.name}</strong><div style={{ color: "var(--ink-3)", margin: "var(--space-1) 0" }}>{selected.event.meetLocation || selected.event.region || t("view.routeStart")}</div><Link data-testid="E3-4-1" to={`/event/${selected.event.id}`}>{t("action.viewDetails")} →</Link></div></Popup> : null; })()}
             </MapGL>
           </div>
           {mapEvents.some(({ point }) => !point) && <div style={{ padding: "var(--space-3)", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{t("view.noCoordinates", { count: mapEvents.filter(({ point }) => !point).length })}</div>}
         </Card>
       ) : (
-        <div
+        <div data-testid="E3-2"
           className="event-grid"
           style={{
             display: "grid",
@@ -848,8 +848,8 @@ function EventCard({
   const startDate = new Date(event.startTime);
 
   return (
-    <Link to={`/event/${event.id}`} className="block" style={{ color: "inherit", textDecoration: "none" }}>
-      <Card variant="bare" padding="none" className="event-card" style={{
+    <Link data-testid="E3-2-1" to={`/event/${event.id}`} className="block" style={{ color: "inherit", textDecoration: "none" }}>
+      <Card data-testid={isMine ? "E3-2-2" : undefined} variant="bare" padding="none" className="event-card" style={{
         padding: 0,
         overflow: "hidden",
         display: "grid",

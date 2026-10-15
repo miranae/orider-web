@@ -30,7 +30,7 @@ export function classifyActivitySocialError(error: unknown): ActivitySocialError
   return "unknown";
 }
 
-type CallableName = "setActivityKudos" | "postActivityComment" | "editActivityComment" | "deleteActivityComment";
+type CallableName = "setActivityKudos" | "postActivityComment" | "editActivityComment" | "deleteActivityComment" | "reportActivitySocialContent" | "setActivityCommentHidden";
 type Invoke = <TInput, TOutput>(name: CallableName, payload: TInput) => Promise<TOutput>;
 
 const invokeCallable: Invoke = async <TInput, TOutput>(name: CallableName, payload: TInput): Promise<TOutput> => {
@@ -54,6 +54,14 @@ export function createActivitySocialMutationClient(invoke: Invoke = invokeCallab
     editComment: (activityId: string, commentId: string, text: string) =>
       invoke<{ activityId: string; commentId: string; text: string }, { commentId: string; text: string }>(
         "editActivityComment", { activityId, commentId, text },
+      ),
+    reportComment: (activityId: string, commentId: string, note: string) =>
+      invoke<{ activityId: string; commentId: string; reason: "other"; note: string }, { reportId: string; status: string; duplicate: boolean }>(
+        "reportActivitySocialContent", { activityId, commentId, reason: "other", note },
+      ),
+    setCommentHidden: (activityId: string, commentId: string, hidden: boolean) =>
+      invoke<{ activityId: string; commentId: string; hidden: boolean }, { changed: boolean; restored: boolean }>(
+        "setActivityCommentHidden", { activityId, commentId, hidden },
       ),
     deleteComment: (activityId: string, commentId: string) =>
       invoke<{ activityId: string; commentId: string }, { deleted: boolean }>(

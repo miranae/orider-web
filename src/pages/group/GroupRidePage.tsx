@@ -430,7 +430,7 @@ export default function GroupRidePage() {
   return (
     <div>
       <Link to={`/club/${groupId}/rides`} className="text-[length:var(--fs-sm)] mb-4 inline-block" style={{ color: "var(--lime)" }}>{t("ridePage.back")}</Link>
-      <h1 className="text-[length:var(--fs-xl)] font-bold mb-1" style={{ color: "var(--ink-0)" }}>{dateStr} {t("rides.groupRides")}</h1>
+      <h1 data-testid="C2R-0" className="text-[length:var(--fs-xl)] font-bold mb-1" style={{ color: "var(--ink-0)" }}>{dateStr} {t("rides.groupRides")}</h1>
       <p className="text-[length:var(--fs-sm)] mb-6" style={{ color: "var(--ink-2)" }}>{t("ridePage.participants", { count: activities.length })}</p>
 
       <div className="flex flex-col lg:flex-row gap-6">
@@ -438,7 +438,7 @@ export default function GroupRidePage() {
         <div className="flex-1 min-w-0">
           {/* 루트 맵 - 전체 참가자 경로 표시 (항상 렌더링, 바운드만 필요) */}
           {mapBounds && (
-            <div className="mb-8 rounded-[var(--r-lg)] overflow-hidden h-80 sm:h-96">
+            <div data-testid="C2R-1" className="mb-8 rounded-[var(--r-lg)] overflow-hidden h-80 sm:h-96">
               <Map
                 mapboxAccessToken={mapboxToken}
                 mapStyle={MAP_STYLE}
@@ -501,7 +501,7 @@ export default function GroupRidePage() {
 
           {/* 고도 & 성능 차트 */}
           {elevationChartData && (
-            <Card padding="none" className="p-5 mb-8" style={{ borderRadius: "var(--r-md)" }}>
+            <Card data-testid="C2R-2" padding="none" className="p-5 mb-8" style={{ borderRadius: "var(--r-md)" }}>
               <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>
                 {t("ridePage.elevation")} {availablePerfOverlays.length > 0 ? t("ridePage.elevationAndPerf") : t("ridePage.elevationProfile")}
               </h3>
@@ -550,7 +550,7 @@ export default function GroupRidePage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {ridePhotos.map((photo, index) => (
                   <figure key={`${photo.activityId}-${photo.id}-${index}`} style={{ margin: 0 }}>
-                    <a href={photo.url ?? undefined} target="_blank" rel="noreferrer" aria-label={t("ridePage.photos.open", { name: photo.riderName })}>
+                    <a data-testid="C2R-4-1" href={photo.url ?? undefined} target="_blank" rel="noreferrer" aria-label={t("ridePage.photos.open", { name: photo.riderName })}>
                       <img src={photo.url ?? ""} alt={photo.caption ?? t("ridePage.photos.alt", { name: photo.riderName })} loading="lazy" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }} />
                     </a>
                     <figcaption className="text-[length:var(--fs-xs)] mt-1 truncate" style={{ color: "var(--ink-3)" }}>
@@ -570,7 +570,7 @@ export default function GroupRidePage() {
             <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("ridePage.riders")}</h3>
             <div className="flex flex-wrap gap-2">
               {activities.map((a, i) => (
-                <button
+                <button data-testid="C2R-0-1"
                   key={a.id}
                   onClick={() => toggleRider(a.id)}
                   aria-pressed={visibleRiders.has(a.id)}
@@ -595,7 +595,7 @@ export default function GroupRidePage() {
           </Card>
 
           {/* 비교 테이블 */}
-          <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-md)" }}>
+          <Card data-testid="C2R-3" padding="none" className="p-4" style={{ borderRadius: "var(--r-md)" }}>
             <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("ridePage.comparison")}</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-[length:var(--fs-sm)]">
@@ -628,7 +628,7 @@ export default function GroupRidePage() {
             </div>
             {activities.some((a) => a.summary.averageHeartRate || a.summary.averagePower || a.avgPower || a.summary.averageCadence) && (
               <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--line-soft)" }}>
-                <table className="w-full text-[length:var(--fs-sm)]">
+                <table data-testid="C2R-3-1" className="w-full text-[length:var(--fs-sm)]">
                   <thead>
                     <tr style={{ borderBottom: "1px solid var(--line)" }}>
                       <th className="text-left py-2 pr-2 font-medium" style={{ color: "var(--ink-2)" }}>{t("ridePage.comparisonTable.name")}</th>

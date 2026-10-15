@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { Search, Bell, Settings, LogIn, LogOut, User, Users, Bike, Activity, Menu, X } from "lucide-react";
+import { Search, Bell, Settings, LogIn, LogOut, User, Users, Bike, Activity, Trophy, Menu, X } from "lucide-react";
 import iconSvg from "../../assets/icon.svg";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -42,16 +42,26 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   const accountItems = [
     { to: "/athlete/me", labelKey: "nav.my", icon: User },
     { to: "/athlete/me/activities", labelKey: "nav.log", icon: Activity },
+    { to: "/athlete/me/records", labelKey: "nav.records", icon: Trophy },
     { to: "/athlete/me/friends", labelKey: "nav.friends", icon: Users },
     { to: "/athlete/me/gear", labelKey: "nav.equipment", icon: Bike },
     { to: "/settings/account", labelKey: "nav.settings", icon: Settings },
   ];
+  const [createOpen, setCreateOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [signInPending, setSignInPending] = useState(false);
+  const createRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!createOpen) return;
+    const closeOutside = (event: MouseEvent) => { if (!createRef.current?.contains(event.target as Node)) setCreateOpen(false); };
+    const closeEscape = (event: KeyboardEvent) => { if (event.key === "Escape") { setCreateOpen(false); createRef.current?.querySelector("button")?.focus(); } };
+    document.addEventListener("mousedown", closeOutside); document.addEventListener("keydown", closeEscape);
+    return () => { document.removeEventListener("mousedown", closeOutside); document.removeEventListener("keydown", closeEscape); };
+  }, [createOpen]);
   const menuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -161,7 +171,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
   return (
     <>
-      <nav
+      <nav data-testid="X1-1" className="gap-2 px-3 lg:gap-6 lg:px-5"
         style={{
           height: 52,
           position: 'sticky',
@@ -171,8 +181,6 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
           borderBottom: '1px solid var(--line-soft)',
           display: 'flex',
           alignItems: 'center',
-          paddingInline: 'var(--space-5)',
-          gap: 'var(--space-6)',
         }}
       >
         {/* 로고 */}
@@ -182,7 +190,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
           style={{ textDecoration: 'none', flexShrink: 0 }}
         >
           <img src={iconSvg} alt="Orider" style={{ width: 24, height: 24, borderRadius: "var(--r-sm)", flexShrink: 0 }} />
-          <span
+          <span className="hidden sm:inline"
             style={{
               fontWeight: 700,
               fontSize: "var(--fs-sm)",
@@ -241,9 +249,18 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
         {/* 우측: 검색 + 아이콘 + 인증 */}
         <div className="flex items-center" style={{ gap: 'var(--space-2)', flexShrink: 0 }}>
+          <Link to="/settings/account" data-testid="X1-6" className={navIconButtonClass} aria-label={t("nav.settings")}><Settings size={19} /></Link>
+          <div data-testid="X1-3" ref={createRef} className="relative">
+            <Button size="sm" variant="secondary" aria-expanded={createOpen} aria-haspopup="menu" onClick={() => setCreateOpen(value => !value)}>{t("nav.create")}</Button>
+            {createOpen && <div role="menu" className="fixed inset-x-0 bottom-[calc(var(--space-7)+var(--space-6)+env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-var(--space-7)-var(--space-6)-var(--space-8)-var(--space-4)-env(safe-area-inset-bottom,0px))] overflow-y-auto lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-full lg:max-h-none lg:overflow-visible z-50 min-w-48 rounded-[var(--r-lg)] border border-[var(--line)] bg-[var(--bg-1)] p-2 shadow-lg">
+              {user ? ([
+                ["course", "/course/create"], ["segment", "/segment/create"], ["event", "/event/create"], ["club", "/clubs?new=1"], ["post", "/community/board/write"], ["import", "/athlete/me/activities?import=1"], ["goal", "/coach/goals?new=1"],
+              ] as [string, string][]).map(([key, to]) => <Link key={key} role="menuitem" data-testid={({ course: "M1-1-1", segment: "M1-1-2", event: "M1-1-3", club: "M1-1-4", post: "M1-1-5", import: "M1-1-6", goal: "M1-1-7" } as Record<string, string>)[key]} to={to} onClick={() => setCreateOpen(false)} className="block rounded-[var(--r-md)] px-3 py-2">{t(`nav.create.${key}`)}</Link>) : <Button disabled={signInPending} onClick={() => { setCreateOpen(false); void handleSignInWithGoogle(); }}>{t("auth.loginValue")}</Button>}
+            </div>}
+          </div>
           {/* 검색 박스 (데스크톱만) */}
           <div
-            ref={searchRef}
+            data-testid="X1-2" ref={searchRef}
             className="hidden lg:block"
             style={{ position: 'relative', width: 220 }}
           >
@@ -269,7 +286,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 onKeyDown={e => {
                   if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(""); }
                   if (e.key === 'Enter' && searchQuery.trim()) {
-                    navigate(`/explore/challenges?q=${encodeURIComponent(searchQuery.trim())}`);
+                    navigate(`/explore/courses?q=${encodeURIComponent(searchQuery.trim())}`);
                     setSearchOpen(false);
                     setSearchQuery("");
                   }
@@ -348,7 +365,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
               {onMobileNotifClick && (
                 <button
                   className={`lg:hidden ${navIconButtonClass}`}
-                  aria-label={t('topnav.notifications')}
+                  data-testid="X1-4" aria-label={t('topnav.notifications')}
                   onClick={onMobileNotifClick}
                   style={{ width: 44, height: 44, borderRadius: "var(--r-md)", border: "none", background: "transparent", cursor: "pointer", color: "var(--ink-3)", position: "relative" }}
                 >
@@ -364,7 +381,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 <button
                   onClick={() => { setNotifOpen(!notifOpen); setMenuOpen(false); }}
                   className={navFocusClass}
-                  aria-label={t('topnav.notifications')}
+                  data-testid="X1-4" aria-label={t('topnav.notifications')}
                   style={{
                     width: 44, height: 44,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -487,11 +504,11 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
               {/* 언어 토글 (데스크톱만) */}
               <div className="hidden lg:flex items-center">
-                <LanguageToggle variant="header" />
+                <div data-testid="X1-6"><LanguageToggle variant="header" /></div>
               </div>
 
               {/* 아바타 + 드롭다운 */}
-              <div ref={menuRef} style={{ position: 'relative' }}>
+              <div data-testid="X1-5" ref={menuRef} style={{ position: 'relative' }}>
                 <button
                   onClick={() => { setMenuOpen(!menuOpen); setNotifOpen(false); }}
                   className={navFocusClass}
@@ -594,11 +611,11 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
             <>
               {/* 언어 토글 (데스크톱, 비로그인) */}
               <div className="hidden lg:flex items-center">
-                <LanguageToggle variant="header" />
+                <div data-testid="X1-6"><LanguageToggle variant="header" /></div>
               </div>
 
               {/* 비로그인: Google 로그인 버튼 (데스크톱) */}
-              <div className="hidden lg:block">
+              <div data-testid="X1-5" className="hidden lg:block">
                 <Button
                   onClick={handleSignInWithGoogle} variant="primary" size="sm"
                   disabled={signInPending}
@@ -640,7 +657,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
           <div style={{ flex: 1, backgroundColor: 'color-mix(in oklch, var(--ink-1) 50%, transparent)' }} />
 
           {/* 슬라이드 패널 */}
-          <div
+          <div data-testid="X1-5"
             style={{
               width: 280,
               height: '100%',

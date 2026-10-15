@@ -78,7 +78,7 @@ export function PaneAiCoach() {
   const valid = policy?.consent.active === true && policy.consent.current && !policy.consent.revoked;
   return (
     <>
-      <SettingsCard title={t("coach.cardTitle")}>
+      <SettingsCard data-testid="S1-3-1" title={t("coach.cardTitle")}>
         <p>{t("coach.cardDescription")}</p>
         <InlineRow label={t("coach.processingLabel")} hint={t("coach.historyRetention") }>
           <strong>{loading ? t("coach.checking") : t(valid ? "coach.statusAccepted" : `coach.status.${state}`)}</strong>

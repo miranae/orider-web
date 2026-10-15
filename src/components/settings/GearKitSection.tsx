@@ -333,7 +333,7 @@ function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
   }
 
   return (
-    <div
+    <div data-testid="P4-2-1"
       style={{
         display: "grid",
         gridTemplateColumns: "40px 1fr auto",
@@ -475,9 +475,9 @@ export function GearKitSection({ uid }: GearKitSectionProps) {
   return (
     <>
       <SettingsCard
-        title={t("gear.title")}
+        data-testid="P4-2" title={t("gear.title")}
         action={
-          <Button variant="secondary" size="sm" onClick={() => setModalState({ mode: "add" })}>
+          <Button data-testid="P4-2-1" variant="secondary" size="sm" onClick={() => setModalState({ mode: "add" })}>
             <Plus size={13} />
             {t("gear.addBtn")}
           </Button>

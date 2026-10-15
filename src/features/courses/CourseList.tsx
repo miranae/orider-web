@@ -200,7 +200,7 @@ export function CourseList({
             const mpk = course.distance > 0 ? (course.elevationGain / (course.distance / 1000)).toFixed(1) : "0";
             const tags = primaryCourseTags(course, 5);
             return (
-              <div
+              <div data-testid="E1-4-2"
                 key={course.id}
                 ref={(el) => {
                   if (el) cardRefs.current.set(course.id, el);

@@ -13,7 +13,7 @@ export default function ConsistencyStreakCard({ summary, compact = false }: Cons
 
   const maintained = summary.needsThisWeek === 0;
   return (
-    <Card padding="none" style={{ padding: compact ? "var(--space-3)" : "var(--space-4) var(--space-5)" }}>
+    <Card data-testid="K1-4-2" padding="none" style={{ padding: compact ? "var(--space-3)" : "var(--space-4) var(--space-5)" }}>
       <div className="flex items-center justify-between gap-4">
         <div>
           <Text variant="eyebrow" tone="secondary">{t("streak.eyebrow")}</Text>

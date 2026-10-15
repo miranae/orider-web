@@ -53,5 +53,13 @@
   "onboarding.shareTitle": "ORider 친구 초대",
   "onboarding.shareText": "ORider에서 함께 운동해요.",
   "onboarding.copied": "초대 링크를 복사했어요",
-  "onboarding.shareFailed": "초대 링크를 공유하지 못했어요"
+  "onboarding.shareFailed": "초대 링크를 공유하지 못했어요",
+  "tab.sent": "보낸 요청 ({{count}})",
+  "readFailed": "친구 정보를 읽지 못했어요. 다시 시도해주세요.",
+  "sentEmpty": "보낸 친구 요청이 없어요",
+  "cancelRequest": "요청 취소",
+  "cancelSuccess": "요청을 취소했어요",
+  "cancelFailed": "요청을 취소하지 못했어요",
+  "cancelConfirm": "이 친구 요청을 취소할까요?",
+  "inviteButton": "초대"
 }

@@ -323,6 +323,7 @@ describe("event participant privacy boundaries", () => {
   });
 
   it("invalidates a pending start on a delayed first auth callback with a changed SDK user", async () => {
+    mockDocData.set("events/ev/participants/actor", { userId: "actor", role: "LEADER", status: "REGISTERED" });
     let notify!: (user: User | null) => void;
     vi.mocked(onAuthStateChanged).mockImplementationOnce((_auth, next) => {
       notify = next as (user: User | null) => void;

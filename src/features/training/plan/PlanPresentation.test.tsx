@@ -38,6 +38,23 @@ describe("PlanPresentation responsive layout", () => {
     expect(screen.getByText("swim")).toBeInTheDocument();
   });
 
+  it("unfolds the past desktop week and highlights the date linked from the log", async () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: false, media: query, onchange: null,
+      addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+    const currentDate = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+    const current = Date.parse(`${currentDate}T00:00:00+09:00`);
+    const past = current - 7 * 86400000;
+    const selectedDate = new Date(past + 9 * 3600000).toISOString().slice(0, 10);
+    const day = { date: current, dayOfWeek: 0, workout: "z2", plannedTSS: 20, plannedDurationMin: 30, completed: false, skipped: false };
+    const scoped = { ...model, weeks: [{ id: "past", weekNumber: 1, phase: "base", startDate: past, plannedTSS: 20, days: [{ ...day, date: past }] },
+      { id: "current", weekNumber: 2, phase: "base", startDate: current, plannedTSS: 20, days: [day] }],
+      isTodayCell: (value: { date: number }) => value.date === current } as unknown as PlanModel;
+    renderWithProviders(<PlanPresentation model={scoped} selectedDate={selectedDate} mobileWeekOffset={-1} onMobileWeekOffsetChange={vi.fn()} />);
+    expect(await screen.findByTestId("K4-5-6")).toHaveAttribute("data-plan-date", selectedDate);
+    expect(screen.getByTestId("K4-5-6")).toHaveAttribute("aria-current", "date");
+    expect(screen.getByTestId("K4-5-4")).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("uses the weekly list at tablet widths where the nine-column calendar cannot fit", () => {
     vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
       matches: query === "(max-width: 1023px)",

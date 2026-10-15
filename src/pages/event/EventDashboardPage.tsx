@@ -1,3 +1,4 @@
+import { eventPermissions } from "../../features/event/eventHost";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -140,6 +141,99 @@ function formatHHMM(ts: number | null | undefined): string {
 }
 
 export default function EventDashboardPage() {
+  const { t } = useTranslation("event");
+  const { eventId } = useParams<{ eventId: string }>();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const dialog = useDialog();
+  const [info, setInfo] = useState<{ name: string; status: string; creatorId: string; hostIds: string[] } | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [roleLoaded, setRoleLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [operationError, setOperationError] = useState<"startEvent" | "finishEvent" | "sendEventAlert" | null>(null);
+  const operationGeneration = useRef(0);
+  const operationMounted = useRef(false);
+  const pendingOperation = useRef<object | null>(null);
+  useEffect(() => {
+    operationMounted.current = true;
+    let observedUser = auth.currentUser;
+    const unsubscribe = onAuthStateChanged(auth, next => {
+      if (next !== observedUser) {
+        observedUser = next; operationGeneration.current++; pendingOperation.current = null;
+        setBusy(false); setOperationError(null);
+      }
+    });
+    return () => { operationMounted.current = false; operationGeneration.current++; pendingOperation.current = null; unsubscribe(); };
+  }, []);
+  const identity = `${eventId}:${user?.uid}`;
+  const context = useRef(identity); context.current = identity;
+  const [loadedIdentity, setLoadedIdentity] = useState("");
+  useEffect(() => {
+    setInfo(null); setRole(null); setRoleLoaded(false); setError(null); setLoadedIdentity("");
+    if (!eventId || !user || authLoading) return;
+    let cancelled = false;
+    const unsubscribe = onSnapshot(doc(db, `events/${eventId}`), snap => {
+      if (cancelled) return;
+      if (!snap.exists()) { setError(t("empty.noResults")); return; }
+      const source = snap.data().info ?? {};
+      setInfo({ name: source.name ?? "", status: source.status ?? "UNKNOWN", creatorId: source.creatorId ?? "", hostIds: Array.isArray(source.hostIds) ? source.hostIds : [] });
+      setLoadedIdentity(identity);
+    }, failure => { if (!cancelled) setError(failure instanceof Error ? failure.message : String(failure)); });
+    void getDoc(doc(db, `events/${eventId}/participants/${user.uid}`)).then(snap => {
+      if (cancelled) return;
+      setRole(snap?.exists() ? snap.data()?.role ?? null : null); setRoleLoaded(true);
+    }).catch(() => { if (!cancelled) { setRole(null); setRoleLoaded(true); } });
+    return () => { cancelled = true; unsubscribe(); };
+  }, [eventId, user?.uid, authLoading, identity, t]);
+  const permissions = eventPermissions(user?.uid, info, role);
+  async function operate(action: "startEvent" | "finishEvent" | "sendEventAlert") {
+    if (!user || !eventId || busy || pendingOperation.current || auth.currentUser?.uid !== user.uid || context.current !== identity) return;
+    if (action === "sendEventAlert" ? !permissions.canAnnounce : !permissions.canStartFinish) return;
+    if (action === "startEvent" ? info?.status !== "OPEN" : action === "finishEvent" && info?.status !== "LIVE") return;
+    const operation = { generation: operationGeneration.current, sdkUser: auth.currentUser };
+    pendingOperation.current = operation;
+    const currentOperation = () => operationMounted.current && pendingOperation.current === operation
+      && operationGeneration.current === operation.generation && context.current === identity
+      && auth.currentUser === operation.sdkUser && auth.currentUser?.uid === user.uid;
+    setBusy(true); setOperationError(null);
+    try {
+      const message = action === "sendEventAlert" ? await dialog.prompt(t("dashboard.prompt.sendAlert"), { multiline: true }) : null;
+      if (action === "sendEventAlert" && !message?.trim()) return;
+      if (action !== "sendEventAlert" && !await dialog.confirm(t(action === "finishEvent" ? "dashboard.confirm.finish" : "confirm.startEvent"), { destructive: action === "finishEvent" })) return;
+      if (!currentOperation()) return;
+      const token = await getAppCheckToken();
+      if (!token && !isEmulatorRuntime()) throw new Error("app-check/empty-token");
+      if (!currentOperation()) return;
+      await httpsCallable(functions, action)({ eventId, ...(message ? { message: message.trim(), severity: "info" } : {}) });
+    } catch (failure) {
+      if (currentOperation()) { logClientError("EventDashboard.operatorAction", failure, {}); setOperationError(action); }
+    } finally {
+      if (pendingOperation.current === operation) { pendingOperation.current = null; if (operationMounted.current) setBusy(false); }
+    }
+  }
+  if (authLoading) return <LoadingSkeleton kind="chart" />;
+  if (!user) return <PermissionGate title={t("dashboard.permissionTitle")} description={t("dashboard.permissionDesc")} />;
+  if (error) return <ErrorState title={t("dashboard.errorTitle")} description={error} onRetry={() => window.location.reload()} />;
+  if (!info || loadedIdentity !== identity || !roleLoaded) return <LoadingSkeleton kind="chart" />;
+  if (!permissions.canEnter) return <PermissionGate title={t("host.permissionDenied")} />;
+  const operationFeedback = operationError && <div role="alert" className="site-shell py-3">
+    <Text as="p" variant="body">{t("dashboard.errorTitle")}</Text>
+    <Button disabled={busy} onClick={() => void operate(operationError)}>{t("common:button.retry")}</Button>
+  </div>;
+  if (permissions.canReadData) return <>{operationFeedback}<PrivateEventDashboard key={identity} permissions={permissions} onStart={() => void operate("startEvent")} operatorBusy={busy} /></>;
+  return <div className="site-shell py-6" data-testid="O1-role-only">
+    <Text as="h1" variant="pageTitle">{info.name}</Text><Chip>{info.status}</Chip>
+    <Button data-testid="O1-0" onClick={() => navigate(`/event/${eventId}`)}>{t("action.participantView")}</Button>
+    {permissions.canStartFinish && info.status === "OPEN" && <Button disabled={busy} onClick={() => void operate("startEvent")}>{t("button.start")}</Button>}
+    {permissions.canStartFinish && info.status === "LIVE" && <Button disabled={busy} onClick={() => void operate("finishEvent")}>{t("button.finish")}</Button>}
+    {permissions.canAnnounce && <Button disabled={busy} onClick={() => void operate("sendEventAlert")}>{t("action.sendNotice")}</Button>}
+    {operationFeedback}
+    <PermissionGate title={t("host.dataPermissionDenied")} />
+  </div>;
+}
+
+function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permissions: ReturnType<typeof eventPermissions>; onStart: () => void; operatorBusy: boolean }) {
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
@@ -483,7 +577,7 @@ export default function EventDashboardPage() {
   }, [authEpoch, eventId, t, user?.uid]);
 
   const handleFinishEvent = useCallback(async () => {
-    if (!eventId || !user || finishing || pendingFinish.current || auth.currentUser?.uid !== user.uid) return;
+    if (!permissions.canStartFinish || !eventId || !user || finishing || pendingFinish.current || auth.currentUser?.uid !== user.uid) return;
     const context = { uid: user.uid, eventId, generation: finishGeneration.current };
     const currentFinish = () => finishMounted.current && pendingFinish.current === context
       && finishGeneration.current === context.generation && finishContext.current.uid === context.uid
@@ -508,10 +602,10 @@ export default function EventDashboardPage() {
         if (finishMounted.current && finishGeneration.current === context.generation) setFinishing(false);
       }
     }
-  }, [dialog, eventId, finishing, navigate, t, user]);
+  }, [dialog, eventId, finishing, navigate, t, user, permissions.canStartFinish]);
 
   const handleSendAlert = useCallback(async () => {
-    if (!eventId) return;
+    if (!eventId || !permissions.canAnnounce) return;
     const message = await dialog.prompt(t("dashboard.prompt.sendAlert"), { multiline: true });
     if (!message || !message.trim()) return;
     try {
@@ -522,7 +616,7 @@ export default function EventDashboardPage() {
       logClientError("EventDashboard.handleSendAlert", err, { eventId });
       void dialog.alert(t("dashboard.error.alertFailed"), { variant: "danger" });
     }
-  }, [dialog, eventId, t]);
+  }, [dialog, eventId, t, permissions.canAnnounce]);
 
   const categories = useMemo(() => {
     if (!snapshot) return [] as string[];
@@ -596,10 +690,9 @@ export default function EventDashboardPage() {
     );
   }
 
-  const isHost = user.uid === eventInfo.creatorId;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 64px)" }}>
+    <div data-testid="O1-3" className="event-dashboard-shell" style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 64px)" }}>
       {/* Header */}
       <div
         className="flex items-center flex-wrap"
@@ -637,7 +730,7 @@ export default function EventDashboardPage() {
             <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>· {t("dashboard.lastUpdated", { time: timeAgo(snapshot?.timestamp, t) })}</span>
           </div>
         </div>
-        <div className="flex items-center" style={{ gap: 'var(--space-2)', marginLeft: "auto" }}>
+        <div data-testid="O1-0" className="flex items-center" style={{ gap: 'var(--space-2)', marginLeft: "auto" }}>
           <Chip aria-live="polite">👀 {t("viewer.count", { count: viewerCount })}</Chip>
           <Button
             type="button"
@@ -651,7 +744,7 @@ export default function EventDashboardPage() {
           >
             👥 {t("participants")}
           </Button>
-          {isHost && (
+          {permissions.canAnnounce && (
             <Button
               type="button"
               onClick={handleSendAlert} variant="secondary" size="sm"
@@ -659,7 +752,8 @@ export default function EventDashboardPage() {
               📢 {t("action.sendNotice")}
             </Button>
           )}
-          {isHost && eventInfo.status === "LIVE" && (
+          {permissions.canStartFinish && eventInfo.status === "OPEN" && <Button disabled={operatorBusy} onClick={onStart}>{t("button.start")}</Button>}
+          {permissions.canStartFinish && eventInfo.status === "LIVE" && (
             <Button
               type="button"
               onClick={handleFinishEvent}
@@ -910,6 +1004,12 @@ export default function EventDashboardPage() {
         @media (max-width: 1100px) {
           .event-dashboard-body {
             grid-template-columns: 1fr !important;
+            overflow: visible !important;
+          }
+          .event-dashboard-shell { height: auto !important; }
+          .event-dashboard-body > section {
+            order: -1;
+            min-height: 60vh;
           }
         }
       `}</style>

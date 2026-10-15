@@ -440,11 +440,12 @@
   "tab": {
     "overview": "개요",
     "analysis": "분석",
-    "segments": "세그먼트",
+    "segments": "구간",
     "splits": "스플릿",
     "laps": "랩",
     "sets": "세트",
-    "export": "내보내기"
+    "export": "내보내기",
+    "compare": "비교"
   },
   "stat": {
     "distance": "거리",
@@ -726,7 +727,13 @@
     "chartsUnavailable": "이 기록에 표시할 차트 데이터가 없습니다.",
     "selectChartRange": "구간 선택",
     "clearChartRange": "선택 해제",
-    "chartRangeHint": "양쪽 손잡이를 움직여 구간을 선택하세요. 차트 수치는 실제 관측값이며 전체 분석은 서버 지표를 유지합니다."
+    "chartRangeHint": "양쪽 손잡이를 움직여 구간을 선택하세요. 차트 수치는 실제 관측값이며 전체 분석은 서버 지표를 유지합니다.",
+    "more": "활동 더 보기",
+    "editActivity": "활동 편집",
+    "menuCourse": "코스로 만들기",
+    "menuSegment": "세그먼트 만들기",
+    "menuShareRecipe": "자랑 카드 만들기",
+    "compareOwnerOnly": "활동 비교는 내 활동에서 사용할 수 있습니다."
   },
   "overlay": {
     "speed": "속도",
@@ -770,7 +777,17 @@
     "loginAction": "Google로 로그인",
     "ariaInput": "댓글 입력",
     "ariaEdit": "댓글 수정",
-    "deleteConfirm": "댓글을 삭제하시겠습니까?"
+    "deleteConfirm": "댓글을 삭제하시겠습니까?",
+    "report": "신고",
+    "hide": "숨김",
+    "restore": "다시 표시",
+    "hiddenComments": "숨긴 댓글 {{count}}개",
+    "reportReason": "댓글을 신고하는 이유를 입력해 주세요.",
+    "reported": "댓글 신고를 접수했습니다",
+    "hideConfirm": "이 댓글을 작성자를 포함한 모든 사람에게 숨길까요?",
+    "restoreConfirm": "이 댓글을 다시 표시할까요?",
+    "hidden": "댓글을 숨겼습니다",
+    "restored": "댓글을 다시 표시했습니다"
   },
   "analysis": {
     "noData": "이 활동에는 분석에 필요한 파워 또는 심박 스트림이 아직 없습니다. 센서를 연결하거나 FIT/GPX/Strava 활동을 동기화하면 차트가 채워집니다.",
@@ -1215,7 +1232,9 @@
     "imported": "활동이 업로드되었습니다",
     "stravaNote": "Strava 연동 활동은 자동 동기화됩니다. 연동은",
     "stravaSettingsLink": "설정",
-    "stravaNoteSuffix": "에서 관리하세요."
+    "stravaNoteSuffix": "에서 관리하세요.",
+    "viewResult": "가져온 기록 보기",
+    "viewCoach": "코치에서 보기 →"
   },
   "edit": {
     "eyebrow": "활동 수정",
@@ -1623,7 +1642,8 @@
       "context": "기록된 정지시간: 현재 {{current}}초 · 비교 {{previous}}초. 거리·고도와 정지 조건이 달라지면 속도 차이가 성장만을 뜻하지 않습니다.",
       "retained": "직접 선택한 비교 활동 · 추천 후보 아님"
     },
-    "canonicalPeriodBasis": "확정 분석 수치를 우선 사용합니다. 이전 기록은 저장된 활동 요약으로 보완하며, 심박·파워 존은 당시 기준을 확인한 기록만 포함합니다."
+    "canonicalPeriodBasis": "확정 분석 수치를 우선 사용합니다. 이전 기록은 저장된 활동 요약으로 보완하며, 심박·파워 존은 당시 기준을 확인한 기록만 포함합니다.",
+    "analysisLink": "기간 분석은 코치에서 보기 →"
   },
   "peakInspector": {
     "title": "최고 노력 자세히 보기",

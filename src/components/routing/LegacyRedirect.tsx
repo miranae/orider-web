@@ -8,9 +8,9 @@ const SETTINGS_SECTION_TARGETS: Record<string, string> = {
   health_sources: "/settings/connections",
   app: "/settings/display",
   developer: "/settings/developer",
-  training: "/settings/training",
+  training: "/coach/condition",
   equipment: "/athlete/me/gear",
-  device: "/athlete/me/gear",
+  device: "/settings/device",
 };
 
 /** `/coach/chat/:threadId` 같은 패턴의 `:name` 을 params 값으로 치환한다. */
@@ -25,7 +25,7 @@ export function resolveLegacySettingsTarget(search: string): { pathname: string;
   params.delete("section");
   const rest = params.toString();
   return {
-    pathname: (section && SETTINGS_SECTION_TARGETS[section]) || "/settings/account",
+    pathname: section === "equipment" && params.get("panel") === "data-pages" ? "/settings/device" : (section && SETTINGS_SECTION_TARGETS[section]) || "/settings/account",
     search: rest ? `?${rest}` : "",
   };
 }
@@ -41,8 +41,9 @@ function withLang(lang: string | undefined, path: string): string {
 export function LegacyRedirect({ to }: { to: string }) {
   const params = useParams();
   const location = useLocation();
-  const target = withLang(params.lang, fillPathParams(to, params));
-  return <Navigate to={{ pathname: target, search: location.search, hash: location.hash }} replace />;
+  const [path, defaultHash] = fillPathParams(to, params).split("#");
+  const target = withLang(params.lang, path!);
+  return <Navigate to={{ pathname: target, search: location.search, hash: defaultHash ? `#${defaultHash}` : location.hash }} state={location.state} replace />;
 }
 
 /** 옛 /settings?section=… → /settings/<tab> 또는 /athlete/me/gear. section 만 제거, 나머지 보존. */
@@ -50,5 +51,5 @@ export function LegacySettingsRedirect() {
   const { lang } = useParams();
   const location = useLocation();
   const { pathname, search } = resolveLegacySettingsTarget(location.search);
-  return <Navigate to={{ pathname: withLang(lang, pathname), search, hash: location.hash }} replace />;
+  return <Navigate to={{ pathname: withLang(lang, pathname), search, hash: new URLSearchParams(location.search).get("section") === "training" ? "#thresholds" : location.hash }} state={location.state} replace />;
 }

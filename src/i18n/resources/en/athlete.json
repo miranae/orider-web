@@ -52,5 +52,15 @@
   "activities.loadMoreRemaining": "Load more ({{count}} remaining)",
   "monthly.loading": "Loading all monthly activities…",
   "monthly.error": "Unable to load monthly activities.",
-  "monthly.retry": "Retry"
+  "monthly.retry": "Retry",
+  "self": {
+    "edit": "Edit profile",
+    "share": "Share",
+    "shared": "Profile link copied",
+    "shareFailed": "Could not copy the link",
+    "activities": "Training log",
+    "records": "Records",
+    "friends": "Friends",
+    "gear": "Gear"
+  }
 }

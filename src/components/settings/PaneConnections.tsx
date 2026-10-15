@@ -209,7 +209,7 @@ export function PaneConnections() {
 
   return (
     <>
-      <SettingsCard
+      <SettingsCard data-testid="S2-1-1"
         title={t("pane.connections.cardConnected")}
         action={
           <Text variant="eyebrow" style={{ color: "var(--ink-3)" }}>
@@ -237,7 +237,7 @@ export function PaneConnections() {
       </SettingsCard>
 
       {stravaConnected && (
-        <SettingsCard title={t("pane.connections.cardStravaSync")} dense>
+        <SettingsCard data-testid="S2-1-2" title={t("pane.connections.cardStravaSync")} dense>
           <InlineRow label={t("pane.connections.autoUploadLabel")} hint={t("pane.connections.autoUploadHint")}>
             <Toggle
               on={autoUpload}
@@ -251,7 +251,7 @@ export function PaneConnections() {
             label={t("pane.connections.importPastLabel")}
             hint={t("pane.connections.importPastHint")}
           >
-            <Link to="/migrate">
+            <Link data-testid="S2-1-4" to="/settings/data#migrate">
               <Button variant="secondary">
                 {profile?.migration?.status === "DONE"
                   ? t("pane.connections.importBtnReport")
@@ -261,6 +261,7 @@ export function PaneConnections() {
           </InlineRow>
         </SettingsCard>
       )}
+      <Link data-testid="S2-3-1" to="/settings/device">{t("nav.deviceLabel")} →</Link>
     </>
   );
 }

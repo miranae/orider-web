@@ -1,4 +1,6 @@
 {
+  "periodEvidence.loading": "Loading confirmed analysis for the selected periods.",
+  "empty.importHistory": "Import activities",
   "history.title": "Training history",
   "history.subtitle": "From recent changes to years of fitness",
   "history.stored": "Stored history",
@@ -1097,10 +1099,20 @@
     "guest": "Sign in to choose today’s training",
     "conditionLink": "View condition",
     "planLink": "View plan",
-    "simpleWorkout": "Simple workout — separate from the planned session",
+    "simpleWorkout": "Choose today’s workout",
     "runProgramLink": "View running program",
+    "runAppStart": "Start in the app",
     "runAppOnly": "Start in the app. Adjust the schedule in your plan.",
-    "openApp": "Open in app"
+    "openApp": "Open in app",
+    "genericWorkoutBasis": "Compare simple workouts: rest 0, recovery 20, endurance 45 TSS. These are separate from confirmed plan sessions.",
+    "forecastUnavailable": "24/48-hour forecasts will appear when canonical training load is available.",
+    "deliveryUnavailable": "Device delivery requires a valid today decision and a clear health gate.",
+    "decisionUnavailable": "Plan decisions and execution are coming soon. You can still compare workouts and forecasts.",
+    "planAlternative": "A lighter alternative to the plan",
+    "runReadOnly": "This is today’s program information. The app checks health and schedule before a session can start.",
+    "simpleDeliveryTitle": "Send a simple workout — separate from plan sessions",
+    "sendSimpleWorkout": "Send {{workout}} {{tss}} TSS",
+    "noDeviceLink": "No device? → Device settings"
   },
   "analysis": {
     "header": {
@@ -1108,5 +1120,6 @@
     },
     "guest": "Sign in to analyze your performance",
     "chooseSport": "Choose a sport to analyze"
-  }
+  },
+  "runRecords.viewAll": "View all records →"
 }

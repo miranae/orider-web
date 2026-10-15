@@ -1,19 +1,22 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockCallableInvocations, setCallableImplementation, setCallableResult } from "../../__tests__/mocks/firebase";
+import { mockCallableInvocations, setCallableImplementation, setCallableResult, setCollectionDocs } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { httpsCallable } from "firebase/functions";
 import { auth, ensureAppCheckReady } from "../../services/firebase";
 import GroupsPage from "./GroupsPage";
 
-const { publicGroups, usePublicGroupsMock } = vi.hoisted(() => ({
+const { publicGroups, myGroups, membershipState, usePublicGroupsMock } = vi.hoisted(() => ({
+  membershipState: { error: null as unknown },
+  myGroups: [] as Array<Record<string, unknown>>,
   publicGroups: [] as Array<Record<string, unknown>>,
   usePublicGroupsMock: vi.fn(),
 }));
 
 vi.mock("../../hooks/useGroup", () => ({
-  useMyGroups: () => ({ groups: [], loading: false, error: null, retry: vi.fn() }),
+  useGroupMemberRole: () => ({ role: null, loading: false }),
+  useMyGroups: () => ({ groups: myGroups, loading: false, error: membershipState.error, retry: vi.fn() }),
   usePublicGroups: (options: unknown) => {
     usePublicGroupsMock(options);
     return { groups: publicGroups, loading: false, error: null, retry: vi.fn() };
@@ -40,10 +43,31 @@ describe("GroupsPage join results", () => {
     vi.mocked(httpsCallable).mockClear();
     mockCallableInvocations.length = 0;
     Object.assign(auth, { currentUser: { uid: "test-uid" } });
-    publicGroups.splice(0);
+    publicGroups.splice(0); myGroups.splice(0); membershipState.error = null;
     usePublicGroupsMock.mockClear();
   });
 
+  it("renders membership error state in my clubs without treating the error payload as a DOM child", () => {
+    membershipState.error = { code: "permission-denied", privateDetail: "DO_NOT_RENDER_ERROR_OBJECT" };
+    renderPage();
+    expect(screen.getByTestId("C0-1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /다시/ })).toBeInTheDocument();
+    expect(screen.queryByText("DO_NOT_RENDER_ERROR_OBJECT")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("C0.noClub")).not.toBeInTheDocument();
+  });
+  it.each([false, true])("keeps request history inside my clubs and orders discovery first only without memberships (%s)", async hasClub => {
+    if (hasClub) myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
+    setCollectionDocs("users/test-uid/group_requests", [{ id: "request-1", groupId: "club-2", groupName: "Requested club", status: "pending", requestedAt: 123 }]);
+    renderPage();
+    const history = await screen.findByTestId("C0-1-3");
+    const ownRegion = screen.getByTestId("C0-1");
+    expect(ownRegion).toContainElement(history);
+    const finder = screen.getByTestId("C0-2");
+    const challenge = screen.getByTestId("C0-4");
+    expect((hasClub ? ownRegion : finder).compareDocumentPosition(hasClub ? finder : ownRegion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(finder.compareDocumentPosition(challenge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId("C0.noClub") !== null).toBe(!hasClub);
+  });
   it.each(["success", "reject", "unmount", "account"] as const)("gates code-input joining: %s", async (outcome) => {
     let resolveReady!: () => void;
     let rejectReady!: (error: Error) => void;
@@ -88,12 +112,12 @@ describe("GroupsPage join results", () => {
     expect(screen.getByRole("button", { name: "가입" })).toBeEnabled();
   });
 
-  it("shows the club discovery notice above the list when no clubs are joined", () => {
+  it("shows discovery first with its no-club guidance when no clubs are joined", () => {
     renderPage();
 
-    const notice = screen.getByText("아직 가입한 클럽이 없어요 — 클럽 찾기");
+    const notice = screen.getByTestId("C0.noClub");
     const discovery = screen.getByRole("heading", { name: "그룹 찾기" });
-    expect(notice.compareDocumentPosition(discovery) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(discovery.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("disables the public group query before authentication", () => {

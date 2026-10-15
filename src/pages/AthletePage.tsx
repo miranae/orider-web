@@ -4,7 +4,7 @@ import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import {
   collection, query, where, orderBy, getDocs, limit, startAfter,
-  doc, getDoc, setDoc, deleteDoc,
+  doc, getDoc, setDoc,
   type QueryDocumentSnapshot, type DocumentData,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -15,6 +15,7 @@ import { useDialog } from "../contexts/DialogContext";
 import { firestore, functions } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useDocument } from "../hooks/useFirestore";
+import { cancelFriendRequest } from "../hooks/useFriends";
 import { useAuth } from "../contexts/AuthContext";
 import StatCard from "../components/StatCard";
 import ActivityCard from "../components/ActivityCard";
@@ -436,7 +437,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   useEffect(() => {
     if (!userId) return;
     if (profileLoading && !ownProfileFallback) return;
-    if (!isOwnProfile && friendStatus !== "friends") {
+    if (!isOwnProfile) {
       setFriendCount(0);
       setFriends([]);
       return;
@@ -479,9 +480,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   const handleCancelRequest = async () => {
     if (!currentUser || !userId || friendLoading) return;
+    if (!await dialog.confirm(t("friends:cancelConfirm"))) return;
     setFriendLoading(true);
     try {
-      await deleteDoc(doc(firestore, "friend_requests", userId, "items", currentUser.uid));
+      await cancelFriendRequest(currentUser.uid, userId);
       setFriendStatus("none");
     } catch (err) {
       logClientError("AthletePage.handleCancelRequest", err, { targetUserId: userId });
@@ -543,7 +545,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const nickname = profileForPage?.nickname;
   const photoURL = profileForPage?.photoURL ?? null;
   const canViewProfile = isOwnProfile || profileForPage?.profilePublic !== false || friendStatus === "friends";
-  const canViewFriends = isOwnProfile || friendStatus === "friends";
+  const canViewFriends = isOwnProfile;
   const canSendFriendRequest = profileForPage?.friendRequestsAllowed !== false;
   const activities = displayActivities.map((a) =>
     !a.profileImage && photoURL ? { ...a, profileImage: photoURL } : a,
@@ -573,7 +575,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   if (profileLoading && !ownProfileFallback) {
     return (
-      <div className="space-y-6">
+      <div data-testid="P0.loading" className="space-y-6">
         <div className="relative">
           <div className="bg-[var(--bg-3)] rounded-[var(--r-xl)] h-40 animate-pulse" />
           <div className="absolute -bottom-10 left-6">
@@ -613,7 +615,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   if (!canViewProfile) {
     return (
-      <div className="space-y-6">
+      <div data-testid="P0.private" className="space-y-6">
         <Card padding="none" className="rounded-[var(--r-lg)] p-8 text-center">
           <div className="text-[length:var(--fs-lg)] font-semibold text-[var(--ink-0)]">
             {t("privacy.privateTitle")}
@@ -636,7 +638,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid={isOwnProfile ? "P0.self" : "P0.other"}>
       {/* Cover + Profile */}
       <div className="relative">
         <div className="rounded-[var(--r-xl)] h-40 relative overflow-hidden shadow-sm" style={{ background: "linear-gradient(135deg, var(--lime), var(--aqua))" }}>
@@ -668,20 +670,24 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       </div>
 
       {/* Profile info */}
-      <div className="pt-8 flex items-start justify-between">
+      <div data-testid="P0-0" className="pt-8 flex items-start justify-between">
         <div>
-          <h1 className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">
+          <h1 data-testid="P0-0-1" className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">
             {nickname}
           </h1>
-          <div className="flex gap-4 mt-2 text-[length:var(--fs-sm)] text-[var(--ink-2)]">
-            {/* Friend count removed */}
-          </div>
+          {profileForPage?.bio && <Text as="p" tone="secondary">{profileForPage.bio}</Text>}
+          {isOwnProfile && currentProfile?.stravaConnected && <Chip>Strava</Chip>}
+          {profileForPage?.team && <Text as="p" variant="caption" tone="secondary">{profileForPage.team}</Text>}
+          {isOwnProfile && <div className="flex flex-wrap gap-2 mt-3">
+            <Link data-testid="P0-0-2" to="/settings/account">{t("self.edit")}</Link>
+            <Button data-testid="P0-0-3" size="sm" variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${location.pathname.replace(/athlete\/me$/, `athlete/${userId}`)}`).then(() => showToast(t("self.shared"))).catch(() => showToast(t("self.shareFailed"), "error")); }}>{t("self.share")}</Button>
+          </div>}
           {isOwnProfile && (
-            <AthleteIdentityChips pdc={pdc} activities={chartActivities} />
+            <div data-testid="P0-6"><AthleteIdentityChips pdc={pdc} activities={chartActivities} /></div>
           )}
         </div>
         {!isMe && currentUser && (
-          <div className="flex gap-2">
+          <div data-testid="P0-0-4" className="flex gap-2">
             {friendStatus === "none" && canSendFriendRequest && (
               <Button
                 onClick={handleSendFriendRequest}
@@ -733,7 +739,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div data-testid="P0-1" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
           label={t(isOwnProfile ? "stats.activities" : "stats.publicActivities")}
           value={statsReady ? t("stats.activitiesValue", { count: stats.count }) : "—"}
@@ -756,12 +762,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         />
       </div>
 
+      {isOwnProfile && <div data-testid="P0-3" className="flex flex-wrap gap-3">{(["activities", "records", "friends", "gear"] as const).map((target) => <Link data-testid="P0-3-1" key={target} to={`/athlete/me/${target}`}>{t(`self.${target}`)}</Link>)}</div>}
+
       {/* Friend list */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left Column: Friends & Chart */}
         <div className="min-w-0 space-y-6 sticky top-0 self-start">
           {/* Friends List */}
-          {canViewFriends && <Card padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
+          {canViewFriends && <Card data-testid="P0-4" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--line-soft)] flex items-center justify-between">
               <h3 className="text-[length:var(--fs-sm)] font-semibold text-[var(--ink-0)]">{t("friends.title", { count: friendCount })}</h3>
               <Link to="/athlete/me/friends" className="text-[length:var(--fs-xs)] text-[var(--lime)] hover:opacity-80 font-medium">
@@ -810,7 +818,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
           {/* My Segments */}
           {mySegments.length > 0 && (
-            <Card padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
+            <Card data-testid="P0-5" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
               <div className="px-4 py-3 border-b border-[var(--line-soft)]">
                 <h3 className="text-[length:var(--fs-sm)] font-semibold text-[var(--ink-0)]">
                   {t("segments.titleWithCount", {
@@ -852,20 +860,20 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           )}
 
           {chartLoading ? (
-            <p role="status">{t("monthly.loading")}</p>
+            <p data-testid="P0.loading" role="status">{t("monthly.loading")}</p>
           ) : chartError ? (
             <div role="alert">
-              <p>{t("monthly.error")}</p>
+              <p data-testid="P0.error">{t("monthly.error")}</p>
               <Button onClick={() => setChartAttempt((attempt) => attempt + 1)}>{t("monthly.retry")}</Button>
             </div>
           ) : (
-            <WeeklyChart data={monthlyStats} dataKey="distance" height={180} rich showAllPeriods />
+            <div data-testid="P0-1-1"><WeeklyChart data={monthlyStats} dataKey="distance" height={180} rich showAllPeriods /></div>
           )}
         </div>
 
         {/* Right Column: Activities */}
-        <div className="md:col-span-2 space-y-4">
-          <div className="sticky top-0 z-20 bg-[var(--bg-0)] pb-4 border-b border-[var(--line-soft)] space-y-3">
+        <div data-testid="P0-2" className="md:col-span-2 space-y-4">
+          <div data-testid="P0-2-1" className="sticky top-0 z-20 bg-[var(--bg-0)] pb-4 border-b border-[var(--line-soft)] space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
                 {t("activities.title")}

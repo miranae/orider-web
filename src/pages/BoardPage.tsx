@@ -92,8 +92,9 @@ const BoardPage: React.FC = () => {
   // 상위 30개만 패널에 표시
   const panelTags = allTags.slice(0, 30);
 
+  const isMyPosts = searchParams.get("view") === "mine";
   const urlPage = Number(searchParams.get('page')) || 1;
-  const { posts, loading, error, total, page, totalPages, goToPage: rawGoToPage, refresh } = useBoardPosts(selectedBoard, 20, activeTag, submittedQuery, excludeTags, urlPage);
+  const { posts, loading, error, total, page, totalPages, goToPage: rawGoToPage, refresh } = useBoardPosts(selectedBoard, 20, activeTag, submittedQuery, excludeTags, urlPage, isMyPosts);
   const isMyInquiryView = selectedBoard === 'inquiry' && searchParams.get('view') === 'my';
   const submittedPostId = searchParams.get('submitted');
   const submittedStatus = searchParams.get('status') || 'new';
@@ -108,7 +109,7 @@ const BoardPage: React.FC = () => {
   // 페이지 변경 시 URL에 반영
   const goToPage = (p: number) => {
     rawGoToPage(p);
-    const params: Record<string, string> = {};
+    const params: Record<string, string> = isMyPosts ? { view: "mine" } : {};
     const type = searchParams.get('type');
     if (type) params.type = type;
     const view = searchParams.get('view');
@@ -149,7 +150,7 @@ const BoardPage: React.FC = () => {
 
   // 서버가 이미 거른 뒤에도 한 번 더 확인한다 — 검색 CF 배포 전이거나(구버전 응답)
   // Firestore 경로에서 sourceSite 사전 축소를 통과한 글이 있으면 여기서 걸린다.
-  const displayedPosts = clientExcluded.size > 0 && !isMyInquiryView
+  const displayedPosts = clientExcluded.size > 0 && !isMyInquiryView && !isMyPosts
     ? listPosts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))
     : listPosts;
   const filteredOutAllPosts = listPosts.length > 0 && displayedPosts.length === 0;
@@ -207,13 +208,13 @@ const BoardPage: React.FC = () => {
             글쓰기는 아래 탭 줄 우측으로 옮긴다(아래 참조). 데스크톱은 그대로 표시. */}
         <div className="hidden md:flex items-center justify-between">
           <div>
-            <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("page.communityTitle")}</h1>
+            <h1 data-testid="M2-0" className="text-[length:var(--fs-2xl)] font-bold">{t("page.communityTitle")}</h1>
             <p className="text-[var(--ink-3)] text-[length:var(--fs-sm)] mt-1">
               {t("page.communitySubtitle")}
             </p>
           </div>
           {selectedBoard !== 'devlog' && (
-            <Button
+            <Button data-testid="M2-0-2"
               onClick={() => navigate(selectedBoard === 'inquiry' ? '/community/board/write?type=inquiry' : '/community/board/write')} variant="secondary" className="px-4 py-2 text-[length:var(--fs-sm)] font-medium whitespace-nowrap"
             >
               {selectedBoard === 'inquiry' ? t("label.writingForm") : t("label.writingPost")}
@@ -224,14 +225,15 @@ const BoardPage: React.FC = () => {
         {/* Search + Tabs */}
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <div className="relative flex-1 flex gap-2">
-            <div className="relative flex-1">
+            <div data-testid="M2-1" className="relative flex-1">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-3)]">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </span>
-              <input
+              <input data-testid="M2-1-1"
                 type="text"
+                disabled={isMyPosts}
                 placeholder={t("placeholder.search")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -246,7 +248,7 @@ const BoardPage: React.FC = () => {
             <div className="hidden md:flex">
               <Button
                 onClick={handleSearch}
-                disabled={!searchQuery.trim()} variant="secondary" className="px-4 py-2 text-[length:var(--fs-sm)] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={isMyPosts || !searchQuery.trim()} variant="secondary" className="px-4 py-2 text-[length:var(--fs-sm)] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {t("button.search")}
               </Button>
@@ -275,8 +277,9 @@ const BoardPage: React.FC = () => {
             )}
           </div>
           <div className="flex gap-1">
-            {(['all', 'devlog', 'inquiry', 'archive'] as const).map((type) => (
-              <Button
+            {user && <Button data-testid="M2-1-2" size="sm" aria-pressed={isMyPosts} onClick={() => setSearchParams(isMyPosts ? {} : { view: "mine" })}>{t("tab.mine")}</Button>}
+            {(isMyPosts ? [] : ['all', 'devlog', 'inquiry', 'archive'] as const).map((type) => (
+              <Button data-testid="M2-0-1"
                 key={type}
                 onClick={() => selectBoard(type)}
                 variant={selectedBoard === type && !activeTag ? "outline" : "secondary"}
@@ -291,7 +294,7 @@ const BoardPage: React.FC = () => {
         </div>
 
         {/* 태그 필터 패널 */}
-        {panelTags.length > 0 && (
+        {!isMyPosts && panelTags.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <button
@@ -403,7 +406,7 @@ const BoardPage: React.FC = () => {
 
         {selectedBoard === 'inquiry' && (
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <div className="flex gap-1">
+            <div data-testid="M2-3" className="flex gap-1">
               <Button
                 type="button"
                 onClick={() => setInquiryView('all')}
@@ -413,7 +416,7 @@ const BoardPage: React.FC = () => {
               >
                 {t("inquiry.all")}
               </Button>
-              <Button
+              <Button data-testid="M2-3-1"
                 type="button"
                 onClick={() => setInquiryView('my')}
                 variant={isMyInquiryView ? "outline" : "secondary"}
@@ -435,7 +438,7 @@ const BoardPage: React.FC = () => {
           </div>
         )}
 
-        {isMyInquiryView && !user ? (
+        {(isMyInquiryView || isMyPosts) && !user ? (
           <EmptyState
             icon="🔒"
             title={t("error.loginRequired")}
@@ -454,14 +457,14 @@ const BoardPage: React.FC = () => {
           />
         ) : (
           /* 모바일: 카드 간 gap 제거, 상하 구분선만 (전폭 섹션 스타일) */
-          <div className={isMobile ? "" : "space-y-3"}>
+          <div data-testid="M2-2" className={isMobile ? "" : "space-y-3"}>
                 {submittedQuery && (
               <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)] mb-2">
                 {t("label.searchResultsCount", { count: effectiveListTotal })}
               </p>
             )}
             {displayedPosts.map((post) => (
-              <Card
+              <Card data-testid="M2-2-1"
                 key={post.id}
                 onClick={() => {
                   const main = document.querySelector('main');
@@ -565,8 +568,10 @@ const BoardPage: React.FC = () => {
                           selectable
                           variant={activeTag === tag ? 'accent' : 'default'}
                           aria-pressed={activeTag === tag}
+                          aria-disabled={isMyPosts}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (isMyPosts) return;
                             setActiveTag(prev => prev === tag ? undefined : tag);
                           }}
                         >
@@ -663,7 +668,7 @@ const BoardPage: React.FC = () => {
       </div>
 
       {/* 우측 사이드바 (xl 전용) — 인기 태그로 남는 폭 활용 (#401) */}
-      {!isMyInquiryView && panelTags.length > 0 && (
+      {!isMyPosts && !isMyInquiryView && panelTags.length > 0 && (
         <aside className="hidden xl:block xl:w-[240px] xl:flex-none">
           <Card padding="none" className="p-4!">
             <p className="text-[length:var(--fs-xs)] font-semibold uppercase tracking-widest text-[var(--ink-3)] mb-3">

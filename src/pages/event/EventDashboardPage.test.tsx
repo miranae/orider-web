@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const listeners = vi.hoisted(() => ({
   failEvent: false,
+  creatorId: "host-1", role: "LEADER" as string | null, privateSubscriptions: 0,
   deferredPage: false,
   snapshotError: null as null | ((error: Error) => void),
   pageResolve: null as null | ((value: unknown) => void),
@@ -27,12 +28,13 @@ vi.mock("firebase/firestore", () => ({
   doc: (_db: unknown, path: string) => path,
   collection: (_db: unknown, path: string) => path,
   getDocs: async () => ({ docs: [] }),
-  getDoc: vi.fn(),
+  getDoc: vi.fn(async () => ({ exists: () => true, data: () => ({ role: listeners.role }) })),
   onSnapshot: (path: string, next: (value: unknown) => void, error: (value: Error) => void) => {
+    if (path.includes("/snapshots/")) listeners.privateSubscriptions++;
     if (path === "events/event-1") listeners.eventError = error;
     queueMicrotask(() => {
       if (path === "events/event-1" && listeners.failEvent) error(new Error("event denied"));
-      else if (path === "events/event-1") next({ exists: () => true, data: () => ({ info: { name: "QA event", status: "LIVE", creatorId: "host-1", type: "TOUR" }, counters: { totalRegistered: 1 } }) });
+      else if (path === "events/event-1") next({ exists: () => true, data: () => ({ info: { name: "QA event", status: "LIVE", creatorId: listeners.creatorId, type: "TOUR" }, counters: { totalRegistered: 1 } }) });
       else if (listeners.deferredPage) {
         listeners.snapshotSubscriptions++;
         listeners.snapshotError = error;
@@ -52,6 +54,7 @@ import EventDashboardPage from "./EventDashboardPage";
 describe("EventDashboardPage read failures", () => {
   beforeEach(() => {
     listeners.failEvent = false;
+    listeners.creatorId = "host-1"; listeners.role = "LEADER"; listeners.privateSubscriptions = 0;
     listeners.deferredPage = false;
     listeners.snapshotError = null;
     listeners.pageResolve = null;
@@ -61,7 +64,7 @@ describe("EventDashboardPage read failures", () => {
     firebaseAuth.currentUser = { uid: "host-1" };
   });
 
-  it("keeps owner Finish available and warns when only the optional snapshot is denied", async () => {
+  it("keeps LEADER Finish available and warns when only the optional snapshot is denied", async () => {
     render(<EventDashboardPage />);
     expect(await screen.findByRole("button", { name: /button.finish/ })).toBeTruthy();
     expect(screen.getByRole("alert").textContent).toContain("snapshot denied");
@@ -117,4 +120,27 @@ describe("EventDashboardPage read failures", () => {
     expect(screen.getByRole("alert").textContent).toContain("fresh snapshot denied");
     expect(screen.getByRole("button", { name: /button.finish/ })).toBeTruthy();
   });
+  it("role-only STAFF can announce without mounting any private map subscription", async () => {
+    listeners.creatorId = "creator-elsewhere"; listeners.role = "STAFF";
+    render(<EventDashboardPage />);
+    expect(await screen.findByTestId("O1-role-only")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "action.sendNotice" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /button.finish/ })).not.toBeInTheDocument();
+    expect(listeners.privateSubscriptions).toBe(0);
+  });
+  it("an unrelated RIDER cannot enter or read private map data", async () => {
+    listeners.creatorId = "creator-elsewhere"; listeners.role = "RIDER";
+    render(<EventDashboardPage />);
+    expect(await screen.findByText("host.permissionDenied")).toBeInTheDocument();
+    expect(listeners.privateSubscriptions).toBe(0);
+    expect(screen.queryByRole("button", { name: /button.finish/ })).not.toBeInTheDocument();
+  });
+  it("being creator permits data reads without granting LEADER/STAFF callable controls", async () => {
+    listeners.role = "RIDER"; render(<EventDashboardPage />);
+    expect(await screen.findByText("QA event")).toBeInTheDocument();
+    await waitFor(() => expect(listeners.privateSubscriptions).toBeGreaterThan(0));
+    expect(screen.queryByRole("button", { name: /button.finish/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "action.sendNotice" })).not.toBeInTheDocument();
+  });
+
 });

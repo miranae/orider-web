@@ -29,6 +29,15 @@ const week: PlanWeek = {
 };
 
 describe("MobilePlanContent product hierarchy", () => {
+  it("keeps a date-linked past workout visible and highlights its date without changing today", () => {
+    const past = { ...workout, date: today - 86400000 };
+    const date = new Date(past.date + 9 * 3600000).toISOString().slice(0, 10);
+    const view = renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [past, workout] }} weekLabel="W1" selectedDate={date} />);
+    const selected = view.container.querySelector(`[data-plan-date="${date}"]`);
+    expect(selected).toHaveAttribute("aria-current", "date");
+    expect(view.container.querySelectorAll('[aria-current="date"]')).toHaveLength(1);
+  });
+
   it("renders generic run load and preserves explicit mixed sessions and edit identities", () => {
     const edit = vi.fn();
     const mixedWeek = { ...week, days: [workout, { ...workout, date: today + 86_400_000, workout: "easySwim" as const }] };

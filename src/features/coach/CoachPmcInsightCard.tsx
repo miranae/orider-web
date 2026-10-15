@@ -53,10 +53,10 @@ export function CoachPmcInsightCard({ user, discipline, onQuestionSelect }: Prop
   const enabled = isCoachPmcInsightFeatureEnabled();
   const { insight, loading, unavailable } = useCoachPmcInsight(user.uid, discipline, enabled);
   if (!enabled) return null;
-  if (loading) return <Card className="coach-pmc-card" role="status" aria-live="polite">
+  if (loading) return <Card data-testid="K6-S-9" className="coach-pmc-card" role="status" aria-live="polite">
     <div className="coach-pmc-card__loading"><span className="ds-btn__spinner" aria-hidden /><Text>{t("pmc.loading")}</Text></div>
   </Card>;
-  if (!insight) return unavailable ? <Card className="coach-pmc-card" role="status" aria-live="polite">
+  if (!insight) return unavailable ? <Card data-testid="K6-S-9" className="coach-pmc-card" role="status" aria-live="polite">
     <Text as="h2" variant="subtitle">{t("pmc.title")}</Text>
     <Text as="p" variant="bodySmall" tone="secondary">{t("pmc.unavailable")}</Text>
   </Card> : null;
@@ -68,7 +68,7 @@ export function CoachPmcInsightCard({ user, discipline, onQuestionSelect }: Prop
   const qualityLabel = t(`pmc.quality.${insight.sourceQuality.level}`);
   const freshnessLabel = t(`pmc.freshness.${insight.freshness.status}`);
   const rows = metricRows(insight, i18n.language, t);
-  return <Card className="coach-pmc-card" role="region" aria-labelledby={titleId}>
+  return <Card data-testid="K6-S-9" className="coach-pmc-card" role="region" aria-labelledby={titleId}>
     <header className="coach-pmc-card__header">
       <div className="coach-pmc-card__heading">
         <Activity aria-hidden />

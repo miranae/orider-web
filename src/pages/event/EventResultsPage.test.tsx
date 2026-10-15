@@ -36,6 +36,18 @@ function entry(rank: number, overallRank: number): ResultEntry {
   };
 }
 
+describe("finished event route navigation", () => {
+  it("retains the active results tab and overview link after the event finishes", async () => {
+    setDocData("events/first", { info: { name: "Finished navigation fixture", status: "FINISHED", type: "TOUR" } });
+    renderWithProviders(<ResultsWithNavigation />, { route: "/ko/event/first/results" });
+    await screen.findByRole("heading", { name: "Finished navigation fixture" });
+    const resultTab = screen.getByRole("link", { name: "종합 결과" });
+    expect(resultTab).toHaveAttribute("href", "/ko/event/first/results");
+    expect(resultTab).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "개요" })).toHaveAttribute("href", "/ko/event/first");
+  });
+});
+
 describe("EventResultsPage podium rank", () => {
   it("uses overallRank for overall podium", () => {
     expect(displayRankFor(entry(4, 3), "__overall__")).toBe(3);

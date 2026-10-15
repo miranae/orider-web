@@ -181,7 +181,7 @@ export default function StravaCallbackPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
+    <div data-testid="S2-C" className="flex items-center justify-center min-h-[60vh]">
       <div className="bg-[var(--bg-0)] rounded-[var(--r-lg)] border border-[var(--line-soft)] p-8 max-w-md w-full text-center space-y-4">
         <div className="w-16 h-16 mx-auto rounded-full bg-[var(--bg-2)] flex items-center justify-center">
           {step === "error" ? (

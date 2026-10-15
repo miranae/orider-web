@@ -1,3 +1,6 @@
+import { LocalizedLink } from "../components/LocalizedLink";
+import { useSearchParams } from "react-router-dom";
+import { goalCreatedPath } from "../utils/internalReturnPath";
 import { useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +15,7 @@ export default function ClimbGoalSetupPage() {
   const { t } = useTranslation('training');
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [name, setName] = useState('');
   const [duration, setDuration] = useState('20');
   const [wkg, setWkg] = useState('');
@@ -22,7 +26,7 @@ export default function ClimbGoalSetupPage() {
   const dateBounds = climbGoalDateBounds();
 
   if (authLoading) return <Text as="div" variant="body" style={{ padding: 'var(--space-6)', color: 'var(--ink-3)' }}>{t('climbGoal.loading')}</Text>;
-  if (!user) return <PermissionGate title={t('climbGoal.loginTitle')} description={t('climbGoal.loginDescription')} actionLabel={t('climbGoal.loginAction')} onAction={() => { void signInWithGoogle(); }} />;
+  if (!user || user.isAnonymous) return <PermissionGate title={t('climbGoal.loginTitle')} description={t('climbGoal.loginDescription')} actionLabel={t('climbGoal.loginAction')} onAction={() => { void signInWithGoogle(); }} />;
 
   const submit = async () => {
     try {
@@ -32,21 +36,22 @@ export default function ClimbGoalSetupPage() {
         targetDate: date, weeklySessions: Number(sessions) as 1 | 2 | 3 | 4 | 5 | 6,
       });
       const result = await httpsCallable(functions, 'createGoal')(payload);
-      navigate(`/coach/plan?goalId=${(result.data as { goalId: string }).goalId}`);
+      navigate(goalCreatedPath(searchParams, "bike", (result.data as { goalId: string }).goalId));
     } catch { setError(true); setSubmitting(false); }
   };
 
   return <div style={{ maxWidth: 640, margin: '0 auto', padding: 'var(--space-6)' }}>
     <Text as="h1" variant="title">{t('climbGoal.title')}</Text>
     <Text as="p" variant="body" style={{ color: 'var(--ink-3)', marginTop: 'var(--space-2)' }}>{t('climbGoal.description')}</Text>
-    <Card style={{ marginTop: 'var(--space-5)', display: 'grid', gap: 'var(--space-4)' }}>
+    <Card data-testid="K3-4-1" style={{ marginTop: 'var(--space-5)', display: 'grid', gap: 'var(--space-4)' }}>
       <Field label={t('climbGoal.name')}><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></Field>
       <Field label={t('climbGoal.duration')}><Input type="number" min={3} max={240} value={duration} onChange={(e) => setDuration(e.target.value)} /></Field>
       <Field label={t('climbGoal.wkg')}><Input type="number" min={1} max={8} step={0.1} value={wkg} onChange={(e) => setWkg(e.target.value)} /></Field>
       <Field label={t('climbGoal.date')}><Input type="date" min={dateBounds.min} max={dateBounds.max} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
       <Field label={t('climbGoal.sessions')}><Input type="number" min={1} max={6} value={sessions} onChange={(e) => setSessions(e.target.value)} /></Field>
+      <LocalizedLink data-testid="K3-4-3" to="/explore/segments">{t("goalHub.pickSegment")}</LocalizedLink>
       {error && <Text variant="caption" style={{ color: 'var(--rose)' }}>{t('climbGoal.error')}</Text>}
-      <Button onClick={() => { void submit(); }} disabled={submitting}>{t('climbGoal.submit')}</Button>
+      <Button data-testid="K3-4-2" onClick={() => { void submit(); }} disabled={submitting}>{t('climbGoal.submit')}</Button>
     </Card>
   </div>;
 }

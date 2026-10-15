@@ -1,3 +1,4 @@
+import { groupCalendarUrl } from "../../features/group/groupCalendar";
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
@@ -18,7 +19,8 @@ import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
 import { EmptyState, LoadingSkeleton } from "../../components/redesign";
 import { isRegistrationTimeOpen, normalizeStartTime } from "../../utils/event-time";
 import { Button, Card, Chip, Text } from "../../theme/components";
-import { isEventHost } from "../../features/event/eventHost";
+import EventDetailNavigation from "../../features/event/EventDetailNavigation";
+import { eventPermissions, isEventHost } from "../../features/event/eventHost";
 import { parseGpxFull, type CourseData } from "../../features/event/detail/courseGpx";
 import type { EventDetail, RecentParticipant } from "../../features/event/detail/eventDetailTypes";
 import {
@@ -42,7 +44,7 @@ import { cancelEventRegistration } from "../../features/event/detail/cancelRegis
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 import { buildEventIcs, downloadIcsFile, icsFileName } from "../../features/event/detail/generateIcs";
 import { createEventShareImage, shareEventImage } from "../../features/event/share/eventShareCard";
-import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
+import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { buildEventFollowPayload, followerExists } from "../../features/event/detail/eventFollow";
 import { useGroup } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
@@ -93,6 +95,7 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isParticipant, setIsParticipant] = useState<boolean | null>(null);
   const [isHost, setIsHost] = useState(false);
+  const [participantRole, setParticipantRole] = useState<{ uid: string; eventId: string; role: string | null } | null>(null);
   const [canCancelRegistration, setCanCancelRegistration] = useState(false);
   const [participantCount, setParticipantCount] = useState<number | null>(null);
   const [starting, setStarting] = useState(false);
@@ -173,7 +176,7 @@ export default function EventDetailPage() {
   }, [eventId, user]);
 
   const handleStartEvent = useCallback(async () => {
-    if (!eventId || !event || !user || starting || pendingStart.current || auth.currentUser?.uid !== user.uid) return;
+    if (participantRole?.uid !== user?.uid || participantRole?.eventId !== eventId || participantRole?.role !== "LEADER" || !eventId || !event || !user || starting || pendingStart.current || auth.currentUser?.uid !== user.uid) return;
     const context = { uid: user.uid, eventId, generation: startGeneration.current, sdkUser: auth.currentUser };
     const currentStart = () => startMounted.current && pendingStart.current === context
       && startGeneration.current === context.generation && participantContext.current.eventId === context.eventId
@@ -203,7 +206,7 @@ export default function EventDetailPage() {
         if (startMounted.current && startGeneration.current === context.generation) setStarting(false);
       }
     }
-  }, [eventId, event, navigate, showToast, starting, t, user]);
+  }, [eventId, event, navigate, showToast, starting, t, user, participantRole]);
 
   const handleCancelRegistration = useCallback(async () => {
     if (!eventId || !user || cancelBusy.current || !canCancelRegistration) return;
@@ -344,10 +347,12 @@ export default function EventDetailPage() {
     let cancelled = false;
     setIsParticipant(user ? null : false);
     setCanCancelRegistration(false);
+    setParticipantRole(null);
     if (!eventId || !user) return;
     void getDoc(doc(firestore, "events", eventId, "participants", user.uid)).then((snapshot) => {
       if (cancelled) return;
       const own = snapshot.data();
+      setParticipantRole({ uid: user.uid, eventId, role: snapshot.exists() ? own?.role ?? null : null });
       setIsParticipant(snapshot.exists() && !["CANCELLED", "REFUNDED"].includes(own?.status));
       setCanCancelRegistration(snapshot.exists() && own?.status === "REGISTERED" && own?.role === "RIDER");
     }).catch((err) => {
@@ -584,6 +589,7 @@ export default function EventDetailPage() {
     : null;
   const activeGroupId = shouldShowHostGroupCard(groupId, group?.id, groupLoading, groupInactive, !!groupError) ? groupId : undefined;
 
+  const canOperate = eventPermissions(user?.uid, event, participantRole && participantRole.uid === user?.uid && participantRole.eventId === eventId ? participantRole.role : null).canEnter;
   return (
     <>
       {/* Breadcrumb */}
@@ -594,7 +600,7 @@ export default function EventDetailPage() {
       </div>
 
       {/* 히어로 카드 */}
-      <div className="site-shell" style={{ padding: "14px 24px 0" }}>
+      <div data-testid="D4-0" className="site-shell" style={{ padding: "14px 24px 0" }}>
         <Card padding="none" style={{ padding: 0, overflow: "hidden" }}>
           {courseData ? (
             <RouteMap
@@ -700,7 +706,7 @@ export default function EventDetailPage() {
                     {withdrawing ? t("detail.button.cancellingRegistration") : t("detail.button.cancelRegistration")}
                   </Button></>
                 )}
-                {event.status === "OPEN" && isHost && (
+                {event.status === "OPEN" && participantRole?.uid === user?.uid && participantRole?.eventId === eventId && participantRole?.role === "LEADER" && (
                   <Button
                     type="button"
                     onClick={() => setShowStartConfirm(true)} variant="primary" size="sm"
@@ -708,12 +714,12 @@ export default function EventDetailPage() {
                     ▶ {t("button.start")}
                   </Button>
                 )}
-                {event.status === "LIVE" && (
+                {canOperate && (
                   <Button
                     type="button"
                     onClick={() => navigate(`/event/${eventId}/host`)} variant="primary" size="sm"
                   >
-                    📊 {t("detail.button.liveDashboard")}
+                    📊 {t("host.operation")}
                   </Button>
                 )}
                 {event.status === "FINISHED" && (
@@ -758,11 +764,12 @@ export default function EventDetailPage() {
             </div>
           </div>
         </Card>
+        <EventDetailNavigation eventId={eventId!} live={event.status === "LIVE"} results={event.status === "LIVE" || event.status === "FINISHED"} />
       </div>
 
       {/* 본문 */}
       <div
-        className="site-shell event-detail-body"
+        data-testid="D4-1" className="site-shell event-detail-body"
         style={{
           padding: "20px 24px 40px",
           display: "grid",
@@ -1040,9 +1047,9 @@ export default function EventDetailPage() {
                     <Button type="button" variant="secondary" size="sm">{t("group.viewNextEvent")}</Button>
                   </Link>
                 )}
-                <a href={`${getRuntimeConfig().appEnvironment === "stage" ? getRuntimeConfig().firebaseFunctionsBase : `https://${getRuntimeConfig().firebaseFunctionsRegion || "us-central1"}-${getRuntimeConfig().firebaseProjectId}.cloudfunctions.net`}/groupEventCalendar?groupId=${encodeURIComponent(activeGroupId)}`}>
+                {groupCalendarUrl(group) && <a href={groupCalendarUrl(group)!}>
                   <Button type="button" variant="secondary" size="sm">📅 {t("group.subscribeCalendar")}</Button>
-                </a>
+                </a>}
               </div>
             </Card>
           )}

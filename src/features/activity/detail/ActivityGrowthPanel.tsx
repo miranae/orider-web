@@ -1,3 +1,6 @@
+import { disciplineOfType } from "@shared/sport/discipline";
+import { getRuntimeConfig } from "../../../services/runtimeConfig";
+import { LocalizedLink } from "../../../components/LocalizedLink";
 import ActivityRouteIndexHistoryPanel from "./ActivityRouteIndexHistoryPanel";
 import CyclingDistanceHistoryPanel from "./CyclingDistanceHistoryPanel";
 import ObservedRouteHistoryPanel from "./ObservedRouteHistoryPanel";
@@ -33,7 +36,7 @@ import { formatElapsedBoundary } from "./activityRangeSelection";
 import { similarRouteCandidates } from "./routeSimilarity";
 import { ActivityComparisonVisuals } from "./ActivityComparisonVisuals";
 
-export interface ActivityGrowthPanelProps { activity: Activity; metrics: MetricsLike | null; currentMetricsStatus?: UseActivityMetricsState["status"]; isOwner: boolean; embedded?: boolean }
+export interface ActivityGrowthPanelProps { activity: Activity; metrics: MetricsLike | null; currentMetricsStatus?: UseActivityMetricsState["status"]; isOwner: boolean; embedded?: boolean; comparisonOnly?: boolean }
 function number(value: number | null, digits = 1): string {
   if (value == null) return "—";
   const displayed = value.toFixed(digits);
@@ -55,8 +58,9 @@ function comparisonDuration(value: number | null, delta = false): string {
   const display = Number.isFinite(rounded * 1e6) ? formatElapsedBoundary(rounded) : `${rounded} s`;
   return `${delta && rounded > 0 ? value < 0 ? "-" : "+" : ""}${display}`;
 }
-function Comparison({ activity, metrics, currentMetricsStatus }: Omit<ActivityGrowthPanelProps, "isOwner">) {
+function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }: Omit<ActivityGrowthPanelProps, "isOwner">) {
   const { t, i18n } = useTranslation("activity");
+  const stageRoutes = !comparisonOnly || getRuntimeConfig().appEnvironment === "stage";
   const { user } = useAuth();
   const { units } = useLocale();
   const distanceFactor = units === "imperial" ? 1 / 1.609344 : 1;
@@ -82,10 +86,10 @@ function Comparison({ activity, metrics, currentMetricsStatus }: Omit<ActivityGr
     : source?.isVirtualPower === false ? t("growth.measuredPower") : t("growth.powerUnknown");
   return <div className="space-y-4">
     <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.conditions")}</Text>
-    <Stack direction="row" wrap gap="var(--space-2)">
+    {stageRoutes && <Stack direction="row" wrap gap="var(--space-2)">
       <Button size="sm" variant={!routeOnly ? "secondary" : "ghost"} aria-pressed={!routeOnly} onClick={() => setRouteOnly(false)}>{t("growth.route.all")}</Button>
       <Button size="sm" variant={routeOnly ? "secondary" : "ghost"} aria-pressed={routeOnly} onClick={() => setRouteOnly(true)}>{t("growth.route.similar", { count: routes.candidates.length })}</Button>
-    </Stack>
+    </Stack>}
     {routeOnly && !routes.available && <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.route.note", { count: routes.checked })}</Text>}
     {routeOnly && (!routes.available || !routes.candidates.length) && <Text as="p" variant="bodyMedium" tone="secondary">{t(routes.available ? routes.candidates.length ? "growth.route.choose" : "growth.route.empty" : "growth.route.unavailable")}</Text>}
     {routeOnly && routes.available && <SimilarRouteHistoryPanel current={activity} candidates={routes.candidates}
@@ -102,9 +106,9 @@ function Comparison({ activity, metrics, currentMetricsStatus }: Omit<ActivityGr
     {history.error && <Button size="sm" onClick={history.retry}>{t("growth.retry")}</Button>}
     {!history.loading && !history.error && candidates.length === 0 && <Text as="p">{t("growth.noPrevious")}</Text>}
     {history.hasMore && <Button size="sm" variant="outline" loading={history.loadingMore} onClick={history.loadMore}>{t("growth.loadMore")}</Button>}
-    <ObservedRouteHistoryPanel anchor={activity} activities={candidates} observedMetricsIdentity={JSON.stringify([currentMetricsStatus, metrics?.computedAt, metrics?.version, metrics?.inputPending, metrics?.inputCoverage, metrics?.sourceLayer])} />
+    {stageRoutes && <ObservedRouteHistoryPanel anchor={activity} activities={candidates} observedMetricsIdentity={JSON.stringify([currentMetricsStatus, metrics?.computedAt, metrics?.version, metrics?.inputPending, metrics?.inputCoverage, metrics?.sourceLayer])} />}
     {selected && <>
-      <ObservedRouteComparisonPanel current={activity} previous={selected} />
+      {stageRoutes && <ObservedRouteComparisonPanel current={activity} previous={selected} />}
       <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.route.context", { current: number(activity.summary?.pauseTimeSec ?? null, 0), previous: number(selected.summary?.pauseTimeSec ?? null, 0) })}</Text>
       <Button size="sm" variant="ghost" onClick={() => setSelectedId("")}>{t("growth.clear")}</Button>
       {baseline.status === "loading" && <Text as="p">{t("growth.loading")}</Text>}
@@ -268,6 +272,19 @@ function GrowthSections(props: ActivityGrowthPanelProps) {
   const [statisticsOpen, setStatisticsOpen] = useState(false);
   const [comparisonLoaded, setComparisonLoaded] = useState(false);
   const [statisticsLoaded, setStatisticsLoaded] = useState(false);
+  if (props.comparisonOnly) return <section data-testid="D1-5" className="space-y-4">
+    <Comparison {...props} />
+    {getRuntimeConfig().appEnvironment === "stage" && <>
+      {getDiscipline(props.activity.type) === "run" && <ActivityRunDistanceEvidencePanel activity={props.activity} metrics={props.metrics} />}
+      {getDiscipline(props.activity.type) === "bike" && <>
+        <ActivityBikeDistanceEvidencePanel activity={props.activity} metrics={props.metrics} />
+        <StageActivityPowerDurationPanel activity={props.activity} />
+        {stageActivityPowerAvailable() && <NativePowerV2DurationPanel activity={props.activity} />}
+      </>}
+      <ActivityRouteIndexHistoryPanel activity={props.activity} observedMetricsIdentity={JSON.stringify([props.currentMetricsStatus, props.metrics?.computedAt])} />
+    </>}
+    <LocalizedLink to={`/coach/analysis?sport=${disciplineOfType(props.activity.type)}`}>{t("growth.analysisLink")}</LocalizedLink>
+  </section>;
   const content = <Stack gap="var(--dim-section-gap)" className={props.embedded ? undefined : "activity-growth-content"}>
     {getDiscipline(props.activity.type) === "run" && <ActivityRunDistanceEvidencePanel activity={props.activity} metrics={props.metrics} />}
     {getDiscipline(props.activity.type) === "bike" && <ActivityBikeDistanceEvidencePanel activity={props.activity} metrics={props.metrics} />}

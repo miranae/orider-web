@@ -48,7 +48,7 @@ export function useBoardMeta() {
  * 페이지 기반 게시글 목록 훅
  * keyword가 있으면 Cloud Function 검색, 없으면 Firestore 페이지 쿼리
  */
-export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?: string, keyword?: string, excludeTags: string[] = [], initialPage = 1) {
+export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?: string, keyword?: string, excludeTags: string[] = [], initialPage = 1, ownerOnly = false) {
   const { user } = useAuth();
   // 쿼리는 "로그인 여부"에만 의존(비로그인=공개글만). user 객체는 auth init 중 레퍼런스가
   // 여러 번 바뀌어 effect 를 중복 발사(count 쿼리 N회)시키므로, 안정적인 uid 문자열을 dep 로 쓴다.
@@ -77,7 +77,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   const refresh = () => { setRefreshKey((k) => k + 1); setPage(1); };
 
   // 필터 변경 시 1페이지로 리셋 (실제 값 변경만 감지, strict mode 안전)
-  const filterKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey]);
+  const filterKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, ownerOnly, uid]);
   const prevFilterKey = useRef(filterKey);
   useEffect(() => {
     if (prevFilterKey.current === filterKey) return;
@@ -88,9 +88,10 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
 
   useEffect(() => {
     let cancelled = false;
-    const trimmed = keyword?.trim() ?? "";
+    if (ownerOnly && !uid) { setPosts([]); setTotal(0); setTotalPages(1); setLoading(false); return; }
+    const trimmed = ownerOnly ? "" : keyword?.trim() ?? "";
 
-    if (trimmed.length > 0 || boardType === 'archive') {
+    if (!ownerOnly && (trimmed.length > 0 || boardType === 'archive')) {
       // Cloud Function 호출: 키워드 검색 또는 archive 조회
       setLoading(true);
       setError(null);
@@ -137,15 +138,15 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
       // 필터 없이 쿼리하면 비공개 글 포함 가능성 때문에 permission-denied → 캐시 없는
       // 사용자(예: 신규 iPhone)는 커뮤니티가 통째로 안 뜬다(2026-06 실장애). 비공개 글
       // (본인 문의 등)은 별도 owner 쿼리 경로가 필요(후속).
-      baseConstraints.push(where("isPrivate", "==", false));
+      baseConstraints.push(ownerOnly ? where("userId", "==", uid) : where("isPrivate", "==", false));
 
-      if (boardType !== 'all') {
+      if (!ownerOnly && boardType !== 'all') {
         baseConstraints.push(where("boardType", "==", boardType));
       }
-      if (tag) {
+      if (!ownerOnly && tag) {
         baseConstraints.push(where("tags", "array-contains", tag));
       }
-      if (excludeAiSourced) {
+      if (!ownerOnly && excludeAiSourced) {
         // #AI 제외의 사전 축소 — 크롤러 수집 글은 sourceSite 와 AI 태그를 항상 함께 갖는다.
         // Firestore 에 array-not-contains 가 없어 태그로는 서버에서 못 거르므로, 이 조건으로
         // 좁힌 뒤 BoardPage 가 tags 기준으로 최종 판정한다(총개수·페이지네이션은 여기서 정확).
@@ -160,7 +161,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
         // 총 개수(페이지네이션 "N개" 라벨용)는 글 렌더에 불필요 → 비차단으로 발사한다.
         // 목록 쿼리가 count 왕복을 기다리지 않아 콘텐츠가 더 빨리 뜬다(전: count→목록 순차 2왕복).
         // count 실패는 라벨에만 영향이라 무시.
-        const countKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, uid ? "1" : "0"]);
+        const countKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, ownerOnly, ownerOnly ? uid : uid ? "1" : "0"]);
         const cachedCount = countCacheRef.current.get(countKey);
         if (cachedCount !== undefined) {
           // 같은 필터 — 캐시된 총개수 사용, 네트워크 count 생략(중복 발사 제거).
@@ -229,7 +230,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
       fetchPage();
       return () => { cancelled = true; };
     }
-  }, [boardType, pageSize, tag, keyword, excludeKey, refreshKey, page, uid]);
+  }, [boardType, pageSize, tag, keyword, excludeKey, refreshKey, page, uid, ownerOnly]);
 
   const goToPage = (p: number) => {
     if (p >= 1 && p <= totalPages) setPage(p);

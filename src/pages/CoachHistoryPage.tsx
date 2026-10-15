@@ -348,17 +348,17 @@ export default function CoachHistoryPage() {
     ? profile.primaryDiscipline
     : "bike";
   const dialogPending = consentOpen ? consentPendingRef.current : null;
-  const launcher = <CoachQuestionLauncher
+  const launcher = <div data-testid="K6-0-3"><CoachQuestionLauncher
     user={user}
     discipline={coachDiscipline}
     onSignIn={signInWithGoogle}
     triggerBlock={false}
-  />;
+  /></div>;
 
   if (!user) return <main className="coach-history-page coach-history-page--signed-out">
-    <header className="coach-history-page__header">
+    <header data-testid="K6-0" className="coach-history-page__header">
       <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><Bot size={16} aria-hidden /> {t("history.eyebrow")}</Text>
-        <Text className="coach-history-page__title" as="h1" variant="title">{t("history.entryTitle")}</Text>
+        <Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="title">{t("history.entryTitle")}</Text>
         <Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.entryDescription")}</Text></div>
       {launcher}
     </header>
@@ -368,32 +368,32 @@ export default function CoachHistoryPage() {
   if (stateUid !== uid) return <main className="coach-history-page"><Card role="status">{t("history.loading")}</Card></main>;
 
   return <main className={`coach-history-page${threadId ? " has-selection" : ""}`}>
-    <header className="coach-history-page__header">
+    <header data-testid="K6-0" className="coach-history-page__header">
       <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><History size={16} aria-hidden /> {t("history.eyebrow")}</Text>
-        <Text className="coach-history-page__title" as="h1" variant="title">{t("history.title")}</Text><Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.description")}</Text></div>
+        <Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="title">{t("history.title")}</Text><Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.description")}</Text></div>
       <div className="coach-history-page__actions">{launcher}
-        {threads.length > 0 && <Button className="coach-history-page__delete-all" variant="ghost" size="sm"
+        {threads.length > 0 && <Button data-testid="K6-0-4" className="coach-history-page__delete-all" variant="ghost" size="sm"
           disabled={deleting || submitting} onClick={() => void removeAll()}>{t("history.deleteAll")}</Button>}</div>
     </header>
     <div className={`coach-history-layout${threadId ? " has-selection" : ""}`}>
-      <section className="coach-history-list" aria-labelledby="coach-history-list-title">
+      <section data-testid="K6-1" className="coach-history-list" aria-labelledby="coach-history-list-title">
         <Text id="coach-history-list-title" as="h2" variant="subtitle">{t("history.listTitle")}</Text>
         {loadingList && <Card role="status">{t("history.loading")}</Card>}
         {loadError && <Alert variant="danger" title={t("history.loadFailed")}><Button variant="outline" onClick={() => void loadList()}>{t("history.retry")}</Button></Alert>}
-        {!loadingList && !loadError && threads.length === 0 && <Card className="coach-history-empty"><History aria-hidden /><Text as="h3" variant="subtitle">{t("history.emptyTitle")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("history.emptyBody")}</Text></Card>}
+        {!loadingList && !loadError && threads.length === 0 && <Card data-testid="K6-1-4" className="coach-history-empty"><History aria-hidden /><Text as="h3" variant="subtitle">{t("history.emptyTitle")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("history.emptyBody")}</Text></Card>}
         <div className="coach-history-list__items">{threads.map((item) => <article key={item.threadId} className={`coach-history-item${threadId === item.threadId ? " is-active" : ""}`}>
-          <LocalizedLink to={`/coach/chat/${item.threadId}`} className="coach-history-item__link" aria-current={threadId === item.threadId ? "page" : undefined}
+          <LocalizedLink to={`/coach/chat/${item.threadId}`} data-testid="K6-1-1" className="coach-history-item__link" aria-current={threadId === item.threadId ? "page" : undefined}
             aria-disabled={submitting && threadId === item.threadId ? true : undefined}
             onClick={(event) => { if (submitting && threadId === item.threadId) event.preventDefault(); }}>
             <Text as="strong" variant="body">{item.title}</Text>
             <span className="coach-history-item__meta"><Chip>{t(`discipline.${item.discipline}`)}</Chip><span><Clock3 size={14} aria-hidden />{formatDate(item.updatedAt, i18n.language)}</span><span>{t("history.turnCount", { count: item.turnCount })}</span></span>
           </LocalizedLink>
-          <Button className="coach-history-item__delete" iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: item.title })}
+          <Button data-testid="K6-1-2" className="coach-history-item__delete" iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: item.title })}
             disabled={deleting || (submitting && threadId === item.threadId)} onClick={() => void removeThread(item)}><Trash2 size={18} /></Button>
         </article>)}</div>
-        {cursor && <Button block variant="ghost" loading={loadingMore} onClick={() => void loadMore()}>{t("history.loadMore")}</Button>}
+        {cursor && <Button block variant="ghost" loading={loadingMore} data-testid="K6-1-3" onClick={() => void loadMore()}>{t("history.loadMore")}</Button>}
       </section>
-      <section className="coach-thread-detail" aria-labelledby="coach-thread-title">
+      <section data-testid="K6-2" className="coach-thread-detail" aria-labelledby="coach-thread-title">
         {!threadId && <Card className="coach-history-selection"><History aria-hidden /><Text as="h2" variant="subtitle">{t("history.selectTitle")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("history.selectBody")}</Text></Card>}
         {loadingThread && <Card role="status">{t("history.loadingThread")}</Card>}
         {threadError && <Alert variant="danger" title={t("history.threadLoadFailed")}>
@@ -401,12 +401,12 @@ export default function CoachHistoryPage() {
         </Alert>}
         {threadId && thread?.threadId === threadId && !loadingThread && <>
           <header className="coach-thread-detail__header">
-            <LocalizedLink to="/coach/chat" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("history.back")}><ArrowLeft aria-hidden /></LocalizedLink>
+            <LocalizedLink data-testid="K6-2-9" to="/coach/chat" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("history.back")}><ArrowLeft aria-hidden /></LocalizedLink>
             <div><Text id="coach-thread-title" as="h2" variant="subtitle">{thread.title}</Text><Text as="p" variant="caption" tone="tertiary">{t(`discipline.${thread.discipline}`)} · {formatDate(thread.updatedAt, i18n.language)}</Text></div>
             <Button className="coach-thread-detail__delete" iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: thread.title })}
               disabled={deleting || submitting} onClick={() => void removeThread(thread)}><Trash2 size={18} /></Button>
           </header>
-          <div className="coach-thread-turns">{threadCursor && <Button block variant="ghost" loading={loadingEarlierTurns} onClick={() => void loadEarlierTurns()}>{t("history.loadEarlierTurns")}</Button>}
+          <div data-testid="K6-2-1" className="coach-thread-turns">{threadCursor && <Button block variant="ghost" loading={loadingEarlierTurns} data-testid="K6-2-2" onClick={() => void loadEarlierTurns()}>{t("history.loadEarlierTurns")}</Button>}
             {thread.turns.map((turn, index) => {
               const turnNumber = thread.turnCount - thread.turns.length + index + 1;
               const turnLabel = t("history.turnNumber", { count: turnNumber });
@@ -433,7 +433,7 @@ export default function CoachHistoryPage() {
               </section>
             </article>;
             })}</div>
-          <div className="coach-thread-composer"><label htmlFor="coach-follow-up"><Text variant="label">{t("history.followUpLabel")}</Text></label>
+          <div data-testid="K6-3" className="coach-thread-composer"><label htmlFor="coach-follow-up"><Text variant="label">{t("history.followUpLabel")}</Text></label>
             <Textarea ref={followUpRef} id="coach-follow-up" rows={3} maxLength={1000} value={draft}
               disabled={followUpUnavailable}
               placeholder={t("history.followUpPlaceholder")} onChange={(event) => { startEditedFollowUp(); setDraft(event.target.value); }} />
@@ -443,15 +443,15 @@ export default function CoachHistoryPage() {
               <Text as="p" variant="bodySmall" tone="danger" role="alert">{t("history.submitFailed")}</Text>
               {(submitError === "transport" || submitError === "unavailable") && pendingBodyRef.current && <>
                 <Text as="p" variant="caption" tone="tertiary">{t("history.sameRequestRetryNote")}</Text>
-                <Button variant="outline" size="sm" disabled={submitting} onClick={() => void retryPendingFollowUp()}>{t("history.sameRequestRetry")}</Button>
+                <Button variant="outline" size="sm" disabled={submitting} data-testid="K6-3-2" onClick={() => void retryPendingFollowUp()}>{t("history.sameRequestRetry")}</Button>
               </>}
             </div>}
             {followUpSuccess && <Text as="p" variant="bodySmall" tone={followUpSuccess === "answer" ? "success" : "secondary"} role="status" aria-live="polite">{t(followUpSuccess === "answer" ? "history.followUpSaved" : "history.followUpTerminalSaved")}</Text>}
             <div className="coach-thread-composer__actions">{loadingQuota && <Text variant="caption" tone="tertiary">{t("history.loadingQuota")}</Text>}
-              {quota && <Text variant="caption" tone={quota.remaining === 0 ? "warning" : "tertiary"}>{t("quota.remaining", { count: quota.remaining })}</Text>}
+              {quota && <Text data-testid="K6-0-2" variant="caption" tone={quota.remaining === 0 ? "warning" : "tertiary"}>{t("quota.remaining", { count: quota.remaining })}</Text>}
               <Button variant="primary" loading={submitting} disabled={draft.trim().length < 2 || loadingQuota || quotaError || !quota || quota.remaining === 0
                 || Boolean(pendingBodyRef.current)}
-                onClick={() => void submitFollowUp()}>{t("history.followUp")}</Button></div>
+                data-testid="K6-3-1" onClick={() => void submitFollowUp()}>{t("history.followUp")}</Button></div>
           </div>
         </>}
       </section>

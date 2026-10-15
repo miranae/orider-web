@@ -76,7 +76,7 @@ export function useGroupMemberRole(groupId: string | undefined, userId: string |
       const data = snap.exists() ? snap.data() : null;
       const value = data?.role;
       const isActive = data && ["active", "approved"].includes(String(data.status ?? ""));
-      setRole(isActive && (value === "leader" || value === "co-leader" || value === "member") ? value : null);
+      setRole(isActive && (value === "owner" || value === "leader" || value === "co-leader" || value === "member") ? value : null);
       setLoading(false);
     }, (err) => {
       if (cancelled) return;

@@ -1,6 +1,9 @@
+import GoalHub from "./GoalHub";
+import { normalizePlanSport } from "../hooks/usePlanModel";
+import { goalCreatedPath } from "../utils/internalReturnPath";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { httpsCallable } from "firebase/functions";
@@ -81,7 +84,7 @@ interface StepperProps {
 function Stepper({ current, steps }: StepperProps) {
   const { t } = useTranslation('training');
   return (
-    <div
+    <div data-testid="K3-3-1"
       style={{
         display: "flex",
         alignItems: "center",
@@ -417,12 +420,17 @@ function WizardFooter({ step, canNext, submitting, onPrev, onNext, onStart }: Wi
 // ── Main Page ────────────────────────────────────────────────────────
 
 export default function GoalSetupPage() {
+  const location = useLocation();
+  return /\/coach\/goals$/.test(location.pathname) ? <GoalHub wizard={<GoalWizard />} /> : <GoalWizard />;
+}
+
+function GoalWizard() {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const { profile, user, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const discipline = (searchParams.get("sport") || "bike") as "bike" | "run" | "swim";
+  const discipline = normalizePlanSport(searchParams.get("sport"));
   const [step, setStep] = useState(1);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<{ name: string; dist: number; elev: number; climbs?: Array<{ gain: number; dist: number; cat: number }> } | null>(null);
@@ -441,7 +449,7 @@ export default function GoalSetupPage() {
   // 현재 TSB 로드 (fitness/projection 첫 series의 tsb, 없으면 null) — feasibility에 피로도 반영
   const [userTsb, setUserTsb] = useState<number | null>(null);
   useEffect(() => {
-    if (!user) { setUserTsb(null); return; }
+    if (!user || user.isAnonymous) { setUserTsb(null); return; }
     let cancelled = false;
     (async () => {
       try {
@@ -493,7 +501,7 @@ export default function GoalSetupPage() {
     );
   }
 
-  if (!user) {
+  if (!user || user.isAnonymous) {
     return (
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px" }}>
         <PermissionGate
@@ -523,7 +531,7 @@ export default function GoalSetupPage() {
         discipline: discipline,
       });
       const data = result.data as { goalId: string };
-      navigate(`/coach/plan?goalId=${data.goalId}`);
+      navigate(goalCreatedPath(searchParams, "bike", data.goalId));
     } catch (err) {
       logClientError('GoalSetupPage.handleStart', err, {
         courseId: selectedCourseId,
@@ -567,10 +575,10 @@ export default function GoalSetupPage() {
 
           {/* Step content */}
           {step === 1 && (
-            <CourseSelectStep
+            <div data-testid="K3-3-2"><CourseSelectStep
               selectedId={selectedCourseId}
               onSelect={(id, course) => { setSelectedCourseId(id); setSelectedCourse(course); }}
-            />
+            /></div>
           )}
           {step === 2 && selectedCourse && (
             <GoalDetailsStep
@@ -585,7 +593,7 @@ export default function GoalSetupPage() {
             />
           )}
           {step === 3 && selectedCourse && (
-            <PlanPreviewStep
+            <div data-testid="K3-3-6"><PlanPreviewStep
               goal={{
                 courseName: selectedCourse.name,
                 courseDist: selectedCourse.dist,
@@ -597,12 +605,12 @@ export default function GoalSetupPage() {
               }}
               feasibility={feasibility ?? { label: "on_track" }}
               loading={submitting}
-            />
+            /></div>
           )}
 
           {/* 오류 메시지 */}
           {createError && (
-            <div
+            <div data-testid="K3-3-8"
               style={{
                 marginTop: 'var(--space-4)',
                 padding: "var(--space-3) var(--space-4)",

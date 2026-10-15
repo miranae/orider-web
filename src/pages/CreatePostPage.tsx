@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { useMobile } from "../hooks/useMobile";
@@ -112,12 +112,15 @@ const CreatePostPage: React.FC = () => {
   const editorRef = useRef<HTMLDivElement>(null);
   const tablePickerRef = useRef<HTMLDivElement>(null);
 
+  const location = useLocation();
+  const postTemplate = location.state?.postTemplate as { title?: unknown; body?: unknown } | undefined;
   const [searchParams] = useSearchParams();
   const isInquiry = searchParams.get('type') === 'inquiry';
   const isDevlog = searchParams.get('type') === 'devlog';
   const isCreatorRecipeTemplate = isInquiry && searchParams.get('template') === 'creator-recipe';
 
   const [title, setTitle] = useState(() => {
+    if (typeof postTemplate?.title === 'string') return postTemplate.title.slice(0, 200);
     if (!isCreatorRecipeTemplate) return '';
     return t('creatorRecipeTemplate.title');
   });
@@ -172,6 +175,14 @@ const CreatePostPage: React.FC = () => {
     checkEditorEmpty();
     setEditorRevision((value) => value + 1);
   }, [checkEditorEmpty]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || typeof postTemplate?.body !== "string" || editor.textContent?.trim()) return;
+    const body = postTemplate.body.slice(0, 50000);
+    editor.innerHTML = DOMPurify.sanitize(plainTextToHtml(body));
+    setMobilePlainText(body); setEditorEmpty(!body.trim());
+  }, [postTemplate?.body]);
 
   useEffect(() => {
     if (!isCreatorRecipeTemplate) return;
@@ -758,7 +769,7 @@ const CreatePostPage: React.FC = () => {
       >
         {isInquiry ? (
           <label className="flex items-start gap-3 cursor-pointer pt-1">
-            <input
+            <input data-testid="M2-W-2"
               type="checkbox"
               checked={isPrivate}
               onChange={e => setIsPrivate(e.target.checked)}
@@ -856,7 +867,7 @@ const CreatePostPage: React.FC = () => {
 
   return (
     /* 복합 에디터의 도구 모음과 입력 행은 기존 1120px 작업 폭을 유지한다. */
-    <form onSubmit={handleSubmit} className="mx-auto max-w-[1120px] space-y-6">
+    <form data-testid="M2-W" onSubmit={handleSubmit} className="mx-auto max-w-[1120px] space-y-6">
       {/* Top bar */}
       <div className="flex items-center justify-between pb-4 border-b border-[var(--line-soft)]">
         <div className="flex items-center gap-3">
@@ -871,7 +882,7 @@ const CreatePostPage: React.FC = () => {
           </button>
           <h1 className="text-[length:var(--fs-xl)] font-bold text-[var(--ink-0)]">{isInquiry ? t('label.writingForm') : isDevlog ? t('label.writingDevlog') : t('label.writingPost')}</h1>
         </div>
-        <Button
+        <Button data-testid="M2-W-3"
           type="submit"
           disabled={!canSubmit} variant="secondary" className="px-6 py-2 text-[length:var(--fs-sm)] font-bold rounded-[var(--r-lg)] disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -915,7 +926,7 @@ const CreatePostPage: React.FC = () => {
 
           {/* Title */}
           <div className="px-5 pt-5">
-            <input
+            <input data-testid="M2-W-1"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}

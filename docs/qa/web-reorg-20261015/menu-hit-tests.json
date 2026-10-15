@@ -1,0 +1,74 @@
+[
+  {
+    "name": "desktop",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "visibleAndClickable": [
+      "코스 만들기",
+      "세그먼트 만들기",
+      "이벤트 만들기",
+      "클럽 만들기",
+      "글쓰기",
+      "활동 가져오기",
+      "목표 만들기"
+    ],
+    "goalNavigation": "/ko/coach/goals?new=1",
+    "overflow": false
+  },
+  {
+    "name": "mobile",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "visibleAndClickable": [
+      "코스 만들기",
+      "세그먼트 만들기",
+      "이벤트 만들기",
+      "클럽 만들기",
+      "글쓰기",
+      "활동 가져오기",
+      "목표 만들기"
+    ],
+    "goalNavigation": "/ko/coach/goals?new=1",
+    "overflow": false
+  },
+  {
+    "name": "mobile-short",
+    "viewport": {
+      "width": 390,
+      "height": 500
+    },
+    "visibleAndClickable": [
+      "코스 만들기",
+      "세그먼트 만들기",
+      "이벤트 만들기",
+      "클럽 만들기",
+      "글쓰기",
+      "활동 가져오기",
+      "목표 만들기"
+    ],
+    "goalNavigation": "/ko/coach/goals?new=1",
+    "overflow": false
+  },
+  {
+    "name": "mobile-narrow",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "visibleAndClickable": [
+      "코스 만들기",
+      "세그먼트 만들기",
+      "이벤트 만들기",
+      "클럽 만들기",
+      "글쓰기",
+      "활동 가져오기",
+      "목표 만들기"
+    ],
+    "goalNavigation": "/ko/coach/goals?new=1",
+    "overflow": false
+  }
+]

@@ -70,14 +70,19 @@
     "community": "커뮤니티 가이드라인",
     "contact": "문의",
     "more": "더보기",
-    "collapse": "접기"
+    "collapse": "접기",
+    "appManual": "앱 설명서",
+    "webManual": "웹 설명서",
+    "aiPolicy": "AI 코치 정책",
+    "stravaTerms": "Strava 특약",
+    "calculator": "공개 계산기"
   },
   "nav": {
     "todayTraining": "오늘 운동",
     "analysis": "분석",
     "fitness": "컨디션",
     "plan": "계획",
-    "log": "활동",
+    "log": "운동일지",
     "courses": "코스",
     "leaderboard": "리더보드",
     "events": "이벤트",
@@ -102,7 +107,9 @@
     "goals": "목표",
     "chat": "대화",
     "equipment": "장비",
-    "developerDocs": "개발자 문서"
+    "developerDocs": "개발자 문서",
+    "challenges": "챌린지",
+    "records": "기록"
   },
   "about": {
     "title": "라이더의 기록이 다음 선택으로 이어지도록",
@@ -296,5 +303,13 @@
     "confirmTitle": "확인",
     "promptTitle": "입력",
     "ok": "확인"
-  }
+  },
+  "nav.create": "+ 만들기",
+  "nav.create.course": "코스 만들기",
+  "nav.create.segment": "세그먼트 만들기",
+  "nav.create.event": "이벤트 만들기",
+  "nav.create.club": "클럽 만들기",
+  "nav.create.post": "글쓰기",
+  "nav.create.import": "활동 가져오기",
+  "nav.create.goal": "목표 만들기"
 }

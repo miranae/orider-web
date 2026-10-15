@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { Upload } from "lucide-react";
@@ -24,6 +25,8 @@ function formatDuration(ms: number): string {
 interface MobileLogPageProps {
   activities: Activity[];
   ftp?: number;
+  plannedDates?: string[];
+  plannedSports?: Record<string, "bike" | "run" | "swim">;
   year: number;
   month: number;
   onChangeMonth: (delta: number) => void;
@@ -55,11 +58,14 @@ function MobileLogSkeleton() {
   );
 }
 
-export default function MobileLogPage({ activities, year, month, onChangeMonth, loading = false, ftp }: MobileLogPageProps) {
+export default function MobileLogPage({ activities, year, month, onChangeMonth, loading = false, ftp, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
   const { t, i18n } = useTranslation("activity");
   const DAY_NAMES = (t("mobileLog.dayNames", { returnObjects: true }) as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const [tab, setTab] = useState<"month" | "activity">("month");
-  const [importOpen, setImportOpen] = useState(false);
+  const [importParams, setImportParams] = useSearchParams();
+  const [importOpen, setImportOpen] = useState(importParams.get("import") === "1");
+  useEffect(() => { if (importParams.get("import") === "1") setImportOpen(true); }, [importParams]);
+  const closeImport = () => { setImportOpen(false); const next = new URLSearchParams(importParams); next.delete("import"); setImportParams(next, { replace: true }); };
   const [sportFilter, setSportFilter] = useState("all");
   const [activityLimit, setActivityLimit] = useState(20);
   const [dayDetailActs, setDayDetailActs] = useState<Activity[] | null>(null);
@@ -187,7 +193,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{monthLabel}</span>
         </div>
         <div style={{ flex: 1 }} />
-        <button type="button" onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")}
+        <button data-testid="P1-0-2" type="button" onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")}
           style={{
             display: "flex", alignItems: "center", gap: 'var(--space-1)',
             padding: "5px 10px", background: "var(--bg-2)",
@@ -253,9 +259,9 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
           <div style={{ padding: 'var(--space-3) var(--space-4)' }}>
             <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)' }}>
               <div className="flex items-center gap-3">
-                <button type="button" aria-label={t("training:page.prevMonth")} onClick={() => onChangeMonth(-1)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>◀</button>
+                <button type="button" data-testid="P1-0-1" aria-label={t("training:page.prevMonth")} onClick={() => onChangeMonth(-1)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>◀</button>
                 <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{monthLabel}</span>
-                <button type="button" aria-label={t("training:page.nextMonth")} onClick={() => onChangeMonth(1)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>▶</button>
+                <button type="button" data-testid="P1-0-1" aria-label={t("training:page.nextMonth")} onClick={() => onChangeMonth(1)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>▶</button>
               </div>
             </div>
 
@@ -271,6 +277,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
                 const dayActs = actByDate.get(key) ?? [];
                 const isCurrentMonth = date.getUTCMonth() === month;
                 const isToday = key === todayKey;
+                const hasPlan = plannedDates.includes(key);
 
                 const sports = new Set(dayActs.map(a => getDiscipline(a.type)));
                 const dotColors: string[] = [];
@@ -279,13 +286,15 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
                 if (sports.has("swim")) dotColors.push(getDisciplineColor("swim"));
 
                 return (
-                  <button key={i} type="button" className="mobile-log__calendar-day" disabled={dayActs.length === 0}
+                  <button key={i} type="button" data-testid={hasPlan && dayActs.length === 0 ? "P1-2-2" : "P1-2-1"} className="mobile-log__calendar-day" disabled={dayActs.length === 0 && !hasPlan}
                     aria-label={dayActs.length > 0 ? t("mobileLog.dayActivitiesTitle", { month: date.getUTCMonth() + 1, day: date.getUTCDate(), count: dayActs.length }) : undefined}
                     onClick={() => {
                       if (dayActs.length === 1) {
                         navigate(`/activity/${dayActs[0]!.id}`);
                       } else if (dayActs.length > 1) {
                         setDayDetailActs(dayActs);
+                      } else if (hasPlan) {
+                        navigate(`/coach/plan?sport=${plannedSports[key] ?? (sportFilter === "run" || sportFilter === "swim" ? sportFilter : "bike")}&date=${key}`);
                       }
                     }}
                     style={{
@@ -300,6 +309,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
                       paddingBottom: dotColors.length > 0 ? 3 : 0,
                     }}>
                     {date.getUTCDate()}
+                    {hasPlan && <span style={{ color: "var(--ink-3)" }}>{t("training:log.planLabel")}</span>}
                     {dotColors.length > 0 ? (
                   <div style={{ display: "flex", gap: "var(--space-1)", justifyContent: "center", marginTop: 'var(--space-1)', alignItems: "center" }}>
                         {dotColors.map((c, idx) => (
@@ -396,7 +406,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
       )}
 
       <div style={{ height: 80 }} />
-      <ImportActivityModal open={importOpen} onClose={() => setImportOpen(false)} />
+      <ImportActivityModal open={importOpen} onClose={closeImport} />
 
       {/* 하루 여러 활동 바텀시트 */}
       {dayDetailActs && (

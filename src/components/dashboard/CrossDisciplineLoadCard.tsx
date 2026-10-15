@@ -43,7 +43,7 @@ export default function CrossDisciplineLoadCard({ fitness, discipline }: CrossDi
   if (mine.pct < 1) return null;
 
   return (
-    <Card>
+    <Card data-testid="H2-1-2">
       <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-3)" }}>
         {t("crossLoad.eyebrow")}
       </Text>

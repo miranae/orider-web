@@ -139,7 +139,7 @@ export default function FtpProgressionCard({
               delta: breakthrough.deltaW,
             })}
           </Text>
-          <LocalizedLink to="/settings/training" className={buttonClass({ variant: "primary", size: "sm" })}>
+          <LocalizedLink to="/coach/condition?sport=bike#thresholds" className={buttonClass({ variant: "primary", size: "sm" })}>
             {t("ftpProgression.reviewCta")}
           </LocalizedLink>
         </div>

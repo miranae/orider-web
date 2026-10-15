@@ -511,7 +511,7 @@ export default function EventEditPage() {
       : "var(--ink-3)";
 
   return (
-    <div style={{ paddingBottom: dirty ? 80 : 24 }}>
+    <div data-testid="O1-1" style={{ paddingBottom: dirty ? 80 : 24 }}>
       {/* 상단 */}
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6) var(--space-3)" }}>
         <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
