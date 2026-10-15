@@ -76,16 +76,29 @@ describe("fitnessSummaryCache", () => {
     expect(cache.readFitnessSummaryCache("u1")).toBeNull();
   });
 
-  it("60초나 서버 timezone의 자정이 지나면 stale, 24시간 뒤에는 만료된다", async () => {
+  it("180초나 서버 timezone의 자정이 지나면 stale, 24시간 뒤에는 만료된다", async () => {
     const { cache, owner } = await modules();
     owner.prepareTrainingSurfaceCacheOwner("u1");
     cache.writeFitnessSummaryCache("u1", envelope);
     vi.mocked(Date.now).mockReturnValue(now + 25_000);
     expect(cache.readFitnessSummaryCache("u1")?.fresh).toBe(false);
-    vi.mocked(Date.now).mockReturnValue(now + 65_000);
+    vi.mocked(Date.now).mockReturnValue(now + 185_000);
     expect(cache.readFitnessSummaryCache("u1")?.fresh).toBe(false);
     vi.mocked(Date.now).mockReturnValue(now + 24 * 60 * 60_000);
     expect(cache.readFitnessSummaryCache("u1")).toBeNull();
+  });
+
+
+  it("180초 직전까지 fresh이고 정확히 180초부터 stale이다", async () => {
+    const savedAt = now - 60 * 60_000;
+    vi.mocked(Date.now).mockReturnValue(savedAt);
+    const { cache, owner } = await modules();
+    owner.prepareTrainingSurfaceCacheOwner("u1");
+    cache.writeFitnessSummaryCache("u1", envelope);
+    vi.mocked(Date.now).mockReturnValue(savedAt + 179_999);
+    expect(cache.readFitnessSummaryCache("u1")?.fresh).toBe(true);
+    vi.mocked(Date.now).mockReturnValue(savedAt + 180_000);
+    expect(cache.readFitnessSummaryCache("u1")?.fresh).toBe(false);
   });
 
   it("failed/stale 응답은 이전 fresh cache를 무효화한다", async () => {

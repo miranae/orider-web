@@ -134,7 +134,7 @@ describe("useCanonicalFitnessSummary", () => {
     const first = renderHook(() => useCanonicalFitnessSummary());
     await waitFor(() => expect(first.result.current.values).toMatchObject(parsed));
     first.unmount();
-    clock.mockReturnValue(1_800_000_065_000);
+    clock.mockReturnValue(1_800_000_185_000);
     mocks.fetch.mockReturnValueOnce(new Promise(() => {}));
     const next = renderHook(() => useCanonicalFitnessSummary());
     expect(next.result.current.values).toMatchObject(parsed);
@@ -146,7 +146,7 @@ describe("useCanonicalFitnessSummary", () => {
     clock.mockRestore();
   });
 
-  it("fresh cache도 화면을 유지하면 남은 TTL 뒤 한 번 갱신한다", async () => {
+  it("fresh cache도 화면을 유지하면 180초 TTL 뒤 한 번 갱신한다", async () => {
     window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
     prepareTrainingSurfaceCacheOwner("u1");
     mocks.fetch.mockResolvedValue(envelope({ data: values }));
@@ -157,7 +157,7 @@ describe("useCanonicalFitnessSummary", () => {
     mocks.fetch.mockReturnValueOnce(new Promise(() => {}));
     const next = renderHook(() => useCanonicalFitnessSummary());
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
-    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(180_000); });
     expect(mocks.fetch).toHaveBeenCalledTimes(2);
     expect(next.result.current.freshLoaded).toBe(false);
     expect(next.result.current.display).toBe("value_with_stale_hint");

@@ -3,7 +3,7 @@ import type { CanonicalEnvelope } from "@shared/types/canonical";
 import { parseCanonicalFitnessSummary } from "../services/canonicalApi";
 import { getTrainingSurfaceCache, removeTrainingSurfaceCache, setTrainingSurfaceCache, trainingSurfaceCacheScope } from "./trainingSurfaceCache";
 
-const FRESH_MS = 60_000;
+const FRESH_MS = 3 * 60_000;
 const RETAIN_MS = 24 * 60 * 60_000;
 const key = (uid: string) => ({ uid, surface: "fitness-summary" as const, sport: "all", locale: "canonical", range: "v1" });
 
