@@ -1,3 +1,4 @@
+import type { SufficiencySet } from "@shared/types/sufficiency";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import { matchesDiscipline } from "@shared/sport/discipline";
 import type { Discipline } from "../../utils/disciplineFilter";
@@ -28,6 +29,8 @@ export interface FitnessActivityWindowDocument {
   generation: number;
   updatedAt: number;
   truncated: boolean;
+  sufficiency?: SufficiencySet;
+  sportContext?: { usedSports: Array<"bike" | "run" | "swim">; complete: boolean };
 }
 const DAY_MS = 86_400_000;
 const positive = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value > 0;

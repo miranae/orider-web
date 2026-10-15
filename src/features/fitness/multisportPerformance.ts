@@ -1,3 +1,4 @@
+import type { SufficiencyBlock } from "@shared/types/sufficiency";
 import type { Activity, UserFitness } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { PdcDoc } from "@shared/types/pdc";
@@ -226,8 +227,9 @@ function axisConfidence(evidenceCount: number, expected: number, activityCount: 
   return confidenceFromCoverage(evidenceCoverage * activityCoverage * 100);
 }
 
-export function computeCyclingAbility(pdc: PdcDoc | null | undefined): CyclingAbilityResult | null {
-  if (!hasDefinitiveRiderProfile(pdc)) return null;
+export function computeCyclingAbility(pdc: PdcDoc | null | undefined, ownerBlock?: SufficiencyBlock): CyclingAbilityResult | null {
+  if (!pdc) return null;
+  if (ownerBlock ? ownerBlock.state !== "open" && ownerBlock.state !== "low_evidence" : !hasDefinitiveRiderProfile(pdc)) return null;
   const mmpAll = pdc.mmpAll ?? {};
   const percentileByDuration = new Map(
     (pdc.ability?.byDuration ?? []).map((entry) => [entry.duration, entry.percentile]),

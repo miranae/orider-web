@@ -85,7 +85,7 @@ export interface SufficiencyBlock {
    * 값의 근거. `assumedInputs` 가 있으면 그 입력은 사용자가 정한 값이 아니다(기기 기본값 등) —
    * 결과는 체험용이며 「가정값」 칩과 입력 행동을 함께 보여야 한다.
    */
-  source: { basis: "measured" | "profile"; assumedInputs: string[] };
+  source: { basis: "measured" | "profile" | "estimated"; assumedInputs: string[] };
 }
 
 export interface SufficiencySet {
@@ -106,6 +106,7 @@ export interface SufficiencySet {
    * owner 가 기존 경계·기한으로 정할 수 없으면 null(시간 경과로 상태가 바뀌지 않음).
    */
   staleAfter: number | null;
+  nextUpdateAt?: number | null;
   /** 블록 내용의 결정적 digest. 같은 입력이면 같다(쓰기 생략·전이 판정에 쓴다). */
   digest: string;
   blocks: SufficiencyBlock[];
