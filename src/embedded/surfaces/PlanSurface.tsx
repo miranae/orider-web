@@ -34,22 +34,24 @@ export default function PlanSurface({
 }: PlanSurfaceProps) {
   const [searchParams] = useSearchParams();
   const { t } = useTranslation("training");
+  const { t: tCommon } = useTranslation("common");
   const model = usePlanModel(searchParams.get("sport"), active);
   const run30Enabled = model.discipline === "run";
-  const run30 = useRun30Program(run30Enabled);
+  const run30 = useRun30Program(run30Enabled, active);
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
   const settledKeys = useRef(new Set<string>());
   const startMode = useMemo<Run30StartMode>(() => scheduledRunStarter
     ? { kind: "host", starter: scheduledRunStarter }
     : { kind: "host-unsupported" }, [scheduledRunStarter]);
-  // 러닝은 Run30 조회가 끝나야 무엇을 보여 줄지 정해진다. 그 전에는 캐시 계획도 내보이지 않는다.
+  // Run30 성공 스냅샷(프로그램 부재 포함)이 있으면 네트워크 갱신을 기다리지 않는다.
   const run30Settled = !run30Enabled || run30.status === "ready" || run30.status === "error";
   const run30Program = run30Enabled && run30.status === "ready" ? run30.program : null;
   const run30Failed = run30Enabled && run30.status === "error";
+  const canShowPlanCache = model.cacheHit && model.goal !== null;
 
   useEffect(() => {
-    if (!run30Settled) return;
-    if (model.cacheHit && !run30Failed) {
+    if (!run30Settled && !canShowPlanCache) return;
+    if ((model.cacheHit || run30.cacheHit) && !run30Failed) {
       const key = `${retryKey}:cached`;
       if (!settledKeys.current.has(key)) {
         settledKeys.current.add(key);
@@ -57,7 +59,7 @@ export default function PlanSurface({
       }
     }
     // 프로그램이 있으면 일반 계획 로딩과 무관하게 화면이 완성된다.
-    const planSettled = run30Program !== null || (model.freshLoaded && !model.loading);
+    const planSettled = run30Program !== null ? !run30.cacheHit : (model.freshLoaded && !model.loading && !run30.cacheHit);
     if (!planSettled) return;
     const status = run30Failed || (run30Program === null && model.loadError) ? "error" : "fresh";
     const key = `${retryKey}:${status}`;
@@ -65,12 +67,14 @@ export default function PlanSurface({
     settledKeys.current.add(key);
     onReady(status);
   }, [
+    canShowPlanCache,
     model.cacheHit,
     model.freshLoaded,
     model.loadError,
     model.loading,
     onReady,
     retryKey,
+    run30.cacheHit,
     run30Failed,
     run30Program,
     run30Settled,
@@ -84,8 +88,8 @@ export default function PlanSurface({
   useEffect(() => {
     if (refreshedKey.current === backgroundRefreshKey) return;
     refreshedKey.current = backgroundRefreshKey;
-    if (run30Enabled) void refreshRun30();
-    refreshPlanWeeks().catch((error: unknown) => {
+    if (run30Enabled) void refreshRun30(false);
+    refreshPlanWeeks(false).catch((error: unknown) => {
       logClientError("embedded.plan.backgroundRefresh", error, { discipline: model.discipline });
     });
   }, [backgroundRefreshKey, model.discipline, refreshPlanWeeks, refreshRun30, run30Enabled]);
@@ -100,20 +104,24 @@ export default function PlanSurface({
     model.retryLoad();
   }, [model, run30]);
 
+  const cachedNotice = (run30.cacheHit || (model.cacheHit && !model.freshLoaded))
+    ? <p role="status" className="orider-embedded-page-title">{tCommon("embeddedStatus.cached")}</p> : null;
+
   if (run30Program) {
     return (
       <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
+        {cachedNotice}
         <Run30ProgramView
           api={run30.api}
           program={run30Program}
-          onRefresh={run30.refresh}
+          onRefresh={refreshAll}
           startMode={startMode}
         />
       </main>
     );
   }
 
-  if (model.goalLoading || !run30Settled) {
+  if ((model.goalLoading || !run30Settled) && !canShowPlanCache) {
     return (
       <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
         <section className="orider-embedded-plan-state" aria-label={t("goal")}>
@@ -137,6 +145,7 @@ export default function PlanSurface({
   if (run30Enabled && (!model.goal || model.goal.discipline !== "run")) {
     return (
       <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
+        {cachedNotice}
         <h1 className="orider-embedded-page-title">{t("page.embeddedTitle")}</h1>
         <Run30EnrollCard api={run30.api} variant="intro" onEnrolled={refreshAll} />
       </main>
@@ -170,12 +179,13 @@ export default function PlanSurface({
   }
 
   // 다른 러닝 목표가 활성이면 기존 계획을 유지하고 입문 프로그램 전환만 제안한다.
-  const run30Offer = run30Enabled && model.goal?.discipline === "run" && !model.goal.runProgram
+  const run30Offer = run30Enabled && run30Settled && model.goal?.discipline === "run" && !model.goal.runProgram
     ? <Run30EnrollCard api={run30.api} variant="offer" onEnrolled={refreshAll} />
     : undefined;
 
   return (
     <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
+      {cachedNotice}
       <PlanPresentation
         model={model}
         embedded

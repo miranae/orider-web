@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   collection,
@@ -22,7 +22,10 @@ import {
   getTrainingSurfaceCache,
   prepareTrainingSurfaceCacheOwner,
   setTrainingSurfaceCache,
+  trainingSurfaceCacheScope,
 } from "../embedded/trainingSurfaceCache";
+
+import { invalidatePlanSnapshot, planSnapshotKey, readPlanSnapshot, writePlanSnapshot, type PlanSnapshot } from "../embedded/planSnapshotCache";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -62,7 +65,7 @@ export interface PlanModel {
   weeksLeft: number;
   isTodayCell: (day: PlanDay) => boolean;
   retryLoad: () => void;
-  refreshPlanWeeks: () => Promise<void>;
+  refreshPlanWeeks: (force?: boolean) => Promise<void>;
   cacheHit: boolean;
   freshLoaded: boolean;
 }
@@ -78,11 +81,14 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
     if (!user || !prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true)) {
       return null;
     }
+    const snapshot = readPlanSnapshot<PlanSnapshot>(planSnapshotKey(user.uid, discipline, locale));
+    if (snapshot) return snapshot.data;
     return getTrainingSurfaceCache<{ goal: Goal | null; weeks: PlanWeek[] }>({
       uid: user.uid, surface: "plan", sport: discipline, locale,
     });
   });
-  const modelKey = user ? `${user.uid}\u0000${discipline}\u0000${locale}` : null;
+  const scope = trainingSurfaceCacheScope();
+  const modelKey = user ? `${user.uid}\u0000${discipline}\u0000${locale}\u0000${scope ?? ""}\u0000${user.isAnonymous === true}` : null;
   const [dataKey, setDataKey] = useState(modelKey);
   const [goalState, setGoal] = useState<Goal | null>(initialCache?.goal ?? null);
   const [weeksState, setWeeks] = useState<PlanWeek[]>(initialCache?.weeks ?? []);
@@ -93,6 +99,7 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
   const [goalError, setGoalError] = useState<unknown>(null);
   const [planError, setPlanError] = useState<unknown>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const handledReloadKey = useRef(0);
   const stateMatchesKey = dataKey === modelKey;
   const goal = stateMatchesKey ? goalState : null;
   const weeks = stateMatchesKey ? weeksState : [];
@@ -103,10 +110,11 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
   const scopedGoalError = stateMatchesKey ? goalError : null;
   const scopedPlanError = stateMatchesKey ? planError : null;
   const refreshContextKey = `${modelKey ?? "signed-out"}\u0000${goal?.id ?? "no-goal"}`;
-  const refreshGenerationRef = useRef({ key: refreshContextKey, value: 0 });
-  if (refreshGenerationRef.current.key !== refreshContextKey) {
+  const refreshGenerationRef = useRef({ key: refreshContextKey, goal, value: 0 });
+  if (refreshGenerationRef.current.key !== refreshContextKey || refreshGenerationRef.current.goal !== goal) {
     refreshGenerationRef.current = {
       key: refreshContextKey,
+      goal,
       value: refreshGenerationRef.current.value + 1,
     };
   }
@@ -115,6 +123,10 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
   const currentTsb = legacyRecoveryEnabled ? projectionTsb : null;
 
   useEffect(() => {
+    // 새 전체 조회가 시작되면 이전 목표를 캡처한 주차 갱신은 더 이상 정본을 쓸 수 없다.
+    refreshGenerationRef.current.value += 1;
+    const forced = handledReloadKey.current !== reloadKey;
+    handledReloadKey.current = reloadKey;
     if (!user) {
       clearTrainingSurfaceCache();
       setDataKey(null);
@@ -132,9 +144,11 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
     let cancelled = false;
     const cacheKey = { uid: user.uid, surface: "plan" as const, sport: discipline, locale };
     const cacheEnabled = prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true);
-    const cached = cacheEnabled
+    const snapshotKey = planSnapshotKey(user.uid, discipline, locale);
+    const snapshot = cacheEnabled ? readPlanSnapshot<PlanSnapshot>(snapshotKey) : null;
+    const cached = snapshot?.data ?? (cacheEnabled
       ? getTrainingSurfaceCache<{ goal: Goal | null; weeks: PlanWeek[] }>(cacheKey)
-      : null;
+      : null);
     const load = async () => {
       setDataKey(modelKey);
       setGoal(cached?.goal ?? null);
@@ -142,9 +156,11 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
       setGoalLoading(cached === null);
       setPlanLoading(cached === null);
       setCacheHit(cached !== null);
-      setFreshLoaded(false);
+      setFreshLoaded(snapshot?.fresh === true && !forced);
       setGoalError(null);
       setPlanError(null);
+      if (snapshot?.fresh && !forced) return;
+      if (forced) invalidatePlanSnapshot(snapshotKey);
       try {
         let snap = await getDocs(
           query(
@@ -173,7 +189,10 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
           setGoalLoading(false);
           setPlanLoading(false);
           setFreshLoaded(true);
-          if (cacheEnabled) setTrainingSurfaceCache(cacheKey, { goal: null, weeks: [] });
+          if (cacheEnabled) {
+            setTrainingSurfaceCache(cacheKey, { goal: null, weeks: [] });
+            writePlanSnapshot(snapshotKey, { goal: null, weeks: [] });
+          }
           return;
         }
 
@@ -193,7 +212,10 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
           setGoalLoading(false);
           setPlanLoading(false);
           setFreshLoaded(true);
-          if (cacheEnabled) setTrainingSurfaceCache(cacheKey, { goal: nextGoal, weeks: nextWeeks });
+          if (cacheEnabled) {
+            setTrainingSurfaceCache(cacheKey, { goal: nextGoal, weeks: nextWeeks });
+            writePlanSnapshot(snapshotKey, { goal: nextGoal, weeks: nextWeeks });
+          }
         } catch (error) {
           if (cancelled) return;
           if (cached === null) {
@@ -224,10 +246,19 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
     void load();
     return () => {
       cancelled = true;
+      refreshGenerationRef.current.value += 1;
     };
   }, [discipline, firestore, locale, modelKey, reloadKey, user]);
 
-  const todayMs = useMemo(() => planDayStartMs(Date.now()), []);
+  useEffect(() => {
+    if (!active || !user) return;
+    const cached = readPlanSnapshot(planSnapshotKey(user.uid, discipline, locale));
+    if (!cached?.fresh) return;
+    const timer = setTimeout(() => setReloadKey(key => key + 1), Math.max(0, cached.freshUntil - Date.now()));
+    return () => clearTimeout(timer);
+  }, [active, discipline, freshLoaded, locale, modelKey, reloadKey, user, weeksState]);
+
+  const todayMs = planDayStartMs(Date.now());
   const goalDate = goal ? new Date(goal.eventDate) : null;
   const daysLeft = goalDate
     ? Math.max(0, Math.round((goalDate.getTime() - todayMs) / DAY_MS))
@@ -247,8 +278,21 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
     setReloadKey((key) => key + 1);
   }, []);
 
-  const refreshPlanWeeks = useCallback(async () => {
-    if (!goal || !user) return;
+  const refreshPlanWeeks = useCallback(async (force = true) => {
+    if (!user) return;
+    const snapshotKey = planSnapshotKey(user.uid, discipline, locale);
+    if (!force) {
+      if (readPlanSnapshot(snapshotKey)?.fresh) return;
+      // 복귀 시 목표 제목·날짜·활성 상태와 목표 교체/신규 생성도 함께 확인한다.
+      refreshGenerationRef.current.value += 1;
+      setReloadKey(key => key + 1);
+      return;
+    }
+    if (!goal || refreshGenerationRef.current.goal !== goal) return;
+    const snapshot = scope ? readPlanSnapshot<PlanSnapshot>(snapshotKey) : null;
+    invalidatePlanSnapshot(snapshotKey);
+    setCacheHit(true);
+    setFreshLoaded(false);
     const contextKey = refreshGenerationRef.current.key;
     const generation = ++refreshGenerationRef.current.value;
     const cacheEnabled = prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true);
@@ -262,11 +306,18 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
         || refreshGenerationRef.current.value !== generation) return;
     const nextWeeks = planSnap.docs.map((item) => ({ id: item.id, ...item.data() }) as PlanWeek);
     setWeeks(nextWeeks);
+    setCacheHit(scope !== null);
     const cacheKey = { uid: user.uid, surface: "plan" as const, sport: discipline, locale };
     if (cacheEnabled) {
       setTrainingSurfaceCache(cacheKey, { goal, weeks: nextWeeks });
+      // 주차만 조회해서는 캡처한 목표의 신선도를 연장할 수 없다.
+      if (snapshot) setTrainingSurfaceCache(snapshotKey, {
+        data: { goal, weeks: nextWeeks }, savedAt: snapshot.savedAt,
+        timezone: snapshot.timezone, invalidated: snapshot.invalidated,
+      });
     }
-  }, [discipline, firestore, goal, locale, user]);
+    setFreshLoaded(scope === null || readPlanSnapshot(snapshotKey)?.fresh === true);
+  }, [discipline, firestore, goal, locale, scope, user]);
 
   return {
     user,
