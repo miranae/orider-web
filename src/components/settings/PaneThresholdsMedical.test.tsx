@@ -5,15 +5,16 @@ import { PaneMedical } from "./PaneMedical";
 
 const mocks = vi.hoisted(() => ({
   profile: { ftp: 250, maxHr: 190, lthr: 165 } as Record<string, unknown>,
-  getDoc: vi.fn(), updateDoc: vi.fn(), setDoc: vi.fn(), persist: vi.fn(), toast: vi.fn(),
+  metricCommand: vi.fn(), syncDevices: vi.fn(), getDoc: vi.fn(), updateDoc: vi.fn(), setDoc: vi.fn(), persist: vi.fn(), toast: vi.fn(),
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("firebase/firestore", () => ({ doc: (_db: unknown, ...parts: string[]) => parts.join("/"),
   getDoc: (...args: unknown[]) => mocks.getDoc(...args), updateDoc: (...args: unknown[]) => mocks.updateDoc(...args),
   setDoc: (...args: unknown[]) => mocks.setDoc(...args) }));
-vi.mock("../../services/firebase", () => ({ firestore: {} }));
+vi.mock("../../services/firebase", () => ({ firestore: {}, functions: {} }));
+vi.mock("firebase/functions", () => ({ httpsCallable: () => mocks.metricCommand }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
-vi.mock("../../services/syncRiderMetrics", () => ({ persistRiderMetrics: (...args: unknown[]) => mocks.persist(...args), syncRiderWeightToBikeProfiles: vi.fn() }));
+vi.mock("../../services/syncRiderMetrics", () => ({ persistRiderMetrics: (...args: unknown[]) => mocks.persist(...args), syncRiderWeightToBikeProfiles: vi.fn(), syncRiderMetricsToDevices: (...args: unknown[]) => mocks.syncDevices(...args) }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "u1" }, profile: mocks.profile }) }));
 vi.mock("../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: "metric" }) }));
 vi.mock("../../contexts/ToastContext", () => ({ useToast: () => ({ showToast: mocks.toast }) }));
@@ -27,6 +28,8 @@ beforeEach(() => {
   mocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ ftp: 250, maxHr: 190, lthr: 165, weightKg: 70, bloodType: "A+", medications: "old", emergencyContact: { name: "Incomplete", phone: "" } }) });
   mocks.updateDoc.mockResolvedValue(undefined); mocks.setDoc.mockResolvedValue(undefined);
   mocks.persist.mockResolvedValue({ failures: [] });
+  mocks.metricCommand.mockResolvedValue({ data: { revision: "confirmed-r1" } });
+  mocks.syncDevices.mockResolvedValue({ failures: [] });
 });
 afterEach(cleanup);
 
@@ -110,4 +113,43 @@ describe("separate threshold and private medical writes", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "training.btnSave" })[1]);
     await waitFor(() => expect(mocks.setDoc).toHaveBeenCalledWith("users/u1/private/medical", { emergencyContact: { name: "Incomplete", phone: "01012345678" } }, { merge: true }));
   });
+});
+
+ it("confirms the unchanged 70kg through the revision command without an automatic write on open", async () => {
+   render(<PaneThresholds />);
+   await waitFor(() => expect(screen.getByRole("button", { name: "training.confirmWeight" })).toBeEnabled());
+   expect(mocks.metricCommand).not.toHaveBeenCalled();
+   fireEvent.click(screen.getByRole("button", { name: "training.confirmWeight" }));
+   await waitFor(() => expect(mocks.metricCommand).toHaveBeenCalledWith({ mutationId: expect.any(String), patch: { weightKg: 70 },
+     expectedRevisions: { weightKg: null, thresholdPace: null, css: null } }));
+   await waitFor(() => expect(screen.queryByRole("button", { name: "training.confirmWeight" })).not.toBeInTheDocument());
+   expect(mocks.updateDoc).not.toHaveBeenCalled();
+ });
+
+it.each([
+  { field: "ftp", value: 200, label: /FTP.*training.fieldFtpHint/ },
+  { field: "thresholdPace", value: 275, label: /training.fieldThresholdPace/ },
+  { field: "css", value: 108, label: /^CSS/ },
+])("명시 확인은 같은 $field 기본값도 저장하며 폼을 열기만 해서는 확인하지 않는다", async ({ field, value, label }) => {
+  mocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({
+    ftp: 250, maxHr: 190, lthr: 165, weightKg: 68, thresholdPace: 260, css: 100, [field]: value,
+  }) });
+  render(<PaneThresholds />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "training.confirmThreshold" })).toBeEnabled());
+  expect(screen.getByLabelText(label)).toBeInTheDocument();
+  expect(mocks.persist).not.toHaveBeenCalled();
+  expect(mocks.metricCommand).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "training.confirmThreshold" }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "training.confirmThreshold" })).toBeNull());
+  if (field === "ftp") {
+    expect(mocks.persist).toHaveBeenCalledWith("u1", { ftp: 200, maxHr: undefined, weightKg: undefined }, expect.any(Object));
+    expect(mocks.metricCommand).not.toHaveBeenCalled();
+  } else {
+    expect(mocks.metricCommand).toHaveBeenCalledWith({ mutationId: expect.any(String), patch: { [field]: value },
+      expectedRevisions: { weightKg: null, thresholdPace: null, css: null } });
+    expect(mocks.persist).not.toHaveBeenCalled();
+  }
+  fireEvent.click(screen.getByRole("button", { name: "training.btnSave" }));
+  expect(field === "ftp" ? mocks.persist : mocks.metricCommand).toHaveBeenCalledTimes(1);
+  expect(mocks.updateDoc).not.toHaveBeenCalled();
 });

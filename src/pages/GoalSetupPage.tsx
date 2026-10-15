@@ -1,3 +1,5 @@
+import { useGoalFitnessInputs } from "../hooks/useGoalFitnessInputs";
+import { GoalInputNotice } from "../components/training/GoalInputNotice";
 import GoalHub from "./GoalHub";
 import { normalizePlanSport } from "../hooks/usePlanModel";
 import { goalCreatedPath } from "../utils/internalReturnPath";
@@ -427,7 +429,7 @@ export default function GoalSetupPage() {
 function GoalWizard() {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
-  const { profile, user, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const discipline = normalizePlanSport(searchParams.get("sport"));
@@ -443,8 +445,9 @@ function GoalWizard() {
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const userFtp: number = profile?.ftp ?? 200;
-  const userWeightKg: number = profile?.weightKg ?? 70;
+  const inputs = useGoalFitnessInputs();
+  const userFtp = inputs.ftp;
+  const userWeightKg = inputs.weightKg;
 
   // 현재 TSB 로드 (fitness/projection 첫 series의 tsb, 없으면 null) — feasibility에 피로도 반영
   const [userTsb, setUserTsb] = useState<number | null>(null);
@@ -593,7 +596,7 @@ function GoalWizard() {
             />
           )}
           {step === 3 && selectedCourse && (
-            <div data-testid="K3-3-6"><PlanPreviewStep
+            <div data-testid="K3-3-6"><GoalInputNotice assumed={inputs.ftpSource === "assumed" || inputs.weightSource === "assumed"} estimated={inputs.ftpSource === "pdc_estimate"} /><PlanPreviewStep
               goal={{
                 courseName: selectedCourse.name,
                 courseDist: selectedCourse.dist,
@@ -608,6 +611,7 @@ function GoalWizard() {
             /></div>
           )}
 
+          {step === 2 && <GoalInputNotice assumed={inputs.ftpSource === "assumed" || inputs.weightSource === "assumed"} estimated={inputs.ftpSource === "pdc_estimate"} />}
           {/* 오류 메시지 */}
           {createError && (
             <div data-testid="K3-3-8"
