@@ -1,12 +1,13 @@
 export const TRAINING_SURFACE_CACHE_SCHEMA_VERSION = 2;
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
+const SUMMARY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 12;
 const CACHE_MAX_BYTES = 512 * 1024;
 const STORAGE_PREFIX = "orider.trainingSurfaceCache.";
 const STORAGE_KEY = `${STORAGE_PREFIX}v2`;
 
-export type TrainingCacheSurface = "fitness" | "fitness-timeseries" | "plan";
+export type TrainingCacheSurface = "fitness" | "fitness-timeseries" | "fitness-summary" | "plan";
 
 export interface TrainingSurfaceCacheKey {
   uid: string;
@@ -14,6 +15,10 @@ export interface TrainingSurfaceCacheKey {
   sport: string;
   locale: string;
   range?: string | number;
+}
+
+function cacheTtl(surface: TrainingCacheSurface): number {
+  return surface === "fitness-summary" ? SUMMARY_CACHE_TTL_MS : CACHE_TTL_MS;
 }
 
 interface CacheEntry {
@@ -26,7 +31,7 @@ declare global {
   interface Window { __ORIDER_TRAINING_CACHE_SCOPE__?: string }
 }
 
-function persistentScope(): string | null {
+export function trainingSurfaceCacheScope(): string | null {
   const scope = typeof window === "undefined" ? undefined : window.__ORIDER_TRAINING_CACHE_SCOPE__;
   return typeof scope === "string" && /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{64})$/i.test(scope) ? scope : null;
 }
@@ -49,7 +54,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function validKey(value: unknown, uid: string): value is TrainingSurfaceCacheKey {
   if (!isRecord(value) || value.uid !== uid) return false;
-  return ["fitness", "fitness-timeseries", "plan"].includes(String(value.surface))
+  return ["fitness", "fitness-timeseries", "fitness-summary", "plan"].includes(String(value.surface))
     && typeof value.sport === "string" && value.sport.length > 0 && value.sport.length <= 64
     && typeof value.locale === "string" && value.locale.length > 0 && value.locale.length <= 64
     && (value.range === undefined || (typeof value.range === "string" && value.range.length <= 64)
@@ -71,6 +76,11 @@ function validJson(value: unknown, depth = 0): boolean {
 
 function validSnapshot(surface: TrainingCacheSurface, value: unknown, uid: string): boolean {
   if (!isRecord(value) || !validJson(value)) return false;
+  if (surface === "fitness-summary") {
+    return Object.keys(value).length === 2 && isRecord(value.envelope)
+      && value.envelope.status === "canonical" && isRecord(value.envelope.data)
+      && typeof value.savedAt === "number" && Number.isFinite(value.savedAt);
+  }
   if (surface === "fitness") {
     return Object.keys(value).length === 1 && Array.isArray(value.activities)
       && value.activities.every((activity) => isRecord(activity) && typeof activity.id === "string"
@@ -113,7 +123,7 @@ function purgeDisk(): void {
 }
 
 function persist(): void {
-  const scope = persistentScope();
+  const scope = trainingSurfaceCacheScope();
   if (!ownerUid || !scope) return;
   try {
     const snapshots = [...entries.values()].filter((entry) =>
@@ -132,7 +142,7 @@ function persist(): void {
 }
 
 function restore(uid: string): void {
-  const scope = persistentScope();
+  const scope = trainingSurfaceCacheScope();
   if (!scope) return;
   try {
     const encoded = storage()?.getItem(STORAGE_KEY);
@@ -150,7 +160,7 @@ function restore(uid: string): void {
     const now = Date.now();
     for (const entry of envelope.entries) {
       if (!isRecord(entry) || !validKey(entry.key, uid) || typeof entry.expiresAt !== "number"
-        || !Number.isFinite(entry.expiresAt) || entry.expiresAt <= now || entry.expiresAt > now + CACHE_TTL_MS
+        || !Number.isFinite(entry.expiresAt) || entry.expiresAt <= now || entry.expiresAt > now + cacheTtl(entry.key.surface)
         || !validSnapshot(entry.key.surface, entry.value, uid)) continue;
       entries.set(serializeKey(entry.key), entry as unknown as CacheEntry);
     }
@@ -166,7 +176,7 @@ export function prepareTrainingSurfaceCacheOwner(uid: string | null, anonymous =
     clearTrainingSurfaceCache();
     return false;
   }
-  const scope = persistentScope();
+  const scope = trainingSurfaceCacheScope();
   if (ownerUid === uid && ownerScope === scope) return true;
   if (ownerUid !== null) clearTrainingSurfaceCache();
   ownerUid = uid;
@@ -176,7 +186,7 @@ export function prepareTrainingSurfaceCacheOwner(uid: string | null, anonymous =
 }
 
 export function getTrainingSurfaceCache<T>(key: TrainingSurfaceCacheKey): T | null {
-  if (ownerUid !== key.uid || ownerScope !== persistentScope()) return null;
+  if (ownerUid !== key.uid || ownerScope !== trainingSurfaceCacheScope()) return null;
   const serialized = serializeKey(key);
   const entry = entries.get(serialized);
   if (!entry) return null;
@@ -191,7 +201,7 @@ export function getTrainingSurfaceCache<T>(key: TrainingSurfaceCacheKey): T | nu
 }
 
 export function setTrainingSurfaceCache<T>(key: TrainingSurfaceCacheKey, value: T): void {
-  if (ownerUid !== key.uid || ownerScope !== persistentScope() || !validKey(key, ownerUid)) return;
+  if (ownerUid !== key.uid || ownerScope !== trainingSurfaceCacheScope() || !validKey(key, ownerUid)) return;
   let detached: T;
   try {
     const encoded = JSON.stringify(value);
@@ -200,12 +210,18 @@ export function setTrainingSurfaceCache<T>(key: TrainingSurfaceCacheKey, value: 
   } catch { return; }
   const serialized = serializeKey(key);
   entries.delete(serialized);
-  entries.set(serialized, { key: { ...key }, expiresAt: Date.now() + CACHE_TTL_MS, value: detached });
+  entries.set(serialized, { key: { ...key }, expiresAt: Date.now() + cacheTtl(key.surface), value: detached });
   while (entries.size > CACHE_MAX_ENTRIES) {
     const oldest = entries.keys().next().value as string | undefined;
     if (oldest === undefined) break;
     entries.delete(oldest);
   }
+  persist();
+}
+
+export function removeTrainingSurfaceCache(key: TrainingSurfaceCacheKey): void {
+  if (ownerUid !== key.uid || ownerScope !== trainingSurfaceCacheScope()) return;
+  entries.delete(serializeKey(key));
   persist();
 }
 

@@ -50,8 +50,11 @@ describe("embedded Fitness and Plan sharing boundaries", () => {
     const bootstrap = read("src/embedded/EmbeddedBootstrapRoot.tsx");
 
     expect(bootstrap).toContain('lazy(() => import("./surfaces/ActivityAnalysisSurface"))');
-    expect(bootstrap).toContain('lazy(() => import("./surfaces/FitnessSurface"))');
-    expect(bootstrap).toContain('lazy(() => import("./surfaces/PlanSurface"))');
+    for (const surface of ["Fitness", "Plan"]) {
+      expect(bootstrap).toContain(`const load${surface}Surface = () => import("./surfaces/${surface}Surface");`);
+      expect(bootstrap).toContain(`const ${surface}Surface = lazy(load${surface}Surface);`);
+    }
+    expect(bootstrap).not.toMatch(/import\s+(?:[^;]*?\s+from\s+)?["']\.\/surfaces\/(?:ActivityAnalysis|Fitness|Plan)Surface["']/);
   });
 
   it("never exposes the FTP accept action on the embedded surface", () => {
