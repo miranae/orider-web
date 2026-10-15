@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => {
     surfaceHookMounts: vi.fn(),
     fitnessSurfaceMounts: vi.fn(),
     planSurfaceMounts: vi.fn(),
+    surfaceModuleLoads: vi.fn(),
     /** 실제 마운트/언마운트(렌더 횟수가 아니라 effect 기준). */
     surfaceLifecycle: vi.fn(),
     planRunStarter: undefined as unknown,
@@ -120,38 +121,44 @@ vi.mock("./surfaces/ActivityAnalysisSurface", () => ({
   },
 }));
 
-vi.mock("./surfaces/FitnessSurface", () => ({
-  default: function MockFitnessSurface({ onReady, active }: {
-    active?: boolean;
-    onReady: (status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void;
-  }) {
-    mocks.fitnessSurfaceMounts();
-    mocks.surfaceReadyCallbacks.fitness = onReady;
-    useEffect(() => {
-      mocks.surfaceLifecycle("fitness", "mount");
-      return () => mocks.surfaceLifecycle("fitness", "unmount");
-    }, []);
-    return <div data-testid="fitness-surface" data-active={String(active)} />;
-  },
-}));
+vi.mock("./surfaces/FitnessSurface", () => {
+  mocks.surfaceModuleLoads("fitness");
+  return {
+    default: function MockFitnessSurface({ onReady, active }: {
+      active?: boolean;
+      onReady: (status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void;
+    }) {
+      mocks.fitnessSurfaceMounts();
+      mocks.surfaceReadyCallbacks.fitness = onReady;
+      useEffect(() => {
+        mocks.surfaceLifecycle("fitness", "mount");
+        return () => mocks.surfaceLifecycle("fitness", "unmount");
+      }, []);
+      return <div data-testid="fitness-surface" data-active={String(active)} />;
+    },
+  };
+});
 
-vi.mock("./surfaces/PlanSurface", () => ({
-  default: function MockPlanSurface({ onReady, scheduledRunStarter, backgroundRefreshKey }: {
-    onReady: (status?: "cached" | "fresh" | "error") => void;
-    scheduledRunStarter?: unknown;
-    backgroundRefreshKey?: number;
-  }) {
-    mocks.planSurfaceMounts();
-    mocks.planBackgroundRefreshKeys.push(backgroundRefreshKey);
-    mocks.planRunStarter = scheduledRunStarter;
-    mocks.surfaceReadyCallbacks.plan = onReady;
-    useEffect(() => {
-      mocks.surfaceLifecycle("plan", "mount");
-      return () => mocks.surfaceLifecycle("plan", "unmount");
-    }, []);
-    return <div data-testid="plan-surface" />;
-  },
-}));
+vi.mock("./surfaces/PlanSurface", () => {
+  mocks.surfaceModuleLoads("plan");
+  return {
+    default: function MockPlanSurface({ onReady, scheduledRunStarter, backgroundRefreshKey }: {
+      onReady: (status?: "cached" | "fresh" | "error") => void;
+      scheduledRunStarter?: unknown;
+      backgroundRefreshKey?: number;
+    }) {
+      mocks.planSurfaceMounts();
+      mocks.planBackgroundRefreshKeys.push(backgroundRefreshKey);
+      mocks.planRunStarter = scheduledRunStarter;
+      mocks.surfaceReadyCallbacks.plan = onReady;
+      useEffect(() => {
+        mocks.surfaceLifecycle("plan", "mount");
+        return () => mocks.surfaceLifecycle("plan", "unmount");
+      }, []);
+      return <div data-testid="plan-surface" />;
+    },
+  };
+});
 
 import EmbeddedBootstrapRoot, { type EmbeddedSurfaceKind } from "./EmbeddedBootstrapRoot";
 
@@ -243,6 +250,21 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     mocks.planBackgroundRefreshKeys.length = 0;
     vi.mocked(onSnapshot).mockClear();
   });
+
+  it.each(["fitness", "plan"] as const)(
+    "preloads the %s module before authorization without mounting data subscriptions",
+    async (surfaceKind) => {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge, `/ko/embed/${surfaceKind}`, surfaceKind);
+
+      await waitFor(() => expect(mocks.surfaceModuleLoads).toHaveBeenCalledWith(surfaceKind));
+      expect(mocks.consumeHandoff).not.toHaveBeenCalled();
+      expect(onSnapshot).not.toHaveBeenCalled();
+      expect(mocks.queryProviderMounts).not.toHaveBeenCalled();
+      expect(mocks.fitnessSurfaceMounts).not.toHaveBeenCalled();
+      expect(mocks.planSurfaceMounts).not.toHaveBeenCalled();
+    },
+  );
 
   it("초기 인증 null은 디스크를 보존하고 실제 승인 후에만 복원한다", async () => {
     const scope = "12345678-1234-1234-1234-123456789abc";

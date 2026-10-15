@@ -31,6 +31,7 @@ vi.mock("./useCanonicalRollout", () => ({
 }));
 
 import { useCanonicalFitnessSummary } from "./useCanonicalFitnessSummary";
+import { clearTrainingSurfaceCache, prepareTrainingSurfaceCacheOwner } from "../embedded/trainingSurfaceCache";
 
 function envelope(over: Partial<CanonicalEnvelope<unknown>>): CanonicalEnvelope<unknown> {
   return {
@@ -70,10 +71,100 @@ const parsed = { ctl: 42.5, atl: 30.25, tsb: 12.25 };
 describe("useCanonicalFitnessSummary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearTrainingSurfaceCache();
+    delete window.__ORIDER_TRAINING_CACHE_SCOPE__;
     mocks.enabled.mockReturnValue(true);
     mocks.rolloutAllows.mockReturnValue(true);
     mocks.rolloutLoading = false;
     mocks.user = { uid: "u1" };
+  });
+
+
+
+  it("저장 캐시가 있어도 판정 pending/off 및 변경된 scope에서는 숨긴다", async () => {
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
+    prepareTrainingSurfaceCacheOwner("u1");
+    mocks.fetch.mockResolvedValueOnce(envelope({ data: values }));
+    const first = renderHook(() => useCanonicalFitnessSummary());
+    await waitFor(() => expect(first.result.current.values).toMatchObject(parsed));
+    first.unmount();
+    mocks.rolloutLoading = true;
+    const next = renderHook(() => useCanonicalFitnessSummary());
+    expect(next.result.current.rolloutState).toBe("pending");
+    expect(next.result.current.values).toBeNull();
+    mocks.rolloutLoading = false;
+    mocks.rolloutAllows.mockReturnValue(false);
+    next.rerender();
+    expect(next.result.current.values).toBeNull();
+    mocks.rolloutAllows.mockReturnValue(true);
+    next.rerender();
+    expect(next.result.current.values).toMatchObject(parsed);
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "abcdefab-1234-1234-1234-123456789abc";
+    mocks.fetch.mockReturnValueOnce(new Promise(() => {}));
+    next.rerender();
+    expect(next.result.current.values).toBeNull();
+    next.unmount();
+  });
+
+  it("유효한 host 캐시는 remount와 탭 복귀 REST를 생략하고 retry는 강제 조회한다", async () => {
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
+    prepareTrainingSurfaceCacheOwner("u1");
+    mocks.fetch.mockResolvedValue(envelope({ data: values }));
+    const first = renderHook(() => useCanonicalFitnessSummary("fitnessSummary"));
+    await waitFor(() => expect(first.result.current.values).toMatchObject(parsed));
+    first.unmount();
+    const next = renderHook(({ active }) => useCanonicalFitnessSummary("fitnessSummary", active), { initialProps: { active: true } });
+    expect(next.result.current.values).toMatchObject(parsed);
+    expect(next.result.current.cacheHit).toBe(true);
+    expect(next.result.current.freshLoaded).toBe(false);
+    next.rerender({ active: false });
+    next.rerender({ active: true });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    act(() => next.result.current.retry());
+    await waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(next.result.current.freshLoaded).toBe(true));
+    next.unmount();
+  });
+
+  it("오래된 cache는 즉시 stale 표식으로 표시하고 서버 갱신한다", async () => {
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
+    prepareTrainingSurfaceCacheOwner("u1");
+    const clock = vi.spyOn(Date, "now").mockReturnValue(1_800_000_000_000);
+    mocks.fetch.mockResolvedValueOnce(envelope({ data: values }));
+    const first = renderHook(() => useCanonicalFitnessSummary());
+    await waitFor(() => expect(first.result.current.values).toMatchObject(parsed));
+    first.unmount();
+    clock.mockReturnValue(1_800_000_065_000);
+    mocks.fetch.mockReturnValueOnce(new Promise(() => {}));
+    const next = renderHook(() => useCanonicalFitnessSummary());
+    expect(next.result.current.values).toMatchObject(parsed);
+    expect(next.result.current.display).toBe("value_with_stale_hint");
+    expect(next.result.current.showingLastGood).toBe(true);
+    expect(next.result.current.cacheHit).toBe(true);
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+    next.unmount();
+    clock.mockRestore();
+  });
+
+  it("fresh cache도 화면을 유지하면 남은 TTL 뒤 한 번 갱신한다", async () => {
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
+    prepareTrainingSurfaceCacheOwner("u1");
+    mocks.fetch.mockResolvedValue(envelope({ data: values }));
+    const first = renderHook(() => useCanonicalFitnessSummary());
+    await waitFor(() => expect(first.result.current.values).toMatchObject(parsed));
+    first.unmount();
+    vi.useFakeTimers();
+    mocks.fetch.mockReturnValueOnce(new Promise(() => {}));
+    const next = renderHook(() => useCanonicalFitnessSummary());
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+    expect(next.result.current.freshLoaded).toBe(false);
+    expect(next.result.current.display).toBe("value_with_stale_hint");
+    expect(next.result.current.status).toBe("stale");
+    expect(next.result.current.values).toMatchObject(parsed);
+    next.unmount();
+    vi.useRealTimers();
   });
 
   it("같은 owner 복귀는 캐시와 배너 상태를 유지하면서 백그라운드 갱신한다", async () => {

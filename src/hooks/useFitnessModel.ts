@@ -1074,9 +1074,9 @@ export function useFitnessModel(
     derivedMetricsError,
     activityWindowIncomplete: activityWindow?.truncated === true,
     loading: canonicalPending || canonicalProcessing || (!canonicalActive && loading),
-    cacheHit: !canonicalActive && cacheHit && timeseriesCacheHit,
+    cacheHit: canonicalActive ? canonicalFitness.cacheHit : cacheHit && timeseriesCacheHit,
     freshLoaded: canonicalActive
-      ? !canonicalProcessing
+      ? canonicalFitness.freshLoaded
       : freshLoaded && timeseriesFreshLoaded,
     // canonical 핵심 데이터가 준비된 뒤 독립 보조 데이터의 실패가 전체 화면을 막지 않는다.
     error: canonicalActive ? null : error,
