@@ -273,5 +273,20 @@
   "history.trend.stable": "비슷",
   "history.trend.declining": "증가",
   "history.basis": "기록 집계 기준",
-  "history.observedPartial": "확인된 기록 {{count}}개 · 전체 이력의 일부"
+  "history.observedPartial": "확인된 기록 {{count}}개 · 전체 이력의 일부",
+  "explore": {
+    "listTab": {
+      "bounds": "범위 내",
+      "notable": "주목",
+      "challenged": "도전 많은"
+    },
+    "mapUnavailable": "지도는 잠시 사용할 수 없어요. 목록에서 세그먼트를 찾을 수 있어요."
+  },
+  "detailTabs": {
+    "overview": "개요",
+    "ranking": "순위"
+  },
+  "detail.share": "공유",
+  "detail.shareCopied": "링크를 복사했어요",
+  "detail.shareFailed": "공유하지 못했어요"
 }

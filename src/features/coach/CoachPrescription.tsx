@@ -238,7 +238,7 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
     }
   }
 
-  return <section className="coach-progress-review" aria-labelledby={`proposal-review-${prescription.prescriptionId}`}>
+  return <section data-testid="K6-2-7" className="coach-progress-review" aria-labelledby={`proposal-review-${prescription.prescriptionId}`}>
     <div className="coach-progress-review__heading"><div>
       <Text id={`proposal-review-${prescription.prescriptionId}`} as="h4" variant="subtitle">{t("progress.review.title")}</Text>
       <Text as="p" variant="bodySmall" tone="secondary">{t("progress.review.body")}</Text>
@@ -314,7 +314,7 @@ function PrescriptionDetails({ prescription, locale, sourceRequestId, capabiliti
   onQuestionSelect?: Props["onQuestionSelect"] }) {
   const { t } = useTranslation("coach");
   const evidenceById = useMemo(() => new Map(prescription.evidence.map((item) => [item.evidenceId, item])), [prescription.evidence]);
-  return <section className="coach-prescription" aria-labelledby={`prescription-${prescription.prescriptionId}`}>
+  return <section data-testid="K6-2-5" className="coach-prescription" aria-labelledby={`prescription-${prescription.prescriptionId}`}>
     <header className="coach-prescription__header">
       <Text id={`prescription-${prescription.prescriptionId}`} as="h3" variant="subtitle">{t("prescription.title")}</Text>
       <p>{t("prescription.validUntil", { at: date(prescription.validUntil, locale, true) })}</p>
@@ -456,20 +456,20 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
   if (prescription.status === "safety_blocked") return <section className="coach-prescription coach-prescription--safety" role="alert">
     <Text as="h3" variant="subtitle">{t("prescription.safety.title")}</Text><p>{t("prescription.safety.body")}</p>
   </section>;
-  if (prescription.status === "insufficient_data") return <section className="coach-prescription" role="status">
+  if (prescription.status === "insufficient_data") return <section data-testid="K6-2-5" className="coach-prescription" role="status">
     <Text as="h3" variant="subtitle">{t("prescription.insufficient.title")}</Text><p>{t("prescription.insufficient.body")}</p>
     {prescription.missingSignals.length > 0 && <ul>{prescription.missingSignals.map((item) => <li key={item}>{t(`prescription.signal.${item}`, { defaultValue: item })}</li>)}</ul>}
     {!readOnly && <Button variant="outline" onClick={onReanalyze}>{t("prescription.existingPlan")}</Button>}
   </section>;
-  if (readOnly) return <section className="coach-prescription coach-checkin" aria-labelledby={`checkin-${prescription.prescriptionId}`}>
+  if (readOnly) return <section data-testid="K6-2-6" className="coach-prescription coach-checkin" aria-labelledby={`checkin-${prescription.prescriptionId}`}>
     <Text id={`checkin-${prescription.prescriptionId}`} as="h3" variant="subtitle">{t("prescription.checkin.title")}</Text>
     <p>{t("prescription.checkin.body")}</p>
     <Text as="p" variant="caption" tone="secondary">{t("history.readOnlyPrescription")}</Text>
   </section>;
-  if (assumedDefaults && state === "submitting") return <section className="coach-prescription coach-checkin" role="status">
+  if (assumedDefaults && state === "submitting") return <section data-testid="K6-2-6" className="coach-prescription coach-checkin" role="status">
     <Text as="p" variant="bodySmall" tone="secondary">{t("prescription.checkin.assuming")}</Text>
   </section>;
-  return <section className="coach-prescription coach-checkin" aria-labelledby={`checkin-${prescription.prescriptionId}`}>
+  return <section data-testid="K6-2-6" className="coach-prescription coach-checkin" aria-labelledby={`checkin-${prescription.prescriptionId}`}>
     <Text id={`checkin-${prescription.prescriptionId}`} as="h3" variant="subtitle">{t("prescription.checkin.title")}</Text>
     <p>{t("prescription.checkin.body")}</p>
     {required.map((signal) => <Signal key={signal} signal={signal} answers={answers} onChange={(next) => {

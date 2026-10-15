@@ -240,6 +240,14 @@ describe("coach screen ownership", () => {
     expect(screen.getByRole("heading", { level: 2 })).toBeInTheDocument();
     expect(screen.queryByText("decision slot")).not.toBeInTheDocument();
   });
+  it("a read-only today forecast stays interactive while delivery is unavailable", () => {
+    renderBriefing({ part: "today", deliveryEnabled: false, current: { ctl: 42, atl: 45, tsb: -3 }, decisionSlot: null });
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
+    fireEvent.click(screen.getByRole("radio", { name: /회복/ }));
+    expect(document.querySelector(".fitness-coach__forecast")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /전송/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/확정한 계획 세션과 별개/)).toBeInTheDocument();
+  });
   it("today keeps choices and removes the condition briefing and impact details", () => {
     renderBriefing({ part: "today", decisionSlot: null });
     expect(screen.getAllByRole("radio")).toHaveLength(3);

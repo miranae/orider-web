@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import type { AdaptationFlag, PlanDay, PlanWeek } from "@shared/types/goal";
@@ -10,6 +11,7 @@ import { Button } from "../../theme/components";
 import type { Discipline } from "../../utils/disciplineFilter";
 
 export interface MobilePlanPageProps {
+  selectedDate?: string;
   currentWeek: PlanWeek | null;
   weekLabel: string;
   goalId?: string;
@@ -38,6 +40,7 @@ function kstDateString(ms: number): string {
 }
 
 export default function MobilePlanPage({
+  selectedDate,
   currentWeek,
   weekLabel,
   goalId,
@@ -61,6 +64,8 @@ export default function MobilePlanPage({
 }: MobilePlanPageProps) {
   const { t } = useTranslation("training");
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const goalSport = goalDiscipline ?? params.get("sport");
   const [showAddSheet, setShowAddSheet] = useState(false);
   const days = currentWeek?.days ?? [];
   const today = kstDateString(Date.now());
@@ -68,6 +73,7 @@ export default function MobilePlanPage({
 
   return (
     <MobilePlanContent
+      selectedDate={selectedDate}
       currentWeek={currentWeek}
       weekLabel={weekLabel}
       goalTitle={goalTitle}
@@ -87,7 +93,7 @@ export default function MobilePlanPage({
           <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t('mobile.headerTitle')}</span>
           <div style={{ flex: 1 }} />
           <Button type="button" variant="ghost" size="sm"
-            onClick={() => currentWeek && goalId ? setShowAddSheet(true) : navigate("/goal-setup")}>{t('mobile.addAction')}</Button>
+            onClick={() => currentWeek && goalId ? setShowAddSheet(true) : navigate(`/goal-setup?sport=${goalSport === "run" || goalSport === "swim" ? goalSport : "bike"}`)}>{t('mobile.addAction')}</Button>
         </div>
       )}
       adaptationSlot={goalId && adaptationFlag ? (
@@ -96,14 +102,15 @@ export default function MobilePlanPage({
         </div>
       ) : undefined}
       actionsSlot={(
-        <div style={{ display: "flex", gap: "var(--space-2)", overflowX: "auto", paddingBottom: 2 }}>
+        <div data-testid="K4-3m" style={{ display: "flex", gap: "var(--space-2)", overflowX: "auto", paddingBottom: 2 }}>
           {[
             [t("actions.ics", { defaultValue: "ICS" }), onIcsExport],
             [t("actions.reroll", { defaultValue: "재생성" }), onReroll],
             [t("actions.resetGoal", { defaultValue: "목표 재설정" }), onGoalReset],
             [t("actions.abandon", { defaultValue: "포기" }), onAbandon],
-          ].map(([label, action]) => action ? (
+          ].map(([label, action], index) => action ? (
             <Button
+              data-testid={["K4-3-2", "K4-3-3", "K4-3-4", "K4-3-5"][index]}
               key={String(label)}
               type="button"
               variant="secondary"

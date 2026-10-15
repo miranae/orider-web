@@ -14,11 +14,17 @@ describe("activity social mutation client", () => {
     await client.postComment("a1", "hello", "parent");
     await client.editComment("a1", "c1", "edited");
     await client.deleteComment("a1", "c1");
+    await client.reportComment("a1", "c2", "privacy issue");
+    await client.setCommentHidden("a1", "c2", true);
+    await client.setCommentHidden("a1", "c2", false);
     expect(invoke.mock.calls).toEqual([
       ["setActivityKudos", { activityId: "a1", enabled: true }],
       ["postActivityComment", { activityId: "a1", text: "hello", parentId: "parent" }],
       ["editActivityComment", { activityId: "a1", commentId: "c1", text: "edited" }],
       ["deleteActivityComment", { activityId: "a1", commentId: "c1" }],
+      ["reportActivitySocialContent", { activityId: "a1", commentId: "c2", reason: "other", note: "privacy issue" }],
+      ["setActivityCommentHidden", { activityId: "a1", commentId: "c2", hidden: true }],
+      ["setActivityCommentHidden", { activityId: "a1", commentId: "c2", hidden: false }],
     ]);
   });
 

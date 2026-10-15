@@ -28,6 +28,15 @@ describe("RiderWorkoutDeliveryPanel", () => {
     expect(mocks.submit).toHaveBeenCalledTimes(1);
   });
 
+  it("labels the simple workout target explicitly on today without claiming plan-session delivery", () => {
+    renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="recovery" targetTss={20} explicitWorkoutLabel />);
+    expect(screen.getByRole("button", { name: /20 TSS 보내기/ })).toHaveTextContent("회복");
+  });
+  it("links no-device users to device settings on today", () => {
+    mocks.controller = { ...mocks.controller, devices: [] };
+    renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} explicitWorkoutLabel />);
+    expect(screen.getByRole("link", { name: /기기가 없어요/ })).toHaveAttribute("href", "/ko/settings/device");
+  });
   it("calls pending queued rather than sent and renders only the authoritative bundle", () => {
     mocks.controller = {
       ...mocks.controller,

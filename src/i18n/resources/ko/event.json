@@ -728,5 +728,16 @@
   "detail.participantsUnavailable": "참가자 정보를 제공할 수 없습니다.",
   "resultsView.privateResultsUnavailable": "이 그룹 라이딩 결과는 비공개입니다.",
   "detail.registrationStateUnknown": "참가 등록 상태를 아직 확인하지 못했습니다.",
-  "edit.capacitySummary": "RIDER 정원 {{filled}}/{{total}}명 · {{date}} {{time}}"
+  "edit.capacitySummary": "RIDER 정원 {{filled}}/{{total}}명 · {{date}} {{time}}",
+  "detail.overviewTab": "개요",
+  "detail.liveSpectator": "라이브 관전 →",
+  "host.operation": "운영",
+  "host.permissionDenied": "이 이벤트를 운영할 권한이 없습니다",
+  "host.dataPermissionDenied": "지도·참가자 데이터와 수정은 생성자 또는 지정 호스트만 볼 수 있습니다.",
+  "create.groupContextChecking": "선택한 클럽에서 이벤트를 만들 수 있는지 확인 중입니다.",
+  "create.groupContextDenied": "선택한 클럽의 생성 권한이나 활성 상태를 확인하지 못했습니다. 다른 클럽을 선택하거나 클럽 없이 공개 이벤트를 작성해 주세요.",
+  "create.groupContextAlternative": "다른 내 클럽 선택",
+  "create.groupContextPublic": "클럽 없이 공개 이벤트 작성",
+  "action.participantView": "참가자 화면",
+  "detail.participationTab": "참가"
 }

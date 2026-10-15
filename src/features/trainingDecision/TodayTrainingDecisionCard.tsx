@@ -33,7 +33,7 @@ function ProposalPanel({ decision, recommendationVisible, refresh }: {
       </Chip>
     </div>
     <Text as="p" variant="caption" tone="secondary">{t("decision.proposal.body")}</Text>
-    {canApplyRecommendation && controller.proposal?.changes.map((change) => <article key={`${change.weekId}:${change.dayIndex}`} className="training-decision-proposal__change"
+    {canApplyRecommendation && controller.proposal?.changes.map((change) => <article key={`${change.weekId}:${change.dayIndex}`} data-testid="K2-2-5" className="training-decision-proposal__change"
       data-current-day={change.localDate === decision.localDate ? "true" : undefined}>
       <time dateTime={change.localDate}>{new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${change.localDate}T00:00:00Z`))}</time>
       <div className="training-decision-proposal__comparison">
@@ -45,15 +45,15 @@ function ProposalPanel({ decision, recommendationVisible, refresh }: {
       {t(`decision.proposal.state.${controller.state}`, { defaultValue: t("decision.proposal.state.loading") })}
     </Text>
     <div className="training-decision-proposal__actions">
-      {controller.state === "idle" && canApplyRecommendation && hasAdjustments && decision.capabilities.proposal === "available" && <Button variant="primary" onClick={() => void controller.create()}>{t("decision.proposal.review")}</Button>}
-      {controller.state === "pending" && canApplyRecommendation && decision.capabilities.confirm === "available" && <Button variant="primary" onClick={() => void controller.confirm()}>{t("decision.proposal.confirm")}</Button>}
-      {controller.state === "pending" && decision.capabilities.decline === "available" && <Button variant="outline" onClick={() => void controller.decline()}>{t("decision.proposal.keepScheduled")}</Button>}
-      {controller.state === "applied" && decision.capabilities.rollback === "available" && <Button variant="outline" onClick={() => void controller.rollback()}>{t("decision.proposal.rollback")}</Button>}
+      {controller.state === "idle" && canApplyRecommendation && hasAdjustments && decision.capabilities.proposal === "available" && <Button variant="primary" data-testid="K2-2-4" onClick={() => void controller.create()}>{t("decision.proposal.review")}</Button>}
+      {controller.state === "pending" && canApplyRecommendation && decision.capabilities.confirm === "available" && <Button variant="primary" data-testid="K2-2-6" onClick={() => void controller.confirm()}>{t("decision.proposal.confirm")}</Button>}
+      {controller.state === "pending" && decision.capabilities.decline === "available" && <Button variant="outline" data-testid="K2-2-6" onClick={() => void controller.decline()}>{t("decision.proposal.keepScheduled")}</Button>}
+      {controller.state === "applied" && decision.capabilities.rollback === "available" && <Button variant="outline" data-testid="K2-2-7" onClick={() => void controller.rollback()}>{t("decision.proposal.rollback")}</Button>}
       {controller.state === "applied" && <Text as="p" variant="caption" tone="secondary">{t("decision.proposal.applied")}</Text>}
       {(controller.state === "declined" || controller.state === "reverted") && <Text as="p" variant="caption" tone="secondary">{t("decision.proposal.keptScheduled")}</Text>}
       {controller.state === "busy" && <Text as="span" variant="caption">{t("decision.proposal.busy")}</Text>}
-      {controller.state === "stale" && <Alert variant="warning" title={t("decision.proposal.stale")}><Button size="sm" variant="outline" onClick={() => void controller.refresh()}>{t("decision.refresh")}</Button></Alert>}
-      {controller.state === "error" && <Alert variant="warning" title={t("decision.proposal.error")}><Button size="sm" variant="outline" onClick={() => void controller.refresh()}>{t("decision.refresh")}</Button></Alert>}
+      {controller.state === "stale" && <Alert variant="warning" title={t("decision.proposal.stale")}><Button size="sm" variant="outline" data-testid="K2-2-8" onClick={() => void controller.refresh()}>{t("decision.refresh")}</Button></Alert>}
+      {controller.state === "error" && <Alert variant="warning" title={t("decision.proposal.error")}><Button size="sm" variant="outline" data-testid="K2-2-8" onClick={() => void controller.refresh()}>{t("decision.refresh")}</Button></Alert>}
     </div>
   </section>;
 }
@@ -94,12 +94,12 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
   const { decision, loading, scheduledOnly, unavailableReason, refresh } = decisionState;
   if (!user) return null;
   if (loading) return surface === "plan" ? null
-    : <Card className="training-decision-card" aria-busy="true"><Text tone="secondary">{t("decision.loading")}</Text></Card>;
+    : <Card data-testid={surface === "today" ? "K2-2" : undefined} className="training-decision-card" aria-busy="true"><Text tone="secondary">{t("decision.loading")}</Text></Card>;
   if (!decision && surface === "plan") return null;
   if (!decision && unavailableReason !== "error") return null;
   if (!decision) return <Card className="training-decision-card training-decision-card--fallback"
     data-training-decision-fallback="unavailable">
-    <div className="training-decision-card__header">
+    <div data-testid={surface === "today" ? "K2-2-2" : undefined} className="training-decision-card__header">
       <div><Text as="span" variant="eyebrow">{t("decision.eyebrow")}</Text>
         <Text as="h2" variant="title">{t("decision.fallback.unavailableTitle")}</Text></div>
     </div>
@@ -153,21 +153,21 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
   const executableSessions = decision.effectiveSessions
     .filter((session) => session.current.workout !== "rest" && !blockedExecutionSessionIds.has(session.sessionId));
 
-  return <Card className={`training-decision-card training-decision-card--${surface}`} data-decision-id={tupleId}
+  return <Card data-testid={surface === "today" ? "K2-2" : surface === "plan" ? "K4-4" : undefined} className={`training-decision-card training-decision-card--${surface}`} data-decision-id={tupleId}
     data-facts-id={decision.recommendationSource?.factsId ?? ""} data-plan-revision={decision.planSource?.planRevision ?? ""}>
-    <header className="training-decision-card__header">
+    <header data-testid={surface === "today" ? "K2-2-2" : undefined} className="training-decision-card__header">
       <div><Text as="span" variant="eyebrow">{t("decision.eyebrow")}</Text><Text as="h2" variant="title">{t(`decision.status.${statusKey}`)}</Text></div>
       <Chip variant={decision.healthGate.state === "stop" ? "danger" : applied ? "accent" : "default"}>
         {t(recommendationPending ? "decision.mode.not-applied" : `decision.mode.${displayScheduledOnly ? "scheduled-only" : decision.mode}`)}
       </Chip>
     </header>
-    {decision.healthGate.state === "stop" && <Alert variant="danger" title={t("decision.healthStop")} />}
+    {decision.healthGate.state === "stop" && <Alert data-testid={surface === "today" ? "K2-2-3" : undefined} variant="danger" title={t("decision.healthStop")} />}
     {!scheduled && <Text as="p" tone="secondary">{t("decision.noScheduled")}</Text>}
     {/* 계약이 내려주는 폴백 사유를 그대로 노출 — "왜 권고가 없는지"를 사용자가 알 수 있어야 한다. */}
     {decision.fallback.active && decision.fallback.reasonCode
       && <Text as="p" variant="caption" tone="secondary" data-fallback-reason={decision.fallback.reasonCode}>
         {t(`decision.fallback.reason.${decision.fallback.reasonCode}`)}</Text>}
-    <div className="training-decision-card__sessions">
+    <div data-testid={surface === "today" ? "K2-2-1" : "K4-4-1"} className="training-decision-card__sessions">
       <TrainingDecisionSessionView label={t("decision.scheduled")} session={scheduled} />
       {recommended && <TrainingDecisionSessionView label={t("decision.recommended")} session={recommended} tone="recommended" />}
       {recommendationPending && !recommended && <div className="training-decision-session training-decision-session--recommended" data-session-role="recommended">
@@ -201,12 +201,12 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
     {surface === "today" && <ProposalPanel decision={decision} recommendationVisible={recommendationVisible} refresh={refresh} />}
     {surface !== "plan" && !suppressExecution && <TrainingExecutionPanel decision={decision} sessions={executableSessions} onChanged={refresh} />}
     <footer className="training-decision-card__actions">
-      {surface === "plan" && <LocalizedLink to={`/coach/today?sport=${discipline}`}>{t("decision.changeInToday")}</LocalizedLink>}
-      {surface === "today" && <LocalizedLink to={`/coach/plan?sport=${discipline}&date=${decision.localDate}`}>{t("decision.viewInPlan")}</LocalizedLink>}
+      {surface === "plan" && <LocalizedLink data-testid="K4-4-2" to={`/coach/today?sport=${discipline}`}>{t("decision.changeInToday")}</LocalizedLink>}
+      {surface === "today" && <LocalizedLink data-testid="K2-2-9" to={`/coach/plan?sport=${discipline}&date=${decision.localDate}`}>{t("decision.viewInPlan")}</LocalizedLink>}
       {surface !== "plan" && recommendationVisible && decision.capabilities.explain === "available" && decision.recommendationSource
-        && <CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
+        && <div data-testid="K2-5-1"><CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
         triggerBlock={false} triggerLabel={t("decision.askCoach")} progressPlannerSelection={{ question: t("decision.coachQuestion"),
-          context: { prescriptionId: decision.recommendationSource.prescriptionId, sourceRequestId: decision.recommendationSource.sourceRequestId } }} />}
+          context: { prescriptionId: decision.recommendationSource.prescriptionId, sourceRequestId: decision.recommendationSource.sourceRequestId } }} /></div>}
     </footer>
   </Card>;
 }

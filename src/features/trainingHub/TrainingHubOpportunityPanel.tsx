@@ -8,6 +8,8 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 type T = (key: string, values?: Record<string, unknown>) => string;
 
 export function FitnessWeeklyInsight({
+  loadSummaryOnly = false,
+  includeLoadSummary = true,
   ctlDelta,
   ctl,
   atl,
@@ -18,6 +20,8 @@ export function FitnessWeeklyInsight({
   ready,
   t,
 }: {
+  loadSummaryOnly?: boolean;
+  includeLoadSummary?: boolean;
   ctlDelta: number;
   ctl: number;
   atl: number;
@@ -35,11 +39,12 @@ export function FitnessWeeklyInsight({
       ? t("hub.weekly.loadUnknown", { tss: insight.thisWeek })
       : t(insight.loadChangePct >= 0 ? "hub.weekly.loadUp" : "hub.weekly.loadDown", { pct: Math.abs(insight.loadChangePct), tss: insight.thisWeek });
 
+  if (loadSummaryOnly) return <Text data-testid="K1-3-5" as="p" variant="bodyMedium">{loadText}</Text>;
   return (
-    <Card padding="none" style={{ padding: "var(--space-4)", marginBottom: "var(--space-4)" }}>
+    <Card data-testid="K1-4-3" padding="none" style={{ padding: "var(--space-4)", marginBottom: "var(--space-4)" }}>
       <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("hub.weekly.title")}</Text>
       <Text as="p" variant="bodyMedium" style={{ margin: 0 }}>
-        {loadText} {insight.recommendation && t(`hub.weekly.recommend.${insight.recommendation}`)}
+        {includeLoadSummary ? loadText : null} {insight.recommendation && t(`hub.weekly.recommend.${insight.recommendation}`)}
       </Text>
       <Text as="p" variant="bodyMedium" tone="secondary" style={{ margin: 0, overflowWrap: "anywhere" }}>{t(`hub.weekly.basis.${dateBasis}`, { date: asOf })}</Text>
     </Card>
@@ -58,7 +63,7 @@ export function BikeActionAccordion({
   t: T;
 }) {
   const rows = useMemo(() => [
-    { id: "ftp", needed: !ftp, href: "/settings/training" },
+    { id: "ftp", needed: !ftp, href: "/coach/condition?sport=bike#thresholds" },
     { id: "tte", needed: !hasPdcModel, href: "/coach/plan" },
     { id: "zones", needed: !hasZoneData, href: "/athlete/me/activities" },
     { id: "vo2", needed: !hasPdcModel, href: "/coach/condition?sport=bike" },

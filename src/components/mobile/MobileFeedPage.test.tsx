@@ -25,6 +25,18 @@ vi.mock("../activity/ActivitySocialFooter", () => ({
 }));
 
 describe("MobileFeedPage", () => {
+  it("keeps sport chips but removes competing weekly numbers when the shared strip is present", async () => {
+    renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()}
+      feedScope="all" onFeedScopeChange={vi.fn()} todayStrip={<div>Canonical summary</div>} sportFilter="run" onSportFilterChange={vi.fn()}
+      weeklySummary={{ activityCount: 99, distances: { bike: 123000, run: 45000, swim: 6000 }, available: true }}
+      runSummary={{ count: "99", distance: "45km", time: "3h", elevation: "123m", available: true }} />, { authenticated: true });
+    expect(await screen.findByText("Canonical summary")).toBeInTheDocument();
+    expect(screen.queryByTestId("mobile-run-weekly-summary")).not.toBeInTheDocument();
+    const chips = screen.getByRole("group", { name: "활동 종목 필터" });
+    expect(within(chips).getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
+    expect(chips).not.toHaveTextContent("45km");
+    expect(chips).not.toHaveTextContent("99");
+  });
   it("searches the server for 설레임 even when the activity is outside the loaded feed", async () => {
     const user = userEvent.setup();
     setCollectionDocs("activities", [

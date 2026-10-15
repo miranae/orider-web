@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getActiveHub, getHub, isHubSubRoute, PRIMARY_HUBS } from "./navHubs";
+import { getActiveHub, getHub, isDetailRoute, resolveDetailHub, isHubSubRoute, PRIMARY_HUBS } from "./navHubs";
 
 describe("navHubs", () => {
   describe("getActiveHub", () => {
@@ -89,5 +89,22 @@ describe("navHubs", () => {
     expect(PRIMARY_HUBS.map((hub) => hub.to)).toEqual(["/", "/coach/condition", "/clubs", "/explore/courses", "/community/board"]);
     expect(PRIMARY_HUBS.some((hub) => hub.key === "settings")).toBe(false);
     expect(getActiveHub("/settings/account")).toBe("settings");
+  });
+});
+
+describe("detail flow route boundaries", () => {
+  it.each(["/event/e1", "/event/e1/register", "/event/e1/results", "/event/e1/host", "/event/e1/host/edit", "/event/e1/host/participants", "/activity/a1/edit", "/course/c1/edit"])("retains a valid entry hub on %s", path => {
+    expect(isDetailRoute(path)).toBe(true);
+    expect(resolveDetailHub(path, { fromHub: "club" })).toBe("club");
+  });
+  it.each(["/event/create", "/event/create/results", "/event/new", "/event/list", "/event/e1/host/new", "/event/e1/results/extra", "/event/e1/unknown", "/athlete/me", "/athlete/me/activities", "/athlete/me/records", "/athlete/u1/records", "/course/create/edit", "/segment/create", "/segment/s1/edit", "/activity/a1/analysis", "/explore/events", "/clubs", "/settings/device"])("does not misclassify utility/list/unknown path %s", path => {
+    expect(isDetailRoute(path)).toBe(false);
+    expect(resolveDetailHub(path, { fromHub: "coach" })).toBe(getActiveHub(path));
+  });
+  it("uses stable direct-entry defaults and rejects invalid origins on nested detail flows", () => {
+    expect(resolveDetailHub("/event/e1/results")).toBe("explore");
+    expect(resolveDetailHub("/event/e1/register", { fromHub: "settings" })).toBe("explore");
+    expect(resolveDetailHub("/activity/a1/edit")).toBe("home");
+    expect(resolveDetailHub("/course/c1/edit")).toBe("explore");
   });
 });

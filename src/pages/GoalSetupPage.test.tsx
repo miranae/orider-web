@@ -9,6 +9,12 @@ describe("GoalSetupPage", () => {
     mockSignInWithPopup.mockClear();
   });
 
+  it.each(["tri", "cycling"])("renders a usable bike wizard for legacy sport %s", async sport => {
+    renderWithProviders(<GoalSetupPage />, { authenticated: true, route: `/ko/goal-setup?sport=${sport}` });
+    expect(await screen.findByRole("heading", { name: "3분 안에 나만의 운동 계획 만들기" })).toBeInTheDocument();
+    expect(screen.getByTestId("K3-3-2")).toBeInTheDocument();
+  });
+
   it("requires sign-in before showing the bike goal wizard", async () => {
     renderWithProviders(<GoalSetupPage />, {
       authenticated: false,

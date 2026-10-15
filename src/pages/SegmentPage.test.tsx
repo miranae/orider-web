@@ -32,6 +32,7 @@ describe("SegmentPage", () => {
     setCollectionDocs("segment_efforts/seg-1/efforts", [{ id: "e", segmentId: "seg-1", activityId: "strava_42", userId: "test-uid", nickname: "Owner", elapsedTime: 60000, averageSpeed: 20 }]);
     renderWithProviders(<SegmentPage />, { authenticated: true, profile: { stravaConnected: true }, route: `/ko/segment/seg-1${cached ? "?cachedComparison=1" : ""}` });
     await screen.findByText("Cached route");
+    if (cached) fireEvent.click(screen.getByRole("tab", { name: "순위" }));
     if (cached) { await waitFor(() => expect(screen.getAllByText("Owner").length).toBeGreaterThan(0)); expect(cachedComparisonMocks.getStreams).not.toHaveBeenCalled(); }
     else await waitFor(() => expect(cachedComparisonMocks.getStreams).toHaveBeenCalledExactlyOnceWith(42));
     expect(mockCallableInvocations.some(c => c.name === "getActivityStreams" && (c.data as { mode?: string }).mode === "segment_distance_time_gap")).toBe(false);
@@ -46,6 +47,8 @@ describe("SegmentPage", () => {
       { id: "deleted", segmentId: "seg-1", activityId: "a-deleted", userId: "test-uid", nickname: "Owner", elapsedTime: 420000, averageSpeed: 20, startDate: 1700000000000 },
     ]);
     renderWithProviders(<SegmentPage />, { authenticated: true });
+    await screen.findByRole("tab", { name: koSegment.myRecord });
+    fireEvent.click(screen.getByRole("tab", { name: koSegment.myRecord }));
     const toggle = await screen.findByRole("button", { name: koSegment.myHistory });
     expect(limit).not.toHaveBeenCalledWith(50);
     fireEvent.click(toggle);
@@ -175,8 +178,10 @@ describe("SegmentPage", () => {
     await waitFor(() => {
       expect(screen.getByText("리더보드 세그먼트")).toBeInTheDocument();
     });
+    fireEvent.click(screen.getByRole("tab", { name: "순위" }));
     expect(screen.getByRole("columnheader", { name: "구간 평속" })).toBeInTheDocument();
     expect(enSegment["table.segmentAvgSpeed"]).toBe("Segment Avg Speed");
+    fireEvent.click(screen.getByRole("tab", { name: "순위" }));
     const leaderboard = within(screen.getByRole("table"));
     expect(leaderboard.getByText("5:00")).toBeInTheDocument();
     expect(leaderboard.getByText("24.0 km/h")).toBeInTheDocument();
@@ -213,6 +218,7 @@ describe("SegmentPage", () => {
     await waitFor(() => {
       expect(screen.getByText("거리 미확인 세그먼트")).toBeInTheDocument();
     });
+    fireEvent.click(screen.getByRole("tab", { name: "순위" }));
     const leaderboard = within(screen.getByRole("table"));
     expect(screen.getByText("리더보드 (1명)")).toBeInTheDocument();
     expect(leaderboard.getByText("— km/h")).toBeInTheDocument();

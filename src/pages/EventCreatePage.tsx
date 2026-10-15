@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { httpsCallable } from "firebase/functions";
@@ -92,6 +92,8 @@ export default function EventCreatePage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedGroupId = searchParams.get("groupId");
   const TYPE_OPTIONS = TYPE_DEFS.map((d) => ({ value: d.value, label: t(d.labelKey), sub: t(d.subKey) }));
   const VISIBILITY_OPTIONS = VISIBILITY_DEFS.map((d) => ({ value: d.value, label: t(d.labelKey), sub: t(d.subKey) }));
 
@@ -178,9 +180,13 @@ export default function EventCreatePage() {
   // 그룹
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
+  const [groupsLoadedFor, setGroupsLoadedFor] = useState("");
+  const [recoveredGroupContext, setRecoveredGroupContext] = useState("");
 
   useEffect(() => {
-    if (!user) return;
+    let cancelled = false;
+    setGroups([]); setLoadingGroups(true); setGroupsLoadedFor("");
+    if (!user) { setLoadingGroups(false); return; }
     (async () => {
       try {
         const q = query(
@@ -193,14 +199,20 @@ export default function EventCreatePage() {
           const dd = d.data();
           return { id: d.id, name: dd.name || d.id, memberCount: dd.memberCount || 0 };
         });
-        setGroups(results);
+        if (cancelled) return;
+        setGroups(results); setGroupsLoadedFor(user.uid);
+        if (requestedGroupId && results.some(group => group.id === requestedGroupId)) {
+          setData(previous => previous.groupId || previous.createNewGroup ? previous : { ...previous, groupId: requestedGroupId });
+        }
       } catch (err) {
+        if (cancelled) return;
         logClientError("EventCreatePage.loadGroups", err, { userId: user.uid });
       } finally {
-        setLoadingGroups(false);
+        if (!cancelled) setLoadingGroups(false);
       }
     })();
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [user, requestedGroupId]);
 
   // hostName 기본값을 유저 닉네임으로 (한 번만)
   useEffect(() => {
@@ -222,8 +234,16 @@ export default function EventCreatePage() {
   const validRegistrationWindow = data.openAt.length > 0 && data.closeAt.length > 0 && new Date(data.closeAt).getTime() > new Date(data.openAt).getTime();
   const valid3 = data.categories.every((c) => c.label.trim().length > 0 && Number(c.slots) > 0) && validRegistrationWindow;
 
-  const canAdvance = step === 0 ? valid1 : step === 1 ? valid2 : valid3;
-  const canSubmit = valid1 && valid2 && valid3;
+  const groupContext = `${user?.uid}:${requestedGroupId}`;
+  const groupContextReady = !requestedGroupId || (!loadingGroups && groupsLoadedFor === user?.uid
+    && groups.some(group => group.id === data.groupId)
+    && (data.groupId === requestedGroupId || recoveredGroupContext === groupContext));
+  const canAdvance = groupContextReady && (step === 0 ? valid1 : step === 1 ? valid2 : valid3);
+  const canSubmit = groupContextReady && valid1 && valid2 && valid3;
+  function recoverPublicCreate() {
+    setData(previous => ({ ...previous, groupId: "", createNewGroup: false, visibility: "PUBLIC" }));
+    setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete("groupId"); return next; }, { replace: true });
+  }
 
   function patch(p: Partial<FormData>) {
     setData((prev) => ({ ...prev, ...p }));
@@ -238,7 +258,7 @@ export default function EventCreatePage() {
   }
 
   async function submit(asDraft: boolean) {
-    if (submitting || pendingCreate.current || !user || auth.currentUser?.uid !== user.uid) return;
+    if (!groupContextReady || submitting || pendingCreate.current || !user || auth.currentUser?.uid !== user.uid) return;
     if (!asDraft && !canSubmit) return;
     if (asDraft && data.name.trim().length < 2) {
       setSubmitError(t("create.errDraftName"));
@@ -520,7 +540,7 @@ export default function EventCreatePage() {
         <Button
           type="button"
           onClick={() => submit(true)}
-          disabled={submitting || data.name.trim().length < 2} variant="secondary" size="sm" className="disabled:opacity-50"
+          disabled={!groupContextReady || submitting || data.name.trim().length < 2} variant="secondary" size="sm" className="disabled:opacity-50"
         >
           {t("message.saveDraft")}
         </Button>
@@ -532,7 +552,18 @@ export default function EventCreatePage() {
         style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 'var(--space-6)', alignItems: "flex-start" }}
       >
         <Card padding="none" style={{ padding: 'var(--space-6)' }}>
-          <StepBar
+          {requestedGroupId && !groupContextReady && <div role={loadingGroups ? "status" : "alert"} data-testid="event-group-context" className="py-3 space-y-2">
+          <Text as="p" variant="body">{t(loadingGroups ? "create.groupContextChecking" : "create.groupContextDenied")}</Text>
+          {!loadingGroups && <>
+            {groups.length > 0 && <select aria-label={t("create.groupContextAlternative")} value="" onChange={event => {
+              const groupId = event.target.value;
+              if (!groups.some(group => group.id === groupId)) return;
+              setRecoveredGroupContext(groupContext); patch({ groupId, createNewGroup: false });
+            }} style={fieldStyle}><option value="">{t("create.groupContextAlternative")}</option>{groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select>}
+            <Button variant="secondary" onClick={recoverPublicCreate}>{t("create.groupContextPublic")}</Button>
+          </>}
+        </div>}
+        <StepBar
             step={step}
             setStep={(n) => {
               if (n <= maxVisitedStep) setStep(n);
@@ -817,7 +848,7 @@ export default function EventCreatePage() {
                   ) : groups.length > 0 ? (
                     <select
                       value={data.groupId}
-                      onChange={(e) => patch({ groupId: e.target.value })}
+                      onChange={(e) => { setRecoveredGroupContext(groupContext); patch({ groupId: e.target.value }); }}
                       style={fieldStyle}
                     >
                       <option value="">{t("create.noHostGroup")}</option>

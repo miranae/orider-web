@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { LocalizedLink } from "../../../components/LocalizedLink";
 import { Button, Chip, Text } from "../../../theme/components";
 import type { RiderWorkoutType } from "../../../services/riderWorkoutDeliveryContract";
 import { useRiderWorkoutDelivery } from "../useRiderWorkoutDelivery";
@@ -9,6 +10,7 @@ interface RiderWorkoutDeliveryPanelProps {
   uid: string | null;
   workoutType: RiderWorkoutType;
   targetTss: 20 | 45;
+  explicitWorkoutLabel?: boolean;
   onBusyChange?: (busy: boolean) => void;
 }
 
@@ -16,7 +18,7 @@ function duration(minutes: number, language: string): string {
   return language.startsWith("ko") ? `${minutes}분` : `${minutes} min`;
 }
 
-function EnabledRiderWorkoutDeliveryPanel({ uid, workoutType, targetTss, onBusyChange }: RiderWorkoutDeliveryPanelProps) {
+function EnabledRiderWorkoutDeliveryPanel({ uid, workoutType, targetTss, onBusyChange, explicitWorkoutLabel = false }: RiderWorkoutDeliveryPanelProps) {
   const { t, i18n } = useTranslation("fitness");
   const controller = useRiderWorkoutDelivery(uid, workoutType);
   const selectedDevice = controller.devices.find((device) => device.deviceId === controller.targetDeviceId);
@@ -30,17 +32,17 @@ function EnabledRiderWorkoutDeliveryPanel({ uid, workoutType, targetTss, onBusyC
   if (!uid) return <Text as="p" variant="caption" tone="warning">{t("coach.delivery.login")}</Text>;
   if (controller.devicesLoading) return <Text as="p" variant="caption" tone="tertiary">{t("coach.delivery.devicesLoading")}</Text>;
   if (controller.devicesError) return <Text as="p" variant="caption" tone="warning">{t("coach.delivery.devicesError")}</Text>;
-  if (controller.devices.length === 0) return <Text as="p" variant="caption" tone="tertiary">{t("coach.delivery.noDevices")}</Text>;
+  if (controller.devices.length === 0) return <><Text as="p" variant="caption" tone="tertiary">{t("coach.delivery.noDevices")}</Text>{explicitWorkoutLabel && <LocalizedLink data-testid="K2-3-6" to="/settings/device">{t("today.noDeviceLink")}</LocalizedLink>}</>;
 
   return (
     <div className="fitness-coach__handoff">
-      <div className="fitness-coach__delivery-preview">
+      <div data-testid={explicitWorkoutLabel ? "K2-3-2" : undefined} className="fitness-coach__delivery-preview">
         <Text as="div" variant="label">{t(`coach.choice.${workoutType}.bike`)}</Text>
         <Text as="div" variant="caption" tone="secondary">{t("coach.delivery.preflight", { tss: targetTss })}</Text>
       </div>
       <label className="fitness-coach__device-select">
         <Text as="span" variant="eyebrow">{t("coach.delivery.target")}</Text>
-        <select
+        <select data-testid={explicitWorkoutLabel ? "K2-3-1" : undefined}
           value={controller.targetDeviceId}
           disabled={busy}
           onChange={(event) => controller.setTargetDeviceId(event.target.value)}
@@ -54,12 +56,12 @@ function EnabledRiderWorkoutDeliveryPanel({ uid, workoutType, targetTss, onBusyC
       </label>
       {controller.restoreLoading && <Text as="p" variant="caption" tone="tertiary">{t("coach.delivery.restoring")}</Text>}
       {controller.canCreate && !controller.submitError && (
-        <Button variant="primary" block disabled={busy || !selectedDevice || controller.restoreLoading} onClick={() => void controller.submit()}>
-          {busy ? t("coach.delivery.requesting") : state ? t("coach.delivery.requestNew") : t("coach.delivery.request")}
+        <Button data-testid={explicitWorkoutLabel ? "K2-3-3" : undefined} variant="primary" block disabled={busy || !selectedDevice || controller.restoreLoading} onClick={() => void controller.submit()}>
+          {busy ? t("coach.delivery.requesting") : state ? t("coach.delivery.requestNew") : explicitWorkoutLabel ? t("today.sendSimpleWorkout", { workout: t(`coach.choice.${workoutType}.bike`), tss: targetTss }) : t("coach.delivery.request")}
         </Button>
       )}
       {state && (
-        <div className="fitness-coach__delivery-status" role="status" aria-live="polite">
+        <div data-testid={explicitWorkoutLabel ? "K2-3-4" : undefined} className="fitness-coach__delivery-status" role="status" aria-live="polite">
           <Chip variant={state === "failed" || state === "superseded" || state === "expired" ? "warning" : state === "completed" ? "success" : "accent"} dot>
             {t(`coach.delivery.state.${state}`)}
           </Chip>
@@ -98,7 +100,7 @@ function EnabledRiderWorkoutDeliveryPanel({ uid, workoutType, targetTss, onBusyC
             </Button>
           )}
           {!controller.canSafelyReplay && controller.submitErrorKind && (
-            <Button variant="outline" block disabled={busy} onClick={controller.prepareNewRequest}>
+            <Button variant="outline" block disabled={busy} data-testid={explicitWorkoutLabel ? "K2-3-5" : undefined} onClick={controller.prepareNewRequest}>
               {t(controller.submitErrorKind === "cooldown" ? "coach.delivery.prepareAfterCooldown" : "coach.delivery.prepareNew")}
             </Button>
           )}

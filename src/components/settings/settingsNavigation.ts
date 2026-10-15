@@ -1,11 +1,10 @@
 import {
-  Bike,
   Database,
   KeyRound,
   Link2,
   Settings as SettingsIcon,
   User as UserIcon,
-  Zap,
+  Smartphone,
   type LucideIcon,
 } from "lucide-react";
 
@@ -17,7 +16,8 @@ export type SectionId =
   | "display"
   | "developer"
   | "training"
-  | "gear";
+  | "gear"
+  | "device";
 
 export interface NavItemDef {
   id: SectionId;
@@ -33,8 +33,7 @@ export interface NavGroupDef {
 
 export const SECTION_IDS: SectionId[] = [
   "account",
-  "training",
-  "gear",
+  "device",
   "connections",
   "developer",
   "display",
@@ -52,8 +51,7 @@ export const NAV_GROUPS: NavGroupDef[] = [
     titleKey: "nav.groupMe",
     items: [
       { id: "account", icon: UserIcon, labelKey: "nav.accountLabel", hintKey: "nav.accountHint" },
-      { id: "training", icon: Zap, labelKey: "nav.trainingLabel", hintKey: "nav.trainingHint" },
-      { id: "gear", icon: Bike, labelKey: "nav.equipmentLabel", hintKey: "nav.equipmentHint" },
+      { id: "device", icon: Smartphone, labelKey: "nav.deviceLabel", hintKey: "nav.deviceHint" },
     ],
   },
   {

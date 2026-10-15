@@ -1,4 +1,6 @@
 {
+  "periodEvidence.loading": "선택한 기간의 확정 분석을 불러오는 중입니다.",
+  "empty.importHistory": "기록 가져오기",
   "history.title": "훈련 이력 지도",
   "history.subtitle": "최근 변화부터 해마다 쌓인 체력까지",
   "history.stored": "저장 이력",
@@ -1097,10 +1099,20 @@
     "guest": "로그인하면 오늘 할 운동을 정해 드려요",
     "conditionLink": "컨디션 자세히",
     "planLink": "계획에서 보기",
-    "simpleWorkout": "간단 운동을 기기로 — 계획 세션과 별개",
+    "simpleWorkout": "오늘 고르기",
     "runProgramLink": "프로그램 전체 보기",
+    "runAppStart": "앱에서 시작",
     "runAppOnly": "앱에서 시작해 주세요. 일정 변경은 계획에서 할 수 있어요.",
-    "openApp": "앱에서 시작"
+    "openApp": "앱에서 시작",
+    "genericWorkoutBasis": "이 선택은 휴식 0 · 회복 20 · 지구력 45 TSS의 간단 운동 비교입니다. 확정한 계획 세션과 별개입니다.",
+    "forecastUnavailable": "정본 운동 부하가 준비되면 24·48시간 예측을 보여 드립니다.",
+    "deliveryUnavailable": "기기 전송은 건강 상태와 유효한 오늘 결정을 확인한 뒤 사용할 수 있습니다.",
+    "decisionUnavailable": "계획 결정·실행 기능은 준비 중입니다. 운동 선택과 예측은 계속 볼 수 있습니다.",
+    "planAlternative": "계획 대신 가볍게",
+    "runReadOnly": "오늘 단계 정보입니다. 시작 가능 여부는 앱에서 건강 상태와 일정을 확인한 뒤 정해집니다.",
+    "simpleDeliveryTitle": "간단 운동을 기기로 — 계획 세션과 별개",
+    "sendSimpleWorkout": "{{workout}} {{tss}} TSS 보내기",
+    "noDeviceLink": "기기가 없어요 → 설정 > 기기"
   },
   "analysis": {
     "header": {
@@ -1108,5 +1120,6 @@
     },
     "guest": "로그인하면 내 운동 능력을 분석해 드려요",
     "chooseSport": "분석할 종목을 선택해 주세요"
-  }
+  },
+  "runRecords.viewAll": "기록 전체 보기 →"
 }

@@ -535,7 +535,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   function action(code: CoachActionCode) {
-    coachAnalytics.actionClick(code); clearSession(); navigate(actionRoutes[code]);
+    coachAnalytics.actionClick(code); clearSession(); navigate(code === "NO_ACTIVE_GOAL" ? `${actionRoutes[code]}?sport=${discipline}` : actionRoutes[code]);
   }
 
   function v2Action(code: CoachAnswerActionCode, entity?: CoachEntityRef) {
@@ -605,13 +605,13 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     <>
       {showPmcInsight && user && <CoachRiderInsightCard user={user} discipline={discipline} onQuestionSelect={chooseRiderQuestion} />}
       {showPmcInsight && user && <CoachPmcInsightCard user={user} discipline={discipline} onQuestionSelect={choosePmcQuestion} />}
-      <Button ref={triggerRef} block={triggerBlock} variant="outline" leadingIcon={<Sparkles size={18} />} onClick={openProgressPlannerQuestion}>{triggerLabel ?? t("open")}</Button>
+      <Button data-testid="K6-F-1" ref={triggerRef} block={triggerBlock} variant="outline" leadingIcon={<Sparkles size={18} />} onClick={openProgressPlannerQuestion}>{triggerLabel ?? t("open")}</Button>
       {open && createPortal(
-        <div className="coach-sheet" role="presentation">
+        <div data-testid="K6-S" className="coach-sheet" role="presentation">
           <button type="button" className="coach-sheet__backdrop" tabIndex={-1} aria-hidden="true" aria-label={t("close")}
             disabled={phase === "submitting"} onMouseDown={(event) => event.preventDefault()} onClick={closeSheet} />
           <section ref={panelRef} tabIndex={-1} className="coach-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="coach-sheet-title">
-            <header className="coach-sheet__header">
+            <header data-testid="K6-S-1" className="coach-sheet__header">
               <div className="coach-sheet__intro"><Text ref={titleRef} tabIndex={-1} id="coach-sheet-title" as="h2" variant="title">{t("title")}</Text>
                 <Text as="p" variant="bodySmall" tone="secondary">{t("subtitle")}</Text></div>
               <div className="coach-sheet__header-actions">
@@ -633,11 +633,11 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                   <Text as="p" variant="eyebrow" tone="accent">{t("context", { discipline: t(`discipline.${discipline}`) })}</Text>
                   <div className="coach-sheet__composer">
                     <label htmlFor="coach-question"><Text variant="label">{t("inputLabel")}</Text></label>
-                    <Textarea ref={questionRef} id="coach-question" value={draft} maxLength={1000} rows={4} disabled={submissionBlocked}
+                    <Textarea data-testid="K6-S-3" ref={questionRef} id="coach-question" value={draft} maxLength={1000} rows={4} disabled={submissionBlocked}
                       placeholder={t(`placeholder.${discipline}`)} aria-describedby={showCounter ? "coach-question-note coach-question-counter" : "coach-question-note"}
                       onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
                       onChange={(event) => { setDraft(event.target.value); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setSource("free_text"); setRequestId(null); }} />
-                    <div className="coach-sheet__composer-meta">
+                    <div data-testid="K6-S-2" className="coach-sheet__composer-meta">
                       <Text id="coach-question-note" as="span" variant="caption" tone="tertiary">{t("independentNote")}</Text>
                       {plannerContext && <Text as="span" variant="caption" tone="accent"
                         data-prescription-id={plannerContext.prescriptionId} data-source-request-id={plannerContext.sourceRequestId}>{t("progress.questions.linked")}</Text>}
@@ -648,12 +648,12 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                       </Chip>}
                       {showCounter && <Text id="coach-question-counter" as="span" className="coach-sheet__counter" variant="caption" tone="tertiary" mono>{draft.length}/1000</Text>}
                     </div>
-                    <Button block variant="primary" disabled={draft.trim().length < 2 || submissionBlocked} onClick={() => void submit()}>{t("submit")}</Button>
+                    <Button block variant="primary" disabled={draft.trim().length < 2 || submissionBlocked} data-testid="K6-S-5" onClick={() => void submit()}>{t("submit")}</Button>
                     {quota && <Text as="p" className="coach-sheet__quota" variant="caption" tone={exhausted ? "warning" : "tertiary"}>
                       {exhausted ? t("quota.exhausted", { resetAt: formatDate(quota.resetAt, i18n.language, quota.timezone) }) : t("quota.remaining", { count: quota.remaining })}
                     </Text>}
                   </div>
-                  {suggestions.length > 0 && <div className="coach-sheet__quick-prompts">
+                  {suggestions.length > 0 && <div data-testid="K6-S-4" className="coach-sheet__quick-prompts">
                     <Text as="h3" variant="label" tone="secondary">{t("suggestions.title")}</Text>
                     <div className="coach-sheet__suggestions">
                       {suggestions.map((index) => {
@@ -743,7 +743,7 @@ function suggestedQuestion(templateId: string, locale: string): string | null {
 
 function CoachFeedback({ feedback, onFeedback }: { feedback: boolean | null; onFeedback: (helpful: boolean) => void }) {
   const { t } = useTranslation("coach");
-  return <section className="coach-result__feedback-section">
+  return <section data-testid="K6-2-8" className="coach-result__feedback-section">
     <Text as="p" variant="label">{t("feedback.prompt")}</Text>
     <div className="coach-result__feedback" role="group" aria-label={t("feedback.label")}>
       <Button size="sm" variant={feedback === true ? "primary" : "outline"} disabled={feedback !== null} onClick={() => onFeedback(true)}>{t("feedback.helpful")}</Button>
@@ -764,7 +764,7 @@ function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOp
 }) {
   const { t } = useTranslation("coach");
   if (response.capabilityVersion === "p2") {
-    return <div className="coach-result">
+    return <div data-testid="K6-S-7" className="coach-result">
       {response.outcome === "answer" && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction}
         onReanalyze={onReanalyze} manualCheckIn={manualCheckIn} onManualCheckIn={onManualCheckIn} />}
       {response.outcome === "unavailable" && <Alert className="coach-result__state" variant="warning"
@@ -774,11 +774,11 @@ function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOp
   const spec = response.clarification;
   const expired = spec ? Date.parse(spec.expiresAt) <= Date.now() : false;
   const providerUnavailable = response.error?.code === "provider_kill_switch";
-  return <div className="coach-result">
+  return <div data-testid="K6-S-7" className="coach-result">
     {response.answer && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction}
       onReanalyze={onReanalyze} manualCheckIn={manualCheckIn} onManualCheckIn={onManualCheckIn}
       onPlannerQuestion={(question, prescriptionId, sourceRequestId) => onSuggested(question, prescriptionId, sourceRequestId)} />}
-    {response.outcome === "clarification_required" && spec && <form className="coach-clarification" onSubmit={(event) => { event.preventDefault(); onClarification(); }}>
+    {response.outcome === "clarification_required" && spec && <form data-testid="K6-S-6" className="coach-clarification" onSubmit={(event) => { event.preventDefault(); onClarification(); }}>
       <fieldset disabled={expired}><legend>{safeClarificationText(spec.promptKey, "prompt", t)}</legend>
         {spec.options.map((option) => <label key={option.optionId} className="coach-clarification__option">
           <input type="radio" name="coach-clarification" value={option.optionId} checked={selectedOption === option.optionId} onChange={() => onSelectOption(option.optionId)} />
@@ -812,7 +812,7 @@ function CoachResult({ response, evidenceOpen, locale, onEvidence, onAction }: {
   onEvidence: () => void; onAction: (code: CoachActionCode) => void;
 }) {
   const { t } = useTranslation("coach");
-  return <div className="coach-result">
+  return <div data-testid="K6-S-7" className="coach-result">
     {response.context && <div className="coach-sheet__chips"><Chip>{t(`discipline.${response.context.discipline}`)}</Chip><Chip>{t(`period.${response.context.period}`)}</Chip><Chip>{t(response.context.goalIncluded ? "goal.included" : "goal.notIncluded")}</Chip></div>}
     <div className="coach-result__answer coach-result__answer--hero">
       {response.answer.blocks.map((block, index) => <div key={`${block.kind}-${index}`} className={`coach-result__block coach-result__block--${block.kind}`}>

@@ -1,9 +1,12 @@
+import { useDefaultSport } from "../hooks/useDefaultSport";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { buildOriderSharePayload, shareOrCopy } from "../features/share/oriderShareText";
 import { localeTag } from "../utils/localeDate";
+import TabNav from "../components/TabNav";
+import LabPage from "./LabPage";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import {
@@ -41,7 +44,7 @@ import {
 import Avatar from "../components/Avatar";
 import { decodePolyline } from "../utils/polyline";
 import { EmptyState, LoadingSkeleton } from "../components/redesign";
-import { Button, buttonClass, Card, Chip, Text } from "../theme/components";
+import { Button, Card, Chip, Text } from "../theme/components";
 import { courseTagLabel, primaryCourseTags } from "../features/courses/courseTags";
 import { CourseRidePlanSection } from "../features/courses/CourseRidePlanSection";
 import { canonicalDisplayShowsValue } from "@shared/types/canonicalDisplay";
@@ -337,6 +340,12 @@ async function extractGpsFromFile(file: File): Promise<[number, number] | null> 
 
 export default function CoursePage() {
   const { t, i18n } = useTranslation("course");
+  const detailLocation = useLocation();
+  const [detailParams, setDetailParams] = useSearchParams();
+  const preparationSport = useDefaultSport();
+  const canPrepare = preparationSport === "bike" || preparationSport === "tri";
+  const detailTab = canPrepare && detailParams.get("tab") === "prepare" ? "prepare" : detailParams.get("tab") === "edit" ? "edit" : "overview";
+  const setDetailTab = (tab: string) => { const next = new URLSearchParams(detailParams); if (tab === "overview") next.delete("tab"); else next.set("tab", tab); setDetailParams(next, { replace: true, state: detailLocation.state }); };
   const { courseId } = useParams<{ courseId: string }>();
   const { user, profile, profileLoading, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -830,11 +839,13 @@ export default function CoursePage() {
     setEditName(course.name);
     setEditDesc(course.description || "");
     setEditing(true);
+    setDetailTab("edit");
     setTimeout(() => nameInputRef.current?.focus(), 50);
   };
 
   const cancelEditing = () => {
     setEditing(false);
+    setDetailTab("overview");
   };
 
   const handleSaveEdit = async () => {
@@ -856,6 +867,7 @@ export default function CoursePage() {
       const fn = httpsCallable(functions, "updateMyCourse");
       await fn({ courseId, name: trimName, description: trimDesc });
       setEditing(false);
+      setDetailTab("overview");
       showToast(t("error.updateSuccess"));
     } catch (err) {
       logClientError("CoursePage.handleSaveEdit", err, { courseId });
@@ -878,6 +890,10 @@ export default function CoursePage() {
   const creatorName = officialCourse ? t("creator.official") : course?.creatorNickname ?? "";
   const isOwner = user?.uid === course?.creatorId && !officialCourse;
   const isAdmin = tokenAdmin || profileHasAdminFlag(profile);
+  useEffect(() => {
+    if (detailTab === "edit" && isOwner && course && !editing) { setEditing(true); setEditName(course.name); setEditDesc(course.description || ""); }
+  }, [detailTab, isOwner, course, editing]);
+
   const courseUnavailable = !course || course.deletedAt || (course.hidden === true && !isAdmin);
 
   if (courseLoading || (course?.hidden === true && adminClaimsLoading)) {
@@ -903,6 +919,46 @@ export default function CoursePage() {
   }
 
   const displayTags = courseDisplayTags(course);
+
+  const climbSection = (
+    course.climbs && course.climbs.length > 0 && (
+      <div style={{ ...COURSE_INFO_SECTION_STYLE, marginTop: "var(--space-4)" }}>
+        <Text as="div" variant="eyebrow">{t("climbSection")}</Text>
+        <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-2)" }}>
+          {climbCards.map(({ climb, prediction }, i) => (
+            <div
+              key={i}
+              className="rounded-[var(--r-md)]"
+              style={{ border: "1px solid var(--line-soft)", padding: "var(--space-3)" }}
+            >
+              <div style={COURSE_INLINE_WRAP_STYLE}>
+                <span
+                  className="text-[length:var(--fs-xs)] font-medium rounded-[var(--r-sm)]"
+                  style={{ ...climbBadgeStyle(climb.cat), padding: "var(--space-1) var(--space-2)" }}
+                >
+                  {climbCatLabel(climb.cat)}
+                </span>
+                <Text variant="bodySmall">
+                  {Math.round(climb.gain)}m / {(climb.dist / 1000).toFixed(1)}km
+                </Text>
+              </div>
+              {canPrepare && detailTab === "prepare" && <ClimbPredictionStatus
+                prediction={prediction}
+                loading={climbPredictionLoading}
+                signedIn={Boolean(user)}
+                onLogin={() => { void signInWithGoogle(); }}
+              />}
+            </div>
+          ))}
+        </div>
+        {canPrepare && detailTab === "prepare" && climbPredictions.some(Boolean) && (
+          <Text variant="caption" style={{ color: "var(--ink-4)" }}>
+            {t("climbPrediction.disclaimer")}
+          </Text>
+        )}
+      </div>
+    )
+  );
 
   return (
     <div className="site-shell" style={COURSE_PAGE_STACK_STYLE}>
@@ -987,7 +1043,7 @@ export default function CoursePage() {
         <div className="course-hero-overlay" aria-hidden="true" />
         <div className="course-hero-content">
           <span className="course-kind-slot">{t("kind.course")}</span>
-          <h1 className="course-hero-title">{course.name}</h1>
+          <h1 data-testid="D2-0" className="course-hero-title">{course.name}</h1>
           <div className="course-hero-chips">
             {officialCourse && <Chip variant="accent">{t("badge.official")}</Chip>}
             {isAdmin && course.hidden === true && <Chip variant="accent">{t("admin.hiddenBadge")}</Chip>}
@@ -1030,9 +1086,12 @@ export default function CoursePage() {
       </div>
       </div>
 
+      <TabNav tabs={[{ id: "overview", label: t("detailTabs.overview"), specId: "D2-T" }, ...(canPrepare ? [{ id: "prepare", label: t("detailTabs.prepare"), specId: "D2-T" }] : []), ...(isOwner ? [{ id: "edit", label: t("button.edit"), specId: "D2-T" }] : [])]} activeTab={detailTab === "edit" && !isOwner ? "overview" : detailTab} onChange={(tab) => { setDetailTab(tab); if (tab === "edit" && isOwner) startEditing(); else setEditing(false); }} />
+      {canPrepare && detailTab === "prepare" && climbSection && <Card data-testid="D2-2">{climbSection}</Card>}
+      {canPrepare && detailTab === "prepare" && <LabPage presetCourseId={courseId ?? course.id} embedded />}
       {/* 본문 2단 — 넓은 열에 프로필·경유지·사진, 좁은 열에 정보와 액션. */}
-      <div className="course-body">
-        <div className="course-col">
+      <div data-testid="D2-1" className="course-body">
+        <div data-testid="D2-1" className="course-col" style={canPrepare && detailTab === "prepare" || (detailTab === "edit" && isOwner) ? { display: "none" } : undefined}>
       {/* Photo Gallery */}
       {((course.photos && course.photos.length > 0) || userPhotos.length > 0 || user) && (
         <Card>
@@ -1226,7 +1285,7 @@ export default function CoursePage() {
           <div style={{ ...COURSE_INFO_SECTION_STYLE, gap: "var(--space-3)" }}>
             <div style={COURSE_INFO_SECTION_STYLE}>
               <Text as="label" variant="eyebrow" style={{ display: "block" }}>{t("form.courseName")}</Text>
-              <input
+              <input data-testid="D2-3"
                 ref={nameInputRef}
                 type="text"
                 value={editName}
@@ -1316,43 +1375,7 @@ export default function CoursePage() {
         )}
 
         {/* Climb badges */}
-        {course.climbs && course.climbs.length > 0 && (
-          <div style={{ ...COURSE_INFO_SECTION_STYLE, marginTop: "var(--space-4)" }}>
-            <Text as="div" variant="eyebrow">{t("climbSection")}</Text>
-            <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-2)" }}>
-              {climbCards.map(({ climb, prediction }, i) => (
-                <div
-                  key={i}
-                  className="rounded-[var(--r-md)]"
-                  style={{ border: "1px solid var(--line-soft)", padding: "var(--space-3)" }}
-                >
-                  <div style={COURSE_INLINE_WRAP_STYLE}>
-                    <span
-                      className="text-[length:var(--fs-xs)] font-medium rounded-[var(--r-sm)]"
-                      style={{ ...climbBadgeStyle(climb.cat), padding: "var(--space-1) var(--space-2)" }}
-                    >
-                      {climbCatLabel(climb.cat)}
-                    </span>
-                    <Text variant="bodySmall">
-                      {Math.round(climb.gain)}m / {(climb.dist / 1000).toFixed(1)}km
-                    </Text>
-                  </div>
-                  <ClimbPredictionStatus
-                    prediction={prediction}
-                    loading={climbPredictionLoading}
-                    signedIn={Boolean(user)}
-                    onLogin={() => { void signInWithGoogle(); }}
-                  />
-                </div>
-              ))}
-            </div>
-            {climbPredictions.some(Boolean) && (
-              <Text variant="caption" style={{ color: "var(--ink-4)" }}>
-                {t("climbPrediction.disclaimer")}
-              </Text>
-            )}
-          </div>
-        )}
+        {detailTab === "overview" && climbSection}
 
         {/* 이 코스의 세그먼트 — 정방향 역링크(#495) */}
         {linkedSegments.length > 0 && (
@@ -1390,17 +1413,14 @@ export default function CoursePage() {
             </Button>
           )}
 
-          {/* 시뮬레이터 (실험실) */}
-          <Link
-            to={`/lab?courseId=${courseId}`}
-            className={buttonClass({ variant: "secondary" })}
-          >
+          {/* 계산기는 준비 탭에 있다. 옛 /lab 주소는 계속 지원한다. */}
+          <Button variant="secondary" disabled={!canPrepare} onClick={() => setDetailTab("prepare")}>
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 3v6l-5 9a1 1 0 00.9 1.5h14.2A1 1 0 0020 18l-5-9V3" />
               <path d="M7 3h10M8.5 13h7" />
             </svg>
             {t("button.simulate")}
-          </Link>
+          </Button>
 
           {/* GPX Export */}
           <Button onClick={handleExportGpx} variant="secondary">
@@ -1462,7 +1482,7 @@ export default function CoursePage() {
           )}
           {isAdmin && (
             <div className={isOwner ? "flex items-center" : "ml-auto flex items-center"} style={{ gap: "var(--space-2)" }}>
-              <Button
+              <Button data-testid="O2-1"
                 onClick={() => handleToggleHidden(course.hidden !== true)}
                 disabled={moderating}
                 variant="secondary"
@@ -1481,8 +1501,8 @@ export default function CoursePage() {
         </aside>
       </div>
 
-      <CourseRidePlanSection courseId={courseId ?? course.id} isOwner={isOwner} user={user}
-        onSignIn={() => { void signInWithGoogle(); }} />
+      {canPrepare && detailTab === "prepare" && <CourseRidePlanSection courseId={courseId ?? course.id} isOwner={isOwner} user={user}
+        onSignIn={() => { void signInWithGoogle(); }} />}
 
       {/* Back */}
       <div className="flex items-center">
@@ -1543,7 +1563,7 @@ export function ClimbPredictionStatus({
   }
   return (
     <Link
-      to="/settings/training"
+      to="/coach/condition?sport=bike#thresholds"
       className="course-climb-prediction block text-[length:var(--fs-xs)] hover:underline"
       style={{ color: "var(--lime)", marginTop: "var(--space-2)" }}
     >

@@ -1,4 +1,6 @@
-import { useParams } from "react-router-dom";
+import { useToast } from "../../contexts/ToastContext";
+import { logClientError } from "../../services/errorLogger";
+import { useLocation, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { RouteTabNav } from "../TabNav";
 import { LocalizedLink as Link } from "../LocalizedLink";
@@ -10,20 +12,23 @@ interface GroupSubNavProps {
 }
 
 export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
+  const { showToast } = useToast();
   const { t } = useTranslation("group");
-  const { groupId } = useParams();
+  const { groupId, lang } = useParams();
+  const { search } = useLocation();
   const base = `/club/${groupId}`;
 
   const tabs = [
-    { to: base, label: t("subNav.overview"), end: true },
-    { to: `${base}/rides`, label: t("rides") },
-    { to: `${base}/leaderboard`, label: t("leaderboard") },
+    { to: base, label: t("subNav.news"), end: true },
+    { to: `${base}/events`, label: t("subNav.events") },
+    ...((group.sports ?? [group.discipline ?? "bike"]).includes("bike") ? [{ to: `${base}/rides`, label: t("subNav.rides") }] : []),
+    { to: `${base}/week`, label: t("subNav.week") },
     { to: `${base}/members`, label: t("members") },
-    ...(isCreator ? [{ to: `${base}/settings`, label: t("settings") }] : []),
+    ...(isCreator ? [{ to: `${base}/settings`, label: t("subNav.settings") }] : []),
   ];
 
   return (
-    <div className="mb-6">
+    <div data-testid="C1-0" className="mb-6">
       <nav
         aria-label={t("subNav.contextLabel")}
         className="flex flex-wrap items-center mb-3 text-[length:var(--fs-sm)]"
@@ -43,7 +48,8 @@ export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
           </p>
         </div>
       </div>
-      <RouteTabNav tabs={tabs} />
+      <RouteTabNav tabs={tabs.map(tab => ({ ...tab, specId: "C1-0-2", to: `${tab.to}${search}` }))} />
+      <button data-testid="C1-0-4" type="button" onClick={async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/${lang ?? "ko"}${base}`); showToast(t("invite.copied")); } catch (error) { logClientError("GroupSubNav.share", error, { groupId }); showToast(t("dashboard.posts.actionFailed"), "error"); } }}>{t("button.share")}</button>
     </div>
   );
 }

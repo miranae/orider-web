@@ -12,7 +12,7 @@ import { FitnessView } from "../pages/FitnessPage";
 import FitnessCoachBriefing from "../features/fitness/components/FitnessCoachBriefing";
 import { deriveActivityImpacts, activityIdsCoveredByImpacts } from "../features/fitness/activityImpact";
 import { deriveActivityStimulus } from "../features/fitness/activityStimulus";
-const mocks = vi.hoisted(() => ({user:{uid:"rider-a",isAnonymous:false},firestore:{},timeseries:null as FitnessTimeseriesDoc|null}));
+const mocks = vi.hoisted(() => ({user:{uid:"rider-a",isAnonymous:false},firestore:{},timeseries:null as FitnessTimeseriesDoc|null, multisport: false}));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, profile: null }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => ({ firestore: mocks.firestore }) }));
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: vi.fn() }) }));
@@ -32,8 +32,8 @@ vi.mock("./useConsistencyStreak", () => ({ useConsistencyStreak: () => ({ summar
 vi.mock("./useRunRecords", () => ({ useRunRecords: () => ({ run: null }) }));
 vi.mock("./useMilestones", () => ({ useMilestones: () => ({ achieved: new Map(), markCelebrated: vi.fn() }) }));
 vi.mock("./useFreshTraining", () => ({ useFreshTraining: () => ({ revalidating: false, justRecomputed: false }) }));
-vi.mock("./useFitnessTimeseries", () => ({ useFitnessTimeseries: () => ({
-  timeseries: mocks.timeseries, loaded: true, error: null, cacheHit: true, freshLoaded: true,
+vi.mock("./useFitnessTimeseries", () => ({ useFitnessTimeseries: (_uid: unknown, sport: string) => ({
+  timeseries: mocks.multisport && mocks.timeseries ? { ...mocks.timeseries, discipline: sport } : mocks.timeseries, loaded: true, error: null, cacheHit: true, freshLoaded: true,
 }) }));
 
 
@@ -47,7 +47,7 @@ function seed(activities: Activity[]) {
   setCollectionDocs("activities", activities as unknown as Array<Record<string,unknown>&{id:string}>);
   for (const a of activities) setDocData(`activity_metrics/${a.id}`,{tss:100});
 }
-beforeEach(()=>{clearTrainingSurfaceCache();mocks.timeseries=null;vi.mocked(getDoc).mockClear();});
+beforeEach(()=>{clearTrainingSurfaceCache();mocks.timeseries=null;mocks.multisport=false;vi.mocked(getDoc).mockClear();});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 describe("retained activity without raw summary",()=>{
   it.each(["bike", "run", "swim", "tri"])("%s 체력은 활동별 metrics를 읽지 않고 게시된 부하를 유지한다", async sport => {
@@ -144,6 +144,16 @@ describe("retained activity without raw summary",()=>{
     await waitFor(()=>expect(h.result.current.derivedMetricsSettled).toBe(true));
     expect(h.result.current.triFitnessTimeline).toEqual([]);
     expect(h.result.current.combinedLoad).toBeNull();
+  });
+  it("the all-sport condition reader keeps combined PMC rather than substituting the bike breakdown", () => {
+    mocks.multisport = true;
+    mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: Date.now(), startDate: point.date, endDate: point.date, pointCount: 1, points: [point] };
+    seed([]);
+    const combined = renderHook(() => useFitnessModel("tri", options));
+    const bike = renderHook(() => useFitnessModel("bike", options));
+    expect(combined.result.current.discipline).toBe("tri");
+    expect(combined.result.current.combinedLoad).toMatchObject({ ctl: 120, atl: 135, tsb: -15 });
+    expect(bike.result.current.currentPoint).toMatchObject({ ctl: 40, atl: 45, tsb: -5 });
   });
   it("tri retains healthy explicit zero backed by a valid canonical timeline",()=>{
     mocks.timeseries={discipline:"bike",schemaVersion:1,computedAt:Date.now(),startDate:point.date,endDate:point.date,pointCount:1,points:[{...point,ctl:0,atl:0,tsb:0,dailyLoad:0}]};

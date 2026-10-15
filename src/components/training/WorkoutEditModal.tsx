@@ -354,7 +354,7 @@ export default function WorkoutEditModal({
     <>
       {/* Backdrop */}
       <div
-        onClick={onClose}
+        data-testid="K4-6-7" onClick={onClose}
         style={{
           position: 'fixed',
           inset: 0,
@@ -364,7 +364,7 @@ export default function WorkoutEditModal({
       />
 
       {/* Modal */}
-      <Card padding="none"
+      <Card data-testid="K4-6" padding="none"
         style={{
           position: 'fixed',
           top: '50%',
@@ -379,7 +379,7 @@ export default function WorkoutEditModal({
         }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div data-testid="K4-6-1" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <span
               style={{
@@ -403,7 +403,7 @@ export default function WorkoutEditModal({
             </div>
           </div>
           <button
-            onClick={onClose}
+            data-testid="K4-6-7" onClick={onClose}
             style={{
               background: 'none',
               border: 'none',
@@ -466,7 +466,7 @@ export default function WorkoutEditModal({
           )}
           {/* 완료 토글 */}
           <Button variant="secondary" size="sm"
-            onClick={handleToggleCompleted}
+            data-testid="K4-6-2" onClick={handleToggleCompleted}
             disabled={loading || outcomeLocked}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)' }}
           >
@@ -476,7 +476,7 @@ export default function WorkoutEditModal({
 
           {/* 건너뛰기 / 건너뛰기 취소 */}
           <Button variant="secondary" size="sm"
-            onClick={handleSkip}
+            data-testid="K4-6-3" onClick={handleSkip}
             disabled={loading || outcomeLocked}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)', color: day.skipped ? 'var(--lime)' : 'var(--amber)' }}
           >
@@ -486,7 +486,7 @@ export default function WorkoutEditModal({
 
           {/* 워크아웃 변경 */}
           <Button variant="secondary" size="sm"
-            onClick={() => setShowKindPicker((v) => !v)}
+            data-testid="K4-6-4" onClick={() => setShowKindPicker((v) => !v)}
             disabled={loading}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)' }}
           >
@@ -536,7 +536,7 @@ export default function WorkoutEditModal({
 
           {/* 이전 날과 교환 */}
           <Button variant="secondary" size="sm"
-            onClick={handleSwapPrev}
+            data-testid="K4-6-5" onClick={handleSwapPrev}
             disabled={loading}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)' }}
           >
@@ -545,7 +545,7 @@ export default function WorkoutEditModal({
 
           {/* 다음 날과 교환 */}
           <Button variant="secondary" size="sm"
-            onClick={handleSwapNext}
+            data-testid="K4-6-5" onClick={handleSwapNext}
             disabled={loading}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)' }}
           >
@@ -554,7 +554,7 @@ export default function WorkoutEditModal({
 
           {/* #476 구조화 워크아웃 파일 임포트 (.zwo/.erg/.mrc) */}
           <Button variant="secondary" size="sm"
-            onClick={() => fileRef.current?.click()}
+            data-testid="K4-6-6" onClick={() => fileRef.current?.click()}
             disabled={loading}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)' }}
           >

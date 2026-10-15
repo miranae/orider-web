@@ -61,6 +61,7 @@ function kstDayOfMonth(ms: number): number | null {
 }
 
 export interface MobilePlanContentProps {
+  selectedDate?: string;
   embedded?: boolean;
   chromeSlot?: ReactNode;
   adaptationSlot?: ReactNode;
@@ -84,6 +85,7 @@ export interface MobilePlanContentProps {
 }
 
 export default function MobilePlanContent({
+  selectedDate,
   embedded = false,
   chromeSlot,
   adaptationSlot,
@@ -147,26 +149,26 @@ export default function MobilePlanContent({
   const editTargetIdx = todayIdx >= 0 ? todayIdx : days.findIndex(d => d.workout !== "rest");
 
   return (
-    <div className="mobile-plan-content">
+    <div data-testid="K4-5m" className="mobile-plan-content">
       {embedded && <h1 className="orider-embedded-page-title">{t("page.embeddedTitle")}</h1>}
       {chromeSlot}
 
       {goalTitle && (
-        <Card padding="compact" className="mobile-plan-goal">
+        <Card padding="compact" data-testid="K4-2" className="mobile-plan-goal">
           <Text as="div" variant="eyebrow" className="mobile-plan-section-label">{t("goal")}</Text>
           <div className="mobile-plan-goal-heading">
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 title={goalTitle} aria-label={goalTitle} className={`mobile-plan-goal-title${goalExpanded ? " is-expanded" : ""}`}>{goalExpanded ? goalTitle : formattedGoal?.name}</h2>
+              <h2 data-testid="K4-2-1" title={goalTitle} aria-label={goalTitle} className={`mobile-plan-goal-title${goalExpanded ? " is-expanded" : ""}`}>{goalExpanded ? goalTitle : formattedGoal?.name}</h2>
               {!goalExpanded && formattedGoal?.meta && <div className="mobile-plan-goal-meta">{formattedGoal.meta}</div>}
             </div>
             {(formattedGoal?.meta || goalTitle.length > 32) && (
-              <Button type="button" variant="ghost" size="sm" aria-expanded={goalExpanded} onClick={() => setGoalExpanded(value => !value)} style={{ flexShrink: 0 }}>
+              <Button type="button" variant="ghost" size="sm" data-testid="K4-2-3" aria-expanded={goalExpanded} onClick={() => setGoalExpanded(value => !value)} style={{ flexShrink: 0 }}>
                 {goalExpanded ? t("mobile.collapseGoal") : t("mobile.showOriginal")}
               </Button>
             )}
           </div>
           <div className="mobile-plan-meta">{t("metrics.progressBasis")}</div>
-          <div role="progressbar" aria-label={t("metrics.progress")} aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} className="mobile-plan-progress">
+          <div data-testid="K4-2-2" role="progressbar" aria-label={t("metrics.progress")} aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} className="mobile-plan-progress">
             <div style={{ width: `${Math.min(100, Math.max(0, progressPct ?? 0))}%`, height: "100%", background: "var(--lime)" }} />
           </div>
           <div className="mobile-plan-goal-stats">
@@ -183,7 +185,7 @@ export default function MobilePlanContent({
       )}
 
       {nextWorkout && (
-        <Card padding="compact" className="mobile-plan-next">
+        <Card data-testid="K4-5m-2" padding="compact" className="mobile-plan-next">
           <div className="mobile-plan-next-main">
             <div className="mobile-plan-next-copy">
               <Text as="span" variant="eyebrow" style={{ color: "var(--lime)" }}>{nextWorkoutIdx === todayIdx ? t("mobile.todayNext") : t("mobile.weekNext")}</Text>
@@ -198,7 +200,7 @@ export default function MobilePlanContent({
       {adaptationSlot}
 
       {/* Week navigation */}
-      <div className="mobile-plan-week-navigation flex items-center justify-center" role="group" aria-label={t('mobile.weekHeading')} style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
+      <div data-testid="K4-5m-1" className="mobile-plan-week-navigation flex items-center justify-center" role="group" aria-label={t('mobile.weekHeading')} style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
         <button type="button" onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')}
           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>◀</button>
         <div style={{ textAlign: "center", minWidth: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{weekLabel}</div>
@@ -223,7 +225,7 @@ export default function MobilePlanContent({
         const stackTotal = bikeTSS + runTSS + swimTSS || 1;
 
         return (
-          <section className="mobile-plan-week-summary" aria-label={t('mobile.weeklySummary')}>
+          <section data-testid="K4-7-1" className="mobile-plan-week-summary" aria-label={t('mobile.weeklySummary')}>
             <Text as="h3" variant="eyebrow" className="mobile-plan-section-label">{t('mobile.weeklySummary')}</Text>
             <div className="mobile-plan-week-metrics">
               <span><small>{t('mobile.weeklyTSS')}</small><strong>{Math.round(totalTSS)}</strong></span>
@@ -261,7 +263,7 @@ export default function MobilePlanContent({
         </button>
       )}
       {days.map((day, i) => {
-        if (todayIdx > 0 && i < todayIdx && !showPastDays) return null;
+        if (todayIdx > 0 && i < todayIdx && !showPastDays && kstDateString(day.date) !== selectedDate) return null;
         const dayStr = day.date ? kstDateString(day.date) : "";
         const dayOfMonth = day.date ? kstDayOfMonth(day.date) : null;
         const isToday = dayStr === todayStr;
@@ -282,14 +284,17 @@ export default function MobilePlanContent({
 
         if (isRest) {
           return (
-            <div key={i} style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
+            <div
+            data-plan-date={dayStr}
+            aria-current={dayStr === selectedDate ? "date" : undefined}
+            data-testid={dayStr === selectedDate ? "K4-5-6" : undefined} key={i} style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)' }}>
                 <div style={{ width: 32, textAlign: "center" }}>
                   <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{DAY_NAMES[i]}</div>
                   <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, fontFamily: "var(--font-mono)", color: isToday ? "var(--lime)" : "var(--ink-0)" }}>{dayOfMonth ?? ""}</div>
                 </div>
                 <div style={{ flex: 1, padding: "var(--space-3) var(--space-2)", border: "1px dashed var(--line)", borderRadius: "var(--r-md)", display: "flex", alignItems: "center", gap: 'var(--space-2)',
-                  background: isToday ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent" }}>
+                  background: isToday || dayStr === selectedDate ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent" }}>
                   <span style={{ fontSize: "var(--fs-base)" }}>🌙</span>
                   <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-4)" }}>{t('mobile.restDay')}</span>
                 </div>
@@ -300,6 +305,9 @@ export default function MobilePlanContent({
 
         return (
           <div key={i} className="flex items-center gap-3.5"
+            data-plan-date={dayStr}
+            aria-current={dayStr === selectedDate ? "date" : undefined}
+            data-testid={dayStr === selectedDate ? "K4-5-6" : undefined}
             role={onEditWorkout ? "button" : undefined}
             tabIndex={onEditWorkout ? 0 : undefined}
             aria-label={onEditWorkout ? `${DAY_NAMES[i]} ${dayOfMonth ?? ""} ${label} · ${stateLabel}` : undefined}
@@ -312,7 +320,7 @@ export default function MobilePlanContent({
             } : undefined}
             style={{
               padding: "13px 16px", borderBottom: "1px solid var(--line-soft)",
-              background: isToday ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent",
+              background: isToday || dayStr === selectedDate ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent",
               cursor: onEditWorkout ? "pointer" : "default",
             }}>
             <div style={{ width: 32, textAlign: "center" }}>

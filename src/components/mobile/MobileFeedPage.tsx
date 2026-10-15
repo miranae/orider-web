@@ -1,3 +1,4 @@
+import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/appStoreLinks";
 import { Fragment, lazy, Suspense, useState, useMemo, type ReactNode } from "react";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { useActivityAuthor } from "../../hooks/useActivityAuthor";
@@ -64,6 +65,7 @@ interface MobileFeedPageProps {
   datePreset?: DashboardDatePreset;
   onDatePresetChange?: (datePreset: DashboardDatePreset) => void;
   runningJourney?: ReactNode;
+  todayStrip?: ReactNode;
 }
 
 function SportSummaryFilter({
@@ -71,16 +73,18 @@ function SportSummaryFilter({
   value,
   onChange,
   ariaLabel,
+  labelsOnly = false,
 }: {
   items: SportBreakdownItem[];
   value: SportFilter;
   onChange: (value: SportFilter) => void;
   ariaLabel: string;
+  labelsOnly?: boolean;
 }) {
   return (
     <Card
       padding="none"
-      role="group"
+      data-testid="H-0-1" role="group"
       aria-label={ariaLabel}
       className="grid grid-cols-4 overflow-hidden"
       style={{ margin: "0 -16px", padding: 0, borderRadius: 0, borderLeft: "none", borderRight: "none" }}
@@ -106,9 +110,9 @@ function SportSummaryFilter({
           <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: value === item.key ? item.color : "var(--ink-4)", marginBottom: 'var(--space-1)', overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.label}
           </div>
-          <Text as="div" variant="num" style={{ fontSize: "var(--fs-lg)", color: item.color, lineHeight: 1 }}>
+          {!labelsOnly && <Text as="div" variant="num" style={{ fontSize: "var(--fs-lg)", color: item.color, lineHeight: 1 }}>
             {item.value}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: "var(--space-0-5)" }}>{item.unit}</span>
-          </Text>
+          </Text>}
         </button>
       ))}
     </Card>
@@ -205,7 +209,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
   const sTag = getDisciplineTag(discipline);
 
   return (
-    <div className="mobile-feed-card" style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)", position: "relative" }}>
+    <div data-testid="H1-2-1" className="mobile-feed-card" style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)", position: "relative" }}>
       <Link
         to={`/activity/${activity.id}`}
         aria-label={activity.description || t("mobileFeed.defaultActivity")}
@@ -309,6 +313,7 @@ export default function MobileFeedPage({
   datePreset: controlledDatePreset,
   onDatePresetChange,
   runningJourney,
+  todayStrip,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
@@ -410,7 +415,8 @@ export default function MobileFeedPage({
   );
 
   return (
-    <div style={{ overscrollBehavior: "contain" }}>
+    <div data-testid="H1-2" style={{ overscrollBehavior: "contain" }}>
+      {todayStrip && <div className="p-4">{todayStrip}</div>}
       {!user && (
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
           <SportSummaryFilter
@@ -427,7 +433,7 @@ export default function MobileFeedPage({
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-2) var(--space-4)" }}>
           <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-1)" }}>
             <div className="flex items-center" style={{ minWidth: 0, gap: "var(--space-2)" }}>
-              <Text variant="eyebrow">{t("mobileFeed.weekSummary")}</Text>
+              {!todayStrip && <Text variant="eyebrow">{t("mobileFeed.weekSummary")}</Text>}
               {consistencyStreak && (
                 <button
                   type="button"
@@ -447,7 +453,7 @@ export default function MobileFeedPage({
               {t("mobileFeed.viewAll")}
             </Link>
           </div>
-          {sportFilter === "run" && runSummary && <div data-testid="mobile-run-weekly-summary" style={{ marginBottom: "var(--space-2)" }}>
+          {!todayStrip && sportFilter === "run" && runSummary && <div data-testid="mobile-run-weekly-summary" style={{ marginBottom: "var(--space-2)" }}>
             <Text as="h2" variant="eyebrow">{t("kpi.runWeekGroup")}</Text>
             {runSummary.available ? <div className="grid grid-cols-2 gap-2" style={{ marginTop: "var(--space-1)" }}>
               {(["count", "distance", "time", "elevation"] as const).map((key) => <div key={key}>
@@ -460,6 +466,7 @@ export default function MobileFeedPage({
           {/* 전폭 카드: 대시보드 래퍼는 모바일 px 없음 → 부모 padding(16px) 음수마진으로 상쇄 */}
           <SportSummaryFilter
             items={weeklySportBreakdown}
+            labelsOnly={!!todayStrip}
             value={sportFilter}
             onChange={setSportFilter}
             ariaLabel={t("mobileFeed.sportFilterLabel")}
@@ -529,7 +536,7 @@ export default function MobileFeedPage({
           {user && <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden", display: "flex", alignItems: "center", paddingLeft: "var(--space-2)" }}>
             <span style={{ flexShrink: 0, color: "var(--ink-3)", fontSize: "var(--fs-2xs)" }}>{t("feed.filter.label")}</span>
             <select
-              value={feedScope}
+              data-testid="H1-1-1" value={feedScope}
               onChange={(event) => onFeedScopeChange(event.target.value as ActivityFeedScope)}
               aria-label={t("feed.filter.label")}
               style={{ flex: 1, minWidth: 0, minHeight: "var(--space-8)", border: 0, background: "transparent", color: "var(--ink-0)", paddingLeft: "var(--space-1)", fontSize: "var(--fs-sm)" }}
@@ -589,6 +596,7 @@ export default function MobileFeedPage({
           <div style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>🚴</div>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{searchActive && activitySearch!.hasMoreServerResults ? t("feed.search.morePossibleTitle") : searchActive ? t("feed.search.emptyTitle") : activities.length > 0 ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
           <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{searchActive && activitySearch!.hasMoreServerResults ? t("feed.search.morePossibleDescription") : searchActive ? t("feed.search.emptyDescription") : activities.length > 0 ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
+          {user && !searchActive && activities.length === 0 && <div className="flex gap-3 mt-3"><a href={ORIDER_PLAY_STORE_URL}>Google Play</a><a href={ORIDER_APP_STORE_URL}>App Store</a><Link to="/athlete/me/activities?import=1">{t("todayStrip.importHistory")}</Link></div>}
           {searchActive && hasActiveSearchFilters && <Button variant="secondary" onClick={() => {
             setSportFilter("all");
             onFeedScopeChange("all");
@@ -612,7 +620,7 @@ export default function MobileFeedPage({
 
       {!(searchActive ? activitySearch!.loading || activitySearch!.error : loading || error) && (hasHiddenLocalItems || (searchActive ? activitySearch!.hasMoreServerResults : hasMore)) && (
         <div style={{ padding: "var(--space-3) var(--space-4)" }}>
-          <Button variant="secondary" size="lg"
+          <Button data-testid="H1-2-3" variant="secondary" size="lg"
             onClick={() => {
               if (hasHiddenLocalItems) {
                 setRenderLimit((value) => value + MOBILE_FEED_RENDER_STEP);

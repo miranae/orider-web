@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
+import { useSearchParams } from "react-router-dom";
 import { Upload } from "lucide-react";
 import { collection, query, where, orderBy, getDocs, limit } from "firebase/firestore";
 import { firestore } from "../services/firebase";
@@ -115,6 +116,7 @@ interface LogDayCellProps {
 }
 
 interface PlanGhost {
+  discipline: "bike" | "run" | "swim";
   workout: PlanDay["workout"];
   plannedTSS: number;
   plannedDurationMin: number;
@@ -206,7 +208,9 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
       {plans.map((plan, index) => {
         const color = sportColor(plan.workout);
         return (
-          <div
+          <button
+            type="button"
+            data-testid="P1-2-2" onClick={() => navigate(`/coach/plan?sport=${plan.discipline}&date=${dateKey}`)}
             key={`${plan.workout}-${index}`}
             title={`Plan · ${plan.plannedTSS} TSS · ${plan.plannedDurationMin}m`}
             style={{
@@ -230,7 +234,7 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
                 {adherenceLabel}
               </span>
             )}
-          </div>
+          </button>
         );
       })}
       {visible.map((a) => {
@@ -469,6 +473,8 @@ export default function TrainingLogPage() {
         }
 
         const goalId = goalSnap.docs[0]!.id;
+        const goalSport = goalSnap.docs[0]!.data().discipline;
+        const discipline = goalSport === "run" || goalSport === "swim" ? goalSport : "bike";
         const planSnap = await getDocs(
           query(collection(firestore, "goals", goalId, "plan"), orderBy("weekNumber")),
         );
@@ -484,6 +490,7 @@ export default function TrainingLogPage() {
             if (plannedTSS <= 0) continue;
             const plans = next.get(key) ?? [];
             plans.push({
+              discipline,
               workout: day.workout,
               plannedTSS,
               plannedDurationMin: Math.round(effectivePlanDuration(day)),
@@ -628,7 +635,10 @@ export default function TrainingLogPage() {
 
   const monthLabel = t("log.monthLabel", { year: selectedMonth.year, month: selectedMonth.month + 1 });
 
-  const [importOpen, setImportOpen] = useState(false);
+  const [importParams, setImportParams] = useSearchParams();
+  const [importOpen, setImportOpen] = useState(importParams.get("import") === "1");
+  useEffect(() => { if (importParams.get("import") === "1") setImportOpen(true); }, [importParams]);
+  const closeImport = () => { setImportOpen(false); const next = new URLSearchParams(importParams); next.delete("import"); setImportParams(next, { replace: true }); };
 
   const isMobile = useMobile();
   const [isNarrowLayout, setIsNarrowLayout] = useState(() =>
@@ -656,6 +666,8 @@ export default function TrainingLogPage() {
     }
     return (
       <MobileLogPage
+        plannedDates={[...planByMonth.keys()]}
+        plannedSports={Object.fromEntries([...planByMonth].map(([date, plans]) => [date, plans[0]?.discipline ?? "bike"]))}
         ftp={ftp}
         activities={activities}
         year={selectedMonth.year}
@@ -678,14 +690,14 @@ export default function TrainingLogPage() {
     <div className="site-shell" style={{ paddingBottom: 'var(--space-8)' }}>
 
       {/* ── 헤더 ───────────────────────────────────────────────── */}
-      <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "20px 0 16px" }}>
+      <div data-testid="P1-1" style={{ borderBottom: "1px solid var(--line-soft)", padding: "20px 0 16px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
           <Text as="h1" variant="title" style={{ margin: 0 }}>{t("page.logTitle")}</Text>
           <Text as="span" variant="caption" tone="secondary">{t("page.logActivities", { count: kpi.count })}</Text>
         </div>
         <Text variant="caption" tone="secondary">{t("log.recordBasis")}</Text>
         {kpi.tssEstimated && <Text variant="caption" tone="secondary">{t("log.estimateBasis")}</Text>}
-        <Card padding="none" style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
+        <Card data-testid="P1-1-1" padding="none" style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
           {[
             { label: t("page.logTotalDistance"), value: `${kpi.dist.toFixed(1)}`, unit: "km", color: "var(--aqua)" },
             { label: t("page.logTotalTime"), value: formatDuration(kpi.time), unit: null, color: "var(--ink-0)" },
@@ -706,7 +718,7 @@ export default function TrainingLogPage() {
       </div>
 
       {/* ── 바디 ───────────────────────────────────────────────────── */}
-      <div style={{ padding: "20px 0 0" }}>
+      <div data-testid="P1-0" style={{ padding: "20px 0 0" }}>
 
         {/* 월 네비게이션 */}
         <div
@@ -717,7 +729,7 @@ export default function TrainingLogPage() {
             marginBottom: "var(--space-3)",
           }}
         >
-          <Button variant="secondary" size="sm" onClick={goPrevMonth}>
+          <Button variant="secondary" size="sm" data-testid="P1-0-1" onClick={goPrevMonth}>
             {t("page.prevMonth")}
           </Button>
           <span
@@ -761,7 +773,7 @@ export default function TrainingLogPage() {
         </div>
 
         {/* 캘린더 그리드 */}
-        <Card padding="none" style={LOG_CALENDAR_CARD_STYLE}>
+        <Card data-testid="P1-2" padding="none" style={LOG_CALENDAR_CARD_STYLE}>
           {/* 요일 헤더 */}
           <div
             style={{
@@ -892,7 +904,7 @@ export default function TrainingLogPage() {
         </Card>
 
       </div>
-      <ImportActivityModal open={importOpen} onClose={() => setImportOpen(false)} />
+      <ImportActivityModal open={importOpen} onClose={closeImport} />
     </div>
   );
 }

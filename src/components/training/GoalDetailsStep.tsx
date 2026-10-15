@@ -148,7 +148,7 @@ export default function GoalDetailsStep({
       : null;
 
   return (
-    <div
+    <div data-testid="K3-3-4"
       style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
@@ -375,7 +375,7 @@ export default function GoalDetailsStep({
       </div>
 
       {/* ── 오른쪽 컬럼: Feasibility 패널 ── */}
-      <div
+      <div data-testid="K3-3-5"
         style={{
           padding: 'var(--space-5)',
           background: 'var(--bg-2)',

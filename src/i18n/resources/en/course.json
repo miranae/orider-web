@@ -278,5 +278,14 @@
   "grade.steep": "7% and over",
   "detail.lane.kom": "KOM",
   "detail.lane.seg": "Segment",
-  "detail.lane.amenity": "Amenity"
+  "detail.lane.amenity": "Amenity",
+  "myCourses": "My courses",
+  "recommendations": "Popular courses",
+  "detailTabs": {
+    "overview": "Overview and terrain",
+    "prepare": "Preparation"
+  },
+  "segmentSearch.loadFailed": "Could not load segments",
+  "segmentSearch.retry": "Retry loading",
+  "segmentSearch.loading": "Loading segments"
 }

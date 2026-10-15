@@ -24,7 +24,7 @@ export function useRunPlanTarget(params: URLSearchParams, viewerUid: string | un
   const query = params.toString();
   const key = `${viewerUid ?? ""}:${goal?.id ?? ""}:${query}`;
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
-  const requested = params.has("goalId") || params.has("weekId") || params.has("dayIndex") || params.has("date");
+  const requested = params.has("weekId") || params.has("dayIndex");
   const target = useMemo(() => !loading && !loadError && !isAnonymous
     ? resolveRunPlanTarget(new URLSearchParams(query), viewerUid, goal, weeks) : null,
   [query, viewerUid, goal, weeks, loading, loadError, isAnonymous]);

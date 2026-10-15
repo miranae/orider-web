@@ -1,4 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { Text } from "../theme/components";
+import { planDayKey } from "@shared/training/planDate";
+import { LocalizedLink } from "../components/LocalizedLink";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { doc, updateDoc } from "firebase/firestore";
@@ -56,6 +59,21 @@ export default function PlanPage() {
   const serverManagedPlan = goal?.runProgram != null;
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
   const runTarget = useRunPlanTarget(searchParams, user?.uid, user?.isAnonymous === true, goal, weeks, loading || (!model.freshLoaded && !loadError), loadError, model.isTodayCell, setMobileWeekOffset);
+  const targetDate = searchParams.get("date");
+  useEffect(() => {
+    if (loading || searchParams.has("weekId") || searchParams.has("dayIndex") || !targetDate || !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) return;
+    const target = weeks.findIndex(week => week.days.some(day => planDayKey(day.date) === targetDate));
+    if (target < 0) return;
+    const today = weeks.findIndex(week => week.days.some(model.isTodayCell));
+    const future = weeks.findIndex(week => week.days.some(day => day.date >= Date.now()));
+    const current = today >= 0 ? today : future >= 0 ? future : Math.max(0, weeks.length - 1);
+    setMobileWeekOffset(target - current);
+  }, [targetDate, weeks, loading, model.isTodayCell, searchParams]);
+  useEffect(() => {
+    if (!targetDate || !/^\d{4}-\d{2}-\d{2}$/.test(targetDate) || loading) return;
+    const frame = requestAnimationFrame(() => document.querySelector(`[data-plan-date="${targetDate}"]`)?.scrollIntoView?.({ block: "center", behavior: "smooth" }));
+    return () => cancelAnimationFrame(frame);
+  }, [targetDate, loading, mobileWeekOffset, weeks]);
   const [selectedDay, setSelectedDay] = useState<{
     day: PlanDay;
     weekId: string;
@@ -101,6 +119,7 @@ export default function PlanPage() {
   const renderPresentation = (decisionSlot?: ReactNode) => (
     <PlanPresentation
       model={model}
+      selectedDate={targetDate ?? undefined}
       decisionSlot={decisionSlot}
       adaptationSlot={goal?.adaptationFlag && !serverManagedPlan ? (
         <AdaptationBanner
@@ -114,10 +133,11 @@ export default function PlanPage() {
       onEditWorkout={serverManagedPlan ? undefined : (day, weekId, dayIndex) => setSelectedDay({ day, weekId, dayIndex })}
       onIcsExport={exportPlanIcs}
       onReroll={serverManagedPlan ? undefined : rerollPlan}
-      onGoalReset={serverManagedPlan ? undefined : () => navigate("/goal-setup")}
+      onGoalReset={serverManagedPlan ? undefined : () => navigate(`/coach/goals?sport=${discipline}&new=1&returnTo=${encodeURIComponent(`/coach/plan?sport=${discipline}`)}`)}
       onAbandon={abandonGoal}
       renderMobile={(props) => (
         <MobilePlanPage
+          selectedDate={props.selectedDate}
           currentWeek={props.currentWeek}
           weekLabel={props.weekLabel}
           goalId={serverManagedPlan ? undefined : goal?.id}
@@ -139,7 +159,7 @@ export default function PlanPage() {
           }}
           onIcsExport={exportPlanIcs}
           onReroll={serverManagedPlan ? undefined : rerollPlan}
-          onGoalReset={serverManagedPlan ? undefined : () => navigate("/goal-setup")}
+          onGoalReset={serverManagedPlan ? undefined : () => navigate(`/coach/goals?sport=${discipline}&new=1&returnTo=${encodeURIComponent(`/coach/plan?sport=${discipline}`)}`)}
           onAbandon={abandonGoal}
         />
       )}
@@ -150,6 +170,7 @@ export default function PlanPage() {
     return <GuestValuePreview kind="plan" lang={i18n.language} />;
   }
 
+  const goalLink = <header data-testid="K4-0" className="site-shell"><Text data-testid="K4-0-1" as="h1" variant="pageTitle">{t("mobile.weeklyPlan")}</Text><div data-testid="K4-0-2"><DisciplineTabs value={discipline} /></div>{goal && <LocalizedLink data-testid="K4-2-4" to={`/coach/goals?sport=${discipline}`}>{t("goalHub.title")} →</LocalizedLink>}</header>;
   const targetNotice = runTarget.unavailable ? <p role="status" className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{tActivity("analysis.run.nextPlan.unavailable")}</p> : null;
 
   const refreshAfterEnroll = async () => {
@@ -162,11 +183,11 @@ export default function PlanPage() {
     // 미리보기는 일반 계획 경로와 같은 위치에 둬서 Run30 조회가 끝나도 다시 마운트되지 않게 한다.
     const shell = (content: ReactNode) => (
       <>
-        {targetNotice}
+        {goalLink}{targetNotice}
         {runTarget.session && <RunPlanPreview session={runTarget.session} onClose={runTarget.close} />}
         <div className="site-shell" style={{ paddingBottom: "var(--space-8)" }}>
           <div style={{ padding: "var(--space-4) 0 var(--space-3)", borderBottom: "1px solid var(--line-soft)", marginBottom: "var(--space-4)" }}>
-            <DisciplineTabs />
+
           </div>
           {content}
         </div>
@@ -193,18 +214,18 @@ export default function PlanPage() {
     : null;
 
   if (!loading && loadError) {
-    return <>{targetNotice}{renderPresentation(
+    return <>{goalLink}{targetNotice}{renderPresentation(
       <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />,
     )}</>;
   }
 
   if (!loading && !goal) {
-    return <>{targetNotice}{renderPresentation()}</>;
+    return <>{goalLink}{targetNotice}{renderPresentation()}</>;
   }
 
   return (
     <>
-      {targetNotice}
+      {goalLink}{targetNotice}
       {runTarget.session && <RunPlanPreview session={runTarget.session} onClose={runTarget.close} />}
       {renderPresentation(
         <>

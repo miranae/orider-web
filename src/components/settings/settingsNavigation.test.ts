@@ -16,8 +16,7 @@ describe("settings navigation vocabulary", () => {
   it("maps every tab to its sub-path and keeps gear under the athlete profile", () => {
     expect(SECTION_IDS.map(settingsTabPath)).toEqual([
       "/settings/account",
-      "/settings/training",
-      "/athlete/me/gear",
+      "/settings/device",
       "/settings/connections",
       "/settings/developer",
       "/settings/display",

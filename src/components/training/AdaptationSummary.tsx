@@ -48,7 +48,7 @@ export default function AdaptationSummary({ flag, href = "/coach/plan", style }:
   const tone = TONE[flag.severity];
 
   return (
-    <Link
+    <Link data-testid="K1-4-1"
       to={href}
       role="status"
       aria-label={`${flag.reason} — ${t("adaptation.cta", { defaultValue: "운동 계획에서 자세히 보기" })}`}

@@ -273,5 +273,20 @@
   "history.trend.stable": "Similar",
   "history.trend.declining": "Slower",
   "history.basis": "How records are counted",
-  "history.observedPartial": "{{count}} verified records · part of the full history"
+  "history.observedPartial": "{{count}} verified records · part of the full history",
+  "explore": {
+    "listTab": {
+      "bounds": "In view",
+      "notable": "Notable",
+      "challenged": "Most attempted"
+    },
+    "mapUnavailable": "The map is unavailable. You can still browse the segment list."
+  },
+  "detailTabs": {
+    "overview": "Overview",
+    "ranking": "Rankings"
+  },
+  "detail.share": "Share",
+  "detail.shareCopied": "Link copied",
+  "detail.shareFailed": "Could not share"
 }

@@ -1,3 +1,4 @@
+import { LocalizedLink } from "../../../components/LocalizedLink";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Activity } from "@shared/types";
@@ -31,6 +32,9 @@ interface FitnessCoachBriefingProps {
   /** Primary trend surface shown after the current-state summary on desktop. */
   trendSlot?: ReactNode;
   mobilePriority?: boolean;
+  deliveryEnabled?: boolean;
+  choiceTitle?: string;
+  weekChangeSlot?: ReactNode;
 }
 
 const CHOICE_LOAD: Record<TrainingChoice, number> = { rest: 0, recovery: 20, endurance: 45 };
@@ -89,10 +93,10 @@ function initialTrainingChoice(tsb: number): TrainingChoice {
   return "endurance";
 }
 
-export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false }: FitnessCoachBriefingProps) {
+export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false, deliveryEnabled = true, choiceTitle, weekChangeSlot }: FitnessCoachBriefingProps) {
   const { t } = useTranslation("fitness");
   const [mode, setMode] = useState<ImpactMode>("marginal");
-  const [trainingChoice, setTrainingChoice] = useState<TrainingChoice>(() => initialTrainingChoice(current.tsb));
+  const [trainingChoice, setTrainingChoice] = useState<TrainingChoice>(() => part === "today" && !canonicalAvailable ? "rest" : initialTrainingChoice(current.tsb));
   const [showRestNotice, setShowRestNotice] = useState(false);
   const [deliveryBusy, setDeliveryBusy] = useState(false);
   const selectedPending = pendingActivity?.id === selectedActivityId ? pendingActivity : null;
@@ -106,32 +110,33 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
   const delta = selected ? mode === "marginal" ? selected.marginalImpact : selected.actualDayChange : null;
   const stimulus = selectedActivity ? deriveActivityStimulus(selectedActivity, metricsMap?.get(selectedActivity.id)) : null;
   useEffect(() => {
-    setTrainingChoice(initialTrainingChoice(current.tsb));
+    setTrainingChoice(part === "today" && !canonicalAvailable ? "rest" : initialTrainingChoice(current.tsb));
     setShowRestNotice(false);
-  }, [current.atl, current.ctl, current.tsb, discipline, pendingActivity?.id]);
+  }, [current.atl, current.ctl, current.tsb, discipline, pendingActivity?.id, part, canonicalAvailable]);
   const choiceForecast = useMemo(() => {
-    if (awaitingAggregate) return null;
+    if (awaitingAggregate || !canonicalAvailable) return null;
     const firstRestPoint = forecast?.rest[0];
     if (!firstRestPoint) return null;
     const currentPoint: FitnessPoint = { date: previousUtcDay(firstRestPoint.date), ctl: current.ctl, atl: current.atl, tsb: current.tsb, dailyLoad: 0 };
     return forecastFitnessChoice48Hours(currentPoint, CHOICE_LOAD[trainingChoice]);
-  }, [current.atl, current.ctl, current.tsb, forecast, awaitingAggregate, trainingChoice]);
+  }, [current.atl, current.ctl, current.tsb, forecast, awaitingAggregate, canonicalAvailable, trainingChoice]);
 
   return (
     <section aria-labelledby={mobilePriority ? undefined : "fitness-coach-title"} className={mobilePriority ? "fitness-coach fitness-coach--mobile-priority" : "fitness-coach"}>
-      {part !== "today" && !mobilePriority && <Card padding="none" style={{ padding: "var(--space-5)", marginBottom: "var(--space-4)" }}>
+      {part !== "today" && !mobilePriority && <Card data-testid={part === "condition" ? "K1-1" : undefined} padding="none" style={{ padding: "var(--space-5)", marginBottom: "var(--space-4)" }}>
         <div className="fitness-coach__summary">
           <div className="fitness-coach__summary-copy">
             <Chip variant={conclusion.tone} dot>{t("coach.eyebrow")}</Chip>
-            <Text as="h2" variant="title" id="fitness-coach-title" style={{ margin: "var(--space-3) 0 var(--space-2)" }}>{t(`coach.conclusion.${conclusion.key}.title`)}</Text>
+            <Text as="h2" variant="title" data-testid={part === "condition" ? "K1-1-2" : undefined} id="fitness-coach-title" style={{ margin: "var(--space-3) 0 var(--space-2)" }}>{t(`coach.conclusion.${conclusion.key}.title`)}</Text>
             <Text as="p" variant="body" tone="secondary" style={{ margin: 0 }}>{t(`coach.conclusion.${conclusion.key}.body`)}</Text>
           </div>
-          <div className="fitness-coach__current-metrics">
+          <div data-testid={part === "condition" ? "K1-1-1" : undefined} className="fitness-coach__current-metrics">
             <div><Text as="div" variant="eyebrow">{t("coach.metric.ctl")}</Text><Text variant="dataMedium" style={{ color: "var(--lime)" }}>{current.ctl.toFixed(1)}</Text></div>
             <div><Text as="div" variant="eyebrow">{t("coach.metric.atl")}</Text><Text variant="dataMedium" style={{ color: "var(--rose)" }}>{current.atl.toFixed(1)}</Text></div>
             <div><Text as="div" variant="eyebrow">{t("coach.metric.tsb")}</Text><Text variant="dataMedium" style={{ color: "var(--amber)" }}>{signed(current.tsb)}</Text></div>
           </div>
         </div>
+        {part === "condition" && <LocalizedLink data-testid="K1-1-3" to={`/coach/today?sport=${discipline}`}>{t("today.header.title")} →</LocalizedLink>}
       </Card>}
 
       <div className="fitness-coach__first-view">
@@ -142,7 +147,8 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
       {part !== "today" && <DetailsSection title={t("coach.range.detailsTitle")}>
         <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("coach.range.body")}</Text>
       <div className="fitness-coach__primary-grid">
-        <Card className="fitness-coach__impact-card" padding="none" style={{ padding: "var(--space-5)" }}>
+        <Card data-testid={part === "condition" ? "K1-3" : undefined} className="fitness-coach__impact-card" padding="none" style={{ padding: "var(--space-5)" }}>
+          {weekChangeSlot}
           <div className="fitness-coach__impact-heading">
             <div>
               <Text as="div" variant="eyebrow">{t("coach.impact.eyebrow")}</Text>
@@ -151,7 +157,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
               </Text>
               {selected && <Text variant="caption" tone="tertiary">{t(selected.confidence === "activity-tss" ? "coach.impact.activityTssLoad" : "coach.impact.load", { load: selected.attributedLoad.toFixed(0) })}</Text>}
             </div>
-            <div role="group" aria-label={t("coach.impact.modeLabel")} className="fitness-coach__mode">
+            <div role="group" aria-label={t("coach.impact.modeLabel")} data-testid={part === "condition" ? "K1-3-2" : undefined} className="fitness-coach__mode">
               <button type="button" onClick={() => setMode("marginal")} aria-pressed={mode === "marginal"}>{t(selected?.confidence === "activity-tss" ? "coach.impact.modeActivityTss" : "coach.impact.modeMarginal")}</button>
               <button type="button" onClick={() => setMode("actual")} aria-pressed={mode === "actual"}>{t("coach.impact.modeActual")}</button>
             </div>
@@ -165,7 +171,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
             {selectedPending ? pendingDescription : mode === "marginal" ? t(selected?.confidence === "activity-tss" ? "coach.impact.activityTssHelp" : "coach.impact.marginalHelp") : t("coach.impact.actualHelp")}
           </Text>
           {stimulus && (
-            <div className="fitness-coach__stimulus">
+            <div data-testid={part === "condition" ? "K1-3-3" : undefined} className="fitness-coach__stimulus">
               <div>
                 <Text as="div" variant="eyebrow">{t("coach.stimulus.eyebrow")}</Text>
                 <Text as="div" variant="title" style={{ marginTop: "var(--space-2)" }}>{t(`coach.stimulus.type.${stimulus.workoutType}`)}</Text>
@@ -187,14 +193,16 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
       </DetailsSection>}
 
       {part !== "condition" && <div className="fitness-coach__primary-grid fitness-coach__primary-grid--choice">
-        <Card className="fitness-coach__choice-card" padding="none" style={{ padding: "var(--space-5)" }}>
+        <Card data-testid={part === "today" ? "K2-1" : undefined} className="fitness-coach__choice-card" padding="none" style={{ padding: "var(--space-5)" }}>
           <Text as="div" variant="eyebrow">{t("coach.choice.eyebrow")}</Text>
-          <Text as="h3" variant="title" style={{ margin: "var(--space-2) 0" }}>{t("coach.choice.title")}</Text>
+          <Text data-testid={part === "today" && choiceTitle ? "K2-1-5" : undefined} as="h3" variant="title" style={{ margin: "var(--space-2) 0" }}>{choiceTitle ?? t("coach.choice.title")}</Text>
           <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("coach.choice.body")}</Text>
+          {part === "today" && <Text as="p" variant="caption" tone="tertiary">{t("today.genericWorkoutBasis")}</Text>}
+          {!canonicalAvailable && <Text as="p" variant="caption" tone="secondary">{t("today.forecastUnavailable")}</Text>}
           <fieldset className="fitness-coach__choices" disabled={awaitingAggregate || deliveryBusy}>
             <legend className="fitness-coach__sr-only">{t("coach.choice.legend")}</legend>
             {(["rest", "recovery", "endurance"] as const).map((choice) => (
-              <label key={choice} className="fitness-coach__choice" data-selected={trainingChoice === choice || undefined}>
+              <label data-testid={part === "today" ? "K2-1-1" : undefined} key={choice} className="fitness-coach__choice" data-selected={trainingChoice === choice || undefined}>
                 <input type="radio" name="fitness-training-choice" value={choice} checked={trainingChoice === choice} onChange={() => { setTrainingChoice(choice); setShowRestNotice(false); }} />
                 <span>
                   <Text as="span" variant="label">{t(`coach.choice.${choice}.${discipline}`)}</Text>
@@ -203,10 +211,10 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
               </label>
             ))}
           </fieldset>
-          {awaitingAggregate && <Text as="p" variant="caption" tone="warning" style={{ margin: "var(--space-3) 0 0" }}>{t("coach.choice.pending")}</Text>}
+          {awaitingAggregate && <Text data-testid={part === "today" ? "K2-1-4" : undefined} as="p" variant="caption" tone="warning" style={{ margin: "var(--space-3) 0 0" }}>{t("coach.choice.pending")}</Text>}
           {pendingActivity && pendingDayLoad && <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-3) 0 0" }}>{t("coach.choice.dayAggregateBasis")}</Text>}
           {choiceForecast && (
-            <div className="fitness-coach__forecast" aria-live="polite">
+            <div data-testid={part === "today" ? "K2-1-2" : undefined} className="fitness-coach__forecast" aria-live="polite">
               {choiceForecast.map((point) => (
                 <div key={point.hoursAhead}>
                   <Text as="div" variant="eyebrow">{t("coach.choice.hours", { hours: point.hoursAhead })}</Text>
@@ -215,27 +223,30 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
               ))}
             </div>
           )}
-          {!awaitingAggregate && discipline === "bike" ? trainingChoice === "rest" ? (
+          {!awaitingAggregate && discipline === "bike" && (deliveryEnabled || trainingChoice === "rest") ? trainingChoice === "rest" ? (
             <div className="fitness-coach__handoff">
-              <Button variant="primary" block onClick={() => setShowRestNotice(true)}>{t("coach.choice.restConfirm")}</Button>
+              <Button data-testid={part === "today" ? "K2-1-3" : undefined} variant="primary" block onClick={() => setShowRestNotice(true)}>{t("coach.choice.restConfirm")}</Button>
               <Text as="p" variant="caption" tone="tertiary" role="status" style={{ margin: 0 }}>
                 {t(showRestNotice ? "coach.choice.restNoticeExpanded" : "coach.choice.restNotice")}
               </Text>
             </div>
           ) : (
-            <RiderWorkoutDeliveryPanel uid={userId} workoutType={trainingChoice} targetTss={CHOICE_LOAD[trainingChoice] as 20 | 45} onBusyChange={setDeliveryBusy} />
-          ) : !awaitingAggregate ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-4) 0 0" }}>{t("coach.choice.localOnly")}</Text> : null}
+            <div data-testid={part === "today" ? "K2-3" : undefined}>
+              {part === "today" && <Text as="h3" variant="subtitle">{t("today.simpleDeliveryTitle")}</Text>}
+              <RiderWorkoutDeliveryPanel uid={userId} workoutType={trainingChoice} targetTss={CHOICE_LOAD[trainingChoice] as 20 | 45} onBusyChange={setDeliveryBusy} explicitWorkoutLabel={part === "today"} />
+            </div>
+          ) : !awaitingAggregate ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-4) 0 0" }}>{t(discipline === "bike" && !deliveryEnabled ? "today.deliveryUnavailable" : "coach.choice.localOnly")}</Text> : null}
         </Card>
       </div>}
 
       {part !== "today" && (pendingActivity || impacts.length > 0) && (
         <Card padding="none" style={{ padding: "var(--space-5)", marginTop: "var(--space-4)" }}>
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-3)" }}>{t("coach.recent.title")}</Text>
-          <div className="fitness-coach__recent-grid">
+          <div data-testid={part === "condition" ? "K1-3-1" : undefined} className="fitness-coach__recent-grid">
             {pendingActivity && (
               <button type="button" onClick={() => onSelectActivity(pendingActivity.id)} aria-pressed={pendingActivity.id === selectedActivityId} className="fitness-coach__recent" data-pending={awaitingAggregate || undefined} data-day-load-available={pendingDayLoad != null || undefined} data-selected={pendingActivity.id === selectedActivityId || undefined}>
                 <Text as="div" variant="label">{pendingActivityLabel(pendingActivity, locale, t)}</Text>
-                <Text as="div" variant="caption" tone={awaitingAggregate ? "warning" : "tertiary"} style={{ marginTop: "var(--space-2)" }}>{pendingDescription}</Text>
+                <Text data-testid={part === "condition" ? "K1-3-4" : undefined} as="div" variant="caption" tone={awaitingAggregate ? "warning" : "tertiary"} style={{ marginTop: "var(--space-2)" }}>{pendingDescription}</Text>
               </button>
             )}
             {impacts.map((entry) => {

@@ -187,7 +187,7 @@ export default function AddPlanSheet({
       />
 
       {/* Bottom sheet */}
-      <div
+      <div data-testid="K4-7"
         style={{
           position: "fixed",
           bottom: 0,

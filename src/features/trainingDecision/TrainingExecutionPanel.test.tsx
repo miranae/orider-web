@@ -1,4 +1,6 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import type { ReactElement } from "react";
+import { fireEvent, render as renderBase, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "i18next";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,6 +9,8 @@ import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
 import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
 import { TrainingExecutionPanel, keepPartialRetry } from "./TrainingExecutionPanel";
+
+const render = (ui: ReactElement) => renderBase(ui, { wrapper: MemoryRouter });
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), reserve: vi.fn(), start: vi.fn(), link: vi.fn(), unlink: vi.fn(), outcome: vi.fn(),
   log: vi.fn(), activities: { activities: [] as Array<Record<string, unknown>>, loading: false } }));

@@ -450,7 +450,7 @@ export default function EventParticipantsPage() {
     : "";
 
   return (
-    <div>
+    <div data-testid="O1-2">
       {/* 헤더 */}
       <div className="site-shell" style={{ padding: "var(--space-5) var(--space-6) var(--space-4)" }}>
         <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>

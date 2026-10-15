@@ -156,7 +156,7 @@ describe("SettingsPage", () => {
       { authenticated: true, route: "/ko/settings/account", profile: { stravaConnected: false } },
     );
     await waitFor(() => expect(screen.getByText("설정")).toBeInTheDocument());
-    await user.click(screen.getByText("연결된 앱"));
+    await user.click(screen.getByText("연결 앱"));
     await waitFor(() => expect(screen.getByRole("button", { name: "연결" })).toBeInTheDocument());
   });
 
@@ -168,8 +168,8 @@ describe("SettingsPage", () => {
     expect(settingsPage).toContain("if (!tab) return <MobileSettingsPage />;");
     for (const [section, panes] of [
       ["account", "<PaneAccount /><PaneAiCoach />"],
-      ["training", "<PaneTraining />"],
-      ["gear", "<PaneEquipment /><PaneDevice />"],
+      ["gear", "<PaneEquipment />"],
+      ["device", "<PaneDevice /><PaneEquipment part=\"device\" />"],
       ["connections", "<PaneConnections /><PaneHealthSources />"],
       ["developer", "<PaneDeveloper />"],
       ["display", '<PaneApp part="display" />'],
@@ -178,7 +178,7 @@ describe("SettingsPage", () => {
       expect(settingsPage).toContain(`section === "${section}" && `);
       expect(settingsPage).toContain(panes);
     }
-    expect(settingsPage).toContain('aria-label={t("nav.backToSettings")}');
+    expect(settingsPage).toContain('aria-label={t(section === "gear" ? "nav.backToProfile" : "nav.backToSettings")}');
     expect(mobileSettings).toContain("NAV_GROUPS.map");
     expect(mobileSettings).toContain("to={settingsTabPath(item.id)}");
     expect(mobileSettings).toContain('aria-label={t("nav.backToProfile")}');

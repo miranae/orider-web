@@ -26,7 +26,7 @@ export default function ThresholdPaceNudge({ visible }: ThresholdPaceNudgeProps)
       <Text as="p" variant="bodySmall" tone="primary" style={{ margin: 0 }}>
         {t("thresholdNudge.body")}{" "}
         <LocalizedLink
-          to="/settings/training"
+          to="/coach/condition?sport=run#thresholds"
           style={{ color: "var(--accent)", fontWeight: 600 }}
         >
           {t("thresholdNudge.cta")}

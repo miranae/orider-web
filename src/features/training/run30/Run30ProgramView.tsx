@@ -168,7 +168,7 @@ function TodayCard({
   const decision = program.nextWorkoutDecision;
 
   return (
-    <section className="run30-card run30-today" aria-labelledby="run30-today-title" data-today-action={todayKind}>
+    <section data-testid="K4-R-6" className="run30-card run30-today" aria-labelledby="run30-today-title" data-today-action={todayKind}>
       <Text as="div" variant="eyebrow" id="run30-today-title">{t("run30.today.eyebrow")}</Text>
       {todayKind === "finished" || !next ? (
         <p className="run30-lead">{t("run30.today.finished")}</p>
@@ -245,7 +245,7 @@ function ChangeDialog({ change }: { change: Run30ChangeState }) {
         <Text as="p" variant="caption" tone="tertiary">{t("run30.change.notApplied")}</Text>
         {confirming && <p role="status" className="run30-muted">{t("run30.change.applying")}</p>}
         {change.confirmError && <Alert variant="danger">{change.confirmError}</Alert>}
-        <div className="run30-dialog__actions">
+        <div data-testid="K4-R-7" className="run30-dialog__actions">
           <Button type="button" variant="ghost" disabled={confirming} onClick={close}>{t("run30.change.cancel")}</Button>
           <Button type="button" variant="primary" loading={confirming} disabled={confirming}
             onClick={() => { void change.confirm(); }}>
@@ -269,7 +269,7 @@ export default function Run30ProgramView({ api, program, onRefresh, startMode, t
 
   return (
     <div className="run30" data-testid="run30-program">
-      <section className="run30-card run30-header" aria-labelledby="run30-title">
+      <section data-testid="K4-R" className="run30-card run30-header" aria-labelledby="run30-title">
         <div className="run30-section-head">
           <h2 id="run30-title" className="run30-title">{t("run30.title")}</h2>
           <Button
@@ -286,7 +286,7 @@ export default function Run30ProgramView({ api, program, onRefresh, startMode, t
             {t("run30.refresh")}
           </Button>
         </div>
-        <p className="run30-progress-text">
+        <p data-testid="K4-R-5" className="run30-progress-text">
           {t("run30.progress", { completed: viewModel.completedStages, total: viewModel.totalStages })}
           {" · "}
           {t("run30.remaining", { count: program.remainingStages })}
@@ -306,7 +306,7 @@ export default function Run30ProgramView({ api, program, onRefresh, startMode, t
 
       <TodayCard program={program} viewModel={viewModel} change={change} startMode={startMode} today={today} />
 
-      <Run30StageList viewModel={viewModel} />
+      <div data-testid="K4-R-8"><Run30StageList viewModel={viewModel} /></div>
 
       <section className="run30-card run30-safety" aria-labelledby="run30-safety-title">
         <h3 id="run30-safety-title" className="run30-section-title">{t("run30.safety.title")}</h3>

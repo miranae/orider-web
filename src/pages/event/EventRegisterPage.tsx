@@ -1,3 +1,4 @@
+import EventDetailNavigation from "../../features/event/EventDetailNavigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
@@ -465,9 +466,12 @@ export default function EventRegisterPage() {
     }
   };
 
+  const detailNavigation = eventId ? <EventDetailNavigation eventId={eventId} results={event?.status === "LIVE" || event?.status === "FINISHED"} /> : null;
+
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto py-6">
+        {detailNavigation}
         <LoadingSkeleton kind="card" />
       </div>
     );
@@ -476,6 +480,7 @@ export default function EventRegisterPage() {
   if (loadError) {
     return (
       <div className="max-w-xl mx-auto py-16">
+        {detailNavigation}
         <ErrorState title={t("register.errLoadTitle")} description={loadError} onRetry={loadEvent} />
       </div>
     );
@@ -484,6 +489,7 @@ export default function EventRegisterPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
+        {detailNavigation}
         <PermissionGate
           title={t("register.loginRequired")}
           description={t("register.loginDesc")}
@@ -497,6 +503,7 @@ export default function EventRegisterPage() {
   if (!event) {
     return (
       <div className="max-w-xl mx-auto py-16">
+        {detailNavigation}
         <EmptyState
           icon="🗓️"
           title={t("empty.noResults")}
@@ -509,6 +516,7 @@ export default function EventRegisterPage() {
   if (event.status !== "OPEN") {
     return (
       <div className="max-w-xl mx-auto py-16">
+        {detailNavigation}
         <EmptyState
           icon="⏱️"
           title={t("register.notOpen")}
@@ -528,6 +536,7 @@ export default function EventRegisterPage() {
   if (isClosed(event.closeAt) || !isRegistrationTimeOpen(event.startTime, event.closeAt)) {
     return (
       <div className="max-w-xl mx-auto py-16">
+        {detailNavigation}
         <EmptyState
           icon="⏱️"
           title={t("register.closed")}
@@ -543,6 +552,7 @@ export default function EventRegisterPage() {
     const cat = event.categories.find((c) => c.id === data.categoryId);
     return (
       <div style={{ maxWidth: 640, margin: "80px auto", padding: "0 24px", textAlign: "center" }}>
+        {detailNavigation}
         <div
           style={{
             width: 64,
@@ -605,7 +615,8 @@ export default function EventRegisterPage() {
   const selectedCat = event.categories.find((c) => c.id === data.categoryId);
 
   return (
-    <div style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6)" }}>
+    <div data-testid="D4-R" style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6)" }}>
+      {detailNavigation}
       {/* Breadcrumb */}
       <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
         <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>

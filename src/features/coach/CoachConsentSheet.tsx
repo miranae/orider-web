@@ -82,7 +82,7 @@ export function CoachConsentSheet({ open, stale, saving, error, policy, onCancel
         onMouseDown={(event) => event.preventDefault()}
         onClick={onCancel}
       />
-      <section ref={panelRef} tabIndex={-1} className="app-dialog__panel coach-consent-sheet" role="dialog" aria-modal="true" aria-labelledby="coach-consent-title" aria-describedby="coach-consent-summary">
+      <section data-testid="K6-S-8" ref={panelRef} tabIndex={-1} className="app-dialog__panel coach-consent-sheet" role="dialog" aria-modal="true" aria-labelledby="coach-consent-title" aria-describedby="coach-consent-summary">
         <header className="coach-consent-sheet__header">
           <Text id="coach-consent-title" as="h2" variant="title">{t(stale ? "coach.staleTitle" : "coach.consentTitle")}</Text>
           <Text id="coach-consent-summary" as="p" variant="bodySmall" tone="secondary">{t("coach.compactIntro")}</Text>

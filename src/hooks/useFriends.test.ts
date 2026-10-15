@@ -60,6 +60,21 @@ describe("useFriends", () => {
     expect(result.current.friends[0]?.nickname).toBe("Friend 1");
   });
 
+  it.each([
+    [undefined, 0], [null, 0], ["invalid", 0], [NaN, 0],
+    [new Date("2026-10-01T01:02:03Z"), Date.parse("2026-10-01T01:02:03Z")],
+    ["2026-10-01T01:02:03Z", Date.parse("2026-10-01T01:02:03Z")],
+    [{ seconds: 100, nanoseconds: 500000000 }, 100500],
+    [{ toMillis: () => 12345 }, 12345],
+  ])("preserves valid sent-request time and leaves missing/invalid time unknown (%j)", async (createdAt, expected) => {
+    simulateLogin({ uid: "uid-1" });
+    setDocData("users/uid-1", { nickname: "Test" });
+    setCollectionDocs("users/uid-1/sent_friend_requests", [{ id: "target", createdAt }]);
+    const { result } = renderHook(() => useFriends(), { wrapper });
+    await waitFor(() => expect(result.current.sentRequests).toHaveLength(1));
+    expect(result.current.sentRequests[0]?.createdAt).toBe(expected);
+  });
+
   it("loads friend requests", async () => {
     simulateLogin({ uid: "uid-1" });
     setDocData("users/uid-1", { nickname: "Test" });

@@ -9,7 +9,7 @@ export interface GroupPost {
   authorId: string;
   authorName: string;
   content: string;
-  kind: "announcement" | "post";
+  kind: "announcement" | "post" | "legacy";
   createdAt: number;
 }
 
@@ -30,6 +30,7 @@ function toMillis(value: unknown): number {
 
 export function useGroupPosts(groupId: string | undefined, accessKey?: string) {
   const [posts, setPosts] = useState<GroupPost[]>([]);
+  const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,6 +40,7 @@ export function useGroupPosts(groupId: string | undefined, accessKey?: string) {
       return;
     }
     setPosts([]);
+    setError(null);
     setLoading(true);
     return onSnapshot(
       query(collection(firestore, "groups", groupId, "posts"), orderBy("createdAt", "desc"), limit(5)),
@@ -50,13 +52,14 @@ export function useGroupPosts(groupId: string | undefined, accessKey?: string) {
             authorId: typeof data.authorId === "string" ? data.authorId : "",
             authorName: typeof data.authorName === "string" ? data.authorName : "",
             content: typeof data.content === "string" ? data.content : "",
-            kind: data.kind === "announcement" ? "announcement" : "post",
+            kind: data.kind === "announcement" ? "announcement" : data.kind === "post" ? "post" : "legacy",
             createdAt: toMillis(data.createdAt),
           };
         }));
         setLoading(false);
       },
       (err) => {
+        setError(err);
         logClientError("useGroupPosts.snapshot", err, { groupId });
         setPosts([]);
         setLoading(false);
@@ -64,7 +67,7 @@ export function useGroupPosts(groupId: string | undefined, accessKey?: string) {
     );
   }, [groupId, accessKey]);
 
-  return { posts, loading };
+  return { posts, loading, error };
 }
 
 export async function createGroupPost(input: {

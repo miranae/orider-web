@@ -1,3 +1,4 @@
+import { LocalizedLink } from "../../../components/LocalizedLink";
 import { planDayKey as kstDayKey, planDayStartMs } from "@shared/training/planDate";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,7 +10,6 @@ import { sumEffectivePlanTSS } from "../../../utils/planTss";
 import AdjustedChip from "../../../components/training/AdjustedChip";
 import RecoveryDownshiftMarker from "../../../components/training/RecoveryDownshiftMarker";
 import { RevalidatingIndicator } from "../../../components/training/RevalidatingIndicator";
-import DisciplineTabs from "../../../components/redesign/DisciplineTabs";
 import { EmptyState, ErrorState } from "../../../components/redesign";
 import { Button, Card, Text } from "../../../theme/components";
 import { PlanAdjustmentNarrative } from "../../trainingHub/TrainingHubOpportunityPanel";
@@ -50,6 +50,7 @@ const PLAN_CALENDAR_CARD_STYLE: CSSProperties = {
 };
 
 interface DayCellProps {
+  selected?: boolean;
   day: PlanDay;
   isToday: boolean;
   /** 주 단위 조정 factor (canonical 값). day별 ratio 재계산 대신 사용. */
@@ -58,7 +59,7 @@ interface DayCellProps {
   onClick?: () => void;
 }
 
-function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: DayCellProps) {
+function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onClick }: DayCellProps) {
   const { t } = useTranslation('training');
   const WORKOUT_META = useMemo(() => buildWorkoutMeta(t), [t]);
   const meta = WORKOUT_META[day.workout] ?? WORKOUT_META.rest;
@@ -93,6 +94,9 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
   if (isSkipped) {
     return (
       <div
+        data-testid={selected ? "K4-5-6" : "K4-5-1"}
+        data-plan-date={kstDayKey(day.date)}
+        aria-current={selected ? "date" : undefined}
         onClick={onClick}
         style={{
           padding: '20px 8px 8px',
@@ -127,7 +131,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
 
   if (isGoal) {
     return (
-      <div
+      <div data-testid={selected ? "K4-5-6" : "K4-5-1"} data-plan-date={kstDayKey(day.date)} aria-current={selected ? "date" : undefined}
         style={{
           padding: '6px 4px',
           borderRadius: "var(--r-sm)",
@@ -159,7 +163,9 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
 
   return (
     <div
-      onClick={!isGoal ? onClick : undefined}
+      data-plan-date={kstDayKey(day.date)}
+      aria-current={selected ? "date" : undefined}
+      data-testid={selected ? "K4-5-6" : "K4-5-1"} onClick={!isGoal ? onClick : undefined}
       style={{
         padding: '20px 8px 8px',
         borderRadius: "var(--r-sm)",
@@ -168,7 +174,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
         background: isToday
           ? 'color-mix(in oklch, var(--lime) 10%, var(--bg-2))'
           : 'var(--bg-2)',
-        border: `1px solid ${isToday ? 'var(--lime)' : 'var(--line-soft)'}`,
+        border: `1px solid ${isToday || selected ? 'var(--lime)' : 'var(--line-soft)'}`,
         opacity: isRest ? 0.65 : dimmed ? 0.85 : 1,
         position: 'relative',
         display: 'flex',
@@ -176,6 +182,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
         gap: 'var(--space-1)',
       }}
     >
+      {day.actualActivityId && <LocalizedLink data-testid="K4-5-5" to={`/activity/${encodeURIComponent(day.actualActivityId)}`} onClick={event => event.stopPropagation()}>{t("today.viewActivity")}</LocalizedLink>}
       {/* Color bar — 결근이면 rose로 강조 */}
       <div
         style={{
@@ -303,7 +310,7 @@ function SkeletonGrid() {
   const { t: tCommon } = useTranslation('common');
   const DAY_NAMES = useMemo(() => buildDayNames(tCommon), [tCommon]);
   return (
-    <Card padding="none" style={PLAN_CALENDAR_CARD_STYLE}>
+    <Card data-testid="K4-5" padding="none" style={PLAN_CALENDAR_CARD_STYLE}>
       {/* Header row */}
       <div
         style={{
@@ -394,7 +401,7 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
   ].filter((s) => s.count > 0);
 
   return (
-    <Card padding="none"
+    <Card data-testid="K4-3" padding="none"
       style={{
         padding: '12px 14px',
         marginBottom: 'var(--space-4)',
@@ -404,7 +411,7 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
         flexWrap: 'wrap',
       }}
     >
-      <Text as="div" variant="eyebrow" style={{ flexShrink: 0 }}>{t('phase.label')}</Text>
+      <Text data-testid="K4-3-1" as="div" variant="eyebrow" style={{ flexShrink: 0 }}>{t('phase.label')}</Text>
       <div
         style={{
           flex: 1,
@@ -443,24 +450,24 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
       {(onIcsExport || onReroll || onGoalReset || onAbandon) && (
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexShrink: 0 }}>
         {goal && onIcsExport && (
-          <Button variant="secondary" size="sm" onClick={onIcsExport}>
+          <Button variant="secondary" size="sm" data-testid="K4-3-2" onClick={onIcsExport}>
             {t('buttons.ics')}
           </Button>
         )}
         {onReroll && (
-          <Button variant="secondary" size="sm" onClick={() => { void onReroll(); }}>
+          <Button variant="secondary" size="sm" data-testid="K4-3-3" onClick={() => { void onReroll(); }}>
             {t('buttons.reroll')}
           </Button>
         )}
         {onGoalReset && (
-          <Button variant="secondary" size="sm" onClick={onGoalReset}>
+          <Button variant="secondary" size="sm" data-testid="K4-3-4" onClick={onGoalReset}>
             {t('buttons.goalReset')}
           </Button>
         )}
         {onAbandon && (
           <Button variant="secondary" size="sm"
             style={{ color: 'var(--rose)' }}
-            onClick={() => { void onAbandon(); }}
+            data-testid="K4-3-5" onClick={() => { void onAbandon(); }}
           >
             {t('buttons.abandonGoal')}
           </Button>
@@ -485,7 +492,7 @@ function Legend() {
   ];
 
   return (
-    <div
+    <div data-testid="K4-5-3"
       style={{
         display: 'flex',
         gap: 'var(--space-4)',
@@ -523,6 +530,7 @@ function Legend() {
 // ── Main Page ─────────────────────────────────────────────────────────
 
 export interface PlanPresentationProps {
+  selectedDate?: string;
   model: PlanModel;
   embedded?: boolean;
   decisionSlot?: ReactNode;
@@ -538,6 +546,7 @@ export interface PlanPresentationProps {
 }
 
 export default function PlanPresentation({
+  selectedDate,
   model,
   embedded = false,
   decisionSlot,
@@ -582,6 +591,11 @@ export default function PlanPresentation({
     const futureIndex = weeks.findIndex((week) => week.days.some((day) => day.date >= Date.now()));
     return futureIndex >= 0 ? futureIndex : Math.max(0, weeks.length - 1);
   }, [isTodayCell, weeks]);
+  useEffect(() => {
+    if (!selectedDate) return;
+    const selectedWeek = weeks.findIndex(week => week.days.some(day => kstDayKey(day.date) === selectedDate));
+    if (selectedWeek >= 0 && selectedWeek < currentWeekIndex) setShowPreviousWeeks(true);
+  }, [selectedDate, weeks, currentWeekIndex]);
   const hasCurrentWeek = weeks[currentWeekIndex]?.days.some(isTodayCell) ?? false;
   const visibleWeeks = showPreviousWeeks || currentWeekIndex === 0 ? weeks : weeks.slice(currentWeekIndex);
   const remainingSessions = weeks.reduce((total, week) => total + week.days.filter((day) =>
@@ -608,7 +622,7 @@ export default function PlanPresentation({
       <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
         {!embedded && (
           <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
-            <DisciplineTabs />
+
           </div>
         )}
         {decisionSlot && <div style={{ marginBottom: "var(--space-4)" }}>{decisionSlot}</div>}
@@ -626,7 +640,7 @@ export default function PlanPresentation({
       <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
         {!embedded && (
           <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
-            <DisciplineTabs />
+
           </div>
         )}
         {embedded && <h1 className="orider-embedded-page-title">{t("page.embeddedTitle")}</h1>}
@@ -652,7 +666,7 @@ export default function PlanPresentation({
       <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
         {!embedded && (
           <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
-            <DisciplineTabs />
+
           </div>
         )}
         {embedded && <h1 className="orider-embedded-page-title">{t("page.embeddedTitle")}</h1>}
@@ -673,6 +687,7 @@ export default function PlanPresentation({
 
   if (isMobile && !loading) {
     const mobileProps: MobilePlanContentProps = {
+      selectedDate,
       embedded,
       currentWeek: mobilePlanViewModel.currentWeek,
       weekLabel: mobilePlanViewModel.weekLabel,
@@ -726,7 +741,7 @@ export default function PlanPresentation({
                   <Text as="div" variant="eyebrow">
                     {t('page.planTitle')}
                   </Text>
-                  <DisciplineTabs />
+
                 </>
               )}
               <RevalidatingIndicator
@@ -744,7 +759,7 @@ export default function PlanPresentation({
                 flexWrap: 'wrap',
               }}
             >
-              <Text as="h1" variant="pageTitle" title={goalTitle} aria-label={goalTitle} style={{ margin: 0, minWidth: 0, fontSize: 'clamp(var(--fs-xl), 2vw, var(--fs-2xl))', lineHeight: 1.25, overflowWrap: 'anywhere', ...(!goalExpanded ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' } : {}) }}>
+              <Text data-testid="K4-2-1" as="h1" variant="pageTitle" title={goalTitle} aria-label={goalTitle} style={{ margin: 0, minWidth: 0, fontSize: 'clamp(var(--fs-xl), 2vw, var(--fs-2xl))', lineHeight: 1.25, overflowWrap: 'anywhere', ...(!goalExpanded ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' } : {}) }}>
                 {loading ? '...' : (goalExpanded ? goalTitle : formattedGoal.name)}
               </Text>
               <span
@@ -762,7 +777,7 @@ export default function PlanPresentation({
                 {t('page.inProgress')}
               </span>
               {(formattedGoal.meta || goalTitle.length > 50) && (
-                <Button type="button" variant="ghost" size="sm" aria-expanded={goalExpanded} onClick={() => setGoalExpanded(value => !value)}>
+                <Button type="button" variant="ghost" size="sm" data-testid="K4-2-3" aria-expanded={goalExpanded} onClick={() => setGoalExpanded(value => !value)}>
                   {goalExpanded ? t('mobile.collapseGoal') : t('mobile.showOriginal')}
                 </Button>
               )}
@@ -903,7 +918,7 @@ export default function PlanPresentation({
         {!loading && weeks.length > 0 && currentWeekIndex > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
             <Text as="div" variant="eyebrow">{hasCurrentWeek && `${t('mobile.weekThis')} · `}W{weeks[currentWeekIndex]?.weekNumber}</Text>
-            <Button type="button" variant="ghost" size="sm" aria-expanded={showPreviousWeeks} onClick={() => setShowPreviousWeeks(value => !value)}>
+            <Button type="button" variant="ghost" size="sm" data-testid="K4-5-4" aria-expanded={showPreviousWeeks} onClick={() => setShowPreviousWeeks(value => !value)}>
               {showPreviousWeeks ? t('mobile.hidePastWeeks') : t('mobile.showPastWeeks', { count: currentWeekIndex })}
             </Button>
           </div>
@@ -913,7 +928,7 @@ export default function PlanPresentation({
         {loading ? (
           <SkeletonGrid />
         ) : (
-          <Card padding="none" style={PLAN_CALENDAR_CARD_STYLE}>
+          <Card data-testid="K4-5" padding="none" style={PLAN_CALENDAR_CARD_STYLE}>
             {/* Header */}
             <div
               style={{
@@ -1011,6 +1026,7 @@ export default function PlanPresentation({
                       return (
                         <DayCell
                           key={di}
+                          selected={kstDayKey(day.date) === selectedDate}
                           day={day}
                           isToday={isTodayCell(day)}
                           weekAdjustmentFactor={wk.adjustmentFactor}
@@ -1023,7 +1039,7 @@ export default function PlanPresentation({
                     })}
 
                     {/* Week TSS */}
-                    <div
+                    <div data-testid="K4-5-2"
                       style={{
                         display: 'flex',
                         flexDirection: 'column',

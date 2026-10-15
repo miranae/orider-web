@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "react-router-dom";
+import { LocalizedLink } from "../LocalizedLink";
+import { useAuth } from "../../contexts/AuthContext";
 import { Download } from "lucide-react";
 
 import { useToast } from "../../contexts/ToastContext";
@@ -20,6 +23,10 @@ const LANG_LABELS: Record<Lang, string> = {
 
 /** display: 언어·단위·테마 / data: 내보내기·캐시·전체 삭제 (/settings/display · /settings/data). */
 export function PaneApp({ part }: { part: "display" | "data" }) {
+  const { user, profile } = useAuth();
+  const { hash, key } = useLocation();
+  const migration = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (part === "data" && hash === "#migrate") migration.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); }, [part, hash, key]);
   const { t } = useTranslation("settings");
   const { t: tCommon } = useTranslation("common");
   const { showToast } = useToast();
@@ -53,7 +60,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
 
   if (part === "display") return (
     <>
-      <SettingsCard title={t("pane.app.cardLocaleUnits")} dense>
+      <SettingsCard data-testid="S4-1-1" title={t("pane.app.cardLocaleUnits")} dense>
         <FieldGrid cols={2}>
           <Field label={t("pane.app.fieldLang")} hint={t("pane.app.fieldLangHint")}>
             <div
@@ -128,7 +135,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
         </FieldGrid>
       </SettingsCard>
 
-      <SettingsCard title={t("pane.app.cardDesignTheme")} dense>
+      <SettingsCard data-testid="S4-1-1" title={t("pane.app.cardDesignTheme")} dense>
         <Field label={t("pane.app.fieldTheme")} hint={t("pane.app.fieldThemeHint")}>
           <div
             style={{
@@ -171,7 +178,15 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
 
   return (
     <>
-      <SettingsCard title={t("pane.app.cardExport")}>
+      <div id="migrate" ref={migration} data-testid="S3-3-1">
+        <SettingsCard title={t("pane.connections.importPastLabel")}>
+          <Text as="p" tone="secondary">{t("pane.connections.importPastHint")}</Text>
+          <LocalizedLink to={profile?.stravaConnected ? "/migrate" : "/settings/connections"}>
+            <Button variant="secondary" disabled={!user}>{profile?.stravaConnected ? t(profile.migration?.status === "DONE" ? "pane.connections.importBtnReport" : "pane.connections.importBtnImport") : t("strava.connect")}</Button>
+          </LocalizedLink>
+        </SettingsCard>
+      </div>
+      <SettingsCard data-testid="S3-1-1" title={t("pane.app.cardExport")}>
         <div style={{ marginBottom: "var(--space-3)" }}>
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>
             {t("pane.app.exportFormatLabel")}
@@ -248,7 +263,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
             </div>
           </div>
         )}
-        <InlineRow label={t("pane.app.clearCacheLabel")} hint={t("pane.app.clearCacheHint")}>
+        <InlineRow data-testid="S3-2-1" label={t("pane.app.clearCacheLabel")} hint={t("pane.app.clearCacheHint")}>
           <Button variant="secondary"
             onClick={handleClearCache}
             disabled={stravaLoading}
@@ -258,7 +273,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
         </InlineRow>
       </SettingsCard>
 
-      <SettingsCard title={t("pane.app.cardDeleteAll")} danger dense>
+      <SettingsCard data-testid="S3-2-1" title={t("pane.app.cardDeleteAll")} danger dense>
         <div
           style={{
             fontSize: "var(--fs-xs)",

@@ -33,7 +33,7 @@ describe("ClimbPredictionStatus", () => {
 
   it("로그인했지만 지표가 없으면 훈련 설정 CTA를 표시한다", () => {
     renderStatus({ prediction: null, loading: false, signedIn: true, onLogin: vi.fn() });
-    expect(screen.getByRole("link").getAttribute("href")).toBe("/ko/settings/training");
+    expect(screen.getByRole("link").getAttribute("href")).toBe("/ko/coach/condition?sport=bike#thresholds");
   });
 
   it("예측이 있으면 시간과 W/kg을 렌더한다", () => {

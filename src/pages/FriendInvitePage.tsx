@@ -116,7 +116,7 @@ export default function FriendInvitePage() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div data-testid="P3.loading" className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <svg
             className="w-8 h-8 mx-auto mb-3 animate-spin text-[color:var(--lime)]"
@@ -145,7 +145,7 @@ export default function FriendInvitePage() {
 
   if (user && (processing || actionLoading)) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div data-testid="P3-4" className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <svg
             className="w-8 h-8 mx-auto mb-3 animate-spin text-[color:var(--lime)]"
@@ -176,8 +176,8 @@ export default function FriendInvitePage() {
 
   if (user && inviteError) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="max-w-sm text-center" padding="card">
+      <div data-testid="P3-4" className="flex items-center justify-center min-h-[60vh]">
+        <Card data-testid="P3-4-1" className="max-w-sm text-center" padding="card">
           <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--rose)]/10 text-[var(--rose)] flex items-center justify-center">
             !
           </div>
@@ -213,8 +213,8 @@ export default function FriendInvitePage() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center max-w-sm mx-auto px-4">
+      <div data-testid="P3-4" className="flex items-center justify-center min-h-[60vh]">
+        <div data-testid="P3-4-1" className="text-center max-w-sm mx-auto px-4">
           {invitePreview?.rideImageUrl && (
             <div
               className="mb-4 overflow-hidden rounded-[var(--r-lg)] border border-[var(--line-soft)]"

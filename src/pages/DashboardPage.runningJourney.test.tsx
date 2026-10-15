@@ -23,7 +23,7 @@ vi.mock("../hooks/useFirstSyncCelebration", () => ({ useFirstSyncCelebration: ()
 vi.mock("../utils/runnerLevel", () => ({ estimateRunnerLevel: () => ({ level: "regular" }) }));
 vi.mock("../utils/shoeStatus", () => ({ latestShoeStatus: () => ({ replacementDue: true }) }));
 vi.mock("../utils/runWeeklyRecap", () => ({ computeRunWeeklyRecap: () => ({ lastWeek: { count: 1 } }), isRecapVisible: () => true }));
-vi.mock("../components/mobile/MobileFeedPage", () => ({ default: ({ runningJourney, sportFilter, runSummary }: { runningJourney?: ReactNode; sportFilter?: string; runSummary?: { available: boolean } }) => <div data-testid="mobile-journey-slot" data-sport-filter={sportFilter} data-run-summary={String(!!runSummary)}>{runningJourney}</div> }));
+vi.mock("../components/mobile/MobileFeedPage", () => ({ default: ({ todayStrip, runningJourney, sportFilter, runSummary }: { todayStrip?: ReactNode; runningJourney?: ReactNode; sportFilter?: string; runSummary?: { available: boolean } }) => <div data-testid="mobile-journey-slot" data-sport-filter={sportFilter} data-run-summary={String(!!runSummary)}>{todayStrip}{runningJourney}</div> }));
 vi.mock("../components/dashboard/RunEmptyState", () => ({ default: () => <div>run-empty-journey</div> }));
 vi.mock("../components/dashboard/WeeklyRecapCard", () => ({ default: () => <div>run-weekly-recap</div> }));
 vi.mock("../components/dashboard/ThresholdPaceNudge", () => ({ default: () => <div>run-threshold-nudge</div> }));
@@ -65,11 +65,12 @@ describe("owner running dashboard journey parity", () => {
     expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-run-summary", "true");
     expect(useRunHistory).toHaveBeenCalledWith(8, true);
   });
-  it.each(["all", "friends"])("does not fetch or show private owner journey on the mobile %s feed", scope => {
-    state.feedScope = scope;
+  it.each(["all", "friends"])("keeps the legacy journey hidden but reads the signed-in owner recap on the mobile %s feed", scope => {
+    state.feedScope = scope; state.runs = [{} as Activity];
     show();
     expect(screen.queryByTestId("dashboard-running-journey")).not.toBeInTheDocument();
-    expect(useRunHistory).toHaveBeenCalledWith(8, false);
+    expect(screen.getByTestId("H2-3-4")).toHaveTextContent("run-weekly-recap");
+    expect(useRunHistory).toHaveBeenCalledWith(8, true);
   });
   it.each([null, { uid: "guest", isAnonymous: true }])("does not show an owner journey for a guest account", user => {
     state.user = user;

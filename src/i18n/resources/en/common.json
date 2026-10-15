@@ -70,14 +70,19 @@
     "community": "Community guidelines",
     "contact": "Contact",
     "more": "More",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "appManual": "App manual",
+    "webManual": "Web manual",
+    "aiPolicy": "AI coach policy",
+    "stravaTerms": "Strava terms",
+    "calculator": "Public calculator"
   },
   "nav": {
     "todayTraining": "Today’s workout",
     "analysis": "Analysis",
     "fitness": "Condition",
     "plan": "Plan",
-    "log": "Activities",
+    "log": "Training log",
     "courses": "Courses",
     "leaderboard": "Leaderboard",
     "events": "Events",
@@ -102,7 +107,9 @@
     "goals": "Goals",
     "chat": "Chat",
     "equipment": "Equipment",
-    "developerDocs": "Developer Docs"
+    "developerDocs": "Developer Docs",
+    "challenges": "Challenges",
+    "records": "Records"
   },
   "about": {
     "title": "Ride records that lead to the next choice",
@@ -296,5 +303,13 @@
     "confirmTitle": "Confirm",
     "promptTitle": "Input",
     "ok": "OK"
-  }
+  },
+  "nav.create": "+ Create",
+  "nav.create.course": "Create course",
+  "nav.create.segment": "Create segment",
+  "nav.create.event": "Create event",
+  "nav.create.club": "Create club",
+  "nav.create.post": "Write post",
+  "nav.create.import": "Import activity",
+  "nav.create.goal": "Create goal"
 }

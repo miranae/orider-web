@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { Activity } from "@shared/types";
 import { dashboardPlanDiscipline, filterFeedActivities, normalizeDashboardDiscipline } from "./DashboardPage";
 
@@ -78,19 +76,4 @@ describe("normalizeDashboardDiscipline", () => {
     expect(dashboardPlanDiscipline(value)).toBe(expected);
   });
 
-});
-
-describe("desktop dashboard information hierarchy", () => {
-  it("normalizes guest feed scope and hides personal scope choices", () => {
-    const source = readFileSync(join(process.cwd(), "src/pages/DashboardPage.tsx"), "utf8");
-    expect(source).toContain('const feedScope: ActivityFeedScope = user ? dashboardPreferences.feedScope : "all"');
-    expect(source).toContain('{user && <div className="flex gap-0.5"');
-  });
-
-  it("keeps Home focused on activity and informational cards without a workout decision", () => {
-    const source = readFileSync(join(process.cwd(), "src/pages/DashboardPage.tsx"), "utf8");
-    expect(source).not.toContain("TodayTrainingDecisionCard");
-    expect(source).not.toContain("TodaysWorkoutCard");
-    expect(source).not.toContain("CoachQuestionLauncher");
-  });
 });

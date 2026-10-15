@@ -1,3 +1,4 @@
+import { LocalizedLink } from "../../components/LocalizedLink";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Input, Text } from "../../theme/components";
@@ -205,35 +206,36 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     <Text as="p" variant="caption" tone={presentationState === "error" ? "warning" : "secondary"}
       role="status" aria-live="polite" aria-atomic="true">{t(`decision.execution.presentation.${presentationState}`)}</Text>
     {!execution && decision.capabilities.execution.reserve === "available" && decision.capabilities.execution.start === "available"
-      && <Button size="sm" variant="primary" loading={busy} onClick={() => void start()}>{busy ? t("decision.execution.starting") : t("decision.execution.start")}</Button>}
+      && <Button size="sm" variant="primary" loading={busy} data-testid="K2-3-10" onClick={() => void start()}>{busy ? t("decision.execution.starting") : t("decision.execution.start")}</Button>}
     {execution && <>
+      {execution.activityId && <LocalizedLink data-testid="K2-4-5" to={`/activity/${encodeURIComponent(execution.activityId)}`}>{t("today.viewActivity")}</LocalizedLink>}
       <Text as="p" variant="caption" tone="secondary">{t(`decision.execution.state.${execution.status}`)} · {t(`decision.execution.outcome.${execution.outcomeStatus}`)}</Text>
       {execution.status === "reserved" && decision.capabilities.execution.start === "available"
-        && <Button size="sm" variant="primary" loading={busy} onClick={() => void start()}>{busy ? t("decision.execution.starting") : t("decision.execution.start")}</Button>}
+        && <Button size="sm" variant="primary" loading={busy} data-testid="K2-3-10" onClick={() => void start()}>{busy ? t("decision.execution.starting") : t("decision.execution.start")}</Button>}
       {decision.capabilities.execution.link === "available" && execution.status === "started" && execution.outcomeStatus === "pending"
         && <Button size="sm" variant="outline" aria-expanded={manual} aria-controls={manualPanelId}
           onClick={() => setManual((value) => !value)}>{t("decision.execution.manualLink")}</Button>}
       {/* 추정 매칭 확인 동선 — 확인하면 완료 권한이 열리고, 아니면 해제해서 건너뛰기·연기로 빠져나간다. */}
       {probableLink && execution.outcomeStatus === "pending" && decision.capabilities.execution.link === "available"
-        && <div className="training-execution-actions__row" data-probable-confirm="true">
+        && <div data-testid="K2-4" className="training-execution-actions__row" data-probable-confirm="true">
           <Text as="p" variant="caption" tone="secondary">{t("decision.execution.probablePrompt")}</Text>
           {confirmRevision === null && !activitiesLoading && <Text as="p" variant="caption" tone="warning">
             {t("decision.execution.probableRevisionMissing")}</Text>}
           <Button size="sm" variant="primary" loading={busy} disabled={activitiesLoading || confirmRevision === null}
-            onClick={() => void confirmProbable()}>{t("decision.execution.confirmMatch")}</Button>
+            data-testid="K2-3-12" onClick={() => void confirmProbable()}>{t("decision.execution.confirmMatch")}</Button>
           {/* 부분 완료는 outcome 호출까지 필요하다 — 그 권한이 없으면 반쯤 적용된 상태로 끝난다. */}
           {decision.capabilities.execution.outcome === "available"
             && <Button size="sm" variant="outline" disabled={busy || activitiesLoading || confirmRevision === null}
-              onClick={() => void confirmProbable("partial")}>{t("decision.execution.confirmPartial")}</Button>}
+              data-testid="K2-3-12" onClick={() => void confirmProbable("partial")}>{t("decision.execution.confirmPartial")}</Button>}
         </div>}
       {/* 부분 완료가 중간에 끊긴 경우 — 서버는 completed 로 남아 있으므로 되돌릴 경로를 남긴다. */}
       {partialRetry?.executionId === execution.executionId
         && decision.capabilities.execution.outcome === "available"
-        && <Button size="sm" variant="outline" loading={busy} onClick={() => void retryPartial()}>
+        && <Button size="sm" variant="outline" loading={busy} data-testid="K2-4-4" onClick={() => void retryPartial()}>
           {t("decision.execution.partialRetry")}</Button>}
       {decision.capabilities.execution.unlink === "available" && execution.status === "linked"
         && (execution.matchMethod === "manual" || probableLink)
-        && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void unlink()}>
+        && <Button size="sm" variant="ghost" disabled={busy} data-testid={probableLink ? "K2-3-12" : "K2-3-13"} onClick={() => void unlink()}>
           {t(probableLink ? "decision.execution.rejectMatch" : "decision.execution.unlink")}</Button>}
       {manual && <div id={manualPanelId} className="training-execution-actions__manual">
         <label><Text as="span" variant="caption" tone="secondary">{t("decision.execution.activityPicker")}</Text>
@@ -246,17 +248,17 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
           </select>
         </label>
         {!activitiesLoading && activityChoices.length === 0 && <Text as="p" variant="caption" tone="secondary">{t("decision.execution.noActivities")}</Text>}
-        <Button size="sm" disabled={busy || !selectedActivity} onClick={() => void link()}>{t("decision.execution.link")}</Button>
+        <Button size="sm" disabled={busy || !selectedActivity} data-testid="K2-3-11" onClick={() => void link()}>{t("decision.execution.link")}</Button>
       </div>}
       {decision.capabilities.execution.outcome === "available" && execution.outcomeStatus === "pending"
-        && (exactLink || execution.status === "started") && <div className="training-execution-actions__row">
-        {exactLink && <><Button size="sm" variant="primary" onClick={() => void outcome("completed")}>{t("decision.execution.complete")}</Button>
-          <Button size="sm" variant="outline" onClick={() => void outcome("partial")}>{t("decision.execution.partial")}</Button></>}
-        {!exactLink && <><Button size="sm" variant="ghost" onClick={() => void outcome("skipped")}>{t("decision.execution.skip")}</Button>
+        && (exactLink || execution.status === "started") && <div data-testid="K2-4" className="training-execution-actions__row">
+        {exactLink && <><Button size="sm" variant="primary" data-testid="K2-4-1" onClick={() => void outcome("completed")}>{t("decision.execution.complete")}</Button>
+          <Button size="sm" variant="outline" data-testid="K2-4-1" onClick={() => void outcome("partial")}>{t("decision.execution.partial")}</Button></>}
+        {!exactLink && <><Button size="sm" variant="ghost" data-testid="K2-4-2" onClick={() => void outcome("skipped")}>{t("decision.execution.skip")}</Button>
           <label><Text as="span" variant="caption" tone="secondary">{t("decision.execution.postponeDate")}</Text>
             <Input type="date" value={postponedTo} onChange={(event) => setPostponedTo(event.target.value)} />
           </label>
-          <Button size="sm" variant="ghost" disabled={!postponedTo} onClick={() => void outcome("postponed")}>{t("decision.execution.postpone")}</Button></>}
+          <Button size="sm" variant="ghost" disabled={!postponedTo} data-testid="K2-4-3" onClick={() => void outcome("postponed")}>{t("decision.execution.postpone")}</Button></>}
       </div>}
     </>}
     {error && <Alert variant="warning" title={t("decision.execution.error")} />}

@@ -170,6 +170,26 @@
     "plannedGeneration": "Training plan is still being generated. Please refresh later."
   },
   "plan.rerollSuccess": "Workout plan regenerated.",
+  "goalHub": {
+  "pickSegment": "Choose a segment →",
+  "minutes": "{{value}} min",
+  "goalType": {"program": "Running program", "climb": "Climb record", "completion": "Completion", "time": "Time goal", "race": "Race goal"},
+  "askCoach": "Ask the coach",
+  "title": "Goals",
+  "retry": "Retry",
+  "progress": "Goal progress",
+  "plan": "View plan →",
+  "change": "Change goal",
+  "program": "30-minute running program",
+  "other": "Choose another goal",
+  "new": "Create a goal",
+  "replaces": "Starting this goal will abandon your current goal ({{name}}).",
+  "types": {
+    "bike": "Race or course completion",
+    "run": "Running race",
+    "swim": "Swimming race"
+  }
+},
   "goals": {
     "wizardTitle": {
       "bike": "Create Your Training Plan in 3 Minutes",

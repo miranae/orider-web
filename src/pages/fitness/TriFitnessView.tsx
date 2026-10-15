@@ -354,7 +354,7 @@ function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess
   const area = `M0 ${h} ${path.replace(/^M/, "L")} L${w} ${h} Z`;
 
   return (
-    <Link
+    <Link data-testid="K1-8-3"
       to={href}
       className="block no-underline"
       style={{ color: "inherit" }}
@@ -634,7 +634,7 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
   ];
 
   return (
-    <div>
+    <div data-testid="K1-8">
       {/* 헤더 — PageHeader 패턴 */}
       <div className="site-shell" style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
         <div style={{ flex: 1 }}>
@@ -651,12 +651,12 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
 
       <div className="site-shell" style={{ padding: "var(--space-5) var(--space-6) var(--space-8)" }}>
 
-      {(historySlot || combinedLoad) && <div className="tri-fitness__primary">
+      {(historySlot || combinedLoad) && <div data-testid="K1-8-1" className="tri-fitness__primary">
         {historySlot && <div className="tri-fitness__primary-trend">{historySlot}</div>}
         {combinedLoad && <div className="tri-fitness__primary-summary"><IntegratedLoadCard combined={combinedLoad} focus={loadFocus} /></div>}
       </div>}
 
-      <DetailsSection title={t("history.disciplineDetails")} defaultOpen={!historySlot}>
+      <div data-testid="K1-8-2"><DetailsSection title={t("history.disciplineDetails")} defaultOpen={!historySlot}>
       {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, 이 PMC는 시간 추이만 담당한다. */}
       <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
         <div
@@ -734,7 +734,7 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
         <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", lineHeight: 1.7 }}>{t("triView.model.desc")}</div>
       </Card>
 
-      </DetailsSection>
+      </DetailsSection></div>
 
       {/* 기여도 도넛 + 일별 부하 */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 'var(--space-5)', marginTop: 'var(--space-5)' }}>

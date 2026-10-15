@@ -12,7 +12,7 @@ describe("onboarding friend invite handoff", () => {
   });
 
   it("keeps existing goal setup and skip completion paths", () => {
-    expect(source).toContain('finishOnboarding(`/goal-setup?returnTo=');
+    expect(source).toContain('finishOnboarding(`/goal-setup?source=onboarding&sport=');
     expect(source).toContain("await finishOnboarding();");
   });
 });

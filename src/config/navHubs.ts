@@ -64,7 +64,7 @@ export const HUBS: Hub[] = [
       { labelKey: "nav.courses", to: "/explore/courses" },
       { labelKey: "nav.segments", to: "/explore/segments" },
       { labelKey: "nav.events", to: "/explore/events" },
-      { labelKey: "nav.discover", to: "/explore/challenges" },
+      { labelKey: "nav.challenges", to: "/explore/challenges" },
       { labelKey: "nav.creator", to: "/explore/recipes" },
     ],
     match: (p) =>
@@ -111,4 +111,20 @@ export function getHub(key: HubKey): Hub {
 /** 정확히 서브탭 목적지에서만 서브탭바를 노출한다. */
 export function isHubSubRoute(path: string): boolean {
   return HUBS.some((h) => h.subs.some((s) => s.to === path));
+}
+
+/** 상세는 진입 허브를 유지한다. 직접 진입은 활동/선수는 홈, 나머지는 탐색. */
+export function isDetailRoute(path: string): boolean {
+  const match = /^\/(activity|athlete|course|segment|event)\/([^/]+)(?:\/(.*))?$/.exec(path);
+  if (!match || /^(?:me|create|join|new|list)$/.test(match[2]!)) return false;
+  const [, kind, , suffix] = match;
+  if (suffix === undefined) return true;
+  if (kind === "activity" || kind === "course") return suffix === "edit";
+  return kind === "event" && /^(?:register|results|host(?:\/(?:edit|participants))?)$/.test(suffix);
+}
+export function resolveDetailHub(path: string, state?: unknown): HubKey {
+  if (!isDetailRoute(path)) return getActiveHub(path);
+  const fromHub = state && typeof state === "object" ? (state as { fromHub?: unknown }).fromHub : undefined;
+  if (typeof fromHub === "string" && PRIMARY_HUBS.some((hub) => hub.key === fromHub)) return fromHub as HubKey;
+  return /^\/(?:activity|athlete)\//.test(path) ? "home" : "explore";
 }

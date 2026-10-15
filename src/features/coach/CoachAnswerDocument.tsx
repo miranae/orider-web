@@ -63,7 +63,7 @@ function MoreItems<T>({ items, render, listKind }: { items: T[]; render: (item: 
   const primary = items.slice(0, PRIMARY_COUNT);
   const remaining = items.slice(PRIMARY_COUNT);
   const renderedRemaining = remaining.map((item, index) => <Fragment key={index}>{render(item, index + PRIMARY_COUNT)}</Fragment>);
-  const disclosure = remaining.length > 0 && <details className="coach-answer__more">
+  const disclosure = remaining.length > 0 && <details data-testid="K6-2-3" className="coach-answer__more">
     <summary>{t("answer.more", { count: remaining.length })}</summary>
     {listKind === "ul" ? <ul>{renderedRemaining}</ul> : listKind === "ol" ? <ol>{renderedRemaining}</ol> : renderedRemaining}
   </details>;
@@ -216,7 +216,7 @@ function DistributionGraphic({ block, locale }: { block: Extract<CoachAnswerBloc
       <div className="coach-answer__bar-plot" role="img" aria-label={t("responseFormat.distributionChartLabel")}>
         {block.categories.slice(0, PRIMARY_COUNT).map(bar)}
       </div>
-      {remaining.length > 0 && <details className="coach-answer__more"><summary>{t("answer.more", { count: remaining.length })}</summary>
+      {remaining.length > 0 && <details data-testid="K6-2-3" className="coach-answer__more"><summary>{t("answer.more", { count: remaining.length })}</summary>
         <div className="coach-answer__bar-plot">{remaining.map((item, index) => bar(item, index + PRIMARY_COUNT))}</div></details>}
     </div>
     <DistributionTable block={block} locale={locale} />
@@ -441,7 +441,7 @@ function SupportedBlock({ block, responseFormat, showLocalFormatFallback, locale
     body = <div className="coach-answer__notice" role="status"><Text as="h3" variant="subtitle">{t("answer.gap.title")}</Text><p>{t("answer.gap.body")}</p>
       {block.missingMetricIds.length > 0 && <ul>{block.missingMetricIds.map((metric) => <li key={metric}><MetricLabel metricId={metric} /></li>)}</ul>}</div>;
   } else {
-    body = <Button variant="outline" onClick={() => onAction(block.actionCode, block.entity)}>{t(`answer.action.${block.actionCode}`)}</Button>;
+    body = <Button data-testid="K6-2-4" variant="outline" onClick={() => onAction(block.actionCode, block.entity)}>{t(`answer.action.${block.actionCode}`)}</Button>;
   }
   return <section className={`coach-answer__block coach-answer__block--${block.kind}`}
     {...(block.kind === "grounded_markdown" ? {} : { "aria-labelledby": `coach-block-${block.blockId}` })}>

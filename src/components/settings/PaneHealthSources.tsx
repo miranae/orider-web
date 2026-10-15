@@ -84,7 +84,7 @@ function ProviderCard({
   }
 
   return (
-    <Card padding="none" style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: 'var(--space-2)' }}>
+    <Card data-testid="S2.loading" padding="none" style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: 'var(--space-2)' }}>
       <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
         <div style={{ color: "var(--rd-text-muted)" }}>{meta.icon}</div>
         <div style={{ flex: 1 }}>
@@ -241,7 +241,7 @@ export function PaneHealthSources() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-4)' }}>
+    <div data-testid="S2-2-1" style={{ display: "flex", flexDirection: "column", gap: 'var(--space-4)' }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 'var(--space-2)' }}>
         <h2 style={{ fontSize: "var(--fs-lg)", fontWeight: 600 }}>{t("healthSources.title")}</h2>
         <p style={{ fontSize: "var(--fs-sm)", color: "var(--rd-text-muted)" }}>

@@ -350,7 +350,7 @@ function RideStoryActivityRow({
         <Chip>{activity.photos.length > 0 ? `${activity.photos.length}` : "0"}</Chip>
       </div>
 
-      <div className="mt-3 grid gap-3 md:grid-cols-[minmax(180px,240px)_1fr]">
+      <div data-testid="E6-1-5" className="mt-3 grid gap-3 md:grid-cols-[minmax(180px,240px)_1fr]">
         <div>
           <div className="mb-1 flex items-center gap-1 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-3)" }}>
             <MapPinned size={13} />

@@ -1,5 +1,6 @@
+import { useLocation, useNavigate } from "react-router-dom";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { getDoc, getDocs, onSnapshot, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
@@ -218,18 +219,45 @@ describe("ActivityPage", () => {
     expect(container.textContent).not.toMatch(/NaN|Infinity/);
   });
 
-  it.each([false, true])("shows owner history exactly once with the overview enabled=%s", async (enabled) => {
+  it("keeps the departure hub when the activity tab query changes", async () => {
+    const activity = createMockActivity({ id: "test-activity", userId: "test-uid" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    function TraceLocation() {
+      const location = useLocation(), navigate = useNavigate();
+      return <><button onClick={() => navigate(location.pathname, { state: { fromHub: "club" } })}>set departure</button>
+        <span data-testid="departure-state">{JSON.stringify(location.state)}{location.search}</span></>;
+    }
+    renderWithProviders(<><ActivityPage /><TraceLocation /></>, { authenticated: true, route: "/ko/activity/test-activity" });
+    await screen.findByRole("tab", { name: "분석" });
+    fireEvent.click(screen.getByText("set departure"));
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(screen.getByTestId("departure-state")).toHaveTextContent("club");
+    expect(screen.getByTestId("departure-state")).toHaveTextContent("tab=analysis");
+  });
+  it("uses four main tabs and keeps owner export/delete/edit inside the more menu", async () => {
+    const activity = createMockActivity({ id: "test-activity", userId: "test-uid" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    await screen.findByRole("tab", { name: "비교" });
+    expect(screen.getAllByRole("tab").map(tab => tab.textContent)).toEqual(["개요", "분석", "구간", "비교"]);
+    expect(screen.queryByRole("tab", { name: "내보내기" })).not.toBeInTheDocument();
+    const menu = within(screen.getByTestId("D1-0-M"));
+    expect(menu.getByRole("link", { name: "활동 편집" })).toHaveAttribute("href", "/ko/activity/test-activity/edit");
+    expect(menu.getByRole("button", { name: "내보내기" })).toBeInTheDocument();
+    expect(menu.getByRole("button", { name: "삭제" })).toBeInTheDocument();
+  });
+  it.each([false, true])("moves owner comparison out of overview when overview enabled=%s", async (enabled) => {
     mockRoute.activityId = `growth-placement-${enabled}`;
     const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid" });
     setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
     const overview = vi.spyOn(overviewHook, "useActivityOverview").mockReturnValue({ enabled, loading: false, response: null, error: false, retry: vi.fn() });
     try {
       renderWithProviders(<ActivityPage />, { authenticated: true });
-      const compare = await screen.findByRole("button", { name: "지난 활동과 비교" });
-      expect(screen.getAllByRole("button", { name: "지난 활동과 비교" })).toHaveLength(1);
-      expect(screen.getAllByRole("button", { name: "활동 통계" })).toHaveLength(1);
-      if (enabled) expect(screen.getByTestId("activity-overview-summary")).toContainElement(compare);
-      else expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
+      await screen.findByRole("tab", { name: "개요" });
+      expect(screen.queryByText("지난 활동과 비교")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("tab", { name: "비교" }));
+      expect(await screen.findByTestId("D1-5")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "활동 통계" })).not.toBeInTheDocument();
     } finally { overview.mockRestore(); }
   });
   it("links a recorded native lap to the exact elapsed chart/map range without accumulating moving duration", async () => {
@@ -243,7 +271,7 @@ describe("ActivityPage", () => {
       laps: [{ number: 2, startTimeMs: epoch + 20000, endTimeMs: epoch + 40000, durationMs: 12000, distanceKm: 0.4, avgSpeed: 20 }],
     }) });
     renderWithProviders(<ActivityPage />, { authenticated: true });
-    fireEvent.click(await screen.findByRole("tab", { name: /^랩\s*\(1\)$/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /구간/ }));
     fireEvent.click(await screen.findByRole("button", { name: "랩 2 구간 보기" }));
     await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 20, endIndex: 40 }));
     expect(elevationChartProps.mock.lastCall?.[0].highlightRange).toEqual([20, 40]);
@@ -251,7 +279,7 @@ describe("ActivityPage", () => {
     expect(screen.getByLabelText("끝 시간")).toHaveValue("0:40");
     expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
   });
-  it.each(["ready", "account", "head", "unknown-clock", "navigate"])("manually loads a cold stored lap once and fences %s", async mode => {
+  it.each(["ready", "account", "head", "unknown-clock", "navigate", "navigate-aba"])("automatically loads cold lap streams once, retaining the lap intent fence for %s", async mode => {
     const epoch = 1791375809000, id = `cold-lap-${mode}`;
     mockRoute.activityId = id;
     const activity = createMockActivity({ id, userId: "test-uid", source: "orider", startTime: epoch,
@@ -272,24 +300,28 @@ describe("ActivityPage", () => {
     const sourceCalls = () => vi.mocked(getDoc).mock.calls.filter(([ref]) => (ref as unknown as { path: string }).path === `activity_streams/${id}`).length;
     try {
       renderWithProviders(<ActivityPage />, { authenticated: true });
-      fireEvent.click(await screen.findByRole("tab", { name: /^랩\s*\(1\)$/ }));
+      fireEvent.click(await screen.findByRole("tab", { name: /구간/ }));
       const action = await screen.findByRole("button", { name: "랩 2 구간 보기" });
-      expect(sourceCalls()).toBe(0);
+      // Entering segments starts the canonical read; the saved lap action can queue
+      // its intent while that same read is pending, without issuing another read.
+      await waitFor(() => expect(sourceCalls()).toBe(1));
       fireEvent.click(action); fireEvent.click(action);
       await waitFor(() => expect(release).not.toBeNull());
       expect(sourceCalls()).toBe(1);
       if (mode === "account") act(() => simulateLogin({ uid: "another-owner", displayName: "Other" }));
       if (mode === "head") act(() => setDocData(`activity_metrics/${id}`, { ...metric, computedAt: 2 }));
-      if (mode === "navigate") fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+      if (mode === "navigate" || mode === "navigate-aba") fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+      if (mode === "navigate-aba") fireEvent.click(screen.getByRole("tab", { name: /구간/ }));
       await act(async () => { release!(); });
       if (mode === "ready") await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 20, endIndex: 40 }));
       else {
         expect(routeMapProps.mock.lastCall?.[0]?.highlightRange).toBeUndefined();
         if (mode === "navigate") expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
+        if (mode === "navigate-aba") expect(screen.getByRole("tab", { name: /구간/ })).toHaveAttribute("aria-selected", "true");
         if (mode === "unknown-clock") expect(await screen.findByText("이 랩을 저장된 시간축에 연결할 수 없어 위치를 표시하지 않습니다.")).toBeInTheDocument();
       }
       // Account switching preserves the existing public-view loader, which may perform its own reads.
-      // The explicit lap action was proved to issue exactly one read before that unrelated transition.
+      // Tab entry plus repeated lap actions issue exactly one read before that transition.
       if (mode === "account") expect(screen.queryByRole("button", { name: "랩 2 구간 보기" })).not.toBeInTheDocument();
       else expect(sourceCalls()).toBe(1);
     } finally { vi.mocked(getDoc).mockImplementation(original); }

@@ -670,7 +670,7 @@ export default function EventLivePage() {
   const isSnapshotStale = snapshotAgeMs != null && snapshotAgeMs > 60000;
 
   return (
-    <div>
+    <div data-testid="D4-2">
       <style>{`@keyframes orp { 0%, 50% { opacity: 1 } 51%, 100% { opacity: 0 } }`}</style>
 
       {/* Header — full-width, 시안 스타일 */}

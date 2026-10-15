@@ -82,11 +82,11 @@ describe("ActivityPage server summary presentation", () => {
       activityId: "summary-only", isOwner: true, streams: { time: [], distance: [] },
     });
     expect(mocks.requestStreams).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("tab", { name: "내보내기" }));
+    fireEvent.click(screen.getByRole("button", { name: "내보내기" }));
     expect(mocks.requestStreams).toHaveBeenCalledTimes(1);
   });
 
-  it("shows saved laps without requesting streams on the laps tab", () => {
+  it("keeps saved laps visible while requesting streams for matching and export", () => {
     mocks.model!.analysisTabProps!.analysisSummary = {
       schemaVersion: 1, laps: [{ number: 7, distanceKm: 1, durationMs: 300000 }],
       caloriesFallbackKcal: null, hasAnalysisStreams: true, sensors: null,
@@ -96,9 +96,20 @@ describe("ActivityPage server summary presentation", () => {
       },
     };
     renderWithProviders(<ActivityPage />, { authenticated: true });
-    fireEvent.click(screen.getByRole("tab", { name: /랩/u }));
+    fireEvent.click(screen.getByRole("tab", { name: /구간/u }));
     expect(screen.getByTestId("summary-laps")).toBeInTheDocument();
-    expect(mocks.requestStreams).not.toHaveBeenCalled();
+    expect(mocks.requestStreams).toHaveBeenCalled();
+  });
+  it.each(["segments", "export"])("requests cold streams on direct %s entry even with server laps", tab => {
+    mocks.model!.analysisTabProps!.analysisSummary = { schemaVersion: 1, laps: [{ number: 1, distanceKm: 1, durationMs: 300000 }] } as never;
+    renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/summary-only?tab=${tab}` });
+    expect(mocks.requestStreams).toHaveBeenCalled();
+  });
+  it("hides comparison for another rider, including a direct compare query", () => {
+    mocks.model!.isActivityOwner = false;
+    renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/summary-only?tab=compare" });
+    expect(screen.queryByRole("tab", { name: "비교" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
   });
   it("raw 러닝 랩도 종목별 표에 그대로 전달하고 새 스트림을 요청하지 않는다", () => {
     const laps = [{ number: 1, distanceKm: 1, durationMs: 360000, avgSpeed: 12, avgCadence: 88 }];
@@ -107,7 +118,7 @@ describe("ActivityPage server summary presentation", () => {
     mocks.model!.effectiveStreams = mocks.model!.streams;
     mocks.model!.analysisTabProps!.sport = "run";
     renderWithProviders(<ActivityPage />, { authenticated: true });
-    fireEvent.click(screen.getByRole("tab", { name: /랩/u }));
+    fireEvent.click(screen.getByRole("tab", { name: /구간/u }));
     expect(screen.getByTestId("summary-laps")).toBeInTheDocument();
     expect(mocks.lapProps.mock.lastCall?.[0]).toMatchObject({ sport: "run", ftp: null, laps });
     expect(mocks.lapProps.mock.lastCall?.[0].laps).toBe(laps);
@@ -136,11 +147,12 @@ describe("ActivityPage server summary presentation", () => {
     expect(screen.getByText("NP 210 W")).toBeInTheDocument();
     expect(screen.getAllByText("300").length).toBeGreaterThan(0);
     expect(screen.getAllByText("80").length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("tab", { name: "내보내기" }));
-    expect(screen.getByText("로그인하고 상세 분석을 확인하세요")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "내보내기" }));
+    const exportDialog = within(screen.getByRole("dialog", { name: "내보내기" }));
+    expect(exportDialog.getByText("로그인하고 상세 분석을 확인하세요")).toBeInTheDocument();
     expect(mocks.requestStreams).not.toHaveBeenCalled();
     const calls = vi.mocked(signInWithPopup).mock.calls.length;
-    fireEvent.click(screen.getByRole("button", { name: "Google로 로그인" }));
+    fireEvent.click(exportDialog.getByRole("button", { name: "Google로 로그인" }));
     await waitFor(() => expect(vi.mocked(signInWithPopup).mock.calls.length).toBe(calls + 1));
     expect(screen.queryByText("SIGN_IN_REQUIRED")).not.toBeInTheDocument();
   });

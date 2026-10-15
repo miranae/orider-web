@@ -480,7 +480,7 @@ export default function CreateSegmentPage() {
               <Link to="/athlete/me/activities" className={buttonClass({ variant: "primary", size: "sm" })}>
                 {t("activityPicker.uploadAction")}
               </Link>
-              <Link to="/explore/segments/leaderboard" className={buttonClass({ variant: "secondary", size: "sm" })}>
+              <Link to="/explore/segments" className={buttonClass({ variant: "secondary", size: "sm" })}>
                 {t("button.goBack")}
               </Link>
             </div>

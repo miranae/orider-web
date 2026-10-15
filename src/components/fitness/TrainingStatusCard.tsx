@@ -96,7 +96,7 @@ export default function TrainingStatusCard({
   // kill switch 가 먼저다. 값이 손에 있어도 그리지 않는다.
   if (decisionPaused) {
     return (
-      <Card>
+      <Card data-testid="K1-4-4">
         <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: 0 }}>
           {t("trainingStatus.state.paused")}
         </Text>
@@ -113,7 +113,7 @@ export default function TrainingStatusCard({
       ? STATE_MESSAGE_KEY[display]
       : "trainingStatus.state.error";
     return (
-      <Card>
+      <Card data-testid="K1-4-4">
         <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: 0 }}>
           {t(messageKey)}
         </Text>
@@ -137,7 +137,7 @@ export default function TrainingStatusCard({
     : `trainingStatus.${band.key}.advice`;
 
   return (
-    <Card>
+    <Card data-testid="K1-4-4">
       <MetricExplainerTrigger
         metric="tsb"
         scope="global"

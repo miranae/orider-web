@@ -440,11 +440,12 @@
   "tab": {
     "overview": "Overview",
     "analysis": "Analysis",
-    "segments": "Segments",
+    "segments": "Segments & laps",
     "splits": "Splits",
     "laps": "Laps",
     "sets": "Sets",
-    "export": "Export"
+    "export": "Export",
+    "compare": "Compare"
   },
   "stat": {
     "distance": "Distance",
@@ -726,7 +727,13 @@
     "chartsUnavailable": "No chart data is available for this activity.",
     "selectChartRange": "Select range",
     "clearChartRange": "Clear selection",
-    "chartRangeHint": "Drag either handle to select a range. Charts show observed samples; overall analysis keeps server metrics."
+    "chartRangeHint": "Drag either handle to select a range. Charts show observed samples; overall analysis keeps server metrics.",
+    "more": "More activity actions",
+    "editActivity": "Edit activity",
+    "menuCourse": "Create course",
+    "menuSegment": "Create segment",
+    "menuShareRecipe": "Create a brag card",
+    "compareOwnerOnly": "Activity comparison is available for your own activities."
   },
   "overlay": {
     "speed": "Speed",
@@ -770,7 +777,17 @@
     "loginAction": "Sign in with Google",
     "ariaInput": "Comment input",
     "ariaEdit": "Edit comment",
-    "deleteConfirm": "Delete this comment?"
+    "deleteConfirm": "Delete this comment?",
+    "report": "Report",
+    "hide": "Hide",
+    "restore": "Restore",
+    "hiddenComments": "{{count}} hidden comments",
+    "reportReason": "Why are you reporting this comment?",
+    "reported": "Comment report submitted",
+    "hideConfirm": "Hide this comment from everyone, including its author?",
+    "restoreConfirm": "Restore this comment?",
+    "hidden": "Comment hidden",
+    "restored": "Comment restored"
   },
   "analysis": {
     "noData": "This activity does not include the power or heart-rate streams needed for analysis yet. Connect sensors or sync a FIT/GPX/Strava activity to populate these charts.",
@@ -1215,7 +1232,9 @@
     "imported": "Activity uploaded",
     "stravaNote": "Strava-linked activities sync automatically. Manage in",
     "stravaSettingsLink": "Settings",
-    "stravaNoteSuffix": "."
+    "stravaNoteSuffix": ".",
+    "viewResult": "View imported records",
+    "viewCoach": "View in Coach →"
   },
   "edit": {
     "eyebrow": "Edit Activity",
@@ -1623,7 +1642,8 @@
       "context": "Recorded pause time: current {{current}} s · comparison {{previous}} s. Different distances, elevation and pauses mean a speed change alone does not prove improvement.",
       "retained": "Your selected comparison · not a route candidate"
     },
-    "canonicalPeriodBasis": "Final analysis values take precedence. Older activities may use recorded summaries; heart-rate and power zones include only activities with verified historical thresholds."
+    "canonicalPeriodBasis": "Final analysis values take precedence. Older activities may use recorded summaries; heart-rate and power zones include only activities with verified historical thresholds.",
+    "analysisLink": "View period analysis in Coach →"
   },
   "peakInspector": {
     "title": "Inspect peak efforts",

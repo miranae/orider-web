@@ -20,7 +20,7 @@ export function GroupRideOverlayControls({
   if (overlays.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 mb-3">
+    <div data-testid="C2R-2-1" className="flex flex-wrap items-center gap-1.5 mb-3">
       <span
         className="inline-flex min-h-11 items-center gap-1.5 px-3 text-[length:var(--fs-xs)] font-medium rounded-full cursor-default"
         style={{
