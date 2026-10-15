@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import parity from "../features/coach/__fixtures__/rider-insight-parity.json";
 import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { usePdc } from "./usePdc";
+import { sufficiencySet } from "../features/sufficiency/__fixtures__";
 
 const mocks = vi.hoisted(() => ({ callback: null as null | ((snap: any) => void), log: vi.fn() }));
 const v6Fixture = () => {
@@ -54,6 +55,28 @@ describe("usePdc", () => {
     act(() => mocks.callback?.({ exists: () => true, data: () => partial }));
     expect(result.current).toEqual({ status: "partial", pdc: null });
     expect(mocks.log).not.toHaveBeenCalled();
+  });
+  it("값 없는 PDC 는 missing 으로 두고 충분도 블록만 싣는다", () => {
+    const { result } = renderHook(() => usePdc("owner"));
+    const empty = { discipline: "bike", version: 6, status: "empty", asOf: 1, activityCount: 0, computedAt: 2,
+      coverage: { state: "complete" }, sufficiency: sufficiencySet() };
+    act(() => mocks.callback?.({ exists: () => true, data: () => structuredClone(empty) }));
+    expect(result.current).toMatchObject({ status: "missing", pdc: null,
+      sufficiency: { ownerOutput: "pdc_bike", blocks: [{ featureId: "vo2max" }] } });
+    expect(mocks.log).not.toHaveBeenCalled();
+  });
+  it("확정 문서의 충분도 블록을 함께 싣고 모르는 키로 보고하지 않는다", () => {
+    const { result } = renderHook(() => usePdc("owner"));
+    act(() => mocks.callback?.({ exists: () => true, data: () => ({ ...v6Fixture(), sufficiency: sufficiencySet() }) }));
+    expect(result.current).toMatchObject({ status: "ready", pdc: { status: "final" }, sufficiency: { digest: "b".repeat(64) } });
+    expect(mocks.log).not.toHaveBeenCalled();
+  });
+  it("모양이 틀린 블록은 버리고 PDC 는 그대로 보여 준다", () => {
+    const { result } = renderHook(() => usePdc("owner"));
+    act(() => mocks.callback?.({ exists: () => true, data: () => ({ ...v6Fixture(), sufficiency: { schemaVersion: 9 } }) }));
+    expect(result.current).toMatchObject({ status: "ready", pdc: { status: "final" } });
+    expect("sufficiency" in result.current).toBe(false);
+    expect(mocks.log).toHaveBeenCalledWith("usePdc.invalidSufficiency", expect.any(Error), { uid: "owner" });
   });
   it("subscribes with the Firestore instance supplied by the services context", () => {
     const injectedFirestore = {} as FirebaseServices["firestore"];

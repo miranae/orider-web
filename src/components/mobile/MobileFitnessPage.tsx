@@ -30,6 +30,8 @@ import SportFilterTabs from "./SportFilterTabs";
 import { getDisciplineColor } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { Chip, Text } from "../../theme/components";
+import type { SufficiencySet } from "@shared/types/sufficiency";
+import { SufficiencyCard, SufficiencyInline, findSufficiencyBlock, needsSufficiencyCard } from "../../features/sufficiency/SufficiencyBlock";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import ConsistencyStreakCard from "../training/ConsistencyStreakCard";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
@@ -71,6 +73,8 @@ export interface MobileFitnessThreshold {
 }
 
 export interface MobileFitnessData {
+  /** 서버 충분도 블록(PDC 문서 동반). 없으면 기존 표시. */
+  pdcSufficiency?: SufficiencySet | null;
   // PMC
   ctl: number; atl: number; tsb: number;
   pmcHistory: MobileFitnessPmcPoint[];  // 오래된 → 최신
@@ -566,11 +570,18 @@ function MobileCyclingEvidence({ data }: { data: MobileFitnessData }) {
   const delta = first && last ? last.v - first.v : 0;
   const deltaLabel = `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`;
   const trendLabel = first && last ? t("vo2maxCard.trendAriaValues", { startPeriod: first.period, start: first.v, endPeriod: last.period, end: last.v, delta: deltaLabel }) : "";
+  const sufficiency = data.pdcSufficiency ?? null;
+  const vo2maxBlock = findSufficiencyBlock(sufficiency, "vo2max");
+  const powerModelBlock = findSufficiencyBlock(sufficiency, "power_model");
+  const riderBlock = findSufficiencyBlock(sufficiency, "rider_profile");
+  const hasPowerModel = gaps.length > 0;
   return <>
+    {sufficiency && needsSufficiencyCard(sufficiency, riderBlock) && <SufficiencyCard set={sufficiency} block={riderBlock} testId="K5-1-1-sufficiency" />}
     {data.pdcSummary?.vo2maxEst != null && <SectionCard title={t("vo2maxCard.pdcLabel")}>
       <div data-testid="K5-1-3">
         <Text variant="dataLarge">~{data.pdcSummary.vo2maxEst}</Text> <Text variant="unit">ml/kg/min</Text>
         <Text as="p" variant="caption" tone="tertiary">{t("vo2maxCard.pdcSub")}</Text>
+        {vo2maxBlock && sufficiency && <SufficiencyInline set={sufficiency} block={vo2maxBlock} testId="K5-1-3-sufficiency-inline" />}
         {trend.length >= 2 && <>
           <svg viewBox="0 0 132 40" role="img" aria-label={trendLabel} className="w-full" preserveAspectRatio="none">
             <desc>{trendLabel}</desc><path d={path} stroke="var(--aqua)" strokeWidth="1.5" fill="none" />
@@ -579,6 +590,10 @@ function MobileCyclingEvidence({ data }: { data: MobileFitnessData }) {
         </>}
       </div>
     </SectionCard>}
+    {data.pdcSummary?.vo2maxEst == null && sufficiency && needsSufficiencyCard(sufficiency, vo2maxBlock)
+      && <SufficiencyCard set={sufficiency} block={vo2maxBlock} testId="K5-1-3-sufficiency" />}
+    {!hasPowerModel && sufficiency && needsSufficiencyCard(sufficiency, powerModelBlock)
+      && <SufficiencyCard set={sufficiency} block={powerModelBlock} testId="K5-1-4-sufficiency" />}
     {gaps.some(gap => gap.label === "strength" || gap.label === "weakness") && <SectionCard title={t("gapCard.title")}>
       <div data-testid="K5-1-4">
         {(["strength", "weakness"] as const).map(label => {

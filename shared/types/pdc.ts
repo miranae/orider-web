@@ -11,6 +11,7 @@
  */
 
 import type { PowerDurationKey, PrEntry } from "./personal-records";
+import type { SufficiencySet } from "./sufficiency";
 
 export type PowerProfile =
   | "sprinter"
@@ -70,8 +71,25 @@ export interface PdcSustainablePoint {
   basis: "cp_w_prime";
 }
 
+/**
+ * 값 없는 PDC — 서버가 계산할 실측 파워 기록이 없을 때 삭제 대신 쓰는 문서(데이터 충분도 결정 #2).
+ * 곡선 필드가 없다. 웹에서는 PDC 가 없는 것(`usePdc` status "missing")으로 다루고 충분도 블록만 읽는다.
+ */
+export interface PdcEmptyDoc {
+  discipline: "bike";
+  version: number;
+  status: "empty";
+  asOf: number;
+  activityCount: 0;
+  coverage: PdcCoverage;
+  sufficiency: SufficiencySet;
+  computedAt: number;
+}
+
 export interface PdcDoc {
   discipline: "bike";
+  /** 서버가 같은 실행에서 함께 만든 충분도 블록. 도입 이전 문서에는 없다(백필 없음). */
+  sufficiency?: SufficiencySet;
 
   /** v6 계산 상태. v5 및 v1 마이그레이션 문서에는 없다. */
   status?: PdcStatus;

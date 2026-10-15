@@ -62,6 +62,7 @@ import {
 import { acceptedActivityLoad } from "@shared/training/acceptedActivityLoad";
 import { acceptedTrainingActivities } from "../utils/estimateTSS";
 import { logClientError } from "../services/errorLogger";
+import { readSufficiencyField } from "../services/sufficiencyContract";
 import { useBikeFtpDecision } from "./useBikeFtpDecision";
 import { useCanonicalFitnessSummary } from "./useCanonicalFitnessSummary";
 import { getRuntimeConfig } from "../services/runtimeConfig";
@@ -297,7 +298,8 @@ export function useFitnessModel(
   const activeGoal = goalOwnerKey.current === currentGoalOwnerKey ? activeGoalState : null;
   const projection = goalOwnerKey.current === currentGoalOwnerKey ? projectionState : null;
   const isMobile = useMobile();
-  const { pdc } = usePdc(user?.uid, subscriptionActive);
+  // 충분도 블록은 PDC 와 같은 문서에 서버가 함께 쓴다(값 없는 PDC 포함). 없으면 null — 기존 표시 유지.
+  const { pdc, sufficiency: pdcSufficiency } = usePdc(user?.uid, subscriptionActive);
   const { run: runPaceCurve, swim: swimCssCurve, activityWindow, activityWindowLoaded, activityWindowError } = useFitnessCurves(user?.uid, subscriptionActive, true);
   // 잘린 윈도의 부분합계를 전체 합계처럼 표시하지 않는다.
   const completeActivityWindow = activityWindow !== null && activityWindow !== undefined && !activityWindow.truncated;
@@ -581,6 +583,12 @@ export function useFitnessModel(
     cacheLocale ?? undefined,
     user?.isAnonymous === true,
     subscriptionActive,
+  );
+  // 부하 이력 충분도 — 이 종목 시계열 문서가 함께 가진 블록. tri 는 종목별 근거를 합치지 않는다(블록 없음).
+  const loadSufficiency = useMemo(
+    () => discipline === "tri" || !user?.uid || timeseries?.discipline !== discipline ? null
+      : readSufficiencyField(timeseries, user.uid, "useFitnessModel.loadHistory"),
+    [discipline, timeseries, user?.uid],
   );
   const triUid = discipline === "tri" && !canonicalActive && !canonicalPending ? user?.uid : undefined;
   const {
@@ -1079,6 +1087,8 @@ export function useFitnessModel(
     isMobile,
     discipline,
     pdc,
+    pdcSufficiency: pdcSufficiency ?? null,
+    loadSufficiency,
     runRecords,
     milestones,
     consistencyStreak,
