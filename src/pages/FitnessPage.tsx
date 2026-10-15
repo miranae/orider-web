@@ -65,6 +65,7 @@ import { getDisciplineColor } from "../utils/disciplineFilter";
 import { toLocalDate, toUtcDate } from "../utils/dateUtils";
 import TriFitnessView from "./fitness/TriFitnessView";
 import { formatPlanGoalTitle } from "../features/training/plan/planDisplay";
+import { SufficiencyCard, SufficiencyInline, findSufficiencyBlock, needsSufficiencyCard } from "../features/sufficiency/SufficiencyBlock";
 
 export interface FitnessViewProps {
   embedded?: boolean;
@@ -114,6 +115,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     isMobile,
     discipline,
     pdc,
+    pdcSufficiency,
     runRecords,
     milestones,
     consistencyStreak,
@@ -323,7 +325,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             {...model.mobilePageProps}
             periodSlot={periodControls}
             thresholdsSlot={thresholdsSlot}
-            data={{ ...model.mobilePageProps.data, monthlyVo2maxTrend: vo2maxTrend, powerGaps }}
+            data={{ ...model.mobilePageProps.data, monthlyVo2maxTrend: vo2maxTrend, powerGaps, pdcSufficiency }}
             runningRaceEstimatesOwnerUid={user.isAnonymous || (part !== "all" && getRuntimeConfig().appEnvironment !== "stage") ? undefined : user.uid}
             part={part}
             powerCurvePeriodsOwnerUid={user.uid}
@@ -404,6 +406,9 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const ftpProgression = deriveEstimatedFtpProgression(pdc?.history);
 
   const strengths = powerGaps.filter((g) => g.label === "strength");
+  const vo2maxBlock = findSufficiencyBlock(pdcSufficiency, "vo2max");
+  const powerModelBlock = findSufficiencyBlock(pdcSufficiency, "power_model");
+  const riderBlock = findSufficiencyBlock(pdcSufficiency, "rider_profile");
   const weaknesses = powerGaps.filter((g) => g.label === "weakness");
 
   // 페이지 헤더 — PageHeader 패턴. const 로 추출해 loading/error/empty/정상 4상태가
@@ -771,6 +776,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                   <Text variant="unit">ml/kg/min</Text>
                 </div>
                 <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{t("vo2maxCard.pdcSub")}</Text>
+                {vo2maxBlock && pdcSufficiency && <SufficiencyInline set={pdcSufficiency} block={vo2maxBlock} testId="K5-1-3-sufficiency-inline" />}
               </div>
               {vo2maxTrend.length >= 2 && (() => {
                 const vals = vo2maxTrend.map((point) => point.v);
@@ -797,6 +803,13 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
               })()}
             </div>
           </Card>
+        )}
+        {/* 값이 없는 자리는 비우지 않는다 — 서버 충분도 블록이 무엇이 얼마나 필요한지 말한다. */}
+        {part !== "condition" && pdc?.vo2maxEst == null && pdcSufficiency && needsSufficiencyCard(pdcSufficiency, vo2maxBlock) && (
+          <div style={{ marginTop: "var(--space-4)" }}><SufficiencyCard set={pdcSufficiency} block={vo2maxBlock} testId="K5-1-3-sufficiency" /></div>
+        )}
+        {part !== "condition" && pdc?.cp == null && pdcSufficiency && needsSufficiencyCard(pdcSufficiency, powerModelBlock) && (
+          <div style={{ marginTop: "var(--space-4)" }}><SufficiencyCard set={pdcSufficiency} block={powerModelBlock} testId="K5-1-4-sufficiency" /></div>
         )}
         {/* 강점/약점 — CP 모델 기대파워 대비 실제 best 갭. bike + pdc.cp + 분류 결과 있을 때만 */}
         {part !== "condition" && discipline === "bike" && pdc?.cp != null && (strengths.length > 0 || weaknesses.length > 0) && (
@@ -852,6 +865,12 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {/* 사이클링 능력 — 모바일과 동일한 최근 90일 PDC 3축 실측 근거. */}
         {part !== "condition" && discipline === "bike" && cyclingAbility && (
           <CyclingAbilityCard cycling={cyclingAbility} variant="desktop" />
+        )}
+        {part !== "condition" && cyclingAbility && riderBlock && pdcSufficiency && (
+          <SufficiencyInline set={pdcSufficiency} block={riderBlock} testId="K5-1-1-sufficiency-inline" />
+        )}
+        {part !== "condition" && !cyclingAbility && pdcSufficiency && needsSufficiencyCard(pdcSufficiency, riderBlock) && (
+          <div style={{ marginTop: "var(--space-4)" }}><SufficiencyCard set={pdcSufficiency} block={riderBlock} testId="K5-1-1-sufficiency" /></div>
         )}
         </DetailsSection></div>
         )}

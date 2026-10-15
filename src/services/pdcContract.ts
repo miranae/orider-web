@@ -1,4 +1,4 @@
-import { PDC_VERSION, type PdcDoc, type PdcPowerSource, type PowerProfile, type RiderType } from "@shared/types/pdc";
+import { PDC_VERSION, type PdcDoc, type PdcEmptyDoc, type PdcPowerSource, type PowerProfile, type RiderType } from "@shared/types/pdc";
 import type { PowerDurationKey } from "@shared/types/personal-records";
 
 const DURATIONS: PowerDurationKey[] = ["1s", "5s", "10s", "30s", "1m", "2m", "5m", "10m", "20m", "30m", "1h"];
@@ -17,6 +17,10 @@ const V6_TOP_KEYS = [...TOP_KEYS, "status", "inputDigest", "asOf", "coverage"];
 const FTP_EST_TRUST = ["consistent", "contradicted", "unverified"];
 const V6_PARTIAL_TOP_KEYS = [...V6_TOP_KEYS, "inputExclusions"];
 const LEGACY_TOP_KEYS = TOP_KEYS.filter((key) => key !== "provenance");
+/** 선택 필드 — 모르는 키 보고에서 뺀다. 값 검증은 각 파서가 따로 한다. */
+const OPTIONAL_TOP_KEYS = ["ftpEstTrust", "sufficiency"];
+/** 값 없는 PDC(status "empty"). 곡선 필드가 없다. */
+const EMPTY_TOP_KEYS = ["discipline", "version", "status", "asOf", "activityCount", "coverage", "sufficiency", "computedAt"];
 
 const object = (value: unknown): Record<string, unknown> | null => value != null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 const exact = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).sort().join(",") === [...keys].sort().join(",");
@@ -129,9 +133,23 @@ export function unknownPdcTopLevelKeys(input: unknown): string[] {
   const raw = object(input);
   if (!raw) return [];
   const known = raw.version === 1 ? LEGACY_TOP_KEYS
-    : raw.version === 6 ? (raw.status === "partial" ? V6_PARTIAL_TOP_KEYS : V6_TOP_KEYS)
-      : TOP_KEYS;
-  return Object.keys(raw).filter((key) => !known.includes(key) && key !== "ftpEstTrust");
+    : raw.status === "empty" ? EMPTY_TOP_KEYS
+      : raw.version === 6 ? (raw.status === "partial" ? V6_PARTIAL_TOP_KEYS : V6_TOP_KEYS)
+        : TOP_KEYS;
+  return Object.keys(raw).filter((key) => !known.includes(key) && !OPTIONAL_TOP_KEYS.includes(key));
+}
+
+/**
+ * 값 없는 PDC 인가. 맞으면 그 문서를, 아니면 null. 곡선이 없으므로 `parsePersistedPdc` 를 타지 않는다.
+ * 충분도 블록 자체의 모양은 `parseSufficiencySet` 이 본다.
+ */
+export function parsePersistedEmptyPdc(input: unknown): PdcEmptyDoc | null {
+  const raw = object(input);
+  if (!raw || raw.status !== "empty") return null;
+  if (!hasAll(raw, EMPTY_TOP_KEYS) || raw.discipline !== "bike" || raw.version !== PDC_VERSION
+      || raw.activityCount !== 0 || !integer(raw.asOf, 0, Number.MAX_SAFE_INTEGER)
+      || !integer(raw.computedAt, 0, Number.MAX_SAFE_INTEGER) || !object(raw.coverage)) invalid();
+  return raw as unknown as PdcEmptyDoc;
 }
 
 export function parsePersistedPdc(input: unknown): PdcDoc {

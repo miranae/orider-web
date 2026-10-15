@@ -297,7 +297,8 @@ export function useFitnessModel(
   const activeGoal = goalOwnerKey.current === currentGoalOwnerKey ? activeGoalState : null;
   const projection = goalOwnerKey.current === currentGoalOwnerKey ? projectionState : null;
   const isMobile = useMobile();
-  const { pdc } = usePdc(user?.uid, subscriptionActive);
+  // 충분도 블록은 PDC 와 같은 문서에 서버가 함께 쓴다(값 없는 PDC 포함). 없으면 null — 기존 표시 유지.
+  const { pdc, sufficiency: pdcSufficiency } = usePdc(user?.uid, subscriptionActive);
   const { run: runPaceCurve, swim: swimCssCurve, activityWindow, activityWindowLoaded, activityWindowError } = useFitnessCurves(user?.uid, subscriptionActive, true);
   // 잘린 윈도의 부분합계를 전체 합계처럼 표시하지 않는다.
   const completeActivityWindow = activityWindow !== null && activityWindow !== undefined && !activityWindow.truncated;
@@ -1079,6 +1080,7 @@ export function useFitnessModel(
     isMobile,
     discipline,
     pdc,
+    pdcSufficiency: pdcSufficiency ?? null,
     runRecords,
     milestones,
     consistencyStreak,

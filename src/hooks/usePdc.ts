@@ -12,13 +12,34 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import type { PdcDoc } from "@shared/types/pdc";
-import { parsePersistedPdc, unknownPdcTopLevelKeys } from "../services/pdcContract";
+import type { SufficiencySet } from "@shared/types/sufficiency";
+import { parsePersistedEmptyPdc, parsePersistedPdc, unknownPdcTopLevelKeys } from "../services/pdcContract";
+import { parseSufficiencySet } from "../services/sufficiencyContract";
 
+/**
+ * `sufficiency` 는 서버가 같은 문서에 함께 쓴 충분도 블록이다. 블록이 없는 문서(도입 이전)·모양이
+ * 틀린 블록이면 null — 화면은 기존 표시를 그대로 쓴다. 값 없는 PDC(status "empty")는 곡선이 없으므로
+ * `missing` 으로 두고 블록만 싣는다 — 기존 소비자는 PDC 없음과 똑같이 동작한다.
+ */
 export type UsePdcState =
-  | { status: "loading"; pdc: null }
-  | { status: "missing"; pdc: null }
-  | { status: "partial"; pdc: null }
-  | { status: "ready"; pdc: PdcDoc };
+  | { status: "loading"; pdc: null; sufficiency?: null }
+  | { status: "missing"; pdc: null; sufficiency?: SufficiencySet | null }
+  | { status: "partial"; pdc: null; sufficiency?: SufficiencySet | null }
+  | { status: "ready"; pdc: PdcDoc; sufficiency?: SufficiencySet | null };
+
+function readSufficiency(raw: unknown, uid: string): SufficiencySet | null {
+  const value = raw != null && typeof raw === "object" ? (raw as { sufficiency?: unknown }).sufficiency : undefined;
+  if (value === undefined) return null;
+  const parsed = parseSufficiencySet(value);
+  if (!parsed) {
+    logClientError("usePdc.invalidSufficiency", new Error("INVALID_SUFFICIENCY_SET"), { uid });
+    return null;
+  }
+  if (parsed.dropped > 0) {
+    logClientError("usePdc.droppedSufficiencyBlocks", new Error(String(parsed.dropped)), { uid });
+  }
+  return parsed.set;
+}
 
 /**
  * @param uid Firebase Auth uid. null/undefined 이면 구독 안 함 (status="loading" 유지).
@@ -56,10 +77,17 @@ export function usePdc(uid: string | null | undefined, active = true): UsePdcSta
           if (unknownKeys.length > 0) {
             logClientError("usePdc.unknownFields", new Error(unknownKeys.join(",")), { uid });
           }
+          const set = readSufficiency(snap.data(), uid);
+          // 블록이 있을 때만 키를 싣는다 — 블록 없는 문서의 상태 모양은 도입 전과 같다.
+          const sufficiency = set ? { sufficiency: set } : {};
+          if (parsePersistedEmptyPdc(snap.data())) {
+            setState({ status: "missing", pdc: null, ...sufficiency });
+            return;
+          }
           const parsed = parsePersistedPdc(snap.data());
           setState(parsed.version === 6 && parsed.status === "partial"
-            ? { status: "partial", pdc: null }
-            : { status: "ready", pdc: parsed });
+            ? { status: "partial", pdc: null, ...sufficiency }
+            : { status: "ready", pdc: parsed, ...sufficiency });
         } catch (error) {
           logClientError("usePdc.invalidContract", error, { uid });
           setState({ status: "missing", pdc: null });

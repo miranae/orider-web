@@ -12,11 +12,13 @@ import FitnessSurface from "../embedded/surfaces/FitnessSurface";
 import { normalizeFitnessRange } from "../hooks/useFitnessModel";
 import FitnessPage, { fitnessGoalDisplayName } from "./FitnessPage";
 import * as personalDataApi from "../services/personalDataApi";
+import { sufficiencyBlock, sufficiencySet } from "../features/sufficiency/__fixtures__";
 
 const viewport = vi.hoisted(() => ({ isMobile: true, expansionEnabled: false }));
 const riderInsight = vi.hoisted(() => ({ enabled: false, insight: null as ReturnType<typeof parseCoachRiderInsight> | null, loading: false, unavailable: false }));
 const canonicalSummary = vi.hoisted(() => ({ state: null as any }));
 
+vi.mock("../features/sufficiency/sufficiencyAnalytics", () => ({ trackSufficiencyView: vi.fn() }));
 vi.mock("../hooks/useMobile", () => ({
   useMobile: () => viewport.isMobile,
 }));
@@ -36,7 +38,7 @@ vi.mock("../features/fitness/components/PmcHistoryPanel", () => ({
 }));
 
 vi.mock("../components/mobile/MobileFitnessPage", () => ({
-  default: ({ data, coachSlot, pmcHistoryPoints, pmcHistoryCanonical }: { data: { discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number } | null; cyclingAbility?: { activityCount: number; axes: Array<{ score: number | null }> } | null; pdcSummary?: { riderType?: { type: string } | null; abilityScore?: number | null; activityCount?: number | null } | null }; coachSlot?: ReactNode; pmcHistoryPoints?: Array<{ date: string }>; pmcHistoryCanonical?: boolean }) => (
+  default: ({ data, coachSlot, pmcHistoryPoints, pmcHistoryCanonical }: { data: { discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number } | null; cyclingAbility?: { activityCount: number; axes: Array<{ score: number | null }> } | null; pdcSummary?: { riderType?: { type: string } | null; abilityScore?: number | null; activityCount?: number | null } | null; pdcSufficiency?: { blocks: unknown[] } | null }; coachSlot?: ReactNode; pmcHistoryPoints?: Array<{ date: string }>; pmcHistoryCanonical?: boolean }) => (
     <div>
       {coachSlot}
       <div data-testid="pmc-history" data-count={pmcHistoryPoints?.length} data-start={pmcHistoryPoints?.[0]?.date} data-canonical={String(pmcHistoryCanonical)} />
@@ -47,6 +49,7 @@ vi.mock("../components/mobile/MobileFitnessPage", () => ({
       <span>focus {data.loadFocus?.totalLoad ?? "unavailable"}</span>
       <span>cycling ability {data.cyclingAbility?.activityCount ?? "none"}/{data.cyclingAbility?.axes[0]?.score ?? "none"}</span>
       <span>PDC summary {data.pdcSummary?.abilityScore ?? "none"}/{data.pdcSummary?.activityCount ?? "none"}/{data.pdcSummary?.riderType?.type ?? "none"}</span>
+      <span>sufficiency blocks {data.pdcSufficiency?.blocks.length ?? "none"}</span>
     </div>
   ),
 }));
@@ -960,5 +963,46 @@ describe("FitnessPage", () => {
 
     expect(await screen.findByText("cycling ability none/none")).toBeInTheDocument();
     expect(screen.getByText("PDC summary none/none/none")).toBeInTheDocument();
+  });
+
+  describe("데이터 충분도 블록", () => {
+    const emptyPdc = () => ({ discipline: "bike", version: 6, status: "empty", asOf: 1, activityCount: 0, computedAt: 2,
+      coverage: { state: "complete" }, sufficiency: sufficiencySet([
+        sufficiencyBlock(),
+        sufficiencyBlock({ featureId: "power_model", viewId: "cp_w_prime", remainingRequirementCount: 2,
+          nextAction: { code: "record_power_ride" }, requirements: [] }),
+      ]) });
+
+    it("데스크톱 K5-1 의 비어 있던 자리에 블록이 선다", async () => {
+      viewport.isMobile = false;
+      setDocData("users/test-uid/fitness/pdc_bike", emptyPdc());
+      setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride",
+        startTime: Date.now(), deletedAt: null, summary: { distance: 20_000, ridingTimeMillis: 3_600_000 } }]);
+      renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+      expect(await screen.findByTestId("K5-1-3-sufficiency")).toBeInTheDocument();
+      expect(screen.getByTestId("K5-1-4-sufficiency")).toBeInTheDocument();
+      expect(screen.getByTestId("K5-1-3-sufficiency-state").textContent).toContain("바로");
+    });
+
+    it("모바일에도 같은 블록을 넘긴다", async () => {
+      viewport.isMobile = true;
+      setDocData("users/test-uid/fitness/pdc_bike", emptyPdc());
+      setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride",
+        startTime: Date.now(), deletedAt: null, summary: { distance: 20_000, ridingTimeMillis: 3_600_000 } }]);
+      renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+      expect(await screen.findByText("sufficiency blocks 2")).toBeInTheDocument();
+    });
+
+    it("블록이 없는 문서(도입 이전)는 기존 화면 그대로다", async () => {
+      viewport.isMobile = false;
+      setDocData("users/test-uid/fitness/pdc_bike", parity.persistedPdc);
+      setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride",
+        startTime: Date.now(), deletedAt: null, summary: { distance: 20_000, ridingTimeMillis: 3_600_000 } }]);
+      renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+      // 값이 있는 VO2max 는 그대로 보이고, 그 자리에 충분도 카드가 서지 않는다.
+      expect(await screen.findByText("~56")).toBeInTheDocument();
+      expect(screen.queryByTestId("K5-1-3-sufficiency")).toBeNull();
+      expect(screen.queryByTestId("K5-1-4-sufficiency")).toBeNull();
+    });
   });
 });
