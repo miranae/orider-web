@@ -1,3 +1,4 @@
+import { useActivityRepresentatives, withActivityRepresentatives } from "./useActivityRepresentatives";
 import { acceptedPhysicalActivities } from "../utils/estimateTSS";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot, orderBy, query, setDoc, where } from "firebase/firestore";
@@ -48,18 +49,30 @@ function isTier(value: unknown): value is MonthlyChallengeTier {
 export function useMonthlyChallenge(uid: string | null | undefined, now = Date.now()) {
   const window = useMemo(() => kstMonthWindow(now), [now]);
   const [participation, setParticipation] = useState<MonthlyChallengeParticipation | null>(null);
-  const [distanceMeters, setDistanceMeters] = useState(0);
+  const [activityRows, setActivityRows] = useState<Activity[]>([]);
+  const representativeState = useActivityRepresentatives(activityRows, uid);
+  const distanceMeters = useMemo(() => acceptedPhysicalActivities(withActivityRepresentatives(
+    activityRows.filter(row => row.userId === uid), representativeState.representatives, uid ?? "",
+  )).reduce((sum, activity) => {
+    if (activity.startTime < window.startMs || activity.startTime >= window.endMs) return sum;
+    const distance = activity.summary?.distance;
+    return sum + (typeof distance === "number" && Number.isFinite(distance) ? Math.max(0, distance) : 0);
+  }, 0), [activityRows, representativeState.representatives, uid, window.startMs, window.endMs]);
   const [loading, setLoading] = useState(Boolean(uid));
   const [joining, setJoining] = useState(false);
+  const [activityError, setActivityError] = useState(false);
 
   useEffect(() => {
     if (!uid) {
       setParticipation(null);
-      setDistanceMeters(0);
+      setActivityRows([]);
       setLoading(false);
       return;
     }
     setLoading(true);
+    setActivityError(false);
+    setParticipation(null);
+    let active = true;
     let participationReady = false;
     let activitiesReady = false;
     const finishPart = () => { participationReady = true; if (activitiesReady) setLoading(false); };
@@ -68,6 +81,7 @@ export function useMonthlyChallenge(uid: string | null | undefined, now = Date.n
     const unsubscribeParticipation = onSnapshot(
       doc(firestore, "users", uid, "monthly_challenge_participation", window.monthKey),
       (snapshot) => {
+        if (!active) return;
         const data = snapshot.data();
         setParticipation(data && isTier(data.tierKm) && typeof data.joinedAt === "number"
           ? { tierKm: data.tierKm, joinedAt: data.joinedAt }
@@ -75,6 +89,7 @@ export function useMonthlyChallenge(uid: string | null | undefined, now = Date.n
         finishPart();
       },
       (err) => {
+        if (!active) return;
         setParticipation(null);
         finishPart();
         logClientError("useMonthlyChallenge.participation", err, { uid, monthKey: window.monthKey });
@@ -92,21 +107,20 @@ export function useMonthlyChallenge(uid: string | null | undefined, now = Date.n
         orderBy("startTime", "desc"),
       ),
       (snapshot) => {
-        const total = acceptedPhysicalActivities(snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Activity))).reduce((sum, activity) => {
-          if (activity.startTime < window.startMs || activity.startTime >= window.endMs) return sum;
-          const distance = activity.summary?.distance;
-          return sum + (typeof distance === "number" && Number.isFinite(distance) ? Math.max(0, distance) : 0);
-        }, 0);
-        setDistanceMeters(total);
+        if (!active) return;
+        setActivityError(false);
+        setActivityRows(snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Activity)));
         finishActivities();
       },
       (err) => {
-        setDistanceMeters(0);
+        if (!active) return;
+        setActivityError(true);
+        setActivityRows([]);
         finishActivities();
         logClientError("useMonthlyChallenge.activities", err, { uid, monthKey: window.monthKey });
       },
     );
-    return () => { unsubscribeParticipation(); unsubscribeActivities(); };
+    return () => { active = false; unsubscribeParticipation(); unsubscribeActivities(); };
   }, [uid, window.endMs, window.monthKey, window.startMs]);
 
   const join = useCallback(async (tierKm: MonthlyChallengeTier) => {
@@ -124,8 +138,9 @@ export function useMonthlyChallenge(uid: string | null | undefined, now = Date.n
   return {
     monthKey: window.monthKey,
     participation,
-    progress: participation ? monthlyChallengeProgress(distanceMeters, participation.tierKm) : null,
-    loading,
+    progress: participation && !representativeState.loading && !representativeState.error && !activityError ? monthlyChallengeProgress(distanceMeters, participation.tierKm) : null,
+    loading: loading || representativeState.loading,
+    error: representativeState.error || activityError,
     joining,
     join,
   };

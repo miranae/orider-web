@@ -75,6 +75,8 @@ export default function ChallengeFeed({ part = "all" }: { part?: "all" | "monthl
             </div>
             {monthly.loading ? (
               <Text as="p" variant="body" tone="tertiary" style={{ marginTop: "var(--space-3)" }}>{t("discover.challenge.loading")}</Text>
+            ) : monthly.error ? (
+              <Text as="p" variant="body" tone="tertiary" style={{ marginTop: "var(--space-3)" }}>{t("common:error.title")}</Text>
             ) : monthly.participation && monthly.progress ? (
               <div className="mt-4">
                 <div data-testid="E4-1-2" className="flex justify-between text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>

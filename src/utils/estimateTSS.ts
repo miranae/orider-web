@@ -122,11 +122,18 @@ export function estimateTSS(a: Activity): number | null {
 
 /** 활동 묶음의 TSS 합계. 아는 값만 더하고, 추정치가 하나라도 섞이면 `estimated` 로 알린다. */
 export function sumActivityTss(activities: readonly Activity[], ftp?: number): ActivityTssEstimate & { unknownCount: number } {
+  return sumAcceptedActivityTss(acceptedTrainingActivities(activities, ftp), ftp);
+}
+
+/** 이미 실주행 대표를 선택한 집계에서 중복 그룹 계산을 반복하지 않는다. */
+export function sumAcceptedActivityTss(activities: readonly Activity[], ftp?: number): ActivityTssEstimate & { unknownCount: number } {
   let total = 0;
   let known = false;
   let estimated = false;
   let unknownCount = 0;
-  for (const a of acceptedTrainingActivities(activities, ftp)) {
+  for (const a of activities) {
+    if (!disciplineOfType(a.type) || !Number.isFinite(a.startTime) || a.startTime <= 0
+      || !Number.isFinite(new Date(a.startTime).getTime())) continue;
     const { value, estimated: isEstimate } = estimateActivityTss(a, ftp);
     if (value == null) { unknownCount += 1; continue; }
     total += value;

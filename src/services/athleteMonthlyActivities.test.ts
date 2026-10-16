@@ -1,3 +1,4 @@
+import type { Activity } from "@shared/types";
 import { getDocs, query, where, startAfter } from "firebase/firestore";
 import { aggregateMonthlyActivities, loadAthleteChartActivities } from "./athleteMonthlyActivities";
 import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
@@ -106,4 +107,14 @@ it.each([
   const input = summary ? [known, unknown] : [unknown];
   expect(aggregateMonthlyActivities(input as Parameters<typeof aggregateMonthlyActivities>[0], new Date(2026, 8, 4))[0])
     .toMatchObject({ tss, tssEstimated: estimated, tssUnknownCount: 1 });
+});
+
+it("이미 선택한 대표의 부하는 중복 그룹 계산 없이 직접 합산한다", () => {
+  const row = activity(new Date(2026, 8, 2).getTime());
+  row.summary.tss = 60;
+  const input = [row, {...row, id: "already-selected-second", summary: {...row.summary, tss: 10}}] as Activity[];
+  // 호출자가 대표 배열을 넘기면 같은 시각의 두 행도 재판정하지 않는다.
+  const rows = aggregateMonthlyActivities(input, new Date(2026, 8, 2), true);
+  expect(rows[0].rides).toBe(2);
+  expect(rows[0].tss).toBe((row.summary.tss ?? 0) + 10);
 });
