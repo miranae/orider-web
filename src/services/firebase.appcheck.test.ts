@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   qaRequested: false,
+  emulatorRuntime: false,
   qaValidate: vi.fn(),
   qaInitialRefresh: vi.fn(),
   qaProvider: { kind: "qa" },
@@ -34,7 +35,7 @@ vi.mock("firebase/firestore", () => ({
   persistentMultipleTabManager: vi.fn(() => ({})),
   connectFirestoreEmulator: vi.fn(),
 }));
-vi.mock("firebase/storage", () => ({ getStorage: vi.fn(() => ({})) }));
+vi.mock("firebase/storage", () => ({ getStorage: vi.fn(() => ({})), connectStorageEmulator: vi.fn() }));
 vi.mock("firebase/functions", () => ({
   getFunctions: vi.fn(() => ({})),
   connectFunctionsEmulator: vi.fn(),
@@ -49,7 +50,7 @@ vi.mock("firebase/app-check", () => ({
 vi.mock("./runtimeConfig", async (importOriginal) => ({
   ...await importOriginal<typeof import("./runtimeConfig")>(),
   getRuntimeConfig: () => mocks.runtimeConfig,
-  isEmulatorRuntime: () => false,
+  isEmulatorRuntime: () => mocks.emulatorRuntime,
 }));
 
 async function loadFirebase() {
@@ -70,6 +71,7 @@ describe("ensureAppCheckReady", () => {
     vi.stubEnv("VITE_APPCHECK_DEBUG_TOKEN", undefined);
     vi.stubGlobal("location", { hostname: "127.0.0.1" });
     mocks.qaRequested = false;
+    mocks.emulatorRuntime = false;
     mocks.qaValidate.mockReset().mockResolvedValue(undefined);
     mocks.qaInitialRefresh.mockReset().mockReturnValueOnce(true).mockReturnValue(false);
     vi.useRealTimers();
@@ -120,6 +122,13 @@ describe("ensureAppCheckReady", () => {
     await firebase.ensureAppCheckReady();
     expect((self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: unknown }).FIREBASE_APPCHECK_DEBUG_TOKEN).toBeUndefined();
     if (mode === "qa-grant") expect(mocks.initializeAppCheck).toHaveBeenCalledWith(expect.anything(), { provider: mocks.qaProvider, isTokenAutoRefreshEnabled: false });
+  });
+
+  it("routes Storage to the local emulator with the other Firebase services", async () => {
+    mocks.emulatorRuntime = true;
+    await loadFirebase();
+    const { connectStorageEmulator } = await import("firebase/storage");
+    expect(connectStorageEmulator).toHaveBeenLastCalledWith(expect.anything(), "localhost", 9199);
   });
 
   it("keeps production Auth/data app while routing callable transport to stage", async () => {

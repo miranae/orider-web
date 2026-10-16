@@ -26,7 +26,7 @@
 #
 # 속도 설계 (2026-07-10):
 #   - 변경 분류는 AI 리뷰 강도만 결정한다: 제품 코드=full(medium), 툴링=fast(low), 문서=skip.
-#     로컬 검증은 별도로 feature→dev(변경 영향 테스트+타입체크) / dev→main(full) 2단계다.
+#     로컬 검증은 별도로 feature→dev(변경 영향 테스트+스크립트 계약+타입체크) / dev→main(full) 2단계다.
 #   - AI 리뷰는 npm 게이트와 **병렬** 실행 — 리뷰(수 분)가 크리티컬 패스에서 빠진다.
 #   - base 전진(BEHIND)은 게이트 시작 시 자동으로 origin/base 머지+푸시 — CI 재실행이
 #     로컬 게이트와 겹쳐 돌아 마지막 대기가 짧다.
@@ -396,7 +396,7 @@ if [[ "$REQUIRE_VISUAL_CHECK" == 1 && -n "$CHANGED" ]]; then
 fi
 
 # 2단계 로컬 게이트:
-# - topic→dev: 변경 영향 Vitest + TypeScript typecheck만 실행. 누적 전체 검증은 승격 때 1회.
+# - topic→dev: 변경 영향 Vitest + 스크립트 계약 + TypeScript typecheck를 실행. 누적 전체 검증은 승격 때 1회.
 # - dev→main 및 기타 base: 안전하게 기존 full gate(lint/quality/full test/build) 실행.
 if [[ "$BASE" == "dev" && "$HEADREF" != "dev" ]]; then
   GATE_TIER="feature"
@@ -507,7 +507,10 @@ if [[ "$GATE_TIER" == "feature" ]]; then
 
   log "Feature→dev 경량 게이트: 변경 영향 Vitest"
   run_step "targeted Vitest" "Test Files|Tests |FAIL|passed|failed|No test files" \
-    npm test -- --changed "origin/$BASE" --passWithNoTests
+    npm run test:vitest -- --changed "origin/$BASE" --passWithNoTests
+
+  log "Feature→dev 경량 게이트: 스크립트·배포 계약 검증"
+  run_step "test:contracts" "tests |pass |fail |PASS|FAIL|canonical-contract" npm run test:contracts
 
   log "Feature→dev 경량 게이트: TypeScript typecheck"
   run_step "TypeScript typecheck" "error TS|Found 0 errors" npx tsc -b --pretty false

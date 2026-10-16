@@ -2,6 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { readFile } from "node:fs/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BoardPost } from "@shared/types";
+import { resolveBoardReturnTo } from "./PostDetailPage";
 import { useBoardPostView } from "./useBoardPostView";
 
 const mocks = vi.hoisted(() => ({
@@ -96,5 +97,28 @@ describe("useBoardPostView", () => {
     expect(source).not.toContain("firebase/firestore");
     expect(source).not.toContain("updateDoc(");
     expect(source).not.toContain("increment(");
+  });
+});
+
+
+describe("resolveBoardReturnTo", () => {
+  it("preserves the full board query for supported localized routes", () => {
+    for (const lang of ["ko", "en"]) {
+      const boardReturnTo = `/${lang}/community/board?type=archive&q=ride&tag=road&exclude=AI&page=3`;
+      expect(resolveBoardReturnTo({ boardReturnTo })).toBe(boardReturnTo);
+    }
+  });
+
+  it.each([
+    undefined, null, {}, { boardReturnTo: 4 },
+    ...[
+      "https://example.com/ko/community/board", "//example.com/ko/community/board",
+      "/fr/community/board", "/ko/community/board/post-1", "/ko/community/board/",
+      "/ko/community/board/../settings", "/ko/community/board%3Fpage=3",
+      "/ko/community/board#content", "/ko/community/board?x=1#content",
+      "/ko/community/board?x=\\evil", "/ko/community/board?x=\ninvalid",
+    ].map(boardReturnTo => ({ boardReturnTo })),
+  ])("falls back safely for an absent or unsupported return target: %j", state => {
+    expect(resolveBoardReturnTo(state)).toBe("/community/board");
   });
 });
