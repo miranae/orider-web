@@ -13,10 +13,11 @@ describe("consistency streak card placement", () => {
     expect(read("src/pages/FitnessPage.tsx")).toContain("ConsistencyStreakCard");
   });
 
-  it("keeps mobile fitness streaks without a home feed routine", () => {
+  it("keeps mobile fitness streaks in cycling without a home feed routine", () => {
     expect(read("src/components/mobile/MobileFeedPage.tsx")).not.toContain("consistencyStreak");
     const mobileFitness = read("src/components/mobile/MobileFitnessPage.tsx");
     expect(mobileFitness).toContain("consistencyStreak");
-    expect(mobileFitness).toContain('data.discipline !== "tri" && consistencyStreak');
+    expect(mobileFitness).toContain('data.discipline === "bike" && consistencyStreak');
+    expect(mobileFitness).not.toContain('data.discipline !== "tri" && consistencyStreak');
   });
 });
