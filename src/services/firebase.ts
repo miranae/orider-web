@@ -2,7 +2,7 @@ import { getStageQaAppCheckSession, hasStageQaAppCheckGrant } from "./stageQaApp
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, connectAuthEmulator, signInWithEmailAndPassword, type Auth } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, type Firestore } from "firebase/firestore";
-import { getStorage, type FirebaseStorage } from "firebase/storage";
+import { getStorage, connectStorageEmulator, type FirebaseStorage } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator, type Functions } from "firebase/functions";
 import {
   getToken,
@@ -81,6 +81,7 @@ export async function initFirebase() {
   if (isEmulatorRuntime()) {
     connectAuthEmulator(_auth, 'http://localhost:9099', { disableWarnings: true });
     connectFirestoreEmulator(_firestore, 'localhost', 8080);
+    connectStorageEmulator(_storage, 'localhost', 9199);
     connectFunctionsEmulator(_functions, 'localhost', 5001);
     // Expose login helper for E2E tests
     (window as any).__e2eSignIn = (email: string, pw: string) =>

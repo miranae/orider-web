@@ -32,6 +32,14 @@ describe("BoardCommentUi", () => {
     expect(submit).toHaveBeenCalledOnce();
   });
 
+  it("preserves the comment and disables editing while submission is pending", () => {
+    render(<BoardCommentComposer value="작성 중인 댓글" onChange={vi.fn()} onSubmit={vi.fn()}
+      submitting placeholder="댓글" submitLabel="등록" />);
+    expect(screen.getByRole("textbox", { name: "댓글" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "댓글" })).toHaveValue("작성 중인 댓글");
+    expect(screen.getByRole("button")).toBeDisabled();
+  });
+
   it("renders stored newlines without collapsing long content", () => {
     render(<BoardCommentText>첫 줄{"\n"}둘째 줄</BoardCommentText>);
 
