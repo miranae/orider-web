@@ -1,6 +1,8 @@
 {
   "openLabel": "{{term}} 설명",
   "terms": {
+    "timeFormat": {"label": "시간과 분 표기", "description": "시간(HH)과 분(MM)을 콜론으로 구분합니다. 시각은 24시간제로 표시하고, 예상 소요 시간에서는 누적 시간과 분을 뜻합니다."},
+    "liveTracking": {"label": "실시간 위치 공유", "description": "이벤트 진행 중 갱신되는 참가자 위치와 진행 상황을 보여주는 기능입니다."},
     "lsd": {
       "label": "저강도 장거리 훈련",
       "description": "LSD는 Long Slow Distance의 약자예요. 대화가 가능한 낮은 강도로 오래 운동하며 지구력을 기르는 훈련을 뜻해요. 거리를 빠르게 완주하는 훈련과는 달라요."

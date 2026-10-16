@@ -115,8 +115,8 @@
   },
   "buttons": {
     "ics": "Export calendar",
-    "reroll": "🔄 Regenerate",
-    "goalReset": "🎯 Reset Goal",
+    "reroll": "Regenerate",
+    "goalReset": "Reset Goal",
     "abandonGoal": "Abandon Goal"
   },
   "confirmations": {
@@ -477,7 +477,7 @@
     "weekThis": "This week",
     "showPastWeeks": "Show previous {{count}} weeks",
     "hidePastWeeks": "Hide previous weeks",
-    "weekNext": "Next workout this week",
+    "weekNext": "Next scheduled workout",
     "weeklyTSS": "Weekly TSS",
     "weeklySummary": "Week at a glance",
     "minutesUnit": "min",
@@ -1071,7 +1071,11 @@
       "decideHold": "The previous stage still needs a decision. Choose how to continue.",
       "holdTitle": "Not starting today",
       "holdFallback": "The next workout is on hold for safety. Check again after you recover.",
-      "finished": "You've finished the program. Keep going with free runs."
+      "finished": "You've finished the program. Keep going with free runs.",
+      "heldHeading": "Workout on hold",
+      "reviewHeading": "Workout to review",
+      "scheduledHeading": "Scheduled workout",
+      "finishedHeading": "Program status"
     },
     "start": {
       "button": "Start stage {{stage}}",
@@ -1123,7 +1127,7 @@
     "stages": {
       "title": "All stages",
       "stage": "Stage {{stage}}",
-      "next": "Next",
+      "next": "Next workout to review",
       "showPast": "Show {{count}} past stages",
       "hidePast": "Hide past stages",
       "showSegments": "Show {{count}} segments",
@@ -1167,6 +1171,16 @@
     "errors": {
       "load": "Couldn't load the program.",
       "generic": "Couldn't process the request. Try again in a moment."
+    },
+    "outline": {
+      "total": "Total workout time",
+      "prepare": "Warm-up",
+      "work": "Workout intervals",
+      "finish": "Cool-down",
+      "repeatCount": "Repeat {{count}} times",
+      "allSteps": "View every step · {{count}} steps",
+      "appStart": "Start workouts in the app",
+      "afterRepeat": "After the repetitions"
     }
   },
   "assumptions": {

@@ -54,3 +54,5 @@ export {
   type ChartTooltipProps,
 } from './Chart';
 export { cn, type ClassValue } from './cn';
+
+export { DropdownSelect, type DropdownSelectProps, type DropdownSelectOption } from './DropdownSelect';

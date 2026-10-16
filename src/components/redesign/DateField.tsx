@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../theme/components";
 
@@ -10,8 +11,11 @@ interface DateFieldProps {
   disabled?: boolean;
   placeholder?: string;
   id?: string;
+  icon?: ReactNode;
   /** 빠른 프리셋 (오늘/+1주/+1개월/+3개월) 표시 */
   presets?: boolean;
+  /** Opt in to escaping clipped page containers; existing callers remain inline. */
+  portal?: boolean;
 }
 
 const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
@@ -72,7 +76,9 @@ export default function DateField({
   disabled,
   placeholder,
   id,
+  icon,
   presets = true,
+  portal = false,
 }: DateFieldProps) {
   const { t } = useTranslation("common");
   const WEEKDAYS = WEEKDAY_KEYS.map((k) => t(`weekday.${k}`));
@@ -113,13 +119,13 @@ export default function DateField({
       const below = trigger.bottom + 4;
       const preferred = below + popup.height <= window.innerHeight - margin ? below : trigger.top - popup.height - 4;
       const top = Math.max(margin, Math.min(preferred, window.innerHeight - margin - popup.height));
-      setPosition({ left: left - container.left, top: top - container.top });
+      setPosition({ left: portal ? left : left - container.left, top: portal ? top : top - container.top });
     };
     positionPopup();
     window.addEventListener('resize', positionPopup);
     window.addEventListener('scroll', positionPopup, true);
     return () => { window.removeEventListener('resize', positionPopup); window.removeEventListener('scroll', positionPopup, true); };
-  }, [open, viewMonth]);
+  }, [open, viewMonth, portal]);
 
   useEffect(() => {
     if (!open || !pendingDateFocus.current) return;
@@ -131,7 +137,7 @@ export default function DateField({
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node) && !popupRef.current?.contains(e.target as Node)) {
         setOpen(false);
       }
     };
@@ -226,50 +232,15 @@ export default function DateField({
 
   const labelText = value ? formatDate(value, WEEKDAYS, t) : resolvedPlaceholder;
 
-  return (
-    <div ref={containerRef} style={{ position: "relative", width: "100%" }} onBlur={(event) => {
-      if (open && event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-    }}>
-      <button
-        id={id}
-        ref={triggerRef}
-        type="button"
-        disabled={disabled}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={open ? dialogId : undefined}
-        onClick={toggleCalendar}
-        onKeyDown={handleButtonKey}
-        style={{
-          width: "100%",
-          padding: "10px 12px",
-          background: "var(--bg-2)",
-          border: "1px solid var(--line-soft)",
-          borderRadius: "var(--r-md)",
-          fontSize: "var(--fs-sm)",
-          color: value ? "var(--ink-0)" : "var(--ink-3)",
-          textAlign: "left",
-          cursor: disabled ? "not-allowed" : "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 'var(--space-2)',
-          opacity: disabled ? 0.5 : 1,
-        }}
-      >
-        <span>{labelText}</span>
-        <span aria-hidden="true" style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>📅</span>
-      </button>
-
-      {open && (
+  const popup = open ? (
         <div
           ref={popupRef} id={dialogId} role="dialog"
           aria-label={t("field.selectDateAria")}
           style={{
-            position: "absolute",
+            position: portal ? "fixed" : "absolute",
             top: position.top,
             left: position.left,
-            zIndex: 50,
+            zIndex: portal ? 1000 : 50,
             background: "var(--bg-1)",
             border: "1px solid var(--line)",
             borderRadius: "var(--r-md)",
@@ -412,7 +383,44 @@ export default function DateField({
             </div>
           )}
         </div>
-      )}
+  ) : null;
+
+  return (
+    <div ref={containerRef} style={{ position: "relative", width: "100%" }} onBlur={(event) => {
+      if (open && event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget) && !popupRef.current?.contains(event.relatedTarget)) setOpen(false);
+    }}>
+      <button
+        id={id}
+        ref={triggerRef}
+        type="button"
+        disabled={disabled}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? dialogId : undefined}
+        onClick={toggleCalendar}
+        onKeyDown={handleButtonKey}
+        style={{
+          width: "100%",
+          padding: "10px 12px",
+          background: "var(--bg-2)",
+          border: "1px solid var(--line-soft)",
+          borderRadius: "var(--r-md)",
+          fontSize: "var(--fs-sm)",
+          color: value ? "var(--ink-0)" : "var(--ink-3)",
+          textAlign: "left",
+          cursor: disabled ? "not-allowed" : "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 'var(--space-2)',
+          opacity: disabled ? 0.5 : 1,
+        }}
+      >
+        <span>{labelText}</span>
+        <span aria-hidden="true" style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{icon ?? "📅"}</span>
+      </button>
+
+      {portal && popup ? createPortal(popup, document.body) : popup}
     </div>
   );
 }

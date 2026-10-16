@@ -1,3 +1,5 @@
+import "../../pages/EventControls.css";
+import { Button } from "../../theme/components";
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -54,7 +56,7 @@ export default function Leaderboard({ locations, highlightBib }: LeaderboardProp
       {/* Tabs */}
       <div style={{ display: "flex", gap: "var(--space-1)", marginBottom: "var(--space-3)" }}>
         {categories.map(cat => (
-          <button
+          <Button
             key={cat}
             onClick={() => setActiveTab(cat)}
             style={{
@@ -69,7 +71,7 @@ export default function Leaderboard({ locations, highlightBib }: LeaderboardProp
             }}
           >
             {tabLabel(cat)}
-          </button>
+          </Button>
         ))}
       </div>
 

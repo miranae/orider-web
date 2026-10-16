@@ -1,17 +1,13 @@
+import GlossaryText from "../../../components/common/GlossaryText";
 import { useTranslation } from "react-i18next";
-import type { CSSProperties, ReactNode } from "react";
+import { cloneElement, isValidElement, useId, type CSSProperties, type ReactNode } from "react";
 
-import { Card, Chip } from "../../../theme/components";
+import { Card, Chip, Input, Textarea, DropdownSelect } from "../../../theme/components";
 
 export const fieldStyle: CSSProperties = {
   width: "100%",
-  padding: "9px 12px",
-  fontSize: "var(--fs-sm)",
-  background: "var(--bg-2)",
-  border: "1px solid var(--line-soft)",
-  borderRadius: "var(--r-sm)",
-  color: "var(--ink-0)",
-  fontFamily: "inherit",
+  minHeight: "var(--dim-button-height)",
+  boxSizing: "border-box",
 };
 
 export function Field({
@@ -30,11 +26,17 @@ export function Field({
   children: ReactNode;
 }) {
   const { t } = useTranslation("event");
+  const generatedId = useId();
+  const control = isValidElement<{ id?: string; "aria-required"?: boolean | "true" | "false" }>(children) ? children : null;
+  const singleControl = !!control && ["input", "textarea", "select", Input, Textarea, DropdownSelect].includes(control.type as typeof Input);
+  const controlId = control?.props.id ?? generatedId;
+  const Container = singleControl ? "div" : "fieldset";
+  const Caption = singleControl ? "label" : "legend";
   return (
-    <div style={{ marginBottom: "var(--space-4)" }}>
-      <label className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)" }}>
-        <span style={{ fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-1)" }}>{label}</span>
-        {required && <span style={{ color: "var(--rose)", fontSize: "var(--fs-xs)" }}>*</span>}
+    <Container style={{ margin: "0 0 var(--space-4)", padding: 0, border: 0, minWidth: 0 }}>
+      <Caption {...(singleControl ? { htmlFor: controlId } : {})} className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)" }}>
+        <span style={{ fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-1)" }}><GlossaryText>{label}</GlossaryText></span>
+        {required && <span aria-hidden={singleControl || undefined} style={{ color: "var(--rose)", fontSize: "var(--fs-xs)" }}>*</span>}
         {warn && (
           <Chip
             style={{
@@ -47,10 +49,10 @@ export function Field({
           </Chip>
         )}
         {sub && <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: "auto" }}>{sub}</span>}
-      </label>
-      {children}
-      {hint && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{hint}</div>}
-    </div>
+      </Caption>
+      {singleControl && control ? cloneElement(control, { id: controlId, "aria-required": control.props["aria-required"] ?? (required ? true : undefined) }) : children}
+      {hint && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-1)" }}><GlossaryText>{hint}</GlossaryText></div>}
+    </Container>
   );
 }
 

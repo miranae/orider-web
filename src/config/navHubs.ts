@@ -65,7 +65,7 @@ export const HUBS: Hub[] = [
       { labelKey: "nav.segments", to: "/explore/segments" },
       { labelKey: "nav.events", to: "/explore/events" },
       { labelKey: "nav.challenges", to: "/explore/challenges" },
-      { labelKey: "nav.creator", to: "/explore/recipes" },
+      { labelKey: "nav.creator", to: "/explore/recipes" }, // 기록 활용: 기존 링크 유지
     ],
     match: (p) =>
       p.startsWith("/explore/") || p.startsWith("/course/") ||

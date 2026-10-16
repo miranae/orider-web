@@ -1,6 +1,12 @@
+import "./EventControls.css";
+import GlossaryProvider from "../components/common/GlossaryProvider";
+import GlossaryText from "../components/common/GlossaryText";
+import { CalendarDays, Clock3, Map } from "lucide-react";
+import "./ExploreReview.css";
+import { localeTag } from "../utils/localeDate";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { httpsCallable } from "firebase/functions";
@@ -10,9 +16,9 @@ import { auth, functions, firestore, getAppCheckToken } from "../services/fireba
 import { isEmulatorRuntime } from "../services/runtimeConfig";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
-import { DateField, TimeField, EmptyState } from "../components/redesign";
+import { DateField, TimeField, EmptyState, PermissionGate } from "../components/redesign";
 import { useCourses } from "../hooks/useCourses";
-import { Button, Card, Text } from "../theme/components";
+import { Button, Card, Text, Input, Textarea, DropdownSelect } from "../theme/components";
 import { Field, SegmentedPicker, StepBar, Toggle, fieldStyle } from "../features/event/form/eventFormControls";
 import { createEventSeriesId, joinDtLocal, newCategory, shiftDtLocalByWeeks, splitDtLocal, type CategoryRow } from "../features/event/form/eventFormUtils";
 
@@ -90,7 +96,7 @@ const STEP_KEYS = ["create.step.basic", "create.step.course", "create.step.entry
 export default function EventCreatePage() {
   const { t } = useTranslation("event");
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedGroupId = searchParams.get("groupId");
@@ -429,7 +435,7 @@ export default function EventCreatePage() {
       </div>
     );
   }
-  if (!user) return <Navigate to="/" replace />;
+  if (!user) return <div className="event-controls-surface explore-editor-surface max-w-xl mx-auto py-16"><PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signInWithGoogle(); }} /></div>;
 
   // 완료 화면
   if (createdEventId) {
@@ -453,23 +459,23 @@ export default function EventCreatePage() {
         <h1 style={{ fontSize: "var(--fs-3xl)", letterSpacing: "-0.02em", marginBottom: "var(--space-2)", color: "var(--ink-0)" }}>
           {createdAsDraft ? t("message.draftSaved") : t("message.eventCreated")}
         </h1>
-        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: "var(--space-7)" }}>
+        <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", marginBottom: "var(--space-7)" }}>
           {createdAsDraft
             ? t("create.draftDoneDesc")
             : t("create.publishedDesc", { name: data.name })}
         </div>
         <Card padding="none" style={{ padding: 'var(--space-5)', textAlign: "left", marginBottom: 'var(--space-5)' }}>
-          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: "var(--ft-body-size)" }}>
             <span style={{ color: "var(--ink-3)" }}>{t("label.eventId")}</span>
             <span style={{ color: "var(--ink-0)", fontFamily: "var(--font-mono)" }}>{createdEventId}</span>
           </div>
-          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: "var(--ft-body-size)" }}>
             <span style={{ color: "var(--ink-3)" }}>{t("create.statusLabel")}</span>
             <span style={{ color: createdAsDraft ? "var(--amber)" : "var(--aqua)", fontFamily: "var(--font-mono)" }}>
               {createdAsDraft ? "DRAFT" : "OPEN"}
             </span>
           </div>
-          <div className="flex items-center justify-between" style={{ fontSize: "var(--fs-xs)" }}>
+          <div className="flex items-center justify-between" style={{ fontSize: "var(--ft-body-size)" }}>
             <span style={{ color: "var(--ink-3)" }}>{t("field.closeAt")}</span>
             <span style={{ color: "var(--ink-0)", fontFamily: "var(--font-mono)" }}>{data.closeAt || "–"}</span>
           </div>
@@ -485,11 +491,11 @@ export default function EventCreatePage() {
               border: repeatSummary.failedCount > 0 ? "1px solid color-mix(in oklch, var(--amber) 30%, transparent)" : undefined,
             }}
           >
-            <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-1)" }}>
+            <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-1)" }}>
               {t("create.repeat.summary", { success: repeatSummary.successCount, total: repeatSummary.totalWeeks })}
             </div>
             {repeatSummary.failedCount > 0 && (
-              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--amber)", marginTop: 'var(--space-1)' }}>
+              <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--amber)", marginTop: 'var(--space-1)' }}>
                 {t("create.repeat.partialFail", { count: repeatSummary.failedCount })}
                 <Button type="button" variant="secondary" disabled={retryingRepeat} onClick={retryFailedRepeats}>
                   {t("create.repeat.retryFailed")}
@@ -519,9 +525,10 @@ export default function EventCreatePage() {
   const firstCourse = selectedCourses[0];
 
   return (
-    <div style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6)" }}>
+    <GlossaryProvider scopeKey="event-editor">
+    <div className="event-controls-surface explore-editor-surface event-create-surface" style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6)" }}>
       {/* Breadcrumb */}
-      <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
+      <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--ft-body-size)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
         <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
         <span style={{ color: "var(--ink-4)" }}>›</span>
         <span style={{ color: "var(--ink-2)" }}>{t("createTitle")}</span>
@@ -533,7 +540,7 @@ export default function EventCreatePage() {
           <h1 style={{ fontSize: "var(--fs-2xl)", letterSpacing: "-0.02em", marginBottom: 'var(--space-1)', color: "var(--ink-0)" }}>
             {t("createTitle")}
           </h1>
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+          <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
             {t("create.headerDesc")}
           </div>
         </div>
@@ -549,33 +556,32 @@ export default function EventCreatePage() {
       {/* Body — 2-col */}
       <div
         className="event-create-body"
-        style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 'var(--space-6)', alignItems: "flex-start" }}
+        style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 320px", gap: 'var(--space-6)', alignItems: "flex-start" }}
       >
-        <Card padding="none" style={{ padding: 'var(--space-6)' }}>
+        <Card padding="none" className="event-create-main" style={{ padding: 'var(--space-6)' }}>
           {requestedGroupId && !groupContextReady && <div role={loadingGroups ? "status" : "alert"} data-testid="event-group-context" className="py-3 space-y-2">
           <Text as="p" variant="body">{t(loadingGroups ? "create.groupContextChecking" : "create.groupContextDenied")}</Text>
           {!loadingGroups && <>
-            {groups.length > 0 && <select aria-label={t("create.groupContextAlternative")} value="" onChange={event => {
-              const groupId = event.target.value;
+            {groups.length > 0 && <DropdownSelect label={t("create.groupContextAlternative")} value="" onChange={groupId => {
               if (!groups.some(group => group.id === groupId)) return;
               setRecoveredGroupContext(groupContext); patch({ groupId, createNewGroup: false });
-            }} style={fieldStyle}><option value="">{t("create.groupContextAlternative")}</option>{groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select>}
+            }} placeholder={t("create.groupContextAlternative")} options={groups.map(group => ({ value: group.id, label: group.name }))} />}
             <Button variant="secondary" onClick={recoverPublicCreate}>{t("create.groupContextPublic")}</Button>
           </>}
         </div>}
-        <StepBar
+        <div className="event-create-stepper"><StepBar
             step={step}
             setStep={(n) => {
               if (n <= maxVisitedStep) setStep(n);
             }}
             maxStep={maxVisitedStep}
             stepKeys={STEP_KEYS}
-          />
+          /></div>
 
           {step === 0 && (
             <div>
               <Field label={t("field.eventName")} required hint={t("hint.eventName")}>
-                <input
+                <Input
                   type="text"
                   value={data.name}
                   onChange={(e) => patch({ name: e.target.value })}
@@ -586,11 +592,11 @@ export default function EventCreatePage() {
               </Field>
 
               <Field label={t("field.eventType")} required>
-                <SegmentedPicker options={TYPE_OPTIONS} value={data.type} onChange={(v) => patch({ type: v })} columns={4} />
+                <div className="event-create-picker"><SegmentedPicker options={TYPE_OPTIONS} value={data.type} onChange={(v) => patch({ type: v })} columns={4} /></div>
               </Field>
 
               <Field label={t("field.visibility")} required>
-                <SegmentedPicker options={VISIBILITY_OPTIONS} value={data.visibility} onChange={(v) => patch({ visibility: v })} columns={3} />
+                <div className="event-create-picker"><SegmentedPicker options={VISIBILITY_OPTIONS} value={data.visibility} onChange={(v) => patch({ visibility: v })} columns={3} /></div>
               </Field>
 
               <Field
@@ -598,7 +604,7 @@ export default function EventCreatePage() {
                 sub={`${data.description.length}/500`}
                 hint={t("hint.description")}
               >
-                <textarea
+                <Textarea
                   value={data.description}
                   onChange={(e) => patch({ description: e.target.value.slice(0, 500) })}
                   placeholder={t("create.ph.description")}
@@ -606,9 +612,9 @@ export default function EventCreatePage() {
                 />
               </Field>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+              <div className="event-create-fields-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
                 <Field label={t("field.hostName")} required>
-                  <input
+                  <Input
                     type="text"
                     value={data.hostName}
                     onChange={(e) => patch({ hostName: e.target.value })}
@@ -617,7 +623,7 @@ export default function EventCreatePage() {
                   />
                 </Field>
                 <Field label={t("field.hostPhone")} required>
-                  <input
+                  <Input
                     type="tel"
                     value={data.hostPhone}
                     onChange={(e) => patch({ hostPhone: e.target.value })}
@@ -660,13 +666,13 @@ export default function EventCreatePage() {
                           }}
                           aria-hidden="true"
                         >
-                          🗺️
+                          <Map size={20} aria-hidden="true" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
+                          <div className="text-[length:var(--ft-body-size)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
                             {c.name}
                           </div>
-                          <div className="flex flex-wrap" style={{ gap: "var(--space-3)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+                          <div className="flex flex-wrap" style={{ gap: "var(--space-3)", fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
                             {c.regions && c.regions.length > 0 && <span>{c.regions.slice(0, 2).join(", ")}</span>}
                             <span>{(c.distance / 1000).toFixed(1)} km</span>
                             <span>↑ {Math.round(c.elevationGain).toLocaleString()} m</span>
@@ -713,13 +719,13 @@ export default function EventCreatePage() {
                       </Button>
                     </div>
                     {loadingCourses ? (
-                      <div className="flex items-center" style={{ gap: 'var(--space-2)', padding: "8px 0", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
+                      <div className="flex items-center" style={{ gap: 'var(--space-2)', padding: "8px 0", fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
                         <div className="w-4 h-4 border-2 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
                         {t("message.loadingCourses")}
                       </div>
                     ) : availableCourses.length === 0 ? (
                       <EmptyState
-                        icon="🗺️"
+                        icon={<Map size={28} style={{ marginInline: "auto" }} />}
                         title={t("message.noCourses")}
                         description={t("create.noCourseDesc")}
                         actions={[{ label: `+ ${t("create.createCourse")}`, variant: "primary", href: "/course/create" }]}
@@ -727,7 +733,7 @@ export default function EventCreatePage() {
                       />
                     ) : (
                       <>
-                        <input
+                        <Input
                           type="search"
                           value={courseSearch}
                           onChange={(e) => setCourseSearch(e.target.value)}
@@ -753,7 +759,7 @@ export default function EventCreatePage() {
                             })
                             .slice(0, 50)
                             .map((c) => (
-                              <button
+                              <Button
                                 key={c.id}
                                 type="button"
                                 onClick={() => {
@@ -782,15 +788,15 @@ export default function EventCreatePage() {
                                   aria-hidden="true"
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-[length:var(--fs-xs)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>
+                                  <div className="text-[length:var(--ft-body-size)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>
                                     {c.name}
                                   </div>
-                                  <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)" }}>
+                                  <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: "var(--ft-body-size)" }}>
                                     {c.regions && c.regions.length > 0 ? `${c.regions.slice(0, 2).join(", ")} · ` : ""}
                                     {(c.distance / 1000).toFixed(1)} km · ↑{Math.round(c.elevationGain).toLocaleString()} m
                                   </div>
                                 </div>
-                              </button>
+                              </Button>
                             ))}
                         </div>
                       </>
@@ -799,17 +805,17 @@ export default function EventCreatePage() {
                 )}
               </Field>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+              <div className="event-create-fields-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
                 <Field label={t("field.date")} required>
-                  <DateField value={data.date} onChange={(v) => patch({ date: v })} min={new Date().toISOString().split("T")[0]} placeholder={t("field.date")} />
+                  <DateField portal icon={<CalendarDays size={14} aria-hidden="true" />} value={data.date} onChange={(v) => patch({ date: v })} min={new Date().toISOString().split("T")[0]} placeholder={t("field.date")} />
                 </Field>
                 <Field label={t("field.startTime")} required>
-                  <TimeField value={data.startTime} onChange={(v) => patch({ startTime: v })} placeholder={t("field.startTime")} />
+                  <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />} value={data.startTime} onChange={(v) => patch({ startTime: v })} placeholder={t("field.startTime")} />
                 </Field>
               </div>
 
               <Field label={t("field.meetLocation")} required hint={t("hint.meetLocation")}>
-                <input
+                <Input
                   type="text"
                   value={data.meetLocation}
                   onChange={(e) => patch({ meetLocation: e.target.value })}
@@ -818,12 +824,12 @@ export default function EventCreatePage() {
                 />
               </Field>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+              <div className="event-create-fields-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
                 <Field label={t("field.meetTime")} sub={t("create.meetTimeHint")}>
-                  <TimeField value={data.meetTime} onChange={(v) => patch({ meetTime: v })} placeholder={t("field.meetTime")} />
+                  <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />} value={data.meetTime} onChange={(v) => patch({ meetTime: v })} placeholder={t("field.meetTime")} />
                 </Field>
                 <Field label={t("field.expectedDuration")} hint={t("hint.expectedDuration")}>
-                  <TimeField value={data.expectedDuration} onChange={(v) => patch({ expectedDuration: v })} placeholder="HH:MM" />
+                  <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />} duration presets={false} value={data.expectedDuration} onChange={(v) => patch({ expectedDuration: v })} placeholder="HH:MM" />
                 </Field>
               </div>
 
@@ -836,31 +842,21 @@ export default function EventCreatePage() {
                     onChange={(e) => {
                       patch({ createNewGroup: e.target.checked, groupId: e.target.checked ? "" : data.groupId });
                     }}
-                    style={{ marginTop: 'var(--space-1)' }}
+                    style={{ marginTop: 'var(--space-1)', flexShrink: 0, width: 'var(--space-4)', height: 'var(--space-4)' }}
                   />
-                  <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-1)" }}>
+                  <span className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-1)" }}>
                     {t("create.createGroupPre")}<span style={{ color: "var(--lime)", fontWeight: 600 }}>{t("create.createGroupHi")}</span>{t("create.createGroupPost")}
                   </span>
                 </label>
                 {!data.createNewGroup && (
                   loadingGroups ? (
-                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("create.loadingGroups")}</div>
+                    <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>{t("create.loadingGroups")}</div>
                   ) : groups.length > 0 ? (
-                    <select
-                      value={data.groupId}
-                      onChange={(e) => { setRecoveredGroupContext(groupContext); patch({ groupId: e.target.value }); }}
-                      style={fieldStyle}
-                    >
-                      <option value="">{t("create.noHostGroup")}</option>
-                      {groups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                          {g.memberCount > 0 ? ` (${t("create.members", { count: g.memberCount })})` : ""}
-                        </option>
-                      ))}
-                    </select>
+                    <DropdownSelect label={t("create.hostGroup")} value={data.groupId}
+                      onChange={groupId => { setRecoveredGroupContext(groupContext); patch({ groupId }); }}
+                      options={[{ value: "", label: t("create.noHostGroup") }, ...groups.map(group => ({ value: group.id, label: `${group.name}${group.memberCount > 0 ? ` (${t("create.members", { count: group.memberCount })})` : ""}` }))]} />
                   ) : (
-                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("create.noLeaderGroups")}</div>
+                    <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>{t("create.noLeaderGroups")}</div>
                   )
                 )}
               </Field>
@@ -869,20 +865,20 @@ export default function EventCreatePage() {
               <Field label={t("create.repeat.title")} sub={t("create.optional")} hint={t("create.repeat.hint")}>
                 <label className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: data.repeatEnabled ? 'var(--space-2)' : 0, cursor: "pointer" }}>
                   <Toggle on={data.repeatEnabled} onChange={(v) => patch({ repeatEnabled: v })} />
-                  <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-1)" }}>{t("create.repeat.enable")}</span>
+                  <span className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-1)" }}>{t("create.repeat.enable")}</span>
                 </label>
                 {data.repeatEnabled && (
                   <div>
-                    <div className="flex" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-1-5)' }}>
+                    <div className="event-create-repeat-options flex" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-1-5)' }}>
                       {REPEAT_WEEK_OPTIONS.map((weeks) => (
-                        <button
+                        <Button
                           key={weeks}
                           type="button"
                           onClick={() => patch({ repeatWeeks: weeks })}
                           aria-pressed={data.repeatWeeks === weeks}
                           style={{
                             padding: "8px 14px",
-                            fontSize: "var(--fs-xs)",
+                            fontSize: "var(--ft-body-size)",
                             borderRadius: "var(--r-sm)",
                             background: data.repeatWeeks === weeks ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                             border: `1px solid ${data.repeatWeeks === weeks ? "var(--lime)" : "var(--line-soft)"}`,
@@ -891,10 +887,10 @@ export default function EventCreatePage() {
                           }}
                         >
                           {t("create.repeat.weeksOption", { count: weeks })}
-                        </button>
+                        </Button>
                       ))}
                     </div>
-                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
+                    <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>
                       {t("create.repeat.summaryHint", { count: data.repeatWeeks })}
                     </div>
                   </div>
@@ -907,13 +903,13 @@ export default function EventCreatePage() {
             <div>
               <Field label={t("field.fee")} required>
                 <div className="flex flex-wrap items-center" style={{ gap: "var(--space-2)" }}>
-                  <button
+                  <Button
                     type="button"
                     onClick={() => patch({ feeType: "FREE", fee: 0 })}
                     aria-pressed={data.feeType === "FREE"}
                     style={{
                       padding: "12px 18px",
-                      fontSize: "var(--fs-xs)",
+                      fontSize: "var(--ft-body-size)",
                       borderRadius: "var(--r-sm)",
                       background: data.feeType === "FREE" ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                       border: `1px solid ${data.feeType === "FREE" ? "var(--lime)" : "var(--line-soft)"}`,
@@ -922,14 +918,14 @@ export default function EventCreatePage() {
                     }}
                   >
                     {t("feeType.free")}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     onClick={() => patch({ feeType: "PAID" })}
                     aria-pressed={data.feeType === "PAID"}
                     style={{
                       padding: "12px 18px",
-                      fontSize: "var(--fs-xs)",
+                      fontSize: "var(--ft-body-size)",
                       borderRadius: "var(--r-sm)",
                       background: data.feeType === "PAID" ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                       border: `1px solid ${data.feeType === "PAID" ? "var(--lime)" : "var(--line-soft)"}`,
@@ -938,17 +934,18 @@ export default function EventCreatePage() {
                     }}
                   >
                     {t("feeType.paid")}
-                  </button>
+                  </Button>
                   {data.feeType === "PAID" && (
-                    <div className="flex items-center" style={{ gap: 'var(--space-2)', flex: 1 }}>
-                      <input
+                    <div className="event-create-fee-amount flex items-center" style={{ gap: 'var(--space-2)', flex: 1 }}>
+                      <Input
                         type="number"
+                        aria-label={`${t("label.entryFee")} (${t("create.feeUnit")})`}
                         value={data.fee}
                         onChange={(e) => patch({ fee: Number(e.target.value) || 0 })}
                         placeholder={t("create.ph.fee")}
                         style={{ ...fieldStyle, fontFamily: "var(--font-mono)" }}
                       />
-                      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("create.feeUnit")}</span>
+                      <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{t("create.feeUnit")}</span>
                     </div>
                   )}
                 </div>
@@ -963,39 +960,52 @@ export default function EventCreatePage() {
                   {data.categories.map((c) => (
                     <div
                       key={c.id}
+                      className="event-create-category"
                       style={{
                         display: "grid",
                         gridTemplateColumns: "1fr 100px 1fr 32px",
                         gap: 'var(--space-2)',
-                        alignItems: "center",
+                        alignItems: "end",
                         padding: "var(--space-2)",
                         background: "var(--bg-2)",
                         border: "1px solid var(--line-soft)",
                         borderRadius: "var(--r-sm)",
                       }}
                     >
-                      <input
-                        type="text"
-                        value={c.label}
-                        onChange={(e) => updateCategory(c.id, { label: e.target.value })}
-                        placeholder={t("create.ph.category")}
-                        style={fieldStyle}
-                      />
-                      <input
-                        type="number"
-                        value={c.slots}
-                        onChange={(e) => updateCategory(c.id, { slots: Number(e.target.value) || 0 })}
-                        placeholder={t("create.ph.slots")}
-                        style={{ ...fieldStyle, fontFamily: "var(--font-mono)" }}
-                      />
-                      <input
-                        type="text"
-                        value={c.req}
-                        onChange={(e) => updateCategory(c.id, { req: e.target.value })}
-                        placeholder={t("create.ph.req")}
-                        style={fieldStyle}
-                      />
-                      <button
+                      <div className="event-create-category-field">
+                        <label htmlFor={`category-${c.id}-name`}>{t("create.categoryName")}</label>
+                        <Input
+                          id={`category-${c.id}-name`}
+                          type="text"
+                          value={c.label}
+                          onChange={(e) => updateCategory(c.id, { label: e.target.value })}
+                          placeholder={t("create.ph.category")}
+                          style={fieldStyle}
+                        />
+                      </div>
+                      <div className="event-create-category-field">
+                        <label htmlFor={`category-${c.id}-capacity`}>{t("create.categoryCapacity")}</label>
+                        <Input
+                          id={`category-${c.id}-capacity`}
+                          type="number"
+                          value={c.slots}
+                          onChange={(e) => updateCategory(c.id, { slots: Number(e.target.value) || 0 })}
+                          placeholder={t("create.ph.slots")}
+                          style={{ ...fieldStyle, fontFamily: "var(--font-mono)" }}
+                        />
+                      </div>
+                      <div className="event-create-category-field">
+                        <label htmlFor={`category-${c.id}-requirements`}>{t("create.categoryRequirements")}</label>
+                        <Input
+                          id={`category-${c.id}-requirements`}
+                          type="text"
+                          value={c.req}
+                          onChange={(e) => updateCategory(c.id, { req: e.target.value })}
+                          placeholder={t("create.ph.req")}
+                          style={fieldStyle}
+                        />
+                      </div>
+                      <Button
                         type="button"
                         onClick={() => removeCategory(c.id)}
                         disabled={data.categories.length <= 1}
@@ -1014,7 +1024,7 @@ export default function EventCreatePage() {
                         }}
                       >
                         ×
-                      </button>
+                      </Button>
                     </div>
                   ))}
                   <Button
@@ -1030,7 +1040,7 @@ export default function EventCreatePage() {
                     + {t("message.addCategory")}
                   </Button>
                 </div>
-                <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+                <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
                   <span>{t("create.totalSlots", { count: totalSlots })}</span>
                   <span>{t("create.categoryCount", { count: data.categories.length })}</span>
                 </div>
@@ -1042,13 +1052,13 @@ export default function EventCreatePage() {
                 return (
                   <div className="flex flex-col" style={{ gap: "var(--space-3)" }}>
                     <Field label={t("field.openAt")} required>
-                      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 'var(--space-2)' }}>
-                        <DateField
+                      <div className="event-create-fields-grid" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 'var(--space-2)' }}>
+                        <DateField portal icon={<CalendarDays size={14} aria-hidden="true" />}
                           value={open.date}
                           onChange={(v) => patch({ openAt: joinDtLocal(v, open.time) })}
                           placeholder={t("create.openDate")}
                         />
-                        <TimeField
+                        <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
                           value={open.time}
                           onChange={(v) => patch({ openAt: joinDtLocal(open.date, v) })}
                           placeholder={t("create.timePh")}
@@ -1056,14 +1066,14 @@ export default function EventCreatePage() {
                       </div>
                     </Field>
                     <Field label={t("field.closeAt")} required>
-                      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 'var(--space-2)' }}>
-                        <DateField
+                      <div className="event-create-fields-grid" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 'var(--space-2)' }}>
+                        <DateField portal icon={<CalendarDays size={14} aria-hidden="true" />}
                           value={close.date}
                           onChange={(v) => patch({ closeAt: joinDtLocal(v, close.time) })}
                           min={open.date || undefined}
                           placeholder={t("create.closeDate")}
                         />
-                        <TimeField
+                        <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
                           value={close.time}
                           onChange={(v) => patch({ closeAt: joinDtLocal(close.date, v) })}
                           placeholder={t("create.timePh")}
@@ -1076,13 +1086,13 @@ export default function EventCreatePage() {
 
               <Field label={t("field.cutoff")} hint={t("hint.cutoff")}>
                 <div className="flex flex-wrap items-center" style={{ gap: "var(--space-2)" }}>
-                  <button
+                  <Button
                     type="button"
                     onClick={() => patch({ cutoffEnabled: !data.cutoffEnabled })}
                     aria-pressed={data.cutoffEnabled}
                     style={{
                       padding: "8px 14px",
-                      fontSize: "var(--fs-xs)",
+                      fontSize: "var(--ft-body-size)",
                       borderRadius: "var(--r-sm)",
                       background: data.cutoffEnabled ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                       border: `1px solid ${data.cutoffEnabled ? "var(--lime)" : "var(--line-soft)"}`,
@@ -1091,12 +1101,13 @@ export default function EventCreatePage() {
                     }}
                   >
                     {data.cutoffEnabled ? t("create.cutoffOn") : t("create.cutoffOff")}
-                  </button>
+                  </Button>
                   {data.cutoffEnabled && (
-                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+                    <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
                       {t("create.cutoffBufferPre")}
-                      <input
+                      <Input
                         type="number"
+                        aria-label={`${t("edit.cutoffBuffer")} (${t("edit.cutoffMin")})`}
                         value={data.cutoffBuffer}
                         onChange={(e) => patch({ cutoffBuffer: Number(e.target.value) || 0 })}
                         style={{ ...fieldStyle, width: 64, padding: "var(--space-1) var(--space-2)", margin: "0 4px", display: "inline-block" }}
@@ -1173,8 +1184,8 @@ export default function EventCreatePage() {
                         />
                       </div>
                       <div>
-                        <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>{opt.label}</div>
-                        <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{opt.desc}</div>
+                        <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}><GlossaryText>{opt.label}</GlossaryText></div>
+                        <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}><GlossaryText>{opt.desc}</GlossaryText></div>
                       </div>
                     </label>
                   );
@@ -1195,13 +1206,13 @@ export default function EventCreatePage() {
                 borderRadius: "var(--r-sm)",
               }}
             >
-              <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--rose)", margin: 0 }}>{submitError}</p>
+              <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--rose)", margin: 0 }}>{submitError}</p>
             </div>
           )}
 
           {/* Navigation */}
           <div
-            className="flex items-center justify-between"
+            className="event-create-navigation flex items-center justify-between"
             style={{ gap: 'var(--space-3)', paddingTop: 'var(--space-5)', marginTop: 'var(--space-5)', borderTop: "1px solid var(--line-soft)" }}
           >
             <Button
@@ -1241,10 +1252,10 @@ export default function EventCreatePage() {
           style={{ padding: "var(--space-4)", position: "sticky", top: 68 }}
         >
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("preview")}</Text>
-          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)', minHeight: 20 }}>
+          <div style={{ fontSize: "var(--ft-body-size)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)', minHeight: 20 }}>
             {data.name || <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>{t("create.ph.eventName")}</span>}
           </div>
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: "var(--space-3)" }}>
+          <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: "var(--space-3)" }}>
             {data.date ? `${data.date} ${data.startTime || ""}` : t("create.dateTbd")}
           </div>
 
@@ -1252,7 +1263,7 @@ export default function EventCreatePage() {
             className="flex flex-col"
             style={{
               gap: 'var(--space-2)',
-              fontSize: "var(--fs-xs)",
+              fontSize: "var(--ft-body-size)",
               paddingTop: 14,
               borderTop: "1px solid var(--line-soft)",
               margin: 0,
@@ -1266,11 +1277,11 @@ export default function EventCreatePage() {
               [t("create.sum.elevation"), firstCourse ? `↑ ${Math.round(firstCourse.elevationGain).toLocaleString()} m` : "–"],
               [t("create.sum.slots"), totalSlots ? t("create.members", { count: totalSlots }) : "–"],
               [t("create.sum.categories"), t("create.itemCount", { count: data.categories.length })],
-              [t("create.sum.fee"), data.feeType === "FREE" ? t("feeType.free") : data.fee ? `₩ ${Number(data.fee).toLocaleString("ko-KR")}` : "–"],
-            ].map(([k, v]) => (
+              [t("create.sum.fee"), data.feeType === "FREE" ? t("feeType.free") : data.fee ? `₩ ${Number(data.fee).toLocaleString(localeTag())}` : "–"],
+            ].map(([k, v], index) => (
               <div key={k} className="flex justify-between" style={{ gap: "var(--space-2)" }}>
                 <dt style={{ color: "var(--ink-3)" }}>{k}</dt>
-                <dd style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)", textAlign: "right", margin: 0 }}>{v}</dd>
+                <dd style={{ color: "var(--ink-1)", fontFamily: [3, 4, 5, 6].includes(index) || (index === 7 && data.feeType === "PAID") ? "var(--font-mono)" : "inherit", textAlign: "right", margin: 0 }}>{v}</dd>
               </div>
             ))}
           </dl>
@@ -1280,7 +1291,7 @@ export default function EventCreatePage() {
               marginTop: "var(--space-4)",
               paddingTop: 14,
               borderTop: "1px solid var(--line-soft)",
-              fontSize: "var(--fs-xs)",
+              fontSize: "var(--ft-body-size)",
               color: "var(--ink-3)",
               lineHeight: 1.5,
             }}
@@ -1291,11 +1302,33 @@ export default function EventCreatePage() {
       </div>
 
       <style>{`
+        .event-create-surface .event-create-body > * { min-width: 0; max-width: 100%; }
+        .event-create-surface .event-create-category-field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+        .event-create-surface .event-create-category-field label { font-size: var(--ft-body-size); color: var(--ink-2); }
+        .event-create-surface :is(input, textarea, select) { min-width: 0; max-width: 100%; }
         @media (max-width: 1024px) {
-          .event-create-body { grid-template-columns: 1fr !important; }
+          .event-create-body { grid-template-columns: minmax(0, 1fr) !important; }
           .event-create-aside { position: static !important; }
+        }
+        @media (max-width: 36rem) {
+          .event-create-surface .event-create-main { padding: var(--space-4) !important; }
+          .event-create-surface .event-create-stepper > div { flex-direction: column; gap: var(--space-2) !important; }
+          .event-create-surface .event-create-stepper > div > div { flex: none !important; min-width: 0; }
+          .event-create-surface .event-create-stepper > div > div > div { display: none; }
+          .event-create-surface .event-create-stepper span { overflow-wrap: anywhere; }
+          .event-create-surface .event-create-picker > div { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .event-create-surface .event-create-picker button { min-width: 0; overflow-wrap: anywhere; }
+          .event-create-surface .event-create-fields-grid, .event-create-surface .event-create-category { grid-template-columns: minmax(0, 1fr) !important; }
+          .event-create-surface .event-create-category > button { justify-self: end; }
+          .event-create-surface .event-create-fee-amount { flex: 1 1 100% !important; min-width: 0; }
+          .event-create-surface .event-create-fee-amount input { flex: 1; }
+          .event-create-surface .event-create-fee-amount span { flex-shrink: 0; white-space: nowrap; }
+          .event-create-surface .event-create-repeat-options, .event-create-surface .event-create-navigation { flex-wrap: wrap; }
+          .event-create-surface .event-create-navigation .ds-btn { max-width: 100%; }
+          .event-create-surface .event-create-aside dd { min-width: 0; overflow-wrap: anywhere; }
         }
       `}</style>
     </div>
+    </GlossaryProvider>
   );
 }

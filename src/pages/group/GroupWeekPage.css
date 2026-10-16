@@ -1,0 +1,25 @@
+/* 주간 멤버 비교에만 적용하는 네이티브 진행률. */
+.club-week-progress {
+  display: block;
+  width: 100%;
+  height: var(--space-2);
+  overflow: hidden;
+  appearance: none;
+  border: 0;
+  border-radius: var(--r-full);
+  background: var(--bg-3);
+  color: var(--lime);
+  accent-color: var(--lime);
+}
+.club-week-progress::-webkit-progress-bar {
+  border-radius: var(--r-full);
+  background: var(--bg-3);
+}
+.club-week-progress::-webkit-progress-value {
+  border-radius: var(--r-full);
+  background: var(--lime);
+}
+.club-week-progress::-moz-progress-bar {
+  border-radius: var(--r-full);
+  background: var(--lime);
+}

@@ -1,11 +1,12 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockCallableInvocations, mockUpdateDoc, setCallableResult, setCollectionDocs } from "../../__tests__/mocks/firebase";
+import { mockCallableInvocations, mockUpdateDoc, setCallableResult, setCollectionDocs, simulateLogin } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import GroupMembersPage from "./GroupMembersPage";
 
-const { mockConfirm, mockGetPublicUserProfiles, mockMembers } = vi.hoisted(() => ({
+const { mockConfirm, mockGetPublicUserProfiles, mockMembers, groupState } = vi.hoisted(() => ({
+  groupState: {loading:false},
   mockConfirm: vi.fn(),
   mockGetPublicUserProfiles: vi.fn(),
   mockMembers: [] as Array<Record<string, unknown>>,
@@ -28,7 +29,7 @@ vi.mock("../../hooks/useGroup", () => ({
       memberCount: 1,
       inviteCode: "TESTCODE",
     },
-    loading: false,
+    loading: groupState.loading,
   }),
   useGroupMembers: () => ({ members: mockMembers, loading: false }),
 }));
@@ -39,6 +40,7 @@ vi.mock("../../hooks/useGroupRides", () => ({
 
 describe("GroupMembersPage", () => {
   beforeEach(() => {
+    groupState.loading=false;
     mockConfirm.mockReset();
     mockConfirm.mockResolvedValue(true);
     mockUpdateDoc.mockClear();
@@ -51,6 +53,52 @@ describe("GroupMembersPage", () => {
     setCollectionDocs("groups/group-1/pending", [
       { id: "requester-1", requestedAt: Date.now(), message: "함께 타고 싶어요" },
     ]);
+  });
+
+  it("does not repeat the club breadcrumb inside member management and labels scrollable actions", () => {
+    mockMembers.push({ id: "test-uid", role: "leader", status: "active", profile: { nickname: "Owner" } });
+    renderWithProviders(<Routes><Route path="/ko/club/:groupId/settings" element={<GroupMembersPage management />} /></Routes>, {route: "/ko/club/group-1/settings",authenticated:true});
+    expect(screen.queryByRole("link", { name: "Test Group" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "멤버 관리" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "멤버 관리" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "멤버 관리" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByText("이동거리 · 공동기록")).toBeInTheDocument();
+  });
+
+  it("exposes standalone owner tools while keeping leadership below the table and collapsed", () => {
+    mockMembers.push({id:"test-uid",role:"leader",status:"active",profile:{nickname:"Owner"}});
+    renderMembersPage();
+    expect(screen.getByRole("tab", {name:/대기중/})).toBeInTheDocument();
+    expect(screen.getByRole("tab", {name:"초대"})).toBeInTheDocument();
+    const transfer=screen.getByText("클럽장 이임",{selector:"summary"}).closest("details")!;
+    expect(transfer).not.toHaveAttribute("open");
+    const table=screen.getByRole("region",{name:"멤버 관리"});
+    expect(table.compareDocumentPosition(transfer)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("opens leadership deep links after the owner context finishes loading", async () => {
+    groupState.loading=true;
+    const page=<Routes><Route path="/ko/group/:groupId/members" element={<GroupMembersPage/>}/></Routes>;
+    const view=renderWithProviders(page,{route:"/ko/group/group-1/members?section=leadership",authenticated:true});
+    expect(screen.queryByTestId("C7-3")).not.toBeInTheDocument();
+    groupState.loading=false;view.rerender(page);
+    await waitFor(()=>expect(screen.getByText("클럽장 이임",{selector:"summary"}).closest("details")).toHaveAttribute("open"));
+  });
+
+  it.each(["remove","role","transfer"])("cancels a stale %s confirmation after an account change",async action=>{
+    let confirm!:(ok:boolean)=>void;mockConfirm.mockImplementationOnce(()=>new Promise<boolean>(resolve=>{confirm=resolve;}));
+    mockMembers.push({id:"member-1",role:"member",status:"active",profile:{nickname:"Rider One"}});renderMembersPage();
+    if(action==="transfer"){fireEvent.click(screen.getByText("클럽장 이임",{selector:"summary"}));fireEvent.click(screen.getByTestId("C7-3-1"));}
+    else fireEvent.click(screen.getByRole("button",{name:action==="role"?"Rider One님 부리더 지정":"내보내기"}));
+    await act(async()=>simulateLogin({uid:"other-account"}));await act(async()=>confirm(true));
+    expect(mockCallableInvocations.filter(call=>["removeGroupMember","setGroupMemberRole","transferGroupLeadership"].includes(call.name))).toHaveLength(0);
+  });
+  it("uses arrow and Home/End keys to activate the member tab panels with one tab stop",()=>{
+    renderMembersPage();const list=screen.getByRole("tablist",{name:"멤버 관리"});
+    const first=list.querySelector<HTMLButtonElement>('[role="tab"]')!;first.focus();fireEvent.keyDown(first,{key:"ArrowRight"});
+    const selected=list.querySelector<HTMLButtonElement>('[aria-selected="true"]')!;expect(selected).toHaveFocus();expect(selected).toHaveAttribute("tabindex","0");expect(first).toHaveAttribute("tabindex","-1");
+    fireEvent.keyDown(selected,{key:"End"});expect(screen.getByRole("tabpanel",{name:"초대"})).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("tab",{name:"초대"}),{key:"Home"});expect(first).toHaveFocus();expect(first).toHaveAttribute("aria-selected","true");
   });
 
   it("loads the pending badge before its tab is selected and shows requester profile details", async () => {
@@ -193,14 +241,15 @@ describe("GroupMembersPage", () => {
     setCallableResult("transferGroupLeadership", { data: { success: true, leftGroup: true } });
     renderMembersPage();
 
+    fireEvent.click(screen.getByText("클럽장 이임", {selector:"summary"}));
     expect(await screen.findByRole("option", { name: "Rider One" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Recovered Leader" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Pending One" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: "이임 완료 후 그룹에서 탈퇴" }));
-    fireEvent.click(screen.getByRole("button", { name: "그룹장 이임" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "이임 완료 후 클럽에서 탈퇴" }));
+    fireEvent.click(screen.getByRole("button", { name: "클럽장 이임" }));
 
     await waitFor(() => expect(mockConfirm).toHaveBeenCalledWith(
-      "Rider One님에게 그룹장 권한을 이임하고 그룹에서 탈퇴하시겠습니까?",
+      "Rider One님에게 클럽장 권한을 이임하고 클럽에서 탈퇴하시겠습니까?",
       { destructive: true },
     ));
     await waitFor(() => expect(mockCallableInvocations).toContainEqual({
@@ -213,7 +262,7 @@ describe("GroupMembersPage", () => {
 function renderMembersPage() {
   return renderWithProviders(
     <Routes>
-      <Route path="/ko/group/:groupId/members" element={<GroupMembersPage management />} />
+      <Route path="/ko/group/:groupId/members" element={<GroupMembersPage />} />
     </Routes>,
     { route: "/ko/group/group-1/members", authenticated: true },
   );

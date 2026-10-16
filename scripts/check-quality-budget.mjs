@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { countAlertCalls } from "./quality-alert-count.mjs";
 
 const ROOT = process.cwd();
 const SRC = path.join(ROOT, "src");
@@ -42,8 +43,10 @@ const consoleCount = lineCounts.reduce(
   (sum, item) => sum + (item.text.match(/\bconsole\.(log|warn|error|info|debug)\b/g) || []).length,
   0,
 );
+// Alert debt means browser-blocking calls; the documented useDialog migration is async UI.
+// Unknown receivers remain counted rather than being treated as approved wrappers.
 const alertCount = lineCounts.reduce(
-  (sum, item) => sum + (item.text.match(/\b(?:window\.)?alert\s*\(/g) || []).length,
+  (sum, item) => sum + countAlertCalls(item.text, item.file),
   0,
 );
 

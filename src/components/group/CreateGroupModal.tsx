@@ -1,3 +1,5 @@
+import { handleGroupChoiceKey } from "../../features/group/groupControlKeys";
+import "../../pages/group/ClubSurface.css";
 import { useState, useMemo } from "react";
 import { collection, doc, writeBatch } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
@@ -34,7 +36,7 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid var(--line-soft)",
   borderRadius: "var(--r-md)",
   color: "var(--ink-0)",
-  fontSize: "var(--fs-sm)",
+  fontSize: "var(--ft-body-size)",
   fontFamily: "inherit",
 };
 
@@ -68,7 +70,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
     { v: "tri", label: t("create.sport.tri") },
   ], [t]);
 
-  const STEPS = useMemo(() => [t("create.step.basic"), t("create.step.rules"), t("create.step.invite")], [t]);
+  const STEPS = useMemo(() => [t("create.step.basic"), t("create.step.rules"), t("create.step.review")], [t]);
 
   if (!user) return null;
 
@@ -169,9 +171,9 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
   };
 
   return (
-    <Modal open={open} onClose={close} title={t("create.modalTitle")}><div data-testid="C0-5">
+    <Modal accessible open={open} onClose={close} title={t("create.modalTitle")}><div data-testid="C0-5">
       {/* Stepper */}
-      <ol role="list" className="flex items-center" style={{ gap: 'var(--space-2)', listStyle: "none", padding: 0, marginBottom: 'var(--space-5)' }}>
+      <ol role="list" className="club-create-stepper flex items-center" style={{ gap: 'var(--space-2)', listStyle: "none", padding: 0, marginBottom: 'var(--space-5)' }}>
         {STEPS.map((label, i) => {
           const done = i < step;
           const active = i === step;
@@ -180,7 +182,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
               <div
                 style={{
                   width: 24, height: 24, borderRadius: "50%",
-                  display: "grid", placeItems: "center", fontSize: "var(--fs-xs)", fontWeight: 700,
+                  display: "grid", placeItems: "center", fontSize: "var(--ft-body-size)", fontWeight: 700,
                   background: done || active ? "var(--lime)" : "var(--bg-2)",
                   color: done || active ? "var(--primary-fg)" : "var(--ink-3)",
                   border: "1px solid var(--line-soft)",
@@ -189,7 +191,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
               >
                 {done ? "✓" : i + 1}
               </div>
-              <span className="text-[length:var(--fs-xs)]" style={{ color: active ? "var(--ink-0)" : "var(--ink-3)", fontWeight: active ? 600 : 400 }}>
+              <span className="club-create-step-label text-[length:var(--ft-body-size)]" style={{ color: active ? "var(--ink-0)" : "var(--ink-3)", fontWeight: active ? 600 : 400 }}>
                 {label}
               </span>
               {i < STEPS.length - 1 && <div style={{ height: 1, flex: 1, background: done ? "var(--lime)" : "var(--line-soft)" }} />}
@@ -202,14 +204,15 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
       {step === 0 && (
         <div className="flex flex-col" style={{ gap: 'var(--space-4)' }}>
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.kindLabel")}</Text>
-            <div className="grid grid-cols-2 gap-2">
+            <Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.kindLabel")}</Text>
+            <div role="radiogroup" onKeyDown={event=>handleGroupChoiceKey(event,"radio")} aria-label={t("create.kindLabel")} className="grid grid-cols-2 gap-2">
               {KINDS.map((k) => {
                 const active = kind === k.id;
                 return (
                   <button
                     key={k.id}
                     type="button"
+                    role="radio" aria-checked={active} tabIndex={active ? 0 : -1}
                     onClick={() => setKind(k.id)}
                     className="text-left"
                     style={{
@@ -221,8 +224,8 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
                       cursor: "pointer",
                     }}
                   >
-                    <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{k.label}</div>
-                    <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>{k.desc}</div>
+                    <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{k.label}</div>
+                    <div className="text-[length:var(--ft-body-size)] mt-0.5" style={{ color: "var(--ink-3)" }}>{k.desc}</div>
                   </button>
                 );
               })}
@@ -231,7 +234,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
 
           <div className="grid gap-2" style={{ gridTemplateColumns: "1fr 100px" }}>
             <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
-              <Text variant="eyebrow">{t("create.nameLabel")}</Text>
+              <Text variant="bodyMedium">{t("create.nameLabel")}</Text>
               <input data-testid="C0-5-1"
                 type="text"
                 value={name}
@@ -242,7 +245,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
               />
             </label>
             <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
-              <Text variant="eyebrow">{t("create.badgeLabel")}</Text>
+              <Text variant="bodyMedium">{t("create.badgeLabel")}</Text>
               <input
                 type="text"
                 value={badge}
@@ -255,7 +258,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
           </div>
 
           <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
-            <Text variant="eyebrow">{t("create.cityLabel")}</Text>
+            <Text variant="bodyMedium">{t("create.cityLabel")}</Text>
             <input
               type="text"
               value={city}
@@ -266,7 +269,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
           </label>
 
           <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
-            <Text variant="eyebrow">{t("create.descLabel")}</Text>
+            <Text variant="bodyMedium">{t("create.descLabel")}</Text>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -278,7 +281,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
           </label>
 
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.sportsLabel")}</Text>
+            <Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.sportsLabel")}</Text>
             <div className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
               {SPORT_OPTIONS.map((o) => {
                 const active = sports.includes(o.v);
@@ -307,8 +310,8 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
       {step === 1 && (
         <div className="flex flex-col" style={{ gap: 'var(--space-4)' }}>
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.visibilityLabel")}</Text>
-            <div role="radiogroup" aria-label={t("create.visibilityAria")} className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
+            <Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.visibilityLabel")}</Text>
+            <div role="radiogroup" onKeyDown={event=>handleGroupChoiceKey(event,"radio")} aria-label={t("create.visibilityAria")} className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
               {[
                 { v: "public" as const, label: t("create.visibility.public"), desc: t("create.visibility.public.desc") },
                 { v: "private" as const, label: t("create.visibility.private"), desc: t("create.visibility.private.desc") },
@@ -319,6 +322,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
                     key={o.v}
                     type="button"
                     role="radio"
+                    tabIndex={active ? 0 : -1}
                     aria-checked={active}
                     onClick={() => setVisibility(o.v)}
                     className="text-left"
@@ -331,8 +335,8 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
                       cursor: "pointer",
                     }}
                   >
-                    <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{o.label}</div>
-                    <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>{o.desc}</div>
+                    <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{o.label}</div>
+                    <div className="text-[length:var(--ft-body-size)] mt-0.5" style={{ color: "var(--ink-3)" }}>{o.desc}</div>
                   </button>
                 );
               })}
@@ -340,8 +344,8 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
           </div>
 
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.approvalLabel")}</Text>
-            <div role="radiogroup" aria-label={t("create.approvalAria")} className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
+            <Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.approvalLabel")}</Text>
+            <div role="radiogroup" onKeyDown={event=>handleGroupChoiceKey(event,"radio")} aria-label={t("create.approvalAria")} className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
               {[
                 { v: "auto" as const, label: t("create.approval.auto") },
                 { v: "manual" as const, label: t("create.approval.manual") },
@@ -352,6 +356,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
                     key={o.v}
                     type="button"
                     role="radio"
+                    tabIndex={active ? 0 : -1}
                     aria-checked={active}
                     onClick={() => setApproval(o.v)} variant="secondary" size="sm"
                     style={{
@@ -368,7 +373,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
           </div>
 
           <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
-            <Text variant="eyebrow">{t("create.rulesLabel")}</Text>
+            <Text variant="bodyMedium">{t("create.rulesLabel")}</Text>
             <textarea data-testid="C0-5-2"
               value={rules}
               onChange={(e) => setRules(e.target.value)}
@@ -381,23 +386,22 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
         </div>
       )}
 
-      {/* Step 2 — 멤버 초대 */}
+      {/* Step 2 — 입력 내용 확인 */}
       {step === 2 && (
         <div className="flex flex-col" style={{ gap: 'var(--space-4)' }}>
-          <div>
-            <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("create.inviteHeading")}</div>
-            <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", lineHeight: 1.5 }}>
-              {t("create.inviteHelp")}
-            </div>
-          </div>
-
-          <Card padding="none" style={{ padding: 'var(--space-3)', background: "var(--bg-2)" }}>
-            <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", lineHeight: 1.5 }}>
-              {t("create.inviteCalloutPrefix")}
-              <strong style={{ color: "var(--ink-1)" }}>{t("create.inviteCalloutBold")}</strong>
-              {t("create.inviteCalloutSuffix")}
-            </div>
+          <Card padding="card">
+            <Text as="h3" variant="subtitle" className="mb-4">{t("create.reviewHeading")}</Text>
+            <dl className="club-create-review">
+              {[
+                [t("settings.name"), name.trim()],
+                [t("settings.kind"), KINDS.find(option => option.id === kind)?.label],
+                [t("settings.sports"), SPORT_OPTIONS.filter(option => sports.includes(option.v)).map(option => option.label).join(" · ")],
+                [t("create.visibilityLabel"), t(`create.visibility.${visibility}`)],
+                [t("create.approvalLabel"), t(`create.approval.${approval}`)],
+              ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+            </dl>
           </Card>
+          <Text as="p" variant="body" tone="secondary">{t("create.inviteAfterCreation")}</Text>
         </div>
       )}
 
