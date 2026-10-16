@@ -102,3 +102,24 @@ describe("resolveSummaryStripStats", () => {
     expect(stats.maxPower).toEqual({ value: 640, provisional: false });
   });
 });
+
+it.each([
+  [{ distanceKm: null }, null],
+  [{ distanceKm: 0 }, null],
+  [{ distanceKm: 0, distanceSource: "recorded_summary", version: 33 }, 0],
+  [{ distanceKm: 8, distanceSource: "stream_counter", version: 33 }, 8000],
+  [{ distanceKm: 8, distanceSource: null, version: 33 }, null],
+  [{ distanceKm: 8, version: 33 }, null],
+  [{ distanceKm: 8, version: 32 }, 8000],
+])("거리 출처 계약을 분석 패널과 동일하게 적용한다: %j", (metrics, expected) => {
+  expect(resolveSummaryStripStats(ready(metrics as Partial<ActivityMetricsDoc>), inputs).distanceM)
+    .toEqual({ value: expected, provisional: false });
+});
+
+it("legacy의 관측된 0과 pending 요약 fallback을 구분한다", () => {
+  const zeroInputs = { ...inputs, summary: { ...summary, distance: 0 } };
+  expect(resolveSummaryStripStats(ready({ distanceKm: 0 }), zeroInputs).distanceM)
+    .toEqual({ value: 0, provisional: false });
+  expect(resolveSummaryStripStats({ status: "loading", metrics: null }, inputs).distanceM)
+    .toEqual({ value: 18400, provisional: true });
+});

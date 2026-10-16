@@ -42,7 +42,7 @@ describe("athlete monthly activities", () => {
       ["visibility", "==", "everyone"], ["visibility", "==", "everyone"],
     ]);
     expect(vi.mocked(where).mock.calls.filter(([field]) => field === "deletedAt")).toHaveLength(2);
-    expect(aggregateMonthlyActivities(rows!, new Date(2021, 0, 2))[0]?.distance).toBe(201);
+    expect(aggregateMonthlyActivities(rows!, new Date(2021, 0, 2))[0]?.distance).toBe(1);
   });
 
   it("retains activities with absent or null summaries without changing measured totals", async () => {
@@ -58,7 +58,7 @@ describe("athlete monthly activities", () => {
     expect(rows![1]?.summary).toBeUndefined();
     expect(rows![2]?.summary).toBeNull();
     expect(aggregateMonthlyActivities(rows!, new Date(2021, 0, 2))[0]).toMatchObject({
-      rides: 3, distance: 1, time: 1, elevation: 10,
+      rides: 1, distance: 1, time: 1, elevation: 10,
     });
   });
 
@@ -83,14 +83,14 @@ describe("athlete monthly activities", () => {
   });
 });
 
-it("월별 단일 pass 구성도 원본 기록 수와 실제 운동 부하를 구분한다", () => {
+it("월별 모든 지표는 같은 실주행 대표를 사용한다", () => {
   const start = new Date(2026, 8, 1, 12).getTime();
   const native = {...activity(start), id: "native", type: "Ride", source: "orider", summary: createMockSummary({distance: 1000, ridingTimeMillis: 3600000, tss: 100})};
   const imported = {...native, id: "imported", source: "strava", startTime: start + 30000};
   const laterStart = new Date(2026, 9, 1, 12).getTime();
   const later = {...native, id: "later", startTime: laterStart, endTime: laterStart + 3600000, summary: {} as typeof native.summary};
   const rows = aggregateMonthlyActivities([native, imported, later], new Date(2026, 9, 2));
-  expect(rows[0]).toMatchObject({week: "2026.09", rides: 2, distance: 2, tss: 100, tssEstimated: false});
+  expect(rows[0]).toMatchObject({week: "2026.09", rides: 1, distance: 1, tss: 100, tssEstimated: false});
   expect(rows[1]).toMatchObject({week: "2026.10", rides: 1, tss: null, tssEstimated: false, tssUnknownCount: 1});
 });
 

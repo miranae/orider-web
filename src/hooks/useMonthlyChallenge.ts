@@ -1,3 +1,4 @@
+import { acceptedPhysicalActivities } from "../utils/estimateTSS";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot, orderBy, query, setDoc, where } from "firebase/firestore";
 import type { Activity } from "@shared/types";
@@ -89,8 +90,7 @@ export function useMonthlyChallenge(uid: string | null | undefined, now = Date.n
         orderBy("createdAt", "desc"),
       ),
       (snapshot) => {
-        const total = snapshot.docs.reduce((sum, activityDoc) => {
-          const activity = activityDoc.data() as Activity;
+        const total = acceptedPhysicalActivities(snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Activity))).reduce((sum, activity) => {
           if (activity.startTime < window.startMs || activity.startTime >= window.endMs) return sum;
           const distance = activity.summary?.distance;
           return sum + (typeof distance === "number" && Number.isFinite(distance) ? Math.max(0, distance) : 0);

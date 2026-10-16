@@ -1,3 +1,4 @@
+import { acceptedPhysicalActivities } from "./estimateTSS";
 /**
  * 주간 러닝 리캡 (설계 문서 §3.4c).
  *
@@ -63,8 +64,9 @@ export function computeRunWeeklyRecap(runs: Activity[], nowMs: number): RunWeekl
   const lastRange = seoulWeekRange(nowMs, 1);
   const prevRange = seoulWeekRange(nowMs, 2);
 
-  const lastWeek = aggregate(runs.filter((a) => isWithin(a.startTime, lastRange)));
-  const prevWeek = aggregate(runs.filter((a) => isWithin(a.startTime, prevRange)));
+  const representatives = acceptedPhysicalActivities(runs);
+  const lastWeek = aggregate(representatives.filter((a) => isWithin(a.startTime, lastRange)));
+  const prevWeek = aggregate(representatives.filter((a) => isWithin(a.startTime, prevRange)));
 
   if (lastWeek.avgPaceSecPerKm == null || prevWeek.avgPaceSecPerKm == null) {
     return { lastWeek, prevWeek, paceDeltaSec: null, trend: "unknown" };
