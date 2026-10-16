@@ -106,7 +106,7 @@ export function serializePostEditorContent(
         rows.forEach((row, index) => {
           const cells = Array.from(row.children).filter((cell) => ["TH", "TD"].includes(cell.tagName));
           const values = cells.map((cell) => serialize(cell.childNodes, markers).trim()
-            .replace(/\|/g, "\\|").replace(/\n+/g, " "));
+            .replace(/[\\|]/g, "\\$&").replace(/\n+/g, " "));
           lines.push(`| ${values.join(" | ")} |`);
           if (index === 0) lines.push(`| ${values.map(() => "---").join(" | ")} |`);
         });

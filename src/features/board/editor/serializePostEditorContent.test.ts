@@ -99,6 +99,38 @@ describe("block elements inserted inside formatting wrappers", () => {
     expect(rendered.querySelector("script")).toBeNull();
   });
 
+  it.each([1, 2, 3])("preserves %i backslashes before pipes without creating extra table columns", (count) => {
+    const value = `left${"\\".repeat(count)}|right`;
+    const editor = editorFrom('<table><tr><th>Header</th><th>Other</th></tr><tr><td></td><td>unchanged</td></tr></table>');
+    editor.querySelector("td")!.textContent = value;
+    const rendered = renderedContent(editor);
+    expect(rendered.querySelectorAll("th")).toHaveLength(2);
+    expect(rendered.querySelectorAll("td")).toHaveLength(2);
+    expect(rendered.querySelector("td")?.textContent).toBe(value);
+    expect(rendered.querySelectorAll("script")).toHaveLength(0);
+  });
+
+  it("keeps generated bold and links while escaping backslashes and pipes in their text", () => {
+    const editor = editorFrom('<table><tr><th>Header</th></tr><tr><td><b></b> <a href="https://example.com/route?q=a|b"></a></td></tr></table>');
+    const value = String.raw`route\|name`;
+    editor.querySelector("b")!.textContent = value;
+    editor.querySelector("a")!.textContent = value;
+    const rendered = renderedContent(editor);
+    expect(rendered.querySelectorAll("td")).toHaveLength(1);
+    expect(rendered.querySelector("td strong")?.textContent).toBe(value);
+    expect(rendered.querySelector("td a")?.textContent).toBe(value);
+    expect(rendered.querySelector("td a")?.getAttribute("href")).toBe("https://example.com/route?q=a%7Cb");
+  });
+
+  it("does not turn a pipe/backslash payload into additional cells or executable HTML", () => {
+    const editor = editorFrom('<table><tr><th>Header</th></tr><tr><td></td></tr></table>');
+    editor.querySelector("td")!.textContent = String.raw`safe\|<script>document.body.remove()</script>`;
+    const rendered = renderedContent(editor);
+    expect(rendered.querySelectorAll("td")).toHaveLength(1);
+    expect(rendered.querySelectorAll("script")).toHaveLength(0);
+    expect(rendered.querySelector("td")?.textContent).toContain(String.raw`safe\|`);
+  });
+
   it("does not duplicate inherited bold markers inside blocks", () => {
     const rendered = renderedContent(editorFrom('<b><p><strong>강조</strong> 본문</p></b>'));
     expect(rendered.querySelector("p strong")?.textContent).toBe("강조 본문");
