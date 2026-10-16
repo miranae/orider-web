@@ -14,11 +14,16 @@ export function serializePostEditorContent(
   const imageUrls: string[] = [];
   const clone = editor.cloneNode(true) as HTMLElement;
 
+  const uploadedStorageUrls = new Set<string>();
   clone.querySelectorAll("img").forEach((img) => {
     const src = img.getAttribute("src") || "";
     if (urlMap.has(src)) {
-      const safeUploadedUrl = normalizeUserContentUrl(urlMap.get(src));
+      const mappedUrl = urlMap.get(src) || "";
+      const storageUrl = /^gs:\/\/[^/]+\/board_images\/[^/]+\/[^/]+\/[^/]+$/.test(mappedUrl)
+        ? mappedUrl : null;
+      const safeUploadedUrl = storageUrl || normalizeUserContentUrl(mappedUrl);
       if (safeUploadedUrl) {
+        if (storageUrl) uploadedStorageUrls.add(storageUrl);
         imageUrls.push(safeUploadedUrl);
         img.setAttribute("src", safeUploadedUrl);
       } else {
@@ -35,124 +40,99 @@ export function serializePostEditorContent(
     }
   });
 
-  let content = "";
-  const walk = (node: Node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      content += node.textContent || "";
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
+  // Browsers may insert block elements inside an active formatting wrapper
+  // (for example <b><table>…</table>text</b>). Markdown emphasis cannot span
+  // block boundaries, so carry that formatting into each block's inline runs.
+  const blockSelector = "h2,h3,blockquote,pre,ul,ol,li,table,hr,div,p";
+  const markerFor = (tag: string) => {
+    if (tag === "b" || tag === "strong") return "**";
+    if (tag === "i" || tag === "em") return "*";
+    if (tag === "s" || tag === "strike" || tag === "del") return "~~";
+    return "";
+  };
+  const emphasize = (text: string, markers: string[]) => text.split(/(\n[ \t]*\n)/).map((part) => {
+    if (!part.trim()) return part;
+    const leading = part.match(/^\s*/)?.[0] || "";
+    const trailing = part.match(/\s*$/)?.[0] || "";
+    return leading + markers.join("") + part.trim()
+      + [...markers].reverse().join("") + trailing;
+  }).join("");
+
+  const serialize = (nodes: NodeListOf<ChildNode>, markers: string[] = []): string => {
+    let result = "";
+    let inline = "";
+    const flush = () => {
+      result += emphasize(inline, markers);
+      inline = "";
+    };
+    const block = (value: string) => {
+      flush();
+      if (result && !result.endsWith("\n")) result += "\n";
+      result += value;
+    };
+    nodes.forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        inline += node.textContent || "";
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
       const el = node as HTMLElement;
       const tag = el.tagName.toLowerCase();
-
+      const marker = markerFor(tag);
+      if (tag === "script" || tag === "style") return;
       if (tag === "img") {
-        content += `\n![image](${el.getAttribute("src") || ""})\n`;
+        const rawSrc = el.getAttribute("src") || "";
+        const src = uploadedStorageUrls.has(rawSrc) ? rawSrc : normalizeUserContentUrl(rawSrc);
+        if (src) block(`\n![image](${src})\n`);
       } else if (tag === "br") {
-        content += "\n";
-      } else if (tag === "h2") {
-        if (content.length > 0 && !content.endsWith("\n")) content += "\n";
-        content += "## ";
-        el.childNodes.forEach(walk);
-        content += "\n";
-      } else if (tag === "h3") {
-        if (content.length > 0 && !content.endsWith("\n")) content += "\n";
-        content += "### ";
-        el.childNodes.forEach(walk);
-        content += "\n";
+        inline += "\n";
+      } else if (tag === "h2" || tag === "h3") {
+        block(`${tag === "h2" ? "##" : "###"} ${serialize(el.childNodes, markers).trim()}\n`);
       } else if (tag === "blockquote") {
-        if (content.length > 0 && !content.endsWith("\n")) content += "\n";
-        let inner = "";
-        const innerWalk = (n: Node) => {
-          if (n.nodeType === Node.TEXT_NODE) {
-            inner += n.textContent || "";
-          } else if (n.nodeType === Node.ELEMENT_NODE) {
-            const t = (n as HTMLElement).tagName.toLowerCase();
-            if (t === "br") {
-              inner += "\n";
-            } else if (t === "div" || t === "p") {
-              if (inner.length > 0 && !inner.endsWith("\n")) inner += "\n";
-              n.childNodes.forEach(innerWalk);
-              if (!inner.endsWith("\n")) inner += "\n";
-            } else {
-              n.childNodes.forEach(innerWalk);
-            }
-          }
-        };
-        el.childNodes.forEach(innerWalk);
-        const lines = inner.split("\n");
-        lines.forEach((line, index) => {
-          if (line || index < lines.length - 1) {
-            content += `> ${line}\n`;
-          }
-        });
+        const inner = serialize(el.childNodes, markers).trim();
+        block(inner.split("\n").map((line) => `> ${line}`).join("\n") + "\n");
       } else if (tag === "pre") {
-        if (content.length > 0 && !content.endsWith("\n")) content += "\n";
-        content += "```\n";
-        content += el.textContent || "";
-        if (!content.endsWith("\n")) content += "\n";
-        content += "```\n";
-      } else if (tag === "ul") {
-        if (content.length > 0 && !content.endsWith("\n")) content += "\n";
-        el.querySelectorAll(":scope > li").forEach((li) => {
-          content += "- ";
-          li.childNodes.forEach(walk);
-          if (!content.endsWith("\n")) content += "\n";
-        });
-      } else if (tag === "ol") {
-        if (content.length > 0 && !content.endsWith("\n")) content += "\n";
-        let idx = 1;
-        el.querySelectorAll(":scope > li").forEach((li) => {
-          content += `${idx++}. `;
-          li.childNodes.forEach(walk);
-          if (!content.endsWith("\n")) content += "\n";
-        });
-      } else if (tag === "li") {
-        el.childNodes.forEach(walk);
+        block(`\`\`\`\n${el.textContent || ""}\n\`\`\`\n`);
+      } else if (tag === "ul" || tag === "ol") {
+        const items = Array.from(el.children).filter((child) => child.tagName === "LI");
+        block(items.map((li, index) => {
+          const prefix = tag === "ol" ? `${index + 1}. ` : "- ";
+          const lines = serialize(li.childNodes, markers).trim().split("\n");
+          return prefix + lines.join(`\n${" ".repeat(prefix.length)}`);
+        }).join("\n") + "\n");
       } else if (tag === "table") {
-        if (content.length > 0 && !content.endsWith("\n")) content += "\n";
-        const rows = el.querySelectorAll("tr");
-        rows.forEach((tr, ri) => {
-          const cells = tr.querySelectorAll("th, td");
-          const cellTexts = Array.from(cells).map((c) => (c.textContent || "").trim());
-          content += `| ${cellTexts.join(" | ")} |\n`;
-          if (ri === 0) {
-            content += `| ${cellTexts.map(() => "---").join(" | ")} |\n`;
-          }
+        const rows = Array.from(el.querySelectorAll("tr")).filter((row) => row.closest("table") === el);
+        const lines: string[] = [];
+        rows.forEach((row, index) => {
+          const cells = Array.from(row.children).filter((cell) => ["TH", "TD"].includes(cell.tagName));
+          const values = cells.map((cell) => serialize(cell.childNodes, markers).trim()
+            .replace(/\|/g, "\\|").replace(/\n+/g, " "));
+          lines.push(`| ${values.join(" | ")} |`);
+          if (index === 0) lines.push(`| ${values.map(() => "---").join(" | ")} |`);
         });
-        content += "\n";
-      } else if (tag === "b" || tag === "strong") {
-        content += "**";
-        el.childNodes.forEach(walk);
-        content += "**";
-      } else if (tag === "i" || tag === "em") {
-        content += "*";
-        el.childNodes.forEach(walk);
-        content += "*";
-      } else if (tag === "s" || tag === "strike" || tag === "del") {
-        content += "~~";
-        el.childNodes.forEach(walk);
-        content += "~~";
-      } else if (tag === "u") {
-        el.childNodes.forEach(walk);
+        block(`\n${lines.join("\n")}\n\n`);
+      } else if (tag === "hr") {
+        block("\n---\n");
+      } else if (tag === "div" || tag === "p" || tag === "li") {
+        block(serialize(el.childNodes, markers) + (tag === "p" ? "\n\n" : "\n"));
+      } else if (el.querySelector(blockSelector)) {
+        // Underline has no Markdown equivalent; preserve its text, as before.
+        const nestedMarkers = marker && !markers.includes(marker) ? [...markers, marker] : markers;
+        block(serialize(el.childNodes, nestedMarkers));
+      } else if (marker) {
+        inline += emphasize(serialize(el.childNodes), markers.includes(marker) ? [] : [marker]);
       } else if (tag === "a") {
         const href = normalizeUserContentUrl(el.getAttribute("href"));
-        if (href) {
-          content += "[";
-          el.childNodes.forEach(walk);
-          content += `](${href})`;
-        } else {
-          el.childNodes.forEach(walk);
-        }
-      } else if (tag === "hr") {
-        content += "\n---\n";
-      } else if (["div", "p"].includes(tag)) {
-        if (content.length > 0 && !content.endsWith("\n")) content += "\n";
-        el.childNodes.forEach(walk);
-        if (!content.endsWith("\n")) content += "\n";
+        const label = serialize(el.childNodes);
+        inline += href ? `[${label}](${href})` : label;
       } else {
-        el.childNodes.forEach(walk);
+        inline += serialize(el.childNodes);
       }
-    }
+    });
+    flush();
+    return result;
   };
-  clone.childNodes.forEach(walk);
+  const content = serialize(clone.childNodes);
 
   return { content: content.trim(), imageUrls };
 }
