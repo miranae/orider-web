@@ -4,9 +4,9 @@ import { collection, doc, getDocs, limit as firestoreLimit, orderBy, query, setD
 import { httpsCallable } from "firebase/functions";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { CloudUpload, Loader2, MapPinned, Send } from "lucide-react";
+import { matchesDiscipline } from "@shared/sport/discipline";
 import { useToast } from "../../contexts/ToastContext";
 import { firestore, functions, storage } from "../../services/firebase";
-import { extractGpsFromFile } from "../../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../../features/activity/detail/imageResize";
 import { Button, Chip } from "../../theme/components";
 import { decodeTrack } from "../../utils/polyline";
@@ -41,6 +41,7 @@ interface RideStoryPhotoPickerProps {
   onClose: () => void;
   onSent: () => void;
   onFailed: () => void;
+  onPreview?: (selection: RideStorySelection) => void;
 }
 
 const MAX_PHOTOS_PER_ACTIVITY = 10;
@@ -54,7 +55,7 @@ function copyFor(language: string) {
       ? "포스터에 담을 활동과 사진을 고르세요. 사진이 없거나 사진을 쓰고 싶지 않으면 경로가 중심인 포스터로 보낼 수 있습니다."
       : "Choose the activity and photo for the poster. If there is no photo, or you prefer not to use one, send a route-focused poster.",
     loading: ko ? "최근 활동과 사진을 불러오는 중" : "Loading recent rides and photos",
-    noOptions: ko ? "최근 활동을 찾지 못했습니다." : "No recent activities found.",
+    noOptions: ko ? "최근 90일 안에 포스터로 만들 자전거 활동이 없습니다." : "No cycling activities from the last 90 days are available for a poster.",
     noPhotos: ko ? "경로 포스터 선택" : "Use route poster",
     noPhotoItems: ko ? "업로드된 활동 사진이 없습니다. 왼쪽 경로 포스터를 선택하세요." : "No uploaded activity photos. Choose the route poster on the left.",
     routePreview: ko ? "경로 미리보기" : "Route preview",
@@ -62,7 +63,7 @@ function copyFor(language: string) {
     photos: ko ? "사진" : "Photos",
     uploadPhoto: ko ? "사진 업로드" : "Upload photo",
     uploadingPhoto: ko ? "업로드 중" : "Uploading",
-    uploadHelp: ko ? "포스터 배경으로 쓸 사진을 추가합니다." : "Add a poster background photo.",
+    uploadHelp: ko ? "포스터 배경으로 쓸 사진을 추가합니다. 촬영 위치 정보는 저장하지 않습니다." : "Add a poster background photo. Photo location metadata is not saved.",
     imageOnly: ko ? "이미지 파일만 업로드할 수 있습니다." : "Only image files can be uploaded.",
     tooManyPhotos: ko ? `활동당 사진은 최대 ${MAX_PHOTOS_PER_ACTIVITY}장까지 업로드할 수 있습니다.` : `You can upload up to ${MAX_PHOTOS_PER_ACTIVITY} photos per activity.`,
     photoTooLarge: ko ? "사진 용량이 너무 큽니다. 다른 사진을 선택하세요." : "The photo is too large. Choose another photo.",
@@ -106,24 +107,25 @@ function formatDuration(minutes: number) {
 
 async function loadOptions(userId: string): Promise<RideStoryActivityOption[]> {
   const activitiesRef = collection(firestore, "activities");
-  let activitySnap;
-  try {
-    activitySnap = await getDocs(query(
-      activitiesRef,
-      where("userId", "==", userId),
-      orderBy("startTime", "desc"),
-      firestoreLimit(12),
-    ));
-  } catch {
-    activitySnap = await getDocs(query(
-      activitiesRef,
-      where("userId", "==", userId),
-      firestoreLimit(12),
-    ));
-  }
-  const activities = await Promise.all(activitySnap.docs.map(async (activityDoc) => {
+  const now = Date.now();
+  const since = now - 90 * 24 * 60 * 60 * 1000;
+  const activitySnap = await getDocs(query(
+    activitiesRef,
+    where("userId", "==", userId),
+    where("startTime", ">=", since),
+    where("startTime", "<=", now),
+    orderBy("startTime", "desc"),
+  ));
+  // Same eligibility as the server recipe loader; filter before limiting so non-rides
+  // cannot crowd valid cycling activities out of the selection list.
+  const eligible = activitySnap.docs.filter((activityDoc) => {
     const data = activityDoc.data() as Record<string, unknown>;
-    if (data.deletedAt) return null;
+    return !data.deletedAt && !data.isDeleted && matchesDiscipline(data.type, "bike")
+      && typeof data.startTime === "number" && Number.isFinite(data.startTime)
+      && data.startTime >= since && data.startTime <= now;
+  }).sort((left, right) => safeNumber(right.data().startTime) - safeNumber(left.data().startTime)).slice(0, 12);
+  const activities = await Promise.all(eligible.map(async (activityDoc) => {
+    const data = activityDoc.data() as Record<string, unknown>;
     const summary = (data.summary ?? {}) as Record<string, unknown>;
     const photoSnap = await getDocs(query(
       collection(firestore, "activity_photos", activityDoc.id, "photos"),
@@ -157,7 +159,7 @@ async function loadOptions(userId: string): Promise<RideStoryActivityOption[]> {
     .sort((a, b) => Number(b.photos.length > 0) - Number(a.photos.length > 0));
 }
 
-export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }: RideStoryPhotoPickerProps) {
+export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, onPreview }: RideStoryPhotoPickerProps) {
   const { i18n } = useTranslation();
   const { showToast } = useToast();
   const copy = copyFor(i18n.language);
@@ -170,19 +172,25 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
 
   useEffect(() => {
     if (!open || !userId) return;
+    let active = true;
     setLoading(true);
     setError(null);
+    setOptions([]);
+    setSelection(null);
     void loadOptions(userId)
       .then((nextOptions) => {
+        if (!active) return;
         setOptions(nextOptions);
         const preferred = nextOptions.find((activity) => activity.photos.length > 0) ?? nextOptions[0] ?? null;
         setSelection(preferred ? { activityId: preferred.id, photoId: preferred.photos[0]?.id ?? null } : null);
       })
       .catch(() => {
+        if (!active) return;
         setError(copy.loadFailed);
         showToast(copy.loadFailed, "error");
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [copy.loadFailed, open, showToast, userId]);
 
   if (!open) return null;
@@ -199,7 +207,6 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
     }
     setUploadingActivityId(activity.id);
     try {
-      const location = await extractGpsFromFile(file);
       const blob = await resizeImageToWebp(file);
       if (blob.size > MAX_UPLOAD_BYTES) {
         showToast(copy.photoTooLarge, "error");
@@ -216,7 +223,6 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
         userId,
         createdAt: Date.now(),
         deletedAt: null,
-        ...(location ? { location } : {}),
       });
       const nextPhoto = { id: photoId, url };
       setOptions((prev) => prev.map((item) => (
@@ -232,14 +238,15 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
   };
 
   const send = async () => {
-    if (!selection) return;
+    if (!selection || sending || uploadingActivityId) return;
     setSending(true);
     try {
       const fn = httpsCallable<
         { recipeId: string; lang: string; activityId: string; photoId: string | null },
         { sent: boolean; recipeId: string; email: string }
       >(functions, "sendCreatorRecipeEmail", { timeout: 60_000 });
-      await fn({ recipeId: "ride-story", lang: i18n.language.startsWith("en") ? "en" : "ko", ...selection });
+      const result = await fn({ recipeId: "ride-story", lang: i18n.language.startsWith("en") ? "en" : "ko", ...selection });
+      if (!result.data.sent) throw new Error("creator/email-not-sent");
       showToast(copy.sent);
       onSent();
       onClose();
@@ -297,7 +304,8 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
 
         <div className="flex flex-wrap justify-end gap-2 border-t p-4" style={{ borderColor: "var(--line-soft)" }}>
           <Button size="sm" variant="secondary" onClick={onClose}>{copy.cancel}</Button>
-          <Button size="sm" variant="primary" disabled={!selection || loading} loading={sending} onClick={() => void send()}>
+          {onPreview && <Button size="sm" variant="primary" disabled={!selection || loading || Boolean(uploadingActivityId)} onClick={() => { if (selection) onPreview(selection); }}>{i18n.language.startsWith("ko") ? "선택 결과 미리보기" : "Preview selected output"}</Button>}
+          <Button size="sm" variant="secondary" disabled={!selection || loading || Boolean(uploadingActivityId)} loading={sending} onClick={() => void send()}>
             <Send size={15} />
             {copy.send}
           </Button>

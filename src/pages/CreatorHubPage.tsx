@@ -22,6 +22,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
+import { RecipePreviewDialog, type RecipePreviewRequest } from "../components/creator/RecipePreviewDialog";
+import { RecipeShareCard } from "../components/creator/RecipeShareCard";
 import { RideStoryPhotoPicker } from "../components/creator/RideStoryPhotoPicker";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import { useAuth } from "../contexts/AuthContext";
@@ -31,7 +33,6 @@ import { useWeeklyStats } from "../hooks/useActivities";
 import { buildCreatorHubDetailLinks } from "../data/creatorHubDetailLinks";
 import {
   creatorRecipes,
-  hasShareCardPreview,
   type CreatorRecipeIcon,
   type CreatorRecipeKind,
 } from "../data/creatorRecipes";
@@ -62,6 +63,16 @@ interface CreatorItem {
   status: string;
 }
 
+interface AiDiaryPolicy {
+  version: string;
+  processor: { name: string; country: string; privacyPolicyUrl: string };
+  purpose: string;
+  dataCategories: string[];
+  excludedData?: string[];
+  retention: string;
+  dailyLimit: number;
+}
+
 interface AiDiaryResponse {
   source: "cache" | "generated";
   generatedAt: number;
@@ -77,6 +88,8 @@ interface AiDiaryResponse {
     body: string;
     footer: string;
     redactions: string[];
+    kicker?: string;
+    metrics?: { label: string; value: string }[];
   };
 }
 
@@ -245,21 +258,21 @@ function buildCopy(language: string) {
       },
     ],
     credit: {
-      title: ko ? "AI 레시피 공용 일일 크레딧" : "Shared daily credits for AI recipes",
+      title: ko ? "AI 일기 생성" : "AI ride diary generation",
       body: ko
-        ? "AI 일기처럼 모델을 호출하는 레시피는 모두 사용자별 공용 일일 크레딧을 사용합니다. 레시피가 늘어나도 기본 한도는 한곳에서 관리되며, AI provider key는 브라우저에 공개하지 않고 오라이더 서버가 대신 호출합니다."
-        : "Recipes that call a model, such as the AI diary, all use the rider's shared daily AI credit pool. As more recipes are added, the default limit is managed in one place, and provider keys stay server-side.",
+        ? "내 최근 7일 운동 집계로 AI가 비공개 일기와 공개 하이라이트를 만듭니다. 생성 전에 외부 AI 처리자와 전송 항목을 확인하고 동의할 수 있습니다."
+        : "AI turns your last 7 days of training aggregates into a private diary and a public highlight. Review the external AI processor and data sent before consenting.",
       rules: [
-        ko ? "AI 레시피는 공용 일일 한도 안에서 실행됩니다." : "AI recipes run against the shared daily limit.",
-        ko ? "비AI 레시피와 일반 API 조회는 이 AI 크레딧을 쓰지 않습니다." : "Non-AI recipes and normal API reads do not spend AI credits.",
-        ko ? "자동 배치 AI 레시피는 실행 전 크레딧 사용량과 주기를 표시해야 합니다." : "Scheduled AI recipes must show credit usage and frequency before deployment.",
+        ko ? "성공한 일기 생성만 일일 한도에 포함됩니다." : "Only successful diary generations count toward your daily limit.",
+        ko ? "같은 기록은 저장된 초안을 다시 사용합니다." : "Unchanged records reuse the saved draft.",
+        ko ? "공유 전 문구를 편집하고 PNG로 저장할 수 있습니다." : "Edit your highlight and save a PNG before sharing.",
       ],
       quotaUnknown: ko ? "남은 AI 크레딧은 생성 후 표시됩니다." : "Remaining AI credits appear after generation.",
       remaining: ko ? "오늘 남은 AI 크레딧 {{remaining}}/{{limit}}회" : "{{remaining}}/{{limit}} AI credits left today",
       cache: ko ? "오늘 이미 만든 초안을 다시 불러왔습니다." : "Loaded today's existing draft.",
       failed: ko
-        ? "AI 일기를 생성하지 못했습니다. 활동 데이터가 있는지 확인하거나 공용 일일 크레딧이 초기화된 뒤 다시 시도해 주세요."
-        : "Could not generate the diary. Check that activity data is available, or try again after the shared daily credits reset.",
+        ? "AI 일기를 생성하지 못했습니다. 활동 데이터가 있는지 확인하거나 일일 한도가 초기화된 뒤 다시 시도해 주세요."
+        : "Could not generate the diary. Check that activity data is available, or try again after the daily limit resets.",
     },
     stats: [
       { label: ko ? "카탈로그 단위" : "Catalog unit", value: ko ? "레시피" : "Recipe" },
@@ -312,8 +325,8 @@ function buildCopy(language: string) {
     email: {
       title: ko ? "리포트 템플릿 이메일" : "Report-template email",
       body: ko
-        ? "대표 레시피는 본인 계정 이메일로 실제 리포트를 보내볼 수 있습니다. 주간 부하 리포트는 KPI 카드, 부하 차트, 대표 활동 썸네일, 다음 행동을 포함합니다. 정기 발송은 별도 opt-in이 필요합니다."
-        : "Flagship recipes can send a real report to your account email. The weekly load report includes KPI cards, a load chart, key-session thumbnails, and next actions. Recurring delivery requires separate opt-in.",
+        ? "대표 레시피는 본인 계정 이메일로 실제 리포트를 보내볼 수 있습니다. 주간 부하 리포트는 KPI 카드, 부하 차트, 대표 활동 썸네일, 다음 행동을 포함합니다. 내장 정기 발송은 제공하지 않으며, 직접 자동화를 만들려면 Personal Data API를 사용합니다."
+        : "Flagship recipes can send a real report to your account email. The weekly load report includes KPI cards, a load chart, key-session thumbnails, and next actions. Recurring delivery requires your own Personal Data API automation.",
       safety: ko
         ? "임의 주소 입력은 허용하지 않고, 로그인한 본인의 확인된 이메일로만 보냅니다. 외부 공유용 결과는 집계 요약 중심으로 따로 줄일 수 있어야 합니다."
         : "No arbitrary recipient entry: Orider sends only to the signed-in rider's verified account email. External sharing should be reducible to aggregate-only summaries.",
@@ -456,7 +469,7 @@ function buildCopy(language: string) {
       yaml: ko ? "OpenAPI YAML 보기" : "View OpenAPI YAML",
     },
     weekly: {
-      title: ko ? "바로 써보기: 주간 부하 차트" : "Try now: weekly load chart",
+      title: ko ? "최근 6주 훈련 부하" : "Training load · last 6 weeks",
       body: ko
         ? "오라이더 안에서는 로그인만 하면 최근 주간 활동으로 차트를 바로 볼 수 있습니다. Notion, Slack, n8n 등에 붙여 쓰려면 Personal Data API로 같은 데이터를 읽어 직접 자동화를 만들어야 합니다."
         : "Inside Orider, signed-in riders can view this chart from their recent weekly activity data. To use it in Notion, Slack, n8n, or another tool, connect through the Personal Data API and build the automation yourself.",
@@ -467,7 +480,7 @@ function buildCopy(language: string) {
       time: ko ? "시간" : "Time",
       rides: ko ? "활동" : "Activities",
       tss: ko ? "부하" : "Load",
-      shareTitle: ko ? "이번 주 훈련 부하 카드" : "Weekly training load card",
+      shareTitle: ko ? "최근 6주 훈련 기록" : "My last 6 weeks of training",
     },
   };
 }
@@ -481,6 +494,21 @@ function demoWeeklyStats() {
     { week: "6/8", distance: 118, time: 4.4, elevation: 870, rides: 3, tss: 196, tssEstimated: false, tssUnknownCount: 0 },
     { week: "6/15", distance: 188, time: 7.1, elevation: 2140, rides: 4, tss: 344, tssEstimated: false, tssUnknownCount: 0 },
   ];
+}
+
+
+function diaryFailureMessage(error: unknown, language: string, fallback: string): string {
+  const details = error && typeof error === "object" && "details" in error ? error.details : null;
+  const reason = details && typeof details === "object" && "reason" in details ? details.reason : null;
+  const ko = language.startsWith("ko");
+  switch (reason) {
+    case "no-activities": return ko ? "최근 7일에 일기로 만들 자전거 활동이 없습니다. 활동을 기록하거나 가져온 뒤 다시 생성해 주세요." : "No cycling activities from the last 7 days are available for a diary. Record or import a ride, then try again.";
+    case "in-flight": return ko ? "이미 일기를 생성하고 있습니다. 잠시 기다린 뒤 다시 확인해 주세요." : "A diary is already being generated. Please wait a moment before trying again.";
+    case "daily-limit": return ko ? "오늘의 AI 일기 생성 한도를 모두 사용했습니다. 내일 다시 생성할 수 있습니다." : "You have used today's AI diary generation limit. You can generate again tomorrow.";
+    case "attempt-limit": return ko ? "반복 요청 안전 한도에 도달했습니다. 실패 요청도 이 안전 한도에 포함되며, 내일 다시 시도할 수 있습니다." : "The repeated-request safety limit has been reached. Failed attempts count toward this safety limit. Please try again tomorrow.";
+    case "consent-required": return ko ? "AI 처리 정책을 다시 확인해야 합니다. 생성 버튼을 다시 눌러 최신 정책에 동의해 주세요." : "Please review the current AI processing policy. Select Generate again to give your consent to the updated policy.";
+    default: return fallback;
+  }
 }
 
 export default function CreatorHubPage() {
@@ -497,15 +525,23 @@ export default function CreatorHubPage() {
   const section = parseCreatorSection(sectionParam);
   const tabParam = searchParams.get("tab");
   const [tab, setTabState] = useState<CreatorTab>(() => sectionDefaultTab(section, tabParam));
-  const [copied, setCopied] = useState(false);
   const [chartCopied, setChartCopied] = useState(false);
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
   const [copyingPromptId, setCopyingPromptId] = useState<string | null>(null);
   const [reportedItemIds, setReportedItemIds] = useState<Set<string>>(() => new Set());
   const [reportingItemIds, setReportingItemIds] = useState<Set<string>>(() => new Set());
   const [reportFailedItemIds, setReportFailedItemIds] = useState<Set<string>>(() => new Set());
-  const [diary, setDiary] = useState<AiDiaryResponse | null>(null);
+  const [savedDiary, setDiary] = useState<AiDiaryResponse | null>(null);
+  const [diaryOwnerId, setDiaryOwnerId] = useState<string | null>(null);
+  const diary = diaryOwnerId === user?.uid ? savedDiary : null;
+  const [diaryPolicy, setDiaryPolicy] = useState<AiDiaryPolicy | null>(null);
+  const consentDialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => { if (diaryPolicy) consentDialogRef.current?.showModal(); }, [diaryPolicy]);
+  const [policyLoading, setPolicyLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const diaryOwner = useRef(user?.uid);
+  diaryOwner.current = user?.uid;
+  useEffect(() => { setDiary(null); setDiaryError(null); setDiaryPolicy(null); }, [user?.uid]);
   const [diaryError, setDiaryError] = useState<string | null>(null);
   const {
     emailFailedItemIds,
@@ -523,6 +559,8 @@ export default function CreatorHubPage() {
     showToast,
     signInWithGoogle,
   });
+  const [previewRequest, setPreviewRequest] = useState<RecipePreviewRequest | null>(null);
+  useEffect(() => { setPreviewRequest(null); }, [user?.uid]);
   const [rideStoryPickerOpen, setRideStoryPickerOpen] = useState(false);
   const deploySectionRef = useRef<HTMLElement | null>(null);
   const recipesSectionRef = useRef<HTMLDivElement | null>(null);
@@ -544,7 +582,7 @@ export default function CreatorHubPage() {
         channels: recipe.channels,
         showShareCardPreview: recipe.showShareCardPreview,
         labels: localized.labels,
-        scopeLabel: localized.scopeLabel ?? "Scopes",
+        scopeLabel: localized.scopeLabel ?? (locale === "ko" ? "Scopes · 직접 만드는 확장판" : "Scopes · extension only"),
         shareMode: localized.shareMode,
         deployMode: localized.deployMode,
         status: localized.status,
@@ -561,8 +599,8 @@ export default function CreatorHubPage() {
   const chartWeeks = useMemo(() => {
     // 부하 미확인은 원본 거리와 별개 상태다. 실제 입력과 명시된 예시를 분리한다.
     const actual = weeklyStats.filter((week) => week.rides > 0 || week.distance > 0 || (week.tss ?? 0) > 0).slice(-6);
-    return actual.length > 0 ? actual : demoWeeklyStats();
-  }, [weeklyStats]);
+    return user ? actual : demoWeeklyStats();
+  }, [weeklyStats, user]);
   const chartMax = Math.max(1, ...chartWeeks.map((week) => week.tss ?? 0));
   const chartTotal = chartWeeks.reduce(
     (acc, week) => ({
@@ -580,8 +618,7 @@ export default function CreatorHubPage() {
   };
   const chartUsesOwnData = Boolean(user && weeklyStats.some((week) => week.rides > 0 || week.distance > 0 || (week.tss ?? 0) > 0));
   const shareCard = diary?.shareCard ?? copy.shareCard;
-  const shareText = `${shareCard.title}\n${shareCard.body}\n${shareCard.footer}`;
-  const weeklyShareText = `${copy.weekly.shareTitle}\n${copy.weekly.distance}: ${Math.round(chartTotal.distance)}km · ${copy.weekly.time}: ${chartTotal.time.toFixed(1)}h · ${copy.weekly.rides}: ${chartTotal.rides} · ${formatTrainingLoad(chartTotalLoad, loadT)}\n${chartUsesOwnData ? copy.weekly.own : copy.weekly.demo}`;
+  const weeklyShareText = `${copy.weekly.shareTitle} (${chartWeeks[0]?.week ?? ""} – ${chartWeeks[chartWeeks.length - 1]?.week ?? ""})\n${copy.weekly.distance}: ${Math.round(chartTotal.distance)}km · ${copy.weekly.time}: ${chartTotal.time.toFixed(1)}h · ${copy.weekly.rides}: ${chartTotal.rides} · ${formatTrainingLoad(chartTotalLoad, loadT)}\n${chartUsesOwnData ? copy.weekly.own : user ? copy.weekly.empty : copy.weekly.demo}`;
 
   useEffect(() => {
     setTabState(sectionDefaultTab(section, tabParam));
@@ -638,20 +675,9 @@ export default function CreatorHubPage() {
     if (scrollTarget) scrollToTarget(scrollTarget);
   };
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard?.writeText(shareText);
-      setCopied(true);
-      showToast(copy.actions.copied);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      showToast(copy.actions.copyFailed, "error");
-    }
-  };
-
   const handleCopyChart = async () => {
     try {
-      await navigator.clipboard?.writeText(weeklyShareText);
+      await navigator.clipboard.writeText(weeklyShareText);
       setChartCopied(true);
       showToast(copy.actions.copied);
       window.setTimeout(() => setChartCopied(false), 1600);
@@ -664,7 +690,7 @@ export default function CreatorHubPage() {
     if (copyingPromptId === promptId) return;
     setCopyingPromptId(promptId);
     try {
-      await navigator.clipboard?.writeText(prompt);
+      await navigator.clipboard.writeText(prompt);
       setCopiedPromptId(promptId);
       showToast(copy.actions.promptCopied);
       window.setTimeout(() => setCopiedPromptId((current) => (current === promptId ? null : current)), 1600);
@@ -695,21 +721,43 @@ export default function CreatorHubPage() {
       await signInWithGoogle();
       return;
     }
+    if (generating || policyLoading) return;
+    const owner = user.uid;
+    setPolicyLoading(true);
+    setDiaryError(null);
+    try {
+      const policy = await httpsCallable<{ lang: string }, AiDiaryPolicy>(functions, "getCreatorAiDiaryPolicy")({ lang: i18n.language.startsWith("ko") ? "ko" : "en" });
+      if (diaryOwner.current === owner) setDiaryPolicy(policy.data);
+    } catch (error) {
+      const message = diaryFailureMessage(error, i18n.language, copy.credit.failed);
+      setDiaryError(message);
+      showToast(message, "error");
+    } finally { setPolicyLoading(false); }
+  };
+  const generateConsentedDiary = async () => {
+    if (!user || !diaryPolicy) return;
+    const consentVersion = diaryPolicy.version;
+    setDiaryPolicy(null);
+    if (generating) return;
+    const owner = user.uid;
     setGenerating(true);
     setDiaryError(null);
     try {
-      const fn = httpsCallable<{ lang: string; period: "week" }, AiDiaryResponse>(
+      const fn = httpsCallable<{ lang: string; period: "week"; consentVersion: string }, AiDiaryResponse>(
         functions,
         "generateAiDiary",
         { timeout: 90_000 },
       );
-      const result = await fn({ lang: i18n.language.startsWith("en") ? "en" : "ko", period: "week" });
+      const result = await fn({ lang: i18n.language.startsWith("en") ? "en" : "ko", period: "week", consentVersion });
+      if (diaryOwner.current !== owner) return;
+      setDiaryOwnerId(owner);
       setDiary(result.data);
       setTab("share", "share");
       showToast(result.data.source === "cache" ? copy.credit.cache : copy.actions.previewOpened);
-    } catch {
-      setDiaryError(copy.credit.failed);
-      showToast(copy.credit.failed, "error");
+    } catch (error) {
+      const message = diaryFailureMessage(error, i18n.language, copy.credit.failed);
+      setDiaryError(message);
+      showToast(message, "error");
     } finally {
       setGenerating(false);
     }
@@ -753,6 +801,23 @@ export default function CreatorHubPage() {
 
   return (
     <div className="space-y-8">
+      {diaryPolicy && <dialog ref={consentDialogRef} className="fixed inset-0 m-auto w-full max-w-xl bg-transparent p-4 backdrop:bg-black/55" aria-labelledby="creator-ai-consent-title" onCancel={() => setDiaryPolicy(null)}>
+        <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-[var(--r-lg)] border p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)", color: "var(--ink-2)" }}>
+          <h2 id="creator-ai-consent-title" className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{i18n.language.startsWith("ko") ? "AI 라이딩 일기 생성 동의" : "Consent to AI ride diary generation"}</h2>
+          <p className="text-[length:var(--fs-sm)] leading-6">{diaryPolicy.purpose}</p>
+          <dl className="space-y-3 text-[length:var(--fs-sm)] leading-6">
+            <div><dt className="font-semibold">{i18n.language.startsWith("ko") ? "외부 AI 처리자 · 처리 국가" : "External AI processor · country"}</dt><dd>{diaryPolicy.processor.name} · {diaryPolicy.processor.country}</dd></div>
+            <div><dt className="font-semibold">{i18n.language.startsWith("ko") ? "전송하는 데이터" : "Data sent"}</dt><dd>{diaryPolicy.dataCategories.join(" · ")}</dd></div>
+            {diaryPolicy.excludedData && <div><dt className="font-semibold">{i18n.language.startsWith("ko") ? "전송하지 않는 데이터" : "Data excluded"}</dt><dd>{diaryPolicy.excludedData.join(" · ")}</dd></div>}
+            <div><dt className="font-semibold">{i18n.language.startsWith("ko") ? "보관 안내" : "Retention"}</dt><dd>{diaryPolicy.retention}</dd></div>
+          </dl>
+          <p className="text-[length:var(--fs-sm)] leading-6">{i18n.language.startsWith("ko") ? "위치·활동명·원시 심박/파워는 보내지 않습니다. 원문은 나만 보는 초안이며 외부 공유는 별도 하이라이트를 확인한 뒤 직접 진행합니다." : "Location, activity names, and raw heart-rate/power data are not sent. Your diary is private; review the separate highlight before sharing it yourself."}</p>
+          <a className="text-[length:var(--fs-sm)] underline" style={{ color: "var(--lime)" }} href={diaryPolicy.processor.privacyPolicyUrl} target="_blank" rel="noopener noreferrer">{i18n.language.startsWith("ko") ? "AI 처리자 개인정보 정책" : "AI processor privacy policy"}</a>
+          <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{i18n.language.startsWith("ko") ? `성공한 생성은 하루 ${diaryPolicy.dailyLimit}회까지. 동일 기록은 저장된 초안을 재사용합니다.` : `Up to ${diaryPolicy.dailyLimit} successful generations per day. Unchanged records reuse the saved draft.`}</p>
+          <div className="flex flex-wrap justify-end gap-2"><Button size="sm" variant="secondary" onClick={() => setDiaryPolicy(null)}>{i18n.language.startsWith("ko") ? "취소" : "Cancel"}</Button><Button size="sm" variant="primary" onClick={() => void generateConsentedDiary()}>{i18n.language.startsWith("ko") ? "동의하고 생성" : "Agree and generate"}</Button></div>
+        </div>
+      </dialog>}
+
       <section className="grid gap-4">
         <div className="min-w-0 rounded-[var(--r-lg)] border p-6 md:p-8" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           {section === "overview" ? (
@@ -775,7 +840,7 @@ export default function CreatorHubPage() {
                 <BookOpen size={15} />
                 {copy.actions.recipe}
             </Link>
-            <Button className={recipeActionClass} size="sm" variant="secondary" onClick={handleGenerateDiary} loading={generating}>
+            <Button className={recipeActionClass} size="sm" variant="secondary" onClick={handleGenerateDiary} loading={generating || policyLoading}>
               <Bot size={15} />
               {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
             </Button>
@@ -1068,20 +1133,12 @@ export default function CreatorHubPage() {
                 </div>
 
                 <div className="mt-4 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
-                  {hasShareCardPreview(item) && (
-                    <Button data-testid="E6-1-2"
-                      className={recipeActionClass}
-                      size="sm"
-                      variant={item.id === "ai-diary" ? "primary" : "secondary"}
-                      onClick={() => {
-                        setTab("share", "share");
-                        showToast(copy.actions.previewOpened, "info");
-                      }}
-                    >
-                      <ShieldCheck size={15} />
-                      {copy.actions.preview}
-                    </Button>
-                  )}
+                  <Button data-testid="E6-1-2" className={recipeActionClass} size="sm" variant="secondary" onClick={() => {
+                    if (!user) { void signInWithGoogle(); return; }
+                    if (item.id === "ai-diary") { void handleGenerateDiary(); return; }
+                    if (item.id === "ride-story") { setRideStoryPickerOpen(true); return; }
+                    setPreviewRequest({ recipeId: item.id });
+                  }}><ShieldCheck size={15} />{i18n.language.startsWith("ko") ? "결과 미리보기" : "Preview output"}</Button>
                   <Button data-testid="E6-1-4"
                     className={recipeActionClass}
                     size="sm"
@@ -1222,7 +1279,7 @@ export default function CreatorHubPage() {
               </div>
               {diaryError && <div className="mt-2 text-[length:var(--fs-xs)]" style={{ color: "var(--rose)" }}>{diaryError}</div>}
               <div className="mt-3">
-                <Button size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating}>
+                <Button size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating || policyLoading}>
                   <Sparkles size={15} />
                   {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
                 </Button>
@@ -1231,34 +1288,13 @@ export default function CreatorHubPage() {
             <Text as="div" variant="eyebrow">{copy.shareCard.label}</Text>
             <h2 className="mt-1 text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.shareTitle}</h2>
             <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.shareSubtitle}</p>
-            <div className="mt-4 rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-              <div className="mb-2 flex items-center gap-2 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>
-                <Sparkles size={14} />
-                {copy.shareCard.label}
-              </div>
-              <div className="text-[length:var(--fs-base)] font-semibold leading-6" style={{ color: "var(--ink-0)" }}>{shareCard.title}</div>
-              <p className="mt-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{shareCard.body}</p>
-              <div className="mt-3 inline-flex items-center gap-1 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)]" style={{ background: "var(--bg-1)", color: "var(--ink-3)" }}>
-                <Lock size={13} />
-                {shareCard.footer}
-              </div>
-            </div>
+            <div className="mt-4"><RecipeShareCard key={diary?.generatedAt ?? "example"} card={shareCard} language={i18n.language} ready={Boolean(diary)} onError={(action) => showToast(action === "export" ? (i18n.language.startsWith("ko") ? "이미지를 저장하지 못했습니다. 다시 시도해 주세요." : "Could not save the image. Please retry.") : copy.actions.copyFailed, "error")} /></div>
             {diary && (
               <div className="mt-3 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-                <Text as="div" variant="eyebrow">{diary.diary.title}</Text>
+                <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "비공개 일기 · 나만 보기" : "Private diary · only you"} — {diary.diary.title}</Text>
                 <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{diary.diary.body}</p>
               </div>
             )}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" onClick={handleCopy}>
-                <Clipboard size={15} />
-                {copied ? copy.actions.copied : copy.actions.copy}
-              </Button>
-              <Link to="/community/board/write" state={{ postTemplate: diary ? { title: diary.diary.title, body: diary.diary.body } : undefined }} className={buttonClass({ variant: "primary", size: "sm" })}>
-                  <MessageSquareText size={15} aria-hidden />
-                  {copy.actions.post}
-              </Link>
-            </div>
           </div>
         </aside>
       </section>
@@ -1272,34 +1308,13 @@ export default function CreatorHubPage() {
             <h2 className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.shareTitle}</h2>
           </div>
           <p className="mt-2 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{copy.shareSubtitle}</p>
-          <div ref={shareSectionRef} className="mt-5 rounded-[var(--r-lg)] border p-5" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-            <div className="mb-3 flex items-center gap-2 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>
-              <Sparkles size={14} />
-              {copy.shareCard.label}
-            </div>
-            <div className="text-[length:var(--fs-xl)] font-semibold leading-7" style={{ color: "var(--ink-0)" }}>{shareCard.title}</div>
-            <p className="mt-3 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-2)" }}>{shareCard.body}</p>
-            <div className="mt-4 inline-flex items-center gap-1 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)]" style={{ background: "var(--bg-1)", color: "var(--ink-3)" }}>
-              <Lock size={13} />
-              {shareCard.footer}
-            </div>
-          </div>
+          <div ref={shareSectionRef} className="mt-5"><RecipeShareCard key={diary?.generatedAt ?? "example"} card={shareCard} language={i18n.language} ready={Boolean(diary)} onError={(action) => showToast(action === "export" ? (i18n.language.startsWith("ko") ? "이미지를 저장하지 못했습니다. 다시 시도해 주세요." : "Could not save the image. Please retry.") : copy.actions.copyFailed, "error")} /></div>
           {diary && (
             <div data-testid="E6-2" className="mt-4 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-              <Text as="div" variant="eyebrow">{diary.diary.title}</Text>
+              <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "비공개 일기 · 나만 보기" : "Private diary · only you"} — {diary.diary.title}</Text>
               <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{diary.diary.body}</p>
             </div>
           )}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={handleCopy}>
-              <Clipboard size={15} />
-              {copied ? copy.actions.copied : copy.actions.copy}
-            </Button>
-            <Link data-testid="E6-2-1" to="/community/board/write" state={{ postTemplate: diary ? { title: diary.diary.title, body: diary.diary.body } : undefined }} className={buttonClass({ variant: "primary", size: "sm" })}>
-              <MessageSquareText size={15} aria-hidden />
-              {copy.actions.post}
-            </Link>
-          </div>
         </div>
 
         <aside className="space-y-4">
@@ -1318,7 +1333,7 @@ export default function CreatorHubPage() {
               ))}
             </ul>
             <div className="mt-3">
-              <Button data-testid="E6-1-3" size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating}>
+              <Button data-testid="E6-1-3" size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating || policyLoading}>
                 <Sparkles size={15} />
                 {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
               </Button>
@@ -1350,12 +1365,12 @@ export default function CreatorHubPage() {
             <div>
               <div className="mb-2 inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--aqua)" }}>
                 <LineChart size={14} />
-                {chartUsesOwnData ? copy.weekly.own : copy.weekly.demo}
+                {chartUsesOwnData ? copy.weekly.own : user ? copy.weekly.empty : copy.weekly.demo}
               </div>
               <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.weekly.title}</h2>
               <p className="mt-1 max-w-3xl text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.weekly.body}</p>
             </div>
-            <Button data-testid="E6-2-2" size="sm" variant="secondary" onClick={handleCopyChart}>
+            <Button data-testid="E6-2-2" size="sm" variant="secondary" onClick={handleCopyChart} disabled={Boolean(user && chartWeeks.length === 0)}>
               <Clipboard size={15} />
               {chartCopied ? copy.actions.copied : copy.actions.copyChart}
             </Button>
@@ -1447,7 +1462,9 @@ export default function CreatorHubPage() {
       </section>
       )}
 
+      {previewRequest && user && <RecipePreviewDialog key={user.uid} request={previewRequest} language={i18n.language} ownerId={user.uid} onClose={() => setPreviewRequest(null)} onSent={() => markEmailSent(previewRequest.recipeId)} />}
       <RideStoryPhotoPicker
+        onPreview={(selection) => { setPreviewRequest({ recipeId: "ride-story", ...selection }); setRideStoryPickerOpen(false); }}
         open={rideStoryPickerOpen}
         userId={user?.uid ?? null}
         onClose={() => setRideStoryPickerOpen(false)}
