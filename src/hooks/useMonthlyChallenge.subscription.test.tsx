@@ -65,3 +65,38 @@ it("월 범위 밖 30시간 대표는 ID 하나만 구독하고 대표 정정·�
   act(() => representativeCallback!({exists: () => false} as never));
   expect(result.current.progress?.distanceKm).toBe(3);
 });
+
+
+it("월 밖 direct 대표가 월 안 범위 쿼리에 편입되면 최신 거리와 날짜를 반영한다", async () => {
+  const now = Date.parse("2026-10-15T00:00:00Z");
+  const window = kstMonthWindow(now);
+  const part = {userId: "rider", source: "orider", type: "Ride", rollupSupersededBy: "full",
+    startTime: window.startMs, endTime: window.startMs + 3600000, summary: {distance: 3000, ridingTimeMillis: 3600000}};
+  const full = {...part, source: "strava", rollupSupersededBy: null, startTime: window.startMs - 30 * 3600000,
+    summary: {distance: 10000, ridingTimeMillis: 31 * 3600000}};
+  let direct: ((snapshot: never) => void) | undefined;
+  let range: ((snapshot: never) => void) | undefined;
+  const stop = vi.fn();
+  vi.mocked(onSnapshot).mockClear().mockImplementation((ref, next) => {
+    const path = (ref as unknown as {path?: string}).path;
+    if (path === "activities/full") { direct = next as typeof direct; return stop; }
+    if (path?.includes("participation")) (next as typeof direct)!({data: () => ({tierKm: 300, joinedAt: now})} as never);
+    else { range = next as typeof range; range!({docs: [{id: "part", data: () => part}]} as never); }
+    return vi.fn();
+  });
+  const {result} = renderHook(() => useMonthlyChallenge("rider", now));
+  await waitFor(() => expect(direct).toBeDefined());
+  const {act} = await import("@testing-library/react");
+  act(() => direct!({exists: () => true, data: () => full} as never));
+  expect(result.current.progress?.distanceKm).toBe(0);
+  act(() => range!({docs: [{id: "part", data: () => part}, {id: "full", data: () => ({...full,
+    startTime: window.startMs, summary: {...full.summary, distance: 20000}})}]} as never));
+  expect(result.current.progress?.distanceKm).toBe(0); // 직접 구독의 다음 snapshot까지 last-good 유지
+  act(() => direct!({exists: () => true, data: () => ({...full, startTime: window.startMs,
+    summary: {...full.summary, distance: 20000}})} as never));
+  expect(result.current.progress?.distanceKm).toBe(20);
+  expect(result.current.error).toBe(false);
+  expect(result.current.loading).toBe(false);
+  expect(stop).not.toHaveBeenCalled();
+  expect(onSnapshot).toHaveBeenCalledTimes(3);
+});

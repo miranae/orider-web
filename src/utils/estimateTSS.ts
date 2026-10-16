@@ -1,4 +1,5 @@
 import type { Activity } from "@shared/types";
+import { physicalRideLoadEvidence, physicalRideMovingSeconds } from "@shared/training/physicalRideEvidence";
 import { TIME_FACTORS } from "@shared/training/activityLoad";
 import { acceptedActivityLoad } from "@shared/training/acceptedActivityLoad";
 import { dedupeSamePhysicalRides, type PhysicalRideActivity } from "./samePhysicalRide";
@@ -89,19 +90,18 @@ export function acceptedTrainingActivities(activities: readonly Activity[], ftp?
 }
 
 /** 거리·시간·횟수도 부하와 같은 대표를 사용한다. 레거시 날짜·비훈련 종목은 보존한다. */
-export function acceptedPhysicalActivities(activities: readonly Activity[], ftp?: number): Activity[] {
+export function acceptedPhysicalActivities(activities: readonly Activity[], _ftp?: number): Activity[] {
   const positive = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
   const rows: (PhysicalRideActivity & { activity: Activity; sportFamily: string })[] = activities.flatMap((activity) => {
     const discipline = disciplineOfType(activity.type);
     const record = activity as Activity & { deletedAt?: unknown; invalidSummary?: unknown };
     if (record.deletedAt || record.invalidSummary) return [];
-    const summary = activity.summary as unknown as Record<string, unknown>;
-    const load = estimateActivityTss(activity, ftp);
-    const millis = positive(summary?.movingTimeMillis) ?? positive(summary?.ridingTimeMillis) ?? positive(summary?.elapsedTimeMillis);
+
     return [{ activity, id: activity.id, source: activity.source, discipline, sportFamily: discipline ?? activity.type, type: activity.type,
       localSessionId: activity.localSessionId, stravaActivityId: positive(activity.stravaActivityId), stravaTwinActivityId: positive(activity.stravaTwinActivityId),
       startTime: activity.startTime, endTime: positive(activity.endTime),
-      movingSec: positive(summary?.movingTimeSec) ?? (millis !== null ? millis / 1000 : null), hasLoad: (load.value ?? 0) > 0 }];
+      movingSec: physicalRideMovingSeconds(activity as unknown as Record<string, unknown>),
+      hasLoad: physicalRideLoadEvidence(activity as unknown as Record<string, unknown>) }];
   });
   // 공개 피드에서도 다른 사용자의 같은 시각 운동을 합치지 않는다.
   const byOwner = new Map<string, typeof rows>();
