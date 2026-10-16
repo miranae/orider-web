@@ -1,3 +1,4 @@
+import { CalendarDays } from "lucide-react";
 import { useGoalFitnessInputs } from "../../hooks/useGoalFitnessInputs";
 import { GoalInputNotice } from "./GoalInputNotice";
 import { useSearchParams } from "react-router-dom";
@@ -12,7 +13,7 @@ import { FEAS_COLORS, FEAS_LABEL_KEYS } from './constants';
 import type { FeasibilityLabel } from '@shared/types/goal';
 import { DateField } from '../redesign';
 import "./goal-preview.css";
-import { Button, Card, Chip, Text } from "../../theme/components";
+import { Button, Card, Chip, Input, Text } from "../../theme/components";
 
 // ── 러닝 이벤트 라이브러리 ──────────────────────────────────────────────────
 const EVENTS = [
@@ -209,7 +210,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
             {/* 목표일 */}
             <label htmlFor="run-goal-date" style={{ display: 'block', marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)' }}><Text variant="bodyMedium">{t('runWizard.targetDate')}</Text></label>
-            <DateField
+            <DateField portal icon={<CalendarDays size={16} />}
               id="run-goal-date"
               value={eventDate}
               min={minDateStr}
@@ -232,7 +233,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
                     ['minutes', goalMin, setGoalMin, 59, 'minUnit'],
                     ['seconds', goalSec, setGoalSec, 59, 'secUnit'],
                   ] as const).map(([key, value, setValue, max, unit]) => <label key={key}>
-                    <input type="number" aria-label={t(`runWizard.timeInput.${key}`)} value={value} min={0} max={max}
+                    <Input mono style={{ minHeight: 'var(--dim-button-height)' }} type="number" aria-label={t(`runWizard.timeInput.${key}`)} value={value} min={0} max={max}
                       onChange={event => setValue(Math.max(0, Math.min(max, Number(event.target.value))))} />
                     <Text variant="caption">{t(`runWizard.${unit}`)}</Text>
                   </label>)}

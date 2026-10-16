@@ -162,7 +162,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
           <div key={it.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: "var(--fs-xs)" }}>
             <span style={{ color: "var(--ink-2)" }}>
               {it.label}
-              <span style={{ marginLeft: 'var(--space-2)', color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{it.sub}</span>
+              <span style={{ marginLeft: 'var(--space-2)', color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{it.sub === "활동 중 관측된 최대 심박" ? t("threshold.reason.observedMaxHr") : it.sub}</span>
             </span>
             <span style={{ fontFamily: "var(--font-mono)" }}>
               <span style={{ color: "var(--ink-3)" }}>{it.cur ?? "—"}</span>

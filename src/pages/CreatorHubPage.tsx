@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import "./EventControls.css";
+import "./CreatorReview.css";
+import type { WeeklyStat } from "../components/WeeklyChart";
+import InfoTip from "../components/InfoTip";
+import GlossaryProvider from "../components/common/GlossaryProvider";
+import GlossaryText from "../components/common/GlossaryText";
+import "./ExploreReview.css";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useSearchParams } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
@@ -136,12 +143,12 @@ function sectionDefaultTab(section: CreatorSection, value: string | null): Creat
 function buildCopy(language: string) {
   const ko = language.startsWith("ko");
   return {
-    title: ko ? "Creator Hub" : "Creator Hub",
-    headline: ko ? "안전한 라이딩 데이터 레시피 허브" : "A safe recipe hub for ride data",
-    eyebrow: ko ? "외부로 유출되지 않게, 권한을 정해 실행하는 활용 레시피" : "Rider-approved recipes designed to avoid unintended data exposure",
+    title: ko ? "기록 활용" : "Ride tools",
+    headline: ko ? "라이딩 기록 활용" : "Make more of your rides",
+    eyebrow: ko ? "내 기록으로 일기와 공유 카드 만들기" : "Turn your rides into stories and share cards",
     subtitle: ko
-      ? "Creator Hub는 라이더가 자신의 기록을 더 오래, 더 안전하게 활용할 수 있도록 레시피를 고르고 배치하는 공간입니다. 오픈소스 프로젝트의 방향에 맞게 Notion 리포트, Slack 알림, n8n 자동화, 공개 배지 같은 활용법을 함께 제안하고 검토하는 카탈로그로 키워갑니다."
-      : "Creator Hub is where riders choose and deploy recipes that help their records stay useful for longer, with safer defaults. In the spirit of an open-source project, it can grow into a reviewed catalog of Notion reports, Slack alerts, n8n automations, public badges, and other data recipes.",
+      ? "내 활동으로 일기를 만들고 공유 카드를 준비하세요. 외부 도구에 연결할 때는 사용할 기록과 필요한 권한을 선택합니다."
+      : "Create a diary or prepare a share card from your activities. Choose which records and permissions to use when connecting external tools.",
     tabs: {
       featured: ko ? "추천" : "Featured",
       recipes: ko ? "레시피" : "Recipes",
@@ -149,7 +156,7 @@ function buildCopy(language: string) {
     },
     actions: {
       preview: ko ? "공유 카드 보기" : "Preview share card",
-      recipe: ko ? "레시피 설명 보기" : "View recipe guide",
+      recipe: ko ? "활용 방법 보기" : "View ideas",
       generate: ko ? "AI 일기 생성" : "Generate diary",
       generating: ko ? "AI 일기 생성 중" : "Generating diary",
       post: ko ? "게시글로 공유" : "Share as post",
@@ -216,8 +223,8 @@ function buildCopy(language: string) {
     ],
     deployTitle: ko ? "레시피는 이렇게 배치합니다" : "How recipes get deployed",
     deployBody: ko
-      ? "레시피가 많아져도 실제 사용으로 이어지려면 카드 선택에서 끝나면 안 됩니다. 실행 위치, 권한, 트리거, 중지 방법까지 정해야 배치된 레시피가 됩니다."
-      : "As the recipe list grows, picking a card is not enough. A deployed recipe needs a runtime, scopes, trigger, and a clear way to stop it.",
+      ? "레시피를 어디서 실행할지, 어떤 기록을 읽을 수 있는지, 언제 중지할지 차례로 정하세요."
+      : "Choose where to run a recipe, what data it can read, and how to stop it.",
     deploySteps: [
       {
         title: ko ? "1. 실행 위치 고르기" : "1. Choose runtime",
@@ -262,8 +269,8 @@ function buildCopy(language: string) {
         : "Could not generate the diary. Check that activity data is available, or try again after the shared daily credits reset.",
     },
     stats: [
-      { label: ko ? "카탈로그 단위" : "Catalog unit", value: ko ? "레시피" : "Recipe" },
-      { label: ko ? "배치 방식" : "Deployment", value: ko ? "API/자동화" : "API/automation" },
+      { label: ko ? "활용 방법" : "Ways to use", value: ko ? "일기·리포트·공유 카드" : "Diaries, reports, share cards" },
+      { label: ko ? "이용 방식" : "How to use", value: ko ? "직접 실행·내 도구 연결" : "Run here or connect tools" },
       { label: ko ? "데이터 접근" : "Data access", value: ko ? "본인 승인" : "Rider approved" },
     ],
     marketTitle: ko ? "레시피 허브로 키우려면 구조가 먼저 필요합니다" : "A recipe hub needs structure before scale",
@@ -330,11 +337,11 @@ function buildCopy(language: string) {
       ? "원문 일기는 비공개로 두고, 자랑하기 좋은 요약만 카드로 공유합니다."
       : "Keep the full diary private and share only a redacted highlight card.",
     shareCard: {
-      label: ko ? "이번 주 라이딩 일기" : "Weekly ride diary",
-      title: ko ? "긴 업힐을 버틴 꾸준한 한 주" : "A steady week that held through the climbs",
+      label: ko ? "라이딩 일기 예시" : "Example ride diary",
+      title: ko ? "예시: 긴 업힐을 버틴 꾸준한 한 주" : "Example: a steady week through the climbs",
       body: ko
-        ? "총 182km, 상승고도 2,140m. 수요일 고강도 이후 금요일은 회복주로 전환했고, 주말 롱라이드에서 페이스가 안정적으로 돌아왔습니다."
-        : "182 km total with 2,140 m climbed. After a hard Wednesday, Friday shifted to recovery and the weekend long ride settled back into a steady pace.",
+        ? "예시 데이터: 총 182km, 상승고도 2,140m. 수요일 고강도 이후 금요일은 회복주로 전환했고, 주말 롱라이드에서 페이스가 안정적으로 돌아왔습니다."
+        : "Example data: 182 km total with 2,140 m climbed. After a hard Wednesday, Friday shifted to recovery and the weekend long ride settled back into a steady pace.",
       footer: ko ? "정확한 위치와 민감 지표는 숨김" : "Exact location and sensitive metrics hidden",
     },
     builderTitle: ko ? "만들고 싶은 활용법을 제안하세요" : "Propose what you want to build",
@@ -456,23 +463,23 @@ function buildCopy(language: string) {
       yaml: ko ? "OpenAPI YAML 보기" : "View OpenAPI YAML",
     },
     weekly: {
-      title: ko ? "바로 써보기: 주간 부하 차트" : "Try now: weekly load chart",
+      title: ko ? "주간 이동거리" : "Weekly distance",
       body: ko
-        ? "오라이더 안에서는 로그인만 하면 최근 주간 활동으로 차트를 바로 볼 수 있습니다. Notion, Slack, n8n 등에 붙여 쓰려면 Personal Data API로 같은 데이터를 읽어 직접 자동화를 만들어야 합니다."
-        : "Inside Orider, signed-in riders can view this chart from their recent weekly activity data. To use it in Notion, Slack, n8n, or another tool, connect through the Personal Data API and build the automation yourself.",
+        ? "주별 이동거리와 보조 훈련 점수(TSS)를 함께 확인합니다."
+        : "Compare weekly distance with the supporting training score (TSS).",
       empty: ko ? "아직 차트로 표시할 활동이 없습니다." : "No activities to chart yet.",
       demo: ko ? "데모 데이터" : "Demo data",
       own: ko ? "내 데이터" : "My data",
-      distance: ko ? "거리" : "Distance",
-      time: ko ? "시간" : "Time",
-      rides: ko ? "활동" : "Activities",
-      tss: ko ? "부하" : "Load",
+      distance: ko ? "이동거리" : "Distance",
+      time: ko ? "활동시간" : "Activity time",
+      rides: ko ? "활동횟수" : "Activities",
+      tss: ko ? "훈련점수" : "Training score",
       shareTitle: ko ? "이번 주 훈련 부하 카드" : "Weekly training load card",
     },
   };
 }
 
-function demoWeeklyStats() {
+function demoWeeklyStats(): WeeklyStat[] {
   return [
     { week: "5/11", distance: 84, time: 3.4, elevation: 620, rides: 2, tss: 132, tssEstimated: false, tssUnknownCount: 0 },
     { week: "5/18", distance: 126, time: 4.9, elevation: 1040, rides: 3, tss: 211, tssEstimated: false, tssUnknownCount: 0 },
@@ -563,7 +570,7 @@ export default function CreatorHubPage() {
     const actual = weeklyStats.filter((week) => week.rides > 0 || week.distance > 0 || (week.tss ?? 0) > 0).slice(-6);
     return actual.length > 0 ? actual : demoWeeklyStats();
   }, [weeklyStats]);
-  const chartMax = Math.max(1, ...chartWeeks.map((week) => week.tss ?? 0));
+  const chartMax = Math.max(1, ...chartWeeks.map((week) => week.distance));
   const chartTotal = chartWeeks.reduce(
     (acc, week) => ({
       distance: acc.distance + week.distance,
@@ -752,21 +759,23 @@ export default function CreatorHubPage() {
   const activeDetail = detailLinks.find((link) => link.to.endsWith(`/${section}`));
 
   return (
-    <div className="space-y-8">
+    <GlossaryProvider scopeKey={`record-tools:${section}`}>
+    <div className="event-controls-surface explore-records-surface space-y-8">
       <section className="grid gap-4">
         <div className="min-w-0 rounded-[var(--r-lg)] border p-6 md:p-8" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           {section === "overview" ? (
           <>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--lime)" }}>
+          <div className="mb-3 inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--ft-body-size)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--lime)" }}>
             <Sparkles size={14} />
             {copy.eyebrow}
           </div>
-          <Text as="div" variant="eyebrow">{copy.title}</Text>
           <h1 data-testid="E6-0" className="mt-2 max-w-4xl text-[length:var(--fs-3xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{copy.headline}</h1>
-          <p className="mt-3 max-w-4xl text-[length:var(--fs-base)] leading-7" style={{ color: "var(--ink-3)" }}>
-            {copy.subtitle}
-          </p>
+          <p className="mt-3 max-w-4xl text-[length:var(--fs-base)] leading-7" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.subtitle}</GlossaryText></p>
           <div className="mt-6 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
+            <Button className={recipeActionClass} size="sm" variant="secondary" onClick={handleGenerateDiary} loading={generating}>
+              <Bot size={15} />
+              {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
+            </Button>
             <Link to="/community/board/write" className={buttonClass({ variant: "primary", size: "sm", className: recipeActionClass })}>
                 <MessageSquareText size={15} aria-hidden />
                 {copy.actions.post}
@@ -775,25 +784,24 @@ export default function CreatorHubPage() {
                 <BookOpen size={15} />
                 {copy.actions.recipe}
             </Link>
-            <Button className={recipeActionClass} size="sm" variant="secondary" onClick={handleGenerateDiary} loading={generating}>
-              <Bot size={15} />
-              {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
-            </Button>
+
           </div>
           </>
           ) : (
           <>
-            <Link to="/explore/recipes" className="inline-flex items-center gap-2 text-[length:var(--fs-sm)] font-medium no-underline" style={{ color: "var(--lime)" }}>
+            <Link to="/explore/recipes" className="inline-flex items-center gap-2 text-[length:var(--ft-body-size)] font-medium no-underline" style={{ color: "var(--lime)" }}>
               <BookOpen size={15} />
-              Creator Hub
+              {copy.title}
             </Link>
             <h1 className="mt-3 max-w-3xl text-[length:var(--fs-2xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{activeDetail?.title ?? copy.title}</h1>
-            <p className="mt-2 max-w-3xl text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{activeDetail?.body ?? copy.subtitle}</p>
+            <p className="mt-2 max-w-3xl text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}>{activeDetail?.body ?? copy.subtitle}</p>
           </>
           )}
         </div>
 
         {section === "overview" && (
+        <details className="creator-technical-summary">
+          <summary>{i18n.language.startsWith("ko") ? "연결 방식과 데이터 권한" : "Connections and data access"}</summary>
         <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-3">
           {copy.stats.map((stat) => (
             <div key={stat.label} className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
@@ -802,68 +810,26 @@ export default function CreatorHubPage() {
             </div>
           ))}
         </div>
+        </details>
         )}
       </section>
 
-      {(section === "deploy" || section === "recipes") && (
-      <section className="grid gap-4 rounded-[var(--r-lg)] border p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_360px]" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--aqua)" }}>
-            <BookOpen size={14} />
-            {copy.tabs.recipes}
-          </div>
-          <h2 className="mt-3 max-w-3xl text-[length:var(--fs-xl)] font-semibold leading-7" style={{ color: "var(--ink-0)" }}>{copy.marketTitle}</h2>
-          <p className="mt-2 max-w-4xl text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{copy.marketBody}</p>
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            {copy.marketStages.map((stage, index) => {
-              const StageIcon = marketStageIcons[index] ?? Sparkles;
-              return (
-                <div key={stage.title} className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--r-sm)]" style={{ background: "var(--bg-1)", color: index === 0 ? "var(--aqua)" : index === 1 ? "var(--lime)" : index === 2 ? "var(--amber)" : "var(--violet)" }}>
-                      <StageIcon size={16} />
-                    </span>
-                    <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{stage.title}</div>
-                  </div>
-                  <p className="mt-3 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{stage.body}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <aside className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-          <div className="flex items-center gap-2">
-            <ShieldCheck size={18} style={{ color: "var(--lime)" }} />
-            <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.marketRulesTitle}</h2>
-          </div>
-          <ul className="mt-4 space-y-3">
-            {copy.marketRules.map((rule) => (
-              <li key={rule} className="flex gap-2 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-2)" }}>
-                <ShieldCheck size={15} className="mt-1 shrink-0" style={{ color: "var(--lime)" }} />
-                <span>{rule}</span>
-              </li>
-            ))}
-          </ul>
-        </aside>
-      </section>
-      )}
 
       {section === "overview" && (
       <section className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
         <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>
-          {i18n.language.startsWith("ko") ? "필요한 화면으로 바로 들어가세요" : "Jump into the screen you need"}
+          {i18n.language.startsWith("ko") ? "다른 활용 방법" : "More ways to use your rides"}
         </h2>
         <div className="mt-4 grid gap-3 md:grid-cols-4">
-          {detailLinks.map((link) => {
+          {[...detailLinks].sort((a, b) => Number(b.to.endsWith("/share")) - Number(a.to.endsWith("/share"))).map((link) => {
             const DetailIcon = link.icon;
             return (
               <Link key={link.to} to={link.to} className="rounded-[var(--r-md)] border p-4 no-underline" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
-                <div className="flex items-center gap-2 text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>
+                <div className="flex items-center gap-2 text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>
                   <DetailIcon size={16} style={{ color: "var(--lime)" }} />
                   {link.title}
                 </div>
-                <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{link.body}</p>
+                <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{link.body}</p>
               </Link>
             );
           })}
@@ -875,8 +841,8 @@ export default function CreatorHubPage() {
       <section ref={deploySectionRef} className="scroll-mt-28 rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.deployTitle}</h2>
-            <p className="mt-2 max-w-4xl text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{copy.deployBody}</p>
+            <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.deployTitle}</GlossaryText></h2>
+            <p className="mt-2 max-w-4xl text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.deployBody}</GlossaryText></p>
           </div>
           <Link to="/settings/developer" className={buttonClass({ variant: "secondary", size: "sm" })}>
             <KeyRound size={15} aria-hidden />
@@ -886,8 +852,8 @@ export default function CreatorHubPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           {copy.deploySteps.map((step) => (
             <div key={step.title} className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{step.title}</div>
-              <p className="mt-2 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{step.body}</p>
+              <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{step.title}</div>
+              <p className="mt-2 text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}>{step.body}</p>
             </div>
           ))}
         </div>
@@ -896,15 +862,15 @@ export default function CreatorHubPage() {
 
       {section === "deploy" && (
       <section className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-          <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.useModesTitle}</h2>
+          <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.useModesTitle}</GlossaryText></h2>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             {copy.useModes.map((mode) => {
               const toPath = typeof mode.to === "string" ? mode.to : mode.to.pathname ?? "";
               if (typeof mode.to === "string" && mode.to.startsWith("http")) {
                 return (
                   <div key={mode.title} className="flex flex-col rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-                    <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{mode.title}</div>
-                    <p className="mt-2 text-[length:var(--fs-sm)] leading-6 md:flex-1" style={{ color: "var(--ink-3)" }}>{mode.body}</p>
+                    <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{mode.title}</div>
+                    <p className="mt-2 text-[length:var(--ft-body-size)] leading-6 md:flex-1" style={{ color: "var(--ink-3)" }}>{mode.body}</p>
                     <a href={mode.to} className={buttonClass({ variant: "secondary", size: "sm", className: "mt-4 w-full justify-center" })}>
                       <MessageSquareText size={15} aria-hidden />
                       {mode.action}
@@ -914,8 +880,8 @@ export default function CreatorHubPage() {
               }
               return (
                 <div key={mode.title} className="flex flex-col rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-                  <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{mode.title}</div>
-                  <p className="mt-2 text-[length:var(--fs-sm)] leading-6 md:flex-1" style={{ color: "var(--ink-3)" }}>{mode.body}</p>
+                  <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{mode.title}</div>
+                  <p className="mt-2 text-[length:var(--ft-body-size)] leading-6 md:flex-1" style={{ color: "var(--ink-3)" }}>{mode.body}</p>
                   <Link to={mode.to} className={buttonClass({ variant: toPath.endsWith("/share") ? "primary" : "secondary", size: "sm", className: "mt-4 w-full justify-center" })}>
                     {toPath.endsWith("/examples") ? <FileText size={15} aria-hidden /> : <ShieldCheck size={15} aria-hidden />}
                     {mode.action}
@@ -929,36 +895,40 @@ export default function CreatorHubPage() {
 
       {section === "examples" && (
       <section data-testid="E6-4" className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-          <h2 className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.integrationsTitle}</h2>
+          <h2 className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{i18n.language.startsWith("ko") ? "목적에 맞는 연결 가이드" : "Guides for your tools"}</h2>
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
             {copy.integrations.map((item) => (
               <div key={item.name} className="rounded-[var(--r-md)] border p-4 md:p-5" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>{item.name}</div>
-                    <div className="mt-1 text-[length:var(--fs-base)] font-semibold leading-6" style={{ color: "var(--ink-0)" }}>{item.goal}</div>
+                    <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--lime)" }}>{item.name}</div>
+                    <div className="mt-1 text-[length:var(--fs-base)] font-semibold leading-6" style={{ color: "var(--ink-0)" }}><CreatorTechnicalText language={i18n.language}>{item.goal}</CreatorTechnicalText></div>
                   </div>
                   <Chip>{item.label}</Chip>
                 </div>
                 <div className="mt-4 rounded-[var(--r-sm)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
+                  <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "결과" : "Result"}</Text>
+                  <p className="mt-1 text-[length:var(--ft-body-size)] font-medium leading-6" style={{ color: "var(--ink-1)" }}><CreatorTechnicalText language={i18n.language}>{item.result}</CreatorTechnicalText></p>
+                  <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><CreatorTechnicalText language={i18n.language}>{item.safety}</CreatorTechnicalText></p>
+                </div>
+                <details className="creator-technical-summary mt-4"><summary>{i18n.language.startsWith("ko") ? "준비와 따라하기" : "Setup and steps"}</summary>
+                <div className="mt-4 rounded-[var(--r-sm)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
                   <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "준비" : "Prepare"}</Text>
                   <ul className="mt-2 space-y-1.5">
                     {item.prepare.map((step) => (
-                      <li key={step} className="text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-2)" }}>{step}</li>
+                      <li key={step} className="text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-2)" }}><CreatorTechnicalText language={i18n.language}>{step}</CreatorTechnicalText></li>
                     ))}
                   </ul>
                 </div>
                 <Text as="div" variant="eyebrow" className="mt-4">{i18n.language.startsWith("ko") ? "따라하기" : "Steps"}</Text>
                 <ol className="mt-2 space-y-2">
                   {item.steps.map((step) => (
-                    <li key={step} className="text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{step}</li>
+                    <li key={step} className="text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}><CreatorTechnicalText language={i18n.language}>{step}</CreatorTechnicalText></li>
                   ))}
                 </ol>
-                <div className="mt-4 rounded-[var(--r-sm)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
-                  <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "결과" : "Result"}</Text>
-                  <p className="mt-1 text-[length:var(--fs-sm)] font-medium leading-6" style={{ color: "var(--ink-1)" }}>{item.result}</p>
-                  <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{item.safety}</p>
-                </div>
+
+                </details>
+                <details className="creator-technical-summary mt-4"><summary>{i18n.language.startsWith("ko") ? "AI 작업 지시와 복사" : "AI prompt and copy"}</summary>
                 <div className="mt-4 rounded-[var(--r-sm)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -970,10 +940,11 @@ export default function CreatorHubPage() {
                       {copiedPromptId === item.name ? copy.actions.promptCopied : copy.actions.copyPrompt}
                     </Button>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap break-words rounded-[var(--r-sm)] p-3 text-[length:var(--fs-xs)] leading-5" style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>
+                  <p className="mt-2 whitespace-pre-wrap break-words rounded-[var(--r-sm)] p-3 text-[length:var(--ft-body-size)] leading-5" style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>
                     {item.aiPrompt}
                   </p>
                 </div>
+                </details>
               </div>
             ))}
           </div>
@@ -985,20 +956,20 @@ export default function CreatorHubPage() {
         {(["featured", "recipes", "share"] as CreatorTab[]).map((nextTab) => {
           const active = tab === nextTab;
           return (
-            <button data-testid="E6-1-1"
+            <Button data-testid="E6-1-1"
               key={nextTab}
               type="button"
               role="tab"
               aria-selected={active}
               onClick={() => setTab(nextTab)}
-              className="h-9 shrink-0 rounded-[var(--r-md)] px-3 text-[length:var(--fs-sm)] font-medium"
+              className="h-9 shrink-0 rounded-[var(--r-md)] px-3 text-[length:var(--ft-body-size)] font-medium"
               style={{
                 background: active ? "var(--bg-3)" : "transparent",
                 color: active ? "var(--ink-0)" : "var(--ink-3)",
               }}
             >
               {copy.tabs[nextTab]}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -1025,15 +996,15 @@ export default function CreatorHubPage() {
                         <h2 className="min-w-0 break-words text-[length:var(--fs-base)] font-semibold leading-5" style={{ color: "var(--ink-0)" }}>{item.title}</h2>
                         <Chip>{item.status}</Chip>
                       </div>
-                      <p className="mt-1 break-words text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{item.summary}</p>
+                      <p className="mt-1 break-words text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{item.summary}</p>
                     </div>
                 </div>
 
                 <div className="mt-4 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
                   <Text as="div" variant="eyebrow">{copy.card.outcome}</Text>
-                  <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-1)" }}>{item.outcome}</p>
+                  <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-1)" }}>{item.outcome}</p>
                   <Text as="div" variant="eyebrow" className="mt-3">{copy.card.why}</Text>
-                  <p className="mt-1 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{item.detail}</p>
+                  <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{item.detail}</p>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-1.5">
@@ -1042,7 +1013,9 @@ export default function CreatorHubPage() {
                   ))}
                 </div>
 
-                <div className="mt-4 grid gap-3 text-[length:var(--fs-xs)] min-[420px]:grid-cols-2" style={{ color: "var(--ink-3)" }}>
+                <details className="creator-technical-summary mt-4">
+                  <summary>{i18n.language.startsWith("ko") ? "데이터 권한과 연결 방식" : "Data permissions and connections"}</summary>
+                <div className="mt-4 grid gap-3 text-[length:var(--ft-body-size)] min-[420px]:grid-cols-2" style={{ color: "var(--ink-3)" }}>
                   <div>
                     <Text as="div" variant="eyebrow">{item.scopeLabel}</Text>
                     <div className="mt-1 flex flex-wrap gap-1">
@@ -1054,7 +1027,7 @@ export default function CreatorHubPage() {
                     <div className="mt-1 break-words" style={{ color: "var(--ink-2)" }}>{item.shareMode}</div>
                   </div>
                 </div>
-                <div className="mt-3 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
+                <div className="mt-3 text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>
                   <Text as="div" variant="eyebrow">{copy.card.delivery}</Text>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {item.channels.map((channel) => (
@@ -1064,8 +1037,10 @@ export default function CreatorHubPage() {
                 </div>
                 <div className="mt-3 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
                   <Text as="div" variant="eyebrow">{copy.card.deploy}</Text>
-                  <p className="mt-1 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{item.deployMode}</p>
+                  <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{item.deployMode}</p>
                 </div>
+
+                </details>
 
                 <div className="mt-4 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
                   {hasShareCardPreview(item) && (
@@ -1106,7 +1081,7 @@ export default function CreatorHubPage() {
                             : copy.actions.emailRecipe}
                   </Button>
                   {quotaLabel && (
-                    <div className="flex min-h-9 items-center text-[length:var(--fs-xs)]" style={{ color: isEmailLimitReached ? "var(--rose)" : "var(--ink-3)" }}>
+                    <div className="flex min-h-9 items-center text-[length:var(--ft-body-size)]" style={{ color: isEmailLimitReached ? "var(--rose)" : "var(--ink-3)" }}>
                       {quotaLabel}
                     </div>
                   )}
@@ -1158,9 +1133,9 @@ export default function CreatorHubPage() {
           <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <FileText size={18} style={{ color: "var(--aqua)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.apiDocs.title}</h2>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.apiDocs.title}</GlossaryText></h2>
             </div>
-            <p className="mt-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.apiDocs.body}</p>
+            <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.apiDocs.body}</GlossaryText></p>
             <div className="mt-4 grid gap-2 min-[420px]:grid-cols-2 lg:grid-cols-1">
               <a href={apiDocsLinks.docs} className={buttonClass({ variant: "secondary", size: "sm" })}>
                 <ExternalLink size={15} aria-hidden />
@@ -1175,10 +1150,10 @@ export default function CreatorHubPage() {
           <div ref={shareSectionRef} className="scroll-mt-28 rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <Bell size={18} style={{ color: "var(--amber)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.email.title}</h2>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.email.title}</GlossaryText></h2>
             </div>
-            <p className="mt-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.email.body}</p>
-            <div className="mt-3 rounded-[var(--r-md)] border p-3 text-[length:var(--fs-xs)] leading-5" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+            <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.email.body}</GlossaryText></p>
+            <div className="mt-3 rounded-[var(--r-md)] border p-3 text-[length:var(--ft-body-size)] leading-5" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
               {copy.email.safety}
             </div>
           </div>
@@ -1186,11 +1161,11 @@ export default function CreatorHubPage() {
           <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <Lock size={18} style={{ color: "var(--lime)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.privacyTitle}</h2>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.privacyTitle}</GlossaryText></h2>
             </div>
             <ul className="mt-3 space-y-2">
               {copy.privacy.map((item) => (
-                <li key={item} className="flex gap-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>
+                <li key={item} className="flex gap-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>
                   <ShieldCheck size={15} className="mt-0.5 shrink-0" style={{ color: "var(--lime)" }} />
                   <span>{item}</span>
                 </li>
@@ -1202,25 +1177,27 @@ export default function CreatorHubPage() {
             <div className="mb-4 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
               <div className="flex items-center gap-2">
                 <Bot size={16} style={{ color: "var(--lime)" }} />
-                <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.credit.title}</div>
+                <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.credit.title}</div>
               </div>
-              <p className="mt-1 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.credit.body}</p>
+              <details className="creator-technical-summary mt-3"><summary>{i18n.language.startsWith("ko") ? "생성 횟수와 데이터 안내" : "Generation limits and data"}</summary>
+              <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.credit.body}</GlossaryText></p>
               <ul className="mt-2 space-y-1.5">
                 {copy.credit.rules.map((rule) => (
-                  <li key={rule} className="flex gap-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-2)" }}>
+                  <li key={rule} className="flex gap-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>
                     <ShieldCheck size={13} className="mt-0.5 shrink-0" style={{ color: "var(--lime)" }} />
                     <span>{rule}</span>
                   </li>
                 ))}
               </ul>
-              <div className="mt-2 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>
+              </details>
+              <div className="mt-2 text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)" }}>
                 {diary?.quota
                   ? copy.credit.remaining.replace("{{remaining}}", String(diary.quota.remaining)).replace("{{limit}}", String(diary.quota.limit))
                   : diary?.source === "cache"
                     ? copy.credit.cache
                     : copy.credit.quotaUnknown}
               </div>
-              {diaryError && <div className="mt-2 text-[length:var(--fs-xs)]" style={{ color: "var(--rose)" }}>{diaryError}</div>}
+              {diaryError && <div className="mt-2 text-[length:var(--ft-body-size)]" style={{ color: "var(--rose)" }}>{diaryError}</div>}
               <div className="mt-3">
                 <Button size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating}>
                   <Sparkles size={15} />
@@ -1228,17 +1205,17 @@ export default function CreatorHubPage() {
                 </Button>
               </div>
             </div>
-            <Text as="div" variant="eyebrow">{copy.shareCard.label}</Text>
-            <h2 className="mt-1 text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.shareTitle}</h2>
-            <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.shareSubtitle}</p>
+            <Text as="div" variant="eyebrow">{diary ? (i18n.language.startsWith("ko") ? "내 라이딩 일기" : "My ride diary") : copy.shareCard.label}</Text>
+            <h2 className="mt-1 text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.shareTitle}</GlossaryText></h2>
+            <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.shareSubtitle}</GlossaryText></p>
             <div className="mt-4 rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-              <div className="mb-2 flex items-center gap-2 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>
+              <div className="mb-2 flex items-center gap-2 text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--lime)" }}>
                 <Sparkles size={14} />
-                {copy.shareCard.label}
+                {diary ? (i18n.language.startsWith("ko") ? "내 라이딩 일기" : "My ride diary") : copy.shareCard.label}
               </div>
               <div className="text-[length:var(--fs-base)] font-semibold leading-6" style={{ color: "var(--ink-0)" }}>{shareCard.title}</div>
-              <p className="mt-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{shareCard.body}</p>
-              <div className="mt-3 inline-flex items-center gap-1 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)]" style={{ background: "var(--bg-1)", color: "var(--ink-3)" }}>
+              <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>{shareCard.body}</p>
+              <div className="mt-3 inline-flex items-center gap-1 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--ft-body-size)]" style={{ background: "var(--bg-1)", color: "var(--ink-3)" }}>
                 <Lock size={13} />
                 {shareCard.footer}
               </div>
@@ -1246,7 +1223,7 @@ export default function CreatorHubPage() {
             {diary && (
               <div className="mt-3 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
                 <Text as="div" variant="eyebrow">{diary.diary.title}</Text>
-                <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{diary.diary.body}</p>
+                <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>{diary.diary.body}</p>
               </div>
             )}
             <div className="mt-3 flex flex-wrap gap-2">
@@ -1269,17 +1246,17 @@ export default function CreatorHubPage() {
         <div className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           <div className="flex items-center gap-2">
             <Sparkles size={18} style={{ color: "var(--lime)" }} />
-            <h2 className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.shareTitle}</h2>
+            <h2 className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.shareTitle}</GlossaryText></h2>
           </div>
-          <p className="mt-2 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{copy.shareSubtitle}</p>
+          <p className="mt-2 text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.shareSubtitle}</GlossaryText></p>
           <div ref={shareSectionRef} className="mt-5 rounded-[var(--r-lg)] border p-5" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-            <div className="mb-3 flex items-center gap-2 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>
+            <div className="mb-3 flex items-center gap-2 text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--lime)" }}>
               <Sparkles size={14} />
-              {copy.shareCard.label}
+              {diary ? (i18n.language.startsWith("ko") ? "내 라이딩 일기" : "My ride diary") : copy.shareCard.label}
             </div>
             <div className="text-[length:var(--fs-xl)] font-semibold leading-7" style={{ color: "var(--ink-0)" }}>{shareCard.title}</div>
-            <p className="mt-3 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-2)" }}>{shareCard.body}</p>
-            <div className="mt-4 inline-flex items-center gap-1 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)]" style={{ background: "var(--bg-1)", color: "var(--ink-3)" }}>
+            <p className="mt-3 text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-2)" }}>{shareCard.body}</p>
+            <div className="mt-4 inline-flex items-center gap-1 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--ft-body-size)]" style={{ background: "var(--bg-1)", color: "var(--ink-3)" }}>
               <Lock size={13} />
               {shareCard.footer}
             </div>
@@ -1287,7 +1264,7 @@ export default function CreatorHubPage() {
           {diary && (
             <div data-testid="E6-2" className="mt-4 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
               <Text as="div" variant="eyebrow">{diary.diary.title}</Text>
-              <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{diary.diary.body}</p>
+              <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>{diary.diary.body}</p>
             </div>
           )}
           <div className="mt-4 flex flex-wrap gap-2">
@@ -1306,17 +1283,19 @@ export default function CreatorHubPage() {
           <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <Bot size={16} style={{ color: "var(--lime)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.credit.title}</h2>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.credit.title}</GlossaryText></h2>
             </div>
-            <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.credit.body}</p>
+            <details className="creator-technical-summary mt-3"><summary>{i18n.language.startsWith("ko") ? "생성 횟수와 데이터 안내" : "Generation limits and data"}</summary>
+            <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.credit.body}</GlossaryText></p>
             <ul className="mt-3 space-y-1.5">
               {copy.credit.rules.map((rule) => (
-                <li key={rule} className="flex gap-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-2)" }}>
+                <li key={rule} className="flex gap-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>
                   <ShieldCheck size={13} className="mt-0.5 shrink-0" style={{ color: "var(--lime)" }} />
                   <span>{rule}</span>
                 </li>
               ))}
             </ul>
+            </details>
             <div className="mt-3">
               <Button data-testid="E6-1-3" size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating}>
                 <Sparkles size={15} />
@@ -1328,11 +1307,11 @@ export default function CreatorHubPage() {
           <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <Lock size={18} style={{ color: "var(--lime)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.privacyTitle}</h2>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.privacyTitle}</GlossaryText></h2>
             </div>
             <ul className="mt-3 space-y-2">
               {copy.privacy.map((item) => (
-                <li key={item} className="flex gap-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>
+                <li key={item} className="flex gap-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>
                   <ShieldCheck size={15} className="mt-0.5 shrink-0" style={{ color: "var(--lime)" }} />
                   <span>{item}</span>
                 </li>
@@ -1348,12 +1327,12 @@ export default function CreatorHubPage() {
         <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--aqua)" }}>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--ft-body-size)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--aqua)" }}>
                 <LineChart size={14} />
                 {chartUsesOwnData ? copy.weekly.own : copy.weekly.demo}
               </div>
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.weekly.title}</h2>
-              <p className="mt-1 max-w-3xl text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.weekly.body}</p>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.weekly.title}</GlossaryText></h2>
+              <p className="mt-1 max-w-3xl text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.weekly.body}</GlossaryText></p>
             </div>
             <Button data-testid="E6-2-2" size="sm" variant="secondary" onClick={handleCopyChart}>
               <Clipboard size={15} />
@@ -1362,25 +1341,45 @@ export default function CreatorHubPage() {
           </div>
 
           <div className="mt-4 grid h-48 grid-cols-6 items-end gap-2 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-            {chartWeeks.map((week) => {
-              const height = week.tss === null ? 132 : Math.round((week.tss / chartMax) * 132);
+            {chartWeeks.map((week, index) => {
+              const height = Math.round((week.distance / chartMax) * 132);
+              const basis = week.loadEvidence?.basisTotals;
+              const ko = i18n.language.startsWith("ko");
+              const pointsUnit = ko ? "점" : " pts";
+              const basisText = basis ? [
+                [ko ? "파워 기반 TSS" : "Power-based TSS", basis.power],
+                [ko ? "심박 기반 TSS" : "Heart-rate TSS", basis.heartRate],
+                [ko ? "시간 추정 TSS" : "Time-estimated TSS", basis.time],
+                [ko ? "산출 기준 미상 TSS" : "Unknown-basis TSS", basis.unknown],
+              ].filter(([, value]) => Number(value) > 0).map(([label, value]) => `${label} ${Math.round(Number(value))}${pointsUnit}`).join("\n") : "";
+              const loadText = formatTrainingLoad({ ...week, tssUnknownCount: week.tssUnknownCount ?? 0 }, loadT);
+              const loadValue = loadT("charts.weeklyChart.tssValue", { value: week.tss });
+              const tooltipText = [
+                `${copy.weekly.distance} ${week.distance.toFixed(1)} km`,
+                `${copy.weekly.time} ${week.time.toFixed(1)} h`,
+                week.tss === null ? loadText : loadText.replace(loadValue, `${loadValue}${pointsUnit}`),
+                basisText,
+              ].filter(Boolean).join("\n");
+              const mobileTick = index === 0 || index === Math.floor((chartWeeks.length - 1) / 2) || index === chartWeeks.length - 1;
               return (
                 <div key={week.week} className="flex h-full min-w-0 flex-col justify-end gap-2"
-                  title={`${week.week}: ${formatTrainingLoad({ ...week, tssUnknownCount: week.tssUnknownCount ?? 0 }, loadT)}, ${week.distance}km`}>
+                  >
                   <div className="flex min-h-0 flex-1 items-end justify-center">
-                    <div
+                    <InfoTip className="creator-week-tip" title={`${week.week} · ${copy.weekly.distance}`} content={tooltipText} label={`${week.week} ${copy.weekly.distance} ${week.distance.toFixed(1)} km`} style={{ display: "flex", alignItems: "flex-end", width: "100%", justifyContent: "center" }}>
+                    <span
                       className="w-full max-w-10 rounded-t-[var(--r-sm)]"
-                      data-testid={week.tss === null ? "creator-tss-unknown" : "creator-tss-bar"}
-                      style={{ height, opacity: week.tss === null ? 0.35 : 1, background: week.tss === null ? "var(--bg-3)" : "linear-gradient(180deg, var(--aqua), var(--lime))" }}
+                      data-testid="creator-distance-bar"
+                      style={{ display: "block", height, background: "linear-gradient(180deg, var(--aqua), var(--lime))" }}
                     />
+                    </InfoTip>
                   </div>
-                  <div className="truncate text-center text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{week.week}</div>
+                  <div className="creator-week-tick text-center text-[length:var(--ft-body-size)]" data-mobile-tick={mobileTick} style={{ color: "var(--ink-3)" }}>{week.week}</div>
                 </div>
               );
             })}
           </div>
 
-          <div className="mt-3 grid grid-cols-4 gap-2">
+          <div className="creator-week-stats mt-3 grid grid-cols-4 gap-2">
             {[
               { label: copy.weekly.distance, value: `${Math.round(chartTotal.distance)}km` },
               { label: copy.weekly.time, value: `${chartTotal.time.toFixed(1)}h` },
@@ -1399,37 +1398,73 @@ export default function CreatorHubPage() {
           <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div data-testid="E6-3" className="flex items-center gap-2">
               <Send size={18} style={{ color: "var(--lime)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.apiPath.title}</h2>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.apiPath.title}</GlossaryText></h2>
             </div>
-            <p className="mt-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.apiPath.body}</p>
+            <details className="creator-technical-summary mt-3"><summary>{i18n.language.startsWith("ko") ? "내 도구에 연결하는 방법" : "How to connect your tools"}</summary>
+            <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.apiPath.body}</GlossaryText></p>
             <ol className="mt-3 space-y-2">
               {copy.apiPath.steps.map((step) => (
-                <li key={step} className="text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{step}</li>
+                <li key={step} className="text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>{step}</li>
               ))}
             </ol>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link to="/settings/developer" className={buttonClass({ variant: "secondary", size: "sm" })}>
-                <KeyRound size={15} aria-hidden />
-                {copy.actions.manageApiKeys}
-              </Link>
-              <a href={PUBLIC_REPOSITORY_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
-                <GitPullRequest size={15} aria-hidden />
-                {copy.actions.submitRecipe}
-              </a>
-              <Link to={CREATOR_RECIPE_REQUEST_LINK} className={buttonClass({ variant: "primary", size: "sm" })}>
-                <MessageSquareText size={15} aria-hidden />
-                {copy.actions.requestRecipe}
-              </Link>
-            </div>
+            </details>
+
           </div>
         </aside>
       </section>
       )}
 
+      {(section === "deploy" || section === "recipes") && (
+      <details className="creator-technical-summary rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+      <summary>{i18n.language.startsWith("ko") ? "활용 흐름과 데이터 보호 원칙" : "Workflow and data protection"}</summary>
+      <section className="grid gap-4 rounded-[var(--r-lg)] border p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_360px]" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--ft-body-size)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--aqua)" }}>
+            <BookOpen size={14} />
+            {copy.tabs.recipes}
+          </div>
+          <h2 className="mt-3 max-w-3xl text-[length:var(--fs-xl)] font-semibold leading-7" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.marketTitle}</GlossaryText></h2>
+          <p className="mt-2 max-w-4xl text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.marketBody}</GlossaryText></p>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {copy.marketStages.map((stage, index) => {
+              const StageIcon = marketStageIcons[index] ?? Sparkles;
+              return (
+                <div key={stage.title} className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--r-sm)]" style={{ background: "var(--bg-1)", color: index === 0 ? "var(--aqua)" : index === 1 ? "var(--lime)" : index === 2 ? "var(--amber)" : "var(--violet)" }}>
+                      <StageIcon size={16} />
+                    </span>
+                    <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{stage.title}</div>
+                  </div>
+                  <p className="mt-3 text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}>{stage.body}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <aside className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={18} style={{ color: "var(--lime)" }} />
+            <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.marketRulesTitle}</GlossaryText></h2>
+          </div>
+          <ul className="mt-4 space-y-3">
+            {copy.marketRules.map((rule) => (
+              <li key={rule} className="flex gap-2 text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-2)" }}>
+                <ShieldCheck size={15} className="mt-1 shrink-0" style={{ color: "var(--lime)" }} />
+                <span>{rule}</span>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      </section>
+      </details>
+      )}
+
       {section !== "overview" && (
       <section className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-        <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.builderTitle}</h2>
-        <p className="mt-1 max-w-4xl text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.builderBody}</p>
+        <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.builderTitle}</GlossaryText></h2>
+        <p className="mt-1 max-w-4xl text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.builderBody}</GlossaryText></p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link data-testid="E6-3-1" to="/settings/developer" className={buttonClass({ variant: "primary", size: "sm" })}>
             <KeyRound size={15} aria-hidden />
@@ -1455,5 +1490,20 @@ export default function CreatorHubPage() {
         onFailed={() => markEmailFailed("ride-story")}
       />
     </div>
+    </GlossaryProvider>
   );
+}
+
+
+function CreatorTechnicalText({ children, language }: { children: string; language: string }) {
+  const ko = language.startsWith("ko");
+  const terms: Record<string, string> = {
+    KPI: ko ? "핵심 성과 지표입니다. 리포트에서 이동거리나 활동시간 같은 주요 값을 요약합니다." : "Key performance indicators: the main summary values in a report, such as distance and activity time.",
+    HTML: ko ? "웹브라우저에서 열어 볼 수 있는 문서 형식입니다." : "A document format you can open in a web browser.",
+    Swagger: ko ? "API 요청과 응답을 확인하고 시험할 수 있는 설명 도구입니다." : "A tool for reading and trying documented API requests and responses.",
+    OpenAPI: ko ? "API의 요청 경로와 입력·응답 형식을 기술하는 표준입니다." : "A standard describing API endpoints and their request and response formats.",
+  };
+  return children.split(/\b(KPI|HTML|Swagger|OpenAPI)\b/g).map((part, index) => terms[part]
+    ? <InfoTip key={index} title={part} content={terms[part]} label={part}>{part}</InfoTip>
+    : <Fragment key={index}><GlossaryText>{part}</GlossaryText></Fragment>);
 }

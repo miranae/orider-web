@@ -1,3 +1,5 @@
+import "./ClubSurface.css";
+import { Users } from "lucide-react";
 import GroupRequestHistory from "../../components/group/GroupRequestHistory";
 import { useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -12,8 +14,8 @@ import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 import GroupCard from "../../components/group/GroupCard";
 import CreateGroupModal from "../../components/group/CreateGroupModal";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
-import { EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
-import { Button, Card } from "../../theme/components";
+import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../components/redesign";
+import { Button, Card, Text } from "../../theme/components";
 import {
   isPendingGroupJoinResult,
   type JoinGroupByCodeResult,
@@ -28,6 +30,9 @@ export default function GroupsPage() {
   const joinIntent = useRef(0);
   useEffect(() => {
     setJoining(false);
+    setJoiningPublic(null);
+    setPendingNotice("");
+    setError("");
     return () => { joinIntent.current += 1; };
   }, [uid]);
   const { showToast } = useToast();
@@ -102,12 +107,16 @@ export default function GroupsPage() {
   };
 
   const handleJoinPublic = async (group: Group) => {
+    if (!uid || joiningPublic || auth.currentUser?.uid !== uid) return;
+    const intent = joinIntent.current;
+    const isCurrent = () => intent === joinIntent.current && auth.currentUser?.uid === uid;
     setJoiningPublic(group.id);
     setPendingNotice("");
     setError("");
     try {
       const joinFn = httpsCallable<{ groupId: string }, JoinGroupPublicResult>(functions, "joinGroupPublic");
       const result = await joinFn({ groupId: group.id });
+      if (!isCurrent()) return;
       if (result.data.success !== true) throw new Error("Public group join failed");
       if (result.data.status === "pending") {
         setPendingNotice(t("join.pendingPublic", { name: group.name }));
@@ -116,9 +125,10 @@ export default function GroupsPage() {
       }
       navigate(`/club/${group.id}`);
     } catch {
+      if (!isCurrent()) return;
       setError(t("error.joinFailed"));
     } finally {
-      setJoiningPublic(null);
+      if (isCurrent()) setJoiningPublic(null);
     }
   };
 
@@ -131,8 +141,16 @@ export default function GroupsPage() {
   }
 
   const myClubSection = <section data-testid="C0-1">
-      {myGroups.length > 0 && <div data-testid="C0-1-1" className="mb-4"><select aria-label={t("filter.all")} value={myDisciplineFilter} onChange={event => setMyDisciplineFilter(event.target.value as typeof myDisciplineFilter)}>{["ALL", "bike", "run", "swim", "tri"].map(sport => <option key={sport} value={sport}>{t(sport === "ALL" ? "filter.all" : `filter.${sport}`)}</option>)}</select><input type="search" value={mySearch} onChange={event => setMySearch(event.target.value)} aria-label={t("search.groupName")} placeholder={t("search.groupName")} className="ds-input" /></div>}
-      {myGroupsError ? (
+      {myGroups.length > 0 && <>
+        <Text as="h2" variant="title" className="mb-4">{t("myGroups")}</Text>
+        <div data-testid="C0-1-1" className="club-my-filters mb-4">
+          <label>{t("list.mySportLabel")}<select className="ds-input" aria-label={t("list.mySportLabel")} value={myDisciplineFilter} onChange={event => setMyDisciplineFilter(event.target.value as typeof myDisciplineFilter)}>{["ALL", "bike", "run", "swim", "tri"].map(sport => <option key={sport} value={sport}>{t(sport === "ALL" ? "filter.all" : `filter.${sport}`)}</option>)}</select></label>
+          <label>{t("list.mySearchLabel")}<input type="search" value={mySearch} onChange={event => setMySearch(event.target.value)} aria-label={t("list.mySearchLabel")} placeholder={t("search.groupName")} className="ds-input" /></label>
+        </div>
+      </>}
+
+      {Boolean(myGroupsError) && myGroups.length > 0 && <div className="mb-4"><ErrorState title={t("error.loadFailed")} onRetry={retryMyGroups} compact /></div>}
+      {Boolean(myGroupsError) && myGroups.length === 0 ? (
         <div className="mb-8">
           <ErrorState title={t("error.loadFailed")} onRetry={retryMyGroups} compact />
         </div>
@@ -143,7 +161,7 @@ export default function GroupsPage() {
       ) : myGroups.length === 0 ? null : filteredMyGroups.length === 0 ? (
         <div className="mb-8">
           <EmptyState
-            icon="👥"
+            icon={<Users size={24} style={{ marginInline: "auto" }} />}
             title={t("list.noGroupsFiltered")}
             description={t("list.noGroupsFilteredDesc")}
             compact
@@ -161,22 +179,19 @@ export default function GroupsPage() {
     </section>;
 
   return (
-    <div>
-      <PageHeader data-testid="C0-0"
-        eyebrow={t("title")}
-        title={t("clubsTitle")}
-        subtitle={<span data-testid="C0-0-1">{t("list.groupCount", { count: myGroups.length })}</span>}
-        right={
-          <div className="flex gap-2">{myGroups.length > 0 && <Button data-testid="C0-0-2" variant="secondary" size="sm" onClick={() => { document.getElementById("club-find")?.scrollIntoView({ block: "start" }); findSearchRef.current?.focus({ preventScroll: true }); }}>{t("list.findClubs")}</Button>}<Button data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary" size="sm">
-            {t("button.create")}
-          </Button></div>
-        }
-      />
-
+    <div className="club-surface">
+      <header data-testid="C0-0" className="club-page-header">
+        <div><Text as="h1" variant="pageTitle">{t("clubsTitle")}</Text>
+        {myGroups.length > 0 && <Text as="p" variant="body" tone="secondary" data-testid="C0-0-1">{t("list.groupCount", { count: myGroups.length })}</Text>}</div>
+        <div className="club-page-actions">
+          {myGroups.length > 0 && <Button data-testid="C0-0-2" variant="secondary" size="sm" onClick={() => { document.getElementById("club-find")?.scrollIntoView({ block: "start" }); findSearchRef.current?.focus({ preventScroll: true }); }}>{t("list.findClubs")}</Button>}
+          <Button data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary" size="sm">{t("button.create")}</Button>
+        </div>
+      </header>
       {(myGroups.length > 0 || myLoading || Boolean(myGroupsError)) && myClubSection}
 
-      <h2 data-testid="C0-2" id="club-find" className="text-[length:var(--fs-lg)] font-bold mb-4" style={{ color: "var(--ink-0)" }}>{t("find.section")}</h2>
-      {!myLoading && !myGroupsError && myGroups.length === 0 && <p data-testid="C0.noClub">{t("empty.noGroups")} {t("list.noGroupsDesc")}</p>}
+      <Text as="h2" variant="title" data-testid="C0-2" id="club-find" className="mb-4">{t("find.section")}</Text>
+      {!myLoading && !myGroupsError && myGroups.length === 0 && <Text as="p" variant="body" tone="secondary" data-testid="C0.noClub" className="mb-4">{t("list.noGroupsDesc")}</Text>}
       {/* 검색 + 종목 필터 */}
       <div data-testid="C0-2-1" className="flex items-center flex-wrap mb-4" style={{ gap: 'var(--space-2)' }}>
         <input
@@ -186,7 +201,7 @@ export default function GroupsPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("search.groupName")}
           aria-label={t("search.groupName")}
-          className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
+          className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-size)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
           style={{ flex: "1 1 200px", background: "var(--bg-2)", border: "1px solid var(--line-soft)", color: "var(--ink-0)" }}
         />
         <input
@@ -195,7 +210,7 @@ export default function GroupsPage() {
           onChange={(e) => setCityFilter(e.target.value)}
           placeholder={t("search.city")}
           aria-label={t("search.city")}
-          className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
+          className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-size)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
           style={{ flex: "0 1 180px", background: "var(--bg-2)", border: "1px solid var(--line-soft)", color: "var(--ink-0)" }}
         />
         <div role="group" aria-label={t("filter.all")} className="flex items-center flex-wrap" style={{ gap: 'var(--space-1)' }}>
@@ -230,24 +245,24 @@ export default function GroupsPage() {
 
       {pendingNotice && (
         <Card padding="compact" className="mb-4" role="status" style={{ borderColor: "color-mix(in oklch, var(--amber) 45%, var(--line-soft))" }}>
-          <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>
+          <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>
             {t("join.pendingTitle")}
           </div>
-          <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>
+          <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)" }}>
             {pendingNotice}
           </div>
         </Card>
       )}
 
-      <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("find.publicGroups")}</h3>
-      {publicGroupsError ? (
+
+      {Boolean(publicGroupsError) && filteredPublicGroups.length > 0 && <div className="mb-4"><ErrorState title={t("error.loadFailed")} onRetry={retryPublicGroups} compact /></div>}
+      {Boolean(publicGroupsError) && filteredPublicGroups.length === 0 ? (
         <ErrorState title={t("error.loadFailed")} onRetry={retryPublicGroups} compact />
       ) : publicLoading ? (
         <LoadingSkeleton kind="list" count={3} />
       ) : filteredPublicGroups.length === 0 ? (
         <div data-testid="C0-2-4"><EmptyState
-          icon="👥"
-          actions={[{ label: t("button.create"), onClick: () => setShowCreate(true) }]}
+          icon={<Users size={24} style={{ marginInline: "auto" }} />}
           title={publicGroups.filter((g) => !myGroupIds.has(g.id)).length === 0 ? t("empty.noPublicGroups") : t("list.noGroupsFiltered")}
           description={publicGroups.filter((g) => !myGroupIds.has(g.id)).length > 0 ? t("list.noPublicGroupsFilteredDesc") : undefined}
           compact
@@ -266,13 +281,17 @@ export default function GroupsPage() {
         </div>
       )}
 
-      <div data-testid="C0-3" className="flex gap-2 mb-6">
-        <input data-testid="C0-3-1"
+      <Card data-testid="C0-3" className="club-invite-card" padding="card">
+        <Text as="h2" variant="title">{t("find.inviteTitle")}</Text>
+        <Text as="p" variant="body" tone="secondary">{t("find.inviteHint")}</Text>
+        <label htmlFor="club-invite-code">{t("find.inviteLabel")}</label>
+        <div className="club-invite-form">
+        <input id="club-invite-code" data-testid="C0-3-1"
           type="text"
           value={inviteCode}
           onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
           placeholder={t("find.inviteCode")}
-          className="flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)]"
+          className="flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-size)]"
           style={{
             background: "var(--bg-2)",
             border: "1px solid var(--line)",
@@ -286,12 +305,13 @@ export default function GroupsPage() {
         >
           {joining ? t("button.joining") : t("button.joinCode")}
         </Button>
-      </div>
-      {error && <p className="text-[length:var(--fs-sm)] text-red-500 mb-4">{error}</p>}
+        </div>
+      </Card>
+      {error && <p className="text-[length:var(--ft-body-size)] text-red-500 mb-4">{error}</p>}
 
 
       {!myLoading && !myGroupsError && myGroups.length === 0 && <GroupRequestHistory userId={user.uid} sectionId="C0-1" />}
-      <Link data-testid="C0-4" to="/explore/challenges">{t("challenges.title")}</Link>
+      <Card padding="card" className="club-league-card"><Text as="h2" variant="subtitle">{t("challenges.title")}</Text><Text as="p" variant="body" tone="secondary">{t("challenges.desc")}</Text><Link data-testid="C0-4" to="/explore/challenges">{t("list.viewLeague")}</Link></Card>
 
       <CreateGroupModal
         open={showCreate}

@@ -39,6 +39,7 @@ interface FitnessCoachBriefingProps {
   /** 현재 지표(CTL/ATL/TSB) 바로 아래 한 줄 — 부하 이력 해석의 충분도(낮은 근거일 때만 그려진다). */
   metricsNoteSlot?: ReactNode;
   currentBasis?: string;
+  currentDate?: string;
 }
 
 const CHOICE_LOAD: Record<TrainingChoice, number> = { rest: 0, recovery: 20, endurance: 45 };
@@ -97,7 +98,7 @@ function initialTrainingChoice(tsb: number): TrainingChoice {
   return "endurance";
 }
 
-export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false, deliveryEnabled = true, choiceTitle, weekChangeSlot, metricsNoteSlot, currentBasis }: FitnessCoachBriefingProps) {
+export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false, deliveryEnabled = true, choiceTitle, weekChangeSlot, metricsNoteSlot, currentBasis, currentDate }: FitnessCoachBriefingProps) {
   const { t } = useTranslation("fitness");
   const [mode, setMode] = useState<ImpactMode>("marginal");
   const [trainingChoice, setTrainingChoice] = useState<TrainingChoice>(() => part === "today" && !canonicalAvailable ? "rest" : initialTrainingChoice(current.tsb));
@@ -140,9 +141,15 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
             <div><Text as="div" variant="caption"><GlossaryText>{t("coach.metric.tsb")}</GlossaryText></Text><Text variant="dataMedium" style={{ color: "var(--ink-1)" }}>{signed(current.tsb)}</Text></div>
           </div>
         </div>
-        {currentBasis && <Text as="p" variant="caption" tone="secondary" style={{ marginTop: "var(--space-3)" }}>{currentBasis}</Text>}
-        {metricsNoteSlot}
-        {part === "condition" && <LocalizedLink data-testid="K1-1-3" to={`/coach/today?sport=${discipline}`}>{t("today.header.title")} →</LocalizedLink>}
+        {currentBasis && <div className="fitness-coach__summary-meta">
+          {currentDate ? <Text variant="caption" tone="secondary">{t("coach.currentAsOf", { date: new Date(`${currentDate}T00:00:00.000Z`).toLocaleDateString(locale, { month: "short", day: "numeric", timeZone: "UTC" }) })}</Text>
+            : <Text variant="caption" tone="secondary">{currentBasis}</Text>}
+          {currentDate && <details className="fitness-coach__summary-source"><summary>{t("coach.currentBasisDetails")}</summary>
+            <Text as="p" variant="caption" tone="tertiary">{currentBasis}</Text>
+          </details>}
+        </div>}
+        {metricsNoteSlot && <div className="fitness-coach__summary-evidence">{metricsNoteSlot}</div>}
+        {part === "condition" && <div className="fitness-coach__summary-action"><LocalizedLink data-testid="K1-1-3" to={`/coach/today?sport=${discipline}`}>{t("today.header.title")} →</LocalizedLink></div>}
       </Card>}
 
       <div className="fitness-coach__first-view">

@@ -58,6 +58,16 @@ describe("training term glossary", () => {
 });
 
 describe("GlossaryText", () => {
+  it("explains event schedule and safety terms with the shared format", async () => {
+    render(<GlossaryText>GPX / HH:MM / DNF / SOS / LIVE</GlossaryText>, { wrapper: GlossaryProvider });
+    for (const term of ["GPX", "HH:MM", "DNF", "SOS", "LIVE"]) {
+      const trigger = screen.getByRole("button", { name: `${term} 설명` });
+      fireEvent.focus(trigger);
+      expect(await screen.findByRole("tooltip")).toHaveClass("ds-tooltip-content");
+      fireEvent.blur(trigger);
+    }
+  });
+
   it("shows help on every term while retaining every original character", async () => {
     const { container } = render(<GlossaryText>FTP / FTP / 임계 페이스</GlossaryText>, { wrapper: GlossaryProvider });
     await waitFor(() => expect(screen.getAllByRole("button")).toHaveLength(3));

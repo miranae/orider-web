@@ -1,3 +1,9 @@
+import InfoTip from "../components/InfoTip";
+import { segmentMetric } from "../features/segments/segmentMetric";
+import { Map as MapIcon, Mountain, MoveRight } from "lucide-react";
+import SegmentSurface from "../features/segments/SegmentSurface";
+import SegmentClimbCategory from "../features/segments/SegmentClimbCategory";
+import GlossaryText from "../components/common/GlossaryText";
 import { useState, useMemo, useEffect, useCallback, useRef, memo, type CSSProperties } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { stripLangPrefix } from "../i18n/detector";
@@ -16,7 +22,7 @@ import { fetchStaticJson } from "../utils/staticJson";
 import { segmentTileUrl } from "../utils/segmentTiles";
 import { formatSegmentRegion } from "../utils/regionName";
 import { ErrorState } from "../components/redesign";
-import { Button, Card, Chip, Text } from "../theme/components";
+import { Button, Card, Chip, Text, buttonClass, Input } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
 import { useAuth } from "../contexts/AuthContext";
 import { usePersonalHeatmap } from "../hooks/usePersonalHeatmap";
@@ -122,22 +128,6 @@ function getVisibleGeohashes(bounds: LngLatBounds, precision: number = 3): strin
 const LIST_PAGE_SIZE = 50;
 
 // CATEGORIES will be populated from translation in component
-
-const CLIMB_LABELS: Record<number, string> = {
-  5: "HC",
-  4: "Cat 1",
-  3: "Cat 2",
-  2: "Cat 3",
-  1: "Cat 4",
-};
-
-const CLIMB_COLORS: Record<number, string> = {
-  5: "bg-red-600 text-[var(--ink-0)]",
-  4: "bg-red-500 text-[var(--ink-0)]",
-  3: "bg-[var(--amber)] text-[var(--bg-0)]",
-  2: "bg-yellow-500 text-[var(--ink-0)]",
-  1: "bg-green-500 text-[var(--ink-0)]",
-};
 
 const COLOR_CLIMB = "#EF4444";
 const COLOR_FLAT = "#3B82F6";
@@ -305,42 +295,6 @@ function buildPointsGeoJSON(
   return { type: "FeatureCollection", features };
 }
 
-/** 초기 1회 전체 세그먼트에 맞게 줌 */
-function FitAllBounds({ segments, polylineCache }: {
-  segments: SegmentData[];
-  polylineCache: Map<string, LatLngTuple[]>;
-}) {
-  const { current: map } = useMap();
-  const fitted = useRef(false);
-
-  useEffect(() => {
-    if (fitted.current || segments.length === 0 || !map) return;
-    const lats: number[] = [];
-    const lngs: number[] = [];
-    for (const s of segments) {
-      const center = getSegmentCenter(s, polylineCache);
-      if (center) {
-        lats.push(center[0]);
-        lngs.push(center[1]);
-      }
-    }
-    if (lats.length === 0) return;
-
-    lats.sort((a, b) => a - b);
-    lngs.sort((a, b) => a - b);
-
-    const lo = Math.floor(lats.length * 0.1);
-    const hi = Math.max(lo, Math.ceil(lats.length * 0.9) - 1);
-    map.fitBounds(
-      [[lngs[lo]!, lats[lo]!], [lngs[hi]!, lats[hi]!]],
-      { padding: 40, duration: 0 },
-    );
-    fitted.current = true;
-  }, [map, segments, polylineCache]);
-
-  return null;
-}
-
 /** 선택된 세그먼트로 지도 이동 */
 function FlyToSegment({ segmentId, polylineCache, segments }: {
   segmentId: string | null;
@@ -385,6 +339,10 @@ const moduleCache = {
 };
 
 export default function ExplorePage() {
+  return <SegmentSurface><ExploreSegmentsContent /></SegmentSurface>;
+}
+
+function ExploreSegmentsContent() {
   const mapboxToken = getMapboxToken();
   const [mapFailed, setMapFailed] = useState(false);
   const { t } = useTranslation("segment");
@@ -394,10 +352,10 @@ export default function ExplorePage() {
   const isVisible = stripLangPrefix(location.pathname) === "/explore/segments";
   const [hasRendered, setHasRendered] = useState(isVisible);
 
-  const CATEGORIES: { id: Category; label: string; icon: string }[] = [
-    { id: "all", label: t("category.all"), icon: "🗺" },
-    { id: "climb", label: t("category.climb"), icon: "⛰" },
-    { id: "flat", label: t("category.flat"), icon: "➡️" },
+  const CATEGORIES: { id: Category; label: string; icon: typeof MapIcon }[] = [
+    { id: "all", label: t("category.all"), icon: MapIcon },
+    { id: "climb", label: t("category.climb"), icon: Mountain },
+    { id: "flat", label: t("category.flat"), icon: MoveRight },
   ];
 
   useEffect(() => {
@@ -749,47 +707,46 @@ export default function ExplorePage() {
       {/* 컨트롤 바 */}
       <div className="flex-shrink-0 px-4 pb-4 space-y-4 bg-[var(--bg-1)] border-b border-[var(--line-soft)]">
         <div className="flex items-center justify-between pt-3 md:pt-6">
-          <div className="hidden md:block">
-            <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("title")}</h1>
-            <p className="text-[var(--ink-2)] text-[length:var(--fs-sm)] mt-1">
+          <div className="min-w-0">
+            <h1 className="text-[length:var(--fs-2xl)] font-bold"><GlossaryText>{t("title")}</GlossaryText></h1>
+            <p className="text-[var(--ink-2)] text-[length:var(--ft-body-size)] mt-1">
               {t("subtitle")}
             </p>
           </div>
-          {user && <LocalizedLink data-testid="E2-0-1" to="/segment/create">{t("leaderboardPage.create")}</LocalizedLink>}
+          {user && <LocalizedLink data-testid="E2-0-1" className={buttonClass({ variant: "primary", size: "sm" })} to="/segment/create">{t("leaderboardPage.create")}</LocalizedLink>}
         </div>
 
-        <div className="flex gap-2">{(["bike", "run"] as const).map((sport) => <Button key={sport} size="sm" variant="secondary" aria-pressed={discipline === sport} onClick={() => setDiscipline(sport)}>{t(`leaderboardPage.filter.${sport}`)}</Button>)}</div>
+        <div className="flex gap-2">{(["bike", "run"] as const).map((sport) => <Button key={sport} size="sm" variant={discipline === sport ? "primary" : "secondary"} className={discipline === sport ? "font-bold" : undefined} aria-pressed={discipline === sport} onClick={() => setDiscipline(sport)}>{t(`leaderboardPage.filter.${sport}`)}</Button>)}</div>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <button
               onClick={handleSearch}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-3)] hover:text-[var(--lime)] transition-colors"
+              aria-label={t("search.action")}
+              className={buttonClass({ variant: "ghost", className: "segment-search-action text-[var(--ink-3)] hover:text-[var(--lime)] transition-colors" })}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
-            <input data-testid="E2-2-1"
+            <Input data-testid="E2-2-1"
               type="text"
+              aria-label={t("search.label")}
               placeholder={t("search.placeholder")}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-2)] border border-[var(--line)] rounded-[var(--r-lg)] text-[length:var(--fs-sm)] text-[var(--ink-0)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent"
+              className="segment-search-input w-full"
             />
           </div>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {CATEGORIES.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setCategory(cat.id)}
-                className={`px-3 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] font-medium transition-colors whitespace-nowrap ${
-                  category === cat.id
-                    ? "bg-[var(--lime)] text-[var(--bg-0)]"
-                    : "bg-[var(--bg-2)] border border-[var(--line)] text-[var(--ink-1)] hover:bg-[var(--bg-3)]"
-                }`}
+                aria-pressed={category === cat.id}
+                className={buttonClass({ variant: category === cat.id ? "primary" : "secondary", className: "inline-flex items-center justify-center gap-2 px-3 py-2 text-[length:var(--ft-body-size)] rounded-[var(--r-lg)] font-medium transition-colors whitespace-nowrap" })}
               >
-                {cat.icon} {cat.label}
+                <cat.icon size={16} aria-hidden="true" /> {cat.label}
               </button>
             ))}
           </div>
@@ -806,25 +763,21 @@ export default function ExplorePage() {
           {/* 지도 — 모바일은 짧게(목록에 공간 양보), 데스크톱은 좌측 분할 영역 채움 */}
           <div data-testid="E2-1" className="h-[55vh] lg:h-auto lg:flex-[2] relative">
             {/* 히트맵 토글 (#493) */}
-            <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
-              <div className="flex gap-1">
+            <div className="segment-map-tools absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
+              <div className="segment-heatmap-options flex gap-1">
               {(["off", "global", "recent30", ...(user ? ["mine" as const] : [])] as HeatMode[]).map((m) => (
                 <button data-testid="E2-1-2"
                   key={m}
                   onClick={() => setHeatMode(m)}
                   aria-pressed={heatMode === m}
-                  className={`px-2 py-1 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-medium transition-colors ${
-                    heatMode === m
-                      ? "bg-[var(--lime)] text-[var(--bg-0)]"
-                      : "bg-black/50 text-[var(--ink-0)] hover:bg-black/70"
-                  }`}
+                  className={buttonClass({ variant: "ghost", className: "segment-map-option px-2 py-1 text-[length:var(--ft-body-size)] rounded-[var(--r-sm)] font-medium transition-colors" })}
                 >
                   {t(`heat.${m}`)}
                 </button>
               ))}
               </div>
               {heatMode === "mine" && user && (
-                <div className="max-w-64 rounded-[var(--r-sm)] bg-black/70 px-2 py-1 text-right text-[length:var(--fs-xs)] text-[var(--ink-0)]">
+                <div className="segment-map-note max-w-64 rounded-[var(--r-sm)] px-2 py-1 text-right text-[length:var(--ft-body-size)]">
                   {personalHeatmap.loading
                     ? t("heat.mineLoading")
                     : personalHeatmap.error
@@ -838,25 +791,21 @@ export default function ExplorePage() {
                 <button data-testid="E2-1-3"
                   onClick={() => setShowExplorationGrid((prev) => !prev)}
                   aria-pressed={showExplorationGrid}
-                  className={`px-2 py-1 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-medium transition-colors ${
-                    showExplorationGrid
-                      ? "bg-[var(--lime)] text-[var(--bg-0)]"
-                      : "bg-black/50 text-[var(--ink-0)] hover:bg-black/70"
-                  }`}
+                  className={buttonClass({ variant: "ghost", className: "segment-map-option px-2 py-1 text-[length:var(--ft-body-size)] rounded-[var(--r-sm)] font-medium transition-colors" })}
                 >
                   {t("exploration.toggle")}
                 </button>
               )}
               {showExplorationGrid && user && (
-                <div className="max-w-64 rounded-[var(--r-sm)] bg-black/70 px-2 py-1 text-right text-[length:var(--fs-xs)] text-[var(--ink-0)]">
+                <div className="segment-map-note max-w-64 rounded-[var(--r-sm)] px-2 py-1 text-right text-[length:var(--ft-body-size)]">
                   {explorationGrid.loading
                     ? t("exploration.loading")
                     : explorationGrid.error
                       ? t("exploration.error")
                       : (
                         <>
-                          <div>{t("exploration.tileCount", { count: explorationGrid.result.tileCount })}</div>
-                          <div>{t("exploration.maxSquare", { size: explorationGrid.result.maxSquare })}</div>
+                          <div><InfoTip title={t("exploration.tileTitle")} content={t("exploration.tileExplanation")} label={t("exploration.tileCount", { count: explorationGrid.result.tileCount })}>{t("exploration.tileCount", { count: explorationGrid.result.tileCount })}</InfoTip></div>
+                          <div><InfoTip title={t("exploration.squareTitle")} content={t("exploration.squareExplanation")} label={t("exploration.maxSquare", { size: explorationGrid.result.maxSquare })}>{t("exploration.maxSquare", { size: explorationGrid.result.maxSquare })}</InfoTip></div>
                         </>
                       )}
                   <div className="text-[var(--ink-2)]">{t("heat.minePrivacy")}</div>
@@ -867,7 +816,7 @@ export default function ExplorePage() {
               mapboxAccessToken={mapboxToken}
               mapStyle={MAP_STYLE}
               initialViewState={initialView}
-              onLoad={(e) => applyKoreaCyclingStyle(e.target)}
+              onLoad={(e) => { applyKoreaCyclingStyle(e.target); handleMoveEnd(e); }}
               onError={(event) => { logClientError("ExplorePage.map", event.error); setMapFailed(true); }}
               onMoveEnd={handleMoveEnd}
               onClick={handleMapClick}
@@ -879,7 +828,6 @@ export default function ExplorePage() {
               style={{ width: "100%", height: "100%" }}
               interactiveLayerIds={["segment-lines-hit", "segment-points"]}
             >
-              <FitAllBounds segments={allSegments} polylineCache={polylineCache.current} />
               <FlyToSegment segmentId={selectedId} polylineCache={polylineCache.current} segments={allSegments} />
 
               {/* 발견 히트맵 — 세그먼트 아래 렌더(#493) */}
@@ -934,7 +882,7 @@ export default function ExplorePage() {
                   <div style={{ color: "var(--ink-0)", fontSize: "var(--fs-xs)" }}>
                     <div style={{ fontWeight: 600 }}>{tooltipInfo.name}</div>
                     <div style={{ color: "var(--ink-3)" }}>
-                      {(tooltipInfo.distance / 1000).toFixed(2)} km · {tooltipInfo.grade.toFixed(1)}%
+                      {t("distance")} {segmentMetric(tooltipInfo.distance, 2, 1000)} km · {t("averageGrade")} {segmentMetric(tooltipInfo.grade, 1)} %
                     </div>
                   </div>
                 </Popup>
@@ -946,13 +894,13 @@ export default function ExplorePage() {
           <div data-testid="E2-2" className="flex-1 lg:flex-[1] lg:max-w-md overflow-y-auto border-t lg:border-t-0 lg:border-l border-[var(--line-soft)] bg-[var(--bg-0)]">
             {/* 모바일: 좌우 패딩 제거해 카드를 화면 전폭으로. lg에서는 p-3 유지 */}
             <div data-testid={listTab === "bounds" ? undefined : "E2-3"} className={isMobile ? "pt-3 pb-3" : "p-3"}>
-              <div className="flex gap-2 mb-3">{(["bounds", "notable", "challenged"] as const).map((tab) => <Button key={tab} variant="secondary" size="sm" aria-pressed={listTab === tab} onClick={() => setListTab(tab)}>{t(`explore.listTab.${tab}`)}</Button>)}</div>
+              <div className="flex flex-wrap gap-2 mb-3">{(["bounds", "notable", "challenged"] as const).map((tab) => <Button key={tab} variant={listTab === tab ? "primary" : "secondary"} size="sm" className={listTab === tab ? "font-bold" : undefined} aria-pressed={listTab === tab} onClick={() => setListTab(tab)}>{t(`explore.listTab.${tab}`)}</Button>)}</div>
               {listTab === "challenged" ? <LeaderboardPage search={searchQuery} discipline={discipline} category={category} /> : <>
               {/* 선택된 세그먼트 상세 패널 */}
               {selectedId && (() => {
                 const sel = allSegments.find((s) => s.id === selectedId);
                 if (!sel) return null;
-                const distKm = (sel.distance / 1000).toFixed(2);
+                const distKm = segmentMetric(sel.distance, 2, 1000);
                 const elevGainRawSel = Math.max(0, sel.elevationHigh - sel.elevationLow);
                 const elevImplausibleSel = isImplausibleSegmentElevation({
                   elevHigh: sel.elevationHigh,
@@ -961,7 +909,6 @@ export default function ExplorePage() {
                   avgGrade: sel.averageGrade,
                 });
                 const elevGain = elevImplausibleSel ? null : elevGainRawSel;
-                const climbLabel = CLIMB_LABELS[sel.climbCategory];
                 // 모바일: 전폭 카드 (외부 컨테이너 패딩 없으므로 추가 음수마진 불필요)
                 const selectedCardStyle: CSSProperties = isMobile
                   ? { padding: 0, overflow: "hidden", borderRadius: 0, borderLeft: "none", borderRight: "none", marginBottom: "var(--space-3)" }
@@ -970,23 +917,19 @@ export default function ExplorePage() {
                   <Card padding="none" className="mb-3" style={selectedCardStyle}>
                     <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        {climbLabel && (
-                          <span className={`px-2 py-0.5 text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)] ${CLIMB_COLORS[sel.climbCategory]}`}>
-                            {climbLabel}
-                          </span>
-                        )}
-                        <Chip style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px" }}>{distKm} km</Chip>
-                        <Chip style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px" }}>{t("explore.avgGradeChip", { grade: sel.averageGrade.toFixed(1) })}</Chip>
+                        <SegmentClimbCategory category={sel.climbCategory} />
+                        <Chip style={{ fontSize: "var(--ft-body-size)", padding: "var(--space-1) var(--space-2)" }}>{distKm} km</Chip>
+                        <Chip style={{ fontSize: "var(--ft-body-size)", padding: "var(--space-1) var(--space-2)" }}>{t("explore.avgGradeChip", { grade: segmentMetric(sel.averageGrade, 1) })}</Chip>
                       </div>
                       <h2 className="text-[length:var(--fs-lg)] font-bold" style={{ color: "var(--ink-0)" }}>{sel.name}</h2>
                       {(sel.city || sel.state) && (
-                        <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: "var(--ink-3)" }}>
+                        <div className="text-[length:var(--ft-body-size)] mt-1" style={{ color: "var(--ink-3)" }}>
                           {[sel.city, sel.state].filter(Boolean).join(", ")}
                         </div>
                       )}
                     </div>
-                    <div style={{
-                      display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1,
+                    <div className="grid grid-cols-2 sm:grid-cols-4" style={{
+                      gap: 1,
                       background: "var(--line-soft)", borderBottom: "1px solid var(--line-soft)",
                     }}>
                       {([
@@ -999,13 +942,13 @@ export default function ExplorePage() {
                             ? t("explore.elevImplausible", { raw: Math.round(elevGainRawSel) })
                             : undefined,
                         ],
-                        [t("averageGrade"), sel.averageGrade.toFixed(1), "%", undefined],
-                        [t("maxGrade"), sel.maximumGrade.toFixed(1), "%", undefined],
+                        [t("averageGrade"), segmentMetric(sel.averageGrade, 1), "%", undefined],
+                        [t("maxGrade"), segmentMetric(sel.maximumGrade, 1), "%", undefined],
                       ] as [string, string, string, string | undefined][]).map(([k, v, u, title]) => (
                         <div key={k} title={title} style={{ padding: "10px 8px", background: "var(--bg-1)" }}>
-                          <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)', fontSize: "var(--fs-2xs)" }}>{k}</Text>
+                          <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)', fontSize: "var(--ft-body-size)" }}><GlossaryText>{k}</GlossaryText></Text>
                           <div>
-                            <Text variant="dataMedium" style={{ fontSize: "var(--fs-sm)" }}>{v}</Text>
+                            <Text variant="dataMedium" style={{ fontSize: "var(--ft-body-size)" }}>{v}</Text>
                             <Text variant="unit">{u}</Text>
                           </div>
                         </div>
@@ -1029,7 +972,7 @@ export default function ExplorePage() {
                   : t("stats.areaCount", { count: listSource.length })}
               </Text>
               {listSource.length === 0 ? (
-                <div className="text-center py-12 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>
+                <div className="text-center py-12 text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>
                   {searchQuery
                     ? t("empty.noResults")
                     : allSegments.length === 0
@@ -1056,7 +999,7 @@ export default function ExplorePage() {
                     <div className="flex justify-center mt-4">
                       <button
                         onClick={() => setListLimit((prev) => prev + LIST_PAGE_SIZE)}
-                        className="px-6 py-2.5 bg-[var(--bg-2)] border border-[var(--line)] rounded-[var(--r-lg)] text-[length:var(--fs-sm)] font-medium text-[var(--ink-1)] hover:bg-[var(--bg-3)] transition-colors"
+                        className={buttonClass({ variant: "ghost", className: "px-6 py-2.5 bg-[var(--bg-2)] border border-[var(--line)] rounded-[var(--r-lg)] text-[length:var(--ft-body-size)] font-medium text-[var(--ink-1)] hover:bg-[var(--bg-3)] transition-colors" })}
                       >
                         {t("explore.loadMore", { remaining: listSource.length - listLimit })}
                       </button>
@@ -1093,8 +1036,6 @@ const MemoSegmentCard = memo(function SegmentCard({ segment, isHovered, isSelect
     avgGrade: segment.averageGrade,
   });
   const elevGain = elevImplausible ? null : elevGainRaw;
-  const climbLabel = CLIMB_LABELS[segment.climbCategory];
-  const climbColor = CLIMB_COLORS[segment.climbCategory];
   const highlighted = isHovered || isSelected;
   const regionLabel = formatSegmentRegion(segment.city, segment.state, i18n.language);
 
@@ -1123,25 +1064,22 @@ const MemoSegmentCard = memo(function SegmentCard({ segment, isHovered, isSelect
       onMouseLeave={() => onHover(null)}
     >
       <div className="flex items-center gap-2">
-        {climbLabel && climbColor && (
-          <span className={`px-1.5 py-0.5 text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)] ${climbColor}`}>
-            {climbLabel}
-          </span>
-        )}
-        <h3 className="font-semibold text-[length:var(--fs-sm)] truncate flex-1" style={{ color: "var(--ink-0)" }}>{segment.name}</h3>
+        <SegmentClimbCategory category={segment.climbCategory} />
+        <h3 className="font-semibold text-[length:var(--ft-body-size)] truncate flex-1" style={{ color: "var(--ink-0)" }}>
+          <button type="button" className={buttonClass({ variant: "ghost", className: "w-full truncate text-left rounded-[var(--r-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--lime)]" })} aria-pressed={isSelected}
+            onClick={event => { event.stopPropagation(); onSelect(segment.id); }}>{segment.name}</button>
+        </h3>
       </div>
       {regionLabel && (
-        <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>
+        <div className="text-[length:var(--ft-body-size)] mt-0.5" style={{ color: "var(--ink-3)" }}>
           {regionLabel}
         </div>
       )}
-      <div className="flex gap-3 mt-1.5 text-[length:var(--fs-xs)]" style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)" }}>
-        <span>{(segment.distance / 1000).toFixed(2)} km</span>
-        <span>{segment.averageGrade.toFixed(1)}%</span>
-        <span title={elevImplausible ? t("explore.elevImplausible", { raw: Math.round(elevGainRaw) }) : undefined}>
-          ▲ {elevGain != null ? `${Math.round(elevGain)}m` : "—"}
-        </span>
-      </div>
+      <dl className="segment-list-metrics">
+        <div><dt>{t("distance")}</dt><dd>{Number.isFinite(segment.distance) ? `${segmentMetric(segment.distance, 2, 1000)} km` : "—"}</dd></div>
+        <div><dt><GlossaryText>{t("averageGrade")}</GlossaryText></dt><dd>{Number.isFinite(segment.averageGrade) ? `${segmentMetric(segment.averageGrade, 1)} %` : "—"}</dd></div>
+        <div><dt><GlossaryText>{t("elevationGain")}</GlossaryText></dt><dd>{elevGain != null && Number.isFinite(elevGain) ? `${Math.round(elevGain)} m` : "—"}</dd></div>
+      </dl>
     </div>
   );
 });

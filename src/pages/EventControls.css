@@ -1,0 +1,61 @@
+/* Event and recipe controls share the existing 40px form-control token. */
+.event-controls-surface .ds-input:not(textarea) {
+  box-sizing: border-box;
+  height: var(--dim-button-height) !important;
+  min-height: var(--dim-button-height);
+  padding: var(--space-1-5) var(--space-3) !important;
+  font-size: var(--ft-body-size) !important;
+}
+.event-controls-surface textarea.ds-input {
+  box-sizing: border-box;
+  min-height: calc(var(--dim-button-height) * 2);
+  padding: var(--space-2) var(--space-3) !important;
+  font-size: var(--ft-body-size) !important;
+}
+.event-controls-surface .ds-btn:not(:where([role="dialog"] *)) { min-height: var(--dim-button-height); }
+.event-controls-surface .ds-btn__label { min-width: 0; white-space: normal; }
+.event-controls-surface .ds-btn[role="radio"] .ds-btn__label { display: block; width: 100%; }
+.event-controls-surface input:is([type="checkbox"], [type="radio"]) {
+  flex-shrink: 0;
+  accent-color: var(--lime);
+}
+.event-controls-surface input[type="file"] {
+  min-height: var(--dim-button-height);
+  color: var(--ink-1);
+  font: inherit;
+}
+.event-controls-surface input[type="file"]::file-selector-button {
+  min-height: var(--dim-button-height);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+  color: var(--ink-1);
+  font: inherit;
+}
+@media (max-width: 36rem) {
+  .event-controls-surface .ds-input,
+  .event-controls-surface .ds-dropdown-select { min-width: 0; max-width: 100%; }
+}
+.event-controls-surface label:has(> input.sr-only:focus-visible) {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+.event-controls-surface .ds-dropdown-select__trigger { min-height: var(--dim-button-height); }
+@media (max-width: 36rem) {
+  .event-controls-surface .event-emergency-fields { grid-template-columns: 1fr !important; }
+}
+/* Only the outer DateField/TimeField triggers; their dialog buttons retain compact sizing. */
+.event-controls-surface button[aria-haspopup="dialog"] {
+  box-sizing: border-box;
+  height: var(--dim-button-height) !important;
+  min-height: var(--dim-button-height);
+  padding-block: var(--space-1-5) !important;
+}
+
+.event-controls-surface .ds-input.event-input-with-leading-icon {
+  padding-inline-start: var(--space-7) !important;
+}
+/* Date/Time menus share the event dropdown layer above the sticky app header. */
+.event-controls-surface div:has(> button[aria-haspopup="dialog"]) > div[role="dialog"] {
+  z-index: 1000 !important;
+}

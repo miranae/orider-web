@@ -1,3 +1,5 @@
+import i18n from "i18next";
+import enTraining from "../i18n/resources/en/training.json";
 import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
@@ -55,4 +57,19 @@ describe("goal hub", () => {
     expect(screen.getByTestId("K3-2-5")).toBeInTheDocument();
     expect(screen.queryByTestId("K3-2")).not.toBeInTheDocument();
   });
+});
+
+
+it.each(['ko', 'en'])('uses the active %s UI locale for the saved target date', async locale => {
+  const previous = i18n.language;
+  i18n.addResourceBundle('en', 'training', enTraining, true, true);
+  const expectedDate = new Date('2026-12-01').toLocaleDateString(locale);
+  const format = vi.spyOn(Date.prototype, 'toLocaleDateString');
+  try {
+    await i18n.changeLanguage(locale);
+    state.goal = { id: 'localized-date', title: 'Locale goal', eventType: 'completion' };
+    renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />, { route: `/${locale}/coach/goals?sport=bike` });
+    expect(screen.getByTestId('K3-1-1')).toHaveTextContent(expectedDate);
+    expect(format).toHaveBeenCalledWith(locale);
+  } finally { format.mockRestore(); await i18n.changeLanguage(previous); }
 });

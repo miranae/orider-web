@@ -6,8 +6,9 @@ describe("GroupSettingsPage manager contracts", () => {
   const source = readFileSync(join(process.cwd(), "src/pages/group/GroupSettingsPage.tsx"), "utf8");
 
   it("uses server-owned invite callables and never writes inviteCode to the public group", () => {
-    expect(source).toContain("getGroupInviteCode(groupId)");
-    expect(source).toContain("regenerateGroupInviteCode(groupId)");
+    expect(source).not.toContain("getGroupInviteCode(");
+    expect(source).not.toContain("regenerateGroupInviteCode(");
+    expect(source).toContain("/members?section=leadership");
     expect(source).not.toContain("generateInviteCode");
     expect(source).not.toMatch(/updateDoc\([^)]*inviteCode/s);
   });

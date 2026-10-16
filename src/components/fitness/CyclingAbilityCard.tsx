@@ -1,3 +1,4 @@
+import GlossaryText from "../common/GlossaryText";
 import { useTranslation } from "react-i18next";
 import type { CyclingAbilityResult } from "../../features/fitness/multisportPerformance";
 import { Card, Text } from "../../theme/components";
@@ -27,7 +28,7 @@ function CyclingAbilityContent({ cycling }: Pick<CyclingAbilityCardProps, "cycli
   const strongestAxis = uniqueStrongestAxis(cycling);
   return (
     <>
-      <Text variant="eyebrow">{t("mobileFitness.sport.bike.title")}</Text>
+      <Text variant="eyebrow"><GlossaryText>{t("mobileFitness.sport.bike.title")}</GlossaryText></Text>
       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>
         {t("mobileFitness.sport.bike.basis", { count: cycling?.activityCount ?? 0 })}
       </div>
@@ -47,7 +48,7 @@ function CyclingAbilityContent({ cycling }: Pick<CyclingAbilityCardProps, "cycli
             <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--fs-sm)" }}>
                 <span aria-hidden style={{ width: "var(--space-2)", height: "var(--space-2)", borderRadius: "var(--r-pill)", background: AXIS_ACCENTS[axis.key], flexShrink: 0 }} />
-                {label}
+                <GlossaryText>{label}</GlossaryText>
               </span>
               {status && <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", fontWeight: 600 }}>{status}</span>}
             </div>
@@ -61,9 +62,9 @@ function CyclingAbilityContent({ cycling }: Pick<CyclingAbilityCardProps, "cycli
               </div>
             )}
             <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>
-              {axis.evidence.length > 0
+              <GlossaryText>{axis.evidence.length > 0
                 ? axis.evidence.map((item) => `${item.duration} ${item.watts != null ? `${Math.round(item.watts)}W` : "—"}${item.wPerKg != null ? ` · ${item.wPerKg.toFixed(2)}W/kg` : ""}`).join(" · ")
-                : t("mobileFitness.sport.noMeasuredEvidence")}
+                : t("mobileFitness.sport.noMeasuredEvidence")}</GlossaryText>
               {` · ${t(`mobileFitness.integrated.confidence.${axis.confidence}`)}`}
             </div>
           </div>

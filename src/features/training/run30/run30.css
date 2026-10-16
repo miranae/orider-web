@@ -259,3 +259,41 @@
 .orider-embedded-surface--plan > .run30-enroll {
   margin: var(--space-2) var(--space-4);
 }
+
+/* Workout inspection: source duration and exact source steps, independent of start eligibility. */
+.run30-running-today { display: grid; gap: var(--space-3); }
+.run30-running-today p { margin: 0; }
+.run30-running-today__meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.run30-workout-outline { display: grid; gap: var(--space-3); min-width: 0; }
+.run30-outline-total { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-3); padding-block: var(--space-2); }
+.run30-outline-total > span { color: var(--ink-2); font-size: var(--ft-body-size); }
+.run30-outline-total > strong { color: var(--ink-0); font-size: var(--fs-2xl); line-height: 1.2; font-weight: var(--ft-title-weight); font-variant-numeric: tabular-nums; }
+.run30-outline-phases { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+.run30-outline-phases > section { min-width: 0; padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-2); }
+.run30-outline-phases h4 { margin: 0 0 var(--space-2); font-size: var(--fs-lg); font-weight: 600; }
+.run30-outline-blocks { display: grid; gap: var(--space-2); }
+.run30-outline-block { display: grid; gap: var(--space-1); }
+.run30-outline-repeat { color: var(--accent); font-size: var(--ft-body-size); font-weight: 600; }
+.run30-outline-step { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); min-width: 0; color: var(--ink-1); font-size: var(--ft-body-size); line-height: 1.5; }
+.run30-outline-step > span { min-width: 0; overflow-wrap: anywhere; }
+.run30-outline-step > strong { flex-shrink: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.run30-outline-details > summary { min-height: var(--dim-button-height); display: flex; align-items: center; cursor: pointer; color: var(--ink-2); font-size: var(--ft-body-size); }
+.run30-outline-details .run30-segments { padding: var(--space-2) 0 0; list-style: none; margin: 0; }
+.run30-outline-details .run30-segments > li { display: block; padding-block: var(--space-1); }
+.run30-running-today__stores { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-3); color: var(--ink-2); font-size: var(--ft-body-size); }
+.run30-running-today__stores a { color: var(--ink-2); text-decoration: underline; }
+.run30-running-today__plan { display: flex; padding-top: var(--space-3); border-top: 1px solid var(--line-soft); }
+.run30-running-today__plan > a { white-space: normal; text-align: center; }
+.run30-stage__date { font-family: inherit; font-size: var(--ft-body-size); }
+.run30-stage__meta { max-width: 100%; }
+@media (max-width: 36rem) {
+  .run30-stage__row { align-items: start; flex-wrap: wrap; }
+  .run30-stage__meta { justify-content: flex-start; }
+  .run30-running-today__plan > a { width: 100%; }
+}
+.run30-outline-details > summary { justify-content: space-between; gap: var(--space-2); }
+.run30-outline-details[open] > summary > svg { transform: rotate(180deg); }
+.run30-running-today__stores a { display: inline-flex; align-items: center; min-height: var(--dim-button-height); }
+.run30-stages > .run30-section-head > h3 { font-size: var(--ft-title-size); font-weight: var(--ft-title-weight); }
+
+.run30-outline-phases > .run30-outline-tail { background: var(--bg-1); border-style: dashed; }

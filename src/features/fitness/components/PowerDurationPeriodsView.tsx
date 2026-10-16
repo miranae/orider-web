@@ -1,7 +1,8 @@
+import "./fitness-analysis-controls.css";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PowerCurvePeriodsResponse, WeightNormalizedDurationPoint, WeightNormalizedDurationObservations } from "@shared/types/power-curve-periods";
-import { ChartFrame, Select, Text } from "../../../theme";
+import { ChartFrame, DropdownSelect, Text } from "../../../theme";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import "./power-duration-periods.css";
 
@@ -32,7 +33,7 @@ export function PowerDurationPeriodsView({ response, unit = "W" }: { response: P
   const x = (seconds: number) => 45 + Math.log(seconds) / Math.log(86400) * 295;
   const y = (watts: number) => 142 - watts / high * 105;
   const date = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-  return <section className="dense-period-power" aria-label={t("densePeriod.title")}>
+  return <section className="fitness-analysis-controls dense-period-power" aria-label={t("densePeriod.title")}>
     <Text as="h4" variant="bodyMedium" weight={600}>{t("densePeriod.title")}</Text>
     <Text as="p" variant="bodyMedium" tone="secondary">{t("densePeriod.scope")}</Text>
     {normalized && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
@@ -42,7 +43,7 @@ export function PowerDurationPeriodsView({ response, unit = "W" }: { response: P
         <text x={45} y={18} fill="var(--ink-2)">{unit}</text>
         {observations.map((value, index) => <g key={index}>{value?.points.map(point => <circle key={point.durationSeconds} cx={x(point.durationSeconds)} cy={y(power(point))} r={selected === point.durationSeconds ? 4 : 2} fill={index ? "var(--ink-2)" : "var(--accent-dark)"} />)}</g>)}
         {[1, 60, 3600, 86400].map((seconds, index) => <text key={seconds} x={x(seconds)} y={168} textAnchor={index === 0 ? "start" : index === 3 ? "end" : "middle"} fill="var(--ink-2)">{durationLabel(seconds)}</text>)}
-      </svg><label className="dense-period-duration" htmlFor={id}><Text variant="bodyMedium">{t("periodCurve.duration")}</Text><Select id={id} value={selected} onChange={event => setDuration(Number(event.target.value))}>{durations.map(seconds => <option key={seconds} value={seconds}>{durationLabel(seconds)}</option>)}</Select></label></> : <Text as="p" variant="bodyMedium" tone="secondary">{t(normalized ? "periodCurve.weightEmpty" : "densePeriod.empty")}</Text>}
+      </svg><label className="dense-period-duration" htmlFor={id}><Text variant="bodyMedium">{t("periodCurve.duration")}</Text><DropdownSelect id={id} label={t("periodCurve.duration")} value={String(selected)} onChange={next => setDuration(Number(next))} options={durations.map((seconds) => ({ value: String(seconds), label: durationLabel(seconds) }))} /></label></> : <Text as="p" variant="bodyMedium" tone="secondary">{t(normalized ? "periodCurve.weightEmpty" : "densePeriod.empty")}</Text>}
       <div className="dense-period-values">{response.periods.map((period, index) => {
         const value = observations[index], point = values[index];
         return <div key={index} className="space-y-2"><Text as="h5" variant="bodyMedium" weight={600}><span className={`dense-period-dot${index ? " dense-period-dot--second" : ""}`} />{date(period.fromInclusive)} – {date(period.toExclusive - 1)}</Text><Text as="p" variant="bodyMedium">{point ? `${displayPower(point)} ${unit} · ${t("densePeriod.n", { count: point.observedActivityCount })}` : "—"}</Text><Text as="p" variant="bodyMedium" tone="secondary">{t(!value ? "densePeriod.unknown" : value.partial ? "densePeriod.partial" : "densePeriod.complete")}</Text>{point && <Text as="p" variant="bodyMedium" tone="secondary">{t(`periodCurve.source.${point.provenance}`)}</Text>}{point && normalized && "weightKg" in point && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightWinner", { watts: point.maxAveragePowerW, kg: point.weightKg })}</Text>}{point && <LocalizedLink className="dense-period-source" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}>{t("periodCurve.source", { date: date(point.startTime) })}</LocalizedLink>}</div>;

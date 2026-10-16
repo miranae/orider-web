@@ -1,5 +1,7 @@
+import "../features/courses/course-review.css";
+import InfoTip from "../components/InfoTip";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
@@ -14,7 +16,7 @@ import { useAuth } from "../contexts/AuthContext";
 import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
 import { EmptyState } from "../components/redesign";
-import { Alert, Button, Card } from "../theme/components";
+import { Alert, Button, Card, Field, Input, buttonClass, Textarea, Switch } from "../theme/components";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 import RouteBuilderMap from "../components/course/RouteBuilderMap";
 import { MAX_BUILDER_WAYPOINTS, tryAddWaypoint, undoWaypoint, type Waypoint } from "../features/courseBuilder/routeBuilder";
@@ -35,6 +37,21 @@ import {
   toElevationChartData,
   type ParsedGpx,
 } from "../features/courseEngine";
+
+/** Keep one radio tab stop; arrow keys select without toggling an active choice off. */
+function handleCourseRadioKey(event: ReactKeyboardEvent<HTMLDivElement>) {
+  if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+  const controls = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button[role="radio"]:not(:disabled)'));
+  const active = (event.target as HTMLElement).closest<HTMLButtonElement>('button[role="radio"]');
+  const index = active ? controls.indexOf(active) : -1;
+  if (index < 0 || !controls.length) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const target = event.key === "Home" ? 0 : event.key === "End" ? controls.length - 1
+    : (index + (["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : -1) + controls.length) % controls.length;
+  controls[target]!.focus();
+  if (controls[target]!.getAttribute("aria-checked") !== "true") controls[target]!.click();
+}
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -602,7 +619,7 @@ export default function CreateCoursePage() {
 
   // ── Main Render ──
   return (
-    <div className="space-y-4">
+    <div className="course-create-surface space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -615,33 +632,25 @@ export default function CreateCoursePage() {
         </div>
         <button
           onClick={leavePage}
-          className="text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors"
+          className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors" })}
         >
           {t("button.cancel")}
         </button>
       </div>
 
       {/* Mode tabs */}
-      <div className="flex gap-1 bg-[var(--bg-2)] rounded-[var(--r-lg)] p-1">
+      <div className="course-create-modes flex gap-1 bg-[var(--bg-2)] rounded-[var(--r-lg)] p-1">
         {activityId && (
           <>
             <button
               onClick={() => setMode("activity")}
-              className={`flex-1 px-3 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-md)] transition-colors ${
-                mode === "activity"
-                  ? "bg-[var(--bg-1)] text-[var(--ink-0)]"
-                  : "text-[var(--ink-2)] hover:text-[var(--ink-0)]"
-              }`}
+              className={buttonClass({ variant: mode === "activity" ? "primary" : "secondary", className: "flex-1" })} aria-pressed={mode === "activity"}
             >
               {t("creation.activityMode")}
             </button>
             <button
               onClick={() => setMode("section")}
-              className={`flex-1 px-3 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-md)] transition-colors ${
-                mode === "section"
-                  ? "bg-[var(--bg-1)] text-[var(--ink-0)]"
-                  : "text-[var(--ink-2)] hover:text-[var(--ink-0)]"
-              }`}
+              className={buttonClass({ variant: mode === "section" ? "primary" : "secondary", className: "flex-1" })} aria-pressed={mode === "section"}
             >
               {t("creation.sectionMode")}
             </button>
@@ -649,15 +658,11 @@ export default function CreateCoursePage() {
         )}
         <button
           onClick={() => setMode("gpx")}
-          className={`flex-1 px-3 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-md)] transition-colors ${
-            mode === "gpx"
-              ? "bg-[var(--bg-1)] text-[var(--ink-0)]"
-              : "text-[var(--ink-2)] hover:text-[var(--ink-0)]"
-          }`}
+          className={buttonClass({ variant: mode === "gpx" ? "primary" : "secondary", className: "flex-1" })} aria-pressed={mode === "gpx"}
         >
           {t("creation.gpxMode")}
         </button>
-        <button onClick={() => setMode("builder")} className={`flex-1 px-3 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-md)] ${mode === "builder" ? "bg-[var(--bg-1)] text-[var(--ink-0)]" : "text-[var(--ink-2)]"}`}>
+        <button onClick={() => setMode("builder")} className={buttonClass({ variant: mode === "builder" ? "primary" : "secondary", className: "flex-1" })} aria-pressed={mode === "builder"}>
           {t("builder.mode")}
         </button>
       </div>
@@ -679,7 +684,7 @@ export default function CreateCoursePage() {
               <Alert variant="danger">{streamError}</Alert>
               <button
                 onClick={leavePage}
-                className="px-4 py-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors"
+                className={buttonClass({ variant: "ghost", className: "px-4 py-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors" })}
               >
                 &larr; {t("button.goBack")}
               </button>
@@ -690,7 +695,7 @@ export default function CreateCoursePage() {
           {!loadingStreams && !streamError && !activityId && (
             <div className="text-center py-16">
               <p className="text-[var(--ink-2)]">{t("empty.noActivity")}</p>
-              <button onClick={leavePage} className="mt-4 px-4 py-2 text-[length:var(--fs-sm)] text-[var(--lime)] hover:underline">
+              <button onClick={leavePage} className={buttonClass({ variant: "ghost", className: "mt-4 px-4 py-2 text-[length:var(--fs-sm)] text-[var(--lime)] hover:underline" })}>
                 &larr; {t("button.goBack")}
               </button>
             </div>
@@ -746,6 +751,7 @@ export default function CreateCoursePage() {
         </>
       )}
 
+      {mode === "gpx" && <p className="text-[length:var(--ft-body-size)]"><InfoTip title="GPX" content={t("metrics.gpxHelp")}>{t("creation.gpxMode")}</InfoTip></p>}
       {/* ── GPX Upload Mode ── */}
       {mode === "gpx" && (
         <>
@@ -759,7 +765,7 @@ export default function CreateCoursePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
               <p className="text-[length:var(--fs-sm)] text-[var(--ink-1)] mb-2">{t("gpx.dropHere")}</p>
-              <label className="inline-block px-4 py-2 bg-[var(--lime)] text-[var(--bg-0)] text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] hover:opacity-90 transition-opacity cursor-pointer">
+              <label className={buttonClass({variant:"primary",className:"cursor-pointer"})}>
                 {t("gpx.selectFile")}
                 <input
                   type="file"
@@ -811,16 +817,26 @@ export default function CreateCoursePage() {
       {mode === "builder" && (
         <Card padding="none" className="p-4 space-y-4">
           <div><h2 className="font-semibold">{t("builder.title")}</h2><p className="text-[length:var(--fs-sm)] text-[var(--ink-3)]">{t("builder.description", { max: MAX_BUILDER_WAYPOINTS })}</p></div>
-          <label className="flex min-h-11 items-center gap-3 text-[length:var(--fs-sm)]">
-            <input type="checkbox" checked={avoidHighways} onChange={(event) => { setAvoidHighways(event.target.checked); invalidateBuilderRoute(); }} className="h-5 w-5 accent-[var(--lime)]" />
-            {t("builder.avoidHighways")}
-          </label>
+          <div className="flex min-h-11 items-center gap-3 text-[length:var(--ft-body-size)]">
+            <Switch id="builder-avoid-highways" aria-label={t("builder.avoidHighways")} checked={avoidHighways} onChange={(event) => { setAvoidHighways(event.target.checked); invalidateBuilderRoute(); }} />
+            <label htmlFor="builder-avoid-highways">{t("builder.avoidHighways")}</label>
+          </div>
           <p id="builder-map-instructions" className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("builder.instructions")}</p>
           <RouteBuilderMap labels={{ region: t("builder.mapRegion"), unavailable: t("builder.mapUnavailable"), waypoint: t("builder.waypoint") }} waypoints={builderPoints} route={builderRoute?.geometry.coordinates ?? []} onAdd={addBuilderPoint} />
-          <div className="flex flex-wrap gap-2" aria-label={t("builder.coordinateEntry")}>
-            <input aria-label={t("builder.latitude")} inputMode="decimal" value={manualLat} onChange={(e) => setManualLat(e.target.value)} className="min-h-11 w-36 rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--bg-2)] px-2" />
-            <input aria-label={t("builder.longitude")} inputMode="decimal" value={manualLng} onChange={(e) => setManualLng(e.target.value)} className="min-h-11 w-36 rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--bg-2)] px-2" />
+          <div className="course-builder-coordinates flex flex-wrap items-end gap-2" aria-label={t("builder.coordinateEntry")}>
+            <Field label={t("builder.latitude")} htmlFor="builder-latitude">
+              <Input id="builder-latitude" aria-describedby="builder-latitude-example" inputMode="decimal" mono value={manualLat} onChange={(e) => setManualLat(e.target.value)} placeholder="37.5665" />
+
+            </Field>
+            <Field label={t("builder.longitude")} htmlFor="builder-longitude">
+              <Input id="builder-longitude" aria-describedby="builder-longitude-example" inputMode="decimal" mono value={manualLng} onChange={(e) => setManualLng(e.target.value)} placeholder="126.9780" />
+
+            </Field>
             <Button onClick={() => { if (!manualLat.trim() || !manualLng.trim() || !addBuilderPoint({ lat: Number(manualLat), lng: Number(manualLng) })) { setBuilderError(t("builder.invalidCoordinate")); return; } setManualLat(""); setManualLng(""); }}>{t("builder.addCoordinate")}</Button>
+          </div>
+          <div className="course-builder-coordinate-hints">
+            <p id="builder-latitude-example">{t("builder.latitudeHint")}</p>
+            <p id="builder-longitude-example">{t("builder.longitudeHint")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => { builderPointsRef.current = undoWaypoint(builderPointsRef.current); setBuilderPoints(builderPointsRef.current); invalidateBuilderRoute(); }} disabled={!builderPoints.length}>{t("builder.undo")}</Button>
@@ -857,38 +873,38 @@ export default function CreateCoursePage() {
           {/* Info form */}
           <Card padding="none" className="lg:flex-1 p-4 space-y-4">
             <div>
-              <label className="block text-[length:var(--fs-sm)] font-medium text-[var(--ink-1)] mb-1">
+              <label htmlFor="course-form-name" className="block text-[length:var(--fs-sm)] font-medium text-[var(--ink-1)] mb-1">
                 {t("form.courseName")} <span className="text-[var(--color-error)]">{t("form.nameRequired")}</span>
               </label>
-              <input
+              <Input id="course-form-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t("form.courseNamePlaceholder")}
                 maxLength={50}
-                className="w-full px-3 py-2 bg-[var(--bg-2)] border border-[var(--line)] rounded-[var(--r-lg)] text-[length:var(--fs-sm)] text-[var(--ink-1)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent"
+                className="w-full"
               />
               <div className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mt-1">{t("form.charLimit", { current: name.length, max: 50 })}</div>
             </div>
 
             <div>
-              <label className="block text-[length:var(--fs-sm)] font-medium text-[var(--ink-1)] mb-1">
+              <label htmlFor="course-form-description" className="block text-[length:var(--fs-sm)] font-medium text-[var(--ink-1)] mb-1">
                 {t("form.description")}
               </label>
-              <textarea
+              <Textarea id="course-form-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder={t("form.descriptionPlaceholder")}
                 maxLength={200}
                 rows={2}
-                className="w-full px-3 py-2 bg-[var(--bg-2)] border border-[var(--line)] rounded-[var(--r-lg)] text-[length:var(--fs-sm)] text-[var(--ink-1)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent resize-none"
+                className="w-full"
               />
             </div>
 
             {/* 노면 — 생성 시 입력(#489) */}
             <div>
               <label className="block text-[length:var(--fs-sm)] font-medium text-[var(--ink-1)] mb-1">{t("edit.surface")}</label>
-              <div role="radiogroup" aria-label={t("edit.surface")} className="flex items-center flex-wrap gap-1.5">
+              <div role="radiogroup" onKeyDown={handleCourseRadioKey} aria-label={t("edit.surface")} className="flex items-center flex-wrap gap-1.5">
                 {([
                   { v: "" as const, label: t("edit.surface.unspecified") },
                   { v: "paved" as const, label: t("edit.surface.paved") },
@@ -902,8 +918,9 @@ export default function CreateCoursePage() {
                       type="button"
                       role="radio"
                       aria-checked={active}
+                      tabIndex={active ? 0 : -1}
                       onClick={() => setSurface(o.v)}
-                      className="px-2.5 py-1 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
+                      className={buttonClass({ variant: "ghost", className: "px-2.5 py-1 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors" })}
                       style={active
                         ? { background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" }
                         : { borderColor: "var(--line-soft)", color: "var(--ink-2)" }}
@@ -918,7 +935,7 @@ export default function CreateCoursePage() {
             {/* 난이도 — 생성 시 입력(#489) */}
             <div>
               <label className="block text-[length:var(--fs-sm)] font-medium text-[var(--ink-1)] mb-1">{t("edit.difficultyLabel")}</label>
-              <div role="radiogroup" aria-label={t("edit.difficultyLabel")} className="flex items-center gap-1.5">
+              <div role="radiogroup" onKeyDown={handleCourseRadioKey} aria-label={t("edit.difficultyLabel")} className="flex items-center gap-1.5">
                 {[1, 2, 3, 4, 5].map((n) => {
                   const active = difficulty === n;
                   return (
@@ -927,8 +944,9 @@ export default function CreateCoursePage() {
                       type="button"
                       role="radio"
                       aria-checked={active}
+                      tabIndex={active || (difficulty === null && n === 1) ? 0 : -1}
                       onClick={() => setDifficulty(active ? null : n)}
-                      className="w-9 h-9 text-[length:var(--fs-sm)] rounded-[var(--r-sm)] border font-semibold transition-colors"
+                      className={buttonClass({ variant: "ghost", className: "w-9 h-9 text-[length:var(--fs-sm)] rounded-[var(--r-sm)] border font-semibold transition-colors" })}
                       style={active
                         ? { background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" }
                         : { borderColor: "var(--line-soft)", color: "var(--ink-2)" }}
@@ -971,7 +989,7 @@ export default function CreateCoursePage() {
                 <button
                   onClick={handleSubmit}
                   disabled={(mode === "builder" && !builderRouteHasElevation) || !isFormValid || submitting}
-                  className="w-full py-3 bg-[var(--lime)] text-[var(--bg-0)] text-[length:var(--fs-base)] font-semibold rounded-[var(--r-lg)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={buttonClass({ variant: "ghost", className: "w-full py-3 bg-[var(--lime)] text-[var(--bg-0)] text-[length:var(--fs-base)] font-semibold rounded-[var(--r-lg)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed" })}
                 >
                   {submitting ? (
                     <span className="flex items-center justify-center gap-2">
@@ -992,7 +1010,7 @@ export default function CreateCoursePage() {
       <div className="flex items-center">
         <button
           onClick={leavePage}
-          className="px-4 py-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors"
+          className={buttonClass({ variant: "ghost", className: "px-4 py-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors" })}
         >
           &larr; {t("button.goBack")}
         </button>

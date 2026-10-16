@@ -1,0 +1,133 @@
+/* 클럽에 한정한 홈·코치 공통 읽기 위계. */
+.club-surface {
+  --ft-page-title-size: var(--fs-xl);
+  --ft-page-title-line-height: 1.35;
+  min-width: 0;
+  font-size: var(--ft-body-size);
+  line-height: var(--ft-body-line-height);
+  color: var(--ink-1);
+}
+.club-page-header,
+.club-subnav-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.club-page-header { padding-bottom: var(--space-4); border-bottom: 1px solid var(--line-soft); }
+.club-page-header > div:first-child,
+.club-subnav-header > div { min-width: 0; flex: 1 1 auto; }
+.club-page-header h1,
+.club-subnav-header h1 { overflow-wrap: anywhere; }
+.club-page-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.club-surface .ds-btn--primary,
+.club-surface .ds-btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  color: var(--primary-fg);
+  border-color: var(--color-primary-dark);
+}
+.club-invite-card,
+.club-league-card { display: grid; gap: var(--space-3); margin-block: var(--space-5); }
+.club-invite-form { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.club-invite-form input { min-width: 0; flex: 1 1 12rem; }
+.club-identity-main { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.club-identity-main > div:nth-child(2) { flex: 1 1 8rem; min-width: 0; }
+.club-card-title { font-size: var(--ft-title-size); font-weight: var(--ft-title-weight); line-height: var(--ft-title-line-height); }
+.club-dashboard details summary { cursor: pointer; font-size: var(--ft-body-size); font-weight: 500; }
+.club-dashboard details p { margin-top: var(--space-3); overflow-wrap: anywhere; }
+@media (max-width: 36rem) {
+  .club-page-actions { width: 100%; }
+  .club-surface input,
+  .club-surface textarea,
+  .club-surface select { max-width: 100%; }
+}
+
+.club-members [role="tablist"] { flex-wrap: wrap; }
+.club-members-table { max-width: 100%; overscroll-behavior-x: contain; }
+.club-members-row {
+  display: grid;
+  grid-template-columns: var(--space-8) minmax(10rem, 1fr) minmax(5rem, 6rem) minmax(6rem, 7rem) minmax(9rem, 10rem) minmax(11rem, 13rem);
+  min-width: 54rem;
+  column-gap: var(--space-3);
+}
+.club-members-row--header > div { white-space: nowrap; }
+.club-member-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); padding-left: var(--space-2); }
+.club-table-hint { display: none; font-size: var(--ft-body-size); color: var(--ink-2); margin-bottom: var(--space-2); }
+@media (max-width: 60rem) { .club-table-hint { display: block; } }
+@media (max-width: 36rem) {
+  .club-settings [data-testid="C7-4"] > .grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .club-settings input,
+  .club-members input { min-width: 0; }
+}
+
+.club-my-filters { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.club-my-filters label { display: grid; gap: var(--space-2); flex: 1 1 12rem; font-size: var(--ft-body-size); color: var(--ink-2); }
+.club-my-filters input,
+.club-my-filters select { width: 100%; font-size: var(--ft-body-size); }
+.club-create-review { display: grid; gap: var(--space-3); }
+.club-create-review > div { display: grid; grid-template-columns: minmax(5rem, 1fr) minmax(0, 2fr); gap: var(--space-3); }
+.club-create-review dt { color: var(--ink-2); }
+.club-create-review dd { color: var(--ink-0); overflow-wrap: anywhere; margin: 0; }
+.club-member-management > summary { font-size: var(--ft-title-size); font-weight: var(--ft-title-weight); cursor: pointer; }
+@media (max-width: 36rem) {
+  .club-create-stepper > li { flex-direction: column; align-items: center; text-align: center; }
+  .club-create-stepper > li > div:last-child:not(:first-child) { display: none; }
+  .club-create-step-label { overflow-wrap: anywhere; }
+}
+
+/* 운영 화면은 편집과 멤버 관리의 순서를 분리한다. */
+.club-settings-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; gap: var(--space-5); }
+.club-settings-main,
+.club-settings-aside { display: grid; gap: var(--space-5); min-width: 0; }
+.club-settings-label { display: block; font-size: var(--ft-body-medium-size); line-height: var(--ft-body-medium-line-height); color: var(--ink-1); margin-bottom: var(--space-1-5); }
+.club-settings-toggle-section + .club-settings-toggle-section { border-top: 1px solid var(--line-soft); padding-top: var(--space-4); margin-top: var(--space-4); }
+.club-settings-toggle-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-4); align-items: center; padding-block: var(--space-3); }
+.club-settings-toggle-row + .club-settings-toggle-row { border-top: 1px solid var(--line-soft); }
+.club-settings-toggle-row p { font-size: var(--ft-body-size); line-height: var(--ft-body-line-height); color: var(--ink-2); margin: 0; }
+.club-settings-save-bar { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; justify-content: space-between; padding-block: var(--space-4); margin-bottom: var(--space-5); border-bottom: 1px solid var(--line-soft); }
+.club-settings-administration { display: grid; gap: var(--space-4); margin-bottom: var(--space-5); }
+.club-settings-administration-grid { display: grid; gap: var(--space-5); }
+.club-settings-danger > summary { cursor: pointer; font-size: var(--ft-title-size); font-weight: var(--ft-title-weight); color: var(--color-error); }
+@media (max-width: 56.25rem) { .club-settings-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 36rem) { .club-settings-save-bar > .ds-btn { width: 100%; } }
+.club-settings h2 { font-weight: var(--ft-title-weight); }
+.club-settings [data-testid="C7-4-2"] button { font-size: var(--ft-body-size); }
+
+.club-settings-aside > .ds-card,
+.club-settings-aside > section,
+.club-settings-aside > section > .ds-card { min-width: 0; width: 100%; }
+
+/* 내부 표의 최소 너비가 멤버 관리 구역 전체를 밀어내지 않도록 제한한다. */
+.club-settings-administration,
+.club-settings-administration-grid { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.club-settings-administration > *,
+.club-settings-administration-grid > *,
+.club-settings .club-member-management,
+.club-settings .club-member-management > div,
+.club-settings .club-members { min-width: 0; max-width: 100%; }
+.club-leadership-select { min-width: 0; width: 14rem; max-width: 100%; }
+@media (max-width: 36rem) {
+  .club-settings .club-members [data-testid="C7-3"] > .flex { align-items: stretch; }
+  .club-settings .club-members [data-testid="C7-3"] > .flex > label { min-width: 0; max-width: 100%; flex-basis: 100%; }
+  .club-settings .club-members .club-leadership-select { width: 100%; }
+}
+
+.club-members .club-leadership-details > summary { cursor: pointer; font-size: var(--ft-subtitle-size); font-weight: var(--ft-subtitle-weight); }
+.club-members .club-leadership-details > div > .flex > label { min-width: 0; max-width: 100%; }
+@media (max-width: 36rem) {
+  .club-members .club-leadership-details > div > .flex > label { flex-basis: 100%; }
+  .club-members .club-leadership-select { width: 100%; }
+}
+
+.club-invite-load-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-2); }
+
+.club-news-stats-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.club-news-layout { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: var(--space-5); align-items: start; }
+.club-news-sidebar { display: grid; gap: var(--space-5); min-width: 0; }
+.club-news-layout--no-rides { grid-template-columns: minmax(0, 1fr); }
+.club-news-layout--no-rides .club-news-sidebar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media(max-width: 48rem) { .club-news-layout, .club-news-layout--no-rides .club-news-sidebar { grid-template-columns: minmax(0, 1fr); } }
+
+.club-news-layout > :empty { display: none; }

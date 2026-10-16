@@ -1,6 +1,8 @@
 {
   "openLabel": "About {{term}}",
   "terms": {
+    "timeFormat": {"label": "Hours and minutes", "description": "Hours (HH) and minutes (MM) separated by a colon. Clock times use the 24-hour format; estimated durations mean elapsed hours and minutes."},
+    "liveTracking": {"label": "Live tracking", "description": "Displays participant locations and progress as they update during the event."},
     "lsd": {
       "label": "Long slow distance",
       "description": "LSD means long slow distance: extended endurance training at an easy, conversational intensity. It describes an approach to training, not a fixed distance or pace."

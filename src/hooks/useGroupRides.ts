@@ -90,6 +90,7 @@ export function useGroupRideStats(groupId: string | undefined, accessKey?: strin
   const [nextCursor, setNextCursor] = useState<GroupRideCursor | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<"unavailable" | "failed" | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<"unavailable" | "failed" | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const generation = useRef(0);
   const retry = useCallback(() => setRetryKey((key) => key + 1), []);
@@ -100,6 +101,7 @@ export function useGroupRideStats(groupId: string | undefined, accessKey?: strin
     const requestedGeneration = generation.current;
     const isCurrent = () => generation.current === requestedGeneration && auth.currentUser?.uid === uid;
     setLoadingMore(true);
+    setLoadMoreError(null);
     try {
       await ensureAppCheckReady();
       if (!isCurrent()) return;
@@ -113,14 +115,8 @@ export function useGroupRideStats(groupId: string | undefined, accessKey?: strin
       setNextCursor(data.nextCursor ?? null);
     } catch (error) {
       if (isCurrent()) {
-        setRides([]);
-        setMemberStats({});
-        setAggregate(null);
-        setWeeklyStats(null);
-        setMemberWeekStats(null);
-        setNextCursor(null);
         const code = (error as { code?: string } | null)?.code;
-        setError(code === "functions/unavailable" || code === "unavailable" ? "unavailable" : "failed");
+        setLoadMoreError(code === "functions/unavailable" || code === "unavailable" ? "unavailable" : "failed");
         logClientError("useGroupRideStats.loadMore", error, { groupId });
       }
     } finally {
@@ -131,6 +127,7 @@ export function useGroupRideStats(groupId: string | undefined, accessKey?: strin
   useEffect(() => {
     generation.current += 1;
     setError(null);
+    setLoadMoreError(null);
     if (!groupId || !uid) {
       setRides([]);
       setMemberStats({});
@@ -191,5 +188,5 @@ export function useGroupRideStats(groupId: string | undefined, accessKey?: strin
     };
   }, [groupId, retryKey, uid, accessKey]);
 
-  return { rides, memberStats, aggregate, weeklyStats, memberWeekStats, loading, loadingMore, error, retry, hasMore: nextCursor !== null, loadMore };
+  return { rides, memberStats, aggregate, weeklyStats, memberWeekStats, loading, loadingMore, error, loadMoreError, retry, hasMore: nextCursor !== null, loadMore };
 }

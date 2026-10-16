@@ -1,3 +1,5 @@
+import "../../pages/group/ClubSurface.css";
+import { Button, Text } from "../../theme/components";
 import { useToast } from "../../contexts/ToastContext";
 import { logClientError } from "../../services/errorLogger";
 import { useLocation, useParams } from "react-router-dom";
@@ -9,13 +11,17 @@ import type { Group } from "@shared/types";
 interface GroupSubNavProps {
   group: Group;
   isCreator: boolean;
+  showDescription?: boolean;
 }
 
-export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
+export default function GroupSubNav({ group, isCreator, showDescription = true }: GroupSubNavProps) {
   const { showToast } = useToast();
   const { t } = useTranslation("group");
   const { groupId, lang } = useParams();
   const { search } = useLocation();
+  const sharedParams = new URLSearchParams(search);
+  sharedParams.delete("section");
+  const sharedSearch = sharedParams.size ? `?${sharedParams.toString()}` : "";
   const base = `/club/${groupId}`;
 
   const tabs = [
@@ -28,28 +34,29 @@ export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
   ];
 
   return (
-    <div data-testid="C1-0" className="mb-6">
+    <div data-testid="C1-0" className="club-surface club-subnav mb-6">
       <nav
         aria-label={t("subNav.contextLabel")}
-        className="flex flex-wrap items-center mb-3 text-[length:var(--fs-sm)]"
+        className="flex flex-wrap items-center mb-3 text-[length:var(--ft-body-size)]"
         style={{ gap: "var(--space-3)", color: "var(--ink-3)" }}
       >
         <Link to="/clubs" style={{ color: "var(--ink-2)" }}>{t("subNav.groupList")}</Link>
         <Link to="/explore/events" style={{ color: "var(--ink-2)" }}>{t("subNav.eventList")}</Link>
       </nav>
-      <div className="flex items-center justify-between mb-4">
+      <div className="club-subnav-header">
         <div>
-          <h1 className="text-[length:var(--fs-xl)] font-bold" style={{ color: "var(--ink-0)" }}>{group.name}</h1>
-          {group.description && (
-            <p className="text-[length:var(--fs-sm)] mt-1" style={{ color: "var(--ink-2)" }}>{group.description}</p>
+          <Text as="h1" variant="pageTitle" data-testid="C1-0-1">{group.name}</Text>
+          {showDescription && group.description && (
+            <Text as="p" variant="body" tone="secondary" className="mt-1">{group.description}</Text>
           )}
-          <p className="text-[length:var(--fs-xs)] mt-1" style={{ color: "var(--ink-3)" }}>
+          <Text as="p" variant="body" tone="secondary" className="mt-1">
             {t("dashboard.memberCount", { count: group.memberCount })}
-          </p>
+          </Text>
         </div>
+      <Button variant="secondary" size="sm" data-testid="C1-0-4" type="button" onClick={async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/${lang ?? "ko"}${base}`); showToast(t("invite.copied")); } catch (error) { logClientError("GroupSubNav.share", error, { groupId }); showToast(t("dashboard.posts.actionFailed"), "error"); } }}>{t("button.share")}</Button>
       </div>
-      <RouteTabNav tabs={tabs.map(tab => ({ ...tab, specId: "C1-0-2", to: `${tab.to}${search}` }))} />
-      <button data-testid="C1-0-4" type="button" onClick={async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/${lang ?? "ko"}${base}`); showToast(t("invite.copied")); } catch (error) { logClientError("GroupSubNav.share", error, { groupId }); showToast(t("dashboard.posts.actionFailed"), "error"); } }}>{t("button.share")}</button>
+      <RouteTabNav tabs={tabs.map(tab => ({ ...tab, specId: "C1-0-2", to: `${tab.to}${sharedSearch}` }))} />
+
     </div>
   );
 }

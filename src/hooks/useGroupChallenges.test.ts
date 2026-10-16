@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { mockCallableInvocations, setCallableResult } from "../__tests__/mocks/firebase";
-import { createGroupChallenge, currentKstMonthKey, getGroupChallengeProgress, getGroupChallengeStandings, getVisibleChallengeStandings, joinGroupChallenge } from "./useGroupChallenges";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockCallableInvocations, setCallableResult, setCallableImplementation, setCollectionDocs } from "../__tests__/mocks/firebase";
+import { useGroupChallenges, createGroupChallenge, currentKstMonthKey, getGroupChallengeProgress, getGroupChallengeStandings, getVisibleChallengeStandings, joinGroupChallenge } from "./useGroupChallenges";
 
 describe("group challenge callable contracts", () => {
   beforeEach(() => {
@@ -85,5 +86,23 @@ describe("getVisibleChallengeStandings", () => {
 
   it("does not duplicate a participating group already among the leaders", () => {
     expect(getVisibleChallengeStandings(standings, "group-2")).toHaveLength(5);
+  });
+});
+
+describe("league read failures", () => {
+  it("distinguishes a failed standings request from an empty league and retries only on request", async () => {
+    const monthKey = currentKstMonthKey();
+    setCollectionDocs("group_challenges", [{ id: "league-1", status: "OPEN", monthKey, participantGroupIds: [] }]);
+    const read = vi.fn<() => unknown>(() => { throw new Error("unavailable"); });
+    setCallableImplementation("getGroupChallengeStandings", read);
+    const { result } = renderHook(() => useGroupChallenges());
+    await waitFor(() => expect(result.current.error).toBe(true));
+    expect(result.current.loading).toBe(false);
+    expect(read).toHaveBeenCalledOnce();
+    read.mockImplementation(() => ({ data: { name: "League", monthKey, standings: [], computedAt: 1 } }));
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.error).toBe(false));
+    await waitFor(() => expect(result.current.challenges).toHaveLength(1));
+    expect(read).toHaveBeenCalledTimes(2);
   });
 });

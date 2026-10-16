@@ -1,8 +1,8 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const listeners = vi.hoisted(() => ({
-  failEvent: false,
+  failEvent: false, status: "LIVE",
   creatorId: "host-1", role: "LEADER" as string | null, privateSubscriptions: 0,
   deferredPage: false,
   snapshotError: null as null | ((error: Error) => void),
@@ -10,6 +10,8 @@ const listeners = vi.hoisted(() => ({
   authChanged: null as null | ((user: { uid: string } | null) => void),
   eventError: null as null | ((error: Error) => void),
   snapshotSubscriptions: 0,
+  eventNext: null as null | ((value: unknown) => void),
+  snapshotNext: null as null | ((value: unknown) => void),
 }));
 const translate = vi.hoisted(() => (key: string) => key);
 const firebaseAuth = vi.hoisted(() => ({ currentUser: { uid: "host-1" } as { uid: string } | null }));
@@ -31,10 +33,11 @@ vi.mock("firebase/firestore", () => ({
   getDoc: vi.fn(async () => ({ exists: () => true, data: () => ({ role: listeners.role }) })),
   onSnapshot: (path: string, next: (value: unknown) => void, error: (value: Error) => void) => {
     if (path.includes("/snapshots/")) listeners.privateSubscriptions++;
-    if (path === "events/event-1") listeners.eventError = error;
+    if (path === "events/event-1") { listeners.eventError = error; listeners.eventNext = next; }
+    else if (path.includes("/snapshots/")) listeners.snapshotNext = next;
     queueMicrotask(() => {
       if (path === "events/event-1" && listeners.failEvent) error(new Error("event denied"));
-      else if (path === "events/event-1") next({ exists: () => true, data: () => ({ info: { name: "QA event", status: "LIVE", creatorId: listeners.creatorId, type: "TOUR" }, counters: { totalRegistered: 1 } }) });
+      else if (path === "events/event-1") next({ exists: () => true, data: () => ({ info: { name: "QA event", status: listeners.status, creatorId: listeners.creatorId, type: "TOUR" }, counters: { totalRegistered: 1 } }) });
       else if (listeners.deferredPage) {
         listeners.snapshotSubscriptions++;
         listeners.snapshotError = error;
@@ -53,7 +56,7 @@ import EventDashboardPage from "./EventDashboardPage";
 
 describe("EventDashboardPage read failures", () => {
   beforeEach(() => {
-    listeners.failEvent = false;
+    listeners.failEvent = false; listeners.status = "LIVE";
     listeners.creatorId = "host-1"; listeners.role = "LEADER"; listeners.privateSubscriptions = 0;
     listeners.deferredPage = false;
     listeners.snapshotError = null;
@@ -61,7 +64,44 @@ describe("EventDashboardPage read failures", () => {
     listeners.authChanged = null;
     listeners.eventError = null;
     listeners.snapshotSubscriptions = 0;
+    listeners.eventNext = null; listeners.snapshotNext = null;
     firebaseAuth.currentUser = { uid: "host-1" };
+  });
+
+  it.each(["FINISHED", "CANCELLED"])("does not subscribe to live locations for a confirmed %s event", async status => {
+    listeners.status = status;
+    render(<EventDashboardPage />);
+    expect(await screen.findAllByText("dashboard.trackingEnded")).toHaveLength(1);
+    expect(screen.queryByText("dashboard.liveAlerts")).toBeNull();
+    expect(screen.queryByText("dashboard.noAlertsYet")).toBeNull();
+    expect(screen.queryByText("dashboard.statusTitle")).toBeNull();
+    expect(document.querySelector(".event-dashboard-body")).toHaveStyle({ gridTemplateColumns: "280px 1fr" });
+    expect(listeners.privateSubscriptions).toBe(0);
+    expect(screen.queryByText(/LIVE ·/)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "resultsTitle" }) !== null).toBe(status === "FINISHED");
+  });
+
+  it("retains recorded alerts with an event label after the event ends", async () => {
+    listeners.deferredPage = true;
+    render(<EventDashboardPage />);
+    await waitFor(() => expect(listeners.pageResolve).not.toBeNull());
+    const resolveLocations = (status: string) => listeners.pageResolve?.({
+      snapshot: { timestamp: 1, checkpoints: [], locations: [] },
+      locations: [{ uid: "rider-1", displayName: "Rider", status, category: "Road" }],
+    });
+    act(() => resolveLocations("RIDING"));
+    await screen.findByText("Rider");
+    fireEvent.click(screen.getByRole("button", { name: "Road" }));
+    act(() => listeners.snapshotNext?.({ exists: () => true, data: () => ({}) }));
+    act(() => resolveLocations("SOS"));
+    await screen.findByText("dashboard.alert.sos");
+    act(() => listeners.eventNext?.({ exists: () => true, data: () => ({ info: { name: "QA event", status: "FINISHED", creatorId: "host-1", type: "TOUR" }, counters: { totalRegistered: 7 } }) }));
+    expect(await screen.findByText("dashboard.eventAlerts")).toBeInTheDocument();
+    expect(screen.getByText("dashboard.alert.sos")).toBeInTheDocument();
+    expect(screen.queryByText("dashboard.liveAlerts")).toBeNull();
+    expect(screen.getByText("label.totalParticipants").parentElement).toHaveTextContent("7");
+    expect(document.querySelector(".event-dashboard-body")).toHaveStyle({ gridTemplateColumns: "280px 1fr 320px" });
   });
 
   it("keeps LEADER Finish available and warns when only the optional snapshot is denied", async () => {

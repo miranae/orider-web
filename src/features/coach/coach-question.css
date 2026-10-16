@@ -287,6 +287,8 @@
 }
 
 .coach-answer__table-scroll {
+  min-width: 0;
+  max-width: 100%;
   width: 100%;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
@@ -322,8 +324,14 @@
 
 .coach-answer__series {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
+  min-width: 0;
 }
+
+/* Keep the raw-data table inside its own scroller, including nested load charts. */
+.coach-answer__series-data,
+.coach-answer__load-trend > div { min-width: 0; }
 
 .coach-answer__series-data summary {
   color: var(--ink-2);
@@ -707,7 +715,7 @@
 
 .coach-clarification__policy { color: var(--ink-3); font-size: var(--fs-sm); }
 
-@media (max-width: 360px), (min-resolution: 2dppx) {
+@media (max-width: 360px) {
   .coach-answer__list > li,
   .coach-answer__more li,
   .coach-answer__goal > div { align-items: flex-start; flex-direction: column; gap: var(--space-1); }

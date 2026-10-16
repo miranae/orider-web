@@ -1,3 +1,4 @@
+import { chooseDropdown } from "../fitnessControlTestUtils";
 import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
@@ -18,7 +19,7 @@ describe("cycling observed summaries from the existing response", () => {
     expect(screen.getByText("15.0km")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "상위 5개 펼치기" })); expect(screen.getAllByRole("link")).toHaveLength(5);
     fireEvent.click(screen.getByRole("button", { name: "관측된 누적 상승고도" })); expect(screen.getByText("600m")).toBeInTheDocument(); expect(screen.getAllByRole("link")).toHaveLength(3);
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "canonical_metrics" } });
+    chooseDropdown(screen.getByRole("combobox"), "서버 분석 수치");
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(reads.load).not.toHaveBeenCalled();
     view.rerender(<BikeObservedPeriodRecordsPanel response={{ ...data, asOf: data.asOf + 1 }} />);

@@ -1,5 +1,6 @@
+import SportIcon from "../common/SportIcon";
 import { LocalizedLink as Link } from "../LocalizedLink";
-import { Bike, Footprints, Triangle, Waves } from "lucide-react";
+import { Triangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { useGroupMemberRole } from "../../hooks/useGroup";
@@ -32,9 +33,9 @@ const KIND_LABEL_KEYS: Record<GroupKind, string> = {
 };
 
 const DISCIPLINE_META: Record<string, { labelKey: string; color: string; icon: ReactNode }> = {
-  bike: { labelKey: "card.discipline.bike", color: "var(--lime)", icon: <Bike size={12} /> },
-  run: { labelKey: "card.discipline.run", color: "var(--amber)", icon: <Footprints size={12} /> },
-  swim: { labelKey: "card.discipline.swim", color: "var(--aqua)", icon: <Waves size={12} /> },
+  bike: { labelKey: "card.discipline.bike", color: "var(--lime)", icon: <SportIcon sport="bike" size={16} /> },
+  run: { labelKey: "card.discipline.run", color: "var(--amber)", icon: <SportIcon sport="run" size={16} /> },
+  swim: { labelKey: "card.discipline.swim", color: "var(--aqua)", icon: <SportIcon sport="swim" size={16} /> },
   tri: { labelKey: "card.discipline.tri", color: "var(--aqua)", icon: <Triangle size={12} /> },
 };
 
@@ -75,7 +76,7 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
           background: "var(--bg-2)", border: "1px solid var(--line-soft)",
           display: "grid", placeItems: "center",
           fontSize: "var(--fs-base)", fontWeight: 800, color: meta.color, letterSpacing: "-0.02em",
-          flexShrink: 0,
+          flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", lineHeight: 1,
         }}
       >
         {(group.badge ?? badgeText(group.name)).slice(0, 3).toUpperCase()}
@@ -85,36 +86,38 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
       <div className="min-w-0">
         <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-1)' }}>
           {showJoinButton ? <Link data-testid="C0-2-2" to={`/club/${group.id}`}>
-          <Text as="h3" variant="bodyMedium" truncate tone="primary" style={{ margin: 0 }}>
+          <Text as="h3" variant="subtitle" truncate tone="primary" style={{ margin: 0 }}>
             {group.name}
           </Text>
           </Link> : <>
-          <Text as="h3" variant="bodyMedium" truncate tone="primary" style={{ margin: 0 }}>
+          <Text as="h3" variant="subtitle" truncate tone="primary" style={{ margin: 0 }}>
             {group.name}
           </Text>
           </>}
           {showMyRole && ownRole && <Chip>{t(ownRole === "member" ? "members.role.member" : ownRole === "co-leader" ? "members.role.coLeader" : "members.role.leader")}</Chip>}
           {!showMyRole && group.isLeader && (
-            <Chip style={{ color: "var(--lime)", fontSize: "var(--fs-2xs)", padding: "1px 6px", whiteSpace: "nowrap" }}>{t("card.leader")}</Chip>
+            <Chip style={{ color: "var(--lime)", fontSize: "var(--ft-caption-size)", padding: "1px 6px", whiteSpace: "nowrap" }}>{t("card.leader")}</Chip>
           )}
         </div>
-        <div className="flex items-center flex-wrap text-[length:var(--fs-xs)]" style={{ gap: 'var(--space-1)', color: "var(--ink-3)", marginBottom: "var(--space-1-5)" }}>
+        <div className="flex items-center flex-wrap text-[length:var(--ft-body-size)]" style={{ gap: 'var(--space-1)', color: "var(--ink-3)", marginBottom: "var(--space-1-5)" }}>
           <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", color: meta.color }}>{meta.icon}</span>
           <span style={{ color: meta.color }}>{kindLabel ?? t(meta.labelKey)}</span>
           {group.city && (<><span aria-hidden="true">·</span><span>{group.city}</span></>)}
-          <span aria-hidden="true">·</span>
-          <span>{t("card.memberCount", { count: group.memberCount })}</span>
+          {typeof group.memberCount === "number" && Number.isFinite(group.memberCount) && group.memberCount >= 0 && (<>
+            <span aria-hidden="true">·</span>
+            <span>{t("card.memberCount", { count: group.memberCount })}</span>
+          </>)}
         </div>
         {group.description && !why && (
-          <p className="text-[length:var(--fs-xs)] line-clamp-2" style={{ color: "var(--ink-2)", margin: 0 }}>{group.description}</p>
+          <p className="text-[length:var(--ft-body-size)] line-clamp-2" style={{ color: "var(--ink-2)", margin: 0 }}>{group.description}</p>
         )}
         {why && (
-          <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)", margin: 0 }}>{why}</p>
+          <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", margin: 0 }}>{why}</p>
         )}
 
         {/* 메타 표시 (이번 주 활동 / 다음 이벤트 / 새 게시물) */}
         {(weekDistKm != null || nextEvent || (newPosts ?? 0) > 0) && (
-          <div className="flex items-center flex-wrap text-[length:var(--fs-xs)]" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-2)', color: "var(--ink-2)" }}>
+          <div className="flex items-center flex-wrap text-[length:var(--ft-body-size)]" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-2)', color: "var(--ink-2)" }}>
             {weekDistKm != null && (
               <span><span style={{ color: "var(--ink-3)" }}>{t("card.thisWeek")}</span> <Text variant="num" style={{ color: "var(--ink-0)" }}>{weekDistKm.toFixed(0)}km</Text></span>
             )}
@@ -122,7 +125,7 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
               <span><span style={{ color: "var(--ink-3)" }}>{t("card.next")}</span> <span style={{ color: "var(--ink-0)" }}>{nextEvent}</span></span>
             )}
             {(newPosts ?? 0) > 0 && (
-              <Chip style={{ color: "var(--lime)", fontSize: "var(--fs-2xs)" }}>{t("card.newPosts", { count: newPosts })}</Chip>
+              <Chip style={{ color: "var(--lime)", fontSize: "var(--ft-caption-size)" }}>{t("card.newPosts", { count: newPosts })}</Chip>
             )}
           </div>
         )}

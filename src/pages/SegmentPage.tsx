@@ -1,3 +1,9 @@
+import InfoTip from "../components/InfoTip";
+import { segmentMetric } from "../features/segments/segmentMetric";
+import { Crown } from "lucide-react";
+import SegmentSurface from "../features/segments/SegmentSurface";
+import SegmentClimbCategory from "../features/segments/SegmentClimbCategory";
+import GlossaryText from "../components/common/GlossaryText";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
@@ -19,7 +25,7 @@ import RouteMap from "../components/RouteMap";
 import Avatar from "../components/Avatar";
 import SegmentHistoryPanel from "../features/segments/SegmentHistoryPanel";
 import { segmentHistoryContext } from "../features/segments/segmentHistoryNavigation";
-import { Button, Card, Text } from "../theme/components";
+import { Button, Card, Text, buttonClass } from "../theme/components";
 import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { isImplausibleAvgSpeed } from "../utils/activitySanity";
 
@@ -39,14 +45,6 @@ function formatSegmentAverageSpeed(distanceMeters: number, elapsedTimeMs: number
   const avgKph = segmentAverageSpeedKph(distanceMeters, elapsedTimeMs);
   return avgKph == null ? "— km/h" : formatEffortSpeed(avgKph);
 }
-
-const CATEGORY_COLORS: Record<number, { bg: string; label: string }> = {
-  5: { bg: "bg-red-600 text-[var(--ink-0)]", label: "HC" },
-  4: { bg: "bg-red-500 text-[var(--ink-0)]", label: "Cat 1" },
-  3: { bg: "bg-[var(--amber)] text-[var(--bg-0)]", label: "Cat 2" },
-  2: { bg: "bg-yellow-500 text-[var(--ink-0)]", label: "Cat 3" },
-  1: { bg: "bg-green-500 text-[var(--ink-0)]", label: "Cat 4" },
-};
 
 // rank 1 = amber, rank 2 = aqua, rank 3 = rose
 const RANK_STYLES = [
@@ -271,6 +269,10 @@ function formatTime(ms: number): string {
 }
 
 export default function SegmentPage() {
+  return <SegmentSurface><SegmentDetailContent /></SegmentSurface>;
+}
+
+function SegmentDetailContent() {
   const detailLocation = useLocation();
   const [detailParams, setDetailParams] = useSearchParams();
   const requestedTab = detailParams.get("tab") ?? (detailParams.has("currentActivityId") || detailParams.has("cachedComparison") ? "mine" : "overview");
@@ -620,18 +622,17 @@ export default function SegmentPage() {
     return (
       <div className="text-center" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-8)" }}>
         <p className="text-[length:var(--fs-lg)]">{t("error.notFound")}</p>
-        <Link to="/" className="text-[length:var(--fs-sm)] inline-block hover:underline" style={{ color: "var(--lime)", marginTop: "var(--space-2)" }}>{t("button.goBack")}</Link>
+        <Link to="/" className="text-[length:var(--ft-body-size)] inline-block hover:underline" style={{ color: "var(--lime)", marginTop: "var(--space-2)" }}>{t("button.goBack")}</Link>
       </div>
     );
   }
 
-  const cat = CATEGORY_COLORS[segment.climbCategory];
 
   return (
     <div className="site-shell" style={SEGMENT_PAGE_STACK_STYLE}>
       {/* Toast */}
       {toast && createPortal(
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)]" style={SEGMENT_TOAST_STYLE}>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 text-[length:var(--ft-body-size)] rounded-[var(--r-lg)]" style={SEGMENT_TOAST_STYLE}>
           {toast}
         </div>,
         document.body,
@@ -640,11 +641,7 @@ export default function SegmentPage() {
       {/* Header */}
       <Card data-testid="D3-0">
         <div style={{ ...SEGMENT_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
-          {cat && (
-            <span className={`text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)] ${cat.bg}`} style={{ padding: "var(--space-1) var(--space-2)" }}>
-              {cat.label}
-            </span>
-          )}
+          <SegmentClimbCategory category={segment.climbCategory} />
           <h1 className="text-[length:var(--fs-2xl)] font-bold" style={{ color: "var(--ink-0)" }}>{segment.name}</h1>
           <Button data-testid="D3-0-share" variant="secondary" size="sm" onClick={async () => {
             const url = window.location.origin + window.location.pathname;
@@ -659,14 +656,14 @@ export default function SegmentPage() {
               ? t(`status.${segment.status}`)
               : null;
             return badgeStyle && badgeLabel && (
-              <span className="text-[length:var(--fs-xs)] font-semibold rounded-[var(--r-sm)]" style={{ ...badgeStyle, padding: "var(--space-1) var(--space-2)" }}>
+              <span className="text-[length:var(--ft-body-size)] font-semibold rounded-[var(--r-sm)]" style={{ ...badgeStyle, padding: "var(--space-1) var(--space-2)" }}>
                 {badgeLabel}
               </span>
             );
           })()}
         </div>
         {(segment.city || segment.state) && (
-          <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-1)" }}>
+          <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-1)" }}>
             {[segment.city, segment.state].filter(Boolean).join(", ")}
           </p>
         )}
@@ -674,20 +671,20 @@ export default function SegmentPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
           <div style={SEGMENT_SECTION_STACK_STYLE}>
-            <Text as="div" variant="eyebrow">{t("distance")}</Text>
-            <Text as="div" variant="dataMedium">{(segment.distance / 1000).toFixed(2)}<Text variant="unit">km</Text></Text>
+            <Text as="div" variant="eyebrow"><GlossaryText>{t("distance")}</GlossaryText></Text>
+            <Text as="div" variant="dataMedium">{segmentMetric(segment.distance, 2, 1000)}<Text variant="unit">km</Text></Text>
           </div>
           <div style={SEGMENT_SECTION_STACK_STYLE}>
-            <Text as="div" variant="eyebrow">{t("elevationGain")}</Text>
-            <Text as="div" variant="dataMedium">{Math.round(elevGain)}<Text variant="unit">m</Text></Text>
+            <Text as="div" variant="eyebrow"><GlossaryText>{t("elevationGain")}</GlossaryText></Text>
+            <Text as="div" variant="dataMedium">{segmentMetric(elevGain)}<Text variant="unit">m</Text></Text>
           </div>
           <div style={SEGMENT_SECTION_STACK_STYLE}>
-            <Text as="div" variant="eyebrow">{t("averageGrade")}</Text>
-            <Text as="div" variant="dataMedium">{segment.averageGrade.toFixed(1)}<Text variant="unit">%</Text></Text>
+            <Text as="div" variant="eyebrow"><GlossaryText>{t("averageGrade")}</GlossaryText></Text>
+            <Text as="div" variant="dataMedium">{segmentMetric(segment.averageGrade, 1)}<Text variant="unit">%</Text></Text>
           </div>
           <div style={SEGMENT_SECTION_STACK_STYLE}>
-            <Text as="div" variant="eyebrow">{t("maxGrade")}</Text>
-            <Text as="div" variant="dataMedium">{segment.maximumGrade.toFixed(1)}<Text variant="unit">%</Text></Text>
+            <Text as="div" variant="eyebrow"><GlossaryText>{t("maxGrade")}</GlossaryText></Text>
+            <Text as="div" variant="dataMedium">{segmentMetric(segment.maximumGrade, 1)}<Text variant="unit">%</Text></Text>
           </div>
         </div>
       </Card>
@@ -738,7 +735,7 @@ export default function SegmentPage() {
       {((segment.photos && segment.photos.length > 0) || userPhotos.length > 0 || user) && (
         <Card>
           <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-3)" }}>
-            <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("photo.title")}</h3>
+            <h3 className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("photo.title")}</h3>
             {user && (
               <>
                 <input
@@ -787,7 +784,7 @@ export default function SegmentPage() {
                     }}
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent rounded-b-lg px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-[length:var(--fs-xs)] text-[var(--ink-0)]/80 truncate">{photo.attribution}</p>
+                    <p className="text-[length:var(--ft-body-size)] text-[var(--ink-0)]/80 truncate">{photo.attribution}</p>
                   </div>
                 </div>
               ))}
@@ -804,14 +801,14 @@ export default function SegmentPage() {
                     }}
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent rounded-b-lg px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-[length:var(--fs-xs)] text-[var(--ink-0)]/80 truncate">{photo.uploaderNickname}</p>
+                    <p className="text-[length:var(--ft-body-size)] text-[var(--ink-0)]/80 truncate">{photo.uploaderNickname}</p>
                   </div>
                 </div>
               ))}
             </div>
           )}
           {(!segment.photos || segment.photos.length === 0) && userPhotos.length === 0 && user && (
-            <p className="text-[length:var(--fs-sm)] text-center" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-4)" }}>
+            <p className="text-[length:var(--ft-body-size)] text-center" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-4)" }}>
               {t("empty.noPhotos")}
             </p>
           )}
@@ -823,23 +820,23 @@ export default function SegmentPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-4)" }}>
         {/* KOM */}
         {detailTab === "ranking" && <Card data-testid="D3-2">
-          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("kom.title")}</Text>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}><GlossaryText>{t("kom.title")}</GlossaryText></Text>
           {komEffort ? (
             <div style={{ ...SEGMENT_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
               <Avatar name={komEffort.nickname} imageUrl={komEffort.profileImage} size="md" userId={komEffort.userId} />
               <div className="flex-1">
-                <Link to={`/athlete/${komEffort.userId}`} className="font-semibold text-[length:var(--fs-sm)] hover:underline" style={{ color: "var(--ink-0)" }}>
+                <Link to={`/athlete/${komEffort.userId}`} className="font-semibold text-[length:var(--ft-body-size)] hover:underline" style={{ color: "var(--ink-0)" }}>
                   {komEffort.nickname}
                 </Link>
                 <Text as="div" variant="dataLarge" style={{ color: "var(--lime)", marginTop: "var(--space-1)" }}>{formatTime(komEffort.elapsedTime)}</Text>
-                <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
-                  {formatEffortSpeed(komEffort.averageSpeed)}
-                  {komEffort.averageWatts != null && ` · ${komEffort.averageWatts}W`}
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-1)" }}>
+                  <span><GlossaryText>{t("kom.avgSpeed")}</GlossaryText> {formatEffortSpeed(komEffort.averageSpeed)}</span>
+                  {komEffort.averageWatts != null && <span><GlossaryText>{t("kom.power")}</GlossaryText> {komEffort.averageWatts} W</span>}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{t("kom.noRecord")}</div>
+            <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>{t("kom.noRecord")}</div>
           )}
         </Card>}
 
@@ -852,26 +849,26 @@ export default function SegmentPage() {
                 <Text as="div" variant="dataLarge" style={{ color: "var(--ink-0)" }}>{formatTime(myBestEffort.elapsedTime)}</Text>
                 {myRank !== 0 && (
                   <span
-                    className="text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)]"
+                    className="text-[length:var(--ft-body-size)] font-bold rounded-[var(--r-sm)]"
                     style={{ ...(myRank > 0 && myRank <= 3 ? rankStyle(myRank) : { background: "var(--bg-3)", color: "var(--ink-2)", border: "1px solid var(--line-soft)" }), padding: "var(--space-1) var(--space-2)" }}
                   >
                     {myRank === -1 ? "200+" : `#${myRank}`}
                   </span>
                 )}
               </div>
-              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
-                {formatEffortSpeed(myBestEffort.averageSpeed)}
-                {myBestEffort.averageWatts != null && ` · ${myBestEffort.averageWatts}W`}
-                {myBestEffort.averageHeartrate != null && ` · ${Math.round(myBestEffort.averageHeartrate)} bpm`}
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-1)" }}>
+                <span><GlossaryText>{t("kom.avgSpeed")}</GlossaryText> {formatEffortSpeed(myBestEffort.averageSpeed)}</span>
+                {myBestEffort.averageWatts != null && <span><GlossaryText>{t("kom.power")}</GlossaryText> {myBestEffort.averageWatts} W</span>}
+                {myBestEffort.averageHeartrate != null && <span><GlossaryText>{t("kom.heartrate")}</GlossaryText> {Math.round(myBestEffort.averageHeartrate)} bpm</span>}
               </div>
-              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)", marginTop: "var(--space-1)" }}>
+              <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-4)", marginTop: "var(--space-1)" }}>
                 {new Date(myBestEffort.startDate).toLocaleDateString(localeTag())}
               </div>
             </div>
           ) : user ? (
-            <div className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{t("empty.noMyRecord")}</div>
+            <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>{t("empty.noMyRecord")}</div>
           ) : (
-            <div className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{t("empty.loginRequired")}</div>
+            <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>{t("empty.loginRequired")}</div>
           )}
         </Card>}
       </div>
@@ -879,27 +876,27 @@ export default function SegmentPage() {
       {/* Local Legend — 90일 최다완주(#490) */}
       {detailTab === "ranking" && <Card>
         <div className="flex items-baseline justify-between" style={{ marginBottom: "var(--space-2)" }}>
-          <Text as="div" variant="eyebrow">👑 {t("legend.title")}</Text>
-          <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>{t("legend.subtitle")}</span>
+          <Text as="div" variant="eyebrow"><Crown size={18} aria-hidden="true" className="inline-block" /> <InfoTip title={t("legend.title")} content={t("legend.explanation")}>{t("legend.title")}</InfoTip></Text>
+          <span className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-4)" }}>{t("legend.subtitle")}</span>
         </div>
         {legendFresh && legend?.leader ? (
           <div style={{ ...SEGMENT_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
             <Avatar name={legend.leader.nickname ?? ""} imageUrl={legend.leader.profileImage} size="md" userId={legend.leader.userId} />
             <div className="flex-1">
-              <Link to={`/athlete/${legend.leader.userId}`} className="font-semibold text-[length:var(--fs-sm)] hover:underline" style={{ color: "var(--ink-0)" }}>
+              <Link to={`/athlete/${legend.leader.userId}`} className="font-semibold text-[length:var(--ft-body-size)] hover:underline" style={{ color: "var(--ink-0)" }}>
                 {legend.leader.nickname || t("table.rider")}
               </Link>
               <Text as="div" variant="dataLarge" style={{ color: "var(--amber)", marginTop: "var(--space-1)" }}>
                 {t("legend.efforts", { count: legend.leader.effortCount })}
               </Text>
-              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
+              <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
                 {t("legend.riders", { count: legend.riderCount })}
                 {legend.handoverCount > 0 && ` · ${t("legend.handover", { count: legend.handoverCount })}`}
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{t("legend.empty")}</div>
+          <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>{t("legend.empty")}</div>
         )}
       </Card>}
 
@@ -911,8 +908,8 @@ export default function SegmentPage() {
             {usedByCourses.map((c) => (
               <Link key={c.id} to={`/course/${c.id}`}>
                 <Card padding="compact" className="hover:border-[var(--lime)]/50 transition-colors" style={{ borderRadius: "var(--r-lg)" }}>
-                  <span className="font-semibold text-[length:var(--fs-sm)] truncate" style={{ color: "var(--ink-0)" }}>{c.name}</span>
-                  <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{(c.distance / 1000).toFixed(1)}km · ↑{Math.round(c.elevationGain)}m</div>
+                  <span className="font-semibold text-[length:var(--ft-body-size)] truncate" style={{ color: "var(--ink-0)" }}>{c.name}</span>
+                  <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{(c.distance / 1000).toFixed(1)}km · ↑{Math.round(c.elevationGain)}m</div>
                 </Card>
               </Link>
             ))}
@@ -923,11 +920,12 @@ export default function SegmentPage() {
       {/* Leaderboard */}
       {detailTab === "ranking" && <Card padding="none" className="overflow-hidden">
         <div className="flex items-center justify-between" style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-5)" }}>
-          <h2 className="font-semibold text-[length:var(--fs-sm)]" style={{ color: "var(--ink-0)" }}>
+          <h2 className="font-semibold text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-0)" }}>
             {t("stats.leaderboardCount", { count: validEfforts.length })}
           </h2>
         </div>
 
+        <p className="sm:hidden text-[length:var(--ft-body-size)] px-5 py-2 m-0" style={{color:"var(--ink-2)"}}>{t("table.scrollHint")}</p>
         {loadingEfforts ? (
           <div className="w-full">
             <div className="flex" style={{ background: "var(--bg-2)", borderBottom: "1px solid var(--line-soft)", gap: "var(--space-4)", padding: "var(--space-2) var(--space-4)" }}>
@@ -947,19 +945,19 @@ export default function SegmentPage() {
             ))}
           </div>
         ) : validEfforts.length === 0 ? (
-          <div className="text-center text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-8)" }}>{t("empty.noRecords")}</div>
+          <div className="text-center text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-8)" }}>{t("empty.noRecords")}</div>
         ) : (
-          <div className="max-h-[480px] overflow-y-auto">
-          <table className="w-full text-[length:var(--fs-sm)]">
+          <div className="max-h-[480px] overflow-auto" tabIndex={0} role="region" aria-label={t("leaderboard")}>
+          <table className="w-full text-[length:var(--ft-body-size)]" style={{minWidth:"40rem"}}>
             <thead className="sticky top-0 z-10">
-              <tr style={{ background: "var(--bg-2)", borderBottom: "1px solid var(--line-soft)" }} className="text-[length:var(--fs-xs)]">
+              <tr style={{ background: "var(--bg-2)", borderBottom: "1px solid var(--line-soft)" }} className="text-[length:var(--ft-body-size)]">
                 <th className="text-left font-medium w-12" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.rank")}</th>
                 <th className="text-left font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.rider")}</th>
                 <th className="text-right font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.time")}</th>
-                <th className="text-right font-medium hidden sm:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.segmentAvgSpeed")}</th>
-                <th className="text-right font-medium hidden md:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.power")}</th>
-                <th className="text-right font-medium hidden md:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.heartrate")}</th>
-                <th className="text-right font-medium hidden lg:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.date")}</th>
+                <th className="text-right font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.segmentAvgSpeed")}</th>
+                <th className="text-right font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}><GlossaryText>{t("table.power")}</GlossaryText></th>
+                <th className="text-right font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}><GlossaryText>{t("table.heartrate")}</GlossaryText></th>
+                <th className="text-right font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.date")}</th>
               </tr>
             </thead>
             <tbody>
@@ -979,7 +977,7 @@ export default function SegmentPage() {
                   >
                     <td className="font-medium" style={SEGMENT_TABLE_CELL_STYLE}>
                       {rank <= 3 ? (
-                        <span className="text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)]" style={{ ...rankStyle(rank), padding: "var(--space-1) var(--space-2)" }}>
+                        <span className="text-[length:var(--ft-body-size)] font-bold rounded-[var(--r-sm)]" style={{ ...rankStyle(rank), padding: "var(--space-1) var(--space-2)" }}>
                           {rank}
                         </span>
                       ) : (
@@ -995,23 +993,23 @@ export default function SegmentPage() {
                           style={{ color: isMe ? "var(--lime)" : "var(--ink-1)" }}
                         >
                           {effort.nickname || "Rider"}
-                          {isMe && <span className="text-[length:var(--fs-xs)] ml-1" style={{ color: "var(--ink-3)" }}>{t("table.me")}</span>}
+                          {isMe && <span className="text-[length:var(--ft-body-size)] ml-1" style={{ color: "var(--ink-3)" }}>{t("table.me")}</span>}
                         </Link>
                       </div>
                     </td>
                     <td className="text-right font-mono font-semibold" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--ink-0)" }}>
                       {formatTime(effort.elapsedTime)}
                     </td>
-                    <td className="text-right hidden sm:table-cell" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--ink-2)" }}>
+                    <td className="text-right" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--ink-2)" }}>
                       {formatSegmentAverageSpeed(segment.distance, effort.elapsedTime)}
                     </td>
-                    <td className="text-right hidden md:table-cell" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--aqua)" }}>
-                      {effort.averageWatts != null ? `${effort.averageWatts}W` : "-"}
+                    <td className="text-right" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--aqua)" }}>
+                      {Number.isFinite(effort.averageWatts) && effort.averageWatts != null ? `${segmentMetric(effort.averageWatts)} W` : "—"}
                     </td>
-                    <td className="text-right hidden md:table-cell" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--rose)" }}>
-                      {effort.averageHeartrate != null ? `${Math.round(effort.averageHeartrate)}` : "-"}
+                    <td className="text-right" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--rose)" }}>
+                      {Number.isFinite(effort.averageHeartrate) && effort.averageHeartrate != null ? `${segmentMetric(effort.averageHeartrate)} bpm` : "—"}
                     </td>
-                    <td className="text-right hidden lg:table-cell" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--ink-3)" }}>
+                    <td className="text-right" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--ink-3)" }}>
                       {new Date(effort.startDate).toLocaleDateString(localeTag())}
                     </td>
                   </tr>
@@ -1029,12 +1027,12 @@ export default function SegmentPage() {
           <button
             onClick={() => setHistoryVisibility({ key: drilldownKey, open: !showAllEfforts })}
             aria-expanded={showAllEfforts}
-            className="w-full flex items-center justify-between transition-colors"
+            className={buttonClass({ variant: "ghost", className: "w-full flex items-center justify-between transition-colors" })}
             style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-5)" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--bg-2)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ""; }}
           >
-            <h2 className="font-semibold text-[length:var(--fs-sm)]" style={{ color: "var(--ink-0)" }}>{t("myHistory")}</h2>
+            <h2 className="font-semibold text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-0)" }}>{t("myHistory")}</h2>
             <svg
               className={`w-4 h-4 transition-transform ${showAllEfforts ? "rotate-180" : ""}`}
               fill="none"

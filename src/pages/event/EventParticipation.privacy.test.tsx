@@ -2,11 +2,15 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { httpsCallable } from "firebase/functions";
+import i18n from "i18next";
 import { getDoc, getDocs } from "firebase/firestore";
-import { mockDocData, mockCollectionData, simulateLogin as mockLogin, simulateLogout as mockLogout, getCurrentUser } from "../../__tests__/mocks/firebase";
+import { mockDocData, mockCollectionData, simulateLogin as mockLogin, simulateLogout as mockLogout, getCurrentUser, setCallableImplementation } from "../../__tests__/mocks/firebase";
 import eventStrings from "../../i18n/resources/ko/event.json";
+import termStrings from "../../i18n/resources/ko/termGlossary.json";
+import enEventStrings from "../../i18n/resources/en/event.json";
+import enTermStrings from "../../i18n/resources/en/termGlossary.json";
 import { cancelEventRegistration } from "../../features/event/detail/cancelRegistration";
-import { auth, getAppCheckToken } from "../../services/firebase";
+import { auth, getAppCheckToken, ensureAppCheckReady } from "../../services/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getEventPublicParticipants } from "../../services/eventPublicParticipants";
 import EventDetailPage from "./EventDetailPage";
@@ -41,6 +45,7 @@ const realGetDocs = vi.mocked(getDocs).getMockImplementation()!;
 const realGetDoc = vi.mocked(getDoc).getMockImplementation()!;
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
   authState.user = user;
   dialog.confirm.mockResolvedValue(true);
   vi.mocked(cancelEventRegistration).mockResolvedValue(undefined);
@@ -62,6 +67,138 @@ beforeEach(() => {
 });
 
 describe("event participant privacy boundaries", () => {
+  it("uses the single linked course summary without a blank cover or invented category", async () => {
+    const event = mockDocData.get("events/ev")!;
+    mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), type: "GRANFONDO", courseIds: ["course-1"] } });
+    mockDocData.set("courses/course-1", { name: "Linked course", distance: 118500, elevationGain: 1743, elevationHigh: 830 });
+    show(<EventDetailPage />);
+    await screen.findByText("Linked course");
+    expect(screen.getByTestId("D4-1")).toHaveClass("event-detail-body--compact");
+    const summary = within(screen.getByTestId("D4-summary"));
+    expect(summary.getByText("118.5")).toBeInTheDocument();
+    expect(summary.getByText("1743")).toBeInTheDocument();
+    expect(summary.getByText("830")).toBeInTheDocument();
+    expect(screen.queryByText("Cat HC")).toBeNull();
+    const granfondo = screen.getByRole("button", { name: termStrings.openLabel.replace("{{term}}", "그란폰도") });
+    fireEvent.focus(granfondo);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(termStrings.terms.granfondo.description);
+    fireEvent.blur(granfondo);
+    expect(screen.getByTestId("D4-0").querySelector(".h-64")).toBeNull();
+    fireEvent.focus(summary.getByRole("button", { name: eventStrings["detail.metric.distance"] }));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(eventStrings["detail.metric.distanceLinked"]);
+  });
+
+  it("provides the actual English Gran Fondo explanation", async () => {
+    i18n.addResourceBundle("en", "event", enEventStrings, true, true);
+    i18n.addResourceBundle("en", "termGlossary", enTermStrings, true, true);
+    const event = mockDocData.get("events/ev")!;
+    mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), type: "GRANFONDO" } });
+    try {
+      await act(async () => { await i18n.changeLanguage("en"); });
+      show(<EventDetailPage />);
+      const term = await screen.findByRole("button", { name: enTermStrings.openLabel.replace("{{term}}", enEventStrings["type.granfondo"]) });
+      fireEvent.focus(term);
+      expect(await screen.findByRole("tooltip")).toHaveTextContent(enTermStrings.terms.granfondo.description);
+    } finally {
+      await act(async () => { await i18n.changeLanguage("ko"); });
+    }
+  });
+
+  function addSendCourse() {
+    const event = mockDocData.get("events/ev")!;
+    mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), creatorId: "actor", courseIds: ["course-1"] } });
+    mockDocData.set("courses/course-1", { name: "Sendable course", distance: 20000, elevationGain: 100 });
+    mockDocData.set("events/other", { info: { name: "Other event", status: "OPEN" } });
+  }
+
+  it.each(["success", "app-check-failure", "account", "route", "unmount"] as const)("guards course sending while App Check is pending: %s", async outcome => {
+    addSendCourse();
+    let ready!: () => void;
+    let rejectReady!: (error: Error) => void;
+    vi.mocked(ensureAppCheckReady).mockReturnValue(new Promise<void>((resolve, reject) => { ready = resolve; rejectReady = reject; }));
+    const view = show(<EventDetailPage />);
+    fireEvent.click(await screen.findByRole("button", { name: eventStrings["detail.button.sendToParticipants"] }));
+    await waitFor(() => expect(ensureAppCheckReady).toHaveBeenCalledOnce());
+    expect(dialog.confirm).toHaveBeenCalledWith(
+      eventStrings["detail.confirm.sendCourse"].replace("{{name}}", "Sendable course"),
+      { title: eventStrings["detail.button.sendToParticipants"], confirmLabel: eventStrings["detail.button.sendToParticipants"] },
+    );
+    expect(vi.mocked(httpsCallable).mock.calls.filter(([, name]) => name === "sendCourseToApp")).toHaveLength(0);
+    if (outcome === "account") act(() => simulateLogin({ uid: "other-account" }));
+    if (outcome === "route") act(() => navigateRoute("/ko/event/other"));
+    if (outcome === "unmount") view.unmount();
+    await act(async () => {
+      if (outcome === "app-check-failure") rejectReady(new Error("app-check/token-timeout"));
+      else ready();
+    });
+    expect(vi.mocked(httpsCallable).mock.calls.filter(([, name]) => name === "sendCourseToApp")).toHaveLength(outcome === "success" ? 1 : 0);
+  });
+
+  it("discards a course send confirmation after an account change", async () => {
+    addSendCourse();
+    let confirm!: (accepted: boolean) => void;
+    dialog.confirm.mockImplementationOnce(() => new Promise(resolve => { confirm = resolve; }));
+    show(<EventDetailPage />);
+    fireEvent.click(await screen.findByRole("button", { name: eventStrings["detail.button.sendToParticipants"] }));
+    act(() => simulateLogin({ uid: "other-account" }));
+    await act(async () => confirm(true));
+    expect(ensureAppCheckReady).not.toHaveBeenCalled();
+    expect(vi.mocked(httpsCallable).mock.calls.filter(([, name]) => name === "sendCourseToApp")).toHaveLength(0);
+  });
+
+  it.each(["success", "failure"] as const)("discards late course send %s feedback after route changes", async outcome => {
+    addSendCourse();
+    let finish!: () => void;
+    let reject!: (error: Error) => void;
+    setCallableImplementation("sendCourseToApp", () => new Promise((resolve, fail) => { finish = () => resolve({ data: {} }); reject = fail; }));
+    show(<EventDetailPage />);
+    fireEvent.click(await screen.findByRole("button", { name: eventStrings["detail.button.sendToParticipants"] }));
+    await waitFor(() => expect(finish).toBeDefined());
+    act(() => navigateRoute("/ko/event/other"));
+    await screen.findAllByText("Other event");
+    await act(async () => outcome === "success" ? finish() : reject(new Error("unavailable")));
+    expect(screen.queryByText(eventStrings["detail.toast.courseSent"])).toBeNull();
+    expect(screen.queryByText(eventStrings["detail.toast.sendFailed"])).toBeNull();
+  });
+
+  it("keeps the body and sidebar layout when event guidance is present", async () => {
+    const event = mockDocData.get("events/ev")!;
+    mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), description: "Meet at the south entrance. Helmets required." } });
+    show(<EventDetailPage />);
+    await screen.findByText("Meet at the south entrance. Helmets required.");
+    expect(screen.getByTestId("D4-1")).not.toHaveClass("event-detail-body--compact");
+  });
+
+  it("never adds alternative linked course distances or invents missing highest elevation", async () => {
+    const event = mockDocData.get("events/ev")!;
+    mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), courseIds: ["course-1", "course-2"] } });
+    mockDocData.set("courses/course-1", { name: "Short course", distance: 40000, elevationGain: 200 });
+    mockDocData.set("courses/course-2", { name: "Long course", distance: 60000, elevationGain: 400 });
+    show(<EventDetailPage />);
+    await screen.findByText("Long course");
+    const summary = within(screen.getByTestId("D4-summary"));
+    expect(summary.getAllByText("—")).toHaveLength(3);
+    expect(summary.queryByText("100.0")).toBeNull();
+    expect(summary.queryByText("600")).toBeNull();
+  });
+
+  it("does not carry linked course numbers into another event", async () => {
+    const event = mockDocData.get("events/ev")!;
+    mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), courseIds: ["course-1"] } });
+    mockDocData.set("events/other", { info: { name: "Other event", status: "OPEN" } });
+    let finish!: (value: Awaited<ReturnType<typeof getDoc>>) => void;
+    vi.mocked(getDoc).mockImplementation((ref, ...args) => ref.path === "courses/course-1" ? new Promise(resolve => { finish = resolve; }) : realGetDoc(ref, ...args));
+    show(<EventDetailPage />);
+    await waitFor(() => expect(finish).toBeDefined());
+    act(() => navigateRoute("/ko/event/other"));
+    await screen.findAllByText("Other event");
+    mockDocData.set("courses/course-1", { name: "Stale course", distance: 118500, elevationGain: 1743 });
+    const snapshot = await realGetDoc({ path: "courses/course-1" } as Parameters<typeof getDoc>[0]);
+    await act(async () => finish(snapshot));
+    expect(screen.queryByText("Stale course")).toBeNull();
+    expect(within(screen.getByTestId("D4-summary")).queryByText("118.5")).toBeNull();
+  });
+
   it.each(["route", "account"])("discards stale recent participants after %s changes", async (boundary) => {
     let finish!: (value: Awaited<ReturnType<typeof getEventPublicParticipants>>) => void;
     vi.mocked(getEventPublicParticipants).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
@@ -118,6 +255,39 @@ describe("event participant privacy boundaries", () => {
     await screen.findAllByText("Public rider");
     expect(getEventPublicParticipants).toHaveBeenCalledWith("ev");
     expect(getDocs).not.toHaveBeenCalled();
+  });
+
+  it("uses fixed result icons, one finisher column, and explanatory localized metric labels", async () => {
+    const event = mockDocData.get("events/ev")!;
+    mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), status: "FINISHED" } });
+    show(<EventResultsPage />);
+    await screen.findAllByText("Public rider");
+    const page = screen.getByTestId("D4-3");
+    expect(page.textContent).not.toMatch(/[🏁🏆⬇🔗🖼⏳]/u);
+    expect(page.querySelector(".podium-grid")).toHaveStyle({ gridTemplateColumns: "repeat(1, minmax(0, 1fr))" });
+    const tableRegion = screen.getByRole("region", { name: eventStrings["label.allResults"] });
+    expect(tableRegion).toHaveAttribute("tabindex", "0");
+    expect(tableRegion).toHaveAccessibleDescription(eventStrings["resultsView.tableScrollHint"]);
+    const resultTable = within(tableRegion).getByRole("table");
+    const headerCells = within(resultTable).getAllByRole("columnheader");
+    const rowCells = within(within(resultTable).getAllByRole("row")[1]).getAllByRole("cell");
+    expect(headerCells).toHaveLength(8);
+    expect(rowCells).toHaveLength(8);
+    expect(headerCells[0]).toHaveTextContent(eventStrings["resultsView.col.rank"]);
+    expect(rowCells[0]).toHaveTextContent("1");
+    expect(headerCells[4]).toHaveTextContent(eventStrings["resultsView.col.finishTime"]);
+    expect(rowCells[4]).not.toHaveTextContent("—");
+    expect(resultTable.querySelector(".event-results-optional")).toBeNull();
+    expect(screen.getAllByRole("columnheader").some(header => header.textContent === eventStrings["resultsView.col.avgSpeed"])).toBe(true);
+    expect(screen.getAllByRole("columnheader").some(header => header.textContent === eventStrings["resultsView.col.avgPower"])).toBe(true);
+    expect(screen.getByText(eventStrings["resultsView.col.finishTime"])).toBeInTheDocument();
+    const segment = screen.getByRole("button", { name: eventStrings["resultsView.segmentKomQom"] });
+    fireEvent.focus(segment);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(eventStrings["resultsView.segmentRecordsHelp"]);
+    fireEvent.blur(segment);
+    fireEvent.focus(screen.getByRole("button", { name: termStrings.openLabel.replace("{{term}}", "훈련 부하 점수") }));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(termStrings.terms.tss.description);
+    expect(screen.queryByText("9999")).toBeNull();
   });
 
   it("never falls back to private participants after callable rejection", async () => {
@@ -270,6 +440,26 @@ describe("event participant privacy boundaries", () => {
     expect(screen.queryByText("0:00:30")).toBeNull();
   });
 
+  it.each([0, 2])("uses only registered checkpoint counts (%s) and identifies ended host navigation", async checkpointCount => {
+    const event = mockDocData.get("events/ev")!;
+    mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), creatorId: "actor", status: "FINISHED", checkpoints: Array.from({ length: checkpointCount }, (_, i) => ({ cpId: String(i), name: `Checkpoint ${i}` })) } });
+    mockCollectionData.set("events/ev/participants", [{ id: "actor", realName: "Fixture rider", status: "FINISHED", cpProgress: 0, bestTime: "1:20:30", registrationNumber: "REG-12" }]);
+    vi.mocked(getDocs).mockImplementation((q, ...args) => realGetDocs({ _collectionPath: collectionPath(q) } as unknown as typeof q, ...args));
+    show(<EventParticipantsPage />);
+    const rider = await screen.findByRole("button", { name: "Fixture rider" });
+    const row = rider.closest("tr")!;
+    expect(row.cells[6].textContent).toBe(checkpointCount ? "0/2" : "—");
+    expect(screen.queryByText("FINISHED")).toBeNull();
+    expect(screen.getByRole("columnheader", { name: eventStrings["resultsView.col.finishTime"] })).toHaveStyle({ minWidth: "128px" });
+    fireEvent.click(rider);
+    const modal = await screen.findByRole("dialog");
+    expect(within(modal).getByRole("button", { name: eventStrings["participantsView.action.endedView"] })).toBeInTheDocument();
+    expect(within(modal).queryByText(/LIVE/)).toBeNull();
+    expect(within(modal).getByText("1:20:30")).toHaveStyle({ fontFamily: "var(--font-mono)" });
+    expect(within(modal).getByText(eventStrings["participantsView.paidYes"])).not.toHaveStyle({ fontFamily: "var(--font-mono)" });
+    expect(document.querySelector("button button")).toBeNull();
+  });
+
   it("uses the same pending-aware v2 denominator for host participant stats", async () => {
     const event = mockDocData.get("events/ev")!;
     const startTime = Date.now() - 120_000;
@@ -296,11 +486,59 @@ describe("event participant privacy boundaries", () => {
     await screen.findByText(eventStrings["resultsView.privateResultsUnavailable"]);
     expect(getDocs).not.toHaveBeenCalled();
   });
-  it("does not offer cancellation for a waitlisted own document", async () => {
-    mockDocData.set("events/ev/participants/actor", { role: "RIDER", status: "WAITLISTED" });
+  it.each(["WAITLISTED", "PENDING", "WITHDRAWN", "CANCELLED", "REFUNDED"])("does not treat %s as an active registration", async (status) => {
+    mockDocData.set("events/ev/participants/actor", { role: "RIDER", status });
     show(<EventDetailPage />);
-    expect(await screen.findByRole("button", { name: eventStrings["detail.button.cancelRegistration"] })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: `+ ${eventStrings["button.register"]}` })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: eventStrings["detail.button.cancelRegistration"] })).toBeNull();
+    expect(screen.queryByRole("button", { name: eventStrings["shareCard.registration"] })).toBeNull();
+  });
+
+  it.each(["REGISTERED", "PAID", "CHECKED_IN", "RIDING"])("preserves active %s registration without allowing a duplicate application", async (status) => {
+    mockDocData.set("events/ev/participants/actor", { role: "RIDER", status });
+    show(<EventDetailPage />);
+    const cancel = await screen.findByRole("button", { name: eventStrings["detail.button.cancelRegistration"] });
+    expect(cancel).toHaveProperty("disabled", status !== "REGISTERED");
     expect(screen.queryByRole("button", { name: `+ ${eventStrings["button.register"]}` })).toBeNull();
+  });
+
+  it.each(["permission-denied", "unavailable"])("distinguishes event %s failures from missing events and supports explicit retry", async (code) => {
+    vi.mocked(getDoc).mockImplementation((ref, ...args) => ref.path === "events/ev" ? Promise.reject(new Error(code)) : realGetDoc(ref, ...args));
+    show(<EventDetailPage />);
+    await screen.findByText(eventStrings["detail.loadFailed"]);
+    expect(screen.queryByText(eventStrings["detail.notFound.description"])).toBeNull();
+    vi.mocked(getDoc).mockImplementation(realGetDoc);
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    await screen.findAllByText("Event");
+    expect(screen.queryByText(eventStrings["detail.loadFailed"])).toBeNull();
+  });
+
+  it("keeps a genuinely missing event separate from a failed request", async () => {
+    mockDocData.delete("events/ev");
+    show(<EventDetailPage />);
+    await screen.findByText(eventStrings["detail.notFound.description"]);
+    expect(screen.queryByText(eventStrings["detail.loadFailed"])).toBeNull();
+  });
+
+  it.each(["route", "account"])("discards a stale event failure after %s changes", async (boundary) => {
+    let reject!: (error: Error) => void;
+    let held = false;
+    vi.mocked(getDoc).mockImplementation((ref, ...args) => {
+      if (ref.path === "events/ev" && !held) {
+        held = true;
+        return new Promise((_, fail) => { reject = fail; });
+      }
+      return realGetDoc(ref, ...args);
+    });
+    const view = show(<EventDetailPage />);
+    await waitFor(() => expect(reject).toBeDefined());
+    if (boundary === "route") act(() => navigateRoute("/ko/event/other"));
+    else {
+      authState.user = { ...user, uid: "other" };
+      view.rerender(<MemoryRouter initialEntries={["/ko/event/ev"]}><RouteControl /><Routes><Route path="/:lang/event/:eventId" element={<EventDetailPage />} /></Routes></MemoryRouter>);
+    }
+    await act(async () => reject(new Error("unavailable")));
+    expect(screen.queryByText(eventStrings["detail.loadFailed"])).toBeNull();
   });
 
   it("allows registration after a confirmed absent own document", async () => {

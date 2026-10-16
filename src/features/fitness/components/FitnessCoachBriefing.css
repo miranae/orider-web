@@ -71,3 +71,21 @@
 }
 
 .fitness-coach__primary-grid > :only-child { grid-column: 1 / -1; }
+
+.fitness-coach__summary-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4); margin-top: var(--space-3); }
+.fitness-coach__summary-source { min-width: 0; color: var(--ink-3); font-size: var(--fs-xs); }
+.fitness-coach__summary-source summary { cursor: pointer; }
+.fitness-coach__summary-source p { margin: var(--space-2) 0 0; }
+.fitness-coach__summary-evidence { margin-top: var(--space-3); padding: var(--space-3); border-radius: var(--r-md); background: var(--bg-2); }
+.fitness-coach__summary-evidence:empty { display: none; }
+.fitness-coach__summary-evidence > div { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; align-items: start; gap: var(--space-2) var(--space-3); margin: 0; }
+.fitness-coach__summary-evidence > div > .ds-chip { grid-column: 1; grid-row: 1; }
+.fitness-coach__summary-evidence > div > span:not(.ds-chip) { grid-column: 2; }
+.fitness-coach__summary-evidence [data-testid$="-remaining"] { grid-column: 2; grid-row: 2; }
+.fitness-coach__summary-evidence [data-testid$="-action"] { grid-column: 3; grid-row: 2; align-self: center; }
+.fitness-coach__summary-action { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--line-soft); }
+.fitness-coach__summary-action a { display: inline-flex; align-items: center; min-height: var(--space-7); font-size: var(--fs-md); font-weight: 600; }
+@media (max-width: 36rem) {
+  .fitness-coach__summary-evidence > div { grid-template-columns: max-content minmax(0, 1fr); }
+  .fitness-coach__summary-evidence [data-testid$="-action"] { grid-column: 2; grid-row: 3; }
+}

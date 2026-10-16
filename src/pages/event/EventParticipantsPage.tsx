@@ -1,3 +1,10 @@
+import "../EventControls.css";
+import GlossaryProvider from "../../components/common/GlossaryProvider";
+import GlossaryText from "../../components/common/GlossaryText";
+import Modal from "../../components/Modal";
+import { localeTag } from "../../utils/localeDate";
+import { CalendarDays, CircleAlert, Download, PencilLine, LockKeyhole, MapPin, Megaphone, Search, Send } from "lucide-react";
+import "../ExploreReview.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -12,7 +19,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
-import { Button, Card, Chip, Text } from "../../theme/components";
+import { Button, Card, Chip, Text, Input, DropdownSelect } from "../../theme/components";
 import { isVerifiedEventFinisher } from "../../features/event/resultVerification";
 
 type ParticipantStatus = "REGISTERED" | "PAID" | "CHECKED_IN" | "RACING" | "FINISHED" | "DNF" | "DSQ" | "REFUNDED" | "NO_SHOW" | "CANCELLED";
@@ -95,11 +102,11 @@ function StatusChip({ status, verificationPending = false }: { status: Participa
         background: m.bg,
         color: m.color,
         borderColor: `color-mix(in oklch, ${m.color} 30%, transparent)`,
-        fontSize: "var(--fs-xs)",
+        fontSize: "var(--ft-body-size)",
         padding: "2px 8px",
       }}
     >
-      {verificationPending ? t("resultsView.verificationPending") : t(m.labelKey)}
+      <GlossaryText>{verificationPending ? t("resultsView.verificationPending") : t(m.labelKey)}</GlossaryText>
     </Chip>
   );
 }
@@ -119,7 +126,7 @@ function CpProgress({ progress, total }: { progress: number; total: number }) {
           }}
         />
       ))}
-      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginLeft: 'var(--space-1)' }}>
+      <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginLeft: 'var(--space-1)' }}>
         {progress}/{total}
       </span>
     </div>
@@ -129,9 +136,9 @@ function CpProgress({ progress, total }: { progress: number; total: number }) {
 function StatCard({ label, value, sub, tone }: { label: string; value: string | number; sub?: string; tone?: string }) {
   return (
     <Card padding="none" style={{ padding: "14px 16px" }}>
-      <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{label}</Text>
+      <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}><GlossaryText>{label}</GlossaryText></Text>
       <Text as="div" variant="dataMedium" style={{ color: tone || "var(--ink-0)" }}>{value}</Text>
-      {sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)', fontFamily: "var(--font-mono)" }}>{sub}</div>}
+      {sub && <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", marginTop: 'var(--space-1)', fontFamily: "var(--font-mono)" }}>{sub}</div>}
     </Card>
   );
 }
@@ -150,7 +157,7 @@ function ageFromBirth(birth: string): number | null {
 export default function EventParticipantsPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
   const { t } = useTranslation("event");
   const dialog = useDialog();
 
@@ -402,7 +409,7 @@ export default function EventParticipantsPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("participantsView.loginRequired")} />
+        <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signInWithGoogle(); }} />
       </div>
     );
   }
@@ -424,7 +431,7 @@ export default function EventParticipantsPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon="🗓️"
+          icon={<CalendarDays size={28} style={{ marginInline: "auto" }} />}
           title={t("participantsView.eventNotFound")}
           actions={[{ label: t("participantsView.eventListLink"), variant: "primary", onClick: () => navigate("/explore/events") }]}
         />
@@ -435,7 +442,7 @@ export default function EventParticipantsPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon="🔒"
+          icon={<LockKeyhole size={28} style={{ marginInline: "auto" }} />}
           title={t("participantsView.noPermission")}
           description={t("participantsView.noPermissionDesc")}
           actions={[{ label: t("participantsView.eventDetailLink"), variant: "primary", onClick: () => navigate(`/event/${eventId}`) }]}
@@ -445,15 +452,18 @@ export default function EventParticipantsPage() {
   }
 
   const isLive = event.status === "LIVE";
+  const trackingEnded = event.status === "FINISHED" || event.status === "CANCELLED";
+  const statusKeys: Record<string, string> = { OPEN: "status.open", LIVE: "status.live", FINISHED: "status.finished", CANCELLED: "status.cancelled", DRAFT: "status.draft" };
   const fmtStart = event.startTime
-    ? new Date(event.startTime).toLocaleString("ko-KR", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    ? new Date(event.startTime).toLocaleString(localeTag(), { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
     : "";
 
   return (
-    <div data-testid="O1-2">
+    <GlossaryProvider scopeKey="event-editor">
+    <div data-testid="O1-2" className="event-controls-surface explore-editor-surface">
       {/* 헤더 */}
       <div className="site-shell" style={{ padding: "var(--space-5) var(--space-6) var(--space-4)" }}>
-        <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
+        <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--ft-body-size)", color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
           <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
           <span style={{ color: "var(--ink-4)" }}>›</span>
           <Link to={`/event/${eventId}`} style={{ color: "var(--ink-3)" }} className="truncate">
@@ -471,7 +481,7 @@ export default function EventParticipantsPage() {
                   style={{
                     color: "var(--lime)",
                     borderColor: "color-mix(in oklch, var(--lime) 40%, transparent)",
-                    fontSize: "var(--fs-xs)",
+                    fontSize: "var(--ft-body-size)",
                   }}
                 >
                   <span
@@ -486,12 +496,12 @@ export default function EventParticipantsPage() {
                       marginRight: "var(--space-1-5)",
                     }}
                   />
-                  LIVE
+                  {t("status.live")}
                 </Chip>
               ) : (
-                <Chip style={{ fontSize: "var(--fs-xs)" }}>{event.status}</Chip>
+                <Chip style={{ fontSize: "var(--ft-body-size)" }}>{t(statusKeys[event.status] ?? "status.unknown")}</Chip>
               )}
-              {fmtStart && <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("participantsView.startSuffix", { time: fmtStart })}</span>}
+              {fmtStart && <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{t("participantsView.startSuffix", { time: fmtStart })}</span>}
             </div>
             <h1 style={{ fontSize: "var(--fs-2xl)", letterSpacing: "-0.02em", color: "var(--ink-0)", margin: 0 }}>
               {t("participantsTitle")}
@@ -499,21 +509,21 @@ export default function EventParticipantsPage() {
           </div>
           <div className="flex flex-wrap" style={{ gap: 'var(--space-2)' }}>
             <Button type="button" onClick={() => navigate(`/event/${eventId}/host/edit`)} variant="secondary" size="sm">
-              ✎ {t("action.editEvent")}
+              <PencilLine size={14} aria-hidden="true" /> {t("action.editEvent")}
             </Button>
             <Button
               type="button"
               disabled
               title={t("participantsView.csvSoon")} variant="secondary" size="sm"
             >
-              ⬇ {t("action.exportCSV")} · {t("participantsView.comingSoon")}
+              <Download size={14} aria-hidden="true" /> {t("action.exportCSV")} · {t("participantsView.comingSoon")}
             </Button>
             <Button
               type="button"
               disabled
               title={t("participantsView.noticeSoon")} variant="secondary" size="sm"
             >
-              📢 {t("participantsView.broadcastBtn")} · {t("participantsView.comingSoon")}
+              <Megaphone size={14} aria-hidden="true" /> {t("participantsView.broadcastBtn")} · {t("participantsView.comingSoon")}
             </Button>
           </div>
         </div>
@@ -541,8 +551,8 @@ export default function EventParticipantsPage() {
               gap: 'var(--space-3)',
             }}
           >
-            <span aria-hidden="true" style={{ color: "var(--amber)", flexShrink: 0 }}>⚠</span>
-            <div style={{ flex: 1, fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>
+            <span aria-hidden="true" style={{ color: "var(--amber)", flexShrink: 0 }}><CircleAlert size={14} /></span>
+            <div style={{ flex: 1, fontSize: "var(--ft-body-size)", color: "var(--ink-1)" }}>
               {t("participantsView.noBibWarning", { count: stats.noBib })}
             </div>
             <Button
@@ -587,20 +597,22 @@ export default function EventParticipantsPage() {
                   top: "50%",
                   transform: "translateY(-50%)",
                   color: "var(--ink-3)",
-                  fontSize: "var(--fs-xs)",
+                  fontSize: "var(--ft-body-size)",
                 }}
               >
-                🔍
+                <Search size={16} aria-hidden="true" />
               </span>
-              <input
+              <Input
+                className="event-input-with-leading-icon"
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                aria-label={t("participantsView.searchPlaceholder")}
                 placeholder={t("participantsView.searchPlaceholder")}
                 style={{
                   width: "100%",
                   padding: "var(--space-2) var(--space-3) var(--space-2) var(--space-7)",
-                  fontSize: "var(--fs-xs)",
+                  fontSize: "var(--ft-body-size)",
                   background: "var(--bg-2)",
                   border: "1px solid var(--line-soft)",
                   borderRadius: "var(--r-sm)",
@@ -614,7 +626,7 @@ export default function EventParticipantsPage() {
                 type="button"
                 onClick={() => setCategoryFilter("ALL")}
                 aria-pressed={categoryFilter === "ALL"} variant="secondary" size="sm"
-                style={{ background: categoryFilter === "ALL" ? "var(--bg-3)" : "var(--bg-2)", fontSize: "var(--fs-xs)" }}
+                style={{ background: categoryFilter === "ALL" ? "var(--bg-3)" : "var(--bg-2)", fontSize: "var(--ft-body-size)" }}
               >
                 {t("filter.all")}
               </Button>
@@ -626,7 +638,7 @@ export default function EventParticipantsPage() {
                     type="button"
                     onClick={() => setCategoryFilter(c.id)}
                     aria-pressed={active} variant="secondary" size="sm"
-                    style={{ background: active ? "var(--bg-3)" : "var(--bg-2)", fontSize: "var(--fs-xs)" }}
+                    style={{ background: active ? "var(--bg-3)" : "var(--bg-2)", fontSize: "var(--ft-body-size)" }}
                   >
                     {c.name}
                   </Button>
@@ -634,30 +646,11 @@ export default function EventParticipantsPage() {
               })}
             </div>
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                padding: "7px 10px",
-                fontSize: "var(--fs-xs)",
-                background: "var(--bg-2)",
-                border: "1px solid var(--line-soft)",
-                borderRadius: "var(--r-sm)",
-                color: "var(--ink-1)",
-              }}
-            >
-              <option value="ALL">{t("participantsView.allStatuses")}</option>
-              <option value="PAID">{t("label.paymentComplete")}</option>
-              <option value="CHECKED_IN">{t("label.checkedIn")}</option>
-              <option value="RACING">{t("label.racing")}</option>
-              <option value="FINISHED">{t("stats.finished")}</option>
-              <option value="DNF">{t("label.dnf")}</option>
-              <option value="DSQ">{t("label.disqualified")}</option>
-              <option value="REFUNDED">{t("label.refunded")}</option>
-            </select>
+            <DropdownSelect label={t("participantsView.allStatuses")} value={statusFilter} onChange={setStatusFilter}
+              options={[{ value: "ALL", label: t("participantsView.allStatuses") }, { value: "PAID", label: t("label.paymentComplete") }, { value: "CHECKED_IN", label: t("label.checkedIn") }, { value: "RACING", label: t("label.racing") }, { value: "FINISHED", label: t("stats.finished") }, { value: "DNF", label: t("label.dnf") }, { value: "DSQ", label: t("label.disqualified") }, { value: "REFUNDED", label: t("label.refunded") }]} />
 
             <div style={{ flex: 1 }} />
-            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+            <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
               {t("participantsView.countDisplay", { count: filtered.length })}
               {selected.size > 0 && ` · ${t("participantsView.selectedCount", { count: selected.size })}`}
             </div>
@@ -674,7 +667,7 @@ export default function EventParticipantsPage() {
                 gap: 'var(--space-2)',
               }}
             >
-              <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>{t("participantsView.bulkPrefix", { count: selected.size })}</span>
+              <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-1)" }}>{t("participantsView.bulkPrefix", { count: selected.size })}</span>
               <div style={{ flex: 1 }} />
               <Button
                 type="button"
@@ -688,7 +681,7 @@ export default function EventParticipantsPage() {
                 onClick={() => handleBulk("sms")}
                 disabled={busy} variant="secondary" size="sm" className="disabled:opacity-50"
               >
-                📤 {t("participantsView.action.sms")}
+                <Send size={14} aria-hidden="true" /> {t("participantsView.action.sms")}
               </Button>
               <Button
                 type="button"
@@ -714,16 +707,14 @@ export default function EventParticipantsPage() {
 
           {/* 테이블 */}
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
+            <table className="event-participants-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--ft-body-size)" }}>
               <thead>
                 <tr
                   style={{
                     background: "var(--bg-2)",
                     color: "var(--ink-3)",
-                    fontSize: "var(--fs-xs)",
-                    fontFamily: "var(--font-mono)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
+                    fontSize: "var(--ft-body-size)",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   <th style={{ width: 36, padding: "10px 16px", textAlign: "left" }}>
@@ -742,7 +733,7 @@ export default function EventParticipantsPage() {
                   </th>
                   <th
                     onClick={() => setSortBy("name")}
-                    style={{ padding: "10px 8px", textAlign: "left", cursor: "pointer" }}
+                    style={{ width: 240, padding: "10px 8px", textAlign: "left", cursor: "pointer" }}
                   >
                     {t("participantsView.colParticipant")} {sortBy === "name" && "↓"}
                   </th>
@@ -757,9 +748,9 @@ export default function EventParticipantsPage() {
                   <th style={{ width: 140, padding: "10px 8px", textAlign: "left" }}>{t("checkpoints")}</th>
                   <th
                     onClick={() => setSortBy("time")}
-                    style={{ width: 90, padding: "10px 8px", textAlign: "right", cursor: "pointer" }}
+                    style={{ minWidth: 128, padding: "10px 8px", textAlign: "right", cursor: "pointer" }}
                   >
-                    {t("bestTime")} {sortBy === "time" && "↓"}
+                    {t("resultsView.col.finishTime")} {sortBy === "time" && "↓"}
                   </th>
                   <th style={{ width: 120, padding: "10px 8px", textAlign: "left" }}>{t("team")}</th>
                   <th style={{ width: 44, padding: "10px 16px", textAlign: "right" }}></th>
@@ -806,11 +797,11 @@ export default function EventParticipantsPage() {
                           {p.bib ? (
                             <span style={{ fontWeight: 600 }}>#{String(p.bib).padStart(3, "0")}</span>
                           ) : (
-                            <span style={{ fontSize: "var(--fs-xs)" }}>{t("participantsView.bibNone")}</span>
+                            <span style={{ fontSize: "var(--ft-body-size)" }}>{t("participantsView.bibNone")}</span>
                           )}
                         </td>
                         <td style={{ padding: "var(--space-3) var(--space-2)" }}>
-                          <button
+                          <Button
                             type="button"
                             onClick={() => setDrawer(p)}
                             style={{
@@ -824,10 +815,10 @@ export default function EventParticipantsPage() {
                             }}
                           >
                             {p.realName}
-                          </button>
+                          </Button>
                           <div
                             style={{
-                              fontSize: "var(--fs-xs)",
+                              fontSize: "var(--ft-body-size)",
                               color: "var(--ink-3)",
                               fontFamily: "var(--font-mono)",
                               marginTop: 1,
@@ -840,7 +831,7 @@ export default function EventParticipantsPage() {
                           {cat ? (
                             <Chip
                               style={{
-                                fontSize: "var(--fs-xs)",
+                                fontSize: "var(--ft-body-size)",
                                 color: `var(--${cat.color})`,
                                 borderColor: `color-mix(in oklch, var(--${cat.color}) 30%, transparent)`,
                                 padding: "2px 7px",
@@ -849,13 +840,13 @@ export default function EventParticipantsPage() {
                               {cat.name}
                             </Chip>
                           ) : (
-                            <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>—</span>
+                            <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>—</span>
                           )}
                         </td>
                         <td
                           style={{
                             padding: "var(--space-3) var(--space-2)",
-                            fontSize: "var(--fs-xs)",
+                            fontSize: "var(--ft-body-size)",
                             color: "var(--ink-2)",
                             fontFamily: "var(--font-mono)",
                           }}
@@ -866,7 +857,7 @@ export default function EventParticipantsPage() {
                           <StatusChip status={p.status} verificationPending={p.verificationPending} />
                         </td>
                         <td style={{ padding: "var(--space-3) var(--space-2)" }}>
-                          <CpProgress progress={p.cpProgress} total={Math.max(1, event.checkpoints.length)} />
+                          {event.checkpoints.length > 0 ? <CpProgress progress={p.cpProgress} total={event.checkpoints.length} /> : <span style={{ color: "var(--ink-3)" }}>—</span>}
                         </td>
                         <td
                           style={{
@@ -874,14 +865,14 @@ export default function EventParticipantsPage() {
                             fontFamily: "var(--font-mono)",
                             color: "var(--ink-1)",
                             textAlign: "right",
-                            fontSize: "var(--fs-xs)",
+                            fontSize: "var(--ft-body-size)",
                           }}
                         >
                           {p.bestTime}
                         </td>
-                        <td style={{ padding: "var(--space-3) var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{p.team}</td>
+                        <td style={{ padding: "var(--space-3) var(--space-2)", fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{p.team}</td>
                         <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right" }}>
-                          <button
+                          <Button
                             type="button"
                             onClick={() => setDrawer(p)}
                             aria-label={t("participantsView.viewDetail", { name: p.realName })}
@@ -894,7 +885,7 @@ export default function EventParticipantsPage() {
                             }}
                           >
                             ⋯
-                          </button>
+                          </Button>
                         </td>
                       </tr>
                     );
@@ -907,50 +898,9 @@ export default function EventParticipantsPage() {
       </div>
 
       {/* 드로어 */}
-      {drawer && (
-        <>
-          <div
-            onClick={() => setDrawer(null)}
-            style={{ position: "fixed", inset: 0, background: "color-mix(in srgb, var(--bg-0) 40%, transparent)", zIndex: 80 }}
-            aria-hidden="true"
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            style={{
-              position: "fixed",
-              top: 0,
-              right: 0,
-              bottom: 0,
-              width: 400,
-              maxWidth: "100vw",
-              background: "var(--bg-1)",
-              borderLeft: "1px solid var(--line-soft)",
-              zIndex: 90,
-              overflowY: "auto",
-            }}
-          >
-            <div
-              className="flex items-center justify-between"
-              style={{ padding: "18px 20px", borderBottom: "1px solid var(--line-soft)" }}
-            >
-              <div>
-                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: "var(--space-0-5)" }}>
-                  {drawer.bib ? `#${String(drawer.bib).padStart(3, "0")}` : t("participantsView.bibNone")}
-                </div>
-                <div style={{ fontSize: "var(--fs-lg)", fontWeight: 600, color: "var(--ink-0)" }}>{drawer.realName}</div>
-              </div>
-              <Button
-                type="button"
-                onClick={() => setDrawer(null)}
-                aria-label={t("participantsView.close")} variant="secondary" size="sm"
-                style={{ padding: 'var(--space-2)' }}
-              >
-                ×
-              </Button>
-            </div>
-
-            <div style={{ padding: 'var(--space-5)' }}>
+      {drawer && <Modal open onClose={() => setDrawer(null)} title={drawer.realName} maxWidth="max-w-lg" accessible>
+            <div>
+              <Text as="p" variant="mono" style={{ marginBottom: "var(--space-3)" }}>{drawer.bib ? `#${String(drawer.bib).padStart(3, "0")}` : t("participantsView.bibNone")}</Text>
               <StatusChip status={drawer.status} verificationPending={drawer.verificationPending} />
               {drawer.dnfReason && (
                 <div
@@ -959,7 +909,7 @@ export default function EventParticipantsPage() {
                     padding: "8px 10px",
                     background: "color-mix(in oklch, var(--amber) 8%, var(--bg-2))",
                     borderRadius: "var(--r-sm)",
-                    fontSize: "var(--fs-xs)",
+                    fontSize: "var(--ft-body-size)",
                     color: "var(--ink-1)",
                   }}
                 >
@@ -975,12 +925,12 @@ export default function EventParticipantsPage() {
                   [t("phone"), drawer.phone || "—"],
                   [t("team"), drawer.team],
                   [t("participantsView.drawerPaid"), drawer.paid ? t("participantsView.paidYes") : t("participantsView.paidNo")],
-                  [t("bestTime"), drawer.bestTime],
+                  [t("resultsView.col.finishTime"), drawer.bestTime],
                   [t("label.registration"), drawer.registrationNumber || "—"],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between" style={{ fontSize: "var(--fs-xs)" }}>
+                ].map(([k, v], index) => (
+                  <div key={k} className="flex justify-between" style={{ fontSize: "var(--ft-body-size)" }}>
                     <span style={{ color: "var(--ink-3)" }}>{k}</span>
-                    <span style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>{v}</span>
+                    <span style={{ color: "var(--ink-1)", fontFamily: index === 6 || index === 7 ? "var(--font-mono)" : undefined }}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -989,7 +939,7 @@ export default function EventParticipantsPage() {
                 <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>{t("participantsView.cpPassage")}</Text>
                 <div className="flex flex-col" style={{ gap: 'var(--space-2)' }}>
                   {event.checkpoints.length === 0 ? (
-                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("participantsView.noCheckpoints")}</div>
+                    <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>{t("participantsView.noCheckpoints")}</div>
                   ) : (
                     event.checkpoints.map((cp, i) => {
                       const passed = i < drawer.cpProgress;
@@ -1004,7 +954,7 @@ export default function EventParticipantsPage() {
                               color: passed ? "var(--primary-fg)" : "var(--ink-3)",
                               display: "grid",
                               placeItems: "center",
-                              fontSize: "var(--fs-xs)",
+                              fontSize: "var(--ft-body-size)",
                               fontFamily: "var(--font-mono)",
                               fontWeight: 600,
                             }}
@@ -1015,7 +965,7 @@ export default function EventParticipantsPage() {
                           <div className="flex-1 min-w-0">
                             <div
                               style={{
-                                fontSize: "var(--fs-xs)",
+                                fontSize: "var(--ft-body-size)",
                                 color: passed ? "var(--ink-0)" : "var(--ink-3)",
                               }}
                             >
@@ -1023,7 +973,7 @@ export default function EventParticipantsPage() {
                             </div>
                             {cp.distanceFromStart != null && (
                               <div
-                                style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}
+                                style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}
                               >
                                 {(cp.distanceFromStart / 1000).toFixed(1)} km
                               </div>
@@ -1051,7 +1001,7 @@ export default function EventParticipantsPage() {
                   style={{ justifyContent: "flex-start", width: "100%" }}
                   title={t("participantsView.bibChangeSoon")}
                 >
-                  ✎ {t("participantsView.action.bibChange")} · {t("participantsView.comingSoon")}
+                  <PencilLine size={14} aria-hidden="true" /> {t("participantsView.action.bibChange")} · {t("participantsView.comingSoon")}
                 </Button>
                 <Button
                   type="button" variant="secondary" size="sm"
@@ -1059,14 +1009,14 @@ export default function EventParticipantsPage() {
                   style={{ justifyContent: "flex-start", width: "100%" }}
                   title={t("participantsView.smsSingleSoon")}
                 >
-                  📤 {t("participantsView.action.smsSingle")} · {t("participantsView.comingSoon")}
+                  <Send size={14} aria-hidden="true" /> {t("participantsView.action.smsSingle")} · {t("participantsView.comingSoon")}
                 </Button>
                 <Button
                   type="button" variant="secondary" size="sm"
                   style={{ justifyContent: "flex-start", width: "100%" }}
                   onClick={() => navigate(`/event/${eventId}/host`)}
                 >
-                  📍 {t("participantsView.action.liveView")}
+                  <MapPin size={14} aria-hidden="true" /> {t(trackingEnded ? "participantsView.action.endedView" : "participantsView.action.liveView")}
                 </Button>
                 {drawer.status === "RACING" && (
                   <Button
@@ -1107,9 +1057,7 @@ export default function EventParticipantsPage() {
                 </Button>
               </div>
             </div>
-          </div>
-        </>
-      )}
+      </Modal>}
 
       {/* Toast */}
       {toast && (
@@ -1129,7 +1077,7 @@ export default function EventParticipantsPage() {
                 : "color-mix(in oklch, var(--rose) 12%, var(--bg-2))",
             border: `1px solid ${toast.type === "ok" ? "var(--lime)" : toast.type === "warn" ? "var(--amber)" : "var(--rose)"}`,
             borderRadius: "var(--r-sm)",
-            fontSize: "var(--fs-xs)",
+            fontSize: "var(--ft-body-size)",
             color: "var(--ink-0)",
             display: "flex",
             gap: "var(--space-2)",
@@ -1143,5 +1091,6 @@ export default function EventParticipantsPage() {
         </div>
       )}
     </div>
+    </GlossaryProvider>
   );
 }

@@ -1,3 +1,4 @@
+import "../../features/courses/course-review.css";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -10,7 +11,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
-import { Button, Card, Text } from "../../theme/components";
+import { Button, Card, Text, Input, Textarea } from "../../theme/components";
 
 type Surface = "paved" | "gravel" | "mixed" | "";
 
@@ -186,22 +187,13 @@ export default function CourseEditPage() {
     );
   }
 
-  const fieldStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "10px 12px",
-    background: "var(--bg-2)",
-    border: "1px solid var(--line-soft)",
-    borderRadius: "var(--r-md)",
-    color: "var(--ink-0)",
-    fontSize: "var(--fs-sm)",
-  };
 
   return (
-    <div className="max-w-2xl mx-auto pb-16" style={{ paddingInline: 'var(--space-4)' }}>
+    <div className="course-edit-surface max-w-2xl mx-auto pb-16" style={{ paddingInline: 'var(--space-4)' }}>
       <PageHeader
         eyebrow={t("editTitle")}
         title={name || data.name || t("edit.unnamed")}
-        subtitle={`${(data.distance / 1000).toFixed(1)}km · ↑${Math.round(data.elevationGain)}m`}
+        subtitle={`${t("distance")} ${(data.distance / 1000).toFixed(1)} km · ${t("elevationGainShort")} ${Math.round(data.elevationGain)} m`}
       />
 
       <Card padding="none" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-4)' }}>
@@ -209,25 +201,25 @@ export default function CourseEditPage() {
 
         <label className="flex flex-col" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-4)' }}>
           <Text variant="eyebrow">{t("form.courseName")} <span style={{ color: "var(--rose)" }}>*</span></Text>
-          <input
+          <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={50}
-            style={fieldStyle}
+
           />
           <span className="text-[length:var(--fs-xs)] text-right" style={{ color: "var(--ink-4)" }}>{name.length}/50</span>
         </label>
 
         <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
           <Text variant="eyebrow">{t("edit.descriptionLabel")}</Text>
-          <textarea
+          <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={5}
             maxLength={200}
             placeholder={t("edit.descriptionPlaceholder")}
-            style={{ ...fieldStyle, resize: "vertical", fontFamily: "inherit" }}
+
           />
           <span className="text-[length:var(--fs-xs)] text-right" style={{ color: "var(--ink-4)" }}>{description.length}/200</span>
         </label>
@@ -274,7 +266,7 @@ export default function CourseEditPage() {
                   onClick={() => setDifficulty(active ? null : n)}
                   aria-pressed={active} variant="secondary" size="sm"
                   style={{
-                    minWidth: 36,
+                    minWidth: "var(--dim-button-height)",
                     background: active ? "var(--bg-3)" : "transparent",
                     color: active ? "var(--ink-0)" : "var(--ink-3)",
                     fontWeight: active ? 700 : 400,

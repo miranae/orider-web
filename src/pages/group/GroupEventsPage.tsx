@@ -12,17 +12,17 @@ import { canManageGroup } from "../../features/group/groupPermissions";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
-import { Button, Card } from "../../theme/components";
+import { Button, Card, buttonClass } from "../../theme/components";
 import { logClientError } from "../../services/errorLogger";
 
-interface ClubEvent { id: string; name: string; status: string; startTime: number; registered: number | null; myRsvp: boolean }
+interface ClubEvent { id: string; name: string; status: string; startTime: number; registered: number | null; myRsvp: boolean | null }
 export default function GroupEventsPage() {
-  const { t, i18n } = useTranslation("group");
+  const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
   const { user } = useAuth();
-  const { role, loading: roleLoading } = useGroupMemberRole(groupId, user?.uid);
+  const { role, loading: roleLoading, error: roleError, retry: retryRole } = useGroupMemberRole(groupId, user?.uid);
   const accessKey = `${user?.uid ?? ""}:${role ?? ""}`;
-  const { group, loading: groupLoading, error: groupError } = useGroup(groupId, accessKey);
+  const { group, loading: groupLoading, error: groupError, retry: retryGroup } = useGroup(groupId, accessKey);
   const [events, setEvents] = useState<ClubEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -39,9 +39,13 @@ export default function GroupEventsPage() {
         const data = eventDoc.data();
         const info = data.info ?? {};
         if (info.deletedAt != null || info.status === "DRAFT") return null;
-        const participant = user ? await getDoc(doc(firestore, "events", eventDoc.id, "participants", user.uid)) : null;
-        // Backend list-my-registered-events.ts ACTIVE_PARTICIPANT_STATUSES. History is not an active registration.
-        const myRsvp = !!participant?.exists() && isActiveEventRegistration(participant.data()?.status);
+        let myRsvp: boolean | null = null;
+        if (user) {
+          try {
+            const participant = await getDoc(doc(firestore, "events", eventDoc.id, "participants", user.uid));
+            myRsvp = participant.exists() && isActiveEventRegistration(participant.data()?.status);
+          } catch (reason) { logClientError("GroupEventsPage.registration", reason, {groupId,eventId:eventDoc.id}); }
+        }
         return { id: eventDoc.id, name: String(info.name ?? ""), status: String(info.status ?? ""), startTime: normalizeStartTime(info.startTime), registered: typeof data.counters?.totalRegistered === "number" ? data.counters.totalRegistered : null, myRsvp };
       }));
       if (!cancelled) setEvents(rows.filter((row): row is ClubEvent => row !== null));
@@ -49,16 +53,19 @@ export default function GroupEventsPage() {
     return () => { cancelled = true; };
   }, [groupId, accessKey, role, retry, status]);
   if (groupLoading || roleLoading) return <LoadingSkeleton kind="list" count={3} />;
-  if (groupError) return <ErrorState title={t("error.loadFailed")} onRetry={() => window.location.reload()} />;
+  if (groupError || roleError) return <ErrorState title={t("error.loadFailed")} onRetry={roleError ? retryRole : retryGroup} />;
   if (!group) return <EmptyState title={t("empty.groupNotFound")} />;
   const manager = canManageGroup(group, user?.uid, role);
   if (!role) return <Navigate to=".." relative="path" replace />;
   const calendarUrl = groupCalendarUrl(group);
+  const visibleEvents = events.filter(event => status === "all" ? ["OPEN", "LIVE"].includes(event.status) : event.status === status);
   return <div data-testid="C3" className="space-y-4"><header data-testid="C3-0"><GroupSubNav group={group} isCreator={manager} />
-    {calendarUrl && <a data-testid="C3-0-1" href={calendarUrl}>{t("events.subscribe")}</a>}
-    {user?.uid === group.creatorId && <Link data-testid="C3-0-2" to={`/event/create?groupId=${encodeURIComponent(group.id)}`}>{t("dashboard.createEvent")}</Link>}</header>
-    <div className="flex gap-2">{["all", "OPEN", "LIVE", "FINISHED"].map(value => <Button key={value} size="sm" variant={value === status ? "primary" : "secondary"} onClick={() => setStatus(value)}>{value === "all" ? t("filter.all") : t(`event:status.${value.toLowerCase()}`)}</Button>)}</div>
-    <section data-testid={status === "FINISHED" ? "C3-2" : "C3-1"}>{loading ? <LoadingSkeleton kind="list" count={3} /> : error ? <ErrorState title={t("error.loadFailed")} onRetry={() => setRetry(value => value + 1)} /> : events.length === 0 ? <div data-testid="C3-1-3"><EmptyState title={t("dashboard.noEvents")} actions={[{ label: t("dashboard.moreEvents"), href: "/explore/events" }]} /></div> : events.filter(event => status === "all" ? ["OPEN", "LIVE"].includes(event.status) : event.status === status).map(event => <Card data-testid={event.status === "FINISHED" ? "C3-2-1" : "C3-1-1"} key={event.id}><Link to={`/event/${event.id}`}>{event.name}</Link><p>{event.startTime ? new Date(event.startTime).toLocaleString(i18n.language) : "–"} · {t(`event:status.${event.status.toLowerCase()}`)}{event.registered !== null ? ` · ${t("dashboard.eventParticipants", { count: event.registered })}` : ""}</p>{event.status === "OPEN" && <Link data-testid="C3-1-2" to={event.myRsvp ? `/event/${event.id}` : `/event/${event.id}/register`}>{t(event.myRsvp ? "dashboard.eventAction.manageRsvp" : "dashboard.eventAction.rsvp")}</Link>}{event.status === "FINISHED" && <Link to={`/event/${event.id}/results`}>{t("events.results")}</Link>}</Card>)}
+    <div className="flex flex-wrap items-center gap-2">
+    {calendarUrl && <a data-testid="C3-0-1" className={buttonClass({ variant: "secondary", size: "sm" })} href={calendarUrl}>{t("events.subscribe")}</a>}
+    {user?.uid === group.creatorId && <Link data-testid="C3-0-2" className={buttonClass({ variant: "primary", size: "sm" })} to={`/event/create?groupId=${encodeURIComponent(group.id)}`}>{t("dashboard.createEvent")}</Link>}
+    </div></header>
+    <div className="flex flex-wrap gap-2">{["all", "OPEN", "LIVE", "FINISHED"].map(value => <Button key={value} size="sm" variant={value === status ? "primary" : "secondary"} aria-pressed={value === status} onClick={() => setStatus(value)}>{value === "all" ? t("filter.all") : t(`event:status.${value.toLowerCase()}`)}</Button>)}</div>
+    <section data-testid={status === "FINISHED" ? "C3-2" : "C3-1"}>{loading ? <LoadingSkeleton kind="list" count={3} /> : error ? <ErrorState title={t("error.loadFailed")} onRetry={() => setRetry(value => value + 1)} /> : visibleEvents.length === 0 ? <div data-testid="C3-1-3"><EmptyState title={t(`events.empty.${status}`)} actions={[{ label: t("dashboard.moreEvents"), href: "/explore/events" }]} /></div> : visibleEvents.map(event => <Card data-testid={event.status === "FINISHED" ? "C3-2-1" : "C3-1-1"} key={event.id}><Link to={`/event/${event.id}`}>{event.name}</Link><p>{event.startTime ? new Date(event.startTime).toLocaleString(i18n.language) : "–"} · {t(`event:status.${event.status.toLowerCase()}`)}{event.registered !== null ? ` · ${t("dashboard.eventParticipants", { count: event.registered })}` : ""}</p>{event.status === "OPEN" && <Link data-testid="C3-1-2" to={event.myRsvp === null || event.myRsvp ? `/event/${event.id}` : `/event/${event.id}/register`}>{t(event.myRsvp === null ? "events.viewDetails" : event.myRsvp ? "dashboard.eventAction.manageRsvp" : "dashboard.eventAction.rsvp")}</Link>}{event.status === "FINISHED" && <Link to={`/event/${event.id}/results`}>{t("events.results")}</Link>}</Card>)}
     </section>
   </div>;
 }

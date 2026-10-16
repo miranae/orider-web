@@ -4,8 +4,8 @@ import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 const FOCUSABLE = 'summary, button:not([disabled]), a[href], input:not([disabled]):not([hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** 훈련 편집창 공통 키보드 동작. 저장 경고창이 열리면 상위 창의 트랩은 양보한다. */
-export function useTrainingDialog(onClose: () => void, busy: boolean) {
-  const ref = useRef<HTMLDivElement>(null);
+export function useTrainingDialog<T extends HTMLElement = HTMLDivElement>(onClose: () => void, busy: boolean) {
+  const ref = useRef<T>(null);
   const latest = useRef({ onClose, busy });
   useEffect(() => { latest.current = { onClose, busy }; });
   useBodyScrollLock(true);
@@ -23,8 +23,12 @@ export function useTrainingDialog(onClose: () => void, busy: boolean) {
       return true;
     });
     (node.querySelector<HTMLElement>("[data-dialog-initial-focus]:not([disabled])") ?? items()[0] ?? node).focus();
+    const hasBlockingDialog = () => {
+      const panel = document.querySelector('.app-dialog__panel');
+      return !!panel && panel !== node && !node.contains(panel);
+    };
     const onKey = (event: KeyboardEvent) => {
-      if (document.querySelector('.app-dialog__panel')) return;
+      if (hasBlockingDialog()) return;
       if (event.key === 'Escape' && document.querySelector('[role="tooltip"]')) return;
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -42,7 +46,7 @@ export function useTrainingDialog(onClose: () => void, busy: boolean) {
       }
     };
     const onFocus = (event: FocusEvent) => {
-      if (!document.querySelector('.app-dialog__panel') && !node.contains(event.target as Node)) (items()[0] ?? node).focus();
+      if (!hasBlockingDialog() && !node.contains(event.target as Node)) (items()[0] ?? node).focus();
     };
     document.addEventListener('focusin', onFocus);
     document.addEventListener('keydown', onKey, true);

@@ -261,7 +261,7 @@ export default function Layout() {
               {path === "/explore/segments" && <ExplorePage />}
               {path === "/explore/courses" && <CoursesPage />}
             </Suspense>
-            {path.startsWith("/coach/") ? <GlossaryProvider scopeKey={`${location.pathname}${location.search}`}><Outlet /></GlossaryProvider> : <Outlet />}
+            {(path.startsWith("/coach/") || path === "/clubs" || path.startsWith("/club/")) ? <GlossaryProvider scopeKey={`${location.pathname}${location.search}`}><Outlet /></GlossaryProvider> : <Outlet />}
           </div>
         </main>
       )}

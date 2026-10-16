@@ -1,3 +1,4 @@
+import { chooseDropdown, chooseDate } from "./fitnessControlTestUtils";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { ReactElement } from "react";
@@ -12,15 +13,15 @@ beforeEach(() => { Object.values(mocks).forEach(mock => mock.mockReset()); mocks
 it("starts folded with no queries, loads source/history only by explicit action, and keeps window changes manual", () => {
   renderPanel(<RunningRaceEstimatesPanel ownerUid="owner" />);
   expect(screen.getByText("대회 기록 참고 예측").closest("details")).not.toHaveAttribute("open"); expect(mocks.discover).not.toHaveBeenCalled(); expect(mocks.history).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByLabelText("활동 조회 범위"), { target: { value: "24" } }); expect(mocks.discover).not.toHaveBeenCalled();
+  chooseDropdown(screen.getByLabelText("활동 조회 범위"), "24주"); expect(mocks.discover).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "활동 근거 불러오기", hidden: true })); expect(mocks.discover).toHaveBeenCalledWith(24);
-  fireEvent.change(screen.getByLabelText("저장 기록 조회 범위"), { target: { value: "6" } }); expect(mocks.history).not.toHaveBeenCalled();
+  chooseDropdown(screen.getByLabelText("저장 기록 조회 범위"), "6개월"); expect(mocks.history).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "저장 기록 불러오기", hidden: true })); expect(mocks.history).toHaveBeenCalledWith(6);
 });
 it("requires real raw time/date and maximal effort before preview without inventing trust fields", () => {
   renderPanel(<RunningRaceEstimatesPanel ownerUid="owner" />);
   fireEvent.click(screen.getByRole("button", { name: "참고 시간 계산", hidden: true })); expect(mocks.preview).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByLabelText("대회 날짜 (한국 시간)"), { target: { value: "2026-10-01" } });
+  chooseDate(screen.getByLabelText("대회 날짜 (한국 시간)"), "2026-10-01");
   fireEvent.change(screen.getByLabelText("실제 기록 (시:분:초)"), { target: { value: "0:25:00.25" } });
   fireEvent.click(screen.getByLabelText("이 기록은 해당 거리에서 최대로 달린 노력입니다."));
   fireEvent.click(screen.getByRole("button", { name: "참고 시간 계산", hidden: true }));

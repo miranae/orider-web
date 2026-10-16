@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockCallableInvocations, setCallableImplementation, setCallableResult, setCollectionDocs } from "../../__tests__/mocks/firebase";
+import { mockCallableInvocations, setCallableImplementation, setCallableResult, setCollectionDocs, simulateLogin } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { httpsCallable } from "firebase/functions";
 import { auth, ensureAppCheckReady } from "../../services/firebase";
@@ -116,8 +116,16 @@ describe("GroupsPage join results", () => {
     renderPage();
 
     const notice = screen.getByTestId("C0.noClub");
-    const discovery = screen.getByRole("heading", { name: "그룹 찾기" });
+    const discovery = screen.getByRole("heading", { name: "클럽 찾기" });
     expect(discovery.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("labels invite joining and provides one create action without zero-count repetition", () => {
+    renderPage();
+    expect(screen.getByRole("textbox", { name: "초대 코드" })).toHaveAttribute("id", "club-invite-code");
+    expect(screen.getAllByRole("button", { name: "클럽 만들기" })).toHaveLength(1);
+    expect(screen.queryByTestId("C0-0-1")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "거리 리그 살펴보기" })).toHaveAttribute("href", "/ko/explore/challenges");
   });
 
   it("disables the public group query before authentication", () => {
@@ -134,7 +142,7 @@ describe("GroupsPage join results", () => {
     fireEvent.click(screen.getByRole("button", { name: "가입" }));
 
     expect(await screen.findByText("가입 요청이 전송되었습니다")).toBeInTheDocument();
-    expect(screen.getByText(/그룹장 승인 후 가입이 완료됩니다/)).toBeInTheDocument();
+    expect(screen.getByText(/클럽장 승인 후 가입이 완료됩니다/)).toBeInTheDocument();
     expect(screen.queryByText("group destination")).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "가입" })).toBeEnabled());
   }, 15_000);
@@ -154,6 +162,29 @@ describe("GroupsPage join results", () => {
     });
   }
 
+  it.each(["active", "pending", "reject"] as const)("ignores old-account public join %s responses and resets busy state", async outcome => {
+    addManualPublicGroup();
+    let resolveJoin!: (value: unknown) => void;
+    let rejectJoin!: (error: Error) => void;
+    setCallableImplementation("joinGroupPublic", () => new Promise((resolve, reject) => { resolveJoin = resolve; rejectJoin = reject; }));
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
+    await waitFor(() => expect(resolveJoin).toBeDefined());
+    await act(async () => {
+      Object.assign(auth, { currentUser: { uid: "other-uid" } });
+      simulateLogin({ uid: "other-uid" });
+    });
+    expect(screen.getByRole("button", { name: "가입 신청" })).toBeEnabled();
+    await act(async () => {
+      if (outcome === "reject") rejectJoin(new Error("permission-denied"));
+      else resolveJoin({ data: { success: true, status: outcome } });
+    });
+    expect(screen.queryByText("group destination")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Manual Club 클럽은 수동 승인 방식입니다/)).not.toBeInTheDocument();
+    expect(screen.queryByText("가입에 실패했습니다.")).not.toBeInTheDocument();
+    expect(screen.queryByText("가입 요청이 전송되었습니다")).not.toBeInTheDocument();
+  });
+
   it("keeps a public join request on the list when the deployed contract reports pending", async () => {
     addManualPublicGroup();
     setCallableResult("joinGroupPublic", { data: { success: true, status: "pending" } });
@@ -161,7 +192,7 @@ describe("GroupsPage join results", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
 
-    expect(await screen.findByText(/Manual Club 그룹은 수동 승인 방식입니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/Manual Club 클럽은 수동 승인 방식입니다/)).toBeInTheDocument();
     expect(screen.queryByText("group destination")).not.toBeInTheDocument();
   }, 15_000);
 

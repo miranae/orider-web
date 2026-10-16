@@ -3,7 +3,7 @@ import { GoalInputNotice } from "../components/training/GoalInputNotice";
 import GoalHub from "./GoalHub";
 import { normalizePlanSport } from "../hooks/usePlanModel";
 import { goalCreatedPath } from "../utils/internalReturnPath";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -23,7 +23,7 @@ import type { FeasibilityLabel } from "@shared/types/goal";
 // ── Feasibility 계산 (클라이언트 미리보기용 — 서버 버전이 권위 있는 값) ──────
 
 import { calcFeasibility as calcFeasibilityCore } from "@shared/training/feasibility";
-import { Alert, Button, Card, Chip, Text } from "../theme/components";
+import { Alert, Button, Card, Chip, Input, Text } from "../theme/components";
 
 interface FeasibilityResult {
   label: FeasibilityLabel;
@@ -201,10 +201,11 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
   };
   const { courses, loading, error, retry, search } = useCourses();
   const [searchQuery, setSearchQuery] = useState("");
+  const searchId = useId();
 
   if (loading) {
     return (
-      <Card padding="none" style={{ padding: 26 }}>
+      <Card padding="none" style={{ padding: "var(--space-4)" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-2)" }}>
           {[1, 2, 3, 4].map((i) => (
             <div
@@ -246,10 +247,10 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
   const filtered = search(searchQuery);
 
   return (
-    <Card padding="none" style={{ padding: 26 }}>
+    <Card padding="none" style={{ padding: "var(--space-4)" }}>
       {/* Section header + 검색 */}
       <div style={{ marginBottom: 'var(--space-4)' }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
           <div>
             <div style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
               {t('goals.courseSelectInstructions')}
@@ -258,27 +259,17 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
               {t('goals.courseSelectDetail')}
             </div>
           </div>
-          <input
-            type="text"
-            placeholder={t('goals.courseSearchPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              width: 200,
-              padding: "6px 10px",
-              fontSize: "var(--fs-sm)",
-              borderRadius: "var(--r-md)",
-              border: "1px solid var(--line)",
-              background: "var(--bg-2)",
-              color: "var(--ink-1)",
-              outline: "none",
-            }}
-          />
+          <label htmlFor={searchId} style={{ display: 'grid', gap: 'var(--space-1)', width: 'min(100%, 20rem)', minWidth: 0 }}>
+            <Text variant="bodySmall">{t('goals.courseSearchPlaceholder')}</Text>
+            <Input id={searchId} type="search" placeholder={t('goals.courseSearchPlaceholder')}
+              value={searchQuery} onChange={event => setSearchQuery(event.target.value)}
+              style={{ minHeight: 'var(--dim-button-height)' }} />
+          </label>
         </div>
       </div>
 
       {/* Course grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-2)", maxHeight: 400, overflowY: "auto", paddingRight: 'var(--space-1)' }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-2)", maxHeight: 400, overflowY: "auto", paddingRight: 'var(--space-1)' }}>
         {filtered.length === 0 && searchQuery && (
           <div style={{ gridColumn: "1 / -1", padding: 'var(--space-5)', textAlign: "center", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>
             {t('goals.courseSearchEmpty', { query: searchQuery })}

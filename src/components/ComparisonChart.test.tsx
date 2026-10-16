@@ -19,6 +19,11 @@ function ThemeSwitchingComparison() {
 }
 
 describe("ComparisonChart theme colors", () => {
+  it("preserves unavailable sensor values as chart gaps rather than zero measurements", () => {
+    renderWithProviders(<ComparisonChart labels={["Average power"]} datasets={[{ label: "Missing", data: [null], color: "var(--chart-power)" }, { label: "Recorded zero", data: [0], color: "var(--chart-power)" }]} unit=" W" />);
+    expect(bar.mock.lastCall?.[0].data.datasets[0].data).toEqual([null]);
+    expect(bar.mock.lastCall?.[0].data.datasets[1].data).toEqual([0]);
+  });
   it("resolves series, axis, grid and tooltip colors after theme switches", () => {
     renderWithProviders(<ThemeSwitchingComparison />);
     const button = screen.getByRole("button", { name: "테마 변경" });

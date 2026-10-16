@@ -1,3 +1,9 @@
+import "../EventControls.css";
+import { Download, Flag, Hourglass, Image, Link2, LockKeyhole, Trophy } from "lucide-react";
+import GlossaryProvider from "../../components/common/GlossaryProvider";
+import GlossaryText from "../../components/common/GlossaryText";
+import InfoTip from "../../components/InfoTip";
+import "../../features/event/detail/event-linked-pages.css";
 import EventDetailNavigation from "../../features/event/EventDetailNavigation";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -117,7 +123,7 @@ function CategoryChip({ category }: { category: string }) {
   return (
     <span
       style={{
-        fontSize: "var(--fs-xs)",
+        fontSize: "var(--ft-body-size)",
         color,
         fontWeight: 500,
       }}
@@ -379,7 +385,7 @@ export default function EventResultsPage() {
   }
 
   if (privateResultsUnavailable) {
-    return <>{navigation}<div className="max-w-xl mx-auto py-16"><EmptyState icon="🔒" title={t("resultsView.privateResultsUnavailable")} /></div></>;
+    return <>{navigation}<div className="max-w-xl mx-auto py-16"><EmptyState icon={<LockKeyhole size={28} style={{ marginInline: "auto" }} />} title={t("resultsView.privateResultsUnavailable")} /></div></>;
   }
 
   if (loadError) {
@@ -394,7 +400,7 @@ export default function EventResultsPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon="🏆"
+          icon={<Trophy size={28} style={{ marginInline: "auto" }} />}
           title={t("empty.noResults")}
           actions={[{ label: t("create.eventList"), variant: "primary", onClick: () => navigate("/explore/events") }]}
         />
@@ -408,7 +414,8 @@ export default function EventResultsPage() {
   const activeGroupId = shouldShowResultsGroupCta(groupId, group?.id, groupLoading, groupInactive, !!groupError) ? groupId : undefined;
 
   return (
-    <div data-testid="D4-3">
+    <GlossaryProvider scopeKey={`event-results:${eventId}`}>
+    <div data-testid="D4-3" className="event-controls-surface event-results-surface">
       {navigation}
       {/* 헤더 — aqua gradient */}
       <div
@@ -418,7 +425,7 @@ export default function EventResultsPage() {
         }}
       >
         <div className="site-shell" style={{ padding: "14px 24px 0" }}>
-          <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
+          <div className="event-results-breadcrumb flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--ft-body-size)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
             <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
             <span style={{ color: "var(--ink-4)" }}>›</span>
             <Link to={`/event/${eventId}`} style={{ color: "var(--ink-3)" }} className="truncate">
@@ -433,15 +440,15 @@ export default function EventResultsPage() {
           <div className="flex items-center flex-wrap" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
             <Chip
               style={{
-                fontSize: "var(--fs-xs)",
+                fontSize: "var(--ft-body-size)",
                 color: "var(--aqua)",
                 borderColor: "color-mix(in oklch, var(--aqua) 40%, transparent)",
               }}
             >
-              🏁 {statusLabel}
+              <Flag size={14} aria-hidden="true" /> {statusLabel}
             </Chip>
             {eventDateStr && (
-              <Chip style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
+              <Chip style={{ fontSize: "var(--ft-body-size)" }}>
                 {eventDateStr}
               </Chip>
             )}
@@ -449,13 +456,12 @@ export default function EventResultsPage() {
           <Text as="h1" variant="pageTitle" style={{ marginBottom: 'var(--space-1)' }}>
             {eventHead.name}
           </Text>
-          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("resultsTitle")}</div>
+          <div style={{ fontSize: "var(--ft-subtitle-size)", color: "var(--ink-3)" }}>{t("resultsTitle")}</div>
 
-          <div
+          <div className="event-results-metrics"
             style={{
-              marginTop: 22,
+              marginTop: "var(--space-5)",
               display: "grid",
-              gridTemplateColumns: "repeat(5, 1fr)",
               gap: 1,
               background: "var(--line-soft)",
               border: "1px solid var(--line-soft)",
@@ -464,14 +470,14 @@ export default function EventResultsPage() {
             }}
           >
             {[
-              [t("label.totalDistance"), eventHead.distanceKm != null ? eventHead.distanceKm.toFixed(1) : "—", "km"],
-              [t("label.totalElevation"), eventHead.elevationGain != null ? Math.round(eventHead.elevationGain).toString() : "—", "m"],
-              [eventHead.resultContractVersion && eventHead.resultContractVersion >= 2 ? t("resultsView.verifiedFinishCount") : t("label.finishCount"), counts.finished.toString(), t("resultsView.unit.persons")],
-              [t("label.dnfCount"), counts.dnf.toString(), t("resultsView.unit.persons")],
-              [eventHead.resultContractVersion && eventHead.resultContractVersion >= 2 ? t("resultsView.verifiedFinishRate") : t("label.finishRate"), `${counts.finishRate}`, "%"],
+              [t("detail.metric.distance"), eventHead.distanceKm != null ? eventHead.distanceKm.toFixed(1) : "—", "km"],
+              [t("detail.metric.elevationGain"), eventHead.elevationGain != null ? Math.round(eventHead.elevationGain).toString() : "—", "m"],
+              [eventHead.resultContractVersion && eventHead.resultContractVersion >= 2 ? t("resultsView.verifiedFinishCount") : t("resultsView.metric.finishCount"), counts.finished.toString(), t("resultsView.unit.persons")],
+              [t("resultsView.metric.dnfCount"), counts.dnf.toString(), t("resultsView.unit.persons")],
+              [eventHead.resultContractVersion && eventHead.resultContractVersion >= 2 ? t("resultsView.verifiedFinishRate") : t("resultsView.metric.finishRate"), `${counts.finishRate}`, "%"],
             ].map(([k, v, u]) => (
               <div key={k} style={{ padding: "14px 16px", background: "var(--bg-1)" }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{k}</Text>
+                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}><GlossaryText>{k}</GlossaryText></Text>
                 <div>
                   <Text variant="dataMedium">{v}</Text>
                   {u && <Text variant="unit">{u}</Text>}
@@ -496,23 +502,24 @@ export default function EventResultsPage() {
         <div className="flex flex-col" style={{ gap: 'var(--space-4)', minWidth: 0 }}>
           {eventHead.resultContractVersion != null && eventHead.resultContractVersion >= 2 && counts.pending > 0 && (
             <Card padding="none" style={{ padding: "var(--space-4)" }}>
-              <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)" }}>{t("resultsView.pendingCount", { count: counts.pending })}</div>
+              <div style={{ fontSize: "var(--ft-subtitle-size)", color: "var(--ink-2)" }}>{t("resultsView.pendingCount", { count: counts.pending })}</div>
             </Card>
           )}
           {/* 포디움 */}
           {podium.length > 0 && (
             <Card padding="none" style={{ padding: 22 }}>
               <div style={{ marginBottom: "var(--space-3)" }}>
-                <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.podium")}</div>
-                <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
+                <div className="event-results-card-title text-[length:var(--ft-subtitle-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.podium")}</div>
+                <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
                   {activeCategory === "__overall__"
                     ? t("resultsView.podiumTopThreeOverall")
                     : t("resultsView.podiumTopThreeCategory", { category: activeCategory })}
+                  {" · "}{t("resultsView.timeFormat")}
                 </div>
               </div>
               <div
                 className="podium-grid"
-                style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 'var(--space-3)' }}
+                style={{ display: "grid", gridTemplateColumns: `repeat(${podium.length}, minmax(0, 1fr))`, gap: 'var(--space-3)' }}
               >
                 {podium.map((p, i) => {
                   const rank = displayRankFor(p, activeCategory);
@@ -533,7 +540,7 @@ export default function EventResultsPage() {
                           position: "absolute",
                           top: 12,
                           right: 14,
-                          fontSize: "var(--fs-xs)",
+                          fontSize: "var(--ft-body-size)",
                           fontFamily: "var(--font-mono)",
                           color: "var(--ink-3)",
                         }}
@@ -552,10 +559,10 @@ export default function EventResultsPage() {
                       >
                         {rank}
                       </div>
-                      <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)" }}>
+                      <div className="text-[length:var(--ft-subtitle-size)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)", fontSize: "var(--ft-subtitle-size)" }}>
                         {p.displayName}
                       </div>
-                      <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginBottom: "var(--space-3)" }}>
+                      <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", marginBottom: "var(--space-3)" }}>
                         {p.category}
                       </div>
                       <div
@@ -570,7 +577,7 @@ export default function EventResultsPage() {
                           {formatDuration(p.finishTime)}
                         </Text>
                         {p.avgSpeed != null && (
-                          <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+                          <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
                             {p.avgSpeed.toFixed(1)}km/h
                           </span>
                         )}
@@ -588,19 +595,19 @@ export default function EventResultsPage() {
               className="flex items-center flex-wrap"
               style={{ padding: "14px 20px", borderBottom: "1px solid var(--line-soft)", gap: "var(--space-4)" }}
             >
-              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.allResults")}</div>
+              <div className="event-results-card-title text-[length:var(--ft-subtitle-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.allResults")}</div>
               <div className="flex" style={{ gap: "var(--space-0-5)" }}>
                 {categories.map((c) => {
                   const active = activeCategory === c;
                   return (
-                    <button
+                    <Button
                       key={c}
                       type="button"
                       onClick={() => setActiveCategory(c)}
                       aria-pressed={active}
                       style={{
                         padding: "5px 12px",
-                        fontSize: "var(--fs-xs)",
+                        fontSize: "var(--ft-body-size)",
                         fontWeight: 500,
                         borderRadius: "var(--r-sm)",
                         background: active ? "var(--bg-3)" : "transparent",
@@ -610,25 +617,26 @@ export default function EventResultsPage() {
                       }}
                     >
                       {c === "__overall__" ? t("resultsView.overall") : c}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
-              <div className="flex" style={{ gap: "var(--space-1-5)", marginLeft: "auto" }}>
+              <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginLeft: "auto" }}>
+                <InfoTip title={t("termGlossary:terms.csv.label")} content={t("termGlossary:terms.csv.description")} label={t("termGlossary:terms.csv.label")}>CSV</InfoTip>
                 <Button
-                  type="button" variant="secondary" size="sm"
+                  type="button" variant="secondary" size="sm" aria-label={t("resultsView.csvExport")}
                   onClick={() => setCsvNotice(previous => ({
                     eventId,
                     sequence: previous && previous.eventId === eventId ? previous.sequence + 1 : 1,
                   }))}
                 >
-                  ⬇ CSV
+                  <Download size={14} aria-hidden="true" /> {t("resultsView.exportAction")}
                 </Button>
                 <Button
                   type="button" variant="secondary" size="sm"
                   onClick={shareResults}
                 >
-                  🔗 {t("button.share")}
+                  <Link2 size={14} aria-hidden="true" /> {t("button.share")}
                 </Button>
               </div>
             </div>
@@ -639,51 +647,46 @@ export default function EventResultsPage() {
             )}
 
             {resultsUnavailable ? (
-              <div style={{ padding: 'var(--space-7)', textAlign: "center", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>
-                <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>
+              <div style={{ padding: 'var(--space-7)', textAlign: "center", color: "var(--ink-3)", fontSize: "var(--ft-body-size)" }}>
+                <div className="text-[length:var(--ft-subtitle-size)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>
                   {t("resultsView.notFinishedTitle")}
                 </div>
                 {t("resultsView.notFinishedDesc", { status: statusLabel })}
               </div>
             ) : filtered.length === 0 ? (
-              <div style={{ padding: 'var(--space-7)', textAlign: "center", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>
+              <div style={{ padding: 'var(--space-7)', textAlign: "center", color: "var(--ink-3)", fontSize: "var(--ft-body-size)" }}>
                 {t("resultsView.noFilteredResults")}
               </div>
             ) : (
-              <div style={{ overflowX: "auto", overscrollBehavior: "contain" }}>
-                <style>{`
-                  @media (max-width: 767px), (pointer: coarse) {
-                    .event-results-optional { display: none; }
-                    .event-results-table { min-width: 360px !important; }
-                  }
-                `}</style>
-                <table className="event-results-table" style={{ minWidth: 760, width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
+              <div>
+                <Text as="p" variant="caption" tone="tertiary" id="event-results-scroll-hint" style={{ padding: "var(--space-3) var(--space-5)", margin: 0 }}>{t("resultsView.tableScrollHint")}</Text>
+                <div role="region" aria-label={t("label.allResults")} aria-describedby="event-results-scroll-hint" tabIndex={0} className="event-results-table-scroll" style={{ overflowX: "auto", overscrollBehavior: "contain" }}>
+                <table className="event-results-table" style={{ minWidth: 760, width: "100%", borderCollapse: "collapse", fontSize: "var(--ft-body-size)" }}>
                   <thead>
                     <tr style={{ background: "var(--bg-2)" }}>
                       {[
-                        t("rank"),
-                        t("bibNumber"),
+                        t("resultsView.col.rank"),
+                        t("resultsView.col.bib"),
                         t("resultsView.col.name"),
-                        t("categories"),
-                        t("bestTime"),
+                        t("resultsView.col.category"),
+                        t("resultsView.col.finishTime"),
                         t("resultsView.col.avgSpeed"),
                         t("resultsView.col.avgPower"),
                         t("resultsView.col.gap"),
                       ].map((h, i) => (
                         <th
                           key={h}
-                          className={[1, 3, 5, 6, 7].includes(i) ? "event-results-optional" : undefined}
                           style={{
                             textAlign: [0, 1, 4, 5, 6, 7].includes(i) ? "right" : "left",
                             padding: "10px 16px",
-                            fontSize: "var(--fs-xs)",
-                            letterSpacing: "0.06em",
+                            fontSize: "var(--ft-body-size)",
+                            letterSpacing: "normal",
                             color: "var(--ink-3)",
                             fontWeight: 500,
                             textTransform: "uppercase",
                           }}
                         >
-                          {h}
+                          <GlossaryText>{h}</GlossaryText>
                         </th>
                       ))}
                     </tr>
@@ -705,7 +708,6 @@ export default function EventResultsPage() {
                           }}
                         >
                           <td
-                            className="event-results-optional"
                             style={{
                               padding: "10px 16px",
                               textAlign: "right",
@@ -727,7 +729,7 @@ export default function EventResultsPage() {
                             {r.bibNumber != null ? `#${String(r.bibNumber).padStart(3, "0")}` : "—"}
                           </td>
                           <td style={{ padding: "10px 16px", color: "var(--ink-0)" }}>
-                            <button
+                            <Button
                               type="button"
                               onClick={() => navigate(`/athlete/${r.userId}`)}
                               style={{
@@ -741,12 +743,12 @@ export default function EventResultsPage() {
                               }}
                             >
                               {r.displayName}
-                            </button>
+                            </Button>
                             {isMine && (
                               <Chip
                                 style={{
                                   marginLeft: 'var(--space-2)',
-                                  fontSize: "var(--fs-xs)",
+                                  fontSize: "var(--ft-body-size)",
                                   color: "var(--lime)",
                                   borderColor: "color-mix(in oklch, var(--lime) 40%, transparent)",
                                 }}
@@ -755,11 +757,10 @@ export default function EventResultsPage() {
                               </Chip>
                             )}
                           </td>
-                          <td className="event-results-optional" style={{ padding: "10px 16px", color: "var(--ink-3)" }}>
+                          <td style={{ padding: "10px 16px", color: "var(--ink-3)" }}>
                             <CategoryChip category={r.category} />
                           </td>
                           <td
-                            className="event-results-optional"
                             style={{
                               padding: "10px 16px",
                               textAlign: "right",
@@ -773,13 +774,12 @@ export default function EventResultsPage() {
                               : eventHead.resultContractVersion && eventHead.resultContractVersion >= 2 && ["FINISHED", "RIDING", "RACING"].includes(r.status)
                               ? t("resultsView.verificationPending")
                               : r.status === "DNF"
-                              ? "DNF"
+                              ? <GlossaryText>{t("resultsView.dnfLabel")}</GlossaryText>
                               : r.status === "DSQ"
                               ? t("label.disqualified")
                               : "—"}
                           </td>
                           <td
-                            className="event-results-optional"
                             style={{
                               padding: "10px 16px",
                               textAlign: "right",
@@ -790,7 +790,6 @@ export default function EventResultsPage() {
                             {r.avgSpeed != null ? r.avgSpeed.toFixed(1) : "—"}
                           </td>
                           <td
-                            className="event-results-optional"
                             style={{
                               padding: "10px 16px",
                               textAlign: "right",
@@ -815,6 +814,7 @@ export default function EventResultsPage() {
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
           </Card>
@@ -822,8 +822,8 @@ export default function EventResultsPage() {
           {/* KOM/QOM 세그먼트 */}
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
             <div style={{ marginBottom: "var(--space-3)" }}>
-              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("resultsView.segmentKomQom")}</div>
-              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
+              <div className="event-results-card-title text-[length:var(--ft-subtitle-size)] font-semibold" style={{ color: "var(--ink-0)" }}><InfoTip title={t("resultsView.segmentKomQom")} content={t("resultsView.segmentRecordsHelp")} label={t("resultsView.segmentKomQom")}>{t("resultsView.segmentKomQom")}</InfoTip></div>
+              <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
                 {t("resultsView.segmentKomQomDesc")}
               </div>
             </div>
@@ -831,7 +831,7 @@ export default function EventResultsPage() {
               style={{
                 padding: 'var(--space-6)',
                 textAlign: "center",
-                fontSize: "var(--fs-xs)",
+                fontSize: "var(--ft-body-size)",
                 color: "var(--ink-3)",
                 background: "var(--bg-2)",
                 border: "1px solid var(--line-soft)",
@@ -851,21 +851,21 @@ export default function EventResultsPage() {
           {!authLoading && !myResult && (
             <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "color-mix(in oklch, var(--aqua) 30%, var(--line-soft))" }}>
               <Text as="div" variant="eyebrow">{t("resultsView.nextAction.eyebrow")}</Text>
-              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginTop: "var(--space-1)" }}>{t("resultsView.nextAction.title")}</div>
+              <div className="text-[length:var(--ft-subtitle-size)] font-semibold" style={{ color: "var(--ink-0)", marginTop: "var(--space-1)" }}>{t("resultsView.nextAction.title")}</div>
               {activeGroupId && (
                 <div className="flex flex-col" style={{ gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
                   {nextEvents.get(activeGroupId) && (
-                    <Link to={`/event/${nextEvents.get(activeGroupId)!.id}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--aqua)" }}>
+                    <Link to={`/event/${nextEvents.get(activeGroupId)!.id}`} className="text-[length:var(--ft-body-size)]" style={{ color: "var(--aqua)" }}>
                       {t("resultsView.nextAction.nextEvent", { name: nextEvents.get(activeGroupId)!.name })} →
                     </Link>
                   )}
-                  <Link to={`/club/${activeGroupId}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--aqua)" }}>
+                  <Link to={`/club/${activeGroupId}`} className="text-[length:var(--ft-body-size)]" style={{ color: "var(--aqua)" }}>
                     {t("resultsView.nextAction.group", { name: group?.name || t("group.fallbackName") })} →
                   </Link>
                 </div>
               )}
               <div style={{ marginTop: "var(--space-3)", paddingTop: "var(--space-3)", borderTop: "1px solid var(--line-soft)" }}>
-                <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginBottom: "var(--space-2)" }}>{t("resultsView.nextAction.app")}</div>
+                <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", marginBottom: "var(--space-2)" }}>{t("resultsView.nextAction.app")}</div>
                 <AppInstallLinks compact appStoreLabel={t("resultsView.nextAction.ios")} playStoreLabel={t("resultsView.nextAction.android")} />
               </div>
             </Card>
@@ -879,11 +879,10 @@ export default function EventResultsPage() {
               }}
             >
               <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-3)" }}>
-                <span aria-hidden="true">{eventHead.resultContractVersion && eventHead.resultContractVersion >= 2 && !myResult.verifiedFinisher ? "⏳" : "🏆"}</span>
-                <span
+                <span aria-hidden="true">{eventHead.resultContractVersion && eventHead.resultContractVersion >= 2 && !myResult.verifiedFinisher ? <Hourglass size={18} /> : <Trophy size={18} />}</span>
+                <span className="event-results-card-title"
                   style={{
-                    fontSize: "var(--fs-xs)",
-                    letterSpacing: "0.08em",
+                    letterSpacing: "normal",
                     color: "var(--lime)",
                     fontWeight: 500,
                     textTransform: "uppercase",
@@ -894,10 +893,11 @@ export default function EventResultsPage() {
               </div>
               <div className="flex items-baseline" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-1)' }}>
                 <Text variant="dataLarge" style={{ color: "var(--lime)", fontSize: "var(--fs-3xl)", fontWeight: 600 }}>
-                  {myResult.verifiedFinisher ? formatDuration(myResult.finishTime) : myResult.status === "DNF" ? "DNF" : "—"}
+                  {myResult.verifiedFinisher ? formatDuration(myResult.finishTime) : myResult.status === "DNF" ? <GlossaryText>{t("resultsView.dnfLabel")}</GlossaryText> : "—"}
                 </Text>
               </div>
-              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+              {myResult.verifiedFinisher && <Text as="div" variant="caption" tone="tertiary">{t("resultsView.timeFormat")}</Text>}
+              <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
                 {myResult.verifiedFinisher
                   ? t("resultsView.myRankDetail", { rank1: myResult.overallRank, cat: myResult.category, rank2: myResult.rank })
                   : eventHead.resultContractVersion && eventHead.resultContractVersion >= 2 && ["FINISHED", "RIDING", "RACING"].includes(myResult.status)
@@ -912,7 +912,7 @@ export default function EventResultsPage() {
                   paddingTop: 14,
                   borderTop: "1px solid var(--line-soft)",
                   gap: 'var(--space-2)',
-                  fontSize: "var(--fs-xs)",
+                  fontSize: "var(--ft-body-size)",
                 }}
               >
                 {[
@@ -924,7 +924,7 @@ export default function EventResultsPage() {
                   [t("resultsView.stat.calories"), myResult.calories != null ? `${Math.round(myResult.calories).toLocaleString("ko-KR")} kcal` : "—"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex justify-between">
-                    <span style={{ color: "var(--ink-3)" }}>{k}</span>
+                    <span style={{ color: "var(--ink-3)" }}><GlossaryText>{k}</GlossaryText></span>
                     <span style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>{v}</span>
                   </div>
                 ))}
@@ -943,7 +943,7 @@ export default function EventResultsPage() {
                   style={{ padding: "var(--space-1-5)" }}
                   aria-label={t("button.share")}
                 >
-                  🔗
+                  <Link2 size={14} aria-hidden="true" />
                 </Button>
                 {myResult.verifiedFinisher && <Button type="button" variant="secondary" size="sm" aria-label={t("shareCard.completion")} onClick={async () => {
                   try {
@@ -954,7 +954,7 @@ export default function EventResultsPage() {
                     logClientError("EventResultsPage.shareCompletionCard", err, { eventId });
                     await dialog.alert(t("resultsView.shareFailed"), { variant: "danger" });
                   }
-                }}>🖼️</Button>}
+                }}><Image size={14} aria-hidden="true" /></Button>}
               </div>
             </Card>
           )}
@@ -962,10 +962,10 @@ export default function EventResultsPage() {
           {/* 카테고리별 분포 */}
           {categoryDistribution.length > 0 && (
             <Card padding="none" style={{ padding: "var(--space-4)" }}>
-              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-3)' }}>
+              <div className="event-results-card-title text-[length:var(--ft-subtitle-size)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-3)' }}>
                 {t("resultsView.categoryDistribution")}
               </div>
-              <div className="flex flex-col" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>
+              <div className="flex flex-col" style={{ gap: 'var(--space-2)', fontSize: "var(--ft-body-size)" }}>
                 {categoryDistribution.map(({ cat, n, color, pct }) => (
                   <div key={cat}>
                     <div className="flex justify-between" style={{ marginBottom: 'var(--space-1)' }}>
@@ -986,7 +986,7 @@ export default function EventResultsPage() {
           {/* 완주 시간 분포 */}
           {finishHistogram && (
             <Card padding="none" style={{ padding: "var(--space-4)" }}>
-              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-3)' }}>
+              <div className="event-results-card-title text-[length:var(--ft-subtitle-size)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-3)' }}>
                 {t("resultsView.finishTimeDistribution")}
               </div>
               <div className="flex" style={{ alignItems: "flex-end", gap: "var(--space-1)", height: 80 }}>
@@ -1006,12 +1006,12 @@ export default function EventResultsPage() {
               </div>
               <div
                 className="flex justify-between"
-                style={{ marginTop: "var(--space-1-5)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}
+                style={{ marginTop: "var(--space-1-5)", fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}
               >
                 <span>{formatDuration(finishHistogram.min)}</span>
                 <span>{formatDuration(finishHistogram.max)}</span>
               </div>
-              <div style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+              <div style={{ marginTop: 'var(--space-2)', fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
                 {t("resultsView.median")}{" "}
                 <span style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>
                   {formatDuration(finishHistogram.median ?? null)}
@@ -1040,5 +1040,6 @@ export default function EventResultsPage() {
         }
       `}</style>
     </div>
+    </GlossaryProvider>
   );
 }

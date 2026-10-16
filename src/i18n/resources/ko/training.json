@@ -115,8 +115,8 @@
   },
   "buttons": {
     "ics": "캘린더 내보내기",
-    "reroll": "🔄 재생성",
-    "goalReset": "🎯 목표 재설정",
+    "reroll": "재생성",
+    "goalReset": "목표 재설정",
     "abandonGoal": "목표 포기"
   },
   "confirmations": {
@@ -477,7 +477,7 @@
     "weekThis": "이번 주",
     "showPastWeeks": "지난 {{count}}주 보기",
     "hidePastWeeks": "지난 주 접기",
-    "weekNext": "이번 주 다음 운동",
+    "weekNext": "다음 예정 운동",
     "weeklyTSS": "훈련부하 · TSS",
     "weeklySummary": "이번 주 요약",
     "minutesUnit": "분",
@@ -1071,7 +1071,11 @@
       "decideHold": "이전 단계 기록이 남아 있습니다. 진행 여부를 직접 선택하세요.",
       "holdTitle": "오늘은 시작하지 않아요",
       "holdFallback": "안전을 위해 다음 운동이 보류됐어요. 회복한 뒤 다시 확인하세요.",
-      "finished": "프로그램 진행을 마쳤습니다. 자유 러닝으로 이어갈 수 있어요."
+      "finished": "프로그램 진행을 마쳤습니다. 자유 러닝으로 이어갈 수 있어요.",
+      "heldHeading": "보류된 운동",
+      "reviewHeading": "확인이 필요한 운동",
+      "scheduledHeading": "예정된 운동",
+      "finishedHeading": "프로그램 진행 상태"
     },
     "start": {
       "button": "{{stage}}단계 시작",
@@ -1123,7 +1127,7 @@
     "stages": {
       "title": "전체 단계",
       "stage": "{{stage}}단계",
-      "next": "다음",
+      "next": "다음으로 확인할 운동",
       "showPast": "지난 단계 {{count}}개 보기",
       "hidePast": "지난 단계 접기",
       "showSegments": "구간 {{count}}개 보기",
@@ -1167,6 +1171,16 @@
     "errors": {
       "load": "프로그램을 불러오지 못했어요.",
       "generic": "요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요."
+    },
+    "outline": {
+      "total": "총 운동시간",
+      "prepare": "준비",
+      "work": "반복 운동",
+      "finish": "정리",
+      "repeatCount": "{{count}}회 반복",
+      "allSteps": "전체 순서 보기 · {{count}}구간",
+      "appStart": "앱에서 운동 시작",
+      "afterRepeat": "반복 후 구간"
     }
   },
   "assumptions": {

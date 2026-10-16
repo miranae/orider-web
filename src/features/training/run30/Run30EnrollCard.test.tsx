@@ -1,3 +1,4 @@
+import { chooseDropdownAt } from "../../fitness/fitnessControlTestUtils";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -37,9 +38,11 @@ describe("Run30EnrollCard", () => {
     const { onEnrolled } = renderCard(api);
 
     const select = screen.getByRole("combobox", { name: "시작일" });
-    expect(select).toHaveDisplayValue("9월 30일 (수) (오늘)");
-    expect(select.querySelectorAll("option")).toHaveLength(15);
-    fireEvent.change(select, { target: { value: "2026-10-02" } });
+    expect(select).toHaveTextContent("9월 30일 (수) (오늘)");
+    fireEvent.click(select);
+    expect(screen.getAllByRole("option")).toHaveLength(15);
+    fireEvent.keyDown(select, { key: "Escape" });
+    chooseDropdownAt(select, 2);
     fireEvent.click(screen.getByRole("button", { name: "일정 확인" }));
     expect(api.previewEnrollment).toHaveBeenCalledWith("2026-10-02");
     expect(await screen.findByText("10월 2일 (금)부터 8주 동안 24개 단계를 진행합니다.")).toBeInTheDocument();

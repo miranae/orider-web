@@ -1,3 +1,4 @@
+import GlossaryText from "../common/GlossaryText";
 import { useTranslation } from "react-i18next";
 import type { CyclingAbilityResult, RunEvidence, SwimEvidence } from "../../features/fitness/multisportPerformance";
 import type { Discipline } from "../../utils/disciplineFilter";
@@ -57,16 +58,16 @@ export default function SportPerformanceCard({
 
       {discipline === "run" && (
         <>
-          <Text as="p" variant="bodyMedium" tone="secondary" style={{ marginTop: "var(--space-1)" }}>{t("mobileFitness.sport.run.basis")}</Text>
+          <Text as="p" variant="bodyMedium" tone="secondary" style={{ marginTop: "var(--space-1)" }}><GlossaryText>{t("mobileFitness.sport.run.basis")}</GlossaryText></Text>
           {run.thresholdPaceSec != null && <EvidenceRow label={t("mobileFitness.sport.run.threshold")} value={`${formatPace(run.thresholdPaceSec)}/km`} />}
           {qualifiedRunRecords.map((record) => <div key={record.distance}>
             <EvidenceRow label={t(`fitness:runRecords.dist.${record.distance}`)} value={`${formatDuration(record.seconds)} · ${record.date}`} />
             <a href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(record.activityId)}`} className={buttonClass({ variant: "ghost" })} style={{ minHeight: "var(--space-8)", fontSize: "var(--fs-md)" }}>{t("fitness:runRecords.viewActivity")}</a>
           </div>)}
-          {run.thresholdPaceSec == null && qualifiedRunRecords.length === 0 && <Text as="p" variant="bodyMedium" tone="secondary" style={{ marginTop: "var(--space-3)" }}>{t("mobileFitness.sport.run.noQualifiedEvidence")}</Text>}
+          {run.thresholdPaceSec == null && qualifiedRunRecords.length === 0 && <Text as="p" variant="bodyMedium" tone="secondary" style={{ marginTop: "var(--space-3)" }}><GlossaryText>{t("mobileFitness.sport.run.noQualifiedEvidence")}</GlossaryText></Text>}
           {!!run.unverifiedRecords?.length && <details style={{ marginTop: "var(--space-3)" }}>
             <summary style={{ minHeight: "var(--space-8)", cursor: "pointer", fontSize: "var(--fs-md)", fontWeight: 600, padding: "var(--space-3) 0" }}>{t("mobileFitness.sport.run.unverifiedTitle", { count: run.unverifiedRecords.length, activityCount: groupsByActivity.size })}</summary>
-            <Text as="p" variant="bodyMedium" tone="secondary">{t("mobileFitness.sport.run.unverifiedBasis")}</Text>
+            <Text as="p" variant="bodyMedium" tone="secondary"><GlossaryText>{t("mobileFitness.sport.run.unverifiedBasis")}</GlossaryText></Text>
             {unverifiedGroups.map((group, index) => <div key={group.activityId ?? `missing-${index}`} style={{ padding: "var(--space-3) 0", borderBottom: "1px solid var(--line-soft)" }}>
               <Text as="p" variant="bodyMedium" weight={600}>{[...new Set(group.records.map(record => record.distance))].map(distance => t(`fitness:runRecords.dist.${distance}`)).join(" · ")}</Text>
               {group.activityId ? <a href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(group.activityId)}`} className={buttonClass({ variant: "ghost" })} style={{ minHeight: "var(--space-8)", fontSize: "var(--fs-md)" }}>
@@ -97,8 +98,8 @@ function EmptyEvidence({ text }: { text: string }) {
 function EvidenceRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)", padding: "var(--space-3) 0", borderBottom: "1px solid var(--line-soft)" }}>
-      <span style={{ fontSize: "var(--fs-sm)" }}>{label}</span>
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", textAlign: "right" }}>{value}</span>
+      <span style={{ fontSize: "var(--fs-sm)" }}><GlossaryText>{label}</GlossaryText></span>
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", textAlign: "right" }}><GlossaryText>{value}</GlossaryText></span>
     </div>
   );
 }

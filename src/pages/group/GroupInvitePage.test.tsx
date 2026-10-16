@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { mockCallableInvocations, mockSignInWithPopup, setCallableResult } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import GroupInvitePage from "./GroupInvitePage";
+import koGroup from "../../i18n/resources/ko/group.json";
 
 function renderInvite(route = "/ko/group/join/abcd1234", authenticated = true) {
   return renderWithProviders(
@@ -17,6 +18,14 @@ function renderInvite(route = "/ko/group/join/abcd1234", authenticated = true) {
 }
 
 describe("GroupInvitePage", () => {
+  it.each([true, false])("shows a usable fallback for a blank normalized code (signed in: %s)", async authenticated => {
+    renderInvite("/ko/group/join/%20%20", authenticated);
+    expect(await screen.findByText(koGroup["error.invalidInviteCode"])).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: koGroup["subNav.groupList"] })).toHaveAttribute("href", "/ko/clubs");
+    expect(mockCallableInvocations.filter(call => call.name === "joinGroupByCode")).toEqual([]);
+    expect(screen.queryByText(koGroup["inviteLink.joining"])).not.toBeInTheDocument();
+  });
+
   it("joins signed-in users with the invite code from the link", async () => {
     setCallableResult("joinGroupByCode", { data: { groupId: "group-1", status: "active" } });
 
@@ -34,7 +43,7 @@ describe("GroupInvitePage", () => {
   it("keeps signed-out users on a login prompt and continues after auth", async () => {
     renderInvite("/ko/group/join/abcd1234", false);
 
-    expect(await screen.findByText("그룹 초대를 받았습니다")).toBeInTheDocument();
+    expect(await screen.findByText(koGroup["inviteLink.title"])).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Google로 로그인" }));
 
     expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);

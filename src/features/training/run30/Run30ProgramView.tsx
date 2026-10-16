@@ -1,16 +1,18 @@
+import Run30WorkoutOutline from "./Run30WorkoutOutline";
+import "../../fitness/components/fitness-analysis-controls.css";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import Modal from "../../../components/Modal";
-import { Alert, Button, Field, Progress, Select, Text, cn } from "../../../theme/components";
+import { Alert, Button, Field, Progress, DropdownSelect, Text, cn } from "../../../theme/components";
 import type { Run30Api, Run30Program, Run30Session } from "./run30Api";
 import {
   availableRun30Actions,
   buildRun30ViewModel,
   localToday,
   run30DateLabel,
-  run30Duration,
   run30StatusLabel,
+  run30TodayHeadingKey,
   type Run30ViewModel,
 } from "./run30Display";
 import Run30StageList from "./Run30StageList";
@@ -87,18 +89,14 @@ function ScheduleActions({
   if (!showDecision && !showSchedule) return null;
 
   return (
-    <div className="run30-actions">
+    <div className="fitness-analysis-controls run30-actions">
       {showDecision && (
         <div className="run30-actions__group">
           {available.retry ? (
             <>
               <Text as="p" variant="bodySmall" tone="tertiary">{t("run30.actions.retryIntro")}</Text>
               <Field label={t("run30.actions.retryDate")} htmlFor={retryId}>
-                <Select id={retryId} value={selectedRetry} disabled={busy} onChange={(event) => setRetryDate(event.target.value)}>
-                  {program.retryDates.map((date) => (
-                    <option key={date} value={date}>{run30DateLabel(date, language)}</option>
-                  ))}
-                </Select>
+                <DropdownSelect id={retryId} disabled={busy} label={t("run30.actions.retryDate")} value={String(selectedRetry)} onChange={next => setRetryDate(next)} options={program.retryDates.map((date) => ({ value: String(date), label: run30DateLabel(date, language) }))} />
               </Field>
               <Button type="button" variant="primary" disabled={busy || !selectedRetry}
                 onClick={() => { void change.requestPreview("retry", session.stage, selectedRetry); }}>
@@ -129,11 +127,7 @@ function ScheduleActions({
             <>
               <Text as="p" variant="bodySmall" tone="tertiary">{t("run30.actions.postponeHint")}</Text>
               <Field label={t("run30.actions.postponeDate")} htmlFor={postponeId}>
-                <Select id={postponeId} value={selectedPostpone} disabled={busy} onChange={(event) => setPostponeDate(event.target.value)}>
-                  {available.postponeDates.map((date) => (
-                    <option key={date} value={date}>{run30DateLabel(date, language)}</option>
-                  ))}
-                </Select>
+                <DropdownSelect id={postponeId} disabled={busy} label={t("run30.actions.postponeDate")} value={String(selectedPostpone)} onChange={next => setPostponeDate(next)} options={available.postponeDates.map((date) => ({ value: String(date), label: run30DateLabel(date, language) }))} />
               </Field>
               <Button type="button" variant="secondary" disabled={busy || !selectedPostpone}
                 onClick={() => { void change.requestPreview("postpone", session.stage, selectedPostpone); }}>
@@ -169,40 +163,28 @@ function TodayCard({
 
   return (
     <section data-testid="K4-R-6" className="run30-card run30-today" aria-labelledby="run30-today-title" data-today-action={todayKind}>
-      <Text as="h3" variant="subtitle" id="run30-today-title" style={{ margin: 0 }}>{t("run30.today.eyebrow")}</Text>
+      <Text as="h3" variant="title" id="run30-today-title" style={{ margin: 0 }}>{t(run30TodayHeadingKey(todayKind))}</Text>
+      {next && <><p className="run30-muted">{t("run30.stages.stage", { stage: next.stage })} · <time dateTime={next.localDate}>{run30DateLabel(next.localDate, language)}</time> · {run30StatusLabel(next.status, t)}</p><p className="run30-lead">{next.workoutName || t("run30.today.workoutFallback")}</p><Run30WorkoutOutline session={next} /></>}
       {todayKind === "finished" || !next ? (
         <p className="run30-lead">{t("run30.today.finished")}</p>
       ) : todayKind === "start" ? (
         <>
-          <p className="run30-lead">
-            {t("run30.today.stageWorkout", { stage: next.stage, workout: next.workoutName || t("run30.today.workoutFallback") })}
-          </p>
-          <p className="run30-muted">{t("run30.today.total", { duration: run30Duration(next.durationSec, t) })}</p>
           <Text as="p" variant="bodySmall" tone="tertiary">{t("run30.today.breathing")}</Text>
           <StartControl mode={startMode} session={next} />
           <ScheduleActions program={program} session={next} change={change} today={today} includeDecision={false} />
         </>
       ) : todayKind === "rest" ? (
         <>
-          <p className="run30-lead">{t("run30.today.rest", { date: run30DateLabel(next.localDate, language), stage: next.stage })}</p>
           <Text as="p" variant="bodySmall" tone="tertiary">{t("run30.today.restHint")}</Text>
           <ScheduleActions program={program} session={next} change={change} today={today} includeDecision={false} />
         </>
       ) : todayKind === "hold" ? (
         <>
-          <p className="run30-lead">{t("run30.today.holdTitle")}</p>
           <p className="run30-warning">{decision?.reason || t("run30.today.holdFallback")}</p>
           <ScheduleActions program={program} session={next} change={change} today={today} includeDecision={false} />
         </>
       ) : (
         <>
-          <p className="run30-lead">
-            {t("run30.today.decideTitle", {
-              stage: next.stage,
-              date: run30DateLabel(next.localDate, language),
-              status: run30StatusLabel(next.status, t),
-            })}
-          </p>
           <Text as="p" variant="bodySmall" tone="tertiary">
             {next.status === "missed"
               ? t("run30.today.decideMissed")
