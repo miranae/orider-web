@@ -3,8 +3,8 @@ import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { Route, Routes } from "react-router-dom";
 import CreatorHubPage from "./CreatorHubPage";
 
-const state = vi.hoisted(() => ({ tss: null as number | null, estimated: false, unknown: 1 }));
-vi.mock("../hooks/useActivities", () => ({ useWeeklyStats: () => ({ weeklyStats: [
+const state = vi.hoisted(() => ({ tss: null as number | null, estimated: false, unknown: 1, empty: false }));
+vi.mock("../hooks/useActivities", () => ({ useWeeklyStats: () => ({ weeklyStats: state.empty ? [] : [
   { week: "W", distance: 12, time: 1.5, rides: 2, elevation: 50,
     tss: state.tss, tssEstimated: state.estimated, tssUnknownCount: state.unknown },
 ] }) }));
@@ -34,4 +34,15 @@ it.each([
   expect(writeText.mock.calls[0]?.[0]).toContain(qualifier);
   expect(writeText.mock.calls[0]?.[0]).toContain("12km");
   expect(writeText.mock.calls[0]?.[0]).toContain("1.5h");
+});
+
+
+it("shows an honest empty state for a signed-in rider without synthetic chart totals", async () => {
+  state.empty = true;
+  const { container } = renderWithProviders(<Routes><Route path="/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/creator/share" });
+  await screen.findByText("아직 차트로 표시할 활동이 없습니다.");
+  expect(container.textContent).not.toContain("데모 데이터");
+  expect(screen.getByRole("button", { name: "차트 카드 복사" })).toBeDisabled();
+  expect(screen.queryByTestId("creator-tss-bar")).not.toBeInTheDocument();
+  state.empty = false;
 });
