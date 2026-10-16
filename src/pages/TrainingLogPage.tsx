@@ -404,7 +404,7 @@ export default function TrainingLogPage() {
     setFailedMonths(new Set());
   }, [user?.uid]);
 
-  // 선택 월 범위만 로드 — 전체 이력 대신 캘린더가 보여주는 한 달치만 (startTime 인덱스 사용)
+  // 월 경계 양쪽 하루의 대표 후보만 함께 읽는다. 월당 한 쿼리와 재방문 캐시는 유지한다.
   const loadMonth = useCallback(
     async (year: number, month: number) => {
       if (!user) return;
@@ -422,8 +422,8 @@ export default function TrainingLogPage() {
           collection(firestore, "activities"),
           where("deletedAt", "==", null),
           where("userId", "==", user.uid),
-          where("startTime", ">=", start),
-          where("startTime", "<=", end),
+          where("startTime", ">=", start - 86400000),
+          where("startTime", "<=", end + 86400000),
           orderBy("startTime", "desc"),
         );
         const snap = await getDocs(q);
@@ -508,11 +508,11 @@ export default function TrainingLogPage() {
     return () => { cancelled = true; };
   }, [user]);
 
-  // 캐시된 모든 월 활동 평탄화 (자식/모바일 뷰가 소비) — 월 범위는 서로 겹치지 않음
+  // 인접 월 후보가 겹치므로 원본 ID당 한 번만 자식/모바일 뷰에 전달한다.
   const activities = useMemo(() => {
-    const all: Activity[] = [];
-    for (const arr of activitiesByMonth.values()) all.push(...arr);
-    return all;
+    const all = new Map<string, Activity>();
+    for (const arr of activitiesByMonth.values()) for (const activity of arr) all.set(activity.id, activity);
+    return [...all.values()];
   }, [activitiesByMonth]);
 
   // 선택 월이 아직 안 들어왔으면 로딩 표시 — 캐시된 월 재방문은 즉시 (스피너 없음)
@@ -548,11 +548,11 @@ export default function TrainingLogPage() {
     [activities, monthStart, monthEnd, user],
   );
 
-  // 대표 선정은 조회된 권한 내 전체 입력에서 한 번, 부하 배분만 기간별로 한다.
+  // 선택 월의 고정 후보에서 대표를 골라 다른 월 방문으로 합계가 변하지 않게 한다.
   const monthLoadActivities = useMemo(() => acceptedPhysicalActivities(
-    activities.filter((a) => !user || a.userId === user.uid), ftp,
+    (activitiesByMonth.get(selectedMonthKey) ?? []).filter((a) => !user || a.userId === user.uid), ftp,
   ).filter((a) => a.startTime >= monthStart && a.startTime <= monthEnd),
-  [activities, user, ftp, monthStart, monthEnd]);
+  [activitiesByMonth, selectedMonthKey, user, ftp, monthStart, monthEnd]);
   const loadByDay = useMemo(() => {
     const map = new Map<string, Activity[]>();
     for (const activity of monthLoadActivities) {
@@ -668,6 +668,7 @@ export default function TrainingLogPage() {
         plannedSports={Object.fromEntries([...planByMonth].map(([date, plans]) => [date, plans[0]?.discipline ?? "bike"]))}
         ftp={ftp}
         activities={activities}
+        representativeCandidates={activitiesByMonth.get(selectedMonthKey) ?? []}
         year={selectedMonth.year}
         month={selectedMonth.month}
         loading={loading}

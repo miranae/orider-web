@@ -93,8 +93,8 @@ export function acceptedPhysicalActivities(activities: readonly Activity[], ftp?
   const positive = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
   const rows: (PhysicalRideActivity & { activity: Activity; sportFamily: string })[] = activities.flatMap((activity) => {
     const discipline = disciplineOfType(activity.type);
-    const record = activity as Activity & { deletedAt?: unknown };
-    if (record.deletedAt) return [];
+    const record = activity as Activity & { deletedAt?: unknown; invalidSummary?: unknown };
+    if (record.deletedAt || record.invalidSummary) return [];
     const summary = activity.summary as unknown as Record<string, unknown>;
     const load = estimateActivityTss(activity, ftp);
     const millis = positive(summary?.movingTimeMillis) ?? positive(summary?.ridingTimeMillis) ?? positive(summary?.elapsedTimeMillis);
