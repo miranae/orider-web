@@ -51,7 +51,7 @@ describe("TrainingStatusCard", () => {
 
   it("stale 이면 값과 함께 갱신 칩을 보인다", () => {
     render(<TrainingStatusCard tsb={-8} decision={decision("fresh", "stale")} decisionDisplay="value_with_stale_hint" />);
-    expect(screen.getAllByText("회복 완료").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(ko["trainingStatus.fresh.label"]).length).toBeGreaterThan(0);
     expect(screen.getByText("갱신 대기")).toBeInTheDocument();
   });
 
