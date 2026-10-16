@@ -939,9 +939,6 @@
     "ACTION_CAM_RECORD": "Action cam record toggle"
   },
   "threshold": {
-    "reason": {
-      "observedMaxHr": "Highest heart rate observed during the activity"
-    },
     "suggestionTitle": "Threshold update suggestion from recent activity",
     "maxHrLabel": "Max HR",
     "dismissFailed": "Could not dismiss this suggestion. Please try again.",

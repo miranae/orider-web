@@ -939,9 +939,6 @@
     "ACTION_CAM_RECORD": "액션캠 녹화 토글"
   },
   "threshold": {
-    "reason": {
-      "observedMaxHr": "활동 중 관측된 최대 심박"
-    },
     "suggestionTitle": "최근 활동에서 임계값 갱신 제안",
     "maxHrLabel": "최대 심박",
     "dismissFailed": "제안을 무시하지 못했어요. 다시 시도해 주세요.",
