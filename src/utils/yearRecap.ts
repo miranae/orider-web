@@ -1,4 +1,4 @@
-import { acceptedPhysicalActivities } from "./estimateTSS";
+import { acceptedStatsActivities } from "./estimateTSS";
 import type { Activity } from "@shared/types";
 import { getDiscipline } from "./disciplineFilter";
 import type { Discipline } from "./disciplineFilter";
@@ -155,7 +155,7 @@ function computeConsistency90d(dayOrdinals: Set<number>, year: number, nowMs: nu
  * @param year 대상 연도 (예: 2026). 활동의 startTime 로컬 연도 기준 필터.
  */
 export function computeYearRecap(activities: Activity[], year: number, nowMs = Date.now()): YearRecap {
-  const inYear = acceptedPhysicalActivities(activities ?? []).filter(
+  const inYear = acceptedStatsActivities(activities ?? []).filter(
     (a) => a?.summary != null && new Date(a.startTime).getFullYear() === year,
   );
 

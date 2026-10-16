@@ -2,18 +2,18 @@ import { GlossaryProvider } from "../common/GlossaryProvider";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ user: { uid: "owner", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, enabled: true, eventsFailed: false, goalsFailed: false, decisionFailed: false, callable: vi.fn(), goal: null as null | { id: string; title: string; eventDate: number }, snapshot: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: { uid: "owner", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, enabled: true, eventsFailed: false, goalsFailed: false, decisionFailed: false, callable: vi.fn(), goal: null as null | { id: string; title: string; eventDate: number }, snapshot: vi.fn(), projection: null as null | {goalId: string; goalDay: {ctl: number}} }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock("../../hooks/useTodayTrainingDecision", () => ({ useTodayTrainingDecision: () => ({ loading: false, unavailable: mocks.decisionFailed, decision: mocks.decisionFailed ? null : { scheduledProjectionValidUntil: Date.now() + 60000, representativeSessionId: "session", effectiveSessions: [{ sessionId: "session", current: { workout: "easy", durationMin: 30 } }] } }) }));
 vi.mock("../../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ trainingDecisionEnabled: mocks.enabled }) }));
 vi.mock("../../services/firebase", () => ({ firestore: {}, functions: {}, ensureAppCheckReady: () => Promise.resolve() }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 vi.mock("firebase/functions", () => ({ httpsCallable: (_functions: unknown, name: string) => { mocks.callable(name); return async () => { if (mocks.eventsFailed) throw new Error("events unavailable"); return ({ data: { events: [5, 1, 4, 2, 3].map((day) => ({ eventId: `e${day}`, name: `Event ${day}`, startTime: Date.now() + day * 86400000 })) } }); }; } }));
-vi.mock("firebase/firestore", () => ({ collection: vi.fn(), query: vi.fn(), where: vi.fn(), limit: vi.fn(), onSnapshot: (_query: unknown, callback: (value: unknown) => void, onError: (error: Error) => void) => { mocks.snapshot(); if (mocks.goalsFailed) { onError(new Error("goals unavailable")); return vi.fn(); } callback({ docs: mocks.goal ? [{ id: mocks.goal.id, data: () => mocks.goal }] : [] }); return vi.fn(); } }));
+vi.mock("firebase/firestore", () => ({ doc: (_db: unknown, ...parts: string[]) => ({path: parts.join("/")}), collection: vi.fn(), query: vi.fn(), where: vi.fn(), limit: vi.fn(), onSnapshot: (ref: {path?: string} | undefined, callback: (value: unknown) => void, onError: (error: Error) => void) => { mocks.snapshot(ref?.path); if (ref?.path) { callback({data: () => mocks.projection}); return vi.fn(); } if (mocks.goalsFailed) { onError(new Error("goals unavailable")); return vi.fn(); } callback({ docs: mocks.goal ? [{ id: mocks.goal.id, data: () => mocks.goal }] : [] }); return vi.fn(); } }));
 import HomeTodayStrip from "./HomeTodayStrip";
 const props = { discipline: "bike" as const, fitness: { ctl: 20, atl: 30, tsb: -10 }, weeklyDetails: null, weeklySummary: "Week data", monthlyKm: 100, weeklyAverageKm: 50, guidance: "Guide" };
 describe("home today strip", () => {
-  beforeEach(() => { mocks.user = { uid: "owner", isAnonymous: false }; mocks.enabled = true; mocks.eventsFailed = false; mocks.goalsFailed = false; mocks.decisionFailed = false; mocks.goal = null; vi.clearAllMocks(); });
+  beforeEach(() => { mocks.user = { uid: "owner", isAnonymous: false }; mocks.enabled = true; mocks.eventsFailed = false; mocks.goalsFailed = false; mocks.decisionFailed = false; mocks.goal = null; mocks.projection = null; vi.clearAllMocks(); });
   it("keeps goal recovery scoped to running when the goal snapshot fails", () => {
     mocks.goalsFailed = true;
     render(<MemoryRouter><HomeTodayStrip {...props} discipline="run" /></MemoryRouter>);
@@ -40,6 +40,7 @@ describe("home today strip", () => {
     expect(container.querySelectorAll("[data-home-slot]")).toHaveLength(5);
     expect(screen.queryByText(/Event 4/)).toBeNull();
     expect(mocks.callable.mock.calls).toEqual([["listMyRegisteredEvents"]]);
+    expect(mocks.snapshot.mock.calls.some(([path]) => path?.includes("projection"))).toBe(false);
     expect(screen.getByRole("link", { name: "정하기 →" }).getAttribute("href")).toContain("/coach/today?sport=bike");
     expect(screen.getAllByRole("button").every(button => button.getAttribute("aria-label")?.includes("설명"))).toBe(true);
   });
@@ -73,10 +74,14 @@ describe("home today strip", () => {
   });
   it("uses goal-day CTL only for the active goal's matching projection", async () => {
     mocks.goal = { id: "g1", title: "Event goal", eventDate: Date.now() + 86400000 };
-    const { rerender } = render(<MemoryRouter><GlossaryProvider><HomeTodayStrip {...props} goalProjection={{ goalId: "g1", ctl: 42 }} /></GlossaryProvider></MemoryRouter>);
+    mocks.projection = {goalId: "g1", goalDay: {ctl: 42}};
+    const { rerender } = render(<MemoryRouter><GlossaryProvider><HomeTodayStrip {...props} /></GlossaryProvider></MemoryRouter>);
     await waitFor(() => expect(screen.getByTestId("H2-3-3")).toHaveTextContent("목표일 예상 CTL 42.0"));
     await waitFor(() => expect(screen.getAllByRole("button", { name: "CTL 설명" })).toHaveLength(2));
-    rerender(<MemoryRouter><GlossaryProvider><HomeTodayStrip {...props} goalProjection={{ goalId: "old-goal", ctl: 99 }} /></GlossaryProvider></MemoryRouter>);
+    expect(mocks.snapshot).toHaveBeenCalledWith("users/owner/fitness/projection_bike");
+    mocks.user = {uid: "other", isAnonymous: false};
+    mocks.projection = {goalId: "old-goal", goalDay: {ctl: 99}};
+    rerender(<MemoryRouter><GlossaryProvider><HomeTodayStrip {...props} /></GlossaryProvider></MemoryRouter>);
     expect(screen.getByTestId("H2-3-3")).not.toHaveTextContent("목표일 예상 CTL");
   });
   it("explains fitness terms while preserving a user-written goal title", async () => {

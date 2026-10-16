@@ -1,4 +1,4 @@
-import { acceptedPhysicalActivities } from "../utils/estimateTSS";
+import { acceptedStatsActivities } from "../utils/estimateTSS";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useLocation, useParams, useSearchParams } from "react-router-dom";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
@@ -555,10 +555,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   );
   const isMe = isOwnProfile;
 
-  const acceptedChartActivities = useMemo(() => acceptedPhysicalActivities(chartActivities), [chartActivities]);
+  const acceptedChartActivities = useMemo(() => acceptedStatsActivities(chartActivities), [chartActivities]);
   const stats = useMemo(() => aggregateActivityStats(acceptedChartActivities), [acceptedChartActivities]);
   const statsReady = !chartLoading && !chartError;
-  const monthlyStats = useMemo(() => aggregateMonthlyActivities(acceptedChartActivities, undefined, true), [acceptedChartActivities]);
+  const monthlyStats = useMemo(() => aggregateMonthlyActivities(chartActivities), [chartActivities]);
 
   // 검색 활성 시: 서버 검색 결과 사용
   // 비활성 시: 페이지네이션된 displayActivities 사용

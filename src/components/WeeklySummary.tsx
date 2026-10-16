@@ -1,5 +1,5 @@
 import type { Activity } from "@shared/types";
-import { acceptedPhysicalActivities } from "../utils/estimateTSS";
+import { acceptedStatsActivities } from "../utils/estimateTSS";
 import { useTranslation } from "react-i18next";
 import type { DailyLoad } from "../utils/fitnessMetrics";
 import { toLocalDate } from "../utils/dateUtils";
@@ -51,7 +51,7 @@ export default function WeeklySummary({ dailyData, activities }: WeeklySummaryPr
     .filter((d) => d.date >= lastWeek.start && d.date <= lastWeek.end)
     .reduce((sum, d) => sum + d.totalLoad, 0);
 
-  const representatives = acceptedPhysicalActivities(activities);
+  const representatives = acceptedStatsActivities(activities);
   const thisWeekActs = representatives.filter((a) => {
     const d = toLocalDate(a.startTime);
     return d >= thisWeek.start && d <= thisWeek.end;

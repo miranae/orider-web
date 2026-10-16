@@ -40,6 +40,7 @@ function main() {
   const errors = [];
   // BE/WEB는 같은 accepted-load와 modern PMC 증거 순수 계약을 사용한다.
   for (const [file, expected] of [
+    ['training/activityStatsEligibility.ts', 'ca4ca327765cf7d3841e92168775a87f97c786ee009301b99206d52af943b581'],
     ['training/physicalRideEvidence.fixture.json', '9af4d9021447b1049b37f82dec9edc51216f07437b1f6830a15c1b179afaf93f'],
     ['training/physicalRideEvidence.ts', '49172ee603a27165a777b07d519cf83ab7419a96fc5e55911d3a2ff0d2f353f3'],
     ['training/activityLoad.ts', '823c105bfb1d78bade3866ee97b006645ddf26343ec3167af76e9cedf60410cf'],

@@ -75,7 +75,7 @@ export default function ChallengeFeed({ part = "all" }: { part?: "all" | "monthl
             </div>
             {monthly.loading ? (
               <Text as="p" variant="body" tone="tertiary" style={{ marginTop: "var(--space-3)" }}>{t("discover.challenge.loading")}</Text>
-            ) : monthly.error ? (
+            ) : monthly.participation && monthly.error ? (
               <Text as="p" variant="body" tone="tertiary" style={{ marginTop: "var(--space-3)" }}>{t("common:error.title")}</Text>
             ) : monthly.participation && monthly.progress ? (
               <div className="mt-4">
