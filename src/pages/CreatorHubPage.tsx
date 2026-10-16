@@ -1,3 +1,4 @@
+import { creatorRecipeErrorFeedback } from "../utils/creatorRecipeErrors";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -498,6 +499,8 @@ function demoWeeklyStats() {
 
 
 function diaryFailureMessage(error: unknown, language: string, fallback: string): string {
+  const sharedFeedback = creatorRecipeErrorFeedback(error, language, "diary");
+  if (sharedFeedback) return sharedFeedback.message;
   const details = error && typeof error === "object" && "details" in error ? error.details : null;
   const reason = details && typeof details === "object" && "reason" in details ? details.reason : null;
   const ko = language.startsWith("ko");
