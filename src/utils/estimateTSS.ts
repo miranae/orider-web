@@ -1,5 +1,5 @@
 import type { Activity } from "@shared/types";
-import { TIME_FACTORS, type LoadDiscipline } from "@shared/training/activityLoad";
+import { TIME_FACTORS } from "@shared/training/activityLoad";
 import { acceptedActivityLoad } from "@shared/training/acceptedActivityLoad";
 import { dedupeSamePhysicalRides, type PhysicalRideActivity } from "./samePhysicalRide";
 import { disciplineOfType } from "@shared/sport/discipline";
@@ -83,21 +83,36 @@ export function estimateActivityTss(a: Activity, ftp?: number): ActivityTssEstim
 
 /** 서버와 같은 종목·삭제·실주행 대표 규칙. 원본 활동을 수정하지 않는다. */
 export function acceptedTrainingActivities(activities: readonly Activity[], ftp?: number): Activity[] {
+  return acceptedPhysicalActivities(activities.filter((activity) => disciplineOfType(activity.type)
+    && Number.isFinite(activity.startTime) && activity.startTime > 0
+    && Number.isFinite(new Date(activity.startTime).getTime())), ftp);
+}
+
+/** 거리·시간·횟수도 부하와 같은 대표를 사용한다. 레거시 날짜·비훈련 종목은 보존한다. */
+export function acceptedPhysicalActivities(activities: readonly Activity[], ftp?: number): Activity[] {
   const positive = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
-  const rows: (PhysicalRideActivity & { activity: Activity; sportFamily: LoadDiscipline })[] = activities.flatMap((activity) => {
+  const rows: (PhysicalRideActivity & { activity: Activity; sportFamily: string })[] = activities.flatMap((activity) => {
     const discipline = disciplineOfType(activity.type);
     const record = activity as Activity & { deletedAt?: unknown };
-    if (!discipline || record.deletedAt || !Number.isFinite(activity.startTime) || !activity.startTime
-      || !Number.isFinite(new Date(activity.startTime).getTime())) return [];
+    if (record.deletedAt) return [];
     const summary = activity.summary as unknown as Record<string, unknown>;
     const load = estimateActivityTss(activity, ftp);
     const millis = positive(summary?.movingTimeMillis) ?? positive(summary?.ridingTimeMillis) ?? positive(summary?.elapsedTimeMillis);
-    return [{ activity, id: activity.id, source: activity.source, discipline, sportFamily: discipline, type: activity.type,
+    return [{ activity, id: activity.id, source: activity.source, discipline, sportFamily: discipline ?? activity.type, type: activity.type,
       localSessionId: activity.localSessionId, stravaActivityId: positive(activity.stravaActivityId), stravaTwinActivityId: positive(activity.stravaTwinActivityId),
       startTime: activity.startTime, endTime: positive(activity.endTime),
       movingSec: positive(summary?.movingTimeSec) ?? (millis !== null ? millis / 1000 : null), hasLoad: (load.value ?? 0) > 0 }];
   });
-  return dedupeSamePhysicalRides(rows).map((row) => row.activity);
+  // 공개 피드에서도 다른 사용자의 같은 시각 운동을 합치지 않는다.
+  const byOwner = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const key = row.activity.userId;
+    const owned = byOwner.get(key) ?? [];
+    owned.push(row);
+    byOwner.set(key, owned);
+  }
+  const representatives = new Set([...byOwner.values()].flatMap((owned) => dedupeSamePhysicalRides(owned).map((row) => row.activity)));
+  return activities.filter((activity) => representatives.has(activity));
 }
 
 /** 값만 필요한 호출자용. 모르면 null — 0 으로 메우지 않는다. */

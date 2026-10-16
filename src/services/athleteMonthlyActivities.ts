@@ -3,7 +3,7 @@ import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
 import { firestore } from "./firebase";
 import { resolveDuration } from "../utils/activityTime";
-import { acceptedTrainingActivities, sumActivityTss } from "../utils/estimateTSS";
+import { acceptedPhysicalActivities, sumActivityTss } from "../utils/estimateTSS";
 
 const PAGE_SIZE = 200;
 
@@ -38,8 +38,7 @@ export function aggregateMonthlyActivities(activities: Activity[], now = new Dat
   const months = new Map<number, WeeklyStat>();
   const membersByMonth = new Map<number, Activity[]>();
   // 조회된 동일 입력셋에서 먼저 대표를 고른다. 기간 경계의 쌍둥이를 두 달에 세지 않는다.
-  const loadIds = new Set(acceptedTrainingActivities(activities).map((activity) => activity.id));
-  for (const activity of activities) {
+  for (const activity of acceptedPhysicalActivities(activities)) {
     const timestamp = Number.isFinite(activity.startTime) && activity.startTime > 0
       ? activity.startTime : activity.createdAt;
     const date = new Date(timestamp);
@@ -53,7 +52,7 @@ export function aggregateMonthlyActivities(activities: Activity[], now = new Dat
     row.elevation += Number.isFinite(summary.elevationGain) ? summary.elevationGain : 0;
     row.rides += 1;
     months.set(month, row);
-    if (loadIds.has(activity.id)) {
+    {
       const members = membersByMonth.get(month) ?? [];
       members.push(activity);
       membersByMonth.set(month, members);

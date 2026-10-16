@@ -9,7 +9,7 @@ import SportFilterTabs from "./SportFilterTabs";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineLabelKey } from "../../utils/disciplineFilter";
 import { isIndoorActivity } from "../../utils/indoorActivity";
 import { planDayKey, planCalendarDate } from "@shared/training/planDate";
-import { acceptedTrainingActivities, estimateActivityTss, sumActivityTss } from "../../utils/estimateTSS";
+import { acceptedPhysicalActivities, estimateActivityTss, sumActivityTss } from "../../utils/estimateTSS";
 import "./MobileLogPage.css";
 
 // DAY_NAMES — i18n via t("mobileLog.dayNames")
@@ -111,17 +111,15 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
     return d.getUTCFullYear() === year && d.getUTCMonth() === month;
   });
 
-  const activeDays = new Set(monthActs.map(a => planCalendarDate(a.startTime).getUTCDate())).size;
+  const monthRepresentatives = acceptedPhysicalActivities(activities, ftp).filter((activity) => monthActs.includes(activity));
+  const activeDays = new Set(monthRepresentatives.map(a => planCalendarDate(a.startTime).getUTCDate())).size;
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const monthTotals = {
-    distanceKm: monthActs.reduce((sum, a) => sum + (Number.isFinite(a.summary.distance) && a.summary.distance > 0 ? a.summary.distance : 0), 0) / 1000,
-    timeMs: monthActs.reduce((sum, a) => sum + (Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0), 0),
-    elevationM: Math.round(monthActs.reduce((sum, a) => sum + (Number.isFinite(a.summary.elevationGain) ? a.summary.elevationGain : 0), 0)),
+    distanceKm: monthRepresentatives.reduce((sum, a) => sum + (Number.isFinite(a.summary.distance) && a.summary.distance > 0 ? a.summary.distance : 0), 0) / 1000,
+    timeMs: monthRepresentatives.reduce((sum, a) => sum + (Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0), 0),
+    elevationM: Math.round(monthRepresentatives.reduce((sum, a) => sum + (Number.isFinite(a.summary.elevationGain) ? a.summary.elevationGain : 0), 0)),
     // 아는 값만 더하고, 추정치가 섞이면 라벨로 밝힌다. 모르면 null — 0 을 쓰지 않는다 (#2237).
-    load: sumActivityTss(acceptedTrainingActivities(filteredActivities, ftp).filter((activity) => {
-      const date = planCalendarDate(activity.startTime);
-      return date.getUTCFullYear() === year && date.getUTCMonth() === month;
-    }), ftp),
+    load: sumActivityTss(monthRepresentatives, ftp),
   };
 
   const monthLabel = t("mobileLog.monthLabel", { year, month: month + 1 });
@@ -237,7 +235,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
           </div>
           <div className="mobile-log__glance-metric">
             <span>{t("mobileLog.glanceSessions")}</span>
-            <strong>{monthActs.length}</strong>
+            <strong>{monthRepresentatives.length}</strong>
           </div>
           <div className="mobile-log__glance-metric">
             <span>{t("mobileLog.glanceTime")}</span>
@@ -341,7 +339,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
           <div className="mobile-log__summary">
             {[
               [t("mobileLog.activeDays"), `${activeDays}/${daysInMonth}`],
-              [t("mobileLog.totalSessions"), monthActs.length],
+              [t("mobileLog.totalSessions"), monthRepresentatives.length],
               [t("mobileLog.totalTime", { defaultValue: "총 시간" }), formatDuration(monthTotals.timeMs)],
               [
                 monthTotals.load.estimated
@@ -365,7 +363,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
               { icon: "🏃", label: t("mobileLog.sportRun"), color: getDisciplineColor("run"), filter: (a: Activity) => getDiscipline(a.type) === "run", unit: "km", divisor: 1000 },
               { icon: "🏊", label: t("mobileLog.sportSwim"), color: getDisciplineColor("swim"), filter: (a: Activity) => getDiscipline(a.type) === "swim", unit: "m", divisor: 1 },
             ].map(sport => {
-              const acts = monthActs.filter(sport.filter);
+              const acts = monthRepresentatives.filter(sport.filter);
               if (acts.length === 0) return null;
               const dist = acts.reduce((s, a) => s + (Number.isFinite(a.summary.distance) ? a.summary.distance : 0) / sport.divisor, 0);
               return (

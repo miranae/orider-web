@@ -12,7 +12,7 @@ import type { PlanDay, PlanWeek } from "@shared/types/goal";
 import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
-import { acceptedTrainingActivities, estimateActivityTss, sumActivityTss } from "../utils/estimateTSS";
+import { acceptedPhysicalActivities, estimateActivityTss, sumActivityTss } from "../utils/estimateTSS";
 import { planDayKey, planCalendarDate, planMonthBounds } from "@shared/training/planDate";
 import { Button, Card, Text } from "../theme/components";
 import { ErrorState } from "../components/redesign";
@@ -549,7 +549,7 @@ export default function TrainingLogPage() {
   );
 
   // 대표 선정은 조회된 권한 내 전체 입력에서 한 번, 부하 배분만 기간별로 한다.
-  const monthLoadActivities = useMemo(() => acceptedTrainingActivities(
+  const monthLoadActivities = useMemo(() => acceptedPhysicalActivities(
     activities.filter((a) => !user || a.userId === user.uid), ftp,
   ).filter((a) => a.startTime >= monthStart && a.startTime <= monthEnd),
   [activities, user, ftp, monthStart, monthEnd]);
@@ -564,17 +564,15 @@ export default function TrainingLogPage() {
     return map;
   }, [monthLoadActivities]);
 
-  // 날짜별 원본 기록 그룹핑
+  // 원본 기록 목록은 유지하고 합계만 실주행 대표로 계산한다.
   const byDay = useMemo(() => {
     const map = new Map<string, Activity[]>();
-    for (const act of monthActivities) {
-      const key = msToDateKey(act.startTime);
-      const arr = map.get(key) ?? [];
-      arr.push(act);
-      map.set(key, arr);
+    for (const activity of monthActivities) {
+      const key = msToDateKey(activity.startTime);
+      map.set(key, [...(map.get(key) ?? []), activity]);
     }
     return map;
-  }, [monthActivities, ftp]);
+  }, [monthActivities]);
 
   // 캘린더 그리드
   const calendar = useMemo(
@@ -584,15 +582,15 @@ export default function TrainingLogPage() {
 
   // KPI
   const kpi = useMemo(() => {
-    const totalDist = monthActivities.reduce((s, a) => s + finiteMetric(a.summary.distance), 0);
-    const totalTime = monthActivities.reduce((s, a) => s + finiteMetric(a.summary.ridingTimeMillis), 0);
-    const totalElev = monthActivities.reduce((s, a) => s + finiteMetric(a.summary.elevationGain), 0);
+    const totalDist = monthLoadActivities.reduce((s, a) => s + finiteMetric(a.summary.distance), 0);
+    const totalTime = monthLoadActivities.reduce((s, a) => s + finiteMetric(a.summary.ridingTimeMillis), 0);
+    const totalElev = monthLoadActivities.reduce((s, a) => s + finiteMetric(a.summary.elevationGain), 0);
     const totalLoad = sumActivityTss(monthLoadActivities, ftp);
     return {
       dist: totalDist / 1000,
       time: totalTime,
       elev: Math.round(totalElev),
-      count: monthActivities.length,
+      count: monthLoadActivities.length,
       tss: totalLoad.value,
       tssEstimated: totalLoad.estimated,
       tssUnknownCount: totalLoad.unknownCount,
@@ -605,10 +603,10 @@ export default function TrainingLogPage() {
     () =>
       Array.from({ length: daysInMonth }, (_, i) => {
         const key = dateToKey(new Date(Date.UTC(selectedMonth.year, selectedMonth.month, i + 1)));
-        const acts = byDay.get(key) ?? [];
+        const acts = loadByDay.get(key) ?? [];
         return acts.reduce((s, a) => s + finiteMetric(a.summary.distance) / 1000, 0);
       }),
-    [byDay, daysInMonth, selectedMonth],
+    [loadByDay, daysInMonth, selectedMonth],
   );
   const barLabels = useMemo(
     () => Array.from({ length: daysInMonth }, (_, i) => String(i + 1)),

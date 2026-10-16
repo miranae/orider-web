@@ -87,6 +87,7 @@ describe("AthletePage", () => {
       {
         id: "public-1",
         ...createMockActivity({
+          id: "public-1", startTime: Date.UTC(2026, 8, 1, 10), endTime: Date.UTC(2026, 8, 1, 12),
           userId: "athlete-1",
           visibility: "everyone",
           summary: { distance: 10_000, ridingTimeMillis: 1_000_000, elevationGain: 100 },
@@ -95,6 +96,7 @@ describe("AthletePage", () => {
       {
         id: "public-2",
         ...createMockActivity({
+          id: "public-2", startTime: Date.UTC(2026, 8, 2, 10), endTime: Date.UTC(2026, 8, 2, 12),
           userId: "athlete-1",
           visibility: "everyone",
           summary: { distance: 20_000, ridingTimeMillis: 2_000_000, elevationGain: 200 },
@@ -103,6 +105,7 @@ describe("AthletePage", () => {
       {
         id: "public-3",
         ...createMockActivity({
+          id: "public-3", startTime: Date.UTC(2026, 8, 3, 10), endTime: Date.UTC(2026, 8, 3, 12),
           userId: "athlete-1",
           visibility: "everyone",
           summary: { distance: 30_000, ridingTimeMillis: 3_000_000, elevationGain: 300 },
@@ -137,6 +140,7 @@ describe("AthletePage", () => {
       {
         id: "own-1",
         ...createMockActivity({
+          id: "own-1", startTime: Date.UTC(2026, 8, 4, 10), endTime: Date.UTC(2026, 8, 4, 12),
           userId: "athlete-1",
           visibility: "private",
           summary: createMockSummary({
@@ -151,6 +155,7 @@ describe("AthletePage", () => {
       {
         id: "own-2",
         ...createMockActivity({
+          id: "own-2", startTime: Date.UTC(2026, 8, 5, 10), endTime: Date.UTC(2026, 8, 5, 12),
           userId: "athlete-1",
           visibility: "everyone",
           summary: createMockSummary({

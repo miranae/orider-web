@@ -93,7 +93,7 @@ describe("운동 기록의 확정 부하와 달성 상태", () => {
       })) }) }], empty: false } as never);
     render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
     await waitFor(() => expectMetric("총 TSS", "100"));
-    expectMetric("활동 수", "2");
+    expectMetric("활동 수", "1");
     await waitFor(() => expect(screen.getByLabelText("실제 부하 미확인 · 달성 여부 판단 불가")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /원본 기록/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /대표 기록/ })).toBeInTheDocument();
