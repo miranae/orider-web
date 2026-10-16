@@ -30,7 +30,10 @@ describe("event registration Firestore deadline", () => {
   });
   it.each(["LIVE", "FINISHED", "DRAFT", "CANCELLED"])("keeps %s registration readonly and exposes results only for LIVE/FINISHED", async status => {
     renderRegistration(new Date(Date.now() + 43200000).toISOString(), status);
-    await screen.findByText("현재 모집 중이 아닙니다");
+    const closedTitle = await screen.findByText("현재 모집 중이 아닙니다");
+    expect(closedTitle.closest(".event-register-state")).not.toBeNull();
+    expect(closedTitle.closest("[role=status]")?.querySelector("svg.lucide-clock-3")).not.toBeNull();
+    expect(screen.queryByText("⏱️")).toBeNull();
     expect(screen.getByTestId("D4-T")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "참가", exact: true })).toHaveAttribute("aria-current", "page");
     expect(screen.queryByRole("link", { name: "종합 결과", exact: true }) !== null).toBe(["LIVE", "FINISHED"].includes(status));

@@ -13,15 +13,15 @@ export function buildCreatorHubDetailLinks(language: string): CreatorHubDetailLi
     {
       to: "/explore/recipes/recipes",
       title: ko ? "레시피 목록" : "Recipe catalog",
-      body: ko ? "어떤 레시피가 있고 어떤 권한이 필요한지 봅니다." : "See available recipes and the scopes they need.",
+      body: ko ? "일기, 리포트, 사진 포스터 중 필요한 활용법을 고릅니다." : "Choose diaries, reports, or photo posters for your rides.",
       icon: BookOpen,
     },
     {
       to: "/explore/recipes/deploy",
       title: ko ? "내 도구에 직접 연결하기" : "Connect your own tools",
       body: ko
-        ? "Developer API key와 필요한 scope를 골라 Notion, Slack, n8n, 개인 대시보드에 연결합니다."
-        : "Create a Developer API key, choose scopes, and connect Notion, Slack, n8n, or your own dashboard.",
+        ? "내 기록을 노트나 알림으로 받아보고, 자주 하는 작업을 자동화합니다."
+        : "Turn your rides into notes and reminders, and automate routine tasks.",
       icon: KeyRound,
     },
     {

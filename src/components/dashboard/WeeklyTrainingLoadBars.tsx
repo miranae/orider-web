@@ -97,7 +97,12 @@ export default function WeeklyTssBars({ weeks, tooltipFor, metric = "tss", cover
     </span>)}
   </span>;
   return <div ref={container}>
-    <div className="bar-track" style={{ height: 80, gap: 1 }}>
+    <div style={{ display: "grid", gridTemplateColumns: metric === "distance" ? "max-content minmax(0, 1fr)" : "minmax(0, 1fr)", columnGap: "var(--space-2)" }}>
+    {metric === "distance" && <div aria-hidden="true" data-testid="weekly-distance-scale" style={{ height: 80, display: "flex", flexDirection: "column", justifyContent: "space-between", textAlign: "right" }}>
+      <Text variant="caption" tone="tertiary" mono>{weeks.some(week => valueFor(week) !== null) ? distanceFormatter ? distanceFormatter(max) : `${number(max)} km` : "—"}</Text>
+      <Text variant="caption" tone="tertiary" mono>0</Text>
+    </div>}
+    <div className="bar-track" style={{ height: 80, gap: 1, boxShadow: metric === "distance" ? "inset 0 -1px var(--line)" : undefined }}>
       {weeks.map((week, weekIndex) => <button
         key={week.week} data-week-index={weekIndex} ref={node => { anchors.current[weekIndex] = node; }} type="button"
         aria-label={metric === "distance" ? titleFor(week) : tooltipFor(week)} aria-describedby={open && index === weekIndex ? tooltipId : undefined}
@@ -117,12 +122,13 @@ export default function WeeklyTssBars({ weeks, tooltipFor, metric = "tss", cover
         </span>}
       </button>)}
     </div>
-    {weeks.length > 0 && <div aria-hidden="true" data-testid="weekly-chart-ticks" className="flex" style={{ marginTop: "var(--space-2)", gap: 1 }}>
+    {weeks.length > 0 && <div aria-hidden="true" data-testid="weekly-chart-ticks" className="flex" style={{ marginTop: "var(--space-2)", gap: 1, gridColumn: metric === "distance" ? 2 : 1 }}>
       {weeks.map((week, weekIndex) => <div key={week.week} data-week-index={weekIndex} style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
         {(weekIndex === 0 || weekIndex === Math.floor(weeks.length / 2) || weekIndex === weeks.length - 1) && <Text as="div" variant="caption" tone="tertiary" mono style={{ whiteSpace: "nowrap" }}>{week.week}</Text>}
         {weekIndex === weeks.length - 1 && <Text as="div" variant="caption" style={{ whiteSpace: "nowrap", color: "var(--ink-1)", position: "relative", left: "50%", transform: "translateX(-50%)", width: "max-content" }}>{t("sidebar.weeklyTss.thisWeek")}</Text>}
       </div>)}
     </div>}
+    </div>
     {showTrainingLoad && active && <Button variant="ghost" size="sm" aria-expanded={detailsOpen} aria-controls={detailsId}
       onClick={() => { setOpen(false); pinned.current = false; setDetailsOpen(value => !value); }} style={{ marginTop: "var(--space-2)" }}>
       {t(detailsOpen ? "weeklyEvidence.hideDetails" : "weeklyEvidence.showDetails", { week: active.week })}

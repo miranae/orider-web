@@ -1,8 +1,9 @@
+import "./fitness-analysis-controls.css";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PowerCurvePeriodsResponse } from "@shared/types/power-curve-periods";
 import { LocalizedLink } from "../../../components/LocalizedLink";
-import { Select, Text } from "../../../theme";
+import { DropdownSelect, Text } from "../../../theme";
 import { makeDurationLabel } from "../fitnessPageUtils";
 import { powerSkillsDisplayValue, powerSkillsObservedRows } from "../models/powerSkillsObserved";
 import "./power-duration-periods.css";
@@ -16,11 +17,11 @@ export function PowerSkillsObservedView({ response, unit = "W" }: { response: Po
   const durationLabel = makeDurationLabel(t);
   const labels = [t("powerSkills.recent"), t("powerSkills.allObserved")];
   const date = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-  return <section className="dense-period-power" aria-label={t("powerSkills.title")}>
+  return <section className="fitness-analysis-controls dense-period-power" aria-label={t("powerSkills.title")}>
     <Text as="h4" variant="bodyMedium" weight={600}>{t("powerSkills.title")}</Text>
     <Text as="p" variant="bodyMedium" tone="secondary">{t("powerSkills.scope")}</Text>
     {unit === "W/kg" && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
-    <label className="dense-period-duration" htmlFor={id}><Text variant="bodyMedium">{t("periodCurve.duration")}</Text><Select id={id} value={duration} onChange={event => setDuration(Number(event.target.value))}>{rows.map(row => <option key={row.durationSeconds} value={row.durationSeconds}>{durationLabel(row.durationSeconds)}</option>)}</Select></label>
+    <label className="dense-period-duration" htmlFor={id}><Text variant="bodyMedium">{t("periodCurve.duration")}</Text><DropdownSelect id={id} label={t("periodCurve.duration")} value={String(duration)} onChange={next => setDuration(Number(next))} options={rows.map((row) => ({ value: String(row.durationSeconds), label: durationLabel(row.durationSeconds) }))} /></label>
     <div className="dense-period-values">{response.periods.map((period, index) => {
       const cell = selected.cells[index]!;
       const channel = unit === "W/kg" ? period.weightNormalized?.powerDurationObservations : period.powerDurationObservations;

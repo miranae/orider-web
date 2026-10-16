@@ -55,8 +55,8 @@
 }
 
 @media (max-width: 36rem) {
- .coach-training-dialog .ds-btn { min-height: var(--space-10); }
- .coach-training-dialog [data-testid="K4-6-7"] { min-width: var(--space-10); min-height: var(--space-10); }
+ .coach-training-dialog .ds-btn { min-height: var(--dim-button-height); }
+ .coach-training-dialog [data-testid="K4-6-7"] { min-width: var(--dim-button-height); min-height: var(--dim-button-height); }
 }
 
 /* 설정 안쪽 제목은 코치 카드의 하위 제목 위계를 따른다. */
@@ -72,3 +72,10 @@
 @media (prefers-reduced-motion: reduce) { .ds-details-section__chevron { transition: none; } }
 
 .coach-analysis-details:has(> details > div:empty) { display: none; }
+
+/* Action icons are children of the DS label, so spacing belongs on that label. */
+.coach-training-dialog .ds-btn__label {
+ display: inline-flex;
+ align-items: center;
+ gap: var(--space-2);
+}

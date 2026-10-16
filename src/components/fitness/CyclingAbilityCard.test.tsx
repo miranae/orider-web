@@ -1,3 +1,4 @@
+import GlossaryProvider from "../common/GlossaryProvider";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
@@ -28,4 +29,13 @@ describe("CyclingAbilityCard", () => {
     expect(screen.getAllByText("입문").length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toMatch(/상위 \d+%|밀도|표본/);
   });
+});
+
+
+it('explains power-to-weight units in recorded ability evidence without changing the numeric evidence', () => {
+  const { container } = renderWithProviders(<GlossaryProvider><CyclingAbilityCard cycling={{ windowDays: 90, activityCount: 1, confidence: 'low',
+    axes: [{ key: 'aerobic', score: 2, confidence: 'low', evidence: [{ duration: '5m', watts: 207, wPerKg: 2.65, percentile: 2 }] }] }} /></GlossaryProvider>);
+  expect(container).toHaveTextContent('5m 207W · 2.65W/kg');
+  expect(container.querySelector('[data-glossary-term="wkg"] button')).not.toBeNull();
+  expect(container.querySelector('button button, a button, svg button')).toBeNull();
 });

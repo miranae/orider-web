@@ -1,3 +1,9 @@
+import "../EventControls.css";
+import GlossaryProvider from "../../components/common/GlossaryProvider";
+import GlossaryText from "../../components/common/GlossaryText";
+import Modal from "../../components/Modal";
+import { CalendarDays, CircleAlert, Clock3, LockKeyhole, Map, Users } from "lucide-react";
+import "../ExploreReview.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -13,7 +19,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, DateField, TimeField } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
-import { Button, Card, Chip, Text } from "../../theme/components";
+import { Button, Chip, Text, Input, Textarea } from "../../theme/components";
 import { Field, PickerRow, Section, Toggle, fieldStyle } from "../../features/event/form/eventFormControls";
 import { joinDtLocal, joinStartTimeKst, newEditableCategory, splitDtLocal, splitStartTime, type EditableCategoryRow } from "../../features/event/form/eventFormUtils";
 
@@ -82,7 +88,7 @@ export default function EventEditPage() {
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
 
   const TYPE_OPTIONS = TYPE_DEFS.map((d) => ({ value: d.value, label: t(d.labelKey) }));
   const VISIBILITY_OPTIONS = VISIBILITY_DEFS.map((d) => ({ value: d.value, label: t(d.labelKey) }));
@@ -447,7 +453,7 @@ export default function EventEditPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("edit.permTitle")} description={t("edit.permDesc")} />
+        <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signInWithGoogle(); }} />
       </div>
     );
   }
@@ -469,7 +475,7 @@ export default function EventEditPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon="🗓️"
+          icon={<CalendarDays size={28} style={{ marginInline: "auto" }} />}
           title={t("empty.noResults")}
           actions={[{ label: t("create.eventList"), variant: "primary", onClick: () => navigate("/explore/events") }]}
         />
@@ -482,7 +488,7 @@ export default function EventEditPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon="🔒"
+          icon={<LockKeyhole size={28} style={{ marginInline: "auto" }} />}
           title={t("edit.noPermTitle")}
           description={t("edit.noPermDesc")}
           actions={[{ label: t("edit.viewEvent"), variant: "primary", onClick: () => navigate(`/event/${eventId}`) }]}
@@ -494,7 +500,7 @@ export default function EventEditPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon="⏱️"
+          icon={<Clock3 size={28} style={{ marginInline: "auto" }} />}
           title={t("edit.lockedTitle")}
           description={t("edit.lockedDesc")}
           actions={[{ label: t("edit.viewEvent"), variant: "primary", onClick: () => navigate(`/event/${eventId}`) }]}
@@ -511,10 +517,11 @@ export default function EventEditPage() {
       : "var(--ink-3)";
 
   return (
-    <div data-testid="O1-1" style={{ paddingBottom: dirty ? 80 : 24 }}>
+    <GlossaryProvider scopeKey="event-editor">
+    <div data-testid="O1-1" className="event-controls-surface explore-editor-surface" style={{ paddingBottom: dirty ? 80 : 24 }}>
       {/* 상단 */}
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6) var(--space-3)" }}>
-        <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
+        <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--ft-body-size)", color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
           <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
           <span style={{ color: "var(--ink-4)" }}>›</span>
           <Link to={`/event/${eventId}`} style={{ color: "var(--ink-3)" }} className="truncate">
@@ -531,17 +538,17 @@ export default function EventEditPage() {
                 style={{
                   color: statusColor,
                   borderColor: `color-mix(in oklch, ${statusColor} 40%, var(--line-soft))`,
-                  fontSize: "var(--fs-xs)",
+                  fontSize: "var(--ft-body-size)",
                 }}
               >
                 {event.status}
               </Chip>
-              <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{event.id}</span>
+              <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{event.id}</span>
             </div>
             <h1 className="truncate" style={{ fontSize: "var(--fs-2xl)", letterSpacing: "-0.02em", color: "var(--ink-0)" }}>
               {data.name}
             </h1>
-            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>
+            <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>
               {t("edit.capacitySummary", { filled: totalFilled ?? "—", total: totalSlots, date: data.date, time: data.startTime })}
             </div>
           </div>
@@ -553,7 +560,7 @@ export default function EventEditPage() {
               type="button"
               onClick={() => navigate(`/event/${eventId}/host/participants`)} variant="secondary" size="sm"
             >
-              👥 {t("action.manageParticipants")}
+              <Users size={14} aria-hidden="true" /> {t("action.manageParticipants")}
             </Button>
           </div>
         </div>
@@ -588,7 +595,7 @@ export default function EventEditPage() {
                   }}
                   style={{
                     padding: "8px 10px",
-                    fontSize: "var(--fs-xs)",
+                    fontSize: "var(--ft-body-size)",
                     borderRadius: "var(--r-sm)",
                     textDecoration: "none",
                     color: active ? "var(--ink-0)" : "var(--ink-3)",
@@ -610,13 +617,13 @@ export default function EventEditPage() {
                 background: "color-mix(in oklch, var(--amber) 8%, var(--bg-2))",
                 border: "1px solid color-mix(in oklch, var(--amber) 30%, var(--line-soft))",
                 borderRadius: "var(--r-sm)",
-                fontSize: "var(--fs-xs)",
+                fontSize: "var(--ft-body-size)",
                 color: "var(--ink-1)",
                 lineHeight: 1.5,
               }}
             >
               <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)", color: "var(--amber)", fontWeight: 500 }}>
-                ⚠ {t("edit.noticeRequired")}
+                <CircleAlert size={14} aria-hidden="true" /> {t("edit.noticeRequired")}
               </div>
               {(totalFilled === null ? t("detail.participantsUnavailable") : t("edit.noticeWillSend", { count: totalFilled }))}
             </div>
@@ -627,7 +634,7 @@ export default function EventEditPage() {
         <div>
           <Section id="basic" title={t("edit.section.basic")} desc={t("edit.sectionDesc.basic")}>
             <Field label={t("field.eventName")} required>
-              <input
+              <Input
                 type="text"
                 value={data.name}
                 onChange={(e) => patch({ name: e.target.value })}
@@ -644,7 +651,7 @@ export default function EventEditPage() {
               </Field>
             </div>
             <Field label={t("field.description")} sub={`${data.description.length}/500`}>
-              <textarea
+              <Textarea
                 value={data.description}
                 onChange={(e) => patch({ description: e.target.value.slice(0, 500) })}
                 style={{ ...fieldStyle, minHeight: 90, resize: "vertical", lineHeight: 1.5 }}
@@ -652,7 +659,7 @@ export default function EventEditPage() {
             </Field>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
               <Field label={t("field.hostName")} required>
-                <input
+                <Input
                   type="text"
                   value={data.hostName}
                   onChange={(e) => patch({ hostName: e.target.value })}
@@ -660,7 +667,7 @@ export default function EventEditPage() {
                 />
               </Field>
               <Field label={t("field.hostPhone")} required>
-                <input
+                <Input
                   type="tel"
                   value={data.hostPhone}
                   onChange={(e) => patch({ hostPhone: e.target.value })}
@@ -696,14 +703,14 @@ export default function EventEditPage() {
                   }}
                   aria-hidden="true"
                 >
-                  🗺️
+                  <Map size={20} aria-hidden="true" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
+                  <div className="text-[length:var(--ft-body-size)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
                     {course?.name ?? t("edit.courseNotLinked")}
                   </div>
                   {course && (
-                    <div className="flex flex-wrap" style={{ gap: "var(--space-3)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+                    <div className="flex flex-wrap" style={{ gap: "var(--space-3)", fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
                       {course.region && <span>{course.region}</span>}
                       {course.distance != null && <span>{(course.distance / 1000).toFixed(1)} km</span>}
                       {course.elevationGain != null && <span>↑ {Math.round(course.elevationGain).toLocaleString()} m</span>}
@@ -721,14 +728,14 @@ export default function EventEditPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
               <Field label={t("field.date")} required warn={data.date !== initialData.date}>
-                <DateField
+                <DateField portal icon={<CalendarDays size={14} aria-hidden="true" />}
                   value={data.date}
                   onChange={(v) => patch({ date: v })}
                   placeholder={t("field.date")}
                 />
               </Field>
               <Field label={t("field.startTime")} required warn={data.startTime !== initialData.startTime}>
-                <TimeField
+                <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
                   value={data.startTime}
                   onChange={(v) => patch({ startTime: v })}
                   placeholder={t("field.startTime")}
@@ -737,7 +744,7 @@ export default function EventEditPage() {
             </div>
 
             <Field label={t("field.meetLocation")} required warn={data.meetLocation !== initialData.meetLocation}>
-              <input
+              <Input
                 type="text"
                 value={data.meetLocation}
                 onChange={(e) => patch({ meetLocation: e.target.value })}
@@ -747,14 +754,14 @@ export default function EventEditPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
               <Field label={t("field.meetTime")} warn={data.meetTime !== initialData.meetTime}>
-                <TimeField
+                <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
                   value={data.meetTime}
                   onChange={(v) => patch({ meetTime: v })}
                   placeholder={t("field.meetTime")}
                 />
               </Field>
               <Field label={t("field.expectedDuration")}>
-                <TimeField
+                <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
                   value={data.expectedDuration}
                   onChange={(v) => patch({ expectedDuration: v })}
                   placeholder="HH:MM"
@@ -766,13 +773,13 @@ export default function EventEditPage() {
           <Section id="register" title={t("edit.section.register")} desc={t("edit.sectionDesc.register")}>
             <Field label={t("field.fee")} required>
               <div className="flex flex-wrap items-center" style={{ gap: "var(--space-2)" }}>
-                <button
+                <Button
                   type="button"
                   onClick={() => patch({ feeType: "FREE", fee: 0 })}
                   aria-pressed={data.feeType === "FREE"}
                   style={{
                     padding: "10px 18px",
-                    fontSize: "var(--fs-xs)",
+                    fontSize: "var(--ft-body-size)",
                     borderRadius: "var(--r-sm)",
                     background: data.feeType === "FREE" ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                     border: `1px solid ${data.feeType === "FREE" ? "var(--lime)" : "var(--line-soft)"}`,
@@ -781,14 +788,14 @@ export default function EventEditPage() {
                   }}
                 >
                   {t("feeType.free")}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={() => patch({ feeType: "PAID" })}
                   aria-pressed={data.feeType === "PAID"}
                   style={{
                     padding: "10px 18px",
-                    fontSize: "var(--fs-xs)",
+                    fontSize: "var(--ft-body-size)",
                     borderRadius: "var(--r-sm)",
                     background: data.feeType === "PAID" ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                     border: `1px solid ${data.feeType === "PAID" ? "var(--lime)" : "var(--line-soft)"}`,
@@ -797,25 +804,26 @@ export default function EventEditPage() {
                   }}
                 >
                   {t("feeType.paid")}
-                </button>
+                </Button>
                 {data.feeType === "PAID" && (
                   <div className="flex items-center" style={{ gap: 'var(--space-2)', flex: 1 }}>
-                    <input
+                    <Input
                       type="number"
-                      value={data.fee}
+                      aria-label={`${t("label.entryFee")} (${t("create.feeUnit")})`}
+                        value={data.fee}
                       onChange={(e) => patch({ fee: Number(e.target.value) || 0 })}
                       style={{ ...fieldStyle, fontFamily: "var(--font-mono)" }}
                     />
-                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("create.feeUnit")}</span>
+                    <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{t("create.feeUnit")}</span>
                   </div>
                 )}
               </div>
               {data.fee !== initialData.fee && event.status === "OPEN" && (totalFilled === null || totalFilled > 0) && (
                 <div
                   className="flex items-center"
-                  style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--amber)", gap: "var(--space-1-5)" }}
+                  style={{ marginTop: 'var(--space-2)', fontSize: "var(--ft-body-size)", color: "var(--amber)", gap: "var(--space-1-5)" }}
                 >
-                  ⚠ {(totalFilled === null ? t("detail.participantsUnavailable") : t("edit.feeChangeNotice", { count: totalFilled }))}
+                  <CircleAlert size={14} aria-hidden="true" /> {(totalFilled === null ? t("detail.participantsUnavailable") : t("edit.feeChangeNotice", { count: totalFilled }))}
                 </div>
               )}
             </Field>
@@ -843,27 +851,27 @@ export default function EventEditPage() {
                           alignItems: "center",
                         }}
                       >
-                        <input
+                        <Input
                           type="text"
                           value={c.label}
                           onChange={(e) => updateCategory(c.id, { label: e.target.value })}
                           placeholder={t("create.ph.category")}
                           style={fieldStyle}
                         />
-                        <input
+                        <Input
                           type="number"
                           value={c.slots}
                           onChange={(e) => updateCategory(c.id, { slots: Number(e.target.value) || 0 })}
                           style={{ ...fieldStyle, fontFamily: "var(--font-mono)" }}
                         />
-                        <input
+                        <Input
                           type="text"
                           value={c.req}
                           onChange={(e) => updateCategory(c.id, { req: e.target.value })}
                           placeholder={t("edit.ph.req")}
                           style={fieldStyle}
                         />
-                        <button
+                        <Button
                           type="button"
                           onClick={() => removeCategory(c.id)}
                           disabled={locked}
@@ -883,7 +891,7 @@ export default function EventEditPage() {
                           }}
                         >
                           ×
-                        </button>
+                        </Button>
                       </div>
                       <div className="flex items-center" style={{ gap: "var(--space-2)", marginTop: 'var(--space-2)' }}>
                         <div style={{ flex: 1, height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
@@ -895,7 +903,7 @@ export default function EventEditPage() {
                             }}
                           />
                         </div>
-                        <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+                        <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
                           {c.filled ?? "—"}/{c.slots} ({pct === null ? "—" : `${pct}%`})
                         </span>
                       </div>
@@ -915,12 +923,12 @@ export default function EventEditPage() {
                 <div className="flex flex-col" style={{ gap: "var(--space-3)" }}>
                   <Field label={t("field.openAt")} required>
                     <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 'var(--space-2)' }}>
-                      <DateField
+                      <DateField portal icon={<CalendarDays size={14} aria-hidden="true" />}
                         value={open.date}
                         onChange={(v) => patch({ openAt: joinDtLocal(v, open.time) })}
                         placeholder={t("create.openDate")}
                       />
-                      <TimeField
+                      <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
                         value={open.time}
                         onChange={(v) => patch({ openAt: joinDtLocal(open.date, v) })}
                         placeholder={t("create.timePh")}
@@ -929,13 +937,13 @@ export default function EventEditPage() {
                   </Field>
                   <Field label={t("field.closeAt")} required>
                     <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 'var(--space-2)' }}>
-                      <DateField
+                      <DateField portal icon={<CalendarDays size={14} aria-hidden="true" />}
                         value={close.date}
                         onChange={(v) => patch({ closeAt: joinDtLocal(v, close.time) })}
                         min={open.date || undefined}
                         placeholder={t("create.closeDate")}
                       />
-                      <TimeField
+                      <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
                         value={close.time}
                         onChange={(v) => patch({ closeAt: joinDtLocal(close.date, v) })}
                         placeholder={t("create.timePh")}
@@ -958,18 +966,19 @@ export default function EventEditPage() {
                 }}
               >
                 <Toggle on={data.cutoffEnabled} onChange={(v) => patch({ cutoffEnabled: v })} />
-                <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>{t("edit.cutoffApply")}</span>
+                <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-1)" }}>{t("edit.cutoffApply")}</span>
                 {data.cutoffEnabled && (
                   <>
                     <div style={{ flex: 1 }} />
-                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("edit.cutoffBuffer")}</span>
-                    <input
+                    <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{t("edit.cutoffBuffer")}</span>
+                    <Input
                       type="number"
-                      value={data.cutoffBuffer}
+                      aria-label={`${t("edit.cutoffBuffer")} (${t("edit.cutoffMin")})`}
+                        value={data.cutoffBuffer}
                       onChange={(e) => patch({ cutoffBuffer: Number(e.target.value) || 0 })}
                       style={{ ...fieldStyle, width: 70, fontFamily: "var(--font-mono)" }}
                     />
-                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("edit.cutoffMin")}</span>
+                    <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{t("edit.cutoffMin")}</span>
                   </>
                 )}
               </div>
@@ -1001,8 +1010,8 @@ export default function EventEditPage() {
               >
                 <Toggle on={data[opt.id]} onChange={(v) => patch({ [opt.id]: v } as Partial<FormData>)} />
                 <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>{opt.label}</div>
-                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{opt.desc}</div>
+                  <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}><GlossaryText>{opt.label}</GlossaryText></div>
+                  <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}><GlossaryText>{opt.desc}</GlossaryText></div>
                 </div>
               </div>
             ))}
@@ -1019,10 +1028,10 @@ export default function EventEditPage() {
             >
               <div className="flex items-start" style={{ gap: "var(--space-3)" }}>
                 <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
+                  <div style={{ fontSize: "var(--ft-body-size)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
                     {t("edit.cancelEventTitle")}
                   </div>
-                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", lineHeight: 1.6 }}>
+                  <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", lineHeight: 1.6 }}>
                     {(totalFilled === null ? t("detail.participantsUnavailable") : t("edit.cancelEventDesc", { count: totalFilled }))}
                   </div>
                 </div>
@@ -1070,7 +1079,7 @@ export default function EventEditPage() {
             className="flex items-center justify-between"
             style={{ maxWidth: 1160, width: "100%" }}
           >
-            <div className="flex items-center" style={{ gap: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>
+            <div className="flex items-center" style={{ gap: "var(--space-2)", fontSize: "var(--ft-body-size)", color: "var(--ink-1)" }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--amber)" }} aria-hidden="true" />
               {notifyDirty ? t("edit.unsavedWithNotice") : t("edit.unsaved")}
             </div>
@@ -1108,7 +1117,7 @@ export default function EventEditPage() {
                 : "color-mix(in oklch, var(--rose) 12%, var(--bg-2))",
             border: `1px solid ${toast.type === "ok" ? "var(--lime)" : toast.type === "warn" ? "var(--amber)" : "var(--rose)"}`,
             borderRadius: "var(--r-sm)",
-            fontSize: "var(--fs-xs)",
+            fontSize: "var(--ft-body-size)",
             color: "var(--ink-0)",
             display: "flex",
             gap: "var(--space-2)",
@@ -1123,24 +1132,7 @@ export default function EventEditPage() {
       )}
 
       {/* 취소 확인 모달 */}
-      {deleteConfirm && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "color-mix(in srgb, var(--bg-0) 60%, transparent)",
-            display: "grid",
-            placeItems: "center",
-            zIndex: 100,
-          }}
-          onClick={() => setDeleteConfirm(false)}
-        >
-          <Card padding="none"
-            style={{ padding: 'var(--space-6)', maxWidth: 440, width: "90%" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Modal open={deleteConfirm} onClose={() => setDeleteConfirm(false)} title={t("edit.confirmCancelTitle")} accessible>
             <div className="flex" style={{ gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
               <div
                 style={{
@@ -1155,19 +1147,16 @@ export default function EventEditPage() {
                   color: "var(--rose)",
                 }}
               >
-                ⚠
+                <CircleAlert size={20} aria-hidden="true" />
               </div>
               <div>
-                <div style={{ fontSize: "var(--fs-base)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-1-5)" }}>
-                  {t("edit.confirmCancelTitle")}
-                </div>
-                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", lineHeight: 1.5 }}>
+                <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", lineHeight: 1.5 }}>
                   {(totalFilled === null ? t("detail.participantsUnavailable") : t("edit.confirmCancelDesc", { name: data.name, count: totalFilled }))}
                 </div>
               </div>
             </div>
             <Field label={t("edit.confirmNameLabel")}>
-              <input
+              <Input
                 type="text"
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
@@ -1192,9 +1181,7 @@ export default function EventEditPage() {
                 {t("edit.cancelEventTitle")}
               </Button>
             </div>
-          </Card>
-        </div>
-      )}
+      </Modal>
 
       <style>{`
         @media (max-width: 1024px) {
@@ -1203,5 +1190,6 @@ export default function EventEditPage() {
         }
       `}</style>
     </div>
+    </GlossaryProvider>
   );
 }

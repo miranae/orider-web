@@ -1,5 +1,10 @@
+import "../EventControls.css";
+import GlossaryProvider from "../../components/common/GlossaryProvider";
+import GlossaryText from "../../components/common/GlossaryText";
+import { Circle, CircleAlert, Coffee, Eye, Flag, MapPin, Mountain, Timer, Megaphone, Radio, Square, Telescope, Users, X } from "lucide-react";
+import "../ExploreReview.css";
 import { eventPermissions } from "../../features/event/eventHost";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -26,11 +31,11 @@ type CourseWaypoint = {
   lane: "KOM" | "AID" | "CUT" | "SEG";
 };
 
-const LANE_EMOJI: Record<CourseWaypoint["lane"], string> = {
-  KOM: "⛰️",
-  AID: "🍌",
-  CUT: "⏱️",
-  SEG: "🏁",
+const LANE_ICONS: Record<CourseWaypoint["lane"], ReactNode> = {
+  KOM: <Mountain size={14} aria-hidden="true" />,
+  AID: <Coffee size={14} aria-hidden="true" />,
+  CUT: <Timer size={14} aria-hidden="true" />,
+  SEG: <Flag size={14} aria-hidden="true" />,
 };
 
 function classifyWaypointLane(type: string, name: string): CourseWaypoint["lane"] {
@@ -118,7 +123,7 @@ interface SnapshotData {
 interface AlertItem {
   key: string;
   ts: number;
-  emoji: string;
+  emoji: ReactNode;
   color: string;
   message: string;
   sub?: string;
@@ -143,7 +148,7 @@ function formatHHMM(ts: number | null | undefined): string {
 export default function EventDashboardPage() {
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const dialog = useDialog();
   const [info, setInfo] = useState<{ name: string; status: string; creatorId: string; hostIds: string[] } | null>(null);
@@ -213,7 +218,7 @@ export default function EventDashboardPage() {
     }
   }
   if (authLoading) return <LoadingSkeleton kind="chart" />;
-  if (!user) return <PermissionGate title={t("dashboard.permissionTitle")} description={t("dashboard.permissionDesc")} />;
+  if (!user) return <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signInWithGoogle(); }} />;
   if (error) return <ErrorState title={t("dashboard.errorTitle")} description={error} onRetry={() => window.location.reload()} />;
   if (!info || loadedIdentity !== identity || !roleLoaded) return <LoadingSkeleton kind="chart" />;
   if (!permissions.canEnter) return <PermissionGate title={t("host.permissionDenied")} />;
@@ -222,7 +227,7 @@ export default function EventDashboardPage() {
     <Button disabled={busy} onClick={() => void operate(operationError)}>{t("common:button.retry")}</Button>
   </div>;
   if (permissions.canReadData) return <>{operationFeedback}<PrivateEventDashboard key={identity} permissions={permissions} onStart={() => void operate("startEvent")} operatorBusy={busy} /></>;
-  return <div className="site-shell py-6" data-testid="O1-role-only">
+  return <div className="event-controls-surface explore-editor-surface site-shell py-6" data-testid="O1-role-only">
     <Text as="h1" variant="pageTitle">{info.name}</Text><Chip>{info.status}</Chip>
     <Button data-testid="O1-0" onClick={() => navigate(`/event/${eventId}`)}>{t("action.participantView")}</Button>
     {permissions.canStartFinish && info.status === "OPEN" && <Button disabled={busy} onClick={() => void operate("startEvent")}>{t("button.start")}</Button>}
@@ -237,7 +242,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const dialog = useDialog();
 
   const STATUS_LABELS: Record<string, string> = {
@@ -250,13 +255,13 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
 
   const STATUS_META: Record<
     "RIDING" | "FINISHED" | "DNF" | "SOS" | "OFFCOURSE",
-    { label: string; color: string; emoji: string }
+    { label: string; color: string; emoji: ReactNode }
   > = {
-    RIDING: { label: t("dashboard.status.riding"), color: "var(--lime)", emoji: "🟢" },
-    FINISHED: { label: t("dashboard.status.resultPending"), color: "var(--aqua)", emoji: "⏹" },
-    DNF: { label: t("stats.dnf"), color: "var(--ink-3)", emoji: "❌" },
-    SOS: { label: t("dashboard.status.sos"), color: "var(--rose)", emoji: "🆘" },
-    OFFCOURSE: { label: t("dashboard.status.offCourse"), color: "var(--amber)", emoji: "🟠" },
+    RIDING: { label: t("dashboard.status.riding"), color: "var(--lime)", emoji: <Circle size={14} aria-hidden="true" /> },
+    FINISHED: { label: t("dashboard.status.resultPending"), color: "var(--aqua)", emoji: <Square size={14} aria-hidden="true" /> },
+    DNF: { label: t("stats.dnf"), color: "var(--ink-3)", emoji: <X size={14} aria-hidden="true" /> },
+    SOS: { label: t("dashboard.status.sos"), color: "var(--rose)", emoji: <CircleAlert size={14} aria-hidden="true" /> },
+    OFFCOURSE: { label: t("dashboard.status.offCourse"), color: "var(--amber)", emoji: <CircleAlert size={14} aria-hidden="true" /> },
   };
 
   const [eventInfo, setEventInfo] = useState<EventInfo | null>(null);
@@ -316,6 +321,8 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const [courseLatlngs, setCourseLatlngs] = useState<Array<Array<[number, number]>>>([]);
   const [courseWaypoints, setCourseWaypoints] = useState<CourseWaypoint[]>([]);
   const [viewerCount, setViewerCount] = useState(0);
+  const eventStatus = eventInfo?.status;
+  const trackingEnded = eventStatus === "FINISHED" || eventStatus === "CANCELLED";
 
   const prevStatusRef = useRef<Map<string, string>>(new Map());
   const prevCpRef = useRef<Map<string, number>>(new Map());
@@ -323,7 +330,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const courseLoadAbortRef = useRef<() => void>(() => {});
 
   useEffect(() => {
-    if (!eventId) return;
+    if (!eventId || !eventStatus || trackingEnded) return;
     let cancelled = false;
     const refresh = async () => {
       try {
@@ -336,7 +343,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
     void refresh();
     const timer = window.setInterval(() => void refresh(), 30_000);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [eventId]);
+  }, [eventId, eventStatus, trackingEnded]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -448,7 +455,13 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   }, [authEpoch, eventId, t]);
 
   useEffect(() => {
-    if (!eventId) return;
+    if (!eventId || !eventStatus) return;
+    if (trackingEnded) {
+      setSnapshot(null);
+      setSnapshotError(null);
+      setLoading(false);
+      return;
+    }
     let revision = 0;
     let active = true;
     const snapshotUid = user?.uid;
@@ -498,7 +511,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                   newAlerts.push({
                     key: `${loc.uid}-fin-${now}`,
                     ts: now,
-                    emoji: "⏹",
+                    emoji: <Square size={14} aria-hidden="true" />,
                     color: "var(--aqua)",
                     message: t("dashboard.alert.resultPending", { bib: bibLabel, name: loc.displayName }),
                   });
@@ -506,7 +519,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                   newAlerts.push({
                     key: `${loc.uid}-dnf-${now}`,
                     ts: now,
-                    emoji: "❌",
+                    emoji: <X size={14} aria-hidden="true" />,
                     color: "var(--ink-3)",
                     message: t("dashboard.alert.dnf", { bib: bibLabel, name: loc.displayName }),
                     sub: loc.lastCp ? t("dashboard.alert.dnfSub", { cp: loc.lastCp }) : undefined,
@@ -515,7 +528,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                   newAlerts.push({
                     key: `${loc.uid}-sos-${now}`,
                     ts: now,
-                    emoji: "🆘",
+                    emoji: <CircleAlert size={14} aria-hidden="true" />,
                     color: "var(--rose)",
                     message: t("dashboard.alert.sos", { bib: bibLabel, name: loc.displayName }),
                     sub: loc.lastCp ? t("dashboard.alert.sosSub", { cp: loc.lastCp }) : t("dashboard.alert.locationConfirmed"),
@@ -524,7 +537,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                   newAlerts.push({
                     key: `${loc.uid}-off-${now}`,
                     ts: now,
-                    emoji: "🟠",
+                    emoji: <CircleAlert size={14} aria-hidden="true" />,
                     color: "var(--amber)",
                     message: t("dashboard.alert.offCourse", { bib: bibLabel, name: loc.displayName }),
                     sub: loc.lastCp ? t("dashboard.alert.offCourseSub", { cp: loc.lastCp }) : undefined,
@@ -540,7 +553,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                 newAlerts.push({
                   key: `cp-${cp.cpId}-${now}`,
                   ts: now,
-                  emoji: "📍",
+                  emoji: <MapPin size={14} aria-hidden="true" />,
                   color: "var(--lime)",
                   message: t("dashboard.alert.cpPassed", { count: delta, name: cp.name }),
                   sub: t("dashboard.alert.cpTotal", { count: cp.passedCount }),
@@ -574,7 +587,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
       }
     );
     return () => { active = false; revision++; unsub(); };
-  }, [authEpoch, eventId, t, user?.uid]);
+  }, [authEpoch, eventId, eventStatus, trackingEnded, t, user?.uid]);
 
   const handleFinishEvent = useCallback(async () => {
     if (!permissions.canStartFinish || !eventId || !user || finishing || pendingFinish.current || auth.currentUser?.uid !== user.uid) return;
@@ -669,7 +682,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("dashboard.permissionTitle")} description={t("dashboard.permissionDesc")} />
+        <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signInWithGoogle(); }} />
       </div>
     );
   }
@@ -692,20 +705,21 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
 
 
   return (
-    <div data-testid="O1-3" className="event-dashboard-shell" style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 64px)" }}>
+    <GlossaryProvider scopeKey="event-editor">
+    <div data-testid="O1-3" className="event-controls-surface explore-editor-surface event-dashboard-shell" style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 64px)" }}>
       {/* Header */}
       <div
         className="flex items-center flex-wrap"
         style={{ gap: 'var(--space-4)', padding: "14px 24px", borderBottom: "1px solid var(--line-soft)", flexShrink: 0 }}
       >
-        <button
+        <Button
           type="button"
           onClick={() => navigate(`/event/${eventId}`)}
           style={{
             background: "none",
             border: "none",
             color: "var(--ink-3)",
-            fontSize: "var(--fs-xs)",
+            fontSize: "var(--ft-body-size)",
             display: "inline-flex",
             alignItems: "center",
             gap: 'var(--space-1)',
@@ -714,7 +728,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
           }}
         >
           ← {t("title")}
-        </button>
+        </Button>
         <div style={{ width: 1, height: 16, background: "var(--line-soft)" }} />
         <div className="min-w-0">
           <Text as="div" variant="eyebrow" style={{ color: "var(--ink-3)" }}>{t("dashboardTitle")}</Text>
@@ -724,32 +738,32 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
             >
               {STATUS_LABELS[eventInfo.status] ?? eventInfo.status}
             </Chip>
-            <h1 className="text-[length:var(--fs-base)] font-semibold truncate" style={{ color: "var(--ink-0)", margin: 0, fontSize: "var(--fs-sm)" }}>
+            <h1 className="text-[length:var(--fs-base)] font-semibold truncate" style={{ color: "var(--ink-0)", margin: 0, fontSize: "var(--ft-body-size)" }}>
               {eventInfo.name}
             </h1>
-            <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>· {t("dashboard.lastUpdated", { time: timeAgo(snapshot?.timestamp, t) })}</span>
+            {!trackingEnded && <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>· {t("dashboard.lastUpdated", { time: timeAgo(snapshot?.timestamp, t) })}</span>}
           </div>
         </div>
         <div data-testid="O1-0" className="flex items-center" style={{ gap: 'var(--space-2)', marginLeft: "auto" }}>
-          <Chip aria-live="polite">👀 {t("viewer.count", { count: viewerCount })}</Chip>
-          <Button
+          {!trackingEnded && <Chip aria-live="polite"><Eye size={14} aria-hidden="true" /> {t("viewer.count", { count: viewerCount })}</Chip>}
+          {!trackingEnded && <Button
             type="button"
             onClick={() => eventId && window.open(`/live/${eventId}`, "_blank", "noopener")} variant="secondary" size="sm"
           >
-            🔭 {t("action.spectatorView")}
-          </Button>
+            <Telescope size={14} aria-hidden="true" /> {t("action.spectatorView")}
+          </Button>}
           <Button
             type="button"
             onClick={() => navigate(`/event/${eventId}/host/participants`)} variant="secondary" size="sm"
           >
-            👥 {t("participants")}
+            <Users size={14} aria-hidden="true" /> {t("participants")}
           </Button>
           {permissions.canAnnounce && (
             <Button
               type="button"
               onClick={handleSendAlert} variant="secondary" size="sm"
             >
-              📢 {t("action.sendNotice")}
+              <Megaphone size={14} aria-hidden="true" /> {t("action.sendNotice")}
             </Button>
           )}
           {permissions.canStartFinish && eventInfo.status === "OPEN" && <Button disabled={operatorBusy} onClick={onStart}>{t("button.start")}</Button>}
@@ -760,11 +774,16 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
               disabled={finishing} variant="secondary" size="sm"
               style={{ color: "var(--rose)", borderColor: "color-mix(in oklch, var(--rose) 40%, transparent)" }}
             >
-              {finishing ? t("dashboard.finishing") : `⏹ ${t("button.finish")}`}
+              <Square size={14} aria-hidden="true" /> {finishing ? t("dashboard.finishing") : t("button.finish")}
             </Button>
           )}
         </div>
       </div>
+
+      {trackingEnded && <div role="status" className="event-tracking-ended">
+        <Text as="p" variant="body">{t("dashboard.trackingEnded")}</Text>
+        {eventStatus === "FINISHED" && <Button variant="secondary" size="sm" onClick={() => navigate(`/event/${eventId}/results`)}>{t("resultsTitle")}</Button>}
+      </div>}
 
       {snapshotError && (
         <div role="alert" style={{ padding: "var(--space-2) var(--space-4)", color: "var(--rose)" }}>
@@ -813,16 +832,16 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
         className="event-dashboard-body"
         style={{
           display: "grid",
-          gridTemplateColumns: "280px 1fr 320px",
+          gridTemplateColumns: trackingEnded && alerts.length === 0 ? "280px 1fr" : "280px 1fr 320px",
           flex: 1,
           overflow: "hidden",
         }}
       >
         {/* Left: status + checkpoints */}
         <aside style={{ borderRight: "1px solid var(--line-soft)", padding: "var(--space-4)", overflowY: "auto" }}>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>
+          {(!trackingEnded || snapshot) && <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>
             {t("dashboard.statusTitle", { category: categoryFilter === "ALL" ? t("filter.all") : categoryFilter })}
-          </Text>
+          </Text>}
           {snapshot ? (
             <>
               <StatusRow kind="RIDING" count={filteredCounts.riding} total={filteredCounts.total} statusMeta={STATUS_META} />
@@ -831,14 +850,14 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
               <StatusRow kind="SOS" count={filteredCounts.sos} total={filteredCounts.total} statusMeta={STATUS_META} />
               <StatusRow kind="OFFCOURSE" count={filteredCounts.offCourse} total={filteredCounts.total} statusMeta={STATUS_META} />
             </>
-          ) : (
-            <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("dashboard.snapshotUnavailable")}</p>
-          )}
+          ) : !trackingEnded ? (
+            <p style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{t("dashboard.snapshotUnavailable")}</p>
+          ) : null}
 
           {/* 전체 강조 */}
           <div
             style={{
-              marginTop: "var(--space-3)",
+              marginTop: trackingEnded ? 0 : "var(--space-3)",
               padding: "10px 14px",
               background: "color-mix(in oklch, var(--lime) 6%, var(--bg-2))",
               border: "1px solid color-mix(in oklch, var(--lime) 30%, var(--line-soft))",
@@ -846,24 +865,24 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
             }}
           >
             <div className="flex items-center">
-              <span style={{ flex: 1, fontSize: "var(--fs-xs)", color: "var(--ink-1)", fontWeight: 500 }}>{t("label.totalParticipants")}</span>
+              <span style={{ flex: 1, fontSize: "var(--ft-body-size)", color: "var(--ink-1)", fontWeight: 500 }}>{t("label.totalParticipants")}</span>
               <Text variant="num" style={{ fontSize: "var(--fs-xl)", fontWeight: 600, color: "var(--ink-0)" }}>
-                {categoryFilter === "ALL" ? registeredCount : filteredCounts.total}
+                {trackingEnded || categoryFilter === "ALL" ? registeredCount : filteredCounts.total}
               </Text>
             </div>
           </div>
 
-          <Text as="div" variant="eyebrow" style={{ marginTop: 22, marginBottom: "var(--space-2)" }}>{t("checkpoints")}</Text>
+          <Text as="div" variant="eyebrow" style={{ marginTop: 22, marginBottom: "var(--space-2)" }}><GlossaryText>{t("checkpoints")}</GlossaryText></Text>
           {snapshot?.checkpoints.length ? (
             snapshot.checkpoints.map((cp) => {
               const total = filteredCounts.total || snapshot.counts?.total || 1;
               const pct = Math.min(100, Math.round((cp.passedCount / total) * 100));
               return (
                 <div key={cp.cpId} style={{ padding: "8px 0", borderTop: "1px solid var(--line-soft)" }}>
-                  <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>
-                    <span className="truncate" style={{ flex: 1, color: "var(--ink-2)" }}>{cp.name}</span>
+                  <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--ft-body-size)" }}>
+                    <span className="truncate" style={{ flex: 1, color: "var(--ink-2)" }}><GlossaryText>{cp.name}</GlossaryText></span>
                     <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-0)" }}>{cp.passedCount}</span>
-                    <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-3)", fontSize: "var(--fs-xs)", width: 30, textAlign: "right" }}>
+                    <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-3)", fontSize: "var(--ft-body-size)", width: 30, textAlign: "right" }}>
                       {pct}%
                     </span>
                   </div>
@@ -874,7 +893,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
               );
             })
           ) : (
-            <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("dashboard.noCheckpointData")}</p>
+            <p style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{t("dashboard.noCheckpointData")}</p>
           )}
         </aside>
 
@@ -890,10 +909,10 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                 lat: w.lat,
                 lon: w.lng,
                 name: w.name,
-                icon: LANE_EMOJI[w.lane],
+                icon: LANE_ICONS[w.lane],
               }))}
             />
-            <div
+            {!trackingEnded && <div
               style={{
                 position: "absolute",
                 top: 12,
@@ -904,22 +923,22 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                 background: "color-mix(in srgb, var(--bg-0) 70%, var(--lime) 8%)",
                 padding: "4px 10px",
                 borderRadius: "var(--r-sm)",
-                fontSize: "var(--fs-xs)",
+                fontSize: "var(--ft-body-size)",
                 color: "var(--lime)",
                 fontWeight: 600,
                 letterSpacing: "0.06em",
                 pointerEvents: "none",
               }}
             >
-              <span style={{ width: 6, height: 6, background: "var(--lime)", borderRadius: "50%", animation: "rd-pulse 1s infinite" }} />
-              LIVE · {t("live")}
-            </div>
-            <div
+              {!trackingEnded && <span style={{ width: 6, height: 6, background: "var(--lime)", borderRadius: "50%", animation: "rd-pulse 1s infinite" }} />}
+              {`LIVE · ${t("live")}`}
+            </div>}
+            {!trackingEnded && <div
               style={{
                 position: "absolute",
                 top: 12,
                 right: 12,
-                fontSize: "var(--fs-xs)",
+                fontSize: "var(--ft-body-size)",
                 color: "var(--ink-3)",
                 fontFamily: "var(--font-mono)",
                 background: "color-mix(in srgb, var(--bg-0) 60%, var(--lime) 8%)",
@@ -929,16 +948,16 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
               }}
             >
               {t("dashboard.lastUpdated", { time: snapshot?.timestamp ? new Date(snapshot.timestamp).toLocaleTimeString(localeTag(), { hour12: false }) : "--:--:--" })}
-            </div>
+            </div>}
           </div>
-          <div style={{ height: 300, borderTop: "1px solid var(--line-soft)", flexShrink: 0, overflow: "hidden" }}>
+          {(!trackingEnded || snapshot) && <div style={{ height: 300, borderTop: "1px solid var(--line-soft)", flexShrink: 0, overflow: "hidden" }}>
             {!snapshot ? (
               <div className="flex items-center justify-center h-full">
-                <EmptyState icon="📡" title={t("dashboard.snapshotUnavailable")} compact />
+                <EmptyState icon={<Radio size={24} style={{ marginInline: "auto" }} />} title={t(trackingEnded ? "dashboard.trackingEnded" : "dashboard.snapshotUnavailable")} compact />
               </div>
             ) : filteredLocations.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <EmptyState icon="👥" title={t("dashboard.noParticipantsMatch")} compact />
+                <EmptyState icon={<Users size={24} style={{ marginInline: "auto" }} />} title={t("dashboard.noParticipantsMatch")} compact />
               </div>
             ) : (
               <ParticipantTable
@@ -948,14 +967,14 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                 onSelectParticipant={setSelectedUid}
               />
             )}
-          </div>
+          </div>}
         </section>
 
         {/* Right: alert feed */}
-        <aside style={{ borderLeft: "1px solid var(--line-soft)", padding: "var(--space-4)", overflowY: "auto" }}>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("dashboard.liveAlerts")}</Text>
+        {(!trackingEnded || alerts.length > 0) && <aside style={{ borderLeft: "1px solid var(--line-soft)", padding: "var(--space-4)", overflowY: "auto" }}>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t(trackingEnded ? "dashboard.eventAlerts" : "dashboard.liveAlerts")}</Text>
           {alerts.length === 0 ? (
-            <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("dashboard.noAlertsYet")}</p>
+            <p style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{t("dashboard.noAlertsYet")}</p>
           ) : (
             <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {alerts.map((a) => (
@@ -980,23 +999,23 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                       placeItems: "center",
                       flexShrink: 0,
                       marginTop: "var(--space-0-5)",
-                      fontSize: "var(--fs-xs)",
+                      fontSize: "var(--ft-body-size)",
                     }}
                   >
                     {a.emoji}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>{a.message}</div>
-                    {a.sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{a.sub}</div>}
+                    <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>{a.message}</div>
+                    {a.sub && <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{a.sub}</div>}
                   </div>
-                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", flexShrink: 0 }}>
+                  <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", flexShrink: 0 }}>
                     {formatHHMM(a.ts)}
                   </div>
                 </li>
               ))}
             </ul>
           )}
-        </aside>
+        </aside>}
       </div>
 
       {/* 좁은 뷰포트에서 3컬럼 → 1컬럼 스택 */}
@@ -1014,12 +1033,13 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
         }
       `}</style>
     </div>
+    </GlossaryProvider>
   );
 }
 
 type StatusMetaMap = Record<
   "RIDING" | "FINISHED" | "DNF" | "SOS" | "OFFCOURSE",
-  { label: string; color: string; emoji: string }
+  { label: string; color: string; emoji: ReactNode }
 >;
 
 function StatusRow({
@@ -1047,7 +1067,7 @@ function StatusRow({
     >
       <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: "var(--space-1-5)" }}>
         <span aria-hidden="true" style={{ color: m.color }}>{m.emoji}</span>
-        <span style={{ flex: 1, fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>{m.label}</span>
+        <span style={{ flex: 1, fontSize: "var(--ft-body-size)", color: "var(--ink-1)" }}><GlossaryText>{m.label}</GlossaryText></span>
         <Text variant="num" style={{ fontSize: "var(--fs-lg)", color: "var(--ink-0)", fontWeight: 600 }}>{count}</Text>
       </div>
       <div style={{ height: 2, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>

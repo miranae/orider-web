@@ -519,6 +519,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {part !== "condition" && <SufficiencyGroup sets={analysisSets} testId="K5-sufficiency-group" />}
         {part !== "analysis" && discipline !== "tri" && currentPoint && (
           <FitnessCoachBriefing
+          currentDate={currentPoint.date}
           currentBasis={currentBasis}
             weekChangeSlot={weekChangeSlot}
             metricsNoteSlot={loadSufficiency && loadFormBlock

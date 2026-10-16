@@ -1,3 +1,4 @@
+import { chooseDropdownAt } from "../fitness/fitnessControlTestUtils";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactElement } from "react";
 import { fireEvent, render as renderBase, screen, waitFor } from "@testing-library/react";
@@ -192,7 +193,7 @@ describe("TrainingExecutionPanel", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(toggle).toHaveAttribute("aria-controls");
     expect(document.getElementById(toggle.getAttribute("aria-controls")!)).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("combobox", { name: "연결할 내 최근 활동" }), { target: { value: "activity_123" } });
+    chooseDropdownAt(screen.getByRole("combobox", { name: "연결할 내 최근 활동" }), 1);
     fireEvent.click(screen.getByRole("button", { name: "연결" }));
     await waitFor(() => expect(mocks.link).toHaveBeenCalledWith("exec_dddddddddddddddddddddddd", "activity_123", "ar_current", expect.any(String)));
     expect(screen.queryByPlaceholderText(/revision/i)).not.toBeInTheDocument();
@@ -208,7 +209,7 @@ describe("TrainingExecutionPanel", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "활동 직접 연결" }));
-    fireEvent.change(screen.getByRole("combobox", { name: "연결할 내 최근 활동" }), { target: { value: "activity_123" } });
+    chooseDropdownAt(screen.getByRole("combobox", { name: "연결할 내 최근 활동" }), 1);
     fireEvent.click(screen.getByRole("button", { name: "연결" }));
     await waitFor(() => expect(mocks.link).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "연결" }));
@@ -228,7 +229,7 @@ describe("TrainingExecutionPanel", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "활동 직접 연결" }));
-    fireEvent.change(screen.getByRole("combobox", { name: "연결할 내 최근 활동" }), { target: { value: "activity_123" } });
+    chooseDropdownAt(screen.getByRole("combobox", { name: "연결할 내 최근 활동" }), 1);
     fireEvent.click(screen.getByRole("button", { name: "연결" }));
     await waitFor(() => expect(mocks.link).toHaveBeenCalledTimes(1));
     const unlink = await screen.findByRole("button", { name: "활동 연결 해제" });
@@ -257,8 +258,9 @@ describe("TrainingExecutionPanel", () => {
     fireEvent.click(await screen.findByRole("button", { name: language === "ko" ? "활동 직접 연결" : "Link activity manually" }));
     const expectedDate = new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(startTime));
     const picker = screen.getByRole("combobox", { name: language === "ko" ? "연결할 내 최근 활동" : "Your recent activity to link" });
-    expect(picker).toHaveTextContent(`${expectedDate} · ${discipline}`);
-    expect(picker).not.toHaveTextContent("Ride");
+    fireEvent.click(picker);
+    expect(screen.getByRole("option", { name: `${expectedDate} · ${discipline}` })).toBeInTheDocument();
+    expect(screen.getByRole("listbox")).not.toHaveTextContent("Ride");
   });
 
   it("renders a linked pending state with completion actions", async () => {
@@ -338,7 +340,8 @@ describe("TrainingExecutionPanel", () => {
     fireEvent.click(await screen.findByRole("button", { name: "활동 직접 연결" }));
     const picker = screen.getByRole("combobox", { name: "연결할 내 최근 활동" });
     expect(picker).toBeDisabled();
-    fireEvent.change(picker, { target: { value: "activity_123" } });
+    fireEvent.click(picker);
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "연결" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "연결" }));
     expect(mocks.link).not.toHaveBeenCalled();

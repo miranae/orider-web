@@ -1,3 +1,5 @@
+import i18n from "i18next";
+import { splitGlossaryText } from "../utils/termGlossary";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { screen, waitFor, within, fireEvent } from "@testing-library/react";
 import { where, limit } from "firebase/firestore";
@@ -25,6 +27,31 @@ vi.mock("react-router-dom", async (importOriginal) => {
 
 describe("SegmentPage", () => {
   beforeEach(() => resetRuntimeConfigForTests({ activityAnalysisExpansionEnabled: false }));
+  it("keeps absent segment measurements unknown instead of crashing or displaying NaN", async () => {
+    setDocData("segments/seg-1", { name: "Missing measurements", distance: null, averageGrade: null, maximumGrade: null, elevationHigh: null, elevationLow: null });
+    renderWithProviders(<SegmentPage />, { route: "/ko/segment/seg-1" });
+    await screen.findByText("Missing measurements");
+    const summary = screen.getByTestId("D3-0");
+    expect(within(summary).getAllByText("—").length).toBeGreaterThanOrEqual(3);
+    expect(summary).not.toHaveTextContent("NaN");
+  });
+  it("keeps English gradient labels explainable and leaderboard counts singular/plural", () => {
+    expect(splitGlossaryText(enSegment.averageGrade).some(part => part.termId === "grade")).toBe(true);
+    expect(splitGlossaryText(enSegment.maxGrade).some(part => part.termId === "grade")).toBe(true);
+    i18n.addResourceBundle("en", "segment", enSegment, true, true);
+    expect(i18n.t("stats.leaderboardCount", { ns: "segment", lng: "en", count: 1 })).toBe("Leaderboard (1 rider)");
+    expect(i18n.t("stats.leaderboardCount", { ns: "segment", lng: "en", count: 2 })).toBe("Leaderboard (2 riders)");
+  });
+  it("labels KOM measurements without rounding their original power", async () => {
+    setDocData("segments/seg-1", { name: "Labeled KOM", distance: 1000, averageGrade: 0, maximumGrade: 0, elevationHigh: 1, elevationLow: 0 });
+    setCollectionDocs("segment_efforts/seg-1/efforts", [{ id: "kom", segmentId: "seg-1", activityId: "recorded-kom", userId: "rider", nickname: "Best rider", elapsedTime: 97000, averageSpeed: 37.1, averageWatts: 260.1, startDate: 1700000000000 }]);
+    renderWithProviders(<SegmentPage />, { route: "/ko/segment/seg-1" });
+    await screen.findByText("Labeled KOM");
+    fireEvent.click(screen.getByRole("tab", { name: "순위" }));
+    const summary = within(await screen.findByTestId("D3-2"));
+    expect(await summary.findByText(/37\.1 km\/h/)).toHaveTextContent("평균속도");
+    expect(summary.getByText(/260\.1 W/)).toHaveTextContent("평균파워");
+  });
   it.each([false, true])("gates write-prone route resolution only in the explicit Stage cached entry=%s", async cached => {
     cachedComparisonMocks.getStreams.mockClear();
     resetRuntimeConfigForTests({ appEnvironment: "stage", activityAnalysisExpansionEnabled: false });
@@ -74,7 +101,9 @@ describe("SegmentPage", () => {
     expect(mockCallableInvocations.filter(call => call.name === "getMySegmentHistory")).toHaveLength(0);
     expect(screen.getByRole("button", { name: koSegment.myHistory })).toHaveAttribute("aria-expanded", "true");
     const panel = within(screen.getByText(koSegment["history.preparing"]).parentElement!);
-    await waitFor(() => expect(panel.getByText("20.0 km/h · 100 W")).toBeInTheDocument());
+    expect(await panel.findByText(`${koSegment["kom.avgSpeed"]} 20.0 km/h`)).toBeInTheDocument();
+    expect(panel.getByRole("button", { name: "파워 설명" }).closest("div")).toHaveTextContent(`${koSegment["kom.power"]} 100 W`);
+    expect(panel.getByText(koSegment["history.elapsedFormat"])).toBeInTheDocument();
   });
   it("shows loading state initially", () => {
     renderWithProviders(<SegmentPage />);
@@ -179,7 +208,7 @@ describe("SegmentPage", () => {
       expect(screen.getByText("리더보드 세그먼트")).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole("tab", { name: "순위" }));
-    expect(screen.getByRole("columnheader", { name: "구간 평속" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "구간 평균속도" })).toBeInTheDocument();
     expect(enSegment["table.segmentAvgSpeed"]).toBe("Segment Avg Speed");
     fireEvent.click(screen.getByRole("tab", { name: "순위" }));
     const leaderboard = within(screen.getByRole("table"));

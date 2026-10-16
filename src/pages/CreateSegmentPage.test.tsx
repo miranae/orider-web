@@ -24,6 +24,13 @@ describe("CreateSegmentPage", () => {
     expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
   });
 
+  it.each(["", "   ", undefined])("shows a meaningful picker title for blank description %s", async description => {
+    setCollectionDocs("activities", [{ id: "unnamed", userId: "test-uid", deletedAt: null, description, startTime: 1700000000000, summary: {distance:1000,ridingTimeMillis:600000,elevationGain:20} }]);
+    renderWithProviders(<CreateSegmentPage />, {authenticated:true,route:"/segment/create"});
+    const title = await screen.findByText("이름 없는 활동");
+    expect(title.closest("a")).toHaveAttribute("href","/ko/segment/create?activityId=unnamed");
+  });
+
   it("lets signed-in users choose an activity when activityId is missing", async () => {
     setCollectionDocs("activities", [
       {

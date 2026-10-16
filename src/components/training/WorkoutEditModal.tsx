@@ -515,21 +515,24 @@ export default function WorkoutEditModal({
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
-                gap: "var(--space-1-5)",
-                padding: '10px 0 4px',
+                gap: "var(--space-2)",
+                padding: "var(--space-2) 0 var(--space-1)",
               }}
             >
               {(goalDiscipline ? KINDS_BY_DISCIPLINE[goalDiscipline] ?? SELECTABLE_KINDS : SELECTABLE_KINDS).map((kind) => {
                 const m = WORKOUT_META[kind];
                 const isSelected = day.workout === kind;
                 return (
-                  <button
+                  <Button variant="secondary"
                     key={kind}
                     onClick={() => handleChangeWorkout(kind)}
                     disabled={loading || isSelected}
+                    aria-pressed={isSelected}
                     style={{
-                      padding: '4px 10px',
-                      borderRadius: "9999px",
+                      height: "var(--dim-button-height)",
+                      minHeight: "var(--dim-button-height)",
+                      padding: "0 var(--space-3)",
+                      borderRadius: "var(--r-md)",
                       fontSize: "var(--fs-md)",
                       fontWeight: 600,
                       cursor: isSelected ? 'default' : 'pointer',
@@ -544,7 +547,7 @@ export default function WorkoutEditModal({
                     }}
                   >
                     {m.label}
-                  </button>
+                  </Button>
                 );
               })}
             </div>

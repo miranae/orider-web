@@ -42,6 +42,26 @@ describe("ActivityCard", () => {
     expect(screen.getAllByText("FTP 사용자 활동명")).toHaveLength(2);
   });
 
+  it("uses stable achievement icons and explains every repeated PR/KOM label", () => {
+    const activity = createMockActivity({ topAchievements: [
+      { type: "PR", segmentId: "one", segmentName: "First PR segment", time: "3:05" },
+      { type: "PR", segmentId: "two", segmentName: "Second PR segment", time: "4:10" },
+      { type: "KOM", segmentId: "three", segmentName: "KOM segment", time: "2:30" },
+    ] });
+    const view = renderWithProviders(<GlossaryProvider><ActivityCard activity={activity} showMap={false} /></GlossaryProvider>);
+    expect(view.container).not.toHaveTextContent(/🥇|🥈|🥉|👑/);
+    const achievements = view.container.querySelector(".activity-feed-card__achievements")!;
+    expect(within(achievements as HTMLElement).getAllByRole("button", { name: "PR 설명" })).toHaveLength(2);
+    expect(within(achievements as HTMLElement).getByRole("button", { name: "KOM 설명" })).toBeInTheDocument();
+    expect(view.container.querySelectorAll("svg.lucide-medal")).toHaveLength(3);
+    expect(view.container.querySelectorAll("svg.lucide-crown")).toHaveLength(2);
+    fireEvent.click(within(achievements as HTMLElement).getAllByRole("button", { name: "PR 설명" })[1]!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("개인 최고 기록");
+    expect(screen.getByText("3:05")).toBeInTheDocument();
+    expect(screen.getByText("4:10")).toBeInTheDocument();
+    expect(screen.getByText("2:30")).toBeInTheDocument();
+  });
+
   it("explains English abbreviated elevation and plural segments without parsing an activity title", async () => {
     await i18n.changeLanguage("en");
     renderWithProviders(<GlossaryProvider><ActivityCard activity={createMockActivity({ description: "FTP original title", segmentEffortCount: 30 })} showMap={false} /></GlossaryProvider>);

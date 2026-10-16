@@ -137,7 +137,6 @@ export function CourseStageProfile({ data, onHoverIndex }: CourseStageProfilePro
     <section className="course-stage-profile" aria-labelledby="course-stage-profile-heading">
       <div className="course-stage-profile__heading-row">
         <div>
-          <p className="course-stage-profile__eyebrow">{t("stageProfile.eyebrow")}</p>
           <h2 id="course-stage-profile-heading" className="course-stage-profile__heading">
             {t("stageProfile.title")}
           </h2>

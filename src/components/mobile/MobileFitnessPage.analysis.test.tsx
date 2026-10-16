@@ -1,3 +1,4 @@
+import GlossaryProvider from "../common/GlossaryProvider";
 import { fireEvent, screen } from "@testing-library/react";
 import type { BikeThresholdDecisionV2 } from "@shared/types/threshold";
 import { describe, expect, it, vi } from "vitest";
@@ -73,4 +74,14 @@ it("keeps the mobile expired decision read-only", () => {
   renderWithProviders(<MobileFitnessPage data={data} part="condition" ftpDecision={{ ...pendingDecision, expiresAt: Date.now() - 1 }} />, { authenticated: true, route: "/ko/coach/condition#ftp-decision" });
   expect((document.getElementById("ftp-decision") as HTMLDetailsElement).open).toBe(true);
   expect(screen.queryByRole("button", { name: "이 FTP로 변경" })).toBeNull();
+});
+
+
+it('names the mobile coach analysis surface and explains repeated zone labels and FTP ranges', () => {
+  const zones = [{ name: '회복', pct: 100, color: 'var(--aqua)', rangeLabel: '<55% FTP', percentLabel: '<55%' }];
+  const { container } = renderWithProviders(<GlossaryProvider><MobileFitnessPage data={{ ...data, zones, zoneSource: 'power' }} part="analysis" /></GlossaryProvider>);
+  expect(screen.getByRole('heading', { level: 1, name: '분석' })).toHaveAttribute('data-testid', 'K5-0-1');
+  expect(container.querySelectorAll('[data-glossary-term="z1"] button').length).toBeGreaterThanOrEqual(2);
+  expect(screen.getByTestId('K5-3-1').querySelector('[data-glossary-term="ftp"] button')).not.toBeNull();
+  expect(container.querySelector('button button, a button, svg button')).toBeNull();
 });

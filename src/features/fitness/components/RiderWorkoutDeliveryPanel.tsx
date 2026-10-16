@@ -1,7 +1,8 @@
+import "./fitness-analysis-controls.css";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink } from "../../../components/LocalizedLink";
-import { Button, Chip, Text } from "../../../theme/components";
+import { DropdownSelect, Button, Chip, Text } from "../../../theme/components";
 import type { RiderWorkoutType } from "../../../services/riderWorkoutDeliveryContract";
 import { useRiderWorkoutDelivery } from "../useRiderWorkoutDelivery";
 import { getRuntimeConfig } from "../../../services/runtimeConfig";
@@ -35,24 +36,14 @@ function EnabledRiderWorkoutDeliveryPanel({ uid, workoutType, targetTss, onBusyC
   if (controller.devices.length === 0) return <><Text as="p" variant="caption" tone="tertiary">{t("coach.delivery.noDevices")}</Text>{explicitWorkoutLabel && <LocalizedLink data-testid="K2-3-6" to="/settings/device">{t("today.noDeviceLink")}</LocalizedLink>}</>;
 
   return (
-    <div className="fitness-coach__handoff">
+    <div className="fitness-analysis-controls fitness-coach__handoff">
       <div data-testid={explicitWorkoutLabel ? "K2-3-2" : undefined} className="fitness-coach__delivery-preview">
         <Text as="div" variant="label">{t(`coach.choice.${workoutType}.bike`)}</Text>
         <Text as="div" variant="caption" tone="secondary">{t("coach.delivery.preflight", { tss: targetTss })}</Text>
       </div>
       <label className="fitness-coach__device-select">
-        <Text as="span" variant="eyebrow">{t("coach.delivery.target")}</Text>
-        <select data-testid={explicitWorkoutLabel ? "K2-3-1" : undefined}
-          value={controller.targetDeviceId}
-          disabled={busy}
-          onChange={(event) => controller.setTargetDeviceId(event.target.value)}
-        >
-          {controller.devices.map((device) => (
-            <option key={device.deviceId} value={device.deviceId}>
-              {device.deviceName || t("coach.delivery.deviceFallback")} · {device.appVersion || device.platform || device.deviceId}
-            </option>
-          ))}
-        </select>
+        <Text as="span" variant="bodyMedium">{t("coach.delivery.target")}</Text>
+        <div data-testid={explicitWorkoutLabel ? "K2-3-1" : undefined}><DropdownSelect disabled={busy} label={t("coach.delivery.target")} value={String(controller.targetDeviceId)} onChange={next => controller.setTargetDeviceId(next)} options={controller.devices.map((device) => ({ value: String(device.deviceId), label: `${device.deviceName || t("coach.delivery.deviceFallback")} · ${device.appVersion || device.platform || device.deviceId}` }))} /></div>
       </label>
       {controller.restoreLoading && <Text as="p" variant="caption" tone="tertiary">{t("coach.delivery.restoring")}</Text>}
       {controller.canCreate && !controller.submitError && (

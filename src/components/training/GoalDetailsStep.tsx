@@ -1,10 +1,11 @@
+import { CalendarDays } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import type { EventType, FeasibilityLabel } from '@shared/types/goal';
 import { calcFeasibility as calcFeasibilityCore } from '@shared/training/feasibility';
 import { FEAS_COLORS, FEAS_LABEL_KEYS } from './constants';
 import { DateField } from '../redesign';
-import { Text } from '../../theme/components';
+import { Input, Text } from '../../theme/components';
 
 // ─── 클라이언트 사이드 feasibility 계산 (서버와 동일 규칙) ──────────────────
 // shared/training/feasibility.ts 가 단일 소스 — 완주(거리/난이도 기반) 분기만 추가.
@@ -213,7 +214,7 @@ export default function GoalDetailsStep({
             marginTop: 'var(--space-5)',
             marginBottom: 'var(--space-2)',
           }}>{t('goalDetails.targetDate')}</label>
-        <DateField id={`${fieldId}-date`}
+        <DateField portal icon={<CalendarDays size={16} />} id={`${fieldId}-date`}
           value={eventDate}
           min={minDateStr}
           onChange={handleDateChange}
@@ -239,29 +240,19 @@ export default function GoalDetailsStep({
                 marginBottom: 'var(--space-2)',
               }}>{t('goalDetails.targetDuration')}</Text>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: "var(--space-2)", alignItems: 'center' }}>
-              <input
+              <Input mono
                 type="number"
                 id={`${fieldId}-hours`} aria-label={`${t('goalDetails.targetDuration')} · ${t('goalDetails.hourUnit')}`}
                 value={targetH}
                 min={1}
                 max={24}
                 onChange={(e) => handleTimeChange(Number(e.target.value), targetM)}
-                style={{
-                  width: 70,
-                  padding: '10px 12px',
-                  background: 'var(--bg-2)',
-                  border: '1px solid var(--line)',
-                  borderRadius: "var(--r-md)",
-                  fontSize: "var(--fs-base)",
-                  color: 'var(--ink-0)',
-                  fontFamily: 'var(--font-mono)',
-                  textAlign: 'center',
-                }}
+                style={{ width: "calc(var(--space-7) * 2 + var(--space-2))", minHeight: "var(--dim-button-height)", textAlign: "center" }}
               />
               <label htmlFor={`${fieldId}-hours`} style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>
                 {t('goalDetails.hourUnit')}
               </label>
-              <input
+              <Input mono
                 type="number"
                 id={`${fieldId}-minutes`} aria-label={`${t('goalDetails.targetDuration')} · ${t('goalDetails.minUnit')}`}
                 value={targetM}
@@ -269,17 +260,7 @@ export default function GoalDetailsStep({
                 max={59}
                 step={5}
                 onChange={(e) => handleTimeChange(targetH, Number(e.target.value))}
-                style={{
-                  width: 70,
-                  padding: '10px 12px',
-                  background: 'var(--bg-2)',
-                  border: '1px solid var(--line)',
-                  borderRadius: "var(--r-md)",
-                  fontSize: "var(--fs-base)",
-                  color: 'var(--ink-0)',
-                  fontFamily: 'var(--font-mono)',
-                  textAlign: 'center',
-                }}
+                style={{ width: "calc(var(--space-7) * 2 + var(--space-2))", minHeight: "var(--dim-button-height)", textAlign: "center" }}
               />
               <label htmlFor={`${fieldId}-minutes`} style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>
                 {t('goalDetails.minUnit')}

@@ -1,7 +1,10 @@
+import DateField from "../../components/redesign/DateField";
+import { CalendarDays } from "lucide-react";
+import "../fitness/components/fitness-analysis-controls.css";
 import { LocalizedLink } from "../../components/LocalizedLink";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Button, Input, Text } from "../../theme/components";
+import { Alert, DropdownSelect, Button, Text } from "../../theme/components";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import {
   linkSessionExecutionActivity, listSessionExecutions, reserveSessionExecution, setSessionExecutionOutcome,
@@ -201,7 +204,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   const presentationState = error ? "error" : !execution ? "executable" : execution.outcomeStatus !== "pending" ? "completed"
     : execution.status === "reserved" ? "reserved" : execution.status === "started" ? "in-progress"
       : probableLink ? "probable" : "link";
-  return <article className="training-execution-session" data-execution-state={presentationState}>
+  return <article className="fitness-analysis-controls training-execution-session" data-execution-state={presentationState}>
     <Text as="h4" variant="label">{t(`decision.workout.${session.current.workout}`, { defaultValue: session.current.workout })}</Text>
     <Text as="p" variant="caption" tone={presentationState === "error" ? "warning" : "secondary"}
       role="status" aria-live="polite" aria-atomic="true">{t(`decision.execution.presentation.${presentationState}`)}</Text>
@@ -243,13 +246,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
           {t(probableLink ? "decision.execution.rejectMatch" : "decision.execution.unlink")}</Button>}
       {manual && <div id={manualPanelId} className="training-execution-actions__manual">
         <label><Text as="span" variant="caption" tone="secondary">{t("decision.execution.activityPicker")}</Text>
-          <select value={selectedActivityId} onChange={(event) => setSelectedActivityId(event.target.value)} disabled={busy || activitiesLoading || activitiesError}>
-            <option value="">{activitiesLoading ? t("decision.execution.activityLoading") : t("decision.execution.activitySelect")}</option>
-            {activityChoices.map((activity) => <option key={activity.id} value={activity.id}>
-              {new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(activity.startTime))}
-              {` · ${t(`discipline.${getDiscipline(activity.type)}`)}`}
-            </option>)}
-          </select>
+          <DropdownSelect disabled={busy || activitiesLoading || activitiesError} label={t("decision.execution.activityPicker")} value={String(selectedActivityId)} onChange={next => setSelectedActivityId(next)} options={[{ value: String(""), label: activitiesLoading ? t("decision.execution.activityLoading") : t("decision.execution.activitySelect") }, ...activityChoices.map((activity) => ({ value: String(activity.id), label: `${new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(activity.startTime))}${` · ${t(`discipline.${getDiscipline(activity.type)}`)}`}` }))]} />
         </label>
         {!activitiesLoading && !activitiesError && activityChoices.length === 0 && <Text as="p" variant="caption" tone="secondary">{t("decision.execution.noActivities")}</Text>}
         <Button size="sm" disabled={busy || activitiesLoading || activitiesError || !selectedActivity} data-testid="K2-3-11" onClick={() => void link()}>{t("decision.execution.link")}</Button>
@@ -259,9 +256,9 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
         {exactLink && <><Button size="sm" variant="primary" data-testid="K2-4-1" onClick={() => void outcome("completed")}>{t("decision.execution.complete")}</Button>
           <Button size="sm" variant="outline" data-testid="K2-4-1" onClick={() => void outcome("partial")}>{t("decision.execution.partial")}</Button></>}
         {!exactLink && <><Button size="sm" variant="ghost" data-testid="K2-4-2" onClick={() => void outcome("skipped")}>{t("decision.execution.skip")}</Button>
-          <label><Text as="span" variant="caption" tone="secondary">{t("decision.execution.postponeDate")}</Text>
-            <Input type="date" value={postponedTo} onChange={(event) => setPostponedTo(event.target.value)} />
-          </label>
+          <div className="fitness-date-control"><label htmlFor={`${manualPanelId}-postpone-date`}><Text as="span" variant="caption" tone="secondary">{t("decision.execution.postponeDate")}</Text></label>
+            <DateField id={`${manualPanelId}-postpone-date`} portal icon={<CalendarDays size={16} aria-hidden="true" />} value={postponedTo} onChange={setPostponedTo} />
+          </div>
           <Button size="sm" variant="ghost" disabled={!postponedTo} data-testid="K2-4-3" onClick={() => void outcome("postponed")}>{t("decision.execution.postpone")}</Button></>}
       </div>}
     </>}

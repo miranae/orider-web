@@ -82,6 +82,39 @@ describe("ExplorePage", () => {
   // ExplorePage는 라우트가 정확히 /explore/segments (또는 /{lang}/explore/segments) 일 때만 렌더한다
   // (Layout 직접 렌더 최적화). 따라서 모든 테스트는 route:"/explore/segments" 로 마운트한다.
 
+  it("selects a segment through its keyboard title button and preserves explicit detail entry", async () => {
+    mockOverviewFetch([SEG_CLIMB]);
+    const user = userEvent.setup();
+    const ExplorePage = await loadExplorePage();
+    renderWithProviders(<ExplorePage />, { route: "/explore/segments" });
+    const title = await screen.findByRole("button", { name: "남산 업힐", exact: true });
+    expect(title).toHaveAttribute("aria-pressed", "false");
+    title.focus();
+    await user.keyboard("{Enter}");
+    expect(title).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByRole("button", { name: "상세 보기" })).toBeInTheDocument();
+    await user.keyboard(" ");
+    expect(title).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("visually distinguishes the selected sport and list mode", async () => {
+    mockOverviewFetch([SEG_CLIMB]);
+    const user = userEvent.setup();
+    const ExplorePage = await loadExplorePage();
+    renderWithProviders(<ExplorePage />, { route: "/explore/segments" });
+    const cycling = await screen.findByRole("button", { name: "사이클", exact: true });
+    const running = screen.getByRole("button", { name: "러닝", exact: true });
+    expect(cycling).toHaveClass("ds-btn--primary", "font-bold");
+    await user.click(running);
+    expect(running).toHaveAttribute("aria-pressed", "true");
+    expect(running).toHaveClass("ds-btn--primary", "font-bold");
+    expect(cycling).toHaveClass("ds-btn--secondary");
+    const notable = screen.getByRole("button", { name: "주목", exact: true });
+    await user.click(notable);
+    expect(notable).toHaveClass("ds-btn--primary", "font-bold");
+    expect(screen.getByRole("button", { name: "범위 내", exact: true })).toHaveClass("ds-btn--secondary");
+  });
+
   it("renders explore page heading", async () => {
     const ExplorePage = await loadExplorePage();
     renderWithProviders(<ExplorePage />, { route: "/explore/segments" });

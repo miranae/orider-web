@@ -73,3 +73,25 @@ it('선택 버튼 밖 읽기 영역과 강도 범례에서 설명을 열고 선�
   expect(document.querySelector('button button')).toBeNull();
   expect(mocks.transaction).not.toHaveBeenCalled();
 });
+
+
+it('labels a non-Monday week from canonical KST dates and applies to the original array index', async () => {
+  const friday = { ...day, date: Date.parse('2026-10-16T00:00:00+09:00'), dayOfWeek: 0 as const };
+  const saturday = { ...day, date: friday.date + 86400000, dayOfWeek: 0 as const };
+  const days = [friday, saturday];
+  mocks.transaction.mockImplementation(async (_db, callback) => callback({
+    get: async () => ({ exists: () => true, data: () => ({ days }) }), update: mocks.update,
+  }));
+  render(<AddPlanSheet goalId="g" weekId="w" days={days} onClose={vi.fn()} onUpdate={vi.fn()} />);
+  expect(screen.getByRole('button', { name: 'weekday.fri' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'weekday.sat' }));
+  fireEvent.click(screen.getByRole('button', { name: 'discipline.bike' }));
+  fireEvent.click(screen.getByRole('button', { name: /workouts.rec/ }));
+  expect(mocks.transaction).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'add.applySelection' }));
+  await waitFor(() => expect(mocks.update).toHaveBeenCalledOnce());
+  const saved = mocks.update.mock.calls[0]![1].days;
+  expect(saved[0]).toEqual(friday);
+  expect(saved[1]).toMatchObject({ date: saturday.date, dayOfWeek: 0, workout: 'rec' });
+  expect(days[1]).toEqual(saturday);
+});

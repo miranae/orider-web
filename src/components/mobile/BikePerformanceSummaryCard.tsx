@@ -1,3 +1,4 @@
+import GlossaryText from "../common/GlossaryText";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
@@ -83,42 +84,42 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
   ];
   return (
     <section className="mobile-fitness-performance" aria-label={t("mobileFitness.performance.ariaLabel")} style={{ marginBottom: "var(--space-3)", padding: "var(--space-4)", background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)" }}>
-      <Text as="h2" variant="title" style={{ margin: 0 }}>{t("mobileFitness.performance.title")}</Text>
+      <Text as="h2" variant="title" style={{ margin: 0 }}><GlossaryText>{t("mobileFitness.performance.title")}</GlossaryText></Text>
       {part !== "analysis" && <>
-      <Text as="div" variant="eyebrow" tone="secondary" style={{ marginTop: "var(--space-3)" }}>{t("fitness:thresholdDecision.activeLabel")}</Text>
+      <Text as="div" variant="eyebrow" tone="secondary" style={{ marginTop: "var(--space-3)" }}><GlossaryText>{t("fitness:thresholdDecision.activeLabel")}</GlossaryText></Text>
       <div className="mobile-fitness-performance__ftp">
         <Text as="span" variant="dataHero" style={{ color: "var(--lime)" }}>{activeFtp ?? "—"}</Text>
         {activeFtp != null && <Text as="span" variant="unit">W</Text>}
       </div>
       <div className="mobile-fitness-performance__profile">
-        <Text as="span" variant="mono">{wkgSummary}</Text>
-        <Text as="span" variant="caption" tone="tertiary">{t("mobileFitness.performance.canonical")}</Text>
+        <Text as="span" variant="mono"><GlossaryText>{wkgSummary}</GlossaryText></Text>
+        <Text as="span" variant="caption" tone="tertiary"><GlossaryText>{t("mobileFitness.performance.canonical")}</GlossaryText></Text>
       </div>
 
       </>}
       {part !== "condition" && <>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
-        {riderType ? <Chip variant="accent" dot>{riderType}</Chip> : <Text variant="bodySmall">{t("mobileFitness.performance.riderUnknown")}</Text>}
+        {riderType ? <Chip variant="accent" dot>{riderType}</Chip> : <Text variant="bodySmall"><GlossaryText>{t("mobileFitness.performance.riderUnknown")}</GlossaryText></Text>}
       </div>
       <div style={{ marginTop: "var(--space-3)" }}>
-        <Text as="div" variant="caption" tone="secondary" style={{ marginBottom: "var(--space-1)" }}>{t("mobileFitness.performance.abilityLabel")}</Text>
+        <Text as="div" variant="caption" tone="secondary" style={{ marginBottom: "var(--space-1)" }}><GlossaryText>{t("mobileFitness.performance.abilityLabel")}</GlossaryText></Text>
         {pdc?.abilityScore != null
           ? <AbilityScoreScale
               score={pdc.abilityScore}
               ariaLabel={t("mobileFitness.performance.abilityScoreAria")}
               accentColor="var(--lime)"
             />
-          : <Text as="div" variant="body">{t("mobileFitness.performance.abilityUnknown")}</Text>}
+          : <Text as="div" variant="body"><GlossaryText>{t("mobileFitness.performance.abilityUnknown")}</GlossaryText></Text>}
       </div>
       <div className="mobile-fitness-performance__metrics">
         {metrics.filter(metric => part !== "analysis" || metric.key !== "vo2max").map((metric) => (
           <div key={metric.key} data-performance-metric={metric.key} className="mobile-fitness-performance__metric">
-            <Text as="div" variant="caption" tone="secondary">{metric.label}</Text>
+            <Text as="div" variant="caption" tone="secondary"><GlossaryText>{metric.label}</GlossaryText></Text>
             <div className="mobile-fitness-performance__metric-value">
               <Text as="span" variant="dataLarge" style={{ whiteSpace: "nowrap" }}>{metric.value ?? "—"}</Text>
               {metric.value != null && <Text as="span" variant="unit" style={{ whiteSpace: "nowrap" }}>{metric.unit}</Text>}
             </div>
-            <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{metric.status}</Text>
+            <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}><GlossaryText>{metric.status}</GlossaryText></Text>
           </div>
         ))}
       </div>
@@ -142,15 +143,15 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
       <div id={evidenceId} hidden={!evidenceOpen} style={{ marginTop: "var(--space-3)", display: evidenceOpen ? "grid" : undefined, gap: "var(--space-2)" }}>
         {evidenceRows.length > 0
           ? evidenceRows.map((row) => <EvidenceRow key={row.label} label={row.label} value={row.value} />)
-          : <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.performance.insufficient")}</Text>}
-        <Text as="p" variant="caption" tone="secondary">{ftpEvidence}</Text>
+          : <Text as="p" variant="caption" tone="secondary"><GlossaryText>{t("mobileFitness.performance.insufficient")}</GlossaryText></Text>}
+        <Text as="p" variant="caption" tone="secondary"><GlossaryText>{ftpEvidence}</GlossaryText></Text>
         {part !== "condition" && <>
-        <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.snapshot.riderSource")}</Text>
+        <Text as="p" variant="caption" tone="secondary"><GlossaryText>{t("mobileFitness.snapshot.riderSource")}</GlossaryText></Text>
         <Text as="p" variant="caption" tone="secondary">
-          {vo2Source === "pdc" ? t("mobileFitness.snapshot.vo2PdcSource", { count: pdc?.activityCount ?? 0 }) : vo2Source === "formula" ? t("mobileFitness.snapshot.vo2FormulaSource") : t("mobileFitness.snapshot.insufficient")}
+          <GlossaryText>{vo2Source === "pdc" ? t("mobileFitness.snapshot.vo2PdcSource", { count: pdc?.activityCount ?? 0 }) : vo2Source === "formula" ? t("mobileFitness.snapshot.vo2FormulaSource") : t("mobileFitness.snapshot.insufficient")}</GlossaryText>
         </Text>
         </>}
-        <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.performance.modelEvidence")}</Text>
+        <Text as="p" variant="caption" tone="secondary"><GlossaryText>{t("mobileFitness.performance.modelEvidence")}</GlossaryText></Text>
         <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--aqua)", fontWeight: 600 }}>
           {t("mobileFitness.sport.bike.manualLink")}
         </a>
@@ -162,8 +163,8 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
 function EvidenceRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", paddingBottom: "var(--space-2)", borderBottom: "1px solid var(--line-soft)" }}>
-      <Text variant="caption" tone="secondary">{label}</Text>
-      <Text variant="mono" style={{ textAlign: "right" }}>{value}</Text>
+      <Text variant="caption" tone="secondary"><GlossaryText>{label}</GlossaryText></Text>
+      <Text variant="mono" style={{ textAlign: "right" }}><GlossaryText>{value}</GlossaryText></Text>
     </div>
   );
 }

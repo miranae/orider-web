@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { RideStoryPhotoPicker } from "./RideStoryPhotoPicker";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
@@ -70,7 +71,7 @@ describe("RideStoryPhotoPicker", () => {
     ]);
     setCollectionDocs("activity_photos/ride-2/photos", []);
 
-    const { container } = renderWithProviders(
+    renderWithProviders(
       <RideStoryPhotoPicker open userId="test-uid" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} />,
       { authenticated: true },
     );
@@ -78,7 +79,7 @@ describe("RideStoryPhotoPicker", () => {
     expect(await screen.findByText("남산 업힐")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /사진 업로드/ })).toBeInTheDocument();
 
-    const input = container.querySelector('input[type="file"]');
+    const input = document.querySelector('input[type="file"]');
     expect(input).toBeTruthy();
     fireEvent.change(input!, {
       target: {
@@ -97,6 +98,57 @@ describe("RideStoryPhotoPicker", () => {
       }),
     );
   });
+});
+
+
+it("uses the feed description and readable date/sport fallbacks instead of document IDs", async () => {
+  const recentStart = Date.now() - 86_400_000;
+  const fallbackDate = new Date(recentStart - 86_400_000).toLocaleDateString("ko-KR", { year: "numeric", month: "short", day: "numeric" });
+  setCollectionDocs("activities", [
+    { id: "orider_raw-id", userId: "test-uid", description: "출근길 라이딩", name: "orider_raw-id", type: "Ride", startTime: recentStart, summary: { distance: 12300, ridingTimeMillis: 9120000, elevationGain: 149 } },
+    { id: "strava_raw-id", userId: "test-uid", name: "strava_raw-id", type: "Ride", startTime: recentStart - 86_400_000, summary: {} },
+  ]);
+  renderWithProviders(<RideStoryPhotoPicker open userId="test-uid" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} />, { authenticated: true });
+  expect(await screen.findByRole("heading", { name: "출근길 라이딩" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: `${fallbackDate} · 라이딩` })).toBeInTheDocument();
+  expect(screen.queryByText(/orider_raw-id|strava_raw-id/)).toBeNull();
+  expect(screen.getByText(/이동거리 12.3 km · 활동시간 2시간 32분 · 상승고도 149 m/)).toBeInTheDocument();
+});
+
+it("returns focus to its trigger when cancelled and supports Escape", async () => {
+  setCollectionDocs("activities", []);
+  function Harness() {
+    const [open, setOpen] = useState(false);
+    return <><button onClick={() => setOpen(true)}>사진 고르기</button><RideStoryPhotoPicker open={open} userId="test-uid" onClose={() => setOpen(false)} onSent={vi.fn()} onFailed={vi.fn()} /></>;
+  }
+  renderWithProviders(<Harness />, { authenticated: true });
+  const trigger = screen.getByRole("button", { name: "사진 고르기" });
+  trigger.focus();
+  fireEvent.click(trigger);
+  expect(await screen.findByRole("dialog")).toContainElement(document.activeElement as HTMLElement);
+  fireEvent.click(screen.getByRole("button", { name: "취소" }));
+  expect(trigger).toHaveFocus();
+  fireEvent.click(trigger);
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(trigger).toHaveFocus();
+});
+
+
+it("keeps the portalled picker footer separate from its scrolling body and avoids duplicated fallback metadata", async () => {
+  const recentStart = Date.now() - 86_400_000;
+  const fallbackDate = new Date(recentStart).toLocaleDateString("ko-KR", { year: "numeric", month: "short", day: "numeric" });
+  setCollectionDocs("activities", [{ id: "strava_single", userId: "test-uid", type: "Ride", startTime: recentStart, summary: {} }]);
+  setCollectionDocs("activity_photos/strava_single/photos", [{ id: "one", url: "https://example.com/one.jpg", deletedAt: null, createdAt: 1 }]);
+  const { container } = renderWithProviders(<RideStoryPhotoPicker open userId="test-uid" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} />, { authenticated: true });
+  const title = await screen.findByRole("heading", { name: `${fallbackDate} · 라이딩` });
+  const dialog = screen.getByRole("dialog");
+  expect(container).not.toContainElement(dialog);
+  expect(dialog.closest(".ride-story-picker")).toBeInTheDocument();
+  expect(title.closest("section")?.querySelector("p")).not.toHaveTextContent(fallbackDate);
+  const footer = dialog.querySelector(".ride-story-picker-footer");
+  expect(footer).toContainElement(screen.getByRole("button", { name: "선택한 사진으로 받기" }));
+  expect(dialog.querySelector(".ride-story-picker-scroll")).not.toContainElement(footer as HTMLElement);
 });
 
 it("only offers recent, completed, undeleted cycling activities accepted by the server", async () => {

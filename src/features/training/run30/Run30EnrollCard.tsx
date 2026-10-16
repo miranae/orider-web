@@ -1,9 +1,10 @@
+import "../../fitness/components/fitness-analysis-controls.css";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { logClientError } from "../../../services/errorLogger";
-import { Alert, Button, Field, Select, Text } from "../../../theme/components";
+import { Alert, Button, Field, DropdownSelect, Text } from "../../../theme/components";
 import { run30ServerMessage, type Run30Api, type Run30EnrollmentPreview } from "./run30Api";
 import { enrollmentDateOptions, localToday, run30DateLabel } from "./run30Display";
 import "./run30.css";
@@ -90,7 +91,7 @@ export default function Run30EnrollCard({ api, variant, onEnrolled, today: today
   };
 
   return (
-    <section className="run30-card run30-enroll" aria-labelledby="run30-enroll-title" data-testid={`run30-enroll-${variant}`}>
+    <section className="fitness-analysis-controls run30-card run30-enroll" aria-labelledby="run30-enroll-title" data-testid={`run30-enroll-${variant}`}>
       <h2 data-testid="K4-R-1" id="run30-enroll-title" className="run30-title">
         {variant === "offer" ? t("run30.enroll.offerTitle") : t("run30.title")}
       </h2>
@@ -103,24 +104,13 @@ export default function Run30EnrollCard({ api, variant, onEnrolled, today: today
           <Text as="p" variant="bodySmall" tone="tertiary">{t("run30.purpose")}</Text>
           <Text as="p" variant="bodySmall" tone="tertiary">{t("run30.phoneOnly")}</Text>
           <Field label={t("run30.enroll.startDate")} htmlFor={dateId}>
-            <Select data-testid="K4-R-2"
-              id={dateId}
-              value={startDate}
-              disabled={busy || phase === "enrolled"}
-              onChange={(event) => {
-                setStartDate(event.target.value);
+            <div data-testid="K4-R-2"><DropdownSelect id={dateId} disabled={busy || phase === "enrolled"} label={t("run30.enroll.startDate")} value={String(startDate)} onChange={next => {
+                setStartDate(next);
                 setPreview(null);
                 setConsent(false);
-              }}
-            >
-              {options.map((date) => (
-                <option key={date} value={date}>
-                  {date === today
+              }} options={options.map((date) => ({ value: String(date), label: date === today
                     ? t("run30.enroll.todayOption", { date: run30DateLabel(date, language) })
-                    : run30DateLabel(date, language)}
-                </option>
-              ))}
-            </Select>
+                    : run30DateLabel(date, language) }))} /></div>
           </Field>
           {!preview && (
             <Button type="button" variant="primary" loading={phase === "previewing"} disabled={busy} data-testid="K4-R-2" onClick={() => { void requestPreview(); }}>

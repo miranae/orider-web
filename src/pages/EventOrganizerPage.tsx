@@ -1,3 +1,5 @@
+import { useAuth } from "../contexts/AuthContext";
+import "./ExploreReview.css";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { Card, Text, buttonClass } from "../theme/components";
@@ -6,7 +8,8 @@ export const ORGANIZER_BENEFITS = ["live", "results", "group"] as const;
 
 export default function EventOrganizerPage() {
   const { t } = useTranslation("event");
-  return <main data-testid="E3-5-2" style={{ maxWidth: 1040, margin: "0 auto", padding: "var(--space-7) 24px" }}>
+  const { user, signInWithGoogle } = useAuth();
+  return <main data-testid="E3-5-2" className="explore-editor-surface" style={{ maxWidth: 1040, margin: "0 auto", padding: "var(--space-7) 24px" }}>
     <Text as="div" variant="eyebrow">{t("organizerLanding.eyebrow")}</Text>
     <Text as="h1" variant="pageTitle" style={{ marginTop: "var(--space-2)", maxWidth: 720 }}>{t("organizerLanding.title")}</Text>
     <p style={{ color: "var(--ink-2)", marginTop: "var(--space-3)", maxWidth: 680 }}>{t("organizerLanding.description")}</p>
@@ -16,7 +19,7 @@ export default function EventOrganizerPage() {
     <Card padding="none" style={{ padding: "var(--space-5)", borderColor: "color-mix(in oklch, var(--lime) 35%, var(--line-soft))" }}>
       <Text as="h2" variant="title">{t("organizerLanding.compare.title")}</Text>
       <p style={{ color: "var(--ink-2)", margin: "var(--space-2) 0 var(--space-4)" }}>{t("organizerLanding.compare.description")}</p>
-      <div className="flex flex-wrap" style={{ gap: "var(--space-2)" }}><Link to="/login" className={buttonClass({ variant: "primary" })}>{t("organizerLanding.cta")}</Link><Link to="/explore/events" className={buttonClass({ variant: "secondary" })}>{t("organizerLanding.events")}</Link></div>
+      <div className="flex flex-wrap" style={{ gap: "var(--space-2)" }}>{user ? <Link to="/event/create" className={buttonClass({ variant: "primary" })}>{t("button.create")}</Link> : <button type="button" onClick={() => { void signInWithGoogle(); }} className={buttonClass({ variant: "primary" })}>{t("organizerLanding.cta")}</button>}<Link to="/explore/events" className={buttonClass({ variant: "secondary" })}>{t("organizerLanding.events")}</Link></div>
     </Card>
   </main>;
 }

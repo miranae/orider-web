@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import GlossaryText from "../../components/common/GlossaryText";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SegmentHistoryAttempt } from "@shared/types/segment-history";
-import { Button, Stat, Text } from "../../theme/components";
+import { Button, DropdownSelect, Stat, Text } from "../../theme/components";
 import { LocalizedLink } from "../../components/LocalizedLink";
 import { useMySegmentHistory } from "../../hooks/useMySegmentHistory";
 import { localeTag } from "../../utils/localeDate";
@@ -13,6 +14,7 @@ export interface SegmentHistorySeed { id: string; activityId: string; elapsedTim
 interface Props { cachedGapEntry?: boolean; sourceIdentity?: string; onGapMarker?: (position: [number, number] | null) => void; initialSelection?: { activityId: string; effortId: string } | null; segmentId: string; seeds: SegmentHistorySeed[]; seedLoading: boolean; seedError: boolean; callableEnabled?: boolean }
 const elapsed = (ms: number) => `${Math.floor(ms / 60000)}:${Math.floor(ms / 1000 % 60).toString().padStart(2, "0")}`;
 export default function SegmentHistoryPanel({ initialSelection, segmentId, seeds, seedLoading, seedError, callableEnabled = false, cachedGapEntry = false, sourceIdentity = "", onGapMarker }: Props) {
+  const gapSelectId = useId();
   const { t } = useTranslation("segment");
   const [selection, setSelection] = useState<{ activityId: string; effortId: string; nonce: number } | null>(() => initialSelection ? { ...initialSelection, nonce: 1 } : null);
   const history = useMySegmentHistory(segmentId, selection, callableEnabled);
@@ -59,7 +61,11 @@ export default function SegmentHistoryPanel({ initialSelection, segmentId, seeds
       <Text as="p" variant="caption" tone="tertiary">{t("history.seedLimit")}</Text>
       {seedLoading ? <Text as="p" role="status">{t("history.loading")}</Text> : seedError ? <Text as="p" role="alert">{t("history.error")}</Text> : !seeds.length ? <Text as="p">{t("empty.noMyRecord")}</Text> : seeds.map(row => <div className="segment-history-row segment-history-seed" key={row.id}>
         <div><Text as="div" variant="bodySmall">{date(row.startDate)}</Text><Text as="div" variant="caption" tone="tertiary">{typeof row.source === "string" && row.source ? row.source : t("history.unknownSource")}</Text><LocalizedLink to={`/activity/${row.activityId}`}>{t("activity.view")}</LocalizedLink></div>
-        <div className="segment-history-values"><Text as="div" variant="dataSmall">{elapsed(row.elapsedTime)}</Text><Text as="div" variant="caption" tone="tertiary">{typeof row.averageSpeed === "number" && Number.isFinite(row.averageSpeed) && row.averageSpeed >= 0 ? row.averageSpeed.toFixed(1) : "—"} km/h · {typeof row.averageWatts === "number" && Number.isFinite(row.averageWatts) && row.averageWatts >= 0 ? row.averageWatts : "—"} W</Text>{callableEnabled && <Button size="sm" variant="ghost" onClick={() => select(row.activityId, row.id)}>{t("history.select")}</Button>}</div>
+        <div className="segment-history-values">
+          <Text as="div" variant="body" tone="secondary">{t("history.elapsedFormat")}</Text>
+          <Text as="div" variant="dataSmall">{elapsed(row.elapsedTime)}</Text>
+          <Text as="div" variant="body" tone="secondary">{t("kom.avgSpeed")} {typeof row.averageSpeed === "number" && Number.isFinite(row.averageSpeed) && row.averageSpeed >= 0 ? row.averageSpeed.toFixed(1) : "—"} km/h</Text>
+          <Text as="div" variant="body" tone="secondary"><GlossaryText>{t("kom.power")}</GlossaryText> {typeof row.averageWatts === "number" && Number.isFinite(row.averageWatts) && row.averageWatts >= 0 ? row.averageWatts : "—"} W</Text>{callableEnabled && <Button size="sm" variant="ghost" onClick={() => select(row.activityId, row.id)}>{t("history.select")}</Button>}</div>
       </div>)}
     </>}
     {history.loading && <Text as="p" role="status">{t("history.loading")}</Text>}
@@ -90,12 +96,11 @@ export default function SegmentHistoryPanel({ initialSelection, segmentId, seeds
     </>}
     {cachedGapEntry && callableEnabled && segmentGapAvailable() && <section className="segment-gap-selection">
       <Text as="h3" variant="bodyMedium" weight={600}>{t("timeGap.choose")}</Text>
-      {[0, 1].map(index => <label key={index}><Text variant="bodyMedium">{t(index ? "timeGap.b" : "timeGap.a")}</Text>
-        <select className="ds-input" value={gapSelection[index]} onChange={e => { onGapMarker?.(null); setGapSelection(old => index ? [old[0], e.target.value] : [e.target.value, old[1]]); }}>
-          <option value="">{t("timeGap.chooseAttempt")}</option>
-          {gapRows.map((row, i) => <option key={row.effortId} value={row.effortId}>{gapLabels[i]}{(gapLabelCounts.get(gapLabels[i]!) ?? 0) > 1 ? ` · ${t("timeGap.choice", { count: i + 1 })}` : ""}</option>)}
-        </select>
-      </label>)}
+      {[0, 1].map(index => <div key={index} className="segment-gap-select-field"><label htmlFor={`${gapSelectId}-${index}`}><Text variant="bodyMedium">{t(index ? "timeGap.b" : "timeGap.a")}</Text></label>
+        <DropdownSelect id={`${gapSelectId}-${index}`} label={t(index ? "timeGap.b" : "timeGap.a")} value={gapSelection[index]!}
+          onChange={value => { onGapMarker?.(null); setGapSelection(old => index ? [old[0], value] : [value, old[1]]); }}
+          options={[{value:"",label:t("timeGap.chooseAttempt")},...gapRows.map((row, i) => ({value:row.effortId,label:`${gapLabels[i]}${(gapLabelCounts.get(gapLabels[i]!) ?? 0) > 1 ? ` · ${t("timeGap.choice", {count:i+1})}` : ""}`}))]} />
+      </div>)}
       {selectedGap.some(Boolean) && <details className="segment-gap-proof"><summary>{t("timeGap.proof")}</summary>
         {selectedGap.map((row, i) => row && <div key={i}><Text as="p" variant="bodyMedium" weight={600}>{t(i ? "timeGap.b" : "timeGap.a")}</Text>
           <Text as="p" variant="bodyMedium" mono>{t("timeGap.activityId")}: {row.activityId}</Text>

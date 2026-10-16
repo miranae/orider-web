@@ -153,7 +153,7 @@ function SectionHeader({ icon: Icon, title }: { icon: typeof Mountain; title: st
   return (
     <div className="flex items-center gap-1.5 mb-2">
       <Icon size={15} style={{ color: "var(--lime)" }} />
-      <Text as="div" variant="eyebrow">{title}</Text>
+      <Text as="h2" variant="title">{title}</Text>
     </div>
   );
 }

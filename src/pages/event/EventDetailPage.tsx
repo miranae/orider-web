@@ -1,3 +1,9 @@
+import "../EventControls.css";
+import { Bell, CalendarDays, ChartNoAxesCombined, Image, Link2, Pencil, Play, Route, Send, Settings, Trophy, Users } from "lucide-react";
+import InfoTip from "../../components/InfoTip";
+import GlossaryText from "../../components/common/GlossaryText";
+import GlossaryProvider from "../../components/common/GlossaryProvider";
+import SportIcon from "../../components/common/SportIcon";
 import { groupCalendarUrl } from "../../features/group/groupCalendar";
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,7 +14,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import { auth, firestore, functions, getAppCheckToken } from "../../services/firebase";
+import { auth, firestore, functions, getAppCheckToken, ensureAppCheckReady } from "../../services/firebase";
 import { getEventPublicParticipants, publicParticipantTimestampMs } from "../../services/eventPublicParticipants";
 import { logClientError } from "../../services/errorLogger";
 import { getPublicUserProfile } from "../../services/publicProfiles";
@@ -16,7 +22,9 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { Course } from "@shared/types";
 import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
-import { EmptyState, LoadingSkeleton } from "../../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
+import { localeTag } from "../../utils/localeDate";
+import { isActiveEventRegistration } from "../../features/event/activeRegistration";
 import { isRegistrationTimeOpen, normalizeStartTime } from "../../utils/event-time";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import EventDetailNavigation from "../../features/event/EventDetailNavigation";
@@ -93,6 +101,8 @@ export default function EventDetailPage() {
   ) as Record<WpLane, { label: string; color: string; icon: string }>;
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [isParticipant, setIsParticipant] = useState<boolean | null>(null);
   const [isHost, setIsHost] = useState(false);
   const [participantRole, setParticipantRole] = useState<{ uid: string; eventId: string; role: string | null } | null>(null);
@@ -111,6 +121,7 @@ export default function EventDetailPage() {
     startGeneration.current += 1;
   }
   const [sending, setSending] = useState(false);
+  const pendingSend = useRef<object | null>(null);
   const [showStartConfirm, setShowStartConfirm] = useState(false);
   const [recentParticipants, setRecentParticipants] = useState<RecentParticipant[]>([]);
   const [recentParticipantsUnavailable, setRecentParticipantsUnavailable] = useState(false);
@@ -136,6 +147,8 @@ export default function EventDetailPage() {
         startGeneration.current += 1;
         pendingStart.current = null;
         setStarting(false);
+        pendingSend.current = null;
+        setSending(false);
         pendingCancel.current = null; cancelBusy.current = false; setWithdrawing(false);
       }
     });
@@ -144,6 +157,7 @@ export default function EventDetailPage() {
       startGeneration.current += 1;
       pendingStart.current = null;
       pendingCancel.current = null; cancelBusy.current = false;
+      pendingSend.current = null;
       unsubscribe();
     };
   }, []);
@@ -151,6 +165,8 @@ export default function EventDetailPage() {
   useEffect(() => {
     pendingStart.current = null;
     setStarting(false);
+    pendingSend.current = null;
+    setSending(false);
   }, [eventId, user?.uid]);
 
   useEffect(() => {
@@ -280,9 +296,13 @@ export default function EventDetailPage() {
     if (!eventId) return;
     let cancelled = false;
     setLoading(true);
+    setLoadError(false);
     setEvent(null);
     setIsHost(false);
     setParticipantCount(null);
+    setLinkedCourses([]);
+    setCourseDataMap({});
+    setSelectedCourseIdx(0);
     (async () => {
       try {
         const docRef = doc(firestore, "events", eventId);
@@ -334,13 +354,15 @@ export default function EventDetailPage() {
           });
         }
       } catch (err) {
+        if (cancelled) return;
+        setLoadError(true);
         logClientError("EventDetailPage.loadEvent", err, { eventId });
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [eventId, user]);
+  }, [eventId, user, loadAttempt]);
 
   // 자기 문서 GET은 비공개 목록 조회와 독립적이다. 조회 실패를 미등록으로 표시하지 않는다.
   useEffect(() => {
@@ -353,7 +375,7 @@ export default function EventDetailPage() {
       if (cancelled) return;
       const own = snapshot.data();
       setParticipantRole({ uid: user.uid, eventId, role: snapshot.exists() ? own?.role ?? null : null });
-      setIsParticipant(snapshot.exists() && !["CANCELLED", "REFUNDED"].includes(own?.status));
+      setIsParticipant(snapshot.exists() && isActiveEventRegistration(own?.status));
       setCanCancelRegistration(snapshot.exists() && own?.status === "REGISTERED" && own?.role === "RIDER");
     }).catch((err) => {
       logClientError("EventDetailPage.loadOwnParticipant", err, { eventId });
@@ -364,6 +386,7 @@ export default function EventDetailPage() {
   // Fetch GPX and parse course data
   const fetchCourse = useCallback(async (url: string, idx: number) => {
     if (courseDataMap[idx]) return;
+    const context = participantContext.current;
     try {
       let gpxXml: string;
       if (url.startsWith("http")) {
@@ -387,6 +410,7 @@ export default function EventDetailPage() {
         gpxXml = url;
       }
       const data = parseGpxFull(gpxXml);
+      if (participantContext.current !== context) return;
       setCourseDataMap((prev) => ({ ...prev, [idx]: data }));
     } catch (err) {
       logClientError("EventDetailPage.loadGpx", err, { eventId, idx });
@@ -394,30 +418,32 @@ export default function EventDetailPage() {
   }, [courseDataMap, eventId]);
 
   useEffect(() => {
-    if (!event) return;
+    if (!event || event.id !== eventId) return;
     if (event.courses && event.courses.length > 0) {
       const c = event.courses[selectedCourseIdx];
       if (c) fetchCourse(c.gpxUrl, selectedCourseIdx);
     } else if (event.courseGpx) {
       fetchCourse(event.courseGpx, 0);
     }
-  }, [event, selectedCourseIdx, fetchCourse]);
+  }, [event, eventId, selectedCourseIdx, fetchCourse]);
 
-  // Fetch linked courses from courses collection
+  // 연결 코스는 GPX가 없는 이벤트의 요약에도 쓰므로 이전 문맥의 결과를 섞지 않는다.
   useEffect(() => {
-    if (!event?.courseIds?.length) return;
-    const fetchLinkedCourses = async () => {
-      const courseDocs = await Promise.all(
-        event.courseIds!.map(id => getDoc(doc(firestore, "courses", id)))
-      );
-      setLinkedCourses(
-        courseDocs
-          .filter(d => d.exists())
-          .map(d => ({ id: d.id, ...d.data() } as Course))
-      );
-    };
-    fetchLinkedCourses();
-  }, [event?.courseIds]);
+    let cancelled = false;
+    setLinkedCourses([]);
+    if (!event?.courseIds?.length || event.id !== eventId) return;
+    const context = participantContext.current;
+    void Promise.all(event.courseIds.map(id => getDoc(doc(firestore, "courses", id))))
+      .then(courseDocs => {
+        if (cancelled || participantContext.current !== context) return;
+        setLinkedCourses(courseDocs.filter(snapshot => snapshot.exists())
+          .map(snapshot => ({ ...snapshot.data(), id: snapshot.id } as Course)));
+      })
+      .catch(error => {
+        if (!cancelled && participantContext.current === context) logClientError("EventDetailPage.loadLinkedCourses", error, { eventId });
+      });
+    return () => { cancelled = true; };
+  }, [event, eventId, user?.uid]);
 
   // Fetch top 5 recent participants with denormalized nicknames
   useEffect(() => {
@@ -452,18 +478,34 @@ export default function EventDetailPage() {
   }, [eventId, event?.type, user?.uid, t]);
 
   const handleSendCourseToParticipants = async (course: Course) => {
-    if (!user || sending) return;
-    if (!(await dialog.confirm(t("detail.confirm.sendCourse", { name: course.name })))) return;
-    setSending(true);
+    if (!user || !eventId || event?.id !== eventId || !isHost || pendingSend.current || auth.currentUser?.uid !== user.uid) return;
+    const context = participantContext.current;
+    const sdkUser = auth.currentUser;
+    const operation = {};
+    const isCurrent = () => startMounted.current && pendingSend.current === operation
+      && participantContext.current === context && auth.currentUser?.uid === context.uid && auth.currentUser === sdkUser;
+    pendingSend.current = operation;
     try {
+      const confirmed = await dialog.confirm(t("detail.confirm.sendCourse", { name: course.name }), {
+        title: t("detail.button.sendToParticipants"),
+        confirmLabel: t("detail.button.sendToParticipants"),
+      });
+      if (!confirmed || !isCurrent()) return;
+      setSending(true);
+      await ensureAppCheckReady();
+      if (!isCurrent()) return;
       const fn = httpsCallable(functions, "sendCourseToApp");
-      await fn({ courseId: course.id, eventId: event?.id });
-      showToast(t("detail.toast.courseSent"));
+      await fn({ courseId: course.id, eventId });
+      if (isCurrent()) showToast(t("detail.toast.courseSent"));
     } catch (err) {
-      logClientError("EventDetailPage.sendCourseToApp", err, { eventId: event?.id, courseId: course.id });
+      if (!isCurrent()) return;
+      logClientError("EventDetailPage.sendCourseToApp", err, { eventId, courseId: course.id });
       showToast(t("detail.toast.sendFailed"));
     } finally {
-      setSending(false);
+      if (pendingSend.current === operation) {
+        pendingSend.current = null;
+        if (startMounted.current) setSending(false);
+      }
     }
   };
 
@@ -529,7 +571,7 @@ export default function EventDetailPage() {
 
   const formatDateTime = (ts: number) => {
     if (!ts) return "-";
-    return new Date(ts).toLocaleString("ko-KR", {
+    return new Date(ts).toLocaleString(localeTag(), {
       year: "numeric", month: "long", day: "numeric",
       hour: "2-digit", minute: "2-digit",
     });
@@ -539,6 +581,18 @@ export default function EventDetailPage() {
     return (
       <div className="py-8">
         <LoadingSkeleton kind="chart" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="py-8">
+        <ErrorState
+          title={t("detail.loadFailed")}
+          description={t("detail.loadFailedDescription")}
+          onRetry={() => setLoadAttempt(attempt => attempt + 1)}
+        />
       </div>
     );
   }
@@ -558,7 +612,6 @@ export default function EventDetailPage() {
     );
   }
 
-  const isGranFondo = event.type === "GRANFONDO";
   const typeLabelKey = eventTypeLabelKey(event.type);
   const courses = event.courses || [];
 
@@ -589,20 +642,36 @@ export default function EventDetailPage() {
     : null;
   const activeGroupId = shouldShowHostGroupCard(groupId, group?.id, groupLoading, groupInactive, !!groupError) ? groupId : undefined;
 
+  // 여러 연결 코스는 대안 코스일 수 있으므로 거리를 합산하지 않는다.
+  const singleLinkedCourse = event.courseIds?.length === 1 && linkedCourses.length === 1 ? linkedCourses[0] : null;
+  const finiteMetric = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+  const distanceM = finiteMetric(courseData?.distance ?? singleLinkedCourse?.distance);
+  const gainM = finiteMetric(courseData ? (hasUsableElevation ? courseData.elevationGain : null) : singleLinkedCourse?.elevationGain);
+  const highM = courseData ? (hasUsableElevation ? courseData.maxElevation : null) : singleLinkedCourse?.elevationHigh;
+  const metrics = [
+    { label: t("detail.metric.distance"), value: distanceM == null ? "—" : (distanceM / 1000).toFixed(1), unit: "km", explanation: t(courseData ? "detail.metric.distanceGpx" : "detail.metric.distanceLinked") },
+    { label: t("detail.metric.elevationGain"), value: gainM == null ? "—" : Math.round(gainM).toString(), unit: "m", explanation: t("detail.metric.elevationGainHelp") },
+    { label: t("detail.metric.maxElevation"), value: typeof highM === "number" && Number.isFinite(highM) ? Math.round(highM).toString() : "—", unit: "m", explanation: t("detail.metric.maxElevationHelp") },
+    { label: t("detail.metric.participants"), value: participantCount == null ? "—" : event.maxParticipants ? `${participantCount}/${event.maxParticipants}` : `${participantCount}`, unit: t("detail.unit.person") },
+    { label: t("detail.metric.fillRate"), value: fillPct == null ? "—" : fillPct.toString(), unit: "%" },
+  ];
+  const hasDetailedBody = courses.length > 1 || (courseData != null && elevationData.length > 0)
+    || waypointRows.length > 0 || Boolean(event.description);
   const canOperate = eventPermissions(user?.uid, event, participantRole && participantRole.uid === user?.uid && participantRole.eventId === eventId ? participantRole.role : null).canEnter;
   return (
-    <>
+    <GlossaryProvider scopeKey={`event-detail:${eventId}`}>
+    <div className="event-controls-surface event-detail-surface">
       {/* Breadcrumb */}
-      <div className="site-shell flex items-center" style={{ padding: "14px 24px 0", gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+      <div className="site-shell event-detail-breadcrumb flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
         <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
         <span style={{ color: "var(--ink-4)" }}>›</span>
         <span className="truncate" style={{ color: "var(--ink-2)" }}>{event.name}</span>
       </div>
 
       {/* 히어로 카드 */}
-      <div data-testid="D4-0" className="site-shell" style={{ padding: "14px 24px 0" }}>
+      <div data-testid="D4-0" className="site-shell event-detail-hero">
         <Card padding="none" style={{ padding: 0, overflow: "hidden" }}>
-          {courseData ? (
+          {courseData && courseData.latlng.length > 1 && (
             <RouteMap
               latlng={courseData.latlng}
               height="h-80"
@@ -611,14 +680,12 @@ export default function EventDetailPage() {
               waypoints={mapWaypoints}
               flyToPosition={flyToPos}
             />
-          ) : (
-            <div className="h-64" style={{ background: "linear-gradient(135deg, var(--bg-3), var(--bg-4))" }} />
           )}
-          <div style={{ padding: "22px 28px" }}>
+          <div className="event-detail-hero-content">
             {/* 칩 행 */}
             <div className="flex flex-wrap" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-2)" }}>
               <Chip style={{ fontSize: "var(--fs-xs)", color: "var(--amber)", display: "inline-flex", alignItems: "center", gap: 'var(--space-1)' }}>
-                <span aria-hidden="true">🏔️</span> {typeLabelKey ? t(typeLabelKey) : event.type}
+                <SportIcon sport="bike" size={16} /> <GlossaryText>{typeLabelKey ? t(typeLabelKey) : event.type}</GlossaryText>
               </Chip>
               <Chip
                 style={{
@@ -630,27 +697,26 @@ export default function EventDetailPage() {
                 {statusMeta.label}
               </Chip>
               {event.region && <Chip style={{ fontSize: "var(--fs-xs)" }}>{event.region}</Chip>}
-              {isGranFondo && <Chip style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>Cat HC</Chip>}
             </div>
 
             {/* 제목 + 메타 + 액션 */}
-            <div className="flex flex-wrap items-end justify-between" style={{ gap: 'var(--space-5)' }}>
+            <div className="event-detail-header">
               <div className="flex-1 min-w-0">
-                <Text as="h1" variant="pageTitle" style={{ marginBottom: "var(--space-1-5)" }}>{event.name}</Text>
+                <Text as="h1" variant="pageTitle" className="event-detail-title" style={{ marginBottom: "var(--space-2)" }}>{event.name}</Text>
                 <div className="flex flex-wrap items-center" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", gap: 'var(--space-4)' }}>
                   <span className="inline-flex items-center" style={{ gap: "var(--space-1)" }}>
-                    <span aria-hidden="true">📅</span>
+                    <CalendarDays size={14} aria-hidden="true" />
                     <span style={{ fontFamily: "var(--font-mono)" }}>{formatDateTime(event.startTime)}</span>
                   </span>
                   {event.creatorName && (
                     <span className="inline-flex items-center" style={{ gap: "var(--space-1)" }}>
-                      <span aria-hidden="true">👥</span> {t("detail.hostedBy", { name: event.creatorName })}
+                      <Users size={14} aria-hidden="true" /> {t("detail.hostedBy", { name: event.creatorName })}
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="flex flex-wrap" style={{ gap: 'var(--space-2)' }}>
+              <div className="event-detail-actions">
                 <Button
                   type="button" variant="secondary" size="sm"
                   onClick={async () => {
@@ -663,10 +729,10 @@ export default function EventDetailPage() {
                     }
                   }}
                 >
-                  🔗 {t("button.share")}
+                  <Link2 size={14} aria-hidden="true" /> {t("button.share")}
                 </Button>
                 <Button type="button" variant="secondary" size="sm" onClick={handleAddToCalendar}>
-                  📅 {t("detail.button.addToCalendar")}
+                  <CalendarDays size={14} aria-hidden="true" /> {t("detail.button.addToCalendar")}
                 </Button>
                 {user && isParticipant == null && <Text variant="unit">{t("detail.registrationStateUnknown")}</Text>}
                 {event.status === "OPEN" && isParticipant === false && isRegistrationTimeOpen(event.startTime, event.closeAt) && (
@@ -680,7 +746,7 @@ export default function EventDetailPage() {
                       showToast(t(next ? "follow.enabled" : "follow.disabled"));
                     } catch (err) { logClientError("EventDetailPage.setEventFollow", err, { eventId }); showToast(t("follow.failed")); }
                     finally { setFollowPending(false); }
-                  }}>🔔 {t(followingEvent ? "follow.unfollow" : "follow.action")}</Button><Button
+                  }}><Bell size={14} aria-hidden="true" /> {t(followingEvent ? "follow.unfollow" : "follow.action")}</Button><Button
                     type="button"
                     onClick={() => navigate(`/event/${eventId}/register`)} variant="primary" size="sm"
                   >
@@ -697,7 +763,7 @@ export default function EventDetailPage() {
                       logClientError("EventDetailPage.shareRegistrationCard", err, { eventId });
                       showToast(t("detail.toast.shareFailed"));
                     }
-                  }}>🖼️ {t("shareCard.registration")}</Button><Button
+                  }}><Image size={14} aria-hidden="true" /> {t("shareCard.registration")}</Button><Button
                     type="button" variant="secondary" size="sm"
                     disabled={withdrawing || !canCancelRegistration}
                     onClick={() => { void handleCancelRegistration(); }}
@@ -711,7 +777,7 @@ export default function EventDetailPage() {
                     type="button"
                     onClick={() => setShowStartConfirm(true)} variant="primary" size="sm"
                   >
-                    ▶ {t("button.start")}
+                    <Play size={14} aria-hidden="true" /> {t("button.start")}
                   </Button>
                 )}
                 {canOperate && (
@@ -719,7 +785,7 @@ export default function EventDetailPage() {
                     type="button"
                     onClick={() => navigate(`/event/${eventId}/host`)} variant="primary" size="sm"
                   >
-                    📊 {t("host.operation")}
+                    <ChartNoAxesCombined size={14} aria-hidden="true" /> {t("host.operation")}
                   </Button>
                 )}
                 {event.status === "FINISHED" && (
@@ -727,37 +793,21 @@ export default function EventDetailPage() {
                     type="button"
                     onClick={() => navigate(`/event/${eventId}/results`)} variant="primary" size="sm"
                   >
-                    🏆 {t("resultsTitle")}
+                    <Trophy size={14} aria-hidden="true" /> {t("resultsTitle")}
                   </Button>
                 )}
               </div>
             </div>
 
-            {/* 핵심 수치 5컬럼 strip */}
-            <div
-              style={{
-                marginTop: 22,
-                display: "grid",
-                gridTemplateColumns: "repeat(5, 1fr)",
-                gap: 1,
-                background: "var(--line-soft)",
-                border: "1px solid var(--line-soft)",
-                borderRadius: "var(--r-md)",
-                overflow: "hidden",
-              }}
-            >
-              {[
-                [t("label.totalDistance"), courseData ? (courseData.distance / 1000).toFixed(1) : "—", "km"],
-                [t("label.totalElevation"), courseData ? Math.round(courseData.elevationGain).toString() : "—", "m"],
-                [t("label.maxElevation"), courseData ? Math.round(courseData.maxElevation).toString() : "—", "m"],
-                [t("participants"), participantCount == null ? "—" : event.maxParticipants ? `${participantCount}/${event.maxParticipants}` : `${participantCount}`, t("detail.unit.person")],
-                [t("label.fillRate"), fillPct != null ? fillPct.toString() : "—", "%"],
-              ].map(([k, v, u]) => (
-                <div key={k} style={{ padding: "14px 16px", background: "var(--bg-1)" }}>
-                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{k}</Text>
-                  <div>
-                    <Text variant="dataMedium">{v}</Text>
-                    {u && <Text variant="unit">{u}</Text>}
+            <div className="event-detail-metrics" data-testid="D4-summary">
+              {metrics.map(metric => (
+                <div key={metric.label} className="event-detail-metric">
+                  <Text as="div" variant="caption" tone="tertiary">
+                    {metric.explanation ? <InfoTip title={metric.label} content={metric.explanation} label={metric.label}>{metric.label}</InfoTip> : metric.label}
+                  </Text>
+                  <div className="event-detail-metric-value">
+                    <Text variant="dataMedium">{metric.value}</Text>
+                    <Text variant="unit">{metric.unit}</Text>
                   </div>
                 </div>
               ))}
@@ -769,15 +819,9 @@ export default function EventDetailPage() {
 
       {/* 본문 */}
       <div
-        data-testid="D4-1" className="site-shell event-detail-body"
-        style={{
-          padding: "20px 24px 40px",
-          display: "grid",
-          gridTemplateColumns: "1fr 320px",
-          gap: 'var(--space-5)',
-        }}
+        data-testid="D4-1" className={`site-shell event-detail-body${hasDetailedBody ? "" : " event-detail-body--compact"}`}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-4)', minWidth: 0 }}>
+        <div className="event-detail-main" style={{ display: "flex", flexDirection: "column", gap: 'var(--space-4)', minWidth: 0 }}>
           {/* 코스 선택 */}
           {courses.length > 1 && (
             <div className="flex flex-wrap" style={{ gap: "var(--space-1-5)" }}>
@@ -785,7 +829,7 @@ export default function EventDetailPage() {
                 const cd = courseDataMap[i];
                 const active = selectedCourseIdx === i;
                 return (
-                  <button
+                  <Button
                     key={i}
                     type="button"
                     onClick={() => { setSelectedCourseIdx(i); setSelectedWpIdx(null); setHoveredWpIdx(null); setFlyToPos(null); }}
@@ -804,14 +848,14 @@ export default function EventDetailPage() {
                       cursor: "pointer",
                     }}
                   >
-                    <span aria-hidden="true">🛣️</span>
+                    <Route size={14} aria-hidden="true" />
                     <span>{c.name}</span>
                     {cd && (
                       <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>
                         {(cd.distance / 1000).toFixed(1)}km · ↑{Math.round(cd.elevationGain)}m
                       </span>
                     )}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -882,7 +926,7 @@ export default function EventDetailPage() {
                                 const ratio = totalDistanceM > 0 ? marker.distanceM / totalDistanceM : 0;
                                 const selected = selectedWpIdx === marker.index;
                                 return (
-                                  <button
+                                  <Button
                                     key={marker.index}
                                     type="button"
                                     className="event-pip"
@@ -907,7 +951,7 @@ export default function EventDetailPage() {
                                     <i aria-hidden="true" style={{ background: LANE_META[lane].color }} />
                                     <span>{marker.name}</span>
                                     <span className="event-pip-km">{(marker.distanceM / 1000).toFixed(1)}</span>
-                                  </button>
+                                  </Button>
                                 );
                               })}
                             </span>
@@ -932,7 +976,7 @@ export default function EventDetailPage() {
               <table style={{ minWidth: 560, width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
                 <thead>
                   <tr style={{ background: "var(--bg-2)" }}>
-                    {["#", t("detail.col.name"), t("detail.col.type"), t("distance"), t("detail.col.elevation")].map((h, i) => (
+                    {["#", t("detail.col.name"), t("detail.col.type"), t("detail.metric.waypointDistance"), t("detail.metric.waypointElevation")].map((h, i) => (
                       <th
                         key={h}
                         style={{
@@ -987,13 +1031,13 @@ export default function EventDetailPage() {
                 {linkedCourses.map((course) => (
                   <div
                     key={course.id}
-                    className="flex items-center justify-between"
+                    className="event-detail-linked-course"
                     style={{ padding: "var(--space-3)", background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md, 6px)" }}
                   >
                     <div>
                       <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{course.name}</div>
                       <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)", fontFamily: "var(--font-mono)" }}>
-                        {(course.distance / 1000).toFixed(1)}km · ↑{Math.round(course.elevationGain)}m
+                        {t("detail.metric.distance")} {(course.distance / 1000).toFixed(1)} km · {t("detail.metric.elevationGain")} {Math.round(course.elevationGain)} m
                       </div>
                     </div>
                     <div className="flex" style={{ gap: 'var(--space-2)' }}>
@@ -1028,7 +1072,7 @@ export default function EventDetailPage() {
         </div>
 
         {/* 사이드바 */}
-        <aside className="event-detail-aside" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", alignSelf: "start", position: "sticky", top: 68 }}>
+        <aside className="event-detail-aside">
           {activeGroupId && (
             <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "color-mix(in oklch, var(--aqua) 30%, var(--line-soft))" }}>
               <Text as="div" variant="eyebrow">{t("group.hostLabel")}</Text>
@@ -1048,7 +1092,7 @@ export default function EventDetailPage() {
                   </Link>
                 )}
                 {groupCalendarUrl(group) && <a href={groupCalendarUrl(group)!}>
-                  <Button type="button" variant="secondary" size="sm">📅 {t("group.subscribeCalendar")}</Button>
+                  <Button type="button" variant="secondary" size="sm"><CalendarDays size={14} aria-hidden="true" /> {t("group.subscribeCalendar")}</Button>
                 </a>}
               </div>
             </Card>
@@ -1095,11 +1139,11 @@ export default function EventDetailPage() {
               <div className="flex justify-between">
                 <span style={{ color: "var(--ink-3)" }}>{t("label.entryFee")}</span>
                 <span style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>
-                  {event.entryFee != null ? `₩ ${event.entryFee.toLocaleString("ko-KR")}` : "—"}
+                  {event.entryFee != null ? `₩ ${event.entryFee.toLocaleString(localeTag())}` : "—"}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span style={{ color: "var(--ink-3)" }}>{t("label.cutoff")}</span>
+                <span style={{ color: "var(--ink-3)" }}><InfoTip title={t("label.cutoff")} content={t("detail.cutoffHelp")} label={t("label.cutoff")}>{t("label.cutoff")}</InfoTip></span>
                 <span style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>
                   {event.cutoffMs ? t("detail.cutoffHours", { count: Math.round(event.cutoffMs / 3_600_000) }) : "—"}
                 </span>
@@ -1115,13 +1159,13 @@ export default function EventDetailPage() {
           <Card padding="none" style={{ padding: "var(--space-4)" }}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("label.recentParticipants")}</h2>
-              <button
+              <Button
                 type="button"
                 onClick={() => navigate(`/event/${eventId}/host/participants`)}
                 style={{ background: "none", border: "none", fontSize: "var(--fs-xs)", color: "var(--ink-3)", cursor: "pointer", padding: 0 }}
               >
                 {t("action.viewAll")}
-              </button>
+              </Button>
             </div>
             {recentParticipantsUnavailable ? (
               <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("detail.participantsUnavailable")}</p>
@@ -1162,7 +1206,7 @@ export default function EventDetailPage() {
               style={{ padding: "var(--space-4)", borderColor: "color-mix(in oklch, var(--amber) 30%, var(--line-soft))" }}
             >
               <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-2)" }}>
-                <span aria-hidden="true">⚙️</span>
+                <Settings size={14} aria-hidden="true" />
                 <Text variant="eyebrow" style={{ color: "var(--amber)" }}>{t("label.hostMenu")}</Text>
               </div>
               <div className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
@@ -1172,7 +1216,7 @@ export default function EventDetailPage() {
                     onClick={() => navigate(`/event/${eventId}/host/edit`)} variant="secondary" size="sm"
                     style={{ justifyContent: "flex-start", width: "100%" }}
                   >
-                    ✏️ {t("action.editEvent")}
+                    <Pencil size={14} aria-hidden="true" /> {t("action.editEvent")}
                   </Button>
                 )}
                 <Button
@@ -1181,14 +1225,14 @@ export default function EventDetailPage() {
                   disabled={sending || linkedCourses.length === 0} variant="secondary" size="sm" className="disabled:opacity-50"
                   style={{ justifyContent: "flex-start", width: "100%" }}
                 >
-                  📤 {t("action.sendCourse")}
+                  <Send size={14} aria-hidden="true" /> {t("action.sendCourse")}
                 </Button>
                 <Button
                   type="button"
                   onClick={() => navigate(`/event/${eventId}/host/participants`)} variant="secondary" size="sm"
                   style={{ justifyContent: "flex-start", width: "100%" }}
                 >
-                  👥 {t("action.manageParticipants")}
+                  <Users size={14} aria-hidden="true" /> {t("action.manageParticipants")}
                 </Button>
                 {event.status === "OPEN" && (
                   <Button
@@ -1197,7 +1241,7 @@ export default function EventDetailPage() {
                     disabled={starting} variant="primary" size="sm" className="disabled:opacity-50"
                     style={{ justifyContent: "flex-start", width: "100%" }}
                   >
-                    {starting ? t("detail.button.starting") : `▶ ${t("button.start")}`}
+                    <Play size={14} aria-hidden="true" /> {starting ? t("detail.button.starting") : t("button.start")}
                   </Button>
                 )}
               </div>
@@ -1205,14 +1249,6 @@ export default function EventDetailPage() {
           )}
         </aside>
       </div>
-
-      {/* 좁은 뷰포트: 사이드바 아래로 stack */}
-      <style>{`
-        @media (max-width: 1024px) {
-          .event-detail-body { grid-template-columns: 1fr !important; }
-          .event-detail-aside { position: static !important; }
-        }
-      `}</style>
 
       {/* 이벤트 시작 확인 모달 */}
       {showStartConfirm && (
@@ -1240,7 +1276,7 @@ export default function EventDetailPage() {
                   color: "var(--lime)",
                 }}
               >
-                ▶
+                <Play size={20} aria-hidden="true" />
               </div>
               <div>
                 <div className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1-5)" }}>
@@ -1260,7 +1296,7 @@ export default function EventDetailPage() {
                 onClick={handleStartEvent}
                 disabled={starting} variant="primary" size="sm" className="disabled:opacity-50"
               >
-                {starting ? t("detail.button.starting") : `▶ ${t("button.start")}`}
+                <Play size={14} aria-hidden="true" /> {starting ? t("detail.button.starting") : t("button.start")}
               </Button>
             </div>
           </Card>
@@ -1293,6 +1329,7 @@ export default function EventDetailPage() {
           {toast}
         </div>
       )}
-    </>
+    </div>
+    </GlossaryProvider>
   );
 }

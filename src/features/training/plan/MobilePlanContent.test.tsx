@@ -120,7 +120,7 @@ describe("MobilePlanContent product hierarchy", () => {
     renderWithProviders(
       <MobilePlanContent currentWeek={{ ...week, days: [{ ...workout, workout: "rest" }, nextDay] }} weekLabel="이번 주" onEditWorkout={edit} />,
     );
-    expect(screen.getByText("이번 주 다음 운동")).toBeInTheDocument();
+    expect(screen.getByText("다음 예정 운동")).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
     expect(edit).toHaveBeenCalledWith(nextDay, "week-04", 1);
   });
@@ -146,7 +146,7 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(summary).toHaveTextContent("시간0h 45m");
     expect(summary).toHaveTextContent("훈련횟수1");
     expect(summary.querySelector(".mobile-plan-sport-load")).toBeNull();
-    expect(screen.getByText("이번 주 다음 운동")).toBeInTheDocument();
+    expect(screen.getByText("다음 예정 운동")).toBeInTheDocument();
   });
 
   it("shows the sport load split when the week includes more than one sport", () => {
@@ -193,6 +193,8 @@ it("uses canonical KST dates for weekdays while preserving the stored edit index
   const friday = { ...workout, date: Date.parse('2026-10-16T00:00:00+09:00'), dayOfWeek: 0 as const };
   const saturday = { ...friday, date: friday.date + 86400000, workout: 'rest' as const };
   renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [friday, saturday] }} weekLabel="W1" selectedDate="2026-10-16" onEditWorkout={edit} />);
+  const pastDays = screen.queryByRole("button", { name: /지난 \d+일 보기/ });
+  if (pastDays) fireEvent.click(pastDays);
   const action = screen.getByRole('button', { name: /^금 16 / });
   fireEvent.click(action);
   expect(edit).toHaveBeenCalledWith(friday, week.id, 0);

@@ -1,10 +1,11 @@
+import "./fitness-analysis-controls.css";
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { createPortal } from "react-dom";
 import { TooltipContent } from "../../../theme/components/TooltipContent";
 import InfoTip from "../../../components/InfoTip";
-import { Select, Stat, Text } from "../../../theme";
+import { DropdownSelect, Stat, Text } from "../../../theme";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { makeDurationLabel, type PowerCurvePoint } from "../fitnessPageUtils";
 
@@ -62,7 +63,7 @@ export default function PowerCurveChart({
   }
 
   return (
-    <div className="space-y-3"><svg viewBox={`0 0 ${w} ${h + 20}`} style={{ width: "100%", height: 220 }}>
+    <div className="fitness-analysis-controls space-y-3"><svg viewBox={`0 0 ${w} ${h + 20}`} style={{ width: "100%", height: 220 }}>
       {[0.25, 0.5, 0.75].map((p) => (
         <line key={p} x1="0" x2={w} y1={h * p} y2={h * p} stroke="var(--grid-soft)" />
       ))}
@@ -109,7 +110,7 @@ export default function PowerCurveChart({
       <span className="flex flex-col gap-2">{rows.map(([label, value]) => <span key={label} className="flex justify-between gap-3"><span>{label}</span><strong style={{ color: "var(--ink-1)", whiteSpace: "nowrap" }}>{value} W</strong></span>)}</span>
     </TooltipContent>, document.body)}
     {selected && <>
-      <label className="flex flex-wrap items-center gap-3" htmlFor={id}><Text variant="bodySmall" tone="secondary">{t("powerCurve.durationSelect")}</Text><Select id={id} value={selected.durationSeconds} onChange={event => setSelectedDuration(Number(event.target.value))}>{current.map(point => <option key={point.durationSeconds} value={point.durationSeconds}>{durationLabel(point.durationSeconds)}</option>)}</Select></label>
+      <label className="flex flex-wrap items-center gap-3" htmlFor={id}><Text variant="bodySmall" tone="secondary">{t("powerCurve.durationSelect")}</Text><DropdownSelect id={id} label={t("powerCurve.durationSelect")} value={String(selected.durationSeconds)} onChange={next => setSelectedDuration(Number(next))} options={current.map((point) => ({ value: String(point.durationSeconds), label: durationLabel(point.durationSeconds) }))} /></label>
       <InfoTip title={durationLabel(selected.durationSeconds)} label={`${durationLabel(selected.durationSeconds)} · ${t("powerCurve.tooltip.current")}`} content={[
         `${t("powerCurve.tooltip.current")}: ${Math.round(selected.maxPower)} W`,
         ...(previousSelected ? [`${t("powerCurve.tooltip.previous")}: ${Math.round(previousSelected.maxPower)} W`] : []),
