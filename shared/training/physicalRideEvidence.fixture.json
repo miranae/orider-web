@@ -1,0 +1,454 @@
+[
+  {
+    "name": "recorded",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000
+        },
+        "tss": 30
+      }
+    ],
+    "winner": "b"
+  },
+  {
+    "name": "zero",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000
+        },
+        "tss": 0
+      }
+    ],
+    "winner": "a"
+  },
+  {
+    "name": "summary",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000,
+          "tss": 30
+        }
+      }
+    ],
+    "winner": "b"
+  },
+  {
+    "name": "unknown",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000
+        }
+      }
+    ],
+    "winner": "a"
+  },
+  {
+    "name": "invalid",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000
+        },
+        "tss": 9999
+      }
+    ],
+    "winner": "a"
+  },
+  {
+    "name": "unbound-derived",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000
+        },
+        "serverDerivedLoad": {
+          "streamTss": 30
+        }
+      }
+    ],
+    "winner": "a"
+  },
+  {
+    "name": "foreign-derived",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000
+        },
+        "serverDerivedLoad": {
+          "schemaVersion": 1,
+          "userId": "other",
+          "inputBinding": "x",
+          "streamTss": 30
+        }
+      }
+    ],
+    "winner": "a"
+  },
+  {
+    "name": "pending-derived",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000
+        },
+        "metricsState": "pending",
+        "serverDerivedLoad": {
+          "schemaVersion": 1,
+          "userId": "rider",
+          "inputBinding": "x",
+          "streamTss": 0
+        }
+      }
+    ],
+    "winner": "a"
+  },
+  {
+    "name": "trimp",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000,
+          "relativeEffort": 100
+        }
+      }
+    ],
+    "winner": "a"
+  },
+  {
+    "name": "samsung-rank",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "samsung_health",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000
+        },
+        "tss": 30
+      }
+    ],
+    "winner": "a"
+  },
+  {
+    "name": "rounded-zero",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000
+        },
+        "tss": 0.1
+      }
+    ],
+    "winner": "b"
+  },
+  {
+    "name": "pending-rounded-derived",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000
+        },
+        "metricsState": "pending",
+        "serverDerivedLoad": {
+          "schemaVersion": 1,
+          "userId": "rider",
+          "inputBinding": "x",
+          "streamTss": 0.1
+        }
+      }
+    ],
+    "winner": "b"
+  },
+  {
+    "name": "samsung-health-equal-rank",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "samsung_health",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "apple_health",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000
+        }
+      }
+    ],
+    "winner": "a"
+  },
+  {
+    "name": "zero-duration-fallback",
+    "rows": [
+      {
+        "id": "a",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 10000,
+          "ridingTimeMillis": 3600000,
+          "movingTimeMillis": 0
+        }
+      },
+      {
+        "id": "b",
+        "userId": "rider",
+        "source": "orider",
+        "type": "Ride",
+        "localSessionId": "ride",
+        "startTime": 1790812800000,
+        "summary": {
+          "distance": 5000,
+          "ridingTimeMillis": 1800000,
+          "movingTimeSec": 4000
+        }
+      }
+    ],
+    "winner": "b"
+  }
+]

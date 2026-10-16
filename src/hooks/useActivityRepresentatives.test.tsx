@@ -171,3 +171,147 @@ it("확실히 제외된 무효 원본은 대표 조회나 구독 예산을 소�
   expect(result.current.error).toBe(false);
   expect(acceptedPhysicalActivities(withActivityRepresentatives([...invalidRows, fragment], result.current.representatives, "rider")).map(row => row.id)).toEqual(["full"]);
 });
+
+
+it("known 편입 후에도 direct 구독을 유지하고 다음 live 결과로 수렴한다", () => {
+  const {result, rerender} = renderHook(({known}) => useActivityRepresentatives([fragment], "rider", known), {initialProps: {known: [fragment]}});
+  emit("full", full);
+  const fresh = {...full, summary: {...full.summary, distance: 20000}};
+  const stop = stops.get("full")!;
+  rerender({known: [fragment, fresh]});
+  expect(result.current.representatives.get("full")?.summary.distance).toBe(100000);
+  expect(stop).not.toHaveBeenCalled();
+  emit("full", fresh);
+  expect(result.current.representatives.get("full")?.summary.distance).toBe(20000);
+  expect(result.current.loading).toBe(false);
+  expect(result.current.error).toBe(false);
+});
+
+it("late stale known 새 객체는 더 최신 live snapshot을 덮지 않는다", () => {
+  const stale = {...full, startTime: monthStart - 100 * 3600000, endTime: monthStart - 99 * 3600000};
+  const {result, rerender} = renderHook(({known}) => useActivityRepresentatives([fragment], "rider", known), {initialProps: {known: [fragment, stale]}});
+  const fresh = {...full, summary: {...full.summary, distance: 20000}};
+  emit("full", fresh);
+  rerender({known: [fragment, stale]});
+  expect(result.current.representatives.get("full")?.summary.distance).toBe(20000);
+  const latest = {...fresh, summary: {...fresh.summary, distance: 30000}};
+  rerender({known: [fragment, {...stale}]});
+  expect(result.current.representatives.get("full")?.summary.distance).toBe(20000);
+  rerender({known: [fragment, latest]});
+  expect(result.current.representatives.get("full")?.summary.distance).toBe(20000);
+  emit("full", latest);
+  expect(result.current.representatives.get("full")?.summary.distance).toBe(30000);
+});
+
+it.each(["deleted", "foreign-owner", "invalid"] as const)("활성 direct %s 결과를 late known이 부활시키지 않는다", kind => {
+  const {result, rerender} = renderHook(({known}) => useActivityRepresentatives([fragment], "rider", known), {initialProps: {known: [fragment]}});
+  emit("full", kind === "deleted" ? null : {...full, ...(kind === "foreign-owner" ? {userId: "other"} : {invalidSummary: true})} as Activity);
+  rerender({known: [fragment, {...full}]});
+  const accepted = acceptedPhysicalActivities(withActivityRepresentatives([fragment], result.current.representatives, "rider"));
+  expect(accepted.map(row => row.id)).toEqual(["fragment"]);
+  expect(result.current.error).toBe(kind === "foreign-owner");
+  expect(stops.get("full")).not.toHaveBeenCalled();
+});
+
+it("활성 direct 권한 실패를 known 편입으로 숨기거나 재구독하지 않는다", () => {
+  const {result, rerender} = renderHook(({known}) => useActivityRepresentatives([fragment], "rider", known), {initialProps: {known: [fragment]}});
+  const reject = vi.mocked(onSnapshot).mock.calls[0][2] as () => void;
+  act(() => reject());
+  rerender({known: [fragment, {...full}]});
+  expect(result.current.error).toBe(true);
+  expect(onSnapshot).toHaveBeenCalledTimes(1);
+  expect(stops.get("full")).not.toHaveBeenCalled();
+});
+
+it("월 이탈한 LRU는 known보다 우선하지 않고 재진입한 새 listener 세대만 권위를 얻는다", () => {
+  const {result, rerender} = renderHook(({rows, known}) => useActivityRepresentatives(rows, "rider", known), {
+    initialProps: {rows: [fragment], known: [fragment]},
+  });
+  emit("full", full);
+  const oldCallback = callbacks.get("full")!;
+  const stop = stops.get("full")!;
+  rerender({rows: [], known: []});
+  expect(stop).toHaveBeenCalledTimes(1);
+  const fresh = {...full, summary: {...full.summary, distance: 20000}};
+  rerender({rows: [fragment], known: [fragment, fresh]});
+  expect(result.current.representatives.get("full")?.summary.distance).toBe(20000);
+  expect(onSnapshot).toHaveBeenCalledTimes(1); // known만으로 연결이 증명되면 신규 조회 없음
+  act(() => oldCallback({exists: () => true, data: () => full} as never));
+  expect(result.current.representatives.get("full")?.summary.distance).toBe(20000);
+  rerender({rows: [fragment], known: [fragment]});
+  expect(onSnapshot).toHaveBeenCalledTimes(2);
+  emit("full", fresh);
+  rerender({rows: [fragment], known: [fragment, {...full}]});
+  expect(result.current.representatives.get("full")?.summary.distance).toBe(20000);
+});
+
+it("활성 group witness는 late known보다 우선하고 해제 뒤에는 known이 우선한다", () => {
+  const farFull = {...full, startTime: monthStart - 60 * 3600000, endTime: monthStart - 58 * 3600000};
+  const bridge = {...fragment, id: "bridge", startTime: monthStart - 59 * 3600000, endTime: fragment.endTime};
+  const {result, rerender} = renderHook(({rows, known}) => useActivityRepresentatives(rows, "rider", known), {
+    initialProps: {rows: [fragment], known: [fragment, farFull, bridge]},
+  });
+  const updatedBridge = {...bridge, invalidSummary: true} as unknown as Activity;
+  act(() => callbacks.get("activities")!({docs: [{id: bridge.id, data: () => updatedBridge}]} as never));
+  rerender({rows: [fragment], known: [fragment, farFull, {...bridge}]});
+  expect(result.current.representatives.get("bridge")).toMatchObject({invalidSummary: true});
+  rerender({rows: [], known: [bridge]});
+  expect(result.current.representatives.get("bridge")).not.toHaveProperty("invalidSummary");
+});
+
+
+it("group witness가 원본 구간을 정정해도 같은 raw 링크 동안 재구독 루프를 만들지 않는다", () => {
+  const farFull = {...full, startTime: monthStart - 60 * 3600000, endTime: monthStart - 58 * 3600000};
+  const {result, rerender} = renderHook(({rows}) => useActivityRepresentatives(rows, "rider", [fragment, farFull]), {
+    initialProps: {rows: [fragment]},
+  });
+  const groupCallback = callbacks.get("activities")!;
+  const stop = stops.get("activities")!;
+  expect(onSnapshot).toHaveBeenCalledTimes(2);
+  const corrected = {...fragment, startTime: farFull.startTime, endTime: farFull.endTime};
+  for (let index = 0; index < 3; index++) {
+    act(() => groupCallback({docs: [{id: corrected.id, data: () => corrected}]} as never));
+    expect(onSnapshot).toHaveBeenCalledTimes(2);
+    expect(stop).not.toHaveBeenCalled();
+    expect(result.current.representatives.get("fragment")?.startTime).toBe(farFull.startTime);
+  }
+  // 권한 경계 위반·그룹 overflow도 재구독으로 우회하지 않는다.
+  act(() => groupCallback({docs: [{id: corrected.id, data: () => ({...corrected, userId: "other"})}]} as never));
+  expect(result.current.error).toBe(true);
+  act(() => groupCallback({docs: Array.from({length: 31}, (_, index) => ({id: `overflow-${index}`, data: () => corrected}))} as never));
+  expect(result.current.error).toBe(true);
+  expect(onSnapshot).toHaveBeenCalledTimes(2);
+  expect(stop).not.toHaveBeenCalled();
+  act(() => groupCallback({docs: []} as never));
+  expect(result.current.error).toBe(false);
+  expect(onSnapshot).toHaveBeenCalledTimes(2);
+  rerender({rows: []});
+  expect(stop).toHaveBeenCalledTimes(1);
+  act(() => groupCallback({docs: [{id: corrected.id, data: () => corrected}]} as never));
+  expect(result.current.representatives.get("fragment")?.startTime).toBe(fragment.startTime);
+  expect(onSnapshot).toHaveBeenCalledTimes(2);
+});
+
+it("활성 group 오류를 known이나 재렌더가 숨기거나 자동 재시도하지 않는다", () => {
+  const farFull = {...full, startTime: monthStart - 60 * 3600000, endTime: monthStart - 58 * 3600000};
+  const {result, rerender} = renderHook(() => useActivityRepresentatives([fragment], "rider", [fragment, farFull]));
+  const reject = vi.mocked(onSnapshot).mock.calls[1][2] as () => void;
+  act(() => reject());
+  for (let index = 0; index < 3; index++) rerender();
+  expect(result.current.error).toBe(true);
+  expect(onSnapshot).toHaveBeenCalledTimes(2);
+});
+
+it("group owner 세대 전환은 이전 witness callback을 격리한다", () => {
+  const farFull = {...full, startTime: monthStart - 60 * 3600000, endTime: monthStart - 58 * 3600000};
+  const {result, rerender} = renderHook(({uid}) => useActivityRepresentatives([fragment], uid, [fragment, farFull]), {
+    initialProps: {uid: "rider"},
+  });
+  const previous = callbacks.get("activities")!;
+  const stop = stops.get("activities")!;
+  rerender({uid: "other"});
+  expect(stop).toHaveBeenCalledTimes(1);
+  act(() => previous({docs: [{id: fragment.id, data: () => fragment}]} as never));
+  expect(result.current.representatives.size).toBe(0);
+  expect(onSnapshot).toHaveBeenCalledTimes(2);
+});
