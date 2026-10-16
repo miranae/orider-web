@@ -92,6 +92,7 @@ const SOURCE_PRIORITY_RANK: Readonly<Record<string, number>> = {
   orider: 1,
   apple_health: 2,
   health_connect: 2,
+  samsung_health: 2,
 };
 
 export function physicalRideSource(row: PhysicalRideActivity): string | null {

@@ -2,7 +2,7 @@ import type { Activity } from "@shared/types";
 import { acceptedActivityLoad, type AcceptedActivityLoad } from "@shared/training/acceptedActivityLoad";
 import { isSaneTss, TIME_FACTORS, type LoadDiscipline } from "@shared/training/activityLoad";
 import { disciplineOfType } from "@shared/sport/discipline";
-import { acceptedTrainingActivities, sumActivityTss } from "./estimateTSS";
+import { acceptedTrainingActivities, sumAcceptedActivityTss } from "./estimateTSS";
 
 export type WeeklyLoadBasis = "power" | "heartRate" | "time" | "unknown" | "excluded";
 export type WeeklyLoadBasisTotals = Record<Exclude<WeeklyLoadBasis, "excluded">, number>;
@@ -70,7 +70,7 @@ export function buildWeeklyLoadEvidence(activities: readonly Activity[], options
   const inPeriod = (activity: Activity) => activity.startTime >= options.periodStartMs && activity.startTime < options.periodEndMs;
   const raw = activities.filter(inPeriod);
   const accepted = (options.acceptedActivities ?? acceptedTrainingActivities(activities)).filter(inPeriod);
-  const load = sumActivityTss(accepted);
+  const load = sumAcceptedActivityTss(accepted);
   const rows: WeeklyLoadEvidenceRow[] = accepted.flatMap(activity => {
     const discipline = disciplineOfType(activity.type);
     if (!discipline) return [];

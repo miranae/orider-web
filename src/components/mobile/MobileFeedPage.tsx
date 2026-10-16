@@ -1,5 +1,6 @@
 import SportIcon from "../common/SportIcon";
 import GlossaryText from "../common/GlossaryText";
+import { acceptedPhysicalActivities } from "../../utils/estimateTSS";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/appStoreLinks";
 import { Fragment, useState, useMemo, type ReactNode } from "react";
 import { SlidersHorizontal } from "lucide-react";
@@ -343,11 +344,12 @@ export default function MobileFeedPage({
 
   // 비로그인 필터 행은 현재 공개 피드 요약을 유지한다. 로그인 주간 요약에는 사용하지 않는다.
   const feedSportBreakdown = useMemo<SportBreakdownItem[]>(() => {
-    const bike = activities.filter(a => getDiscipline(a.type) === "bike");
-    const run = activities.filter(a => getDiscipline(a.type) === "run");
-    const swim = activities.filter(a => getDiscipline(a.type) === "swim");
+    const representatives = acceptedPhysicalActivities(activities);
+    const bike = representatives.filter(a => getDiscipline(a.type) === "bike");
+    const run = representatives.filter(a => getDiscipline(a.type) === "run");
+    const swim = representatives.filter(a => getDiscipline(a.type) === "swim");
     return [
-      { key: "all" as const, label: t("common:label.all"), value: t("feed.countSuffix", { value: activities.length }), unit: "", color: "var(--ink-0)" },
+      { key: "all" as const, label: t("common:label.all"), value: t("feed.countSuffix", { value: representatives.length }), unit: "", color: "var(--ink-0)" },
       { key: "bike" as const, label: t("common:sportFilter.bike"), value: Math.round(bike.reduce((s, a) => s + a.summary.distance / 1000, 0)).toLocaleString(), unit: "km", color: "var(--aqua)" },
       { key: "run" as const, label: t("common:sportFilter.run"), value: Math.round(run.reduce((s, a) => s + a.summary.distance / 1000, 0)).toLocaleString(), unit: "km", color: "var(--amber)" },
       { key: "swim" as const, label: t("common:sportFilter.swim"), value: Math.round(swim.reduce((s, a) => s + a.summary.distance, 0)).toLocaleString(), unit: "m", color: "var(--lime)" },

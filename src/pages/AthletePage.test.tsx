@@ -1,4 +1,5 @@
-import { screen, waitFor } from "@testing-library/react";
+import * as activityAcceptance from "../utils/estimateTSS";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import AthletePage from "./AthletePage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { orderBy } from "firebase/firestore";
@@ -24,6 +25,18 @@ vi.mock("react-router-dom", async (importOriginal) => {
 });
 
 describe("AthletePage", () => {
+  it("검색 입력만 바뀌면 전체 이력 대표를 다시 계산하지 않는다", async () => {
+    const acceptance = vi.spyOn(activityAcceptance, "acceptedPhysicalActivities");
+    setCollectionDocs("activities", [{id: "memo-ride", ...createMockActivity({id: "memo-ride", userId: "athlete-1"})}]);
+    renderWithProviders(<AthletePage />);
+    const input = await screen.findByPlaceholderText("활동 검색... (Enter)");
+    await waitFor(() => expect(screen.getByText("한강 라이더")).toBeInTheDocument());
+    const count = acceptance.mock.calls.length;
+    fireEvent.change(input, {target: {value: "a"}});
+    fireEvent.change(input, {target: {value: "ab"}});
+    expect(acceptance.mock.calls.length).toBe(count);
+    acceptance.mockRestore();
+  });
   beforeEach(() => {
     const profile = createMockProfile({ nickname: "한강 라이더" });
     setDocData("users/athlete-1", { ...profile });
@@ -87,6 +100,7 @@ describe("AthletePage", () => {
       {
         id: "public-1",
         ...createMockActivity({
+          id: "public-1", startTime: Date.UTC(2026, 8, 1, 10), endTime: Date.UTC(2026, 8, 1, 12),
           userId: "athlete-1",
           visibility: "everyone",
           summary: { distance: 10_000, ridingTimeMillis: 1_000_000, elevationGain: 100 },
@@ -95,6 +109,7 @@ describe("AthletePage", () => {
       {
         id: "public-2",
         ...createMockActivity({
+          id: "public-2", startTime: Date.UTC(2026, 8, 2, 10), endTime: Date.UTC(2026, 8, 2, 12),
           userId: "athlete-1",
           visibility: "everyone",
           summary: { distance: 20_000, ridingTimeMillis: 2_000_000, elevationGain: 200 },
@@ -103,6 +118,7 @@ describe("AthletePage", () => {
       {
         id: "public-3",
         ...createMockActivity({
+          id: "public-3", startTime: Date.UTC(2026, 8, 3, 10), endTime: Date.UTC(2026, 8, 3, 12),
           userId: "athlete-1",
           visibility: "everyone",
           summary: { distance: 30_000, ridingTimeMillis: 3_000_000, elevationGain: 300 },
@@ -137,6 +153,7 @@ describe("AthletePage", () => {
       {
         id: "own-1",
         ...createMockActivity({
+          id: "own-1", startTime: Date.UTC(2026, 8, 4, 10), endTime: Date.UTC(2026, 8, 4, 12),
           userId: "athlete-1",
           visibility: "private",
           summary: createMockSummary({
@@ -151,6 +168,7 @@ describe("AthletePage", () => {
       {
         id: "own-2",
         ...createMockActivity({
+          id: "own-2", startTime: Date.UTC(2026, 8, 5, 10), endTime: Date.UTC(2026, 8, 5, 12),
           userId: "athlete-1",
           visibility: "everyone",
           summary: createMockSummary({

@@ -1,5 +1,6 @@
 import type { Activity } from "@shared/types";
-import { TIME_FACTORS, type LoadDiscipline } from "@shared/training/activityLoad";
+import { physicalRideLoadEvidence, physicalRideMovingSeconds } from "@shared/training/physicalRideEvidence";
+import { TIME_FACTORS } from "@shared/training/activityLoad";
 import { acceptedActivityLoad } from "@shared/training/acceptedActivityLoad";
 import { dedupeSamePhysicalRides, type PhysicalRideActivity } from "./samePhysicalRide";
 import { disciplineOfType } from "@shared/sport/discipline";
@@ -83,21 +84,35 @@ export function estimateActivityTss(a: Activity, ftp?: number): ActivityTssEstim
 
 /** 서버와 같은 종목·삭제·실주행 대표 규칙. 원본 활동을 수정하지 않는다. */
 export function acceptedTrainingActivities(activities: readonly Activity[], ftp?: number): Activity[] {
+  return acceptedPhysicalActivities(activities.filter((activity) => disciplineOfType(activity.type)
+    && Number.isFinite(activity.startTime) && activity.startTime > 0
+    && Number.isFinite(new Date(activity.startTime).getTime())), ftp);
+}
+
+/** 거리·시간·횟수도 부하와 같은 대표를 사용한다. 레거시 날짜·비훈련 종목은 보존한다. */
+export function acceptedPhysicalActivities(activities: readonly Activity[], _ftp?: number): Activity[] {
   const positive = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
-  const rows: (PhysicalRideActivity & { activity: Activity; sportFamily: LoadDiscipline })[] = activities.flatMap((activity) => {
+  const rows: (PhysicalRideActivity & { activity: Activity; sportFamily: string })[] = activities.flatMap((activity) => {
     const discipline = disciplineOfType(activity.type);
-    const record = activity as Activity & { deletedAt?: unknown };
-    if (!discipline || record.deletedAt || !Number.isFinite(activity.startTime) || !activity.startTime
-      || !Number.isFinite(new Date(activity.startTime).getTime())) return [];
-    const summary = activity.summary as unknown as Record<string, unknown>;
-    const load = estimateActivityTss(activity, ftp);
-    const millis = positive(summary?.movingTimeMillis) ?? positive(summary?.ridingTimeMillis) ?? positive(summary?.elapsedTimeMillis);
-    return [{ activity, id: activity.id, source: activity.source, discipline, sportFamily: discipline, type: activity.type,
+    const record = activity as Activity & { deletedAt?: unknown; invalidSummary?: unknown };
+    if (record.deletedAt || record.invalidSummary) return [];
+
+    return [{ activity, id: activity.id, source: activity.source, discipline, sportFamily: discipline ?? activity.type, type: activity.type,
       localSessionId: activity.localSessionId, stravaActivityId: positive(activity.stravaActivityId), stravaTwinActivityId: positive(activity.stravaTwinActivityId),
       startTime: activity.startTime, endTime: positive(activity.endTime),
-      movingSec: positive(summary?.movingTimeSec) ?? (millis !== null ? millis / 1000 : null), hasLoad: (load.value ?? 0) > 0 }];
+      movingSec: physicalRideMovingSeconds(activity as unknown as Record<string, unknown>),
+      hasLoad: physicalRideLoadEvidence(activity as unknown as Record<string, unknown>) }];
   });
-  return dedupeSamePhysicalRides(rows).map((row) => row.activity);
+  // 공개 피드에서도 다른 사용자의 같은 시각 운동을 합치지 않는다.
+  const byOwner = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const key = row.activity.userId;
+    const owned = byOwner.get(key) ?? [];
+    owned.push(row);
+    byOwner.set(key, owned);
+  }
+  const representatives = new Set([...byOwner.values()].flatMap((owned) => dedupeSamePhysicalRides(owned).map((row) => row.activity)));
+  return activities.filter((activity) => representatives.has(activity));
 }
 
 /** 값만 필요한 호출자용. 모르면 null — 0 으로 메우지 않는다. */
@@ -107,11 +122,18 @@ export function estimateTSS(a: Activity): number | null {
 
 /** 활동 묶음의 TSS 합계. 아는 값만 더하고, 추정치가 하나라도 섞이면 `estimated` 로 알린다. */
 export function sumActivityTss(activities: readonly Activity[], ftp?: number): ActivityTssEstimate & { unknownCount: number } {
+  return sumAcceptedActivityTss(acceptedTrainingActivities(activities, ftp), ftp);
+}
+
+/** 이미 실주행 대표를 선택한 집계에서 중복 그룹 계산을 반복하지 않는다. */
+export function sumAcceptedActivityTss(activities: readonly Activity[], ftp?: number): ActivityTssEstimate & { unknownCount: number } {
   let total = 0;
   let known = false;
   let estimated = false;
   let unknownCount = 0;
-  for (const a of acceptedTrainingActivities(activities, ftp)) {
+  for (const a of activities) {
+    if (!disciplineOfType(a.type) || !Number.isFinite(a.startTime) || a.startTime <= 0
+      || !Number.isFinite(new Date(a.startTime).getTime())) continue;
     const { value, estimated: isEstimate } = estimateActivityTss(a, ftp);
     if (value == null) { unknownCount += 1; continue; }
     total += value;

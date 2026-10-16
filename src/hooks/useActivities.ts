@@ -22,8 +22,9 @@ import { debugLog, logClientError } from "../services/errorLogger";
 import { getPublicUserProfiles } from "../services/publicProfiles";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
+import { disciplineOfType } from "@shared/sport/discipline";
 import type { WeeklyStat } from "../components/WeeklyChart";
-import { acceptedTrainingActivities } from "../utils/estimateTSS";
+import { acceptedPhysicalActivities } from "../utils/estimateTSS";
 import { buildWeeklyLoadEvidence } from "../utils/weeklyLoadEvidence";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { getDiscipline, type Discipline } from "../utils/disciplineFilter";
@@ -719,7 +720,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
         if (snap.docs.length < 200) {
           // 현재 달은 12주 창 안에 있으므로 상한에 닿지 않은 응답은 월간 거리에도 완전하다.
           // 대시보드의 별도 월간 쿼리를 없애고 같은 문서로 정확히 집계한다.
-          setMonthlyDistanceState({ key: requestStatsKey, distance: loadedActivities.reduce((sum, activity) => (
+          setMonthlyDistanceState({ key: requestStatsKey, distance: acceptedPhysicalActivities(loadedActivities.filter((activity) => activity.userId === uid)).reduce((sum, activity) => (
             activity.userId === uid &&
             activity.startTime >= monthStart &&
             activity.startTime < monthEnd
@@ -731,22 +732,27 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
         }
 
         // 200개 상한에 닿은 고활동 계정은 12주 응답이 잘렸을 수 있다. 이 경우에만 기존
-        // 월간 쿼리를 실행해 월간 목표 진행률의 정확도를 그대로 보존한다.
+        // 월 경계 밖 하루의 후보도 읽어 서버와 같은 실주행 대표를 선택한다.
         const monthlyQuery = query(
           collection(firestore, "activities"),
           where("deletedAt", "==", null),
           where("userId", "==", uid),
-          where("startTime", ">=", monthStart),
-          where("startTime", "<", monthEnd),
+          where("startTime", ">=", monthStart - 86400000),
+          where("startTime", "<", monthEnd + 86400000),
           orderBy("startTime", "desc"),
         );
         const monthlySnap = await getDocs(monthlyQuery);
         if (cancelled) return;
         noteFirestoreServerSuccess(monthlySnap.metadata);
-        setMonthlyDistanceState({ key: requestStatsKey, distance: monthlySnap.docs.reduce((sum, d) => {
-          const activity = { id: d.id, ...d.data() } as Activity;
-          return sum + ((!discipline || discipline === "tri" || getDiscipline(activity.type) === discipline) ? (activity.summary?.distance ?? 0) : 0);
-        }, 0) });
+        // 월 쿼리와 주간 입력을 합쳐 경계 쌍둥이도 같은 대표를 고른 뒤 월로 배분한다.
+        const monthlyInputs = new Map(loadedActivities.map((activity) => [activity.id, activity]));
+        for (const doc of monthlySnap.docs) monthlyInputs.set(doc.id, { ...doc.data(), id: doc.id } as Activity);
+        const representatives = acceptedPhysicalActivities([...monthlyInputs.values()].filter((activity) => activity.userId === uid));
+        setMonthlyDistanceState({ key: requestStatsKey, distance: representatives.reduce((sum, activity) => (
+          activity.startTime >= monthStart && activity.startTime < monthEnd
+            && (!discipline || discipline === "tri" || getDiscipline(activity.type) === discipline)
+            ? sum + (activity.summary?.distance ?? 0) : sum
+        ), 0) });
       } catch (err) {
         if (!cancelled) {
           setCoverage({ key: requestStatsKey, status: "error", recent7DayStatus: "error" });
@@ -763,6 +769,10 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   const emptyThisWeek = { rides: 0, distance: 0, time: 0, elevation: 0 };
   const emptyRecent7DayDistances = { bike: 0, run: 0, swim: 0 };
 
+  const allOwned = useMemo(() => acceptedPhysicalActivities(activities.filter(
+    (activity) => activity.userId === user?.uid,
+  )), [activities, user?.uid]);
+
   if (!user) {
     return {
       weeklyStats: emptyWeeks,
@@ -777,7 +787,8 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   }
 
   // 계정 전환 직후 이전 effect 결과가 잠깐 남아도 새 사용자의 통계로 노출하지 않는다.
-  const allOwned = activities.filter((activity) => activity.userId === user.uid);
+  const rawScopedActivities = activities.filter(activity => activity.userId === user.uid
+    && (!discipline || discipline === "tri" || getDiscipline(activity.type) === discipline));
   const all = allOwned.filter((activity) => !discipline || discipline === "tri" || getDiscipline(activity.type) === discipline);
   const coverageStatus = coverage?.key === statsKey ? coverage.status : "loading";
   const recent7DayCoverage = coverage?.key === statsKey ? coverage.recent7DayStatus : "loading";
@@ -797,7 +808,9 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   };
   const activityElevation = (activity: Activity): number => summaryNumber(activity.summary?.elevationGain);
   const weeks: WeeklyStat[] = [];
-  const physicalLoadActivities = acceptedTrainingActivities(all);
+  const physicalLoadActivities = all.filter(activity => disciplineOfType(activity.type)
+    && Number.isFinite(activity.startTime) && activity.startTime > 0
+    && Number.isFinite(new Date(activity.startTime).getTime()));
   for (let w = 11; w >= 0; w--) {
     const weekStart = new Date(now);
     const daysSinceMonday = (weekStart.getDay() + 6) % 7;
@@ -818,7 +831,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
       elevation: Math.round(weekActivities.reduce((s, a) => s + activityElevation(a), 0)),
       rides: weekActivities.length,
       ...(() => {
-        const loadEvidence = buildWeeklyLoadEvidence(all, { periodStartMs: weekStartMs, periodEndMs: weekEndMs,
+        const loadEvidence = buildWeeklyLoadEvidence(rawScopedActivities, { periodStartMs: weekStartMs, periodEndMs: weekEndMs,
           scope: discipline && discipline !== "tri" ? discipline : "allSupported", coverage: coverageStatus,
           timeZone: discipline === "run" ? "Asia/Seoul" : Intl.DateTimeFormat().resolvedOptions().timeZone,
           acceptedActivities: physicalLoadActivities });

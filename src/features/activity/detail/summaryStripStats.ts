@@ -1,3 +1,4 @@
+import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 /**
  * 활동 상세 요약 스트립의 값 출처 결정 (#885 §2, epic #2237).
  *
@@ -86,8 +87,9 @@ export function resolveSummaryStripStats(
     provisional: false,
   });
 
+  const observedDistanceKm = m ? resolveObservedDistanceKm(m, summary.distance) : null;
   return {
-    distanceM: pick(m ? m.distanceKm * 1000 : null, summary.distance),
+    distanceM: pick(observedDistanceKm == null ? null : observedDistanceKm * 1000, summary.distance),
     avgSpeedKph: pick(m?.avgSpeedKph, avgSpeedFallbackKph ?? summary.averageSpeed),
     maxSpeedKph: pick(m?.maxSpeedKph, summary.maxSpeed),
     elevationGainM: pick(m?.elevationGainM, summary.elevationGain),

@@ -107,6 +107,10 @@ export default function AddPlanSheet({
     label: DAY_NAMES[d.dayOfWeek] ?? DAY_NAMES[i],
   }));
 
+  function showSaveFailure() {
+    void dialog.alert(t('add.addFailedAlert'), { variant: "danger" });
+  }
+
   async function handleSelectTemplate(template: WorkoutTemplate) {
     if (selectedDay < 0 || selectedDay >= days.length) return;
     setLoading(true);
@@ -132,7 +136,7 @@ export default function AddPlanSheet({
       onClose();
     } catch (err) {
       logClientError("AddPlanSheet.handleAdd", err, { goalId, weekId, selectedDay, workout: template.kind });
-      void dialog.alert(t('add.addFailedAlert'), { variant: "danger" });
+      showSaveFailure();
     } finally {
       setLoading(false);
     }
@@ -163,7 +167,7 @@ export default function AddPlanSheet({
       onClose();
     } catch (err) {
       logClientError("AddPlanSheet.handleSetRest", err, { goalId, weekId, selectedDay });
-      void dialog.alert(t('add.addFailedAlert'), { variant: "danger" });
+      showSaveFailure();
     } finally {
       setLoading(false);
     }

@@ -10,9 +10,9 @@ export interface ActivityOverviewPresentation {
   observedEffects?: string[];
   availability?: {
     personal: "available" | "character_uncertain" | "insufficient_history" | "unavailable";
-    records: "evaluated" | "not_applicable" | "private" | "unavailable";
-    power: "available" | "estimated" | "private" | "not_applicable" | "unavailable";
-    heartRate: "available" | "private" | "unavailable";
+    records: "evaluated" | "not_applicable" | "unavailable";
+    power: "available" | "estimated" | "not_applicable" | "unavailable";
+    heartRate: "available" | "unavailable";
   };
   /**
    * 성격 판정이 무엇에 근거했는가. `"none"` 은 **임계값이 없어 판정하지 못했다** 는 뜻이다.

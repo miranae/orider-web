@@ -40,6 +40,8 @@ function main() {
   const errors = [];
   // BE/WEB는 같은 accepted-load와 modern PMC 증거 순수 계약을 사용한다.
   for (const [file, expected] of [
+    ['training/physicalRideEvidence.fixture.json', '9af4d9021447b1049b37f82dec9edc51216f07437b1f6830a15c1b179afaf93f'],
+    ['training/physicalRideEvidence.ts', '49172ee603a27165a777b07d519cf83ab7419a96fc5e55911d3a2ff0d2f353f3'],
     ['training/activityLoad.ts', '823c105bfb1d78bade3866ee97b006645ddf26343ec3167af76e9cedf60410cf'],
     ['training/planMetrics.ts', '954ff82007acf63420fd345512502a3fea3bae1af5818ffb8a6d00909a2f9ac6'],
   ['training/acceptedActivityLoad.ts', '52884035063f4d14059da8b3318ec1ab77d5cecd5f5f36c1ca7e1c1acf235fde'],
@@ -106,7 +108,7 @@ function main() {
 
   // overview wire 의미도 미러가 보존해야 한다 — 표시값만 맞아도 추정/잠정이 빠지면 계약 드리프트다.
   const overview = readFileSync(new URL('../shared/types/activity-overview.ts', import.meta.url), 'utf8');
-  if (createHash('sha256').update(overview).digest('hex') !== '9a5cbafdf9e50536a709bea05402b4ffc40666d66926f35ab4e75b36361a6965') errors.push('overview 전체 계약 mirror가 backend 합의본과 다르다');
+  if (createHash('sha256').update(overview).digest('hex') !== 'fc563439f5f6065ec6f5990090c64be7296a6add76970d56e6cf0e1b5f1dad1c') errors.push('overview 전체 계약 mirror가 backend 합의본과 다르다');
   if (!/power:\s*[^;]*"estimated"/.test(overview)) errors.push('overview power estimated 의미가 없다');
   if (!/ftpVerificationRequired\?:\s*boolean/.test(overview)) errors.push('overview FTP 확인 필요 의미가 없다');
 
