@@ -1,18 +1,36 @@
-import { screen } from "@testing-library/react";
+import { getDoc } from "firebase/firestore";
+import { fireEvent, screen } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { setCollectionDocs, setDocData } from "../../__tests__/mocks/firebase";
 import GroupEventsPage from "./GroupEventsPage";
+const roleState=vi.hoisted(()=>({error:null as Error|null,retry:vi.fn()}));
 vi.mock("../../hooks/useGroup", () => ({
   useGroup: () => ({ group: { id: "club", name: "Club", creatorId: "owner", memberCount: 2 }, loading: false }),
-  useGroupMemberRole: () => ({ role: "member", loading: false }),
+  useGroupMemberRole: () => ({ role: roleState.error ? null : "member", loading: false, error:roleState.error,retry:roleState.retry }),
 }));
 function showPage() {
   renderWithProviders(<Routes><Route path="/:lang/club/:groupId/events" element={<GroupEventsPage />} /></Routes>, { route: "/ko/club/club/events", authenticated: true });
 }
 describe("club event registration actions", () => {
-  beforeEach(() => { setCollectionDocs("events", [{ id: "event-1", info: { name: "Club event", groupId: "club", status: "OPEN", startTime: Date.now() + 86400000 } }]); });
+  beforeEach(() => { roleState.error=null;roleState.retry.mockClear();setCollectionDocs("events", [{ id: "event-1", info: { name: "Club event", groupId: "club", status: "OPEN", startTime: Date.now() + 86400000 } }]); });
+  it("shows membership lookup failure and retries it instead of redirecting as a nonmember",()=>{
+    roleState.error=new Error("membership unavailable");showPage();
+    expect(screen.getByText("클럽 정보를 불러오지 못했습니다.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:/다시/}));expect(roleState.retry).toHaveBeenCalledTimes(1);
+  });
+  it("keeps the event visible when optional registration lookup fails without offering registration",async()=>{
+    vi.mocked(getDoc).mockRejectedValueOnce(new Error("participant offline"));showPage();
+    expect(await screen.findByRole("link",{name:"Club event"})).toBeInTheDocument();
+    expect(await screen.findByRole("link",{name:"이벤트 보기"})).toHaveAttribute("href","/ko/event/event-1");
+    expect(screen.queryByRole("link",{name:"참가 신청"})).not.toBeInTheDocument();
+  });
+  it("names the empty state for the selected finished filter",async()=>{
+    setCollectionDocs("events",[]);showPage();fireEvent.click(screen.getByRole("button",{name:"종료"}));
+    expect(await screen.findByText("종료된 이벤트가 없어요")).toBeInTheDocument();
+    expect(screen.queryByText("예정된 이벤트가 없어요")).not.toBeInTheDocument();
+  });
   it.each(["REGISTERED", "PAID", "CHECKED_IN", "RIDING"])("offers management for canonical active status %s", async status => {
     setDocData("events/event-1/participants/test-uid", { status });
     showPage();

@@ -6,7 +6,7 @@ import { eventTypeLabelKey } from "./EventDetailPage";
 
 describe("event detail type labels", () => {
   it.each([
-    ["GRANFONDO", "그란폰도", "Granfondo"],
+    ["GRANFONDO", "그란폰도", "Gran Fondo"],
     ["TOUR", "투어", "Tour"],
     ["TT", "타임트라이얼", "Time Trial"],
     ["TRAINING", "훈련", "Training"],

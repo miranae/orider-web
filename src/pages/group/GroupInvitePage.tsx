@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { EmptyState } from "../../components/redesign";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
@@ -34,8 +35,8 @@ export default function GroupInvitePage() {
   const [processed, setProcessed] = useState(false);
 
   const uid = user?.uid;
+  const inviteCode = normalizeGroupInviteCode(code);
   useEffect(() => {
-    const inviteCode = code ? normalizeGroupInviteCode(code) : "";
     if (!uid || !inviteCode || processed) return;
     let cancelled = false;
     const current = () => !cancelled && auth.currentUser?.uid === uid;
@@ -66,10 +67,21 @@ export default function GroupInvitePage() {
       })
       .finally(() => { if (current()) setProcessing(false); });
     return () => { cancelled = true; };
-  }, [code, navigate, processed, showToast, t, uid]);
+  }, [inviteCode, navigate, processed, showToast, t, uid]);
 
   if (authLoading) {
     return <InviteSpinner label={t("inviteLink.loading")} />;
+  }
+
+  if (!inviteCode) {
+    return (
+      <div className="max-w-xl mx-auto py-16">
+        <EmptyState
+          title={t("error.invalidInviteCode")}
+          actions={[{ label: t("subNav.groupList"), href: "/clubs", variant: "primary" }]}
+        />
+      </div>
+    );
   }
 
   if (user && processing) {

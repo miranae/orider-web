@@ -33,25 +33,25 @@ describe("normal group leave App Check readiness", () => {
   it("waits, keeps duplicate taps disabled, then invokes the exact group once", async () => {
     let ready!: () => void;
     vi.mocked(ensureAppCheckReady).mockReturnValue(new Promise<void>((resolve) => { ready = resolve; }));
-    renderPage(); fireEvent.click(screen.getByRole("button", { name: "그룹 탈퇴" }));
+    renderPage(); fireEvent.click(screen.getByRole("button", { name: "클럽 탈퇴" }));
     expect(httpsCallable).not.toHaveBeenCalled();
-    await waitFor(() => expect(screen.getByRole("button", { name: "그룹 탈퇴" })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "클럽 탈퇴" })).toBeDisabled());
     await act(async () => ready());
     expect(mockCallableInvocations).toEqual([{ name: "leaveGroup", data: { groupId: "group-1" } }]);
-    expect(state.showToast).toHaveBeenCalledWith("그룹에서 탈퇴했습니다.");
+    expect(state.showToast).toHaveBeenCalledWith("클럽에서 탈퇴했습니다.");
     expect(state.navigate).toHaveBeenCalledWith("/clubs");
   });
   it("fails closed on readiness rejection with localized failure", async () => {
     vi.mocked(ensureAppCheckReady).mockRejectedValue(new Error("app-check/token-timeout"));
-    renderPage(); fireEvent.click(screen.getByRole("button", { name: "그룹 탈퇴" }));
+    renderPage(); fireEvent.click(screen.getByRole("button", { name: "클럽 탈퇴" }));
     await waitFor(() => expect(state.showToast).toHaveBeenCalledWith("탈퇴에 실패했습니다.", "error"));
     expect(httpsCallable).not.toHaveBeenCalled(); expect(state.navigate).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "그룹 탈퇴" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "클럽 탈퇴" })).toBeEnabled();
   });
   it.each(["live-auth", "account-context", "route-change", "unmount"])("cancels a pending leave after %s", async (change) => {
     let ready!: () => void;
     vi.mocked(ensureAppCheckReady).mockReturnValue(new Promise<void>((resolve) => { ready = resolve; }));
-    const view = renderPage(); fireEvent.click(screen.getByRole("button", { name: "그룹 탈퇴" }));
+    const view = renderPage(); fireEvent.click(screen.getByRole("button", { name: "클럽 탈퇴" }));
     if (change === "live-auth") Object.assign(auth, { currentUser: { uid: "other" } });
     if (change === "account-context") { state.uid = "other"; view.rerender(<Page />); }
     if (change === "route-change") fireEvent.click(screen.getByRole("link", { name: "Another group" }));
@@ -62,7 +62,7 @@ describe("normal group leave App Check readiness", () => {
   it("does not navigate or notify a new account after a dispatched leave resolves", async () => {
     let done!: () => void;
     setCallableImplementation("leaveGroup", () => new Promise<void>((resolve) => { done = resolve; }));
-    const view = renderPage(); fireEvent.click(screen.getByRole("button", { name: "그룹 탈퇴" }));
+    const view = renderPage(); fireEvent.click(screen.getByRole("button", { name: "클럽 탈퇴" }));
     await waitFor(() => expect(mockCallableInvocations).toHaveLength(1));
     state.uid = "other"; Object.assign(auth, { currentUser: { uid: "other" } }); view.rerender(<Page />);
     await act(async () => done());

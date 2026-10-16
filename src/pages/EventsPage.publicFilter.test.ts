@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayEventStatus, eventAvailability, isPublicEventInfo, matchesDatePreset } from "./EventsPage";
+import { displayEventStatus, eventAvailability, registeredEventCount, isPublicEventInfo, matchesDatePreset } from "./EventsPage";
 
 describe("displayEventStatus", () => {
   it("labels an open event with a past start date without changing the persisted status", () => {
@@ -66,5 +66,13 @@ describe("matchesDatePreset", () => {
     expect(matchesDatePreset(new Date(2026, 6, 1, 9, 0).getTime(), "MONTH", now)).toBe(true);
     expect(matchesDatePreset(new Date(2026, 6, 31, 23, 59).getTime(), "MONTH", now)).toBe(true);
     expect(matchesDatePreset(new Date(2026, 7, 1, 0, 0).getTime(), "MONTH", now)).toBe(false);
+  });
+});
+
+describe("event registration counter display", () => {
+  it("retains a real zero without inventing a zero for unavailable counters", () => {
+    expect(registeredEventCount(0)).toBe(0);
+    expect(registeredEventCount(1)).toBe(1);
+    for (const missing of [undefined, null, -1, 1.5, "1", NaN]) expect(registeredEventCount(missing)).toBeUndefined();
   });
 });

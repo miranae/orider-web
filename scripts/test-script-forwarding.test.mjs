@@ -21,6 +21,7 @@ const contracts = [
   'scripts/check-dco.test.mjs',
   'scripts/merge-pr-review-range.test.mjs',
   'scripts/script-tests-wired.test.mjs',
+  'scripts/quality-alert-count.test.mjs',
   'scripts/check-canonical-contract.mjs',
   'scripts/test-script-forwarding.test.mjs',
 ];

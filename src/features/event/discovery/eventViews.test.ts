@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { encodePolyline } from "../../../utils/polyline";
 import { buildMonthCells, firstPolylinePoint } from "./eventViews";
 
 describe("event discovery views", () => {
@@ -13,5 +14,12 @@ describe("event discovery views", () => {
     expect(firstPolylinePoint("route", () => [[37.5, 127]])).toEqual([37.5, 127]);
     expect(firstPolylinePoint(undefined, () => [])).toBeNull();
     expect(firstPolylinePoint("bad", () => [[Number.NaN, 127]])).toBeNull();
+    expect(firstPolylinePoint("bad", () => [[91, 127]])).toBeNull();
+    expect(firstPolylinePoint("bad", () => [[37, 181]])).toBeNull();
   });
+  it("reads both supported course formats so route markers remain at their real location", () => {
+    expect(firstPolylinePoint("37.5,127;37.6,127.1")).toEqual([37.5, 127]);
+    expect(firstPolylinePoint(encodePolyline([[37.5, 127], [37.6, 127.1]]))).toEqual([37.5, 127]);
+  });
+
 });

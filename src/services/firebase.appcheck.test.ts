@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   qaRequested: false,
@@ -60,8 +60,16 @@ async function loadFirebase() {
 }
 
 describe("ensureAppCheckReady", () => {
+  afterEach(() => {
+    delete (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: unknown }).FIREBASE_APPCHECK_DEBUG_TOKEN;
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
   beforeEach(() => {
     vi.resetModules();
+    vi.stubEnv("DEV", true);
+    vi.stubEnv("VITE_APPCHECK_DEBUG_TOKEN", undefined);
+    vi.stubGlobal("location", { hostname: "127.0.0.1" });
     mocks.qaRequested = false;
     mocks.emulatorRuntime = false;
     mocks.qaValidate.mockReset().mockResolvedValue(undefined);
@@ -76,6 +84,44 @@ describe("ensureAppCheckReady", () => {
       firebaseAppId: "test-app",
       appCheckRecaptchaSiteKey: "site-key",
     };
+  });
+
+  it("uses an explicitly registered debug credential only for Vite loopback development", async () => {
+    const credential = "11111111-2222-4333-8444-555555555555";
+    vi.stubEnv("VITE_APPCHECK_DEBUG_TOKEN", credential);
+    mocks.getToken.mockResolvedValue({ token: "attested" });
+    const firebase = await loadFirebase();
+    await firebase.ensureAppCheckReady();
+    expect((self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: unknown }).FIREBASE_APPCHECK_DEBUG_TOKEN).toBe(credential);
+    expect(mocks.initializeAppCheck).toHaveBeenCalledOnce();
+    expect(mocks.getToken).toHaveBeenCalledOnce();
+  });
+
+  it.each(["true", "false", " ", "unregistered-placeholder", "11111111-2222-1333-8444-555555555555"])("rejects invalid local debug configuration %s without automatic generation", async value => {
+    vi.stubEnv("VITE_APPCHECK_DEBUG_TOKEN", value);
+    const firebase = await loadFirebase();
+    await expect(firebase.ensureAppCheckReady()).rejects.toThrow("app-check/invalid-local-debug-token");
+    expect(mocks.initializeAppCheck).not.toHaveBeenCalled();
+    expect((self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: unknown }).FIREBASE_APPCHECK_DEBUG_TOKEN).toBeUndefined();
+  });
+
+  it.each(["production-build", "remote-origin", "stage-runtime", "qa-grant"])("does not activate local debug attestation for %s", async mode => {
+    vi.stubEnv("VITE_APPCHECK_DEBUG_TOKEN", "11111111-2222-4333-8444-555555555555");
+    if (mode === "production-build") vi.stubEnv("DEV", false);
+    if (mode === "remote-origin") vi.stubGlobal("location", { hostname: "127.0.0.1.example.com" });
+    if (mode === "stage-runtime") mocks.runtimeConfig.appEnvironment = "stage";
+    if (mode === "qa-grant") mocks.qaRequested = true;
+    // Stage identity guard is exercised by separate tests. Here only readiness runs.
+    const firebase = await import("./firebase");
+    if (mode === "stage-runtime") {
+      mocks.runtimeConfig.appEnvironment = undefined;
+      await firebase.initFirebase();
+      mocks.runtimeConfig.appEnvironment = "stage";
+    } else await firebase.initFirebase();
+    mocks.getToken.mockResolvedValue({ token: "attested" });
+    await firebase.ensureAppCheckReady();
+    expect((self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: unknown }).FIREBASE_APPCHECK_DEBUG_TOKEN).toBeUndefined();
+    if (mode === "qa-grant") expect(mocks.initializeAppCheck).toHaveBeenCalledWith(expect.anything(), { provider: mocks.qaProvider, isTokenAutoRefreshEnabled: false });
   });
 
   it("routes Storage to the local emulator with the other Firebase services", async () => {

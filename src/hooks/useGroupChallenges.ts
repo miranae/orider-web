@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { collection, doc, getDoc, limit, onSnapshot, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import type { Group } from "@shared/types";
@@ -122,14 +122,21 @@ export function useManagedGroups(userId: string | undefined, groups: Group[]) {
 export function useGroupChallenges() {
   const [challenges, setChallenges] = useState<GroupChallenge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt(value => value + 1), []);
 
   useEffect(() => {
     let epoch = 0;
-    return onSnapshot(
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+    const unsubscribe = onSnapshot(
       query(collection(firestore, "group_challenges"), where("status", "==", "OPEN"), limit(20)),
       (snapshot) => {
         const currentEpoch = ++epoch;
         setLoading(true);
+        setError(false);
         const currentMonth = currentKstMonthKey();
         const currentDocs = snapshot.docs.filter((challengeDoc) => challengeDoc.data().monthKey === currentMonth);
         void Promise.all(currentDocs.map(async (challengeDoc) => {
@@ -145,25 +152,28 @@ export function useGroupChallenges() {
             computedAt: standings.computedAt,
           };
         })).then((items) => {
-          if (epoch === currentEpoch) {
+          if (!cancelled && epoch === currentEpoch) {
             setChallenges(items.sort((a, b) => a.name.localeCompare(b.name)).slice(0, 5));
             setLoading(false);
           }
         }).catch((err) => {
-          if (epoch === currentEpoch) {
-            setChallenges([]);
+          if (!cancelled && epoch === currentEpoch) {
+            setError(true);
             setLoading(false);
           }
           logClientError("useGroupChallenges.standings", err, {});
         });
       },
       (err) => {
-        setChallenges([]);
+        if (cancelled) return;
+        epoch += 1;
+        setError(true);
         setLoading(false);
         logClientError("useGroupChallenges.snapshot", err, {});
       },
     );
-  }, []);
+    return () => { cancelled = true; epoch += 1; unsubscribe(); };
+  }, [attempt]);
 
-  return { challenges, loading };
+  return { challenges, loading, error, retry };
 }

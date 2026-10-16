@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getCurrentUser, mockWriteBatch, simulateLogin } from "../../__tests__/mocks/firebase";
 import { getGroupInviteCode } from "../../features/group/groupInviteAdmin";
@@ -12,6 +12,31 @@ vi.mock("../../features/group/groupInviteAdmin", () => ({ getGroupInviteCode: vi
 
 beforeEach(() => { vi.clearAllMocks(); simulateLogin({ uid: "creator" }); });
 describe("canonical invite creation stages", () => {
+  it("reviews the entered club and access choices before creation without a fake invite step", () => {
+    render(<CreateGroupModal open onClose={vi.fn()} onCreated={vi.fn()} />);
+    expect(screen.getByRole("dialog", { name: groupStrings["create.modalTitle"] })).toHaveAttribute("aria-modal", "true");
+    fireEvent.change(screen.getByPlaceholderText(groupStrings["create.namePlaceholder"]), { target: { value: "Han River Riders" } });
+    fireEvent.click(screen.getByRole("button", { name: groupStrings["create.next"] }));
+    fireEvent.click(screen.getByRole("radio", { name: `${groupStrings["create.visibility.public"]} ${groupStrings["create.visibility.public.desc"]}` }));
+    fireEvent.click(screen.getByRole("radio", { name: groupStrings["create.approval.manual"] }));
+    fireEvent.click(screen.getByRole("button", { name: groupStrings["create.next"] }));
+    expect(screen.getByRole("heading", { name: groupStrings["create.reviewHeading"] })).toBeInTheDocument();
+    expect(screen.getByText("Han River Riders")).toBeInTheDocument();
+    expect(screen.getByText(groupStrings["create.visibility.public"])).toBeInTheDocument();
+    expect(screen.getByText(groupStrings["create.approval.manual"])).toBeInTheDocument();
+    expect(screen.getByText(groupStrings["create.inviteAfterCreation"])).toBeInTheDocument();
+    expect(screen.queryByText(groupStrings["create.inviteHelp"])).not.toBeInTheDocument();
+    expect(getGroupInviteCode).not.toHaveBeenCalled();
+  });
+
+  it("supports keyboard selection for the club-kind radio group",()=>{
+    render(<CreateGroupModal open onClose={vi.fn()} onCreated={vi.fn()}/>);
+    const group=screen.getByRole("radiogroup",{name:groupStrings["create.kindLabel"]});
+    const radios=within(group).getAllByRole("radio");radios[0]!.focus();fireEvent.keyDown(radios[0]!,{key:"ArrowRight"});
+    expect(radios[1]).toHaveFocus();expect(radios[1]).toHaveAttribute("aria-checked","true");expect(radios[0]).toHaveAttribute("tabindex","-1");
+    fireEvent.keyDown(radios[1]!,{key:"End"});expect(radios[3]).toHaveAttribute("aria-checked","true");
+  });
+
   it("releases creation busy state without navigating an old account after issuance settles", async () => {
     const set = vi.fn();
     const commit = vi.fn().mockResolvedValue(undefined);

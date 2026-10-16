@@ -62,6 +62,41 @@ describe("useGroupMembers", () => {
   });
 });
 
+describe("member directory failures",()=>{
+  it("retains a successful roster on failure and recovers through its explicit retry",async()=>{
+    let rejectSnapshot!:(reason:Error)=>void;
+    vi.mocked(getPublicUserProfile).mockResolvedValue(profile("member"));
+    vi.mocked(onSnapshot).mockImplementationOnce((...args)=>{
+      const onNext=typeof args[1]==="function"?args[1]:args[2];
+      const onError=typeof args[1]==="function"?args[2]:args[3];
+      rejectSnapshot=onError as (reason:Error)=>void;
+      if(typeof onNext==="function") onNext({docs:[{id:"member",data:()=>({role:"member"})}],metadata:{fromCache:false}} as never);
+      return ()=>{};
+    });
+    const {result}=renderHook(()=>useGroupMembers("failure-club"));
+    await waitFor(()=>expect(result.current.members[0]?.id).toBe("member"));
+    const failure=new Error("offline");act(()=>rejectSnapshot(failure));
+    expect(result.current.error).toBe(failure);expect(result.current.members[0]?.id).toBe("member");
+    setCollectionDocs("groups/failure-club/members",[{id:"recovered",role:"member"}]);
+    act(()=>result.current.retry());
+    await waitFor(()=>expect(result.current.members[0]?.id).toBe("recovered"));expect(result.current.error).toBeNull();
+  });
+  it("marks a cache-only empty roster as unconfirmed rather than a successful empty list",async()=>{
+    vi.mocked(onSnapshot).mockImplementationOnce((...args)=>{
+      const onNext=typeof args[1]==="function"?args[1]:args[2];
+      if(typeof onNext==="function")onNext({docs:[],metadata:{fromCache:true}} as never);return()=>{};
+    });
+    const {result}=renderHook(()=>useGroupMembers("uncached-club"));
+    await waitFor(()=>expect(result.current.loading).toBe(false));expect(result.current.error).toBeInstanceOf(Error);
+  });
+  it("still shows the roster when one optional public profile fails",async()=>{
+    vi.mocked(getPublicUserProfile).mockRejectedValueOnce(new Error("profile offline"));
+    setCollectionDocs("groups/profile-failure/members",[{id:"present",role:"member"}]);
+    const {result}=renderHook(()=>useGroupMembers("profile-failure"));
+    await waitFor(()=>expect(result.current.loading).toBe(false));expect(result.current.members[0]?.id).toBe("present");expect(result.current.members[0]?.profile).toBeNull();
+  });
+});
+
 describe("useGroup", () => {
   it("treats soft-deleted groups as unavailable", async () => {
     setDocData("groups/group-deleted", {
@@ -105,6 +140,51 @@ describe("useGroupMemberRole", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.role).toBe("co-leader");
   });
+
+  it.each(["active", "approved"])("defaults only nullish roles on %s memberships to member", async status => {
+    setDocData("groups/legacy/members/member", { status });
+    const { result } = renderHook(() => useGroupMemberRole("legacy", "member"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.role).toBe("member");
+    act(() => setDocData("groups/legacy/members/member", { status, role: null }));
+    expect(result.current.role).toBe("member");
+  });
+
+  it.each([
+    { status: "active", role: "unknown" },
+    { status: "approved", role: "" },
+    { status: "pending" },
+    { status: "removed", role: "leader" },
+    { role: "leader" },
+  ])("fails closed for an invalid or inactive membership %j", async membership => {
+    setDocData("groups/invalid/members/member", membership);
+    const { result } = renderHook(() => useGroupMemberRole("invalid", "member"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.role).toBeNull();
+  });
+
+  it("does not infer a creator role from a missing member document", async () => {
+    setDocData("groups/creator", { creatorId: "creator" });
+    const { result } = renderHook(() => useGroupMemberRole("creator", "creator"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.role).toBeNull();
+  });
+
+  it("clears an existing role when the membership subscription fails", async () => {
+    let reject!: (error: Error) => void;
+    vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
+      reject = args[3] as (error: Error) => void;
+      const next = args[2] as (snap: unknown) => void;
+      next({ exists: () => true, data: () => ({ status: "active", role: "leader" }) });
+      return () => {};
+    });
+    const { result } = renderHook(() => useGroupMemberRole("failed", "leader"));
+    expect(result.current.role).toBe("leader");
+    act(() => reject(new Error("permission-denied")));
+    expect(result.current.role).toBeNull();
+    expect(result.current.loading).toBe(false);
+  });
+
 });
 
 describe("group list hooks", () => {
@@ -298,6 +378,65 @@ describe("group list hooks", () => {
     expect(result.current.error).toBe(err);
   });
 
+  it("does not confirm an empty membership list from an offline cache", async () => {
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never)
+      .mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never);
+    const { result } = renderHook(() => useMyGroups("offline-user"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.groups).toEqual([]);
+    expect(result.current.error).toBeInstanceOf(Error);
+    expect(getDocs).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves known memberships on an empty cached retry and clears them for a different user", async () => {
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [], metadata: { fromCache: false } } as never)
+      .mockResolvedValueOnce({ docs: [{ id: "known", data: () => ({ name: "Known club" }) }], metadata: { fromCache: false } } as never);
+    const { result, rerender } = renderHook(({ uid }) => useMyGroups(uid), { initialProps: { uid: "known-user" } });
+    await waitFor(() => expect(result.current.groups[0]?.id).toBe("known"));
+    for (let i = 0; i < 4; i++) vi.mocked(getDocs).mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never);
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+    expect(result.current.groups[0]?.id).toBe("known");
+    rerender({ uid: "another-user" });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.groups).toEqual([]);
+    expect(result.current.error).toBeInstanceOf(Error);
+  });
+
+  it("keeps cached club rows usable while reporting their unconfirmed server state", async () => {
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never)
+      .mockResolvedValueOnce({ docs: [{ id: "cached", data: () => ({ name: "Cached club" }) }], metadata: { fromCache: true } } as never);
+    const { result } = renderHook(() => useMyGroups("cached-user"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.groups[0]?.id).toBe("cached");
+    expect(result.current.error).toBeInstanceOf(Error);
+  });
+
+  it("distinguishes cached-empty public results from a server-confirmed empty directory", async () => {
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never)
+      .mockResolvedValueOnce({ docs: [], metadata: { fromCache: false } } as never);
+    const { result } = renderHook(() => usePublicGroups());
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.error).toBeNull());
+    expect(result.current.groups).toEqual([]);
+    expect(getDocs).toHaveBeenCalledTimes(2);
+  });
+
+  it("retains known public results on an offline retry but clears them when filters change", async () => {
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [{ id: "public", data: () => ({ name: "Public club" }) }], metadata: { fromCache: false } } as never);
+    const { result, rerender } = renderHook(({ city }) => usePublicGroups({ city }), { initialProps: { city: "Seoul" } });
+    await waitFor(() => expect(result.current.groups[0]?.id).toBe("public"));
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never)
+      .mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never);
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+    expect(result.current.groups[0]?.id).toBe("public");
+    rerender({ city: "Busan" });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.groups).toEqual([]);
+  });
+
   it("does not query public groups while disabled for an unauthenticated page", () => {
     const { result } = renderHook(() => usePublicGroups({ enabled: false }));
 
@@ -338,7 +477,7 @@ describe("membership access changes", () => {
   it("resubscribes a denied group document when membership is approved", async () => {
     setDocData("groups/approval", { name: "Approved group", isActive: true });
     vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
-      const onError = args[2];
+      const onError = typeof args[1] === "function" ? args[2] : args[3];
       if (typeof onError === "function") onError(Object.assign(new Error("denied"), { code: "permission-denied" }));
       return () => {};
     });
@@ -353,7 +492,7 @@ describe("membership access changes", () => {
     vi.mocked(getPublicUserProfile).mockResolvedValue(profile("approved"));
     setCollectionDocs("groups/approval/members", [{ id: "approved", role: "member" }]);
     vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
-      const onError = args[2];
+      const onError = typeof args[1] === "function" ? args[2] : args[3];
       if (typeof onError === "function") onError(new Error("denied"));
       return () => {};
     });
@@ -362,5 +501,64 @@ describe("membership access changes", () => {
     expect(result.current.members).toEqual([]);
     rerender({ accessKey: "user:member" });
     await waitFor(() => expect(result.current.members.map(member => member.id)).toEqual(["approved"]));
+  });
+});
+
+describe("cached absence is not confirmed nonmembership", () => {
+  it("reports a cached missing club as unconfirmed, then accepts a server-confirmed absence", () => {
+    let next!: (snapshot: unknown) => void;
+    vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
+      next = args[2] as typeof next;
+      next({ exists: () => false, metadata: { fromCache: true } });
+      return () => {};
+    });
+    const { result } = renderHook(() => useGroup("cached-missing"));
+    expect(result.current.group).toBeNull();
+    expect(result.current.error).toBeInstanceOf(Error);
+    expect(result.current.loading).toBe(false);
+    act(() => next({ exists: () => false, metadata: { fromCache: false } }));
+    expect(result.current.error).toBeNull();
+    expect(result.current.group).toBeNull();
+    expect(onSnapshot).toHaveBeenCalledWith(expect.anything(), { includeMetadataChanges: true }, expect.any(Function), expect.any(Function));
+  });
+
+  it("keeps an existing cached club usable", () => {
+    vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
+      (args[2] as (snapshot: unknown) => void)({ id: "cached", exists: () => true, data: () => ({ name: "Cached club", isActive: true }), metadata: { fromCache: true } });
+      return () => {};
+    });
+    const { result } = renderHook(() => useGroup("cached"));
+    expect(result.current.group?.name).toBe("Cached club");
+    expect(result.current.error).toBeNull();
+  });
+
+  it("does not classify cached missing membership as confirmed nonmembership and can retry", async () => {
+    setDocData("groups/cached/members/member", { status: "active" });
+    vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
+      (args[2] as (snapshot: unknown) => void)({ exists: () => false, metadata: { fromCache: true } });
+      return () => {};
+    });
+    const { result } = renderHook(() => useGroupMemberRole("cached", "member"));
+    expect(result.current.role).toBeNull();
+    expect(result.current.error).toBeInstanceOf(Error);
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.role).toBe("member"));
+    expect(result.current.error).toBeNull();
+  });
+
+  it("accepts an active cached membership but distinguishes a subscription failure", () => {
+    let reject!: (error: Error) => void;
+    vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
+      reject = args[3] as typeof reject;
+      (args[2] as (snapshot: unknown) => void)({ exists: () => true, data: () => ({ status: "active", role: "co-leader" }), metadata: { fromCache: true } });
+      return () => {};
+    });
+    const { result } = renderHook(() => useGroupMemberRole("cached", "member"));
+    expect(result.current.role).toBe("co-leader");
+    expect(result.current.error).toBeNull();
+    const failure = new Error("offline");
+    act(() => reject(failure));
+    expect(result.current.role).toBeNull();
+    expect(result.current.error).toBe(failure);
   });
 });
