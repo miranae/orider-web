@@ -1,4 +1,5 @@
-import { useState, useMemo, useRef } from "react";
+import GlossaryText from "../common/GlossaryText";
+import { useState, useMemo, useRef, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
@@ -111,8 +112,10 @@ const SELECTABLE_KINDS: WorkoutKind[] = [
   'kickSwim', 'enduranceSwim', 'cssSwim', 'racepaceSwim', 'sprintSwim', 'owSwim', 'brickSwim',
 ];
 
+import { useTrainingDialog } from "./useTrainingDialog";
+import { createPortal } from "react-dom";
 import { KINDS_BY_DISCIPLINE } from "../../utils/workoutDiscipline";
-import { Button, Card } from "../../theme/components";
+import { Button, Text } from "../../theme/components";
 
 // ── Props ─────────────────────────────────────────────────────────────
 
@@ -150,6 +153,9 @@ export default function WorkoutEditModal({
   const [loading, setLoading] = useState(false);
   const [showKindPicker, setShowKindPicker] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const modalRef = useTrainingDialog(onClose, loading);
+  const titleId = useId();
+  const closeIfIdle = () => { if (!loading) onClose(); };
   // Firestore rules 가 거부하는 쓰기를 UI 에서 먼저 막는다 — 러닝 목표, 또는 서버가 활동 연결·
   // 실행 결과를 기록한 날의 completed/skipped 변경은 permission-denied 로 끝난다.
   // 필드 목록은 rules 의 hasExecutionOutcome 과 같다. 서버 전용 필드라 PlanDay 타입에는 없다.
@@ -165,7 +171,11 @@ export default function WorkoutEditModal({
     const ref = doc(firestore, "goals", goalId, "plan", weekId);
     const snap = await getDoc(ref);
     if (!snap.exists()) throw new Error(t('edit.weekDataMissing'));
-    return { ref, data: { id: snap.id, ...snap.data() } as PlanWeek };
+    const data = { id: snap.id, ...snap.data() } as PlanWeek;
+    if (!Number.isInteger(dayIndex) || dayIndex < 0 || data.days?.[dayIndex]?.date !== day.date) {
+      throw new Error(t('edit.staleDay'));
+    }
+    return { ref, data };
   }
 
   async function run(fn: (days: PlanDay[]) => void) {
@@ -359,28 +369,25 @@ export default function WorkoutEditModal({
 
   // ── Render ─────────────────────────────────────────────────────────
 
-  return (
+  return createPortal(
     <>
-      {/* Backdrop */}
-      <div
-        data-testid="K4-6-7" onClick={onClose}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'color-mix(in srgb, var(--bg-0) 45%, transparent)',
-          zIndex: 49,
-        }}
-      />
-
-      {/* Modal */}
-      <Card data-testid="K4-6" padding="none"
+      <div data-dialog-initial-focus data-testid="K4-6-7" onClick={closeIfIdle} className="bg-black/50" style={{ position: 'fixed', inset: 0, zIndex: 117 }} />
+      <div className="coach-training-dialog" ref={modalRef} role="dialog" tabIndex={-1} data-testid="K4-6" aria-modal="true" aria-busy={loading} aria-label={meta.label}
         style={{
           position: 'fixed',
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          zIndex: 50,
-          width: 300,
+          zIndex: 118,
+          width: 'min(100% - var(--space-6), 24rem)',
+          maxHeight: 'calc(100dvh - var(--space-6))',
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          background: 'var(--bg-1)',
+          color: 'var(--ink-0)',
+          border: '1px solid var(--line-soft)',
+          borderRadius: 'var(--r-lg)',
+          boxShadow: 'var(--shadow-lg)',
           padding: 'var(--space-5)',
           display: 'flex',
           flexDirection: 'column',
@@ -401,18 +408,18 @@ export default function WorkoutEditModal({
               }}
             />
             <div>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)' }}>
-                {meta.label}
-              </div>
+              <Text as="h2" variant="title" id={titleId} style={{ margin: 0 }}>
+                <GlossaryText>{meta.label}</GlossaryText>
+              </Text>
               {day.plannedTSS > 0 && (
-                <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
-                  {t('edit.minutesAndTss', { tss: day.plannedTSS, minutes: day.plannedDurationMin })}
+                <div style={{ fontSize: "var(--fs-md)", color: 'var(--ink-3)' }}>
+                  <GlossaryText>{t('edit.minutesAndTss', { tss: day.plannedTSS, minutes: day.plannedDurationMin })}</GlossaryText>
                 </div>
               )}
             </div>
           </div>
           <button
-            data-testid="K4-6-7" onClick={onClose}
+            data-dialog-initial-focus data-testid="K4-6-7" onClick={closeIfIdle} disabled={loading}
             style={{
               background: 'none',
               border: 'none',
@@ -433,7 +440,7 @@ export default function WorkoutEditModal({
           <a
             href={`/activity/${day.actualActivityId}`}
             style={{
-              fontSize: "var(--fs-xs)",
+              fontSize: "var(--fs-md)",
               color: 'var(--lime)',
               textDecoration: 'none',
               display: 'flex',
@@ -452,7 +459,7 @@ export default function WorkoutEditModal({
 
         {/* #476 임포트된 구조화 워크아웃 요약 */}
         {!usesEffectiveExecutionPrescription(day, weekAdjustmentReason) && day.intervals && day.intervals.length > 0 && (
-          <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <div style={{ fontSize: "var(--fs-md)", color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <Upload size={12} style={{ color: 'var(--aqua)', flexShrink: 0 }} />
             <span>
               {day.workoutName ? `${day.workoutName} · ` : ''}
@@ -464,12 +471,12 @@ export default function WorkoutEditModal({
         {/* 액션 버튼들 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           {hasServerOutcome && (
-            <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>
+            <div style={{ fontSize: "var(--fs-md)", color: 'var(--ink-3)' }}>
               {t('edit.serverOutcomeLocked')}
             </div>
           )}
           {goalDiscipline === 'run' && (
-            <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>
+            <div style={{ fontSize: "var(--fs-md)", color: 'var(--ink-3)' }}>
               {t('edit.runningOutcomeLocked')}
             </div>
           )}
@@ -523,7 +530,7 @@ export default function WorkoutEditModal({
                     style={{
                       padding: '4px 10px',
                       borderRadius: "9999px",
-                      fontSize: "var(--fs-xs)",
+                      fontSize: "var(--fs-md)",
                       fontWeight: 600,
                       cursor: isSelected ? 'default' : 'pointer',
                       border: `1px solid ${m.color === 'transparent' ? 'var(--line-soft)' : m.color}`,
@@ -542,6 +549,11 @@ export default function WorkoutEditModal({
               })}
             </div>
           )}
+
+          {showKindPicker && <details style={{ fontSize: 'var(--fs-md)', color: 'var(--ink-2)', lineHeight: 1.6 }}>
+            <summary>{t('intensity')}</summary>
+            <div data-testid="workout-intensity-glossary"><GlossaryText>{"Z1 · Z2 · Z3 · Z4 · Z5 · FTP · VO₂max · SST · LSD · TSS"}</GlossaryText></div>
+          </details>}
 
           {/* 이전 날과 교환 */}
           <Button variant="secondary" size="sm"
@@ -579,11 +591,11 @@ export default function WorkoutEditModal({
         </div>
 
         {loading && (
-          <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textAlign: 'center' }}>
+          <div style={{ fontSize: "var(--fs-md)", color: 'var(--ink-3)', textAlign: 'center' }}>
             {t('edit.saving')}
           </div>
         )}
-      </Card>
-    </>
+      </div>
+    </>, document.body
   );
 }

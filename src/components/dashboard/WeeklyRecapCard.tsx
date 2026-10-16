@@ -1,3 +1,4 @@
+import GlossaryText from "../common/GlossaryText";
 /**
  * 주간 러닝 리캡 (설계 문서 §3.4c, 시안 5).
  *
@@ -30,15 +31,15 @@ export default function WeeklyRecapCard({ recap }: WeeklyRecapCardProps) {
 
   return (
     <Card style={{ borderColor: "var(--accent-soft-border)" }}>
-      <Text as="div" variant="eyebrow" style={{ color: "var(--accent)", marginBottom: "var(--space-2)" }}>
+      <Text as="div" variant="eyebrow" style={{ color: "var(--ink-1)", marginBottom: "var(--space-2)" }}>
         {t("runRecap.eyebrow")}
       </Text>
 
       <Text as="p" variant="bodyLarge" tone="primary" style={{ margin: 0, lineHeight: 1.55 }}>
-        {headline}
+        <GlossaryText>{headline}</GlossaryText>
       </Text>
 
-      <div style={{ display: "flex", gap: "var(--space-6)", marginTop: "var(--space-3)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 6rem), 1fr))", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
         <Stat label={t("runRecap.runs")} value={String(lastWeek.count)} unit={t("runRecap.unitTimes")} />
         <Stat label={t("runRecap.distance")} value={String(lastWeek.distanceKm)} unit="km" />
         <Stat
@@ -54,7 +55,7 @@ export default function WeeklyRecapCard({ recap }: WeeklyRecapCardProps) {
       </div>
 
       {prevWeek.count > 0 && (
-        <Text as="div" variant="caption" style={{ marginTop: "var(--space-2)", color: "var(--ink-4)" }}>
+        <Text as="div" variant="caption" style={{ marginTop: "var(--space-2)", color: "var(--ink-3)" }}>
           {t("runRecap.prevWeek", {
             count: prevWeek.count,
             km: prevWeek.distanceKm,
@@ -78,29 +79,31 @@ function Stat({
   delta?: { seconds: number; improved: boolean };
 }) {
   const { t } = useTranslation("dashboard");
-  const color = delta?.improved ? "var(--lime)" : "var(--ink-3)";
+  const color = "var(--ink-1)";
   const Arrow = delta?.improved ? ArrowDown : ArrowUp;
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)" }}>
-        <Text variant="dataMedium" mono>{value}</Text>
-        {unit && <Text variant="unit">{unit}</Text>}
+    <div style={{ minWidth: 0 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "var(--space-1)" }}>
+        <span style={{ display: "inline-flex", alignItems: "baseline", gap: "var(--space-1)", whiteSpace: "nowrap" }}>
+          <Text variant="dataMedium" mono>{value}</Text>
+          {unit && <Text variant="unit">{unit}</Text>}
+        </span>
         {delta && (
           <span
-            style={{ display: "inline-flex", alignItems: "center", gap: 2, color, fontSize: "var(--fs-xs)", fontWeight: 600 }}
+            style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", color, fontSize: "var(--fs-xs)", fontWeight: 600, whiteSpace: "nowrap" }}
             aria-label={
               delta.improved
                 ? t("runRecap.deltaFasterA11y", { sec: delta.seconds })
                 : t("runRecap.deltaSlowerA11y", { sec: delta.seconds })
             }
           >
-            <Arrow size={12} aria-hidden="true" />
+            <Arrow size={12} aria-hidden="true" style={{ color: delta.improved ? "var(--lime)" : "var(--ink-2)" }} />
             {delta.seconds}
             {t("runRecap.unitSeconds")}
           </span>
         )}
       </div>
-      <Text as="div" variant="caption" tone="tertiary">{label}</Text>
+      <Text as="div" variant="caption" tone="tertiary"><GlossaryText>{label}</GlossaryText></Text>
     </div>
   );
 }

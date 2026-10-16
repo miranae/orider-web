@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveDuration, resolveAvgSpeedKph } from "./activityTime";
+import { resolveDuration, resolveAvgSpeedKph, durationLabelBasis } from "./activityTime";
 
 const H = 3_600_000; // 1시간 ms
 
@@ -142,5 +142,18 @@ describe("resolveAvgSpeedKph (#236 후속 — 이동시간 기준 평균 속도)
       pauseTimeSec: 1800,
     });
     expect(resolveAvgSpeedKph(0, resolved, 0)).toBe(0);
+  });
+});
+
+describe("duration label provenance", () => {
+  it("leaves source-specific riding-time fallbacks neutral instead of asserting elapsed time", () => {
+    const source = { ridingTimeMillis: H, elapsedTimeMillis: undefined };
+    expect(durationLabelBasis(source, resolveDuration(source).usingMoving)).toBe("activityTime");
+  });
+  it("labels confirmed elapsed time and known moving time separately", () => {
+    expect(durationLabelBasis({ elapsedTimeMillis: H }, false)).toBe("elapsedTime");
+    expect(durationLabelBasis({ startTime: 10, endTime: H + 10 }, false)).toBe("elapsedTime");
+    expect(durationLabelBasis({}, true)).toBe("movingTime");
+    expect(durationLabelBasis({ elapsedTimeMillis: 0, startTime: 10, endTime: 10 }, false)).toBe("activityTime");
   });
 });

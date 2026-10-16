@@ -48,6 +48,9 @@
     "noPlans": "훈련 계획이 없습니다"
   },
   "page": {
+    "goalWorkout": "목표 운동",
+    "workoutDetails": "운동 상세",
+    "dayDetails": "{{date}} · {{workout}} 상세",
     "planTitle": "현재 목표 · 자동 생성된 운동 계획",
     "planEmpty": "아직 {{sportLabel}} 운동 계획이 없습니다",
     "planEmptyDesc": "{{sportLabel}} 목표를 설정하면 자동으로 운동 계획이 생성됩니다.",
@@ -72,11 +75,11 @@
     "inProgress": "진행 중",
     "goalDateLabel": "목표일",
     "daysLeftPrefix": "D-",
-    "targetDuration": "목표 시간",
+    "targetDuration": "목표시간",
     "weekHeader": "주차",
-    "tssHeader": "TSS",
+    "tssHeader": "훈련부하 · TSS",
     "skipped": "건너뜀",
-    "missed": "결근",
+    "missed": "미완료",
     "today": "TODAY",
     "goalDay": "목표일",
     "planEmptyBody": "운동 계획이 아직 생성 중입니다. 잠시 후 새로고침하세요.",
@@ -94,11 +97,11 @@
     "peak": "피크",
     "taper": "테이퍼",
     "weeksUnit": "주",
-    "label": "페이즈"
+    "label": "훈련 단계"
   },
   "phaseDescription": {
     "buildWeek": "주",
-    "buildPhaseLabel": "페이즈"
+    "buildPhaseLabel": "훈련 단계"
   },
   "legend": {
     "z1Recovery": "Z1 회복",
@@ -111,7 +114,7 @@
     "note": "계획을 건너뛰면 자동으로 재계산됩니다."
   },
   "buttons": {
-    "ics": "📅 ICS",
+    "ics": "캘린더 내보내기",
     "reroll": "🔄 재생성",
     "goalReset": "🎯 목표 재설정",
     "abandonGoal": "목표 포기"
@@ -127,7 +130,8 @@
     "abandonFailed": "목표 포기 실패:",
     "abandonError": "목표 포기에 실패했습니다.",
     "creationFailed": "목표 생성 실패:",
-    "creationError": "목표 생성에 실패했습니다. 잠시 후 다시 시도해주세요."
+    "creationError": "목표 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    "planRefreshAfterSave": "변경 사항은 저장했지만 계획을 새로 불러오지 못했어요. 다시 불러와 주세요."
   },
   "adaptation": {
     "details": "근거 및 알림 설정",
@@ -159,15 +163,17 @@
     "progressBasis": "현재 유효 처방 대비 계획 진행률입니다. 실제 부하가 없으면 완료한 처방값을 반영하며, 실측 부하 합계를 뜻하지 않습니다.",
     "sessionsLeft": "남은 훈련",
     "completedTSS": "완료 TSS",
-    "weeksLeft": "남은 주수",
+    "weeksLeft": "남은 계획 주수",
     "weeksUnit": "주",
     "projectedCTL": "CTL 변화 가이드",
     "goalDate": "목표일",
     "daysLeft": "D-",
     "courseDistance": "km",
     "courseElevation": "↑{{value}} m",
-    "targetDuration": "목표 시간",
-    "plannedGeneration": "운동 계획이 아직 생성 중입니다. 잠시 후 새로고침하세요."
+    "targetDuration": "목표시간",
+    "plannedGeneration": "운동 계획이 아직 생성 중입니다. 잠시 후 새로고침하세요.",
+    "distanceLabel": "이동거리",
+    "elevationLabel": "획득고도"
   },
   "plan.rerollSuccess": "운동 계획을 재생성했습니다.",
   "goalHub": {
@@ -194,7 +200,9 @@
       "bike": "대회·코스 완주",
       "run": "러닝 대회",
       "swim": "수영 대회"
-    }
+    },
+    "goalDayEstimate": "목표일 예상",
+    "planProgress": "계획진행률"
   },
   "goals": {
     "wizardTitle": {
@@ -204,7 +212,7 @@
     },
     "wizardSubtitle": {
       "bike": "목표 코스와 완주 시간을 정하면, 오라이더가 남은 주수에 맞춰 주간 운동을 자동으로 배분합니다.",
-      "run": "대회나 거리 목표를 정하면, 최근 5K PB·LTHR 기준으로 주간 운동을 자동 배분합니다.",
+      "run": "대회나 거리 목표와 훈련 기준을 확인해 계획을 준비합니다. 실제 주간 구성은 계획 생성 후 확인합니다.",
       "swim": "거리 목표·트라이애슬론·오픈워터 — CSS와 1500m PB를 기준으로 운동 분배를 계산합니다."
     },
     "eyebrowLabel": {
@@ -220,6 +228,8 @@
       "runEvent": "이벤트 선택",
       "swimEvent": "이벤트 선택"
     },
+    "courseLoadFailed": "코스 목록을 불러오지 못했어요.",
+    "courseRetry": "코스 다시 불러오기",
     "courseEmpty": "등록된 코스가 없습니다",
     "courseEmptyDesc": "코스를 먼저 만들거나 GPX를 업로드하세요",
     "courseSearchPlaceholder": "코스 검색...",
@@ -468,11 +478,11 @@
     "showPastWeeks": "지난 {{count}}주 보기",
     "hidePastWeeks": "지난 주 접기",
     "weekNext": "이번 주 다음 운동",
-    "weeklyTSS": "주간 TSS",
+    "weeklyTSS": "훈련부하 · TSS",
     "weeklySummary": "이번 주 요약",
     "minutesUnit": "분",
-    "timeLabel": "시간",
-    "sessions": "세션",
+    "timeLabel": "훈련시간",
+    "sessions": "훈련횟수",
     "weeklyPlan": "주간 플랜",
     "showPastDays": "지난 {{count}}일 보기",
     "hidePastDays": "지난 일정 접기",
@@ -490,7 +500,8 @@
     "goalCountdown": "목표까지",
     "managePlan": "계획 관리",
     "sportLoad": "종목별 부하",
-    "intensityLegend": "운동 강도 범례"
+    "intensityLegend": "운동 강도 범례",
+    "sessionsUnit": "회"
   },
   "add": {
     "title": "운동 추가",
@@ -528,7 +539,11 @@
         "intervalSwim": "CSS 역치 세트",
         "longSwim": "장거리 이지 + 페이스"
       }
-    }
+    },
+    "applySelection": "선택한 운동 적용",
+    "applyRest": "휴식일로 변경",
+    "selectionHint": "요일과 운동을 선택한 뒤 적용해 주세요. 기존 운동이 있으면 교체됩니다.",
+    "swimUnavailable": "수영 · 준비 중"
   },
   "edit": {
     "closeAria": "닫기",
@@ -558,7 +573,8 @@
     "importTooLarge": "파일이 너무 큽니다 (최대 1MB).",
     "importUnsupported": "지원하지 않는 형식입니다. .zwo · .erg · .mrc 파일을 사용하세요.",
     "importFailedAlert": "워크아웃 파일을 읽을 수 없습니다.",
-    "importFailed": "워크아웃 임포트 실패:"
+    "importFailed": "워크아웃 임포트 실패:",
+    "staleDay": "계획이 변경되었습니다. 창을 닫고 날짜를 다시 선택해 주세요."
   },
   "goalDetails": {
     "eventTypeLabel": "이벤트 유형",
@@ -626,8 +642,8 @@
   },
   "runWizard": {
     "selectHeading": "목표 이벤트를 선택하세요",
-    "selectSubtitle": "대회·거리·트레일 — 종목에 맞춰 운동 템플릿이 바뀝니다.",
-    "distanceLabel": "거리",
+    "selectSubtitle": "목표 거리용 템플릿입니다. 실제 대회 코스나 상승고도 정보는 포함하지 않습니다.",
+    "distanceLabel": "목표 거리",
     "goalTypeLabel": "목표 유형",
     "goalType": {
       "completion": "완주",
@@ -639,9 +655,9 @@
       "time": "목표 페이스를 유지할 수 있도록 역치 + 장거리 중심",
       "race": "피크 주간에 고강도 인터벌 + 테이퍼 포함"
     },
-    "targetDate": "목표일",
+    "targetDate": "목표 날짜",
     "targetDatePlaceholder": "목표일 선택",
-    "daysLeft": "D-{{days}} · 남은 주수 {{weeks}}주",
+    "daysLeft": "D-{{days}} · 약 {{weeks}}주",
     "targetTime": "목표 완주 시간",
     "hourUnit": "시간",
     "minUnit": "분",
@@ -649,20 +665,20 @@
     "requiredPace": "필요 평균 페이스",
     "weeklySessions": "주당 운동 횟수",
     "sessionCount": "{{n}}회",
-    "sessionsHint": "80/20 원칙(저강도 80%·고강도 20%)에 맞춰 자동 분배됩니다.",
-    "feasibilityLabel": "목표 달성 가능성",
+    "sessionsHint": "희망 횟수이며 실제 주간 구성은 계획 생성 후 확인합니다.",
+    "feasibilityLabel": "목표 페이스 비교",
     "feasDesc": {
-      "easy": "현재 임계 페이스로 여유 있게 달성 가능. 더 빠른 목표도 고려해보세요.",
-      "on_track": "적정 난이도. 80/20 주간 운동이면 달성 가능합니다.",
-      "stretch": "도전적 목표. 역치 운동 + 장거리 진행 페이스 필수입니다.",
-      "risky": "현재 임계 페이스보다 크게 빠름. 목표를 완화하거나 운동 기간을 늘리세요."
+      "easy": "목표 페이스가 기준 임계 페이스보다 느립니다. 실제 완주 가능성의 예측은 아닙니다.",
+      "on_track": "목표 페이스를 기준 임계 페이스와 비교한 참고 정보입니다. 실제 완주 가능성의 예측은 아닙니다.",
+      "stretch": "목표 페이스가 기준 임계 페이스에 가깝습니다. 거리·준비 기간을 함께 고려하세요.",
+      "risky": "목표 페이스가 기준 임계 페이스보다 빠릅니다. 목표 시간과 준비 기간을 다시 살펴보세요."
     },
     "feasRequiredPace": "필요 평균 페이스",
-    "feasLthrPace": "내 임계 페이스 (LTHR)",
+    "feasLthrPace": "기준 임계 페이스",
     "feasPb5k": "최근 5K PB",
     "feasGap": "페이스 격차",
     "trainingPeriod": "운동 가능 기간",
-    "periodValue": "{{weeks}}주 · 총 {{sessions}}회",
+    "periodValue": "약 {{weeks}}주 · 주 {{sessions}}회 희망",
     "peakWeeklyDist": "예상 주간 거리 (피크)",
     "kpi": {
       "totalWeeks": "총 주수",
@@ -730,6 +746,19 @@
         "kind": "트레일",
         "tag": "트레일"
       }
+    },
+    "timeInput": {
+      "hours": "목표 시간 (시)",
+      "minutes": "목표 시간 (분)",
+      "seconds": "목표 시간 (초)"
+    },
+    "completionComparison": "완주 목표",
+    "completionComparisonHelp": "시간 목표 없이 완주를 선택했습니다. 완주 가능성을 예측하는 수치는 아닙니다.",
+    "category": {
+      "Short": "단거리",
+      "Mid": "중거리",
+      "Long": "장거리",
+      "Trail": "트레일"
     }
   },
   "swimWizard": {
@@ -962,6 +991,8 @@
       "manualLink": "활동 직접 연결",
       "activityPicker": "연결할 내 최근 활동",
       "activityLoading": "최근 활동을 불러오는 중…",
+      "activityLoadFailed": "최근 활동을 불러오지 못했어요. 다시 불러온 뒤 연결해 주세요.",
+      "activityRetry": "활동 다시 불러오기",
       "activitySelect": "활동 선택",
       "noActivities": "현재 revision이 확인된 같은 종목 활동이 없습니다.",
       "loading": "기존 실행 상태를 확인하는 중…",
@@ -1144,5 +1175,25 @@
     "estimated": "PDC 추정값 · 낮은 근거",
     "basis": "가정값 기준",
     "confirm": "기준값 입력·확인"
+  },
+  "coachSurface": {
+    "runProgramError": "러닝 프로그램을 불러오지 못했어요.",
+    "retry": "다시 시도"
+  },
+  "previewReview": {
+    "title": "목표 설정 확인",
+    "notSaved": "아직 저장하지 않았습니다. 시작하기를 누르면 서버에서 목표와 운동 계획을 생성합니다.",
+    "pendingPlan": "총 운동 횟수·훈련 거리·주간 부하·단계별 구성·컨디션 예상은 계획 생성 후 확인할 수 있습니다.",
+    "event": "목표 이벤트",
+    "distance": "목표 거리",
+    "elevation": "획득 고도",
+    "date": "목표 날짜",
+    "goalType": "목표 유형",
+    "frequency": "훈련 횟수",
+    "remaining": "남은 기간",
+    "duration": "목표 시간",
+    "sessions": "주 {{count}}회 희망",
+    "weeks": "약 {{weeks}}주",
+    "minutes": "{{count}}분"
   }
 }

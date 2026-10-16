@@ -1,3 +1,5 @@
+import GlossaryText from "../components/common/GlossaryText";
+import GlossaryProvider from "../components/common/GlossaryProvider";
 import FitnessPeriodEvidence from "../features/fitness/components/FitnessPeriodEvidence";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 import RunningRaceEstimatesPanel from "../features/fitness/RunningRaceEstimatesPanel";
@@ -31,7 +33,6 @@ import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../components/redesign";
 import DetailsSection from "../components/redesign/DetailsSection";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
-import SectionHeader from "../components/redesign/SectionHeader";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import FtpDecisionSection from "../features/fitness/components/FtpDecisionSection";
 import RunRecordsSummary from "../features/fitness/components/RunRecordsSummary";
@@ -50,7 +51,6 @@ import {
   POWER_DURATION_KEY_SEC,
   formatKoreanDate,
   formatMonthDay,
-  secToMmss,
   type PowerCurvePoint,
 } from "../features/fitness/fitnessPageUtils";
 import { PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
@@ -65,7 +65,7 @@ import { getDisciplineColor } from "../utils/disciplineFilter";
 import { toLocalDate, toUtcDate } from "../utils/dateUtils";
 import TriFitnessView from "./fitness/TriFitnessView";
 import { formatPlanGoalTitle } from "../features/training/plan/planDisplay";
-import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, SufficiencyInputMap, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../features/sufficiency/SufficiencyBlock";
+import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../features/sufficiency/SufficiencyBlock";
 
 export interface FitnessViewProps {
   embedded?: boolean;
@@ -83,10 +83,10 @@ export function fitnessGoalDisplayName(goal: { title?: string | null; courseName
 }
 
 export function FitnessView({ thresholdsSlot, ...props }: FitnessViewProps) {
-  return <>
+  return <GlossaryProvider scopeKey="coach-fitness">
     <FitnessViewContent {...props} thresholdsSlot={thresholdsSlot} />
     {!props.embedded && thresholdsSlot && props.model.activities.length === 0 && props.model.fitnessData.length === 0 && !props.model.currentPoint && props.model.pmcHistoryPoints.length === 0 && <div className="site-shell" style={{ padding: "var(--space-4) var(--space-6)" }}>{thresholdsSlot}</div>}
-  </>;
+  </GlossaryProvider>;
 }
 
 function FitnessViewContent({ embedded = false, part = "all", model, thresholdsSlot }: FitnessViewProps) {
@@ -160,7 +160,9 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const weekChangeSlot = part === "condition" && currentPoint ? <FitnessWeeklyInsight loadSummaryOnly ctlDelta={0}
     ctl={currentPoint.ctl} atl={currentPoint.atl} tsb={currentPoint.tsb} dailyData={dailyData}
     asOf={weeklyStats.asOf} dateBasis={weeklyStats.dateBasis} ready={weeklyStats.insightReady} t={t} /> : null;
-  const periodControls = !embedded && part !== "all" ? <div data-testid={part === "analysis" ? "K5-0-3" : "K1-0-3"} role="group" aria-label={t("history.range")} className="flex flex-wrap gap-2">
+  const currentSource = t(model.canonicalFitness.enabled && model.canonicalFitness.values ? "coach.currentSource.summary" : hasCanonicalTimeseries ? "coach.currentSource.history" : "coach.currentSource.estimated");
+  const currentBasis = currentPoint ? t("coach.currentBasis", { date: currentPoint.date, source: currentSource }) : undefined;
+  const periodControls = !embedded && part === "analysis" ? <div data-testid={part === "analysis" ? "K5-0-3" : "K1-0-3"} role="group" aria-label={t("history.range")} className="flex flex-wrap gap-2">
     {([30, 90, 180, 365] as const).map(days => <Button key={days} size="sm" variant={range === days ? "outline" : "ghost"} aria-pressed={range === days} onClick={() => changePageRange(days)}>{t(`range.${days}`)}</Button>)}
   </div> : null;
   const changeHistoryRange = (nextRange: PmcRange) => {
@@ -307,6 +309,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     const renderMobileContent = (decisionState?: TodayTrainingDecisionState) => {
       const mobileCoachBriefing = discipline !== "tri" && currentPoint ? (
         <FitnessCoachBriefing
+          currentBasis={currentBasis}
           weekChangeSlot={weekChangeSlot}
           metricsNoteSlot={loadSufficiency && loadFormBlock
             ? <SufficiencyInline set={loadSufficiency} block={loadFormBlock} testId="K1-1-1-briefing-sufficiency-inline" /> : null}
@@ -335,6 +338,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           <MobileFitnessPage
             {...model.mobilePageProps}
             periodSlot={periodControls}
+            currentBasis={currentBasis}
             thresholdsSlot={thresholdsSlot}
             data={{ ...model.mobilePageProps.data, monthlyVo2maxTrend: vo2maxTrend, powerGaps, pdcSufficiency, loadSufficiency, activityWindowSufficiency }}
             runningRaceEstimatesOwnerUid={user.isAnonymous || (part !== "all" && getRuntimeConfig().appEnvironment !== "stage") ? undefined : user.uid}
@@ -376,7 +380,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     : null;
 
   // 자막 생성
-  const subtitle = projection
+  const subtitle = part === "condition" ? t("condition.header.subtitle") : projection
     ? t("header.subtitle.actualWithProjection", { range, projDays: projection.series.length })
     : t("header.subtitle.actual", { range });
   const goalForecast = activeGoal && projection && goalDisplayName ? (() => {
@@ -433,7 +437,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const pageHeader = (
     <div data-testid={part === "analysis" ? "K5-0" : "K1-0"} className="site-shell" style={{ padding: "var(--space-4) var(--space-6) var(--space-3)", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
       <div style={{ flex: 1 }}>
-        <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)', display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
+        <Text as="div" variant="caption" style={{ marginBottom: 'var(--space-2)', display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
           <span>{t("header.eyebrow", { date: formatMonthDay(i18n.language) })}</span>
           {(revalidating || justRecomputed) && <span data-testid="K1-0-4"><RevalidatingIndicator
             visible={revalidating || justRecomputed}
@@ -445,12 +449,12 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         </Text>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-1) var(--space-3)", color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
           <span>{subtitle}</span>
-          {goalForecast && <Link to={`/coach/plan?sport=${discipline}`} title={t("header.subtitle.goal", goalForecast)} aria-label={t("header.subtitle.goal", goalForecast)} style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}>
+          {goalForecast && <Link to={`/coach/plan?sport=${discipline}`} aria-label={t("header.subtitle.goalShort", goalForecast)} style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}>
             {t("header.subtitle.goalShort", goalForecast)} →
           </Link>}
         </div>
       </div>
-      <div data-testid={part === "analysis" ? "K5-0-2" : "K1-0-2"}><DisciplineTabs includeTri /></div>
+      <div data-testid={part === "analysis" ? "K5-0-2" : "K1-0-2"}><DisciplineTabs includeTri disabledKeys={part === "condition" || part === "analysis" ? ["swim"] : []} /></div>
       {periodControls}
     </div>
   );
@@ -515,6 +519,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {part !== "condition" && <SufficiencyGroup sets={analysisSets} testId="K5-sufficiency-group" />}
         {part !== "analysis" && discipline !== "tri" && currentPoint && (
           <FitnessCoachBriefing
+          currentBasis={currentBasis}
             weekChangeSlot={weekChangeSlot}
             metricsNoteSlot={loadSufficiency && loadFormBlock
               ? <SufficiencyInline set={loadSufficiency} block={loadFormBlock} testId="K1-1-1-sufficiency-inline" />
@@ -633,7 +638,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
           <div style={{ display: "flex", alignItems: "flex-end", marginBottom: "var(--space-3)" }}>
             <div>
-              <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("pmc.title")}</h3>
+              <Text as="h3" variant="title" style={{ margin: 0, marginBottom: "var(--space-1)" }}>{t("pmc.title")}</Text>
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{projection ? t("pmc.subWithProjection", { range }) : t("pmc.subActual", { range })}</div>
             </div>
             <div style={{ flex: 1 }} />
@@ -721,7 +726,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                 }}
               >
                 <div>
-                  {goalDisplayName && <Text as="div" variant="eyebrow" style={{ color: "var(--lime)", marginBottom: 'var(--space-1)' }}>
+                  {goalDisplayName && <Text as="div" variant="caption" style={{ color: "var(--lime)", marginBottom: 'var(--space-1)' }}>
                     {t("goal.eyebrow", { course: goalDisplayName })}
                   </Text>}
                   <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", fontWeight: 500 }}>
@@ -739,7 +744,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                   </div>
                 </div>
                 <div>
-                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("goal.ctl")}</Text>
+                  <Text as="div" variant="caption" style={{ marginBottom: "var(--space-1)" }}>{t("goal.ctl")}</Text>
                   {goalCTLVal != null ? (
                     <div>
                       <Text variant="dataMedium" style={{ color: "var(--lime)" }}>{Math.round(goalCTLVal)}</Text>
@@ -750,7 +755,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                   )}
                 </div>
                 <div>
-                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("goal.tsb")}</Text>
+                  <Text as="div" variant="caption" style={{ marginBottom: "var(--space-1)" }}>{t("goal.tsb")}</Text>
                   {goalTSBVal != null ? (
                     <div>
                       <Text variant="dataMedium" style={{ color: "var(--amber)" }}>
@@ -765,7 +770,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                   )}
                 </div>
                 <div>
-                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("goal.adherence")}</Text>
+                  <Text as="div" variant="caption" style={{ marginBottom: "var(--space-1)" }}>{t("goal.adherence")}</Text>
                   {adherence != null ? (
                     <div>
                       <Text variant="dataMedium">{Math.round(adherence * 100)}</Text>
@@ -787,13 +792,13 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
 
         {/* 상세 분석 — 바이크 개선 액션·VO2max·강점/약점·야외 페이싱·라이더 유형. */}
         {discipline === "bike" && (
-        <div data-testid={part === "analysis" ? "K5-1" : undefined}><DetailsSection title={t("conclusion.detailToggle")}>
+        <div className="coach-analysis-details" data-testid={part === "analysis" ? "K5-1" : undefined}><DetailsSection title={t("conclusion.detailToggle")}>
         {/* PDC 기반 VO2max 근거와 월별 추이. 현재 적용 FTP 공식값과 구분한다. */}
         {part !== "condition" && pdc?.vo2maxEst != null && (
           <Card padding="none" style={{ marginTop: "var(--space-4)", padding: "16px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", flexWrap: "wrap" }}>
               <div>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("vo2maxCard.pdcLabel")}</Text>
+                <Text as="div" variant="caption" style={{ marginBottom: "var(--space-1)" }}>{t("vo2maxCard.pdcLabel")}</Text>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)" }}>
                   <Text variant="dataLarge" style={{ color: "var(--aqua)" }}>~{pdc.vo2maxEst}</Text>
                   <Text variant="unit">ml/kg/min</Text>
@@ -840,11 +845,11 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {/* 강점/약점 — CP 모델 기대파워 대비 실제 best 갭. bike + pdc.cp + 분류 결과 있을 때만 */}
         {part !== "condition" && discipline === "bike" && pdc?.cp != null && (strengths.length > 0 || weaknesses.length > 0) && (
           <Card padding="none" style={{ marginTop: 'var(--space-4)', padding: "16px 24px" }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>{t("gapCard.title")}</Text>
+            <Text as="div" variant="caption" style={{ marginBottom: 'var(--space-3)' }}>{t("gapCard.title")}</Text>
             <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-3)' }}>
               {strengths.length > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)', flexWrap: "wrap" }}>
-                  <Text variant="eyebrow" style={{ width: 48, color: "var(--ink-3)" }}>{t("gapCard.strengthLabel")}</Text>
+                  <Text variant="caption" style={{ width: 48, color: "var(--ink-3)" }}>{t("gapCard.strengthLabel")}</Text>
                   {strengths.map((g) => (
                     <Chip key={g.durationSeconds} variant="success" dot>
                       {durationLabel(g.durationSeconds)} +{Math.round(g.gapPct)}%
@@ -854,7 +859,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
               )}
               {weaknesses.length > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)', flexWrap: "wrap" }}>
-                  <Text variant="eyebrow" style={{ width: 48, color: "var(--ink-3)" }}>{t("gapCard.weaknessLabel")}</Text>
+                  <Text variant="caption" style={{ width: 48, color: "var(--ink-3)" }}>{t("gapCard.weaknessLabel")}</Text>
                   {weaknesses.map((g) => (
                     <Chip key={g.durationSeconds} variant="warning" dot>
                       {durationLabel(g.durationSeconds)} {Math.round(g.gapPct)}%
@@ -863,7 +868,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                 </div>
               )}
             </div>
-            <Text as="div" variant="eyebrow" style={{ marginTop: 'var(--space-3)', color: "var(--ink-4)" }}>
+            <Text as="div" variant="caption" style={{ marginTop: 'var(--space-3)', color: "var(--ink-4)" }}>
               {t("gapCard.sub")}
             </Text>
           </Card>
@@ -872,7 +877,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {/* 야외 페이싱 가이드 — 장거리/그란폰도 지속 목표. CP(임계파워)의 −10~−5%. bike + pdc.cp 있을 때만 */}
         {part !== "analysis" && pacingGuide && pdc?.cp != null && (
           <Card data-testid="K1-6-6" padding="none" style={{ marginTop: 'var(--space-4)', padding: "16px 24px" }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("pacing.title")}</Text>
+            <Text as="div" variant="caption" style={{ marginBottom: 'var(--space-2)' }}>{t("pacing.title")}</Text>
             <Text as="div" variant="num" style={{ fontSize: "var(--fs-xl)", color: "var(--ink-0)", lineHeight: 1.1 }}>
               {pacingGuide.lowerW}–{pacingGuide.upperW}
               <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-4)", marginLeft: "var(--space-1)" }}>W</span>
@@ -882,7 +887,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                 </span>
               )}
             </Text>
-            <Text as="div" variant="eyebrow" style={{ marginTop: 'var(--space-2)', color: "var(--ink-4)" }}>
+            <Text as="div" variant="caption" style={{ marginTop: 'var(--space-2)', color: "var(--ink-4)" }}>
               {t("pacing.note", { cp: Math.round(pdc.cp.value) })}
             </Text>
           </Card>
@@ -901,7 +906,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         </DetailsSection></div>
         )}
 
-        {!embedded && part === "condition" && <><SufficiencyInputMap />{thresholdsSlot}</>}
+        {!embedded && part === "condition" && thresholdsSlot}
         {part !== "analysis" && discipline === "bike" && (
           <FtpDecisionSection title={t("conclusion.performanceDetailToggle")} anchorEnabled={!embedded && part === "condition"}>
             <BikeThresholdDecisionCard
@@ -923,15 +928,15 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             컴포넌트. 시안 검토 결과 단일 뷰 (bike/run/swim) 에선 불필요로 결정.
             복구 필요 시 git history 참조: commit 5d00cf2 이전. */}
 
-        <div data-testid={part === "condition" ? "K1-7" : "K5-2"}><DetailsSection title={t("conclusion.trainingDetailToggle")}>
+        <div data-testid={part === "condition" ? "K1-7" : "K5-2"}><DetailsSection title={t("conclusion.trainingDetailToggle")} defaultOpen={part === "analysis"}>
         {/* 2열 하단: 일별 운동 부하 + 파워 커브 */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 'var(--space-5)', marginTop: 'var(--space-5)' }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 24rem), 1fr))", gap: 'var(--space-5)', marginTop: 'var(--space-5)', alignItems: "start" }}>
           {part !== "analysis" && <>
           {/* 일별 운동 부하 */}
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
             <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
               <div>
-                <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("daily.title")}</h3>
+                <Text as="h3" variant="title" style={{ margin: 0, marginBottom: "var(--space-1)" }}>{t("daily.title")}</Text>
                 <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("daily.sub")}</div>
               </div>
             </div>
@@ -960,19 +965,19 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             </div>
             <div data-testid="K1-7-2" style={{ marginTop: 'var(--space-4)', paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)" }}>
               <div>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t(weeklyStats.storedSummary ? "weekly.storedSummaryTitle" : "daily.weekTSS")}</Text>
+                <Text as="div" variant="caption" style={{ marginBottom: "var(--space-1)" }}>{t(weeklyStats.storedSummary ? "weekly.storedSummaryTitle" : "daily.weekTSS")}</Text>
                 <div><Text variant="dataMedium">{weeklyStats.thisWeekUnknownCount && !weeklyStats.hasKnownThisWeekLoad ? "–" : weeklyStats.thisWeekTSS ?? "–"}</Text></div>
                 <Text variant="bodyMedium">{t(`hub.weekly.basis.${weeklyStats.dateBasis}`, { date: weeklyStats.asOf })}</Text>
                 {weeklyStats.partial && <Text variant="bodyMedium">{t("weekly.partial")}</Text>}
                 {weeklyStats.thisWeekUnknownCount > 0 && <Text variant="caption">{trainingT("log.loadPartial", { count: weeklyStats.thisWeekUnknownCount })}</Text>}
               </div>
               <div>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("daily.avgWeekTSS")}</Text>
+                <Text as="div" variant="caption" style={{ marginBottom: "var(--space-1)" }}>{t("daily.avgWeekTSS")}</Text>
                 <div><Text variant="dataMedium">{weeklyStats.unknownCount && !weeklyStats.hasKnownLoad ? "–" : weeklyStats.avgWeekTSS ?? "–"}</Text></div>
                 {weeklyStats.unknownCount > 0 && <Text variant="caption">{trainingT("log.loadPartial", { count: weeklyStats.unknownCount })}</Text>}
               </div>
               <div>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("daily.restDays")}</Text>
+                <Text as="div" variant="caption" style={{ marginBottom: "var(--space-1)" }}>{t("daily.restDays")}</Text>
                 <div><Text variant="dataMedium">{weeklyStats.restDays ?? "–"}</Text><Text variant="unit">{t("daily.daysUnit")}</Text></div>
               </div>
             </div>
@@ -990,7 +995,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
               <>
                 <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
                   <div>
-                    <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("paceCurve.title")}</h3>
+                    <Text as="h3" variant="title" style={{ margin: 0, marginBottom: "var(--space-1)" }}>{t("paceCurve.title")}</Text>
                     <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("paceCurve.sub")}</div>
                   </div>
                   <div style={{ flex: 1 }} />
@@ -1004,7 +1009,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
               <>
                 <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
                   <div>
-                    <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("cssCurve.title")}</h3>
+                    <Text as="h3" variant="title" style={{ margin: 0, marginBottom: "var(--space-1)" }}>{t("cssCurve.title")}</Text>
                     <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("cssCurve.sub")}</div>
                   </div>
                   <div style={{ flex: 1 }} />
@@ -1018,7 +1023,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
               <>
                 <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
                   <div>
-                    <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("powerCurve.title")}</h3>
+                    <Text as="h3" variant="title" style={{ margin: 0, marginBottom: "var(--space-1)" }}>{t("powerCurve.title")}</Text>
                     <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("powerCurve.sub")}</div>
                   </div>
                   <div style={{ flex: 1 }} />
@@ -1053,7 +1058,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                 <div data-testid="K5-2-2" style={{ marginTop: "var(--space-3)", paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))", gap: "var(--space-2)" }}>
                   {pcKeyDurations.map((_, i) => (
                     <div key={i}>
-                      <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{pcKeyNames[i]} · {pcKeyLabels[i]}</Text>
+                      <Text as="div" variant="caption" style={{ marginBottom: "var(--space-1)" }}>{pcKeyNames[i]} · {pcKeyLabels[i]}</Text>
                       <div>
                         <Text variant="dataMedium">{pcKeyValues[i] != null ? pcKeyValues[i]!.toLocaleString() : "—"}</Text>
                         {pcKeyValues[i] != null && <Text variant="unit">W</Text>}
@@ -1073,51 +1078,30 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {part !== "condition" && <div data-testid="K5-3" style={{ marginTop: 'var(--space-5)' }}>
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
             {(() => {
-              const threshPace = profile?.thresholdPace ?? null;
-              const css = profile?.css ?? null;
-              type ZoneRow = { z: string; name: string; range: string; pct: number | null; time: string; color: string };
+              // The supplied distribution is hrZoneSec for every sport; do not label it as power or pace.
               const zd = zoneDistribution;
-              const zdPct = (i: number): number | null => (zd ? zd[i] ?? null : null);
-              const zones: ZoneRow[] = discipline === "run"
-                ? [
-                    { z: "Z1", name: ` ${t("zone.recovery")}`,  range: threshPace ? `> ${secToMmss(threshPace + 90)}/km` : "—",                                              pct: zdPct(0), time: "—", color: "var(--zone-1)" },
-                    { z: "Z2", name: ` ${t("zone.endurance")}`, range: threshPace ? `${secToMmss(threshPace + 30)}–${secToMmss(threshPace + 90)}/km` : "—",                  pct: zdPct(1), time: "—", color: "var(--zone-2)" },
-                    { z: "Z3", name: ` ${t("zone.tempo")}`,  range: threshPace ? `${secToMmss(threshPace - 10)}–${secToMmss(threshPace + 30)}/km` : "—",                  pct: zdPct(2), time: "—", color: "var(--zone-3)" },
-                    { z: "Z4", name: ` ${t("zone.threshold")}`,  range: threshPace ? `${secToMmss(threshPace - 30)}–${secToMmss(threshPace - 10)}/km` : "—",                  pct: zdPct(3), time: "—", color: "var(--zone-4)" },
-                    { z: "Z5", name: " VO2",   range: threshPace ? `< ${secToMmss(threshPace - 30)}/km` : "—",                                               pct: zdPct(4), time: "—", color: "var(--zone-5)" },
-                  ]
-                : discipline === "swim"
-                ? [
-                    { z: "Z1", name: ` ${t("zone.recovery")}`,  range: css ? `> ${secToMmss(css + 25)}/100m` : "—",                                  pct: zdPct(0), time: "—", color: "var(--zone-1)" },
-                    { z: "Z2", name: ` ${t("zone.endurance")}`, range: css ? `${secToMmss(css + 10)}–${secToMmss(css + 25)}/100m` : "—",            pct: zdPct(1), time: "—", color: "var(--zone-2)" },
-                    { z: "Z3", name: ` ${t("zone.tempo")}`,  range: css ? `${secToMmss(css)}–${secToMmss(css + 10)}/100m` : "—",                  pct: zdPct(2), time: "—", color: "var(--zone-3)" },
-                    { z: "Z4", name: ` ${t("zone.threshold")}`,  range: css ? `${secToMmss(css - 10)}–${secToMmss(css)}/100m` : "—",                  pct: zdPct(3), time: "—", color: "var(--zone-4)" },
-                    { z: "Z5", name: " VO2",   range: css ? `< ${secToMmss(css - 10)}/100m` : "—",                                  pct: zdPct(4), time: "—", color: "var(--zone-5)" },
-                  ]
-                : [
-                    { z: "Z1", name: ` ${t("zone.recovery")}`,  range: "< 55% FTP",    pct: zdPct(0), time: "—", color: "var(--zone-1)" },
-                    { z: "Z2", name: ` ${t("zone.endurance")}`, range: "55–75% FTP",   pct: zdPct(1), time: "—", color: "var(--zone-2)" },
-                    { z: "Z3", name: ` ${t("zone.tempo")}`,  range: "75–90% FTP",   pct: zdPct(2), time: "—", color: "var(--zone-3)" },
-                    { z: "Z4", name: ` ${t("zone.threshold")}`,  range: "90–105% FTP",  pct: zdPct(3), time: "—", color: "var(--zone-4)" },
-                    { z: "Z5", name: " VO2",   range: "> 105% FTP",   pct: zdPct(4), time: "—", color: "var(--zone-5)" },
-                  ];
-              const subLabel = discipline === "run" ? t("zoneDist.subRun") : discipline === "swim" ? t("zoneDist.subSwim") : t("zoneDist.subBike");
+              const zones = ["recovery", "endurance", "tempo", "threshold", "vo2"].map((name, index) => ({
+                z: `Z${index + 1}`, name: name === "vo2" ? " VO₂" : ` ${t(`zone.${name}`)}`,
+                pct: zd?.[index] ?? null, color: `var(--zone-${index + 1})`,
+              }));
+              const subLabel = t("zoneDist.hrSub");
               const allNullPct = zones.every((z) => z.pct === null);
               return (
                 <>
-                  <SectionHeader title={t("zoneDist.title")} sub={subLabel} />
+                  <div style={{ borderBottom: '1px solid var(--line-soft)', marginBottom: 'var(--space-3)', paddingBottom: 'var(--space-3)' }}>
+                    <Text as="h3" variant="title" style={{ margin: 0 }}><GlossaryText>{t("zoneDist.title")}</GlossaryText></Text>
+                    <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--ink-3)' }}><GlossaryText>{subLabel}</GlossaryText></span>
+                  </div>
                   {zones.map((zone) => (
                     <div key={zone.z} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-2)" }}>
                       <div style={{ width: 60 }}>
                         <span style={{ color: zone.color, fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "var(--fs-xs)" }}>{zone.z}</span>
                         <span style={{ fontSize: "var(--fs-xs)" }}>{zone.name}</span>
                       </div>
-                      <div style={{ width: 90, fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{zone.range}</div>
                       <div style={{ flex: 1, height: 18, background: "var(--bg-2)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
                         <div style={{ width: zone.pct != null ? `${zone.pct}%` : "0%", height: "100%", background: zone.color }} />
                       </div>
                       <div style={{ width: 40, textAlign: "right", fontSize: "var(--fs-sm)", fontFamily: "var(--font-mono)" }}>{zone.pct != null ? `${zone.pct}%` : "—"}</div>
-                      <div style={{ width: 50, textAlign: "right", fontSize: "var(--fs-xs)", color: "var(--ink-2)", fontFamily: "var(--font-mono)" }}>{zone.time}</div>
                     </div>
                   ))}
                   {allNullPct && (

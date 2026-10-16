@@ -1,0 +1,28 @@
+.ds-tooltip-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--bg-1);
+  box-shadow: var(--shadow-md);
+  color: var(--ink-1);
+  font-family: inherit;
+  font-variant: normal;
+  font-feature-settings: normal;
+  text-transform: none;
+  letter-spacing: normal;
+  text-align: left;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.ds-tooltip-content__title,
+.ds-tooltip-content__body {
+  display: block;
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1.5;
+}

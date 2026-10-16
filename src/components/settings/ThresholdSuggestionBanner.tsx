@@ -31,6 +31,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
   const { showToast } = useToast();
   const [sugg, setSugg] = useState<Suggestion | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dismissFailed, setDismissFailed] = useState(false);
   // busy 동안 새 onSnapshot 갱신을 잠시 큐잉 — accept/dismiss 클릭과 새 제안 도착이
   // 겹쳐 같은 자리에서 카드가 뒤바뀌는 UX race 방지.
   const busyRef = useRef(false);
@@ -125,6 +126,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
 
   const handleDismiss = async () => {
     if (!sugg || busy) return;
+    setDismissFailed(false);
     const activityId = sugg.activityId;
     busyRef.current = true;
     setBusy(true);
@@ -133,6 +135,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
       await fn({ activityId });
     } catch (err) {
       logClientError("ThresholdSuggestionBanner.handleDismiss", err, { activityId });
+      setDismissFailed(true);
     } finally {
       releaseBusy();
     }
@@ -169,6 +172,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
           </div>
         ))}
       </div>
+      {dismissFailed && <div role="alert" style={{ color: "var(--ink-1)", fontSize: "var(--fs-sm)" }}>{t("threshold.dismissFailed")}</div>}
       <div style={{ display: "flex", gap: 'var(--space-2)', justifyContent: "flex-end" }}>
         {(!sugg.ftp || (!v2FtpLoading && !hasConfirmedV2Ftp)) && <button
           type="button"
@@ -184,7 +188,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
             color: "var(--ink-2)",
           }}
         >
-          {t("threshold.dismiss")}
+          {t(dismissFailed ? "common:button.retry" : "threshold.dismiss")}
         </button>}
         {hasConfirmedV2Ftp && (
           <LocalizedLink

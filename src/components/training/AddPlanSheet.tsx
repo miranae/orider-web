@@ -1,12 +1,16 @@
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, runTransaction } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
-import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
+import { useTrainingDialog } from "./useTrainingDialog";
+import { createPortal } from "react-dom";
+import GlossaryText from "../common/GlossaryText";
+import SportIcon from "../common/SportIcon";
+import { Button, Text } from "../../theme/components";
 import type { PlanDay, PlanWeek, WorkoutKind } from "@shared/types/goal";
-import { Bike, Footprints, Waves, Moon } from "lucide-react";
+import { Moon } from "lucide-react";
 
 // ── 종목별 워크아웃 템플릿 ───────────────────────────────────────────────────
 
@@ -74,7 +78,7 @@ export default function AddPlanSheet({
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const dialog = useDialog();
-  useBodyScrollLock(true);
+
   const TEMPLATES_BY_DISCIPLINE = useMemo(() => buildTemplates(t), [t]);
   const DAY_NAMES = useMemo(() => [
     tCommon('weekday.mon'),
@@ -88,6 +92,10 @@ export default function AddPlanSheet({
   const [discipline, setDiscipline] = useState<Discipline | null>(null);
   const [selectedDay, setSelectedDay] = useState<number>(initialDayIndex ?? -1);
   const [loading, setLoading] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<WorkoutTemplate | null>(null);
+  const modalRef = useTrainingDialog(onClose, loading);
+  const titleId = useId();
+  const closeIfIdle = () => { if (!loading) onClose(); };
   const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
   const dragStartYRef = useRef<number | null>(null);
@@ -108,6 +116,7 @@ export default function AddPlanSheet({
         const snap = await tx.get(ref);
         if (!snap.exists()) throw new Error(t('add.weekDataMissing'));
         const weekData = snap.data() as PlanWeek;
+        if (weekData.days?.[selectedDay]?.date !== days[selectedDay]?.date) throw new Error(t('edit.staleDay'));
         const updatedDays = [...weekData.days];
         updatedDays[selectedDay] = {
           ...updatedDays[selectedDay]!,
@@ -138,6 +147,7 @@ export default function AddPlanSheet({
         const snap = await tx.get(ref);
         if (!snap.exists()) throw new Error(t('add.weekDataMissing'));
         const weekData = snap.data() as PlanWeek;
+        if (weekData.days?.[selectedDay]?.date !== days[selectedDay]?.date) throw new Error(t('edit.staleDay'));
         const updatedDays = [...weekData.days];
         updatedDays[selectedDay] = {
           ...updatedDays[selectedDay]!,
@@ -153,6 +163,7 @@ export default function AddPlanSheet({
       onClose();
     } catch (err) {
       logClientError("AddPlanSheet.handleSetRest", err, { goalId, weekId, selectedDay });
+      void dialog.alert(t('add.addFailedAlert'), { variant: "danger" });
     } finally {
       setLoading(false);
     }
@@ -161,6 +172,7 @@ export default function AddPlanSheet({
   const templates = discipline && discipline !== "rest" ? TEMPLATES_BY_DISCIPLINE[discipline] : [];
 
   const handleDragStart = (clientY: number) => {
+    if (loading) return;
     dragStartYRef.current = clientY;
     setDragging(true);
   };
@@ -175,25 +187,27 @@ export default function AddPlanSheet({
     dragStartYRef.current = null;
     setDragging(false);
     setDragY(0);
-    if (shouldClose) onClose();
+    if (shouldClose) closeIfIdle();
   };
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
-        onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "color-mix(in srgb, var(--bg-0) 50%, transparent)", zIndex: 999 }}
+        onClick={closeIfIdle}
+        className="bg-black/50" style={{ position: "fixed", inset: 0, zIndex: 117 }}
       />
 
       {/* Bottom sheet */}
-      <div data-testid="K4-7"
+      <div className="coach-training-dialog" ref={modalRef} role="dialog" tabIndex={-1} aria-modal="true" aria-busy={loading} aria-labelledby={titleId} data-testid="K4-7"
         style={{
           position: "fixed",
           bottom: 0,
           left: 0,
           right: 0,
-          zIndex: 1000,
+          width: "min(100%, 36rem)",
+          marginInline: "auto",
+          zIndex: 118,
           background: "var(--bg-1)",
           borderRadius: "16px 16px 0 0",
           border: "1px solid var(--line-soft)",
@@ -210,7 +224,8 @@ export default function AddPlanSheet({
         <button
           type="button"
           aria-label={tCommon("button.close")}
-          onClick={onClose}
+          disabled={loading}
+          onClick={closeIfIdle}
           onPointerDown={(event) => {
             event.currentTarget.setPointerCapture(event.pointerId);
             handleDragStart(event.clientY);
@@ -226,11 +241,14 @@ export default function AddPlanSheet({
         {/* Header */}
         <div style={{ padding: "var(--space-2) var(--space-5) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <h3 style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", margin: 0 }}>
+            <Text as="h2" variant="title" id={titleId} style={{ margin: 0 }}>
               {t('add.title')}
-            </h3>
+            </Text>
             <button
-              onClick={onClose}
+              data-dialog-initial-focus
+              onClick={closeIfIdle}
+              disabled={loading}
+              aria-label={tCommon("button.close")}
               style={{ background: "none", border: "none", color: "var(--ink-3)", cursor: "pointer", fontSize: "var(--fs-lg)", lineHeight: 1, padding: 'var(--space-1)' }}
             >
               ✕
@@ -241,13 +259,15 @@ export default function AddPlanSheet({
         <div style={{ overflow: "auto", overscrollBehavior: "contain", flex: 1, padding: "var(--space-4) var(--space-5) var(--space-6)" }}>
           {/* Step 1: 요일 선택 */}
           <div style={{ marginBottom: 'var(--space-5)' }}>
-            <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
+            <Text as="h3" variant="subtitle" style={{ margin: '0 0 var(--space-2)' }}>
               {t('add.selectDay')}
-            </div>
+            </Text>
             <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
               {availableDays.map(({ index, isRest, label }) => (
                 <button
                   key={index}
+                  disabled={loading}
+                  aria-pressed={selectedDay === index}
                   onClick={() => setSelectedDay(index)}
                   style={{
                     flex: 1, padding: "10px 0", borderRadius: "var(--r-md)", fontSize: "var(--fs-sm)", fontWeight: 500,
@@ -268,31 +288,29 @@ export default function AddPlanSheet({
           {/* Step 2: 종목 선택 */}
           {selectedDay >= 0 && (
             <div style={{ marginBottom: 'var(--space-5)' }}>
-              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
+              <Text as="h3" variant="subtitle" style={{ margin: '0 0 var(--space-2)' }}>
                 {t('add.discipline')}
-              </div>
-              <div style={{ display: "flex", gap: 'var(--space-2)' }}>
+              </Text>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {([
-                  { key: "bike" as Discipline, label: t('discipline.bike'), icon: <Bike size={18} />, color: "var(--aqua)" },
-                  { key: "run" as Discipline, label: t('discipline.run'), icon: <Footprints size={18} />, color: "var(--amber)" },
-                  { key: "swim" as Discipline, label: t('discipline.swim'), icon: <Waves size={18} />, color: "var(--lime)" },
+                  { key: "bike" as Discipline, label: t('discipline.bike'), icon: <SportIcon sport="bike" size={18} />, color: "var(--aqua)" },
+                  { key: "run" as Discipline, label: t('discipline.run'), icon: <SportIcon sport="run" size={18} />, color: "var(--amber)" },
+                  { key: "swim" as Discipline, label: t('add.swimUnavailable'), icon: <SportIcon sport="swim" size={18} />, color: "var(--lime)" },
                   { key: "rest" as Discipline, label: t('discipline.rest'), icon: <Moon size={18} />, color: "var(--ink-4)" },
                 ]).map(({ key, label, icon, color }) => (
                   <button
                     key={key}
-                    onClick={() => {
-                      if (key === "rest") {
-                        handleSetRest();
-                      } else {
-                        setDiscipline(key);
-                      }
-                    }}
+                    disabled={loading || key === "swim"}
+                    aria-pressed={discipline === key}
+                    onClick={() => { setDiscipline(key); setSelectedTemplate(null); }}
                     style={{
                       flex: 1, padding: "var(--space-3) var(--space-2)", borderRadius: "var(--r-lg)", fontSize: "var(--fs-xs)", fontWeight: 500,
                       background: discipline === key ? `color-mix(in oklch, ${color} 12%, var(--bg-2))` : "var(--bg-2)",
                       border: `1px solid ${discipline === key ? color : "var(--line-soft)"}`,
                       color: discipline === key ? color : "var(--ink-2)",
-                      cursor: "pointer",
+                      cursor: loading || key === "swim" ? "not-allowed" : "pointer",
+                      opacity: key === "swim" ? 0.5 : 1,
+                      minWidth: 0, overflowWrap: "normal",
                       display: "flex", flexDirection: "column", alignItems: "center", gap: 'var(--space-1)',
                     }}
                   >
@@ -307,27 +325,28 @@ export default function AddPlanSheet({
           {/* Step 3: 템플릿 선택 */}
           {discipline && discipline !== "rest" && templates.length > 0 && (
             <div>
-              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
+              <Text as="h3" variant="subtitle" style={{ margin: '0 0 var(--space-2)' }}>
                 {t('add.selectWorkout')}
-              </div>
+              </Text>
               <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-2)' }}>
                 {templates.map((t) => (
                   <button
                     key={t.kind}
-                    onClick={() => handleSelectTemplate(t)}
+                    onClick={() => setSelectedTemplate(t)}
+                    aria-pressed={selectedTemplate?.kind === t.kind}
                     disabled={loading || selectedDay < 0}
                     style={{
                       display: "flex", alignItems: "center", gap: 'var(--space-3)',
                       padding: "12px 14px", borderRadius: "var(--r-lg)",
-                      background: "var(--bg-2)", border: "1px solid var(--line-soft)",
+                      background: selectedTemplate?.kind === t.kind ? "var(--accent-soft-bg)" : "var(--bg-2)", border: selectedTemplate?.kind === t.kind ? "1px solid var(--accent-soft-border)" : "1px solid var(--line-soft)",
                       cursor: loading ? "not-allowed" : "pointer",
                       textAlign: "left", opacity: loading ? 0.5 : 1,
                     }}
                   >
                     <div style={{ width: 4, height: 32, background: t.color, borderRadius: "var(--r-xs)", flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>
                       <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t.label}</div>
-                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>{t.desc}</div>
+                      <div style={{ fontSize: "var(--fs-md)", color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>{t.desc}</div>
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
                       <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: t.color, fontWeight: 600 }}>
@@ -343,6 +362,22 @@ export default function AddPlanSheet({
             </div>
           )}
 
+          {selectedTemplate && <div aria-live="polite" data-testid="selected-workout-explanation"
+            style={{ marginTop: 'var(--space-3)', fontSize: 'var(--fs-md)', color: 'var(--ink-1)', lineHeight: 1.6 }}>
+            <div><GlossaryText>{selectedTemplate.label}</GlossaryText></div>
+            <div><GlossaryText>{selectedTemplate.desc}</GlossaryText></div>
+            <div><GlossaryText>{`${selectedTemplate.tss} TSS`}</GlossaryText>{` · ${selectedTemplate.durationMin}${tCommon('unit.min')}`}</div>
+          </div>}
+          {discipline && discipline !== "rest" && <details style={{ marginTop: 'var(--space-3)', fontSize: 'var(--fs-md)', color: 'var(--ink-2)', lineHeight: 1.6 }}>
+            <summary>{t('intensity')}</summary>
+            <div data-testid="workout-intensity-glossary"><GlossaryText>{"Z1 · Z2 · Z3 · Z4 · Z5 · FTP · VO₂max · SST · LSD · TSS"}</GlossaryText></div>
+          </details>}
+
+          <p style={{ color: "var(--ink-3)", fontSize: "var(--fs-md)", lineHeight: 1.6 }}>{t('add.selectionHint')}</p>
+          <Button type="button" disabled={loading || selectedDay < 0 || (discipline !== 'rest' && !selectedTemplate)}
+            onClick={() => { if (discipline === 'rest') void handleSetRest(); else if (selectedTemplate) void handleSelectTemplate(selectedTemplate); }}>
+            {loading ? t('add.saving') : discipline === 'rest' ? t('add.applyRest') : t('add.applySelection')}
+          </Button>
           {loading && (
             <div style={{ textAlign: "center", padding: "16px 0", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
               {t('add.saving')}
@@ -350,6 +385,6 @@ export default function AddPlanSheet({
           )}
         </div>
       </div>
-    </>
+    </>, document.body
   );
 }

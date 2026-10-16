@@ -59,6 +59,13 @@ function renderBriefing(overrides: Partial<React.ComponentProps<typeof FitnessCo
 }
 
 describe("FitnessCoachBriefing", () => {
+  it("names the snapshot date and source independently from the chart's pending history", () => {
+    renderBriefing({ part: "condition", currentBasis: "2026-10-15 기준 · 현재 컨디션 요약", current: { ctl: 49.4, atl: 38.1, tsb: 11.3 }, trendSlot: <p>2026-10-16 · PMC 반영 대기</p> });
+    expect(screen.getByText("2026-10-15 기준 · 현재 컨디션 요약")).toBeInTheDocument();
+    expect(screen.getByText("2026-10-16 · PMC 반영 대기")).toBeInTheDocument();
+    expect(screen.getByText("49.4")).toBeInTheDocument();
+    expect(screen.getByText("+11.3")).toBeInTheDocument();
+  });
   it("labels own-record model contribution separately from canonical inclusion and actual day change", () => {
     renderBriefing({ impacts: [{ ...impact("ride-1", 29, 63), confidence: "activity-tss", canonicalDailyLoad: 154 }] });
     expect(screen.getByText("활동 기록 부하 63 TSS · 모델 기여 추정")).toBeInTheDocument();
@@ -251,7 +258,8 @@ describe("coach screen ownership", () => {
   it("today keeps choices and removes the condition briefing and impact details", () => {
     renderBriefing({ part: "today", decisionSlot: null });
     expect(screen.getAllByRole("radio")).toHaveLength(3);
-    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "오늘은 어떻게 이어갈까요?" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /부하 지표상/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "실제 하루 변화" })).not.toBeInTheDocument();
   });
 });

@@ -1,0 +1,22 @@
+Material Symbols Rounded
+Copyright Google LLC
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Source repository: https://github.com/google/material-design-icons
+Pinned commit: 49d4db35df873165d6bd6ba09b063c7dafbac2f4
+Settings: FILL 1, wght 400 (default), GRAD 0 (default), opsz 24.
+The original SVG path data and viewBox are unchanged.
+The React wrapper sets the rendered size, currentColor and accessibility attributes.
+No external font or runtime asset request is used.
+
+bike: directions_bike
+Source: https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/symbols/web/directions_bike/materialsymbolsrounded/directions_bike_fill1_24px.svg
+Original SVG SHA-256: 201abaf02fd71f4868347a5d7498778e577390f73214eceb7bf7ed8706c8c5fc
+
+run: directions_run
+Source: https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/symbols/web/directions_run/materialsymbolsrounded/directions_run_fill1_24px.svg
+Original SVG SHA-256: 39d53dfe6c649691cffc180d4935d9d233f24b02dbdb2026d22d951fe26d59ef
+
+swim: pool
+Source: https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/symbols/web/pool/materialsymbolsrounded/pool_fill1_24px.svg
+Original SVG SHA-256: 5f6786f92ba0ac5fa76f1b6699eb0457ce58dfedec0877a6bf9c0a3407aca008

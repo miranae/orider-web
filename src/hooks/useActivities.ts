@@ -23,7 +23,8 @@ import { getPublicUserProfiles } from "../services/publicProfiles";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
-import { acceptedTrainingActivities, sumActivityTss } from "../utils/estimateTSS";
+import { acceptedTrainingActivities } from "../utils/estimateTSS";
+import { buildWeeklyLoadEvidence } from "../utils/weeklyLoadEvidence";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { getDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { seoulWeekStartMs } from "../utils/seoulWeek";
@@ -801,6 +802,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
     const weekStart = new Date(now);
     const daysSinceMonday = (weekStart.getDay() + 6) % 7;
     weekStart.setDate(weekStart.getDate() - w * 7 - daysSinceMonday);
+    weekStart.setHours(0, 0, 0, 0);
     const weekStartMs = discipline === "run" ? seoulWeekStartMs(now.getTime()) - w * 7 * 86400000 : weekStart.getTime();
     const weekEndMs = discipline === "run" ? weekStartMs + 7 * 86400000 : new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7).getTime();
     const labelDate = discipline === "run" ? new Date(weekStartMs + 9 * 3600000) : weekStart;
@@ -816,10 +818,12 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
       elevation: Math.round(weekActivities.reduce((s, a) => s + activityElevation(a), 0)),
       rides: weekActivities.length,
       ...(() => {
-        const load = sumActivityTss(physicalLoadActivities.filter(
-          (activity) => activity.startTime >= weekStartMs && activity.startTime < weekEndMs,
-        ));
-        return { tss: load.value, tssEstimated: load.estimated, tssUnknownCount: load.unknownCount };
+        const loadEvidence = buildWeeklyLoadEvidence(all, { periodStartMs: weekStartMs, periodEndMs: weekEndMs,
+          scope: discipline && discipline !== "tri" ? discipline : "allSupported", coverage: coverageStatus,
+          timeZone: discipline === "run" ? "Asia/Seoul" : Intl.DateTimeFormat().resolvedOptions().timeZone,
+          acceptedActivities: physicalLoadActivities });
+        return { tss: loadEvidence.total, tssEstimated: loadEvidence.estimated,
+          tssUnknownCount: loadEvidence.unknownCount, loadEvidence };
       })(),
     });
   }

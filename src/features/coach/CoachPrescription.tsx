@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Chip, Text } from "../../theme/components";
 import {
@@ -18,12 +19,9 @@ import type {
 
 interface Props { initial: CoachPrescriptionDTO; parentRequestId: string; locale: string; onReanalyze: () => void;
   onQuestionSelect?: (question: string, prescriptionId: string, sourceRequestId: string) => void; readOnly?: boolean;
-  /**
-   * 사용자가 "오늘은 다릅니다" 로 직접 입력을 택했는지. 이 의사는 새 분석에서도 살아 있어야
-   * 하는데 이 컴포넌트는 requestId 로 키가 걸려 리마운트되므로, 상위(런처)가 소유한다.
-   */
+  /** 이전 호출부 호환용. 모든 체크인은 기본 선택 없이 직접 입력한다. */
   manualCheckIn?: boolean;
-  /** 직접 입력을 시작한다. 상위가 의사를 기억하고 같은 질문을 다시 보낸다. */
+  /** 이전 호출부와의 호환을 위해 보존한다. */
   onManualCheckIn?: () => void }
 type Answers = CoachPrescriptionCheckInRequest["answers"];
 type SubmitState = "idle" | "submitting" | "network_error" | "reanalyze" | "error";
@@ -55,8 +53,9 @@ function Condition({ condition, evidenceById, locale }: { condition: CoachReasse
   const { t } = useTranslation("coach");
   return <li><p>{t(`prescription.metric.${condition.metric}`)} {t(`prescription.operator.${condition.operator}`)} {condition.threshold.value}
     {condition.maxAgeHours ? ` · ${t("prescription.maxAge", { hours: condition.maxAgeHours })}` : ""}
-    {` · ${condition.ruleId}`}</p>
+    </p>
   <details><summary>{t("prescription.evidence", { count: condition.evidenceIds.length })}</summary><ul>
+    <li>{condition.ruleId}</li>
     {condition.evidenceIds.map((evidenceId) => <li key={evidenceId} data-evidence-id={evidenceId}>
       {displayEvidence(evidenceById.get(evidenceId)!, locale)}</li>)}
   </ul></details></li>;
@@ -349,41 +348,41 @@ function PrescriptionDetails({ prescription, locale, sourceRequestId, capabiliti
     <dl className="coach-prescription__meta">
       <div><dt>{t("prescription.confidenceLabel")}</dt><dd>{t(`prescription.confidence.${prescription.confidence}`)}</dd></div>
       <div><dt>{t("prescription.dataAsOf")}</dt><dd>{date(prescription.validFrom, locale, true)}</dd></div>
+    </dl>
+    <details><summary>{t("answer.load.reasons")}</summary><dl className="coach-prescription__meta">
       <div><dt>{t("prescription.factsId")}</dt><dd>{prescription.factsId}</dd></div>
       <div><dt>{t("prescription.planRevision")}</dt><dd>{prescription.planRevision ?? t("prescription.none")}</dd></div>
       <div><dt>{t("prescription.rulesVersion")}</dt><dd>{prescription.rulesVersion}</dd></div>
-    </dl>
+    </dl></details>
     {progressPlannerEnabled && capabilities?.progressPlanner.read.enabled && <ProposalReview prescription={prescription} locale={locale}
       sourceRequestId={sourceRequestId} capabilities={capabilities} onReanalyze={onReanalyze}
       onQuestionSelect={onQuestionSelect} />}
   </section>;
 }
 
-/**
- * 평소 상태. 매주 같은 세 문항을 되묻지 않고 이 값으로 자동 확인한다. 사용자는 컨디션이
- * 다를 때만 "오늘은 다릅니다" 로 직접 입력한다.
- */
-const DEFAULT_CHECK_IN_ANSWERS: Answers = {
-  subjectiveFatigue: "normal", soreness: "none", painOrIllness: false,
-};
-
-function Signal({ signal, answers, onChange }: { signal: CoachCheckInSignal; answers: Answers; onChange: (answers: Answers) => void }) {
+function Signal({ signal, answers, onChange, disabled }: { signal: CoachCheckInSignal; answers: Answers; onChange: (answers: Answers) => void; disabled: boolean }) {
   const { t } = useTranslation("coach");
+  const groupId = useId();
   const options = signal === "subjective_fatigue" ? [["normal", "normal"], ["tired", "tired"]] as const
     : signal === "soreness" ? [["none", "none"], ["present", "present"]] as const
       : [["false", "none"], ["true", "present"]] as const;
   const selected = signal === "subjective_fatigue" ? answers.subjectiveFatigue
     : signal === "soreness" ? answers.soreness : answers.painOrIllness === undefined ? undefined : String(answers.painOrIllness);
-  return <fieldset className="coach-checkin__signal"><legend>{t(`prescription.signal.${signal}`)}</legend>
-    <div>{options.map(([value, label]) => <label key={value}><input type="radio" name={`coach-checkin-${signal}`} value={value}
+  return <fieldset disabled={disabled} className="coach-checkin__signal"><legend>{t(`prescription.signal.${signal}`)}</legend>
+    <div>{options.map(([value, label]) => <label key={value}><input type="radio" name={`coach-checkin-${groupId}-${signal}`} value={value}
       checked={selected === value} onChange={() => onChange(signal === "subjective_fatigue" ? { ...answers, subjectiveFatigue: value as "normal" | "tired" }
         : signal === "soreness" ? { ...answers, soreness: value as "none" | "present" }
           : { ...answers, painOrIllness: value === "true" })} />{t(`prescription.option.${signal}.${label}`)}</label>)}</div>
   </fieldset>;
 }
 
-export function CoachPrescription({ initial, parentRequestId, locale, onReanalyze, onQuestionSelect, readOnly = false,
-  manualCheckIn = false, onManualCheckIn }: Props) {
+export function CoachPrescription(props: Props) {
+  const { user } = useAuth();
+  const contextKey = [user?.uid ?? "signed-out", props.parentRequestId, props.initial.prescriptionId, props.initial.factsId, props.initial.snapshotRevision, props.initial.checkInToken, props.readOnly].join(":");
+  return <CoachPrescriptionSession key={contextKey} {...props} />;
+}
+
+function CoachPrescriptionSession({ initial, parentRequestId, locale, onReanalyze, onQuestionSelect, readOnly = false }: Props) {
   const { t } = useTranslation("coach");
   const [prescription, setPrescription] = useState(initial);
   const [answers, setAnswers] = useState<Answers>({});
@@ -391,11 +390,13 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
   const [sourceRequestId, setSourceRequestId] = useState(parentRequestId);
   const [capabilities, setCapabilities] = useState<CoachProgressPlannerCapabilities | null>(null);
   const [capabilityFailed, setCapabilityFailed] = useState(false);
-  const [assumedDefaults, setAssumedDefaults] = useState(false);
+  const [capabilityRetry, setCapabilityRetry] = useState(0);
+  const activeRef = useRef(true);
+  useEffect(() => { activeRef.current = true; return () => { activeRef.current = false; }; }, []);
   const requestRef = useRef<CoachPrescriptionCheckInRequest | null>(null);
   const inFlightRef = useRef(false);
   const required = prescription.requiredSignals ?? [];
-  const complete = required.every((signal) => signal === "subjective_fatigue" ? answers.subjectiveFatigue !== undefined
+  const complete = required.length > 0 && required.every((signal) => signal === "subjective_fatigue" ? answers.subjectiveFatigue !== undefined
     : signal === "soreness" ? answers.soreness !== undefined : answers.painOrIllness !== undefined);
   const locallyEnabled = getRuntimeConfig().coachProgressPlannerEnabled === true;
   const checkInEnabled = capabilities?.prescription.checkIn.enabled === true;
@@ -403,6 +404,7 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
   useEffect(() => {
     if (readOnly) return;
     let active = true;
+    setCapabilities(null); setCapabilityFailed(false);
     void getCoachProgressPlannerCapabilities().then((value) => { if (active) setCapabilities(value); })
       .catch((error) => { if (active) {
         logProgressError("capabilities", error, { operation: "load", prescriptionId: initial.prescriptionId,
@@ -410,44 +412,27 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
         setCapabilityFailed(true);
       } });
     return () => { active = false; };
-  }, [readOnly]);
+  }, [readOnly, capabilityRetry]);
 
-  // 묻지 않고 평소 기준으로 한 번만 자동 확인한다. 체크인 제출은 AI 호출 0회·사용량 0이라
-  // 비용이 없다. 실패하면 아래 직접 입력 폼이 그대로 나타나므로 사용자가 손으로 넣을 수 있다.
-  const autoRef = useRef(false);
-  useEffect(() => {
-    if (readOnly || autoRef.current || manualCheckIn) return;
-    if (prescription.status !== "needs_checkin" || !prescription.checkInToken) return;
-    if (!checkInEnabled) return;
-    autoRef.current = true;
-    setAnswers(DEFAULT_CHECK_IN_ANSWERS);
-    setAssumedDefaults(true);
-    void submit(false, DEFAULT_CHECK_IN_ANSWERS);
-  }, [prescription.status, prescription.checkInToken, checkInEnabled, readOnly, manualCheckIn]);
-
-  async function submit(retry = false, override?: Answers) {
-    const payload = override ?? answers;
-    const ready = override !== undefined || complete;
-    if (inFlightRef.current || prescription.status !== "needs_checkin" || !prescription.checkInToken || !ready) return;
+  async function submit(retry = false) {
+    if (readOnly || !checkInEnabled || state === "reanalyze" || state === "error" || state === "network_error" && !retry || inFlightRef.current || prescription.status !== "needs_checkin" || !prescription.checkInToken || !complete) return;
     const request = retry && requestRef.current ? requestRef.current : {
-      requestId: crypto.randomUUID(), parentRequestId, checkInToken: prescription.checkInToken, answers: payload,
+      requestId: crypto.randomUUID(), parentRequestId, checkInToken: prescription.checkInToken, answers: { ...answers },
     };
     requestRef.current = request; inFlightRef.current = true; setState("submitting");
     try {
       const result = await submitCoachPrescriptionCheckIn(request);
+      if (!activeRef.current) return;
       if (result.status === "ok") { setPrescription(result.prescription); setSourceRequestId(request.requestId); setState("idle"); }
       else setState(REANALYZE_CODES.has(result.error.code) ? "reanalyze" : result.error.retryable ? "network_error" : "error");
     } catch (error) {
+      if (!activeRef.current) return;
       if (isCoachClientError(error) && error.kind === "http" && REANALYZE_CODES.has(error.code)) setState("reanalyze");
       else setState(isCoachClientError(error) && (error.kind === "transport" || error.kind === "http") ? "network_error" : "error");
     } finally { inFlightRef.current = false; }
   }
 
   if (prescription.status === "ready") return <>
-    {assumedDefaults && !readOnly && <div className="coach-checkin__assumed">
-      <Text as="p" variant="caption" tone="secondary">{t("prescription.checkin.assumedDefaults")}</Text>
-      {onManualCheckIn && <Button variant="ghost" onClick={onManualCheckIn}>{t("prescription.checkin.adjust")}</Button>}
-    </div>}
     <PrescriptionDetails prescription={prescription} locale={locale} sourceRequestId={sourceRequestId}
       capabilities={capabilities} progressPlannerEnabled={!readOnly && locallyEnabled} onReanalyze={onReanalyze}
       onQuestionSelect={readOnly ? undefined : onQuestionSelect} />
@@ -466,21 +451,20 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
     <p>{t("prescription.checkin.body")}</p>
     <Text as="p" variant="caption" tone="secondary">{t("history.readOnlyPrescription")}</Text>
   </section>;
-  if (assumedDefaults && state === "submitting") return <section data-testid="K6-2-6" className="coach-prescription coach-checkin" role="status">
-    <Text as="p" variant="bodySmall" tone="secondary">{t("prescription.checkin.assuming")}</Text>
-  </section>;
   return <section data-testid="K6-2-6" className="coach-prescription coach-checkin" aria-labelledby={`checkin-${prescription.prescriptionId}`}>
     <Text id={`checkin-${prescription.prescriptionId}`} as="h3" variant="subtitle">{t("prescription.checkin.title")}</Text>
     <p>{t("prescription.checkin.body")}</p>
-    {required.map((signal) => <Signal key={signal} signal={signal} answers={answers} onChange={(next) => {
+    {required.map((signal) => <Signal key={signal} signal={signal} answers={answers} disabled={state === "submitting" || state === "reanalyze"} onChange={(next) => {
       setAnswers(next); requestRef.current = null; setState("idle");
     }} />)}
-    <Button disabled={!complete || state === "submitting" || !checkInEnabled} onClick={() => void submit()}>{state === "submitting" ? t("prescription.checkin.submitting") : t("prescription.checkin.submit")}</Button>
-    {capabilities?.prescription.checkIn.enabled === false && <Text as="p" variant="caption" tone="warning">{t("progress.states.proposalDisabled")}</Text>}
-    {capabilityFailed && <Alert variant="warning" title={t("progress.states.unavailable")} />}
+    <Button disabled={!complete || state !== "idle" || !checkInEnabled} onClick={() => void submit()}>{state === "submitting" ? t("prescription.checkin.submitting") : t("prescription.checkin.submit")}</Button>
+    <Button variant="ghost" disabled={state === "submitting"} onClick={() => { setAnswers({}); requestRef.current = null; if (state !== "reanalyze") setState("idle"); }}>{t("prescription.checkin.cancel")}</Button>
+    {!capabilities && !capabilityFailed && <Text as="p" variant="caption" role="status">{t("prescription.checkin.loading")}</Text>}
+    {capabilities?.prescription.checkIn.enabled === false && <Text as="p" variant="caption" tone="warning">{t("prescription.checkin.unavailable")}</Text>}
+    {capabilityFailed && <div><Alert variant="warning" title={t("progress.states.unavailable")} /><Button variant="outline" onClick={() => setCapabilityRetry(value => value + 1)}>{t("prescription.checkin.loadRetry")}</Button></div>}
     {state === "network_error" && <div role="alert"><p>{t("prescription.checkin.networkError")}</p><Button variant="outline" onClick={() => void submit(true)}>{t("prescription.checkin.retry")}</Button></div>}
     {state === "reanalyze" && <div role="alert"><p>{t("prescription.checkin.reanalyze")}</p><Button variant="outline" onClick={onReanalyze}>{t("prescription.checkin.newAnalysis")}</Button></div>}
-    {state === "error" && <p role="alert">{t("prescription.checkin.error")}</p>}
+    {state === "error" && <div role="alert"><p>{t("prescription.checkin.error")}</p><Button variant="outline" onClick={onReanalyze}>{t("prescription.checkin.newAnalysis")}</Button></div>}
     <p className="coach-checkin__policy">{t("prescription.checkin.noCharge")}</p>
   </section>;
 }

@@ -20,6 +20,7 @@ export default function HubSubNav({ hubKey }: { hubKey: HubKey }) {
   return (
     <div style={{ marginBottom: "var(--space-4)" }}>
       <RouteTabNav
+        revealActive={hubKey === "coach"}
         tabs={hub.subs.map((s) => ({
           to: `${s.to}${coachSearch}`,
           label: t(s.labelKey),

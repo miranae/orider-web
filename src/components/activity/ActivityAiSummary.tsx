@@ -1,3 +1,4 @@
+import GlossaryText from "../common/GlossaryText";
 import { useTranslation } from "react-i18next";
 import { Sparkles } from "lucide-react";
 
@@ -18,9 +19,9 @@ export default function ActivityAiSummary({ summary, summaryEn, inset = true }: 
       className={`${inset ? "mx-4" : ""} mb-3 rounded-[var(--r-md)] px-3 py-2`}
       style={{ background: "color-mix(in oklch, var(--lime) 8%, var(--bg-2))", border: "1px solid color-mix(in oklch, var(--lime) 25%, transparent)" }}
     >
-      <div className="flex items-center gap-1 mb-1 text-[length:var(--fs-xs)] font-bold" style={{ color: "var(--lime)" }}>
+      <div className="flex items-center gap-1 mb-1 text-[length:var(--fs-xs)] font-bold" style={{ color: "var(--ink-1)", position: "relative", zIndex: 2 }}>
         <Sparkles size={12} />
-        {t("card.aiSummary")}
+        <GlossaryText>{t("card.aiSummary")}</GlossaryText>
       </div>
       <p className="text-[length:var(--fs-sm)] leading-relaxed line-clamp-2" style={{ color: "var(--ink-1)" }}>
         {text}

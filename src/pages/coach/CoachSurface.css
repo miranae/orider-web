@@ -1,0 +1,74 @@
+/* 코치의 읽기 위계와 홈에서 확정한 대비·반응형 기준. */
+.coach-surface {
+ --ft-page-title-size: var(--fs-xl);
+ --ft-page-title-weight: 700;
+ --ft-page-title-line-height: 1.35;
+ min-width: 0; color: var(--ink-1);
+}
+.coach-surface .coach-page-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); margin-bottom: var(--space-5); }
+.coach-page-header h1 { flex: 1 1 auto; margin: 0; }
+.coach-page-header > div:has(> [role="tablist"]) { width: fit-content; max-width: 100%; }
+.coach-page-header > a { display: inline-flex; align-items: baseline; gap: var(--space-2); color: var(--ink-1); }
+.coach-surface .fitness-reading { padding-inline: 0 !important; }
+.coach-surface .ds-btn--primary, .coach-surface .ds-btn--primary:hover:not(:disabled) { background: var(--color-primary-dark); color: var(--primary-fg); border-color: var(--color-primary-dark); }
+.coach-inline-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-4); padding: var(--space-4); border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-2); }
+.coach-surface [data-testid="K3-1"] { display: grid; gap: var(--space-4); }
+.coach-surface [data-testid="K3-1-1"] { display: grid; gap: var(--space-2); }
+.coach-surface [data-testid="K3-1-2"] { display: grid; gap: var(--space-2); }
+.coach-surface [data-testid="K3-2"] { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-6); }
+.coach-surface [data-testid="K3-2"] > h2 { flex-basis: 100%; margin-bottom: 0; }
+@media (max-width: 36rem) {
+ .coach-page-header > div:has(> [role="tablist"]) { flex-basis: 100%; }
+ .coach-page-header [role="tablist"] { width: fit-content; max-width: 100%; }
+}
+
+.coach-current-state { display: inline-flex; align-items: baseline; gap: var(--space-2); }
+.coach-current-state a { color: var(--ink-1); }
+
+@media (max-width: 36rem) {
+ .coach-surface [role="tablist"] { display: flex; max-width: 100%; }
+ .coach-surface [role="tablist"] > [role="tab"] { min-width: 0; flex: 1 1 0; padding-inline: var(--space-1) !important; gap: var(--space-1) !important; }
+ .coach-surface [role="tablist"] > [role="tab"] > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+ .coach-surface [role="tablist"] > [role="tab"] > span:last-child > span { white-space: normal !important; }
+}
+
+@media (max-width: 36rem) {
+ .coach-surface [role="tablist"] > [role="tab"] { flex-direction: column; justify-content: center; }
+ .coach-surface [role="tablist"] > [role="tab"] > span:last-child { white-space: nowrap; overflow-wrap: normal; }
+}
+
+@media (max-width: 36rem) {
+ .coach-surface .coach-page-header > div:has(> [role="tablist"]) { width: 100%; }
+ .coach-surface [role="tablist"] { width: 100% !important; }
+ .coach-surface [role="tablist"] > [role="tab"] > span:last-child > span { white-space: nowrap !important; word-break: keep-all; }
+ .coach-surface .coach-question-launcher { position: static; display: flex; justify-content: flex-end; margin-top: var(--space-5); margin-bottom: var(--space-4); }
+}
+
+/* 코치 포털은 body 직속이므로 페이지 스코프와 같은 대비를 명시한다. */
+.coach-sheet .ds-btn--primary,
+.coach-sheet .ds-btn--primary:hover:not(:disabled),
+.coach-consent-dialog .ds-btn--primary,
+.coach-consent-dialog .ds-btn--primary:hover:not(:disabled),
+.coach-training-dialog .ds-btn--primary,
+.coach-training-dialog .ds-btn--primary:hover:not(:disabled) {
+ background: var(--color-primary-dark); color: var(--primary-fg); border-color: var(--color-primary-dark);
+}
+
+@media (max-width: 36rem) {
+ .coach-training-dialog .ds-btn { min-height: var(--space-10); }
+ .coach-training-dialog [data-testid="K4-6-7"] { min-width: var(--space-10); min-height: var(--space-10); }
+}
+
+/* 설정 안쪽 제목은 코치 카드의 하위 제목 위계를 따른다. */
+.coach-surface [data-testid="K1-5-5"] > header > h3,
+.coach-surface [data-testid="K1-5-6"] > header > h3 {
+ font-size: var(--fs-lg) !important;
+ line-height: 1.4;
+}
+
+/* Native disclosure semantics with a visible state indicator. */
+.ds-details-section__chevron { flex: none; color: var(--ink-2); transition: transform 150ms ease; }
+.ds-details-section[open] > summary .ds-details-section__chevron { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .ds-details-section__chevron { transition: none; } }
+
+.coach-analysis-details:has(> details > div:empty) { display: none; }

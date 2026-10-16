@@ -663,6 +663,28 @@ describe("useActivities", () => {
 });
 
 describe("useWeeklyStats", () => {
+  it.each([undefined, "bike", "swim"] as const)("주간 %s 범위는 로컬 월요일 00:00부터 포함하고 근거 기간과 일치한다", async discipline => {
+    simulateLogin({ uid: "user-1" });
+    const now = new Date(2026, 9, 7, 15, 45);
+    const monday = new Date(2026, 9, 5, 0, 0, 0, 0).getTime();
+    const type = discipline === "swim" ? "Swim" : "Ride";
+    setCollectionDocs("activities", [
+      createMockActivity({ id: "before-midnight", userId: "user-1", type, startTime: monday - 1, endTime: monday,
+        summary: createMockSummary({ tss: 20 }) }),
+      createMockActivity({ id: "monday-midnight", userId: "user-1", type, startTime: monday, endTime: monday + 3600000,
+        summary: createMockSummary({ tss: 40 }) }),
+      createMockActivity({ id: "monday-morning", userId: "user-1", type, startTime: monday + 8 * 3600000, endTime: monday + 9 * 3600000,
+        summary: createMockSummary({ tss: 60 }) }),
+    ]);
+    const { result } = renderHook(() => useWeeklyStats({ now, discipline }), { wrapper });
+    await waitFor(() => expect(result.current.coverage).toBe("ready"));
+    expect(result.current.weeklyStats.at(-1)).toMatchObject({ rides: 2, tss: 100, loadEvidence: {
+      total: 100, periodStartMs: monday, periodEndMs: new Date(2026, 9, 12).getTime(),
+      coverage: "ready", scope: discipline ?? "allSupported", rawCount: 2, acceptedCount: 2,
+      storedTotal: 100, estimatedTotal: 0, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    } });
+    expect(result.current.weeklyStats.at(-2)).toMatchObject({ rides: 1, tss: 20 });
+  });
   it.each(["bike", "swim"] as const)("filters %s 7-day totals without changing all-sport history and mobile breakdown", async (discipline) => {
     const now = new Date(2026, 9, 6, 12);
     simulateLogin({ uid: "user-1" });

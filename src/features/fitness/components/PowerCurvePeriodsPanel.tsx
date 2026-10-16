@@ -90,7 +90,7 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
     setInvalid(false); setSelection(current => ({ request: { unit: "W", periods: periods as PowerCurvePeriod[], ...(unit === "W/kg" ? { includeWeightNormalized: true } : {}) }, requestId: (current?.requestId ?? 0) + 1 }));
   };
   return <section className="space-y-4" aria-label={t("periodCurve.title")}>
-    {!embedded && <Text as="h3" variant="subtitle">{t("periodCurve.title")}</Text>}
+    {!embedded && <Text as="h3" variant="title">{t("periodCurve.title")}</Text>}
     <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.timezone")}</Text>
     <label className="period-curve-unit space-y-2 block" htmlFor={`${id}-unit`}><Text as="span" variant="bodyMedium">{t("periodCurve.unit")}</Text><Select id={`${id}-unit`} value={unit} onChange={event => { setUnit(event.target.value === "W/kg" ? "W/kg" : "W"); setSelection(null); setInvalid(false); }}><option value="W">W</option><option value="W/kg">W/kg</option></Select></label>
     {unit === "W/kg" && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import i18n from "i18next";
 import enTraining from "../../i18n/resources/en/training.json";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useNavigate, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
 import MobileLogPage from "./MobileLogPage";
@@ -18,7 +18,32 @@ function activity(id: string, day: number): Activity {
   } as Activity;
 }
 
+function QueryNavigation() {
+  const navigateQuery = useNavigate();
+  const location = useLocation();
+  return <><button onClick={() => navigateQuery("?sport=swim")}>Change query</button><output data-testid="query">{location.search}</output></>;
+}
+
 describe("MobileLogPage", () => {
+  it("honors incoming sport and later navigation without losing unrelated query parameters", () => {
+    const run = { ...activity("run", 3), type: "Run", description: "Run only" };
+    const swim = { ...activity("swim", 4), type: "Swim", description: "Swim only" };
+    render(<MemoryRouter initialEntries={["/?sport=run&keep=1"]}><QueryNavigation /><MobileLogPage activities={[activity("bike", 2), run, swim]} year={2026} month={8} onChangeMonth={vi.fn()} /></MemoryRouter>);
+    expect(screen.getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("region", { name: "최근 활동" })).toHaveTextContent("Run only");
+    expect(screen.getByRole("region", { name: "최근 활동" })).not.toHaveTextContent("Ride bike");
+    fireEvent.click(screen.getByRole("button", { name: /사이클/ }));
+    expect(screen.getByTestId("query")).toHaveTextContent("sport=bike&keep=1");
+    fireEvent.click(screen.getByRole("button", { name: "Change query" }));
+    expect(screen.getByRole("button", { name: /수영/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("region", { name: "최근 활동" })).toHaveTextContent("Swim only");
+  });
+
+  it("falls back to all activities for an unsupported sport", () => {
+    render(<MemoryRouter initialEntries={["/?sport=invalid"]}><MobileLogPage activities={[activity("bike", 2)]} year={2026} month={8} onChangeMonth={vi.fn()} /></MemoryRouter>);
+    expect(screen.getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it.each([["ko", "계획"], ["en", "Plan"]])("renders planned-day labels in %s without leaking a namespace key", async (language, label) => {
     i18n.addResourceBundle("en", "training", enTraining, true, true);
     await i18n.changeLanguage(language);

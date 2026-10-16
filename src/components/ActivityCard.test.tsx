@@ -1,3 +1,8 @@
+import i18n from "i18next";
+import enActivity from "../i18n/resources/en/activity.json";
+import enCommon from "../i18n/resources/en/common.json";
+import enTermGlossary from "../i18n/resources/en/termGlossary.json";
+import { GlossaryProvider } from "./common/GlossaryProvider";
 import { screen, waitFor, fireEvent, within } from "@testing-library/react";
 import ActivityCard, { shouldReportMapCaptureError } from "./ActivityCard";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
@@ -18,6 +23,34 @@ vi.mock("./RouteMap", () => ({
 }));
 
 describe("ActivityCard", () => {
+  beforeAll(() => {
+    i18n.addResourceBundle("en", "activity", enActivity, true, true);
+    i18n.addResourceBundle("en", "common", enCommon, true, true);
+    i18n.addResourceBundle("en", "termGlossary", enTermGlossary, true, true);
+  });
+  afterEach(async () => { await i18n.changeLanguage("ko"); });
+
+  it.each(["ko", "en"])("uses the %s date locale in both author layouts", async language => {
+    await i18n.changeLanguage(language);
+    const startTime = new Date(2026, 9, 16, 6, 11).getTime();
+    const activity = createMockActivity({ startTime, description: "FTP 사용자 활동명" });
+    renderWithProviders(<><ActivityCard activity={activity} showMap={false} /><ActivityCard activity={activity} showMap={false} hideAuthor /></>);
+    const expectedDate = new Date(startTime).toLocaleString(language === "en" ? "en-US" : "ko-KR", {
+      month: "long", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit",
+    });
+    expect(screen.getAllByText(expectedDate)).toHaveLength(2);
+    expect(screen.getAllByText("FTP 사용자 활동명")).toHaveLength(2);
+  });
+
+  it("explains English abbreviated elevation and plural segments without parsing an activity title", async () => {
+    await i18n.changeLanguage("en");
+    renderWithProviders(<GlossaryProvider><ActivityCard activity={createMockActivity({ description: "FTP original title", segmentEffortCount: 30 })} showMap={false} /></GlossaryProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "About Elev Gain" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Elevation gain");
+    expect(screen.getByRole("button", { name: "About segments" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "About FTP" })).not.toBeInTheDocument();
+    expect(screen.getByText("FTP original title")).toBeInTheDocument();
+  });
   it("renders running pace and supplementary running power without a misleading no-records message", () => {
     const base = createMockActivity();
     const activity = createMockActivity({ type: "TrailRun", startTime: 1_000_000, endTime: 8_082_000,
@@ -303,4 +336,12 @@ describe("ActivityCard", () => {
     renderWithProviders(<ActivityCard activity={activity} />);
     expect(screen.getByText("라이딩")).toBeInTheDocument();
   });
+});
+
+it.each([false, true])("distinguishes confirmed elapsed time from an untyped provider duration (%s)", confirmed => {
+  const base = createMockActivity();
+  const activity = createMockActivity({ startTime: 0, endTime: 0, summary: { ...base.summary, ridingTimeMillis: 3600000, elapsedTimeMillis: confirmed ? 3600000 : undefined, movingTimeSec: undefined, pauseTimeSec: undefined } });
+  renderWithProviders(<ActivityCard activity={activity} homeLabels showMap={false} />);
+  expect(screen.getByText(confirmed ? "전체시간" : "활동시간")).toBeInTheDocument();
+  expect(screen.queryByText(confirmed ? "활동시간" : "전체시간")).not.toBeInTheDocument();
 });

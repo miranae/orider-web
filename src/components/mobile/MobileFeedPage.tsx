@@ -1,6 +1,8 @@
+import SportIcon from "../common/SportIcon";
+import GlossaryText from "../common/GlossaryText";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/appStoreLinks";
-import { Fragment, lazy, Suspense, useState, useMemo, type ReactNode } from "react";
-import { ChevronDown, SlidersHorizontal } from "lucide-react";
+import { Fragment, useState, useMemo, type ReactNode } from "react";
+import { SlidersHorizontal } from "lucide-react";
 import { useActivityAuthor } from "../../hooks/useActivityAuthor";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
@@ -9,14 +11,13 @@ import Avatar from "../Avatar";
 import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
 import { timeAgo } from "../../utils/timeAgo";
-import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
+import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineLabelKey, getDisciplineTag } from "../../utils/disciplineFilter";
 import { isIndoorActivity } from "../../utils/indoorActivity";
 import { Button, Card, Text, buttonClass } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { isTrivialActivity } from "../../utils/activityFilter";
-import { resolveDuration, resolveAvgSpeedKph } from "../../utils/activityTime";
+import { resolveDuration, resolveAvgSpeedKph, durationLabelBasis } from "../../utils/activityTime";
 import { isImplausibleAvgSpeed, isImplausibleActivity } from "../../utils/activitySanity";
-import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import type { ActivityFeedScope, useActivitySearch } from "../../hooks/useActivities";
 import ActivityRouteThumbnail from "../activity/ActivityRouteThumbnail";
 import type { DashboardDatePreset, DashboardSportFilter } from "../../hooks/useDashboardPreferences";
@@ -25,7 +26,6 @@ import { formatDistance, formatElev, formatPace, formatSpeed } from "../../utils
 import { isImplausibleActivityHeartRate } from "../../utils/activitySanity";
 import "./MobileFeedPage.css";
 
-const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
 const MOBILE_FEED_RENDER_STEP = 40;
 const MOBILE_FEED_RENDER_INITIAL = 60;
 type SportFilter = DashboardSportFilter;
@@ -48,7 +48,6 @@ interface MobileFeedPageProps {
   onLoadMore: () => void;
   activitySearch?: ReturnType<typeof useActivitySearch>;
   showYearRecapBanner?: boolean;
-  consistencyStreak?: ConsistencyStreakSummary | null;
   weeklySummary?: {
     activityCount: number;
     /** 종목별 최근 7일 거리. Firestore 원본 단위인 meter. */
@@ -81,6 +80,7 @@ function SportSummaryFilter({
   ariaLabel: string;
   labelsOnly?: boolean;
 }) {
+  const { t } = useTranslation("dashboard");
   return (
     <Card
       padding="none"
@@ -93,25 +93,31 @@ function SportSummaryFilter({
         <button
           key={item.key}
           type="button"
-          aria-label={item.label}
+          aria-label={item.key === "swim" ? `${item.label} · ${t("common:discipline.comingSoon")}` : item.label}
+          disabled={item.key === "swim"}
+          aria-disabled={item.key === "swim" || undefined}
+          title={item.key === "swim" ? t("common:discipline.comingSoon") : undefined}
           aria-pressed={value === item.key}
-          onClick={() => onChange(item.key)}
+          onClick={() => { if (item.key !== "swim") onChange(item.key); }}
           style={{
             minWidth: 0,
-            minHeight: 64,
-            padding: "10px 2px",
+            minHeight: labelsOnly ? "var(--space-8)" : 64,
+            padding: labelsOnly ? "var(--space-1) var(--space-0-5)" : "10px 2px",
             textAlign: "center",
             border: "none",
             borderRight: index < items.length - 1 ? "1px solid var(--line-soft)" : "none",
             background: value === item.key ? "var(--bg-3)" : "transparent",
-            cursor: "pointer",
+            cursor: item.key === "swim" ? "not-allowed" : "pointer",
+            opacity: item.key === "swim" ? 0.45 : 1,
           }}
         >
-          <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: value === item.key ? item.color : "var(--ink-4)", marginBottom: 'var(--space-1)', overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {item.label}
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-1)", marginBottom: 'var(--space-1)', whiteSpace: "normal", overflowWrap: "anywhere", fontFamily: "var(--font-sans)" }}>
+            {item.key !== "all" && <span aria-hidden="true" style={{ display: "block", lineHeight: 1.2 }}><SportIcon sport={item.key} size={16} style={{ display: "inline-block", verticalAlign: "middle" }} /></span>}
+            <span>{item.key === "all" ? item.label : t(getDisciplineLabelKey(item.key))}</span>
+            {item.key === "swim" && <span style={{ display: "block", fontSize: "var(--fs-2xs)", fontFamily: "var(--font-sans)", lineHeight: 1.2 }}>{t("common:discipline.comingSoon")}</span>}
           </div>
-          {!labelsOnly && <Text as="div" variant="num" style={{ fontSize: "var(--fs-lg)", color: item.color, lineHeight: 1 }}>
-            {item.value}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: "var(--space-0-5)" }}>{item.unit}</span>
+          {!labelsOnly && <Text as="div" variant="num" style={{ fontSize: "var(--fs-lg)", color: "var(--ink-1)", lineHeight: 1 }}>
+            {item.value}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginLeft: "var(--space-0-5)" }}>{item.unit}</span>
           </Text>}
         </button>
       ))}
@@ -205,7 +211,6 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
     discipline: discipline ?? undefined,
   });
   const sColor = getDisciplineColor(discipline);
-  const sIcon = getDisciplineIcon(discipline);
   const sTag = getDisciplineTag(discipline);
 
   return (
@@ -221,17 +226,17 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
         <span style={{ position: "relative", zIndex: 2 }}><Avatar userId={activity.userId} name={nickname} imageUrl={activity.profileImage} size="sm" /></span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{nickname}</div>
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>{timeAgo(activity.startTime, t)}</div>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginTop: 1 }}>{timeAgo(activity.startTime, t)}</div>
         </div>
         <span style={{
           padding: "3px 7px", borderRadius: "var(--r-sm)", fontSize: "var(--fs-xs)",
           fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
           display: "flex", alignItems: "center", gap: "var(--space-1)",
           background: `color-mix(in oklch, ${sColor} 14%, var(--bg-2))`,
-          color: sColor,
+          color: "var(--ink-1)",
           border: `1px solid color-mix(in oklch, ${sColor} 30%, transparent)`,
         }}>
-          {sIcon} {sTag}
+          {discipline ? <SportIcon sport={discipline} size={14} /> : getDisciplineIcon(null)} {sTag}
           {isIndoorActivity(activity) && <span>· {t("common:sport.indoor")}</span>}
         </span>
         {showDataWarning && (
@@ -240,7 +245,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
             className="text-[length:var(--fs-xs)]"
             style={{
               padding: "3px 6px", borderRadius: "var(--r-sm)",
-              fontWeight: 600, color: "var(--amber)",
+              fontWeight: 600, color: "var(--ink-1)",
               background: "var(--bg-3)", border: "1px solid var(--amber)",
             }}
           >
@@ -269,29 +274,29 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
         {(discipline === "run" ? [
           { v: distance, u: "", l: t("mobileFeed.statDistance") },
           { v: pace, u: "", l: tActivity("stat.avgPace") },
-          { v: dur, u: "", l: t("mobileFeed.statTime") },
+          { v: dur, u: "", l: t(`homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, sd.usingMoving)}`) },
         ] : [
           { v: distance, u: "", l: t("mobileFeed.statDistance") },
-          { v: dur, u: "", l: t("mobileFeed.statTime") },
+          { v: dur, u: "", l: t(`homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, sd.usingMoving)}`) },
           { v: elev, u: "", l: t("mobileFeed.statElev") },
           { v: spd, u: "", l: t("mobileFeed.statSpeed") },
         ]).map((stat, i) => (
-          <div key={stat.l} style={{ flex: 1, borderLeft: i > 0 ? "1px solid var(--line-soft)" : "none", paddingLeft: i > 0 ? 12 : 0 }}>
+          <div key={stat.l} style={{ flex: 1, display: "flex", flexDirection: "column", borderLeft: i > 0 ? "1px solid var(--line-soft)" : "none", paddingLeft: i > 0 ? 12 : 0 }}>
             {/* 라벨 위 / 값 아래 — ActivityCard 와 동일 세로 스택 (가독성) */}
-            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-0-5)" }}>{stat.l}</div>
+            <div style={{ flex: 1, fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginBottom: "var(--space-0-5)", position: "relative", zIndex: 2 }}><GlossaryText>{stat.l}</GlossaryText></div>
             <div>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: discipline === "run" && i === 1 ? "var(--fs-lg)" : "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.02em", lineHeight: 1 }}>{stat.v}</span>
-              {stat.u && <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}> {stat.u}</span>}
+              {stat.u && <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}> {stat.u}</span>}
             </div>
           </div>
         ))}
       </div>
 
       {discipline === "run" && (
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }} data-testid="run-card-secondary">
-          {hasHr && <span>{tActivity("stat.avgHrShort")} · {Math.round(heartRate)} bpm</span>}
-          <span>{t("mobileFeed.statElev")} · {elev}</span>
-          {(s.averagePower ?? activity.avgPower ?? 0) > 0 && <span>{tActivity("stat.runningPower")} · {Math.round(s.averagePower ?? activity.avgPower ?? 0)} W</span>}
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }} data-testid="run-card-secondary">
+          {hasHr && <span style={{ position: "relative", zIndex: 2 }}>{t("homeMetrics.avgHeartRate")} · {Math.round(heartRate)} <GlossaryText>{"bpm"}</GlossaryText></span>}
+          <span style={{ position: "relative", zIndex: 2 }}><GlossaryText>{t("mobileFeed.statElev")}</GlossaryText> · {elev}</span>
+          {(s.averagePower ?? activity.avgPower ?? 0) > 0 && <span style={{ position: "relative", zIndex: 2 }}><GlossaryText>{tActivity("stat.runningPower")}</GlossaryText> · {Math.round(s.averagePower ?? activity.avgPower ?? 0)} <GlossaryText>{"W"}</GlossaryText></span>}
         </div>
       )}
 
@@ -305,7 +310,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
 }
 
 export default function MobileFeedPage({
-  activities, loading, error = false, onRetry, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
+  activities, loading, error = false, onRetry, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, currentUserId = null, friendIds = [],
   activitySearch,
   weeklySummary, runSummary, feedScope, onFeedScopeChange,
   sportFilter: controlledSportFilter,
@@ -321,7 +326,6 @@ export default function MobileFeedPage({
   const [searchQuery, setSearchQuery] = useState("");
   const searchActive = activitySearch?.active ?? false;
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [routineOpen, setRoutineOpen] = useState(false);
   const [localDatePreset, setLocalDatePreset] = useState<DashboardDatePreset>("all");
   const sportFilter = controlledSportFilter ?? localSportFilter;
   const datePreset = controlledDatePreset ?? localDatePreset;
@@ -331,7 +335,7 @@ export default function MobileFeedPage({
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
   const effectiveFeedScope = user ? feedScope : "all";
   const activeFilterCount = Number(effectiveFeedScope !== "all") + Number(datePreset !== "all");
-  const hasActiveSearchFilters = sportFilter !== "all" || effectiveFeedScope !== "all" || datePreset !== "all";
+  const hasActiveSearchFilters = effectiveFeedScope !== "all" || datePreset !== "all";
   const activeFilterDescription = [
     effectiveFeedScope !== "all" ? t(`feed.filter.${effectiveFeedScope}`) : null,
     datePreset !== "all" ? t(`feed.datePreset.${datePreset}`) : null,
@@ -394,19 +398,14 @@ export default function MobileFeedPage({
   const filteredActivities = filteredByDate;
   const renderedActivities = filteredActivities.slice(0, renderLimit);
   const hasHiddenLocalItems = filteredActivities.length > renderedActivities.length;
-  const supportingCards = (showYearRecapBanner || (!user && consistencyStreak)) && (
+  const supportingCards = showYearRecapBanner && (
     <>
-      {!user && consistencyStreak && (
-        <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
-          <Suspense fallback={null}><ConsistencyStreakCard summary={consistencyStreak} compact /></Suspense>
-        </div>
-      )}
       {showYearRecapBanner && (
         <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
           <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "var(--lime)" }}>
             <Text variant="eyebrow" tone="secondary">{t("yearRecap.eyebrow")}</Text>
             <Text as="h2" variant="subtitle" weight={700} style={{ display: "block", marginTop: "var(--space-1)", color: "var(--ink-0)" }}>{t("yearRecap.title")}</Text>
-            <Text variant="bodySmall" tone="tertiary" style={{ display: "block", marginTop: "var(--space-1)", marginBottom: "var(--space-3)" }}>{t("yearRecap.desc")}</Text>
+            <Text variant="bodySmall" tone="tertiary" style={{ display: "block", marginTop: "var(--space-1)", marginBottom: "var(--space-3)" }}><GlossaryText>{t("yearRecap.desc")}</GlossaryText></Text>
             <Link to="/athlete/me/records" className={buttonClass({ variant: "primary", size: "sm", block: true })} style={{ textDecoration: "none" }}>{t("yearRecap.cta")}</Link>
           </Card>
         </div>
@@ -415,8 +414,8 @@ export default function MobileFeedPage({
   );
 
   return (
-    <div data-testid="H1-2" style={{ overscrollBehavior: "contain" }}>
-      {todayStrip && <div className="p-4">{todayStrip}</div>}
+    <div className="dashboard-home" data-testid="H1-2" style={{ overscrollBehavior: "contain" }}>
+      {todayStrip && <div style={{ padding: "var(--space-3) var(--space-4) var(--space-2)" }}>{todayStrip}</div>}
       {!user && (
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
           <SportSummaryFilter
@@ -430,27 +429,14 @@ export default function MobileFeedPage({
 
       {/* 주간 요약 — 로그인 사용자만 (비로그인은 개인 통계 컨텍스트 없음) */}
       {user && (
-        <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-2) var(--space-4)" }}>
-          <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-1)" }}>
+        <div style={{ borderBottom: "1px solid var(--line-soft)", padding: `${todayStrip ? "0" : "var(--space-2)"} var(--space-4)` }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: todayStrip ? 0 : "var(--space-1)" }}>
             <div className="flex items-center" style={{ minWidth: 0, gap: "var(--space-2)" }}>
               {!todayStrip && <Text variant="eyebrow">{t("mobileFeed.weekSummary")}</Text>}
-              {consistencyStreak && (
-                <button
-                  type="button"
-                  aria-expanded={routineOpen}
-                  aria-controls={routineOpen ? "mobile-routine-detail" : undefined}
-                  aria-label={`${t("streak.title", { count: consistencyStreak.streakWeeks })} · ${consistencyStreak.needsThisWeek === 0 ? t("streak.maintained", { count: consistencyStreak.thisWeekCount }) : t("streak.needOne")} · ${t("mobileFeed.routineScore", { score: consistencyStreak.score90d })}`}
-                  onClick={() => setRoutineOpen((open) => !open)}
-                  className="flex items-center"
-                  style={{ border: "none", borderRadius: "var(--r-lg)", background: "var(--accent-soft-bg)", color: "var(--lime)", fontSize: "var(--fs-xs)", fontWeight: 600, minHeight: "var(--space-8)", padding: "0 var(--space-2)", whiteSpace: "nowrap", cursor: "pointer", gap: "var(--space-1)" }}
-                >
-                  {t("mobileFeed.streakWeeks", { count: consistencyStreak.streakWeeks })}
-                  <ChevronDown size={12} aria-hidden="true" style={{ transform: routineOpen ? "rotate(180deg)" : undefined }} />
-                </button>
-              )}
+
             </div>
-            <Link to="/athlete/me" className="ds-tap-target" style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, textDecoration: "none" }}>
-              {t("mobileFeed.viewAll")}
+            <Link to="/athlete/me" className="ds-tap-target" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-1)", fontWeight: 500, textDecoration: "underline" }}>
+              {t("mobileFeed.viewProfile")}
             </Link>
           </div>
           {!todayStrip && sportFilter === "run" && runSummary && <div data-testid="mobile-run-weekly-summary" style={{ marginBottom: "var(--space-2)" }}>
@@ -471,11 +457,7 @@ export default function MobileFeedPage({
             onChange={setSportFilter}
             ariaLabel={t("mobileFeed.sportFilterLabel")}
           />
-          {routineOpen && consistencyStreak && (
-            <div id="mobile-routine-detail" style={{ marginTop: "var(--space-2)" }}>
-              <Suspense fallback={null}><ConsistencyStreakCard summary={consistencyStreak} compact /></Suspense>
-            </div>
-          )}
+
         </div>
       )}
 
@@ -509,22 +491,23 @@ export default function MobileFeedPage({
               fontSize: "var(--fs-sm)",
             }}
           />
-          {searchActive && <Button type="button" variant="secondary" size="sm" aria-label={t("feed.search.reset")} onClick={() => {
+          {searchActive && <Button type="button" variant="secondary" size="lg" iconOnly dense aria-label={t("feed.search.reset")} onClick={() => {
             setSearchQuery("");
             activitySearch.reset();
             setRenderLimit(MOBILE_FEED_RENDER_INITIAL);
           }}>×</Button>}
-          <Button type="submit" variant="secondary" size="sm">{t("feed.search.submit")}</Button>
+          <Button type="submit" variant="secondary" size="lg" dense style={{ paddingInline: "var(--space-3)", flexShrink: 0 }}>{t("feed.search.submit")}</Button>
           </form>}
           <Button
             type="button"
             variant={activeFilterCount > 0 ? "primary" : "secondary"}
-            size="sm"
+            size="lg"
+            dense
             aria-expanded={filtersOpen}
             aria-controls={filtersOpen ? "mobile-feed-filters" : undefined}
             aria-label={`${t("mobileFeed.filterToggle")}${activeFilterDescription ? `: ${activeFilterDescription}` : ""}`}
             onClick={() => setFiltersOpen((open) => !open)}
-            style={{ flexShrink: 0, maxWidth: "45%", minHeight: "var(--space-8)", gap: "var(--space-1)", overflow: "hidden" }}
+            style={{ flexShrink: 0, maxWidth: "40%", paddingInline: "var(--space-3)", gap: "var(--space-1)", overflow: "hidden" }}
           >
             <SlidersHorizontal size={15} aria-hidden="true" />
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -534,7 +517,7 @@ export default function MobileFeedPage({
         </div>
         {filtersOpen && <div id="mobile-feed-filters" style={{ display: "grid", gridTemplateColumns: user ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
           {user && <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden", display: "flex", alignItems: "center", paddingLeft: "var(--space-2)" }}>
-            <span style={{ flexShrink: 0, color: "var(--ink-3)", fontSize: "var(--fs-2xs)" }}>{t("feed.filter.label")}</span>
+            <span style={{ flexShrink: 0, color: "var(--ink-2)", fontSize: "var(--fs-2xs)" }}>{t("feed.filter.label")}</span>
             <select
               data-testid="H1-1-1" value={feedScope}
               onChange={(event) => onFeedScopeChange(event.target.value as ActivityFeedScope)}
@@ -547,7 +530,7 @@ export default function MobileFeedPage({
             </select>
           </label>}
           <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden", display: "flex", alignItems: "center", paddingLeft: "var(--space-2)" }}>
-            <span style={{ flexShrink: 0, color: "var(--ink-3)", fontSize: "var(--fs-2xs)" }}>{t("feed.datePreset.label")}</span>
+            <span style={{ flexShrink: 0, color: "var(--ink-2)", fontSize: "var(--fs-2xs)" }}>{t("feed.datePreset.label")}</span>
             <select
               value={datePreset}
               onChange={(event) => {
@@ -567,7 +550,7 @@ export default function MobileFeedPage({
         </div>}
       </div>
 
-      {user && effectiveFeedScope === "self" && sportFilter === "run" && runningJourney && (
+      {user && sportFilter === "run" && runningJourney && (
         <div data-testid="mobile-owner-running-journey" className="space-y-3">{runningJourney}</div>
       )}
 
@@ -579,7 +562,7 @@ export default function MobileFeedPage({
       {!searchActive && !loading && error && (
         <div role="alert" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-2)" }}>{t(activities.length > 0 ? "feed.partialError.title" : "feed.error.title")}</div>
-          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: "var(--space-4)" }}>{t(activities.length > 0 ? "feed.partialError.description" : "feed.error.description")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)", marginBottom: "var(--space-4)" }}>{t(activities.length > 0 ? "feed.partialError.description" : "feed.error.description")}</div>
           {onRetry && <Button variant="primary" onClick={onRetry}>{t(activities.length > 0 ? "feed.partialError.retry" : "feed.error.retry")}</Button>}
         </div>
       )}
@@ -593,16 +576,16 @@ export default function MobileFeedPage({
 
       {!(searchActive ? activitySearch!.loading || activitySearch!.error : loading || error) && filteredActivities.length === 0 && (
         <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
-          <div style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>🚴</div>
+          <div aria-hidden="true" style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>{sportFilter === "all" ? getDisciplineIcon(null) : <SportIcon sport={sportFilter} size={32} style={{ margin: "0 auto" }} />}</div>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{searchActive && activitySearch!.hasMoreServerResults ? t("feed.search.morePossibleTitle") : searchActive ? t("feed.search.emptyTitle") : activities.length > 0 ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
-          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{searchActive && activitySearch!.hasMoreServerResults ? t("feed.search.morePossibleDescription") : searchActive ? t("feed.search.emptyDescription") : activities.length > 0 ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)" }}>{searchActive && activitySearch!.hasMoreServerResults ? t("feed.search.morePossibleDescription") : searchActive ? t("feed.search.emptyDescription") : activities.length > 0 ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
           {user && !searchActive && activities.length === 0 && <div className="flex gap-3 mt-3"><a href={ORIDER_PLAY_STORE_URL}>Google Play</a><a href={ORIDER_APP_STORE_URL}>App Store</a><Link to="/athlete/me/activities?import=1">{t("todayStrip.importHistory")}</Link></div>}
+          {!searchActive && activities.length > 0 && <Button variant="secondary" onClick={() => setFiltersOpen(true)} style={{ marginTop: "var(--space-3)" }}>{t("mobileFeed.filterToggle")}</Button>}
           {searchActive && hasActiveSearchFilters && <Button variant="secondary" onClick={() => {
-            setSportFilter("all");
             onFeedScopeChange("all");
             setDatePreset("all");
             activitySearch!.setDatePreset("all");
-          }} style={{ marginTop: "var(--space-3)" }}>{t("feed.search.clearFilters")}</Button>}
+          }} style={{ marginTop: "var(--space-3)" }}>{t("feed.search.resetScopeDates")}</Button>}
         </div>
       )}
       {!(searchActive ? activitySearch!.loading : loading) && filteredActivities.length === 0 && supportingCards}

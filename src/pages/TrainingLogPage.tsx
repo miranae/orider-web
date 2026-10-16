@@ -12,6 +12,8 @@ import type { PlanDay, PlanWeek } from "@shared/types/goal";
 import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
+import SportFilterTabs from "../components/mobile/SportFilterTabs";
+import { getDiscipline } from "../utils/disciplineFilter";
 import { acceptedTrainingActivities, estimateActivityTss, sumActivityTss } from "../utils/estimateTSS";
 import { planDayKey, planCalendarDate, planMonthBounds } from "@shared/training/planDate";
 import { Button, Card, Text } from "../theme/components";
@@ -508,12 +510,26 @@ export default function TrainingLogPage() {
     return () => { cancelled = true; };
   }, [user]);
 
+  const [importParams, setImportParams] = useSearchParams();
+  const requestedSport = importParams.get("sport");
+  const sportFilter = requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim" ? requestedSport : "all";
+  const setSportFilter = (sport: string) => {
+    const next = new URLSearchParams(importParams);
+    next.set("sport", sport);
+    setImportParams(next, { replace: true });
+  };
+
+  const visiblePlans = useMemo(() => new Map([...planByMonth].flatMap(([date, plans]) => {
+    const matching = sportFilter === "all" ? plans : plans.filter((plan) => plan.discipline === sportFilter);
+    return matching.length ? [[date, matching] as const] : [];
+  })), [planByMonth, sportFilter]);
+
   // 캐시된 모든 월 활동 평탄화 (자식/모바일 뷰가 소비) — 월 범위는 서로 겹치지 않음
   const activities = useMemo(() => {
     const all: Activity[] = [];
     for (const arr of activitiesByMonth.values()) all.push(...arr);
-    return all;
-  }, [activitiesByMonth]);
+    return sportFilter === "all" ? all : all.filter((activity) => getDiscipline(activity.type) === sportFilter);
+  }, [activitiesByMonth, sportFilter]);
 
   // 선택 월이 아직 안 들어왔으면 로딩 표시 — 캐시된 월 재방문은 즉시 (스피너 없음)
   const selectedMonthKey = monthKey(selectedMonth.year, selectedMonth.month);
@@ -635,7 +651,6 @@ export default function TrainingLogPage() {
 
   const monthLabel = t("log.monthLabel", { year: selectedMonth.year, month: selectedMonth.month + 1 });
 
-  const [importParams, setImportParams] = useSearchParams();
   const [importOpen, setImportOpen] = useState(importParams.get("import") === "1");
   useEffect(() => { if (importParams.get("import") === "1") setImportOpen(true); }, [importParams]);
   const closeImport = () => { setImportOpen(false); const next = new URLSearchParams(importParams); next.delete("import"); setImportParams(next, { replace: true }); };
@@ -666,8 +681,8 @@ export default function TrainingLogPage() {
     }
     return (
       <MobileLogPage
-        plannedDates={[...planByMonth.keys()]}
-        plannedSports={Object.fromEntries([...planByMonth].map(([date, plans]) => [date, plans[0]?.discipline ?? "bike"]))}
+        plannedDates={[...visiblePlans.keys()]}
+        plannedSports={Object.fromEntries([...visiblePlans].map(([date, plans]) => [date, plans[0]?.discipline ?? "bike"]))}
         ftp={ftp}
         activities={activities}
         year={selectedMonth.year}
@@ -695,6 +710,7 @@ export default function TrainingLogPage() {
           <Text as="h1" variant="title" style={{ margin: 0 }}>{t("page.logTitle")}</Text>
           <Text as="span" variant="caption" tone="secondary">{t("page.logActivities", { count: kpi.count })}</Text>
         </div>
+        <SportFilterTabs value={sportFilter} onChange={setSportFilter} />
         <Text variant="caption" tone="secondary">{t("log.recordBasis")}</Text>
         {kpi.tssEstimated && <Text variant="caption" tone="secondary">{t("log.estimateBasis")}</Text>}
         <Card data-testid="P1-1-1" padding="none" style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
@@ -848,7 +864,7 @@ export default function TrainingLogPage() {
                     {week.map((cell) => {
                       const key = dateToKey(cell.date);
                       const acts = byDay.get(key) ?? [];
-                      const plans = planByMonth.get(key) ?? [];
+                      const plans = visiblePlans.get(key) ?? [];
                       const isToday = key === todayKey;
                       return (
                         <LogDayCell

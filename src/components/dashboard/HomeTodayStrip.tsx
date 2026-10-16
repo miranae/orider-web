@@ -1,3 +1,4 @@
+import GlossaryText from "../common/GlossaryText";
 import { useEffect, useState, type ReactNode } from "react";
 import { collection, limit, onSnapshot, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -9,8 +10,10 @@ import { useTodayTrainingDecision } from "../../hooks/useTodayTrainingDecision";
 import { primaryEffectiveSession } from "../../features/trainingDecision/decisionPresentation";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { LocalizedLink } from "../LocalizedLink";
-import { Card, Text } from "../../theme/components";
+import { Card, Chip, Text, buttonClass } from "../../theme/components";
 import { logClientError } from "../../services/errorLogger";
+import InfoTip from "../InfoTip";
+import { getDisciplineLabelKey } from "../../utils/disciplineFilter";
 
 interface RegisteredEvent { eventId: string; name: string; startTime: number }
 function HomeTodaySummary({ discipline }: { discipline: "bike" | "run" | "swim" }) {
@@ -20,9 +23,9 @@ function HomeTodaySummary({ discipline }: { discipline: "bike" | "run" | "swim" 
   const state = useTodayTrainingDecision(user?.uid, discipline);
   if (!getRuntimeConfig().trainingDecisionEnabled) return null;
   const session = state.decision && state.decision.scheduledProjectionValidUntil > Date.now() ? primaryEffectiveSession(state.decision) : null;
-  return <Card data-testid="H2-2-1" data-home-slot="today" data-surface="home"><Text as="h2" variant="subtitle">{t("todayStrip.today")}</Text>
-    <Text as="p" tone="secondary">{state.loading ? t("todayStrip.loading") : session ? `${tTraining(`decision.workout.${session.current.workout}`, { defaultValue: session.current.workout })} · ${tTraining("decision.duration", { value: session.current.durationMin })}` : t("todayStrip.noToday")}</Text>
-    <LocalizedLink to={`/coach/today?sport=${discipline}`}>{t("todayStrip.choose")}</LocalizedLink>
+  return <Card data-testid="H2-2-1" data-home-slot="today" data-surface="home" className="flex flex-col gap-3" header={<Text as="h2" variant="subtitle">{t("todayStrip.today")}</Text>}>
+    <Text as="p" variant="bodySmall" tone="secondary"><GlossaryText>{state.loading ? t("todayStrip.loading") : state.unavailable ? t("todayStrip.unavailable") : session ? `${tTraining(`decision.workout.${session.current.workout}`, { defaultValue: session.current.workout })} · ${tTraining("decision.duration", { value: session.current.durationMin })}` : t("todayStrip.noToday")}</GlossaryText></Text>
+    <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/today?sport=${discipline}`}>{t("todayStrip.choose")}</LocalizedLink>
   </Card>;
 }
 function HomeGoalSummary({ discipline, monthlyKm, monthlyFlowPercent, weeklyAverageKm, goalProjection }: { discipline: "bike" | "run" | "swim"; monthlyKm: number; monthlyFlowPercent?: number | null; weeklyAverageKm: number; goalProjection?: { goalId: string; ctl: number } }) {
@@ -38,14 +41,30 @@ function HomeGoalSummary({ discipline, monthlyKm, monthlyFlowPercent, weeklyAver
     }, (error) => { logClientError("HomeTodayStrip.goals", error); setState({ owner, goal: null, loading: false, failed: true }); });
   }, [user, discipline, owner]);
   const current = state?.owner === owner ? state : null;
-  if (!current || current.loading || current.failed) return <Text tone="tertiary">{t(current?.failed ? "todayStrip.unavailable" : "todayStrip.loading")}</Text>;
-  if (current.goal) {
-    const goal = current.goal;
-    const days = Math.ceil(((goal.targetDate ?? goal.eventDate) - Date.now()) / 86400000);
-    return <LocalizedLink to={`/coach/goals?sport=${discipline}`}><Text as="p" weight={700}>{goal.title || goal.courseName || t("todayStrip.goal")}</Text>{Number.isFinite(days) && <Text>D{days >= 0 ? "−" : "+"}{Math.abs(days)}</Text>}{goalProjection?.goalId === goal.id && Number.isFinite(goalProjection.ctl) && <Text as="p">{t("todayStrip.goalCtl", { value: goalProjection.ctl.toFixed(1) })}</Text>}</LocalizedLink>;
-  }
-  if (weeklyAverageKm <= 0) return <LocalizedLink to={`/coach/goals?sport=${discipline}`}>{t("todayStrip.createGoal")}</LocalizedLink>;
-  return <LocalizedLink to={`/coach/analysis?sport=${discipline}`}><Text as="p">{t("todayStrip.monthFlow")}</Text><Text>{t("todayStrip.monthFlowValue", { distance: Math.round(monthlyKm), percent: monthlyFlowPercent ?? "—" })}</Text></LocalizedLink>;
+  const goal = current?.goal;
+  const days = goal ? Math.ceil(((goal.targetDate ?? goal.eventDate) - Date.now()) / 86400000) : NaN;
+  return <Card padding="compact" data-home-slot="goal" header={<div className="flex items-center justify-between gap-2" style={{ width: "100%" }}>
+    <Text as="h2" variant="subtitle">{current && !current.loading && !current.failed && !goal && weeklyAverageKm > 0 ? discipline === "run" ? <>{t("todayStrip.monthFlow")} · {t(getDisciplineLabelKey(discipline))}</> : t("todayStrip.monthFlowAllTitle") : <>{t("todayStrip.goal")} · {t(getDisciplineLabelKey(discipline))}</>}</Text>
+    {(goal || current?.failed) && <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/goals?sport=${discipline}`}>{t("todayStrip.goalLink")}</LocalizedLink>}
+  </div>}>
+    <div data-testid="H2-3-3" className="flex flex-col gap-2">
+      {!current || current.loading || current.failed ? <Text as="p" variant="bodySmall" tone="tertiary">{t(current?.failed ? "todayStrip.unavailable" : "todayStrip.loading")}</Text>
+        : goal ? <>
+          <Text as="p" variant="bodyMedium" weight={700} style={{ overflowWrap: "anywhere" }}>{goal.title || goal.courseName || t("todayStrip.goal")}</Text>
+          <div className="flex flex-wrap items-center gap-2">
+            {Number.isFinite(days) && <Chip><Text variant="caption" mono><InfoTip title={t("todayStrip.goalCountdownTitle")} content={t("todayStrip.goalCountdownHelp")} label={t("todayStrip.goalCountdownLabel")} termId="countdown">{`D${days >= 0 ? "−" : "+"}${Math.abs(days)}`}</InfoTip></Text></Chip>}
+            {goalProjection?.goalId === goal.id && Number.isFinite(goalProjection.ctl) && <Text variant="caption"><GlossaryText>{t("todayStrip.goalCtl", { value: goalProjection.ctl.toFixed(1) })}</GlossaryText></Text>}
+          </div>
+        </> : weeklyAverageKm <= 0 ? <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/goals?sport=${discipline}`}>{t("todayStrip.createGoal")}</LocalizedLink>
+          : <>
+            <Text variant="dataSmall" mono><GlossaryText>{t(discipline === "run" ? "todayStrip.monthFlowValue" : "todayStrip.monthFlowAllValue", { distance: Math.round(monthlyKm), percent: monthlyFlowPercent ?? "—" })}</GlossaryText></Text>
+            <div className="flex flex-wrap items-center gap-2">
+              <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/analysis?sport=${discipline === "run" ? "run" : "tri"}`}>{t("todayStrip.analysisLink")}</LocalizedLink>
+              <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/goals?sport=${discipline}`}>{t("todayStrip.createGoal")}</LocalizedLink>
+            </div>
+          </>}
+    </div>
+  </Card>;
 }
 function HomeUpcomingEvents() {
   const { user } = useAuth();
@@ -60,23 +79,45 @@ function HomeUpcomingEvents() {
     return () => { cancelled = true; };
   }, [user]);
   const current = state?.uid === user?.uid ? state : null;
-  return <Card data-testid="H2-4-1" data-home-slot="events"><Text as="h2" variant="subtitle">{t("todayStrip.events")}</Text>
-    {!current ? <Text>{t("todayStrip.loading")}</Text> : current.failed ? <Text>{t("todayStrip.unavailable")}</Text> : current.events.length ? current.events.map((event) => <LocalizedLink className="block" key={event.eventId} to={`/event/${event.eventId}`}><Text>{event.name} · {new Date(event.startTime).toLocaleDateString(i18n.language)}</Text></LocalizedLink>) : <Text tone="tertiary">{t("todayStrip.noEvents")}</Text>}
+  return <Card data-testid="H2-4-1" data-home-slot="events" className="flex flex-col gap-3" header={<div className="flex items-center justify-between gap-2" style={{ width: "100%" }}><Text as="h2" variant="subtitle">{t("todayStrip.events")}</Text>{current?.failed && <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to="/explore/events">{t("todayStrip.findEvents")}</LocalizedLink>}</div>}>
+    {!current ? <Text variant="bodySmall">{t("todayStrip.loading")}</Text> : current.failed ? <Text variant="bodySmall">{t("todayStrip.unavailable")}</Text> : current.events.length ? current.events.map((event) => <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} key={event.eventId} to={`/event/${event.eventId}`}><Text variant="bodySmall">{event.name} · {new Date(event.startTime).toLocaleDateString(i18n.language)}</Text></LocalizedLink>) : <Text variant="bodySmall" tone="tertiary">{t("todayStrip.noEvents")}</Text>}
   </Card>;
 }
-export default function HomeTodayStrip({ discipline, conditionDiscipline = discipline, fitness, weeklyDetails, weeklySummary, monthlyKm, monthlyFlowPercent, runningRecap, weeklyAverageKm, mobile, guidance, goalProjection }: {
-  discipline: "bike" | "run" | "swim"; conditionDiscipline?: "bike" | "run" | "swim" | "tri"; fitness: { ctl: number; atl: number; tsb: number } | null;
-  weeklyDetails: ReactNode; weeklySummary: ReactNode; runningRecap?: ReactNode; monthlyFlowPercent?: number | null; monthlyKm: number; weeklyAverageKm: number; mobile?: boolean; guidance?: ReactNode; goalProjection?: { goalId: string; ctl: number };
+export default function HomeTodayStrip({ discipline, conditionDiscipline = discipline, weeklyDiscipline = conditionDiscipline, fitness, conditionSummary, thresholdSummary, weeklyDetails, weeklySummary, monthlyKm, monthlyFlowPercent, runningRecap, weeklyAverageKm, mobile, guidance, secondaryDetails, goalProjection }: {
+  discipline: "bike" | "run" | "swim"; conditionDiscipline?: "bike" | "run" | "swim" | "tri"; weeklyDiscipline?: "bike" | "run" | "swim" | "tri"; fitness: { ctl: number; atl: number; tsb: number } | null;
+  conditionSummary?: ReactNode; thresholdSummary?: ReactNode; weeklyDetails: ReactNode; weeklySummary: ReactNode; runningRecap?: ReactNode; monthlyFlowPercent?: number | null; monthlyKm: number; weeklyAverageKm: number; mobile?: boolean; guidance?: ReactNode; secondaryDetails?: ReactNode; goalProjection?: { goalId: string; ctl: number };
 }) {
   const { user } = useAuth();
   const { t } = useTranslation("dashboard");
   if (!user || user.isAnonymous) return null;
-  const slots = [
-    <Card key="condition" data-testid="H2-1-1" data-home-slot="condition"><Text as="h2" variant="subtitle">{t("todayStrip.condition")}</Text><Text as="p">{fitness && fitness.ctl > 0 ? `CTL ${fitness.ctl.toFixed(1)} · ATL ${fitness.atl.toFixed(1)} · TSB ${fitness.tsb.toFixed(1)}` : t("sidebar.fitness.insufficient")}</Text><LocalizedLink to={`/coach/condition?sport=${conditionDiscipline}`}>{t("todayStrip.conditionLink")}</LocalizedLink></Card>,
-    <HomeTodaySummary key="today" discipline={discipline} />,
-    <Card key="week" data-testid="H2-3-1" data-home-slot="week"><LocalizedLink to={`/athlete/me/activities?sport=${discipline}`}><Text as="h2" variant="subtitle">{t("todayStrip.week")}</Text>{weeklySummary}</LocalizedLink><div data-testid="H2-3-2">{weeklyDetails}</div>{discipline === "run" ? <div data-testid="H2-3-4">{runningRecap}</div> : <div data-testid="H2-3-3"><HomeGoalSummary discipline={discipline} monthlyFlowPercent={monthlyFlowPercent} monthlyKm={monthlyKm} weeklyAverageKm={weeklyAverageKm} goalProjection={goalProjection} /></div>}</Card>,
-    <HomeUpcomingEvents key="events" />,
-    guidance ? <Card key="guidance" data-testid="H2-5-1" data-home-slot="guidance">{guidance}</Card> : null,
-  ];
-  return <div className="space-y-3" data-testid="home-today-strip">{slots.slice(0, 3)}{mobile ? <details><summary>{t("todayStrip.more")}</summary><div className="space-y-3">{slots.slice(3)}</div></details> : slots.slice(3)}</div>;
+  const conditionSlot = (
+    <Card data-testid="H2-1-1" data-home-slot="condition" padding="compact" header={<div className="flex items-center justify-between gap-2" style={{ width: "100%" }}>
+      <Text as="h2" variant="subtitle">{t(getDisciplineLabelKey(conditionDiscipline))} · {t("todayStrip.condition")}</Text>
+      <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/condition?sport=${conditionDiscipline}`}>{t("todayStrip.conditionLink")}</LocalizedLink>
+    </div>}>
+      <div className="flex flex-col gap-1">
+        {conditionSummary}
+        {(fitness || !conditionSummary) && <Text as="p" variant="bodySmall" mono><GlossaryText>{fitness && fitness.ctl > 0 ? `CTL ${fitness.ctl.toFixed(1)} · ATL ${fitness.atl.toFixed(1)} · TSB ${fitness.tsb.toFixed(1)}` : t("sidebar.fitness.insufficient")}</GlossaryText></Text>}
+        {!mobile && thresholdSummary}
+      </div>
+    </Card>
+  );
+  const weekSlot = mobile && <Card data-testid="H2-3-1" data-home-slot="week" padding="compact" header={<div className="flex flex-wrap items-center justify-between gap-2" style={{ width: "100%" }}>
+      <Text as="h2" variant="subtitle" style={{ flex: "1 0 auto", maxWidth: "100%", wordBreak: "keep-all" }}>{t("todayStrip.weekTitle", { sport: t(getDisciplineLabelKey(weeklyDiscipline)) })}</Text>
+      <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/athlete/me/activities?sport=${weeklyDiscipline === "tri" ? "all" : weeklyDiscipline}`}>{t("todayStrip.week")}</LocalizedLink>
+    </div>}><div className="flex flex-col gap-2">{weeklySummary}</div></Card>;
+  const goalSlot = <HomeGoalSummary discipline={discipline} monthlyFlowPercent={monthlyFlowPercent} monthlyKm={monthlyKm} weeklyAverageKm={weeklyAverageKm} goalProjection={goalProjection} />;
+  const recapSlot = runningRecap && <div data-testid="H2-3-4">{runningRecap}</div>;
+  const weeklyDetailSlot = weeklyDetails && <div className="space-y-3" data-testid="H2-3-2">{weeklyDetails}</div>;
+  const primarySlots = mobile ? <>{weekSlot}<HomeTodaySummary discipline={discipline} />{goalSlot}{conditionSlot}{recapSlot}</> : discipline === "run" ? <>
+    {conditionSlot}<HomeTodaySummary discipline={discipline} />{goalSlot}{recapSlot}{weeklyDetailSlot}
+  </> : <>
+    {conditionSlot}<HomeTodaySummary discipline={discipline} />{weeklyDetailSlot}{recapSlot}{goalSlot}
+  </>;
+  const secondarySlots = <>
+    {secondaryDetails}
+    <HomeUpcomingEvents />
+    {guidance && <Card data-testid="H2-5-1" data-home-slot="guidance">{guidance}</Card>}
+  </>;
+  return <div className={mobile ? "space-y-2" : "space-y-3"} data-testid="home-today-strip">{primarySlots}{mobile ? <details><summary>{t("todayStrip.more")}</summary><div className="space-y-3">{secondarySlots}</div></details> : secondarySlots}</div>;
 }

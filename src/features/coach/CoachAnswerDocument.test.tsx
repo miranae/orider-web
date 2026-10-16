@@ -340,6 +340,102 @@ describe("CoachAnswerDocumentView", () => {
     expect(screen.getByText("서버에서 12개 생략")).toBeInTheDocument();
   });
 
+  it("preserves canonical tied ranks and sixth-plus evidence values through expansion and format changes", async () => {
+    const { response, document, value, base } = fixture();
+    const action = vi.fn();
+    const entries = [1, 2, 2, 5, 8, 13, 21].map((rank, index) => ({
+      rank: value(rank),
+      entity: { entityType: "activity" as const, entityId: `ranked_${index}`,
+        label: value(`Ranked ride ${index + 1}`), occurredAt: value(`2026-07-${String(index + 10).padStart(2, "0")}T03:00:00.000Z`) },
+      values: [value(238.75 - index * 7, "tss"), value(42.5 + index, "kilometers")],
+    }));
+    document.blocks = [...document.blocks.filter((block) => block.kind !== "ranking"),
+      { ...base("ranking_many"), kind: "ranking", entries }];
+    const view = render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={action} />);
+    const ranking = screen.getByRole("region", { name: "순위" });
+    const more = within(ranking).getByText("항목 2개 더 보기");
+    expect(more.closest("details")).not.toHaveAttribute("open");
+    expect(within(ranking).getByText("Ranked ride 5")).toBeVisible();
+    expect(within(ranking).getByText("Ranked ride 6")).not.toBeVisible();
+
+    await userEvent.click(more);
+    const assertCanonicalRanking = () => {
+      expect(more.closest("details")).toHaveAttribute("open");
+      const labelIds = new Set(entries.map((entry) => entry.entity.label.evidenceId));
+      expect(Array.from(ranking.querySelectorAll<HTMLElement>("[data-evidence-id]"))
+        .filter((element) => labelIds.has(element.dataset.evidenceId!)).map((element) => element.textContent))
+        .toEqual(entries.map((entry) => entry.entity.label.value));
+      for (const entry of entries) {
+        const row = within(ranking).getByText(entry.entity.label.value).closest("li")!;
+        expect(row).toBeVisible();
+        expect(row.querySelector(`[data-evidence-id="${entry.rank.evidenceId}"]`)).toHaveTextContent(String(entry.rank.value));
+        expect(row.querySelector(`[data-evidence-id="${entry.entity.occurredAt.evidenceId}"]`)).toHaveTextContent(new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(entry.entity.occurredAt.value)));
+        expect(row.querySelector(`[data-evidence-id="${entry.values[0]!.evidenceId}"]`)).toHaveTextContent(`${entry.values[0]!.value} TSS`);
+        expect(row.querySelector(`[data-evidence-id="${entry.values[1]!.evidenceId}"]`)).toHaveTextContent(`${entry.values[1]!.value} km`);
+        expect(row).toHaveTextContent(`${entry.values[0]!.value} TSS · ${entry.values[1]!.value} km`);
+      }
+    };
+    assertCanonicalRanking();
+    await userEvent.click(screen.getByRole("button", { name: "차트와 표로 보기" }));
+    const trendTable = screen.getByRole("table", { name: "추세 데이터 표" });
+    await userEvent.click(trendTable.closest("details")!.querySelector("summary")!);
+    expect(trendTable).toBeVisible();
+    assertCanonicalRanking();
+    view.rerender(<CoachAnswerDocumentView response={response} responseFormat="table" locale="ko-KR" onAction={action} />);
+    assertCanonicalRanking();
+    expect(action).not.toHaveBeenCalled();
+  });
+
+  it("opens missed and replacement details independently and retains every canonical pair in table mode", async () => {
+    const { response, document, value, base } = fixture();
+    const action = vi.fn();
+    const entity = (entityType: "activity" | "plan_item", index: number, prefix: string) => ({
+      entityType, entityId: `${prefix}_${index}`, label: value(`${prefix} ${index + 1}`),
+      occurredAt: value(`2026-07-${String(index + 10).padStart(2, "0")}T03:00:00.000Z`),
+    });
+    const missed = Array.from({ length: 7 }, (_, index) => ({ planned: entity("plan_item", index, "Missed plan"), evidenceIds: [] }));
+    const replacements = Array.from({ length: 7 }, (_, index) => ({
+      planned: entity("plan_item", index, "Original plan"), actual: entity("activity", index, "Actual ride"), evidenceIds: [],
+    }));
+    const planned = value(19, "count"), completed = value(11, "count");
+    document.blocks = [{ ...base("adherence_many"), kind: "plan_adherence", planned, completed, missed, replacements }];
+    const view = render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={action} />);
+    const plan = screen.getByRole("region", { name: "계획 준수" });
+    const missedToggle = within(plan).getByText("놓친 계획 7개");
+    const replacementToggle = within(plan).getByText("대체 활동 7개");
+    expect(within(plan).getByText("Missed plan 7")).not.toBeVisible();
+    expect(within(plan).getByText("Actual ride 7")).not.toBeVisible();
+    expect(plan.querySelector(`[data-evidence-id="${planned.evidenceId}"]`)).toHaveTextContent("19 회");
+    expect(plan.querySelector(`[data-evidence-id="${completed.evidenceId}"]`)).toHaveTextContent("11 회");
+
+    await userEvent.click(missedToggle);
+    expect(missedToggle.closest("details")).toHaveAttribute("open");
+    expect(replacementToggle.closest("details")).not.toHaveAttribute("open");
+    expect(within(missedToggle.closest("details")!).getAllByRole("listitem")).toHaveLength(7);
+    for (const item of missed) {
+      const row = within(plan).getByText(item.planned.label.value).closest("li")!;
+      expect(row).toBeVisible();
+      expect(row.querySelector(`[data-evidence-id="${item.planned.occurredAt.evidenceId}"]`)).toHaveTextContent(new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.planned.occurredAt.value)));
+    }
+    await userEvent.click(replacementToggle);
+    await userEvent.click(missedToggle);
+    expect(missedToggle.closest("details")).not.toHaveAttribute("open");
+    view.rerender(<CoachAnswerDocumentView response={response} responseFormat="table" locale="ko-KR" onAction={action} />);
+    expect(replacementToggle.closest("details")).toHaveAttribute("open");
+    expect(within(replacementToggle.closest("details")!).getAllByRole("listitem")).toHaveLength(7);
+    for (const item of replacements) {
+      const row = within(plan).getByText(item.planned.label.value).closest("li")!;
+      expect(row).toBeVisible();
+      expect(within(row).getByText(item.actual.label.value)).toBeVisible();
+      expect(row).toHaveTextContent("→");
+      for (const reference of [item.planned, item.actual]) {
+        expect(row.querySelector(`[data-evidence-id="${reference.label.evidenceId}"]`)).toHaveTextContent(reference.label.value);
+        expect(row.querySelector(`[data-evidence-id="${reference.occurredAt.evidenceId}"]`)).toHaveTextContent(new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(reference.occurredAt.value)));
+      }
+    }
+    expect(action).not.toHaveBeenCalled();
+  });
+
   it("shows block-local compatibility and P1 prescription-disabled fallbacks without raw payload", () => {
     const { response, document } = fixture();
     document.blocks = [{ kind: "unsupported_block", blockId: "future", reason: "unknown_kind" },
@@ -394,7 +490,7 @@ describe("CoachAnswerDocumentView", () => {
     const comparisonTable = screen.getByRole("table", { name: "현재 상태 비교" });
     expect(within(comparisonTable).getByRole("columnheader", { name: "이전 비교값" })).toBeInTheDocument();
     expect(within(comparisonTable).getByRole("row", { name: /CTL/ })).toHaveTextContent(/46\s*점51\s*점\+5\s*점/);
-    expect(screen.getByLabelText("CTL 추세 값")).toHaveTextContent(/41\s*점 → 45\s*점 → 51\s*점/);
+    expect(screen.getByLabelText("장기 체력 (CTL) 추세 값")).toHaveTextContent(/41\s*점 → 45\s*점 → 51\s*점/);
     expect(screen.getByRole("heading", { name: "CTL 목표" })).toBeInTheDocument();
     expect(documentElement().querySelector(`[data-evidence-id="${goalTarget.evidenceId}"]`)).toHaveTextContent(/48\s*점/);
     expect(screen.queryByText("달성")).not.toBeInTheDocument();
@@ -439,8 +535,17 @@ describe("CoachAnswerDocumentView", () => {
     expect(within(comparison).getByRole("row", { name: /CTL/ })).toHaveTextContent(/46\s*점51\s*점\+5\s*점/);
     expect(screen.getByText("아직 미달성")).toBeInTheDocument();
     expect(screen.getByText("생산적 부하")).toBeInTheDocument();
+    expect(screen.getByText("현재 구간 생산적 부하:", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("productive_load · policy_2026").closest('details')).not.toHaveAttribute('open');
     await userEvent.click(screen.getByRole("button", { name: "차트와 표로 보기" }));
     expect(screen.getByRole("table", { name: "주간 정본 CTL·ATL·Form" })).toHaveTextContent("2026-07-06");
+    expect(screen.getByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "차트와 표 접기" })).toHaveAttribute("aria-expanded", "true");
+    const driver = screen.getByRole("button", { name: "Dynamic Ride" }).closest('li')!;
+    expect(driver).toHaveTextContent(/181 min/);
+    expect(driver).toHaveTextContent(/112\s*km/);
+    expect(driver).toHaveTextContent(/66\s*%/);
+    expect(driver.textContent).not.toMatch(/km\s*km|%\s*%/);
     expect(screen.getByText("진행 중")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Dynamic Ride" }));
     expect(action).toHaveBeenCalledWith("OPEN_ACTIVITY", expect.objectContaining({ entityId: "ride_dynamic" }));
@@ -462,3 +567,14 @@ function documentElement(): HTMLElement {
 function formatEvidenceDate(value: string, locale: string, timezone: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(new Date(value));
 }
+
+
+it('labels narrative comparison values without requiring labels in the payload', () => {
+  const { response, document } = fixture();
+  document.blocks = document.blocks.filter(block => block.kind === 'narrative');
+  const { container } = render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} />);
+  const values = container.querySelector('.coach-answer__narrative-values')!;
+  expect(values.children[0]).toHaveTextContent('현재43 점');
+  expect(values.children[1]).toHaveTextContent('이전 비교값35 점');
+  expect(values.children[2]).toHaveTextContent('변화+8 점');
+});

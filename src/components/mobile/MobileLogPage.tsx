@@ -66,7 +66,13 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
   const [importOpen, setImportOpen] = useState(importParams.get("import") === "1");
   useEffect(() => { if (importParams.get("import") === "1") setImportOpen(true); }, [importParams]);
   const closeImport = () => { setImportOpen(false); const next = new URLSearchParams(importParams); next.delete("import"); setImportParams(next, { replace: true }); };
-  const [sportFilter, setSportFilter] = useState("all");
+  const requestedSport = importParams.get("sport");
+  const sportFilter = requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim" ? requestedSport : "all";
+  const setSportFilter = (sport: string) => {
+    const next = new URLSearchParams(importParams);
+    next.set("sport", sport);
+    setImportParams(next, { replace: true });
+  };
   const [activityLimit, setActivityLimit] = useState(20);
   const [dayDetailActs, setDayDetailActs] = useState<Activity[] | null>(null);
   const daySheetRef = useRef<HTMLDivElement>(null);
