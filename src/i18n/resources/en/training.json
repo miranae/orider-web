@@ -48,6 +48,9 @@
     "noPlans": "No training plans"
   },
   "page": {
+    "goalWorkout": "Goal workout",
+    "workoutDetails": "Workout details",
+    "dayDetails": "{{date}} · {{workout}} details",
     "planTitle": "Current Goal · Auto-Generated Training Plan",
     "planEmpty": "No {{sportLabel}} training plan yet",
     "planEmptyDesc": "Setting a {{sportLabel}} goal will automatically generate a training plan.",
@@ -74,7 +77,7 @@
     "daysLeftPrefix": "D-",
     "targetDuration": "Target time",
     "weekHeader": "Week",
-    "tssHeader": "TSS",
+    "tssHeader": "Training load · TSS",
     "skipped": "Skipped",
     "missed": "Missed",
     "today": "TODAY",
@@ -111,7 +114,7 @@
     "note": "Skipped workouts will be automatically recalculated."
   },
   "buttons": {
-    "ics": "📅 ICS",
+    "ics": "Export calendar",
     "reroll": "🔄 Regenerate",
     "goalReset": "🎯 Reset Goal",
     "abandonGoal": "Abandon Goal"
@@ -127,7 +130,8 @@
     "abandonFailed": "Goal abandonment failed:",
     "abandonError": "Failed to abandon goal.",
     "creationFailed": "Goal creation failed:",
-    "creationError": "Failed to create goal. Please try again later."
+    "creationError": "Failed to create goal. Please try again later.",
+    "planRefreshAfterSave": "Your changes were saved, but the plan could not be refreshed. Please reload the plan."
   },
   "adaptation": {
     "details": "Reason and reminder settings",
@@ -159,7 +163,7 @@
     "progressBasis": "Progress against the current prescription. Completed prescription load is used when actual load is absent; this is not a measured load total.",
     "sessionsLeft": "Sessions left",
     "completedTSS": "Completed TSS",
-    "weeksLeft": "Weeks Left",
+    "weeksLeft": "Plan weeks left",
     "weeksUnit": "wk",
     "projectedCTL": "CTL change guide",
     "goalDate": "Goal Date",
@@ -167,7 +171,9 @@
     "courseDistance": "km",
     "courseElevation": "↑{{value}} m",
     "targetDuration": "Target Duration",
-    "plannedGeneration": "Training plan is still being generated. Please refresh later."
+    "plannedGeneration": "Training plan is still being generated. Please refresh later.",
+    "distanceLabel": "Distance traveled",
+    "elevationLabel": "Elevation gain"
   },
   "plan.rerollSuccess": "Workout plan regenerated.",
   "goalHub": {
@@ -194,7 +200,9 @@
       "bike": "Race or course completion",
       "run": "Running race",
       "swim": "Swimming race"
-    }
+    },
+    "goalDayEstimate": "Goal-day estimate",
+    "planProgress": "Plan progress"
   },
   "goals": {
     "wizardTitle": {
@@ -204,7 +212,7 @@
     },
     "wizardSubtitle": {
       "bike": "Set your goal course and target time, and Orider will automatically distribute your weekly workouts based on remaining weeks.",
-      "run": "Set a race or distance goal, and we'll automatically distribute weekly workouts based on your recent 5K PB and LTHR.",
+      "run": "Review your event or distance goal and training reference. Review the actual weekly structure after the plan is generated.",
       "swim": "Distance goal, triathlon, or open water — we calculate workout distribution based on your CSS and 1500m PB."
     },
     "eyebrowLabel": {
@@ -220,6 +228,8 @@
       "runEvent": "Select Event",
       "swimEvent": "Select Event"
     },
+    "courseLoadFailed": "The course list could not be loaded.",
+    "courseRetry": "Reload courses",
     "courseEmpty": "No courses registered",
     "courseEmptyDesc": "Create a course or upload a GPX file first",
     "courseSearchPlaceholder": "Search courses...",
@@ -471,8 +481,8 @@
     "weeklyTSS": "Weekly TSS",
     "weeklySummary": "Week at a glance",
     "minutesUnit": "min",
-    "timeLabel": "Time",
-    "sessions": "Sessions",
+    "timeLabel": "Training time",
+    "sessions": "Training sessions",
     "weeklyPlan": "Weekly Plan",
     "showPastDays": "Show past {{count}} days",
     "hidePastDays": "Hide past days",
@@ -490,7 +500,8 @@
     "goalCountdown": "To goal",
     "managePlan": "Manage plan",
     "sportLoad": "Load by sport",
-    "intensityLegend": "Intensity legend"
+    "intensityLegend": "Intensity legend",
+    "sessionsUnit": "sessions"
   },
   "add": {
     "title": "Add Workout",
@@ -528,7 +539,11 @@
         "intervalSwim": "CSS threshold set",
         "longSwim": "Long easy + pace"
       }
-    }
+    },
+    "applySelection": "Apply selected workout",
+    "applyRest": "Set as rest day",
+    "selectionHint": "Choose a day and workout, then apply. An existing workout will be replaced.",
+    "swimUnavailable": "Swimming · Coming soon"
   },
   "edit": {
     "closeAria": "Close",
@@ -558,7 +573,8 @@
     "importTooLarge": "File too large (max 1MB).",
     "importUnsupported": "Unsupported format. Use a .zwo, .erg, or .mrc file.",
     "importFailedAlert": "Could not read the workout file.",
-    "importFailed": "Workout import failed:"
+    "importFailed": "Workout import failed:",
+    "staleDay": "The plan has changed. Close this window and select the day again."
   },
   "goalDetails": {
     "eventTypeLabel": "Event Type",
@@ -626,8 +642,8 @@
   },
   "runWizard": {
     "selectHeading": "Select your goal event",
-    "selectSubtitle": "Race, distance, or trail — workout templates adjust to your choice.",
-    "distanceLabel": "Distance",
+    "selectSubtitle": "These are target-distance templates, not verified event routes or elevation profiles.",
+    "distanceLabel": "Target distance",
     "goalTypeLabel": "Goal Type",
     "goalType": {
       "completion": "Completion",
@@ -639,9 +655,9 @@
       "time": "Threshold + long runs to hold target pace",
       "race": "High-intensity intervals in peak week + taper"
     },
-    "targetDate": "Goal Date",
+    "targetDate": "Target date",
     "targetDatePlaceholder": "Select goal date",
-    "daysLeft": "D-{{days}} · {{weeks}} weeks remaining",
+    "daysLeft": "D-{{days}} · about {{weeks}} weeks",
     "targetTime": "Target Finish Time",
     "hourUnit": "hr",
     "minUnit": "min",
@@ -649,20 +665,20 @@
     "requiredPace": "Required Avg Pace",
     "weeklySessions": "Weekly Sessions",
     "sessionCount": "{{n}}x",
-    "sessionsHint": "Auto-distributed by the 80/20 rule (80% easy, 20% hard).",
-    "feasibilityLabel": "Goal Feasibility",
+    "sessionsHint": "This is your requested frequency. Review the actual weekly structure after the plan is generated.",
+    "feasibilityLabel": "Target pace comparison",
     "feasDesc": {
-      "easy": "Well within your threshold pace. Consider a faster goal.",
-      "on_track": "Good difficulty. Achievable with 80/20 weekly runs.",
-      "stretch": "Challenging goal. Threshold runs + progressive long runs essential.",
-      "risky": "Significantly faster than threshold. Lower the goal or extend training time."
+      "easy": "The target pace is slower than the threshold reference. This does not predict completion.",
+      "on_track": "A comparison of your target pace with the threshold reference, not a completion forecast.",
+      "stretch": "The target pace is close to the threshold reference. Also consider distance and preparation time.",
+      "risky": "The target pace is faster than the threshold reference. Review your target time and preparation period."
     },
     "feasRequiredPace": "Required Avg Pace",
-    "feasLthrPace": "My Threshold Pace (LTHR)",
+    "feasLthrPace": "Threshold pace reference",
     "feasPb5k": "Recent 5K PB",
     "feasGap": "Pace Gap",
     "trainingPeriod": "Training Period",
-    "periodValue": "{{weeks}} wk · {{sessions}} total",
+    "periodValue": "About {{weeks}} weeks · {{sessions}} sessions/week requested",
     "peakWeeklyDist": "Est. Peak Weekly Distance",
     "kpi": {
       "totalWeeks": "Total Weeks",
@@ -730,6 +746,19 @@
         "kind": "Trail",
         "tag": "Trail"
       }
+    },
+    "timeInput": {
+      "hours": "Target duration hours",
+      "minutes": "Target duration minutes",
+      "seconds": "Target duration seconds"
+    },
+    "completionComparison": "Completion goal",
+    "completionComparisonHelp": "You selected completion without a time target. This does not predict whether you will finish.",
+    "category": {
+      "Short": "Short",
+      "Mid": "Medium",
+      "Long": "Long",
+      "Trail": "Trail"
     }
   },
   "swimWizard": {
@@ -962,6 +991,8 @@
       "manualLink": "Link activity manually",
       "activityPicker": "Your recent activity to link",
       "activityLoading": "Loading recent activities…",
+      "activityLoadFailed": "Recent activities could not be loaded. Reload them before linking an activity.",
+      "activityRetry": "Reload activities",
       "activitySelect": "Select an activity",
       "noActivities": "No same-sport activity with a current revision is available.",
       "loading": "Checking existing execution…",
@@ -1144,5 +1175,25 @@
     "estimated": "PDC estimate · limited evidence",
     "basis": "Based on assumed values",
     "confirm": "Enter or confirm thresholds"
+  },
+  "coachSurface": {
+    "runProgramError": "Unable to load your running program.",
+    "retry": "Try again"
+  },
+  "previewReview": {
+    "title": "Review your goal",
+    "notSaved": "Nothing has been saved yet. Starting will create your goal and training plan on the server.",
+    "pendingPlan": "Session totals, training distance, weekly load, phases and condition forecasts are available after the plan is generated.",
+    "event": "Target event",
+    "distance": "Target distance",
+    "elevation": "Elevation gain",
+    "date": "Target date",
+    "goalType": "Goal type",
+    "frequency": "Training frequency",
+    "remaining": "Time remaining",
+    "duration": "Target duration",
+    "sessions": "Requested: {{count}} per week",
+    "weeks": "About {{weeks}} weeks",
+    "minutes": "{{count}} minutes"
   }
 }

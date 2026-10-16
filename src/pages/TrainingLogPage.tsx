@@ -1,3 +1,4 @@
+import { useActivityRepresentatives, withActivityRepresentatives } from "../hooks/useActivityRepresentatives";
 import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -12,7 +13,9 @@ import type { PlanDay, PlanWeek } from "@shared/types/goal";
 import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
-import { acceptedTrainingActivities, estimateActivityTss, sumActivityTss } from "../utils/estimateTSS";
+import SportFilterTabs from "../components/mobile/SportFilterTabs";
+import { getDiscipline } from "../utils/disciplineFilter";
+import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../utils/estimateTSS";
 import { planDayKey, planCalendarDate, planMonthBounds } from "@shared/training/planDate";
 import { Button, Card, Text } from "../theme/components";
 import { ErrorState } from "../components/redesign";
@@ -139,7 +142,7 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
   const single = activities.length === 1;
   const plannedTSS = plans.reduce((sum, plan) => sum + plan.plannedTSS, 0);
   // 계획 대비 달성 비교용 내부 수치 — 아는 값만 더한다(모르는 활동은 0 으로 세지 않는다).
-  const actualLoad = sumActivityTss(loadActivities, ftp);
+  const actualLoad = sumAcceptedActivityTss(loadActivities, ftp);
   const actualTSS = actualLoad.value;
   const adherence =
     !hasPlan ? null :
@@ -404,7 +407,7 @@ export default function TrainingLogPage() {
     setFailedMonths(new Set());
   }, [user?.uid]);
 
-  // 선택 월 범위만 로드 — 전체 이력 대신 캘린더가 보여주는 한 달치만 (startTime 인덱스 사용)
+  // 월 경계 양쪽 하루의 대표 후보만 함께 읽는다. 월당 한 쿼리와 재방문 캐시는 유지한다.
   const loadMonth = useCallback(
     async (year: number, month: number) => {
       if (!user) return;
@@ -422,8 +425,8 @@ export default function TrainingLogPage() {
           collection(firestore, "activities"),
           where("deletedAt", "==", null),
           where("userId", "==", user.uid),
-          where("startTime", ">=", start),
-          where("startTime", "<=", end),
+          where("startTime", ">=", start - 86400000),
+          where("startTime", "<=", end + 86400000),
           orderBy("startTime", "desc"),
         );
         const snap = await getDocs(q);
@@ -508,18 +511,38 @@ export default function TrainingLogPage() {
     return () => { cancelled = true; };
   }, [user]);
 
-  // 캐시된 모든 월 활동 평탄화 (자식/모바일 뷰가 소비) — 월 범위는 서로 겹치지 않음
+  const [importParams, setImportParams] = useSearchParams();
+  const requestedSport = importParams.get("sport");
+  const sportFilter = requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim" ? requestedSport : "all";
+  const setSportFilter = (sport: string) => {
+    const next = new URLSearchParams(importParams);
+    next.set("sport", sport);
+    setImportParams(next, { replace: true });
+  };
+
+  const visiblePlans = useMemo(() => new Map([...planByMonth].flatMap(([date, plans]) => {
+    const matching = sportFilter === "all" ? plans : plans.filter((plan) => plan.discipline === sportFilter);
+    return matching.length ? [[date, matching] as const] : [];
+  })), [planByMonth, sportFilter]);
+
+  // 인접 월 후보가 겹치므로 원본 ID당 한 번만 자식/모바일 뷰에 전달한다.
   const activities = useMemo(() => {
-    const all: Activity[] = [];
-    for (const arr of activitiesByMonth.values()) all.push(...arr);
-    return all;
+    const all = new Map<string, Activity>();
+    for (const arr of activitiesByMonth.values()) for (const activity of arr) all.set(activity.id, activity);
+    return [...all.values()];
   }, [activitiesByMonth]);
 
   // 선택 월이 아직 안 들어왔으면 로딩 표시 — 캐시된 월 재방문은 즉시 (스피너 없음)
   const selectedMonthKey = monthKey(selectedMonth.year, selectedMonth.month);
-  const loading = user ? !loadedMonths.has(selectedMonthKey) : false;
-  const loadError = failedMonths.has(selectedMonthKey);
+  const selectedMonthCandidates = useMemo(() => activitiesByMonth.get(selectedMonthKey) ?? [], [activitiesByMonth, selectedMonthKey]);
+  const representativeState = useActivityRepresentatives(selectedMonthCandidates, user?.uid, activities);
+  const monthCandidates = useMemo(() => withActivityRepresentatives(
+    activitiesByMonth.get(selectedMonthKey) ?? [], representativeState.representatives, user?.uid ?? "",
+  ), [activitiesByMonth, selectedMonthKey, representativeState.representatives, user?.uid]);
+  const loading = user ? !loadedMonths.has(selectedMonthKey) || representativeState.loading : false;
+  const loadError = failedMonths.has(selectedMonthKey) || representativeState.error;
   const retryMonth = () => {
+    representativeState.retry();
     requestedMonths.current.delete(selectedMonthKey);
     setLoadedMonths((prev) => {
       const next = new Set(prev);
@@ -544,15 +567,17 @@ export default function TrainingLogPage() {
 
 
   const monthActivities = useMemo(
-    () => activities.filter((a) => a.startTime >= monthStart && a.startTime <= monthEnd && (!user || a.userId === user.uid)),
-    [activities, monthStart, monthEnd, user],
+    () => activities.filter((a) => a.startTime >= monthStart && a.startTime <= monthEnd && (!user || a.userId === user.uid)
+      && (sportFilter === "all" || getDiscipline(a.type) === sportFilter)),
+    [activities, monthStart, monthEnd, user, sportFilter],
   );
 
-  // 대표 선정은 조회된 권한 내 전체 입력에서 한 번, 부하 배분만 기간별로 한다.
-  const monthLoadActivities = useMemo(() => acceptedTrainingActivities(
-    activities.filter((a) => !user || a.userId === user.uid), ftp,
-  ).filter((a) => a.startTime >= monthStart && a.startTime <= monthEnd),
-  [activities, user, ftp, monthStart, monthEnd]);
+  // 선택 월의 고정 후보에서 대표를 골라 다른 월 방문으로 합계가 변하지 않게 한다.
+  const monthLoadActivities = useMemo(() => acceptedPhysicalActivities(
+    monthCandidates.filter((a) => !user || a.userId === user.uid), ftp,
+  ).filter((a) => a.startTime >= monthStart && a.startTime <= monthEnd
+    && (sportFilter === "all" || getDiscipline(a.type) === sportFilter)),
+  [monthCandidates, user, ftp, monthStart, monthEnd, sportFilter]);
   const loadByDay = useMemo(() => {
     const map = new Map<string, Activity[]>();
     for (const activity of monthLoadActivities) {
@@ -564,17 +589,15 @@ export default function TrainingLogPage() {
     return map;
   }, [monthLoadActivities]);
 
-  // 날짜별 원본 기록 그룹핑
+  // 원본 기록 목록은 유지하고 합계만 실주행 대표로 계산한다.
   const byDay = useMemo(() => {
     const map = new Map<string, Activity[]>();
-    for (const act of monthActivities) {
-      const key = msToDateKey(act.startTime);
-      const arr = map.get(key) ?? [];
-      arr.push(act);
-      map.set(key, arr);
+    for (const activity of monthActivities) {
+      const key = msToDateKey(activity.startTime);
+      map.set(key, [...(map.get(key) ?? []), activity]);
     }
     return map;
-  }, [monthActivities, ftp]);
+  }, [monthActivities]);
 
   // 캘린더 그리드
   const calendar = useMemo(
@@ -584,20 +607,20 @@ export default function TrainingLogPage() {
 
   // KPI
   const kpi = useMemo(() => {
-    const totalDist = monthActivities.reduce((s, a) => s + finiteMetric(a.summary.distance), 0);
-    const totalTime = monthActivities.reduce((s, a) => s + finiteMetric(a.summary.ridingTimeMillis), 0);
-    const totalElev = monthActivities.reduce((s, a) => s + finiteMetric(a.summary.elevationGain), 0);
-    const totalLoad = sumActivityTss(monthLoadActivities, ftp);
+    const totalDist = monthLoadActivities.reduce((s, a) => s + finiteMetric(a.summary.distance), 0);
+    const totalTime = monthLoadActivities.reduce((s, a) => s + finiteMetric(a.summary.ridingTimeMillis), 0);
+    const totalElev = monthLoadActivities.reduce((s, a) => s + finiteMetric(a.summary.elevationGain), 0);
+    const totalLoad = sumAcceptedActivityTss(monthLoadActivities, ftp);
     return {
       dist: totalDist / 1000,
       time: totalTime,
       elev: Math.round(totalElev),
-      count: monthActivities.length,
+      count: monthLoadActivities.length,
       tss: totalLoad.value,
       tssEstimated: totalLoad.estimated,
       tssUnknownCount: totalLoad.unknownCount,
     };
-  }, [monthActivities, monthLoadActivities, ftp]);
+  }, [monthLoadActivities, ftp]);
 
   // 월간 일별 바 차트 데이터 (1일~말일)
   const daysInMonth = new Date(Date.UTC(selectedMonth.year, selectedMonth.month + 1, 0)).getUTCDate();
@@ -605,10 +628,10 @@ export default function TrainingLogPage() {
     () =>
       Array.from({ length: daysInMonth }, (_, i) => {
         const key = dateToKey(new Date(Date.UTC(selectedMonth.year, selectedMonth.month, i + 1)));
-        const acts = byDay.get(key) ?? [];
+        const acts = loadByDay.get(key) ?? [];
         return acts.reduce((s, a) => s + finiteMetric(a.summary.distance) / 1000, 0);
       }),
-    [byDay, daysInMonth, selectedMonth],
+    [loadByDay, daysInMonth, selectedMonth],
   );
   const barLabels = useMemo(
     () => Array.from({ length: daysInMonth }, (_, i) => String(i + 1)),
@@ -635,7 +658,6 @@ export default function TrainingLogPage() {
 
   const monthLabel = t("log.monthLabel", { year: selectedMonth.year, month: selectedMonth.month + 1 });
 
-  const [importParams, setImportParams] = useSearchParams();
   const [importOpen, setImportOpen] = useState(importParams.get("import") === "1");
   useEffect(() => { if (importParams.get("import") === "1") setImportOpen(true); }, [importParams]);
   const closeImport = () => { setImportOpen(false); const next = new URLSearchParams(importParams); next.delete("import"); setImportParams(next, { replace: true }); };
@@ -657,7 +679,7 @@ export default function TrainingLogPage() {
   }
 
   if (isMobile || isNarrowLayout) {
-    if (loadError) {
+    if (failedMonths.has(selectedMonthKey)) {
       return (
         <div style={{ padding: "var(--space-4)" }}>
           <ErrorState title={tCommon("error.title")} onRetry={retryMonth} />
@@ -665,14 +687,18 @@ export default function TrainingLogPage() {
       );
     }
     return (
+      <>
+      {representativeState.error && <ErrorState title={tCommon("error.title")} onRetry={representativeState.retry} compact />}
       <MobileLogPage
-        plannedDates={[...planByMonth.keys()]}
-        plannedSports={Object.fromEntries([...planByMonth].map(([date, plans]) => [date, plans[0]?.discipline ?? "bike"]))}
+        plannedDates={[...visiblePlans.keys()]}
+        plannedSports={Object.fromEntries([...visiblePlans].map(([date, plans]) => [date, plans[0]?.discipline ?? "bike"]))}
         ftp={ftp}
         activities={activities}
+        representativeCandidates={monthCandidates}
         year={selectedMonth.year}
         month={selectedMonth.month}
-        loading={loading}
+        loading={!loadedMonths.has(selectedMonthKey)}
+        aggregateUnavailable={representativeState.loading || representativeState.error}
         onChangeMonth={(delta) => {
           setSelectedMonth((prev) => {
             let m = prev.month + delta;
@@ -683,6 +709,7 @@ export default function TrainingLogPage() {
           });
         }}
       />
+      </>
     );
   }
 
@@ -695,6 +722,7 @@ export default function TrainingLogPage() {
           <Text as="h1" variant="title" style={{ margin: 0 }}>{t("page.logTitle")}</Text>
           <Text as="span" variant="caption" tone="secondary">{t("page.logActivities", { count: kpi.count })}</Text>
         </div>
+        <SportFilterTabs value={sportFilter} onChange={setSportFilter} />
         <Text variant="caption" tone="secondary">{t("log.recordBasis")}</Text>
         {kpi.tssEstimated && <Text variant="caption" tone="secondary">{t("log.estimateBasis")}</Text>}
         <Card data-testid="P1-1-1" padding="none" style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
@@ -709,8 +737,8 @@ export default function TrainingLogPage() {
             <div key={label} style={{ padding: "14px 16px", borderRight: i < 4 ? "1px solid var(--line-soft)" : "none" }}>
               <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}>{label}</Text>
               <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)" }}>
-                <Text variant="dataLarge" style={{ color }}>{value}</Text>
-                {unit && <Text variant="unit">{unit}</Text>}
+                <Text variant="dataLarge" style={{ color }}>{loading || loadError ? "–" : value}</Text>
+                {!loading && !loadError && unit && <Text variant="unit">{unit}</Text>}
               </div>
             </div>
           ))}
@@ -832,7 +860,7 @@ export default function TrainingLogPage() {
                 ))
               : calendar.map((week) => {
                   // 주간 TSS 합계
-                  const weekLoad = sumActivityTss(
+                  const weekLoad = sumAcceptedActivityTss(
                     week.flatMap((cell) => loadByDay.get(dateToKey(cell.date)) ?? []), ftp,
                   );
                   return (
@@ -848,7 +876,7 @@ export default function TrainingLogPage() {
                     {week.map((cell) => {
                       const key = dateToKey(cell.date);
                       const acts = byDay.get(key) ?? [];
-                      const plans = planByMonth.get(key) ?? [];
+                      const plans = visiblePlans.get(key) ?? [];
                       const isToday = key === todayKey;
                       return (
                         <LogDayCell
@@ -882,7 +910,7 @@ export default function TrainingLogPage() {
         </Card>
 
         {/* 월간 일별 거리 바 */}
-        <Card padding="none" style={{ marginTop: "var(--space-3)", padding: "14px 16px" }}>
+        {!loading && !loadError && <Card padding="none" style={{ marginTop: "var(--space-3)", padding: "14px 16px" }}>
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("page.monthlyBarTitle")}</Text>
           <MiniBarChart values={barValues} labels={barLabels} unit="km" />
           <div
@@ -901,7 +929,7 @@ export default function TrainingLogPage() {
               </div>
             ))}
           </div>
-        </Card>
+        </Card>}
 
       </div>
       <ImportActivityModal open={importOpen} onClose={closeImport} />

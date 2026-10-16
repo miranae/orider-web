@@ -257,7 +257,8 @@
     "syncDeviceError": "디바이스: {{message}}",
     "syncBikeError": "자전거: {{message}}",
     "confirmWeight": "내 체중 확인",
-    "confirmThreshold": "이 기준값 확인"
+    "confirmThreshold": "이 기준값 확인",
+    "coachThresholds": "전체 종목 훈련 기준 설정"
   },
   "strava": {
     "account": "Strava 계정",
@@ -940,6 +941,7 @@
   "threshold": {
     "suggestionTitle": "최근 활동에서 임계값 갱신 제안",
     "maxHrLabel": "최대 심박",
+    "dismissFailed": "제안을 무시하지 못했어요. 다시 시도해 주세요.",
     "dismiss": "무시",
     "acceptAll": "전부 적용",
     "acceptHeartRate": "심박 임계값만 적용",

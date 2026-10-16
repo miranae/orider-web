@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { getDisciplineColor, getDisciplineLabelKey } from "../../utils/disciplineFilter";
 import { track } from "../../services/analytics";
-import { Bike, Footprints, Triangle, Waves } from "lucide-react";
+import { Triangle } from "lucide-react";
+import SportIcon from "../common/SportIcon";
 import type { ReactNode } from "react";
 
 export type Discipline = "tri" | "bike" | "run" | "swim";
@@ -12,6 +13,7 @@ interface DisciplineTabsProps {
   value?: Discipline;
   onChange?: (next: Discipline) => void;
   includeTri?: boolean;
+  disabledKeys?: readonly Discipline[];
 }
 
 /**
@@ -21,15 +23,15 @@ interface DisciplineTabsProps {
  * - 둘 다 미전달 시: URL ?sport= 쿼리스트링으로 자동 관리
  * - `includeTri`: true 시 "통합" 탭을 첫 번째로 추가
  */
-export default function DisciplineTabs({ value, onChange, includeTri }: DisciplineTabsProps) {
+export default function DisciplineTabs({ value, onChange, includeTri, disabledKeys = [] }: DisciplineTabsProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation("common");
 
   const tabs = useMemo<{ key: Discipline; label: string; icon: ReactNode; color: string }[]>(() => {
     const base = [
-      { key: "bike" as Discipline, label: t(getDisciplineLabelKey("bike")), icon: <Bike size={13} />, color: getDisciplineColor("bike") },
-      { key: "run"  as Discipline, label: t(getDisciplineLabelKey("run")),  icon: <Footprints size={13} />, color: getDisciplineColor("run") },
-      { key: "swim" as Discipline, label: t(getDisciplineLabelKey("swim")), icon: <Waves size={13} />, color: getDisciplineColor("swim") },
+      { key: "bike" as Discipline, label: t(getDisciplineLabelKey("bike")), icon: <SportIcon sport="bike" size={16} />, color: getDisciplineColor("bike") },
+      { key: "run"  as Discipline, label: t(getDisciplineLabelKey("run")),  icon: <SportIcon sport="run" size={16} />, color: getDisciplineColor("run") },
+      { key: "swim" as Discipline, label: t(getDisciplineLabelKey("swim")), icon: <SportIcon sport="swim" size={16} />, color: getDisciplineColor("swim") },
     ];
     if (includeTri) {
       base.unshift({ key: "tri" as Discipline, label: t(getDisciplineLabelKey("tri")), icon: <Triangle size={13} />, color: getDisciplineColor("tri") });
@@ -40,6 +42,7 @@ export default function DisciplineTabs({ value, onChange, includeTri }: Discipli
   const active: Discipline = value ?? (searchParams.get("sport") as Discipline) ?? "bike";
 
   const handleClick = (key: Discipline) => {
+    if (disabledKeys.includes(key)) return;
     if (key !== active) {
       track("sport_switch", { from: active, to: key });
       // preferred_sport user_property 의 source — 다음 setUserProperties 호출 시 픽업.
@@ -67,11 +70,12 @@ export default function DisciplineTabs({ value, onChange, includeTri }: Discipli
   const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>, idx: number) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End") return;
     e.preventDefault();
-    let nextIdx = idx;
-    if (e.key === "ArrowLeft") nextIdx = (idx - 1 + tabs.length) % tabs.length;
-    else if (e.key === "ArrowRight") nextIdx = (idx + 1) % tabs.length;
-    else if (e.key === "Home") nextIdx = 0;
-    else if (e.key === "End") nextIdx = tabs.length - 1;
+    const enabledIndices = tabs.flatMap((tab, index) => disabledKeys.includes(tab.key) ? [] : [index]);
+    if (!enabledIndices.length) return;
+    const currentIndex = enabledIndices.indexOf(idx);
+    const nextIdx = e.key === "Home" ? enabledIndices[0]!
+      : e.key === "End" ? enabledIndices[enabledIndices.length - 1]!
+      : enabledIndices[(currentIndex + (e.key === "ArrowLeft" ? -1 : 1) + enabledIndices.length) % enabledIndices.length]!;
     const nextKey = tabs[nextIdx]?.key;
     if (nextKey) {
       handleClick(nextKey);
@@ -87,7 +91,8 @@ export default function DisciplineTabs({ value, onChange, includeTri }: Discipli
       style={{ background: "var(--bg-2)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}
     >
       {tabs.map(({ key, label, icon, color }, idx) => {
-        const isActive = active === key;
+        const disabled = disabledKeys.includes(key);
+        const isActive = !disabled && active === key;
         return (
           <button
             key={key}
@@ -98,18 +103,23 @@ export default function DisciplineTabs({ value, onChange, includeTri }: Discipli
             onClick={() => handleClick(key)}
             onKeyDown={(e) => handleKeyDown(e, idx)}
             role="tab"
+            disabled={disabled}
+            aria-disabled={disabled || undefined}
+            aria-label={disabled ? `${label} · ${t("discipline.comingSoon")}` : undefined}
+            title={disabled ? t("discipline.comingSoon") : undefined}
             aria-selected={isActive}
             tabIndex={isActive ? 0 : -1}
             style={{
               display: "flex", alignItems: "center", gap: 'var(--space-1)',
-              padding: "4px 10px", borderRadius: "var(--r-sm)", border: "none", cursor: "pointer",
+              padding: "4px 10px", borderRadius: "var(--r-sm)", border: "none", cursor: disabled ? "not-allowed" : "pointer",
+              opacity: disabled ? 0.45 : 1,
               fontSize: "var(--fs-xs)", fontWeight: isActive ? 600 : 400,
               background: isActive ? "var(--bg-3)" : "transparent",
-              color: isActive ? color : "var(--ink-3)",
+              color: disabled ? "var(--ink-3)" : "var(--ink-1)",
             }}
           >
-            <span aria-hidden="true" style={{ display: "inline-flex" }}>{icon}</span>
-            {label}
+            <span aria-hidden="true" style={{ display: "inline-flex", color }}>{icon}</span>
+            <span>{label}{disabled && <span style={{ display: "block", fontSize: "var(--fs-2xs)", lineHeight: 1.2, whiteSpace: "nowrap" }}>{t("discipline.comingSoon")}</span>}</span>
           </button>
         );
       })}

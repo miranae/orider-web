@@ -1,3 +1,6 @@
+import { localeTag } from "../utils/localeDate";
+import "./ActivityCard.css";
+import GlossaryText from "./common/GlossaryText";
 import { useState, useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "./LocalizedLink";
@@ -5,7 +8,7 @@ import { logClientError } from "../services/errorLogger";
 import { useLocale } from "../contexts/LocaleContext";
 import { useStrava } from "../hooks/useStrava";
 import { formatDistance, formatSpeed, formatElev, formatPace } from "../utils/units";
-import { resolveDuration, resolveAvgSpeedKph } from "../utils/activityTime";
+import { resolveDuration, resolveAvgSpeedKph, durationLabelBasis } from "../utils/activityTime";
 import { getStravaActivityId } from "../utils/stravaActivity";
 import type { Activity } from "@shared/types";
 import type { PdcDoc } from "@shared/types/pdc";
@@ -38,6 +41,7 @@ interface ActivityCardProps {
    *  로 우선 로드해 LCP discovery 지연을 줄인다. 나머지 카드는 기존대로 lazy. */
   priority?: boolean;
   identityPdc?: PdcDoc | null;
+  homeLabels?: boolean;
 }
 
 const EMPTY_ACTIVITY_SUMMARY: Activity["summary"] = {
@@ -80,8 +84,8 @@ function useTimeAgo() {
   };
 }
 
-function formatDate(timestamp: number): string {
-  return new Date(timestamp).toLocaleString("ko-KR", {
+function formatDate(timestamp: number, locale: string): string {
+  return new Date(timestamp).toLocaleString(locale, {
     month: "long",
     day: "numeric",
     weekday: "short",
@@ -116,9 +120,9 @@ function AchievementBadge({ type }: { type: AchievementType }) {
 
   const badgeStyle: React.CSSProperties =
     type === "KOM"
-      ? { background: 'var(--bg-3)', color: 'var(--lime)', borderColor: 'var(--lime)' }
+      ? { background: 'var(--bg-3)', color: 'var(--ink-1)', borderColor: 'var(--lime)' }
       : type === "PR"
-      ? { background: 'var(--bg-3)', color: 'var(--lime)', borderColor: 'var(--line-soft)' }
+      ? { background: 'var(--bg-3)', color: 'var(--ink-1)', borderColor: 'var(--line-soft)' }
       : { background: 'var(--bg-3)', color: 'var(--ink-2)', borderColor: 'var(--line-soft)' };
 
   return (
@@ -183,7 +187,7 @@ function StatBlock({ label, value, title, prominent = false }: { label: string; 
         className="text-[length:var(--fs-xs)]"
         style={{ color: 'var(--ink-2)' }}
       >
-        {label}
+        <GlossaryText>{label}</GlossaryText>
       </span>
       <span
         className={prominent ? "font-bold text-[length:var(--fs-lg)]" : "font-semibold text-[length:var(--fs-sm)]"}
@@ -229,6 +233,7 @@ export default function ActivityCard({
   hideAuthor = false,
   priority = false,
   identityPdc = null,
+  homeLabels = false,
 }: ActivityCardProps) {
   const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
@@ -275,23 +280,20 @@ export default function ActivityCard({
   }, [activity, getStreams, hideAuthor]);
 
   return (
-    <Card padding="none" className="overflow-hidden">
-      {/* 모바일: 1컬럼 stack (헤더 → stats → achievements 세로 배치)
-       *  데스크톱(md+): 3컬럼 30:40:30 가로 배치, 컬럼 간 세로 중앙 정렬
-       *  3컬럼을 모바일에 그대로 적용하면 가운데 stats 폭이 ~155px 로 좁아져 한국어 라벨이
-       *  한 글자씩 세로 줄바꿈됨 (획/득/고/도). 모바일은 stack 이 안전. */}
-      <div className="p-4 grid gap-4 md:items-center grid-cols-1 md:grid-cols-[3fr_4fr_3fr]">
+    <Card padding="none" className="activity-feed-card overflow-hidden">
+      {/* 실제 카드 폭에 맞춰 전환: 좁은 피드에서는 구간 기록을 다음 행으로 보낸다. */}
+      <div className="activity-feed-card__header p-4 grid gap-4">
         {/* Left: 작성자/스포츠/시간/제목/뱃지 */}
         <div className="min-w-0">
           {hideAuthor ? (
             /* 본인 프로필 컨텍스트 — 작성자 아바타/이름 생략, 시간·종목·날짜만 컴팩트하게.
              *  DisciplineBadge 가 [Bike 아이콘 + "사이클"] 을 자체 포함하므로 옆에 🚴 emoji 추가하면
              *  같은 정보 중복 — emoji 생략. */
-            <div className="flex items-center gap-2 flex-wrap text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
+            <div className="flex items-center gap-2 flex-wrap text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-2)' }}>
               {getDiscipline(activity.type) && <DisciplineBadge discipline={getDiscipline(activity.type)!} indoor={isIndoorActivity(activity)} />}
               <span>{timeAgo(activity.startTime)}</span>
               <span>·</span>
-              <span>{formatDate(activity.startTime)}</span>
+              <span>{formatDate(activity.startTime, localeTag())}</span>
             </div>
           ) : (
             <div className="flex items-start gap-3">
@@ -320,9 +322,9 @@ export default function ActivityCard({
                   {/* DisciplineBadge 가 [Bike 아이콘 + "사이클"] 자체 포함 → 옆에 🚴 emoji 추가
                    *  하면 중복이라 생략. */}
                   {getDiscipline(activity.type) && <DisciplineBadge discipline={getDiscipline(activity.type)!} indoor={isIndoorActivity(activity)} />}
-                  <span className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>{timeAgo(activity.startTime)}</span>
+                  <span className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-2)' }}>{timeAgo(activity.startTime)}</span>
                 </div>
-                <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: 'var(--ink-3)' }}>{formatDate(activity.startTime)}</div>
+                <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: 'var(--ink-2)' }}>{formatDate(activity.startTime, localeTag())}</div>
               </div>
             </div>
           )}
@@ -339,7 +341,7 @@ export default function ActivityCard({
             }) && (
               <span
                 className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-semibold border"
-                style={{ background: 'var(--bg-3)', color: 'var(--amber)', borderColor: 'var(--amber)' }}
+                style={{ background: 'var(--bg-3)', color: 'var(--ink-1)', borderColor: 'var(--amber)' }}
                 title={t("stat.dataWarningTooltip")}
               >
                 {t("stat.dataWarning")}
@@ -358,13 +360,12 @@ export default function ActivityCard({
                *  4-5회 중복 정리. 데스크톱 3컬럼 레이아웃에선 컬럼 간 정보 분리 명확해 유지. */
               <div className="hidden md:flex items-center gap-1 flex-shrink-0">
                 {komCount > 0 && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--lime)', borderColor: 'var(--lime)' }}>
-                    👑 KOM
-                  </span>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--ink-1)', borderColor: 'var(--lime)' }}>
+                    <GlossaryText>{"👑 KOM\n                  "}</GlossaryText></span>
                 )}
                 {prCount > 0 && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--lime)', borderColor: 'var(--line-soft)' }}>
-                    🥇 PR {prCount}
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--ink-1)', borderColor: 'var(--line-soft)' }}>
+                    <GlossaryText>{"🥇 PR "}</GlossaryText>{prCount}
                   </span>
                 )}
               </div>
@@ -376,28 +377,28 @@ export default function ActivityCard({
 
         {/* Middle: Stats — 3컬럼 stat-block (라벨 위 / 값 아래), 모바일·데스크톱 동일.
          *  값이 라벨 아래로 내려가 가독성 향상 (모바일웹 스타일). 6개 stat → 3열 2행. */}
-        <div className="min-w-0 md:pl-4 pt-3 md:pt-0 border-t md:border-t-0 md:border-l" style={{ borderColor: 'var(--line-soft)' }}>
+        <div className="activity-feed-card__stats min-w-0" style={{ borderColor: 'var(--line-soft)' }}>
           {isRun ? (() => {
             const duration = resolveDuration({ ...s, startTime: activity.startTime, endTime: activity.endTime });
             const speed = resolveAvgSpeedKph(s.distance, duration, s.averageSpeed);
             const power = s.averagePower ?? activity.avgPower;
             return <>
               <div className="grid grid-cols-3 gap-3" data-testid="run-card-primary">
-                <StatBlock label={t("stat.distance")} value={formatDistance(s.distance, units)} />
+                <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.distance" : "stat.distance")} value={formatDistance(s.distance, units)} />
                 <StatBlock label={t("stat.avgPace")} value={speed > 0 && !isImplausibleAvgSpeed(speed, "run") ? formatPace(3600 / speed, units) : "—"} prominent />
-                <StatBlock label={t("stat.time")} value={formatDuration(duration.displayMs)} />
+                <StatBlock label={t(homeLabels ? `dashboard:homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, duration.usingMoving)}` : "stat.time")} value={formatDuration(duration.displayMs)} />
               </div>
               <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-2)' }} data-testid="run-card-secondary">
-                {s.averageHeartRate != null && s.averageHeartRate > 0 && !isImplausibleActivityHeartRate(s.averageHeartRate) && <span>{t("stat.avgHrShort")} · {s.averageHeartRate} bpm</span>}
-                <span>{t("stat.elevShort")} · {formatElev(s.elevationGain, units)}</span>
-                {power != null && power > 0 && <span>{t("stat.runningPower")} · {Math.round(power)} W</span>}
+                {s.averageHeartRate != null && s.averageHeartRate > 0 && !isImplausibleActivityHeartRate(s.averageHeartRate) && <span>{t(homeLabels ? "dashboard:homeMetrics.avgHeartRate" : "stat.avgHrShort")} · {s.averageHeartRate} <GlossaryText>{"bpm"}</GlossaryText></span>}
+                <span><GlossaryText>{t("stat.elevShort")}</GlossaryText> · {formatElev(s.elevationGain, units)}</span>
+                {power != null && power > 0 && <span><GlossaryText>{t("stat.runningPower")}</GlossaryText> · {Math.round(power)} <GlossaryText>{"W"}</GlossaryText></span>}
               </div>
             </>;
           })() : (
           <div
             className="grid gap-x-3 gap-y-2 text-[length:var(--fs-sm)] grid-cols-3"
           >
-            <StatBlock label={t("stat.distance")} value={formatDistance(s.distance, units)} />
+            <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.distance" : "stat.distance")} value={formatDistance(s.distance, units)} />
             <StatBlock label={t("stat.elevShort")} value={formatElev(s.elevationGain, units)} />
             {(() => {
               // #236: 정지 큰 활동은 이동시간 우선 표시 (상세 페이지와 동일 정책). 전환 시
@@ -405,7 +406,7 @@ export default function ActivityCard({
               const d = resolveDuration({ ...s, startTime: activity.startTime, endTime: activity.endTime });
               return (
                 <StatBlock
-                  label={t("stat.time")}
+                  label={t(homeLabels ? `dashboard:homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, d.usingMoving)}` : "stat.time")}
                   value={formatDuration(d.displayMs)}
                   title={d.usingMoving ? t("stat.movingTimeTotalSimple", { elapsed: formatDuration(d.elapsedMs) }) : undefined}
                 />
@@ -432,11 +433,11 @@ export default function ActivityCard({
             {s.averageHeartRate != null &&
               s.averageHeartRate > 0 &&
               !isImplausibleActivityHeartRate(s.averageHeartRate) && (
-              <StatBlock label={t("stat.avgHrShort")} value={`${s.averageHeartRate} bpm`} />
+              <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.avgHeartRate" : "stat.avgHrShort")} value={`${s.averageHeartRate} bpm`} />
             )}            {(() => {
               const pw = s.averagePower ?? activity.avgPower;
               return pw != null && pw > 0 ? (
-                <StatBlock label={t(isRun ? "stat.runningPower" : "stat.powerShort")} value={`${Math.round(pw)} W`} />
+                <StatBlock label={t(isRun ? "stat.runningPower" : homeLabels ? "dashboard:homeMetrics.avgPower" : "stat.powerShort")} value={`${Math.round(pw)} W`} />
               ) : null;
             })()}
 
@@ -445,7 +446,7 @@ export default function ActivityCard({
         </div>
 
         {/* Right: Segment Achievements — 모바일 상단 구분선, 데스크톱 좌측 구분선 */}
-        <div className="min-w-0 md:pl-4 pt-3 md:pt-0 border-t md:border-t-0 md:border-l" style={{ borderColor: 'var(--line-soft)' }}>
+        <div className="activity-feed-card__achievements min-w-0" style={{ borderColor: 'var(--line-soft)' }}>
           {achievements.length > 0 ? (
             <div className="space-y-0.5">
               {achievements.map((ach, idx) => (
@@ -462,10 +463,10 @@ export default function ActivityCard({
             </div>
           ) : segmentEffortCount > 0 ? (
             <div className="text-[length:var(--fs-xs)] text-center font-medium" style={{ color: 'var(--ink-2)' }}>
-              {t("card.segmentCount", { count: segmentEffortCount })}
+              <GlossaryText>{t("card.segmentCount", { count: segmentEffortCount })}</GlossaryText>
             </div>
           ) : (
-            <div className="text-[length:var(--fs-xs)] text-center" style={{ color: 'var(--ink-4)' }}>
+            <div className="text-[length:var(--fs-xs)] text-center" style={{ color: 'var(--ink-2)' }}>
               {isRun ? <Link to={`/activity/${activity.id}`}>{t("card.runSplitsLink")}</Link> : t("card.noAchievements")}
             </div>
           )}

@@ -24,6 +24,7 @@ import koSegment from "../../i18n/resources/ko/segment.json";
 import koSettings from "../../i18n/resources/ko/settings.json";
 import koTraining from "../../i18n/resources/ko/training.json";
 import koCoach from "../../i18n/resources/ko/coach.json";
+import koTermGlossary from "../../i18n/resources/ko/termGlossary.json";
 
 const ko = {
   activity: koActivity,
@@ -46,6 +47,7 @@ const ko = {
   settings: koSettings,
   training: koTraining,
   coach: koCoach,
+  termGlossary: koTermGlossary,
 };
 
 if (!i18n.isInitialized) {

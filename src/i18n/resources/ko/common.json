@@ -75,7 +75,13 @@
     "webManual": "웹 설명서",
     "aiPolicy": "AI 코치 정책",
     "stravaTerms": "Strava 특약",
-    "calculator": "공개 계산기"
+    "calculator": "공개 계산기",
+    "partnershipInquiry": "협력 문의",
+    "help": "도움말",
+    "policies": "약관·정책",
+    "install": "앱 설치",
+    "navigation": "사이트 안내",
+    "email": "이메일"
   },
   "nav": {
     "todayTraining": "오늘 운동",
@@ -157,7 +163,8 @@
     "bike": "사이클",
     "run": "러닝",
     "swim": "수영",
-    "other": "기타"
+    "other": "기타",
+    "comingSoon": "준비 중"
   },
   "unit": {
     "km": "km",

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { getDocs } from "firebase/firestore";
+import { MemoryRouter, useNavigate } from "react-router-dom";
+import { getDocs, onSnapshot, where } from "firebase/firestore";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TrainingLogPage from "./TrainingLogPage";
 import { planCalendarDate, planMonthBounds } from "@shared/training/planDate";
@@ -39,7 +39,27 @@ function expectMetric(label: string, value: string) {
   expect(screen.getByText(label).parentElement).toHaveTextContent(value);
 }
 
+function QueryNavigation() {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate("?sport=bike")}>Change sport query</button>;
+}
+
 describe("운동 기록의 부분 요약", () => {
+  it("desktop calendar honors sport queries and subsequent navigation", async () => {
+    const docs = [
+      { id: "bike", data: () => ({ userId: "rider", startTime, type: "Ride", summary: { distance: 20000, tss: 30 } }) },
+      { id: "run", data: () => ({ userId: "rider", startTime: startTime + 7200000, type: "Run", summary: { distance: 5000, tss: 20 } }) },
+    ];
+    vi.mocked(getDocs).mockReset();
+    vi.mocked(getDocs).mockResolvedValue({ docs: [], empty: true } as never).mockResolvedValueOnce({ docs, empty: false } as never);
+    render(<MemoryRouter initialEntries={["/?sport=run"]}><QueryNavigation /><TrainingLogPage /></MemoryRouter>);
+    await waitFor(() => expectMetric("총 거리", "5.0"));
+    expect(screen.getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Change sport query" }));
+    await waitFor(() => expectMetric("총 거리", "20.0"));
+    expect(screen.getByRole("button", { name: /사이클/ })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("데스크톱 합계와 캘린더에서 누락·비유한 측정값만 제외하고 활동 수와 TSS는 보존한다", async () => {
     const { container } = render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
     await waitFor(() => expectMetric("활동 수", "7"));
@@ -93,7 +113,7 @@ describe("운동 기록의 확정 부하와 달성 상태", () => {
       })) }) }], empty: false } as never);
     render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
     await waitFor(() => expectMetric("총 TSS", "100"));
-    expectMetric("활동 수", "2");
+    expectMetric("활동 수", "1");
     await waitFor(() => expect(screen.getByLabelText("실제 부하 미확인 · 달성 여부 판단 불가")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /원본 기록/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /대표 기록/ })).toBeInTheDocument();
@@ -141,4 +161,71 @@ it("개별 미확인 거리·시간은 실제 영 기록과 구분한다", async
   expect(missing).toHaveTextContent("—");
   expect(missing).not.toHaveTextContent("0.0km");
   expect(missing).not.toHaveTextContent("0:00");
+});
+
+it.each([false, true])("월 경계 대표 후보를 첫 조회에 확보하고 방문 순서와 무관하며 재방문 읽기를 늘리지 않는다 (mobile=%s)", async (mobile) => {
+  state.mobile = mobile;
+  const bounds = planMonthBounds(now.getUTCFullYear(), now.getUTCMonth());
+  const nativeStart = bounds.end - 15000;
+  const native = { userId: "rider", source: "orider", type: "Ride", startTime: nativeStart,
+    description: "월말 원본", summary: {distance: 3000, ridingTimeMillis: 3600000, tss: 30} };
+  const docs = [{id: "native", data: () => native},
+    {id: "strava_1", data: () => ({...native, source: "strava", startTime: nativeStart + 30000})}];
+  vi.mocked(getDocs).mockReset().mockResolvedValue({docs: [], empty: true} as never)
+    .mockResolvedValueOnce({docs, empty: false} as never)
+    .mockResolvedValueOnce({docs, empty: false} as never);
+  vi.mocked(where).mockClear();
+  render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
+  await waitFor(() => expectMetric(mobile ? "총 세션" : "활동 수", "0"));
+  expectMetric(mobile ? "거리" : "총 거리", mobile ? "0.0km" : "0.0");
+  expect(where).toHaveBeenCalledWith("startTime", ">=", bounds.start - 86400000);
+  expect(where).toHaveBeenCalledWith("startTime", "<=", bounds.end + 86400000);
+  // 초기 선택 월 + 직전 월 두 활동 쿼리와 계획 조회 한 번. 재렌더링은 재조회하지 않는다.
+  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(3));
+  const previous = () => fireEvent.click(screen.getByRole("button", {name: /이전 달/}));
+  const next = () => fireEvent.click(screen.getByRole("button", {name: /다음 달/}));
+  previous();
+  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(4));
+  next();
+  await waitFor(() => expectMetric(mobile ? "총 세션" : "활동 수", "0"));
+  previous();
+  next();
+  expect(getDocs).toHaveBeenCalledTimes(4);
+  expectMetric(mobile ? "거리" : "총 거리", mobile ? "0.0km" : "0.0");
+  if (mobile) {
+    fireEvent.click(screen.getByRole("tab", {name: "활동"}));
+    expect(screen.getAllByText("월말 원본")).toHaveLength(1);
+  } else {
+    expect(screen.getByRole("button", {name: /월말 원본/})).toBeInTheDocument();
+  }
+});
+
+
+it.each([false, true])("30시간 전 대표가 직전월 preload에 있어도 현재월 조각을 다시 세지 않는다 mobile=%s", async mobile => {
+  state.mobile = mobile;
+  const start = planMonthBounds(now.getUTCFullYear(), now.getUTCMonth()).start;
+  const fragment = {userId: "rider", source: "orider", type: "Ride", rollupSupersededBy: "long-full", startTime: start, endTime: start + 3600000, description: "긴 주행 조각", summary: {distance: 3000, ridingTimeMillis: 3600000, tss: 30}};
+  const full = {...fragment, source: "strava", rollupSupersededBy: null, startTime: start - 30 * 3600000, summary: {distance: 100000, ridingTimeMillis: 31 * 3600000, tss: 100}};
+  vi.mocked(getDocs).mockReset().mockResolvedValue({docs: [], empty: true} as never)
+    .mockResolvedValueOnce({docs: [{id: "fragment", data: () => fragment}], empty: false} as never)
+    .mockResolvedValueOnce({docs: [{id: "long-full", data: () => full}], empty: false} as never);
+  render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
+  await waitFor(() => expectMetric(mobile ? "총 세션" : "활동 수", "0"));
+  expectMetric(mobile ? "거리" : "총 거리", mobile ? "0.0km" : "0.0");
+  expect(screen.getByRole("button", {name: /긴 주행 조각/})).toBeInTheDocument();
+});
+
+it("모바일 대표 조회 실패는 원본을 유지하고 합계만 미확인으로 남긴다", async () => {
+  state.mobile = true;
+  const fragment = {userId: "rider", source: "orider", type: "Ride", rollupSupersededBy: "missing-full", startTime, endTime: startTime + 3600000, description: "보존할 원본", summary: {distance: 3000, ridingTimeMillis: 3600000, tss: 30}};
+  vi.mocked(getDocs).mockReset().mockResolvedValue({docs: [], empty: true} as never)
+    .mockResolvedValueOnce({docs: [{id: "fragment", data: () => fragment}], empty: false} as never);
+  vi.mocked(onSnapshot).mockImplementationOnce((_ref, _next, reject) => {
+    (reject as (error: Error) => void)(new Error("permission-denied"));
+    return vi.fn();
+  });
+  render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
+  await waitFor(() => expect(screen.getByRole("button", {name: /보존할 원본/})).toBeInTheDocument());
+  expect(screen.getByLabelText("이번 달 운동 요약")).toHaveTextContent("–");
+  expect(screen.getByLabelText("이번 달 운동 요약")).not.toHaveTextContent("3.0km");
 });

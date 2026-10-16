@@ -1,3 +1,4 @@
+import { coachRoute } from "../../utils/coachRoute";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -221,9 +222,19 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     document.body.style.overflow = "hidden";
     titleRef.current?.focus();
     const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !inFlightRef.current && !consentOpenRef.current) closeSheet();
+      // 동의/확인 창은 별도 포털에 떠서 부모 패널이 inert 상태다. 자식의 키보드 트랩에 양보한다.
+      if (consentOpenRef.current || confirmationRef.current || document.querySelector('.app-dialog__panel')) return;
+      if (event.key === "Escape" && !inFlightRef.current) closeSheet();
       if (event.key !== "Tab" || !panel) return;
-      const items = Array.from(panel.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+      const items = Array.from(panel.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'))
+        .filter((element) => {
+          if (element.closest('[hidden], [aria-hidden="true"], [inert]')) return false;
+          for (let parent = element.parentElement; parent && parent !== panel; parent = parent.parentElement) {
+            if (parent.tagName === 'DETAILS' && !parent.hasAttribute('open') && parent.querySelector(':scope > summary') !== element) return false;
+          }
+          const style = getComputedStyle(element);
+          return style.display !== 'none' && style.visibility !== 'hidden';
+        });
       const first = items[0]; const last = items[items.length - 1];
       if (!first || !last) { event.preventDefault(); return; }
       if (!panel.contains(document.activeElement)) { event.preventDefault(); (event.shiftKey ? last : first).focus(); }
@@ -535,14 +546,14 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   function action(code: CoachActionCode) {
-    coachAnalytics.actionClick(code); clearSession(); navigate(code === "NO_ACTIVE_GOAL" ? `${actionRoutes[code]}?sport=${discipline}` : actionRoutes[code]);
+    coachAnalytics.actionClick(code); clearSession(); navigate(code === "CHECK_MISSING_DATA" ? actionRoutes[code] : coachRoute(actionRoutes[code], discipline));
   }
 
   function v2Action(code: CoachAnswerActionCode, entity?: CoachEntityRef) {
     coachAnalytics.actionClick(code);
     clearSession();
     if (code === "OPEN_ACTIVITY" && entity?.entityType === "activity") navigate(`/activity/${encodeURIComponent(entity.entityId)}`);
-    else navigate(code === "VIEW_TRAINING_LOAD" ? "/coach/condition" : "/athlete/me");
+    else navigate(code === "VIEW_TRAINING_LOAD" ? coachRoute("/coach/condition", discipline) : "/athlete/me");
   }
 
   function sendFeedback(helpful: boolean) {
@@ -616,7 +627,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                 <Text as="p" variant="bodySmall" tone="secondary">{t("subtitle")}</Text></div>
               <div className="coach-sheet__header-actions">
                 {user && <Button dense variant="ghost" size="sm" leadingIcon={<History size={17} />} disabled={phase === "submitting" || consentOpen}
-                  onClick={() => { clearSession(); navigate("/coach/chat"); }}>{t("history.open")}</Button>}
+                  onClick={() => { clearSession(); navigate(coachRoute("/coach/chat", discipline)); }}>{t("history.open")}</Button>}
                 <Button iconOnly dense variant="ghost" aria-label={t("close")} disabled={phase === "submitting" || consentOpen} onClick={closeSheet}><X size={20} /></Button>
               </div>
             </header>

@@ -3,6 +3,7 @@ import { getDoc, updateDoc } from "firebase/firestore";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlanDay } from "@shared/types/goal";
 import { usesEffectiveExecutionPrescription } from "@shared/training/effectiveExecutionPrescription";
+import { GlossaryProvider } from "../common/GlossaryProvider";
 import WorkoutEditModal from "./WorkoutEditModal";
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
@@ -59,11 +60,11 @@ describe("강도 교체와 원본 임포트", () => {
     const old = { ...original, workout: "rec" as const, executionWorkoutOverride: "rec" as const,
       adjustedTSS: 10, adjustedDurationMin: 20, closedLoopAdjustment: { originalWorkout: "vo2", suggestedWorkout: "rec" } };
     vi.mocked(getDoc).mockResolvedValue({ exists: () => true, data: () => ({ days: [old], snapshot: { ftp: 200 } }) } as unknown as Awaited<ReturnType<typeof getDoc>>);
-    const { container } = show(old);
+    show(old);
     const content = '<workout_file><name>새 임포트</name><workout><SteadyState Duration="1800" Power="0.8"/></workout></workout_file>';
     const file = new File([content], "workout.zwo");
     Object.defineProperty(file, "text", { value: async () => content });
-    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+    fireEvent.change(document.body.querySelector('input[type="file"]')!, { target: { files: [file] } });
     await waitFor(() => expect(updateDoc).toHaveBeenCalled());
     const saved = (vi.mocked(updateDoc).mock.calls[0]?.[1] as { days: Record<string, unknown>[] }).days[0]!;
     expect(saved.workoutName).toBe("새 임포트");
@@ -102,10 +103,10 @@ const generatedProof: NonNullable<PlanDay["prescriptionIntensityProvenance"]> = 
   origin: "generator", basis: { discipline: "bike", value: 200, source: "assumed", revision: null }, contentRevision: "old-generator-proof",
 };
 const relativeWorkout = '<workout_file><name>상대 구간</name><workout><SteadyState Duration="600" Power="0.8"/></workout></workout_file>';
-async function importFile(container: HTMLElement, filename: string, content: string) {
+async function importFile(_container: HTMLElement, filename: string, content: string) {
   const file = new File([content], filename);
   Object.defineProperty(file, "text", { value: async () => content });
-  fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+  fireEvent.change(document.body.querySelector('input[type="file"]')!, { target: { files: [file] } });
 }
 function savedDays(): PlanDay[] {
   return (vi.mocked(updateDoc).mock.calls[0]?.[1] as { days: PlanDay[] }).days;
@@ -137,7 +138,7 @@ describe("워크아웃 작성 행위와 강도 근거", () => {
   it("JSON 직접 편집 경로는 없고 지원하지 않는 JSON 파일은 저장하지 않는다", async () => {
     const { container } = show({ ...original, prescriptionIntensityProvenance: generatedProof });
     await importFile(container, "absolute.json", '{"target":{"type":"POWER","watts":160}}');
-    await waitFor(() => expect(container.querySelector('input[type="file"]')).not.toBeDisabled());
+    await waitFor(() => expect(document.body.querySelector('input[type="file"]')).not.toBeDisabled());
     expect(updateDoc).not.toHaveBeenCalled();
     expect(getDoc).not.toHaveBeenCalled();
   });
@@ -178,4 +179,54 @@ it("기존 이웃일 교환은 강도 구간과 각 날짜의 출처 메타를 �
   await waitFor(() => expect(updateDoc).toHaveBeenCalledOnce());
   expect(savedDays()[0]).toMatchObject({ workout: "z2", intervals: original.intervals, prescriptionIntensityProvenance: generatedProof });
   expect(savedDays()[1]).toMatchObject({ workout: "vo2", prescriptionIntensityProvenance: { origin: "user" } });
+});
+
+describe("편집창 키보드와 최신 날짜 보호", () => {
+  it("열리면 닫기로 포커스를 옮기고 Tab을 가두며 취소는 쓰지 않고 포커스를 돌린다", () => {
+    const trigger = document.createElement('button');
+    document.body.append(trigger); trigger.focus();
+    const onClose = vi.fn();
+    const view = render(<WorkoutEditModal day={original} weekId="w" dayIndex={0} goalId="g" onClose={onClose} onUpdate={vi.fn()} />);
+    const modal = screen.getByRole('dialog');
+    const close = screen.getByRole('button', { name: 'edit.closeAria' });
+    expect(close).toHaveFocus();
+    const controls = modal.querySelectorAll<HTMLButtonElement>('button:not([disabled])');
+    const last = controls[controls.length - 1]!;
+    last.focus(); fireEvent.keyDown(last, { key: 'Tab' }); expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: 'Tab', shiftKey: true }); expect(last).toHaveFocus();
+    fireEvent.keyDown(last, { key: 'Escape' }); expect(onClose).toHaveBeenCalledOnce();
+    expect(updateDoc).not.toHaveBeenCalled();
+    view.unmount(); expect(trigger).toHaveFocus(); trigger.remove();
+  });
+  it("서버의 같은 인덱스 날짜가 바뀌면 다른 날에 쓰지 않는다", async () => {
+    vi.mocked(getDoc).mockResolvedValue({ exists: () => true, data: () => ({ days: [{ ...original, date: original.date + 86400000 }] }) } as never);
+    show(original);
+    fireEvent.click(screen.getByRole('button', { name: 'edit.markCompleted' }));
+    await waitFor(() => expect(getDoc).toHaveBeenCalledOnce());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'edit.markCompleted' })).toBeEnabled());
+    expect(updateDoc).not.toHaveBeenCalled();
+  });
+  it("저장 중 Escape와 배경으로 닫을 수 없다", async () => {
+    vi.mocked(getDoc).mockReturnValue(new Promise(() => {}));
+    const onClose = vi.fn();
+    render(<WorkoutEditModal day={original} weekId="w" dayIndex={0} goalId="g" onClose={onClose} onUpdate={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'edit.markCompleted' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(screen.getAllByTestId('K4-6-7')[0]!);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+it("종류 선택 버튼 밖 범례에서 강도 설명을 열며 쓰기를 실행하지 않는다", () => {
+  render(<GlossaryProvider><WorkoutEditModal day={original} weekId="w" dayIndex={0} goalId="g" onClose={vi.fn()} onUpdate={vi.fn()} /></GlossaryProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'edit.changeWorkout' }));
+  const legend = screen.getByTestId('workout-intensity-glossary');
+  fireEvent.click(legend.closest('details')!.querySelector('summary')!);
+  expect(legend.closest('details')).toHaveAttribute('open');
+  const trigger = legend.querySelector('[data-glossary-term="z4"] button')!;
+  expect(trigger).not.toBeNull();
+  fireEvent.focus(trigger);
+  expect(screen.getByRole('tooltip')).toBeInTheDocument();
+  expect(document.querySelector('button button')).toBeNull();
+  expect(updateDoc).not.toHaveBeenCalled();
 });

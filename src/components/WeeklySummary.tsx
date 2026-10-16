@@ -1,10 +1,12 @@
+import type { Activity } from "@shared/types";
+import { acceptedPhysicalActivities } from "../utils/estimateTSS";
 import { useTranslation } from "react-i18next";
 import type { DailyLoad } from "../utils/fitnessMetrics";
 import { toLocalDate } from "../utils/dateUtils";
 
 interface WeeklySummaryProps {
   dailyData: DailyLoad[];
-  activities: { startTime: number; summary: { ridingTimeMillis: number; distance: number } }[];
+  activities: Activity[];
 }
 
 function getWeekRange(weeksAgo: number): { start: string; end: string } {
@@ -49,11 +51,12 @@ export default function WeeklySummary({ dailyData, activities }: WeeklySummaryPr
     .filter((d) => d.date >= lastWeek.start && d.date <= lastWeek.end)
     .reduce((sum, d) => sum + d.totalLoad, 0);
 
-  const thisWeekActs = activities.filter((a) => {
+  const representatives = acceptedPhysicalActivities(activities);
+  const thisWeekActs = representatives.filter((a) => {
     const d = toLocalDate(a.startTime);
     return d >= thisWeek.start && d <= thisWeek.end;
   });
-  const lastWeekActs = activities.filter((a) => {
+  const lastWeekActs = representatives.filter((a) => {
     const d = toLocalDate(a.startTime);
     return d >= lastWeek.start && d <= lastWeek.end;
   });

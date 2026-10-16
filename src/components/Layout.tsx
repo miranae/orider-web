@@ -1,10 +1,10 @@
 import { Suspense, useState, useEffect, useRef } from "react";
-import AppInstallLinks from "./AppInstallLinks";
+import GlossaryProvider from "./common/GlossaryProvider";
+import "../pages/coach/CoachSurface.css";
+import FooterNavigation from "./FooterNavigation";
 import { Outlet, useLocation } from "react-router-dom";
 import { lazyWithRetry as lazy } from "../utils/lazyWithRetry";
 import { stripLangPrefix } from "../i18n/detector";
-import { useTranslation } from "react-i18next";
-import { LocalizedLink as Link } from "./LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import {
   collection, query, orderBy, limit, onSnapshot, doc, updateDoc,
@@ -94,7 +94,6 @@ export default function Layout() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const { user, profile } = useAuth();
   const location = useLocation();
-  const { t: tCommon } = useTranslation("common");
   const navigate = useNavigate();
   const path = stripLangPrefix(location.pathname);
   const activeNav = resolveDetailHub(path, location.state);
@@ -256,13 +255,13 @@ export default function Layout() {
       {/* 다른 페이지: main 영역 내부 스크롤 */}
       {path !== "/" && (
         <main ref={mainRef} tabIndex={-1} className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
-          <div className="site-shell px-4 md:px-6 py-6 animate-page-in" data-page-shell="content">
+          <div className={`site-shell px-4 md:px-6 py-6 animate-page-in${path.startsWith("/coach/") ? " coach-surface" : ""}`} data-page-shell="content">
             {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} />}
             <Suspense fallback={<div style={{ height: 200 }} />}>
               {path === "/explore/segments" && <ExplorePage />}
               {path === "/explore/courses" && <CoursesPage />}
             </Suspense>
-            <Outlet />
+            {path.startsWith("/coach/") ? <GlossaryProvider scopeKey={`${location.pathname}${location.search}`}><Outlet /></GlossaryProvider> : <Outlet />}
           </div>
         </main>
       )}
@@ -274,21 +273,7 @@ export default function Layout() {
       >
         <div className="site-shell px-4 md:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
           <span className="flex items-center gap-2">&copy; 2026 Orider <span className="inline-block px-1.5 py-0.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-medium" style={{ background: 'var(--amber)', color: 'var(--bg-0)', opacity: 0.85 }}>Beta</span><span className="flex items-center gap-1" style={{ color: 'var(--ink-3)' }}><svg className="w-3 h-3 text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" /></svg>Powered by Strava</span></span>
-          <div data-testid={path === "/" ? "H-F-1" : undefined} className="flex flex-wrap items-center gap-4">
-            <Link data-testid="X2-1" to="/about" className="transition-colors hover:opacity-80">{tCommon("nav.aboutOrider")}</Link>
-            <Link to="/feedback" className="transition-colors hover:opacity-80">{tCommon("footer.feedback")}</Link>
-            <Link data-testid="X2-3" to="/terms" className="transition-colors hover:opacity-80">{tCommon("footer.terms")}</Link>
-            <Link data-testid="X2-3" to="/privacy" className="transition-colors hover:opacity-80">{tCommon("footer.privacy")}</Link>
-            <Link data-testid="X2-3" to="/policies/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
-            <Link data-testid="X2-6" to="/community/board?type=inquiry" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</Link>
-            <Link data-testid="X2-2" to="/manual">{tCommon("footer.appManual")}</Link>
-            <Link data-testid="X2-2" to="/web-manual">{tCommon("footer.webManual")}</Link>
-            <Link data-testid="X2-3" to="/policies/ai-coach">{tCommon("footer.aiPolicy")}</Link>
-            <Link data-testid="X2-3" to="/strava-terms">{tCommon("footer.stravaTerms")}</Link>
-            <Link data-testid="X2-4" to="/explore/recipes/deploy">{tCommon("nav.developerDocs")}</Link>
-            <Link data-testid="X2-5" to="/tools/virtual-power">{tCommon("footer.calculator")}</Link>
-            <div data-testid="X2-6"><AppInstallLinks compact appStoreLabel="App Store" playStoreLabel="Google Play" /></div>
-          </div>
+          <div data-testid={path === "/" ? "H-F-1" : undefined}><FooterNavigation /></div>
         </div>
       </footer>
 

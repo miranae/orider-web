@@ -24,3 +24,15 @@ describe("Fitness PowerCurveChart", () => {
     expect(screen.getAllByRole("link")).toHaveLength(1);
   });
 });
+
+it("uses shared tooltip content for hover and keyboard-accessible selected values", () => {
+  const { container } = render(<PowerCurveChart current={[{ durationSeconds: 300, maxPower: 320 }]} previous={[{ durationSeconds: 300, maxPower: 300 }]} expected={[{ durationSeconds: 300, maxPower: 330 }]} />);
+  fireEvent.pointerEnter(container.querySelector('circle[fill="transparent"]')!);
+  expect(screen.getByRole("tooltip")).toHaveClass("ds-tooltip-content");
+  expect(screen.getByRole("tooltip")).toHaveTextContent("330 W");
+  fireEvent.pointerLeave(container.querySelector('circle[fill="transparent"]')!);
+  fireEvent.focus(screen.getByRole("button"));
+  expect(screen.getByRole("tooltip")).toHaveTextContent("320 W");
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+});

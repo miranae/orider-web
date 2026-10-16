@@ -169,7 +169,7 @@ function TodayCard({
 
   return (
     <section data-testid="K4-R-6" className="run30-card run30-today" aria-labelledby="run30-today-title" data-today-action={todayKind}>
-      <Text as="div" variant="eyebrow" id="run30-today-title">{t("run30.today.eyebrow")}</Text>
+      <Text as="h3" variant="subtitle" id="run30-today-title" style={{ margin: 0 }}>{t("run30.today.eyebrow")}</Text>
       {todayKind === "finished" || !next ? (
         <p className="run30-lead">{t("run30.today.finished")}</p>
       ) : todayKind === "start" ? (
@@ -271,7 +271,7 @@ export default function Run30ProgramView({ api, program, onRefresh, startMode, t
     <div className="run30" data-testid="run30-program">
       <section data-testid="K4-R" className="run30-card run30-header" aria-labelledby="run30-title">
         <div className="run30-section-head">
-          <h2 id="run30-title" className="run30-title">{t("run30.title")}</h2>
+          <Text as="h2" variant="title" id="run30-title" className="run30-title">{t("run30.title")}</Text>
           <Button
             type="button"
             variant="ghost"

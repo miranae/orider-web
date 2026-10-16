@@ -1,7 +1,8 @@
+import * as activityAcceptance from "../utils/estimateTSS";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useActivities, useWeeklyStats, useActivitySearch } from "./useActivities";
 import { simulateLogin, simulateLogout, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
-import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
+import { createMockActivity as baseMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
 import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "../contexts/AuthContext";
 import { ToastProvider } from "../contexts/ToastContext";
@@ -15,6 +16,16 @@ import {
   noteFirestoreServerSuccess,
   prepareFirestoreSessionRecovery,
 } from "../utils/firestoreSessionRecovery";
+
+// 과거 날짜 fixture가 실행 시각까지 이어지는 잘못된 구간을 만들지 않게 고정한다.
+const createMockActivity: typeof baseMockActivity = (overrides) => {
+  const activity = baseMockActivity(overrides);
+  if (overrides?.startTime !== undefined && overrides.endTime === undefined) {
+    const duration = activity.summary?.ridingTimeMillis;
+    activity.endTime = activity.startTime + (Number.isFinite(duration) && duration > 0 ? duration : 1800000);
+  }
+  return activity;
+};
 
 const firestoreRecoveryMocks = vi.hoisted(() => ({
   execute: vi.fn(),
@@ -663,6 +674,64 @@ describe("useActivities", () => {
 });
 
 describe("useWeeklyStats", () => {
+  it("주간 근거는 전체 원본의 중복과 비훈련 종목을 구분하고 선택된 대표 부하만 계산한다", async () => {
+    simulateLogin({ uid: "user-1" });
+    const now = new Date(2026, 9, 7, 15, 45);
+    const startTime = new Date(2026, 9, 6, 10).getTime();
+    setCollectionDocs("activities", [
+      createMockActivity({ id: "native", userId: "user-1", source: "orider", localSessionId: "same-session", startTime,
+        summary: createMockSummary({ tss: 70 }) }),
+      createMockActivity({ id: "strava-twin", userId: "user-1", source: "strava", localSessionId: "same-session", startTime: startTime + 1000,
+        summary: createMockSummary({ tss: 70 }) }),
+      createMockActivity({ id: "unsupported", userId: "user-1", type: "WeightTraining", startTime: startTime + 7200000,
+        summary: createMockSummary({ tss: 30 }) }),
+    ]);
+    const { result } = renderHook(() => useWeeklyStats({ now }), { wrapper });
+    await waitFor(() => expect(result.current.coverage).toBe("ready"));
+    expect(result.current.weeklyStats.at(-1)).toMatchObject({ tss: 70, loadEvidence: {
+      rawCount: 3, acceptedCount: 1, duplicateCount: 1, unsupportedOrDeletedCount: 1,
+    } });
+  });
+  it.each([undefined, "bike", "swim"] as const)("주간 %s 범위는 로컬 월요일 00:00부터 포함하고 근거 기간과 일치한다", async discipline => {
+    simulateLogin({ uid: "user-1" });
+    const now = new Date(2026, 9, 7, 15, 45);
+    const monday = new Date(2026, 9, 5, 0, 0, 0, 0).getTime();
+    const type = discipline === "swim" ? "Swim" : "Ride";
+    setCollectionDocs("activities", [
+      createMockActivity({ id: "before-midnight", userId: "user-1", type, startTime: monday - 1, endTime: monday,
+        summary: createMockSummary({ tss: 20 }) }),
+      createMockActivity({ id: "monday-midnight", userId: "user-1", type, startTime: monday, endTime: monday + 3600000,
+        summary: createMockSummary({ tss: 40 }) }),
+      createMockActivity({ id: "monday-morning", userId: "user-1", type, startTime: monday + 8 * 3600000, endTime: monday + 9 * 3600000,
+        summary: createMockSummary({ tss: 60 }) }),
+    ]);
+    const { result } = renderHook(() => useWeeklyStats({ now, discipline }), { wrapper });
+    await waitFor(() => expect(result.current.coverage).toBe("ready"));
+    expect(result.current.weeklyStats.at(-1)).toMatchObject({ rides: 2, tss: 100, loadEvidence: {
+      total: 100, periodStartMs: monday, periodEndMs: new Date(2026, 9, 12).getTime(),
+      coverage: "ready", scope: discipline ?? "allSupported", rawCount: 2, acceptedCount: 2,
+      storedTotal: 100, estimatedTotal: 0, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    } });
+    expect(result.current.weeklyStats.at(-2)).toMatchObject({ rides: 1, tss: 20 });
+  });
+  it("같은 원본의 재렌더링은 대표를 다시 고르지 않고 주별 부하는 재중복 판정하지 않는다", async () => {
+    const now = new Date(2026, 9, 6, 12);
+    simulateLogin({uid: "user-1"});
+    setCollectionDocs("activities", [{id: "memo-weekly", ...createMockActivity({id: "memo-weekly", userId: "user-1", startTime: now.getTime() - 3600000,
+      summary: createMockSummary({distance: 3000, tss: 70})})}]);
+    const representatives = vi.spyOn(activityAcceptance, "acceptedPhysicalActivities");
+    const regroupedTss = vi.spyOn(activityAcceptance, "sumActivityTss");
+    try {
+      const {result, rerender} = renderHook(() => useWeeklyStats(now), {wrapper});
+      await waitFor(() => expect(result.current.coverage).toBe("ready"));
+      expect(result.current.weeklyStats.reduce((sum, week) => sum + (week.tss ?? 0), 0)).toBe(70);
+      const calls = representatives.mock.calls.length;
+      rerender();
+      rerender();
+      expect(representatives.mock.calls.length).toBe(calls);
+      expect(regroupedTss).not.toHaveBeenCalled();
+    } finally { representatives.mockRestore(); regroupedTss.mockRestore(); }
+  });
   it.each(["bike", "swim"] as const)("filters %s 7-day totals without changing all-sport history and mobile breakdown", async (discipline) => {
     const now = new Date(2026, 9, 6, 12);
     simulateLogin({ uid: "user-1" });
@@ -720,7 +789,7 @@ describe("useWeeklyStats", () => {
     const now = new Date("2026-07-12T15:30:00Z");
     simulateLogin({ uid: "user-1" });
     setCollectionDocs("activities", [
-      { id: "before", ...createMockActivity({ id: "before", userId: "user-1", type: "Run", startTime: Date.parse("2026-07-12T14:30:00Z") }) },
+      { id: "before", ...createMockActivity({ id: "before", userId: "user-1", type: "Run", startTime: Date.parse("2026-07-12T14:30:00Z"), endTime: Date.parse("2026-07-12T14:45:00Z") }) },
       { id: "after", ...createMockActivity({ id: "after", userId: "user-1", type: "Run", startTime: Date.parse("2026-07-12T15:15:00Z") }) },
     ]);
     const { result } = renderHook(() => useWeeklyStats({ now, discipline: "run" }), { wrapper });
@@ -761,7 +830,7 @@ describe("useWeeklyStats", () => {
     expect(result.current.weeklyStats.at(-1)).toMatchObject({ tss: expected, tssEstimated: estimated, tssUnknownCount: 1 });
   });
 
-  it("주 경계의 연동 기록은 전체 입력 대표 날짜에만 부하를 배분하고 원본 활동 수는 보존한다", async () => {
+  it("주 경계의 연동 기록은 전체 입력 대표 날짜에만 모든 지표를 배분한다", async () => {
     simulateLogin({ uid: "user-1" });
     const boundary = new Date(2026, 9, 5, 0, 0, 0);
     const nativeStart = boundary.getTime() - 15000;
@@ -774,7 +843,7 @@ describe("useWeeklyStats", () => {
     ]);
     const { result } = renderHook(() => useWeeklyStats(boundary), { wrapper });
     await waitFor(() => expect(result.current.weeklyStats.at(-1)?.rides).toBe(1));
-    expect(result.current.weeklyStats.at(-2)?.rides).toBe(1);
+    expect(result.current.weeklyStats.at(-2)?.rides).toBe(0);
     expect(result.current.weeklyStats.at(-2)?.tss).toBeNull();
     expect(result.current.weeklyStats.at(-1)?.tss).toBe(100);
     expect(result.current.weeklyStats.reduce((total, row) => total + (row.tss ?? 0), 0)).toBe(100);
@@ -945,6 +1014,48 @@ describe("useWeeklyStats", () => {
     }
   });
 
+  it("월간 capped 조회는 월 경계 밖의 Strava 대표까지 읽어 월초 ORider를 중복 집계하지 않는다", async () => {
+    const now = new Date(2026, 9, 31, 12);
+    const monthStart = new Date(2026, 9, 1).getTime();
+    const monthEnd = new Date(2026, 10, 1).getTime();
+    const day = 86400000;
+    const cappedDocs = Array.from({ length: 200 }, (_, index) => ({
+      id: `capped-${index}`,
+      data: () => createMockActivity({ id: `capped-${index}`, userId: "user-1", source: "orider",
+        startTime: monthStart + 19 * day, summary: createMockSummary({ distance: 1000, ridingTimeMillis: 3600000 }) }),
+    }));
+    const native = createMockActivity({ id: "month-start-native", userId: "user-1", source: "orider",
+      startTime: monthStart + 15000, summary: createMockSummary({ distance: 10000, ridingTimeMillis: 3600000 }) });
+    const strava = createMockActivity({ id: "previous-month-strava", userId: "user-1", source: "strava",
+      startTime: monthStart - 15000, summary: createMockSummary({ distance: 9000, ridingTimeMillis: 3600000 }) });
+    const separate = createMockActivity({ id: "separate", userId: "user-1", source: "orider",
+      startTime: monthStart + 9 * day, summary: createMockSummary({ distance: 5000, ridingTimeMillis: 3600000 }) });
+    const mockedGetDocs = vi.mocked(getDocs);
+    const original = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockReset();
+    mockedGetDocs.mockResolvedValueOnce({ docs: cappedDocs } as never).mockImplementationOnce(async () => {
+      // Firestore 조회 범위를 실제로 적용하여 경계 후보를 읽지 않는 회귀를 재현한다.
+      const constraints = vi.mocked(query).mock.calls.at(-1)!.slice(1) as unknown as { type: string; args: unknown[] }[];
+      const lower = constraints.find((constraint) => constraint.type === "where" && constraint.args[0] === "startTime" && constraint.args[1] === ">=")!.args[2] as number;
+      const upper = constraints.find((constraint) => constraint.type === "where" && constraint.args[0] === "startTime" && constraint.args[1] === "<")!.args[2] as number;
+      return { docs: [native, strava, separate].filter((activity) => activity.startTime >= lower && activity.startTime < upper)
+        .map((activity) => ({ id: activity.id, data: () => activity })) } as never;
+    });
+    try {
+      simulateLogin({ uid: "user-1" });
+      vi.mocked(where).mockClear();
+      const { result } = renderHook(() => useWeeklyStats({ now, includeMonthlyDistance: true }), { wrapper });
+      // 200개 응답의 정상 실주행 1km + 독립 활동 5km. 월초 ORider는 전월 Strava의 쌍둥이다.
+      await waitFor(() => expect(result.current.monthlyActivityDistance).toBe(6000));
+      expect(where).toHaveBeenCalledWith("startTime", ">=", monthStart - day);
+      expect(where).toHaveBeenCalledWith("startTime", "<", monthEnd + day);
+      expect(getDocs).toHaveBeenCalledTimes(2);
+    } finally {
+      mockedGetDocs.mockReset();
+      if (original) mockedGetDocs.mockImplementation(original);
+    }
+  });
+
   it("reads all recent rides when the 200-document chart cap falls within seven days", async () => {
     const now = new Date(2026, 6, 14, 12, 0, 0);
     const cappedDocs = Array.from({ length: 200 }, (_, index) => ({
@@ -977,11 +1088,11 @@ describe("useWeeklyStats", () => {
       vi.mocked(orderBy).mockClear();
       const { result } = renderHook(() => useWeeklyStats(now), { wrapper });
 
-      await waitFor(() => expect(result.current.weeklyStats.at(-1)?.rides).toBe(201));
+      await waitFor(() => expect(result.current.weeklyStats.at(-1)?.rides).toBe(1));
       expect(result.current.coverage).toBe("partial");
       expect(result.current.recent7DayCoverage).toBe("ready");
       expect(result.current.monthlyActivityDistance).toBe(0);
-      expect(result.current.recent7DayCount).toBe(201);
+      expect(result.current.recent7DayCount).toBe(1);
       expect(result.current.recent7DayDistances.bike).toBeGreaterThanOrEqual(22_700);
       expect(mockedGetDocs).toHaveBeenCalledTimes(2);
       expect(where).toHaveBeenCalledWith("startTime", ">=", now.getTime() - 12 * 7 * 86400000);

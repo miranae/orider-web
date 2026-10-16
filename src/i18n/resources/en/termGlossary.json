@@ -1,0 +1,437 @@
+{
+  "openLabel": "About {{term}}",
+  "terms": {
+    "lsd": {
+      "label": "Long slow distance",
+      "description": "LSD means long slow distance: extended endurance training at an easy, conversational intensity. It describes an approach to training, not a fixed distance or pace."
+    },
+    "ftp": {
+      "label": "Functional threshold power",
+      "description": "An estimate of power sustainable for about an hour, used to scale power training intensity and load."
+    },
+    "ctl": {
+      "label": "Chronic training load",
+      "description": "An estimate of your training load over roughly six weeks, with more weight given to recent sessions. It does not directly measure fitness."
+    },
+    "atl": {
+      "label": "Acute training load",
+      "description": "An estimate of your training load over roughly the past week, with more weight given to recent sessions. It reflects recent training demands."
+    },
+    "tsb": {
+      "label": "Training stress balance",
+      "description": "CTL minus ATL: a reference for the balance of longer-term and recent training load, not a definitive assessment of readiness."
+    },
+    "tss": {
+      "label": "Training stress score",
+      "description": "A training-load estimate combining duration and relative intensity. One hour at FTP corresponds to approximately 100 points for power-based TSS."
+    },
+    "np": {
+      "label": "Normalized power",
+      "description": "A power metric that accounts for variations in output. Sessions with equal average power can have different NP values."
+    },
+    "if": {
+      "label": "Intensity factor",
+      "description": "For power-based workouts, normalized power divided by FTP. A value of 1.0 corresponds to the configured FTP."
+    },
+    "vi": {
+      "label": "Variability index",
+      "description": "Normalized power divided by average power. Values closer to 1 indicate more even power output."
+    },
+    "ef": {
+      "label": "Efficiency factor",
+      "description": "Normalized power or normalized graded speed divided by average heart rate. Compare sessions under similar conditions."
+    },
+    "cp": {
+      "label": "Critical power",
+      "description": "A parameter estimated from best power efforts at different durations. It is related to FTP but is not the same measurement."
+    },
+    "wprime": {
+      "label": "Work capacity above critical power",
+      "description": "A model estimate of energy available for efforts above critical power, usually expressed in joules (J)."
+    },
+    "rtss": {
+      "label": "Running training stress score",
+      "description": "A running-load estimate based on duration and intensity relative to threshold pace."
+    },
+    "hrtss": {
+      "label": "Heart-rate training stress score",
+      "description": "A training-load estimate using heart-rate intensity and duration, affected by heart-rate response and configured thresholds."
+    },
+    "trimp": {
+      "label": "Training impulse",
+      "description": "A training-load metric combining exercise duration with relative heart-rate intensity."
+    },
+    "gap": {
+      "label": "Grade-adjusted pace",
+      "description": "An estimated equivalent pace on flat ground after accounting for uphill and downhill gradients."
+    },
+    "css": {
+      "label": "Critical swim speed",
+      "description": "A sustainable swimming-speed reference estimated from timed distances, used to set training paces."
+    },
+    "vo2max": {
+      "label": "Maximal oxygen uptake",
+      "description": "The maximum rate of oxygen use during intense exercise. App values may be estimates depending on the measurement method."
+    },
+    "hrv": {
+      "label": "Heart-rate variability",
+      "description": "Variation in time between consecutive heartbeats, interpreted against personal baselines and measurement conditions."
+    },
+    "rpe": {
+      "label": "Rating of perceived exertion",
+      "description": "A self-reported rating of how hard exercise feels. The numeric range depends on the scale used."
+    },
+    "met": {
+      "label": "Metabolic equivalent",
+      "description": "An activity-intensity unit relative to a standard resting metabolic rate. One MET represents that resting reference."
+    },
+    "fatmax": {
+      "label": "Maximal fat oxidation intensity",
+      "description": "The exercise intensity at which fat oxidation rate is highest. It varies by person and test conditions."
+    },
+    "zones": {
+      "label": "Training zones",
+      "description": "Intensity bands based on power, heart rate, or pace references. Boundaries depend on sport and zone system."
+    },
+    "cadence": {
+      "label": "Cadence",
+      "description": "Pedal revolutions per minute (rpm) in cycling, or steps per minute (spm) in running."
+    },
+    "thresholdPace": {
+      "label": "Threshold pace",
+      "description": "An estimated pace sustainable for about an hour, used to scale running intensity and training load."
+    },
+    "pace": {
+      "label": "Pace",
+      "description": "Time needed to cover a distance. When expressed as minutes per kilometre, lower values mean faster movement."
+    },
+    "interval": {
+      "label": "Interval training",
+      "description": "Training that alternates repeated harder efforts with recovery periods."
+    },
+    "taper": {
+      "label": "Taper",
+      "description": "A planned reduction in training volume before a target event to reduce accumulated fatigue."
+    },
+    "lactateThreshold": {
+      "label": "Lactate threshold",
+      "description": "An intensity boundary associated with changes in blood-lactate accumulation. Its definition depends on the testing method."
+    },
+    "decoupling": {
+      "label": "Aerobic decoupling",
+      "description": "The change in the relationship between power or speed and heart rate across a workout. Heat, hydration, and terrain can affect it."
+    },
+    "pdc": {
+      "label": "Power-duration curve",
+      "description": "A curve showing the best average power recorded for a range of effort durations."
+    },
+    "pmc": {
+      "label": "Performance management chart",
+      "description": "A chart showing chronic load (CTL), acute load (ATL), and training stress balance (TSB) over time."
+    },
+    "pr": {
+      "label": "Personal record / personal best",
+      "description": "Your best recorded result for a distance, segment, or effort duration. Results depend on the comparison scope."
+    },
+    "kom": {
+      "label": "King of the mountain",
+      "description": "A title for the fastest time in the men’s category on a segment leaderboard."
+    },
+    "qom": {
+      "label": "Queen of the mountain",
+      "description": "A title for the fastest time in the women’s category on a segment leaderboard."
+    },
+    "gpx": {
+      "label": "GPS exchange format",
+      "description": "A file format used to exchange GPS information such as routes, positions, and timestamps."
+    },
+    "fit": {
+      "label": "Flexible and interoperable data transfer",
+      "description": "A file format for activity and sensor data. Available fields vary by recording device."
+    },
+    "tcx": {
+      "label": "Training center XML",
+      "description": "An XML-based file format for exchanging training details such as routes, laps, and heart rate."
+    },
+    "csv": {
+      "label": "Comma-separated values",
+      "description": "A text format for tabular rows and columns that can be opened in spreadsheet software."
+    },
+    "ant": {
+      "label": "ANT+ wireless communication",
+      "description": "A wireless protocol used by sports sensors such as heart-rate monitors and power meters."
+    },
+    "ble": {
+      "label": "Bluetooth low energy",
+      "description": "A Bluetooth communication technology designed for low-power data exchange between sensors and devices."
+    },
+    "gps": {
+      "label": "Global positioning system",
+      "description": "A satellite-based positioning system. Reception conditions can affect route and distance accuracy."
+    },
+    "bpm": {
+      "label": "Beats per minute",
+      "description": "A heart-rate unit indicating the number of heartbeats in one minute."
+    },
+    "rpm": {
+      "label": "Revolutions per minute",
+      "description": "The number of revolutions in one minute, used for cycling pedal cadence."
+    },
+    "spm": {
+      "label": "Steps per minute",
+      "description": "The total number of steps taken in one minute while running."
+    },
+    "watts": {
+      "label": "Watts",
+      "description": "A unit of power: one watt is one joule of energy transferred per second."
+    },
+    "wkg": {
+      "label": "Power-to-weight ratio",
+      "description": "Power divided by body mass, expressed as watts per kilogram."
+    },
+    "lthr": {
+      "label": "Lactate threshold heart rate",
+      "description": "An estimated heart-rate reference near lactate threshold, used to set heart-rate training zones."
+    },
+    "runningPower": {
+      "label": "Running power",
+      "description": "An estimate of running output in watts (W), derived by a device or service from inputs such as running motion, speed, slope and body mass. Inputs and methods vary by device and service. Compare effort changes using the same device in similar conditions rather than comparing directly with cycling power or FTP."
+    },
+    "power": {
+      "label": "Power",
+      "description": "Work performed per unit of time. In cycling it is usually measured by a power meter and expressed in watts."
+    },
+    "elevationGain": {
+      "label": "Elevation gain",
+      "description": "The sum of uphill elevation changes during an activity, rather than the difference between start and finish elevations."
+    },
+    "segment": {
+      "label": "Segment",
+      "description": "A defined section of a route used to compare recorded times or performances."
+    },
+    "granfondo": {
+      "label": "Gran fondo",
+      "description": "A mass-participation long-distance cycling event. Distances and event rules vary."
+    },
+    "longRide": {
+      "label": "Long ride",
+      "description": "A longer-duration ride aimed at endurance development. Appropriate duration depends on the rider’s training background."
+    },
+    "sweetSpot": {
+      "label": "Sweet spot",
+      "description": "A sustained training intensity somewhat below threshold. Exact ranges depend on the zone system used."
+    },
+    "tempo": {
+      "label": "Tempo",
+      "description": "Sustained work above easy endurance intensity and below threshold. Ranges vary by sport and zone system."
+    },
+    "endurance": {
+      "label": "Endurance",
+      "description": "The ability to sustain exercise over time. As a workout label, it usually refers to sustained low-to-moderate-intensity exercise."
+    },
+    "aerobic": {
+      "label": "Aerobic metabolism",
+      "description": "Energy production using oxygen, contributing across a range of exercise intensities."
+    },
+    "anaerobic": {
+      "label": "Anaerobic metabolism",
+      "description": "Rapid energy production that does not directly require oxygen, contributing more during short, intense efforts."
+    },
+    "hrDrift": {
+      "label": "Heart-rate drift",
+      "description": "A rise in heart rate over time despite similar power or speed, affected by factors such as heat and hydration."
+    },
+    "xpower": {
+      "label": "Exponentially weighted power",
+      "description": "A power metric that weights changes in output to estimate exercise intensity. Its calculation differs from NP."
+    },
+    "rer": {
+      "label": "Respiratory exchange ratio",
+      "description": "Carbon dioxide output divided by oxygen uptake, used in respiratory-gas testing to examine energy metabolism."
+    },
+    "kj": {
+      "label": "Kilojoules",
+      "description": "A unit of work or energy equal to 1,000 joules, often used for mechanical work during exercise."
+    },
+    "sprint": {
+      "label": "Sprint",
+      "description": "A short effort performed at very high power or speed."
+    },
+    "recoveryRide": {
+      "label": "Recovery ride",
+      "description": "A low-intensity ride between harder sessions. It does not replace needed rest."
+    },
+    "z1": {
+      "label": "Zone 1",
+      "description": "Recovery in a commonly used seven-zone power model. Exact boundaries and meanings depend on the sport and power, heart-rate, or pace zone system."
+    },
+    "z2": {
+      "label": "Zone 2",
+      "description": "Endurance in a commonly used seven-zone power model. Exact boundaries and meanings depend on the sport and power, heart-rate, or pace zone system."
+    },
+    "z3": {
+      "label": "Zone 3",
+      "description": "Tempo in a commonly used seven-zone power model. Exact boundaries and meanings depend on the sport and power, heart-rate, or pace zone system."
+    },
+    "z4": {
+      "label": "Zone 4",
+      "description": "Threshold in a commonly used seven-zone power model. Exact boundaries and meanings depend on the sport and power, heart-rate, or pace zone system."
+    },
+    "z5": {
+      "label": "Zone 5",
+      "description": "High aerobic in a commonly used seven-zone power model. Exact boundaries and meanings depend on the sport and power, heart-rate, or pace zone system."
+    },
+    "z6": {
+      "label": "Zone 6",
+      "description": "Anaerobic in a commonly used seven-zone power model. Exact boundaries and meanings depend on the sport and power, heart-rate, or pace zone system."
+    },
+    "z7": {
+      "label": "Zone 7",
+      "description": "Neuromuscular / maximal in a commonly used seven-zone power model. Exact boundaries and meanings depend on the sport and power, heart-rate, or pace zone system."
+    },
+    "trainingLoad": {
+      "label": "Training load",
+      "description": "Training load combines duration and relative intensity. This card uses TSS (Training Stress Score): about 100 points for one hour of cycling at FTP."
+    },
+    "countdown": {
+      "label": "Days until the target date",
+      "description": "The number after D indicates days remaining until the target date. D-day marks the target date itself."
+    },
+    "eftp": {
+      "label": "Estimated FTP",
+      "description": "FTP estimated from activity records and a power model. It may differ from your configured or tested FTP."
+    },
+    "tte": {
+      "label": "Time to exhaustion",
+      "description": "An estimate of how long threshold-level power can be sustained. Actual duration depends on conditions and readiness."
+    },
+    "vam": {
+      "label": "Vertical ascent rate",
+      "description": "Elevation gained on a climb expressed in metres per hour (m/h). Gradient and terrain affect the value."
+    },
+    "swolf": {
+      "label": "Swimming efficiency score",
+      "description": "The time in seconds plus stroke count for a swim length. Compare records with the same distance, stroke type and device."
+    },
+    "dps": {
+      "label": "Distance per stroke",
+      "description": "Swim distance divided by stroke count. Devices may count strokes differently."
+    },
+    "cda": {
+      "label": "Aerodynamic drag area",
+      "description": "Drag coefficient multiplied by frontal area (m²), used to estimate aerodynamic resistance from position and equipment."
+    },
+    "crr": {
+      "label": "Rolling resistance coefficient",
+      "description": "A coefficient describing resistance as a tyre rolls. It varies with tyres, pressure and road surface."
+    },
+    "wprimeBal": {
+      "label": "Remaining W-prime capacity",
+      "description": "The remaining W-prime capacity calculated by a power model. It does not directly measure energy stores or exhaustion."
+    },
+    "ema": {
+      "label": "Exponentially weighted moving average",
+      "description": "A calculation that gives more weight to recent records to summarise a trend. Its time constant determines responsiveness."
+    },
+    "btss": {
+      "label": "Bike training stress score",
+      "description": "A training-load score for cycling duration and relative intensity. Check whether the inputs are measured or estimated."
+    },
+    "stss": {
+      "label": "Swim training stress score",
+      "description": "A training-load score based on swim duration and intensity relative to critical swim speed."
+    },
+    "epoc": {
+      "label": "Excess post-exercise oxygen consumption",
+      "description": "Oxygen consumed above resting levels after exercise. Device-reported values may be model estimates."
+    },
+    "hr": {
+      "label": "Heart rate",
+      "description": "Heartbeats per minute. Heat, sleep and stress can affect it as well as exercise intensity."
+    },
+    "zip": {
+      "label": "Compressed archive",
+      "description": "A file format that bundles files together and can reduce their size."
+    },
+    "json": {
+      "label": "Structured data format",
+      "description": "A text format that represents data as keys and values, used for exchanging data and storing settings."
+    },
+    "utc": {
+      "label": "Coordinated Universal Time",
+      "description": "A shared global time reference. Korea Standard Time is nine hours ahead."
+    },
+    "kst": {
+      "label": "Korea Standard Time",
+      "description": "The standard time used in Korea, nine hours ahead of UTC."
+    },
+    "ai": {
+      "label": "Artificial intelligence",
+      "description": "Technology that produces analysis or text from data. Generated content may contain errors."
+    },
+    "api": {
+      "label": "Application programming interface",
+      "description": "A defined way for programs to exchange data or use one another’s features."
+    },
+    "bmi": {
+      "label": "Body mass index",
+      "description": "Weight in kilograms divided by height in metres squared. It does not determine individual body composition or health."
+    },
+    "sos": {
+      "label": "Emergency assistance request",
+      "description": "A feature for alerting the event organiser to an emergency. Check the on-screen information about what is sent."
+    },
+    "dnf": {
+      "label": "Did not finish",
+      "description": "A participant status for someone who started but did not meet the event’s completion criteria."
+    },
+    "dns": {
+      "label": "Did not start",
+      "description": "A participant status for someone who registered but did not start."
+    },
+    "checkpoint": {
+      "label": "Checkpoint",
+      "description": "A point on an event course where passage or timing is recorded."
+    },
+    "sag": {
+      "label": "Event support vehicle",
+      "description": "A vehicle supporting participants with mechanical problems or withdrawal. Check the event’s stated support coverage."
+    },
+    "tt": {
+      "label": "Time trial",
+      "description": "A race format in which riders compete by individual elapsed time over a course."
+    },
+    "powerMeter": {
+      "label": "Power meter",
+      "description": "A sensor that measures power produced while pedalling, distinct from power estimated from speed or other inputs."
+    },
+    "brick": {
+      "label": "Brick workout",
+      "description": "A workout that combines sports in sequence, such as cycling followed by running."
+    },
+    "sighting": {
+      "label": "Sighting",
+      "description": "Lifting the head during open-water swimming to check a landmark or direction."
+    },
+    "openWater": {
+      "label": "Open-water swimming",
+      "description": "Swimming in natural bodies of water such as seas, lakes or rivers rather than a pool."
+    },
+    "buildUp": {
+      "label": "Progressive intensity",
+      "description": "A workout approach that gradually increases speed or intensity."
+    },
+    "peak": {
+      "label": "Peak value or training phase",
+      "description": "In records, the highest observed value; in a training plan, the final preparation phase for a target event."
+    },
+    "grade": {
+      "label": "Gradient",
+      "description": "Elevation change as a percentage of horizontal distance. Positive means uphill and negative means downhill."
+    },
+    "leaderboard": {
+      "label": "Leaderboard",
+      "description": "A list of participants or activities ranked using the same stated criteria."
+    }
+  }
+}

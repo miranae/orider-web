@@ -120,7 +120,7 @@
 
 .mobile-plan-week-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
@@ -131,7 +131,7 @@
 .mobile-plan-week-metrics small { font-size: var(--fs-base); }
 
 .mobile-plan-week-metrics > span:first-child strong {
-  color: var(--lime);
+  color: var(--ink-1);
 }
 
 .mobile-plan-sport-load {
@@ -219,3 +219,14 @@
 .orider-embedded-surface .mobile-plan-week-navigation button { color: var(--ink-0) !important; border: 1px solid var(--line-soft) !important; border-radius: var(--r-md); background: var(--bg-1) !important; }
 .orider-embedded-surface .mobile-plan-week-navigation button:disabled { opacity: 1; color: var(--ink-2) !important; cursor: default; }
 .orider-embedded-surface .mobile-plan-content .orider-embedded-page-title { margin-inline: var(--space-4); }
+
+.mobile-plan-week-metrics:has(> span:nth-child(3)) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 24rem) {
+  .mobile-plan-goal-heading { flex-direction: column; }
+  .mobile-plan-goal-heading > div:first-child { width: 100%; }
+  .mobile-plan-goal-heading > button { align-self: flex-start; }
+  .mobile-plan-goal-title { word-break: keep-all; }
+}

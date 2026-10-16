@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Activity } from "@shared/types";
 import { TIME_FACTORS } from "@shared/training/activityLoad";
-import { estimateTSS, estimateActivityTss, sumActivityTss, estimateRunTSS, estimateSwimTSS, estimateBikeTSS } from "./estimateTSS";
+import { acceptedPhysicalActivities, estimateTSS, estimateActivityTss, sumActivityTss, estimateRunTSS, estimateSwimTSS, estimateBikeTSS } from "./estimateTSS";
 
 /** 테스트용 최소 Activity. summary 핵심 필드만 채우고 나머지는 캐스팅으로 우회. */
 let activitySequence = 0;
@@ -179,4 +179,14 @@ describe("링크가 없는 같은 실주행 대표", () => {
   it("같은 종목이지만 겹치지 않는 운동은 각각 반영한다", () => {
     expect(sumActivityTss(pair("Ride", 7200000)).value).toBe(200);
   });
+});
+
+
+it("무효 ORider 복구 문서는 정상 Health 대표와 측정값을 밀어내지 않는다", () => {
+  const valid = { ...act({hours: 1}), id: "health", source: "health_connect", statsCountable: true,
+    startTime: 1_000_000, summary: {distance: 3000, ridingTimeMillis: 3600000} } as unknown as Activity;
+  const invalid = {...valid, id: "pending-native", source: "orider", invalidSummary: true, summary: {}} as unknown as Activity;
+  const rows = [invalid, valid];
+  expect(acceptedPhysicalActivities(rows)).toEqual([valid]);
+  expect(rows).toHaveLength(2);
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
@@ -21,11 +21,18 @@ export function useCourses(options: UseCoursesOptions = {}) {
   const hasUsableCache = cachedCourses !== null && cacheUid === uid;
   const [courses, setCourses] = useState<Course[]>(() => (hasUsableCache ? cachedCourses ?? [] : []));
   const [loading, setLoading] = useState(enabled && !hasUsableCache);
+  const [error, setError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const retry = useCallback(() => {
+    invalidateCoursesCache();
+    setReloadKey((value) => value + 1);
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
       setCourses([]);
       setLoading(false);
+      setError(false);
       return;
     }
 
@@ -39,6 +46,7 @@ export function useCourses(options: UseCoursesOptions = {}) {
     if (cachedCourses && cacheUid === uid) {
       setCourses(cachedCourses);
       setLoading(false);
+      setError(false);
       return;
     }
 
@@ -46,6 +54,7 @@ export function useCourses(options: UseCoursesOptions = {}) {
 
     const load = async () => {
       setLoading(true);
+      setError(false);
       try {
         const map = new Map<string, Course>();
 
@@ -88,13 +97,14 @@ export function useCourses(options: UseCoursesOptions = {}) {
         setCourses(result);
       } catch (err) {
         logClientError("useCourses.load", err);
+        if (!cancelled) setError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     load();
     return () => { cancelled = true; };
-  }, [enabled, user, uid]);
+  }, [enabled, user, uid, reloadKey]);
 
   /** 이름+지역 텍스트 검색 */
   function search(q: string): Course[] {
@@ -106,7 +116,7 @@ export function useCourses(options: UseCoursesOptions = {}) {
     });
   }
 
-  return { courses, loading, search };
+  return { courses, loading, error, retry, search };
 }
 
 export function invalidateCoursesCache() {

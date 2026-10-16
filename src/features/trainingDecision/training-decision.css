@@ -1,20 +1,10 @@
 .training-decision-card {
-  --fs-xs: .75rem;
-  --fs-sm: .75rem;
-  --fs-base: .875rem;
-  --fs-md: .875rem;
-  --fs-lg: 1rem;
   container-type: inline-size;
   display: grid;
   gap: var(--space-4);
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.training-decision-card .ds-text--title { font-size: 1.25rem; }
-.training-decision-card .ds-text--subtitle { font-size: 1rem; }
-.training-decision-card .ds-text--caption { font-size: .75rem; }
-.training-decision-card .ds-text--label { font-size: .8125rem; }
-.training-decision-card .ds-text--eyebrow { font-size: .75rem; }
 .training-decision-card .ds-chip { font-size: .75rem; overflow-wrap: normal; word-break: keep-all; }
 .training-decision-card .ds-alert { font-size: .8125rem; }
 .training-decision-card .ds-btn {

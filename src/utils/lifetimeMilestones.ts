@@ -1,3 +1,4 @@
+import { acceptedPhysicalActivities } from "./estimateTSS";
 import type { Activity } from "@shared/types";
 
 /**
@@ -51,7 +52,7 @@ function hasValidDistance(activity: Activity): boolean {
 
 /** 활동 목록(순서 무관, 아무 종목)에서 누적 거리 합계와 최장 라이드를 계산한다. */
 export function computeLifetimeTotals(activities: Activity[]): LifetimeTotals {
-  const valid = (activities ?? []).filter(hasValidDistance);
+  const valid = acceptedPhysicalActivities(activities ?? []).filter(hasValidDistance);
 
   const totalDistanceMeters = valid.reduce((sum, a) => sum + a.summary.distance, 0);
 
@@ -77,7 +78,7 @@ export function computeLifetimeTotals(activities: Activity[]): LifetimeTotals {
  */
 export function computeLifetimeMilestones(activities: Activity[]): LifetimeMilestonesSummary {
   const { totalDistanceMeters, longestRide } = computeLifetimeTotals(activities);
-  const valid = (activities ?? []).filter(hasValidDistance);
+  const valid = acceptedPhysicalActivities(activities ?? []).filter(hasValidDistance);
 
   const chronological = [...valid].sort((a, b) => a.startTime - b.startTime || a.id.localeCompare(b.id));
   const achievedAtByKm = new Map<LifetimeMilestoneKm, number>();

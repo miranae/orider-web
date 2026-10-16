@@ -113,7 +113,7 @@ export default function FtpProgressionCard({
               {sortedHistory.slice(-4).reverse().map((entry) => (
                 <div key={entry.id} style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)" }}>
                   <Text variant="caption" tone="secondary">{new Date(entry.changedAt).toLocaleDateString(i18n.language)} · {t(`ftpProgression.source.${entry.source}`)}</Text>
-                  <Text variant="mono">{entry.value} W</Text>
+                  <Text variant="mono" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>{entry.value} W</Text>
                 </div>
               ))}
             </div>
@@ -122,7 +122,7 @@ export default function FtpProgressionCard({
               {sortedHistory.slice(-4).reverse().map((entry) => (
                 <div key={entry.id} style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)" }}>
                   <Text variant="caption" tone="secondary">{new Date(entry.changedAt).toLocaleDateString(i18n.language)} · {t(`ftpProgression.source.${entry.source}`)}</Text>
-                  <Text variant="mono">{entry.value} W</Text>
+                  <Text variant="mono" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>{entry.value} W</Text>
                 </div>
               ))}
             </div>)}

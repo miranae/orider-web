@@ -1,7 +1,8 @@
+import * as activityAcceptance from "../../utils/estimateTSS";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import i18n from "i18next";
 import enTraining from "../../i18n/resources/en/training.json";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useNavigate, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
 import MobileLogPage from "./MobileLogPage";
@@ -18,7 +19,32 @@ function activity(id: string, day: number): Activity {
   } as Activity;
 }
 
+function QueryNavigation() {
+  const navigateQuery = useNavigate();
+  const location = useLocation();
+  return <><button onClick={() => navigateQuery("?sport=swim")}>Change query</button><output data-testid="query">{location.search}</output></>;
+}
+
 describe("MobileLogPage", () => {
+  it("honors incoming sport and later navigation without losing unrelated query parameters", () => {
+    const run = { ...activity("run", 3), type: "Run", description: "Run only" };
+    const swim = { ...activity("swim", 4), type: "Swim", description: "Swim only" };
+    render(<MemoryRouter initialEntries={["/?sport=run&keep=1"]}><QueryNavigation /><MobileLogPage activities={[activity("bike", 2), run, swim]} year={2026} month={8} onChangeMonth={vi.fn()} /></MemoryRouter>);
+    expect(screen.getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("region", { name: "최근 활동" })).toHaveTextContent("Run only");
+    expect(screen.getByRole("region", { name: "최근 활동" })).not.toHaveTextContent("Ride bike");
+    fireEvent.click(screen.getByRole("button", { name: /사이클/ }));
+    expect(screen.getByTestId("query")).toHaveTextContent("sport=bike&keep=1");
+    fireEvent.click(screen.getByRole("button", { name: "Change query" }));
+    expect(screen.getByRole("button", { name: /수영/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("region", { name: "최근 활동" })).toHaveTextContent("Swim only");
+  });
+
+  it("falls back to all activities for an unsupported sport", () => {
+    render(<MemoryRouter initialEntries={["/?sport=invalid"]}><MobileLogPage activities={[activity("bike", 2)]} year={2026} month={8} onChangeMonth={vi.fn()} /></MemoryRouter>);
+    expect(screen.getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it.each([["ko", "계획"], ["en", "Plan"]])("renders planned-day labels in %s without leaking a namespace key", async (language, label) => {
     i18n.addResourceBundle("en", "training", enTraining, true, true);
     await i18n.changeLanguage(language);
@@ -82,4 +108,42 @@ describe("MobileLogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "← 이전 달" }));
     expect(changeMonth).toHaveBeenCalledWith(-1);
   });
+});
+
+it("추가 대표의 정정된 날짜로 합계를 계산하고 원본 최근 목록은 보존한다", () => {
+  const original = activity("fragment", 3);
+  const representative = {...original, id: "canonical", source: "strava", summary: {...original.summary, distance: 42000}} as Activity;
+  render(<MemoryRouter><MobileLogPage activities={[original]} representativeCandidates={[original, representative]} year={2026} month={8} onChangeMonth={vi.fn()} /></MemoryRouter>);
+  expect(screen.getByLabelText("이번 달 운동 요약")).toHaveTextContent("42.0km");
+  expect(screen.getByRole("region", {name: "최근 활동"})).toHaveTextContent("Ride fragment");
+});
+
+it("대표 확인 실패는 합계만 미확인으로 표시하고 원본 활동을 숨기지 않는다", () => {
+  render(<MemoryRouter><MobileLogPage activities={[activity("fragment", 3)]} aggregateUnavailable year={2026} month={8} onChangeMonth={vi.fn()} /></MemoryRouter>);
+  const glance = screen.getByLabelText("이번 달 운동 요약");
+  expect(glance).not.toHaveTextContent("20.0km");
+  expect(glance).toHaveTextContent("–");
+  const preview = screen.getByRole("region", {name: "최근 활동"});
+  expect(preview).toHaveTextContent("Ride fragment");
+  fireEvent.click(within(preview).getByRole("button", {name: "전체 보기 →"}));
+  expect(screen.getByRole("tab", {name: "활동"})).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("button", {name: /Ride fragment/})).toBeInTheDocument();
+});
+
+
+it("탭과 날짜 상세 상태 변경은 월 대표를 다시 계산하지 않는다", () => {
+  const second = activity("memo-second", 3);
+  second.startTime += 7200000;
+  const rows = [activity("memo", 3), second];
+  const representatives = vi.spyOn(activityAcceptance, "acceptedPhysicalActivities");
+  try {
+    render(<MemoryRouter><MobileLogPage activities={rows} year={2026} month={8} onChangeMonth={vi.fn()} /></MemoryRouter>);
+    const calls = representatives.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", {name: "9월 3일 활동 2건"}));
+    expect(representatives.mock.calls.length).toBe(calls);
+    fireEvent.click(screen.getByRole("tab", {name: "활동"}));
+    expect(representatives.mock.calls.length).toBe(calls);
+    fireEvent.click(screen.getByRole("tab", {name: "월간"}));
+    expect(representatives.mock.calls.length).toBe(calls);
+  } finally { representatives.mockRestore(); }
 });

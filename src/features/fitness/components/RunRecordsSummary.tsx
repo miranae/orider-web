@@ -16,7 +16,9 @@ export default function RunRecordsSummary({ evidence }: { evidence: RunEvidence 
   const qualified = evidence.records.filter(record => record.qualification === "source_qualified" && record.unit === "seconds"
     && Number.isFinite(record.seconds) && record.seconds > 0 && typeof record.activityId === "string" && record.activityId.trim() && Number.isFinite(record.startTime));
   return <Card data-testid="K5-4">
-    {(["5km", "10km"] as const).map(distance => {
+    <Text as="h2" variant="title">{t("runRecords.title")}</Text>
+    {qualified.length === 0 && <Text as="p" variant="bodySmall" tone="secondary">{t(evidence.unverifiedRecords?.length ? "runRecords.unverified" : "runRecords.none")}</Text>}
+    {qualified.length > 0 && (["5km", "10km"] as const).map(distance => {
       const best = qualified.filter(record => record.distance === distance).sort((a, b) => a.seconds - b.seconds)[0];
       const legacy = evidence.unverifiedRecords?.some(record => record.distance === distance);
       return <Text data-testid="K5-4-1" as="p" key={distance}>{t(`runRecords.dist.${distance}`)} · {best ? `${duration(best.seconds)} · ${best.date}` : t(legacy ? "runRecords.unverifiedLabel" : "runRecords.none")}</Text>;

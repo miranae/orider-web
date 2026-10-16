@@ -6,17 +6,18 @@ function read(path: string): string {
 }
 
 describe("consistency streak card placement", () => {
-  it("wires the streak summary into dashboard and fitness surfaces", () => {
-    expect(read("src/pages/DashboardPage.tsx")).toContain("useConsistencyStreak");
-    expect(read("src/pages/DashboardPage.tsx")).toContain("ConsistencyStreakCard");
+  it("keeps streak summaries in fitness without subscribing from the home dashboard", () => {
+    expect(read("src/pages/DashboardPage.tsx")).not.toContain("useConsistencyStreak");
+    expect(read("src/pages/DashboardPage.tsx")).not.toContain("ConsistencyStreakCard");
     expect(read("src/hooks/useFitnessModel.ts")).toContain("useConsistencyStreak");
     expect(read("src/pages/FitnessPage.tsx")).toContain("ConsistencyStreakCard");
   });
 
-  it("passes the streak summary through mobile dashboard and fitness pages", () => {
-    expect(read("src/components/mobile/MobileFeedPage.tsx")).toContain("consistencyStreak");
+  it("keeps mobile fitness streaks in cycling without a home feed routine", () => {
+    expect(read("src/components/mobile/MobileFeedPage.tsx")).not.toContain("consistencyStreak");
     const mobileFitness = read("src/components/mobile/MobileFitnessPage.tsx");
     expect(mobileFitness).toContain("consistencyStreak");
-    expect(mobileFitness).toContain('data.discipline !== "tri" && consistencyStreak');
+    expect(mobileFitness).toContain('data.discipline === "bike" && consistencyStreak');
+    expect(mobileFitness).not.toContain('data.discipline !== "tri" && consistencyStreak');
   });
 });

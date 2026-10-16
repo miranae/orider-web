@@ -1,3 +1,4 @@
+import GlossaryText from "../common/GlossaryText";
 /**
  * 임계 페이스 설정 유도 (설계 문서 §3.1 — `regular` 러너 대상).
  *
@@ -24,10 +25,10 @@ export default function ThresholdPaceNudge({ visible }: ThresholdPaceNudgeProps)
   return (
     <Card style={{ borderColor: "var(--accent-soft-border)", background: "var(--accent-soft-bg)" }}>
       <Text as="p" variant="bodySmall" tone="primary" style={{ margin: 0 }}>
-        {t("thresholdNudge.body")}{" "}
+        <GlossaryText>{t("thresholdNudge.body")}</GlossaryText>{" "}
         <LocalizedLink
           to="/coach/condition?sport=run#thresholds"
-          style={{ color: "var(--accent)", fontWeight: 600 }}
+          style={{ color: "var(--ink-1)", textDecoration: "underline", fontWeight: 600 }}
         >
           {t("thresholdNudge.cta")}
         </LocalizedLink>

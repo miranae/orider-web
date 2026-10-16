@@ -1,3 +1,4 @@
+import type { Activity } from "@shared/types";
 import { getDocs, query, where, startAfter } from "firebase/firestore";
 import { aggregateMonthlyActivities, loadAthleteChartActivities } from "./athleteMonthlyActivities";
 import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
@@ -42,7 +43,7 @@ describe("athlete monthly activities", () => {
       ["visibility", "==", "everyone"], ["visibility", "==", "everyone"],
     ]);
     expect(vi.mocked(where).mock.calls.filter(([field]) => field === "deletedAt")).toHaveLength(2);
-    expect(aggregateMonthlyActivities(rows!, new Date(2021, 0, 2))[0]?.distance).toBe(201);
+    expect(aggregateMonthlyActivities(rows!, new Date(2021, 0, 2))[0]?.distance).toBe(1);
   });
 
   it("retains activities with absent or null summaries without changing measured totals", async () => {
@@ -58,7 +59,7 @@ describe("athlete monthly activities", () => {
     expect(rows![1]?.summary).toBeUndefined();
     expect(rows![2]?.summary).toBeNull();
     expect(aggregateMonthlyActivities(rows!, new Date(2021, 0, 2))[0]).toMatchObject({
-      rides: 3, distance: 1, time: 1, elevation: 10,
+      rides: 1, distance: 1, time: 1, elevation: 10,
     });
   });
 
@@ -83,14 +84,14 @@ describe("athlete monthly activities", () => {
   });
 });
 
-it("월별 단일 pass 구성도 원본 기록 수와 실제 운동 부하를 구분한다", () => {
+it("월별 모든 지표는 같은 실주행 대표를 사용한다", () => {
   const start = new Date(2026, 8, 1, 12).getTime();
   const native = {...activity(start), id: "native", type: "Ride", source: "orider", summary: createMockSummary({distance: 1000, ridingTimeMillis: 3600000, tss: 100})};
   const imported = {...native, id: "imported", source: "strava", startTime: start + 30000};
   const laterStart = new Date(2026, 9, 1, 12).getTime();
   const later = {...native, id: "later", startTime: laterStart, endTime: laterStart + 3600000, summary: {} as typeof native.summary};
   const rows = aggregateMonthlyActivities([native, imported, later], new Date(2026, 9, 2));
-  expect(rows[0]).toMatchObject({week: "2026.09", rides: 2, distance: 2, tss: 100, tssEstimated: false});
+  expect(rows[0]).toMatchObject({week: "2026.09", rides: 1, distance: 1, tss: 100, tssEstimated: false});
   expect(rows[1]).toMatchObject({week: "2026.10", rides: 1, tss: null, tssEstimated: false, tssUnknownCount: 1});
 });
 
@@ -106,4 +107,14 @@ it.each([
   const input = summary ? [known, unknown] : [unknown];
   expect(aggregateMonthlyActivities(input as Parameters<typeof aggregateMonthlyActivities>[0], new Date(2026, 8, 4))[0])
     .toMatchObject({ tss, tssEstimated: estimated, tssUnknownCount: 1 });
+});
+
+it("이미 선택한 대표의 부하는 중복 그룹 계산 없이 직접 합산한다", () => {
+  const row = activity(new Date(2026, 8, 2).getTime());
+  row.summary.tss = 60;
+  const input = [row, {...row, id: "already-selected-second", summary: {...row.summary, tss: 10}}] as Activity[];
+  // 호출자가 대표 배열을 넘기면 같은 시각의 두 행도 재판정하지 않는다.
+  const rows = aggregateMonthlyActivities(input, new Date(2026, 8, 2), true);
+  expect(rows[0].rides).toBe(2);
+  expect(rows[0].tss).toBe((row.summary.tss ?? 0) + 10);
 });

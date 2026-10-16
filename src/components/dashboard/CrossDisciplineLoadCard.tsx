@@ -1,3 +1,4 @@
+import GlossaryText from "../common/GlossaryText";
 /**
  * 통합 부하 기여 카드 (설계 문서 §3.7) — 이 플랫폼 고유의 순간.
  *
@@ -45,7 +46,7 @@ export default function CrossDisciplineLoadCard({ fitness, discipline }: CrossDi
   return (
     <Card data-testid="H2-1-2">
       <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-3)" }}>
-        {t("crossLoad.eyebrow")}
+        <GlossaryText>{t("crossLoad.eyebrow")}</GlossaryText>
       </Text>
 
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
@@ -53,10 +54,10 @@ export default function CrossDisciplineLoadCard({ fitness, discipline }: CrossDi
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <Text as="p" variant="body" tone="primary" style={{ margin: 0, lineHeight: 1.5 }}>
-            {t("crossLoad.headline", {
+            <GlossaryText>{t("crossLoad.headline", {
               sport: t(`discipline.${discipline}`),
               pct: mine.pct,
-            })}
+            })}</GlossaryText>
           </Text>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
@@ -82,7 +83,7 @@ export default function CrossDisciplineLoadCard({ fitness, discipline }: CrossDi
         style={{
           display: "inline-block",
           marginTop: "var(--space-3)",
-          color: "var(--accent)",
+          color: "var(--ink-1)", textDecoration: "underline",
           fontSize: "var(--fs-xs)",
           fontWeight: 600,
         }}

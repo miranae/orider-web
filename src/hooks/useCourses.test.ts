@@ -1,7 +1,10 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { getDocs } from "firebase/firestore";
+import { vi } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import React from "react";
 import { MemoryRouter } from "react-router-dom";
 import type { Course } from "@shared/types";
+import * as authContext from "../contexts/AuthContext";
 import { AuthProvider } from "../contexts/AuthContext";
 import { ToastProvider } from "../contexts/ToastContext";
 import { simulateLogin, setCollectionDocs } from "../__tests__/mocks/firebase";
@@ -78,4 +81,25 @@ describe("useCourses", () => {
     });
     expect(second.result.current.courses.map((c) => c.id)).toEqual(["course-b"]);
   });
+
+  it("reports read failure and starts one fresh query sequence only when explicitly retried", async () => {
+    simulateLogin({ uid: "user-retry" });
+    setCollectionDocs("courses", []);
+    vi.mocked(getDocs).mockClear();
+    vi.mocked(getDocs).mockRejectedValueOnce(new Error("temporary read failure"));
+    const spy = vi.spyOn(authContext, "useAuth").mockReturnValue({ user: { uid: "user-retry" } } as unknown as ReturnType<typeof authContext.useAuth>);
+    const view = renderHook(() => useCourses(), { wrapper });
+    try {
+      await waitFor(() => expect(view.result.current.error).toBe(true));
+      expect(view.result.current.loading).toBe(false);
+      expect(view.result.current.courses).toEqual([]);
+      expect(getDocs).toHaveBeenCalledTimes(1);
+      act(() => view.result.current.retry());
+      await waitFor(() => expect(view.result.current.loading).toBe(false));
+      expect(view.result.current.error).toBe(false);
+      expect(view.result.current.courses).toEqual([]);
+      expect(getDocs).toHaveBeenCalledTimes(3);
+    } finally { view.unmount(); spy.mockRestore(); }
+  });
+
 });

@@ -41,7 +41,7 @@ function ProposalPanel({ decision, recommendationVisible, refresh }: {
         <div><Text as="span" variant="caption" tone="secondary">{t("decision.recommended")}</Text><strong>{t(`decision.workout.${change.workout.kind}`, { defaultValue: change.workout.kind })}</strong><span>{t("decision.duration", { value: change.workout.durationMin })}</span></div>
       </div>
     </article>)}
-    <Text className="sr-only" as="p" role="status" aria-live="polite" aria-atomic="true">
+    <Text className="sr-only" as="p" variant="body" role="status" aria-live="polite" aria-atomic="true">
       {t(`decision.proposal.state.${controller.state}`, { defaultValue: t("decision.proposal.state.loading") })}
     </Text>
     <div className="training-decision-proposal__actions">
@@ -94,16 +94,16 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
   const { decision, loading, scheduledOnly, unavailableReason, refresh } = decisionState;
   if (!user) return null;
   if (loading) return surface === "plan" ? null
-    : <Card data-testid={surface === "today" ? "K2-2" : undefined} className="training-decision-card" aria-busy="true"><Text tone="secondary">{t("decision.loading")}</Text></Card>;
+    : <Card data-testid={surface === "today" ? "K2-2" : undefined} className="training-decision-card" aria-busy="true"><Text variant="body" tone="secondary">{t("decision.loading")}</Text></Card>;
   if (!decision && surface === "plan") return null;
   if (!decision && unavailableReason !== "error") return null;
   if (!decision) return <Card className="training-decision-card training-decision-card--fallback"
     data-training-decision-fallback="unavailable">
     <div data-testid={surface === "today" ? "K2-2-2" : undefined} className="training-decision-card__header">
-      <div><Text as="span" variant="eyebrow">{t("decision.eyebrow")}</Text>
+      <div><Text as="span" variant="bodyMedium">{t("decision.eyebrow")}</Text>
         <Text as="h2" variant="title">{t("decision.fallback.unavailableTitle")}</Text></div>
     </div>
-    <Text as="p" tone="secondary">{t("decision.fallback.unavailableBody")}</Text>
+    <Text as="p" variant="body" tone="secondary">{t("decision.fallback.unavailableBody")}</Text>
     <footer className="training-decision-card__actions">
       <Button size="sm" variant="outline" onClick={() => refresh()}>{t("decision.refresh")}</Button>
     </footer>
@@ -156,13 +156,13 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
   return <Card data-testid={surface === "today" ? "K2-2" : surface === "plan" ? "K4-4" : undefined} className={`training-decision-card training-decision-card--${surface}`} data-decision-id={tupleId}
     data-facts-id={decision.recommendationSource?.factsId ?? ""} data-plan-revision={decision.planSource?.planRevision ?? ""}>
     <header data-testid={surface === "today" ? "K2-2-2" : undefined} className="training-decision-card__header">
-      <div><Text as="span" variant="eyebrow">{t("decision.eyebrow")}</Text><Text as="h2" variant="title">{t(`decision.status.${statusKey}`)}</Text></div>
+      <div><Text as="span" variant="bodyMedium">{t("decision.eyebrow")}</Text><Text as="h2" variant="title">{t(`decision.status.${statusKey}`)}</Text></div>
       <Chip variant={decision.healthGate.state === "stop" ? "danger" : applied ? "accent" : "default"}>
         {t(recommendationPending ? "decision.mode.not-applied" : `decision.mode.${displayScheduledOnly ? "scheduled-only" : decision.mode}`)}
       </Chip>
     </header>
     {decision.healthGate.state === "stop" && <Alert data-testid={surface === "today" ? "K2-2-3" : undefined} variant="danger" title={t("decision.healthStop")} />}
-    {!scheduled && <Text as="p" tone="secondary">{t("decision.noScheduled")}</Text>}
+    {!scheduled && <Text as="p" variant="body" tone="secondary">{t("decision.noScheduled")}</Text>}
     {/* 계약이 내려주는 폴백 사유를 그대로 노출 — "왜 권고가 없는지"를 사용자가 알 수 있어야 한다. */}
     {decision.fallback.active && decision.fallback.reasonCode
       && <Text as="p" variant="caption" tone="secondary" data-fallback-reason={decision.fallback.reasonCode}>
@@ -192,7 +192,7 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
     </section>}
     {lowConfidenceSignals.length > 0 && <Alert variant="warning" title={t("decision.confidence.lowTitle")}
       data-confidence="low">
-      <Text as="p">{t("decision.confidence.lowBody")}</Text>
+      <Text as="p" variant="body">{t("decision.confidence.lowBody")}</Text>
       <ul className="training-decision-card__confidence-signals">
         {lowConfidenceSignals.map((signal) => <li key={signal}>
           {t(`decision.confidence.signal.${signal}`)}</li>)}

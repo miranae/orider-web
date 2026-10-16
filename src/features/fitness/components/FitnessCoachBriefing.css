@@ -56,7 +56,18 @@
   .fitness-coach__current-metrics,
   .fitness-coach__delta-grid,
   .fitness-coach__forecast { gap: var(--space-2); }
+  .fitness-coach__delta-grid { grid-template-columns: minmax(0, 1fr); }
+  .fitness-coach__delta-grid > div > :last-child { white-space: nowrap; }
   .fitness-coach__forecast { grid-template-columns: minmax(0, 1fr); }
-  .fitness-coach__mode { width: 100%; }
+  .fitness-coach__mode { width: 100%; flex-direction: column; }
   .fitness-coach__mode button { flex: 1; }
 }
+
+.fitness-coach__current-metrics > div { display: flex; flex-direction: column; min-width: 0; gap: var(--space-1); }
+.fitness-coach__current-metrics > div > :first-child { flex: 1; text-transform: none; letter-spacing: normal; }
+.fitness-coach__current-metrics > div > :last-child { color: var(--ink-1); }
+@media (min-width: 52rem) {
+  .fitness-coach__choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.fitness-coach__primary-grid > :only-child { grid-column: 1 / -1; }

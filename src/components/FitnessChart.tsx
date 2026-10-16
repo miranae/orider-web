@@ -55,7 +55,9 @@ interface FitnessChartProps {
   hoveredIndex?: number | null;
   onHoveredIndexChange?: (index: number | null) => void;
   chartWidth?: number;
+  chartHeight?: number;
   hideLegend?: boolean;
+  hideTooltip?: boolean;
   hideXLabels?: boolean;
   /** Show the latest observed CTL/ATL beside their line ends on wide history charts. */
   showEndLabels?: boolean;
@@ -80,8 +82,7 @@ const PAD_RIGHT = 8;
 const PAD_TOP = 32;
 const PAD_BOTTOM = 24;
 const DEFAULT_VIEW_W = 1080;
-const VIEW_H = 280;
-const PLOT_H = VIEW_H - PAD_TOP - PAD_BOTTOM;
+const DEFAULT_VIEW_H = 280;
 
 /** 친근한 Y축 tick 생성 (5의 배수 단위). */
 function niceTicks(min: number, max: number, count = 5): number[] {
@@ -130,12 +131,16 @@ export default function FitnessChart({
   hoveredIndex,
   onHoveredIndexChange,
   chartWidth,
+  chartHeight = DEFAULT_VIEW_H,
   hideLegend = false,
+  hideTooltip = false,
   hideXLabels = false,
   showEndLabels = false,
   onSelectionFocusRequest,
 }: FitnessChartProps) {
   const { t } = useTranslation(["dashboard", "fitness"]);
+  const VIEW_H = chartHeight;
+  const PLOT_H = VIEW_H - PAD_TOP - PAD_BOTTOM;
   const svgRef = useRef<SVGSVGElement>(null);
   const chartId = useId().replace(/:/g, "");
   const ctlFillId = `${chartId}-ctl-fill`;
@@ -637,6 +642,7 @@ export default function FitnessChart({
           {showAtl && hover.atl != null && <circle cx={hover.x} cy={syFn(hover.atl)} r="3.5" fill={PMC_LINE_PALETTE.atl.color} stroke="var(--bg-0)" strokeWidth="1.5" />}
           {showTsb && hover.tsb != null && <circle cx={hover.x} cy={syFn(hover.tsb)} r="3.5" fill={PMC_LINE_PALETTE.tsb.color} stroke="var(--bg-0)" strokeWidth="1.5" />}
 
+          {!hideTooltip && <>
           <rect data-pmc-tooltip="true" x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH} rx="6"
                 fill="var(--bg-1)" stroke="var(--line)" strokeWidth="1" opacity="0.98" />
           <text x={tooltipX + 10} y={tooltipY + 16} fontSize="12" fontFamily="var(--font-mono)"
@@ -657,6 +663,7 @@ export default function FitnessChart({
               </text>
             </g>
           ))}
+          </>}
         </g>
       )}
 

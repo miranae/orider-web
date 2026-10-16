@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
@@ -17,6 +17,7 @@ export interface MobilePlanPageProps {
   goalId?: string;
   goalTitle?: string;
   goalDiscipline?: Discipline;
+  goalDate?: Date | null;
   daysLeft?: number;
   progressPct?: number;
   completedTSS?: number;
@@ -46,6 +47,7 @@ export default function MobilePlanPage({
   goalId,
   goalTitle,
   goalDiscipline,
+  goalDate,
   daysLeft,
   progressPct,
   completedTSS,
@@ -66,7 +68,9 @@ export default function MobilePlanPage({
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const goalSport = goalDiscipline ?? params.get("sport");
-  const [showAddSheet, setShowAddSheet] = useState(false);
+  const [addSheetOwner, setAddSheetOwner] = useState<string | null>(null);
+  const currentSheetOwner = `${goalId ?? ""}:${goalDiscipline ?? ""}:${currentWeek?.id ?? ""}`;
+  useEffect(() => { setAddSheetOwner(null); }, [currentSheetOwner]);
   const days = currentWeek?.days ?? [];
   const today = kstDateString(Date.now());
   const todayIdx = days.findIndex((day) => day.date && kstDateString(day.date) === today);
@@ -78,6 +82,7 @@ export default function MobilePlanPage({
       weekLabel={weekLabel}
       goalTitle={goalTitle}
       goalDiscipline={goalDiscipline}
+      goalDate={goalDate}
       daysLeft={daysLeft}
       progressPct={progressPct}
       completedTSS={completedTSS}
@@ -92,8 +97,8 @@ export default function MobilePlanPage({
           style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
           <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t('mobile.headerTitle')}</span>
           <div style={{ flex: 1 }} />
-          <Button type="button" variant="ghost" size="sm"
-            onClick={() => currentWeek && goalId ? setShowAddSheet(true) : navigate(`/goal-setup?sport=${goalSport === "run" || goalSport === "swim" ? goalSport : "bike"}`)}>{t('mobile.addAction')}</Button>
+          {(goalId || (!goalTitle && !currentWeek)) && <Button type="button" variant="ghost" size="sm"
+            onClick={() => currentWeek && goalId ? setAddSheetOwner(currentSheetOwner) : navigate(`/goal-setup?sport=${goalSport === "run" || goalSport === "swim" ? goalSport : "bike"}`)}>{t('mobile.addAction')}</Button>}
         </div>
       )}
       adaptationSlot={goalId && adaptationFlag ? (
@@ -123,15 +128,15 @@ export default function MobilePlanPage({
           ) : null)}
         </div>
       )}
-      footerSlot={showAddSheet && currentWeek && goalId ? (
+      footerSlot={addSheetOwner === currentSheetOwner && currentWeek && goalId ? (
         <AddPlanSheet
           goalId={goalId}
           weekId={currentWeek.id}
           days={days}
           initialDayIndex={todayIdx >= 0 ? todayIdx : undefined}
-          onClose={() => setShowAddSheet(false)}
+          onClose={() => setAddSheetOwner(null)}
           onUpdate={() => {
-            setShowAddSheet(false);
+            setAddSheetOwner(null);
             onPlanUpdate?.();
           }}
         />

@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import type { RunPacePoint } from "../../features/fitness/fitnessCurveDocuments";
 import ChartEmptyState from "./ChartEmptyState";
@@ -17,6 +18,8 @@ const REF_MARKER_BASE = [
 
 export default function CriticalPaceCurve({ color = "var(--amber)", recentPoints = [], prevPoints = [] }: CriticalPaceCurveProps) {
   const { t } = useTranslation("dashboard");
+  const { t: fitnessT } = useTranslation("fitness");
+  const chartId = useId();
   const refMarkers = [
     ...REF_MARKER_BASE,
     { dur: 100, label: t("charts.criticalPace.half") },
@@ -56,7 +59,9 @@ export default function CriticalPaceCurve({ color = "var(--amber)", recentPoints
   };
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: 200 }}>
+    <div className="space-y-3"><svg role="img" aria-labelledby={`${chartId}-title ${chartId}-description`} viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: 200 }}>
+      <title id={`${chartId}-title`}>{fitnessT("criticalPace.title")}</title>
+      <desc id={`${chartId}-description`}>{fitnessT("criticalPace.description")}</desc>
       {/* 수평 그리드 */}
       {[0.25, 0.5, 0.75, 1].map((p) => (
         <line
@@ -105,5 +110,19 @@ export default function CriticalPaceCurve({ color = "var(--amber)", recentPoints
         </text>
       ))}
     </svg>
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", fontSize: "var(--fs-sm)", color: "var(--ink-1)", borderCollapse: "collapse" }}>
+        <caption className="sr-only">{fitnessT("criticalPace.title")}</caption>
+        <thead><tr>{["duration", "recent", "previous"].map(key => <th key={key} scope="col" style={{ textAlign: "left", padding: "var(--space-2)" }}>{fitnessT(`criticalPace.${key}`)}</th>)}</tr></thead>
+        <tbody>{[...new Set([...recentPoints, ...prevPoints].map(point => point.durationSec))].sort((a, b) => a - b).map(duration => {
+          const recent = recentPoints.find(point => point.durationSec === duration);
+          const previous = prevPoints.find(point => point.durationSec === duration);
+          return <tr key={duration} style={{ borderTop: "1px solid var(--line-soft)" }}>
+            <th scope="row" style={{ textAlign: "left", padding: "var(--space-2)", fontWeight: 400 }}>{duration < 60 ? `${duration}s` : `${duration / 60}m`}</th>
+            {[recent, previous].map((point, index) => <td key={index} style={{ padding: "var(--space-2)", fontFamily: "var(--font-mono)" }}>{point ? `${secToMmss(point.paceSecPerKm)} /km` : "—"}</td>)}
+          </tr>;
+        })}</tbody>
+      </table>
+    </div></div>
   );
 }

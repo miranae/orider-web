@@ -26,6 +26,7 @@ export interface TypographyTokens {
   dataSmall: TypeToken;   // 20
 
   // === UI 텍스트 ===
+  pageTitle: TypeToken;
   title: TypeToken;
   subtitle: TypeToken;
   bodyLarge: TypeToken;
@@ -44,6 +45,7 @@ export const DEFAULT_TYPOGRAPHY: TypographyTokens = {
   dataMedium: { size: 18, weight: 500, mono: true, letterSpacing: '-0.01em', lineHeight: 1 },
   dataSmall:  { size: 14, weight: 500, mono: true, lineHeight: 1.2 },
 
+  pageTitle:  { size: 32, weight: 700, lineHeight: 1.15 },
   title:      { size: 20, weight: 700, lineHeight: 1.3 },
   subtitle:   { size: 16, weight: 600, lineHeight: 1.4, letterSpacing: '0.015em' },
   bodyLarge:  { size: 16, weight: 500, lineHeight: 1.5 },

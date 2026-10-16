@@ -49,13 +49,20 @@ export function CoachConsentSheet({ open, stale, saving, error, policy, onCancel
       if (event.key === "Tab" && panel) {
         const focusable = Array.from(panel.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), summary, input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        )).filter((element) => !element.hasAttribute("hidden")
-          && !(element.tagName !== "SUMMARY" && element.closest("details:not([open])")));
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (focusable.length === 0) { event.preventDefault(); return; }
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        )).filter((element) => {
+          if (element.closest('[hidden], [aria-hidden="true"], [inert]')) return false;
+          for (let parent = element.parentElement; parent && parent !== panel; parent = parent.parentElement) {
+            if (parent.tagName === 'DETAILS' && !parent.hasAttribute('open') && parent.querySelector(':scope > summary') !== element) return false;
+          }
+          const style = getComputedStyle(element);
+          return style.display !== 'none' && style.visibility !== 'hidden';
+        });
+        event.preventDefault();
+        if (focusable.length === 0) { panel.focus(); return; }
+        const current = focusable.indexOf(document.activeElement as HTMLElement);
+        const next = current < 0 ? (event.shiftKey ? focusable.length - 1 : 0)
+          : (current + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length;
+        focusable[next]?.focus();
       }
     };
     document.addEventListener("keydown", handleKey);

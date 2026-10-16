@@ -50,7 +50,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   const probableLink = execution?.status === "linked" && execution.matchConfidence === "probable";
   const probablePending = probableLink && execution?.outcomeStatus === "pending";
   // 추정 매칭 확인도 활동 목록이 필요하다 — 저장된 revision 은 재처리로 낡을 수 있어 현재 값을 쓴다.
-  const { activities: ownerActivities, loading: activitiesLoading } = useActivities("self", [], {
+  const { activities: ownerActivities, loading: activitiesLoading, error: activitiesError, retry: retryFeed } = useActivities("self", [], {
     enabled: canMutate && ((manual && execution?.status === "started") || probablePending === true),
   });
   const activityChoices = ownerActivities.filter((activity) => getDiscipline(activity.type) === decision.targetDiscipline
@@ -103,7 +103,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   async function link() {
     const revision = selectedActivity ? revisionOf(selectedActivity) : null;
     if (!canMutate || !execution || execution.status !== "started" || execution.outcomeStatus !== "pending"
-      || !selectedActivity || !revision || busy) return;
+      || !selectedActivity || !revision || busy || activitiesLoading || activitiesError) return;
     setBusy(true); setError(false);
     const operation = `link:${execution.executionId}:${selectedActivity.id}:${revision}`;
     try { setExecution(await linkSessionExecutionActivity(execution.executionId, selectedActivity.id, revision,
@@ -130,7 +130,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
    */
   async function confirmProbable(then?: "partial") {
     const revision = confirmRevision;
-    if (!canMutate || !execution || busy || activitiesLoading || execution.status !== "linked"
+    if (!canMutate || !execution || busy || activitiesLoading || activitiesError || execution.status !== "linked"
       || execution.matchConfidence !== "probable" || !execution.activityId || !revision) return;
     setBusy(true); setError(false);
     // 링크 키에는 then 을 넣지 않는다 — 두 확인 버튼이 만드는 링크 요청은 서버 입장에서 동일하다.
@@ -208,6 +208,10 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     {!execution && decision.capabilities.execution.reserve === "available" && decision.capabilities.execution.start === "available"
       && <Button size="sm" variant="primary" loading={busy} data-testid="K2-3-10" onClick={() => void start()}>{busy ? t("decision.execution.starting") : t("decision.execution.start")}</Button>}
     {execution && <>
+      {(manual || probablePending) && activitiesError && <Alert variant="warning" title={t("decision.execution.activityLoadFailed")}>
+        <Button size="sm" variant="outline" disabled={activitiesLoading} onClick={() => retryFeed()}>{t("decision.execution.activityRetry")}</Button>
+      </Alert>}
+      {probablePending && activitiesLoading && <Text as="p" variant="caption" tone="secondary" role="status">{t("decision.execution.activityLoading")}</Text>}
       {execution.activityId && <LocalizedLink data-testid="K2-4-5" to={`/activity/${encodeURIComponent(execution.activityId)}`}>{t("today.viewActivity")}</LocalizedLink>}
       <Text as="p" variant="caption" tone="secondary">{t(`decision.execution.state.${execution.status}`)} · {t(`decision.execution.outcome.${execution.outcomeStatus}`)}</Text>
       {execution.status === "reserved" && decision.capabilities.execution.start === "available"
@@ -219,13 +223,13 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
       {probableLink && execution.outcomeStatus === "pending" && decision.capabilities.execution.link === "available"
         && <div data-testid="K2-4" className="training-execution-actions__row" data-probable-confirm="true">
           <Text as="p" variant="caption" tone="secondary">{t("decision.execution.probablePrompt")}</Text>
-          {confirmRevision === null && !activitiesLoading && <Text as="p" variant="caption" tone="warning">
+          {confirmRevision === null && !activitiesLoading && !activitiesError && <Text as="p" variant="caption" tone="warning">
             {t("decision.execution.probableRevisionMissing")}</Text>}
-          <Button size="sm" variant="primary" loading={busy} disabled={activitiesLoading || confirmRevision === null}
+          <Button size="sm" variant="primary" loading={busy} disabled={activitiesLoading || activitiesError || confirmRevision === null}
             data-testid="K2-3-12" onClick={() => void confirmProbable()}>{t("decision.execution.confirmMatch")}</Button>
           {/* 부분 완료는 outcome 호출까지 필요하다 — 그 권한이 없으면 반쯤 적용된 상태로 끝난다. */}
           {decision.capabilities.execution.outcome === "available"
-            && <Button size="sm" variant="outline" disabled={busy || activitiesLoading || confirmRevision === null}
+            && <Button size="sm" variant="outline" disabled={busy || activitiesLoading || activitiesError || confirmRevision === null}
               data-testid="K2-3-12" onClick={() => void confirmProbable("partial")}>{t("decision.execution.confirmPartial")}</Button>}
         </div>}
       {/* 부분 완료가 중간에 끊긴 경우 — 서버는 completed 로 남아 있으므로 되돌릴 경로를 남긴다. */}
@@ -239,7 +243,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
           {t(probableLink ? "decision.execution.rejectMatch" : "decision.execution.unlink")}</Button>}
       {manual && <div id={manualPanelId} className="training-execution-actions__manual">
         <label><Text as="span" variant="caption" tone="secondary">{t("decision.execution.activityPicker")}</Text>
-          <select value={selectedActivityId} onChange={(event) => setSelectedActivityId(event.target.value)} disabled={activitiesLoading}>
+          <select value={selectedActivityId} onChange={(event) => setSelectedActivityId(event.target.value)} disabled={busy || activitiesLoading || activitiesError}>
             <option value="">{activitiesLoading ? t("decision.execution.activityLoading") : t("decision.execution.activitySelect")}</option>
             {activityChoices.map((activity) => <option key={activity.id} value={activity.id}>
               {new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(activity.startTime))}
@@ -247,8 +251,8 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
             </option>)}
           </select>
         </label>
-        {!activitiesLoading && activityChoices.length === 0 && <Text as="p" variant="caption" tone="secondary">{t("decision.execution.noActivities")}</Text>}
-        <Button size="sm" disabled={busy || !selectedActivity} data-testid="K2-3-11" onClick={() => void link()}>{t("decision.execution.link")}</Button>
+        {!activitiesLoading && !activitiesError && activityChoices.length === 0 && <Text as="p" variant="caption" tone="secondary">{t("decision.execution.noActivities")}</Text>}
+        <Button size="sm" disabled={busy || activitiesLoading || activitiesError || !selectedActivity} data-testid="K2-3-11" onClick={() => void link()}>{t("decision.execution.link")}</Button>
       </div>}
       {decision.capabilities.execution.outcome === "available" && execution.outcomeStatus === "pending"
         && (exactLink || execution.status === "started") && <div data-testid="K2-4" className="training-execution-actions__row">

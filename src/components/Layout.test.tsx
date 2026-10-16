@@ -34,11 +34,46 @@ describe("Layout", () => {
     renderWithProviders(<Layout />);
     const footer = await screen.findByRole("contentinfo");
     expect(footer).toHaveAttribute("data-testid", "H-F");
-    expect(within(screen.getByTestId("H-F-1")).getByRole("link", { name: "App Store" })).toHaveAttribute("target", "_blank");
-    expect(within(footer).getByRole("link", { name: "앱 설명서" })).toHaveAttribute("href", "/ko/manual");
-    expect(within(footer).getByRole("link", { name: "웹 설명서" })).toHaveAttribute("href", "/ko/web-manual");
-    expect(within(footer).getByRole("link", { name: "공개 계산기" })).toHaveAttribute("href", "/ko/tools/virtual-power");
-    expect(within(footer).getByRole("link", { name: "App Store" })).toHaveAttribute("target", "_blank");
+    const user = userEvent.setup();
+    const navigation = within(footer).getByRole("navigation", { name: "사이트 안내" });
+    expect(within(navigation).getAllByRole("button")).toHaveLength(4);
+    expect(screen.queryByText("orider.app@gmail.com")).not.toBeInTheDocument();
+    await user.click(within(navigation).getByRole("button", { name: "협력 문의" }));
+    const partnership = screen.getByRole("region", { name: "협력 문의" });
+    expect(partnership).toHaveTextContent("이메일 : orider.app@gmail.com");
+    const email = within(partnership).getByRole("link", { name: "orider.app@gmail.com" });
+    expect(email).toHaveAttribute("href", "mailto:orider.app@gmail.com");
+    expect(email).toHaveAttribute("draggable", "false");
+    expect(email).toHaveStyle({ userSelect: "text" });
+    expect(email).toHaveFocus();
+    await user.click(within(navigation).getByRole("button", { name: "도움말" }));
+    expect(screen.queryByRole("region", { name: "협력 문의" })).not.toBeInTheDocument();
+    const help = screen.getByRole("region", { name: "도움말" });
+    expect(within(help).getByRole("link", { name: "앱 설명서" })).toHaveAttribute("href", "/ko/manual");
+    expect(within(help).getByRole("link", { name: "웹 설명서" })).toHaveAttribute("href", "/ko/web-manual");
+    expect(within(help).getByRole("link", { name: "공개 계산기" })).toHaveAttribute("href", "/ko/tools/virtual-power");
+    await user.click(within(navigation).getByRole("button", { name: "앱 설치" }));
+    expect(screen.queryByRole("region", { name: "도움말" })).not.toBeInTheDocument();
+    const install = screen.getByRole("region", { name: "앱 설치" });
+    expect(within(install).getByRole("link", { name: "App Store" })).toHaveAttribute("target", "_blank");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("region", { name: "앱 설치" })).not.toBeInTheDocument();
+    expect(within(navigation).getByRole("button", { name: "앱 설치" })).toHaveFocus();
+    await user.click(within(navigation).getByRole("button", { name: "도움말" }));
+    await user.pointer({ target: document.body, keys: "[MouseLeft]" });
+    expect(screen.queryByRole("region", { name: "도움말" })).not.toBeInTheDocument();
+    await user.click(within(navigation).getByRole("button", { name: "도움말" }));
+    const reopenedHelp = screen.getByRole("region", { name: "도움말" });
+    expect(within(reopenedHelp).getByRole("link", { name: "앱 설명서" })).toHaveFocus();
+    await user.tab();
+    expect(within(reopenedHelp).getByRole("link", { name: "웹 설명서" })).toHaveFocus();
+    await user.click(within(reopenedHelp).getByRole("link", { name: "웹 설명서" }));
+    expect(screen.queryByRole("region", { name: "도움말" })).not.toBeInTheDocument();
+    const helpTrigger = within(navigation).getByRole("button", { name: "도움말" });
+    const bounds = vi.spyOn(helpTrigger, "getBoundingClientRect").mockReturnValue(new DOMRect(0, -10, 80, 44));
+    await user.click(helpTrigger);
+    expect(screen.queryByRole("region", { name: "도움말" })).not.toBeInTheDocument();
+    bounds.mockRestore();
   });
 
   it("allows Strava connection routes before onboarding is done", () => {
@@ -278,8 +313,10 @@ describe("Layout", () => {
     const footer = screen.getByRole("contentinfo");
     expect(footer.className).toContain("md:block");
     expect(footer.className).not.toContain("lg:hidden");
-    expect(footer).toHaveTextContent("이용약관");
-    expect(footer).toHaveTextContent("개인정보처리방침");
+    await userEvent.setup().click(within(footer).getByRole("button", { name: "약관·정책" }));
+    const policies = screen.getByRole("region", { name: "약관·정책" });
+    expect(policies).toHaveTextContent("이용약관");
+    expect(policies).toHaveTextContent("개인정보처리방침");
   });
 
   it("reserves bottom tab space through tablet widths", async () => {

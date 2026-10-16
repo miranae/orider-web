@@ -1,3 +1,4 @@
+import GlossaryText from "../common/GlossaryText";
 import React from "react";
 
 interface SectionHeaderProps {
@@ -26,10 +27,10 @@ export default function SectionHeader({ title, sub, right }: SectionHeaderProps)
             color: 'var(--ink-0)',
           }}
         >
-          {title}
+          <GlossaryText>{title}</GlossaryText>
         </h3>
         {sub && (
-          <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--ink-3)' }}>{sub}</span>
+          <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--ink-3)' }}><GlossaryText>{sub}</GlossaryText></span>
         )}
       </div>
 

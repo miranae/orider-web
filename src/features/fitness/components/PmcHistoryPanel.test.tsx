@@ -12,6 +12,17 @@ const points = [point("2023-09-06"), point("2025-09-06", 30), point("2026-09-05"
 const renderPanel = (data = points) => renderWithProviders(<PmcHistoryPanel points={data} today="2026-09-06" canonical />);
 
 describe("PmcHistoryPanel", () => {
+  it("keeps a pending latest day unknown rather than copying an earlier confirmed snapshot", () => {
+    const { container } = renderPanel([
+      { ...point("2026-09-05", 49.4), calculationStatus: "server" },
+      { ...point("2026-09-06"), ctl: null, atl: null, tsb: null, calculationStatus: "pending", loadStatus: "unconfirmed" },
+    ]);
+    const selectedValues = container.querySelector(".pmc-history__value-strip")!;
+    expect(selectedValues).toHaveTextContent("2026-09-06");
+    expect(selectedValues).not.toHaveTextContent("49.4");
+    expect(within(selectedValues as HTMLElement).getAllByText("—")).toHaveLength(3);
+    expect(screen.getByTestId("K1-2-8")).toHaveTextContent("PMC 반영 대기");
+  });
   it("shows load snapshot coverage separately from estimated PMC and updates same-day totals", () => {
     const morning: PmcHistoryPoint = { ...point("2026-09-06", 40, 40), loadStatus: "snapshot", calculationStatus: "estimated" };
     const view = renderPanel([morning]);
@@ -29,12 +40,12 @@ describe("PmcHistoryPanel", () => {
 
   it("changes day/week/month granularity and keeps navigation synchronized with the value strip", () => {
     const { container } = renderPanel();
-    expect(screen.getByText("체력·피로 이력")).toBeInTheDocument();
+    expect(screen.getByText("컨디션 변화")).toBeInTheDocument();
     expect(screen.queryByText(/실적 \+ 예측/)).not.toBeInTheDocument();
     expect(container.querySelector('[data-pmc-today-marker="true"]')).toBeInTheDocument();
-    expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("체력 (CTL)");
-    expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("피로도 (ATL)");
-    expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("상태 (TSB)");
+    expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("장기체력 CTL");
+    expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("단기피로 ATL");
+    expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("회복상태 TSB");
     const trendChart = screen.getByRole("img");
     const trendPoint = { x: 0, y: 0, matrixTransform: () => ({ x: trendPoint.x, y: trendPoint.y }) };
     Object.defineProperty(trendChart, "createSVGPoint", { value: () => trendPoint });
@@ -58,7 +69,7 @@ describe("PmcHistoryPanel", () => {
     const chart = screen.getByRole("img");
     expect(chart).toHaveAccessibleName(/주평균/);
     fireEvent.pointerMove(chart, { clientX: 400, clientY: 10 });
-    expect(screen.getByText("CTL · 주평균")).toBeInTheDocument();
+    expect(screen.getByText("장기체력 CTL · 주평균")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "3년" }));
     expect(screen.getByText("월평균")).toBeInTheDocument();
     expect(container.querySelector(".pmc-history__value-strip strong")).toHaveTextContent("월평균");
@@ -99,8 +110,8 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getByRole("button", { name: "2026" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "2025" })).toHaveAttribute("aria-pressed", "true");
     expect(container.querySelector('[data-series="2025-ctl"] path')).toHaveAttribute("stroke-dasharray", "8 4");
-    expect(screen.getByText((_, element) => element?.tagName === "SPAN" && element.textContent === "2026 · 체력 (CTL) 45.0")).toBeInTheDocument();
-    expect(screen.getByText((_, element) => element?.tagName === "SPAN" && element.textContent === "2025 · 체력 (CTL) 30.0")).toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.tagName === "SPAN" && element.textContent === "2026 · 장기체력 CTL 45.0")).toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.tagName === "SPAN" && element.textContent === "2025 · 장기체력 CTL 30.0")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "9" } });
     expect(screen.getAllByText("기록 없음")).toHaveLength(2);
     expect(screen.getAllByRole("cell").filter((cell) => cell.textContent === "—")).toHaveLength(8);
@@ -133,33 +144,30 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getByText("직접 지정")).toHaveAttribute("data-source-state", "failed");
   });
 
-  it("keeps the six period controls in one touch-sized mobile row", () => {
+  it("keeps the six period controls touch-sized and able to wrap on narrow screens", () => {
     const css = readFileSync(join(process.cwd(), "src/features/fitness/components/PmcHistoryPanel.css"), "utf8");
-    expect(css).toContain(".pmc-history__ranges { flex-wrap: nowrap; gap: var(--space-1); overflow-x: auto;");
+    expect(css).toContain(".pmc-history__ranges { flex-wrap: wrap; overflow: visible; }");
+    expect(css).toContain(".pmc-history__ranges .ds-btn { flex: 1 0 calc(33.333% - var(--space-1)); }");
     expect(css).toContain(".pmc-history__ranges .ds-btn { flex: 1 0 2.75rem; height: 44px; min-height: 44px;");
     expect(css).toContain(".pmc-history__ranges .ds-btn::after { display: none; }");
     expect(css).toContain(".pmc-history__navigation label { grid-column: 1 / -1; }");
     expect(css).toContain(".pmc-history__tsb-chart { display: block; width: 100%; height: auto;");
   });
 
-  it("puts period controls and latest CTL/ATL before the long trend plot", () => {
+  it("puts period controls before the plot without repeating the current-state summary", () => {
     const { container } = renderPanel();
     const range = screen.getByRole("group", { name: "표시 기간" });
     const chart = container.querySelector(".pmc-history__trend-stack");
-    const latest = container.querySelector(".pmc-history__latest");
     expect(range.compareDocumentPosition(chart!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(latest).toHaveTextContent("최신 구간");
-    expect(latest).toHaveTextContent("체력 (CTL) 50.0");
-    expect(latest).toHaveTextContent("피로도 (ATL) 55.0");
-    expect(latest?.compareDocumentPosition(chart!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(container.querySelector(".pmc-history__latest")).toBeNull();
+    expect(screen.getAllByRole("heading", { name: "컨디션 변화" })).toHaveLength(1);
     expect(container.querySelector(".pmc-history__navigation label")?.compareDocumentPosition(screen.getByRole("button", { name: "오늘" }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("keeps selected values keyed to the plotted series and emphasizes the independent zero baseline", () => {
     const { container } = renderWithProviders(<PmcHistoryPanel points={points} today="2026-09-06" canonical ctlColor="var(--color-brand-bike)" />);
-    const chartHeading = container.querySelector(".pmc-history__chart-heading");
-    expect(chartHeading).toHaveTextContent("체력·피로 이력");
-    expect(chartHeading).toHaveTextContent("일별");
+    expect(screen.getByRole("heading", { name: "컨디션 변화" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "표시 기간" })).toHaveTextContent("일별");
     expect(container.querySelector(".pmc-history__values [data-pmc-metric='ctl']")).toHaveStyle({ borderInlineStartColor: "var(--color-brand-bike)" });
     expect(container.querySelector(".pmc-history__values [data-pmc-metric='atl']")).toHaveStyle({ borderInlineStartColor: "var(--rose)" });
     expect(container.querySelector(".pmc-history__values [data-pmc-metric='tsb']")).toHaveStyle({ borderInlineStartColor: "var(--amber)" });
@@ -183,7 +191,7 @@ describe("PmcHistoryPanel", () => {
 
   it("reuses the canonical PMC renderer for the combined trend and keeps year comparison specialized", () => {
     const { container } = renderPanel();
-    expect(screen.getByRole("region", { name: "훈련 이력 지도" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "컨디션 변화" })).toBeInTheDocument();
     expect(screen.getByRole("img")).toBeInTheDocument();
     expect(container.querySelectorAll("[data-pmc-series]")).toHaveLength(3);
     expect(container.querySelector('svg[role="img"] [data-pmc-series="tsb"]')).not.toBeInTheDocument();
@@ -212,13 +220,13 @@ describe("PmcHistoryPanel", () => {
     }
     fireEvent.pointerMove(main, { clientX: 48, clientY: 20 });
     expect(container.querySelector('[data-pmc-hover="true"] line')).toHaveAttribute("x1", container.querySelector('[data-tsb-cursor="true"]')?.getAttribute("x1"));
-    expect(container.querySelectorAll('[data-pmc-tooltip="true"]')).toHaveLength(1);
-    expect(container.querySelectorAll("[data-pmc-tooltip-metric]")).toHaveLength(3);
+    expect(document.querySelectorAll('[data-pmc-tooltip="true"]')).toHaveLength(1);
+    expect(document.querySelectorAll("[data-pmc-tooltip-metric]")).toHaveLength(3);
     fireEvent.pointerDown(tsb, { clientX: 48, clientY: 20 });
     fireEvent.pointerUp(tsb, { clientX: 48, clientY: 20 });
     expect(screen.getByRole("combobox")).toHaveValue("0");
     expect(tsb).toHaveFocus();
-    expect(tsb.getAttribute("aria-valuetext")).toMatch(/체력 \(CTL\).*피로도 \(ATL\).*상태 \(TSB\)/);
+    expect(tsb.getAttribute("aria-valuetext")).toMatch(/장기체력 CTL.*단기피로 ATL.*회복상태 TSB/);
     fireEvent.pointerLeave(main);
     for (const index of [0, 44, 89]) {
       fireEvent.change(screen.getByRole("combobox"), { target: { value: String(index) } });
@@ -229,7 +237,7 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getByRole("combobox")).toHaveValue("89");
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "0" } });
     fireEvent.pointerMove(tsb, { clientX: 400, clientY: 20, pointerType: "touch" });
-    expect(container.querySelector('[data-pmc-tooltip="true"]')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-pmc-tooltip="true"]')).not.toBeInTheDocument();
     fireEvent.pointerDown(tsb, { clientX: 48, clientY: 20, pointerType: "touch" });
     fireEvent.pointerCancel(tsb, { clientX: 70, clientY: 42, pointerType: "touch" });
     fireEvent.pointerUp(tsb, { clientX: 70, clientY: 42, pointerType: "touch" });
