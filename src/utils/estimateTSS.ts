@@ -1,5 +1,6 @@
 import type { Activity } from "@shared/types";
 import { physicalRideLoadEvidence, physicalRideMovingSeconds } from "@shared/training/physicalRideEvidence";
+import { isStatsCountable } from "@shared/training/activityStatsEligibility";
 import { TIME_FACTORS } from "@shared/training/activityLoad";
 import { acceptedActivityLoad } from "@shared/training/acceptedActivityLoad";
 import { dedupeSamePhysicalRides, type PhysicalRideActivity } from "./samePhysicalRide";
@@ -113,6 +114,13 @@ export function acceptedPhysicalActivities(activities: readonly Activity[], _ftp
   }
   const representatives = new Set([...byOwner.values()].flatMap((owned) => dedupeSamePhysicalRides(owned).map((row) => row.activity)));
   return activities.filter((activity) => representatives.has(activity));
+}
+
+/** 거리·시간·횟수 통계는 서버 누적 통계와 같은 인입 정책을 먼저 적용한다.
+ * rollup flag만으로 제외하지 않고 현재 후보의 실제 대표를 검증한다.
+ */
+export function acceptedStatsActivities(activities: readonly Activity[]): Activity[] {
+  return acceptedPhysicalActivities(activities.filter(activity => isStatsCountable(activity as Activity & { statsCountable?: unknown })));
 }
 
 /** 값만 필요한 호출자용. 모르면 null — 0 으로 메우지 않는다. */

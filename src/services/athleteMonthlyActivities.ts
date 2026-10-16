@@ -3,7 +3,7 @@ import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
 import { firestore } from "./firebase";
 import { resolveDuration } from "../utils/activityTime";
-import { acceptedPhysicalActivities, sumAcceptedActivityTss } from "../utils/estimateTSS";
+import { acceptedTrainingActivities, acceptedStatsActivities, sumAcceptedActivityTss } from "../utils/estimateTSS";
 
 const PAGE_SIZE = 200;
 
@@ -37,8 +37,15 @@ export async function loadAthleteChartActivities(
 export function aggregateMonthlyActivities(activities: Activity[], now = new Date(), alreadyAccepted = false): WeeklyStat[] {
   const months = new Map<number, WeeklyStat>();
   const membersByMonth = new Map<number, Activity[]>();
+  for (const activity of alreadyAccepted ? activities : acceptedTrainingActivities(activities)) {
+    const date = new Date(activity.startTime);
+    const month = date.getFullYear() * 12 + date.getMonth();
+    const members = membersByMonth.get(month) ?? [];
+    members.push(activity); membersByMonth.set(month, members);
+    if (!months.has(month)) months.set(month, emptyMonth(month));
+  }
   // 조회된 동일 입력셋에서 먼저 대표를 고른다. 기간 경계의 쌍둥이를 두 달에 세지 않는다.
-  for (const activity of alreadyAccepted ? activities : acceptedPhysicalActivities(activities)) {
+  for (const activity of alreadyAccepted ? activities : acceptedStatsActivities(activities)) {
     const timestamp = Number.isFinite(activity.startTime) && activity.startTime > 0
       ? activity.startTime : activity.createdAt;
     const date = new Date(timestamp);
@@ -52,11 +59,7 @@ export function aggregateMonthlyActivities(activities: Activity[], now = new Dat
     row.elevation += Number.isFinite(summary.elevationGain) ? summary.elevationGain : 0;
     row.rides += 1;
     months.set(month, row);
-    {
-      const members = membersByMonth.get(month) ?? [];
-      members.push(activity);
-      membersByMonth.set(month, members);
-    }
+
   }
   for (const [month, row] of months) {
     const members = membersByMonth.get(month) ?? [];

@@ -1,4 +1,4 @@
-import { acceptedPhysicalActivities } from "./estimateTSS";
+import { acceptedStatsActivities } from "./estimateTSS";
 /**
  * 주간 러닝 리캡 (설계 문서 §3.4c).
  *
@@ -64,7 +64,7 @@ export function computeRunWeeklyRecap(runs: Activity[], nowMs: number): RunWeekl
   const lastRange = seoulWeekRange(nowMs, 1);
   const prevRange = seoulWeekRange(nowMs, 2);
 
-  const representatives = acceptedPhysicalActivities(runs);
+  const representatives = acceptedStatsActivities(runs);
   const lastWeek = aggregate(representatives.filter((a) => isWithin(a.startTime, lastRange)));
   const prevWeek = aggregate(representatives.filter((a) => isWithin(a.startTime, prevRange)));
 

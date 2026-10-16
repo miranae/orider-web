@@ -1,6 +1,6 @@
 import SportIcon from "../common/SportIcon";
 import GlossaryText from "../common/GlossaryText";
-import { acceptedPhysicalActivities } from "../../utils/estimateTSS";
+import { acceptedStatsActivities } from "../../utils/estimateTSS";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/appStoreLinks";
 import { Fragment, useState, useMemo, type ReactNode } from "react";
 import { SlidersHorizontal } from "lucide-react";
@@ -344,7 +344,7 @@ export default function MobileFeedPage({
 
   // 비로그인 필터 행은 현재 공개 피드 요약을 유지한다. 로그인 주간 요약에는 사용하지 않는다.
   const feedSportBreakdown = useMemo<SportBreakdownItem[]>(() => {
-    const representatives = acceptedPhysicalActivities(activities);
+    const representatives = acceptedStatsActivities(activities);
     const bike = representatives.filter(a => getDiscipline(a.type) === "bike");
     const run = representatives.filter(a => getDiscipline(a.type) === "run");
     const swim = representatives.filter(a => getDiscipline(a.type) === "swim");
