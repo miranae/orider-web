@@ -168,7 +168,8 @@ describe("owner running dashboard journey parity", () => {
     expect(within(chart).getAllByTestId("weekly-distance-bar")).toHaveLength(3);
     expect(within(chart).getByTestId("weekly-zero-marker")).toHaveAttribute("data-current-week", "true");
     expect(within(chart).getByText("20.0km")).toBeInTheDocument();
-    expect(within(chart).getByText("40.0km")).toBeInTheDocument();
+    const peakWeekSummary = within(chart).getByText("최고주", { selector: "dt" }).parentElement!;
+    expect(within(peakWeekSummary).getByRole("definition")).toHaveTextContent("40.0km");
     expect(within(chart).getByText("0m")).toBeInTheDocument();
     expect(chart).not.toHaveTextContent("TSS");
     expect(within(chart).queryByRole("button", { name: /활동별 TSS/ })).not.toBeInTheDocument();
