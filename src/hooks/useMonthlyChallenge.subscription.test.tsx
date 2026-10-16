@@ -38,3 +38,30 @@ it("월 경계 후보와 지연 업로드를 운동 시각으로 한 번만 구�
   unmount();
   expect(stop).toHaveBeenCalledTimes(2);
 });
+
+it("월 범위 밖 30시간 대표는 ID 하나만 구독하고 대표 정정·삭제를 즉시 반영한다", async () => {
+  const now = Date.parse("2026-10-15T00:00:00Z");
+  const window = kstMonthWindow(now);
+  const part = {userId: "rider", source: "orider", type: "Ride", rollupSupersededBy: "long-full",
+    startTime: window.startMs, endTime: window.startMs + 3600000, summary: {distance: 3000, ridingTimeMillis: 3600000}};
+  let representativeCallback: ((snapshot: never) => void) | undefined;
+  vi.mocked(onSnapshot).mockClear().mockImplementation((ref, next) => {
+    if (typeof next !== "function") throw new Error("expected snapshot callback");
+    const path = (ref as unknown as {path?: string}).path;
+    if (path === "activities/long-full") representativeCallback = next as typeof representativeCallback;
+    else if (path?.includes("participation")) next({data: () => ({tierKm: 300, joinedAt: now})} as never);
+    else next({docs: [{id: "fragment", data: () => part}]} as never);
+    return vi.fn();
+  });
+  const {result, rerender} = renderHook(({time}) => useMonthlyChallenge("rider", time), {initialProps: {time: now}});
+  await waitFor(() => expect(representativeCallback).toBeDefined());
+  expect(result.current.progress).toBeNull();
+  const {act} = await import("@testing-library/react");
+  act(() => representativeCallback!({exists: () => true, data: () => ({...part, rollupSupersededBy: null, source: "strava",
+    startTime: window.startMs - 30 * 3600000, summary: {distance: 100000, ridingTimeMillis: 31 * 3600000}})} as never));
+  expect(result.current.progress?.distanceKm).toBe(0);
+  rerender({time: now + 60000});
+  expect(onSnapshot).toHaveBeenCalledTimes(3); // 기존 두 구독 + ID 직접 조회 하나
+  act(() => representativeCallback!({exists: () => false} as never));
+  expect(result.current.progress?.distanceKm).toBe(3);
+});

@@ -1,3 +1,4 @@
+import { useActivityRepresentatives, withActivityRepresentatives } from "../hooks/useActivityRepresentatives";
 import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -12,7 +13,7 @@ import type { PlanDay, PlanWeek } from "@shared/types/goal";
 import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
-import { acceptedPhysicalActivities, estimateActivityTss, sumActivityTss } from "../utils/estimateTSS";
+import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../utils/estimateTSS";
 import { planDayKey, planCalendarDate, planMonthBounds } from "@shared/training/planDate";
 import { Button, Card, Text } from "../theme/components";
 import { ErrorState } from "../components/redesign";
@@ -139,7 +140,7 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
   const single = activities.length === 1;
   const plannedTSS = plans.reduce((sum, plan) => sum + plan.plannedTSS, 0);
   // 계획 대비 달성 비교용 내부 수치 — 아는 값만 더한다(모르는 활동은 0 으로 세지 않는다).
-  const actualLoad = sumActivityTss(loadActivities, ftp);
+  const actualLoad = sumAcceptedActivityTss(loadActivities, ftp);
   const actualTSS = actualLoad.value;
   const adherence =
     !hasPlan ? null :
@@ -517,9 +518,15 @@ export default function TrainingLogPage() {
 
   // 선택 월이 아직 안 들어왔으면 로딩 표시 — 캐시된 월 재방문은 즉시 (스피너 없음)
   const selectedMonthKey = monthKey(selectedMonth.year, selectedMonth.month);
-  const loading = user ? !loadedMonths.has(selectedMonthKey) : false;
-  const loadError = failedMonths.has(selectedMonthKey);
+  const selectedMonthCandidates = useMemo(() => activitiesByMonth.get(selectedMonthKey) ?? [], [activitiesByMonth, selectedMonthKey]);
+  const representativeState = useActivityRepresentatives(selectedMonthCandidates, user?.uid, activities);
+  const monthCandidates = useMemo(() => withActivityRepresentatives(
+    activitiesByMonth.get(selectedMonthKey) ?? [], representativeState.representatives, user?.uid ?? "",
+  ), [activitiesByMonth, selectedMonthKey, representativeState.representatives, user?.uid]);
+  const loading = user ? !loadedMonths.has(selectedMonthKey) || representativeState.loading : false;
+  const loadError = failedMonths.has(selectedMonthKey) || representativeState.error;
   const retryMonth = () => {
+    representativeState.retry();
     requestedMonths.current.delete(selectedMonthKey);
     setLoadedMonths((prev) => {
       const next = new Set(prev);
@@ -550,9 +557,9 @@ export default function TrainingLogPage() {
 
   // 선택 월의 고정 후보에서 대표를 골라 다른 월 방문으로 합계가 변하지 않게 한다.
   const monthLoadActivities = useMemo(() => acceptedPhysicalActivities(
-    (activitiesByMonth.get(selectedMonthKey) ?? []).filter((a) => !user || a.userId === user.uid), ftp,
+    monthCandidates.filter((a) => !user || a.userId === user.uid), ftp,
   ).filter((a) => a.startTime >= monthStart && a.startTime <= monthEnd),
-  [activitiesByMonth, selectedMonthKey, user, ftp, monthStart, monthEnd]);
+  [monthCandidates, user, ftp, monthStart, monthEnd]);
   const loadByDay = useMemo(() => {
     const map = new Map<string, Activity[]>();
     for (const activity of monthLoadActivities) {
@@ -585,7 +592,7 @@ export default function TrainingLogPage() {
     const totalDist = monthLoadActivities.reduce((s, a) => s + finiteMetric(a.summary.distance), 0);
     const totalTime = monthLoadActivities.reduce((s, a) => s + finiteMetric(a.summary.ridingTimeMillis), 0);
     const totalElev = monthLoadActivities.reduce((s, a) => s + finiteMetric(a.summary.elevationGain), 0);
-    const totalLoad = sumActivityTss(monthLoadActivities, ftp);
+    const totalLoad = sumAcceptedActivityTss(monthLoadActivities, ftp);
     return {
       dist: totalDist / 1000,
       time: totalTime,
@@ -595,7 +602,7 @@ export default function TrainingLogPage() {
       tssEstimated: totalLoad.estimated,
       tssUnknownCount: totalLoad.unknownCount,
     };
-  }, [monthActivities, monthLoadActivities, ftp]);
+  }, [monthLoadActivities, ftp]);
 
   // 월간 일별 바 차트 데이터 (1일~말일)
   const daysInMonth = new Date(Date.UTC(selectedMonth.year, selectedMonth.month + 1, 0)).getUTCDate();
@@ -655,7 +662,7 @@ export default function TrainingLogPage() {
   }
 
   if (isMobile || isNarrowLayout) {
-    if (loadError) {
+    if (failedMonths.has(selectedMonthKey)) {
       return (
         <div style={{ padding: "var(--space-4)" }}>
           <ErrorState title={tCommon("error.title")} onRetry={retryMonth} />
@@ -663,15 +670,18 @@ export default function TrainingLogPage() {
       );
     }
     return (
+      <>
+      {representativeState.error && <ErrorState title={tCommon("error.title")} onRetry={representativeState.retry} compact />}
       <MobileLogPage
         plannedDates={[...planByMonth.keys()]}
         plannedSports={Object.fromEntries([...planByMonth].map(([date, plans]) => [date, plans[0]?.discipline ?? "bike"]))}
         ftp={ftp}
         activities={activities}
-        representativeCandidates={activitiesByMonth.get(selectedMonthKey) ?? []}
+        representativeCandidates={monthCandidates}
         year={selectedMonth.year}
         month={selectedMonth.month}
-        loading={loading}
+        loading={!loadedMonths.has(selectedMonthKey)}
+        aggregateUnavailable={representativeState.loading || representativeState.error}
         onChangeMonth={(delta) => {
           setSelectedMonth((prev) => {
             let m = prev.month + delta;
@@ -682,6 +692,7 @@ export default function TrainingLogPage() {
           });
         }}
       />
+      </>
     );
   }
 
@@ -708,8 +719,8 @@ export default function TrainingLogPage() {
             <div key={label} style={{ padding: "14px 16px", borderRight: i < 4 ? "1px solid var(--line-soft)" : "none" }}>
               <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}>{label}</Text>
               <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)" }}>
-                <Text variant="dataLarge" style={{ color }}>{value}</Text>
-                {unit && <Text variant="unit">{unit}</Text>}
+                <Text variant="dataLarge" style={{ color }}>{loading || loadError ? "–" : value}</Text>
+                {!loading && !loadError && unit && <Text variant="unit">{unit}</Text>}
               </div>
             </div>
           ))}
@@ -831,7 +842,7 @@ export default function TrainingLogPage() {
                 ))
               : calendar.map((week) => {
                   // 주간 TSS 합계
-                  const weekLoad = sumActivityTss(
+                  const weekLoad = sumAcceptedActivityTss(
                     week.flatMap((cell) => loadByDay.get(dateToKey(cell.date)) ?? []), ftp,
                   );
                   return (
@@ -881,7 +892,7 @@ export default function TrainingLogPage() {
         </Card>
 
         {/* 월간 일별 거리 바 */}
-        <Card padding="none" style={{ marginTop: "var(--space-3)", padding: "14px 16px" }}>
+        {!loading && !loadError && <Card padding="none" style={{ marginTop: "var(--space-3)", padding: "14px 16px" }}>
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("page.monthlyBarTitle")}</Text>
           <MiniBarChart values={barValues} labels={barLabels} unit="km" />
           <div
@@ -900,7 +911,7 @@ export default function TrainingLogPage() {
               </div>
             ))}
           </div>
-        </Card>
+        </Card>}
 
       </div>
       <ImportActivityModal open={importOpen} onClose={closeImport} />

@@ -187,8 +187,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   // 월간 누적 로더(loadAthleteChartActivities)는 summary 가 없는 활동도 건수에 넣어 돌려주므로
   // 합계는 summary 가 있는 활동만 더한다. 본인 프로필(/athlete/me)에서 실제로 크래시가 났던 지점.
-  const aggregateActivityStats = (rawItems: Activity[]) => {
-    const items = acceptedPhysicalActivities(rawItems);
+  const aggregateActivityStats = (items: Activity[]) => {
     return {
       count: items.length,
       distance: items.reduce((sumDistance, a) => sumDistance + (Number.isFinite(a.summary?.distance) ? a.summary.distance : 0), 0),
@@ -556,9 +555,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   );
   const isMe = isOwnProfile;
 
-  const stats = aggregateActivityStats(chartActivities);
+  const acceptedChartActivities = useMemo(() => acceptedPhysicalActivities(chartActivities), [chartActivities]);
+  const stats = useMemo(() => aggregateActivityStats(acceptedChartActivities), [acceptedChartActivities]);
   const statsReady = !chartLoading && !chartError;
-  const monthlyStats = useMemo(() => aggregateMonthlyActivities(chartActivities), [chartActivities]);
+  const monthlyStats = useMemo(() => aggregateMonthlyActivities(acceptedChartActivities, undefined, true), [acceptedChartActivities]);
 
   // 검색 활성 시: 서버 검색 결과 사용
   // 비활성 시: 페이지네이션된 displayActivities 사용

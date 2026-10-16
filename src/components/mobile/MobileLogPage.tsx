@@ -9,7 +9,7 @@ import SportFilterTabs from "./SportFilterTabs";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineLabelKey } from "../../utils/disciplineFilter";
 import { isIndoorActivity } from "../../utils/indoorActivity";
 import { planDayKey, planCalendarDate } from "@shared/training/planDate";
-import { acceptedPhysicalActivities, estimateActivityTss, sumActivityTss } from "../../utils/estimateTSS";
+import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../../utils/estimateTSS";
 import "./MobileLogPage.css";
 
 // DAY_NAMES — i18n via t("mobileLog.dayNames")
@@ -32,6 +32,7 @@ interface MobileLogPageProps {
   month: number;
   onChangeMonth: (delta: number) => void;
   loading?: boolean;
+  aggregateUnavailable?: boolean;
 }
 
 function formatRecordedDuration(value: number): string {
@@ -59,7 +60,7 @@ function MobileLogSkeleton() {
   );
 }
 
-export default function MobileLogPage({ activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, ftp, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
+export default function MobileLogPage({ activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
   const { t, i18n } = useTranslation("activity");
   const DAY_NAMES = (t("mobileLog.dayNames", { returnObjects: true }) as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const [tab, setTab] = useState<"month" | "activity">("month");
@@ -112,8 +113,11 @@ export default function MobileLogPage({ activities, representativeCandidates = a
     return d.getUTCFullYear() === year && d.getUTCMonth() === month;
   });
 
-  const monthIds = new Set(monthActs.map((activity) => activity.id));
-  const monthRepresentatives = acceptedPhysicalActivities(representativeCandidates, ftp).filter((activity) => monthIds.has(activity.id));
+  const monthRepresentatives = useMemo(() => acceptedPhysicalActivities(representativeCandidates, ftp).filter((activity) => {
+    const date = planCalendarDate(activity.startTime);
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month
+      && (sportFilter === "all" || getDiscipline(activity.type) === sportFilter);
+  }), [representativeCandidates, ftp, year, month, sportFilter]);
   const activeDays = new Set(monthRepresentatives.map(a => planCalendarDate(a.startTime).getUTCDate())).size;
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const monthTotals = {
@@ -121,7 +125,7 @@ export default function MobileLogPage({ activities, representativeCandidates = a
     timeMs: monthRepresentatives.reduce((sum, a) => sum + (Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0), 0),
     elevationM: Math.round(monthRepresentatives.reduce((sum, a) => sum + (Number.isFinite(a.summary.elevationGain) ? a.summary.elevationGain : 0), 0)),
     // 아는 값만 더하고, 추정치가 섞이면 라벨로 밝힌다. 모르면 null — 0 을 쓰지 않는다 (#2237).
-    load: sumActivityTss(monthRepresentatives, ftp),
+    load: sumAcceptedActivityTss(monthRepresentatives, ftp),
   };
 
   const monthLabel = t("mobileLog.monthLabel", { year, month: month + 1 });
@@ -233,23 +237,23 @@ export default function MobileLogPage({ activities, representativeCandidates = a
         <div className="mobile-log__month-glance" aria-label={t("mobileLog.monthAtGlance")}>
           <div className="mobile-log__glance-metric">
             <span>{t("mobileLog.glanceDistance")}</span>
-            <strong>{new Intl.NumberFormat(i18n.language, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(monthTotals.distanceKm)}<small>km</small></strong>
+            <strong>{aggregateUnavailable ? "–" : new Intl.NumberFormat(i18n.language, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(monthTotals.distanceKm)}{!aggregateUnavailable && <small>km</small>}</strong>
           </div>
           <div className="mobile-log__glance-metric">
             <span>{t("mobileLog.glanceSessions")}</span>
-            <strong>{monthRepresentatives.length}</strong>
+            <strong>{aggregateUnavailable ? "–" : monthRepresentatives.length}</strong>
           </div>
           <div className="mobile-log__glance-metric">
             <span>{t("mobileLog.glanceTime")}</span>
-            <strong>{formatDuration(monthTotals.timeMs)}</strong>
+            <strong>{aggregateUnavailable ? "–" : formatDuration(monthTotals.timeMs)}</strong>
           </div>
           <div className="mobile-log__glance-metric">
             <span>{t("mobileLog.glanceTss")}{monthTotals.load.estimated && <sup aria-hidden="true">*</sup>}</span>
-            <strong>{monthTotals.load.value ?? "–"}</strong>
+            <strong>{aggregateUnavailable ? "–" : monthTotals.load.value ?? "–"}</strong>
           </div>
           <div className="mobile-log__glance-note">{t("mobileLog.recordBasis")}</div>
-          {monthTotals.load.unknownCount > 0 && <div className="mobile-log__glance-note">{t("mobileLog.loadPartial", { count: monthTotals.load.unknownCount })}</div>}
-          {monthTotals.load.estimated && <div className="mobile-log__glance-note">* {t("stat.tssEstimatedIncluded")} {t("mobileLog.estimateBasis")}</div>}
+          {!aggregateUnavailable && monthTotals.load.unknownCount > 0 && <div className="mobile-log__glance-note">{t("mobileLog.loadPartial", { count: monthTotals.load.unknownCount })}</div>}
+          {!aggregateUnavailable && monthTotals.load.estimated && <div className="mobile-log__glance-note">* {t("stat.tssEstimatedIncluded")} {t("mobileLog.estimateBasis")}</div>}
         </div>
       )}
 
@@ -353,13 +357,13 @@ export default function MobileLogPage({ activities, representativeCandidates = a
             ].map(([label, value]) => (
               <div key={String(label)} className="mobile-log__summary-item">
                 <div className="mobile-log__summary-label">{label}</div>
-                <div className="mobile-log__summary-value">{value}</div>
+                <div className="mobile-log__summary-value">{aggregateUnavailable ? "–" : value}</div>
               </div>
             ))}
           </div>
 
           {/* Sport breakdown rows */}
-          <div style={{ padding: "0 16px 12px" }}>
+          {!aggregateUnavailable && <div style={{ padding: "0 16px 12px" }}>
             {[
               { icon: "🚴", label: t("mobileLog.sportBike"), color: getDisciplineColor("bike"), filter: (a: Activity) => getDiscipline(a.type) === "bike", unit: "km", divisor: 1000 },
               { icon: "🏃", label: t("mobileLog.sportRun"), color: getDisciplineColor("run"), filter: (a: Activity) => getDiscipline(a.type) === "run", unit: "km", divisor: 1000 },
@@ -379,7 +383,7 @@ export default function MobileLogPage({ activities, representativeCandidates = a
                 </div>
               );
             })}
-          </div>
+          </div>}
         </>
       )}
 

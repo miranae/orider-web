@@ -23,7 +23,7 @@ import { getPublicUserProfiles } from "../services/publicProfiles";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
-import { acceptedPhysicalActivities, sumActivityTss } from "../utils/estimateTSS";
+import { acceptedPhysicalActivities, sumAcceptedActivityTss } from "../utils/estimateTSS";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { getDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { seoulWeekStartMs } from "../utils/seoulWeek";
@@ -767,6 +767,10 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   const emptyThisWeek = { rides: 0, distance: 0, time: 0, elevation: 0 };
   const emptyRecent7DayDistances = { bike: 0, run: 0, swim: 0 };
 
+  const allOwned = useMemo(() => acceptedPhysicalActivities(activities.filter(
+    (activity) => activity.userId === user?.uid,
+  )), [activities, user?.uid]);
+
   if (!user) {
     return {
       weeklyStats: emptyWeeks,
@@ -781,7 +785,6 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   }
 
   // 계정 전환 직후 이전 effect 결과가 잠깐 남아도 새 사용자의 통계로 노출하지 않는다.
-  const allOwned = acceptedPhysicalActivities(activities.filter((activity) => activity.userId === user.uid));
   const all = allOwned.filter((activity) => !discipline || discipline === "tri" || getDiscipline(activity.type) === discipline);
   const coverageStatus = coverage?.key === statsKey ? coverage.status : "loading";
   const recent7DayCoverage = coverage?.key === statsKey ? coverage.recent7DayStatus : "loading";
@@ -801,7 +804,6 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   };
   const activityElevation = (activity: Activity): number => summaryNumber(activity.summary?.elevationGain);
   const weeks: WeeklyStat[] = [];
-  const physicalLoadActivities = all;
   for (let w = 11; w >= 0; w--) {
     const weekStart = new Date(now);
     const daysSinceMonday = (weekStart.getDay() + 6) % 7;
@@ -821,9 +823,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
       elevation: Math.round(weekActivities.reduce((s, a) => s + activityElevation(a), 0)),
       rides: weekActivities.length,
       ...(() => {
-        const load = sumActivityTss(physicalLoadActivities.filter(
-          (activity) => activity.startTime >= weekStartMs && activity.startTime < weekEndMs,
-        ));
+        const load = sumAcceptedActivityTss(weekActivities);
         return { tss: load.value, tssEstimated: load.estimated, tssUnknownCount: load.unknownCount };
       })(),
     });

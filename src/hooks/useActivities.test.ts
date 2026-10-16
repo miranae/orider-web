@@ -1,3 +1,4 @@
+import * as activityAcceptance from "../utils/estimateTSS";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useActivities, useWeeklyStats, useActivitySearch } from "./useActivities";
 import { simulateLogin, simulateLogout, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
@@ -673,6 +674,24 @@ describe("useActivities", () => {
 });
 
 describe("useWeeklyStats", () => {
+  it("같은 원본의 재렌더링은 대표를 다시 고르지 않고 주별 부하는 재중복 판정하지 않는다", async () => {
+    const now = new Date(2026, 9, 6, 12);
+    simulateLogin({uid: "user-1"});
+    setCollectionDocs("activities", [{id: "memo-weekly", ...createMockActivity({id: "memo-weekly", userId: "user-1", startTime: now.getTime() - 3600000,
+      summary: createMockSummary({distance: 3000, tss: 70})})}]);
+    const representatives = vi.spyOn(activityAcceptance, "acceptedPhysicalActivities");
+    const regroupedTss = vi.spyOn(activityAcceptance, "sumActivityTss");
+    try {
+      const {result, rerender} = renderHook(() => useWeeklyStats(now), {wrapper});
+      await waitFor(() => expect(result.current.coverage).toBe("ready"));
+      expect(result.current.weeklyStats.reduce((sum, week) => sum + (week.tss ?? 0), 0)).toBe(70);
+      const calls = representatives.mock.calls.length;
+      rerender();
+      rerender();
+      expect(representatives.mock.calls.length).toBe(calls);
+      expect(regroupedTss).not.toHaveBeenCalled();
+    } finally { representatives.mockRestore(); regroupedTss.mockRestore(); }
+  });
   it.each(["bike", "swim"] as const)("filters %s 7-day totals without changing all-sport history and mobile breakdown", async (discipline) => {
     const now = new Date(2026, 9, 6, 12);
     simulateLogin({ uid: "user-1" });

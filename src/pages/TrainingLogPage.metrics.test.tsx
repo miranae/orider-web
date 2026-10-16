@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { getDocs, where } from "firebase/firestore";
+import { getDocs, onSnapshot, where } from "firebase/firestore";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TrainingLogPage from "./TrainingLogPage";
 import { planCalendarDate, planMonthBounds } from "@shared/training/planDate";
@@ -178,4 +178,34 @@ it.each([false, true])("월 경계 대표 후보를 첫 조회에 확보하고 �
   } else {
     expect(screen.getByRole("button", {name: /월말 원본/})).toBeInTheDocument();
   }
+});
+
+
+it.each([false, true])("30시간 전 대표가 직전월 preload에 있어도 현재월 조각을 다시 세지 않는다 mobile=%s", async mobile => {
+  state.mobile = mobile;
+  const start = planMonthBounds(now.getUTCFullYear(), now.getUTCMonth()).start;
+  const fragment = {userId: "rider", source: "orider", type: "Ride", rollupSupersededBy: "long-full", startTime: start, endTime: start + 3600000, description: "긴 주행 조각", summary: {distance: 3000, ridingTimeMillis: 3600000, tss: 30}};
+  const full = {...fragment, source: "strava", rollupSupersededBy: null, startTime: start - 30 * 3600000, summary: {distance: 100000, ridingTimeMillis: 31 * 3600000, tss: 100}};
+  vi.mocked(getDocs).mockReset().mockResolvedValue({docs: [], empty: true} as never)
+    .mockResolvedValueOnce({docs: [{id: "fragment", data: () => fragment}], empty: false} as never)
+    .mockResolvedValueOnce({docs: [{id: "long-full", data: () => full}], empty: false} as never);
+  render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
+  await waitFor(() => expectMetric(mobile ? "총 세션" : "활동 수", "0"));
+  expectMetric(mobile ? "거리" : "총 거리", mobile ? "0.0km" : "0.0");
+  expect(screen.getByRole("button", {name: /긴 주행 조각/})).toBeInTheDocument();
+});
+
+it("모바일 대표 조회 실패는 원본을 유지하고 합계만 미확인으로 남긴다", async () => {
+  state.mobile = true;
+  const fragment = {userId: "rider", source: "orider", type: "Ride", rollupSupersededBy: "missing-full", startTime, endTime: startTime + 3600000, description: "보존할 원본", summary: {distance: 3000, ridingTimeMillis: 3600000, tss: 30}};
+  vi.mocked(getDocs).mockReset().mockResolvedValue({docs: [], empty: true} as never)
+    .mockResolvedValueOnce({docs: [{id: "fragment", data: () => fragment}], empty: false} as never);
+  vi.mocked(onSnapshot).mockImplementationOnce((_ref, _next, reject) => {
+    (reject as (error: Error) => void)(new Error("permission-denied"));
+    return vi.fn();
+  });
+  render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
+  await waitFor(() => expect(screen.getByRole("button", {name: /보존할 원본/})).toBeInTheDocument());
+  expect(screen.getByLabelText("이번 달 운동 요약")).toHaveTextContent("–");
+  expect(screen.getByLabelText("이번 달 운동 요약")).not.toHaveTextContent("3.0km");
 });

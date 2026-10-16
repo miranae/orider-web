@@ -1,4 +1,5 @@
-import { screen, waitFor } from "@testing-library/react";
+import * as activityAcceptance from "../utils/estimateTSS";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import AthletePage from "./AthletePage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { orderBy } from "firebase/firestore";
@@ -24,6 +25,18 @@ vi.mock("react-router-dom", async (importOriginal) => {
 });
 
 describe("AthletePage", () => {
+  it("검색 입력만 바뀌면 전체 이력 대표를 다시 계산하지 않는다", async () => {
+    const acceptance = vi.spyOn(activityAcceptance, "acceptedPhysicalActivities");
+    setCollectionDocs("activities", [{id: "memo-ride", ...createMockActivity({id: "memo-ride", userId: "athlete-1"})}]);
+    renderWithProviders(<AthletePage />);
+    const input = await screen.findByPlaceholderText("활동 검색... (Enter)");
+    await waitFor(() => expect(screen.getByText("한강 라이더")).toBeInTheDocument());
+    const count = acceptance.mock.calls.length;
+    fireEvent.change(input, {target: {value: "a"}});
+    fireEvent.change(input, {target: {value: "ab"}});
+    expect(acceptance.mock.calls.length).toBe(count);
+    acceptance.mockRestore();
+  });
   beforeEach(() => {
     const profile = createMockProfile({ nickname: "한강 라이더" });
     setDocData("users/athlete-1", { ...profile });
