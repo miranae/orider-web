@@ -11,8 +11,8 @@ vi.mock("../hooks/useCreatorRecipeEmail", async (importOriginal) => ({
   ...await importOriginal<typeof import("../hooks/useCreatorRecipeEmail")>(),
   useCreatorRecipeEmail: () => ({ emailQuota: null, emailSendingId: null, emailSentItemIds: new Set(), emailFailedItemIds: new Set(), handleEmailRecipe: vi.fn(), markEmailFailed: vi.fn(), markEmailSent: vi.fn(), quotaNow: 0 }),
 }));
-const state = vi.hoisted(() => ({ tss: null as number | null, estimated: false, unknown: 1, weeks: null as WeeklyStat[] | null }));
-vi.mock("../hooks/useActivities", () => ({ useWeeklyStats: () => ({ weeklyStats: state.weeks ?? [
+const state = vi.hoisted(() => ({ tss: null as number | null, estimated: false, unknown: 1, weeks: null as WeeklyStat[] | null, empty: false }));
+vi.mock("../hooks/useActivities", () => ({ useWeeklyStats: () => ({ weeklyStats: state.empty ? [] : state.weeks ?? [
   { week: "W", distance: 12, time: 1.5, rides: 2, elevation: 50,
     tss: state.tss, tssEstimated: state.estimated, tssUnknownCount: state.unknown },
 ] }) }));
@@ -72,7 +72,7 @@ it("keeps full setup and copyable prompts available behind disclosures", () => {
 });
 
 
-afterEach(() => { state.weeks = null; void i18n.changeLanguage("ko"); });
+afterEach(() => { state.weeks = null; state.empty = false; void i18n.changeLanguage("ko"); });
 it.each(["ko", "en"])("keeps all six distance bars, three complete mobile dates and explicit TSS component units in %s", async (language) => {
   state.weeks = ["8/31", "9/7", "9/14", "9/21", "9/28", "10/5"].map(week => ({
     week, distance: 188, time: 7.1, rides: 3, elevation: 2140, tss: 561, tssEstimated: false, tssUnknownCount: 0,
@@ -92,4 +92,14 @@ it.each(["ko", "en"])("keeps all six distance bars, three complete mobile dates 
   expect(body?.textContent?.split("\n")).toEqual(language === "ko" ? [
     "이동거리 188.0 km", "활동시간 7.1 h", "TSS 561점", "파워 기반 TSS 347점", "산출 기준 미상 TSS 214점",
   ] : ["Distance 188.0 km", "Activity time 7.1 h", "TSS 561 pts", "Power-based TSS 347 pts", "Unknown-basis TSS 214 pts"]);
+});
+
+it("shows an honest empty state for a signed-in rider without synthetic chart totals", async () => {
+  state.empty = true;
+  const { container } = renderWithProviders(<Routes><Route path="/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/creator/share" });
+  await screen.findByText("아직 차트로 표시할 활동이 없습니다.");
+  expect(container.textContent).not.toContain("데모 데이터");
+  expect(screen.getByRole("button", { name: "차트 카드 복사" })).toBeDisabled();
+  expect(screen.queryByTestId("creator-distance-bar")).not.toBeInTheDocument();
+  state.empty = false;
 });

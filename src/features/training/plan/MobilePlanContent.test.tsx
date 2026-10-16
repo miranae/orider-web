@@ -192,7 +192,7 @@ it("uses canonical KST dates for weekdays while preserving the stored edit index
   const edit = vi.fn();
   const friday = { ...workout, date: Date.parse('2026-10-16T00:00:00+09:00'), dayOfWeek: 0 as const };
   const saturday = { ...friday, date: friday.date + 86400000, workout: 'rest' as const };
-  renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [friday, saturday] }} weekLabel="W1" onEditWorkout={edit} />);
+  renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [friday, saturday] }} weekLabel="W1" selectedDate="2026-10-16" onEditWorkout={edit} />);
   const pastDays = screen.queryByRole("button", { name: /지난 \d+일 보기/ });
   if (pastDays) fireEvent.click(pastDays);
   const action = screen.getByRole('button', { name: /^금 16 / });
