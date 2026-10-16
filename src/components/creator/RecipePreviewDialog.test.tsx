@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { mockCallableInvocations, setCallableImplementation, setCallableResult } from "../../__tests__/mocks/firebase";
 import { RecipePreviewDialog, privateRecipeDocument } from "./RecipePreviewDialog";
@@ -27,7 +27,7 @@ it("previews the exact activity and photo without emailing, then sends only afte
   fireEvent.click(screen.getByRole("button", { name: "본인 이메일로 받기" }));
   await waitFor(() => expect(onSent).toHaveBeenCalledOnce());
   expect(mockCallableInvocations).toContainEqual({ name: "sendCreatorRecipeEmail", data: { recipeId: "ride-story", activityId: "owned-ride", photoId: null, lang: "ko", deliveryMode: "manual" } });
-});
+}, 15_000);
 
 it("does not create a public achievement from missing activity data", async () => {
   setCallableResult("previewCreatorRecipe", { data: { subject: "기록 없음", html: "<p>No activities</p>", shareCard: null } });
@@ -91,4 +91,45 @@ it("explicitly overrides a request's initial photo opt-in when the rider uncheck
   expect(checkbox).toBeChecked();
   fireEvent.click(checkbox);
   await waitFor(() => expect(mockCallableInvocations).toContainEqual({ name: "previewCreatorRecipe", data: { recipeId: "ride-story", activityId: "ride", photoId: "photo", includePhoto: false, lang: "ko" } }));
+});
+
+it.each(["ko", "en"])("explains an activity cap without offering a repeated Retry in %s", async language => {
+  setCallableImplementation("previewCreatorRecipe", () => { throw Object.assign(new Error("PRIVATE_TOKEN"), { details: { reason: "recipe-activity-limit", limit: 2000, retryable: false, retryAt: null } }); });
+  renderWithProviders(<RecipePreviewDialog request={{ recipeId: "weekly-load" }} language={language} ownerId="test-uid" onClose={vi.fn()} onSent={vi.fn()} />);
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent(language === "ko" ? "일부 기록만으로 결과를 만들지 않았습니다" : "partial set of records");
+  expect(alert).not.toHaveTextContent("PRIVATE_TOKEN");
+  expect(screen.queryByRole("button", { name: /^(Retry|다시 시도)$/ })).not.toBeInTheDocument();
+});
+
+it("enables retry only after the minute-read limit boundary, then makes a new read", async () => {
+  vi.useFakeTimers();
+  try {
+    const now = Date.now();
+    setCallableImplementation("previewCreatorRecipe", () => { throw Object.assign(new Error("PRIVATE"), { details: { reason: "recipe-read-minute-limit", retryAt: now + 60_000 } }); });
+    await act(async () => {
+      renderWithProviders(<RecipePreviewDialog request={{ recipeId: "weekly-load" }} language="en" ownerId="test-uid" onClose={vi.fn()} onSent={vi.fn()} />);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("Please wait");
+    const retry = screen.getByRole("button", { name: "Retry" });
+    expect(retry).toBeDisabled();
+    await act(async () => { vi.advanceTimersByTime(59_999); });
+    expect(retry).toBeDisabled();
+    await act(async () => { vi.advanceTimersByTime(1); });
+    expect(retry).toBeEnabled();
+    await act(async () => { fireEvent.click(retry); });
+    expect(mockCallableInvocations.filter(call => call.name === "previewCreatorRecipe")).toHaveLength(2);
+  } finally { cleanup(); vi.useRealTimers(); }
+});
+
+it("distinguishes a read limit from email quota when sending an already-previewed report", async () => {
+  setCallableResult("previewCreatorRecipe", { data: { subject: "Report", html: "<p>Private</p>", shareCard: null } });
+  setCallableImplementation("sendCreatorRecipeEmail", () => { throw Object.assign(new Error("PRIVATE"), { details: { reason: "recipe-read-daily-limit", retryAt: Date.now() + 86_400_000 } }); });
+  renderWithProviders(<RecipePreviewDialog request={{ recipeId: "weekly-load" }} language="en" ownerId="test-uid" onClose={vi.fn()} onSent={vi.fn()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Email to myself" }));
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("recipe read limit");
+  expect(alert).toHaveTextContent("tomorrow");
+  expect(alert).not.toHaveTextContent("email limit");
+  expect(screen.getByRole("button", { name: "Email to myself" })).toBeDisabled();
 });

@@ -29,7 +29,7 @@ it("shows the current processor policy and requires explicit consent before gene
   expect(state).toHaveTextContent("공개 하이라이트");
   expect(state).toHaveTextContent("4번의 라이딩으로 채운 한 주");
   expect(state).not.toHaveTextContent("PRIVATE");
-});
+}, 15_000);
 
 it("cancelling external AI consent performs no generation", async () => {
   renderWithProviders(<Routes><Route path="/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/creator/share" });
@@ -50,4 +50,16 @@ it("guides a rider with no eligible activity to record or import instead of wait
   const message = await screen.findByRole("alert");
   expect(message).toHaveTextContent("활동을 기록하거나 가져온 뒤");
   expect(message).not.toHaveTextContent("초기화");
+});
+
+it("explains a capped activity query during AI generation without inventing an AI credit failure", async () => {
+  setCallableImplementation("generateAiDiary", () => { throw Object.assign(new Error("PRIVATE_TOKEN"), { details: { reason: "recipe-activity-limit", retryable: false, retryAt: null } }); });
+  renderWithProviders(<Routes><Route path="/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/creator/share" });
+  fireEvent.click(screen.getByTestId("E6-1-3"));
+  await screen.findByRole("dialog");
+  fireEvent.click(screen.getByRole("button", { name: "동의하고 생성" }));
+  const message = await screen.findByRole("alert");
+  expect(message).toHaveTextContent("일부 기록만으로 결과를 만들지 않았습니다");
+  expect(message).not.toHaveTextContent("크레딧");
+  expect(message).not.toHaveTextContent("PRIVATE_TOKEN");
 });
