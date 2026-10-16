@@ -23,14 +23,13 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
       </Stack>
     </Card>)}</div>
   </section>;
-  const powerVisible = p.availability?.power !== "private" && p.session.discipline === "bike";
+  const powerVisible = p.session.discipline === "bike";
   const powerEstimated = p.session.discipline === "bike" && p.availability?.power === "estimated";
-  const hrVisible = p.availability?.heartRate !== "private";
   const recordsVisible = p.availability?.records === "evaluated";
   const runRecordsVisible = recordsVisible && p.session.discipline === "run";
   const recordEvidenceVisible = powerVisible && !!p.powerFingerprint?.length || runRecordsVisible && !!p.runRecordAchievements?.length;
   const effort = powerVisible ? p.thresholdWork : undefined;
-  const zones = (p.zones ?? []).filter((zone) => zone.kind === "power" ? powerVisible : hrVisible);
+  const zones = (p.zones ?? []).filter((zone) => zone.kind !== "power" || powerVisible);
   const highZone = zones.find((zone) => zone.kind === "power") ?? zones.find((zone) => zone.kind === "heartRate");
   const zoneTotal = highZone?.seconds.reduce((sum, value) => sum + value, 0) ?? 0;
   const highPercent = highZone && zoneTotal > 0 ? highZone.seconds.slice(3).reduce((sum, value) => sum + value, 0) / zoneTotal * 100 : undefined;
@@ -87,7 +86,7 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
     <section className="space-y-3">{heading(p.session.discipline === "run" ? "runRecords" : "powerComparison")}<Text as="p" variant="caption" tone="tertiary">{label("prScope")}</Text>
       {p.session.discipline === "bike" ? (powerVisible && p.powerFingerprint?.length ? table([label("duration"), "W", label("allTimeBest"), label("bestPct"), label("previousBestPct"), label("median"), label("change"), label("rank"), label("samples"), "PR"], p.powerFingerprint.map((row) => [row.duration, number(row.watts),
         recordsVisible ? number(row.allTimeBestWatts, " W") : "—", number(bestPct(row), "%"), recordsVisible ? number(row.previousBestPct, "%") : "—",
-        number(row.medianWatts, " W"), delta(row.deltaPct, "%"), number(row.competitionRank), number(row.priorSampleCount), recordsVisible ? record(row.recordAchievement) : "—"])) : <Text as="p" variant="caption">{label(powerVisible ? "missing" : "private")}</Text>) : null}
+        number(row.medianWatts, " W"), delta(row.deltaPct, "%"), number(row.competitionRank), number(row.priorSampleCount), recordsVisible ? record(row.recordAchievement) : "—"])) : <Text as="p" variant="caption">{label("missing")}</Text>) : null}
       {powerVisible && p.powerFingerprint?.some((row) => bestPct(row) != null) && <Text as="p" variant="caption" tone="tertiary">{label("bestScope")}</Text>}
       {powerVisible && recordsVisible && p.powerFingerprint?.some((row) => row.previousBestPct != null) && <Text as="p" variant="caption" tone="tertiary">{label("previousBestScope")}</Text>}
       {runRecordsVisible && p.runRecordAchievements?.length ? table([label("distance"), label("duration"), "PR"], p.runRecordAchievements.map((row) => [row.distance, seconds(row.valueSec), record(row.recordAchievement)])) : null}

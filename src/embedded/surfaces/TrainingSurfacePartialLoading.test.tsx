@@ -45,6 +45,7 @@ vi.mock("react-i18next", () => ({
       "button.loading": "불러오는 중…",
       "button.retry": "다시 시도",
       "error.title": "문제가 발생했어요",
+      "embeddedStatus.cached": "저장된 이전 정보를 표시하고 있습니다.",
       "embeddedStatus.loading": "기록과 훈련 데이터를 불러오고 있어요.",
       "embeddedStatus.unavailable": "잠시 연결할 수 없어요. 연결 상태를 확인한 후 다시 시도해 주세요.",
       goal: "목표",
@@ -178,7 +179,7 @@ describe("training embedded surface partial loading", () => {
     render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
 
     expect(screen.getByText("plan presentation")).toBeInTheDocument();
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("저장된 이전 정보를 표시하고 있습니다.");
     await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
   });
 

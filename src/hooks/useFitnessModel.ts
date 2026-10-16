@@ -299,8 +299,14 @@ export function useFitnessModel(
   const projection = goalOwnerKey.current === currentGoalOwnerKey ? projectionState : null;
   const isMobile = useMobile();
   // 충분도 블록은 PDC 와 같은 문서에 서버가 함께 쓴다(값 없는 PDC 포함). 없으면 null — 기존 표시 유지.
-  const { pdc, sufficiency: pdcSufficiency } = usePdc(user?.uid, subscriptionActive);
+  const { pdc: persistedPdc, sufficiency: persistedPdcSufficiency } = usePdc(user?.uid, subscriptionActive);
+  const sourcePdcSufficiency = canonicalActive ? canonicalFitness.sufficiency?.pdcBike ?? persistedPdcSufficiency : persistedPdcSufficiency;
   const { run: runPaceCurve, swim: swimCssCurve, activityWindow, activityWindowLoaded, activityWindowError } = useFitnessCurves(user?.uid, subscriptionActive, true);
+  // owner가 완전하다고 선언한 사용 종목 문맥을 정적으로 선택한다. 상태·요건을 다시 판정하지 않는다.
+  const showBikeEvidence = !(activityWindow?.sportContext?.complete && activityWindow.sportContext.usedSports.length > 0
+    && !activityWindow.sportContext.usedSports.includes("bike"));
+  const pdc = showBikeEvidence ? persistedPdc : null;
+  const pdcSufficiency = showBikeEvidence ? sourcePdcSufficiency : null;
   // 잘린 윈도의 부분합계를 전체 합계처럼 표시하지 않는다.
   const completeActivityWindow = activityWindow !== null && activityWindow !== undefined && !activityWindow.truncated;
   const windowEntries = useMemo(() => completeActivityWindow
@@ -584,12 +590,6 @@ export function useFitnessModel(
     user?.isAnonymous === true,
     subscriptionActive,
   );
-  // 부하 이력 충분도 — 이 종목 시계열 문서가 함께 가진 블록. tri 는 종목별 근거를 합치지 않는다(블록 없음).
-  const loadSufficiency = useMemo(
-    () => discipline === "tri" || !user?.uid || timeseries?.discipline !== discipline ? null
-      : readSufficiencyField(timeseries, user.uid, "useFitnessModel.loadHistory"),
-    [discipline, timeseries, user?.uid],
-  );
   const triUid = discipline === "tri" && !canonicalActive && !canonicalPending ? user?.uid : undefined;
   const {
     timeseries: triRunTimeseries,
@@ -622,6 +622,17 @@ export function useFitnessModel(
     && (discipline !== "tri" || (triRunTimeseriesFreshLoaded && triSwimTimeseriesFreshLoaded));
   const apiTimeseries = canonicalFitness.values?.timeseries ?? null;
   const selectedApiTimeseries = discipline === "tri" ? apiTimeseries?.bike ?? null : apiTimeseries?.[discipline] ?? null;
+  // 실제 수치가 선택한 소유 산출물과 같은 통로에서 블록도 전달한다.
+  const activityWindowSufficiency = useMemo(() => canonicalActive && canonicalFitness.sufficiency?.activityWindow
+    ? canonicalFitness.sufficiency.activityWindow : user?.uid
+      ? readSufficiencyField(activityWindow, user.uid, "useFitnessModel.activityWindow") : null,
+  [activityWindow, canonicalActive, canonicalFitness.sufficiency?.activityWindow, user?.uid]);
+  const loadSufficiency = useMemo(() => {
+    if (canonicalActive && discipline !== "tri" && canonicalFitness.sufficiency?.timeseries[discipline]) return canonicalFitness.sufficiency.timeseries[discipline];
+    const source = canonicalActive ? selectedApiTimeseries : timeseries;
+    return discipline === "tri" || !user?.uid || source?.discipline !== discipline ? null
+      : readSufficiencyField(source, user.uid, "useFitnessModel.loadHistory");
+  }, [canonicalActive, canonicalFitness.sufficiency, discipline, selectedApiTimeseries, timeseries, user?.uid]);
   const hasCanonicalTimeseries = Boolean(discipline !== "tri" && (
     canonicalActive
       ? isCanonicalTimeseries(selectedApiTimeseries, discipline)
@@ -910,15 +921,16 @@ export function useFitnessModel(
     () => canonicalActive || !completeActivityWindow ? null : computeWindowLoadFocus(windowEntries, fitnessClock),
     [canonicalActive, completeActivityWindow, fitnessClock, windowEntries],
   );
+  const ownerRiderBlock = pdcSufficiency?.blocks.find(block => block.featureId === "rider_profile");
   const canonicalRiderView = useMemo(
-    () => buildCanonicalRiderFitnessView(pdc, coachRiderInsight),
-    [coachRiderInsight, pdc],
+    () => ownerRiderBlock ? null : buildCanonicalRiderFitnessView(pdc, coachRiderInsight),
+    [coachRiderInsight, ownerRiderBlock, pdc],
   );
-  const mayUsePersistedPdcFallback = !riderInsightEnabled || coachRiderInsight === null;
+  const mayUsePersistedPdcFallback = ownerRiderBlock != null || !riderInsightEnabled || coachRiderInsight === null;
   const cyclingAbility = useMemo(
     () => cyclingAbilityFromCanonicalRider(canonicalRiderView)
-      ?? (mayUsePersistedPdcFallback ? computeCyclingAbility(pdc) : null),
-    [canonicalRiderView, mayUsePersistedPdcFallback, pdc],
+      ?? (mayUsePersistedPdcFallback ? computeCyclingAbility(pdc, ownerRiderBlock) : null),
+    [canonicalRiderView, mayUsePersistedPdcFallback, ownerRiderBlock, pdc],
   );
   const runEvidence = useMemo(
     () => buildRunEvidence(userFitness?.thresholds?.run?.thresholdPace ?? profile?.thresholdPace, runRecords),
@@ -1034,8 +1046,8 @@ export function useFitnessModel(
         sourceRevision: canonicalRiderView.sourceRevision,
         asOf: canonicalRiderView.asOf,
       } : mayUsePersistedPdcFallback ? {
-        riderType: hasDefinitiveRiderProfile(pdc) ? pdc.riderType : null,
-        abilityScore: hasDefinitiveRiderProfile(pdc) ? pdc.ability?.overallPercentile ?? null : null,
+        riderType: ownerRiderBlock ? cyclingAbility ? pdc?.riderType ?? null : null : hasDefinitiveRiderProfile(pdc) ? pdc.riderType : null,
+        abilityScore: ownerRiderBlock ? cyclingAbility ? pdc?.ability?.overallPercentile ?? null : null : hasDefinitiveRiderProfile(pdc) ? pdc.ability?.overallPercentile ?? null : null,
         vo2maxEst: pdc?.vo2maxEst ?? null,
         activityCount: pdc?.activityCount ?? null,
         weightKgSnapshot: pdc?.weightKgSnapshot ?? null,
@@ -1054,7 +1066,7 @@ export function useFitnessModel(
   }, [
     canonicalFtpW, canonicalRiderView, combinedLoad, currentPoint, cyclingAbility, hasCanonicalTimeseries,
     discipline, zoneActivities, fitnessClock, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
-    metricsMap, mobileZoneDistribution, pdc, powerCurveProgressions, profile, projection,
+    metricsMap, mobileZoneDistribution, ownerRiderBlock, pdc, powerCurveProgressions, profile, projection,
     runEvidence, swimEvidence, t, thresholdDecision, weeklyStats,
   ]);
 
@@ -1074,9 +1086,9 @@ export function useFitnessModel(
     derivedMetricsError,
     activityWindowIncomplete: activityWindow?.truncated === true,
     loading: canonicalPending || canonicalProcessing || (!canonicalActive && loading),
-    cacheHit: !canonicalActive && cacheHit && timeseriesCacheHit,
+    cacheHit: canonicalActive ? canonicalFitness.cacheHit : cacheHit && timeseriesCacheHit,
     freshLoaded: canonicalActive
-      ? !canonicalProcessing
+      ? canonicalFitness.freshLoaded
       : freshLoaded && timeseriesFreshLoaded,
     // canonical 핵심 데이터가 준비된 뒤 독립 보조 데이터의 실패가 전체 화면을 막지 않는다.
     error: canonicalActive ? null : error,
@@ -1089,6 +1101,7 @@ export function useFitnessModel(
     pdc,
     pdcSufficiency: pdcSufficiency ?? null,
     loadSufficiency,
+    activityWindowSufficiency,
     runRecords,
     milestones,
     consistencyStreak,

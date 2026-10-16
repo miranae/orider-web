@@ -1,3 +1,5 @@
+import { useGoalFitnessInputs } from "../../hooks/useGoalFitnessInputs";
+import { GoalInputNotice } from "./GoalInputNotice";
 import { useSearchParams } from "react-router-dom";
 import { goalCreatedPath } from "../../utils/internalReturnPath";
 import { useState } from 'react';
@@ -6,7 +8,6 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../services/firebase';
 import { logClientError } from '../../services/errorLogger';
-import { useAuth } from '../../contexts/AuthContext';
 import { FEAS_COLORS, FEAS_LABEL_KEYS } from './constants';
 import type { FeasibilityLabel } from '@shared/types/goal';
 import { DateField } from '../redesign';
@@ -66,7 +67,7 @@ interface RunGoalSetupWizardProps {
 
 export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps) {
   const { t } = useTranslation('training');
-  const { profile } = useAuth();
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -81,9 +82,8 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const lthrPaceSec: number = (typeof profile?.thresholdPace === 'number' && profile.thresholdPace > 0)
-    ? profile.thresholdPace
-    : 4 * 60 + 35; // 기본 4:35/km
+  const inputs = useGoalFitnessInputs();
+  const lthrPaceSec = inputs.thresholdPace;
 
   const ev = EVENTS.find(e => e.id === eventId)!;
   const targetTotalSec = goalHour * 3600 + goalMin * 60 + goalSec;
@@ -282,6 +282,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
           {/* Feasibility 패널 */}
           <div data-testid="K3-3-5" style={{ padding: 'var(--space-5)', background: 'var(--bg-2)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)', borderLeft: `3px solid ${feasColor}`, alignSelf: 'start' }}>
+            <GoalInputNotice assumed={inputs.thresholdPaceSource === "assumed"} />
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-2)', fontWeight: 500, marginBottom: 'var(--space-3)' }}>
               {t('runWizard.feasibilityLabel')}
             </div>

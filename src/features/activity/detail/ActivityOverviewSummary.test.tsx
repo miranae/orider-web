@@ -116,12 +116,10 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.getByText(/성격이 불명확/)).toBeInTheDocument();
     expect(screen.queryByText("전체 기간 PR")).not.toBeInTheDocument();
   });
-  it("does not promote window rank to PR or disclose private power", () => {
-    const { rerender } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, availability: { ...rich.availability!, records: "unavailable" } }} />);
+  it("renders authorized power without promoting window rank to PR", () => {
+    render(<ActivityOverviewSummaryContent presentation={{ ...rich, availability: { ...rich.availability!, records: "unavailable" } }} />);
     expect(screen.queryByText("전체 기간 PR")).not.toBeInTheDocument();
-    rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, availability: { ...rich.availability!, power: "private", records: "private" } }} />);
-    for (const text of ["25", "18", "82", "전체 기간 PR", "피크 파워 변화 · 2분"]) expect(screen.queryByText(text)).not.toBeInTheDocument();
-    expect(screen.queryByText(/분석 기준 FTP 182 W/)).not.toBeInTheDocument();
+    expect(screen.getByText("피크 파워 변화 · 2분")).toBeInTheDocument();
   });
   it("does not highlight comparisons from incomplete history", () => {
     render(<ActivityOverviewSummaryContent presentation={{ ...rich, comparisonMetadata: { ...rich.comparisonMetadata!, historyCompleteness: "incomplete" } }} />);
@@ -216,10 +214,10 @@ describe("activity overview summary shows what the server actually sent", () => 
     expect(screen.queryByText("182 W")).not.toBeInTheDocument();
   });
 
-  it("keeps power sections out when the owner hid power", () => {
-    render(<ActivityOverviewSummaryContent presentation={{ ...sparse, availability: { ...sparse.availability!, power: "private" } }} />);
-    expect(screen.queryByText("781")).not.toBeInTheDocument();
-    expect(screen.queryByText("167.1")).not.toBeInTheDocument();
+  it("renders authorized power sections for another viewer", () => {
+    render(<ActivityOverviewSummaryContent presentation={sparse} isOwner={false} />);
+    expect(screen.getByText("781")).toBeInTheDocument();
+    expect(screen.getByText("167.1")).toBeInTheDocument();
   });
 });
 

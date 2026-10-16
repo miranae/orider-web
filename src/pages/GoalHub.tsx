@@ -1,3 +1,4 @@
+import { GoalSourceNotice } from "../components/training/GoalInputNotice";
 import type { FitnessProjection } from "@shared/types/goal";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -55,6 +56,7 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
       {model.loading && <Text role="status">{t("climbGoal.loading")}</Text>}
       {model.loadError != null && <Button onClick={model.retryLoad}>{t("goalHub.retry")}</Button>}
       {goal && <Card data-testid="K3-1">
+        <GoalSourceNotice goal={goal} discipline={discipline} />
         <div data-testid="K3-1-1"><Text as="h2" variant="title">{goal.title || goal.courseName}</Text><Text>{t(`goalHub.goalType.${goal.runProgram ? "program" : goal.goalType === "climb" ? "climb" : goal.eventType === "completion" ? "completion" : goal.eventType === "time" ? "time" : "race"}`)} · {model.goalDate?.toLocaleDateString()} · D-{Math.max(0, model.daysLeft)}</Text><Text>{goal.targetDurationMin ? t("goalHub.minutes", { value: goal.targetDurationMin }) : null}{goal.target?.climbDurationMin ? `${t("goalHub.minutes", { value: goal.target.climbDurationMin })} · ${goal.target.targetWkg ?? "—"} W/kg` : null}</Text></div>
         <div data-testid="K3-1-2"><progress max={100} value={model.progress} aria-label={t("goalHub.progress")} />{goalDay && <Text>CTL {goalDay.ctl.toFixed(1)} · TSB {goalDay.tsb.toFixed(1)}</Text>}</div>
         <LocalizedLink data-testid="K3-1-3" to={`/coach/plan?sport=${discipline}`}>{t("goalHub.plan")}</LocalizedLink>

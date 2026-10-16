@@ -57,8 +57,10 @@ import {
 } from "./trainingSurfaceCache";
 
 const ActivityAnalysisSurface = lazy(() => import("./surfaces/ActivityAnalysisSurface"));
-const FitnessSurface = lazy(() => import("./surfaces/FitnessSurface"));
-const PlanSurface = lazy(() => import("./surfaces/PlanSurface"));
+const loadFitnessSurface = () => import("./surfaces/FitnessSurface");
+const loadPlanSurface = () => import("./surfaces/PlanSurface");
+const FitnessSurface = lazy(loadFitnessSurface);
+const PlanSurface = lazy(loadPlanSurface);
 
 const CONTRACT_VERSION = 1 as const;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/;
@@ -513,6 +515,14 @@ export default function EmbeddedBootstrapRoot({
   const initialTrainingSurface = surfaceKind === "fitness" || surfaceKind === "plan"
     ? surfaceKind
     : null;
+  useEffect(() => {
+    if (!initialTrainingSurface) return;
+    // 인증 인계 중 JS 청크만 미리 받는다. 표면과 데이터 구독은 승인 이후에 마운트한다.
+    const load = initialTrainingSurface === "fitness" ? loadFitnessSurface : loadPlanSurface;
+    void load().catch((err: unknown) => {
+      logClientError("embedded.surfacePreload", err, { surface: initialTrainingSurface });
+    });
+  }, [initialTrainingSurface]);
   const [surfaceSelection, setSurfaceSelection] = useState<SurfaceSelectionState>({
     generation: 0,
     surface: initialTrainingSurface,

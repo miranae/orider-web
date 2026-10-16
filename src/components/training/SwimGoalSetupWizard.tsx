@@ -1,3 +1,5 @@
+import { useGoalFitnessInputs } from "../../hooks/useGoalFitnessInputs";
+import { GoalInputNotice } from "./GoalInputNotice";
 import { useSearchParams } from "react-router-dom";
 import { goalCreatedPath } from "../../utils/internalReturnPath";
 import { useState } from 'react';
@@ -6,7 +8,6 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../services/firebase';
 import { logClientError } from '../../services/errorLogger';
-import { useAuth } from '../../contexts/AuthContext';
 import { FEAS_COLORS, FEAS_LABEL_KEYS } from './constants';
 import type { FeasibilityLabel } from '@shared/types/goal';
 import { DateField } from '../redesign';
@@ -70,7 +71,7 @@ interface SwimGoalSetupWizardProps {
 
 export default function SwimGoalSetupWizard({ Stepper }: SwimGoalSetupWizardProps) {
   const { t } = useTranslation('training');
-  const { profile } = useAuth();
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -84,9 +85,8 @@ export default function SwimGoalSetupWizard({ Stepper }: SwimGoalSetupWizardProp
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const cssPaceSec: number = (typeof profile?.css === 'number' && profile.css > 0)
-    ? profile.css
-    : 108; // 기본 CSS 1:48/100m
+  const inputs = useGoalFitnessInputs();
+  const cssPaceSec = inputs.css;
 
   const ev = EVENTS.find(e => e.id === eventId)!;
   const targetTotalSec = goalMin * 60 + goalSec;
@@ -302,6 +302,7 @@ export default function SwimGoalSetupWizard({ Stepper }: SwimGoalSetupWizardProp
 
           {/* Feasibility 패널 */}
           <div data-testid="K3-3-5" style={{ padding: 'var(--space-5)', background: 'var(--bg-2)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)', borderLeft: `3px solid ${feasColor}`, alignSelf: 'start' }}>
+            <GoalInputNotice assumed={inputs.cssSource === "assumed"} />
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-2)', fontWeight: 500, marginBottom: 'var(--space-3)' }}>
               {t('swimWizard.feasibilityLabel')}
             </div>

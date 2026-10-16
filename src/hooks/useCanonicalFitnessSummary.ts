@@ -13,7 +13,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { canonicalDisplayShowsValue, decideCanonicalRender, type CanonicalDisplay } from "@shared/types/canonicalDisplay";
-import type { CanonicalPeriod, CanonicalStatus } from "@shared/types/canonical";
+import type { CanonicalEnvelope, CanonicalPeriod, CanonicalStatus } from "@shared/types/canonical";
+import { readFitnessSummaryCache, writeFitnessSummaryCache } from "../embedded/fitnessSummaryCache";
+import { trainingSurfaceCacheScope } from "../embedded/trainingSurfaceCache";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
@@ -23,9 +25,12 @@ import {
   parseCanonicalFitnessSummary,
   type CanonicalFitnessSummaryData,
 } from "../services/canonicalApi";
+import type { SufficiencySet } from "@shared/types/sufficiency";
+import { parseSufficiencySet } from "../services/sufficiencyContract";
 import { canonicalRolloutAllows, useCanonicalRollout } from "./useCanonicalRollout";
 
 export interface CanonicalFitnessSummaryState {
+  sufficiency?: { pdcBike: SufficiencySet | null; activityWindow: SufficiencySet | null; timeseries: Record<"bike" | "run" | "swim", SufficiencySet | null> };
   rolloutState: "pending" | "off" | "on";
   /** false 면 화면은 오늘과 똑같이 클라 계산을 그린다. */
   enabled: boolean;
@@ -44,6 +49,8 @@ export interface CanonicalFitnessSummaryState {
     generation: string | number | null;
   } | null;
   showingLastGood: boolean;
+  cacheHit: boolean;
+  freshLoaded: boolean;
   retry: () => void;
 }
 
@@ -51,11 +58,12 @@ const noop = () => undefined;
 interface CanonicalFitnessSummarySnapshot extends CanonicalFitnessSummaryState {
   /** state와 last-good 값을 소유한 계정. 렌더 시 현재 uid와 즉시 대조한다. */
   ownerUid: string | null;
+  ownerScope: string | null;
 }
 
 const DISABLED: CanonicalFitnessSummarySnapshot = {
   rolloutState: "off", enabled: false, values: null, display: null, computedAt: null, status: null,
-  metadata: null, showingLastGood: false, retry: noop, ownerUid: null,
+  metadata: null, showingLastGood: false, cacheHit: false, freshLoaded: false, retry: noop, ownerUid: null, ownerScope: null,
 };
 
 const PENDING: CanonicalFitnessSummarySnapshot = {
@@ -76,15 +84,33 @@ export function useCanonicalFitnessSummary(
   const [state, setState] = useState<CanonicalFitnessSummarySnapshot>(DISABLED);
   const lastGood = useRef<CanonicalFitnessSummaryData | null>(null);
   const lastGoodMetadata = useRef<CanonicalFitnessSummaryState["metadata"]>(null);
+  const scope = trainingSurfaceCacheScope();
+  const lastScope = useRef(scope);
+  const lastReloadKey = useRef(0);
   const lastUid = useRef<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   // 늦게 도착한 응답이 최신을 덮지 않게 한다 (A→B→A 전환 포함).
   const generation = useRef(0);
   const paused = useRef(false);
 
-  const load = useCallback(async (uid: string, myGeneration: number) => {
-    const envelope = await fetchCanonicalFitnessSummary(uid, firebaseServices);
-    if (generation.current !== myGeneration) return;
+  const load = useCallback(async (
+    uid: string,
+    myGeneration: number,
+    cached?: { envelope: CanonicalEnvelope<unknown>; fresh: boolean },
+  ) => {
+    const requestScope = trainingSurfaceCacheScope();
+    const envelope = cached?.envelope ?? await fetchCanonicalFitnessSummary(uid, firebaseServices);
+    if (generation.current !== myGeneration || trainingSurfaceCacheScope() !== requestScope) return;
+    const rawSufficiency = (envelope as typeof envelope & { sufficiency?: {pdcBike?: unknown; activityWindow?: unknown; timeseries?: Partial<Record<"bike" | "run" | "swim", unknown>>} }).sufficiency;
+    const sufficiency = rawSufficiency ? {
+      pdcBike: parseSufficiencySet(rawSufficiency.pdcBike)?.set ?? null,
+      activityWindow: parseSufficiencySet(rawSufficiency.activityWindow)?.set ?? null,
+      timeseries: {
+        bike: parseSufficiencySet(rawSufficiency.timeseries?.bike)?.set ?? null,
+        run: parseSufficiencySet(rawSufficiency.timeseries?.run)?.set ?? null,
+        swim: parseSufficiencySet(rawSufficiency.timeseries?.swim)?.set ?? null,
+      },
+    } : undefined;
     const parsed = parseCanonicalFitnessSummary(envelope.data);
     if (envelope.data !== null && parsed === null) {
       // 값이 실려 왔는데 읽을 수 없다 — 조용히 빈 화면으로 넘기지 않고 남긴다.
@@ -119,20 +145,25 @@ export function useCanonicalFitnessSummary(
       lastGood.current = accepted;
       lastGoodMetadata.current = metadata;
     }
-    const showingLastGood = accepted === null && lastGood.current !== null;
+    if (!cached) writeFitnessSummaryCache(uid, renderEnvelope);
+    const showingLastGood = (cached !== undefined && !cached.fresh) || (accepted === null && lastGood.current !== null);
     setState({
       rolloutState: "on",
       enabled: true,
+      sufficiency,
       // processing/failed/unavailable 에서도 동일 계정의 마지막 성공값은 버리지 않는다.
       // display/status 가 별도로 남으므로 낡은 값을 최신처럼 오인시키지 않는다.
       values: accepted ?? lastGood.current,
-      display: decision.display,
+      display: cached && !cached.fresh ? "value_with_stale_hint" : decision.display,
       computedAt: envelope.computedAt,
-      status: renderEnvelope.status,
+      status: cached && !cached.fresh ? "stale" : renderEnvelope.status,
       metadata: showingLastGood ? lastGoodMetadata.current : metadata,
       showingLastGood,
+      cacheHit: cached !== undefined,
+      freshLoaded: cached === undefined,
       retry: () => setReloadKey((current) => current + 1),
       ownerUid: uid,
+      ownerScope: requestScope,
     });
   }, [firebaseServices]);
 
@@ -141,11 +172,13 @@ export function useCanonicalFitnessSummary(
     const myGeneration = generation.current;
     // 계정이 바뀔 때만 이전 값을 버린다. 같은 계정 재시도는 last-known-good 을 유지한다.
     const uid = user?.uid ?? null;
-    const uidChanged = lastUid.current !== uid;
+    const uidChanged = lastUid.current !== uid || lastScope.current !== scope;
+    const force = lastReloadKey.current !== reloadKey;
     if (uidChanged) {
       lastGood.current = null;
       lastGoodMetadata.current = null;
       lastUid.current = uid;
+      lastScope.current = scope;
     }
     if (pending) {
       setState(PENDING);
@@ -159,37 +192,53 @@ export function useCanonicalFitnessSummary(
       paused.current = true;
       return;
     }
+    lastReloadKey.current = reloadKey;
     const resuming = paused.current && !uidChanged;
     paused.current = false;
     setState((previous) => resuming && previous.ownerUid === uid ? previous : ({
       rolloutState: "on",
       enabled: true,
+
       values: !uidChanged && previous.enabled ? previous.values : null,
       display: null,
       computedAt: !uidChanged && previous.enabled ? previous.computedAt : null,
       status: null,
       metadata: !uidChanged && previous.enabled ? previous.metadata : null,
       showingLastGood: !uidChanged && previous.enabled && previous.values !== null,
+      cacheHit: !uidChanged && previous.cacheHit,
+      freshLoaded: false,
       retry: () => setReloadKey((current) => current + 1),
       ownerUid: uid,
+      ownerScope: scope,
     }));
-    void load(user.uid, myGeneration);
-  }, [active, user, load, enabled, pending, reloadKey]);
+    const cached = readFitnessSummaryCache(user.uid);
+    if (cached) void load(user.uid, myGeneration, cached);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (!cached?.fresh || force) void load(user.uid, myGeneration);
+    else timer = setTimeout(() => {
+      void load(user.uid, myGeneration, { ...cached, fresh: false });
+      void load(user.uid, myGeneration);
+    }, Math.max(0, cached.freshUntil - Date.now()));
+    return () => { clearTimeout(timer); generation.current += 1; };
+  }, [active, user, load, enabled, pending, reloadKey, scope]);
 
   if (pending) return PENDING;
   // effect보다 렌더가 먼저다. A→B 전환 렌더에서 A state를 그대로 반환하면 effect가 지우기
   // 전 한 프레임 동안 A의 피트니스가 B 화면에 노출된다. state 소유자가 다르면 즉시 가린다.
   if (!enabled) return DISABLED;
-  if ((user?.uid ?? null) !== state.ownerUid) {
+  if ((user?.uid ?? null) !== state.ownerUid || scope !== state.ownerScope) {
     return {
       rolloutState: "on",
       enabled: true,
+
       values: null,
       display: null,
       computedAt: null,
       status: null,
       metadata: null,
       showingLastGood: false,
+      cacheHit: false,
+      freshLoaded: false,
       retry: () => setReloadKey((current) => current + 1),
     };
   }

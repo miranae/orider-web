@@ -44,9 +44,9 @@ describe("filterFeedActivities", () => {
       .toEqual(["mine", "friend", "public-other"]);
   });
 
-  it("returns only actual friends for the friends filter", () => {
+  it("returns my activities and actual friends for the friends filter", () => {
     expect(filterFeedActivities(activities, 1, "me", new Set(["friend-1"])).map((a) => a.id))
-      .toEqual(["friend"]);
+      .toEqual(["mine", "friend"]);
   });
 
   it("returns only my activities for the self filter", () => {

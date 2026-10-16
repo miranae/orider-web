@@ -1,12 +1,13 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { collection, getDocs } from "firebase/firestore";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ReactNode } from "react";
 import { FirebaseServicesProvider } from "../contexts/FirebaseServicesContext";
 import { setCollectionDocs } from "../__tests__/mocks/firebase";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { normalizePlanSport, usePlanModel } from "./usePlanModel";
+import { planSnapshotKey, readPlanSnapshot } from "../embedded/planSnapshotCache";
 import * as trainingSurfaceCache from "../embedded/trainingSurfaceCache";
 import {
   clearTrainingSurfaceCache,
@@ -51,6 +52,7 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe("usePlanModel", () => {
+  afterEach(() => { delete window.__ORIDER_TRAINING_CACHE_SCOPE__; vi.useRealTimers(); vi.restoreAllMocks(); });
   beforeEach(() => {
     clearTrainingSurfaceCache();
     mocks.locale = "ko";
@@ -457,6 +459,161 @@ describe("usePlanModel", () => {
     resetRuntimeConfigForTests({ trainingDecisionEnabled: false });
     hook.rerender();
     expect(hook.result.current.currentTsb).toBe(-20);
+  });
+
+  it("native 계획은 3분 재진입과 복귀 요청을 생략하고 retry는 즉시 다시 읽는다", async () => {
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
+    setCollectionDocs("goals", [{ id: "native-goal", userId: "owner", discipline: "bike", eventDate: Date.now() }]);
+    setCollectionDocs("goals/native-goal/plan", [{ id: "week", weekNumber: 1, days: [] }]);
+    const first = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(first.result.current.freshLoaded).toBe(true));
+    first.unmount();
+    vi.mocked(getDocs).mockClear();
+    const second = renderHook(() => usePlanModel("bike"), { wrapper });
+    expect(second.result.current.goal?.id).toBe("native-goal");
+    expect(second.result.current.freshLoaded).toBe(true);
+    expect(getDocs).not.toHaveBeenCalled();
+    await act(async () => second.result.current.refreshPlanWeeks(false));
+    expect(getDocs).not.toHaveBeenCalled();
+    act(() => second.result.current.retryLoad());
+    await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(2));
+    expect(readPlanSnapshot(planSnapshotKey("owner", "bike", "ko"))?.fresh).toBe(true);
+  });
+
+  it("native 빈계획도 3분 재사용하며 stale 데이터는 실패 시 timestamp를 갱신하지 않는다", async () => {
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    setCollectionDocs("goals", []);
+    const first = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(first.result.current.freshLoaded).toBe(true));
+    first.unmount();
+    const key = planSnapshotKey("owner", "bike", "ko");
+    expect(readPlanSnapshot(key)).toMatchObject({ data: { goal: null, weeks: [] }, fresh: true });
+    vi.mocked(Date.now).mockReturnValue(now + 180_000);
+    const getDocsMock = vi.mocked(getDocs);
+    const original = getDocsMock.getMockImplementation()!;
+    getDocsMock.mockRejectedValueOnce(new Error("offline"));
+    const second = renderHook(() => usePlanModel("bike"), { wrapper });
+    expect(second.result.current.loading).toBe(false);
+    await waitFor(() => expect(readPlanSnapshot(key)?.fresh).toBe(false));
+    expect(readPlanSnapshot(key)?.savedAt).toBe(now);
+    second.unmount();
+    getDocsMock.mockImplementation(original);
+  });
+
+  it("visible native 계획은 KST 자정에 3분보다 먼저 한번 재조회한다", async () => {
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
+    const midnight = Date.parse("2026-10-15T14:59:40Z");
+    vi.spyOn(Date, "now").mockReturnValue(midnight);
+    setCollectionDocs("goals", []);
+    const first = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(first.result.current.freshLoaded).toBe(true));
+    first.unmount();
+    vi.mocked(getDocs).mockClear();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const second = renderHook(() => usePlanModel("bike"), { wrapper });
+    expect(getDocs).not.toHaveBeenCalled();
+    vi.mocked(Date.now).mockReturnValue(midnight + 20_000);
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+    expect(getDocs).toHaveBeenCalledTimes(2);
+    expect(second.result.current.freshLoaded).toBe(true);
+  });
+
+  it("stale 복귀는 주차뿐 아니라 같은 ID 목표 metadata와 목표 교체도 다시 읽는다", async () => {
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
+    const now = Date.parse("2026-10-15T03:00:00Z");
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    setCollectionDocs("goals", [{ id: "goal", userId: "owner", discipline: "bike", title: "이전 목표", eventDate: now }]);
+    setCollectionDocs("goals/goal/plan", [{ id: "week", days: [], weekNumber: 1 }]);
+    const hook = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(hook.result.current.freshLoaded).toBe(true));
+    setCollectionDocs("goals", [{ id: "goal", userId: "owner", discipline: "bike", title: "수정된 목표", eventDate: now + 86_400_000 }]);
+    vi.mocked(Date.now).mockReturnValue(now + 180_000);
+    await act(async () => hook.result.current.refreshPlanWeeks(false));
+    await waitFor(() => expect(hook.result.current.goal?.title).toBe("수정된 목표"));
+    expect(hook.result.current.goal?.eventDate).toBe(now + 86_400_000);
+    setCollectionDocs("goals", [{ id: "replacement", userId: "owner", discipline: "bike", title: "새 활성 목표", status: "active", eventDate: now }]);
+    setCollectionDocs("goals/replacement/plan", [{ id: "replacement-week", days: [], weekNumber: 1 }]);
+    vi.mocked(Date.now).mockReturnValue(now + 360_000);
+    await act(async () => hook.result.current.refreshPlanWeeks(false));
+    await waitFor(() => expect(hook.result.current.goal?.id).toBe("replacement"));
+    expect(hook.result.current.weeks[0]?.id).toBe("replacement-week");
+  });
+
+  it("stale 빈계획 복귀도 새로 생성된 목표를 조회한다", async () => {
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
+    const now = Date.parse("2026-10-15T03:00:00Z");
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    setCollectionDocs("goals", []);
+    const hook = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(hook.result.current.freshLoaded).toBe(true));
+    setCollectionDocs("goals", [{ id: "created", userId: "owner", discipline: "bike", eventDate: now }]);
+    setCollectionDocs("goals/created/plan", []);
+    vi.mocked(Date.now).mockReturnValue(now + 180_000);
+    await act(async () => hook.result.current.refreshPlanWeeks(false));
+    await waitFor(() => expect(hook.result.current.goal?.id).toBe("created"));
+  });
+
+  it("주차만 강제 갱신하면 목표 savedAt과 freshness 만료 시각을 연장하지 않는다", async () => {
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
+    const now = Date.parse("2026-10-15T03:00:00Z");
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    setCollectionDocs("goals", [{ id: "goal", userId: "owner", discipline: "bike", eventDate: now }]);
+    setCollectionDocs("goals/goal/plan", [{ id: "week", days: [], weekNumber: 1 }]);
+    const hook = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(hook.result.current.freshLoaded).toBe(true));
+    const key = planSnapshotKey("owner", "bike", "ko");
+    const initial = readPlanSnapshot(key)!;
+    vi.mocked(Date.now).mockReturnValue(now + 120_000);
+    setCollectionDocs("goals/goal/plan", [{ id: "edited-week", days: [], weekNumber: 1 }]);
+    await act(async () => hook.result.current.refreshPlanWeeks());
+    expect(hook.result.current.weeks[0]?.id).toBe("edited-week");
+    expect(readPlanSnapshot(key)).toMatchObject({ savedAt: initial.savedAt, freshUntil: initial.freshUntil, fresh: true });
+    vi.mocked(Date.now).mockReturnValue(now + 180_000);
+    expect(readPlanSnapshot(key)?.fresh).toBe(false);
+  });
+
+  it("늦은 주차 응답은 동일 ID의 새 목표 metadata와 성공 스냅샷을 덮지 않는다", async () => {
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
+    setCollectionDocs("goals", [{ id: "goal", userId: "owner", discipline: "bike", title: "old", eventDate: Date.now() }]);
+    setCollectionDocs("goals/goal/plan", [{ id: "old-week", days: [], weekNumber: 1 }]);
+    const hook = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(hook.result.current.freshLoaded).toBe(true));
+    let resolveWeeks: ((value: unknown) => void) | undefined;
+    vi.mocked(getDocs).mockImplementationOnce(() => new Promise(resolve => { resolveWeeks = resolve; }) as never);
+    let pending: Promise<void> = Promise.resolve();
+    act(() => { pending = hook.result.current.refreshPlanWeeks(); });
+    setCollectionDocs("goals", [{ id: "goal", userId: "owner", discipline: "bike", title: "new metadata", eventDate: Date.now() + 86_400_000 }]);
+    setCollectionDocs("goals/goal/plan", [{ id: "new-week", days: [], weekNumber: 1 }]);
+    act(() => hook.result.current.retryLoad());
+    await waitFor(() => expect(hook.result.current.goal?.title).toBe("new metadata"));
+    await act(async () => {
+      resolveWeeks?.({ docs: [{ id: "late-old-week", data: () => ({ days: [], weekNumber: 1 }) }] });
+      await pending;
+    });
+    expect(hook.result.current.weeks[0]?.id).toBe("new-week");
+    expect(readPlanSnapshot(planSnapshotKey("owner", "bike", "ko"))?.data).toMatchObject({
+      goal: { title: "new metadata" }, weeks: [{ id: "new-week" }],
+    });
+  });
+
+  it("주차 응답 대기 중 fresh 만료를 넘으면 목표를 fresh로 표시하지 않는다", async () => {
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "12345678-1234-1234-1234-123456789abc";
+    const now = Date.parse("2026-10-15T03:00:00Z");
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    setCollectionDocs("goals", [{ id: "goal", userId: "owner", discipline: "bike", eventDate: now }]);
+    setCollectionDocs("goals/goal/plan", []);
+    const hook = renderHook(() => usePlanModel("bike", false), { wrapper });
+    await waitFor(() => expect(hook.result.current.freshLoaded).toBe(true));
+    vi.mocked(Date.now).mockReturnValue(now + 120_000);
+    vi.mocked(getDocs).mockImplementationOnce(() => {
+      vi.mocked(Date.now).mockReturnValue(now + 180_001);
+      return Promise.resolve({ docs: [] }) as never;
+    });
+    await act(async () => hook.result.current.refreshPlanWeeks());
+    expect(hook.result.current.freshLoaded).toBe(false);
+    expect(readPlanSnapshot(planSnapshotKey("owner", "bike", "ko"))).toMatchObject({ savedAt: now, fresh: false });
   });
 
 });

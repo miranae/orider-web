@@ -444,7 +444,7 @@ describe("ActivityPage", () => {
     expect(mockCallableInvocations.filter(({ name }) => name === "getActivityOverview")).toHaveLength(1);
   });
 
-  it("uses the same authorized facts for nonowner overview and analysis without empty private-metric cards", async () => {
+  it("uses the same authorized facts for nonowner overview and analysis without empty metric cards", async () => {
     mockRoute.activityId = "public-canonical-analysis";
     const activity = createMockActivity({ id: mockRoute.activityId, userId: "fixture-other-owner", source: "orider", description: "공개 분석 계약 fixture", startTime: Date.now() - 120000, endTime: Date.now(), summary: createMockSummary({ ridingTimeMillis: 120000, elapsedTimeMillis: 120000 }) });
     setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
@@ -455,7 +455,7 @@ describe("ActivityPage", () => {
     setCallableResult("getActivityOverview", { data: {
       status: "available", activityId: activity.id, version: "activity-overview-v1", inputDigest: "public-fixture",
       presentation: {
-        availability: { personal: "unavailable", records: "private", power: "estimated", heartRate: "available" },
+        availability: { personal: "unavailable", records: "unavailable", power: "estimated", heartRate: "available" },
         session: { discipline: "bike", loadKind: "tss", load: 306.93, normalizedPowerW: 164.94, intensityFactor: 0.94, ftpVerificationRequired: true },
         powerFingerprint: [{ duration: "5s", watts: 679 }, { duration: "20m", watts: 178 }],
         zones: [{ kind: "power", seconds: [100, 0, 0, 0, 0, 0, 100], currentPercentages: [50, 0, 0, 0, 0, 0, 50], priority: "primary" }],

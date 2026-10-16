@@ -31,7 +31,7 @@ import { getDisciplineColor } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { Chip, Text } from "../../theme/components";
 import type { SufficiencySet } from "@shared/types/sufficiency";
-import { SufficiencyCard, SufficiencyInline, findSufficiencyBlock, needsSufficiencyCard } from "../../features/sufficiency/SufficiencyBlock";
+import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, SufficiencyInputMap, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../../features/sufficiency/SufficiencyBlock";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import ConsistencyStreakCard from "../training/ConsistencyStreakCard";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
@@ -75,6 +75,8 @@ export interface MobileFitnessThreshold {
 export interface MobileFitnessData {
   /** 서버 충분도 블록(PDC 문서 동반). 없으면 기존 표시. */
   pdcSufficiency?: SufficiencySet | null;
+  loadSufficiency?: SufficiencySet | null;
+  activityWindowSufficiency?: SufficiencySet | null;
   // PMC
   ctl: number; atl: number; tsb: number;
   pmcHistory: MobileFitnessPmcPoint[];  // 오래된 → 최신
@@ -573,16 +575,21 @@ function MobileCyclingEvidence({ data }: { data: MobileFitnessData }) {
   const sufficiency = data.pdcSufficiency ?? null;
   const vo2maxBlock = findSufficiencyBlock(sufficiency, "vo2max");
   const powerModelBlock = findSufficiencyBlock(sufficiency, "power_model");
+  const ftpBlock = findSufficiencyBlock(sufficiency, "ftp_estimate");
+  const monthlyBlock = findSufficiencyBlock(sufficiency, "vo2max", "monthly");
   const riderBlock = findSufficiencyBlock(sufficiency, "rider_profile");
+  const analysisSets = [sufficiency, data.activityWindowSufficiency && { ...data.activityWindowSufficiency,
+    blocks: data.activityWindowSufficiency.blocks.filter(block => block.discipline === data.discipline && (block.featureId !== "power_curve" || block.viewId === "mobile")) }]
+    .filter((set): set is NonNullable<typeof set> => set != null);
   const hasPowerModel = gaps.length > 0;
   return <>
-    {sufficiency && needsSufficiencyCard(sufficiency, riderBlock) && <SufficiencyCard set={sufficiency} block={riderBlock} testId="K5-1-1-sufficiency" />}
+    {sufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(sufficiency, riderBlock) && <SufficiencyCard set={sufficiency} block={riderBlock} testId="K5-1-1-sufficiency" />}
     {data.pdcSummary?.vo2maxEst != null && <SectionCard title={t("vo2maxCard.pdcLabel")}>
       <div data-testid="K5-1-3">
         <Text variant="dataLarge">~{data.pdcSummary.vo2maxEst}</Text> <Text variant="unit">ml/kg/min</Text>
         <Text as="p" variant="caption" tone="tertiary">{t("vo2maxCard.pdcSub")}</Text>
         {vo2maxBlock && sufficiency && <SufficiencyInline set={sufficiency} block={vo2maxBlock} testId="K5-1-3-sufficiency-inline" />}
-        {trend.length >= 2 && <>
+        {(monthlyBlock ? !needsSufficiencyCard(sufficiency!, monthlyBlock) : trend.length >= 2) && trend.length > 0 && <>
           <svg viewBox="0 0 132 40" role="img" aria-label={trendLabel} className="w-full" preserveAspectRatio="none">
             <desc>{trendLabel}</desc><path d={path} stroke="var(--aqua)" strokeWidth="1.5" fill="none" />
           </svg>
@@ -590,9 +597,11 @@ function MobileCyclingEvidence({ data }: { data: MobileFitnessData }) {
         </>}
       </div>
     </SectionCard>}
-    {data.pdcSummary?.vo2maxEst == null && sufficiency && needsSufficiencyCard(sufficiency, vo2maxBlock)
+    {sufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(sufficiency, ftpBlock) && <SufficiencyCard set={sufficiency} block={ftpBlock} testId="K5-1-ftp-sufficiency" />}
+    {sufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(sufficiency, monthlyBlock) && <SufficiencyCard set={sufficiency} block={monthlyBlock} testId="K5-1-3-monthly-sufficiency" />}
+    {data.pdcSummary?.vo2maxEst == null && sufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(sufficiency, vo2maxBlock)
       && <SufficiencyCard set={sufficiency} block={vo2maxBlock} testId="K5-1-3-sufficiency" />}
-    {!hasPowerModel && sufficiency && needsSufficiencyCard(sufficiency, powerModelBlock)
+    {!hasPowerModel && sufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(sufficiency, powerModelBlock)
       && <SufficiencyCard set={sufficiency} block={powerModelBlock} testId="K5-1-4-sufficiency" />}
     {gaps.some(gap => gap.label === "strength" || gap.label === "weakness") && <SectionCard title={t("gapCard.title")}>
       <div data-testid="K5-1-4">
@@ -708,7 +717,15 @@ export default function MobileFitnessPage({
     && !todayDecisionState.loading && !todayDecisionState.decision;
 
   const isBike = data.discipline === "bike";
+  const loadSet = data.loadSufficiency;
+  const loadTrend = findSufficiencyBlock(loadSet, "load_history", "trend");
+  const loadForm = findSufficiencyBlock(loadSet, "load_history", "form");
+  const riderSet = data.pdcSufficiency;
+  const riderBlock = findSufficiencyBlock(riderSet, "rider_profile");
+  const mobileAnalysisSets = [data.pdcSufficiency, data.activityWindowSufficiency && { ...data.activityWindowSufficiency,
+    blocks: data.activityWindowSufficiency.blocks.filter(block => block.discipline === data.discipline && (block.featureId !== "power_curve" || block.viewId === "mobile")) }];
   const showZones = data.zones.length > 0;
+  const mobileCurveBlock = data.activityWindowSufficiency?.blocks.find(block => block.featureId === "power_curve" && block.viewId === "mobile" && block.discipline === data.discipline);
   const powerCurveMaxW = data.powerCurve?.length
     ? Math.round(Math.max(...data.powerCurve.map(point => point.maxPower)))
     : 0;
@@ -729,6 +746,7 @@ export default function MobileFitnessPage({
         </button>}
       </div>
 
+      {part === "condition" && <SufficiencyInputMap />}
       {periodSlot}
       {activeTab === "overview" && (
         <div style={{ paddingTop: "var(--space-2)" }}>
@@ -739,10 +757,12 @@ export default function MobileFitnessPage({
                 {tsbValue == null ? "—" : tsbValue.toFixed(1)}
               </span>
             </div>
+            {loadSet && loadForm && <SufficiencyInline set={loadSet} block={loadForm} testId="K1-1-1-sufficiency-inline" />}
             {part === "condition" && data.discipline !== "tri" && <LocalizedLink data-testid="K1-1-3" to={`/coach/today?sport=${data.discipline}`}>{t("fitness:today.header.title")} →</LocalizedLink>}
             {data.discipline !== "tri" && todayDecisionState && !deferDisabledDecision && <TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} />}
           </SectionCard>
 
+          {loadSet && needsSufficiencyCard(loadSet, loadTrend) && <SufficiencyCard set={loadSet} block={loadTrend} testId="K1-2-sufficiency" />}
           {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다. */}
           <SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle} sub={pmcHistoryPoints ? undefined : pmcSub} accentColor={pmcCtlColor}>
             {sectionState.trend === "loading" ? (
@@ -868,8 +888,10 @@ export default function MobileFitnessPage({
               {t("mobileFitness.derivedError")}
             </div>
           )}
+          {part === "analysis" && <SufficiencyGroup sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" />}
           {part === "analysis" && isBike && <BikePerformanceSummaryCard part="analysis" decision={data.thresholdDecision} pdc={data.pdcSummary} weightKg={data.weightKg} />}
           {part === "analysis" && <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
+          {part === "analysis" && isBike && data.cyclingAbility && riderSet && riderBlock && <SufficiencyInline set={riderSet} block={riderBlock} testId="K5-1-1-sufficiency-inline" />}
           {part === "analysis" && !embedded && data.discipline === "run" && <RunRecordsSummary evidence={data.runEvidence} />}
           {part === "analysis" && !embedded && isBike && sectionState.derived === "ready" && <MobileCyclingEvidence data={data} />}
           {/* 임계값 카드 */}
@@ -890,6 +912,7 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
+          {sectionState.derived === "ready" && !isSufficiencyGrouped(...mobileAnalysisSets) && data.activityWindowSufficiency?.blocks.filter(block => block.discipline === data.discipline && (block.featureId === "power_curve" && block.viewId === "mobile" || block.featureId === "training_zones") && needsSufficiencyCard(data.activityWindowSufficiency!, block)).map(block => <SufficiencyCard key={`${block.featureId}-${block.viewId}`} set={data.activityWindowSufficiency!} block={block} testId={block.featureId === "power_curve" ? "K5-2-1-sufficiency" : "K5-3-2-sufficiency"} />)}
           {/* 존 분포 */}
           {sectionState.derived === "ready" && showZones && (
             <SectionCard specId="K5-3-2"
@@ -913,7 +936,7 @@ export default function MobileFitnessPage({
           )}
 
           {/* 파워 커브 (bike) */}
-          {sectionState.derived === "ready" && isBike && data.powerCurve && data.powerCurve.length >= 2 && (
+          {sectionState.derived === "ready" && isBike && data.powerCurve && (mobileCurveBlock ? !needsSufficiencyCard(data.activityWindowSufficiency!, mobileCurveBlock) && data.powerCurve.length > 0 : data.powerCurve.length >= 2) && (
             <SectionCard specId="K5-2-1">
               <div data-power-curve-copy style={{ marginBottom: "var(--space-2)" }}>
                 <Text variant="eyebrow">{powerCurveTitle}</Text>

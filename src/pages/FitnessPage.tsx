@@ -65,7 +65,7 @@ import { getDisciplineColor } from "../utils/disciplineFilter";
 import { toLocalDate, toUtcDate } from "../utils/dateUtils";
 import TriFitnessView from "./fitness/TriFitnessView";
 import { formatPlanGoalTitle } from "../features/training/plan/planDisplay";
-import { SufficiencyCard, SufficiencyInline, findSufficiencyBlock, needsSufficiencyCard } from "../features/sufficiency/SufficiencyBlock";
+import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, SufficiencyInputMap, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../features/sufficiency/SufficiencyBlock";
 
 export interface FitnessViewProps {
   embedded?: boolean;
@@ -117,6 +117,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     pdc,
     pdcSufficiency,
     loadSufficiency,
+    activityWindowSufficiency,
     runRecords,
     milestones,
     consistencyStreak,
@@ -220,7 +221,14 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     return <GuestValuePreview kind="fitness" lang={i18n.language} />;
   }
 
-  if (renderMobile && (loading || !timeseriesLoaded)) {
+  const analysisSets = [pdcSufficiency, activityWindowSufficiency && { ...activityWindowSufficiency,
+    blocks: activityWindowSufficiency.blocks.filter(block => block.discipline === discipline && block.viewId !== "mobile") }]
+    .filter((set): set is NonNullable<typeof set> => set != null);
+  const hasSufficiency = Boolean(pdcSufficiency?.blocks.length || loadSufficiency?.blocks.length || activityWindowSufficiency?.blocks.length);
+  const loadTrendBlock = findSufficiencyBlock(loadSufficiency, "load_history", "trend");
+  const loadFormBlock = findSufficiencyBlock(loadSufficiency, "load_history", "form");
+
+  if (!hasSufficiency && renderMobile && (loading || !timeseriesLoaded)) {
     return (
       <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         <LoadingSkeleton kind="chart" />
@@ -239,21 +247,21 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     );
   }
 
-  if (renderMobile && model.canonicalFitness.enabled && model.canonicalFitness.values === null) {
+  if (!hasSufficiency && renderMobile && model.canonicalFitness.enabled && model.canonicalFitness.values === null) {
     const state = model.canonicalFitness;
     if (state.display === "error") {
       return <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         <ErrorState title={t("canonical.errorTitle")} description={t("canonical.errorBody")} onRetry={state.retry} />
       </div>;
     }
-    if (state.display === "empty") {
+    if (state.display === "empty" && !hasSufficiency) {
       return <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         <EmptyState icon="📈" title={t("canonical.emptyTitle")} description={t("canonical.emptyBody")} />
       </div>;
     }
   }
 
-  if (renderMobile && activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
+  if (!hasSufficiency && renderMobile && activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
     return (
       <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         {part === "all" && discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
@@ -300,6 +308,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       const mobileCoachBriefing = discipline !== "tri" && currentPoint ? (
         <FitnessCoachBriefing
           weekChangeSlot={weekChangeSlot}
+          metricsNoteSlot={loadSufficiency && loadFormBlock
+            ? <SufficiencyInline set={loadSufficiency} block={loadFormBlock} testId="K1-1-1-briefing-sufficiency-inline" /> : null}
           part={part === "condition" ? "condition" : "all"}
           key={`${discipline}-${currentPoint.date}`}
           impacts={activityImpacts}
@@ -326,7 +336,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             {...model.mobilePageProps}
             periodSlot={periodControls}
             thresholdsSlot={thresholdsSlot}
-            data={{ ...model.mobilePageProps.data, monthlyVo2maxTrend: vo2maxTrend, powerGaps, pdcSufficiency }}
+            data={{ ...model.mobilePageProps.data, monthlyVo2maxTrend: vo2maxTrend, powerGaps, pdcSufficiency, loadSufficiency, activityWindowSufficiency }}
             runningRaceEstimatesOwnerUid={user.isAnonymous || (part !== "all" && getRuntimeConfig().appEnvironment !== "stage") ? undefined : user.uid}
             part={part}
             powerCurvePeriodsOwnerUid={user.uid}
@@ -410,8 +420,11 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const vo2maxBlock = findSufficiencyBlock(pdcSufficiency, "vo2max");
   const powerModelBlock = findSufficiencyBlock(pdcSufficiency, "power_model");
   const riderBlock = findSufficiencyBlock(pdcSufficiency, "rider_profile");
-  const loadTrendBlock = findSufficiencyBlock(loadSufficiency, "load_history", "trend");
-  const loadFormBlock = findSufficiencyBlock(loadSufficiency, "load_history", "form");
+  const ftpBlock = findSufficiencyBlock(pdcSufficiency, "ftp_estimate");
+  const monthlyBlock = findSufficiencyBlock(pdcSufficiency, "vo2max", "monthly");
+  const curveBlock = activityWindowSufficiency?.blocks.find(block => block.featureId === "power_curve" && block.discipline === discipline);
+  const zonesBlock = activityWindowSufficiency?.blocks.find(block => block.featureId === "training_zones" && block.discipline === discipline);
+
   const weaknesses = powerGaps.filter((g) => g.label === "weakness");
 
   // 페이지 헤더 — PageHeader 패턴. const 로 추출해 loading/error/empty/정상 4상태가
@@ -449,7 +462,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   // 콜드 CTL)으로 한 번 그렸다가 정본으로 스왑하며 곡선/KPI 가 튀는 깜빡임 방지(리뷰 #340).
   // doc 부재/미인증은 훅이 loaded=true 를 즉시 세팅하므로 추가 대기 없음. (이 지점은 이미
   // tri·미인증 early-return 뒤라 discipline 은 bike/run/swim, user 는 truthy 로 좁혀져 있다.)
-  if (loading || !timeseriesLoaded) {
+  if (!hasSufficiency && (loading || !timeseriesLoaded)) {
     return (
       <div className="fitness-reading">
         {pageHeader}
@@ -470,7 +483,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       </div>
     );
   }
-  if (activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
+  if (!hasSufficiency && activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
     return (
       <div className="fitness-reading">
         {pageHeader}
@@ -499,6 +512,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       <div className="site-shell" style={bodyPad}>
         <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
         <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
+        {part !== "condition" && <SufficiencyGroup sets={analysisSets} testId="K5-sufficiency-group" />}
         {part !== "analysis" && discipline !== "tri" && currentPoint && (
           <FitnessCoachBriefing
             weekChangeSlot={weekChangeSlot}
@@ -787,7 +801,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                 <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{t("vo2maxCard.pdcSub")}</Text>
                 {vo2maxBlock && pdcSufficiency && <SufficiencyInline set={pdcSufficiency} block={vo2maxBlock} testId="K5-1-3-sufficiency-inline" />}
               </div>
-              {vo2maxTrend.length >= 2 && (() => {
+              {(monthlyBlock ? !needsSufficiencyCard(pdcSufficiency!, monthlyBlock) : vo2maxTrend.length >= 2) && vo2maxTrend.length > 0 && (() => {
                 const vals = vo2maxTrend.map((point) => point.v);
                 const lo = Math.min(...vals), hi = Math.max(...vals);
                 const w = 132, h = 40, span = hi - lo || 1;
@@ -813,11 +827,14 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             </div>
           </Card>
         )}
+
+        {part !== "condition" && pdcSufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(pdcSufficiency, ftpBlock) && <SufficiencyCard set={pdcSufficiency} block={ftpBlock} testId="K5-1-ftp-sufficiency" />}
+        {part !== "condition" && pdcSufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(pdcSufficiency, monthlyBlock) && <SufficiencyCard set={pdcSufficiency} block={monthlyBlock} testId="K5-1-3-monthly-sufficiency" />}
         {/* 값이 없는 자리는 비우지 않는다 — 서버 충분도 블록이 무엇이 얼마나 필요한지 말한다. */}
-        {part !== "condition" && pdc?.vo2maxEst == null && pdcSufficiency && needsSufficiencyCard(pdcSufficiency, vo2maxBlock) && (
+        {part !== "condition" && pdc?.vo2maxEst == null && pdcSufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(pdcSufficiency, vo2maxBlock) && (
           <div style={{ marginTop: "var(--space-4)" }}><SufficiencyCard set={pdcSufficiency} block={vo2maxBlock} testId="K5-1-3-sufficiency" /></div>
         )}
-        {part !== "condition" && pdc?.cp == null && pdcSufficiency && needsSufficiencyCard(pdcSufficiency, powerModelBlock) && (
+        {part !== "condition" && pdc?.cp == null && pdcSufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(pdcSufficiency, powerModelBlock) && (
           <div style={{ marginTop: "var(--space-4)" }}><SufficiencyCard set={pdcSufficiency} block={powerModelBlock} testId="K5-1-4-sufficiency" /></div>
         )}
         {/* 강점/약점 — CP 모델 기대파워 대비 실제 best 갭. bike + pdc.cp + 분류 결과 있을 때만 */}
@@ -878,13 +895,13 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {part !== "condition" && cyclingAbility && riderBlock && pdcSufficiency && (
           <SufficiencyInline set={pdcSufficiency} block={riderBlock} testId="K5-1-1-sufficiency-inline" />
         )}
-        {part !== "condition" && !cyclingAbility && pdcSufficiency && needsSufficiencyCard(pdcSufficiency, riderBlock) && (
+        {part !== "condition" && !cyclingAbility && pdcSufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(pdcSufficiency, riderBlock) && (
           <div style={{ marginTop: "var(--space-4)" }}><SufficiencyCard set={pdcSufficiency} block={riderBlock} testId="K5-1-1-sufficiency" /></div>
         )}
         </DetailsSection></div>
         )}
 
-        {!embedded && part === "condition" && thresholdsSlot}
+        {!embedded && part === "condition" && <><SufficiencyInputMap />{thresholdsSlot}</>}
         {part !== "analysis" && discipline === "bike" && (
           <FtpDecisionSection title={t("conclusion.performanceDetailToggle")} anchorEnabled={!embedded && part === "condition"}>
             <BikeThresholdDecisionCard
@@ -1029,7 +1046,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                   /></div>
                 ) : (
                   <div style={{ height: 240, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
-                    {t("powerCurve.empty")}
+                    {activityWindowSufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(activityWindowSufficiency, curveBlock)
+                      ? <SufficiencyCard set={activityWindowSufficiency} block={curveBlock} testId="K5-2-1-sufficiency" /> : t("powerCurve.empty")}
                   </div>
                 )}
                 <div data-testid="K5-2-2" style={{ marginTop: "var(--space-3)", paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))", gap: "var(--space-2)" }}>
@@ -1104,7 +1122,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                   ))}
                   {allNullPct && (
                     <div style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-4)", textAlign: "center" }}>
-                      {t("zoneDist.empty")}
+                      {activityWindowSufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(activityWindowSufficiency, zonesBlock)
+                        ? <SufficiencyCard set={activityWindowSufficiency} block={zonesBlock} testId="K5-3-2-sufficiency" /> : t("zoneDist.empty")}
                     </div>
                   )}
                 </>

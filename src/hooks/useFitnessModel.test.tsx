@@ -7,6 +7,7 @@ import type { ActivityMetricStatus } from "../features/fitness/useActivityDerive
 import { activityDerivedDocumentRevision } from "../features/fitness/derivedDocumentReadAttempts";
 import * as cache from "../embedded/trainingSurfaceCache";
 import { useFitnessModel } from "./useFitnessModel";
+import type { CanonicalFitnessSummaryState } from "./useCanonicalFitnessSummary";
 
 const mocks = vi.hoisted(() => ({
   user: { uid: "rider-a", isAnonymous: false },
@@ -22,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   unsubscribe: vi.fn(),
   snapshot: null as null | ((value: { docs: { id: string; data: () => Activity }[] }) => void),
   timeseries: null as FitnessTimeseriesDoc | null,
+  canonical: null as CanonicalFitnessSummaryState | null,
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: mocks.t, i18n: { language: "ko" } }) }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, profile: mocks.profile }) }));
@@ -65,6 +67,11 @@ vi.mock("./useFitnessTimeseries", () => ({ useFitnessTimeseries: () => ({
   timeseries: mocks.timeseries, loaded: true, error: null, cacheHit: true, freshLoaded: true,
 }) }));
 
+vi.mock("./useCanonicalFitnessSummary", () => ({ useCanonicalFitnessSummary: () => mocks.canonical ?? ({
+  rolloutState: "off", enabled: false, values: null, display: null, computedAt: null,
+  status: null, metadata: null, showingLastGood: false, cacheHit: false, freshLoaded: false, retry: () => undefined,
+}) }));
+
 const bike = { id: "bike", userId: "rider-a", type: "Ride", startTime: Date.now(), summary: { ridingTimeMillis: 3600000, distanceMeters: 20000 } } as Activity;
 const run = { ...bike, id: "run", type: "Run" } as Activity;
 const options = { enableCoachRiderInsight: false };
@@ -87,6 +94,7 @@ beforeEach(() => {
   mocks.user = { uid: "rider-a", isAnonymous: false };
   mocks.profile = null;
   mocks.timeseries = null;
+  mocks.canonical = null;
   mocks.status.clear();
   mocks.windowEntries = [];
   mocks.windowLoaded = true; mocks.windowError = false; mocks.truncated = false;
@@ -101,6 +109,27 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("useFitnessModel", () => {
+  it("renders canonical cached values immediately without reporting a server refresh", () => {
+    const bikeLoad = { ctl: 40, atl: 45, tsb: -5, weeklyTSS: 100 };
+    const empty = { ctl: 0, atl: 0, tsb: 0, weeklyTSS: 0 };
+    mocks.canonical = {
+      rolloutState: "on", enabled: true,
+      values: { ctl: 40, atl: 45, tsb: -5, breakdown: { bike: bikeLoad, run: empty, swim: empty },
+        totalsBasis: ["bike"], timeseries: { bike: null, run: null, swim: null },
+        generation: null, period: null, asOf: Date.now(), timezone: "UTC" },
+      display: null, computedAt: Date.now(), status: null, metadata: null,
+      showingLastGood: true, cacheHit: true, freshLoaded: false, retry: () => undefined,
+    };
+    const { result, rerender } = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.loading).toBe(false);
+    expect(result.current.currentPoint?.ctl).toBe(40);
+    expect(result.current.cacheHit).toBe(true);
+    expect(result.current.freshLoaded).toBe(false);
+    mocks.canonical = { ...mocks.canonical, cacheHit: false, freshLoaded: true, status: "canonical" };
+    rerender();
+    expect(result.current.cacheHit).toBe(false);
+    expect(result.current.freshLoaded).toBe(true);
+  });
   it.each(["run", "swim", "tri"])("does not use cycling FTP as the %s threshold when its threshold is missing", sport => {
     mocks.profile = { ftp: 182 };
     seed(sport);

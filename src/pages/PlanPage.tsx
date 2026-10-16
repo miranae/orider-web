@@ -173,7 +173,7 @@ export default function PlanPage() {
   const goalLink = <header data-testid="K4-0" className="site-shell"><Text data-testid="K4-0-1" as="h1" variant="pageTitle">{t("mobile.weeklyPlan")}</Text><div data-testid="K4-0-2"><DisciplineTabs value={discipline} /></div>{goal && <LocalizedLink data-testid="K4-2-4" to={`/coach/goals?sport=${discipline}`}>{t("goalHub.title")} →</LocalizedLink>}</header>;
   const targetNotice = runTarget.unavailable ? <p role="status" className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{tActivity("analysis.run.nextPlan.unavailable")}</p> : null;
 
-  const refreshAfterEnroll = async () => {
+  const refreshAfterProgramChange = async () => {
     await run30.refresh();
     model.retryLoad();
   };
@@ -195,7 +195,7 @@ export default function PlanPage() {
     );
     if (run30Program) {
       return shell(
-        <Run30ProgramView api={run30.api} program={run30Program} onRefresh={run30.refresh} startMode={WEB_START_MODE} />,
+        <Run30ProgramView api={run30.api} program={run30Program} onRefresh={refreshAfterProgramChange} startMode={WEB_START_MODE} />,
       );
     }
     if (run30.status === "loading") {
@@ -205,12 +205,12 @@ export default function PlanPage() {
       return shell(<ErrorState title={t("run30.errors.load")} onRetry={run30.retry} />);
     }
     if (!loading && !loadError && (!goal || goal.discipline !== "run")) {
-      return shell(<Run30EnrollCard api={run30.api} variant="intro" onEnrolled={refreshAfterEnroll} showCustomGoalLink />);
+      return shell(<Run30EnrollCard api={run30.api} variant="intro" onEnrolled={refreshAfterProgramChange} showCustomGoalLink />);
     }
   }
 
   const run30Offer = discipline === "run" && run30.status === "ready" && goal?.discipline === "run" && !serverManagedPlan
-    ? <Run30EnrollCard api={run30.api} variant="offer" onEnrolled={refreshAfterEnroll} />
+    ? <Run30EnrollCard api={run30.api} variant="offer" onEnrolled={refreshAfterProgramChange} />
     : null;
 
   if (!loading && loadError) {

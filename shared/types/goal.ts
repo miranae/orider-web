@@ -88,7 +88,17 @@ export interface Goal {
   status: GoalStatus;
   createdAt: number;
   updatedAt: number;
+  /** 목표를 만들 때의 체험 시작값. 이후 입력을 확인해도 과거 기준을 실측으로 바꾸지 않는다. */
+  assumedBaseline?: boolean;
+  planInputSources?: {
+    ftpSource: 'user' | 'pdc_estimate' | 'assumed'; weightSource: 'user' | 'pdc_estimate' | 'assumed';
+    thresholdPaceSource?: 'user' | 'pdc_estimate' | 'assumed'; cssSource?: 'user' | 'pdc_estimate' | 'assumed';
+  };
   snapshot: {
+    ftpSource?: 'user' | 'pdc_estimate' | 'assumed';
+    weightSource?: 'user' | 'pdc_estimate' | 'assumed';
+    thresholdPaceSource?: 'user' | 'pdc_estimate' | 'assumed';
+    cssSource?: 'user' | 'pdc_estimate' | 'assumed';
     ftp: number;
     weightKg: number;
     ctl: number;
@@ -113,6 +123,19 @@ export interface Goal {
 }
 
 export interface PlanDay {
+  /** 작성 행위로 확인된 강도 출처. 숫자가 같다는 이유로 생성기 근거를 재사용하지 않는다. */
+  prescriptionIntensityProvenance?:
+    | { origin: 'user' }
+    | { origin: 'generator'; basis: { discipline: 'bike' | 'run' | 'swim'; value: number;
+        source: 'user' | 'pdc_estimate' | 'assumed'; revision: string | null }; contentRevision: string };
+
+  /** 예약 당시 확정한 강도 기준. 이후 프로필 변경과 과거 실행 연결을 분리한다. */
+  executionIntensityBasis?: {
+    discipline: 'bike' | 'run' | 'swim';
+    value: number;
+    source: 'user' | 'pdc_estimate' | 'assumed';
+    revision: string | null;
+  };
   date: number;        // timestamp ms, 00:00 KST
   dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6;
   workout: WorkoutKind;

@@ -151,7 +151,7 @@ export function filterFeedActivities(
   friendIds: Set<string>,
 ): Activity[] {
   if (!userId || feedFilter === 0) return activities;
-  if (feedFilter === 1) return activities.filter((activity) => friendIds.has(activity.userId));
+  if (feedFilter === 1) return activities.filter((activity) => activity.userId === userId || friendIds.has(activity.userId));
   if (feedFilter === 2) return activities.filter((activity) => activity.userId === userId);
   return activities;
 }

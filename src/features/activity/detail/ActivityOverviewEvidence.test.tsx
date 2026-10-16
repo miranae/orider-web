@@ -27,8 +27,8 @@ describe("activity overview evidence", () => {
     expect(screen.getByText("표시된 기록의 개인기록 비교를 확인했습니다.")).toBeInTheDocument();
     expect(screen.getAllByText("전체 기간 PR")).toHaveLength(1);
   });
-  it("does not count private power or inapplicable running rows as visible evidence", () => {
-    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, availability: { ...rich.availability!, power: "private" }, runRecordAchievements: [{ distance: "5km", valueSec: 1200, recordAchievement: "new" }] }} />);
+  it("does not count absent power or inapplicable running rows as visible evidence", () => {
+    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, powerFingerprint: [], runRecordAchievements: [{ distance: "5km", valueSec: 1200, recordAchievement: "new" }] }} />);
     expect(screen.getByText("개인기록 비교를 확인했지만 표시할 수 있는 기록이 없습니다.")).toBeInTheDocument();
     expect(screen.queryByText("5km")).not.toBeInTheDocument();
     expect(screen.queryByText("전체 기간 PR")).not.toBeInTheDocument();
@@ -135,9 +135,9 @@ describe("activity overview evidence", () => {
     expect(screen.queryByText("0 s")).not.toBeInTheDocument();
     expect(screen.queryByText("전체 기간 PR")).not.toBeInTheDocument();
   });
-  it("does not turn window rank one or pending receipts into PRs and respects hidden channels", () => {
-    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, sportDetails: [], availability: { ...rich.availability!, power: "private", records: "unavailable" } }} />);
-    expect(screen.queryByText("288")).not.toBeInTheDocument();
+  it("renders authorized power without turning window rank one or pending receipts into PRs", () => {
+    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, sportDetails: [], availability: { ...rich.availability!, power: "available", records: "unavailable" } }} />);
+    expect(screen.getByText("288")).toBeInTheDocument();
     expect(screen.queryByText("전체 기간 PR")).not.toBeInTheDocument();
     expect(screen.getByText(/개인기록 검증 대기/)).toBeInTheDocument();
   });

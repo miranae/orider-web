@@ -976,8 +976,7 @@ describe("FitnessPage", () => {
     it("데스크톱 K5-1 의 비어 있던 자리에 블록이 선다", async () => {
       viewport.isMobile = false;
       setDocData("users/test-uid/fitness/pdc_bike", emptyPdc());
-      setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride",
-        startTime: Date.now(), deletedAt: null, summary: { distance: 20_000, ridingTimeMillis: 3_600_000 } }]);
+      setCollectionDocs("activities", []);
       renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
       expect(await screen.findByTestId("K5-1-3-sufficiency")).toBeInTheDocument();
       expect(screen.getByTestId("K5-1-4-sufficiency")).toBeInTheDocument();
@@ -987,8 +986,7 @@ describe("FitnessPage", () => {
     it("모바일에도 같은 블록을 넘긴다", async () => {
       viewport.isMobile = true;
       setDocData("users/test-uid/fitness/pdc_bike", emptyPdc());
-      setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride",
-        startTime: Date.now(), deletedAt: null, summary: { distance: 20_000, ridingTimeMillis: 3_600_000 } }]);
+      setCollectionDocs("activities", []);
       renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
       expect(await screen.findByText("sufficiency blocks 2")).toBeInTheDocument();
     });
