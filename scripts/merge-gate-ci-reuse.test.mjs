@@ -11,10 +11,11 @@ const packageScripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
 
 test("feature gate forwards changed flags only to Vitest while the full test chain stays complete", () => {
   assert.equal(packageScripts["test:vitest"], "NODE_OPTIONS=--no-experimental-webstorage vitest run");
-  assert.equal(packageScripts.test, ["test:vitest", "test:production-hosting-evidence", "test:merge-gate-ci-reuse",
+  assert.equal(packageScripts.test, "npm run test:vitest && npm run test:contracts");
+  assert.equal(packageScripts["test:contracts"], ["test:production-hosting-evidence", "test:merge-gate-ci-reuse",
     "test:social-callable-contract", "test:runtime-config-writer", "test:canonical-deploy-env", "test:deploy-config",
     "test:dco", "test:merge-pr-review-range", "test:script-tests-wired", "test:quality-alert-count",
-    "check:canonical-contract"].map(name => `npm run ${name}`).join(" && "));
+    "check:canonical-contract", "test:test-script-forwarding"].map(name => `npm run ${name}`).join(" && "));
   const targeted = script.match(/run_step "targeted Vitest"[^\n]*\\\n\s*([^\n]+)/u)?.[1];
   assert.ok(targeted, "the feature gate must have a targeted test command");
   assert.match(targeted, /^npm run test:vitest -- --changed "origin\/\$BASE" --passWithNoTests$/u);

@@ -19,10 +19,11 @@ export function BoardCommentComposer({
   submitLabel,
 }: BoardCommentComposerProps) {
   return (
-    <form onSubmit={onSubmit} className="mb-6">
+    <form onSubmit={onSubmit} className="board-comment-composer mb-6" aria-busy={submitting}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <Textarea
           value={value}
+          disabled={submitting}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
           aria-label={placeholder}
@@ -35,7 +36,7 @@ export function BoardCommentComposer({
           variant="secondary"
           className="px-5 py-2 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] font-bold disabled:opacity-50"
         >
-          {submitting ? "..." : submitLabel}
+          {submitLabel}
         </Button>
       </div>
     </form>
@@ -44,7 +45,7 @@ export function BoardCommentComposer({
 
 export function BoardCommentText({ children }: { children: ReactNode }) {
   return (
-    <p className="whitespace-pre-wrap break-words text-[length:var(--fs-sm)] text-[var(--ink-1)] leading-relaxed">
+    <p className="board-comment-text whitespace-pre-wrap break-words text-[length:var(--fs-sm)] text-[var(--ink-1)] leading-relaxed">
       {children}
     </p>
   );

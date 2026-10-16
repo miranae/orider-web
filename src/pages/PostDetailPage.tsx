@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import ReactMarkdown from 'react-markdown';
@@ -13,7 +13,8 @@ import { useDeletePost, useReportBoardContent } from '../features/board/useBoard
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useDialog } from '../contexts/DialogContext';
-import { firestore } from '../services/firebase';
+import { setBoardAuthorBlocked, useBoardBlocks } from '../features/board/useBoardBlocks';
+import { BoardImage, isBoardStorageImage } from '../features/board/BoardImage';
 import ActivityCard from '../components/ActivityCard';
 import { EmptyState, LoadingSkeleton } from '../components/redesign';
 import SafeImage from '../components/SafeImage';
@@ -24,14 +25,29 @@ import { ReportContentModal } from "../features/board/ReportContentModal";
 import { buildBoardReportPayload, type BoardReportReason } from "../features/board/reportPayload";
 import { useBoardPostView } from "./useBoardPostView";
 
+import { SUPPORTED_LANGS } from "../i18n/detector";
+import "./BoardDetail.css";
+
 type ReportTarget =
   | { targetType: "post"; postId: string; previewTitle: string; authorNickname: string; createdAt: number }
   | { targetType: "comment"; postId: string; commentId: string; previewTitle: string; authorNickname: string; createdAt: number };
 
+export function resolveBoardReturnTo(state: unknown): string {
+  const fallback = '/community/board';
+  if (!state || typeof state !== 'object' || !('boardReturnTo' in state)) return fallback;
+  const target = state.boardReturnTo;
+  if (typeof target !== 'string' || /[\\#]/.test(target)
+    || [...target].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) return fallback;
+  const pathname = target.split('?')[0];
+  return SUPPORTED_LANGS.some(lang => pathname === `/${lang}/community/board`) ? target : fallback;
+}
+
 const PostDetailPage: React.FC = () => {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
-  const { t } = useTranslation("board");
+  const location = useLocation();
+  const boardReturnTo = resolveBoardReturnTo(location.state);
+  const { t, i18n } = useTranslation("board");
   const [commentText, setCommentText] = useState('');
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -39,14 +55,16 @@ const PostDetailPage: React.FC = () => {
   const { deletePost, deleting: postDeleting } = useDeletePost();
   const { report, submitting: reportSubmitting } = useReportBoardContent();
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
-  const { data: post, loading: postLoading } = useDocument<BoardPost>('board_posts', postId);
+  const { data: post, loading: postLoading, error: postError } = useDocument<BoardPost>('board_posts', postId);
   const { data: linkedActivity } = useDocument<Activity>('activities', post?.activityId || undefined);
-  const { data: comments } = useCollection<BoardComment>(
+  const { data: comments, loading: commentsLoading, error: commentsError } = useCollection<BoardComment>(
     `board_posts/${postId}/comments`,
     [where('deletedAt', '==', null), orderBy('createdAt', 'asc')]
   );
   const { createComment, submitting: commentSubmitting } = useCreateComment(postId || '');
   const { isLiked, likeCount, likers, toggleLike } = useBoardLike(postId || '', post?.likeCount ?? 0);
+  const { blockedUsers, loading: blocksLoading, error: blocksError, retry: retryBlocks, unblock, pending: unblockPending } = useBoardBlocks();
+  const visibleComments = comments.filter(comment => !blockedUsers.some(item => item.targetUid === comment.userId));
   const safeSourceUrl = normalizeUserContentUrl(post?.sourceUrl);
 
   useBoardPostView(postId, user?.uid, post);
@@ -95,7 +113,7 @@ const PostDetailPage: React.FC = () => {
     if (!(await dialog.confirm(t('message.deleteConfirm', { label: t('message.deleteLabel') }), { destructive: true }))) return;
     try {
       await deletePost(postId);
-      navigate('/community/board', { replace: true });
+      navigate(boardReturnTo, { replace: true });
     } catch {
       showToast(t('message.postDeleteFailed'), "error");
     }
@@ -113,15 +131,9 @@ const PostDetailPage: React.FC = () => {
     if (!user || !post || user.uid === post.userId) return;
     if (!(await dialog.confirm(t("block.confirm", { nickname: post.nickname }), { destructive: true }))) return;
     try {
-      const { doc, setDoc } = await import("firebase/firestore");
-      await setDoc(doc(firestore, "users", user.uid, "blocked_users", post.userId), {
-        userId: post.userId,
-        nickname: post.nickname,
-        profileImage: post.profileImage ?? null,
-        createdAt: Date.now(),
-      }, { merge: true });
+      await setBoardAuthorBlocked(post.userId, true);
       showToast(t("block.done", { nickname: post.nickname }));
-      navigate("/community/board", { replace: true });
+      navigate(boardReturnTo, { replace: true });
     } catch {
       showToast(t("block.failed"), "error");
     }
@@ -149,20 +161,24 @@ const PostDetailPage: React.FC = () => {
     }
   };
 
-  if (postLoading) {
+  if (postLoading || blocksLoading) {
     return (
       <div className="py-6 max-w-3xl mx-auto">
         <LoadingSkeleton kind="card" />
       </div>
     );
   }
-  if (!post) {
+  if (blocksError) return <EmptyState icon="🙈" title={t("error.loadFailed")} actions={[{ label: t("button.retry"), onClick: retryBlocks }]} />;
+  if (post && blockedUsers.some(item => item.targetUid === post.userId)) {
+    return <EmptyState icon="🙈" title={t("block.hidden")} actions={[{ label: t("block.unblock"), onClick: () => { if (unblockPending) return; void unblock(post.userId).catch(() => showToast(t("block.failed"), "error")); } }, { label: t("label.backToBoard"), onClick: () => navigate(boardReturnTo) }]} />;
+  }
+  if (postError || !post) {
     return (
       <div className="py-16 max-w-xl mx-auto">
         <EmptyState
           icon="📝"
-          title={t('label.postNotFound')}
-          actions={[{ label: t('label.backToBoard'), variant: "primary", onClick: () => navigate('/community/board') }]}
+          title={t(postError ? 'error.loadFailed' : 'label.postNotFound')}
+          actions={[{ label: t('label.backToBoard'), variant: "primary", onClick: () => navigate(boardReturnTo) }]}
         />
       </div>
     );
@@ -174,36 +190,36 @@ const PostDetailPage: React.FC = () => {
         <EmptyState
           icon="🗑️"
           title={t('label.deletedPostText')}
-          actions={[{ label: t('label.backToBoard'), variant: "primary", onClick: () => navigate('/community/board') }]}
+          actions={[{ label: t('label.backToBoard'), variant: "primary", onClick: () => navigate(boardReturnTo) }]}
         />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-6">
+    <div className="board-detail board-reading-surface mx-auto space-y-6">
       <div className="mb-4">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(boardReturnTo)}
           className="text-[var(--ink-3)] hover:text-[var(--lime)] flex items-center gap-1 transition-colors text-[length:var(--fs-sm)] font-medium"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          {t('label.backNav')}
+          {t('label.backToBoard')}
         </button>
       </div>
 
-      <Card data-testid="M2-P-1" padding="none" className="rounded-[var(--r-lg)] p-6! md:p-8!">
+      <Card data-testid="M2-P-1" padding="none" className="board-post-card rounded-[var(--r-lg)] p-6! md:p-8!">
         <header className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="board-post-meta">
             <span className="bg-[var(--lime)]/10 text-[var(--lime)] px-2 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold uppercase">
-              {t(`label.boardTypes.${post.boardType}` as any)}
+              {t(`label.boardTypes.${post.boardType}`)}
             </span>
             <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">
-              {new Date(post.createdAt).toLocaleString()}
+              {new Date(post.createdAt).toLocaleString(i18n.language)}
             </span>
-            <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)] ml-auto flex items-center gap-2">
+            <span className="board-post-actions">
               {t('label.views')} {post.viewCount}
               {user?.uid !== post.userId && (
                 <>
@@ -240,7 +256,7 @@ const PostDetailPage: React.FC = () => {
               )}
             </span>
           </div>
-          <h1 data-testid="M2-P" className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)] mb-4">{post.title}</h1>
+          <h1 data-testid="M2-P" className="board-post-title">{post.title}</h1>
           <div className="flex items-center gap-2">
             {post.profileImage ? (
               <SafeImage src={post.profileImage} alt={post.nickname} fallbackLabel={post.nickname} className="w-8 h-8 rounded-full object-cover" loading="lazy" decoding="async" />
@@ -260,11 +276,11 @@ const PostDetailPage: React.FC = () => {
         )}
 
         {(() => {
-          const standAlone = (post.imageUrls || []).filter(url => normalizeUserContentUrl(url) && !post.content.includes(url));
+          const standAlone = (post.imageUrls || []).filter(url => (isBoardStorageImage(url) || normalizeUserContentUrl(url)) && !post.content.includes(url));
           return standAlone.length > 0 ? (
             <div className="flex flex-wrap gap-3 mb-6">
               {standAlone.map((url, i) => (
-                <SafeImage key={i} src={url} alt={t("label.postImage", { index: i + 1 })} referrerPolicy="no-referrer" className="rounded-[var(--r-lg)] max-h-96 object-cover border border-[var(--line-soft)]" loading="lazy" decoding="async" />
+                <BoardImage key={i} src={url} alt={t("label.postImage", { index: i + 1 })} referrerPolicy="no-referrer" className="rounded-[var(--r-lg)] max-h-96 object-cover border border-[var(--line-soft)]" loading="lazy" decoding="async" />
               ))}
             </div>
           ) : null;
@@ -275,9 +291,10 @@ const PostDetailPage: React.FC = () => {
           이 사이트는 라이트/다크 토글 + 시스템 선호도 둘 다 지원하므로 prose-invert 를 제거하고
           헤딩/strong/em/code 등을 CSS 변수(`--ink-*`)로 직접 색상 지정해 양쪽 테마에서 일관 표시.
         */}
-        <div className="prose max-w-none mb-6 text-[var(--ink-1)] text-[length:var(--fs-sm)] leading-relaxed prose-headings:text-[var(--ink-0)] prose-strong:text-[var(--ink-0)] prose-em:text-[var(--ink-1)] prose-code:text-[var(--ink-0)] prose-blockquote:text-[var(--ink-2)] prose-blockquote:border-[var(--line)] prose-hr:border-[var(--line-soft)] prose-li:text-[var(--ink-1)] prose-a:text-[var(--lime)] prose-a:no-underline hover:prose-a:underline prose-img:rounded-[var(--r-lg)]">
+        <div className="board-post-body prose max-w-none mb-6 text-[var(--ink-1)] text-[length:var(--fs-sm)] leading-relaxed prose-headings:text-[var(--ink-0)] prose-strong:text-[var(--ink-0)] prose-em:text-[var(--ink-1)] prose-code:text-[var(--ink-0)] prose-blockquote:text-[var(--ink-2)] prose-blockquote:border-[var(--line)] prose-hr:border-[var(--line-soft)] prose-li:text-[var(--ink-1)] prose-a:text-[var(--lime)] prose-a:no-underline hover:prose-a:underline prose-img:rounded-[var(--r-lg)]">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
+            urlTransform={url => isBoardStorageImage(url) && post.imageUrls?.includes(url) ? url : normalizeUserContentUrl(url) ?? ""}
             components={{
               a: ({ node: _node, href, children, ...props }) => {
                 const safeHref = normalizeUserContentUrl(href);
@@ -285,9 +302,9 @@ const PostDetailPage: React.FC = () => {
                 return <a {...props} href={safeHref} target="_blank" rel="noopener noreferrer">{children}</a>;
               },
               img: ({ node: _node, src, ...props }) => {
-                const safeSrc = normalizeUserContentUrl(src);
+                const safeSrc = isBoardStorageImage(src) && post.imageUrls?.includes(src) ? src : normalizeUserContentUrl(src);
                 if (!safeSrc) return null;
-                return <SafeImage {...props} src={safeSrc} alt={props.alt || t("label.embeddedImage")} referrerPolicy="no-referrer" />;
+                return <BoardImage {...props} src={safeSrc} alt={props.alt || t("label.embeddedImage")} referrerPolicy="no-referrer" />;
               },
             }}
           >
@@ -334,9 +351,10 @@ const PostDetailPage: React.FC = () => {
           </div>
         )}
 
-        <div className="flex items-center gap-4 pt-6 border-t border-[var(--line-soft)]">
+        <div className="board-post-reactions flex items-center gap-4 pt-6 border-t border-[var(--line-soft)]">
           <button
             onClick={handleLikeToggle}
+            aria-pressed={isLiked}
             className={`flex items-center gap-1.5 transition-colors text-[length:var(--fs-sm)] font-medium ${
               isLiked
                 ? 'text-[var(--lime)]'
@@ -357,9 +375,9 @@ const PostDetailPage: React.FC = () => {
       </Card>
 
       {/* Comments Section */}
-      <section data-testid="M2-C" className="space-y-4 mb-10">
-        <h2 className="font-bold text-[length:var(--fs-lg)] text-[var(--ink-0)] flex items-center gap-2">
-          {t('comments')} <span className="text-[var(--lime)]">{comments.length}</span>
+      <section data-testid="M2-C" className="board-comments space-y-4 mb-10" aria-labelledby="board-comments-title">
+        <h2 id="board-comments-title" className="font-bold text-[length:var(--fs-lg)] text-[var(--ink-0)] flex items-center gap-2">
+          {t('comments')} <span className="text-[var(--lime)]">{visibleComments.length}</span>
         </h2>
 
         {/* Comment Input */}
@@ -374,7 +392,7 @@ const PostDetailPage: React.FC = () => {
           /></div>
         ) : (
           <Card className="mb-6" padding="compact">
-            <div className="flex items-center justify-between gap-3">
+            <div className="board-comment-login flex items-center justify-between gap-3">
               <span className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("comment.loginRequired")}</span>
               <Button type="button" variant="secondary" size="sm" onClick={() => navigate("/settings/account")}>
                 {t("comment.loginAction")}
@@ -383,17 +401,25 @@ const PostDetailPage: React.FC = () => {
           </Card>
         )}
 
-        <div className="space-y-3">
-          {comments.map((comment) => (
-            <Card key={comment.id} padding="none" className="p-4! md:p-6! rounded-[var(--r-lg)]">
-              <div className="flex items-center gap-2 mb-2">
+        <div className="space-y-3" aria-busy={commentsLoading}>
+          {commentsLoading ? <LoadingSkeleton kind="card" /> : commentsError ? (
+            <p role="alert" className="board-comment-empty">{t('error.loadFailed')}</p>
+          ) : visibleComments.length === 0 ? (
+            <div className="board-comment-empty">
+              <p>{t('comment.emptyTitle')}</p>
+              <p>{t('comment.emptyDescription')}</p>
+            </div>
+          ) : null}
+          {visibleComments.map((comment) => (
+            <Card key={comment.id} padding="none" className="board-comment-card p-4! md:p-6! rounded-[var(--r-lg)]">
+              <div className="board-comment-meta">
                 {comment.profileImage ? (
                   <SafeImage src={comment.profileImage} alt={comment.nickname} fallbackLabel={comment.nickname} className="w-5 h-5 rounded-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   <div className="w-5 h-5 rounded-full bg-[var(--bg-3)]" />
                 )}
                 <span className="font-bold text-[length:var(--fs-sm)] text-[var(--ink-1)]">{comment.nickname}</span>
-                <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{new Date(comment.createdAt).toLocaleString()}</span>
+                <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{new Date(comment.createdAt).toLocaleString(i18n.language)}</span>
                 {user && user.uid === comment.userId && (
                   <button
                     onClick={() => handleDeleteComment(comment.id)}

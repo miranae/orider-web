@@ -93,7 +93,7 @@ describe("BoardPage tag filter defaults", () => {
   it("starts with no tag excluded so the filter chips reflect the actual list", async () => {
     const source = await readFile(`${process.cwd()}/src/pages/BoardPage.tsx`, "utf8");
 
-    expect(source).toContain("useState<Set<string>>(() => new Set())");
+    expect(source).toContain("new Set(searchParams.getAll('exclude'))");
     expect(source).not.toContain('new Set(["AI"])');
   });
 
@@ -125,8 +125,8 @@ describe("BoardPage desktop width contract", () => {
       readFile(`${process.cwd()}/src/pages/CreatePostPage.tsx`, "utf8"),
     ]);
 
-    expect(detailSource).toContain('className="mx-auto max-w-[1440px] space-y-6"');
+    expect(detailSource).toContain('className="board-detail board-reading-surface mx-auto space-y-6"');
     expect(detailSource).not.toContain("max-w-[896px]");
-    expect(createSource).toContain('className="mx-auto max-w-[1120px] space-y-6"');
+    expect(createSource).toContain('className="board-writing board-reading-surface mx-auto space-y-6"');
   });
 });
