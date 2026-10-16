@@ -86,8 +86,10 @@ export function useMonthlyChallenge(uid: string | null | undefined, now = Date.n
         collection(firestore, "activities"),
         where("userId", "==", uid),
         where("deletedAt", "==", null),
-        where("createdAt", ">=", window.startMs),
-        orderBy("createdAt", "desc"),
+        // 늦게 업로드한 활동과 월 경계 쌍둥이도 포함하되, 전체 이력은 구독하지 않는다.
+        where("startTime", ">=", window.startMs - 86400000),
+        where("startTime", "<", window.endMs + 86400000),
+        orderBy("startTime", "desc"),
       ),
       (snapshot) => {
         const total = acceptedPhysicalActivities(snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Activity))).reduce((sum, activity) => {

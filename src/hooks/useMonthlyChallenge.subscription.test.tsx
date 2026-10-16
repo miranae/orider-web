@@ -1,0 +1,40 @@
+import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { onSnapshot, where } from "firebase/firestore";
+import { afterEach, expect, it, vi } from "vitest";
+import { kstMonthWindow, useMonthlyChallenge } from "./useMonthlyChallenge";
+
+afterEach(cleanup);
+
+it("월 경계 후보와 지연 업로드를 운동 시각으로 한 번만 구독하고 대표 날짜로 집계한다", async () => {
+  const now = Date.parse("2026-10-15T00:00:00Z");
+  const window = kstMonthWindow(now);
+  const native = {userId: "rider", source: "orider", type: "Ride", startTime: window.startMs - 15000,
+    createdAt: window.startMs - 86400000, summary: {distance: 3000, ridingTimeMillis: 3600000}};
+  const lateUpload = {...native, startTime: window.startMs + 3 * 86400000, createdAt: window.endMs + 86400000,
+    summary: {distance: 2000, ridingTimeMillis: 3600000}};
+  const stop = vi.fn();
+  vi.mocked(onSnapshot).mockClear().mockImplementation((ref, next) => {
+    if (typeof next !== "function") throw new Error("expected snapshot callback");
+    if ((ref as unknown as {path?: string}).path?.includes("participation")) {
+      next({data: () => ({tierKm: 300, joinedAt: now})} as never);
+    } else {
+      next({docs: [
+        {id: "native", data: () => native},
+        {id: "strava_1", data: () => ({...native, source: "strava", startTime: window.startMs + 15000})},
+        {id: "late-upload", data: () => lateUpload},
+      ]} as never);
+    }
+    return stop;
+  });
+  vi.mocked(where).mockClear();
+  const {result, rerender, unmount} = renderHook(({time}) => useMonthlyChallenge("rider", time), {initialProps: {time: now}});
+  await waitFor(() => expect(result.current.progress?.distanceKm).toBe(5));
+  expect(where).toHaveBeenCalledWith("startTime", ">=", window.startMs - 86400000);
+  expect(where).toHaveBeenCalledWith("startTime", "<", window.endMs + 86400000);
+  expect(vi.mocked(where).mock.calls.some(([field]) => field === "createdAt")).toBe(false);
+  expect(onSnapshot).toHaveBeenCalledTimes(2); // 참여 문서 + 범위가 제한된 활동 쿼리
+  rerender({time: now + 60000});
+  expect(onSnapshot).toHaveBeenCalledTimes(2);
+  unmount();
+  expect(stop).toHaveBeenCalledTimes(2);
+});

@@ -24,6 +24,7 @@ function formatDuration(ms: number): string {
 
 interface MobileLogPageProps {
   activities: Activity[];
+  representativeCandidates?: Activity[];
   ftp?: number;
   plannedDates?: string[];
   plannedSports?: Record<string, "bike" | "run" | "swim">;
@@ -58,7 +59,7 @@ function MobileLogSkeleton() {
   );
 }
 
-export default function MobileLogPage({ activities, year, month, onChangeMonth, loading = false, ftp, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
+export default function MobileLogPage({ activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, ftp, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
   const { t, i18n } = useTranslation("activity");
   const DAY_NAMES = (t("mobileLog.dayNames", { returnObjects: true }) as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const [tab, setTab] = useState<"month" | "activity">("month");
@@ -111,7 +112,8 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
     return d.getUTCFullYear() === year && d.getUTCMonth() === month;
   });
 
-  const monthRepresentatives = acceptedPhysicalActivities(activities, ftp).filter((activity) => monthActs.includes(activity));
+  const monthIds = new Set(monthActs.map((activity) => activity.id));
+  const monthRepresentatives = acceptedPhysicalActivities(representativeCandidates, ftp).filter((activity) => monthIds.has(activity.id));
   const activeDays = new Set(monthRepresentatives.map(a => planCalendarDate(a.startTime).getUTCDate())).size;
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const monthTotals = {
