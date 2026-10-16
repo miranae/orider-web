@@ -1,0 +1,20 @@
+/* Analysis controls only; menus/calendars portal outside clipped charts and details. */
+.fitness-analysis-controls { min-width: 0; }
+.fitness-analysis-controls .fitness-date-control { display: grid; gap: var(--space-2); min-width: 0; }
+.fitness-analysis-controls .ds-dropdown-select { min-width: 0; max-width: 100%; }
+.fitness-analysis-controls .ds-dropdown-select__trigger,
+.fitness-analysis-controls .ds-input,
+.fitness-analysis-controls button[aria-haspopup="dialog"],
+.fitness-analysis-controls .ds-btn { box-sizing: border-box; min-height: var(--dim-button-height); height: var(--dim-button-height); }
+.fitness-analysis-controls label:has(> .ds-dropdown-select),
+.fitness-analysis-controls label:has(> div > button[aria-haspopup="dialog"]) { display: grid; gap: var(--space-2); min-width: 0; max-width: 100%; }
+.fitness-analysis-controls .flex:has(> label > .ds-dropdown-select) { align-items: end; }
+.fitness-analysis-controls .native-twelve-controls > label { min-inline-size: min(100%, calc(var(--space-8) * 3)); }
+.fitness-analysis-controls .ds-dropdown-select__trigger { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 30rem) {
+  .fitness-analysis-controls label:has(> .ds-dropdown-select) { flex: 1 1 100%; }
+  .fitness-analysis-controls .ds-dropdown-select { max-width: 100%; }
+}
+
+.fitness-analysis-controls .pmc-history__navigation,
+.fitness-analysis-controls .training-execution-actions__row { align-items: end; flex-wrap: wrap; }
