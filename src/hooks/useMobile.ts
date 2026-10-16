@@ -2,21 +2,22 @@ import { useState, useEffect } from "react";
 
 const MOBILE_BREAKPOINT = 768;
 
-function matchesMobile(): boolean {
+function matchesMobile(query: string): boolean {
   if (typeof window === "undefined") return false;
-  return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px), (pointer: coarse)`).matches;
+  return window.matchMedia(query).matches;
 }
 
-export function useMobile(): boolean {
-  const [isMobile, setIsMobile] = useState(matchesMobile);
+export function useMobile(breakpoint = MOBILE_BREAKPOINT): boolean {
+  const query = `(max-width: ${breakpoint - 1}px), (pointer: coarse)`;
+  const [isMobile, setIsMobile] = useState(() => matchesMobile(query));
 
   useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px), (pointer: coarse)`);
-    const handler = () => setIsMobile(matchesMobile());
+    const mq = window.matchMedia(query);
+    const handler = () => setIsMobile(mq.matches);
     mq.addEventListener("change", handler);
-    setIsMobile(matchesMobile());
+    setIsMobile(mq.matches);
     return () => mq.removeEventListener("change", handler);
-  }, []);
+  }, [query]);
 
   return isMobile;
 }

@@ -257,7 +257,8 @@
     "syncDeviceError": "device: {{message}}",
     "syncBikeError": "bike: {{message}}",
     "confirmWeight": "Confirm my weight",
-    "confirmThreshold": "Confirm this threshold"
+    "confirmThreshold": "Confirm this threshold",
+    "coachThresholds": "Training thresholds for all sports"
   },
   "strava": {
     "account": "Strava account",
@@ -940,6 +941,7 @@
   "threshold": {
     "suggestionTitle": "Threshold update suggestion from recent activity",
     "maxHrLabel": "Max HR",
+    "dismissFailed": "Could not dismiss this suggestion. Please try again.",
     "dismiss": "Dismiss",
     "acceptAll": "Accept all",
     "acceptHeartRate": "Apply heart-rate thresholds only",

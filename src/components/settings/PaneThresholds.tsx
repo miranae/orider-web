@@ -26,6 +26,8 @@ import {
   ZoneBar,
   monoInputStyle,
 } from "./_primitives";
+import GlossaryText from "../common/GlossaryText";
+import "./PaneThresholds.css";
 import { ThresholdSuggestionBanner } from "./ThresholdSuggestionBanner";
 import { Button, Text } from "../../theme/components";
 import { estimateFtpFromTest, isConservativeDrop, type FtpTestProtocol } from "@shared/training/ftpTest";
@@ -366,12 +368,12 @@ export function PaneThresholds() {
   return (
     <>
     {loadFailed && <div role="alert">{t("training.loadFailed")} <Button onClick={() => setLoadAttempt(value => value + 1)}>{t("common:button.retry")}</Button></div>}
-    <fieldset data-testid="K1-5" disabled={!loaded || saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+    <fieldset className="threshold-fields" data-testid="K1-5" disabled={!loaded || saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
 
       <div data-testid="K1-5-1"><StatGrid
         items={[
-          { label: "FTP", value: ftp || "—", unit: "W" },
-          { label: "W/kg", value: wkg, highlight: true },
+          { label: <GlossaryText>FTP</GlossaryText>, value: ftp || "—", unit: "W" },
+          { label: <GlossaryText>W/kg</GlossaryText>, value: wkg, highlight: true },
           { label: t("training.statMaxHr"), value: maxHr || "—", unit: "bpm" },
           { label: t("training.statVo2max"), value: "—", unit: t("training.statUnit"), muted: true },
         ]}
@@ -450,8 +452,8 @@ export function PaneThresholds() {
 
       {/* FTP 테스트 모드 — Ramp/20분/All-out 전용 테스트에서 FTP 후보 산출 → 보수적 확인 → 적용(#307).
           적용 시 아래 FTP 필드를 채우며, 저장하면 임계 우선순위(프로필 우선)에 따라 과거 분석에 즉시 재반영. */}
-      <SettingsCard data-testid="K1-5-5" title={t("training.ftpTest.title")} dense>
-        <Text as="div" variant="eyebrow" style={{ color: "var(--ink-3)", marginBottom: "var(--space-2)" }}>
+      <SettingsCard data-testid="K1-5-5" title={<GlossaryText>{t("training.ftpTest.title")}</GlossaryText>} dense>
+        <Text as="div" variant="bodySmall" style={{ color: "var(--ink-3)", marginBottom: "var(--space-2)" }}>
           {t("training.ftpTest.desc")}
         </Text>
         <div style={{ display: "flex", gap: "var(--space-1-5)", flexWrap: "wrap", marginBottom: "var(--space-2)" }}>
@@ -475,7 +477,7 @@ export function PaneThresholds() {
           ))}
         </div>
         <FieldGrid cols={2}>
-          <Field label={t(`training.ftpTest.input.${ftpTestProtocol}`)} hint={t("training.ftpTest.inputHint")}>
+          <Field explain label={t(`training.ftpTest.input.${ftpTestProtocol}`)} hint={t("training.ftpTest.inputHint")}>
             <input
               value={ftpTestInput}
               onChange={(e) => setFtpTestInput(e.target.value.replace(/[^0-9]/g, ""))}
@@ -521,7 +523,7 @@ export function PaneThresholds() {
         action={<Text variant="eyebrow">{t("training.cardThresholdsAction")}</Text>}
       >
         <FieldGrid cols={3}>
-          <Field label="FTP" hint={t("training.fieldFtpHint")}>
+          <Field explain label="FTP" hint={t("training.fieldFtpHint")}>
             <input
               value={ftp}
               onChange={(e) => {
@@ -541,7 +543,7 @@ export function PaneThresholds() {
               style={monoInputStyle}
             />
           </Field>
-          <Field label="LTHR" hint={t("training.fieldLthrHint")}>
+          <Field explain label="LTHR" hint={t("training.fieldLthrHint")}>
             <input
               value={lthr}
               onChange={(e) => setLthr(e.target.value.replace(/[^0-9]/g, ""))}
@@ -559,7 +561,7 @@ export function PaneThresholds() {
               {t("training.confirmThreshold")}
             </Button>}
           </Field>
-          <Field label="CSS" hint={t("training.fieldCssHint")}>
+          <Field explain label="CSS" hint={t("training.fieldCssHint")}>
             <input
               value={css}
               onChange={(e) => setCss(e.target.value)}
@@ -577,7 +579,7 @@ export function PaneThresholds() {
         data-testid="K1-5-4" title={t("training.cardHrZones")}
         action={<Text variant="eyebrow">{t(`training.hrZonesSource.${hrZonePreview.source}`, { bpm: hrZonePreview.referenceBpm })}</Text>}
       >
-        <ZoneBar refValue={hrZonePreview.referenceBpm} zones={hrZonePreview.zones} />
+        <ZoneBar refValue={hrZonePreview.referenceBpm} zones={hrZonePreview.zones} compactLegend />
         <div style={{ marginTop: 'var(--space-4)', fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
           {t(`training.hrZonesNote.${hrZonePreview.source}`)}
         </div>

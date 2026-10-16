@@ -83,8 +83,8 @@ export default function ImpersonationBanner() {
   return (
     <div
       role="alert"
-      className="sticky top-0 z-50 flex items-center gap-3 bg-[var(--color-accent)] px-3 py-2"
-      style={{ color: "var(--ink-0)", fontSize: "var(--fs-sm)" }}
+      className="sticky top-0 z-50 flex items-center gap-3 bg-[var(--color-primary-dark)] px-3 py-2"
+      style={{ color: "var(--primary-fg)", fontSize: "var(--fs-sm)" }}
     >
       <span className="flex-1">
         위임 세션 — <strong>{name}</strong> 으로 로그인 중 (발급: {issuedBy})
@@ -93,7 +93,7 @@ export default function ImpersonationBanner() {
         type="button"
         onClick={onExit}
         className="border px-2 py-1"
-        style={{ borderColor: "var(--ink-0)", fontSize: "var(--fs-sm)", borderRadius: "var(--r-md)" }}
+        style={{ borderColor: "var(--primary-fg)", fontSize: "var(--fs-sm)", borderRadius: "var(--r-md)" }}
       >
         종료
       </button>

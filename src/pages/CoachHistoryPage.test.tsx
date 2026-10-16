@@ -21,7 +21,7 @@ vi.mock("../services/coachHistoryClient", () => ({
   deleteAllCoachThreads: (...args: unknown[]) => mocks.removeAll(...args),
   isCoachHistoryTransportError: (error: unknown) => error instanceof Error && error.name === "CoachHistoryTransportError",
 }));
-vi.mock("../services/coachClient", () => ({ getCoachStatus: () => mocks.status() }));
+vi.mock("../services/coachClient", () => ({ getCoachStatus: () => mocks.status(), getCoachProgressPlannerCapabilities: async () => ({ apiVersions: [] }) }));
 vi.mock("../services/coachConsentClient", () => ({ getCoachConsentPolicy: () => mocks.policy() }));
 vi.mock("../features/coach/CoachAnswerDocument", () => ({ CoachAnswerDocumentView: ({ response }: { response: { requestId: string } }) => <div>answer {response.requestId}</div> }));
 vi.mock("../features/coach/FirstUseCoachConsent", () => ({ FirstUseCoachConsent: ({ open, onCancel, onConsented }: {
@@ -80,9 +80,15 @@ describe("CoachHistoryPage", () => {
     expect(mocks.list).not.toHaveBeenCalled();
   });
 
+  it("uses the URL sport for a new question instead of the profile preference", async () => {
+    setup("/ko/coach/chat?sport=bike");
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    expect(await screen.findByText("사이클 기록 분석")).toBeInTheDocument();
+  });
+
   it("renders the saved list and performs a confirmed permanent thread delete", async () => {
     setup();
-    expect(await screen.findByRole("link", { name: /이번 주 운동량/ })).toHaveAttribute("href", `/ko/coach/chat/${threadId}`);
+    expect(await screen.findByRole("link", { name: /이번 주 운동량/ })).toHaveAttribute("href", `/ko/coach/chat/${threadId}?sport=bike`);
     await userEvent.click(screen.getByRole("button", { name: "이번 주 운동량 대화 삭제" }));
     await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith(threadId));
     expect(mocks.confirm).toHaveBeenCalledWith(expect.stringContaining("복구할 수 없습니다"), expect.objectContaining({ destructive: true }));

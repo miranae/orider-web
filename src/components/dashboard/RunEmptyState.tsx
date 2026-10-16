@@ -1,3 +1,4 @@
+import GlossaryText from "../common/GlossaryText";
 /**
  * 러닝 데이터 없는 상태 — 첫 동기화 여정 (설계 문서 §3.0).
  *
@@ -10,13 +11,14 @@
  */
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Footprints } from "lucide-react";
+import RunIcon from "../common/RunIcon";
 import { buttonClass, Card, Text } from "../../theme/components";
 import { useStrava } from "../../hooks/useStrava";
 import { track } from "../../services/analytics";
+import { LocalizedLink as Link } from "../LocalizedLink";
 
 export interface RunEmptyStateProps {
-  /** Strava 연결 여부 — 연결됐으면 "첫 러닝 대기" 문구로 바뀐다. */
+  /** Strava 연결 여부에 따라 최근 기록을 불러오는 방법을 안내한다. */
   stravaConnected: boolean;
 }
 
@@ -37,13 +39,13 @@ export default function RunEmptyState({ stravaConnected }: RunEmptyStateProps) {
 
   const handleConnect = () => {
     track("or_run_empty_state_cta", { stravaConnected });
-    connectStrava("/");
+    connectStrava("/?sport=run");
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
       <div style={{ textAlign: "center", padding: "var(--space-6) var(--space-3) var(--space-2)" }}>
-        <Footprints size={32} aria-hidden="true" style={{ color: "var(--ink-3)" }} />
+        <RunIcon size={32} aria-hidden="true" style={{ color: "var(--ink-3)", margin: "0 auto" }} />
         {/* 한국어는 어절 단위로 끊어야 읽힌다 — keep-all 없이는 좁은 폭에서 단어 중간이 갈린다. */}
         <Text
           as="h2"
@@ -62,16 +64,21 @@ export default function RunEmptyState({ stravaConnected }: RunEmptyStateProps) {
           {stravaConnected ? t("runEmpty.waitingSubtitle") : t("runEmpty.subtitle")}
         </Text>
 
-        {!stravaConnected && (
-          <button
-            type="button"
-            onClick={handleConnect}
-            className={buttonClass({ variant: "primary", size: "md" })}
-            style={{ minHeight: 44 }}
-          >
-            {t("runEmpty.connectCta")}
-          </button>
-        )}
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "var(--space-2)" }}>
+          {!stravaConnected && (
+            <button
+              type="button"
+              onClick={handleConnect}
+              className={buttonClass({ variant: "primary", size: "md" })}
+              style={{ minHeight: 44, background: "var(--color-primary-dark)", color: "var(--primary-fg)" }}
+            >
+              {t("runEmpty.connectCta")}
+            </button>
+          )}
+          <Link to="/athlete/me/activities?sport=run&import=1" className={buttonClass({ variant: stravaConnected ? "primary" : "secondary", size: "md" })} style={stravaConnected ? { background: "var(--color-primary-dark)", color: "var(--primary-fg)" } : undefined}>
+            {t("runEmpty.importCta")}
+          </Link>
+        </div>
       </div>
 
       {/* 샘플 해석 카드 — 정적 가상 데이터. 점선 테두리로 실데이터와 구분. */}
@@ -84,7 +91,7 @@ export default function RunEmptyState({ stravaConnected }: RunEmptyStateProps) {
             top: "calc(var(--space-3) * -1)",
             left: "var(--space-4)",
             background: "var(--amber)",
-            color: "var(--bg-0)",
+            color: "var(--ink-0)",
             borderRadius: "var(--r-sm)",
             padding: "2px var(--space-2)",
             fontWeight: 700,
@@ -95,7 +102,7 @@ export default function RunEmptyState({ stravaConnected }: RunEmptyStateProps) {
         </Text>
 
         <Text as="p" variant="body" tone="primary" style={{ margin: 0, lineHeight: 1.55 }}>
-          {t("runEmpty.sampleSentence", { gap: SAMPLE.gapLabel })}
+          <GlossaryText>{t("runEmpty.sampleSentence", { gap: SAMPLE.gapLabel })}</GlossaryText>
         </Text>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
@@ -107,7 +114,7 @@ export default function RunEmptyState({ stravaConnected }: RunEmptyStateProps) {
 
       <Text as="div" variant="caption" tone="tertiary" style={{ textAlign: "center" }}>
         {t("runEmpty.manualHint")}{" "}
-        <a href="/web-manual/ch08-multisport.html" style={{ color: "var(--accent)", fontWeight: 600 }}>
+        <a href="/web-manual/ch08-multisport.html" style={{ color: "var(--ink-1)", textDecoration: "underline", fontWeight: 600 }}>
           {t("runEmpty.manualCta")}
         </a>
       </Text>
@@ -118,7 +125,7 @@ export default function RunEmptyState({ stravaConnected }: RunEmptyStateProps) {
 function SampleStat({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ background: "var(--bg-2)", borderRadius: "var(--r-md)", padding: "var(--space-2) var(--space-3)" }}>
-      <Text as="div" variant="caption" tone="tertiary">{label}</Text>
+      <Text as="div" variant="caption" tone="tertiary"><GlossaryText>{label}</GlossaryText></Text>
       <Text as="div" variant="dataSmall" mono tone="primary">{value}</Text>
     </div>
   );

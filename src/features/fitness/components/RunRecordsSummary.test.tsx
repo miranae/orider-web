@@ -16,8 +16,7 @@ describe("analysis running records summary", () => {
     const invalid = { ...record("5km", 60), activityId: "" };
     const evidence: RunEvidence = { thresholdPaceSec: null, records: [invalid], unverifiedRecords: [{ distance: "5km", storedValue: 1200, date: "2026-10-01", activityId: "old", startTime: 1, qualification: "legacy_unverified", unit: "unverified" }] };
     render(<MemoryRouter><RunRecordsSummary evidence={evidence} /></MemoryRouter>);
-    expect(screen.getByTestId("K5-4")).toHaveTextContent("5km · 출처 미확인");
-    expect(screen.getByTestId("K5-4")).toHaveTextContent("10km · 아직 없어요");
+    expect(screen.getByTestId("K5-4")).toHaveTextContent("시간과 페이스를 표시하지 않습니다");
     expect(screen.getByTestId("K5-4")).not.toHaveTextContent("20:00");
     expect(screen.getByTestId("K5-4")).not.toHaveTextContent("1:00");
   });

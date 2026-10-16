@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useNavigate } from "react-router-dom";
 import { getDocs, onSnapshot, where } from "firebase/firestore";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TrainingLogPage from "./TrainingLogPage";
@@ -39,7 +39,27 @@ function expectMetric(label: string, value: string) {
   expect(screen.getByText(label).parentElement).toHaveTextContent(value);
 }
 
+function QueryNavigation() {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate("?sport=bike")}>Change sport query</button>;
+}
+
 describe("운동 기록의 부분 요약", () => {
+  it("desktop calendar honors sport queries and subsequent navigation", async () => {
+    const docs = [
+      { id: "bike", data: () => ({ userId: "rider", startTime, type: "Ride", summary: { distance: 20000, tss: 30 } }) },
+      { id: "run", data: () => ({ userId: "rider", startTime: startTime + 7200000, type: "Run", summary: { distance: 5000, tss: 20 } }) },
+    ];
+    vi.mocked(getDocs).mockReset();
+    vi.mocked(getDocs).mockResolvedValue({ docs: [], empty: true } as never).mockResolvedValueOnce({ docs, empty: false } as never);
+    render(<MemoryRouter initialEntries={["/?sport=run"]}><QueryNavigation /><TrainingLogPage /></MemoryRouter>);
+    await waitFor(() => expectMetric("총 거리", "5.0"));
+    expect(screen.getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Change sport query" }));
+    await waitFor(() => expectMetric("총 거리", "20.0"));
+    expect(screen.getByRole("button", { name: /사이클/ })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("데스크톱 합계와 캘린더에서 누락·비유한 측정값만 제외하고 활동 수와 TSS는 보존한다", async () => {
     const { container } = render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
     await waitFor(() => expectMetric("활동 수", "7"));

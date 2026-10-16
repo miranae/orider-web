@@ -341,9 +341,10 @@ interface PerDisciplineCardProps {
   unit: string;
   lastSess: string;
   href: string;
+  disabled?: boolean;
 }
 
-function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess, href }: PerDisciplineCardProps) {
+function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess, href, disabled = false }: PerDisciplineCardProps) {
   const { t } = useTranslation("fitness");
   const w = 180, h = 48;
   const max = Math.max(...ctl);
@@ -353,18 +354,13 @@ function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess
   const path = ctl.map((v, i) => `${i ? "L" : "M"}${sx(i)} ${sy(v)}`).join(" ");
   const area = `M0 ${h} ${path.replace(/^M/, "L")} L${w} ${h} Z`;
 
-  return (
-    <Link data-testid="K1-8-3"
-      to={href}
-      className="block no-underline"
-      style={{ color: "inherit" }}
-    >
+  const content = (
       <Card variant="bare" padding="none" style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: "var(--space-2)", color: "inherit" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)' }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
-        <Text variant="eyebrow">{label}</Text>
+        <Text variant="caption">{label}</Text>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>→</span>
+        <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{disabled ? t("common:discipline.comingSoon") : "→"}</span>
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1-5)" }}>
         <Text variant="dataHero" style={{ fontSize: "var(--fs-3xl)", color, fontFamily: "var(--font-mono)" }}>
@@ -398,8 +394,9 @@ function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess
       </div>
       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{lastSess}</div>
       </Card>
-    </Link>
   );
+  return disabled ? <div role="group" data-testid="K1-8-3" aria-disabled="true" aria-label={`${label} · ${t("common:discipline.comingSoon")}`}>{content}</div>
+    : <Link data-testid="K1-8-3" to={href} className="block no-underline" style={{ color: "inherit" }}>{content}</Link>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -638,15 +635,15 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
       {/* 헤더 — PageHeader 패턴 */}
       <div className="site-shell" style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
         <div style={{ flex: 1 }}>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("triView.header.eyebrow")}</Text>
-          <h1 style={{ fontSize: "var(--fs-3xl)", fontWeight: 700, color: "var(--ink-0)", marginBottom: "var(--space-1-5)" }}>
+          <Text as="div" variant="caption" style={{ marginBottom: 'var(--space-2)' }}>{t("triView.header.eyebrow")}</Text>
+          <Text as="h1" variant="pageTitle" data-testid="K1-0-1" style={{ marginBottom: "var(--space-1-5)" }}>
             {t("triView.header.title")}
-          </h1>
+          </Text>
           <div style={{ color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
             {t("triView.header.subtitle")}
           </div>
         </div>
-        <DisciplineTabs includeTri />
+        <DisciplineTabs includeTri disabledKeys={["swim"]} />
       </div>
 
       <div className="site-shell" style={{ padding: "var(--space-5) var(--space-6) var(--space-8)" }}>
@@ -794,19 +791,19 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
             }}
           >
             <div>
-              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("daily.weekTSS")}</Text>
+              <Text as="div" variant="caption" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("daily.weekTSS")}</Text>
               <div><Text variant="dataMedium">{displayedWeeklyTss}</Text><Text variant="unit"> {t("triView.total")}</Text></div>
             </div>
             <div>
-              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.bike")}</Text>
+              <Text as="div" variant="caption" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.bike")}</Text>
               <div><Text variant="dataMedium">{weeklyEvidence.bike.display}</Text><Text variant="unit"> TSS</Text></div>
             </div>
             <div>
-              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.run")}</Text>
+              <Text as="div" variant="caption" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.run")}</Text>
               <div><Text variant="dataMedium">{weeklyEvidence.run.display}</Text><Text variant="unit"> TSS</Text></div>
             </div>
             <div>
-              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.swim")}</Text>
+              <Text as="div" variant="caption" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.swim")}</Text>
               <div><Text variant="dataMedium">{weeklyEvidence.swim.display}</Text><Text variant="unit"> TSS</Text></div>
             </div>
           </div>
@@ -826,7 +823,7 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 'var(--space-4)', alignItems: "start" }}>
           <PerDisciplineCard label={t("triView.cycling")} color={DISCIPLINE_CHART_COLORS.bike} ctl={bikeSpark} delta={bikeSpark.length >= 2 ? bikeSpark[bikeSpark.length - 1]! - bikeSpark[bikeSpark.length - 2]! : null} tss={weeklyEvidence.bike.display} dist="—" unit="km" lastSess={bikeSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=bike" />
           <PerDisciplineCard label={t("discipline.run")} color={DISCIPLINE_CHART_COLORS.run} ctl={runSpark} delta={runSpark.length >= 2 ? runSpark[runSpark.length - 1]! - runSpark[runSpark.length - 2]! : null} tss={weeklyEvidence.run.display} dist="—" unit="km" lastSess={runSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=run" />
-          <PerDisciplineCard label={t("discipline.swim")} color={DISCIPLINE_CHART_COLORS.swim} ctl={swimSpark} delta={swimSpark.length >= 2 ? swimSpark[swimSpark.length - 1]! - swimSpark[swimSpark.length - 2]! : null} tss={weeklyEvidence.swim.display} dist="—" unit="km" lastSess={swimSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=swim" />
+          <PerDisciplineCard disabled label={t("discipline.swim")} color={DISCIPLINE_CHART_COLORS.swim} ctl={swimSpark} delta={swimSpark.length >= 2 ? swimSpark[swimSpark.length - 1]! - swimSpark[swimSpark.length - 2]! : null} tss={weeklyEvidence.swim.display} dist="—" unit="km" lastSess={swimSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=swim" />
         </div>
       </div>
       </div>

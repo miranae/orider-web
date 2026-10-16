@@ -65,8 +65,7 @@ it("excludes bike FTP decisions from other sports", () => {
 });
 it("renders the two-line running analysis summary outside the full records board", () => {
   renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run", runEvidence: { thresholdPaceSec: null, records: [], unverifiedRecords: [{ distance: "5km", storedValue: 1200, date: "2026-10-01", activityId: "old", startTime: 1, qualification: "legacy_unverified", unit: "unverified" }] } }} part="analysis" />, { authenticated: true });
-  expect(screen.getByTestId("K5-4")).toHaveTextContent("5km · 출처 미확인");
-  expect(screen.getByTestId("K5-4")).toHaveTextContent("10km · 아직 없어요");
+  expect(screen.getByTestId("K5-4")).toHaveTextContent("시간과 페이스를 표시하지 않습니다");
   expect(screen.getByRole("link", { name: "기록 전체 보기 →" }).getAttribute("href")).toContain("/athlete/me/records?sport=run");
 });
 

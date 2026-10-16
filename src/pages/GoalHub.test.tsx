@@ -12,6 +12,8 @@ describe("goal hub", () => {
     state.goal = { id: "g", title: "Winter course", courseName: "Course", eventType: "completion" };
     renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />, { route: "/ko/coach/goals?sport=bike" });
     expect(screen.getByTestId("K3-1-1")).toHaveTextContent("Winter course");
+    expect(screen.getByTestId("K3-1-2")).toHaveTextContent("계획진행률12%");
+    expect(screen.getByRole("progressbar", { name: "목표 진행률" })).toHaveAttribute("aria-valuenow", "12");
     expect(screen.getByRole("button", { name: "목표 포기" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "계획 보기 →" })).toHaveAttribute("href", "/ko/coach/plan?sport=bike");
     expect(screen.queryByText("event wizard")).not.toBeInTheDocument();
@@ -23,7 +25,7 @@ describe("goal hub", () => {
     state.goal = { id: "g", title: "Projection goal", eventType: "completion" };
     setDocData("users/owner/fitness/projection_bike", { goalId: "g", discipline: "bike", goalDay: { ctl: 42, tsb: 5 } });
     renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />);
-    expect(await screen.findByText("CTL 42.0 · TSB 5.0")).toBeInTheDocument();
+    expect(await screen.findByText(/목표일 예상/)).toHaveTextContent("목표일 예상 · CTL 42.0 · TSB 5.0");
   });
   it("offers run race and program routes without a bike wizard", () => {
     state.sport = "run";
@@ -31,6 +33,15 @@ describe("goal hub", () => {
     expect(screen.getByRole("button", { name: "러닝 대회" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "30분 달리기 프로그램" })).toHaveAttribute("href", "/ko/coach/plan?sport=run");
     expect(screen.queryByRole("button", { name: "대회·코스 완주" })).not.toBeInTheDocument();
+  });
+  it("offers one current-program plan link and disables swimming without changing saved goals", () => {
+    state.sport = "run";
+    state.goal = { id: "run", title: "30분 달리기", runProgram: { week: 1 } };
+    renderWithProviders(<GoalHub wizard={<div>run wizard</div>} />);
+    expect(screen.getAllByRole("link", { name: "계획 보기 →" })).toHaveLength(1);
+    expect(screen.queryByRole("link", { name: "30분 달리기 프로그램" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "수영 · 준비 중" })).toBeDisabled();
+    expect(state.goal.runProgram).toEqual({ week: 1 });
   });
   it("requires sign-in for anonymous identities before type selection", () => {
     state.user = { uid: "anonymous", isAnonymous: true };

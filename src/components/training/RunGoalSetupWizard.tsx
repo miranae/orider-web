@@ -11,16 +11,17 @@ import { logClientError } from '../../services/errorLogger';
 import { FEAS_COLORS, FEAS_LABEL_KEYS } from './constants';
 import type { FeasibilityLabel } from '@shared/types/goal';
 import { DateField } from '../redesign';
+import "./goal-preview.css";
 import { Button, Card, Chip, Text } from "../../theme/components";
 
 // ── 러닝 이벤트 라이브러리 ──────────────────────────────────────────────────
 const EVENTS = [
-  { id: '5k',    dist: 5.0,   elev: 20,   cat: 'Short' },
-  { id: '10k',   dist: 10.0,  elev: 60,   cat: 'Mid'   },
-  { id: 'half',  dist: 21.1,  elev: 140,  cat: 'Long'  },
-  { id: 'full',  dist: 42.2,  elev: 280,  cat: 'Long'  },
-  { id: 'seoul', dist: 42.2,  elev: 320,  cat: 'Long'  },
-  { id: 'trail', dist: 24.0,  elev: 1240, cat: 'Trail' },
+  { id: '5k',    dist: 5.0,   cat: 'Short' },
+  { id: '10k',   dist: 10.0,   cat: 'Mid'   },
+  { id: 'half',  dist: 21.1,  cat: 'Long'  },
+  { id: 'full',  dist: 42.2,  cat: 'Long'  },
+  { id: 'seoul', dist: 42.2,  cat: 'Long'  },
+  { id: 'trail', dist: 24.0, cat: 'Trail' },
 ] as const;
 
 type RunGoalType = 'completion' | 'time' | 'race';
@@ -97,14 +98,11 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
     (eventDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 7),
   ));
 
-  const buildW = Math.round(weeksLeft * 0.6);
-  const peakW = Math.round(weeksLeft * 0.25);
-  const taperW = Math.max(1, weeksLeft - buildW - peakW);
 
   const minDate = new Date(today.getTime() + 4 * 7 * 24 * 60 * 60 * 1000);
   const minDateStr = minDate.toISOString().slice(0, 10);
 
-  const canNext = step === 1 ? true : step === 2 ? eventDate !== '' : true;
+  const canNext = step === 1 ? true : step === 2 ? eventDate >= minDateStr && (goalType === 'completion' || Number.isFinite(targetTotalSec) && targetTotalSec > 0) : true;
 
   const handleNext = () => setStep(s => Math.min(3, s + 1));
   const handlePrev = () => setStep(s => Math.max(1, s - 1));
@@ -143,22 +141,22 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
       {/* Step 1: 이벤트 선택 */}
       {step === 1 && (
-        <Card data-testid="K3-3-3" padding="none" style={{ padding: 26 }}>
+        <Card data-testid="K3-3-3" padding="none" style={{ padding: "var(--space-4)" }}>
           <div style={{ marginBottom: 'var(--space-4)' }}>
-            <div style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: 'var(--ink-0)', marginBottom: 'var(--space-1)' }}>
+            <Text as="h2" variant="subtitle" style={{ margin: '0 0 var(--space-1)' }}>
               {t('runWizard.selectHeading')}
-            </div>
-            <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>
+            </Text>
+            <div style={{ fontSize: "var(--fs-md)", color: 'var(--ink-2)' }}>
               {t('runWizard.selectSubtitle')}
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: "var(--space-2)" }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 14rem), 1fr))', gap: "var(--space-2)" }}>
             {EVENTS.map(e => {
               const sel = e.id === eventId;
               const diffColor = e.dist >= 30 ? 'var(--rose)' : e.dist >= 15 ? 'var(--amber)' : 'var(--lime)';
               return (
                 <button
-                  key={e.id}
+                  key={e.id} type="button" aria-pressed={sel}
                   onClick={() => setEventId(e.id)}
                   style={{
                     textAlign: 'left', padding: 'var(--space-4)', borderRadius: 'var(--r-md)',
@@ -169,13 +167,12 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
                     <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', flex: 1 }}>{t(`runWizard.event.${e.id}.name`)}</span>
-                    <Chip style={{ color: diffColor, borderColor: diffColor }}>{e.cat}</Chip>
+                    <Chip style={{ color: "var(--ink-1)", borderColor: diffColor }}>{t(`runWizard.category.${e.cat}`)}</Chip>
                   </div>
-                  <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginBottom: "var(--space-2)" }}>{t(`runWizard.event.${e.id}.kind`)}</div>
-                  <div style={{ display: 'flex', gap: "var(--space-3)", fontSize: "var(--fs-xs)", fontFamily: 'var(--font-mono)' }}>
-                    <span><span style={{ color: 'var(--ink-3)' }}>{t('runWizard.distanceLabel')} </span><span style={{ color: 'var(--ink-0)' }}>{e.dist} km</span></span>
-                    <span><span style={{ color: 'var(--ink-3)' }}>↑ </span><span style={{ color: 'var(--ink-0)' }}>{e.elev} m</span></span>
-                    <span style={{ marginLeft: 'auto', color: 'var(--ink-3)' }}>{t(`runWizard.event.${e.id}.tag`)}</span>
+                  <div style={{ fontSize: "var(--fs-md)", color: 'var(--ink-2)', marginBottom: "var(--space-2)" }}>{t(`runWizard.event.${e.id}.kind`)}</div>
+                  <div style={{ display: 'flex', gap: "var(--space-3)", fontSize: "var(--fs-md)" }}>
+                    <span><span style={{ color: 'var(--ink-2)' }}>{t('runWizard.distanceLabel')} </span><span style={{ color: 'var(--ink-0)', fontFamily: 'var(--font-mono)' }}>{e.dist} km</span></span>
+                    <span style={{ marginLeft: 'auto', color: 'var(--ink-2)' }}>{t(`runWizard.event.${e.id}.tag`)}</span>
                   </div>
                 </button>
               );
@@ -186,11 +183,11 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
       {/* Step 2: 목표 설정 */}
       {step === 2 && (
-        <div data-testid="K3-3-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)' }}>
+        <div data-testid="K3-3-4" className="run-goal-details">
           <div>
             {/* 목표 유형 */}
-            <Text as="label" variant="eyebrow" style={{ display: 'block', marginBottom: 'var(--space-2)' }}>{t('runWizard.goalTypeLabel')}</Text>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: "var(--space-1-5)" }}>
+            <fieldset className="run-goal-types">
+              <legend><Text variant="bodyMedium">{t('runWizard.goalTypeLabel')}</Text></legend>
               {(['completion', 'time', 'race'] as const).map((v) => (
                 <label
                   key={v}
@@ -201,55 +198,48 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
                     display: 'flex', alignItems: 'flex-start', gap: "var(--space-2)",
                   }}
                 >
-                  <div
-                    style={{
-                      marginTop: "var(--space-1)", width: 16, height: 16, borderRadius: '50%',
-                      border: '2px solid ' + (goalType === v ? 'var(--lime)' : 'var(--line)'),
-                      background: goalType === v ? 'var(--lime)' : 'transparent',
-                      flexShrink: 0, cursor: 'pointer',
-                    }}
-                    onClick={() => setGoalType(v)}
-                  />
-                  <div onClick={() => setGoalType(v)} style={{ cursor: 'pointer' }}>
+                  <input type="radio" name="run-goal-type" value={v} checked={goalType === v} onChange={() => setGoalType(v)} />
+                  <div>
                     <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: 'var(--ink-0)' }}>{t(`runWizard.goalType.${v}`)}</div>
-                    <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: "var(--space-0-5)" }}>{t(`runWizard.goalTypeDesc.${v}`)}</div>
+                    <div style={{ fontSize: "var(--fs-md)", color: 'var(--ink-2)', marginTop: "var(--space-0-5)" }}>{t(`runWizard.goalTypeDesc.${v}`)}</div>
                   </div>
                 </label>
               ))}
-            </div>
+            </fieldset>
 
             {/* 목표일 */}
-            <Text as="label" variant="eyebrow" style={{ display: 'block', marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)' }}>{t('runWizard.targetDate')}</Text>
+            <label htmlFor="run-goal-date" style={{ display: 'block', marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)' }}><Text variant="bodyMedium">{t('runWizard.targetDate')}</Text></label>
             <DateField
+              id="run-goal-date"
               value={eventDate}
               min={minDateStr}
               onChange={setEventDate}
               placeholder={t('runWizard.targetDatePlaceholder')}
             />
             {eventDate && (
-              <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: "var(--space-1-5)", fontFamily: 'var(--font-mono)' }}>
-                {t('runWizard.daysLeft', { days: weeksLeft * 7, weeks: weeksLeft })}
+              <div style={{ fontSize: "var(--fs-md)", color: 'var(--ink-2)', marginTop: "var(--space-1-5)" }}>
+                {t('runWizard.daysLeft', { days: Math.ceil((eventDateObj.getTime() - today.getTime()) / 86400000), weeks: weeksLeft })}
               </div>
             )}
 
             {/* 목표 완주 시간 */}
             {goalType !== 'completion' && (
               <>
-                <Text as="label" variant="eyebrow" style={{ display: 'block', marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)' }}>{t('runWizard.targetTime')}</Text>
-                <div style={{ display: 'flex', gap: "var(--space-2)", alignItems: 'center' }}>
-                  <input type="number" value={goalHour} onChange={e => setGoalHour(+e.target.value)} min={0} max={12}
-                    style={{ width: 64, padding: '10px 12px', background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: "var(--r-md)", fontSize: "var(--fs-base)", color: 'var(--ink-0)', fontFamily: 'var(--font-mono)', textAlign: 'center' }} />
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>{t('runWizard.hourUnit')}</span>
-                  <input type="number" value={goalMin} onChange={e => setGoalMin(+e.target.value)} min={0} max={59}
-                    style={{ width: 64, padding: '10px 12px', background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: "var(--r-md)", fontSize: "var(--fs-base)", color: 'var(--ink-0)', fontFamily: 'var(--font-mono)', textAlign: 'center' }} />
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>{t('runWizard.minUnit')}</span>
-                  <input type="number" value={goalSec} onChange={e => setGoalSec(+e.target.value)} min={0} max={59}
-                    style={{ width: 64, padding: '10px 12px', background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: "var(--r-md)", fontSize: "var(--fs-base)", color: 'var(--ink-0)', fontFamily: 'var(--font-mono)', textAlign: 'center' }} />
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>{t('runWizard.secUnit')}</span>
-                </div>
+                <fieldset className="run-goal-time">
+                  <legend><Text variant="bodyMedium">{t('runWizard.targetTime')}</Text></legend>
+                  {([
+                    ['hours', goalHour, setGoalHour, 12, 'hourUnit'],
+                    ['minutes', goalMin, setGoalMin, 59, 'minUnit'],
+                    ['seconds', goalSec, setGoalSec, 59, 'secUnit'],
+                  ] as const).map(([key, value, setValue, max, unit]) => <label key={key}>
+                    <input type="number" aria-label={t(`runWizard.timeInput.${key}`)} value={value} min={0} max={max}
+                      onChange={event => setValue(Math.max(0, Math.min(max, Number(event.target.value))))} />
+                    <Text variant="caption">{t(`runWizard.${unit}`)}</Text>
+                  </label>)}
+                </fieldset>
                 <div style={{ marginTop: "var(--space-2)", padding: '10px 12px', background: 'var(--bg-2)', borderRadius: "var(--r-md)", border: '1px solid var(--line-soft)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{t('runWizard.requiredPace')}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: feasColor, fontWeight: 600 }}>
+                  <span style={{ fontSize: "var(--fs-md)", color: 'var(--ink-2)' }}>{t('runWizard.requiredPace')}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: "var(--ink-1)", fontWeight: 600 }}>
                     {secToMmss(feas.targetPaceSec)}/km
                   </span>
                 </div>
@@ -257,16 +247,16 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
             )}
 
             {/* 주당 운동 횟수 */}
-            <Text as="label" variant="eyebrow" style={{ display: 'block', marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)' }}>{t('runWizard.weeklySessions')}</Text>
-            <div style={{ display: 'flex', gap: "var(--space-1-5)" }}>
+            <Text as="label" variant="bodyMedium" style={{ display: 'block', marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)' }}>{t('runWizard.weeklySessions')}</Text>
+            <div role="group" aria-label={t('runWizard.weeklySessions')} style={{ display: 'flex', gap: "var(--space-1-5)" }}>
               {([1, 2, 3, 4, 5, 6] as const).map(n => (
                 <button
-                  key={n} type="button"
+                  key={n} type="button" aria-pressed={weeklySessions === n}
                   onClick={() => setWeeklySessions(n)}
                   style={{
-                    flex: 1, padding: '12px 0', borderRadius: "var(--r-md)", fontSize: "var(--fs-sm)", fontFamily: 'var(--font-mono)',
+                    flex: 1, padding: '12px 0', borderRadius: "var(--r-md)", fontSize: "var(--fs-sm)",
                     background: weeklySessions === n ? 'var(--accent-soft-bg)' : 'var(--bg-2)',
-                    color: weeklySessions === n ? 'var(--lime)' : 'var(--ink-3)',
+                    color: weeklySessions === n ? 'var(--ink-1)' : 'var(--ink-2)',
                     border: '1px solid ' + (weeklySessions === n ? 'var(--accent-soft-border)' : 'var(--line-soft)'),
                     cursor: 'pointer', fontWeight: weeklySessions === n ? 600 : 400,
                   }}
@@ -275,187 +265,71 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
                 </button>
               ))}
             </div>
-            <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: "var(--space-1-5)" }}>
+            <div style={{ fontSize: "var(--fs-md)", color: 'var(--ink-2)', marginTop: "var(--space-1-5)" }}>
               {t('runWizard.sessionsHint')}
             </div>
           </div>
 
           {/* Feasibility 패널 */}
           <div data-testid="K3-3-5" style={{ padding: 'var(--space-5)', background: 'var(--bg-2)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)', borderLeft: `3px solid ${feasColor}`, alignSelf: 'start' }}>
-            <GoalInputNotice assumed={inputs.thresholdPaceSource === "assumed"} />
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-2)', fontWeight: 500, marginBottom: 'var(--space-3)' }}>
+            <GoalInputNotice discipline="run" assumed={inputs.thresholdPaceSource === "assumed"} />
+            <Text as="div" variant="bodyMedium" tone="tertiary" style={{ marginBottom: 'var(--space-3)' }}>
               {t('runWizard.feasibilityLabel')}
-            </div>
-            <div style={{ fontSize: "var(--fs-4xl)", fontWeight: 700, color: feasColor, letterSpacing: '-0.02em', marginBottom: 'var(--space-1)' }}>
-              {t(FEAS_LABEL_KEYS[feas.label] ?? 'feasLabels.on_track')}
-            </div>
-            <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginBottom: 'var(--space-4)', lineHeight: 1.5 }}>
-              {t(`runWizard.feasDesc.${feas.label}`)}
+            </Text>
+            <Text as="div" variant="title" style={{ marginBottom: 'var(--space-1)' }}>
+              {goalType === 'completion' ? t('runWizard.completionComparison') : t(FEAS_LABEL_KEYS[feas.label] ?? 'feasLabels.on_track')}
+            </Text>
+            <div style={{ fontSize: "var(--fs-md)", color: 'var(--ink-2)', marginBottom: 'var(--space-4)', lineHeight: 1.5 }}>
+              {t(goalType === 'completion' ? 'runWizard.completionComparisonHelp' : `runWizard.feasDesc.${feas.label}`)}
             </div>
 
             <div style={{ height: 1, background: 'var(--line-soft)', margin: '14px 0' }} />
 
             {goalType !== 'completion' && (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: "var(--fs-xs)" }}>
-                  <span style={{ color: 'var(--ink-3)' }}>{t('runWizard.feasRequiredPace')}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', color: feasColor, fontWeight: 600 }}>{secToMmss(feas.targetPaceSec)}/km</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: "var(--fs-md)" }}>
+                  <span style={{ color: 'var(--ink-2)' }}>{t('runWizard.feasRequiredPace')}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: "var(--ink-1)", fontWeight: 600 }}>{secToMmss(feas.targetPaceSec)}/km</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: "var(--fs-xs)" }}>
-                  <span style={{ color: 'var(--ink-3)' }}>{t('runWizard.feasLthrPace')}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: "var(--fs-md)" }}>
+                  <span style={{ color: 'var(--ink-2)' }}>{t('runWizard.feasLthrPace')}</span>
                   <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-1)' }}>{secToMmss(lthrPaceSec)}/km</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: "var(--fs-xs)" }}>
-                  <span style={{ color: 'var(--ink-3)' }}>{t('runWizard.feasPb5k')}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-1)' }}>{secToMmss(lthrPaceSec - 30)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: "var(--fs-xs)", borderTop: '1px dashed var(--line-soft)', marginTop: "var(--space-1-5)", paddingTop: 'var(--space-3)' }}>
-                  <span style={{ color: 'var(--ink-3)' }}>{t('runWizard.feasGap')}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', color: feasColor, fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: "var(--fs-md)", borderTop: '1px dashed var(--line-soft)', marginTop: "var(--space-1-5)", paddingTop: 'var(--space-3)' }}>
+                  <span style={{ color: 'var(--ink-2)' }}>{t('runWizard.feasGap')}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: "var(--ink-1)", fontWeight: 600 }}>
                     {feas.gapSec >= 0 ? '+' : '−'}{secToMmss(Math.abs(feas.gapSec))}/km
                   </span>
                 </div>
               </>
             )}
             {eventDate && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: "var(--fs-xs)", borderTop: goalType !== 'completion' ? '1px solid var(--line-soft)' : 'none', marginTop: goalType !== 'completion' ? 12 : 0, paddingTop: 'var(--space-3)' }}>
-                <span style={{ color: 'var(--ink-3)' }}>{t('runWizard.trainingPeriod')}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-1)' }}>{t('runWizard.periodValue', { weeks: weeksLeft, sessions: weeksLeft * weeklySessions })}</span>
-              </div>
-            )}
-            {eventDate && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: "var(--fs-xs)" }}>
-                <span style={{ color: 'var(--ink-3)' }}>{t('runWizard.peakWeeklyDist')}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-1)' }}>
-                  {Math.round(ev.dist * 2.8)} km
-                </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: "var(--fs-md)", borderTop: goalType !== 'completion' ? '1px solid var(--line-soft)' : 'none', marginTop: goalType !== 'completion' ? 12 : 0, paddingTop: 'var(--space-3)' }}>
+                <span style={{ color: 'var(--ink-2)' }}>{t('runWizard.trainingPeriod')}</span>
+                <span style={{ color: 'var(--ink-1)' }}>{t('runWizard.periodValue', { weeks: weeksLeft, sessions: weeklySessions })}</span>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Step 3: 계획 확인 */}
-      {step === 3 && (
-        <div data-testid="K3-3-6" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          {/* KPI */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: "var(--space-2)" }}>
-            {([
-              [t('runWizard.kpi.totalWeeks'), String(weeksLeft), t('phase.weeksUnit')],
-              [t('runWizard.kpi.totalSessions'), String(weeksLeft * weeklySessions), null],
-              [t('runWizard.kpi.totalDist'), String(Math.round(weeksLeft * ev.dist * 2.2).toLocaleString()), 'km'],
-              [t('runWizard.kpi.tsbGoal'), '+12', null],
-            ] as const).map(([k, v, u]) => (
-              <div key={k} style={{ padding: "var(--space-3)", background: 'var(--bg-2)', borderRadius: "var(--r-md)", border: '1px solid var(--line-soft)' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-2)', fontWeight: 500, marginBottom: "var(--space-1-5)" }}>{k}</div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-1)' }}>
-                  <span style={{ fontSize: "var(--fs-3xl)", fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--ink-0)', letterSpacing: '-0.02em' }}>{v}</span>
-                  {u && <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>{u}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* 기간별 구성 */}
-          <div style={{ padding: 22, background: 'var(--bg-1)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)' }}>
-            <div style={{ marginBottom: "var(--space-3)" }}>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', marginBottom: "var(--space-0-5)" }}>{t('runWizard.phasesTitle')}</div>
-              <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{t('runWizard.phasesSubtitle')}</div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: `${buildW}fr ${peakW}fr ${taperW}fr`, gap: 1, border: '1px solid var(--line-soft)', borderRadius: "var(--r-md)", overflow: 'hidden' }}>
-              {([
-                ['buildup', buildW, 'var(--aqua)'],
-                ['peak', peakW, 'var(--lime)'],
-                ['taper', taperW, 'var(--amber)'],
-              ] as const).map(([key, weeks, color]) => (
-                <div key={key} style={{ padding: 'var(--space-4)', background: 'var(--bg-2)', borderLeft: `3px solid ${color}` }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', marginBottom: "var(--space-1-5)" }}>
-                    <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)' }}>{t(`runWizard.phase.${key}`)}</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{weeks}{t('phase.weeksUnit')}</span>
-                  </div>
-                  <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-2)', lineHeight: 1.5 }}>{t(`runWizard.phaseDesc.${key}`)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 페이스 존 */}
-          <div style={{ padding: 22, background: 'var(--bg-1)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)' }}>
-            <div style={{ marginBottom: 'var(--space-3)' }}>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', marginBottom: "var(--space-0-5)" }}>{t('runWizard.paceZonesTitle')}</div>
-              <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{t('runWizard.paceZonesSubtitle', { pace: secToMmss(lthrPaceSec) })}</div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 'var(--space-2)' }}>
-              {([
-                ['z1', lthrPaceSec + 90, lthrPaceSec + 120, 'var(--aqua)'],
-                ['z2', lthrPaceSec + 40, lthrPaceSec + 80, 'oklch(0.75 0.11 200)'],
-                ['z3', lthrPaceSec + 15, lthrPaceSec + 30, 'var(--amber)'],
-                ['z4', lthrPaceSec - 5, lthrPaceSec + 10, 'var(--lime)'],
-                ['z5', lthrPaceSec - 25, lthrPaceSec - 10, 'var(--rose)'],
-              ] as const).map(([key, fast, slow, color]) => (
-                <div key={key} style={{ padding: 'var(--space-3)', background: 'var(--bg-2)', borderRadius: "var(--r-md)", borderLeft: `3px solid ${color}` }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.06em', color, marginBottom: "var(--space-1-5)", fontWeight: 600 }}>{t(`runWizard.paceZone.${key}`)}</div>
-                  <div style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-0)', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
-                    {secToMmss(fast)} – {secToMmss(slow)}
-                  </div>
-                  <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: "var(--space-1)" }}>/km</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* TSB 곡선 */}
-          <div style={{ padding: 22, background: 'var(--bg-1)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)' }}>
-            <div style={{ marginBottom: 'var(--space-3)' }}>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', marginBottom: "var(--space-0-5)" }}>{t('runWizard.tsbTitle')}</div>
-              <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{t('runWizard.tsbSubtitle')}</div>
-            </div>
-            <svg viewBox="0 0 800 160" style={{ width: '100%', height: 160 }} preserveAspectRatio="none">
-              <line x1="0" x2="800" y1="80" y2="80" stroke="var(--line-soft)" strokeDasharray="4 4" />
-              {(() => {
-                const tsbProj = Array.from({ length: weeksLeft + 1 }, (_, i) => {
-                  if (i < buildW) return -5 - (i / buildW) * 15;
-                  if (i < buildW + peakW) return -20 + ((i - buildW) / peakW) * 10;
-                  return -10 + ((i - buildW - peakW) / Math.max(1, taperW)) * 22;
-                });
-                const pts = tsbProj.map((v, i) => [i * (800 / weeksLeft), 80 - v * 2.5] as [number, number]);
-                const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]} ${p[1]}`).join(' ');
-                return (
-                  <>
-                    <path d={`${d} L 800 160 L 0 160 Z`} fill="url(#runTsbF)" />
-                    <path d={d} stroke="var(--lime)" strokeWidth="2" fill="none" />
-                    <circle cx={800} cy={pts[pts.length - 1]![1]} r="5" fill="var(--lime)" stroke="var(--primary-fg)" strokeWidth="1.5" />
-                  </>
-                );
-              })()}
-              <defs>
-                <linearGradient id="runTsbF" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0" stopColor="var(--lime)" stopOpacity="0.2" />
-                  <stop offset="1" stopColor="var(--lime)" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-            </svg>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: "var(--fs-xs)", color: 'var(--ink-3)', fontFamily: 'var(--font-mono)', marginTop: 'var(--space-1)' }}>
-              <span>{t('runWizard.tsbToday')}</span>
-              <span>{t('runWizard.tsbBuildupLabel', { weeks: buildW })}</span>
-              <span>{t('runWizard.tsbPeakLabel', { weeks: buildW + peakW })}</span>
-              <span>{t('runWizard.tsbGoalDay', { date: eventDate })}</span>
-            </div>
-          </div>
-
-          {/* 안내 */}
-          <div style={{ padding: 'var(--space-4)', background: 'color-mix(in oklch, var(--lime) 6%, var(--bg-1))', border: '1px solid color-mix(in oklch, var(--lime) 25%, var(--line-soft))', borderRadius: "var(--r-lg)", fontSize: "var(--fs-xs)", color: 'var(--ink-1)', lineHeight: 1.6, display: 'flex', gap: 'var(--space-3)' }}>
-            <svg width={18} height={18} viewBox="0 0 18 18" fill="none" style={{ color: 'var(--lime)', flexShrink: 0, marginTop: "var(--space-0-5)" }}>
-              <circle cx="9" cy="9" r="8" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <div>
-              <strong style={{ color: 'var(--ink-0)' }}>{t('runWizard.infoTitle')}</strong>{' '}
-              {t('runWizard.infoBody')}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Step 3: 입력 내용 검토 — 실제 계획은 서버 생성 후 확인 */}
+      {step === 3 && <Card data-testid="K3-3-6" className="goal-preview" padding="compact">
+        <Text as="h2" variant="subtitle">{t('previewReview.title')}</Text>
+        <Text as="p" variant="bodySmall" tone="secondary">{t('previewReview.notSaved')}</Text>
+        <dl className="goal-preview__facts">
+          {[
+            [t('previewReview.event'), t(`runWizard.event.${ev.id}.name`)],
+            [t('previewReview.distance'), `${ev.dist} km`],
+            [t('previewReview.date'), eventDate],
+            [t('previewReview.goalType'), t(`runWizard.goalType.${goalType}`)],
+            [t('previewReview.frequency'), t('previewReview.sessions', { count: weeklySessions })],
+            [t('previewReview.remaining'), t('previewReview.weeks', { weeks: weeksLeft })],
+            ...(goalType !== 'completion' ? [[t('previewReview.duration'), `${goalHour}${t('runWizard.hourUnit')} ${goalMin}${t('runWizard.minUnit')} ${goalSec}${t('runWizard.secUnit')}`]] : []),
+          ].map(([label, value]) => <div key={label}><Text as="dt" variant="caption" tone="secondary">{label}</Text><Text as="dd" variant="bodyMedium" weight={600}>{value}</Text></div>)}
+        </dl>
+        <Text as="p" variant="bodySmall" tone="secondary">{t('previewReview.pendingPlan')}</Text>
+      </Card>}
 
       {/* 에러 */}
       {createError && (
@@ -478,7 +352,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
           zIndex: 5,
         }}
       >
-        <Button variant="ghost" onClick={handlePrev} style={{ opacity: step === 1 ? 0 : 1, pointerEvents: step === 1 ? 'none' : 'auto' }}>
+        <Button variant="ghost" disabled={step === 1 || submitting} onClick={handlePrev} style={{ opacity: step === 1 ? 0 : 1, pointerEvents: step === 1 ? 'none' : 'auto' }}>
           {t('footerButtons.prev')}
         </Button>
         <div style={{ flex: 1 }} />

@@ -75,7 +75,13 @@
     "webManual": "Web manual",
     "aiPolicy": "AI coach policy",
     "stravaTerms": "Strava terms",
-    "calculator": "Public calculator"
+    "calculator": "Public calculator",
+    "partnershipInquiry": "Partnership inquiries",
+    "help": "Help",
+    "policies": "Terms & policies",
+    "install": "Get the app",
+    "navigation": "Site information",
+    "email": "Email"
   },
   "nav": {
     "todayTraining": "Today’s workout",
@@ -157,7 +163,8 @@
     "bike": "Cycling",
     "run": "Running",
     "swim": "Swimming",
-    "other": "Other"
+    "other": "Other",
+    "comingSoon": "Coming soon"
   },
   "unit": {
     "km": "km",

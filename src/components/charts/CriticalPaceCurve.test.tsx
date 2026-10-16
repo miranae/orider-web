@@ -63,3 +63,13 @@ describe("CriticalPaceCurve", () => {
     expect(container.querySelector("svg")).toBeNull();
   });
 });
+
+it("exposes available durations in an accessible table without inventing missing period values", () => {
+  render(<CriticalPaceCurve recentPoints={[{ durationSec: 60, paceSecPerKm: 270 }]} prevPoints={[{ durationSec: 300, paceSecPerKm: 300 }]} />);
+  expect(screen.getByRole("img")).toHaveAccessibleName();
+  const table = screen.getByRole("table");
+  expect(table).toHaveTextContent("1m");
+  expect(table).toHaveTextContent("4:30 /km");
+  expect(table).toHaveTextContent("5:00 /km");
+  expect(screen.getAllByRole("cell").filter(cell => cell.textContent === "—")).toHaveLength(2);
+});

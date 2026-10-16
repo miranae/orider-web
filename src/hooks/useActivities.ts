@@ -22,8 +22,10 @@ import { debugLog, logClientError } from "../services/errorLogger";
 import { getPublicUserProfiles } from "../services/publicProfiles";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
+import { disciplineOfType } from "@shared/sport/discipline";
 import type { WeeklyStat } from "../components/WeeklyChart";
-import { acceptedPhysicalActivities, sumAcceptedActivityTss } from "../utils/estimateTSS";
+import { acceptedPhysicalActivities } from "../utils/estimateTSS";
+import { buildWeeklyLoadEvidence } from "../utils/weeklyLoadEvidence";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { getDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { seoulWeekStartMs } from "../utils/seoulWeek";
@@ -785,6 +787,8 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   }
 
   // 계정 전환 직후 이전 effect 결과가 잠깐 남아도 새 사용자의 통계로 노출하지 않는다.
+  const rawScopedActivities = activities.filter(activity => activity.userId === user.uid
+    && (!discipline || discipline === "tri" || getDiscipline(activity.type) === discipline));
   const all = allOwned.filter((activity) => !discipline || discipline === "tri" || getDiscipline(activity.type) === discipline);
   const coverageStatus = coverage?.key === statsKey ? coverage.status : "loading";
   const recent7DayCoverage = coverage?.key === statsKey ? coverage.recent7DayStatus : "loading";
@@ -804,10 +808,14 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   };
   const activityElevation = (activity: Activity): number => summaryNumber(activity.summary?.elevationGain);
   const weeks: WeeklyStat[] = [];
+  const physicalLoadActivities = all.filter(activity => disciplineOfType(activity.type)
+    && Number.isFinite(activity.startTime) && activity.startTime > 0
+    && Number.isFinite(new Date(activity.startTime).getTime()));
   for (let w = 11; w >= 0; w--) {
     const weekStart = new Date(now);
     const daysSinceMonday = (weekStart.getDay() + 6) % 7;
     weekStart.setDate(weekStart.getDate() - w * 7 - daysSinceMonday);
+    weekStart.setHours(0, 0, 0, 0);
     const weekStartMs = discipline === "run" ? seoulWeekStartMs(now.getTime()) - w * 7 * 86400000 : weekStart.getTime();
     const weekEndMs = discipline === "run" ? weekStartMs + 7 * 86400000 : new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7).getTime();
     const labelDate = discipline === "run" ? new Date(weekStartMs + 9 * 3600000) : weekStart;
@@ -823,8 +831,12 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
       elevation: Math.round(weekActivities.reduce((s, a) => s + activityElevation(a), 0)),
       rides: weekActivities.length,
       ...(() => {
-        const load = sumAcceptedActivityTss(weekActivities);
-        return { tss: load.value, tssEstimated: load.estimated, tssUnknownCount: load.unknownCount };
+        const loadEvidence = buildWeeklyLoadEvidence(rawScopedActivities, { periodStartMs: weekStartMs, periodEndMs: weekEndMs,
+          scope: discipline && discipline !== "tri" ? discipline : "allSupported", coverage: coverageStatus,
+          timeZone: discipline === "run" ? "Asia/Seoul" : Intl.DateTimeFormat().resolvedOptions().timeZone,
+          acceptedActivities: physicalLoadActivities });
+        return { tss: loadEvidence.total, tssEstimated: loadEvidence.estimated,
+          tssUnknownCount: loadEvidence.unknownCount, loadEvidence };
       })(),
     });
   }

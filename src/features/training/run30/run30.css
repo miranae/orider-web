@@ -35,22 +35,20 @@
 .run30-title {
   margin: 0;
   color: var(--ink-0);
-  font-size: var(--fs-lg);
-  font-weight: 700;
   line-height: 1.35;
 }
 
 .run30-section-title {
   margin: 0;
   color: var(--ink-0);
-  font-size: var(--fs-md);
-  font-weight: 700;
+  font-size: var(--fs-lg);
+  font-weight: 600;
 }
 
 .run30-subtitle {
   margin: 0;
   color: var(--ink-1);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-lg);
   font-weight: 600;
 }
 
@@ -68,7 +66,8 @@
 }
 
 .run30-progress-text {
-  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  line-height: 1.5;
 }
 
 .run30-decision {

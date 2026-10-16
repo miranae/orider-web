@@ -1,4 +1,5 @@
-import { Bike, Footprints, Waves } from "lucide-react";
+import { Waves } from "lucide-react";
+import SportIcon from "../common/SportIcon";
 import { useTranslation } from "react-i18next";
 import { getDisciplineColor, getDisciplineLabelKey } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
@@ -15,7 +16,6 @@ export default function DisciplineBadge({ discipline, indoor = false }: Discipli
   const label = indoor
     ? `${t(getDisciplineLabelKey(discipline))} · ${t("sport.indoor")}`
     : t(getDisciplineLabelKey(discipline));
-  const Icon = discipline === "bike" ? Bike : discipline === "run" ? Footprints : Waves;
 
   return (
     <span style={{
@@ -24,7 +24,7 @@ export default function DisciplineBadge({ discipline, indoor = false }: Discipli
       background: `color-mix(in oklch, ${color} 10%, var(--bg-2))`,
       color, border: `1px solid color-mix(in oklch, ${color} 25%, transparent)`,
     }}>
-      <Icon size={11} /> {label}
+      {discipline === "tri" ? <Waves size={14} /> : <SportIcon sport={discipline} size={14} />} {label}
     </span>
   );
 }

@@ -1,3 +1,5 @@
+import type { WeeklyLoadEvidence } from "../utils/weeklyLoadEvidence";
+export type { WeeklyLoadEvidence } from "../utils/weeklyLoadEvidence";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Bar } from "react-chartjs-2";
@@ -26,6 +28,8 @@ export interface WeeklyStat {
   tssEstimated: boolean;
   /** 산출되지 않은 지원 활동 수. 누락은 레거시 전송 형식; 현재 producer는 항상 채운다. */
   tssUnknownCount?: number;
+  /** 홈 주간 부하와 같은 산입 경로에서 만든 근거. 이전 소비자와 호환된다. */
+  loadEvidence?: WeeklyLoadEvidence;
 }
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);

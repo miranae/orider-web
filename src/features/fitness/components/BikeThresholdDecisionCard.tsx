@@ -47,7 +47,7 @@ export default function BikeThresholdDecisionCard({
 
   return (
     <Card padding="none" style={{ marginTop: "var(--space-4)", padding: "var(--space-5)" }}>
-      <Text as="div" variant="eyebrow" style={{ color: "var(--aqua)" }}>{t("thresholdDecision.eyebrow")}</Text>
+      <Text as="div" variant="caption" style={{ color: "var(--aqua)" }}>{t("thresholdDecision.eyebrow")}</Text>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "var(--space-4)", marginTop: "var(--space-3)" }}>
         <div>
           <Text data-testid="K1-6-1" as="div" variant="caption" tone="secondary">{t("thresholdDecision.activeLabel")}</Text>
@@ -114,7 +114,7 @@ export default function BikeThresholdDecisionCard({
 
       {(decision.activeFtpW == null || missingPdc || !hasZoneData) && (
         <div style={{ marginTop: "var(--space-4)", display: "grid", gap: "var(--space-2)" }}>
-          <Text as="div" variant="eyebrow">{t("thresholdDecision.actionsTitle")}</Text>
+          <Text as="div" variant="caption">{t("thresholdDecision.actionsTitle")}</Text>
           {decision.activeFtpW == null && <ActionLink specId="K1-6-4" to="/coach/condition?sport=bike#thresholds" label={t("thresholdDecision.action.setFtp")} />}
           {missingPdc && <ActionLink specId="K1-6-5" to="/athlete/me/activities" label={t("thresholdDecision.action.addPowerRide")} />}
           {!hasZoneData && <ActionLink specId="K1-6-5" to="/athlete/me/activities" label={t("thresholdDecision.action.addZoneData")} />}

@@ -1,0 +1,12 @@
+.threshold-fields input:focus-visible, .threshold-fields select:focus-visible { outline: 2px solid var(--color-primary-dark) !important; outline-offset: 2px; }
+@media (max-width: 480px) {
+  .threshold-fields [data-testid="K1-5-3"] > div { grid-template-columns: 1fr !important; }
+  .threshold-fields [data-testid="K1-5-1"] > div { grid-template-columns: minmax(0, 1fr) !important; }
+  .threshold-fields [data-testid="K1-5-1"] > div > div { padding: var(--space-4) !important; }
+  .threshold-fields [data-testid="K1-5-1"] > div > div > div { flex-wrap: wrap; }
+  .threshold-fields [data-testid="K1-5-1"] > div > div > div > * { white-space: nowrap; }
+  .threshold-fields .threshold-zone-bar__segment-label { display: none; }
+  .threshold-fields .threshold-zone-bar__legend { grid-template-columns: minmax(0, 1fr) !important; gap: var(--space-2) !important; }
+  .threshold-fields .threshold-zone-bar__legend > div { display: flex; align-items: baseline; gap: var(--space-2); text-align: start !important; }
+  .threshold-fields .threshold-zone-bar__legend > div > :nth-child(2) { white-space: nowrap; }
+}

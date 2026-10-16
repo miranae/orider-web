@@ -1,8 +1,10 @@
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import type { EventType, FeasibilityLabel } from '@shared/types/goal';
 import { calcFeasibility as calcFeasibilityCore } from '@shared/training/feasibility';
 import { FEAS_COLORS, FEAS_LABEL_KEYS } from './constants';
 import { DateField } from '../redesign';
+import { Text } from '../../theme/components';
 
 // ─── 클라이언트 사이드 feasibility 계산 (서버와 동일 규칙) ──────────────────
 // shared/training/feasibility.ts 가 단일 소스 — 완주(거리/난이도 기반) 분기만 추가.
@@ -102,6 +104,7 @@ export default function GoalDetailsStep({
   userTsb,
 }: GoalDetailsStepProps) {
   const { t } = useTranslation("training");
+  const fieldId = useId();
   const { eventType, eventDate, targetDurationMin, weeklySessions } = value;
 
   // 목표 시간 분해 (시간/분)
@@ -125,6 +128,10 @@ export default function GoalDetailsStep({
   // 최소 목표일: 오늘 + 4주
   const minDate = new Date(today.getTime() + 4 * 7 * 24 * 60 * 60 * 1000);
   const minDateStr = minDate.toISOString().slice(0, 10);
+  const hasValidDate = /^\d{4}-\d{2}-\d{2}$/.test(eventDate)
+    && Number.isFinite(eventDateObj.getTime())
+    && eventDateObj.toISOString().slice(0, 10) === eventDate
+    && eventDate >= minDateStr;
 
   const handleEventTypeChange = (et: EventType) => {
     onChange({ ...value, eventType: et });
@@ -148,30 +155,21 @@ export default function GoalDetailsStep({
       : null;
 
   return (
-    <div data-testid="K3-3-4"
+    <Text as="div" variant="body" data-testid="K3-3-4" className="grid grid-cols-1 md:grid-cols-2"
       style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
         gap: 'var(--space-6)',
       }}
     >
       {/* ── 왼쪽 컬럼: 입력 ── */}
-      <div>
+      <div style={{ minWidth: 0 }}>
         {/* 이벤트 유형 */}
-        <label
+        <fieldset style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+        <Text as="legend" variant="bodyMedium"
           style={{
             display: 'block',
-            fontFamily: 'var(--font-mono)',
-            fontSize: "var(--fs-xs)",
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
             color: 'var(--ink-2)',
-            fontWeight: 500,
             marginBottom: 'var(--space-2)',
-          }}
-        >
-          {t('goalDetails.eventTypeLabel')}
-        </label>
+          }}>{t('goalDetails.eventTypeLabel')}</Text>
         <div style={{ display: 'flex', flexDirection: 'column', gap: "var(--space-1-5)" }}>
           {(
             ['completion', 'time', 'race'] as const
@@ -194,84 +192,56 @@ export default function GoalDetailsStep({
                 gap: "var(--space-2)",
               }}
             >
-              <div
-                style={{
-                  marginTop: "var(--space-1)",
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  border:
-                    '2px solid ' +
-                    (eventType === v ? 'var(--lime)' : 'var(--line)'),
-                  background:
-                    eventType === v ? 'var(--lime)' : 'transparent',
-                  flexShrink: 0,
-                  cursor: 'pointer',
-                }}
-                onClick={() => handleEventTypeChange(v)}
-              />
-              <div onClick={() => handleEventTypeChange(v)} style={{ cursor: 'pointer' }}>
-                <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: 'var(--ink-0)' }}>{t(`goalDetails.eventType.${v}`)}</div>
-                <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: "var(--space-0-5)" }}>{t(`goalDetails.eventTypeDesc.${v}`)}</div>
+              <input type="radio" name={`${fieldId}-event-type`} value={v} checked={eventType === v}
+                aria-label={t(`goalDetails.eventType.${v}`)} aria-describedby={`${fieldId}-event-${v}-description`}
+                onChange={() => handleEventTypeChange(v)}
+                style={{ marginTop: "var(--space-1)", accentColor: "var(--lime)", flexShrink: 0 }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-0)' }}>{t(`goalDetails.eventType.${v}`)}</div>
+                <div id={`${fieldId}-event-${v}-description`} style={{ fontSize: "var(--fs-md)", color: 'var(--ink-3)', marginTop: "var(--space-0-5)" }}>{t(`goalDetails.eventTypeDesc.${v}`)}</div>
               </div>
             </label>
           ))}
         </div>
 
+        </fieldset>
         {/* 목표일 */}
-        <label
+        <label className="ds-text ds-text--body-medium" htmlFor={`${fieldId}-date`}
           style={{
             display: 'block',
-            fontFamily: 'var(--font-mono)',
-            fontSize: "var(--fs-xs)",
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
             color: 'var(--ink-2)',
-            fontWeight: 500,
             marginTop: 'var(--space-5)',
             marginBottom: 'var(--space-2)',
-          }}
-        >
-          {t('goalDetails.targetDate')}
-        </label>
-        <DateField
+          }}>{t('goalDetails.targetDate')}</label>
+        <DateField id={`${fieldId}-date`}
           value={eventDate}
           min={minDateStr}
           onChange={handleDateChange}
           placeholder={t('goalDetails.targetDatePlaceholder')}
         />
-        <div
+        {hasValidDate && <div
           style={{
-            fontSize: "var(--fs-xs)",
             color: 'var(--ink-3)',
             marginTop: "var(--space-1-5)",
-            fontFamily: 'var(--font-mono)',
           }}
         >
           {t('goalDetails.daysLeft', { days: weeksLeft * 7, weeks: weeksLeft })}
-        </div>
+        </div>}
 
         {/* 목표 시간 (완주 제외) */}
         {eventType !== 'completion' && (
-          <>
-            <label
+          <fieldset style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+            <Text as="legend" variant="bodyMedium"
               style={{
                 display: 'block',
-                fontFamily: 'var(--font-mono)',
-                fontSize: "var(--fs-xs)",
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
                 color: 'var(--ink-2)',
-                fontWeight: 500,
                 marginTop: 'var(--space-5)',
                 marginBottom: 'var(--space-2)',
-              }}
-            >
-              {t('goalDetails.targetDuration')}
-            </label>
-            <div style={{ display: 'flex', gap: "var(--space-2)", alignItems: 'center' }}>
+              }}>{t('goalDetails.targetDuration')}</Text>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: "var(--space-2)", alignItems: 'center' }}>
               <input
                 type="number"
+                id={`${fieldId}-hours`} aria-label={`${t('goalDetails.targetDuration')} · ${t('goalDetails.hourUnit')}`}
                 value={targetH}
                 min={1}
                 max={24}
@@ -288,11 +258,12 @@ export default function GoalDetailsStep({
                   textAlign: 'center',
                 }}
               />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>
+              <label htmlFor={`${fieldId}-hours`} style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>
                 {t('goalDetails.hourUnit')}
-              </span>
+              </label>
               <input
                 type="number"
+                id={`${fieldId}-minutes`} aria-label={`${t('goalDetails.targetDuration')} · ${t('goalDetails.minUnit')}`}
                 value={targetM}
                 min={0}
                 max={59}
@@ -310,60 +281,50 @@ export default function GoalDetailsStep({
                   textAlign: 'center',
                 }}
               />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>
+              <label htmlFor={`${fieldId}-minutes`} style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>
                 {t('goalDetails.minUnit')}
-              </span>
+              </label>
               {avgSpeed && (
                 <span
                   style={{
                     marginLeft: 'auto',
-                    fontSize: "var(--fs-xs)",
                     color: 'var(--ink-3)',
-                    fontFamily: 'var(--font-mono)',
                   }}
                 >
                   {t('goalDetails.avgSpeed', { speed: avgSpeed })}
                 </span>
               )}
             </div>
-          </>
+          </fieldset>
         )}
 
         {/* 주당 운동 횟수 */}
-        <label
+        <Text as="div" variant="bodyMedium"
           style={{
             display: 'block',
-            fontFamily: 'var(--font-mono)',
-            fontSize: "var(--fs-xs)",
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
             color: 'var(--ink-2)',
-            fontWeight: 500,
             marginTop: 'var(--space-5)',
             marginBottom: 'var(--space-2)',
-          }}
-        >
-          {t('goalDetails.weeklySessions')}
-        </label>
+          }}>{t('goalDetails.weeklySessions')}</Text>
         <div style={{ display: 'flex', gap: "var(--space-1-5)" }}>
           {([1, 2, 3, 4, 5, 6] as const).map((n) => (
             <button
               key={n}
               type="button"
               onClick={() => handleSessionsChange(n)}
+              aria-pressed={weeklySessions === n}
               style={{
                 flex: 1,
                 padding: '12px 0',
                 borderRadius: "var(--r-md)",
                 fontSize: "var(--fs-sm)",
-                fontFamily: 'var(--font-mono)',
                 background:
-                  weeklySessions === n ? 'var(--lime)' : 'var(--bg-2)',
+                  weeklySessions === n ? 'var(--accent-soft-bg)' : 'var(--bg-2)',
                 color:
-                  weeklySessions === n ? 'var(--primary-fg)' : 'var(--ink-3)',
+                  weeklySessions === n ? 'var(--ink-1)' : 'var(--ink-2)',
                 border:
                   '1px solid ' +
-                  (weeklySessions === n ? 'var(--lime)' : 'var(--line-soft)'),
+                  (weeklySessions === n ? 'var(--accent-soft-border)' : 'var(--line-soft)'),
                 cursor: 'pointer',
                 fontWeight: weeklySessions === n ? 600 : 400,
               }}
@@ -381,41 +342,31 @@ export default function GoalDetailsStep({
           background: 'var(--bg-2)',
           borderRadius: "var(--r-lg)",
           border: '1px solid var(--line-soft)',
-          borderLeft: `3px solid ${feasColor}`,
+          borderLeft: `3px solid ${hasValidDate ? feasColor : 'var(--line-soft)'}`,
           alignSelf: 'start',
         }}
       >
-        <div
+        <Text as="div" variant="bodyMedium"
           style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: "var(--fs-xs)",
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
             color: 'var(--ink-2)',
-            fontWeight: 500,
             marginBottom: 'var(--space-3)',
-          }}
-        >
-          {t('goalDetails.feasibilityLabel')}
-        </div>
+          }}>{t('goalDetails.feasibilityLabel')}</Text>
+
+        {!hasValidDate ? <Text as="p" variant="body" tone="tertiary" style={{ margin: 0 }}>{t('goalDetails.targetDatePlaceholder')}</Text> : <>
 
         {/* 큰 레이블 */}
-        <div
+        <Text as="div" variant="title"
           style={{
-            fontSize: "var(--fs-4xl)",
-            fontWeight: 700,
             color: feasColor,
-            letterSpacing: '-0.02em',
             marginBottom: 'var(--space-1)',
-            fontFamily: 'var(--font-sans, sans-serif)',
           }}
         >
           {t(FEAS_LABEL_KEYS[feas.label] ?? 'feasLabels.on_track')}
-        </div>
+        </Text>
 
         <div
           style={{
-            fontSize: "var(--fs-xs)",
+            fontSize: "var(--fs-md)",
             color: 'var(--ink-3)',
             marginBottom: 'var(--space-5)',
             lineHeight: 1.5,
@@ -434,7 +385,7 @@ export default function GoalDetailsStep({
                 display: 'flex',
                 justifyContent: 'space-between',
                 padding: '8px 0',
-                fontSize: "var(--fs-xs)",
+                fontSize: "var(--fs-md)",
               }}
             >
               <span style={{ color: 'var(--ink-3)' }}>{t('goalDetails.requiredPower')}</span>
@@ -453,7 +404,7 @@ export default function GoalDetailsStep({
                 display: 'flex',
                 justifyContent: 'space-between',
                 padding: '8px 0',
-                fontSize: "var(--fs-xs)",
+                fontSize: "var(--fs-md)",
               }}
             >
               <span style={{ color: 'var(--ink-3)' }}>
@@ -464,7 +415,7 @@ export default function GoalDetailsStep({
                     style={{
                       marginLeft: "var(--space-1-5)",
                       padding: '1px 6px',
-                      fontSize: "var(--fs-xs)",
+                      fontSize: "var(--fs-md)",
                       borderRadius: "var(--r-sm)",
                       // 기존 디자인 시스템 토큰 활용 — risky=피로 하향, easy=신선 상향
                       background: feas.fatigueAdjustmentPct < 0
@@ -488,7 +439,7 @@ export default function GoalDetailsStep({
                 display: 'flex',
                 justifyContent: 'space-between',
                 padding: '12px 0 8px',
-                fontSize: "var(--fs-xs)",
+                fontSize: "var(--fs-md)",
                 borderTop: '1px dashed var(--line-soft)',
                 marginTop: "var(--space-1-5)",
               }}
@@ -514,18 +465,19 @@ export default function GoalDetailsStep({
             display: 'flex',
             justifyContent: 'space-between',
             padding: '8px 0',
-            fontSize: "var(--fs-xs)",
+            fontSize: "var(--fs-md)",
             borderTop: eventType !== 'completion' ? '1px solid var(--line-soft)' : 'none',
             marginTop: eventType !== 'completion' ? 12 : 0,
             paddingTop: 'var(--space-3)',
           }}
         >
           <span style={{ color: 'var(--ink-3)' }}>{t('goalDetails.trainingPeriod')}</span>
-          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-1)' }}>
+          <span style={{ color: 'var(--ink-1)' }}>
             {t('goalDetails.periodValue', { weeks: weeksLeft, sessions: weeksLeft * weeklySessions })}
           </span>
         </div>
+        </>}
       </div>
-    </div>
+    </Text>
   );
 }

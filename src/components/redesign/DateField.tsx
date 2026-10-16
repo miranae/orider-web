@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../theme/components";
 
@@ -78,7 +78,11 @@ export default function DateField({
   const WEEKDAYS = WEEKDAY_KEYS.map((k) => t(`weekday.${k}`));
   const resolvedPlaceholder = placeholder ?? t("field.datePlaceholder");
   const [open, setOpen] = useState(false);
-  const [openUp, setOpenUp] = useState(false);
+  const [position, setPosition] = useState({ left: 0, top: 0 });
+  const [focusedDate, setFocusedDate] = useState(value);
+  const pendingDateFocus = useRef(false);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const dialogId = useId();
   const [viewMonth, setViewMonth] = useState<Date>(() => fromISO(value) ?? new Date());
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -96,13 +100,32 @@ export default function DateField({
     if (d) setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1));
   }, [value]);
 
-  // 팝오버 열릴 때 아래 공간 부족하면 위로 열기
+  // 컨테이너가 화면 가장자리여도 캘린더 자체는 뷰포트 안에 둔다.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const positionPopup = () => {
+      if (!triggerRef.current || !containerRef.current || !popupRef.current) return;
+      const trigger = triggerRef.current.getBoundingClientRect();
+      const container = containerRef.current.getBoundingClientRect();
+      const popup = popupRef.current.getBoundingClientRect();
+      const margin = 12;
+      const left = Math.max(margin, Math.min(trigger.left, window.innerWidth - margin - popup.width));
+      const below = trigger.bottom + 4;
+      const preferred = below + popup.height <= window.innerHeight - margin ? below : trigger.top - popup.height - 4;
+      const top = Math.max(margin, Math.min(preferred, window.innerHeight - margin - popup.height));
+      setPosition({ left: left - container.left, top: top - container.top });
+    };
+    positionPopup();
+    window.addEventListener('resize', positionPopup);
+    window.addEventListener('scroll', positionPopup, true);
+    return () => { window.removeEventListener('resize', positionPopup); window.removeEventListener('scroll', positionPopup, true); };
+  }, [open, viewMonth]);
+
   useEffect(() => {
-    if (!open || !triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    setOpenUp(spaceBelow < 380 && rect.top > 380);
-  }, [open]);
+    if (!open || !pendingDateFocus.current) return;
+    const cell = popupRef.current?.querySelector<HTMLButtonElement>(`[data-calendar-date="${focusedDate}"]`);
+    if (cell && !cell.disabled) { cell.focus(); pendingDateFocus.current = false; }
+  }, [open, focusedDate, viewMonth]);
 
   // 외부 클릭 닫기
   useEffect(() => {
@@ -119,7 +142,9 @@ export default function DateField({
   // Escape 키로 닫기
   useEffect(() => {
     if (!open) return;
-    const handler = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const handler = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setOpen(false); triggerRef.current?.focus(); }
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [open]);
@@ -143,12 +168,50 @@ export default function DateField({
     if (isDisabled(d)) return;
     onChange(toISO(d));
     setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const bounded = (date: Date) => minDate && date < minDate ? minDate : maxDate && date > maxDate ? maxDate : date;
+  const toggleCalendar = () => {
+    if (!open) {
+      const focus = bounded(selected ?? today);
+      setFocusedDate(toISO(focus));
+      setViewMonth(new Date(focus.getFullYear(), focus.getMonth(), 1));
+      pendingDateFocus.current = true;
+    }
+    setOpen((current) => !current);
+  };
+  const moveMonth = (direction: number) => {
+    const next = addMonths(new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1), direction);
+    setViewMonth(next);
+    const currentDay = fromISO(focusedDate)?.getDate() ?? 1;
+    const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+    setFocusedDate(toISO(bounded(new Date(next.getFullYear(), next.getMonth(), Math.min(currentDay, lastDay)))));
+  };
+  const handleDateKey = (event: KeyboardEvent<HTMLButtonElement>, date: Date) => {
+    let next: Date;
+    if (event.key === 'ArrowLeft') next = addDays(date, -1);
+    else if (event.key === 'ArrowRight') next = addDays(date, 1);
+    else if (event.key === 'ArrowUp') next = addDays(date, -7);
+    else if (event.key === 'ArrowDown') next = addDays(date, 7);
+    else if (event.key === 'Home') next = addDays(date, -date.getDay());
+    else if (event.key === 'End') next = addDays(date, 6 - date.getDay());
+    else if (event.key === 'PageUp' || event.key === 'PageDown') {
+      const month = date.getMonth() + (event.key === 'PageUp' ? -1 : 1);
+      const last = new Date(date.getFullYear(), month + 1, 0).getDate();
+      next = new Date(date.getFullYear(), month, Math.min(date.getDate(), last));
+    } else return;
+    event.preventDefault();
+    next = bounded(next);
+    pendingDateFocus.current = true;
+    setFocusedDate(toISO(next));
+    setViewMonth(new Date(next.getFullYear(), next.getMonth(), 1));
   };
 
   const handleButtonKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      setOpen((v) => !v);
+      toggleCalendar();
     }
   };
 
@@ -164,7 +227,9 @@ export default function DateField({
   const labelText = value ? formatDate(value, WEEKDAYS, t) : resolvedPlaceholder;
 
   return (
-    <div ref={containerRef} style={{ position: "relative", width: "100%" }}>
+    <div ref={containerRef} style={{ position: "relative", width: "100%" }} onBlur={(event) => {
+      if (open && event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+    }}>
       <button
         id={id}
         ref={triggerRef}
@@ -172,7 +237,8 @@ export default function DateField({
         disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        aria-controls={open ? dialogId : undefined}
+        onClick={toggleCalendar}
         onKeyDown={handleButtonKey}
         style={{
           width: "100%",
@@ -197,38 +263,40 @@ export default function DateField({
 
       {open && (
         <div
-          role="dialog"
+          ref={popupRef} id={dialogId} role="dialog"
           aria-label={t("field.selectDateAria")}
           style={{
             position: "absolute",
-            top: openUp ? "auto" : "calc(100% + 4px)",
-            bottom: openUp ? "calc(100% + 4px)" : "auto",
-            left: 0,
+            top: position.top,
+            left: position.left,
             zIndex: 50,
             background: "var(--bg-1)",
             border: "1px solid var(--line)",
             borderRadius: "var(--r-md)",
             padding: 'var(--space-3)',
             boxShadow: "0 12px 32px color-mix(in srgb, var(--bg-0) 45%, transparent)",
-            minWidth: 280,
+            width: "min(20rem, calc(100vw - var(--space-6)))",
+            maxHeight: "calc(100dvh - var(--space-6))",
+            overflowY: "auto",
+            boxSizing: "border-box",
           }}
         >
           <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-2)" }}>
             <Button
               type="button"
               aria-label={t("field.prevMonth")}
-              onClick={() => setViewMonth((v) => addMonths(v, -1))} variant="ghost" size="sm"
+              onClick={() => moveMonth(-1)} variant="ghost" size="sm"
               style={{ padding: "4px 10px" }}
             >
               ◀
             </Button>
-            <div className="font-semibold" style={{ color: "var(--ink-0)", fontSize: "var(--fs-xs)" }}>
+            <div className="font-semibold" aria-live="polite" style={{ color: "var(--ink-0)", fontSize: "var(--fs-xs)" }}>
               {t("field.yearMonth", { year: viewMonth.getFullYear(), month: viewMonth.getMonth() + 1 })}
             </div>
             <Button
               type="button"
               aria-label={t("field.nextMonth")}
-              onClick={() => setViewMonth((v) => addMonths(v, 1))} variant="ghost" size="sm"
+              onClick={() => moveMonth(1)} variant="ghost" size="sm"
               style={{ padding: "4px 10px" }}
             >
               ▶
@@ -243,6 +311,7 @@ export default function DateField({
               gap: "var(--space-0-5)",
             }}
           >
+            <div role="row" style={{ display: "contents" }}>
             {WEEKDAYS.map((w, i) => (
               <div
                 key={w}
@@ -259,7 +328,9 @@ export default function DateField({
                 {w}
               </div>
             ))}
-            {monthDays.map((d) => {
+            </div>
+            {Array.from({ length: 6 }, (_, week) => <div role="row" key={week} style={{ display: "contents" }}>
+            {monthDays.slice(week * 7, (week + 1) * 7).map((d) => {
               const iso = toISO(d);
               const inMonth = d.getMonth() === viewMonth.getMonth();
               const isSelected = selected ? isSameDay(d, selected) : false;
@@ -274,6 +345,10 @@ export default function DateField({
                   aria-selected={isSelected}
                   aria-label={iso}
                   disabled={dim}
+                  data-calendar-date={iso}
+                  tabIndex={focusedDate === iso && !dim ? 0 : -1}
+                  onFocus={() => setFocusedDate(iso)}
+                  onKeyDown={(event) => handleDateKey(event, d)}
                   onClick={() => pick(d)}
                   style={{
                     padding: "6px 0",
@@ -294,13 +369,15 @@ export default function DateField({
                               : "var(--ink-1)",
                     fontWeight: isSelected ? 700 : isToday ? 600 : 400,
                     cursor: dim ? "not-allowed" : "pointer",
+                    outline: focusedDate === iso ? "var(--space-0-5) solid var(--ink-0)" : undefined,
+                    outlineOffset: "calc(-1 * var(--space-0-5))",
                     fontFamily: "var(--font-mono)",
                   }}
                 >
                   {d.getDate()}
                 </button>
               );
-            })}
+            })}</div>)}
           </div>
 
           {presets && (
@@ -325,6 +402,7 @@ export default function DateField({
                   onClick={() => {
                     onChange("");
                     setOpen(false);
+                    triggerRef.current?.focus();
                   }} variant="ghost" size="sm"
                   style={{ fontSize: "var(--fs-xs)", marginLeft: "auto", color: "var(--ink-3)" }}
                 >

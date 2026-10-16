@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { coachRoute } from "../utils/coachRoute";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Bot, Clock3, History, Trash2, UserRound } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -91,6 +92,10 @@ export default function CoachHistoryPage() {
   const dialog = useDialog();
   const navigate = useLocalizedNavigate();
   const { threadId } = useParams<{ threadId?: string }>();
+  const [params] = useSearchParams();
+  const requestedSport = params.get("sport");
+  const coachDiscipline = requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim"
+    ? requestedSport : profile?.primaryDiscipline && profile.primaryDiscipline !== "tri" ? profile.primaryDiscipline : "bike";
   const uid = user?.uid ?? null;
   const generationRef = useRef(0);
   const routeGenerationRef = useRef(0);
@@ -234,7 +239,7 @@ export default function CoachHistoryPage() {
       await deleteCoachThread(target.threadId);
       if (!current(generation, expectedUid)) return;
       setThreads((current) => current.filter((item) => item.threadId !== target.threadId));
-      if (routeThreadRef.current === target.threadId) navigate("/coach/chat");
+      if (routeThreadRef.current === target.threadId) navigate(coachRoute("/coach/chat", coachDiscipline));
     } catch { if (current(generation, expectedUid)) setThreadError(true); }
     finally { if (current(generation, expectedUid)) setDeleting(false); }
   }
@@ -250,7 +255,7 @@ export default function CoachHistoryPage() {
     try {
       await deleteAllCoachThreads();
       if (!current(generation, expectedUid)) return;
-      setThreads([]); setCursor(null); setThread(null); navigate("/coach/chat");
+      setThreads([]); setCursor(null); setThread(null); navigate(coachRoute("/coach/chat", coachDiscipline));
     } catch { if (current(generation, expectedUid)) setLoadError(true); }
     finally { if (current(generation, expectedUid)) setDeleting(false); }
   }
@@ -340,13 +345,10 @@ export default function CoachHistoryPage() {
 
   function answerAction(code: CoachAnswerActionCode, entity?: CoachEntityRef) {
     if (code === "OPEN_ACTIVITY" && entity?.entityType === "activity") navigate(`/activity/${encodeURIComponent(entity.entityId)}`);
-    else navigate(code === "VIEW_TRAINING_LOAD" ? "/coach/condition" : "/athlete/me");
+    else navigate(code === "VIEW_TRAINING_LOAD" ? coachRoute("/coach/condition", thread?.discipline ?? coachDiscipline) : "/athlete/me");
   }
 
   const followUpUnavailable = submitting || loadingQuota || quotaError || threadError || !quota || quota.remaining === 0;
-  const coachDiscipline = profile?.primaryDiscipline && profile.primaryDiscipline !== "tri"
-    ? profile.primaryDiscipline
-    : "bike";
   const dialogPending = consentOpen ? consentPendingRef.current : null;
   const launcher = <div data-testid="K6-0-3"><CoachQuestionLauncher
     user={user}
@@ -355,22 +357,22 @@ export default function CoachHistoryPage() {
     triggerBlock={false}
   /></div>;
 
-  if (!user) return <main className="coach-history-page coach-history-page--signed-out">
+  if (!user) return <section className="coach-history-page coach-history-page--signed-out">
     <header data-testid="K6-0" className="coach-history-page__header">
       <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><Bot size={16} aria-hidden /> {t("history.eyebrow")}</Text>
-        <Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="title">{t("history.entryTitle")}</Text>
+        <Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="pageTitle">{t("history.entryTitle")}</Text>
         <Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.entryDescription")}</Text></div>
       {launcher}
     </header>
     <Card className="coach-history-entry"><Bot aria-hidden /><Text as="h2" variant="subtitle">{t("history.signInTitle")}</Text>
       <Text as="p" variant="bodySmall" tone="secondary">{t("history.signInRequired")}</Text></Card>
-  </main>;
-  if (stateUid !== uid) return <main className="coach-history-page"><Card role="status">{t("history.loading")}</Card></main>;
+  </section>;
+  if (stateUid !== uid) return <section className="coach-history-page"><Card role="status">{t("history.loading")}</Card></section>;
 
-  return <main className={`coach-history-page${threadId ? " has-selection" : ""}`}>
+  return <section className={`coach-history-page${threadId ? " has-selection" : ""}`}>
     <header data-testid="K6-0" className="coach-history-page__header">
       <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><History size={16} aria-hidden /> {t("history.eyebrow")}</Text>
-        <Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="title">{t("history.title")}</Text><Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.description")}</Text></div>
+        <Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="pageTitle">{t("history.title")}</Text><Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.description")}</Text></div>
       <div className="coach-history-page__actions">{launcher}
         {threads.length > 0 && <Button data-testid="K6-0-4" className="coach-history-page__delete-all" variant="ghost" size="sm"
           disabled={deleting || submitting} onClick={() => void removeAll()}>{t("history.deleteAll")}</Button>}</div>
@@ -382,7 +384,7 @@ export default function CoachHistoryPage() {
         {loadError && <Alert variant="danger" title={t("history.loadFailed")}><Button variant="outline" onClick={() => void loadList()}>{t("history.retry")}</Button></Alert>}
         {!loadingList && !loadError && threads.length === 0 && <Card data-testid="K6-1-4" className="coach-history-empty"><History aria-hidden /><Text as="h3" variant="subtitle">{t("history.emptyTitle")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("history.emptyBody")}</Text></Card>}
         <div className="coach-history-list__items">{threads.map((item) => <article key={item.threadId} className={`coach-history-item${threadId === item.threadId ? " is-active" : ""}`}>
-          <LocalizedLink to={`/coach/chat/${item.threadId}`} data-testid="K6-1-1" className="coach-history-item__link" aria-current={threadId === item.threadId ? "page" : undefined}
+          <LocalizedLink to={coachRoute(`/coach/chat/${item.threadId}`, item.discipline)} data-testid="K6-1-1" className="coach-history-item__link" aria-current={threadId === item.threadId ? "page" : undefined}
             aria-disabled={submitting && threadId === item.threadId ? true : undefined}
             onClick={(event) => { if (submitting && threadId === item.threadId) event.preventDefault(); }}>
             <Text as="strong" variant="body">{item.title}</Text>
@@ -401,7 +403,7 @@ export default function CoachHistoryPage() {
         </Alert>}
         {threadId && thread?.threadId === threadId && !loadingThread && <>
           <header className="coach-thread-detail__header">
-            <LocalizedLink data-testid="K6-2-9" to="/coach/chat" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("history.back")}><ArrowLeft aria-hidden /></LocalizedLink>
+            <LocalizedLink data-testid="K6-2-9" to={coachRoute("/coach/chat", thread.discipline)} className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("history.back")}><ArrowLeft aria-hidden /></LocalizedLink>
             <div><Text id="coach-thread-title" as="h2" variant="subtitle">{thread.title}</Text><Text as="p" variant="caption" tone="tertiary">{t(`discipline.${thread.discipline}`)} · {formatDate(thread.updatedAt, i18n.language)}</Text></div>
             <Button className="coach-thread-detail__delete" iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: thread.title })}
               disabled={deleting || submitting} onClick={() => void removeThread(thread)}><Trash2 size={18} /></Button>
@@ -468,5 +470,5 @@ export default function CoachHistoryPage() {
       consentPendingRef.current = null; setConsentOpen(false); setPolicy(saved);
       void executeFollowUp(dialogPending);
     }} />}
-  </main>;
+  </section>;
 }

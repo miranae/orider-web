@@ -1,3 +1,4 @@
+import GlossaryText from "../common/GlossaryText";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { Chip, Text } from "../../theme/components";
 
@@ -39,7 +40,7 @@ export default function StatBlock({
         color: 'var(--ink-2)',
         fontWeight: 500,
       }}>
-        {label}
+        <GlossaryText>{label}</GlossaryText>
       </span>
 
       {/* 값 + 단위 */}
@@ -47,7 +48,7 @@ export default function StatBlock({
         <Text variant="dataLarge" style={{ fontSize: 'var(--fs-3xl)' }}>{value}</Text>
         {unit != null && (
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-base)', color: 'var(--ink-2)', fontWeight: 400 }}>
-            {unit}
+            <GlossaryText>{unit}</GlossaryText>
           </span>
         )}
         {/* 낡은 값 표식 — 값을 숨기지 않되 최신인 척하지도 않는다 (TrainingStatusCard 와 같은 규칙). */}
@@ -69,7 +70,7 @@ export default function StatBlock({
 
       {/* 서브 텍스트 */}
       {sub && (
-        <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--ink-1)' }}>{sub}</span>
+        <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--ink-1)' }}><GlossaryText>{sub}</GlossaryText></span>
       )}
     </div>
   );
