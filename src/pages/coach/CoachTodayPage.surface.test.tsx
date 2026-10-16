@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("../../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ riderWorkoutDeliveryEnabled: false }) }));
-vi.mock("../../components/LocalizedLink", () => ({ LocalizedLink: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a> }));
+vi.mock("../../components/LocalizedLink", () => ({ LocalizedLink: ({ to, children, ...props }: { to: string; children: React.ReactNode; "aria-label"?: string }) => <a href={to} {...props}>{children}</a> }));
 vi.mock("../../components/redesign/DisciplineTabs", () => ({ default: () => <div>sport tabs</div> }));
 vi.mock("./CoachFitnessLayout", () => ({ useCoachFitnessModel: () => ({ t: (key: string) => key,
   user: { uid: "owner" }, discipline: mocks.sport, currentPoint: mocks.point, i18n: { language: "ko" },
@@ -35,6 +35,10 @@ describe("today read-only chooser versus guarded writes", () => {
     expect(screen.getByTestId("chooser")).toHaveAttribute("data-delivery", "false");
     expect(screen.queryByTestId("decision")).not.toBeInTheDocument();
     expect(screen.getByText("today.decisionUnavailable")).toBeInTheDocument();
+    const conditionLinks = screen.getAllByRole("link", { name: /coach.metric.tsb/ });
+    expect(conditionLinks).toHaveLength(1);
+    expect(conditionLinks[0]).toHaveAttribute("href", "/coach/condition?sport=bike");
+    expect(conditionLinks[0].closest("header")).not.toBeNull();
   });
   it("keeps chooser first on lookup failure with the retry error card after it", () => {
     mocks.state.unavailableReason = "error"; renderToday();

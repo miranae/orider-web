@@ -5,6 +5,7 @@
  * 기본 접힘으로 두기 위한 공용 컴포넌트. 네이티브 <details>/<summary> 를 사용해 별도 상태·
  * 접근성 배선 없이 키보드/스크린리더 지원을 그대로 얻는다.
  */
+import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { Text } from "../../theme/components";
 
@@ -19,6 +20,7 @@ export default function DetailsSection({
 }) {
   return (
     <details
+      className="ds-details-section"
       open={defaultOpen}
       style={{
         marginTop: "var(--space-4)",
@@ -37,7 +39,8 @@ export default function DetailsSection({
           gap: "var(--space-2)",
         }}
       >
-        <Text as="span" variant="label" style={{ color: "var(--ink-1)" }}>
+        <ChevronDown aria-hidden="true" className="ds-details-section__chevron" size={16} />
+        <Text as="span" variant="bodyMedium" style={{ color: "var(--ink-1)" }}>
           {title}
         </Text>
       </summary>

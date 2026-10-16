@@ -137,7 +137,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
           aria-label={t("card.kudosShort")}
         >
           <Heart size={18} fill={liked ? "currentColor" : "none"} />
-          <span className="text-[length:var(--fs-sm)] font-semibold">{localKudos}</span>
+          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{localKudos}</span>
         </button>
 
         {/* 누른 사람 아바타 스택 — hover/focus/tap 시 누른 사람 이름 툴팁 */}
@@ -153,7 +153,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
           aria-expanded={showComment}
         >
           <MessageCircle size={18} />
-          <span className="text-[length:var(--fs-sm)] font-semibold">{localComments}</span>
+          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{localComments}</span>
         </button>
       </div>
 
@@ -187,7 +187,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
               onClick={handleSubmitComment}
               disabled={!user || commentSubmitting || !commentText.trim()}
               className="px-3 py-1.5 rounded-[var(--r-md)] text-[length:var(--fs-sm)] font-semibold transition-opacity disabled:opacity-40"
-              style={{ background: "var(--lime)", color: "var(--bg-0)", border: "none", cursor: "pointer" }}
+              style={{ background: "var(--color-primary-dark)", color: "var(--primary-fg)", border: "none", cursor: "pointer" }}
             >
               {t("card.commentSubmit")}
             </button>

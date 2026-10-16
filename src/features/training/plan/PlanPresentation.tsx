@@ -1,6 +1,9 @@
+import { Eye } from "lucide-react";
+import GlossaryText from "../../../components/common/GlossaryText";
+import InfoTip from "../../../components/InfoTip";
 import { GoalSourceNotice } from "../../../components/training/GoalInputNotice";
 import { LocalizedLink } from "../../../components/LocalizedLink";
-import { planDayKey as kstDayKey, planDayStartMs } from "@shared/training/planDate";
+import { planDayKey as kstDayKey, planDayStartMs, planCalendarDate } from "@shared/training/planDate";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Goal, PlanWeek, PlanDay } from "@shared/types/goal";
@@ -57,15 +60,21 @@ interface DayCellProps {
   /** 주 단위 조정 factor (canonical 값). day별 ratio 재계산 대신 사용. */
   weekAdjustmentFactor?: number;
   currentTsb?: number | null;
+  goalDate?: Date | null;
   onClick?: () => void;
 }
 
-function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onClick }: DayCellProps) {
+function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goalDate, onClick }: DayCellProps) {
   const { t } = useTranslation('training');
+  const { t: tCommon } = useTranslation('common');
+  const weekdayName = buildDayNames(tCommon)[(planCalendarDate(day.date).getUTCDay() + 6) % 7] ?? '';
+  const dateLabel = `${weekdayName} ${formatDateLabel(day.date, day.dayOfWeek)}`.trim();
   const WORKOUT_META = useMemo(() => buildWorkoutMeta(t), [t]);
   const meta = WORKOUT_META[day.workout] ?? WORKOUT_META.rest;
   const isRest = day.workout === 'rest';
   const isGoal = day.workout === 'goal';
+  const isGoalDate = !!goalDate && kstDayKey(day.date) === kstDayKey(goalDate.getTime());
+  const workoutLabel = isGoal ? t(isGoalDate ? 'page.goalDay' : 'page.goalWorkout') : meta.label;
   const isSkipped = day.skipped === true;
   const isPast = day.date < Date.now() && !isToday;
   // 결근: 과거 일자 + 미완료 + 미스킵 + 비휴식/비목표일
@@ -75,13 +84,6 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onC
   const isAdjusted = day.adjustedTSS != null && !isRest && !isGoal;
   const effectiveTSS = day.adjustedTSS ?? day.plannedTSS;
   const effectiveDur = day.adjustedDurationMin ?? day.plannedDurationMin;
-  const distanceLabel = !isRest && !isGoal && effectiveDur > 0
-    ? day.workout.includes('Swim')
-      ? `${Math.round(effectiveDur * 40)}m`
-      : day.workout.includes('Run')
-        ? `${(effectiveDur * 0.15).toFixed(1)}km`
-        : `${(effectiveDur * 0.45).toFixed(1)}km`
-    : null;
   // 완료 달성률은 조정된 처방 대비다. 기존 actualTSS=0은 미수집과 명시적0을 구분할 근거가 없어 미표시한다.
   const completionRatio = day.completed && day.actualTSS != null && day.actualTSS > 0 && effectiveTSS > 0
     ? day.actualTSS / effectiveTSS
@@ -90,6 +92,14 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onC
   const downshift = !isPast && !isSkipped && !isRest && !isGoal && !day.completed && currentTsb != null
     ? evaluateRecoveryDownshift({ workoutKind: day.workout, tsb: currentTsb, daysUntil })
     : null;
+
+  const dateControl = (content: ReactNode, style: CSSProperties) => onClick ? <button
+    type="button" aria-label={t('page.dayDetails', { date: kstDayKey(day.date), workout: workoutLabel })}
+    onClick={event => { event.stopPropagation(); onClick(); }}
+    className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-dark)]"
+    style={{ ...style, border: 0, padding: 0, background: 'transparent', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 24 }}>
+    {content}<Eye size={12} aria-hidden="true" />
+  </button> : <div style={style}>{content}</div>;
 
   // 건너뛴 날은 휴식처럼 흐리게 + 취소선
   if (isSkipped) {
@@ -100,7 +110,7 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onC
         aria-current={selected ? "date" : undefined}
         onClick={onClick}
         style={{
-          padding: '20px 8px 8px',
+          padding: '28px 8px 8px',
           borderRadius: "var(--r-sm)",
           minHeight: 82,
           cursor: 'pointer',
@@ -114,18 +124,15 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onC
         }}
       >
         <div style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-2)', textDecoration: 'line-through', paddingLeft: 6 }}>
-          {meta.label}
+          <span onClick={event => event.stopPropagation()}><GlossaryText>{meta.label}</GlossaryText></span>
         </div>
         <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', paddingLeft: 6, fontFamily: 'var(--font-mono)' }}>
           {t('page.skipped')}
         </div>
-        {/* 날짜 — 우상단 */}
-        <div style={{
-          position: 'absolute', top: 4, right: 4,
-          fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", color: 'var(--ink-4)',
-        }}>
-          {formatDateLabel(day.date, day.dayOfWeek)}
-        </div>
+        {dateControl(dateLabel, {
+          position: 'absolute', top: 2, right: 4,
+          fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", color: 'var(--ink-2)',
+        })}
       </div>
     );
   }
@@ -137,27 +144,24 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onC
           padding: '6px 4px',
           borderRadius: "var(--r-sm)",
           minHeight: 82,
-          background: 'var(--lime)',
-          color: 'var(--primary-fg)',
+          background: isGoalDate ? 'var(--lime)' : 'var(--bg-2)',
+          color: isGoalDate ? 'var(--primary-fg)' : 'var(--ink-1)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          border: isToday ? '2px solid var(--ink-0)' : 'none',
+          border: isToday ? '2px solid var(--ink-0)' : isGoalDate ? 'none' : '1px solid var(--line-soft)',
           position: 'relative',
         }}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        {isGoalDate && <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-        </svg>
-        <div style={{ fontSize: "var(--fs-xs)", fontWeight: 700, marginTop: 'var(--space-1)', letterSpacing: '0.04em' }}>{t('page.goalDay')}</div>
-        {/* 날짜 — 우상단 */}
-        <div style={{
-          position: 'absolute', top: 4, right: 4,
-          fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", color: 'var(--primary-fg)', opacity: 0.7,
-        }}>
-          {formatDateLabel(day.date, day.dayOfWeek)}
-        </div>
+        </svg>}
+        <div style={{ fontSize: "var(--fs-xs)", fontWeight: 700, marginTop: 'var(--space-1)', letterSpacing: '0.04em' }}>{workoutLabel}</div>
+        {dateControl(dateLabel, {
+          position: 'absolute', top: 2, right: 4,
+          fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", color: isGoalDate ? 'var(--primary-fg)' : 'var(--ink-1)',
+        })}
       </div>
     );
   }
@@ -168,7 +172,7 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onC
       aria-current={selected ? "date" : undefined}
       data-testid={selected ? "K4-5-6" : "K4-5-1"} onClick={!isGoal ? onClick : undefined}
       style={{
-        padding: '20px 8px 8px',
+        padding: '28px 8px 8px',
         borderRadius: "var(--r-sm)",
         minHeight: 82,
         cursor: !isGoal ? 'pointer' : 'default',
@@ -184,6 +188,21 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onC
       }}
     >
       {day.actualActivityId && <LocalizedLink data-testid="K4-5-5" to={`/activity/${encodeURIComponent(day.actualActivityId)}`} onClick={event => event.stopPropagation()}>{t("today.viewActivity")}</LocalizedLink>}
+      {/* TODAY badge */}
+      {isToday && (
+        <div
+          style={{
+            alignSelf: 'flex-start',
+            paddingLeft: 'var(--space-1-5)',
+            fontSize: "var(--fs-2xs)",
+            color: 'var(--ink-1)',
+            fontWeight: 700,
+            letterSpacing: '0.05em',
+          }}
+        >
+          TODAY
+        </div>
+      )}
       {/* Color bar — 결근이면 rose로 강조 */}
       <div
         style={{
@@ -205,9 +224,9 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onC
           lineHeight: 1.25,
         }}
       >
-        {meta.label}
+        <span onClick={event => event.stopPropagation()}><GlossaryText>{meta.label}</GlossaryText></span>
       </div>
-      {effectiveTSS > 0 && (
+      {(effectiveDur > 0 || effectiveTSS > 0) && (
         <div
           style={{
             fontSize: "var(--fs-base)",
@@ -220,8 +239,8 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onC
             columnGap: 'var(--space-1)',
           }}
         >
-          {distanceLabel && <span style={{ whiteSpace: 'nowrap' }}>{distanceLabel}</span>}
-          <span style={{ whiteSpace: 'nowrap' }}>{effectiveTSS} TSS</span>
+          {effectiveDur > 0 && <span style={{ whiteSpace: 'nowrap' }}>{effectiveDur} {t('mobile.minutesUnit')}</span>}
+          {effectiveTSS > 0 && <span onClick={event => event.stopPropagation()} style={{ whiteSpace: 'nowrap' }}><GlossaryText>{`${effectiveTSS} TSS`}</GlossaryText></span>}
         </div>
       )}
       {/* 자동 조정 칩 — week 단위 canonical factor 사용 (day별 ratio 누적 오차 회피) */}
@@ -235,31 +254,15 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onC
           <RecoveryDownshiftMarker suggestedSwap={downshift.suggestedSwap} tsb={downshift.reasonTsb} />
         </div>
       )}
-      {/* 날짜 + 달성/결근 표시 — 우상단 */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 4,
-          right: 4,
-          maxWidth: 'calc(100% - 8px)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: "var(--space-1)",
-          whiteSpace: 'nowrap',
-          fontFamily: 'var(--font-mono)',
-          fontSize: "var(--fs-xs)",
-          color: isToday ? 'var(--lime)' : isMissed ? 'var(--rose)' : 'var(--ink-3)',
-          fontWeight: isToday || isMissed ? 700 : 500,
-        }}
-      >
-        <span>{formatDateLabel(day.date, day.dayOfWeek)}</span>
+      {dateControl(<>
+        <span>{dateLabel}</span>
         {/* 완료 — 달성률 + ✓ (이상값 방지를 위해 999% 캡) */}
         {day.completed && (
           <>
             {completionRatio != null && (
               <span style={{
                 fontSize: "var(--fs-xs)",
-                color: completionRatio >= 0.8 ? 'var(--lime)' : 'var(--amber)',
+                color: 'var(--ink-1)',
               }}>
                 {Math.min(999, Math.round(completionRatio * 100))}%
               </span>
@@ -283,23 +286,21 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, onC
             style={{ color: 'var(--rose)', fontSize: "var(--fs-xs)", lineHeight: 1 }}
           >—</span>
         )}
-      </div>
-      {/* TODAY badge */}
-      {isToday && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 4,
-            right: 4,
-            fontSize: "var(--fs-2xs)",
-            color: 'var(--lime)',
-            fontWeight: 700,
-            letterSpacing: '0.05em',
-          }}
-        >
-          TODAY
-        </div>
-      )}
+      </>, {
+          position: 'absolute',
+          top: 4,
+          right: 4,
+          maxWidth: 'calc(100% - 8px)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: "var(--space-1)",
+          whiteSpace: 'nowrap',
+          fontFamily: 'var(--font-mono)',
+          fontSize: "var(--fs-xs)",
+          color: 'var(--ink-1)',
+          fontWeight: isToday || isMissed ? 700 : 500,
+        })}
+
     </div>
   );
 }
@@ -327,7 +328,7 @@ function SkeletonGrid() {
         {DAY_NAMES.map((d) => (
           <Text key={d} as="div" variant="eyebrow" style={{ textAlign: 'center' }}>{d}</Text>
         ))}
-        <Text as="div" variant="eyebrow" style={{ textAlign: 'right' }}>{t('page.tssHeader')}</Text>
+        <Text as="div" variant="eyebrow" style={{ textAlign: 'right' }}><GlossaryText>{t('page.tssHeader')}</GlossaryText></Text>
       </div>
       {Array.from({ length: 12 }).map((_, i) => (
         <div
@@ -518,7 +519,7 @@ function Legend() {
               display: 'inline-block',
             }}
           />
-          <span style={{ color: 'var(--ink-2)' }}>{label}</span>
+          <span style={{ color: 'var(--ink-2)' }}><GlossaryText>{label}</GlossaryText></span>
         </div>
       ))}
       <span style={{ marginLeft: 'auto', color: 'var(--ink-3)' }}>
@@ -585,6 +586,14 @@ export default function PlanPresentation({
     isTodayCell,
     retryLoad,
   } = model;
+  const firstCalendarWeek = weeks.find(week => week.days.length > 0);
+  const firstCalendarWeekday = firstCalendarWeek?.days[0]
+    ? (planCalendarDate(firstCalendarWeek.days[0].date).getUTCDay() + 6) % 7 : 0;
+  const calendarDayNames = DAY_NAMES.map((fallback, index) => {
+    const date = firstCalendarWeek?.days[index]?.date;
+    const weekdayIndex = date != null ? (planCalendarDate(date).getUTCDay() + 6) % 7 : (firstCalendarWeekday + index) % 7;
+    return DAY_NAMES[weekdayIndex] ?? fallback;
+  });
   const isMobile = useCompactPlanLayout();
   const currentWeekIndex = useMemo(() => {
     const todayIndex = weeks.findIndex((week) => week.days.some(isTodayCell));
@@ -697,12 +706,13 @@ export default function PlanPresentation({
       canNextWeek: mobilePlanViewModel.canNextWeek,
       goalTitle: goal?.title ?? goal?.courseName,
       goalDiscipline: goal?.discipline,
+      goalDate,
       daysLeft,
       progressPct: progress,
       completedTSS,
       totalTSS,
       weeksLeft,
-      projectedCTL: goal?.snapshot?.ctl != null ? goal.snapshot.ctl * 0.18 : null,
+      remainingSessions,
       onWeekPrev: () => onMobileWeekOffsetChange(mobilePlanViewModel.weekIndex - 1 - currentWeekIndex),
       onWeekNext: () => onMobileWeekOffsetChange(mobilePlanViewModel.weekIndex + 1 - currentWeekIndex),
       onEditWorkout: embedded ? undefined : onEditWorkout,
@@ -763,7 +773,7 @@ export default function PlanPresentation({
                 flexWrap: 'wrap',
               }}
             >
-              <Text data-testid="K4-2-1" as="h1" variant="pageTitle" title={goalTitle} aria-label={goalTitle} style={{ margin: 0, minWidth: 0, fontSize: 'clamp(var(--fs-xl), 2vw, var(--fs-2xl))', lineHeight: 1.25, overflowWrap: 'anywhere', ...(!goalExpanded ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' } : {}) }}>
+              <Text data-testid="K4-2-1" as="h2" variant="title" title={goalTitle} aria-label={goalTitle} style={{ margin: 0, minWidth: 0, overflowWrap: 'anywhere', ...(!goalExpanded ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' } : {}) }}>
                 {loading ? '...' : (goalExpanded ? goalTitle : formattedGoal.name)}
               </Text>
               <span
@@ -774,7 +784,7 @@ export default function PlanPresentation({
                   borderRadius: "9999px",
                   background: 'var(--bg-2)',
                   border: '1px solid var(--lime)',
-                  color: 'var(--lime)',
+                  color: 'var(--ink-1)',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -808,17 +818,17 @@ export default function PlanPresentation({
                 </span>
               )}
               <span>
-                {t('page.daysLeftPrefix')}<span style={{ color: 'var(--lime)' }}>{daysLeft}</span>
+                {t('page.daysLeftPrefix')}<span style={{ color: 'var(--ink-1)' }}>{daysLeft}</span>
               </span>
-              {goal && goal.goalType !== 'climb' && (
+              {goal && goal.goalType !== 'climb' && (goal.courseDist > 0 || goal.courseElev > 0) && (
                 <span>
-                  {goal.courseDist.toFixed(1)} km · ↑{Math.round(goal.courseElev)} m
+                  {goal.courseDist > 0 && `${t('metrics.distanceLabel')} ${goal.courseDist.toFixed(1)} km`}{goal.courseDist > 0 && goal.courseElev > 0 && ' · '}{goal.courseElev > 0 && `${t('metrics.elevationLabel')} ${Math.round(goal.courseElev)} m`}
                 </span>
               )}
               {goal?.goalType === 'climb' && (
                 <span>
                   {goal.target?.climbDurationMin ?? goal.targetDurationMin} min
-                  {goal.target?.targetWkg != null ? ` · ${goal.target.targetWkg.toFixed(1)} W/kg` : ''}
+                  {goal.target?.targetWkg != null && <> · <GlossaryText>{`${goal.target.targetWkg.toFixed(1)} W/kg`}</GlossaryText></>}
                 </span>
               )}
               {goal?.goalType !== 'climb' && goal?.targetDurationMin && (
@@ -832,10 +842,9 @@ export default function PlanPresentation({
             </div>
             <div style={{ marginTop: 'var(--space-4)', maxWidth: 480 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 'var(--space-1)', color: 'var(--ink-2)', fontSize: 'var(--fs-sm)' }}>
-                <span>{t('metrics.progress')}</span>
-                <strong style={{ color: 'var(--lime)', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-md)' }}>{progress}%</strong>
+                <InfoTip title={t('metrics.progress')} content={t('metrics.progressBasis')}>{t('metrics.progress')}</InfoTip>
+                <strong style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-md)' }}>{progress}%</strong>
               </div>
-              <Text variant="caption" tone="secondary">{t("metrics.progressBasis")}</Text>
               <div role="progressbar" aria-label={t('metrics.progress')} aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} style={{ height: 6, borderRadius: 'var(--r-xs)', background: 'var(--bg-3)', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, progress))}%`, background: 'var(--lime)' }} />
               </div>
@@ -851,10 +860,9 @@ export default function PlanPresentation({
             }}
           >
             {[
-              { label: t('metrics.sessionsLeft'), value: String(remainingSessions), unit: t('mobile.sessions'), color: 'var(--lime)' },
-              { label: t('metrics.completedTSS'), value: completedTSS.toLocaleString(), unit: `/ ${totalTSS.toLocaleString()}`, color: 'var(--ink-0)' },
+              { label: t('metrics.sessionsLeft'), value: String(remainingSessions), unit: t('mobile.sessionsUnit'), color: 'var(--ink-0)' },
+              ...(totalTSS > 0 ? [{ label: t('metrics.completedTSS'), value: completedTSS.toLocaleString(), unit: `/ ${totalTSS.toLocaleString()}`, color: 'var(--ink-0)' }] : []),
               { label: t('metrics.weeksLeft'), value: String(weeksLeft),    unit: t('metrics.weeksUnit'),  color: 'var(--ink-0)' },
-              { label: t('metrics.projectedCTL'), value: goal?.snapshot?.ctl != null ? `≈+${Math.round(goal.snapshot.ctl * 0.18)}` : '—', unit: null, color: 'var(--lime)' },
             ].map(({ label, value, unit, color }) => (
               <div
                 key={label}
@@ -865,7 +873,7 @@ export default function PlanPresentation({
                   border: '1px solid var(--line-soft)',
                 }}
               >
-                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{label}</Text>
+                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}><GlossaryText>{label}</GlossaryText></Text>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-1)' }}>
                   <Text variant="dataLarge" style={{ color }}>{value}</Text>
                   {unit && (
@@ -893,12 +901,14 @@ export default function PlanPresentation({
         {!loading && nextAction && (
           <Card padding="compact" style={{ marginBottom: 'var(--space-3)', borderColor: 'var(--lime)', background: 'color-mix(in oklch, var(--lime) 5%, var(--bg-1))' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-              <Text as="div" variant="eyebrow" style={{ color: 'var(--lime)' }}>{kstDayKey(nextAction.day.date) === todayKey ? t('mobile.todayNext') : t('mobile.weekNext')}</Text>
-              <strong style={{ color: 'var(--ink-0)', fontSize: 'var(--fs-md)' }}>{nextActionLabel}</strong>
+              <Text as="div" variant="eyebrow" style={{ color: 'var(--ink-1)' }}>{kstDayKey(nextAction.day.date) === todayKey ? t('mobile.todayNext') : t('mobile.weekNext')}</Text>
+              <strong style={{ color: 'var(--ink-0)', fontSize: 'var(--fs-md)' }}><GlossaryText>{nextActionLabel}</GlossaryText></strong>
               <span style={{ color: 'var(--ink-2)', fontSize: 'var(--fs-sm)', fontFamily: 'var(--font-mono)' }}>
-                {new Date(nextAction.day.date).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric', timeZone: 'Asia/Seoul' })} · {nextAction.day.adjustedTSS ?? nextAction.day.plannedTSS} TSS
+                {new Date(nextAction.day.date).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric', timeZone: 'Asia/Seoul' })}
+                {(nextAction.day.adjustedDurationMin ?? nextAction.day.plannedDurationMin) > 0 && ` · ${nextAction.day.adjustedDurationMin ?? nextAction.day.plannedDurationMin} ${t('mobile.minutesUnit')}`}
+                {(nextAction.day.adjustedTSS ?? nextAction.day.plannedTSS) > 0 && <> · <GlossaryText>{`${nextAction.day.adjustedTSS ?? nextAction.day.plannedTSS} TSS`}</GlossaryText></>}
               </span>
-              {onEditWorkout && !embedded && <Button type="button" size="sm" style={{ marginLeft: 'auto' }} onClick={() => onEditWorkout(nextAction.day, nextAction.weekId, nextAction.dayIndex)}>{t('mobile.start')}</Button>}
+              {onEditWorkout && !embedded && <Button type="button" size="sm" style={{ marginLeft: 'auto' }} onClick={() => onEditWorkout(nextAction.day, nextAction.weekId, nextAction.dayIndex)}>{t('page.workoutDetails')}</Button>}
             </div>
           </Card>
         )}
@@ -945,18 +955,18 @@ export default function PlanPresentation({
               }}
             >
               <Text as="div" variant="eyebrow">{t('page.weekHeader')}</Text>
-              {DAY_NAMES.map((d, i) => (
+              {calendarDayNames.map((d) => (
                 <Text
                   key={d} as="div" variant="eyebrow"
                   style={{
                     textAlign: 'center',
-                    color: i >= 5 ? 'var(--ink-2)' : 'var(--ink-3)',
+                    color: DAY_NAMES.slice(5).includes(d) ? 'var(--ink-2)' : 'var(--ink-3)',
                   }}
                 >
                   {d}
                 </Text>
               ))}
-              <Text as="div" variant="eyebrow" style={{ textAlign: 'right' }}>{t('page.tssHeader')}</Text>
+              <Text as="div" variant="eyebrow" style={{ textAlign: 'right' }}><GlossaryText>{t('page.tssHeader')}</GlossaryText></Text>
             </div>
 
             {/* Rows */}
@@ -1033,6 +1043,7 @@ export default function PlanPresentation({
                           selected={kstDayKey(day.date) === selectedDate}
                           day={day}
                           isToday={isTodayCell(day)}
+                          goalDate={goalDate}
                           weekAdjustmentFactor={wk.adjustmentFactor}
                           currentTsb={currentTsb}
                           onClick={embedded || !onEditWorkout
@@ -1051,7 +1062,7 @@ export default function PlanPresentation({
                         justifyContent: 'center',
                       }}
                     >
-                      <Text variant="dataMedium">{weekTSS}</Text>
+                      <Text variant="dataMedium">{weekTSS > 0 ? weekTSS : '—'}</Text>
                       <div
                         style={{
                           fontSize: "var(--fs-xs)",
@@ -1059,7 +1070,7 @@ export default function PlanPresentation({
                           fontFamily: 'var(--font-mono)',
                         }}
                       >
-                        TSS
+                        <GlossaryText>TSS</GlossaryText>
                       </div>
                     </div>
                   </div>

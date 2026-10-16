@@ -75,10 +75,15 @@ export default function PlanPage() {
     return () => cancelAnimationFrame(frame);
   }, [targetDate, loading, mobileWeekOffset, weeks]);
   const [selectedDay, setSelectedDay] = useState<{
+    owner: string;
+    goalId: string;
     day: PlanDay;
     weekId: string;
     dayIndex: number;
   } | null>(null);
+
+  const selectionOwner = `${user?.uid ?? ""}:${discipline}:${goal?.id ?? ""}`;
+  useEffect(() => { setSelectedDay(null); }, [selectionOwner]);
 
   const exportPlanIcs = () => {
     if (!goal) return;
@@ -130,19 +135,20 @@ export default function PlanPage() {
       ) : undefined}
       mobileWeekOffset={mobileWeekOffset}
       onMobileWeekOffsetChange={setMobileWeekOffset}
-      onEditWorkout={serverManagedPlan ? undefined : (day, weekId, dayIndex) => setSelectedDay({ day, weekId, dayIndex })}
+      onEditWorkout={serverManagedPlan ? undefined : (day, weekId, dayIndex) => { if (goal) setSelectedDay({ owner: selectionOwner, goalId: goal.id, day, weekId, dayIndex }); }}
       onIcsExport={exportPlanIcs}
       onReroll={serverManagedPlan ? undefined : rerollPlan}
       onGoalReset={serverManagedPlan ? undefined : () => navigate(`/coach/goals?sport=${discipline}&new=1&returnTo=${encodeURIComponent(`/coach/plan?sport=${discipline}`)}`)}
       onAbandon={abandonGoal}
       renderMobile={(props) => (
-        <MobilePlanPage
+        <MobilePlanPage key={selectionOwner}
           selectedDate={props.selectedDate}
           currentWeek={props.currentWeek}
           weekLabel={props.weekLabel}
           goalId={serverManagedPlan ? undefined : goal?.id}
           goalTitle={props.goalTitle}
           goalDiscipline={props.goalDiscipline}
+          goalDate={props.goalDate}
           daysLeft={props.daysLeft}
           progressPct={props.progressPct}
           completedTSS={props.completedTSS}
@@ -170,7 +176,7 @@ export default function PlanPage() {
     return <GuestValuePreview kind="plan" lang={i18n.language} />;
   }
 
-  const goalLink = <header data-testid="K4-0" className="site-shell"><Text data-testid="K4-0-1" as="h1" variant="pageTitle">{t("mobile.weeklyPlan")}</Text><div data-testid="K4-0-2"><DisciplineTabs value={discipline} /></div>{goal && <LocalizedLink data-testid="K4-2-4" to={`/coach/goals?sport=${discipline}`}>{t("goalHub.title")} →</LocalizedLink>}</header>;
+  const goalLink = <header data-testid="K4-0" className="site-shell coach-page-header"><Text data-testid="K4-0-1" as="h1" variant="pageTitle">{t("mobile.weeklyPlan")}</Text><div data-testid="K4-0-2"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div>{goal && <LocalizedLink data-testid="K4-2-4" to={`/coach/goals?sport=${discipline}`}>{t("goalHub.title")} →</LocalizedLink>}</header>;
   const targetNotice = runTarget.unavailable ? <p role="status" className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{tActivity("analysis.run.nextPlan.unavailable")}</p> : null;
 
   const refreshAfterProgramChange = async () => {
@@ -233,13 +239,13 @@ export default function PlanPage() {
           <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />
         </>,
       )}
-      {selectedDay && goal && !serverManagedPlan && (
+      {selectedDay?.owner === selectionOwner && goal && !serverManagedPlan && (
         <WorkoutEditModal
           day={selectedDay.day}
           weekId={selectedDay.weekId}
           weekAdjustmentReason={weeks.find((week) => week.id === selectedDay.weekId)?.adjustmentReason}
           dayIndex={selectedDay.dayIndex}
-          goalId={goal.id}
+          goalId={selectedDay.goalId}
           goalDiscipline={goal.discipline as "bike" | "run" | "swim" | undefined}
           onClose={() => setSelectedDay(null)}
           onUpdate={() => {
@@ -247,7 +253,11 @@ export default function PlanPage() {
             if (isMobile) {
               model.retryLoad();
             } else {
-              void model.refreshPlanWeeks();
+              void model.refreshPlanWeeks().catch((error: unknown) => {
+                logClientError("PlanPage.refreshAfterEdit", error, { goalId: selectedDay.goalId });
+                showToast(t("errors.planRefreshAfterSave"), "error");
+                model.retryLoad();
+              });
             }
           }}
         />

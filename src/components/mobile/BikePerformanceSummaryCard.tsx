@@ -98,7 +98,7 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
       </>}
       {part !== "condition" && <>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
-        <Chip variant={riderType ? "accent" : "default"} dot={!!riderType}>{riderType ?? t("mobileFitness.performance.riderUnknown")}</Chip>
+        {riderType ? <Chip variant="accent" dot>{riderType}</Chip> : <Text variant="bodySmall">{t("mobileFitness.performance.riderUnknown")}</Text>}
       </div>
       <div style={{ marginTop: "var(--space-3)" }}>
         <Text as="div" variant="caption" tone="secondary" style={{ marginBottom: "var(--space-1)" }}>{t("mobileFitness.performance.abilityLabel")}</Text>
@@ -108,7 +108,7 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
               ariaLabel={t("mobileFitness.performance.abilityScoreAria")}
               accentColor="var(--lime)"
             />
-          : <Text as="div" variant="label">{t("mobileFitness.performance.abilityUnknown")}</Text>}
+          : <Text as="div" variant="body">{t("mobileFitness.performance.abilityUnknown")}</Text>}
       </div>
       <div className="mobile-fitness-performance__metrics">
         {metrics.filter(metric => part !== "analysis" || metric.key !== "vo2max").map((metric) => (

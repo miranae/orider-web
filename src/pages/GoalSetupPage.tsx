@@ -14,7 +14,7 @@ import { firestore, functions } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { useCourses } from "../hooks/useCourses";
-import { GoalDetailsStep, PlanPreviewStep, RunGoalSetupWizard, SwimGoalSetupWizard } from "../components/training";
+import { GoalDetailsStep, PlanPreviewStep, RunGoalSetupWizard } from "../components/training";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import PermissionGate from "../components/redesign/states/PermissionGate";
 import type { GoalDetailsStepValue } from "../components/training/GoalDetailsStep";
@@ -23,7 +23,7 @@ import type { FeasibilityLabel } from "@shared/types/goal";
 // ── Feasibility 계산 (클라이언트 미리보기용 — 서버 버전이 권위 있는 값) ──────
 
 import { calcFeasibility as calcFeasibilityCore } from "@shared/training/feasibility";
-import { Button, Card, Chip, Text } from "../theme/components";
+import { Alert, Button, Card, Chip, Text } from "../theme/components";
 
 interface FeasibilityResult {
   label: FeasibilityLabel;
@@ -86,7 +86,7 @@ interface StepperProps {
 function Stepper({ current, steps }: StepperProps) {
   const { t } = useTranslation('training');
   return (
-    <div data-testid="K3-3-1"
+    <div data-testid="K3-3-1" className="goal-setup-stepper"
       style={{
         display: "flex",
         alignItems: "center",
@@ -98,6 +98,18 @@ function Stepper({ current, steps }: StepperProps) {
         marginBottom: 'var(--space-6)',
       }}
     >
+      <style>{`
+        .goal-setup-stepper__step { display: flex; align-items: center; flex: 1 1 0; }
+        .goal-setup-stepper__step:last-child { flex: 0 0 auto; }
+        .goal-setup-stepper__label { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
+        @media (max-width: 36rem) {
+          .goal-setup-stepper { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2) !important; padding-inline: var(--space-3) !important; }
+          .goal-setup-stepper__step { min-width: 0; justify-content: center; align-self: start; }
+          .goal-setup-stepper__label { flex-direction: column; text-align: center; min-width: 0; flex-shrink: 1; }
+          .goal-setup-stepper__label > div:last-child { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
+          .goal-setup-stepper__connector { display: none; }
+        }
+      `}</style>
       {steps.map((label, idx) => {
         const n = idx + 1;
         const done = current > n;
@@ -105,9 +117,9 @@ function Stepper({ current, steps }: StepperProps) {
         const isLast = idx === steps.length - 1;
 
         return (
-          <div key={n} style={{ display: "flex", alignItems: "center", flex: isLast ? 0 : 1 }}>
+          <div key={n} className="goal-setup-stepper__step">
             {/* Dot + label */}
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+            <div className="goal-setup-stepper__label">
               <div
                 style={{
                   width: 28,
@@ -141,7 +153,7 @@ function Stepper({ current, steps }: StepperProps) {
                 )}
               </div>
               <div>
-                <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)" }}>{t('goals.stepLabel')} {n}</Text>
+                <Text as="div" variant="caption">{t('goals.stepLabel')} {n}</Text>
                 <div
                   style={{
                     fontSize: "var(--fs-sm)",
@@ -155,7 +167,7 @@ function Stepper({ current, steps }: StepperProps) {
             </div>
             {/* Connector */}
             {!isLast && (
-              <div
+              <div className="goal-setup-stepper__connector"
                 style={{
                   flex: 1,
                   height: 1,
@@ -187,7 +199,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
     hard: tCommon('difficulty.hard'),
     hc: tCommon('difficulty.hc'),
   };
-  const { courses, loading, search } = useCourses();
+  const { courses, loading, error, retry, search } = useCourses();
   const [searchQuery, setSearchQuery] = useState("");
 
   if (loading) {
@@ -209,6 +221,12 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
         </div>
       </Card>
     );
+  }
+
+  if (error) {
+    return <Alert variant="warning" title={t('goals.courseLoadFailed')}>
+      <Button type="button" variant="outline" onClick={() => retry()}>{t('goals.courseRetry')}</Button>
+    </Alert>;
   }
 
   if (courses.length === 0) {
@@ -423,10 +441,10 @@ function WizardFooter({ step, canNext, submitting, onPrev, onNext, onStart }: Wi
 
 export default function GoalSetupPage() {
   const location = useLocation();
-  return /\/coach\/goals$/.test(location.pathname) ? <GoalHub wizard={<GoalWizard />} /> : <GoalWizard />;
+  return /\/coach\/goals$/.test(location.pathname) ? <GoalHub wizard={<GoalWizard embedded />} /> : <GoalWizard />;
 }
 
-function GoalWizard() {
+function GoalWizard({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
@@ -553,16 +571,16 @@ function GoalWizard() {
   const eyebrowLabel = t(`goals.eyebrowLabel.${discipline}`);
 
   return (
-    <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 24px 48px" }}>
+    <div style={{ maxWidth: 1080, margin: "0 auto", padding: embedded ? "var(--space-4) 0 var(--space-6)" : "0 var(--space-6) var(--space-12)" }}>
       {/* 공통 헤더 */}
       <div style={{ marginBottom: 'var(--space-6)', paddingTop: 28 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)', marginBottom: "var(--space-1-5)", flexWrap: "wrap" }}>
           <Text as="div" variant="eyebrow">{eyebrowLabel}</Text>
-          <DisciplineTabs />
+          <DisciplineTabs disabledKeys={["swim"]} />
         </div>
-        <h1 style={{ fontSize: "var(--fs-xl)", fontWeight: 700, color: "var(--ink-0)", margin: 0 }}>
+        <Text as={embedded ? "h2" : "h1"} variant={embedded ? "title" : "pageTitle"} style={{ margin: 0 }}>
           {pageTitle}
-        </h1>
+        </Text>
         <p style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginTop: "var(--space-1-5)" }}>
           {pageSubtitle}
         </p>
@@ -570,7 +588,7 @@ function GoalWizard() {
 
       {/* Wizard (discipline에 따라 교체) */}
       {discipline === 'run' && <RunGoalSetupWizard key="run" Stepper={Stepper} />}
-      {discipline === 'swim' && <SwimGoalSetupWizard key="swim" Stepper={Stepper} />}
+      {discipline === 'swim' && <Text as="p" role="status" variant="body">{t('add.swimUnavailable')}</Text>}
       {discipline === 'bike' && (
         <>
           {/* Stepper */}

@@ -1,6 +1,12 @@
+import WeeklyTssBars from "../components/dashboard/WeeklyTrainingLoadBars";
+export { default as WeeklyTssBars } from "../components/dashboard/WeeklyTrainingLoadBars";
+export type { WeeklyTssBar } from "../components/dashboard/WeeklyTrainingLoadBars";
+import GlossaryText from "../components/common/GlossaryText";
+import InfoTip from "../components/InfoTip";
+import { GlossaryProvider } from "../components/common/GlossaryProvider";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
-import { Fragment, useState, useRef, useMemo } from "react";
-import { Search, X, ChevronDown } from "lucide-react";
+import { useState, useRef, useMemo } from "react";
+import { Search, X } from "lucide-react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -25,14 +31,13 @@ import ActivityCard from "../components/ActivityCard";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { useLocale } from "../contexts/LocaleContext";
-import { formatTrainingLoad, type TrainingLoadPoint } from "../utils/trainingLoadDisplay";
+import { formatTrainingLoad } from "../utils/trainingLoadDisplay";
 import { formatDistance, formatElev } from "../utils/units";
 import { useActivities, useWeeklyStats, useActivitySearch } from "../hooks/useActivities";
 import type { ActivityFeedScope, DatePreset } from "../hooks/useActivities";
 import { useFriends } from "../hooks/useFriends";
 import { logClientError } from "../services/errorLogger";
 import { isYearRecapSeason } from "../utils/yearRecapSeason";
-import { useConsistencyStreak } from "../hooks/useConsistencyStreak";
 import { useCanonicalHomeSummary } from "../hooks/useCanonicalHomeSummary";
 import { useCanonicalFitnessSummary } from "../hooks/useCanonicalFitnessSummary";
 import { canonicalKpiPresentation, canonicalKpiSource, canonicalWeekTotals } from "../features/home/canonicalKpiSource";
@@ -40,8 +45,6 @@ import { useDashboardPreferences } from "../hooks/useDashboardPreferences";
 import { selectStoredDashboardFitness } from "../features/home/storedDashboardFitness";
 import HomeTodayStrip from "../components/dashboard/HomeTodayStrip";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
-import AppInstallLinks from "../components/AppInstallLinks";
-import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
 import { useMobile } from "../hooks/useMobile";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import type { Activity } from "@shared/types";
@@ -190,85 +193,13 @@ function FeedSkeleton() {
   );
 }
 
-export interface WeeklyTssBar extends TrainingLoadPoint {
-  week: string;
-  /** 부하를 알 수 없는 주는 `null` — 0 으로 내리면 "쉰 주"로 보인다 (#2237). */
-  tss: number | null;
-}
-
-/**
- * 주간 TSS 막대 차트 — 호버 시 디자인 시스템 툴팁 표시 (기존 native title 대체).
- *
- * `tss=null` 인 주는 막대를 그리지 않고 빈 칸으로 두고, 툴팁은 "기록 없음"을 말한다.
- */
-export function WeeklyTssBars({
-  weeks,
-  tooltipFor,
-}: {
-  weeks: WeeklyTssBar[];
-  tooltipFor: (w: WeeklyTssBar) => string;
-}) {
-  const maxTSS = Math.max(...weeks.map((w) => w.tss ?? 0), 1);
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const hover = hoverIdx != null ? weeks[hoverIdx] : null;
-  // 양 끝 막대 툴팁이 카드 밖으로 잘리지 않도록 앵커 중심을 [12%, 88%] 로 클램프
-  const anchorPct =
-    hoverIdx != null
-      ? Math.min(Math.max(((hoverIdx + 0.5) / weeks.length) * 100, 12), 88)
-      : 0;
-
-  return (
-    <div style={{ position: "relative" }}>
-      <div className="bar-track" style={{ height: 80 }} onPointerLeave={() => setHoverIdx(null)}>
-        {weeks.map((w, i) => (
-          <div
-            key={i}
-            className={w.tss == null ? "bar bar--unknown" : `bar ${i === weeks.length - 1 ? "bar--current" : ""}`}
-            data-testid={w.tss == null ? "weekly-tss-bar-unknown" : "weekly-tss-bar"}
-            style={{
-              height: w.tss == null ? "100%" : `${Math.round((w.tss / maxTSS) * 100)}%`,
-              opacity: hoverIdx != null && hoverIdx !== i ? 0.5 : 1,
-              cursor: "default",
-            }}
-            onPointerEnter={() => setHoverIdx(i)}
-          />
-        ))}
-      </div>
-      {hover && (
-        <div
-          style={{
-            position: "absolute",
-            top: -6,
-            left: `${anchorPct}%`,
-            transform: "translate(-50%, -100%)",
-            background: "var(--bg-1)",
-            border: "1px solid var(--line)",
-            borderRadius: "var(--r-md)",
-            boxShadow: "var(--shadow-md)",
-            padding: "var(--space-2) var(--space-3)",
-            pointerEvents: "none",
-            whiteSpace: "nowrap",
-            zIndex: 5,
-            fontSize: "var(--fs-sm)",
-            fontFamily: "var(--font-mono)",
-            fontWeight: 700,
-            color: "var(--ink-0)",
-          }}
-        >
-          {tooltipFor(hover)}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── 메인 대시보드 ──
-
 export default function DashboardPage() {
+  return <GlossaryProvider><DashboardContent /></GlossaryProvider>;
+}
+
+function DashboardContent() {
   const { t, i18n } = useTranslation("dashboard");
-  const { t: tCommon } = useTranslation("common");
   // 사이드바 푸터(약관/정책 링크) 접이식 — Layout 데스크톱 푸터를 메인화면에서 흡수 (#347 후속)
-  const [footerOpen, setFooterOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
@@ -290,7 +221,7 @@ export default function DashboardPage() {
     authLoading,
   );
   const { units } = useLocale();
-  const isMobile = useMobile();
+  const isMobile = useMobile(1024);
   const { friends } = useFriends();
   const friendIds = useMemo(() => new Set(friends.map((friend) => friend.userId)), [friends]);
   const feedScope: ActivityFeedScope = user ? dashboardPreferences.feedScope : "all";
@@ -301,12 +232,12 @@ export default function DashboardPage() {
   const canonicalHome = useCanonicalHomeSummary();
   const canonicalFitness = useCanonicalFitnessSummary();
   const activitySearch = useActivitySearch(friendIds);
-  const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const sportParam = searchParams.get("sport");
-  const requestedDiscipline = normalizeDashboardDiscipline(sportParam);
-  const mobileSportFilter = requestedDiscipline === "tri" ? "all" : requestedDiscipline ?? dashboardPreferences.sportFilter;
+  const parsedDiscipline = normalizeDashboardDiscipline(sportParam);
+  const requestedDiscipline = parsedDiscipline === "swim" ? "bike" : parsedDiscipline;
+  const mobileSportFilter = requestedDiscipline === "tri" ? "all" : requestedDiscipline ?? (dashboardPreferences.sportFilter === "swim" ? "bike" : dashboardPreferences.sportFilter);
   const discipline: Discipline = isMobile ? (mobileSportFilter === "all" ? "tri" : mobileSportFilter) : requestedDiscipline ?? "bike";
   const selectedDiscipline = isMobile ? mobileSportFilter : discipline;
   const runStats = useWeeklyStats({
@@ -320,7 +251,7 @@ export default function DashboardPage() {
   const isRunTab = discipline === "run";
   const isRunningJourneyActive = isMobile ? mobileSportFilter === "run" : isRunTab;
   const showOwnerRunningSummary = isRunningJourneyActive && !!user && !user.isAnonymous && !authLoading;
-  const showOwnerRunningJourney = showOwnerRunningSummary && (!isMobile || feedScope === "self");
+  const showOwnerRunningJourney = showOwnerRunningSummary;
   const RUN_HISTORY_WEEKS = 8;
   const runHistory = useRunHistory(RUN_HISTORY_WEEKS, showOwnerRunningSummary);
   const { fitness: userFitness } = useUserFitness(showOwnerRunningJourney || (!!user && !user.isAnonymous && !canonicalFitness.enabled));
@@ -334,8 +265,8 @@ export default function DashboardPage() {
   );
 
   const runRecap = useMemo(
-    () => (showOwnerRunningSummary ? computeRunWeeklyRecap(runHistory.runs, Date.now()) : null),
-    [showOwnerRunningSummary, runHistory.runs],
+    () => (showOwnerRunningSummary && !runHistory.loading && runHistory.available ? computeRunWeeklyRecap(runHistory.runs, Date.now()) : null),
+    [showOwnerRunningSummary, runHistory.runs, runHistory.loading, runHistory.available],
   );
   const showRecap = runRecap != null && isRecapVisible(Date.now(), seoulWeekday);
 
@@ -425,7 +356,7 @@ export default function DashboardPage() {
    * 오늘과 똑같은 클라 집계다. **미계산·실패는 여기로 오지 않는다** — 그 경우
    * `weekSource.kind === "state"` 라 아래에서 숫자 자체를 그리지 않는다.
    */
-  const sportSpecificWeek = !canonicalHome.enabled && (selectedDiscipline === "bike" || selectedDiscipline === "run" || selectedDiscipline === "swim");
+  const sportSpecificWeek = !canonicalHome.enabled && (selectedDiscipline === "bike" || selectedDiscipline === "run");
   const weekTotals = sportSpecificWeek ? thisWeek : weekSource.kind === "server"
     ? canonicalWeekTotals(weekSource.values)
     : thisWeek;
@@ -443,14 +374,12 @@ export default function DashboardPage() {
     : weekPresentation.sub;
   const weekChip = sportSpecificWeek ? null : weekPresentation.chip;
 
-  const thisWeekDistFormatted = formatDistance(weekTotals.distance, units);
   // KPI에선 숫자만 별도, 단위 별도로 표시
   const M_PER_MI = 1609.344;
   const thisWeekDistValue = units === 'imperial'
     ? (weekTotals.distance / M_PER_MI).toFixed(1)
     : (weekTotals.distance / 1000).toFixed(1);
   const distUnit = units === 'imperial' ? 'mi' : 'km';
-  const thisWeekTimeStr = formatDuration(weekTotals.time);
 
   // 현재 Fitness는 서버가 게시한 동일 revision의 스냅샷만 소비한다.
   // 페이지네이션 피드로 EMA를 다시 시작하거나 목표 예측을 현재값으로 사용하지 않는다.
@@ -464,20 +393,6 @@ export default function DashboardPage() {
         label: t("kpi.thresholdRunLabel"),
         value: pace ? secToMmss(pace) : "—",
         unit: pace ? t("kpi.thresholdRunUnit") : null,
-        delta: null,
-        deltaKind: "up" as const,
-        sub: t("kpi.thresholdRunSub"),
-      };
-    }
-    if (discipline === "swim") {
-      const css = profile?.css;
-      return {
-        label: t("kpi.thresholdSwimLabel"),
-        value: css ? secToMmss(css) : "—",
-        unit: css ? t("kpi.thresholdSwimUnit") : null,
-        delta: null,
-        deltaKind: "up" as const,
-        sub: t("kpi.thresholdSwimSub"),
       };
     }
     // bike (+ tri fallback)
@@ -486,9 +401,6 @@ export default function DashboardPage() {
       label: t("kpi.thresholdBikeLabel"),
       value: ftp ? String(ftp) : "—",
       unit: ftp ? t("kpi.thresholdBikeUnit") : null,
-      delta: null,
-      deltaKind: "up" as const,
-      sub: t("kpi.thresholdBikeSub"),
     };
   })();
 
@@ -522,28 +434,19 @@ export default function DashboardPage() {
   });
   // 서버 값이 없거나 CTL이 0이면 숫자 대신 상태를 표시한다.
   const showFitnessNumbers = fitnessPresentation.showNumbers && kpiFitness !== null && kpiFitness.ctl > 0;
-  const fitnessKpi = {
-    label: t("kpi.fitness"),
-    value: showFitnessNumbers ? kpiFitness!.ctl.toFixed(1) : "—",
-    unit: showFitnessNumbers ? "CTL" : null,
-    // delta 값에 "TSB" 라벨 prefix. 이전엔 "-84.4" 만 떠 사용자가 어느 지표인지
-    // 즉시 알기 어려웠음 (옆 sub 의 "ATL 109.8" 와 혼동).
-    delta: showFitnessNumbers && kpiFitness!.tsb !== 0
-      ? (kpiFitness!.tsb > 0 ? `TSB +${kpiFitness!.tsb.toFixed(1)}` : `TSB ${kpiFitness!.tsb.toFixed(1)}`)
-      : null,
-    deltaKind: ((kpiFitness?.tsb ?? 0) >= 0 ? "up" : "down") as "up" | "down",
-    sub: !fitnessPresentation.showNumbers
+  const conditionSummary = <div className="flex flex-col items-start gap-1">
+    <Text as="p" variant="bodyMedium" tone="secondary">{!fitnessPresentation.showNumbers
       ? fitnessPresentation.sub
       : showFitnessNumbers
-        ? `${kpiFitness!.tsb >= 5 ? t("kpi.fitnessMaintain") : kpiFitness!.tsb <= -10 ? t("kpi.fitnessRecovery") : t("kpi.fitnessBuild")} · ${t("kpi.subAtl", { value: kpiFitness!.atl.toFixed(1) })}`
-        : t("kpi.subInsufficient"),
-    chip: fitnessPresentation.chip,
-  };
+        ? t(kpiFitness!.tsb >= 5 ? "kpi.fitnessMaintain" : kpiFitness!.tsb <= -10 ? "kpi.fitnessRecovery" : "kpi.fitnessBuild")
+        : t("kpi.subInsufficient")}</Text>
+    {fitnessPresentation.chip && <Chip>{fitnessPresentation.chip}</Chip>}
+  </div>;
 
   const KPI = [
     weekKpi(t("kpi.weekDistance"), thisWeekDistValue, distUnit),
     weekKpi(t(canonicalHome.enabled ? "kpi.activities" : isRunTab ? "kpi.runs" : "kpi.rides"), String(weekTotals.rides), null),
-    weekKpi(t("kpi.movingTime"), thisWeekTimeStr, "h"),
+    weekKpi(t("kpi.movingTime"), t("weeklySummary.durationHourMin", { h: Math.floor(weekTotals.time / 3600000), m: Math.floor(weekTotals.time / 60000) % 60 }), null),
     weekKpi(
       t("kpi.elevation"),
       units === 'imperial'
@@ -551,15 +454,7 @@ export default function DashboardPage() {
         : formatNum(weekTotals.elevation, i18n.language),
       units === 'imperial' ? 'ft' : 'm',
     ),
-    { ...thresholdKpi, chip: null },
-    fitnessKpi,
   ];
-
-  const desktopRoutine = !isRunTab && consistencyStreak && (
-    <div data-testid="H1-2-2" style={{ marginTop: "var(--space-3)" }}>
-      <ConsistencyStreakCard summary={consistencyStreak} compact />
-    </div>
-  );
 
   const runningJourney = showOwnerRunningJourney ? <div data-testid="dashboard-running-journey">
         {/* 러닝 데이터가 없으면 빈 대시보드 대신 첫 동기화 여정을 보여준다 (§3.0) */}
@@ -582,13 +477,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 통합 부하 기여 — 자전거를 병행하는 러너에게만 의미가 있다 (§3.7) */}
-        {showOwnerRunningJourney && !hasNoRuns && (
-          <div style={{ marginTop: 'var(--space-4)' }}>
-            <CrossDisciplineLoadCard fitness={userFitness} discipline="run" />
-          </div>
-        )}
-
         {/* 첫 러닝 도착 축하 — aha moment 와 같은 릴리스 (§3.0.3) */}
         {firstSync.show && (
           <FirstSyncCelebration activityId={firstSync.activityId} onClose={firstSync.dismiss} />
@@ -596,83 +484,101 @@ export default function DashboardPage() {
 
   </div> : null;
 
-  const todayStrip = user && !user.isAnonymous ? <HomeTodayStrip discipline={discipline === "tri" ? "bike" : discipline} conditionDiscipline={discipline}
-    fitness={showFitnessNumbers ? kpiFitness : null} mobile={isMobile}
+  const todayStrip = user && !user.isAnonymous ? <HomeTodayStrip discipline={discipline === "tri" ? "bike" : discipline} conditionDiscipline={discipline} weeklyDiscipline={canonicalHome.enabled ? "tri" : discipline}
+    fitness={showFitnessNumbers ? kpiFitness : null} conditionSummary={conditionSummary} thresholdSummary={<Text as="p" variant="caption" tone="tertiary"><GlossaryText>{`${thresholdKpi.label} · ${thresholdKpi.value}${thresholdKpi.unit ? ` ${thresholdKpi.unit}` : ""}`}</GlossaryText></Text>} mobile={isMobile}
     monthlyFlowPercent={runStats.monthlyFlowPercent}
+    secondaryDetails={showOwnerRunningJourney && !hasNoRuns ? <CrossDisciplineLoadCard fitness={userFitness} discipline="run" /> : null}
     runningRecap={showRecap && runRecap && !hasNoRuns ? <WeeklyRecapCard recap={runRecap} /> : null}
     monthlyKm={monthlyActivityDistance / 1000}
     weeklyAverageKm={weeklyStats.length ? weeklyStats.reduce((sum, week) => sum + week.distance, 0) / weeklyStats.length : 0}
-    weeklySummary={<Text>{canonicalHome.enabled && <Text as="span">{t("todayStrip.allSportsRecent7d")} · </Text>}{showWeekNumbers ? `${formatDistance(weekTotals.distance, units)} · ${t("feed.countSuffix", { value: weekTotals.rides })} · ${formatDuration(weekTotals.time)} · ${formatElev(weekTotals.elevation, units)}` : "—"}</Text>}
-    weeklyDetails={isMobile ? null : <>            {user && isRunTab && <Card padding="none" style={{ padding: "var(--space-4)" }} data-testid="run-weekly-activity">
-              <SectionHeader title={t("sidebar.runWeekly.title")} sub={t("sidebar.runWeekly.sub")} />
-              {runStats.coverage !== "ready" ? <Text variant="caption">{t("kpi.runUnavailable")}</Text> : (
-                <div className="flex flex-col gap-2">
-                  {weeklyStats.slice(-8).map((week) => <div key={week.week} className="flex justify-between gap-2">
-                    <Text variant="bodySmall">{week.week}</Text>
-                    <Text variant="bodySmall" mono>{t("sidebar.runWeekly.value", { count: week.rides, distance: formatDistance(week.distance * 1000, units) })}</Text>
+    weeklySummary={<>
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-2">{[
+        [t("kpi.weekDistance"), formatDistance(weekTotals.distance, units)],
+        [t("kpi.activities"), t("feed.countSuffix", { value: weekTotals.rides })],
+        [t("kpi.movingTime"), t("weeklySummary.durationHourMin", { h: Math.floor(weekTotals.time / 3600000), m: Math.floor(weekTotals.time / 60000) % 60 })],
+        [t("kpi.elevation"), formatElev(weekTotals.elevation, units)],
+      ].map(([label, value]) => <div key={label}><Text as="dt" variant="caption" tone="tertiary"><GlossaryText>{label}</GlossaryText></Text><Text as="dd" variant="dataSmall" mono>{showWeekNumbers ? value : "—"}</Text></div>)}</dl>
+      {!showWeekNumbers && <Text as="p" variant="caption" tone="tertiary">{weekSub}</Text>}
+      {weekChip && <Chip>{weekChip}</Chip>}
+    </>}
+    weeklyDetails={isMobile ? null : <>            {user && isRunTab && (() => {
+              const weeks = weeklyStats.slice(-8);
+              const ready = runStats.coverage === "ready";
+              const partial = runStats.coverage === "partial";
+              const knownDistances = ready ? weeks.map(week => week.distance).filter(value => Number.isFinite(value) && value >= 0) : [];
+              const currentDistance = weeks[weeks.length - 1]?.distance;
+              const summary = [
+                knownDistances.length ? knownDistances.reduce((sum, value) => sum + value, 0) / knownDistances.length : null,
+                knownDistances.length ? Math.max(...knownDistances) : null,
+                typeof currentDistance === "number" && Number.isFinite(currentDistance) && (ready ? currentDistance >= 0 : partial && currentDistance > 0) ? currentDistance : null,
+              ];
+              return <Card padding="none" style={{ padding: "var(--space-4)" }} data-testid="run-weekly-activity">
+                <SectionHeader title={t("sidebar.runWeekly.title")} sub={[t("sidebar.runWeekly.sub"), partial ? t("sidebar.weeklyTss.partial") : null].filter(Boolean).join(" · ")} />
+                {!ready && !partial && <Text as="p" variant="caption">{t("kpi.runUnavailable")}</Text>}
+                <WeeklyTssBars metric="distance" coverage={ready ? "ready" : partial ? "partial" : "unavailable"} showTrainingLoad={false}
+                  distanceFormatter={distance => formatDistance(distance * 1000, units)}
+                  weeks={weeks.map(week => ({ ...week, tss: null, tssUnknownCount: week.tssUnknownCount ?? 0 }))}
+                  tooltipFor={() => ""} />
+                <dl className="grid grid-cols-3 gap-2" style={{ marginTop: "var(--space-3)", paddingTop: "var(--space-2)", borderTop: "1px solid var(--line-soft)", textAlign: "center" }}>
+                  {["avgPerWeek", "peakWeek", "thisWeek"].map((key, index) => <div key={key}>
+                    <Text as="dt" variant="caption">{t(`sidebar.weeklyTss.${key}`)}</Text>
+                    <Text as="dd" variant="dataSmall" mono>{summary[index] === null ? "—" : `${formatDistance(summary[index]! * 1000, units)}${partial ? "+" : ""}`}</Text>
                   </div>)}
-                </div>
-              )}
-            </Card>}
-            {/* 주간 TSS 차트 — 실데이터 바인딩 */}
+                </dl>
+              </Card>;
+            })()}
+            {/* 주간 이동거리 차트 — TSS는 보조 점수 */}
             {user && !isRunTab && (() => {
-              // 부하를 알 수 없는 주(tss=null)는 평균·피크·추세에서 제외한다 — 0 으로 세면
-              // 쉬지 않은 주가 휴식 주처럼 평균을 끌어내린다 (#2237).
-              const knownTssWeeks = weeklyStats.filter((w): w is typeof w & { tss: number } => w.tss != null);
-              const avgTSS = knownTssWeeks.length
-                ? Math.round(knownTssWeeks.reduce((s, w) => s + w.tss, 0) / knownTssWeeks.length)
-                : null;
-              const peakTSS = knownTssWeeks.length ? Math.max(...knownTssWeeks.map((w) => w.tss)) : null;
-              const lastTwo = weeklyStats.slice(-2);
-              const trendKnown = lastTwo.length === 2 && lastTwo.every((week) => week.tss !== null && !week.tssEstimated && !week.tssUnknownCount);
-              const trendUp = trendKnown && lastTwo[1]!.tss! >= lastTwo[0]!.tss!;
-              const unknownCount = weeklyStats.reduce((sum, week) => sum + (week.tssUnknownCount ?? 0), 0);
-              const hasEstimates = weeklyStats.some((week) => week.tssEstimated);
+              const distanceReady = runStats.coverage === "ready";
+              const knownDistances = distanceReady ? weeklyStats.map(week => week.distance).filter(value => Number.isFinite(value) && value >= 0) : [];
+              const avgDistance = knownDistances.length ? Math.round(knownDistances.reduce((sum, value) => sum + value, 0) / knownDistances.length) : null;
+              const peakDistance = knownDistances.length ? Math.max(...knownDistances) : null;
+              const currentWeek = weeklyStats[weeklyStats.length - 1];
+              const currentDistance = currentWeek && Number.isFinite(currentWeek.distance) && (distanceReady ? currentWeek.distance >= 0 : runStats.coverage === "partial" && currentWeek.distance > 0) ? `${currentWeek.distance}${distanceReady ? "" : "+"}` : null;
+              const knownTssWeeks = distanceReady ? weeklyStats.filter((week): week is typeof week & { tss: number } => week.tss != null) : [];
+              const avgTss = knownTssWeeks.length ? Math.round(knownTssWeeks.reduce((sum, week) => sum + week.tss, 0) / knownTssWeeks.length) : null;
+              const peakTss = knownTssWeeks.length ? Math.max(...knownTssWeeks.map(week => week.tss)) : null;
+              const peakWeeks = knownTssWeeks.filter(week => week.tss === peakTss);
+              const loadValue = (value: number | null, included: typeof weeklyStats) => value === null ? "—" : `${included.some(week => week.tssEstimated) ? "≈" : ""}${value}${runStats.coverage === "partial" || included.some(week => week.tssUnknownCount) ? "+" : ""}`;
+              const scope = currentWeek?.loadEvidence?.scope;
+              const chartSub = [t("sidebar.weeklyTss.sub"), scope ? t(`sidebar.weeklyTss.scope.${scope}`) : null, runStats.coverage === "partial" ? t("sidebar.weeklyTss.partial") : null].filter(Boolean).join(" · ");
               return (
                 <Card padding="none" style={{ padding: "var(--space-4)" }}>
-                  <SectionHeader title={t("sidebar.weeklyTss.title")} sub={t("sidebar.weeklyTss.sub")} right={<Chip>TSS</Chip>} />
-                  <WeeklyTssBars
-                    weeks={weeklyStats.map((w) => ({ week: w.week, tss: w.tss ?? null, tssEstimated: w.tssEstimated, tssUnknownCount: w.tssUnknownCount ?? 0 }))}
+                  <SectionHeader title={t("sidebar.weeklyTss.distanceTitle")} sub={chartSub} />
+                  <WeeklyTssBars metric="distance" coverage={distanceReady ? "ready" : runStats.coverage === "partial" ? "partial" : "unavailable"}
+                    weeks={weeklyStats.map((w) => ({ week: w.week, tss: distanceReady || runStats.coverage === "partial" && (w.tss ?? 0) > 0 ? w.tss ?? null : null, tssEstimated: w.tssEstimated, tssUnknownCount: (w.tssUnknownCount ?? 0) + (runStats.coverage === "partial" ? 1 : 0), loadEvidence: w.loadEvidence, distance: w.distance }))}
                     tooltipFor={(w) => `${w.week}: ${formatTrainingLoad(w, t)}`}
                   />
-                  <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>
-                    {weeklyStats.length > 0 && (
-                      <>
-                        <span>{weeklyStats[0]!.week}</span>
-                        <span>{weeklyStats[Math.floor(weeklyStats.length / 2)]?.week ?? ""}</span>
-                        <span>{weeklyStats[weeklyStats.length - 1]!.week}</span>
-                      </>
-                    )}
-                  </div>
-                  {(unknownCount > 0 || hasEstimates) && <Text variant="caption">{unknownCount > 0 && t("charts.weeklyChart.tssPartial", { count: unknownCount })}{unknownCount > 0 && hasEstimates ? " · " : ""}{hasEstimates && t("charts.weeklyChart.tssEstimated")}</Text>}
-                  <div className="flex justify-between" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: "1px solid var(--line-soft)" }}>
-                    <div>
-                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.avgPerWeek")}</Text>
-                      <div><Text variant="dataMedium">{avgTSS ?? "—"}</Text><Text variant="unit">TSS</Text></div>
-                    </div>
-                    <div>
-                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.peakWeek")}</Text>
-                      <div><Text variant="dataMedium">{peakTSS ?? "—"}</Text><Text variant="unit">TSS</Text></div>
-                    </div>
-                    <div>
-                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.trend")}</Text>
-                      <div style={{ color: trendUp ? "var(--lime)" : "var(--rose)", fontSize: "var(--fs-sm)", fontWeight: 600 }}>
-                        {!trendKnown ? t("charts.weeklyChart.tssUnknown") : trendUp ? t("sidebar.weeklyTss.trendUp") : t("sidebar.weeklyTss.trendDown")}
-                      </div>
-                    </div>
-                  </div>
+                  <table aria-label={t("sidebar.weeklyTss.summary")} style={{ width: "100%", tableLayout: "fixed", marginTop: "var(--space-3)", borderTop: "1px solid var(--line-soft)", borderCollapse: "separate", borderSpacing: "0 var(--space-2)" }}>
+                    <thead><tr>
+                      <th scope="col" style={{ width: "28%" }}><span className="sr-only">{t("sidebar.weeklyTss.metric")}</span></th>
+                      {["avgPerWeek", "peakWeek", "thisWeek"].map(key => <th key={key} scope="col"><Text variant="caption" weight={400}>{t(`sidebar.weeklyTss.${key}`)}</Text></th>)}
+                    </tr></thead>
+                    <tbody>
+                      <tr>
+                        <th scope="row" style={{ textAlign: "left" }}><Text variant="caption" weight={400}><InfoTip title={t("sidebar.weeklyTss.distanceHelpTitle")} content={t("sidebar.weeklyTss.distanceHelp")} label={t("sidebar.weeklyTss.distanceRow")} termId="weekly-distance-summary">{t("sidebar.weeklyTss.distanceRow")}</InfoTip></Text></th>
+                        {[avgDistance, peakDistance, currentDistance].map((value, index) => <td key={index} style={{ textAlign: "center" }}><Text variant="dataSmall" mono>{value ?? "—"}</Text></td>)}
+                      </tr>
+                      <tr>
+                        <th scope="row" style={{ textAlign: "left" }}><Text variant="caption" tone="tertiary" weight={400}><InfoTip title={t("sidebar.weeklyTss.summaryHelpTitle")} content={t("sidebar.weeklyTss.summaryHelp", { count: knownTssWeeks.length })} label={t("sidebar.weeklyTss.loadRow")} termId="weekly-load-summary">{t("sidebar.weeklyTss.loadRow")}</InfoTip></Text></th>
+                        {[loadValue(avgTss, knownTssWeeks), loadValue(peakTss, peakWeeks), loadValue(distanceReady || runStats.coverage === "partial" && (currentWeek?.tss ?? 0) > 0 ? currentWeek?.tss ?? null : null, currentWeek ? [currentWeek] : [])].map((value, index) => <td key={index} style={{ textAlign: "center" }}><Text variant="bodySmall" mono tone="tertiary">{value}</Text></td>)}
+                      </tr>
+                    </tbody>
+                  </table>
                 </Card>
               );
             })()}
 
             {user && isRunTab && <Card padding="none" style={{ padding: "var(--space-4)" }} data-testid="run-monthly-distance">
-              <SectionHeader title={t("sidebar.runMonth.title", { month: new Date(Date.now() + 9 * 3600000).getUTCMonth() + 1 })} sub={t("sidebar.runMonth.sub")} />
-              {runStats.coverage !== "ready" ? <Text variant="caption">{t("kpi.runUnavailable")}</Text>
-                : <Text variant="dataMedium" mono>{formatDistance(monthlyActivityDistance, units)}</Text>}
-              <Link to="/coach/plan?sport=run" className={buttonClass({ size: "sm", variant: "outline" })}>{t("sidebar.runMonth.plan")}</Link>
+              <SectionHeader title={t("sidebar.runMonth.title", { month: new Date(Date.now() + 9 * 3600000).getUTCMonth() + 1, monthName: new Date().toLocaleDateString(i18n.language, { month: "long", timeZone: "Asia/Seoul" }) })} sub={t("sidebar.runMonth.sub")} />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {runStats.coverage !== "ready" ? <Text variant="caption">{t("kpi.runUnavailable")}</Text>
+                  : <Text variant="dataMedium" mono>{formatDistance(monthlyActivityDistance, units)}</Text>}
+                <Link to="/coach/plan?sport=run" className={buttonClass({ size: "sm", variant: "outline" })}>{t("sidebar.runMonth.plan")}</Link>
+              </div>
             </Card>}
 </>}
-    guidance={showThresholdNudge ? <ThresholdPaceNudge visible /> : showYearRecapBanner ? <Link to="/athlete/me/records">{t("todayStrip.recap")}</Link> : !profile?.stravaConnected ? <Link to="/settings/connections">{t("feed.empty.ctaConnectStrava")}</Link> : null}
+    guidance={showYearRecapBanner ? <Link to="/athlete/me/records">{t("todayStrip.recap")}</Link> : !profile?.stravaConnected ? <Link to="/settings/connections">{t("feed.empty.ctaConnectStrava")}</Link> : null}
   /> : null;
 
   if (isMobile) {
@@ -689,7 +595,6 @@ export default function DashboardPage() {
         loadingMore={loadingMore}
         onLoadMore={loadMore}
         showYearRecapBanner={showYearRecapBanner}
-        consistencyStreak={mobileSportFilter === "run" ? null : consistencyStreak}
         weeklySummary={mobileWeeklySummary}
         runSummary={mobileSportFilter === "run" && user && !user.isAnonymous ? {
           count: String(thisWeek.rides), distance: formatDistance(thisWeek.distance, units),
@@ -702,6 +607,7 @@ export default function DashboardPage() {
         onFeedScopeChange={(scope) => updateDashboardPreferences({ feedScope: scope })}
         sportFilter={mobileSportFilter}
         onSportFilterChange={(sportFilter) => {
+          if (sportFilter === "swim") return;
           updateDashboardPreferences({ sportFilter });
           if (requestedDiscipline) {
             const next = new URLSearchParams(searchParams);
@@ -717,26 +623,12 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="dashboard-home flex flex-col">
         {/* 페이지 헤더 */}
         <PageHeader
           eyebrow={new Date().toLocaleDateString(i18n.language, { year: "numeric", month: "long", day: "numeric", weekday: "long" })}
           title={heroTitle}
-          subtitle={
-            isAnon ? (
-              <span style={{ color: "var(--ink-2)" }}>{t("header.anonSubtitle")}</span>
-            ) : (
-              <span>
-                {t("header.subtitleRecent")}
-                <span style={{ color: "var(--lime)", fontFamily: "var(--font-mono)", fontWeight: 500 }}>
-                  {/* KPI 와 같은 출처·같은 규칙. 미계산을 여기서만 클라 집계로 그리면 한 화면에
-                      서로 다른 숫자가 선다. */}
-                  {showWeekNumbers ? `${canonicalHome.enabled ? t("feed.countSuffix", { value: weekTotals.rides }) : `${weekTotals.rides}${isRunTab ? t("header.runCountUnit") : ""}`} · ${thisWeekDistFormatted}` : "—"}
-                </span>
-                {t(canonicalHome.enabled ? "todayStrip.allSportsRecent7d" : isRunTab ? "header.runSubtitleSuffix" : "header.subtitleSuffix")}
-              </span>
-            )
-          }
+          subtitle={isAnon ? <span style={{ color: "var(--ink-2)" }}><GlossaryText>{t("header.anonSubtitle")}</GlossaryText></span> : undefined}
           right={
             <>
               {/* 비로그인: 가치 제안 헤더에 실제 로그인 CTA 동반 (#234) —
@@ -746,7 +638,7 @@ export default function DashboardPage() {
                   {t("header.anonCta")}
                 </Button>
               )}
-              <div data-testid="H-0"><div data-testid="H-0-1"><DisciplineTabs /></div></div>
+              <div data-testid="H-0"><div data-testid="H-0-1"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div></div>
             </>
           }
         />
@@ -770,7 +662,7 @@ export default function DashboardPage() {
                   {t("yearRecap.title")}
                 </Text>
                 <Text variant="bodySmall" tone="tertiary" style={{ display: "block", marginTop: "var(--space-1)" }}>
-                  {t("yearRecap.desc")}
+                  <GlossaryText>{t("yearRecap.desc")}</GlossaryText>
                 </Text>
               </div>
               <Link to="/athlete/me/records" className={buttonClass({ variant: "primary", size: "sm" })} style={{ textDecoration: "none", flexShrink: 0 }}>
@@ -780,33 +672,23 @@ export default function DashboardPage() {
           </Card>
         )}
 
-        {/* 한 주의 활동량과 훈련 상태는 서로 다른 질문이다. 두 그룹으로 읽히게 한다. */}
+        {/* 최근 7일 활동 요약 — 컨디션은 사이드바에서 확인한다. */}
         {user && (
           <div className="dashboard-kpi-overview grid gap-3" style={{ marginTop: "var(--space-2)" }}>
             <Card padding="none" style={{ overflow: "hidden" }}>
-              <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
+              <div className="flex items-center justify-between gap-3" style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
                 <Text as="h2" variant="eyebrow" tone="secondary">{t(canonicalHome.enabled ? "kpi.weekGroup" : isRunTab ? "kpi.runWeekGroup" : "kpi.weekGroup")}</Text>
+                <Link className={buttonClass({ variant: "ghost", size: "sm" })} to={`/athlete/me/activities?sport=${canonicalHome.enabled || discipline === "tri" ? "all" : discipline}`}>{t("todayStrip.week")}</Link>
               </div>
               <div className="dashboard-kpi-week grid">
-                {KPI.slice(0, 4).map((stat) => (
+                {KPI.map((stat) => (
                   <div key={stat.label} style={{ minWidth: 0, padding: "var(--space-3) var(--space-4)" }}>
                     <StatBlock {...stat} />
                   </div>
                 ))}
               </div>
             </Card>
-            <Card padding="none" style={{ overflow: "hidden", background: "var(--bg-2)" }}>
-              <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
-                <Text as="h2" variant="eyebrow" tone="secondary">{t("kpi.trainingGroup")}</Text>
-              </div>
-              <div className="dashboard-kpi-training grid">
-                {KPI.slice(4).map((stat) => (
-                  <div key={stat.label} style={{ minWidth: 0, padding: "var(--space-3) var(--space-3)" }}>
-                    <StatBlock {...stat} />
-                  </div>
-                ))}
-              </div>
-            </Card>
+
           </div>
         )}
 
@@ -821,11 +703,11 @@ export default function DashboardPage() {
                 /* 카운트 옆에 "건 · 전체 피드" 컨텍스트 부연 — 이전엔 "1,573" 만 떠 본인/전체 모호.
                    tooltip 은 실제 쿼리(본인 OR visibility==everyone)와 일치하게 "전체 공개 + 내 활동" 으로 표기 (#231). */
                 <span
-                  style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}
+                  style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}
                   title={feedScope === "all" ? t("feed.countTooltip") : t(`feed.filter.${feedScope}`)}
                 >
                   {t("feed.countSuffix", { value: formatNum(totalCount, i18n.language) })}
-                  <span style={{ fontFamily: "var(--font-sans)", color: "var(--ink-4)", marginLeft: 'var(--space-1)' }}>
+                  <span style={{ fontFamily: "var(--font-sans)", color: "var(--ink-3)", marginLeft: 'var(--space-1)' }}>
                     {feedScope === "all" ? t("feed.feedScope") : t(`feed.filter.${feedScope}`)}
                   </span>
                 </span>
@@ -859,23 +741,24 @@ export default function DashboardPage() {
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     placeholder={t("feed.search.placeholder")}
+                    aria-label={t("feed.search.placeholder")}
                     style={{
-                      width: "100%", padding: "7px 10px 7px 30px",
+                      width: "100%", minHeight: "var(--space-8)", padding: "var(--space-2) var(--space-8) var(--space-2) calc(var(--space-4) * 2)",
                       background: "var(--bg-2)", border: "1px solid var(--line)",
                       borderRadius: "var(--r-md)", fontSize: "var(--fs-sm)", color: "var(--ink-1)",
-                      outline: "none", boxSizing: "border-box",
+                      boxSizing: "border-box",
                     }}
                     onFocus={(e) => { e.currentTarget.style.borderColor = "var(--lime)"; }}
                     onBlur={(e) => { e.currentTarget.style.borderColor = "var(--line)"; }}
                   />
                   {activitySearch.active && (
-                    <button
-                      type="button"
+                    <Button type="button" variant="ghost" iconOnly dense
+                      aria-label={t("feed.search.reset")}
                       onClick={handleSearchReset}
-                      style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", padding: 0, display: "flex" }}
+                      style={{ position: "absolute", right: "var(--space-0-5)", top: "50%", transform: "translateY(-50%)", color: "var(--ink-2)" }}
                     >
-                      <X size={13} />
-                    </button>
+                      <X size={16} aria-hidden="true" />
+                    </Button>
                   )}
                 </div>
                 <Button type="submit" variant="secondary" size="sm">{t("feed.search.submit")}</Button>
@@ -889,18 +772,19 @@ export default function DashboardPage() {
                       key={p.value}
                       type="button"
                       onClick={() => activitySearch.setDatePreset(p.value)}
+                      aria-pressed={activitySearch.datePreset === p.value}
                       style={{
                         padding: "3px 9px", fontSize: "var(--fs-xs)", borderRadius: "var(--r-sm)", cursor: "pointer",
                         border: "1px solid " + (activitySearch.datePreset === p.value ? "var(--accent-soft-border)" : "var(--line-soft)"),
                         background: activitySearch.datePreset === p.value ? "var(--accent-soft-bg)" : "var(--bg-2)",
-                        color: activitySearch.datePreset === p.value ? "var(--lime)" : "var(--ink-3)",
+                        color: activitySearch.datePreset === p.value ? "var(--ink-1)" : "var(--ink-2)",
                       }}
                     >
                       {p.label}
                     </button>
                   ))}
                   {activitySearch.totalResults > 0 && (
-                    <span style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)", alignSelf: "center" }}>
+                    <span style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", alignSelf: "center" }}>
                       {t("feed.search.resultsCount", { count: activitySearch.totalResults })}
                     </span>
                   )}
@@ -925,14 +809,10 @@ export default function DashboardPage() {
                     <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("feed.search.emptyDescription")}</div>
                   </Card>
                 )}
-                {!activitySearch.loading && activitySearch.results.length === 0 && desktopRoutine}
                 {!activitySearch.loading && activitySearch.results.length > 0 && (
                   <div data-testid="H1-2" className="flex flex-col gap-3.5">
                     {activitySearch.results.map((activity, i) => (
-                      <Fragment key={activity.id}>
-                        <div data-testid="H1-2-1"><ActivityCard activity={activity} priority={i === 0} /></div>
-                        {i === 0 && desktopRoutine}
-                      </Fragment>
+                      <div key={activity.id} data-testid="H1-2-1"><ActivityCard activity={activity} priority={i === 0} homeLabels /></div>
                     ))}
                     {activitySearch.hasMore && (
                       <Button variant="secondary" onClick={activitySearch.loadMore} style={{ width: "100%" }}>
@@ -963,7 +843,6 @@ export default function DashboardPage() {
                     actions={[{ label: activities.length > 0 ? t("feed.partialError.retry") : t("feed.error.retry"), variant: "primary", onClick: retryFeed }]}
                   />
                 )}
-                {!loading && feedError && filteredActivities.length === 0 && desktopRoutine}
 
                 {!loading && !feedError && filteredActivities.length === 0 && (
                   <EmptyState
@@ -977,15 +856,11 @@ export default function DashboardPage() {
                     ] : [{ label: signInPending ? t("header.signingIn") : t("header.anonCta"), variant: "primary", onClick: () => { void handleGuestSignIn(); } }]}
                   />
                 )}
-                {!loading && !feedError && filteredActivities.length === 0 && desktopRoutine}
 
                 {!loading && filteredActivities.length > 0 && (
                   <div data-testid="H1-2" className="flex flex-col gap-3.5">
                     {filteredActivities.map((activity, i) => (
-                      <Fragment key={activity.id}>
-                        <div data-testid="H1-2-1"><ActivityCard activity={activity} priority={i === 0} /></div>
-                        {i === 0 && desktopRoutine}
-                      </Fragment>
+                      <div key={activity.id} data-testid="H1-2-1"><ActivityCard activity={activity} priority={i === 0} homeLabels /></div>
                     ))}
                   </div>
                 )}
@@ -1009,9 +884,10 @@ export default function DashboardPage() {
             </div>{/* 스크롤 영역 끝 */}
           </div>
 
-          <aside className="hidden lg:block w-[340px] flex-shrink-0">{todayStrip}</aside>
-        </div>
-        <details className="hidden lg:block"><summary>{t("todayStrip.support")}</summary><div className="grid gap-4 md:grid-cols-2">            {/* 한국 자전거 커뮤니티 */}
+          <aside className="hidden lg:block w-[340px] flex-shrink-0">
+            <div className="space-y-3">
+              {todayStrip}
+            {/* 한국 자전거 커뮤니티 */}
             {!isRunTab && <Card padding="none" style={{ padding: 'var(--space-4)' }}>
               <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("sidebar.community.title")}</Text>
               <div className="flex flex-col gap-2">
@@ -1036,71 +912,10 @@ export default function DashboardPage() {
               </div>
             </Card>}
 
-            {/* Orider 앱: 설치 버튼(App Store/Google Play)만 노출, 매뉴얼·약관은 더보기로 */}
-            <Card padding="none" style={{ padding: 'var(--space-4)' }}>
-              {/* 상단: 앱 설치 좌우 반반 (항상 노출) */}
-              <AppInstallLinks
-                compact
-                appStoreLabel={t("sidebar.app.storeIos")}
-                playStoreLabel={t("sidebar.app.storeAos")}
-              />
 
-              {/* 더보기 토글: 매뉴얼(iOS/Android/웹) + 약관/정책. 기본 접힘 */}
-              <div className="h-px mt-3" style={{ background: "var(--line-soft)" }} />
-              <button
-                type="button"
-                onClick={() => setFooterOpen((v) => !v)}
-                aria-expanded={footerOpen}
-                className="flex items-center gap-1 w-full pt-2.5 text-[length:var(--fs-xs)] transition-colors hover:opacity-80"
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)" }}
-              >
-                <span>{footerOpen ? tCommon("footer.collapse") : tCommon("footer.more")}</span>
-                <ChevronDown size={14} style={{ transform: footerOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-              </button>
-              {footerOpen && (
-                <div className="pt-2.5">
-                  {/* 매뉴얼: iOS | Android */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <a href="/mobile/ios/manual/" className="flex items-center gap-2 p-2 min-w-0 rounded-[var(--r-md)]" style={{ background: "var(--bg-3)", textDecoration: "none" }}>
-                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0" style={{ color: "var(--ink-2)" }}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                      <span className="text-[length:var(--fs-xs)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{t("sidebar.app.manualIos")}</span>
-                    </a>
-                    <a href="/mobile/aos/manual/" className="flex items-center gap-2 p-2 min-w-0 rounded-[var(--r-md)]" style={{ background: "var(--bg-3)", textDecoration: "none" }}>
-                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0" style={{ color: "var(--ink-2)" }}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                      <span className="text-[length:var(--fs-xs)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{t("sidebar.app.manualAos")}</span>
-                    </a>
-                  </div>
-                  {/* 웹 사용 매뉴얼 (full width) */}
-                  <a href="/web-manual/" className="flex items-center gap-3 pt-2.5" style={{ textDecoration: "none" }}>
-                    <div className="grid place-items-center shrink-0 w-8 h-8 rounded-[var(--r-md)]" style={{ background: "var(--bg-3)", color: "var(--ink-2)" }}>
-                      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("sidebar.app.manualWebTitle")}</div>
-                      <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("sidebar.app.manualWebDesc")}</div>
-                    </div>
-                  </a>
-
-                  {/* 약관/정책 + 저작권 */}
-                  <div className="h-px mt-3" style={{ background: "var(--line-soft)" }} />
-                  <div className="flex flex-col gap-2 pt-2.5 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
-                    <Link to="/feedback" className="transition-colors hover:opacity-80">{tCommon("footer.feedback")}</Link>
-                    <Link to="/terms" className="transition-colors hover:opacity-80">{tCommon("footer.terms")}</Link>
-                    <Link to="/privacy" className="transition-colors hover:opacity-80">{tCommon("footer.privacy")}</Link>
-                    <Link to="/policies/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
-                    <Link to="/community/board?type=inquiry" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</Link>
-                    <div className="flex items-center gap-1.5 pt-1.5 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>
-                      <span>&copy; 2026 Orider</span>
-                      <span className="flex items-center gap-1">
-                        <svg className="w-3 h-3 text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" /></svg>
-                        Powered by Strava
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
-</div></details>
+            </div>
+          </aside>
+        </div>
       </div>
   );
 }

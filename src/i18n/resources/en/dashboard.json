@@ -17,15 +17,15 @@
     "weekGroup": "Last 7 days",
     "runWeekGroup": "My runs, walks and hikes · last 7 days",
     "trainingGroup": "Training status",
-    "weekDistance": "Distance",
-    "activities": "All activity count",
-    "rides": "Rides",
-    "runs": "Activities",
+    "weekDistance": "Distance traveled",
+    "activities": "Activity count",
+    "rides": "Ride count",
+    "runs": "Activity count",
     "runUnavailable": "Run, walk and hike stats are unavailable",
-    "movingTime": "Moving Time",
-    "elevation": "Elevation Gain",
+    "movingTime": "Activity time",
+    "elevation": "Elevation gain",
     "fitness": "Fitness",
-    "fitnessBuild": "Build ok",
+    "fitnessBuild": "Ready to increase training",
     "fitnessMaintain": "Maintain",
     "fitnessRecovery": "Recover first",
     "subRecent7d": "Last 7 days",
@@ -63,7 +63,8 @@
       "resultsCount_one": "{{count}} result",
       "resultsCount_other": "{{count}} results",
       "emptyTitle": "No results found",
-      "emptyDescription": "Try a different keyword or date range."
+      "emptyDescription": "Try a different keyword or date range.",
+      "resetScopeDates": "Reset scope and dates"
     },
     "datePreset": {
       "label": "Date range",
@@ -111,16 +112,16 @@
   "sidebar": {
     "runWeekly": {
       "title": "Weekly runs, walks and hikes",
-      "sub": "Last 8 weeks · my activities",
+      "sub": "Last 8 weeks · my distance traveled",
       "value": "{{count}} activities · {{distance}}"
     },
     "runMonth": {
-      "title": "Run, walk and hike distance in month {{month}}",
-      "sub": "Recorded activities",
+      "title": "{{monthName}} distance",
+      "sub": "My runs, walks and hikes",
       "plan": "View running plan"
     },
     "weeklyTss": {
-      "title": "Weekly TSS",
+      "title": "Weekly training load",
       "sub": "Last 12 weeks",
       "barTooltip": "{{week}}: {{tss}} TSS",
       "barTooltipUnknown": "{{week}}: No data",
@@ -128,7 +129,24 @@
       "peakWeek": "Peak week",
       "trend": "Trend",
       "trendUp": "↑ Rising",
-      "trendDown": "↓ Falling"
+      "trendDown": "↓ Falling",
+      "distanceTitle": "Weekly distance",
+      "partial": "Partial records",
+      "thisWeek": "This week",
+      "scope": {
+        "allSupported": "All sports",
+        "bike": "Cycling",
+        "run": "Running",
+        "swim": "Swimming"
+      },
+      "distanceRow": "Distance traveled (km)",
+      "loadRow": "Load (TSS)",
+      "summary": "Weekly distance and training load summary",
+      "metric": "Metric",
+      "summaryHelpTitle": "Training Stress Score (TSS)",
+      "summaryHelp": "A training load score combining duration and intensity. Average: {{count}} known weeks. ≈ includes estimates · + subtotal of known records · — unknown",
+      "distanceHelpTitle": "Distance summary",
+      "distanceHelp": "The average covers the last 12 weeks. + is a subtotal of known records; — is unknown. Average and peak are hidden when records are incomplete."
     },
     "monthlyGoal": {
       "title": "{{month}} Goal",
@@ -231,15 +249,15 @@
   },
   "mobileFeed": {
     "runSummary": {
-      "count": "Activities",
-      "distance": "Distance",
-      "time": "Time",
+      "count": "Activity count",
+      "distance": "Distance traveled",
+      "time": "Activity time",
       "elevation": "Elevation gain"
     },
     "defaultRider": "Rider",
     "defaultActivity": "Ride",
-    "statDistance": "Distance",
-    "statTime": "Time",
+    "statDistance": "Distance traveled",
+    "statTime": "Moving time",
     "statElev": "Elev gain",
     "statSpeed": "Avg speed",
     "weekSummary": "This week",
@@ -254,7 +272,9 @@
     "emptyTitle": "No activities yet",
     "emptyDesc": "Connect Strava or record a ride to get started.",
     "dataWarningBadge": "⚠ Data anomaly",
-    "dataWarningTooltip": "Some metrics may be unrealistic due to GPS noise or a very short activity."
+    "dataWarningTooltip": "Some metrics may be unrealistic due to GPS noise or a very short activity.",
+    "viewProfile": "View my profile",
+    "statElapsedTime": "Elapsed time"
   },
   "weeklySummary": {
     "title": "This week",
@@ -371,9 +391,9 @@
     "ftpBasis": "Based on 90-day best power",
     "zoneDist": "Power zone distribution (last 4 weeks)",
     "zoneDefTitle": "Zone definitions",
-    "kpiCtlLabel": "CTL Fitness",
-    "kpiAtlLabel": "ATL Fatigue",
-    "kpiTsbLabel": "TSB Form",
+    "kpiCtlLabel": "Long-term load CTL",
+    "kpiAtlLabel": "Short-term load ATL",
+    "kpiTsbLabel": "Load balance TSB",
     "tsbMeaning": {
       "fatigueHigher": "Fatigue exceeds fitness",
       "fitnessHigher": "Fitness exceeds fatigue",
@@ -577,25 +597,26 @@
     "zoneSourcePowerHistorical": "Z1–Z7 combined using each activity’s FTP · not reclassified with current FTP. Includes only activities with complete zone evidence."
   },
   "runEmpty": {
-    "title": "Connect the app you run with, and we'll make sense of it here",
-    "subtitle": "Your Nike Run Club and Garmin history, as it is — nothing to upload.",
-    "waitingTitle": "We'll tell you when your first run lands",
-    "waitingSubtitle": "As soon as a run reaches Strava we'll pull it in and read it for you.",
+    "title": "No recent running records",
+    "subtitle": "Connect Strava or import a file to bring your running records together.",
+    "waitingTitle": "No recent running records",
+    "waitingSubtitle": "Your Strava runs will appear here once synced. You can also import a file.",
     "connectCta": "Connect Strava",
     "previewTag": "Preview",
     "sampleSentence": "Once connected you'll see readings like this — \"Factor in the climbing and you effectively ran {{gap}} per km on the flat.\"",
     "samplePace": "Pace",
     "sampleLoad": "Load",
     "manualHint": "New to pace, GAP and training load?",
-    "manualCta": "Read the plain-English guide"
+    "manualCta": "Read the plain-English guide",
+    "importCta": "Import running records"
   },
   "runRecap": {
     "eyebrow": "Last week's running",
     "headlineFaster": "{{count}} runs, {{km}} km — your average pace came down {{sec}} seconds on the week before.",
     "headlineSlower": "{{count}} runs, {{km}} km. Pace moves around with terrain and how you felt.",
     "headlinePlain": "{{count}} runs, {{km}} km.",
-    "runs": "Runs",
-    "distance": "Distance",
+    "runs": "Run count",
+    "distance": "Distance traveled",
     "avgPace": "Avg pace",
     "unitTimes": "",
     "unitSeconds": "s",
@@ -624,7 +645,55 @@
     "stale": "Showing the last confirmed seven-day summary.",
     "staleChip": "Earlier summary"
   },
+  "weeklyEvidence": {
+    "loadUnknown": "Load not calculated",
+    "shortTitle": "{{week}} weekly load",
+    "noKnownWeeks": "No weeks in this range have a known load, so an average or peak is not calculated.",
+    "untitled": "Untitled activity",
+    "unknown": "Not calculated",
+    "timeInput": "Reflected duration {{minutes}} min ÷ 60 × hourly factor {{factor}} (rounded after calculation)",
+    "averageHelp": "The known load total {{total}} across {{count}} weeks is divided by {{count}} and rounded to {{value}}. Unknown weeks are excluded from the {{weeks}}-week denominator; weeks with partial or estimated totals remain included.",
+    "peakHelp": "The largest displayed total among {{count}} known weeks is {{value}} ({{weeks}}). Stored/server and estimated loads may be included; unknown weeks are excluded.",
+    "trendHelp": "Compares the previous week {{previous}} with the current week {{current}}. A trend is reported only when both displayed totals are available and contain no estimates or unknown activities.",
+    "scope": {
+      "allSupported": "Scope: all supported cycling, running and swimming activities",
+      "bike": "Cycling",
+      "run": "Running, walking and hiking",
+      "swim": "Swimming"
+    },
+    "input": {
+      "streamTrimpTss": "Heart-rate stream substitute input {{value}}",
+      "relativeEffort": "Relative Effort substitute input {{value}}"
+    },
+    "totalLabel": "Total weekly load",
+    "showDetails": "View {{week}} activity TSS",
+    "hideDetails": "Hide activity TSS",
+    "detailsTitle": "{{week}} activity TSS calculations",
+    "noEvidence": "The TSS calculation basis and inputs are unavailable for this week.",
+    "activityInputs": "Activity calculation values",
+    "basis": {
+      "power": "Power based",
+      "heartRate": "Heart-rate based",
+      "time": "Time estimate",
+      "unknown": "Calculation method unknown",
+      "excluded": "Excluded"
+    },
+    "tooltipTitle": "Week of {{week}} · {{value}} TSS",
+    "tooltipUnknownTitle": "Week of {{week}} · Load not calculated",
+    "distance": "Distance {{value}} km",
+    "distanceTitle": "Week of {{week}} · {{value}} km",
+    "distanceFormattedTitle": "Week of {{week}} · {{distance}}{{partial}}",
+    "distanceUnknownTitle": "Week of {{week}} · Distance unavailable",
+    "distancePartialTitle": "Week {{week}} · {{value}}+ km"
+  },
   "todayStrip": {
+    "goalCountdownTitle": "Days to your goal",
+    "goalCountdownLabel": "Goal date explanation",
+    "goalCountdownHelp": "D−N counts days until the goal date; D+N counts days since it. The date difference is rounded up to whole days.",
+    "weekTitle": "My last 7 days · {{sport}}",
+    "findEvents": "Find events →",
+    "goalLink": "View goal →",
+    "analysisLink": "View analysis →",
     "allSportsRecent7d": "All sports · last 7 days",
     "today": "Today's training",
     "choose": "Decide →",
@@ -634,17 +703,27 @@
     "goal": "Goal",
     "createGoal": "Create a goal →",
     "monthFlow": "This month’s progress",
-    "monthFlowValue": "{{distance}} km · {{percent}}% of your usual weekly pace",
+    "monthFlowValue": "{{distance}} km · {{percent}}% of your usual monthly baseline",
     "events": "My schedule",
     "noEvents": "No upcoming registered events",
     "condition": "Condition",
     "conditionLink": "View condition →",
-    "week": "This week · Training log →",
-    "more": "More schedule and getting started",
+    "week": "Monthly activity log →",
+    "more": "More schedule and training info",
     "support": "Apps and help",
     "recap": "View annual recap →",
     "firstRecord": "Record your first activity · Get the app",
     "importHistory": "Import existing activities",
-    "goalCtl": "Projected goal-day CTL {{value}}"
+    "goalCtl": "Projected goal-day CTL {{value}}",
+    "monthFlowAllTitle": "This month · All sports",
+    "monthFlowAllValue": "{{distance}} km · {{percent}}% of usual monthly distance"
+  },
+  "homeMetrics": {
+    "distance": "Distance traveled",
+    "movingTime": "Moving time",
+    "elapsedTime": "Elapsed time",
+    "avgHeartRate": "Average heart rate",
+    "avgPower": "Average power",
+    "activityTime": "Activity time"
   }
 }

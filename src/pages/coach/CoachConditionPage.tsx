@@ -25,7 +25,7 @@ export default function CoachConditionPage() {
   const thresholdsSlot = user && !user.isAnonymous ? <details id="thresholds" ref={details}
     className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3"
     onToggle={event => { if (event.currentTarget.open) setMounted(true); }}>
-    <summary className="cursor-pointer py-3">{t("training.cardThresholds")}</summary>
+    <summary className="cursor-pointer py-3">{t("training.coachThresholds")}</summary>
     {mounted && <Suspense fallback={<div role="status">{t("common:button.loading")}</div>}><PaneThresholds /></Suspense>}
     <LocalizedLink data-testid="K1-5-8" to="/settings/device">{t("training.deviceStatus")}</LocalizedLink>
   </details> : null;

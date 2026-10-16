@@ -674,6 +674,46 @@ describe("useActivities", () => {
 });
 
 describe("useWeeklyStats", () => {
+  it("주간 근거는 전체 원본의 중복과 비훈련 종목을 구분하고 선택된 대표 부하만 계산한다", async () => {
+    simulateLogin({ uid: "user-1" });
+    const now = new Date(2026, 9, 7, 15, 45);
+    const startTime = new Date(2026, 9, 6, 10).getTime();
+    setCollectionDocs("activities", [
+      createMockActivity({ id: "native", userId: "user-1", source: "orider", localSessionId: "same-session", startTime,
+        summary: createMockSummary({ tss: 70 }) }),
+      createMockActivity({ id: "strava-twin", userId: "user-1", source: "strava", localSessionId: "same-session", startTime: startTime + 1000,
+        summary: createMockSummary({ tss: 70 }) }),
+      createMockActivity({ id: "unsupported", userId: "user-1", type: "WeightTraining", startTime: startTime + 7200000,
+        summary: createMockSummary({ tss: 30 }) }),
+    ]);
+    const { result } = renderHook(() => useWeeklyStats({ now }), { wrapper });
+    await waitFor(() => expect(result.current.coverage).toBe("ready"));
+    expect(result.current.weeklyStats.at(-1)).toMatchObject({ tss: 70, loadEvidence: {
+      rawCount: 3, acceptedCount: 1, duplicateCount: 1, unsupportedOrDeletedCount: 1,
+    } });
+  });
+  it.each([undefined, "bike", "swim"] as const)("주간 %s 범위는 로컬 월요일 00:00부터 포함하고 근거 기간과 일치한다", async discipline => {
+    simulateLogin({ uid: "user-1" });
+    const now = new Date(2026, 9, 7, 15, 45);
+    const monday = new Date(2026, 9, 5, 0, 0, 0, 0).getTime();
+    const type = discipline === "swim" ? "Swim" : "Ride";
+    setCollectionDocs("activities", [
+      createMockActivity({ id: "before-midnight", userId: "user-1", type, startTime: monday - 1, endTime: monday,
+        summary: createMockSummary({ tss: 20 }) }),
+      createMockActivity({ id: "monday-midnight", userId: "user-1", type, startTime: monday, endTime: monday + 3600000,
+        summary: createMockSummary({ tss: 40 }) }),
+      createMockActivity({ id: "monday-morning", userId: "user-1", type, startTime: monday + 8 * 3600000, endTime: monday + 9 * 3600000,
+        summary: createMockSummary({ tss: 60 }) }),
+    ]);
+    const { result } = renderHook(() => useWeeklyStats({ now, discipline }), { wrapper });
+    await waitFor(() => expect(result.current.coverage).toBe("ready"));
+    expect(result.current.weeklyStats.at(-1)).toMatchObject({ rides: 2, tss: 100, loadEvidence: {
+      total: 100, periodStartMs: monday, periodEndMs: new Date(2026, 9, 12).getTime(),
+      coverage: "ready", scope: discipline ?? "allSupported", rawCount: 2, acceptedCount: 2,
+      storedTotal: 100, estimatedTotal: 0, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    } });
+    expect(result.current.weeklyStats.at(-2)).toMatchObject({ rides: 1, tss: 20 });
+  });
   it("같은 원본의 재렌더링은 대표를 다시 고르지 않고 주별 부하는 재중복 판정하지 않는다", async () => {
     const now = new Date(2026, 9, 6, 12);
     simulateLogin({uid: "user-1"});

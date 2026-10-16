@@ -1,86 +1,191 @@
-import { useState, useId, useRef, useLayoutEffect } from "react";
+import { useState, useId, useRef, useLayoutEffect, useEffect, type ReactNode, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { Info } from "lucide-react";
+import { splitGlossaryText } from "../utils/termGlossary";
+import { useGlossaryScope } from "./common/GlossaryProvider";
+import { TooltipContent } from "../theme/components/TooltipContent";
 
 interface InfoTipProps {
-  /** 툴팁 본문 — 한글 용어 + 간단 설명 */
+  /** 용어와 간단한 설명 */
   content: string;
+  /** Opt into the structured design-system explanation; omitted for legacy tooltips. */
+  title?: string;
   /** 접근성 라벨 (생략 시 content 사용) */
   label?: string;
+  /** Stable shared identifier; explicit IDs also disambiguate domain-specific acronyms. */
+  termId?: string;
+  /** Use the term itself as the trigger; omitted children preserve legacy icon-only callers. */
+  children?: ReactNode;
+  className?: string;
+  style?: CSSProperties;
 }
 
 const TIP_WIDTH = 232;
 const VIEWPORT_MARGIN = 8;
 
-/**
- * 영문 약어 옆에 붙는 작은 ⓘ 아이콘. hover/focus 시 한글 용어·설명을 툴팁으로 표시.
- * 분석 탭 지표 라벨처럼 좁은 공간에 본문을 늘리지 않고 용어를 병기하기 위한 용도.
- */
-export default function InfoTip({ content, label }: InfoTipProps) {
+/** Hover, focus, or tap for a description. The portal escapes clipped card/chart containers. */
+export default function InfoTip({ content, title, label, termId, children, className, style }: InfoTipProps) {
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ left: VIEWPORT_MARGIN, top: VIEWPORT_MARGIN });
   const id = useId();
-  const wrapRef = useRef<HTMLSpanElement>(null);
-  // 그리드 좌우 끝 카드에서 가운데 정렬 툴팁이 뷰포트를 벗어나 글자가 잘리지 않도록
-  // 아이콘 기준 이상적 위치를 뷰포트 안으로 clamp 한 수평 보정치(px).
-  const [shiftX, setShiftX] = useState(0);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
+  const pinned = useRef(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const textTrigger = children !== undefined && children !== null;
+  const termSource = label ?? (typeof children === "string" ? children : content);
+  const sourceParts = splitGlossaryText(termSource);
+  const namedTerms = sourceParts.filter(part => part.termId);
+  const inferredTerm = namedTerms.length === 1 || sourceParts[0]?.termId
+    ? namedTerms[0]?.termId : undefined;
+  const identifiedTerm = termId ?? inferredTerm;
+  const glossaryKey = identifiedTerm ?? `content:${content}`;
+  const scopeKey = useGlossaryScope();
+  const tipWidth = title ? 320 : TIP_WIDTH;
+  const viewportMargin = title ? 12 : VIEWPORT_MARGIN;
+
+  function cancelClose() {
+    clearTimeout(closeTimer.current);
+  }
+
+  function close() {
+    cancelClose();
+    pinned.current = false;
+    setOpen(false);
+  }
+
+  function leave() {
+    cancelClose();
+    if (!pinned.current && document.activeElement !== buttonRef.current) {
+      closeTimer.current = setTimeout(() => setOpen(false), 120);
+    }
+  }
+
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+  useEffect(() => {
+    pinned.current = false;
+    setOpen(false);
+  }, [scopeKey]);
 
   useLayoutEffect(() => {
-    if (!open || !wrapRef.current) return;
-    const r = wrapRef.current.getBoundingClientRect();
-    const iconCenter = r.left + r.width / 2;
-    const idealLeft = iconCenter - TIP_WIDTH / 2;
-    const maxLeft = window.innerWidth - VIEWPORT_MARGIN - TIP_WIDTH;
-    const clampedLeft = Math.max(VIEWPORT_MARGIN, Math.min(idealLeft, maxLeft));
-    setShiftX(clampedLeft - idealLeft);
+    if (!open) return;
+    function updatePosition() {
+      if (!buttonRef.current || !tipRef.current) return;
+      const button = buttonRef.current.getBoundingClientRect();
+      const tip = tipRef.current.getBoundingClientRect();
+      const width = Math.min(tipWidth, window.innerWidth - 2 * viewportMargin);
+      const left = Math.max(viewportMargin, Math.min(button.left + button.width / 2 - width / 2,
+        window.innerWidth - viewportMargin - width));
+      const preferredTop = button.top - tip.height - viewportMargin;
+      const top = Math.max(viewportMargin, Math.min(
+        preferredTop >= viewportMargin ? preferredTop : button.bottom + viewportMargin,
+        window.innerHeight - viewportMargin - tip.height,
+      ));
+      setPosition({ left, top });
+    }
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, content, title, tipWidth, viewportMargin]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+      if (!buttonRef.current?.contains(target) && !tipRef.current?.contains(target)) {
+        pinned.current = false;
+        clearTimeout(closeTimer.current);
+        setOpen(false);
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        pinned.current = false;
+        clearTimeout(closeTimer.current);
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open]);
 
+  const tooltipProps = {
+    ref: tipRef,
+    id,
+    role: "tooltip",
+    onMouseEnter: cancelClose,
+    onMouseLeave: leave,
+    style: {
+      position: "fixed",
+      left: position.left,
+      top: position.top,
+      zIndex: 150,
+      width: `min(${tipWidth}px, calc(100vw - ${2 * viewportMargin}px))`,
+      maxHeight: `calc(100dvh - ${2 * viewportMargin}px)`,
+      overflowY: "auto",
+    } satisfies CSSProperties,
+  };
+
   return (
-    <span
-      ref={wrapRef}
-      style={{ position: "relative", display: "inline-flex", alignItems: "center", verticalAlign: "middle", lineHeight: 0 }}
-    >
+    <span data-glossary-key={glossaryKey} className={className} style={{
+      display: textTrigger ? "inline" : "inline-flex",
+      alignItems: "center",
+      verticalAlign: textTrigger ? "baseline" : "middle",
+      lineHeight: textTrigger ? "inherit" : 0,
+      ...style,
+    }}>
       <button
+        ref={buttonRef}
         type="button"
         aria-label={label ?? content}
         aria-describedby={open ? id : undefined}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
+        onMouseEnter={() => { cancelClose(); setOpen(true); }}
+        onMouseLeave={leave}
+        onFocus={() => { cancelClose(); setOpen(true); }}
+        onBlur={close}
+        onClick={(event) => {
+          event.stopPropagation();
+          cancelClose();
+          pinned.current = !pinned.current;
+          setOpen(pinned.current);
         }}
         style={{
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
+          minWidth: "var(--space-6)",
+          minHeight: "var(--space-6)",
           padding: 0,
           margin: 0,
           border: "none",
+          borderRadius: "var(--r-sm)",
           background: "transparent",
-          color: "var(--ink-4)",
+          color: textTrigger ? "var(--color-primary-dark)" : "var(--ink-3)",
           cursor: "help",
-          lineHeight: 0,
-          // eyebrow 라벨의 line-height(13.5px) 때문에 글리프가 박스 위쪽에 앉아
-          // 박스 중심 정렬 시 아이콘이 ~1px 아래로 보인다. 광학 보정으로 살짝 올림.
-          position: "relative",
-          top: "-1px",
+          font: "inherit",
+          letterSpacing: "inherit",
+          textTransform: "inherit",
+          lineHeight: textTrigger ? "inherit" : 0,
         }}
       >
-        <Info size={11} aria-hidden style={{ display: "block" }} />
+        {textTrigger ? children : <Info size={13} aria-hidden style={{ display: "block" }} />}
       </button>
-      {open && (
+      {open && createPortal(title ? (
+        <TooltipContent {...tooltipProps} title={title}>{content}</TooltipContent>
+      ) : (
         <span
-          id={id}
-          role="tooltip"
+          {...tooltipProps}
           style={{
-            position: "absolute",
-            bottom: "calc(100% + 6px)",
-            left: "50%",
-            transform: `translateX(calc(-50% + ${shiftX}px))`,
-            zIndex: 50,
-            width: TIP_WIDTH,
-            padding: "9px 11px",
+            ...tooltipProps.style,
+            padding: "var(--space-2) var(--space-3)",
             borderRadius: "var(--r-md)",
             background: "var(--bg-0)",
             border: "1px solid var(--line-soft)",
@@ -88,18 +193,16 @@ export default function InfoTip({ content, label }: InfoTipProps) {
             fontSize: "var(--fs-xs)",
             lineHeight: 1.55,
             fontWeight: 400,
-            boxShadow: "0 4px 16px color-mix(in oklch, var(--ink-0) 18%, transparent)",
+            boxShadow: "var(--shadow-md)",
             whiteSpace: "normal",
-            // 한국어는 글자 단위로 끊지 말고 어절(공백) 단위로만 줄바꿈 → 자연스러운 가독성
             wordBreak: "keep-all",
             overflowWrap: "anywhere",
             textAlign: "left",
-            pointerEvents: "none",
           }}
         >
           {content}
         </span>
-      )}
+      ), document.body)}
     </span>
   );
 }

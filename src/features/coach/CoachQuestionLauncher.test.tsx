@@ -8,13 +8,15 @@ import { simulateLogin as mockLogin, simulateLogout as mockLogout, getCurrentUse
 import { auth } from "../../services/firebase";
 import { DialogProvider } from "../../contexts/DialogContext";
 import { CoachQuestionLauncher, retryActionFor } from "./CoachQuestionLauncher";
+import { CoachConsentSheet } from "./CoachConsentSheet";
+import type { CoachConsentPolicy } from "../../services/coachConsentClient";
 import { CoachClientError } from "../../services/coachClient";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import enCoach from "../../i18n/resources/en/coach.json";
 import koCoach from "../../i18n/resources/ko/coach.json";
 import prescriptionFixture from "./__fixtures__/p2-web-fixture.json";
 
-const mocks = vi.hoisted(() => ({ status: vi.fn(), ask: vi.fn(), askP2: vi.fn(), capabilities: vi.fn(), recovery: vi.fn(), policy: vi.fn(), logError: vi.fn(), analytics: {
+const mocks = vi.hoisted(() => ({ realConsent: false, status: vi.fn(), ask: vi.fn(), askP2: vi.fn(), capabilities: vi.fn(), recovery: vi.fn(), policy: vi.fn(), logError: vi.fn(), analytics: {
   open: vi.fn(), submit: vi.fn(), complete: vi.fn(), evidenceExpand: vi.fn(), actionClick: vi.fn(), limitSeen: vi.fn(),
 }, feedback: vi.fn() }));
 
@@ -33,9 +35,10 @@ vi.mock("./CoachRiderInsightCard", () => ({
     <button type="button" onClick={() => onQuestionSelect({ question: "내 라이더 유형과 강점·보완점을 설명해줘.",
       snapshotId: "rider_bbbbbbbbbbbbbbbbbbbbbbbb" })}>Rider example</button>,
 }));
-vi.mock("./FirstUseCoachConsent", () => ({ FirstUseCoachConsent: ({ open, policy, onConsented }: {
-  open: boolean; policy: unknown; onConsented: (value: unknown) => void;
-}) => open ? <button data-testid="complete-consent" onClick={() => onConsented(policy)}>complete consent</button> : null }));
+vi.mock("./FirstUseCoachConsent", () => ({ FirstUseCoachConsent: ({ open, policy, onConsented, onCancel }: {
+  open: boolean; policy: CoachConsentPolicy; onConsented: (value: unknown) => void; onCancel: () => void;
+}) => mocks.realConsent ? <CoachConsentSheet open={open} policy={policy} saving={false} onCancel={onCancel} onConsented={() => onConsented(policy)} />
+  : open ? <button data-testid="complete-consent" onClick={() => onConsented(policy)}>complete consent</button> : null }));
 
 // Firebase SDK preserves currentUser object identity; the shared mock getter clones it.
 function simulateLogin(value: { uid: string }) {
@@ -175,6 +178,7 @@ function setupPmc() {
 describe("CoachQuestionLauncher", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.realConsent = false;
     simulateLogin({ uid: user.uid });
     mocks.status.mockResolvedValue({ status: "available", quota });
     mocks.policy.mockResolvedValue(activePolicy);
@@ -893,6 +897,34 @@ describe("CoachQuestionLauncher", () => {
     mocks.ask.mockResolvedValue(answer);
     await act(async () => finish(activePolicy));
     expect(mocks.ask).toHaveBeenCalledOnce();
+  });
+
+  it("keeps Tab and Shift+Tab inside the real nested consent sheet without accepting or asking", async () => {
+    mocks.realConsent = true;
+    mocks.policy.mockResolvedValue({ ...inactivePolicy, title: "AI Coach", purpose: "답변 생성", dataCategories: ["user_question"],
+      retention: "원문 로그 없음", privacyPolicyUrl: "/privacy", policyDocumentUrl: "/policies/ai-coach",
+      processor: { name: "External LLM", service: "Claude", privacyPolicyUrl: "https://example.com/privacy" },
+      internationalProcessing: { recipient: "External LLM", country: "미국", purpose: "답변 생성", dataCategories: ["user_question"], timingAndMethod: "API", retention: "없음" },
+      withdrawal: { method: "설정", apiPath: "/v1/coach/consent", effect: "즉시 차단" }, changeSummary: null });
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    const submit = screen.getByRole("button", { name: "질문하기" });
+    await userEvent.click(submit);
+    const consent = await screen.findByTestId("K6-S-8");
+    const cancel = within(consent).getByRole("button", { name: "취소" });
+    const accept = within(consent).getByRole("button", { name: "동의하고 질문하기" });
+    expect(cancel).toHaveFocus();
+    for (let index = 0; index < 5; index += 1) { await userEvent.tab(); expect(consent).toContainElement(document.activeElement as HTMLElement); }
+    for (let index = 0; index < 5; index += 1) { await userEvent.tab({ shift: true }); expect(consent).toContainElement(document.activeElement as HTMLElement); }
+    accept.focus(); await userEvent.tab();
+    expect(within(consent).getByText("전체 데이터 처리 세부사항과 링크 보기").closest("summary")).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByTestId("K6-S-8")).not.toBeInTheDocument();
+    expect(submit).toHaveFocus();
+    expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveValue("최근 운동을 요약해줘");
+    expect(mocks.ask).not.toHaveBeenCalled(); expect(mocks.askP2).not.toHaveBeenCalled();
   });
 
   it("single-flights rapid submit and resumes consent with exactly the same memory-only requestId", async () => {

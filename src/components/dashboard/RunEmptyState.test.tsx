@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
+import { renderWithProviders as render } from "../../__tests__/utils/renderWithProviders";
 import RunEmptyState from "./RunEmptyState";
 
 const connectStrava = vi.fn();
@@ -10,15 +11,15 @@ import { track } from "../../services/analytics";
 describe("RunEmptyState — 미연결", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("빈 화면 대신 '연결하면 무엇을 받는지'를 헤드라인으로 말한다", () => {
+  it("최근 기록이 없는 상태를 평생 기록 부재로 단정하지 않는다", () => {
     render(<RunEmptyState stravaConnected={false} />);
-    expect(screen.getByRole("heading")).toHaveTextContent("여기서 러닝을 해석해 드려요");
+    expect(screen.getByRole("heading")).toHaveTextContent("최근 러닝 기록이 없어요");
   });
 
   it("연결 CTA 를 누르면 Strava 연결을 시작하고 전환을 계측한다", () => {
     render(<RunEmptyState stravaConnected={false} />);
     fireEvent.click(screen.getByRole("button", { name: /Strava 계정 연결하기/ }));
-    expect(connectStrava).toHaveBeenCalledWith("/");
+    expect(connectStrava).toHaveBeenCalledWith("/?sport=run");
     expect(track).toHaveBeenCalledWith("or_run_empty_state_cta", { stravaConnected: false });
   });
 
@@ -33,17 +34,23 @@ describe("RunEmptyState — 미연결", () => {
   });
 });
 
-describe("RunEmptyState — 연결됨 (첫 러닝 대기)", () => {
+describe("RunEmptyState — 연결됨", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("이미 연결됐으면 CTA 대신 대기 문구를 보여준다", () => {
+  it("이미 연결됐어도 러닝 파일을 가져올 수 있다", () => {
     render(<RunEmptyState stravaConnected />);
-    expect(screen.getByRole("heading")).toHaveTextContent("첫 러닝이 도착하면 알려드릴게요");
+    expect(screen.getByRole("heading")).toHaveTextContent("최근 러닝 기록이 없어요");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "러닝 기록 가져오기" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&import=1");
   });
 
   it("용어가 처음인 방문자를 위한 매뉴얼 우회로가 있다", () => {
     render(<RunEmptyState stravaConnected />);
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/web-manual/ch08-multisport.html");
+    expect(screen.getByRole("link", { name: "쉬운 안내서 보기" })).toHaveAttribute("href", "/web-manual/ch08-multisport.html");
   });
+});
+
+it("Strava 미연결 상태에서도 파일 가져오기 경로를 제공한다", () => {
+  render(<RunEmptyState stravaConnected={false} />);
+  expect(screen.getByRole("link", { name: "러닝 기록 가져오기" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&import=1");
 });

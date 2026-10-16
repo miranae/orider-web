@@ -1,3 +1,5 @@
+import GlossaryText from "../common/GlossaryText";
+import DisciplineTabs from "../redesign/DisciplineTabs";
 import FitnessPeriodEvidence from "../../features/fitness/components/FitnessPeriodEvidence";
 import { LocalizedLink } from "../LocalizedLink";
 import type { MonthlyCyclingVo2maxPoint } from "../../features/fitness/deriveMonthlyCyclingVo2maxTrend";
@@ -31,7 +33,7 @@ import { getDisciplineColor } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { Chip, Text } from "../../theme/components";
 import type { SufficiencySet } from "@shared/types/sufficiency";
-import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, SufficiencyInputMap, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../../features/sufficiency/SufficiencyBlock";
+import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../../features/sufficiency/SufficiencyBlock";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import ConsistencyStreakCard from "../training/ConsistencyStreakCard";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
@@ -632,6 +634,7 @@ export default function MobileFitnessPage({
   coachSlot = null,
   thresholdsSlot = null,
   periodSlot = null,
+  currentBasis,
   todayDecisionState,
   todayDecisionSignedIn = true,
   consistencyStreak = null,
@@ -655,6 +658,7 @@ export default function MobileFitnessPage({
   coachSlot?: ReactNode;
   thresholdsSlot?: ReactNode;
   periodSlot?: ReactNode;
+  currentBasis?: string;
   /** 오늘 결정 상세와 공유하는 단일 서버 판정 상태. 모바일 소스가 한 번만 조회한다. */
   todayDecisionState?: TodayTrainingDecisionState;
   todayDecisionSignedIn?: boolean;
@@ -738,7 +742,7 @@ export default function MobileFitnessPage({
 
       <div className="mobile-fitness-toolbar">
         <div data-testid={part === "analysis" ? "K5-0-2" : part === "condition" ? "K1-0-2" : undefined} className="mobile-fitness-toolbar__sports">
-          <SportFilterTabs value={sportSegment} onChange={setSportSegment} allLabelKey="discipline.tri" />
+          {part === "condition" || part === "analysis" ? <DisciplineTabs includeTri disabledKeys={["swim"]} value={data.discipline} onChange={value => setSportSegment(value === "tri" ? "all" : value)} /> : <SportFilterTabs value={sportSegment} onChange={setSportSegment} allLabelKey="discipline.tri" />}
         </div>
         {part === "all" && data.discipline !== "tri" && <button type="button" className="mobile-fitness-mode-toggle"
           onClick={() => setTab(activeTab === "overview" ? "analysis" : "overview")}>
@@ -746,17 +750,17 @@ export default function MobileFitnessPage({
         </button>}
       </div>
 
-      {part === "condition" && <SufficiencyInputMap />}
       {periodSlot}
       {activeTab === "overview" && (
         <div style={{ paddingTop: "var(--space-2)" }}>
           <SectionCard specId={part === "condition" ? "K1-1" : undefined} ariaLabel={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")} compact>
             <div data-mobile-fitness-status className="mobile-fitness-status">
-              <Text as="div" variant="eyebrow" className="mobile-fitness-status__label">{t("mobileFitness.kpiTsbLabel")}<span className="mobile-fitness-status__meaning">{tsbInterpretation}</span></Text>
+              <Text as="div" variant="eyebrow" className="mobile-fitness-status__label"><GlossaryText>{t("mobileFitness.kpiTsbLabel")}</GlossaryText><span className="mobile-fitness-status__meaning">{tsbInterpretation}</span></Text>
               <span className="mobile-fitness-status__value">
                 {tsbValue == null ? "—" : tsbValue.toFixed(1)}
               </span>
             </div>
+            {currentBasis && <Text as="p" variant="caption" tone="secondary" style={{ marginTop: "var(--space-2)" }}>{currentBasis}</Text>}
             {loadSet && loadForm && <SufficiencyInline set={loadSet} block={loadForm} testId="K1-1-1-sufficiency-inline" />}
             {part === "condition" && data.discipline !== "tri" && <LocalizedLink data-testid="K1-1-3" to={`/coach/today?sport=${data.discipline}`}>{t("fitness:today.header.title")} →</LocalizedLink>}
             {data.discipline !== "tri" && todayDecisionState && !deferDisabledDecision && <TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} />}
@@ -843,7 +847,7 @@ export default function MobileFitnessPage({
             </div>
           )}
 
-          {data.discipline !== "tri" && consistencyStreak && (
+          {data.discipline === "bike" && consistencyStreak && (
             <div style={{ padding: "0 14px 14px" }}>
               <ConsistencyStreakCard summary={consistencyStreak} compact />
             </div>

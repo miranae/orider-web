@@ -1,6 +1,7 @@
 import { useRun30Start, type Run30StartMode } from "../../features/training/run30/run30Start";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
+import GlossaryText from "../../components/common/GlossaryText";
 import CoachSignInButton from "./CoachSignInButton";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
@@ -24,7 +25,7 @@ export function RunningToday({ state, allowStart = false, startMode = WEB_START_
   const { t: trainingT } = useTranslation("training");
   const start = useRun30Start(startMode);
   if (state.status === "loading") return <LoadingSkeleton kind="chart" />;
-  if (state.status === "error") return <ErrorState title={t("error.dataFailed")} onRetry={state.retry} />;
+  if (state.status === "error") return <div className="coach-inline-error" role="alert"><Text>{trainingT("coachSurface.runProgramError")}</Text><Button variant="secondary" size="sm" onClick={state.retry}>{trainingT("coachSurface.retry")}</Button></div>;
   if (!state.program) return <Link data-testid="K2-3-9" to="/coach/plan?sport=run">{t("today.runProgramLink")}</Link>;
   const view = buildRun30ViewModel(state.program);
   const actionable = view.todayKind === "start";
@@ -59,7 +60,7 @@ export default function CoachTodayPage() {
   const { t, user, discipline, currentPoint, i18n } = model;
   const sport = discipline === "tri" ? "bike" : discipline;
   const running = useRun30Program(sport === "run");
-  const header = <header data-testid="K2-0"><Text as="h1" data-testid="K2-0-1" variant="pageTitle">{t("today.header.title")}</Text><div data-testid="K2-0-2"><DisciplineTabs value={sport} /></div>{currentPoint && <Link data-testid="K2-0-3" to={`/coach/condition?sport=${sport}`}>TSB {currentPoint.tsb.toFixed(1)} · {t("coach.metric.tsb")}</Link>}</header>;
+  const header = <header className="coach-page-header" data-testid="K2-0"><Text as="h1" data-testid="K2-0-1" variant="pageTitle">{t("today.header.title")}</Text><div data-testid="K2-0-2"><DisciplineTabs value={sport} disabledKeys={["swim"]} /></div>{currentPoint && <div className="coach-current-state"><GlossaryText>{t("coach.metric.tsb")}</GlossaryText><Link data-testid="K2-0-3" aria-label={`${t("coach.metric.tsb")} ${currentPoint.tsb.toFixed(1)}`} to={`/coach/condition?sport=${sport}`}><strong>{currentPoint.tsb.toFixed(1)}</strong></Link></div>}</header>;
   if (!user) return <div className="site-shell">{header}<EmptyState title={t("today.guest")}  /><CoachSignInButton /></div>;
   const impacts = model.hasCanonicalTimeseries ? deriveActivityImpacts(model.fitnessData, model.disciplineActivities, { limit: 6 }) : [];
   const covered = activityIdsCoveredByImpacts(model.disciplineActivities, impacts);
@@ -69,12 +70,11 @@ export default function CoachTodayPage() {
   const loading = model.loading || !model.timeseriesLoaded;
   return <div className="site-shell fitness-reading" style={{ padding: "var(--space-5) var(--space-4)" }}>
     {header}
-    {currentPoint && <Link to={`/coach/condition?sport=${sport}`}>TSB {currentPoint.tsb.toFixed(1)} · {t("today.conditionLink")}</Link>}
     <TodayTrainingDecisionSource user={user} discipline={sport}>{state => {
       const hasScheduled = Boolean(state.decision?.scheduledSessions.length);
       const healthBlocked = state.decision != null && state.decision.healthGate.state !== "clear";
       const deliveryEnabled = getRuntimeConfig().riderWorkoutDeliveryEnabled === true && canUseTodayHelpers(state, Date.now(), sport);
-      const chooser = loading ? <LoadingSkeleton kind="chart" /> : model.error ? <ErrorState title={t("error.dataFailed")} description={model.error} /> : !healthBlocked ? <>
+      const chooser = loading ? <LoadingSkeleton kind="chart" /> : model.error ? <ErrorState title={t("error.dataFailed")} description={model.error} onRetry={model.retryLoad} /> : !healthBlocked ? <>
         {!currentPoint && <EmptyState title={t("empty.noActivities")} description={t("empty.hint")} />}
         <FitnessCoachBriefing part="today" impacts={impacts} selectedActivityId={null} onSelectActivity={() => undefined}
           forecast={currentPoint && model.hasCanonicalTimeseries ? forecastFitness48Hours(currentPoint, 35) : null}

@@ -170,7 +170,9 @@ describe("TriFitnessView parity", () => {
     expect(screen.getByTestId("desktop-integrated-detail")).toHaveTextContent("integrated 46.7/43.7/3");
     expect(screen.getByRole("link", { name: /사이클링/ })).toHaveTextContent("35.2");
     expect(screen.getByRole("link", { name: /러닝/ })).toHaveTextContent("8.1");
-    expect(screen.getByRole("link", { name: /수영/ })).toHaveTextContent("3.4");
+    expect(screen.getByRole("group", { name: "수영 · 준비 중" })).toHaveTextContent("3.4");
+    expect(screen.getByRole("group", { name: "수영 · 준비 중" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByRole("link", { name: /수영/ })).not.toBeInTheDocument();
   });
 
   it("keeps the legacy chart range without rendering duplicate header controls", () => {
@@ -272,7 +274,7 @@ describe("TriFitnessView parity", () => {
     expect(screen.getByTestId("desktop-integrated-detail")).toHaveTextContent("integrated 51.2/44.4/6.8");
     expect(screen.getByRole("link", { name: /사이클링/ })).toHaveTextContent("40.0");
     expect(screen.getByRole("link", { name: /러닝/ })).toHaveTextContent("7.3");
-    expect(screen.getByRole("link", { name: /수영/ })).toHaveTextContent("3.9");
+    expect(screen.getByRole("group", { name: "수영 · 준비 중" })).toHaveTextContent("3.9");
   });
 
   it("uses integrated status as the only static snapshot and keeps the PMC trend", () => {

@@ -13,12 +13,12 @@ import { TrainingExecutionPanel, keepPartialRetry } from "./TrainingExecutionPan
 const render = (ui: ReactElement) => renderBase(ui, { wrapper: MemoryRouter });
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), reserve: vi.fn(), start: vi.fn(), link: vi.fn(), unlink: vi.fn(), outcome: vi.fn(),
-  log: vi.fn(), activities: { activities: [] as Array<Record<string, unknown>>, loading: false } }));
+  retryFeed: vi.fn(), log: vi.fn(), activities: { activities: [] as Array<Record<string, unknown>>, loading: false } as { activities: Array<Record<string, unknown>>; loading: boolean; error?: boolean } }));
 vi.mock("../../services/trainingExecutionClient", () => ({ listSessionExecutions: mocks.list,
   reserveSessionExecution: mocks.reserve, startSessionExecution: mocks.start,
   linkSessionExecutionActivity: mocks.link, unlinkSessionExecutionActivity: mocks.unlink,
   setSessionExecutionOutcome: mocks.outcome }));
-vi.mock("../../hooks/useActivities", () => ({ useActivities: () => mocks.activities }));
+vi.mock("../../hooks/useActivities", () => ({ useActivities: () => ({ error: false, retry: mocks.retryFeed, ...mocks.activities }) }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: mocks.log }));
 
 const baseExecution = { schemaVersion: 1 as const, executionId: "exec_dddddddddddddddddddddddd", status: "reserved" as const,
@@ -308,6 +308,56 @@ describe("TrainingExecutionPanel", () => {
     expect(screen.getByRole("button", { name: "맞아요 · 완료 처리" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "맞지만 부분 완료" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "아니에요 · 연결 해제" })).toBeInTheDocument();
+  });
+
+  it("distinguishes a failed activity read from an empty picker and retries only that feed", async () => {
+    mocks.list.mockResolvedValue([{ ...baseExecution, status: "started", startedAt: 2 }]);
+    mocks.activities = { activities: [], loading: false, error: true };
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    const view = render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "활동 직접 연결" }));
+    expect(screen.getByText(/최근 활동을 불러오지 못했어요/)).toBeInTheDocument();
+    expect(screen.queryByText("현재 revision이 확인된 같은 종목 활동이 없습니다.")).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "연결할 내 최근 활동" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "연결" }));
+    expect(mocks.link).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "활동 다시 불러오기" }));
+    expect(mocks.retryFeed).toHaveBeenCalledExactlyOnceWith();
+    expect(mocks.list).toHaveBeenCalledOnce();
+    mocks.activities = { activities: [], loading: false, error: false };
+    view.rerender(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    expect(screen.queryByText(/최근 활동을 불러오지 못했어요/)).not.toBeInTheDocument();
+    expect(screen.getByText("현재 revision이 확인된 같은 종목 활동이 없습니다.")).toBeInTheDocument();
+  });
+
+  it.each([true, false])("blocks linking cached activities while feed is loading=%s or failed", async (loading) => {
+    mocks.list.mockResolvedValue([{ ...baseExecution, status: "started", startedAt: 2 }]);
+    mocks.activities = { activities: [{ id: "activity_123", type: "Ride", startTime: 1_787_000_000_000, activityRevision: "ar_current" }], loading, error: !loading };
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "활동 직접 연결" }));
+    const picker = screen.getByRole("combobox", { name: "연결할 내 최근 활동" });
+    expect(picker).toBeDisabled();
+    fireEvent.change(picker, { target: { value: "activity_123" } });
+    expect(screen.getByRole("button", { name: "연결" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "연결" }));
+    expect(mocks.link).not.toHaveBeenCalled();
+  });
+
+  it("shows a probable-match read failure instead of a missing revision and prevents confirmation", async () => {
+    mocks.list.mockResolvedValue([{ ...probableExecution, activityRevision: null }]);
+    mocks.activities = { activities: [], loading: false, error: true };
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    expect(await screen.findByText(/최근 활동을 불러오지 못했어요/)).toBeInTheDocument();
+    expect(screen.queryByText(/이 활동의 최신 정보를 확인하지 못해/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "맞아요 · 완료 처리" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "맞지만 부분 완료" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "맞아요 · 완료 처리" }));
+    fireEvent.click(screen.getByRole("button", { name: "활동 다시 불러오기" }));
+    expect(mocks.retryFeed).toHaveBeenCalledExactlyOnceWith();
+    expect(mocks.link).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "아니에요 · 연결 해제" })).toBeEnabled();
   });
 
   it("promotes a confirmed probable match to a manual link on the same activity", async () => {

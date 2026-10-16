@@ -3,6 +3,7 @@
  */
 import type { CSSProperties, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import GlossaryText from "../common/GlossaryText";
 import { Card, Text } from "../../theme/components";
 
 const inputBox: CSSProperties = {
@@ -98,13 +99,21 @@ export function Field({
   label,
   hint,
   full,
+  explain = false,
   children,
 }: {
   label: string;
   hint?: string;
   full?: boolean;
+  explain?: boolean;
   children: ReactNode;
 }) {
+  if (explain) return <div style={{ gridColumn: full ? "1/-1" : undefined, minWidth: 0 }}>
+    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginBottom: "var(--space-1)" }}><GlossaryText>{label}</GlossaryText></div>
+    <label style={{ display: "block" }}><span className="sr-only">{label}</span>{children}
+      {hint && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{hint}</div>}
+    </label>
+  </div>;
   return (
     <label style={{ display: "block", gridColumn: full ? "1/-1" : undefined }}>
       <div
@@ -222,7 +231,7 @@ export function Toggle({
 }
 
 interface StatItem {
-  label: string;
+  label: ReactNode;
   value: string;
   unit?: string;
   highlight?: boolean;
@@ -242,7 +251,7 @@ export function StatGrid({ items }: { items: StatItem[] }) {
     >
       {items.map((s, i) => (
         <div
-          key={s.label}
+          key={i}
           style={{
             padding: 'var(--space-5)',
             borderRight: i < items.length - 1 ? "1px solid var(--line-soft)" : "none",
@@ -287,10 +296,10 @@ export const RD_HR_ZONES: DisplayZone[] = [
   { name: "Z5", label: "vo2", minPct: 90, maxPct: 100, color: "oklch(0.72 0.16 30)" },
 ];
 
-export function ZoneBar({ refValue, zones }: { refValue: number; zones: DisplayZone[] }) {
+export function ZoneBar({ refValue, zones, compactLegend = false }: { refValue: number; zones: DisplayZone[]; compactLegend?: boolean }) {
   const { t } = useTranslation("settings");
   return (
-    <div>
+    <div className={compactLegend ? "threshold-zone-bar--compact" : undefined}>
       <div
         style={{
           display: "flex",
@@ -320,12 +329,13 @@ export function ZoneBar({ refValue, zones }: { refValue: number; zones: DisplayZ
               }}
               title={`${z.name} ${label}`}
             >
-              {z.name}
+              <span className={compactLegend ? "threshold-zone-bar__segment-label" : undefined}>{z.name}</span>
             </div>
           );
         })}
       </div>
       <div
+        className={compactLegend ? "threshold-zone-bar__legend" : undefined}
         style={{
           display: "grid",
           gridTemplateColumns: `repeat(${zones.length}, 1fr)`,
@@ -345,6 +355,7 @@ export function ZoneBar({ refValue, zones }: { refValue: number; zones: DisplayZ
               key={z.name}
               style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", textAlign: "center" }}
             >
+              {compactLegend && <div className="threshold-zone-bar__zone" style={{ color: z.color, fontFamily: "var(--font-mono)", fontWeight: 600 }}>{z.name}</div>}
               <div
                 style={{
                   color: "var(--ink-1)",

@@ -42,17 +42,17 @@ describe("MobilePlanContent product hierarchy", () => {
     const edit = vi.fn();
     const mixedWeek = { ...week, days: [workout, { ...workout, date: today + 86_400_000, workout: "easySwim" as const }] };
     const view = renderWithProviders(<MobilePlanContent currentWeek={mixedWeek} weekLabel="W1" goalDiscipline="run" onEditWorkout={edit} />);
-    expect(screen.getByText("🏃 러닝")).toBeInTheDocument();
-    expect(screen.getByText("🏊 수영")).toBeInTheDocument();
-    expect(screen.queryByText("🚴 사이클")).not.toBeInTheDocument();
+    expect(screen.getAllByText("러닝").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("수영").length).toBeGreaterThan(0);
+    expect(screen.queryByText("사이클")).not.toBeInTheDocument();
     const summary = screen.getByRole("region", { name: "이번 주 요약" });
     expect(summary).toHaveTextContent("러닝 60");
     expect(summary).toHaveTextContent("수영 60");
     fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
     expect(edit).toHaveBeenCalledWith(workout, "week-04", 0);
     view.rerender(<MobilePlanContent embedded currentWeek={week} weekLabel="W2" goalDiscipline="bike" />);
-    expect(screen.getByText("🚴 사이클")).toBeInTheDocument();
-    expect(screen.queryByText("🏃 러닝")).not.toBeInTheDocument();
+    expect(screen.getByText("사이클")).toBeInTheDocument();
+    expect(screen.queryByText("러닝")).not.toBeInTheDocument();
     expect(workout.workout).toBe("z2");
     expect(workout.plannedTSS).toBe(60);
   });
@@ -88,15 +88,25 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.getByRole("button", { name: "접기" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("2026_비앙키그란폰도춘천");
     expect(screen.getByText("오늘의 다음 운동")).toBeInTheDocument();
-    expect(screen.getByText("60 TSS · 75 분")).toBeInTheDocument();
+    expect(screen.getByText("75 분 · 60 TSS")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "주간 선택" })).toHaveTextContent("이번 주");
-    expect(screen.getByText("🚴 사이클")).toBeInTheDocument();
+    expect(screen.getByText("사이클")).toBeInTheDocument();
     expect(screen.getByText("가벼움")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("주간 TSS60");
+    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("훈련부하 · TSS60");
     expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("1h 15m");
     expect(screen.getByRole("region", { name: "이번 주 요약" }).querySelector(".mobile-plan-sport-load")).toBeNull();
     fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
     expect(edit).toHaveBeenCalledWith(workout, "week-04", 0);
+  });
+
+  it("omits unassessed load and unsupported CTL while preserving planned duration", () => {
+    renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [{ ...workout, plannedTSS: 0, plannedDurationMin: 30 }] }} weekLabel="이번 주" goalTitle="30분 달리기" totalTSS={0} projectedCTL={8} remainingSessions={4} weeksLeft={2} />);
+    expect(screen.queryByText("0/0")).not.toBeInTheDocument();
+    expect(screen.queryByText("CTL")).not.toBeInTheDocument();
+    expect(screen.getByText("30 분")).toBeInTheDocument();
+    expect(screen.getByText("4 회")).toBeInTheDocument();
+    expect(screen.getByText("2 주")).toBeInTheDocument();
+    expect(screen.queryByText("0 TSS")).not.toBeInTheDocument();
   });
 
   it("does not present a completed workout as the next action", () => {
@@ -119,7 +129,7 @@ describe("MobilePlanContent product hierarchy", () => {
     const adjustedDay = { ...workout, adjustedTSS: 48, adjustedDurationMin: 58 };
     renderWithProviders(<MobilePlanContent embedded currentWeek={{ ...week, days: [adjustedDay] }} weekLabel="이번 주" />);
 
-    expect(screen.getByText("48 TSS · 58 분")).toBeInTheDocument();
+    expect(screen.getByText("58 분 · 48 TSS")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "편집" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("48");
     expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("0h 58m");
@@ -132,9 +142,9 @@ describe("MobilePlanContent product hierarchy", () => {
     renderWithProviders(<MobilePlanContent embedded currentWeek={{ ...week, days: [skippedDay, scheduledDay] }} weekLabel="이번 주" />);
 
     const summary = screen.getByRole("region", { name: "이번 주 요약" });
-    expect(summary).toHaveTextContent("주간 TSS40");
+    expect(summary).toHaveTextContent("훈련부하 · TSS40");
     expect(summary).toHaveTextContent("시간0h 45m");
-    expect(summary).toHaveTextContent("세션1");
+    expect(summary).toHaveTextContent("훈련횟수1");
     expect(summary.querySelector(".mobile-plan-sport-load")).toBeNull();
     expect(screen.getByText("이번 주 다음 운동")).toBeInTheDocument();
   });
@@ -175,4 +185,17 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(previous).not.toHaveBeenCalled();
     expect(next).toHaveBeenCalledOnce();
   });
+});
+
+
+it("uses canonical KST dates for weekdays while preserving the stored edit index", () => {
+  const edit = vi.fn();
+  const friday = { ...workout, date: Date.parse('2026-10-16T00:00:00+09:00'), dayOfWeek: 0 as const };
+  const saturday = { ...friday, date: friday.date + 86400000, workout: 'rest' as const };
+  renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [friday, saturday] }} weekLabel="W1" onEditWorkout={edit} />);
+  const action = screen.getByRole('button', { name: /^금 16 / });
+  fireEvent.click(action);
+  expect(edit).toHaveBeenCalledWith(friday, week.id, 0);
+  expect(screen.getByText('토')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^월 16 / })).not.toBeInTheDocument();
 });

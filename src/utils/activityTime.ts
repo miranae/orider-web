@@ -73,3 +73,11 @@ export function resolveAvgSpeedKph(distanceM: number, resolved: ResolvedDuration
   }
   return fallbackKph;
 }
+
+/** 표시 시간의 출처만 구분하며 시간 계산은 변경하지 않는다. */
+export function durationLabelBasis(source: { elapsedTimeMillis?: number | null; startTime?: number | null; endTime?: number | null }, usingMoving: boolean): "movingTime" | "elapsedTime" | "activityTime" {
+  if (usingMoving) return "movingTime";
+  const knownElapsed = source.elapsedTimeMillis != null && source.elapsedTimeMillis > 0
+    || source.startTime != null && source.endTime != null && source.endTime > source.startTime;
+  return knownElapsed ? "elapsedTime" : "activityTime";
+}

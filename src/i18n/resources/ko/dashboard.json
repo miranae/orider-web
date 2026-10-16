@@ -17,13 +17,13 @@
     "weekGroup": "최근 7일 활동",
     "runWeekGroup": "최근 7일 내 러닝·걷기·하이킹",
     "trainingGroup": "훈련 상태",
-    "weekDistance": "거리",
-    "activities": "전체 활동 수",
-    "rides": "라이드 수",
-    "runs": "활동 수",
+    "weekDistance": "이동거리",
+    "activities": "활동횟수",
+    "rides": "라이딩횟수",
+    "runs": "활동횟수",
     "runUnavailable": "러닝·걷기·하이킹 통계를 확인할 수 없어요",
-    "movingTime": "이동 시간",
-    "elevation": "획득 고도",
+    "movingTime": "활동시간",
+    "elevation": "획득고도",
     "fitness": "피트니스",
     "fitnessBuild": "증량 가능",
     "fitnessMaintain": "유지 권장",
@@ -63,7 +63,8 @@
       "emptyTitle": "검색 결과가 없어요",
       "emptyDescription": "다른 키워드나 기간을 시도해 보세요.",
       "resultsCount_one": "{{count}}건",
-      "resultsCount_other": "{{count}}건"
+      "resultsCount_other": "{{count}}건",
+      "resetScopeDates": "범위·기간 초기화"
     },
     "datePreset": {
       "label": "조회 기간",
@@ -111,7 +112,7 @@
   "sidebar": {
     "runWeekly": {
       "title": "주간 러닝·걷기·하이킹 기록",
-      "sub": "최근 8주 · 내 활동",
+      "sub": "최근 8주 · 내 이동거리",
       "value": "{{count}}회 · {{distance}}"
     },
     "runMonth": {
@@ -120,7 +121,7 @@
       "plan": "러닝 계획 보기"
     },
     "weeklyTss": {
-      "title": "주간 TSS",
+      "title": "주간 훈련 부하",
       "sub": "최근 12주",
       "barTooltip": "{{week}}: {{tss}} TSS",
       "barTooltipUnknown": "{{week}}: 기록 없음",
@@ -128,7 +129,24 @@
       "peakWeek": "최고주",
       "trend": "추세",
       "trendUp": "↑ 상승",
-      "trendDown": "↓ 하락"
+      "trendDown": "↓ 하락",
+      "distanceTitle": "주간 이동거리",
+      "partial": "일부 기록",
+      "thisWeek": "이번 주",
+      "scope": {
+        "allSupported": "전체 종목",
+        "bike": "사이클",
+        "run": "러닝",
+        "swim": "수영"
+      },
+      "distanceRow": "이동거리 (km)",
+      "loadRow": "훈련 부하 (TSS)",
+      "summary": "주간 거리와 훈련 부하 요약",
+      "metric": "지표",
+      "summaryHelpTitle": "훈련 부하 점수 (TSS)",
+      "summaryHelp": "운동 시간과 강도를 반영한 부하 점수입니다. 평균은 확인된 {{count}}주 기준입니다. ≈ 추정값 포함 · + 확인한 기록의 합계 · — 미확인",
+      "distanceHelpTitle": "이동거리 집계",
+      "distanceHelp": "평균은 최근 12주 기준입니다. +는 확인한 기록만의 합계, —는 미확인입니다. 일부 기록만 확인한 경우 평균·최고주는 표시하지 않습니다."
     },
     "monthlyGoal": {
       "title": "{{month}}월 목표",
@@ -231,15 +249,15 @@
   },
   "mobileFeed": {
     "runSummary": {
-      "count": "활동 수",
-      "distance": "거리",
-      "time": "시간",
-      "elevation": "획득 고도"
+      "count": "활동횟수",
+      "distance": "이동거리",
+      "time": "활동시간",
+      "elevation": "획득고도"
     },
     "defaultRider": "라이더",
     "defaultActivity": "라이딩",
-    "statDistance": "거리",
-    "statTime": "시간",
+    "statDistance": "이동거리",
+    "statTime": "이동시간",
     "statElev": "획득고도",
     "statSpeed": "평균속도",
     "weekSummary": "이번 주 요약",
@@ -254,7 +272,9 @@
     "emptyTitle": "아직 활동이 없어요",
     "emptyDesc": "Strava를 연동하거나 라이딩을 기록해 보세요.",
     "dataWarningBadge": "⚠ 데이터 이상",
-    "dataWarningTooltip": "GPS noise 또는 짧은 활동으로 일부 지표가 비현실적입니다."
+    "dataWarningTooltip": "GPS noise 또는 짧은 활동으로 일부 지표가 비현실적입니다.",
+    "viewProfile": "내 프로필 보기",
+    "statElapsedTime": "전체시간"
   },
   "weeklySummary": {
     "title": "이번 주 요약",
@@ -371,9 +391,9 @@
     "ftpBasis": "최근 90일 베스트 파워 기반",
     "zoneDist": "파워 존 분포 (최근 4주)",
     "zoneDefTitle": "존 정의",
-    "kpiCtlLabel": "CTL 체력",
-    "kpiAtlLabel": "ATL 피로",
-    "kpiTsbLabel": "TSB 상태",
+    "kpiCtlLabel": "장기체력 CTL",
+    "kpiAtlLabel": "단기피로 ATL",
+    "kpiTsbLabel": "회복상태 TSB",
     "tsbMeaning": {
       "fatigueHigher": "피로가 체력보다 높아요",
       "fitnessHigher": "체력이 피로보다 높아요",
@@ -577,25 +597,26 @@
     "zoneSourcePowerHistorical": "활동 당시 FTP 기준 Z1~Z7 합산 · 현재 FTP 경계로 재분류하지 않습니다. 완전한 존 자료가 있는 활동만 포함합니다."
   },
   "runEmpty": {
-    "title": "달리던 앱을 연결하면, 여기서 러닝을 해석해 드려요",
-    "subtitle": "나이키 런 클럽·가민에서 쌓은 기록 그대로 — 업로드는 필요 없어요.",
-    "waitingTitle": "첫 러닝이 도착하면 알려드릴게요",
-    "waitingSubtitle": "Strava에 러닝이 올라오면 자동으로 가져와 해석해 드려요.",
+    "title": "최근 러닝 기록이 없어요",
+    "subtitle": "Strava를 연결하거나 파일을 가져와 러닝 기록을 모아보세요.",
+    "waitingTitle": "최근 러닝 기록이 없어요",
+    "waitingSubtitle": "Strava의 러닝이 동기화되면 여기에 표시돼요. 파일로 가져올 수도 있어요.",
     "connectCta": "Strava 계정 연결하기",
     "previewTag": "미리보기",
     "sampleSentence": "연결하면 이런 해석을 받아요 — \"오르막을 감안하면 평지 기준 {{gap}}/km로 달린 셈이에요.\"",
     "samplePace": "페이스",
     "sampleLoad": "부하",
     "manualHint": "페이스·GAP·훈련 부하가 처음이라면",
-    "manualCta": "쉬운 안내서 보기"
+    "manualCta": "쉬운 안내서 보기",
+    "importCta": "러닝 기록 가져오기"
   },
   "runRecap": {
     "eyebrow": "지난주 러닝",
     "headlineFaster": "{{count}}번 달려서 {{km}}km — 평균 페이스가 그 전주보다 {{sec}}초 단축됐어요.",
     "headlineSlower": "{{count}}번 달려서 {{km}}km 달렸어요. 컨디션과 코스에 따라 페이스는 달라져요.",
     "headlinePlain": "{{count}}번 달려서 {{km}}km 달렸어요.",
-    "runs": "러닝",
-    "distance": "거리",
+    "runs": "러닝횟수",
+    "distance": "이동거리",
     "avgPace": "평균 페이스",
     "unitTimes": "회",
     "unitSeconds": "초",
@@ -624,7 +645,55 @@
     "stale": "마지막으로 확정된 최근 7일 요약을 표시합니다.",
     "staleChip": "이전 집계"
   },
+  "weeklyEvidence": {
+    "loadUnknown": "부하 미산출",
+    "shortTitle": "{{week}} 주간 부하",
+    "noKnownWeeks": "이 범위에 부하를 확인할 수 있는 주가 없어 평균·최고값을 산출하지 않습니다.",
+    "untitled": "제목 없는 활동",
+    "unknown": "미산출",
+    "timeInput": "반영 시간 {{minutes}}분 ÷ 60 × 시간당 계수 {{factor}} (계산 후 반올림)",
+    "averageHelp": "부하를 아는 {{count}}주 합계 {{total}} ÷ {{count}}주를 반올림해 {{value}}로 표시합니다. 전체 {{weeks}}주 중 미산출 주는 분모에서 제외하고, 부분합계·추정값이 있는 주는 포함합니다.",
+    "peakHelp": "부하를 아는 {{count}}주에서 가장 큰 표시 합계는 {{value}}({{weeks}})입니다. 저장·서버 값과 추정값이 포함될 수 있으며 미산출 주는 비교에서 제외합니다.",
+    "trendHelp": "직전 주 {{previous}}, 이번 주 {{current}}의 표시 합계를 비교합니다. 두 주의 표시값이 있고 추정·미산출 활동이 없을 때만 증가/감소를 판정합니다.",
+    "scope": {
+      "allSupported": "집계 범위: 사이클·러닝·수영 지원 활동 전체",
+      "bike": "사이클",
+      "run": "러닝·걷기·하이킹",
+      "swim": "수영"
+    },
+    "input": {
+      "streamTrimpTss": "사용한 심박 스트림 대체값 {{value}}",
+      "relativeEffort": "사용한 Relative Effort 대체값 {{value}}"
+    },
+    "totalLabel": "이 주의 총 부하",
+    "showDetails": "{{week}} 활동별 TSS 보기",
+    "hideDetails": "활동별 TSS 접기",
+    "detailsTitle": "{{week}} 활동별 TSS 산출값",
+    "noEvidence": "이 주의 TSS 산출 기반과 입력값을 확인할 수 없습니다.",
+    "activityInputs": "활동별 산출값",
+    "basis": {
+      "power": "파워 기반",
+      "heartRate": "심박 기반",
+      "time": "시간 추정",
+      "unknown": "산출 방식 미상",
+      "excluded": "산출 제외"
+    },
+    "tooltipTitle": "{{week}}주 · {{value}} TSS",
+    "tooltipUnknownTitle": "{{week}}주 · 부하 미산출",
+    "distance": "이동거리 {{value}} km",
+    "distanceTitle": "{{week}}주 · {{value}} km",
+    "distanceFormattedTitle": "{{week}}주 · {{distance}}{{partial}}",
+    "distanceUnknownTitle": "{{week}}주 · 거리 미확인",
+    "distancePartialTitle": "{{week}}주 · {{value}}+ km"
+  },
   "todayStrip": {
+    "goalCountdownTitle": "목표일까지 남은 날",
+    "goalCountdownLabel": "목표 날짜 설명",
+    "goalCountdownHelp": "D−N은 목표일까지 남은 날짜 수, D+N은 목표일로부터 지난 날짜 수입니다. 목표 날짜와 현재 시각의 차이를 일 단위로 올림해 표시합니다.",
+    "weekTitle": "내 최근 7일 · {{sport}}",
+    "findEvents": "일정 찾기 →",
+    "goalLink": "목표 보기 →",
+    "analysisLink": "분석 보기 →",
     "allSportsRecent7d": "모든 종목 · 최근 7일",
     "today": "오늘 운동",
     "choose": "정하기 →",
@@ -634,17 +703,27 @@
     "goal": "목표",
     "createGoal": "목표 만들기 →",
     "monthFlow": "이번 달 흐름",
-    "monthFlowValue": "{{distance}} km · 평소 주평균 기준 {{percent}}%",
+    "monthFlowValue": "{{distance}} km · 평소 월간 환산 기준 {{percent}}%",
     "events": "내 일정",
     "noEvents": "다가오는 참가 일정이 없어요",
     "condition": "컨디션",
     "conditionLink": "컨디션 보기 →",
-    "week": "이번 주 · 운동일지 →",
-    "more": "일정·시작 안내 더 보기",
+    "week": "월간 운동일지 →",
+    "more": "일정·운동 안내 더 보기",
     "support": "앱 설치·도움말",
     "recap": "연간 회고 보기 →",
     "firstRecord": "첫 운동 기록하기 · 앱 설치",
     "importHistory": "기존 기록 가져오기",
-    "goalCtl": "목표일 예상 CTL {{value}}"
+    "goalCtl": "목표일 예상 CTL {{value}}",
+    "monthFlowAllTitle": "이번 달 활동 · 전체 종목",
+    "monthFlowAllValue": "{{distance}} km · 평소 월간 거리 대비 {{percent}}%"
+  },
+  "homeMetrics": {
+    "distance": "이동거리",
+    "movingTime": "이동시간",
+    "elapsedTime": "전체시간",
+    "avgHeartRate": "평균심박",
+    "avgPower": "평균파워",
+    "activityTime": "활동시간"
   }
 }

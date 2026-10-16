@@ -1,4 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import i18n from "i18next";
+import enCoach from "../../i18n/resources/en/coach.json";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -12,6 +14,8 @@ import fixtureJson from "./__fixtures__/p2-web-fixture.json";
 import { CoachPrescription } from "./CoachPrescription";
 
 const errorLog = vi.hoisted(() => vi.fn());
+const authState = vi.hoisted(() => ({ uid: "checkin-owner" }));
+vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: authState.uid, isAnonymous: false } }) }));
 vi.mock("../../services/coachClient", async (importOriginal) => ({
   ...await importOriginal<typeof import("../../services/coachClient")>(),
   submitCoachPrescriptionCheckIn: vi.fn(),
@@ -83,6 +87,7 @@ function needsCheckIn(): CoachPrescriptionDTO {
 
 describe("CoachPrescription", () => {
   beforeEach(() => {
+    authState.uid = "checkin-owner";
     submit.mockReset(); capabilities.mockReset(); capabilities.mockResolvedValue(enabledCapabilities);
     createProposal.mockReset(); getProposal.mockReset(); recoverProposal.mockReset(); confirmProposal.mockReset(); rollbackProposal.mockReset();
     errorLog.mockReset();
@@ -188,23 +193,21 @@ describe("CoachPrescription", () => {
     expect(screen.getByText("59분")).toBeInTheDocument();
     expect(screen.getByText("목표 TSS 30")).toBeInTheDocument();
     expect(screen.getByText("coach-prescription-rules-v1")).toBeInTheDocument();
+    expect(screen.getByText("coach-prescription-rules-v1")).not.toBeVisible();
+    for (const rule of screen.getAllByText("rx.resume.form.v1")) expect(rule).not.toBeVisible();
     expect(container).toHaveTextContent("rx.resume.form.v1");
     expect(container.querySelector('[data-evidence-id="rx_ev_b925cd58b64ca98d2cae"]')).toBeInTheDocument();
     expect(screen.getByText("이 내용은 제안이며 확인 전에는 운동 계획에 저장되지 않습니다.")).toBeInTheDocument();
   });
 
   it("preserves combined check-in answers and gives safety priority without workout or TSS UI", async () => {
-    // 자동 확인이 먼저 돌고, 사용자가 "오늘은 다릅니다" 를 택해야 직접 입력이 열린다.
-    // 자동 확인이 실패하면 직접 입력 폼이 그대로 나타난다.
-    submit
-      .mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
-      .mockResolvedValue({ status: "ok", prescription: parseCoachPrescription({ ...ready,
+    submit.mockResolvedValue({ status: "ok", prescription: parseCoachPrescription({ ...ready,
         prescriptionId: "rx_222222222222222222222222", status: "safety_blocked", nextDays: [], nextWeekLoad: undefined,
         missingSignals: ["pain_or_illness"] }), providerCalls: 0, quotaConsumed: 0 });
     const { container } = render(<CoachPrescription initial={needsCheckIn()}
       parentRequestId="018f47a2-3c4d-7abc-8def-000000000201" locale="ko-KR" onReanalyze={vi.fn()} />);
     const user = userEvent.setup();
-    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    expect(submit).not.toHaveBeenCalled();
     await user.click(await screen.findByRole("radio", { name: "피곤함" }));
     await user.click(screen.getAllByRole("radio", { name: "있음" })[0]!);
     await user.click(screen.getAllByRole("radio", { name: "있음" })[1]!);
@@ -223,7 +226,10 @@ describe("CoachPrescription", () => {
     render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
       locale="ko-KR" onReanalyze={reanalyze} />);
     const user = userEvent.setup();
-    // 자동 확인이 전송 실패하면 같은 요청으로 재시도할 수 있어야 한다.
+    await user.click(await screen.findByRole("radio", { name: "보통" }));
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[0]!);
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[1]!);
+    await user.click(screen.getByRole("button", { name: "확인" }));
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
     const firstId = submit.mock.calls[0]![0].requestId;
     await screen.findByRole("button", { name: "다시 시도" });
@@ -505,36 +511,115 @@ describe("CoachPrescription", () => {
     expect(createProposal).not.toHaveBeenCalled(); expect(confirmProposal).not.toHaveBeenCalled();
   });
 
-  // 매주 같은 세 문항을 되묻지 않는다. 평소 기준으로 자동 확인하고 처방을 바로 보여준다.
-  it("확인을 묻지 않고 평소 기준으로 처방을 계산한다", async () => {
-    submit.mockResolvedValue({ status: "ok", prescription: ready });
-    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000301"
-      locale="ko-KR" onReanalyze={vi.fn()} />);
-    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
-    expect(submit.mock.calls[0]![0]).toMatchObject({
-      answers: { subjectiveFatigue: "normal", soreness: "none", painOrIllness: false } });
-    expect(await screen.findByText(/평소 컨디션 기준으로 계산했습니다/)).toBeInTheDocument();
-    // 라디오 폼을 사용자에게 들이밀지 않는다.
-    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
-  });
-
-
-  // 통증이 있는 사용자가 그 사실을 말할 수 있어야 한다. 자동 확인 뒤에도 직접 입력 경로가 남는다.
-  it("자동 확인 뒤에도 직접 입력을 시작할 수 있다", async () => {
-    submit.mockResolvedValue({ status: "ok", prescription: ready, providerCalls: 0, quotaConsumed: 0 });
-    const onManualCheckIn = vi.fn();
-    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000401"
-      locale="ko-KR" onReanalyze={vi.fn()} onManualCheckIn={onManualCheckIn} />);
-    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
-    await userEvent.click(await screen.findByRole("button", { name: "오늘은 다릅니다" }));
-    expect(onManualCheckIn).toHaveBeenCalledTimes(1);
-  });
-
-  // 상위가 직접 입력 의사를 넘기면 자동 확인이 끼어들지 않고 폼이 나타난다.
-  it("직접 입력 의사가 있으면 자동 확인하지 않고 폼을 보여준다", async () => {
-    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000402"
-      locale="ko-KR" onReanalyze={vi.fn()} manualCheckIn />);
-    expect(await screen.findByRole("radio", { name: "피곤함" })).toBeInTheDocument();
+  it("never posts assumed health answers on mount or before every required answer is selected", async () => {
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000301" locale="ko-KR" onReanalyze={vi.fn()} />);
+    await waitFor(() => expect(capabilities).toHaveBeenCalledOnce());
+    for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
+    const confirm = screen.getByRole("button", { name: "확인" });
+    expect(confirm).toBeDisabled();
+    const user = userEvent.setup();
+    await user.click(confirm);
+    await user.click(screen.getByRole("radio", { name: "보통" }));
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[0]!);
+    expect(confirm).toBeDisabled();
+    await user.click(confirm);
     expect(submit).not.toHaveBeenCalled();
+    expect(createProposal).not.toHaveBeenCalled();
+  });
+
+  it("posts only explicitly selected self-reported values after confirmation", async () => {
+    submit.mockResolvedValue({ status: "ok", prescription: ready, providerCalls: 0, quotaConsumed: 0 });
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000401" locale="ko-KR" onReanalyze={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "보통" }));
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[0]!);
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[1]!);
+    expect(submit).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "확인" }));
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(submit.mock.calls[0]![0]).toEqual({ requestId: expect.any(String), parentRequestId: "018f47a2-3c4d-7abc-8def-000000000401", checkInToken: "t".repeat(64), answers: { subjectiveFatigue: "normal", soreness: "none", painOrIllness: false } });
+    expect(screen.queryByText(/평소 컨디션 기준으로 계산/)).not.toBeInTheDocument();
+  });
+
+  it("does not manufacture answers for signals the server did not request", async () => {
+    submit.mockResolvedValue({ status: "ok", prescription: ready, providerCalls: 0, quotaConsumed: 0 });
+    const initial = { ...needsCheckIn(), missingSignals: ["subjective_fatigue"], requiredSignals: ["subjective_fatigue" as const] };
+    render(<CoachPrescription initial={initial} parentRequestId="018f47a2-3c4d-7abc-8def-000000000407" locale="ko-KR" onReanalyze={vi.fn()} />);
+    const user = userEvent.setup();
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
+    await user.click(screen.getByRole("radio", { name: "피곤함" }));
+    await user.click(screen.getByRole("button", { name: "확인" }));
+    expect(submit.mock.calls[0]![0].answers).toEqual({ subjectiveFatigue: "tired" });
+  });
+
+  it("clears unanswered form state on account or prescription context changes without submitting", async () => {
+    const props = { initial: needsCheckIn(), parentRequestId: "018f47a2-3c4d-7abc-8def-000000000402", locale: "ko-KR", onReanalyze: vi.fn() };
+    const view = render(<CoachPrescription {...props} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "피곤함" }));
+    authState.uid = "another-owner";
+    view.rerender(<CoachPrescription {...props} />);
+    for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "피곤함" }));
+    view.rerender(<CoachPrescription {...props} initial={{ ...props.initial, factsId: "run-new-facts" }} parentRequestId="018f47a2-3c4d-7abc-8def-000000000403" />);
+    for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it("locks in-flight answers and ignores an old account's late check-in response", async () => {
+    let resolve!: (result: Awaited<ReturnType<typeof submitCoachPrescriptionCheckIn>>) => void;
+    submit.mockImplementation(() => new Promise(result => { resolve = result; }));
+    const props = { initial: needsCheckIn(), parentRequestId: "018f47a2-3c4d-7abc-8def-000000000408", locale: "ko-KR", onReanalyze: vi.fn() };
+    const view = render(<CoachPrescription {...props} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "보통" }));
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[0]!);
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[1]!);
+    await user.click(screen.getByRole("button", { name: "확인" }));
+    for (const radio of screen.getAllByRole("radio")) expect(radio).toBeDisabled();
+    expect(screen.getByRole("button", { name: "입력 취소" })).toBeDisabled();
+    expect(submit).toHaveBeenCalledTimes(1);
+    authState.uid = "another-owner";
+    view.rerender(<CoachPrescription {...props} />);
+    await act(async () => { resolve({ status: "ok", prescription: ready, providerCalls: 0, quotaConsumed: 0 }); });
+    expect(screen.getByTestId("K6-2-6")).toBeInTheDocument();
+    for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(createProposal).not.toHaveBeenCalled();
+  });
+
+  it("clears local answers without sending a check-in and keeps historical check-ins read-only", async () => {
+    const props = { initial: needsCheckIn(), parentRequestId: "018f47a2-3c4d-7abc-8def-000000000404", locale: "ko-KR", onReanalyze: vi.fn() };
+    const view = render(<CoachPrescription {...props} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "피곤함" }));
+    await user.click(screen.getByRole("button", { name: "입력 취소" }));
+    expect(screen.getByRole("button", { name: "확인" })).toBeDisabled();
+    for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
+    view.rerender(<CoachPrescription {...props} readOnly />);
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "확인" })).not.toBeInTheDocument();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it("retries capability reads without reporting a health state", async () => {
+    capabilities.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(enabledCapabilities);
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000405" locale="ko-KR" onReanalyze={vi.fn()} />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "기능 상태 다시 확인" }));
+    await waitFor(() => expect(capabilities).toHaveBeenCalledTimes(2));
+    expect(submit).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "확인" })).toBeDisabled();
+  });
+
+  it("shows English unanswered fields without assuming normal health", async () => {
+    i18n.addResourceBundle("en", "coach", enCoach, true, true);
+    await act(async () => { await i18n.changeLanguage("en"); });
+    try {
+      render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000406" locale="en-US" onReanalyze={vi.fn()} />);
+      expect(screen.getByRole("group", { name: "Pain or illness" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
+      for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
+      expect(submit).not.toHaveBeenCalled();
+    } finally { cleanup(); await act(async () => { await i18n.changeLanguage("ko"); }); }
   });
 });

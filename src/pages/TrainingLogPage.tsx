@@ -13,6 +13,8 @@ import type { PlanDay, PlanWeek } from "@shared/types/goal";
 import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
+import SportFilterTabs from "../components/mobile/SportFilterTabs";
+import { getDiscipline } from "../utils/disciplineFilter";
 import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../utils/estimateTSS";
 import { planDayKey, planCalendarDate, planMonthBounds } from "@shared/training/planDate";
 import { Button, Card, Text } from "../theme/components";
@@ -509,6 +511,20 @@ export default function TrainingLogPage() {
     return () => { cancelled = true; };
   }, [user]);
 
+  const [importParams, setImportParams] = useSearchParams();
+  const requestedSport = importParams.get("sport");
+  const sportFilter = requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim" ? requestedSport : "all";
+  const setSportFilter = (sport: string) => {
+    const next = new URLSearchParams(importParams);
+    next.set("sport", sport);
+    setImportParams(next, { replace: true });
+  };
+
+  const visiblePlans = useMemo(() => new Map([...planByMonth].flatMap(([date, plans]) => {
+    const matching = sportFilter === "all" ? plans : plans.filter((plan) => plan.discipline === sportFilter);
+    return matching.length ? [[date, matching] as const] : [];
+  })), [planByMonth, sportFilter]);
+
   // 인접 월 후보가 겹치므로 원본 ID당 한 번만 자식/모바일 뷰에 전달한다.
   const activities = useMemo(() => {
     const all = new Map<string, Activity>();
@@ -551,15 +567,17 @@ export default function TrainingLogPage() {
 
 
   const monthActivities = useMemo(
-    () => activities.filter((a) => a.startTime >= monthStart && a.startTime <= monthEnd && (!user || a.userId === user.uid)),
-    [activities, monthStart, monthEnd, user],
+    () => activities.filter((a) => a.startTime >= monthStart && a.startTime <= monthEnd && (!user || a.userId === user.uid)
+      && (sportFilter === "all" || getDiscipline(a.type) === sportFilter)),
+    [activities, monthStart, monthEnd, user, sportFilter],
   );
 
   // 선택 월의 고정 후보에서 대표를 골라 다른 월 방문으로 합계가 변하지 않게 한다.
   const monthLoadActivities = useMemo(() => acceptedPhysicalActivities(
     monthCandidates.filter((a) => !user || a.userId === user.uid), ftp,
-  ).filter((a) => a.startTime >= monthStart && a.startTime <= monthEnd),
-  [monthCandidates, user, ftp, monthStart, monthEnd]);
+  ).filter((a) => a.startTime >= monthStart && a.startTime <= monthEnd
+    && (sportFilter === "all" || getDiscipline(a.type) === sportFilter)),
+  [monthCandidates, user, ftp, monthStart, monthEnd, sportFilter]);
   const loadByDay = useMemo(() => {
     const map = new Map<string, Activity[]>();
     for (const activity of monthLoadActivities) {
@@ -640,7 +658,6 @@ export default function TrainingLogPage() {
 
   const monthLabel = t("log.monthLabel", { year: selectedMonth.year, month: selectedMonth.month + 1 });
 
-  const [importParams, setImportParams] = useSearchParams();
   const [importOpen, setImportOpen] = useState(importParams.get("import") === "1");
   useEffect(() => { if (importParams.get("import") === "1") setImportOpen(true); }, [importParams]);
   const closeImport = () => { setImportOpen(false); const next = new URLSearchParams(importParams); next.delete("import"); setImportParams(next, { replace: true }); };
@@ -673,8 +690,8 @@ export default function TrainingLogPage() {
       <>
       {representativeState.error && <ErrorState title={tCommon("error.title")} onRetry={representativeState.retry} compact />}
       <MobileLogPage
-        plannedDates={[...planByMonth.keys()]}
-        plannedSports={Object.fromEntries([...planByMonth].map(([date, plans]) => [date, plans[0]?.discipline ?? "bike"]))}
+        plannedDates={[...visiblePlans.keys()]}
+        plannedSports={Object.fromEntries([...visiblePlans].map(([date, plans]) => [date, plans[0]?.discipline ?? "bike"]))}
         ftp={ftp}
         activities={activities}
         representativeCandidates={monthCandidates}
@@ -705,6 +722,7 @@ export default function TrainingLogPage() {
           <Text as="h1" variant="title" style={{ margin: 0 }}>{t("page.logTitle")}</Text>
           <Text as="span" variant="caption" tone="secondary">{t("page.logActivities", { count: kpi.count })}</Text>
         </div>
+        <SportFilterTabs value={sportFilter} onChange={setSportFilter} />
         <Text variant="caption" tone="secondary">{t("log.recordBasis")}</Text>
         {kpi.tssEstimated && <Text variant="caption" tone="secondary">{t("log.estimateBasis")}</Text>}
         <Card data-testid="P1-1-1" padding="none" style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
@@ -858,7 +876,7 @@ export default function TrainingLogPage() {
                     {week.map((cell) => {
                       const key = dateToKey(cell.date);
                       const acts = byDay.get(key) ?? [];
-                      const plans = planByMonth.get(key) ?? [];
+                      const plans = visiblePlans.get(key) ?? [];
                       const isToday = key === todayKey;
                       return (
                         <LogDayCell

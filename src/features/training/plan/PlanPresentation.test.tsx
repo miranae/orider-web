@@ -1,4 +1,5 @@
-import { fireEvent, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlanModel } from "../../../hooks/usePlanModel";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
@@ -135,8 +136,23 @@ describe("PlanPresentation responsive layout", () => {
       }],
     } as unknown as PlanModel;
     renderWithProviders(<PlanPresentation model={desktopModel} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
-    expect(screen.getByText("108.0km")).toBeInTheDocument();
+    expect(screen.queryByText("108.0km")).not.toBeInTheDocument();
+    expect(screen.getByText("240 분")).toBeInTheDocument();
     expect(screen.getByText("180 TSS")).toHaveStyle({ whiteSpace: "nowrap" });
+  });
+
+  it("omits unsupported fitness forecasts and empty course metrics for a time-based running goal", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: false, media: query, onchange: null,
+      addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+    const runModel = { ...model, discipline: "run", totalTSS: 0, completedTSS: 0,
+      goal: { ...model.goal, title: "30분 달리기", courseDist: 0, courseElev: 0, targetDurationMin: 30, snapshot: { ctl: 50 } },
+    } as unknown as PlanModel;
+    renderWithProviders(<PlanPresentation model={runModel} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
+    expect(screen.queryByText("CTL 변화 가이드")).not.toBeInTheDocument();
+    expect(screen.queryByText("≈+9")).not.toBeInTheDocument();
+    expect(screen.queryByText(/이동거리 0.0/)).not.toBeInTheDocument();
+    expect(screen.queryByText("완료 TSS")).not.toBeInTheDocument();
+    expect(screen.getByText("목표시간")).toBeInTheDocument();
   });
 
   it("starts the desktop calendar at the current week while keeping past weeks accessible", () => {
@@ -156,7 +172,7 @@ describe("PlanPresentation responsive layout", () => {
     expect(screen.getAllByText("25%")).toHaveLength(1);
     expect(screen.getByText("남은 훈련")).toBeInTheDocument();
     expect(screen.getByText("오늘의 다음 운동")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "시작" }));
+    fireEvent.click(screen.getByRole("button", { name: "운동 상세" }));
     expect(edit).toHaveBeenCalledWith(day, "week-02", 0);
     expect(screen.getByText("W2")).toBeInTheDocument();
     expect(screen.queryByText("W1")).not.toBeInTheDocument();
@@ -185,4 +201,51 @@ it.each([false, true])("재계획의 현재 가정값과 역사적 시작값은 
   expect(screen.getAllByTestId("goal-input-source")).toHaveLength(1);
   expect(screen.getByTestId("goal-input-source")).toHaveTextContent("가정값");
   expect(screen.getByTestId("goal-input-source").querySelector("a")).toHaveAttribute("href", expect.stringContaining("#thresholds"));
+});
+
+it("exposes a native per-date workout detail control without nesting glossary buttons", async () => {
+  vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: false, media: query, onchange: null,
+    addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+  const edit = vi.fn();
+  const date = Date.now();
+  const day = { date, dayOfWeek: 0, workout: "z2", plannedTSS: 50, plannedDurationMin: 60 };
+  renderWithProviders(<PlanPresentation model={{ ...model, weeks: [{ id: "keyboard-week", weekNumber: 1, phase: "base", startDate: date, days: [day] }] } as unknown as PlanModel}
+    mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} onEditWorkout={edit} />);
+  const cell = screen.getByTestId("K4-5-1");
+  const button = cell.querySelector('button[aria-label]') as HTMLButtonElement;
+  expect(button).not.toBeNull();
+  expect(button).toHaveAccessibleName(/상세/);
+  expect(button.querySelector("button")).toBeNull();
+  button.focus();
+  expect(button).toHaveFocus();
+  await userEvent.keyboard("{Enter}");
+  expect(edit).toHaveBeenCalledExactlyOnceWith(day, "keyboard-week", 0);
+});
+
+it.each([false, true])("labels only the actual target date as goal day (mobile=%s)", mobile => {
+  vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: mobile && query === "(max-width: 1023px)", media: query, onchange: null,
+    addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+  const date = Date.now() + 86400000;
+  const goal = { date, dayOfWeek: 0, workout: "goal", plannedTSS: 0, plannedDurationMin: 0 };
+  renderWithProviders(<PlanPresentation model={{ ...model, goalDate: new Date(date), weeks: [{ id: "truth-week", weekNumber: 1, phase: "taper", startDate: date, days: [goal, { ...goal, date: date + 7 * 86400000 }] }] } as unknown as PlanModel}
+    mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
+  const calendar = within(screen.getByTestId(mobile ? "K4-5m" : "K4-5"));
+  expect(calendar.getAllByText("목표일")).toHaveLength(mobile ? 2 : 1);
+  expect(calendar.getByText("목표 운동")).toBeInTheDocument();
+});
+
+
+it('labels a non-Monday desktop week from its dates without changing edit identities', () => {
+  vi.spyOn(window, 'matchMedia').mockImplementation(query => ({ matches: false, media: query, onchange: null,
+    addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+  const date = Date.parse('2026-10-16T00:00:00+09:00');
+  const day = { date, dayOfWeek: 0, workout: 'z2', plannedTSS: 30, plannedDurationMin: 45, completed: false, skipped: false };
+  const edit = vi.fn();
+  renderWithProviders(<PlanPresentation model={{ ...model, weeks: [{ id: 'friday-start', weekNumber: 1, phase: 'base', startDate: date, plannedTSS: 30, days: [day] }] } as unknown as PlanModel}
+    mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} onEditWorkout={edit} />);
+  const calendar = screen.getByTestId('K4-5');
+  expect(calendar.firstElementChild).toHaveTextContent('주차금토일월화수목');
+  expect(screen.getByText('금 10/16')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /2026-10-16.*상세/ }));
+  expect(edit).toHaveBeenCalledWith(day, 'friday-start', 0);
 });

@@ -6,6 +6,7 @@ import type {
   CoachLoadAssessment, CoachMetricId, CoachResponseFormat, CoachV2Response,
 } from "../../services/coachV2Contract";
 import type { CoachP2Response } from "../../services/coachP2Contract";
+import GlossaryText from "../../components/common/GlossaryText";
 import { CoachPrescription } from "./CoachPrescription";
 
 const PRIMARY_COUNT = 5;
@@ -29,14 +30,14 @@ function Display({ item, locale, className, showPositiveSign = false }: { item: 
   showPositiveSign?: boolean }) {
   const { t } = useTranslation("coach");
   const value = primitiveText(item.value, locale, showPositiveSign ? "always" : "auto");
-  return <span className={className} data-evidence-id={item.evidenceId}>
+  return <span className={className} data-evidence-id={item.evidenceId} style={typeof item.value === "number" && item.unit ? { whiteSpace: "nowrap" } : undefined}>
     {value}{item.unit ? <small className="coach-answer__unit"> {t(`answer.unit.${item.unit}`)}</small> : null}
   </span>;
 }
 
 function MetricLabel({ metricId }: { metricId: CoachMetricId }) {
   const { t } = useTranslation("coach");
-  return <>{t(`answer.metric.${metricId}`)}</>;
+  return <GlossaryText>{t(`answer.metric.${metricId}`)}</GlossaryText>;
 }
 
 function BlockState({ block }: { block: Exclude<CoachAnswerBlock, { kind: "unsupported_block" }> }) {
@@ -72,7 +73,7 @@ function MoreItems<T>({ items, render, listKind }: { items: T[]; render: (item: 
 
 function Entity({ entity, locale }: { entity: CoachEntityRef; locale: string }) {
   return <span className="coach-answer__entity"><Display item={entity.label} locale={locale} />
-    {entity.occurredAt && <small><Display item={entity.occurredAt} locale={locale} /></small>}
+    {entity.occurredAt && <small><Display item={{ ...entity.occurredAt, value: typeof entity.occurredAt.value === "string" ? formatDate(entity.occurredAt.value, locale) : entity.occurredAt.value }} locale={locale} /></small>}
   </span>;
 }
 
@@ -283,6 +284,7 @@ function TypedLoadAnalysisView({ block, responseFormat, showLocalFormatFallback 
   const { t } = useTranslation("coach");
   const [chartOpen, setChartOpen] = useState(false);
   const value = block.assessment;
+  const currentBand = value.bandAssessment.bands.find(band => band.id === value.bandAssessment.currentBandId);
   const metrics = ["ctl", "atl", "form"] as const;
   const trendBlock = typedLoadTrendBlock(block);
   const chartableTrend = isChartableTimeSeries(trendBlock);
@@ -308,27 +310,31 @@ function TypedLoadAnalysisView({ block, responseFormat, showLocalFormatFallback 
       {showLocalFormatFallback && responseFormat === "chart" && !chartableTrend && <FormatFallbackNotice local />}
       {responseFormat === "auto" && chartableTrend && <Button type="button" variant="outline" aria-expanded={chartOpen} aria-controls={`coach-load-${block.blockId}`}
         onClick={() => setChartOpen((open) => !open)}>{t(chartOpen ? "answer.load.hideChart" : "answer.load.showChart")}</Button>}
-      {responseFormat === "table" || !chartableTrend || (responseFormat === "auto" && chartOpen)
+      {responseFormat === "table" || !chartableTrend
         ? <TypedLoadTrendTable block={block} locale={locale} />
-        : responseFormat === "chart"
-          ? <div id={`coach-load-${block.blockId}`}><SeriesGraphic block={trendBlock} locale={locale} /></div>
+        : responseFormat === "chart" || (responseFormat === "auto" && chartOpen)
+          ? <div id={`coach-load-${block.blockId}`}><SeriesGraphic block={trendBlock} locale={locale} />
+            {responseFormat === "auto" && <TypedLoadTrendTable block={block} locale={locale} />}</div>
           : null}</section>}
     {value.drivers.length > 0 && <section><h4>{t("answer.load.driversTitle")}</h4><ol className="coach-answer__list">{value.drivers.map((driver) => <li key={driver.activityId}>
       <button type="button" className="coach-answer__driver" onClick={() => openDriver(driver)}><Display item={driver.title} locale={locale} /></button>
-      <span><Display item={driver.date} locale={locale} /> · TSS <Display item={driver.tss} locale={locale} /> · <Display item={driver.durationMin} locale={locale} /> min
-        {driver.distanceKm && <> · <Display item={driver.distanceKm} locale={locale} /> km</>} · <Display item={driver.weeklyLoadContributionPct} locale={locale} />%</span></li>)}</ol></section>}
+      <span><Display item={driver.date} locale={locale} /> · <Display item={driver.tss} locale={locale} />{!driver.tss.unit && " TSS"} · <Display item={driver.durationMin} locale={locale} />{!driver.durationMin.unit && " min"}
+        {driver.distanceKm && <> · <Display item={driver.distanceKm} locale={locale} />{!driver.distanceKm.unit && " km"}</>} · <Display item={driver.weeklyLoadContributionPct} locale={locale} />{!driver.weeklyLoadContributionPct.unit && "%"}</span></li>)}</ol></section>}
     {value.goalAssessment && <section className="coach-answer__load-goal"><h4>{t("answer.load.goalTitle")}</h4>
       <div><span>{t("answer.goal.target")}</span><Display item={value.goalAssessment.target} locale={locale} /></div>
       <div><span>{t("answer.goal.current")}</span><Display item={value.goalAssessment.current} locale={locale} /></div>
       <div><span>{t("answer.load.goalResult")}</span><strong><Display item={value.goalAssessment.achieved} locale={locale} /> {t(value.goalAssessment.achieved.value ? "answer.load.goalAchieved" : "answer.load.goalNotAchieved")}</strong></div>
       {value.goalAssessment.achievedAt && <div><span>{t("answer.load.goalAchievedAt")}</span><Display item={value.goalAssessment.achievedAt} locale={locale} /></div>}</section>}
-    <section><h4>{t("answer.load.bandTitle")}</h4><p>{t("answer.load.bandMeta", { catalog: value.bandAssessment.catalogVersion })}</p>
+    <section><h4>{t("answer.load.bandTitle")}</h4>
       <ul className="coach-answer__list">{value.bandAssessment.bands.map((band) => <li key={band.id} aria-current={band.id === value.bandAssessment.currentBandId ? "true" : undefined}>
         <strong>{t(BAND_KEYS[band.labelKey] ?? "answer.load.band.unknown")}</strong><span>{t(BAND_KEYS[band.explanationKey] ?? "answer.load.band.unknownExplanation")}</span>
-        <small>{band.minInclusive && <Display item={band.minInclusive} locale={locale} />}{band.minInclusive && band.maxExclusive && " ≤ Form < "}{band.maxExclusive && <Display item={band.maxExclusive} locale={locale} />} · {band.referenceId}</small></li>)}</ul>
-      <p>{t("answer.load.currentBand", { band: value.bandAssessment.currentBandId ?? t("answer.load.none") })}: <Display item={value.bandAssessment.currentValue} locale={locale} /></p></section>
+        <small>{band.minInclusive && <Display item={band.minInclusive} locale={locale} />}{band.minInclusive && band.maxExclusive && " ≤ Form < "}{band.maxExclusive && <Display item={band.maxExclusive} locale={locale} />}</small></li>)}</ul>
+      <p>{t("answer.load.currentBand", { band: currentBand ? t(BAND_KEYS[currentBand.labelKey] ?? "answer.load.band.unknown") : t("answer.load.none") })}: <Display item={value.bandAssessment.currentValue} locale={locale} /></p></section>
     {value.confidence !== "low" && <p>{t(`answer.load.confidence.${value.confidence}`)}</p>}
-    {value.reasonCodes.length > 0 && <details><summary>{t("answer.load.reasons")}</summary><ul>{value.reasonCodes.map((reason) => <li key={reason}>{reason}</li>)}</ul></details>}
+    <details><summary>{t("answer.load.reasons")}</summary>
+      <p>{t("answer.load.bandMeta", { catalog: value.bandAssessment.catalogVersion })}</p>
+      <ul>{value.bandAssessment.bands.map(band => <li key={band.id}>{band.id} · {band.referenceId}</li>)}
+        {value.reasonCodes.map(reason => <li key={reason}>{reason}</li>)}</ul></details>
     <BlockState block={block} />
   </section>;
 }
@@ -397,7 +403,7 @@ function SupportedBlock({ block, responseFormat, showLocalFormatFallback, locale
   } else if (block.kind === "narrative") {
     const order = block.templateKey.endsWith("comparison_summary") ? ["current", "previous", "delta"] : ["current"];
     body = <div className="coach-answer__narrative"><Text id={`coach-block-${block.blockId}`} as="h3" variant="subtitle">{t(`answer.template.${block.templateKey.split(".").slice(-1)[0]}`)}</Text>
-      <div className="coach-answer__narrative-values">{order.flatMap((key) => block.placeholders[key] ? [<Display key={key} item={block.placeholders[key]} locale={locale} className="coach-answer__strong" />] : [])}</div></div>;
+      <div className="coach-answer__narrative-values">{order.flatMap((key) => block.placeholders[key] ? [<div key={key}><Text as="div" variant="caption">{t(`answer.column.${key}`)}</Text><Display item={block.placeholders[key]} locale={locale} className="coach-answer__strong" showPositiveSign={key === "delta"} /></div>] : [])}</div></div>;
   } else if (block.kind === "metric_grid") {
     body = responseFormat === "table" ? <MetricGridTable block={block} locale={locale} />
       : <div className="coach-answer__metric-grid"><MoreItems items={block.items} render={(item, index) => <Card key={`${item.metricId}-${index}`} padding="compact">
@@ -422,11 +428,11 @@ function SupportedBlock({ block, responseFormat, showLocalFormatFallback, locale
     </li>} /></ul>;
   } else if (block.kind === "ranking") {
     body = <ol className="coach-answer__list coach-answer__ranking"><MoreItems listKind="ol" items={block.entries} render={(entry, index) => <li key={`${entry.entity.entityId}-${index}`}>
-      <Display item={entry.rank} locale={locale} /><Entity entity={entry.entity} locale={locale} /><span>{entry.values.map((value, valueIndex) => <Display key={valueIndex} item={value} locale={locale} />)}</span>
+      <Display item={entry.rank} locale={locale} /><Entity entity={entry.entity} locale={locale} /><span className="coach-answer__rank-values">{entry.values.map((value, valueIndex) => <Fragment key={valueIndex}>{valueIndex > 0 && <span aria-hidden="true"> · </span>}<Display item={value} locale={locale} /></Fragment>)}</span>
     </li>} /></ol>;
   } else if (block.kind === "activity_list") {
     body = <ul className="coach-answer__list"><MoreItems listKind="ul" items={block.activities} render={(entry, index) => <li key={`${entry.activity.entityId}-${index}`}>
-      <Entity entity={entry.activity} locale={locale} /><span>{entry.values.map((value, valueIndex) => <Display key={valueIndex} item={value} locale={locale} />)}</span>
+      <Entity entity={entry.activity} locale={locale} /><span className="coach-answer__rank-values">{entry.values.map((value, valueIndex) => <Fragment key={valueIndex}>{valueIndex > 0 && <span aria-hidden="true"> · </span>}<Display item={value} locale={locale} /></Fragment>)}</span>
     </li>} /></ul>;
   } else if (block.kind === "goal_progress") {
     body = <div className="coach-answer__goal"><div><span>{t("answer.goal.current")}</span><Display item={block.current} locale={locale} /></div>

@@ -7,7 +7,7 @@
 .mobile-fitness-status { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-width: 0; }
 .mobile-fitness-status__label { min-width: 0; }
 .mobile-fitness-status__value { flex: none; color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-2xl); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.mobile-fitness-status__meaning { display: block; margin-top: var(--space-1); color: var(--ink-1); font-size: var(--fs-sm); font-weight: 500; letter-spacing: normal; line-height: 1.35; }
+.mobile-fitness-status__meaning { font-family: var(--font-sans); text-transform: none; display: block; margin-top: var(--space-1); color: var(--ink-1); font-size: var(--fs-sm); font-weight: 500; letter-spacing: normal; line-height: 1.35; }
 .mobile-fitness-deferred-decision { margin: 0 var(--space-4) var(--space-3); color: var(--ink-3); font-size: var(--fs-xs); }
 .mobile-fitness-page--embedded .mobile-fitness-daily-details details { margin-top: var(--space-2) !important; }
 .mobile-fitness-page--embedded .mobile-fitness-daily-details summary { padding: var(--space-2) var(--space-3) !important; }
@@ -107,3 +107,8 @@
   font-size: var(--fs-md);
 }
 .mobile-fitness-provenance > summary { min-height: var(--space-8); box-sizing: border-box; }
+
+.mobile-fitness-toolbar__sports > [role="tablist"] { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
+.mobile-fitness-toolbar__sports > [role="tablist"] > button { min-width: 0; flex-direction: column; text-align: center; padding: var(--space-2) var(--space-1) !important; }
+.mobile-fitness-pmc .ds-chart__header { flex-wrap: wrap; }
+.mobile-fitness-pmc .ds-chart__actions { max-width: 100%; }

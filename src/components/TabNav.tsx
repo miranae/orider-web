@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink, useParams, type NavLinkProps } from "react-router-dom";
+import { NavLink, useParams, useLocation, type NavLinkProps } from "react-router-dom";
 import { SUPPORTED_LANGS } from "../i18n/detector";
 import "./TabNav.css";
 
@@ -58,12 +58,14 @@ interface RouteTab {
 }
 
 interface RouteTabNavProps {
+  revealActive?: boolean;
   tabs: RouteTab[];
   state?: NavLinkProps["state"];
 }
 
-export function RouteTabNav({ tabs, state }: RouteTabNavProps) {
+export function RouteTabNav({ tabs, state, revealActive = false }: RouteTabNavProps) {
   const { lang } = useParams();
+  const { pathname } = useLocation();
   const { t } = useTranslation("common");
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollBack, setCanScrollBack] = useState(false);
@@ -84,6 +86,23 @@ export function RouteTabNav({ tabs, state }: RouteTabNavProps) {
       window.removeEventListener("resize", update);
     };
   }, [tabs]);
+
+  useEffect(() => {
+    if (!revealActive) return;
+    const scroller = scrollerRef.current;
+    const active = scroller?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!scroller || !active) return;
+    const reveal = () => {
+      const box = scroller.getBoundingClientRect();
+      const item = active.getBoundingClientRect();
+      if (item.left < box.left || item.right > box.right) {
+        scroller.scrollLeft += item.left - box.left - (box.width - item.width) / 2;
+      }
+    };
+    reveal();
+    window.addEventListener("resize", reveal);
+    return () => window.removeEventListener("resize", reveal);
+  }, [pathname, revealActive, tabs]);
 
   return (
     <div className="route-tab-nav" style={{ borderColor: "var(--line-soft)" }}>
