@@ -23,7 +23,7 @@ import { getPublicUserProfiles } from "../services/publicProfiles";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
-import { acceptedPhysicalActivities, sumAcceptedActivityTss } from "../utils/estimateTSS";
+import { acceptedTrainingActivities, acceptedStatsActivities, sumAcceptedActivityTss } from "../utils/estimateTSS";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { getDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { seoulWeekStartMs } from "../utils/seoulWeek";
@@ -718,7 +718,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
         if (snap.docs.length < 200) {
           // 현재 달은 12주 창 안에 있으므로 상한에 닿지 않은 응답은 월간 거리에도 완전하다.
           // 대시보드의 별도 월간 쿼리를 없애고 같은 문서로 정확히 집계한다.
-          setMonthlyDistanceState({ key: requestStatsKey, distance: acceptedPhysicalActivities(loadedActivities.filter((activity) => activity.userId === uid)).reduce((sum, activity) => (
+          setMonthlyDistanceState({ key: requestStatsKey, distance: acceptedStatsActivities(loadedActivities.filter((activity) => activity.userId === uid)).reduce((sum, activity) => (
             activity.userId === uid &&
             activity.startTime >= monthStart &&
             activity.startTime < monthEnd
@@ -745,7 +745,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
         // 월 쿼리와 주간 입력을 합쳐 경계 쌍둥이도 같은 대표를 고른 뒤 월로 배분한다.
         const monthlyInputs = new Map(loadedActivities.map((activity) => [activity.id, activity]));
         for (const doc of monthlySnap.docs) monthlyInputs.set(doc.id, { ...doc.data(), id: doc.id } as Activity);
-        const representatives = acceptedPhysicalActivities([...monthlyInputs.values()].filter((activity) => activity.userId === uid));
+        const representatives = acceptedStatsActivities([...monthlyInputs.values()].filter((activity) => activity.userId === uid));
         setMonthlyDistanceState({ key: requestStatsKey, distance: representatives.reduce((sum, activity) => (
           activity.startTime >= monthStart && activity.startTime < monthEnd
             && (!discipline || discipline === "tri" || getDiscipline(activity.type) === discipline)
@@ -767,8 +767,12 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   const emptyThisWeek = { rides: 0, distance: 0, time: 0, elevation: 0 };
   const emptyRecent7DayDistances = { bike: 0, run: 0, swim: 0 };
 
-  const allOwned = useMemo(() => acceptedPhysicalActivities(activities.filter(
+  const allOwned = useMemo(() => acceptedStatsActivities(activities.filter(
     (activity) => activity.userId === user?.uid,
+  )), [activities, user?.uid]);
+
+  const trainingOwned = useMemo(() => acceptedTrainingActivities(activities.filter(
+    activity => activity.userId === user?.uid,
   )), [activities, user?.uid]);
 
   if (!user) {
@@ -823,7 +827,8 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
       elevation: Math.round(weekActivities.reduce((s, a) => s + activityElevation(a), 0)),
       rides: weekActivities.length,
       ...(() => {
-        const load = sumAcceptedActivityTss(weekActivities);
+        const load = sumAcceptedActivityTss(trainingOwned.filter(activity => activity.startTime >= weekStartMs && activity.startTime < weekEndMs
+          && (!discipline || discipline === "tri" || getDiscipline(activity.type) === discipline)));
         return { tss: load.value, tssEstimated: load.estimated, tssUnknownCount: load.unknownCount };
       })(),
     });

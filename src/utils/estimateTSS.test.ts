@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Activity } from "@shared/types";
 import { TIME_FACTORS } from "@shared/training/activityLoad";
-import { acceptedPhysicalActivities, estimateTSS, estimateActivityTss, sumActivityTss, estimateRunTSS, estimateSwimTSS, estimateBikeTSS } from "./estimateTSS";
+import { acceptedStatsActivities, acceptedTrainingActivities, acceptedPhysicalActivities, estimateTSS, estimateActivityTss, sumActivityTss, estimateRunTSS, estimateSwimTSS, estimateBikeTSS } from "./estimateTSS";
 
 /** 테스트용 최소 Activity. summary 핵심 필드만 채우고 나머지는 캐스팅으로 우회. */
 let activitySequence = 0;
@@ -189,4 +189,14 @@ it("무효 ORider 복구 문서는 정상 Health 대표와 측정값을 밀어�
   const rows = [invalid, valid];
   expect(acceptedPhysicalActivities(rows)).toEqual([valid]);
   expect(rows).toHaveLength(2);
+});
+
+describe("거리 통계와 훈련 부하의 수집 정책", () => {
+  it("서버에서 고정한 Health 통계 대상만 거리 대표 선택에 넣는다", () => {
+    const base = act({hours: 1, tss: 30});
+    const excluded = {...base, id: "health-excluded", source: "apple_health", statsCountable: false} as Activity;
+    const included = {...base, id: "health-included", source: "apple_health", statsCountable: true, startTime: base.startTime + 86400000} as Activity;
+    expect(acceptedStatsActivities([excluded, included]).map(a => a.id)).toEqual(["health-included"]);
+    expect(acceptedTrainingActivities([excluded, included]).map(a => a.id)).toEqual(["health-excluded", "health-included"]);
+  });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { collection, limit, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, limit, onSnapshot, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useTranslation } from "react-i18next";
 import type { Goal } from "@shared/types/goal";
@@ -25,7 +25,24 @@ function HomeTodaySummary({ discipline }: { discipline: "bike" | "run" | "swim" 
     <LocalizedLink to={`/coach/today?sport=${discipline}`}>{t("todayStrip.choose")}</LocalizedLink>
   </Card>;
 }
-function HomeGoalSummary({ discipline, monthlyKm, monthlyFlowPercent, weeklyAverageKm, goalProjection }: { discipline: "bike" | "run" | "swim"; monthlyKm: number; monthlyFlowPercent?: number | null; weeklyAverageKm: number; goalProjection?: { goalId: string; ctl: number } }) {
+/** 목표가 있을 때만 미래 예측을 읽는다. 현재 CTL 계산의 폴백으로 사용하지 않는다. */
+function HomeGoalForecast({ uid, discipline, goalId }: { uid: string; discipline: "bike" | "run" | "swim"; goalId: string }) {
+  const { t } = useTranslation("dashboard");
+  const owner = `${uid}:${discipline}:${goalId}`;
+  const [state, setState] = useState<{ owner: string; ctl: number } | null>(null);
+  useEffect(() => {
+    let active = true;
+    const unsubscribe = onSnapshot(doc(firestore, "users", uid, "fitness", `projection_${discipline}`), snapshot => {
+      if (!active) return;
+      const data = snapshot.data();
+      const ctl = data?.goalDay?.ctl;
+      setState(data?.goalId === goalId && typeof ctl === "number" && Number.isFinite(ctl) ? { owner, ctl } : null);
+    }, error => { if (active) setState(null); logClientError("HomeTodayStrip.projection", error); });
+    return () => { active = false; unsubscribe(); };
+  }, [uid, discipline, goalId, owner]);
+  return state?.owner === owner ? <Text as="p">{t("todayStrip.goalCtl", { value: state.ctl.toFixed(1) })}</Text> : null;
+}
+function HomeGoalSummary({ discipline, monthlyKm, monthlyFlowPercent, weeklyAverageKm }: { discipline: "bike" | "run" | "swim"; monthlyKm: number; monthlyFlowPercent?: number | null; weeklyAverageKm: number }) {
   const { user } = useAuth();
   const { t } = useTranslation("dashboard");
   const [state, setState] = useState<{ owner: string; goal: Goal | null; loading: boolean; failed?: boolean } | null>(null);
@@ -42,7 +59,7 @@ function HomeGoalSummary({ discipline, monthlyKm, monthlyFlowPercent, weeklyAver
   if (current.goal) {
     const goal = current.goal;
     const days = Math.ceil(((goal.targetDate ?? goal.eventDate) - Date.now()) / 86400000);
-    return <LocalizedLink to={`/coach/goals?sport=${discipline}`}><Text as="p" weight={700}>{goal.title || goal.courseName || t("todayStrip.goal")}</Text>{Number.isFinite(days) && <Text>D{days >= 0 ? "−" : "+"}{Math.abs(days)}</Text>}{goalProjection?.goalId === goal.id && Number.isFinite(goalProjection.ctl) && <Text as="p">{t("todayStrip.goalCtl", { value: goalProjection.ctl.toFixed(1) })}</Text>}</LocalizedLink>;
+    return <LocalizedLink to={`/coach/goals?sport=${discipline}`}><Text as="p" weight={700}>{goal.title || goal.courseName || t("todayStrip.goal")}</Text>{Number.isFinite(days) && <Text>D{days >= 0 ? "−" : "+"}{Math.abs(days)}</Text>}{user && <HomeGoalForecast uid={user.uid} discipline={discipline} goalId={goal.id} />}</LocalizedLink>;
   }
   if (weeklyAverageKm <= 0) return <LocalizedLink to={`/coach/goals?sport=${discipline}`}>{t("todayStrip.createGoal")}</LocalizedLink>;
   return <LocalizedLink to={`/coach/analysis?sport=${discipline}`}><Text as="p">{t("todayStrip.monthFlow")}</Text><Text>{t("todayStrip.monthFlowValue", { distance: Math.round(monthlyKm), percent: monthlyFlowPercent ?? "—" })}</Text></LocalizedLink>;
@@ -64,9 +81,9 @@ function HomeUpcomingEvents() {
     {!current ? <Text>{t("todayStrip.loading")}</Text> : current.failed ? <Text>{t("todayStrip.unavailable")}</Text> : current.events.length ? current.events.map((event) => <LocalizedLink className="block" key={event.eventId} to={`/event/${event.eventId}`}><Text>{event.name} · {new Date(event.startTime).toLocaleDateString(i18n.language)}</Text></LocalizedLink>) : <Text tone="tertiary">{t("todayStrip.noEvents")}</Text>}
   </Card>;
 }
-export default function HomeTodayStrip({ discipline, conditionDiscipline = discipline, fitness, weeklyDetails, weeklySummary, monthlyKm, monthlyFlowPercent, runningRecap, weeklyAverageKm, mobile, guidance, goalProjection }: {
+export default function HomeTodayStrip({ discipline, conditionDiscipline = discipline, fitness, weeklyDetails, weeklySummary, monthlyKm, monthlyFlowPercent, runningRecap, weeklyAverageKm, mobile, guidance }: {
   discipline: "bike" | "run" | "swim"; conditionDiscipline?: "bike" | "run" | "swim" | "tri"; fitness: { ctl: number; atl: number; tsb: number } | null;
-  weeklyDetails: ReactNode; weeklySummary: ReactNode; runningRecap?: ReactNode; monthlyFlowPercent?: number | null; monthlyKm: number; weeklyAverageKm: number; mobile?: boolean; guidance?: ReactNode; goalProjection?: { goalId: string; ctl: number };
+  weeklyDetails: ReactNode; weeklySummary: ReactNode; runningRecap?: ReactNode; monthlyFlowPercent?: number | null; monthlyKm: number; weeklyAverageKm: number; mobile?: boolean; guidance?: ReactNode;
 }) {
   const { user } = useAuth();
   const { t } = useTranslation("dashboard");
@@ -74,7 +91,7 @@ export default function HomeTodayStrip({ discipline, conditionDiscipline = disci
   const slots = [
     <Card key="condition" data-testid="H2-1-1" data-home-slot="condition"><Text as="h2" variant="subtitle">{t("todayStrip.condition")}</Text><Text as="p">{fitness && fitness.ctl > 0 ? `CTL ${fitness.ctl.toFixed(1)} · ATL ${fitness.atl.toFixed(1)} · TSB ${fitness.tsb.toFixed(1)}` : t("sidebar.fitness.insufficient")}</Text><LocalizedLink to={`/coach/condition?sport=${conditionDiscipline}`}>{t("todayStrip.conditionLink")}</LocalizedLink></Card>,
     <HomeTodaySummary key="today" discipline={discipline} />,
-    <Card key="week" data-testid="H2-3-1" data-home-slot="week"><LocalizedLink to={`/athlete/me/activities?sport=${discipline}`}><Text as="h2" variant="subtitle">{t("todayStrip.week")}</Text>{weeklySummary}</LocalizedLink><div data-testid="H2-3-2">{weeklyDetails}</div>{discipline === "run" ? <div data-testid="H2-3-4">{runningRecap}</div> : <div data-testid="H2-3-3"><HomeGoalSummary discipline={discipline} monthlyFlowPercent={monthlyFlowPercent} monthlyKm={monthlyKm} weeklyAverageKm={weeklyAverageKm} goalProjection={goalProjection} /></div>}</Card>,
+    <Card key="week" data-testid="H2-3-1" data-home-slot="week"><LocalizedLink to={`/athlete/me/activities?sport=${discipline}`}><Text as="h2" variant="subtitle">{t("todayStrip.week")}</Text>{weeklySummary}</LocalizedLink><div data-testid="H2-3-2">{weeklyDetails}</div>{discipline === "run" ? <div data-testid="H2-3-4">{runningRecap}</div> : <div data-testid="H2-3-3"><HomeGoalSummary discipline={discipline} monthlyFlowPercent={monthlyFlowPercent} monthlyKm={monthlyKm} weeklyAverageKm={weeklyAverageKm} /></div>}</Card>,
     <HomeUpcomingEvents key="events" />,
     guidance ? <Card key="guidance" data-testid="H2-5-1" data-home-slot="guidance">{guidance}</Card> : null,
   ];

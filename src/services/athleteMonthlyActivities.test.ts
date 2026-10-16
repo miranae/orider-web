@@ -118,3 +118,9 @@ it("이미 선택한 대표의 부하는 중복 그룹 계산 없이 직접 합�
   expect(rows[0].rides).toBe(2);
   expect(rows[0].tss).toBe((row.summary.tss ?? 0) + 10);
 });
+
+it("거리 통계에서 제외한 Health도 확정 훈련 부하에는 남긴다", () => {
+  const start = new Date(2026, 8, 2).getTime();
+  const health = {...activity(start), source: "apple_health", statsCountable: false, summary: {...activity(start).summary, distance: 10000, tss: 30}} as Activity;
+  expect(aggregateMonthlyActivities([health], new Date(2026, 8, 2))[0]).toMatchObject({rides: 0, distance: 0, tss: 30});
+});

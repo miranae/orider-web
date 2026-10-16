@@ -758,6 +758,15 @@ describe("useWeeklyStats", () => {
     expect(result.current.weeklyStats.at(-1)).toMatchObject({ week: "7/13", rides: 1 });
     expect(result.current.weeklyStats.at(-2)).toMatchObject({ week: "7/6", rides: 1 });
   });
+  it("거리 통계에서 제외된 Health도 같은 주의 훈련 부하에는 남긴다", async () => {
+    simulateLogin({uid: "user-1"});
+    const now = new Date(2026, 8, 8, 12);
+    setCollectionDocs("activities", [{id: "health-load", userId: "user-1", source: "apple_health", statsCountable: false,
+      type: "Ride", startTime: now.getTime() - 3600000, summary: {distance: 10000, tss: 30, ridingTimeMillis: 3600000}}]);
+    const {result} = renderHook(() => useWeeklyStats(now), {wrapper});
+    await waitFor(() => expect(result.current.weeklyStats.at(-1)?.tss).toBe(30));
+    expect(result.current.weeklyStats.at(-1)).toMatchObject({rides: 0, distance: 0, tss: 30});
+  });
   it.each([null, undefined])("summary %s 복구 대기 기록을 원본 수와 미확인 부하에 포함한다", async summary => {
     simulateLogin({ uid: "user-1" });
     const now = new Date(2026, 8, 8, 12);

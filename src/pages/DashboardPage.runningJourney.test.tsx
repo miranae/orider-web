@@ -10,10 +10,13 @@ import { ToastProvider } from "../contexts/ToastContext";
 import { OriderThemeProvider } from "../theme";
 import { useRunHistory } from "../hooks/useRunHistory";
 import { useUserFitness } from "../hooks/useUserFitness";
+import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { useRunRecords } from "../hooks/useRunRecords";
 
-const state = vi.hoisted(() => ({ mobile: true, sportFilter: "run", feedScope: "self", user: { uid: "owner", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, runs: [] as Activity[], available: true }));
+const state = vi.hoisted(() => ({ canonicalEnabled: false, mobile: true, sportFilter: "run", feedScope: "self", user: { uid: "owner", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, runs: [] as Activity[], available: true }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.user, profile: { createdAt: 1, thresholdPace: null }, loading: false, signInWithGoogle: vi.fn() }) }));
+vi.mock("../hooks/useCanonicalFitnessSummary", () => ({ useCanonicalFitnessSummary: () => ({ enabled: state.canonicalEnabled, values: null, display: null }) }));
+vi.mock("../hooks/useFitnessTimeseries", () => ({ useFitnessTimeseries: vi.fn(() => { throw new Error("중복 시계열 구독 금지"); }) }));
 vi.mock("../hooks/useMobile", () => ({ useMobile: () => state.mobile }));
 vi.mock("../hooks/useDashboardPreferences", () => ({ useDashboardPreferences: () => ({ preferences: { sportFilter: state.sportFilter, feedScope: state.feedScope, datePreset: "all" }, update: vi.fn() }) }));
 vi.mock("../hooks/useRunHistory", () => ({ useRunHistory: vi.fn(() => ({ runs: state.runs, loading: false, available: state.available })) }));
@@ -34,7 +37,7 @@ function show(route = "/ko") {
   return render(<MemoryRouter initialEntries={[route]}><ThemeProvider><OriderThemeProvider><LocaleProvider><ToastProvider><DashboardPage /></ToastProvider></LocaleProvider></OriderThemeProvider></ThemeProvider></MemoryRouter>);
 }
 
-beforeEach(() => { vi.clearAllMocks(); state.mobile = true; state.sportFilter = "run"; state.feedScope = "self"; state.user = { uid: "owner", isAnonymous: false }; state.runs = []; state.available = true; });
+beforeEach(() => { vi.clearAllMocks(); state.canonicalEnabled = false; state.mobile = true; state.sportFilter = "run"; state.feedScope = "self"; state.user = { uid: "owner", isAnonymous: false }; state.runs = []; state.available = true; });
 afterEach(cleanup);
 
 describe("owner running dashboard journey parity", () => {
@@ -92,4 +95,12 @@ describe("owner running dashboard journey parity", () => {
     expect(screen.queryByText("한국 자전거 커뮤니티")).not.toBeInTheDocument();
     expect(useRunHistory).toHaveBeenCalledWith(8, true);
   });
+});
+
+it("정본 API가 켜진 자전거 홈은 현재 Fitness와 시계열을 중복 구독하지 않는다", () => {
+  state.sportFilter = "bike";
+  state.canonicalEnabled = true;
+  show();
+  expect(useUserFitness).toHaveBeenCalledWith(false);
+  expect(useFitnessTimeseries).not.toHaveBeenCalled();
 });

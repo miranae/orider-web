@@ -1,11 +1,10 @@
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
-import { Fragment, useState, useRef, useMemo, useEffect } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { Fragment, useState, useRef, useMemo } from "react";
 import { Search, X, ChevronDown } from "lucide-react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { filterByDiscipline, getDiscipline, type Discipline } from "../utils/disciplineFilter";
+import { filterByDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { StatBlock, SectionHeader, PageHeader, EmptyState } from "../components/redesign";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import RunEmptyState from "../components/dashboard/RunEmptyState";
@@ -31,11 +30,6 @@ import { formatDistance, formatElev } from "../utils/units";
 import { useActivities, useWeeklyStats, useActivitySearch } from "../hooks/useActivities";
 import type { ActivityFeedScope, DatePreset } from "../hooks/useActivities";
 import { useFriends } from "../hooks/useFriends";
-import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
-import { estimateActivityLoad, aggregateDailyLoad, calculateFitness } from "../utils/fitnessMetrics";
-import type { ActivityLoadEntry } from "../utils/fitnessMetrics";
-import { toLocalDate } from "../utils/dateUtils";
-import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { isYearRecapSeason } from "../utils/yearRecapSeason";
 import { useConsistencyStreak } from "../hooks/useConsistencyStreak";
@@ -43,7 +37,7 @@ import { useCanonicalHomeSummary } from "../hooks/useCanonicalHomeSummary";
 import { useCanonicalFitnessSummary } from "../hooks/useCanonicalFitnessSummary";
 import { canonicalKpiPresentation, canonicalKpiSource, canonicalWeekTotals } from "../features/home/canonicalKpiSource";
 import { useDashboardPreferences } from "../hooks/useDashboardPreferences";
-import type { FitnessProjection } from "@shared/types/goal";
+import { selectStoredDashboardFitness } from "../features/home/storedDashboardFitness";
 import HomeTodayStrip from "../components/dashboard/HomeTodayStrip";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import AppInstallLinks from "../components/AppInstallLinks";
@@ -329,7 +323,7 @@ export default function DashboardPage() {
   const showOwnerRunningJourney = showOwnerRunningSummary && (!isMobile || feedScope === "self");
   const RUN_HISTORY_WEEKS = 8;
   const runHistory = useRunHistory(RUN_HISTORY_WEEKS, showOwnerRunningSummary);
-  const { fitness: userFitness } = useUserFitness(showOwnerRunningJourney);
+  const { fitness: userFitness } = useUserFitness(showOwnerRunningJourney || (!!user && !user.isAnonymous && !canonicalFitness.enabled));
   // 창 길이·계정 생성일을 함께 넘긴다 — 창이 계정 수명을 못 덮으면 "첫 러닝" 축하를 하지 않는다.
   const firstSync = useFirstSyncCelebration(
     runHistory.runs,
@@ -458,79 +452,9 @@ export default function DashboardPage() {
   const distUnit = units === 'imperial' ? 'mi' : 'km';
   const thisWeekTimeStr = formatDuration(weekTotals.time);
 
-  // CTL/ATL/TSB — 폴백용 클라 계산. 피드(useActivities)는 페이지네이션(20개)이라 42일 CTL
-  // EMA 워밍업이 부족해 과소평가됨. 권위값은 아래 서버 projection 의 현재 포인트를 우선 사용.
-  const clientFitness = useMemo(() => {
-    if (activities.length === 0) return { ctl: 0, atl: 0, tsb: 0 };
-    const userActivities = user ? activities.filter((a) => a.userId === user.uid) : [];
-    if (userActivities.length === 0) return { ctl: 0, atl: 0, tsb: 0 };
-    const disciplineFiltered = discipline === "tri"
-      ? userActivities
-      : filterByDiscipline(userActivities, discipline);
-    if (disciplineFiltered.length === 0) return { ctl: 0, atl: 0, tsb: 0 };
-    const entries: ActivityLoadEntry[] = disciplineFiltered.map((a) => {
-      const r = estimateActivityLoad({
-        precomputedTss: (a as { tss?: number | null }).tss ?? a.summary.tss,
-        avgPower: a.summary.averagePower ?? null,
-        relativeEffort: a.summary.relativeEffort,
-        ridingTimeMillis: a.summary.ridingTimeMillis,
-        // tri(혼합)는 활동별로 종목 resolve, 그 외엔 필터된 종목 그대로. 서버 PMC factor 와 일치.
-        // estimateLoad 의 discipline 은 추정 공식 계수다 — 미지 종목도 부하는 산출해야 하므로
-        // 사이클 계수로 폴백해 서버 PMC 와 같은 수치를 유지한다(종목 버킷 배정과 무관).
-        discipline: discipline === "tri" ? (getDiscipline((a as { sport?: string }).sport || a.type) ?? "bike") : discipline,
-      });
-      return {
-        date: toLocalDate(a.startTime),
-        load: r.value,
-        source: r.source,
-      };
-    });
-    const today = toLocalDate(Date.now());
-    const firstDate = entries[entries.length - 1]?.date ?? today;
-    const daily = aggregateDailyLoad(entries, firstDate, today);
-    const series = calculateFitness(daily);
-    return series.length > 0 ? series[series.length - 1]! : { ctl: 0, atl: 0, tsb: 0 };
-  }, [activities, user, discipline]);
-
-  // 권위 CTL/ATL/TSB — 서버 projection_{종목} 의 "오늘(마지막 과거)" 포인트. 피트니스 페이지/
-  // 서버와 동일 소스라 스냅샷이 일치한다. (computeCurrentFitness ~120일 시드 → 42일 EMA 정확.)
-  type ProjectionFitness = { ctl: number; atl: number; tsb: number; goalId?: string | null; goalDayCtl?: number };
-  const [projectionSnapshot, setProjectionSnapshot] = useState<{ uid: string; discipline: Discipline; value: ProjectionFitness } | null>(null);
-  const projFitness = projectionSnapshot?.uid === user?.uid && projectionSnapshot?.discipline === discipline ? projectionSnapshot.value : null;
-  useEffect(() => {
-    if (!user || discipline === "tri") { setProjectionSnapshot(null); return; }
-    let cancelled = false;
-    const ref = doc(firestore, "users", user.uid, "fitness", `projection_${discipline}`);
-    const unsub = onSnapshot(ref, (snap) => {
-      if (cancelled) return;
-      if (!snap.exists()) { setProjectionSnapshot(null); return; }
-      const data = snap.data() as FitnessProjection;
-      const now = Date.now();
-      // series 는 과거→미래 정렬. date<=now 중 마지막(=현재) 포인트가 실측 CTL/ATL/TSB.
-      let cur: FitnessProjection["series"][number] | null = null;
-      for (const p of data.series ?? []) {
-        if (p.date <= now) cur = p; else break;
-      }
-      setProjectionSnapshot(cur && Number.isFinite(cur.ctl) ? { uid: user.uid, discipline, value: { ctl: cur.ctl, atl: cur.atl, tsb: cur.tsb, goalId: data.goalId, goalDayCtl: data.goalDay?.ctl } } : null);
-    }, (err) => logClientError("DashboardPage.projectionSubscription", err, { discipline }));
-    return () => { cancelled = true; unsub(); };
-  }, [user, discipline]);
-
-  // 정본 시계열 — FitnessPage(PMC) 와 동일한 `timeseries_{종목}` doc 의 현재(마지막) 포인트.
-  // 전체 라이프타임 EMA 라 워밍업 부족이 없다(클라 폴백·projection 과 달리).
-  const { timeseries: snapshotTs } = useFitnessTimeseries(user?.uid, discipline);
-  const tsFitness = useMemo(() => {
-    const pts = snapshotTs?.points;
-    if (!pts || pts.length === 0) return null;
-    const last = pts[pts.length - 1]!;
-    return Number.isFinite(last.ctl) ? { ctl: last.ctl, atl: last.atl, tsb: last.tsb } : null;
-  }, [snapshotTs]);
-
-  // 권위 우선순위: 정본 timeseries(피트니스 페이지와 동일) → 서버 projection → 클라 폴백.
-  // projection_{종목} 은 목표 없는 신규 유저엔 빈 series sentinel 이라, 과거엔 클라 폴백
-  // (페이지네이션 10건 → 42일 EMA 워밍업 부족, CTL 과소평가)으로 떨어져 스냅샷 CTL 이
-  // PMC 와 20배 넘게 어긋났다. timeseries 를 최우선으로 둬 두 화면을 일치시킨다.
-  const fitness = tsFitness ?? projFitness ?? clientFitness;
+  // 현재 Fitness는 서버가 게시한 동일 revision의 스냅샷만 소비한다.
+  // 페이지네이션 피드로 EMA를 다시 시작하거나 목표 예측을 현재값으로 사용하지 않는다.
+  const storedFitness = selectStoredDashboardFitness(userFitness, discipline);
 
   // 종목별 임계값 KPI
   const thresholdKpi = (() => {
@@ -587,7 +511,7 @@ export default function DashboardPage() {
   // 클라 계산으로 조용히 되돌아가면 사용자는 서버가 멈춘 것을 영영 모른다.
   const kpiFitness = fitnessSource.kind === "server"
     ? discipline === "tri" ? fitnessSource.values : fitnessSource.values.breakdown[discipline]
-    : fitness;
+    : storedFitness;
   const fitnessPresentation = canonicalKpiPresentation(fitnessSource, {
     // 값이 보일 때의 서브 문구는 아래에서 CTL/TSB 로 다시 만든다 — 여기서는 자리만 채운다.
     value: "",
@@ -596,22 +520,22 @@ export default function DashboardPage() {
     empty: t("canonical.empty"),
     staleChip: t("canonical.staleChip"),
   });
-  // CTL 이 0 이면 "부족" 이라는 기존 규칙을 그대로 둔다(서버 값이든 클라 값이든).
-  const showFitnessNumbers = fitnessPresentation.showNumbers && kpiFitness.ctl > 0;
+  // 서버 값이 없거나 CTL이 0이면 숫자 대신 상태를 표시한다.
+  const showFitnessNumbers = fitnessPresentation.showNumbers && kpiFitness !== null && kpiFitness.ctl > 0;
   const fitnessKpi = {
     label: t("kpi.fitness"),
-    value: showFitnessNumbers ? kpiFitness.ctl.toFixed(1) : "—",
+    value: showFitnessNumbers ? kpiFitness!.ctl.toFixed(1) : "—",
     unit: showFitnessNumbers ? "CTL" : null,
     // delta 값에 "TSB" 라벨 prefix. 이전엔 "-84.4" 만 떠 사용자가 어느 지표인지
     // 즉시 알기 어려웠음 (옆 sub 의 "ATL 109.8" 와 혼동).
-    delta: showFitnessNumbers && kpiFitness.tsb !== 0
-      ? (kpiFitness.tsb > 0 ? `TSB +${kpiFitness.tsb.toFixed(1)}` : `TSB ${kpiFitness.tsb.toFixed(1)}`)
+    delta: showFitnessNumbers && kpiFitness!.tsb !== 0
+      ? (kpiFitness!.tsb > 0 ? `TSB +${kpiFitness!.tsb.toFixed(1)}` : `TSB ${kpiFitness!.tsb.toFixed(1)}`)
       : null,
-    deltaKind: (kpiFitness.tsb >= 0 ? "up" : "down") as "up" | "down",
+    deltaKind: ((kpiFitness?.tsb ?? 0) >= 0 ? "up" : "down") as "up" | "down",
     sub: !fitnessPresentation.showNumbers
       ? fitnessPresentation.sub
       : showFitnessNumbers
-        ? `${kpiFitness.tsb >= 5 ? t("kpi.fitnessMaintain") : kpiFitness.tsb <= -10 ? t("kpi.fitnessRecovery") : t("kpi.fitnessBuild")} · ${t("kpi.subAtl", { value: kpiFitness.atl.toFixed(1) })}`
+        ? `${kpiFitness!.tsb >= 5 ? t("kpi.fitnessMaintain") : kpiFitness!.tsb <= -10 ? t("kpi.fitnessRecovery") : t("kpi.fitnessBuild")} · ${t("kpi.subAtl", { value: kpiFitness!.atl.toFixed(1) })}`
         : t("kpi.subInsufficient"),
     chip: fitnessPresentation.chip,
   };
@@ -674,7 +598,6 @@ export default function DashboardPage() {
 
   const todayStrip = user && !user.isAnonymous ? <HomeTodayStrip discipline={discipline === "tri" ? "bike" : discipline} conditionDiscipline={discipline}
     fitness={showFitnessNumbers ? kpiFitness : null} mobile={isMobile}
-    goalProjection={projFitness?.goalId && Number.isFinite(projFitness.goalDayCtl) ? { goalId: projFitness.goalId, ctl: projFitness.goalDayCtl! } : undefined}
     monthlyFlowPercent={runStats.monthlyFlowPercent}
     runningRecap={showRecap && runRecap && !hasNoRuns ? <WeeklyRecapCard recap={runRecap} /> : null}
     monthlyKm={monthlyActivityDistance / 1000}
