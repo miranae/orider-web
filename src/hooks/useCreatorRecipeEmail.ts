@@ -104,6 +104,7 @@ export function useCreatorRecipeEmail({
         { timeout: 60_000 },
       );
       const result = await fn({ recipeId: itemId, lang: language.startsWith("en") ? "en" : "ko", deliveryMode: "manual" });
+      if (!result.data.sent) throw new Error("creator/email-not-sent");
       setEmailQuota(result.data.quota);
       setEmailFailedItemIds((prev) => {
         const next = new Set(prev);
