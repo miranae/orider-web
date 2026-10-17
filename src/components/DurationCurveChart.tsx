@@ -52,7 +52,7 @@ export interface DurationCurveChartProps {
   /** 툴팁 아래에 붙는 줄(비교 % 등). 서버 값을 문구로만 바꾼다. */
   tooltipFooter?: (index: number) => string[];
   /** 선택적 직접 라벨 — 점 위에 짧은 글자를 그린다(전부 붙이지 않는다). */
-  annotations?: Array<{ index: number; text: string }>;
+  annotations?: Array<{ index: number; text: string; ring?: boolean }>;
   /** 캔버스의 접근 가능한 이름. 없으면 datasetLabel. */
   ariaLabel?: string;
   /** 플롯 높이 클래스. 기본 200px. */
@@ -119,6 +119,7 @@ export default function DurationCurveChart({
   const labelColor = resolveCssColor("var(--ink-0)", variant);
   const labelBackground = resolveCssColor("var(--bg-1)", variant);
   const labelBorder = resolveCssColor("var(--line)", variant);
+  const ringColor = resolveCssColor("var(--ink-0)", variant);
   const log = xScale === "log";
   // log 축이면 각 점이 (창 길이, 값) 좌표를 갖는다. 비교·기준선도 같은 x 를 쓴다.
   const xy = (values: Array<number | null>) => log ? values.map((y, index) => ({ x: points[index]!.durationSeconds, y })) : values;
@@ -184,21 +185,48 @@ export default function DurationCurveChart({
       ctx.font = "600 11px " + (getComputedStyle(chart.canvas).fontFamily || "sans-serif");
       ctx.textBaseline = "middle";
       ctx.textAlign = "left";
-      // 점 오른쪽 위 바탕 상자 안에 쓴다 — 선과 겹쳐도 읽힌다. 차트 밖으로 나가면 왼쪽·아래로 접는다.
-      for (const { index, text } of annotations) {
+      // 바탕 상자 안에 쓴다. 자리는 곡선 위 빈 영역부터 찾고, 어느 선(곡선·비교·FTP)과도 겹치지 않는 첫 후보를 쓴다.
+      const area = chart.chartArea;
+      const segments = chart.data.datasets.flatMap((_, datasetIndex) => {
+        const elements = chart.getDatasetMeta(datasetIndex).data;
+        return elements.slice(1).map((element, i) => [elements[i]!, element] as const);
+      });
+      const hits = (x: number, y: number, w: number, h: number) => segments.some(([from, to]) => {
+        for (let step = 0; step <= 24; step++) {
+          const px = from.x + (to.x - from.x) * step / 24, py = from.y + (to.y - from.y) * step / 24;
+          if (px >= x - 2 && px <= x + w + 2 && py >= y - 2 && py <= y + h + 2) return true;
+        }
+        return false;
+      });
+      for (const { index, text, ring } of annotations) {
         const point = meta.data[index];
         if (!point) continue;
-        const padX = 5, height = 18, width = ctx.measureText(text).width + padX * 2;
-        // 곡선은 오른쪽으로 내려가므로 상자를 점보다 한 칸 더 위에 띄우고 지시선으로 잇는다.
-        let x = point.x + 6, y = point.y - 20 - height;
-        if (x + width > chart.chartArea.right) x = point.x - 6 - width;
-        if (y < chart.chartArea.top) y = point.y + 14;
+        const padX = 6, height = 20, width = ctx.measureText(text).width + padX * 2;
+        const clampX = (x: number) => Math.min(Math.max(x, area.left + 2), area.right - width - 2);
+        const candidates = [
+          [clampX(point.x - width / 2), area.top + 2],
+          [clampX(point.x - width - 10), area.top + 2],
+          [clampX(point.x + 10), area.top + 2],
+          [clampX(point.x + 12), point.y - height / 2],
+          [clampX(point.x + 8), point.y - 24 - height],
+          [clampX(point.x - width - 8), point.y - 24 - height],
+        ].map(([x, y]) => [x!, Math.min(Math.max(y!, area.top + 2), area.bottom - height - 2)] as const);
+        const free = candidates.find(([x, y]) => !hits(x, y, width, height) && !(point.x >= x - 6 && point.x <= x + width + 6 && point.y >= y - 6 && point.y <= y + height + 6));
+        const [x, y] = free ?? candidates[3]!;
+        // 지시선: 점에서 상자의 가까운 변까지.
         ctx.strokeStyle = labelBorder;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(point.x, point.y);
-        ctx.lineTo(x < point.x ? x + width : x, y < point.y ? y + height : y);
+        ctx.lineTo(Math.min(Math.max(point.x, x), x + width), point.y < y ? y : point.y > y + height ? y + height : y + height / 2);
         ctx.stroke();
+        if (ring) {
+          ctx.strokeStyle = ringColor;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 7, 0, Math.PI * 2);
+          ctx.stroke();
+        }
         ctx.fillStyle = labelBackground;
         ctx.strokeStyle = labelBorder;
         ctx.lineWidth = 1;
@@ -211,7 +239,7 @@ export default function DurationCurveChart({
       }
       ctx.restore();
     },
-  }), [annotations, labelColor, labelBackground, labelBorder]);
+  }), [annotations, labelColor, labelBackground, labelBorder, ringColor]);
 
   // 키보드로도 툴팁을 읽는다 — 좌우 화살표가 창 길이를 옮긴다.
   const focusPoint = (index: number | null) => {
@@ -277,8 +305,10 @@ export default function DurationCurveChart({
           ticks: {
             color: textColor, font: { size: 12 }, autoSkip: false, maxRotation: 0,
             callback(this: { chart: { chartArea?: { width: number }; width: number } }, _value: string | number, index: number) {
+              // 폭 구간마다 같은 라벨 세트를 쓴다 — 구간 하한 폭으로 계산해 폭이 조금 변해도 라벨이 깜빡이지 않는다.
               const width = this.chart.chartArea?.width ?? this.chart.width;
-              const shown = visibleLogLabels(points.map((p) => p.durationSeconds), width);
+              const bucket = [720, 480, 320, 0].find((lower) => width >= lower) ?? 0;
+              const shown = visibleLogLabels(points.map((p) => p.durationSeconds), Math.max(bucket, 240));
               return shown.has(index) && points[index] ? formatDuration(points[index]!.durationSeconds) : "";
             },
           },

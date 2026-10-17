@@ -18,13 +18,18 @@ interface InfoTipProps {
   children?: ReactNode;
   className?: string;
   style?: CSSProperties;
+  /**
+   * `inherit` (text triggers only): surrounding ink + dotted underline, no 24px minimum width so a short term
+   * stays attached to the symbol after it ("Z4+"). The default keeps the accent trigger used elsewhere.
+   */
+  tone?: "default" | "inherit";
 }
 
 const TIP_WIDTH = 232;
 const VIEWPORT_MARGIN = 8;
 
 /** Hover, focus, or tap for a description. The portal escapes clipped card/chart containers. */
-export default function InfoTip({ content, title, label, termId, children, className, style }: InfoTipProps) {
+export default function InfoTip({ content, title, label, termId, children, className, style, tone = "default" }: InfoTipProps) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ left: VIEWPORT_MARGIN, top: VIEWPORT_MARGIN });
   const id = useId();
@@ -161,14 +166,15 @@ export default function InfoTip({ content, title, label, termId, children, class
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          minWidth: "var(--space-6)",
+          minWidth: textTrigger && tone === "inherit" ? 0 : "var(--space-6)",
           minHeight: "var(--space-6)",
           padding: 0,
           margin: 0,
           border: "none",
           borderRadius: "var(--r-sm)",
           background: "transparent",
-          color: textTrigger ? "var(--color-primary-dark)" : "var(--ink-3)",
+          color: textTrigger ? tone === "inherit" ? "inherit" : "var(--color-primary-dark)" : "var(--ink-3)",
+          ...(textTrigger && tone === "inherit" ? { textDecoration: "underline dotted", textUnderlineOffset: "0.2em" } : {}),
           cursor: "help",
           font: "inherit",
           letterSpacing: "inherit",

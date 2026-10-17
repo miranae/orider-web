@@ -2,7 +2,7 @@ import { Fragment, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import InfoTip from "../InfoTip";
 import { splitGlossaryText } from "../../utils/termGlossary";
-import { useGlossaryEnabled } from "./GlossaryProvider";
+import { useGlossaryEnabled, useGlossaryTriggerTone } from "./GlossaryProvider";
 
 interface GlossaryTextProps {
   children: ReactNode;
@@ -12,6 +12,7 @@ interface GlossaryTextProps {
 export default function GlossaryText({ children }: GlossaryTextProps) {
   const { t } = useTranslation("termGlossary");
   const enabled = useGlossaryEnabled();
+  const tone = useGlossaryTriggerTone();
   if (!enabled || typeof children !== "string") return children;
 
   return splitGlossaryText(children).map(({ text, termId }, index) => {
@@ -20,7 +21,7 @@ export default function GlossaryText({ children }: GlossaryTextProps) {
     const description = t(`terms.${termId}.description`);
     return (
       <span key={index} data-glossary-term={termId}>
-        <InfoTip title={title} content={description} label={t("openLabel", { term: text })} termId={termId}>
+        <InfoTip title={title} content={description} label={t("openLabel", { term: text })} termId={termId} tone={tone === "inherit" ? "inherit" : undefined}>
           {text}
         </InfoTip>
       </span>

@@ -341,8 +341,9 @@ describe("activity overview reads as pictures", () => {
     expect(curve.data.datasets[1]!.data).toEqual([{ x: 1, y: 845 }, { x: 300, y: 298 }]);
     // 선이 역대 최고면 툴팁·보조 목록의 % 도 역대 최고 대비다 — 한 기준.
     expect(screen.getByText(renderedText("1초 845 W · 역대 최고 845 W · 역대 최고 대비 100% · 전체 기간 PR"))).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "체력 · CTL 37.4 → 52.8" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "폼 · TSB -4.6 → -12.3" })).toBeInTheDocument();
+    // 통합 부하는 이름에 범위를 밝힌다 — 종목별 각주의 CTL 과 구분된다.
+    expect(screen.getByRole("img", { name: "통합 체력 · CTL 37.4 → 52.8" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "통합 폼 · TSB -4.6 → -12.3" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /지방 18% · 탄수화물 82%/ })).toBeInTheDocument();
     // 개요는 숫자 근거 표가 아니다 — 표는 분석 탭의 평가 근거가 맡는다.
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
@@ -439,5 +440,38 @@ describe("overview duration wording", () => {
     expect(formatSpan(3900, ko)).toBe("1시간 5분");
     expect(formatSpan(0, ko)).toBe("0초");
     expect(formatSpan(3600, { hour: "h", minute: "m", second: "s" })).toBe("1h");
+  });
+});
+
+describe("overview v7 wording and tone", () => {
+  it("names the scope of the sport-only CTL footnote and keeps glossary terms in the surrounding ink", () => {
+    const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, fitnessScope: "integrated",
+      sportFitnessStatus: { discipline: "bike", ctl: 48.1, atl: 38.3, tsb: 9.8, evidence: "limited" } }} />);
+    expect(screen.getByText(renderedText(/^라이딩 기록만 · CTL 48.1/))).toBeInTheDocument();
+    const trigger = container.querySelector('[data-glossary-term="np"] button') as HTMLButtonElement;
+    expect(trigger.style.color).toBe("inherit");
+    expect(trigger.style.minWidth).toBe("0");
+  });
+
+  it("keeps the W′ meter inside the details grid and labels the curve point with its duration", () => {
+    line.mockClear();
+    render(<ActivityOverviewSummaryContent presentation={{ ...rich, powerFingerprint: [
+      { duration: "5m", watts: 177, allTimeBestWatts: 298, allTimeBestPct: 59.4, previousBestPct: 59.4 },
+      { duration: "30m", watts: 149, allTimeBestWatts: 189, allTimeBestPct: 78.8, previousBestPct: 78.8 },
+    ] }} />);
+    const details = screen.getByRole("group", { name: "훈련 자극 세부" });
+    expect(details).toHaveTextContent("W′ 최저 잔량");
+    const plugin = (line.mock.lastCall![0] as { plugins: Array<{ id: string; afterDatasetsDraw: (chart: unknown) => void }> }).plugins[0]!;
+    expect(plugin.id).toBe("durationCurveAnnotations");
+    // 가짜 캔버스에 그려 본다 — 라벨에 창 길이가 들어가고, 점에 강조 링(arc)을 두른다.
+    const texts: string[] = []; let rings = 0;
+    const ctx = { save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {}, fill() {}, roundRect() {},
+      arc() { rings++; }, measureText: (text: string) => ({ width: text.length * 6 }), fillText: (text: string) => texts.push(text) };
+    const elements = [[{ x: 40, y: 60 }, { x: 300, y: 120 }], [{ x: 40, y: 30 }, { x: 300, y: 100 }]];
+    plugin.afterDatasetsDraw({ ctx, canvas: document.createElement("canvas"), chartArea: { left: 30, right: 320, top: 10, bottom: 160 },
+      data: { datasets: [{}, {}] }, getDatasetMeta: (index: number) => ({ data: elements[index] }) });
+    expect(texts).toEqual(["30분 · 최고의 79%"]);
+    expect(rings).toBe(1);
+    expect(screen.getByRole("region", { name: "구간 최고 출력" })).toBeInTheDocument();
   });
 });

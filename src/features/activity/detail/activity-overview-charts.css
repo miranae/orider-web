@@ -17,16 +17,8 @@
 .activity-overview-card .ds-chip--accent, .activity-overview-card .ds-text--tone-accent { color: var(--accent-text); }
 /* 한글이 섞인 값: 숫자만 고정폭, 단위·공백은 본문 글꼴 — mono 대체 글꼴의 넓은 한글 자간을 피한다. */
 .activity-overview-root .ds-stat__value:has(.activity-overview-mixed) { font-family: inherit; letter-spacing: 0; }
-.activity-overview-mixed { font-family: inherit; font-variant-numeric: tabular-nums; }
+.activity-overview-mixed { font-family: var(--font-sans); font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .activity-overview-mixed__num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-/* 용어 설명 버튼: 청록 글자 대신 본문 잉크 + 점선 밑줄(라이트 대비 4.5:1). 짧은 용어(Z4)가 기호(+)와 떨어지지 않게
- * 최소 폭도 푼다. InfoTip 이 인라인 스타일로 색·폭을 주므로 이 범위에서만 덮는다. */
-.activity-overview-root [data-glossary-term] > span > button {
-  min-width: 0 !important;
-  color: inherit !important;
-  text-decoration: underline dotted var(--ink-3);
-  text-underline-offset: 0.2em;
-}
 .activity-overview-root .ds-stat__label { color: var(--ink-2); }
 .activity-overview-root .ds-stat:not([data-latin]) .ds-stat__label {
   font-family: inherit; font-size: var(--fs-sm); letter-spacing: 0; text-transform: none;
@@ -48,7 +40,8 @@
 .activity-overview-area--facts { order: 2; }
 .activity-overview-area--shift { order: 3; }
 .activity-overview-area--changes { order: 4; }
-.activity-overview-area--side { order: 5; }
+.activity-overview-area--recovery { order: 5; }
+.activity-overview-area--route { order: 6; }
 .activity-overview-split {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -74,8 +67,6 @@
   /* 강도 게이지가 없으면(심박·러닝) 왼쪽은 숫자 하나뿐이다 — 존 막대에 폭을 준다. */
   .activity-overview-split--lead { grid-template-columns: minmax(9rem, auto) minmax(0, 1fr); }
 }
-.activity-overview-stack { display: grid; gap: var(--space-6); align-content: start; min-width: 0; }
-.activity-overview-stack:empty { display: none; }
 .activity-overview-area--facts { border-top: 1px solid var(--line-soft); padding-top: var(--dim-section-gap); }
 .activity-overview-section-head { display: flex; align-items: center; gap: var(--space-1-5); min-width: 0; }
 /* 비교 자료가 없는 "나의 변화" 는 제목과 사유를 한 줄로 접는다. */
@@ -151,16 +142,19 @@
 .activity-overview-zones__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-overview-zones__name b { color: var(--ink-1); font-weight: 600; }
 .activity-overview-zones__value { color: var(--ink-0); font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.activity-overview-zones__time { grid-column: 2 / -1; margin-top: calc(var(--space-1) * -1); color: var(--ink-2); font-family: var(--font-mono); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; }
-.activity-overview-zones__usual { color: var(--ink-2); }
+.activity-overview-zones__time { grid-column: 2 / -1; margin-top: calc(var(--space-1) * -1); color: var(--ink-2); font-family: var(--font-sans); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; }
+.activity-overview-zones__usual { color: var(--ink-2); font-family: var(--font-sans); }
 .activity-overview-swatch { width: var(--space-2); height: var(--space-2); border-radius: var(--r-sm); align-self: center; }
 
 /* ── 보조 수치 줄 ── */
-.activity-overview-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr)); gap: var(--space-3) var(--space-4); }
+/* 휴대폰은 2열로 압축, 넓은 카드는 한 줄(최대 4칸). */
+.activity-overview-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-4); align-items: start; }
+@container (min-width: 44rem) { .activity-overview-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
 /* ── 0–100 미터 ── */
 .activity-overview-meter { display: grid; gap: var(--space-1-5); }
 .activity-overview-meter__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.activity-overview-meter__value { white-space: nowrap; }
 .activity-overview-meter__value { display: inline-flex; align-items: baseline; gap: var(--space-1-5); }
 .activity-overview-meter__track { position: relative; height: var(--space-1-5); border-radius: 999px; background: var(--bg-4); box-shadow: inset 0 0 0 1px var(--track-edge); }
 .activity-overview-meter__ends { display: flex; justify-content: space-between; color: var(--ink-2); font-size: var(--fs-2xs); line-height: 1; }
@@ -168,6 +162,9 @@
 .activity-overview-meter__fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
 .activity-overview-meter__fill--accent { background: var(--accent); }
 .activity-overview-meter__fill--high { background: var(--zone-5); }
+/* 보조 수치 칸 안의 미터 — 얇고 옅게. 100% 소진이어도 존 막대보다 약한 신호다. */
+.activity-overview-meter--quiet .activity-overview-meter__track { height: var(--space-1); }
+.activity-overview-meter--quiet .activity-overview-meter__fill--high { background: color-mix(in oklch, var(--zone-5) 55%, var(--bg-1)); }
 .activity-overview-meter__dot {
   position: absolute; left: clamp(var(--space-1-5), var(--at), calc(100% - var(--space-1-5))); top: 50%; z-index: 1;
   width: var(--space-3); height: var(--space-3); transform: translate(-50%, -50%);
@@ -233,14 +230,7 @@
   position: absolute; left: var(--zero); transform: translateX(-50%);
   color: var(--ink-2); font-family: var(--font-mono); font-size: var(--fs-2xs); line-height: 1;
 }
-/* 좁은 카드(휴대폰)에서는 이름·값을 한 줄, 막대를 다음 줄 전폭으로 — 막대 폭이 곧 읽기 정확도다. */
-@container (max-width: 30rem) {
-  .activity-overview-shift__rows { grid-template-columns: minmax(0, 1fr) max-content; grid-auto-flow: row dense; row-gap: var(--space-1); }
-  .activity-overview-shift__track, .activity-overview-shift__axis { grid-column: 1 / -1; }
-  .activity-overview-shift__row--axis > span { display: none; }
-  .activity-overview-shift__rows { row-gap: var(--space-2); }
-  .activity-overview-shift__axis { margin-top: 0; }
-}
+
 
 @media (prefers-reduced-motion: no-preference) {
   .activity-overview-zones__strip, .activity-overview-gauge__marker, .activity-overview-shift__dot--after, .activity-overview-meter__fill {
@@ -248,4 +238,18 @@
   }
   /* 끝 상태도 상자 밖(Z4+ 괄호·점 테두리)을 자르지 않도록 위아래·오른쪽을 넉넉히 연다. */
   @keyframes activity-overview-in { from { opacity: 0; clip-path: inset(-100% 100% -100% -100%); } to { opacity: 1; clip-path: inset(-100% -100% -100% -100%); } }
+}
+
+/* ── 휴대폰 밀도 ──
+ * 구역 간격을 줄이고, 존 범례는 3열 한 줄(존 이름·시간은 분석 탭 몫)로,
+ * 전→후는 한 줄(운동 전 값은 빈 원이 보여 준다 — 보조기기 이름에는 두 값이 다 있다)로 접는다. */
+@container (max-width: 30rem) {
+  .activity-overview-grid { row-gap: var(--space-4); }
+  .activity-overview-zones__legend { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--space-2); }
+  /* 평소 비중은 기준 막대 아래 "평소 Z4+ x%" 문구가 맡는다 — 줄마다 반복하지 않는다. */
+  .activity-overview-zones__time { display: none; }
+  .activity-overview-zones__label { display: none; }
+  .activity-overview-grid section { padding-top: var(--space-3); }
+  .activity-overview-shift__from { display: none; }
+  .activity-overview-meter--quiet .activity-overview-meter__head { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
 }

@@ -35,7 +35,7 @@
   --zone-3: oklch(0.65 0.16 130);
   --zone-4: oklch(0.66 0.15 75);
   --zone-5: oklch(0.58 0.17 20);
-  --zone-6: oklch(0.36 0.14 0);
+  --zone-6: oklch(0.44 0.17 0);
   --zone-7: oklch(0.52 0.16 300);
   --chart-speed: oklch(0.62 0.17 130);
   --chart-altitude: oklch(0.66 0.15 75);
@@ -86,6 +86,7 @@
   --fs-4xl: 36px;
   --fs-5xl: 48px;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --feed-thumb-aspect: 14 / 5;
   --strava: #FC4C02;
   --aqua-dim: oklch(0.72 0.10 210);
@@ -198,6 +199,7 @@
   --fs-4xl: 36px;
   --fs-5xl: 48px;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --feed-thumb-aspect: 14 / 5;
   --strava: #FC4C02;
   --aqua-dim: oklch(0.55 0.10 210);
@@ -311,6 +313,7 @@
     --fs-4xl: 36px;
     --fs-5xl: 48px;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --feed-thumb-aspect: 14 / 5;
     --strava: #FC4C02;
     --aqua-dim: oklch(0.55 0.10 210);

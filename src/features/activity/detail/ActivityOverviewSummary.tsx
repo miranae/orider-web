@@ -1,6 +1,6 @@
 import GlossaryProvider from "../../../components/common/GlossaryProvider";
 import GlossaryText from "../../../components/common/GlossaryText";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
@@ -8,7 +8,7 @@ import type { useActivityOverview } from "../../../hooks/useActivityOverview";
 import { Button, Card, Chip, Stack, Stat, Text, buttonClass } from "../../../theme/components";
 import InfoTip from "../../../components/InfoTip";
 import FuelSplitBar from "../../../components/FuelSplitBar";
-import { DeltaBar, FitnessShift, IntensityGauge, OverviewPowerCurve, PercentMeter, ZoneTimeBar, formatSpan, powerComparisonBasis } from "./ActivityOverviewCharts";
+import { DeltaBar, FitnessShift, IntensityGauge, MixedValue, OverviewPowerCurve, PercentMeter, ZoneTimeBar, formatSpan, powerComparisonBasis } from "./ActivityOverviewCharts";
 
 const number = (value: number) => String(Math.round(value * 10) / 10);
 const signed = (value: number) => `${value > 0 ? "+" : ""}${number(value)}`;
@@ -51,10 +51,46 @@ function CompactSection({ title, className = "", children }: { title: string; cl
   </section>;
 }
 
-/** 한글 단위가 섞인 수치 — 숫자만 고정폭(mono·tabular), 단위·공백은 본문 글꼴로. */
-function MixedValue({ value }: { value: string }) {
-  return <span className="activity-overview-mixed">{value.split(/([+-]?\d[\d.,:]*)/).filter(Boolean).map((part, index) =>
-    /\d/.test(part) ? <span key={index} className="activity-overview-mixed__num">{part}</span> : <span key={index}>{part}</span>)}</span>;
+type FloatKey = "changes" | "recovery" | "route";
+const FLOAT_ORDER: FloatKey[] = ["changes", "recovery", "route"];
+
+/**
+ * 넓은 카드의 두 열 높이를 맞춘다. 커브·훈련 부하 자리는 고정하고, 나의 변화·회복·경로만
+ * 실제 높이를 재서 두 열 차이가 가장 작은 배정을 고른다(조합 8개 이하). 높이는 열과 무관한
+ * 같은 폭에서 재므로 배정이 바뀌어도 다시 흔들리지 않는다.
+ */
+function useBalancedColumns(keys: FloatKey[], fallback: Record<FloatKey, "left" | "right">) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [placement, setPlacement] = useState(fallback);
+  const signature = keys.join(",");
+  useLayoutEffect(() => {
+    const grid = ref.current;
+    if (!grid || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      if (grid.getBoundingClientRect().width < 960) return;
+      const height = (key: string) => (grid.querySelector(`[data-col-item="${key}"]`) as HTMLElement | null)?.offsetHeight ?? 0;
+      const fixedLeft = height("left-fixed"), fixedRight = height("right-fixed");
+      let best: Record<FloatKey, "left" | "right"> | null = null, bestDiff = Infinity;
+      for (let mask = 0; mask < 1 << keys.length; mask++) {
+        let left = fixedLeft, right = fixedRight;
+        const next = { ...fallback };
+        keys.forEach((key, index) => {
+          const side = mask & (1 << index) ? "right" : "left";
+          next[key] = side;
+          if (side === "left") left += height(key) + 24; else right += height(key) + 24;
+        });
+        const diff = Math.abs(left - right);
+        if (diff < bestDiff - 1) { bestDiff = diff; best = next; }
+      }
+      if (best) setPlacement((current) => keys.every((key) => current[key] === best![key]) ? current : best!);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(grid);
+    return () => observer.disconnect();
+    // fallback 은 signature 와 함께 바뀐다.
+  }, [signature]);
+  return [ref, placement] as const;
 }
 
 // 라벨이 라틴 약어(TSS·NP)뿐이면 eyebrow 자간을 유지하고, 한글이 섞이면 본문 라벨로 쓴다.
@@ -138,16 +174,18 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   ].filter(Boolean);
   const recoveryTitle = copy(fuel ? "recovery" : "recoveryOnly");
   const recoveryEmpty = !fuel && !(!p.recoveryGuidance && p.recovery);
-  const ctlLabel = (key: "ctl" | "atl" | "tsb") => <GlossaryText>{copy(key)}</GlossaryText>;
+  // 통합 부하면 이름에 범위를 밝힌다 — 아래 종목별 각주의 CTL 과 같은 이름으로 읽히지 않게.
+  const metricName = (key: "ctl" | "atl" | "tsb") => p.fitnessScope === "integrated" ? copy(`integrated_${key}`) : copy(key);
+  const ctlLabel = (key: "ctl" | "atl" | "tsb") => <GlossaryText>{metricName(key)}</GlossaryText>;
   const changesBlock = changesEmpty
-        ? <CompactSection title={voice("changes")} className="activity-overview-area--changes">
+        ? <CompactSection title={voice("changes")}>
             {note(label(`personalStates.${p.availability?.personal ?? "unavailable"}`))}
           </CompactSection>
-        : <SummarySection title={voice("changes")} className="activity-overview-area--changes" collapsible>
+        : <SummarySection title={voice("changes")} collapsible>
       {!!records.length && <Stack direction="row" wrap>{records.map((row) => <Stack key={row.key} direction="row" wrap align="center"><Chip variant="accent">{label(`records.${row.achievement}`)}</Chip><Text variant="bodyMedium" tone="primary"><MixedValue value={row.value} /></Text></Stack>)}</Stack>}
       {!!personal.length && <Stack gap="var(--space-4)">{personal.map((row) => <PercentMeter key={row.axis} mid value={row.personalIndex}
         label={<><GlossaryText>{label(`axes.${row.axis}`)}</GlossaryText> · <GlossaryText>{label(`bands.${row.band}`)}</GlossaryText></>}
-        display={<><GlossaryText>{copy("index")}</GlossaryText> <GlossaryText>{number(row.personalIndex)}</GlossaryText></>} />)}</Stack>}
+        display={<MixedValue value={`${copy("index")} ${number(row.personalIndex)}`} />} />)}</Stack>}
       {!personal.length && (thresholdMissing
         ? <Stack gap="var(--dim-item-gap)">
             {note(p.session.discipline === "run" && isOwner ? copy("runThresholdMissing") : voice("thresholdMissing"))}
@@ -162,9 +200,9 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       {!!comparable.length && !highlights.length && note(voice("stablePower"))}
       {metadata && (personal.length > 0 || comparable.length > 0) && note(t("overviewEvidence.scope", { days: metadata.windowDays, count: metadata.priorSampleCount, character: label(`characters.${metadata.character}`) }) + (metadata.historyCompleteness !== "complete" ? ` · ${label(`completeness.${metadata.historyCompleteness}`)}` : ""))}
         </SummarySection>;
-  const shiftBlock = <SummarySection title={fitnessTitle} className="activity-overview-area--shift" info={p.fitnessScope === "integrated" ? label("fitnessDefinition") : undefined}>
+  const shiftBlock = <SummarySection title={fitnessTitle} info={p.fitnessScope === "integrated" ? label("fitnessDefinition") : undefined}>
       {/* 그림 3 — 이번 활동이 체력·피로·폼을 어디서 어디로 옮겼나. 운동 전만 있으면 숫자 셋으로 충분하다. */}
-      {prior && post ? <FitnessShift prior={prior} post={post} rowLabel={ctlLabel}
+      {prior && post ? <FitnessShift prior={prior} post={post} rowLabel={ctlLabel} metricName={metricName}
         priorCaption={<><GlossaryText>{copy("beforeLegend")}</GlossaryText> · <GlossaryText>{form(prior)}</GlossaryText> · {prior.asOf}</>}
         postCaption={<>{label("after")} · <GlossaryText>{form(post)}</GlossaryText> · {post.asOf}</>} />
         : prior ? <Stack gap="var(--space-3)">
@@ -172,9 +210,41 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
             <div className="grid grid-cols-3 gap-[var(--dim-item-gap)]">{(["ctl", "atl", "tsb"] as const).map((key) => <Stat key={key} compact label={ctlLabel(key)} value={prior[key].toFixed(1)} />)}</div>
           </Stack>
         : note(copy("beforeMissing"))}
-      {p.sportFitnessStatus && note(`${label(`sports.${p.sportFitnessStatus.discipline}`)} · ${label("sportHistory")} · CTL ${number(p.sportFitnessStatus.ctl)}${p.sportFitnessStatus.evidence !== "sufficient" ? ` · ${label("fitnessLimited")}` : ""}`)}
+      {p.sportFitnessStatus && note(`${t("overviewSummary.sportOnly", { sport: label(`sports.${p.sportFitnessStatus.discipline}`) })} · CTL ${number(p.sportFitnessStatus.ctl)}${p.sportFitnessStatus.evidence !== "sufficient" ? ` · ${label("fitnessLimited")}` : ""}`)}
     </SummarySection>;
-  return <GlossaryProvider scopeKey="activity-overview-summary"><Stack gap="var(--dim-section-gap)" className="activity-overview-root">
+  const [gridRef, placement] = useBalancedColumns(
+    FLOAT_ORDER.filter((key) => key === "changes" || (key === "recovery" ? !!showRecovery : !!showRoute)),
+    { changes: power.length ? "left" : "right", recovery: "right", route: "right" });
+  const curveBlock = power.length ? <SummarySection title={copy("peaks")}
+        info={(() => { const basis = powerComparisonBasis(power, recordsEvaluated, comparable.length > 0);
+          const pick = recordsEvaluated && power.some((row) => row.recordAchievement) ? copy("labelPickRecords")
+            : basis === "allTimeBest" ? copy("labelPickBest") : basis === "previousBest" ? copy("labelPickPrevious") : "";
+          return basis === "allTimeBest" ? `${label("bestScope")} ${pick}` : basis === "previousBest" ? `${label("previousBestScope")} ${pick}` : pick || undefined; })()}>
+        {/* 그림 2 — 비교 이력이 없어도 구간 최고 출력 자체는 읽을 값이다. 대비 % 는 툴팁·점 라벨로 간다. */}
+        <OverviewPowerCurve rows={power} recordsEvaluated={recordsEvaluated} comparableMedian={comparable.length > 0} ftpW={ftpW} />
+      </SummarySection> : null;
+  const recoveryBlock = showRecovery ? (recoveryEmpty
+      ? <CompactSection title={recoveryTitle}>{note(p.recoveryGuidance ? label("recoveryGuidance") : copy("recoveryMissing"))}</CompactSection>
+      : <SummarySection title={recoveryTitle}>
+      <Stack gap="var(--space-4)">
+        {!p.recoveryGuidance && p.recovery && <Stat compact label={<GlossaryText>{copy("recoveryHours")}</GlossaryText>} value={number(p.recovery.hours)} unit={copy("hour")} />}
+        {fuel && <FuelSplitBar size="compact" fat={{ label: label("fat"), pct: fuel.fatPct!, kcal: fuel.fatKcal }} carb={{ label: label("carb"), pct: fuel.carbPct!, kcal: fuel.carbKcal }} />}
+        {p.recoveryGuidance && note(label("recoveryGuidance"))}
+      </Stack>
+    </SummarySection>) : null;
+  const routeBlock = showRoute ? <SummarySection title={copy("route")} collapsible>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--dim-item-gap)]">
+        {p.routeLoad!.climbCount != null && <Stat compact label={<GlossaryText>{label("climbs")}</GlossaryText>} value={number(p.routeLoad!.climbCount)} />}
+        {p.routeLoad!.highestCategory && <Stat compact label={<GlossaryText>{label("category")}</GlossaryText>} value={p.routeLoad!.highestCategory} />}
+        {p.routeLoad!.avgGradePct != null && <Stat compact label={<GlossaryText>{label("avgGrade")}</GlossaryText>} value={number(p.routeLoad!.avgGradePct)} unit="%" />}
+        {p.routeLoad!.maxGradePct != null && <Stat compact label={<GlossaryText>{label("maxGrade")}</GlossaryText>} value={number(p.routeLoad!.maxGradePct)} unit="%" />}
+      </div>
+      {p.routeLoad!.elevationSuspect && note(copy("elevationSuspect"))}
+    </SummarySection> : null;
+  const floatBlocks: Record<FloatKey, ReactNode> = { changes: changesBlock, recovery: recoveryBlock, route: routeBlock };
+  const floatKeys = FLOAT_ORDER.filter((key) => floatBlocks[key] != null);
+  const floatItem = (key: FloatKey) => <div key={key} data-col-item={key} className={`activity-overview-area--${key}`}>{floatBlocks[key]}</div>;
+  return <GlossaryProvider scopeKey="activity-overview-summary" triggerTone="inherit"><Stack gap="var(--dim-section-gap)" className="activity-overview-root">
     <Stack gap="var(--dim-item-gap)">
       {/* 성격이 곧 라벨이다 — 별도 은유 층을 두지 않는다. 서버가 확정한 값만 그린다(화면에서 재분류하지 않는다). */}
       <Stack direction="row" wrap><Chip variant={p.session.character ? "accent" : "default"}>
@@ -192,7 +262,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
     {zones.some((zone) => zone.provisional) && note(label("zoneProvisional"))}
     {zones.filter((zone) => zone.historyCompleteness && zone.historyCompleteness !== "complete").map((zone) => <Text key={zone.kind} as="p" variant="caption" tone="tertiary"><GlossaryText>{label(zone.kind)}</GlossaryText> · <GlossaryText>{label(`completeness.${zone.historyCompleteness}`)}</GlossaryText></Text>)}
     {powerVisible && p.session.ftpVerificationRequired && note(label("ftpVerificationRequired"))}
-    <div className="activity-overview-body"><div className="activity-overview-grid">
+    <div className="activity-overview-body"><div ref={gridRef} className="activity-overview-grid">
     <SummarySection title={copy("stimulus")} className="activity-overview-area--stimulus">
       {/* 그림 1 — 얼마나 세게(IF 게이지), 어디서 시간을 썼나(존 막대). 부하·NP·IF 는 상단 스탯 스트립에 없다. */}
       {(hasHero || highZone) && <div className={`activity-overview-split ${hasGauge ? "" : "activity-overview-split--lead"}`}>
@@ -214,47 +284,22 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       </div>}
       {/* 존·기록·무산소가 없으면 그림이 없는 것으로 충분하다. "아직 없어요" 는 곧 계산될 것처럼 읽혀 임계값 없는 활동에서 거짓이 된다. */}
     </SummarySection>
-    {(facts.length > 0 || hasWPrime) && <div className="activity-overview-area--facts activity-overview-split" role="group" aria-label={copy("stimulusDetail")}>
-      {facts.length > 0 ? <div className="activity-overview-facts">{facts}</div> : <span />}
+    {/* 보조 수치는 한 격자의 칸들이다 — W′ 막대도 그중 한 칸(얇고 옅게)이라 존 막대보다 약한 신호로 남는다. */}
+    {(facts.length > 0 || hasWPrime) && <div className="activity-overview-area--facts activity-overview-facts" role="group" aria-label={copy("stimulusDetail")}>
+      {facts}
       {effort?.wPrimeDepletionPct != null
-        ? <PercentMeter label={<GlossaryText>{copy("reserve")}</GlossaryText>} value={effort.wPrimeDepletionPct} display={`${number(effort.wPrimeDepletionPct)}%`} tone="high" ends={[copy("reserveStart"), copy("reserveEnd")]} />
-        : effort?.wPrimeRemainingPct != null && <PercentMeter label={<GlossaryText>{copy("remaining")}</GlossaryText>} value={effort.wPrimeRemainingPct} display={`${number(effort.wPrimeRemainingPct)}%`} ends={[copy("remainingStart"), copy("remainingEnd")]} />}
+        ? <PercentMeter quiet label={<GlossaryText>{copy("reserve")}</GlossaryText>} value={effort.wPrimeDepletionPct} display={<MixedValue value={`${number(effort.wPrimeDepletionPct)}%`} />} tone="high" ends={[copy("reserveStart"), copy("reserveEnd")]} />
+        : effort?.wPrimeRemainingPct != null && <PercentMeter quiet label={<GlossaryText>{copy("remaining")}</GlossaryText>} value={effort.wPrimeRemainingPct} display={<MixedValue value={`${number(effort.wPrimeRemainingPct)}%`} />} ends={[copy("remainingStart"), copy("remainingEnd")]} />}
     </div>}
-    {/* 넓은 카드의 두 열. 파워 커브가 있으면 [커브·나의 변화 | 훈련 부하·회복·경로],
-        없으면(심박·러닝) 커브 자리를 훈련 부하가 받는다 — 빈 열이 남지 않는다. 좁은 카드는 order 로 줄을 세운다. */}
+    {/* 넓은 카드의 두 열 — 커브는 왼쪽, 훈련 부하는 오른쪽에 고정(커브가 없으면 훈련 부하가 왼쪽).
+        나의 변화·회복·경로는 실제 높이를 재서 두 열이 고르게 차도록 나눈다. 좁은 카드는 order 로 한 줄. */}
     <div className="activity-overview-col activity-overview-col--left">
-      {!!power.length && <SummarySection title={copy("peaks")} className="activity-overview-area--curve"
-        info={(() => { const basis = powerComparisonBasis(power, recordsEvaluated, comparable.length > 0);
-          return basis === "allTimeBest" ? label("bestScope") : basis === "previousBest" ? label("previousBestScope") : undefined; })()}>
-        {/* 그림 2 — 비교 이력이 없어도 구간 최고 출력 자체는 읽을 값이다. 대비 % 는 툴팁·점 라벨로 간다. */}
-        <OverviewPowerCurve rows={power} recordsEvaluated={recordsEvaluated} comparableMedian={comparable.length > 0} ftpW={ftpW} />
-      </SummarySection>}
-      {power.length ? changesBlock : shiftBlock}
+      <div data-col-item="left-fixed" className={power.length ? "activity-overview-area--curve" : "activity-overview-area--shift"}>{power.length ? curveBlock : shiftBlock}</div>
+      {floatKeys.filter((key) => placement[key] === "left").map(floatItem)}
     </div>
     <div className="activity-overview-col activity-overview-col--right">
-      {power.length > 0 && shiftBlock}
-    {/* 회복·경로는 오른쪽 열에 쌓는다 — 왼쪽이 길어도 빈 칸이 남지 않는다. */}
-    {(showRecovery || showRoute) && <div className="activity-overview-stack activity-overview-area--side">
-    {showRecovery && (recoveryEmpty
-      ? <CompactSection title={recoveryTitle}>{note(p.recoveryGuidance ? label("recoveryGuidance") : copy("recoveryMissing"))}</CompactSection>
-      : <SummarySection title={recoveryTitle}>
-      <Stack gap="var(--space-4)">
-        {!p.recoveryGuidance && p.recovery && <Stat compact label={<GlossaryText>{copy("recoveryHours")}</GlossaryText>} value={number(p.recovery.hours)} unit={copy("hour")} />}
-        {fuel && <FuelSplitBar size="compact" fat={{ label: label("fat"), pct: fuel.fatPct!, kcal: fuel.fatKcal }} carb={{ label: label("carb"), pct: fuel.carbPct!, kcal: fuel.carbKcal }} />}
-        {p.recoveryGuidance && note(label("recoveryGuidance"))}
-      </Stack>
-    </SummarySection>)}
-    {showRoute && <SummarySection title={copy("route")} collapsible>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--dim-item-gap)]">
-        {p.routeLoad!.climbCount != null && <Stat compact label={<GlossaryText>{label("climbs")}</GlossaryText>} value={number(p.routeLoad!.climbCount)} />}
-        {p.routeLoad!.highestCategory && <Stat compact label={<GlossaryText>{label("category")}</GlossaryText>} value={p.routeLoad!.highestCategory} />}
-        {p.routeLoad!.avgGradePct != null && <Stat compact label={<GlossaryText>{label("avgGrade")}</GlossaryText>} value={number(p.routeLoad!.avgGradePct)} unit="%" />}
-        {p.routeLoad!.maxGradePct != null && <Stat compact label={<GlossaryText>{label("maxGrade")}</GlossaryText>} value={number(p.routeLoad!.maxGradePct)} unit="%" />}
-      </div>
-      {p.routeLoad!.elevationSuspect && note(copy("elevationSuspect"))}
-    </SummarySection>}
-    </div>}
-      {!power.length && changesBlock}
+      {power.length > 0 && <div data-col-item="right-fixed" className="activity-overview-area--shift">{shiftBlock}</div>}
+      {floatKeys.filter((key) => placement[key] === "right").map(floatItem)}
     </div>
     </div></div>
     {(modelNote || p.qualityNote || (p.session.discipline !== "bike" && p.recovery)) && <Stack gap="var(--dim-item-gap)" className="activity-overview-footnotes">

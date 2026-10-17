@@ -260,7 +260,14 @@
     "remainingStart": "0% empty",
     "remainingEnd": "100% full",
     "movingTime": "Moving time",
-    "distance": "Distance"
+    "distance": "Distance",
+    "integrated_ctl": "Combined fitness · CTL",
+    "integrated_atl": "Combined fatigue · ATL",
+    "integrated_tsb": "Combined form · TSB",
+    "sportOnly": "{{sport}} only",
+    "labelPickRecords": "Point labels mark the durations where this activity set a personal record.",
+    "labelPickBest": "The point label marks the one duration closest to your all-time best.",
+    "labelPickPrevious": "The point label marks the one duration closest to your previous best."
   },
   "overviewEvidence": {
     "integratedFitness": "Combined training load · before session",

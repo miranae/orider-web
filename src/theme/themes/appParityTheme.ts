@@ -108,7 +108,7 @@ export const APP_PARITY_THEME: OriderTheme = {
         zone3: '#689F38',
         zone4: '#E65100',
         zone5: '#B71C1C',
-        zone6: '#71073A',
+        zone6: '#950E4F',
         zone7: '#6356BF',
       },
       chartColors: {

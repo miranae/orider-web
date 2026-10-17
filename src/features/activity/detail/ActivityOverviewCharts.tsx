@@ -42,6 +42,12 @@ function useElementWidth<T extends HTMLElement>(): [RefObject<T | null>, number]
   return [ref, width];
 }
 
+/** 한글 단위가 섞인 수치 — 숫자만 고정폭(mono·tabular), 단위·공백은 본문 글꼴로. */
+export function MixedValue({ value }: { value: string }) {
+  return <span className="activity-overview-mixed">{value.split(/([+-]?\d[\d.,:]*)/).filter(Boolean).map((part, index) =>
+    /\d/.test(part) ? <span key={index} className="activity-overview-mixed__num">{part}</span> : <span key={index}>{part}</span>)}</span>;
+}
+
 /**
  * 지속 시간 문구 — 0 인 단위는 생략한다. 60초 미만 "30초", 1시간 미만 "1분 30초"·"1분",
  * 1시간 이상 "1시간 5분"(초는 생략).
@@ -153,9 +159,12 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }:
     <ul className="activity-overview-zones__legend">
       {zone.seconds.map((sec, i) => <li key={i} className={sec > 0 ? undefined : "is-empty"}>
         <span aria-hidden="true" className={`activity-overview-swatch activity-overview-zone--${i + 1}`} />
-        <span className="activity-overview-zones__name"><b>Z{i + 1}</b> {labels[i] ? t(labels[i]!.nameKey) : ""}</span>
+        <span className="activity-overview-zones__name"><b>Z{i + 1}</b><span className="activity-overview-zones__label"> {labels[i] ? t(labels[i]!.nameKey) : ""}</span></span>
         <span className="activity-overview-zones__value">{pcts ? `${one(pcts[i]!)}%` : clock(sec)}</span>
-        {pcts && <span className="activity-overview-zones__time">{clock(sec)}{baseline && <span className="activity-overview-zones__usual"> · {t("overviewSummary.usualPct", { pct: one(baseline[i]!) })}</span>}</span>}
+        {(pcts || baseline) && <span className="activity-overview-zones__time">
+          {pcts && <span className="activity-overview-zones__clock activity-overview-mixed__num">{clock(sec)}</span>}
+          {baseline && <span className="activity-overview-zones__usual"><span className="activity-overview-zones__sep" aria-hidden="true">{pcts ? " · " : ""}</span><MixedValue value={t("overviewSummary.usualPct", { pct: one(baseline[i]!) })} /></span>}
+        </span>}
       </li>)}
     </ul>
   </div>;
@@ -163,19 +172,21 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }:
 
 /* ───────────── 0–100 미터 (W′·개인지수) ───────────── */
 
-export function PercentMeter({ label, value, display, tone = "accent", mid = false, sub, ends }: {
+export function PercentMeter({ label, value, display, tone = "accent", mid = false, sub, ends, quiet = false }: {
   label: ReactNode; value: number; display: ReactNode; tone?: "accent" | "high"; mid?: boolean; sub?: ReactNode;
   /** 막대 양 끝의 뜻(예: "0%"·"100% 소진"). */
   ends?: [ReactNode, ReactNode];
+  /** 보조 수치 칸 안의 얇고 옅은 막대 — 존 막대보다 약한 신호로 둔다. */
+  quiet?: boolean;
 }) {
   const { t } = useTranslation("activity");
   // 개인지수 0·100 은 이력 끝에 닿은 값이다 — 점을 테두리로 바꾸고 글로 밝힌다.
   const edge = mid ? value >= 100 ? "top" : value <= 0 ? "bottom" : null : null;
-  return <div className="activity-overview-meter">
+  return <div className={`activity-overview-meter ${quiet ? "activity-overview-meter--quiet" : ""}`}>
     <div className="activity-overview-meter__head">
       <Text variant="bodySmall" tone="secondary">{label}</Text>
       <span className="activity-overview-meter__value">
-        <Text variant="bodyMedium" mono tone="primary">{display}</Text>
+        <Text variant="bodyMedium" tone="primary">{display}</Text>
         {edge && <Text variant="caption" tone="tertiary">{t(edge === "top" ? "overviewSummary.indexTop" : "overviewSummary.indexBottom")}</Text>}
       </span>
     </div>
@@ -197,7 +208,7 @@ export function DeltaBar({ value, scale, label, display }: { value: number; scal
   return <div className="activity-overview-delta">
     <div className="activity-overview-meter__head">
       <Text variant="bodySmall" tone="secondary">{label}</Text>
-      <Text variant="bodyMedium" mono tone="primary">{display}</Text>
+      <Text variant="bodyMedium" tone="primary">{display}</Text>
     </div>
     <div className="activity-overview-delta__track" aria-hidden="true">
       <span className={`activity-overview-delta__bar ${value < 0 ? "is-down" : ""}`} style={cssVar({ "--from": value < 0 ? `${50 - half}%` : "50%", "--size": `${half}%` })} />
@@ -248,10 +259,12 @@ export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, f
   const closest = basis === "allTimeBest" ? points.reduce<number | null>((top, p, index) => p.row.allTimeBestPct != null && (top == null || p.row.allTimeBestPct > points[top]!.row.allTimeBestPct!) ? index : top, null) : null;
   // 비교선이 없을 때는 활동 전 최고에 가장 가까웠던 점 하나에 % 를 직접 단다.
   const closestPrevious = basis === "previousBest" ? points.reduce<number | null>((top, p, index) => p.row.previousBestPct != null && (top == null || p.row.previousBestPct > points[top]!.row.previousBestPct!) ? index : top, null) : null;
+  // 라벨에 창 길이를 함께 쓴다 — 어느 점의 값인지 글로 읽힌다. 점에는 강조 링을 두른다.
+  const at = (index: number) => duration(points[index]!.row.duration);
   const annotations = records.length
-    ? records.map((index) => ({ index, text: t("overviewSummary.prMark") }))
-    : closest != null ? [{ index: closest, text: t("overviewSummary.ofBest", { pct: Math.round(points[closest]!.row.allTimeBestPct!) }) }]
-    : closestPrevious != null ? [{ index: closestPrevious, text: t("overviewSummary.ofPreviousBest", { pct: Math.round(points[closestPrevious]!.row.previousBestPct!) }) }] : [];
+    ? records.map((index) => ({ index, text: `${at(index)} · ${t("overviewSummary.prMark")}`, ring: true }))
+    : closest != null ? [{ index: closest, text: `${at(closest)} · ${t("overviewSummary.ofBest", { pct: Math.round(points[closest]!.row.allTimeBestPct!) })}`, ring: true }]
+    : closestPrevious != null ? [{ index: closestPrevious, text: `${at(closestPrevious)} · ${t("overviewSummary.ofPreviousBest", { pct: Math.round(points[closestPrevious]!.row.previousBestPct!) })}`, ring: true }] : [];
   // 한 줄 = 한 기준. 선이 역대 최고면 % 도 역대 최고 대비다.
   const facts = (row: PowerRow) => [
     ...(basis === "allTimeBest" && row.allTimeBestPct != null ? [`${t("overviewSummary.vsAllTimeBest")} ${one(row.allTimeBestPct)}%`] : []),
@@ -267,7 +280,7 @@ export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, f
       unit="W" color="var(--chart-power)" datasetLabel={t("overviewSummary.thisActivity")}
       comparison={comparison} tooltipFooter={(index) => points[index] ? facts(points[index]!.row) : []} annotations={annotations} showLegend
       reference={ftp ? { value: ftp, label: `FTP ${ftp} W` } : null} referenceSolid
-      xScale="log" unitAxisTitle heightClassName="h-56"
+      xScale="log" unitAxisTitle heightClassName="h-48 sm:h-56"
       roleDescription={t("overviewSummary.chartRole")} describedBy={listId}
       ariaLabel={t("overviewSummary.curveAria", { peak: Math.round(peak) })}
       emptyTitle={t("dashboard:charts.powerCurve.emptyTitle")} emptyDescription={t("dashboard:charts.powerCurve.emptyDescription")}
@@ -287,9 +300,11 @@ export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, f
 
 const DOT_MIN_PX = 8;
 
-export function FitnessShift({ prior, post, rowLabel, priorCaption, postCaption }: {
+export function FitnessShift({ prior, post, rowLabel, metricName, priorCaption, postCaption }: {
   prior: FitnessStatus; post: FitnessStatus;
   rowLabel: (key: "ctl" | "atl" | "tsb") => ReactNode;
+  /** 보조기기용 지표 이름(범위 포함, 예: "통합 체력 · CTL"). */
+  metricName: (key: "ctl" | "atl" | "tsb") => string;
   priorCaption: ReactNode; postCaption: ReactNode;
 }) {
   const { t } = useTranslation("activity");
@@ -312,11 +327,12 @@ export function FitnessShift({ prior, post, rowLabel, priorCaption, postCaption 
         const a = at(from), b = at(to);
         // 두 점이 8px 안으로 겹치면 운동 후 점만 찍는다. 변화량은 세 줄 모두 값 옆에 쓴다.
         const collapsed = width > 0 && Math.abs(a - b) / 100 * width < DOT_MIN_PX;
+        // 서버가 변화량을 따로 주지 않는다. 서버 값 두 개(운동 전·후)의 표시용 차이일 뿐 정본 계산이 아니다.
         const delta = Math.round((to - from) * 10) / 10;
         return <div key={key} className="activity-overview-shift__row">
           <Text variant="bodySmall" tone="secondary" className="activity-overview-shift__label">{rowLabel(key)}</Text>
           <div ref={index === 0 ? ref : undefined} className="activity-overview-shift__track" role="img"
-            aria-label={t("overviewSummary.shiftAria", { metric: t(`overviewSummary.${key}`), from: fixed1(from), to: fixed1(to) })}>
+            aria-label={t("overviewSummary.shiftAria", { metric: metricName(key), from: fixed1(from), to: fixed1(to) })}>
             {/* 폼(TSB) 0 아래는 피로가 체력을 넘어선 구간 — 옅게 깐다. */}
             {key === "tsb" && <span className="activity-overview-shift__negative" aria-hidden="true" />}
             <span className="activity-overview-shift__zero" aria-hidden="true" />
@@ -325,7 +341,7 @@ export function FitnessShift({ prior, post, rowLabel, priorCaption, postCaption 
             <span className="activity-overview-shift__dot activity-overview-shift__dot--after" aria-hidden="true" style={cssVar({ "--at": `${b}%` })} />
           </div>
           <Text variant="bodyMedium" mono tone="primary" className="activity-overview-shift__values">
-            <span className="activity-overview-shift__from">{fixed1(from)}</span><span className="activity-overview-shift__arrow"> → </span>{fixed1(to)}
+            <span className="activity-overview-shift__from">{fixed1(from)}<span className="activity-overview-shift__arrow"> → </span></span>{fixed1(to)}
             <span className="activity-overview-shift__delta"> ({delta > 0 ? "+" : ""}{delta.toFixed(1)})</span>
           </Text>
         </div>;
