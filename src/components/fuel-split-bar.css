@@ -1,0 +1,22 @@
+.fuel-split-bar__swatch {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--r-sm);
+  flex-shrink: 0;
+}
+.fuel-split-bar__track {
+  display: flex;
+  height: calc(var(--space-2) + var(--space-0-5));
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bg-3);
+}
+/* 개요 막대는 두 칸 사이에 표면색 틈을 둔다 — 경계선 대신 간격으로 나눈다. */
+.fuel-split-bar__track--compact {
+  height: var(--space-3);
+  gap: var(--space-0-5);
+  background: transparent;
+  border-radius: var(--r-sm);
+}
+.fuel-split-bar__track--compact > span:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
+.fuel-split-bar__track--compact > span:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
