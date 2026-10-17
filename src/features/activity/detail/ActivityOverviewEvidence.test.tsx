@@ -99,7 +99,7 @@ describe("activity overview evidence", () => {
     expect(screen.getByText(renderedText("90%"))).toBeInTheDocument();
     // 100% 는 무산소 최대소진 카드에도 있으므로 표 셀까지 합쳐 둘 이상이어야 한다.
     expect(screen.getAllByText("100%").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText(renderedText(/클램프·글리치로 판정된 구간은 비워 둡니다/))).toBeInTheDocument();
+    expect(screen.getByText(renderedText(/클램프·글리치로 판정된 구간은 비워 둬요/))).toBeInTheDocument();
     expect(screen.getByText(renderedText("기준: 종목 전체 (같은 유형 표본 부족)"))).toBeInTheDocument();
     expect(screen.getByText(renderedText("19.4 g"))).toBeInTheDocument();
     cleanup();
@@ -176,7 +176,7 @@ describe("activity overview evidence viewer voice", () => {
 it("preserves estimated power and provisional FTP semantics", () => {
  render(<ActivityOverviewEvidenceContent presentation={{ ...rich, availability: { ...rich.availability!, power: "estimated" }, session: { ...rich.session, ftpVerificationRequired: true } }} />);
  expect(screen.getByText(renderedText("추정 파워 기준"))).toBeInTheDocument();
- expect(screen.getByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다."))).toBeInTheDocument();
+ expect(screen.getByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준이에요."))).toBeInTheDocument();
  expect(screen.getByText(renderedText("NP"))).toBeInTheDocument();
 });
 
@@ -186,7 +186,7 @@ it.each(["complete", "incomplete", "unknown"] as const)("preserves per-zone comp
  const labels = { complete: "전체 비교 기록 확인", incomplete: "일부 비교 기록 기준", unknown: "비교 기록 완전성 미확인" };
  expect(screen.getByText(labels[historyCompleteness])).toBeInTheDocument();
  expect(screen.queryByText(renderedText("존 비교 잠정 · FTP 확인이 필요한 과거 기록 포함")) != null).toBe(historyCompleteness !== "complete");
- expect(screen.queryByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다."))).not.toBeInTheDocument();
+ expect(screen.queryByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준이에요."))).not.toBeInTheDocument();
 });
 it("distinguishes previous best from all-time best including this activity", () => {
  render(<ActivityOverviewEvidenceContent presentation={{ ...rich, observedEffects: ["관찰된 스프린트"], powerFingerprint: [{ duration: "5s", watts: 330, allTimeBestWatts: 330, allTimeBestPct: 100, previousBestPct: 110 }] }} />);

@@ -59,6 +59,9 @@ export interface ColorTokens {
   zone3: string;
   zone4: string;
   zone5: string;
+  /** 파워 Z6(무산소)·Z7(신경근). 심박 존은 5단계라 쓰지 않는다. */
+  zone6: string;
+  zone7: string;
 }
 
 export interface ChartColorTokens {
