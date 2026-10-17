@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11. 문제 해결 (FAQ) - 오라이더 앱 사용 설명서</title>
+<meta name="description" content="오라이더 앱 사용 설명서 (Android·iOS) — GPS·센서·저장·Strava·종목 문제">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">11. 문제 해결 (FAQ)</div>
+  <div class="nav-right"><a href="ch10-settings.html">&larr; 이전</a><span class="nav-sep">|</span><a href="appendix.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="top">
+  <h2>11. 문제 해결 (FAQ)</h2>
+  <div class="can-do">
+    <strong>이 장에서 할 수 있는 것</strong>
+    <ul>
+      <li>기록·센서·업로드에서 자주 생기는 문제를 증상별로 찾아 해결합니다.</li>
+      <li>해결되지 않을 때 개발팀에 무엇을 보내면 되는지 압니다.</li>
+    </ul>
+  </div>
+
+  <h3 id="gps">GPS · 기록</h3>
+  <div class="card">
+    <h4>화면이 꺼지면 기록이 멈춰요</h4>
+    <ol>
+      <li>휴대폰 설정 &gt; 애플리케이션 &gt; O-Rider &gt; 권한 &gt; 위치를 <strong>항상 허용</strong>으로 바꿉니다.</li>
+      <li><span class="os os-android">Android</span> O-Rider &gt; 배터리에서 사용을 <strong>제한 없음</strong>으로 바꿉니다. 제조사마다 메뉴 이름이 조금 다릅니다.</li>
+      <li>거치대에 둔다면 <span class="os os-android">Android</span> <span class="path">설정 &gt; 시스템 &gt; 배터리 절약 &gt; 화면 자동꺼짐</span>을 <strong>항상 켜짐</strong>으로, <span class="os os-ios">iOS</span> <span class="path">설정 &gt; 화면 &gt; 디스플레이 &gt; 화면 켜짐 유지</span>를 켭니다.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h4>거리·속도·페이스가 이상해요</h4>
+    <ul>
+      <li>높은 건물 사이, 숲, 터널에서는 GPS가 흔들립니다. 출발 전에 하늘이 트인 곳에서 잠시 기다리세요.</li>
+      <li>GPS 모드가 <strong>고정밀</strong>인지 확인합니다(<span class="os os-android">Android</span> 설정 &gt; 시스템 &gt; 배터리 절약, <span class="os os-ios">iOS</span> 설정 &gt; 시스템 &gt; 배터리 설정). 고정밀이 아니면 정확도가 낮습니다.</li>
+      <li>자전거라면 속도 센서를 달면 GPS보다 안정적입니다. 휠 둘레를 맞추세요(<a href="ch03-sensors.html#wheel">3장</a>).</li>
+      <li>러닝 페이스 6:00 /km는 1km에 6분이라는 뜻으로, 시속 6km와 다릅니다.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>러닝으로 뛰었는데 자전거로 저장됐어요</h4>
+    <p>종목은 기록을 시작할 때 정해지고, 기록 중에는 바꿀 수 없습니다. 다음 기록부터 홈 오른쪽 위 종목 토글을 러닝으로 바꾼 뒤 시작하세요.</p>
+  </div>
+  <div class="card">
+    <h4>“라이드 저장 실패”가 떠요</h4>
+    <p>앱을 끄지 말고 <strong>종료</strong> 버튼을 다시 누르세요.</p>
+  </div>
+
+  <h3 id="sensor">센서</h3>
+  <div class="card">
+    <h4>센서가 검색되지 않아요</h4>
+    <ul>
+      <li>센서를 깨웁니다(심박계 착용, 크랭크·바퀴 돌리기, 센서 버튼 누르기).</li>
+      <li>블루투스 권한과 휴대폰 블루투스가 켜져 있는지 확인합니다.</li>
+      <li>다른 앱이나 사이클링 컴퓨터가 같은 센서에 붙어 있으면 먼저 끊습니다.</li>
+      <li>러닝 종목에서는 자전거용 센서가 붙지 않는 것이 정상입니다.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>러닝 케이던스가 안 보여요</h4>
+    <p><span class="os os-android">Android</span> 휴대폰 설정 &gt; 애플리케이션 &gt; O-Rider &gt; 권한에서 <strong>신체 활동</strong>을 허용하세요. 휴대폰을 몸에 지니고 몇 걸음 움직여야 값이 나옵니다. 걸음 감지를 지원하지 않는 휴대폰도 있습니다.</p>
+  </div>
+
+  <h3 id="upload">업로드 · 연동</h3>
+  <div class="card">
+    <h4>Strava에 올라가지 않아요</h4>
+    <ol>
+      <li><span class="path">설정 &gt; 계정 &gt; STRAVA</span>(<span class="os os-ios">iOS</span> 설정 &gt; 연결)에서 연결된 계정이 보이는지 확인합니다.</li>
+      <li><span class="os os-android">Android</span> <span class="path">설정 &gt; 시스템 &gt; 데이터 절약 &gt; Strava 업로드</span>가 오프라인이 아닌지 확인합니다. WiFi만이면 WiFi에서 올라갑니다. <span class="os os-ios">iOS</span> 데이터 절약은 설정 &gt; 시스템 &gt; 전력 관리에 있습니다.</li>
+      <li>활동 상세 아래쪽의 <strong>Strava</strong>(S) 버튼(<span class="os os-ios">iOS</span> <strong>Strava에 업로드</strong>)을 한 번 더 누릅니다. 같은 활동이 이미 올라갔는지 Strava에서 먼저 확인하면 중복을 막을 수 있습니다.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h4>웹이나 피트니스 탭에 방금 기록이 안 보여요</h4>
+    <ol>
+      <li>로그인했는지 확인합니다. 로그인하지 않고 쓴 기록은 휴대폰에만 있습니다.</li>
+      <li>활동 상세 아래쪽 <strong>업로드</strong>(구름) 버튼(<span class="os os-ios">iOS</span> <strong>플랫폼에 업로드</strong>)을 누릅니다. “업로드 완료”가 나오면 오라이더 서버에 올라간 것입니다.</li>
+      <li>잠시 뒤 웹이나 피트니스 탭을 새로 엽니다. 분석 계산에는 시간이 조금 걸립니다.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h4>iPhone에서 Apple로 로그인했는데 웹에서 로그인이 안 돼요</h4>
+    <p>iPhone에서는 <strong>Apple로 로그인</strong>도 고를 수 있습니다. 다만 웹(orider.co.kr)은 Google 계정 로그인만 지원하므로, 웹에서도 기록을 보려면 Google로 로그인하세요. 로그인하지 않고(게스트로) 쓴 기록은 웹에서 볼 수 없습니다.</p>
+  </div>
+  <div class="card">
+    <h4>FTP·최대 심박이 앱과 웹에서 달라요</h4>
+    <p>FTP · 최대 심박은 웹 <strong>코치 &gt; 컨디션 &gt; 전체 종목 훈련 기준 설정</strong>과 앱 <strong>설정 &gt; 주행 설정 &gt; 라이더 프로필</strong> 어느 쪽에서 바꿔도 서버가 서로 맞춰 줍니다. 체중은 웹 훈련 기준 설정에서 바꾸세요(앱에서는 설정 &gt; 내 자전거 &gt; 가상 파워를 켰을 때 ‘라이더 체중’으로 보입니다). 가장 나중에 저장한 값이 양쪽에 적용되며, 반영까지 잠시 걸릴 수 있습니다. 분석·존·목표 판정은 웹의 훈련 기준 설정 값을 기준으로 계산하므로, 값이 다르게 보이면 웹 코치 &gt; 컨디션에서 확인하세요.</p>
+  </div>
+  <div class="card">
+    <h4>피트니스·계획 탭이 비어 있어요</h4>
+    <p>로그인과 인터넷 연결을 확인하세요. 웹 화면을 불러오는 탭이라 연결이 없으면 내용이 보이지 않습니다.</p>
+  </div>
+
+  <h3 id="nav">코스 · 내비</h3>
+  <div class="card">
+    <h4>턴 안내가 나오지 않아요</h4>
+    <p>경로 상세에서 <strong>이 경로 불러오기</strong>만 누르면 선만 보입니다. <strong>네비 시작</strong> → “턴바이턴 네비 활성화” 창에서 <strong>활성화</strong>를 눌러야 턴 안내가 준비됩니다(인터넷 필요). 기록 중 경로 페이지에 “턴 안내 사용 중”이 보이는지 확인하고, <span class="path">설정 &gt; 화면 &gt; 사운드</span>(<span class="os os-ios">iOS</span> 설정 &gt; 화면 &gt; 소리, <a href="ch00-before.html#ios-menus">0장 대응표</a>)의 사운드 사용도 켜 두세요.</p>
+  </div>
+  <div class="card">
+    <h4>오르막 페이지에 아무것도 없어요</h4>
+    <p>경로에 등급이 될 만한 오르막이 없거나, 지금 위치가 경로에서 멀리 떨어져 있으면 표시되지 않습니다. 경로 없이 탈 때는 네트워크가 있어야 앞쪽 오르막을 찾습니다(<a href="ch06-courses.html#climbpro">6장</a>).</p>
+  </div>
+
+  <h3 id="report">그래도 해결되지 않으면</h3>
+  <ol>
+    <li>앱을 최신 버전으로 업데이트합니다.</li>
+    <li><span class="path">설정 &gt; 시스템 &gt; 고급 &gt; 크래시 로그</span>에서 오류 기록을 확인합니다.</li>
+    <li>앱 버전(<span class="path">설정</span> 맨 아래 O-Rider 줄), 휴대폰 기종, 문제가 생긴 시각과 함께 개발팀에 알려 주세요.</li>
+  </ol>
+</section>
+
+<nav class="bottom-nav" aria-label="장 이동">
+  <a href="ch10-settings.html">&larr; 10. 설정 한눈에</a>
+  <span class="nav-title"><a href="index.html">목차</a></span>
+  <a href="appendix.html">딥링크와 용어 &rarr;</a>
+</nav>
+</div>
+
+<footer>
+  <p>오라이더 앱 사용 설명서 (Android·iOS) · 개정 2026-10-18 · 2026년 10월 출시 버전 기준</p>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">O-Rider</a> · <a href="/web-manual/">웹 설명서</a></p>
+</footer>
+
+</body>
+</html>

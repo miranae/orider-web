@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10. 설정 한눈에 - 오라이더 앱 사용 설명서</title>
+<meta name="description" content="오라이더 앱 사용 설명서 (Android·iOS) — 설정 메뉴 지도와 데이터·배터리 절약, 고급">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">10. 설정 한눈에</div>
+  <div class="nav-right"><a href="ch09-connect.html">&larr; 이전</a><span class="nav-sep">|</span><a href="ch11-faq.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="top">
+  <h2>10. 설정 한눈에</h2>
+  <div class="can-do">
+    <strong>이 장에서 할 수 있는 것</strong>
+    <ul>
+      <li>설정 메뉴 전체에서 원하는 항목이 어디 있는지 찾습니다.</li>
+      <li>계정·공개 범위, 데이터 절약, 배터리 절약을 상황에 맞게 정합니다.</li>
+      <li>언어·경량 모드·시뮬레이션 같은 고급 항목을 압니다.</li>
+    </ul>
+  </div>
+  <p>설정은 <span class="path">더보기 &gt; 설정</span>에서 엽니다. 라이딩·러닝 준비 화면 오른쪽 위 톱니(라이딩 설정 / 러닝 설정)를 눌러도 열립니다.</p>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-settings.jpg" alt="설정 첫 화면" loading="lazy" width="682" height="1200">
+      <figcaption><strong>설정</strong> — 맨 위 계정 카드에서 로그인 상태(“Google 계정 연결됨”)를 먼저 확인하세요.</figcaption>
+    </figure>
+  </div>
+
+  <h3 id="map">설정 메뉴 지도</h3>
+  <p>아래 표는 Android 기준입니다. iPhone에서 위치가 다른 메뉴는 <a href="ch00-before.html#ios-menus">0장 대응표</a>를 보세요.</p>
+  <table>
+    <tr><th>구역</th><th>메뉴</th><th>들어 있는 것</th><th>설명</th></tr>
+    <tr><td rowspan="3">라이딩</td><td>내 자전거</td><td>센서 연결, 휠 둘레, 가상 파워</td><td><a href="ch03-sensors.html">3장</a></td></tr>
+    <tr><td>주행 설정</td><td>라이더 프로필(FTP·최대 심박수), 자동 일시정지, 자동 시작, 리마인더, 러닝 거리 음성 안내, 자동 랩, 라이드 워크아웃, 임계치 알림</td><td><a href="ch02-first-record.html#auto">2장</a> · <a href="ch08-training.html#workout">8장</a></td></tr>
+    <tr><td>화면</td><td>주행 · 데이터 필드 · 네비게이션(지도 포함) · 사운드</td><td><a href="ch04-screen.html">4장</a></td></tr>
+    <tr><td rowspan="2">기록 · 연결</td><td>기록/경로/상태</td><td>주행 기록 · 경로 관리 · 상태(PMC, AI 코치)</td><td><a href="ch05-records.html">5장</a></td></tr>
+    <tr><td>소셜</td><td>알림, 활동 피드, 친구 관리, 라이딩 그룹, 실시간 위치 공유, 심박 공유</td><td><a href="ch07-together.html">7장</a></td></tr>
+    <tr><td><span class="os os-android">Android</span> 디자인</td><td>테마</td><td>기본 / 고대비 (야외). iPhone에는 테마 설정이 없습니다.</td><td><a href="ch04-screen.html#theme">4장</a></td></tr>
+    <tr><td rowspan="3">계정 · 시스템</td><td>계정</td><td>로그인, 위치 공유 대상, 활동 기본 공개범위, 닉네임·친구 코드, Strava, 삼성 헬스, 웹 대시보드</td><td><a href="#account">아래</a> · <a href="ch09-connect.html">9장</a></td></tr>
+    <tr><td>시스템</td><td>데이터 절약 · 배터리 절약 · 고급 · 앱 정보</td><td><a href="#system">아래</a></td></tr>
+    <tr><td>O-Rider</td><td>버전, 이용약관, 개인정보처리방침, 라이선스</td><td>—</td></tr>
+  </table>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-ride-settings.jpg" alt="주행 설정 화면" loading="lazy" width="682" height="1200">
+      <figcaption><strong>주행 설정</strong> — 라이더 프로필(FTP · 최대 심박수)과 자동 일시정지의 <strong>속도 임계값</strong> · <strong>대기 시간</strong>을 숫자로 직접 바꿉니다.</figcaption>
+    </figure>
+  </div>
+  <div class="info">FTP · 최대 심박은 웹 <strong>코치 &gt; 컨디션 &gt; 전체 종목 훈련 기준 설정</strong>과 앱 <strong>설정 &gt; 주행 설정 &gt; 라이더 프로필</strong> 어느 쪽에서 바꿔도 서버가 서로 맞춰 줍니다. 체중은 웹 훈련 기준 설정에서 바꾸세요(앱에서는 설정 &gt; 내 자전거 &gt; 가상 파워를 켰을 때 ‘라이더 체중’으로 보입니다). 가장 나중에 저장한 값이 양쪽에 적용되며, 반영까지 잠시 걸릴 수 있습니다. 분석·존·목표 판정은 웹의 훈련 기준 설정 값을 기준으로 계산하므로, 값이 다르게 보이면 웹 코치 &gt; 컨디션에서 확인하세요.</div>
+
+  <h3 id="account">계정</h3>
+  <table>
+    <tr><th>항목</th><th>설명</th></tr>
+    <tr><td>계정 카드</td><td>이름, 이메일, 로그아웃</td></tr>
+    <tr><td>위치 공유</td><td>(<span class="os os-ios">iOS</span> 설정 &gt; 소셜) 내 위치를 보일 대상(전체공개 / 친구만 / 비공개). 공유 켜기는 <span class="path">설정 &gt; 소셜 &gt; 실시간 위치 공유</span>에서 따로 합니다(<a href="ch07-together.html#location">7장</a>). 공개 범위 이름 대응은 <a href="ch07-together.html#visibility">7장 대응표</a>.</td></tr>
+    <tr><td>활동 기본 공개범위</td><td>(<span class="os os-ios">iOS</span> 설정 &gt; 소셜) 새 기록을 올릴 때의 기본값. 활동별로 바꿀 수 있습니다.</td></tr>
+    <tr><td>닉네임 · 친구 코드</td><td>친구에게 보이는 이름과 내 6자리 친구 코드</td></tr>
+    <tr><td>STRAVA · 삼성 헬스 · 웹 대시보드</td><td><a href="ch09-connect.html">9장</a>. <span class="os os-ios">iOS</span> Strava는 설정 &gt; 연결, Apple 건강은 설정 &gt; 기록 · 연결 &gt; 헬스 연동에 있습니다.</td></tr>
+  </table>
+  <div class="warn">계정 카드의 <strong>로그아웃</strong>을 누르면 소셜·동기화 기능이 멈춥니다. 다른 계정으로 바꿀 때만 쓰세요.</div>
+
+  <h4 id="delete">계정 삭제와 데이터 내보내기</h4>
+  <p>계정 삭제 요청과 전체 데이터 내려받기는 앱이 아니라 웹(orider.co.kr)에서 합니다.</p>
+  <ul>
+    <li><strong>데이터 내보내기·기록 삭제</strong> — 웹 설정 &gt; 내 데이터. <a href="/web-manual/ch10-settings.html#s10-7">웹 설명서 10.7</a>을 보세요.</li>
+    <li><strong>계정 및 데이터 삭제 요청</strong> — 웹 설정 &gt; 계정 &gt; 계정 관리의 “계정 삭제 안내 및 요청”, 또는 <a href="https://orider.co.kr/account-deletion">orider.co.kr/account-deletion</a>. 절차는 <a href="/web-manual/ch10-settings.html#s10-8">웹 설명서 10.8</a>을 보세요.</li>
+  </ul>
+  <div class="info">Apple 로그인·게스트 계정이거나 로그인할 수 없다면 삭제 화면에 안내된 개인정보 담당자 이메일로 요청합니다. 필요한 기록은 삭제 요청 전에 먼저 내보내세요.</div>
+
+  <h3 id="system">시스템</h3>
+  <h4 id="data">데이터 절약</h4>
+  <p><span class="os os-ios">iOS</span> iPhone은 <span class="path">설정 &gt; 시스템 &gt; 전력 관리</span>에서 데이터 절약을 정하고, 선택지 이름은 <strong>오프라인 · 모두 허용 · Wi-Fi만</strong>입니다(<a href="ch00-before.html#ios-menus">0장 대응표</a>). 아래 표는 Android 기준입니다.</p>
+  <p><span class="os os-android">Android</span> 항목마다 <strong>오프라인 · 셀룰러+WiFi · WiFi만</strong> 중 하나를 고릅니다. 화면 맨 위에 현재 네트워크(예: WiFi)가 표시됩니다.</p>
+  <table>
+    <tr><th>항목</th><th>쓰는 곳</th><th>오프라인으로 두면</th></tr>
+    <tr><td>지도 타일</td><td>지도 이미지 다운로드</td><td>이미 받아 둔 지도만 보입니다.</td></tr>
+    <tr><td>날씨 정보</td><td>실시간 날씨 업데이트</td><td>날씨가 갱신되지 않습니다.</td></tr>
+    <tr><td>위치 공유</td><td>친구/그룹 실시간 위치</td><td>친구·그룹이 내 위치를 받지 못합니다.</td></tr>
+    <tr><td>Strava 업로드</td><td>라이딩 기록 업로드</td><td>Strava에 올라가지 않습니다.</td></tr>
+  </table>
+
+  <h4 id="battery">배터리 절약</h4>
+  <p><span class="os os-ios">iOS</span> iPhone은 <span class="path">설정 &gt; 시스템 &gt; 배터리 설정</span>입니다. 프리셋(표준 · 절약 · 대시보드 · 사용자 정의), GPS 모드(<strong>고정밀 · 균형 · GPS 끔</strong>), 화면 밝기가 있고, “화면 자동꺼짐” 대신 <span class="path">설정 &gt; 화면 &gt; 디스플레이 &gt; 화면 켜짐 유지</span>를 씁니다. 아래 그림과 표는 Android 기준입니다.</p>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-battery.jpg" alt="배터리 절약 화면" loading="lazy" width="682" height="1200">
+      <figcaption><strong>배터리 절약</strong> — 프리셋을 고르면 아래 항목이 함께 바뀝니다. 맨 아래 안내도 꼭 읽으세요.</figcaption>
+    </figure>
+  </div>
+  <table>
+    <tr><th>항목</th><th>선택</th><th>설명</th></tr>
+    <tr><td>프리셋</td><td>표준 · 절약 · 대시보드 · 사용자 정의</td><td>절약·대시보드를 고르면 위치 공유와 날씨 정보가 자동으로 꺼집니다. 항목을 직접 바꾸면 사용자 정의가 됩니다.</td></tr>
+    <tr><td>주행 생존 목표</td><td>2h · 4h · 6h</td><td>측정한 배터리 소모율로 이 시간만큼 버티지 못하면 절전을 자동으로 강화합니다.</td></tr>
+    <tr><td>GPS 모드</td><td>고정밀 · 절전 · OFF</td><td>OFF는 GPS를 끕니다. 지도·경로가 기록되지 않으니 실내 트레이너에서만 쓰세요.</td></tr>
+    <tr><td>화면 밝기</td><td>시스템 · 80% · 50%</td><td>라이딩 중 화면 밝기</td></tr>
+    <tr><td>화면 자동꺼짐</td><td>항상 켜짐 · 시스템 기본</td><td>거치대에 두면 항상 켜짐, 주머니에 넣으면 시스템 기본이 알맞습니다.</td></tr>
+  </table>
+
+  <h4 id="advanced">고급</h4>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-advanced.jpg" alt="고급 설정 화면" loading="lazy" width="682" height="1200">
+      <figcaption><strong>고급</strong> — 앱 표시 언어는 <strong>자동 · 한국어 · EN</strong> 중에서 고릅니다.</figcaption>
+    </figure>
+  </div>
+  <table>
+    <tr><th>항목</th><th>설명</th></tr>
+    <tr><td>언어</td><td>자동(휴대폰 언어) · 한국어 · EN</td></tr>
+    <tr><td>그룹 경량 모드</td><td>그룹 참여 중에만 켤 수 있습니다(<a href="ch07-together.html#lightweight">7장</a>).</td></tr>
+    <tr><td>시뮬레이션 모드 사용</td><td>켜고 START를 누르면 가상 데이터로 실행됩니다(테스트용). 실제 기록과 섞이지 않게 쓴 뒤 꺼 두세요.</td></tr>
+    <tr><td>O-Rider 개선에 참여</td><td>익명화된 사용 데이터를 공유합니다.</td></tr>
+    <tr><td>크래시 로그</td><td>앱 오류 기록을 보고 개발팀에 전달할 때 씁니다.</td></tr>
+  </table>
+  <div class="info">“센서 데이터 로깅 (개발자)” 같은 개발자용 항목은 앱 버전에 따라 보이지 않을 수 있습니다. 배터리를 많이 쓰니 필요할 때만 켜세요.</div>
+
+  <h3 id="stuck">자주 막히는 점</h3>
+  <div class="tip">장거리 라이딩 전에는 배터리 절약의 <strong>주행 생존 목표</strong>를 예상 시간에 맞추고, 보조 배터리를 챙기세요.</div>
+  <div class="info">이 설명서는 2026년 10월 출시 버전 기준입니다. 다음 업데이트에서 메뉴 이름이 바뀔 수 있으니, 다르면 화면의 문구를 기준으로 찾아 주세요.</div>
+</section>
+
+<nav class="bottom-nav" aria-label="장 이동">
+  <a href="ch09-connect.html">&larr; 9. 연동</a>
+  <span class="nav-title"><a href="index.html">목차</a></span>
+  <a href="ch11-faq.html">11. 문제 해결 (FAQ) &rarr;</a>
+</nav>
+</div>
+
+<footer>
+  <p>오라이더 앱 사용 설명서 (Android·iOS) · 개정 2026-10-18 · 2026년 10월 출시 버전 기준</p>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">O-Rider</a> · <a href="/web-manual/">웹 설명서</a></p>
+</footer>
+
+</body>
+</html>

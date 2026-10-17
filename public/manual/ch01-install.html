@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1. 설치와 첫 실행 - 오라이더 앱 사용 설명서</title>
+<meta name="description" content="오라이더 앱 사용 설명서 (Android·iOS) — 권한 허용, 로그인, 홈 화면 읽는 법">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">1. 설치와 첫 실행</div>
+  <div class="nav-right"><a href="ch00-before.html">&larr; 이전</a><span class="nav-sep">|</span><a href="ch02-first-record.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="top">
+  <h2>1. 설치와 첫 실행</h2>
+  <div class="can-do">
+    <strong>이 장에서 할 수 있는 것</strong>
+    <ul>
+      <li>앱을 설치하고 기록에 필요한 권한을 허용합니다.</li>
+      <li>Google 계정으로 로그인해 기록을 클라우드에 백업합니다.</li>
+      <li>홈 화면에서 오늘 할 운동과 최근 기록을 읽습니다.</li>
+    </ul>
+  </div>
+
+  <h3 id="install">따라 하기: 설치와 권한</h3>
+  <ol>
+    <li><a href="https://apps.apple.com/kr/app/o-rider/id6775696052" target="_blank" rel="noopener">App Store</a> 또는 <a href="https://play.google.com/store/apps/details?id=com.miranae.orider" target="_blank" rel="noopener">Google Play</a>에서 <strong>O-Rider</strong>를 설치합니다.</li>
+    <li>앱을 열면 권한을 차례로 묻습니다. 아래 표를 보고 허용하세요.</li>
+    <li>위치 권한은 <strong>“항상 허용”</strong>(백그라운드 위치)까지 허용해야 화면이 꺼져도 기록이 이어집니다.</li>
+  </ol>
+  <table>
+    <tr><th>권한</th><th>쓰는 곳</th><th>허용하지 않으면</th></tr>
+    <tr><td>위치 (정확한 위치)</td><td>GPS 거리·경로 기록, 지도</td><td>GPS 거리·경로를 기록할 수 없습니다. 준비 화면 GPS 줄에 “위치 권한이 필요합니다”가 나옵니다.</td></tr>
+    <tr><td>위치 — 항상 허용</td><td>화면이 꺼진 상태의 기록</td><td>화면이 꺼지면 기록이 멈출 수 있습니다.</td></tr>
+    <tr><td>블루투스 (근처 기기)</td><td>심박·속도·파워 센서, 변속기, 레이더, 액션캠</td><td>센서를 연결할 수 없습니다. GPS 기록은 됩니다.</td></tr>
+    <tr><td>알림</td><td>기록 중 상태 알림, 친구·그룹 알림</td><td>기록 중 알림과 소셜 알림이 보이지 않습니다.</td></tr>
+    <tr><td><span class="os os-android">Android</span> 신체 활동</td><td>러닝 걸음 케이던스(spm)</td><td>러닝 케이던스가 비어 있습니다.</td></tr>
+  </table>
+  <div class="info"><span class="os os-ios">iOS</span> iPhone도 위치·블루투스·알림 권한을 묻습니다. Apple 건강(헬스 연동)은 연결할 때 따로 동의를 받습니다(<a href="ch09-connect.html#health">9장</a>).</div>
+
+  <h3 id="login">따라 하기: 로그인</h3>
+  <ol>
+    <li><span class="path">더보기 &gt; 설정</span>을 엽니다.</li>
+    <li>맨 위 계정 카드에서 <strong>Google로 로그인</strong>을 누르고 계정을 고릅니다.</li>
+    <li>로그인되면 카드에 <strong>“Google 계정 연결됨”</strong>이 표시됩니다.</li>
+  </ol>
+  <div class="info"><span class="os os-ios">iOS</span> iPhone에서는 <strong>Apple로 로그인</strong>도 고를 수 있습니다. 다만 웹(orider.co.kr)은 Google 계정 로그인만 지원하므로, 웹에서도 기록을 보려면 Google로 로그인하세요. 로그인하지 않고(게스트로) 쓴 기록은 웹에서 볼 수 없습니다.</div>
+  <p>로그인 후에는 <span class="path">설정 &gt; 계정</span>에서 이름·이메일, 친구 코드, 위치 공유, 활동 기본 공개범위, Strava 연결을 관리합니다(<a href="ch10-settings.html#account">10장</a>).</p>
+
+  <h3 id="home">화면 읽는 법: 홈</h3>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-home.png" alt="오라이더 앱 홈 화면" loading="lazy" width="682" height="1326">
+      <figcaption><strong>홈</strong> — 오른쪽 위 <strong>종목 토글</strong>(자전거 / 러닝)에서 지금 고른 종목이 밝게 표시됩니다.</figcaption>
+    </figure>
+  </div>
+  <table>
+    <tr><th>위치</th><th>보이는 것</th><th>누르면</th></tr>
+    <tr><td>맨 위 오른쪽</td><td>종목 토글, 알림(종 아이콘), 프로필 사진</td><td>종목 전환 / 알림 목록 / 계정</td></tr>
+    <tr><td>인사말 아래</td><td>현재 위치의 기온·바람</td><td>—</td></tr>
+    <tr><td><strong>오늘</strong> 카드</td><td>계획에 잡힌 오늘 운동(없으면 “오늘은 휴식”), 다음 운동 날짜, 기록 시작 버튼, <strong>계획 보기 ›</strong></td><td>기록 준비 화면 / 계획 탭</td></tr>
+    <tr><td><strong>최근 7일</strong></td><td>거리 · 활동 횟수 · 시간 합계</td><td>—</td></tr>
+    <tr><td><strong>최근 활동</strong></td><td>지도와 함께 최근 기록 목록, 필터 칩(예: “본인 · 7일”)</td><td><strong>전체 보기</strong> → 주행 기록 목록 / 항목 → 활동 상세</td></tr>
+  </table>
+  <div class="tip">오늘 카드의 버튼은 종목에 따라 “러닝 기록 시작”처럼 바뀝니다. 버튼을 눌러도 바로 기록되지 않고 <strong>준비 화면</strong>이 먼저 열립니다(<a href="ch02-first-record.html#ready">2장</a>).</div>
+
+  <h3 id="stuck">자주 막히는 점</h3>
+  <div class="warn">위치 권한을 “앱 사용 중에만”으로 두면 주머니에 넣고 달리거나 화면이 꺼졌을 때 기록이 끊길 수 있습니다. 휴대폰 설정 &gt; 애플리케이션 &gt; O-Rider &gt; 권한 &gt; 위치에서 <strong>항상 허용</strong>으로 바꿔 주세요.</div>
+  <div class="info">홈의 최근 활동이 비어 있으면 아직 저장된 기록이 없거나, 필터 칩이 좁은 기간·대상으로 설정된 경우입니다.</div>
+</section>
+
+<nav class="bottom-nav" aria-label="장 이동">
+  <a href="ch00-before.html">&larr; 0. 시작하기 전에</a>
+  <span class="nav-title"><a href="index.html">목차</a></span>
+  <a href="ch02-first-record.html">2. 첫 기록 남기기 &rarr;</a>
+</nav>
+</div>
+
+<footer>
+  <p>오라이더 앱 사용 설명서 (Android·iOS) · 개정 2026-10-18 · 2026년 10월 출시 버전 기준</p>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">O-Rider</a> · <a href="/web-manual/">웹 설명서</a></p>
+</footer>
+
+</body>
+</html>

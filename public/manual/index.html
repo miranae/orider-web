@@ -4,198 +4,114 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>오라이더 사용 매뉴얼 (Android)</title>
+<title>오라이더 앱 사용 설명서 (Android·iOS)</title>
+<meta name="description" content="오라이더(O-Rider) 모바일 앱 사용 설명서 — 설치, 라이딩·러닝 기록, 센서, 코스와 내비, 함께 타기, 훈련, 연동, 설정, 문제 해결. Android·iOS 공용.">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header>
-  <h1>오라이더 사용 매뉴얼</h1>
-  <p class="subtitle">사이클링 컴퓨터 앱 · Android</p>
-  <span class="version">v1.1 · 2026-04-08</span>
+  <h1>오라이더 앱 사용 설명서</h1>
+  <p class="subtitle">자전거 · 러닝 기록 앱 · Android · iOS 공용</p>
+  <span class="version">개정 2026-10-18 · 2026년 10월 출시 버전 기준</span>
 </header>
 
 <div class="container">
 
+  <nav class="manual-store-links" aria-label="오라이더 앱 설치">
+    <a href="https://apps.apple.com/kr/app/o-rider/id6775696052" target="_blank" rel="noopener">App Store</a>
+    <a href="https://play.google.com/store/apps/details?id=com.miranae.orider" target="_blank" rel="noopener">Google Play</a>
+  </nav>
+
 <div class="quick-start" id="quick-start">
-  <h2>처음 사용자를 위한 빠른 시작</h2>
-  <p>오라이더를 처음 설치하셨나요? 아래 5단계만 따라하면 바로 라이딩을 시작할 수 있습니다.</p>
+  <h2>처음이라면: 빠른 시작 5단계</h2>
+  <p>아래 다섯 단계만 따라 하면 첫 라이딩이나 러닝을 기록할 수 있습니다. 센서와 화면 꾸미기는 나중에 해도 됩니다.</p>
 
   <div class="step">
     <div class="step-num">1</div>
     <div class="step-content">
-      <strong>앱 설치 후 권한 허용</strong><br>
-      첫 실행 시 <strong>위치</strong>와 <strong>블루투스</strong> 권한을 허용하세요. 백그라운드 위치도 허용하면 화면이 꺼져도 기록이 이어집니다.
+      <strong>설치하고 권한 허용</strong><br>
+      위치는 <strong>항상 허용</strong>까지, 블루투스·알림도 허용하세요. 화면이 꺼져도 기록이 이어집니다. <a href="ch01-install.html#install">1장</a>
     </div>
   </div>
 
   <div class="step">
     <div class="step-num">2</div>
     <div class="step-content">
-      <strong>센서 연결 (선택사항)</strong><br>
-      속도/케이던스/심박 센서가 있다면 <strong>설정 → 센서</strong>에서 페어링합니다. 센서가 없어도 GPS만으로 속도와 거리를 측정할 수 있습니다.
+      <strong>Google로 로그인</strong><br>
+      <span class="path">더보기 &gt; 설정</span> 맨 위 계정 카드에서 로그인합니다. 로그인해야 기록이 클라우드에 백업됩니다. iPhone에서는 <strong>Apple로 로그인</strong>도 고를 수 있습니다. 다만 웹(orider.co.kr)은 Google 계정 로그인만 지원하므로, 웹에서도 기록을 보려면 Google로 로그인하세요. <a href="ch01-install.html#login">1장</a>
     </div>
   </div>
 
   <div class="step">
     <div class="step-num">3</div>
     <div class="step-content">
-      <strong>데이터 화면 꾸미기 (선택사항)</strong><br>
-      <strong>설정 → 데이터 필드</strong>에서 화면에 표시할 데이터를 선택합니다. 기본 구성 그대로 사용해도 좋습니다.
+      <strong>종목 고르기</strong><br>
+      홈 오른쪽 위 토글에서 <strong>자전거</strong> 또는 <strong>러닝</strong>을 고릅니다. 기록 중에는 바꿀 수 없습니다. <a href="ch00-before.html#sport">0장</a>
     </div>
   </div>
 
   <div class="step">
     <div class="step-num">4</div>
     <div class="step-content">
-      <strong>주행 시작</strong><br>
-      메인 화면 하단의 <strong>시작 버튼</strong>을 탭하면 기록이 시작됩니다. 좌우 스와이프로 데이터/지도 화면을 전환하세요.
+      <strong>준비 화면에서 시작</strong><br>
+      하단 가운데 <strong>라이딩</strong>(러닝) 탭 → GPS·센서 확인 → <strong>라이딩 시작 / 러닝 시작</strong>. <a href="ch02-first-record.html#ready">2장</a>
     </div>
   </div>
 
   <div class="step">
     <div class="step-num">5</div>
     <div class="step-content">
-      <strong>주행 종료 후 확인</strong><br>
-      일시정지 버튼을 탭하면 재개/정지 버튼이 나타납니다. 정지 버튼을 탭하면 주행이 종료되고, 거리·시간·속도 등 요약이 표시됩니다. Strava 연동 시 자동 업로드됩니다.
+      <strong>일시정지 후 종료</strong><br>
+      <strong>일시정지</strong>를 누른 뒤 <strong>종료</strong> → 확인하면 저장됩니다. 기록은 홈의 <strong>최근 활동</strong>에 나옵니다. <a href="ch02-first-record.html#controls">2장</a>
     </div>
   </div>
-
-  <div class="tip">더 자세한 내용은 아래 각 섹션에서 확인하세요. 센서 연결은 <a href="ch04-sensors.html" style="color:var(--primary)">4. 센서 연결</a>, 화면 꾸미기는 <a href="ch03-fields.html#s3-2" style="color:var(--primary)">3.2 레이아웃 에디터</a>를 참고하세요.</div>
 </div>
+
+<div class="info"><strong>이 설명서 읽는 법</strong> — 장마다 “이 장에서 할 수 있는 것” → 따라 하기 → 화면 읽는 법 → 자주 막히는 점 순서입니다. 한쪽 앱에만 해당하는 내용은 <span class="os os-android">Android</span> <span class="os os-ios">iOS</span> 배지로 표시합니다. 메뉴 경로는 <span class="path">설정 &gt; 화면</span>처럼 적고, 여기서 <strong>“설정”은 하단 더보기 탭의 더보기 &gt; 설정</strong>입니다.</div>
+
+<h2 style="font-size:1.4rem; color:var(--primary); margin: 30px 0 20px;" id="tasks">하고 싶은 일로 찾기</h2>
+<table>
+  <tr><th>하고 싶은 일 · 겪는 문제</th><th>바로 가기</th></tr>
+  <tr><td>기록을 Strava에 자동으로 올리고 싶어요</td><td><a href="ch09-connect.html#strava">9장 Strava</a></td></tr>
+  <tr><td>화면이 꺼지면 기록이 멈춰요</td><td><a href="ch11-faq.html#gps">11장 GPS · 기록</a></td></tr>
+  <tr><td>웹이나 피트니스 탭에 기록이 안 보여요</td><td><a href="ch11-faq.html#upload">11장 업로드 · 연동</a></td></tr>
+  <tr><td>센서를 연결하고 싶어요</td><td><a href="ch03-sensors.html#pair">3장 센서 연결</a></td></tr>
+  <tr><td>기록 화면에 보이는 숫자를 바꾸고 싶어요</td><td><a href="ch04-screen.html#fields">4장 데이터 필드</a></td></tr>
+  <tr><td>코스를 따라 턴 안내를 받고 싶어요</td><td><a href="ch06-courses.html#nav">6장 턴바이턴</a></td></tr>
+  <tr><td>친구를 맺고 싶어요</td><td><a href="ch07-together.html#friends">7장 친구 맺기</a></td></tr>
+  <tr><td>내 위치가 누구에게 보이는지 알고 싶어요</td><td><a href="ch07-together.html#location">7장 위치 공유</a></td></tr>
+  <tr><td>활동의 공개 범위를 바꾸고 싶어요</td><td><a href="ch07-together.html#visibility">7장 공개 범위</a> · <a href="ch10-settings.html#account">10장 계정</a></td></tr>
+  <tr><td>FTP·최대 심박을 바꾸고 싶어요</td><td><a href="ch08-training.html#ftp">8장 훈련 기준값</a></td></tr>
+  <tr><td>배터리를 오래 쓰고 싶어요</td><td><a href="ch10-settings.html#battery">10장 배터리 절약</a></td></tr>
+  <tr><td>계정을 지우거나 데이터를 내려받고 싶어요</td><td><a href="ch10-settings.html#delete">10장 계정 삭제</a> · <a href="/web-manual/ch10-settings.html#s10-8">웹 설명서 10.8</a></td></tr>
+</table>
 
 <h2 style="font-size:1.4rem; color:var(--primary); margin: 30px 0 20px;">목차</h2>
 
 <div class="toc-cards">
-  <a href="ch01-start.html" class="toc-card">
-    <div class="ch-num">1</div>
-    <div class="ch-info">
-      <div class="ch-title">시작하기</div>
-      <div class="ch-desc">앱 설치, 권한 설정, 계정 및 로그인</div>
-    </div>
-  </a>
-  <a href="ch02-ride.html" class="toc-card">
-    <div class="ch-num">2</div>
-    <div class="ch-info">
-      <div class="ch-title">주행 화면</div>
-      <div class="ch-desc">데이터/지도/ClimbPro 화면, 주행 제어, 자동 일시정지/랩</div>
-    </div>
-  </a>
-  <a href="ch03-fields.html" class="toc-card">
-    <div class="ch-num">3</div>
-    <div class="ch-info">
-      <div class="ch-title">데이터 필드</div>
-      <div class="ch-desc">80개 이상의 데이터 필드 목록, 레이아웃 에디터</div>
-    </div>
-  </a>
-  <a href="ch04-sensors.html" class="toc-card">
-    <div class="ch-num">4</div>
-    <div class="ch-info">
-      <div class="ch-title">센서 연결</div>
-      <div class="ch-desc">BLE 센서 종류, 페어링, 휠 둘레 설정</div>
-    </div>
-  </a>
-  <a href="ch05-map.html" class="toc-card">
-    <div class="ch-num">5</div>
-    <div class="ch-info">
-      <div class="ch-title">지도</div>
-      <div class="ch-desc">지도 유형, 오프라인 지도, 헤딩 잠금</div>
-    </div>
-  </a>
-  <a href="ch06-routes.html" class="toc-card">
-    <div class="ch-num">6</div>
-    <div class="ch-info">
-      <div class="ch-title">경로 (루트)</div>
-      <div class="ch-desc">GPX 가져오기, 경로 상세, 경로 공유</div>
-    </div>
-  </a>
-  <a href="ch07-climb.html" class="toc-card">
-    <div class="ch-num">7</div>
-    <div class="ch-info">
-      <div class="ch-title">ClimbPro · PreClimb</div>
-      <div class="ch-desc">오르막 감지, 카테고리, 자동 오르막 감지</div>
-    </div>
-  </a>
-  <a href="ch08-social.html" class="toc-card">
-    <div class="ch-num">8</div>
-    <div class="ch-info">
-      <div class="ch-title">소셜 기능</div>
-      <div class="ch-desc">친구 관리, 그룹 라이딩, 위치 공유</div>
-    </div>
-  </a>
-  <a href="ch09-strava.html" class="toc-card">
-    <div class="ch-num">9</div>
-    <div class="ch-info">
-      <div class="ch-title">Strava 연동</div>
-      <div class="ch-desc">연결, 자동 업로드, 활동 가져오기</div>
-    </div>
-  </a>
-  <a href="ch10-history.html" class="toc-card">
-    <div class="ch-num">10</div>
-    <div class="ch-info">
-      <div class="ch-title">라이딩 기록</div>
-      <div class="ch-desc">기록 목록, 세션 상세, GPX 내보내기</div>
-    </div>
-  </a>
-  <a href="ch11-weather.html" class="toc-card">
-    <div class="ch-num">11</div>
-    <div class="ch-info">
-      <div class="ch-title">날씨 정보</div>
-      <div class="ch-desc">기온, 풍속, 풍향, 강수량, 습도</div>
-    </div>
-  </a>
-  <a href="ch12-actioncam.html" class="toc-card">
-    <div class="ch-num">12</div>
-    <div class="ch-info">
-      <div class="ch-title">액션캠 제어</div>
-      <div class="ch-desc">GoPro/DJI 연결, 녹화 제어, 사진 촬영</div>
-    </div>
-  </a>
-  <a href="ch13-lightweight.html" class="toc-card">
-    <div class="ch-num">13</div>
-    <div class="ch-info">
-      <div class="ch-title">경량 모드</div>
-      <div class="ch-desc">그룹 전용 배터리 절약, GPS 간격 조절, 그룹 메시징</div>
-    </div>
-  </a>
-  <a href="ch14-alerts.html" class="toc-card">
-    <div class="ch-num">14</div>
-    <div class="ch-info">
-      <div class="ch-title">알림 및 경고</div>
-      <div class="ch-desc">수치 알림, 소리 알림, 소셜 알림</div>
-    </div>
-  </a>
-  <a href="ch15-settings.html" class="toc-card">
-    <div class="ch-num">15</div>
-    <div class="ch-info">
-      <div class="ch-title">설정</div>
-      <div class="ch-desc">주행, 사운드, 배터리/데이터 절약, 계정, 고급</div>
-    </div>
-  </a>
-  <a href="ch16-deeplink.html" class="toc-card">
-    <div class="ch-num">16</div>
-    <div class="ch-info">
-      <div class="ch-title">딥링크</div>
-      <div class="ch-desc">경로 공유, 친구 초대, 그룹 초대 링크</div>
-    </div>
-  </a>
-  <a href="ch17-faq.html" class="toc-card">
-    <div class="ch-num">17</div>
-    <div class="ch-info">
-      <div class="ch-title">문제 해결 (FAQ)</div>
-      <div class="ch-desc">센서, GPS, Strava, ClimbPro 등 자주 묻는 질문</div>
-    </div>
-  </a>
+  <a href="ch00-before.html" class="toc-card"><div class="ch-num">0</div><div class="ch-info"><div class="ch-title">시작하기 전에</div><div class="ch-desc">앱이 하는 일, 로그인 차이, 종목, 하단 탭 5개</div></div></a>
+  <a href="ch01-install.html" class="toc-card"><div class="ch-num">1</div><div class="ch-info"><div class="ch-title">설치와 첫 실행</div><div class="ch-desc">권한 허용, 로그인, 홈 화면 읽는 법</div></div></a>
+  <a href="ch02-first-record.html" class="toc-card"><div class="ch-num">2</div><div class="ch-info"><div class="ch-title">첫 기록 남기기</div><div class="ch-desc">준비 화면, 기록 중 페이지, 일시정지·랩·종료, 자동 일시정지</div></div></a>
+  <a href="ch03-sensors.html" class="toc-card"><div class="ch-num">3</div><div class="ch-info"><div class="ch-title">센서 연결</div><div class="ch-desc">심박·속도·케이던스·파워·변속기, 휠 둘레, 자전거 프로필</div></div></a>
+  <a href="ch04-screen.html" class="toc-card"><div class="ch-num">4</div><div class="ch-info"><div class="ch-title">화면과 소리 꾸미기</div><div class="ch-desc">데이터 필드·프리셋, 지도, 알림음, 수치 알림, 테마</div></div></a>
+  <a href="ch05-records.html" class="toc-card"><div class="ch-num">5</div><div class="ch-info"><div class="ch-title">기록 보기</div><div class="ch-desc">주행 기록, 활동 상세(개요·분석·구간), 내보내기, 상태(PMC)</div></div></a>
+  <a href="ch06-courses.html" class="toc-card"><div class="ch-num">6</div><div class="ch-info"><div class="ch-title">코스와 내비게이션</div><div class="ch-desc">경로 보관함, 코스 탐색, 네비 시작·턴 안내, 오르막(ClimbPro)</div></div></a>
+  <a href="ch07-together.html" class="toc-card"><div class="ch-num">7</div><div class="ch-info"><div class="ch-title">함께 타기</div><div class="ch-desc">친구·그룹, 위치·심박 공유, 경량 모드·SOS, 그룹 이벤트</div></div></a>
+  <a href="ch08-training.html" class="toc-card"><div class="ch-num">8</div><div class="ch-info"><div class="ch-title">훈련과 코치</div><div class="ch-desc">피트니스·계획 탭, 러닝 코칭, 라이드 워크아웃, AI 코치</div></div></a>
+  <a href="ch09-connect.html" class="toc-card"><div class="ch-num">9</div><div class="ch-info"><div class="ch-title">연동</div><div class="ch-desc">Strava, 삼성 헬스·Apple 건강, 웹 대시보드, 액션캠, 날씨</div></div></a>
+  <a href="ch10-settings.html" class="toc-card"><div class="ch-num">10</div><div class="ch-info"><div class="ch-title">설정 한눈에</div><div class="ch-desc">설정 메뉴 지도, 계정, 데이터·배터리 절약, 고급</div></div></a>
+  <a href="ch11-faq.html" class="toc-card"><div class="ch-num">11</div><div class="ch-info"><div class="ch-title">문제 해결 (FAQ)</div><div class="ch-desc">GPS·센서·저장·Strava·내비 문제를 증상별로</div></div></a>
+  <a href="appendix.html" class="toc-card"><div class="ch-num">+</div><div class="ch-info"><div class="ch-title">부록: 딥링크와 용어</div><div class="ch-desc">공유 링크 형식, FTP·TSS·CTL 등 용어 풀이</div></div></a>
 </div>
+
+<div class="tip">큰 화면에서 기록을 분석하고 목표·계획을 세우는 방법은 <a href="/web-manual/">웹 설명서</a>에 있습니다.</div>
 
 </div>
 
 <footer>
-  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">오라이더</a></p>
-  <nav class="manual-store-links" aria-label="오라이더 앱 설치">
-    <a href="https://apps.apple.com/kr/app/o-rider/id6775696052" target="_blank" rel="noopener">App Store</a>
-    <a href="https://play.google.com/store/apps/details?id=com.miranae.orider" target="_blank" rel="noopener">Google Play</a>
-  </nav>
+  <p>오라이더 앱 사용 설명서 (Android·iOS) · 개정 2026-10-18</p>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">O-Rider</a> · <a href="/web-manual/">웹 설명서</a></p>
 </footer>
 
 </body>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2. 첫 기록 남기기 - 오라이더 앱 사용 설명서</title>
+<meta name="description" content="오라이더 앱 사용 설명서 (Android·iOS) — 라이딩·러닝 시작, 일시정지, 랩, 종료와 저장">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">2. 첫 기록 남기기</div>
+  <div class="nav-right"><a href="ch01-install.html">&larr; 이전</a><span class="nav-sep">|</span><a href="ch03-sensors.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="top">
+  <h2>2. 첫 기록 남기기</h2>
+  <div class="can-do">
+    <strong>이 장에서 할 수 있는 것</strong>
+    <ul>
+      <li>준비 화면에서 GPS·센서·경로 상태를 확인하고 기록을 시작합니다.</li>
+      <li>기록 중 일시정지·재개·랩을 쓰고, 끝나면 종료해 저장합니다.</li>
+      <li>자동 일시정지와 자동 시작이 언제 동작하는지 압니다.</li>
+    </ul>
+  </div>
+
+  <h3 id="ready">따라 하기: 기록 시작</h3>
+  <ol>
+    <li>홈 오른쪽 위 종목 토글에서 <strong>자전거</strong> 또는 <strong>러닝</strong>을 고릅니다.</li>
+    <li>하단 가운데 <strong>라이딩</strong>(러닝이면 <strong>러닝</strong>) 탭을 누릅니다. <strong>라이딩 준비 / 러닝 준비</strong> 화면이 열립니다.</li>
+    <li>준비 화면에서 GPS, 센서, 경로 줄을 확인합니다(아래 표). 러닝 준비 화면도 배치는 같고 센서 줄이 “심박 센서 (선택)”입니다.</li>
+    <li>맨 아래 <strong>라이딩 시작</strong> 또는 <strong>러닝 시작</strong>을 누르면 기록이 시작됩니다.</li>
+  </ol>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-ride-ready-bike.jpg" alt="라이딩 준비 화면" loading="lazy" width="682" height="1321">
+      <figcaption><strong>라이딩 준비</strong> — 맨 위 “자전거 기록” 카드가 이번 기록의 종목입니다. GPS는 “기록을 시작하면 확인됩니다”로 표시되고 시작 후 정확도를 잡습니다.</figcaption>
+    </figure>
+  </div>
+  <table>
+    <tr><th>준비 화면 줄</th><th>표시 예</th><th>뜻과 할 일</th></tr>
+    <tr><td>GPS</td><td>대기 / 준비됨 / 정확도 낮음 / 권한 없음</td><td>“권한 없음”이면 위치 권한을 허용하세요. “정확도 낮음”이면 하늘이 트인 곳에서 잠시 기다립니다.</td></tr>
+    <tr><td>센서</td><td>자전거: 속도 센서, 파워 · 심박 · 케이던스 / 러닝: 심박 센서 (선택)</td><td>“연결된 기기 없음”이어도 기록은 됩니다. 연결은 <a href="ch03-sensors.html">3장</a>.</td></tr>
+    <tr><td>경로</td><td>선택하지 않음 / 경로 이름</td><td>코스를 따라가려면 먼저 경로를 불러옵니다(<a href="ch06-courses.html">6장</a>). 줄이 가려 있으면 화면을 아래로 내리세요.</td></tr>
+  </table>
+  <div class="warn">로그인하지 않았으면 “로그인 안 됨 — 이 라이드는 클라우드에 백업되지 않습니다”, 등록한 센서가 아직 안 붙었으면 “등록 센서 N개가 아직 연결되지 않았습니다” 경고가 나옵니다. 경고가 있어도 시작은 할 수 있지만, 이유를 확인한 뒤 시작하세요.</div>
+
+  <h3 id="pages">화면 읽는 법: 기록 중 화면</h3>
+  <p>기록이 시작되면 위쪽 탭 <strong>데이터 · 지도 · 경로</strong>로 페이지를 바꿉니다. 맨 아래에는 늘 <strong>종료</strong>와 <strong>일시정지</strong> 버튼이 있습니다.</p>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/01_ride_data.png" alt="기록 중 데이터 페이지" loading="lazy" width="682" height="1336">
+      <figcaption><strong>데이터 페이지</strong> (예시 화면 — 시뮬레이션이라 숫자는 의미 없음) — 가장 큰 숫자가 현재 속도입니다. 아래 칸은 데이터 필드 배치(<a href="ch04-screen.html#fields">4장</a>)대로 나오고, 오른쪽 위 자전거 이름(예: 루베)이 지금 쓰는 자전거 프로필입니다.</figcaption>
+    </figure>
+  </div>
+  <table>
+    <tr><th>페이지</th><th>보이는 것</th><th>나타나는 조건</th></tr>
+    <tr><td><strong>데이터</strong></td><td>속도·페이스, 거리, 시간, 심박 등 내가 배치한 데이터 필드. 숫자 아래 점은 데이터 페이지가 여러 장이라는 표시입니다.</td><td>항상</td></tr>
+    <tr><td><strong>지도</strong></td><td>현재 위치, 지나온 길, 불러온 경로, 턴 안내 카드, 기온·바람</td><td>항상 (<a href="ch06-courses.html#nav">6장</a>)</td></tr>
+    <tr><td><strong>경로</strong></td><td>경로 이름, 턴 안내 상태, 경로 진행률(지나온·남은·전체 거리), 획고 진행률, 전체 고도 그래프와 현재 위치</td><td>경로를 불러왔을 때</td></tr>
+    <tr><td><strong>오르막</strong></td><td>남은 거리·남은 고도·경사도 (ClimbPro)</td><td>오르막 정보가 있을 때 (<a href="ch06-courses.html#climbpro">6장</a>)</td></tr>
+    <tr><td><strong>코칭</strong></td><td>러닝 코칭 안내</td><td>러닝 기록 중 (<a href="ch08-training.html#running-coach">8장</a>)</td></tr>
+  </table>
+  <p>오르막 페이지에서는 위쪽에 오르막 등급(예: “중상급”)과 오르막 번호, 가운데에 경사 막대그래프, 그 아래에 <strong>남은 거리 · 남은 고도 · 경사도</strong>가 나옵니다.</p>
+
+  <h3 id="controls">따라 하기: 일시정지 · 재개 · 종료</h3>
+  <ol>
+    <li>잠시 멈추려면 아래 <strong>일시정지</strong>를 누릅니다. 버튼이 <strong>종료 · 재개</strong>로 바뀝니다.</li>
+    <li>다시 출발하려면 <strong>재개</strong>를 누릅니다. 수동 일시정지 중에 움직이면 “이동 중입니다 · 계속하기를 눌러 주세요” 안내와 함께 <strong>계속하기</strong> 버튼이 나옵니다.</li>
+    <li>끝내려면 <strong>종료</strong>를 누르고, “주행 종료 — 주행을 종료하시겠습니까?”에서 <strong>종료</strong>를 누릅니다. 계속 타려면 <strong>취소</strong>.</li>
+    <li>Strava가 연결되어 있고 자동 업로드가 꺼져 있으면 “이 라이드를 Strava에 업로드하시겠습니까?”가 나옵니다. <strong>업로드</strong> / <strong>건너뛰기</strong> 중에서 고르고, 다음부터 자동으로 올리려면 <strong>설정</strong>을 누릅니다(<a href="ch09-connect.html#strava">9장</a>).</li>
+    <li>“라이딩 완료 — 요약을 확인하시겠습니까?”에서 <strong>확인</strong>을 누르면 방금 기록의 활동 상세가 열립니다. <strong>닫기</strong>를 눌러도 기록은 저장되어 있습니다.</li>
+  </ol>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-ride-paused.jpg" alt="일시정지 상태의 경로 페이지" loading="lazy" width="682" height="1336">
+      <figcaption><strong>일시정지 상태 (경로 페이지)</strong> (시뮬레이션 화면) — 아래 버튼이 <strong>종료 · 재개</strong>로 바뀝니다. 위쪽 “턴 안내 사용 중”은 네비 시작으로 턴 안내를 켠 상태라는 뜻입니다.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="screenshots/app-ride-end-dialogs.jpg" alt="종료 확인, Strava 업로드 질문, 라이딩 완료 창" loading="lazy" width="682" height="1137">
+      <figcaption><strong>종료 뒤 차례로 뜨는 창</strong> — 주행 종료 확인 → Strava 업로드 질문(자동 업로드가 꺼져 있을 때) → 요약 보기.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="screenshots/app-ride-summary.jpg" alt="방금 끝낸 기록의 활동 상세" loading="lazy" width="682" height="621">
+      <figcaption><strong>요약 = 활동 상세</strong> (예시 화면 — 시뮬레이션이라 숫자는 의미 없음) — 막 끝낸 기록에는 <strong>임시 계산값</strong> 표시가 붙을 수 있습니다. 서버 계산이 아직 끝나지 않아 휴대폰이 계산한 값을 먼저 보여 준다는 뜻이고, 서버 계산이 끝나면 서버 값으로 바뀝니다.</figcaption>
+    </figure>
+  </div>
+  <div class="info">구간을 나누려면 <span class="path">설정 &gt; 주행 설정 &gt; 자동 랩</span>에서 거리·시간·출발선 기준을 고릅니다. 데이터 필드의 <strong>랩 · 랩 거리 · 랩 시간</strong>으로 구간 기록을 봅니다.</div>
+  <div class="tip">저장한 기록은 홈의 <strong>최근 활동</strong>과 <span class="path">설정 &gt; 기록/경로/상태 &gt; 주행 기록</span>에서 볼 수 있습니다(<a href="ch05-records.html">5장</a>).</div>
+
+  <h3 id="auto">자동 일시정지 · 자동 시작 · 자동 랩</h3>
+  <p>설정 위치: <span class="path">설정 &gt; 주행 설정</span></p>
+  <table>
+    <tr><th>항목</th><th>하는 일</th></tr>
+    <tr><td>자동 일시정지 — 속도 임계값 · 대기 시간</td><td>속도가 임계값 아래로 대기 시간만큼 떨어지면 멈추고, 움직이면 다시 기록합니다. 화면에 “자동 일시정지 · 움직이면 자동으로 재개됩니다”가 나옵니다.</td></tr>
+    <tr><td>자동 시작</td><td>휠 속도 센서가 연결되어 있을 때만 동작합니다.</td></tr>
+    <tr><td>자동 랩</td><td>끄기 / 주행 거리 / 주행 시간 / 출발선. “출발선”은 출발 위치를 벗어났다가 다시 지나면 랩을 완료합니다.</td></tr>
+    <tr><td>다음 라이드 리마인더</td><td>저장 가능한 라이드를 마치면 3일 뒤 오전 9시에 알려 줍니다.</td></tr>
+    <tr><td>러닝 거리 음성 안내</td><td>러닝 중 1km마다 안내합니다. 내비 음성 설정과 별개입니다.</td></tr>
+  </table>
+
+
+  <h3 id="lockscreen">잠금 화면에서 보기</h3>
+  <ul>
+    <li><span class="os os-android">Android</span> 기록 중에는 알림창에 기록 상태 알림이 떠 있습니다. 이 알림이 있어야 화면이 꺼져도 기록이 이어집니다.</li>
+    <li><span class="os os-ios">iOS</span> 잠금 화면의 <strong>라이브 액티비티</strong>에 속도·거리·시간과 “라이딩 중 / 일시정지” 상태가 표시됩니다.</li>
+  </ul>
+
+  <h3 id="stuck">자주 막히는 점</h3>
+  <div class="warn">“라이드 저장 실패 — 종료 버튼을 눌러 다시 시도하세요”가 나오면 앱을 끄지 말고 <strong>종료</strong>를 다시 누르세요. 앱을 강제로 닫으면 마지막 구간이 빠질 수 있습니다.</div>
+  <div class="info">러닝 페이스가 <strong>--:--</strong>이면 멈춰 있거나 아직 속도를 계산할 수 없는 상태입니다. 출발 직후나 고층 건물 사이에서는 몇 초 기다리면 숫자가 나옵니다.</div>
+  <div class="info">그룹 이벤트 중에는 “그룹 주행은 라이딩 준비 화면에서 시작해 주세요”처럼 준비 화면에서만 시작하도록 안내할 수 있습니다(<a href="ch07-together.html#events">7장</a>).</div>
+</section>
+
+<nav class="bottom-nav" aria-label="장 이동">
+  <a href="ch01-install.html">&larr; 1. 설치와 첫 실행</a>
+  <span class="nav-title"><a href="index.html">목차</a></span>
+  <a href="ch03-sensors.html">3. 센서 연결 &rarr;</a>
+</nav>
+</div>
+
+<footer>
+  <p>오라이더 앱 사용 설명서 (Android·iOS) · 개정 2026-10-18 · 2026년 10월 출시 버전 기준</p>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">O-Rider</a> · <a href="/web-manual/">웹 설명서</a></p>
+</footer>
+
+</body>
+</html>

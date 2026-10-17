@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>6. 코스와 내비게이션 - 오라이더 앱 사용 설명서</title>
+<meta name="description" content="오라이더 앱 사용 설명서 (Android·iOS) — 경로 보관함, 코스 탐색, 턴 안내, 오르막(ClimbPro)">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">6. 코스와 내비게이션</div>
+  <div class="nav-right"><a href="ch05-records.html">&larr; 이전</a><span class="nav-sep">|</span><a href="ch07-together.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="top">
+  <h2>6. 코스와 내비게이션</h2>
+  <div class="can-do">
+    <strong>이 장에서 할 수 있는 것</strong>
+    <ul>
+      <li>GPX 파일을 가져오거나 코스 탐색에서 남이 만든 코스를 찾아 저장합니다.</li>
+      <li>코스를 불러와 지도에 띄우고, <strong>네비 시작</strong>으로 턴 안내를 받습니다.</li>
+      <li>오르막에서 남은 거리·고도를 보여 주는 ClimbPro를 씁니다.</li>
+    </ul>
+  </div>
+
+  <h3 id="library">경로 보관함</h3>
+  <p><span class="path">더보기 &gt; 경로 보관함</span>을 열면 <strong>경로 관리</strong> 화면이 나옵니다. 위쪽 탭은 <strong>내 경로</strong>와 <strong>코스 탐색</strong> 두 개입니다. <span class="path">설정 &gt; 기록/경로/상태 &gt; 경로 관리</span>로도 같은 화면이 열립니다.</p>
+
+
+  <h4 id="import">따라 하기: GPX 가져오기</h4>
+  <ol>
+    <li>Strava·Komoot·RideWithGPS 같은 서비스에서 코스를 <strong>.gpx</strong> 파일로 받아 둡니다.</li>
+    <li><span class="path">경로 관리 &gt; 내 경로</span>에서 오른쪽 아래 <strong>GPX 가져오기</strong> 버튼을 누릅니다.</li>
+    <li>파일 선택 창에서 .gpx 파일을 고릅니다. 앱이 “업힐 구간 분석 중…”을 표시한 뒤 목록에 추가합니다.</li>
+    <li>목록에는 경로 이름, 만든 날짜, 경로 거리, 고도 상승, 오르막 수가 보입니다.</li>
+  </ol>
+
+  <h4 id="discover">따라 하기: 코스 탐색</h4>
+  <ol>
+    <li><span class="path">경로 관리 &gt; 코스 탐색</span>을 누릅니다.</li>
+    <li><strong>코스 검색</strong>에 지역·이름을 넣거나, <strong>인기순 / 최신순</strong>, <strong>내 주변</strong>, 노면(<strong>전체 · 포장 · 그래블</strong>), 난이도(<strong>모든 난이도 · 난이도 1~3</strong>)로 좁힙니다.</li>
+    <li>코스를 누르면 상세 화면이 열립니다.</li>
+  </ol>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-course-explore.jpg" alt="코스 탐색 화면" loading="lazy" width="682" height="1200">
+      <figcaption><strong>코스 탐색</strong> — 각 코스에 거리 · 상승 고도 · 좋아요 수와 지나는 지역이 표시됩니다.</figcaption>
+    </figure>
+  </div>
+  <div class="info">코스 탐색에서 코스를 열면 그 코스가 <strong>내 경로</strong>에도 저장됩니다. 필요 없으면 내 경로 목록에서 삭제하세요. 저장된 경로는 오프라인에서도 쓸 수 있습니다.</div>
+
+  <h3 id="detail">화면 읽는 법: 경로 상세</h3>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-course-detail.jpg" alt="경로 상세 화면" loading="lazy" width="682" height="1200">
+      <figcaption><strong>경로 상세</strong> — 맨 아래 <strong>이 경로 불러오기</strong>는 지도에 띄우기만, <strong>네비 시작</strong>은 턴 안내까지 켭니다.</figcaption>
+    </figure>
+  </div>
+  <table>
+    <tr><th>구역</th><th>내용</th></tr>
+    <tr><td>맨 위 아이콘</td><td>경로 공유 · 이름 변경 · 삭제</td></tr>
+    <tr><td>지도 · 고도 프로필</td><td>전체 코스와 거리별 고도 그래프 (순환 코스면 “순환” 표시)</td></tr>
+    <tr><td>출발지 7일 예보</td><td>출발 지점의 날씨 예보. <strong>6일 더 보기</strong>로 펼칩니다.</td></tr>
+    <tr><td>경로 오르막</td><td>오르막마다 길이 · 상승 고도 · 평균/최대 경사 · 출발점에서의 거리</td></tr>
+    <tr><td>경로 정보</td><td>경로 거리, 고도 상승, 오르막 수, 포인트 수, 생성일</td></tr>
+  </table>
+
+  <h3 id="nav">따라 하기: 턴바이턴 내비게이션</h3>
+  <ol>
+    <li>경로 상세에서 <strong>네비 시작</strong>을 누릅니다. 준비 화면으로 넘어가며 “<strong>턴바이턴 네비 활성화</strong> — 이 코스에 턴바이턴 네비를 활성화할까요? 인터넷 연결이 필요하며, 한 번만 수행됩니다.” 창이 뜹니다.</li>
+    <li><strong>활성화</strong>를 누릅니다. 준비가 끝나면 “<strong>완료</strong> — N개의 턴 안내가 준비되었습니다.”가 나오고, <strong>확인</strong>을 누릅니다. 지금 하지 않으려면 <strong>나중에</strong>.</li>
+    <li>준비 화면의 경로 줄에 코스 이름이 보이는지 확인하고 기록을 시작합니다.</li>
+    <li>기록 중 <strong>지도</strong> 페이지 맨 위 턴 카드에 다음 회전까지 거리와 방향이 나옵니다. <strong>경로</strong> 페이지에는 “턴 안내 사용 중”이 표시됩니다. “경로만 불러온 상태 · 턴 안내 꺼짐”이면 선만 보이고 안내는 없습니다.</li>
+    <li>안내를 끝내려면 지도 페이지의 <strong>■ 안내 종료</strong>를 누릅니다. 기록은 계속됩니다.</li>
+  </ol>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-nav-activate.jpg" alt="턴바이턴 네비 활성화 확인창과 완료 창" loading="lazy" width="682" height="727">
+      <figcaption><strong>턴 안내 준비</strong> — 활성화 확인창(위)과 준비 완료 창(아래). 턴 안내 준비에는 인터넷이 필요합니다.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="screenshots/app-ride-map.jpg" alt="기록 중 지도 페이지의 턴 카드" loading="lazy" width="682" height="1343">
+      <figcaption><strong>기록 중 지도 페이지</strong> (시뮬레이션 화면) — 맨 위 턴 카드(예: “2.0 KM 앞 직진”)와 그다음 회전, 그 아래 <strong>남은거리</strong>와 <strong>도착</strong> 예상 시각이 보입니다.</figcaption>
+    </figure>
+  </div>
+  <table>
+    <tr><th>지도 페이지 위치</th><th>보이는 것</th></tr>
+    <tr><td>맨 위 턴 카드</td><td>다음 회전까지 거리·방향, 아래 줄에 그다음 회전 미리보기</td></tr>
+    <tr><td>그 아래 막대</td><td>경로의 남은거리와 도착 예상 시각</td></tr>
+    <tr><td>왼쪽 위</td><td><strong>■ 안내 종료</strong> 버튼</td></tr>
+    <tr><td>가운데 위</td><td>현재 기온과 바람</td></tr>
+    <tr><td>지도</td><td>파란 화살표가 내 위치, 청록 선이 앞으로 갈 경로, 주황 선이 지나온 길</td></tr>
+    <tr><td>아래 칸</td><td>현재 속도 · 케이던스 · 현재 고도</td></tr>
+  </table>
+  <p>경로에서 벗어나면 <strong>경로 이탈</strong> 경고가 뜹니다. 안내 방식은 <span class="path">설정 &gt; 화면 &gt; 네비게이션</span>(<span class="os os-ios">iOS</span> 설정 &gt; 화면 &gt; 내비게이션 설정, <a href="ch00-before.html#ios-menus">0장 대응표</a>)에서 바꿉니다.</p>
+  <table>
+    <tr><th>항목</th><th>설명</th></tr>
+    <tr><td>경로 엔진 — 라우팅</td><td>길 안내 경로를 휴대폰 안에서 계산합니다. 화면에 엔진 이름이 함께 보이지만 바꿀 필요는 없습니다.</td></tr>
+    <tr><td>하이브리드 부스트</td><td>인터넷에 연결되어 있으면 서버에서 경로를 실제 도로에 한 번 더 맞춰 턴 안내를 정확하게 합니다.</td></tr>
+    <tr><td>TTS 음성 · 안내 상세도</td><td>안내 목소리, 안내 양(최소 / 표준 / 상세)</td></tr>
+    <tr><td>도로명 읽기</td><td>회전 안내에서 도로 이름을 읽습니다.</td></tr>
+    <tr><td>속도 적응 거리</td><td>빠르게 달릴 때 안내를 더 일찍 합니다(예: 30km/h 이상 +30%).</td></tr>
+    <tr><td>자동 재탐색 · 이탈 감지 임계</td><td>경로를 벗어나면 돌아갈 길을 다시 찾습니다.</td></tr>
+    <tr><td>되돌아가기 FAB</td><td>주행 중 지도에 경로로 돌아가는 버튼을 표시합니다.</td></tr>
+  </table>
+
+  <h3 id="offline">오프라인 지역</h3>
+  <p><span class="path">설정 &gt; 화면 &gt; 네비게이션 &gt; 오프라인 지역</span>은 인터넷 없이 길 안내 경로를 계산할 때 쓰는 지역 파일(대한민국 중부 · 남부)을 받는 곳입니다.</p>
+  <div class="warn">현재 버전에서는 “영구 오프라인 저장이 허용된 지도 제공자와 이용 조건이 확정될 때까지 지역 다운로드를 사용할 수 없습니다” 안내와 함께 다운로드가 막혀 있습니다. 산간처럼 신호가 약한 곳에 가기 전에는 경로를 미리 <strong>내 경로</strong>에 저장해 두세요.</div>
+
+  <h3 id="climbpro">오르막 안내 (ClimbPro · PreClimb)</h3>
+  <p><strong>ClimbPro</strong>는 오르막에서 “정상까지 얼마나 남았나”를 보여 주는 기능입니다. 기록 중 <strong>오르막</strong> 페이지에 남은 거리 · 남은 고도 · 경사도와 경사 막대그래프가 나옵니다.</p>
+  <ul>
+    <li><strong>경로를 불러온 경우</strong> — 경로의 고도 정보로 오르막을 미리 알고 있다가, 오르막에 들어서면 진행 상황을 보여 줍니다. GPX를 가져오지 않았으면 “GPX 경로를 불러오면 오르막이 표시됩니다”가 보입니다.</li>
+    <li><strong>경로 없이 탈 때(PreClimb)</strong> — 현재 위치와 진행 방향을 기준으로 앞쪽 오르막을 찾아 “다가오는 오르막”으로 보여 줍니다. 네트워크가 필요합니다.</li>
+  </ul>
+  <table>
+    <tr><th>등급 표시</th><th>뜻</th></tr>
+    <tr><td>난코스</td><td>가장 어려운 오르막 (흔히 HC라고 부르는 등급)</td></tr>
+    <tr><td>상급 · 중상급 · 중급 · 초급</td><td>길이와 경사에 따라 어려운 순 (Cat 1 ~ Cat 4에 해당)</td></tr>
+    <tr><td>업힐</td><td>등급에 들지 않는 짧은 오르막</td></tr>
+  </table>
+  <p>오르막을 다 오르면 “오르막 완료!”와 함께 소요 시간 · 평균 속도 · 획득 고도가 나옵니다. 오르막 진입·완료 소리는 <a href="ch04-screen.html#sound">4장 알림음</a>에서 정합니다.</p>
+
+  <h3 id="stuck">자주 막히는 점</h3>
+  <div class="info">경로를 불러와도 기록 종목은 바뀌지 않습니다. 러닝 코스를 불러왔다면 홈에서 종목이 러닝인지 확인한 뒤 시작하세요.</div>
+  <div class="info">오르막 페이지가 비어 있으면 경로에 등급이 될 만한 오르막이 없거나, 현재 위치가 경로에서 멀리 떨어진 경우입니다. PreClimb는 데이터 절약에서 네트워크를 막으면 동작하지 않습니다.</div>
+  <div class="tip">코스를 함께 쓰려면 경로 상세의 <strong>경로 공유</strong>를 누르세요. 그룹 멤버에게 받은 경로는 “받은 경로”에서 <strong>받기</strong>로 저장합니다. 코스 링크(<code>https://orider.co.kr/course/…</code>)를 받았다면 링크를 누르면 앱에서 열립니다(<a href="appendix.html#deeplink">부록 딥링크</a>).</div>
+</section>
+
+<nav class="bottom-nav" aria-label="장 이동">
+  <a href="ch05-records.html">&larr; 5. 기록 보기</a>
+  <span class="nav-title"><a href="index.html">목차</a></span>
+  <a href="ch07-together.html">7. 함께 타기 &rarr;</a>
+</nav>
+</div>
+
+<footer>
+  <p>오라이더 앱 사용 설명서 (Android·iOS) · 개정 2026-10-18 · 2026년 10월 출시 버전 기준</p>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">O-Rider</a> · <a href="/web-manual/">웹 설명서</a></p>
+</footer>
+
+</body>
+</html>

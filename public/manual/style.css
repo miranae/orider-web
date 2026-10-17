@@ -458,3 +458,69 @@ footer a {
   .chapter-nav { padding: 8px 12px; font-size: 0.82rem; }
   .toc-card { padding: 12px 14px; }
 }
+
+/* -- 2026-10-18 개정: 본문 링크·플랫폼 배지·캡션·장 도입 -- */
+.container a:not(.toc-card) { color: var(--primary); }
+.os {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+.os-android { background: #1b5e20; color: #b9f6ca; }
+.os-ios     { background: #37474f; color: #eceff1; }
+.can-do {
+  background: var(--surface);
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 0 0 24px;
+}
+.can-do strong { color: #fff; }
+.can-do ul { margin: 8px 0 0; }
+figure.shot {
+  margin: 20px auto;
+  max-width: 320px;
+  text-align: center;
+}
+figure.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+figure.shot figcaption {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--text2);
+  text-align: left;
+}
+figure.shot figcaption strong { color: var(--text); }
+.shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.shots figure.shot { margin: 8px auto; }
+.old-shot {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--warning);
+  border: 1px solid var(--warning);
+  border-radius: 6px;
+  padding: 0 6px;
+  margin-left: 4px;
+}
+.path { font-weight: 700; color: #fff; }
+dl.glossary dt { font-weight: 700; color: #fff; margin-top: 12px; }
+dl.glossary dd { margin: 2px 0 0 0; color: var(--text); }
+@media (max-width: 600px) {
+  .container table { display: block; overflow-x: auto; }
+  th { white-space: normal; }
+}

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7. 함께 타기 - 오라이더 앱 사용 설명서</title>
+<meta name="description" content="오라이더 앱 사용 설명서 (Android·iOS) — 친구·그룹, 위치·심박 공유, 경량 모드, 이벤트">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">7. 함께 타기</div>
+  <div class="nav-right"><a href="ch06-courses.html">&larr; 이전</a><span class="nav-sep">|</span><a href="ch08-training.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="top">
+  <h2>7. 함께 타기</h2>
+  <div class="can-do">
+    <strong>이 장에서 할 수 있는 것</strong>
+    <ul>
+      <li>친구 코드로 친구를 맺고, 그룹을 만들거나 초대 코드로 참여합니다.</li>
+      <li>실시간 위치 공유와 심박 공유를 누구에게 보일지 정합니다.</li>
+      <li>긴 그룹 라이딩에서 배터리를 아끼는 경량 모드와 SOS·핑을 씁니다.</li>
+    </ul>
+  </div>
+  <div class="info">이 장의 기능은 모두 <strong>로그인</strong>이 필요합니다. 로그인하지 않았으면 “Google 로그인 후 이용 가능”이 표시됩니다.</div>
+
+  <h3 id="social">소셜 메뉴</h3>
+  <p><span class="path">설정 &gt; 소셜</span>에 함께 타기 기능이 모여 있습니다.</p>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-social.jpg" alt="소셜 설정 화면" loading="lazy" width="737" height="1200">
+      <figcaption><strong>소셜</strong> — <strong>친구 관리</strong> 설명의 “라이딩 시작 시 거리와 상관없이 친구에게 위치가 공유됩니다”를 꼭 읽어 두세요.</figcaption>
+    </figure>
+  </div>
+  <table>
+    <tr><th>메뉴</th><th>하는 일</th></tr>
+    <tr><td>알림</td><td>웹과 같은 알림과 읽음 상태 (홈 오른쪽 위 종 아이콘과 같은 목록)</td></tr>
+    <tr><td>활동 피드</td><td>라이더의 좋아요와 댓글</td></tr>
+    <tr><td>친구 관리</td><td>내 친구 코드, 친구 목록, 받은 요청.</td></tr>
+    <tr><td>라이딩 그룹</td><td>그룹 만들기 / 참여. 그룹 멤버끼리 실시간 위치와 경로를 공유합니다.</td></tr>
+    <tr><td>실시간 위치 공유</td><td>켜면 라이딩 중 내 위치를 근처 라이더와 친구에게 보냅니다. 처음에는 꺼져 있습니다(<a href="#location">아래 표</a>).</td></tr>
+    <tr><td>심박 공유</td><td>그룹 라이딩 중 내 심박을 보낼 대상: 끄기(기본) · 그룹 멤버 · 근처 라이더까지</td></tr>
+  </table>
+
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-notifications.jpg" alt="알림 목록" loading="lazy" width="682" height="629">
+      <figcaption><strong>알림</strong> — Local Legend 등극 같은 소식이 쌓입니다. 오른쪽 위 <strong>모두 읽음</strong>으로 한꺼번에 읽음 처리합니다.</figcaption>
+    </figure>
+  </div>
+
+  <h3 id="friends">따라 하기: 친구 맺기</h3>
+  <p><span class="os os-ios">iOS</span> iPhone의 소셜 메뉴 이름은 <strong>친구 · 그룹</strong>입니다(Android: 친구 관리 · 라이딩 그룹).</p>
+  <ol>
+    <li><span class="path">설정 &gt; 소셜 &gt; 친구 관리</span>를 엽니다.</li>
+    <li>맨 위 <strong>내 친구 코드</strong>(영문·숫자 6자리)를 <strong>공유</strong> 버튼으로 친구에게 보냅니다.</li>
+    <li>친구의 코드를 받았다면 오른쪽 위 <strong>친구 추가</strong>를 누르고 코드를 넣어 요청합니다.</li>
+    <li>상대가 수락하면 <strong>내 친구</strong> 목록에 나타납니다. 친구 이름 옆에 지금 상태(예: 오프라인)가 보입니다.</li>
+  </ol>
+  <div class="tip">친구 초대 링크(<code>https://orider.co.kr/friend/코드</code>)를 메신저로 보내면 받은 사람이 앱에서 바로 친구 추가 화면을 엽니다.</div>
+
+  <h3 id="groups">따라 하기: 그룹 만들기와 참여</h3>
+  <ol>
+    <li><span class="path">설정 &gt; 소셜 &gt; 라이딩 그룹</span>을 엽니다.</li>
+    <li>새로 만들려면 <strong>그룹 만들기</strong> 칸에 이름(예: “오늘 한강 라이딩”)을 넣고 <strong>그룹 만들기</strong>를 누릅니다. 만들어진 그룹의 초대 코드를 멤버에게 보냅니다.</li>
+    <li>초대받았다면 <strong>그룹 참여하기</strong>에 <strong>초대 코드</strong>를 넣고 <strong>그룹 참여</strong>를 누릅니다. 초대 링크(<code>/group/join/코드</code>)를 눌러도 됩니다.</li>
+  </ol>
+  <p>그룹에 참여한 상태로 기록하면 데이터 화면에 그룹 필드(가장 가까운 멤버 · 가장 먼 멤버 · 그룹 산개 · 그룹 평균 심박)를 넣어 볼 수 있습니다. 경로를 그룹 멤버에게 보내려면 “공유할 경로 선택”에서 경로와 멤버를 고릅니다.</p>
+
+  <h3 id="location">내 위치가 언제, 누구에게 보이나</h3>
+  <p>친구 관리 화면에는 “라이딩 시작 시 거리와 상관없이 친구에게 위치가 공유됩니다”라고 적혀 있습니다. 이 문장은 아래 <strong>실시간 위치 공유</strong>를 켰을 때의 동작입니다. 스위치가 꺼져 있으면 기록을 시작해도 위치를 보내지 않습니다.</p>
+  <table>
+    <tr><th>조건</th><th>내 위치가 보이나</th></tr>
+    <tr><td>실시간 위치 공유 <strong>꺼짐</strong> (처음 값)</td><td>보내지 않습니다. 기록 중에도 보이지 않습니다.</td></tr>
+    <tr><td>실시간 위치 공유 <strong>켜짐</strong> + 기록 중</td><td>라이딩·러닝을 기록하는 동안에만 보냅니다. 받는 사람은 <span class="path">설정 &gt; 계정 &gt; 위치 공유</span>(<span class="os os-ios">iOS</span> 설정 &gt; 소셜)의 대상에 따라 정해집니다: <strong>전체공개</strong>는 친구와 1km 이내 라이더, <strong>친구만</strong>은 친구, <strong>비공개</strong>는 아무도 아닙니다.</td></tr>
+    <tr><td>기록을 끝낸 뒤</td><td>새 위치를 더 보내지 않습니다.</td></tr>
+  </table>
+  <p><strong>끄는 방법</strong>: <span class="path">설정 &gt; 소셜 &gt; 실시간 위치 공유</span> 스위치를 끕니다. 화면 안내대로 공개 범위(대상)를 바꾸는 것만으로는 공유가 켜지거나 꺼지지 않습니다. 그룹 이벤트 주행의 참가자 위치 표시는 이벤트 화면 안내를 따르세요.</p>
+  <div class="info"><span class="os os-ios">iOS</span> iPhone에서는 실시간 위치 공유를 라이딩을 시작한 뒤 켤 수 있고, 끄기는 언제든 됩니다. 공개 범위와 활동 기본 공개범위도 설정 &gt; 소셜에 있습니다(<a href="ch00-before.html#ios-menus">0장 대응표</a>).</div>
+
+  <h3 id="privacy">위치와 공개 범위는 따로 정합니다</h3>
+  <table>
+    <tr><th>설정</th><th>위치</th><th>정하는 것</th></tr>
+    <tr><td>실시간 위치 공유</td><td><span class="path">설정 &gt; 소셜</span></td><td>기록 중 위치를 보낼지 말지 (켜기 / 끄기)</td></tr>
+    <tr><td>위치 공유 (대상)</td><td><span class="path">설정 &gt; 계정</span> (<span class="os os-ios">iOS</span> 설정 &gt; 소셜)</td><td>위치를 누구에게 보일지. 대상만 정하며 공유를 켜지는 않습니다.</td></tr>
+    <tr><td>활동 기본 공개범위</td><td><span class="path">설정 &gt; 계정</span> (<span class="os os-ios">iOS</span> 설정 &gt; 소셜)</td><td>새 기록을 올릴 때의 기본 공개 범위 (활동별로 바꿀 수 있음)</td></tr>
+  </table>
+
+  <h3 id="visibility">공개 범위 이름 대응표</h3>
+  <p>공개 범위는 화면마다 이름이 조금씩 다르지만 <strong>모두 같은 3단계</strong>입니다.</p>
+  <table>
+    <tr><th>단계</th><th>화면에 보이는 이름</th><th>누가 보나</th></tr>
+    <tr><td>전체 공개</td><td>모두에게 공개 · 전체 공개 · 전체 · 전체공개</td><td>모든 사용자 (세그먼트 순위표에도 들어갈 수 있음)</td></tr>
+    <tr><td>친구</td><td>친구에게만 · 친구 · 팔로워만 · 친구만</td><td>친구로 맺은 사람만 ('팔로워만'도 친구 공개와 같습니다)</td></tr>
+    <tr><td>비공개</td><td>비공개</td><td>나만</td></tr>
+  </table>
+  <p>(이름이 쓰인 곳: 웹 설정 &gt; 계정 “모두에게 공개/친구에게만/비공개”, 웹 활동 편집 “전체 공개/팔로워만/비공개”, 웹 활동 ⋯ 메뉴 “전체 공개/친구/비공개”, 웹 업로드 창 “전체/친구/비공개”, 앱 “전체공개/친구만/비공개”)</p>
+  <p>활동 하나의 공개 범위는 주행 기록 카드나 활동 상세의 <strong>🌐 전체공개 ▾</strong> 칸을 눌러 바꿉니다(<a href="ch05-records.html#detail">5장</a>). 심박·파워 같은 지표만 따로 숨기는 설정은 없습니다.</p>
+
+  <h3 id="lightweight">경량 모드와 그룹 메시지</h3>
+  <p>장시간 그룹 라이딩에서 배터리·데이터를 아끼는 모드입니다. 지도와 최소한의 소통 버튼(SOS · 핑 · 프리셋 메시지)만 보여 주고, 위치를 10초 간격으로 기록합니다.</p>
+  <ol>
+    <li>먼저 그룹에 참여합니다. 참여하지 않으면 “그룹에 참여하면 경량 모드를 사용할 수 있습니다.”가 표시됩니다.</li>
+    <li><span class="path">설정 &gt; 시스템 &gt; 고급 &gt; 그룹 경량 모드</span>를 켭니다. 확인 창의 안내(“라이딩 기록의 정확도가 낮아질 수 있습니다”)를 읽고 <strong>확인</strong>을 누릅니다.</li>
+  </ol>
+  <table>
+    <tr><th>버튼</th><th>쓰는 법</th></tr>
+    <tr><td>SOS</td><td>2초간 길게 눌러야 보내집니다. 그룹 전원에게 “도움이 필요합니다”가 뜹니다. 실수로 보냈다면 <strong>SOS 취소</strong>.</td></tr>
+    <tr><td>핑</td><td>내 위치를 그룹에 알립니다.</td></tr>
+    <tr><td>프리셋 메시지</td><td>정지 · 여기서 대기 · 기계 고장 · 속도 줄이기 · 펑크 · 카페 · 먼저감</td></tr>
+  </table>
+
+  <h3 id="events">그룹 이벤트</h3>
+  <p>내가 속한 그룹에 진행 중인 이벤트(번개·대회 등)가 있으면, 라이딩 준비 화면에서 시작할 때 이벤트 주행으로 기록되고 기록 중 화면에 <strong>순위</strong>가 나옵니다. 리더·운영진에게는 <strong>참가자 현황</strong>, <strong>체크인</strong>(QR 또는 배번, 카메라 권한 필요), <strong>이벤트 종료</strong> 메뉴가 더 보입니다. 중간에 그만두면 이벤트 요약에 <strong>미완주</strong>로 집계됩니다.</p>
+  <div class="info">이벤트 메뉴와 표시 항목은 주최 측 설정과 내 역할(참가자 / 리더 / 운영진)에 따라 다릅니다. 시작하지 못하면 “그룹 이벤트 주행을 시작하지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.” 안내를 따르세요.</div>
+
+  <h3 id="stuck">자주 막히는 점</h3>
+  <div class="warn">친구 목록의 휴지통은 <strong>친구 삭제</strong>입니다. 상태만 보려면 누르지 마세요.</div>
+  <div class="info">친구 지도에 보이는 위치는 마지막으로 받은 위치입니다. 상대가 지금도 같은 곳에 있다고 단정하지 마세요. 상대의 네트워크·GPS 상태에 따라 갱신이 늦을 수 있습니다.</div>
+  <div class="info">혼자 하는 러닝·라이딩이라면 경량 모드를 켤 필요가 없습니다. 배터리를 아끼려면 <a href="ch10-settings.html#battery">10장 배터리 절약</a>을 쓰세요.</div>
+</section>
+
+<nav class="bottom-nav" aria-label="장 이동">
+  <a href="ch06-courses.html">&larr; 6. 코스와 내비게이션</a>
+  <span class="nav-title"><a href="index.html">목차</a></span>
+  <a href="ch08-training.html">8. 훈련과 코치 &rarr;</a>
+</nav>
+</div>
+
+<footer>
+  <p>오라이더 앱 사용 설명서 (Android·iOS) · 개정 2026-10-18 · 2026년 10월 출시 버전 기준</p>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">O-Rider</a> · <a href="/web-manual/">웹 설명서</a></p>
+</footer>
+
+</body>
+</html>
