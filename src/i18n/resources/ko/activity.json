@@ -227,6 +227,11 @@
     "runThresholdMissing": "임계 페이스·최대심박을 설정하면 러닝 강도와 같은 유형 비교를 확인할 수 있습니다."
   },
   "overviewEvidence": {
+    "integratedFitness": "통합 훈련 부하 · 운동 전",
+    "fitnessLimited": "추정 · 상태 판단 보류",
+    "fitnessDefinition": "체력·피로·폼은 기록된 사이클링·러닝·수영 부하의 통합 지수예요. 실제 체력 검사나 종목별 적응 수준을 뜻하지 않아요.",
+    "sportHistory": "종목별 훈련 이력",
+    "recoveryGuidance": "회복은 수면·피로감·통증을 함께 확인하세요. 통합 부하가 높아도 해당 종목의 근육·관절 적응을 보장하지 않아요.",
     "overviewTitle": "오라이더 활동개요",
     "overviewSource": "이번 활동의 성격과 내 기록 대비 변화를 한눈에 확인하세요.",
     "hrContextMissing": "활동 당시 심박 기준 정본이 없습니다.",
@@ -235,7 +240,7 @@
     "segmentPr": "개인 최고",
     "minuteShort": "분",
     "maxHrShort": "최고심박",
-    "afterCutoff": "반영 후 정산시각",
+    "afterCutoff": "운동 후 기준시각",
     "after": "반영 후",
     "terrainLabel": "지형",
     "terrain": {
