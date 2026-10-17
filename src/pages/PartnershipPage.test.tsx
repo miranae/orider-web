@@ -35,6 +35,21 @@ describe("PartnershipPage", () => {
     expect(inquiry).toHaveAttribute("href", `/${language}/partnership`);
     await userEvent.setup().click(inquiry);
     expect(screen.getByRole("heading", { level: 1, name: copy.partnership.title })).toBeInTheDocument();
+    expect(screen.getByText(copy.partnership.origin)).toBeInTheDocument();
+    const direction = screen.getByRole("region", { name: copy.partnership.directionTitle });
+    for (const moment of Object.values(copy.partnership.moments)) {
+      expect(within(direction).getByText(moment.title)).toBeInTheDocument();
+      expect(within(direction).getByText(moment.description)).toBeInTheDocument();
+    }
+    expect(within(direction).getByText(copy.partnership.openDirection)).toBeInTheDocument();
+    const people = screen.getByRole("region", { name: copy.partnership.people.title });
+    const business = screen.getByRole("region", { name: copy.partnership.business.title });
+    expect(within(people).getByRole("heading", { level: 2 })).toHaveTextContent(copy.partnership.people.title);
+    expect(within(people).getByText(copy.partnership.people.description)).toBeInTheDocument();
+    expect(within(people).getByText(copy.partnership.people.invitation)).toBeInTheDocument();
+    expect(within(business).getByRole("heading", { level: 2 })).toHaveTextContent(copy.partnership.business.title);
+    expect(within(business).getByText(copy.partnership.business.description)).toBeInTheDocument();
+    expect(within(business).getByText(copy.partnership.business.invitation)).toBeInTheDocument();
     const topics = screen.getByRole("region", { name: copy.partnership.topicsTitle });
     expect(within(topics).getAllByRole("heading", { level: 3 })).toHaveLength(6);
     for (const topic of Object.values(copy.partnership.topics)) {

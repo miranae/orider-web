@@ -16,21 +16,45 @@ export default function PartnershipPage() {
   const { t } = useTranslation("common");
 
   return (
-    <div className="mx-auto max-w-4xl break-keep space-y-6 pb-8">
+    <div className="mx-auto max-w-4xl break-keep space-y-8 pb-8">
       <header className="space-y-3">
         <p className="text-[length:var(--fs-xs)] font-semibold text-[var(--ink-3)]">{t("partnership.eyebrow")}</p>
         <h1 className="text-[length:var(--fs-2xl)] font-bold tracking-tight text-[var(--ink-0)]">{t("partnership.title")}</h1>
-        <p className="max-w-2xl text-[length:var(--fs-base)] leading-relaxed text-[var(--ink-2)]">{t("partnership.intro")}</p>
+        <p className="max-w-2xl text-[length:var(--fs-xl)] font-semibold leading-relaxed text-[var(--ink-0)]">{t("partnership.intro")}</p>
+        <p className="max-w-2xl text-[length:var(--fs-base)] leading-relaxed text-[var(--ink-2)]">{t("partnership.origin")}</p>
         <a href="#partnership-contact" className="inline-flex min-h-[var(--dim-button-height)] items-center text-[length:var(--fs-sm)] font-semibold text-[var(--accent)] underline underline-offset-4">{t("partnership.jumpToContact")}</a>
       </header>
+
+      <section aria-labelledby="partnership-direction" className="space-y-4">
+        <h2 id="partnership-direction" className="text-[length:var(--fs-lg)] font-semibold text-[var(--ink-0)]">{t("partnership.directionTitle")}</h2>
+        <dl className="grid gap-4 sm:grid-cols-2">
+          {(["during", "after"] as const).map(moment => <div key={moment} className="space-y-2 border-l-2 border-[var(--accent-soft-border)] pl-4">
+            <dt className="text-[length:var(--fs-base)] font-semibold text-[var(--ink-0)]">{t(`partnership.moments.${moment}.title`)}</dt>
+            <dd className="text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-2)]">{t(`partnership.moments.${moment}.description`)}</dd>
+          </div>)}
+        </dl>
+        <p className="text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-2)]">{t("partnership.openDirection")}</p>
+      </section>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {(["people", "business"] as const).map(kind => <section key={kind} aria-labelledby={`partnership-${kind}`}>
+          <Card className="h-full space-y-3">
+            <h2 id={`partnership-${kind}`} className="text-[length:var(--fs-lg)] font-semibold text-[var(--ink-0)]">{t(`partnership.${kind}.title`)}</h2>
+            <p className="text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-2)]">{t(`partnership.${kind}.description`)}</p>
+            <p className="text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-2)]">{t(`partnership.${kind}.invitation`)}</p>
+          </Card>
+        </section>)}
+      </div>
 
       <section aria-labelledby="partnership-topics" className="space-y-3">
         <h2 id="partnership-topics" className="text-[length:var(--fs-base)] font-semibold text-[var(--ink-0)]">{t("partnership.topicsTitle")}</h2>
         <div className="grid gap-3 md:grid-cols-3">
           {topics.map(({ key, Icon }) => (
-            <Card key={key} className="min-w-0 space-y-3">
-              <Icon aria-hidden="true" size={20} className="text-[var(--accent)]" />
-              <h3 className="text-[length:var(--fs-base)] font-semibold text-[var(--ink-0)]">{t(`partnership.topics.${key}.title`)}</h3>
+            <Card key={key} padding="compact" className="min-w-0 space-y-2">
+              <div className="flex items-start gap-2">
+                <Icon aria-hidden="true" size={16} className="shrink-0 text-[var(--accent)]" />
+                <h3 className="text-[length:var(--fs-base)] font-semibold text-[var(--ink-0)]">{t(`partnership.topics.${key}.title`)}</h3>
+              </div>
               <p className="text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-2)]">{t(`partnership.topics.${key}.description`)}</p>
             </Card>
           ))}

@@ -84,11 +84,28 @@
     "email": "Email"
   },
   "partnership": {
-    "eyebrow": "ORIDER · Better experiences, together",
+    "eyebrow": "OUR RIDER. OPEN RIDER.",
     "title": "Partnership inquiries",
-    "intro": "Help shape more enjoyable ways to stay active and grow together with Orider. Tell us about your partnership idea by email.",
-    "topicsTitle": "Ideas we would like to hear",
-    "jumpToContact": "Propose a partnership by email",
+    "intro": "Help shape Orider, built by a rider to use on real rides.",
+    "origin": "Orider began with the frustrations of a developer who has spent 20 years cycling. Riding, reviewing records and building what is needed are still how it grows.",
+    "directionTitle": "During an activity, and in the quiet afterwards",
+    "moments": {
+      "during": { "title": "Safety and focus while moving", "description": "Make essential information easy to check, with more attention left for the activity." },
+      "after": { "title": "Reflection and understanding afterwards", "description": "Understand your records and consider what your next activity could look like." }
+    },
+    "openDirection": "We want to build trust rather than ownership. Orider values open source and people's agency over their own records, with the aim of becoming a platform we improve and use together. Our Rider, Open Rider: shaped by community experience and feedback.",
+    "people": {
+      "title": "Help plan and design what comes next",
+      "description": "Orider is at an early stage. We are looking for product planners and designers to help decide priorities and improve the journey from preparing for an activity to reviewing records, with riders' and runners' feedback guiding the work.",
+      "invitation": "Tell us about your experience or portfolio, what interests you and how you would like to contribute. We would like to explore the right way to work together through conversation."
+    },
+    "business": {
+      "title": "Investment and business participation",
+      "description": "We would like to meet people who share the direction of an open sports platform and want to explore a sustainable business for Orider. Conversations about investment or participating in the business are welcome.",
+      "invitation": "Share the direction that interests you and the role you have in mind. We can start by discussing where Orider is today and what each of us hopes to build."
+    },
+    "topicsTitle": "Other ways to work together",
+    "jumpToContact": "Get in touch about working together",
     "topics": {
       "product": { "title": "Devices & integrations", "description": "Ideas for connecting sensors, sports devices and training services." },
       "brand": { "title": "Brands & promotions", "description": "Ideas for joint campaigns and benefits for people who use Orider." },
@@ -98,15 +115,15 @@
       "regional": { "title": "Travel & local projects", "description": "Ideas for active travel, local routes and tourism projects." }
     },
     "otherIdeas": "Have an idea beyond these examples? We would like to hear it, too.",
-    "contactTitle": "Send us your proposal",
-    "contactDescription": "Include these details to help us understand your idea.",
+    "contactTitle": "Tell us your story by email",
+    "contactDescription": "Get in touch about product planning, design, investment, business, technology or partnerships. You do not need a formal proposal. Share as much or as little of the following as you like.",
     "details": {
-      "who": "Your name or organization and contact details",
-      "idea": "Your partnership idea and the experience you hope to create",
-      "context": "A tentative timeline and any useful links or materials"
+      "who": "A short introduction to you or your organization, and your interests",
+      "idea": "How you would like to work together and the ideas you want to share",
+      "context": "Any relevant experience, portfolio or useful links, if available"
     },
     "emailLabel": "Email",
-    "emailAction": "Write a partnership email",
+    "emailAction": "Email about working together",
     "emailHint": "Select the address to copy it, or use the button to open your email app.",
     "supportText": "Have a question about the app or an improvement in mind?",
     "supportLink": "General questions & feedback"
