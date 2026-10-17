@@ -13,6 +13,7 @@ interface SectionData {
   list?: string[];
   groups?: Group[];
   footer?: string;
+  policyLinks?: { label: string; url: string }[];
   stravaLinkHeading?: string;
   stravaLinkSentencePrefix?: string;
   stravaLinkSentenceSuffix?: string;
@@ -58,6 +59,11 @@ export default function PrivacyPage() {
               </div>
             ))}
             {s.footer && <p className="mt-2">{s.footer}</p>}
+            {s.policyLinks?.map(link => (
+              <p key={link.url} className="mt-2">
+                <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-[var(--lime)] underline">{link.label}</a>
+              </p>
+            ))}
             {s.stravaLinkHeading && (
               <>
                 <p className="font-medium text-[var(--ink-1)] mt-3 mb-1">{s.stravaLinkHeading}</p>
