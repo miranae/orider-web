@@ -242,9 +242,11 @@ describe("GroupMembersPage", () => {
     renderMembersPage();
 
     fireEvent.click(screen.getByText("클럽장 이임", {selector:"summary"}));
+    fireEvent.click(screen.getByRole("combobox", { name: "새 클럽장" }));
     expect(await screen.findByRole("option", { name: "Rider One" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Recovered Leader" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Pending One" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "Rider One" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "이임 완료 후 클럽에서 탈퇴" }));
     fireEvent.click(screen.getByRole("button", { name: "클럽장 이임" }));
 

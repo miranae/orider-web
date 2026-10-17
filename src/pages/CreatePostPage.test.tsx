@@ -90,6 +90,20 @@ describe('board writing interactions', () => {
     expect(syncedEditor).not.toHaveAttribute('role');
   });
 
+  it('announces table expansion and dismisses all dimensions with Escape while restoring focus', async () => {
+    renderPage();
+    const trigger = screen.getByRole('button', { name: 'toolbar.table' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(document.getElementById(trigger.getAttribute('aria-controls')!)).toContainElement(screen.getByRole('button', { name: '6 × 6' }));
+    screen.getByRole('button', { name: '2 × 3' }).focus();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('button', { name: '6 × 6' })).not.toBeInTheDocument();
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger).toHaveFocus();
+  });
+
   it('inserts the selected table dimensions with the keyboard', async () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'toolbar.table' }));

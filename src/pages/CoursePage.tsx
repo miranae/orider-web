@@ -38,6 +38,7 @@ import { track } from "../services/analytics";
 import "../features/courses/course-detail.css";
 import "../features/courses/course-review.css";
 import InfoTip from "../components/InfoTip";
+import Modal from "../components/Modal";
 import GlossaryProvider from "../components/common/GlossaryProvider";
 import GlossaryText from "../components/common/GlossaryText";
 import { cumulativeDistancesFromLatLng, laneLabelKey, LANE_DEFS } from "../features/courseEngine";
@@ -976,28 +977,18 @@ export default function CoursePage() {
         document.body,
       )}
 
-      {reportOpen && createPortal(
-        <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999, background: "color-mix(in oklch, var(--bg-0) 72%, transparent)", paddingInline: "var(--space-4)" }} role="dialog" aria-modal="true" aria-labelledby="course-report-title">
-          <Card className="w-full max-w-sm">
-            <div style={{ ...COURSE_INFO_SECTION_STYLE, gap: "var(--space-3)" }}>
-              <Text id="course-report-title" as="h2" variant="title">{t("report.title")}</Text>
-              <label className="block text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }} htmlFor="course-report-reason">
-                {t("report.reason")}
-              </label>
-              <DropdownSelect className="course-report-reason" menuZIndex={10000} id="course-report-reason" label={t("report.reason")} value={reportReason}
-                onChange={value => setReportReason(value as ReportReason)}
-                options={REPORT_REASONS.map(reason => ({value:reason,label:t(`report.reason.${reason}`)}))} />
-              <div style={{ ...COURSE_INLINE_WRAP_STYLE, justifyContent: "flex-end" }}>
-                <Button type="button" variant="ghost" onClick={() => setReportOpen(false)} disabled={reporting}>{t("button.cancel")}</Button>
-                <Button type="button" variant="primary" onClick={handleReportCourse} disabled={reporting}>
-                  {reporting ? t("report.submitting") : t("report.submit")}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>,
-        document.body,
-      )}
+      <Modal open={reportOpen} onClose={() => { if (!reporting) setReportOpen(false); }} title={t("report.title")} maxWidth="max-w-sm" busy={reporting} layer={9999}>
+        <div style={{ ...COURSE_INFO_SECTION_STYLE, gap: "var(--space-3)" }}>
+          <label className="block text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }} htmlFor="course-report-reason">{t("report.reason")}</label>
+          <DropdownSelect className="course-report-reason" menuZIndex={10000} id="course-report-reason" label={t("report.reason")} value={reportReason}
+            disabled={reporting} onChange={value => setReportReason(value as ReportReason)}
+            options={REPORT_REASONS.map(reason => ({ value: reason, label: t(`report.reason.${reason}`) }))} />
+          <div style={{ ...COURSE_INLINE_WRAP_STYLE, justifyContent: "flex-end" }}>
+            <Button type="button" variant="ghost" onClick={() => setReportOpen(false)} disabled={reporting}>{t("button.cancel")}</Button>
+            <Button type="button" variant="primary" onClick={handleReportCourse} disabled={reporting}>{reporting ? t("report.submitting") : t("report.submit")}</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* 히어로 — 지도 위에 코스 정체성을 얹는다. 대회 페이지와 같은 셸이되
           날짜·정원 슬롯이 없다는 점이 코스임을 형태로 알린다. */}

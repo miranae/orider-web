@@ -21,3 +21,12 @@ it("참여한 사용자의 미확인 합계를 0 또는 재참여 선택으로 �
   await waitFor(() => expect(screen.queryByRole("button", {name: /300/})).toBeNull());
   expect(screen.queryByRole("progressbar")).toBeNull();
 });
+
+
+it("uses standard DS sizing for all personal tier actions without joining on render", () => {
+  renderWithProviders(<ChallengeFeed part="monthly" />, { authenticated: true });
+  for (const tier of [300, 500, 1000]) {
+    expect(screen.getByRole("button", { name: new RegExp(String(tier)) })).toHaveClass("ds-btn", "ds-btn--md");
+  }
+  expect(state.join).not.toHaveBeenCalled();
+});

@@ -219,5 +219,7 @@
   "block.hidden": "차단한 작성자의 글입니다.",
   "block.unblock": "작성자 차단 해제",
   "block.listHint": "차단한 작성자 {{count}}명의 글을 숨겼습니다.",
-  "message.imageUnsupported": "5MB 이하의 JPG, PNG, WebP, GIF 이미지를 첨부해 주세요."
+  "message.imageUnsupported": "5MB 이하의 JPG, PNG, WebP, GIF 이미지를 첨부해 주세요.",
+  "comment.totalCount": "전체 댓글 {{count}}개",
+  "comment.visibleHeading": "표시된 댓글"
 }

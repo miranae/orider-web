@@ -82,3 +82,17 @@ it("fits long English secondary values into separate readable KPI columns", () =
   expect(Number(left.getAttribute("x")) + Array.from("INCOMPLETE").length * 24).toBeLessThan(Number(right.getAttribute("x")));
   expect(Number(right.getAttribute("font-size"))).toBe(30);
 });
+
+
+it("keeps copy editing in labeled DS controls and uses standard action sizes", () => {
+  renderWithProviders(<RecipeShareCard card={card} language="en" ready onError={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Edit copy" }));
+  expect(screen.getByRole("textbox", { name: "Title (30 characters)" })).toHaveClass("ds-input");
+  expect(screen.getByRole("textbox", { name: "Public copy (160 characters)" })).toHaveClass("ds-input");
+  const copy = screen.getByRole("button", { name: "Copy caption" });
+  expect(copy).toHaveClass("ds-btn--md");
+  expect(copy.querySelector(":scope > .ds-btn__icon svg")).not.toBeNull();
+  expect(copy.querySelector(".ds-btn__label svg")).toBeNull();
+  expect(screen.getByRole("button", { name: "Save PNG" })).toHaveClass("ds-btn--md");
+  expect(screen.getByRole("link", { name: "Share as post" })).toHaveClass("ds-btn--md");
+});

@@ -531,10 +531,11 @@ export default function GroupRidePage() {
   const dateStr = date.toLocaleDateString(localeTag(), { year: "numeric", month: "long", day: "numeric", weekday: "short" });
 
   return (
-    <div>
+    <div className="club-surface club-ride-detail">
       <Link to={`/club/${groupId}/rides`} className="text-[length:var(--ft-body-medium-size)] mb-4 inline-block" style={{ color: "var(--lime)" }}>{t("ridePage.back")}</Link>
       <h1 data-testid="C2R-0" className="text-[length:var(--fs-xl)] font-bold mb-1" style={{ color: "var(--ink-0)" }}>{dateStr} {t("rides.groupRides")}</h1>
       <p className="text-[length:var(--ft-body-medium-size)] mb-6" style={{ color: "var(--ink-2)" }}>{t("ridePage.activityParticipants", { activities: activities.length, participants: riderActivityCounts.size })}</p>
+      <p className="club-record-scope" data-testid="club-ride-detail-scope">{t("ridePage.detailScope")}</p>
 
       {pendingStreams.size > 0 && <p role="status">{t("rides.streamLoading")}</p>}
       {streamErrors.size > 0 && <Card className="mb-4">
@@ -725,7 +726,7 @@ export default function GroupRidePage() {
             <h3 className="text-[length:var(--ft-title-size)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("ridePage.riders")}</h3>
             <div className="flex flex-wrap gap-2">
               {activities.map((a, i) => (
-                <button data-testid="C2R-0-1"
+                <Button variant="secondary" data-testid="C2R-0-1"
                   key={a.id}
                   onClick={() => toggleRider(a.id)}
                   aria-pressed={visibleRiders.has(a.id)}
@@ -744,7 +745,7 @@ export default function GroupRidePage() {
                     style={{ backgroundColor: RIDER_COLORS[i % RIDER_COLORS.length], opacity: visibleRiders.has(a.id) ? 1 : 0.3 }}
                   />
                   {riderLabel(a)}
-                </button>
+                </Button>
               ))}
             </div>
           </Card>

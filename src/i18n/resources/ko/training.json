@@ -161,9 +161,9 @@
   "metrics": {
     "progress": "진행률",
     "progressBasis": "현재 유효 처방 대비 계획 진행률입니다. 실제 부하가 없으면 완료한 처방값을 반영하며, 실측 부하 합계를 뜻하지 않습니다.",
-    "sessionsLeft": "남은 훈련",
+    "sessionsLeft": "전체 계획 미완료",
     "completedTSS": "완료 TSS",
-    "weeksLeft": "남은 계획 주수",
+    "weeksLeft": "남은 저장 계획 주수",
     "weeksUnit": "주",
     "projectedCTL": "CTL 변화 가이드",
     "goalDate": "목표일",
@@ -1209,5 +1209,7 @@
     "sessions": "주 {{count}}회 희망",
     "weeks": "약 {{weeks}}주",
     "minutes": "{{count}}분"
-  }
+  },
+  "scope.summary": "목표일까지 예정 {{untilGoal}}회 · 목표일 이후 저장된 운동 {{afterGoal}}회 · 지난 미완료 {{overdue}}회. 아래 달력과 진행률은 저장된 전체 계획입니다.",
+  "scope.nextAfterGoal": "목표일 이후 저장된 운동"
 }

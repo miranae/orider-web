@@ -1,0 +1,24 @@
+.activity-edit-page h2 {
+  font-size: var(--ft-title-size);
+  font-weight: var(--ft-title-weight);
+}
+.activity-edit-datetime {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.activity-edit-datetime label {
+  display: block;
+  margin-bottom: var(--space-1-5);
+  font-size: var(--ft-body-medium-size);
+  font-weight: var(--ft-body-medium-weight);
+}
+.activity-edit-page #activity-edit-date,
+.activity-edit-page #activity-edit-time {
+  height: var(--dim-button-height);
+  min-width: 0;
+  padding-block: 0 !important;
+}
+@media (min-width: 640px) {
+  .activity-edit-datetime { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

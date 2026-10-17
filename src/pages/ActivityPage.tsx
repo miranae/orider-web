@@ -1,3 +1,5 @@
+import { Globe, Lock, Users } from "lucide-react";
+import SportIcon from "../components/common/SportIcon";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams, useSearchParams, useLocation } from "react-router-dom";
@@ -39,7 +41,7 @@ import { firestore, storage } from "../services/firebase";
 import { activitySocialErrorMessageKey, activitySocialMutations } from "../services/activitySocialMutations";
 import { track, trackActivationStep } from "../services/analytics";
 import type { Activity, Visibility } from "@shared/types";
-import { getSportIcon, getSportLabelKey } from "../utils/sportType";
+import { getSportLabelKey } from "../utils/sportType";
 import { isIndoorActivity, isVirtualActivityType } from "../utils/indoorActivity";
 import { getDiscipline } from "../utils/disciplineFilter";
 import { isImplausibleAvgSpeed, isImplausibleMaxSpeed } from "../utils/activitySanity";
@@ -886,7 +888,7 @@ export default function ActivityPage() {
                 style={{ background: 'var(--surface-2)', color: 'var(--ink-1)' }}
                 title={tCommon(getSportLabelKey(activity.type))}
               >
-                {getSportIcon(activity.type)}{tCommon(getSportLabelKey(activity.type))}
+                {sport !== "other" && <SportIcon sport={sport === "ride" ? "bike" : sport} size={16} />}{tCommon(getSportLabelKey(activity.type))}
                 {/* Virtual* 종목은 라벨이 이미 "가상 …" 이라 실내 표기를 덧붙이지 않는다. */}
                 {isIndoorActivity(activity) && !isVirtualActivityType(activity.type) && (
                   <span style={{ color: 'var(--ink-3)' }}>· {tCommon("sport.indoor")}</span>
@@ -937,15 +939,15 @@ export default function ActivityPage() {
                 </Text>
               )
             )}
-            <div className="flex items-center gap-3 mt-1">
-              <span className="text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>{formatFullDate(activity.startTime)}</span>
+            <div className="flex flex-col items-start gap-2 mt-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+              <span className="text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)', wordBreak: "keep-all", lineHeight: 1.5 }}>{formatFullDate(activity.startTime)}</span>
               {isStrava && stravaActivityUrl && (
                 <a
                   href={stravaActivityUrl}
                   referrerPolicy="no-referrer"
-                  className="inline-flex items-center gap-1 text-[length:var(--fs-sm)] font-bold text-[#FC4C02] hover:underline"
+                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[length:var(--fs-sm)] font-bold text-[#FC4C02] hover:underline"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
                   </svg>
                   View on Strava
@@ -1005,14 +1007,14 @@ export default function ActivityPage() {
                   <Link data-testid="D1-0-M8" to="/explore/recipes/share">{t("page.menuShareRecipe")}</Link>
 
                 {([
-                  { value: "everyone", label: t("page.visibility.everyone"), icon: "🌐" },
-                  { value: "friends", label: t("page.visibility.friends"), icon: "👥" },
-                  { value: "private", label: t("page.visibility.private"), icon: "🔒" },
-                ] as { value: Visibility; label: string; icon: string }[]).map((opt) => (
-                  <button
+                  { value: "everyone", label: t("page.visibility.everyone"), icon: Globe },
+                  { value: "friends", label: t("page.visibility.friends"), icon: Users },
+                  { value: "private", label: t("page.visibility.private"), icon: Lock },
+                ] as { value: Visibility; label: string; icon: typeof Globe }[]).map((opt) => (
+                  <Button variant="outline" aria-pressed={activity.visibility === opt.value}
                     key={opt.value}
                     onClick={() => { void handleVisibilityChange(opt.value); }}
-                    className="px-2 py-1 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
+                    className="gap-2"
                     style={activity.visibility === opt.value ? {
                       background: 'color-mix(in srgb, var(--lime) 12%, transparent)',
                       borderColor: 'var(--lime)',
@@ -1022,12 +1024,12 @@ export default function ActivityPage() {
                       color: 'var(--ink-2)',
                     }}
                   >
-                    {opt.icon} {opt.label}
-                  </button>
+                    <opt.icon size={16} aria-hidden="true" /> {opt.label}
+                  </Button>
                 ))}
-                <button data-testid="D1-0-M7"
+                <Button variant="outline" data-testid="D1-0-M7"
                   onClick={handleDeleteActivity}
-                  className="ml-auto px-2 py-1 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
+                  className="ml-auto"
                   style={{
                     borderColor: "color-mix(in srgb, var(--rose) 35%, var(--line-soft))",
                     color: "var(--rose)",
@@ -1035,7 +1037,7 @@ export default function ActivityPage() {
                   }}
                 >
                   {t("page.delete")}
-                </button>
+                </Button>
                 </div>
               </details>
             )}
@@ -1146,9 +1148,9 @@ export default function ActivityPage() {
       {/* ── 랩 탭 ── */}
       {activeTab === "segments" && (analysisTabProps?.analysisSummary?.laps || streams?.laps) && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>
+          {!analysisTabProps?.analysisSummary && sport !== "run" && <h3 className="text-[length:var(--fs-md)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>
             {sport === "swim" ? t("page.swim.setAnalysis") : t("page.lapAnalysis")}
-          </h3>
+          </h3>}
           {analysisTabProps?.analysisSummary ? (
             <AnalysisLapTable laps={analysisTabProps.analysisSummary.laps} ftp={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} sport={sport} onSelectLap={rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} />
           ) : streams?.laps ? sport === "run" ? <AnalysisLapTable laps={streams.laps} ftp={null} sport={sport} onSelectLap={rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} /> : <LapTable laps={streams.laps} onSelectLap={rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} /> : null}
@@ -1156,9 +1158,8 @@ export default function ActivityPage() {
       )}
 
       <Modal open={showExport} onClose={() => setShowExport(false)} title={t("tab.export")} maxWidth="max-w-3xl">
-        <div role="dialog" aria-modal="true" aria-label={t("tab.export")}>
+        <div>
         {streams ? <ExportTab activity={activity} streams={streams} /> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
-        <Button variant="secondary" onClick={() => setShowExport(false)}>{tCommon("button.close")}</Button>
         </div>
       </Modal>
       <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />

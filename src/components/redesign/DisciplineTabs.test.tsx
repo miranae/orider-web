@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import i18n from "i18next";
+import enCommon from "../../i18n/resources/en/common.json";
 import { describe, expect, it, vi } from "vitest";
 import DisciplineTabs from "./DisciplineTabs";
 
@@ -25,4 +27,20 @@ describe("DisciplineTabs availability", () => {
     fireEvent.click(swim);
     expect(onChange).toHaveBeenCalledWith("swim");
   });
+});
+
+
+it("keeps the full English swimming availability label and its wrapping hooks", async () => {
+  i18n.addResourceBundle("en", "common", enCommon, true, true);
+  await i18n.changeLanguage("en");
+  try {
+    render(<MemoryRouter><DisciplineTabs value="run" includeTri disabledKeys={["swim"]} /></MemoryRouter>);
+    const swim = screen.getByRole("tab", { name: "Swimming · Coming soon" });
+    expect(swim).toBeDisabled();
+    expect(swim.querySelector("[data-discipline-label]")).toHaveTextContent("Swimming");
+    expect(swim.querySelector("[data-discipline-availability] [data-discipline-compact]")).toHaveTextContent("Soon");
+    expect(swim.querySelector("[data-discipline-label] > [data-discipline-compact]")).toHaveTextContent("Swim");
+    expect(screen.getByRole("tab", { name: "Cycling" }).querySelector("[data-discipline-label] > [data-discipline-compact]")).toHaveTextContent("Bike");
+    expect(screen.getByRole("tab", { name: "Running" }).querySelector("[data-discipline-label] > [data-discipline-compact]")).toHaveTextContent("Run");
+  } finally { await i18n.changeLanguage("ko"); }
 });

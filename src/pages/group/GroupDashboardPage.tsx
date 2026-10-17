@@ -25,7 +25,7 @@ import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
 import Avatar from "../../components/Avatar";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
-import { Button, Card, Chip, Text, buttonClass } from "../../theme/components";
+import { DropdownSelect, Button, Card, Chip, Text, buttonClass, Textarea } from "../../theme/components";
 
 interface UpcomingEvent {
   id: string;
@@ -255,7 +255,7 @@ export default function GroupDashboardPage() {
   return (
     <div className="club-surface club-dashboard">
       <Modal accessible open={reportingPostId !== null} onClose={() => setReportingPostId(null)} title={t("dashboard.posts.reportTitle")} maxWidth="max-w-md">
-        <label className="grid gap-2 text-[length:var(--ft-body-size)]">{t("dashboard.posts.reportReasonLabel")}<select value={reportReason} onChange={event => setReportReason(event.target.value as typeof reportReason)} className="ds-input">{(["spam", "abuse", "privacy", "illegal", "other"] as const).map(reason => <option key={reason} value={reason}>{t(`dashboard.posts.reason.${reason}`)}</option>)}</select></label>
+        <label className="grid gap-2 text-[length:var(--ft-body-size)]">{t("dashboard.posts.reportReasonLabel")}<DropdownSelect value={reportReason} onChange={value => setReportReason(value as typeof reportReason)} label={t("dashboard.posts.reportReasonLabel")} options={(["spam", "abuse", "privacy", "illegal", "other"] as const).map(reason => ({ value: reason, label: t(`dashboard.posts.reason.${reason}`) }))} /></label>
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" className={buttonClass({ variant: "secondary" })} onClick={() => setReportingPostId(null)}>{t("dashboard.posts.cancel")}</button>
           <button type="button" className={buttonClass({ variant: "primary" })} disabled={postActionBusy} onClick={async () => {
@@ -317,7 +317,7 @@ export default function GroupDashboardPage() {
         </div>
         {canPost && (
           <div className="flex items-end mb-4" style={{ gap: "var(--space-2)" }}>
-            <textarea data-testid="C1-3-1"
+            <Textarea data-testid="C1-3-1"
               value={postContent}
               onChange={(event) => setPostContent(event.target.value.slice(0, 1_000))}
               maxLength={1_000}
@@ -346,7 +346,7 @@ export default function GroupDashboardPage() {
                 </div>
                 {editingPostId === post.id ? (
                   <div className="space-y-2">
-                    <textarea
+                    <Textarea
                       aria-label={t("dashboard.posts.editContent")}
                       className="ds-input"
                       value={editingContent}
@@ -425,7 +425,7 @@ export default function GroupDashboardPage() {
                 <span>{t("dashboard.monthlyGoal.title", { month: aggregate.monthKey })}</span>
                 <span>{(aggregate.monthlyDistance / 1000).toFixed(1)} / {group.monthlyGoalKm?.toLocaleString()} km</span>
               </div>
-              <div style={{ height: 8, borderRadius: "var(--r-full)", overflow: "hidden", background: "var(--bg-3)" }}>
+              <div style={{ height: 8, borderRadius: "var(--r-xl)", overflow: "hidden", background: "var(--bg-3)" }}>
                 <div style={{ width: `${Math.min(100, aggregate.monthlyDistance / ((group.monthlyGoalKm ?? 1) * 1000) * 100)}%`, height: "100%", background: "var(--lime)" }} />
               </div>
             </div>

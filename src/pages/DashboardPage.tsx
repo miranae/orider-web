@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { filterByDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { StatBlock, SectionHeader, PageHeader, EmptyState } from "../components/redesign";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
+import SportIcon from "../components/common/SportIcon";
 import RunEmptyState from "../components/dashboard/RunEmptyState";
 import WeeklyRecapCard from "../components/dashboard/WeeklyRecapCard";
 import CrossDisciplineLoadCard from "../components/dashboard/CrossDisciplineLoadCard";
@@ -844,7 +845,7 @@ function DashboardContent() {
 
                 {!loading && !feedError && filteredActivities.length === 0 && (
                   <EmptyState
-                    icon="🚴"
+                    icon={<SportIcon data-testid="dashboard-feed-empty-icon" sport={discipline === "run" ? "run" : "bike"} size={32} style={{ marginInline: "auto" }} />}
                     title={activities.length > 0 ? t("feed.noMatches.title") : t("feed.empty.title")}
                     description={activities.length > 0 ? t("feed.noMatches.description") : t("feed.empty.description")}
                     actions={activities.length > 0 ? [] : user ? [

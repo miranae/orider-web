@@ -121,7 +121,7 @@ function CpProgress({ progress, total }: { progress: number; total: number }) {
           style={{
             width: 16,
             height: 4,
-            borderRadius: "var(--r-xs)",
+            borderRadius: "var(--r-sm)",
             background: i < progress ? "var(--lime)" : "var(--bg-3)",
           }}
         />

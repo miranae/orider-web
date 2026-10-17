@@ -475,7 +475,7 @@ describe("ActivityPage", () => {
     expect(screen.getByText("Z7")).toBeInTheDocument();
     expect(await screen.findByTestId("public-analysis-charts")).toBeInTheDocument();
     expect(screen.getByText("49.0 / 51.0")).toBeInTheDocument();
-    expect(screen.getByText("추정 파워 기준")).toBeInTheDocument();
+    expect(screen.getByTestId("activity-overview-evidence")).toHaveTextContent("추정 파워 기준");
     expect(screen.queryByText("FTP 미설정")).not.toBeInTheDocument();
     expect(screen.queryByText("잘린 입력 기준")).not.toBeInTheDocument();
     expect(screen.queryByText("저장된 센서 요약")).not.toBeInTheDocument();

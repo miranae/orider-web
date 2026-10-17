@@ -319,5 +319,10 @@
   "nav.create.club": "Create club",
   "nav.create.post": "Write post",
   "nav.create.import": "Import activity",
-  "nav.create.goal": "Create goal"
+  "nav.create.goal": "Create goal",
+  "discipline.compact.tri": "Multi",
+  "discipline.compact.bike": "Bike",
+  "discipline.compact.run": "Run",
+  "discipline.compact.swim": "Swim",
+  "discipline.compact.soon": "Soon"
 }

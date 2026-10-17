@@ -19,7 +19,7 @@ import GroupSubNav from "../../components/group/GroupSubNav";
 import Avatar from "../../components/Avatar";
 import InviteMemberModal from "../../components/group/InviteMemberModal";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
-import { Button, Card, Chip, Text } from "../../theme/components";
+import { Button, Card, Chip, Text, DropdownSelect, Input } from "../../theme/components";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 import { useGroupInviteCode } from "../../hooks/useGroupInviteCode";
 import { localeTag } from "../../utils/localeDate";
@@ -484,7 +484,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
         <section role="tabpanel" id={`club-${groupId}-panel-members`} aria-labelledby={`club-${groupId}-tab-members`}>
           {/* Toolbar */}
           <div data-testid="C6-1" className="flex items-center flex-wrap" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-            <input data-testid="C6-1-1"
+            <Input data-testid="C6-1-1"
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -493,18 +493,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
               className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
               style={{ flex: "1 1 200px", background: "var(--bg-2)", border: "1px solid var(--line-soft)", color: "var(--ink-0)" }}
             />
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
-              aria-label={t("filter.roles")}
-              className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
-              style={{ background: "var(--bg-2)", border: "1px solid var(--line-soft)", color: "var(--ink-0)" }}
-            >
-              <option value="all">{t("filter.roles")}</option>
-              <option value="leader">{t("members.role.leader")}</option>
-              <option value="co-leader">{t("members.role.coLeader")}</option>
-              <option value="member">{t("members.role.member")}</option>
-            </select>
+            <DropdownSelect value={roleFilter} onChange={value => setRoleFilter(value as RoleFilter)} label={t("filter.roles")} options={[{ value: "all", label: t("filter.roles") }, { value: "leader", label: t("members.role.leader") }, { value: "co-leader", label: t("members.role.coLeader") }, { value: "member", label: t("members.role.member") }]} />
             {selected.size > 0 && isCreator && (
               <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
                 <span className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)" }}>{selected.size}{t("members.selectedCount")}</span>
@@ -648,20 +637,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
                 <div className="flex items-end flex-wrap" style={{ gap: "var(--space-3)" }}>
                   <label className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)" }}>
                     <span className="block mb-1">{t("members.leadership.target")}</span>
-                    <select
-                      value={leadershipTargetId}
-                      onChange={(event) => setLeadershipTargetId(event.target.value)}
-                      disabled={leadershipBusy}
-                      className="club-leadership-select px-3 py-2 rounded-[var(--r-md)]"
-                      style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
-                    >
-                      {leadershipCandidates.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.profile?.nickname ?? member.id}
-                          {member.role === "co-leader" ? ` · ${t("members.role.coLeader")}` : ""}
-                        </option>
-                      ))}
-                    </select>
+                    <DropdownSelect value={leadershipTargetId} onChange={setLeadershipTargetId} disabled={leadershipBusy} className="club-leadership-select" label={t("members.leadership.target")} options={leadershipCandidates.map(member => ({ value: member.id, label: `${member.profile?.nickname ?? member.id}${member.role === "co-leader" ? ` · ${t("members.role.coLeader")}` : ""}` }))} />
                   </label>
                   <label className="flex items-center text-[length:var(--ft-body-size)]" style={{ gap: "var(--space-2)", color: "var(--ink-2)" }}>
                     <input

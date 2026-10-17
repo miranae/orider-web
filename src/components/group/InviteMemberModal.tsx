@@ -1,4 +1,4 @@
-import { Button, Text } from "../../theme/components";
+import { Button, Text, Input } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -126,7 +126,7 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode, 
       <div>
         <label htmlFor={searchId} className="block text-[length:var(--ft-body-medium-size)] font-medium mb-2" style={{color:"var(--ink-1)"}}>{t("invite.searchPlaceholder")}</label>
         <div className="flex gap-2 mb-3">
-          <input id={searchId}
+          <Input id={searchId}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -135,13 +135,13 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode, 
             className="min-w-0 flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)] focus:ring-2 focus:ring-[var(--lime)] focus:border-[var(--lime)] border"
             style={{ borderColor: "var(--line-soft)", background: "var(--bg-0)", color: "var(--ink-0)" }}
           />
-          <button
+          <Button variant="primary"
             onClick={handleSearch}
             disabled={searching || !searchQuery.trim()}
             className="px-3 py-2 text-[length:var(--ft-body-medium-size)] font-medium rounded-[var(--r-md)] bg-[var(--lime)] text-[var(--bg-0)] hover:opacity-90 disabled:opacity-50 transition-colors"
           >
             {t("invite.searchButton")}
-          </button>
+          </Button>
         </div>
         {feedback && <p role="alert" className="text-[length:var(--ft-body-medium-size)] mb-3" style={{ color: "var(--color-error)" }}>{t(feedback)}</p>}
         {searched && results.length === 0 && <p role="status" className="text-[length:var(--ft-body-medium-size)]">{t("invite.searchEmpty")}</p>}
@@ -156,13 +156,13 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode, 
                 {invitedIds.has(r.id) ? (
                   <span className="text-[length:var(--fs-xs)] text-green-500">{t("invite.invitedStatus")}</span>
                 ) : (
-                  <button
+                  <Button variant="primary"
                     onClick={() => handleInvite(r.id)}
                     disabled={inviting !== null}
                     className="px-3 py-1 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-md)] bg-[var(--lime)] text-[var(--bg-0)] hover:opacity-90 disabled:opacity-50 transition-colors"
                   >
                     {inviting === r.id ? "..." : t("invite.inviteButton")}
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
@@ -171,9 +171,9 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode, 
       </div>
 
       <div className="flex justify-end mt-6">
-        <button onClick={onClose} className="px-4 py-2 text-[length:var(--ft-body-medium-size)]" style={{ color: "var(--ink-2)" }}>
+        <Button variant="secondary" onClick={onClose} className="px-4 py-2 text-[length:var(--ft-body-medium-size)]" style={{ color: "var(--ink-2)" }}>
           {t("invite.close")}
-        </button>
+        </Button>
       </div>
     </Modal>
   );

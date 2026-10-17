@@ -37,6 +37,7 @@ describe("club ride metric presentation", () => {
     ]);
     renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
     expect(await screen.findByText("활동 기록 4개 · 참가자 3명")).toBeInTheDocument();
+    expect(screen.getByTestId("club-ride-detail-scope")).toHaveTextContent("회원 외 동행자와 본인의 연결 활동");
     expect(screen.getByRole("button", { name: "같은 사람 · 69.7 km 숨기기" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "같은 사람 · 52.4 km 숨기기" }));
     expect(screen.getByRole("button", { name: "같은 사람 · 52.4 km 표시" })).toBeInTheDocument();

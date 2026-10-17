@@ -1,7 +1,8 @@
+import "./RecipeShareCard.css";
 import { useEffect, useRef, useState } from "react";
 import { Clipboard, Download, MessageSquareText } from "lucide-react";
 import { LocalizedLink } from "../LocalizedLink";
-import { Button, buttonClass } from "../../theme/components";
+import { Button, Input, Textarea, buttonClass } from "../../theme/components";
 
 export interface RecipePublicCard {
   title: string;
@@ -106,10 +107,10 @@ export function RecipeShareCard({ card, language, ready, onError }: {
   const bodyLineHeight = Math.min(primary ? 28 : 38, (740 - bodyStart) / Math.max(lines.length, 1));
   const bodyFontSize = Math.min(primary ? 23 : 29, bodyLineHeight * 0.85);
   const titleFontSize = Math.min(37, 85 / Math.max(titleLines.length, 1));
-  return <div className="space-y-4">
+  return <div className="recipe-share-card space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-2 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
       <span>{ready ? (ko ? "공유용 하이라이트 · 원문 일기 제외" : "Public highlight · private diary excluded") : (ko ? "디자인 예시 · 내 활동이 아닙니다" : "Design example · not your activity")}</span>
-      {ready && <Button size="sm" variant="ghost" onClick={() => setEditing(!editing)}>{ko ? "문구 편집" : "Edit copy"}</Button>}
+      {ready && <Button size="md" variant="ghost" onClick={() => setEditing(!editing)}>{ko ? "문구 편집" : "Edit copy"}</Button>}
     </div>
     <svg ref={preview} xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 720 ${artworkHeight}`} role="img" aria-label={title} className="mx-auto w-full max-w-md rounded-[var(--r-lg)]" fontFamily="sans-serif">
       <title>{title}</title><desc>{body}</desc>
@@ -135,15 +136,15 @@ export function RecipeShareCard({ card, language, ready, onError }: {
       <text x="80" y={825 + artworkOffset} fill="var(--ink-3)" fontSize="14" letterSpacing="2">orider.co.kr</text>
     </svg>
     {editing && <div className="grid gap-3">
-      <label className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{ko ? "제목 (30자)" : "Title (30 characters)"}<input className="mt-1 w-full rounded-[var(--r-sm)] border p-2" style={{ background: "var(--bg-2)", borderColor: "var(--line)" }} maxLength={30} value={draft.title} onChange={(event) => { setDraft({ ...draft, title: event.target.value, footer: editedFooter }); setCopied(false); }} /></label>
-      <label className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{ko ? "공개 문구 (160자)" : "Public copy (160 characters)"}<textarea className="mt-1 w-full rounded-[var(--r-sm)] border p-2" style={{ background: "var(--bg-2)", borderColor: "var(--line)" }} maxLength={160} rows={5} value={draft.body} onChange={(event) => { setDraft({ ...draft, body: event.target.value, footer: editedFooter }); setCopied(false); }} /></label>
+      <label className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{ko ? "제목 (30자)" : "Title (30 characters)"}<Input className="mt-1 w-full" maxLength={30} value={draft.title} onChange={(event) => { setDraft({ ...draft, title: event.target.value, footer: editedFooter }); setCopied(false); }} /></label>
+      <label className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{ko ? "공개 문구 (160자)" : "Public copy (160 characters)"}<Textarea className="mt-1 w-full" maxLength={160} rows={5} value={draft.body} onChange={(event) => { setDraft({ ...draft, body: event.target.value, footer: editedFooter }); setCopied(false); }} /></label>
       <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{ko ? "추가한 문구에 위치·활동명·민감한 정보가 없는지 확인하세요." : "Check that your edits contain no locations, activity names, or sensitive information."}</p>
     </div>}
     {!contentFits && <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)" }}>{ko ? "카드에 읽기 좋게 담기도록 제목은 2줄, 본문은 7줄 이내로 줄여 주세요." : "Keep the title within 2 lines and the caption within 7 lines for a readable card."}</p>}
-    <div className="flex flex-wrap gap-2">
-      <Button size="sm" variant="secondary" disabled={!valid} onClick={() => void copy()}><Clipboard size={15} />{copied ? (ko ? "복사 완료" : "Copied") : (ko ? "공유 문구 복사" : "Copy caption")}</Button>
-      <Button size="sm" variant="secondary" disabled={!valid} loading={saving} onClick={() => void download()}><Download size={15} />{ko ? "PNG 저장" : "Save PNG"}</Button>
-      {valid && <LocalizedLink data-testid="E6-2-1" to="/community/board/write" state={{ postTemplate: { title, body: text } }} className={buttonClass({ variant: "primary", size: "sm" })}><MessageSquareText size={15} />{ko ? "게시글로 공유" : "Share as post"}</LocalizedLink>}
+    <div className="recipe-share-actions flex flex-wrap gap-2">
+      <Button size="md" variant="secondary" disabled={!valid} leadingIcon={<Clipboard size={16} />} onClick={() => void copy()}>{copied ? (ko ? "복사 완료" : "Copied") : (ko ? "공유 문구 복사" : "Copy caption")}</Button>
+      <Button size="md" variant="secondary" disabled={!valid} loading={saving} leadingIcon={<Download size={16} />} onClick={() => void download()}>{ko ? "PNG 저장" : "Save PNG"}</Button>
+      {valid && <LocalizedLink data-testid="E6-2-1" to="/community/board/write" state={{ postTemplate: { title, body: text } }} className={buttonClass({ variant: "primary", size: "md" })}><MessageSquareText size={15} />{ko ? "게시글로 공유" : "Share as post"}</LocalizedLink>}
     </div>
   </div>;
 }

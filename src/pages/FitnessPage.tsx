@@ -35,6 +35,7 @@ import DetailsSection from "../components/redesign/DetailsSection";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import FtpDecisionSection from "../features/fitness/components/FtpDecisionSection";
+import { needsRunAnalysisReadiness } from "../features/fitness/runAnalysisReadiness";
 import RunRecordsSummary from "../features/fitness/components/RunRecordsSummary";
 import BikeThresholdDecisionCard from "../features/fitness/components/BikeThresholdDecisionCard";
 import FitnessCoachBriefing from "../features/fitness/components/FitnessCoachBriefing";
@@ -428,6 +429,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const monthlyBlock = findSufficiencyBlock(pdcSufficiency, "vo2max", "monthly");
   const curveBlock = activityWindowSufficiency?.blocks.find(block => block.featureId === "power_curve" && block.discipline === discipline);
   const zonesBlock = activityWindowSufficiency?.blocks.find(block => block.featureId === "training_zones" && block.discipline === discipline);
+  const runReadiness = part === "analysis" && discipline === "run" && needsRunAnalysisReadiness(model.runEvidence, model.runEvidence.thresholdPaceSec != null, !!zoneDistribution?.some(value => value != null));
 
   const weaknesses = powerGaps.filter((g) => g.label === "weakness");
 
@@ -619,7 +621,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             여기선 표만 둔다(중복 방지). */}
         {part === "all" && discipline === "run" && <RunRecordsBoard run={runRecords} />}
 
-        {part === "analysis" && discipline === "run" && <RunRecordsSummary evidence={model.runEvidence} />}
+        {part === "analysis" && discipline === "run" && <RunRecordsSummary evidence={model.runEvidence} readiness={runReadiness} />}
 
         {/* 마일스톤 그리드 — 러닝 탭 (§3.4b) */}
         {part === "all" && discipline === "run" && <MilestonesGrid achieved={milestones} />}
@@ -1076,7 +1078,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {!embedded && part === "analysis" && discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} />}
 
         {/* 존 분포 — 단독 풀폭 (오늘의 권장은 상단 hero 로 이동) */}
-        {part !== "condition" && <div data-testid="K5-3" style={{ marginTop: 'var(--space-5)' }}>
+        {part !== "condition" && !runReadiness && <div data-testid="K5-3" style={{ marginTop: 'var(--space-5)' }}>
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
             {(() => {
               // The supplied distribution is hrZoneSec for every sport; do not label it as power or pace.

@@ -974,7 +974,7 @@ export default function EventResultsPage() {
                         {t("resultsView.countPct", { count: n, pct })}
                       </span>
                     </div>
-                    <div style={{ height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
+                    <div style={{ height: 3, background: "var(--bg-3)", borderRadius: "var(--r-sm)", overflow: "hidden" }}>
                       <div style={{ width: `${pct}%`, height: "100%", background: color }} />
                     </div>
                   </div>
@@ -998,7 +998,7 @@ export default function EventResultsPage() {
                       height: `${(v / Math.max(1, finishHistogram.peak)) * 100}%`,
                       background: i === myBinIndex ? "var(--lime)" : "var(--ink-4)",
                       opacity: i === myBinIndex ? 1 : 0.6,
-                      borderRadius: "var(--r-xs)",
+                      borderRadius: "var(--r-sm)",
                     }}
                     aria-label={`${v}${t("resultsView.unit.persons")}`}
                   />

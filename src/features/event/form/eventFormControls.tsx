@@ -72,37 +72,29 @@ export function Section({ id, title, desc, children }: { id: string; title: stri
   );
 }
 
-export function Toggle({ on, onChange }: { on: boolean; onChange: (value: boolean) => void }) {
+export function Toggle({ on, onChange, label }: { on: boolean; onChange: (value: boolean) => void; label?: string }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!on)}
       aria-pressed={on}
+      aria-label={label}
       style={{
-        width: 32,
-        height: 18,
-        borderRadius: "var(--r-xl)",
-        position: "relative",
-        flexShrink: 0,
-        cursor: "pointer",
-        background: on ? "var(--lime)" : "var(--bg-3)",
-        border: on ? "none" : "1px solid var(--line-soft)",
-        padding: 0,
+        width: "var(--dim-button-height)", height: "var(--dim-button-height)",
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0, cursor: "pointer", background: "transparent", border: 0, padding: 0,
       }}
     >
-      <span
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          top: 2,
-          left: on ? 16 : 2,
-          width: 12,
-          height: 12,
-          borderRadius: "50%",
-          background: on ? "var(--primary-fg)" : "var(--ink-2)",
-          transition: "left 120ms",
-        }}
-      />
+      <span aria-hidden="true" style={{
+        width: 32, height: 18, borderRadius: "var(--r-xl)", position: "relative",
+        background: on ? "var(--lime)" : "var(--bg-3)",
+        border: on ? "none" : "1px solid var(--line-soft)",
+      }}>
+        <span style={{
+          position: "absolute", top: 2, left: on ? 16 : 2, width: 12, height: 12,
+          borderRadius: "50%", background: on ? "var(--primary-fg)" : "var(--ink-2)", transition: "left 120ms",
+        }} />
+      </span>
     </button>
   );
 }
@@ -165,7 +157,7 @@ export function SegmentedPicker<T extends string>({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: `repeat(${columns ?? options.length}, 1fr)`,
+        gridTemplateColumns: `repeat(var(--event-picker-column-count, ${columns ?? options.length}), minmax(0, 1fr))`,
         gap: "var(--space-1-5)",
       }}
     >

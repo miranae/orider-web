@@ -1,5 +1,4 @@
 import "./RideStoryPhotoPicker.css";
-import { createPortal } from "react-dom";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { collection, doc, getDocs, limit as firestoreLimit, orderBy, query, setDoc, where } from "firebase/firestore";
@@ -267,9 +266,8 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
     }
   };
 
-  return createPortal(
-    <div className="ride-story-picker">
-    <Modal open={open} onClose={onClose} title={copy.title} maxWidth="max-w-3xl" accessible>
+  return (
+    <Modal layer={150} portalClassName="ride-story-picker" open={open} onClose={onClose} title={copy.title} maxWidth="max-w-3xl" accessible>
       <div className="ride-story-picker-content min-w-0">
         <div className="border-b pb-4" style={{ borderColor: "var(--line-soft)" }}>
           <div>
@@ -312,17 +310,14 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
         </div>
 
         <div className="ride-story-picker-footer flex flex-wrap justify-end gap-2 border-t pt-4" style={{ borderColor: "var(--line-soft)" }}>
-          <Button size="sm" variant="secondary" onClick={onClose}>{copy.cancel}</Button>
-          {onPreview && <Button size="sm" variant="primary" disabled={!selection || loading || Boolean(uploadingActivityId)} onClick={() => { if (selection) onPreview(selection); }}>{i18n.language.startsWith("ko") ? "선택 결과 미리보기" : "Preview selected output"}</Button>}
-          <Button size="sm" variant="secondary" disabled={!selection || loading || Boolean(uploadingActivityId)} loading={sending} onClick={() => void send()}>
-            <Send size={15} />
+          <Button size="md" variant="secondary" onClick={onClose}>{copy.cancel}</Button>
+          {onPreview && <Button size="md" variant="primary" disabled={!selection || loading || Boolean(uploadingActivityId)} onClick={() => { if (selection) onPreview(selection); }}>{i18n.language.startsWith("ko") ? "선택 결과 미리보기" : "Preview selected output"}</Button>}
+          <Button size="md" variant="secondary" disabled={!selection || loading || Boolean(uploadingActivityId)} loading={sending} leadingIcon={<Send size={16} />} onClick={() => void send()}>
             {copy.send}
           </Button>
         </div>
       </div>
     </Modal>
-    </div>,
-    document.body,
   );
 }
 
@@ -364,7 +359,9 @@ function RideStoryActivityRow({
           <h3 className="break-words text-[length:var(--fs-base)] font-semibold leading-5" style={{ color: "var(--ink-0)" }}>{activity.name}</h3>
           <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>
             {activity.name !== [activity.date, activity.type].filter(Boolean).join(" · ") && <>{activity.date} · {activity.type}<br /></>}
-            {copy.ko ? "이동거리" : "Distance"} {activity.distanceKm.toFixed(1)} km · {copy.ko ? "활동시간" : "Activity time"} {formatDuration(activity.durationMin, copy.ko)} · {copy.ko ? "상승고도" : "Elevation gain"} {activity.elevationGainM} m
+            <span className="ride-story-metric">{copy.ko ? "이동거리" : "Distance"} <span>{activity.distanceKm.toFixed(1)} km</span></span>{" · "}
+            <span className="ride-story-metric">{copy.ko ? "활동시간" : "Activity time"} <span>{formatDuration(activity.durationMin, copy.ko)}</span></span>{" · "}
+            <span className="ride-story-metric">{copy.ko ? "상승고도" : "Elevation gain"} <span>{activity.elevationGainM} m</span></span>
           </p>
         </div>
         <Chip>{copy.ko ? `활동사진 ${activity.photos.length}장` : `${activity.photos.length} ${activity.photos.length === 1 ? "photo" : "photos"}`}</Chip>

@@ -144,3 +144,13 @@ describe("EventEditPage bundled App Check update admission", () => {
     expect(constructedUpdates()).toHaveLength(0);
   });
 });
+
+
+it("names cutoff and safety controls without changing their initial values", async () => {
+  setDocData("events/ev", { info: { name: "QA 원본 이벤트", status: "OPEN", creatorId: "test-uid", type: "TOUR", startTime: START_MS } });
+  await editor();
+  for (const name of ["컷오프 적용", "SOS 알림 활성화", "LIVE 트래킹 공개", "정비 지원 차량 안내"]) {
+    expect(screen.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed");
+  }
+  expect(updateCalls()).toHaveLength(0);
+});

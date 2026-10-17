@@ -1,3 +1,4 @@
+import { Button } from "../../theme/components";
 import { Users } from "lucide-react";
 import SportIcon from "../../components/common/SportIcon";
 import { useState, useMemo } from "react";
@@ -70,13 +71,14 @@ export default function GroupRidesPage() {
   }
 
   return (
-    <div>
+    <div className="club-surface">
       <GroupSubNav group={group} isCreator={isCreator} />
 
+      <p className="club-record-scope" data-testid="club-ride-list-scope">{t("rides.listScope")}</p>
       <div data-testid="C2-0" className="flex flex-wrap items-center gap-3 mb-4">
         <span className="text-[length:var(--ft-body-medium-size)]" style={{ color: "var(--ink-2)" }}>{t("rides.activityCountFilter")}:</span>
         {[0, 2, 5].map((n) => (
-          <button data-testid="C2-0-1"
+          <Button variant="secondary" data-testid="C2-0-1"
             key={n}
             onClick={() => setMinActivities(n)}
             aria-pressed={minActivities === n}
@@ -88,7 +90,7 @@ export default function GroupRidesPage() {
             }
           >
             {n === 0 ? t("filter.all") : t("rides.minimumActivityCount", { count: n })}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -103,7 +105,7 @@ export default function GroupRidesPage() {
           ))}
           {loadMoreError && <p role="alert">{t(loadMoreError === "unavailable" ? "error.rideStatsUnavailable" : "error.rideStatsLoadFailed")}</p>}
           {hasMore && (
-            <button data-testid="C2-1-2"
+            <Button variant="secondary" data-testid="C2-1-2"
               type="button"
               onClick={() => { void loadMore(); }}
               disabled={loadingMore}
@@ -111,7 +113,7 @@ export default function GroupRidesPage() {
               style={{ background: "var(--bg-2)", color: "var(--ink-1)" }}
             >
               {loadingMore ? t("rides.loadingMore") : loadMoreError ? t("invite.retry") : t("rides.loadMore")}
-            </button>
+            </Button>
           )}
         </div>
       )}
