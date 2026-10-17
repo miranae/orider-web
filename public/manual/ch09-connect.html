@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>9. 연동 - 오라이더 앱 사용 설명서</title>
+<meta name="description" content="오라이더 앱 사용 설명서 (Android·iOS) — Strava, 삼성 헬스·Apple 건강, 웹, 액션캠, 날씨">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">9. 연동</div>
+  <div class="nav-right"><a href="ch08-training.html">&larr; 이전</a><span class="nav-sep">|</span><a href="ch10-settings.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="top">
+  <h2>9. 연동</h2>
+  <div class="can-do">
+    <strong>이 장에서 할 수 있는 것</strong>
+    <ul>
+      <li>Strava에 기록을 자동으로 올리고, Strava의 지난 활동을 가져옵니다.</li>
+      <li><span class="os os-android">Android</span> 삼성 헬스, <span class="os os-ios">iOS</span> Apple 건강의 운동을 가져옵니다.</li>
+      <li>웹 대시보드, 액션캠, 날씨 정보를 함께 씁니다.</li>
+    </ul>
+  </div>
+  <p><span class="os os-android">Android</span> 연동은 <span class="path">더보기 &gt; 연결 서비스</span>에서 시작합니다. 이 메뉴는 <span class="path">설정 &gt; 계정</span> 화면을 엽니다. <span class="os os-ios">iOS</span> Strava는 설정 &gt; 연결에 있습니다. iPhone의 더보기 &gt; 연결 서비스는 설정 첫 화면을 엽니다(<a href="ch00-before.html#ios-menus">0장 대응표</a>).</p>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-account-connections.jpg" alt="계정 화면의 Strava, 삼성 헬스, 웹 대시보드" loading="lazy" width="682" height="1200">
+      <figcaption><strong>계정 &gt; 연결</strong> — STRAVA · 삼성 헬스 · 웹 대시보드 구역이 차례로 있습니다. <strong>연결 해제</strong>는 누르지 않도록 주의하세요.</figcaption>
+    </figure>
+  </div>
+
+  <h3 id="strava">따라 하기: Strava</h3>
+  <ol>
+    <li><span class="path">설정 &gt; 계정</span>의 <strong>STRAVA</strong> 구역에서 연결을 누르고 Strava에 로그인해 권한을 허용합니다. <span class="os os-ios">iOS</span> Strava는 설정 &gt; 연결에 있습니다.</li>
+    <li>연결되면 <strong>연결된 계정</strong>에 Strava 이름이 보입니다.</li>
+    <li><strong>자동 업로드</strong>를 켜면 “주행 저장 시 자동으로 Strava에 업로드”합니다.</li>
+    <li>예전 Strava 활동을 오라이더로 가져오려면 <strong>Strava에서 가져오기</strong>를 누릅니다.</li>
+    <li>자동 업로드를 끈 상태에서 한 건만 올리려면 활동 상세 아래쪽의 <strong>Strava</strong>(S) 버튼(<span class="os os-ios">iOS</span> <strong>Strava에 업로드</strong>)을 누릅니다. 옆의 <strong>업로드</strong>(<span class="os os-ios">iOS</span> <strong>플랫폼에 업로드</strong>) 버튼은 Strava가 아니라 오라이더 서버에 올리는 버튼입니다(<a href="ch05-records.html#export">5장</a>).</li>
+  </ol>
+  <table>
+    <tr><th>앱에서 기록한 종목</th><th>Strava 활동 유형</th></tr>
+    <tr><td>자전거</td><td>Ride</td></tr>
+    <tr><td>러닝</td><td>Run</td></tr>
+  </table>
+  <div class="info">업로드는 기록을 시작할 때 고른 종목을 따릅니다. <span class="os os-android">Android</span> Strava 업로드는 <span class="path">설정 &gt; 시스템 &gt; 데이터 절약 &gt; Strava 업로드</span>의 네트워크 설정(오프라인 / 셀룰러+WiFi / WiFi만)을 따르므로, WiFi만으로 두면 WiFi에 연결될 때 올라갑니다.</div>
+
+  <h3 id="health">건강 앱 가져오기</h3>
+  <h4><span class="os os-android">Android</span> 삼성 헬스</h4>
+  <ol>
+    <li><span class="path">설정 &gt; 계정 &gt; 삼성 헬스 &gt; 운동 가져오기</span>를 엽니다.</li>
+    <li>“완료한 운동과 원본에 있는 GPS 경로를 선택해 가져옵니다.” 가져올 운동을 고릅니다.</li>
+    <li>가져온 운동은 오라이더 기록 목록에 추가됩니다.</li>
+  </ol>
+  <h4><span class="os os-ios">iOS</span> Apple 건강 (헬스 연동)</h4>
+  <ol>
+    <li><span class="path">설정 &gt; 기록 · 연결 &gt; 헬스 연동</span>을 엽니다. 로그인한 상태에서만 쓸 수 있습니다.</li>
+    <li><strong>건강정보 수집·이용 동의</strong>를 읽고 동의합니다. 건강정보는 민감정보라 따로 동의를 받으며, 동의하지 않아도 라이딩 기능은 그대로 씁니다.</li>
+    <li>Apple 건강 권한 화면에서 읽기를 허용합니다. 연결하면 지난 30일까지의 운동과 GPS 경로를 가져옵니다.</li>
+    <li>연결을 해제하면 수집이 즉시 멈추고, 이미 가져온 활동은 남습니다.</li>
+  </ol>
+  <div class="info">휴대폰으로 직접 기록한 활동과 건강 앱에서 가져온 활동은 출처가 다르게 표시됩니다. 같은 운동을 양쪽에서 기록했다면 중복 여부를 확인하세요.</div>
+
+  <h3 id="web">웹 대시보드</h3>
+  <p><span class="os os-android">Android</span> <span class="path">설정 &gt; 계정 &gt; 웹 대시보드</span>(“웹에서 상세 분석 보기”)를 누르면 orider.co.kr이 열립니다. 같은 계정으로 로그인하면 앱 기록이 그대로 보이고, 큰 화면에서 분석·목표·계획·경로를 관리할 수 있습니다. 자세한 사용법은 <a href="/web-manual/">웹 설명서</a>를 보세요.</p>
+
+  <h3 id="actioncam">액션캠</h3>
+  <ol>
+    <li><span class="path">더보기 &gt; 센서 &gt; 센서 검색 및 연결</span>에서 지원하는 액션캠(GoPro·DJI 지원 모델)을 찾아 등록합니다.</li>
+    <li><span class="path">설정 &gt; 화면 &gt; 데이터 필드</span>에서 <strong>캠 녹화버튼</strong>, <strong>캠 사진</strong>, 캠 배터리 같은 필드를 넣습니다.</li>
+    <li>기록 중 화면에서 필드를 눌러 녹화를 시작·정지하거나 사진을 찍습니다.</li>
+  </ol>
+  <div class="tip">장갑을 낀 손으로도 누를 수 있게 녹화 버튼 필드를 크게 배치하세요. 촬영이 실제로 됐는지는 카메라에서도 확인하세요.</div>
+
+  <h3 id="weather">날씨</h3>
+  <ul>
+    <li><strong>홈</strong> 인사말 아래에 현재 기온과 바람(세기·방향)이 나옵니다.</li>
+    <li><strong>경로 상세</strong>의 “출발지 7일 예보”로 출발 지점의 날씨를 미리 봅니다(<a href="ch06-courses.html#detail">6장</a>).</li>
+    <li>기록 중에는 데이터 필드(현재 온도 · 풍속 · 풍향 · 강수량 · 습도)로 봅니다.</li>
+  </ul>
+  <div class="info">날씨는 네트워크가 필요합니다. <span class="path">데이터 절약 &gt; 날씨 정보</span>를 오프라인으로 두거나 배터리 절약의 절약·대시보드 프리셋을 고르면 날씨가 갱신되지 않습니다. 날씨가 멈춰도 GPS 기록은 계속됩니다.</div>
+
+  <h3 id="stuck">자주 막히는 점</h3>
+  <div class="warn">Strava에 올라가지 않으면 ① 계정의 Strava 연결 상태 ② 데이터 절약의 Strava 업로드 설정 ③ 네트워크를 차례로 확인하세요. 그래도 안 되면 연결 해제 후 다시 연결합니다.</div>
+  <div class="info">러닝이 Strava에 Ride로 올라갔다면 기록 시작 전에 종목이 자전거였던 것입니다. 다음 기록부터 홈의 종목 토글을 확인하세요.</div>
+</section>
+
+<nav class="bottom-nav" aria-label="장 이동">
+  <a href="ch08-training.html">&larr; 8. 훈련과 코치</a>
+  <span class="nav-title"><a href="index.html">목차</a></span>
+  <a href="ch10-settings.html">10. 설정 한눈에 &rarr;</a>
+</nav>
+</div>
+
+<footer>
+  <p>오라이더 앱 사용 설명서 (Android·iOS) · 개정 2026-10-18 · 2026년 10월 출시 버전 기준</p>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">O-Rider</a> · <a href="/web-manual/">웹 설명서</a></p>
+</footer>
+
+</body>
+</html>
