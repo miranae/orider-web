@@ -1,3 +1,4 @@
+import { qualifiedRunRecords } from "../../features/fitness/runAnalysisReadiness";
 import GlossaryText from "../common/GlossaryText";
 import { useTranslation } from "react-i18next";
 import type { CyclingAbilityResult, RunEvidence, SwimEvidence } from "../../features/fitness/multisportPerformance";
@@ -33,10 +34,7 @@ export default function SportPerformanceCard({
   swim: SwimEvidence;
 }) {
   const { t, i18n } = useTranslation("dashboard");
-  const qualifiedRunRecords = run.records.filter(record => record.qualification === "source_qualified"
-    && record.unit === "seconds" && Number.isFinite(record.seconds) && record.seconds > 0
-    && typeof record.activityId === "string" && record.activityId.trim()
-    && Number.isFinite(record.startTime));
+  const qualifiedRecords = qualifiedRunRecords(run);
   const unverifiedGroups: Array<{ activityId: string | null; records: NonNullable<RunEvidence["unverifiedRecords"]> }> = [];
   const groupsByActivity = new Map<string, (typeof unverifiedGroups)[number]>();
   for (const record of run.unverifiedRecords ?? []) {
@@ -60,11 +58,11 @@ export default function SportPerformanceCard({
         <>
           <Text as="p" variant="bodyMedium" tone="secondary" style={{ marginTop: "var(--space-1)" }}><GlossaryText>{t("mobileFitness.sport.run.basis")}</GlossaryText></Text>
           {run.thresholdPaceSec != null && <EvidenceRow label={t("mobileFitness.sport.run.threshold")} value={`${formatPace(run.thresholdPaceSec)}/km`} />}
-          {qualifiedRunRecords.map((record) => <div key={record.distance}>
+          {qualifiedRecords.map((record) => <div key={record.distance}>
             <EvidenceRow label={t(`fitness:runRecords.dist.${record.distance}`)} value={`${formatDuration(record.seconds)} · ${record.date}`} />
             <a href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(record.activityId)}`} className={buttonClass({ variant: "ghost" })} style={{ minHeight: "var(--space-8)", fontSize: "var(--fs-md)" }}>{t("fitness:runRecords.viewActivity")}</a>
           </div>)}
-          {run.thresholdPaceSec == null && qualifiedRunRecords.length === 0 && <Text as="p" variant="bodyMedium" tone="secondary" style={{ marginTop: "var(--space-3)" }}><GlossaryText>{t("mobileFitness.sport.run.noQualifiedEvidence")}</GlossaryText></Text>}
+          {run.thresholdPaceSec == null && qualifiedRecords.length === 0 && <Text as="p" variant="bodyMedium" tone="secondary" style={{ marginTop: "var(--space-3)" }}><GlossaryText>{t("mobileFitness.sport.run.noQualifiedEvidence")}</GlossaryText></Text>}
           {!!run.unverifiedRecords?.length && <details style={{ marginTop: "var(--space-3)" }}>
             <summary style={{ minHeight: "var(--space-8)", cursor: "pointer", fontSize: "var(--fs-md)", fontWeight: 600, padding: "var(--space-3) 0" }}>{t("mobileFitness.sport.run.unverifiedTitle", { count: run.unverifiedRecords.length, activityCount: groupsByActivity.size })}</summary>
             <Text as="p" variant="bodyMedium" tone="secondary"><GlossaryText>{t("mobileFitness.sport.run.unverifiedBasis")}</GlossaryText></Text>

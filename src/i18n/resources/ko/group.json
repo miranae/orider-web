@@ -515,5 +515,7 @@
   "rides.minimumActivityCount": "{{count}}개+",
   "dashboard.identity.distanceHelp": "활성 클럽 회원의 공개 활동 이동거리를 모두 더한 값입니다.",
   "dashboard.identity.longestRideHelp": "공동 기록 1회에 포함된 공개 활동의 이동거리 합산값 중 최대입니다.",
-  "challenges.loadFailed": "클럽 리그를 불러오지 못했습니다."
+  "challenges.loadFailed": "클럽 리그를 불러오지 못했습니다.",
+  "rides.listScope": "활성 클럽 회원의 공동 기록을 합산합니다.",
+  "ridePage.detailScope": "상세에는 회원 외 동행자와 본인의 연결 활동도 포함됩니다."
 }

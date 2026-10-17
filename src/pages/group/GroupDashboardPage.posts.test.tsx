@@ -95,7 +95,7 @@ describe("group post editing", () => {
     fireEvent.click(screen.getByRole("button", { name: "신고", exact: true }));
     const dialog = await screen.findByRole("dialog", { name: "게시글 신고" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
-    expect(within(dialog).getByRole("combobox", { name: "신고 사유" })).toHaveValue("other");
+    expect(within(dialog).getByRole("combobox", { name: "신고 사유" })).toHaveTextContent("기타");
     expect(within(dialog).getByRole("button", { name: "신고 보내기" })).toBeEnabled();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -105,7 +105,8 @@ describe("group post editing", () => {
     render(<Page />);
     fireEvent.click(screen.getByRole("button", { name: "신고", exact: true }));
     const dialog = await screen.findByRole("dialog", { name: "게시글 신고" });
-    fireEvent.change(within(dialog).getByRole("combobox", { name: "신고 사유" }), { target: { value: "spam" } });
+    fireEvent.click(within(dialog).getByRole("combobox", { name: "신고 사유" }));
+    fireEvent.click(screen.getByRole("option", { name: "스팸" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "취소", exact: true }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(state.showToast).not.toHaveBeenCalled();

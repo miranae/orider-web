@@ -46,6 +46,17 @@ beforeEach(() => {
   mocks.history.mockReset().mockReturnValue({ activities: [previous, { ...previous, id: "bike", type: "Ride" }], sourceActivities: [], coverage: "ready", loading: false, error: false, hasMore: false });
   mocks.metrics.mockReset().mockReturnValue({ status: "missing", metrics: null });
 });
+function chooseComparison(value: "previous" | "") {
+  const control = screen.getByRole("combobox", { name: mocks.language === "ko" ? ko.growth.choose : en.growth.choose });
+  if (control.getAttribute("aria-expanded") !== "true") fireEvent.click(control);
+  fireEvent.keyDown(control, { key: "Home" });
+  if (value === "previous") fireEvent.keyDown(control, { key: "ArrowDown" });
+  fireEvent.keyDown(control, { key: "Enter" });
+}
+function openComparisonOptions() {
+  const control = screen.getByRole("combobox", { name: mocks.language === "ko" ? ko.growth.choose : en.growth.choose });
+  if (control.getAttribute("aria-expanded") !== "true") fireEvent.click(control);
+}
 describe("ActivityGrowthPanel", () => {
   it("web comparison keeps only normal activity comparison in production, without period/stage sections", () => {
     render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner comparisonOnly />);
@@ -99,10 +110,10 @@ describe("ActivityGrowthPanel", () => {
     expect(mocks.route).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
     expect(mocks.route).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(mocks.route).toHaveBeenLastCalledWith({ current: activity, previous });
     expect(mocks.metrics).toHaveBeenLastCalledWith("previous");
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "" } });
+    chooseComparison("");
     expect(mocks.metrics).toHaveBeenLastCalledWith(null);
   });
   it("uses the selected ready run splits without extra reads and hides them while stale", () => {
@@ -110,7 +121,7 @@ describe("ActivityGrowthPanel", () => {
     mocks.metrics.mockReturnValue({ status: "ready", metrics: { version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [{ ...split, paceSec: 330 }] } });
     const r = render(<ActivityGrowthPanel activity={activity} metrics={{ version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [split] }} currentMetricsStatus="ready" isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(screen.getByRole("region", { name: ko.splitCompare.title })).toHaveTextContent("5:30/km");
     expect(screen.getByRole("link", { name: /선택한 지난 활동/ })).toHaveAttribute("href", "/ko/activity/previous");
     expect(mocks.metrics).toHaveBeenLastCalledWith("previous");
@@ -123,7 +134,7 @@ describe("ActivityGrowthPanel", () => {
     mocks.metrics.mockReturnValue({ status: "ready", metrics: { version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [split] } });
     render(<ActivityGrowthPanel activity={activity} metrics={{ version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [split] }} currentMetricsStatus={currentMetricsStatus} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(screen.queryByRole("region", { name: ko.splitCompare.title })).not.toBeInTheDocument();
     expect(screen.getByRole("table")).toHaveTextContent("1.5");
   });
@@ -145,14 +156,14 @@ describe("ActivityGrowthPanel", () => {
     expect(mocks.history).toHaveBeenCalledWith("comparison", 0);
     expect(mocks.metrics).toHaveBeenLastCalledWith(null);
     expect(screen.queryByRole("option", { name: /Ride/ })).toBeNull();
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(mocks.metrics).toHaveBeenLastCalledWith("previous");
     expect(screen.getByText("이 기록의 확정 분석 수치가 없습니다.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "비교 해제" }));
     expect(mocks.metrics).toHaveBeenLastCalledWith(null);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    expect(screen.getByRole("combobox")).toHaveValue("");
+    expect(screen.getByRole("combobox")).toHaveTextContent(ko.growth.none);
   });
   it("keeps route recommendations opt-in, manual selection and one selected metrics subscription", () => {
     const thumbnailTrack = "37,127;37.003,127;37.006,127;37.009,127";
@@ -160,15 +171,19 @@ describe("ActivityGrowthPanel", () => {
     mocks.history.mockReturnValue({ activities: [{ ...previous, thumbnailTrack, summary: { distance: 1000 } }, { ...previous, id: "unrelated", description: "unrelated" }], loading: false });
     render(<ActivityGrowthPanel activity={current} metrics={null} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
+    openComparisonOptions();
     expect(screen.getByRole("option", { name: /unrelated/ })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
     fireEvent.click(screen.getByRole("button", { name: "유사 코스 후보 (1)" }));
     expect(screen.queryByRole("option", { name: /unrelated/ })).toBeNull();
     expect(mocks.metrics).toHaveBeenLastCalledWith(null);
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(mocks.metrics).toHaveBeenLastCalledWith("previous");
     fireEvent.click(screen.getByRole("button", { name: "모든 지난 활동" }));
+    openComparisonOptions();
     expect(screen.getByRole("option", { name: /unrelated/ })).toBeInTheDocument();
-    expect(screen.getByRole("combobox")).toHaveValue("previous");
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
+    expect(screen.getByRole("combobox")).toHaveTextContent("earlier");
   });
   it("reuses loaded similar-route records and the existing selected metrics target", () => {
     const thumbnailTrack = "37,127;37.003,127;37.006,127;37.009,127";
@@ -180,7 +195,7 @@ describe("ActivityGrowthPanel", () => {
     expect(screen.getByRole("region", { name: ko.similarRouteHistory.title })).toBeInTheDocument();
     expect(mocks.metrics).toHaveBeenLastCalledWith(null);
     fireEvent.click(screen.getByRole("button", { name: "이 활동과 비교" }));
-    expect(screen.getByRole("combobox")).toHaveValue("previous");
+    expect(screen.getByRole("combobox")).toHaveTextContent("earlier");
     expect(mocks.metrics).toHaveBeenLastCalledWith("previous");
     const metricsCalls = mocks.metrics.mock.calls.length, historyCalls = mocks.history.mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "거리 · km" }));
@@ -196,7 +211,7 @@ describe("ActivityGrowthPanel", () => {
   it("resets selection when the activity changes", () => {
     const r = render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     r.rerender(<ActivityGrowthPanel activity={{ ...activity, id: "other" }} metrics={null} isOwner />);
     expect(screen.queryByRole("combobox")).toBeNull();
   });
@@ -264,7 +279,7 @@ describe("ActivityGrowthPanel", () => {
     mocks.metrics.mockReturnValue({ status: "ready", metrics: side === "previous" ? pending : ready });
     render(<ActivityGrowthPanel activity={activity} metrics={side === "current" ? pending : ready} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(screen.queryByText("심박 존 분포")).toBeNull(); expect(screen.queryByText("지속시간별 최대 파워")).toBeNull();
   });
   it("selects canonical common-duration values by graph or accessible control and resets baseline selection", () => {
@@ -272,7 +287,7 @@ describe("ActivityGrowthPanel", () => {
     mocks.metrics.mockReturnValue({ status: "ready", metrics: { ...metrics, speedCurve: { "1m": 10, "5m": 8 } } });
     const r = render(<ActivityGrowthPanel activity={activity} metrics={metrics} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     const durationControl = screen.getByRole("combobox", { name: "비교할 지속시간" });
     expect(durationControl).toHaveValue("300");
     expect(screen.getByRole("img", { name: "지속시간별 최고 페이스" })).toBeInTheDocument();
@@ -282,7 +297,7 @@ describe("ActivityGrowthPanel", () => {
     fireEvent.change(durationControl, { target: { value: "300" } });
     expect(screen.getByText("-90 s/km")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "비교 해제" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(screen.getByRole("combobox", { name: "비교할 지속시간" })).toHaveValue("300");
     expect(screen.getByText("파워 분석 없음", { exact: false })).toBeInTheDocument();
   });
@@ -291,7 +306,7 @@ describe("ActivityGrowthPanel", () => {
     mocks.metrics.mockReturnValue({ status: "ready", metrics: { speedCurve: { "5m": 8 } } });
     render(<ActivityGrowthPanel activity={activity} metrics={{ speedCurve: { "5m": 10 } }} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(screen.getByText("-145 s/mi")).toBeInTheDocument();
     expect(screen.getAllByText("9:39").length).toBeGreaterThan(0);
   });
@@ -299,7 +314,7 @@ describe("ActivityGrowthPanel", () => {
     mocks.metrics.mockReturnValue({ status: "ready", metrics: { isVirtualPower: true, mmp: { "5m": 200 }, powerZoneSec: [10, 20, 0, 0, 0, 0, 0] } });
     render(<ActivityGrowthPanel activity={activity} metrics={{ isVirtualPower: false, mmp: { "5m": 250 }, powerZoneSec: [10, 20, 0, 0, 0, 0, 0] }} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(screen.queryByRole("img", { name: "지속시간별 최대 파워" })).toBeNull();
     expect(screen.getByText("파워 존 분포")).toBeInTheDocument();
     expect(screen.getByText(/파워 출처가 같고 확인된/)).toBeInTheDocument();
@@ -308,7 +323,7 @@ describe("ActivityGrowthPanel", () => {
     mocks.metrics.mockReturnValue({ status: "ready", metrics: { hrZoneSec: [10, 20, 0, 0, 0] } });
     render(<ActivityGrowthPanel activity={activity} metrics={{ hrZoneSec: [10, Number.NaN, 0, 0, 0], powerZoneSec: [10, 20], hrZoneBoundaries: null }} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(screen.getByText("심박 존 분포")).toBeInTheDocument();
     expect(screen.queryByText("파워 존 분포")).toBeNull();
     expect(screen.queryByText(/NaN/)).toBeNull();
@@ -319,7 +334,7 @@ describe("ActivityGrowthPanel", () => {
     mocks.metrics.mockReturnValue({ status: "ready", metrics: {} });
     render(<ActivityGrowthPanel activity={activity} metrics={{ hrZoneSec }} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(screen.queryByText("심박 존 분포")).toBeNull();
   });
   it("offers a mobile scroll hint only for the long monthly chart", () => {
@@ -349,7 +364,7 @@ describe("ActivityGrowthPanel", () => {
     mocks.metrics.mockReturnValue({ status: "ready", metrics: { distanceKm: 10 } });
     render(<ActivityGrowthPanel activity={activity} metrics={{ distanceKm: 10 + Number(delta) }} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent === `변화 ${displayed}`)).toBeInTheDocument();
   });
   it.each([-40, 40])("shows a subprecision statistics distance change without a sign (delta=%s m)", (delta) => {
@@ -367,7 +382,7 @@ describe("ActivityGrowthPanel", () => {
     mocks.units = "imperial";
     render(<ActivityGrowthPanel activity={activity} metrics={{ avgSpeedKph: 12, distanceKm: 5 }} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     expect(screen.getByText("거리 · mi")).toBeInTheDocument(); expect(screen.getByText("8:03")).toBeInTheDocument();
   });
 });
@@ -527,7 +542,7 @@ describe("owner comparison readable moving time", () => {
     mocks.metrics.mockReturnValue({ status: "ready", metrics: previousMetrics });
     render(<ActivityGrowthPanel activity={activity} metrics={currentMetrics} isOwner />);
     fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    chooseComparison("previous");
     const row = screen.getByRole("rowheader", { name: "이동시간" }).closest("tr")!;
     const cells = within(row).getAllByRole("cell");
     expect(cells[0]!.querySelector(".ds-text")?.textContent).toBe(currentClock);
@@ -550,9 +565,10 @@ describe("owner comparison readable moving time", () => {
     render(<ActivityGrowthPanel activity={current} metrics={{ movingTimeSec: 120 }} isOwner />);
     expect(mocks.history).not.toHaveBeenCalled(); expect(mocks.metrics).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: language === "ko" ? ko.growth.compare : en.growth.compare }));
-    expect(screen.getByRole("option", { name: /02:10:00.*Ride/ })).toHaveValue("previous");
-    expect(screen.getByRole("option", { name: /02:20:00.*Ride/ })).toHaveValue("second");
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "previous" } });
+    openComparisonOptions();
+    expect(screen.getByRole("option", { name: /02:10:00.*Ride/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /02:20:00.*Ride/ })).toBeInTheDocument();
+    chooseComparison("previous");
     expect(screen.getByRole("columnheader", { name: /02:10:00/ })).toHaveTextContent(language === "ko" ? "2026. 10. 07." : "10/07/2026");
     expect(mocks.metrics).toHaveBeenLastCalledWith("previous"); expect(mocks.route).toHaveBeenLastCalledWith({ current, previous: first }); expect(mocks.periods).not.toHaveBeenCalled();
   });

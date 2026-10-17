@@ -68,7 +68,7 @@ export function useGroup(groupId: string | undefined, accessKey?: string) {
 }
 
 /** Subscribe only to the signed-in user's membership document for role gates. */
-export function useGroupMemberRole(groupId: string | undefined, userId: string | undefined) {
+export function useGroupMemberRole(groupId: string | undefined, userId: string | undefined, creatorId?: string) {
   const [role, setRole] = useState<GroupMemberRole | null>(null);
   const [loading, setLoading] = useState(!!groupId && !!userId);
 
@@ -97,8 +97,9 @@ export function useGroupMemberRole(groupId: string | undefined, userId: string |
       }
       setError(null);
       const data = snap.exists() ? snap.data() : null;
-      // Legacy active memberships omit role; the server treats only nullish roles as member.
-      const value = data?.role ?? "member";
+      // Display callers may supply the canonical creator; active membership remains required.
+      // Permission callers omit this argument and retain the existing member fallback.
+      const value = data?.role ?? (creatorId === userId ? "leader" : "member");
       const isActive = data && ["active", "approved"].includes(String(data.status ?? ""));
       setRole(isActive && (value === "owner" || value === "leader" || value === "co-leader" || value === "member") ? value : null);
       setLoading(false);
@@ -110,7 +111,7 @@ export function useGroupMemberRole(groupId: string | undefined, userId: string |
       setLoading(false);
     });
     return () => { cancelled = true; unsubscribe(); };
-  }, [groupId, userId, attempt]);
+  }, [groupId, userId, creatorId, attempt]);
 
   return { role, loading, error, retry };
 }

@@ -106,7 +106,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
                     <Text as="span" variant="eyebrow">{challenge.monthKey} · {t("challenges.distance")}</Text>
                   </div>
                   {groupId && (alreadyJoined ? <Chip>{t("challenges.joined")}</Chip> : (
-                    <Button data-testid="E4-2-2" variant="secondary" size="sm" disabled={joiningId === challenge.id} onClick={() => { void join(challenge.id); }}>
+                    <Button data-testid="E4-2-2" variant="secondary" size="md" disabled={joiningId === challenge.id} onClick={() => { void join(challenge.id); }}>
                       {joiningId === challenge.id ? t("challenges.joining") : t("challenges.join")}
                     </Button>
                   ))}
@@ -142,7 +142,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
                               aria-valuemin={0}
                               aria-valuemax={100}
                               aria-valuenow={Math.round(progress.percent)}
-                              style={{ height: 4, borderRadius: "var(--r-xs)", overflow: "hidden", background: "var(--bg-3)" }}
+                              style={{ height: 4, borderRadius: "var(--r-sm)", overflow: "hidden", background: "var(--bg-3)" }}
                             >
                               <div style={{ width: `${progress.percent}%`, height: "100%", background: progress.completed ? "var(--lime)" : "var(--aqua)" }} />
                             </div>

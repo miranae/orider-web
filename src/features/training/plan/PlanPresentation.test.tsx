@@ -170,7 +170,7 @@ describe("PlanPresentation responsive layout", () => {
     renderWithProviders(<PlanPresentation model={{ ...model, weeks, isTodayCell: (candidate: { date: number }) => candidate.date === today } as unknown as PlanModel} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} onEditWorkout={edit} />);
     expect(screen.getByRole("progressbar", { name: "진행률" })).toHaveAttribute("aria-valuenow", "25");
     expect(screen.getAllByText("25%")).toHaveLength(1);
-    expect(screen.getByText("남은 훈련")).toBeInTheDocument();
+    expect(screen.getByText("전체 계획 미완료")).toBeInTheDocument();
     expect(screen.getByText("오늘의 다음 운동")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "운동 상세" }));
     expect(edit).toHaveBeenCalledWith(day, "week-02", 0);
@@ -248,4 +248,19 @@ it('labels a non-Monday desktop week from its dates without changing edit identi
   expect(screen.getByText('금 10/16')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: /2026-10-16.*상세/ }));
   expect(edit).toHaveBeenCalledWith(day, 'friday-start', 0);
+});
+
+
+it.each([false, true])("distinguishes post-goal stored workouts and keeps their calendar rows (mobile=%s)", mobile => {
+  vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: mobile && query === "(max-width: 1023px)", media: query, onchange: null,
+    addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+  vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-17T12:00:00+09:00"));
+  const date = Date.parse("2026-10-21T12:00:00+09:00");
+  const day = { date, dayOfWeek: 2, workout: "z2", plannedTSS: 30, plannedDurationMin: 45, completed: false, skipped: false };
+  const scoped = { ...model, goalDate: new Date("2026-10-18T00:00:00+09:00"), daysLeft: 1,
+    weeks: [{ id: "after", weekNumber: 1, phase: "base", startDate: date, plannedTSS: 30, days: [day] }] } as unknown as PlanModel;
+  renderWithProviders(<PlanPresentation model={scoped} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
+  expect(screen.getByTestId("plan-scope-notice")).toHaveTextContent("목표일까지 예정 0회 · 목표일 이후 저장된 운동 1회");
+  expect(screen.getByText("목표일 이후 저장된 운동")).toBeInTheDocument();
+  expect(screen.getByTestId(mobile ? "K4-5m" : "K4-5")).toHaveTextContent("45");
 });

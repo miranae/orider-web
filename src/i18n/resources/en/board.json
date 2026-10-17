@@ -18,11 +18,11 @@
   "tab.all": "All",
   "tab.devlog": "Devlog",
   "tab.inquiry": "Inquiry/Report",
-  "tab.archive": "At this time",
+  "tab.archive": "Archive",
   "label.boardTypes": {
     "free": "Free Board",
     "hot": "Trending",
-    "archive": "At this time",
+    "archive": "Archive",
     "gear": "Gear Info/Review",
     "course": "Course Recommendation",
     "inquiry": "Inquiry/Report",
@@ -81,7 +81,7 @@
   "label.searchResultsCount": "{{count}} results",
   "label.views": "Views",
   "label.noResults": "No search results",
-  "label.noResultsArchive": "No memories from this time yet",
+  "label.noResultsArchive": "No archived posts found",
   "label.firstAuthor": "Be the first to contribute.",
   "label.selectionReason": "Selection Reason",
   "label.linkedActivity": "Linked Ride Activity",
@@ -219,5 +219,7 @@
   "block.hidden": "Posts from this author are hidden.",
   "block.unblock": "Unblock author",
   "block.listHint": "{{count}} blocked authors. Their posts are hidden.",
-  "message.imageUnsupported": "Use JPG, PNG, WebP or GIF images up to 5 MB."
+  "message.imageUnsupported": "Use JPG, PNG, WebP or GIF images up to 5 MB.",
+  "comment.totalCount": "{{count}} total comments",
+  "comment.visibleHeading": "Visible comments"
 }

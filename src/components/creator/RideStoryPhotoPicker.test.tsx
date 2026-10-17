@@ -112,7 +112,12 @@ it("uses the feed description and readable date/sport fallbacks instead of docum
   expect(await screen.findByRole("heading", { name: "출근길 라이딩" })).toBeInTheDocument();
   expect(await screen.findByRole("heading", { name: `${fallbackDate} · 라이딩` })).toBeInTheDocument();
   expect(screen.queryByText(/orider_raw-id|strava_raw-id/)).toBeNull();
-  expect(screen.getByText(/이동거리 12.3 km · 활동시간 2시간 32분 · 상승고도 149 m/)).toBeInTheDocument();
+  const row = screen.getByRole("heading", { name: "출근길 라이딩" }).closest("section")!;
+  expect(row).toHaveTextContent("이동거리 12.3 km · 활동시간 2시간 32분 · 상승고도 149 m");
+  expect(screen.getByText("12.3 km").parentElement).toHaveClass("ride-story-metric");
+  const send = screen.getByRole("button", { name: "선택한 사진으로 받기" });
+  expect(send.querySelector(":scope > .ds-btn__icon svg")).not.toBeNull();
+  expect(send.querySelector(".ds-btn__label svg")).toBeNull();
 });
 
 it("returns focus to its trigger when cancelled and supports Escape", async () => {

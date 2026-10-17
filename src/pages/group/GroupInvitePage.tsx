@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button } from "../../theme/components";
 import { EmptyState } from "../../components/redesign";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -103,7 +104,7 @@ export default function GroupInvitePage() {
           <p className="mb-6" style={{ color: "var(--ink-2)" }}>
             {t("inviteLink.loginPrompt")}
           </p>
-          <button
+          <Button variant="secondary"
             onClick={signInWithGoogle}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[var(--r-lg)] shadow-sm transition-colors border"
             style={{ background: "var(--bg-0)", borderColor: "var(--line-soft)" }}
@@ -111,7 +112,7 @@ export default function GroupInvitePage() {
             <span className="font-medium" style={{ color: "var(--ink-1)" }}>
               {t("inviteLink.signInGoogle")}
             </span>
-          </button>
+          </Button>
         </div>
       </div>
     );

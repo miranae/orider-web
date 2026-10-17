@@ -886,7 +886,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                       {pct}%
                     </span>
                   </div>
-                  <div style={{ height: 2, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden", marginTop: 'var(--space-1)' }}>
+                  <div style={{ height: 2, background: "var(--bg-3)", borderRadius: "var(--r-sm)", overflow: "hidden", marginTop: 'var(--space-1)' }}>
                     <div style={{ width: `${pct}%`, height: "100%", background: "var(--aqua)" }} />
                   </div>
                 </div>
@@ -1070,7 +1070,7 @@ function StatusRow({
         <span style={{ flex: 1, fontSize: "var(--ft-body-size)", color: "var(--ink-1)" }}><GlossaryText>{m.label}</GlossaryText></span>
         <Text variant="num" style={{ fontSize: "var(--fs-lg)", color: "var(--ink-0)", fontWeight: 600 }}>{count}</Text>
       </div>
-      <div style={{ height: 2, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
+      <div style={{ height: 2, background: "var(--bg-3)", borderRadius: "var(--r-sm)", overflow: "hidden" }}>
         <div style={{ width: `${pct}%`, height: "100%", background: m.color }} />
       </div>
     </div>

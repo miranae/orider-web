@@ -87,7 +87,7 @@ export default function EventDetailPage() {
   const { t, i18n } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
   const dialog = useDialog();
 
   // 이벤트 상세는 대회 문맥 — 컷오프를 포함한 4레인을 쓰고, 보급은 "보급"으로 부른다.
@@ -737,7 +737,12 @@ export default function EventDetailPage() {
                 {user && isParticipant == null && <Text variant="unit">{t("detail.registrationStateUnknown")}</Text>}
                 {event.status === "OPEN" && isParticipant === false && isRegistrationTimeOpen(event.startTime, event.closeAt) && (
                   <><Button type="button" variant="secondary" size="sm" disabled={followPending || followLoading} onClick={async () => {
-                    if (!user || !eventId) { navigate("/login"); return; }
+                    if (!eventId) return;
+                    if (!user) {
+                      try { await signInWithGoogle(); }
+                      catch (error) { logClientError("EventDetailPage.signInToFollow", error, { eventId }); showToast(t("follow.failed")); }
+                      return;
+                    }
                     const next = !followingEvent;
                     setFollowPending(true);
                     try {
@@ -1110,7 +1115,7 @@ export default function EventDetailPage() {
             </div>
             {fillPct != null && event.maxParticipants && (
               <>
-                <div style={{ marginTop: "var(--space-2)", height: 4, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
+                <div style={{ marginTop: "var(--space-2)", height: 4, background: "var(--bg-3)", borderRadius: "var(--r-sm)", overflow: "hidden" }}>
                   <div
                     style={{
                       width: `${fillPct}%`,

@@ -517,5 +517,7 @@
   "rides.minimumActivityCount": "{{count}}+ records",
   "dashboard.identity.distanceHelp": "Sum of public activity distances from active club members.",
   "dashboard.identity.longestRideHelp": "The largest combined public activity distance within a single group ride.",
-  "challenges.loadFailed": "Could not load club leagues."
+  "challenges.loadFailed": "Could not load club leagues.",
+  "rides.listScope": "Totals cover shared activities by active club members.",
+  "ridePage.detailScope": "Details also include linked activities from companions outside the club and your own activities."
 }

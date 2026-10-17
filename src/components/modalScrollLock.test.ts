@@ -17,8 +17,9 @@ describe("modal and sheet scroll locking", () => {
     const notifSheet = readSource("mobile/NotifSheet.tsx");
     const addPlanSheet = readSource("training/AddPlanSheet.tsx");
 
+    expect(notifSheet).toMatch(/useBodyScrollLock\s*\(\s*open\s*\)/);
+    expect(importModal).toMatch(/useTrainingDialog\s*\(\s*onClose\s*,\s*busy\s*\)/);
     for (const source of [importModal, notifSheet]) {
-      expect(source).toMatch(/useBodyScrollLock\s*\(\s*open\s*\)/);
       expect(source).toContain('overscrollBehavior: "contain"');
     }
     expect(modal).toContain('overscrollBehavior: "contain"');

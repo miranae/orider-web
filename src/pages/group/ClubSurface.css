@@ -131,3 +131,41 @@
 @media(max-width: 48rem) { .club-news-layout, .club-news-layout--no-rides .club-news-sidebar { grid-template-columns: minmax(0, 1fr); } }
 
 .club-news-layout > :empty { display: none; }
+
+/* Club controls share the 40px frame; multiline and native selection targets keep their own height. */
+.club-surface .ds-input:not(textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+.club-surface .ds-dropdown-select__trigger {
+  box-sizing: border-box;
+  height: var(--dim-button-height);
+  min-height: var(--dim-button-height);
+  padding: var(--space-1-5) var(--space-3) !important;
+  font-size: var(--ft-body-size);
+  line-height: var(--ft-body-line-height);
+}
+.club-surface textarea.ds-input {
+  box-sizing: border-box;
+  height: auto;
+  min-height: calc(var(--dim-button-height) * 2);
+  padding: var(--space-2) var(--space-3) !important;
+  font-size: var(--ft-body-size);
+  line-height: var(--ft-body-line-height);
+}
+.club-surface .ds-btn { min-height: var(--dim-button-height); height: auto; }
+.club-surface .ds-btn__label { min-width: 0; white-space: normal; }
+.club-surface button:focus-visible,
+.club-surface summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.club-surface .ds-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.club-surface .ds-dropdown-select { min-width: 0; max-width: 100%; }
+.club-card-name-row > h3,
+.club-card-name-row > a { min-width: 0; flex: 1 1 auto; }
+.club-card-name-row > .ds-chip { white-space: nowrap; flex: 0 0 auto; }
+.club-create-kind-options > button { min-width: 0; min-height: calc(var(--dim-button-height) * 2); }
+.club-create-kind-options > button > div { overflow-wrap: anywhere; line-height: var(--ft-body-line-height); }
+.club-record-scope { margin-block: var(--space-2) var(--space-4); font-size: var(--ft-body-size); line-height: var(--ft-body-line-height); color: var(--ink-2); }
+@media (max-width: 36rem) {
+  .club-create-kind-options { grid-template-columns: minmax(0, 1fr); }
+  .club-surface .ds-input { min-width: 0; }
+  .club-dialog .ds-btn { flex-shrink: 0; }
+}
+
+.club-surface [role="tab"] { min-height: var(--dim-button-height); }

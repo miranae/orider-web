@@ -1,3 +1,5 @@
+import GlossaryProvider from "../../../components/common/GlossaryProvider";
+import GlossaryText from "../../../components/common/GlossaryText";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -10,7 +12,7 @@ const signed = (value: number) => `${value > 0 ? "+" : ""}${number(value)}`;
 
 function SummarySection({ title, children }: { title: string; children: ReactNode }) {
   return <section className="min-w-0 border-t border-[var(--line-soft)] pt-[var(--dim-section-gap)] space-y-3" aria-label={title}>
-    <Text as="h3" variant="subtitle">{title}</Text>
+    <Text as="h3" variant="subtitle"><GlossaryText>{title}</GlossaryText></Text>
     {children}
   </section>;
 }
@@ -45,9 +47,9 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
     ...power.filter((row) => row.recordAchievement).map((row) => ({ key: row.duration, value: `${powerDuration(row.duration)} · ${number(row.watts)} W`, achievement: row.recordAchievement! })),
     ...(p.runRecordAchievements ?? []).map((row) => ({ key: row.distance, value: `${row.distance} · ${duration(row.valueSec)}`, achievement: row.recordAchievement })),
   ] : [];
-  const note = (children: ReactNode) => <Text as="p" variant="caption" tone="tertiary">{children}</Text>;
-  const line = (name: string, value: string) => <Stack direction="row" justify="space-between" align="baseline" wrap><Text variant="bodySmall" tone="secondary">{name}</Text><Text variant="bodyMedium" mono tone="primary">{value}</Text></Stack>;
-  return <Stack gap="var(--dim-section-gap)">
+  const note = (children: ReactNode) => <Text as="p" variant="caption" tone="tertiary"><GlossaryText>{children}</GlossaryText></Text>;
+  const line = (name: string, value: string) => <Stack direction="row" justify="space-between" align="baseline" wrap><Text variant="bodySmall" tone="secondary"><GlossaryText>{name}</GlossaryText></Text><Text variant="bodyMedium" mono tone="primary"><GlossaryText>{value}</GlossaryText></Text></Stack>;
+  return <GlossaryProvider scopeKey="activity-overview-summary"><Stack gap="var(--dim-section-gap)">
     <Stack gap="var(--dim-item-gap)">
       {/* 성격이 곧 라벨이다 — 별도 은유 층을 두지 않는다. 서버가 확정한 값만 그린다(화면에서 재분류하지 않는다). */}
       <Stack direction="row" wrap><Chip variant={p.session.character ? "accent" : "default"}>
@@ -57,25 +59,25 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       </Chip></Stack>
       {/* 판정 문장은 근거가 있을 때만 온다. 없으면 줄을 비운다 — 칩과 헤더가 이미 사실을 보여준다. */}
       {!!p.observedEffects?.length && note(p.observedEffects.join(" · "))}
-      {p.coachSentence && <Text as="p" variant="title" tone="primary">{p.coachSentence}</Text>}
+      {p.coachSentence && <Text as="p" variant="title" tone="primary"><GlossaryText>{p.coachSentence}</GlossaryText></Text>}
       {/* 하이라이트의 한 줄 근거 — 서버가 표시 언어로 써서 보낸다. "왜 그렇게 불렀나" 가 칩 바로 아래 온다. */}
-      {p.highlight && <Text as="p" variant="caption" tone="secondary">{p.highlight.reason}</Text>}
+      {p.highlight && <Text as="p" variant="caption" tone="secondary"><GlossaryText>{p.highlight.reason}</GlossaryText></Text>}
     </Stack>
     {powerEstimated && note(label("powerEstimated"))}
     {zones.some((zone) => zone.provisional) && note(label("zoneProvisional"))}
-    {zones.filter((zone) => zone.historyCompleteness && zone.historyCompleteness !== "complete").map((zone) => <Text key={zone.kind} as="p" variant="caption" tone="tertiary">{label(zone.kind)} · {label(`completeness.${zone.historyCompleteness}`)}</Text>)}
+    {zones.filter((zone) => zone.historyCompleteness && zone.historyCompleteness !== "complete").map((zone) => <Text key={zone.kind} as="p" variant="caption" tone="tertiary"><GlossaryText>{label(zone.kind)}</GlossaryText> · <GlossaryText>{label(`completeness.${zone.historyCompleteness}`)}</GlossaryText></Text>)}
     {powerVisible && p.session.ftpVerificationRequired && note(label("ftpVerificationRequired"))}
     <SummarySection title={copy("stimulus")}>
       <Stack gap="var(--dim-item-gap)">
         {/* 부하·NP·IF 는 상단 스탯 스트립에 없다 — 여기서 빠지면 어디에도 안 나온다. */}
         {(p.session.load != null || (powerVisible && p.session.normalizedPowerW != null)) && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-[var(--dim-item-gap)]">
-            {p.session.load != null && <Stat compact label={p.session.loadKind === "tss" ? "TSS" : p.session.loadSource === "time" ? `${label("load")} · ${label("loadEstimatedFromTime")}` : label("load")} value={number(p.session.load)} />}
-            {powerVisible && p.session.normalizedPowerW != null && <Stat compact label="NP" value={number(p.session.normalizedPowerW)} unit="W" />}
-            {powerVisible && p.session.intensityFactor != null && <Stat compact label="IF" value={p.session.intensityFactor.toFixed(2)} />}
+            {p.session.load != null && <Stat compact label={<GlossaryText>{p.session.loadKind === "tss" ? "TSS" : p.session.loadSource === "time" ? `${label("load")} · ${label("loadEstimatedFromTime")}` : label("load")}</GlossaryText>} value={number(p.session.load)} />}
+            {powerVisible && p.session.normalizedPowerW != null && <Stat compact label={<GlossaryText>NP</GlossaryText>} value={number(p.session.normalizedPowerW)} unit="W" />}
+            {powerVisible && p.session.intensityFactor != null && <Stat compact label={<GlossaryText>IF</GlossaryText>} value={p.session.intensityFactor.toFixed(2)} />}
           </div>
         )}
-        {highPercent != null && <Stat compact label={`${label(highZone!.kind)} Z4+`} value={number(highPercent)} unit="%" />}
+        {highPercent != null && <Stat compact label={<GlossaryText>{`${label(highZone!.kind)} Z4+`}</GlossaryText>} value={number(highPercent)} unit="%" />}
         {effort?.matchesCount != null && line(copy("matches"), `${effort.matchesCount}${copy("efforts")}${effort.matchesTotalSec != null ? ` · ${duration(effort.matchesTotalSec)}` : ""}`)}
         {effort?.longestZ4PlusSec != null && line(copy("longest"), duration(effort.longestZ4PlusSec))}
         {effort?.anaerobicSec != null && line(copy("anaerobic"), duration(effort.anaerobicSec))}
@@ -84,8 +86,8 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       </Stack>
     </SummarySection>
     <SummarySection title={voice("changes")}>
-      {!!records.length && <Stack>{records.map((row) => <Stack key={row.key} direction="row" wrap align="center"><Chip variant="accent">{label(`records.${row.achievement}`)}</Chip><Text variant="bodyMedium" mono>{row.value}</Text></Stack>)}</Stack>}
-      {!!personal.length && <Stack gap="var(--dim-item-gap)">{personal.map((row) => <Stack key={row.axis} direction="row" justify="space-between" align="baseline" wrap><Text variant="bodySmall" tone="secondary">{label(`axes.${row.axis}`)} · {label(`bands.${row.band}`)}</Text><Text variant="bodyMedium" mono tone="primary">{copy("index")} {number(row.personalIndex)}</Text></Stack>)}</Stack>}
+      {!!records.length && <Stack>{records.map((row) => <Stack key={row.key} direction="row" wrap align="center"><Chip variant="accent">{label(`records.${row.achievement}`)}</Chip><Text variant="bodyMedium" mono><GlossaryText>{row.value}</GlossaryText></Text></Stack>)}</Stack>}
+      {!!personal.length && <Stack gap="var(--dim-item-gap)">{personal.map((row) => <Stack key={row.axis} direction="row" justify="space-between" align="baseline" wrap><Text variant="bodySmall" tone="secondary"><GlossaryText>{label(`axes.${row.axis}`)}</GlossaryText> · <GlossaryText>{label(`bands.${row.band}`)}</GlossaryText></Text><Text variant="bodyMedium" mono tone="primary"><GlossaryText>{copy("index")}</GlossaryText> <GlossaryText>{number(row.personalIndex)}</GlossaryText></Text></Stack>)}</Stack>}
       {!personal.length && (thresholdMissing
         ? <Stack gap="var(--dim-item-gap)">
             {note(p.session.discipline === "run" && isOwner ? copy("runThresholdMissing") : voice("thresholdMissing"))}
@@ -94,7 +96,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
             </Link>}
           </Stack>
         : note(label(`personalStates.${p.availability?.personal ?? "unavailable"}`)))}
-      {!!highlights.length && <Stack>{highlights.map((row) => <Stack key={row.duration} direction="row" wrap justify="space-between"><Text variant="bodySmall">{copy("peakChange")} · {powerDuration(row.duration)}</Text><Text variant="bodyMedium" mono>{signed(row.deltaPct!)}% · {row.priorSampleCount}{copy("samples")}</Text></Stack>)}</Stack>}
+      {!!highlights.length && <Stack>{highlights.map((row) => <Stack key={row.duration} direction="row" wrap justify="space-between"><Text variant="bodySmall"><GlossaryText>{copy("peakChange")}</GlossaryText> · <GlossaryText>{powerDuration(row.duration)}</GlossaryText></Text><Text variant="bodyMedium" mono><GlossaryText>{signed(row.deltaPct!)}</GlossaryText>% · <GlossaryText>{row.priorSampleCount}</GlossaryText><GlossaryText>{copy("samples")}</GlossaryText></Text></Stack>)}</Stack>}
       {!!comparable.length && !highlights.length && note(voice("stablePower"))}
       {metadata && (personal.length > 0 || comparable.length > 0) && note(t("overviewEvidence.scope", { days: metadata.windowDays, count: metadata.priorSampleCount, character: label(`characters.${metadata.character}`) }) + (metadata.historyCompleteness !== "complete" ? ` · ${label(`completeness.${metadata.historyCompleteness}`)}` : ""))}
     </SummarySection>
@@ -102,38 +104,38 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       {/* 비교 이력이 없어도 구간 최고 출력 자체는 읽을 값이다. 예전에는 비교 가능할 때만
           "변화" 한 줄을 그리고 9개 구간을 통째로 버렸다. */}
       <div className="grid grid-cols-3 sm:grid-cols-5 gap-[var(--dim-item-gap)]">
-        {power.map((row) => <Stat key={row.duration} compact label={powerDuration(row.duration)} value={number(row.watts)} unit="W" />)}
+        {power.map((row) => <Stat key={row.duration} compact label={<GlossaryText>{powerDuration(row.duration)}</GlossaryText>} value={number(row.watts)} unit="W" />)}
       </div>
       {p.availability?.records === "evaluated" && power.some((row) => row.previousBestPct != null) && note(label("previousBestScope"))}
       {p.availability?.records === "evaluated" && power.filter((row) => row.previousBestPct != null).map((row) => <div key={row.duration}>{line(`${powerDuration(row.duration)} · ${label("previousBestPct")}`, `${number(row.previousBestPct!)}%`)}</div>)}
     </SummarySection>}
     {p.routeLoad && (p.routeLoad.climbCount != null || p.routeLoad.maxGradePct != null) && <SummarySection title={copy("route")}>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-[var(--dim-item-gap)]">
-        {p.routeLoad.climbCount != null && <Stat compact label={label("climbs")} value={number(p.routeLoad.climbCount)} />}
-        {p.routeLoad.highestCategory && <Stat compact label={label("category")} value={p.routeLoad.highestCategory} />}
-        {p.routeLoad.avgGradePct != null && <Stat compact label={label("avgGrade")} value={number(p.routeLoad.avgGradePct)} unit="%" />}
-        {p.routeLoad.maxGradePct != null && <Stat compact label={label("maxGrade")} value={number(p.routeLoad.maxGradePct)} unit="%" />}
+        {p.routeLoad.climbCount != null && <Stat compact label={<GlossaryText>{label("climbs")}</GlossaryText>} value={number(p.routeLoad.climbCount)} />}
+        {p.routeLoad.highestCategory && <Stat compact label={<GlossaryText>{label("category")}</GlossaryText>} value={p.routeLoad.highestCategory} />}
+        {p.routeLoad.avgGradePct != null && <Stat compact label={<GlossaryText>{label("avgGrade")}</GlossaryText>} value={number(p.routeLoad.avgGradePct)} unit="%" />}
+        {p.routeLoad.maxGradePct != null && <Stat compact label={<GlossaryText>{label("maxGrade")}</GlossaryText>} value={number(p.routeLoad.maxGradePct)} unit="%" />}
       </div>
       {p.routeLoad.elevationSuspect && note(label("suspect"))}
     </SummarySection>}
     {(p.session.discipline === "bike" || p.recovery) && <SummarySection title={copy(p.session.discipline === "bike" ? "recovery" : "runRecovery")}>
       <Stack>
-        {p.recovery && <Stat compact label={copy("recoveryHours")} value={number(p.recovery.hours)} unit={copy("hour")} />}
-        {powerVisible && p.energy?.fatPct != null && p.energy.carbPct != null && <div className="grid grid-cols-2 gap-[var(--dim-item-gap)]"><Stat compact label={label("fat")} value={number(p.energy.fatPct)} unit="%" /><Stat compact label={label("carb")} value={number(p.energy.carbPct)} unit="%" /></div>}
+        {p.recovery && <Stat compact label={<GlossaryText>{copy("recoveryHours")}</GlossaryText>} value={number(p.recovery.hours)} unit={copy("hour")} />}
+        {powerVisible && p.energy?.fatPct != null && p.energy.carbPct != null && <div className="grid grid-cols-2 gap-[var(--dim-item-gap)]"><Stat compact label={<GlossaryText>{label("fat")}</GlossaryText>} value={number(p.energy.fatPct)} unit="%" /><Stat compact label={<GlossaryText>{label("carb")}</GlossaryText>} value={number(p.energy.carbPct)} unit="%" /></div>}
         {!p.recovery && !(powerVisible && p.energy?.fatPct != null && p.energy.carbPct != null) && note(copy("recoveryMissing"))}
       </Stack>
     </SummarySection>}
     <SummarySection title={copy("before")}>
       {p.priorFitnessStatus ? <Stack>
-        <Stack direction="row" wrap align="center"><Text variant="bodyMedium" tone="primary">{label(`forms.${p.priorFitnessStatus.formBand}`)}</Text><Text variant="caption" tone="tertiary">{p.priorFitnessStatus.asOf}</Text></Stack>
-        <div className="grid grid-cols-3 gap-[var(--dim-item-gap)]"><Stat compact label={copy("ctl")} value={number(p.priorFitnessStatus.ctl)} /><Stat compact label={copy("atl")} value={number(p.priorFitnessStatus.atl)} /><Stat compact label={copy("tsb")} value={number(p.priorFitnessStatus.tsb)} /></div>
+        <Stack direction="row" wrap align="center"><Text variant="bodyMedium" tone="primary"><GlossaryText>{label(`forms.${p.priorFitnessStatus.formBand}`)}</GlossaryText></Text><Text variant="caption" tone="tertiary"><GlossaryText>{p.priorFitnessStatus.asOf}</GlossaryText></Text></Stack>
+        <div className="grid grid-cols-3 gap-[var(--dim-item-gap)]"><Stat compact label={<GlossaryText>{copy("ctl")}</GlossaryText>} value={number(p.priorFitnessStatus.ctl)} /><Stat compact label={<GlossaryText>{copy("atl")}</GlossaryText>} value={number(p.priorFitnessStatus.atl)} /><Stat compact label={<GlossaryText>{copy("tsb")}</GlossaryText>} value={number(p.priorFitnessStatus.tsb)} /></div>
       </Stack> : note(copy("beforeMissing"))}
     </SummarySection>
     <Stack gap="var(--dim-item-gap)">
       {p.session.discipline === "bike" ? note(label("modelNote")) : p.recovery ? note(copy("runRecoveryNote")) : null}
       {p.qualityNote && note(copy("qualityFooter"))}
     </Stack>
-  </Stack>;
+  </Stack></GlossaryProvider>;
 }
 
 export default function ActivityOverviewSummary({ overview, preview = false, isOwner = true, children }: { overview: ReturnType<typeof useActivityOverview>; preview?: boolean; isOwner?: boolean; children?: ReactNode }) {
@@ -143,12 +145,12 @@ export default function ActivityOverviewSummary({ overview, preview = false, isO
   // 남의 활동에서는 보여줄 개요가 있을 때만 카드를 낸다 — 진단 문구·재시도는 소유자의 것이다.
   if (!isOwner && overview.response?.status !== "available") return null;
   return <Card data-testid="activity-overview-summary"><Stack gap="var(--dim-section-gap)">
-    <Stack direction="row" wrap justify="space-between" align="baseline"><Text as="h2" variant="subtitle">{t("overviewSummary.title")}</Text><Text variant="eyebrow" tone="accent">O-RIDER</Text></Stack>
-    {preview && <Text as="p" variant="caption">{t("overviewEvidence.preview")}</Text>}
-    {overview.loading ? <Text as="p" variant="body" role="status">{t("overviewEvidence.loading")}</Text> : overview.response?.status === "available" ? <>
+    <Stack direction="row" wrap justify="space-between" align="baseline"><Text as="h2" variant="subtitle"><GlossaryText>{t("overviewSummary.title")}</GlossaryText></Text><Text variant="eyebrow" tone="accent">O-RIDER</Text></Stack>
+    {preview && <Text as="p" variant="caption"><GlossaryText>{t("overviewEvidence.preview")}</GlossaryText></Text>}
+    {overview.loading ? <Text as="p" variant="body" role="status"><GlossaryText>{t("overviewEvidence.loading")}</GlossaryText></Text> : overview.response?.status === "available" ? <>
       <ActivityOverviewSummaryContent presentation={overview.response.presentation} isOwner={isOwner} />
-      {!!overview.response.partialReasons?.length && <Text as="p" variant="caption">{t("overviewEvidence.partial")} {overview.response.partialReasons.map((value) => t(`overviewEvidence.partialReasons.${value}`)).join(" · ")}</Text>}
-    </> : <Stack><Text as="p" variant="body">{t(overview.error ? "overviewEvidence.error" : reason ? `overviewEvidence.unavailable.${reason}` : "overviewEvidence.missing")}</Text>{reason !== "rollout_disabled" && <Button size="sm" variant="outline" onClick={overview.retry}>{t("overviewEvidence.retry")}</Button>}</Stack>}
+      {!!overview.response.partialReasons?.length && <Text as="p" variant="caption"><GlossaryText>{t("overviewEvidence.partial")}</GlossaryText> <GlossaryText>{overview.response.partialReasons.map((value) => t(`overviewEvidence.partialReasons.${value}`)).join(" · ")}</GlossaryText></Text>}
+    </> : <Stack><Text as="p" variant="body"><GlossaryText>{t(overview.error ? "overviewEvidence.error" : reason ? `overviewEvidence.unavailable.${reason}` : "overviewEvidence.missing")}</GlossaryText></Text>{reason !== "rollout_disabled" && <Button size="sm" variant="outline" onClick={overview.retry}>{t("overviewEvidence.retry")}</Button>}</Stack>}
     {children}
   </Stack></Card>;
 }

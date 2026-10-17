@@ -52,3 +52,5 @@
 @media (min-width: 48rem) {
   .activity-growth-scroll-hint { display: none; }
 }
+
+.activity-growth-selection .ds-dropdown-select__trigger { min-height: var(--dim-button-height); }

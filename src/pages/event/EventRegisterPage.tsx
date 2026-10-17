@@ -670,7 +670,7 @@ export default function EventRegisterPage() {
                             <span>{filled ?? "—"}/{slots}</span>
                             <span>{pct === null ? "—" : `${pct}%`}</span>
                           </div>
-                          <div style={{ height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
+                          <div style={{ height: 3, background: "var(--bg-3)", borderRadius: "var(--r-sm)", overflow: "hidden" }}>
                             <div
                               style={{
                                 width: `${pct ?? 0}%`,

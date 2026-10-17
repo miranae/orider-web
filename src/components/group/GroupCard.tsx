@@ -53,7 +53,7 @@ function badgeText(name: string): string {
 
 export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, joining, joinPending, why, nextEvent, weekDistKm, newPosts }: GroupCardProps) {
   const { user } = useAuth();
-  const { role: ownRole } = useGroupMemberRole(showMyRole ? group.id : undefined, showMyRole ? user?.uid : undefined);
+  const { role: ownRole } = useGroupMemberRole(showMyRole ? group.id : undefined, showMyRole ? user?.uid : undefined, showMyRole ? group.creatorId : undefined);
   const { t } = useTranslation("group");
   const primarySport = (group.sports && group.sports[0]) ?? group.discipline ?? "bike";
   const meta = DISCIPLINE_META[primarySport] ?? DISCIPLINE_META.bike!;
@@ -84,7 +84,7 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
 
       {/* Body */}
       <div className="min-w-0">
-        <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-1)' }}>
+        <div className="club-card-name-row flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-1)' }}>
           {showJoinButton ? <Link data-testid="C0-2-2" to={`/club/${group.id}`}>
           <Text as="h3" variant="subtitle" truncate tone="primary" style={{ margin: 0 }}>
             {group.name}
@@ -94,7 +94,7 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
             {group.name}
           </Text>
           </>}
-          {showMyRole && ownRole && <Chip>{t(ownRole === "member" ? "members.role.member" : ownRole === "co-leader" ? "members.role.coLeader" : "members.role.leader")}</Chip>}
+          {showMyRole && ownRole && <Chip style={{ whiteSpace: "nowrap", flexShrink: 0 }}>{t(ownRole === "member" ? "members.role.member" : ownRole === "co-leader" ? "members.role.coLeader" : "members.role.leader")}</Chip>}
           {!showMyRole && group.isLeader && (
             <Chip style={{ color: "var(--lime)", fontSize: "var(--ft-caption-size)", padding: "1px 6px", whiteSpace: "nowrap" }}>{t("card.leader")}</Chip>
           )}

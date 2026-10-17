@@ -199,3 +199,15 @@ it("정본 API가 켜진 자전거 홈은 현재 Fitness와 시계열을 중복 
   expect(useUserFitness).toHaveBeenCalledWith(false);
   expect(useFitnessTimeseries).not.toHaveBeenCalled();
 });
+
+
+it.each(["self", "friends", "all"].flatMap(scope => ["bike", "run"].map(sport => [scope, sport])))("uses the selected fixed sport icon for an empty desktop %s feed in %s", async (scope, sport) => {
+  state.mobile = false;
+  state.feedScope = scope;
+  const view = show(`/ko?sport=${sport}`);
+  const icon = await screen.findByTestId("dashboard-feed-empty-icon");
+  expect(icon.tagName.toLowerCase()).toBe("svg");
+  expect(icon).toHaveAttribute("data-icon", sport);
+  expect(view.container).not.toHaveTextContent("🚴");
+  expect(screen.getByRole("tab", { name: /수영/ })).toBeDisabled();
+});

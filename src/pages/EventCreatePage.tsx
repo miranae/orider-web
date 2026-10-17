@@ -1316,8 +1316,8 @@ export default function EventCreatePage() {
           .event-create-surface .event-create-stepper > div > div { flex: none !important; min-width: 0; }
           .event-create-surface .event-create-stepper > div > div > div { display: none; }
           .event-create-surface .event-create-stepper span { overflow-wrap: anywhere; }
-          .event-create-surface .event-create-picker > div { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-          .event-create-surface .event-create-picker button { min-width: 0; overflow-wrap: anywhere; }
+          .event-create-surface .event-create-picker { --event-picker-column-count: 2; }
+          .event-create-surface .event-create-picker button { min-width: 0; word-break: keep-all; overflow-wrap: normal; }
           .event-create-surface .event-create-fields-grid, .event-create-surface .event-create-category { grid-template-columns: minmax(0, 1fr) !important; }
           .event-create-surface .event-create-category > button { justify-self: end; }
           .event-create-surface .event-create-fee-amount { flex: 1 1 100% !important; min-width: 0; }
@@ -1326,6 +1326,9 @@ export default function EventCreatePage() {
           .event-create-surface .event-create-repeat-options, .event-create-surface .event-create-navigation { flex-wrap: wrap; }
           .event-create-surface .event-create-navigation .ds-btn { max-width: 100%; }
           .event-create-surface .event-create-aside dd { min-width: 0; overflow-wrap: anywhere; }
+        }
+        @media (max-width: 24rem) {
+          .event-create-surface .event-create-picker { --event-picker-column-count: 1; }
         }
       `}</style>
     </div>

@@ -20,6 +20,24 @@ afterEach(async () => {
 });
 
 describe("ReportContentModal", () => {
+  it("portals above a page stacking context and keeps dismissal and focus restoration", async () => {
+    const trigger = document.createElement("button");
+    document.body.append(trigger);
+    trigger.focus();
+    const close = vi.fn();
+    const { unmount } = render(<div data-testid="page-stack" style={{ position: "relative", zIndex: 0, overflow: "hidden" }}>
+      <ReportContentModal targetType="post" preview={preview} submitting={false} onClose={close} onSubmit={vi.fn()} />
+    </div>);
+    const dialog = screen.getByRole("dialog");
+    expect(screen.getByTestId("page-stack")).not.toContainElement(dialog);
+    expect(dialog.parentElement?.parentElement).toBe(document.body);
+    await userEvent.keyboard("{Escape}");
+    expect(close).toHaveBeenCalledOnce();
+    unmount();
+    expect(trigger).toHaveFocus();
+    trigger.remove();
+  });
+
   it("labels the dialog and fields, focuses inside, traps Tab, and restores focus and scrolling", async () => {
     const user = userEvent.setup();
     const trigger = document.createElement("button");

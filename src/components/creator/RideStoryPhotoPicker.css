@@ -13,3 +13,10 @@
 .ride-story-picker-content > .border-b { flex-shrink: 0; }
 .ride-story-picker-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .ride-story-picker-footer { flex-shrink: 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+.ride-story-picker-footer .ds-btn { min-height: var(--dim-button-height); gap: var(--space-2); }
+.ride-story-metric { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); }
+.ride-story-metric > span { white-space: nowrap; }
+@media (max-width: 480px) {
+  .ride-story-picker-footer .ds-btn { flex: 1 1 100%; }
+}

@@ -1,9 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 vi.mock("firebase/auth", () => ({ getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }) }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner" }, profile: { weightKg: 70, ftp: 250 }, loading: false, profileLoading: false, signInWithGoogle: vi.fn() }) }));
-import { setDocData, mockDocData } from "../__tests__/mocks/firebase";
+import { setDocData, mockDocData, setCallableImplementation } from "../__tests__/mocks/firebase";
 vi.mock("react-router-dom", async (importOriginal) => ({ ...(await importOriginal<typeof import("react-router-dom")>()), useParams: () => ({ courseId: "course-climb", lang: "ko" }) }));
 vi.mock("../hooks/useGear", () => ({ useGear: () => ({ items: [], loading: false }) }));
 vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ pdc: null, status: "ready" }) }));
@@ -32,9 +32,16 @@ describe("course preparation climb predictions", () => {
   it("keeps report choices above the dialog and changes a reason without submitting", async () => {
     render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
     await screen.findByText("Climbing course");
-    fireEvent.click(screen.getByRole("button", { name: "신고" }));
+    const opener = screen.getByRole("button", { name: "신고" });
+    opener.focus(); fireEvent.click(opener);
     const dialog = screen.getByRole("dialog", { name: "코스 신고" });
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    expect(dialog.closest('.fixed')?.parentElement).toBe(document.body);
     const reason = within(dialog).getByRole("combobox", { name: "신고 사유" });
+    reason.focus(); fireEvent.click(reason);
+    fireEvent.keyDown(reason, { key: "Escape" });
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(dialog).toBeInTheDocument();
     fireEvent.click(reason);
     const list = screen.getByRole("listbox", { name: "신고 사유" });
     expect(Number(list.style.zIndex)).toBeGreaterThan(Number(dialog.style.zIndex));
@@ -44,6 +51,24 @@ describe("course preparation climb predictions", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
     fireEvent.click(within(dialog).getByRole("button", { name: "취소" }));
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(opener).toHaveFocus();
+  });
+  it("keeps a mocked pending report open until it resolves and restores its opener", async () => {
+    let finish!: (result: { data: {} }) => void;
+    setCallableImplementation("reportCourse", () => new Promise(resolve => { finish = resolve; }));
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
+    await screen.findByText("Climbing course");
+    const opener = screen.getByRole("button", { name: "신고" });
+    opener.focus(); fireEvent.click(opener);
+    const dialog = screen.getByRole("dialog", { name: "코스 신고" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "신고하기" }));
+    await waitFor(() => expect(dialog).toHaveAttribute("aria-busy", "true"));
+    expect(within(dialog).getByRole("button", { name: "취소" })).toBeDisabled();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(dialog).toBeInTheDocument();
+    act(() => { finish({ data: {} }); });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(opener).toHaveFocus();
   });
   it("associates owner edit labels with the existing form controls", async () => {
     setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), creatorId: "owner" });

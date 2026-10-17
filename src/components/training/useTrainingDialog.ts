@@ -31,6 +31,11 @@ export function useTrainingDialog<T extends HTMLElement = HTMLDivElement>(onClos
       if (hasBlockingDialog()) return;
       if (event.key === 'Escape' && document.querySelector('[role="tooltip"]')) return;
       if (event.key === 'Escape') {
+        const expanded = node.querySelector<HTMLElement>('[role="combobox"][aria-expanded="true"]');
+        // The combobox owns its portalled listbox; let its target handler close that first.
+        if (expanded && (expanded.contains(event.target as Node) || expanded === document.activeElement)) return;
+      }
+      if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
         if (!latest.current.busy) latest.current.onClose();

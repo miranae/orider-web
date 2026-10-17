@@ -53,6 +53,7 @@
 }
 
 .coach-sheet__intro {
+  min-width: 0;
   display: grid;
   gap: var(--space-1);
 }
@@ -725,6 +726,23 @@
 }
 
 @media (max-width: 47.999rem) {
+  .coach-sheet__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .coach-sheet__intro {
+    width: 100%;
+    word-break: keep-all;
+  }
+
+  .coach-sheet__header-actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .coach-sheet__header-actions .ds-btn { flex-shrink: 0; }
+
   .coach-sheet__dock {
     max-height: 45dvh;
     overflow-y: auto;

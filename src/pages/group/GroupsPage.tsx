@@ -15,7 +15,7 @@ import GroupCard from "../../components/group/GroupCard";
 import CreateGroupModal from "../../components/group/CreateGroupModal";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../components/redesign";
-import { Button, Card, Text } from "../../theme/components";
+import { Button, Card, Text, DropdownSelect, Input } from "../../theme/components";
 import {
   isPendingGroupJoinResult,
   type JoinGroupByCodeResult,
@@ -144,8 +144,8 @@ export default function GroupsPage() {
       {myGroups.length > 0 && <>
         <Text as="h2" variant="title" className="mb-4">{t("myGroups")}</Text>
         <div data-testid="C0-1-1" className="club-my-filters mb-4">
-          <label>{t("list.mySportLabel")}<select className="ds-input" aria-label={t("list.mySportLabel")} value={myDisciplineFilter} onChange={event => setMyDisciplineFilter(event.target.value as typeof myDisciplineFilter)}>{["ALL", "bike", "run", "swim", "tri"].map(sport => <option key={sport} value={sport}>{t(sport === "ALL" ? "filter.all" : `filter.${sport}`)}</option>)}</select></label>
-          <label>{t("list.mySearchLabel")}<input type="search" value={mySearch} onChange={event => setMySearch(event.target.value)} aria-label={t("list.mySearchLabel")} placeholder={t("search.groupName")} className="ds-input" /></label>
+          <label>{t("list.mySportLabel")}<DropdownSelect label={t("list.mySportLabel")} value={myDisciplineFilter} onChange={value => setMyDisciplineFilter(value as typeof myDisciplineFilter)} options={["ALL", "bike", "run", "swim", "tri"].map(sport => ({ value: sport, label: t(sport === "ALL" ? "filter.all" : `filter.${sport}`) }))} /></label>
+          <label>{t("list.mySearchLabel")}<Input type="search" value={mySearch} onChange={event => setMySearch(event.target.value)} aria-label={t("list.mySearchLabel")} placeholder={t("search.groupName")} className="ds-input" /></label>
         </div>
       </>}
 
@@ -194,7 +194,7 @@ export default function GroupsPage() {
       {!myLoading && !myGroupsError && myGroups.length === 0 && <Text as="p" variant="body" tone="secondary" data-testid="C0.noClub" className="mb-4">{t("list.noGroupsDesc")}</Text>}
       {/* 검색 + 종목 필터 */}
       <div data-testid="C0-2-1" className="flex items-center flex-wrap mb-4" style={{ gap: 'var(--space-2)' }}>
-        <input
+        <Input
           type="search"
           ref={findSearchRef}
           value={searchQuery}
@@ -204,7 +204,7 @@ export default function GroupsPage() {
           className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-size)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
           style={{ flex: "1 1 200px", background: "var(--bg-2)", border: "1px solid var(--line-soft)", color: "var(--ink-0)" }}
         />
-        <input
+        <Input
           type="search"
           value={cityFilter}
           onChange={(e) => setCityFilter(e.target.value)}
@@ -286,7 +286,7 @@ export default function GroupsPage() {
         <Text as="p" variant="body" tone="secondary">{t("find.inviteHint")}</Text>
         <label htmlFor="club-invite-code">{t("find.inviteLabel")}</label>
         <div className="club-invite-form">
-        <input id="club-invite-code" data-testid="C0-3-1"
+        <Input id="club-invite-code" data-testid="C0-3-1"
           type="text"
           value={inviteCode}
           onChange={(e) => setInviteCode(e.target.value.toUpperCase())}

@@ -26,6 +26,7 @@ import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerC
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { toUtcDate } from "../../utils/dateUtils";
 import FtpDecisionSection from "../../features/fitness/components/FtpDecisionSection";
+import { needsRunAnalysisReadiness } from "../../features/fitness/runAnalysisReadiness";
 import RunRecordsSummary from "../../features/fitness/components/RunRecordsSummary";
 import DetailsSection from "../redesign/DetailsSection";
 import SportFilterTabs from "./SportFilterTabs";
@@ -729,6 +730,8 @@ export default function MobileFitnessPage({
   const mobileAnalysisSets = [data.pdcSufficiency, data.activityWindowSufficiency && { ...data.activityWindowSufficiency,
     blocks: data.activityWindowSufficiency.blocks.filter(block => block.discipline === data.discipline && (block.featureId !== "power_curve" || block.viewId === "mobile")) }];
   const showZones = data.zones.length > 0;
+  const runReadiness = part === "analysis" && !embedded && data.discipline === "run"
+    && sectionState.derived === "ready" && needsRunAnalysisReadiness(data.runEvidence, !!data.threshold, showZones);
   const mobileCurveBlock = data.activityWindowSufficiency?.blocks.find(block => block.featureId === "power_curve" && block.viewId === "mobile" && block.discipline === data.discipline);
   const powerCurveMaxW = data.powerCurve?.length
     ? Math.round(Math.max(...data.powerCurve.map(point => point.maxPower)))
@@ -894,9 +897,9 @@ export default function MobileFitnessPage({
           )}
           {part === "analysis" && <SufficiencyGroup sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" />}
           {part === "analysis" && isBike && <BikePerformanceSummaryCard part="analysis" decision={data.thresholdDecision} pdc={data.pdcSummary} weightKg={data.weightKg} />}
-          {part === "analysis" && <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
+          {part === "analysis" && !runReadiness && <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
           {part === "analysis" && isBike && data.cyclingAbility && riderSet && riderBlock && <SufficiencyInline set={riderSet} block={riderBlock} testId="K5-1-1-sufficiency-inline" />}
-          {part === "analysis" && !embedded && data.discipline === "run" && <RunRecordsSummary evidence={data.runEvidence} />}
+          {part === "analysis" && !embedded && data.discipline === "run" && <RunRecordsSummary evidence={data.runEvidence} readiness={runReadiness} />}
           {part === "analysis" && !embedded && isBike && sectionState.derived === "ready" && <MobileCyclingEvidence data={data} />}
           {/* 임계값 카드 */}
           {sectionState.derived === "ready" && data.threshold && !isBike && (
@@ -910,7 +913,7 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
-          {sectionState.derived === "ready" && !data.threshold && (data.discipline === "run" || data.discipline === "swim") && (
+          {sectionState.derived === "ready" && !runReadiness && !data.threshold && (data.discipline === "run" || data.discipline === "swim") && (
             <SectionCard>
               <Text variant="body">{t(data.discipline === "run" ? "mobileFitness.thresholdMissingRun" : "mobileFitness.thresholdMissingSwim")}</Text>
             </SectionCard>
@@ -975,7 +978,7 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
-          {sectionState.derived === "ready" && !showZones && (data.discipline === "run" || data.discipline === "swim") && (
+          {sectionState.derived === "ready" && !runReadiness && !showZones && (data.discipline === "run" || data.discipline === "swim") && (
             <SectionCard>
               <Text variant="body"><GlossaryText>{t("mobileFitness.hrZonesMissing")}</GlossaryText></Text>
             </SectionCard>
