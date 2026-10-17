@@ -67,11 +67,13 @@ describe("MobileLogPage", () => {
     expect(glance).toHaveTextContent("2");
     expect(within(glance).getByText("2h 0m")).toBeInTheDocument();
     expect(within(glance).getByText("120")).toBeInTheDocument();
+    expect(screen.getAllByText("2h 0m")).toHaveLength(1);
+    expect(screen.getAllByText("120")).toHaveLength(1);
     expect(within(preview).getByRole("button", { name: /Ride b/ })).toBeInTheDocument();
     expect(within(preview).getByRole("button", { name: /사이클/ })).toBeInTheDocument();
     expect(within(preview).getByRole("button", { name: /Ride b/ })).toHaveTextContent("20.0km");
-    expect(preview.compareDocumentPosition(screen.getByText("월간 요약")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText("총 세션").parentElement).toHaveTextContent("2");
+    expect(preview.compareDocumentPosition(screen.getByText("활동 분포")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("활동횟수").parentElement).toHaveTextContent("2");
     fireEvent.click(within(preview).getByRole("button", { name: /Ride b/ }));
     expect(navigate).toHaveBeenCalledWith("/activity/b");
     fireEvent.click(within(preview).getByRole("button", { name: "전체 보기 →" }));
@@ -94,6 +96,8 @@ describe("MobileLogPage", () => {
     const sheet = screen.getByRole("dialog", { name: "9월 3일 활동 2건" });
     const firstActivity = within(sheet).getByRole("button", { name: /Ride a/ });
     const close = within(sheet).getByRole("button", { name: "닫기" });
+    expect(sheet.parentElement).toBe(document.body);
+    expect(document.body.style.overflow).toBe("hidden");
     expect(firstActivity).toHaveFocus();
     expect(within(sheet).getByRole("button", { name: /Ride b/ })).toHaveTextContent("TSS 추정");
     fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
@@ -103,6 +107,7 @@ describe("MobileLogPage", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(day).toHaveFocus();
+    expect(document.body.style.overflow).not.toBe("hidden");
     fireEvent.click(screen.getByRole("button", { name: "9월 22일 활동 1건" }));
     expect(navigate).toHaveBeenCalledWith("/activity/c");
     fireEvent.click(screen.getByRole("button", { name: "← 이전 달" }));

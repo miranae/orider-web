@@ -14,16 +14,6 @@ import type { MilestoneId } from "@shared/types/milestone";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-const MEDAL: Record<MilestoneId, string> = {
-  first_5km: "🏅",
-  first_10km: "🎖️",
-  first_half: "🥈",
-  first_full: "🏆",
-  cumulative_100km: "💯",
-  cumulative_500km: "🔥",
-  cumulative_1000km: "👑",
-};
-
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
   useEffect(() => {
@@ -99,7 +89,6 @@ export default function MilestoneCelebration({ milestoneId, onClose }: Milestone
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--space-2)" }}>
           <Trophy size={28} aria-hidden="true" style={{ color: "var(--accent)" }} />
-          <Text as="span" variant="dataMedium" aria-hidden="true">{MEDAL[milestoneId]}</Text>
         </div>
 
         <Text as="h2" id={titleId} variant="subtitle" tone="primary" style={{ margin: "var(--space-3) 0 var(--space-2)" }}>

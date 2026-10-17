@@ -1,3 +1,4 @@
+import "./DisciplineTabs.css";
 import { useMemo, useRef, type KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -87,7 +88,7 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
     <div
       role="tablist"
       aria-label={t("discipline.selectAria")}
-      className="flex items-center gap-1"
+      className="discipline-tabs flex items-center gap-1"
       style={{ background: "var(--bg-2)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}
     >
       {tabs.map(({ key, label, icon, color }, idx) => {
@@ -105,7 +106,7 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
             role="tab"
             disabled={disabled}
             aria-disabled={disabled || undefined}
-            aria-label={disabled ? `${label} · ${t("discipline.comingSoon")}` : undefined}
+            aria-label={disabled ? `${label} · ${t("discipline.comingSoon")}` : label}
             title={disabled ? t("discipline.comingSoon") : undefined}
             aria-selected={isActive}
             tabIndex={isActive ? 0 : -1}
@@ -119,7 +120,13 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
             }}
           >
             <span aria-hidden="true" style={{ display: "inline-flex", color }}>{icon}</span>
-            <span>{label}{disabled && <span style={{ display: "block", fontSize: "var(--fs-2xs)", lineHeight: 1.2, whiteSpace: "nowrap" }}>{t("discipline.comingSoon")}</span>}</span>
+            <span data-discipline-label>
+              <span data-discipline-full>{label}</span>
+              <span data-discipline-compact>{t(`discipline.compact.${key}`)}</span>
+              <span data-discipline-availability style={{ fontSize: "var(--fs-2xs)", lineHeight: 1.2 }} aria-hidden="true">
+                {disabled && <><span data-discipline-full>{t("discipline.comingSoon")}</span><span data-discipline-compact>{t("discipline.compact.soon")}</span></>}
+              </span>
+            </span>
           </button>
         );
       })}

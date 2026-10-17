@@ -28,6 +28,7 @@ export function PaneAiCoach() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try { setPolicy(await getCoachConsentPolicy()); }
     catch { setError("load_failed"); }
     finally { setLoading(false); }
@@ -81,15 +82,15 @@ export function PaneAiCoach() {
       <SettingsCard data-testid="S1-3-1" title={t("coach.cardTitle")}>
         <p>{t("coach.cardDescription")}</p>
         <InlineRow label={t("coach.processingLabel")} hint={t("coach.historyRetention") }>
-          <strong>{loading ? t("coach.checking") : t(valid ? "coach.statusAccepted" : `coach.status.${state}`)}</strong>
+          <strong>{loading ? t("coach.checking") : error === "load_failed" ? t("coach.statusUnavailable") : t(valid ? "coach.statusAccepted" : `coach.status.${state}`)}</strong>
         </InlineRow>
         {policy && <InlineRow label={t("coach.policyVersion")}><code>{policy.policyVersion}</code></InlineRow>}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
-          <LocalizedLink to="/coach/chat" className={buttonClass({ variant: "secondary" })}><History size={16} aria-hidden />{t("coach.manageHistory")}</LocalizedLink>
-          {!valid && <Button disabled={loading || saving} onClick={() => setSheetOpen(true)}>{t("coach.reviewConsent")}</Button>}
-          {valid && <Button variant="danger" disabled={saving} onClick={() => void revoke()}>{t("coach.revoke")}</Button>}
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
+          <LocalizedLink to="/coach/chat" className={`${buttonClass({ variant: "secondary" })} settings-ai-history`}><History size={16} aria-hidden /><span>{t("coach.manageHistory")}</span></LocalizedLink>
+          {!valid && policy && error !== "load_failed" && <Button disabled={loading || saving} onClick={() => setSheetOpen(true)}>{t("coach.reviewConsent")}</Button>}
+          {valid && <Button variant="danger" disabled={loading || saving || error === "load_failed"} onClick={() => void revoke()}>{t("coach.revoke")}</Button>}
         </div>
-        {error === "load_failed" && <p role="alert">{t("coach.loadFailed")}</p>}
+        {error === "load_failed" && <div role="alert" className="settings-consent-error"><p>{t("coach.loadFailed")}</p><Button variant="secondary" onClick={() => void load()}>{t("common:button.retry")}</Button></div>}
       </SettingsCard>
       {policy && <CoachConsentSheet
         open={sheetOpen}

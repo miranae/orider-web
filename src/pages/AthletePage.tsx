@@ -18,7 +18,9 @@ import { logClientError } from "../services/errorLogger";
 import { useDocument } from "../hooks/useFirestore";
 import { cancelFriendRequest } from "../hooks/useFriends";
 import { useAuth } from "../contexts/AuthContext";
-import StatCard from "../components/StatCard";
+import { Activity as ActivityIcon, Route, Clock3, Mountain, Pencil, Share2, ArrowUpRight, Trash2 } from "lucide-react";
+import { RouteTabNav } from "../components/TabNav";
+import "./AthletePage.css";
 import ActivityCard from "../components/ActivityCard";
 import { isTrivialActivity } from "../utils/activityFilter";
 import { resolveDuration } from "../utils/activityTime";
@@ -29,11 +31,12 @@ import type { Activity } from "@shared/types";
 import type { PublicUserProfile } from "../services/publicProfiles";
 import type { PdcDoc } from "@shared/types/pdc";
 import { usePdc } from "../hooks/usePdc";
-import { Button, Card, Chip, Text } from "../theme/components";
+import { Button, Card, Chip, Text, Input, buttonClass } from "../theme/components";
 import SafeImage from "../components/SafeImage";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 
 function formatHours(ms: number): string {
+  if (!Number.isFinite(ms)) return "—";
   const hours = Math.floor(ms / 3600000);
   const minutes = Math.floor((ms % 3600000) / 60000);
   if (hours > 0) return `${hours}h ${minutes}m`;
@@ -74,9 +77,9 @@ function AthleteIdentityChips({
   if (pdc?.stamina != null && Number.isFinite(pdc.stamina)) {
     const pct = Math.max(0, Math.min(100, Math.round(pdc.stamina * 100)));
     chips.push(
-      <span key="stamina" className="inline-flex items-center gap-2 rounded-[var(--r-full)] border border-[var(--line-soft)] px-2.5 py-1">
+      <span key="stamina" className="inline-flex items-center gap-2 rounded-[var(--r-xl)] border border-[var(--line-soft)] px-2.5 py-1">
         <Text as="span" variant="eyebrow" style={{ color: "var(--ink-2)" }}>{t("identity.stamina")}</Text>
-        <span style={{ width: 46, height: 5, borderRadius: "var(--r-full)", background: "var(--bg-3)", overflow: "hidden" }}>
+        <span style={{ width: 46, height: 5, borderRadius: "var(--r-xl)", background: "var(--bg-3)", overflow: "hidden" }}>
           <span style={{ display: "block", width: `${pct}%`, height: "100%", background: "var(--aqua)" }} />
         </span>
         <Text as="span" variant="mono" style={{ color: "var(--ink-1)" }}>{pct}</Text>
@@ -123,7 +126,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   }, [meUserId, authLoading, currentUser, paramUserId, localizedNavigate, location.search, location.hash]);
   const { showToast } = useToast();
   const dialog = useDialog();
-  const { t } = useTranslation("athlete");
+  const { t, i18n } = useTranslation("athlete");
   const [searchParams] = useSearchParams();
   const isOwnProfile = currentUser?.uid === userId;
 
@@ -580,16 +583,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   if (profileLoading && !ownProfileFallback) {
     return (
       <div data-testid="P0.loading" className="space-y-6">
-        <div className="relative">
-          <div className="bg-[var(--bg-3)] rounded-[var(--r-xl)] h-40 animate-pulse" />
-          <div className="absolute -bottom-10 left-6">
-            <div className="w-20 h-20 rounded-full bg-[var(--bg-4)] ring-4 ring-[var(--bg-1)] animate-pulse" />
-          </div>
-        </div>
-        <div className="pt-8 space-y-2">
-          <div className="h-8 bg-[var(--bg-3)] rounded-[var(--r-sm)] w-40 animate-pulse" />
-          <div className="h-4 bg-[var(--bg-3)] rounded-[var(--r-sm)] w-32 animate-pulse" />
-        </div>
+        <Card className="h-32 animate-pulse" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} padding="none" className="rounded-[var(--r-lg)] p-4 h-20 animate-pulse" />
@@ -643,38 +637,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   return (
     <div className="space-y-6" data-testid={isOwnProfile ? "P0.self" : "P0.other"}>
-      {/* Cover + Profile */}
-      <div className="relative">
-        <div className="rounded-[var(--r-xl)] h-40 relative overflow-hidden shadow-sm" style={{ background: "linear-gradient(135deg, var(--lime), var(--aqua))" }}>
-          {/* Decorative pattern */}
-          <svg className="absolute inset-0 w-full h-full opacity-[0.08]" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="cover-pattern" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-                <circle cx="20" cy="20" r="1.5" fill="white" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#cover-pattern)" />
-          </svg>
+      <Card className="athlete-identity" data-testid="P0-0">
+        <div className="athlete-identity__avatar">
+          {photoURL ? <SafeImage src={photoURL} alt={nickname} fallbackLabel={nickname} className="athlete-identity__photo" referrerPolicy="no-referrer" /> : <Avatar name={nickname} size="lg" className="athlete-identity__photo" />}
         </div>
-        <div className="absolute -bottom-10 left-6 flex items-end gap-4">
-          <div className="ring-4 ring-[var(--bg-1)] rounded-full bg-[var(--bg-1)]">
-            {photoURL ? (
-              <SafeImage
-                src={photoURL}
-                alt={nickname}
-                fallbackLabel={nickname}
-                className="w-20 h-20 rounded-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <Avatar name={nickname} size="xl" />
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Profile info */}
-      <div data-testid="P0-0" className="pt-8 flex items-start justify-between">
         <div>
           <h1 data-testid="P0-0-1" className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">
             {nickname}
@@ -683,15 +649,15 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {isOwnProfile && currentProfile?.stravaConnected && <Chip>Strava</Chip>}
           {profileForPage?.team && <Text as="p" variant="caption" tone="secondary">{profileForPage.team}</Text>}
           {isOwnProfile && <div className="flex flex-wrap gap-2 mt-3">
-            <Link data-testid="P0-0-2" to="/settings/account">{t("self.edit")}</Link>
-            <Button data-testid="P0-0-3" size="sm" variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${location.pathname.replace(/athlete\/me$/, `athlete/${userId}`)}`).then(() => showToast(t("self.shared"))).catch(() => showToast(t("self.shareFailed"), "error")); }}>{t("self.share")}</Button>
+            <Link data-testid="P0-0-2" className={buttonClass({variant: "secondary"})} to="/settings/account"><Pencil size={16} aria-hidden="true" />{t("self.edit")}</Link>
+            <Button data-testid="P0-0-3" leadingIcon={<Share2 size={16} aria-hidden="true" />} variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${location.pathname.replace(/athlete\/me$/, `athlete/${userId}`)}`).then(() => showToast(t("self.shared"))).catch(() => showToast(t("self.shareFailed"), "error")); }}>{t("self.share")}</Button>
           </div>}
           {isOwnProfile && (
             <div data-testid="P0-6"><AthleteIdentityChips pdc={pdc} activities={chartActivities} /></div>
           )}
         </div>
         {!isMe && currentUser && (
-          <div data-testid="P0-0-4" className="flex gap-2">
+          <div data-testid="P0-0-4" className="athlete-friend-actions">
             {friendStatus === "none" && canSendFriendRequest && (
               <Button
                 onClick={handleSendFriendRequest}
@@ -702,14 +668,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </Button>
             )}
             {friendStatus === "request_sent" && (
-              <button
-                onClick={handleCancelRequest}
-                disabled={friendLoading}
-                className={`px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] text-[var(--ink-1)] hover:bg-[var(--bg-3)] transition-colors disabled:opacity-50 ${friendLoading ? 'cursor-wait' : ''}`}
-                style={{ background: 'var(--bg-2)', border: '1px solid var(--line-soft)' }}
-              >
-                {friendLoading ? t("friend.cancelling") : t("friend.cancelRequest")}
-              </button>
+              <Button variant="secondary" onClick={handleCancelRequest} disabled={friendLoading}>{friendLoading ? t("friend.cancelling") : t("friend.cancelRequest")}</Button>
             )}
             {friendStatus === "request_received" && (
               <Button
@@ -721,57 +680,35 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </Button>
             )}
             {friendStatus === "friends" && (
-              <button
-                onClick={async () => {
-                  if (!(await dialog.confirm(t("friend.confirmRemove", { nickname }), { destructive: true }))) return;
-                  handleRemoveFriend();
-                }}
-                disabled={friendLoading}
-                className="group px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] transition-colors disabled:opacity-50 border border-[var(--lime)]/40 text-[var(--lime)] hover:border-[var(--rose)]/40 hover:text-[var(--rose)]"
-                style={{ background: 'var(--lime)/10' }}
-              >
-                {friendLoading ? t("friend.removing") : (
-                  <>
-                    <span className="group-hover:hidden">{t("friend.connected")}</span>
-                    <span className="hidden group-hover:inline">{t("friend.removeAction")}</span>
-                  </>
-                )}
-              </button>
+              <Button variant="secondary" onClick={async () => {
+                if (!(await dialog.confirm(t("friend.confirmRemove", { nickname }), { destructive: true }))) return;
+                handleRemoveFriend();
+              }} disabled={friendLoading}>{friendLoading ? t("friend.removing") : t("friend.removeAction")}</Button>
             )}
           </div>
         )}
-      </div>
+      </Card>
 
-      {/* Stats */}
-      <div data-testid="P0-1" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard
-          label={t(isOwnProfile ? "stats.activities" : "stats.publicActivities")}
-          value={statsReady ? t("stats.activitiesValue", { count: stats.count }) : "—"}
-          icon="🚴"
-        />
-        <StatCard
-          label={t("stats.distance")}
-          value={statsReady ? `${(stats.distance / 1000).toFixed(0)} km` : "—"}
-          icon="📏"
-        />
-        <StatCard
-          label={t("stats.time")}
-          value={statsReady ? formatHours(stats.time) : "—"}
-          icon="⏱"
-        />
-        <StatCard
-          label={t("stats.elevation")}
-          value={statsReady ? `${Math.round(stats.elevation).toLocaleString()} m` : "—"}
-          icon="⛰"
-        />
-      </div>
-
-      {isOwnProfile && <div data-testid="P0-3" className="flex flex-wrap gap-3">{(["activities", "records", "friends", "gear"] as const).map((target) => <Link data-testid="P0-3-1" key={target} to={`/athlete/me/${target}`}>{t(`self.${target}`)}</Link>)}</div>}
+      <section aria-label={t("stats.title")}>
+        <div data-testid="P0-1" className="athlete-stats">
+          {[
+            { label: t(isOwnProfile ? "stats.activities" : "stats.publicActivities"), value: statsReady ? t("stats.activitiesValue", { count: stats.count }) : "—", Icon: ActivityIcon },
+            { label: t("stats.distance"), value: statsReady ? <span>{Math.round(stats.distance / 1000).toLocaleString(i18n.language)} <small>km</small></span> : "—", Icon: Route },
+            { label: t("stats.time"), value: statsReady ? <><span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "hour", unitDisplay: "narrow"}).format(Math.floor(stats.time / 3600000))}</span>{" "}<span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "minute", unitDisplay: "narrow"}).format(Math.floor((stats.time % 3600000) / 60000))}</span></> : "—", Icon: Clock3 },
+            { label: t("stats.elevation"), value: statsReady ? <span>{Math.round(stats.elevation).toLocaleString(i18n.language)} <small>m</small></span> : "—", Icon: Mountain },
+          ].map(({label, value, Icon}) => <Card key={label} className="athlete-stat"><span className="athlete-stat__label"><Icon size={16} aria-hidden="true" />{label}</span><strong className="athlete-stat__value">{value}</strong></Card>)}
+        </div>
+        <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>
+      </section>
+      {isOwnProfile && <div data-testid="P0-3"><RouteTabNav revealActive tabs={[
+        { to: "/athlete/me", label: t("self.overview"), end: true },
+        ...(["activities", "records", "friends", "gear"] as const).map((target) => ({to: `/athlete/me/${target}`, label: t(`self.${target}`), specId: "P0-3-1"})),
+      ]} /></div>}
 
       {/* Friend list */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left Column: Friends & Chart */}
-        <div className="min-w-0 space-y-6 sticky top-0 self-start">
+        <div className="min-w-0 space-y-6 self-start">
           {/* Friends List */}
           {canViewFriends && <Card data-testid="P0-4" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--line-soft)] flex items-center justify-between">
@@ -839,7 +776,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                       <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{(seg.distance / 1000).toFixed(2)} km</p>
                     </Link>
                     <span className={`ml-2 px-2 py-0.5 text-[length:var(--fs-xs)] font-semibold rounded-[var(--r-sm)] shrink-0 ${
-                      seg.status === "active" ? "bg-green-900/30 text-green-400" :
+                      seg.status === "active" ? "bg-[var(--lime)]/10 text-[var(--lime)]" :
                       seg.status === "pending" ? "bg-[var(--amber)]/10 text-[var(--amber)]" :
                       seg.status === "rejected" ? "bg-[var(--rose)]/10 text-[var(--rose)]" :
                       "bg-[var(--bg-3)] text-[var(--ink-2)]"
@@ -847,15 +784,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                       {seg.status === "active" ? t("segments.status.active") : seg.status === "pending" ? t("segments.status.pending") : seg.status === "rejected" ? t("segments.status.rejected") : seg.status}
                     </span>
                     {isMe && (
-                      <button
-                        onClick={() => handleDeleteSegment(seg.id, seg.name)}
-                        className="ml-2 p-1 hover:text-red-500 transition-colors shrink-0" style={{ color: "var(--ink-3)" }}
-                        title={t("segments.deleteTitle")}
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
+                      <Button variant="ghost" iconOnly onClick={() => handleDeleteSegment(seg.id, seg.name)} aria-label={t("segments.deleteTitle")}><Trash2 size={16} aria-hidden="true" /></Button>
                     )}
                   </div>
                 ))}
@@ -877,7 +806,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
         {/* Right Column: Activities */}
         <div data-testid="P0-2" className="md:col-span-2 space-y-4">
-          <div data-testid="P0-2-1" className="sticky top-0 z-20 bg-[var(--bg-0)] pb-4 border-b border-[var(--line-soft)] space-y-3">
+          <div data-testid="P0-2-1" className="pb-4 border-b border-[var(--line-soft)] space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
                 {t("activities.title")}
@@ -885,54 +814,27 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   <span className="ml-2 text-[length:var(--fs-sm)] font-normal text-[var(--lime)]">{t("activities.searchResultCount", { count: filteredActivities.length })}</span>
                 )}
               </h2>
-              <div className="flex bg-[var(--bg-2)] rounded-[var(--r-lg)] p-1">
-                <button
-                  onClick={() => setFilterType("all")}
-                  className={`px-3 py-1 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-md)] transition-colors ${
-                    filterType === "all"
-                      ? "bg-[var(--bg-3)] text-[var(--ink-0)]"
-                      : "text-[var(--ink-3)] hover:text-[var(--ink-1)]"
-                  }`}
-                >
-                  {t("activities.filter.all")}
-                </button>
-                <button
-                  onClick={() => setFilterType("ride")}
-                  className={`px-3 py-1 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-md)] transition-colors ${
-                    filterType === "ride"
-                      ? "bg-[var(--bg-3)] text-[var(--ink-0)]"
-                      : "text-[var(--ink-3)] hover:text-[var(--ink-1)]"
-                  }`}
-                >
-                  {t("activities.filter.ride")}
-                </button>
-                <button
-                  onClick={() => setFilterType("strava")}
-                  className={`px-3 py-1 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-md)] transition-colors ${
-                    filterType === "strava"
-                      ? "bg-[var(--bg-3)] text-[var(--ink-0)]"
-                      : "text-[var(--ink-3)] hover:text-[var(--ink-1)]"
-                  }`}
-                >
-                  {t("activities.filter.strava")}
-                </button>
-              </div>
+              {isOwnProfile ? <Link className={buttonClass({variant: "ghost"})} to="/athlete/me/activities">{t("activities.viewAll")}<ArrowUpRight size={16} aria-hidden="true" /></Link> : <div className="flex flex-wrap gap-1">
+                <Button variant={filterType === "all" ? "secondary" : "ghost"} aria-pressed={filterType === "all"} onClick={() => setFilterType("all")}>{t("activities.filter.all")}</Button>
+                <Button variant={filterType === "ride" ? "secondary" : "ghost"} aria-pressed={filterType === "ride"} onClick={() => setFilterType("ride")}>{t("activities.filter.ride")}</Button>
+                <Button variant={filterType === "strava" ? "secondary" : "ghost"} aria-pressed={filterType === "strava"} onClick={() => setFilterType("strava")}>{t("activities.filter.strava")}</Button>
+              </div>}
             </div>
 
             {/* Search bar */}
-            <div className="flex items-center gap-2">
+            {!isOwnProfile && <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--ink-3)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <input
+                <Input
+                  aria-label={t("activities.search")}
                   type="text"
                   placeholder={t("activities.searchPlaceholder")}
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) handleSearch(); }}
-                  className="w-full pl-9 pr-3 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent"
-                  style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
+                  className="w-full pl-9"
                 />
               </div>
               <Button
@@ -952,7 +854,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   </svg>
                 </button>
               )}
-            </div>
+            </div>}
           </div>
 
           <div className="relative z-0 space-y-4">
@@ -978,7 +880,13 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </Card>
             ) : (
               <>
-                {filteredActivities.map((activity) => (
+                {(isOwnProfile ? filteredActivities.slice(0, 3) : filteredActivities).map((activity) => isOwnProfile ? (
+                  <Link key={activity.id} to={`/activity/${activity.id}`} className="athlete-recent" data-testid="athlete-recent-preview">
+                    <div className="athlete-recent__heading"><strong>{activity.description || t("activities.untitled")}</strong><ArrowUpRight size={16} aria-hidden="true" /></div>
+                    <time dateTime={Number.isFinite(activity.startTime) ? new Date(activity.startTime).toISOString() : undefined}>{Number.isFinite(activity.startTime) ? new Date(activity.startTime).toLocaleDateString(t("dateLocale")) : "—"}</time>
+                    <dl className="athlete-recent__metrics"><div><dt>{t("recent.distance")}</dt><dd>{Number.isFinite(activity.summary.distance) ? (activity.summary.distance / 1000).toFixed(1) : "—"} km</dd></div><div><dt>{t("recent.time")}</dt><dd>{formatHours(resolveDuration(activity.summary).displayMs)}</dd></div></dl>
+                  </Link>
+                ) : (
                   <div key={activity.id} className="relative group">
                     {/* athlete 페이지는 컨텍스트 자체가 작성자라 카드 내 작성자 헤더 중복 — 숨김. */}
                     <ActivityCard
@@ -996,7 +904,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                     )}
                   </div>
                 ))}
-                {!isSearchActive && hasMoreActivities && (
+                {!isOwnProfile && !isSearchActive && hasMoreActivities && (
                   <Card variant="bare" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
                     <button
                       onClick={handleLoadMoreActivities}

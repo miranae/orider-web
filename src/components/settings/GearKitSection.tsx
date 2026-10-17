@@ -22,7 +22,9 @@ import type { GearInput } from "../../hooks/useGear";
 import { useGear } from "../../hooks/useGear";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
-import { Button, Text } from "../../theme/components";
+import { createPortal } from "react-dom";
+import Modal from "../Modal";
+import { Button, DropdownSelect, Text } from "../../theme/components";
 import {
   SettingsCard,
   Field,
@@ -90,44 +92,16 @@ function GearFormModal({ initial, title, onSave, onClose }: GearFormModalProps) 
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "color-mix(in oklch, var(--ink-0) 45%, transparent)",
-      }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div
-        style={{
-          background: "var(--bg-1)",
-          border: "1px solid var(--line-soft)",
-          borderRadius: "var(--r-lg)",
-          padding: "var(--space-6)",
-          width: 440,
-          maxWidth: "90vw",
-          maxHeight: "90vh",
-          overflowY: "auto",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-5)" }}>
-          <Text variant="title">{title}</Text>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label={t("gear.cancel")}>
-            ✕
-          </Button>
-        </div>
-
-        <div style={{ display: "grid", gap: "var(--space-4)" }}>
+    createPortal(<Modal open accessible title={title} onClose={() => {
+      if (busy) return;
+      const expanded = document.querySelector<HTMLButtonElement>('.gear-form [role="combobox"][aria-expanded="true"]');
+      if (expanded) { expanded.click(); return; }
+      onClose();
+    }}>
+        <div className="gear-form" style={{ display: "grid", gap: "var(--space-4)" }}>
           {/* 이름 */}
           <Field label={t("gear.fieldName")}>
             <input
-              autoFocus
               value={form.name}
               onChange={(e) => patch({ name: e.target.value })}
               placeholder={t("gear.fieldNamePlaceholder")}
@@ -138,17 +112,10 @@ function GearFormModal({ initial, title, onSave, onClose }: GearFormModalProps) 
 
           {/* 종류 */}
           <Field label={t("gear.fieldType")}>
-            <select
-              value={form.type}
-              onChange={(e) => patch({ type: e.target.value as Gear["type"] })}
-              disabled={busy}
-              style={fieldInputStyle}
-            >
-              <option value="bike">{t("gear.typeBike")}</option>
-              <option value="wheel">{t("gear.typeWheel")}</option>
-              <option value="powermeter">{t("gear.typePowermeter")}</option>
-              <option value="other">{t("gear.typeOther")}</option>
-            </select>
+            <DropdownSelect label={t("gear.fieldType")} value={form.type}
+              onChange={(value) => patch({ type: value as Gear["type"] })} disabled={busy}
+              options={["bike", "wheel", "powermeter", "other"].map((value) => ({ value,
+                label: t({ bike: "gear.typeBike", wheel: "gear.typeWheel", powermeter: "gear.typePowermeter", other: "gear.typeOther" }[value]!) }))} />
           </Field>
 
           <FieldGrid cols={2}>
@@ -201,7 +168,8 @@ function GearFormModal({ initial, title, onSave, onClose }: GearFormModalProps) 
           {/* 고급 물리 파라미터 (bike 한정) */}
           {form.type === "bike" && (
             <div>
-              <button
+              <Button variant="ghost" size="md"
+                aria-expanded={showPhysics}
                 type="button"
                 onClick={() => setShowPhysics((v) => !v)}
                 style={{
@@ -218,7 +186,7 @@ function GearFormModal({ initial, title, onSave, onClose }: GearFormModalProps) 
               >
                 {showPhysics ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 {t("gear.physicsSection")}
-              </button>
+              </Button>
               {showPhysics && (
                 <div
                   style={{
@@ -235,7 +203,7 @@ function GearFormModal({ initial, title, onSave, onClose }: GearFormModalProps) 
                     {t("gear.physicsSectionHint")}
                   </Text>
                   <FieldGrid cols={2}>
-                    <Field label={t("gear.fieldCda")} hint={t("gear.fieldCdaHint")}>
+                    <Field explain label={t("gear.fieldCda")} hint={t("gear.fieldCdaHint")}>
                       <input
                         type="number"
                         step="0.01"
@@ -248,7 +216,7 @@ function GearFormModal({ initial, title, onSave, onClose }: GearFormModalProps) 
                         style={monoInputStyle}
                       />
                     </Field>
-                    <Field label={t("gear.fieldCrr")} hint={t("gear.fieldCrrHint")}>
+                    <Field explain label={t("gear.fieldCrr")} hint={t("gear.fieldCrrHint")}>
                       <input
                         type="number"
                         step="0.001"
@@ -261,7 +229,7 @@ function GearFormModal({ initial, title, onSave, onClose }: GearFormModalProps) 
                         style={monoInputStyle}
                       />
                     </Field>
-                    <Field label={t("gear.fieldDrivetrain")} hint={t("gear.fieldDrivetrainHint")} full>
+                    <Field explain label={t("gear.fieldDrivetrain")} hint={t("gear.fieldDrivetrainHint")} full>
                       <input
                         type="number"
                         step="0.01"
@@ -289,8 +257,7 @@ function GearFormModal({ initial, title, onSave, onClose }: GearFormModalProps) 
             {t("gear.save")}
           </Button>
         </div>
-      </div>
-    </div>
+    </Modal>, document.body)
   );
 }
 
@@ -336,7 +303,7 @@ function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
     <div data-testid="P4-2-1"
       style={{
         display: "grid",
-        gridTemplateColumns: "40px 1fr auto",
+        gridTemplateColumns: "var(--dim-button-height) minmax(0, 1fr)",
         gap: "var(--space-3)",
         alignItems: "center",
         padding: "var(--space-3) 0",
@@ -375,7 +342,7 @@ function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
               style={{
                 fontSize: "var(--fs-xs)",
                 padding: "1px var(--space-2)",
-                borderRadius: "var(--r-full)",
+                borderRadius: "var(--r-lg)",
                 background: "var(--lime)",
                 color: "var(--primary-fg)",
                 fontWeight: 600,
@@ -404,11 +371,11 @@ function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
       </div>
 
       {/* 액션 버튼 */}
-      <div style={{ display: "flex", gap: "var(--space-1)", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: "var(--space-1)", alignItems: "center", gridColumn: "1/-1", justifyContent: "flex-end" }}>
         {!gear.isDefault && (
           <Button
             variant="ghost"
-            size="sm"
+            size="md"
             onClick={handleSetDefault}
             disabled={busy}
             aria-label={t("gear.setDefault")}
@@ -419,7 +386,7 @@ function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
         )}
         <Button
           variant="ghost"
-          size="sm"
+          size="md"
           onClick={onEdit}
           disabled={busy}
           aria-label={t("gear.edit")}
@@ -428,7 +395,7 @@ function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
         </Button>
         <Button
           variant="ghost"
-          size="sm"
+          size="md"
           onClick={handleDelete}
           disabled={busy}
           aria-label={t("gear.delete")}
@@ -477,7 +444,7 @@ export function GearKitSection({ uid }: GearKitSectionProps) {
       <SettingsCard
         data-testid="P4-2" title={t("gear.title")}
         action={
-          <Button data-testid="P4-2-1" variant="secondary" size="sm" onClick={() => setModalState({ mode: "add" })}>
+          <Button data-testid="P4-2-1" variant="secondary" size="md" onClick={() => setModalState({ mode: "add" })}>
             <Plus size={13} />
             {t("gear.addBtn")}
           </Button>

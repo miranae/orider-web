@@ -338,7 +338,8 @@
       "tssEstimated": "Includes estimates",
       "distance": "Distance (km)",
       "time": "Time (h)",
-      "elevation": "Elevation (m)"
+      "elevation": "Elevation (m)",
+      "title": "Monthly activity"
     },
     "dailyLoad": {
       "datasetLabel": "Daily load",

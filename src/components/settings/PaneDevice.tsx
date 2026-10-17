@@ -1,4 +1,6 @@
+import GlossaryText from "../common/GlossaryText";
 import { useEffect, useMemo, useState } from "react";
+import "./device-gear.css";
 import { LegacyLayoutImportWizard } from "./LegacyLayoutImportWizard";
 import type { DataPageConfig } from "@shared/types/deviceSettings";
 import { LocalizedLink } from "../LocalizedLink";
@@ -35,15 +37,14 @@ import {
   Field,
   FieldGrid,
   Toggle,
-  fieldInputStyle,
   monoInputStyle,
 } from "./_primitives";
 import { LayoutEditorCard } from "./LayoutEditorCard";
-import { Button, Card, buttonClass } from "../../theme/components";
+import { Button, Card, DropdownSelect, buttonClass } from "../../theme/components";
 
-function formatDateTime(ms: number): string {
+function formatDateTime(ms: number, locale: string): string {
   if (!ms) return "-";
-  return new Date(ms).toLocaleString("ko-KR");
+  return new Date(ms).toLocaleString(locale);
 }
 
 interface RowKV {
@@ -60,20 +61,23 @@ function KVList({ rows }: { rows: RowKV[] }) {
           style={{
             display: "flex",
             justifyContent: "space-between",
+            gap: "var(--space-3)",
+            flexWrap: "wrap",
             padding: "9px 0",
             borderTop: i === 0 ? "none" : "1px solid var(--line-soft)",
             fontSize: "var(--fs-sm)",
           }}
         >
-          <span style={{ color: "var(--ink-2)" }}>{r.k}</span>
+          <span style={{ color: "var(--ink-2)" }}><GlossaryText>{r.k}</GlossaryText></span>
           <span
             style={{
               color: "var(--ink-1)",
               fontFamily: "var(--font-mono)",
+              overflowWrap: "anywhere",
               fontSize: "var(--fs-xs)",
             }}
           >
-            {r.v}
+            <GlossaryText>{r.v}</GlossaryText>
           </span>
         </div>
       ))}
@@ -158,21 +162,21 @@ function EditableCard({
   return (
     <SettingsCard data-testid={specId}
       title={
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
-          {title}
+        <span style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)" }}>
+          {typeof title === "string" ? <GlossaryText>{title}</GlossaryText> : title}
           <ScopeBadge scope={scope} />
         </span>
       }
       action={
         isEditing ? (
           <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
-            <Button variant="secondary" size="sm"
+            <Button variant="secondary" size="md"
               onClick={onCancel}
               disabled={saving}
             >
               {t("device.cancel")}
             </Button>
-            <Button variant="primary" size="sm"
+            <Button variant="primary" size="md"
               onClick={() => void onSave({ broadcast: canBroadcast && broadcast })}
               disabled={saving}
             >
@@ -180,7 +184,7 @@ function EditableCard({
             </Button>
           </div>
         ) : (
-          <Button variant="ghost" size="sm"
+          <Button variant="ghost" size="md"
             onClick={onEdit}
             aria-label={t("device.editAriaLabel")}
           >
@@ -273,15 +277,10 @@ function AutoEdit({ draft, setDraft }: CardEditProps<AutoDraft>) {
         />
       </Field>
       <Field label={t("device.fieldAutoLapMode")}>
-        <select
-          value={draft.mode}
-          onChange={(e) => setDraft({ ...draft, mode: e.target.value as AutoLapMode })}
-          style={fieldInputStyle}
-        >
-          <option value="OFF">{t("device.autoLapOff")}</option>
-          <option value="DISTANCE">{t("device.autoLapDistance")}</option>
-          <option value="TIME">{t("device.autoLapTime")}</option>
-        </select>
+        <DropdownSelect label={t("device.fieldAutoLapMode")} value={draft.mode}
+          onChange={(value) => setDraft({ ...draft, mode: value as AutoLapMode })}
+
+         options={[{ value: "OFF", label: t("device.autoLapOff") }, { value: "DISTANCE", label: t("device.autoLapDistance") }, { value: "TIME", label: t("device.autoLapTime") }]} />
       </Field>
       {draft.mode === "DISTANCE" && (
         <Field label={t("device.fieldAutoLapDistance")} hint={t("device.fieldAutoLapDistanceHint")}>
@@ -334,15 +333,18 @@ function AlertEdit({ draft, setDraft }: CardEditProps<AlertSettings>) {
       {draft.thresholds.map((th) => (
         <div
           key={th.metric}
+          role="group" aria-label={t(ALERT_METRIC_KEY[th.metric])}
           style={{
             display: "grid",
-            gridTemplateColumns: "100px auto 1fr 1fr",
+            gridTemplateColumns: "minmax(0, 1fr)",
+            minWidth: 0,
             gap: "var(--space-2)",
             alignItems: "center",
             padding: "8px 0",
             borderTop: "1px solid var(--line-soft)",
           }}
         >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)", minWidth: 0 }}>
           <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-1)" }}>
             {t(ALERT_METRIC_KEY[th.metric])}
           </span>
@@ -351,9 +353,12 @@ function AlertEdit({ draft, setDraft }: CardEditProps<AlertSettings>) {
             ariaLabel={t(ALERT_METRIC_KEY[th.metric])}
             onChange={(v) => patchThreshold(th.metric, "enabled", v)}
           />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2)", minWidth: 0 }}>
           <input
             type="number"
             placeholder={t("device.alertMinPlaceholder")}
+            aria-label={`${t(ALERT_METRIC_KEY[th.metric])} ${t("device.alertMinPlaceholder")}`}
             value={th.minValue ?? ""}
             disabled={!th.enabled}
             onChange={(e) =>
@@ -363,11 +368,12 @@ function AlertEdit({ draft, setDraft }: CardEditProps<AlertSettings>) {
                 e.target.value === "" ? null : Number(e.target.value),
               )
             }
-            style={monoInputStyle}
+            style={{ ...monoInputStyle, minWidth: 0 }}
           />
           <input
             type="number"
             placeholder={t("device.alertMaxPlaceholder")}
+            aria-label={`${t(ALERT_METRIC_KEY[th.metric])} ${t("device.alertMaxPlaceholder")}`}
             value={th.maxValue ?? ""}
             disabled={!th.enabled}
             onChange={(e) =>
@@ -377,8 +383,9 @@ function AlertEdit({ draft, setDraft }: CardEditProps<AlertSettings>) {
                 e.target.value === "" ? null : Number(e.target.value),
               )
             }
-            style={monoInputStyle}
+            style={{ ...monoInputStyle, minWidth: 0 }}
           />
+          </div>
         </div>
       ))}
     </div>
@@ -400,41 +407,26 @@ function DisplaySoundEdit({ draft, setDraft }: CardEditProps<DisplaySoundDraft>)
   return (
     <FieldGrid cols={2}>
       <Field label={t("device.fieldScreenBrightness")}>
-        <select
-          value={draft.screenBrightness}
-          onChange={(e) =>
-            setDraft({ ...draft, screenBrightness: e.target.value as ScreenBrightness })
+        <DropdownSelect label={t("device.fieldScreenBrightness")} value={draft.screenBrightness}
+          onChange={(value) =>
+            setDraft({ ...draft, screenBrightness: value as ScreenBrightness })
           }
-          style={fieldInputStyle}
-        >
-          <option value="SYSTEM">{t("device.brightnessSystem")}</option>
-          <option value="HIGH">{t("device.brightnessHigh")}</option>
-          <option value="HALF">{t("device.brightnessHalf")}</option>
-        </select>
+
+         options={[{ value: "SYSTEM", label: t("device.brightnessSystem") }, { value: "HIGH", label: t("device.brightnessHigh") }, { value: "HALF", label: t("device.brightnessHalf") }]} />
       </Field>
       <Field label={t("device.fieldScreenTimeout")}>
-        <select
-          value={draft.screenTimeout}
-          onChange={(e) =>
-            setDraft({ ...draft, screenTimeout: e.target.value as ScreenTimeout })
+        <DropdownSelect label={t("device.fieldScreenTimeout")} value={draft.screenTimeout}
+          onChange={(value) =>
+            setDraft({ ...draft, screenTimeout: value as ScreenTimeout })
           }
-          style={fieldInputStyle}
-        >
-          <option value="ALWAYS_ON">{t("device.timeoutAlwaysOn")}</option>
-          <option value="SYSTEM_DEFAULT">{t("device.timeoutSystemDefault")}</option>
-        </select>
+
+         options={[{ value: "ALWAYS_ON", label: t("device.timeoutAlwaysOn") }, { value: "SYSTEM_DEFAULT", label: t("device.timeoutSystemDefault") }]} />
       </Field>
       <Field label={t("device.fieldMapType")}>
-        <select
-          value={draft.mapType}
-          onChange={(e) => setDraft({ ...draft, mapType: e.target.value as MapType })}
-          style={fieldInputStyle}
-        >
-          <option value="STANDARD">{t("device.mapStandard")}</option>
-          <option value="CYCLE">{t("device.mapCycle")}</option>
-          <option value="TERRAIN">{t("device.mapTerrain")}</option>
-          <option value="MAPBOX">{t("device.mapMapbox")}</option>
-        </select>
+        <DropdownSelect label={t("device.fieldMapType")} value={draft.mapType}
+          onChange={(value) => setDraft({ ...draft, mapType: value as MapType })}
+
+         options={[{ value: "STANDARD", label: t("device.mapStandard") }, { value: "CYCLE", label: t("device.mapCycle") }, { value: "TERRAIN", label: t("device.mapTerrain") }, { value: "MAPBOX", label: t("device.mapMapbox") }]} />
       </Field>
       <Field label={t("device.fieldDynamicZoom")}>
         <div style={{ display: "flex", gap: 'var(--space-3)', alignItems: "center" }}>
@@ -490,27 +482,16 @@ function BatteryGpsEdit({ draft, setDraft }: CardEditProps<BatteryGpsDraft>) {
   return (
     <FieldGrid cols={2}>
       <Field label={t("device.fieldPowerMode")}>
-        <select
-          value={draft.powerMode}
-          onChange={(e) => setDraft({ ...draft, powerMode: e.target.value as PowerMode })}
-          style={fieldInputStyle}
-        >
-          <option value="STANDARD">{t("device.powerStandard")}</option>
-          <option value="SAVER">{t("device.powerSaver")}</option>
-          <option value="DASHBOARD">{t("device.powerDashboard")}</option>
-          <option value="CUSTOM">{t("device.powerCustom")}</option>
-        </select>
+        <DropdownSelect label={t("device.fieldPowerMode")} value={draft.powerMode}
+          onChange={(value) => setDraft({ ...draft, powerMode: value as PowerMode })}
+
+         options={[{ value: "STANDARD", label: t("device.powerStandard") }, { value: "SAVER", label: t("device.powerSaver") }, { value: "DASHBOARD", label: t("device.powerDashboard") }, { value: "CUSTOM", label: t("device.powerCustom") }]} />
       </Field>
-      <Field label={t("device.fieldGpsMode")}>
-        <select
-          value={draft.gpsMode}
-          onChange={(e) => setDraft({ ...draft, gpsMode: e.target.value as GpsMode })}
-          style={fieldInputStyle}
-        >
-          <option value="HIGH_ACCURACY">{t("device.gpsHigh")}</option>
-          <option value="BALANCED">{t("device.gpsBalanced")}</option>
-          <option value="OFF">{t("device.gpsOff")}</option>
-        </select>
+      <Field explain label={t("device.fieldGpsMode")}>
+        <DropdownSelect label={t("device.fieldGpsMode")} value={draft.gpsMode}
+          onChange={(value) => setDraft({ ...draft, gpsMode: value as GpsMode })}
+
+         options={[{ value: "HIGH_ACCURACY", label: t("device.gpsHigh") }, { value: "BALANCED", label: t("device.gpsBalanced") }, { value: "OFF", label: t("device.gpsOff") }]} />
       </Field>
     </FieldGrid>
   );
@@ -535,17 +516,12 @@ function NetworkEdit({ draft, setDraft }: CardEditProps<NetworkDraft>) {
     <FieldGrid cols={2}>
       {fields.map((f) => (
         <Field key={f.key} label={t(f.labelKey)}>
-          <select
-            value={draft[f.key]}
-            onChange={(e) =>
-              setDraft({ ...draft, [f.key]: e.target.value as NetworkMode })
+          <DropdownSelect label={t(f.labelKey)} value={draft[f.key]}
+            onChange={(value) =>
+              setDraft({ ...draft, [f.key]: value as NetworkMode })
             }
-            style={fieldInputStyle}
-          >
-            <option value="OFFLINE">{t("device.networkOffline")}</option>
-            <option value="ANY_NETWORK">{t("device.networkAny")}</option>
-            <option value="WIFI_ONLY">{t("device.networkWifiOnly")}</option>
-          </select>
+
+           options={[{ value: "OFFLINE", label: t("device.networkOffline") }, { value: "ANY_NETWORK", label: t("device.networkAny") }, { value: "WIFI_ONLY", label: t("device.networkWifiOnly") }]} />
         </Field>
       ))}
     </FieldGrid>
@@ -573,7 +549,7 @@ function RiderEdit({ draft, setDraft }: CardEditProps<RiderDraft>) {
   const { t } = useTranslation("settings");
   return (
     <FieldGrid cols={3}>
-      <Field label={t("device.fieldFtp")} hint={t("device.fieldFtpHint")}>
+      <Field explain label={t("device.fieldFtp")} hint={t("device.fieldFtpHint")}>
         <input
           type="number"
           value={draft.ftpWatts}
@@ -603,7 +579,7 @@ function RiderEdit({ draft, setDraft }: CardEditProps<RiderDraft>) {
 }
 
 export function PaneDevice() {
-  const { t } = useTranslation("settings");
+  const { t, i18n } = useTranslation("settings");
   const { user } = useAuth();
   const { showToast } = useToast();
   const dialog = useDialog();
@@ -848,16 +824,16 @@ export function PaneDevice() {
 
   return (
     <>
-      <Card data-testid="S6-0-1" padding="none"
+      <Card data-testid="S6-0-1" padding="none" className="settings-device-header"
         style={{
           padding: "var(--space-4) var(--space-5)",
           marginBottom: 'var(--space-4)',
-          display: "flex",
+          display: "grid",
           alignItems: "center",
           gap: "var(--space-3)",
         }}
       >
-        <div
+        <div className="settings-device-header__icon"
           style={{
             width: 44,
             height: 44,
@@ -870,38 +846,18 @@ export function PaneDevice() {
         >
           <Smartphone size={22} />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="settings-device-header__selector" style={{ minWidth: 0 }}>
           {records.length > 1 ? (
-            <select
-              value={record.deviceId}
-              onChange={(e) => {
-                cancelEdit();
-                setSelectedDeviceId(e.target.value);
-              }}
-              style={{
-                fontSize: "var(--fs-sm)",
-                fontWeight: 600,
-                color: "var(--ink-0)",
-                background: "transparent",
-                border: "1px solid var(--line-soft)",
-                borderRadius: "var(--r-md)",
-                padding: "var(--space-1) var(--space-2)",
-                marginBottom: "var(--space-0-5)",
-                cursor: "pointer",
-              }}
-            >
-              {records.map((r) => (
-                <option key={r.deviceId} value={r.deviceId}>
-                  {r.deviceName || r.deviceId}
-                </option>
-              ))}
-            </select>
+            <DropdownSelect label={t("device.selectDevice")} value={record.deviceId}
+              onChange={(value) => { cancelEdit(); setSelectedDeviceId(value); }}
+              options={records.map((r) => ({ value: r.deviceId, label: r.deviceName || r.deviceId }))} />
           ) : (
-            <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
+            <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>
               {record.deviceName || record.deviceId}
             </div>
           )}
-          <div
+        </div>
+          <div className="settings-device-header__meta"
             style={{
               fontSize: "var(--fs-xs)",
               color: "var(--ink-3)",
@@ -919,18 +875,16 @@ export function PaneDevice() {
                   background: "var(--lime)",
                 }}
               />
-              {t("device.lastSync", { time: formatDateTime(record.updatedAt) })}
+              {t("device.lastSync", { time: formatDateTime(record.updatedAt, i18n.language) })}
             </span>
-            <span>·</span>
             <span>{t("device.dataPages", { count: s.dataPageConfig.pages.length })}</span>
             {records.length > 1 && (
               <>
-                <span>·</span>
-                <span>{t("device.totalDevices", { count: records.length })}</span>
+                    <span>{t("device.totalDevices", { count: records.length })}</span>
               </>
             )}
           </div>
-        </div>
+        <div className="settings-device-header__actions">
         <Button
           variant="secondary"
           onClick={async () => {
@@ -976,6 +930,7 @@ export function PaneDevice() {
         <Button variant="secondary" onClick={() => void reload()}>
           {t("device.reload")}
         </Button>
+        </div>
       </Card>
 
       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", padding: "0 4px 12px" }}>
@@ -1026,7 +981,7 @@ export function PaneDevice() {
         />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 'var(--space-3)' }}>
+      <div className="settings-device-cards" style={{ display: "grid", gap: 'var(--space-3)' }}>
         <EditableCard
           specId="S6-1-1" title={t("device.cardAuto")}
           scope="user"
@@ -1216,7 +1171,7 @@ export function PaneDevice() {
           onSave={(next) => commit({ dataPageConfig: next })}
           devices={records.map((r) => ({
             deviceId: r.deviceId,
-            label: r.deviceId,
+            label: r.deviceName || r.deviceId,
             config: r.settings.dataPageConfig,
           }))}
           currentDeviceId={record.deviceId}
@@ -1224,9 +1179,9 @@ export function PaneDevice() {
       </div>
 
       <div
+        className="settings-device-cards"
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
           gap: "var(--space-3)",
           marginTop: "var(--space-3)",
         }}
@@ -1272,7 +1227,7 @@ function SensorPairingCard({ settings }: { settings: AppSettings }) {
   return (
     <SettingsCard data-testid="S6-1-6"
       title={
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
+        <span style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)" }}>
           {t("device.sensorPairing")}
           <ScopeBadge scope="device" />
         </span>
@@ -1309,7 +1264,7 @@ function SoundPathsCard({ settings }: { settings: AppSettings }) {
   return (
     <SettingsCard data-testid="S6-1-6"
       title={
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
+        <span style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)" }}>
           {t("device.soundFiles")}
           <ScopeBadge scope="device" />
         </span>
@@ -1373,7 +1328,7 @@ function LegacyLayoutCard({
         {!importing && (
           <Button
             variant="ghost"
-            size="sm"
+            size="md"
             onClick={() => setImporting(true)}
             data-testid="legacy-layout-import-open"
           >

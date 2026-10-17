@@ -743,7 +743,7 @@
   "lifetimeMilestones.label": "{{km}} km",
   "lifetimeMilestones.loading": "Loading…",
   "lifetimeMilestones.pending": "Tallying soon",
-  "lifetimeMilestones.longestRide": "Longest ride",
+  "lifetimeMilestones.longestRide": "Longest distance",
   "thresholdDecision.modelOnly": "The PDC estimate is evidence only and cannot be applied directly here.",
   "ftpDecision.ariaLabel": "FTP change decision",
   "ftpDecision.title": "Review FTP change",
@@ -1208,5 +1208,6 @@
   "criticalPace.description": "Compare pace across periods. The table lists available values by duration.",
   "criticalPace.duration": "Duration",
   "criticalPace.recent": "Recent",
-  "criticalPace.previous": "Previous"
+  "criticalPace.previous": "Previous",
+  "lifetimeMilestones.scopedTotal": "Total distance {{km}} km · {{scope}}"
 }

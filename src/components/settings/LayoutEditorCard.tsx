@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDialog } from "../../contexts/DialogContext";
 import { Plus, Trash2, X } from "lucide-react";
@@ -9,6 +9,7 @@ import type {
   LayoutConfig,
 } from "@shared/types/deviceSettings";
 
+import "./device-gear.css";
 import { SettingsCard } from "./_primitives";
 import { DATA_FIELD_GROUPS, DATA_FIELD_LABEL_KEYS } from "./dataFieldLabels";
 import { Button } from "../../theme/components";
@@ -49,7 +50,7 @@ interface Props {
    * 저장을 막아야 하는 상태 (#1943 §6.1, #1950).
    *
    * 임시 표시본(격리·대기) 위에서 저장하면 보존해야 할 원문을 정상 데이터로 덮어쓴다.
-   * 편집 자체는 열어 둔다 — 무엇을 만들려 했는지 사용자가 확인할 수 있어야 한다.
+   * 페이지별 저장 구성은 확인할 수 있지만, 읽기 전용일 때는 편집하지 않는다.
    */
   readOnly?: boolean;
 }
@@ -73,15 +74,20 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
     setPicker(null);
   }, [config]);
 
+  useEffect(() => { if (readOnly) setPicker(null); }, [readOnly]);
+
   const dirty = useMemo(() => {
     return JSON.stringify(draft) !== JSON.stringify(config.pages);
   }, [draft, config]);
 
   const page = draft[activePage] ?? draft[0];
+  const latestLayout = useRef({ readOnly, config, activePage, page });
+  useLayoutEffect(() => { latestLayout.current = { readOnly, config, activePage, page }; }, [readOnly, config, activePage, page]);
   if (!page) return null;
   const rows = neededRows(page);
 
   function patchPage(updater: (p: LayoutConfig) => LayoutConfig) {
+    if (readOnly) return;
     setDraft((prev) =>
       prev.map((p, i) => (i === activePage ? updater(p) : p)),
     );
@@ -130,7 +136,7 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
   }
 
   function addPage() {
-    if (draft.length >= MAX_PAGES) return;
+    if (readOnly || draft.length >= MAX_PAGES) return;
     setDraft((prev) => [
       ...prev,
       {
@@ -143,13 +149,19 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
   }
 
   async function removePage() {
-    if (draft.length <= 1) return;
+    if (readOnly || draft.length <= 1) return;
+    const target = latestLayout.current;
     if (!(await dialog.confirm(t("layout.deletePageConfirm"), { destructive: true }))) return;
-    setDraft((prev) => prev.filter((_, i) => i !== activePage));
+    const latest = latestLayout.current;
+    // 확인창을 띄운 뒤 읽기 권한·구성·선택 페이지가 바뀌면 이전 삭제 승인은 무효다.
+    if (latest.readOnly || latest !== target) return;
+    setDraft((prev) => prev[target.activePage] === target.page
+      ? prev.filter((_, i) => i !== target.activePage) : prev);
     setActivePage((p) => Math.max(0, p - 1));
   }
 
   async function handleSave() {
+    if (readOnly || saving || !dirty) return;
     setSaving(true);
     try {
       await onSave({ pages: draft });
@@ -159,6 +171,7 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
   }
 
   function handleReset() {
+    if (readOnly) return;
     setDraft(clonePages(config.pages));
     setActivePage(0);
     setPicker(null);
@@ -179,13 +192,13 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
       title={t("layout.cardTitle")}
       action={
         <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
-          <Button variant="ghost" size="sm"
+          <Button variant="ghost" size="md"
             onClick={handleReset}
             disabled={!dirty || saving || readOnly}
           >
             {t("layout.reset")}
           </Button>
-          <Button variant="primary" size="sm"
+          <Button variant="primary" size="md"
             onClick={() => void handleSave()}
             disabled={!dirty || saving || readOnly}
           >
@@ -240,7 +253,8 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
             tabIndex={i === activePage ? 0 : -1}
             onClick={() => setActivePage(i)}
             style={{
-              padding: "5px 12px",
+              padding: "var(--space-2) var(--space-3)",
+              minHeight: "var(--dim-button-height)",
               fontSize: "var(--fs-xs)",
               fontFamily: "var(--font-mono)",
               borderRadius: "var(--r-md)",
@@ -255,7 +269,8 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
           </button>
         ))}
         {draft.length < MAX_PAGES && (
-          <Button variant="ghost" size="sm"
+          <Button variant="ghost" size="md"
+            disabled={readOnly}
             onClick={addPage}
             aria-label={t("layout.addPageAriaLabel")}
           >
@@ -263,7 +278,8 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
           </Button>
         )}
         {draft.length > 1 && (
-          <Button variant="ghost" size="sm"
+          <Button variant="ghost" size="md"
+            disabled={readOnly}
             onClick={removePage}
             aria-label={t("layout.deletePageAriaLabel")}
             style={{ color: "var(--rose)", marginLeft: "auto" }}
@@ -295,7 +311,8 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
         {emptyCells.map((cell) => (
           <button
             key={`empty-${cell.col}-${cell.row}`}
-            onClick={() => setPicker({ mode: "new", col: cell.col, row: cell.row })}
+            disabled={readOnly}
+            onClick={() => { if (!readOnly) setPicker({ mode: "new", col: cell.col, row: cell.row }); }}
             style={{
               gridColumn: `${cell.col + 1} / span 1`,
               gridRow: `${cell.row + 1} / span 1`,
@@ -346,7 +363,8 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
                 color: "var(--ink-1)",
                 overflow: "hidden",
               }}
-              onClick={() => setPicker({ mode: "edit", placementIndex: i })}
+              disabled={readOnly}
+              onClick={() => { if (!readOnly) setPicker({ mode: "edit", placementIndex: i }); }}
             >
               <span
                 style={{
@@ -376,7 +394,7 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
       </div>
 
       {/* 편집 패널 */}
-      {picker && (
+      {picker && !readOnly && (
         <PickerPanel
           page={page}
           picker={picker}
@@ -460,7 +478,7 @@ function PickerPanel({
             ? t("layout.pickerAddTitle", { col: picker.col + 1, row: picker.row + 1 })
             : t("layout.pickerEditTitle", { label: editing ? t(DATA_FIELD_LABEL_KEYS[editing.type]) : "" })}
         </div>
-        <Button variant="ghost" size="sm" onClick={onClose}>
+        <Button variant="ghost" size="md" onClick={onClose} aria-label={t("common:button.close")}>
           <X size={14} />
         </Button>
       </div>
@@ -479,7 +497,8 @@ function PickerPanel({
         >
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
             <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("layout.spanWidth")}</span>
-            <Button variant="ghost" size="sm"
+            <Button variant="ghost" size="md"
+              aria-label={`${t("layout.spanWidth")} −`}
               onClick={() => onSpan(-1, 0)}
               disabled={editing.colSpan <= 1}
             >
@@ -495,7 +514,8 @@ function PickerPanel({
             >
               {editing.colSpan}
             </span>
-            <Button variant="ghost" size="sm"
+            <Button variant="ghost" size="md"
+              aria-label={`${t("layout.spanWidth")} +`}
               onClick={() => onSpan(1, 0)}
             >
               +
@@ -503,7 +523,8 @@ function PickerPanel({
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
             <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("layout.spanHeight")}</span>
-            <Button variant="ghost" size="sm"
+            <Button variant="ghost" size="md"
+              aria-label={`${t("layout.spanHeight")} −`}
               onClick={() => onSpan(0, -1)}
               disabled={editing.rowSpan <= 1}
             >
@@ -519,13 +540,14 @@ function PickerPanel({
             >
               {editing.rowSpan}
             </span>
-            <Button variant="ghost" size="sm"
+            <Button variant="ghost" size="md"
+              aria-label={`${t("layout.spanHeight")} +`}
               onClick={() => onSpan(0, 1)}
             >
               +
             </Button>
           </div>
-          <Button variant="ghost" size="sm"
+          <Button variant="ghost" size="md"
             onClick={onRemove}
             aria-label={t("layout.removeCellAriaLabel")}
             style={{ color: "var(--rose)", marginLeft: "auto" }}
@@ -540,9 +562,11 @@ function PickerPanel({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder={t("layout.fieldSearch")}
+        aria-label={t("layout.fieldSearch")}
         style={{
           width: "100%",
-          padding: "6px 10px",
+          padding: "var(--space-2) var(--space-3)",
+          minHeight: "var(--dim-button-height)",
           marginBottom: 'var(--space-3)',
           fontSize: "var(--fs-sm)",
           border: "1px solid var(--line)",
@@ -577,7 +601,7 @@ function PickerPanel({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 10rem), 1fr))",
                 gap: 'var(--space-1)',
               }}
             >
@@ -588,7 +612,8 @@ function PickerPanel({
                     key={f}
                     onClick={() => onSelect(f)}
                     style={{
-                      padding: "5px 8px",
+                      padding: "var(--space-2)",
+                      minHeight: "var(--dim-button-height)",
                       fontSize: "var(--fs-xs)",
                       borderRadius: "var(--r-sm)",
                       border: `1px solid ${
@@ -600,9 +625,8 @@ function PickerPanel({
                       color: "var(--ink-1)",
                       textAlign: "left",
                       cursor: "pointer",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      whiteSpace: "normal",
+                      overflowWrap: "anywhere",
                     }}
                   >
                     {t(DATA_FIELD_LABEL_KEYS[f])}

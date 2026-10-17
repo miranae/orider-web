@@ -15,7 +15,6 @@ import { PaneHealthSources } from "../components/settings/PaneHealthSources";
 import { PaneDevice } from "../components/settings/PaneDevice";
 import { PaneApp } from "../components/settings/PaneApp";
 import { PaneDeveloper } from "../components/settings/PaneDeveloper";
-import { PaneAiCoach } from "../components/settings/PaneAiCoach";
 import { LocalizedLink } from "../components/LocalizedLink";
 import { LegacySettingsRedirect } from "../components/routing/LegacyRedirect";
 import { Text, buttonClass } from "../theme/components";
@@ -24,7 +23,7 @@ import { NAV_GROUPS, settingsTabPath, type SectionId } from "../components/setti
 function SettingsPanes({ section }: { section: SectionId }) {
   return (
     <>
-      {section === "account" && <><PaneAccount /><PaneAiCoach /></>}
+      {section === "account" && <PaneAccount />}
       {section === "gear" && <PaneEquipment />}
       {section === "device" && <><PaneDevice /><PaneEquipment part="device" /></>}
       {section === "connections" && <><PaneConnections /><PaneHealthSources /></>}
@@ -70,7 +69,7 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
         <header className="mobile-settings-header">
           <LocalizedLink
             to={section === "gear" ? "/athlete/me" : "/settings"}
-            className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })}
+            className={buttonClass({ variant: "ghost", size: "md", iconOnly: true })}
             aria-label={t(section === "gear" ? "nav.backToProfile" : "nav.backToSettings")}
           >
             <ChevronLeft aria-hidden="true" />
@@ -105,6 +104,7 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
                 <button
                   key={item.id}
                   type="button"
+                  aria-current={active ? "page" : undefined}
                   onClick={() => navigate(settingsTabPath(item.id))}
                   className={"settings-navitem" + (active ? " is-active" : "")}
                 >

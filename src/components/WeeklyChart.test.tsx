@@ -1,3 +1,5 @@
+import i18n from "i18next";
+import enDashboard from "../i18n/resources/en/dashboard.json";
 import { fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { useOriderTheme } from "../theme";
@@ -65,4 +67,21 @@ it.each([
   expect(lines.at(-1)).toContain(qualifier);
   expect(lines.at(-1)?.includes("추정 포함")).toBe(estimated);
   expect(lines.some((line) => line.includes("거리"))).toBe(true);
+});
+
+it("localizes monthly title and tooltip periods and switches metrics without changing the rows", async () => {
+  i18n.addResourceBundle("en", "dashboard", enDashboard);
+  await i18n.changeLanguage("en");
+  try {
+    renderWithProviders(<WeeklyChart data={data} rich showAllPeriods />);
+    expect(screen.getByRole("heading", {name: "Monthly activity"})).toBeInTheDocument();
+    expect(bar.mock.lastCall![0].options.plugins.tooltip.callbacks.title([{dataIndex: 0}])).toBe("January 2024");
+    const timeButton = screen.getByRole("button", {name: "Time"});
+    fireEvent.click(timeButton);
+    expect(timeButton).toHaveAttribute("aria-pressed", "true");
+    expect(bar.mock.lastCall![0].data.datasets[0].data).toEqual(data.map(row => row.time));
+    expect(bar.mock.lastCall![0].data.labels).toEqual(data.map(row => row.week));
+  } finally {
+    await i18n.changeLanguage("ko");
+  }
 });

@@ -1,3 +1,4 @@
+import { Button } from "../theme/components";
 import type { WeeklyLoadEvidence } from "../utils/weeklyLoadEvidence";
 export type { WeeklyLoadEvidence } from "../utils/weeklyLoadEvidence";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -51,13 +52,13 @@ const COLOR_MAP: Record<MetricKey, string> = {
   elevation: "var(--chart-altitude)",
 };
 
-function formatPeriodLabel(week: string): string {
+function formatPeriodLabel(week: string, language: string): string {
   // "2025.06" → "2025년 6월"
   const match = /^(\d{4})\.(\d{2})$/.exec(week);
   if (!match) return week;
   const year = match[1]!;
   const month = match[2]!;
-  return `${year}년 ${parseInt(month, 10)}월`;
+  return new Intl.DateTimeFormat(language, { year: "numeric", month: "long" }).format(new Date(Number(year), Number(month) - 1, 1));
 }
 
 export default function WeeklyChart({
@@ -67,7 +68,7 @@ export default function WeeklyChart({
   rich = false,
   showAllPeriods = false,
 }: WeeklyChartProps) {
-  const { t } = useTranslation("dashboard");
+  const { t, i18n } = useTranslation("dashboard");
   const { variant } = useOriderTheme();
   const [metric, setMetric] = useState<MetricKey>(dataKey);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -103,9 +104,9 @@ export default function WeeklyChart({
         if (showAllPeriods) return d.week;
         // x축은 짧게: "6월" 형식
         const m = /^\d{4}\.(\d{2})$/.exec(d.week);
-        return m ? `${parseInt(m[1]!, 10)}월` : d.week;
+        return m ? new Intl.DateTimeFormat(i18n.language, {month: "short"}).format(new Date(2000, Number(m[1]) - 1, 1)) : d.week;
       }),
-    [data, showAllPeriods],
+    [data, showAllPeriods, i18n.language],
   );
 
   const totalActive = useMemo(
@@ -156,7 +157,7 @@ export default function WeeklyChart({
               callbacks: {
                 title: (items: TooltipItem<"bar">[]) => {
                   const i = items[0]?.dataIndex ?? 0;
-                  return formatPeriodLabel(data[i]?.week ?? "");
+                  return formatPeriodLabel(data[i]?.week ?? "", i18n.language);
                 },
                 label: (ctx: TooltipItem<"bar">) => {
                   if (rich) {
@@ -199,25 +200,15 @@ export default function WeeklyChart({
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <div className="min-w-0">
           <h3 className="text-[length:var(--fs-sm)] font-semibold text-[var(--ink-0)]">
-            월간 누적
+            {t("charts.weeklyChart.title")}
           </h3>
           <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mt-0.5">
             {active.label} {formatNum(totalActive, active.digits)} {active.unit}
           </p>
         </div>
-        <div className="flex bg-[var(--bg-2)] rounded-[var(--r-lg)] p-1">
+        <div className="grid grid-cols-3 gap-1 w-full">
           {(Object.keys(METRIC_META) as MetricKey[]).map((k) => (
-            <button
-              key={k}
-              onClick={() => setMetric(k)}
-              className={`px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-md)] transition-colors ${
-                metric === k
-                  ? "bg-[var(--bg-3)] text-[var(--ink-0)]"
-                  : "text-[var(--ink-3)] hover:text-[var(--ink-1)]"
-              }`}
-            >
-              {METRIC_META[k].label}
-            </button>
+            <Button key={k} variant={metric === k ? "secondary" : "ghost"} aria-pressed={metric === k} className="min-w-0 px-2!" onClick={() => setMetric(k)}>{METRIC_META[k].label}</Button>
           ))}
         </div>
       </div>

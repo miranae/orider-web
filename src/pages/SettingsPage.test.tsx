@@ -106,12 +106,12 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("shows danger zone", async () => {
+  it("provides account management and a dedicated data settings link", async () => {
     renderWithProviders(<SettingsPage tab="account" />, { authenticated: true });
-    // 위험 영역(pane.account.cardDanger)은 기본(계정) 탭에 있다.
     await waitFor(() => {
-      expect(screen.getByText("위험 영역")).toBeInTheDocument();
-      expect(screen.getAllByText("데이터 삭제").length).toBeGreaterThan(0);
+      expect(screen.getByText("계정 관리")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "데이터 관리" })).toHaveAttribute("href", "/ko/settings/data");
+      expect(screen.queryByRole("button", { name: "모든 활동 데이터 삭제" })).not.toBeInTheDocument();
     });
   });
 
@@ -167,7 +167,7 @@ describe("SettingsPage", () => {
     expect(settingsPage).toContain("if (isMobile)");
     expect(settingsPage).toContain("if (!tab) return <MobileSettingsPage />;");
     for (const [section, panes] of [
-      ["account", "<PaneAccount /><PaneAiCoach />"],
+      ["account", "<PaneAccount />"],
       ["gear", "<PaneEquipment />"],
       ["device", "<PaneDevice /><PaneEquipment part=\"device\" />"],
       ["connections", "<PaneConnections /><PaneHealthSources />"],

@@ -1,11 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { DataPageConfig } from "@shared/types/deviceSettings";
 
+const mocks = vi.hoisted(() => ({ confirm: vi.fn().mockResolvedValue(true) }));
 vi.mock("../../contexts/DialogContext", () => ({
-  useDialog: () => ({ confirm: vi.fn().mockResolvedValue(true), alert: vi.fn() }),
+  useDialog: () => ({ confirm: mocks.confirm, alert: vi.fn() }),
 }));
 
 import { LayoutEditorCard } from "./LayoutEditorCard";
@@ -45,6 +46,63 @@ describe("LayoutEditorCard 접근성", () => {
     render(<LayoutEditorCard config={config} onSave={vi.fn()} />);
 
     expect(screen.getByRole("grid").getAttribute("aria-label")).toBeTruthy();
+  });
+
+  it("names the field picker's icon-only close action", async () => {
+    render(<LayoutEditorCard config={config} onSave={vi.fn()} />);
+    await userEvent.click(screen.getAllByRole("gridcell")[0]!);
+    const close = screen.getByRole("button", { name: "닫기" });
+    await userEvent.click(close);
+    expect(screen.queryByRole("button", { name: "닫기" })).toBeNull();
+  });
+
+  it("read-only permits page viewing while blocking page and field mutations", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(<LayoutEditorCard config={config} onSave={onSave} readOnly />);
+    const pages = screen.getAllByRole("tab");
+    const cells = screen.getAllByRole("gridcell");
+    expect(cells.every((cell) => (cell as HTMLButtonElement).disabled)).toBe(true);
+    const addPage = screen.getByRole("button", { name: /페이지 추가/ });
+    const removePage = screen.getByRole("button", { name: /페이지 삭제/ });
+    expect(addPage).toBeDisabled();
+    expect(removePage).toBeDisabled();
+    await user.click(addPage);
+    await user.click(removePage);
+    await user.click(cells[0]!);
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    await user.click(pages[1]!);
+    expect(pages[1]).toHaveAttribute("aria-selected", "true");
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("switching to read-only closes an already open field picker", async () => {
+    const onSave = vi.fn();
+    const view = render(<LayoutEditorCard config={config} onSave={onSave} />);
+    await userEvent.click(screen.getAllByRole("gridcell")[0]!);
+    expect(screen.getByRole("textbox")).toBeTruthy();
+    view.rerender(<LayoutEditorCard config={config} onSave={onSave} readOnly />);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it.each(["readOnly", "config"] as const)("cancels pending page deletion when %s changes", async (change) => {
+    let resolveConfirmation!: (confirmed: boolean) => void;
+    mocks.confirm.mockImplementationOnce(() => new Promise<boolean>((resolve) => { resolveConfirmation = resolve; }));
+    const onSave = vi.fn();
+    const view = render(<LayoutEditorCard config={config} onSave={onSave} />);
+    await userEvent.click(screen.getByRole("button", { name: /페이지 삭제/ }));
+    const nextConfig = change === "config" ? {
+      pages: [...config.pages, { columns: 4, rows: 4, fields: [] }],
+    } : config;
+    view.rerender(<LayoutEditorCard config={nextConfig} onSave={onSave} readOnly={change === "readOnly"} />);
+    await act(async () => { resolveConfirmation(true); });
+    expect(screen.getAllByRole("tab")).toHaveLength(nextConfig.pages.length);
+    // After reopening editing, the stale approval must not have changed the draft.
+    view.rerender(<LayoutEditorCard config={nextConfig} onSave={onSave} />);
+    expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   /** 저장을 막은 상태에서 버튼만 회색이면 이유를 알 수 없다 — 최소한 눌리지는 않아야 한다. */
