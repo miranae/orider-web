@@ -101,6 +101,7 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
         {zone.historyCompleteness && <Chip>{label(`completeness.${zone.historyCompleteness}`)}</Chip>}
         {zone.baselinePercentages && <Chip variant={zone.baselineScope === "discipline" ? "default" : "accent"}>{label(`baselineScope.${zone.baselineScope ?? "sameCharacter"}`)}</Chip>}</Stack>{table([label("zone"), label("duration"), "%", label("baseline"), label("change")], zone.seconds.map((value, index) => [`Z${index + 1}`, seconds(value), number(zone.currentPercentages?.[index], "%"), number(zone.baselinePercentages?.[index], "%"), delta(zone.deltaPercentagePoints?.[index], "%p")]))}</div>) : <Text as="p" variant="caption"><GlossaryText>{label("missing")}</GlossaryText></Text>}
     </section>
+    {p.recoveryGuidance && <Text as="p" variant="caption" tone="tertiary">{label("recoveryGuidance")}</Text>}
     {section("recoveryFuel", [
       [label("recovery"), number(p.recovery?.hours, " h")], [label("recoveryLoad"), number(p.recovery?.load)], [label("historicalCtl"), number(p.recovery?.ctl)],
       [label("energy"), number(p.energy?.totalKcal, " kcal")], [label("fat"), `${number(p.energy?.fatPct, "%")} · ${number(p.energy?.fatKcal, " kcal")}`], [label("carb"), `${number(p.energy?.carbPct, "%")} · ${number(p.energy?.carbKcal, " kcal")}`],
@@ -109,13 +110,13 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
     ])}
     {section("fitness", [
       [label("cutoff"), p.priorFitnessStatus ? p.priorFitnessStatus.asOf : "—"],
-      [label("sport"), label(`sports.${p.session.discipline}`)], ["CTL", number(p.priorFitnessStatus?.ctl)], ["ATL", number(p.priorFitnessStatus?.atl)], ["TSB", number(p.priorFitnessStatus?.tsb)],
-      [label("form"), p.priorFitnessStatus ? label(`forms.${p.priorFitnessStatus.formBand}`) : "—"],
+      [label("sport"), p.fitnessScope === "integrated" ? label("integratedFitness") : label(`sports.${p.session.discipline}`)], ["CTL", number(p.priorFitnessStatus?.ctl)], ["ATL", number(p.priorFitnessStatus?.atl)], ["TSB", number(p.priorFitnessStatus?.tsb)],
+      [label("form"), p.priorFitnessStatus ? (p.fitnessEvidence && p.fitnessEvidence !== "sufficient" ? label("fitnessLimited") : label(`forms.${p.priorFitnessStatus.formBand}`)) : "—"],
       // 활동 반영 후 — 활동일 일별 정산 지점. 시작 전과 나란히 두면 이 활동이 몸에 준 변화가 보인다.
       ...(p.postFitnessStatus ? [
         [label("afterCutoff"), p.postFitnessStatus.asOf],
         [`${label("after")} CTL`, number(p.postFitnessStatus.ctl)], [`${label("after")} ATL`, number(p.postFitnessStatus.atl)], [`${label("after")} TSB`, number(p.postFitnessStatus.tsb)],
-        [`${label("after")} ${label("form")}`, label(`forms.${p.postFitnessStatus.formBand}`)],
+        [`${label("after")} ${label("form")}`, (p.fitnessEvidence && p.fitnessEvidence !== "sufficient" ? label("fitnessLimited") : label(`forms.${p.postFitnessStatus.formBand}`))],
       ] as [string, string][] : []),
     ])}
     {!!p.sportDetails?.length && section("sportDetails", p.sportDetails.map((row) => [row.label, row.value]))}

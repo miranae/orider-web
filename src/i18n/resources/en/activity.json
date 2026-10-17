@@ -227,6 +227,11 @@
     "runThresholdMissing": "Set threshold pace and maximum heart rate for running intensity and comparisons."
   },
   "overviewEvidence": {
+    "integratedFitness": "Combined training load · before session",
+    "fitnessLimited": "Estimated · assessment withheld",
+    "fitnessDefinition": "Fitness, fatigue and form combine recorded cycling, running and swimming loads. They do not measure physical fitness or sport-specific readiness.",
+    "sportHistory": "Sport-specific training history",
+    "recoveryGuidance": "Check sleep, fatigue and soreness. High combined load does not establish muscle or joint readiness for this sport.",
     "overviewTitle": "ORider activity overview",
     "overviewSource": "See your session's character and how it compares with your own history.",
     "hrContextMissing": "Activity-time heart-rate reference is unavailable.",
@@ -235,7 +240,7 @@
     "segmentPr": "PR",
     "minuteShort": " min",
     "maxHrShort": "max HR",
-    "afterCutoff": "Settled after",
+    "afterCutoff": "After-session reference",
     "after": "After",
     "terrainLabel": "Terrain",
     "terrain": {

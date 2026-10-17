@@ -22,11 +22,21 @@ export interface ActivityOverviewPresentation {
    * `workoutTypeProvenance.kind` 로 들고 있었고 화면에만 전달되지 않았다.
    */
   thresholdBasis?: "user" | "power_ftp" | "hr_lthr" | "hr_max" | "none";
+  /** 종목별 정본 EMA를 합산한 전반적 훈련 부하 상태. 실제 체력 검사는 아니다. */
+  fitnessScope?: "integrated";
+  fitnessEvidence?: "sufficient" | "limited" | "unavailable";
+  sportFitnessStatus?: { discipline: "bike" | "run" | "swim"; ctl: number; atl: number; tsb: number;
+    evidence: "sufficient" | "limited" | "unavailable" };
+  recoveryGuidance?: "sport_specific";
   priorFitnessStatus?: { asOf: string; formBand: "overload" | "needsRecovery" | "productive" | "fresh" | "overRecovered";
     ctl: number; atl: number; tsb: number };
-  /** 활동이 반영된 뒤의 상태 — 활동일 일별 정산 지점. 시작 전과 나란히 두면 이 활동이 몸에 준 변화가 보인다. */
+  /**
+   * 같은 UTC 날짜의 완료된 앞선 활동과 이번 활동을 중복 제거한 통합 부하를 전일 EMA에 한 번 반영한다.
+   * 기준 입력이 신선하지 않거나 그날 앞선 부하를 모르면 전후 수치를 보류한다.
+   * `basis: "activity"` 와 `asOf` 는 이번 활동 종료 시점의 부하 모델 추정값을 뜻한다.
+   */
   postFitnessStatus?: { asOf: string; formBand: "overload" | "needsRecovery" | "productive" | "fresh" | "overRecovered";
-    ctl: number; atl: number; tsb: number };
+    ctl: number; atl: number; tsb: number; basis?: "activity" };
   /**
    * 오늘의 최고 순간 — 정본 `metrics.peakEfforts.highlight` 에 세그먼트 이름을 붙인 것. 숫자 나열이 아니라
    * "남한산성 오르막에서 1분 371W, 51km/h, 최고심박 191" 이라는 장면. 세그먼트와 겹치지 않으면 km 구간만 있다.
