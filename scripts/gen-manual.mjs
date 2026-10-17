@@ -93,7 +93,9 @@ const FIGURES = {
 };
 
 const LEVEL_LABEL = { beginner: "초급", intermediate: "중급", advanced: "고급" };
-const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// 본문과 속성(alt 등) 양쪽에 쓰이므로 따옴표까지 바꾼다 — 캡션에 "…" 가 들어가면 alt 가 끊긴다.
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 // ── 용어집 본문 생성(i18n 단일 소스) ───────────────────────
 const G_GROUPS = [
