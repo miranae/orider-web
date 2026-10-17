@@ -180,6 +180,7 @@ function ZoneStrip({ weights, className, label, labelled = false, items }: { wei
               onKeyDown: (event: KeyboardEvent<HTMLSpanElement>) => {
                 if (event.key === "ArrowRight" || event.key === "ArrowLeft") { event.preventDefault(); move(i, event.key === "ArrowRight" ? 1 : -1); }
                 if (event.key === "Home" || event.key === "End") { event.preventDefault(); move(i, event.key === "Home" ? -99 : 99); }
+                if (event.key === "Escape") { setActive(null); openedBy.current = null; }
               },
             } : {})}>
             {/* 조각이 충분히 넓을 때만 안에 이름을 쓴다 — 좁은 조각은 범례가 맡는다. */}
@@ -239,7 +240,7 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }:
 
 export function PercentMeter({ label, value, display, tone = "accent", mid = false, sub, ends, quiet = false }: {
   label: ReactNode; value: number; display: ReactNode; tone?: "accent" | "high"; mid?: boolean; sub?: ReactNode;
-  /** 막대 양 끝의 뜻(예: "0%"·"100% 소진"). */
+  /** 막대 양 끝의 뜻(예: "여유"·"소진"). 숫자를 쓰면 빈 쪽 끝이 반대로 읽힌다. */
   ends?: [ReactNode, ReactNode];
   /** 보조 수치 칸 안의 얇고 옅은 막대 — 존 막대보다 약한 신호로 둔다. */
   quiet?: boolean;

@@ -97,13 +97,13 @@ describe("ActivityOverviewSummary", () => {
 
   it("shows the user-approved-value caveat as a separate caption only when qualityNote is true", () => {
     const { rerender } = render(<ActivityOverviewSummaryContent presentation={rich} />);
-    const modelNote = screen.getByText(renderedText("회복·연료·W′ 값은 계측값을 바탕으로 한 모델 추정이며 직접 측정한 생리값이 아닙니다."));
-    const qualityNote = screen.getByText(renderedText("※ 사용자 승인값이 없으면 계측값을 사용합니다."));
+    const modelNote = screen.getByText(renderedText("회복·연료·W′ 값은 계측값을 바탕으로 한 모델 추정이며 직접 측정한 생리값이 아니에요."));
+    const qualityNote = screen.getByText(renderedText("※ 사용자 승인값이 없으면 계측값을 사용해요."));
     expect(modelNote).not.toBe(qualityNote);
     expect(modelNote).toHaveClass("ds-text--caption");
     expect(qualityNote).toHaveClass("ds-text--caption");
     rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, qualityNote: false }} />);
-    expect(screen.queryByText(renderedText("※ 사용자 승인값이 없으면 계측값을 사용합니다."))).not.toBeInTheDocument();
+    expect(screen.queryByText(renderedText("※ 사용자 승인값이 없으면 계측값을 사용해요."))).not.toBeInTheDocument();
     expect(screen.getByText(renderedText(modelNote.textContent!))).toBeInTheDocument();
   });
   it("uses the equivalent English caveat", async () => {
@@ -286,7 +286,7 @@ describe("missing threshold is stated as a dead end, not as pending work", () =>
 it("preserves estimated power and provisional FTP semantics", () => {
  render(<MemoryRouter><ActivityOverviewSummaryContent presentation={{ ...rich, availability: { ...rich.availability!, power: "estimated" }, session: { ...rich.session, ftpVerificationRequired: true } }} /></MemoryRouter>);
  expect(screen.getByText(renderedText("추정 파워 기준"))).toBeInTheDocument();
- expect(screen.getByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다."))).toBeInTheDocument();
+ expect(screen.getByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준이에요."))).toBeInTheDocument();
  expect(screen.getByText(renderedText("NP"))).toBeInTheDocument();
 });
 
@@ -301,7 +301,7 @@ it("preserves observed effects, historical zone uncertainty and previous-best pe
  expect(screen.queryByText(renderedText(/활동 전 최고 대비는 이번 활동 이전/))).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole("button", { name: "구간 최고 출력 설명" }));
  expect(screen.getByRole("tooltip")).toHaveTextContent(/활동 전 최고 대비는 이번 활동 이전/);
- expect(screen.queryByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다."))).not.toBeInTheDocument();
+ expect(screen.queryByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준이에요."))).not.toBeInTheDocument();
 });
 
 it.each(["ko", "en"])("shows integrated before/after estimates without readiness or numeric recovery (%s)", async language => {
@@ -419,7 +419,7 @@ describe("overview picture geometry and data guards", () => {
     expect(screen.getByRole("region", { name: "회복" })).toBeInTheDocument();
     // 회복시간은 모델 값이므로 각주가 남는다. W′·연료가 없어도 회복이 있으면 그것을 말한다.
     // 회복만 있으면 각주도 회복만 말한다.
-    expect(screen.getByText(renderedText("회복 값은 계측값을 바탕으로 한 모델 추정이며 직접 측정한 생리값이 아닙니다."))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("회복 값은 계측값을 바탕으로 한 모델 추정이며 직접 측정한 생리값이 아니에요."))).toBeInTheDocument();
   });
 
   it("omits the model footnote when no modeled value is on screen", () => {
@@ -509,7 +509,7 @@ describe("overview v9 zone strip, legend and change meters", () => {
   });
   it("folds zero-share zones into one line and keeps zone names in the legend", () => {
     render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "bike", load: 112 }, zones: [zone] }} />);
-    expect(screen.getByText(renderedText("0% 구간 · Z5 최대"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("0% 존 · Z5 최대"))).toBeInTheDocument();
     expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toContain("Z4 역치1.2%1:13");
   });
   it("uses an action-oriented empty state for missing comparisons", () => {
@@ -552,4 +552,13 @@ describe("overview v10 touch tooltip", () => {
     rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, thresholdWork: { wPrimeRemainingPct: 0 } }} />);
     expect(container.querySelector(".activity-overview-meter__ends")).toHaveTextContent(/^바닥가득$/);
   });
+});
+
+it("closes the zone tooltip with Escape while keeping focus on the segment", () => {
+  render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "bike", load: 112 }, zones: [{ kind: "heartRate", seconds: [600, 300, 0, 0, 0], priority: "secondary", currentPercentages: [66.7, 33.3, 0, 0, 0] }] }} />);
+  const [first] = screen.getAllByRole("img", { name: /^Z1/ }).filter((node) => node.hasAttribute("tabindex"));
+  fireEvent.focus(first!);
+  expect(screen.getByRole("tooltip")).toBeInTheDocument();
+  fireEvent.keyDown(first!, { key: "Escape" });
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 });
