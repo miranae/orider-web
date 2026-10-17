@@ -109,3 +109,12 @@ it("requires opt-in for strict expanded row states while accepting absent old-se
   page.activities[0]!.expandedDistanceRecords!.state = "no_observed_efforts";
   expect(validateTrainingAnalysisHistoryResponse(page, query, historyNow)).toBe(page);
 });
+
+
+it.each([34, 35, 36])("preserves compatible ready history snapshots across calculator upgrades: v%s", version => {
+  const data = historyPage();
+  data.activities[0]!.analysis.calculatorVersion = version;
+  expect(validateTrainingAnalysisHistoryResponse(data, historyRequest, historyNow)).toEqual(data);
+  data.activities[0]!.analysis.calculatorVersion = 33;
+  expect(() => validateTrainingAnalysisHistoryResponse(data, historyRequest, historyNow)).toThrow();
+});
