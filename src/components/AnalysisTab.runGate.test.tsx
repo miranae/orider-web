@@ -279,3 +279,36 @@ describe("러닝 분석 게이트", () => {
     expect(screen.getByText("analysis.run.splitsUnavailable")).toBeInTheDocument();
   });
 });
+
+
+describe("running split measurement quality", () => {
+  it.each(["ko", "en"] as const)("explains a conflicting timer without presenting split pace locale=%s", language => {
+    state.language = language;
+    state.metrics = gpsOnlyRunMetrics();
+    Object.assign(state.metrics.metrics!, { avgSpeedKph: 12, runMetrics: { gapAvgSec: 239, minPaceSecPerKm: 205, splitTimeBasis: "observed_moving", splitTimeStatus: "native_timer_mismatch", splitMovingTimeSec: 4000 } });
+    const { container } = renderRun();
+    const resource = language === "ko" ? koActivity : enActivity;
+    expect(screen.getByText(resource.analysis.run.splitTimerMismatch)).toBeVisible();
+    expect(screen.queryByTestId("run-split-profile")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("run-raw-splits")).not.toBeInTheDocument();
+    expect(screen.getByTestId("run-recap")).toHaveTextContent("5:00/km");
+    expect(screen.getByTestId("run-recap")).not.toHaveTextContent(/3:59|3:25/);
+    expect(container).not.toHaveTextContent(/native_timer|observed_moving|splitTimerMismatch/);
+  });
+  it.each(["ko", "en"] as const)("keeps missing split elevation unavailable while showing measured zero locale=%s", language => {
+    state.language = language;
+    state.metrics = gpsOnlyRunMetrics();
+    Object.assign(state.metrics.metrics!, { splits: [{ km: 1, paceSec: 337, gapSec: null, elevGain: null, elevLoss: null }, { km: 2, paceSec: 340, gapSec: 340, elevGain: 0, elevLoss: 0 }] });
+    renderRun();
+    const resource = language === "ko" ? koActivity : enActivity;
+    expect(screen.getByTestId("selected-run-split")).toHaveTextContent("5:37/km");
+    expect(within(screen.getByTestId("selected-run-split")).queryByText(resource.analysis.metric.elevGain)).not.toBeInTheDocument();
+    const rows = within(screen.getByTestId("run-raw-splits")).getAllByRole("row", { hidden: true });
+    expect(within(rows[1]!).getAllByRole("cell", { hidden: true }).slice(1, 3).map(cell => cell.textContent)).toEqual(["—", "—"]);
+    expect(rows[2]).toHaveTextContent("+0m / −0m");
+    const group = screen.getByRole("group", { name: resource.analysis.run.profileLabel });
+    fireEvent.click(within(group).getAllByRole("button")[1]!);
+    expect(within(screen.getByTestId("selected-run-split")).getByText(resource.analysis.metric.elevGain)).toBeInTheDocument();
+    expect(screen.getByTestId("selected-run-split")).toHaveTextContent("0m");
+  });
+});

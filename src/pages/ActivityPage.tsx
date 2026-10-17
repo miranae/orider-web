@@ -611,6 +611,8 @@ export default function ActivityPage() {
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
   const hasStreams = sampledData.length > 0;
   const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, user?.uid, activityId, user?.isAnonymous === true);
+  const runGapSecPerKm = serverMetrics.metrics?.runMetrics?.splitTimeStatus === "native_timer_mismatch"
+    ? null : serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null;
 
   if (loadingActivity) {
     return (
@@ -1171,7 +1173,7 @@ export default function ActivityPage() {
       <div data-testid="D1-2" className="flex-1 min-w-0 space-y-6">
 
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
-      <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null} />
+      <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={runGapSecPerKm} />
 
       <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />
 
@@ -1454,7 +1456,7 @@ export default function ActivityPage() {
         <RunRightCards
           avgSpeedKph={stripStats.avgSpeedKph.value}
           hrLoad={serverMetrics.metrics?.streamTrimpTss ?? null}
-          gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null}
+          gapSecPerKm={runGapSecPerKm}
           summary={s}
           activity={activity}
           metricsWeather={serverMetrics.metrics?.weather}
