@@ -290,3 +290,17 @@ it("preserves observed effects, historical zone uncertainty and previous-best pe
  expect(screen.getByText(renderedText(/활동 전 최고 대비는 이번 활동 이전/))).toBeInTheDocument();
  expect(screen.queryByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다."))).not.toBeInTheDocument();
 });
+
+it.each(["ko", "en"])("shows integrated before/after estimates without readiness or numeric recovery (%s)", async language => {
+  i18n.addResourceBundle("en", "activity", enActivity, true, true);
+  await i18n.changeLanguage(language);
+  const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, fitnessScope: "integrated", fitnessEvidence: "limited",
+    recoveryGuidance: "sport_specific", recovery: undefined,
+    postFitnessStatus: { asOf: "2026-09-12 14:00 KST", ctl: 38, atl: 49, tsb: -11, formBand: "needsRecovery", basis: "activity" },
+    sportFitnessStatus: { discipline: "run", ctl: .5, atl: .3, tsb: .2, evidence: "limited" } }} />);
+  expect(container.textContent).toContain(language === "en" ? "Combined training load" : "통합 훈련 부하");
+  expect(container.textContent).toContain(language === "en" ? "assessment withheld" : "상태 판단 보류");
+  expect(container.textContent).toContain("2026-09-12 14:00 KST");
+  expect(container.textContent).not.toContain(language === "en" ? "Productive" : "순항");
+  expect(container.textContent).not.toMatch(/Recommended recovery|권장 회복/);
+});

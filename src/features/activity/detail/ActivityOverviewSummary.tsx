@@ -118,18 +118,25 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       </div>
       {p.routeLoad.elevationSuspect && note(label("suspect"))}
     </SummarySection>}
-    {(p.session.discipline === "bike" || p.recovery) && <SummarySection title={copy(p.session.discipline === "bike" ? "recovery" : "runRecovery")}>
+    {(p.session.discipline === "bike" || p.recovery || p.recoveryGuidance) && <SummarySection title={copy(p.session.discipline === "bike" ? "recovery" : "runRecovery")}>
       <Stack>
-        {p.recovery && <Stat compact label={<GlossaryText>{copy("recoveryHours")}</GlossaryText>} value={number(p.recovery.hours)} unit={copy("hour")} />}
+        {!p.recoveryGuidance && p.recovery && <Stat compact label={<GlossaryText>{copy("recoveryHours")}</GlossaryText>} value={number(p.recovery.hours)} unit={copy("hour")} />}
         {powerVisible && p.energy?.fatPct != null && p.energy.carbPct != null && <div className="grid grid-cols-2 gap-[var(--dim-item-gap)]"><Stat compact label={<GlossaryText>{label("fat")}</GlossaryText>} value={number(p.energy.fatPct)} unit="%" /><Stat compact label={<GlossaryText>{label("carb")}</GlossaryText>} value={number(p.energy.carbPct)} unit="%" /></div>}
-        {!p.recovery && !(powerVisible && p.energy?.fatPct != null && p.energy.carbPct != null) && note(copy("recoveryMissing"))}
+        {p.recoveryGuidance && note(label("recoveryGuidance"))}
+        {!p.recoveryGuidance && !p.recovery && !(powerVisible && p.energy?.fatPct != null && p.energy.carbPct != null) && note(copy("recoveryMissing"))}
       </Stack>
     </SummarySection>}
-    <SummarySection title={copy("before")}>
+    <SummarySection title={p.fitnessScope === "integrated" ? label("integratedFitness") : copy("before")}>
       {p.priorFitnessStatus ? <Stack>
-        <Stack direction="row" wrap align="center"><Text variant="bodyMedium" tone="primary"><GlossaryText>{label(`forms.${p.priorFitnessStatus.formBand}`)}</GlossaryText></Text><Text variant="caption" tone="tertiary"><GlossaryText>{p.priorFitnessStatus.asOf}</GlossaryText></Text></Stack>
+        <Stack direction="row" wrap align="center"><Text variant="bodyMedium" tone="primary"><GlossaryText>{(p.fitnessEvidence && p.fitnessEvidence !== "sufficient" ? label("fitnessLimited") : label(`forms.${p.priorFitnessStatus.formBand}`))}</GlossaryText></Text><Text variant="caption" tone="tertiary"><GlossaryText>{p.priorFitnessStatus.asOf}</GlossaryText></Text></Stack>
         <div className="grid grid-cols-3 gap-[var(--dim-item-gap)]"><Stat compact label={<GlossaryText>{copy("ctl")}</GlossaryText>} value={number(p.priorFitnessStatus.ctl)} /><Stat compact label={<GlossaryText>{copy("atl")}</GlossaryText>} value={number(p.priorFitnessStatus.atl)} /><Stat compact label={<GlossaryText>{copy("tsb")}</GlossaryText>} value={number(p.priorFitnessStatus.tsb)} /></div>
       </Stack> : note(copy("beforeMissing"))}
+      {p.postFitnessStatus && <Stack>
+        <Text variant="bodySmall" tone="secondary">{label("after")} · {p.postFitnessStatus.asOf} · {p.fitnessEvidence && p.fitnessEvidence !== "sufficient" ? label("fitnessLimited") : label(`forms.${p.postFitnessStatus.formBand}`)}</Text>
+        <div className="grid grid-cols-3 gap-[var(--dim-item-gap)]"><Stat compact label={<GlossaryText>{copy("ctl")}</GlossaryText>} value={number(p.postFitnessStatus.ctl)} /><Stat compact label={<GlossaryText>{copy("atl")}</GlossaryText>} value={number(p.postFitnessStatus.atl)} /><Stat compact label={<GlossaryText>{copy("tsb")}</GlossaryText>} value={number(p.postFitnessStatus.tsb)} /></div>
+      </Stack>}
+      {p.fitnessScope === "integrated" && note(label("fitnessDefinition"))}
+      {p.sportFitnessStatus && note(`${label(`sports.${p.sportFitnessStatus.discipline}`)} · ${label("sportHistory")} · CTL ${number(p.sportFitnessStatus.ctl)}${p.sportFitnessStatus.evidence !== "sufficient" ? ` · ${label("fitnessLimited")}` : ""}`)}
     </SummarySection>
     <Stack gap="var(--dim-item-gap)">
       {p.session.discipline === "bike" ? note(label("modelNote")) : p.recovery ? note(copy("runRecoveryNote")) : null}
