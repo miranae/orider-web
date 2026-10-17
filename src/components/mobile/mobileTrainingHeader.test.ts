@@ -15,7 +15,20 @@ describe("mobile training headers", () => {
     const source = read(`src/components/mobile/${file}`);
 
     expect(source).toContain(title);
-    expect(source).not.toContain("ChevronLeft");
+    // Calendar month controls may use chevrons; only the page header must omit a back action.
+    // The other training pages do not share the log header markers.
+    const header = file === "MobileLogPage.tsx"
+      ? source.slice(source.indexOf("{/* Header */}"), source.indexOf("{/* 종목 필터 */}"))
+      : source;
+    expect(header).toContain(title);
+    expect(header).not.toContain("ChevronLeft");
     expect(source).not.toContain('navigate("/my")');
+  });
+
+  it("retains accessible calendar month navigation outside the log header", () => {
+    const source = read("src/components/mobile/MobileLogPage.tsx");
+    const calendar = source.slice(source.indexOf("{/* Calendar */}"));
+    expect(calendar).toMatch(/aria-label=\{t\("training:page.prevMonth"\)\}[^>]*onClick=\{\(\) => onChangeMonth\(-1\)\}/);
+    expect(calendar).toMatch(/aria-label=\{t\("training:page.nextMonth"\)\}[^>]*onClick=\{\(\) => onChangeMonth\(1\)\}/);
   });
 });

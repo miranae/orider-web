@@ -123,7 +123,11 @@ describe("mobile fitness action", () => {
     expect(tooltip).toContain("<PmcLegendSample");
     expect(tooltip).toContain("{ctlLabel}");
     expect(source).toContain("ctlLabel={pmcCtlLabel}");
-    expect(source).toContain("/>{pmcCtlLabel}");
+    const legendRows = source.match(/<span\b[^>]*>\s*<PmcLegendSample\b[\s\S]*?<\/span>/g) ?? [];
+    expect(legendRows).toHaveLength(3);
+    for (const [index, label] of ["{pmcCtlLabel}", "ATL", "TSB"].entries()) {
+      expect(legendRows[index]).toContain(`<GlossaryText>${label}</GlossaryText>`);
+    }
     expect(source).not.toContain('background: "var(--rose)" }} />ATL');
   });
 
