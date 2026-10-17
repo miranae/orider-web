@@ -7,8 +7,9 @@ import { Card, Text } from "../../theme/components";
 import { MetricExplainerTrigger } from "../common/MetricExplainer";
 
 /** 서버 km 스플릿을 탐색한다. 막대는 관측된 페이스 범위 안에서 상대 비교하며 기록 페이스를 다시 계산하지 않는다. */
-export default function RunSplitProfile({ splits, distanceKm, suppressCadence, cadenceLabel, formatCadence, onSelectSplit, onViewSplitLocation, canViewSplitLocation = false }: {
+export default function RunSplitProfile({ splits, splitTimeStatus, distanceKm, suppressCadence, cadenceLabel, formatCadence, onSelectSplit, onViewSplitLocation, canViewSplitLocation = false }: {
   splits: SplitRow[];
+  splitTimeStatus?: "available" | "native_timer_mismatch";
   onSelectSplit?: (split: SplitRow | null) => void;
   onViewSplitLocation?: () => void;
   canViewSplitLocation?: boolean;
@@ -19,12 +20,12 @@ export default function RunSplitProfile({ splits, distanceKm, suppressCadence, c
 }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
-  const valid = splits.filter(split => Number.isFinite(split.km) && split.km > 0 && Number.isFinite(split.paceSec) && split.paceSec > 0);
+  const valid = (splitTimeStatus === "native_timer_mismatch" ? [] : splits).filter(split => Number.isFinite(split.km) && split.km > 0 && Number.isFinite(split.paceSec) && split.paceSec > 0);
   const [selectedKm, setSelectedKm] = useState(valid[0]?.km);
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
   const selected = valid.find(split => split.km === selectedKm) ?? valid[0];
   useEffect(() => { onSelectSplit?.(selected ?? null); }, [selected, onSelectSplit]);
-  if (!selected) return <Text as="p" variant="bodySmall" tone="tertiary">{t("analysis.run.splitsUnavailable")}</Text>;
+  if (!selected) return <Text as="p" variant="bodySmall" tone="tertiary">{t(splitTimeStatus === "native_timer_mismatch" ? "analysis.run.splitTimerMismatch" : "analysis.run.splitsUnavailable")}</Text>;
   const isPartial = (split: SplitRow) => !Number.isInteger(split.km) || (distanceKm != null && split.km > distanceKm);
   const full = valid.filter(split => distanceKm != null && Number.isInteger(split.km) && !isPartial(split));
   const fastestPace = full.length ? Math.min(...full.map(split => split.paceSec)) : null;
@@ -56,7 +57,7 @@ export default function RunSplitProfile({ splits, distanceKm, suppressCadence, c
         {selected.gapSec != null && Number.isFinite(selected.gapSec) && selected.gapSec > 0 && <MetricExplainerTrigger metric="gap" context={context} sport="run"><Text as="div" variant="caption">{t("runCards.gapPace")}</Text><Text variant="dataSmall">{pace(selected.gapSec)}</Text></MetricExplainerTrigger>}
         {selected.avgHr != null && Number.isFinite(selected.avgHr) && selected.avgHr > 0 && <div><Text as="div" variant="caption">{t("stat.avgHr")}</Text><Text variant="dataSmall">{Math.round(selected.avgHr)} bpm</Text></div>}
         {!suppressCadence && selected.avgCadence != null && formatCadence(selected.avgCadence) !== "—" && <MetricExplainerTrigger metric="cadence" context={{ thresholdPaceSecPerKm: null }} sport="run"><Text as="div" variant="caption">{cadenceLabel}</Text><Text variant="dataSmall">{formatCadence(selected.avgCadence)}</Text></MetricExplainerTrigger>}
-        {Number.isFinite(selected.elevGain) && <div><Text as="div" variant="caption">{t("analysis.metric.elevGain")}</Text><Text variant="dataSmall">{formatElev(selected.elevGain, units)}</Text></div>}
+        {selected.elevGain != null && Number.isFinite(selected.elevGain) && <div><Text as="div" variant="caption">{t("analysis.metric.elevGain")}</Text><Text variant="dataSmall">{formatElev(selected.elevGain, units)}</Text></div>}
       </div>
       {canViewSplitLocation && onViewSplitLocation && <button type="button" onClick={onViewSplitLocation} className="w-full rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[length:var(--fs-sm)] font-semibold" style={{ minHeight: 44, marginTop: "var(--space-2)", color: "var(--accent-dark)" }}>{t("analysis.run.viewSplitLocation")}</button>}
     </Card>

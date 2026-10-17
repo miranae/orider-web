@@ -206,6 +206,10 @@ export interface ActivityMetrics {
   splits?: SplitRow[];
   runMetrics?: {
     paceZoneAnalysis?: RunningPaceZoneAnalysis;
+    /** GPS 관측에서 확인된 정지만 제외. 미관측 시간은 보존한다. */
+    splitTimeBasis?: "observed_moving";
+    splitTimeStatus?: "available" | "native_timer_mismatch";
+    splitMovingTimeSec?: number;
     /** 서버의 원시 경과시간 축 커브(sec/km). 클라이언트는 평균 속도 커브로 대체하지 않는다. */
     paceCurve?: Array<{ durationSec: number; paceSecPerKm: number }>;
     /** 서버가 확정한 거리별 최단 경과시간(sec), 휴식 포함. 위치 앵커는 제공되지 않는다. */
@@ -311,12 +315,12 @@ export interface ClimbMetric {
 export interface SplitRow {
   km: number;
   paceSec: number;
-  gapSec: number;
-  elevGain: number;
-  elevLoss?: number;
+  gapSec: number | null;
+  elevGain: number | null;
+  elevLoss?: number | null;
   avgHr: number | null;
   avgCadence?: number | null;
 }
 
 /** 현재 ActivityMetrics 계산 스키마 버전. 변경 시 +1, backfill 트리거. */
-export const ACTIVITY_METRICS_VERSION = 34;
+export const ACTIVITY_METRICS_VERSION = 36;

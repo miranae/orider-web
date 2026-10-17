@@ -8,8 +8,11 @@ import { trainingAnalysisPeriodsAvailable } from "./trainingAnalysisPeriods";
 import { historyPositionAfter, validHistoryDocumentId } from "./trainingAnalysisHistory";
 import { getDiscipline } from "../utils/disciplineFilter";
 
-// 선택 totals 채널은 서버 calculator 35 계약이다. 기존 13거리 공통 기준은 유지한다.
+// canonical totals는 v35부터 유효하다. outdated summary 상한은 서버 최신 계산 버전을 따른다.
 const ACTIVITY_TOTALS_CALCULATOR_VERSION = 35;
+// 이 history wire는 v34부터 유효하다. 최신 계산 버전 상승으로 이미 확정된 snapshot을 거부하지 않는다.
+const HISTORY_MIN_CALCULATOR_VERSION = 34;
+
 export const CYCLING_HISTORY_CAP = 5000;
 export const CYCLING_HISTORY_TTL_MS = 1800000;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -56,7 +59,7 @@ function validActivityTotals(row: CyclingDistanceHistoryRow): boolean {
     const value = t[key], basis = t.sourceBasis[key];
     if (!["canonical_metrics", "activity_summary", "unavailable"].includes(basis) || value !== null && !finite(value) || (value === null) !== (basis === "unavailable")) return false;
     if (basis === "canonical_metrics" && (row.analysis.state !== "ready" || row.metricsRevision === null || row.analysis.inputCoverage !== "complete" || row.analysis.calculatorVersion === null || row.analysis.calculatorVersion < ACTIVITY_TOTALS_CALCULATOR_VERSION)) return false;
-    if (basis === "activity_summary" && row.analysis.state !== "missing" && (row.analysis.state !== "outdated" || row.metricsRevision === null || row.analysis.inputCoverage !== "complete" || row.analysis.calculatorVersion == null || row.analysis.calculatorVersion <= 0 || row.analysis.calculatorVersion >= ACTIVITY_TOTALS_CALCULATOR_VERSION)) return false;
+    if (basis === "activity_summary" && row.analysis.state !== "missing" && (row.analysis.state !== "outdated" || row.metricsRevision === null || row.analysis.inputCoverage !== "complete" || row.analysis.calculatorVersion == null || row.analysis.calculatorVersion <= 0 || row.analysis.calculatorVersion >= ACTIVITY_METRICS_VERSION)) return false;
   }
   if (t.sourceBasis.distanceM === "canonical_metrics" ? t.distanceSource === null : t.distanceSource !== null) return false;
   if (Object.values(t.sourceBasis).every(basis => basis !== "canonical_metrics") && t.sourceLayer !== null) return false;
@@ -103,7 +106,7 @@ export function validateCyclingDistanceHistoryResponse(value: unknown, request: 
       || input.source !== null && !text(input.source) || input.localSessionId !== null && !text(input.localSessionId) || [input.stravaActivityId, input.stravaTwinActivityId].some(id => id !== null && (!count(id) || id <= 0))
       || input.endTime !== null && (!finite(input.endTime) || !Number.isFinite(new Date(input.endTime).getTime()) || input.endTime <= row.startTime) || input.movingSec !== null && !finite(input.movingSec) || typeof input.hasLoad !== "boolean") invalid();
     if (!exact(a, ["state", "calculatorVersion", "inputCoverage"]) || !["ready", "missing", "pending", "stale", "outdated", "partial", "invalid"].includes(a.state) || a.calculatorVersion !== null && !count(a.calculatorVersion)
-      || ![null, "complete", "partial_terminal", "pending"].includes(a.inputCoverage) || a.state === "ready" && (a.inputCoverage !== "complete" || a.calculatorVersion === null || a.calculatorVersion < ACTIVITY_METRICS_VERSION || row.metricsRevision === null)
+      || ![null, "complete", "partial_terminal", "pending"].includes(a.inputCoverage) || a.state === "ready" && (a.inputCoverage !== "complete" || a.calculatorVersion === null || a.calculatorVersion < HISTORY_MIN_CALCULATOR_VERSION || row.metricsRevision === null)
       || a.state === "missing" && (a.calculatorVersion !== null || a.inputCoverage !== null || row.metricsRevision !== null)) invalid();
     if (!exact(d, ["state", "points", ...(!legacy && record(d) && (d.state === "observed" || d.state === "no_observed_efforts") ? ["provenance"] : [])]) || !["observed", "no_observed_efforts", "legacy_unsupported", "unavailable"].includes(d.state) || !Array.isArray(d.points) || d.points.length > BIKE_DISTANCE_TARGETS.length
       || (d.state === "observed" ? a.state !== "ready" || d.points.length === 0 : d.points.length !== 0) || (d.state === "no_observed_efforts" || d.state === "legacy_unsupported") && a.state !== "ready") invalid();
