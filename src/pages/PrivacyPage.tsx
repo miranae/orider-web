@@ -72,6 +72,10 @@ export default function PrivacyPage() {
             )}
           </Section>
         ))}
+        <Section title={t("privacy.mapbox.title")}>
+          <p className="mb-2">{t("privacy.mapbox.body")}</p>
+          <a href="https://www.mapbox.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-[var(--lime)] underline">{t("privacy.mapbox.link")}</a>
+        </Section>
       </Card>
     </div>
   );

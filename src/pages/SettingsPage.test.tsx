@@ -106,13 +106,18 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("shows danger zone", async () => {
-    renderWithProviders(<SettingsPage tab="account" />, { authenticated: true });
-    // 위험 영역(pane.account.cardDanger)은 기본(계정) 탭에 있다.
-    await waitFor(() => {
-      expect(screen.getByText("위험 영역")).toBeInTheDocument();
-      expect(screen.getAllByText("데이터 삭제").length).toBeGreaterThan(0);
-    });
+  it("opens the account deletion request page from the danger zone", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Routes>
+        <Route path="/:lang/settings/account" element={<SettingsPage tab="account" />} />
+        <Route path="/:lang/account-deletion" element={<h1>계정 삭제 요청 페이지</h1>} />
+      </Routes>,
+      { authenticated: true, route: "/ko/settings/account" },
+    );
+    expect(await screen.findByText("위험 영역")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "계정 삭제 안내 및 요청" }));
+    expect(await screen.findByRole("heading", { name: "계정 삭제 요청 페이지" })).toBeInTheDocument();
   });
 
   it("shows visibility options", async () => {

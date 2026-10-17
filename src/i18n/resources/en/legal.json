@@ -328,7 +328,7 @@
   },
   "privacy": {
     "title": "Orider Privacy Policy",
-    "lastUpdated": "Last updated: October 7, 2026",
+    "lastUpdated": "Last updated: October 17, 2026",
     "intro": "Orider (\"Company\") complies with the Personal Information Protection Act and other applicable laws and establishes and discloses this Privacy Policy as follows to protect Users' personal information.",
     "stravaPrivacyLink": "Strava Privacy Policy",
     "sections": [
@@ -402,13 +402,13 @@
       {
         "title": "Article 4 (Provision to Third Parties)",
         "paragraphs": [
-          "The Company does not, in principle, provide Users' personal information to third parties, except in the following cases:"
+          "The Service processes data with the external providers described in this Policy. Processing on behalf of O-Rider differs from processing independently determined by an external provider for its own purposes. See the Mapbox section below for information sent with map requests and its processing scope."
         ],
         "list": [
           "When the User has consented in advance",
           "When required by law"
         ],
-        "footer": "Strava integration is performed with the User's explicit consent and does not separately provide personal information to Strava (integration is handled via OAuth authentication)."
+        "footer": "Strava integration uses your choice and OAuth authorization. Features you request, such as workout uploads, transmit the relevant workout data to Strava under its separate policies."
       },
       {
         "title": "Article 4-2 (Data Processing for Strava Integration)",
@@ -564,7 +564,12 @@
           "This Policy may be revised due to changes in laws or the Service, and changes will be announced."
         ]
       }
-    ]
+    ],
+    "mapbox": {
+      "title": "Data processing by Mapbox map services",
+      "body": "To display maps, O-Rider requests map tiles and styles from Mapbox over HTTPS. These requests may transmit your IP address, device and app request information, and the requested map area. When the map follows your current location, tile areas can reveal the neighborhood of your actual location. Panning elsewhere may request an area different from your current location. Mapbox normally retains IP addresses for 30 days to provide services, bill customers and maintain security, with longer retention possible for investigations. Mapbox independently determines some processing for its own purposes, which follows its own privacy policy.",
+      "link": "View Mapbox Privacy Policy"
+    }
   },
   "accountDeletion": {
     "title": "Delete your O-Rider account and data",
