@@ -2,6 +2,7 @@ import i18n from "i18next";
 import enActivity from "../../i18n/resources/en/activity.json";
 import enGlossary from "../../i18n/resources/en/termGlossary.json";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { mockUpdateDoc, setDocData } from "../../__tests__/mocks/firebase";
@@ -29,10 +30,15 @@ describe("activity equipment editing", () => {
     i18n.addResourceBundle("en", "termGlossary", enGlossary, true, true);
     await i18n.changeLanguage(language);
     try {
+      const user = userEvent.setup();
       show(originalGear, language);
+      expect(await screen.findByRole("textbox", { name: language === "en" ? enActivity.edit.fieldName : "활동 이름" })).toHaveValue("Morning Ride");
       const term = await screen.findByRole("button", { name: language === "en" ? "About RPE" : "RPE 설명" });
-      fireEvent.click(term);
-      expect(screen.getByRole("tooltip")).toBeInTheDocument();
+      await user.click(term);
+      const tooltip = await screen.findByRole("tooltip");
+      expect(term.isConnected).toBe(true);
+      expect(screen.getByRole("button", { name: language === "en" ? "About RPE" : "RPE 설명" })).toBe(term);
+      expect(term).toHaveAttribute("aria-describedby", tooltip.id);
       expect(screen.getByRole("button", { name: "7", exact: true })).toHaveAttribute("aria-pressed", "false");
       expect(mockUpdateDoc).not.toHaveBeenCalled();
     } finally { await i18n.changeLanguage("ko"); }
