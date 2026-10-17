@@ -532,7 +532,7 @@
             "heading": "2. Usage analysis and reliability",
             "list": [
               "Google Analytics: screen views, interactions, sessions, app/device/installation and account-associated identifiers, and IP-derived approximate location — usage analysis and feature improvement",
-              "Firebase Crashlytics and Performance Monitoring: crash/error/performance records, app/device information and installation identifiers — troubleshooting and reliability. SDKs may automatically collect and transmit some information while the app is used."
+              "Firebase Crashlytics: crash/error records, app/device information and installation identifiers — troubleshooting and reliability. SDKs may automatically collect and transmit some information while the app is used."
             ]
           }
         ],
