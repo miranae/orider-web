@@ -56,8 +56,8 @@ describe("Layout", () => {
     await user.click(within(navigation).getByRole("button", { name: "도움말" }));
     expect(screen.queryByRole("region", { name: "함께하기" })).not.toBeInTheDocument();
     const help = screen.getByRole("region", { name: "도움말" });
-    expect(within(help).getByRole("link", { name: "앱 설명서" })).toHaveAttribute("href", "/ko/manual");
-    expect(within(help).getByRole("link", { name: "웹 설명서" })).toHaveAttribute("href", "/ko/web-manual");
+    expect(within(help).getByRole("link", { name: "앱 설명서" })).toHaveAttribute("href", "/manual/");
+    expect(within(help).getByRole("link", { name: "웹 설명서" })).toHaveAttribute("href", "/web-manual/");
     expect(within(help).getByRole("link", { name: "공개 계산기" })).toHaveAttribute("href", "/ko/tools/virtual-power");
     await user.click(within(navigation).getByRole("button", { name: "앱 설치" }));
     expect(screen.queryByRole("region", { name: "도움말" })).not.toBeInTheDocument();
@@ -74,7 +74,8 @@ describe("Layout", () => {
     expect(within(reopenedHelp).getByRole("link", { name: "앱 설명서" })).toHaveFocus();
     await user.tab();
     expect(within(reopenedHelp).getByRole("link", { name: "웹 설명서" })).toHaveFocus();
-    await user.click(within(reopenedHelp).getByRole("link", { name: "웹 설명서" }));
+    // 설명서는 정적 페이지로 전체 이동하므로 SPA 이동으로 닫히는지는 SPA 링크로 확인한다.
+    await user.click(within(reopenedHelp).getByRole("link", { name: "공개 계산기" }));
     expect(screen.queryByRole("region", { name: "도움말" })).not.toBeInTheDocument();
     const helpTrigger = within(navigation).getByRole("button", { name: "도움말" });
     const bounds = vi.spyOn(helpTrigger, "getBoundingClientRect").mockReturnValue(new DOMRect(0, -10, 80, 44));

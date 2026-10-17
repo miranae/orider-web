@@ -17,6 +17,9 @@ const helpLinks = [
   ["/community/board?type=inquiry", "footer.contact"], ["/feedback", "footer.feedback"],
   ["/tools/virtual-power", "footer.calculator"], ["/explore/recipes/deploy", "nav.developerDocs"],
 ];
+// 매뉴얼은 Hosting 의 정적 HTML(public/manual, public/web-manual)이라 SPA 라우트가 없다.
+// LocalizedLink 로 걸면 /ko/web-manual 로 SPA 내부 이동해 404 화면이 나오므로 전체 페이지 이동으로 연다.
+const staticDocLinks = new Set(["/manual", "/web-manual"]);
 const policyLinks = [
   ["/terms", "footer.terms"], ["/privacy", "footer.privacy"],
   ["/policies/community", "footer.community"], ["/policies/ai-coach", "footer.aiPolicy"],
@@ -70,7 +73,9 @@ export default function FooterNavigation() {
       style={{ position: "fixed", ...position, zIndex: 100, maxHeight: `calc(100dvh - ${position.bottom}px - 16px)`, overflowY: "auto" }}>
       <Card padding="compact" style={{ boxShadow: "var(--shadow-lg)" }}>
         {open === "install" ? <AppInstallLinks compact appStoreLabel="App Store" playStoreLabel="Google Play" /> : <div className="flex flex-col gap-1">
-          {(open === "partnershipInquiry" ? partnershipLinks : open === "help" ? helpLinks : policyLinks).map(([to, key]) => <Link key={to} to={to!} data-testid={to === "/about" ? "X2-1" : undefined} className={`${linkClass} flex items-center rounded-[var(--r-sm)] px-3 py-2`} style={{ minHeight: 44, fontSize: "var(--fs-sm)" }}>{t(key!)}</Link>)}
+          {(open === "partnershipInquiry" ? partnershipLinks : open === "help" ? helpLinks : policyLinks).map(([to, key]) => staticDocLinks.has(to!)
+            ? <a key={to} href={`${to}/`} className={`${linkClass} flex items-center rounded-[var(--r-sm)] px-3 py-2`} style={{ minHeight: 44, fontSize: "var(--fs-sm)" }}>{t(key!)}</a>
+            : <Link key={to} to={to!} data-testid={to === "/about" ? "X2-1" : undefined} className={`${linkClass} flex items-center rounded-[var(--r-sm)] px-3 py-2`} style={{ minHeight: 44, fontSize: "var(--fs-sm)" }}>{t(key!)}</Link>)}
         </div>}
       </Card>
     </div>, document.body)}
