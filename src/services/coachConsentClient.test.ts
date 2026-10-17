@@ -94,4 +94,20 @@ describe("coachConsentClient", () => {
     await expect(getCoachConsentPolicy()).rejects.toThrow("AI_API_BASE_MISSING");
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("classifies policy GET transport rejection without leaking original errors or changing consent writes", async () => {
+    const privateError = new TypeError("private URL or payload");
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(privateError);
+    await expect(getCoachConsentPolicy()).rejects.toThrow("COACH_CONSENT_NETWORK_ERROR");
+    await expect(acceptCoachConsent("ai-coach-policy-v4")).rejects.toBe(privateError);
+    await expect(revokeCoachConsent()).rejects.toBe(privateError);
+  });
+
+  it("preserves SDK preflight classification and never starts a request when verification fails", async () => {
+    const preflight = { code: "appCheck/recaptcha-error", message: "private SDK message" };
+    getAppCheckToken.mockRejectedValueOnce(preflight);
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    await expect(getCoachConsentPolicy()).rejects.toBe(preflight);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

@@ -145,7 +145,8 @@ async function request(path: string, init?: RequestInit): Promise<CoachConsentPo
   const idToken = await auth.currentUser?.getIdToken();
   if (!idToken) throw new Error("SIGN_IN_REQUIRED");
   const appCheckToken = await getAppCheckToken();
-  const response = await fetch(endpoint(path), {
+  const url = endpoint(path);
+  const response = await fetch(url, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -153,6 +154,10 @@ async function request(path: string, init?: RequestInit): Promise<CoachConsentPo
       ...(appCheckToken ? { "X-Firebase-AppCheck": appCheckToken } : {}),
       ...init?.headers,
     },
+  }).catch((error: unknown) => {
+    // 읽기 실패만 명시적으로 구분한다. 동의 변경 요청의 오류/재시도 계약은 유지한다.
+    if (!init?.method || init.method === "GET") throw new Error("COACH_CONSENT_NETWORK_ERROR");
+    throw error;
   });
   const payload: unknown = await response.json().catch(() => ({}));
   if (!response.ok) {
