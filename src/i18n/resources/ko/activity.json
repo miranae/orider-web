@@ -267,7 +267,10 @@
     "sportOnly": "{{sport}} 기록만",
     "labelPickRecords": "점 라벨은 이번에 개인 기록을 세운 창입니다.",
     "labelPickBest": "점 라벨은 역대 최고에 가장 가까웠던 창 하나에 붙습니다.",
-    "labelPickPrevious": "점 라벨은 활동 전 최고에 가장 가까웠던 창 하나에 붙습니다."
+    "labelPickPrevious": "점 라벨은 활동 전 최고에 가장 가까웠던 창 하나에 붙습니다.",
+    "changesEmpty": "같은 유형을 더 기록하면 비교가 열려요.",
+    "changesEmptyOther": "같은 유형 기록이 더 쌓이면 비교가 열려요.",
+    "zonesEmpty": "0%: {{zones}}"
   },
   "overviewEvidence": {
     "integratedFitness": "통합 훈련 부하 · 운동 전",

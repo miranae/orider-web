@@ -267,7 +267,10 @@
     "sportOnly": "{{sport}} only",
     "labelPickRecords": "Point labels mark the durations where this activity set a personal record.",
     "labelPickBest": "The point label marks the one duration closest to your all-time best.",
-    "labelPickPrevious": "The point label marks the one duration closest to your previous best."
+    "labelPickPrevious": "The point label marks the one duration closest to your previous best.",
+    "changesEmpty": "Record more sessions of this type to unlock comparisons.",
+    "changesEmptyOther": "Comparisons unlock as more sessions of this type are recorded.",
+    "zonesEmpty": "0%: {{zones}}"
   },
   "overviewEvidence": {
     "integratedFitness": "Combined training load · before session",

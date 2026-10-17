@@ -135,6 +135,12 @@
   border: 1px solid var(--ink-2); border-bottom: 0; border-radius: var(--r-sm) var(--r-sm) 0 0;
 }
 .activity-overview-zones__baseline { display: grid; gap: var(--space-1); }
+.activity-overview-zones__group.is-narrow::before { display: none; }
+/* 조각 툴팁 — 포인터·포커스 모두. 막대 위 조각 가운데에 뜬다. */
+.activity-overview-zones__strip-wrap { position: relative; }
+.activity-overview-zones__tip { left: clamp(4rem, var(--at), calc(100% - 4rem)); bottom: calc(100% + var(--space-2)); transform: translateX(-50%); white-space: nowrap; }
+.activity-overview-zones__strip [tabindex]:focus-visible { outline: 2px solid var(--ink-0); outline-offset: 2px; position: relative; z-index: 1; }
+.activity-overview-zones__empty { margin: 0; color: var(--ink-2); font-size: var(--fs-sm); }
 .activity-overview-zones__legend {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
   gap: var(--space-1-5) var(--space-4); margin: var(--space-1) 0 0; padding: 0; list-style: none;
@@ -151,7 +157,13 @@
 /* ── 보조 수치 줄 ── */
 /* 휴대폰은 2열로 압축, 넓은 카드는 한 줄(최대 4칸). */
 .activity-overview-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-4); align-items: start; }
-@container (min-width: 44rem) { .activity-overview-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* 휴대폰: W′ 미터는 한 줄 전폭. */
+.activity-overview-facts > .activity-overview-meter--quiet { grid-column: 1 / -1; }
+@container (min-width: 44rem) {
+  .activity-overview-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* W′ 미터는 항상 오른쪽 끝 칸 — 앞 칸 수와 무관하게 같은 자리. */
+  .activity-overview-facts > .activity-overview-meter--quiet { grid-column: -2 / -1; }
+}
 
 /* ── 0–100 미터 ── */
 .activity-overview-meter { display: grid; gap: var(--space-1-5); }
@@ -183,6 +195,14 @@
 .activity-overview-delta__track::after { content: ""; position: absolute; left: 50%; top: calc(var(--space-1) * -1); bottom: calc(var(--space-1) * -1); width: 1px; background: var(--ink-1); }
 .activity-overview-delta__bar { position: absolute; top: 0; bottom: 0; left: var(--from); width: var(--size); background: var(--accent); border-radius: var(--r-sm); }
 .activity-overview-delta__bar.is-down { background: var(--ink-2); }
+/* ±50% 를 넘으면 끝에 화살촉 — 막대가 "최대" 로 읽히지 않고 "범위 밖" 으로 읽힌다. */
+.activity-overview-delta__bar.is-clipped::after {
+  content: ""; position: absolute; top: 50%; transform: translateY(-50%);
+  border-top: var(--space-1-5) solid transparent; border-bottom: var(--space-1-5) solid transparent;
+}
+.activity-overview-delta__bar.is-clipped:not(.is-down)::after { right: calc(var(--space-2) * -1); border-left: var(--space-2) solid var(--accent); }
+.activity-overview-delta__bar.is-clipped.is-down::after { left: calc(var(--space-2) * -1); border-right: var(--space-2) solid var(--ink-2); }
+.activity-overview-delta__scale { display: flex; justify-content: space-between; color: var(--ink-2); font-family: var(--font-mono); font-size: var(--fs-2xs); line-height: 1; }
 
 /* ── 접힘 제목(휴대폰) ── */
 .activity-overview-section-head__title { margin: 0; }
@@ -249,10 +269,10 @@
  * 전→후는 두 줄(이름·값 / 전폭 막대)로 바꾼다. */
 @container (max-width: 30rem) {
   .activity-overview-grid { row-gap: var(--space-4); }
-  .activity-overview-zones__legend { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--space-2); }
+  /* 2열·세로 흐름: Z1…부터 아래로 채워 마지막 존이 혼자 한 줄을 차지하지 않는다. 짧은 존 이름은 남긴다. */
+  .activity-overview-zones__legend { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(var(--rows), auto); grid-auto-flow: column; column-gap: var(--space-4); }
   /* 평소 비중은 기준 막대 아래 "평소 Z4+ x%" 문구가 맡는다 — 줄마다 반복하지 않는다. */
   .activity-overview-zones__time { display: none; }
-  .activity-overview-zones__label { display: none; }
   .activity-overview-grid section { padding-top: var(--space-3); }
   .activity-overview-shift__from { font-size: var(--fs-2xs); }
   /* 좁으면 이름·값(운동 전 → 후)을 한 줄, 막대를 다음 줄 전폭으로 — 막대가 너무 짧아지지 않게. */

@@ -332,7 +332,7 @@ describe("activity overview reads as pictures", () => {
     render(<ActivityOverviewSummaryContent presentation={presentation} />);
     expect(screen.getByRole("img", { name: "강도 게이지 · IF 0.83 (FTP 1.00 기준)" })).toBeInTheDocument();
     // 존 막대는 서버 비중을 그대로 읽어 준다 — 초에서 다시 나누지 않는다.
-    expect(screen.getByRole("img", { name: /^존별 시간 비중: Z1 23.7%, Z2 26.3%, .*Z7 2.4%$/ })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /^존별 시간 비중: Z1 23.7%, Z2 26.3%, .*Z7 2.4%$/ })).toBeInTheDocument();
     expect(screen.getByText(renderedText("26.9%"))).toBeInTheDocument();
     const curve = line.mock.lastCall![0] as { data: { datasets: Array<{ label: string; data: Array<number | null> }> } };
     expect(curve.data.datasets.map((dataset) => dataset.label)).toEqual(["이번 활동", "역대 최고"]);
@@ -355,7 +355,7 @@ describe("activity overview reads as pictures", () => {
       zones: [{ kind: "heartRate", seconds: [1314, 401, 270, 67, 3], priority: "secondary", currentPercentages: [63.9, 19.5, 13.2, 3.3, 0.1] }],
       powerFingerprint: [{ duration: "1s", watts: 500 }], priorFitnessStatus: rich.priorFitnessStatus,
       availability: { personal: "unavailable", records: "evaluated", power: "not_applicable", heartRate: "available" } }} />);
-    expect(screen.getByRole("img", { name: /^존별 시간 비중: Z1 63.9%/ })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /^존별 시간 비중: Z1 63.9%/ })).toBeInTheDocument();
     expect(screen.getByText(renderedText("심박 · 존별 시간"))).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /강도 게이지/ })).not.toBeInTheDocument();
     expect(line).not.toHaveBeenCalled();
@@ -492,5 +492,41 @@ describe("overview v8 fixed placement", () => {
     const props = line.mock.lastCall![0] as { data: { datasets: Array<{ clip?: boolean }> }; options: { layout: { padding: { left: number; right: number } } } };
     expect(props.data.datasets[0]!.clip).toBe(false);
     expect(props.options.layout.padding.right).toBeGreaterThanOrEqual(10);
+  });
+});
+
+describe("overview v9 zone strip, legend and change meters", () => {
+  const zone = { kind: "heartRate" as const, seconds: [2563, 2776, 491, 73, 0], priority: "secondary" as const, currentPercentages: [43.4, 47, 8.3, 1.2, 0] };
+  it("reads each zone segment with one tab stop and arrow keys, showing a tooltip with name, time and share", () => {
+    render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "bike", load: 112 }, zones: [zone] }} />);
+    const segments = screen.getAllByRole("img", { name: /^Z\d/ }).filter((node) => node.hasAttribute("tabindex"));
+    expect(segments.map((node) => node.getAttribute("tabindex"))).toEqual(["0", "-1", "-1", "-1"]);
+    fireEvent.focus(segments[0]!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Z1 회복42:43 · 43.4%");
+    fireEvent.keyDown(segments[0]!, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(segments[1]);
+    expect(segments[1]!.getAttribute("tabindex")).toBe("0");
+  });
+  it("folds zero-share zones into one line and keeps zone names in the legend", () => {
+    render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "bike", load: 112 }, zones: [zone] }} />);
+    expect(screen.getByText(renderedText("0%: Z5 최대"))).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toContain("Z4 역치1.2%1:13");
+  });
+  it("uses an action-oriented empty state for missing comparisons", () => {
+    const { rerender } = render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "bike" }, availability: { personal: "unavailable", records: "unavailable", power: "unavailable", heartRate: "unavailable" } }} />);
+    expect(screen.getByText(renderedText("같은 유형을 더 기록하면 비교가 열려요."))).toBeInTheDocument();
+    rerender(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "run" }, availability: { personal: "insufficient_history", records: "unavailable", power: "not_applicable", heartRate: "available" } }} />);
+    expect(screen.getByText(renderedText("같은 유형을 더 기록하면 비교가 열려요."))).toBeInTheDocument();
+    expect(screen.queryByText(renderedText(/\d+회 더/))).not.toBeInTheDocument();
+  });
+  it("draws peak power change on a fixed ±50% scale and marks values beyond it", async () => {
+    const { deltaBarLayout, DELTA_RANGE } = await import("./ActivityOverviewCharts");
+    expect(DELTA_RANGE).toBe(50);
+    expect(deltaBarLayout(25)).toEqual({ half: 25, clipped: false });
+    expect(deltaBarLayout(-5.3)).toEqual({ half: 5.3, clipped: false });
+    expect(deltaBarLayout(80)).toEqual({ half: 50, clipped: true });
+    const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, powerFingerprint: [{ duration: "2m", watts: 400, deltaPct: 72, medianWatts: 232, priorSampleCount: 10 }] }} />);
+    expect(container.querySelector(".activity-overview-delta__bar.is-clipped")).not.toBeNull();
+    expect(container.querySelector(".activity-overview-delta__scale")).toHaveTextContent("−50%0+50%");
   });
 });

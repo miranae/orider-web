@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import GlossaryText from "../../../components/common/GlossaryText";
 import DurationCurveChart from "../../../components/DurationCurveChart";
@@ -115,23 +115,65 @@ export function IntensityGauge({ value }: { value: number }) {
 
 const LABEL_MIN_PX = 32;
 
-function ZoneStrip({ weights, className, label, labelled = false }: { weights: number[]; className?: string; label: string; labelled?: boolean }) {
+const BRACKET_MIN_PX = 12;
+
+type StripItem = { label: string; detail: string };
+
+/**
+ * 존 누적 막대. `items` 가 있으면 조각마다 포인터·키보드로 값을 읽는다 — 막대 하나가 탭 한 번
+ * (roving tabindex): 막대에 들어오면 ←/→ 로 조각을 옮기고, 툴팁에 존 이름·시간·% 가 뜬다.
+ */
+function ZoneStrip({ weights, className, label, labelled = false, items }: { weights: number[]; className?: string; label: string; labelled?: boolean; items?: StripItem[] }) {
   const [ref, width] = useElementWidth<HTMLDivElement>();
+  const [active, setActive] = useState<number | null>(null);
+  const [focusIndex, setFocusIndex] = useState<number | null>(null);
+  const segmentRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const total = weights.reduce((sum, w) => sum + Math.max(0, w), 0);
+  const present = weights.flatMap((w, i) => w > 0 ? [i] : []);
+  const rovingIndex = focusIndex ?? present[0] ?? 0;
   // Z4+ 를 한 묶음으로 둬 그 위에 괄호를 얹는다. 묶음 폭도 같은 비율의 합이다(표시값 아님).
   const groups = [weights.slice(0, 3).map((w, i) => [w, i] as const), weights.slice(3).map((w, i) => [w, i + 3] as const)];
-  return <div ref={ref} className={`activity-overview-zones__strip ${className ?? ""}`} role="img" aria-label={label}>
-    {groups.map((group, groupIndex) => {
-      const visible = group.filter(([w]) => w > 0);
-      const grow = visible.reduce((sum, [w]) => sum + w, 0);
-      if (!visible.length) return null;
-      return <span key={groupIndex} className={`activity-overview-zones__group ${groupIndex ? "activity-overview-zones__group--high" : ""}`} style={{ flexGrow: grow }} aria-hidden="true">
-        {visible.map(([w, i]) => <span key={i} className={`activity-overview-zone--${i + 1}`} style={{ flexGrow: w }}>
-          {/* 조각이 충분히 넓을 때만 안에 이름을 쓴다 — 좁은 조각은 범례가 맡는다. */}
-          {labelled && total > 0 && width * w / total >= LABEL_MIN_PX && <span className={`activity-overview-zones__seg-label ${i >= 4 ? "is-strong" : ""}`}>Z{i + 1}</span>}
-        </span>)}
-      </span>;
-    })}
+  const interactive = !!items;
+  const move = (from: number, step: number) => {
+    const position = present.indexOf(from);
+    const next = present[Math.min(present.length - 1, Math.max(0, position + step))];
+    if (next == null) return;
+    setFocusIndex(next);
+    segmentRefs.current[next]?.focus();
+  };
+  // 툴팁 위치: 조각 가운데(막대 왼쪽 끝 기준 비율). 위치 계산일 뿐 표시값이 아니다.
+  const centerOf = (index: number) => {
+    const before = weights.slice(0, index).reduce((sum, w) => sum + Math.max(0, w), 0);
+    return total > 0 ? (before + Math.max(0, weights[index]!) / 2) / total * 100 : 0;
+  };
+  return <div className="activity-overview-zones__strip-wrap">
+    <div ref={ref} className={`activity-overview-zones__strip ${className ?? ""}`} role={interactive ? "group" : "img"} aria-label={label}>
+      {groups.map((group, groupIndex) => {
+        const visible = group.filter(([w]) => w > 0);
+        const grow = visible.reduce((sum, [w]) => sum + w, 0);
+        if (!visible.length) return null;
+        // 괄호가 12px 보다 좁으면 "∩" 처럼 보인다 — 숨기고 Z4+ 비율은 머리글 글자로만 둔다.
+        const narrowBracket = groupIndex > 0 && total > 0 && width * grow / total < BRACKET_MIN_PX;
+        return <span key={groupIndex} className={`activity-overview-zones__group ${groupIndex ? "activity-overview-zones__group--high" : ""} ${narrowBracket ? "is-narrow" : ""}`} style={{ flexGrow: grow }} aria-hidden={interactive ? undefined : true}>
+          {visible.map(([w, i]) => <span key={i} ref={(node) => { segmentRefs.current[i] = node; }} className={`activity-overview-zone--${i + 1}`} style={{ flexGrow: w }}
+            {...(interactive ? {
+              role: "img", "aria-label": `${items![i]!.label} · ${items![i]!.detail}`, tabIndex: i === rovingIndex ? 0 : -1,
+              onFocus: () => { setFocusIndex(i); setActive(i); }, onBlur: () => setActive(null),
+              onMouseEnter: () => setActive(i), onMouseLeave: () => setActive(null),
+              onKeyDown: (event: KeyboardEvent<HTMLSpanElement>) => {
+                if (event.key === "ArrowRight" || event.key === "ArrowLeft") { event.preventDefault(); move(i, event.key === "ArrowRight" ? 1 : -1); }
+                if (event.key === "Home" || event.key === "End") { event.preventDefault(); move(i, event.key === "Home" ? -99 : 99); }
+              },
+            } : {})}>
+            {/* 조각이 충분히 넓을 때만 안에 이름을 쓴다 — 좁은 조각은 범례가 맡는다. */}
+            {labelled && total > 0 && width * w / total >= LABEL_MIN_PX && <span aria-hidden="true" className={`activity-overview-zones__seg-label ${i >= 4 ? "is-strong" : ""}`}>Z{i + 1}</span>}
+          </span>)}
+        </span>;
+      })}
+    </div>
+    {interactive && active != null && items![active] && <div className="ds-chart__tooltip activity-overview-zones__tip" role="tooltip" style={cssVar({ "--at": `${centerOf(active)}%` })}>
+      <strong>{items![active]!.label}</strong><span>{items![active]!.detail}</span>
+    </div>}
   </div>;
 }
 
@@ -142,6 +184,11 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }:
   const weights = pcts ?? zone.seconds;
   const baseline = zone.baselinePercentages?.length === zone.seconds.length && (zone.priorSampleCount ?? 0) > 0 ? zone.baselinePercentages : undefined;
   const describe = (values: number[] | undefined) => zone.seconds.map((sec, i) => `Z${i + 1} ${values ? `${one(values[i]!)}%` : clock(sec)}`).join(", ");
+  const name = (i: number) => `Z${i + 1}${labels[i] ? ` ${t(labels[i]!.nameKey)}` : ""}`;
+  const items = zone.seconds.map((sec, i) => ({ label: name(i), detail: [clock(sec), pcts ? `${one(pcts[i]!)}%` : null].filter(Boolean).join(" · ") }));
+  // 0% 존은 범례 한 줄로 접는다 — 빈 칸이 같은 무게로 자리를 차지하지 않게.
+  const shown = zone.seconds.flatMap((sec, i) => (pcts ? pcts[i]! > 0 : sec > 0) ? [i] : []);
+  const empty = zone.seconds.flatMap((sec, i) => (pcts ? pcts[i]! > 0 : sec > 0) ? [] : [i]);
   return <div className="activity-overview-zones">
     <div className="activity-overview-zones__head">
       <Text variant="bodySmall" tone="secondary">{heading}</Text>
@@ -150,23 +197,24 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }:
         <Text variant="dataSmall" tone="primary">{one(highPercent)}%</Text>
       </span>}
     </div>
-    <ZoneStrip weights={weights} labelled label={`${t("overviewSummary.zoneBarLabel")}: ${describe(pcts)}`} />
+    <ZoneStrip weights={weights} labelled items={items} label={`${t("overviewSummary.zoneBarLabel")}: ${describe(pcts)}`} />
     {baseline && <div className="activity-overview-zones__baseline">
       <ZoneStrip weights={baseline} className="activity-overview-zones__strip--baseline" label={`${t("overviewSummary.zoneBaselineAria")}: ${describe(baseline)}`} />
       <Text variant="caption" tone="tertiary">{t(zone.baselineScope === "discipline" ? "overviewSummary.zoneBaselineDiscipline" : "overviewSummary.zoneBaseline", { count: zone.priorSampleCount })}
         {baselineHighPercent != null && <> · <GlossaryText>{t("overviewSummary.usualHigh", { pct: one(baselineHighPercent) })}</GlossaryText></>}</Text>
     </div>}
-    <ul className="activity-overview-zones__legend">
-      {zone.seconds.map((sec, i) => <li key={i} className={sec > 0 ? undefined : "is-empty"}>
+    <ul className="activity-overview-zones__legend" style={cssVar({ "--rows": Math.ceil(shown.length / 2) })}>
+      {shown.map((i) => <li key={i}>
         <span aria-hidden="true" className={`activity-overview-swatch activity-overview-zone--${i + 1}`} />
         <span className="activity-overview-zones__name"><b>Z{i + 1}</b><span className="activity-overview-zones__label"> {labels[i] ? t(labels[i]!.nameKey) : ""}</span></span>
-        <span className="activity-overview-zones__value">{pcts ? `${one(pcts[i]!)}%` : clock(sec)}</span>
+        <span className="activity-overview-zones__value">{pcts ? `${one(pcts[i]!)}%` : clock(zone.seconds[i]!)}</span>
         {(pcts || baseline) && <span className="activity-overview-zones__time">
-          {pcts && <span className="activity-overview-zones__clock activity-overview-mixed__num">{clock(sec)}</span>}
+          {pcts && <span className="activity-overview-zones__clock activity-overview-mixed__num">{clock(zone.seconds[i]!)}</span>}
           {baseline && <span className="activity-overview-zones__usual"><span className="activity-overview-zones__sep" aria-hidden="true">{pcts ? " · " : ""}</span><MixedValue value={t("overviewSummary.usualPct", { pct: one(baseline[i]!) })} /></span>}
         </span>}
       </li>)}
     </ul>
+    {empty.length > 0 && <p className="activity-overview-zones__empty"><MixedValue value={t("overviewSummary.zonesEmpty", { zones: empty.map(name).join(", ") })} /></p>}
   </div>;
 }
 
@@ -202,17 +250,27 @@ export function PercentMeter({ label, value, display, tone = "accent", mid = fal
 
 /* ───────────── 0 기준 발산 막대(피크 파워 변화) ───────────── */
 
-/** 서버 변화율(%)을 0 가운데 막대로. 길이 척도는 함께 그리는 줄의 최댓값(최소 10%)이다. */
-export function DeltaBar({ value, scale, label, display }: { value: number; scale: number; label: ReactNode; display: ReactNode }) {
-  const half = Math.min(50, Math.abs(value) / Math.max(10, scale) * 50);
+/** 발산 막대의 고정 범위(±%). 넘치면 끝에 화살표를 그려 "더 크다" 를 밝힌다. */
+export const DELTA_RANGE = 50;
+
+/** 막대 반폭(트랙 대비 %)과 클립 여부 — 고정 범위 ±50% 기준. 최댓값으로 정규화하지 않는다. */
+export function deltaBarLayout(value: number): { half: number; clipped: boolean } {
+  const clipped = Math.abs(value) > DELTA_RANGE;
+  return { half: Math.min(DELTA_RANGE, Math.abs(value)) / DELTA_RANGE * 50, clipped };
+}
+
+/** 서버 변화율(%)을 0 가운데 막대로 — 고정 척도 ±50%, 양끝 눈금 라벨. */
+export function DeltaBar({ value, label, display }: { value: number; label: ReactNode; display: ReactNode }) {
+  const { half, clipped } = deltaBarLayout(value);
   return <div className="activity-overview-delta">
     <div className="activity-overview-meter__head">
       <Text variant="bodySmall" tone="secondary">{label}</Text>
       <Text variant="bodyMedium" tone="primary">{display}</Text>
     </div>
     <div className="activity-overview-delta__track" aria-hidden="true">
-      <span className={`activity-overview-delta__bar ${value < 0 ? "is-down" : ""}`} style={cssVar({ "--from": value < 0 ? `${50 - half}%` : "50%", "--size": `${half}%` })} />
+      <span className={`activity-overview-delta__bar ${value < 0 ? "is-down" : ""} ${clipped ? "is-clipped" : ""}`} style={cssVar({ "--from": value < 0 ? `${50 - half}%` : "50%", "--size": `${half}%` })} />
     </div>
+    <div className="activity-overview-delta__scale" aria-hidden="true"><span>−{DELTA_RANGE}%</span><span>0</span><span>+{DELTA_RANGE}%</span></div>
   </div>;
 }
 

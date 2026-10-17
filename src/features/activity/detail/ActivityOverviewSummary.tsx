@@ -112,6 +112,9 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   // 전·후가 다 있으면 "변화" 를, 운동 전만 있으면 그 상태를 말한다.
   const fitnessTitle = prior && post ? p.fitnessScope === "integrated" ? copy("fitnessTitle") : copy("fitnessChange")
     : p.fitnessScope === "integrated" ? label("integratedFitness") : copy("before");
+  // 비교가 없을 때는 무엇을 하면 열리는지 말한다. 성격 불명확은 기록을 더해도 바로 풀리지 않으니 그 사유를 그대로 둔다.
+  // 필요한 횟수는 서버가 주지 않으므로 숫자를 쓰지 않는다(화면에서 계산하지 않는다).
+  const personalEmpty = p.availability?.personal === "character_uncertain" ? label("personalStates.character_uncertain") : voice("changesEmpty");
   const changesEmpty = !records.length && !personal.length && !highlights.length && !comparable.length && !thresholdMissing;
   const showRecovery = p.session.discipline === "bike" || p.recovery || p.recoveryGuidance;
   const showRoute = p.routeLoad && (p.routeLoad.climbCount != null || p.routeLoad.maxGradePct != null);
@@ -125,7 +128,6 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   const modelNote = modeled.length ? t("overviewSummary.modelNote", { items: modeled.join("·") }) : null;
   const baselineHighPercent = highZone?.baselinePercentages?.length === highZone?.seconds.length && (highZone?.priorSampleCount ?? 0) > 0
     ? highZone!.baselinePercentages!.slice(3).reduce((sum, value) => sum + value, 0) : undefined;
-  const deltaScale = Math.max(0, ...highlights.map((row) => Math.abs(row.deltaPct!)));
   // 게이지가 없는 활동(심박·러닝)은 왼쪽 칸에 서버가 준 이동 시간·거리를 함께 둔다.
   const sessionFacts = [
     p.session.movingSec != null && <Stat key="moving" compact label={copy("movingTime")} value={<MixedValue value={duration(p.session.movingSec)} />} />,
@@ -138,7 +140,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   const ctlLabel = (key: "ctl" | "atl" | "tsb") => <GlossaryText>{metricName(key)}</GlossaryText>;
   const changesBlock = changesEmpty
         ? <CompactSection title={voice("changes")}>
-            {note(label(`personalStates.${p.availability?.personal ?? "unavailable"}`))}
+            {note(personalEmpty)}
           </CompactSection>
         : <SummarySection title={voice("changes")} collapsible>
       {!!records.length && <Stack direction="row" wrap>{records.map((row) => <Stack key={row.key} direction="row" wrap align="center"><Chip variant="accent">{label(`records.${row.achievement}`)}</Chip><Text variant="bodyMedium" tone="primary"><MixedValue value={row.value} /></Text></Stack>)}</Stack>}
@@ -152,8 +154,8 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
               {copy("thresholdMissingCta")}
             </Link>}
           </Stack>
-        : note(label(`personalStates.${p.availability?.personal ?? "unavailable"}`)))}
-      {!!highlights.length && <Stack gap="var(--space-3)">{highlights.map((row) => <DeltaBar key={row.duration} value={row.deltaPct!} scale={deltaScale}
+        : note(personalEmpty))}
+      {!!highlights.length && <Stack gap="var(--space-3)">{highlights.map((row) => <DeltaBar key={row.duration} value={row.deltaPct!}
         label={<><GlossaryText>{copy("peakChange")}</GlossaryText> · {powerDuration(row.duration)}</>}
         display={<MixedValue value={`${signed(row.deltaPct!)}% · ${row.priorSampleCount}${copy("samples")}`} />} />)}</Stack>}
       {!!comparable.length && !highlights.length && note(voice("stablePower"))}
