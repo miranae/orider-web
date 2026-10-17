@@ -88,11 +88,16 @@
     "title": "Partnership inquiries",
     "intro": "Help shape more enjoyable ways to stay active and grow together with Orider. Tell us about your partnership idea by email.",
     "topicsTitle": "Ideas we would like to hear",
+    "jumpToContact": "Propose a partnership by email",
     "topics": {
-      "product": { "title": "Products & services", "description": "Ideas for sports devices, service integrations and products that work together." },
-      "community": { "title": "Clubs, events & communities", "description": "Ideas for group activities, events and community collaboration." },
-      "content": { "title": "Content", "description": "Ideas for sharing sports experiences, useful information and creating content together." }
+      "product": { "title": "Devices & integrations", "description": "Ideas for connecting sensors, sports devices and training services." },
+      "brand": { "title": "Brands & promotions", "description": "Ideas for joint campaigns and benefits for people who use Orider." },
+      "community": { "title": "Clubs, races & events", "description": "Ideas for group rides, runs, challenges and event collaboration." },
+      "content": { "title": "Coaching & content", "description": "Ideas for training content and joint projects with coaches and creators." },
+      "shop": { "title": "Shops, repairs & rentals", "description": "Ideas for working with bike shops, repair services and equipment rentals." },
+      "regional": { "title": "Travel & local projects", "description": "Ideas for active travel, local routes and tourism projects." }
     },
+    "otherIdeas": "Have an idea beyond these examples? We would like to hear it, too.",
     "contactTitle": "Send us your proposal",
     "contactDescription": "Include these details to help us understand your idea.",
     "details": {

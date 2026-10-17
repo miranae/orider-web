@@ -36,8 +36,17 @@ describe("PartnershipPage", () => {
     await userEvent.setup().click(inquiry);
     expect(screen.getByRole("heading", { level: 1, name: copy.partnership.title })).toBeInTheDocument();
     const topics = screen.getByRole("region", { name: copy.partnership.topicsTitle });
-    expect(within(topics).getAllByRole("heading", { level: 3 })).toHaveLength(3);
+    expect(within(topics).getAllByRole("heading", { level: 3 })).toHaveLength(6);
+    for (const topic of Object.values(copy.partnership.topics)) {
+      expect(within(topics).getByRole("heading", { level: 3, name: topic.title })).toBeInTheDocument();
+      expect(within(topics).getByText(topic.description)).toBeInTheDocument();
+    }
+    expect(within(topics).getByText(copy.partnership.otherIdeas)).toBeInTheDocument();
     const contact = screen.getByRole("region", { name: copy.partnership.contactTitle });
+    const jump = screen.getByRole("link", { name: copy.partnership.jumpToContact });
+    expect(jump).toHaveAttribute("href", "#partnership-contact");
+    expect(contact).toHaveAttribute("id", "partnership-contact");
+    expect(contact).toHaveAttribute("tabindex", "-1");
     expect(within(contact).getAllByRole("listitem")).toHaveLength(3);
     const email = within(contact).getByRole("link", { name: "orider.app@gmail.com" });
     expect(email).toHaveAttribute("href", "mailto:orider.app@gmail.com");

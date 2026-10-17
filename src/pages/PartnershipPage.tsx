@@ -1,12 +1,15 @@
-import { Mail, Package, Users, PenLine } from "lucide-react";
+import { Mail, Package, Users, PenLine, Megaphone, Store, MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { Card, buttonClass } from "../theme/components";
 
 const topics = [
   { key: "product", Icon: Package },
+  { key: "brand", Icon: Megaphone },
   { key: "community", Icon: Users },
   { key: "content", Icon: PenLine },
+  { key: "shop", Icon: Store },
+  { key: "regional", Icon: MapPin },
 ] as const;
 
 export default function PartnershipPage() {
@@ -18,6 +21,7 @@ export default function PartnershipPage() {
         <p className="text-[length:var(--fs-xs)] font-semibold text-[var(--ink-3)]">{t("partnership.eyebrow")}</p>
         <h1 className="text-[length:var(--fs-2xl)] font-bold tracking-tight text-[var(--ink-0)]">{t("partnership.title")}</h1>
         <p className="max-w-2xl text-[length:var(--fs-base)] leading-relaxed text-[var(--ink-2)]">{t("partnership.intro")}</p>
+        <a href="#partnership-contact" className="inline-flex min-h-[var(--dim-button-height)] items-center text-[length:var(--fs-sm)] font-semibold text-[var(--accent)] underline underline-offset-4">{t("partnership.jumpToContact")}</a>
       </header>
 
       <section aria-labelledby="partnership-topics" className="space-y-3">
@@ -31,12 +35,13 @@ export default function PartnershipPage() {
             </Card>
           ))}
         </div>
+        <p className="text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-3)]">{t("partnership.otherIdeas")}</p>
       </section>
 
-      <section aria-labelledby="partnership-contact">
+      <section id="partnership-contact" aria-labelledby="partnership-contact-heading" tabIndex={-1} style={{ scrollMarginTop: "calc(var(--space-8) + var(--space-7))" }}>
         <Card className="space-y-5">
           <div className="space-y-2">
-            <h2 id="partnership-contact" className="text-[length:var(--fs-lg)] font-semibold text-[var(--ink-0)]">{t("partnership.contactTitle")}</h2>
+            <h2 id="partnership-contact-heading" className="text-[length:var(--fs-lg)] font-semibold text-[var(--ink-0)]">{t("partnership.contactTitle")}</h2>
             <p className="text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-2)]">{t("partnership.contactDescription")}</p>
             <ul className="list-disc space-y-2 pl-5 text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-2)]">
               {(["who", "idea", "context"] as const).map(key => <li key={key}>{t(`partnership.details.${key}`)}</li>)}
