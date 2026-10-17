@@ -693,9 +693,13 @@ describe("activity totals channel calculator 35 boundary", () => {
   const safe=validateCyclingDistanceHistoryResponse(r,opted,NOW);expect(safe.activities.find(row=>row.activityId==="native")!.activityTotals).toBeUndefined();expect(safe.activities.find(row=>row.activityId==="native")!.distanceObservations).toEqual(neutralHistory(r).activities.find(row=>row.activityId===native.activityId)!.distanceObservations);
   const legacy=structuredClone(r);for(const row of legacy.activities)delete row.activityTotals;expect(validateCyclingDistanceHistoryResponse(legacy,request,NOW)).toEqual(neutralHistory(legacy));
  });
- it("keeps v35 canonical totals valid but rejects v35 summary fallback", () => {
+ it("keeps v35 canonical totals and accepts its outdated summary under calculator v36", () => {
   expect(validateCyclingDistanceHistoryResponse(totalsWire,opted,NOW)).toEqual(neutralHistory(totalsWire));
-  const r=oldWire();r.activities.find(row=>row.activityId==="outdated34")!.analysis.calculatorVersion=35;expect(validateCyclingDistanceHistoryResponse(r,opted,NOW).activities.find(row=>row.activityId==="outdated34")!.activityTotals).toBeUndefined();
+  const r=oldWire(), old=r.activities.find(row=>row.activityId==="outdated34")!;
+  old.analysis.calculatorVersion=35;
+  expect(validateCyclingDistanceHistoryResponse(r,opted,NOW)).toEqual(neutralHistory(r));
+  old.analysis.calculatorVersion=36;
+  expect(validateCyclingDistanceHistoryResponse(r,opted,NOW).activities.find(row=>row.activityId==="outdated34")!.activityTotals).toBeUndefined();
  });
  it("preserves nullable old-summary distance independently of observed zero gain", () => {
   const r=oldWire(),old=r.activities.find(row=>row.activityId==="outdated34")!;old.activityTotals!.distanceM=null;old.activityTotals!.sourceBasis.distanceM="unavailable";
@@ -735,4 +739,14 @@ it("matches actual compiled legacy normalization and modern history with exact t
   const request={mode:"cycling_distance_history_page",discipline:"bike",calendarBasis:"Asia/Seoul",rangeBasis:"calendar_year",year:2026,includeActivityTotals:true} as const;
   expect(validateCyclingDistanceHistoryResponse(raw,request,now)).toEqual(normalized);
   expect(validateCyclingDistanceHistoryResponse(modern,request,now)).toBe(modern);
+});
+
+
+it.each([34, 35, 36])("preserves compatible ready history snapshots across calculator upgrades: v%s", version => {
+  const data = structuredClone(wire);
+  const ready = data.activities.find(row => row.analysis.state === "ready")!;
+  ready.analysis.calculatorVersion = version;
+  expect(validateCyclingDistanceHistoryResponse(data, request, NOW)).toEqual(neutralHistory(data));
+  ready.analysis.calculatorVersion = 33;
+  expect(() => validateCyclingDistanceHistoryResponse(data, request, NOW)).toThrow();
 });

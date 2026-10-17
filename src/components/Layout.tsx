@@ -36,6 +36,7 @@ export function shouldBypassOnboardingRedirect(path: string): boolean {
     path === "/migrate" ||
     path === "/terms" ||
     path === "/privacy" ||
+    path === "/account-deletion" ||
     path === "/community" ||
     path.startsWith("/policies/") ||
     path === "/strava-terms"
