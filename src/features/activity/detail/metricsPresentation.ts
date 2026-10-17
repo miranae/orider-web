@@ -55,7 +55,7 @@ export interface ClimbSegment {
   durationSec: number | null;
 }
 
-const HR_ZONE_LABELS = [
+export const HR_ZONE_LABELS = [
   { name: "회복", nameKey: "fitness:zone.recovery", color: "var(--zone-1)" },
   { name: "지구력", nameKey: "fitness:zone.endurance", color: "var(--zone-2)" },
   { name: "템포", nameKey: "fitness:zone.tempo", color: "var(--zone-3)" },
@@ -63,7 +63,7 @@ const HR_ZONE_LABELS = [
   { name: "최대", nameKey: "fitness:zone.maxAerobic", color: "var(--zone-5)" },
 ];
 
-const POWER_ZONE_LABELS = [
+export const POWER_ZONE_LABELS = [
   { name: "회복", nameKey: "fitness:zone.recovery", color: "var(--zone-1)" },
   { name: "지구력", nameKey: "fitness:zone.endurance", color: "var(--zone-2)" },
   { name: "템포", nameKey: "fitness:zone.tempo", color: "var(--zone-3)" },

@@ -1178,39 +1178,8 @@ export default function ActivityPage() {
 
       <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />
 
-      <EquipmentSignalCard
-        key={activity.id}
-        activityId={activity.id}
-        ownerId={activity.userId}
-        viewerId={user?.uid ?? null}
-      />
-
-      <ActivityFtpDecisionCard
-        uid={user?.uid ?? null}
-        activityId={activity.id}
-        enabled={isActivityOwner && shareDiscipline === "bike"}
-      />
-
-      {isActivityOwner && activityId && (
-        <StravaSummaryPublishing
-          key={`${activityId}:${stravaSummaryLang}:${user?.uid ?? "anonymous"}`}
-          activityId={activityId}
-          lang={stravaSummaryLang}
-        />
-      )}
-
-      {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}
-      {canShowAiAnalysis && (
-        <AiRideAnalysisCard
-          activityId={activityId ?? null}
-          enabled={canShowAiAnalysis}
-          sport={sport}
-          isActivityOwner={isActivityOwner}
-          summaryPreview={activity.aiSummaryPreview}
-          summaryPreviewEn={activity.aiSummaryPreview_en}
-        />
-      )}
-
+      {/* 고도 & 성능 — 개요 카드 바로 아래. 스트림은 활동 하나에 함수 호출 1회와 0.1~0.8MB 를 쓰므로
+      (2026-10-18 실측) 소유자 화면은 버튼을 누를 때만 받는다. 서버 요약만으로 개요가 완결된다. */}
       {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} />}
       {!streamsSignInRequired && !streams && !loadingStreams && (
         <Button variant="outline" onClick={requestStreams}>
@@ -1262,6 +1231,40 @@ export default function ActivityPage() {
           </div>
         </Card>
       )}
+
+      <EquipmentSignalCard
+        key={activity.id}
+        activityId={activity.id}
+        ownerId={activity.userId}
+        viewerId={user?.uid ?? null}
+      />
+
+      <ActivityFtpDecisionCard
+        uid={user?.uid ?? null}
+        activityId={activity.id}
+        enabled={isActivityOwner && shareDiscipline === "bike"}
+      />
+
+      {isActivityOwner && activityId && (
+        <StravaSummaryPublishing
+          key={`${activityId}:${stravaSummaryLang}:${user?.uid ?? "anonymous"}`}
+          activityId={activityId}
+          lang={stravaSummaryLang}
+        />
+      )}
+
+      {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}
+      {canShowAiAnalysis && (
+        <AiRideAnalysisCard
+          activityId={activityId ?? null}
+          enabled={canShowAiAnalysis}
+          sport={sport}
+          isActivityOwner={isActivityOwner}
+          summaryPreview={activity.aiSummaryPreview}
+          summaryPreviewEn={activity.aiSummaryPreview_en}
+        />
+      )}
+
 
 
       {/* 러닝/수영 전용 상세 카드 (좌측, 개요 탭에서만) */}

@@ -4,6 +4,7 @@ import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { useTheme } from "../contexts/ThemeContext";
 import { useOriderTheme } from "../theme";
 import PowerCurveChart from "./PowerCurveChart";
+import DurationCurveChart from "./DurationCurveChart";
 import SpeedCurveChart from "./SpeedCurveChart";
 
 const { line } = vi.hoisted(() => ({ line: vi.fn() }));
@@ -37,5 +38,20 @@ describe("DurationCurveChart theme colors", () => {
     checkColors();
     fireEvent.click(screen.getByRole("button", { name: "명암 변경" }));
     checkColors();
+  });
+});
+
+describe("DurationCurveChart comparison", () => {
+  it("overlays a dashed comparison series with a legend, tooltip footer and an accessible canvas", () => {
+    line.mockClear();
+    renderWithProviders(<DurationCurveChart points={[{ durationSeconds: 1, value: 500 }, { durationSeconds: 60, value: 300 }]}
+      unit="W" color="var(--chart-power)" datasetLabel="이번 활동" emptyTitle="-" emptyDescription="-" showLegend
+      comparison={{ label: "역대 최고", values: [600, null] }} tooltipFooter={(index) => [`footer ${index}`]} ariaLabel="파워 커브" />);
+    const props = line.mock.lastCall![0];
+    expect(props.data.datasets[1]).toMatchObject({ label: "역대 최고", data: [600, null], borderDash: [5, 4], spanGaps: true });
+    expect(props.options.plugins.tooltip.callbacks.footer([{ dataIndex: 1 }])).toEqual(["footer 1"]);
+    expect(props["aria-label"]).toBe("파워 커브");
+    expect(props.tabIndex).toBe(0);
+    expect(screen.getByText("역대 최고")).toBeInTheDocument();
   });
 });

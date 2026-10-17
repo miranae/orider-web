@@ -224,7 +224,22 @@
     "tsb": "Form · TSB",
     "ftp": "Analysis FTP",
     "qualityFooter": "※ Measured values are used when user-approved values are unavailable.",
-    "runThresholdMissing": "Set threshold pace and maximum heart rate for running intensity and comparisons."
+    "runThresholdMissing": "Set threshold pace and maximum heart rate for running intensity and comparisons.",
+    "intensity": "Intensity · IF",
+    "zoneTime": "time in zone",
+    "ifGaugeLabel": "Intensity gauge · IF {{value}} (FTP = 1.00)",
+    "zoneBarLabel": "Share of time in zone",
+    "zoneBaseline": "Usual for this type · {{count}} activities",
+    "zoneBaselineDiscipline": "Usual for this sport · {{count}} activities",
+    "zoneBaselineAria": "Usual share of time in zone",
+    "prMark": "PR",
+    "ofBest": "{{pct}}% of best",
+    "thisActivity": "This activity",
+    "curveAria": "Peak power curve · up to {{peak}} W. Use the left and right arrow keys to read each duration.",
+    "shiftAria": "{{metric}} from {{from}} to {{to}}",
+    "fitnessTitle": "Combined training load",
+    "beforeLegend": "Before",
+    "aboutSection": "About {{title}}"
   },
   "overviewEvidence": {
     "integratedFitness": "Combined training load · before session",

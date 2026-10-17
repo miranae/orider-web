@@ -6,6 +6,7 @@ import type {
 } from "@shared/training/metabolism";
 import { Text } from "../theme/components";
 import InfoTip from "./InfoTip";
+import FuelSplitBar from "./FuelSplitBar";
 
 interface MetabolismCardProps {
   /** 서버 `activity_metrics.substrate` — 시간 가중 적분. 웹은 계산하지 않는다 (#2437). */
@@ -82,51 +83,15 @@ export default function MetabolismCard({
         </div>
       )}
 
-      {/* 지방 vs 탄수 분할 */}
-      <div
-        style={panelStyle}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <Text variant="eyebrow" size="xs">
-              {t("metabolism.fat")}
-            </Text>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
-              <Text variant="dataLarge" style={{ color: "var(--lime)" }}>
-                {substrate.fatKcal}
-              </Text>
-              <Text variant="unit">kcal · {fatPctRound}%</Text>
-            </div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <Text variant="eyebrow" size="xs">
-              {t("metabolism.carb")}
-            </Text>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1, justifyContent: "flex-end" }}>
-              <Text variant="dataLarge" style={{ color: "var(--amber)" }}>
-                {substrate.carbKcal}
-              </Text>
-              <Text variant="unit">kcal · {carbPctRound}%</Text>
-            </div>
-          </div>
-        </div>
-
-        {/* 분할 바 */}
-        <div
-          className="rounded-full"
-          style={{
-            display: "flex",
-            height: 10,
-            overflow: "hidden",
-            background: "var(--bg-3)",
-          }}
-        >
-          <div style={{ width: `${fatPctRound}%`, background: "var(--lime)" }} />
-          <div style={{ width: `${carbPctRound}%`, background: "var(--amber)" }} />
-        </div>
-        <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-2)" }}>
-          {t("metabolism.totalKcal", { kcal: substrate.totalKcal })}
-        </Text>
+      {/* 지방 vs 탄수 분할 — 개요와 같은 막대를 쓴다. */}
+      <div style={panelStyle}>
+        <FuelSplitBar
+          fat={{ label: t("metabolism.fat"), pct: fatPctRound, kcal: substrate.fatKcal }}
+          carb={{ label: t("metabolism.carb"), pct: carbPctRound, kcal: substrate.carbKcal }}
+          footer={<Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-2)" }}>
+            {t("metabolism.totalKcal", { kcal: substrate.totalKcal })}
+          </Text>}
+        />
       </div>
 
       {/* FATMAX 존 */}

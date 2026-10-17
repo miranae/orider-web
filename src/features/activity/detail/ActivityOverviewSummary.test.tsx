@@ -1,11 +1,20 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render as rtlRender, screen } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import i18n from "i18next";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
 import enGlossary from "../../../i18n/resources/en/termGlossary.json";
 import enActivity from "../../../i18n/resources/en/activity.json";
+import { ThemeProvider } from "../../../contexts/ThemeContext";
+import { OriderThemeProvider } from "../../../theme";
 import ActivityOverviewSummary, { ActivityOverviewSummaryContent } from "./ActivityOverviewSummary";
+
+// 파워 커브는 Chart.js 캔버스다 — jsdom 에서는 받은 데이터만 본다.
+const { line } = vi.hoisted(() => ({ line: vi.fn() }));
+vi.mock("react-chartjs-2", () => ({ Line: (props: { "aria-label"?: string }) => { line(props); return <div data-testid="power-curve" role="img" aria-label={props["aria-label"]} />; } }));
+const Themed = ({ children }: { children: ReactNode }) => <ThemeProvider><OriderThemeProvider>{children}</OriderThemeProvider></ThemeProvider>;
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: Themed });
 
 // Tooltip triggers split visible sentences across descendants; assert the same full text.
 function renderedText(expected: string | RegExp, exact = true) {
@@ -60,7 +69,7 @@ describe("ActivityOverviewSummary", () => {
     for (const title of ["훈련 자극", "나의 변화", "회복과 연료", "시작 전 상태"]) expect(screen.getByRole("region", { name: title })).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getByText(rich.coachSentence)).toBeInTheDocument();
-    expect(screen.getByText(renderedText("25"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("25%"))).toBeInTheDocument();
     expect(screen.getByText(renderedText("0회 · 0분 0초"))).toBeInTheDocument();
     expect(screen.getByText(renderedText("1분 0초"))).toBeInTheDocument();
     expect(screen.getByText(renderedText("피크 파워 변화 · 2분"))).toBeInTheDocument();
@@ -287,7 +296,10 @@ it("preserves observed effects, historical zone uncertainty and previous-best pe
  expect(screen.getByText(renderedText("존 비교 잠정 · FTP 확인이 필요한 과거 기록 포함"))).toBeInTheDocument();
  expect(screen.getByText(renderedText(/일부 비교 기록 기준/))).toBeInTheDocument();
  expect(screen.getByText(renderedText("110%"))).toBeInTheDocument();
- expect(screen.getByText(renderedText(/활동 전 최고 대비는 이번 활동 이전/))).toBeInTheDocument();
+ // 비교 기준 설명은 그림 옆 ⓘ 로 접혀 있다.
+ expect(screen.queryByText(renderedText(/활동 전 최고 대비는 이번 활동 이전/))).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button", { name: "구간 최고 출력 설명" }));
+ expect(screen.getByRole("tooltip")).toHaveTextContent(/활동 전 최고 대비는 이번 활동 이전/);
  expect(screen.queryByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다."))).not.toBeInTheDocument();
 });
 
@@ -303,4 +315,48 @@ it.each(["ko", "en"])("shows integrated before/after estimates without readiness
   expect(container.textContent).toContain("2026-09-12 14:00 KST");
   expect(container.textContent).not.toContain(language === "en" ? "Productive" : "순항");
   expect(container.textContent).not.toMatch(/Recommended recovery|권장 회복/);
+});
+
+describe("activity overview reads as pictures", () => {
+  it("draws intensity, zone time, the power curve and the load shift from the server values only", () => {
+    line.mockClear();
+    const presentation: ActivityOverviewPresentation = { ...rich, session: { ...rich.session, loadKind: "tss", intensityFactor: 0.83 },
+      fitnessScope: "integrated", fitnessEvidence: "sufficient",
+      zones: [{ kind: "power", seconds: [570, 632, 557, 370, 134, 84, 58], priority: "primary", currentPercentages: [23.7, 26.3, 23.2, 15.4, 5.6, 3.5, 2.4] }],
+      postFitnessStatus: { asOf: "2026-09-12 14:00 KST", ctl: 52.8, atl: 65.1, tsb: -12.3, formBand: "needsRecovery", basis: "activity" },
+      powerFingerprint: [
+        { duration: "1s", watts: 845, allTimeBestWatts: 845, allTimeBestPct: 100, previousBestPct: 102.3, recordAchievement: "new" },
+        { duration: "5m", watts: 177, allTimeBestWatts: 298, allTimeBestPct: 59.4, previousBestPct: 59.4 },
+      ] };
+    render(<ActivityOverviewSummaryContent presentation={presentation} />);
+    expect(screen.getByRole("img", { name: "강도 게이지 · IF 0.83 (FTP 1.00 기준)" })).toBeInTheDocument();
+    // 존 막대는 서버 비중을 그대로 읽어 준다 — 초에서 다시 나누지 않는다.
+    expect(screen.getByRole("img", { name: /^존별 시간 비중: Z1 23.7%, Z2 26.3%, .*Z7 2.4%$/ })).toBeInTheDocument();
+    expect(screen.getByText(renderedText("26.9%"))).toBeInTheDocument();
+    const curve = line.mock.lastCall![0] as { data: { datasets: Array<{ label: string; data: Array<number | null> }> } };
+    expect(curve.data.datasets.map((dataset) => dataset.label)).toEqual(["이번 활동", "역대 최고"]);
+    expect(curve.data.datasets[0]!.data).toEqual([845, 177]);
+    expect(curve.data.datasets[1]!.data).toEqual([845, 298]);
+    expect(screen.getByText(renderedText("1초 845 W · 역대 최고 845 W · 활동 전 최고 대비 102.3% · 전체 기간 PR"))).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "체력 · CTL 37.4 → 52.8" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "폼 · TSB -4.6 → -12.3" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /지방 18% · 탄수화물 82%/ })).toBeInTheDocument();
+    // 개요는 숫자 근거 표가 아니다 — 표는 분석 탭의 평가 근거가 맡는다.
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("falls back to heart-rate zones without power pictures for a run", () => {
+    line.mockClear();
+    render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "run", load: 34, loadKind: "load", loadSource: "time" },
+      zones: [{ kind: "heartRate", seconds: [1314, 401, 270, 67, 3], priority: "secondary", currentPercentages: [63.9, 19.5, 13.2, 3.3, 0.1] }],
+      powerFingerprint: [{ duration: "1s", watts: 500 }], priorFitnessStatus: rich.priorFitnessStatus,
+      availability: { personal: "unavailable", records: "evaluated", power: "not_applicable", heartRate: "available" } }} />);
+    expect(screen.getByRole("img", { name: /^존별 시간 비중: Z1 63.9%/ })).toBeInTheDocument();
+    expect(screen.getByText(renderedText("심박 · 존별 시간"))).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /강도 게이지/ })).not.toBeInTheDocument();
+    expect(line).not.toHaveBeenCalled();
+    expect(screen.queryByRole("region", { name: "구간 최고 출력" })).not.toBeInTheDocument();
+    // 전후가 없으면 운동 전 점만 그린다.
+    expect(screen.getByRole("img", { name: "체력 · CTL 37.4" })).toBeInTheDocument();
+  });
 });

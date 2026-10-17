@@ -224,7 +224,22 @@
     "tsb": "폼 · TSB",
     "ftp": "분석 기준 FTP",
     "qualityFooter": "※ 사용자 승인값이 없으면 계측값을 사용합니다.",
-    "runThresholdMissing": "임계 페이스·최대심박을 설정하면 러닝 강도와 같은 유형 비교를 확인할 수 있습니다."
+    "runThresholdMissing": "임계 페이스·최대심박을 설정하면 러닝 강도와 같은 유형 비교를 확인할 수 있습니다.",
+    "intensity": "강도 · IF",
+    "zoneTime": "존별 시간",
+    "ifGaugeLabel": "강도 게이지 · IF {{value}} (FTP 1.00 기준)",
+    "zoneBarLabel": "존별 시간 비중",
+    "zoneBaseline": "같은 유형 평소 · {{count}}회",
+    "zoneBaselineDiscipline": "같은 종목 평소 · {{count}}회",
+    "zoneBaselineAria": "평소 존별 시간 비중",
+    "prMark": "PR",
+    "ofBest": "최고의 {{pct}}%",
+    "thisActivity": "이번 활동",
+    "curveAria": "구간 최고 출력 곡선 · 최대 {{peak}} W. 좌우 화살표로 구간을 옮기며 값을 읽습니다.",
+    "shiftAria": "{{metric}} {{from}} → {{to}}",
+    "fitnessTitle": "통합 훈련 부하",
+    "beforeLegend": "운동 전",
+    "aboutSection": "{{title}} 설명"
   },
   "overviewEvidence": {
     "integratedFitness": "통합 훈련 부하 · 운동 전",
