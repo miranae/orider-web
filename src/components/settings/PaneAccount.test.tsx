@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   showToast: vi.fn(),
   currentUser: { uid: "u1" } as { uid: string } | null,
   callable: vi.fn(),
+  navigate: vi.fn(),
   confirm: vi.fn(async () => true),
 }));
 
@@ -86,7 +87,7 @@ vi.mock("../../hooks/useStrava", () => ({
 }));
 
 vi.mock("../../hooks/useLocalizedNavigate", () => ({
-  useLocalizedNavigate: () => vi.fn(),
+  useLocalizedNavigate: () => mocks.navigate,
   useLocalizedPath: (path: string) => `/ko${path}`,
 }));
 
@@ -100,6 +101,7 @@ describe("PaneAccount nickname save", () => {
     mocks.updateProfile.mockClear().mockResolvedValue(undefined);
     mocks.logClientError.mockClear();
     mocks.showToast.mockClear();
+    mocks.navigate.mockClear();
     mocks.confirm.mockClear().mockResolvedValue(true);
     mocks.callable.mockReset().mockImplementation(async (name, input) => ({ data: name === "applyVisibilityToExistingActivities" ? input.dryRun ? { count: 2 } : { updated: 2 } : { updated: 0, scope: "default" } }));
   });
@@ -114,7 +116,16 @@ describe("PaneAccount nickname save", () => {
     expect(summary.closest("details")).not.toHaveAttribute("open");
     expect(screen.getByTestId("coach-consent").compareDocumentPosition(screen.getByText("pane.account.cardManagement")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("link", { name: "pane.account.manageData" })).toHaveAttribute("href", "/ko/settings/data");
-    expect(screen.queryByRole("button", { name: "pane.account.deleteBtnLabel" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "pane.account.deleteBtnLabel" })).toBeInTheDocument();
+  });
+
+  it("opens deletion guidance without executing a destructive operation", () => {
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "pane.account.deleteBtnLabel" }));
+    expect(mocks.navigate).toHaveBeenCalledWith("/account-deletion");
+    expect(mocks.callable).not.toHaveBeenCalled();
+    expect(mocks.updateDoc).not.toHaveBeenCalled();
+    expect(mocks.confirm).not.toHaveBeenCalled();
   });
 
   it("syncs Firebase Auth displayName after saving the Firestore nickname", async () => {
