@@ -7,7 +7,7 @@ import { Button, Card } from "../theme/components";
 import { LocalizedLink as Link } from "./LocalizedLink";
 import AppInstallLinks from "./AppInstallLinks";
 
-type Group = "partnershipInquiry" | "help" | "policies" | "install";
+type Group = "help" | "policies" | "install";
 const helpLinks = [
   ["/manual", "footer.appManual"], ["/web-manual", "footer.webManual"],
   ["/community/board?type=inquiry", "footer.contact"], ["/feedback", "footer.feedback"],
@@ -60,13 +60,14 @@ export default function FooterNavigation() {
   const linkClass = "transition-colors hover:opacity-80";
   return <nav ref={root} aria-label={t("footer.navigation")} className="flex flex-wrap items-center gap-4">
     <Link data-testid="X2-1" to="/about" className={linkClass}>{t("nav.aboutOrider")}</Link>
-    {(["partnershipInquiry", "help", "policies", "install"] as const).map(group => <Button key={group} ref={node => { triggers.current[group] = node; }} variant="ghost" size="sm"
+    <Link to="/partnership" className={linkClass}>{t("footer.partnershipInquiry")}</Link>
+    {(["help", "policies", "install"] as const).map(group => <Button key={group} ref={node => { triggers.current[group] = node; }} variant="ghost" size="sm"
       aria-expanded={open === group} aria-controls={`${id}-${group}`} onClick={() => setOpen(value => value === group ? null : group)}
       style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t(`footer.${group}`)}<ChevronUp aria-hidden="true" size={12} style={{ transform: open === group ? "rotate(180deg)" : undefined }} /></Button>)}
     {open && createPortal(<div ref={panel} tabIndex={-1} id={`${id}-${open}`} role="region" aria-label={t(`footer.${open}`)}
       style={{ position: "fixed", ...position, zIndex: 100, maxHeight: `calc(100dvh - ${position.bottom}px - 16px)`, overflowY: "auto" }}>
       <Card padding="compact" style={{ boxShadow: "var(--shadow-lg)" }}>
-        {open === "partnershipInquiry" ? <span className="select-text" style={{ fontSize: "var(--fs-sm)", color: "var(--ink-1)" }}>{t("footer.email")} : <a href="mailto:orider.app@gmail.com" draggable={false} className="select-text underline underline-offset-2" style={{ userSelect: "text", cursor: "pointer" }}>orider.app@gmail.com</a></span> : open === "install" ? <AppInstallLinks compact appStoreLabel="App Store" playStoreLabel="Google Play" /> : <div className="flex flex-col gap-1">
+        {open === "install" ? <AppInstallLinks compact appStoreLabel="App Store" playStoreLabel="Google Play" /> : <div className="flex flex-col gap-1">
           {(open === "help" ? helpLinks : policyLinks).map(([to, key]) => <Link key={to} to={to!} className={`${linkClass} flex items-center rounded-[var(--r-sm)] px-3 py-2`} style={{ minHeight: 44, fontSize: "var(--fs-sm)" }}>{t(key!)}</Link>)}
         </div>}
       </Card>

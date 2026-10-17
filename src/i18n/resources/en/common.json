@@ -83,6 +83,29 @@
     "navigation": "Site information",
     "email": "Email"
   },
+  "partnership": {
+    "eyebrow": "ORIDER · Better experiences, together",
+    "title": "Partnership inquiries",
+    "intro": "Help shape more enjoyable ways to stay active and grow together with Orider. Tell us about your partnership idea by email.",
+    "topicsTitle": "Ideas we would like to hear",
+    "topics": {
+      "product": { "title": "Products & services", "description": "Ideas for sports devices, service integrations and products that work together." },
+      "community": { "title": "Clubs, events & communities", "description": "Ideas for group activities, events and community collaboration." },
+      "content": { "title": "Content", "description": "Ideas for sharing sports experiences, useful information and creating content together." }
+    },
+    "contactTitle": "Send us your proposal",
+    "contactDescription": "Include these details to help us understand your idea.",
+    "details": {
+      "who": "Your name or organization and contact details",
+      "idea": "Your partnership idea and the experience you hope to create",
+      "context": "A tentative timeline and any useful links or materials"
+    },
+    "emailLabel": "Email",
+    "emailAction": "Write a partnership email",
+    "emailHint": "Select the address to copy it, or use the button to open your email app.",
+    "supportText": "Have a question about the app or an improvement in mind?",
+    "supportLink": "General questions & feedback"
+  },
   "nav": {
     "todayTraining": "Today’s workout",
     "analysis": "Analysis",

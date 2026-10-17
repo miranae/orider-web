@@ -83,6 +83,29 @@
     "navigation": "사이트 안내",
     "email": "이메일"
   },
+  "partnership": {
+    "eyebrow": "ORIDER · 함께 만드는 운동의 즐거움",
+    "title": "협력 문의",
+    "intro": "더 즐겁게 운동하고, 함께 성장하는 경험을 오라이더와 만들어 보세요. 제안하고 싶은 협력이 있다면 이메일로 알려주세요.",
+    "topicsTitle": "이런 이야기를 기다립니다",
+    "topics": {
+      "product": { "title": "제품 · 서비스", "description": "운동 기기와 서비스 연동, 함께 활용할 수 있는 제품에 관한 제안" },
+      "community": { "title": "클럽 · 행사 · 커뮤니티", "description": "함께하는 운동 모임, 행사와 커뮤니티 협력에 관한 제안" },
+      "content": { "title": "콘텐츠", "description": "운동 경험과 정보를 나누는 콘텐츠, 공동 제작에 관한 제안" }
+    },
+    "contactTitle": "이메일로 제안해 주세요",
+    "contactDescription": "아래 내용을 함께 보내주시면 제안을 이해하는 데 도움이 됩니다.",
+    "details": {
+      "who": "이름 또는 단체명과 회신받을 연락처",
+      "idea": "협력하고 싶은 내용과 기대하는 경험",
+      "context": "예상 일정과 참고할 수 있는 링크나 자료"
+    },
+    "emailLabel": "이메일",
+    "emailAction": "협력 제안 메일 쓰기",
+    "emailHint": "주소를 선택해 복사하거나, 메일 쓰기를 눌러 보내주세요.",
+    "supportText": "앱 사용 중 궁금한 점이나 개선 의견이 있나요?",
+    "supportLink": "일반 문의 · 피드백"
+  },
   "nav": {
     "todayTraining": "오늘 운동",
     "analysis": "분석",

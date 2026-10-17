@@ -36,18 +36,10 @@ describe("Layout", () => {
     expect(footer).toHaveAttribute("data-testid", "H-F");
     const user = userEvent.setup();
     const navigation = within(footer).getByRole("navigation", { name: "사이트 안내" });
-    expect(within(navigation).getAllByRole("button")).toHaveLength(4);
+    expect(within(navigation).getAllByRole("button")).toHaveLength(3);
+    expect(within(navigation).getByRole("link", { name: "협력 문의" })).toHaveAttribute("href", "/ko/partnership");
     expect(screen.queryByText("orider.app@gmail.com")).not.toBeInTheDocument();
-    await user.click(within(navigation).getByRole("button", { name: "협력 문의" }));
-    const partnership = screen.getByRole("region", { name: "협력 문의" });
-    expect(partnership).toHaveTextContent("이메일 : orider.app@gmail.com");
-    const email = within(partnership).getByRole("link", { name: "orider.app@gmail.com" });
-    expect(email).toHaveAttribute("href", "mailto:orider.app@gmail.com");
-    expect(email).toHaveAttribute("draggable", "false");
-    expect(email).toHaveStyle({ userSelect: "text" });
-    expect(email).toHaveFocus();
     await user.click(within(navigation).getByRole("button", { name: "도움말" }));
-    expect(screen.queryByRole("region", { name: "협력 문의" })).not.toBeInTheDocument();
     const help = screen.getByRole("region", { name: "도움말" });
     expect(within(help).getByRole("link", { name: "앱 설명서" })).toHaveAttribute("href", "/ko/manual");
     expect(within(help).getByRole("link", { name: "웹 설명서" })).toHaveAttribute("href", "/ko/web-manual");
@@ -85,6 +77,7 @@ describe("Layout", () => {
     expect(shouldBypassOnboardingRedirect("/migrate")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/onboarding")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/terms")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/partnership")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/privacy")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/community")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/strava-terms")).toBe(true);
