@@ -61,5 +61,8 @@
   "cancelSuccess": "요청을 취소했어요",
   "cancelFailed": "요청을 취소하지 못했어요",
   "cancelConfirm": "이 친구 요청을 취소할까요?",
-  "inviteButton": "초대"
+  "inviteButton": "초대",
+  "removeNamed": "{{name}} 친구 삭제",
+  "acceptNamed": "{{name}} 친구 요청 수락",
+  "declineNamed": "{{name}} 친구 요청 거절"
 }

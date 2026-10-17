@@ -12,7 +12,7 @@ import { functions } from "../../services/firebase";
 import { track } from "../../services/analytics";
 
 import { SettingsCard, InlineRow, Toggle } from "./_primitives";
-import { Button, Text } from "../../theme/components";
+import { Button, Text, buttonClass } from "../../theme/components";
 
 function StravaIcon({ size = 22 }: { size?: number }) {
   return (
@@ -47,16 +47,16 @@ function ServiceCard({
 }: ServiceCardProps) {
   const { t } = useTranslation("settings");
   return (
-    <div
+    <div className="settings-service-card"
       style={{
-        padding: "12px 14px",
+        padding: "var(--space-3)",
         borderRadius: "var(--r-md)",
         border: "1px solid var(--line-soft)",
         background: connected
           ? "var(--bg-1)"
           : "color-mix(in oklch, var(--bg-2) 60%, var(--bg-1))",
         display: "grid",
-        gridTemplateColumns: "auto 1fr auto",
+        gridTemplateColumns: "var(--settings-service-columns, auto minmax(0, 1fr) auto)",
         gap: "var(--space-3)",
         alignItems: "center",
       }}
@@ -74,7 +74,7 @@ function ServiceCard({
       >
         {icon}
       </div>
-      <div>
+      <div className="settings-service-copy">
         <div
           style={{
             fontSize: "var(--fs-sm)",
@@ -97,7 +97,7 @@ function ServiceCard({
             />
           )}
         </div>
-        <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{desc}</div>
+        <div className="settings-service-description" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{desc}</div>
       </div>
       {comingSoon ? (
         <Text variant="eyebrow" style={{ color: "var(--ink-3)" }}>
@@ -192,17 +192,7 @@ export function PaneConnections() {
       onConnect: () => {},
       onDisconnect: () => {},
     },
-    {
-      id: "apple",
-      name: "Apple Health",
-      desc: t("pane.connections.appleHealthDesc"),
-      brand: "oklch(0.18 0.005 240)",
-      icon: <span style={{ color: "white", fontSize: "var(--fs-sm)" }}>♥</span>,
-      connected: false,
-      comingSoon: true,
-      onConnect: () => {},
-      onDisconnect: () => {},
-    },
+
   ];
 
   const connectedCount = services.filter((s) => s.connected).length;
@@ -210,7 +200,7 @@ export function PaneConnections() {
   return (
     <>
       <SettingsCard data-testid="S2-1-1"
-        title={t("pane.connections.cardConnected")}
+        title={t("pane.connections.activityApps")}
         action={
           <Text variant="eyebrow" style={{ color: "var(--ink-3)" }}>
             {t("pane.connections.connectedCount_other", { count: connectedCount })}
@@ -219,7 +209,7 @@ export function PaneConnections() {
         dense
       >
         <div style={{ display: "grid", gap: 'var(--space-2)' }}>
-          {services.map((s) => (
+          {services.filter(s => !s.comingSoon).map((s) => (
             <ServiceCard
               key={s.id}
               name={s.name}
@@ -234,6 +224,12 @@ export function PaneConnections() {
             />
           ))}
         </div>
+        <details className="settings-future-connections">
+          <summary>{t("pane.connections.futureApps")}</summary>
+          <div style={{ display: "grid", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+            {services.filter(s => s.comingSoon).map(s => <ServiceCard key={s.id} {...s} />)}
+          </div>
+        </details>
       </SettingsCard>
 
       {stravaConnected && (
@@ -251,12 +247,10 @@ export function PaneConnections() {
             label={t("pane.connections.importPastLabel")}
             hint={t("pane.connections.importPastHint")}
           >
-            <Link data-testid="S2-1-4" to="/settings/data#migrate">
-              <Button variant="secondary">
+            <Link data-testid="S2-1-4" to="/settings/data#migrate" className={buttonClass({ variant: "secondary" })}>
                 {profile?.migration?.status === "DONE"
                   ? t("pane.connections.importBtnReport")
                   : t("pane.connections.importBtnImport")}
-              </Button>
             </Link>
           </InlineRow>
         </SettingsCard>

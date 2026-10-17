@@ -83,7 +83,9 @@ describe("mobile sport threshold information", () => {
     mocks.periods.mockClear();
     const user = userEvent.setup();
     renderWithProviders(<MobileFitnessPage data={{ ...data, discipline }} embedded powerCurvePeriodsOwnerUid="test-uid" powerCurvePeriodsEnabled />, { authenticated: true });
-    await user.click(screen.getByRole("button", { name: button }));
+    const analysisToggle = document.querySelector<HTMLButtonElement>(".mobile-fitness-mode-toggle")!;
+    expect(analysisToggle).toHaveAccessibleName(button);
+    await user.click(analysisToggle);
     expect(screen.getByText(missing)).toBeInTheDocument();
     expect(screen.getByText("저장된 심박존 분포가 아직 없어요. 확인된 심박존 데이터가 있을 때 표시합니다.")).toBeInTheDocument();
     expect(screen.queryByText("FTP")).not.toBeInTheDocument();

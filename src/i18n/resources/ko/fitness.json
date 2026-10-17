@@ -743,7 +743,7 @@
   "lifetimeMilestones.label": "{{km}}km",
   "lifetimeMilestones.loading": "구독 중…",
   "lifetimeMilestones.pending": "집계 준비 중",
-  "lifetimeMilestones.longestRide": "최장 라이드",
+  "lifetimeMilestones.longestRide": "최장 이동거리",
   "thresholdDecision.modelOnly": "PDC 추정값은 분석 근거이며 여기서 바로 적용되지 않습니다.",
   "ftpDecision.ariaLabel": "FTP 변경 결정",
   "ftpDecision.title": "FTP 변경 검토",
@@ -1211,5 +1211,6 @@
   "criticalPace.previous": "이전 기록",
   "runReadiness.title": "러닝 분석 준비",
   "runReadiness.body": "러닝 분석에 필요한 원본 기록, 역치 페이스와 심박 구간 자료가 부족합니다. 기록을 연결하고 훈련 기준을 설정해 주세요.",
-  "runReadiness.setThresholds": "러닝 훈련 기준 설정"
+  "runReadiness.setThresholds": "러닝 훈련 기준 설정",
+  "lifetimeMilestones.scopedTotal": "누적 이동거리 {{km}} km · {{scope}}"
 }

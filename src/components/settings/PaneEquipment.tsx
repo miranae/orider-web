@@ -1,4 +1,6 @@
+import GlossaryText from "../common/GlossaryText";
 import { useEffect, useState } from "react";
+import "./device-gear.css";
 import { LayoutEditorCard } from "./LayoutEditorCard";
 import { useBikeProfileLayout } from "../../hooks/useBikeProfileLayout";
 import { DEFAULT_DATA_PAGE_CONFIG } from "@shared/types/deviceSettings";
@@ -30,18 +32,18 @@ import { BikeMileage } from "./BikeMileage";
 import { GearShoeStatus } from "./GearShoeStatus";
 import { GearKitSection } from "./GearKitSection";
 import { LocalizedLink } from "../LocalizedLink";
-import { Button, Text } from "../../theme/components";
+import { Button, DropdownSelect, Text } from "../../theme/components";
 
 const CDA_PRESETS = [
-  { label: "Hoods (0.32)", value: 0.32 },
-  { label: "Drops (0.28)", value: 0.28 },
-  { label: "Aero (0.25)", value: 0.25 },
-  { label: "TT (0.22)", value: 0.22 },
+  { label: "equipment.presetHoods", value: 0.32 },
+  { label: "equipment.presetDrops", value: 0.28 },
+  { label: "equipment.presetAero", value: 0.25 },
+  { label: "equipment.presetTt", value: 0.22 },
 ];
 const CRR_PRESETS = [
-  { label: "Road (0.004)", value: 0.004 },
-  { label: "Gravel (0.006)", value: 0.006 },
-  { label: "MTB (0.012)", value: 0.012 },
+  { label: "equipment.presetRoad", value: 0.004 },
+  { label: "equipment.presetGravel", value: 0.006 },
+  { label: "equipment.presetMtb", value: 0.012 },
 ];
 
 const SENSOR_TYPE_KEY: Record<string, string> = {
@@ -55,9 +57,9 @@ const SENSOR_TYPE_KEY: Record<string, string> = {
   ACTION_CAM: "equipment.sensorActionCam",
 };
 
-function formatDate(ms: number): string {
+function formatDate(ms: number, locale: string): string {
   if (!ms) return "-";
-  return new Date(ms).toLocaleDateString("ko-KR");
+  return new Date(ms).toLocaleDateString(locale);
 }
 
 interface SensorRowProps {
@@ -100,7 +102,7 @@ function SensorRow({ sensor, onRemove }: SensorRowProps) {
         borderTop: "1px solid var(--line-soft)",
       }}
     >
-      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>{label}</span>
+      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}><GlossaryText>{label}</GlossaryText></span>
       <span
         style={{
           fontSize: "var(--fs-sm)",
@@ -121,7 +123,7 @@ function SensorRow({ sensor, onRemove }: SensorRowProps) {
       >
         {sensor.deviceAddress}
       </span>
-      <Button variant="ghost" size="sm"
+      <Button variant="ghost" size="md"
         onClick={handleRemove}
         disabled={busy}
         aria-label={t("equipment.sensorAriaRemove")}
@@ -160,7 +162,7 @@ function ProfileCard({
   onRemoveSensor,
   onOpenDataPages,
 }: ProfileCardProps) {
-  const { t } = useTranslation("settings");
+  const { t, i18n } = useTranslation("settings");
   const { showToast } = useToast();
   const dialog = useDialog();
   const [editing, setEditing] = useState(false);
@@ -245,15 +247,14 @@ function ProfileCard({
           : "var(--bg-1)",
       }}
     >
-      <div
+      <div className="settings-bike-header"
         style={{
           display: "grid",
-          gridTemplateColumns: "auto 1fr auto",
           gap: "var(--space-3)",
           alignItems: "center",
         }}
       >
-        <div
+        <div className="settings-bike-icon"
           style={{
             width: 44,
             height: 44,
@@ -266,12 +267,12 @@ function ProfileCard({
         >
           <BikeIcon size={20} />
         </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginBottom: "var(--space-0-5)" }}>
+        <div className="settings-bike-title" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)", minWidth: 0 }}>
             {editing ? (
               <>
                 <input
                   autoFocus
+                  aria-label={t("equipment.bikeRename")}
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -282,7 +283,7 @@ function ProfileCard({
                     }
                   }}
                   disabled={busy}
-                  style={{ ...fieldInputStyle, width: 180, padding: "var(--space-1) var(--space-2)" }}
+                  style={{ ...fieldInputStyle, width: "100%", minWidth: 0, padding: "var(--space-1) var(--space-2)" }}
                 />
                 <Button variant="ghost"
                   onClick={handleSaveName}
@@ -304,7 +305,7 @@ function ProfileCard({
               </>
             ) : (
               <>
-                <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
+                <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>
                   {profile.name}
                 </span>
                 {isActive && (
@@ -316,6 +317,7 @@ function ProfileCard({
                       background: "var(--lime)",
                       color: "var(--primary-fg)",
                       fontWeight: 600,
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {t("equipment.bikeActive")}
@@ -324,6 +326,7 @@ function ProfileCard({
               </>
             )}
           </div>
+        <div className="settings-bike-meta">
           {!deviceControls && <BikeMileage profileId={profile.id} />}
           <div
             style={{
@@ -336,31 +339,28 @@ function ProfileCard({
             }}
           >
             <span>{t("equipment.bikeWheelCircumference")} {profile.wheelCircumferenceMm}mm</span>
-            <span>·</span>
             <span>{t("equipment.bikeSensors")} {profile.sensors.length}</span>
-            <span>·</span>
-            <span>VP {profile.virtualPower.enabled ? "ON" : "OFF"}</span>
-            <span>·</span>
-            <span>{formatDate(profile.createdAt)}</span>
+            <span><GlossaryText>{t("equipment.virtualPowerState", { state: t(profile.virtualPower.enabled ? "device.readEnabled" : "device.readDisabled") })}</GlossaryText></span>
+            <span>{formatDate(profile.createdAt, i18n.language)}</span>
           </div>
         </div>
         {!editing && (
-          <div style={{ display: "flex", gap: 'var(--space-1)' }}>
+          <div className="settings-bike-actions" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-1)" }}>
             {deviceControls && !isActive && (
-              <Button variant="secondary" size="sm" onClick={handleSetActive} disabled={busy}>
+              <Button variant="secondary" size="md" onClick={handleSetActive} disabled={busy}>
                 {t("equipment.bikeSetActive")}
               </Button>
             )}
             {deviceControls && <Button
               variant="secondary"
-              size="sm"
+              size="md"
               onClick={onOpenDataPages}
               disabled={busy}
               data-testid={`bike-data-pages-${profile.id}`}
             >
               {t("equipment.bikeDataPages")}
             </Button>}
-            {!deviceControls && <LocalizedLink to={`/settings/device?profileId=${encodeURIComponent(profile.id)}`}>{t("nav.deviceLabel")}</LocalizedLink>}
+            {!deviceControls && <LocalizedLink className="inline-flex items-center" to={`/settings/device?profileId=${encodeURIComponent(profile.id)}`}><Text variant="label">{t("nav.deviceLabel")}</Text></LocalizedLink>}
             {!deviceControls && <Button variant="ghost"
               onClick={() => {
                 setEditing(true);
@@ -396,16 +396,17 @@ function ProfileCard({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "120px 1fr",
+            gridTemplateColumns: "minmax(0, 1fr)",
             gap: "var(--space-2)",
             alignItems: "center",
             padding: "6px 0",
           }}
         >
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>{t("equipment.bikeWheelCircumference")}</span>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-1-5)" }}>
             <input
               type="number"
+              aria-label={t("equipment.bikeWheelCircumference")}
               value={wheelInput}
               min={1000}
               max={3000}
@@ -474,6 +475,7 @@ export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
     removeSensor,
   } = useActiveBikeProfile(uid);
 
+  const [showOtherProfiles, setShowOtherProfiles] = useState(false);
   const [vpDraft, setVpDraft] = useState<VirtualPowerConfig | null>(null);
 
   useEffect(() => {
@@ -572,9 +574,25 @@ export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
     );
   }
 
+  const profileCards = (part === "device" ? [selectedProfile] : sortedProfiles).map((p) => (
+    <ProfileCard
+      key={p.id}
+      profile={p}
+      deviceControls={part === "device"}
+      isActive={p.id === active.id}
+      canDelete={canDelete}
+      onSetActive={() => setActive(p.id)}
+      onRename={(name) => renameProfile(p.id, name)}
+      onDelete={() => deleteProfile(p.id)}
+      onUpdateWheel={(mm) => updateWheelCircumference(p.id, mm)}
+      onRemoveSensor={(addr) => removeSensor(p.id, addr)}
+      onOpenDataPages={() => openDataPages(p.id)}
+    />
+  ));
+
   return (
     <>
-      {part === "gear" && <div data-testid="P4-0"><LocalizedLink data-testid="P4-0-1" to="/settings/device">{t("nav.deviceLabel")} →</LocalizedLink></div>}
+      {part === "gear" && <div data-testid="P4-0"><LocalizedLink data-testid="P4-0-1" className="inline-flex items-center" to="/settings/device"><Text variant="label">{t("nav.deviceLabel")} →</Text></LocalizedLink></div>}
       <SettingsCard
         data-testid={part === "gear" ? "P4-1" : "S6-3-0"}
         title={t("equipment.bikeProfile")}
@@ -591,22 +609,19 @@ export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
           </div>
         )}
         <div style={{ display: "grid", gap: "var(--space-2)" }}>
-          {part === "device" && <Field label={t("equipment.bikeProfile")}><select style={fieldInputStyle} value={selectedProfile.id} onChange={(e) => { const next = new URLSearchParams(searchParams); next.set("profileId", e.target.value); next.delete("panel"); setSearchParams(next); }}>{sortedProfiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>}
-          {(part === "device" ? [selectedProfile] : sortedProfiles).map((p) => (
-            <ProfileCard
-              key={p.id}
-              profile={p}
-              deviceControls={part === "device"}
-              isActive={p.id === active.id}
-              canDelete={canDelete}
-              onSetActive={() => setActive(p.id)}
-              onRename={(name) => renameProfile(p.id, name)}
-              onDelete={() => deleteProfile(p.id)}
-              onUpdateWheel={(mm) => updateWheelCircumference(p.id, mm)}
-              onRemoveSensor={(addr) => removeSensor(p.id, addr)}
-              onOpenDataPages={() => openDataPages(p.id)}
-            />
-          ))}
+          {part === "device" && <Field label={t("equipment.bikeProfile")}><DropdownSelect label={t("equipment.bikeProfile")} value={selectedProfile.id} onChange={(value) => { const next = new URLSearchParams(searchParams); next.set("profileId", value); next.delete("panel"); setSearchParams(next); }} options={sortedProfiles.map((p) => ({ value: p.id, label: p.name }))} /></Field>}
+          {part === "device" ? profileCards : <>
+            {profileCards.slice(0, 3)}
+            {profileCards.length > 3 && <div>
+              <Button variant="secondary" size="md" aria-expanded={showOtherProfiles}
+                aria-controls="settings-other-bike-profiles" onClick={() => setShowOtherProfiles((open) => !open)}>
+                {t("equipment.moreBikeProfiles", { count: profileCards.length - 3 })}
+              </Button>
+              {showOtherProfiles && <div id="settings-other-bike-profiles" style={{ display: "grid", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+                {profileCards.slice(3)}
+              </div>}
+            </div>}
+          </>}
         </div>
       </SettingsCard>
 
@@ -621,7 +636,7 @@ export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
         }
       >
         <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-3)", lineHeight: 1.5 }}>
-          <Text as="p" weight={700}>{t("equipment.bikeActive")}: {active.name}</Text>
+          <Text as="p" variant="caption" tone="quaternary" weight={700}>{t("equipment.bikeActive")}: {active.name}</Text>
           {t("equipment.virtualPowerDesc", { name: active.name, weight: weightDisplay })}
         </div>
         <FieldGrid cols={2}>
@@ -637,7 +652,7 @@ export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
               style={monoInputStyle}
             />
           </Field>
-          <Field label={t("equipment.vpRollingResistance")} hint={t("equipment.vpRollingHint")}>
+          <Field explain label={t("equipment.vpRollingResistance")} hint={t("equipment.vpRollingHint")}>
             <input
               type="number"
               step="0.0001"
@@ -649,44 +664,19 @@ export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
               style={monoInputStyle}
             />
           </Field>
-          <Field label={t("equipment.vpCdaPreset")}>
-            <select
-              value={
-                CDA_PRESETS.find((c) => c.value === vpDraft?.cdA)?.value ?? ""
-              }
-              disabled={!(vpDraft?.enabled ?? false)}
-              onChange={(e) => e.target.value && patchVp({ cdA: Number(e.target.value) })}
-              style={fieldInputStyle}
-            >
-              <option value="">{t("equipment.vpCdaManual")}</option>
-              {CDA_PRESETS.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+          <Field explain label={t("equipment.vpCdaPreset")}>
+            <DropdownSelect label={t("equipment.vpCdaPreset")}
+              value={String(CDA_PRESETS.find((c) => c.value === vpDraft?.cdA)?.value ?? "")}
+              disabled={!(vpDraft?.enabled ?? false)} onChange={(value) => { if (value) patchVp({ cdA: Number(value) }); }}
+              options={[{ value: "", label: t("equipment.vpCdaManual") }, ...CDA_PRESETS.map((c) => ({ value: String(c.value), label: `${t(c.label)} (${c.value})` }))]} />
           </Field>
-          <Field label={t("equipment.vpCrrPreset")}>
-            <select
-              value={
-                CRR_PRESETS.find((c) => c.value === vpDraft?.rollingResistance)?.value ??
-                ""
-              }
-              disabled={!(vpDraft?.enabled ?? false)}
-              onChange={(e) =>
-                e.target.value && patchVp({ rollingResistance: Number(e.target.value) })
-              }
-              style={fieldInputStyle}
-            >
-              <option value="">{t("equipment.vpCdaManual")}</option>
-              {CRR_PRESETS.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+          <Field explain label={t("equipment.vpCrrPreset")}>
+            <DropdownSelect label={t("equipment.vpCrrPreset")}
+              value={String(CRR_PRESETS.find((c) => c.value === vpDraft?.rollingResistance)?.value ?? "")}
+              disabled={!(vpDraft?.enabled ?? false)} onChange={(value) => { if (value) patchVp({ rollingResistance: Number(value) }); }}
+              options={[{ value: "", label: t("equipment.vpCdaManual") }, ...CRR_PRESETS.map((c) => ({ value: String(c.value), label: `${t(c.label)} (${c.value})` }))]} />
           </Field>
-          <Field label={t("equipment.vpCda")} full hint={t("equipment.vpCdaHint")}>
+          <Field explain label={t("equipment.vpCda")} full hint={t("equipment.vpCdaHint")}>
             <input
               type="number"
               step="0.01"
@@ -756,7 +746,7 @@ function BikeDataPagesPanel({
   return (
     <section data-testid="S6-3-1">
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
-        <Button variant="ghost" size="sm" onClick={onBack} data-testid="bike-data-pages-back">
+        <Button variant="ghost" size="md" onClick={onBack} data-testid="bike-data-pages-back">
           {t("equipment.dataPagesBack")}
         </Button>
         <Text variant="subtitle" weight={700}>

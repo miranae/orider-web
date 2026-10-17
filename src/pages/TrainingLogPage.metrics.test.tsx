@@ -53,20 +53,20 @@ describe("운동 기록의 부분 요약", () => {
     vi.mocked(getDocs).mockReset();
     vi.mocked(getDocs).mockResolvedValue({ docs: [], empty: true } as never).mockResolvedValueOnce({ docs, empty: false } as never);
     render(<MemoryRouter initialEntries={["/?sport=run"]}><QueryNavigation /><TrainingLogPage /></MemoryRouter>);
-    await waitFor(() => expectMetric("총 거리", "5.0"));
+    await waitFor(() => expectMetric("이동거리", "5.0"));
     expect(screen.getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "Change sport query" }));
-    await waitFor(() => expectMetric("총 거리", "20.0"));
+    await waitFor(() => expectMetric("이동거리", "20.0"));
     expect(screen.getByRole("button", { name: /사이클/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("데스크톱 합계와 캘린더에서 누락·비유한 측정값만 제외하고 활동 수와 TSS는 보존한다", async () => {
     const { container } = render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
-    await waitFor(() => expectMetric("활동 수", "7"));
-    expectMetric("총 거리", "15.0");
-    expectMetric("총 시간", "1h 30m");
-    expectMetric("총 고도", "150");
-    expectMetric("총 TSS", "140");
+    await waitFor(() => expectMetric("전체 활동수", "7"));
+    expectMetric("이동거리", "15.0");
+    expectMetric("운동시간", "1h 30m");
+    expectMetric("상승고도", "150");
+    expectMetric("훈련부하 TSS", "140");
     const more = screen.getByRole("button", { name: "외 4건 보기" });
     expect(more).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(more);
@@ -79,11 +79,11 @@ describe("운동 기록의 부분 요약", () => {
   it("모바일 월 요약·종목 거리·활동 목록도 같은 안전한 측정값을 사용한다", async () => {
     state.mobile = true;
     const { container } = render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
-    await waitFor(() => expectMetric("총 세션", "7"));
+    await waitFor(() => expectMetric("활동횟수", "7"));
     const glance = screen.getByLabelText("이번 달 운동 요약");
     expect(glance).toHaveTextContent("1h 30m");
     expect(glance).toHaveTextContent("140");
-    expectMetric("상승고도", "150m");
+    expectMetric("누적 상승고도", "150m");
     expect(glance).toHaveTextContent("15.0km");
     expect(container.textContent).not.toMatch(/NaN|Infinity/);
     fireEvent.click(screen.getByRole("tab", { name: "활동" }));
@@ -112,8 +112,8 @@ describe("운동 기록의 확정 부하와 달성 상태", () => {
         date, workout: "z2", plannedTSS: 80, plannedDurationMin: 60,
       })) }) }], empty: false } as never);
     render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
-    await waitFor(() => expectMetric("총 TSS", "100"));
-    expectMetric("활동 수", "1");
+    await waitFor(() => expectMetric("훈련부하 TSS", "100"));
+    expectMetric("전체 활동수", "1");
     await waitFor(() => expect(screen.getByLabelText("실제 부하 미확인 · 달성 여부 판단 불가")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /원본 기록/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /대표 기록/ })).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe("운동 기록의 확정 부하와 달성 상태", () => {
       .mockResolvedValueOnce({docs: [{id: "goal", data: () => ({})}], empty: false} as never)
       .mockResolvedValueOnce({docs: [{id: "week", data: () => ({days: [{date: startTime, workout: "z2", plannedTSS: 200, plannedDurationMin: 60}]})}], empty: false} as never);
     render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
-    await waitFor(() => expectMetric("총 TSS", "307"));
+    await waitFor(() => expectMetric("훈련부하 TSS", "307"));
     if (unknown) {
       await waitFor(() => expect(screen.getByLabelText("실제 부하 미확인 · 달성 여부 판단 불가")).toBeInTheDocument());
       expect(screen.queryByText("△")).not.toBeInTheDocument();
@@ -152,7 +152,7 @@ it("개별 미확인 거리·시간은 실제 영 기록과 구분한다", async
   vi.mocked(getDocs).mockReset().mockResolvedValue({docs: [], empty: true} as never)
     .mockResolvedValueOnce({docs, empty: false} as never);
   render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
-  await waitFor(() => expectMetric("총 세션", "2"));
+  await waitFor(() => expectMetric("활동횟수", "2"));
   fireEvent.click(screen.getByRole("tab", {name: "활동"}));
   const zero = screen.getByText("실제 영 기록").closest("button")!;
   const missing = screen.getByText("미확인 기록").closest("button")!;
@@ -176,8 +176,8 @@ it.each([false, true])("월 경계 대표 후보를 첫 조회에 확보하고 �
     .mockResolvedValueOnce({docs, empty: false} as never);
   vi.mocked(where).mockClear();
   render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
-  await waitFor(() => expectMetric(mobile ? "총 세션" : "활동 수", "0"));
-  expectMetric(mobile ? "거리" : "총 거리", mobile ? "0.0km" : "0.0");
+  await waitFor(() => expectMetric(mobile ? "활동횟수" : "전체 활동수", "0"));
+  expectMetric("이동거리", mobile ? "0.0km" : "0.0");
   expect(where).toHaveBeenCalledWith("startTime", ">=", bounds.start - 86400000);
   expect(where).toHaveBeenCalledWith("startTime", "<=", bounds.end + 86400000);
   // 초기 선택 월 + 직전 월 두 활동 쿼리와 계획 조회 한 번. 재렌더링은 재조회하지 않는다.
@@ -187,11 +187,11 @@ it.each([false, true])("월 경계 대표 후보를 첫 조회에 확보하고 �
   previous();
   await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(4));
   next();
-  await waitFor(() => expectMetric(mobile ? "총 세션" : "활동 수", "0"));
+  await waitFor(() => expectMetric(mobile ? "활동횟수" : "전체 활동수", "0"));
   previous();
   next();
   expect(getDocs).toHaveBeenCalledTimes(4);
-  expectMetric(mobile ? "거리" : "총 거리", mobile ? "0.0km" : "0.0");
+  expectMetric("이동거리", mobile ? "0.0km" : "0.0");
   if (mobile) {
     fireEvent.click(screen.getByRole("tab", {name: "활동"}));
     expect(screen.getAllByText("월말 원본")).toHaveLength(1);
@@ -210,8 +210,8 @@ it.each([false, true])("30시간 전 대표가 직전월 preload에 있어도 �
     .mockResolvedValueOnce({docs: [{id: "fragment", data: () => fragment}], empty: false} as never)
     .mockResolvedValueOnce({docs: [{id: "long-full", data: () => full}], empty: false} as never);
   render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
-  await waitFor(() => expectMetric(mobile ? "총 세션" : "활동 수", "0"));
-  expectMetric(mobile ? "거리" : "총 거리", mobile ? "0.0km" : "0.0");
+  await waitFor(() => expectMetric(mobile ? "활동횟수" : "전체 활동수", "0"));
+  expectMetric("이동거리", mobile ? "0.0km" : "0.0");
   expect(screen.getByRole("button", {name: /긴 주행 조각/})).toBeInTheDocument();
 });
 

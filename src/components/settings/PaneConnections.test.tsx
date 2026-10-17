@@ -40,6 +40,13 @@ describe("PaneConnections Strava disconnect observability", () => {
     );
   });
 
+  it("does not duplicate Apple Health as a coming-soon app and collapses future services", () => {
+    render(<MemoryRouter><PaneConnections /></MemoryRouter>);
+    expect(screen.queryByText("Apple Health")).not.toBeInTheDocument();
+    expect(screen.getByText("Garmin Connect").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByTestId("S2-1-4").querySelector("button")).toBeNull();
+  });
+
   it("records intent and cancel without calling the backend", async () => {
     mocks.confirm.mockResolvedValue(false);
     const user = userEvent.setup();

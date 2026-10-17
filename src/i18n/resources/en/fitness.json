@@ -743,7 +743,7 @@
   "lifetimeMilestones.label": "{{km}} km",
   "lifetimeMilestones.loading": "Loading…",
   "lifetimeMilestones.pending": "Tallying soon",
-  "lifetimeMilestones.longestRide": "Longest ride",
+  "lifetimeMilestones.longestRide": "Longest distance",
   "thresholdDecision.modelOnly": "The PDC estimate is evidence only and cannot be applied directly here.",
   "ftpDecision.ariaLabel": "FTP change decision",
   "ftpDecision.title": "Review FTP change",
@@ -1211,5 +1211,6 @@
   "criticalPace.previous": "Previous",
   "runReadiness.title": "Prepare your running analysis",
   "runReadiness.body": "Qualified source records, threshold pace and heart-rate zone data are not yet available. Connect your activities and set running thresholds to prepare your analysis.",
-  "runReadiness.setThresholds": "Set running thresholds"
+  "runReadiness.setThresholds": "Set running thresholds",
+  "lifetimeMilestones.scopedTotal": "Total distance {{km}} km · {{scope}}"
 }

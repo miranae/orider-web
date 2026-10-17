@@ -101,7 +101,7 @@ describe("separate threshold and private medical writes", () => {
     render(<PaneMedical />);
     await waitFor(() => expect(screen.getByLabelText("training.fieldEmergencyName")).toHaveValue("Legacy"));
     expect(screen.getByLabelText(/training.fieldMedications/)).toHaveValue("");
-    expect(screen.getByLabelText("training.fieldBloodType")).toHaveValue("UNKNOWN");
+    expect(screen.getByRole("combobox", { name: "training.fieldBloodType" })).toHaveTextContent("training.bloodTypeNone");
   });
   it("emergency save writes only contact and validates the pair independently", async () => {
     render(<PaneMedical />);
