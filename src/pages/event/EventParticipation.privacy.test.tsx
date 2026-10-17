@@ -21,8 +21,9 @@ const { user, dialog } = vi.hoisted(() => ({
   user: { uid: "actor", displayName: "Actor", getIdTokenResult: vi.fn(async () => ({ claims: {} })) },
   dialog: { confirm: vi.fn(async () => true), alert: vi.fn() },
 }));
+const signInWithGoogle = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const authState = { user: user as typeof user | null };
-vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: authState.user, loading: false }) }));
+vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: authState.user, loading: false, signInWithGoogle }) }));
 vi.mock("../../services/eventPublicParticipants", async (original) => ({ ...(await original()), getEventPublicParticipants: vi.fn() }));
 vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => dialog }));
 vi.mock("../../hooks/useGroup", () => ({ useGroup: () => ({ group: null, loading: false, error: null, inactive: false }) }));
@@ -659,4 +660,15 @@ describe("event participant privacy boundaries", () => {
     expect(getEventPublicParticipants).toHaveBeenCalledWith("ev2");
   });
 
+});
+
+
+it("opens the existing Google auth flow for guest follow without navigating or submitting a follow", async () => {
+  authState.user = null;
+  simulateLogout();
+  show(<EventDetailPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "이벤트 팔로우" }));
+  await waitFor(() => expect(signInWithGoogle).toHaveBeenCalledOnce());
+  expect(screen.getByRole("heading", { name: "Event", level: 1 })).toBeInTheDocument();
+  expect(vi.mocked(httpsCallable).mock.calls.some(call => call[1] === "setEventFollow")).toBe(false);
 });

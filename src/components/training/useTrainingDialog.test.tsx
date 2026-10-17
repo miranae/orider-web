@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { DropdownSelect } from "../../theme/components";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { useTrainingDialog } from "./useTrainingDialog";
@@ -33,4 +35,37 @@ it("focuses the explicit close control before heading glossary triggers", () => 
   render(<HeadingFixture />);
   expect(screen.getByRole("button", { name: "Close workout" })).toHaveFocus();
   expect(screen.getByRole("button", { name: "About Z1" })).not.toHaveFocus();
+});
+
+it("lets an open portalled combobox consume Escape before closing its containing dialog", () => {
+  const close = vi.fn();
+  function DropdownFixture() {
+    const ref = useTrainingDialog(close, false);
+    const [value, setValue] = useState("a");
+    return <div ref={ref}><button>Close panel</button><DropdownSelect label="Reason" value={value} onChange={setValue} options={[{ value: "a", label: "A" }, { value: "b", label: "B" }]} /></div>;
+  }
+  render(<DropdownFixture />);
+  const combo = screen.getByRole("combobox", { name: "Reason" });
+  combo.focus(); fireEvent.keyDown(combo, { key: "ArrowDown" });
+  expect(screen.getByRole("listbox")).toBeInTheDocument();
+  fireEvent.keyDown(combo, { key: "Escape" });
+  expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  expect(combo).toHaveFocus(); expect(close).not.toHaveBeenCalled();
+  fireEvent.keyDown(combo, { key: "Escape" });
+  expect(close).toHaveBeenCalledOnce();
+});
+it("preserves tooltip Escape priority before closing the containing dialog", () => {
+  const close = vi.fn();
+  function TooltipFixture() {
+    const ref = useTrainingDialog(close, false);
+    const [open, setOpen] = useState(true);
+    return <div ref={ref}><button onKeyDown={event => { if (event.key === "Escape" && open) { event.stopPropagation(); setOpen(false); } }}>Term</button>{open && <div role="tooltip">Definition</div>}</div>;
+  }
+  render(<TooltipFixture />);
+  const term = screen.getByRole("button", { name: "Term" });
+  fireEvent.keyDown(term, { key: "Escape" });
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  expect(close).not.toHaveBeenCalled();
+  fireEvent.keyDown(term, { key: "Escape" });
+  expect(close).toHaveBeenCalledOnce();
 });

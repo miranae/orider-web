@@ -38,6 +38,7 @@ describe("GroupRidesPage activity-record filters", () => {
   it("uses explicit activity-record counts and retains co-leader management navigation", () => {
     renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides" element={<GroupRidesPage />} /></Routes>, { route: "/ko/club/club/rides", authenticated: true });
     expect(screen.getByText("management visible")).toBeInTheDocument();
+    expect(screen.getByTestId("club-ride-list-scope")).toHaveTextContent("활성 클럽 회원");
     expect(screen.getByText("활동 기록 수:")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "2개+" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "5개+" }));

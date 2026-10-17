@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
-import { Button, Card } from "../../theme/components";
+import { Button, Card, Textarea } from "../../theme/components";
 import type { BoardReportPreview, BoardReportReason, BoardReportTargetType } from "./reportPayload";
 
 const reasons: BoardReportReason[] = ["spam", "abuse", "privacy", "illegal", "other"];
@@ -76,7 +77,7 @@ export function ReportContentModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[90] flex items-center justify-center p-4"
       onKeyDown={(event) => {
@@ -166,7 +167,7 @@ export function ReportContentModal({
         </fieldset>
 
         <label htmlFor={noteId} className="block font-medium text-[var(--ink-0)] mb-2">{t("report.note")}</label>
-        <textarea
+        <Textarea
           id={noteId}
           aria-describedby={countId}
           disabled={busy}
@@ -175,8 +176,7 @@ export function ReportContentModal({
           rows={4}
           maxLength={500}
           placeholder={t("report.notePlaceholder")}
-          className="w-full p-3 rounded-[var(--r-lg)] text-[length:var(--ft-body-size)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] disabled:opacity-50"
-          style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
+          className="w-full text-[length:var(--ft-body-size)]"
         />
         <div id={countId} className="text-right text-[length:var(--fs-sm)] text-[var(--ink-2)] mt-1">{note.length}/500</div>
         {failed && <p role="alert" className="mt-2 text-[var(--color-error)]">{t("report.failed")}</p>}
@@ -188,6 +188,7 @@ export function ReportContentModal({
           </Button>
         </div>
       </Card>
-    </div>
+    </div>,
+    document.body,
   );
 }

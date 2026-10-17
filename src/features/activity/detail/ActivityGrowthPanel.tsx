@@ -27,7 +27,7 @@ import NativePowerV2DurationPanel from "./NativePowerV2DurationPanel";
 import StageActivityPowerDurationPanel from "./StageActivityPowerDurationPanel";
 import StagePowerDurationHistoryPanel from "./StagePowerDurationHistoryPanel";
 import TrainingPeriodZonesPanel from "./TrainingPeriodZonesPanel";
-import { Button, Card, ChartFrame, Input, Select, Stack, Stat, Text } from "../../../theme";
+import { Button, Card, ChartFrame, Input, Select, DropdownSelect, Stack, Stat, Text } from "../../../theme";
 import "./activity-growth-panel.css";
 import { getDiscipline } from "../../../utils/disciplineFilter";
 import { activityPeriods, comparisonRows, customActivityPeriods, observedYearPeriods, sameActivitySport, settledMetrics, summarizePeriod, type StatisticsPeriod } from "./activityGrowth";
@@ -95,13 +95,15 @@ function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }:
     {routeOnly && routes.available && <SimilarRouteHistoryPanel current={activity} candidates={routes.candidates}
       checkedCount={routes.checked} loadedCount={candidates.length} hasMore={history.hasMore}
       selectedId={selectedId} units={units} onCompare={setSelectedId} />}
-    <label className="block space-y-2 activity-growth-selection">
+    <div className="space-y-2 activity-growth-selection">
       <Text variant="bodyMedium">{t("growth.choose")}</Text>
-      <Select className="w-full min-w-0" value={selected?.id ?? ""} onChange={(event) => setSelectedId(event.target.value)}>
-        <option value="">{t("growth.none")}</option>
-        {(selected && !choices.some((candidate) => candidate.id === selected.id) ? [selected, ...choices] : choices).map((candidate) => <option key={candidate.id} value={candidate.id}>{date(candidate.startTime)} · {candidate.description || candidate.type}{routeOnly && !routes.candidates.some((match) => match.id === candidate.id) ? ` · ${t("growth.route.retained")}` : ""}</option>)}
-      </Select>
-    </label>
+      <DropdownSelect label={t("growth.choose")} value={selected?.id ?? ""} onChange={setSelectedId}
+        options={[{ value: "", label: t("growth.none") },
+          ...(selected && !choices.some(candidate => candidate.id === selected.id) ? [selected, ...choices] : choices).map(candidate => ({
+            value: candidate.id,
+            label: `${date(candidate.startTime)} · ${candidate.description || candidate.type}${routeOnly && !routes.candidates.some(match => match.id === candidate.id) ? ` · ${t("growth.route.retained")}` : ""}`,
+          }))]} />
+    </div>
     {history.loading && <Text as="p">{t("growth.loading")}</Text>}
     {history.error && <Button size="sm" onClick={history.retry}>{t("growth.retry")}</Button>}
     {!history.loading && !history.error && candidates.length === 0 && <Text as="p">{t("growth.noPrevious")}</Text>}

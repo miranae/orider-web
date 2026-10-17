@@ -229,7 +229,7 @@ function RiderCard({
           style={{
             height: 6,
             background: "var(--bg-3)",
-            borderRadius: "var(--r-xs)",
+            borderRadius: "var(--r-sm)",
             overflow: "hidden",
             position: "relative",
           }}

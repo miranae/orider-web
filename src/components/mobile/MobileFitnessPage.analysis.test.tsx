@@ -85,3 +85,11 @@ it('names the mobile coach analysis surface and explains repeated zone labels an
   expect(screen.getByTestId('K5-3-1').querySelector('[data-glossary-term="ftp"] button')).not.toBeNull();
   expect(container.querySelector('button button, a button, svg button')).toBeNull();
 });
+
+
+it("groups missing running evidence and setup into one readiness card", () => {
+  renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run" }} part="analysis" />, { authenticated: true });
+  expect(screen.getByRole("heading", { name: "러닝 분석 준비" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "러닝 훈련 기준 설정" })).toBeInTheDocument();
+  expect(screen.queryByText(/심박 구간을 표시할 수/)).not.toBeInTheDocument();
+});

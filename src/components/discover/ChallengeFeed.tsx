@@ -106,7 +106,7 @@ export default function ChallengeFeed({ part = "all" }: { part?: "all" | "monthl
                   <Button data-testid="E4-1-1"
                     key={tier}
                     variant="secondary"
-                    size="sm"
+                    size="md"
                     disabled={monthly.joining}
                     onClick={() => {
                       void monthly.join(tier as MonthlyChallengeTier)

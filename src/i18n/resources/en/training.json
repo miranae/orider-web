@@ -161,9 +161,9 @@
   "metrics": {
     "progress": "Progress",
     "progressBasis": "Progress against the current prescription. Completed prescription load is used when actual load is absent; this is not a measured load total.",
-    "sessionsLeft": "Sessions left",
+    "sessionsLeft": "Incomplete · full plan",
     "completedTSS": "Completed TSS",
-    "weeksLeft": "Plan weeks left",
+    "weeksLeft": "Stored plan weeks left",
     "weeksUnit": "wk",
     "projectedCTL": "CTL change guide",
     "goalDate": "Goal Date",
@@ -1209,5 +1209,7 @@
     "sessions": "Requested: {{count}} per week",
     "weeks": "About {{weeks}} weeks",
     "minutes": "{{count}} minutes"
-  }
+  },
+  "scope.summary": "Scheduled through the goal: {{untilGoal}} · Stored after the goal: {{afterGoal}} · Overdue: {{overdue}}. The calendar and progress cover the full stored plan.",
+  "scope.nextAfterGoal": "Stored workout after the goal"
 }

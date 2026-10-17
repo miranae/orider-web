@@ -134,6 +134,25 @@ describe("useGroup", () => {
 });
 
 describe("useGroupMemberRole", () => {
+  it.each(["active", "approved"])("uses the canonical creator only as an active %s display fallback without extra reads", async status => {
+    setDocData("groups/display-creator/members/creator", { status });
+    const reads = vi.mocked(getDocs).mock.calls.length;
+    const display = renderHook(() => useGroupMemberRole("display-creator", "creator", "creator"));
+    const permission = renderHook(() => useGroupMemberRole("display-creator", "creator"));
+    await waitFor(() => expect(display.result.current.loading).toBe(false));
+    expect(display.result.current.role).toBe("leader");
+    expect(permission.result.current.role).toBe("member");
+    expect(vi.mocked(getDocs).mock.calls.length).toBe(reads);
+    act(() => setDocData("groups/display-creator/members/creator", { status, role: "member" }));
+    expect(display.result.current.role).toBe("member");
+  });
+  it.each([undefined, { status: "pending" }, { status: "removed" }, { status: "active", role: "unknown" }])("does not infer display leadership from unconfirmed membership %j", async data => {
+    if (data) setDocData("groups/unconfirmed-creator/members/creator", data);
+    const { result } = renderHook(() => useGroupMemberRole("unconfirmed-creator", "creator", "creator"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.role).toBeNull();
+  });
+
   it("tracks the current member role without loading the member list", async () => {
     setDocData("groups/group-1/members/member-1", { role: "co-leader", status: "active" });
     const { result } = renderHook(() => useGroupMemberRole("group-1", "member-1"));

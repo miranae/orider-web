@@ -17,7 +17,7 @@ import GroupSubNav from "../../components/group/GroupSubNav";
 import VisibilityToggle from "../../components/group/VisibilityToggle";
 import { EmptyState, ErrorState } from "../../components/redesign";
 import type { GroupApproval, GroupKind, GroupToggles } from "@shared/types";
-import { Button, Card, Switch, Text } from "../../theme/components";
+import { Button, Card, Switch, Text, Input, Textarea } from "../../theme/components";
 
 export default function GroupSettingsPage() {
   const { t } = useTranslation("group");
@@ -227,7 +227,7 @@ export default function GroupSettingsPage() {
           <div className="grid gap-3" style={{ gridTemplateColumns: "100px 1fr", marginBottom: 'var(--space-4)' }}>
             <div>
               <label className="club-settings-label" htmlFor="club-settings-badge">{t("settings.badge")}</label>
-              <input id="club-settings-badge"
+              <Input id="club-settings-badge"
                 type="text"
                 value={badge}
                 onChange={(e) => {
@@ -242,7 +242,7 @@ export default function GroupSettingsPage() {
             </div>
             <div>
               <label className="club-settings-label" htmlFor="club-settings-name">{t("settings.name")}</label>
-              <input id="club-settings-name" data-testid="C7-4-1"
+              <Input id="club-settings-name" data-testid="C7-4-1"
                 type="text"
                 value={name}
                 onChange={(e) => {
@@ -257,7 +257,7 @@ export default function GroupSettingsPage() {
           </div>
           <div style={{ marginBottom: 'var(--space-4)' }}>
             <label className="club-settings-label" htmlFor="club-settings-city">{t("settings.location")}</label>
-            <input id="club-settings-city"
+            <Input id="club-settings-city"
               type="text"
               value={city}
               onChange={(e) => {
@@ -314,7 +314,7 @@ export default function GroupSettingsPage() {
           </div>}
           <div>
             <label className="club-settings-label" htmlFor="club-settings-description">{t("settings.description")}</label>
-            <textarea id="club-settings-description"
+            <Textarea id="club-settings-description"
               value={description}
               onChange={(e) => {
                 markDirty();
@@ -331,7 +331,7 @@ export default function GroupSettingsPage() {
         {/* 그룹 규칙 */}
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <h2 className="text-[length:var(--ft-title-size)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}><label htmlFor="club-settings-rules">{t("settings.rules")}</label></h2>
-          <textarea id="club-settings-rules"
+          <Textarea id="club-settings-rules"
             value={rules}
             onChange={(e) => {
               markDirty();
@@ -406,7 +406,7 @@ export default function GroupSettingsPage() {
           <h2 className="text-[length:var(--ft-title-size)] font-semibold mb-2" style={{ color: "var(--ink-1)" }}><label htmlFor="club-settings-monthly-goal">{t("settings.monthlyGoal.title")}</label></h2>
           <p className="text-[length:var(--ft-body-size)] mb-3" style={{ color: "var(--ink-3)" }}>{t("settings.monthlyGoal.desc")}</p>
           <div className="flex items-center" style={{ gap: "var(--space-2)" }}>
-            <input id="club-settings-monthly-goal"
+            <Input id="club-settings-monthly-goal"
               type="number"
               min={0}
               max={1_000_000}

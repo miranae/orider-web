@@ -823,7 +823,7 @@
   "periodCurve.details": "Query criteria and included records",
   "periodCurve.exactBounds": "Exact UTC query bounds: from {{from}} inclusive to {{to}} exclusive",
   "periodCurve.rawValue": "{{duration}} exact original value {{watts}} W",
-  "runRecords.unverified": "The sport and time unit of these historical records could not be verified, so time and pace are hidden. Check the source activities.",
+  "runRecords.unverified": "Distance-record times and paces are hidden until their source sport and time units can be verified. Pace-by-duration analysis is separate.",
   "runRecords.unverifiedLabel": "Source unverified",
   "runRecords.scope": "Up to 3 entries per distance from the current saved list, not a full history or personal-best progression at the time of each activity.",
   "runRecords.rank": "Rank {{rank}}",
@@ -1209,5 +1209,8 @@
   "criticalPace.duration": "Duration",
   "criticalPace.recent": "Recent",
   "criticalPace.previous": "Previous",
+  "runReadiness.title": "Prepare your running analysis",
+  "runReadiness.body": "Qualified source records, threshold pace and heart-rate zone data are not yet available. Connect your activities and set running thresholds to prepare your analysis.",
+  "runReadiness.setThresholds": "Set running thresholds",
   "lifetimeMilestones.scopedTotal": "Total distance {{km}} km · {{scope}}"
 }

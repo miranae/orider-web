@@ -32,3 +32,12 @@
   .board-list-meta > .ml-auto { margin-left: 0; }
   .board-list-card { margin-block: var(--space-3); }
 }
+
+/* Search and filter controls share the same form height. */
+.board-list-search .ds-btn,
+.board-list-tabs .ds-btn,
+.board-list-search .board-search-input {
+  height: var(--dim-button-height);
+  min-height: var(--dim-button-height);
+}
+.board-list-search .board-search-input { padding-inline-start: var(--space-7); }

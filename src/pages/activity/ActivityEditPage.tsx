@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import GlossaryProvider from "../../components/common/GlossaryProvider";
+import GlossaryText from "../../components/common/GlossaryText";
+import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -10,8 +12,10 @@ import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { DateField, TimeField, EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
 import { getSportLabelKey } from "../../utils/sportType";
-import { Button, Card, Text } from "../../theme/components";
+import { Button, Card, Input, Textarea, Text } from "../../theme/components";
 import { normalizeActivityVisibility } from "../../utils/activityVisibility";
+import { CalendarDays, Clock3, Trash2 } from "lucide-react";
+import "./activity-edit-page.css";
 import type { Visibility } from "@shared/types";
 
 type WorkoutType = "endurance" | "tempo" | "interval" | "recovery" | "race" | "commute" | "";
@@ -23,10 +27,23 @@ interface ActivityEditData {
   userId: string;
   type: string;
   startTime: number;
-  gear: string;
+  gear: string | Record<string, unknown> | null;
   perceivedExertion: number | null;
   isRace: boolean;
   workoutType: WorkoutType;
+}
+
+function handleRadioKey(event: KeyboardEvent<HTMLDivElement>) {
+  if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+  const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button[role="radio"]:not(:disabled)'));
+  const index = buttons.indexOf(event.target as HTMLButtonElement);
+  if (index < 0) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1
+    : (index + (["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : -1) + buttons.length) % buttons.length;
+  buttons[next]!.focus();
+  buttons[next]!.click();
 }
 
 function pad2(n: number): string {
@@ -127,7 +144,7 @@ export default function ActivityEditPage() {
         userId: d.userId ?? "",
         type: d.type ?? "Ride",
         startTime: typeof d.startTime === "number" ? d.startTime : d.startTime?.toMillis?.() ?? 0,
-        gear: d.gear ?? "",
+        gear: typeof d.gear === "string" || (d.gear && typeof d.gear === "object" && !Array.isArray(d.gear)) ? d.gear : null,
         perceivedExertion: typeof d.perceivedExertion === "number" ? d.perceivedExertion : null,
         isRace: !!d.isRace,
         workoutType: (d.workoutType as WorkoutType) ?? "",
@@ -136,7 +153,7 @@ export default function ActivityEditPage() {
       setName(parsed.name);
       setDescription(parsed.description);
       setVisibility(parsed.visibility);
-      setGear(parsed.gear);
+      setGear(typeof parsed.gear === "string" ? parsed.gear : typeof parsed.gear?.name === "string" ? parsed.gear.name : "");
       setPerceivedExertion(parsed.perceivedExertion);
       setIsRace(parsed.isRace);
       setWorkoutType(parsed.workoutType);
@@ -161,11 +178,15 @@ export default function ActivityEditPage() {
     setSaving(true);
     try {
       const newStartTime = combineToTs(startDate, startTimeOfDay, data.startTime);
+      const originalGearName = typeof data.gear === "string" ? data.gear : typeof data.gear?.name === "string" ? data.gear.name : "";
+      const gearUpdate = gear.trim() === originalGearName ? {} : typeof data.gear === "object" && data.gear !== null
+        ? { "gear.name": gear.trim() }
+        : { gear: gear.trim() };
       await updateDoc(doc(firestore, "activities", activityId), {
         name: name.trim(),
         description: description.trim(),
         visibility,
-        gear: gear.trim(),
+        ...gearUpdate,
         perceivedExertion: perceivedExertion,
         isRace,
         workoutType,
@@ -245,18 +266,9 @@ export default function ActivityEditPage() {
     );
   }
 
-  const fieldStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "10px 12px",
-    background: "var(--bg-2)",
-    border: "1px solid var(--line-soft)",
-    borderRadius: "var(--r-md)",
-    color: "var(--ink-0)",
-    fontSize: "var(--fs-sm)",
-  };
 
   return (
-    <div className="max-w-2xl mx-auto pb-16" style={{ paddingInline: 'var(--space-4)' }}>
+    <div className="activity-edit-page max-w-2xl mx-auto pb-16" style={{ paddingInline: 'var(--space-4)' }}>
       <PageHeader
         eyebrow={t("edit.eyebrow")}
         title={name || data.name || t("edit.noName")}
@@ -268,35 +280,35 @@ export default function ActivityEditPage() {
         <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("edit.sectionBasic")}</h2>
 
         <label className="flex flex-col" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-4)' }}>
-          <Text variant="eyebrow">{t("edit.fieldName")}</Text>
-          <input
+          <Text variant="bodyMedium">{t("edit.fieldName")}</Text>
+          <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t("edit.namePlaceholder")}
-            style={fieldStyle}
+            style={{ minHeight: "var(--dim-button-height)" }}
           />
         </label>
 
         <label className="flex flex-col" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-4)' }}>
-          <Text variant="eyebrow">{t("edit.fieldDesc")}</Text>
-          <textarea
+          <Text variant="bodyMedium">{t("edit.fieldDesc")}</Text>
+          <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
             placeholder={t("edit.descPlaceholder")}
-            style={{ ...fieldStyle, resize: "vertical", fontFamily: "inherit" }}
+            style={{ resize: "vertical", fontFamily: "inherit" }}
           />
         </label>
 
         <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
-          <Text variant="eyebrow">{gearLabelFor(data.type)}</Text>
-          <input
+          <Text variant="bodyMedium">{gearLabelFor(data.type)}</Text>
+          <Input
             type="text"
             value={gear}
             onChange={(e) => setGear(e.target.value)}
             placeholder={gearPlaceholderFor(data.type)}
-            style={fieldStyle}
+            style={{ minHeight: "var(--dim-button-height)" }}
           />
         </label>
       </Card>
@@ -304,14 +316,14 @@ export default function ActivityEditPage() {
       {/* 시작 일시 */}
       <Card padding="none" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-4)' }}>
         <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("edit.sectionDateTime")}</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="activity-edit-datetime">
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("edit.fieldDate")}</Text>
-            <DateField value={startDate} onChange={setStartDate} placeholder={t("edit.datePlaceholder")} />
+            <label htmlFor="activity-edit-date">{t("edit.fieldDate")}</label>
+            <DateField id="activity-edit-date" icon={<CalendarDays size={16} aria-hidden="true" />} portal value={startDate} onChange={setStartDate} placeholder={t("edit.datePlaceholder")} />
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("edit.fieldTime")}</Text>
-            <TimeField value={startTimeOfDay} onChange={setStartTimeOfDay} placeholder={t("edit.timePlaceholder")} />
+            <label htmlFor="activity-edit-time">{t("edit.fieldTime")}</label>
+            <TimeField id="activity-edit-time" icon={<Clock3 size={16} aria-hidden="true" />} portal value={startTimeOfDay} onChange={setStartTimeOfDay} placeholder={t("edit.timePlaceholder")} />
           </div>
         </div>
       </Card>
@@ -319,7 +331,7 @@ export default function ActivityEditPage() {
       {/* 운동 유형 */}
       <Card padding="none" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-4)' }}>
         <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("edit.sectionWorkoutType")}</h2>
-        <div role="radiogroup" aria-label={t("edit.workoutTypeAria")} className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
+        <div role="radiogroup" onKeyDown={handleRadioKey} aria-label={t("edit.workoutTypeAria")} className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
           {WORKOUT_TYPES.map((o) => {
             const active = workoutType === o.v;
             return (
@@ -328,8 +340,10 @@ export default function ActivityEditPage() {
                 type="button"
                 role="radio"
                 aria-checked={active}
+                tabIndex={active ? 0 : -1}
                 onClick={() => setWorkoutType(o.v)} variant="secondary" size="sm"
                 style={{
+                  minHeight: "var(--dim-button-height)",
                   background: active ? "var(--bg-3)" : "transparent",
                   color: active ? "var(--ink-0)" : "var(--ink-3)",
                   fontWeight: active ? 600 : 400,
@@ -345,7 +359,7 @@ export default function ActivityEditPage() {
       {/* 공개 설정 */}
       <Card padding="none" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-4)' }}>
         <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("edit.sectionVisibility")}</h2>
-        <div role="radiogroup" aria-label={t("edit.visibilityAria")} className="flex flex-col" style={{ gap: 'var(--space-2)' }}>
+        <div role="radiogroup" onKeyDown={handleRadioKey} aria-label={t("edit.visibilityAria")} className="flex flex-col" style={{ gap: 'var(--space-2)' }}>
           {VISIBILITY_OPTIONS.map((o) => {
             const active = visibility === o.v;
             return (
@@ -354,6 +368,7 @@ export default function ActivityEditPage() {
                 type="button"
                 role="radio"
                 aria-checked={active}
+                tabIndex={active ? 0 : -1}
                 onClick={() => setVisibility(o.v)}
                 className="text-left"
                 style={{
@@ -382,7 +397,7 @@ export default function ActivityEditPage() {
         </label>
 
         <div>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("edit.rpeLabel")}</Text>
+          <GlossaryProvider scopeKey="activity-edit-rpe"><Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}><GlossaryText>{t("edit.rpeLabel")}</GlossaryText></Text></GlossaryProvider>
           <div className="flex items-center flex-wrap" style={{ gap: 'var(--space-1)' }}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => {
               const active = perceivedExertion === n;
@@ -393,7 +408,8 @@ export default function ActivityEditPage() {
                   onClick={() => setPerceivedExertion(active ? null : n)}
                   aria-pressed={active} variant="secondary" size="sm"
                   style={{
-                    minWidth: 36,
+                    minWidth: "var(--dim-button-height)",
+                    minHeight: "var(--dim-button-height)",
                     background: active ? "var(--bg-3)" : "transparent",
                     color: active ? "var(--ink-0)" : "var(--ink-3)",
                     fontWeight: active ? 700 : 400,
@@ -415,10 +431,10 @@ export default function ActivityEditPage() {
         <Button
           type="button"
           onClick={handleDelete}
-          disabled={saving} variant="secondary" size="sm"
+          disabled={saving} variant="secondary"
           style={{ color: "var(--rose)", borderColor: "color-mix(in oklch, var(--rose) 40%, transparent)" }}
         >
-          🗑 {t("edit.deleteBtn")}
+          <Trash2 size={16} aria-hidden="true" /> {t("edit.deleteBtn")}
         </Button>
         <div className="flex items-center" style={{ gap: 'var(--space-2)' }}>
           <Button

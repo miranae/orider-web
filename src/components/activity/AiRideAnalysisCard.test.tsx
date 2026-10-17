@@ -70,6 +70,15 @@ function narrative(segments: NarrativeSegment[]): ActivityNarrative & { hit: tru
 }
 
 describe("AiRideAnalysisCard", () => {
+  it("uses a fixed SVG for the AI heading without requesting generation", async () => {
+    narrativeApiMocks.peek.mockResolvedValue(null);
+    const { container } = renderWithProviders(<AiRideAnalysisCard activityId="svg-header" enabled summaryPreview="Saved summary" />, { authenticated: true });
+    const heading = await screen.findByText("AI 라이딩 분석");
+    expect(heading.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
+    expect(container).not.toHaveTextContent("🤖");
+    expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
+  });
+
   it("stage hides unsupported AI analysis and makes no peek or generation requests", async () => {
     const runtime = vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({ ...runtimeConfig.getRuntimeConfig(), appEnvironment: "stage" });
     try {

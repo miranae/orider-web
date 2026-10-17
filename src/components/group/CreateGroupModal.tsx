@@ -10,7 +10,7 @@ import { useDialog } from "../../contexts/DialogContext";
 import Modal from "../Modal";
 import { getGroupInviteCode } from "../../features/group/groupInviteAdmin";
 import type { GroupKind, GroupApproval } from "@shared/types";
-import { Button, Card, Text } from "../../theme/components";
+import { Button, Card, Text, Input, Textarea } from "../../theme/components";
 
 interface CreateGroupModalProps {
   open: boolean;
@@ -205,7 +205,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
         <div className="flex flex-col" style={{ gap: 'var(--space-4)' }}>
           <div>
             <Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.kindLabel")}</Text>
-            <div role="radiogroup" onKeyDown={event=>handleGroupChoiceKey(event,"radio")} aria-label={t("create.kindLabel")} className="grid grid-cols-2 gap-2">
+            <div role="radiogroup" onKeyDown={event=>handleGroupChoiceKey(event,"radio")} aria-label={t("create.kindLabel")} className="club-create-kind-options grid grid-cols-2 gap-2">
               {KINDS.map((k) => {
                 const active = kind === k.id;
                 return (
@@ -235,7 +235,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
           <div className="grid gap-2" style={{ gridTemplateColumns: "1fr 100px" }}>
             <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
               <Text variant="bodyMedium">{t("create.nameLabel")}</Text>
-              <input data-testid="C0-5-1"
+              <Input data-testid="C0-5-1"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -246,7 +246,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
             </label>
             <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
               <Text variant="bodyMedium">{t("create.badgeLabel")}</Text>
-              <input
+              <Input
                 type="text"
                 value={badge}
                 onChange={(e) => setBadge(e.target.value.toUpperCase())}
@@ -259,7 +259,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
 
           <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
             <Text variant="bodyMedium">{t("create.cityLabel")}</Text>
-            <input
+            <Input
               type="text"
               value={city}
               onChange={(e) => setCity(e.target.value)}
@@ -270,7 +270,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
 
           <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
             <Text variant="bodyMedium">{t("create.descLabel")}</Text>
-            <textarea
+            <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -374,7 +374,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
 
           <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
             <Text variant="bodyMedium">{t("create.rulesLabel")}</Text>
-            <textarea data-testid="C0-5-2"
+            <Textarea data-testid="C0-5-2"
               value={rules}
               onChange={(e) => setRules(e.target.value)}
               rows={4}

@@ -211,8 +211,8 @@ function ChangeDialog({ change }: { change: Run30ChangeState }) {
   const title = t("run30.change.title", { stage: preview.stage });
   const close = () => { if (!confirming) change.cancel(); };
   return (
-    <Modal open onClose={close} title={title}>
-      <div role="dialog" aria-modal="true" aria-label={title} className="run30-dialog">
+    <Modal open onClose={close} title={title} busy={confirming}>
+      <div className="run30-dialog">
         <p className="run30-lead">
           {preview.toLocalDate
             ? t("run30.change.rangeMove", {

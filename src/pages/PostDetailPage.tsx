@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { EyeOff, FileText, Trash2, MapPin, Heart, MessageCircle, Flag, Ban } from 'lucide-react';
 import { useLocation, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -168,15 +169,15 @@ const PostDetailPage: React.FC = () => {
       </div>
     );
   }
-  if (blocksError) return <EmptyState icon="🙈" title={t("error.loadFailed")} actions={[{ label: t("button.retry"), onClick: retryBlocks }]} />;
+  if (blocksError) return <EmptyState icon={<EyeOff size={28} className="mx-auto" aria-hidden="true" />} title={t("error.loadFailed")} actions={[{ label: t("button.retry"), onClick: retryBlocks }]} />;
   if (post && blockedUsers.some(item => item.targetUid === post.userId)) {
-    return <EmptyState icon="🙈" title={t("block.hidden")} actions={[{ label: t("block.unblock"), onClick: () => { if (unblockPending) return; void unblock(post.userId).catch(() => showToast(t("block.failed"), "error")); } }, { label: t("label.backToBoard"), onClick: () => navigate(boardReturnTo) }]} />;
+    return <EmptyState icon={<EyeOff size={28} className="mx-auto" aria-hidden="true" />} title={t("block.hidden")} actions={[{ label: t("block.unblock"), onClick: () => { if (unblockPending) return; void unblock(post.userId).catch(() => showToast(t("block.failed"), "error")); } }, { label: t("label.backToBoard"), onClick: () => navigate(boardReturnTo) }]} />;
   }
   if (postError || !post) {
     return (
       <div className="py-16 max-w-xl mx-auto">
         <EmptyState
-          icon="📝"
+          icon={<FileText size={28} className="mx-auto" aria-hidden="true" />}
           title={t(postError ? 'error.loadFailed' : 'label.postNotFound')}
           actions={[{ label: t('label.backToBoard'), variant: "primary", onClick: () => navigate(boardReturnTo) }]}
         />
@@ -188,7 +189,7 @@ const PostDetailPage: React.FC = () => {
     return (
       <div className="py-16 max-w-xl mx-auto">
         <EmptyState
-          icon="🗑️"
+          icon={<Trash2 size={28} className="mx-auto" aria-hidden="true" />}
           title={t('label.deletedPostText')}
           actions={[{ label: t('label.backToBoard'), variant: "primary", onClick: () => navigate(boardReturnTo) }]}
         />
@@ -223,7 +224,7 @@ const PostDetailPage: React.FC = () => {
               {t('label.views')} {post.viewCount}
               {user?.uid !== post.userId && (
                 <>
-                  <button data-testid="M2-P-3"
+                  <Button variant="ghost" size="md" leadingIcon={<Flag size={16} />} data-testid="M2-P-3"
                     onClick={() => openReport({
                       targetType: "post",
                       postId: post.id,
@@ -234,14 +235,14 @@ const PostDetailPage: React.FC = () => {
                     className="text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
                   >
                     {t("report.action")}
-                  </button>
+                  </Button>
                   {user && (
-                    <button
+                    <Button variant="ghost" size="md" leadingIcon={<Ban size={16} />}
                       onClick={handleBlockAuthor}
                       className="text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
                     >
                       {t("block.action")}
-                    </button>
+                    </Button>
                   )}
                 </>
               )}
@@ -326,7 +327,7 @@ const PostDetailPage: React.FC = () => {
           // ActivityCard 가 자체 카드 서피스 — 래퍼 카드를 없애 3중 중첩 방지 (#401)
           <div className="mb-8">
             <div className="px-1 py-2 text-[length:var(--fs-xs)] font-bold text-[var(--lime)] flex items-center gap-1">
-              <span>📍</span> {t('label.linkedActivity')}
+              <MapPin size={14} aria-hidden="true" /> {t('label.linkedActivity')}
             </div>
             <ActivityCard activity={linkedActivity} />
           </div>
@@ -352,7 +353,7 @@ const PostDetailPage: React.FC = () => {
         )}
 
         <div className="board-post-reactions flex items-center gap-4 pt-6 border-t border-[var(--line-soft)]">
-          <button
+          <Button variant="ghost" size="md" leadingIcon={<Heart size={16} fill={isLiked ? "currentColor" : "none"} aria-hidden="true" />}
             onClick={handleLikeToggle}
             aria-pressed={isLiked}
             className={`flex items-center gap-1.5 transition-colors text-[length:var(--fs-sm)] font-medium ${
@@ -361,15 +362,14 @@ const PostDetailPage: React.FC = () => {
                 : 'text-[var(--ink-3)] hover:text-[var(--lime)]'
             }`}
           >
-            <span>{isLiked ? '🧡' : '👍'}</span>
             {t('likes')} {likeCount}
-          </button>
+          </Button>
 
           {/* 누른 사람 아바타 스택 — hover/focus/tap 시 이름 툴팁 (활동 쿠도스와 동일 컴포넌트) */}
           <LikersAvatarStack likers={likers} totalCount={likeCount} variant="like" />
           <span className="text-[var(--ink-3)] flex items-center gap-1.5 text-[length:var(--fs-sm)] font-medium">
-            <span>💬</span>
-            {t('comments')} {post.commentCount}
+            <MessageCircle size={16} aria-hidden="true" />
+            {t('comment.totalCount', { count: post.commentCount })}
           </span>
         </div>
       </Card>
@@ -377,7 +377,7 @@ const PostDetailPage: React.FC = () => {
       {/* Comments Section */}
       <section data-testid="M2-C" className="board-comments space-y-4 mb-10" aria-labelledby="board-comments-title">
         <h2 id="board-comments-title" className="font-bold text-[length:var(--fs-lg)] text-[var(--ink-0)] flex items-center gap-2">
-          {t('comments')} <span className="text-[var(--lime)]">{visibleComments.length}</span>
+          {t('comment.visibleHeading')} {!commentsLoading && !commentsError && <span className="text-[var(--lime)]">{visibleComments.length}</span>}
         </h2>
 
         {/* Comment Input */}
@@ -421,15 +421,15 @@ const PostDetailPage: React.FC = () => {
                 <span className="font-bold text-[length:var(--fs-sm)] text-[var(--ink-1)]">{comment.nickname}</span>
                 <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{new Date(comment.createdAt).toLocaleString(i18n.language)}</span>
                 {user && user.uid === comment.userId && (
-                  <button
+                  <Button variant="ghost" size="md" leadingIcon={<Trash2 size={16} />}
                     onClick={() => handleDeleteComment(comment.id)}
                     className="ml-auto text-[length:var(--fs-xs)] text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
                   >
                     {t('button.delete')}
-                  </button>
+                  </Button>
                 )}
                 {user?.uid !== comment.userId && (
-                  <button
+                  <Button variant="ghost" size="md" leadingIcon={<Flag size={16} />}
                     onClick={() => openReport({
                       targetType: "comment",
                       postId: post.id,
@@ -441,7 +441,7 @@ const PostDetailPage: React.FC = () => {
                     className={`${user && user.uid === comment.userId ? "" : "ml-auto"} text-[length:var(--fs-xs)] text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors`}
                   >
                     {t("report.action")}
-                  </button>
+                  </Button>
                 )}
               </div>
               <BoardCommentText>{comment.text}</BoardCommentText>

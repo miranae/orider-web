@@ -62,3 +62,26 @@ it("completion coach navigation clears the form without referencing an uninitial
   fireEvent.click(coachLink);
   expect(close).toHaveBeenCalledOnce();
 });
+
+
+it("locks only while open and restores the previous body styles and scroll position on close", () => {
+  const previousPosition = document.body.style.position;
+  const previousOverflow = document.body.style.overflow;
+  const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+  const close = vi.fn();
+  const view = render(<MemoryRouter><ImportActivityModal open={false} onClose={close} /></MemoryRouter>);
+  try {
+    expect(document.body.style.position).toBe(previousPosition);
+    expect(document.body.style.overflow).toBe(previousOverflow);
+    view.rerender(<MemoryRouter><ImportActivityModal open onClose={close} /></MemoryRouter>);
+    expect(document.body.style.position).toBe("fixed");
+    expect(document.body.style.overflow).toBe("hidden");
+    view.rerender(<MemoryRouter><ImportActivityModal open={false} onClose={close} /></MemoryRouter>);
+    expect(document.body.style.position).toBe(previousPosition);
+    expect(document.body.style.overflow).toBe(previousOverflow);
+    expect(scrollTo).toHaveBeenCalled();
+  } finally {
+    view.unmount();
+    scrollTo.mockRestore();
+  }
+});

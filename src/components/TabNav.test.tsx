@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import TabNav, { RouteTabNav } from "./TabNav";
@@ -99,4 +99,57 @@ describe("RouteTabNav optional navigation state", () => {
     expect(screen.getByTestId("tab-location")).toHaveTextContent("/ko/event/event-1/results?view=results#finish");
     expect(screen.getByTestId("tab-state")).toHaveTextContent("null");
   });
+});
+
+
+it("keeps the active route visible after late tab-width changes and respects manual browsing", () => {
+  const frames = new Map<number, FrameRequestCallback>();
+  let sequence = 0;
+  let observed: ResizeObserverCallback | undefined;
+  const observedElements: Element[] = [];
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { frames.set(++sequence, callback); return sequence; });
+  vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
+  vi.stubGlobal("ResizeObserver", class {
+    constructor(callback: ResizeObserverCallback) { observed = callback; }
+    observe(element: Element) { observedElements.push(element); } disconnect() {}
+  });
+  try {
+    const routes = [{ to: "/explore/courses", label: "Courses" }, { to: "/explore/challenges", label: "Challenges" }];
+    const view = render(<MemoryRouter initialEntries={["/ko/explore/challenges"]}><Routes><Route path="/:lang/*" element={<RouteTabNav tabs={routes} />} /></Routes></MemoryRouter>);
+    const scroller = view.container.querySelector<HTMLElement>(".route-tab-nav__scroller")!;
+    const selected = screen.getByRole("link", { name: "Challenges" });
+    const width = () => 200 - view.container.querySelectorAll(".route-tab-nav__more").length * 32;
+    Object.defineProperties(scroller, { scrollWidth: { configurable: true, value: 600 }, clientWidth: { configurable: true, get: width } });
+    scroller.getBoundingClientRect = () => ({ left: 0, right: width(), width: width() }) as DOMRect;
+    let precedingTabGrowth = 0;
+    selected.getBoundingClientRect = () => ({ left: 400 + precedingTabGrowth - scroller.scrollLeft, right: 500 + precedingTabGrowth - scroller.scrollLeft, width: 100 }) as DOMRect;
+    fireEvent(window, new Event("resize"));
+    const flush = () => act(() => { const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback(0)); });
+    flush(); flush();
+    expect(selected.getBoundingClientRect().left).toBeGreaterThanOrEqual(0);
+    expect(selected.getBoundingClientRect().right).toBeLessThanOrEqual(width());
+    expect(selected).toHaveAttribute("aria-current", "page");
+    expect(observedElements).toEqual(expect.arrayContaining([scroller, screen.getByRole("link", { name: "Courses" }), selected]));
+    // A late font load grows a preceding tab after the initial frames settled.
+    precedingTabGrowth = 80;
+    expect(selected.getBoundingClientRect().right).toBeGreaterThan(width());
+    act(() => observed?.([], {} as ResizeObserver));
+    flush(); flush();
+    expect(selected.getBoundingClientRect().left).toBeGreaterThanOrEqual(0);
+    expect(selected.getBoundingClientRect().right).toBeLessThanOrEqual(width());
+    fireEvent.pointerDown(scroller);
+    scroller.scrollLeft = 0;
+    fireEvent.scroll(scroller);
+    precedingTabGrowth += 40;
+    act(() => observed?.([], {} as ResizeObserver));
+    flush(); flush();
+    expect(scroller.scrollLeft).toBe(0);
+    expect(view.container.querySelectorAll(".route-tab-nav__more")).toHaveLength(2);
+    const reservedBack = view.container.querySelector<HTMLButtonElement>(".route-tab-nav__more")!;
+    expect(reservedBack).toBeDisabled();
+    expect(reservedBack).toHaveStyle({ visibility: "hidden" });
+    expect(width()).toBe(136);
+    expect(screen.getByRole("link", { name: "Courses" })).toBeInTheDocument();
+    view.unmount();
+  } finally { vi.unstubAllGlobals(); }
 });

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useId } from 'react';
 import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -12,7 +12,8 @@ import { useToast } from '../contexts/ToastContext';
 import { storage } from '../services/firebase';
 import { ref, uploadBytes, deleteObject } from 'firebase/storage';
 import { LoadingSkeleton } from '../components/redesign';
-import { Button, Card } from "../theme/components";
+import { BoardFeedbackIcon } from "../features/board/BoardFeedbackIcon";
+import { Button, Card, Input } from "../theme/components";
 import { normalizeUserContentUrl } from "../utils/userContentUrl";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 import { clearPostDraft, getPostDraftKey, readPostDraft, writePostDraft } from "../features/board/postDraft";
@@ -117,6 +118,8 @@ const CreatePostPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const tablePickerRef = useRef<HTMLDivElement>(null);
+  const tableTriggerRef = useRef<HTMLButtonElement>(null);
+  const tablePickerId = useId();
 
   const location = useLocation();
   const postTemplate = location.state?.postTemplate as { title?: unknown; body?: unknown } | undefined;
@@ -285,8 +288,19 @@ const CreatePostPage: React.FC = () => {
         setShowTablePicker(false);
       }
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      setShowTablePicker(false);
+      tableTriggerRef.current?.focus();
+    };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [showTablePicker]);
 
   /** 블록 서식 토글 (H2, H3, BLOCKQUOTE) */
@@ -804,14 +818,13 @@ const CreatePostPage: React.FC = () => {
           </label>
         ) : (
           <>
-            <input
+            <Input
               type="text"
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder={t('placeholder.tags')}
               aria-label={t("label.tags")}
-              className="w-full px-4 py-3 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)]"
-              style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
+              className="board-writing-tags w-full"
             />
             <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mt-3">{t('placeholder.tagExample')}</p>
             <div className="mt-4 flex min-h-14 flex-wrap content-start gap-2 rounded-[var(--r-lg)] bg-[var(--bg-2)] p-3.5">
@@ -942,7 +955,7 @@ const CreatePostPage: React.FC = () => {
                         : 'border-[var(--line-soft)] hover:border-[var(--line)]'
                     }`}
                   >
-                    <span className="text-[length:var(--fs-xl)]">{feedbackItem.icon}</span>
+                    <BoardFeedbackIcon type={feedbackItem.value} />
                     <span className={`text-[length:var(--fs-xs)] font-bold ${feedbackType === feedbackItem.value ? 'text-[var(--lime)]' : 'text-[var(--ink-2)]'}`}>
                       {feedbackItem.label}
                     </span>
@@ -1013,15 +1026,15 @@ const CreatePostPage: React.FC = () => {
 
               {/* --- Table picker --- */}
               <div className="relative" ref={tablePickerRef}>
-                <ToolBtn onClick={() => setShowTablePicker(prev => !prev)} title={t('toolbar.table')}>
+                <ToolBtn buttonRef={tableTriggerRef} expanded={showTablePicker} controls={tablePickerId} onClick={() => setShowTablePicker(prev => !prev)} title={t('toolbar.table')}>
                   <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125M10.875 12c-.621 0-1.125.504-1.125 1.125M12 12c0 .621.504 1.125 1.125 1.125M12 12c0-.621.504-1.125 1.125-1.125m1.5 2.625c0-.621.504-1.125 1.125-1.125" /></svg>
                 </ToolBtn>
                 {showTablePicker && (
-                  <div className="absolute top-full left-0 mt-1 p-3 rounded-[var(--r-lg)] z-50" style={{ background: 'var(--bg-2)', border: '1px solid var(--line)' }}>
+                  <div id={tablePickerId} className="board-table-picker absolute top-full left-0 mt-1 p-3 rounded-[var(--r-lg)] z-50" style={{ background: 'var(--bg-2)', border: '1px solid var(--line)' }}>
                     <div className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mb-2 text-center">
                       {tableHover.rows > 0 ? t('toolbar.tableSize', { rows: tableHover.rows, cols: tableHover.cols }) : t('toolbar.tableSizePrompt')}
                     </div>
-                    <div className="grid grid-cols-6 gap-1">
+                    <div className="board-table-grid">
                       {Array.from({ length: 36 }).map((_, i) => {
                         const row = Math.floor(i / 6) + 1;
                         const col = (i % 6) + 1;
@@ -1128,7 +1141,10 @@ const ToolBtn: React.FC<{
   disabled?: boolean;
   active?: boolean;
   title?: string;
-}> = ({ children, onClick, disabled, active, title }) => (
+  buttonRef?: React.Ref<HTMLButtonElement>;
+  expanded?: boolean;
+  controls?: string;
+}> = ({ children, onClick, disabled, active, title, buttonRef, expanded, controls }) => (
   <button
     type="button"
     onClick={onClick}
@@ -1136,8 +1152,11 @@ const ToolBtn: React.FC<{
     disabled={disabled}
     title={title}
     aria-label={title}
+    ref={buttonRef}
     aria-pressed={active}
-    className={`flex flex-col items-center justify-center w-10 h-10 rounded-[var(--r-lg)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+    aria-expanded={expanded}
+    aria-controls={controls}
+    className={`board-tool-button flex items-center justify-center rounded-[var(--r-lg)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
       active
         ? 'bg-[var(--lime)]/20 text-[var(--lime)]'
         : 'text-[var(--ink-3)] hover:bg-[var(--bg-2)] hover:text-[var(--ink-1)]'

@@ -199,7 +199,7 @@ export default function MobilePlanContent({
         <Card data-testid="K4-5m-2" padding="compact" className="mobile-plan-next">
           <div className="mobile-plan-next-main">
             <div className="mobile-plan-next-copy">
-              <Text as="span" variant="eyebrow" style={{ color: "var(--lime)" }}>{nextWorkoutIdx === todayIdx ? t("mobile.todayNext") : t("mobile.weekNext")}</Text>
+              <Text as="span" variant="eyebrow" style={{ color: "var(--lime)" }}>{goalDate && kstDateString(nextWorkout.date) > kstDateString(goalDate.getTime()) ? t("scope.nextAfterGoal") : nextWorkoutIdx === todayIdx ? t("mobile.todayNext") : t("mobile.weekNext")}</Text>
               <strong><GlossaryText>{nextWorkoutLabel}</GlossaryText></strong>
               <span>{nextWorkoutIdx !== todayIdx && `${kstDateString(nextWorkout.date)} · `}{nextDuration > 0 && `${nextDuration} ${t("mobile.minutesUnit")}`}{effectivePlanTSS(nextWorkout) > 0 && <>{nextDuration > 0 && " · "}<GlossaryText>{`${effectivePlanTSS(nextWorkout)} TSS`}</GlossaryText></>}</span>
             </div>

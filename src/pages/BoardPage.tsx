@@ -8,7 +8,8 @@ import { useDialog } from '../contexts/DialogContext';
 import { useToast } from '../contexts/ToastContext';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/redesign';
 import type { BoardType } from '@shared/types';
-import { Button, Card, Chip } from "../theme/components";
+import { BoardFeedbackIcon } from "../features/board/BoardFeedbackIcon";
+import { Button, Card, Chip, Input } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
 import SafeImage from "../components/SafeImage";
 import { useBoardBlocks } from "../features/board/useBoardBlocks";
@@ -226,7 +227,7 @@ const BoardPage: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </span>
-              <input data-testid="M2-1-1"
+              <Input data-testid="M2-1-1"
                 type="search"
                 aria-label={t("placeholder.search")}
                 disabled={isMyPosts || isMyInquiryView}
@@ -234,8 +235,7 @@ const BoardPage: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSearch(); }}
-                className="w-full min-h-[44px] pl-9 pr-3 py-1.5 sm:py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent"
-                style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
+                className="board-search-input w-full"
               />
             </div>
 
@@ -472,11 +472,11 @@ const BoardPage: React.FC = () => {
                     {t(`label.boardTypes.${post.boardType}`)}
                   </span>
                   {post.feedbackType && (() => {
-                    const icon = t(`label.feedbackIcons.${post.feedbackType}`);
+
                     const label = t(`label.feedbackTypes.${post.feedbackType}`);
-                    return icon && label ? (
-                      <span className="text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--amber)]/10 text-[var(--amber)] font-medium">
-                        {icon} {label}
+                    return label ? (
+                      <span className="inline-flex items-center gap-1 text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--amber)]/10 text-[var(--amber)] font-medium">
+                        <BoardFeedbackIcon type={post.feedbackType} size={14} /> {label}
                       </span>
                     ) : null;
                   })()}

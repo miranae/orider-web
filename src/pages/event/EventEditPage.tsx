@@ -894,7 +894,7 @@ export default function EventEditPage() {
                         </Button>
                       </div>
                       <div className="flex items-center" style={{ gap: "var(--space-2)", marginTop: 'var(--space-2)' }}>
-                        <div style={{ flex: 1, height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
+                        <div style={{ flex: 1, height: 3, background: "var(--bg-3)", borderRadius: "var(--r-sm)", overflow: "hidden" }}>
                           <div
                             style={{
                               width: `${pct ?? 0}%`,
@@ -965,7 +965,7 @@ export default function EventEditPage() {
                   borderRadius: "var(--r-sm)",
                 }}
               >
-                <Toggle on={data.cutoffEnabled} onChange={(v) => patch({ cutoffEnabled: v })} />
+                <Toggle label={t("edit.cutoffApply")} on={data.cutoffEnabled} onChange={(v) => patch({ cutoffEnabled: v })} />
                 <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-1)" }}>{t("edit.cutoffApply")}</span>
                 {data.cutoffEnabled && (
                   <>
@@ -1008,7 +1008,7 @@ export default function EventEditPage() {
                 className="flex items-start"
                 style={{ gap: "var(--space-3)", padding: "10px 0", borderBottom: "1px solid var(--line-soft)" }}
               >
-                <Toggle on={data[opt.id]} onChange={(v) => patch({ [opt.id]: v } as Partial<FormData>)} />
+                <Toggle label={opt.label} on={data[opt.id]} onChange={(v) => patch({ [opt.id]: v } as Partial<FormData>)} />
                 <div className="flex-1 min-w-0">
                   <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}><GlossaryText>{opt.label}</GlossaryText></div>
                   <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}><GlossaryText>{opt.desc}</GlossaryText></div>
