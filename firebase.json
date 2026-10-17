@@ -35,7 +35,15 @@
       { "source": "/ko/community", "destination": "/ko/policies/community", "type": 301 },
       { "source": "/ko/platform", "destination": "/ko/community-guide/", "type": 302 },
       { "source": "/en/community", "destination": "/en/policies/community", "type": 301 },
-      { "source": "/en/platform", "destination": "/en/community-guide/", "type": 302 }
+      { "source": "/en/platform", "destination": "/en/community-guide/", "type": 302 },
+      { "source": "/ko/manual", "destination": "/manual/", "type": 301 },
+      { "source": "/ko/manual/:rest*", "destination": "/manual/:rest", "type": 301 },
+      { "source": "/en/manual", "destination": "/manual/", "type": 301 },
+      { "source": "/en/manual/:rest*", "destination": "/manual/:rest", "type": 301 },
+      { "source": "/ko/web-manual", "destination": "/web-manual/", "type": 301 },
+      { "source": "/ko/web-manual/:rest*", "destination": "/web-manual/:rest", "type": 301 },
+      { "source": "/en/web-manual", "destination": "/web-manual/", "type": 301 },
+      { "source": "/en/web-manual/:rest*", "destination": "/web-manual/:rest", "type": 301 }
     ],
     "rewrites": [
       { "source": "/api/v1/**", "function": { "functionId": "api", "region": "asia-northeast3" } },
