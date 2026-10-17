@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "spec": "orider-doc/planning/같은주행_분할조각_사양.md v2.2 §6 (SPC-7, 1단계)",
+  "mirror": "서버 표와 동일해야 함 — 원본: orider-g1-web functions/src/training/fixtures/same-physical-ride-cases.json (sha256 04996fa22e593ad494e8d0b5526e50751f48c4ef7440573ff8791f0cd7569496). 공개 저장소라 SPC-7-1 의 실제 활동 id 3개만 가짜 id 로 바꿨다(정렬 순서 보존). Must match the server table; only real activity ids in SPC-7-1 are replaced with fake ones.",
+  "format": {
+    "rows": "groupSamePhysicalRides 입력. startTime·endTime 은 ISO 8601 UTC 문자열(또는 null)이고 테스트가 epoch ms 로 바꾼다. 나머지 필드는 PhysicalRideActivity 와 같다(서버는 type 으로 종목을 판정한다. 웹 미러는 sportFamily 로 변환해 넣는다).",
+    "expectedGroups": "하위 묶음 id 집합 목록. 각 묶음 안 id 와 묶음 순서는 정렬해서 비교한다.",
+    "expectedRepresentatives": "입력 순서 그대로 넣었을 때 pickPhysicalRideRepresentative 결과 id 집합(정렬 비교). 생략 가능."
+  },
+  "cases": [
+    {
+      "id": "SPC-7-1",
+      "title": "2026-10-10 사례: orider 전체 1건이 Strava 오전·오후를 잇는다 — orider 는 겹침이 더 긴 오전으로",
+      "rows": [
+        { "id": "orider_case1_whole", "source": "orider", "type": "Ride", "startTime": "2026-10-10T01:37:00Z", "endTime": "2026-10-10T07:11:00Z", "movingSec": 14400, "hasLoad": true },
+        { "id": "strava_9000000001", "source": "strava", "type": "Ride", "stravaActivityId": 9000000001, "startTime": "2026-10-10T01:38:00Z", "endTime": "2026-10-10T05:50:00Z", "movingSec": 11000, "hasLoad": true },
+        { "id": "strava_9000000002", "source": "strava", "type": "Ride", "stravaActivityId": 9000000002, "startTime": "2026-10-10T06:31:00Z", "endTime": "2026-10-10T07:11:00Z", "movingSec": 2400, "hasLoad": true }
+      ],
+      "expectedGroups": [["orider_case1_whole", "strava_9000000001"], ["strava_9000000002"]],
+      "expectedRepresentatives": ["strava_9000000001", "strava_9000000002"]
+    },
+    {
+      "id": "SPC-7-2",
+      "title": "Strava 전체 1건 + orider 분할 3건 — 기존과 같이 대표 Strava 1건",
+      "rows": [
+        { "id": "strava_whole", "source": "strava", "type": "Ride", "startTime": "2026-09-06T01:00:00Z", "endTime": "2026-09-06T03:16:00Z", "hasLoad": true },
+        { "id": "orider_part_1", "source": "orider", "type": "Ride", "startTime": "2026-09-06T01:05:00Z", "endTime": "2026-09-06T01:24:00Z", "hasLoad": true },
+        { "id": "orider_part_2", "source": "orider", "type": "Ride", "startTime": "2026-09-06T01:30:00Z", "endTime": "2026-09-06T02:24:00Z", "hasLoad": true },
+        { "id": "orider_part_3", "source": "orider", "type": "Ride", "startTime": "2026-09-06T02:30:00Z", "endTime": "2026-09-06T03:13:00Z", "hasLoad": true }
+      ],
+      "expectedGroups": [["orider_part_1", "orider_part_2", "orider_part_3", "strava_whole"]],
+      "expectedRepresentatives": ["strava_whole"]
+    },
+    {
+      "id": "SPC-7-3",
+      "title": "같은 Strava 활동 중복 2건(서로 겹침) — 대표 1건",
+      "rows": [
+        { "id": "strava_300", "source": "strava", "type": "Ride", "stravaActivityId": 300, "startTime": "2026-09-10T01:00:00Z", "endTime": "2026-09-10T02:00:00Z" },
+        { "id": "strava_300_copy", "source": "strava", "type": "Ride", "stravaActivityId": 300, "startTime": "2026-09-10T01:00:00Z", "endTime": "2026-09-10T02:00:00Z" }
+      ],
+      "expectedGroups": [["strava_300", "strava_300_copy"]],
+      "expectedRepresentatives": ["strava_300"]
+    },
+    {
+      "id": "SPC-7-4",
+      "title": "Strava 사슬 A~B·B~C 겹침, A·C 안 겹침 — 연결 관계로 덩어리 1개, 분할하지 않음",
+      "rows": [
+        { "id": "strava_a", "source": "strava", "type": "Ride", "startTime": "2026-09-11T01:00:00Z", "endTime": "2026-09-11T02:00:00Z", "hasLoad": false },
+        { "id": "strava_b", "source": "strava", "type": "Ride", "startTime": "2026-09-11T01:30:00Z", "endTime": "2026-09-11T02:30:00Z", "hasLoad": true },
+        { "id": "strava_c", "source": "strava", "type": "Ride", "startTime": "2026-09-11T02:00:00Z", "endTime": "2026-09-11T03:00:00Z", "hasLoad": false },
+        { "id": "orider_whole", "source": "orider", "type": "Ride", "startTime": "2026-09-11T01:00:00Z", "endTime": "2026-09-11T03:00:00Z", "hasLoad": true }
+      ],
+      "expectedGroups": [["orider_whole", "strava_a", "strava_b", "strava_c"]],
+      "expectedRepresentatives": ["strava_b"]
+    },
+    {
+      "id": "SPC-7-5",
+      "title": "Strava 없음: Health 전체 1건 + orider 분할 2건 — 하위 묶음 2개, 대표 orider 각각",
+      "rows": [
+        { "id": "hc_whole", "source": "health_connect", "type": "Ride", "startTime": "2026-09-12T01:00:00Z", "endTime": "2026-09-12T03:00:00Z" },
+        { "id": "orider_1", "source": "orider", "type": "Ride", "startTime": "2026-09-12T01:00:00Z", "endTime": "2026-09-12T01:50:00Z" },
+        { "id": "orider_2", "source": "orider", "type": "Ride", "startTime": "2026-09-12T02:00:00Z", "endTime": "2026-09-12T03:00:00Z" }
+      ],
+      "expectedGroups": [["orider_1"], ["hc_whole", "orider_2"]],
+      "expectedRepresentatives": ["orider_1", "orider_2"]
+    },
+    {
+      "id": "SPC-7-6",
+      "title": "orider 단독 + Health 1건(같은 주행) — 기존과 같이 대표 orider",
+      "rows": [
+        { "id": "orider_solo", "source": "orider", "type": "Ride", "startTime": "2026-09-13T01:00:00Z", "endTime": "2026-09-13T02:00:00Z" },
+        { "id": "ah_solo", "source": "apple_health", "type": "Ride", "startTime": "2026-09-13T01:00:00Z", "endTime": "2026-09-13T02:00:00Z" }
+      ],
+      "expectedGroups": [["ah_solo", "orider_solo"]],
+      "expectedRepresentatives": ["orider_solo"]
+    },
+    {
+      "id": "SPC-7-7",
+      "title": "출처 필드 없는 옛 orider 문서(순위 3) + Health 조각 2건 — Health 가 최상위라 Health 기준 분할(의도된 동작)",
+      "rows": [
+        { "id": "orider_legacy", "type": "Ride", "startTime": "2026-09-14T01:00:00Z", "endTime": "2026-09-14T03:00:00Z", "hasLoad": true },
+        { "id": "hc_part_1", "source": "health_connect", "type": "Ride", "startTime": "2026-09-14T01:00:00Z", "endTime": "2026-09-14T01:50:00Z" },
+        { "id": "hc_part_2", "source": "health_connect", "type": "Ride", "startTime": "2026-09-14T02:00:00Z", "endTime": "2026-09-14T03:00:00Z" }
+      ],
+      "expectedGroups": [["hc_part_1"], ["hc_part_2", "orider_legacy"]],
+      "expectedRepresentatives": ["hc_part_1", "hc_part_2"]
+    },
+    {
+      "id": "SPC-7-8",
+      "title": "orider·Health 가 같은 localSessionId 공유(순위 다름) — 같은 배정 단위라 같은 하위 묶음(Health 혼자면 오후로 갈 구간)",
+      "rows": [
+        { "id": "strava_am", "source": "strava", "type": "Ride", "startTime": "2026-09-15T01:00:00Z", "endTime": "2026-09-15T03:00:00Z" },
+        { "id": "strava_pm", "source": "strava", "type": "Ride", "startTime": "2026-09-15T04:00:00Z", "endTime": "2026-09-15T05:00:00Z" },
+        { "id": "orider_s1", "source": "orider", "type": "Ride", "localSessionId": "s1", "startTime": "2026-09-15T01:00:00Z", "endTime": "2026-09-15T05:00:00Z" },
+        { "id": "hc_s1", "source": "health_connect", "type": "Ride", "localSessionId": "s1", "startTime": "2026-09-15T04:00:00Z", "endTime": "2026-09-15T05:00:00Z" }
+      ],
+      "expectedGroups": [["hc_s1", "orider_s1", "strava_am"], ["strava_pm"]],
+      "expectedRepresentatives": ["strava_am", "strava_pm"]
+    },
+    {
+      "id": "SPC-7-9",
+      "title": "구간 없는 하위 기록(startTime 없음)이 키로만 이웃과 연결 — 키 경로상 이웃(같은 배정 단위)의 하위 묶음",
+      "rows": [
+        { "id": "strava_am", "source": "strava", "type": "Ride", "startTime": "2026-09-16T01:00:00Z", "endTime": "2026-09-16T03:00:00Z" },
+        { "id": "strava_pm", "source": "strava", "type": "Ride", "startTime": "2026-09-16T04:00:00Z", "endTime": "2026-09-16T05:00:00Z" },
+        { "id": "orider_a", "source": "orider", "type": "Ride", "localSessionId": "sa", "startTime": "2026-09-16T01:00:00Z", "endTime": "2026-09-16T03:00:00Z" },
+        { "id": "orider_b", "source": "orider", "type": "Ride", "localSessionId": "sb", "startTime": "2026-09-16T04:00:00Z", "endTime": "2026-09-16T05:00:00Z" },
+        { "id": "orider_whole", "source": "orider", "type": "Ride", "startTime": "2026-09-16T01:00:00Z", "endTime": "2026-09-16T05:00:00Z" },
+        { "id": "hc_no_time", "source": "health_connect", "type": "Ride", "localSessionId": "sb", "startTime": null, "endTime": null }
+      ],
+      "expectedGroups": [["orider_a", "orider_whole", "strava_am"], ["hc_no_time", "orider_b", "strava_pm"]],
+      "expectedRepresentatives": ["strava_am", "strava_pm"]
+    },
+    {
+      "id": "SPC-7-9b",
+      "title": "(추가) 최상위와 겹침이 없는 하위 기록(휴식 구간) — 원 묶음 간선 너비 우선 탐색으로 가까운 쪽(SPC-4-2-3-3)",
+      "rows": [
+        { "id": "strava_100", "source": "strava", "type": "Ride", "startTime": "2026-09-17T01:00:00Z", "endTime": "2026-09-17T03:00:00Z" },
+        { "id": "strava_200", "source": "strava", "type": "Ride", "startTime": "2026-09-17T03:30:00Z", "endTime": "2026-09-17T05:00:00Z" },
+        { "id": "orider_whole", "source": "orider", "type": "Ride", "startTime": "2026-09-17T01:00:00Z", "endTime": "2026-09-17T05:00:00Z" },
+        { "id": "hc_gap", "source": "health_connect", "type": "Ride", "startTime": "2026-09-17T03:02:00Z", "endTime": "2026-09-17T03:28:00Z" }
+      ],
+      "expectedGroups": [["hc_gap", "orider_whole", "strava_100"], ["strava_200"]],
+      "expectedRepresentatives": ["strava_100", "strava_200"]
+    },
+    {
+      "id": "SPC-7-9c",
+      "title": "(추가) 겹침 길이 동률 — 덩어리 구성원 id 사전순 최솟값이 앞인 덩어리(SPC-4-2-3-4), 시작 순서와 무관",
+      "rows": [
+        { "id": "strava_200", "source": "strava", "type": "Ride", "startTime": "2026-09-18T01:00:00Z", "endTime": "2026-09-18T02:00:00Z", "hasLoad": true },
+        { "id": "strava_100", "source": "strava", "type": "Ride", "startTime": "2026-09-18T02:30:00Z", "endTime": "2026-09-18T03:30:00Z" },
+        { "id": "orider_whole", "source": "orider", "type": "Ride", "startTime": "2026-09-18T01:00:00Z", "endTime": "2026-09-18T03:30:00Z" }
+      ],
+      "expectedGroups": [["orider_whole", "strava_100"], ["strava_200"]],
+      "expectedRepresentatives": ["strava_100", "strava_200"]
+    },
+    {
+      "id": "SPC-7-10",
+      "title": "orider 의 stravaTwinActivityId = 오후 조각 — 겹침은 오전이 길어도 키가 우선해 오후로",
+      "rows": [
+        { "id": "strava_am", "source": "strava", "type": "Ride", "stravaActivityId": 100, "startTime": "2026-09-19T01:00:00Z", "endTime": "2026-09-19T03:00:00Z" },
+        { "id": "strava_pm", "source": "strava", "type": "Ride", "stravaActivityId": 200, "startTime": "2026-09-19T04:00:00Z", "endTime": "2026-09-19T05:00:00Z" },
+        { "id": "orider_twin", "source": "orider", "type": "Ride", "stravaTwinActivityId": 200, "startTime": "2026-09-19T01:00:00Z", "endTime": "2026-09-19T05:00:00Z" }
+      ],
+      "expectedGroups": [["strava_am"], ["orider_twin", "strava_pm"]],
+      "expectedRepresentatives": ["strava_am", "strava_pm"]
+    },
+    {
+      "id": "SPC-7-11a",
+      "title": "같은 순위 조각끼리 경계 1분 30초 겹침(중복 임계 미만) — 서로 다른 덩어리라 각각 전체 단위",
+      "rows": [
+        { "id": "strava_first", "source": "strava", "type": "Ride", "startTime": "2026-09-20T01:00:00Z", "endTime": "2026-09-20T02:00:00Z" },
+        { "id": "strava_second", "source": "strava", "type": "Ride", "startTime": "2026-09-20T01:58:30Z", "endTime": "2026-09-20T03:00:00Z" },
+        { "id": "orider_whole", "source": "orider", "type": "Ride", "startTime": "2026-09-20T01:00:00Z", "endTime": "2026-09-20T03:00:00Z" }
+      ],
+      "expectedGroups": [["strava_first"], ["orider_whole", "strava_second"]],
+      "expectedRepresentatives": ["strava_first", "strava_second"]
+    },
+    {
+      "id": "SPC-7-11b",
+      "title": "덩어리 안 같은 순위 중복이 대표 선택에서 앞섬(hasLoad) — 덩어리 대표는 기존 pick 그대로, 다른 덩어리 기록(긴 이동시간)으로 바뀌지 않음",
+      "rows": [
+        { "id": "strava_am_a", "source": "strava", "type": "Ride", "startTime": "2026-09-21T01:00:00Z", "endTime": "2026-09-21T03:00:00Z", "movingSec": 7200, "hasLoad": false },
+        { "id": "strava_am_b", "source": "strava", "type": "Ride", "startTime": "2026-09-21T01:01:00Z", "endTime": "2026-09-21T03:00:00Z", "movingSec": 7000, "hasLoad": true },
+        { "id": "strava_pm", "source": "strava", "type": "Ride", "startTime": "2026-09-21T04:00:00Z", "endTime": "2026-09-21T05:00:00Z", "movingSec": 99999, "hasLoad": true },
+        { "id": "orider_whole", "source": "orider", "type": "Ride", "startTime": "2026-09-21T01:00:00Z", "endTime": "2026-09-21T05:00:00Z", "hasLoad": true }
+      ],
+      "expectedGroups": [["orider_whole", "strava_am_a", "strava_am_b"], ["strava_pm"]],
+      "expectedRepresentatives": ["strava_am_b", "strava_pm"]
+    }
+  ]
+}
