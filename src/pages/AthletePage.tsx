@@ -645,7 +645,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           <h1 data-testid="P0-0-1" className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">
             {nickname}
           </h1>
-          {profileForPage?.bio && <Text as="p" tone="secondary">{profileForPage.bio}</Text>}
+          {profileForPage?.bio && <Text as="p" variant="body" tone="secondary">{profileForPage.bio}</Text>}
           {isOwnProfile && currentProfile?.stravaConnected && <Chip>Strava</Chip>}
           {profileForPage?.team && <Text as="p" variant="caption" tone="secondary">{profileForPage.team}</Text>}
           {isOwnProfile && <div className="flex flex-wrap gap-2 mt-3">
@@ -839,20 +839,20 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </div>
               <Button
                 onClick={handleSearch}
-                disabled={!searchInput.trim()} variant="secondary" className="px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={!searchInput.trim()} variant="secondary"
               >
                 {t("activities.search")}
               </Button>
               {isSearchActive && (
-                <button
+                <Button variant="ghost" iconOnly
                   onClick={handleResetSearch}
-                  className="p-2 text-[var(--ink-3)] hover:text-[var(--ink-1)] rounded-[var(--r-lg)] hover:bg-[var(--bg-2)] transition-colors"
+                  aria-label={t("activities.resetSearch")}
                   title={t("activities.resetSearch")}
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                </button>
+                </Button>
               )}
             </div>}
           </div>
@@ -870,12 +870,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   {isSearchActive ? t("activities.emptySearch") : t("activities.empty")}
                 </p>
                 {isSearchActive && (
-                  <button
+                  <Button variant="ghost"
                     onClick={handleResetSearch}
-                    className="text-[var(--lime)] hover:underline text-[length:var(--fs-sm)] font-medium mt-2"
+                    className="mt-2"
                   >
                     {t("activities.resetSearch")}
-                  </button>
+                  </Button>
                 )}
               </Card>
             ) : (
@@ -906,10 +906,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                 ))}
                 {!isOwnProfile && !isSearchActive && hasMoreActivities && (
                   <Card variant="bare" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
-                    <button
+                    <Button variant="ghost" block
                       onClick={handleLoadMoreActivities}
                       disabled={loadingMore}
-                      className="w-full py-3 text-[length:var(--fs-sm)] font-medium text-[var(--lime)] hover:bg-[var(--lime)]/10 transition-colors disabled:opacity-50"
                     >
                     {loadingMore ? (
                       <span className="flex items-center justify-center gap-2">
@@ -921,7 +920,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                     ) : (
                       t("activities.loadMore")
                     )}
-                    </button>
+                    </Button>
                   </Card>
                 )}
               </>

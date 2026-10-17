@@ -636,7 +636,7 @@ export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
         }
       >
         <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-3)", lineHeight: 1.5 }}>
-          <Text as="p" weight={700}>{t("equipment.bikeActive")}: {active.name}</Text>
+          <Text as="p" variant="caption" tone="quaternary" weight={700}>{t("equipment.bikeActive")}: {active.name}</Text>
           {t("equipment.virtualPowerDesc", { name: active.name, weight: weightDisplay })}
         </div>
         <FieldGrid cols={2}>

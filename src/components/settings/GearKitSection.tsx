@@ -24,9 +24,11 @@ import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { createPortal } from "react-dom";
 import Modal from "../Modal";
+import GlossaryText from "../common/GlossaryText";
 import { Button, DropdownSelect, Text } from "../../theme/components";
 import {
   SettingsCard,
+  Toggle,
   Field,
   FieldGrid,
   fieldInputStyle,
@@ -155,15 +157,15 @@ function GearFormModal({ initial, title, onSave, onClose }: GearFormModalProps) 
           </FieldGrid>
 
           {/* 기본 장비 */}
-          <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={form.isDefault ?? false}
-              onChange={(e) => patch({ isDefault: e.target.checked })}
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+            <Toggle
+              on={form.isDefault ?? false}
+              onChange={(isDefault) => patch({ isDefault })}
               disabled={busy}
+              ariaLabel={t("gear.fieldIsDefault")}
             />
             <Text variant="label">{t("gear.fieldIsDefault")}</Text>
-          </label>
+          </div>
 
           {/* 고급 물리 파라미터 (bike 한정) */}
           {form.type === "bike" && (
@@ -181,7 +183,6 @@ function GearFormModal({ initial, title, onSave, onClose }: GearFormModalProps) 
                   cursor: "pointer",
                   padding: "var(--space-1) 0",
                   color: "var(--ink-2)",
-                  fontSize: "var(--fs-sm)",
                 }}
               >
                 {showPhysics ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -366,7 +367,7 @@ function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
         >
           {[gear.brand, gear.model].filter(Boolean).join(" · ")}
           {gear.weightKg ? ` · ${gear.weightKg}kg` : ""}
-          {gear.type === "bike" && gear.cda ? ` · CdA ${gear.cda}` : ""}
+          {gear.type === "bike" && gear.cda ? <> · <GlossaryText>{`CdA ${gear.cda}`}</GlossaryText></> : null}
         </Text>
       </div>
 

@@ -83,7 +83,6 @@ export function ProfileHero({
           {onEditNickname && (
             <Button variant="ghost"
               onClick={onEditNickname}
-              style={{ fontSize: "var(--fs-xs)" }}
               aria-label={t("profile.editNickname")}
             >
               <Pencil size={11} /> {t("profile.change")}

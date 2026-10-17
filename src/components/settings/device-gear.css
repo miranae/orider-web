@@ -27,6 +27,49 @@
 .settings-device-header__selector { grid-area: selector; }
 .settings-device-header__meta { grid-area: meta; min-width: 0; }
 .settings-device-header__actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+
+/* Keep native keyboard range behavior while matching the settings control tokens. */
+.settings-sound-volume {
+  appearance: none;
+  width: 100%;
+  min-height: var(--dim-button-height);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.settings-sound-volume::-webkit-slider-runnable-track {
+  height: var(--space-1);
+  border-radius: var(--r-lg);
+  background: var(--line);
+}
+.settings-sound-volume::-moz-range-track {
+  height: var(--space-1);
+  border-radius: var(--r-lg);
+  background: var(--line);
+}
+.settings-sound-volume::-webkit-slider-thumb {
+  appearance: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  margin-top: calc((var(--space-1) - var(--space-4)) / 2);
+  border: 1px solid var(--color-primary-dark);
+  border-radius: 50%;
+  background: var(--lime);
+}
+.settings-sound-volume::-moz-range-thumb {
+  width: var(--space-4);
+  height: var(--space-4);
+  border: 1px solid var(--color-primary-dark);
+  border-radius: 50%;
+  background: var(--lime);
+}
+.settings-sound-volume:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
 @media (max-width: 48rem) {
   .settings-device-header {
     grid-template-columns: auto minmax(0, 1fr);

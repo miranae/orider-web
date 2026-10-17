@@ -198,7 +198,7 @@ function EditableCard({
         <>
           {edit}
           {canBroadcast && (
-            <label
+            <div
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -210,13 +210,12 @@ function EditableCard({
                 border: "1px solid var(--line-soft)",
                 fontSize: "var(--fs-xs)",
                 color: "var(--ink-1)",
-                cursor: "pointer",
               }}
             >
-              <input
-                type="checkbox"
-                checked={broadcast}
-                onChange={(e) => setBroadcast(e.target.checked)}
+              <Toggle
+                on={broadcast}
+                ariaLabel={t("device.broadcastAll")}
+                onChange={setBroadcast}
               />
               <span>
                 {t("device.broadcastAll")}
@@ -226,7 +225,7 @@ function EditableCard({
                   </span>
                 )}
               </span>
-            </label>
+            </div>
           )}
         </>
       ) : (
@@ -428,8 +427,8 @@ function DisplaySoundEdit({ draft, setDraft }: CardEditProps<DisplaySoundDraft>)
 
          options={[{ value: "STANDARD", label: t("device.mapStandard") }, { value: "CYCLE", label: t("device.mapCycle") }, { value: "TERRAIN", label: t("device.mapTerrain") }, { value: "MAPBOX", label: t("device.mapMapbox") }]} />
       </Field>
-      <Field label={t("device.fieldDynamicZoom")}>
-        <div style={{ display: "flex", gap: 'var(--space-3)', alignItems: "center" }}>
+      <Field group label={t("device.fieldDynamicZoom")}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 'var(--space-3)', alignItems: "center" }}>
           <label style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)" }}>
             <Toggle
               on={draft.dynamicZoomEnabled}
@@ -458,6 +457,7 @@ function DisplaySoundEdit({ draft, setDraft }: CardEditProps<DisplaySoundDraft>)
       <Field label={t("device.fieldSoundVolume", { pct: Math.round(draft.soundVolume * 100) })}>
         <input
           type="range"
+          className="settings-sound-volume"
           min={0}
           max={1}
           step={0.05}
@@ -465,7 +465,6 @@ function DisplaySoundEdit({ draft, setDraft }: CardEditProps<DisplaySoundDraft>)
           onChange={(e) =>
             setDraft({ ...draft, soundVolume: Number(e.target.value) })
           }
-          style={{ width: "100%" }}
         />
       </Field>
     </FieldGrid>
@@ -1320,7 +1319,7 @@ function LegacyLayoutCard({
       <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
         <LocalizedLink
           to="/settings/device?panel=data-pages"
-          className={buttonClass({ variant: "secondary", size: "sm" })}
+          className={buttonClass({ variant: "secondary", size: "md" })}
           data-testid="legacy-layout-open-equipment"
         >
           {t("device.legacyLayoutOpenEquipment")}

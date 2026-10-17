@@ -6,7 +6,7 @@ import { httpsCallable } from "firebase/functions";
 import { useTranslation } from "react-i18next";
 import { functions } from "../../services/firebase";
 import { useBackfillJob } from "../../hooks/useBackfillJob";
-import { Button, Card } from "../../theme/components";
+import { Button, Card, Text } from "../../theme/components";
 
 interface Props {
   uid: string | null;
@@ -39,7 +39,7 @@ export function BackfillStatusCard({ uid }: Props) {
 
   return (
     <Card padding="none" className="p-4 space-y-3">
-      <h3 className="font-semibold"><GlossaryText>{t("equipment.backfillTitle")}</GlossaryText></h3>
+      <Text as="h3" variant="label" weight={600} tone="primary"><GlossaryText>{t("equipment.backfillTitle")}</GlossaryText></Text>
       <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>
         <GlossaryText>{t("equipment.backfillDesc")}</GlossaryText>
       </p>

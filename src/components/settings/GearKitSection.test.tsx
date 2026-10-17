@@ -26,6 +26,18 @@ describe("Gear form keyboard and save contract", () => {
     expect(mocks.add).not.toHaveBeenCalled();
   });
 
+  it("toggles the default gear draft without saving", async () => {
+    const user = userEvent.setup();
+    render(<GearKitSection uid="test-owner" />);
+    await user.click(screen.getByRole("button"));
+    const toggle = screen.getByRole("switch", { name: "기본 장비로 설정" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+  });
+
   it("keeps the existing gear payload when saving a trimmed name", async () => {
     const user = userEvent.setup();
     render(<GearKitSection uid="test-owner" />);

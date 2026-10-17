@@ -198,7 +198,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
     <>
       <div id="migrate" ref={migration} data-testid="S3-3-1">
         <SettingsCard title={t("pane.connections.importPastLabel")}>
-          <Text as="p" tone="secondary">{t("pane.connections.importPastHint")}</Text>
+          <Text as="p" variant="bodySmall" tone="secondary">{t("pane.connections.importPastHint")}</Text>
           <LocalizedLink to={profile?.stravaConnected ? "/migrate" : "/settings/connections"} className={buttonClass({ variant: "secondary" })}>
             {profile?.stravaConnected ? t(profile.migration?.status === "DONE" ? "pane.connections.importBtnReport" : "pane.connections.importBtnImport") : t("strava.connect")}
           </LocalizedLink>

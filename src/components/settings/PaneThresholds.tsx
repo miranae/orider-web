@@ -389,9 +389,11 @@ export function PaneThresholds() {
                 key={unit}
                 type="button"
                 onClick={() => setBodyUnit(unit)}
+                aria-pressed={bodyUnit === unit}
                 className="rounded-[var(--r-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]"
                 style={{
                   border: "none",
+                  minHeight: "var(--dim-button-height)",
                   padding: "5px 10px",
                   fontSize: "var(--fs-xs)",
                   cursor: "pointer",
@@ -416,7 +418,7 @@ export function PaneThresholds() {
               placeholder={bodyUnit === "imperial" ? "150" : "68"}
               style={{ minHeight: "var(--dim-button-height)", textAlign: "center" }}
             />
-            {!weightConfirmed && Number(weightKg) === 70 && <Button size="sm" variant="secondary" onClick={() => { void handleSave("weightKg"); }} disabled={saving}>
+            {!weightConfirmed && Number(weightKg) === 70 && <Button size="md" variant="secondary" onClick={() => { void handleSave("weightKg"); }} disabled={saving}>
               {t("training.confirmWeight")}
             </Button>}
           </Field>
@@ -454,7 +456,7 @@ export function PaneThresholds() {
           적용 시 아래 FTP 필드를 채우며, 저장하면 임계 우선순위(프로필 우선)에 따라 과거 분석에 즉시 재반영. */}
       <SettingsCard data-testid="K1-5-5" title={<GlossaryText>{t("training.ftpTest.title")}</GlossaryText>} dense>
         <Text as="div" variant="bodySmall" style={{ color: "var(--ink-3)", marginBottom: "var(--space-2)" }}>
-          {t("training.ftpTest.desc")}
+          <GlossaryText>{t("training.ftpTest.desc")}</GlossaryText>
         </Text>
         <div style={{ display: "flex", gap: "var(--space-1-5)", flexWrap: "wrap", marginBottom: "var(--space-2)" }}>
           {(["ramp", "twenty_min", "all_out"] as FtpTestProtocol[]).map((p) => (
@@ -462,9 +464,11 @@ export function PaneThresholds() {
               key={p}
               type="button"
               onClick={() => setFtpTestProtocol(p)}
+              aria-pressed={ftpTestProtocol === p}
               className="rounded-[var(--r-sm)] transition-colors"
               style={{
                 padding: "5px 10px",
+                minHeight: "var(--dim-button-height)",
                 fontSize: "var(--fs-xs)",
                 border: `1px solid ${ftpTestProtocol === p ? "var(--lime)" : "var(--line-soft)"}`,
                 background: ftpTestProtocol === p ? "color-mix(in oklch, var(--lime) 12%, transparent)" : "transparent",
@@ -504,7 +508,6 @@ export function PaneThresholds() {
                   setFtpChangeSource("test");
                   showToast(t("training.ftpTest.applied"));
                 }}
-                style={{ padding: "6px 14px", fontSize: "var(--fs-sm)" }}
               >
                 {t("training.ftpTest.apply")}
               </Button>
@@ -532,7 +535,7 @@ export function PaneThresholds() {
               }}
               style={{ minHeight: "var(--dim-button-height)", textAlign: "center" }}
             />
-            {!confirmedThresholds.ftp && Number(ftp) === 200 && <Button size="sm" variant="secondary" onClick={() => { void handleSave("ftp"); }} disabled={saving}>
+            {!confirmedThresholds.ftp && Number(ftp) === 200 && <Button size="md" variant="secondary" onClick={() => { void handleSave("ftp"); }} disabled={saving}>
               {t("training.confirmThreshold")}
             </Button>}
           </Field>
@@ -557,7 +560,7 @@ export function PaneThresholds() {
               placeholder="4:35"
               style={{ minHeight: "var(--dim-button-height)", textAlign: "center" }}
             />
-            {!confirmedThresholds.thresholdPace && mmssToSecs(thresholdPace) === 275 && <Button size="sm" variant="secondary" onClick={() => { void handleSave("thresholdPace"); }} disabled={saving}>
+            {!confirmedThresholds.thresholdPace && mmssToSecs(thresholdPace) === 275 && <Button size="md" variant="secondary" onClick={() => { void handleSave("thresholdPace"); }} disabled={saving}>
               {t("training.confirmThreshold")}
             </Button>}
           </Field>
@@ -568,7 +571,7 @@ export function PaneThresholds() {
               placeholder="1:45"
               style={{ minHeight: "var(--dim-button-height)", textAlign: "center" }}
             />
-            {!confirmedThresholds.css && mmssToSecs(css) === 108 && <Button size="sm" variant="secondary" onClick={() => { void handleSave("css"); }} disabled={saving}>
+            {!confirmedThresholds.css && mmssToSecs(css) === 108 && <Button size="md" variant="secondary" onClick={() => { void handleSave("css"); }} disabled={saving}>
               {t("training.confirmThreshold")}
             </Button>}
           </Field>
