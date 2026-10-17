@@ -154,12 +154,13 @@ describe('board writing interactions', () => {
 
   it.each([
     'https://example.com/photo.jpg',
+    'https://example.com/photo.jpg?a=1&b=2',
     '/images/photo.jpg',
     'data:image/png;base64,aGVsbG8=',
   ])('preserves safe lazy images and escaped literal markup: %s', async (src) => {
     renderPage();
     document.execCommand = vi.fn<typeof document.execCommand>(() => true);
-    const html = `<p>&lt;img src=x onerror=alert(1)&gt;</p><p><strong>Second paragraph</strong></p><img data-src="${src}">`;
+    const html = `<p>&lt;img src=x onerror=alert(1)&gt;</p><p><strong>Second paragraph</strong></p><img data-src="${src}" alt="A &amp; B &quot;photo&quot;" title="Training &quot;ride&quot; &amp; commute">`;
     await act(async () => {
       fireEvent.paste(screen.getByRole('textbox', { name: 'label.editor' }), {
         clipboardData: { items: [], getData: (type: string) => type === 'text/html' ? html : '' },
@@ -172,6 +173,8 @@ describe('board writing interactions', () => {
     expect(inserted.querySelector('strong')).toHaveTextContent('Second paragraph');
     expect(inserted.querySelectorAll('img')).toHaveLength(1);
     expect(inserted.querySelector('img')).toHaveAttribute('src', src);
+    expect(inserted.querySelector('img')).toHaveAttribute('alt', 'A & B "photo"');
+    expect(inserted.querySelector('img')).toHaveAttribute('title', 'Training "ride" & commute');
     expect(inserted.querySelector('img')).not.toHaveAttribute('data-src');
     expect(inserted.querySelector('[onerror]')).toBeNull();
   });

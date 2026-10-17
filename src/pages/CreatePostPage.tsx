@@ -563,14 +563,13 @@ const CreatePostPage: React.FC = () => {
         img.remove();
         return;
       }
-      img.setAttribute('src', safeSrc || realSrc);
-      // no-referrer bypasses Referer-based hotlink protection (Naver, etc.)
-      img.setAttribute('referrerpolicy', 'no-referrer');
-      img.removeAttribute('data-src');
-      img.removeAttribute('data-original');
-      img.removeAttribute('loading');
-      img.removeAttribute('width');
-      img.removeAttribute('height');
+      // URL을 활성 속성에 쓰기 전에 문맥에 맞게 이스케이프하고 새 이미지 전체를 정화한다.
+      // no-referrer는 Referer 기반 외부 이미지 차단을 방지한다.
+      const sanitizedImage = DOMPurify.sanitize(
+        `<img src="${escapeHtml(safeSrc || realSrc)}" alt="${escapeHtml(img.alt)}" title="${escapeHtml(img.title)}" referrerpolicy="no-referrer">`,
+        { RETURN_DOM_FRAGMENT: true },
+      );
+      img.replaceWith(sanitizedImage);
     });
 
     // Insert sanitized HTML at cursor (execCommand preserves cursor position)
