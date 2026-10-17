@@ -552,16 +552,24 @@ const CreatePostPage: React.FC = () => {
     // Fix lazy-loaded images + enable cross-origin display
     temp.querySelectorAll('img').forEach(img => {
       const realSrc = img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('src');
-      if (realSrc) {
-        img.setAttribute('src', realSrc);
+      if (!realSrc) {
+        img.remove();
+        return;
       }
-      // no-referrer bypasses Referer-based hotlink protection (Naver, etc.)
-      img.setAttribute('referrerpolicy', 'no-referrer');
-      img.removeAttribute('data-src');
-      img.removeAttribute('data-original');
-      img.removeAttribute('loading');
-      img.removeAttribute('width');
-      img.removeAttribute('height');
+      // data-* 속성은 DOMPurify의 URL 검사 대상이 아니므로 src 승격 전에 검사한다.
+      const safeSrc = normalizeUserContentUrl(realSrc);
+      const rasterData = /^data:image\/(?:png|jpeg|webp|gif);base64,[a-z\d+/=\s]+$/i.test(realSrc);
+      if (!safeSrc && !rasterData) {
+        img.remove();
+        return;
+      }
+      // URL을 활성 속성에 쓰기 전에 문맥에 맞게 이스케이프하고 새 이미지 전체를 정화한다.
+      // no-referrer는 Referer 기반 외부 이미지 차단을 방지한다.
+      const sanitizedImage = DOMPurify.sanitize(
+        `<img src="${escapeHtml(safeSrc || realSrc)}" alt="${escapeHtml(img.alt)}" title="${escapeHtml(img.title)}" referrerpolicy="no-referrer">`,
+        { RETURN_DOM_FRAGMENT: true },
+      );
+      img.replaceWith(sanitizedImage);
     });
 
     // Insert sanitized HTML at cursor (execCommand preserves cursor position)
@@ -600,7 +608,7 @@ const CreatePostPage: React.FC = () => {
         const editor = editorRef.current;
         if (editor) {
           editor.focus();
-          document.execCommand('insertHTML', false, temp.innerHTML);
+          document.execCommand('insertHTML', false, DOMPurify.sanitize(temp.innerHTML));
         }
       }
       // Then insert images
