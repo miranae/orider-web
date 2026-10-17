@@ -24,14 +24,24 @@ describe("mobile architecture r4", () => {
     expect(hook).toContain("matchesMobile");
   });
 
-  it("wraps wide event tables and collapses result optional columns on mobile", () => {
+  it("keeps wide event tables scrollable without hiding result columns on mobile", () => {
     const detail = read("src/pages/event/EventDetailPage.tsx");
     const results = read("src/pages/event/EventResultsPage.tsx");
+    const linkedPagesCss = read("src/features/event/detail/event-linked-pages.css");
 
     expect(detail).toContain('overflowX: "auto"');
     expect(detail).toContain("minWidth: 560");
-    expect(results).toContain("event-results-optional");
-    expect(results).toContain("event-results-table");
+    const scrollRegion = results.match(/<div\b[^>]*className="event-results-table-scroll"[^>]*>/)?.[0];
+    expect(scrollRegion).toBeDefined();
+    expect(scrollRegion).toContain('role="region"');
+    expect(scrollRegion).toContain('aria-label={t("label.allResults")}');
+    expect(scrollRegion).toContain('aria-describedby="event-results-scroll-hint"');
+    expect(scrollRegion).toContain("tabIndex={0}");
+    expect(scrollRegion).toContain('overflowX: "auto"');
+    expect(results).toMatch(/<table\b[^>]*className="event-results-table"[^>]*minWidth: 760/);
+    expect(results).not.toContain("event-results-optional");
+    expect(linkedPagesCss).toContain(".event-results-table-scroll:focus-visible");
+    expect(linkedPagesCss).not.toMatch(/\.event-results-(?:optional|table)\b[^}]*display:\s*none/);
   });
 
   it("provides mobile-safe post editing and table picker pointer preview", () => {
