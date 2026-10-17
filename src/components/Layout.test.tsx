@@ -37,7 +37,7 @@ describe("Layout", () => {
     const user = userEvent.setup();
     const navigation = within(footer).getByRole("navigation", { name: "사이트 안내" });
     expect(within(navigation).getAllByRole("button")).toHaveLength(3);
-    expect(within(navigation).getByRole("link", { name: "협력 문의" })).toHaveAttribute("href", "/ko/partnership");
+    expect(within(navigation).getByRole("link", { name: "함께하기" })).toHaveAttribute("href", "/ko/partnership");
     expect(screen.queryByText("orider.app@gmail.com")).not.toBeInTheDocument();
     await user.click(within(navigation).getByRole("button", { name: "도움말" }));
     const help = screen.getByRole("region", { name: "도움말" });
@@ -78,6 +78,10 @@ describe("Layout", () => {
     expect(shouldBypassOnboardingRedirect("/onboarding")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/terms")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/partnership")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/partnership/build")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/partnership/collaborate")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/partnership/investment")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/partnership-private")).toBe(false);
     expect(shouldBypassOnboardingRedirect("/privacy")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/community")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/strava-terms")).toBe(true);
