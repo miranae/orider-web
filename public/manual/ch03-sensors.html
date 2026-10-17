@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3. 센서 연결 - 오라이더 앱 사용 설명서</title>
+<meta name="description" content="오라이더 앱 사용 설명서 (Android·iOS) — 심박·속도·케이던스·파워·변속기, 휠 둘레, 자전거 프로필">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">3. 센서 연결</div>
+  <div class="nav-right"><a href="ch02-first-record.html">&larr; 이전</a><span class="nav-sep">|</span><a href="ch04-screen.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="top">
+  <h2>3. 센서 연결</h2>
+  <div class="can-do">
+    <strong>이 장에서 할 수 있는 것</strong>
+    <ul>
+      <li>심박계, 속도·케이던스 센서, 파워미터 같은 블루투스 센서를 연결합니다.</li>
+      <li>휠 둘레를 맞춰 속도·거리 오차를 줄입니다.</li>
+      <li>자전거가 여러 대면 자전거 프로필로 센서 묶음을 바꿔 씁니다.</li>
+    </ul>
+  </div>
+
+  <h3 id="types">연결할 수 있는 센서</h3>
+  <p>모두 <strong>BLE</strong>(저전력 블루투스) 기기입니다. 센서가 없어도 GPS로 거리·속도·페이스를 기록합니다.</p>
+  <table>
+    <tr><th>센서</th><th>보여 주는 값</th><th>종목</th></tr>
+    <tr><td>심박계</td><td>심박수, 심박 존</td><td>자전거 · 러닝</td></tr>
+    <tr><td>속도 센서 / 케이던스 센서</td><td>바퀴 기반 속도·거리, 페달 회전수(rpm)</td><td>자전거</td></tr>
+    <tr><td>파워미터</td><td>파워, 페달 밸런스, 크랭크 케이던스</td><td>자전거</td></tr>
+    <tr><td>전자 변속기 (Shimano Di2, SRAM AXS)</td><td>기어 위치·배터리 (AXS는 표시 항목이 적습니다)</td><td>자전거</td></tr>
+    <tr><td>후방 레이더</td><td>뒤에서 다가오는 차량</td><td>자전거</td></tr>
+    <tr><td>액션캠</td><td>녹화 상태, 배터리, 녹화·사진 버튼 (<a href="ch09-connect.html#actioncam">9장</a>)</td><td>자전거</td></tr>
+  </table>
+  <div class="info">러닝 걸음 케이던스(spm)는 센서 없이 휴대폰의 걸음 감지로 잽니다. <span class="os os-android">Android</span>는 신체 활동 권한이 필요합니다.</div>
+
+  <h3 id="pair">따라 하기: 센서 연결</h3>
+  <ol>
+    <li>센서를 깨웁니다. 심박계는 몸에 착용하고, 속도·케이던스 센서는 바퀴나 크랭크를 돌립니다.</li>
+    <li><span class="path">더보기 &gt; 센서</span>를 엽니다. 화면 제목은 <strong>센서 연결</strong>입니다.</li>
+    <li>맨 위 자전거 카드(예: “루베 · 센서 4개 • 휠 2147mm”)가 센서를 붙일 자전거인지 확인합니다.</li>
+    <li><strong>센서 검색 및 연결</strong>을 누르면 주변 센서를 찾습니다. 목록에서 내 센서를 눌러 등록합니다.</li>
+    <li>등록한 센서는 아래 목록에 이름과 기기 주소로 나타납니다. 다음부터는 기록을 시작할 때 자동으로 다시 붙습니다.</li>
+  </ol>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-sensors.jpg" alt="센서 연결 화면" loading="lazy" width="682" height="1200">
+      <figcaption><strong>센서 연결</strong> — 등록된 센서마다 오른쪽 휴지통이 <strong>센서 삭제</strong>입니다. 실수로 누르지 않게 주의하세요.</figcaption>
+    </figure>
+  </div>
+  <p>센서 목록과 휠 둘레는 <span class="path">설정 &gt; 내 자전거</span>에서도 같은 화면으로 열립니다.</p>
+
+  <h3 id="wheel">휠 둘레</h3>
+  <p>속도 센서는 바퀴가 한 바퀴 돌 때의 거리(휠 둘레)로 속도를 계산합니다. <span class="path">더보기 &gt; 센서</span> 아래 <strong>휠 둘레</strong>에서 타이어 폭 버튼(23c · 25c · 28c · 32c)을 고르거나 mm 값을 직접 넣고 <strong>저장</strong>을 누르세요.</p>
+  <div class="tip">정확히 맞추려면 타이어에 표시를 하고 평지에서 한 바퀴 굴린 거리를 재어 mm로 입력합니다.</div>
+
+  <h3 id="bike-profile">자전거 프로필</h3>
+  <p><span class="path">더보기 &gt; 자전거 프로필</span>에서 자전거별로 센서·휠 둘레·가상 파워 설정을 따로 저장합니다. 지금 쓰는 자전거에는 <strong>활성</strong> 표시가 붙고, 각 자전거의 연결 센서 수가 함께 보입니다.</p>
+  <div class="shots">
+    <figure class="shot">
+      <img src="screenshots/app-bike-profile.jpg" alt="자전거 프로필 목록" loading="lazy" width="682" height="651">
+      <figcaption><strong>자전거 프로필</strong> — 위쪽 <strong>자전거 추가</strong>로 새 자전거를 만들고, 각 줄의 <strong>⋮</strong> 메뉴에서 관리합니다.</figcaption>
+    </figure>
+  </div>
+  <div class="info">데이터 필드 배치도 자전거마다 따로 저장됩니다(<a href="ch04-screen.html#fields">4장</a>). 로드와 MTB처럼 장비가 다르면 자전거 프로필을 나눠 두세요.</div>
+
+  <h3 id="stuck">자주 막히는 점</h3>
+  <div class="warn">센서가 검색되지 않으면 ① 센서를 다시 깨우고 ② 휴대폰 블루투스가 켜져 있는지 보고 ③ 다른 앱(예: 다른 사이클링 앱)이 같은 센서를 잡고 있지 않은지 확인하세요. 많은 BLE 센서는 한 번에 한 앱에만 연결됩니다.</div>
+  <div class="info">러닝 종목에서는 자전거용 센서(속도·케이던스·파워·변속기·레이더)가 붙지 않는 것이 정상입니다. 러닝에서는 심박계만 연결하세요.</div>
+  <div class="info">연결이 자주 끊기면 센서 배터리를 먼저 바꿔 보세요. 금속 휴대폰 케이스나 주변의 많은 블루투스 기기도 끊김의 원인이 됩니다.</div>
+</section>
+
+<nav class="bottom-nav" aria-label="장 이동">
+  <a href="ch02-first-record.html">&larr; 2. 첫 기록 남기기</a>
+  <span class="nav-title"><a href="index.html">목차</a></span>
+  <a href="ch04-screen.html">4. 화면과 소리 꾸미기 &rarr;</a>
+</nav>
+</div>
+
+<footer>
+  <p>오라이더 앱 사용 설명서 (Android·iOS) · 개정 2026-10-18 · 2026년 10월 출시 버전 기준</p>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">O-Rider</a> · <a href="/web-manual/">웹 설명서</a></p>
+</footer>
+
+</body>
+</html>

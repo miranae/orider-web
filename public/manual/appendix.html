@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>딥링크와 용어 - 오라이더 앱 사용 설명서</title>
+<meta name="description" content="오라이더 앱 사용 설명서 (Android·iOS) — 공유 링크 형식, 용어 풀이">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">딥링크와 용어</div>
+  <div class="nav-right"><a href="ch11-faq.html">&larr; 이전</a><span class="nav-sep">|</span><a href="index.html">목차 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="top">
+  <h2>딥링크와 용어</h2>
+  <div class="can-do">
+    <strong>이 부록에서 할 수 있는 것</strong>
+    <ul>
+      <li>코스·친구·그룹 공유 링크가 어떤 형식인지, 누르면 무엇이 열리는지 압니다.</li>
+      <li>설명서에 나오는 용어의 뜻을 찾아봅니다.</li>
+    </ul>
+  </div>
+
+  <h3 id="deeplink">딥링크 (공유 링크)</h3>
+  <p><strong>딥링크</strong>는 누르면 앱의 특정 화면이 바로 열리는 링크입니다. 코스 공유, 친구 초대, 그룹 초대에서 앱이 만들어 주므로 직접 입력할 일은 거의 없습니다.</p>
+  <table>
+    <tr><th>링크 형식</th><th>열리는 것</th></tr>
+    <tr><td><code>https://orider.co.kr/course/{코스ID}</code></td><td>코스 (앱이 없으면 웹에서 열림)</td></tr>
+    <tr><td><code>https://orider.co.kr/friend/{친구코드}</code></td><td>친구 추가</td></tr>
+    <tr><td><code>https://orider.co.kr/group/join/{초대코드}</code></td><td>그룹 참여</td></tr>
+    <tr><td><code>orider://course/{코스ID}</code> · <code>orider://friend/{친구코드}</code> · <code>orider://group/{초대코드}</code></td><td>위와 같음 (앱 전용 형식)</td></tr>
+  </table>
+  <p>웹 주소 앞에 <code>/ko/</code>·<code>/en/</code>이 붙은 링크(예: <code>https://orider.co.kr/ko/course/…</code>)도 똑같이 앱에서 열립니다.</p>
+  <div class="tip"><span class="os os-android">Android</span> 휴대폰에 받은 <strong>.gpx</strong> 파일을 파일 앱에서 누르고 O-Rider를 고르면 경로로 가져올 수 있습니다.</div>
+  <div class="info">링크를 열어도 기록이 시작되거나 종목이 바뀌지는 않습니다. 코스를 연 뒤 홈에서 종목을 확인하고 기록을 시작하세요. 링크가 앱 대신 브라우저에서 열리면 앱 설치와 로그인 상태를 확인하세요.</div>
+
+  <h3 id="glossary">용어</h3>
+  <dl class="glossary">
+    <dt>BLE (저전력 블루투스)</dt><dd>심박계·속도 센서·파워미터가 휴대폰과 연결할 때 쓰는 무선 방식입니다.</dd>
+    <dt>GPX · FIT</dt><dd>운동 기록 파일 형식입니다. GPX는 주로 경로(위치·고도)를, FIT는 센서 값까지 담습니다.</dd>
+    <dt>페이스 (분/km)</dt><dd>1km를 달리는 데 걸린 시간입니다. 5:30 /km는 1km를 5분 30초에 달린다는 뜻이고, 숫자가 작을수록 빠릅니다.</dd>
+    <dt>케이던스 (rpm · spm)</dt><dd>자전거는 1분 동안 페달이 도는 수(rpm), 러닝은 1분 동안의 걸음 수(spm)입니다.</dd>
+    <dt>랩</dt><dd>기록을 나눈 구간입니다. 랩 버튼이나 자동 랩으로 만듭니다.</dd>
+    <dt>FTP</dt><dd>1시간 정도 버틸 수 있는 최대 평균 파워(W)입니다. 파워 존과 IF·TSS 계산의 기준입니다.</dd>
+    <dt>NP (Normalized Power)</dt><dd>강약이 섞인 라이딩의 실제 부담을 반영해 다듬은 평균 파워입니다.</dd>
+    <dt>IF (Intensity Factor)</dt><dd>NP ÷ FTP. 1.00이면 FTP와 같은 강도로 탔다는 뜻입니다.</dd>
+    <dt>TSS (Training Stress Score)</dt><dd>강도와 시간을 함께 반영한 운동 부하 점수입니다. FTP로 1시간 타면 100입니다.</dd>
+    <dt>W′bal (W′ 잔량)</dt><dd>무산소 여유 힘(W′)이 운동 중 얼마나 남았는지 시간에 따라 보여 주는 선(%). 임계 파워(CP)보다 세게 달리면 줄고, 약하게 달리면 다시 찹니다. 가장 낮은 점이 0%에 가까울수록 한계까지 짜낸 것입니다. 앱의 W'bal 필드는 남은 양을 kJ로, W'bal % 필드는 %로 보여 줍니다.</dd>
+    <dt>CTL · ATL · TSB (PMC)</dt><dd>CTL은 장기 체력(Fitness), ATL은 단기 피로(Fatigue), TSB는 회복 상태(Form = CTL − ATL)입니다. 세 선을 함께 그린 그래프를 PMC라고 합니다.</dd>
+    <dt>가상파워</dt><dd>파워미터 없이 속도·경사·체중·자전거 무게로 추정한 파워입니다. 실제 측정값이 아닙니다.</dd>
+    <dt>심박 존 · 파워 존</dt><dd>최대 심박수나 FTP를 기준으로 강도를 몇 단계로 나눈 것입니다.</dd>
+    <dt>VAM</dt><dd>1시간에 몇 m를 오르는 속도인지 나타낸 값(m/h)입니다.</dd>
+    <dt>ClimbPro</dt><dd>오르막에서 남은 거리·고도·경사를 보여 주는 기능입니다. 경로 없이 앞쪽 오르막을 찾는 기능은 PreClimb라고 부릅니다.</dd>
+    <dt>턴바이턴 (턴 안내)</dt><dd>갈림길마다 방향과 남은 거리를 알려 주는 내비게이션입니다.</dd>
+    <dt>하이브리드 부스트</dt><dd>네트워크가 될 때 서버로 경로를 한 번 더 다듬어 턴 안내를 정확하게 하는 기능입니다.</dd>
+    <dt>Di2 · AXS</dt><dd>Shimano와 SRAM의 전자 변속기입니다.</dd>
+    <dt>경량 모드</dt><dd>그룹 라이딩에서 화면과 위치 기록 빈도를 줄여 배터리·데이터를 아끼는 모드입니다.</dd>
+  </dl>
+</section>
+
+<nav class="bottom-nav" aria-label="장 이동">
+  <a href="ch11-faq.html">&larr; 11. 문제 해결 (FAQ)</a>
+  <span class="nav-title"><a href="index.html">목차</a></span>
+  <a href="index.html">목차로 &rarr;</a>
+</nav>
+</div>
+
+<footer>
+  <p>오라이더 앱 사용 설명서 (Android·iOS) · 개정 2026-10-18 · 2026년 10월 출시 버전 기준</p>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">O-Rider</a> · <a href="/web-manual/">웹 설명서</a></p>
+</footer>
+
+</body>
+</html>

@@ -128,3 +128,9 @@
   .gb-menu { display: block; }
   .gb-backdrop.show { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 150; }
 }
+
+/* 좁은 화면에서 넓은 표는 페이지 대신 표 안에서 가로로 밀어 본다 */
+@media (max-width: 760px) {
+  .gb-content table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .gb-content th { white-space: normal; }
+}
