@@ -27,6 +27,7 @@ import { isCoachRidePlanRespondToken } from "../../services/coachRidePlanContrac
 import { auth } from "../../services/firebase";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
+import { reportCoachReadError, type CoachReadErrorKind } from "../../services/coachReadError";
 import { FirstUseCoachConsent } from "./FirstUseCoachConsent";
 import { subscribeCoachConsentSessionReset } from "./consentSessionBoundary";
 import { coachAnalytics, trackCoachFeedback } from "./coachAnalytics";
@@ -147,6 +148,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const admissionRef = useRef<{ body: CoachRequest; source: QuestionSource; session: number; open: number; uid: string; sdkUser: User | null; discipline: CoachDiscipline } | null>(null);
   const confirmationRef = useRef<object | null>(null);
   const [phase, setPhase] = useState<Phase>("closed");
+  const [readFailure, setReadFailure] = useState<CoachReadErrorKind>("unknown");
   const [draft, setDraft] = useState("");
   const [source, setSource] = useState<QuestionSource>("free_text");
   const [requestId, setRequestId] = useState<string | null>(null);
@@ -270,7 +272,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
       setQuota(status.quota); setPolicy(loadedPolicy);
       setPhase("ready");
       if (status.quota.remaining === 0) coachAnalytics.limitSeen(0);
-    } catch { if (openGenerationRef.current === generation) setPhase("load_error"); }
+    } catch (error) { if (openGenerationRef.current === generation) { setReadFailure(reportCoachReadError("launcher-initial", error)); setPhase("load_error"); } }
   }
 
   async function openSheet() {
@@ -638,6 +640,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                   <span className="ds-btn__spinner" aria-hidden /><Text as="p" variant="bodySmall">{t("loadingStatus")}</Text>
                 </Card>}
                 {phase === "load_error" && <Alert className="coach-sheet__alert" variant="danger" title={t("loadError")}>
+                  <Text as="p" variant="bodySmall">{t(`readError.${readFailure}`)}</Text>
                   <Button variant="outline" onClick={() => void loadInitial(openGenerationRef.current)}>{t("reloadStatus")}</Button>
                 </Alert>}
                 {phase === "ready" && !response && <div className="coach-sheet__ready">

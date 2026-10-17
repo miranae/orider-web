@@ -7,7 +7,7 @@ import type { CoachConsentPolicy } from "../services/coachConsentClient";
 
 const mocks = vi.hoisted(() => ({
   list: vi.fn(), detail: vi.fn(), more: vi.fn(), remove: vi.fn(), removeAll: vi.fn(), status: vi.fn(), policy: vi.fn(),
-  navigate: vi.fn(), confirm: vi.fn(), signIn: vi.fn(), user: { uid: "u1" } as { uid: string } | null,
+  navigate: vi.fn(), confirm: vi.fn(), signIn: vi.fn(), logError: vi.fn(), user: { uid: "u1" } as { uid: string } | null,
   consentCallbacks: [] as Array<{ onCancel: () => void; onConsented: (saved: CoachConsentPolicy) => void }>,
 }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({
@@ -23,6 +23,7 @@ vi.mock("../services/coachHistoryClient", () => ({
 }));
 vi.mock("../services/coachClient", () => ({ getCoachStatus: () => mocks.status(), getCoachProgressPlannerCapabilities: async () => ({ apiVersions: [] }) }));
 vi.mock("../services/coachConsentClient", () => ({ getCoachConsentPolicy: () => mocks.policy() }));
+vi.mock("../services/errorLogger", () => ({ logClientError: mocks.logError }));
 vi.mock("../features/coach/CoachAnswerDocument", () => ({ CoachAnswerDocumentView: ({ response }: { response: { requestId: string } }) => <div>answer {response.requestId}</div> }));
 vi.mock("../features/coach/FirstUseCoachConsent", () => ({ FirstUseCoachConsent: ({ open, onCancel, onConsented }: {
   open: boolean; onCancel: () => void; onConsented: (saved: CoachConsentPolicy) => void,
@@ -78,6 +79,51 @@ describe("CoachHistoryPage", () => {
 
     expect(mocks.signIn).toHaveBeenCalledTimes(1);
     expect(mocks.list).not.toHaveBeenCalled();
+  });
+
+  it("explains verification timeout and retries a history read without exposing the exception", async () => {
+    mocks.list.mockRejectedValueOnce(new Error("app-check/token-timeout"));
+    setup();
+    expect(await screen.findByRole("alert")).toHaveTextContent("브라우저 보안 확인을 완료하지 못했습니다");
+    expect(document.body).not.toHaveTextContent("app-check/token-timeout");
+    expect(mocks.logError).toHaveBeenCalledWith("Coach.read.history-list", expect.objectContaining({ message: "coach-read/verification" }), {
+      operation: "history-list", kind: "verification", code: "app-check/token-timeout",
+    });
+    await userEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(await screen.findByRole("link", { name: /이번 주 운동량/ })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mocks.more).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes a detail transport failure from a quota verification preflight failure", async () => {
+    const network = new Error("private connection details"); network.name = "CoachHistoryTransportError";
+    mocks.detail.mockRejectedValueOnce(network);
+    setup(`/ko/coach/chat/${threadId}`);
+    expect(await screen.findByRole("alert")).toHaveTextContent("서버 응답을 확인하지 못했습니다");
+    expect(document.body).not.toHaveTextContent("private connection details");
+    expect(mocks.logError).toHaveBeenCalledWith("Coach.read.history-detail", expect.any(Error), expect.objectContaining({ kind: "transport" }));
+  });
+
+  it("shows a wait instruction for SDK verification throttling and keeps follow-up disabled", async () => {
+    mocks.status.mockRejectedValueOnce({ code: "appCheck/throttled", message: "private token" });
+    setup(`/ko/coach/chat/${threadId}`);
+    expect(await screen.findByRole("alert")).toHaveTextContent("브라우저 보안 확인이 일시적으로 제한되었습니다");
+    expect(screen.getByLabelText("이 대화에서 이어 묻기")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "사용 횟수 다시 확인" })).toBeEnabled();
+    expect(document.body).not.toHaveTextContent("private token");
+  });
+
+  it("does not display or log a late read failure for the previous authenticated identity", async () => {
+    const lateA = deferred<{ threads: (typeof summary)[]; nextCursor: null }>();
+    mocks.list.mockReturnValueOnce(lateA.promise);
+    const view = setup();
+    await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(1));
+    mocks.user = { uid: "B" };
+    view.rerender(app());
+    expect(await screen.findByRole("link", { name: /이번 주 운동량/ })).toBeInTheDocument();
+    await act(async () => lateA.reject(new Error("app-check/token-timeout")));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mocks.logError).not.toHaveBeenCalled();
   });
 
   it("uses the URL sport for a new question instead of the profile preference", async () => {
