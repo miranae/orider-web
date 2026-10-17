@@ -720,9 +720,26 @@ describe("CoachQuestionLauncher", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("AI 코치 상태를 불러오지 못했습니다");
     expect(screen.getByRole("alert")).toHaveClass("ds-alert--danger", "coach-sheet__alert");
     expect(document.body).not.toHaveTextContent("private backend detail");
+    expect(screen.getByRole("alert")).toHaveTextContent("정보를 확인하지 못했습니다");
+    expect(mocks.logError).toHaveBeenCalledWith("Coach.read.launcher-initial", expect.objectContaining({ message: "coach-read/unknown" }), {
+      operation: "launcher-initial", kind: "unknown", code: "unknown",
+    });
     await userEvent.click(screen.getByRole("button", { name: "상태 다시 확인" }));
     expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
     expect(mocks.status).toHaveBeenCalledTimes(2); expect(mocks.policy).toHaveBeenCalledTimes(2);
+  });
+
+  it("explains browser verification failure before any question is sent and recovers with a read retry", async () => {
+    mocks.status.mockRejectedValueOnce({ code: "appCheck/recaptcha-error", message: "private SDK detail" });
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("브라우저 보안 확인을 완료하지 못했습니다");
+    expect(document.body).not.toHaveTextContent("private SDK detail");
+    expect(mocks.ask).not.toHaveBeenCalled();
+    expect(mocks.askP2).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "상태 다시 확인" }));
+    expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("uses authoritative initial quota and renders allowlisted answer/evidence without another API call", async () => {

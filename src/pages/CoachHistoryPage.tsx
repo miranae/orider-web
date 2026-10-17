@@ -24,6 +24,7 @@ import {
   isCoachHistoryTransportError,
   type CoachThread, type CoachThreadSummary,
 } from "../services/coachHistoryClient";
+import { reportCoachReadError, type CoachReadErrorKind } from "../services/coachReadError";
 import "../features/coach/coach-question.css";
 import "../features/coach/coach-history.css";
 
@@ -128,6 +129,9 @@ export default function CoachHistoryPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingEarlierTurns, setLoadingEarlierTurns] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [listFailure, setListFailure] = useState<CoachReadErrorKind>("unknown");
+  const [detailFailure, setDetailFailure] = useState<CoachReadErrorKind>("unknown");
+  const [quotaFailure, setQuotaFailure] = useState<CoachReadErrorKind>("unknown");
   const [threadError, setThreadError] = useState(false);
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -153,7 +157,7 @@ export default function CoachHistoryPage() {
       const page = await getCoachThreads(PAGE_SIZE);
       if (!current(generation, expectedUid)) return;
       setThreads(page.threads); setCursor(page.nextCursor);
-    } catch { if (current(generation, expectedUid)) setLoadError(true); }
+    } catch (error) { if (current(generation, expectedUid)) { setListFailure(reportCoachReadError("history-list", error)); setLoadError(true); } }
     finally { if (current(generation, expectedUid)) setLoadingList(false); }
   }, [current]);
 
@@ -163,7 +167,7 @@ export default function CoachHistoryPage() {
     try {
       const status = await getCoachStatus();
       if (current(generation, expectedUid)) setQuota(status.quota);
-    } catch { if (current(generation, expectedUid)) { setQuota(null); setQuotaError(true); } }
+    } catch (error) { if (current(generation, expectedUid)) { setQuotaFailure(reportCoachReadError("history-quota", error)); setQuota(null); setQuotaError(true); } }
     finally { if (current(generation, expectedUid)) setLoadingQuota(false); }
   }, [current]);
 
@@ -175,7 +179,7 @@ export default function CoachHistoryPage() {
       const loaded = await getCoachThread(targetId, PAGE_SIZE);
       if (!current(generation, expectedUid, targetId, routeGeneration)) return;
       setThread(loaded.thread); setThreadCursor(loaded.nextCursor);
-    } catch { if (current(generation, expectedUid, targetId, routeGeneration)) setThreadError(true); }
+    } catch (error) { if (current(generation, expectedUid, targetId, routeGeneration)) { setDetailFailure(reportCoachReadError("history-detail", error)); setThreadError(true); } }
     finally { if (current(generation, expectedUid, targetId, routeGeneration)) setLoadingThread(false); }
   }, [current]);
 
@@ -208,7 +212,7 @@ export default function CoachHistoryPage() {
       if (!current(generation, expectedUid)) return;
       setThreads((current) => [...current, ...page.threads.filter((next) => !current.some((item) => item.threadId === next.threadId))]);
       setCursor(page.nextCursor);
-    } catch { if (current(generation, expectedUid)) setLoadError(true); }
+    } catch (error) { if (current(generation, expectedUid)) { setListFailure(reportCoachReadError("history-list", error)); setLoadError(true); } }
     finally { if (current(generation, expectedUid)) setLoadingMore(false); }
   }
 
@@ -223,7 +227,7 @@ export default function CoachHistoryPage() {
       setThread((current) => current ? { ...current, ...page.thread,
         turns: [...page.thread.turns.filter((next) => !current.turns.some((turn) => turn.turnId === next.turnId)), ...current.turns] } : current);
       setThreadCursor(page.nextCursor);
-    } catch { if (current(generation, expectedUid, expectedThread, routeGeneration)) setThreadError(true); }
+    } catch (error) { if (current(generation, expectedUid, expectedThread, routeGeneration)) { setDetailFailure(reportCoachReadError("history-detail", error)); setThreadError(true); } }
     finally { if (current(generation, expectedUid, expectedThread, routeGeneration)) setLoadingEarlierTurns(false); }
   }
 
@@ -240,7 +244,7 @@ export default function CoachHistoryPage() {
       if (!current(generation, expectedUid)) return;
       setThreads((current) => current.filter((item) => item.threadId !== target.threadId));
       if (routeThreadRef.current === target.threadId) navigate(coachRoute("/coach/chat", coachDiscipline));
-    } catch { if (current(generation, expectedUid)) setThreadError(true); }
+    } catch { if (current(generation, expectedUid)) { setDetailFailure("unknown"); setThreadError(true); } }
     finally { if (current(generation, expectedUid)) setDeleting(false); }
   }
 
@@ -256,7 +260,7 @@ export default function CoachHistoryPage() {
       await deleteAllCoachThreads();
       if (!current(generation, expectedUid)) return;
       setThreads([]); setCursor(null); setThread(null); navigate(coachRoute("/coach/chat", coachDiscipline));
-    } catch { if (current(generation, expectedUid)) setLoadError(true); }
+    } catch { if (current(generation, expectedUid)) { setListFailure("unknown"); setLoadError(true); } }
     finally { if (current(generation, expectedUid)) setDeleting(false); }
   }
 
@@ -381,7 +385,7 @@ export default function CoachHistoryPage() {
       <section data-testid="K6-1" className="coach-history-list" aria-labelledby="coach-history-list-title">
         <Text id="coach-history-list-title" as="h2" variant="subtitle">{t("history.listTitle")}</Text>
         {loadingList && <Card role="status">{t("history.loading")}</Card>}
-        {loadError && <Alert variant="danger" title={t("history.loadFailed")}><Button variant="outline" onClick={() => void loadList()}>{t("history.retry")}</Button></Alert>}
+        {loadError && <Alert variant="danger" title={t("history.loadFailed")}><Text as="p" variant="bodySmall">{t(`readError.${listFailure}`)}</Text><Button variant="outline" onClick={() => void loadList()}>{t("history.retry")}</Button></Alert>}
         {!loadingList && !loadError && threads.length === 0 && <Card data-testid="K6-1-4" className="coach-history-empty"><History aria-hidden /><Text as="h3" variant="subtitle">{t("history.emptyTitle")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("history.emptyBody")}</Text></Card>}
         <div className="coach-history-list__items">{threads.map((item) => <article key={item.threadId} className={`coach-history-item${threadId === item.threadId ? " is-active" : ""}`}>
           <LocalizedLink to={coachRoute(`/coach/chat/${item.threadId}`, item.discipline)} data-testid="K6-1-1" className="coach-history-item__link" aria-current={threadId === item.threadId ? "page" : undefined}
@@ -399,6 +403,7 @@ export default function CoachHistoryPage() {
         {!threadId && <Card className="coach-history-selection"><History aria-hidden /><Text as="h2" variant="subtitle">{t("history.selectTitle")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("history.selectBody")}</Text></Card>}
         {loadingThread && <Card role="status">{t("history.loadingThread")}</Card>}
         {threadError && <Alert variant="danger" title={t("history.threadLoadFailed")}>
+          <Text as="p" variant="bodySmall">{t(`readError.${detailFailure}`)}</Text>
           {threadId && <Button variant="outline" onClick={() => void loadThread(threadId, generationRef.current, uidRef.current)}>{t("history.retry")}</Button>}
         </Alert>}
         {threadId && thread?.threadId === threadId && !loadingThread && <>
@@ -440,7 +445,7 @@ export default function CoachHistoryPage() {
               disabled={followUpUnavailable}
               placeholder={t("history.followUpPlaceholder")} onChange={(event) => { startEditedFollowUp(); setDraft(event.target.value); }} />
             <div className="coach-thread-composer__meta"><Text variant="caption" tone="tertiary">{t("history.contextNote")}</Text><Text variant="caption" tone="tertiary" mono>{draft.length}/1000</Text></div>
-            {quotaError && <Alert variant="warning" title={t("history.quotaLoadFailed")}><Button variant="outline" size="sm" onClick={() => void loadQuota()}>{t("history.retryQuota")}</Button></Alert>}
+            {quotaError && <Alert variant="warning" title={t("history.quotaLoadFailed")}><Text as="p" variant="bodySmall">{t(`readError.${quotaFailure}`)}</Text><Button variant="outline" size="sm" onClick={() => void loadQuota()}>{t("history.retryQuota")}</Button></Alert>}
             {submitError && <div className="coach-thread-composer__retry">
               <Text as="p" variant="bodySmall" tone="danger" role="alert">{t("history.submitFailed")}</Text>
               {(submitError === "transport" || submitError === "unavailable") && pendingBodyRef.current && <>

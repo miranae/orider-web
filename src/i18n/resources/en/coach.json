@@ -104,6 +104,14 @@
   },
   "submit": "Ask",
   "another": "Ask another question",
+  "readError": {
+    "verification": "Browser security verification could not finish. Check your connection or whether a browser extension is blocking requests, then try again.",
+    "verificationWait": "Browser security verification is temporarily limited. Please wait a moment before trying again.",
+    "transport": "Could not verify the server response. Check your connection and try again.",
+    "auth": "Your sign-in session could not be verified. Sign in again, then retry.",
+    "service": "The server could not process the request. Please try again shortly.",
+    "unknown": "The information could not be verified. Please try again shortly."
+  },
   "history": {
     "open": "Conversation history",
     "eyebrow": "AI Coach",
