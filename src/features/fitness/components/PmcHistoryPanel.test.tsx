@@ -1,3 +1,4 @@
+import { chooseDropdownAt, dropdownSelectedIndex } from "../fitnessControlTestUtils";
 import { fireEvent, screen, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -21,7 +22,7 @@ describe("PmcHistoryPanel", () => {
     expect(selectedValues).toHaveTextContent("2026-09-06");
     expect(selectedValues).not.toHaveTextContent("49.4");
     expect(within(selectedValues as HTMLElement).getAllByText("—")).toHaveLength(3);
-    expect(screen.getByTestId("K1-2-8")).toHaveTextContent("PMC 반영 대기");
+    expect(screen.getByTestId("K1-2-8")).toHaveTextContent("훈련 부하 반영 대기");
   });
   it("shows load snapshot coverage separately from estimated PMC and updates same-day totals", () => {
     const morning: PmcHistoryPoint = { ...point("2026-09-06", 40, 40), loadStatus: "snapshot", calculationStatus: "estimated" };
@@ -52,7 +53,7 @@ describe("PmcHistoryPanel", () => {
     Object.defineProperty(trendChart, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
     fireEvent.pointerDown(trendChart, { clientX: 44, clientY: 40 });
     fireEvent.pointerUp(trendChart, { clientX: 44, clientY: 40 });
-    expect(screen.getByRole("combobox")).toHaveValue("0");
+    expect(dropdownSelectedIndex(screen.getByRole("combobox"))).toBe(0);
     fireEvent.click(screen.getByRole("button", { name: "오늘" }));
     expect(screen.getByRole("button", { name: "90일" })).toHaveAttribute("aria-pressed", "true");
     const initialSelectionX = container.querySelector('[data-pmc-selection="true"] line')?.getAttribute("x1");
@@ -84,7 +85,9 @@ describe("PmcHistoryPanel", () => {
     const choices = [42, 90, 180, 365, "3y", "all"] as const;
     const view = renderWithProviders(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={42} onControlledRangeChange={onControlledRangeChange} rangeChoices={choices} />);
     expect(screen.getByText("일별")).toBeInTheDocument();
-    expect(screen.getByRole("combobox").querySelectorAll("option")).toHaveLength(42);
+    fireEvent.click(screen.getByRole("combobox"));
+    expect(screen.getAllByRole("option")).toHaveLength(42);
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
     expect(screen.getByRole("button", { name: "90일" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "6주" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "1년" }));
@@ -112,7 +115,7 @@ describe("PmcHistoryPanel", () => {
     expect(container.querySelector('[data-series="2025-ctl"] path')).toHaveAttribute("stroke-dasharray", "8 4");
     expect(screen.getByText((_, element) => element?.tagName === "SPAN" && element.textContent === "2026 · 장기체력 CTL 45.0")).toBeInTheDocument();
     expect(screen.getByText((_, element) => element?.tagName === "SPAN" && element.textContent === "2025 · 장기체력 CTL 30.0")).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "9" } });
+    chooseDropdownAt(screen.getByRole("combobox"), 9);
     expect(screen.getAllByText("기록 없음")).toHaveLength(2);
     expect(screen.getAllByRole("cell").filter((cell) => cell.textContent === "—")).toHaveLength(8);
     fireEvent.click(screen.getByRole("button", { name: "2026" }));
@@ -134,8 +137,8 @@ describe("PmcHistoryPanel", () => {
   it("prioritizes failed, stale and pending source states while preserving an override label", () => {
     const base = point("2026-09-06") as PmcHistoryPoint;
     const view = renderPanel([{ ...base, calculationStatus: "pending" }]);
-    expect(screen.getByRole("status", { name: "" })).toHaveTextContent("PMC 반영 대기");
-    expect(screen.getByText("PMC 반영 대기")).toHaveClass("pmc-history__source--progress");
+    expect(screen.getByRole("status", { name: "" })).toHaveTextContent("훈련 부하 반영 대기");
+    expect(screen.getByText("훈련 부하 반영 대기")).toHaveClass("pmc-history__source--progress");
     view.rerender(<PmcHistoryPanel points={[{ ...base, calculationStatus: "pending" }, { ...base, date: "2026-09-05", calculationStatus: "stale" }]} today="2026-09-06" canonical />);
     expect(screen.getByText("PMC 처리 지연")).toHaveClass("pmc-history__source--warning");
     view.rerender(<PmcHistoryPanel points={[{ ...base, calculationStatus: "pending" }, { ...base, date: "2026-09-05", calculationStatus: "stale" }, { ...base, date: "2026-09-04", calculationStatus: "failed" }]} today="2026-09-06" canonical />);
@@ -224,26 +227,26 @@ describe("PmcHistoryPanel", () => {
     expect(document.querySelectorAll("[data-pmc-tooltip-metric]")).toHaveLength(3);
     fireEvent.pointerDown(tsb, { clientX: 48, clientY: 20 });
     fireEvent.pointerUp(tsb, { clientX: 48, clientY: 20 });
-    expect(screen.getByRole("combobox")).toHaveValue("0");
+    expect(dropdownSelectedIndex(screen.getByRole("combobox"))).toBe(0);
     expect(tsb).toHaveFocus();
     expect(tsb.getAttribute("aria-valuetext")).toMatch(/장기체력 CTL.*단기피로 ATL.*회복상태 TSB/);
     fireEvent.pointerLeave(main);
     for (const index of [0, 44, 89]) {
-      fireEvent.change(screen.getByRole("combobox"), { target: { value: String(index) } });
+      chooseDropdownAt(screen.getByRole("combobox"), index);
       expect(container.querySelector('[data-pmc-selection="true"] line')).toHaveAttribute("x1", container.querySelector('[data-tsb-cursor="true"]')?.getAttribute("x1"));
     }
     fireEvent.pointerDown(tsb, { clientX: 48, clientY: 20 });
     fireEvent.pointerUp(tsb, { clientX: 70, clientY: 20 });
-    expect(screen.getByRole("combobox")).toHaveValue("89");
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "0" } });
+    expect(dropdownSelectedIndex(screen.getByRole("combobox"))).toBe(89);
+    chooseDropdownAt(screen.getByRole("combobox"), 0);
     fireEvent.pointerMove(tsb, { clientX: 400, clientY: 20, pointerType: "touch" });
     expect(document.querySelector('[data-pmc-tooltip="true"]')).not.toBeInTheDocument();
     fireEvent.pointerDown(tsb, { clientX: 48, clientY: 20, pointerType: "touch" });
     fireEvent.pointerCancel(tsb, { clientX: 70, clientY: 42, pointerType: "touch" });
     fireEvent.pointerUp(tsb, { clientX: 70, clientY: 42, pointerType: "touch" });
-    expect(screen.getByRole("combobox")).toHaveValue("0");
+    expect(dropdownSelectedIndex(screen.getByRole("combobox"))).toBe(0);
     fireEvent.keyDown(tsb, { key: "End" });
-    expect(screen.getByRole("combobox")).toHaveValue("89");
+    expect(dropdownSelectedIndex(screen.getByRole("combobox"))).toBe(89);
   });
 
   it("labels every compared year in the hover tooltip", () => {

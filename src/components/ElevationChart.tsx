@@ -183,6 +183,8 @@ export interface OverlayDataset {
   key?: string;
   label: string;
   data: Array<number | null>;
+  /** 별도 활동의 표본별 누적 거리(m). 생략하면 기본 활동의 거리축을 공유한다. */
+  distance?: readonly number[];
   color: string;
   yAxisID: string;
   unit?: string;
@@ -268,6 +270,8 @@ interface ElevationChartProps {
   /** 확인된 원시 route elapsed 좌표만 전달한다. */
   elapsedAxisSec?: readonly number[];
   xAxis?: "distance" | "elapsed";
+  /** Optional page-specific axis label; default unit labels remain unchanged elsewhere. */
+  xAxisLabel?: string;
   height?: number;
   showElevation?: boolean;
   onHoverIndex?: (index: number | null) => void;
@@ -306,6 +310,7 @@ export default function ElevationChart({
   data,
   elapsedAxisSec,
   xAxis = "distance",
+  xAxisLabel,
   height = 180,
   showElevation = true,
   onHoverIndex,
@@ -543,6 +548,9 @@ export default function ElevationChart({
     yAxisID: "yElev",
   } : null;
 
+  const maxDistance = (overlays ?? []).reduce((max, overlay) => overlay.distance?.reduce((value, distance) => Number.isFinite(distance) ? Math.max(value, distance / 1000) : value, max) ?? max,
+    distancesKm.reduce((max, distance) => Number.isFinite(distance) ? Math.max(max, distance) : max, 0));
+
   const chartData = {
     labels: distancesKm,
     datasets: [
@@ -552,7 +560,7 @@ export default function ElevationChart({
         const focused = o.key != null && o.key === focusedOverlayKey;
         return {
         label: o.label,
-        data: buildFiniteOverlayPoints(o.data, distancesKm),
+        data: buildFiniteOverlayPoints(o.data, o.distance?.map(distance => distance / 1000) ?? distancesKm),
         backgroundColor: "transparent",
         borderWidth: focused ? 2.5 : 1.25,
         borderDash: focused ? [] : [4, 3],
@@ -670,7 +678,7 @@ export default function ElevationChart({
             x: {
               type: "linear",
               min: 0,
-              max: distancesKm.length > 0 ? distancesKm[distancesKm.length - 1] : undefined,
+              max: maxDistance || undefined,
               grid: { display: false },
               ticks: {
                 font: { size: 12 },
@@ -678,7 +686,7 @@ export default function ElevationChart({
                 maxTicksLimit: 10,
                 callback: (v) => `${Number(v).toFixed(1)}`,
               },
-              title: { display: true, text: elapsedAxis ? "min" : "km", font: { size: 12 }, color: tickColor },
+              title: { display: true, text: xAxisLabel ?? (elapsedAxis ? "min" : "km"), font: { size: 12 }, color: tickColor },
             },
             yElev: {
               type: "linear",
@@ -719,7 +727,7 @@ export default function ElevationChart({
                 labels: distancesKm,
                 datasets: [{
                   label: overlay.label,
-                  data: buildFiniteOverlayPoints(overlay.data, distancesKm),
+                  data: buildFiniteOverlayPoints(overlay.data, overlay.distance?.map(distance => distance / 1000) ?? distancesKm),
                   borderColor: overlay.color,
                   backgroundColor: "transparent",
                   borderWidth: focused ? 2.25 : 1.75,
@@ -745,7 +753,7 @@ export default function ElevationChart({
                   ...(rangeHighlightOpts ? { rangeHighlight: rangeHighlightOpts } : {}),
                   ...(segmentHighlightOpts ? { segmentHighlight: segmentHighlightOpts } : {}) } as Record<string, unknown>,
                 scales: {
-                  x: { type: "linear", min: 0, max: distancesKm[distancesKm.length - 1], display: false },
+                  x: { type: "linear", min: 0, max: maxDistance || undefined, display: false },
                   yMetricSpacer: {
                     type: "linear", position: "left", afterFit: (scale: { width: number }) => { scale.width = 54; },
                     grid: { display: false }, border: { display: false }, ticks: { color: "transparent", callback: () => "" },

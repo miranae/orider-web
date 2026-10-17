@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useId } from 'react';
 import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -8,15 +8,21 @@ import { useCreatePost } from '../features/board/useBoard';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
+import { useToast } from '../contexts/ToastContext';
 import { storage } from '../services/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Button, Card } from "../theme/components";
+import { ref, uploadBytes, deleteObject } from 'firebase/storage';
+import { LoadingSkeleton } from '../components/redesign';
+import { BoardFeedbackIcon } from "../features/board/BoardFeedbackIcon";
+import { Button, Card, Input } from "../theme/components";
 import { normalizeUserContentUrl } from "../utils/userContentUrl";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 import { clearPostDraft, getPostDraftKey, readPostDraft, writePostDraft } from "../features/board/postDraft";
 import { serializePostEditorContent } from "../features/board/editor/serializePostEditorContent";
 import { logClientError } from "../services/errorLogger";
+import "./BoardDetail.css";
+
 const MAX_IMAGES = 5;
+const isSupportedImage = (file: File) => ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type) && file.size <= 5 * 1024 * 1024;
 
 type AttachedImage = {
   url: string;
@@ -104,13 +110,16 @@ export function parseUserTags(raw: string): string[] {
 const CreatePostPage: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation("board");
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const dialog = useDialog();
+  const { showToast } = useToast();
   const isMobile = useMobile();
   const { createPost, submitting } = useCreatePost();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const tablePickerRef = useRef<HTMLDivElement>(null);
+  const tableTriggerRef = useRef<HTMLButtonElement>(null);
+  const tablePickerId = useId();
 
   const location = useLocation();
   const postTemplate = location.state?.postTemplate as { title?: unknown; body?: unknown } | undefined;
@@ -178,14 +187,14 @@ const CreatePostPage: React.FC = () => {
 
   useEffect(() => {
     const editor = editorRef.current;
-    if (!editor || typeof postTemplate?.body !== "string" || editor.textContent?.trim()) return;
+    if (authLoading || !user || !editor || typeof postTemplate?.body !== "string" || editor.textContent?.trim()) return;
     const body = postTemplate.body.slice(0, 50000);
     editor.innerHTML = DOMPurify.sanitize(plainTextToHtml(body));
     setMobilePlainText(body); setEditorEmpty(!body.trim());
-  }, [postTemplate?.body]);
+  }, [postTemplate?.body, authLoading, user]);
 
   useEffect(() => {
-    if (!isCreatorRecipeTemplate) return;
+    if (authLoading || !user || !isCreatorRecipeTemplate) return;
     const editor = editorRef.current;
     if (!editor || (editor.textContent || '').trim()) return;
 
@@ -194,10 +203,10 @@ const CreatePostPage: React.FC = () => {
     editor.innerHTML = lines.map((line) => line ? `<p>${line}</p>` : '<p><br></p>').join('');
     setMobilePlainText(lines.join("\n"));
     setEditorEmpty(false);
-  }, [i18n.language, isCreatorRecipeTemplate, t]);
+  }, [i18n.language, isCreatorRecipeTemplate, t, authLoading, user]);
 
   useEffect(() => {
-    if (!draftKey || restoredDraftKeyRef.current === draftKey) return;
+    if (authLoading || !editorRef.current || !draftKey || restoredDraftKeyRef.current === draftKey) return;
     const draft = readPostDraft(draftKey);
     restoredDraftKeyRef.current = draftKey;
     if (!draft) return;
@@ -211,7 +220,7 @@ const CreatePostPage: React.FC = () => {
       setMobilePlainText(editorRef.current.textContent ?? '');
       markEditorChanged();
     }
-  }, [draftKey, markEditorChanged]);
+  }, [draftKey, markEditorChanged, authLoading]);
 
   const handleMobilePlainTextChange = (value: string) => {
     setMobilePlainText(value);
@@ -222,7 +231,7 @@ const CreatePostPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!draftKey) return;
+    if (authLoading || !editorRef.current || !draftKey) return;
     const timer = window.setTimeout(() => {
       const editor = editorRef.current;
       const hasDraftContent = title.trim() || tags.trim() || !editorEmpty || (isInquiry && (isPrivate || feedbackType !== "bug"));
@@ -242,7 +251,7 @@ const CreatePostPage: React.FC = () => {
     }, 800);
 
     return () => window.clearTimeout(timer);
-  }, [draftKey, title, tags, feedbackType, isPrivate, editorEmpty, editorRevision, isInquiry]);
+  }, [draftKey, title, tags, feedbackType, isPrivate, editorEmpty, editorRevision, isInquiry, authLoading]);
 
   // 서식 상태 감지
   const updateFormatState = useCallback(() => {
@@ -279,8 +288,19 @@ const CreatePostPage: React.FC = () => {
         setShowTablePicker(false);
       }
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      setShowTablePicker(false);
+      tableTriggerRef.current?.focus();
+    };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [showTablePicker]);
 
   /** 블록 서식 토글 (H2, H3, BLOCKQUOTE) */
@@ -397,6 +417,10 @@ const CreatePostPage: React.FC = () => {
   };
 
   const insertImageAtCursor = useCallback((file: File) => {
+    if (!isSupportedImage(file)) {
+      showToast(t("message.imageUnsupported"), "info");
+      return;
+    }
     if (imageMapRef.current.size >= MAX_IMAGES) {
       void dialog.alert(t('message.imageLimitWarning', { max: MAX_IMAGES }), { variant: "warning" });
       return;
@@ -437,7 +461,7 @@ const CreatePostPage: React.FC = () => {
 
     editor.focus();
     markEditorChanged();
-  }, [markEditorChanged, syncAttachedImages, t]);
+  }, [markEditorChanged, syncAttachedImages, showToast, t]);
 
   // Find untracked <img> in editor, download & convert to tracked blobs
   const processNewImages = useCallback(async () => {
@@ -453,6 +477,11 @@ const CreatePostPage: React.FC = () => {
       if (!src || src.startsWith('data:image/gif;base64,R0lGOD')) { img.remove(); continue; } // remove 1px placeholder gifs
 
       const file = await fetchImageAsFile(src);
+      if (file && !isSupportedImage(file)) {
+        img.remove();
+        showToast(t("message.imageUnsupported"), "info");
+        continue;
+      }
       if (file) {
         const blobUrl = URL.createObjectURL(file);
         imageMapRef.current.set(blobUrl, file);
@@ -466,7 +495,7 @@ const CreatePostPage: React.FC = () => {
     }
     syncAttachedImages();
     markEditorChanged();
-  }, [markEditorChanged, syncAttachedImages]);
+  }, [markEditorChanged, syncAttachedImages, showToast, t]);
 
   const removeAttachedImage = useCallback((url: string) => {
     const editor = editorRef.current;
@@ -523,16 +552,24 @@ const CreatePostPage: React.FC = () => {
     // Fix lazy-loaded images + enable cross-origin display
     temp.querySelectorAll('img').forEach(img => {
       const realSrc = img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('src');
-      if (realSrc) {
-        img.setAttribute('src', realSrc);
+      if (!realSrc) {
+        img.remove();
+        return;
       }
-      // no-referrer bypasses Referer-based hotlink protection (Naver, etc.)
-      img.setAttribute('referrerpolicy', 'no-referrer');
-      img.removeAttribute('data-src');
-      img.removeAttribute('data-original');
-      img.removeAttribute('loading');
-      img.removeAttribute('width');
-      img.removeAttribute('height');
+      // data-* 속성은 DOMPurify의 URL 검사 대상이 아니므로 src 승격 전에 검사한다.
+      const safeSrc = normalizeUserContentUrl(realSrc);
+      const rasterData = /^data:image\/(?:png|jpeg|webp|gif);base64,[a-z\d+/=\s]+$/i.test(realSrc);
+      if (!safeSrc && !rasterData) {
+        img.remove();
+        return;
+      }
+      // URL을 활성 속성에 쓰기 전에 문맥에 맞게 이스케이프하고 새 이미지 전체를 정화한다.
+      // no-referrer는 Referer 기반 외부 이미지 차단을 방지한다.
+      const sanitizedImage = DOMPurify.sanitize(
+        `<img src="${escapeHtml(safeSrc || realSrc)}" alt="${escapeHtml(img.alt)}" title="${escapeHtml(img.title)}" referrerpolicy="no-referrer">`,
+        { RETURN_DOM_FRAGMENT: true },
+      );
+      img.replaceWith(sanitizedImage);
     });
 
     // Insert sanitized HTML at cursor (execCommand preserves cursor position)
@@ -571,7 +608,7 @@ const CreatePostPage: React.FC = () => {
         const editor = editorRef.current;
         if (editor) {
           editor.focus();
-          document.execCommand('insertHTML', false, temp.innerHTML);
+          document.execCommand('insertHTML', false, DOMPurify.sanitize(temp.innerHTML));
         }
       }
       // Then insert images
@@ -673,7 +710,7 @@ const CreatePostPage: React.FC = () => {
     });
     observer.observe(editor, { childList: true, subtree: true });
     return () => observer.disconnect();
-  }, [syncAttachedImages]);
+  }, [syncAttachedImages, authLoading, user]);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -682,7 +719,7 @@ const CreatePostPage: React.FC = () => {
     };
   }, []);
 
-  const uploadAllImages = async (): Promise<Map<string, string>> => {
+  const uploadAllImages = async (postId: string): Promise<Map<string, string>> => {
     const urlMap = new Map(uploadedImageMapRef.current);
     const pendingImages = Array.from(imageMapRef.current).filter(([blobUrl]) => !urlMap.has(blobUrl));
     setUploadProgress({ done: 0, total: pendingImages.length });
@@ -690,9 +727,9 @@ const CreatePostPage: React.FC = () => {
       const ext = file.name.split('.').pop() || 'jpg';
       const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
       // user 는 form 렌더 시점에 보장됨 (early return 가드, 754행 참조).
-      const storageRef = ref(storage, `board_images/${user!.uid}/${fileName}`);
+      const storageRef = ref(storage, `board_images/${user!.uid}/${postId}/${fileName}`);
       await uploadBytes(storageRef, file, { contentType: file.type });
-      const realUrl = await getDownloadURL(storageRef);
+      const realUrl = storageRef.toString();
       urlMap.set(blobUrl, realUrl);
       uploadedImageMapRef.current.set(blobUrl, realUrl);
       setUploadProgress({ done: index + 1, total: pendingImages.length });
@@ -707,9 +744,11 @@ const CreatePostPage: React.FC = () => {
     const hasImages = (editor?.querySelectorAll('img').length || 0) > 0;
     if (!title.trim() || (!hasText && !hasImages)) return;
 
+    let published = false;
     try {
       setUploading(true);
-      const urlMap = await uploadAllImages();
+      const uploadPostId = crypto.randomUUID();
+      const urlMap = await uploadAllImages(uploadPostId);
       const { content, imageUrls } = serializePostEditorContent(editor, urlMap);
       const postId = await createPost({
         boardType: isInquiry ? 'inquiry' : isDevlog ? 'devlog' : 'free',
@@ -722,7 +761,8 @@ const CreatePostPage: React.FC = () => {
         imageUrls,
         feedbackType: isInquiry ? feedbackType : null,
         isPrivate: isInquiry ? isPrivate : false,
-      });
+      }, uploadPostId);
+      published = true;
       if (isInquiry) {
         const params = new URLSearchParams({
           type: 'inquiry',
@@ -738,6 +778,11 @@ const CreatePostPage: React.FC = () => {
       }
       if (draftKey) clearPostDraft(draftKey);
     } catch (err) {
+      // 등록되지 않은 첨부만 제거한다. 재시도는 새 게시글 ID로 업로드한다.
+      if (!published) {
+        await Promise.allSettled([...uploadedImageMapRef.current.values()].map(url => deleteObject(ref(storage, url))));
+        uploadedImageMapRef.current.clear();
+      }
       logClientError("CreatePostPage.handleSubmit", err, {
         boardType: isInquiry ? 'inquiry' : isDevlog ? 'devlog' : 'free',
         imageCount: imageMapRef.current.size,
@@ -759,7 +804,7 @@ const CreatePostPage: React.FC = () => {
     stayLabel: t("unsaved.stay"),
     leaveLabel: t("unsaved.leave"),
   });
-  const leavePage = () => requestLeave(() => navigate(-1));
+  const leavePage = () => requestLeave(() => navigate(isInquiry ? "/community/board?type=inquiry" : "/community/board"));
   const postOptions = (
     <div className="grid gap-5 lg:grid-cols-2">
       <Card
@@ -781,13 +826,13 @@ const CreatePostPage: React.FC = () => {
           </label>
         ) : (
           <>
-            <input
+            <Input
               type="text"
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder={t('placeholder.tags')}
-              className="w-full px-4 py-3 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)]"
-              style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
+              aria-label={t("label.tags")}
+              className="board-writing-tags w-full"
             />
             <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mt-3">{t('placeholder.tagExample')}</p>
             <div className="mt-4 flex min-h-14 flex-wrap content-start gap-2 rounded-[var(--r-lg)] bg-[var(--bg-2)] p-3.5">
@@ -862,18 +907,20 @@ const CreatePostPage: React.FC = () => {
 
   // 권한 가드 — 모든 hook 호출 이후로 이동 (rules-of-hooks 준수).
   // Why: 이전엔 hook 선언 위에 early return 이 있어 user→login 전환 시 hook 순서 불일치.
+  if (authLoading) return <LoadingSkeleton kind="card" />;
   if (!user) return <Navigate to="/community/board" replace />;
   if (isDevlog) return <Navigate to="/community/board?type=devlog" replace />;
 
   return (
     /* 복합 에디터의 도구 모음과 입력 행은 기존 1120px 작업 폭을 유지한다. */
-    <form data-testid="M2-W" onSubmit={handleSubmit} className="mx-auto max-w-[1120px] space-y-6">
+    <form data-testid="M2-W" onSubmit={handleSubmit} className="board-writing board-reading-surface mx-auto space-y-6" aria-busy={isBusy}>
       {/* Top bar */}
-      <div className="flex items-center justify-between pb-4 border-b border-[var(--line-soft)]">
+      <div className="board-writing-header flex items-center justify-between pb-4 border-b border-[var(--line-soft)]">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={leavePage}
+            aria-label={t("label.backToBoard")}
             className="text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -884,7 +931,7 @@ const CreatePostPage: React.FC = () => {
         </div>
         <Button data-testid="M2-W-3"
           type="submit"
-          disabled={!canSubmit} variant="secondary" className="px-6 py-2 text-[length:var(--fs-sm)] font-bold rounded-[var(--r-lg)] disabled:opacity-40 disabled:cursor-not-allowed"
+          disabled={!canSubmit} variant="primary" className="px-6 py-2 text-[length:var(--fs-sm)] font-bold rounded-[var(--r-lg)] disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {uploading && uploadProgress && uploadProgress.total > 0
             ? t('button.uploadingProgress', { done: uploadProgress.done, total: uploadProgress.total })
@@ -892,6 +939,7 @@ const CreatePostPage: React.FC = () => {
         </Button>
       </div>
 
+      <p className="board-writing-hint">{t(isInquiry ? 'writing.inquiryHint' : 'writing.publicHint')}</p>
       <div className="space-y-4">
         <Card padding="none" className="rounded-[var(--r-xl)] overflow-hidden">
           {isInquiry && (
@@ -908,13 +956,14 @@ const CreatePostPage: React.FC = () => {
                     key={feedbackItem.value}
                     type="button"
                     onClick={() => setFeedbackType(feedbackItem.value)}
+                    aria-pressed={feedbackType === feedbackItem.value}
                     className={`flex flex-col items-center gap-1 p-2.5 rounded-[var(--r-lg)] border-2 transition-all text-center ${
                       feedbackType === feedbackItem.value
                         ? 'border-[var(--lime)] bg-[var(--lime)]/10'
                         : 'border-[var(--line-soft)] hover:border-[var(--line)]'
                     }`}
                   >
-                    <span className="text-[length:var(--fs-xl)]">{feedbackItem.icon}</span>
+                    <BoardFeedbackIcon type={feedbackItem.value} />
                     <span className={`text-[length:var(--fs-xs)] font-bold ${feedbackType === feedbackItem.value ? 'text-[var(--lime)]' : 'text-[var(--ink-2)]'}`}>
                       {feedbackItem.label}
                     </span>
@@ -932,13 +981,16 @@ const CreatePostPage: React.FC = () => {
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
               placeholder={t('placeholder.title')}
-              className="w-full px-1 pb-3 text-[length:var(--fs-lg)] font-medium bg-transparent text-[var(--ink-0)] placeholder:text-[var(--ink-3)] focus:outline-none border-b border-[var(--line-soft)]"
+              aria-label={t("placeholder.title")}
+              maxLength={200}
+              required
+              className="board-writing-title w-full px-1 pb-3 text-[length:var(--fs-lg)] font-medium bg-transparent text-[var(--ink-0)] placeholder:text-[var(--ink-3)] focus:outline-none border-b border-[var(--line-soft)]"
             />
           </div>
 
           {/* Toolbar */}
-          <div className="px-3 py-1.5 border-b border-[var(--line-soft)] flex items-center gap-0.5 overflow-x-auto">
-            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} className="hidden" />
+          <div className={`board-editor-toolbar px-3 py-1.5 border-b border-[var(--line-soft)] ${isMobile ? "hidden" : "flex"}`}>
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
 
               {/* --- Insert --- */}
               <ToolBtn onClick={() => fileInputRef.current?.click()} disabled={imageCount >= MAX_IMAGES} title={t('toolbar.photo')}>
@@ -982,26 +1034,29 @@ const CreatePostPage: React.FC = () => {
 
               {/* --- Table picker --- */}
               <div className="relative" ref={tablePickerRef}>
-                <ToolBtn onClick={() => setShowTablePicker(prev => !prev)} title={t('toolbar.table')}>
+                <ToolBtn buttonRef={tableTriggerRef} expanded={showTablePicker} controls={tablePickerId} onClick={() => setShowTablePicker(prev => !prev)} title={t('toolbar.table')}>
                   <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125M10.875 12c-.621 0-1.125.504-1.125 1.125M12 12c0 .621.504 1.125 1.125 1.125M12 12c0-.621.504-1.125 1.125-1.125m1.5 2.625c0-.621.504-1.125 1.125-1.125" /></svg>
                 </ToolBtn>
                 {showTablePicker && (
-                  <div className="absolute top-full left-0 mt-1 p-3 rounded-[var(--r-lg)] z-50" style={{ background: 'var(--bg-2)', border: '1px solid var(--line)' }}>
+                  <div id={tablePickerId} className="board-table-picker absolute top-full left-0 mt-1 p-3 rounded-[var(--r-lg)] z-50" style={{ background: 'var(--bg-2)', border: '1px solid var(--line)' }}>
                     <div className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mb-2 text-center">
                       {tableHover.rows > 0 ? t('toolbar.tableSize', { rows: tableHover.rows, cols: tableHover.cols }) : t('toolbar.tableSizePrompt')}
                     </div>
-                    <div className="grid grid-cols-6 gap-1">
+                    <div className="board-table-grid">
                       {Array.from({ length: 36 }).map((_, i) => {
                         const row = Math.floor(i / 6) + 1;
                         const col = (i % 6) + 1;
                         const isHighlighted = row <= tableHover.rows && col <= tableHover.cols;
                         return (
-                          <div
+                          <button
+                            type="button"
+                            aria-label={t('toolbar.tableSize', { rows: row, cols: col })}
                             key={i}
                             onMouseEnter={() => setTableHover({ rows: row, cols: col })}
                             onPointerEnter={() => setTableHover({ rows: row, cols: col })}
                             onPointerDown={() => setTableHover({ rows: row, cols: col })}
-                            onMouseDown={(e) => { e.preventDefault(); insertTable(row, col); }}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => insertTable(row, col)}
                             className={`w-5 h-5 border rounded-[var(--r-sm)] cursor-pointer transition-colors ${
                               isHighlighted
                                 ? 'bg-[var(--lime)] border-[var(--lime)]'
@@ -1037,7 +1092,7 @@ const CreatePostPage: React.FC = () => {
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
             >
-              {editorEmpty && (
+              {editorEmpty && !isMobile && (
                 <div className="absolute inset-0 px-5 py-4 text-[var(--ink-3)] text-[length:var(--fs-sm)] pointer-events-none select-none">
                   {t('placeholder.editorHint')}
                 </div>
@@ -1046,7 +1101,7 @@ const CreatePostPage: React.FC = () => {
                 <textarea
                   value={mobilePlainText}
                   onChange={(event) => handleMobilePlainTextChange(event.target.value)}
-                  placeholder={t('placeholder.editorHint')}
+                  placeholder={t('placeholder.editorMobile')}
                   aria-label={t('label.editor')}
                   className="w-full min-h-[360px] resize-y bg-transparent px-5 py-4 text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-1)] placeholder:text-[var(--ink-3)] focus:outline-none"
                 />
@@ -1054,11 +1109,16 @@ const CreatePostPage: React.FC = () => {
               <div
                 ref={editorRef}
                 contentEditable={!isMobile}
+                hidden={isMobile}
                 suppressContentEditableWarning
                 onInput={markEditorChanged}
                 onPaste={handlePaste}
                 onKeyDown={handleKeyDown}
-                aria-label={t('label.editor')}
+                aria-label={isMobile ? undefined : t('label.editor')}
+                role={isMobile ? undefined : "textbox"}
+                aria-multiline="true"
+                tabIndex={isMobile ? -1 : 0}
+                aria-hidden={isMobile || undefined}
                 className={`${isMobile ? "sr-only" : ""} px-5 py-4 min-h-[480px] text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-1)] focus:outline-none
                   [&_img]:max-w-full [&_img]:rounded-[var(--r-lg)] [&_img]:my-3
                   [&_h2]:text-[length:var(--fs-xl)] [&_h2]:font-bold [&_h2]:my-3
@@ -1074,6 +1134,7 @@ const CreatePostPage: React.FC = () => {
             </div>
         </Card>
 
+        {isMobile && <p className="board-writing-hint">{t("writing.mobileHint")}</p>}
         {postOptions}
       </div>
       {guardDialog}
@@ -1088,13 +1149,22 @@ const ToolBtn: React.FC<{
   disabled?: boolean;
   active?: boolean;
   title?: string;
-}> = ({ children, onClick, disabled, active, title }) => (
+  buttonRef?: React.Ref<HTMLButtonElement>;
+  expanded?: boolean;
+  controls?: string;
+}> = ({ children, onClick, disabled, active, title, buttonRef, expanded, controls }) => (
   <button
     type="button"
     onClick={onClick}
     onMouseDown={(e) => e.preventDefault()}
     disabled={disabled}
-    title={title} className={`flex flex-col items-center justify-center w-10 h-10 rounded-[var(--r-lg)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+    title={title}
+    aria-label={title}
+    ref={buttonRef}
+    aria-pressed={active}
+    aria-expanded={expanded}
+    aria-controls={controls}
+    className={`board-tool-button flex items-center justify-center rounded-[var(--r-lg)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
       active
         ? 'bg-[var(--lime)]/20 text-[var(--lime)]'
         : 'text-[var(--ink-3)] hover:bg-[var(--bg-2)] hover:text-[var(--ink-1)]'

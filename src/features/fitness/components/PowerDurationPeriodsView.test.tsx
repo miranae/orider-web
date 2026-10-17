@@ -1,3 +1,4 @@
+import { chooseDropdown } from "../fitnessControlTestUtils";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -17,7 +18,7 @@ describe("fixed-duration period observations", () => {
     expect(view.container.textContent).not.toContain("SECRET-OPAQUE");
     expect(screen.getAllByRole("link")[0]).toHaveAttribute("href", `/ko/activity/${encodeURIComponent("한글 활동")}`);
     expect(screen.getAllByText("densePeriod.partial")).toHaveLength(2);
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "3600" } });
+    chooseDropdown(screen.getByRole("combobox"), "densePeriod.hours 1");
     expect(screen.getByText("—")).toBeInTheDocument();
     expect(screen.queryByText(/densePeriod.difference/)).not.toBeInTheDocument();
     expect(view.container.querySelectorAll("polyline")).toHaveLength(0);
@@ -79,9 +80,10 @@ describe("fixed-duration period observations", () => {
     observation.points = [68, 4685, 86400].map(durationSeconds => ({ ...observation.points[0]!, durationSeconds }));
     delete data.periods[1]!.powerDurationObservations;
     render(<MemoryRouter><PowerDurationPeriodsView response={data} /></MemoryRouter>);
-    expect(screen.getByRole("option", { name: "densePeriod.minutes 1 densePeriod.seconds 8" })).toHaveValue("68");
-    expect(screen.getByRole("option", { name: "densePeriod.hours 1 densePeriod.minutes 18 densePeriod.seconds 5" })).toHaveValue("4685");
-    expect(screen.getByRole("option", { name: "densePeriod.hours 24" })).toHaveValue("86400");
+    fireEvent.click(screen.getByRole("combobox"));
+    expect(screen.getByRole("option", { name: "densePeriod.minutes 1 densePeriod.seconds 8" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "densePeriod.hours 1 densePeriod.minutes 18 densePeriod.seconds 5" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "densePeriod.hours 24" })).toBeInTheDocument();
     expect(screen.getByRole("combobox").textContent).not.toMatch(/\d+\.\d+/);
   });
   it("keeps an absent period unknown and does not compare it with the old11", () => {

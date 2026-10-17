@@ -11,7 +11,11 @@
  *
  * 베타: 바람/드래프팅/가감속 미반영 — 정확도 미보장 (배너 고지).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import GlossaryProvider from "../components/common/GlossaryProvider";
+import InfoTip from "../components/InfoTip";
+import GlossaryText from "../components/common/GlossaryText";
+import "../features/courses/course-review.css";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -98,7 +102,9 @@ function parseDuration(str: string): number {
 }
 
 export default function LabPage({ presetCourseId, embedded = false }: { presetCourseId?: string; embedded?: boolean } = {}) {
+  const fieldPrefix = useId();
   const { t } = useTranslation("lab");
+  const { t: courseT } = useTranslation("course");
   const { user, profile } = useAuth();
   const uid = user?.uid ?? null;
   const [searchParams] = useSearchParams();
@@ -285,23 +291,25 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
   }
 
   return (
-    <div data-testid={embedded ? "course-prepare-calculator" : undefined} style={{ maxWidth: 760, margin: "0 auto", padding: "var(--space-4)" }}>
+<GlossaryProvider scopeKey={`course-calculator:${selectedId}:${mode}`}>
+    <div className={embedded ? "course-prepare-embedded" : undefined} data-testid={embedded ? "course-prepare-calculator" : undefined} style={{ maxWidth: embedded ? "100%" : 760, margin: "0 auto", padding: embedded ? 0 : "var(--space-4)" }}>
       <Stack gap="var(--space-4)">
-        <div>
+        {!embedded && <div>
           <Text as="h1" variant="title" size="xl">
             {t("title")}
           </Text>
           <Text as="p" tone="secondary">
             {t("subtitle")}
           </Text>
-        </div>
+        </div>}
 
-        <Alert variant="warning" title={t("beta.title")}>
+        <div className={embedded ? "course-simulation-notice" : undefined}><Alert variant="warning" title={t("beta.title")}>
           {t("beta.body")}
-        </Alert>
+        </Alert></div>
+        {embedded && selectedCourse && segments.length === 0 && <Alert variant="info">{t("course.noProfile")}</Alert>}
 
         {/* 코스 선택 */}
-        <Card title={t("course.title")}>
+        {!embedded && <Card title={t("course.title")}>
           <Field label={t("course.select")}>
             <Select
               disabled={embedded}
@@ -352,20 +360,22 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
               {t("course.noProfile")}
             </Text>
           )}
-        </Card>
+        </Card>}
 
         {/* 파라미터 */}
-        <Card title={t("params.title")}>
+        <details className={embedded ? "course-simulation-parameters" : undefined} open={embedded ? undefined : true}>
+          <summary hidden={!embedded}>{courseT("prepare.parameters")}</summary>
+        <Card title={embedded ? undefined : t("params.title")}>
           <Stack gap="var(--space-3)">
-            <div
+            <div className={embedded ? "course-simulation-grid" : undefined}
               style={{
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr",
                 gap: "var(--space-3)",
               }}
             >
-              <Field label={t("params.riderKg")} hint={t("params.riderKgHint")}>
-                <Input
+              <Field htmlFor={`${fieldPrefix}-rider`} label={t("params.riderKg")} hint={<span id={`${fieldPrefix}-rider-hint`}>{t("params.riderKgHint")}</span>}>
+                <Input id={`${fieldPrefix}-rider`} aria-describedby={`${fieldPrefix}-rider-hint`}
                   type="number"
                   mono
                   value={riderKg}
@@ -373,18 +383,16 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
                   placeholder="70"
                 />
               </Field>
-              <Field
+              <Field htmlFor={`${fieldPrefix}-bike`}
                 label={t("params.bikeKg")}
-                hint={
-                  defaultBike
+                hint={<span id={`${fieldPrefix}-bike-hint`}>{defaultBike
                     ? t("params.bikeKgFrom", { name: defaultBike.name })
-                    : t("params.bikeKgDefault")
-                }
+                    : t("params.bikeKgDefault")}</span>}
               >
-                <Input type="number" mono value={String(bikeMass)} disabled />
+                <Input id={`${fieldPrefix}-bike`} aria-describedby={`${fieldPrefix}-bike-hint`} type="number" mono value={String(bikeMass)} disabled />
               </Field>
-              <Field label={t("params.cda")} hint={t("params.cdaHint")}>
-                <Input
+              <Field htmlFor={`${fieldPrefix}-cda`} label={embedded ? <InfoTip title={courseT("prepare.cdaTitle")} content={t("params.cdaHint")}>{t("params.cda")}</InfoTip> : t("params.cda")} hint={<span id={`${fieldPrefix}-cda-hint`}>{t("params.cdaHint")}</span>}>
+                <Input id={`${fieldPrefix}-cda`} aria-label={t("params.cda")} aria-describedby={`${fieldPrefix}-cda-hint`}
                   type="number"
                   step="0.01"
                   mono
@@ -393,8 +401,8 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
                   placeholder={String(DEFAULT_CDA)}
                 />
               </Field>
-              <Field label={t("params.crr")} hint={t("params.crrHint")}>
-                <Input
+              <Field htmlFor={`${fieldPrefix}-crr`} label={embedded ? <InfoTip title={courseT("prepare.crrTitle")} content={t("params.crrHint")}>{t("params.crr")}</InfoTip> : t("params.crr")} hint={<span id={`${fieldPrefix}-crr-hint`}>{t("params.crrHint")}</span>}>
+                <Input id={`${fieldPrefix}-crr`} aria-label={t("params.crr")} aria-describedby={`${fieldPrefix}-crr-hint`}
                   type="number"
                   step="0.001"
                   mono
@@ -403,8 +411,8 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
                   placeholder={String(DEFAULT_CRR)}
                 />
               </Field>
-              <Field label={t("params.eta")} hint={t("params.etaHint")}>
-                <Input
+              <Field htmlFor={`${fieldPrefix}-eta`} label={embedded ? <InfoTip title={courseT("prepare.etaTitle")} content={t("params.etaHint")}>{t("params.eta")}</InfoTip> : t("params.eta")} hint={<span id={`${fieldPrefix}-eta-hint`}>{t("params.etaHint")}</span>}>
+                <Input id={`${fieldPrefix}-eta`} aria-label={t("params.eta")} aria-describedby={`${fieldPrefix}-eta-hint`}
                   type="number"
                   step="0.01"
                   mono
@@ -415,10 +423,10 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
               </Field>
             </div>
           </Stack>
-        </Card>
+        </Card></details>
 
         {/* 모드 + 입력 */}
-        <Card title={t("mode.title")}>
+        <Card className={embedded ? "course-simulation-mode" : undefined} title={embedded ? courseT("prepare.prediction") : t("mode.title")}>
           <Stack gap="var(--space-3)">
             <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
               {(["power", "targetTime", "pr"] as SimMode[]).map((m) => (
@@ -428,14 +436,14 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
                   size="sm"
                   onClick={() => setMode(m)}
                 >
-                  {t(`mode.${m}`)}
+                  {embedded && m === "pr" ? courseT("prepare.bestEffort") : t(`mode.${m}`)}
                 </Button>
               ))}
             </div>
 
             {mode === "power" && (
-              <Field label={t("mode.powerInput")} hint={t("mode.powerHint")}>
-                <Input
+              <Field htmlFor={`${fieldPrefix}-power`} label={t("mode.powerInput")} hint={<span id={`${fieldPrefix}-power-hint`}>{t("mode.powerHint")}</span>}>
+                <Input id={`${fieldPrefix}-power`} aria-describedby={`${fieldPrefix}-power-hint`}
                   type="number"
                   mono
                   value={powerW}
@@ -446,11 +454,11 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
             )}
 
             {mode === "targetTime" && (
-              <Field
+              <Field htmlFor={`${fieldPrefix}-target-time`}
                 label={t("mode.targetTimeInput")}
-                hint={t("mode.targetTimeHint")}
+                hint={<span id={`${fieldPrefix}-target-time-hint`}>{t("mode.targetTimeHint")}</span>}
               >
-                <Input
+                <Input id={`${fieldPrefix}-target-time`} aria-describedby={`${fieldPrefix}-target-time-hint`}
                   type="text"
                   mono
                   value={targetTime}
@@ -460,11 +468,9 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
               </Field>
             )}
 
-            {mode === "pr" && (
+            {mode === "pr" && (!embedded || cp > 0) && (
               <Text as="p" tone="secondary">
-                {cp > 0
-                  ? t("mode.prReady", { cp: Math.round(cp), wPrime: Math.round(wPrime) })
-                  : t("mode.prMissing")}
+                {embedded ? <GlossaryText>{cp > 0 ? t("mode.prReady", { cp: Math.round(cp), wPrime: Math.round(wPrime) }) : t("mode.prMissing")}</GlossaryText> : cp > 0 ? t("mode.prReady", { cp: Math.round(cp), wPrime: Math.round(wPrime) }) : t("mode.prMissing")}
               </Text>
             )}
           </Stack>
@@ -472,11 +478,12 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
 
         {/* 결과 */}
         {selectedCourse && segments.length > 0 && result && (
-          <Card title={t("result.title")}>
+          <Card className={embedded ? "course-simulation-result" : undefined} title={embedded ? courseT("prepare.result") : t("result.title")}>
+            {embedded && <Text as="p" variant="body" style={{ marginBottom: "var(--space-3)" }}>{courseT("prepare.assumptions", { rider: riderMass, bike: bikeMass })}{!defaultBike ? ` · ${courseT("prepare.defaultEquipment")}` : ""}</Text>}
             {result.kind === "pr-missing" ? (
-              <Alert variant="info">{t("mode.prMissing")}</Alert>
+              <Alert variant="info">{embedded ? <><GlossaryText>{t("mode.prMissing")}</GlossaryText><Link to="/coach/condition?sport=bike#thresholds" className="block mt-2 underline">{courseT("prepare.trainingSettings")}</Link></> : t("mode.prMissing")}</Alert>
             ) : (
-              <div
+              <div className={embedded ? "course-simulation-grid" : undefined}
                 style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr 1fr",
@@ -484,11 +491,11 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
                 }}
               >
                 <Stat
-                  label={t("result.time")}
+                  label={embedded ? courseT("prepare.time") : t("result.time")}
                   value={fmtDuration(result.totalSec)}
                 />
                 <Stat
-                  label={t("result.avgSpeed")}
+                  label={embedded ? courseT("prepare.speed") : t("result.avgSpeed")}
                   value={result.avgSpeedKmh.toFixed(1)}
                   unit="km/h"
                 />
@@ -496,19 +503,19 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
                   label={
                     result.kind === "targetTime"
                       ? t("result.requiredPower")
-                      : t("result.power")
+                      : embedded ? courseT("prepare.power") : t("result.power")
                   }
                   value={Math.round(result.powerW)}
                   unit="W"
                 />
               </div>
             )}
-            <Text as="p" tone="secondary" size="sm" style={{ marginTop: "var(--space-3)" }}>
+            {!embedded && <Text as="p" tone="secondary" size="sm" style={{ marginTop: "var(--space-3)" }}>
               {t("result.disclaimer")}
-            </Text>
+            </Text>}
           </Card>
         )}
       </Stack>
-    </div>
+    </div></GlossaryProvider>
   );
 }

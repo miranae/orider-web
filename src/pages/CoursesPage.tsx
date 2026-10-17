@@ -1,3 +1,4 @@
+import "../features/courses/course-review.css";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { stripLangPrefix } from "../i18n/detector";
@@ -9,7 +10,7 @@ import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { getMapboxToken } from "../utils/mapbox";
 import { ErrorState } from "../components/redesign";
-import { Button, buttonClass, Text } from "../theme/components";
+import { Button, buttonClass, Text, Input } from "../theme/components";
 import { CourseList } from "../features/courses/CourseList";
 import { CoursesMap, isCourseInBounds } from "../features/courses/CoursesMap";
 import { filterAndSortCourses, type SortMode, type SurfaceFilter } from "../features/courses/courseCatalog";
@@ -66,6 +67,7 @@ export default function CoursesPage() {
   }, [isVisible]);
 
   const mineOnly = !!user && searchParams.get("mine") === "1";
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("latest");
   const {
     courses: allCourses,
@@ -165,11 +167,18 @@ export default function CoursesPage() {
     return Array.from(new Set(activeCourses.flatMap((course) => course.regions))).filter(Boolean).sort((a, b) => a.localeCompare(b));
   }, [activeCourses]);
 
-  const hasAdvancedFilters = distanceMinKm > 0 ||
-    distanceMaxKm < DISTANCE_FILTER_MAX_KM ||
-    elevationMinM > 0 ||
-    elevationMaxM < ELEVATION_FILTER_MAX_M ||
-    regionFilter !== "";
+  const activeFilterCount = [
+    surfaceFilter !== "", difficultyFilter !== null,
+    distanceMinKm > 0 || distanceMaxKm < DISTANCE_FILTER_MAX_KM,
+    elevationMinM > 0 || elevationMaxM < ELEVATION_FILTER_MAX_M,
+    regionFilter !== "", myLoc != null && radiusKm != null,
+  ].filter(Boolean).length;
+  const resetFilters = () => {
+    setSurfaceFilter(""); setDifficultyFilter(null);
+    setDistanceMinKm(0); setDistanceMaxKm(DISTANCE_FILTER_MAX_KM);
+    setElevationMinM(0); setElevationMaxM(ELEVATION_FILTER_MAX_M);
+    setRegionFilter(""); setRadiusKm(null);
+  };
 
   const visibleOnMap = useMemo(() => {
     if (mapUnavailable) return displayCourses;
@@ -266,11 +275,11 @@ export default function CoursesPage() {
   if (!hasRendered) return null;
 
   return (
-    <div className="flex flex-col -mx-4 -my-6" style={{ height: "calc(100dvh - 56px)" }}>
+    <div className="course-catalog flex flex-col -mx-4 -my-6" style={{ height: "calc(100dvh - 56px)" }}>
       {/* 컨트롤 바 */}
       <div className="flex-shrink-0" style={COURSES_CONTROL_STACK_STYLE}>
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
             <Text data-testid="E1-0" as="h1" variant="pageTitle">{t("title")}</Text>
             <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
               {t("subtitle")}
@@ -287,36 +296,39 @@ export default function CoursesPage() {
           )}
         </div>
 
-        {user && <Button data-testid="E1-3-7" size="sm" variant="secondary" aria-pressed={mineOnly} onClick={() => { const next = new URLSearchParams(searchParams); if (mineOnly) next.delete("mine"); else next.set("mine", "1"); setSearchParams(next); }}>{t("myCourses")}</Button>}
-        <div className="flex flex-col sm:flex-row" style={{ gap: "var(--space-3)" }}>
+        <div className="course-catalog-search flex flex-col sm:flex-row" style={{ gap: "var(--space-3)" }}>
           <div data-testid="E1-1" className="relative flex-1">
             <button
+              aria-label={t("search.submit")}
               onClick={handleSearch}
-              className="absolute left-3 top-1/2 -translate-y-1/2 transition-colors"
+              className={buttonClass({ variant: "ghost", className: "course-search-action transition-colors" })}
               style={{ color: "var(--ink-3)" }}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
-            <input data-testid="E1-1-1"
+            <Input data-testid="E1-1-1"
               type="text"
+              aria-label={t("search.placeholder")}
               placeholder={t("search.placeholder")}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none"
-              style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)", padding: "var(--space-2) var(--space-4) var(--space-2) 2.5rem" }}
+              className="course-search-input w-full"
+
             />
           </div>
-          <div className="flex" style={{ gap: "var(--space-1)" }}>
+          <div className="course-catalog-actions flex" style={{ gap: "var(--space-1)" }}>
+            {user && <Button data-testid="E1-3-7" size="sm" variant="secondary" aria-pressed={mineOnly} onClick={() => { const next = new URLSearchParams(searchParams); if (mineOnly) next.delete("mine"); else next.set("mine", "1"); setSearchParams(next); }}>{t("myCourses")}</Button>}
+
             {([
               { id: "latest" as SortMode, label: t("sort.latest") },
               { id: "popular" as SortMode, label: t("sort.popular") },
             ]).map((s) => (
               <Button data-testid="E1-3-5"
                 key={s.id}
-                onClick={() => setSortMode(s.id)} variant="secondary" className="whitespace-nowrap"
+                aria-pressed={sortMode === s.id} onClick={() => setSortMode(s.id)} variant="secondary" className="whitespace-nowrap"
                 style={sortMode === s.id ? { background: "var(--lime)", color: "var(--primary-fg)", borderColor: "var(--lime)", fontWeight: 600 } : undefined}
               >
                 {s.label}
@@ -326,7 +338,11 @@ export default function CoursesPage() {
         </div>
 
         {/* 노면/난이도 다축 필터(#489) + 거리/고도/지역 탐색 필터(#243) */}
-        <div data-testid="E1-3" className="overflow-x-auto overscroll-x-contain lg:flex-wrap lg:overflow-visible" style={COURSES_FILTER_ROW_STYLE}>
+        <div className="course-catalog-filter-toolbar">
+          <Button variant="secondary" size="sm" aria-expanded={mobileFiltersOpen} aria-controls="course-catalog-filter-controls" onClick={() => setMobileFiltersOpen(open => !open)}>{t("filter.conditions", { count: activeFilterCount })}</Button>
+          {activeFilterCount > 0 && <Button data-testid="course-mobile-reset" variant="secondary" size="sm" onClick={resetFilters}>{t("filter.reset")}</Button>}
+        </div>
+        <div id="course-catalog-filter-controls" data-collapsed={!mobileFiltersOpen} data-testid="E1-3" className="course-catalog-filters" style={COURSES_FILTER_ROW_STYLE}>
           <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("edit.surface")}</span>
             {([
@@ -337,8 +353,8 @@ export default function CoursesPage() {
             ]).map((o) => {
               const active = surfaceFilter === o.v;
               return (
-                <button data-testid="E1-3-1" key={o.v || "all"} type="button" onClick={() => setSurfaceFilter(o.v)}
-                  className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
+                <button data-testid="E1-3-1" key={o.v || "all"} type="button" aria-pressed={active} onClick={() => setSurfaceFilter(o.v)}
+                  className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors" })}
                   style={active ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
                   {o.label}
                 </button>
@@ -415,7 +431,7 @@ export default function CoursesPage() {
             <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
               <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.region")}</span>
               <button data-testid="E1-3-3" type="button" onClick={() => setRegionFilter("")}
-                className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
+                className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors" })}
                 style={!regionFilter ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
                 {t("filter.all")}
               </button>
@@ -423,7 +439,7 @@ export default function CoursesPage() {
                 const active = regionFilter === region;
                 return (
                   <button key={region} type="button" onClick={() => setRegionFilter(active ? "" : region)}
-                    className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors whitespace-nowrap"
+                    className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors whitespace-nowrap" })}
                     style={active ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
                     {region}
                   </button>
@@ -431,19 +447,13 @@ export default function CoursesPage() {
               })}
             </div>
           )}
-          {hasAdvancedFilters && (
+          {activeFilterCount > 0 && (
             <Button data-testid="E1-3-6"
               type="button"
               variant="secondary"
               size="sm"
-              onClick={() => {
-                setDistanceMinKm(0);
-                setDistanceMaxKm(DISTANCE_FILTER_MAX_KM);
-                setElevationMinM(0);
-                setElevationMaxM(ELEVATION_FILTER_MAX_M);
-                setRegionFilter("");
-              }}
-              className="shrink-0"
+              onClick={resetFilters}
+              className="course-filter-reset-desktop shrink-0"
             >
               {t("filter.reset")}
             </Button>
@@ -469,7 +479,7 @@ export default function CoursesPage() {
                       { timeout: 8000, maximumAge: 300000 },
                     );
                   }}
-                  className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
+                  className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors" })}
                   style={active ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
                   {t("filter.radiusKm", { km })}
                 </button>
@@ -479,7 +489,7 @@ export default function CoursesPage() {
           <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("difficulty")}</span>
             <button type="button" onClick={() => setDifficultyFilter(null)}
-              className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
+              className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors" })}
               style={difficultyFilter == null ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
               {t("filter.all")}
             </button>
@@ -487,7 +497,7 @@ export default function CoursesPage() {
               const active = difficultyFilter === n;
               return (
                 <button key={n} type="button" onClick={() => setDifficultyFilter(active ? null : n)}
-                  className="w-7 h-7 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border font-semibold transition-colors"
+                  className={buttonClass({ variant: "ghost", className: "w-7 h-7 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border font-semibold transition-colors" })}
                   style={active ? { background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
                   {n}
                 </button>
@@ -551,6 +561,8 @@ export default function CoursesPage() {
             <CourseList
               courses={listCourses}
               allCourseCount={activeCourses.length}
+              filtersActive={activeFilterCount > 0}
+              onResetFilters={resetFilters}
               selectedCourse={selectedCourse}
               selectedId={selectedId}
               hoveredId={hoveredId}

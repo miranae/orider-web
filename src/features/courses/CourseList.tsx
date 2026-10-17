@@ -1,6 +1,9 @@
+import "./course-review.css";
+import { Heart } from "lucide-react";
+import InfoTip from "../../components/InfoTip";
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Card, Chip, Text } from "../../theme/components";
+import { Button, Card, Chip, Text, buttonClass } from "../../theme/components";
 import type { CourseData } from "./courseSnapshot";
 import { courseTagLabel, primaryCourseTags } from "./courseTags";
 
@@ -43,7 +46,7 @@ const COURSE_LIST_INLINE_STYLE: React.CSSProperties = {
 };
 
 const COURSE_LIST_CHIP_STYLE: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: "var(--ft-body-size)",
   lineHeight: 1.2,
   padding: "var(--space-1)",
   letterSpacing: 0,
@@ -79,7 +82,7 @@ function SelectedCoursePanel({ course, onOpenCourse }: SelectedCoursePanelProps)
   const catLabel = maxCat > 0 ? climbCatLabel(maxCat) : "-";
 
   return (
-    <Card padding="none" style={{ padding: 0, overflow: "hidden", borderRadius: "var(--r-md)", marginBottom: "var(--space-3)" }}>
+    <Card className="course-selected-panel" padding="none" style={{ padding: 0, overflow: "hidden", borderRadius: "var(--r-md)", marginBottom: "var(--space-3)" }}>
       <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
         <div style={{ ...COURSE_LIST_INLINE_STYLE, marginBottom: "var(--space-1)" }}>
           {course.curated && <OfficialCourseChip />}
@@ -88,7 +91,7 @@ function SelectedCoursePanel({ course, onOpenCourse }: SelectedCoursePanelProps)
           ))}
           {course.climbs.length > 0 && [...course.climbs].sort((a, b) => b.cat - a.cat).map((climb, i) => (
             <span key={i} className="font-medium" style={{ ...COURSE_LIST_BADGE_STYLE, ...climbBadgeStyle(climb.cat) }}>
-              {climbCatLabel(climb.cat)}
+              <InfoTip className="course-category-tip" title={t("metrics.climbGrade")} content={t("metrics.individualClimbHelp")} label={t("metrics.climbGrade")}>{climbCatLabel(climb.cat)}</InfoTip>
             </span>
           ))}
         </div>
@@ -98,18 +101,18 @@ function SelectedCoursePanel({ course, onOpenCourse }: SelectedCoursePanelProps)
         </div>
       </div>
       <div style={{
-        display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 1,
+        display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(7rem, 1fr))", gap: "var(--space-1)",
         background: "var(--line-soft)", borderBottom: "1px solid var(--line-soft)",
       }}>
         {([
           [t("distance"), distKm, "km"],
           [t("elevationGain"), String(elevM), "m"],
-          [t("mode.gradient"), mpk, "m/km"],
-          [t("difficulty"), catLabel, null],
-          [t("button.share"), String(course.likeCount), null],
+          [t("metrics.gainPerKm"), mpk, "m/km"],
+          [t("metrics.climbCategory"), catLabel, null],
+          [t("metrics.likes"), String(course.likeCount), null],
         ] as [string, string, string | null][]).map(([k, v, u]) => (
           <div key={k} style={{ padding: "var(--space-2)", background: "var(--bg-1)" }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)', fontSize: "var(--fs-2xs)" }}>{k}</Text>
+            <Text as="div" variant="body" style={{ marginBottom: "var(--space-1)" }}>{k === t("metrics.gainPerKm") ? <InfoTip title={k} content={t("metrics.gainPerKmHelp", { distance: distKm, gain: elevM, value: mpk })}>{k}</InfoTip> : k}</Text>
             <div>
               <Text variant="dataMedium" style={{ fontSize: "var(--fs-sm)" }}>{v}</Text>
               {u && <Text variant="unit">{u}</Text>}
@@ -132,6 +135,8 @@ function SelectedCoursePanel({ course, onOpenCourse }: SelectedCoursePanelProps)
 export interface CourseListProps {
   courses: CourseData[];
   allCourseCount: number;
+  filtersActive?: boolean;
+  onResetFilters?: () => void;
   selectedCourse: CourseData | null;
   selectedId: string | null;
   hoveredId: string | null;
@@ -147,6 +152,8 @@ export interface CourseListProps {
 export function CourseList({
   courses,
   allCourseCount,
+  filtersActive = false,
+  onResetFilters,
   selectedCourse,
   selectedId,
   hoveredId,
@@ -185,11 +192,14 @@ export function CourseList({
       </Text>
       {courses.length === 0 ? (
         <div className="text-center text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-8)" }}>
-          {searchQuery
+          {filtersActive
+            ? t("empty.noFilterResults")
+            : searchQuery
             ? t("empty.noResults")
             : allCourseCount === 0
               ? t("empty.noCourses")
               : t("empty.noCoursesInArea")}
+          {filtersActive && onResetFilters && <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={onResetFilters}>{t("filter.reset")}</Button>}
         </div>
       ) : (
         <div style={COURSE_LIST_STACK_STYLE}>
@@ -210,7 +220,7 @@ export function CourseList({
                 onMouseLeave={() => onHoverCourse(null)}
                 onClick={() => onSelectCourse(course.id)}
                 onDoubleClick={() => onOpenCourse(course.id)}
-                className="cursor-pointer rounded-[var(--r-lg)] transition-colors"
+                className="course-list-card cursor-pointer rounded-[var(--r-lg)] transition-colors"
                 style={{
                   background: highlighted ? "color-mix(in oklch, var(--lime) 6%, var(--bg-2))" : "var(--bg-1)",
                   border: highlighted ? "1px solid var(--lime)" : "1px solid var(--line-soft)",
@@ -219,7 +229,7 @@ export function CourseList({
                 }}
               >
                 <div style={COURSE_LIST_INLINE_STYLE}>
-                  <Text as="h3" variant="bodyMedium" truncate className="flex-1" tone="primary" style={{ margin: 0 }}>{course.name}</Text>
+                  <Text as="h3" variant="title" className="flex-1" tone="primary" style={{ margin: 0 }}><button type="button" className={buttonClass({ variant: "ghost", className: "course-list-title-button" })} aria-pressed={selectedId === course.id} onClick={event => { event.stopPropagation(); onSelectCourse(course.id); }}>{course.name}</button></Text>
                   {course.curated && <OfficialCourseChip />}
                   {course.surface && (
                     <span className="font-medium" style={{ ...COURSE_LIST_BADGE_STYLE, ...surfaceChipStyle(course.surface) }}>
@@ -228,7 +238,7 @@ export function CourseList({
                   )}
                   {course.climbs.length > 0 && (
                     <span className="font-medium" style={{ ...COURSE_LIST_BADGE_STYLE, ...climbBadgeStyle(Math.max(...course.climbs.map((c) => c.cat))) }}>
-                      {climbCatLabel(Math.max(...course.climbs.map((c) => c.cat)))}
+                      <InfoTip className="course-category-tip" title={t("metrics.climbCategory")} content={t("metrics.climbHelp")} label={t("metrics.climbCategory")}>{climbCatLabel(Math.max(...course.climbs.map((c) => c.cat)))}</InfoTip>
                     </span>
                   )}
                 </div>
@@ -244,16 +254,12 @@ export function CourseList({
                     ))}
                   </div>
                 )}
-                <div className="flex text-[length:var(--fs-xs)]" style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
-                  <span>{distKm} km</span>
-                  <span>↑ {elevM}m</span>
-                  <span style={{ color: Number(mpk) > 15 ? "var(--amber)" : Number(mpk) > 5 ? "var(--ink-2)" : "var(--lime)" }}>
-                    {mpk} m/km
-                  </span>
-                  {course.likeCount > 0 && (
-                    <span style={{ marginLeft: "auto", color: "var(--ink-3)" }}>♥ {course.likeCount}</span>
-                  )}
-                </div>
+                <dl className="course-list-metrics">
+                  <div><dt>{t("distance")}</dt><dd>{distKm} km</dd></div>
+                  <div><dt><InfoTip title={t("elevationGainShort")} content={t("metrics.elevationHelp")}>{t("elevationGainShort")}</InfoTip></dt><dd>{elevM} m</dd></div>
+                  <div><dt><InfoTip title={t("metrics.gainPerKm")} content={t("metrics.gainPerKmHelp", { distance: distKm, gain: elevM, value: mpk })}>{t("metrics.gainPerKm")}</InfoTip></dt><dd>{mpk} m/km</dd></div>
+                  {course.likeCount > 0 && <div className="course-list-likes"><dt><Heart size={14} aria-hidden="true" />{t("metrics.likes")}</dt><dd>{course.likeCount}</dd></div>}
+                </dl>
               </div>
             );
           })}

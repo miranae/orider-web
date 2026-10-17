@@ -65,6 +65,8 @@
   --dim-icon-s: 16px;
   --dim-icon-m: 24px;
   --dim-icon-l: 32px;
+  --layer-modal: 90;
+  --layer-app-dialog: 11000;
   --space-0: 0;
   --space-0-5: 2px;
   --space-1-5: 6px;
@@ -168,6 +170,8 @@
   --dim-icon-s: 16px;
   --dim-icon-m: 24px;
   --dim-icon-l: 32px;
+  --layer-modal: 90;
+  --layer-app-dialog: 11000;
   --space-0: 0;
   --space-0-5: 2px;
   --space-1-5: 6px;
@@ -272,6 +276,8 @@
     --dim-icon-s: 16px;
     --dim-icon-m: 24px;
     --dim-icon-l: 32px;
+    --layer-modal: 90;
+    --layer-app-dialog: 11000;
     --space-0: 0;
     --space-0-5: 2px;
     --space-1-5: 6px;

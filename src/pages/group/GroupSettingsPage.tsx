@@ -1,32 +1,30 @@
-import GroupRequestHistory from "../../components/group/GroupRequestHistory";
+import { handleGroupChoiceKey } from "../../features/group/groupControlKeys";
+import { Users } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { doc, updateDoc } from "firebase/firestore";
-import { firestore } from "../../services/firebase";
+import { auth, firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useGroup, useGroupMemberRole } from "../../hooks/useGroup";
-import GroupMembersPage from "./GroupMembersPage";
 import { canManageGroup } from "../../features/group/groupPermissions";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import VisibilityToggle from "../../components/group/VisibilityToggle";
-import { EmptyState } from "../../components/redesign";
-import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
-import { getGroupInviteCode, regenerateGroupInviteCode, type GroupInviteAdminResult } from "../../features/group/groupInviteAdmin";
+import { EmptyState, ErrorState } from "../../components/redesign";
 import type { GroupApproval, GroupKind, GroupToggles } from "@shared/types";
-import { Button, Card, Text } from "../../theme/components";
+import { Button, Card, Switch, Text, Input, Textarea } from "../../theme/components";
 
 export default function GroupSettingsPage() {
-  const { t, i18n } = useTranslation("group");
+  const { t } = useTranslation("group");
   const { groupId } = useParams();
   const { user } = useAuth();
-  const { group, loading: groupLoading } = useGroup(groupId);
-  const { role: currentMemberRole, loading: roleLoading } = useGroupMemberRole(groupId, user?.uid);
+  const { group, loading: groupLoading, error: groupError, retry: retryGroup } = useGroup(groupId);
+  const { role: currentMemberRole, loading: roleLoading, error: roleError, retry: retryRole } = useGroupMemberRole(groupId, user?.uid);
   const navigate = useNavigate();
   const dialog = useDialog();
   const { showToast } = useToast();
@@ -73,21 +71,25 @@ export default function GroupSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [regeneratingCode, setRegeneratingCode] = useState(false);
-  const [invite, setInvite] = useState<GroupInviteAdminResult | null>(null);
-  const [inviteLoading, setInviteLoading] = useState(false);
   const seededGroupIdRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
   const [dirty, setDirty] = useState(false);
+  const editRevision = useRef(0);
+  const saveContext = useRef(0);
 
   const markDirty = () => {
+    editRevision.current += 1;
     dirtyRef.current = true; setDirty(true);
   };
 
   useEffect(() => {
+    saveContext.current += 1;
+    editRevision.current += 1;
     dirtyRef.current = false; setDirty(false);
+    setSaving(false); setDeleting(false); setShowDeleteConfirm(false);
     seededGroupIdRef.current = null;
-  }, [groupId]);
+    return () => { saveContext.current += 1; };
+  }, [groupId, user?.uid]);
 
   useEffect(() => {
     if (group && groupId && groupId !== seededGroupIdRef.current && !dirtyRef.current) {
@@ -110,7 +112,7 @@ export default function GroupSettingsPage() {
         ridePhotos: group.toggles?.ridePhotos ?? false,
       });
     }
-  }, [group, groupId]);
+  }, [group, groupId, user?.uid]);
 
   const toggleSport = (s: "bike" | "run" | "swim" | "tri") => {
     markDirty();
@@ -124,22 +126,6 @@ export default function GroupSettingsPage() {
 
   const isCreator = !!user && !!group && user.uid === group.creatorId;
   const canManage = canManageGroup(group, user?.uid, currentMemberRole);
-
-  useEffect(() => {
-    if (!groupId || !canManage) {
-      setInvite(null);
-      return;
-    }
-    let cancelled = false;
-    setInviteLoading(true);
-    void getGroupInviteCode(groupId).then((result) => {
-      if (!cancelled) setInvite(result);
-    }).catch((err) => {
-      logClientError("GroupSettingsPage.getGroupInviteCode", err, { groupId });
-      if (!cancelled) setInvite(null);
-    }).finally(() => { if (!cancelled) setInviteLoading(false); });
-    return () => { cancelled = true; };
-  }, [canManage, groupId]);
 
   if (!user) {
     return (
@@ -159,11 +145,13 @@ export default function GroupSettingsPage() {
     );
   }
 
+  if (groupError || roleError) return <ErrorState title={t("error.loadFailed")} onRetry={roleError ? retryRole : retryGroup} />;
+
   if (!group) {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon="👥"
+          icon={<Users size={24} style={{marginInline:"auto"}} />}
           title={t("empty.groupNotFound")}
           actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}
         />
@@ -174,7 +162,12 @@ export default function GroupSettingsPage() {
   if (!canManage) return <Navigate to=".." relative="path" replace />;
 
   const handleSave = async () => {
-    if (!groupId || !name.trim()) return;
+    if (!groupId || !user || !name.trim() || saving) return;
+    const context = saveContext.current;
+    const revision = editRevision.current;
+    const uid = user.uid;
+    const current = () => context === saveContext.current && auth.currentUser?.uid === uid;
+    if (!current()) return;
     setSaving(true);
     try {
       await updateDoc(doc(firestore, "groups", groupId), {
@@ -193,68 +186,48 @@ export default function GroupSettingsPage() {
         toggles,
         monthlyGoalKm: Math.max(0, Math.min(1_000_000, monthlyGoalKm)),
       });
-      dirtyRef.current = false; setDirty(false);
+      if (!current()) return;
+      if (revision === editRevision.current) { dirtyRef.current = false; setDirty(false); }
       showToast(t("settings.saveSuccess"));
     } catch (err) {
+      if (!current()) return;
       logClientError("GroupSettingsPage.handleSave", err, { groupId, visibility, kind, approval });
       void dialog.alert(err instanceof Error ? err.message : t("error.saveFailed"), { variant: "danger" });
     }
-    setSaving(false);
-  };
-
-  const handleRegenerateCode = async () => {
-    if (!groupId) return;
-    if (!(await dialog.confirm(t("settings.confirmRegenerateCode"), { destructive: true }))) return;
-    setRegeneratingCode(true);
-    try {
-      const nextInvite = await regenerateGroupInviteCode(groupId);
-      setInvite(nextInvite);
-      showToast(t("settings.regenerateCodeSuccess"));
-    } catch (err) {
-      logClientError("GroupSettingsPage.handleRegenerateCode", err, { groupId });
-      showToast(t("settings.regenerateCodeFailed"), "error");
-    } finally {
-      setRegeneratingCode(false);
-    }
+    if (current()) setSaving(false);
   };
 
   const handleDelete = async () => {
-    if (!groupId) return;
+    if (!groupId || !user || deleting) return;
+    const uid = user.uid; const context = saveContext.current;
+    const current = () => context === saveContext.current && auth.currentUser?.uid === uid;
+    if (!current()) return;
     setDeleting(true);
     try {
       await updateDoc(doc(firestore, "groups", groupId), { isActive: false });
+      if (!current()) return;
       showToast(t("settings.deleteSuccess"));
       navigate("/clubs");
     } catch (err) {
+      if (!current()) return;
       logClientError("GroupSettingsPage.handleDelete", err, { groupId });
       showToast(t("error.deleteFailed"), "error");
     }
-    setDeleting(false);
+    if (current()) setDeleting(false);
   };
 
   return (
-    <div>
-      <GroupSubNav group={group} isCreator={canManage} />
-      {isCreator && <GroupRequestHistory groupId={groupId} />}
-      {isCreator && <section id="member-management"><GroupMembersPage management /></section>}
-
-      {/* Breadcrumb */}
-      <div className="text-[length:var(--fs-xs)] flex items-center mb-3" style={{ gap: "var(--space-1-5)", color: "var(--ink-3)" }}>
-        <Link to="/clubs" style={{ color: "var(--ink-3)" }}>{t("breadcrumb.groups")}</Link>
-        <span style={{ color: "var(--ink-4)" }}>/</span>
-        <Link to={`/club/${groupId}`} style={{ color: "var(--ink-1)", fontWeight: 500 }}>{group.name}</Link>
-        <span style={{ color: "var(--ink-4)" }}>/</span>
-        <span style={{ color: "var(--ink-0)" }}>{t("breadcrumb.settings")}</span>
-      </div>
-
-      <div className="max-w-2xl space-y-6">
+    <div className="club-surface club-settings">
+      <GroupSubNav group={group} isCreator={canManage} showDescription={false} />
+      <div className="club-settings-grid">
+        <div className="club-settings-main">
         {/* 프로필 */}
         <Card data-testid="C7-4" padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.profile")}</h2>
+          <h2 className="text-[length:var(--ft-title-size)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.profile")}</h2>
           <div className="grid gap-3" style={{ gridTemplateColumns: "100px 1fr", marginBottom: 'var(--space-4)' }}>
             <div>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.badge")}</Text>
-              <input
+              <label className="club-settings-label" htmlFor="club-settings-badge">{t("settings.badge")}</label>
+              <Input id="club-settings-badge"
                 type="text"
                 value={badge}
                 onChange={(e) => {
@@ -263,28 +236,28 @@ export default function GroupSettingsPage() {
                 }}
                 placeholder="HRC"
                 maxLength={3}
-                className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)]"
+                className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)]"
                 style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)", fontFamily: "var(--font-mono)", textAlign: "center", fontWeight: 700, letterSpacing: 2 }}
               />
             </div>
             <div>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.name")}</Text>
-              <input data-testid="C7-4-1"
+              <label className="club-settings-label" htmlFor="club-settings-name">{t("settings.name")}</label>
+              <Input id="club-settings-name" data-testid="C7-4-1"
                 type="text"
                 value={name}
                 onChange={(e) => {
                   markDirty();
                   setName(e.target.value);
                 }}
-                className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)]"
+                className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)]"
                 style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
                 maxLength={50}
               />
             </div>
           </div>
           <div style={{ marginBottom: 'var(--space-4)' }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.location")}</Text>
-            <input
+            <label className="club-settings-label" htmlFor="club-settings-city">{t("settings.location")}</label>
+            <Input id="club-settings-city"
               type="text"
               value={city}
               onChange={(e) => {
@@ -292,13 +265,13 @@ export default function GroupSettingsPage() {
                 setCity(e.target.value);
               }}
               placeholder={t("settings.locationPlaceholder")}
-              className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)]"
+              className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)]"
               style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
             />
           </div>
           {isCreator && <div style={{ marginBottom: 'var(--space-4)' }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.kind")}</Text>
-            <div role="radiogroup" aria-label={t("settings.kind")} className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
+            <Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.kind")}</Text>
+            <div role="radiogroup" onKeyDown={event=>handleGroupChoiceKey(event,"radio")} aria-label={t("settings.kind")} className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
               {(Object.keys(KIND_LABELS) as GroupKind[]).map((k) => {
                 const active = kind === k;
                 return (
@@ -306,6 +279,7 @@ export default function GroupSettingsPage() {
                     key={k}
                     type="button"
                     role="radio"
+                    tabIndex={active ? 0 : -1}
                     aria-checked={active}
                     onClick={() => {
                       markDirty();
@@ -320,8 +294,8 @@ export default function GroupSettingsPage() {
             </div>
           </div>}
           {isCreator && <div style={{ marginBottom: 'var(--space-4)' }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.sports")}</Text>
-            <div className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
+            <Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.sports")}</Text>
+            <div role="group" aria-label={t("settings.sports")} className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
               {SPORT_OPTIONS.map((o) => {
                 const active = sports.includes(o.v);
                 return (
@@ -339,14 +313,14 @@ export default function GroupSettingsPage() {
             </div>
           </div>}
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.description")}</Text>
-            <textarea
+            <label className="club-settings-label" htmlFor="club-settings-description">{t("settings.description")}</label>
+            <Textarea id="club-settings-description"
               value={description}
               onChange={(e) => {
                 markDirty();
                 setDescription(e.target.value);
               }}
-              className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] resize-none"
+              className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)] resize-none"
               style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
               rows={3}
               maxLength={200}
@@ -354,19 +328,39 @@ export default function GroupSettingsPage() {
           </div>
         </Card>
 
+        {/* 그룹 규칙 */}
+        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+          <h2 className="text-[length:var(--ft-title-size)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}><label htmlFor="club-settings-rules">{t("settings.rules")}</label></h2>
+          <Textarea id="club-settings-rules"
+            value={rules}
+            onChange={(e) => {
+              markDirty();
+              setRules(e.target.value);
+            }}
+            className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)] resize-none"
+            style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
+            rows={5}
+            maxLength={500}
+            placeholder={t("settings.rulesPlaceholder")}
+          />
+          <div className="text-[length:var(--ft-body-size)] text-right mt-1" style={{ color: "var(--ink-4)" }}>{rules.length}/500</div>
+        </Card>
+
+        </div>
+        <div className="club-settings-aside">
         {/* 공개 & 가입 */}
         {isCreator && <Card data-testid="C7-4-2" padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.visibility")}</h2>
+          <h2 className="text-[length:var(--ft-title-size)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.visibility")}</h2>
           <div style={{ marginBottom: 'var(--space-4)' }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.visibilityLabel")}</Text>
+            <Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.visibilityLabel")}</Text>
             <VisibilityToggle value={visibility} onChange={(next) => {
               markDirty();
               setVisibility(next);
             }} />
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.approval")}</Text>
-            <div role="radiogroup" aria-label={t("settings.approval")} className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
+            <Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.approval")}</Text>
+            <div role="radiogroup" onKeyDown={event=>handleGroupChoiceKey(event,"radio")} aria-label={t("settings.approval")} className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
               {[
                 { v: "auto" as const, label: t("settings.approvalAuto") },
                 { v: "manual" as const, label: t("settings.approvalManual") },
@@ -377,6 +371,7 @@ export default function GroupSettingsPage() {
                     key={o.v}
                     type="button"
                     role="radio"
+                    tabIndex={active ? 0 : -1}
                     aria-checked={active}
                     onClick={() => {
                       markDirty();
@@ -392,32 +387,26 @@ export default function GroupSettingsPage() {
           </div>
         </Card>}
 
-        {/* 권한 토글 */}
-        <section data-testid="C7-5"><Card data-testid="C7-5-1" padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.permissions")}</h2>
-          <div className="flex flex-col" style={{ gap: "var(--space-2)" }}>
-            {(Object.keys(TOGGLE_LABELS) as (keyof GroupToggles)[]).map((k) => {
-              const meta = TOGGLE_LABELS[k];
-              const on = toggles[k];
-              return (
-                <label key={k} className="flex items-start cursor-pointer" style={{ gap: "var(--space-2)" }}>
-                  <input type="checkbox" checked={on} onChange={() => toggleFlag(k)} style={{ marginTop: "var(--space-1)" }} />
-                  <div>
-                    <div className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-1)" }}>{meta.label}</div>
-                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{meta.desc}</div>
-                  </div>
-                </label>
-              );
-            })}
-          </div>
+        <section data-testid="C7-5"><Card data-testid="C7-5-1" padding="none" style={{padding:'var(--space-5)'}}>
+          <h2 className="club-card-title mb-4">{t("settings.permissions")}</h2>
+          {([
+            {title: "settings.permissionsSharing", keys: ["membersPost", "ridePhotos", "showInDirectory"]},
+            {title: "settings.permissionsNotifications", keys: ["notifyMembers", "postEvents"]},
+          ] as const).map(section => <section key={section.title} className="club-settings-toggle-section">
+            <Text as="h3" variant="subtitle">{t(section.title)}</Text>
+            {section.keys.map(key => <div key={key} className="club-settings-toggle-row">
+              <div><label htmlFor={`club-settings-${key}`} className="club-settings-label">{TOGGLE_LABELS[key].label}</label><p id={`club-settings-${key}-hint`}>{TOGGLE_LABELS[key].desc}</p></div>
+              <Switch id={`club-settings-${key}`} aria-describedby={`club-settings-${key}-hint`} checked={toggles[key]} onChange={()=>toggleFlag(key)} />
+            </div>)}
+          </section>)}
         </Card></section>
 
         {/* 월간 팀 목표 */}
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h2 className="text-[length:var(--fs-sm)] font-semibold mb-2" style={{ color: "var(--ink-1)" }}>{t("settings.monthlyGoal.title")}</h2>
-          <p className="text-[length:var(--fs-xs)] mb-3" style={{ color: "var(--ink-3)" }}>{t("settings.monthlyGoal.desc")}</p>
+          <h2 className="text-[length:var(--ft-title-size)] font-semibold mb-2" style={{ color: "var(--ink-1)" }}><label htmlFor="club-settings-monthly-goal">{t("settings.monthlyGoal.title")}</label></h2>
+          <p className="text-[length:var(--ft-body-size)] mb-3" style={{ color: "var(--ink-3)" }}>{t("settings.monthlyGoal.desc")}</p>
           <div className="flex items-center" style={{ gap: "var(--space-2)" }}>
-            <input
+            <Input id="club-settings-monthly-goal"
               type="number"
               min={0}
               max={1_000_000}
@@ -427,33 +416,18 @@ export default function GroupSettingsPage() {
                 markDirty();
                 setMonthlyGoalKm(Number(event.target.value) || 0);
               }}
-              className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)]"
+              className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)]"
               style={{ width: 160, background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
             />
             <Text variant="unit">km</Text>
           </div>
         </Card>
 
-        {/* 그룹 규칙 */}
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.rules")}</h2>
-          <textarea
-            value={rules}
-            onChange={(e) => {
-              markDirty();
-              setRules(e.target.value);
-            }}
-            className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] resize-none"
-            style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
-            rows={5}
-            maxLength={500}
-            placeholder={t("settings.rulesPlaceholder")}
-          />
-          <div className="text-[length:var(--fs-xs)] text-right mt-1" style={{ color: "var(--ink-4)" }}>{rules.length}/500</div>
-        </Card>
-
+        </div>
+      </div>
         {/* 저장 */}
-        <div className="flex items-center justify-end" style={{ gap: 'var(--space-2)' }}>
+        <div className="club-settings-save-bar">
+          <Text as="p" variant="body" tone="secondary" role="status">{saving ? t("button.saving") : dirty ? t("settings.unsavedChanges") : t("settings.noChanges")}</Text>
           <Button data-testid="C7-0"
             onClick={handleSave}
             disabled={!dirty || !name.trim() || saving} variant="primary"
@@ -462,51 +436,19 @@ export default function GroupSettingsPage() {
           </Button>
         </div>
 
-        {/* 초대 코드 */}
-        <Card data-testid="C7-6" padding="none" className="p-6" style={{ borderRadius: "var(--r-md)" }}>
-          <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.inviteLink")}</h2>
-          <div className="flex items-center gap-2 mb-3">
-            <code
-              className="flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] font-mono"
-              style={{ background: "var(--bg-2)", color: "var(--ink-0)", wordBreak: "break-all" }}
-            >
-              {inviteLoading ? t("settings.inviteLoading") : invite ? buildGroupInviteUrl(invite.inviteCode, i18n.language) : t("settings.inviteUnavailable")}
-            </code>
-
-          </div>
-          {invite && (
-            <p data-testid="C7-6-1" className="text-[length:var(--fs-xs)] mb-2" style={{ color: "var(--ink-3)" }}>
-              {t("settings.inviteLifecycle", {
-                date: new Date(invite.expiresAt).toLocaleDateString(i18n.language?.startsWith("en") ? "en-US" : "ko-KR"),
-                used: invite.useCount,
-                limit: invite.useLimit,
-              })}
-            </p>
-          )}
-          <button data-testid="C7-6-2"
-            onClick={handleRegenerateCode}
-            disabled={regeneratingCode}
-            className="text-[length:var(--fs-xs)]"
-            style={{ color: "var(--lime)", opacity: regeneratingCode ? 0.6 : 1 }}
-          >
-            {regeneratingCode ? t("button.saving") : t("button.regenerateCode")}
-          </button>
-        </Card>
-
         {/* 그룹 삭제는 소유권이 있는 생성자에게만 허용한다. */}
-        {isCreator && <section data-testid="C7-7"><Card data-testid="C7-7-1" padding="none" className="p-6"
-          style={{ borderRadius: "var(--r-md)", borderColor: "color-mix(in srgb, var(--rose) 30%, transparent)" }}
+        {isCreator && <section data-testid="C7-7"><Card data-testid="C7-7-1" padding="none" style={{padding:"var(--space-5)",borderColor:"color-mix(in srgb, var(--rose) 30%, transparent)"}}
         >
-          <h2 className="text-[length:var(--fs-sm)] font-semibold text-[var(--color-error)] mb-2">{t("settings.dangerZone")}</h2>
-          <p className="text-[length:var(--fs-xs)] mb-2" style={{ color: "var(--ink-2)" }}>
+          <details className="club-settings-danger"><summary>{t("settings.dangerZone")}</summary><div className="mt-4">
+          <p className="text-[length:var(--ft-body-size)] mb-2" style={{ color: "var(--ink-2)" }}>
             {t("settings.deleteDescription")}
           </p>
           {/* #379: 그룹장의 유일한 출구가 '삭제'로 보이지 않도록 이임 동선을 위험 구역에서 직접 노출 */}
-          <p className="text-[length:var(--fs-xs)] mb-4" style={{ color: "var(--ink-2)" }}>
+          <p className="text-[length:var(--ft-body-size)] mb-4" style={{ color: "var(--ink-2)" }}>
             {t("settings.transferHint")}{" "}
-            <a data-testid="C7-7-2" href="#member-management" style={{ color: "var(--lime)", fontWeight: 500 }}>
+            <Link data-testid="C7-7-2" to={`/club/${groupId}/members?section=leadership`} style={{ color: "var(--lime)", fontWeight: 500 }}>
               {t("settings.transferLink")}
-            </a>
+            </Link>
           </p>
           {showDeleteConfirm ? (
             <div className="flex gap-2">
@@ -529,8 +471,8 @@ export default function GroupSettingsPage() {
               {t("button.deleteGroup")}
             </Button>
           )}
+          </div></details>
         </Card></section>}
-      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, useParams, useLocation, type NavLinkProps } from "react-router-dom";
 import { SUPPORTED_LANGS } from "../i18n/detector";
@@ -63,53 +63,76 @@ interface RouteTabNavProps {
   state?: NavLinkProps["state"];
 }
 
-export function RouteTabNav({ tabs, state, revealActive = false }: RouteTabNavProps) {
+export function RouteTabNav({ tabs, state, revealActive = true }: RouteTabNavProps) {
   const { lang } = useParams();
   const { pathname } = useLocation();
   const { t } = useTranslation("common");
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const cancelRevealRef = useRef(() => {});
   const [canScrollBack, setCanScrollBack] = useState(false);
   const [canScrollForward, setCanScrollForward] = useState(false);
 
-  useEffect(() => {
+  const tabGeometryKey = tabs.map(tab => `${tab.to}:${tab.label}`).join("|");
+  useLayoutEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
-    const update = () => {
+    let autoRevealAllowed = revealActive;
+    let frame = 0;
+    let settledFrame = 0;
+    const measure = (reveal: boolean) => {
+      const active = scroller.querySelector<HTMLElement>('[aria-current="page"]');
+      if (reveal && active) {
+        const box = scroller.getBoundingClientRect();
+        const item = active.getBoundingClientRect();
+        if (item.left < box.left || item.right > box.right) {
+          scroller.scrollLeft = Math.max(0, Math.min(scroller.scrollWidth - scroller.clientWidth,
+            scroller.scrollLeft + item.left - box.left - (box.width - item.width) / 2));
+        }
+      }
       setCanScrollBack(scroller.scrollLeft > 1);
       setCanScrollForward(scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 1);
     };
-    update();
-    scroller.addEventListener("scroll", update);
-    window.addEventListener("resize", update);
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(settledFrame);
+      measure(false);
+      frame = requestAnimationFrame(() => {
+        measure(autoRevealAllowed);
+        // Repeat after layout settles; reserved arrow slots keep the viewport width stable.
+        settledFrame = requestAnimationFrame(() => measure(autoRevealAllowed));
+      });
+    };
+    const manualScroll = () => { autoRevealAllowed = false; };
+    cancelRevealRef.current = manualScroll;
+    const resize = () => { autoRevealAllowed = revealActive; schedule(); };
+    const scroll = () => measure(false);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
+    observer?.observe(scroller);
+    scroller.querySelectorAll("a").forEach(tab => observer?.observe(tab));
+    scroller.addEventListener("scroll", scroll);
+    scroller.addEventListener("pointerdown", manualScroll);
+    scroller.addEventListener("touchstart", manualScroll, { passive: true });
+    scroller.addEventListener("wheel", manualScroll, { passive: true });
+    window.addEventListener("resize", resize);
+    schedule();
     return () => {
-      scroller.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(settledFrame);
+      observer?.disconnect();
+      scroller.removeEventListener("scroll", scroll);
+      scroller.removeEventListener("pointerdown", manualScroll);
+      scroller.removeEventListener("touchstart", manualScroll);
+      scroller.removeEventListener("wheel", manualScroll);
+      window.removeEventListener("resize", resize);
     };
-  }, [tabs]);
-
-  useEffect(() => {
-    if (!revealActive) return;
-    const scroller = scrollerRef.current;
-    const active = scroller?.querySelector<HTMLElement>('[aria-current="page"]');
-    if (!scroller || !active) return;
-    const reveal = () => {
-      const box = scroller.getBoundingClientRect();
-      const item = active.getBoundingClientRect();
-      if (item.left < box.left || item.right > box.right) {
-        scroller.scrollLeft += item.left - box.left - (box.width - item.width) / 2;
-      }
-    };
-    reveal();
-    window.addEventListener("resize", reveal);
-    return () => window.removeEventListener("resize", reveal);
-  }, [pathname, revealActive, tabs]);
+  }, [pathname, revealActive, tabGeometryKey]);
 
   return (
     <div className="route-tab-nav" style={{ borderColor: "var(--line-soft)" }}>
-      {canScrollBack && <button type="button" className="route-tab-nav__more" aria-label={t("button.previousTabs")} onClick={() => {
+      <button type="button" className="route-tab-nav__more" disabled={!canScrollBack} style={{ visibility: canScrollBack ? "visible" : "hidden" }} aria-label={t("button.previousTabs")} onClick={() => {
         const scroller = scrollerRef.current;
-        if (scroller) scroller.scrollLeft -= scroller.clientWidth * 0.7;
-      }}>‹</button>}
+        if (scroller) { cancelRevealRef.current(); scroller.scrollLeft -= scroller.clientWidth * 0.7; }
+      }}>‹</button>
       <div ref={scrollerRef} className="route-tab-nav__scroller flex overflow-x-auto">
       {tabs.map((tab) => (
         <NavLink
@@ -131,10 +154,10 @@ export function RouteTabNav({ tabs, state, revealActive = false }: RouteTabNavPr
         </NavLink>
       ))}
       </div>
-      {canScrollForward && <button type="button" className="route-tab-nav__more" aria-label={t("button.nextTabs")} onClick={() => {
+      <button type="button" className="route-tab-nav__more" disabled={!canScrollForward} style={{ visibility: canScrollForward ? "visible" : "hidden" }} aria-label={t("button.nextTabs")} onClick={() => {
         const scroller = scrollerRef.current;
-        if (scroller) scroller.scrollLeft += scroller.clientWidth * 0.7;
-      }}>›</button>}
+        if (scroller) { cancelRevealRef.current(); scroller.scrollLeft += scroller.clientWidth * 0.7; }
+      }}>›</button>
     </div>
   );
 }

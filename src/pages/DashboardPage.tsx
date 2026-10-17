@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { filterByDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { StatBlock, SectionHeader, PageHeader, EmptyState } from "../components/redesign";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
+import SportIcon from "../components/common/SportIcon";
 import RunEmptyState from "../components/dashboard/RunEmptyState";
 import WeeklyRecapCard from "../components/dashboard/WeeklyRecapCard";
 import CrossDisciplineLoadCard from "../components/dashboard/CrossDisciplineLoadCard";
@@ -46,7 +47,7 @@ import { selectStoredDashboardFitness } from "../features/home/storedDashboardFi
 import HomeTodayStrip from "../components/dashboard/HomeTodayStrip";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import { useMobile } from "../hooks/useMobile";
-import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
+import { Button, Card, Chip, Input, Text, buttonClass } from "../theme/components";
 import type { Activity } from "@shared/types";
 import "./DashboardPage.css";
 
@@ -718,6 +719,7 @@ function DashboardContent() {
                   <button data-testid="H1-1-1"
                     key={i}
                     onClick={() => updateDashboardPreferences({ feedScope: (["all", "friends", "self"] as const)[i] })}
+                    aria-pressed={feedFilter === i}
                     style={{
                       padding: "5px 10px", fontSize: "var(--fs-xs)", borderRadius: "var(--r-sm)", border: "none", cursor: "pointer",
                       background: feedFilter === i ? "var(--bg-3)" : "transparent",
@@ -733,9 +735,9 @@ function DashboardContent() {
             {/* 검색 입력 */}
             <form onSubmit={handleSearch} style={{ marginBottom: "var(--space-3)" }}>
               <div className="flex gap-2 items-center">
-                <div data-testid="H-0-2" style={{ flex: 1, position: "relative" }}>
+                <div data-testid="H-0-2" style={{ flex: 1, minWidth: 0, position: "relative" }}>
                   <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--ink-3)", pointerEvents: "none" }} />
-                  <input
+                  <Input
                     ref={searchInputRef}
                     type="text"
                     value={searchInput}
@@ -743,13 +745,10 @@ function DashboardContent() {
                     placeholder={t("feed.search.placeholder")}
                     aria-label={t("feed.search.placeholder")}
                     style={{
-                      width: "100%", minHeight: "var(--space-8)", padding: "var(--space-2) var(--space-8) var(--space-2) calc(var(--space-4) * 2)",
-                      background: "var(--bg-2)", border: "1px solid var(--line)",
-                      borderRadius: "var(--r-md)", fontSize: "var(--fs-sm)", color: "var(--ink-1)",
+                      width: "100%", height: "var(--dim-button-height)", minHeight: "var(--dim-button-height)",
+                      paddingInlineStart: "calc(var(--space-4) * 2)", paddingInlineEnd: "var(--space-8)",
                       boxSizing: "border-box",
                     }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = "var(--lime)"; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = "var(--line)"; }}
                   />
                   {activitySearch.active && (
                     <Button type="button" variant="ghost" iconOnly dense
@@ -761,7 +760,7 @@ function DashboardContent() {
                     </Button>
                   )}
                 </div>
-                <Button type="submit" variant="secondary" size="sm">{t("feed.search.submit")}</Button>
+                <Button type="submit" variant="secondary" style={{ height: "var(--dim-button-height)", minHeight: "var(--dim-button-height)" }}>{t("feed.search.submit")}</Button>
               </div>
 
               {/* 날짜 프리셋 (검색 활성 시만 표시) */}
@@ -846,7 +845,7 @@ function DashboardContent() {
 
                 {!loading && !feedError && filteredActivities.length === 0 && (
                   <EmptyState
-                    icon="🚴"
+                    icon={<SportIcon data-testid="dashboard-feed-empty-icon" sport={discipline === "run" ? "run" : "bike"} size={32} style={{ marginInline: "auto" }} />}
                     title={activities.length > 0 ? t("feed.noMatches.title") : t("feed.empty.title")}
                     description={activities.length > 0 ? t("feed.noMatches.description") : t("feed.empty.description")}
                     actions={activities.length > 0 ? [] : user ? [

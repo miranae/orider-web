@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useId, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 
@@ -24,12 +24,11 @@ import {
   FieldGrid,
   StatGrid,
   ZoneBar,
-  monoInputStyle,
 } from "./_primitives";
 import GlossaryText from "../common/GlossaryText";
 import "./PaneThresholds.css";
 import { ThresholdSuggestionBanner } from "./ThresholdSuggestionBanner";
-import { Button, Text } from "../../theme/components";
+import { Button, Input, Text } from "../../theme/components";
 import { estimateFtpFromTest, isConservativeDrop, type FtpTestProtocol } from "@shared/training/ftpTest";
 import {
   ftpHistorySourceForChange,
@@ -76,6 +75,7 @@ function parseBodyValue(value: string, unit: BodyUnit, kind: "weight" | "height"
 }
 
 export function PaneThresholds() {
+  const fieldId = useId();
   const { t } = useTranslation("settings");
   const { user, profile } = useAuth();
   const { units } = useLocale();
@@ -389,9 +389,11 @@ export function PaneThresholds() {
                 key={unit}
                 type="button"
                 onClick={() => setBodyUnit(unit)}
+                aria-pressed={bodyUnit === unit}
                 className="rounded-[var(--r-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]"
                 style={{
                   border: "none",
+                  minHeight: "var(--dim-button-height)",
                   padding: "5px 10px",
                   fontSize: "var(--fs-xs)",
                   cursor: "pointer",
@@ -410,13 +412,13 @@ export function PaneThresholds() {
             label={bodyUnit === "imperial" ? t("training.fieldWeightLb") : t("training.fieldWeight")}
             hint={bodyUnit === "imperial" ? t("training.fieldWeightLbHint") : t("training.fieldWeightHint")}
           >
-            <input
+            <Input mono id={`${fieldId}-weight`} aria-label={bodyUnit === "imperial" ? t("training.fieldWeightLb") : t("training.fieldWeight")}
               value={formatBodyValue(weightKg, bodyUnit, "weight")}
               onChange={(e) => setWeightKg(parseBodyValue(e.target.value, bodyUnit, "weight"))}
               placeholder={bodyUnit === "imperial" ? "150" : "68"}
-              style={monoInputStyle}
+              style={{ minHeight: "var(--dim-button-height)", textAlign: "center" }}
             />
-            {!weightConfirmed && Number(weightKg) === 70 && <Button size="sm" variant="secondary" onClick={() => { void handleSave("weightKg"); }} disabled={saving}>
+            {!weightConfirmed && Number(weightKg) === 70 && <Button size="md" variant="secondary" onClick={() => { void handleSave("weightKg"); }} disabled={saving}>
               {t("training.confirmWeight")}
             </Button>}
           </Field>
@@ -424,11 +426,11 @@ export function PaneThresholds() {
             label={bodyUnit === "imperial" ? t("training.fieldHeightIn") : t("training.fieldHeight")}
             hint={bodyUnit === "imperial" ? t("training.fieldHeightInHint") : t("training.fieldHeightHint")}
           >
-            <input
+            <Input mono id={`${fieldId}-height`} aria-label={bodyUnit === "imperial" ? t("training.fieldHeightIn") : t("training.fieldHeight")}
               value={formatBodyValue(heightCm, bodyUnit, "height")}
               onChange={(e) => setHeightCm(parseBodyValue(e.target.value, bodyUnit, "height"))}
               placeholder={bodyUnit === "imperial" ? "68" : "172"}
-              style={monoInputStyle}
+              style={{ minHeight: "var(--dim-button-height)", textAlign: "center" }}
             />
           </Field>
         </FieldGrid>
@@ -454,7 +456,7 @@ export function PaneThresholds() {
           적용 시 아래 FTP 필드를 채우며, 저장하면 임계 우선순위(프로필 우선)에 따라 과거 분석에 즉시 재반영. */}
       <SettingsCard data-testid="K1-5-5" title={<GlossaryText>{t("training.ftpTest.title")}</GlossaryText>} dense>
         <Text as="div" variant="bodySmall" style={{ color: "var(--ink-3)", marginBottom: "var(--space-2)" }}>
-          {t("training.ftpTest.desc")}
+          <GlossaryText>{t("training.ftpTest.desc")}</GlossaryText>
         </Text>
         <div style={{ display: "flex", gap: "var(--space-1-5)", flexWrap: "wrap", marginBottom: "var(--space-2)" }}>
           {(["ramp", "twenty_min", "all_out"] as FtpTestProtocol[]).map((p) => (
@@ -462,9 +464,11 @@ export function PaneThresholds() {
               key={p}
               type="button"
               onClick={() => setFtpTestProtocol(p)}
+              aria-pressed={ftpTestProtocol === p}
               className="rounded-[var(--r-sm)] transition-colors"
               style={{
                 padding: "5px 10px",
+                minHeight: "var(--dim-button-height)",
                 fontSize: "var(--fs-xs)",
                 border: `1px solid ${ftpTestProtocol === p ? "var(--lime)" : "var(--line-soft)"}`,
                 background: ftpTestProtocol === p ? "color-mix(in oklch, var(--lime) 12%, transparent)" : "transparent",
@@ -478,11 +482,11 @@ export function PaneThresholds() {
         </div>
         <FieldGrid cols={2}>
           <Field explain label={t(`training.ftpTest.input.${ftpTestProtocol}`)} hint={t("training.ftpTest.inputHint")}>
-            <input
+            <Input mono id={`${fieldId}-ftp-test`} aria-label={t(`training.ftpTest.input.${ftpTestProtocol}`)}
               value={ftpTestInput}
               onChange={(e) => setFtpTestInput(e.target.value.replace(/[^0-9]/g, ""))}
               placeholder="300"
-              style={monoInputStyle}
+              style={{ minHeight: "var(--dim-button-height)", textAlign: "center" }}
             />
           </Field>
         </FieldGrid>
@@ -504,7 +508,6 @@ export function PaneThresholds() {
                   setFtpChangeSource("test");
                   showToast(t("training.ftpTest.applied"));
                 }}
-                style={{ padding: "6px 14px", fontSize: "var(--fs-sm)" }}
               >
                 {t("training.ftpTest.apply")}
               </Button>
@@ -524,51 +527,51 @@ export function PaneThresholds() {
       >
         <FieldGrid cols={3}>
           <Field explain label="FTP" hint={t("training.fieldFtpHint")}>
-            <input
+            <Input mono id={`${fieldId}-ftp`} aria-label={"FTP"}
               value={ftp}
               onChange={(e) => {
                 setFtp(e.target.value.replace(/[^0-9]/g, ""));
                 setFtpChangeSource("manual");
               }}
-              style={monoInputStyle}
+              style={{ minHeight: "var(--dim-button-height)", textAlign: "center" }}
             />
-            {!confirmedThresholds.ftp && Number(ftp) === 200 && <Button size="sm" variant="secondary" onClick={() => { void handleSave("ftp"); }} disabled={saving}>
+            {!confirmedThresholds.ftp && Number(ftp) === 200 && <Button size="md" variant="secondary" onClick={() => { void handleSave("ftp"); }} disabled={saving}>
               {t("training.confirmThreshold")}
             </Button>}
           </Field>
           <Field label={t("training.maxHr")} hint={t("training.fieldMaxHrHint")}>
-            <input
+            <Input mono id={`${fieldId}-max-hr`} aria-label={t("training.maxHr")}
               value={maxHr}
               onChange={(e) => setMaxHr(e.target.value.replace(/[^0-9]/g, ""))}
-              style={monoInputStyle}
+              style={{ minHeight: "var(--dim-button-height)", textAlign: "center" }}
             />
           </Field>
           <Field explain label="LTHR" hint={t("training.fieldLthrHint")}>
-            <input
+            <Input mono id={`${fieldId}-lthr`} aria-label={"LTHR"}
               value={lthr}
               onChange={(e) => setLthr(e.target.value.replace(/[^0-9]/g, ""))}
-              style={monoInputStyle}
+              style={{ minHeight: "var(--dim-button-height)", textAlign: "center" }}
             />
           </Field>
           <Field label={t("training.fieldThresholdPace")} hint={t("training.fieldThresholdPaceHint")}>
-            <input
+            <Input mono id={`${fieldId}-threshold-pace`} aria-label={t("training.fieldThresholdPace")}
               value={thresholdPace}
               onChange={(e) => setThresholdPace(e.target.value)}
               placeholder="4:35"
-              style={monoInputStyle}
+              style={{ minHeight: "var(--dim-button-height)", textAlign: "center" }}
             />
-            {!confirmedThresholds.thresholdPace && mmssToSecs(thresholdPace) === 275 && <Button size="sm" variant="secondary" onClick={() => { void handleSave("thresholdPace"); }} disabled={saving}>
+            {!confirmedThresholds.thresholdPace && mmssToSecs(thresholdPace) === 275 && <Button size="md" variant="secondary" onClick={() => { void handleSave("thresholdPace"); }} disabled={saving}>
               {t("training.confirmThreshold")}
             </Button>}
           </Field>
           <Field explain label="CSS" hint={t("training.fieldCssHint")}>
-            <input
+            <Input mono id={`${fieldId}-css`} aria-label={"CSS"}
               value={css}
               onChange={(e) => setCss(e.target.value)}
               placeholder="1:45"
-              style={monoInputStyle}
+              style={{ minHeight: "var(--dim-button-height)", textAlign: "center" }}
             />
-            {!confirmedThresholds.css && mmssToSecs(css) === 108 && <Button size="sm" variant="secondary" onClick={() => { void handleSave("css"); }} disabled={saving}>
+            {!confirmedThresholds.css && mmssToSecs(css) === 108 && <Button size="md" variant="secondary" onClick={() => { void handleSave("css"); }} disabled={saving}>
               {t("training.confirmThreshold")}
             </Button>}
           </Field>

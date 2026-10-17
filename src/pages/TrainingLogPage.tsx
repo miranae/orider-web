@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties }
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { useSearchParams } from "react-router-dom";
+import GlossaryText from "../components/common/GlossaryText";
 import { Upload } from "lucide-react";
 import { collection, query, where, orderBy, getDocs, limit } from "firebase/firestore";
 import { firestore } from "../services/firebase";
@@ -198,7 +199,7 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
               color: "var(--ink-3)",
               lineHeight: 1,
               padding: "1px 4px",
-              borderRadius: "var(--r-xs)",
+              borderRadius: "var(--r-sm)",
               background: "var(--bg-3)",
             }}
           >
@@ -221,7 +222,7 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
               alignItems: "center",
               gap: "var(--space-1)",
               padding: "3px 5px",
-              borderRadius: "var(--r-xs)",
+              borderRadius: "var(--r-sm)",
               border: `1px dashed ${color}`,
               color,
               opacity: hasAct ? 0.55 : 0.82,
@@ -259,7 +260,7 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
               gap: "var(--space-1)",
               color,
               padding: "3px 2px",
-              borderRadius: "var(--r-xs)",
+              borderRadius: "var(--r-sm)",
               border: "none",
               background: "transparent",
               cursor: "pointer",
@@ -272,7 +273,7 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
               e.currentTarget.style.background = "transparent";
             }}
           >
-            <span aria-hidden="true" style={{ width: "var(--space-1-5)", height: "var(--space-1-5)", borderRadius: "var(--r-full)", background: color, flexShrink: 0 }} />
+            <span aria-hidden="true" style={{ width: "var(--space-1-5)", height: "var(--space-1-5)", borderRadius: "50%", background: color, flexShrink: 0 }} />
             <span style={{ fontSize: "var(--fs-sm)", fontFamily: "var(--font-mono)", color: "var(--ink-0)", lineHeight: 1.2 }}>
               {formatActivityDist(a)}
             </span>
@@ -735,7 +736,7 @@ export default function TrainingLogPage() {
             { label: t("page.logActivityCount"), value: `${kpi.count}`, unit: t("page.logActivityUnit"), color: "var(--lime)" },
           ].map(({ label, value, unit, color }, i) => (
             <div key={label} style={{ padding: "14px 16px", borderRight: i < 4 ? "1px solid var(--line-soft)" : "none" }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}>{label}</Text>
+              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}><GlossaryText>{label}</GlossaryText></Text>
               <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)" }}>
                 <Text variant="dataLarge" style={{ color }}>{loading || loadError ? "–" : value}</Text>
                 {!loading && !loadError && unit && <Text variant="unit">{unit}</Text>}
@@ -757,7 +758,7 @@ export default function TrainingLogPage() {
             marginBottom: "var(--space-3)",
           }}
         >
-          <Button variant="secondary" size="sm" data-testid="P1-0-1" onClick={goPrevMonth}>
+          <Button variant="secondary" data-testid="P1-0-1" onClick={goPrevMonth}>
             {t("page.prevMonth")}
           </Button>
           <span
@@ -772,25 +773,16 @@ export default function TrainingLogPage() {
           >
             {monthLabel}
           </span>
-          <Button variant="secondary" size="sm"
+          <Button variant="secondary"
             onClick={goNextMonth}
             disabled={isThisMonth}
             style={{ opacity: isThisMonth ? 0.4 : 1 }}
           >
             {t("page.nextMonth")}
           </Button>
-          <button onClick={() => setImportOpen(true)}
-            style={{
-              display: "flex", alignItems: "center", gap: "var(--space-1-5)",
-              padding: "7px 14px", background: "var(--bg-2)",
-              border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)",
-              fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-2)", cursor: "pointer",
-            }}>
-            <Upload size={14} />
-            {t("page.import")}
-          </button>
+          <Button variant="secondary" leadingIcon={<Upload size={16} aria-hidden="true" />} onClick={() => setImportOpen(true)}>{t("page.import")}</Button>
           {!isThisMonth && (
-            <Button variant="secondary" size="sm"
+            <Button variant="secondary"
               onClick={() =>
                 setSelectedMonth({ year: today.getUTCFullYear(), month: today.getUTCMonth() })
               }
@@ -824,7 +816,7 @@ export default function TrainingLogPage() {
                 {d}
               </Text>
             ))}
-            <Text as="div" variant="eyebrow" style={{ textAlign: "center" }}>{t("page.weekTSSLabel")}</Text>
+            <Text as="div" variant="eyebrow" style={{ textAlign: "center" }}><GlossaryText>{t("page.weekTSSLabel")}</GlossaryText></Text>
           </div>
 
           {/* 주별 행 */}
@@ -899,7 +891,7 @@ export default function TrainingLogPage() {
                       fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: (weekLoad.value ?? 0) > 0 ? "var(--ink-1)" : "var(--ink-4)",
                       borderLeft: "1px solid var(--line-soft)", paddingLeft: 6,
                     }}>
-                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-0-5)" }}>TSS</div>
+                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-0-5)" }}><GlossaryText>TSS</GlossaryText></div>
                       <div>{weekLoad.value == null ? "–" : weekLoad.value}{weekLoad.estimated ? t("page.tssEstimated") : ""}</div>
                       {weekLoad.unknownCount > 0 && <Text variant="caption">{t("log.loadPartial", { count: weekLoad.unknownCount })}</Text>}
                     </div>

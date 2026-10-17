@@ -20,15 +20,15 @@ import { auth, firestore, functions, storage } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
-import { useTheme, type ThemePreference } from "../../contexts/ThemeContext";
-import { useStrava } from "../../hooks/useStrava";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { logClientError } from "../../services/errorLogger";
 
 import { SettingsCard, FieldGrid, Field, InlineRow, Toggle, fieldInputStyle } from "./_primitives";
 import { PaneMedical } from "./PaneMedical";
 import { ProfileHero } from "./ProfileHero";
-import { Button } from "../../theme/components";
+import { LocalizedLink } from "../LocalizedLink";
+import { PaneAiCoach } from "./PaneAiCoach";
+import { Button, Textarea, buttonClass } from "../../theme/components";
 
 type VisOpt = { value: Visibility; labelKey: string; icon: typeof User };
 
@@ -44,8 +44,6 @@ export function PaneAccount() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const dialog = useDialog();
-  const { theme, setTheme } = useTheme();
-  const { deleteUserData, loading: stravaLoading } = useStrava();
 
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [bioSaving, setBioSaving] = useState(false);
@@ -59,7 +57,6 @@ export function PaneAccount() {
   const [visibilityAvailability, setVisibilityAvailability] = useState<"ready" | "error">("ready");
   const [existingActivityCount, setExistingActivityCount] = useState<number | null>(null);
   const [nicknameSaving, setNicknameSaving] = useState(false);
-  const [deletingAccount, setDeletingAccount] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [friendCode, setFriendCode] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -135,11 +132,13 @@ export function PaneAccount() {
   }
 
   async function handleSaveBio() {
-    if (!user) return;
+    if (!user || bio === (profile?.bio ?? "") || bioSaving) return;
     setBioSaving(true);
     try {
       await updateDoc(doc(firestore, "users", user.uid), { bio });
       showToast(t("profile.bioSaved"));
+    } catch {
+      showToast(t("profile.bioSaveFailed"));
     } finally {
       setBioSaving(false);
     }
@@ -251,30 +250,6 @@ export function PaneAccount() {
     }
   }
 
-  async function handleDeleteAccount() {
-    if (deletingAccount) return;
-    const typed = await dialog.prompt(t("pane.account.deleteTypeConfirm"), {
-      destructive: true,
-      confirmLabel: t("pane.account.deleteBtnLabel"),
-      placeholder: t("pane.account.deleteTypePlaceholder"),
-    });
-    if (typed?.trim() !== t("pane.account.deleteTypeToken")) {
-      if (typed != null) showToast(t("pane.account.deleteTypeMismatch"));
-      return;
-    }
-    setDeletingAccount(true);
-    try {
-      await deleteUserData();
-      await logout();
-      showToast(t("pane.account.deleteAccountDone"));
-      navigate("/", { replace: true });
-    } catch (e) {
-      showToast(`${t("pane.account.deleteAccountFailed")}: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setDeletingAccount(false);
-    }
-  }
-
   async function handleLogout() {
     if (!(await dialog.confirm(t("pane.account.logoutConfirm")))) return;
     await logout();
@@ -328,7 +303,7 @@ export function PaneAccount() {
       <SettingsCard data-testid="S1-1-1" title={t("pane.account.cardProfile")}>
         <FieldGrid cols={1}>
           <Field label={t("pane.account.fieldBio")} full>
-            <textarea
+            <Textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               onBlur={handleSaveBio}
@@ -341,10 +316,11 @@ export function PaneAccount() {
       </SettingsCard>
 
       <SettingsCard data-testid="S1-2-1" title={t("pane.account.cardVisibility")} dense>
+        <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", margin: "0 0 var(--space-3)" }}>{t("privacy.newActivityDefault")}</p>
         <div
+          className="settings-visibility-options"
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
             gap: 'var(--space-2)',
             marginBottom: 'var(--space-1)',
           }}
@@ -354,11 +330,13 @@ export function PaneAccount() {
             const active = currentVisibility === o.value;
             return (
               <button
+                type="button"
+                aria-pressed={active}
                 key={o.value}
                 onClick={() => handleVisibilityChange(o.value)}
                 disabled={visibilitySaving || bulkVisibilitySaving || visibilityAvailability !== "ready"}
                 style={{
-                  padding: "14px 12px",
+                  padding: "var(--space-2) var(--space-3)",
                   borderRadius: "var(--r-md)",
                   background: active
                     ? "color-mix(in oklch, var(--lime) 8%, var(--bg-1))"
@@ -367,14 +345,13 @@ export function PaneAccount() {
                   cursor: visibilitySaving ? "wait" : "pointer",
                   textAlign: "left",
                   display: "flex",
-                  flexDirection: "column",
+                  alignItems: "center",
                   gap: "var(--space-1-5)",
                   color: active ? "var(--ink-0)" : "var(--ink-1)",
                 }}
               >
                 <Ic size={16} />
                 <div style={{ fontSize: "var(--fs-xs)", fontWeight: 500 }}>{t(o.labelKey)}</div>
-                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("privacy.newActivityDefault")}</div>
               </button>
             );
           })}
@@ -413,63 +390,34 @@ export function PaneAccount() {
         </InlineRow>
       </SettingsCard>
 
-      <SettingsCard data-testid="S4-1-1" title={t("pane.account.cardAppearance")} dense>
-        <InlineRow label={t("theme.label")} hint={t("pane.account.themeHint")}>
-          <div
-            style={{
-              display: "flex",
-              gap: 'var(--space-1)',
-              padding: "var(--space-0-5)",
-              background: "var(--bg-2)",
-              borderRadius: "var(--r-md)",
-            }}
-          >
-            {(
-              [
-                ["system", t("pane.account.themeSystem")],
-                ["light", t("pane.account.themeLight")],
-                ["dark", t("pane.account.themeDark")],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                onClick={() => setTheme(id as ThemePreference)}
-                style={{
-                  padding: "6px 14px",
-                  fontSize: "var(--fs-xs)",
-                  fontWeight: 500,
-                  borderRadius: "var(--r-sm)",
-                  cursor: "pointer",
-                  border: "none",
-                  background: theme === id ? "var(--bg-1)" : "transparent",
-                  color: theme === id ? "var(--ink-0)" : "var(--ink-3)",
-                  boxShadow: theme === id ? "0 1px 3px color-mix(in srgb, var(--bg-0) 6%, transparent)" : "none",
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </InlineRow>
-      </SettingsCard>
+      <details className="settings-disclosure">
+        <summary>{t("pane.account.medicalSummary")}</summary>
+        <p>{t("pane.account.medicalHint")}</p>
+        <PaneMedical />
+      </details>
+      <PaneAiCoach />
 
-      <PaneMedical />
 
-      <SettingsCard data-testid="S1-5-1" title={t("pane.account.cardDanger")} danger dense>
+      <SettingsCard data-testid="S1-5-1" title={t("pane.account.cardManagement")} dense>
         <InlineRow label={t("pane.account.logoutLabel")} hint={t("pane.account.logoutHint")}>
           <Button variant="secondary" onClick={handleLogout}>
             {t("pane.account.logoutBtn")}
           </Button>
         </InlineRow>
         <InlineRow
+          label={t("pane.account.dataLabel")}
+          hint={t("pane.account.dataHint")}
+        >
+          <LocalizedLink to="/settings/data" className={buttonClass({ variant: "secondary" })}>
+            {t("pane.account.manageData")}
+          </LocalizedLink>
+        </InlineRow>
+        <InlineRow
           label={t("pane.account.deleteLabel")}
           hint={t("pane.account.deleteHint")}
         >
-          <Button variant="danger"
-            onClick={handleDeleteAccount}
-            disabled={stravaLoading || deletingAccount}
-          >
-            {stravaLoading || deletingAccount ? t("pane.account.deleteBtnDeleting") : t("pane.account.deleteBtnLabel")}
+          <Button variant="danger" onClick={() => navigate("/account-deletion")}>
+            {t("pane.account.deleteBtnLabel")}
           </Button>
         </InlineRow>
       </SettingsCard>

@@ -19,7 +19,7 @@ describe("HubSubNav", () => {
 
   it("renders explore destinations without the removed leaderboard tab", () => {
     renderWithProviders(<HubSubNav hubKey="explore" />, { route: "/explore/courses" });
-    expect(screen.getAllByRole("link").map(link => link.textContent)).toEqual(["코스", "세그먼트", "이벤트", "챌린지", "레시피"]);
+    expect(screen.getAllByRole("link").map(link => link.textContent)).toEqual(["코스", "세그먼트", "이벤트", "챌린지", "기록 활용"]);
     expect(screen.getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/ko/explore/courses", "/ko/explore/segments", "/ko/explore/events", "/ko/explore/challenges", "/ko/explore/recipes"]);
   });
 

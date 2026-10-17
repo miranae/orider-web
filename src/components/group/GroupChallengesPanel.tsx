@@ -1,3 +1,4 @@
+import { localeTag } from "../../utils/localeDate";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Group } from "@shared/types";
@@ -11,14 +12,14 @@ import {
   useManagedGroups,
 } from "../../hooks/useGroupChallenges";
 import { logClientError } from "../../services/errorLogger";
-import { Button, Card, Chip, Text } from "../../theme/components";
-import { LoadingSkeleton } from "../redesign";
+import { Button, Card, Chip, DropdownSelect, Input, Text } from "../../theme/components";
+import { ErrorState, LoadingSkeleton } from "../redesign";
 
 export default function GroupChallengesPanel({ userId, groups }: { userId: string; groups: Group[] }) {
   const { t } = useTranslation("group");
   const { showToast } = useToast();
   const managedGroups = useManagedGroups(userId, groups);
-  const { challenges, loading } = useGroupChallenges();
+  const { challenges, loading, error, retry } = useGroupChallenges();
   const [groupId, setGroupId] = useState("");
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -62,31 +63,36 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
       <div className="flex items-end justify-between mb-3" style={{ gap: "var(--space-3)" }}>
         <div>
           <h2 id="group-challenges-title" className="text-[length:var(--fs-lg)] font-bold" style={{ color: "var(--ink-0)" }}>{t("challenges.title")}</h2>
-          <p className="text-[length:var(--fs-xs)] mt-1" style={{ color: "var(--ink-3)" }}>{t("challenges.desc")}</p>
+          <p className="text-[length:var(--ft-body-size)] mt-1" style={{ color: "var(--ink-3)" }}>{t("challenges.desc")}</p>
         </div>
       </div>
 
       {managedGroups.length > 0 && (
         <Card padding="compact" className="mb-3">
           <div className="flex items-end flex-wrap" style={{ gap: "var(--space-2)" }}>
-            <label className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>
+            <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", minWidth: 0, maxWidth: "100%" }}>
               <span className="block mb-1">{t("challenges.managedGroup")}</span>
-              <select value={groupId} onChange={(event) => setGroupId(event.target.value)} className="px-3 py-2 rounded-[var(--r-md)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}>
-                {managedGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
-              </select>
-            </label>
-            <label className="text-[length:var(--fs-xs)] flex-1" style={{ color: "var(--ink-2)", minWidth: 180 }}>
+              <DropdownSelect value={groupId} onChange={setGroupId} label={t("challenges.managedGroup")}
+                options={managedGroups.map(group => ({ value: group.id, label: group.name }))} />
+            </div>
+            <details className="challenge-create-details">
+              <summary>{t("challenges.create")}</summary>
+              <div className="challenge-create-fields">
+            <label className="text-[length:var(--ft-body-size)] flex-1" style={{ color: "var(--ink-2)", minWidth: 180 }}>
               <span className="block mb-1">{t("challenges.name")}</span>
-              <input value={name} onChange={(event) => setName(event.target.value.slice(0, 80))} maxLength={80} placeholder={t("challenges.namePlaceholder")} className="w-full px-3 py-2 rounded-[var(--r-md)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }} />
+              <Input value={name} onChange={(event) => setName(event.target.value.slice(0, 80))} maxLength={80} placeholder={t("challenges.namePlaceholder", { month: new Date().toLocaleDateString(localeTag(), { month: "long", timeZone: "Asia/Seoul" }) })} />
             </label>
-            <Button data-testid="E4-2-3" onClick={() => { void create(); }} disabled={submitting || name.trim().length < 2} size="sm">
+            <Button data-testid="E4-2-3" onClick={() => { void create(); }} disabled={submitting || name.trim().length < 2}>
               {submitting ? t("challenges.creating") : t("challenges.create")}
             </Button>
+              </div>
+            </details>
           </div>
         </Card>
       )}
 
-      {loading ? <LoadingSkeleton kind="list" count={2} /> : challenges.length === 0 ? (
+      {error && <ErrorState title={t("challenges.loadFailed")} onRetry={retry} compact />}
+      {error && challenges.length === 0 ? null : loading ? <LoadingSkeleton kind="list" count={2} /> : challenges.length === 0 ? (
         <Card padding="compact"><Text data-testid="E4-2-4" as="p" variant="body" tone="tertiary">{t("challenges.empty")}</Text></Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: "var(--space-3)" }}>
@@ -96,11 +102,11 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
               <Card data-testid="E4-2-1" key={challenge.id} padding="none" style={{ padding: "var(--space-4)" }}>
                 <div className="flex items-center justify-between mb-3" style={{ gap: "var(--space-2)" }}>
                   <div className="min-w-0">
-                    <h3 className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-1)" }}>{challenge.name}</h3>
+                    <h3 className="text-[length:var(--ft-subtitle-size)] font-semibold truncate" style={{ color: "var(--ink-1)" }}>{challenge.name}</h3>
                     <Text as="span" variant="eyebrow">{challenge.monthKey} · {t("challenges.distance")}</Text>
                   </div>
                   {groupId && (alreadyJoined ? <Chip>{t("challenges.joined")}</Chip> : (
-                    <Button data-testid="E4-2-2" variant="secondary" size="sm" disabled={joiningId === challenge.id} onClick={() => { void join(challenge.id); }}>
+                    <Button data-testid="E4-2-2" variant="secondary" size="md" disabled={joiningId === challenge.id} onClick={() => { void join(challenge.id); }}>
                       {joiningId === challenge.id ? t("challenges.joining") : t("challenges.join")}
                     </Button>
                   ))}
@@ -112,7 +118,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
                     return (
                       <li
                         key={standing.groupId}
-                        className="text-[length:var(--fs-xs)]"
+                        className="text-[length:var(--ft-body-size)]"
                         aria-current={isSelectedGroup ? "true" : undefined}
                         style={{
                           padding: "var(--space-2)",
@@ -136,7 +142,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
                               aria-valuemin={0}
                               aria-valuemax={100}
                               aria-valuenow={Math.round(progress.percent)}
-                              style={{ height: 4, borderRadius: "var(--r-xs)", overflow: "hidden", background: "var(--bg-3)" }}
+                              style={{ height: 4, borderRadius: "var(--r-sm)", overflow: "hidden", background: "var(--bg-3)" }}
                             >
                               <div style={{ width: `${progress.percent}%`, height: "100%", background: progress.completed ? "var(--lime)" : "var(--aqua)" }} />
                             </div>

@@ -18,7 +18,7 @@ describe("RunRecordsBoard", () => {
     expect(screen.queryByText(`26'40"`)).not.toBeInTheDocument();
     expect(screen.queryByText(/\/km/)).not.toBeInTheDocument();
     expect(screen.getAllByRole("link")).toHaveLength(2);
-    expect(screen.getByText(/종목과 시간 단위를 확인할 수 없어/)).toBeInTheDocument();
+    expect(screen.getByText("종목과 시간 단위가 확인되지 않은 거리별 저장 기록은 시간과 페이스를 표시하지 않습니다. 시간별 페이스 분석과는 별개입니다.")).toBeInTheDocument();
   });
 
   it("미달성 거리는 '아직 없어요'로 자리를 남긴다", () => {
@@ -98,7 +98,7 @@ describe("RunRecordsBoard", () => {
       expect(screen.getByRole("link").getAttribute("href")).toBe("/en/activity/source%2Fid");
       expect(screen.getByRole("link")).toHaveTextContent("7/1/2025");
       expect(screen.getByText("Source unverified")).toBeInTheDocument();
-      expect(screen.getByText(/time and pace are hidden/)).toBeInTheDocument();
+      expect(screen.getByText("Distance-record times and paces are hidden until their source sport and time units can be verified. Pace-by-duration analysis is separate.")).toBeInTheDocument();
     } finally { await i18n.changeLanguage("ko"); }
   });
 

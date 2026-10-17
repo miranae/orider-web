@@ -26,6 +26,7 @@ import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerC
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { toUtcDate } from "../../utils/dateUtils";
 import FtpDecisionSection from "../../features/fitness/components/FtpDecisionSection";
+import { needsRunAnalysisReadiness } from "../../features/fitness/runAnalysisReadiness";
 import RunRecordsSummary from "../../features/fitness/components/RunRecordsSummary";
 import DetailsSection from "../redesign/DetailsSection";
 import SportFilterTabs from "./SportFilterTabs";
@@ -485,8 +486,8 @@ function SectionCard({ specId, children, title, sub, accentColor, ariaLabel, com
     }}>
       {(title || sub) && (
         <div style={{ marginBottom: "var(--space-2)" }}>
-          {title && <Text variant="eyebrow">{title}</Text>}
-          {sub && <div className={readableSub ? "ds-text ds-text--body-medium" : undefined} style={{ overflowWrap: readableSub ? "anywhere" : undefined, fontSize: readableSub ? undefined : "var(--fs-xs)", color: "var(--ink-2)", marginTop: "var(--space-1)" }}>{sub}</div>}
+          {title && <Text variant="eyebrow"><GlossaryText>{title}</GlossaryText></Text>}
+          {sub && <div className={readableSub ? "ds-text ds-text--body-medium" : undefined} style={{ overflowWrap: readableSub ? "anywhere" : undefined, fontSize: readableSub ? undefined : "var(--fs-xs)", color: "var(--ink-2)", marginTop: "var(--space-1)" }}><GlossaryText>{sub}</GlossaryText></div>}
         </div>
       )}
       {children}
@@ -589,7 +590,7 @@ function MobileCyclingEvidence({ data }: { data: MobileFitnessData }) {
     {data.pdcSummary?.vo2maxEst != null && <SectionCard title={t("vo2maxCard.pdcLabel")}>
       <div data-testid="K5-1-3">
         <Text variant="dataLarge">~{data.pdcSummary.vo2maxEst}</Text> <Text variant="unit">ml/kg/min</Text>
-        <Text as="p" variant="caption" tone="tertiary">{t("vo2maxCard.pdcSub")}</Text>
+        <Text as="p" variant="caption" tone="tertiary"><GlossaryText>{t("vo2maxCard.pdcSub")}</GlossaryText></Text>
         {vo2maxBlock && sufficiency && <SufficiencyInline set={sufficiency} block={vo2maxBlock} testId="K5-1-3-sufficiency-inline" />}
         {(monthlyBlock ? !needsSufficiencyCard(sufficiency!, monthlyBlock) : trend.length >= 2) && trend.length > 0 && <>
           <svg viewBox="0 0 132 40" role="img" aria-label={trendLabel} className="w-full" preserveAspectRatio="none">
@@ -729,6 +730,8 @@ export default function MobileFitnessPage({
   const mobileAnalysisSets = [data.pdcSufficiency, data.activityWindowSufficiency && { ...data.activityWindowSufficiency,
     blocks: data.activityWindowSufficiency.blocks.filter(block => block.discipline === data.discipline && (block.featureId !== "power_curve" || block.viewId === "mobile")) }];
   const showZones = data.zones.length > 0;
+  const runReadiness = part === "analysis" && !embedded && data.discipline === "run"
+    && sectionState.derived === "ready" && needsRunAnalysisReadiness(data.runEvidence, !!data.threshold, showZones);
   const mobileCurveBlock = data.activityWindowSufficiency?.blocks.find(block => block.featureId === "power_curve" && block.viewId === "mobile" && block.discipline === data.discipline);
   const powerCurveMaxW = data.powerCurve?.length
     ? Math.round(Math.max(...data.powerCurve.map(point => point.maxPower)))
@@ -738,7 +741,7 @@ export default function MobileFitnessPage({
 
   return (
     <div className={embedded ? "mobile-fitness-page mobile-fitness-page--embedded" : "mobile-fitness-page"}>
-      <h1 data-testid={part === "analysis" ? "K5-0-1" : part === "condition" ? "K1-0-1" : undefined} className={embedded ? "orider-embedded-page-title" : "sr-only"}>{t("mobileFitness.title")}</h1>
+      <h1 data-testid={part === "analysis" ? "K5-0-1" : part === "condition" ? "K1-0-1" : undefined} className={embedded ? "orider-embedded-page-title" : "sr-only"}>{part === "analysis" ? t("fitness:analysis.header.title") : t("mobileFitness.title")}</h1>
 
       <div className="mobile-fitness-toolbar">
         <div data-testid={part === "analysis" ? "K5-0-2" : part === "condition" ? "K1-0-2" : undefined} className="mobile-fitness-toolbar__sports">
@@ -796,13 +799,13 @@ export default function MobileFitnessPage({
                     </div>
                     <div style={{ marginTop: "var(--space-1-5)", fontSize: "var(--fs-xs)", color: "var(--ink-2)", display: "flex", gap: "var(--space-3)" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                        <PmcLegendSample color={pmcCtlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />{pmcCtlLabel}
+                        <PmcLegendSample color={pmcCtlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} /><GlossaryText>{pmcCtlLabel}</GlossaryText>
                       </span>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                        <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} />ATL
+                        <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} /><GlossaryText>ATL</GlossaryText>
                       </span>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                        <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} />TSB
+                        <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} /><GlossaryText>TSB</GlossaryText>
                       </span>
                     </div>
                   </DetailsSection>
@@ -894,23 +897,23 @@ export default function MobileFitnessPage({
           )}
           {part === "analysis" && <SufficiencyGroup sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" />}
           {part === "analysis" && isBike && <BikePerformanceSummaryCard part="analysis" decision={data.thresholdDecision} pdc={data.pdcSummary} weightKg={data.weightKg} />}
-          {part === "analysis" && <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
+          {part === "analysis" && !runReadiness && <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
           {part === "analysis" && isBike && data.cyclingAbility && riderSet && riderBlock && <SufficiencyInline set={riderSet} block={riderBlock} testId="K5-1-1-sufficiency-inline" />}
-          {part === "analysis" && !embedded && data.discipline === "run" && <RunRecordsSummary evidence={data.runEvidence} />}
+          {part === "analysis" && !embedded && data.discipline === "run" && <RunRecordsSummary evidence={data.runEvidence} readiness={runReadiness} />}
           {part === "analysis" && !embedded && isBike && sectionState.derived === "ready" && <MobileCyclingEvidence data={data} />}
           {/* 임계값 카드 */}
           {sectionState.derived === "ready" && data.threshold && !isBike && (
             <SectionCard>
-              <Text variant="eyebrow">{data.threshold.label}</Text>
+              <Text variant="eyebrow"><GlossaryText>{data.threshold.label}</GlossaryText></Text>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-3xl)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em", marginTop: "var(--space-1)" }}>
                 {data.threshold.value || "—"}
                 {data.threshold.unit && <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginLeft: "var(--space-1)" }}>{data.threshold.unit}</span>}
               </div>
-              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{data.threshold.sub}</div>
+              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}><GlossaryText>{data.threshold.sub}</GlossaryText></div>
             </SectionCard>
           )}
 
-          {sectionState.derived === "ready" && !data.threshold && (data.discipline === "run" || data.discipline === "swim") && (
+          {sectionState.derived === "ready" && !runReadiness && !data.threshold && (data.discipline === "run" || data.discipline === "swim") && (
             <SectionCard>
               <Text variant="body">{t(data.discipline === "run" ? "mobileFitness.thresholdMissingRun" : "mobileFitness.thresholdMissingSwim")}</Text>
             </SectionCard>
@@ -928,8 +931,8 @@ export default function MobileFitnessPage({
               }>
               {data.zones.map((z, i) => (
                 <div key={i} className="flex items-center gap-2" style={{ padding: "6px 0" }}>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", width: 18, textAlign: "right" }}>Z{i + 1}</div>
-                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", width: 60 }}>{z.name}</div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", width: 18, textAlign: "right" }}><GlossaryText>{`Z${i + 1}`}</GlossaryText></div>
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", width: 60 }}><GlossaryText>{z.name}</GlossaryText></div>
                   <div style={{ flex: 1, height: 18, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
                     <div style={{ width: `${z.pct}%`, height: "100%", background: z.color, borderRadius: "var(--r-xs)" }} />
                   </div>
@@ -966,24 +969,24 @@ export default function MobileFitnessPage({
             <SectionCard specId="K5-3-1" title={t("mobileFitness.zoneDefsSectionTitle")}>
               {data.zones.map((z, i) => (
                 <div key={i} className="flex items-center" style={{ padding: "8px 0", borderBottom: i < data.zones.length - 1 ? "1px solid var(--line-soft)" : "none", gap: "var(--space-3)" }}>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", width: 20 }}>Z{i + 1}</span>
-                  <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", flex: 1 }}>{z.name}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>{z.rangeLabel}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", width: 20 }}><GlossaryText>{`Z${i + 1}`}</GlossaryText></span>
+                  <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", flex: 1 }}><GlossaryText>{z.name}</GlossaryText></span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}><GlossaryText>{z.rangeLabel}</GlossaryText></span>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", width: 60, textAlign: "right" }}>{z.percentLabel}</span>
                 </div>
               ))}
             </SectionCard>
           )}
 
-          {sectionState.derived === "ready" && !showZones && (data.discipline === "run" || data.discipline === "swim") && (
+          {sectionState.derived === "ready" && !runReadiness && !showZones && (data.discipline === "run" || data.discipline === "swim") && (
             <SectionCard>
-              <Text variant="body">{t("mobileFitness.hrZonesMissing")}</Text>
+              <Text variant="body"><GlossaryText>{t("mobileFitness.hrZonesMissing")}</GlossaryText></Text>
             </SectionCard>
           )}
 
           {sectionState.derived === "ready" && isBike && !showZones && !data.threshold && (
             <div style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
-              {t("mobileFitness.analysisInsufficient")}
+              <GlossaryText>{t("mobileFitness.analysisInsufficient")}</GlossaryText>
             </div>
           )}
         </div>

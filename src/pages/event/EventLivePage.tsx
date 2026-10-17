@@ -1,3 +1,8 @@
+import "../EventControls.css";
+import GlossaryProvider from "../../components/common/GlossaryProvider";
+import GlossaryText from "../../components/common/GlossaryText";
+import { Eye, Flag, Link2, TrafficCone } from "lucide-react";
+import "../ExploreReview.css";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -10,7 +15,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
-import { Button, Card, Switch, Text } from "../../theme/components";
+import { Button, Card, Switch, Text, Input } from "../../theme/components";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 import { countActiveViewers, createViewerSessionId } from "../../features/event/viewerPresence";
 import { createViewerHeartbeatRunner } from "../../features/event/liveViewerRecovery";
@@ -178,7 +183,7 @@ function RiderCard({
             background: "var(--bg-3)",
             display: "grid",
             placeItems: "center",
-            fontSize: "var(--fs-sm)",
+            fontSize: "var(--ft-body-size)",
             fontWeight: 600,
             color: "var(--ink-0)",
             flexShrink: 0,
@@ -187,16 +192,16 @@ function RiderCard({
           {initial}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)", fontSize: "var(--fs-sm)" }}>
+          <div className="text-[length:var(--ft-body-size)] font-semibold truncate" style={{ color: "var(--ink-0)", fontSize: "var(--ft-body-size)" }}>
             {loc.displayName}
           </div>
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+          <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
             {loc.bib != null ? `#${String(loc.bib).padStart(3, "0")}` : "—"}
             {loc.category ? ` · ${loc.category}` : ""}
           </div>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", letterSpacing: "0.05em" }}>{t("liveView.rankLabel")}</div>
+          <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", letterSpacing: "0.05em" }}>{t("liveView.rankLabel")}</div>
           <div style={{ fontSize: "var(--fs-xl)", fontFamily: "var(--font-mono)", color, fontWeight: 600 }}>
             {loc.status === "FINISHED" ? "—" : loc.overallRank ?? "—"}
           </div>
@@ -205,14 +210,14 @@ function RiderCard({
           type="button"
           onClick={onUnfollow}
           aria-label={t("action.unfollowAthlete")} variant="secondary" size="sm"
-          style={{ padding: "var(--space-1) var(--space-2)", fontSize: "var(--fs-xs)" }}
+          style={{ padding: "var(--space-1) var(--space-2)", fontSize: "var(--ft-body-size)" }}
         >
           ×
         </Button>
       </div>
 
       <div style={{ marginBottom: "var(--space-3)" }}>
-        <div className="flex justify-between" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1-5)" }}>
+        <div className="flex justify-between" style={{ fontSize: "var(--ft-body-size)", marginBottom: "var(--space-1-5)" }}>
           <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)" }}>
             {distKm.toFixed(1)} km
           </span>
@@ -224,7 +229,7 @@ function RiderCard({
           style={{
             height: 6,
             background: "var(--bg-3)",
-            borderRadius: "var(--r-xs)",
+            borderRadius: "var(--r-sm)",
             overflow: "hidden",
             position: "relative",
           }}
@@ -254,7 +259,7 @@ function RiderCard({
         </div>
         <div
           style={{
-            fontSize: "var(--fs-xs)",
+            fontSize: "var(--ft-body-size)",
             color: "var(--ink-3)",
             fontFamily: "var(--font-mono)",
             marginTop: 'var(--space-1)',
@@ -278,21 +283,21 @@ function RiderCard({
       >
         {[
           [t("liveView.speed"), loc.speed > 0 ? loc.speed.toFixed(1) : "—", "km/h"],
-          [t("time"), formatDuration(loc.durationSec), ""],
-          ["HR", loc.hr != null && loc.hr > 0 ? String(loc.hr) : "—", "bpm"],
-          ["CP", `${loc.lastCp ?? 0}`, ""],
+          [t("liveView.activityTime"), formatDuration(loc.durationSec), t("liveView.durationUnit")],
+          [t("liveView.heartRate"), loc.hr != null && loc.hr > 0 ? String(loc.hr) : "—", "bpm"],
+          [t("liveView.lastCheckpoint"), `${loc.lastCp ?? 0}`, ""],
           [t("liveView.statusLabel"), statusText, ""],
         ].map(([k, v, u]) => (
           <div key={k} style={{ padding: "10px 12px", background: "var(--bg-1)" }}>
-            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 'var(--space-1)' }}>
-              {k}
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--ft-body-size)", marginBottom: 'var(--space-1)' }}>
+              <GlossaryText>{k}</GlossaryText>
             </Text>
             <div className="flex items-baseline" style={{ gap: "var(--space-1)" }}>
-              <Text variant="dataMedium" style={{ fontSize: "var(--fs-sm)" }}>
+              <Text variant="dataMedium" style={{ fontSize: "var(--ft-body-size)" }}>
                 {v}
               </Text>
               {u && (
-                <Text variant="unit" style={{ fontSize: "var(--fs-xs)" }}>
+                <Text variant="unit" style={{ fontSize: "var(--ft-body-size)" }}>
                   {u}
                 </Text>
               )}
@@ -313,6 +318,7 @@ export default function EventLivePage() {
   const [searchParams] = useSearchParams();
   const highlightBib = searchParams.get("bib") ? Number(searchParams.get("bib")) : null;
 
+  const [eventContext, setEventContext] = useState<{ eventId: string; status: string } | null>(null);
   const [eventName, setEventName] = useState<string>("");
   const [eventStartTime, setEventStartTime] = useState<number | null>(null);
   const [totalDistanceKm, setTotalDistanceKm] = useState<number>(0);
@@ -330,12 +336,19 @@ export default function EventLivePage() {
   const [viewerCount, setViewerCount] = useState(0);
   const [viewerRecoveryError, setViewerRecoveryError] = useState<string | null>(null);
 
+  const eventStatus = eventContext?.eventId === eventId ? eventContext?.status : null;
+  const trackingEnded = eventStatus === "FINISHED" || eventStatus === "CANCELLED";
+  const liveReadsEnabled = !!eventStatus && !trackingEnded;
+  const liveEventRef = useRef<string | null>(null);
+  liveEventRef.current = liveReadsEnabled ? eventId ?? null : null;
+
   const prevStatusRef = useRef<Map<string, string>>(new Map());
   const prevCpRef = useRef<Map<string, number>>(new Map());
   const sosMutedRef = useRef(sosMuted);
 
   useEffect(() => {
-    if (!eventId) return;
+    if (!eventId || !liveReadsEnabled) return;
+    let active = true;
     const heartbeat = httpsCallable(functions, "heartbeatEventViewer");
     const storageKey = `event-viewer-session:${eventId}`;
     let viewerSessionId = sessionStorage.getItem(storageKey);
@@ -345,6 +358,7 @@ export default function EventLivePage() {
     }
     const sessionId = viewerSessionId;
     const handleViewerError = (source: string, error: unknown, context?: Record<string, unknown>) => {
+      if (!active) return prepareFirestoreSessionRecovery(error);
       const recovery = prepareFirestoreSessionRecovery(error);
       logClientError(source, error, {
         eventId,
@@ -359,9 +373,9 @@ export default function EventLivePage() {
     };
 
     const heartbeatRunner = createViewerHeartbeatRunner({
-      sendHeartbeat: () => heartbeat({ eventId, viewerSessionId: sessionId, active: true }),
+      sendHeartbeat: () => active && liveEventRef.current === eventId ? heartbeat({ eventId, viewerSessionId: sessionId, active: true }) : Promise.resolve(),
       ensureAppCheckReady,
-      isVisible: () => !document.hidden,
+      isVisible: () => active && liveEventRef.current === eventId && !document.hidden,
       onError: (error, phase) => {
         handleViewerError("EventLivePage.viewerHeartbeat", error, { phase });
       },
@@ -373,7 +387,7 @@ export default function EventLivePage() {
     const unsubscribeViewers = onSnapshot(
       collection(firestore, `events/${eventId}/viewers`),
       (viewers) => {
-        setViewerCount(countActiveViewers(viewers.docs.map((viewer) => viewer.data())));
+        if (active && liveEventRef.current === eventId) setViewerCount(countActiveViewers(viewers.docs.map((viewer) => viewer.data())));
       },
       (err) => {
         handleViewerError("EventLivePage.viewerPresence", err);
@@ -399,6 +413,7 @@ export default function EventLivePage() {
     void heartbeatRunner.pulse();
     const timer = window.setInterval(() => void heartbeatRunner.pulse(), 30_000);
     return () => {
+      active = false;
       window.clearInterval(timer);
       window.removeEventListener("unhandledrejection", handleUnhandledRejection);
       window.removeEventListener("error", handleWindowError);
@@ -408,7 +423,7 @@ export default function EventLivePage() {
         .then(() => heartbeat({ eventId, viewerSessionId: sessionId, active: false }))
         .catch(() => undefined);
     };
-  }, [eventId, t]);
+  }, [eventId, liveReadsEnabled, t]);
 
   // URL bib 쿼리 → 팔로우 리스트에 자동 추가
   useEffect(() => {
@@ -432,12 +447,24 @@ export default function EventLivePage() {
   // 이벤트 메타 로드
   useEffect(() => {
     if (!eventId) return;
+    let active = true;
+    setEventContext(null);
+    setSnapshot(null);
+    setLoadError(null);
+    setViewerRecoveryError(null);
+    setLoading(true);
     (async () => {
       try {
         const snap = await getDoc(doc(firestore, "events", eventId));
+        if (!active) return;
         if (snap.exists()) {
           const info = snap.data().info || {};
+          setEventContext({ eventId, status: info.status || "UNKNOWN" });
           setEventName(info.name || t("title"));
+          if (info.status === "FINISHED" || info.status === "CANCELLED") {
+            setLoading(false);
+            return;
+          }
           const st = info.startTime;
           const startMs = typeof st === "number" ? st :
             st?._seconds ? st._seconds * 1000 :
@@ -450,7 +477,7 @@ export default function EventLivePage() {
           if (courseIds.length > 0 && courseIds[0]) {
             try {
               const cs = await getDoc(doc(firestore, "courses", courseIds[0]));
-              if (cs.exists()) {
+              if (active && cs.exists()) {
                 const d = typeof cs.data().distance === "number" ? cs.data().distance : 0;
                 setTotalDistanceKm(d / 1000);
               }
@@ -458,21 +485,29 @@ export default function EventLivePage() {
               // ignore
             }
           }
+        } else {
+          setLoadError(t("participantsView.eventNotFound"));
+          setLoading(false);
         }
       } catch (err) {
+        if (!active) return;
         logClientError("EventLivePage.loadEvent", err, { eventId });
+        setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
+        setLoading(false);
       }
     })();
-  }, [eventId]);
+    return () => { active = false; };
+  }, [eventId, t]);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
   }, [snapshot]);
 
   const fetchSnapshot = useCallback(async () => {
-    if (!eventId) return;
+    if (!eventId || !liveReadsEnabled) return;
     try {
       const latest = await getDoc(doc(firestore, "events", eventId, "snapshots", "public_latest"));
+      if (liveEventRef.current !== eventId) return;
       if (!latest.exists()) {
         setSnapshot(null);
         setLoadError(null);
@@ -546,23 +581,26 @@ export default function EventLivePage() {
         setHighlights((prev) => [...newHighlights, ...prev].slice(0, 20));
       }
     } catch (err) {
+      if (liveEventRef.current !== eventId) return;
       logClientError("EventLivePage.fetchSnapshot", err, { eventId });
       if (!snapshotRef.current) setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
     } finally {
-      setLoading(false);
+      if (liveEventRef.current === eventId) setLoading(false);
     }
-  }, [eventId, followBibs, t]);
+  }, [eventId, followBibs, liveReadsEnabled, t]);
 
   useEffect(() => {
-    fetchSnapshot();
+    if (!liveReadsEnabled) return;
+    void fetchSnapshot();
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       void fetchSnapshot();
     }, 60000);
     return () => clearInterval(interval);
-  }, [fetchSnapshot]);
+  }, [fetchSnapshot, liveReadsEnabled]);
 
   useEffect(() => {
+    if (!liveReadsEnabled) return;
     let timer: ReturnType<typeof setInterval> | undefined;
     const schedule = () => {
       if (timer) clearInterval(timer);
@@ -575,7 +613,7 @@ export default function EventLivePage() {
       if (timer) clearInterval(timer);
       document.removeEventListener("visibilitychange", schedule);
     };
-  }, []);
+  }, [liveReadsEnabled]);
 
   const elapsedLabel = useMemo(() => {
     if (!eventStartTime) return "";
@@ -653,11 +691,27 @@ export default function EventLivePage() {
     );
   }
 
+  if (trackingEnded) {
+    return (
+      <div className="event-controls-surface explore-editor-surface max-w-xl mx-auto py-16">
+        <EmptyState
+          icon={<Flag size={28} style={{ marginInline: "auto" }} />}
+          title={eventName || t(eventStatus === "FINISHED" ? "status.finished" : "status.cancelled")}
+          description={t("dashboard.trackingEnded")}
+          actions={[
+            { label: t("participantsView.eventDetailLink"), variant: "secondary", href: `/event/${eventId}` },
+            ...(eventStatus === "FINISHED" ? [{ label: t("resultsTitle"), variant: "primary" as const, href: `/event/${eventId}/results` }] : []),
+          ]}
+        />
+      </div>
+    );
+  }
+
   if (!snapshot) {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon="🚦"
+          icon={<TrafficCone size={28} style={{ marginInline: "auto" }} />}
           title={eventName ? `${eventName}` : t("label.spectatorView")}
           description={t("liveView.notStartedDesc")}
         />
@@ -670,7 +724,8 @@ export default function EventLivePage() {
   const isSnapshotStale = snapshotAgeMs != null && snapshotAgeMs > 60000;
 
   return (
-    <div data-testid="D4-2">
+    <GlossaryProvider scopeKey="event-editor">
+    <div data-testid="D4-2" className="event-controls-surface explore-editor-surface">
       <style>{`@keyframes orp { 0%, 50% { opacity: 1 } 51%, 100% { opacity: 0 } }`}</style>
 
       {/* Header — full-width, 시안 스타일 */}
@@ -687,7 +742,7 @@ export default function EventLivePage() {
           to={`/event/${eventId}`}
           style={{
             color: "var(--ink-3)",
-            fontSize: "var(--fs-xs)",
+            fontSize: "var(--ft-body-size)",
             display: "inline-flex",
             alignItems: "center",
             gap: 'var(--space-1)',
@@ -711,7 +766,7 @@ export default function EventLivePage() {
             />
             <span
               style={{
-                fontSize: "var(--fs-xs)",
+                fontSize: "var(--ft-body-size)",
                 letterSpacing: "0.08em",
                 color: "var(--lime)",
                 textTransform: "uppercase",
@@ -724,7 +779,7 @@ export default function EventLivePage() {
               <span
                 style={{
                   marginLeft: "var(--space-2)",
-                  fontSize: "var(--fs-xs)",
+                  fontSize: "var(--ft-body-size)",
                   color: isSnapshotStale ? "var(--amber)" : "var(--ink-3)",
                 }}
               >
@@ -734,19 +789,19 @@ export default function EventLivePage() {
               </span>
             )}
           </div>
-          <div className="truncate" style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
+          <div className="truncate" style={{ fontSize: "var(--ft-body-size)", fontWeight: 600, color: "var(--ink-0)" }}>
             {eventName}
           </div>
         </div>
         <div className="flex items-center" style={{ gap: 'var(--space-3)', marginLeft: "auto" }}>
-          <div aria-live="polite" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>👀 {t("viewer.count", { count: viewerCount })}</div>
+          <div aria-live="polite" style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}><Eye size={14} aria-hidden="true" /> {t("viewer.count", { count: viewerCount })}</div>
           {elapsedLabel && (
-            <div style={{ textAlign: "right", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+            <div style={{ textAlign: "right", fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
               <div style={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>{t("label.elapsed")}</div>
               <div
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: "var(--fs-sm)",
+                  fontSize: "var(--ft-body-size)",
                   color: "var(--ink-0)",
                   fontWeight: 500,
                 }}
@@ -756,7 +811,7 @@ export default function EventLivePage() {
             </div>
           )}
           <Button type="button" onClick={handleShare} variant="secondary" size="sm">
-            🔗 {t("button.share")}
+            <Link2 size={14} aria-hidden="true" /> {t("button.share")}
           </Button>
           <Button
             type="button"
@@ -781,7 +836,7 @@ export default function EventLivePage() {
               borderRadius: "var(--r-sm)",
               background: "color-mix(in oklch, var(--amber) 10%, var(--bg-2))",
               color: "var(--ink-1)",
-              fontSize: "var(--fs-xs)",
+              fontSize: "var(--ft-body-size)",
             }}
           >
             {t("liveView.staleWarning")}
@@ -801,7 +856,7 @@ export default function EventLivePage() {
             </h2>
           </div>
           <div className="flex items-center" style={{ gap: 'var(--space-2)' }}>
-            <input
+            <Input
               type="text"
               placeholder={t("liveView.bibPlaceholder")}
               value={searchBib}
@@ -815,7 +870,7 @@ export default function EventLivePage() {
               aria-label={t("liveView.bibSearchLabel")}
               style={{
                 padding: "7px 12px",
-                fontSize: "var(--fs-xs)",
+                fontSize: "var(--ft-body-size)",
                 background: "var(--bg-2)",
                 border: "1px solid var(--line-soft)",
                 borderRadius: "var(--r-sm)",
@@ -833,7 +888,7 @@ export default function EventLivePage() {
           </div>
         </div>
         {followError && (
-          <div style={{ marginTop: "calc(-1 * var(--space-3))", marginBottom: "var(--space-4)", fontSize: "var(--fs-xs)", color: "var(--rose)", textAlign: "right" }}>
+          <div style={{ marginTop: "calc(-1 * var(--space-3))", marginBottom: "var(--space-4)", fontSize: "var(--ft-body-size)", color: "var(--rose)", textAlign: "right" }}>
             {followError}
           </div>
         )}
@@ -849,17 +904,17 @@ export default function EventLivePage() {
             }}
           >
             <div className="min-w-0">
-              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>
+              <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>
                 #{String(searchedParticipant.bib).padStart(3, "0")} {searchedParticipant.displayName}
                 {searchedParticipant.category && (
-                  <span className="font-normal" style={{ color: "var(--ink-3)", marginLeft: "var(--space-1-5)", fontSize: "var(--fs-xs)" }}>
+                  <span className="font-normal" style={{ color: "var(--ink-3)", marginLeft: "var(--space-1-5)", fontSize: "var(--ft-body-size)" }}>
                     ({searchedParticipant.category})
                   </span>
                 )}
               </div>
-              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-0-5)", fontFamily: "var(--font-mono)" }}>
+              <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-0-5)", fontFamily: "var(--font-mono)" }}>
                 {searchedParticipant.status !== "FINISHED" && searchedParticipant.overallRank != null ? `${t("liveView.highlight.overallRank", { rank: searchedParticipant.overallRank })} · ` : ""}
-                CP{searchedParticipant.lastCp ?? 0} · {(searchedParticipant.distance / 1000).toFixed(1)}km · {searchedParticipant.speed.toFixed(1)}km/h
+                {t("liveView.lastCheckpoint")} {searchedParticipant.lastCp ?? 0} · {(searchedParticipant.distance / 1000).toFixed(1)}km · {searchedParticipant.speed.toFixed(1)}km/h
               </div>
             </div>
             <Button type="button" onClick={addFollow} variant="primary" size="sm">
@@ -873,8 +928,8 @@ export default function EventLivePage() {
           <Card padding="none"
             style={{ padding: 'var(--space-7)', textAlign: "center", marginBottom: "var(--space-7)", color: "var(--ink-3)" }}
           >
-            <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)", marginBottom: "var(--space-1-5)" }}>{t("liveView.noFollowing")}</div>
-            <div style={{ fontSize: "var(--fs-xs)" }}>{t("liveView.noFollowingHint")}</div>
+            <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-2)", marginBottom: "var(--space-1-5)" }}>{t("liveView.noFollowing")}</div>
+            <div style={{ fontSize: "var(--ft-body-size)" }}>{t("liveView.noFollowingHint")}</div>
           </Card>
         ) : (
           <div
@@ -900,15 +955,15 @@ export default function EventLivePage() {
             style={{ padding: "14px 20px", borderBottom: "1px solid var(--line-soft)", gap: 'var(--space-3)' }}
           >
             <div>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>
+              <div style={{ fontSize: "var(--ft-body-size)", fontWeight: 500, color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>
                 {t("label.courseLocation")}
               </div>
-              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+              <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
                 {followedParticipants.length > 0 ? t("liveView.followingLiveLocation") : t("liveView.allLiveLocation")}
               </div>
             </div>
             {followedParticipants.length > 0 && (
-              <div className="flex flex-wrap" style={{ gap: 'var(--space-3)', fontSize: "var(--fs-xs)" }}>
+              <div className="flex flex-wrap" style={{ gap: 'var(--space-3)', fontSize: "var(--ft-body-size)" }}>
                 {followedParticipants.map((p) => (
                   <span key={p.uid} className="inline-flex items-center" style={{ gap: "var(--space-1)" }}>
                     <span
@@ -940,8 +995,8 @@ export default function EventLivePage() {
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <div className="flex items-start justify-between" style={{ marginBottom: 'var(--space-3)', gap: 'var(--space-3)' }}>
             <div>
-              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.recentHighlights")}</div>
-              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
+              <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.recentHighlights")}</div>
+              <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
                 {t("liveView.highlightsDesc")}
               </div>
             </div>
@@ -952,7 +1007,7 @@ export default function EventLivePage() {
             />
           </div>
           {highlights.length === 0 ? (
-            <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("liveView.noHighlights")}</p>
+            <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>{t("liveView.noHighlights")}</p>
           ) : (
             <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {highlights.map((h, i) => {
@@ -976,7 +1031,7 @@ export default function EventLivePage() {
                         background: "var(--bg-3)",
                         display: "grid",
                         placeItems: "center",
-                        fontSize: "var(--fs-sm)",
+                        fontSize: "var(--ft-body-size)",
                         fontWeight: 600,
                         color: "var(--ink-0)",
                         borderLeft: `3px solid ${h.color}`,
@@ -986,14 +1041,14 @@ export default function EventLivePage() {
                       {initial}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>
+                      <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>
                         {h.message}
                       </div>
-                      {h.sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{h.sub}</div>}
+                      {h.sub && <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{h.sub}</div>}
                     </div>
                     <div
                       style={{
-                        fontSize: "var(--fs-xs)",
+                        fontSize: "var(--ft-body-size)",
                         color: "var(--ink-3)",
                         fontFamily: "var(--font-mono)",
                         flexShrink: 0,
@@ -1011,8 +1066,8 @@ export default function EventLivePage() {
 
       {!authLoading && !user && <Card padding="none" style={{ padding: "var(--space-5)", marginTop: "var(--space-4)", borderColor: "color-mix(in oklch, var(--aqua) 30%, var(--line-soft))" }}>
         <Text as="div" variant="eyebrow">{t("liveView.guestCta.eyebrow")}</Text>
-        <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", margin: "var(--space-1) 0 var(--space-2)" }}>{t("liveView.guestCta.title")}</div>
-        <p style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginBottom: "var(--space-3)" }}>{t("liveView.guestCta.description")}</p>
+        <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)", margin: "var(--space-1) 0 var(--space-2)" }}>{t("liveView.guestCta.title")}</div>
+        <p style={{ color: "var(--ink-3)", fontSize: "var(--ft-body-size)", marginBottom: "var(--space-3)" }}>{t("liveView.guestCta.description")}</p>
         <AppInstallLinks compact appStoreLabel={t("resultsView.nextAction.ios")} playStoreLabel={t("resultsView.nextAction.android")} />
       </Card>}
 
@@ -1022,5 +1077,6 @@ export default function EventLivePage() {
         }
       `}</style>
     </div>
+    </GlossaryProvider>
   );
 }

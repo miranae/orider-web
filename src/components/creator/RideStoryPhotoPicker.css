@@ -1,0 +1,22 @@
+.ride-story-picker > .fixed { z-index: 150; padding: var(--space-3); }
+.ride-story-picker [role="dialog"] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: calc(100dvh - 2 * var(--space-3)) !important;
+  margin: 0;
+  padding: var(--space-4) !important;
+  overflow: hidden !important;
+}
+.ride-story-picker [role="dialog"] > div:first-child { flex-shrink: 0; }
+.ride-story-picker-content { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.ride-story-picker-content > .border-b { flex-shrink: 0; }
+.ride-story-picker-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.ride-story-picker-footer { flex-shrink: 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+.ride-story-picker-footer .ds-btn { min-height: var(--dim-button-height); gap: var(--space-2); }
+.ride-story-metric { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); }
+.ride-story-metric > span { white-space: nowrap; }
+@media (max-width: 480px) {
+  .ride-story-picker-footer .ds-btn { flex: 1 1 100%; }
+}

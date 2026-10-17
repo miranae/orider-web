@@ -1,3 +1,5 @@
+import { CalendarDays } from "lucide-react";
+import { DateField } from "../components/redesign";
 import GlossaryText from "../components/common/GlossaryText";
 import { LocalizedLink } from "../components/LocalizedLink";
 import { useSearchParams } from "react-router-dom";
@@ -46,11 +48,11 @@ export default function ClimbGoalSetupPage({ embedded = false }: { embedded?: bo
     <Text as={embedded ? "h2" : "h1"} variant={embedded ? "title" : "pageTitle"}>{t('climbGoal.title')}</Text>
     <Text as="p" variant="body" style={{ color: 'var(--ink-3)', marginTop: 'var(--space-2)' }}>{t('climbGoal.description')}</Text>
     <Card data-testid="K3-4-1" style={{ marginTop: 'var(--space-5)', display: 'grid', gap: 'var(--space-4)' }}>
-      <Field label={t('climbGoal.name')} htmlFor={`${fieldId}-name`}><Input id={`${fieldId}-name`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></Field>
-      <Field label={t('climbGoal.duration')} htmlFor={`${fieldId}-duration`}><Input id={`${fieldId}-duration`} type="number" min={3} max={240} value={duration} onChange={(e) => setDuration(e.target.value)} /></Field>
-      <Field label={t('climbGoal.wkg')} hint={<GlossaryText>W/kg</GlossaryText>} htmlFor={`${fieldId}-wkg`}><Input id={`${fieldId}-wkg`} type="number" min={1} max={8} step={0.1} value={wkg} onChange={(e) => setWkg(e.target.value)} /></Field>
-      <Field label={t('climbGoal.date')} htmlFor={`${fieldId}-date`}><Input id={`${fieldId}-date`} type="date" min={dateBounds.min} max={dateBounds.max} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-      <Field label={t('climbGoal.sessions')} htmlFor={`${fieldId}-sessions`}><Input id={`${fieldId}-sessions`} type="number" min={1} max={6} value={sessions} onChange={(e) => setSessions(e.target.value)} /></Field>
+      <Field label={t('climbGoal.name')} htmlFor={`${fieldId}-name`}><Input id={`${fieldId}-name`} style={{ height: 'var(--dim-button-height)' }} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></Field>
+      <Field label={t('climbGoal.duration')} htmlFor={`${fieldId}-duration`}><Input id={`${fieldId}-duration`} style={{ height: 'var(--dim-button-height)' }} type="number" min={3} max={240} value={duration} onChange={(e) => setDuration(e.target.value)} /></Field>
+      <Field label={t('climbGoal.wkg')} hint={<GlossaryText>W/kg</GlossaryText>} htmlFor={`${fieldId}-wkg`}><Input id={`${fieldId}-wkg`} style={{ height: 'var(--dim-button-height)' }} type="number" min={1} max={8} step={0.1} value={wkg} onChange={(e) => setWkg(e.target.value)} /></Field>
+      <Field label={t('climbGoal.date')} htmlFor={`${fieldId}-date`}><DateField id={`${fieldId}-date`} portal icon={<CalendarDays size={16} />} presets={false} min={dateBounds.min} max={dateBounds.max} value={date} onChange={setDate} /></Field>
+      <Field label={t('climbGoal.sessions')} htmlFor={`${fieldId}-sessions`}><Input id={`${fieldId}-sessions`} style={{ height: 'var(--dim-button-height)' }} type="number" min={1} max={6} value={sessions} onChange={(e) => setSessions(e.target.value)} /></Field>
       <LocalizedLink data-testid="K3-4-3" to="/explore/segments">{t("goalHub.pickSegment")}</LocalizedLink>
       {error && <Text role="alert" variant="caption" style={{ color: 'var(--rose)' }}>{t('climbGoal.error')}</Text>}
       <Button data-testid="K3-4-2" onClick={() => { void submit(); }} disabled={submitting}>{t('climbGoal.submit')}</Button>

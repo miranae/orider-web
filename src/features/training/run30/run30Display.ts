@@ -4,6 +4,7 @@ import type {
   Run30ChangeAction,
   Run30Program,
   Run30Session,
+  Run30Segment,
   Run30TodayAction,
 } from "./run30Api";
 
@@ -161,4 +162,26 @@ export function buildRun30ViewModel(program: Run30Program): Run30ViewModel {
 
 export function run30ChangeConfirmLabel(action: Run30ChangeAction, t: TFunction): string {
   return t(`run30.change.confirm.${action}`);
+}
+
+/** Collapse only identical consecutive source patterns; never infer repetitions from duration totals. */
+export function compactRun30Segments(segments: readonly Run30Segment[]): { segments: Run30Segment[]; repeats: number }[] {
+  const blocks: { segments: Run30Segment[]; repeats: number }[] = [];
+  const equal = (a: Run30Segment, b: Run30Segment) => a.label === b.label && a.durationSec === b.durationSec && a.targetType === b.targetType;
+  for (let index = 0; index < segments.length;) {
+    let size = 1, repeats = 1;
+    for (let width = 1; width <= Math.floor((segments.length - index) / 2); width += 1) {
+      let count = 1;
+      while (index + (count + 1) * width <= segments.length && segments.slice(index, index + width).every((segment, offset) => equal(segment, segments[index + count * width + offset]!))) count += 1;
+      if (count > 1 && count * width > repeats * size) { size = width; repeats = count; }
+    }
+    blocks.push({ segments: segments.slice(index, index + size), repeats });
+    index += size * repeats;
+  }
+  return blocks;
+}
+
+export function run30TodayHeadingKey(kind: Run30TodayKind): string {
+  return kind === "start" ? "run30.today.eyebrow" : kind === "hold" ? "run30.today.heldHeading"
+    : kind === "decide" ? "run30.today.reviewHeading" : kind === "rest" ? "run30.today.scheduledHeading" : "run30.today.finishedHeading";
 }

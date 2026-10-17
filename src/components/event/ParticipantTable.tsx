@@ -1,3 +1,5 @@
+import "../../pages/EventControls.css";
+import { Input } from "../../theme/components";
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -103,8 +105,9 @@ export default function ParticipantTable({
         className="flex items-center"
         style={{ gap: 'var(--space-2)', padding: "8px 14px", borderBottom: "1px solid var(--line-soft)", flexShrink: 0 }}
       >
-        <input
+        <Input
           type="text"
+          aria-label={t("participantTable.searchPlaceholder")}
           placeholder={t("participantTable.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}

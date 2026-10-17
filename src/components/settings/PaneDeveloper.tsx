@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { KeyRound, Copy, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button, Chip, Text } from "../../theme/components";
+import { Button, Chip, Text, Input } from "../../theme/components";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { logClientError } from "../../services/errorLogger";
@@ -121,7 +121,7 @@ export function PaneDeveloper() {
             </Text>
             <div className="mt-4">
               <Field label={t("pane.developer.keyName")} hint={t("pane.developer.keyNameHint")}>
-                <input
+                <Input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   style={fieldInputStyle}
@@ -137,9 +137,10 @@ export function PaneDeveloper() {
                   return (
                     <button
                       key={scope}
+                      aria-pressed={selected}
                       type="button"
                       onClick={() => toggleScope(scope)}
-                      className="rounded-[var(--r-sm)] border px-2 py-1 text-[length:var(--fs-xs)]"
+                      className="settings-scope-button rounded-[var(--r-sm)] border px-3 py-2 text-[length:var(--fs-xs)]"
                       style={{
                         background: selected ? "var(--lime)" : "var(--bg-2)",
                         borderColor: selected ? "var(--lime)" : "var(--line)",
@@ -158,7 +159,7 @@ export function PaneDeveloper() {
             <Text as="p" variant="bodySmall" className="mt-2" style={{ color: "var(--ink-2)" }}>
               {t("pane.developer.once")}
             </Text>
-            <Button className="mt-3 w-full" size="sm" variant="primary" loading={creating} onClick={handleCreate}>
+            <Button className="mt-3 w-full" size="md" variant="primary" loading={creating} onClick={handleCreate}>
               {creating ? t("pane.developer.creating") : t("pane.developer.create")}
             </Button>
           </div>
@@ -174,7 +175,7 @@ export function PaneDeveloper() {
             <code className="min-w-0 flex-1 rounded-[var(--r-md)] px-3 py-2 text-[length:var(--fs-sm)]" style={{ background: "var(--bg-2)", color: "var(--ink-0)", overflowWrap: "anywhere" }}>
               {createdKey.key}
             </code>
-            <Button size="sm" variant="secondary" onClick={() => void copyText(createdKey.key)}>
+            <Button size="md" variant="secondary" onClick={() => void copyText(createdKey.key)}>
               <Copy size={15} />
               {t("pane.developer.copy")}
             </Button>
@@ -182,7 +183,7 @@ export function PaneDeveloper() {
         </SettingsCard>
       )}
 
-      <SettingsCard data-testid="S5-1-2" title={t("pane.developer.cardKeys")} action={<Button size="sm" variant="secondary" onClick={() => void loadKeys()}>{t("pane.developer.refresh")}</Button>}>
+      <SettingsCard data-testid="S5-1-2" title={t("pane.developer.cardKeys")} action={<Button size="md" variant="secondary" onClick={() => void loadKeys()}>{t("pane.developer.refresh")}</Button>}>
         {loading ? (
           <Text variant="bodySmall" style={{ color: "var(--ink-2)" }}>{t("pane.developer.loading")}</Text>
         ) : keys.length === 0 ? (
@@ -198,7 +199,7 @@ export function PaneDeveloper() {
                       {key.prefix} · {t("pane.developer.createdAt")}: {formatDate(key.createdAt)} · {t("pane.developer.lastUsedAt")}: {formatDate(key.lastUsedAt)}
                     </div>
                   </div>
-                  <Button size="sm" variant="ghost" loading={revokingId === key.id} onClick={() => void handleRevoke(key)}>
+                  <Button size="md" variant="ghost" loading={revokingId === key.id} onClick={() => void handleRevoke(key)}>
                     <Trash2 size={15} />
                     {t("pane.developer.revoke")}
                   </Button>
@@ -220,7 +221,7 @@ export function PaneDeveloper() {
           <code className="min-w-0 flex-1 rounded-[var(--r-md)] px-3 py-2 text-[length:var(--fs-xs)]" style={{ background: "var(--bg-2)", color: "var(--ink-0)", overflowWrap: "anywhere" }}>
             {curlExample}
           </code>
-          <Button size="sm" variant="secondary" onClick={() => void copyText(curlExample)}>
+          <Button size="md" variant="secondary" onClick={() => void copyText(curlExample)}>
             <Copy size={15} />
             {t("pane.developer.copy")}
           </Button>

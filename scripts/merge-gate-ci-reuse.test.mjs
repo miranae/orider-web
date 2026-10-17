@@ -1,10 +1,40 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 const script = readFileSync("scripts/merge-pr.sh", "utf8");
 const ci = readFileSync(".github/workflows/ci.yml", "utf8");
+const packageScripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
+
+test("feature gate forwards changed flags only to Vitest while the full test chain stays complete", () => {
+  assert.equal(packageScripts["test:vitest"], "NODE_OPTIONS=--no-experimental-webstorage vitest run");
+  assert.equal(packageScripts.test, "npm run test:vitest && npm run test:contracts");
+  assert.equal(packageScripts["test:contracts"], ["test:production-hosting-evidence", "test:merge-gate-ci-reuse",
+    "test:social-callable-contract", "test:runtime-config-writer", "test:canonical-deploy-env", "test:deploy-config",
+    "test:dco", "test:merge-pr-review-range", "test:script-tests-wired", "test:quality-alert-count",
+    "check:canonical-contract", "test:test-script-forwarding"].map(name => `npm run ${name}`).join(" && "));
+  const targeted = script.match(/run_step "targeted Vitest"[^\n]*\\\n\s*([^\n]+)/u)?.[1];
+  assert.ok(targeted, "the feature gate must have a targeted test command");
+  assert.match(targeted, /^npm run test:vitest -- --changed "origin\/\$BASE" --passWithNoTests$/u);
+  assert.match(script, /run_step "npm test"[^\n]* npm test\n/u, "the full gate must retain npm test");
+  const dir = mkdtempSync(join(tmpdir(), "merge-gate-vitest-"));
+  try {
+    const bin = join(dir, "node_modules", ".bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: { "test:vitest": packageScripts["test:vitest"] } }));
+    const vitest = join(bin, "vitest");
+    writeFileSync(vitest, `#!/usr/bin/env node\nconsole.log('FORWARDED=' + JSON.stringify({ args: process.argv.slice(2), nodeOptions: process.env.NODE_OPTIONS }));\n`);
+    chmodSync(vitest, 0o755);
+    const output = execFileSync("bash", ["-c", `set -e\nBASE=dev\nrun_step() { shift 2; "$@"; }\nrun_step "targeted Vitest" "output" ${targeted}`], { cwd: dir, encoding: "utf8" });
+    const forwarded = JSON.parse(output.match(/^FORWARDED=(.+)$/mu)?.[1] ?? "null");
+    assert.deepEqual(forwarded, { args: ["run", "--changed", "origin/dev", "--passWithNoTests"], nodeOptions: "--no-experimental-webstorage" });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 // 로컬 풀 게이트가 도는 항목을 CI 가 전부 돌지 않으면, 생략은 검증 구멍이 된다.
 test("every command the local full gate skips is covered by the CI check job", () => {

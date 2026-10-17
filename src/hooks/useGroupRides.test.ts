@@ -16,6 +16,37 @@ beforeEach(() => {
 });
 
 describe("useGroupRideStats", () => {
+  it("retains loaded records, statistics and cursor after page failure, then retries only that page", async () => {
+    const cursor = { startTime: 200, groupRideId: "first" };
+    let pageCalls = 0;
+    setCallableImplementation("getGroupRideStats", (request) => {
+      if ((request as { cursor?: unknown }).cursor) {
+        pageCalls += 1;
+        if (pageCalls === 1) throw Object.assign(new Error("offline"), { code: "functions/unavailable" });
+        return { data: { rides: [{ groupRideId: "second" }], nextCursor: null } };
+      }
+      return { data: { rides: [{ groupRideId: "first" }], memberStats: { member: { distance: 42 } },
+        weeklyStats: { totalDistance: 42 }, memberWeekStats: { member: { distance: 42 } }, nextCursor: cursor } };
+    });
+    const { result } = renderHook(() => useGroupRideStats("pages"));
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+    await act(async () => { await result.current.loadMore(); });
+    expect(result.current.error).toBeNull();
+    expect(result.current.loadMoreError).toBe("unavailable");
+    expect(result.current.rides.map(ride => ride.groupRideId)).toEqual(["first"]);
+    expect(result.current.memberStats.member.distance).toBe(42);
+    expect(result.current.weeklyStats?.totalDistance).toBe(42);
+    expect(result.current.memberWeekStats?.member.distance).toBe(42);
+    expect(result.current.hasMore).toBe(true);
+    await act(async () => { await result.current.loadMore(); });
+    expect(result.current.loadMoreError).toBeNull();
+    expect(result.current.rides.map(ride => ride.groupRideId)).toEqual(["first", "second"]);
+    expect(mockCallableInvocations.filter(call => call.name === "getGroupRideStats").map(call => call.data)).toEqual([
+      { groupId: "pages", pageSize: 20 },
+      { groupId: "pages", pageSize: 20, cursor, pageOnly: true },
+      { groupId: "pages", pageSize: 20, cursor, pageOnly: true },
+    ]);
+  });
 
   it.each(["initial", "page"] as const)("dispatches the %s payload only after readiness succeeds", async (phase) => {
     const cursor = { startTime: 1, groupRideId: "r" };
@@ -53,7 +84,7 @@ describe("useGroupRideStats", () => {
     expect(httpsCallable).not.toHaveBeenCalled();
     await act(async () => { rejectReady(new Error("app-check/token-timeout")); });
     expect(httpsCallable).not.toHaveBeenCalled();
-    expect(result.current.error).toBe("failed");
+    expect(phase === "page" ? result.current.loadMoreError : result.current.error).toBe("failed");
     expect(result.current.loadingMore).toBe(false);
   });
 

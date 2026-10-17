@@ -1,3 +1,4 @@
+import { chooseDropdown } from "../fitnessControlTestUtils";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -15,9 +16,9 @@ describe("PowerSkillsObservedView", () => {
     expect(screen.getAllByText("250.1 W").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByRole("link")[0]).toHaveAttribute("href", "/ko/activity/ride%2Fid");
     expect(screen.getAllByText(/densePeriod.partial/)).toHaveLength(2);
-    expect(view.container.querySelector("svg")).toBeNull();
+    expect(view.container.querySelector(".dense-period-power > svg")).toBeNull();
     expect(view.container.querySelectorAll("tbody tr")).toHaveLength(12);
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "15" } });
+    chooseDropdown(screen.getByRole("combobox"), "duration.sec 15");
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(screen.getAllByText("powerSkills.missing_exact_duration").length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText("0.0 W")).not.toBeInTheDocument();

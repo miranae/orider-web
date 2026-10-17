@@ -1,8 +1,8 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import {
   doc, collection, query, onSnapshot, getDoc, getDocs, where, orderBy, limit as firestoreLimit,
 } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { auth, firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { getPublicUserProfile, type PublicUserProfile } from "../services/publicProfiles";
 import type { Group, GroupMember, GroupMemberRole } from "@shared/types";
@@ -18,6 +18,8 @@ export function useGroup(groupId: string | undefined, accessKey?: string) {
   const [inactive, setInactive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt(value => value + 1), []);
 
   useEffect(() => {
     if (!groupId) {
@@ -31,7 +33,15 @@ export function useGroup(groupId: string | undefined, accessKey?: string) {
     setLoading(true);
     setError(null);
     setInactive(false);
-    return onSnapshot(doc(firestore, "groups", groupId), (snap) => {
+    return onSnapshot(doc(firestore, "groups", groupId), { includeMetadataChanges: true }, (snap) => {
+      if (snap.metadata?.fromCache === true && !snap.exists()) {
+        setError(new Error("Club document could not be confirmed with the server"));
+        setGroup(null);
+        setInactive(false);
+        setLoading(false);
+        return;
+      }
+      setError(null);
       if (snap.exists()) {
         const nextGroup = { id: snap.id, ...snap.data() } as Group;
         if (nextGroup.isActive === false) {
@@ -52,29 +62,44 @@ export function useGroup(groupId: string | undefined, accessKey?: string) {
       setInactive(false);
       setLoading(false);
     });
-  }, [groupId, accessKey]);
+  }, [groupId, accessKey, attempt]);
 
-  return { group, loading, error, inactive };
+  return { group, loading, error, inactive, retry };
 }
 
 /** Subscribe only to the signed-in user's membership document for role gates. */
-export function useGroupMemberRole(groupId: string | undefined, userId: string | undefined) {
+export function useGroupMemberRole(groupId: string | undefined, userId: string | undefined, creatorId?: string) {
   const [role, setRole] = useState<GroupMemberRole | null>(null);
   const [loading, setLoading] = useState(!!groupId && !!userId);
+
+  const [error, setError] = useState<unknown>(null);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt(value => value + 1), []);
 
   useEffect(() => {
     if (!groupId || !userId) {
       setRole(null);
+      setError(null);
       setLoading(false);
       return;
     }
     let cancelled = false;
     setRole(null);
+    setError(null);
     setLoading(true);
-    const unsubscribe = onSnapshot(doc(firestore, "groups", groupId, "members", userId), (snap) => {
+    const unsubscribe = onSnapshot(doc(firestore, "groups", groupId, "members", userId), { includeMetadataChanges: true }, (snap) => {
       if (cancelled) return;
+      if (snap.metadata?.fromCache === true && !snap.exists()) {
+        setRole(null);
+        setError(new Error("Club membership could not be confirmed with the server"));
+        setLoading(false);
+        return;
+      }
+      setError(null);
       const data = snap.exists() ? snap.data() : null;
-      const value = data?.role;
+      // Display callers may supply the canonical creator; active membership remains required.
+      // Permission callers omit this argument and retain the existing member fallback.
+      const value = data?.role ?? (creatorId === userId ? "leader" : "member");
       const isActive = data && ["active", "approved"].includes(String(data.status ?? ""));
       setRole(isActive && (value === "owner" || value === "leader" || value === "co-leader" || value === "member") ? value : null);
       setLoading(false);
@@ -82,55 +107,59 @@ export function useGroupMemberRole(groupId: string | undefined, userId: string |
       if (cancelled) return;
       logClientError("useGroupMemberRole.snapshot", err, { groupId, userId });
       setRole(null);
+      setError(err);
       setLoading(false);
     });
     return () => { cancelled = true; unsubscribe(); };
-  }, [groupId, userId]);
+  }, [groupId, userId, creatorId, attempt]);
 
-  return { role, loading };
+  return { role, loading, error, retry };
 }
 
 // 그룹 멤버 목록 + 프로필 조회
 export function useGroupMembers(groupId: string | undefined, maxCount?: number, accessKey?: string) {
   const [members, setMembers] = useState<GroupMemberWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
+  const [attempt, setAttempt] = useState(0);
   const snapshotEpochRef = useRef(0);
-
+  const uid = auth.currentUser?.uid;
+  const scope = `${groupId ?? ""}:${accessKey ?? ""}:${uid ?? ""}`;
+  const scopeRef = useRef(scope);
   useEffect(() => {
-    setMembers([]);
+    if (scopeRef.current !== scope || !groupId) { setMembers([]); scopeRef.current = scope; }
+    setError(null);
     if (!groupId) { setLoading(false); return; }
     setLoading(true);
     let cancelled = false;
-
     const q = maxCount
       ? query(collection(firestore, "groups", groupId, "members"), firestoreLimit(maxCount))
       : query(collection(firestore, "groups", groupId, "members"));
-
-    const unsub = onSnapshot(q, async (snap) => {
-      const snapshotEpoch = ++snapshotEpochRef.current;
-      const memberDocs = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-        profile: null as PublicUserProfile | null,
-      })) as GroupMemberWithProfile[];
-
-      // 프로필 병렬 조회
-      const profilePromises = memberDocs.map(async (m) => {
-        m.profile = await getPublicUserProfile(m.id);
-        return m;
-      });
-
-      const resolved = await Promise.all(profilePromises);
-      if (!cancelled && snapshotEpoch === snapshotEpochRef.current) {
-        setMembers(resolved);
-        setLoading(false);
+    const unsub = onSnapshot(q, { includeMetadataChanges: true }, async snap => {
+      const epoch = ++snapshotEpochRef.current;
+      if (snap.metadata?.fromCache === true && snap.docs.length === 0) {
+        if (!cancelled) { setError(new Error("Club members could not be confirmed with the server")); setLoading(false); }
+        return;
       }
-    }, () => { if (!cancelled) setLoading(false); });
-
+      const rows = await Promise.all(snap.docs.map(async memberDoc => {
+        const member = { id: memberDoc.id, ...memberDoc.data(), profile: null as PublicUserProfile | null } as GroupMemberWithProfile;
+        try { member.profile = await getPublicUserProfile(member.id); }
+        catch (reason) { logClientError("useGroupMembers.profile", reason, {groupId,userId:member.id}); }
+        return member;
+      }));
+      if (cancelled || epoch !== snapshotEpochRef.current) return;
+      setMembers(rows);
+      setError(snap.metadata?.fromCache === true ? new Error("Club members could not be confirmed with the server") : null);
+      setLoading(false);
+    }, reason => {
+      if (cancelled) return;
+      snapshotEpochRef.current += 1;
+      logClientError("useGroupMembers.snapshot", reason, {groupId});
+      setError(reason); setLoading(false);
+    });
     return () => { cancelled = true; unsub(); };
-  }, [groupId, maxCount, accessKey]);
-
-  return { members, loading };
+  }, [groupId, maxCount, accessKey, uid, scope, attempt]);
+  return { members, loading, error, retry: () => setAttempt(value => value + 1) };
 }
 
 // 내 그룹 목록: 빠른 조회 인덱스, 사용자 현재 그룹, creator 관계를 함께 조회한다.
@@ -139,8 +168,10 @@ export function useMyGroups(userId: string | undefined) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const ownerRef = useRef(userId);
 
   useEffect(() => {
+    if (ownerRef.current !== userId) { setGroups([]); ownerRef.current = userId; }
     if (!userId) {
       setGroups([]);
       setError(null);
@@ -159,6 +190,9 @@ export function useMyGroups(userId: string | undefined) {
       ]);
       if (cancelled) return;
 
+      let cacheError: Error | null = [indexResult, currentGroupResult, creatorResult].some(
+        result => result.status === "fulfilled" && result.value.metadata?.fromCache === true,
+      ) ? new Error("Club list could not be confirmed with the server") : null;
       const partialFailures: Array<{ source: string; reason: unknown }> = [];
       if (indexResult.status === "rejected") partialFailures.push({ source: "index", reason: indexResult.reason });
       if (currentGroupResult.status === "rejected") partialFailures.push({ source: "currentGroup", reason: currentGroupResult.reason });
@@ -200,6 +234,7 @@ export function useMyGroups(userId: string | undefined) {
             partialFailures.push({ source: "discoveredChunk", reason: result.reason });
             return;
           }
+          if (result.value.metadata?.fromCache === true) cacheError ??= new Error("Club list could not be confirmed with the server");
           result.value.docs.forEach((groupDoc) => {
             const data = groupDoc.data();
             if (data.isActive !== false) groupsById.set(groupDoc.id, { id: groupDoc.id, ...data } as Group);
@@ -207,6 +242,7 @@ export function useMyGroups(userId: string | undefined) {
         });
       }
 
+      if (cacheError && groupsById.size === 0) throw cacheError;
       if (!discoveredGroupsLoaded && groupsById.size === 0) {
         throw discoveryError ?? (indexResult.status === "rejected"
           ? indexResult.reason
@@ -220,7 +256,10 @@ export function useMyGroups(userId: string | undefined) {
       partialFailures.forEach(({ source, reason }) => {
         logClientError("useMyGroups.partial", reason, { userId, source });
       });
-      setGroups([...groupsById.values()]);
+      setError(cacheError);
+      setGroups(previous => cacheError
+        ? [...new Map([...previous, ...groupsById.values()].map(group => [group.id, group])).values()]
+        : [...groupsById.values()]);
       setLoading(false);
     };
 
@@ -228,7 +267,6 @@ export function useMyGroups(userId: string | undefined) {
       if (cancelled) return;
       logClientError("useMyGroups.load", err, { userId });
       setError(err);
-      setGroups([]);
       setLoading(false);
     });
     return () => { cancelled = true; };
@@ -244,8 +282,11 @@ export function usePublicGroups(options: { searchText?: string; discipline?: "AL
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const queryKey = JSON.stringify([city, discipline, enabled, maxCount, searchText]);
+  const queryKeyRef = useRef(queryKey);
 
   useEffect(() => {
+    if (queryKeyRef.current !== queryKey) { setGroups([]); queryKeyRef.current = queryKey; }
     if (!enabled) {
       setGroups([]);
       setLoading(false);
@@ -269,18 +310,23 @@ export function usePublicGroups(options: { searchText?: string; discipline?: "AL
     const q = query(collection(firestore, "groups"), ...constraints);
     getDocs(q).then((snap) => {
       if (cancelled) return;
-      setGroups(snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }) as Group));
+      const fromCache = snap.metadata?.fromCache === true;
+      const cacheError = fromCache ? new Error("Public clubs could not be confirmed with the server") : null;
+      if (cacheError && snap.docs.length === 0) throw cacheError;
+      setError(cacheError);
+      const nextGroups = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Group);
+      setGroups(previous => fromCache
+        ? [...new Map([...previous, ...nextGroups].map(group => [group.id, group])).values()]
+        : nextGroups);
       setLoading(false);
     }).catch((err) => {
       if (cancelled) return;
       logClientError("usePublicGroups.load", err, {});
       setError(err);
-      setGroups([]);
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [city, discipline, enabled, maxCount, reloadKey, searchText]);
+  }, [city, discipline, enabled, maxCount, reloadKey, searchText, queryKey]);
 
   return { groups, loading, error, retry: () => setReloadKey((key) => key + 1) };
 }

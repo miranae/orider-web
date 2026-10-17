@@ -105,10 +105,32 @@ describe("PaneEquipment 데이터 페이지", () => {
     expect(screen.getAllByRole("button", { name: "삭제" }).length).toBeGreaterThan(0);
   });
 
+  it("many bike profiles keep the active preview small and all profiles reachable on expansion", async () => {
+    mocks.profiles = Array.from({ length: 24 }, (_, index) => ({
+      ...profile(`bike-${index}`, `Bike ${index}`), updatedAt: index,
+    }));
+    render(<MemoryRouter><PaneEquipment part="gear" /></MemoryRouter>);
+    expect(screen.getAllByRole("button", { name: "이름 변경" })).toHaveLength(3);
+    const preview = screen.getAllByTestId("P4-1-1").filter((element) => element.tagName === "DIV");
+    expect(preview).toHaveLength(3);
+    expect(preview[0]).toHaveTextContent("Bike 0");
+    expect(preview[1]).toHaveTextContent("Bike 23");
+    const summary = screen.getByRole("button", { name: "다른 자전거 프로필 21개" });
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(summary);
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getAllByTestId("P4-1-1").filter((element) => element.tagName === "DIV")).toHaveLength(24);
+    expect(screen.getAllByRole("button", { name: "이름 변경" })).toHaveLength(24);
+    await userEvent.click(summary);
+    expect(screen.getAllByRole("button", { name: "이름 변경" })).toHaveLength(3);
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
   it("자전거 행에서 데이터 페이지를 연다", async () => {
     renderPane();
 
-    await userEvent.selectOptions(screen.getAllByRole("combobox")[0], "gravel");
+    await userEvent.click(screen.getAllByRole("combobox")[0]!);
+    await userEvent.click(screen.getByRole("option", { name: "그래블" }));
     await userEvent.click(screen.getByTestId("bike-data-pages-gravel"));
 
     await waitFor(() => expect(screen.getByTestId("layout-editor")).toBeTruthy());

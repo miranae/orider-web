@@ -17,7 +17,7 @@ interface ComparisonChartProps {
   labels: string[];
   datasets: {
     label: string;
-    data: number[];
+    data: (number | null)[];
     color: string;
   }[];
   height?: number;

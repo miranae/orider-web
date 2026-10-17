@@ -1,5 +1,10 @@
 /** Shared names follow activity.analysis.glossary and metricGlossary; definitions live in termGlossary. */
 export const TERM_GLOSSARY = [
+  { id: "di2", aliases: ["Di2", "DI2"] },
+  { id: "axs", aliases: ["AXS"] },
+  { id: "virtualPower", aliases: ["가상 파워", "가상파워", "Virtual Power", "Virtual power", "virtual power"] },
+  { id: "timeFormat", aliases: ["HH:MM", "HH:mm"] },
+  { id: "liveTracking", aliases: ["LIVE", "실시간 위치 공유", "Live tracking", "live tracking"] },
   { id: "trainingLoad", aliases: ["주간 훈련 부하", "훈련 부하", "훈련부하", "Weekly training load", "weekly training load", "Training load", "training load", "Training Load", "Weekly Training Load"] },
   { id: "countdown", aliases: ["D-day", "D-Day", "목표일까지 남은 날", "Days until the target date", "days until the target date", "Days Until The Target Date"] },
   { id: "ftp", aliases: ["FTP", "기능적 역치 파워", "Functional threshold power", "functional threshold power", "Functional Threshold Power"] },
@@ -31,7 +36,7 @@ export const TERM_GLOSSARY = [
   { id: "taper", aliases: ["테이퍼링", "테이퍼", "Taper", "taper", "대회 전 훈련량 조절"] },
   { id: "lactateThreshold", aliases: ["젖산 역치", "젖산역치", "역치", "Lactate threshold", "lactate threshold", "Lactate Threshold"] },
   { id: "decoupling", aliases: ["디커플링", "Decoupling", "decoupling", "출력과 심박의 분리", "Aerobic decoupling", "aerobic decoupling", "Aerobic Decoupling"] },
-  { id: "pdc", aliases: ["PDC", "파워 커브", "파워커브", "Power curve", "시간별 최대 파워 곡선", "Power-duration curve", "power-duration curve", "Power-Duration Curve", "Power Curve"] },
+  { id: "pdc", aliases: ["파워 지속곡선", "PDC", "파워 커브", "파워커브", "Power curve", "시간별 최대 파워 곡선", "Power-duration curve", "power-duration curve", "Power-Duration Curve", "Power Curve"] },
   { id: "pmc", aliases: ["PMC", "훈련 부하 추이 차트", "Performance management chart", "performance management chart", "Performance Management Chart"] },
   { id: "pr", aliases: ["PR", "PB", "개인 최고 기록", "Personal record / personal best", "personal record / personal best", "Personal Record / Personal Best", "Personal record", "Personal best", "Personal Record", "Personal Best", "personal record", "personal best"] },
   { id: "kom", aliases: ["KOM", "세그먼트 남성 최고 기록", "King of the mountain", "king of the mountain", "King Of The Mountain"] },

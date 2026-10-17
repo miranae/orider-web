@@ -9,9 +9,10 @@ import {
   getDocs,
   getDoc,
   getCountFromServer,
-  addDoc,
   doc,
   updateDoc,
+  setDoc,
+  addDoc,
   type QueryConstraint,
   type DocumentSnapshot,
 } from "firebase/firestore";
@@ -38,7 +39,7 @@ export function useBoardMeta() {
   useEffect(() => {
     getDoc(doc(firestore, "board_meta", "tags")).then(snap => {
       if (snap.exists()) setTags(snap.data().tags || []);
-    });
+    }).catch((err) => { logClientError("board:meta", err); });
   }, []);
 
   return { tags };
@@ -67,7 +68,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   const [refreshKey, setRefreshKey] = useState(0);
 
   // 페이지별 마지막 문서 스냅샷 캐시
-  const [pageLastDocs, setPageLastDocs] = useState<Map<number, DocumentSnapshot>>(new Map());
+  const pageLastDocs = useRef<{ key: string; docs: Map<number, DocumentSnapshot> }>({ key: "", docs: new Map() });
 
   // 총개수(count) 캐시 — 같은 필터(filterKey+로그인여부)면 effect 가 여러 번 돌아도(인증
   // 정착·리렌더 등) count 쿼리를 1회만 친다. count 는 page 와 무관(전체 개수)이라 필터별 1회로 충분.
@@ -78,32 +79,34 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
 
   // 필터 변경 시 1페이지로 리셋 (실제 값 변경만 감지, strict mode 안전)
   const filterKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, ownerOnly, uid]);
-  const prevFilterKey = useRef(filterKey);
+  const [loadedFilterKey, setLoadedFilterKey] = useState<string | null>(null);
   useEffect(() => {
-    if (prevFilterKey.current === filterKey) return;
-    prevFilterKey.current = filterKey;
-    setPage(1);
-    setPageLastDocs(new Map());
-  }, [filterKey]);
+    // URL이 필터와 페이지의 정본이다. 뒤로가기와 상세 화면 복귀도 같은 페이지를 읽는다.
+    setPage(initialPage);
+  }, [filterKey, initialPage]);
 
   useEffect(() => {
     let cancelled = false;
-    if (ownerOnly && !uid) { setPosts([]); setTotal(0); setTotalPages(1); setLoading(false); return; }
+    if (ownerOnly && !uid) { setPosts([]); setTotal(0); setTotalPages(1); setLoading(false); setLoadedFilterKey(filterKey); return; }
     const trimmed = ownerOnly ? "" : keyword?.trim() ?? "";
 
     if (!ownerOnly && (trimmed.length > 0 || boardType === 'archive')) {
       // Cloud Function 호출: 키워드 검색 또는 archive 조회
       setLoading(true);
+      setPosts([]);
       setError(null);
       const search = httpsCallable<
-        { keyword?: string; boardType: string; tag?: string; cursor?: number; page?: number; limitCount: number; excludeTags?: string[] },
+        { keyword?: string; boardType: string; tag?: string; cursor?: number; page?: number; limitCount: number; publicOnly?: boolean; excludeTags?: string[] },
         SearchResult
       >(functions, "searchBoardPosts");
 
-      const params: { keyword?: string; boardType: string; tag?: string; page?: number; limitCount: number; excludeTags?: string[] } = {
+      const params: { keyword?: string; boardType: string; tag?: string; page?: number; limitCount: number; publicOnly?: boolean; excludeTags?: string[] } = {
         boardType,
         tag,
-        limitCount: pageSize,
+        publicOnly: true,
+        // 일반 검색 서버는 page를 받지 않는다. 정렬된 앞부분을 요청해 페이지를 자른다.
+        // timestamp cursor는 고정글과 동일 시각 게시글 경계를 보존하지 못한다.
+        limitCount: boardType === 'archive' ? pageSize : page * pageSize,
       };
       // 검색은 Firestore 쿼리가 아니라 CF 를 타므로 제외 태그를 그대로 넘긴다(orider-g1-web#2086).
       // 그 배포 전까지는 서버가 이 필드를 무시하므로, BoardPage 가 총개수를 화면 기준으로 보정한다.
@@ -114,7 +117,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
       search(params)
         .then((result) => {
           if (cancelled) return;
-          setPosts(result.data.posts);
+          setPosts(boardType === 'archive' ? result.data.posts : result.data.posts.slice((page - 1) * pageSize, page * pageSize));
           setTotal(result.data.total);
           setTotalPages(Math.max(1, Math.ceil(result.data.total / pageSize)));
         })
@@ -124,7 +127,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
           setError(err as Error);
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) { setLoading(false); setLoadedFilterKey(filterKey); }
         });
 
       return () => { cancelled = true; };
@@ -155,6 +158,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
       baseConstraints.push(where("deletedAt", "==", null));
 
       setLoading(true);
+      setPosts([]);
       setError(null);
 
       const fetchPage = async () => {
@@ -189,7 +193,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
           if (page === 1) {
             pageConstraints.push(limit(pageSize));
           } else {
-            const lastDoc = pageLastDocs.get(page - 1);
+            const lastDoc = pageLastDocs.current.key === filterKey ? pageLastDocs.current.docs.get(page - 1) : undefined;
             if (lastDoc) {
               pageConstraints.push(startAfter(lastDoc), limit(pageSize));
             } else {
@@ -216,14 +220,15 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
 
           // 스냅샷 캐시 저장
           if (snap.docs.length > 0) {
-            setPageLastDocs(prev => new Map(prev).set(page, snap.docs[snap.docs.length - 1]!));
+            if (pageLastDocs.current.key !== filterKey) pageLastDocs.current = { key: filterKey, docs: new Map() };
+            pageLastDocs.current.docs.set(page, snap.docs[snap.docs.length - 1]!);
           }
         } catch (err) {
           if (cancelled) return;
           logClientError("board:list", err, { boardType, tag, excludeTags: excludeKey, page });
           setError(err as Error);
         } finally {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) { setLoading(false); setLoadedFilterKey(filterKey); }
         }
       };
 
@@ -236,13 +241,15 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
     if (p >= 1 && p <= totalPages) setPage(p);
   };
 
-  return { posts, loading, error, total, page, totalPages, goToPage, refresh };
+  const currentScope = loadedFilterKey === filterKey;
+  return { posts: currentScope ? posts : [], loading: loading || !currentScope, error: currentScope ? error : null, total: currentScope ? total : 0, page, totalPages: currentScope ? totalPages : 1, goToPage, refresh };
 }
 
 export function useMyInquiryPosts(limitCount = 100) {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const [posts, setPosts] = useState<BoardPost[]>([]);
+  const [loadedUid, setLoadedUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -253,16 +260,22 @@ export function useMyInquiryPosts(limitCount = 100) {
     if (!uid) {
       setPosts([]);
       setLoading(false);
+      setError(null);
+      setLoadedUid(null);
       return;
     }
 
     let cancelled = false;
     setLoading(true);
+    setPosts([]);
     setError(null);
 
     getDocs(query(
       collection(firestore, "board_posts"),
       where("userId", "==", uid),
+      where("boardType", "==", "inquiry"),
+      where("deletedAt", "==", null),
+      orderBy("createdAt", "desc"),
       limit(limitCount),
     ))
       .then((snap) => {
@@ -279,13 +292,13 @@ export function useMyInquiryPosts(limitCount = 100) {
         setError(err as Error);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) { setLoading(false); setLoadedUid(uid); }
       });
 
     return () => { cancelled = true; };
   }, [limitCount, refreshKey, uid]);
 
-  return { posts, loading, error, refresh };
+  return { posts: uid === loadedUid ? posts : [], loading: loading || (uid !== null && uid !== loadedUid), error: uid === loadedUid ? error : null, refresh };
 }
 
 export function useReportBoardContent() {
@@ -328,7 +341,7 @@ export function useCreatePost() {
     imageUrls?: string[];
     feedbackType?: string | null;
     isPrivate?: boolean;
-  }): Promise<string> => {
+  }, postId?: string): Promise<string> => {
     if (!user) throw new Error(t("error.loginRequired"));
 
     setSubmitting(true);
@@ -356,6 +369,10 @@ export function useCreatePost() {
         deletedAt: null,
       };
 
+      if (postId) {
+        await setDoc(doc(firestore, "board_posts", postId), postData);
+        return postId;
+      }
       const docRef = await addDoc(collection(firestore, "board_posts"), postData);
       return docRef.id;
     } finally {

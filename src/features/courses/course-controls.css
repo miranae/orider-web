@@ -1,0 +1,25 @@
+/* Reviewed course controls only. Native range/file and chart targets keep their own interactions. */
+:is(.course-catalog, .course-detail-surface, .course-create-surface, .course-edit-surface) .ds-input:not(textarea):not([type="range"]):not([type="file"]),
+:is(.course-catalog, .course-detail-surface, .course-create-surface, .course-edit-surface) .ds-dropdown-select__trigger { height: var(--dim-button-height); min-height: var(--dim-button-height); box-sizing: border-box; }
+:is(.course-catalog, .course-detail-surface, .course-create-surface, .course-edit-surface) textarea.ds-input { min-height: calc(var(--dim-button-height) * 2); }
+:is(.course-catalog, .course-detail-surface, .course-create-surface, .course-edit-surface) .ds-btn { min-height: var(--dim-button-height); height: var(--dim-button-height); }
+.course-catalog-filters .ds-btn { min-width: var(--dim-button-height); }
+.course-catalog-search .ds-btn { height: var(--dim-button-height); min-height: var(--dim-button-height); }
+.course-catalog .course-search-action { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: var(--dim-button-height); padding: 0; }
+.course-catalog .course-search-input { padding-inline-start: calc(var(--dim-button-height) + var(--space-1)); }
+.course-builder-coordinates { align-items: end; }
+.course-builder-coordinates > .ds-field { margin: 0; }
+.course-builder-coordinates > .ds-btn { flex-shrink: 0; }
+.course-builder-coordinate-hints { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); color: var(--ink-2); font-size: var(--ft-body-size); }
+.course-builder-coordinate-hints p { margin: 0; }
+.course-list-card .course-list-title-button { min-height: var(--dim-button-height); height: auto; padding: 0; border: 0; background: none; justify-content: flex-start; white-space: normal; }
+.course-create-surface .grid .ds-btn { min-width: var(--dim-button-height); }
+
+.course-report-reason .ds-dropdown-select__trigger { min-height: var(--dim-button-height); height: var(--dim-button-height); }
+.course-create-surface .ds-btn[role="radio"] { height: auto; }
+.course-detail-surface .course-wp-btn.ds-btn { height: auto; justify-content: flex-start; }
+
+@media (max-width: 36rem) {
+  .course-create-surface .course-create-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; }
+  .course-create-surface .course-create-modes > .ds-btn { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+}

@@ -137,6 +137,21 @@ describe("ActivityPage", () => {
     expect(document.querySelector(".animate-pulse")).toBeInTheDocument();
   });
 
+  it("keeps conflicting running GAP out of overview interpretation and sidebar", async () => {
+    mockRoute.activityId = "run-conflicting-gap";
+    const activity = createMockActivity({ id: mockRoute.activityId, type: "Run", source: "orider", userId: "fixture-other-owner", summary: createMockSummary({ distance: 3000, ridingTimeMillis: 900000, elapsedTimeMillis: 950000, averageSpeed: 12 }) });
+    setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
+    setDocData(`activity_streams/${activity.id}`, { userId: activity.userId, json: JSON.stringify(createMockStreams({ userId: activity.userId })) });
+    setDocData(`activity_metrics_public/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, discipline: "run", distanceKm: 3, avgSpeedKph: 12, runMetrics: { gapAvgSec: 239, splitTimeStatus: "native_timer_mismatch" }, splits: [] });
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("tab", { name: "분석" }));
+    await screen.findByText("이동 시간 기준이 달라 구간 페이스를 확인할 수 없어요.");
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    await screen.findByTestId("route-map");
+    expect(screen.queryByText("3:59/km")).not.toBeInTheDocument();
+    expect(screen.getAllByText("5:00/km").length).toBeGreaterThan(0);
+  });
+
   it("links canonical running split selection to route and sampled elevation, then opens their visible overview", async () => {
     mockRoute.activityId = "run-spatial-selection";
     const activity = createMockActivity({ id: mockRoute.activityId, type: "Run", source: "orider", userId: "fixture-other-owner", summary: createMockSummary({ distance: 3000, ridingTimeMillis: 600000, elapsedTimeMillis: 600000, averageSpeed: 18 }) });
@@ -475,7 +490,7 @@ describe("ActivityPage", () => {
     expect(screen.getByText("Z7")).toBeInTheDocument();
     expect(await screen.findByTestId("public-analysis-charts")).toBeInTheDocument();
     expect(screen.getByText("49.0 / 51.0")).toBeInTheDocument();
-    expect(screen.getByText("추정 파워 기준")).toBeInTheDocument();
+    expect(screen.getByTestId("activity-overview-evidence")).toHaveTextContent("추정 파워 기준");
     expect(screen.queryByText("FTP 미설정")).not.toBeInTheDocument();
     expect(screen.queryByText("잘린 입력 기준")).not.toBeInTheDocument();
     expect(screen.queryByText("저장된 센서 요약")).not.toBeInTheDocument();

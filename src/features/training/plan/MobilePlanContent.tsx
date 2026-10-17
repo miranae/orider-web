@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, Moon } from "lucide-react";
 import InfoTip from "../../../components/InfoTip";
 import GlossaryText from "../../../components/common/GlossaryText";
 import SportIcon from "../../../components/common/SportIcon";
@@ -198,7 +199,7 @@ export default function MobilePlanContent({
         <Card data-testid="K4-5m-2" padding="compact" className="mobile-plan-next">
           <div className="mobile-plan-next-main">
             <div className="mobile-plan-next-copy">
-              <Text as="span" variant="eyebrow" style={{ color: "var(--lime)" }}>{nextWorkoutIdx === todayIdx ? t("mobile.todayNext") : t("mobile.weekNext")}</Text>
+              <Text as="span" variant="eyebrow" style={{ color: "var(--lime)" }}>{goalDate && kstDateString(nextWorkout.date) > kstDateString(goalDate.getTime()) ? t("scope.nextAfterGoal") : nextWorkoutIdx === todayIdx ? t("mobile.todayNext") : t("mobile.weekNext")}</Text>
               <strong><GlossaryText>{nextWorkoutLabel}</GlossaryText></strong>
               <span>{nextWorkoutIdx !== todayIdx && `${kstDateString(nextWorkout.date)} · `}{nextDuration > 0 && `${nextDuration} ${t("mobile.minutesUnit")}`}{effectivePlanTSS(nextWorkout) > 0 && <>{nextDuration > 0 && " · "}<GlossaryText>{`${effectivePlanTSS(nextWorkout)} TSS`}</GlossaryText></>}</span>
             </div>
@@ -212,10 +213,10 @@ export default function MobilePlanContent({
       {/* Week navigation */}
       <div data-testid="K4-5m-1" className="mobile-plan-week-navigation flex items-center justify-center" role="group" aria-label={t('mobile.weekHeading')} style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
         <button type="button" onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>◀</button>
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><ChevronLeft size={20} aria-hidden="true" /></button>
         <div style={{ textAlign: "center", minWidth: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{weekLabel}</div>
         <button type="button" onClick={onWeekNext} disabled={!onWeekNext || !canNextWeek} aria-label={t('mobile.nextWeek')}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>▶</button>
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><ChevronRight size={20} aria-hidden="true" /></button>
       </div>
 
       {/* Weekly summary */}
@@ -267,10 +268,10 @@ export default function MobilePlanContent({
         )}
       </div>
       {todayIdx > 0 && (
-        <button type="button" onClick={() => setShowPastDays(value => !value)} aria-expanded={showPastDays}
-          style={{ margin: "0 var(--space-4) var(--space-1)", minHeight: 36, padding: "0 var(--space-2)", textAlign: "left", border: "1px solid var(--line-soft)", borderRadius: "var(--r-sm)", background: "var(--bg-1)", color: "var(--ink-2)", fontSize: "var(--fs-sm)", cursor: "pointer" }}>
+        <Button type="button" variant="secondary" onClick={() => setShowPastDays(value => !value)} aria-expanded={showPastDays}
+          style={{ margin: "0 var(--space-4) var(--space-1)", minHeight: "var(--dim-button-height)", height: "var(--dim-button-height)", justifyContent: "flex-start" }}>
           {showPastDays ? t('mobile.hidePastDays') : t('mobile.showPastDays', { count: todayIdx })}
-        </button>
+        </Button>
       )}
       {days.map((day, i) => {
         if (todayIdx > 0 && i < todayIdx && !showPastDays && kstDateString(day.date) !== selectedDate) return null;
@@ -307,7 +308,7 @@ export default function MobilePlanContent({
                 </div>
                 <div style={{ flex: 1, padding: "var(--space-3) var(--space-2)", border: "1px dashed var(--line)", borderRadius: "var(--r-md)", display: "flex", alignItems: "center", gap: 'var(--space-2)',
                   background: isToday || dayStr === selectedDate ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent" }}>
-                  <span style={{ fontSize: "var(--fs-base)" }}>🌙</span>
+                  <Moon size={16} aria-hidden="true" />
                   <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-4)" }}>{t('mobile.restDay')}</span>
                 </div>
               </div>

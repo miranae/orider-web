@@ -1,5 +1,5 @@
 import * as activityAcceptance from "../utils/estimateTSS";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import AthletePage from "./AthletePage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { orderBy } from "firebase/firestore";
@@ -37,6 +37,19 @@ describe("AthletePage", () => {
     expect(acceptance.mock.calls.length).toBe(count);
     acceptance.mockRestore();
   });
+
+  it("bounds the own-profile overview to three summaries while preserving full-history totals and a log destination", async () => {
+    setCollectionDocs("activities", Array.from({length: 5}, (_, index) => ({id: `preview-${index}`, ...createMockActivity({
+      id: `preview-${index}`, userId: "athlete-1", description: `Overview activity ${index}`, startTime: Date.UTC(2026, 8, index + 1), endTime: Date.UTC(2026, 8, index + 1, 1),
+    })})));
+    renderWithProviders(<AthletePage />, {authenticated: true, user: {uid: "athlete-1"}});
+    await waitFor(() => expect(screen.getAllByTestId("athlete-recent-preview")).toHaveLength(3));
+    expect(screen.getByText("5회")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("활동 검색... (Enter)")).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("P0-2-1")).getByRole("link", {name: "전체보기"})).toHaveAttribute("href", "/ko/athlete/me/activities");
+    expect(screen.getAllByTestId("athlete-recent-preview")[0]).toHaveAttribute("href", "/ko/activity/preview-0");
+  });
+
   beforeEach(() => {
     const profile = createMockProfile({ nickname: "한강 라이더" });
     setDocData("users/athlete-1", { ...profile });
@@ -187,7 +200,7 @@ describe("AthletePage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("2회")).toBeInTheDocument();
-      expect(screen.getByText("1h 30m")).toBeInTheDocument();
+      expect(screen.getByText("1시간").parentElement).toHaveTextContent("1시간 30분");
     });
     expect(screen.queryByText("999회")).not.toBeInTheDocument();
     expect(screen.queryByText("100h 0m")).not.toBeInTheDocument();

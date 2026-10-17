@@ -4,6 +4,14 @@ import { describe, expect, it, vi } from 'vitest';
 import DateField from './DateField';
 
 describe('DateField keyboard and viewport behavior', () => {
+  it('uses a supplied SVG without changing the selected date', () => {
+    const onChange = vi.fn();
+    render(<DateField value="2026-01-31" onChange={onChange} presets={false} icon={<svg data-testid="date-svg" />} />);
+    expect(screen.getByTestId('date-svg')).toBeInTheDocument();
+    expect(screen.getByRole('button')).not.toHaveTextContent('📅');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('focuses the chosen day, moves through days and weeks across month boundaries, and selects only on Enter', async () => {
     const onChange = vi.fn();
     render(<DateField value="2026-01-31" onChange={onChange} presets={false} />);

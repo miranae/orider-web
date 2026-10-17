@@ -1,3 +1,5 @@
+import { decodeTrack } from "../../../utils/polyline";
+
 export interface CalendarEvent {
   id: string;
   startTime: number;
@@ -27,8 +29,8 @@ export function buildMonthCells<T extends CalendarEvent>(events: T[], month: Dat
   });
 }
 
-export function firstPolylinePoint(polyline: string | undefined, decode: (value: string) => [number, number][]): [number, number] | null {
+export function firstPolylinePoint(polyline: string | undefined, decode: (value: string) => [number, number][] = decodeTrack): [number, number] | null {
   if (!polyline) return null;
   const point = decode(polyline)[0];
-  return point && Number.isFinite(point[0]) && Number.isFinite(point[1]) ? point : null;
+  return point && Number.isFinite(point[0]) && Number.isFinite(point[1]) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180 ? point : null;
 }

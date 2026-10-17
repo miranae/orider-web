@@ -1,0 +1,11 @@
+.recap-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-5); }
+.recap-disclosure { border: 1px solid var(--line-soft); background: var(--bg-1); border-radius: var(--r-lg); margin-block: var(--space-4); padding: var(--space-4); }
+.recap-disclosure > summary { min-height: var(--dim-button-height); display: list-item; align-content: center; color: var(--ink-1); font-size: var(--fs-md); font-weight: 600; cursor: pointer; }
+.recap-disclosure[open] > summary { margin-bottom: var(--space-3); }
+
+.recap-lifetime-badges { display: grid; grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr)); gap: var(--space-2); }
+
+@media (max-width: 36rem) {
+  .recap-disclosure { padding: var(--space-3); }
+  .recap-disclosure .ds-card { padding: 0 !important; border: 0; background: transparent; box-shadow: none; }
+}

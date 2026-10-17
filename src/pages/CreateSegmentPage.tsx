@@ -1,3 +1,7 @@
+import { Mountain, Zap, Route, type LucideIcon } from "lucide-react";
+import SegmentSurface from "../features/segments/SegmentSurface";
+import SegmentClimbCategory from "../features/segments/SegmentClimbCategory";
+import GlossaryText from "../components/common/GlossaryText";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -11,9 +15,9 @@ import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { useSegmentCreator } from "../hooks/useSegmentCreator";
 import RouteMap from "../components/RouteMap";
-import ElevationChart from "../components/ElevationChart";
+import SegmentElevationInspector from "../features/segments/SegmentElevationInspector";
 import PermissionGate from "../components/redesign/states/PermissionGate";
-import { Alert, Card, buttonClass } from "../theme/components";
+import { Alert, Card, buttonClass, Input, Textarea } from "../theme/components";
 import { deriveSegmentCategory, type SegmentCategory } from "../features/segmentCreation/category";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 import { readClimbPromotionRange, resolveClimbPromotionIndices } from "../features/segmentCreation/climbPromotion";
@@ -96,52 +100,33 @@ function computeStats(
 
 // CLIMB_LABELS defined in component to use translations
 
-const CLIMB_COLORS: Record<number, string> = {
-  5: "bg-red-600 text-[var(--ink-0)]",
-  4: "bg-red-500 text-[var(--ink-0)]",
-  3: "bg-[var(--amber)] text-[var(--bg-0)]",
-  2: "bg-yellow-500 text-[var(--ink-0)]",
-  1: "bg-green-500 text-[var(--ink-0)]",
-};
-
-
 // ── Sub-components ───────────────────────────────────────────────────
-
-function ClimbBadge({ category, climbLabels }: { category: number; climbLabels: Record<number, string> }) {
-  if (category === 0) return null;
-  const color = CLIMB_COLORS[category] ?? "bg-[var(--bg-2)] text-[var(--ink-1)]";
-  return (
-    <span className={`px-2.5 py-1 text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)] ${color}`}>
-      {climbLabels[category]}
-    </span>
-  );
-}
 
 function StatsPanel({ stats, t }: { stats: ReturnType<typeof computeStats>; t: any }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-6">
       <div className="border-l-2 border-[var(--lime)] pl-3">
-        <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] uppercase tracking-wide">{t("distance")}</div>
+        <div className="text-[length:var(--ft-body-size)] text-[var(--ink-2)]"><GlossaryText>{t("distance")}</GlossaryText></div>
         <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
-          {(stats.distance / 1000).toFixed(2)} <span className="text-[length:var(--fs-sm)] font-normal text-[var(--ink-2)]">km</span>
+          {(stats.distance / 1000).toFixed(2)} <span className="text-[length:var(--ft-body-size)] font-normal text-[var(--ink-2)]">km</span>
         </div>
       </div>
       <div className="border-l-2 border-[var(--lime)] pl-3">
-        <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] uppercase tracking-wide">{t("elevationGain")}</div>
+        <div className="text-[length:var(--ft-body-size)] text-[var(--ink-2)]"><GlossaryText>{t("elevationGain")}</GlossaryText></div>
         <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
-          {stats.elevationGain} <span className="text-[length:var(--fs-sm)] font-normal text-[var(--ink-2)]">m</span>
+          {stats.elevationGain} <span className="text-[length:var(--ft-body-size)] font-normal text-[var(--ink-2)]">m</span>
         </div>
       </div>
       <div className="border-l-2 border-[var(--line)] pl-3">
-        <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] uppercase tracking-wide">{t("averageGrade")}</div>
+        <div className="text-[length:var(--ft-body-size)] text-[var(--ink-2)]"><GlossaryText>{t("averageGrade")}</GlossaryText></div>
         <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
-          {stats.avgGrade} <span className="text-[length:var(--fs-sm)] font-normal text-[var(--ink-2)]">%</span>
+          {stats.avgGrade} <span className="text-[length:var(--ft-body-size)] font-normal text-[var(--ink-2)]">%</span>
         </div>
       </div>
       <div className="border-l-2 border-[var(--line)] pl-3">
-        <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] uppercase tracking-wide">{t("maxGrade")}</div>
+        <div className="text-[length:var(--ft-body-size)] text-[var(--ink-2)]"><GlossaryText>{t("maxGrade")}</GlossaryText></div>
         <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
-          {stats.maxGrade} <span className="text-[length:var(--fs-sm)] font-normal text-[var(--ink-2)]">%</span>
+          {stats.maxGrade} <span className="text-[length:var(--ft-body-size)] font-normal text-[var(--ink-2)]">%</span>
         </div>
       </div>
     </div>
@@ -151,8 +136,11 @@ function StatsPanel({ stats, t }: { stats: ReturnType<typeof computeStats>; t: a
 // ── Main Component ───────────────────────────────────────────────────
 
 export default function CreateSegmentPage() {
+  return <SegmentSurface><CreateSegmentContent /></SegmentSurface>;
+}
+
+function CreateSegmentContent() {
   const { t } = useTranslation("segment");
-  const { t: tActivity } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -162,14 +150,10 @@ export default function CreateSegmentPage() {
   const isClimbPromotion = searchParams.get("category") === "climb" && climbPromotionRange != null;
   const { createProposal, loading: submitting, error: submitError } = useSegmentCreator();
 
-  const CLIMB_LABELS: Record<number, string> = {
-    5: "HC", 4: "Cat 1", 3: "Cat 2", 2: "Cat 3", 1: "Cat 4", 0: t("climb.none"),
-  };
-
-  const CATEGORY_INFO: Record<Category, { icon: string; label: string; desc: string }> = {
-    climb: { icon: "⛰", label: t("form.categoryClimb"), desc: t("form.categoryClimbDesc") },
-    sprint: { icon: "⚡", label: t("form.categorySprint"), desc: t("form.categorySprintDesc") },
-    flat: { icon: "🛣", label: t("form.categoryFlat"), desc: t("form.categoryFlatDesc") },
+  const CATEGORY_INFO: Record<Category, { icon: LucideIcon; label: string; desc: string }> = {
+    climb: { icon: Mountain, label: t("form.categoryClimb"), desc: t("form.categoryClimbDesc") },
+    sprint: { icon: Zap, label: t("form.categorySprint"), desc: t("form.categorySprintDesc") },
+    flat: { icon: Route, label: t("form.categoryFlat"), desc: t("form.categoryFlatDesc") },
   };
 
   // Activity
@@ -234,7 +218,7 @@ export default function CreateSegmentPage() {
         const d = actDoc.data();
         setSelectedActivity({
           id: actDoc.id,
-          description: d.description ?? tActivity("noName"),
+          description: typeof d.description === "string" && d.description.trim() ? d.description.trim() : t("activityPicker.untitled"),
           startTime: d.startTime ?? d.createdAt ?? Date.now(),
           summary: d.summary ?? { distance: 0, ridingTimeMillis: 0, elevationGain: 0 },
           thumbnailTrack: d.thumbnailTrack ?? "",
@@ -278,7 +262,7 @@ export default function CreateSegmentPage() {
     } finally {
       setLoadingStreams(false);
     }
-  }, [climbPromotionRange, isClimbPromotion, t, tActivity]);
+  }, [climbPromotionRange, isClimbPromotion, t]);
 
   useEffect(() => {
     if (!user || !activityId) return;
@@ -306,7 +290,7 @@ export default function CreateSegmentPage() {
           const d = activityDoc.data();
           return {
             id: activityDoc.id,
-            description: d.description ?? tActivity("noName"),
+            description: typeof d.description === "string" && d.description.trim() ? d.description.trim() : t("activityPicker.untitled"),
             startTime: d.startTime ?? d.createdAt ?? Date.now(),
             summary: d.summary ?? { distance: 0, ridingTimeMillis: 0, elevationGain: 0 },
             thumbnailTrack: d.thumbnailTrack ?? "",
@@ -320,7 +304,7 @@ export default function CreateSegmentPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [activityId, t, tActivity, user]);
+  }, [activityId, t, user]);
 
   // ── Computed ──
   const lowIdx = Math.min(rangeStart, rangeEnd);
@@ -454,7 +438,7 @@ export default function CreateSegmentPage() {
       <div className="space-y-4">
         <div>
           <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("createTitle")}</h1>
-          <p className="text-[length:var(--fs-sm)] mt-1" style={{ color: "var(--ink-3)" }}>
+          <p className="text-[length:var(--ft-body-size)] mt-1" style={{ color: "var(--ink-3)" }}>
             {t("activityPicker.description")}
           </p>
         </div>
@@ -462,20 +446,20 @@ export default function CreateSegmentPage() {
         {loadingActivityChoices && (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="w-8 h-8 border-4 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
-            <p className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("activityPicker.loading")}</p>
+            <p className="text-[length:var(--ft-body-size)] text-[var(--ink-2)]">{t("activityPicker.loading")}</p>
           </div>
         )}
 
         {!loadingActivityChoices && activityChoiceError && (
           <Card padding="none" style={{ padding: "var(--space-5)", textAlign: "center" }}>
-            <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)" }}>{activityChoiceError}</p>
+            <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--rose)" }}>{activityChoiceError}</p>
           </Card>
         )}
 
         {!loadingActivityChoices && !activityChoiceError && activityChoices.length === 0 && (
           <Card padding="none" style={{ padding: "var(--space-8)", textAlign: "center" }}>
             <p className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("activityPicker.emptyTitle")}</p>
-            <p className="text-[length:var(--fs-sm)] mt-2" style={{ color: "var(--ink-3)" }}>{t("activityPicker.emptyDescription")}</p>
+            <p className="text-[length:var(--ft-body-size)] mt-2" style={{ color: "var(--ink-3)" }}>{t("activityPicker.emptyDescription")}</p>
             <div className="flex flex-wrap justify-center mt-5" style={{ gap: "var(--space-2)" }}>
               <Link to="/athlete/me/activities" className={buttonClass({ variant: "primary", size: "sm" })}>
                 {t("activityPicker.uploadAction")}
@@ -497,10 +481,10 @@ export default function CreateSegmentPage() {
                     className="block"
                     style={{ padding: "var(--space-4)", color: "inherit" }}
                   >
-                    <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>
+                    <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>
                       {activity.description}
                     </div>
-                    <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: "var(--ink-3)" }}>
+                    <div className="text-[length:var(--ft-body-size)] mt-1" style={{ color: "var(--ink-3)" }}>
                       {formatActivityMeta(activity)}
                     </div>
                   </Link>
@@ -527,8 +511,8 @@ export default function CreateSegmentPage() {
             </span>
           </div>
           <h2 className="text-[length:var(--fs-xl)] font-bold mb-2">{t("creation.success")}</h2>
-          <p className="text-[var(--ink-2)] text-[length:var(--fs-sm)] mb-1">{t("creation.successDesc")}</p>
-          <p className="text-[var(--ink-3)] text-[length:var(--fs-xs)] mb-6">{t("creation.successNote")}</p>
+          <p className="text-[var(--ink-2)] text-[length:var(--ft-body-size)] mb-1">{t("creation.successDesc")}</p>
+          <p className="text-[var(--ink-3)] text-[length:var(--ft-body-size)] mb-6">{t("creation.successNote")}</p>
           <div className="flex gap-3 justify-center">
             <Link
               to={`/segment/${createdSegmentId}`}
@@ -538,7 +522,7 @@ export default function CreateSegmentPage() {
             </Link>
             <button
               onClick={() => navigate("/athlete/me")}
-              className="px-6 py-2.5 bg-[var(--bg-2)] text-[var(--ink-1)] font-medium rounded-[var(--r-lg)] hover:bg-[var(--bg-3)] transition-colors"
+              className={buttonClass({ variant: "ghost", className: "px-6 py-2.5 bg-[var(--bg-2)] text-[var(--ink-1)] font-medium rounded-[var(--r-lg)] hover:bg-[var(--bg-3)] transition-colors" })}
             >
               {t("button.goBack")}
             </button>
@@ -556,14 +540,14 @@ export default function CreateSegmentPage() {
         <div>
           <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("createTitle")}</h1>
           {selectedActivity && (
-            <p className="text-[var(--ink-2)] text-[length:var(--fs-sm)] mt-1">
+            <p className="text-[var(--ink-2)] text-[length:var(--ft-body-size)] mt-1">
               {selectedActivity.description} · {new Date(selectedActivity.startTime).toLocaleDateString(localeTag())}
             </p>
           )}
         </div>
         <button
           onClick={leavePage}
-          className="text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors"
+          className={buttonClass({ variant: "ghost", className: "text-[length:var(--ft-body-size)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors" })}
         >
           {t("button.cancel")}
         </button>
@@ -573,7 +557,7 @@ export default function CreateSegmentPage() {
       {loadingStreams && (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <div className="w-8 h-8 border-4 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("loading.segments")}</p>
+          <p className="text-[length:var(--ft-body-size)] text-[var(--ink-2)]">{t("loading.segments")}</p>
         </div>
       )}
 
@@ -583,7 +567,7 @@ export default function CreateSegmentPage() {
           <Alert variant="danger">{streamError}</Alert>
           <button
             onClick={leavePage}
-            className="px-4 py-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors"
+            className={buttonClass({ variant: "ghost", className: "px-4 py-2 text-[length:var(--ft-body-size)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors" })}
           >
             &larr; {t("button.goBack")}
           </button>
@@ -597,7 +581,7 @@ export default function CreateSegmentPage() {
           {(streams.latlng?.length ?? 0) > 0 && (
             <RouteMap
               latlng={streams.latlng!}
-              height="h-[32rem]"
+              height="h-[calc(var(--space-8)*6)] md:h-[32rem]"
               interactive
               rounded
               highlightRange={{ startIndex: rangeStart, endIndex: rangeEnd }}
@@ -607,7 +591,7 @@ export default function CreateSegmentPage() {
           )}
           {/* Direction indicator */}
           {reversed && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--lime)]/10 border border-[var(--lime)]/30 rounded-[var(--r-lg)] text-[length:var(--fs-xs)] text-[var(--lime)]">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--lime)]/10 border border-[var(--lime)]/30 rounded-[var(--r-lg)] text-[length:var(--ft-body-size)] text-[var(--lime)]">
               <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
               </svg>
@@ -618,16 +602,16 @@ export default function CreateSegmentPage() {
           {/* Elevation chart */}
           {elevationData.length > 0 && (
             <Card padding="none" className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] font-medium">
-                  {t("creation.instructionDrag")}<kbd className="px-1 py-0.5 bg-[var(--bg-2)] rounded-[var(--r-sm)] text-[length:var(--fs-xs)]">&larr;&rarr;</kbd>{t("creation.instructionArrows")}<kbd className="px-1 py-0.5 bg-[var(--bg-2)] rounded-[var(--r-sm)] text-[length:var(--fs-xs)]">{t("creation.instructionShift")}&larr;&rarr;</kbd>{t("creation.instructionEnd")}<kbd className="px-1 py-0.5 bg-[var(--bg-2)] rounded-[var(--r-sm)] text-[length:var(--fs-xs)]">{t("creation.instructionCtrl")}</kbd>{t("creation.instructionFine")}
+              <div className="segment-create-chart-header mb-2">
+                <div className="text-[length:var(--ft-body-size)] text-[var(--ink-2)] font-medium">
+                  {t("creation.instructionDrag")}<kbd className="px-1 py-0.5 bg-[var(--bg-2)] rounded-[var(--r-sm)] text-[length:var(--ft-body-size)]">&larr;&rarr;</kbd>{t("creation.instructionArrows")}<kbd className="px-1 py-0.5 bg-[var(--bg-2)] rounded-[var(--r-sm)] text-[length:var(--ft-body-size)]">{t("creation.instructionShift")}&larr;&rarr;</kbd>{t("creation.instructionEnd")}<kbd className="px-1 py-0.5 bg-[var(--bg-2)] rounded-[var(--r-sm)] text-[length:var(--ft-body-size)]">{t("creation.instructionCtrl")}</kbd>{t("creation.instructionFine")}
                 </div>
-                <div className="flex items-center gap-3 text-[length:var(--fs-xs)] font-mono text-[var(--ink-2)]">
+                <div className="flex flex-wrap items-center gap-3 text-[length:var(--ft-body-size)] font-mono text-[var(--ink-2)]">
                   <span><span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1" />{startKm.toFixed(2)} km</span>
                   <span><span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />{endKm.toFixed(2)} km</span>
                 </div>
               </div>
-              <ElevationChart
+              <SegmentElevationInspector
                 data={elevationData}
                 height={200}
                 rangeMode
@@ -641,7 +625,7 @@ export default function CreateSegmentPage() {
                   const value = point === "start" ? rangeStart : rangeEnd;
                   return (
                     <div key={point} className="flex items-center justify-between rounded-[var(--r-md)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line-soft)", padding: "var(--space-2)" }}>
-                      <span className="text-[length:var(--fs-xs)] font-medium" style={{ color: "var(--ink-2)" }}>{label}</span>
+                      <span className="text-[length:var(--ft-body-size)] font-medium" style={{ color: "var(--ink-2)" }}>{label}</span>
                       <div className="flex items-center" style={{ gap: "var(--space-1)" }}>
                         <button
                           type="button"
@@ -652,7 +636,7 @@ export default function CreateSegmentPage() {
                         >
                           -
                         </button>
-                        <span className="text-[length:var(--fs-xs)] tabular-nums" style={{ color: "var(--ink-3)", minWidth: "3rem", textAlign: "center" }}>
+                        <span className="text-[length:var(--ft-body-size)] tabular-nums" style={{ color: "var(--ink-3)", minWidth: "3rem", textAlign: "center" }}>
                           {value}
                         </span>
                         <button
@@ -670,7 +654,7 @@ export default function CreateSegmentPage() {
                 })}
               </div>
               <div className="flex items-center justify-end mt-2">
-                <div className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">
+                <div className="text-[length:var(--ft-body-size)] text-[var(--ink-3)]">
                   {t("creation.fullDistance", { total: totalKm.toFixed(1), selected: selectedKm.toFixed(2) })}
                 </div>
               </div>
@@ -683,59 +667,60 @@ export default function CreateSegmentPage() {
             <Card padding="none" className="lg:flex-1 p-4 space-y-4">
               {/* Name */}
               <div>
-                <label className="block text-[length:var(--fs-sm)] font-medium text-[var(--ink-1)] mb-1">
+                <label htmlFor="segment-form-name" className="block text-[length:var(--ft-body-size)] font-medium text-[var(--ink-1)] mb-1">
                   {t("form.segmentName")} <span className="text-[var(--color-error)]">{t("form.nameRequired")}</span>
                 </label>
-                <input
+                <Input id="segment-form-name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={t("form.namePlaceholder")}
                   maxLength={50}
-                  className="w-full px-3 py-2 bg-[var(--bg-2)] border border-[var(--line)] rounded-[var(--r-lg)] text-[length:var(--fs-sm)] text-[var(--ink-1)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent"
+                  className="w-full"
                 />
-                <div className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mt-1">{t("form.nameLength", { current: name.length })}</div>
+                <div className="text-[length:var(--ft-body-size)] text-[var(--ink-3)] mt-1">{t("form.nameLength", { current: name.length })}</div>
               </div>
 
               {/* Description */}
               <div>
-                <label className="block text-[length:var(--fs-sm)] font-medium text-[var(--ink-1)] mb-1">
+                <label htmlFor="segment-form-description" className="block text-[length:var(--ft-body-size)] font-medium text-[var(--ink-1)] mb-1">
                   {t("form.description")}
                 </label>
-                <textarea
+                <Textarea id="segment-form-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={t("form.descriptionPlaceholder")}
                   maxLength={200}
                   rows={2}
-                  className="w-full px-3 py-2 bg-[var(--bg-2)] border border-[var(--line)] rounded-[var(--r-lg)] text-[length:var(--fs-sm)] text-[var(--ink-1)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent resize-none"
+                  className="w-full"
                 />
               </div>
 
               {/* Category */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="segment-create-categories grid gap-2">
                 {(["climb", "sprint", "flat"] as Category[]).map((cat) => {
                   const info = CATEGORY_INFO[cat];
                   const isSelected = category === cat;
                   return (
                     <button
                       key={cat}
+                      aria-pressed={isSelected}
                       onClick={() => {
                         categoryTouchedRef.current = true;
                         setCategory(cat);
                       }}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-[var(--r-lg)] border-2 transition-all text-left ${
+                      className={buttonClass({ variant: "ghost", className: `flex items-center gap-2 px-3 py-2 rounded-[var(--r-lg)] border-2 transition-all text-left ${
                         isSelected
                           ? "border-[var(--lime)] bg-[var(--lime)]/10"
                           : "border-[var(--line)] bg-[var(--bg-2)] hover:border-[var(--line-soft)]"
-                      }`}
+                      }` })}
                     >
-                      <span className="text-[length:var(--fs-lg)]">{info.icon}</span>
+                      <info.icon size={20} aria-hidden="true" className="shrink-0" />
                       <div>
-                        <div className={`text-[length:var(--fs-sm)] font-medium ${isSelected ? "text-[var(--lime)]" : "text-[var(--ink-1)]"}`}>
+                        <div className={`text-[length:var(--ft-body-size)] font-medium ${isSelected ? "text-[var(--lime)]" : "text-[var(--ink-1)]"}`}>
                           {info.label}
                         </div>
-                        <div className="text-[length:var(--fs-xs)] text-[var(--ink-3)] hidden sm:block">{info.desc}</div>
+                        <div className="text-[length:var(--ft-body-size)] text-[var(--ink-3)] hidden sm:block">{info.desc}</div>
                       </div>
                     </button>
                   );
@@ -747,21 +732,21 @@ export default function CreateSegmentPage() {
             {segmentStats && (
               <Card padding="none" className="lg:flex-1 p-3 flex flex-col">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] font-medium">{t("creation.sectionStats")}</div>
-                  {segmentStats.climbCategory > 0 && <ClimbBadge category={segmentStats.climbCategory} climbLabels={CLIMB_LABELS} />}
+                  <div className="text-[length:var(--ft-body-size)] text-[var(--ink-2)] font-medium">{t("creation.sectionStats")}</div>
+                  {segmentStats.climbCategory > 0 && <SegmentClimbCategory category={segmentStats.climbCategory} />}
                 </div>
                 <StatsPanel stats={segmentStats} t={t} />
 
                 {/* Errors */}
                 {rangeValidation.length > 0 && (
-                  <Alert variant="danger" className="mt-3 text-[length:var(--fs-xs)]">
+                  <Alert variant="danger" className="mt-3 text-[length:var(--ft-body-size)]">
                     {rangeValidation.map((msg) => (
                       <p key={msg}>{msg}</p>
                     ))}
                   </Alert>
                 )}
                 {submitError && (
-                  <Alert variant="danger" className="mt-3 text-[length:var(--fs-xs)]">{submitError}</Alert>
+                  <Alert variant="danger" className="mt-3 text-[length:var(--ft-body-size)]">{submitError}</Alert>
                 )}
 
                 {/* Submit */}
@@ -769,7 +754,7 @@ export default function CreateSegmentPage() {
                   <button
                     onClick={handleSubmit}
                     disabled={!isFormValid || submitting}
-                    className="w-full py-3 bg-[var(--lime)] text-[var(--bg-0)] text-[length:var(--fs-base)] font-semibold rounded-[var(--r-lg)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={buttonClass({ variant: "ghost", className: "w-full py-3 bg-[var(--lime)] text-[var(--bg-0)] text-[length:var(--fs-base)] font-semibold rounded-[var(--r-lg)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed" })}
                   >
                     {submitting ? (
                       <span className="flex items-center justify-center gap-2">
@@ -780,7 +765,7 @@ export default function CreateSegmentPage() {
                       t("button.submit")
                     )}
                   </button>
-                  <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)] text-center mt-1.5">
+                  <p className="text-[length:var(--ft-body-size)] text-[var(--ink-3)] text-center mt-1.5">
                     {t("creation.submitNote")}
                   </p>
                 </div>
@@ -792,7 +777,7 @@ export default function CreateSegmentPage() {
           <div className="flex items-center">
             <button
               onClick={leavePage}
-              className="px-4 py-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors"
+              className={buttonClass({ variant: "ghost", className: "px-4 py-2 text-[length:var(--ft-body-size)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors" })}
             >
               &larr; {t("button.goBack")}
             </button>

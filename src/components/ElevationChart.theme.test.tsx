@@ -33,6 +33,22 @@ function ThemeSwitchingElevationChart() {
 }
 
 describe("ElevationChart theme colors", () => {
+  it("plots each rider using their own distances and includes longer overlays in the shared axis", () => {
+    renderWithProviders(<ElevationChart
+      data={[{ distance: 0, elevation: 100 }, { distance: 1000, elevation: 110 }]}
+      overlays={[{ label: "Second rider", data: [200, 220, 230], distance: [0, 700, 2400], color: "red", yAxisID: "other" }]}
+    />);
+    const chart = line.mock.lastCall?.[0];
+    expect(chart.data.datasets[1].data).toEqual([{ x: 0, y: 200 }, { x: 0.7, y: 220 }, { x: 2.4, y: 230 }]);
+    expect(chart.options.scales.x.max).toBe(2.4);
+  });
+  it("uses an explicit page axis label without changing the default elsewhere", () => {
+    const data = [{ distance: 0, elevation: 10 }, { distance: 1000, elevation: 20 }];
+    const { rerender } = renderWithProviders(<ElevationChart data={data} xAxisLabel="이동거리 (km)" />);
+    expect(line.mock.lastCall?.[0].options.scales.x.title.text).toBe("이동거리 (km)");
+    rerender(<ElevationChart data={data} />);
+    expect(line.mock.lastCall?.[0].options.scales.x.title.text).toBe("km");
+  });
   it("accepts touch drag within the DS 48px handle strip and retains keyboard alternatives", () => {
     const change = vi.fn();
     const chart = { canvas: { getBoundingClientRect: () => ({ left: 0 }) }, scales: { x: { getPixelForValue: (value: number) => value * 100, getValueForPixel: (pixel: number) => pixel / 100 } } };

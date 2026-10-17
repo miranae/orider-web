@@ -8,6 +8,6 @@ describe("CreateGroupModal invite step", () => {
 
     expect(source).not.toContain("groups\", groupId, \"invitations\"");
     expect(source).not.toContain("rider1@example.com");
-    expect(source).toContain("create.inviteHelp");
+    expect(source).toContain("create.inviteAfterCreation");
   });
 });

@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import "./EventControls.css";
+import "./CreatorReview.css";
+import type { WeeklyStat } from "../components/WeeklyChart";
+import InfoTip from "../components/InfoTip";
+import GlossaryProvider from "../components/common/GlossaryProvider";
+import GlossaryText from "../components/common/GlossaryText";
+import "./ExploreReview.css";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { creatorRecipeErrorFeedback } from "../utils/creatorRecipeErrors";
 import { useTranslation } from "react-i18next";
 import { useParams, useSearchParams } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
@@ -22,6 +30,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
+import { RecipePreviewDialog, type RecipePreviewRequest } from "../components/creator/RecipePreviewDialog";
+import { RecipeShareCard } from "../components/creator/RecipeShareCard";
 import { RideStoryPhotoPicker } from "../components/creator/RideStoryPhotoPicker";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import { useAuth } from "../contexts/AuthContext";
@@ -31,7 +41,6 @@ import { useWeeklyStats } from "../hooks/useActivities";
 import { buildCreatorHubDetailLinks } from "../data/creatorHubDetailLinks";
 import {
   creatorRecipes,
-  hasShareCardPreview,
   type CreatorRecipeIcon,
   type CreatorRecipeKind,
 } from "../data/creatorRecipes";
@@ -62,6 +71,16 @@ interface CreatorItem {
   status: string;
 }
 
+interface AiDiaryPolicy {
+  version: string;
+  processor: { name: string; country: string; privacyPolicyUrl: string };
+  purpose: string;
+  dataCategories: string[];
+  excludedData?: string[];
+  retention: string;
+  dailyLimit: number;
+}
+
 interface AiDiaryResponse {
   source: "cache" | "generated";
   generatedAt: number;
@@ -77,6 +96,8 @@ interface AiDiaryResponse {
     body: string;
     footer: string;
     redactions: string[];
+    kicker?: string;
+    metrics?: { label: string; value: string }[];
   };
 }
 
@@ -136,12 +157,12 @@ function sectionDefaultTab(section: CreatorSection, value: string | null): Creat
 function buildCopy(language: string) {
   const ko = language.startsWith("ko");
   return {
-    title: ko ? "Creator Hub" : "Creator Hub",
-    headline: ko ? "안전한 라이딩 데이터 레시피 허브" : "A safe recipe hub for ride data",
-    eyebrow: ko ? "외부로 유출되지 않게, 권한을 정해 실행하는 활용 레시피" : "Rider-approved recipes designed to avoid unintended data exposure",
+    title: ko ? "기록 활용" : "Ride tools",
+    headline: ko ? "라이딩 기록 활용" : "Make more of your rides",
+    eyebrow: ko ? "내 기록으로 일기와 공유 카드 만들기" : "Turn your rides into stories and share cards",
     subtitle: ko
-      ? "Creator Hub는 라이더가 자신의 기록을 더 오래, 더 안전하게 활용할 수 있도록 레시피를 고르고 배치하는 공간입니다. 오픈소스 프로젝트의 방향에 맞게 Notion 리포트, Slack 알림, n8n 자동화, 공개 배지 같은 활용법을 함께 제안하고 검토하는 카탈로그로 키워갑니다."
-      : "Creator Hub is where riders choose and deploy recipes that help their records stay useful for longer, with safer defaults. In the spirit of an open-source project, it can grow into a reviewed catalog of Notion reports, Slack alerts, n8n automations, public badges, and other data recipes.",
+      ? "내 활동으로 일기를 만들고 공유 카드를 준비하세요. 외부 도구에 연결할 때는 사용할 기록과 필요한 권한을 선택합니다."
+      : "Create a diary or prepare a share card from your activities. Choose which records and permissions to use when connecting external tools.",
     tabs: {
       featured: ko ? "추천" : "Featured",
       recipes: ko ? "레시피" : "Recipes",
@@ -149,7 +170,7 @@ function buildCopy(language: string) {
     },
     actions: {
       preview: ko ? "공유 카드 보기" : "Preview share card",
-      recipe: ko ? "레시피 설명 보기" : "View recipe guide",
+      recipe: ko ? "활용 방법 보기" : "View ideas",
       generate: ko ? "AI 일기 생성" : "Generate diary",
       generating: ko ? "AI 일기 생성 중" : "Generating diary",
       post: ko ? "게시글로 공유" : "Share as post",
@@ -216,8 +237,8 @@ function buildCopy(language: string) {
     ],
     deployTitle: ko ? "레시피는 이렇게 배치합니다" : "How recipes get deployed",
     deployBody: ko
-      ? "레시피가 많아져도 실제 사용으로 이어지려면 카드 선택에서 끝나면 안 됩니다. 실행 위치, 권한, 트리거, 중지 방법까지 정해야 배치된 레시피가 됩니다."
-      : "As the recipe list grows, picking a card is not enough. A deployed recipe needs a runtime, scopes, trigger, and a clear way to stop it.",
+      ? "레시피를 어디서 실행할지, 어떤 기록을 읽을 수 있는지, 언제 중지할지 차례로 정하세요."
+      : "Choose where to run a recipe, what data it can read, and how to stop it.",
     deploySteps: [
       {
         title: ko ? "1. 실행 위치 고르기" : "1. Choose runtime",
@@ -245,25 +266,25 @@ function buildCopy(language: string) {
       },
     ],
     credit: {
-      title: ko ? "AI 레시피 공용 일일 크레딧" : "Shared daily credits for AI recipes",
+      title: ko ? "AI 일기 생성" : "AI ride diary generation",
       body: ko
-        ? "AI 일기처럼 모델을 호출하는 레시피는 모두 사용자별 공용 일일 크레딧을 사용합니다. 레시피가 늘어나도 기본 한도는 한곳에서 관리되며, AI provider key는 브라우저에 공개하지 않고 오라이더 서버가 대신 호출합니다."
-        : "Recipes that call a model, such as the AI diary, all use the rider's shared daily AI credit pool. As more recipes are added, the default limit is managed in one place, and provider keys stay server-side.",
+        ? "내 최근 7일 운동 집계로 AI가 비공개 일기와 공개 하이라이트를 만듭니다. 생성 전에 외부 AI 처리자와 전송 항목을 확인하고 동의할 수 있습니다."
+        : "AI turns your last 7 days of training aggregates into a private diary and a public highlight. Review the external AI processor and data sent before consenting.",
       rules: [
-        ko ? "AI 레시피는 공용 일일 한도 안에서 실행됩니다." : "AI recipes run against the shared daily limit.",
-        ko ? "비AI 레시피와 일반 API 조회는 이 AI 크레딧을 쓰지 않습니다." : "Non-AI recipes and normal API reads do not spend AI credits.",
-        ko ? "자동 배치 AI 레시피는 실행 전 크레딧 사용량과 주기를 표시해야 합니다." : "Scheduled AI recipes must show credit usage and frequency before deployment.",
+        ko ? "성공한 일기 생성만 일일 한도에 포함됩니다." : "Only successful diary generations count toward your daily limit.",
+        ko ? "같은 기록은 저장된 초안을 다시 사용합니다." : "Unchanged records reuse the saved draft.",
+        ko ? "공유 전 문구를 편집하고 PNG로 저장할 수 있습니다." : "Edit your highlight and save a PNG before sharing.",
       ],
       quotaUnknown: ko ? "남은 AI 크레딧은 생성 후 표시됩니다." : "Remaining AI credits appear after generation.",
       remaining: ko ? "오늘 남은 AI 크레딧 {{remaining}}/{{limit}}회" : "{{remaining}}/{{limit}} AI credits left today",
       cache: ko ? "오늘 이미 만든 초안을 다시 불러왔습니다." : "Loaded today's existing draft.",
       failed: ko
-        ? "AI 일기를 생성하지 못했습니다. 활동 데이터가 있는지 확인하거나 공용 일일 크레딧이 초기화된 뒤 다시 시도해 주세요."
-        : "Could not generate the diary. Check that activity data is available, or try again after the shared daily credits reset.",
+        ? "AI 일기를 생성하지 못했습니다. 활동 데이터가 있는지 확인하거나 일일 한도가 초기화된 뒤 다시 시도해 주세요."
+        : "Could not generate the diary. Check that activity data is available, or try again after the daily limit resets.",
     },
     stats: [
-      { label: ko ? "카탈로그 단위" : "Catalog unit", value: ko ? "레시피" : "Recipe" },
-      { label: ko ? "배치 방식" : "Deployment", value: ko ? "API/자동화" : "API/automation" },
+      { label: ko ? "활용 방법" : "Ways to use", value: ko ? "일기·리포트·공유 카드" : "Diaries, reports, share cards" },
+      { label: ko ? "이용 방식" : "How to use", value: ko ? "직접 실행·내 도구 연결" : "Run here or connect tools" },
       { label: ko ? "데이터 접근" : "Data access", value: ko ? "본인 승인" : "Rider approved" },
     ],
     marketTitle: ko ? "레시피 허브로 키우려면 구조가 먼저 필요합니다" : "A recipe hub needs structure before scale",
@@ -312,8 +333,8 @@ function buildCopy(language: string) {
     email: {
       title: ko ? "리포트 템플릿 이메일" : "Report-template email",
       body: ko
-        ? "대표 레시피는 본인 계정 이메일로 실제 리포트를 보내볼 수 있습니다. 주간 부하 리포트는 KPI 카드, 부하 차트, 대표 활동 썸네일, 다음 행동을 포함합니다. 정기 발송은 별도 opt-in이 필요합니다."
-        : "Flagship recipes can send a real report to your account email. The weekly load report includes KPI cards, a load chart, key-session thumbnails, and next actions. Recurring delivery requires separate opt-in.",
+        ? "대표 레시피는 본인 계정 이메일로 실제 리포트를 보내볼 수 있습니다. 주간 부하 리포트는 KPI 카드, 부하 차트, 대표 활동 썸네일, 다음 행동을 포함합니다. 내장 정기 발송은 제공하지 않으며, 직접 자동화를 만들려면 Personal Data API를 사용합니다."
+        : "Flagship recipes can send a real report to your account email. The weekly load report includes KPI cards, a load chart, key-session thumbnails, and next actions. Recurring delivery requires your own Personal Data API automation.",
       safety: ko
         ? "임의 주소 입력은 허용하지 않고, 로그인한 본인의 확인된 이메일로만 보냅니다. 외부 공유용 결과는 집계 요약 중심으로 따로 줄일 수 있어야 합니다."
         : "No arbitrary recipient entry: Orider sends only to the signed-in rider's verified account email. External sharing should be reducible to aggregate-only summaries.",
@@ -330,11 +351,11 @@ function buildCopy(language: string) {
       ? "원문 일기는 비공개로 두고, 자랑하기 좋은 요약만 카드로 공유합니다."
       : "Keep the full diary private and share only a redacted highlight card.",
     shareCard: {
-      label: ko ? "이번 주 라이딩 일기" : "Weekly ride diary",
-      title: ko ? "긴 업힐을 버틴 꾸준한 한 주" : "A steady week that held through the climbs",
+      label: ko ? "라이딩 일기 예시" : "Example ride diary",
+      title: ko ? "예시: 긴 업힐을 버틴 꾸준한 한 주" : "Example: a steady week through the climbs",
       body: ko
-        ? "총 182km, 상승고도 2,140m. 수요일 고강도 이후 금요일은 회복주로 전환했고, 주말 롱라이드에서 페이스가 안정적으로 돌아왔습니다."
-        : "182 km total with 2,140 m climbed. After a hard Wednesday, Friday shifted to recovery and the weekend long ride settled back into a steady pace.",
+        ? "예시 데이터: 총 182km, 상승고도 2,140m. 수요일 고강도 이후 금요일은 회복주로 전환했고, 주말 롱라이드에서 페이스가 안정적으로 돌아왔습니다."
+        : "Example data: 182 km total with 2,140 m climbed. After a hard Wednesday, Friday shifted to recovery and the weekend long ride settled back into a steady pace.",
       footer: ko ? "정확한 위치와 민감 지표는 숨김" : "Exact location and sensitive metrics hidden",
     },
     builderTitle: ko ? "만들고 싶은 활용법을 제안하세요" : "Propose what you want to build",
@@ -456,23 +477,23 @@ function buildCopy(language: string) {
       yaml: ko ? "OpenAPI YAML 보기" : "View OpenAPI YAML",
     },
     weekly: {
-      title: ko ? "바로 써보기: 주간 부하 차트" : "Try now: weekly load chart",
+      title: ko ? "주간 이동거리" : "Weekly distance",
       body: ko
-        ? "오라이더 안에서는 로그인만 하면 최근 주간 활동으로 차트를 바로 볼 수 있습니다. Notion, Slack, n8n 등에 붙여 쓰려면 Personal Data API로 같은 데이터를 읽어 직접 자동화를 만들어야 합니다."
-        : "Inside Orider, signed-in riders can view this chart from their recent weekly activity data. To use it in Notion, Slack, n8n, or another tool, connect through the Personal Data API and build the automation yourself.",
+        ? "주별 이동거리와 보조 훈련 점수(TSS)를 함께 확인합니다."
+        : "Compare weekly distance with the supporting training score (TSS).",
       empty: ko ? "아직 차트로 표시할 활동이 없습니다." : "No activities to chart yet.",
       demo: ko ? "데모 데이터" : "Demo data",
       own: ko ? "내 데이터" : "My data",
-      distance: ko ? "거리" : "Distance",
-      time: ko ? "시간" : "Time",
-      rides: ko ? "활동" : "Activities",
-      tss: ko ? "부하" : "Load",
-      shareTitle: ko ? "이번 주 훈련 부하 카드" : "Weekly training load card",
+      distance: ko ? "이동거리" : "Distance",
+      time: ko ? "활동시간" : "Activity time",
+      rides: ko ? "활동횟수" : "Activities",
+      tss: ko ? "훈련점수" : "Training score",
+      shareTitle: ko ? "최근 6주 훈련 기록" : "My last 6 weeks of training",
     },
   };
 }
 
-function demoWeeklyStats() {
+function demoWeeklyStats(): WeeklyStat[] {
   return [
     { week: "5/11", distance: 84, time: 3.4, elevation: 620, rides: 2, tss: 132, tssEstimated: false, tssUnknownCount: 0 },
     { week: "5/18", distance: 126, time: 4.9, elevation: 1040, rides: 3, tss: 211, tssEstimated: false, tssUnknownCount: 0 },
@@ -481,6 +502,23 @@ function demoWeeklyStats() {
     { week: "6/8", distance: 118, time: 4.4, elevation: 870, rides: 3, tss: 196, tssEstimated: false, tssUnknownCount: 0 },
     { week: "6/15", distance: 188, time: 7.1, elevation: 2140, rides: 4, tss: 344, tssEstimated: false, tssUnknownCount: 0 },
   ];
+}
+
+
+function diaryFailureMessage(error: unknown, language: string, fallback: string): string {
+  const sharedFeedback = creatorRecipeErrorFeedback(error, language, "diary");
+  if (sharedFeedback) return sharedFeedback.message;
+  const details = error && typeof error === "object" && "details" in error ? error.details : null;
+  const reason = details && typeof details === "object" && "reason" in details ? details.reason : null;
+  const ko = language.startsWith("ko");
+  switch (reason) {
+    case "no-activities": return ko ? "최근 7일에 일기로 만들 자전거 활동이 없습니다. 활동을 기록하거나 가져온 뒤 다시 생성해 주세요." : "No cycling activities from the last 7 days are available for a diary. Record or import a ride, then try again.";
+    case "in-flight": return ko ? "이미 일기를 생성하고 있습니다. 잠시 기다린 뒤 다시 확인해 주세요." : "A diary is already being generated. Please wait a moment before trying again.";
+    case "daily-limit": return ko ? "오늘의 AI 일기 생성 한도를 모두 사용했습니다. 내일 다시 생성할 수 있습니다." : "You have used today's AI diary generation limit. You can generate again tomorrow.";
+    case "attempt-limit": return ko ? "반복 요청 안전 한도에 도달했습니다. 실패 요청도 이 안전 한도에 포함되며, 내일 다시 시도할 수 있습니다." : "The repeated-request safety limit has been reached. Failed attempts count toward this safety limit. Please try again tomorrow.";
+    case "consent-required": return ko ? "AI 처리 정책을 다시 확인해야 합니다. 생성 버튼을 다시 눌러 최신 정책에 동의해 주세요." : "Please review the current AI processing policy. Select Generate again to give your consent to the updated policy.";
+    default: return fallback;
+  }
 }
 
 export default function CreatorHubPage() {
@@ -497,15 +535,23 @@ export default function CreatorHubPage() {
   const section = parseCreatorSection(sectionParam);
   const tabParam = searchParams.get("tab");
   const [tab, setTabState] = useState<CreatorTab>(() => sectionDefaultTab(section, tabParam));
-  const [copied, setCopied] = useState(false);
   const [chartCopied, setChartCopied] = useState(false);
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
   const [copyingPromptId, setCopyingPromptId] = useState<string | null>(null);
   const [reportedItemIds, setReportedItemIds] = useState<Set<string>>(() => new Set());
   const [reportingItemIds, setReportingItemIds] = useState<Set<string>>(() => new Set());
   const [reportFailedItemIds, setReportFailedItemIds] = useState<Set<string>>(() => new Set());
-  const [diary, setDiary] = useState<AiDiaryResponse | null>(null);
+  const [savedDiary, setDiary] = useState<AiDiaryResponse | null>(null);
+  const [diaryOwnerId, setDiaryOwnerId] = useState<string | null>(null);
+  const diary = diaryOwnerId === user?.uid ? savedDiary : null;
+  const [diaryPolicy, setDiaryPolicy] = useState<AiDiaryPolicy | null>(null);
+  const consentDialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => { if (diaryPolicy) consentDialogRef.current?.showModal(); }, [diaryPolicy]);
+  const [policyLoading, setPolicyLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const diaryOwner = useRef(user?.uid);
+  diaryOwner.current = user?.uid;
+  useEffect(() => { setDiary(null); setDiaryError(null); setDiaryPolicy(null); }, [user?.uid]);
   const [diaryError, setDiaryError] = useState<string | null>(null);
   const {
     emailFailedItemIds,
@@ -523,6 +569,8 @@ export default function CreatorHubPage() {
     showToast,
     signInWithGoogle,
   });
+  const [previewRequest, setPreviewRequest] = useState<RecipePreviewRequest | null>(null);
+  useEffect(() => { setPreviewRequest(null); }, [user?.uid]);
   const [rideStoryPickerOpen, setRideStoryPickerOpen] = useState(false);
   const deploySectionRef = useRef<HTMLElement | null>(null);
   const recipesSectionRef = useRef<HTMLDivElement | null>(null);
@@ -544,7 +592,7 @@ export default function CreatorHubPage() {
         channels: recipe.channels,
         showShareCardPreview: recipe.showShareCardPreview,
         labels: localized.labels,
-        scopeLabel: localized.scopeLabel ?? "Scopes",
+        scopeLabel: localized.scopeLabel ?? (locale === "ko" ? "Scopes · 직접 만드는 확장판" : "Scopes · extension only"),
         shareMode: localized.shareMode,
         deployMode: localized.deployMode,
         status: localized.status,
@@ -561,9 +609,9 @@ export default function CreatorHubPage() {
   const chartWeeks = useMemo(() => {
     // 부하 미확인은 원본 거리와 별개 상태다. 실제 입력과 명시된 예시를 분리한다.
     const actual = weeklyStats.filter((week) => week.rides > 0 || week.distance > 0 || (week.tss ?? 0) > 0).slice(-6);
-    return actual.length > 0 ? actual : demoWeeklyStats();
-  }, [weeklyStats]);
-  const chartMax = Math.max(1, ...chartWeeks.map((week) => week.tss ?? 0));
+    return user ? actual : demoWeeklyStats();
+  }, [weeklyStats, user]);
+  const chartMax = Math.max(1, ...chartWeeks.map((week) => week.distance));
   const chartTotal = chartWeeks.reduce(
     (acc, week) => ({
       distance: acc.distance + week.distance,
@@ -580,8 +628,7 @@ export default function CreatorHubPage() {
   };
   const chartUsesOwnData = Boolean(user && weeklyStats.some((week) => week.rides > 0 || week.distance > 0 || (week.tss ?? 0) > 0));
   const shareCard = diary?.shareCard ?? copy.shareCard;
-  const shareText = `${shareCard.title}\n${shareCard.body}\n${shareCard.footer}`;
-  const weeklyShareText = `${copy.weekly.shareTitle}\n${copy.weekly.distance}: ${Math.round(chartTotal.distance)}km · ${copy.weekly.time}: ${chartTotal.time.toFixed(1)}h · ${copy.weekly.rides}: ${chartTotal.rides} · ${formatTrainingLoad(chartTotalLoad, loadT)}\n${chartUsesOwnData ? copy.weekly.own : copy.weekly.demo}`;
+  const weeklyShareText = `${copy.weekly.shareTitle} (${chartWeeks[0]?.week ?? ""} – ${chartWeeks[chartWeeks.length - 1]?.week ?? ""})\n${copy.weekly.distance}: ${Math.round(chartTotal.distance)}km · ${copy.weekly.time}: ${chartTotal.time.toFixed(1)}h · ${copy.weekly.rides}: ${chartTotal.rides} · ${formatTrainingLoad(chartTotalLoad, loadT)}\n${chartUsesOwnData ? copy.weekly.own : user ? copy.weekly.empty : copy.weekly.demo}`;
 
   useEffect(() => {
     setTabState(sectionDefaultTab(section, tabParam));
@@ -638,20 +685,9 @@ export default function CreatorHubPage() {
     if (scrollTarget) scrollToTarget(scrollTarget);
   };
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard?.writeText(shareText);
-      setCopied(true);
-      showToast(copy.actions.copied);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      showToast(copy.actions.copyFailed, "error");
-    }
-  };
-
   const handleCopyChart = async () => {
     try {
-      await navigator.clipboard?.writeText(weeklyShareText);
+      await navigator.clipboard.writeText(weeklyShareText);
       setChartCopied(true);
       showToast(copy.actions.copied);
       window.setTimeout(() => setChartCopied(false), 1600);
@@ -664,7 +700,7 @@ export default function CreatorHubPage() {
     if (copyingPromptId === promptId) return;
     setCopyingPromptId(promptId);
     try {
-      await navigator.clipboard?.writeText(prompt);
+      await navigator.clipboard.writeText(prompt);
       setCopiedPromptId(promptId);
       showToast(copy.actions.promptCopied);
       window.setTimeout(() => setCopiedPromptId((current) => (current === promptId ? null : current)), 1600);
@@ -695,21 +731,43 @@ export default function CreatorHubPage() {
       await signInWithGoogle();
       return;
     }
+    if (generating || policyLoading) return;
+    const owner = user.uid;
+    setPolicyLoading(true);
+    setDiaryError(null);
+    try {
+      const policy = await httpsCallable<{ lang: string }, AiDiaryPolicy>(functions, "getCreatorAiDiaryPolicy")({ lang: i18n.language.startsWith("ko") ? "ko" : "en" });
+      if (diaryOwner.current === owner) setDiaryPolicy(policy.data);
+    } catch (error) {
+      const message = diaryFailureMessage(error, i18n.language, copy.credit.failed);
+      setDiaryError(message);
+      showToast(message, "error");
+    } finally { setPolicyLoading(false); }
+  };
+  const generateConsentedDiary = async () => {
+    if (!user || !diaryPolicy) return;
+    const consentVersion = diaryPolicy.version;
+    setDiaryPolicy(null);
+    if (generating) return;
+    const owner = user.uid;
     setGenerating(true);
     setDiaryError(null);
     try {
-      const fn = httpsCallable<{ lang: string; period: "week" }, AiDiaryResponse>(
+      const fn = httpsCallable<{ lang: string; period: "week"; consentVersion: string }, AiDiaryResponse>(
         functions,
         "generateAiDiary",
         { timeout: 90_000 },
       );
-      const result = await fn({ lang: i18n.language.startsWith("en") ? "en" : "ko", period: "week" });
+      const result = await fn({ lang: i18n.language.startsWith("en") ? "en" : "ko", period: "week", consentVersion });
+      if (diaryOwner.current !== owner) return;
+      setDiaryOwnerId(owner);
       setDiary(result.data);
       setTab("share", "share");
       showToast(result.data.source === "cache" ? copy.credit.cache : copy.actions.previewOpened);
-    } catch {
-      setDiaryError(copy.credit.failed);
-      showToast(copy.credit.failed, "error");
+    } catch (error) {
+      const message = diaryFailureMessage(error, i18n.language, copy.credit.failed);
+      setDiaryError(message);
+      showToast(message, "error");
     } finally {
       setGenerating(false);
     }
@@ -752,21 +810,40 @@ export default function CreatorHubPage() {
   const activeDetail = detailLinks.find((link) => link.to.endsWith(`/${section}`));
 
   return (
-    <div className="space-y-8">
+    <GlossaryProvider scopeKey={`record-tools:${section}`}>
+    <div className="event-controls-surface explore-records-surface space-y-8">
+      {diaryPolicy && <dialog ref={consentDialogRef} className="fixed inset-0 m-auto w-full max-w-xl bg-transparent p-4 backdrop:bg-black/55" aria-labelledby="creator-ai-consent-title" onCancel={() => setDiaryPolicy(null)}>
+        <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-[var(--r-lg)] border p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)", color: "var(--ink-2)" }}>
+          <h2 id="creator-ai-consent-title" className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{i18n.language.startsWith("ko") ? "AI 라이딩 일기 생성 동의" : "Consent to AI ride diary generation"}</h2>
+          <p className="text-[length:var(--fs-sm)] leading-6">{diaryPolicy.purpose}</p>
+          <dl className="space-y-3 text-[length:var(--fs-sm)] leading-6">
+            <div><dt className="font-semibold">{i18n.language.startsWith("ko") ? "외부 AI 처리자 · 처리 국가" : "External AI processor · country"}</dt><dd>{diaryPolicy.processor.name} · {diaryPolicy.processor.country}</dd></div>
+            <div><dt className="font-semibold">{i18n.language.startsWith("ko") ? "전송하는 데이터" : "Data sent"}</dt><dd>{diaryPolicy.dataCategories.join(" · ")}</dd></div>
+            {diaryPolicy.excludedData && <div><dt className="font-semibold">{i18n.language.startsWith("ko") ? "전송하지 않는 데이터" : "Data excluded"}</dt><dd>{diaryPolicy.excludedData.join(" · ")}</dd></div>}
+            <div><dt className="font-semibold">{i18n.language.startsWith("ko") ? "보관 안내" : "Retention"}</dt><dd>{diaryPolicy.retention}</dd></div>
+          </dl>
+          <p className="text-[length:var(--fs-sm)] leading-6">{i18n.language.startsWith("ko") ? "위치·활동명·원시 심박/파워는 보내지 않습니다. 원문은 나만 보는 초안이며 외부 공유는 별도 하이라이트를 확인한 뒤 직접 진행합니다." : "Location, activity names, and raw heart-rate/power data are not sent. Your diary is private; review the separate highlight before sharing it yourself."}</p>
+          <a className="text-[length:var(--fs-sm)] underline" style={{ color: "var(--lime)" }} href={diaryPolicy.processor.privacyPolicyUrl} target="_blank" rel="noopener noreferrer">{i18n.language.startsWith("ko") ? "AI 처리자 개인정보 정책" : "AI processor privacy policy"}</a>
+          <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{i18n.language.startsWith("ko") ? `성공한 생성은 하루 ${diaryPolicy.dailyLimit}회까지. 동일 기록은 저장된 초안을 재사용합니다.` : `Up to ${diaryPolicy.dailyLimit} successful generations per day. Unchanged records reuse the saved draft.`}</p>
+          <div className="flex flex-wrap justify-end gap-2"><Button size="sm" variant="secondary" onClick={() => setDiaryPolicy(null)}>{i18n.language.startsWith("ko") ? "취소" : "Cancel"}</Button><Button size="sm" variant="primary" onClick={() => void generateConsentedDiary()}>{i18n.language.startsWith("ko") ? "동의하고 생성" : "Agree and generate"}</Button></div>
+        </div>
+      </dialog>}
+
       <section className="grid gap-4">
         <div className="min-w-0 rounded-[var(--r-lg)] border p-6 md:p-8" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           {section === "overview" ? (
           <>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--lime)" }}>
+          <div className="mb-3 inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--ft-body-size)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--lime)" }}>
             <Sparkles size={14} />
             {copy.eyebrow}
           </div>
-          <Text as="div" variant="eyebrow">{copy.title}</Text>
           <h1 data-testid="E6-0" className="mt-2 max-w-4xl text-[length:var(--fs-3xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{copy.headline}</h1>
-          <p className="mt-3 max-w-4xl text-[length:var(--fs-base)] leading-7" style={{ color: "var(--ink-3)" }}>
-            {copy.subtitle}
-          </p>
+          <p className="mt-3 max-w-4xl text-[length:var(--fs-base)] leading-7" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.subtitle}</GlossaryText></p>
           <div className="mt-6 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
+            <Button className={recipeActionClass} size="sm" variant="secondary" onClick={handleGenerateDiary} loading={generating || policyLoading}>
+              <Bot size={15} />
+              {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
+            </Button>
             <Link to="/community/board/write" className={buttonClass({ variant: "primary", size: "sm", className: recipeActionClass })}>
                 <MessageSquareText size={15} aria-hidden />
                 {copy.actions.post}
@@ -775,25 +852,24 @@ export default function CreatorHubPage() {
                 <BookOpen size={15} />
                 {copy.actions.recipe}
             </Link>
-            <Button className={recipeActionClass} size="sm" variant="secondary" onClick={handleGenerateDiary} loading={generating}>
-              <Bot size={15} />
-              {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
-            </Button>
+
           </div>
           </>
           ) : (
           <>
-            <Link to="/explore/recipes" className="inline-flex items-center gap-2 text-[length:var(--fs-sm)] font-medium no-underline" style={{ color: "var(--lime)" }}>
+            <Link to="/explore/recipes" className="inline-flex items-center gap-2 text-[length:var(--ft-body-size)] font-medium no-underline" style={{ color: "var(--lime)" }}>
               <BookOpen size={15} />
-              Creator Hub
+              {copy.title}
             </Link>
             <h1 className="mt-3 max-w-3xl text-[length:var(--fs-2xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{activeDetail?.title ?? copy.title}</h1>
-            <p className="mt-2 max-w-3xl text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{activeDetail?.body ?? copy.subtitle}</p>
+            <p className="mt-2 max-w-3xl text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}>{activeDetail?.body ?? copy.subtitle}</p>
           </>
           )}
         </div>
 
         {section === "overview" && (
+        <details className="creator-technical-summary">
+          <summary>{i18n.language.startsWith("ko") ? "연결 방식과 데이터 권한" : "Connections and data access"}</summary>
         <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-3">
           {copy.stats.map((stat) => (
             <div key={stat.label} className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
@@ -802,68 +878,26 @@ export default function CreatorHubPage() {
             </div>
           ))}
         </div>
+        </details>
         )}
       </section>
 
-      {(section === "deploy" || section === "recipes") && (
-      <section className="grid gap-4 rounded-[var(--r-lg)] border p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_360px]" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--aqua)" }}>
-            <BookOpen size={14} />
-            {copy.tabs.recipes}
-          </div>
-          <h2 className="mt-3 max-w-3xl text-[length:var(--fs-xl)] font-semibold leading-7" style={{ color: "var(--ink-0)" }}>{copy.marketTitle}</h2>
-          <p className="mt-2 max-w-4xl text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{copy.marketBody}</p>
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            {copy.marketStages.map((stage, index) => {
-              const StageIcon = marketStageIcons[index] ?? Sparkles;
-              return (
-                <div key={stage.title} className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--r-sm)]" style={{ background: "var(--bg-1)", color: index === 0 ? "var(--aqua)" : index === 1 ? "var(--lime)" : index === 2 ? "var(--amber)" : "var(--violet)" }}>
-                      <StageIcon size={16} />
-                    </span>
-                    <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{stage.title}</div>
-                  </div>
-                  <p className="mt-3 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{stage.body}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <aside className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-          <div className="flex items-center gap-2">
-            <ShieldCheck size={18} style={{ color: "var(--lime)" }} />
-            <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.marketRulesTitle}</h2>
-          </div>
-          <ul className="mt-4 space-y-3">
-            {copy.marketRules.map((rule) => (
-              <li key={rule} className="flex gap-2 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-2)" }}>
-                <ShieldCheck size={15} className="mt-1 shrink-0" style={{ color: "var(--lime)" }} />
-                <span>{rule}</span>
-              </li>
-            ))}
-          </ul>
-        </aside>
-      </section>
-      )}
 
       {section === "overview" && (
       <section className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
         <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>
-          {i18n.language.startsWith("ko") ? "필요한 화면으로 바로 들어가세요" : "Jump into the screen you need"}
+          {i18n.language.startsWith("ko") ? "다른 활용 방법" : "More ways to use your rides"}
         </h2>
         <div className="mt-4 grid gap-3 md:grid-cols-4">
-          {detailLinks.map((link) => {
+          {[...detailLinks].sort((a, b) => Number(b.to.endsWith("/share")) - Number(a.to.endsWith("/share"))).map((link) => {
             const DetailIcon = link.icon;
             return (
               <Link key={link.to} to={link.to} className="rounded-[var(--r-md)] border p-4 no-underline" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
-                <div className="flex items-center gap-2 text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>
+                <div className="flex items-center gap-2 text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>
                   <DetailIcon size={16} style={{ color: "var(--lime)" }} />
                   {link.title}
                 </div>
-                <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{link.body}</p>
+                <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{link.body}</p>
               </Link>
             );
           })}
@@ -875,8 +909,8 @@ export default function CreatorHubPage() {
       <section ref={deploySectionRef} className="scroll-mt-28 rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.deployTitle}</h2>
-            <p className="mt-2 max-w-4xl text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{copy.deployBody}</p>
+            <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.deployTitle}</GlossaryText></h2>
+            <p className="mt-2 max-w-4xl text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.deployBody}</GlossaryText></p>
           </div>
           <Link to="/settings/developer" className={buttonClass({ variant: "secondary", size: "sm" })}>
             <KeyRound size={15} aria-hidden />
@@ -886,8 +920,8 @@ export default function CreatorHubPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           {copy.deploySteps.map((step) => (
             <div key={step.title} className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{step.title}</div>
-              <p className="mt-2 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{step.body}</p>
+              <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{step.title}</div>
+              <p className="mt-2 text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}>{step.body}</p>
             </div>
           ))}
         </div>
@@ -896,15 +930,15 @@ export default function CreatorHubPage() {
 
       {section === "deploy" && (
       <section className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-          <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.useModesTitle}</h2>
+          <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.useModesTitle}</GlossaryText></h2>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             {copy.useModes.map((mode) => {
               const toPath = typeof mode.to === "string" ? mode.to : mode.to.pathname ?? "";
               if (typeof mode.to === "string" && mode.to.startsWith("http")) {
                 return (
                   <div key={mode.title} className="flex flex-col rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-                    <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{mode.title}</div>
-                    <p className="mt-2 text-[length:var(--fs-sm)] leading-6 md:flex-1" style={{ color: "var(--ink-3)" }}>{mode.body}</p>
+                    <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{mode.title}</div>
+                    <p className="mt-2 text-[length:var(--ft-body-size)] leading-6 md:flex-1" style={{ color: "var(--ink-3)" }}>{mode.body}</p>
                     <a href={mode.to} className={buttonClass({ variant: "secondary", size: "sm", className: "mt-4 w-full justify-center" })}>
                       <MessageSquareText size={15} aria-hidden />
                       {mode.action}
@@ -914,8 +948,8 @@ export default function CreatorHubPage() {
               }
               return (
                 <div key={mode.title} className="flex flex-col rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-                  <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{mode.title}</div>
-                  <p className="mt-2 text-[length:var(--fs-sm)] leading-6 md:flex-1" style={{ color: "var(--ink-3)" }}>{mode.body}</p>
+                  <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{mode.title}</div>
+                  <p className="mt-2 text-[length:var(--ft-body-size)] leading-6 md:flex-1" style={{ color: "var(--ink-3)" }}>{mode.body}</p>
                   <Link to={mode.to} className={buttonClass({ variant: toPath.endsWith("/share") ? "primary" : "secondary", size: "sm", className: "mt-4 w-full justify-center" })}>
                     {toPath.endsWith("/examples") ? <FileText size={15} aria-hidden /> : <ShieldCheck size={15} aria-hidden />}
                     {mode.action}
@@ -929,36 +963,40 @@ export default function CreatorHubPage() {
 
       {section === "examples" && (
       <section data-testid="E6-4" className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-          <h2 className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.integrationsTitle}</h2>
+          <h2 className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{i18n.language.startsWith("ko") ? "목적에 맞는 연결 가이드" : "Guides for your tools"}</h2>
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
             {copy.integrations.map((item) => (
               <div key={item.name} className="rounded-[var(--r-md)] border p-4 md:p-5" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>{item.name}</div>
-                    <div className="mt-1 text-[length:var(--fs-base)] font-semibold leading-6" style={{ color: "var(--ink-0)" }}>{item.goal}</div>
+                    <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--lime)" }}>{item.name}</div>
+                    <div className="mt-1 text-[length:var(--fs-base)] font-semibold leading-6" style={{ color: "var(--ink-0)" }}><CreatorTechnicalText language={i18n.language}>{item.goal}</CreatorTechnicalText></div>
                   </div>
                   <Chip>{item.label}</Chip>
                 </div>
                 <div className="mt-4 rounded-[var(--r-sm)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
+                  <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "결과" : "Result"}</Text>
+                  <p className="mt-1 text-[length:var(--ft-body-size)] font-medium leading-6" style={{ color: "var(--ink-1)" }}><CreatorTechnicalText language={i18n.language}>{item.result}</CreatorTechnicalText></p>
+                  <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><CreatorTechnicalText language={i18n.language}>{item.safety}</CreatorTechnicalText></p>
+                </div>
+                <details className="creator-technical-summary mt-4"><summary>{i18n.language.startsWith("ko") ? "준비와 따라하기" : "Setup and steps"}</summary>
+                <div className="mt-4 rounded-[var(--r-sm)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
                   <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "준비" : "Prepare"}</Text>
                   <ul className="mt-2 space-y-1.5">
                     {item.prepare.map((step) => (
-                      <li key={step} className="text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-2)" }}>{step}</li>
+                      <li key={step} className="text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-2)" }}><CreatorTechnicalText language={i18n.language}>{step}</CreatorTechnicalText></li>
                     ))}
                   </ul>
                 </div>
                 <Text as="div" variant="eyebrow" className="mt-4">{i18n.language.startsWith("ko") ? "따라하기" : "Steps"}</Text>
                 <ol className="mt-2 space-y-2">
                   {item.steps.map((step) => (
-                    <li key={step} className="text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{step}</li>
+                    <li key={step} className="text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}><CreatorTechnicalText language={i18n.language}>{step}</CreatorTechnicalText></li>
                   ))}
                 </ol>
-                <div className="mt-4 rounded-[var(--r-sm)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
-                  <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "결과" : "Result"}</Text>
-                  <p className="mt-1 text-[length:var(--fs-sm)] font-medium leading-6" style={{ color: "var(--ink-1)" }}>{item.result}</p>
-                  <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{item.safety}</p>
-                </div>
+
+                </details>
+                <details className="creator-technical-summary mt-4"><summary>{i18n.language.startsWith("ko") ? "AI 작업 지시와 복사" : "AI prompt and copy"}</summary>
                 <div className="mt-4 rounded-[var(--r-sm)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -970,10 +1008,11 @@ export default function CreatorHubPage() {
                       {copiedPromptId === item.name ? copy.actions.promptCopied : copy.actions.copyPrompt}
                     </Button>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap break-words rounded-[var(--r-sm)] p-3 text-[length:var(--fs-xs)] leading-5" style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>
+                  <p className="mt-2 whitespace-pre-wrap break-words rounded-[var(--r-sm)] p-3 text-[length:var(--ft-body-size)] leading-5" style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>
                     {item.aiPrompt}
                   </p>
                 </div>
+                </details>
               </div>
             ))}
           </div>
@@ -985,20 +1024,20 @@ export default function CreatorHubPage() {
         {(["featured", "recipes", "share"] as CreatorTab[]).map((nextTab) => {
           const active = tab === nextTab;
           return (
-            <button data-testid="E6-1-1"
+            <Button data-testid="E6-1-1"
               key={nextTab}
               type="button"
               role="tab"
               aria-selected={active}
               onClick={() => setTab(nextTab)}
-              className="h-9 shrink-0 rounded-[var(--r-md)] px-3 text-[length:var(--fs-sm)] font-medium"
+              className="h-9 shrink-0 rounded-[var(--r-md)] px-3 text-[length:var(--ft-body-size)] font-medium"
               style={{
                 background: active ? "var(--bg-3)" : "transparent",
                 color: active ? "var(--ink-0)" : "var(--ink-3)",
               }}
             >
               {copy.tabs[nextTab]}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -1025,15 +1064,15 @@ export default function CreatorHubPage() {
                         <h2 className="min-w-0 break-words text-[length:var(--fs-base)] font-semibold leading-5" style={{ color: "var(--ink-0)" }}>{item.title}</h2>
                         <Chip>{item.status}</Chip>
                       </div>
-                      <p className="mt-1 break-words text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{item.summary}</p>
+                      <p className="mt-1 break-words text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{item.summary}</p>
                     </div>
                 </div>
 
                 <div className="mt-4 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
                   <Text as="div" variant="eyebrow">{copy.card.outcome}</Text>
-                  <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-1)" }}>{item.outcome}</p>
+                  <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-1)" }}>{item.outcome}</p>
                   <Text as="div" variant="eyebrow" className="mt-3">{copy.card.why}</Text>
-                  <p className="mt-1 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{item.detail}</p>
+                  <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{item.detail}</p>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-1.5">
@@ -1042,7 +1081,9 @@ export default function CreatorHubPage() {
                   ))}
                 </div>
 
-                <div className="mt-4 grid gap-3 text-[length:var(--fs-xs)] min-[420px]:grid-cols-2" style={{ color: "var(--ink-3)" }}>
+                <details className="creator-technical-summary mt-4">
+                  <summary>{i18n.language.startsWith("ko") ? "데이터 권한과 연결 방식" : "Data permissions and connections"}</summary>
+                <div className="mt-4 grid gap-3 text-[length:var(--ft-body-size)] min-[420px]:grid-cols-2" style={{ color: "var(--ink-3)" }}>
                   <div>
                     <Text as="div" variant="eyebrow">{item.scopeLabel}</Text>
                     <div className="mt-1 flex flex-wrap gap-1">
@@ -1054,7 +1095,7 @@ export default function CreatorHubPage() {
                     <div className="mt-1 break-words" style={{ color: "var(--ink-2)" }}>{item.shareMode}</div>
                   </div>
                 </div>
-                <div className="mt-3 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
+                <div className="mt-3 text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>
                   <Text as="div" variant="eyebrow">{copy.card.delivery}</Text>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {item.channels.map((channel) => (
@@ -1064,24 +1105,18 @@ export default function CreatorHubPage() {
                 </div>
                 <div className="mt-3 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
                   <Text as="div" variant="eyebrow">{copy.card.deploy}</Text>
-                  <p className="mt-1 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{item.deployMode}</p>
+                  <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{item.deployMode}</p>
                 </div>
 
+                </details>
+
                 <div className="mt-4 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
-                  {hasShareCardPreview(item) && (
-                    <Button data-testid="E6-1-2"
-                      className={recipeActionClass}
-                      size="sm"
-                      variant={item.id === "ai-diary" ? "primary" : "secondary"}
-                      onClick={() => {
-                        setTab("share", "share");
-                        showToast(copy.actions.previewOpened, "info");
-                      }}
-                    >
-                      <ShieldCheck size={15} />
-                      {copy.actions.preview}
-                    </Button>
-                  )}
+                  <Button data-testid="E6-1-2" className={recipeActionClass} size="sm" variant="secondary" onClick={() => {
+                    if (!user) { void signInWithGoogle(); return; }
+                    if (item.id === "ai-diary") { void handleGenerateDiary(); return; }
+                    if (item.id === "ride-story") { setRideStoryPickerOpen(true); return; }
+                    setPreviewRequest({ recipeId: item.id });
+                  }}><ShieldCheck size={15} />{i18n.language.startsWith("ko") ? "결과 미리보기" : "Preview output"}</Button>
                   <Button data-testid="E6-1-4"
                     className={recipeActionClass}
                     size="sm"
@@ -1106,7 +1141,7 @@ export default function CreatorHubPage() {
                             : copy.actions.emailRecipe}
                   </Button>
                   {quotaLabel && (
-                    <div className="flex min-h-9 items-center text-[length:var(--fs-xs)]" style={{ color: isEmailLimitReached ? "var(--rose)" : "var(--ink-3)" }}>
+                    <div className="flex min-h-9 items-center text-[length:var(--ft-body-size)]" style={{ color: isEmailLimitReached ? "var(--rose)" : "var(--ink-3)" }}>
                       {quotaLabel}
                     </div>
                   )}
@@ -1158,9 +1193,9 @@ export default function CreatorHubPage() {
           <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <FileText size={18} style={{ color: "var(--aqua)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.apiDocs.title}</h2>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.apiDocs.title}</GlossaryText></h2>
             </div>
-            <p className="mt-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.apiDocs.body}</p>
+            <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.apiDocs.body}</GlossaryText></p>
             <div className="mt-4 grid gap-2 min-[420px]:grid-cols-2 lg:grid-cols-1">
               <a href={apiDocsLinks.docs} className={buttonClass({ variant: "secondary", size: "sm" })}>
                 <ExternalLink size={15} aria-hidden />
@@ -1175,10 +1210,10 @@ export default function CreatorHubPage() {
           <div ref={shareSectionRef} className="scroll-mt-28 rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <Bell size={18} style={{ color: "var(--amber)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.email.title}</h2>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.email.title}</GlossaryText></h2>
             </div>
-            <p className="mt-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.email.body}</p>
-            <div className="mt-3 rounded-[var(--r-md)] border p-3 text-[length:var(--fs-xs)] leading-5" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+            <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.email.body}</GlossaryText></p>
+            <div className="mt-3 rounded-[var(--r-md)] border p-3 text-[length:var(--ft-body-size)] leading-5" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
               {copy.email.safety}
             </div>
           </div>
@@ -1186,11 +1221,11 @@ export default function CreatorHubPage() {
           <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <Lock size={18} style={{ color: "var(--lime)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.privacyTitle}</h2>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.privacyTitle}</GlossaryText></h2>
             </div>
             <ul className="mt-3 space-y-2">
               {copy.privacy.map((item) => (
-                <li key={item} className="flex gap-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>
+                <li key={item} className="flex gap-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>
                   <ShieldCheck size={15} className="mt-0.5 shrink-0" style={{ color: "var(--lime)" }} />
                   <span>{item}</span>
                 </li>
@@ -1202,27 +1237,29 @@ export default function CreatorHubPage() {
             <div className="mb-4 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
               <div className="flex items-center gap-2">
                 <Bot size={16} style={{ color: "var(--lime)" }} />
-                <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.credit.title}</div>
+                <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.credit.title}</div>
               </div>
-              <p className="mt-1 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.credit.body}</p>
+              <details className="creator-technical-summary mt-3"><summary>{i18n.language.startsWith("ko") ? "생성 횟수와 데이터 안내" : "Generation limits and data"}</summary>
+              <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.credit.body}</GlossaryText></p>
               <ul className="mt-2 space-y-1.5">
                 {copy.credit.rules.map((rule) => (
-                  <li key={rule} className="flex gap-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-2)" }}>
+                  <li key={rule} className="flex gap-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>
                     <ShieldCheck size={13} className="mt-0.5 shrink-0" style={{ color: "var(--lime)" }} />
                     <span>{rule}</span>
                   </li>
                 ))}
               </ul>
-              <div className="mt-2 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>
+              </details>
+              <div className="mt-2 text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)" }}>
                 {diary?.quota
                   ? copy.credit.remaining.replace("{{remaining}}", String(diary.quota.remaining)).replace("{{limit}}", String(diary.quota.limit))
                   : diary?.source === "cache"
                     ? copy.credit.cache
                     : copy.credit.quotaUnknown}
               </div>
-              {diaryError && <div className="mt-2 text-[length:var(--fs-xs)]" style={{ color: "var(--rose)" }}>{diaryError}</div>}
+              {diaryError && <div className="mt-2 text-[length:var(--ft-body-size)]" style={{ color: "var(--rose)" }}>{diaryError}</div>}
               <div className="mt-3">
-                <Button size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating}>
+                <Button size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating || policyLoading}>
                   <Sparkles size={15} />
                   {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
                 </Button>
@@ -1230,35 +1267,14 @@ export default function CreatorHubPage() {
             </div>
             <Text as="div" variant="eyebrow">{copy.shareCard.label}</Text>
             <h2 className="mt-1 text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.shareTitle}</h2>
-            <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.shareSubtitle}</p>
-            <div className="mt-4 rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-              <div className="mb-2 flex items-center gap-2 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>
-                <Sparkles size={14} />
-                {copy.shareCard.label}
-              </div>
-              <div className="text-[length:var(--fs-base)] font-semibold leading-6" style={{ color: "var(--ink-0)" }}>{shareCard.title}</div>
-              <p className="mt-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{shareCard.body}</p>
-              <div className="mt-3 inline-flex items-center gap-1 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)]" style={{ background: "var(--bg-1)", color: "var(--ink-3)" }}>
-                <Lock size={13} />
-                {shareCard.footer}
-              </div>
-            </div>
+            <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.shareSubtitle}</p>
+            <div className="mt-4"><RecipeShareCard key={diary?.generatedAt ?? "example"} card={shareCard} language={i18n.language} ready={Boolean(diary)} onError={(action) => showToast(action === "export" ? (i18n.language.startsWith("ko") ? "이미지를 저장하지 못했습니다. 다시 시도해 주세요." : "Could not save the image. Please retry.") : copy.actions.copyFailed, "error")} /></div>
             {diary && (
               <div className="mt-3 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-                <Text as="div" variant="eyebrow">{diary.diary.title}</Text>
-                <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{diary.diary.body}</p>
+                <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "비공개 일기 · 나만 보기" : "Private diary · only you"} — {diary.diary.title}</Text>
+                <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>{diary.diary.body}</p>
               </div>
             )}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" onClick={handleCopy}>
-                <Clipboard size={15} />
-                {copied ? copy.actions.copied : copy.actions.copy}
-              </Button>
-              <Link to="/community/board/write" state={{ postTemplate: diary ? { title: diary.diary.title, body: diary.diary.body } : undefined }} className={buttonClass({ variant: "primary", size: "sm" })}>
-                  <MessageSquareText size={15} aria-hidden />
-                  {copy.actions.post}
-              </Link>
-            </div>
           </div>
         </aside>
       </section>
@@ -1269,56 +1285,37 @@ export default function CreatorHubPage() {
         <div className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           <div className="flex items-center gap-2">
             <Sparkles size={18} style={{ color: "var(--lime)" }} />
-            <h2 className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.shareTitle}</h2>
+            <h2 className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.shareTitle}</GlossaryText></h2>
           </div>
-          <p className="mt-2 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{copy.shareSubtitle}</p>
-          <div ref={shareSectionRef} className="mt-5 rounded-[var(--r-lg)] border p-5" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-            <div className="mb-3 flex items-center gap-2 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>
-              <Sparkles size={14} />
-              {copy.shareCard.label}
-            </div>
-            <div className="text-[length:var(--fs-xl)] font-semibold leading-7" style={{ color: "var(--ink-0)" }}>{shareCard.title}</div>
-            <p className="mt-3 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-2)" }}>{shareCard.body}</p>
-            <div className="mt-4 inline-flex items-center gap-1 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)]" style={{ background: "var(--bg-1)", color: "var(--ink-3)" }}>
-              <Lock size={13} />
-              {shareCard.footer}
-            </div>
-          </div>
+          <p className="mt-2 text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}>{copy.shareSubtitle}</p>
+          <div ref={shareSectionRef} className="mt-5"><RecipeShareCard key={diary?.generatedAt ?? "example"} card={shareCard} language={i18n.language} ready={Boolean(diary)} onError={(action) => showToast(action === "export" ? (i18n.language.startsWith("ko") ? "이미지를 저장하지 못했습니다. 다시 시도해 주세요." : "Could not save the image. Please retry.") : copy.actions.copyFailed, "error")} /></div>
           {diary && (
             <div data-testid="E6-2" className="mt-4 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-              <Text as="div" variant="eyebrow">{diary.diary.title}</Text>
-              <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{diary.diary.body}</p>
+              <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "비공개 일기 · 나만 보기" : "Private diary · only you"} — {diary.diary.title}</Text>
+              <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>{diary.diary.body}</p>
             </div>
           )}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={handleCopy}>
-              <Clipboard size={15} />
-              {copied ? copy.actions.copied : copy.actions.copy}
-            </Button>
-            <Link data-testid="E6-2-1" to="/community/board/write" state={{ postTemplate: diary ? { title: diary.diary.title, body: diary.diary.body } : undefined }} className={buttonClass({ variant: "primary", size: "sm" })}>
-              <MessageSquareText size={15} aria-hidden />
-              {copy.actions.post}
-            </Link>
-          </div>
         </div>
 
         <aside className="space-y-4">
           <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <Bot size={16} style={{ color: "var(--lime)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.credit.title}</h2>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.credit.title}</GlossaryText></h2>
             </div>
-            <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.credit.body}</p>
+            <details className="creator-technical-summary mt-3"><summary>{i18n.language.startsWith("ko") ? "생성 횟수와 데이터 안내" : "Generation limits and data"}</summary>
+            <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.credit.body}</GlossaryText></p>
             <ul className="mt-3 space-y-1.5">
               {copy.credit.rules.map((rule) => (
-                <li key={rule} className="flex gap-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-2)" }}>
+                <li key={rule} className="flex gap-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>
                   <ShieldCheck size={13} className="mt-0.5 shrink-0" style={{ color: "var(--lime)" }} />
                   <span>{rule}</span>
                 </li>
               ))}
             </ul>
+            </details>
             <div className="mt-3">
-              <Button data-testid="E6-1-3" size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating}>
+              <Button data-testid="E6-1-3" size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating || policyLoading}>
                 <Sparkles size={15} />
                 {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
               </Button>
@@ -1328,11 +1325,11 @@ export default function CreatorHubPage() {
           <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <Lock size={18} style={{ color: "var(--lime)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.privacyTitle}</h2>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.privacyTitle}</GlossaryText></h2>
             </div>
             <ul className="mt-3 space-y-2">
               {copy.privacy.map((item) => (
-                <li key={item} className="flex gap-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>
+                <li key={item} className="flex gap-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>
                   <ShieldCheck size={15} className="mt-0.5 shrink-0" style={{ color: "var(--lime)" }} />
                   <span>{item}</span>
                 </li>
@@ -1348,39 +1345,59 @@ export default function CreatorHubPage() {
         <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--aqua)" }}>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--ft-body-size)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--aqua)" }}>
                 <LineChart size={14} />
-                {chartUsesOwnData ? copy.weekly.own : copy.weekly.demo}
+                {chartUsesOwnData ? copy.weekly.own : user ? copy.weekly.empty : copy.weekly.demo}
               </div>
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.weekly.title}</h2>
-              <p className="mt-1 max-w-3xl text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.weekly.body}</p>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.weekly.title}</GlossaryText></h2>
+              <p className="mt-1 max-w-3xl text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.weekly.body}</GlossaryText></p>
             </div>
-            <Button data-testid="E6-2-2" size="sm" variant="secondary" onClick={handleCopyChart}>
+            <Button data-testid="E6-2-2" size="sm" variant="secondary" onClick={handleCopyChart} disabled={Boolean(user && chartWeeks.length === 0)}>
               <Clipboard size={15} />
               {chartCopied ? copy.actions.copied : copy.actions.copyChart}
             </Button>
           </div>
 
           <div className="mt-4 grid h-48 grid-cols-6 items-end gap-2 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-            {chartWeeks.map((week) => {
-              const height = week.tss === null ? 132 : Math.round((week.tss / chartMax) * 132);
+            {chartWeeks.map((week, index) => {
+              const height = Math.round((week.distance / chartMax) * 132);
+              const basis = week.loadEvidence?.basisTotals;
+              const ko = i18n.language.startsWith("ko");
+              const pointsUnit = ko ? "점" : " pts";
+              const basisText = basis ? [
+                [ko ? "파워 기반 TSS" : "Power-based TSS", basis.power],
+                [ko ? "심박 기반 TSS" : "Heart-rate TSS", basis.heartRate],
+                [ko ? "시간 추정 TSS" : "Time-estimated TSS", basis.time],
+                [ko ? "산출 기준 미상 TSS" : "Unknown-basis TSS", basis.unknown],
+              ].filter(([, value]) => Number(value) > 0).map(([label, value]) => `${label} ${Math.round(Number(value))}${pointsUnit}`).join("\n") : "";
+              const loadText = formatTrainingLoad({ ...week, tssUnknownCount: week.tssUnknownCount ?? 0 }, loadT);
+              const loadValue = loadT("charts.weeklyChart.tssValue", { value: week.tss });
+              const tooltipText = [
+                `${copy.weekly.distance} ${week.distance.toFixed(1)} km`,
+                `${copy.weekly.time} ${week.time.toFixed(1)} h`,
+                week.tss === null ? loadText : loadText.replace(loadValue, `${loadValue}${pointsUnit}`),
+                basisText,
+              ].filter(Boolean).join("\n");
+              const mobileTick = index === 0 || index === Math.floor((chartWeeks.length - 1) / 2) || index === chartWeeks.length - 1;
               return (
                 <div key={week.week} className="flex h-full min-w-0 flex-col justify-end gap-2"
-                  title={`${week.week}: ${formatTrainingLoad({ ...week, tssUnknownCount: week.tssUnknownCount ?? 0 }, loadT)}, ${week.distance}km`}>
+                  >
                   <div className="flex min-h-0 flex-1 items-end justify-center">
-                    <div
+                    <InfoTip className="creator-week-tip" title={`${week.week} · ${copy.weekly.distance}`} content={tooltipText} label={`${week.week} ${copy.weekly.distance} ${week.distance.toFixed(1)} km`} style={{ display: "flex", alignItems: "flex-end", width: "100%", justifyContent: "center" }}>
+                    <span
                       className="w-full max-w-10 rounded-t-[var(--r-sm)]"
-                      data-testid={week.tss === null ? "creator-tss-unknown" : "creator-tss-bar"}
-                      style={{ height, opacity: week.tss === null ? 0.35 : 1, background: week.tss === null ? "var(--bg-3)" : "linear-gradient(180deg, var(--aqua), var(--lime))" }}
+                      data-testid="creator-distance-bar"
+                      style={{ display: "block", height, background: "linear-gradient(180deg, var(--aqua), var(--lime))" }}
                     />
+                    </InfoTip>
                   </div>
-                  <div className="truncate text-center text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{week.week}</div>
+                  <div className="creator-week-tick text-center text-[length:var(--ft-body-size)]" data-mobile-tick={mobileTick} style={{ color: "var(--ink-3)" }}>{week.week}</div>
                 </div>
               );
             })}
           </div>
 
-          <div className="mt-3 grid grid-cols-4 gap-2">
+          <div className="creator-week-stats mt-3 grid grid-cols-4 gap-2">
             {[
               { label: copy.weekly.distance, value: `${Math.round(chartTotal.distance)}km` },
               { label: copy.weekly.time, value: `${chartTotal.time.toFixed(1)}h` },
@@ -1399,37 +1416,73 @@ export default function CreatorHubPage() {
           <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div data-testid="E6-3" className="flex items-center gap-2">
               <Send size={18} style={{ color: "var(--lime)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.apiPath.title}</h2>
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.apiPath.title}</GlossaryText></h2>
             </div>
-            <p className="mt-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.apiPath.body}</p>
+            <details className="creator-technical-summary mt-3"><summary>{i18n.language.startsWith("ko") ? "내 도구에 연결하는 방법" : "How to connect your tools"}</summary>
+            <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.apiPath.body}</GlossaryText></p>
             <ol className="mt-3 space-y-2">
               {copy.apiPath.steps.map((step) => (
-                <li key={step} className="text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{step}</li>
+                <li key={step} className="text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>{step}</li>
               ))}
             </ol>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link to="/settings/developer" className={buttonClass({ variant: "secondary", size: "sm" })}>
-                <KeyRound size={15} aria-hidden />
-                {copy.actions.manageApiKeys}
-              </Link>
-              <a href={PUBLIC_REPOSITORY_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
-                <GitPullRequest size={15} aria-hidden />
-                {copy.actions.submitRecipe}
-              </a>
-              <Link to={CREATOR_RECIPE_REQUEST_LINK} className={buttonClass({ variant: "primary", size: "sm" })}>
-                <MessageSquareText size={15} aria-hidden />
-                {copy.actions.requestRecipe}
-              </Link>
-            </div>
+            </details>
+
           </div>
         </aside>
       </section>
       )}
 
+      {(section === "deploy" || section === "recipes") && (
+      <details className="creator-technical-summary rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+      <summary>{i18n.language.startsWith("ko") ? "활용 흐름과 데이터 보호 원칙" : "Workflow and data protection"}</summary>
+      <section className="grid gap-4 rounded-[var(--r-lg)] border p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_360px]" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--ft-body-size)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--aqua)" }}>
+            <BookOpen size={14} />
+            {copy.tabs.recipes}
+          </div>
+          <h2 className="mt-3 max-w-3xl text-[length:var(--fs-xl)] font-semibold leading-7" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.marketTitle}</GlossaryText></h2>
+          <p className="mt-2 max-w-4xl text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.marketBody}</GlossaryText></p>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {copy.marketStages.map((stage, index) => {
+              const StageIcon = marketStageIcons[index] ?? Sparkles;
+              return (
+                <div key={stage.title} className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--r-sm)]" style={{ background: "var(--bg-1)", color: index === 0 ? "var(--aqua)" : index === 1 ? "var(--lime)" : index === 2 ? "var(--amber)" : "var(--violet)" }}>
+                      <StageIcon size={16} />
+                    </span>
+                    <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{stage.title}</div>
+                  </div>
+                  <p className="mt-3 text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}>{stage.body}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <aside className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={18} style={{ color: "var(--lime)" }} />
+            <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.marketRulesTitle}</GlossaryText></h2>
+          </div>
+          <ul className="mt-4 space-y-3">
+            {copy.marketRules.map((rule) => (
+              <li key={rule} className="flex gap-2 text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-2)" }}>
+                <ShieldCheck size={15} className="mt-1 shrink-0" style={{ color: "var(--lime)" }} />
+                <span>{rule}</span>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      </section>
+      </details>
+      )}
+
       {section !== "overview" && (
       <section className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-        <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.builderTitle}</h2>
-        <p className="mt-1 max-w-4xl text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.builderBody}</p>
+        <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.builderTitle}</GlossaryText></h2>
+        <p className="mt-1 max-w-4xl text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.builderBody}</GlossaryText></p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link data-testid="E6-3-1" to="/settings/developer" className={buttonClass({ variant: "primary", size: "sm" })}>
             <KeyRound size={15} aria-hidden />
@@ -1447,7 +1500,9 @@ export default function CreatorHubPage() {
       </section>
       )}
 
+      {previewRequest && user && <RecipePreviewDialog key={user.uid} request={previewRequest} language={i18n.language} ownerId={user.uid} onClose={() => setPreviewRequest(null)} onSent={() => markEmailSent(previewRequest.recipeId)} />}
       <RideStoryPhotoPicker
+        onPreview={(selection) => { setPreviewRequest({ recipeId: "ride-story", ...selection }); setRideStoryPickerOpen(false); }}
         open={rideStoryPickerOpen}
         userId={user?.uid ?? null}
         onClose={() => setRideStoryPickerOpen(false)}
@@ -1455,5 +1510,20 @@ export default function CreatorHubPage() {
         onFailed={() => markEmailFailed("ride-story")}
       />
     </div>
+    </GlossaryProvider>
   );
+}
+
+
+function CreatorTechnicalText({ children, language }: { children: string; language: string }) {
+  const ko = language.startsWith("ko");
+  const terms: Record<string, string> = {
+    KPI: ko ? "핵심 성과 지표입니다. 리포트에서 이동거리나 활동시간 같은 주요 값을 요약합니다." : "Key performance indicators: the main summary values in a report, such as distance and activity time.",
+    HTML: ko ? "웹브라우저에서 열어 볼 수 있는 문서 형식입니다." : "A document format you can open in a web browser.",
+    Swagger: ko ? "API 요청과 응답을 확인하고 시험할 수 있는 설명 도구입니다." : "A tool for reading and trying documented API requests and responses.",
+    OpenAPI: ko ? "API의 요청 경로와 입력·응답 형식을 기술하는 표준입니다." : "A standard describing API endpoints and their request and response formats.",
+  };
+  return children.split(/\b(KPI|HTML|Swagger|OpenAPI)\b/g).map((part, index) => terms[part]
+    ? <InfoTip key={index} title={part} content={terms[part]} label={part}>{part}</InfoTip>
+    : <Fragment key={index}><GlossaryText>{part}</GlossaryText></Fragment>);
 }

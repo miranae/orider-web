@@ -74,7 +74,8 @@
     "stravaConnected": "Strava connected",
     "noName": "No name",
     "editNickname": "Edit nickname",
-    "change": "Change"
+    "change": "Change",
+    "bioSaveFailed": "Could not save your bio. Please try again."
   },
   "privacy": {
     "defaultVisibility": "Default visibility",
@@ -359,16 +360,22 @@
       "logoutHint": "Sign out of this browser.",
       "logoutConfirm": "Sign out?",
       "logoutBtn": "Sign out",
-      "deleteLabel": "Delete all activity data",
-      "deleteHint": "Activities, analysis results, photos and segments will be deleted. Raw activity data may remain until the next full reanalysis.",
+      "deleteLabel": "Delete account and data",
+      "deleteHint": "Request permanent deletion of your phone/watch account and linked data. Review the scope on the next page.",
       "deleteBtnDeleting": "Deleting…",
-      "deleteBtnLabel": "Delete data",
+      "deleteBtnLabel": "Review and request account deletion",
       "deleteAccountDone": "Activities and analysis data deleted",
       "deleteTypeConfirm": "Type DELETE to delete your account and activity data. You will be signed out and sent home.",
       "deleteTypePlaceholder": "DELETE",
       "deleteTypeToken": "DELETE",
       "deleteTypeMismatch": "Input did not match. Account deletion was cancelled.",
-      "deleteAccountFailed": "Failed to delete data"
+      "deleteAccountFailed": "Failed to delete data",
+      "medicalSummary": "Medical & emergency details (optional)",
+      "medicalHint": "Manage blood type, medication, allergies and emergency contacts.",
+      "manageData": "Manage data",
+      "dataLabel": "Manage your data",
+      "dataHint": "Use data settings to export data and review activity deletion options.",
+      "cardManagement": "Account management"
     },
     "app": {
       "cardLocaleUnits": "Language & Units",
@@ -382,15 +389,21 @@
       "cardExport": "Export data",
       "exportFormatLabel": "Default format",
       "exportAllLabel": "Download all activities",
-      "exportAllHint": "Receive all activities as a ZIP archive.",
-      "clearCacheLabel": "Clear cache",
-      "clearCacheHint": "Clears map tiles and chart cache.",
-      "clearCacheBtn": "Clear",
-      "clearCacheFailed": "Failed to clear cache",
-      "cardDeleteAll": "Delete all activity data",
-      "deleteAllWarning": "This cannot be undone. Activities, analysis results, photos and segments will be deleted. Raw activity data may remain until the next full reanalysis. Your account itself is kept.",
-      "deleteAllBtn": "Delete all activity data",
-      "deleteFailed": "Delete failed"
+      "exportAllHint": "Download a ZIP containing profile and activity JSON, an activity CSV, and GPX for activities with GPS tracks.",
+      "clearCacheLabel": "Delete detailed activity records",
+      "clearCacheHint": "Deletes server-stored detailed records (streams) for all your activities. Activity summaries remain, but detailed charts and routes may become unavailable.",
+      "clearCacheBtn": "Delete detailed records",
+      "clearCacheFailed": "Failed to delete detailed activity records",
+      "cardDeleteAll": "Delete activity data",
+      "deleteAllWarning": "Marks imported Strava activities as deleted and removes server-stored detailed records for all your activities, regardless of source. Also resets Strava import status and shared summaries. Your account is kept.",
+      "deleteAllBtn": "Delete Strava activities and detailed records",
+      "deleteFailed": "Delete failed",
+      "exportFailed": "Could not complete the export. Select Download all to try again.",
+      "streamsDeleteConfirm": "Delete server-stored detailed records (streams) for all your activities? Activity summaries remain, but detailed charts and routes may become unavailable. This cannot be undone.",
+      "streamsDeleted": "Detailed activity records deleted.",
+      "stravaDeleteConfirm": "Delete imported Strava activities and server-stored detailed records for all your activities, regardless of source? Strava import status and shared summaries will also reset. This cannot be undone.",
+      "stravaDeleted": "Strava activities and server-stored detailed records deleted.",
+      "appStyle": "App style"
     },
     "connections": {
       "cardConnected": "Connected apps",
@@ -409,7 +422,9 @@
       "importPastLabel": "Import past activities",
       "importPastHint": "Bulk-import your past Strava activities.",
       "importBtnReport": "View report",
-      "importBtnImport": "Import"
+      "importBtnImport": "Import",
+      "activityApps": "Activity app connections",
+      "futureApps": "Upcoming activity apps"
     },
     "developer": {
       "cardCreate": "Create a Personal Data API key",
@@ -513,7 +528,8 @@
     "revocationLabel": "How to revoke",
     "changeSummaryLabel": "What changed:",
     "policyDocumentLink": "Full AI Coach data processing notice",
-    "policyPageTitle": "AI Coach data processing notice"
+    "policyPageTitle": "AI Coach data processing notice",
+    "statusUnavailable": "Status unavailable"
   },
   "nav": {
     "pageTitle": "Settings",
@@ -521,7 +537,7 @@
     "groupConnections": "Connections",
     "groupApp": "App",
     "accountLabel": "Account",
-    "accountHint": "Profile, visibility, theme",
+    "accountHint": "Profile, privacy and consent",
     "trainingLabel": "Training profile",
     "trainingHint": "Body, FTP, HR zones",
     "equipmentLabel": "Equipment",
@@ -541,12 +557,19 @@
     "displayLabel": "Display",
     "displayHint": "Language, units, theme",
     "dataLabel": "My data",
-    "dataHint": "Export, cache, deletion",
+    "dataHint": "Export and activity record deletion",
     "mobileHubLabel": "Settings categories",
     "backToProfile": "Back to profile",
     "backToSettings": "Back to settings categories"
   },
   "equipment": {
+    "moreBikeProfiles": "Other bike profiles ({{count}})",
+    "backfillStatequeued": "Queued",
+    "backfillStaterunning": "Calculating",
+    "backfillStatedone": "Complete",
+    "backfillStatefailed": "Failed",
+    "backfillModeNew": "Records without estimated power",
+    "backfillModeAll": "Recalculate all records",
     "bikeProfile": "Bike profiles",
     "bikeProfileCount": "{{count}} total",
     "bikeProfileDuplicateHint": "If you have duplicate profiles you can delete unused ones. The last one cannot be deleted.",
@@ -585,9 +608,9 @@
     "vpSaveFailed": "Save failed: {{message}}",
     "bikeLoading": "Loading bike profiles…",
     "bikeNoProfile": "Create a bike profile in the app first.",
-    "backfillTitle": "Backfill past activities",
+    "backfillTitle": "Update estimated power for past activities",
     "backfillDesc": "Fill in virtual power for bike activities without a power meter.",
-    "backfillNewOnly": "New only",
+    "backfillNewOnly": "Calculate missing estimated power",
     "backfillRecalcAll": "Recalculate all",
     "backfillStatus": "Status: {{status}} ({{mode}})",
     "backfillProgress": "{{done}} / {{total}} done",
@@ -612,7 +635,18 @@
     "dataPagesConflict": "Another device saved first. Choose which layout to keep.",
     "dataPagesTargetDeleted": "The bike you were saving to was deleted.",
     "dataPagesFailed": "Couldn't save. Please try again.",
-    "dataPagesUnavailable": "Couldn't load the saved layout right now. Saving is paused so the existing layout isn't overwritten."
+    "dataPagesUnavailable": "Couldn't load the saved layout right now. Saving is paused so the existing layout isn't overwritten.",
+    "presetHoods": "Hoods",
+    "presetDrops": "Drops",
+    "presetAero": "Aero",
+    "presetTt": "Time trial",
+    "presetRoad": "Road",
+    "presetGravel": "Gravel",
+    "presetMtb": "Mountain bike",
+    "backfillConfirmNew": "Request virtual power calculation for past rides without calculated virtual power?",
+    "backfillConfirmAll": "Request virtual power recalculation for past rides?",
+    "backfillRequestFailed": "Could not request virtual power calculation.",
+    "virtualPowerState": "Virtual power {{state}}"
   },
   "healthSources": {
     "title": "Health data sources",
@@ -669,13 +703,13 @@
     "deleteDeviceSuccess": "Device settings deleted",
     "deleteDeviceFailed": "Delete failed: {{message}}",
     "reload": "Refresh",
-    "deviceIntroHint": "Settings for the mobile app (Android / iOS). Bikes, sensors and wheel circumference are managed under Equipment.",
+    "deviceIntroHint": "Manage bike-specific sensors and wheel circumference, and device behavior settings.",
     "scopeUserBadge": "All devices",
-    "scopeDeviceBadge": "This device",
-    "scopeMixedBadge": "Mixed",
-    "scopeUserTitle": "User-scoped setting — recommended to apply identically to all devices.",
-    "scopeDeviceTitle": "Setting only meaningful on this device.",
-    "scopeMixedTitle": "Mix of device-specific and shared fields. Only shared fields are broadcast.",
+    "scopeDeviceBadge": "Selected device",
+    "scopeMixedBadge": "Choose scope",
+    "scopeUserTitle": "These settings can be applied to all devices when saving.",
+    "scopeDeviceTitle": "Applies only to the selected device.",
+    "scopeMixedTitle": "Some settings can apply to all devices; others apply only to the selected device.",
     "broadcastAll": "Apply to all my devices",
     "broadcastMixedNote": "(shared fields only)",
     "broadcastApplied_one": "Applied to {{count}} device",
@@ -809,7 +843,8 @@
     "legacyImportFailed": "Couldn't import. Please try again.",
     "legacyImportBlocked": "Import is paused because the target bike's saved layout couldn't be read.",
     "legacyImportNoBikes": "No bikes to import into. Create a bike first.",
-    "thresholdSource": "Manage canonical thresholds in Coach > Condition →"
+    "thresholdSource": "Manage canonical thresholds in Coach > Condition →",
+    "selectDevice": "Device to configure"
   },
   "layout": {
     "cardTitle": "Data screen layout",
@@ -939,6 +974,9 @@
     "ACTION_CAM_RECORD": "Action cam record toggle"
   },
   "threshold": {
+    "reason": {
+      "observedMaxHr": "Highest heart rate observed during the activity"
+    },
     "suggestionTitle": "Threshold update suggestion from recent activity",
     "maxHrLabel": "Max HR",
     "dismissFailed": "Could not dismiss this suggestion. Please try again.",
@@ -960,7 +998,7 @@
   "healthSources.justNow": "Just now",
   "gear": {
     "title": "Bike Kit",
-    "titleHint": "Register and manage gear such as bikes, wheels, and power meters. The course simulator (#287) uses these physical parameters.",
+    "titleHint": "Register and manage gear such as bikes, wheels, and power meters. The course simulator uses these physical parameters.",
     "addBtn": "Add gear",
     "empty": "No gear registered yet.",
     "defaultBadge": "Default",
@@ -1003,7 +1041,7 @@
     "loading": "Loading shoe information…",
     "unavailable": "Recent activity shoe information is unavailable. Please check again later.",
     "empty": "Recent activities contain no shoe information with a replacement distance.",
-    "total": "Accumulated {{distance}}",
+    "total": "Total distance {{distance}}",
     "remaining": "Remaining {{distance}} · replacement distance {{maximum}}",
     "replacementDue": "Replacement due · less than 15% remaining",
     "identity": "Shoe ID {{id}}",
@@ -1011,7 +1049,7 @@
     "conflictingIdentity": "Shoe snapshots with conflicting identifiers were excluded."
   },
   "bikeMileage": {
-    "total": "Accumulated {{distance}}",
+    "total": "Total distance {{distance}}",
     "loading": "Calculating accumulated distance",
     "error": "Unable to load accumulated distance.",
     "unavailable": "Accumulated distance unavailable",

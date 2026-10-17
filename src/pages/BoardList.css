@@ -1,0 +1,43 @@
+/* 게시판 목록은 클럽·탐색과 동일한 본문 위계와 토큰을 따른다. */
+.board-list { --fs-xs: var(--ft-body-size); --fs-sm: var(--ft-body-size); min-width: 0; font-size: var(--ft-body-size); line-height: var(--ft-body-line-height); }
+.board-list-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2) var(--space-4); }
+.board-list-header > div { min-width: 0; flex: 1 1 14rem; }
+.board-list-header h1 { font-size: var(--fs-xl); line-height: 1.35; }
+.board-list-header p { font-size: var(--ft-body-size); line-height: var(--ft-body-line-height); }
+.board-list-header .ds-btn--primary { background: var(--color-primary-dark); border-color: var(--color-primary-dark); color: var(--primary-fg); }
+.board-list-controls { display: grid; gap: var(--space-3); }
+.board-list-search { display: flex; flex: 1 1 auto; min-width: 0; gap: var(--space-2); }
+.board-list-search > [data-testid="M2-1"] { min-width: 0; }
+.board-list-tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.board-list-filter-hint { width: 100%; font-size: var(--ft-body-size); color: var(--ink-2); margin-bottom: var(--space-2); }
+.board-list-card { border-radius: var(--r-lg); }
+.board-list-meta { flex-wrap: wrap; row-gap: var(--space-2); }
+.board-list-meta > span { overflow-wrap: anywhere; }
+.board-list-title { margin-block: var(--space-2); font-size: var(--ft-title-size); line-height: var(--ft-title-line-height); font-weight: var(--ft-title-weight); word-break: keep-all; overflow-wrap: anywhere; }
+.board-list-title a { color: var(--ink-0); text-decoration: none; }
+.board-list-title a:hover { text-decoration: underline; text-underline-offset: .2em; }
+.board-list-title a:focus-visible { outline: 2px solid var(--lime); outline-offset: var(--space-1); border-radius: var(--r-sm); }
+.board-list-summary { display: flex; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-3); }
+.board-list-summary > p { flex: 1; min-width: 0; }
+.board-list-card p { font-size: var(--ft-body-size); line-height: var(--ft-body-line-height); overflow-wrap: anywhere; }
+.board-list-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-2) var(--space-4); }
+.board-list-footer > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.board-list-counts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); }
+.board-list-thumbnail { width: calc(var(--space-8) * 2); height: calc(var(--space-8) * 2); }
+.board-list-pagination { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-1); padding-top: var(--space-4); }
+@media (max-width: 36rem) {
+  .board-list-counts { width: 100%; }
+  .board-list-header > div { flex-basis: 100%; }
+  .board-list-thumbnail { width: calc(var(--space-7) * 2); height: calc(var(--space-7) * 2); }
+  .board-list-meta > .ml-auto { margin-left: 0; }
+  .board-list-card { margin-block: var(--space-3); }
+}
+
+/* Search and filter controls share the same form height. */
+.board-list-search .ds-btn,
+.board-list-tabs .ds-btn,
+.board-list-search .board-search-input {
+  height: var(--dim-button-height);
+  min-height: var(--dim-button-height);
+}
+.board-list-search .board-search-input { padding-inline-start: var(--space-7); }

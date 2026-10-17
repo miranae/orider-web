@@ -1,4 +1,5 @@
 import { useDefaultSport } from "../hooks/useDefaultSport";
+import { Banana, Flag, MapPinned, Mountain, Timer } from "lucide-react";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useSearchParams, useLocation } from "react-router-dom";
@@ -35,6 +36,11 @@ import { ELEVATION_PLOT_AXIS_WIDTH } from "../components/ElevationChart";
 import { CourseStageProfile } from "../features/courses/CourseStageProfile";
 import { track } from "../services/analytics";
 import "../features/courses/course-detail.css";
+import "../features/courses/course-review.css";
+import InfoTip from "../components/InfoTip";
+import Modal from "../components/Modal";
+import GlossaryProvider from "../components/common/GlossaryProvider";
+import GlossaryText from "../components/common/GlossaryText";
 import { cumulativeDistancesFromLatLng, laneLabelKey, LANE_DEFS } from "../features/courseEngine";
 import {
   buildCourseWaypointLaneGroups,
@@ -44,7 +50,7 @@ import {
 import Avatar from "../components/Avatar";
 import { decodePolyline } from "../utils/polyline";
 import { EmptyState, LoadingSkeleton } from "../components/redesign";
-import { Button, Card, Chip, Text } from "../theme/components";
+import { Button, Card, Chip, Text, buttonClass, Input, Textarea, DropdownSelect } from "../theme/components";
 import { courseTagLabel, primaryCourseTags } from "../features/courses/courseTags";
 import { CourseRidePlanSection } from "../features/courses/CourseRidePlanSection";
 import { canonicalDisplayShowsValue } from "@shared/types/canonicalDisplay";
@@ -909,7 +915,7 @@ export default function CoursePage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon="🗺️"
+          icon={<MapPinned size={24} />}
           title={t("error.notFound")}
           description={course?.deletedAt || course?.hidden ? t("error.deleted") : undefined}
           actions={[{ label: t("button.courseList"), variant: "primary", href: "/explore/courses" }]}
@@ -923,7 +929,7 @@ export default function CoursePage() {
   const climbSection = (
     course.climbs && course.climbs.length > 0 && (
       <div style={{ ...COURSE_INFO_SECTION_STYLE, marginTop: "var(--space-4)" }}>
-        <Text as="div" variant="eyebrow">{t("climbSection")}</Text>
+        <Text as="h2" variant="title">{t("climbSection")}</Text>
         <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-2)" }}>
           {climbCards.map(({ climb, prediction }, i) => (
             <div
@@ -936,7 +942,7 @@ export default function CoursePage() {
                   className="text-[length:var(--fs-xs)] font-medium rounded-[var(--r-sm)]"
                   style={{ ...climbBadgeStyle(climb.cat), padding: "var(--space-1) var(--space-2)" }}
                 >
-                  {climbCatLabel(climb.cat)}
+                  <InfoTip className="course-category-tip" title={t("metrics.climbGrade")} content={t("metrics.individualClimbHelp")}>{climbCatLabel(climb.cat)}</InfoTip>
                 </span>
                 <Text variant="bodySmall">
                   {Math.round(climb.gain)}m / {(climb.dist / 1000).toFixed(1)}km
@@ -953,7 +959,7 @@ export default function CoursePage() {
         </div>
         {canPrepare && detailTab === "prepare" && climbPredictions.some(Boolean) && (
           <Text variant="caption" style={{ color: "var(--ink-4)" }}>
-            {t("climbPrediction.disclaimer")}
+            <GlossaryText>{t("climbPrediction.disclaimer")}</GlossaryText>
           </Text>
         )}
       </div>
@@ -961,7 +967,8 @@ export default function CoursePage() {
   );
 
   return (
-    <div className="site-shell" style={COURSE_PAGE_STACK_STYLE}>
+<GlossaryProvider scopeKey={`${courseId}:${detailTab}`}>
+    <div className="site-shell course-detail-surface" style={COURSE_PAGE_STACK_STYLE}>
       {/* Toast (portal to body to avoid Leaflet stacking context) */}
       {toast && createPortal(
         <div className="fixed top-4 left-1/2 -translate-x-1/2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)]" style={COURSE_TOAST_STYLE}>
@@ -970,36 +977,18 @@ export default function CoursePage() {
         document.body,
       )}
 
-      {reportOpen && createPortal(
-        <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999, background: "color-mix(in oklch, var(--bg-0) 72%, transparent)", paddingInline: "var(--space-4)" }} role="dialog" aria-modal="true" aria-labelledby="course-report-title">
-          <Card className="w-full max-w-sm">
-            <div style={{ ...COURSE_INFO_SECTION_STYLE, gap: "var(--space-3)" }}>
-              <Text id="course-report-title" as="h2" variant="title">{t("report.title")}</Text>
-              <label className="block text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }} htmlFor="course-report-reason">
-                {t("report.reason")}
-              </label>
-              <select
-                id="course-report-reason"
-                value={reportReason}
-                onChange={(e) => setReportReason(e.target.value as ReportReason)}
-                className="w-full rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none"
-                style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)", padding: "var(--space-2) var(--space-3)" }}
-              >
-                {REPORT_REASONS.map((reason) => (
-                  <option key={reason} value={reason}>{t(`report.reason.${reason}`)}</option>
-                ))}
-              </select>
-              <div style={{ ...COURSE_INLINE_WRAP_STYLE, justifyContent: "flex-end" }}>
-                <Button type="button" variant="ghost" onClick={() => setReportOpen(false)} disabled={reporting}>{t("button.cancel")}</Button>
-                <Button type="button" variant="primary" onClick={handleReportCourse} disabled={reporting}>
-                  {reporting ? t("report.submitting") : t("report.submit")}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>,
-        document.body,
-      )}
+      <Modal open={reportOpen} onClose={() => { if (!reporting) setReportOpen(false); }} title={t("report.title")} maxWidth="max-w-sm" busy={reporting} layer={9999}>
+        <div style={{ ...COURSE_INFO_SECTION_STYLE, gap: "var(--space-3)" }}>
+          <label className="block text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }} htmlFor="course-report-reason">{t("report.reason")}</label>
+          <DropdownSelect className="course-report-reason" menuZIndex={10000} id="course-report-reason" label={t("report.reason")} value={reportReason}
+            disabled={reporting} onChange={value => setReportReason(value as ReportReason)}
+            options={REPORT_REASONS.map(reason => ({ value: reason, label: t(`report.reason.${reason}`) }))} />
+          <div style={{ ...COURSE_INLINE_WRAP_STYLE, justifyContent: "flex-end" }}>
+            <Button type="button" variant="ghost" onClick={() => setReportOpen(false)} disabled={reporting}>{t("button.cancel")}</Button>
+            <Button type="button" variant="primary" onClick={handleReportCourse} disabled={reporting}>{reporting ? t("report.submitting") : t("report.submit")}</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* 히어로 — 지도 위에 코스 정체성을 얹는다. 대회 페이지와 같은 셸이되
           날짜·정원 슬롯이 없다는 점이 코스임을 형태로 알린다. */}
@@ -1019,7 +1008,7 @@ export default function CoursePage() {
             lat: row.location[0],
             lon: row.location[1],
             name: row.name ?? t("waypoint.unnamed"),
-            icon: LANE_DEFS[row.lane].icon,
+            icon: row.lane === "AID" ? <Banana size={16} aria-hidden="true" /> : row.lane === "KOM" ? <Mountain size={16} aria-hidden="true" /> : row.lane === "CUT" ? <Timer size={16} aria-hidden="true" /> : <Flag size={16} aria-hidden="true" />,
             // 이름으로 비교하면 같은 이름이 여럿일 때 전부 켜지고, 이름 없는 지점은
             // 선택해도 안 켜진다. 인덱스로 판정한다.
             active: activeWaypointIndex === index,
@@ -1075,11 +1064,11 @@ export default function CoursePage() {
             u: "m",
           },
           { k: t("elevationHigh"), v: String(Math.round(course.elevationHigh)), u: "m" },
-          { k: t("averageGrade"), v: course.averageGrade.toFixed(1), u: "%" },
-          { k: t("maxGrade"), v: course.maximumGrade.toFixed(1), u: "%" },
+          { k: t("metrics.ascentRatio"), v: course.averageGrade.toFixed(1), u: "%", help: t("metrics.ascentRatioHelp") },
+          { k: t("maxGrade"), v: course.maximumGrade.toFixed(1), u: "%", help: t("maxGradeHelp") },
         ].map((cell) => (
           <div key={cell.k} className="course-stat">
-            <Text as="div" variant="eyebrow">{cell.k}</Text>
+            <Text as="div" variant="body">{cell.help ? <InfoTip title={cell.k} content={cell.help} label={cell.k}>{cell.k}</InfoTip> : cell.k}</Text>
             <div><Text variant="dataMedium">{cell.v}</Text><Text variant="unit">{cell.u}</Text></div>
           </div>
         ))}
@@ -1096,7 +1085,7 @@ export default function CoursePage() {
       {((course.photos && course.photos.length > 0) || userPhotos.length > 0 || user) && (
         <Card>
           <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-3)" }}>
-            <Text as="h3" variant="eyebrow">{t("photo.title")}</Text>
+            <Text as="h3" variant="title">{t("photo.title")}</Text>
             {user && (
               <>
                 <input
@@ -1199,7 +1188,7 @@ export default function CoursePage() {
                         <button
                           key={`${item.index}`}
                           type="button"
-                          className="course-pip"
+                          className={buttonClass({ variant: "ghost", className: "course-pip" })}
                           aria-pressed={selected}
                           data-hover={hoveredWaypoint === index ? "1" : undefined}
                           data-selected={selected ? "1" : undefined}
@@ -1228,7 +1217,7 @@ export default function CoursePage() {
       {waypointRows.length > 0 && (
         <Card>
           <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-3)" }}>
-            <Text as="h2" variant="eyebrow">{t("waypoint.section")}</Text>
+            <Text as="h2" variant="title">{t("waypoint.section")}</Text>
             <Text variant="caption" style={{ color: "var(--ink-3)" }}>
               {t("waypoint.count", { count: waypointRows.length })}
             </Text>
@@ -1255,7 +1244,7 @@ export default function CoursePage() {
                   >
                     <td className="r course-wp-idx">{String(index + 1).padStart(2, "0")}</td>
                     <td>
-                      <button type="button" className="course-wp-btn" onClick={() => selectWaypoint(index)}>
+                      <button type="button" className={buttonClass({ variant: "ghost", className: "course-wp-btn" })} onClick={() => selectWaypoint(index)}>
                         {row.name ?? t("waypoint.unnamed")}
                       </button>
                       {row.note && <div className="course-wp-note">{row.note}</div>}
@@ -1284,27 +1273,27 @@ export default function CoursePage() {
           /* ── Edit Mode ────────────────────────────────────────── */
           <div style={{ ...COURSE_INFO_SECTION_STYLE, gap: "var(--space-3)" }}>
             <div style={COURSE_INFO_SECTION_STYLE}>
-              <Text as="label" variant="eyebrow" style={{ display: "block" }}>{t("form.courseName")}</Text>
-              <input data-testid="D2-3"
+              <label htmlFor="course-inline-name" className="course-edit-label" style={{ display: "block" }}><Text variant="body">{t("form.courseName")}</Text></label>
+              <Input id="course-inline-name" data-testid="D2-3"
                 ref={nameInputRef}
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 maxLength={50}
-                className="w-full rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none"
-                style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)", padding: "var(--space-2) var(--space-3)" }}
+                className="w-full"
+
               />
               <div className="text-[length:var(--fs-xs)] text-right" style={{ color: "var(--ink-4)" }}>{t("form.charLimit", { current: editName.length, max: 50 })}</div>
             </div>
             <div style={COURSE_INFO_SECTION_STYLE}>
-              <Text as="label" variant="eyebrow" style={{ display: "block" }}>{t("form.description")}</Text>
-              <textarea
+              <label htmlFor="course-inline-description" className="course-edit-label" style={{ display: "block" }}><Text variant="body">{t("form.description")}</Text></label>
+              <Textarea id="course-inline-description"
                 value={editDesc}
                 onChange={(e) => setEditDesc(e.target.value)}
                 maxLength={200}
                 rows={3}
-                className="w-full rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none resize-none"
-                style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)", padding: "var(--space-2) var(--space-3)" }}
+                className="w-full"
+
               />
               <div className="text-[length:var(--fs-xs)] text-right" style={{ color: "var(--ink-4)" }}>{t("form.charLimit", { current: editDesc.length, max: 200 })}</div>
             </div>
@@ -1404,23 +1393,24 @@ export default function CoursePage() {
             <Button
               onClick={handleToggleLike}
               disabled={likeLoading} variant="secondary"
+              aria-pressed={liked} aria-label={t("button.likeCount", { count: course.likeCount })}
               style={liked ? { color: "var(--lime)", borderColor: "var(--lime)" } : undefined}
             >
               <svg className="w-4 h-4" fill={liked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
-              {course.likeCount > 0 ? course.likeCount : t("button.share")}
+              {t("button.likeCount", { count: course.likeCount })}
             </Button>
           )}
 
           {/* 계산기는 준비 탭에 있다. 옛 /lab 주소는 계속 지원한다. */}
-          <Button variant="secondary" disabled={!canPrepare} onClick={() => setDetailTab("prepare")}>
+          {detailTab !== "prepare" && <Button variant="secondary" disabled={!canPrepare} onClick={() => setDetailTab("prepare")}>
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 3v6l-5 9a1 1 0 00.9 1.5h14.2A1 1 0 0020 18l-5-9V3" />
               <path d="M7 3h10M8.5 13h7" />
             </svg>
             {t("button.simulate")}
-          </Button>
+          </Button>}
 
           {/* GPX Export */}
           <Button onClick={handleExportGpx} variant="secondary">
@@ -1470,7 +1460,7 @@ export default function CoursePage() {
           {/* Owner actions */}
           {isOwner && (
             <div className="ml-auto flex items-center" style={{ gap: "var(--space-2)" }}>
-              <Button onClick={startEditing} variant="secondary" size="sm">{t("button.edit")}</Button>
+              {!editing && <Button onClick={startEditing} variant="secondary" size="sm">{t("button.edit")}</Button>}
               <Button
                 onClick={handleDelete}
                 disabled={deleting} variant="secondary" size="sm" className="disabled:opacity-50"
@@ -1514,7 +1504,7 @@ export default function CoursePage() {
           &larr; {t("button.courseList")}
         </Link>
       </div>
-    </div>
+    </div></GlossaryProvider>
   );
 }
 
@@ -1540,10 +1530,10 @@ export function ClimbPredictionStatus({
   if (prediction) {
     return (
       <Text as="div" variant="bodyMedium" style={{ color: "var(--ink-1)", marginTop: "var(--space-2)" }}>
-        {t("climbPrediction.result", {
+        <GlossaryText>{t("climbPrediction.result", {
           duration: formatClimbDuration(prediction.totalSec),
           wkg: prediction.wattsPerKg.toFixed(1),
-        })}
+        })}</GlossaryText>
       </Text>
     );
   }

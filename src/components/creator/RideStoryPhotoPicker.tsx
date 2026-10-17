@@ -1,14 +1,17 @@
+import "./RideStoryPhotoPicker.css";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { collection, doc, getDocs, limit as firestoreLimit, orderBy, query, setDoc, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { CloudUpload, Loader2, MapPinned, Send } from "lucide-react";
+import { matchesDiscipline } from "@shared/sport/discipline";
 import { useToast } from "../../contexts/ToastContext";
 import { firestore, functions, storage } from "../../services/firebase";
-import { extractGpsFromFile } from "../../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../../features/activity/detail/imageResize";
 import { Button, Chip } from "../../theme/components";
+import Modal from "../Modal";
+import { getSportLabelKey } from "../../utils/sportType";
 import { decodeTrack } from "../../utils/polyline";
 
 interface RideStoryPhotoOption {
@@ -41,6 +44,7 @@ interface RideStoryPhotoPickerProps {
   onClose: () => void;
   onSent: () => void;
   onFailed: () => void;
+  onPreview?: (selection: RideStorySelection) => void;
 }
 
 const MAX_PHOTOS_PER_ACTIVITY = 10;
@@ -54,7 +58,7 @@ function copyFor(language: string) {
       ? "포스터에 담을 활동과 사진을 고르세요. 사진이 없거나 사진을 쓰고 싶지 않으면 경로가 중심인 포스터로 보낼 수 있습니다."
       : "Choose the activity and photo for the poster. If there is no photo, or you prefer not to use one, send a route-focused poster.",
     loading: ko ? "최근 활동과 사진을 불러오는 중" : "Loading recent rides and photos",
-    noOptions: ko ? "최근 활동을 찾지 못했습니다." : "No recent activities found.",
+    noOptions: ko ? "최근 90일 안에 포스터로 만들 자전거 활동이 없습니다." : "No cycling activities from the last 90 days are available for a poster.",
     noPhotos: ko ? "경로 포스터 선택" : "Use route poster",
     noPhotoItems: ko ? "업로드된 활동 사진이 없습니다. 왼쪽 경로 포스터를 선택하세요." : "No uploaded activity photos. Choose the route poster on the left.",
     routePreview: ko ? "경로 미리보기" : "Route preview",
@@ -62,7 +66,7 @@ function copyFor(language: string) {
     photos: ko ? "사진" : "Photos",
     uploadPhoto: ko ? "사진 업로드" : "Upload photo",
     uploadingPhoto: ko ? "업로드 중" : "Uploading",
-    uploadHelp: ko ? "포스터 배경으로 쓸 사진을 추가합니다." : "Add a poster background photo.",
+    uploadHelp: ko ? "포스터 배경으로 쓸 사진을 추가합니다. 촬영 위치 정보는 저장하지 않습니다." : "Add a poster background photo. Photo location metadata is not saved.",
     imageOnly: ko ? "이미지 파일만 업로드할 수 있습니다." : "Only image files can be uploaded.",
     tooManyPhotos: ko ? `활동당 사진은 최대 ${MAX_PHOTOS_PER_ACTIVITY}장까지 업로드할 수 있습니다.` : `You can upload up to ${MAX_PHOTOS_PER_ACTIVITY} photos per activity.`,
     photoTooLarge: ko ? "사진 용량이 너무 큽니다. 다른 사진을 선택하세요." : "The photo is too large. Choose another photo.",
@@ -84,9 +88,9 @@ function safeNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function activityDateLabel(startTime: number) {
+function activityDateLabel(startTime: number, language: string) {
   if (!startTime) return "";
-  return new Date(startTime).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return new Date(startTime).toLocaleDateString(language.startsWith("ko") ? "ko-KR" : "en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
 function activityDurationMin(data: Record<string, unknown>) {
@@ -96,34 +100,35 @@ function activityDurationMin(data: Record<string, unknown>) {
   return Math.round(sec / 60);
 }
 
-function formatDuration(minutes: number) {
+function formatDuration(minutes: number, ko: boolean) {
   if (minutes <= 0) return "-";
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (h <= 0) return `${m}m`;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  if (h <= 0) return ko ? `${m}분` : `${m} min`;
+  return ko ? `${h}시간 ${m}분` : `${h} h ${m} min`;
 }
 
-async function loadOptions(userId: string): Promise<RideStoryActivityOption[]> {
+async function loadOptions(userId: string, language: string, sportLabel: (type: string) => string): Promise<RideStoryActivityOption[]> {
   const activitiesRef = collection(firestore, "activities");
-  let activitySnap;
-  try {
-    activitySnap = await getDocs(query(
-      activitiesRef,
-      where("userId", "==", userId),
-      orderBy("startTime", "desc"),
-      firestoreLimit(12),
-    ));
-  } catch {
-    activitySnap = await getDocs(query(
-      activitiesRef,
-      where("userId", "==", userId),
-      firestoreLimit(12),
-    ));
-  }
-  const activities = await Promise.all(activitySnap.docs.map(async (activityDoc) => {
+  const now = Date.now();
+  const since = now - 90 * 24 * 60 * 60 * 1000;
+  const activitySnap = await getDocs(query(
+    activitiesRef,
+    where("userId", "==", userId),
+    where("startTime", ">=", since),
+    where("startTime", "<=", now),
+    orderBy("startTime", "desc"),
+  ));
+  // Same eligibility as the server recipe loader; filter before limiting so non-rides
+  // cannot crowd valid cycling activities out of the selection list.
+  const eligible = activitySnap.docs.filter((activityDoc) => {
     const data = activityDoc.data() as Record<string, unknown>;
-    if (data.deletedAt) return null;
+    return !data.deletedAt && !data.isDeleted && matchesDiscipline(data.type, "bike")
+      && typeof data.startTime === "number" && Number.isFinite(data.startTime)
+      && data.startTime >= since && data.startTime <= now;
+  }).sort((left, right) => safeNumber(right.data().startTime) - safeNumber(left.data().startTime)).slice(0, 12);
+  const activities = await Promise.all(eligible.map(async (activityDoc) => {
+    const data = activityDoc.data() as Record<string, unknown>;
     const summary = (data.summary ?? {}) as Record<string, unknown>;
     const photoSnap = await getDocs(query(
       collection(firestore, "activity_photos", activityDoc.id, "photos"),
@@ -137,11 +142,16 @@ async function loadOptions(userId: string): Promise<RideStoryActivityOption[]> {
         return url ? { id: photoDoc.id, url } : null;
       })
       .filter((photo): photo is RideStoryPhotoOption => Boolean(photo)) ?? [];
+    const date = activityDateLabel(safeNumber(data.startTime), language);
+    const type = sportLabel(safeString(data.type));
+    // 피드와 같은 description을 우선하고, 연동 식별자는 사용자 제목으로 노출하지 않는다.
+    const name = [data.description, data.name, data.title, data.activityName]
+      .map(value => safeString(value)).find(value => value && value !== activityDoc.id && !/^(orider|strava)_/i.test(value));
     return {
       id: activityDoc.id,
-      name: safeString(data.name, safeString(data.title, safeString(data.activityName, activityDoc.id))),
-      date: activityDateLabel(safeNumber(data.startTime)),
-      type: safeString(data.type, "Activity"),
+      name: name || [date, type].filter(Boolean).join(" · "),
+      date,
+      type,
       distanceKm: Math.round((safeNumber(summary.distance) || safeNumber(data.distance)) / 100) / 10,
       durationMin: activityDurationMin(data),
       elevationGainM: Math.round(safeNumber(summary.elevationGain) || safeNumber(data.elevationGain)),
@@ -157,8 +167,8 @@ async function loadOptions(userId: string): Promise<RideStoryActivityOption[]> {
     .sort((a, b) => Number(b.photos.length > 0) - Number(a.photos.length > 0));
 }
 
-export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }: RideStoryPhotoPickerProps) {
-  const { i18n } = useTranslation();
+export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, onPreview }: RideStoryPhotoPickerProps) {
+  const { t, i18n } = useTranslation("common");
   const { showToast } = useToast();
   const copy = copyFor(i18n.language);
   const [loading, setLoading] = useState(false);
@@ -170,20 +180,26 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
 
   useEffect(() => {
     if (!open || !userId) return;
+    let active = true;
     setLoading(true);
     setError(null);
-    void loadOptions(userId)
+    setOptions([]);
+    setSelection(null);
+    void loadOptions(userId, i18n.language, type => t(getSportLabelKey(type)))
       .then((nextOptions) => {
+        if (!active) return;
         setOptions(nextOptions);
         const preferred = nextOptions.find((activity) => activity.photos.length > 0) ?? nextOptions[0] ?? null;
         setSelection(preferred ? { activityId: preferred.id, photoId: preferred.photos[0]?.id ?? null } : null);
       })
       .catch(() => {
+        if (!active) return;
         setError(copy.loadFailed);
         showToast(copy.loadFailed, "error");
       })
-      .finally(() => setLoading(false));
-  }, [copy.loadFailed, open, showToast, userId]);
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [copy.loadFailed, open, showToast, userId, i18n.language, t]);
 
   if (!open) return null;
 
@@ -199,7 +215,6 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
     }
     setUploadingActivityId(activity.id);
     try {
-      const location = await extractGpsFromFile(file);
       const blob = await resizeImageToWebp(file);
       if (blob.size > MAX_UPLOAD_BYTES) {
         showToast(copy.photoTooLarge, "error");
@@ -216,7 +231,6 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
         userId,
         createdAt: Date.now(),
         deletedAt: null,
-        ...(location ? { location } : {}),
       });
       const nextPhoto = { id: photoId, url };
       setOptions((prev) => prev.map((item) => (
@@ -232,14 +246,15 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
   };
 
   const send = async () => {
-    if (!selection) return;
+    if (!selection || sending || uploadingActivityId) return;
     setSending(true);
     try {
       const fn = httpsCallable<
         { recipeId: string; lang: string; activityId: string; photoId: string | null },
         { sent: boolean; recipeId: string; email: string }
       >(functions, "sendCreatorRecipeEmail", { timeout: 60_000 });
-      await fn({ recipeId: "ride-story", lang: i18n.language.startsWith("en") ? "en" : "ko", ...selection });
+      const result = await fn({ recipeId: "ride-story", lang: i18n.language.startsWith("en") ? "en" : "ko", ...selection });
+      if (!result.data.sent) throw new Error("creator/email-not-sent");
       showToast(copy.sent);
       onSent();
       onClose();
@@ -252,17 +267,15 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 md:items-center" role="dialog" aria-modal="true" aria-labelledby="ride-story-picker-title">
-      <div className="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-[var(--r-lg)] border" style={{ background: "var(--bg-1)", borderColor: "var(--line)", boxShadow: "var(--shadow-lg)" }}>
-        <div className="flex items-start justify-between gap-4 border-b p-4" style={{ borderColor: "var(--line-soft)" }}>
+    <Modal layer={150} portalClassName="ride-story-picker" open={open} onClose={onClose} title={copy.title} maxWidth="max-w-3xl" accessible>
+      <div className="ride-story-picker-content min-w-0">
+        <div className="border-b pb-4" style={{ borderColor: "var(--line-soft)" }}>
           <div>
-            <h2 id="ride-story-picker-title" className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.title}</h2>
-            <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.body}</p>
+            <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.body}</p>
           </div>
-          <Button size="sm" variant="ghost" onClick={onClose}>{copy.cancel}</Button>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto p-4">
+        <div className="ride-story-picker-scroll py-4">
           {loading ? (
             <PickerMessage>{copy.loading}</PickerMessage>
           ) : error ? (
@@ -285,6 +298,7 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
                     uploadPhoto: copy.uploadPhoto,
                     uploadingPhoto: copy.uploadingPhoto,
                     uploadHelp: copy.uploadHelp,
+                    ko: i18n.language.startsWith("ko"),
                   }}
                   uploading={uploadingActivityId === activity.id}
                   onSelect={setSelection}
@@ -295,21 +309,21 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
           )}
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2 border-t p-4" style={{ borderColor: "var(--line-soft)" }}>
-          <Button size="sm" variant="secondary" onClick={onClose}>{copy.cancel}</Button>
-          <Button size="sm" variant="primary" disabled={!selection || loading} loading={sending} onClick={() => void send()}>
-            <Send size={15} />
+        <div className="ride-story-picker-footer flex flex-wrap justify-end gap-2 border-t pt-4" style={{ borderColor: "var(--line-soft)" }}>
+          <Button size="md" variant="secondary" onClick={onClose}>{copy.cancel}</Button>
+          {onPreview && <Button size="md" variant="primary" disabled={!selection || loading || Boolean(uploadingActivityId)} onClick={() => { if (selection) onPreview(selection); }}>{i18n.language.startsWith("ko") ? "선택 결과 미리보기" : "Preview selected output"}</Button>}
+          <Button size="md" variant="secondary" disabled={!selection || loading || Boolean(uploadingActivityId)} loading={sending} leadingIcon={<Send size={16} />} onClick={() => void send()}>
             {copy.send}
           </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
 function PickerMessage({ children }: { children: string }) {
   return (
-    <div className="rounded-[var(--r-md)] border p-4 text-[length:var(--fs-sm)]" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+    <div className="rounded-[var(--r-md)] border p-4 text-[length:var(--ft-body-size)]" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
       {children}
     </div>
   );
@@ -325,7 +339,7 @@ function RideStoryActivityRow({
 }: {
   activity: RideStoryActivityOption;
   selection: RideStorySelection | null;
-  copy: { noPhotoLabel: string; noPhotoItems: string; noRoute: string; photos: string; routePreview: string; uploadPhoto: string; uploadingPhoto: string; uploadHelp: string };
+  copy: { ko: boolean; noPhotoLabel: string; noPhotoItems: string; noRoute: string; photos: string; routePreview: string; uploadPhoto: string; uploadingPhoto: string; uploadHelp: string };
   uploading: boolean;
   onSelect: (selection: RideStorySelection) => void;
   onUpload: (file: File) => void;
@@ -343,16 +357,19 @@ function RideStoryActivityRow({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="break-words text-[length:var(--fs-base)] font-semibold leading-5" style={{ color: "var(--ink-0)" }}>{activity.name}</h3>
-          <p className="mt-1 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>
-            {activity.date} · {activity.type} · {activity.distanceKm.toFixed(1)}km · {formatDuration(activity.durationMin)} · {activity.elevationGainM}m
+          <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>
+            {activity.name !== [activity.date, activity.type].filter(Boolean).join(" · ") && <>{activity.date} · {activity.type}<br /></>}
+            <span className="ride-story-metric">{copy.ko ? "이동거리" : "Distance"} <span>{activity.distanceKm.toFixed(1)} km</span></span>{" · "}
+            <span className="ride-story-metric">{copy.ko ? "활동시간" : "Activity time"} <span>{formatDuration(activity.durationMin, copy.ko)}</span></span>{" · "}
+            <span className="ride-story-metric">{copy.ko ? "상승고도" : "Elevation gain"} <span>{activity.elevationGainM} m</span></span>
           </p>
         </div>
-        <Chip>{activity.photos.length > 0 ? `${activity.photos.length}` : "0"}</Chip>
+        <Chip>{copy.ko ? `활동사진 ${activity.photos.length}장` : `${activity.photos.length} ${activity.photos.length === 1 ? "photo" : "photos"}`}</Chip>
       </div>
 
       <div data-testid="E6-1-5" className="mt-3 grid gap-3 md:grid-cols-[minmax(180px,240px)_1fr]">
         <div>
-          <div className="mb-1 flex items-center gap-1 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-3)" }}>
+          <div className="mb-1 flex items-center gap-1 text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-3)" }}>
             <MapPinned size={13} />
             {copy.routePreview}
           </div>
@@ -367,14 +384,14 @@ function RideStoryActivityRow({
             }}
           >
             <RoutePosterPreview activity={activity} routeLabel={copy.routePreview} fallbackLabel={copy.noRoute} />
-            <div className="border-t px-3 py-2 text-[length:var(--fs-xs)] font-semibold" style={{ borderColor: "var(--line-soft)", color: "var(--ink-1)" }}>
+            <div className="border-t px-3 py-2 text-[length:var(--ft-body-size)] font-semibold" style={{ borderColor: "var(--line-soft)", color: "var(--ink-1)" }}>
               {copy.noPhotoLabel}
             </div>
           </button>
         </div>
 
         <div>
-          <div className="mb-1 flex items-center justify-between gap-2 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-3)" }}>
+          <div className="mb-1 flex items-center justify-between gap-2 text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-3)" }}>
             <span>{copy.photos}</span>
             <span className="tabular-nums">{activity.photos.length}/{MAX_PHOTOS_PER_ACTIVITY}</span>
           </div>
@@ -399,7 +416,7 @@ function RideStoryActivityRow({
               type="button"
               disabled={uploadDisabled}
               onClick={() => fileInputRef.current?.click()}
-              className="aspect-square rounded-[var(--r-md)] border-2 border-dashed p-2 text-center text-[length:var(--fs-xs)] font-semibold leading-4 disabled:opacity-50"
+              className="aspect-square rounded-[var(--r-md)] border-2 border-dashed p-2 text-center text-[length:var(--ft-body-size)] font-semibold leading-4 disabled:opacity-50"
               style={{ borderColor: "var(--line-soft)", background: "var(--bg-1)", color: "var(--ink-2)" }}
             >
               <span className="flex h-full flex-col items-center justify-center gap-1">
@@ -410,7 +427,7 @@ function RideStoryActivityRow({
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadChange} />
           {activity.photos.length === 0 && (
-            <div className="mt-2 rounded-[var(--r-md)] border p-3 text-[length:var(--fs-xs)] leading-5" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)", color: "var(--ink-3)" }}>
+            <div className="mt-2 rounded-[var(--r-md)] border p-3 text-[length:var(--ft-body-size)] leading-5" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)", color: "var(--ink-3)" }}>
               {copy.noPhotoItems} {copy.uploadHelp}
             </div>
           )}
@@ -427,7 +444,7 @@ function RoutePosterPreview({ activity, routeLabel, fallbackLabel }: { activity:
   const path = buildRouteSvgPath(activity.thumbnailTrack);
   if (!path) {
     return (
-      <div className="flex aspect-[4/3] items-center justify-center text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
+      <div className="flex aspect-[4/3] items-center justify-center text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>
         {fallbackLabel}
       </div>
     );

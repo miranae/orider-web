@@ -61,6 +61,15 @@
     "activities": "Training log",
     "records": "Records",
     "friends": "Friends",
-    "gear": "Gear"
-  }
+    "gear": "Gear",
+    "overview": "Profile"
+  },
+  "stats.title": "Activity totals",
+  "stats.scopeOwn": "Based on your full activity history",
+  "stats.scopePublic": "Based on publicly visible activity history",
+  "activities.viewAll": "View all",
+  "activities.untitled": "Activity",
+  "recent.distance": "Distance covered",
+  "recent.time": "Activity time",
+  "dateLocale": "en-US"
 }

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { run30Program, run30Sessions } from "../../../__tests__/fixtures/run30";
 import {
+  compactRun30Segments,
   availableRun30Actions,
   buildRun30ViewModel,
   enrollmentDateOptions,
@@ -83,5 +84,20 @@ describe("run30 display helpers", () => {
     const vm = buildRun30ViewModel(run30Program({ nextStage: 99, todayAction: null }));
     expect(vm.todayKind).toBe("finished");
     expect(vm.pastSessions).toHaveLength(24);
+  });
+});
+
+
+describe("exact source interval grouping", () => {
+  it("groups repeated labels, durations and target types while preserving every source value", () => {
+    const pair = [{ stepId: "run", label: "편하게 달리기", durationSec: 60, targetType: "NONE" }, { stepId: "walk", label: "걷기 회복", durationSec: 120, targetType: "NONE" }];
+    const segments = Array.from({ length: 7 }, (_, index) => pair.map(segment => ({ ...segment, stepId: `${index}-${segment.stepId}` }))).flat();
+    segments.push({ ...pair[0]!, stepId: "last-run" });
+    const blocks = compactRun30Segments(segments);
+    expect(blocks.map(block => block.repeats)).toEqual([7, 1]);
+    expect(blocks.flatMap(block => Array.from({ length: block.repeats }, () => block.segments).flat()).map(({ label, durationSec, targetType }) => ({ label, durationSec, targetType }))).toEqual(segments.map(({ label, durationSec, targetType }) => ({ label, durationSec, targetType })));
+    const changed = segments.map(segment => ({ ...segment }));
+    changed[2]!.targetType = "POWER";
+    expect(compactRun30Segments(changed)[0]!.repeats).toBe(1);
   });
 });

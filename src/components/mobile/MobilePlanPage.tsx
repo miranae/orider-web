@@ -1,3 +1,4 @@
+import { RefreshCw, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -109,10 +110,10 @@ export default function MobilePlanPage({
       actionsSlot={(
         <div data-testid="K4-3m" style={{ display: "flex", gap: "var(--space-2)", overflowX: "auto", paddingBottom: 2 }}>
           {[
-            [t("actions.ics", { defaultValue: "ICS" }), onIcsExport],
-            [t("actions.reroll", { defaultValue: "재생성" }), onReroll],
-            [t("actions.resetGoal", { defaultValue: "목표 재설정" }), onGoalReset],
-            [t("actions.abandon", { defaultValue: "포기" }), onAbandon],
+            [t("buttons.ics"), onIcsExport],
+            [t("buttons.reroll"), onReroll],
+            [t("buttons.goalReset"), onGoalReset],
+            [t("buttons.abandonGoal"), onAbandon],
           ].map(([label, action], index) => action ? (
             <Button
               data-testid={["K4-3-2", "K4-3-3", "K4-3-4", "K4-3-5"][index]}
@@ -123,7 +124,7 @@ export default function MobilePlanPage({
               onClick={() => { void (action as () => void | Promise<void>)(); }}
               style={{ whiteSpace: "nowrap" }}
             >
-              {String(label)}
+              {index === 1 && <RefreshCw size={16} aria-hidden="true" />}{index === 2 && <Target size={16} aria-hidden="true" />}{String(label)}
             </Button>
           ) : null)}
         </div>

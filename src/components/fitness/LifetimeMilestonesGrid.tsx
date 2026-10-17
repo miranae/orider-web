@@ -13,6 +13,7 @@
  * 누적 합계·최장 라이드는 서버에 대응 필드가 없어 플래그와 무관하게 화면 집계값을 쓴다
  * (`utils/lifetimeMilestones.ts` 참조). 배지와 섞지 않고 별도 줄에 둔다.
  */
+import { Award } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, Text } from "../../theme/components";
@@ -22,14 +23,6 @@ import type { Milestone, MilestoneId } from "@shared/types/milestone";
 import { useCanonicalSurfaceEnabled } from "../../hooks/useCanonicalRollout";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import { computeLifetimeMilestones, computeLifetimeTotals } from "../../utils/lifetimeMilestones";
-
-const MEDAL: Record<number, string> = {
-  100: "💯",
-  500: "🔥",
-  1000: "👑",
-  5000: "🚀",
-  10000: "🌍",
-};
 
 /** 배지 한 칸의 상태 — `pending` 은 "서버가 아직 판정할 수 없음"(잠금 아님). */
 type BadgeState = "achieved" | "locked" | "pending";
@@ -62,9 +55,10 @@ export interface LifetimeMilestonesGridProps {
   achieved: Map<MilestoneId, Milestone>;
   /** 구독 응답 전 — 미달성(점선 잠금)으로 그리면 모름을 없음으로 그리는 셈이라 배지를 숨긴다. */
   loading?: boolean;
+  scopeLabel?: string;
 }
 
-export default function LifetimeMilestonesGrid({ activities, achieved, loading = false }: LifetimeMilestonesGridProps) {
+export default function LifetimeMilestonesGrid({ activities, achieved, loading = false, scopeLabel }: LifetimeMilestonesGridProps) {
   const { t } = useTranslation("fitness");
   const canonical = useCanonicalSurfaceEnabled("milestones");
 
@@ -105,7 +99,7 @@ export default function LifetimeMilestonesGrid({ activities, achieved, loading =
         {t("lifetimeMilestones.title")}
       </Text>
       <Text as="div" variant="bodySmall" tone="tertiary" style={{ marginBottom: "var(--space-3)" }}>
-        {t("lifetimeMilestones.total", { km: Math.round(totals.totalDistanceMeters / 1000).toLocaleString() })}
+        {t(scopeLabel ? "lifetimeMilestones.scopedTotal" : "lifetimeMilestones.total", { scope: scopeLabel, km: Math.round(totals.totalDistanceMeters / 1000).toLocaleString() })}
       </Text>
 
       {hideBadges ? (
@@ -113,7 +107,7 @@ export default function LifetimeMilestonesGrid({ activities, achieved, loading =
           {t("lifetimeMilestones.loading")}
         </Text>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${badges.length}, 1fr)`, gap: "var(--space-2)" }}>
+        <div className="recap-lifetime-badges">
           {badges.map(({ km, state, achievedAt }) => {
             const done = state === "achieved";
             return (
@@ -132,7 +126,7 @@ export default function LifetimeMilestonesGrid({ activities, achieved, loading =
                 }}
               >
                 <div style={{ fontSize: "var(--fs-lg)", filter: done ? "none" : "grayscale(1)" }} aria-hidden="true">
-                  {MEDAL[km]}
+                  <Award size={20} aria-hidden="true" style={{margin: "0 auto"}} />
                 </div>
                 <Text as="div" variant="caption" tone={done ? "primary" : "tertiary"} weight={done ? 600 : 400}>
                   {t("lifetimeMilestones.label", { km: km.toLocaleString() })}

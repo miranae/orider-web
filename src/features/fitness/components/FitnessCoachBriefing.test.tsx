@@ -263,3 +263,17 @@ describe("coach screen ownership", () => {
     expect(screen.queryByRole("button", { name: "실제 하루 변화" })).not.toBeInTheDocument();
   });
 });
+
+
+it('keeps calculation provenance available in a disclosure while showing a concise date and preserving sufficiency information', () => {
+  renderBriefing({ part: 'condition', currentDate: '2026-10-16', currentBasis: '2026-10-16 기준 · 저장된 일별 계산값',
+    metricsNoteSlot: <div><span>낮은 근거</span><span>일부 부하는 운동 시간으로 추정했어요.</span><span data-testid="briefing-test-remaining">남은 요건 1개</span><a data-testid="briefing-test-action" href="/settings/connections">운동 기록 가져오기</a></div> });
+  expect(screen.getByText('10월 16일 기준')).toBeVisible();
+  const source = screen.getByText('2026-10-16 기준 · 저장된 일별 계산값');
+  expect(source).not.toBeVisible();
+  expect(screen.getByText('남은 요건 1개')).toBeVisible();
+  expect(screen.getByRole('link', { name: '운동 기록 가져오기' })).toHaveAttribute('href', '/settings/connections');
+  fireEvent.click(screen.getByText('계산 근거'));
+  expect(source).toBeVisible();
+  expect(screen.getByTestId('K1-1-3')).toHaveAttribute('href', '/ko/coach/today?sport=bike');
+});

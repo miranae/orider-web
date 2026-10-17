@@ -1,5 +1,8 @@
+import { handleGroupChoiceKey } from "../../features/group/groupControlKeys";
+import GroupRequestHistory from "../../components/group/GroupRequestHistory";
+import { Inbox, Search, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { collection, getDocs, onSnapshot } from "firebase/firestore";
@@ -15,8 +18,8 @@ import { getPublicUserProfiles, type PublicUserProfile } from "../../services/pu
 import GroupSubNav from "../../components/group/GroupSubNav";
 import Avatar from "../../components/Avatar";
 import InviteMemberModal from "../../components/group/InviteMemberModal";
-import { EmptyState, LoadingSkeleton } from "../../components/redesign";
-import { Button, Card, Chip, Text } from "../../theme/components";
+import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
+import { Button, Card, Chip, Text, DropdownSelect, Input } from "../../theme/components";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 import { useGroupInviteCode } from "../../hooks/useGroupInviteCode";
 import { localeTag } from "../../utils/localeDate";
@@ -44,12 +47,17 @@ interface InvitationDoc {
 export default function GroupMembersPage({ management = false }: { management?: boolean }) {
   const { t, i18n } = useTranslation("group");
   const { groupId } = useParams();
+  const [searchParams] = useSearchParams();
+  const leadershipSection = searchParams.get("section") === "leadership";
+  const leadershipRef = useRef<HTMLDetailsElement>(null);
+  const [leadershipOpen, setLeadershipOpen] = useState(false);
+  const [regeneratingCode, setRegeneratingCode] = useState(false);
   const { user } = useAuth();
   const dialog = useDialog();
   const { showToast } = useToast();
   const navigate = useLocalizedNavigate();
-  const { group, loading: groupLoading } = useGroup(groupId);
-  const { members, loading: membersLoading } = useGroupMembers(groupId);
+  const { group, loading: groupLoading, error: groupError, retry: retryGroup } = useGroup(groupId);
+  const { members, loading: membersLoading, error: membersError, retry: retryMembers } = useGroupMembers(groupId);
   const isOwner = !!user && !!group && user.uid === group.creatorId;
   const activeMembership = members.find(member => member.id === user?.uid && ["active", "approved"].includes(member.status));
   const currentRole = activeMembership?.role ?? null;
@@ -73,10 +81,15 @@ export default function GroupMembersPage({ management = false }: { management?: 
   const [pendingError, setPendingError] = useState(false);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [invitationsError, setInvitationsError] = useState(false);
+  const [invitationsAttempt, setInvitationsAttempt] = useState(0);
   const [invitations, setInvitations] = useState<InvitationDoc[]>([]);
   const [leaving, setLeaving] = useState(false);
   const leaveIntent = useRef(0);
-  useEffect(() => { leaveIntent.current += 1; setLeaving(false); return () => { leaveIntent.current += 1; }; }, [groupId, user?.uid]);
+  useEffect(() => {
+    leaveIntent.current += 1; setLeaving(false); setBulkBusy(false); setRoleBusyId(null); setLeadershipBusy(false);
+    setSelected(new Set()); setShowInvite(false); setTab("members");
+    return () => { leaveIntent.current += 1; };
+  }, [groupId, user?.uid, isOwner]);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [roleBusyId, setRoleBusyId] = useState<string | null>(null);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
@@ -88,7 +101,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
 
   // 가입 요청 (pending 컬렉션)
   useEffect(() => {
-    if (!groupId || !management || !isOwner) { setPending([]); return; }
+    if (!groupId || !isOwner) { setPending([]); return; }
     let cancelled = false;
     setPendingLoading(true); setPendingError(false);
     let snapshotEpoch = 0;
@@ -123,7 +136,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
       cancelled = true;
       unsubscribe();
     };
-  }, [groupId, management, isOwner]);
+  }, [groupId, isOwner]);
 
   // Invitation reads use the same active manager predicate as the deployed rules.
   useEffect(() => {
@@ -137,9 +150,38 @@ export default function GroupMembersPage({ management = false }: { management?: 
       if (!cancelled) setInvitationsError(true);
     });
     return () => { cancelled = true; };
-  }, [groupId, tab, canManage, !!activeMembership]);
+  }, [groupId, tab, canManage, !!activeMembership, invitationsAttempt]);
 
-  const isCreator = management && !!user && !!group && user.uid === group.creatorId;
+  const isCreator = isOwner;
+
+  useEffect(() => { setLeadershipOpen(false); setRegeneratingCode(false); }, [groupId, user?.uid]);
+  useEffect(() => {
+    if (!leadershipSection || !isOwner || groupLoading || membersLoading) return;
+    setTab("members");
+    setLeadershipOpen(true);
+    const frame = requestAnimationFrame(() => {
+      leadershipRef.current?.scrollIntoView?.({ block: "start" });
+      leadershipRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [leadershipSection, isOwner, groupLoading, membersLoading, groupId]);
+
+  const handleRegenerateCode = async () => {
+    if (!groupId || !user || !canManage || regeneratingCode) return;
+    const intent = leaveIntent.current;
+    const uid = user.uid;
+    const current = () => intent === leaveIntent.current && auth.currentUser?.uid === uid;
+    if (!(await dialog.confirm(t("settings.confirmRegenerateCode"), {destructive:true})) || !current()) return;
+    setRegeneratingCode(true);
+    try {
+      const applied = await invite.regenerate();
+      if (applied && current()) showToast(t("settings.regenerateCodeSuccess"));
+    } catch (error) {
+      if (!current()) return;
+      logClientError("GroupMembersPage.regenerateInvite", error, {groupId});
+      showToast(t("settings.regenerateCodeFailed"), "error");
+    } finally { if (current()) setRegeneratingCode(false); }
+  };
 
   const filteredMembers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -182,19 +224,27 @@ export default function GroupMembersPage({ management = false }: { management?: 
   const handleBulkRemove = async () => {
     const targetIds = Array.from(selected).filter((id) => id !== user?.uid);
     if (!groupId || !isCreator || targetIds.length === 0) return;
-    if (!(await dialog.confirm(t("members.confirmBulkRemove", { count: targetIds.length }), { destructive: true }))) return;
+    const uid = user?.uid;
+    const intent = leaveIntent.current;
+    const current = () => !!uid && intent === leaveIntent.current && auth.currentUser?.uid === uid;
+    if (!current()) return;
+
+    if (!(await dialog.confirm(t("members.confirmBulkRemove", { count: targetIds.length }), { destructive: true })) || !current()) return;
     setBulkBusy(true);
     try {
       const removeFn = httpsCallable(functions, "removeGroupMember");
       let failed = 0;
       for (const targetUserId of targetIds) {
+        if (!current()) return;
         try {
           await removeFn({ groupId, targetUserId });
         } catch (err) {
+          if (!current()) return;
           failed += 1;
           logClientError("GroupMembersPage.handleBulkRemove", err, { groupId, targetUserId });
         }
       }
+      if (!current()) return;
       setSelected(new Set());
       if (failed > 0) {
         showToast(t("members.removePartialFailed", { failed, total: targetIds.length }), "error");
@@ -202,17 +252,23 @@ export default function GroupMembersPage({ management = false }: { management?: 
         showToast(t("members.removeSuccess", { count: targetIds.length }));
       }
     } finally {
-      setBulkBusy(false);
+      if (current()) setBulkBusy(false);
     }
   };
 
   const handleRemoveMember = async (targetUserId: string, name: string) => {
     if (!groupId || !isCreator || targetUserId === user?.uid) return;
-    if (!(await dialog.confirm(t("members.confirmRemove", { name }), { destructive: true }))) return;
+    const uid = user?.uid;
+    const intent = leaveIntent.current;
+    const current = () => !!uid && intent === leaveIntent.current && auth.currentUser?.uid === uid;
+    if (!current()) return;
+
+    if (!(await dialog.confirm(t("members.confirmRemove", { name }), { destructive: true })) || !current()) return;
     setBulkBusy(true);
     try {
       const removeFn = httpsCallable(functions, "removeGroupMember");
       await removeFn({ groupId, targetUserId });
+      if (!current()) return;
       setSelected((prev) => {
         const next = new Set(prev);
         next.delete(targetUserId);
@@ -220,10 +276,11 @@ export default function GroupMembersPage({ management = false }: { management?: 
       });
       showToast(t("members.removeOneSuccess", { name }));
     } catch (err) {
+      if (!current()) return;
       logClientError("GroupMembersPage.handleRemoveMember", err, { groupId, targetUserId });
       showToast(t("members.removeFailed"), "error");
     } finally {
-      setBulkBusy(false);
+      if (current()) setBulkBusy(false);
     }
   };
 
@@ -237,23 +294,29 @@ export default function GroupMembersPage({ management = false }: { management?: 
       (currentRole !== "member" && currentRole !== "co-leader")
     ) return;
 
+    const uid = user?.uid;
+    const intent = leaveIntent.current;
+    const current = () => !!uid && intent === leaveIntent.current && auth.currentUser?.uid === uid;
+    if (!current()) return;
     const nextRole = currentRole === "co-leader" ? "member" : "co-leader";
     const confirmed = await dialog.confirm(t(
       nextRole === "co-leader" ? "members.confirmPromote" : "members.confirmDemote",
       { name },
     ));
-    if (!confirmed) return;
+    if (!confirmed || !current()) return;
 
     setRoleBusyId(targetUserId);
     try {
       // #379: 서버(CF)가 creator 권한·대상 유효성·updatedAt 을 강제 — 직접 쓰기 제거.
       await setGroupMemberRole({ groupId, userId: targetUserId, role: nextRole });
+      if (!current()) return;
       showToast(t(nextRole === "co-leader" ? "members.promoteSuccess" : "members.demoteSuccess", { name }));
     } catch (err) {
+      if (!current()) return;
       logClientError("GroupMembersPage.handleRoleChange", err, { groupId, targetUserId, nextRole });
       showToast(t("members.roleChangeFailed"), "error");
     } finally {
-      setRoleBusyId(null);
+      if (current()) setRoleBusyId(null);
     }
   };
 
@@ -262,10 +325,15 @@ export default function GroupMembersPage({ management = false }: { management?: 
     const target = leadershipCandidates.find((member) => member.id === leadershipTargetId);
     if (!target) return;
     const name = target.profile?.nickname ?? target.id;
+    const uid = user?.uid;
+    const intent = leaveIntent.current;
+    const current = () => !!uid && intent === leaveIntent.current && auth.currentUser?.uid === uid;
+    if (!current()) return;
+
     if (!(await dialog.confirm(t(
       leaveAfterTransfer ? "members.leadership.confirmAndLeave" : "members.leadership.confirm",
       { name },
-    ), { destructive: leaveAfterTransfer }))) return;
+    ), { destructive: leaveAfterTransfer })) || !current()) return;
 
     setLeadershipBusy(true);
     try {
@@ -274,11 +342,13 @@ export default function GroupMembersPage({ management = false }: { management?: 
         targetUserId: target.id,
         leaveAfterTransfer,
       });
+      if (!current()) return;
       showToast(t(result.leftGroup
         ? "members.leadership.transferAndLeaveSuccess"
         : "members.leadership.transferSuccess", { name }));
       navigate(result.leftGroup ? "/clubs" : `/club/${groupId}`, { replace: true });
     } catch (err) {
+      if (!current()) return;
       logClientError("GroupMembersPage.handleLeadershipTransfer", err, {
         groupId,
         targetUserId: target.id,
@@ -286,20 +356,27 @@ export default function GroupMembersPage({ management = false }: { management?: 
       });
       showToast(t("members.leadership.transferFailed"), "error");
     } finally {
-      setLeadershipBusy(false);
+      if (current()) setLeadershipBusy(false);
     }
   };
 
   const handleApprove = async (userId: string) => {
     if (!groupId) return;
+    const uid = user?.uid;
+    const intent = leaveIntent.current;
+    const current = () => !!uid && intent === leaveIntent.current && auth.currentUser?.uid === uid;
+    if (!current()) return;
+
     try {
       // approveGroupRequest CF가 멤버 추가 + pending 삭제를 원자적으로 처리.
       // CF 미존재 시 클라이언트가 멤버 doc만 삭제하면 가입 안 된 채 요청만 사라지므로 fallback 없음.
       const fn = httpsCallable(functions, "approveGroupRequest");
       await fn({ groupId, userId });
+      if (!current()) return;
       setPending((prev) => prev.filter((p) => p.userId !== userId));
       showToast(t("members.approveSuccess"));
     } catch (err) {
+      if (!current()) return;
       logClientError("GroupMembersPage.handleApprove", err, { groupId, userId });
       void dialog.alert(err instanceof Error ? err.message : t("error.approveFailed"), { variant: "danger" });
     }
@@ -307,12 +384,18 @@ export default function GroupMembersPage({ management = false }: { management?: 
 
   const handleReject = async (userId: string) => {
     if (!groupId) return;
+    const uid = user?.uid; const intent = leaveIntent.current;
+    const current = () => !!uid && intent === leaveIntent.current && auth.currentUser?.uid === uid;
+    if (!current()) return;
     try {
       await ensureAppCheckReady();
+      if (!current()) return;
       await httpsCallable(functions, "rejectGroupRequest")({ groupId, userId });
+      if (!current()) return;
       setPending((prev) => prev.filter((p) => p.userId !== userId));
       showToast(t("members.rejectSuccess"));
     } catch (err) {
+      if (!current()) return;
       logClientError("GroupMembersPage.handleReject", err, { groupId, userId });
       showToast(t("members.rejectFailed"), "error");
     }
@@ -326,11 +409,13 @@ export default function GroupMembersPage({ management = false }: { management?: 
     );
   }
 
+  if (groupError) return <ErrorState title={t("error.loadFailed")} onRetry={retryGroup} />;
+
   if (!group) {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon="👥"
+          icon={<Users size={24} style={{ marginInline: "auto" }} />}
           title={t("empty.groupNotFound")}
           actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}
         />
@@ -339,7 +424,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
   }
 
   return (
-    <div>
+    <div className="club-surface club-members">
       {!management && <GroupSubNav group={group} isCreator={canManageGroup(group, user?.uid, members.find(member => member.id === user?.uid && ["active", "approved"].includes(member.status))?.role ?? null)} />}
 
       {!management && !isOwner && user && members.some(member => member.id === user.uid) && <details data-testid="C6-0-3"><summary aria-label={t("members.menu")}>⋯</summary><Button variant="danger" disabled={leaving} onClick={async () => {
@@ -360,32 +445,27 @@ export default function GroupMembersPage({ management = false }: { management?: 
           logClientError("GroupMembersPage.leave", error, { groupId }); showToast(t("error.leaveFailed"), "error");
         } finally { if (leaveIntent.current === intent) setLeaving(false); }
       }}>{t("button.leave")}</Button></details>}
-      {/* Breadcrumb */}
-      <div className="text-[length:var(--fs-xs)] flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-3)', color: "var(--ink-3)" }}>
-        <Link to="/clubs" style={{ color: "var(--ink-3)" }}>{t("breadcrumb.groups")}</Link>
-        <span style={{ color: "var(--ink-4)" }}>/</span>
-        <Link to={`/club/${groupId}`} style={{ color: "var(--ink-1)", fontWeight: 500 }}>{group.name}</Link>
-        <span style={{ color: "var(--ink-4)" }}>/</span>
-        <span style={{ color: "var(--ink-0)" }}>{t("breadcrumb.memberManagement")}</span>
-      </div>
 
       {/* Tabs */}
-      <div data-testid="C6-0" role="tablist" aria-label={t("breadcrumb.memberManagement")} className="flex items-center" style={{ gap: "var(--space-0-5)", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-4)' }}>
+      <div data-testid="C6-0" role="tablist" onKeyDown={event=>handleGroupChoiceKey(event,"tab")} aria-label={t("breadcrumb.memberManagement")} className="flex items-center" style={{ gap: "var(--space-0-5)", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-4)' }}>
         {([
           ["members", `${t("members.tab.members")} ${members.length}`],
           ...(isCreator ? [["pending", `${t("members.tab.pending")} ${pending.length}`] as [Tab, string]] : []),
-          ...(!management && canManage ? [["invite", t("members.tab.invite")] as [Tab, string]] : []),
+          ...(canManage ? [["invite", t("members.tab.invite")] as [Tab, string]] : []),
         ] as [Tab, string][]).map(([id, label]) => (
           <button
             key={id}
             data-testid={id === "members" ? "C6-0-1" : undefined}
             type="button"
             role="tab"
+            tabIndex={tab === id ? 0 : -1}
+            id={`club-${groupId}-tab-${id}`}
+            aria-controls={`club-${groupId}-panel-${id}`}
             aria-selected={tab === id}
             onClick={() => setTab(id)}
             style={{
-              padding: "10px 14px",
-              fontSize: "var(--fs-xs)",
+              padding: "var(--space-3) var(--space-4)",
+              fontSize: "var(--ft-body-size)",
               fontWeight: 500,
               color: tab === id ? "var(--ink-0)" : "var(--ink-3)",
               borderBottom: tab === id ? "2px solid var(--lime)" : "2px solid transparent",
@@ -401,85 +481,22 @@ export default function GroupMembersPage({ management = false }: { management?: 
       {pendingError && <p role="alert">{t("error.loadFailed")}</p>}
       {/* MEMBERS TAB */}
       {tab === "members" && (
-        <>
-          {isCreator && (
-            <Card data-testid="C7-3" padding="none" className="mb-4" style={{ padding: "var(--space-4)" }}>
-              <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>
-                {t("members.leadership.title")}
-              </h2>
-              <p className="text-[length:var(--fs-xs)] mt-1 mb-3" style={{ color: "var(--ink-3)" }}>
-                {t("members.leadership.desc")}
-              </p>
-              {leadershipCandidates.length === 0 ? (
-                <Text as="p" variant="body" tone="tertiary">{t("members.leadership.noEligibleMember")}</Text>
-              ) : (
-                <div className="flex items-end flex-wrap" style={{ gap: "var(--space-3)" }}>
-                  <label className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>
-                    <span className="block mb-1">{t("members.leadership.target")}</span>
-                    <select
-                      value={leadershipTargetId}
-                      onChange={(event) => setLeadershipTargetId(event.target.value)}
-                      disabled={leadershipBusy}
-                      className="px-3 py-2 rounded-[var(--r-md)]"
-                      style={{ minWidth: 220, background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
-                    >
-                      {leadershipCandidates.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.profile?.nickname ?? member.id}
-                          {member.role === "co-leader" ? ` · ${t("members.role.coLeader")}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex items-center text-[length:var(--fs-xs)]" style={{ gap: "var(--space-2)", color: "var(--ink-2)" }}>
-                    <input
-                      type="checkbox"
-                      checked={leaveAfterTransfer}
-                      onChange={(event) => setLeaveAfterTransfer(event.target.checked)}
-                      disabled={leadershipBusy}
-                    />
-                    {t("members.leadership.leaveAfterTransfer")}
-                  </label>
-                  <Button data-testid="C7-3-1"
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={!leadershipTargetId || leadershipBusy}
-                    onClick={() => { void handleLeadershipTransfer(); }}
-                    style={{ color: "var(--amber)" }}
-                  >
-                    {leadershipBusy ? t("button.saving") : t("members.leadership.transfer")}
-                  </Button>
-                </div>
-              )}
-            </Card>
-          )}
+        <section role="tabpanel" id={`club-${groupId}-panel-members`} aria-labelledby={`club-${groupId}-tab-members`}>
           {/* Toolbar */}
           <div data-testid="C6-1" className="flex items-center flex-wrap" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-            <input data-testid="C6-1-1"
+            <Input data-testid="C6-1-1"
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("search.member")}
               aria-label={t("search.member")}
-              className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
+              className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
               style={{ flex: "1 1 200px", background: "var(--bg-2)", border: "1px solid var(--line-soft)", color: "var(--ink-0)" }}
             />
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
-              aria-label={t("filter.roles")}
-              className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
-              style={{ background: "var(--bg-2)", border: "1px solid var(--line-soft)", color: "var(--ink-0)" }}
-            >
-              <option value="all">{t("filter.roles")}</option>
-              <option value="leader">{t("members.role.leader")}</option>
-              <option value="co-leader">{t("members.role.coLeader")}</option>
-              <option value="member">{t("members.role.member")}</option>
-            </select>
+            <DropdownSelect value={roleFilter} onChange={value => setRoleFilter(value as RoleFilter)} label={t("filter.roles")} options={[{ value: "all", label: t("filter.roles") }, { value: "leader", label: t("members.role.leader") }, { value: "co-leader", label: t("members.role.coLeader") }, { value: "member", label: t("members.role.member") }]} />
             {selected.size > 0 && isCreator && (
               <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
-                <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>{selected.size}{t("members.selectedCount")}</span>
+                <span className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)" }}>{selected.size}{t("members.selectedCount")}</span>
                 <Button
                   type="button"
                   onClick={handleBulkRemove}
@@ -491,28 +508,25 @@ export default function GroupMembersPage({ management = false }: { management?: 
               </div>
             )}
             <div style={{ flex: 1 }} />
-            {!management && canManage && <Button data-testid="C6-0-2" onClick={() => setTab("invite")} variant="primary" size="sm">{t("button.invite")}</Button>}
+            {canManage && <Button data-testid="C6-0-2" onClick={() => setTab("invite")} variant="primary" size="sm">{t("button.invite")}</Button>}
           </div>
 
+          {Boolean(membersError) && <ErrorState title={t("error.membersLoadFailed")} onRetry={retryMembers} compact />}
           {membersLoading ? (
             <LoadingSkeleton kind="list" count={5} />
-          ) : filteredMembers.length === 0 ? (
-            <EmptyState icon="🔍" title={t("empty.noMembers")} compact />
+          ) : membersError && members.length === 0 ? null : filteredMembers.length === 0 ? (
+            <EmptyState icon={<Search size={24} style={{ marginInline: "auto" }} />} title={t("empty.noMembers")} compact />
           ) : (
-            <Card data-testid={management ? "C7-2" : "C6-2"} padding="none" style={{ padding: 0, overflowX: "auto" }}>
+            <><p className="club-table-hint" id={management ? "club-management-table-hint" : "club-members-table-hint"}>{t("members.table.scrollHint")}</p><Card data-testid={management ? "C7-2" : "C6-2"} role="region" aria-label={t("breadcrumb.memberManagement")} aria-describedby={management ? "club-management-table-hint" : "club-members-table-hint"} tabIndex={0} className="club-members-table" padding="none" style={{ padding: 0, overflowX: "auto" }}>
               {/* Header */}
-              <div
+              <div className="club-members-row club-members-row--header"
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "32px minmax(160px, 1fr) minmax(78px, 100px) minmax(92px, 110px) minmax(104px, 120px) minmax(170px, 190px)",
-                  minWidth: 760,
-                  padding: "10px 14px",
+                  padding: "var(--space-3) var(--space-4)",
                   borderBottom: "1px solid var(--line-soft)",
                   background: "var(--bg-1)",
-                  fontSize: "var(--fs-xs)",
+                  fontSize: "var(--ft-body-size)",
                   color: "var(--ink-3)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
+                  fontWeight: 500,
                 }}
               >
                 <div>
@@ -541,13 +555,10 @@ export default function GroupMembersPage({ management = false }: { management?: 
                   : "—";
                 const isMe = m.id === user?.uid;
                 return (
-                  <div
+                  <div className="club-members-row"
                     key={m.id}
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "32px minmax(160px, 1fr) minmax(78px, 100px) minmax(92px, 110px) minmax(104px, 120px) minmax(170px, 190px)",
-                      minWidth: 760,
-                      padding: "12px 14px",
+                      padding: "var(--space-3) var(--space-4)",
                       alignItems: "center",
                       borderTop: "1px solid var(--line-soft)",
                       background: isMe ? "color-mix(in oklch, var(--lime) 4%, var(--bg-1))" : "transparent",
@@ -570,14 +581,14 @@ export default function GroupMembersPage({ management = false }: { management?: 
                       </Text>
                       {isMe && <Chip style={{ fontSize: "var(--fs-2xs)", color: "var(--lime)" }}>{t("members.self")}</Chip>}
                     </Link>
-                    <div className="text-[length:var(--fs-xs)]" style={{ color: role === "leader" ? "var(--lime)" : role === "co-leader" ? "var(--aqua)" : "var(--ink-2)" }}>
+                    <div className="text-[length:var(--ft-body-size)]" style={{ color: role === "leader" ? "var(--lime)" : role === "co-leader" ? "var(--aqua)" : "var(--ink-2)" }}>
                       {ROLE_LABELS[role] ?? role}
                     </div>
-                    <Text as="div" variant="num" className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>{joinDate}</Text>
-                    <Text as="div" variant="num" className="text-[length:var(--fs-xs)] text-right" style={{ color: "var(--ink-1)" }}>
+                    <Text as="div" variant="num" className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)" }}>{joinDate}</Text>
+                    <Text as="div" variant="num" className="text-[length:var(--ft-body-size)] text-right" style={{ color: "var(--ink-1)" }}>
                       {stats ? `${(stats.distance / 1000).toFixed(0)}km · ${stats.rideCount}${t("members.rideUnit")}` : "—"}
                     </Text>
-                    <div className="flex items-center justify-end" style={{ gap: "var(--space-1)" }}>
+                    <div className="club-member-actions">
                       {isCreator && !isMe && m.id !== group.creatorId && role !== "leader" && (role === "member" || role === "co-leader") && (
                         <>
                           <Button data-testid="C7-2-1"
@@ -611,18 +622,57 @@ export default function GroupMembersPage({ management = false }: { management?: 
                   </div>
                 );
               })}
+            </Card></>
+          )}
+          {isCreator && (
+            <Card data-testid="C7-3" padding="none" className="mt-5 mb-4" style={{ padding: "var(--space-4)" }}>
+              <details ref={leadershipRef} id="club-leadership" className="club-leadership-details" tabIndex={-1} open={leadershipOpen} onToggle={event=>setLeadershipOpen(event.currentTarget.open)}>
+                <summary>{t("members.leadership.title")}</summary><div className="mt-4">
+              <p className="text-[length:var(--ft-body-size)] mt-1 mb-3" style={{ color: "var(--ink-3)" }}>
+                {t("members.leadership.desc")}
+              </p>
+              {leadershipCandidates.length === 0 ? (
+                <Text as="p" variant="body" tone="tertiary">{t("members.leadership.noEligibleMember")}</Text>
+              ) : (
+                <div className="flex items-end flex-wrap" style={{ gap: "var(--space-3)" }}>
+                  <label className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)" }}>
+                    <span className="block mb-1">{t("members.leadership.target")}</span>
+                    <DropdownSelect value={leadershipTargetId} onChange={setLeadershipTargetId} disabled={leadershipBusy} className="club-leadership-select" label={t("members.leadership.target")} options={leadershipCandidates.map(member => ({ value: member.id, label: `${member.profile?.nickname ?? member.id}${member.role === "co-leader" ? ` · ${t("members.role.coLeader")}` : ""}` }))} />
+                  </label>
+                  <label className="flex items-center text-[length:var(--ft-body-size)]" style={{ gap: "var(--space-2)", color: "var(--ink-2)" }}>
+                    <input
+                      type="checkbox"
+                      checked={leaveAfterTransfer}
+                      onChange={(event) => setLeaveAfterTransfer(event.target.checked)}
+                      disabled={leadershipBusy}
+                    />
+                    {t("members.leadership.leaveAfterTransfer")}
+                  </label>
+                  <Button data-testid="C7-3-1"
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!leadershipTargetId || leadershipBusy}
+                    onClick={() => { void handleLeadershipTransfer(); }}
+                    style={{ color: "var(--amber)" }}
+                  >
+                    {leadershipBusy ? t("button.saving") : t("members.leadership.transfer")}
+                  </Button>
+                </div>
+              )}
+              </div></details>
             </Card>
           )}
-        </>
+        </section>
       )}
 
       {/* PENDING TAB */}
       {tab === "pending" && (
-        <>
+        <section role="tabpanel" id={`club-${groupId}-panel-pending`} aria-labelledby={`club-${groupId}-tab-pending`}>
           {pendingLoading ? (
             <LoadingSkeleton kind="list" count={3} />
           ) : pending.length === 0 ? (
-            <EmptyState icon="📭" title={t("empty.noPendingRequests")} description={t("members.pendingDesc")} compact />
+            <EmptyState icon={<Inbox size={24} style={{ marginInline: "auto" }} />} title={t("empty.noPendingRequests")} description={t("members.pendingDesc")} compact />
           ) : (
             <Card data-testid="C7-1" padding="none" style={{ padding: 0 }}>
               <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
@@ -633,13 +683,13 @@ export default function GroupMembersPage({ management = false }: { management?: 
                     <li
                       key={p.userId}
                       className="flex items-center justify-between flex-wrap"
-                      style={{ gap: "var(--space-3)", padding: "12px 14px", borderBottom: "1px solid var(--line-soft)" }}
+                      style={{ gap: "var(--space-3)", padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}
                     >
                       <div className="min-w-0 flex items-center" style={{ gap: "var(--space-2)" }}>
                         <Avatar name={name} imageUrl={profile?.photoURL} size="sm" />
                         <div className="min-w-0">
-                          <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{name}</div>
-                          <div className="text-[length:var(--fs-xs)] mt-0.5 truncate" style={{ color: "var(--ink-3)" }}>
+                          <div className="text-[length:var(--ft-body-medium-size)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{name}</div>
+                          <div className="text-[length:var(--ft-body-size)] mt-0.5 truncate" style={{ color: "var(--ink-3)" }}>
                             {p.requestedAt ? new Date(p.requestedAt).toLocaleDateString(localeTag()) : ""}
                             {p.message && ` · "${p.message}"`}
                             {!profile && ` · ${p.userId.slice(0, 8)}`}
@@ -658,15 +708,17 @@ export default function GroupMembersPage({ management = false }: { management?: 
               </ul>
             </Card>
           )}
-        </>
+          {isOwner && <GroupRequestHistory groupId={groupId} />}
+        </section>
       )}
 
       {/* INVITE TAB */}
       {tab === "invite" && canManage && (
-        <Card data-testid="C6-3" padding="none" style={{ padding: 'var(--space-4)' }}>
-          <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("members.inviteLink")}</h2>
+        <Card role="tabpanel" id={`club-${groupId}-panel-invite`} aria-labelledby={`club-${groupId}-tab-invite`} data-testid="C6-3" padding="none" style={{ padding: 'var(--space-4)' }}>
+          <h2 className="text-[length:var(--ft-title-size)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("members.inviteLink")}</h2>
+          {invite.status === "failed" ? <div className="club-invite-load-error mb-4" role="alert"><Text as="p" variant="body">{t("invite.linkLoadFailed")}</Text><Button variant="secondary" size="sm" onClick={()=>{ invite.retry(); setInvitationsAttempt(value=>value+1); }}>{t("invite.retry")}</Button></div> : invite.code ? <>
           <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
-            <code style={{ padding: "var(--space-2) var(--space-3)", background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", fontFamily: "var(--font-mono)", color: "var(--lime)", flex: 1 }}>
+            <code style={{ padding: "var(--space-2) var(--space-3)", background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", fontFamily: "var(--font-mono)", color: "var(--lime)", flex: 1, minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" }}>
               {invite.code ? buildGroupInviteUrl(invite.code, i18n.language) : ""}
             </code>
             <Button data-testid="C6-3-1"
@@ -687,20 +739,21 @@ export default function GroupMembersPage({ management = false }: { management?: 
               {inviteLinkCopied ? t("invite.copied") : t("button.copy")}
             </Button>
           </div>
-          <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
+          </> : <p role="status" className="mb-4">{t(`invite.${invite.status}`)}</p>}
+          <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
             {t("members.inviteCodeDesc")}
           </p>
 
-          <Button onClick={() => setShowInvite(true)} variant="secondary" size="sm">{t("invite.directLabel")}</Button>
-          {invitationsError && <p role="alert">{t("error.loadFailed")}</p>}
-          {invite.status !== "ready" && <p role="status">{t(`invite.${invite.status}`)}</p>}
-          {invite.status === "failed" && <Button onClick={invite.retry}>{t("invite.retry")}</Button>}
+          {invite.details && <p className="mb-4" data-testid="C6-3-lifecycle">{t("settings.inviteLifecycle", {date: new Date(invite.details.expiresAt).toLocaleDateString(localeTag()),used:invite.details.useCount,limit:invite.details.useLimit})}</p>}
+          <div className="flex flex-wrap gap-2 mb-4"><Button data-testid="C6-3-regenerate" onClick={handleRegenerateCode} disabled={regeneratingCode || invite.status === "loading"} variant="secondary" size="sm">{regeneratingCode ? t("button.saving") : t("button.regenerateCode")}</Button>
+          <Button onClick={() => setShowInvite(true)} variant="secondary" size="sm">{t("invite.directLabel")}</Button></div>
+          {invitationsError && invite.status !== "failed" && <div role="alert" className="club-invite-load-error mb-4"><Text as="p" variant="body">{t("invite.historyLoadFailed")}</Text><Button variant="secondary" size="sm" onClick={()=>setInvitationsAttempt(value=>value+1)}>{t("invite.retry")}</Button></div>}
           {invitations.length > 0 && (
             <div data-testid="C6-3-2">
-              <h3 className="text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-1)", marginBottom: 'var(--space-2)' }}>{t("members.sentInvitations")}</h3>
+              <h3 className="text-[length:var(--ft-subtitle-size)] font-semibold" style={{ color: "var(--ink-1)", marginBottom: 'var(--space-2)' }}>{t("members.sentInvitations")}</h3>
               <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {invitations.map((inv, i) => (
-                  <li key={i} className="flex items-center justify-between" style={{ padding: "6px 0", borderBottom: "1px dashed var(--line-soft)", fontSize: "var(--fs-xs)" }}>
+                  <li key={i} className="flex items-center justify-between" style={{ padding: "6px 0", borderBottom: "1px dashed var(--line-soft)", fontSize: "var(--ft-body-size)" }}>
                     <span style={{ color: "var(--ink-1)" }}>{inv.email}</span>
                     <Chip style={{ fontSize: "var(--fs-2xs)", color: inv.status === "accepted" ? "var(--lime)" : "var(--ink-3)" }}>
                       {inv.status === "accepted" ? t("members.invitationStatus.accepted") : t("members.invitationStatus.pending")}

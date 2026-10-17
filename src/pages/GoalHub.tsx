@@ -16,7 +16,7 @@ import ClimbGoalSetupPage from "./ClimbGoalSetupPage";
 import { Button, Card, Progress, Text } from "../theme/components";
 
 export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
-  const { t } = useTranslation("training");
+  const { t, i18n } = useTranslation("training");
   const [params] = useSearchParams();
   const model = usePlanModel(params.get("sport"));
   const { user, goal, discipline } = model;
@@ -58,7 +58,7 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
       {model.loadError != null && <Button onClick={model.retryLoad}>{t("goalHub.retry")}</Button>}
       {goal && <Card data-testid="K3-1">
         <GoalSourceNotice goal={goal} discipline={discipline} />
-        <div data-testid="K3-1-1"><Text as="h2" variant="title">{goal.title || goal.courseName}</Text><Text>{t(`goalHub.goalType.${goal.runProgram ? "program" : goal.goalType === "climb" ? "climb" : goal.eventType === "completion" ? "completion" : goal.eventType === "time" ? "time" : "race"}`)} · {model.goalDate?.toLocaleDateString()} · D-{Math.max(0, model.daysLeft)}</Text><Text>{goal.targetDurationMin ? t("goalHub.minutes", { value: goal.targetDurationMin }) : null}{goal.target?.climbDurationMin ? <GlossaryText>{`${t("goalHub.minutes", { value: goal.target.climbDurationMin })} · ${goal.target.targetWkg ?? "—"} W/kg`}</GlossaryText> : null}</Text></div>
+        <div data-testid="K3-1-1"><Text as="h2" variant="title">{goal.title || goal.courseName}</Text><Text>{t(`goalHub.goalType.${goal.runProgram ? "program" : goal.goalType === "climb" ? "climb" : goal.eventType === "completion" ? "completion" : goal.eventType === "time" ? "time" : "race"}`)} · {model.goalDate?.toLocaleDateString(i18n.resolvedLanguage ?? i18n.language)} · D-{Math.max(0, model.daysLeft)}</Text><Text>{goal.targetDurationMin ? t("goalHub.minutes", { value: goal.targetDurationMin }) : null}{goal.target?.climbDurationMin ? <GlossaryText>{`${t("goalHub.minutes", { value: goal.target.climbDurationMin })} · ${goal.target.targetWkg ?? "—"} W/kg`}</GlossaryText> : null}</Text></div>
         <div data-testid="K3-1-2" style={{ marginBlock: "var(--space-4)" }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-2)", color: "var(--ink-1)" }}>
             <Text>{t("goalHub.planProgress")}</Text><Text variant="dataMedium">{model.progress}%</Text>

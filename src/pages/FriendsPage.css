@@ -1,0 +1,6 @@
+.friends-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1); padding-bottom: var(--space-2); border-bottom: 1px solid var(--line-soft); }
+.friends-tabs > button { min-width: 0; padding-inline: var(--space-2); white-space: normal; height: auto; min-height: var(--dim-button-height); }
+.friends-request, .friends-sent { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+.friends-sent > a { flex: 1; min-width: 0; }
+.friends-sent > a > span { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 24rem) { .friends-request > a { flex-basis: 100%; } .friends-request > div { margin-left: auto; } }

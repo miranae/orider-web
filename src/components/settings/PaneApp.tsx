@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 import { LocalizedLink } from "../LocalizedLink";
@@ -13,7 +13,8 @@ import { useExport } from "../../hooks/useExport";
 import { SUPPORTED_LANGS, type Lang } from "../../i18n/detector";
 
 import { SettingsCard, Field, FieldGrid, InlineRow } from "./_primitives";
-import { Button, Text } from "../../theme/components";
+import { Button, Text, buttonClass } from "../../theme/components";
+import { useTheme, type ThemePreference } from "../../contexts/ThemeContext";
 import { useOriderTheme } from "../../theme";
 
 const LANG_LABELS: Record<Lang, string> = {
@@ -23,7 +24,7 @@ const LANG_LABELS: Record<Lang, string> = {
 
 /** display: 언어·단위·테마 / data: 내보내기·캐시·전체 삭제 (/settings/display · /settings/data). */
 export function PaneApp({ part }: { part: "display" | "data" }) {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const { hash, key } = useLocation();
   const migration = useRef<HTMLDivElement>(null);
   useEffect(() => { if (part === "data" && hash === "#migrate") migration.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); }, [part, hash, key]);
@@ -32,27 +33,27 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
   const { showToast } = useToast();
   const dialog = useDialog();
   const { locale, units, setLocale, setUnits } = useLocale();
-  const { exportData, loading: exportLoading, progress: exportProgress } = useExport();
+  const { exportData, loading: exportLoading, error: exportError, progress: exportProgress } = useExport();
   const { deleteUserData, loading: stravaLoading } = useStrava();
   const { theme: designTheme, setThemeId, availableThemes } = useOriderTheme();
 
-  const [exportFormat, setExportFormat] = useState<"GPX" | "TCX" | "FIT" | "JSON">("GPX");
+  const { theme, setTheme } = useTheme();
 
-  async function handleClearCache() {
-    if (!(await dialog.confirm(t("data.clearCacheConfirm"), { destructive: true }))) return;
+  async function handleDeleteStreams() {
+    if (!(await dialog.confirm(t("pane.app.streamsDeleteConfirm"), { destructive: true }))) return;
     try {
       await deleteUserData(true);
-      showToast(t("data.cacheCleared"));
+      showToast(t("pane.app.streamsDeleted"));
     } catch (e) {
       showToast(`${t("pane.app.clearCacheFailed")}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
-  async function handleDeleteAll() {
-    if (!(await dialog.confirm(t("data.deleteConfirm"), { destructive: true }))) return;
+  async function handleDeleteStravaData() {
+    if (!(await dialog.confirm(t("pane.app.stravaDeleteConfirm"), { destructive: true }))) return;
     try {
-      await deleteUserData();
-      showToast(t("data.deleted"));
+      await deleteUserData(false);
+      showToast(t("pane.app.stravaDeleted"));
     } catch (e) {
       showToast(`${t("pane.app.deleteFailed")}: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -62,7 +63,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
     <>
       <SettingsCard data-testid="S4-1-1" title={t("pane.app.cardLocaleUnits")} dense>
         <FieldGrid cols={2}>
-          <Field label={t("pane.app.fieldLang")} hint={t("pane.app.fieldLangHint")}>
+          <Field group label={t("pane.app.fieldLang")} hint={t("pane.app.fieldLangHint")}>
             <div
               style={{
                 display: "flex",
@@ -75,6 +76,8 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
               {SUPPORTED_LANGS.map((lang) => (
                 <button
                   key={lang}
+                  type="button"
+                  aria-pressed={locale === lang}
                   onClick={() => void setLocale(lang)}
                   style={{
                     flex: 1,
@@ -95,7 +98,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
               ))}
             </div>
           </Field>
-          <Field label={t("pane.app.fieldUnits")} hint={t("pane.app.fieldUnitsHint")}>
+          <Field group label={t("pane.app.fieldUnits")} hint={t("pane.app.fieldUnitsHint")}>
             <div
               style={{
                 display: "flex",
@@ -113,6 +116,8 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
               ).map(([id, label]) => (
                 <button
                   key={id}
+                  type="button"
+                  aria-pressed={units === id}
                   onClick={() => void setUnits(id)}
                   style={{
                     flex: 1,
@@ -135,8 +140,20 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
         </FieldGrid>
       </SettingsCard>
 
+      <SettingsCard title={t("pane.account.cardAppearance")} dense>
+        <InlineRow label={t("theme.label")} hint={t("pane.account.themeHint")}>
+          <div className="settings-segmented settings-brightness-options">
+            {(["system", "light", "dark"] as const).map(id => (
+              <Button key={id} variant={theme === id ? "secondary" : "ghost"} aria-pressed={theme === id} onClick={() => setTheme(id as ThemePreference)}>
+                {t(`pane.account.theme${id.charAt(0).toUpperCase()}${id.slice(1)}`)}
+              </Button>
+            ))}
+          </div>
+        </InlineRow>
+      </SettingsCard>
+
       <SettingsCard data-testid="S4-1-1" title={t("pane.app.cardDesignTheme")} dense>
-        <Field label={t("pane.app.fieldTheme")} hint={t("pane.app.fieldThemeHint")}>
+        <Field group label={t("pane.app.fieldTheme")} hint={t("pane.app.fieldThemeHint")}>
           <div
             style={{
               display: "flex",
@@ -151,6 +168,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
               return (
                 <button
                   key={thm.id}
+                  type="button"
                   onClick={() => setThemeId(thm.id)}
                   aria-pressed={active}
                   style={{
@@ -166,7 +184,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
                     boxShadow: active ? "0 1px 3px color-mix(in srgb, var(--bg-0) 6%, transparent)" : "none",
                   }}
                 >
-                  {thm.labelKey ? tCommon(thm.labelKey) : thm.label}
+                  {thm.id === "app-parity" ? t("pane.app.appStyle") : thm.labelKey ? tCommon(thm.labelKey) : thm.label}
                 </button>
               );
             })}
@@ -180,48 +198,22 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
     <>
       <div id="migrate" ref={migration} data-testid="S3-3-1">
         <SettingsCard title={t("pane.connections.importPastLabel")}>
-          <Text as="p" tone="secondary">{t("pane.connections.importPastHint")}</Text>
-          <LocalizedLink to={profile?.stravaConnected ? "/migrate" : "/settings/connections"}>
-            <Button variant="secondary" disabled={!user}>{profile?.stravaConnected ? t(profile.migration?.status === "DONE" ? "pane.connections.importBtnReport" : "pane.connections.importBtnImport") : t("strava.connect")}</Button>
+          <Text as="p" variant="bodySmall" tone="secondary">{t("pane.connections.importPastHint")}</Text>
+          <LocalizedLink to={profile?.stravaConnected ? "/migrate" : "/settings/connections"} className={buttonClass({ variant: "secondary" })}>
+            {profile?.stravaConnected ? t(profile.migration?.status === "DONE" ? "pane.connections.importBtnReport" : "pane.connections.importBtnImport") : t("strava.connect")}
           </LocalizedLink>
         </SettingsCard>
       </div>
       <SettingsCard data-testid="S3-1-1" title={t("pane.app.cardExport")}>
-        <div style={{ marginBottom: "var(--space-3)" }}>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>
-            {t("pane.app.exportFormatLabel")}
-          </Text>
-          <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
-            {(["GPX", "TCX", "FIT", "JSON"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setExportFormat(f)}
-                style={{
-                  padding: "6px 14px",
-                  fontSize: "var(--fs-xs)",
-                  fontFamily: "var(--font-mono)",
-                  background: exportFormat === f ? "var(--bg-3)" : "var(--bg-2)",
-                  color: exportFormat === f ? "var(--ink-0)" : "var(--ink-3)",
-                  border: `1px solid ${
-                    exportFormat === f ? "var(--ink-3)" : "var(--line-soft)"
-                  }`,
-                  borderRadius: "var(--r-sm)",
-                  cursor: "pointer",
-                }}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-        </div>
         <InlineRow label={t("pane.app.exportAllLabel")} hint={t("pane.app.exportAllHint")}>
           <Button variant="secondary" onClick={exportData} disabled={exportLoading}>
             <Download size={12} />
             {exportLoading ? t("data.preparing") : t("data.downloadAll")}
           </Button>
         </InlineRow>
-        {exportProgress && (
-          <div style={{ padding: "12px 0" }}>
+        {exportError && <p role="alert">{t("pane.app.exportFailed")}</p>}
+        {exportProgress && !exportError && (
+          <div role="status" aria-live="polite" style={{ padding: "var(--space-3) 0" }}>
             <div style={{ padding: 'var(--space-3)', background: "var(--bg-2)", borderRadius: "var(--r-lg)" }}>
               <div
                 style={{
@@ -263,33 +255,19 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
             </div>
           </div>
         )}
-        <InlineRow data-testid="S3-2-1" label={t("pane.app.clearCacheLabel")} hint={t("pane.app.clearCacheHint")}>
-          <Button variant="secondary"
-            onClick={handleClearCache}
-            disabled={stravaLoading}
-          >
-            {t("pane.app.clearCacheBtn")}
-          </Button>
-        </InlineRow>
       </SettingsCard>
 
       <SettingsCard data-testid="S3-2-1" title={t("pane.app.cardDeleteAll")} danger dense>
-        <div
-          style={{
-            fontSize: "var(--fs-xs)",
-            color: "var(--ink-3)",
-            marginBottom: 'var(--space-3)',
-            lineHeight: 1.5,
-          }}
-        >
-          {t("pane.app.deleteAllWarning")}
-        </div>
-        <Button variant="danger"
-          onClick={handleDeleteAll}
-          disabled={stravaLoading}
-        >
-          {stravaLoading ? t("data.deleting") : t("pane.app.deleteAllBtn")}
-        </Button>
+        <InlineRow label={t("pane.app.clearCacheLabel")} hint={t("pane.app.clearCacheHint")}>
+          <Button variant="danger" onClick={handleDeleteStreams} disabled={stravaLoading}>
+            {stravaLoading ? t("data.deleting") : t("pane.app.clearCacheBtn")}
+          </Button>
+        </InlineRow>
+        <InlineRow label={t("pane.app.deleteAllBtn")} hint={t("pane.app.deleteAllWarning")}>
+          <Button variant="danger" onClick={handleDeleteStravaData} disabled={stravaLoading}>
+            {stravaLoading ? t("data.deleting") : t("pane.app.deleteAllBtn")}
+          </Button>
+        </InlineRow>
       </SettingsCard>
     </>
   );

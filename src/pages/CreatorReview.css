@@ -1,0 +1,13 @@
+.explore-records-surface .creator-week-tip > button { width: 100%; }
+.explore-records-surface .creator-week-tip > button > span { width: 100%; }
+@media (max-width: 36rem) {
+  .explore-records-surface .creator-week-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* The shared tooltip is portalled; apply row formatting only while this chart owns it. */
+body:has(.creator-week-tip > button[aria-describedby]) [role="tooltip"] .ds-tooltip-content__body { white-space: pre-line; }
+.explore-records-surface .creator-week-tick { white-space: nowrap; }
+@media (max-width: 36rem) {
+  .explore-records-surface .creator-week-tick[data-mobile-tick="false"] { visibility: hidden; }
+  .explore-records-surface .creator-week-tick { overflow: visible; }
+}

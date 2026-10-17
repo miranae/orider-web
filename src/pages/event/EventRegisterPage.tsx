@@ -1,3 +1,7 @@
+import { Field, fieldStyle } from "../../features/event/form/eventFormControls";
+import "../EventControls.css";
+import { CalendarDays, Clock3 } from "lucide-react";
+import "../../features/event/detail/event-linked-pages.css";
 import EventDetailNavigation from "../../features/event/EventDetailNavigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -16,7 +20,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, DateField } from "../../components/redesign";
 import { fmtIsoLocal, isClosed, isRegistrationTimeOpen, normalizeStartTime } from "../../utils/event-time";
 import { localeTag } from "../../utils/localeDate";
-import { Button, Card, Chip, Text } from "../../theme/components";
+import { Button, Card, Chip, Text, Input } from "../../theme/components";
 import {
   ABO_TYPES,
   SHIRT_SIZES,
@@ -95,40 +99,6 @@ function emptyRegistrationForm(): FormData {
 interface StepInfo {
   key: "category" | "profile" | "terms" | "payment";
   label: string;
-}
-
-const fieldStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "9px 12px",
-  fontSize: "var(--fs-sm)",
-  background: "var(--bg-2)",
-  border: "1px solid var(--line-soft)",
-  borderRadius: "var(--r-sm)",
-  color: "var(--ink-0)",
-  fontFamily: "inherit",
-};
-
-function Field({
-  label,
-  required,
-  sub,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  sub?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={{ marginBottom: 'var(--space-4)' }}>
-      <label className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)" }}>
-        <span style={{ fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-1)" }}>{label}</span>
-        {required && <span style={{ color: "var(--rose)", fontSize: "var(--fs-xs)" }}>*</span>}
-        {sub && <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: "auto" }}>{sub}</span>}
-      </label>
-      {children}
-    </div>
-  );
 }
 
 function StepBar({ steps, stepIdx }: { steps: StepInfo[]; stepIdx: number }) {
@@ -479,7 +449,7 @@ export default function EventRegisterPage() {
 
   if (loadError) {
     return (
-      <div className="max-w-xl mx-auto py-16">
+      <div className="event-register-state max-w-xl mx-auto py-16">
         {detailNavigation}
         <ErrorState title={t("register.errLoadTitle")} description={loadError} onRetry={loadEvent} />
       </div>
@@ -488,7 +458,7 @@ export default function EventRegisterPage() {
 
   if (!user) {
     return (
-      <div className="max-w-xl mx-auto py-16">
+      <div className="event-register-state max-w-xl mx-auto py-16">
         {detailNavigation}
         <PermissionGate
           title={t("register.loginRequired")}
@@ -502,10 +472,10 @@ export default function EventRegisterPage() {
 
   if (!event) {
     return (
-      <div className="max-w-xl mx-auto py-16">
+      <div className="event-register-state max-w-xl mx-auto py-16">
         {detailNavigation}
         <EmptyState
-          icon="🗓️"
+          icon={<CalendarDays size={28} style={{ marginInline: "auto" }} />}
           title={t("empty.noResults")}
           actions={[{ label: t("register.goEventList"), variant: "primary", onClick: () => navigate("/explore/events") }]}
         />
@@ -515,10 +485,10 @@ export default function EventRegisterPage() {
 
   if (event.status !== "OPEN") {
     return (
-      <div className="max-w-xl mx-auto py-16">
+      <div className="event-register-state max-w-xl mx-auto py-16">
         {detailNavigation}
         <EmptyState
-          icon="⏱️"
+          icon={<Clock3 size={28} style={{ marginInline: "auto" }} />}
           title={t("register.notOpen")}
           description={
             event.status === "LIVE"
@@ -535,10 +505,10 @@ export default function EventRegisterPage() {
 
   if (isClosed(event.closeAt) || !isRegistrationTimeOpen(event.startTime, event.closeAt)) {
     return (
-      <div className="max-w-xl mx-auto py-16">
+      <div className="event-register-state max-w-xl mx-auto py-16">
         {detailNavigation}
         <EmptyState
-          icon="⏱️"
+          icon={<Clock3 size={28} style={{ marginInline: "auto" }} />}
           title={t("register.closed")}
           description={t("register.closedDesc", { dateTime: fmtIsoLocal(event.closeAt) })}
           actions={[{ label: t("register.goEventDetail"), variant: "primary", onClick: () => navigate(`/event/${eventId}`) }]}
@@ -615,7 +585,7 @@ export default function EventRegisterPage() {
   const selectedCat = event.categories.find((c) => c.id === data.categoryId);
 
   return (
-    <div data-testid="D4-R" style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6)" }}>
+    <div data-testid="D4-R" className="event-controls-surface" style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6)" }}>
       {detailNavigation}
       {/* Breadcrumb */}
       <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
@@ -650,7 +620,7 @@ export default function EventRegisterPage() {
                 const full = filled !== null && slots > 0 && filled >= slots;
                 const active = data.categoryId === c.id;
                 return (
-                  <button
+                  <Button
                     key={c.id}
                     type="button"
                     role="radio"
@@ -700,7 +670,7 @@ export default function EventRegisterPage() {
                             <span>{filled ?? "—"}/{slots}</span>
                             <span>{pct === null ? "—" : `${pct}%`}</span>
                           </div>
-                          <div style={{ height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
+                          <div style={{ height: 3, background: "var(--bg-3)", borderRadius: "var(--r-sm)", overflow: "hidden" }}>
                             <div
                               style={{
                                 width: `${pct ?? 0}%`,
@@ -720,7 +690,7 @@ export default function EventRegisterPage() {
                         </span>
                       )}
                     </div>
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -756,7 +726,7 @@ export default function EventRegisterPage() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
                 <Field label={t("register.fieldName")} required>
-                  <input
+                  <Input
                     type="text"
                     value={data.name}
                     onChange={(e) => setData({ ...data, name: e.target.value })}
@@ -765,7 +735,7 @@ export default function EventRegisterPage() {
                   />
                 </Field>
                 <Field label={t("register.fieldBirth")} required>
-                  <DateField
+                  <DateField portal
                     value={data.birth}
                     onChange={(v) => setData({ ...data, birth: v })}
                     max={new Date().toISOString().split("T")[0]}
@@ -780,7 +750,7 @@ export default function EventRegisterPage() {
                     {([["M", t("register.genderM")], ["F", t("register.genderF")], ["X", t("register.genderX")]] as Array<[Gender, string]>).map(([v, l]) => {
                       const active = data.gender === v;
                       return (
-                        <button
+                        <Button
                           key={v}
                           type="button"
                           onClick={() => setData({ ...data, gender: v })}
@@ -797,13 +767,13 @@ export default function EventRegisterPage() {
                           }}
                         >
                           {l}
-                        </button>
+                        </Button>
                       );
                     })}
                   </div>
                 </Field>
                 <Field label={t("register.fieldPhone")} required>
-                  <input
+                  <Input
                     type="tel"
                     value={data.phone}
                     onChange={(e) => setData({ ...data, phone: e.target.value })}
@@ -826,7 +796,7 @@ export default function EventRegisterPage() {
                         {ABO_TYPES.map((abo) => {
                           const active = parts.abo === abo;
                           return (
-                            <button
+                            <Button
                               key={abo}
                               type="button"
                               onClick={() => setParts({ abo: active ? "" : abo, rh: active ? "" : parts.rh, custom: "" })}
@@ -845,7 +815,7 @@ export default function EventRegisterPage() {
                               }}
                             >
                               {abo}
-                            </button>
+                            </Button>
                           );
                         })}
                       </div>
@@ -856,7 +826,7 @@ export default function EventRegisterPage() {
                           const active = parts.rh === rh;
                           const enabled = !!parts.abo && !isCustom;
                           return (
-                            <button
+                            <Button
                               key={rh}
                               type="button"
                               onClick={() => enabled && setParts({ ...parts, rh: active ? "" : rh })}
@@ -875,7 +845,7 @@ export default function EventRegisterPage() {
                               }}
                             >
                               {rh}
-                            </button>
+                            </Button>
                           );
                         })}
                         {parts.abo && parts.rh && (
@@ -893,7 +863,7 @@ export default function EventRegisterPage() {
                       </div>
                       {/* 특이 혈액형 */}
                       <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => setParts({ abo: "", rh: "", custom: isCustom ? "" : (parts.custom || " ") })}
                           aria-pressed={isCustom}
@@ -909,9 +879,9 @@ export default function EventRegisterPage() {
                           }}
                         >
                           {t("register.bloodRare")}
-                        </button>
+                        </Button>
                         {isCustom && (
-                          <input
+                          <Input
                             type="text"
                             value={parts.custom.trim()}
                             onChange={(e) => setParts({ abo: "", rh: "", custom: e.target.value.slice(0, 32) })}
@@ -932,7 +902,7 @@ export default function EventRegisterPage() {
                   {SHIRT_SIZES.map((s) => {
                     const active = data.shirtSize === s;
                     return (
-                      <button
+                      <Button
                         key={s}
                         type="button"
                         onClick={() => setData({ ...data, shirtSize: active ? "" : s })}
@@ -950,7 +920,7 @@ export default function EventRegisterPage() {
                         }}
                       >
                         {s}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -967,25 +937,28 @@ export default function EventRegisterPage() {
                 }}
               >
                 <div style={{ fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-0)", marginBottom: "var(--space-2)" }}>{t("register.emergencyContact")}</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-2)" }}>
-                  <input
+                <div className="event-emergency-fields" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-2)" }}>
+                  <Input
                     type="text"
                     value={data.emName}
                     onChange={(e) => setData({ ...data, emName: e.target.value })}
+                    aria-label={`${t("register.emergencyContact")} ${t("register.phEmName")}`}
                     placeholder={t("register.phEmName")}
                     style={fieldStyle}
                   />
-                  <input
+                  <Input
                     type="text"
                     value={data.emRel}
                     onChange={(e) => setData({ ...data, emRel: e.target.value })}
+                    aria-label={`${t("register.emergencyContact")} ${t("register.phEmRel")}`}
                     placeholder={t("register.phEmRel")}
                     style={fieldStyle}
                   />
-                  <input
+                  <Input
                     type="tel"
                     value={data.emPhone}
                     onChange={(e) => setData({ ...data, emPhone: e.target.value })}
+                    aria-label={`${t("register.emergencyContact")} ${t("register.phEmPhone")}`}
                     placeholder={t("register.phEmPhone")}
                     style={fieldStyle}
                   />
@@ -993,7 +966,7 @@ export default function EventRegisterPage() {
               </div>
 
               <Field label={t("register.fieldMedical")} sub={t("register.medicalSub")}>
-                <input
+                <Input
                   type="text"
                   value={data.medical}
                   onChange={(e) => setData({ ...data, medical: e.target.value })}
@@ -1182,7 +1155,7 @@ export default function EventRegisterPage() {
                   ] as Array<{ id: FormData["payMethod"]; label: string }>).map((p) => {
                     const active = data.payMethod === p.id;
                     return (
-                      <button
+                      <Button
                         key={p.id}
                         type="button"
                         onClick={() => setData({ ...data, payMethod: p.id })}
@@ -1199,7 +1172,7 @@ export default function EventRegisterPage() {
                         }}
                       >
                         {p.label}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>

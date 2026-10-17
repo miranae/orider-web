@@ -1,11 +1,11 @@
 {
   "notFound": "사용자를 찾을 수 없습니다.",
-  "stats.activities": "총 활동",
+  "stats.activities": "전체 활동",
   "stats.publicActivities": "공개 활동",
   "stats.activitiesValue": "{{count}}회",
-  "stats.distance": "총 거리",
-  "stats.time": "총 시간",
-  "stats.elevation": "총 획득고도",
+  "stats.distance": "누적 이동거리",
+  "stats.time": "누적 운동시간",
+  "stats.elevation": "누적 상승고도",
   "identity.stamina": "지구력",
   "identity.gearRemaining": "{{name}} 정비까지 {{distance}} km",
   "identity.gearOverdue": "{{name}} 정비 권장 {{distance}} km 초과",
@@ -61,6 +61,15 @@
     "activities": "운동일지",
     "records": "기록",
     "friends": "친구",
-    "gear": "장비"
-  }
+    "gear": "장비",
+    "overview": "프로필"
+  },
+  "stats.title": "활동 누적 기록",
+  "stats.scopeOwn": "전체 활동 기록 기준",
+  "stats.scopePublic": "공개된 활동 기록 기준",
+  "activities.viewAll": "전체보기",
+  "activities.untitled": "운동 기록",
+  "recent.distance": "이동거리",
+  "recent.time": "운동시간",
+  "dateLocale": "ko-KR"
 }

@@ -10,10 +10,11 @@ const inputBox: CSSProperties = {
   background: "var(--bg-2)",
   border: "1px solid var(--line)",
   borderRadius: "var(--r-md)",
-  padding: "8px 10px",
+  padding: "var(--space-2) var(--space-3)",
+  minHeight: "var(--dim-button-height)",
+  boxSizing: "border-box",
   fontSize: "var(--fs-sm)",
   color: "var(--ink-0)",
-  outline: "none",
 };
 export const fieldInputStyle: CSSProperties = { ...inputBox, width: "100%" };
 export const monoInputStyle: CSSProperties = {
@@ -39,7 +40,7 @@ interface SettingsCardProps {
  */
 export function SettingsCard({ title, action, children, dense, danger, "data-testid": testId }: SettingsCardProps) {
   return (
-    <Card padding="none" data-testid={testId}
+    <Card padding="none" className="settings-card" data-testid={testId}
       style={{
         padding: dense ? "16px 20px" : "20px",
         marginBottom: 'var(--space-5)',
@@ -50,6 +51,7 @@ export function SettingsCard({ title, action, children, dense, danger, "data-tes
     >
       {(title || action) && (
         <header
+          className="settings-card-header"
           style={{
             display: "flex",
             alignItems: "flex-end",
@@ -84,9 +86,10 @@ export function SettingsCard({ title, action, children, dense, danger, "data-tes
 export function FieldGrid({ cols = 2, children }: { cols?: number; children: ReactNode }) {
   return (
     <div
+      className="settings-field-grid"
       style={{
         display: "grid",
-        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
         gap: "var(--space-3)",
       }}
     >
@@ -100,12 +103,14 @@ export function Field({
   hint,
   full,
   explain = false,
+  group = false,
   children,
 }: {
   label: string;
   hint?: string;
   full?: boolean;
   explain?: boolean;
+  group?: boolean;
   children: ReactNode;
 }) {
   if (explain) return <div style={{ gridColumn: full ? "1/-1" : undefined, minWidth: 0 }}>
@@ -114,16 +119,15 @@ export function Field({
       {hint && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{hint}</div>}
     </label>
   </div>;
+  const Container = group ? "div" : "label";
   return (
-    <label style={{ display: "block", gridColumn: full ? "1/-1" : undefined }}>
+    <Container role={group ? "group" : undefined} aria-label={group ? label : undefined} style={{ display: "block", minWidth: 0, gridColumn: full ? "1/-1" : undefined }}>
       <div
         style={{
           fontSize: "var(--fs-xs)",
           color: "var(--ink-3)",
           marginBottom: "var(--space-1)",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          fontFamily: "var(--font-mono)",
+          fontWeight: 500,
         }}
       >
         {label}
@@ -132,7 +136,7 @@ export function Field({
       {hint && (
         <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>{hint}</div>
       )}
-    </label>
+    </Container>
   );
 }
 
@@ -148,23 +152,19 @@ export function InlineRow({
   "data-testid"?: string;
 }) {
   return (
-    <div data-testid={testId}
+    <div data-testid={testId} className="settings-inline-row"
       style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
         padding: "12px 0",
         borderTop: "1px solid var(--line-soft)",
-        gap: 'var(--space-4)',
       }}
     >
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="settings-inline-copy" style={{ minWidth: 0 }}>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)" }}>{label}</div>
         {hint && (
           <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>{hint}</div>
         )}
       </div>
-      <div>{children}</div>
+      <div className="settings-inline-control">{children}</div>
     </div>
   );
 }
@@ -183,6 +183,7 @@ export function Toggle({
   return (
     <button
       type="button"
+      className="settings-toggle"
       role="switch"
       aria-checked={on}
       aria-label={ariaLabel}

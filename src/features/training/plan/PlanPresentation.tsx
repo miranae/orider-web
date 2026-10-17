@@ -1,4 +1,5 @@
-import { Eye } from "lucide-react";
+import { summarizeStoredPlan } from "./planScope";
+import { Eye, RefreshCw, Target } from "lucide-react";
 import GlossaryText from "../../../components/common/GlossaryText";
 import InfoTip from "../../../components/InfoTip";
 import { GoalSourceNotice } from "../../../components/training/GoalInputNotice";
@@ -126,12 +127,12 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
         <div style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-2)', textDecoration: 'line-through', paddingLeft: 6 }}>
           <span onClick={event => event.stopPropagation()}><GlossaryText>{meta.label}</GlossaryText></span>
         </div>
-        <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', paddingLeft: 6, fontFamily: 'var(--font-mono)' }}>
+        <div style={{ fontSize: "var(--ft-body-size)", color: 'var(--ink-4)', paddingLeft: 6, fontFamily: 'inherit' }}>
           {t('page.skipped')}
         </div>
         {dateControl(dateLabel, {
           position: 'absolute', top: 2, right: 4,
-          fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", color: 'var(--ink-2)',
+          fontFamily: 'inherit', fontSize: "var(--ft-body-size)", color: 'var(--ink-2)',
         })}
       </div>
     );
@@ -160,7 +161,7 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
         <div style={{ fontSize: "var(--fs-xs)", fontWeight: 700, marginTop: 'var(--space-1)', letterSpacing: '0.04em' }}>{workoutLabel}</div>
         {dateControl(dateLabel, {
           position: 'absolute', top: 2, right: 4,
-          fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", color: isGoalDate ? 'var(--primary-fg)' : 'var(--ink-1)',
+          fontFamily: 'inherit', fontSize: "var(--ft-body-size)", color: isGoalDate ? 'var(--primary-fg)' : 'var(--ink-1)',
         })}
       </div>
     );
@@ -295,8 +296,8 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
           alignItems: 'center',
           gap: "var(--space-1)",
           whiteSpace: 'nowrap',
-          fontFamily: 'var(--font-mono)',
-          fontSize: "var(--fs-xs)",
+          fontFamily: 'inherit',
+          fontSize: "var(--ft-body-size)",
           color: 'var(--ink-1)',
           fontWeight: isToday || isMissed ? 700 : 500,
         })}
@@ -324,11 +325,11 @@ function SkeletonGrid() {
           gap: "var(--space-1-5)",
         }}
       >
-        <Text as="div" variant="eyebrow">{t('page.weekHeader')}</Text>
+        <Text as="div" variant="bodyMedium">{t('page.weekHeader')}</Text>
         {DAY_NAMES.map((d) => (
-          <Text key={d} as="div" variant="eyebrow" style={{ textAlign: 'center' }}>{d}</Text>
+          <Text key={d} as="div" variant="bodyMedium" style={{ textAlign: 'center' }}>{d}</Text>
         ))}
-        <Text as="div" variant="eyebrow" style={{ textAlign: 'right' }}><GlossaryText>{t('page.tssHeader')}</GlossaryText></Text>
+        <Text as="div" variant="bodyMedium" style={{ textAlign: 'right' }}><GlossaryText>{t('page.tssHeader')}</GlossaryText></Text>
       </div>
       {Array.from({ length: 12 }).map((_, i) => (
         <div
@@ -413,7 +414,7 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
         flexWrap: 'wrap',
       }}
     >
-      <Text data-testid="K4-3-1" as="div" variant="eyebrow" style={{ flexShrink: 0 }}>{t('phase.label')}</Text>
+      <Text data-testid="K4-3-1" as="div" variant="bodyMedium" style={{ flexShrink: 0 }}>{t('phase.label')}</Text>
       <div
         style={{
           flex: 1,
@@ -435,8 +436,9 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: "var(--fs-xs)",
-              fontFamily: 'var(--font-mono)',
+              gap: 'var(--space-1)',
+              fontSize: "var(--ft-body-size)",
+              fontFamily: 'inherit',
               color: 'var(--primary-fg)',
               fontWeight: 600,
               whiteSpace: 'nowrap',
@@ -444,7 +446,7 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
               paddingInline: 'var(--space-1)',
             }}
           >
-            {phase} {count}{t('phase.weeksUnit')}
+            <span>{phase}</span><span style={{ fontFamily: 'var(--font-mono)' }}>{count}{' '}{t('phase.weeksUnit')}</span>
           </div>
         ))}
       </div>
@@ -457,12 +459,12 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
           </Button>
         )}
         {onReroll && (
-          <Button variant="secondary" size="sm" data-testid="K4-3-3" onClick={() => { void onReroll(); }}>
+          <Button variant="secondary" size="sm" leadingIcon={<RefreshCw size={16} aria-hidden="true" />} data-testid="K4-3-3" onClick={() => { void onReroll(); }}>
             {t('buttons.reroll')}
           </Button>
         )}
         {onGoalReset && (
-          <Button variant="secondary" size="sm" data-testid="K4-3-4" onClick={onGoalReset}>
+          <Button variant="secondary" size="sm" leadingIcon={<Target size={16} aria-hidden="true" />} data-testid="K4-3-4" onClick={onGoalReset}>
             {t('buttons.goalReset')}
           </Button>
         )}
@@ -612,6 +614,8 @@ export default function PlanPresentation({
     !day.completed && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal',
   ).length, 0);
   const todayKey = kstDayKey(Date.now());
+  const planScope = summarizeStoredPlan(weeks, goalDate, Date.now());
+  const scopeNotice = goalDate && planScope.afterGoal > 0 ? <Text data-testid="plan-scope-notice" as="p" variant="bodySmall" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)" }}>{t("scope.summary", planScope)}</Text> : null;
   const nextAction = weeks.slice(currentWeekIndex).flatMap((week) => week.days.map((day, dayIndex) => ({ day, weekId: week.id, dayIndex })))
     .find(({ day }) => kstDayKey(day.date) >= todayKey && !day.completed && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal');
   const nextActionLabel = nextAction ? buildWorkoutMeta(t)[nextAction.day.workout]?.label ?? nextAction.day.workout : null;
@@ -720,6 +724,7 @@ export default function PlanPresentation({
     return (
       <>
         <GoalSourceNotice goal={goal} discipline={discipline} />
+        {scopeNotice}
         {decisionSlot && <div style={{ padding: "var(--space-3) var(--space-4)" }}>{decisionSlot}</div>}
         {renderMobile ? renderMobile(mobileProps) : <MobilePlanContent {...mobileProps} />}
       </>
@@ -730,6 +735,7 @@ export default function PlanPresentation({
     <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
 
       <GoalSourceNotice goal={goal} discipline={discipline} />
+      {scopeNotice}
       {/* ── Goal Header ─────────────────────────────────────────────── */}
       <div
         style={{
@@ -752,7 +758,7 @@ export default function PlanPresentation({
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-2)', flexWrap: 'wrap' }}>
               {!embedded && (
                 <>
-                  <Text as="div" variant="eyebrow">
+                  <Text as="div" variant="bodyMedium">
                     {t('page.planTitle')}
                   </Text>
 
@@ -801,16 +807,16 @@ export default function PlanPresentation({
               style={{
                 display: 'flex',
                 gap: 'var(--space-5)',
-                fontSize: "var(--fs-sm)",
+                fontSize: "var(--ft-body-size)",
                 color: 'var(--ink-2)',
-                fontFamily: 'var(--font-mono)',
+                fontFamily: 'inherit',
                 flexWrap: 'wrap',
               }}
             >
               {goalDate && (
                 <span>
                   {t('page.goalDateLabel')}{' '}
-                  <span style={{ color: 'var(--ink-0)' }}>
+                  <span style={{ color: 'var(--ink-0)', fontFamily: 'var(--font-mono)' }}>
                     {goalDate.toLocaleDateString(i18n.language, {
                       year: 'numeric', month: '2-digit', day: '2-digit',
                     })}
@@ -818,7 +824,7 @@ export default function PlanPresentation({
                 </span>
               )}
               <span>
-                {t('page.daysLeftPrefix')}<span style={{ color: 'var(--ink-1)' }}>{daysLeft}</span>
+                {t('page.daysLeftPrefix')}<span style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)' }}>{daysLeft}</span>
               </span>
               {goal && goal.goalType !== 'climb' && (goal.courseDist > 0 || goal.courseElev > 0) && (
                 <span>
@@ -873,7 +879,7 @@ export default function PlanPresentation({
                   border: '1px solid var(--line-soft)',
                 }}
               >
-                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}><GlossaryText>{label}</GlossaryText></Text>
+                <Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}><GlossaryText>{label}</GlossaryText></Text>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-1)' }}>
                   <Text variant="dataLarge" style={{ color }}>{value}</Text>
                   {unit && (
@@ -901,7 +907,7 @@ export default function PlanPresentation({
         {!loading && nextAction && (
           <Card padding="compact" style={{ marginBottom: 'var(--space-3)', borderColor: 'var(--lime)', background: 'color-mix(in oklch, var(--lime) 5%, var(--bg-1))' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-              <Text as="div" variant="eyebrow" style={{ color: 'var(--ink-1)' }}>{kstDayKey(nextAction.day.date) === todayKey ? t('mobile.todayNext') : t('mobile.weekNext')}</Text>
+              <Text as="div" variant="bodyMedium" style={{ color: 'var(--ink-1)' }}>{goalDate && kstDayKey(nextAction.day.date) > kstDayKey(goalDate.getTime()) ? t('scope.nextAfterGoal') : kstDayKey(nextAction.day.date) === todayKey ? t('mobile.todayNext') : t('mobile.weekNext')}</Text>
               <strong style={{ color: 'var(--ink-0)', fontSize: 'var(--fs-md)' }}><GlossaryText>{nextActionLabel}</GlossaryText></strong>
               <span style={{ color: 'var(--ink-2)', fontSize: 'var(--fs-sm)', fontFamily: 'var(--font-mono)' }}>
                 {new Date(nextAction.day.date).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric', timeZone: 'Asia/Seoul' })}
@@ -931,7 +937,7 @@ export default function PlanPresentation({
 
         {!loading && weeks.length > 0 && currentWeekIndex > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
-            <Text as="div" variant="eyebrow">{hasCurrentWeek && `${t('mobile.weekThis')} · `}W{weeks[currentWeekIndex]?.weekNumber}</Text>
+            <Text as="div" variant="bodyMedium">{hasCurrentWeek && `${t('mobile.weekThis')} · `}W{weeks[currentWeekIndex]?.weekNumber}</Text>
             <Button type="button" variant="ghost" size="sm" data-testid="K4-5-4" aria-expanded={showPreviousWeeks} onClick={() => setShowPreviousWeeks(value => !value)}>
               {showPreviousWeeks ? t('mobile.hidePastWeeks') : t('mobile.showPastWeeks', { count: currentWeekIndex })}
             </Button>
@@ -954,10 +960,10 @@ export default function PlanPresentation({
                 gap: "var(--space-1-5)",
               }}
             >
-              <Text as="div" variant="eyebrow">{t('page.weekHeader')}</Text>
+              <Text as="div" variant="bodyMedium">{t('page.weekHeader')}</Text>
               {calendarDayNames.map((d) => (
                 <Text
-                  key={d} as="div" variant="eyebrow"
+                  key={d} as="div" variant="bodyMedium"
                   style={{
                     textAlign: 'center',
                     color: DAY_NAMES.slice(5).includes(d) ? 'var(--ink-2)' : 'var(--ink-3)',
@@ -966,7 +972,7 @@ export default function PlanPresentation({
                   {d}
                 </Text>
               ))}
-              <Text as="div" variant="eyebrow" style={{ textAlign: 'right' }}><GlossaryText>{t('page.tssHeader')}</GlossaryText></Text>
+              <Text as="div" variant="bodyMedium" style={{ textAlign: 'right' }}><GlossaryText>{t('page.tssHeader')}</GlossaryText></Text>
             </div>
 
             {/* Rows */}
@@ -1022,9 +1028,9 @@ export default function PlanPresentation({
                       </div>
                       <div
                         style={{
-                          fontSize: "var(--fs-xs)",
+                          fontSize: "var(--ft-body-size)",
                           color: pc,
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: 'inherit',
                         }}
                       >
                         {phaseLabel(wk.phase, t)}
@@ -1065,9 +1071,9 @@ export default function PlanPresentation({
                       <Text variant="dataMedium">{weekTSS > 0 ? weekTSS : '—'}</Text>
                       <div
                         style={{
-                          fontSize: "var(--fs-xs)",
+                          fontSize: "var(--ft-body-size)",
                           color: 'var(--ink-3)',
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: 'inherit',
                         }}
                       >
                         <GlossaryText>TSS</GlossaryText>

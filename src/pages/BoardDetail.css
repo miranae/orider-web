@@ -1,0 +1,115 @@
+/* 게시글과 작성 화면의 읽기 위계는 탐색·클럽 화면과 같은 토큰을 사용한다. */
+.board-reading-surface {
+  --fs-xs: var(--ft-body-size);
+  --fs-sm: var(--ft-body-size);
+  --ft-page-title-size: var(--fs-xl);
+  --ft-page-title-line-height: 1.35;
+  min-width: 0;
+  color: var(--ink-1);
+  font-size: var(--ft-body-size);
+  line-height: var(--ft-body-line-height);
+}
+.board-detail { max-width: 64rem; }
+.board-writing { max-width: 70rem; }
+.board-reading-surface button:focus-visible,
+.board-reading-surface [contenteditable]:focus-visible {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: var(--space-1);
+}
+.board-detail button,
+.board-writing-header button,
+.board-comment-composer button { min-height: var(--dim-button-height); }
+.board-post-meta,
+.board-post-actions,
+.board-comment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.board-post-meta { margin-bottom: var(--space-4); }
+.board-post-actions { margin-left: auto; color: var(--ink-2); font-size: var(--ft-caption-size, var(--fs-xs)); }
+.board-post-title {
+  margin-bottom: var(--space-4);
+  font-size: var(--ft-page-title-size, var(--fs-xl));
+  font-weight: var(--ft-page-title-weight, 700);
+  line-height: 1.4;
+  color: var(--ink-0);
+  overflow-wrap: anywhere;
+}
+.board-post-body,
+.board-comment-text,
+.board-comment-composer textarea,
+.board-writing input:not(.board-writing-title),
+.board-writing textarea,
+.board-writing [contenteditable] {
+  font-size: var(--ft-body-size);
+  line-height: var(--ft-body-line-height);
+  overflow-wrap: anywhere;
+}
+.board-writing .board-writing-title {
+  font-size: var(--ft-title-size, var(--fs-lg));
+  line-height: var(--ft-title-line-height, 1.4);
+}
+.board-writing [contenteditable][hidden] { display: none !important; }
+.board-post-body { min-width: 0; max-width: 78ch; }
+.board-post-body pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.board-post-body table { display: block; max-width: 100%; overflow-x: auto; }
+.board-post-body table,
+.board-post-body th,
+.board-post-body td { font-size: inherit; line-height: inherit; }
+.board-post-body img { max-width: 100%; height: auto; }
+.board-post-reactions { flex-wrap: wrap; }
+.board-comment-meta { margin-bottom: var(--space-3); }
+.board-comment-meta > span { overflow-wrap: anywhere; min-width: 0; }
+.board-comment-empty {
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  border-block: 1px solid var(--line-soft);
+  color: var(--ink-2);
+  font-size: var(--ft-body-size);
+}
+.board-comment-empty p + p { margin-top: var(--space-2); color: var(--ink-3); }
+.board-writing-header { flex-wrap: wrap; gap: var(--space-3); }
+.board-writing-header > div { min-width: 0; }
+.board-writing-header h1 { font-size: var(--fs-xl); line-height: 1.35; overflow-wrap: anywhere; }
+.board-writing-hint { color: var(--ink-2); font-size: var(--ft-body-size); line-height: var(--ft-body-line-height); }
+.board-editor-toolbar { flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+.board-editor-toolbar button { flex-shrink: 0; }
+.board-writing .ds-card { min-width: 0; }
+.board-writing .ds-card__title { font-size: var(--ft-title-size); }
+.board-writing .ds-btn--primary,
+.board-writing .ds-btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  color: var(--primary-fg);
+  border-color: var(--color-primary-dark);
+}
+@media (max-width: 36rem) {
+  .board-post-card { padding: var(--space-4) !important; }
+  .board-post-actions { margin-left: 0; width: 100%; }
+  .board-post-meta > span { max-width: 100%; overflow-wrap: anywhere; }
+  .board-comment-login { flex-wrap: wrap; }
+  .board-comment-meta > span:nth-of-type(2) { width: 100%; }
+  .board-writing-header > .ds-btn { width: 100%; }
+  .board-writing-header h1 { font-size: var(--fs-lg); }
+  .board-writing input,
+  .board-writing textarea { min-width: 0; max-width: 100%; }
+}
+
+.board-writing-tags { height: var(--dim-button-height); min-height: var(--dim-button-height); }
+.board-tool-button {
+  height: var(--dim-button-height);
+  min-height: var(--dim-button-height);
+  min-width: var(--dim-button-height);
+  width: auto;
+  padding-inline: var(--space-2);
+  gap: var(--space-2);
+}
+/* Explicit tracks preserve each cell's width inside the absolute popup. */
+.board-table-picker { width: max-content; }
+.board-table-grid {
+  display: grid;
+  grid-template-columns: repeat(6, var(--space-5));
+  gap: var(--space-1);
+}
+.board-table-grid > button { width: var(--space-5); height: var(--space-5); }

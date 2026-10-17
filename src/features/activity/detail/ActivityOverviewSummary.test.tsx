@@ -3,8 +3,18 @@ import { MemoryRouter } from "react-router-dom";
 import i18n from "i18next";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
+import enGlossary from "../../../i18n/resources/en/termGlossary.json";
 import enActivity from "../../../i18n/resources/en/activity.json";
 import ActivityOverviewSummary, { ActivityOverviewSummaryContent } from "./ActivityOverviewSummary";
+
+// Tooltip triggers split visible sentences across descendants; assert the same full text.
+function renderedText(expected: string | RegExp, exact = true) {
+  const matches = (value: string) => {
+    const normalized = value.replace(/\s+/g, " ").trim();
+    return typeof expected === "string" ? exact ? normalized === expected : normalized.toLowerCase().includes(expected.toLowerCase()) : expected.test(normalized);
+  };
+  return (content: string, node: Element | null) => matches(content) || !!node && matches(node.textContent ?? "") && !Array.from(node.children).some(child => matches(child.textContent ?? ""));
+}
 
 afterEach(async () => { cleanup(); await i18n.changeLanguage("ko"); });
 const rich: ActivityOverviewPresentation = {
@@ -21,64 +31,77 @@ const rich: ActivityOverviewPresentation = {
 };
 
 describe("ActivityOverviewSummary", () => {
+  it.each(["ko", "en"])("explains repeated known labels without nesting interactive controls in %s", async language => {
+    i18n.addResourceBundle("en", "activity", enActivity, true, true);
+    i18n.addResourceBundle("en", "termGlossary", enGlossary, true, true);
+    await i18n.changeLanguage(language);
+    const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, session: { ...rich.session, loadKind: "tss", intensityFactor: 0.85 } }} />);
+    for (const id of ["tss", "np", "if", "z4", "ctl", "atl", "tsb"]) expect(container.querySelector(`[data-glossary-term="${id}"] button`)).toBeInTheDocument();
+    const repeated = container.querySelectorAll('[data-glossary-term="z4"] button');
+    expect(repeated.length).toBeGreaterThan(1);
+    fireEvent.click(container.querySelector('[data-glossary-term="np"] button')!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(language === "en" ? "Normalized power" : "정규화 파워");
+    expect(container.querySelector('button button, a button')).toBeNull();
+  });
+
   it("keeps bike fuel and W-prime language out of a run, and shows recovery only when modeled", () => {
     const run = { ...rich, session: { ...rich.session, discipline: "run" as const } };
     const { rerender } = render(<ActivityOverviewSummaryContent presentation={run} />);
     expect(screen.getByRole("region", { name: "회복 추정" })).toBeInTheDocument();
-    expect(screen.getByText(/회복시간은 계측 부하/)).toBeInTheDocument();
-    expect(screen.queryByText(/W′/)).not.toBeInTheDocument();
-    expect(screen.queryByText("회복과 연료")).not.toBeInTheDocument();
+    expect(screen.getByText(renderedText(/회복시간은 계측 부하/))).toBeInTheDocument();
+    expect(screen.queryByText(renderedText(/W′/))).not.toBeInTheDocument();
+    expect(screen.queryByText(renderedText("회복과 연료"))).not.toBeInTheDocument();
     rerender(<ActivityOverviewSummaryContent presentation={{ ...run, recovery: undefined }} />);
     expect(screen.queryByRole("region", { name: "회복 추정" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/회복시간은 계측 부하/)).not.toBeInTheDocument();
+    expect(screen.queryByText(renderedText(/회복시간은 계측 부하/))).not.toBeInTheDocument();
   });
   it("renders the share-summary sections without analysis tables or basic activity stats", () => {
     render(<ActivityOverviewSummaryContent presentation={rich} />);
     for (const title of ["훈련 자극", "나의 변화", "회복과 연료", "시작 전 상태"]) expect(screen.getByRole("region", { name: title })).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getByText(rich.coachSentence)).toBeInTheDocument();
-    expect(screen.getByText("25")).toBeInTheDocument();
-    expect(screen.getByText("0회 · 0분 0초")).toBeInTheDocument();
-    expect(screen.getByText("1분 0초")).toBeInTheDocument();
-    expect(screen.getByText("피크 파워 변화 · 2분")).toBeInTheDocument();
-    expect(screen.getByText("+19.3% · 10회")).toBeInTheDocument();
-    expect(screen.getByText("전체 기간 PR")).toBeInTheDocument();
-    expect(screen.queryByText(/분석 기준 FTP 182 W/)).not.toBeInTheDocument();
-    expect(screen.queryByText("근육 부하")).not.toBeInTheDocument();
-    expect(screen.queryByText("1520")).not.toBeInTheDocument();
-    expect(screen.getByText(/직접 측정한 생리값/)).toBeInTheDocument();
+    expect(screen.getByText(renderedText("25"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("0회 · 0분 0초"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("1분 0초"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("피크 파워 변화 · 2분"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("+19.3% · 10회"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("전체 기간 PR"))).toBeInTheDocument();
+    expect(screen.queryByText(renderedText(/분석 기준 FTP 182 W/))).not.toBeInTheDocument();
+    expect(screen.queryByText(renderedText("근육 부하"))).not.toBeInTheDocument();
+    expect(screen.queryByText(renderedText("1520"))).not.toBeInTheDocument();
+    expect(screen.getByText(renderedText(/직접 측정한 생리값/))).toBeInTheDocument();
   });
   it("labels the day with the session character and appends the above-usual volume", () => {
     const { rerender } = render(<ActivityOverviewSummaryContent presentation={rich} />);
-    expect(screen.getByText("고강도 반복")).toHaveClass("ds-chip--accent");
+    expect(screen.getByText(renderedText("고강도 반복"))).toHaveClass("ds-chip--accent");
     rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, aboveUsualVolume: true }} />);
-    expect(screen.getByText("고강도 반복 · 평소보다 많이")).toBeInTheDocument();
+    expect(screen.getByText(renderedText("고강도 반복 · 평소보다 많이"))).toBeInTheDocument();
     // 성격이 없으면 예전처럼 진단 문구만 남는다 — 화면이 이름을 지어내지 않는다.
     rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, session: { discipline: "bike" } }} />);
-    expect(screen.getByText("성격 확인 중")).not.toHaveClass("ds-chip--accent");
+    expect(screen.getByText(renderedText("성격 확인 중"))).not.toHaveClass("ds-chip--accent");
   });
 
   it("explains the label with the server-written highlight reason", () => {
     render(<ActivityOverviewSummaryContent presentation={{ ...rich, highlight: { kind: "sprint", reason: "5초 최고 출력 · 전체 기간 PR" } }} />);
-    expect(screen.getByText("5초 최고 출력 · 전체 기간 PR")).toHaveClass("ds-text--caption");
+    expect(screen.getByText(renderedText("5초 최고 출력 · 전체 기간 PR"))).toHaveClass("ds-text--caption");
   });
 
   it("shows the user-approved-value caveat as a separate caption only when qualityNote is true", () => {
     const { rerender } = render(<ActivityOverviewSummaryContent presentation={rich} />);
-    const modelNote = screen.getByText("회복·연료·W′는 계측값을 바탕으로 한 모델이며 직접 측정한 생리값은 아닙니다.");
-    const qualityNote = screen.getByText("※ 사용자 승인값이 없으면 계측값을 사용합니다.");
+    const modelNote = screen.getByText(renderedText("회복·연료·W′는 계측값을 바탕으로 한 모델이며 직접 측정한 생리값은 아닙니다."));
+    const qualityNote = screen.getByText(renderedText("※ 사용자 승인값이 없으면 계측값을 사용합니다."));
     expect(modelNote).not.toBe(qualityNote);
     expect(modelNote).toHaveClass("ds-text--caption");
     expect(qualityNote).toHaveClass("ds-text--caption");
     rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, qualityNote: false }} />);
-    expect(screen.queryByText("※ 사용자 승인값이 없으면 계측값을 사용합니다.")).not.toBeInTheDocument();
-    expect(screen.getByText(modelNote.textContent!)).toBeInTheDocument();
+    expect(screen.queryByText(renderedText("※ 사용자 승인값이 없으면 계측값을 사용합니다."))).not.toBeInTheDocument();
+    expect(screen.getByText(renderedText(modelNote.textContent!))).toBeInTheDocument();
   });
   it("uses the equivalent English caveat", async () => {
     i18n.addResourceBundle("en", "activity", enActivity, true, true);
     await i18n.changeLanguage("en");
     render(<ActivityOverviewSummaryContent presentation={rich} />);
-    expect(screen.getByText("※ Measured values are used when user-approved values are unavailable.")).toBeInTheDocument();
+    expect(screen.getByText(renderedText("※ Measured values are used when user-approved values are unavailable."))).toBeInTheDocument();
   });
   it("uses one design-system card and quiet dividers rather than numbered inset panels", () => {
     render(<ActivityOverviewSummary overview={{ enabled: true, loading: false, response: { status: "available", activityId: "a", presentation: rich }, error: false, retry: vi.fn() }} />);
@@ -91,8 +114,8 @@ describe("ActivityOverviewSummary", () => {
     expect(sections.length).toBeGreaterThanOrEqual(4);
     for (const section of sections) expect(section).toHaveClass("border-t");
     expect(summary.querySelector(".ds-card--inset")).not.toBeInTheDocument();
-    expect(screen.queryByText(/^0[1-4]$/)).not.toBeInTheDocument();
-    expect(screen.queryByText("라이딩")).not.toBeInTheDocument();
+    expect(screen.queryByText(renderedText(/^0[1-4]$/))).not.toBeInTheDocument();
+    expect(screen.queryByText(renderedText("라이딩"))).not.toBeInTheDocument();
   });
   it("shows every verified PR and only the strongest personal comparisons", () => {
     render(<ActivityOverviewSummaryContent presentation={{ ...rich, powerFingerprint: [
@@ -100,32 +123,32 @@ describe("ActivityOverviewSummary", () => {
       { duration: "10m", watts: 204, deltaPct: 8, medianWatts: 180, priorSampleCount: 10, recordAchievement: "new" },
       { duration: "20m", watts: 190, deltaPct: 6, medianWatts: 170, priorSampleCount: 10, recordAchievement: "new" },
     ] }} />);
-    expect(screen.getByText("5분 · 219 W")).toBeInTheDocument();
-    expect(screen.getByText("10분 · 204 W")).toBeInTheDocument();
-    expect(screen.getByText("20분 · 190 W")).toBeInTheDocument();
-    expect(screen.getByText("+19.3% · 10회")).toBeInTheDocument();
-    expect(screen.queryByText("+8% · 10회")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Z1 \+15/)).not.toBeInTheDocument();
+    expect(screen.getByText(renderedText("5분 · 219 W"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("10분 · 204 W"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("20분 · 190 W"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("+19.3% · 10회"))).toBeInTheDocument();
+    expect(screen.queryByText(renderedText("+8% · 10회"))).not.toBeInTheDocument();
+    expect(screen.queryByText(renderedText(/Z1 \+15/))).not.toBeInTheDocument();
   });
   it.each(["bike", "run", "swim"] as const)("keeps the same frame for missing %s inputs", (discipline) => {
     render(<ActivityOverviewSummaryContent presentation={{ session: { discipline }, thresholdWork: {}, availability: { personal: "character_uncertain", records: "unavailable", power: "unavailable", heartRate: "unavailable" } }} />);
     expect(screen.getAllByRole("region")).toHaveLength(discipline === "bike" ? 4 : 3);
     // 회복 모델이 없는 러닝·수영에는 회복/연료 영역을 만들지 않는다.
-    expect(screen.queryByText(/자극 분석 정보/)).not.toBeInTheDocument();
-    expect(screen.queryByText("짧은 활동")).not.toBeInTheDocument();
-    expect(screen.getByText(/성격이 불명확/)).toBeInTheDocument();
-    expect(screen.queryByText("전체 기간 PR")).not.toBeInTheDocument();
+    expect(screen.queryByText(renderedText(/자극 분석 정보/))).not.toBeInTheDocument();
+    expect(screen.queryByText(renderedText("짧은 활동"))).not.toBeInTheDocument();
+    expect(screen.getByText(renderedText(/성격이 불명확/))).toBeInTheDocument();
+    expect(screen.queryByText(renderedText("전체 기간 PR"))).not.toBeInTheDocument();
   });
   it("renders authorized power without promoting window rank to PR", () => {
     render(<ActivityOverviewSummaryContent presentation={{ ...rich, availability: { ...rich.availability!, records: "unavailable" } }} />);
-    expect(screen.queryByText("전체 기간 PR")).not.toBeInTheDocument();
-    expect(screen.getByText("피크 파워 변화 · 2분")).toBeInTheDocument();
+    expect(screen.queryByText(renderedText("전체 기간 PR"))).not.toBeInTheDocument();
+    expect(screen.getByText(renderedText("피크 파워 변화 · 2분"))).toBeInTheDocument();
   });
   it("does not highlight comparisons from incomplete history", () => {
     render(<ActivityOverviewSummaryContent presentation={{ ...rich, comparisonMetadata: { ...rich.comparisonMetadata!, historyCompleteness: "incomplete" } }} />);
-    expect(screen.queryByText("+19.3% · 10회")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Z1 \+15/)).not.toBeInTheDocument();
-    expect(screen.getByText("전체 기간 PR")).toBeInTheDocument();
+    expect(screen.queryByText(renderedText("+19.3% · 10회"))).not.toBeInTheDocument();
+    expect(screen.queryByText(renderedText(/Z1 \+15/))).not.toBeInTheDocument();
+    expect(screen.getByText(renderedText("전체 기간 PR"))).toBeInTheDocument();
   });
   it("keeps the owner history slot across summary states and suppresses it when the card is disabled or unavailable to a viewer", () => {
     const overview = { enabled: false, loading: false, response: null, error: false, retry: vi.fn() };
@@ -157,8 +180,8 @@ describe("activity overview summary for a viewer", () => {
   const overview = { enabled: true, loading: false, response: null, error: false, retry: vi.fn() };
   it("uses the rider voice instead of the owner voice", () => {
     render(<ActivityOverviewSummaryContent presentation={rich} isOwner={false} />);
-    expect(screen.getByText("이 라이더의 변화")).toBeInTheDocument();
-    expect(screen.queryByText("나의 변화")).not.toBeInTheDocument();
+    expect(screen.getByText(renderedText("이 라이더의 변화"))).toBeInTheDocument();
+    expect(screen.queryByText(renderedText("나의 변화"))).not.toBeInTheDocument();
   });
   it("shows the card only when the server actually returned an overview", () => {
     const { rerender } = render(<ActivityOverviewSummary overview={{ ...overview, loading: true }} isOwner={false} />);
@@ -197,27 +220,27 @@ describe("activity overview summary shows what the server actually sent", () => 
 
   it("renders session load, NP and IF — they appear nowhere else on the page", () => {
     render(<ActivityOverviewSummaryContent presentation={sparse} />);
-    expect(screen.getByText("50")).toBeInTheDocument();
-    expect(screen.getByText("167.1")).toBeInTheDocument();
-    expect(screen.getByText("0.72")).toBeInTheDocument();
+    expect(screen.getByText(renderedText("50"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("167.1"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("0.72"))).toBeInTheDocument();
   });
 
   it("renders the route load, which appears nowhere else", () => {
     render(<ActivityOverviewSummaryContent presentation={sparse} />);
-    expect(screen.getByText("11.4")).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByText(renderedText("11.4"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("2"))).toBeInTheDocument();
   });
 
   it("still leaves sport details to the analysis tab", () => {
     render(<ActivityOverviewSummaryContent presentation={{ ...sparse,
       sportDetails: [{ label: "분석 기준 FTP", value: "182 W", priority: "primary" }] }} />);
-    expect(screen.queryByText("182 W")).not.toBeInTheDocument();
+    expect(screen.queryByText(renderedText("182 W"))).not.toBeInTheDocument();
   });
 
   it("renders authorized power sections for another viewer", () => {
     render(<ActivityOverviewSummaryContent presentation={sparse} isOwner={false} />);
-    expect(screen.getByText("781")).toBeInTheDocument();
-    expect(screen.getByText("167.1")).toBeInTheDocument();
+    expect(screen.getByText(renderedText("781"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("167.1"))).toBeInTheDocument();
   });
 });
 
@@ -231,39 +254,39 @@ describe("missing threshold is stated as a dead end, not as pending work", () =>
 
   it("replaces the pending chip and explains what to do, for the owner", () => {
     render(<MemoryRouter><ActivityOverviewSummaryContent presentation={noThreshold} /></MemoryRouter>);
-    expect(screen.getByText("임계값 없음")).toBeInTheDocument();
-    expect(screen.queryByText("성격 확인 중")).not.toBeInTheDocument();
-    expect(screen.getByText(/FTP·최대심박을 설정하면/)).toBeInTheDocument();
+    expect(screen.getByText(renderedText("임계값 없음"))).toBeInTheDocument();
+    expect(screen.queryByText(renderedText("성격 확인 중"))).not.toBeInTheDocument();
+    expect(screen.getByText(renderedText(/FTP·최대심박을 설정하면/))).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "임계값 설정하기" })).toHaveAttribute("href", "/coach/condition?sport=bike#thresholds");
   });
 
   it("tells a viewer whose threshold is missing, without offering them the setting", () => {
     render(<MemoryRouter><ActivityOverviewSummaryContent presentation={noThreshold} isOwner={false} /></MemoryRouter>);
-    expect(screen.getByText(/이 라이더의 임계값이 없어/)).toBeInTheDocument();
+    expect(screen.getByText(renderedText(/이 라이더의 임계값이 없어/))).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "임계값 설정하기" })).not.toBeInTheDocument();
   });
 
   it("keeps the pending wording when the verdict really is still uncertain", () => {
     render(<MemoryRouter><ActivityOverviewSummaryContent presentation={{ ...noThreshold, thresholdBasis: "power_ftp" }} /></MemoryRouter>);
-    expect(screen.getByText("성격 확인 중")).toBeInTheDocument();
-    expect(screen.getByText("활동 성격이 불명확하여 같은 유형 비교를 보류했습니다.")).toBeInTheDocument();
-    expect(screen.queryByText("임계값 없음")).not.toBeInTheDocument();
+    expect(screen.getByText(renderedText("성격 확인 중"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("활동 성격이 불명확하여 같은 유형 비교를 보류했습니다."))).toBeInTheDocument();
+    expect(screen.queryByText(renderedText("임계값 없음"))).not.toBeInTheDocument();
   });
 });
 
 it("preserves estimated power and provisional FTP semantics", () => {
  render(<MemoryRouter><ActivityOverviewSummaryContent presentation={{ ...rich, availability: { ...rich.availability!, power: "estimated" }, session: { ...rich.session, ftpVerificationRequired: true } }} /></MemoryRouter>);
- expect(screen.getByText("추정 파워 기준")).toBeInTheDocument();
- expect(screen.getByText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다.")).toBeInTheDocument();
- expect(screen.getByText("NP")).toBeInTheDocument();
+ expect(screen.getByText(renderedText("추정 파워 기준"))).toBeInTheDocument();
+ expect(screen.getByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다."))).toBeInTheDocument();
+ expect(screen.getByText(renderedText("NP"))).toBeInTheDocument();
 });
 
 it("preserves observed effects, historical zone uncertainty and previous-best percentages", () => {
  render(<MemoryRouter><ActivityOverviewSummaryContent presentation={{ ...rich, observedEffects: ["관찰된 스프린트"], session: { ...rich.session, ftpVerificationRequired: false }, zones: [{ kind: "power", seconds: [10, 0, 0, 5], priority: "primary", historyCompleteness: "incomplete", provisional: true }], powerFingerprint: [{ duration: "5s", watts: 330, previousBestPct: 110 }] }} /></MemoryRouter>);
- expect(screen.getByText("관찰된 스프린트")).toBeInTheDocument();
- expect(screen.getByText("존 비교 잠정 · FTP 확인이 필요한 과거 기록 포함")).toBeInTheDocument();
- expect(screen.getByText(/일부 비교 기록 기준/)).toBeInTheDocument();
- expect(screen.getByText("110%")).toBeInTheDocument();
- expect(screen.getByText(/활동 전 최고 대비는 이번 활동 이전/)).toBeInTheDocument();
- expect(screen.queryByText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다.")).not.toBeInTheDocument();
+ expect(screen.getByText(renderedText("관찰된 스프린트"))).toBeInTheDocument();
+ expect(screen.getByText(renderedText("존 비교 잠정 · FTP 확인이 필요한 과거 기록 포함"))).toBeInTheDocument();
+ expect(screen.getByText(renderedText(/일부 비교 기록 기준/))).toBeInTheDocument();
+ expect(screen.getByText(renderedText("110%"))).toBeInTheDocument();
+ expect(screen.getByText(renderedText(/활동 전 최고 대비는 이번 활동 이전/))).toBeInTheDocument();
+ expect(screen.queryByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준입니다."))).not.toBeInTheDocument();
 });

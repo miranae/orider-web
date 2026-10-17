@@ -2,14 +2,14 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
+  type ComponentProps,
   type FormEvent,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { useTrainingDialog } from "../components/training/useTrainingDialog";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Input, Textarea, type AlertVariant } from "../theme/components";
 
@@ -61,12 +61,10 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   };
   const [request, setRequest] = useState<DialogRequest | null>(null);
   const [promptValue, setPromptValue] = useState("");
-  const previouslyFocused = useRef<HTMLElement | null>(null);
 
   const open = useCallback(
     (kind: DialogKind, message: ReactNode, options: PromptDialogOptions = {}) =>
       new Promise<boolean | string | null>((resolve) => {
-        previouslyFocused.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         setPromptValue(options.defaultValue ?? "");
         setRequest({ kind, message, options, resolve });
       }),
@@ -99,24 +97,9 @@ export function DialogProvider({ children }: { children: ReactNode }) {
       if (!current) return;
       current.resolve(value);
       setRequest(null);
-      window.setTimeout(() => previouslyFocused.current?.focus(), 0);
     },
     [request],
   );
-
-  useEffect(() => {
-    if (!request) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close(request.kind === "alert" ? true : null);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [close, request]);
 
   const value = useMemo(() => ({ alert, confirm, prompt }), [alert, confirm, prompt]);
 
@@ -139,7 +122,8 @@ export function DialogProvider({ children }: { children: ReactNode }) {
         createPortal(
           <div className="app-dialog" role="presentation">
             <button className="app-dialog__backdrop" type="button" aria-label={String(cancelLabel)} onClick={() => close(request.kind === "alert" ? true : null)} />
-            <form
+            <DialogPanel
+              onClose={() => close(request.kind === "alert" ? true : null)}
               className="app-dialog__panel"
               role="dialog"
               aria-modal="true"
@@ -152,14 +136,14 @@ export function DialogProvider({ children }: { children: ReactNode }) {
               {request.kind === "prompt" &&
                 (request.options.multiline ? (
                   <Textarea
-                    autoFocus
+                    data-dialog-initial-focus
                     value={promptValue}
                     placeholder={request.options.placeholder}
                     onChange={(event) => setPromptValue(event.target.value)}
                   />
                 ) : (
                   <Input
-                    autoFocus
+                    data-dialog-initial-focus
                     value={promptValue}
                     placeholder={request.options.placeholder}
                     onChange={(event) => setPromptValue(event.target.value)}
@@ -167,7 +151,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
                 ))}
               <div className="app-dialog__actions">
                 {request.kind !== "alert" && (
-                  <Button type="button" variant="secondary" onClick={() => close(null)}>
+                  <Button data-dialog-initial-focus={request.kind === "confirm" ? true : undefined} type="button" variant="secondary" onClick={() => close(null)}>
                     {cancelLabel}
                   </Button>
                 )}
@@ -179,12 +163,17 @@ export function DialogProvider({ children }: { children: ReactNode }) {
                   {confirmLabel}
                 </Button>
               </div>
-            </form>
+            </DialogPanel>
           </div>,
           document.body,
         )}
     </DialogContext.Provider>
   );
+}
+
+function DialogPanel({ onClose, ...props }: ComponentProps<"form"> & { onClose: () => void }) {
+  const ref = useTrainingDialog<HTMLFormElement>(onClose, false);
+  return <form {...props} ref={ref} tabIndex={-1} />;
 }
 
 export function useDialog() {

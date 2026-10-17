@@ -1067,6 +1067,7 @@
       "powerDesc": "Recorded running power. Cycling FTP and normalized power do not apply.",
       "splitsUnits": "Splits cover 1 km each; pace uses your selected distance unit.",
       "splitsUnavailable": "Km splits are not available in the shared analysis yet. Available pace and heart-rate metrics are shown.",
+      "splitTimerMismatch": "Split pace is unavailable because the moving time measurements differ.",
       "paceHrDecoupling": "Pace/HR decoupling",
       "paceHrDecouplingDesc": "Change in speed-to-heart-rate efficiency between halves. Hills, heat and pace changes can affect it.",
       "hrLoad": "Heart-rate running load",
@@ -1181,7 +1182,7 @@
     "glanceTss": "TSS",
     "totalTime": "Duration",
     "totalTss": "Total TSS",
-    "monthlySummary": "Monthly summary",
+    "monthlySummary": "Activity distribution",
     "activeDays": "Active days",
     "totalSessions": "Total sessions",
     "sportBike": "Cycling",
@@ -1205,13 +1206,15 @@
     "loadPartial": "{{count}} unknown loads · known values only",
     "loadUnknown": "Actual load unknown · adherence unavailable",
     "recordBasis": "KST dates · Linked saved records are listed separately; training load counts each workout once.",
-    "estimateBasis": "Estimated load uses the current profile FTP or duration and may differ from the saved server load."
+    "estimateBasis": "Estimated load uses the current profile FTP or duration and may differ from the saved server load.",
+    "totalElevation": "Elevation gain",
+    "chooseFile": "Choose file"
   },
   "import": {
     "modalTitle": "Upload activity",
     "fileSection": "Select file",
     "fileHint": "Select a FIT, GPX, TCX, or ZIP file",
-    "fileFormatNote": ".fit · .gpx · .tcx · .zip · max 100MB",
+    "fileFormatNote": "FIT · GPX · TCX up to 10 MB / ZIP up to 100 MB",
     "nameSection": "Activity name",
     "namePlaceholder": "Uploaded activity",
     "visibilitySection": "Visibility",
@@ -1234,7 +1237,10 @@
     "stravaSettingsLink": "Settings",
     "stravaNoteSuffix": ".",
     "viewResult": "View imported records",
-    "viewCoach": "View in Coach →"
+    "viewCoach": "View in Coach →",
+    "close": "Close",
+    "removeFile": "Remove selected file",
+    "chooseFile": "Choose file"
   },
   "edit": {
     "eyebrow": "Edit Activity",

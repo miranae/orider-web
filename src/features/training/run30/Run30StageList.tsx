@@ -1,3 +1,4 @@
+import Run30WorkoutOutline from "./Run30WorkoutOutline";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -49,14 +50,7 @@ function StageRow({ session, isNext }: { session: Run30Session; isNext: boolean 
               : t("run30.stages.showSegments", { count: session.segments.length })}
           </Button>
           {expanded && (
-            <ol id={segmentsId} className="run30-segments">
-              {session.segments.map((segment) => (
-                <li key={segment.stepId}>
-                  <span>{segment.label}</span>
-                  <span className="run30-segments__duration">{run30Duration(segment.durationSec, t)}</span>
-                </li>
-              ))}
-            </ol>
+            <div id={segmentsId}><Run30WorkoutOutline session={session} showDuration={false} /></div>
           )}
         </>
       )}

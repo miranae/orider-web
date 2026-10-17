@@ -22,7 +22,7 @@ export interface WaypointMarker {
   lat: number;
   lon: number;
   name: string;
-  icon: string;
+  icon: ReactNode;
   active?: boolean;
 }
 

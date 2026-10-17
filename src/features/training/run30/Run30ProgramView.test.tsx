@@ -29,7 +29,7 @@ function renderView(options: {
 }
 
 function todayCard() {
-  return screen.getByRole("region", { name: "오늘" });
+  return screen.getByTestId("K4-R-6");
 }
 
 describe("Run30ProgramView header", () => {
@@ -62,8 +62,9 @@ describe("Run30ProgramView today block", () => {
     renderView({ program: run30Program({ todayAction: "start" }), startMode: { kind: "web" } });
     const card = todayCard();
     expect(card).toHaveAttribute("data-today-action", "start");
-    expect(within(card).getByText("1단계 · 1단계 걷기·달리기")).toBeInTheDocument();
-    expect(within(card).getByText("총 32분")).toBeInTheDocument();
+    expect(within(card).getByText("1단계 걷기·달리기")).toBeInTheDocument();
+    expect(within(card).getByText("총 운동시간")).toBeInTheDocument();
+    expect(within(card).getByText("32분")).toBeInTheDocument();
     expect(within(card).getByText("러닝 시작은 O-Rider 앱에서 할 수 있어요.")).toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "1단계 시작" })).not.toBeInTheDocument();
   });
@@ -104,7 +105,8 @@ describe("Run30ProgramView today block", () => {
     const sessions = run30Sessions("2026-10-01");
     renderView({ program: run30Program({ sessions, todayAction: "rest" }), startMode: { kind: "host", starter: { start: vi.fn() } } });
     const card = todayCard();
-    expect(within(card).getByText("오늘은 휴식 · 다음 10월 1일 (목) 1단계")).toBeInTheDocument();
+    expect(within(card).getByRole("heading", { name: "예정된 운동" })).toBeInTheDocument();
+    expect(within(card).getByText("10월 1일 (목)").closest("p")).toHaveTextContent("1단계 · 10월 1일 (목) · 예정");
     expect(within(card).queryByRole("button", { name: /단계 시작/ })).not.toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "이 단계 건너뛰기" })).toBeInTheDocument();
   });
@@ -115,9 +117,9 @@ describe("Run30ProgramView today block", () => {
       program: run30Program({ sessions, todayAction: "decide", retryDates: ["2026-10-01", "2026-10-02"] }),
     });
     const card = todayCard();
-    expect(within(card).getByText("1단계 · 9월 28일 (월) · 일부 수행")).toBeInTheDocument();
+    expect(within(card).getByText("9월 28일 (월)").closest("p")).toHaveTextContent("1단계 · 9월 28일 (월) · 일부 수행");
     expect(within(card).getByText(/여기까지 움직인 기록도 남아요/)).toBeInTheDocument();
-    expect(within(card).getByRole("combobox", { name: "다시 도전할 날짜" })).toHaveDisplayValue("10월 1일 (목)");
+    expect(within(card).getByRole("combobox", { name: "다시 도전할 날짜" })).toHaveTextContent("10월 1일 (목)");
     expect(within(card).getByRole("button", { name: "재도전 일정 확인" })).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "기록 유지하고 다음 단계 진행" })).toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "이 단계 건너뛰기" })).not.toBeInTheDocument();
@@ -145,7 +147,7 @@ describe("Run30ProgramView today block", () => {
       startMode: { kind: "host", starter: { start: vi.fn() } },
     });
     const card = todayCard();
-    expect(within(card).getByText("오늘은 시작하지 않아요")).toBeInTheDocument();
+    expect(within(card).getByRole("heading", { name: "보류된 운동" })).toBeInTheDocument();
     expect(within(card).getByText("통증 기록이 있어 회복을 우선합니다.")).toHaveClass("run30-warning");
     expect(screen.queryByRole("button", { name: /단계 시작/ })).not.toBeInTheDocument();
   });
@@ -261,8 +263,8 @@ describe("Run30ProgramView stage list", () => {
     const stage5 = screen.getByTestId("run30-stage-5");
     expect(within(stage5).queryByText("몸풀기 걷기")).not.toBeInTheDocument();
     fireEvent.click(within(stage5).getByRole("button", { name: "구간 2개 보기" }));
-    expect(within(stage5).getByText("몸풀기 걷기")).toBeInTheDocument();
-    expect(within(stage5).getByText("5분")).toBeInTheDocument();
+    expect(within(stage5).getAllByText("몸풀기 걷기").length).toBeGreaterThan(0);
+    expect(within(stage5).getAllByText("5분").length).toBeGreaterThan(0);
   });
 
   it("shows the safety guidance footer", () => {

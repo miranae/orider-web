@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { FirebaseError } from "firebase/app";
 import { httpsCallable } from "firebase/functions";
+import { creatorRecipeErrorDetails, creatorRecipeErrorFeedback } from "../utils/creatorRecipeErrors";
 import { functions } from "../services/firebase";
 
 export interface CreatorEmailQuota {
@@ -34,13 +34,6 @@ interface UseCreatorRecipeEmailParams {
   actions: CreatorEmailActions;
   showToast: (message: string, type?: "success" | "error" | "info") => void;
   signInWithGoogle: () => Promise<void>;
-}
-
-function firebaseErrorDetails(err: unknown): Record<string, unknown> {
-  if (!(err instanceof FirebaseError)) return {};
-  const customData = err.customData as Record<string, unknown> | undefined;
-  const details = customData?.details;
-  return details && typeof details === "object" ? details as Record<string, unknown> : {};
 }
 
 export function formatCreatorEmailQuotaLabel(template: string, quota: CreatorEmailQuota | null) {
@@ -104,6 +97,7 @@ export function useCreatorRecipeEmail({
         { timeout: 60_000 },
       );
       const result = await fn({ recipeId: itemId, lang: language.startsWith("en") ? "en" : "ko", deliveryMode: "manual" });
+      if (!result.data.sent) throw new Error("creator/email-not-sent");
       setEmailQuota(result.data.quota);
       setEmailFailedItemIds((prev) => {
         const next = new Set(prev);
@@ -114,13 +108,11 @@ export function useCreatorRecipeEmail({
       showToast(actions.emailed);
     } catch (err) {
       setEmailFailedItemIds((prev) => new Set(prev).add(itemId));
-      const details = firebaseErrorDetails(err);
-      const isResourceExhausted = err instanceof FirebaseError && err.code === "functions/resource-exhausted";
-      const message = isResourceExhausted && details.reason === "cooldown"
-        ? actions.emailCooldown
-        : isResourceExhausted
-          ? actions.emailQuotaExceeded
-          : actions.emailFailed;
+      const details = creatorRecipeErrorDetails(err);
+      const knownFailure = creatorRecipeErrorFeedback(err, language, "email");
+      const message = details.reason === "cooldown" ? actions.emailCooldown
+        : details.reason === "daily-limit" ? actions.emailQuotaExceeded
+          : knownFailure?.message ?? actions.emailFailed;
       showToast(message, "error");
     } finally {
       setEmailSendingId(null);

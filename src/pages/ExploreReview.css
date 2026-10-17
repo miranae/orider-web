@@ -1,0 +1,35 @@
+/* Scoped to the reviewed discovery and event editor surfaces. */
+:is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface, .explore-editor-surface) {
+  --ft-page-title-size: var(--fs-xl);
+  --ft-page-title-line-height: 1.4;
+  font-size: var(--ft-body-size);
+}
+:is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface, .explore-editor-surface) h1 { font-size: var(--fs-xl) !important; line-height: 1.4; letter-spacing: normal !important; overflow-wrap: anywhere; }
+:is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface, .explore-editor-surface) h2 { font-size: var(--ft-title-size) !important; line-height: var(--ft-title-line-height); }
+:is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface, .explore-editor-surface) h3 { font-size: var(--ft-subtitle-size) !important; }
+:is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface, .explore-editor-surface) .ds-btn__label { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
+:is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface, .explore-editor-surface) .ds-text--eyebrow { font-family: inherit; letter-spacing: normal; font-size: var(--ft-body-size); }
+.explore-events-surface .event-card__title { font-size: var(--ft-subtitle-size) !important; white-space: normal; overflow-wrap: anywhere; }
+.explore-events-surface .event-mobile-heading p { font-size: var(--ft-body-size); }
+.explore-events-surface .event-availability-note { margin: var(--space-2) 0; }
+.explore-events-surface .ds-chip { display: inline-flex; gap: var(--space-1); align-items: center; }
+.challenge-create-details { flex: 1 1 100%; min-width: 0; }
+.challenge-create-details > summary, .creator-technical-summary > summary { cursor: pointer; font-size: var(--ft-body-size); color: var(--ink-2); }
+.challenge-create-fields { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); margin-top: var(--space-3); }
+.challenge-create-fields .ds-input { height: var(--dim-button-height); }
+.challenge-create-fields > label { min-width: 0 !important; flex: 1 1 12rem; }
+.creator-technical-summary > div { margin-top: var(--space-3); }
+.explore-records-surface p { font-size: var(--ft-body-size); }
+@media (max-width: 36rem) {
+  .explore-challenges-surface select { max-width: 100%; }
+  .challenge-create-fields > .ds-btn { width: 100%; }
+}
+
+.event-tracking-ended { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-6); border-bottom: 1px solid var(--line-soft); background: var(--bg-2); }
+
+.event-calendar-weekday { text-align: center; padding: var(--space-2); color: var(--ink-2); font-size: var(--ft-body-size); background: var(--bg-2); border-bottom: 1px solid var(--line-soft); }
+.event-calendar-day[aria-current="date"] { background: color-mix(in oklch, var(--lime) 8%, var(--bg-1)); box-shadow: inset 0 0 0 2px var(--lime); }
+.event-filter-chevron { margin-left: auto; transition: transform 160ms; }
+.event-advanced-filters[open] .event-filter-chevron { transform: rotate(180deg); }
+
+.explore-editor-surface, .explore-events-surface { --fs-xs: var(--ft-body-size); --fs-sm: var(--ft-body-size); }

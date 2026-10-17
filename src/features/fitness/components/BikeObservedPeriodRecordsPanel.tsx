@@ -1,7 +1,8 @@
+import "./fitness-analysis-controls.css";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
-import { Button, Select, Stack, Text } from "../../../theme";
+import { Button, DropdownSelect, Stack, Text } from "../../../theme";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { formatDistance, formatElev } from "../../../utils/units";
 import { bikeObservedPeriodRecords, type BikeObservedBasis, type BikeObservedMetric } from "./bikeObservedPeriodRecords";
@@ -14,11 +15,11 @@ function BikeRecordsView({ response }: { response: TrainingAnalysisPeriodsRespon
   const [basis, setBasis] = useState<BikeObservedBasis>("all");
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const date = (time: number) => new Date(time).toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" });
-  return <section className="bike-observed-records" aria-label={t("bikeObservedRecords.title")}>
+  return <section className="fitness-analysis-controls bike-observed-records" aria-label={t("bikeObservedRecords.title")}>
     <Text as="h3" variant="subtitle">{t("bikeObservedRecords.title")}</Text>
     <Text as="p" variant="bodyMedium" tone="secondary">{t("bikeObservedRecords.scope")}</Text>
     <Stack direction="row" wrap gap="var(--space-2)">{(["distanceM", "elevationGainM"] as const).map(value => <Button key={value} size="sm" variant={metric === value ? "secondary" : "ghost"} aria-pressed={metric === value} onClick={() => { setMetric(value); setExpanded({}); }}>{t(`bikeObservedRecords.metrics.${value}`)}</Button>)}</Stack>
-    <label className="bike-observed-records-basis" htmlFor={id}><Text variant="bodyMedium">{t("bikeObservedRecords.chooseBasis")}</Text><Select id={id} value={basis} onChange={event => { setBasis(event.target.value as BikeObservedBasis); setExpanded({}); }}>{(["all", "canonical_metrics", "activity_summary"] as const).map(value => <option key={value} value={value}>{t(`bikeObservedRecords.basis.${value}`)}</option>)}</Select></label>
+    <label className="bike-observed-records-basis" htmlFor={id}><Text variant="bodyMedium">{t("bikeObservedRecords.chooseBasis")}</Text><DropdownSelect id={id} label={t("bikeObservedRecords.chooseBasis")} value={String(basis)} onChange={next => { setBasis(next as BikeObservedBasis); setExpanded({}); }} options={(["all", "canonical_metrics", "activity_summary"] as const).map((value) => ({ value: String(value), label: t(`bikeObservedRecords.basis.${value}`) }))} /></label>
     <div className="bike-observed-records-periods">{response.periods.map((period, index) => {
       const listId = `${id}-period-${index}`;
       const result = bikeObservedPeriodRecords(period, metric, basis), visible = expanded[index] ? result.records : result.records.slice(0, 3);

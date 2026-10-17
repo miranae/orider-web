@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import type { CourseData } from "../features/courses/courseSnapshot";
@@ -70,6 +70,7 @@ vi.mock("../services/errorLogger", () => ({
 }));
 
 vi.mock("../features/courses/useCourseCatalog", () => ({
+  searchVisibleCoursesByName: vi.fn().mockResolvedValue([]),
   useCourseCatalog: () => ({
     courses: mockCourses,
     loading: false,
@@ -95,6 +96,27 @@ vi.mock("../features/courses/CoursesMap", () => ({
 describe("CoursesPage mobile layout", () => {
   beforeEach(() => {
     mockLogClientError.mockClear();
+  });
+
+  it("preserves active conditions when folded and resets them without clearing My Courses or search", async () => {
+    renderWithProviders(<CoursesPage />, { route: "/explore/courses", authenticated: true });
+    const filterPanel = screen.getByTestId("E1-3");
+    expect(filterPanel).toHaveAttribute("data-collapsed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "코스 조건 · 0개 적용" }));
+    expect(filterPanel).toHaveAttribute("data-collapsed", "false");
+    await userEvent.click(screen.getByRole("button", { name: "비포장" }));
+    fireEvent.change(screen.getByRole("slider", { name: "최소 이동거리" }), { target: { value: "20" } });
+    await userEvent.click(screen.getByRole("button", { name: "내 코스" }));
+    await userEvent.type(screen.getByTestId("E1-1-1"), "draft");
+    const conditions = screen.getByRole("button", { name: "코스 조건 · 2개 적용" });
+    await userEvent.click(conditions);
+    expect(filterPanel).toHaveAttribute("data-collapsed", "true");
+    expect(conditions).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(screen.getByTestId("course-mobile-reset"));
+    expect(screen.getByRole("button", { name: "코스 조건 · 0개 적용" })).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "최소 이동거리" })).toHaveValue("0");
+    expect(screen.getByRole("button", { name: "내 코스" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("E1-1-1")).toHaveValue("draft");
   });
 
   it("keeps the map hidden by default and shows it from the mobile toggle", async () => {

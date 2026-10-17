@@ -168,7 +168,8 @@ describe("owner running dashboard journey parity", () => {
     expect(within(chart).getAllByTestId("weekly-distance-bar")).toHaveLength(3);
     expect(within(chart).getByTestId("weekly-zero-marker")).toHaveAttribute("data-current-week", "true");
     expect(within(chart).getByText("20.0km")).toBeInTheDocument();
-    expect(within(chart).getByText("40.0km")).toBeInTheDocument();
+    const peakWeekSummary = within(chart).getByText("최고주", { selector: "dt" }).parentElement!;
+    expect(within(peakWeekSummary).getByRole("definition")).toHaveTextContent("40.0km");
     expect(within(chart).getByText("0m")).toBeInTheDocument();
     expect(chart).not.toHaveTextContent("TSS");
     expect(within(chart).queryByRole("button", { name: /활동별 TSS/ })).not.toBeInTheDocument();
@@ -197,4 +198,16 @@ it("정본 API가 켜진 자전거 홈은 현재 Fitness와 시계열을 중복 
   show();
   expect(useUserFitness).toHaveBeenCalledWith(false);
   expect(useFitnessTimeseries).not.toHaveBeenCalled();
+});
+
+
+it.each(["self", "friends", "all"].flatMap(scope => ["bike", "run"].map(sport => [scope, sport])))("uses the selected fixed sport icon for an empty desktop %s feed in %s", async (scope, sport) => {
+  state.mobile = false;
+  state.feedScope = scope;
+  const view = show(`/ko?sport=${sport}`);
+  const icon = await screen.findByTestId("dashboard-feed-empty-icon");
+  expect(icon.tagName.toLowerCase()).toBe("svg");
+  expect(icon).toHaveAttribute("data-icon", sport);
+  expect(view.container).not.toHaveTextContent("🚴");
+  expect(screen.getByRole("tab", { name: /수영/ })).toBeDisabled();
 });

@@ -34,12 +34,12 @@ describe("EventCreatePage recurring series", () => {
 
   it("prefills a verified creator club from context", async () => {
     renderWithProviders(<EventCreatePage />, { authenticated: true, route: "/ko/event/create?groupId=group-1" });
-    expect(await screen.findByText("공개")).toBeInTheDocument();
+    expect(await screen.findByText("공개 범위", { selector: "dt" })).toBeInTheDocument();
     fireEvent.change(await screen.findByPlaceholderText("남한강 그란폰도 2026"), { target: { value: "클럽 이벤트" } });
     fireEvent.change(screen.getByPlaceholderText("010-0000-0000"), { target: { value: "010-1234-5678" } });
     await waitFor(() => expect(screen.getByRole("button", { name: /^다음/ })).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: /^다음/ }));
-    expect(await screen.findByRole("combobox")).toHaveValue("group-1");
+    expect(await screen.findByRole("combobox")).toHaveTextContent("위클리 라이더스");
   });
   it("blocks an unauthorized/stale club link until explicit public recovery clears the context", async () => {
     renderWithProviders(<EventCreatePage />, { authenticated: true, route: "/ko/event/create?groupId=not-my-group" });
@@ -52,8 +52,32 @@ describe("EventCreatePage recurring series", () => {
     fireEvent.click(screen.getByRole("button", { name: "클럽 없이 공개 이벤트 작성" }));
     await waitFor(() => expect(screen.queryByTestId("event-group-context")).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /^다음/ }));
-    expect(await screen.findByRole("combobox")).toHaveValue("");
+    expect(await screen.findByRole("combobox")).toHaveTextContent("주최 그룹 없이 진행");
   });
+  it("keeps paid entry and labeled category values when navigating the responsive steps", async () => {
+    renderWithProviders(<EventCreatePage />, { authenticated: true, route: "/ko/event/create" });
+    fireEvent.change(await screen.findByPlaceholderText("남한강 그란폰도 2026"), { target: { value: "Responsive entry fixture" } });
+    fireEvent.change(screen.getByPlaceholderText("010-0000-0000"), { target: { value: "010-1234-5678" } });
+    fireEvent.click(screen.getByRole("button", { name: /^다음/ }));
+    fireEvent.click(await screen.findByText("테스트 코스"));
+    await openAndPickDatePreset("이벤트 날짜", "+1주");
+    fireEvent.change(screen.getByPlaceholderText("팔당역 1번 출구 앞 광장"), { target: { value: "Meeting point" } });
+    fireEvent.click(screen.getByRole("button", { name: /^다음/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "유료", exact: true }));
+    fireEvent.change(screen.getByPlaceholderText("75000"), { target: { value: "15000" } });
+    fireEvent.change(screen.getByLabelText("카테고리명"), { target: { value: "Long category name" } });
+    fireEvent.change(screen.getByLabelText("참가정원"), { target: { value: "25" } });
+    fireEvent.change(screen.getByLabelText("참가요건 (선택)"), { target: { value: "An optional requirement" } });
+    fireEvent.click(screen.getByRole("button", { name: /^← 이전/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^다음/ }));
+    expect(await screen.findByLabelText("카테고리명")).toHaveValue("Long category name");
+    expect(screen.getByLabelText("참가정원")).toHaveValue(25);
+    expect(screen.getByLabelText("참가요건 (선택)")).toHaveValue("An optional requirement");
+    expect(screen.getByRole("spinbutton", { name: "참가비 (원)" })).toHaveValue(15000);
+    expect(screen.getByRole("spinbutton", { name: "여유 시간 (분)" })).toHaveValue(30);
+    expect(mockCallableInvocations.filter(call => call.name === "createEvent")).toHaveLength(0);
+  });
+
   it("calls createEvent once per week, spaced 7 days apart, reusing the selected group", async () => {
     renderWithProviders(<EventCreatePage />, { authenticated: true, route: "/ko/event/create" });
 
@@ -68,7 +92,8 @@ describe("EventCreatePage recurring series", () => {
     fireEvent.change(screen.getByPlaceholderText("팔당역 1번 출구 앞 광장"), { target: { value: "테스트 집결지" } });
 
     const groupSelect = await screen.findByRole("combobox");
-    fireEvent.change(groupSelect, { target: { value: "group-1" } });
+    fireEvent.click(groupSelect);
+    fireEvent.click(screen.getByRole("option", { name: /위클리 라이더스/ }));
 
     clickToggleNear("매주 반복");
     fireEvent.click(await screen.findByRole("button", { name: "4주" }));
@@ -120,7 +145,8 @@ describe("EventCreatePage recurring series", () => {
     fireEvent.click(await screen.findByText("테스트 코스"));
     await openAndPickDatePreset("이벤트 날짜", "+1주");
     fireEvent.change(screen.getByPlaceholderText("팔당역 1번 출구 앞 광장"), { target: { value: "테스트 집결지" } });
-    fireEvent.change(await screen.findByRole("combobox"), { target: { value: "group-1" } });
+    fireEvent.click(await screen.findByRole("combobox"));
+    fireEvent.click(screen.getByRole("option", { name: /위클리 라이더스/ }));
     clickToggleNear("매주 반복");
     fireEvent.click(await screen.findByRole("button", { name: "4주" }));
     fireEvent.click(screen.getByRole("button", { name: /^다음/ }));

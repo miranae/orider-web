@@ -20,7 +20,7 @@ vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ pdc: null }) }));
 vi.mock("../components/AnalysisTab", () => ({ default: (props: ComponentProps<typeof AnalysisTab>) => {
   mocks.analysisProps(props);
   return <div data-testid="summary-analysis">Analysis</div>;
-}, AnalysisLapTable: (props: Record<string, unknown>) => { mocks.lapProps(props); return <div data-testid="summary-laps">Laps</div>; } }));
+}, AnalysisLapTable: (props: Record<string, unknown>) => { mocks.lapProps(props); return <div data-testid="summary-laps"><h3>랩 분석</h3>Laps</div>; } }));
 vi.mock("../components/RouteMap", () => ({ default: () => <div /> }));
 vi.mock("../components/ElevationChart", () => ({ default: () => <div /> }));
 vi.mock("../components/activity/AiRideAnalysisCard", () => ({ default: () => <div /> }));
@@ -98,6 +98,7 @@ describe("ActivityPage server summary presentation", () => {
     renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(screen.getByRole("tab", { name: /구간/u }));
     expect(screen.getByTestId("summary-laps")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "랩 분석" })).toHaveLength(1);
     expect(mocks.requestStreams).toHaveBeenCalled();
   });
   it.each(["segments", "export"])("requests cold streams on direct %s entry even with server laps", tab => {
@@ -120,6 +121,7 @@ describe("ActivityPage server summary presentation", () => {
     renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(screen.getByRole("tab", { name: /구간/u }));
     expect(screen.getByTestId("summary-laps")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "랩 분석" })).toHaveLength(1);
     expect(mocks.lapProps.mock.lastCall?.[0]).toMatchObject({ sport: "run", ftp: null, laps });
     expect(mocks.lapProps.mock.lastCall?.[0].laps).toBe(laps);
     expect(mocks.requestStreams).not.toHaveBeenCalled();

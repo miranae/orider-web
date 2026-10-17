@@ -1,7 +1,5 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import MobileFitnessPage, { type MobileFitnessData } from "./MobileFitnessPage";
@@ -45,14 +43,13 @@ describe("MobileFitnessPage tri", () => {
   });
 
   it("keeps all four sports available at narrow widths while the analysis control stays separate", () => {
-    const css = readFileSync(join(process.cwd(), "src/components/mobile/MobileFitnessPage.css"), "utf8");
-    expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] { overflow-x: auto;');
-    expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.75rem; white-space: nowrap; }');
-    expect(css).toContain('.mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.25rem; font-size: var(--fs-base) !important; }');
-    expect(css).not.toContain('font-size: 0 !important;');
     const { container } = renderWithProviders(<MobileFitnessPage data={previewData} />);
     expect(container.querySelector(".mobile-fitness-toolbar__sports [role='group']")).toHaveAccessibleName("종목 선택");
-    expect(screen.getByRole("button", { name: "🚴 사이클" })).toBeInTheDocument();
+    const sportControls = screen.getByRole("group", {name: "종목 선택"});
+    expect(within(sportControls).getAllByRole("button")).toHaveLength(4);
+    expect(within(sportControls).getByRole("button", {name: "사이클"})).toBeEnabled();
+    expect(within(sportControls).getByRole("button", {name: "러닝"})).toBeEnabled();
+    expect(within(sportControls).getByRole("button", {name: "수영"})).toBeEnabled();
     expect(container.querySelector(".mobile-fitness-toolbar__sports .mobile-fitness-mode-toggle")).toBeNull();
     expect(container.querySelector(".mobile-fitness-toolbar > .mobile-fitness-mode-toggle")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "러닝 분석" })).not.toHaveAttribute("aria-pressed");
@@ -247,7 +244,8 @@ describe("MobileFitnessPage tri", () => {
     expect(screen.getByRole("button", { name: "통합" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "전체" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "개요" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "수영" })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("group", {name: "종목 선택"})).getByRole("button", {name: "수영"})).toBeInTheDocument();
+    expect(document.querySelector(".mobile-fitness-mode-toggle")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /오늘은 어떻게 이어갈까요/ })).not.toBeInTheDocument();
     expect(screen.queryByText("잘못된 통합 추천")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "통합 멀티스포츠 상태" })).toBeInTheDocument();

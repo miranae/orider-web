@@ -57,14 +57,14 @@
     "planEmptyAction": "{{sportLabel}} 목표 설정하기",
     "logTitle": "운동 기록",
     "logActivities": "{{count}}개 활동",
-    "logActivityCount": "활동 수",
+    "logActivityCount": "전체 활동수",
     "logActivityUnit": "회",
-    "logTotalDistance": "총 거리",
-    "logTotalTime": "총 시간",
-    "logTotalElevation": "총 고도",
+    "logTotalDistance": "이동거리",
+    "logTotalTime": "운동시간",
+    "logTotalElevation": "상승고도",
     "tssEstimated": "추정",
     "tssEstimatedIncluded": "추정 포함",
-    "logTotalTSS": "총 TSS",
+    "logTotalTSS": "훈련부하 TSS",
     "prevMonth": "← 이전 달",
     "nextMonth": "다음 달 →",
     "currentMonth": "이번 달",
@@ -115,8 +115,8 @@
   },
   "buttons": {
     "ics": "캘린더 내보내기",
-    "reroll": "🔄 재생성",
-    "goalReset": "🎯 목표 재설정",
+    "reroll": "재생성",
+    "goalReset": "목표 재설정",
     "abandonGoal": "목표 포기"
   },
   "confirmations": {
@@ -161,9 +161,9 @@
   "metrics": {
     "progress": "진행률",
     "progressBasis": "현재 유효 처방 대비 계획 진행률입니다. 실제 부하가 없으면 완료한 처방값을 반영하며, 실측 부하 합계를 뜻하지 않습니다.",
-    "sessionsLeft": "남은 훈련",
+    "sessionsLeft": "전체 계획 미완료",
     "completedTSS": "완료 TSS",
-    "weeksLeft": "남은 계획 주수",
+    "weeksLeft": "남은 저장 계획 주수",
     "weeksUnit": "주",
     "projectedCTL": "CTL 변화 가이드",
     "goalDate": "목표일",
@@ -477,7 +477,7 @@
     "weekThis": "이번 주",
     "showPastWeeks": "지난 {{count}}주 보기",
     "hidePastWeeks": "지난 주 접기",
-    "weekNext": "이번 주 다음 운동",
+    "weekNext": "다음 예정 운동",
     "weeklyTSS": "훈련부하 · TSS",
     "weeklySummary": "이번 주 요약",
     "minutesUnit": "분",
@@ -1071,7 +1071,11 @@
       "decideHold": "이전 단계 기록이 남아 있습니다. 진행 여부를 직접 선택하세요.",
       "holdTitle": "오늘은 시작하지 않아요",
       "holdFallback": "안전을 위해 다음 운동이 보류됐어요. 회복한 뒤 다시 확인하세요.",
-      "finished": "프로그램 진행을 마쳤습니다. 자유 러닝으로 이어갈 수 있어요."
+      "finished": "프로그램 진행을 마쳤습니다. 자유 러닝으로 이어갈 수 있어요.",
+      "heldHeading": "보류된 운동",
+      "reviewHeading": "확인이 필요한 운동",
+      "scheduledHeading": "예정된 운동",
+      "finishedHeading": "프로그램 진행 상태"
     },
     "start": {
       "button": "{{stage}}단계 시작",
@@ -1123,7 +1127,7 @@
     "stages": {
       "title": "전체 단계",
       "stage": "{{stage}}단계",
-      "next": "다음",
+      "next": "다음으로 확인할 운동",
       "showPast": "지난 단계 {{count}}개 보기",
       "hidePast": "지난 단계 접기",
       "showSegments": "구간 {{count}}개 보기",
@@ -1167,6 +1171,16 @@
     "errors": {
       "load": "프로그램을 불러오지 못했어요.",
       "generic": "요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요."
+    },
+    "outline": {
+      "total": "총 운동시간",
+      "prepare": "준비",
+      "work": "반복 운동",
+      "finish": "정리",
+      "repeatCount": "{{count}}회 반복",
+      "allSteps": "전체 순서 보기 · {{count}}구간",
+      "appStart": "앱에서 운동 시작",
+      "afterRepeat": "반복 후 구간"
     }
   },
   "assumptions": {
@@ -1195,5 +1209,7 @@
     "sessions": "주 {{count}}회 희망",
     "weeks": "약 {{weeks}}주",
     "minutes": "{{count}}분"
-  }
+  },
+  "scope.summary": "목표일까지 예정 {{untilGoal}}회 · 목표일 이후 저장된 운동 {{afterGoal}}회 · 지난 미완료 {{overdue}}회. 아래 달력과 진행률은 저장된 전체 계획입니다.",
+  "scope.nextAfterGoal": "목표일 이후 저장된 운동"
 }

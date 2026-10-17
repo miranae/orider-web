@@ -1,8 +1,11 @@
+import "./fitness-analysis-controls.css";
+import { CalendarDays } from "lucide-react";
+import DateField from "../../../components/redesign/DateField";
 import { PowerEffortPreferencePanel } from "./PowerEffortPreferencePanel";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PowerCurvePeriod, PowerCurvePeriodsResponse, PeriodPowerPoint, WeightNormalizedPowerPoint } from "@shared/types/power-curve-periods";
-import { Button, ChartFrame, Input, Select, Stat, Text } from "../../../theme";
+import { Button, ChartFrame, DropdownSelect, Stat, Text } from "../../../theme";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { useAuth } from "../../../contexts/AuthContext";
 import { usePowerCurvePeriods, type PowerCurvePeriodsSelection } from "../../../hooks/usePowerCurvePeriods";
@@ -32,7 +35,7 @@ export function PowerCurvePeriodsView({ response, unit = "W" }: { response: Powe
   const high = Math.max(normalized ? 0.01 : 100, ...allPoints.map(power)) * 1.1;
   const x = (seconds: number) => 56 + Math.log(seconds) / Math.log(3600) * 280;
   const y = (watts: number) => 146 - watts / high * 118;
-  return <div className="period-curve-analysis space-y-4">
+  return <div className="fitness-analysis-controls period-curve-analysis space-y-4">
     {normalized && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
     {normalized && response.periods.some(period => !period.weightNormalized) && <Text as="p" variant="bodyMedium" role="status">{t("periodCurve.weightUnsupported")}</Text>}
     <ChartFrame variant="embedded">
@@ -50,7 +53,7 @@ export function PowerCurvePeriodsView({ response, unit = "W" }: { response: Powe
             return <rect key={seconds} data-duration={seconds} x={start} y={28} width={end - start} height={118} fill="transparent" className="period-curve-hit" onClick={() => setDuration(seconds)}><title>{durationLabel(seconds)}</title></rect>;
           })}
         </svg>
-        <label className="period-curve-duration" htmlFor={id}><Text variant="bodyMedium" tone="secondary">{t("periodCurve.duration")}</Text><Select id={id} value={selected} onChange={event => setDuration(Number(event.target.value))}>{durations.map(seconds => <option key={seconds} value={seconds}>{durationLabel(seconds)}</option>)}</Select></label>
+        <label className="period-curve-duration" htmlFor={id}><Text variant="bodyMedium" tone="secondary">{t("periodCurve.duration")}</Text><DropdownSelect id={id} label={t("periodCurve.duration")} value={String(selected)} onChange={next => setDuration(Number(next))} options={durations.map((seconds) => ({ value: String(seconds), label: durationLabel(seconds) }))} /></label>
         <div className="period-curve-values">{periods.map((period, index) => {
           const point = period.points.find(item => item.durationSeconds === selected);
           return <div key={index} className="space-y-2"><Stat compact label={rangeLabels[index]} value={point ? normalized && power(point) > 0 && power(point) < 0.01 ? "<0.01" : power(point).toFixed(normalized ? 2 : 1) : "—"} unit={point ? unit : undefined} />{point && <><LocalizedLink className="period-curve-source" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}>{t("periodCurve.source", { date: new Date(point.startTime).toISOString().slice(0, 10) })}</LocalizedLink><Text as="p" variant="bodyMedium" tone="tertiary">{t(`periodCurve.source.${point.source}`)}</Text>{normalized && "weightKg" in point && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightWinner", { watts: point.watts, kg: point.weightKg })}</Text>}</>}</div>;
@@ -89,14 +92,14 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
     if (periods.some(period => !period || period.fromInclusive >= period.toExclusive)) { setInvalid(true); setSelection(null); return; }
     setInvalid(false); setSelection(current => ({ request: { unit: "W", periods: periods as PowerCurvePeriod[], ...(unit === "W/kg" ? { includeWeightNormalized: true } : {}) }, requestId: (current?.requestId ?? 0) + 1 }));
   };
-  return <section className="space-y-4" aria-label={t("periodCurve.title")}>
+  return <section className="fitness-analysis-controls space-y-4" aria-label={t("periodCurve.title")}>
     {!embedded && <Text as="h3" variant="title">{t("periodCurve.title")}</Text>}
     <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.timezone")}</Text>
-    <label className="period-curve-unit space-y-2 block" htmlFor={`${id}-unit`}><Text as="span" variant="bodyMedium">{t("periodCurve.unit")}</Text><Select id={`${id}-unit`} value={unit} onChange={event => { setUnit(event.target.value === "W/kg" ? "W/kg" : "W"); setSelection(null); setInvalid(false); }}><option value="W">W</option><option value="W/kg">W/kg</option></Select></label>
+    <label className="period-curve-unit space-y-2 block" htmlFor={`${id}-unit`}><Text as="span" variant="bodyMedium">{t("periodCurve.unit")}</Text><DropdownSelect id={`${id}-unit`} label={t("periodCurve.unit")} value={String(unit)} onChange={next => { setUnit(next === "W/kg" ? "W/kg" : "W"); setSelection(null); setInvalid(false); }} options={[{ value: String("W"), label: "W" }, { value: String("W/kg"), label: "W/kg" }]} /></label>
     {unit === "W/kg" && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
     <div className="flex flex-wrap gap-3"><Button variant={!skillsMode ? "primary" : "ghost"} size="lg" aria-pressed={!skillsMode} onClick={() => { setSkillsMode(false); setSelection(null); setInvalid(false); }}>{t("powerSkills.freePeriods")}</Button><Button variant={skillsMode ? "primary" : "ghost"} size="lg" aria-pressed={skillsMode} onClick={() => { setSkillsMode(true); setSelection(null); setInvalid(false); }}>{t("powerSkills.preset")}</Button></div>
     {skillsMode && <Text as="p" variant="bodyMedium" tone="secondary">{t("powerSkills.requestNote")}</Text>}
-    {!skillsMode && <div className="period-curve-form">{drafts.map((draft, index) => <div key={index} className="space-y-3"><label className="space-y-2 block" htmlFor={`${id}-${index}`}><Text as="span" variant="bodyMedium">{t("periodCurve.period", { n: index + 1 })}</Text><Select id={`${id}-${index}`} value={draft.preset} onChange={event => update(index, { preset: event.target.value as Draft["preset"] })}><option value="year">{t("periodCurve.year")}</option><option value="all">{t("periodCurve.all")}</option><option value="custom">{t("periodCurve.custom")}</option></Select></label>{draft.preset === "custom" && <div className="period-curve-dates">{(["from", "through"] as const).map(field => <label key={field} className="space-y-2 block"><Text as="span" variant="bodyMedium">{t(`periodCurve.${field}`)}</Text><Input type="date" max={today} value={draft[field]} onChange={event => update(index, { [field]: event.target.value })} /></label>)}</div>}</div>)}</div>}
+    {!skillsMode && <div className="period-curve-form">{drafts.map((draft, index) => <div key={index} className="space-y-3"><label className="space-y-2 block" htmlFor={`${id}-${index}`}><Text as="span" variant="bodyMedium">{t("periodCurve.period", { n: index + 1 })}</Text><DropdownSelect id={`${id}-${index}`} label={t("periodCurve.period", { n: index + 1 })} value={String(draft.preset)} onChange={next => update(index, { preset: next as Draft["preset"] })} options={[{ value: String("year"), label: t("periodCurve.year") }, { value: String("all"), label: t("periodCurve.all") }, { value: String("custom"), label: t("periodCurve.custom") }]} /></label>{draft.preset === "custom" && <div className="period-curve-dates">{(["from", "through"] as const).map(field => <div key={field} className="fitness-date-control"><label htmlFor={`${id}-${index}-${field}`}><Text as="span" variant="bodyMedium">{t(`periodCurve.${field}`)}</Text></label><DateField id={`${id}-${index}-${field}`} portal icon={<CalendarDays size={16} aria-hidden="true" />} max={today} value={draft[field]} onChange={next => update(index, { [field]: next })} /></div>)}</div>}</div>)}</div>}
     <div className="flex flex-wrap gap-3">{!skillsMode && <Button variant="ghost" size="sm" onClick={() => { setDrafts(values => values.length === 1 ? [...values, makeDraft()] : values.slice(0, 1)); setSelection(null); }}>{t(drafts.length === 1 ? "periodCurve.add" : "periodCurve.remove")}</Button>}<Button size="lg" disabled={!callableEnabled || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>
     {!callableEnabled && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.preparing")}</Text>}
     {invalid && <Text as="p" variant="bodyMedium" role="alert">{t("periodCurve.invalid")}</Text>}

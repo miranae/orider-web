@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { renderHook } from "@testing-library/react";
+import { createElement } from "react";
+import { render, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useTrainingDialog } from "./training/useTrainingDialog";
+import Modal from "./Modal";
 
 function readSource(fileName: string) {
   return readFileSync(join(process.cwd(), "src/components", fileName), "utf8");
@@ -15,18 +17,39 @@ describe("modal and sheet scroll locking", () => {
     const notifSheet = readSource("mobile/NotifSheet.tsx");
     const addPlanSheet = readSource("training/AddPlanSheet.tsx");
 
-    for (const source of [modal, importModal, notifSheet]) {
-      expect(source).toContain("useBodyScrollLock(open)");
+    expect(notifSheet).toMatch(/useBodyScrollLock\s*\(\s*open\s*\)/);
+    expect(importModal).toMatch(/useTrainingDialog\s*\(\s*onClose\s*,\s*busy\s*\)/);
+    for (const source of [importModal, notifSheet]) {
       expect(source).toContain('overscrollBehavior: "contain"');
     }
+    expect(modal).toContain('overscrollBehavior: "contain"');
 
     expect(addPlanSheet).toContain('import { useTrainingDialog } from "./useTrainingDialog"');
-    expect(addPlanSheet).toContain("useTrainingDialog(onClose, loading)");
-    expect(readSource("training/useTrainingDialog.ts")).toContain("useBodyScrollLock(true)");
+    expect(addPlanSheet).toMatch(/useTrainingDialog(?:\s*<[^>]+>)?\s*\(\s*onClose\s*,\s*loading\s*\)/);
+    expect(readSource("training/useTrainingDialog.ts")).toMatch(/useBodyScrollLock\s*\(\s*true\s*\)/);
     expect(addPlanSheet).toContain("onPointerDown");
     expect(addPlanSheet).toContain("onPointerMove");
     expect(addPlanSheet).toContain("onPointerUp");
     expect(addPlanSheet).toContain('overscrollBehavior: "contain"');
+  });
+
+  it.each([false, true])("locks an open Modal and restores styles when closed (accessible=%s)", accessible => {
+    const previousPosition = document.body.style.position;
+    const previousOverflow = document.body.style.overflow;
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    const props = { open: true, onClose: vi.fn(), title: "Modal", accessible, children: createElement("button", null, "Action") };
+    const view = render(createElement(Modal, props));
+    try {
+      expect(document.body.style.position).toBe("fixed");
+      expect(document.body.style.overflow).toBe("hidden");
+      view.rerender(createElement(Modal, { ...props, open: false }));
+      expect(document.body.style.position).toBe(previousPosition);
+      expect(document.body.style.overflow).toBe(previousOverflow);
+      expect(scrollTo).toHaveBeenCalled();
+    } finally {
+      view.unmount();
+      scrollTo.mockRestore();
+    }
   });
 
   it("locks the body through the training dialog and restores its previous styles on close", () => {

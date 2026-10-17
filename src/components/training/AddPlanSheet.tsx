@@ -1,3 +1,4 @@
+import { planCalendarDate } from "@shared/training/planDate";
 import { useRef, useState, useMemo, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, runTransaction } from "firebase/firestore";
@@ -104,7 +105,7 @@ export default function AddPlanSheet({
   const availableDays = days.map((d, i) => ({
     index: i,
     isRest: d.workout === "rest",
-    label: DAY_NAMES[d.dayOfWeek] ?? DAY_NAMES[i],
+    label: DAY_NAMES[(planCalendarDate(d.date).getUTCDay() + 6) % 7] ?? "—",
   }));
 
   function showSaveFailure() {

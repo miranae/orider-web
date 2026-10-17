@@ -18,6 +18,11 @@ const profile = [
 ];
 
 describe("CourseStageProfile", () => {
+  it("uses one profile title without a repeated English eyebrow", () => {
+    render(<CourseStageProfile data={profile} />);
+    expect(screen.getByRole("heading", { name: "코스 프로필" })).toBeInTheDocument();
+    expect(screen.queryByText("Course profile")).not.toBeInTheDocument();
+  });
   it("uses three annotation rows and connects each panel to its numbered ridge point", () => {
     const { container } = render(<CourseStageProfile data={profile} />);
     const slots = [...container.querySelectorAll<HTMLElement>(".course-stage-profile__annotation-slot")];

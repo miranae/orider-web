@@ -1,11 +1,13 @@
 import { validExpandedDistanceRecords } from "../utils/expandedRunDistances";
 import { httpsCallable } from "firebase/functions";
-import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { RUN_DISTANCES } from "@shared/types/personal-records";
 import type { TrainingAnalysisHistoryRequest, TrainingAnalysisHistoryResponse, TrainingAnalysisHistoryCursor } from "@shared/types/training-analysis-history";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { trainingAnalysisPeriodsAvailable } from "./trainingAnalysisPeriods";
 import { getDiscipline } from "../utils/disciplineFilter";
+
+// 이 history wire는 v34부터 유효하다. 최신 계산 버전 상승으로 이미 확정된 snapshot을 거부하지 않는다.
+const HISTORY_MIN_CALCULATOR_VERSION = 34;
 
 export const HISTORY_TTL_MS = 1800000;
 const count = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) >= 0;
@@ -61,7 +63,7 @@ export function validateTrainingAnalysisHistoryResponse(value: unknown, request:
     const input = row.representativeInput, a = row.analysis, d = row.distanceRecords, c = row.paceCurve;
     if (row.expandedDistanceRecords !== undefined && (request.includeExpandedRunDistances !== true || !validExpandedDistanceRecords(row.expandedDistanceRecords, a?.state === "ready"))) invalid();
     if (!exact(input, ["source", "type", "discipline", "localSessionId", "stravaActivityId", "stravaTwinActivityId", "endTime", "movingSec", "hasLoad"]) || input.discipline !== "run" || !text(input.type) || getDiscipline(input.type) !== "run" || input.source !== null && !text(input.source) || input.localSessionId !== null && !text(input.localSessionId) || [input.stravaActivityId, input.stravaTwinActivityId].some(n => n !== null && (!count(n) || n <= 0)) || input.endTime !== null && (!finite(input.endTime) || input.endTime <= row.startTime) || input.movingSec !== null && !finite(input.movingSec) || typeof input.hasLoad !== "boolean") invalid();
-    if (!exact(a, ["state", "calculatorVersion", "inputCoverage"]) || !["ready", "missing", "pending", "stale", "outdated", "partial", "invalid"].includes(a.state) || a.calculatorVersion !== null && !count(a.calculatorVersion) || ![null, "complete", "partial_terminal", "pending"].includes(a.inputCoverage) || a.state === "ready" && (a.inputCoverage !== "complete" || a.calculatorVersion === null || a.calculatorVersion < ACTIVITY_METRICS_VERSION || row.metricsRevision === null) || a.state === "missing" && (row.metricsRevision !== null || a.calculatorVersion !== null || a.inputCoverage !== null)) invalid();
+    if (!exact(a, ["state", "calculatorVersion", "inputCoverage"]) || !["ready", "missing", "pending", "stale", "outdated", "partial", "invalid"].includes(a.state) || a.calculatorVersion !== null && !count(a.calculatorVersion) || ![null, "complete", "partial_terminal", "pending"].includes(a.inputCoverage) || a.state === "ready" && (a.inputCoverage !== "complete" || a.calculatorVersion === null || a.calculatorVersion < HISTORY_MIN_CALCULATOR_VERSION || row.metricsRevision === null) || a.state === "missing" && (row.metricsRevision !== null || a.calculatorVersion !== null || a.inputCoverage !== null)) invalid();
     if (!exact(d, ["state", "reason", "points"]) || !Array.isArray(d.points) || d.points.length > 5 || !["observed", "no_observed_efforts", "unavailable"].includes(d.state) || new Set(d.points.map(point => point?.distance)).size !== d.points.length || d.points.some(point => !exact(point, ["distance", "elapsedSec"]) || !RUN_DISTANCES.includes(point.distance) || !positive(point.elapsedSec)) || (d.state === "observed" ? a.state !== "ready" || d.points.length === 0 || d.reason !== null : d.points.length !== 0 || d.reason !== (d.state === "unavailable" ? a.state === "ready" ? "missing_or_invalid_field" : "metrics_unavailable" : null)) || a.state !== "ready" && d.state !== "unavailable") invalid();
     if (!exact(c, ["state", "reason", "value"]) || !["observed", "no_observed_efforts", "unavailable"].includes(c.state) || (c.state === "observed" ? a.state !== "ready" || c.reason !== null || c.value === null : c.value !== null || c.reason !== (c.state === "unavailable" ? a.state === "ready" ? "missing_or_invalid_field" : "metrics_unavailable" : null)) || a.state !== "ready" && c.state !== "unavailable") invalid();
     if (c.value) {

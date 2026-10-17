@@ -7,7 +7,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { SettingsCard, FieldGrid, Field, fieldInputStyle } from "./_primitives";
-import { Button, Text } from "../../theme/components";
+import { Button, Text, Input, Textarea, DropdownSelect } from "../../theme/components";
 
 const BLOOD_TYPES: BloodType[] = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-", "UNKNOWN"];
 
@@ -76,7 +76,7 @@ export function PaneMedical() {
   }
   if (!user || user.isAnonymous) return null;
   return <>
-    {loadFailed && <div role="alert">{t("training.saveFailed")} <Button onClick={() => setLoadAttempt(value => value + 1)}>{t("common:button.retry")}</Button></div>}
+    {loadFailed && <div role="alert">{t("training.loadFailed")} <Button onClick={() => setLoadAttempt(value => value + 1)}>{t("common:button.retry")}</Button></div>}
     <fieldset data-testid="S1-4-1" disabled={!loaded || medicalSaving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <SettingsCard
         title={t("training.cardMedical")}
@@ -88,20 +88,12 @@ export function PaneMedical() {
       >
         <FieldGrid cols={2}>
           <Field label={t("training.fieldBloodType")}>
-            <select
-              value={bloodType}
-              onChange={(e) => setBloodType(e.target.value as BloodType)}
-              style={fieldInputStyle}
-            >
-              {BLOOD_TYPES.map((b) => (
-                <option key={b} value={b}>
-                  {b === "UNKNOWN" ? t("training.bloodTypeNone") : b}
-                </option>
-              ))}
-            </select>
+            <DropdownSelect value={bloodType} onChange={value => setBloodType(value as BloodType)}
+              label={t("training.fieldBloodType")} disabled={!loaded || medicalSaving}
+              options={BLOOD_TYPES.map(value => ({ value, label: value === "UNKNOWN" ? t("training.bloodTypeNone") : value }))} />
           </Field>
           <Field label={t("training.fieldMedications")} hint={t("training.fieldMedicationsHint")}>
-            <input
+            <Input
               value={medications}
               onChange={(e) => setMedications(e.target.value)}
               placeholder={t("training.fieldMedicationsPlaceholder")}
@@ -109,7 +101,7 @@ export function PaneMedical() {
             />
           </Field>
           <Field label={t("training.fieldAllergies")} full hint={t("training.fieldAllergiesHint")}>
-            <textarea
+            <Textarea
               value={allergies}
               onChange={(e) => setAllergies(e.target.value)}
               placeholder={t("training.fieldAllergiesPlaceholder")}
@@ -117,26 +109,25 @@ export function PaneMedical() {
             />
           </Field>
         </FieldGrid>
-      </SettingsCard>
-
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--space-4)" }}>
         <Button onClick={() => void saveMedical()} disabled={!loaded || medicalSaving}>
           {medicalSaving ? t("training.btnSaving") : t("training.btnSave")}
         </Button>
       </div>
+      </SettingsCard>
       </fieldset>
       <fieldset data-testid="S1-4-2" disabled={!loaded || emergencySaving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <SettingsCard title={t("training.cardEmergency")} dense>
         <FieldGrid cols={3}>
           <Field label={t("training.fieldEmergencyName")}>
-            <input
+            <Input
               value={emergency.name}
               onChange={(e) => setEmergency({ ...emergency, name: e.target.value })}
               style={fieldInputStyle}
             />
           </Field>
           <Field label={t("training.fieldEmergencyPhone")}>
-            <input
+            <Input
               type="tel"
               value={emergency.phone}
               onChange={(e) => setEmergency({ ...emergency, phone: e.target.value })}
@@ -144,7 +135,7 @@ export function PaneMedical() {
             />
           </Field>
           <Field label={t("training.fieldEmergencyRelationship")}>
-            <input
+            <Input
               value={emergency.relationship ?? ""}
               onChange={(e) =>
                 setEmergency({ ...emergency, relationship: e.target.value })
@@ -154,13 +145,12 @@ export function PaneMedical() {
             />
           </Field>
         </FieldGrid>
-      </SettingsCard>
-
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--space-4)" }}>
         <Button onClick={() => void saveEmergency()} disabled={!loaded || emergencySaving}>
           {emergencySaving ? t("training.btnSaving") : t("training.btnSave")}
         </Button>
       </div>
+      </SettingsCard>
     </fieldset>
   </>;
 }

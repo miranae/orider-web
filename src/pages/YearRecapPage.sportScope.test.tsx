@@ -1,3 +1,6 @@
+import i18n from "i18next";
+import enRecap from "../i18n/resources/en/recap.json";
+import enCommon from "../i18n/resources/en/common.json";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -7,7 +10,7 @@ vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owne
 vi.mock("../hooks/useYearActivities", () => ({ useYearActivities: () => ({ activities: mocks.activities, loading: false }) }));
 vi.mock("../hooks/useRunRecords", () => ({ useRunRecords: () => ({ run: undefined }) }));
 vi.mock("../hooks/useMilestones", () => ({ useMilestones: () => ({ achieved: new Map(), loading: false, markCelebrated: vi.fn() }) }));
-vi.mock("../components/fitness/LifetimeMilestonesGrid", () => ({ default: () => null }));
+vi.mock("../components/fitness/LifetimeMilestonesGrid", () => ({ default: ({scopeLabel}: {scopeLabel: string}) => <p data-testid="lifetime-scope">{scopeLabel}</p> }));
 vi.mock("../components/recap/recapShareCanvas", () => ({ drawRecapShareCard: mocks.draw, canvasToPngBlob: () => Promise.resolve(new Blob(["image"], { type: "image/png" })) }));
 vi.mock("file-saver", () => ({ saveAs: mocks.save }));
 import YearRecapPage from "./YearRecapPage";
@@ -41,4 +44,27 @@ describe("annual recap sport scope", () => {
     mocks.draw.mockClear();
     expect((await sharedRecap()).totalDistanceMeters).toBe(16000);
   });
+});
+
+it("places annual context before expandable lifetime running records and labels lifetime distance scope", () => {
+  show("&sport=run");
+  const header = screen.getByRole("heading", {name: "연간 기록"});
+  const running = screen.getByText("전체 기간 러닝 개인기록과 배지");
+  expect(header.compareDocumentPosition(running) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(running.closest("details")).not.toHaveAttribute("open");
+  const lifetime = screen.getByText("전체 기간 거리 기록");
+  expect(lifetime.closest("details")).not.toHaveAttribute("open");
+  fireEvent.click(lifetime);
+  expect(screen.getByTestId("lifetime-scope")).toHaveTextContent("러닝·걷기·하이킹");
+});
+
+it("renders English sport activity counts from the recap namespace without leaking a translation key", async () => {
+  i18n.addResourceBundle("en", "recap", enRecap);
+  i18n.addResourceBundle("en", "common", enCommon);
+  await i18n.changeLanguage("en");
+  try {
+    show();
+    expect(screen.getAllByText(/1 activity ·/)).toHaveLength(3);
+    expect(document.body.textContent).not.toContain("activityCount");
+  } finally { await i18n.changeLanguage("ko"); }
 });

@@ -36,6 +36,9 @@ export function shouldBypassOnboardingRedirect(path: string): boolean {
     path === "/migrate" ||
     path === "/terms" ||
     path === "/privacy" ||
+    path === "/account-deletion" ||
+    path === "/partnership" ||
+    path.startsWith("/partnership/") ||
     path === "/community" ||
     path.startsWith("/policies/") ||
     path === "/strava-terms"
@@ -261,7 +264,7 @@ export default function Layout() {
               {path === "/explore/segments" && <ExplorePage />}
               {path === "/explore/courses" && <CoursesPage />}
             </Suspense>
-            {path.startsWith("/coach/") ? <GlossaryProvider scopeKey={`${location.pathname}${location.search}`}><Outlet /></GlossaryProvider> : <Outlet />}
+            {(path.startsWith("/coach/") || path === "/clubs" || path.startsWith("/club/")) ? <GlossaryProvider scopeKey={`${location.pathname}${location.search}`}><Outlet /></GlossaryProvider> : <Outlet />}
           </div>
         </main>
       )}

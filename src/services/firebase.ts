@@ -2,7 +2,7 @@ import { getStageQaAppCheckSession, hasStageQaAppCheckGrant } from "./stageQaApp
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, connectAuthEmulator, signInWithEmailAndPassword, type Auth } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, type Firestore } from "firebase/firestore";
-import { getStorage, type FirebaseStorage } from "firebase/storage";
+import { getStorage, connectStorageEmulator, type FirebaseStorage } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator, type Functions } from "firebase/functions";
 import {
   getToken,
@@ -81,6 +81,7 @@ export async function initFirebase() {
   if (isEmulatorRuntime()) {
     connectAuthEmulator(_auth, 'http://localhost:9099', { disableWarnings: true });
     connectFirestoreEmulator(_firestore, 'localhost', 8080);
+    connectStorageEmulator(_storage, 'localhost', 9199);
     connectFunctionsEmulator(_functions, 'localhost', 5001);
     // Expose login helper for E2E tests
     (window as any).__e2eSignIn = (email: string, pw: string) =>
@@ -113,6 +114,18 @@ function ensureAppCheckReadyUnchecked(forceRefresh = false): Promise<void> {
     if (!app) throw new Error("app-check/firebase-not-initialized");
     const qa = hasStageQaAppCheckGrant() ? getStageQaAppCheckSession(_auth) : null;
     if (!qa && !appCheckSiteKey) throw new Error("app-check/missing-site-key");
+    // 공식 디버그 제공자는 명시적으로 등록한 로컬 개발 자격증명에만 사용한다.
+    // DEV 분기는 배포 번들에서 제거되며 stage QA 제공자의 검증을 대체하지 않는다.
+    if (import.meta.env.DEV && !qa && runtimeConfig.appEnvironment !== "stage"
+      && ["localhost", "127.0.0.1", "[::1]"].includes(globalThis.location?.hostname)) {
+      const debugToken = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
+      if (debugToken) {
+        if (typeof debugToken !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(debugToken)) {
+          throw new Error("app-check/invalid-local-debug-token");
+        }
+        (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string }).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+      }
+    }
     appCheck ??= initializeAppCheck(app, {
       provider: qa?.provider ?? new ReCaptchaEnterpriseProvider(appCheckSiteKey!),
       isTokenAutoRefreshEnabled: !qa,

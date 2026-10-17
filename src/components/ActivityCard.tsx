@@ -1,3 +1,4 @@
+import { Crown, Medal } from "lucide-react";
 import { localeTag } from "../utils/localeDate";
 import "./ActivityCard.css";
 import GlossaryText from "./common/GlossaryText";
@@ -111,12 +112,7 @@ interface StreamSegmentEffortForCard {
 }
 
 function AchievementBadge({ type }: { type: AchievementType }) {
-  const icons = {
-    PR: "🥇 PR",
-    KOM: "👑 KOM",
-    "2nd": "🥈 2nd",
-    "3rd": "🥉 3rd",
-  };
+  const Icon = type === "KOM" ? Crown : Medal;
 
   const badgeStyle: React.CSSProperties =
     type === "KOM"
@@ -126,8 +122,9 @@ function AchievementBadge({ type }: { type: AchievementType }) {
       : { background: 'var(--bg-3)', color: 'var(--ink-2)', borderColor: 'var(--line-soft)' };
 
   return (
-    <span className="inline-flex items-center whitespace-nowrap px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={badgeStyle}>
-      {icons[type]}
+    <span className="inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={badgeStyle}>
+      <Icon size={12} aria-hidden="true" />
+      <GlossaryText>{type}</GlossaryText>
     </span>
   );
 }
@@ -360,12 +357,12 @@ export default function ActivityCard({
                *  4-5회 중복 정리. 데스크톱 3컬럼 레이아웃에선 컬럼 간 정보 분리 명확해 유지. */
               <div className="hidden md:flex items-center gap-1 flex-shrink-0">
                 {komCount > 0 && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--ink-1)', borderColor: 'var(--lime)' }}>
-                    <GlossaryText>{"👑 KOM\n                  "}</GlossaryText></span>
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--ink-1)', borderColor: 'var(--lime)' }}>
+                    <Crown size={12} aria-hidden="true" /><GlossaryText>{"KOM"}</GlossaryText></span>
                 )}
                 {prCount > 0 && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--ink-1)', borderColor: 'var(--line-soft)' }}>
-                    <GlossaryText>{"🥇 PR "}</GlossaryText>{prCount}
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--ink-1)', borderColor: 'var(--line-soft)' }}>
+                    <Medal size={12} aria-hidden="true" /><GlossaryText>{"PR"}</GlossaryText>{prCount}
                   </span>
                 )}
               </div>

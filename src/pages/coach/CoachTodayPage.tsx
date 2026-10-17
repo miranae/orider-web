@@ -12,9 +12,10 @@ import TodayTrainingDecisionCard, { TodayTrainingDecisionSource } from "../../fe
 import { activityIdsCoveredByImpacts, activityDayLoad, deriveActivityImpacts, forecastFitness48Hours } from "../../features/fitness/activityImpact";
 import { isNegligibleActivitySummary } from "@shared/training/activityLoad";
 import { useRun30Program, type Run30ProgramState } from "../../features/training/run30/useRun30Program";
-import { buildRun30ViewModel, run30Duration } from "../../features/training/run30/run30Display";
+import { buildRun30ViewModel, run30DateLabel, run30StatusLabel, run30StatusTone, run30TodayHeadingKey } from "../../features/training/run30/run30Display";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/appStoreLinks";
-import { Button, Card, Text } from "../../theme/components";
+import Run30WorkoutOutline from "../../features/training/run30/Run30WorkoutOutline";
+import { Button, Card, Chip, Text, buttonClass } from "../../theme/components";
 import { useCoachFitnessModel } from "./CoachFitnessLayout";
 
 const WEB_START_MODE: Run30StartMode = { kind: "web" };
@@ -22,29 +23,30 @@ export function RunningToday({ state, allowStart = false, startMode = WEB_START_
   state: Run30ProgramState; allowStart?: boolean; startMode?: Run30StartMode;
 }) {
   const { t } = useTranslation("fitness");
-  const { t: trainingT } = useTranslation("training");
+  const { t: trainingT, i18n } = useTranslation("training");
   const start = useRun30Start(startMode);
   if (state.status === "loading") return <LoadingSkeleton kind="chart" />;
   if (state.status === "error") return <div className="coach-inline-error" role="alert"><Text>{trainingT("coachSurface.runProgramError")}</Text><Button variant="secondary" size="sm" onClick={state.retry}>{trainingT("coachSurface.retry")}</Button></div>;
   if (!state.program) return <Link data-testid="K2-3-9" to="/coach/plan?sport=run">{t("today.runProgramLink")}</Link>;
   const view = buildRun30ViewModel(state.program);
   const actionable = view.todayKind === "start";
-  return <Card data-testid="K2-3-7">
-    <Text as="h2" variant="title">{trainingT("run30.today.eyebrow")}</Text>
-    {!actionable && <Text as="p" variant="body">{trainingT(view.todayKind === "finished" ? "run30.today.finished" : view.todayKind === "rest" ? "run30.today.restHint" : "run30.today.holdTitle")}</Text>}
-    {view.next && <Text as="p" variant="body">{run30Duration(view.next.durationSec, trainingT)}</Text>}
+  return <Card data-testid="K2-3-7" className="run30-running-today">
+    <Text as="h2" variant="title">{trainingT(run30TodayHeadingKey(view.todayKind))}</Text>
+    {!actionable && <Text as="p" variant="body">{trainingT(view.todayKind === "finished" ? "run30.today.finished" : view.todayKind === "rest" ? "run30.today.restHint" : view.todayKind === "decide" ? "run30.today.decideHold" : "run30.today.holdFallback")}</Text>}
+    {view.next && <>
+      <div className="run30-running-today__meta"><Text as="p" variant="body"><time dateTime={view.next.localDate}>{run30DateLabel(view.next.localDate, i18n.resolvedLanguage ?? i18n.language)}</time> · {trainingT("run30.stages.stage", { stage: view.next.stage })}</Text><Chip variant={run30StatusTone(view.next.status)}>{run30StatusLabel(view.next.status, trainingT)}</Chip></div>
+      <Text as="p" variant="bodyMedium" weight={600}>{view.next.workoutName || trainingT("run30.today.workoutFallback")}</Text>
+      <Run30WorkoutOutline session={view.next} />
+    </>}
     {actionable && <Text as="p" variant="body">{!allowStart ? t("today.runReadOnly") : startMode.kind === "host-unsupported" ? trainingT("run30.start.hostUnsupported") : startMode.kind === "web" ? t("today.runAppOnly") : null}</Text>}
-    {view.next?.localDate && <Text as="p" variant="body">{view.next.localDate} · {view.next.workoutName}</Text>}
-    {view.next?.segments.map(segment => <Text as="p" variant="bodySmall" key={segment.stepId}>{segment.label} · {run30Duration(segment.durationSec, trainingT)}</Text>)}
     {actionable && allowStart && startMode.kind === "host" && view.next?.scheduledSessionId && <>
       <Button loading={start.state.status === "pending"} disabled={start.state.status === "pending" || start.state.status === "accepted"}
         onClick={() => void start.start(view.next?.scheduledSessionId)}>{trainingT("run30.start.button", { stage: view.next.stage })}</Button>
       {start.state.status === "accepted" && <Text role="status">{trainingT("run30.start.accepted")}</Text>}
       {start.state.status === "error" && <Text role="alert">{trainingT(`run30.start.errors.${start.state.reason}`)}</Text>}
     </>}
-    {actionable && startMode.kind === "web" && <Link data-testid="K2-3-8" to="/plan?sport=run">{t("today.runAppStart")}</Link>}
-    <a href={ORIDER_PLAY_STORE_URL}>Google Play</a> · <a href={ORIDER_APP_STORE_URL}>App Store</a>
-    <Link data-testid="K2-3-9" to="/coach/plan?sport=run">{t("today.runProgramLink")}</Link>
+    <div className="run30-running-today__stores"><Text as="span" variant="bodySmall" tone="secondary">{trainingT("run30.outline.appStart")}</Text><a href={ORIDER_PLAY_STORE_URL}>Google Play</a><a href={ORIDER_APP_STORE_URL}>App Store</a></div>
+    <div className="run30-running-today__plan"><Link className={buttonClass({ variant: "secondary" })} data-testid="K2-3-9" to="/coach/plan?sport=run">{t(actionable && startMode.kind === "web" ? "today.runPlanSchedule" : "today.runProgramLink")}</Link></div>
   </Card>;
 }
 
@@ -89,8 +91,10 @@ export default function CoachTodayPage() {
         {hasScheduled || healthBlocked ? decision : chooser}
         {!hasScheduled && !healthBlocked && (state.loading || state.unavailableReason === "error") && decision}
         {hasScheduled && chooser}
-        {state.unavailableReason === "disabled" && <Text as="p" variant="caption" tone="secondary">{t("today.decisionUnavailable")}</Text>}
-        <Link to={`/coach/plan?sport=${sport}`}>{t("today.planLink")}</Link>
+        <div className="coach-today-plan-handoff" style={{ display: "grid", gap: "var(--space-2)", marginBlock: "var(--space-4)" }}>
+          {state.unavailableReason === "disabled" && <Text as="p" variant="caption" tone="secondary">{t("today.decisionUnavailable")}</Text>}
+          <Link to={`/coach/plan?sport=${sport}`}>{t("today.planLink")}</Link>
+        </div>
         {sport === "run" && <RunningToday state={running} allowStart={canUseTodayHelpers(state, Date.now(), sport)} />}
       </>;
     }}</TodayTrainingDecisionSource>

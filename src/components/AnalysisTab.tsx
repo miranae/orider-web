@@ -401,7 +401,7 @@ export default function AnalysisTab({
     avgHr: s.avgHr,
     avgCadence: s.avgCadence ?? null,
     elevationGain: s.elevGain,
-    elevationLoss: s.elevLoss ?? 0,
+    elevationLoss: s.elevLoss ?? null,
   })) : []), [sm?.splits, sport]);
   const overallGap = sport === "run" ? sm?.runMetrics?.gapAvgSec ?? null : null;
   const peakKey = [5, 60, 300, 1200, 3600];
@@ -1069,7 +1069,7 @@ export default function AnalysisTab({
                       {s.gapSecPerKm != null ? formatPace(s.gapSecPerKm) : "—"}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                      {s.elevationGain > 0 || s.elevationLoss > 0
+                      {s.elevationGain != null && s.elevationLoss != null
                         ? `+${Math.round(s.elevationGain)} / -${Math.round(s.elevationLoss)}`
                         : "—"}
                     </td>

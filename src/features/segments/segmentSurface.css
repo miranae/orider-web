@@ -1,0 +1,33 @@
+.segment-surface { min-width: 0; font-family: inherit; font-size: var(--ft-body-size); color: var(--ink-1); line-height: var(--ft-body-line-height); }
+.segment-surface h1 { font-size: var(--fs-xl); font-weight: var(--ft-title-weight); line-height: 1.35; overflow-wrap: anywhere; }
+.segment-surface h2 { font-size: var(--ft-title-size); font-weight: var(--ft-title-weight); line-height: var(--ft-title-line-height); }
+.segment-surface h3 { font-size: var(--fs-lg); font-weight: 600; }
+.segment-surface .ds-text--eyebrow { font-family: inherit; font-size: var(--ft-body-size); letter-spacing: normal; text-transform: none; }
+.segment-surface .segment-map-option { min-height: calc(var(--space-2) * 4.5); border: 1px solid var(--line); background: var(--bg-1); color: var(--ink-1); box-shadow: var(--shadow-sm); }
+.segment-surface .segment-map-option[aria-pressed="true"] { background: var(--lime); color: var(--bg-0); border-color: var(--lime); }
+.segment-surface .segment-map-note { background: var(--bg-1); color: var(--ink-1); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+.segment-surface .segment-category-badge { display: inline-flex; align-items: center; background: var(--bg-2); color: var(--ink-1); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--space-1) var(--space-2); font-size: var(--ft-body-size); font-weight: 600; }
+.segment-surface .segment-list-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-2); font-size: var(--ft-body-size); color: var(--ink-1); }
+.segment-surface .segment-list-metrics dt { color: var(--ink-2); }
+.segment-surface .segment-list-metrics dd { margin: 0; font-variant-numeric: tabular-nums; }
+.segment-surface .segment-list-card { cursor: pointer; }
+.segment-surface .segment-list-card:focus-visible { outline: 2px solid var(--lime); outline-offset: -2px; }
+.segment-surface .segment-create-chart-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2) var(--space-3); }
+.segment-surface .segment-create-categories { grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
+
+/* Scoped form and toolbar dimensions; keep native range and file controls intact. */
+.segment-surface .ds-input:not(textarea):not([type="range"]):not([type="file"]), .segment-surface .ds-dropdown-select__trigger { height: var(--dim-button-height); min-height: var(--dim-button-height); box-sizing: border-box; }
+.segment-surface textarea.ds-input { min-height: calc(var(--dim-button-height) * 2); }
+.segment-surface .ds-btn { min-height: var(--dim-button-height); }
+.segment-surface .segment-search-action { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: var(--dim-button-height); width: var(--dim-button-height); padding: 0; }
+.segment-surface .segment-search-input { padding-inline-start: calc(var(--dim-button-height) + var(--space-1)); }
+.segment-surface .segment-create-categories .ds-btn { height: auto; min-height: var(--dim-button-height); }
+.segment-surface .segment-create-categories .ds-btn[aria-pressed="true"] { background: var(--accent-soft-bg); border-color: var(--accent); }
+.segment-gap-select-field { display: grid; gap: var(--space-1); min-width: 0; }
+
+@media (max-width: 36rem) {
+  .segment-surface .segment-map-tools { left: var(--space-2); right: var(--space-2); min-width: 0; }
+  .segment-surface .segment-heatmap-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; min-width: 0; }
+  .segment-surface .segment-map-tools .segment-map-option { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .segment-surface .segment-map-tools .segment-map-note { max-width: 100%; box-sizing: border-box; }
+}

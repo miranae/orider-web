@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
+import { useLayoutEffect, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Text } from "../../theme/components";
 
@@ -8,10 +9,15 @@ interface TimeFieldProps {
   disabled?: boolean;
   placeholder?: string;
   id?: string;
+  icon?: ReactNode;
+  /** Same HH:MM value, displayed as elapsed hours/minutes rather than a clock time. */
+  duration?: boolean;
   /** 분 간격 — 기본 5분 단위 */
   minuteStep?: number;
   /** 빠른 프리셋 (오전 6시·정오·오후 6시 등) 표시 */
   presets?: boolean;
+  /** Opt in to escaping clipped page containers; existing callers remain inline. */
+  portal?: boolean;
 }
 
 function pad2(n: number): string {
@@ -47,15 +53,20 @@ export default function TimeField({
   disabled,
   placeholder,
   id,
+  icon,
+  duration = false,
   minuteStep = 5,
   presets = true,
+  portal = false,
 }: TimeFieldProps) {
-  const { t } = useTranslation("common");
+  const { t, i18n } = useTranslation("common");
   const resolvedPlaceholder = placeholder ?? t("field.timePlaceholder");
   const [open, setOpen] = useState(false);
   const [openUp, setOpenUp] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ left: 0, top: 0 });
   const hourListRef = useRef<HTMLDivElement>(null);
   const minuteListRef = useRef<HTMLDivElement>(null);
 
@@ -72,17 +83,37 @@ export default function TimeField({
 
   // 공간 부족 시 위로 열기
   useEffect(() => {
-    if (!open || !triggerRef.current) return;
+    if (!open || !triggerRef.current || portal) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     setOpenUp(spaceBelow < 280 && rect.top > 280);
-  }, [open]);
+  }, [open, portal]);
+
+  useLayoutEffect(() => {
+    if (!open || !portal) return;
+    const place = () => {
+      if (!triggerRef.current || !popupRef.current) return;
+      const trigger = triggerRef.current.getBoundingClientRect();
+      const popup = popupRef.current.getBoundingClientRect();
+      const margin = 12;
+      const below = trigger.bottom + 4;
+      const preferred = below + popup.height <= window.innerHeight - margin ? below : trigger.top - popup.height - 4;
+      setPosition({
+        left: Math.max(margin, Math.min(trigger.left, window.innerWidth - margin - popup.width)),
+        top: Math.max(margin, Math.min(preferred, window.innerHeight - margin - popup.height)),
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => { window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); };
+  }, [open, portal]);
 
   // 외부 클릭 닫기
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node) && !popupRef.current?.contains(e.target as Node)) {
         setOpen(false);
       }
     };
@@ -93,10 +124,10 @@ export default function TimeField({
   // Escape 닫기
   useEffect(() => {
     if (!open) return;
-    const handler = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const handler = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); if (portal) { e.preventDefault(); e.stopPropagation(); triggerRef.current?.focus(); } } };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [open]);
+  }, [open, portal]);
 
   // 팝오버가 열릴 때 선택된 항목을 중앙으로 스크롤
   useEffect(() => {
@@ -109,6 +140,12 @@ export default function TimeField({
     scroll(hourListRef.current, "[data-selected=true]");
     scroll(minuteListRef.current, "[data-selected=true]");
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !portal) return;
+    (hourListRef.current?.querySelector<HTMLButtonElement>("[data-selected=true]")
+      ?? hourListRef.current?.querySelector<HTMLButtonElement>("button"))?.focus();
+  }, [open, portal]);
 
   const pick = (h: number, m: number) => {
     onChange(`${pad2(h)}:${pad2(m)}`);
@@ -149,50 +186,24 @@ export default function TimeField({
       ]
     : [];
 
-  const labelText = value ? formatKorean(value, t("time.am"), t("time.pm")) : resolvedPlaceholder;
+  const clockLabelText = value ? formatKorean(value, t("time.am"), t("time.pm")) : resolvedPlaceholder;
+  const durationParts = duration ? parseHM(value) : null;
+  const labelText = durationParts
+    ? `${new Intl.NumberFormat(i18n?.language ?? "ko", { style: "unit", unit: "hour", unitDisplay: "long" }).format(durationParts.h)} ${new Intl.NumberFormat(i18n?.language ?? "ko", { style: "unit", unit: "minute", unitDisplay: "long" }).format(durationParts.m)}`
+    : clockLabelText;
 
-  return (
-    <div ref={containerRef} style={{ position: "relative", width: "100%" }}>
-      <button
-        id={id}
-        ref={triggerRef}
-        type="button"
-        disabled={disabled}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        onKeyDown={handleButtonKey}
-        style={{
-          width: "100%",
-          padding: "10px 12px",
-          background: "var(--bg-2)",
-          border: "1px solid var(--line-soft)",
-          borderRadius: "var(--r-md)",
-          fontSize: "var(--fs-sm)",
-          color: value ? "var(--ink-0)" : "var(--ink-3)",
-          textAlign: "left",
-          cursor: disabled ? "not-allowed" : "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 'var(--space-2)',
-          opacity: disabled ? 0.5 : 1,
-        }}
-      >
-        <span>{labelText}</span>
-        <span aria-hidden="true" style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>🕐</span>
-      </button>
-
-      {open && (
+  const popup = open ? (
         <div
+          ref={popupRef}
           role="dialog"
           aria-label={t("field.selectTimeAria")}
           style={{
-            position: "absolute",
-            top: openUp ? "auto" : "calc(100% + 4px)",
-            bottom: openUp ? "calc(100% + 4px)" : "auto",
-            left: 0,
-            zIndex: 50,
+            position: portal ? "fixed" : "absolute",
+            top: portal ? position.top : openUp ? "auto" : "calc(100% + 4px)",
+            bottom: !portal && openUp ? "calc(100% + 4px)" : "auto",
+            left: portal ? position.left : 0,
+            zIndex: portal ? 1000 : 50,
+            ...(portal ? { maxWidth: "calc(100vw - 24px)", maxHeight: "calc(100dvh - 24px)", overflowY: "auto" as const, boxSizing: "border-box" as const } : {}),
             background: "var(--bg-1)",
             border: "1px solid var(--line)",
             borderRadius: "var(--r-md)",
@@ -311,6 +322,7 @@ export default function TimeField({
                   onClick={() => {
                     onChange(p.hm);
                     setOpen(false);
+                    if (portal) triggerRef.current?.focus();
                   }} variant="ghost" size="sm"
                   style={{ fontSize: "var(--fs-xs)" }}
                 >
@@ -325,6 +337,7 @@ export default function TimeField({
                   const m = Math.round(now.getMinutes() / step) * step % 60;
                   onChange(`${pad2(now.getHours())}:${pad2(m)}`);
                   setOpen(false);
+                  if (portal) triggerRef.current?.focus();
                 }} variant="ghost" size="sm"
                 style={{ fontSize: "var(--fs-xs)" }}
               >
@@ -336,6 +349,7 @@ export default function TimeField({
                   onClick={() => {
                     onChange("");
                     setOpen(false);
+                    if (portal) triggerRef.current?.focus();
                   }} variant="ghost" size="sm"
                   style={{ fontSize: "var(--fs-xs)", marginLeft: "auto", color: "var(--ink-3)" }}
                 >
@@ -345,7 +359,43 @@ export default function TimeField({
             </div>
           )}
         </div>
-      )}
+  ) : null;
+
+  return (
+    <div ref={containerRef} style={{ position: "relative", width: "100%" }} onBlur={event => {
+      if (portal && open && event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget) && !popupRef.current?.contains(event.relatedTarget)) setOpen(false);
+    }}>
+      <button
+        id={id}
+        ref={triggerRef}
+        type="button"
+        disabled={disabled}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={handleButtonKey}
+        style={{
+          width: "100%",
+          padding: "10px 12px",
+          background: "var(--bg-2)",
+          border: "1px solid var(--line-soft)",
+          borderRadius: "var(--r-md)",
+          fontSize: "var(--fs-sm)",
+          color: value ? "var(--ink-0)" : "var(--ink-3)",
+          textAlign: "left",
+          cursor: disabled ? "not-allowed" : "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 'var(--space-2)',
+          opacity: disabled ? 0.5 : 1,
+        }}
+      >
+        <span>{labelText}</span>
+        <span aria-hidden="true" style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{icon ?? "🕐"}</span>
+      </button>
+
+      {portal && popup ? createPortal(popup, document.body) : popup}
     </div>
   );
 }

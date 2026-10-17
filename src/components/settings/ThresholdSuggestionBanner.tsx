@@ -15,8 +15,9 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import type { ThresholdSuggestionDoc } from "@shared/types/threshold";
 import { LocalizedLink } from "../LocalizedLink";
-import { buttonClass } from "../../theme/components";
+import { Button, buttonClass } from "../../theme/components";
 import { useBikeFtpDecision } from "../../hooks/useBikeFtpDecision";
+import GlossaryText from "../common/GlossaryText";
 
 type Suggestion = ThresholdSuggestionDoc;
 
@@ -161,8 +162,8 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
         {items.map((it) => (
           <div key={it.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: "var(--fs-xs)" }}>
             <span style={{ color: "var(--ink-2)" }}>
-              {it.label}
-              <span style={{ marginLeft: 'var(--space-2)', color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{it.sub}</span>
+              <GlossaryText>{it.label}</GlossaryText>
+              <span style={{ marginLeft: 'var(--space-2)', color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{it.sub === "활동 중 관측된 최대 심박" ? t("threshold.reason.observedMaxHr") : it.sub}</span>
             </span>
             <span style={{ fontFamily: "var(--font-mono)" }}>
               <span style={{ color: "var(--ink-3)" }}>{it.cur ?? "—"}</span>
@@ -173,50 +174,33 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
         ))}
       </div>
       {dismissFailed && <div role="alert" style={{ color: "var(--ink-1)", fontSize: "var(--fs-sm)" }}>{t("threshold.dismissFailed")}</div>}
-      <div style={{ display: "flex", gap: 'var(--space-2)', justifyContent: "flex-end" }}>
-        {(!sugg.ftp || (!v2FtpLoading && !hasConfirmedV2Ftp)) && <button
-          type="button"
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 'var(--space-2)', justifyContent: "flex-end" }}>
+        {(!sugg.ftp || (!v2FtpLoading && !hasConfirmedV2Ftp)) && <Button
+          variant="ghost"
+          size="md"
           onClick={handleDismiss}
           disabled={busy}
-          style={{
-            padding: "6px 12px",
-            fontSize: "var(--fs-xs)",
-            borderRadius: "var(--r-sm)",
-            border: "1px solid var(--line-soft)",
-            background: "transparent",
-            cursor: busy ? "default" : "pointer",
-            color: "var(--ink-2)",
-          }}
         >
           {t(dismissFailed ? "common:button.retry" : "threshold.dismiss")}
-        </button>}
+        </Button>}
         {hasConfirmedV2Ftp && (
           <LocalizedLink
             to={{ pathname: "/coach/condition", search: "?sport=bike", hash: "#ftp-decision" }}
-            className={buttonClass({ variant: "secondary", size: "sm" })}
+            className={buttonClass({ variant: "secondary", size: "md" })}
           >
             {t("threshold.reviewFtpInFitness")}
           </LocalizedLink>
         )}
         {(!sugg.ftp || !v2FtpLoading)
           && (hasConfirmedV2Ftp ? (sugg.lthr || sugg.maxHr) : (sugg.ftp || sugg.lthr || sugg.maxHr))
-          && <button
-          type="button"
+          && <Button
+          variant="primary"
+          size="md"
           onClick={handleAccept}
           disabled={busy}
-          style={{
-            padding: "6px 12px",
-            fontSize: "var(--fs-xs)",
-            borderRadius: "var(--r-sm)",
-            border: "none",
-            background: "var(--amber)",
-            color: "white",
-            fontWeight: 600,
-            cursor: busy ? "default" : "pointer",
-          }}
         >
           {t(hasConfirmedV2Ftp ? "threshold.acceptHeartRate" : "threshold.acceptAll")}
-        </button>}
+        </Button>}
         {sugg.ftp && v2FtpLoading && <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{t("threshold.checkingFtpDecision")}</span>}
       </div>
     </div>

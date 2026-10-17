@@ -1,3 +1,4 @@
+import { chooseDropdown, chooseDate } from "../fitnessControlTestUtils";
 import { readFileSync } from "node:fs";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -25,12 +26,12 @@ describe("PowerCurvePeriodsPanel", () => {
     expect(screen.getAllByRole("link")[0]).toHaveAttribute("href", "/en/activity/long");
     expect(screen.getByText("periodCurve.partialNote")).toBeInTheDocument();
     expect(screen.getByText("periodCurve.truncated 1000")).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "1" } });
+    chooseDropdown(screen.getByRole("combobox"), "duration.sec 1");
     expect(screen.getByText("750.3")).toBeInTheDocument();
     expect(screen.getByText(/periodCurve.rawValue .*750\.321/u)).toBeInTheDocument(); expect(screen.getByText("—")).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute("href", "/en/activity/sprint");
     fireEvent.click(view.container.querySelector('[data-duration="300"]')!);
-    expect(screen.getByRole("combobox")).toHaveValue("300");
+    expect(screen.getByRole("combobox")).toHaveTextContent("duration.min 5");
   });
   it("keeps a desktop heading and named embedded region without duplicate mobile heading", () => {
     const view = render(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled />);
@@ -52,22 +53,22 @@ describe("PowerCurvePeriodsPanel", () => {
   });
   it("rejects reverse custom dates, submits UTC periods, then clears previous selection when edited", () => {
     const view = render(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled />);
-    fireEvent.change(screen.getByRole("combobox", { name: "periodCurve.period 1" }), { target: { value: "custom" } });
-    const dates = view.container.querySelectorAll('input[type="date"]');
-    fireEvent.change(dates[0]!, { target: { value: "2026-02-02" } }); fireEvent.change(dates[1]!, { target: { value: "2026-02-01" } });
+    chooseDropdown(screen.getByRole("combobox", { name: "periodCurve.period 1" }), "periodCurve.custom");
+    const dates = [screen.getByLabelText("periodCurve.from"), screen.getByLabelText("periodCurve.through")];
+    chooseDate(dates[0]!, "2026-02-02"); chooseDate(dates[1]!, "2026-02-01");
     fireEvent.click(screen.getByText("periodCurve.load")); expect(screen.getByRole("alert")).toHaveTextContent("periodCurve.invalid");
-    fireEvent.change(dates[0]!, { target: { value: "2026-02-01" } }); fireEvent.click(screen.getByText("periodCurve.load"));
+    chooseDate(dates[0]!, "2026-02-01"); fireEvent.click(screen.getByText("periodCurve.load"));
     expect(mocks.hook.mock.lastCall?.[1].request.periods).toEqual([{ fromInclusive: Date.UTC(2026, 1, 1), toExclusive: Date.UTC(2026, 1, 2) }]);
-    fireEvent.change(screen.getByRole("combobox", { name: "periodCurve.period 1" }), { target: { value: "all" } }); expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
+    chooseDropdown(screen.getByRole("combobox", { name: "periodCurve.period 1" }), "periodCurve.all"); expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
   });
   it("keeps unit changes manual and omits opt-in on the default W request", () => {
     render(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled />);
     expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
-    fireEvent.change(screen.getByRole("combobox", { name: "periodCurve.unit" }), { target: { value: "W/kg" } });
+    chooseDropdown(screen.getByRole("combobox", { name: "periodCurve.unit" }), "W/kg");
     expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
     fireEvent.click(screen.getByText("periodCurve.load"));
     expect(mocks.hook.mock.lastCall?.[1].request).toMatchObject({ unit: "W", includeWeightNormalized: true });
-    fireEvent.change(screen.getByRole("combobox", { name: "periodCurve.unit" }), { target: { value: "W" } });
+    chooseDropdown(screen.getByRole("combobox", { name: "periodCurve.unit" }), "W");
     expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
     fireEvent.click(screen.getByText("periodCurve.load"));
     expect(Object.keys(mocks.hook.mock.lastCall?.[1].request).sort()).toEqual(["periods", "unit"]);
@@ -130,7 +131,7 @@ describe("PowerCurvePeriodsPanel", () => {
         { fromInclusive: cutoff - 56 * 86400000, toExclusive: cutoff },
         { fromInclusive: 0, toExclusive: cutoff },
       ]);
-      fireEvent.change(screen.getByRole("combobox", { name: "periodCurve.unit" }), { target: { value: "W/kg" } });
+      chooseDropdown(screen.getByRole("combobox", { name: "periodCurve.unit" }), "W/kg");
       expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
       fireEvent.click(screen.getByText("powerSkills.freePeriods"));
       expect(mocks.hook.mock.lastCall?.[1]).toBeNull();

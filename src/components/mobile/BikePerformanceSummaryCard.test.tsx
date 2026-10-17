@@ -1,4 +1,5 @@
-import { screen, within } from "@testing-library/react";
+import GlossaryProvider from "../common/GlossaryProvider";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
@@ -85,4 +86,20 @@ describe("BikePerformanceSummaryCard", () => {
     expect(within(vo2Tile).getByText("52")).toBeInTheDocument();
     expect(within(vo2Tile).queryByRole("meter")).not.toBeInTheDocument();
   });
+});
+
+
+it('explains repeated metric and evidence terms without nesting tooltip buttons in actions', async () => {
+  const { container } = renderWithProviders(<GlossaryProvider><BikePerformanceSummaryCard part="analysis" decision={completeDecision} weightKg={70} /></GlossaryProvider>);
+  for (const term of ['eftp', 'cp', 'tte']) {
+    expect(container.querySelector(`[data-performance-metric="${term}"] [data-glossary-term="${term}"] button`)).not.toBeNull();
+  }
+  const trigger = container.querySelector<HTMLButtonElement>('[data-glossary-term="eftp"] button')!;
+  fireEvent.focus(trigger);
+  expect(screen.getByRole('tooltip')).toHaveTextContent('활동 기록과 파워 모델로 추정한 FTP');
+  fireEvent.keyDown(trigger, { key: 'Escape' });
+  await userEvent.click(screen.getByRole('button', { name: '산출 근거 보기' }));
+  expect(container.querySelector('[data-glossary-term="pdc"] button')).not.toBeNull();
+  expect(container.querySelectorAll('[data-glossary-term="eftp"] button').length).toBeGreaterThan(1);
+  expect(container.querySelector('button button, a button, svg button')).toBeNull();
 });

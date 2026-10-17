@@ -8,20 +8,11 @@
  *
  * 판정·celebrated 정책은 서버·모달이 담당. 이 컴포넌트는 read-only 표시만.
  */
+import { Award } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, Text } from "../../theme/components";
 import { MILESTONE_DISTANCES, DISTANCE_MILESTONE_ID } from "@shared/types/milestone";
 import type { Milestone, MilestoneId } from "@shared/types/milestone";
-
-const MEDAL: Record<MilestoneId, string> = {
-  first_5km: "🏅",
-  first_10km: "🎖️",
-  first_half: "🥈",
-  first_full: "🏆",
-  cumulative_100km: "💯",
-  cumulative_500km: "🔥",
-  cumulative_1000km: "👑",
-};
 
 /** 표시 순서 — 거리 완주 4종 다음 누적 3종. */
 const CUMULATIVE_IDS: MilestoneId[] = ["cumulative_100km", "cumulative_500km", "cumulative_1000km"];
@@ -50,7 +41,7 @@ export default function MilestonesGrid({ achieved }: MilestonesGridProps) {
         {t("milestones.title")}
       </Text>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--space-2)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(6rem, 1fr))", gap: "var(--space-2)" }}>
         {items.map(({ id, milestone }) => {
           const done = milestone != null;
           return (
@@ -71,7 +62,7 @@ export default function MilestonesGrid({ achieved }: MilestonesGridProps) {
                 style={{ fontSize: "var(--fs-lg)", filter: done ? "none" : "grayscale(1)" }}
                 aria-hidden="true"
               >
-                {MEDAL[id]}
+                <Award size={20} aria-hidden="true" style={{margin: "0 auto"}} />
               </div>
               <Text as="div" variant="caption" tone={done ? "primary" : "tertiary"} weight={done ? 600 : 400}>
                 {t(`milestones.label.${id}`)}

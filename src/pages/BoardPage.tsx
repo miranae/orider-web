@@ -1,15 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { useBoardPosts, useBoardMeta, useDeletePost, useMyInquiryPosts } from '../features/board/useBoard';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
+import { useToast } from '../contexts/ToastContext';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/redesign';
 import type { BoardType } from '@shared/types';
-import { Button, Card, Chip } from "../theme/components";
+import { BoardFeedbackIcon } from "../features/board/BoardFeedbackIcon";
+import { Button, Card, Chip, Input } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
 import SafeImage from "../components/SafeImage";
+import { useBoardBlocks } from "../features/board/useBoardBlocks";
+import { BoardImage } from "../features/board/BoardImage";
+import { LocalizedLink } from "../components/LocalizedLink";
+import "./BoardList.css";
 
 /**
  * 체크 해제된 태그로부터 실제 제외 집합과 "총개수 보정이 필요한 태그 수"를 계산한다.
@@ -55,29 +61,30 @@ export function getEffectiveListTotal({
 }
 
 const BoardPage: React.FC = () => {
-  const { t } = useTranslation("board");
+  const { t, i18n } = useTranslation("board");
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialBoard = searchParams.get('type') === 'inquiry' ? 'inquiry' : searchParams.get('type') === 'devlog' ? 'devlog' : 'all';
-  const [selectedBoard, setSelectedBoard] = useState<BoardType | 'all'>(initialBoard);
-
-  const selectBoard = (type: BoardType | 'all') => {
-    setSelectedBoard(type);
-    setActiveTag(undefined);
+  const boardType = searchParams.get('type');
+  const selectedBoard: BoardType | 'all' = boardType === 'inquiry' || boardType === 'devlog' || boardType === 'archive' ? boardType : 'all';
+  const submittedQuery = searchParams.get('q') || '';
+  const activeTag = searchParams.get('tag') || undefined;
+  const [searchQuery, setSearchQuery] = useState(submittedQuery);
+  useEffect(() => { setSearchQuery(submittedQuery); }, [submittedQuery]);
+  const uncheckedTags = new Set(searchParams.getAll('exclude'));
+  const updateFilters = (updates: Record<string, string | undefined>, excluded?: Set<string>) => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('page');
+    ['submitted', 'status', 'private', 'feedback'].forEach(key => params.delete(key));
+    Object.entries(updates).forEach(([key, value]) => { if (value) params.set(key, value); else params.delete(key); });
+    if (excluded) { params.delete('exclude'); excluded.forEach(tag => params.append('exclude', tag)); }
     sessionStorage.removeItem('board-scroll');
-    if (type === 'all') {
-      setSearchParams({}, { replace: true });
-    } else {
-      setSearchParams({ type }, { replace: true });
-    }
+    setSearchParams(params);
   };
-  const [searchQuery, setSearchQuery] = useState('');
-  const [submittedQuery, setSubmittedQuery] = useState('');
-  const [activeTag, setActiveTag] = useState<string | undefined>();
-
-
-  // 기본값은 "제외 없음" — 태그 제외는 사용자가 칩을 눌러 직접 선택할 때만 걸린다.
-  const [uncheckedTags, setUncheckedTags] = useState<Set<string>>(() => new Set());
+  const setActiveTag = (value: string | undefined | ((previous: string | undefined) => string | undefined)) => {
+    updateFilters({ tag: typeof value === 'function' ? value(activeTag) : value });
+  };
+  const selectBoard = (type: BoardType | 'all') => updateFilters({ type: type === 'all' ? undefined : type, view: undefined, tag: undefined });
   const [tagsExpanded, setTagsExpanded] = useState(false);
   // 제외 태그는 모두 같은 기준(글의 tags)으로 걸러낸다 — 칩 이름과 실제 필터가 어긋나지 않게.
   const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({
@@ -93,7 +100,8 @@ const BoardPage: React.FC = () => {
   const panelTags = allTags.slice(0, 30);
 
   const isMyPosts = searchParams.get("view") === "mine";
-  const urlPage = Number(searchParams.get('page')) || 1;
+  const pageParam = Number(searchParams.get('page'));
+  const urlPage = Number.isSafeInteger(pageParam) && pageParam > 0 ? pageParam : 1;
   const { posts, loading, error, total, page, totalPages, goToPage: rawGoToPage, refresh } = useBoardPosts(selectedBoard, 20, activeTag, submittedQuery, excludeTags, urlPage, isMyPosts);
   const isMyInquiryView = selectedBoard === 'inquiry' && searchParams.get('view') === 'my';
   const submittedPostId = searchParams.get('submitted');
@@ -101,38 +109,23 @@ const BoardPage: React.FC = () => {
   const submittedPrivate = searchParams.get('private') === '1';
   const submittedFeedbackType = searchParams.get('feedback');
   const { posts: myInquiryPosts, loading: myInquiryLoading, error: myInquiryError, refresh: refreshMyInquiries } = useMyInquiryPosts(100);
-  const listPosts = isMyInquiryView ? myInquiryPosts : posts;
-  const listLoading = isMyInquiryView ? myInquiryLoading : loading;
-  const listError = isMyInquiryView ? myInquiryError : error;
+  const { blockedUsers, loading: blocksLoading, error: blocksError, retry: retryBlocks, unblock, pending: unblockPending } = useBoardBlocks();
+  const blockedIds = new Set(blockedUsers.map(item => item.targetUid));
+  const listPosts = (isMyInquiryView ? myInquiryPosts : posts).filter(post => !blockedIds.has(post.userId));
+  const listLoading = blocksLoading || (isMyInquiryView ? myInquiryLoading : loading);
+  const listError = blocksError || (isMyInquiryView ? myInquiryError : error);
   const listTotal = isMyInquiryView ? myInquiryPosts.length : total;
 
-  // 페이지 변경 시 URL에 반영
   const goToPage = (p: number) => {
     rawGoToPage(p);
-    const params: Record<string, string> = isMyPosts ? { view: "mine" } : {};
-    const type = searchParams.get('type');
-    if (type) params.type = type;
-    const view = searchParams.get('view');
-    if (view) params.view = view;
-    if (p > 1) params.page = String(p);
-    setSearchParams(params, { replace: true });
+    const params = new URLSearchParams(searchParams);
+    if (p > 1) params.set('page', String(p)); else params.delete('page');
+    setSearchParams(params);
   };
-
-  const setInquiryView = (view: 'all' | 'my') => {
-    const params: Record<string, string> = { type: 'inquiry' };
-    if (view === 'my') params.view = 'my';
-    setSearchParams(params, { replace: true });
-    setSelectedBoard('inquiry');
-    setActiveTag(undefined);
-    sessionStorage.removeItem('board-scroll');
-  };
-
+  const setInquiryView = (view: 'all' | 'my') => updateFilters({ type: 'inquiry', view: view === 'my' ? 'my' : undefined, q: undefined, tag: undefined });
   const dismissSubmitConfirmation = () => {
-    const params: Record<string, string> = {};
-    const type = searchParams.get('type');
-    const view = searchParams.get('view');
-    if (type) params.type = type;
-    if (view) params.view = view;
+    const params = new URLSearchParams(searchParams);
+    ['submitted', 'status', 'private', 'feedback'].forEach(key => params.delete(key));
     setSearchParams(params, { replace: true });
   };
 
@@ -154,6 +147,7 @@ const BoardPage: React.FC = () => {
     ? listPosts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))
     : listPosts;
   const filteredOutAllPosts = listPosts.length > 0 && displayedPosts.length === 0;
+  const hasActiveFilters = Boolean(submittedQuery || activeTag || uncheckedTags.size);
   const effectiveListTotal = getEffectiveListTotal({
     clientExcludedCount: clientOnlyExcludedCount,
     displayedCount: displayedPosts.length,
@@ -161,17 +155,14 @@ const BoardPage: React.FC = () => {
   });
 
   const toggleTag = (name: string) => {
-    setUncheckedTags(prev => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
+    const next = new Set(uncheckedTags);
+    if (next.has(name)) next.delete(name); else next.add(name);
+    updateFilters({}, next);
   };
-
-  const handleSearch = () => setSubmittedQuery(searchQuery.trim());
+  const handleSearch = () => updateFilters({ q: searchQuery.trim() || undefined });
   const { user } = useAuth();
   const dialog = useDialog();
+  const { showToast } = useToast();
   const { deletePost, deleting } = useDeletePost();
   const isMobile = useMobile();
 
@@ -195,18 +186,23 @@ const BoardPage: React.FC = () => {
     if (!(await dialog.confirm(t("message.deleteConfirm", { label: t("message.deleteLabel") }), { destructive: true }))) return;
     try {
       await deletePost(postId);
+      updateFilters({});
       refresh();
+      retryBlocks();
     } catch {
       void dialog.alert(t("message.postDeleteFailed"), { variant: "danger" });
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="board-list space-y-6">
+      {blockedUsers.length > 0 && <Card className="p-3 flex flex-wrap gap-2 items-center">
+        <span>{t('block.listHint', { count: blockedUsers.length })}</span>
+        {blockedUsers.map(item => <Button key={item.id} size="sm" disabled={unblockPending} onClick={() => { void unblock(item.targetUid).catch(() => { showToast(t('block.failed'), 'error'); }); }}>{t('block.unblock')} ({posts.find(post => post.userId === item.targetUid)?.nickname || item.targetUid})</Button>)}
+      </Card>}
       <div className="md:sticky md:top-0 z-20 bg-[var(--bg-0)] pb-2 md:pb-4 mb-1 md:mb-2 space-y-2 md:space-y-4 border-b border-[var(--line-soft)]">
-        {/* 제목+글쓰기 행 — 모바일에선 제목이 숨겨져 글쓰기만 외톨이로 남으므로 행 전체를 숨기고,
-            글쓰기는 아래 탭 줄 우측으로 옮긴다(아래 참조). 데스크톱은 그대로 표시. */}
-        <div className="hidden md:flex items-center justify-between">
+        {/* 제목과 주요 동작은 모든 화면에서 같은 순서로 표시한다. */}
+        <div className="board-list-header">
           <div>
             <h1 data-testid="M2-0" className="text-[length:var(--fs-2xl)] font-bold">{t("page.communityTitle")}</h1>
             <p className="text-[var(--ink-3)] text-[length:var(--fs-sm)] mt-1">
@@ -215,7 +211,7 @@ const BoardPage: React.FC = () => {
           </div>
           {selectedBoard !== 'devlog' && (
             <Button data-testid="M2-0-2"
-              onClick={() => navigate(selectedBoard === 'inquiry' ? '/community/board/write?type=inquiry' : '/community/board/write')} variant="secondary" className="px-4 py-2 text-[length:var(--fs-sm)] font-medium whitespace-nowrap"
+              onClick={() => navigate(selectedBoard === 'inquiry' ? '/community/board/write?type=inquiry' : '/community/board/write')} variant="primary" className="px-4 py-2 text-[length:var(--fs-sm)] font-medium whitespace-nowrap"
             >
               {selectedBoard === 'inquiry' ? t("label.writingForm") : t("label.writingPost")}
             </Button>
@@ -223,39 +219,37 @@ const BoardPage: React.FC = () => {
         </div>
 
         {/* Search + Tabs */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-          <div className="relative flex-1 flex gap-2">
+        <div className="board-list-controls">
+          <div className="board-list-search">
             <div data-testid="M2-1" className="relative flex-1">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-3)]">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </span>
-              <input data-testid="M2-1-1"
-                type="text"
-                disabled={isMyPosts}
+              <Input data-testid="M2-1-1"
+                type="search"
+                aria-label={t("placeholder.search")}
+                disabled={isMyPosts || isMyInquiryView}
                 placeholder={t("placeholder.search")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSearch(); }}
-                className="w-full min-h-[44px] pl-9 pr-3 py-1.5 sm:py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent"
-                style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
+                className="board-search-input w-full"
               />
             </div>
-            {/* 검색 버튼은 데스크톱만 — 모바일은 Enter 로 검색하고 그 자리에 글쓰기를 둔다.
-                .ds-btn 의 display:inline-flex 가 Tailwind .hidden 을 소스순서로 이기므로
-                버튼에 직접 hidden 을 못 줌 → wrapper div 로 반응형 표시 제어. */}
-            <div className="hidden md:flex">
+
+            <div className="flex">
               <Button
                 onClick={handleSearch}
-                disabled={isMyPosts || !searchQuery.trim()} variant="secondary" className="px-4 py-2 text-[length:var(--fs-sm)] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={isMyPosts || isMyInquiryView || !searchQuery.trim()} variant="secondary" className="px-4 py-2 text-[length:var(--fs-sm)] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {t("button.search")}
               </Button>
             </div>
             {submittedQuery && (
               <button
-                onClick={() => { setSearchQuery(''); setSubmittedQuery(''); }}
+                onClick={() => { setSearchQuery(''); updateFilters({ q: undefined }); }}
                 className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--ink-3)] hover:text-[var(--ink-1)] rounded-[var(--r-lg)] hover:bg-[var(--bg-2)] transition-colors"
                 title={t("button.searchReset")}
               >
@@ -264,27 +258,17 @@ const BoardPage: React.FC = () => {
                 </svg>
               </button>
             )}
-            {/* 모바일 전용 글쓰기 — 검색줄 우측(최상단). 데스크톱은 상단 제목 행에 있음.
-                wrapper div 로 md:hidden (위 .ds-btn 우선순위 이슈 동일). */}
-            {selectedBoard !== 'devlog' && (
-              <div className="md:hidden shrink-0">
-                <Button
-                  onClick={() => navigate(selectedBoard === 'inquiry' ? '/community/board/write?type=inquiry' : '/community/board/write')} variant="secondary" className="px-3 py-1.5 text-[length:var(--fs-sm)] font-medium whitespace-nowrap"
-                >
-                  {selectedBoard === 'inquiry' ? t("label.writingForm") : t("label.writingPost")}
-                </Button>
-              </div>
-            )}
+
           </div>
-          <div className="flex gap-1">
-            {user && <Button data-testid="M2-1-2" size="sm" aria-pressed={isMyPosts} onClick={() => setSearchParams(isMyPosts ? {} : { view: "mine" })}>{t("tab.mine")}</Button>}
+          <div className="board-list-tabs">
+            {user && <Button data-testid="M2-1-2" size="sm" aria-pressed={isMyPosts} onClick={() => updateFilters({ view: isMyPosts ? undefined : "mine", type: undefined, q: undefined, tag: undefined }, new Set())}>{t("tab.mine")}</Button>}
             {(isMyPosts ? [] : ['all', 'devlog', 'inquiry', 'archive'] as const).map((type) => (
               <Button data-testid="M2-0-1"
                 key={type}
                 onClick={() => selectBoard(type)}
-                variant={selectedBoard === type && !activeTag ? "outline" : "secondary"}
+                variant={selectedBoard === type ? "outline" : "secondary"}
                 size="sm"
-                aria-pressed={selectedBoard === type && !activeTag}
+                aria-pressed={selectedBoard === type}
                 className="min-h-[44px] whitespace-nowrap"
               >
                 {type === 'all' ? t("tab.all") : type === 'devlog' ? t("tab.devlog") : type === 'inquiry' ? t("tab.inquiry") : t("tab.archive")}
@@ -294,10 +278,12 @@ const BoardPage: React.FC = () => {
         </div>
 
         {/* 태그 필터 패널 */}
-        {!isMyPosts && panelTags.length > 0 && (
+        {!isMyPosts && !isMyInquiryView && panelTags.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <button
+                aria-expanded={tagsExpanded}
+                aria-controls="board-tag-exclusions"
                 onClick={() => setTagsExpanded(!tagsExpanded)}
                 className="flex min-h-[44px] items-center gap-1 text-[length:var(--fs-xs)] text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors"
               >
@@ -320,7 +306,8 @@ const BoardPage: React.FC = () => {
               )}
             </div>
             {tagsExpanded && (
-              <div className="flex flex-wrap gap-1.5 items-center">
+              <div id="board-tag-exclusions" className="flex flex-wrap gap-1.5 items-center">
+                <p className="board-list-filter-hint">{t("label.tagExclusionHint")}</p>
                 {/* 게시글 카드에서 선택한 태그 표시 */}
                 {activeTag && (
                   <Button
@@ -337,7 +324,8 @@ const BoardPage: React.FC = () => {
                     <Chip
                       key={name}
                       selectable
-                      aria-pressed={!isUnchecked}
+                      aria-pressed={isUnchecked}
+                      aria-label={t("label.excludeTag", { tag: name })}
                       onClick={() => toggleTag(name)}
                       className={`text-[length:var(--fs-xs)] px-2.5 py-1 rounded-full transition-colors ${isUnchecked ? 'opacity-40 line-through' : ''}`}
                     >
@@ -347,7 +335,7 @@ const BoardPage: React.FC = () => {
                 })}
                 {(uncheckedTags.size > 0 || activeTag) && (
                   <button
-                    onClick={() => { setUncheckedTags(new Set()); setActiveTag(undefined); }}
+                    onClick={() => updateFilters({ tag: undefined }, new Set())}
                     className="text-[length:var(--fs-xs)] px-2.5 py-1 rounded-full border border-[var(--lime)] text-[var(--lime)] hover:bg-[var(--lime)]/10 transition-colors"
                   >
                     {t("label.filterReset")}
@@ -447,42 +435,31 @@ const BoardPage: React.FC = () => {
         ) : listLoading ? (
           <LoadingSkeleton kind="list" count={5} />
         ) : listError ? (
-          <ErrorState title={t("error.loadFailed")} description={listError.message} onRetry={isMyInquiryView ? refreshMyInquiries : refresh} />
+          <ErrorState title={t("error.loadFailed")} description={t("error.retryHint")} onRetry={() => { retryBlocks(); if (isMyInquiryView) refreshMyInquiries(); else { updateFilters({}); refresh(); } }} />
         ) : listPosts.length === 0 || filteredOutAllPosts ? (
           <EmptyState
             icon="📝"
-            title={isMyInquiryView ? t("inquiry.emptyMine") : submittedQuery || filteredOutAllPosts ? t("label.noResults") : selectedBoard === "archive" ? t("label.noResultsArchive") : t("empty.noPosts")}
-            description={isMyInquiryView ? t("inquiry.emptyMineDesc") : submittedQuery || filteredOutAllPosts ? undefined : t("label.firstAuthor")}
-            actions={submittedQuery || selectedBoard === "archive" ? undefined : [{ label: selectedBoard === "inquiry" ? t("label.writingForm") : t("label.writingPost"), variant: "primary", onClick: () => navigate(selectedBoard === "inquiry" ? "/community/board/write?type=inquiry" : "/community/board/write") }]}
+            title={isMyInquiryView ? t("inquiry.emptyMine") : hasActiveFilters || filteredOutAllPosts ? t("label.noResults") : selectedBoard === "archive" ? t("label.noResultsArchive") : t("empty.noPosts")}
+            description={isMyInquiryView ? t("inquiry.emptyMineDesc") : hasActiveFilters || filteredOutAllPosts ? t("label.filterEmptyHint") : t("label.firstAuthor")}
+            actions={hasActiveFilters || filteredOutAllPosts ? [{ label: t("label.filterReset"), variant: "secondary", onClick: () => { setSearchQuery(''); updateFilters({ q: undefined, tag: undefined }, new Set()); } }] : selectedBoard === "archive" || selectedBoard === "devlog" ? undefined : [{ label: selectedBoard === "inquiry" ? t("label.writingForm") : t("label.writingPost"), variant: "primary", onClick: () => navigate(selectedBoard === "inquiry" ? "/community/board/write?type=inquiry" : "/community/board/write") }]}
           />
         ) : (
-          /* 모바일: 카드 간 gap 제거, 상하 구분선만 (전폭 섹션 스타일) */
+          /* 제목 링크와 태그·관리 동작의 클릭 영역을 분리한다. */
           <div data-testid="M2-2" className={isMobile ? "" : "space-y-3"}>
                 {submittedQuery && (
               <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)] mb-2">
-                {t("label.searchResultsCount", { count: effectiveListTotal })}
+                {t(clientOnlyExcludedCount > 0 ? "label.pageLocalResults" : "label.searchResultsCount", { count: effectiveListTotal })}
               </p>
             )}
             {displayedPosts.map((post) => (
               <Card data-testid="M2-2-1"
                 key={post.id}
-                onClick={() => {
-                  const main = document.querySelector('main');
-                  if (main) sessionStorage.setItem('board-scroll', String(main.scrollTop));
-                  navigate(`/community/board/${post.id}`);
-                }} padding="none" className="block p-4! md:p-6! hover:border-[var(--lime)]/50 transition-colors cursor-pointer"
-                style={isMobile ? {
-                  // 전폭 카드: Layout px-4(16px) 인셋 음수마진으로 상쇄, 좌우 border·radius 제거
-                  margin: "0 -16px",
-                  borderRadius: 0,
-                  borderLeft: "none",
-                  borderRight: "none",
-                  borderTop: "none",
-                } : { borderRadius: "var(--r-lg)" }}
+                padding="none" className="board-list-card block p-4! md:p-6! transition-colors"
+
               >
                 <div className="flex gap-3">
                 <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="board-list-meta flex items-center gap-2 mb-1">
                   <span className={`text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] font-bold uppercase ${
                     post.boardType === 'free' ? 'bg-blue-900/30 text-blue-400' :
                     post.boardType === 'hot' ? 'bg-red-900/30 text-red-400' :
@@ -495,11 +472,11 @@ const BoardPage: React.FC = () => {
                     {t(`label.boardTypes.${post.boardType}`)}
                   </span>
                   {post.feedbackType && (() => {
-                    const icon = t(`label.feedbackIcons.${post.feedbackType}`);
+
                     const label = t(`label.feedbackTypes.${post.feedbackType}`);
-                    return icon && label ? (
-                      <span className="text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--amber)]/10 text-[var(--amber)] font-medium">
-                        {icon} {label}
+                    return label ? (
+                      <span className="inline-flex items-center gap-1 text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--amber)]/10 text-[var(--amber)] font-medium">
+                        <BoardFeedbackIcon type={post.feedbackType} size={14} /> {label}
                       </span>
                     ) : null;
                   })()}
@@ -513,7 +490,7 @@ const BoardPage: React.FC = () => {
                       {t(`inquiry.status.${post.inquiryStatus}` as any)}
                     </span>
                   )}
-                  <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{new Date(post.createdAt).toLocaleDateString()}</span>
+                  <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{new Date(post.createdAt).toLocaleDateString(i18n.language)}</span>
                   <div className="ml-auto flex items-center gap-1">
                     {post.sourceSite && (
                       <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{post.sourceSite}</span>
@@ -522,7 +499,6 @@ const BoardPage: React.FC = () => {
                       <div className="relative -my-3 -mr-2">
                         <button
                           aria-label={t("button.more")}
-                          aria-haspopup="menu"
                           aria-expanded={cardMenuOpenId === post.id}
                           onClick={(e) => { e.stopPropagation(); setCardMenuOpenId(prev => prev === post.id ? null : post.id); }}
                           className="flex w-[44px] h-[44px] items-center justify-center rounded-[var(--r-md)] text-[var(--ink-3)] hover:text-[var(--ink-1)] hover:bg-[var(--bg-2)] transition-colors"
@@ -533,12 +509,10 @@ const BoardPage: React.FC = () => {
                         </button>
                         {cardMenuOpenId === post.id && (
                           <div
-                            role="menu"
                             onClick={(e) => e.stopPropagation()}
                             className="absolute right-1 top-[40px] z-10 min-w-[140px] rounded-[var(--r-lg)] border border-[var(--line-soft)] bg-[var(--bg-1)] p-1 shadow-lg"
                           >
                             <button
-                              role="menuitem"
                               onClick={(e) => { setCardMenuOpenId(null); handleDeletePost(e, post.id, post.userId); }}
                               disabled={deleting}
                               className="flex w-full min-h-[44px] items-center gap-2 rounded-[var(--r-md)] px-3 text-left text-[length:var(--fs-sm)] text-[var(--rose)] hover:bg-[var(--bg-2)] transition-colors disabled:opacity-50"
@@ -551,9 +525,17 @@ const BoardPage: React.FC = () => {
                     )}
                   </div>
                 </div>
-                {/* 제목 모바일 2줄·데스크톱 1줄, 요약 모바일 2줄·데스크톱 3줄 (#401 가이드) */}
-                <h3 className="font-semibold mb-1 text-[var(--ink-0)] line-clamp-2 md:line-clamp-1">{post.title}</h3>
-                <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)] line-clamp-2 md:line-clamp-3 mb-3">{post.content.replace(/[#*_~`>\-[\]()!|]/g, '').replace(/\n+/g, ' ').slice(0, 200)}</p>
+                {/* 모바일에서는 메타·제목·부가 정보에 본문 전체 너비를 제공한다. */}
+                <h2 className="board-list-title"><LocalizedLink to={`/community/board/${post.id}`} state={{ boardReturnTo: location.pathname + location.search }} onClick={() => {
+                  const main = document.querySelector('main');
+                  if (main) sessionStorage.setItem('board-scroll', String(main.scrollTop));
+                }}>{post.title}</LocalizedLink></h2>
+                <div className="board-list-summary">
+                  <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)] line-clamp-2 md:line-clamp-3">{post.content.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/[#*_~`>\-[\]()!|]/g, '').replace(/\n+/g, ' ').slice(0, 200)}</p>
+                  {isMobile && post.imageUrls && post.imageUrls.length > 0 && (
+                    <BoardImage src={post.imageUrls[0]} alt={t("label.thumbnail", { title: post.title })} referrerPolicy="no-referrer" className="board-list-thumbnail rounded-[var(--r-lg)] object-cover flex-shrink-0 border border-[var(--line-soft)]" loading="lazy" decoding="async" />
+                  )}
+                </div>
 
                 {post.tags && post.tags.length > 0 && (() => {
                   {/* 태그는 기본 2~3개만 노출, 나머지는 +N 축약 (#401) — 전체 태그는 상세에서 */}
@@ -568,10 +550,10 @@ const BoardPage: React.FC = () => {
                           selectable
                           variant={activeTag === tag ? 'accent' : 'default'}
                           aria-pressed={activeTag === tag}
-                          aria-disabled={isMyPosts}
+                          aria-disabled={isMyPosts || isMyInquiryView}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (isMyPosts) return;
+                            if (isMyPosts || isMyInquiryView) return;
                             setActiveTag(prev => prev === tag ? undefined : tag);
                           }}
                         >
@@ -585,7 +567,7 @@ const BoardPage: React.FC = () => {
                   );
                 })()}
 
-                <div className="flex items-center justify-between text-[length:var(--fs-xs)] text-[var(--ink-3)]">
+                <div className="board-list-footer text-[length:var(--fs-xs)] text-[var(--ink-3)]">
                   <div className="flex items-center gap-2">
                     {post.profileImage ? (
                       <SafeImage src={post.profileImage} alt={post.nickname} fallbackLabel={post.nickname} className="w-5 h-5 rounded-full object-cover" loading="lazy" decoding="async" />
@@ -594,18 +576,18 @@ const BoardPage: React.FC = () => {
                     )}
                     <span>{post.nickname}</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span>{t("label.viewCount")} {post.viewCount}</span>
-                    <span>{t("label.likeCount")} {post.likeCount}</span>
-                    <span>{t("label.commentCount")} {post.commentCount}</span>
+                  <div className="board-list-counts">
+                    <span>{t("label.viewCount")} {post.viewCount.toLocaleString(i18n.language)}</span>
+                    <span>{t("label.likeCount")} {post.likeCount.toLocaleString(i18n.language)}</span>
+                    <span>{t("label.commentCount")} {post.commentCount.toLocaleString(i18n.language)}</span>
                     {isMyInquiryView && post.resolvedAt && (
-                      <span>{t("inquiry.resolvedAt")} {new Date(post.resolvedAt).toLocaleDateString()}</span>
+                      <span>{t("inquiry.resolvedAt")} {new Date(post.resolvedAt).toLocaleDateString(i18n.language)}</span>
                     )}
                   </div>
                 </div>
               </div>{/* flex-1 min-w-0 */}
-                {post.imageUrls && post.imageUrls.length > 0 && (
-                  <SafeImage src={post.imageUrls[0]} alt={t("label.thumbnail", { title: post.title })} referrerPolicy="no-referrer" className="w-32 h-32 rounded-[var(--r-lg)] object-cover flex-shrink-0 border border-[var(--line-soft)]" loading="lazy" decoding="async" />
+                {!isMobile && post.imageUrls && post.imageUrls.length > 0 && (
+                  <BoardImage src={post.imageUrls[0]} alt={t("label.thumbnail", { title: post.title })} referrerPolicy="no-referrer" className="board-list-thumbnail rounded-[var(--r-lg)] object-cover flex-shrink-0 border border-[var(--line-soft)]" loading="lazy" decoding="async" />
                 )}
               </div>{/* flex gap-3 */}
             </Card>
@@ -615,8 +597,9 @@ const BoardPage: React.FC = () => {
 
         {/* Pagination */}
         {!isMyInquiryView && totalPages > 1 && (
-          <div className="flex items-center justify-center gap-1 pt-4">
+          <div className="board-list-pagination" aria-label={t("label.pagination")}>
             <button
+              aria-label={t("label.firstPage")}
               onClick={() => goToPage(1)}
               disabled={page === 1}
               className="min-w-[44px] min-h-[44px] px-2 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[var(--ink-2)] disabled:opacity-30 hover:bg-[var(--bg-2)] transition-colors"
@@ -624,6 +607,7 @@ const BoardPage: React.FC = () => {
               &laquo;
             </button>
             <button
+              aria-label={t("label.previousPage")}
               onClick={() => goToPage(page - 1)}
               disabled={page === 1}
               className="min-w-[44px] min-h-[44px] px-2 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[var(--ink-2)] disabled:opacity-30 hover:bg-[var(--bg-2)] transition-colors"
@@ -650,6 +634,7 @@ const BoardPage: React.FC = () => {
               ));
             })()}
             <button
+              aria-label={t("label.nextPage")}
               onClick={() => goToPage(page + 1)}
               disabled={page === totalPages}
               className="min-w-[44px] min-h-[44px] px-2 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[var(--ink-2)] disabled:opacity-30 hover:bg-[var(--bg-2)] transition-colors"
@@ -657,6 +642,7 @@ const BoardPage: React.FC = () => {
               &rsaquo;
             </button>
             <button
+              aria-label={t("label.lastPage")}
               onClick={() => goToPage(totalPages)}
               disabled={page === totalPages}
               className="min-w-[44px] min-h-[44px] px-2 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[var(--ink-2)] disabled:opacity-30 hover:bg-[var(--bg-2)] transition-colors"
