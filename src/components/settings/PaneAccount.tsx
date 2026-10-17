@@ -412,6 +412,14 @@ export function PaneAccount() {
             {t("pane.account.manageData")}
           </LocalizedLink>
         </InlineRow>
+        <InlineRow
+          label={t("pane.account.deleteLabel")}
+          hint={t("pane.account.deleteHint")}
+        >
+          <Button variant="danger" onClick={() => navigate("/account-deletion")}>
+            {t("pane.account.deleteBtnLabel")}
+          </Button>
+        </InlineRow>
       </SettingsCard>
     </>
   );

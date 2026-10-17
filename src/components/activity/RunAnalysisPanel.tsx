@@ -51,9 +51,10 @@ export default function RunAnalysisPanel({ metrics, summary, isOwner = false, su
     ? number(runningCadenceSpm(value, cadenceUnit) ?? value, cadenceUnit === "spm" || cadenceUnit === "strides_per_minute" ? "spm" : t("analysis.run.cadenceUnit")) : "—";
   const cadenceLabel = t(cadenceUnit === "spm" || cadenceUnit === "strides_per_minute" ? "stat.cadence" : "analysis.run.recordedCadence");
   const zones = hrZoneDistribution(metrics);
-  const splits = metrics.splits ?? [];
-  const gap = metrics.runMetrics?.gapAvgSec;
-  const fastestKm = metrics.runMetrics?.minPaceSecPerKm;
+  const splitTimerMismatch = metrics.runMetrics?.splitTimeStatus === "native_timer_mismatch";
+  const splits = splitTimerMismatch ? [] : metrics.splits ?? [];
+  const gap = splitTimerMismatch ? null : metrics.runMetrics?.gapAvgSec;
+  const fastestKm = splitTimerMismatch ? null : metrics.runMetrics?.minPaceSecPerKm;
   const context = { paceSecPerKm: avgPace, gapSecPerKm: gap, thresholdPaceSecPerKm: null };
   const recap: Array<{ text: string; metric?: MetricKey }> = [];
   if (avgPace != null) recap.push({ metric: "pace", text: t(distanceKm != null ? "analysis.run.recapDistancePace" : "analysis.run.recapPace", { distance: distanceKm != null ? formatDistance(distanceKm * 1000, units) : undefined, pace: pace(avgPace) }) });
@@ -70,7 +71,7 @@ export default function RunAnalysisPanel({ metrics, summary, isOwner = false, su
         <div className="space-y-2">{recap.slice(1).map((line, index) => line.metric ? <MetricExplainerTrigger key={index} metric={line.metric} context={context} sport="run"><Text as="p" variant="bodySmall" tone="secondary">{line.text}</Text></MetricExplainerTrigger> : <Text as="p" key={index} variant="bodySmall" tone="secondary">{line.text}</Text>)}</div>
       </details>}
     </Card>}
-    <RunSplitProfile splits={splits} distanceKm={distanceKm} suppressCadence={suppressCadence} cadenceLabel={cadenceLabel} formatCadence={cadence} onSelectSplit={onSelectSplit} onViewSplitLocation={onViewSplitLocation} canViewSplitLocation={canViewSplitLocation} />
+    <RunSplitProfile splits={splits} splitTimeStatus={metrics.runMetrics?.splitTimeStatus} distanceKm={distanceKm} suppressCadence={suppressCadence} cadenceLabel={cadenceLabel} formatCadence={cadence} onSelectSplit={onSelectSplit} onViewSplitLocation={onViewSplitLocation} canViewSplitLocation={canViewSplitLocation} />
     {isOwner && user && !user.isAnonymous && metrics.runMetrics?.paceZoneAnalysis && <Card padding="compact"><RunningPaceZonesPanel analysis={metrics.runMetrics.paceZoneAnalysis} /></Card>}
     <RunEffortsPanel metrics={metrics} isOwner={isOwner} ready={effortsReady} facts={effortFacts} onSelectEffort={onSelectEffort} />
     {(metrics.avgHr != null || metrics.maxHr != null) && <div>
@@ -96,7 +97,7 @@ export default function RunAnalysisPanel({ metrics, summary, isOwner = false, su
         <RunMetric label={t("runCards.gapPace")} value={pace(gap)} description={t("runCards.gapDesc")} explain={{ metric: "gap", context }} />
         <RunMetric label={t("analysis.metric.distance")} unit={units === "imperial" ? "mi" : "km"} value={distanceKm != null ? (units === "imperial" ? distanceKm / 1.609344 : distanceKm).toFixed(2) : "—"} />
         <RunMetric label={t("analysis.metric.fastestKm")} value={pace(fastestKm)} />
-        <RunMetric label={t("analysis.metric.paceConsistency")} value={metrics.runMetrics?.paceStdDevSec != null ? `${Math.round(metrics.runMetrics.paceStdDevSec * (units === "imperial" ? 1.609344 : 1))} s/${units === "imperial" ? "mi" : "km"}` : "—"} description={t("analysis.metric.paceConsistencyDesc")} />
+        <RunMetric label={t("analysis.metric.paceConsistency")} value={!splitTimerMismatch && metrics.runMetrics?.paceStdDevSec != null ? `${Math.round(metrics.runMetrics.paceStdDevSec * (units === "imperial" ? 1.609344 : 1))} s/${units === "imperial" ? "mi" : "km"}` : "—"} description={t("analysis.metric.paceConsistencyDesc")} />
         <RunMetric label={t("analysis.metric.elevGain")} value={metrics.elevationGainM != null ? formatElev(metrics.elevationGainM, units) : "—"} />
         {!suppressCadence && metrics.avgCadence != null && <RunMetric label={cadenceLabel} value={cadence(metrics.avgCadence)} description={cadenceUnit == null ? t("analysis.run.cadenceDesc") : undefined} explain={{ metric: "cadence", context: { thresholdPaceSecPerKm: null } }} />}
         {metrics.avgPower != null && !metrics.isVirtualPower && <RunMetric label={t("stat.runningPower")} value={number(metrics.avgPower, "W")} description={t("analysis.run.powerDesc")} />}
@@ -116,7 +117,7 @@ export default function RunAnalysisPanel({ metrics, summary, isOwner = false, su
             <th scope="row" className="px-3 py-2 text-right">{split.km}</th>
             <td className="px-3 py-2 text-right tabular-nums">{pace(split.paceSec)}</td>
             <td className="px-3 py-2 text-right tabular-nums" style={{ color: "var(--accent-dark)" }}>{pace(split.gapSec)}</td>
-            <td className="px-3 py-2 text-right">{Number.isFinite(split.elevGain) && Number.isFinite(split.elevLoss) ? `+${formatElev(split.elevGain, units)} / −${formatElev(split.elevLoss!, units)}` : "—"}</td>
+            <td className="px-3 py-2 text-right">{split.elevGain != null && split.elevLoss != null && Number.isFinite(split.elevGain) && Number.isFinite(split.elevLoss) ? `+${formatElev(split.elevGain, units)} / −${formatElev(split.elevLoss, units)}` : "—"}</td>
             <td className="px-3 py-2 text-right">{number(split.avgHr, "bpm")}</td>
             {!suppressCadence && <td className="px-3 py-2 text-right">{cadence(split.avgCadence)}</td>}
           </tr>)}</tbody>

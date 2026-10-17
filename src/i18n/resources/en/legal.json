@@ -328,7 +328,7 @@
   },
   "privacy": {
     "title": "Orider Privacy Policy",
-    "lastUpdated": "Last updated: October 7, 2026",
+    "lastUpdated": "Last updated: October 17, 2026",
     "intro": "Orider (\"Company\") complies with the Personal Information Protection Act and other applicable laws and establishes and discloses this Privacy Policy as follows to protect Users' personal information.",
     "stravaPrivacyLink": "Strava Privacy Policy",
     "sections": [
@@ -350,7 +350,8 @@
             "list": [
               "Strava unique ID",
               "Ride records (distance, speed, elevation, route, activity time, etc.)",
-              "Activity descriptions, segment records, and other data the User has made public on Strava"
+              "Activity descriptions, segment records, and other data the User has made public on Strava",
+              "OAuth access and refresh tokens and expiry information for the connection"
             ]
           },
           {
@@ -360,7 +361,10 @@
               "Device info (device type, OS version)",
               "Cookies (web) and local storage (app)",
               "Location info (GPS): ride and run routes, real-time location sharing",
-              "BLE sensor data: heart rate, cadence, power, gearing status, radar"
+              "BLE sensor data: heart rate, cadence, power, gearing status, radar",
+              "SDK usage data: screen views, app interactions, sessions and performance, crash reports and error diagnostics",
+              "App and installation identifiers, user identifiers associated with the signed-in account, and push notification tokens",
+              "Approximate location, such as country or city, derived from IP addresses. Google Analytics uses IP addresses to derive location but does not log or store the IP addresses themselves."
             ]
           },
           {
@@ -394,21 +398,21 @@
       {
         "title": "Article 3 (Retention and Use Period)",
         "list": [
-          "Personal data is deleted without delay upon withdrawal in principle.",
+          "Account deletion requests are processed by a server job in stages, with failed steps retried.",
           "However, data may be retained for a certain period if required by applicable laws.",
-          "Ride records are deleted immediately upon User request."
+          "Request deletion of your account and active service data on the account deletion page. Raw-archive verification requires at least 24 hours. That page describes separate provider processing and retention of error logs, recovery copies, existing backups and minimal technical status. Active-account deletion completion does not confirm erasure of every provider or backup copy."
         ]
       },
       {
         "title": "Article 4 (Provision to Third Parties)",
         "paragraphs": [
-          "The Company does not, in principle, provide Users' personal information to third parties, except in the following cases:"
+          "The Service processes data with the external providers described in this Policy. Processing on behalf of O-Rider differs from processing independently determined by an external provider for its own purposes. See the Mapbox section below for information sent with map requests and its processing scope."
         ],
         "list": [
           "When the User has consented in advance",
           "When required by law"
         ],
-        "footer": "Strava integration is performed with the User's explicit consent and does not separately provide personal information to Strava (integration is handled via OAuth authentication)."
+        "footer": "Strava integration uses your choice and OAuth authorization. Features you request, such as workout uploads, transmit the relevant workout data to Strava under its separate policies."
       },
       {
         "title": "Article 4-2 (Data Processing for Strava Integration)",
@@ -448,13 +452,13 @@
               "Users may disconnect Strava integration at any time from the Settings page.",
               "Strava authentication tokens are discarded immediately upon disconnection.",
               "Users may request deletion of all activity data imported from Strava from the Settings page.",
-              "Upon a deletion request, activity records, GPS stream data, and photos are all deleted."
+              "Strava data cleanup is separate from O-Rider account deletion. To delete your account, workouts and photos, use the account deletion page and check the server-confirmed completion status."
             ]
           },
           {
             "heading": "5. Credential security",
             "list": [
-              "Strava OAuth tokens are stored and managed only on the server side and are not exposed to clients (browser/app).",
+              "Strava OAuth tokens are processed on the server for integration features. The authenticated account’s app may also download, store and synchronize them on the device. Tokens are credentials and are not made public to other users.",
               "Token exchange is handled over HTTPS encrypted communication."
             ]
           }
@@ -503,16 +507,48 @@
           {
             "heading": "5. Processing principles",
             "list": [
-              "Health data is used only to provide service features — never for advertising or other purposes, and never shared with third parties.",
+              "Health data is used for service features and not for advertising. User-requested integrations and processing by the service providers described in Article 5 may apply.",
               "Data in transit and at rest is protected by HTTPS and access controls."
             ]
           }
         ]
       },
       {
-        "title": "Article 5 (Outsourced Processing)",
+        "title": "Article 5 (External Providers and Processing)",
         "paragraphs": [
-          "Currently, the Company does not outsource personal information processing to external companies. If outsourcing occurs in the future, related details will be disclosed in this Policy."
+          "We use Google LLC services, including Firebase and Google Cloud, for authentication, data storage, server operations and notifications, and Google Analytics and Firebase Crashlytics for usage, error and performance analysis. The information below is transmitted to and processed by Google.",
+          "Firebase customer data is processed on our behalf under the applicable processing terms. Google Analytics has separate terms, and service data Google processes for its own operations and security may follow separate policies. Not all Google processing has the same provider role."
+        ],
+        "groups": [
+          {
+            "heading": "1. Authentication, storage and service operations",
+            "list": [
+              "Firebase Authentication: account identifiers, email and profile, authentication and connection information — sign-in, account management and abuse prevention",
+              "Cloud Firestore, Realtime Database, Cloud Storage, Cloud Functions and Hosting: service data you store or transmit, including account, workout, route, sensor and photo data, and request information — synchronization, storage, analysis features and web/server operations",
+              "Firebase Cloud Messaging and App Check: app/installation identifiers, notification tokens and app/device attestation information — notification delivery and access protection"
+            ]
+          },
+          {
+            "heading": "2. Usage analysis and reliability",
+            "list": [
+              "Google Analytics: screen views, interactions, sessions, app/device/installation and account-associated identifiers, and IP-derived approximate location — usage analysis and feature improvement",
+              "Firebase Crashlytics: crash/error records, app/device information and installation identifiers — troubleshooting and reliability. SDKs may automatically collect and transmit some information while the app is used."
+            ]
+          }
+        ],
+        "policyLinks": [
+          {
+            "label": "Firebase data processing and retention",
+            "url": "https://firebase.google.com/support/privacy"
+          },
+          {
+            "label": "Google Analytics data collection",
+            "url": "https://support.google.com/analytics/answer/11593727?hl=en"
+          },
+          {
+            "label": "Google Privacy Policy",
+            "url": "https://policies.google.com/privacy?hl=en"
+          }
         ]
       },
       {
@@ -531,7 +567,7 @@
       {
         "title": "Article 7 (Cookies and Similar Technologies)",
         "paragraphs": [
-          "The Company may use cookies (web), local storage (app), or similar technologies to improve the Service. Users may refuse the use of cookies and local storage through browser settings (web) or app settings (mobile)."
+          "The Service uses cookies and device storage to maintain sign-in and preferences. Browser settings can restrict storage, which may affect some features. Blocking browser storage alone does not stop app SDK analytics or diagnostic collection. Contact the privacy officer listed in this Policy with requests about data processing or collection."
         ]
       },
       {
@@ -564,6 +600,48 @@
           "This Policy may be revised due to changes in laws or the Service, and changes will be announced."
         ]
       }
-    ]
+    ],
+    "mapbox": {
+      "title": "Data processing by Mapbox map services",
+      "body": "To display maps, O-Rider requests map tiles and styles from Mapbox over HTTPS. These requests may transmit your IP address, device and app request information, and the requested map area. When the map follows your current location, tile areas can reveal the neighborhood of your actual location. Panning elsewhere may request an area different from your current location. Mapbox normally retains IP addresses for 30 days to provide services, bill customers and maintain security, with longer retention possible for investigations. Mapbox independently determines some processing for its own purposes, which follows its own privacy policy.",
+      "link": "View Mapbox Privacy Policy"
+    }
+  },
+  "accountDeletion": {
+    "title": "Delete your O-Rider account and data",
+    "intro": "Request deletion of your O-Rider account here without reinstalling the app. This applies to the same account used on the phone app and Wear OS watch.",
+    "scopeTitle": "What deletion covers",
+    "scope": "This permanent request removes your active O-Rider sign-in account, profile, workouts and GPS routes, heart rate and sensor data, photos, analysis and coaching history, connection tokens and linked service data. Provider-held data and backup copies follow the separate retention and deletion information below. Export records you need first.",
+    "retention": "The server processes deletion in stages and retries failed steps. Service access may be restricted during processing. Residual raw-archive verification requires at least 24 hours and may take longer with retries. Minimal technical status (account identifier, processing phase and timestamps) is retained for completion checks, recovery and prevention of data reappearance. A request receipt is stored in this browser session so progress remains available after sign-in ends.",
+    "thirdParty": "Data already sent to services such as Strava must be deleted separately under their policies. Deleting O-Rider does not delete your account at those services.",
+    "steps": "1. Sign in to the O-Rider account you want to delete. 2. Read the scope and type DELETE. 3. Select the deletion request button. If recent sign-in is required, verify your identity and submit again.",
+    "requestTitle": "Request account deletion",
+    "checking": "Checking deletion status…",
+    "signInHelp": "If you originally registered with Google, use that same Google account. For Apple sign-in, guest accounts or sign-in problems, request deletion by email using the contact above. Do not create or link a different Google account. If sign-in is blocked in the in-app browser, open this address in Chrome or Safari.",
+    "signIn": "Sign in with Google",
+    "account": "Account to delete: {{account}}",
+    "confirm": "Type DELETE to request permanent deletion.",
+    "submit": "Request permanent account and data deletion",
+    "statusFailed": "Deletion status could not be verified. Completion has not been confirmed. Check the status again.",
+    "retryStatus": "Check status again",
+    "requestFailed": "The deletion request could not be confirmed. It has not been marked complete. Check status before submitting again.",
+    "reauthRequired": "A recent sign-in is required to verify your identity. Verify again, then select the deletion request button.",
+    "reauthenticate": "Verify identity again",
+    "signInFailed": "Sign-in or identity verification was not completed. Allow browser popups and try again with the correct account.",
+    "completionNote": "A request receipt, sign-out or closed page does not mean active-account cleanup is complete. Completion requires server confirmation of first-party cleanup; provider processing and backup retention remain separate.",
+    "state": {
+      "pending": "Deletion request received. Deletion is not complete yet.",
+      "processing": "Your account and data are being deleted. You can check progress on this page.",
+      "retrying": "Some deletion steps have not finished. The server is retrying; deletion is not complete.",
+      "complete": "Cleanup of your active O-Rider account and first-party service data is complete. Provider processing and the log and backup retention described above remain separate."
+    },
+    "privacyLink": "View Privacy Policy",
+    "support": "Apple sign-in, guest account or unable to sign in: email the privacy contact to request account deletion. Include the original sign-in method and account email, if available. Do not send passwords or authentication tokens. Identity verification is required, including for guest accounts; the contact will explain the necessary steps.",
+    "sessionUnavailable": "Browser storage is unavailable, so progress can be checked only while this tab remains open. The server continues processing your request. If status is unavailable after reloading or closing the tab, contact the email above.",
+    "providerRetention": "Google Analytics processing continues after Google accepts a deletion request. Firebase Crashlytics retains crash records and related identifiers for 90 days before starting removal from live and backup systems; this does not mean every copy is gone at day 90. Provider-retained Firebase Authentication copies follow a separate policy. Operational and security error logs have a 30-day expiry policy.",
+    "backupRetention": "Recovery copies of objects deleted from primary storage are retained for 7 days. Some existing activity backups currently have no automatic expiry and require separate cleanup and verification. Completion of active-account deletion does not mean every backup copy has been physically erased. Contact the privacy officer above about deletion of retained copies.",
+    "providerPolicy": "Firebase provider retention and deletion policy",
+    "providerProcessing": "Google Analytics has accepted the deletion request. Provider-side processing continues; physical erasure has not been confirmed.",
+    "ownerLoginRequired": "This sign-in session cannot request account deletion. Verify with the original account rather than a delegated, watch-link or guest session. For an existing Google account, verify again and submit. For Apple or guest accounts, use the email above to arrange identity verification."
   }
 }

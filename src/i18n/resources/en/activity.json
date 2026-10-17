@@ -1067,6 +1067,7 @@
       "powerDesc": "Recorded running power. Cycling FTP and normalized power do not apply.",
       "splitsUnits": "Splits cover 1 km each; pace uses your selected distance unit.",
       "splitsUnavailable": "Km splits are not available in the shared analysis yet. Available pace and heart-rate metrics are shown.",
+      "splitTimerMismatch": "Split pace is unavailable because the moving time measurements differ.",
       "paceHrDecoupling": "Pace/HR decoupling",
       "paceHrDecouplingDesc": "Change in speed-to-heart-rate efficiency between halves. Hills, heat and pace changes can affect it.",
       "hrLoad": "Heart-rate running load",

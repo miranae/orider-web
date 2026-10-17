@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { LocalizedLink } from "../components/LocalizedLink";
 import { Card } from "../theme/components";
 
 interface Group {
@@ -12,6 +13,7 @@ interface SectionData {
   list?: string[];
   groups?: Group[];
   footer?: string;
+  policyLinks?: { label: string; url: string }[];
   stravaLinkHeading?: string;
   stravaLinkSentencePrefix?: string;
   stravaLinkSentenceSuffix?: string;
@@ -30,6 +32,8 @@ export default function PrivacyPage() {
       </div>
 
       <p className="text-[length:var(--fs-sm)] text-[var(--ink-2)] leading-relaxed">{t("privacy.intro")}</p>
+
+      <p><LocalizedLink to="/account-deletion" className="text-[var(--lime)] underline">{t("accountDeletion.title")}</LocalizedLink></p>
 
       <Card padding="none" className="divide-y divide-[var(--line-soft)]">
         {sections.map((s, i) => (
@@ -55,6 +59,11 @@ export default function PrivacyPage() {
               </div>
             ))}
             {s.footer && <p className="mt-2">{s.footer}</p>}
+            {s.policyLinks?.map(link => (
+              <p key={link.url} className="mt-2">
+                <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-[var(--lime)] underline">{link.label}</a>
+              </p>
+            ))}
             {s.stravaLinkHeading && (
               <>
                 <p className="font-medium text-[var(--ink-1)] mt-3 mb-1">{s.stravaLinkHeading}</p>
@@ -69,6 +78,10 @@ export default function PrivacyPage() {
             )}
           </Section>
         ))}
+        <Section title={t("privacy.mapbox.title")}>
+          <p className="mb-2">{t("privacy.mapbox.body")}</p>
+          <a href="https://www.mapbox.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-[var(--lime)] underline">{t("privacy.mapbox.link")}</a>
+        </Section>
       </Card>
     </div>
   );

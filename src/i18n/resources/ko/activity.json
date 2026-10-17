@@ -1067,6 +1067,7 @@
       "powerDesc": "센서에서 기록한 러닝 파워입니다. 사이클 FTP·NP 기준으로 해석하지 않습니다.",
       "splitsUnits": "스플릿은 1km 기준이며 페이스 단위는 거리 설정을 따릅니다.",
       "splitsUnavailable": "공유된 km별 스플릿이 아직 없습니다. 페이스·심박 등 제공된 지표를 표시합니다.",
+      "splitTimerMismatch": "이동 시간 기준이 달라 구간 페이스를 확인할 수 없어요.",
       "paceHrDecoupling": "페이스·심박 디커플링",
       "paceHrDecouplingDesc": "전·후반 속도 대비 심박 효율의 변화입니다. 경사·더위·페이스 변화의 영향을 받습니다.",
       "hrLoad": "심박 기반 러닝 부하",
