@@ -1,6 +1,6 @@
 import GlossaryProvider from "../../../components/common/GlossaryProvider";
 import GlossaryText from "../../../components/common/GlossaryText";
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
@@ -15,7 +15,7 @@ const signed = (value: number) => `${value > 0 ? "+" : ""}${number(value)}`;
 
 /**
  * 섹션 제목에는 용어 강조를 하지 않는다 — 설명은 ⓘ 하나로 연결한다.
- * `collapsible` 이면 좁은 카드(휴대폰)에서 접힌 채 시작한다. 넓은 카드는 늘 펼친다.
+ * `collapsible` 이면 좁은 카드(휴대폰, 카드 폭 480px 미만)에서 접힌 채 시작한다. 그보다 넓으면 늘 펼친다.
  */
 function SummarySection({ title, children, info, className = "", collapsible = false }: { title: string; children: ReactNode; info?: string; className?: string; collapsible?: boolean }) {
   const { t } = useTranslation("activity");
@@ -24,7 +24,8 @@ function SummarySection({ title, children, info, className = "", collapsible = f
   const [narrow, setNarrow] = useState(false);
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    const element = ref.current;
+    // 접힘 여부는 카드 폭(휴대폰)으로 정한다 — 태블릿 두 열의 좁은 열에서는 펼친다.
+    const element = ref.current?.closest(".activity-overview-body") ?? ref.current;
     if (!collapsible || !element || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(([entry]) => setNarrow((entry?.contentRect.width ?? 0) > 0 && (entry?.contentRect.width ?? 0) < 480));
     observer.observe(element);
@@ -49,48 +50,6 @@ function CompactSection({ title, className = "", children }: { title: string; cl
   return <section className={`min-w-0 border-t border-[var(--line-soft)] pt-[var(--dim-section-gap)] ${className}`} aria-label={title}>
     <div className="activity-overview-compact"><Text as="h3" variant="bodySmall" weight={600} tone="secondary">{title}</Text>{children}</div>
   </section>;
-}
-
-type FloatKey = "changes" | "recovery" | "route";
-const FLOAT_ORDER: FloatKey[] = ["changes", "recovery", "route"];
-
-/**
- * 넓은 카드의 두 열 높이를 맞춘다. 커브·훈련 부하 자리는 고정하고, 나의 변화·회복·경로만
- * 실제 높이를 재서 두 열 차이가 가장 작은 배정을 고른다(조합 8개 이하). 높이는 열과 무관한
- * 같은 폭에서 재므로 배정이 바뀌어도 다시 흔들리지 않는다.
- */
-function useBalancedColumns(keys: FloatKey[], fallback: Record<FloatKey, "left" | "right">) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [placement, setPlacement] = useState(fallback);
-  const signature = keys.join(",");
-  useLayoutEffect(() => {
-    const grid = ref.current;
-    if (!grid || typeof ResizeObserver === "undefined") return;
-    const measure = () => {
-      if (grid.getBoundingClientRect().width < 960) return;
-      const height = (key: string) => (grid.querySelector(`[data-col-item="${key}"]`) as HTMLElement | null)?.offsetHeight ?? 0;
-      const fixedLeft = height("left-fixed"), fixedRight = height("right-fixed");
-      let best: Record<FloatKey, "left" | "right"> | null = null, bestDiff = Infinity;
-      for (let mask = 0; mask < 1 << keys.length; mask++) {
-        let left = fixedLeft, right = fixedRight;
-        const next = { ...fallback };
-        keys.forEach((key, index) => {
-          const side = mask & (1 << index) ? "right" : "left";
-          next[key] = side;
-          if (side === "left") left += height(key) + 24; else right += height(key) + 24;
-        });
-        const diff = Math.abs(left - right);
-        if (diff < bestDiff - 1) { bestDiff = diff; best = next; }
-      }
-      if (best) setPlacement((current) => keys.every((key) => current[key] === best![key]) ? current : best!);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(grid);
-    return () => observer.disconnect();
-    // fallback 은 signature 와 함께 바뀐다.
-  }, [signature]);
-  return [ref, placement] as const;
 }
 
 // 라벨이 라틴 약어(TSS·NP)뿐이면 eyebrow 자간을 유지하고, 한글이 섞이면 본문 라벨로 쓴다.
@@ -212,9 +171,6 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
         : note(copy("beforeMissing"))}
       {p.sportFitnessStatus && note(`${t("overviewSummary.sportOnly", { sport: label(`sports.${p.sportFitnessStatus.discipline}`) })} · CTL ${number(p.sportFitnessStatus.ctl)}${p.sportFitnessStatus.evidence !== "sufficient" ? ` · ${label("fitnessLimited")}` : ""}`)}
     </SummarySection>;
-  const [gridRef, placement] = useBalancedColumns(
-    FLOAT_ORDER.filter((key) => key === "changes" || (key === "recovery" ? !!showRecovery : !!showRoute)),
-    { changes: power.length ? "left" : "right", recovery: "right", route: "right" });
   const curveBlock = power.length ? <SummarySection title={copy("peaks")}
         info={(() => { const basis = powerComparisonBasis(power, recordsEvaluated, comparable.length > 0);
           const pick = recordsEvaluated && power.some((row) => row.recordAchievement) ? copy("labelPickRecords")
@@ -241,9 +197,6 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       </div>
       {p.routeLoad!.elevationSuspect && note(copy("elevationSuspect"))}
     </SummarySection> : null;
-  const floatBlocks: Record<FloatKey, ReactNode> = { changes: changesBlock, recovery: recoveryBlock, route: routeBlock };
-  const floatKeys = FLOAT_ORDER.filter((key) => floatBlocks[key] != null);
-  const floatItem = (key: FloatKey) => <div key={key} data-col-item={key} className={`activity-overview-area--${key}`}>{floatBlocks[key]}</div>;
   return <GlossaryProvider scopeKey="activity-overview-summary" triggerTone="inherit"><Stack gap="var(--dim-section-gap)" className="activity-overview-root">
     <Stack gap="var(--dim-item-gap)">
       {/* 성격이 곧 라벨이다 — 별도 은유 층을 두지 않는다. 서버가 확정한 값만 그린다(화면에서 재분류하지 않는다). */}
@@ -262,7 +215,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
     {zones.some((zone) => zone.provisional) && note(label("zoneProvisional"))}
     {zones.filter((zone) => zone.historyCompleteness && zone.historyCompleteness !== "complete").map((zone) => <Text key={zone.kind} as="p" variant="caption" tone="tertiary"><GlossaryText>{label(zone.kind)}</GlossaryText> · <GlossaryText>{label(`completeness.${zone.historyCompleteness}`)}</GlossaryText></Text>)}
     {powerVisible && p.session.ftpVerificationRequired && note(label("ftpVerificationRequired"))}
-    <div className="activity-overview-body"><div ref={gridRef} className="activity-overview-grid">
+    <div className="activity-overview-body"><div className="activity-overview-grid">
     <SummarySection title={copy("stimulus")} className="activity-overview-area--stimulus">
       {/* 그림 1 — 얼마나 세게(IF 게이지), 어디서 시간을 썼나(존 막대). 부하·NP·IF 는 상단 스탯 스트립에 없다. */}
       {(hasHero || highZone) && <div className={`activity-overview-split ${hasGauge ? "" : "activity-overview-split--lead"}`}>
@@ -291,15 +244,19 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
         ? <PercentMeter quiet label={<GlossaryText>{copy("reserve")}</GlossaryText>} value={effort.wPrimeDepletionPct} display={<MixedValue value={`${number(effort.wPrimeDepletionPct)}%`} />} tone="high" ends={[copy("reserveStart"), copy("reserveEnd")]} />
         : effort?.wPrimeRemainingPct != null && <PercentMeter quiet label={<GlossaryText>{copy("remaining")}</GlossaryText>} value={effort.wPrimeRemainingPct} display={<MixedValue value={`${number(effort.wPrimeRemainingPct)}%`} />} ends={[copy("remainingStart"), copy("remainingEnd")]} />}
     </div>}
-    {/* 넓은 카드의 두 열 — 커브는 왼쪽, 훈련 부하는 오른쪽에 고정(커브가 없으면 훈련 부하가 왼쪽).
-        나의 변화·회복·경로는 실제 높이를 재서 두 열이 고르게 차도록 나눈다. 좁은 카드는 order 로 한 줄. */}
+    {/* 넓은 카드의 두 열은 자리가 고정이다 — 활동이 달라도 같은 그림이 같은 곳에 온다.
+        왼쪽: 커브 → 회복과 연료 → 경로 / 오른쪽: 훈련 부하 → 나의 변화. 커브가 없으면 훈련 부하가 왼쪽 첫 자리.
+        열 높이 차이는 열 아래 여백으로 둔다. 좁은 카드는 order 로 한 줄. */}
     <div className="activity-overview-col activity-overview-col--left">
-      <div data-col-item="left-fixed" className={power.length ? "activity-overview-area--curve" : "activity-overview-area--shift"}>{power.length ? curveBlock : shiftBlock}</div>
-      {floatKeys.filter((key) => placement[key] === "left").map(floatItem)}
+      {power.length > 0
+        ? <div className="activity-overview-area--curve">{curveBlock}</div>
+        : <div className="activity-overview-area--shift">{shiftBlock}</div>}
+      {recoveryBlock && <div className="activity-overview-area--recovery">{recoveryBlock}</div>}
+      {routeBlock && <div className="activity-overview-area--route">{routeBlock}</div>}
     </div>
     <div className="activity-overview-col activity-overview-col--right">
-      {power.length > 0 && <div data-col-item="right-fixed" className="activity-overview-area--shift">{shiftBlock}</div>}
-      {floatKeys.filter((key) => placement[key] === "right").map(floatItem)}
+      {power.length > 0 && <div className="activity-overview-area--shift">{shiftBlock}</div>}
+      <div className="activity-overview-area--changes">{changesBlock}</div>
     </div>
     </div></div>
     {(modelNote || p.qualityNote || (p.session.discipline !== "bike" && p.recovery)) && <Stack gap="var(--dim-item-gap)" className="activity-overview-footnotes">

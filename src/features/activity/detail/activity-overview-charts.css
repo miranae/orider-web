@@ -48,7 +48,9 @@
   gap: var(--space-5) var(--space-7);
   align-items: start;
 }
-@container (min-width: 60rem) {
+/* 45rem(태블릿 820 폭 카드)부터 두 열. 각 열은 다시 크기 컨테이너라, 좁은 열 안의 전→후 줄은
+ * 휴대폰과 같은 압축 규칙을 쓴다. */
+@container (min-width: 45rem) {
   .activity-overview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas: "stimulus stimulus" "facts facts" "left right";
@@ -56,7 +58,7 @@
   }
   .activity-overview-area--stimulus { grid-area: stimulus; }
   .activity-overview-area--facts { grid-area: facts; }
-  .activity-overview-col { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; }
+  .activity-overview-col { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; container-type: inline-size; }
   .activity-overview-col--left { grid-area: left; }
   .activity-overview-col--right { grid-area: right; }
   /* 넓은 카드에서 보조 수치는 훈련 자극의 아랫단이다 — 구분선 없이 이어 붙인다. */
@@ -164,7 +166,7 @@
 .activity-overview-meter__fill--high { background: var(--zone-5); }
 /* 보조 수치 칸 안의 미터 — 얇고 옅게. 100% 소진이어도 존 막대보다 약한 신호다. */
 .activity-overview-meter--quiet .activity-overview-meter__track { height: var(--space-1); }
-.activity-overview-meter--quiet .activity-overview-meter__fill--high { background: color-mix(in oklch, var(--zone-5) 55%, var(--bg-1)); }
+.activity-overview-meter--quiet .activity-overview-meter__fill--high { background: var(--meter-depleted); }
 .activity-overview-meter__dot {
   position: absolute; left: clamp(var(--space-1-5), var(--at), calc(100% - var(--space-1-5))); top: 50%; z-index: 1;
   width: var(--space-3); height: var(--space-3); transform: translate(-50%, -50%);
@@ -222,6 +224,8 @@
 .activity-overview-shift__dot { position: absolute; left: var(--at); top: 50%; width: var(--space-3); height: var(--space-3); transform: translate(-50%, -50%); border-radius: 999px; }
 .activity-overview-shift__dot--before { border: var(--space-0-5) solid var(--ink-2); background: var(--bg-1); }
 .activity-overview-shift__dot--after { background: var(--accent); box-shadow: 0 0 0 var(--space-0-5) var(--bg-1); }
+/* 겹칠 만큼 가까우면 운동 전은 채운 점을 감싸는 바깥 링으로 — 사라지지 않는다. */
+.activity-overview-shift__dot--before.is-halo { width: calc(var(--space-3) + var(--space-2)); height: calc(var(--space-3) + var(--space-2)); background: transparent; }
 .activity-overview-shift__values { white-space: nowrap; text-align: right; }
 .activity-overview-shift__from, .activity-overview-shift__arrow, .activity-overview-shift__delta { color: var(--ink-2); }
 .activity-overview-shift__row--axis > * { align-self: start; }
@@ -242,7 +246,7 @@
 
 /* ── 휴대폰 밀도 ──
  * 구역 간격을 줄이고, 존 범례는 3열 한 줄(존 이름·시간은 분석 탭 몫)로,
- * 전→후는 한 줄(운동 전 값은 빈 원이 보여 준다 — 보조기기 이름에는 두 값이 다 있다)로 접는다. */
+ * 전→후는 두 줄(이름·값 / 전폭 막대)로 바꾼다. */
 @container (max-width: 30rem) {
   .activity-overview-grid { row-gap: var(--space-4); }
   .activity-overview-zones__legend { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--space-2); }
@@ -250,6 +254,11 @@
   .activity-overview-zones__time { display: none; }
   .activity-overview-zones__label { display: none; }
   .activity-overview-grid section { padding-top: var(--space-3); }
-  .activity-overview-shift__from { display: none; }
+  .activity-overview-shift__from { font-size: var(--fs-2xs); }
+  /* 좁으면 이름·값(운동 전 → 후)을 한 줄, 막대를 다음 줄 전폭으로 — 막대가 너무 짧아지지 않게. */
+  .activity-overview-shift__rows { grid-template-columns: minmax(0, 1fr) max-content; grid-auto-flow: row dense; row-gap: var(--space-1); }
+  .activity-overview-shift__track, .activity-overview-shift__axis { grid-column: 1 / -1; }
+  .activity-overview-shift__axis { margin-top: 0; }
+  .activity-overview-shift__row--axis > span { display: none; }
   .activity-overview-meter--quiet .activity-overview-meter__head { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
 }

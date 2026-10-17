@@ -64,8 +64,8 @@ export const GENERATED_DEFAULT_SCHEME = {
       "zone3": "oklch(0.65 0.16 130)",
       "zone4": "oklch(0.66 0.15 75)",
       "zone5": "oklch(0.58 0.17 20)",
-      "zone6": "oklch(0.44 0.17 0)",
-      "zone7": "oklch(0.52 0.16 300)"
+      "zone6": "oklch(0.50 0.20 340)",
+      "zone7": "oklch(0.42 0.20 285)"
     },
     "chartColors": {
       "speed": "oklch(0.62 0.17 130)",

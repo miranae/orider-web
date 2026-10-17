@@ -475,3 +475,22 @@ describe("overview v7 wording and tone", () => {
     expect(screen.getByRole("region", { name: "구간 최고 출력" })).toBeInTheDocument();
   });
 });
+
+describe("overview v8 fixed placement", () => {
+  const columns = (container: HTMLElement) => ["left", "right"].map((side) => Array.from(container.querySelectorAll(`.activity-overview-col--${side} > div`)).map((item) => item.className.replace("activity-overview-area--", "")));
+  it("keeps every section in the same column slot regardless of section heights", () => {
+    const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, routeLoad: { climbCount: 2, maxGradePct: 8 } }} />);
+    expect(columns(container)).toEqual([["curve", "recovery", "route"], ["shift", "changes"]]);
+  });
+  it("moves only the load picture into the curve slot when there is no power curve", () => {
+    const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, session: { ...rich.session, discipline: "run" }, routeLoad: undefined }} />);
+    expect(columns(container)).toEqual([["shift", "recovery"], ["changes"]]);
+  });
+  it("leaves room around the end points of the power curve", () => {
+    line.mockClear();
+    render(<ActivityOverviewSummaryContent presentation={rich} />);
+    const props = line.mock.lastCall![0] as { data: { datasets: Array<{ clip?: boolean }> }; options: { layout: { padding: { left: number; right: number } } } };
+    expect(props.data.datasets[0]!.clip).toBe(false);
+    expect(props.options.layout.padding.right).toBeGreaterThanOrEqual(10);
+  });
+});

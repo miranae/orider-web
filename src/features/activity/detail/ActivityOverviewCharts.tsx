@@ -325,7 +325,7 @@ export function FitnessShift({ prior, post, rowLabel, metricName, priorCaption, 
       {keys.map((key, index) => {
         const from = prior[key], to = post[key];
         const a = at(from), b = at(to);
-        // 두 점이 8px 안으로 겹치면 운동 후 점만 찍는다. 변화량은 세 줄 모두 값 옆에 쓴다.
+        // 두 점이 8px 안으로 겹치면 운동 전은 채운 점 바깥 링으로 남긴다. 변화량은 세 줄 모두 값 옆에 쓴다.
         const collapsed = width > 0 && Math.abs(a - b) / 100 * width < DOT_MIN_PX;
         // 서버가 변화량을 따로 주지 않는다. 서버 값 두 개(운동 전·후)의 표시용 차이일 뿐 정본 계산이 아니다.
         const delta = Math.round((to - from) * 10) / 10;
@@ -337,7 +337,7 @@ export function FitnessShift({ prior, post, rowLabel, metricName, priorCaption, 
             {key === "tsb" && <span className="activity-overview-shift__negative" aria-hidden="true" />}
             <span className="activity-overview-shift__zero" aria-hidden="true" />
             {!collapsed && <span className={`activity-overview-shift__span ${b < a ? "is-down" : ""}`} aria-hidden="true" style={cssVar({ "--from": `${Math.min(a, b)}%`, "--to": `${Math.max(a, b)}%` })} />}
-            {!collapsed && <span className="activity-overview-shift__dot activity-overview-shift__dot--before" aria-hidden="true" style={cssVar({ "--at": `${a}%` })} />}
+            <span className={`activity-overview-shift__dot activity-overview-shift__dot--before ${collapsed ? "is-halo" : ""}`} aria-hidden="true" style={cssVar({ "--at": `${collapsed ? b : a}%` })} />
             <span className="activity-overview-shift__dot activity-overview-shift__dot--after" aria-hidden="true" style={cssVar({ "--at": `${b}%` })} />
           </div>
           <Text variant="bodyMedium" mono tone="primary" className="activity-overview-shift__values">

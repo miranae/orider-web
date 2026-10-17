@@ -146,6 +146,8 @@ export default function DurationCurveChart({
         fill: false,
         // 창 사이 값은 측정하지 않았다 — 곡선 보간은 없는 값을 그린다.
         tension: 0,
+        // 양 끝 점(1초·가장 긴 창)이 플롯 테두리에서 반쪽 잘리지 않게 한다(여유는 layout.padding).
+        clip: false as const,
       },
       ...(comparison ? [{
         label: comparison.label,
@@ -203,7 +205,12 @@ export default function DurationCurveChart({
         if (!point) continue;
         const padX = 6, height = 20, width = ctx.measureText(text).width + padX * 2;
         const clampX = (x: number) => Math.min(Math.max(x, area.left + 2), area.right - width - 2);
+        // 끝 점이면 상자를 플롯 안쪽(끝의 반대편 아래)부터 시도한다 — 지시선이 테두리를 타지 않게.
+        const nearRight = point.x > area.right - width, nearLeft = point.x < area.left + width;
+        const inward = nearRight ? [[clampX(point.x - width - 14), point.y + 12], [clampX(point.x - width - 14), point.y - 12 - height]]
+          : nearLeft ? [[clampX(point.x + 14), point.y + 12], [clampX(point.x + 14), point.y - 12 - height]] : [];
         const candidates = [
+          ...inward,
           [clampX(point.x - width / 2), area.top + 2],
           [clampX(point.x - width - 10), area.top + 2],
           [clampX(point.x + 10), area.top + 2],
@@ -276,6 +283,8 @@ export default function DurationCurveChart({
     return {
       responsive: true,
       maintainAspectRatio: false,
+      // 끝 점과 강조 링(반경 7px)이 들어갈 여유.
+      layout: { padding: log ? { left: 10, right: 12, top: 10 } : 0 },
       interaction: { mode: "index", intersect: false },
       plugins: {
         legend: { display: false },
