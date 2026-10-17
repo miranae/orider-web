@@ -69,8 +69,9 @@ export const POWER_ZONE_LABELS = [
   { name: "템포", nameKey: "fitness:zone.tempo", color: "var(--zone-3)" },
   { name: "역치", nameKey: "fitness:zone.threshold", color: "var(--zone-4)" },
   { name: "VO2max", nameKey: "fitness:zone.vo2max", color: "var(--zone-5)" },
-  { name: "무산소", nameKey: "fitness:zone.anaerobic", color: "var(--zone-5)" },
-  { name: "신경근", nameKey: "fitness:zone.neurological", color: "var(--zone-5)" },
+  // Z6·Z7 은 Z5 와 같은 색을 쓰면 누적 막대에서 구분되지 않는다 — 전용 토큰(src/theme)을 쓴다.
+  { name: "무산소", nameKey: "fitness:zone.anaerobic", color: "var(--zone-6)" },
+  { name: "신경근", nameKey: "fitness:zone.neurological", color: "var(--zone-7)" },
 ];
 
 function distribution(seconds: readonly number[] | undefined, labels: typeof HR_ZONE_LABELS): ZoneDistribution[] | null {

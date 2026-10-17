@@ -61,8 +61,8 @@ export const GENERATED_DEFAULT_SCHEME = {
       "brandSwim": "oklch(0.62 0.17 130)",
       "zone1": "oklch(0.62 0.07 230)",
       "zone2": "oklch(0.62 0.12 170)",
-      "zone3": "oklch(0.65 0.16 130)",
-      "zone4": "oklch(0.66 0.15 75)",
+      "zone3": "oklch(0.76 0.16 135)",
+      "zone4": "oklch(0.66 0.15 70)",
       "zone5": "oklch(0.58 0.17 20)"
     },
     "chartColors": {
@@ -110,8 +110,8 @@ export const GENERATED_DEFAULT_SCHEME = {
       "brandSwim": "oklch(0.86 0.18 130)",
       "zone1": "oklch(0.72 0.05 230)",
       "zone2": "oklch(0.74 0.10 170)",
-      "zone3": "oklch(0.80 0.14 130)",
-      "zone4": "oklch(0.80 0.14 75)",
+      "zone3": "oklch(0.86 0.16 125)",
+      "zone4": "oklch(0.62 0.15 70)",
       "zone5": "oklch(0.72 0.16 20)"
     },
     "chartColors": {

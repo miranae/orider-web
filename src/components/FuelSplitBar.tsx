@@ -17,6 +17,8 @@ interface FuelSplitBarProps {
   footer?: ReactNode;
 }
 
+// 지방은 브랜드 accent 와 겹치지 않는 데이터 색(--chart-fat)을 쓴다 — accent 는 상호작용·강조 몫이다.
+const FAT_COLOR = "var(--chart-fat)";
 const pctText = (value: number) => `${Math.round(value * 10) / 10}%`;
 
 /**
@@ -30,7 +32,7 @@ export default function FuelSplitBar({ fat, carb, size = "large", footer }: Fuel
   const side = (item: FuelSplitSide, color: string, align: "start" | "end") => <div className={align === "end" ? "text-right" : undefined}>
     <span className={`inline-flex items-center gap-1.5 ${align === "end" ? "flex-row-reverse" : ""}`}>
       <span aria-hidden="true" className="fuel-split-bar__swatch" style={{ background: color }} />
-      <Text variant="eyebrow" size="xs">{item.label}</Text>
+      {compact ? <Text variant="bodySmall" tone="secondary">{item.label}</Text> : <Text variant="eyebrow" size="xs">{item.label}</Text>}
     </span>
     <div className={`flex items-baseline gap-1 leading-none ${align === "end" ? "justify-end" : ""}`}>
       <Text variant={compact ? "dataMedium" : "dataLarge"} style={compact ? undefined : { color }} tone={compact ? "primary" : undefined}>
@@ -41,12 +43,12 @@ export default function FuelSplitBar({ fat, carb, size = "large", footer }: Fuel
   </div>;
   return <div className="fuel-split-bar">
     <div className="flex items-end justify-between gap-3 mb-2">
-      {side(fat, "var(--lime)", "start")}
+      {side(fat, FAT_COLOR, "start")}
       {side(carb, "var(--amber)", "end")}
     </div>
     <div className={`fuel-split-bar__track ${compact ? "fuel-split-bar__track--compact" : ""}`} role="img"
       aria-label={`${typeof fat.label === "string" ? fat.label : ""} ${pctText(fat.pct)} · ${typeof carb.label === "string" ? carb.label : ""} ${pctText(carb.pct)}`}>
-      <span style={{ flexGrow: Math.max(0, fat.pct), background: "var(--lime)" }} />
+      <span style={{ flexGrow: Math.max(0, fat.pct), background: FAT_COLOR }} />
       <span style={{ flexGrow: Math.max(0, carb.pct), background: "var(--amber)" }} />
     </div>
     {footer}

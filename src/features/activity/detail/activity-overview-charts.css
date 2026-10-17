@@ -1,75 +1,108 @@
 /*
  * 오라이더 활동개요 — 그림 중심 레이아웃.
- * 색은 존 토큰(--zone-1…5)과 청록 accent 만 쓴다. Z6·Z7 은 Z5 를
- * 파워 색(보라) 쪽으로 밀어 "Z5 너머" 로 읽히게 구분한다(범례의 Z 번호·이름이 함께 구분한다 — 색만으로 가르지 않는다).
+ * 색은 src/theme 토큰만 쓴다: 존(--zone-1…7), 데이터(--chart-power·--chart-fat), accent.
+ * 색만으로 가르지 않는다 — 범례의 Z 번호·이름, 조각 안 라벨, 점선/실선, 빈 원/채운 원이 함께 구분한다.
  */
 .activity-overview-zone--1 { background: var(--zone-1); }
 .activity-overview-zone--2 { background: var(--zone-2); }
 .activity-overview-zone--3 { background: var(--zone-3); }
 .activity-overview-zone--4 { background: var(--zone-4); }
 .activity-overview-zone--5 { background: var(--zone-5); }
-.activity-overview-zone--6 { background: color-mix(in oklch, var(--zone-5) 62%, var(--chart-power)); }
-.activity-overview-zone--7 { background: color-mix(in oklch, var(--zone-5) 28%, var(--chart-power)); }
+.activity-overview-zone--6 { background: var(--zone-6); }
+.activity-overview-zone--7 { background: var(--zone-7); }
 
-/* ── 배치: 카드 폭으로 판단한다(사이드바 유무와 무관) ── */
+/* ── 한글 라벨은 자간·대문자 변환 없이(라틴 약어만 eyebrow 를 유지한다) ── */
+.activity-overview-root .ds-chip { letter-spacing: 0; }
+.activity-overview-root .ds-stat__label { color: var(--ink-2); }
+.activity-overview-root .ds-stat:not([data-latin]) .ds-stat__label {
+  font-family: inherit; font-size: var(--fs-sm); letter-spacing: 0; text-transform: none;
+}
+
+/* ── 배치 ──
+ * 넓은 카드: 훈련 자극(전폭) → 보조 수치(전폭) → 왼쪽 열[파워 커브·나의 변화] | 오른쪽 열[훈련 부하·회복·경로].
+ * 같은 그림은 활동이 달라도 같은 자리에 온다. 좁은 카드: 열을 풀고 order 로 한 줄 순서를 정한다 —
+ * 파워 커브가 보조 수치보다 먼저 와 첫 스크롤 안에 들어온다. */
 .activity-overview-body { container-type: inline-size; }
 .activity-overview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-6) var(--space-7);
+  gap: var(--space-6);
 }
+.activity-overview-col { display: contents; }
+.activity-overview-area--stimulus { order: 0; }
+.activity-overview-area--curve { order: 1; }
+.activity-overview-area--facts { order: 2; }
+.activity-overview-area--shift { order: 3; }
+.activity-overview-area--changes { order: 4; }
+.activity-overview-area--side { order: 5; }
 .activity-overview-split {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5) var(--space-7);
   align-items: start;
 }
-/* 두 그림을 나란히 두려면 각 칸이 30rem 은 돼야 축·라벨이 겹치지 않는다(태블릿은 한 줄씩). */
 @container (min-width: 60rem) {
-  .activity-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .activity-overview-grid > .activity-overview-span { grid-column: 1 / -1; }
+  .activity-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "stimulus stimulus" "facts facts" "left right";
+    column-gap: var(--space-7);
+  }
+  .activity-overview-area--stimulus { grid-area: stimulus; }
+  .activity-overview-area--facts { grid-area: facts; }
+  .activity-overview-col { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; }
+  .activity-overview-col--left { grid-area: left; }
+  .activity-overview-col--right { grid-area: right; }
+  /* 넓은 카드에서 보조 수치는 훈련 자극의 아랫단이다 — 구분선 없이 이어 붙인다. */
+  .activity-overview-area--facts { margin-top: calc(var(--space-2) * -1); border-top: 0; padding-top: 0; }
 }
 @container (min-width: 44rem) {
   .activity-overview-split { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
   /* 강도 게이지가 없으면(심박·러닝) 왼쪽은 숫자 하나뿐이다 — 존 막대에 폭을 준다. */
   .activity-overview-split--lead { grid-template-columns: minmax(9rem, auto) minmax(0, 1fr); }
 }
-
 .activity-overview-stack { display: grid; gap: var(--space-6); align-content: start; min-width: 0; }
 .activity-overview-stack:empty { display: none; }
+.activity-overview-area--facts { border-top: 1px solid var(--line-soft); padding-top: var(--dim-section-gap); }
 .activity-overview-section-head { display: flex; align-items: center; gap: var(--space-1-5); min-width: 0; }
+/* 비교 자료가 없는 "나의 변화" 는 제목과 사유를 한 줄로 접는다. */
+.activity-overview-compact { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); }
+.activity-overview-compact > * { margin: 0; }
+.activity-overview-footnotes { border-top: 1px solid var(--line-soft); padding-top: var(--space-3); }
 
 /* ── 핵심 수치 ── */
 .activity-overview-hero { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
-.activity-overview-hero .ds-stat__value { font-variant-numeric: proportional-nums; }
 .activity-overview-if { display: grid; gap: var(--space-2); }
 .activity-overview-if__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
 
-/* ── IF 게이지 ── */
+/* ── IF 게이지 ── 띠·눈금·마커가 한 좌표계(트랙 100%)를 쓴다. */
 .activity-overview-gauge { position: relative; padding-top: var(--space-5); }
-.activity-overview-gauge__track { position: relative; display: flex; gap: var(--space-0-5); height: var(--space-2); }
-.activity-overview-gauge__track > span:not(.activity-overview-gauge__marker):not(.activity-overview-gauge__ftp) { opacity: .42; }
-.activity-overview-gauge__track > span:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
-.activity-overview-gauge__track > span:nth-child(5) { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+.activity-overview-gauge__track { position: relative; height: var(--space-2); border-radius: var(--r-sm); background: var(--bg-3); }
+.activity-overview-gauge__band { position: absolute; top: 0; bottom: 0; left: var(--left); width: var(--width); }
+.activity-overview-gauge__band:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
+.activity-overview-gauge__band:nth-child(5) { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+.activity-overview-gauge__tick {
+  position: absolute; left: var(--at); top: 0; bottom: 0; width: var(--space-0-5);
+  transform: translateX(-50%); background: var(--bg-1);
+}
 .activity-overview-gauge__ftp {
   position: absolute; left: var(--at); top: calc(var(--space-1) * -1); bottom: calc(var(--space-1) * -1);
-  width: 1px; background: var(--ink-3);
+  width: 1px; background: var(--ink-1);
 }
 .activity-overview-gauge__marker {
   position: absolute; left: var(--at); top: 50%;
   width: var(--space-4); height: var(--space-4);
   transform: translate(-50%, -50%);
   border-radius: 999px; background: var(--ink-0);
-  box-shadow: 0 0 0 var(--space-0-5) var(--bg-1), 0 0 0 calc(var(--space-0-5) + 1px) var(--line);
+  box-shadow: 0 0 0 var(--space-0-5) var(--bg-1), 0 0 0 calc(var(--space-0-5) + 1px) var(--ink-2);
 }
 .activity-overview-gauge__scale { position: relative; height: var(--space-5); margin-top: var(--space-1-5); }
 .activity-overview-gauge__scale > span {
   position: absolute; left: var(--at); transform: translateX(-50%);
-  color: var(--ink-3); font-family: var(--font-mono); font-size: var(--fs-2xs); white-space: nowrap;
+  color: var(--ink-2); font-family: var(--font-mono); font-size: var(--fs-2xs); white-space: nowrap;
 }
 .activity-overview-gauge__ftp-label {
   position: absolute; left: var(--at); top: 0; transform: translateX(-50%);
-  color: var(--ink-2); font-family: var(--font-mono); font-size: var(--fs-2xs); line-height: 1;
+  color: var(--ink-1); font-family: var(--font-mono); font-size: var(--fs-2xs); line-height: 1;
 }
 
 /* ── 존 막대 ── */
@@ -77,9 +110,10 @@
 .activity-overview-zones__head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-2); }
 .activity-overview-zones__high { display: inline-flex; align-items: baseline; gap: var(--space-1-5); }
 .activity-overview-zones__strip { display: flex; gap: var(--space-0-5); height: var(--space-5); }
-.activity-overview-zones__strip--baseline { height: var(--space-1-5); opacity: .55; }
+.activity-overview-zones__strip--baseline { height: var(--space-1-5); }
 .activity-overview-zones__group { position: relative; display: flex; gap: var(--space-0-5); min-width: var(--space-0-5); }
-.activity-overview-zones__group > span { min-width: var(--space-0-5); }
+.activity-overview-zones__group > span { position: relative; display: flex; align-items: center; justify-content: center; min-width: var(--space-0-5); overflow: hidden; }
+.activity-overview-zones__seg-label { color: var(--on-zone); font-family: var(--font-mono); font-size: var(--fs-2xs); font-weight: 600; line-height: 1; }
 .activity-overview-zones__strip > .activity-overview-zones__group:first-child > span:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
 .activity-overview-zones__strip > .activity-overview-zones__group:last-child > span:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
 /* Z4+ 묶음 위의 괄호 — 헤더의 Z4+ 수치가 어디를 가리키는지 그린다. */
@@ -93,11 +127,11 @@
   gap: var(--space-1-5) var(--space-4); margin: var(--space-1) 0 0; padding: 0; list-style: none;
 }
 .activity-overview-zones__legend li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: var(--space-1-5); font-size: var(--fs-sm); color: var(--ink-2); }
-.activity-overview-zones__legend li.is-empty { opacity: .5; }
+.activity-overview-zones__legend li.is-empty { opacity: .6; }
 .activity-overview-zones__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-overview-zones__name b { color: var(--ink-1); font-weight: 600; }
 .activity-overview-zones__value { color: var(--ink-0); font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.activity-overview-zones__time { grid-column: 2 / -1; margin-top: calc(var(--space-1) * -1); color: var(--ink-3); font-family: var(--font-mono); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; }
+.activity-overview-zones__time { grid-column: 2 / -1; margin-top: calc(var(--space-1) * -1); color: var(--ink-2); font-family: var(--font-mono); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; }
 .activity-overview-swatch { width: var(--space-2); height: var(--space-2); border-radius: var(--r-sm); align-self: center; }
 
 /* ── 보조 수치 줄 ── */
@@ -106,8 +140,9 @@
 /* ── 0–100 미터 ── */
 .activity-overview-meter { display: grid; gap: var(--space-1-5); }
 .activity-overview-meter__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.activity-overview-meter__value { display: inline-flex; align-items: baseline; gap: var(--space-1-5); }
 .activity-overview-meter__track { position: relative; height: var(--space-1-5); border-radius: 999px; background: var(--bg-3); }
-.activity-overview-meter__track--mid::after { content: ""; position: absolute; left: 50%; top: calc(var(--space-1) * -1); bottom: calc(var(--space-1) * -1); width: 1px; background: var(--line); }
+.activity-overview-meter__track--mid::after { content: ""; position: absolute; left: 50%; top: calc(var(--space-1) * -1); bottom: calc(var(--space-1) * -1); width: 1px; background: var(--ink-2); }
 .activity-overview-meter__fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
 .activity-overview-meter__fill--accent { background: var(--accent); }
 .activity-overview-meter__fill--high { background: var(--zone-5); }
@@ -116,35 +151,60 @@
   width: var(--space-3); height: var(--space-3); transform: translate(-50%, -50%);
   border-radius: 999px; background: var(--accent); box-shadow: 0 0 0 var(--space-0-5) var(--bg-1);
 }
+/* 이력 끝(0·100)에 닿은 값 — 속을 비워 "더 갈 수 있었다" 를 그린다. */
+.activity-overview-meter__dot.is-edge { background: var(--bg-1); border: var(--space-0-5) solid var(--accent); }
+.activity-overview-meter__scale { position: relative; height: var(--space-3); }
+.activity-overview-meter__scale > span { position: absolute; left: 50%; transform: translateX(-50%); color: var(--ink-2); font-size: var(--fs-2xs); line-height: 1; }
 
 /* ── 파워 커브 ── */
 .activity-overview-curve { min-width: 0; }
 
-/* ── 통합 훈련 부하 전→후 ── */
+/* ── 훈련 부하 전→후 ──
+ * 세 줄의 막대가 같은 폭이어야 축을 공유한다 — 줄을 display:contents 로 풀어 한 격자에 올린다. */
 .activity-overview-shift { display: grid; gap: var(--space-3); }
 .activity-overview-shift__legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: 0; padding: 0; list-style: none; color: var(--ink-2); font-size: var(--fs-sm); }
 .activity-overview-shift__legend li { display: inline-flex; align-items: center; gap: var(--space-1-5); }
 .activity-overview-shift__key { width: var(--space-3); height: var(--space-3); border-radius: 999px; flex-shrink: 0; }
 .activity-overview-shift__key--before { border: var(--space-0-5) solid var(--ink-2); background: var(--bg-1); }
 .activity-overview-shift__key--after { background: var(--accent); }
-.activity-overview-shift__rows { position: relative; display: grid; gap: var(--space-3); }
-.activity-overview-shift__row { display: grid; grid-template-columns: minmax(5.5rem, auto) minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); }
+.activity-overview-shift__rows {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: center; gap: var(--space-3) var(--space-3);
+}
+.activity-overview-shift__row { display: contents; }
 .activity-overview-shift__label { white-space: nowrap; }
 .activity-overview-shift__track { position: relative; height: var(--space-5); }
 .activity-overview-shift__track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--grid-soft); }
-.activity-overview-shift__zero { position: absolute; left: var(--zero); top: 0; bottom: 0; width: 1px; background: var(--grid-axis); }
+.activity-overview-shift__negative {
+  position: absolute; left: 0; width: var(--zero); top: 0; bottom: 0;
+  background: color-mix(in oklch, var(--color-error) 9%, transparent); border-radius: var(--r-sm) 0 0 var(--r-sm);
+}
+.activity-overview-shift__zero { position: absolute; left: var(--zero); top: 0; bottom: 0; width: 1px; background: var(--ink-2); }
 .activity-overview-shift__span {
   position: absolute; left: var(--from); width: calc(var(--to) - var(--from)); top: 50%; height: var(--space-1);
   transform: translateY(-50%); border-radius: 999px;
   background: color-mix(in oklch, var(--accent) 45%, transparent);
 }
-.activity-overview-shift__span.is-down { background: color-mix(in oklch, var(--ink-2) 45%, transparent); }
+.activity-overview-shift__span.is-down { background: color-mix(in oklch, var(--ink-2) 50%, transparent); }
 .activity-overview-shift__dot { position: absolute; left: var(--at); top: 50%; width: var(--space-3); height: var(--space-3); transform: translate(-50%, -50%); border-radius: 999px; }
 .activity-overview-shift__dot--before { border: var(--space-0-5) solid var(--ink-2); background: var(--bg-1); }
 .activity-overview-shift__dot--after { background: var(--accent); box-shadow: 0 0 0 var(--space-0-5) var(--bg-1); }
 .activity-overview-shift__values { white-space: nowrap; text-align: right; }
-.activity-overview-shift__from { color: var(--ink-3); }
-.activity-overview-shift__arrow { color: var(--ink-3); }
+.activity-overview-shift__from, .activity-overview-shift__arrow, .activity-overview-shift__delta { color: var(--ink-2); }
+.activity-overview-shift__row--axis > * { align-self: start; }
+.activity-overview-shift__axis { position: relative; height: var(--space-3); margin-top: calc(var(--space-2) * -1); }
+.activity-overview-shift__axis > span {
+  position: absolute; left: var(--zero); transform: translateX(-50%);
+  color: var(--ink-2); font-family: var(--font-mono); font-size: var(--fs-2xs); line-height: 1;
+}
+/* 좁은 카드(휴대폰)에서는 이름·값을 한 줄, 막대를 다음 줄 전폭으로 — 막대 폭이 곧 읽기 정확도다. */
+@container (max-width: 30rem) {
+  .activity-overview-shift__rows { grid-template-columns: minmax(0, 1fr) max-content; grid-auto-flow: row dense; row-gap: var(--space-1); }
+  .activity-overview-shift__track, .activity-overview-shift__axis { grid-column: 1 / -1; }
+  .activity-overview-shift__row--axis > span { display: none; }
+  .activity-overview-shift__rows { row-gap: var(--space-2); }
+  .activity-overview-shift__axis { margin-top: 0; }
+}
 
 @media (prefers-reduced-motion: no-preference) {
   .activity-overview-zones__strip, .activity-overview-gauge__marker, .activity-overview-shift__dot--after, .activity-overview-meter__fill {
@@ -152,10 +212,4 @@
   }
   /* 끝 상태도 상자 밖(Z4+ 괄호·점 테두리)을 자르지 않도록 위아래·오른쪽을 넉넉히 연다. */
   @keyframes activity-overview-in { from { opacity: 0; clip-path: inset(-100% 100% -100% -100%); } to { opacity: 1; clip-path: inset(-100% -100% -100% -100%); } }
-}
-
-/* 좁은 카드(휴대폰)에서는 전→후 줄을 두 단으로 — 이름·값 위, 막대 아래. 막대 폭이 곧 읽기 정확도다. */
-@container (max-width: 30rem) {
-  .activity-overview-shift__row { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--space-1); }
-  .activity-overview-shift__track { grid-column: 1 / -1; grid-row: 2; }
 }

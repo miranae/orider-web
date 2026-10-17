@@ -59,12 +59,25 @@ export interface DurationCurveChartProps {
   heightClassName?: string;
   /** 범례를 그린다(비교 곡선이 있을 때 색만으로 구분하지 않도록). */
   showLegend?: boolean;
+  /**
+   * `all` 은 측정한 창마다 x 라벨을 단다(좁은 차트에서는 짝수 번째와 마지막만).
+   * 창이 몇 개 안 되는 요약 곡선용 — 어느 점이 몇 초인지 축에서 바로 읽힌다.
+   */
+  xTicks?: "auto" | "all";
+  /** 단위를 눈금마다 붙이지 않고 y 축 제목에 한 번만 쓴다. */
+  unitAxisTitle?: boolean;
+  /** 기준선을 실선 hairline 으로(비교 곡선의 점선과 겹치지 않게). */
+  referenceSolid?: boolean;
+  /** 캔버스 그룹의 역할 설명(예: "차트")과 보조 설명 요소 id. */
+  roleDescription?: string;
+  describedBy?: string;
 }
 
 export default function DurationCurveChart({
   points, unit, fractionDigits = 0, color, datasetLabel,
   reference = null, peakLabel, emptyTitle, emptyDescription,
   comparison = null, tooltipFooter, annotations, ariaLabel, heightClassName = "h-[200px]", showLegend = false,
+  xTicks = "auto", unitAxisTitle = false, referenceSolid = false, roleDescription, describedBy,
 }: DurationCurveChartProps) {
   const { t } = useTranslation("dashboard");
   const { variant } = useOriderTheme();
@@ -93,7 +106,8 @@ export default function DurationCurveChart({
         pointRadius: 4,
         pointBackgroundColor: seriesColor,
         fill: false,
-        tension: 0.3,
+        // 창 사이 값은 측정하지 않았다 — 곡선 보간은 없는 값을 그린다.
+        tension: 0,
       },
       ...(comparison ? [{
         label: comparison.label,
@@ -105,21 +119,21 @@ export default function DurationCurveChart({
         pointRadius: 2,
         pointBackgroundColor: comparisonColor,
         fill: false,
-        tension: 0.3,
+        tension: 0,
         spanGaps: true,
       }] : []),
       ...(reference ? [{
         label: reference.label,
         data: points.map(() => reference.value),
         borderColor: referenceColor,
-        borderWidth: 1.5,
-        borderDash: [6, 3],
+        borderWidth: referenceSolid ? 1 : 1.5,
+        borderDash: referenceSolid ? [] : [6, 3],
         pointRadius: 0,
         fill: false,
       }] : []),
     ],
     // formatDuration 은 t 에만 의존한다.
-  }), [points, reference, comparison, seriesColor, referenceColor, comparisonColor, datasetLabel, t]);
+  }), [points, reference, comparison, seriesColor, referenceColor, comparisonColor, datasetLabel, referenceSolid, t]);
 
   // 선택적 직접 라벨 — 기록 갱신 같은 점 몇 개에만 붙인다. 플러그인 등록 없이 이 차트에만 건다.
   const annotationPlugin = useMemo<Plugin<"line">>(() => ({
@@ -197,18 +211,36 @@ export default function DurationCurveChart({
       scales: {
         x: {
           display: true,
-          ticks: { color: textColor, font: { size: 12 }, autoSkip: true, maxTicksLimit: 6 },
+          ticks: xTicks === "all" ? {
+            color: textColor, font: { size: 12 }, autoSkip: false, maxRotation: 0,
+            // 좁으면 짝수 번째 창과 마지막 창만 — 끝점(가장 긴 창)은 항상 읽혀야 한다.
+            callback(this: { chart: { width: number }; getLabelForValue: (value: number) => string }, value: string | number, index: number, ticks: unknown[]) {
+              const last = ticks.length - 1;
+              // 끝점 바로 앞 짝수 지점은 끝 라벨과 겹치므로 비운다.
+              const show = this.chart.width >= 480 || index === last || (index % 2 === 0 && index !== last - 1);
+              return show ? this.getLabelForValue(Number(value)) : "";
+            },
+          } : { color: textColor, font: { size: 12 }, autoSkip: true, maxTicksLimit: 6 },
           grid: { color: gridColor },
         },
         y: {
           display: true,
           beginAtZero: true,
-          ticks: { color: textColor, font: { size: 12 }, callback: (v) => `${v}${unit}` },
+          title: unitAxisTitle ? { display: true, text: unit, color: textColor, font: { size: 12 } } : { display: false },
+          ticks: { color: textColor, font: { size: 12 }, maxTicksLimit: 5, callback: (v) => unitAxisTitle ? `${v}` : `${v}${unit}` },
           grid: { color: gridColor },
         },
       },
     };
-  }, [variant, unit, fractionDigits, tooltipFooter]);
+  }, [variant, unit, fractionDigits, tooltipFooter, xTicks, unitAxisTitle]);
+
+  // 키보드로 옮긴 점을 보조기기에 읽어 준다 — 툴팁은 캔버스 그림이라 들리지 않는다.
+  const liveText = activeIndex == null || !points[activeIndex] ? "" : [
+    formatDuration(points[activeIndex]!.durationSeconds),
+    `${datasetLabel} ${formatNum(points[activeIndex]!.value, fractionDigits)}${unit}`,
+    ...(comparison && comparison.values[activeIndex] != null ? [`${comparison.label} ${formatNum(comparison.values[activeIndex]!, fractionDigits)}${unit}`] : []),
+    ...(tooltipFooter ? tooltipFooter(activeIndex) : []),
+  ].join(", ");
 
   if (points.length === 0) {
     return <ChartEmptyState title={emptyTitle} description={emptyDescription} minHeight={200} />;
@@ -220,9 +252,10 @@ export default function DurationCurveChart({
         {showLegend && <ul className="mr-auto flex flex-wrap items-center gap-3">
           <li className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="w-4 border-t-2" style={{ borderColor: seriesColor }} />{datasetLabel}</li>
           {comparison && <li className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="w-4 border-t-2 border-dashed" style={{ borderColor: comparisonColor }} />{comparison.label}</li>}
+          {reference && <li className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`w-4 ${referenceSolid ? "border-t" : "border-t-2 border-dashed"}`} style={{ borderColor: referenceColor }} />{reference.label}</li>}
         </ul>}
         {peakLabel && <span>{peakLabel}</span>}
-        {reference && (
+        {reference && !showLegend && (
           <span className="inline-flex items-center gap-1.5" style={{ color: "var(--ink-2)" }}>
             <span aria-hidden="true" className="w-4 border-t-2 border-dashed" style={{ borderColor: "var(--ink-2)" }} />
             {reference.label}
@@ -231,9 +264,11 @@ export default function DurationCurveChart({
       </div>
       <div className={heightClassName}>
         <Line ref={chartRef} data={data} options={options} plugins={[annotationPlugin]}
-          role="img" aria-label={ariaLabel ?? datasetLabel} tabIndex={0}
+          role="group" aria-roledescription={roleDescription} aria-describedby={describedBy}
+          aria-label={ariaLabel ?? datasetLabel} tabIndex={0}
           onKeyDown={onKeyDown} onBlur={() => focusPoint(null)} className="rounded-[var(--r-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]" />
       </div>
+      <div className="sr-only" aria-live="polite">{liveText}</div>
     </div>
   );
 }

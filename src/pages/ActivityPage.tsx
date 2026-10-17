@@ -1176,7 +1176,7 @@ export default function ActivityPage() {
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
       <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={runGapSecPerKm} />
 
-      <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />
+      <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} />
 
       {/* 고도 & 성능 — 개요 카드 바로 아래. 스트림은 활동 하나에 함수 호출 1회와 0.1~0.8MB 를 쓰므로
       (2026-10-18 실측) 소유자 화면은 버튼을 누를 때만 받는다. 서버 요약만으로 개요가 완결된다. */}

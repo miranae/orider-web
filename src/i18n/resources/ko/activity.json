@@ -239,7 +239,16 @@
     "shiftAria": "{{metric}} {{from}} → {{to}}",
     "fitnessTitle": "통합 훈련 부하",
     "beforeLegend": "운동 전",
-    "aboutSection": "{{title}} 설명"
+    "aboutSection": "{{title}} 설명",
+    "fitnessChange": "훈련 부하 변화",
+    "recoveryOnly": "회복",
+    "elevationSuspect": "고도 데이터 품질 주의 · 오르막 수는 참고값",
+    "vsAllTimeBest": "역대 최고 대비",
+    "chartRole": "차트",
+    "usual": "평소",
+    "indexTop": "이력 최상단",
+    "indexBottom": "이력 최하단",
+    "stimulusDetail": "훈련 자극 세부"
   },
   "overviewEvidence": {
     "integratedFitness": "통합 훈련 부하 · 운동 전",

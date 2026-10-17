@@ -55,3 +55,24 @@ describe("DurationCurveChart comparison", () => {
     expect(screen.getByText("역대 최고")).toBeInTheDocument();
   });
 });
+
+describe("DurationCurveChart summary axis", () => {
+  it("connects measured windows with straight lines and labels every window, thinning to even points plus the end when narrow", () => {
+    line.mockClear();
+    const points = [1, 5, 10, 30, 60, 120, 300, 600, 1200, 1800].map((durationSeconds, index) => ({ durationSeconds, value: 900 - index * 80 }));
+    renderWithProviders(<DurationCurveChart points={points} unit="W" color="var(--chart-power)" datasetLabel="이번 활동"
+      emptyTitle="-" emptyDescription="-" xTicks="all" unitAxisTitle reference={{ value: 182, label: "FTP 182 W" }} referenceSolid roleDescription="차트" />);
+    const props = line.mock.lastCall![0];
+    expect(props.data.datasets[0].tension).toBe(0);
+    expect(props.data.datasets[1].borderDash).toEqual([]);
+    expect(props.options.scales.y.title).toMatchObject({ display: true, text: "W" });
+    expect(props.options.scales.y.ticks.maxTicksLimit).toBe(5);
+    expect(props.options.scales.y.ticks.callback(500)).toBe("500");
+    const ticks = points.map(() => ({}));
+    const label = (width: number) => (index: number) => props.options.scales.x.ticks.callback.call({ chart: { width }, getLabelForValue: (value: number) => `L${value}` }, index, index, ticks);
+    expect(points.map((_, index) => label(800)(index)).filter(Boolean)).toHaveLength(10);
+    expect(points.map((_, index) => label(340)(index))).toEqual(["L0", "", "L2", "", "L4", "", "L6", "", "", "L9"]);
+    expect(props.role).toBe("group");
+    expect(props["aria-roledescription"]).toBe("차트");
+  });
+});

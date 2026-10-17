@@ -239,7 +239,16 @@
     "shiftAria": "{{metric}} from {{from}} to {{to}}",
     "fitnessTitle": "Combined training load",
     "beforeLegend": "Before",
-    "aboutSection": "About {{title}}"
+    "aboutSection": "About {{title}}",
+    "fitnessChange": "Training load change",
+    "recoveryOnly": "Recovery",
+    "elevationSuspect": "Elevation data quality warning · climb count is approximate",
+    "vsAllTimeBest": "vs all-time best",
+    "chartRole": "chart",
+    "usual": "usual",
+    "indexTop": "top of history",
+    "indexBottom": "bottom of history",
+    "stimulusDetail": "Training stimulus details"
   },
   "overviewEvidence": {
     "integratedFitness": "Combined training load · before session",

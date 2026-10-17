@@ -295,7 +295,8 @@ it("preserves observed effects, historical zone uncertainty and previous-best pe
  expect(screen.getByText(renderedText("관찰된 스프린트"))).toBeInTheDocument();
  expect(screen.getByText(renderedText("존 비교 잠정 · FTP 확인이 필요한 과거 기록 포함"))).toBeInTheDocument();
  expect(screen.getByText(renderedText(/일부 비교 기록 기준/))).toBeInTheDocument();
- expect(screen.getByText(renderedText("110%"))).toBeInTheDocument();
+ // 역대 최고가 없으면 비교선 없이 활동 전 최고 대비 % 만 남는다(툴팁·보조 목록이 같은 기준).
+ expect(screen.getByText(renderedText(/활동 전 최고 대비 110%/))).toBeInTheDocument();
  // 비교 기준 설명은 그림 옆 ⓘ 로 접혀 있다.
  expect(screen.queryByText(renderedText(/활동 전 최고 대비는 이번 활동 이전/))).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole("button", { name: "구간 최고 출력 설명" }));
@@ -337,7 +338,8 @@ describe("activity overview reads as pictures", () => {
     expect(curve.data.datasets.map((dataset) => dataset.label)).toEqual(["이번 활동", "역대 최고"]);
     expect(curve.data.datasets[0]!.data).toEqual([845, 177]);
     expect(curve.data.datasets[1]!.data).toEqual([845, 298]);
-    expect(screen.getByText(renderedText("1초 845 W · 역대 최고 845 W · 활동 전 최고 대비 102.3% · 전체 기간 PR"))).toBeInTheDocument();
+    // 선이 역대 최고면 툴팁·보조 목록의 % 도 역대 최고 대비다 — 한 기준.
+    expect(screen.getByText(renderedText("1초 845 W · 역대 최고 845 W · 역대 최고 대비 100% · 전체 기간 PR"))).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "체력 · CTL 37.4 → 52.8" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "폼 · TSB -4.6 → -12.3" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /지방 18% · 탄수화물 82%/ })).toBeInTheDocument();
@@ -356,7 +358,70 @@ describe("activity overview reads as pictures", () => {
     expect(screen.queryByRole("img", { name: /강도 게이지/ })).not.toBeInTheDocument();
     expect(line).not.toHaveBeenCalled();
     expect(screen.queryByRole("region", { name: "구간 최고 출력" })).not.toBeInTheDocument();
-    // 전후가 없으면 운동 전 점만 그린다.
-    expect(screen.getByRole("img", { name: "체력 · CTL 37.4" })).toBeInTheDocument();
+    // 운동 후가 없으면 점 그림 대신 운동 전 숫자 셋 — 제목도 "시작 전 상태".
+    expect(screen.getByRole("region", { name: "시작 전 상태" })).toBeInTheDocument();
+    for (const value of ["37.4", "42.0", "-4.6"]) expect(screen.getByText(renderedText(value))).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /체력 · CTL/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("overview picture geometry and data guards", () => {
+  it("lays the IF bands on the same 0–100% axis as the ticks, FTP line and marker", async () => {
+    const { IF_TICKS, ifBandLayout, ifPos } = await import("./ActivityOverviewCharts");
+    const bands = ifBandLayout();
+    expect(bands[0]!.left).toBe(0);
+    IF_TICKS.forEach((tick, index) => {
+      expect(bands[index]!.left + bands[index]!.width).toBeCloseTo(ifPos(tick), 10);
+      expect(bands[index + 1]!.left).toBeCloseTo(ifPos(tick), 10);
+    });
+    const last = bands[bands.length - 1]!;
+    expect(last.left + last.width).toBeCloseTo(100, 10);
+    // FTP(1.00)는 0.90–1.05 띠 안에 있다 — 예전 flex 배치에서는 빨강 띠에 놓였다.
+    const ftp = ifPos(1);
+    expect(ftp).toBeGreaterThan(bands[3]!.left);
+    expect(ftp).toBeLessThan(bands[3]!.left + bands[3]!.width);
+  });
+
+  it("drops a non-monotonic all-time-best line but keeps the previous-best percentage", async () => {
+    const { isNonIncreasing, powerComparisonBasis } = await import("./ActivityOverviewCharts");
+    expect(isNonIncreasing([945, 900, null, 500])).toBe(true);
+    expect(isNonIncreasing([845, 945, 760])).toBe(false);
+    const rows = [
+      { duration: "1s", watts: 845, allTimeBestWatts: 845, allTimeBestPct: 100, previousBestPct: 102.3 },
+      { duration: "5s", watts: 650, allTimeBestWatts: 945, allTimeBestPct: 68.8, previousBestPct: 68.8 },
+    ];
+    expect(powerComparisonBasis(rows, true, false)).toBe("previousBest");
+    line.mockClear();
+    render(<ActivityOverviewSummaryContent presentation={{ ...rich, powerFingerprint: rows }} />);
+    const curve = line.mock.lastCall![0] as { data: { datasets: Array<{ label: string }> } };
+    expect(curve.data.datasets.map((dataset) => dataset.label)).toEqual(["이번 활동"]);
+    expect(screen.getByText(renderedText(/5초 650 W · 활동 전 최고 대비 68.8%/))).toBeInTheDocument();
+    expect(screen.queryByText(renderedText(/역대 최고 945/))).not.toBeInTheDocument();
+  });
+
+  it("draws the FTP reference only from the server FTP and folds an empty comparison into one line", () => {
+    line.mockClear();
+    render(<ActivityOverviewSummaryContent presentation={{ ...rich, personal: [], comparisonMetadata: undefined }} ftpW={182} />);
+    const curve = line.mock.lastCall![0] as { data: { datasets: Array<{ label: string; data: number[] }> } };
+    expect(curve.data.datasets.at(-1)).toMatchObject({ label: "FTP 182 W", data: [182, 182] });
+    const changes = screen.getByRole("region", { name: "나의 변화" });
+    expect(changes.querySelector("h3")).toHaveTextContent("나의 변화");
+    expect(changes).toHaveTextContent(/나의 변화.+/);
+  });
+
+  it("names what the quality warning is about and drops model notes without model values", () => {
+    render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "bike", load: 112, loadKind: "load" },
+      routeLoad: { climbCount: 1, elevationSuspect: true }, recovery: { hours: 26, load: 112 },
+      availability: { personal: "insufficient_history", records: "evaluated", power: "unavailable", heartRate: "available" } }} />);
+    expect(screen.getByText(renderedText("고도 데이터 품질 주의 · 오르막 수는 참고값"))).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "회복" })).toBeInTheDocument();
+    // 회복시간은 모델 값이므로 각주가 남는다. W′·연료가 없어도 회복이 있으면 그것을 말한다.
+    expect(screen.getByText(renderedText(/계측값을 바탕으로 한 모델/))).toBeInTheDocument();
+  });
+
+  it("omits the model footnote when no modeled value is on screen", () => {
+    render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "bike" },
+      availability: { personal: "unavailable", records: "unavailable", power: "unavailable", heartRate: "unavailable" } }} />);
+    expect(screen.queryByText(renderedText(/계측값을 바탕으로 한 모델/))).not.toBeInTheDocument();
   });
 });
