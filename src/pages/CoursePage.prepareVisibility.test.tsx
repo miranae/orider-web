@@ -67,8 +67,13 @@ describe("course preparation climb predictions", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(dialog).toBeInTheDocument();
     act(() => { finish({ data: {} }); });
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(opener).toHaveFocus();
+    // DOM removal can precede the modal's passive focus/scroll cleanup.
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(opener).toHaveFocus();
+      expect(document.body.style.position).not.toBe("fixed");
+      expect(document.body.style.overflow).not.toBe("hidden");
+    });
   });
   it("associates owner edit labels with the existing form controls", async () => {
     setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), creatorId: "owner" });
