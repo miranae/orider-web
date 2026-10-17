@@ -360,7 +360,7 @@ function ProfileCard({
             >
               {t("equipment.bikeDataPages")}
             </Button>}
-            {!deviceControls && <LocalizedLink className="inline-flex items-center text-[length:var(--fs-base)] font-medium" to={`/settings/device?profileId=${encodeURIComponent(profile.id)}`}>{t("nav.deviceLabel")}</LocalizedLink>}
+            {!deviceControls && <LocalizedLink className="inline-flex items-center" to={`/settings/device?profileId=${encodeURIComponent(profile.id)}`}><Text variant="label">{t("nav.deviceLabel")}</Text></LocalizedLink>}
             {!deviceControls && <Button variant="ghost"
               onClick={() => {
                 setEditing(true);
@@ -592,7 +592,7 @@ export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
 
   return (
     <>
-      {part === "gear" && <div data-testid="P4-0"><LocalizedLink data-testid="P4-0-1" className="inline-flex items-center text-[length:var(--fs-base)] font-medium" to="/settings/device">{t("nav.deviceLabel")} →</LocalizedLink></div>}
+      {part === "gear" && <div data-testid="P4-0"><LocalizedLink data-testid="P4-0-1" className="inline-flex items-center" to="/settings/device"><Text variant="label">{t("nav.deviceLabel")} →</Text></LocalizedLink></div>}
       <SettingsCard
         data-testid={part === "gear" ? "P4-1" : "S6-3-0"}
         title={t("equipment.bikeProfile")}
