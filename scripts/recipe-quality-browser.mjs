@@ -162,7 +162,7 @@ try {
   assert.ok(await page.getByRole('button', { name: '공유 문구 복사' }).isDisabled());
   assert.equal(await page.getByRole('link', { name: '게시글로 공유' }).count(), 0);
   evidence.assertions.push('fresh result/language clears edited copy', 'account switch with pending result disables export/copy/post');
-  const reports = (await fs.readdir(input)).filter(name => name.endsWith('.html') && !['index.html', 'gallery.html'].includes(name));
+  const reports = (await fs.readdir(input)).filter(name => name.endsWith('.html') && !['index.html', 'gallery.html', 'acceptance.html'].includes(name));
   for (const width of [375, 768]) {
     await page.setViewportSize({ width, height: 900 });
     for (const name of reports) {
