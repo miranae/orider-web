@@ -126,8 +126,8 @@ export function RecipeShareCard({ card, language, ready, onError }: {
         <text x="80" y={350 + artworkOffset} fill="var(--ink-3)" fontSize="16" letterSpacing="2">{primary.label}</text>
         <text x="76" y={438 + artworkOffset} fill="var(--ink-0)" fontSize={Math.min(88, 870 / Math.max(Array.from(primary.value).length, 1))} fontWeight="750" letterSpacing="-3">{primary.value}</text>
         {metrics.slice(1).map((metric, index) => <g key={metric.label}>
-          <text x={80 + index * 290} y={469 + artworkOffset} fill="var(--ink-3)" fontSize="14" letterSpacing="1">{metric.label}</text>
-          <text x={80 + index * 290} y={505 + artworkOffset} fill="var(--lime)" fontSize={Math.max(21, Math.min(30, 240 / Math.max(Array.from(metric.value).length, 1)))} textLength={Array.from(metric.value).length > 12 ? 260 : undefined} lengthAdjust="spacingAndGlyphs" fontWeight="650">{metric.value}</text>
+          <text x={80 + index * 290} y={480 + artworkOffset} fill="var(--ink-3)" fontSize="14" letterSpacing="1">{metric.label}</text>
+          <text x={80 + index * 290} y={516 + artworkOffset} fill="var(--lime)" fontSize={Math.max(21, Math.min(30, 240 / Math.max(Array.from(metric.value).length, 1)))} textLength={Array.from(metric.value).length > 12 ? 260 : undefined} lengthAdjust="spacingAndGlyphs" fontWeight="650">{metric.value}</text>
         </g>)}
       </g>}
       {lines.slice(0, 7).map((line, index) => <text key={index} x="80" y={bodyStart + artworkOffset + index * bodyLineHeight} fill="var(--ink-2)" fontSize={bodyFontSize}>{line}</text>)}
