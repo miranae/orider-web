@@ -61,9 +61,11 @@ export const GENERATED_DEFAULT_SCHEME = {
       "brandSwim": "oklch(0.62 0.17 130)",
       "zone1": "oklch(0.62 0.07 230)",
       "zone2": "oklch(0.62 0.12 170)",
-      "zone3": "oklch(0.76 0.16 135)",
-      "zone4": "oklch(0.66 0.15 70)",
-      "zone5": "oklch(0.58 0.17 20)"
+      "zone3": "oklch(0.65 0.16 130)",
+      "zone4": "oklch(0.66 0.15 75)",
+      "zone5": "oklch(0.58 0.17 20)",
+      "zone6": "oklch(0.36 0.14 0)",
+      "zone7": "oklch(0.52 0.16 300)"
     },
     "chartColors": {
       "speed": "oklch(0.62 0.17 130)",
@@ -110,9 +112,11 @@ export const GENERATED_DEFAULT_SCHEME = {
       "brandSwim": "oklch(0.86 0.18 130)",
       "zone1": "oklch(0.72 0.05 230)",
       "zone2": "oklch(0.74 0.10 170)",
-      "zone3": "oklch(0.86 0.16 125)",
-      "zone4": "oklch(0.62 0.15 70)",
-      "zone5": "oklch(0.72 0.16 20)"
+      "zone3": "oklch(0.80 0.14 130)",
+      "zone4": "oklch(0.80 0.14 75)",
+      "zone5": "oklch(0.72 0.16 20)",
+      "zone6": "oklch(0.62 0.18 330)",
+      "zone7": "oklch(0.82 0.12 285)"
     },
     "chartColors": {
       "speed": "oklch(0.86 0.18 130)",
@@ -167,7 +171,9 @@ export const COLOR_CSS_VARIABLES = {
   "zone2": "--zone-2",
   "zone3": "--zone-3",
   "zone4": "--zone-4",
-  "zone5": "--zone-5"
+  "zone5": "--zone-5",
+  "zone6": "--zone-6",
+  "zone7": "--zone-7"
 } as const;
 export const CHART_CSS_VARIABLES = {
   "speed": "--chart-speed",

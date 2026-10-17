@@ -248,7 +248,19 @@
     "usual": "usual",
     "indexTop": "top of history",
     "indexBottom": "bottom of history",
-    "stimulusDetail": "Training stimulus details"
+    "stimulusDetail": "Training stimulus details",
+    "modelRecovery": "Recovery",
+    "modelFuel": "fuel",
+    "modelNote": "{{items}} values are model estimates from measurements, not direct physiological measurements.",
+    "ofPreviousBest": "{{pct}}% of previous best",
+    "usualPct": "usual {{pct}}%",
+    "usualHigh": "usual Z4+ {{pct}}%",
+    "reserveStart": "0% fresh",
+    "reserveEnd": "100% depleted",
+    "remainingStart": "0% empty",
+    "remainingEnd": "100% full",
+    "movingTime": "Moving time",
+    "distance": "Distance"
   },
   "overviewEvidence": {
     "integratedFitness": "Combined training load · before session",

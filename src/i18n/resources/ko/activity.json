@@ -248,7 +248,19 @@
     "usual": "평소",
     "indexTop": "이력 최상단",
     "indexBottom": "이력 최하단",
-    "stimulusDetail": "훈련 자극 세부"
+    "stimulusDetail": "훈련 자극 세부",
+    "modelRecovery": "회복",
+    "modelFuel": "연료",
+    "modelNote": "{{items}} 값은 계측값을 바탕으로 한 모델 추정이며 직접 측정한 생리값이 아닙니다.",
+    "ofPreviousBest": "활동 전 최고의 {{pct}}%",
+    "usualPct": "평소 {{pct}}%",
+    "usualHigh": "평소 Z4+ {{pct}}%",
+    "reserveStart": "0% 여유",
+    "reserveEnd": "100% 소진",
+    "remainingStart": "0% 바닥",
+    "remainingEnd": "100% 가득",
+    "movingTime": "이동 시간",
+    "distance": "거리"
   },
   "overviewEvidence": {
     "integratedFitness": "통합 훈련 부하 · 운동 전",

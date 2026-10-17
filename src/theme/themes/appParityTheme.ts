@@ -55,6 +55,8 @@ export const APP_PARITY_THEME: OriderTheme = {
         zone3: '#9CCC65',
         zone4: '#FFA726',
         zone5: '#EF5350',
+        zone6: '#D45AB8',
+        zone7: '#A6C0FF',
       },
       chartColors: {
         speed: '#00E676',
@@ -106,6 +108,8 @@ export const APP_PARITY_THEME: OriderTheme = {
         zone3: '#689F38',
         zone4: '#E65100',
         zone5: '#B71C1C',
+        zone6: '#71073A',
+        zone7: '#6356BF',
       },
       chartColors: {
         speed: '#00C853',

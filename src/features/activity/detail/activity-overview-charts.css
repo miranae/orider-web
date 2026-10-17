@@ -12,7 +12,21 @@
 .activity-overview-zone--7 { background: var(--zone-7); }
 
 /* ── 한글 라벨은 자간·대문자 변환 없이(라틴 약어만 eyebrow 를 유지한다) ── */
-.activity-overview-root .ds-chip { letter-spacing: 0; }
+.activity-overview-root .ds-chip { font-family: inherit; letter-spacing: 0; }
+/* accent 색 글자는 라이트에서 4.5:1 이 안 된다 — 글자에는 --accent-text(라이트 진한 청록, 다크 accent)를 쓴다. */
+.activity-overview-card .ds-chip--accent, .activity-overview-card .ds-text--tone-accent { color: var(--accent-text); }
+/* 한글이 섞인 값: 숫자만 고정폭, 단위·공백은 본문 글꼴 — mono 대체 글꼴의 넓은 한글 자간을 피한다. */
+.activity-overview-root .ds-stat__value:has(.activity-overview-mixed) { font-family: inherit; letter-spacing: 0; }
+.activity-overview-mixed { font-family: inherit; font-variant-numeric: tabular-nums; }
+.activity-overview-mixed__num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+/* 용어 설명 버튼: 청록 글자 대신 본문 잉크 + 점선 밑줄(라이트 대비 4.5:1). 짧은 용어(Z4)가 기호(+)와 떨어지지 않게
+ * 최소 폭도 푼다. InfoTip 이 인라인 스타일로 색·폭을 주므로 이 범위에서만 덮는다. */
+.activity-overview-root [data-glossary-term] > span > button {
+  min-width: 0 !important;
+  color: inherit !important;
+  text-decoration: underline dotted var(--ink-3);
+  text-underline-offset: 0.2em;
+}
 .activity-overview-root .ds-stat__label { color: var(--ink-2); }
 .activity-overview-root .ds-stat:not([data-latin]) .ds-stat__label {
   font-family: inherit; font-size: var(--fs-sm); letter-spacing: 0; text-transform: none;
@@ -76,10 +90,15 @@
 
 /* ── IF 게이지 ── 띠·눈금·마커가 한 좌표계(트랙 100%)를 쓴다. */
 .activity-overview-gauge { position: relative; padding-top: var(--space-5); }
-.activity-overview-gauge__track { position: relative; height: var(--space-2); border-radius: var(--r-sm); background: var(--bg-3); }
+/* 트랙은 1px --track-edge 테두리(바탕 대비 3:1 이상)로 바탕과 구분한다(비텍스트 대비, 보고서의 실측값 참고). */
+.activity-overview-gauge__track { position: relative; height: var(--space-2); border-radius: var(--r-sm); background: var(--bg-4); box-shadow: inset 0 0 0 1px var(--track-edge); }
 .activity-overview-gauge__band { position: absolute; top: 0; bottom: 0; left: var(--left); width: var(--width); }
 .activity-overview-gauge__band:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
-.activity-overview-gauge__band:nth-child(5) { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+.activity-overview-gauge__band[data-band="6"] { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+.activity-overview-gauge__outside {
+  position: absolute; left: var(--at); top: 0; transform: translateX(-100%);
+  color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-2xs); line-height: 1;
+}
 .activity-overview-gauge__tick {
   position: absolute; left: var(--at); top: 0; bottom: 0; width: var(--space-0-5);
   transform: translateX(-50%); background: var(--bg-1);
@@ -113,6 +132,7 @@
 .activity-overview-zones__strip--baseline { height: var(--space-1-5); }
 .activity-overview-zones__group { position: relative; display: flex; gap: var(--space-0-5); min-width: var(--space-0-5); }
 .activity-overview-zones__group > span { position: relative; display: flex; align-items: center; justify-content: center; min-width: var(--space-0-5); overflow: hidden; }
+.activity-overview-zones__seg-label.is-strong { color: var(--on-zone-strong); }
 .activity-overview-zones__seg-label { color: var(--on-zone); font-family: var(--font-mono); font-size: var(--fs-2xs); font-weight: 600; line-height: 1; }
 .activity-overview-zones__strip > .activity-overview-zones__group:first-child > span:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
 .activity-overview-zones__strip > .activity-overview-zones__group:last-child > span:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
@@ -132,6 +152,7 @@
 .activity-overview-zones__name b { color: var(--ink-1); font-weight: 600; }
 .activity-overview-zones__value { color: var(--ink-0); font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .activity-overview-zones__time { grid-column: 2 / -1; margin-top: calc(var(--space-1) * -1); color: var(--ink-2); font-family: var(--font-mono); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; }
+.activity-overview-zones__usual { color: var(--ink-2); }
 .activity-overview-swatch { width: var(--space-2); height: var(--space-2); border-radius: var(--r-sm); align-self: center; }
 
 /* ── 보조 수치 줄 ── */
@@ -141,7 +162,8 @@
 .activity-overview-meter { display: grid; gap: var(--space-1-5); }
 .activity-overview-meter__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
 .activity-overview-meter__value { display: inline-flex; align-items: baseline; gap: var(--space-1-5); }
-.activity-overview-meter__track { position: relative; height: var(--space-1-5); border-radius: 999px; background: var(--bg-3); }
+.activity-overview-meter__track { position: relative; height: var(--space-1-5); border-radius: 999px; background: var(--bg-4); box-shadow: inset 0 0 0 1px var(--track-edge); }
+.activity-overview-meter__ends { display: flex; justify-content: space-between; color: var(--ink-2); font-size: var(--fs-2xs); line-height: 1; }
 .activity-overview-meter__track--mid::after { content: ""; position: absolute; left: 50%; top: calc(var(--space-1) * -1); bottom: calc(var(--space-1) * -1); width: 1px; background: var(--ink-2); }
 .activity-overview-meter__fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
 .activity-overview-meter__fill--accent { background: var(--accent); }
@@ -155,6 +177,20 @@
 .activity-overview-meter__dot.is-edge { background: var(--bg-1); border: var(--space-0-5) solid var(--accent); }
 .activity-overview-meter__scale { position: relative; height: var(--space-3); }
 .activity-overview-meter__scale > span { position: absolute; left: 50%; transform: translateX(-50%); color: var(--ink-2); font-size: var(--fs-2xs); line-height: 1; }
+
+/* ── 0 기준 발산 막대 ── */
+.activity-overview-delta { display: grid; gap: var(--space-1-5); }
+.activity-overview-delta__track { position: relative; height: var(--space-2); border-radius: var(--r-sm); background: var(--bg-4); box-shadow: inset 0 0 0 1px var(--track-edge); }
+.activity-overview-delta__track::after { content: ""; position: absolute; left: 50%; top: calc(var(--space-1) * -1); bottom: calc(var(--space-1) * -1); width: 1px; background: var(--ink-1); }
+.activity-overview-delta__bar { position: absolute; top: 0; bottom: 0; left: var(--from); width: var(--size); background: var(--accent); border-radius: var(--r-sm); }
+.activity-overview-delta__bar.is-down { background: var(--ink-2); }
+
+/* ── 접힘 제목(휴대폰) ── */
+.activity-overview-section-head__title { margin: 0; }
+.activity-overview-disclosure { display: inline-flex; align-items: center; gap: var(--space-2); padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
+.activity-overview-disclosure:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-sm); }
+.activity-overview-disclosure__chevron { width: var(--space-2); height: var(--space-2); border-right: 2px solid var(--ink-2); border-bottom: 2px solid var(--ink-2); transform: rotate(45deg) translateY(-25%); transition: transform .15s; }
+.activity-overview-disclosure[aria-expanded="true"] .activity-overview-disclosure__chevron { transform: rotate(-135deg); }
 
 /* ── 파워 커브 ── */
 .activity-overview-curve { min-width: 0; }

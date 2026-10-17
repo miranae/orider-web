@@ -42,6 +42,18 @@ function useElementWidth<T extends HTMLElement>(): [RefObject<T | null>, number]
   return [ref, width];
 }
 
+/**
+ * 지속 시간 문구 — 0 인 단위는 생략한다. 60초 미만 "30초", 1시간 미만 "1분 30초"·"1분",
+ * 1시간 이상 "1시간 5분"(초는 생략).
+ */
+export function formatSpan(seconds: number, units: { hour: string; minute: string; second: string }): string {
+  const s = Math.max(0, Math.round(seconds));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+  const parts = h > 0 ? [h && `${h}${units.hour}`, m && `${m}${units.minute}`] : [m && `${m}${units.minute}`, r && `${r}${units.second}`];
+  const text = parts.filter(Boolean).join(" ");
+  return text || `0${units.second}`;
+}
+
 /** "1s"/"5m"/"1h" → 초. 서버가 보낸 창 이름을 축 위치로 바꿀 뿐이다. */
 export function powerDurationSeconds(value: string): number | null {
   const match = /^(\d+(?:\.\d+)?)(s|m|h)$/.exec(value);
@@ -55,7 +67,10 @@ export function powerDurationSeconds(value: string): number | null {
 // IF = NP ÷ FTP 이므로 파워 존(%FTP) 경계가 그대로 눈금이다. 활동을 분류하지 않고 자만 그린다.
 export const IF_MIN = 0.4;
 export const IF_MAX = 1.3;
-export const IF_TICKS = [0.55, 0.75, 0.9, 1.05] as const;
+// 띠 = 파워 존 Z1…Z6 의 %FTP 경계(55·75·90·105·120%). 1.30 너머는 끝에 붙이고 글로 밝힌다.
+export const IF_TICKS = [0.55, 0.75, 0.9, 1.05, 1.2] as const;
+/** 좁은 게이지(약 21rem 미만)에서 남길 눈금 — 템포 시작과 역치 끝만. */
+const IF_TICKS_NARROW = [0.75, 1.05] as const;
 const IF_EDGES = [IF_MIN, ...IF_TICKS, IF_MAX] as const;
 export const ifPos = (value: number) => (Math.min(IF_MAX, Math.max(IF_MIN, value)) - IF_MIN) / (IF_MAX - IF_MIN) * 100;
 /** 띠는 눈금과 같은 좌표계(트랙 전체 = 100%)에 절대 배치한다. 마지막 띠는 트랙 끝까지 간다. */
@@ -66,10 +81,15 @@ export const ifBandLayout = () => IF_EDGES.slice(0, -1).map((from, index) => {
 
 export function IntensityGauge({ value }: { value: number }) {
   const { t } = useTranslation("activity");
+  const [ref, width] = useElementWidth<HTMLDivElement>();
   const bands = ifBandLayout();
   const current = bands.findIndex((band, index) => value < band.to || index === bands.length - 1);
-  return <div className="activity-overview-gauge" role="img" aria-label={t("overviewSummary.ifGaugeLabel", { value: value.toFixed(2) })}>
+  const ticks = width > 0 && width < 336 ? IF_TICKS_NARROW : IF_TICKS;
+  // 자 밖의 값은 끝에 붙이되 그 사실을 마커 위에 쓴다.
+  const outside = value > IF_MAX ? `≥${IF_MAX.toFixed(2)}` : value < IF_MIN ? `≤${IF_MIN.toFixed(2)}` : null;
+  return <div ref={ref} className="activity-overview-gauge" role="img" aria-label={t("overviewSummary.ifGaugeLabel", { value: value.toFixed(2) })}>
     <span className="activity-overview-gauge__ftp-label" aria-hidden="true" style={cssVar({ "--at": `${ifPos(1)}%` })}>FTP</span>
+    {outside && <span className="activity-overview-gauge__outside" aria-hidden="true" style={cssVar({ "--at": `${ifPos(value)}%` })}>{outside}</span>}
     <div className="activity-overview-gauge__track" aria-hidden="true">
       {/* 지금 IF 가 놓인 띠만 존 색으로 칠한다 — 나머지는 바탕과 눈금선이 자를 그린다. */}
       {bands.map((band, index) => <span key={band.from} data-band={index + 1}
@@ -80,7 +100,7 @@ export function IntensityGauge({ value }: { value: number }) {
       <span className="activity-overview-gauge__marker" style={cssVar({ "--at": `${ifPos(value)}%` })} />
     </div>
     <div className="activity-overview-gauge__scale" aria-hidden="true">
-      {IF_TICKS.map((tick) => <span key={tick} style={cssVar({ "--at": `${ifPos(tick)}%` })}>{tick.toFixed(2)}</span>)}
+      {ticks.map((tick) => <span key={tick} style={cssVar({ "--at": `${ifPos(tick)}%` })}>{tick.toFixed(2)}</span>)}
     </div>
   </div>;
 }
@@ -102,14 +122,14 @@ function ZoneStrip({ weights, className, label, labelled = false }: { weights: n
       return <span key={groupIndex} className={`activity-overview-zones__group ${groupIndex ? "activity-overview-zones__group--high" : ""}`} style={{ flexGrow: grow }} aria-hidden="true">
         {visible.map(([w, i]) => <span key={i} className={`activity-overview-zone--${i + 1}`} style={{ flexGrow: w }}>
           {/* 조각이 충분히 넓을 때만 안에 이름을 쓴다 — 좁은 조각은 범례가 맡는다. */}
-          {labelled && total > 0 && width * w / total >= LABEL_MIN_PX && <span className="activity-overview-zones__seg-label">Z{i + 1}</span>}
+          {labelled && total > 0 && width * w / total >= LABEL_MIN_PX && <span className={`activity-overview-zones__seg-label ${i >= 4 ? "is-strong" : ""}`}>Z{i + 1}</span>}
         </span>)}
       </span>;
     })}
   </div>;
 }
 
-export function ZoneTimeBar({ zone, highPercent, heading }: { zone: Zone; highPercent?: number; heading: ReactNode }) {
+export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }: { zone: Zone; highPercent?: number; baselineHighPercent?: number; heading: ReactNode }) {
   const { t } = useTranslation(["activity", "fitness"]);
   const labels = zone.kind === "power" ? POWER_ZONE_LABELS : HR_ZONE_LABELS;
   const pcts = zone.currentPercentages?.length === zone.seconds.length ? zone.currentPercentages : undefined;
@@ -127,14 +147,15 @@ export function ZoneTimeBar({ zone, highPercent, heading }: { zone: Zone; highPe
     <ZoneStrip weights={weights} labelled label={`${t("overviewSummary.zoneBarLabel")}: ${describe(pcts)}`} />
     {baseline && <div className="activity-overview-zones__baseline">
       <ZoneStrip weights={baseline} className="activity-overview-zones__strip--baseline" label={`${t("overviewSummary.zoneBaselineAria")}: ${describe(baseline)}`} />
-      <Text variant="caption" tone="tertiary">{t(zone.baselineScope === "discipline" ? "overviewSummary.zoneBaselineDiscipline" : "overviewSummary.zoneBaseline", { count: zone.priorSampleCount })}</Text>
+      <Text variant="caption" tone="tertiary">{t(zone.baselineScope === "discipline" ? "overviewSummary.zoneBaselineDiscipline" : "overviewSummary.zoneBaseline", { count: zone.priorSampleCount })}
+        {baselineHighPercent != null && <> · <GlossaryText>{t("overviewSummary.usualHigh", { pct: one(baselineHighPercent) })}</GlossaryText></>}</Text>
     </div>}
     <ul className="activity-overview-zones__legend">
       {zone.seconds.map((sec, i) => <li key={i} className={sec > 0 ? undefined : "is-empty"}>
         <span aria-hidden="true" className={`activity-overview-swatch activity-overview-zone--${i + 1}`} />
         <span className="activity-overview-zones__name"><b>Z{i + 1}</b> {labels[i] ? t(labels[i]!.nameKey) : ""}</span>
         <span className="activity-overview-zones__value">{pcts ? `${one(pcts[i]!)}%` : clock(sec)}</span>
-        {pcts && <span className="activity-overview-zones__time">{clock(sec)}</span>}
+        {pcts && <span className="activity-overview-zones__time">{clock(sec)}{baseline && <span className="activity-overview-zones__usual"> · {t("overviewSummary.usualPct", { pct: one(baseline[i]!) })}</span>}</span>}
       </li>)}
     </ul>
   </div>;
@@ -142,8 +163,10 @@ export function ZoneTimeBar({ zone, highPercent, heading }: { zone: Zone; highPe
 
 /* ───────────── 0–100 미터 (W′·개인지수) ───────────── */
 
-export function PercentMeter({ label, value, display, tone = "accent", mid = false, sub }: {
+export function PercentMeter({ label, value, display, tone = "accent", mid = false, sub, ends }: {
   label: ReactNode; value: number; display: ReactNode; tone?: "accent" | "high"; mid?: boolean; sub?: ReactNode;
+  /** 막대 양 끝의 뜻(예: "0%"·"100% 소진"). */
+  ends?: [ReactNode, ReactNode];
 }) {
   const { t } = useTranslation("activity");
   // 개인지수 0·100 은 이력 끝에 닿은 값이다 — 점을 테두리로 바꾸고 글로 밝힌다.
@@ -161,7 +184,24 @@ export function PercentMeter({ label, value, display, tone = "accent", mid = fal
         : <span className={`activity-overview-meter__fill activity-overview-meter__fill--${tone}`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />}
     </div>
     {mid && <div className="activity-overview-meter__scale" aria-hidden="true"><span>{t("overviewSummary.usual")}</span></div>}
+    {ends && <div className="activity-overview-meter__ends" aria-hidden="true"><span>{ends[0]}</span><span>{ends[1]}</span></div>}
     {sub}
+  </div>;
+}
+
+/* ───────────── 0 기준 발산 막대(피크 파워 변화) ───────────── */
+
+/** 서버 변화율(%)을 0 가운데 막대로. 길이 척도는 함께 그리는 줄의 최댓값(최소 10%)이다. */
+export function DeltaBar({ value, scale, label, display }: { value: number; scale: number; label: ReactNode; display: ReactNode }) {
+  const half = Math.min(50, Math.abs(value) / Math.max(10, scale) * 50);
+  return <div className="activity-overview-delta">
+    <div className="activity-overview-meter__head">
+      <Text variant="bodySmall" tone="secondary">{label}</Text>
+      <Text variant="bodyMedium" mono tone="primary">{display}</Text>
+    </div>
+    <div className="activity-overview-delta__track" aria-hidden="true">
+      <span className={`activity-overview-delta__bar ${value < 0 ? "is-down" : ""}`} style={cssVar({ "--from": value < 0 ? `${50 - half}%` : "50%", "--size": `${half}%` })} />
+    </div>
   </div>;
 }
 
@@ -206,9 +246,12 @@ export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, f
     : basis === "median" ? { label: label("baseline"), values: points.map((p) => p.row.medianWatts ?? null) } : null;
   const records = recordsEvaluated ? points.flatMap((p, index) => p.row.recordAchievement ? [index] : []) : [];
   const closest = basis === "allTimeBest" ? points.reduce<number | null>((top, p, index) => p.row.allTimeBestPct != null && (top == null || p.row.allTimeBestPct > points[top]!.row.allTimeBestPct!) ? index : top, null) : null;
+  // 비교선이 없을 때는 활동 전 최고에 가장 가까웠던 점 하나에 % 를 직접 단다.
+  const closestPrevious = basis === "previousBest" ? points.reduce<number | null>((top, p, index) => p.row.previousBestPct != null && (top == null || p.row.previousBestPct > points[top]!.row.previousBestPct!) ? index : top, null) : null;
   const annotations = records.length
     ? records.map((index) => ({ index, text: t("overviewSummary.prMark") }))
-    : closest != null ? [{ index: closest, text: t("overviewSummary.ofBest", { pct: Math.round(points[closest]!.row.allTimeBestPct!) }) }] : [];
+    : closest != null ? [{ index: closest, text: t("overviewSummary.ofBest", { pct: Math.round(points[closest]!.row.allTimeBestPct!) }) }]
+    : closestPrevious != null ? [{ index: closestPrevious, text: t("overviewSummary.ofPreviousBest", { pct: Math.round(points[closestPrevious]!.row.previousBestPct!) }) }] : [];
   // 한 줄 = 한 기준. 선이 역대 최고면 % 도 역대 최고 대비다.
   const facts = (row: PowerRow) => [
     ...(basis === "allTimeBest" && row.allTimeBestPct != null ? [`${t("overviewSummary.vsAllTimeBest")} ${one(row.allTimeBestPct)}%`] : []),
@@ -224,7 +267,7 @@ export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, f
       unit="W" color="var(--chart-power)" datasetLabel={t("overviewSummary.thisActivity")}
       comparison={comparison} tooltipFooter={(index) => points[index] ? facts(points[index]!.row) : []} annotations={annotations} showLegend
       reference={ftp ? { value: ftp, label: `FTP ${ftp} W` } : null} referenceSolid
-      xTicks="all" unitAxisTitle heightClassName="h-[220px]"
+      xScale="log" unitAxisTitle heightClassName="h-56"
       roleDescription={t("overviewSummary.chartRole")} describedBy={listId}
       ariaLabel={t("overviewSummary.curveAria", { peak: Math.round(peak) })}
       emptyTitle={t("dashboard:charts.powerCurve.emptyTitle")} emptyDescription={t("dashboard:charts.powerCurve.emptyDescription")}
@@ -267,7 +310,7 @@ export function FitnessShift({ prior, post, rowLabel, priorCaption, postCaption 
       {keys.map((key, index) => {
         const from = prior[key], to = post[key];
         const a = at(from), b = at(to);
-        // 두 점이 8px 안으로 겹치면 운동 후 점만 찍고 변화량을 값 옆에 쓴다.
+        // 두 점이 8px 안으로 겹치면 운동 후 점만 찍는다. 변화량은 세 줄 모두 값 옆에 쓴다.
         const collapsed = width > 0 && Math.abs(a - b) / 100 * width < DOT_MIN_PX;
         const delta = Math.round((to - from) * 10) / 10;
         return <div key={key} className="activity-overview-shift__row">
@@ -283,7 +326,7 @@ export function FitnessShift({ prior, post, rowLabel, priorCaption, postCaption 
           </div>
           <Text variant="bodyMedium" mono tone="primary" className="activity-overview-shift__values">
             <span className="activity-overview-shift__from">{fixed1(from)}</span><span className="activity-overview-shift__arrow"> → </span>{fixed1(to)}
-            {collapsed && <span className="activity-overview-shift__delta"> ({delta > 0 ? "+" : ""}{delta.toFixed(1)})</span>}
+            <span className="activity-overview-shift__delta"> ({delta > 0 ? "+" : ""}{delta.toFixed(1)})</span>
           </Text>
         </div>;
       })}

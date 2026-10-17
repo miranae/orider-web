@@ -56,12 +56,12 @@ describe("ActivityOverviewSummary", () => {
   it("keeps bike fuel and W-prime language out of a run, and shows recovery only when modeled", () => {
     const run = { ...rich, session: { ...rich.session, discipline: "run" as const } };
     const { rerender } = render(<ActivityOverviewSummaryContent presentation={run} />);
-    expect(screen.getByRole("region", { name: "회복 추정" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "회복" })).toBeInTheDocument();
     expect(screen.getByText(renderedText(/회복시간은 계측 부하/))).toBeInTheDocument();
     expect(screen.queryByText(renderedText(/W′/))).not.toBeInTheDocument();
     expect(screen.queryByText(renderedText("회복과 연료"))).not.toBeInTheDocument();
     rerender(<ActivityOverviewSummaryContent presentation={{ ...run, recovery: undefined }} />);
-    expect(screen.queryByRole("region", { name: "회복 추정" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "회복" })).not.toBeInTheDocument();
     expect(screen.queryByText(renderedText(/회복시간은 계측 부하/))).not.toBeInTheDocument();
   });
   it("renders the share-summary sections without analysis tables or basic activity stats", () => {
@@ -70,8 +70,8 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getByText(rich.coachSentence)).toBeInTheDocument();
     expect(screen.getByText(renderedText("25%"))).toBeInTheDocument();
-    expect(screen.getByText(renderedText("0회 · 0분 0초"))).toBeInTheDocument();
-    expect(screen.getByText(renderedText("1분 0초"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("0회 · 0초"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("1분"))).toBeInTheDocument();
     expect(screen.getByText(renderedText("피크 파워 변화 · 2분"))).toBeInTheDocument();
     expect(screen.getByText(renderedText("+19.3% · 10회"))).toBeInTheDocument();
     expect(screen.getByText(renderedText("전체 기간 PR"))).toBeInTheDocument();
@@ -97,7 +97,7 @@ describe("ActivityOverviewSummary", () => {
 
   it("shows the user-approved-value caveat as a separate caption only when qualityNote is true", () => {
     const { rerender } = render(<ActivityOverviewSummaryContent presentation={rich} />);
-    const modelNote = screen.getByText(renderedText("회복·연료·W′는 계측값을 바탕으로 한 모델이며 직접 측정한 생리값은 아닙니다."));
+    const modelNote = screen.getByText(renderedText("회복·연료·W′ 값은 계측값을 바탕으로 한 모델 추정이며 직접 측정한 생리값이 아닙니다."));
     const qualityNote = screen.getByText(renderedText("※ 사용자 승인값이 없으면 계측값을 사용합니다."));
     expect(modelNote).not.toBe(qualityNote);
     expect(modelNote).toHaveClass("ds-text--caption");
@@ -336,8 +336,9 @@ describe("activity overview reads as pictures", () => {
     expect(screen.getByText(renderedText("26.9%"))).toBeInTheDocument();
     const curve = line.mock.lastCall![0] as { data: { datasets: Array<{ label: string; data: Array<number | null> }> } };
     expect(curve.data.datasets.map((dataset) => dataset.label)).toEqual(["이번 활동", "역대 최고"]);
-    expect(curve.data.datasets[0]!.data).toEqual([845, 177]);
-    expect(curve.data.datasets[1]!.data).toEqual([845, 298]);
+    // 로그 시간축 — 각 점이 (창 길이 초, W) 좌표다.
+    expect(curve.data.datasets[0]!.data).toEqual([{ x: 1, y: 845 }, { x: 300, y: 177 }]);
+    expect(curve.data.datasets[1]!.data).toEqual([{ x: 1, y: 845 }, { x: 300, y: 298 }]);
     // 선이 역대 최고면 툴팁·보조 목록의 % 도 역대 최고 대비다 — 한 기준.
     expect(screen.getByText(renderedText("1초 845 W · 역대 최고 845 W · 역대 최고 대비 100% · 전체 기간 PR"))).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "체력 · CTL 37.4 → 52.8" })).toBeInTheDocument();
@@ -403,7 +404,7 @@ describe("overview picture geometry and data guards", () => {
     line.mockClear();
     render(<ActivityOverviewSummaryContent presentation={{ ...rich, personal: [], comparisonMetadata: undefined }} ftpW={182} />);
     const curve = line.mock.lastCall![0] as { data: { datasets: Array<{ label: string; data: number[] }> } };
-    expect(curve.data.datasets.at(-1)).toMatchObject({ label: "FTP 182 W", data: [182, 182] });
+    expect(curve.data.datasets.at(-1)).toMatchObject({ label: "FTP 182 W", data: [{ x: 120, y: 182 }, { x: 300, y: 182 }] });
     const changes = screen.getByRole("region", { name: "나의 변화" });
     expect(changes.querySelector("h3")).toHaveTextContent("나의 변화");
     expect(changes).toHaveTextContent(/나의 변화.+/);
@@ -416,12 +417,27 @@ describe("overview picture geometry and data guards", () => {
     expect(screen.getByText(renderedText("고도 데이터 품질 주의 · 오르막 수는 참고값"))).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "회복" })).toBeInTheDocument();
     // 회복시간은 모델 값이므로 각주가 남는다. W′·연료가 없어도 회복이 있으면 그것을 말한다.
-    expect(screen.getByText(renderedText(/계측값을 바탕으로 한 모델/))).toBeInTheDocument();
+    // 회복만 있으면 각주도 회복만 말한다.
+    expect(screen.getByText(renderedText("회복 값은 계측값을 바탕으로 한 모델 추정이며 직접 측정한 생리값이 아닙니다."))).toBeInTheDocument();
   });
 
   it("omits the model footnote when no modeled value is on screen", () => {
     render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "bike" },
       availability: { personal: "unavailable", records: "unavailable", power: "unavailable", heartRate: "unavailable" } }} />);
     expect(screen.queryByText(renderedText(/계측값을 바탕으로 한 모델/))).not.toBeInTheDocument();
+  });
+});
+
+describe("overview duration wording", () => {
+  it("drops zero units: seconds under a minute, minutes, and hours with minutes", async () => {
+    const { formatSpan } = await import("./ActivityOverviewCharts");
+    const ko = { hour: "시간", minute: "분", second: "초" };
+    expect(formatSpan(30, ko)).toBe("30초");
+    expect(formatSpan(60, ko)).toBe("1분");
+    expect(formatSpan(90, ko)).toBe("1분 30초");
+    expect(formatSpan(3600, ko)).toBe("1시간");
+    expect(formatSpan(3900, ko)).toBe("1시간 5분");
+    expect(formatSpan(0, ko)).toBe("0초");
+    expect(formatSpan(3600, { hour: "h", minute: "m", second: "s" })).toBe("1h");
   });
 });

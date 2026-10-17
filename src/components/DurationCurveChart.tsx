@@ -68,23 +68,60 @@ export interface DurationCurveChartProps {
   unitAxisTitle?: boolean;
   /** 기준선을 실선 hairline 으로(비교 곡선의 점선과 겹치지 않게). */
   referenceSolid?: boolean;
+  /**
+   * `log` 는 x 를 실제 창 길이(초)의 로그 축으로 놓는다 — 측정한 창 사이 간격이 시간 비율대로 보인다.
+   * 눈금선은 측정 지점마다 긋고, 라벨은 겹치지 않는 것만 단다.
+   */
+  xScale?: "category" | "log";
   /** 캔버스 그룹의 역할 설명(예: "차트")과 보조 설명 요소 id. */
   roleDescription?: string;
   describedBy?: string;
+}
+
+/** 사람이 읽기 좋은 눈금 간격(1·2·2.5·5 × 10ⁿ). y 눈금이 실제로 4~5개 나오게 한다. */
+export function niceStep(raw: number): number {
+  if (!(raw > 0)) return 1;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const unit = raw / power;
+  return (unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 2.5 ? 2.5 : unit <= 5 ? 5 : 10) * power;
+}
+
+/**
+ * 로그 시간축에서 라벨을 달 측정 지점. 끝점(가장 긴 창)은 항상, 나머지는 왼쪽부터
+ * 앞 라벨·끝 라벨과 `minPx` 이상 떨어질 때만 단다 — 눈금선은 모든 지점에 남는다.
+ */
+export function visibleLogLabels(durations: number[], widthPx: number, minPx = 36): Set<number> {
+  const shown = new Set<number>();
+  if (!durations.length) return shown;
+  const lo = Math.log(durations[0]!), hi = Math.log(durations[durations.length - 1]!);
+  const at = (value: number) => hi === lo ? 0 : (Math.log(value) - lo) / (hi - lo) * widthPx;
+  const last = durations.length - 1;
+  let previous = -Infinity;
+  durations.forEach((value, index) => {
+    if (index === last) return;
+    if (at(value) - previous >= minPx && at(durations[last]!) - at(value) >= minPx) { shown.add(index); previous = at(value); }
+  });
+  shown.add(last);
+  return shown;
 }
 
 export default function DurationCurveChart({
   points, unit, fractionDigits = 0, color, datasetLabel,
   reference = null, peakLabel, emptyTitle, emptyDescription,
   comparison = null, tooltipFooter, annotations, ariaLabel, heightClassName = "h-[200px]", showLegend = false,
-  xTicks = "auto", unitAxisTitle = false, referenceSolid = false, roleDescription, describedBy,
+  xTicks = "auto", xScale = "category", unitAxisTitle = false, referenceSolid = false, roleDescription, describedBy,
 }: DurationCurveChartProps) {
   const { t } = useTranslation("dashboard");
   const { variant } = useOriderTheme();
   const seriesColor = resolveCssColor(color, variant);
   const referenceColor = resolveCssColor("var(--ink-2)", variant);
   const comparisonColor = resolveCssColor(comparison?.color ?? "var(--ink-3)", variant);
-  const labelColor = resolveCssColor("var(--ink-1)", variant);
+  const labelColor = resolveCssColor("var(--ink-0)", variant);
+  const labelBackground = resolveCssColor("var(--bg-1)", variant);
+  const labelBorder = resolveCssColor("var(--line)", variant);
+  const log = xScale === "log";
+  // log 축이면 각 점이 (창 길이, 값) 좌표를 갖는다. 비교·기준선도 같은 x 를 쓴다.
+  const xy = (values: Array<number | null>) => log ? values.map((y, index) => ({ x: points[index]!.durationSeconds, y })) : values;
   const chartRef = useRef<ChartJS<"line"> | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
@@ -95,11 +132,11 @@ export default function DurationCurveChart({
   };
 
   const data = useMemo(() => ({
-    labels: points.map((p) => formatDuration(p.durationSeconds)),
+    labels: log ? undefined : points.map((p) => formatDuration(p.durationSeconds)),
     datasets: [
       {
         label: datasetLabel,
-        data: points.map((p) => p.value),
+        data: xy(points.map((p) => p.value)),
         borderColor: seriesColor,
         backgroundColor: "transparent",
         borderWidth: 2,
@@ -111,7 +148,7 @@ export default function DurationCurveChart({
       },
       ...(comparison ? [{
         label: comparison.label,
-        data: comparison.values,
+        data: xy(comparison.values),
         borderColor: comparisonColor,
         backgroundColor: comparisonColor,
         borderWidth: 1.5,
@@ -124,7 +161,7 @@ export default function DurationCurveChart({
       }] : []),
       ...(reference ? [{
         label: reference.label,
-        data: points.map(() => reference.value),
+        data: xy(points.map(() => reference.value)),
         borderColor: referenceColor,
         borderWidth: referenceSolid ? 1 : 1.5,
         borderDash: referenceSolid ? [] : [6, 3],
@@ -133,7 +170,8 @@ export default function DurationCurveChart({
       }] : []),
     ],
     // formatDuration 은 t 에만 의존한다.
-  }), [points, reference, comparison, seriesColor, referenceColor, comparisonColor, datasetLabel, referenceSolid, t]);
+    // xy 는 points·log 에만 의존한다.
+  }), [points, reference, comparison, seriesColor, referenceColor, comparisonColor, datasetLabel, referenceSolid, log, t]);
 
   // 선택적 직접 라벨 — 기록 갱신 같은 점 몇 개에만 붙인다. 플러그인 등록 없이 이 차트에만 건다.
   const annotationPlugin = useMemo<Plugin<"line">>(() => ({
@@ -144,20 +182,36 @@ export default function DurationCurveChart({
       const ctx = chart.ctx;
       ctx.save();
       ctx.font = "600 11px " + (getComputedStyle(chart.canvas).fontFamily || "sans-serif");
-      ctx.fillStyle = labelColor;
-      // 비교 곡선이 위에 겹치므로 라벨은 점 아래에 둔다.
-      ctx.textBaseline = "top";
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      // 점 오른쪽 위 바탕 상자 안에 쓴다 — 선과 겹쳐도 읽힌다. 차트 밖으로 나가면 왼쪽·아래로 접는다.
       for (const { index, text } of annotations) {
         const point = meta.data[index];
         if (!point) continue;
-        const width = ctx.measureText(text).width;
-        const x = Math.min(Math.max(point.x, chart.chartArea.left + width / 2), chart.chartArea.right - width / 2);
-        ctx.textAlign = "center";
-        ctx.fillText(text, x, Math.min(point.y + 8, chart.chartArea.bottom - 14));
+        const padX = 5, height = 18, width = ctx.measureText(text).width + padX * 2;
+        // 곡선은 오른쪽으로 내려가므로 상자를 점보다 한 칸 더 위에 띄우고 지시선으로 잇는다.
+        let x = point.x + 6, y = point.y - 20 - height;
+        if (x + width > chart.chartArea.right) x = point.x - 6 - width;
+        if (y < chart.chartArea.top) y = point.y + 14;
+        ctx.strokeStyle = labelBorder;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y);
+        ctx.lineTo(x < point.x ? x + width : x, y < point.y ? y + height : y);
+        ctx.stroke();
+        ctx.fillStyle = labelBackground;
+        ctx.strokeStyle = labelBorder;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(x, y, width, height, 4);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = labelColor;
+        ctx.fillText(text, x + padX, y + height / 2);
       }
       ctx.restore();
     },
-  }), [annotations, labelColor]);
+  }), [annotations, labelColor, labelBackground, labelBorder]);
 
   // 키보드로도 툴팁을 읽는다 — 좌우 화살표가 창 길이를 옮긴다.
   const focusPoint = (index: number | null) => {
@@ -184,6 +238,9 @@ export default function DurationCurveChart({
     focusPoint(next);
   };
 
+  // 요약 곡선(log 축)은 y 눈금을 4~5개로 맞춘다 — 최대값을 4로 나눈 값을 사람이 읽는 간격으로 올림.
+  const yMax = Math.max(0, ...points.map((p) => p.value), ...(comparison?.values ?? []).map((v) => v ?? 0), reference?.value ?? 0);
+  const yStep = log && yMax > 0 ? niceStep(yMax / 4) : null;
   const options: ChartOptions<"line"> = useMemo(() => {
     const textColor = resolveCssColor("var(--chart-grid-label)", variant);
     const gridColor = resolveCssColor("var(--grid-soft)", variant);
@@ -201,6 +258,7 @@ export default function DurationCurveChart({
           titleColor: resolveCssColor("var(--ink-0)", variant),
           bodyColor: resolveCssColor("var(--ink-1)", variant),
           callbacks: {
+            title: (items) => items.length && points[items[0]!.dataIndex] ? formatDuration(points[items[0]!.dataIndex]!.durationSeconds) : "",
             label: (ctx) => `${ctx.dataset.label}: ${formatNum(ctx.parsed.y, fractionDigits)}${unit}`,
             ...(tooltipFooter ? { footer: (items) => items.length ? tooltipFooter(items[0]!.dataIndex) : [] } : {}),
           },
@@ -209,7 +267,23 @@ export default function DurationCurveChart({
         },
       },
       scales: {
-        x: {
+        x: log ? {
+          type: "logarithmic",
+          display: true,
+          min: points[0]?.durationSeconds,
+          max: points[points.length - 1]?.durationSeconds,
+          // 눈금은 측정한 창마다 — 로그 축 기본 눈금(1·10·100…)은 측정하지 않은 길이다.
+          afterBuildTicks: (scale) => { scale.ticks = points.map((p) => ({ value: p.durationSeconds })); },
+          ticks: {
+            color: textColor, font: { size: 12 }, autoSkip: false, maxRotation: 0,
+            callback(this: { chart: { chartArea?: { width: number }; width: number } }, _value: string | number, index: number) {
+              const width = this.chart.chartArea?.width ?? this.chart.width;
+              const shown = visibleLogLabels(points.map((p) => p.durationSeconds), width);
+              return shown.has(index) && points[index] ? formatDuration(points[index]!.durationSeconds) : "";
+            },
+          },
+          grid: { color: gridColor },
+        } : {
           display: true,
           ticks: xTicks === "all" ? {
             color: textColor, font: { size: 12 }, autoSkip: false, maxRotation: 0,
@@ -227,12 +301,14 @@ export default function DurationCurveChart({
           display: true,
           beginAtZero: true,
           title: unitAxisTitle ? { display: true, text: unit, color: textColor, font: { size: 12 } } : { display: false },
-          ticks: { color: textColor, font: { size: 12 }, maxTicksLimit: 5, callback: (v) => unitAxisTitle ? `${v}` : `${v}${unit}` },
+          ...(yStep ? { max: yStep * Math.ceil(yMax / yStep) } : {}),
+          ticks: { color: textColor, font: { size: 12 }, maxTicksLimit: 6, ...(yStep ? { stepSize: yStep } : {}), callback: (v) => unitAxisTitle ? `${v}` : `${v}${unit}` },
           grid: { color: gridColor },
         },
       },
     };
-  }, [variant, unit, fractionDigits, tooltipFooter, xTicks, unitAxisTitle]);
+    // formatDuration 은 t 에만 의존한다.
+  }, [variant, unit, fractionDigits, tooltipFooter, xTicks, unitAxisTitle, log, points, yStep, yMax, t]);
 
   // 키보드로 옮긴 점을 보조기기에 읽어 준다 — 툴팁은 캔버스 그림이라 들리지 않는다.
   const liveText = activeIndex == null || !points[activeIndex] ? "" : [

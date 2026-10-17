@@ -4,7 +4,7 @@ import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { useTheme } from "../contexts/ThemeContext";
 import { useOriderTheme } from "../theme";
 import PowerCurveChart from "./PowerCurveChart";
-import DurationCurveChart from "./DurationCurveChart";
+import DurationCurveChart, { niceStep, visibleLogLabels } from "./DurationCurveChart";
 import SpeedCurveChart from "./SpeedCurveChart";
 
 const { line } = vi.hoisted(() => ({ line: vi.fn() }));
@@ -66,7 +66,7 @@ describe("DurationCurveChart summary axis", () => {
     expect(props.data.datasets[0].tension).toBe(0);
     expect(props.data.datasets[1].borderDash).toEqual([]);
     expect(props.options.scales.y.title).toMatchObject({ display: true, text: "W" });
-    expect(props.options.scales.y.ticks.maxTicksLimit).toBe(5);
+    expect(props.options.scales.y.ticks.maxTicksLimit).toBe(6);
     expect(props.options.scales.y.ticks.callback(500)).toBe("500");
     const ticks = points.map(() => ({}));
     const label = (width: number) => (index: number) => props.options.scales.x.ticks.callback.call({ chart: { width }, getLabelForValue: (value: number) => `L${value}` }, index, index, ticks);
@@ -74,5 +74,32 @@ describe("DurationCurveChart summary axis", () => {
     expect(points.map((_, index) => label(340)(index))).toEqual(["L0", "", "L2", "", "L4", "", "L6", "", "", "L9"]);
     expect(props.role).toBe("group");
     expect(props["aria-roledescription"]).toBe("차트");
+  });
+});
+
+describe("DurationCurveChart log time axis", () => {
+  it("plots (seconds, value) on a logarithmic axis with ticks only at measured windows and 4–5 y steps", () => {
+    line.mockClear();
+    const points = [1, 5, 10, 30, 60, 120, 300, 600, 1200, 1800].map((durationSeconds, index) => ({ durationSeconds, value: 845 - index * 70 }));
+    renderWithProviders(<DurationCurveChart points={points} unit="W" color="var(--chart-power)" datasetLabel="이번 활동"
+      emptyTitle="-" emptyDescription="-" xScale="log" unitAxisTitle />);
+    const props = line.mock.lastCall![0];
+    expect(props.data.datasets[0].data[1]).toEqual({ x: 5, y: 775 });
+    expect(props.options.scales.x).toMatchObject({ type: "logarithmic", min: 1, max: 1800 });
+    const scale = { ticks: [] as Array<{ value: number }> };
+    props.options.scales.x.afterBuildTicks(scale);
+    expect(scale.ticks.map((tick) => tick.value)).toEqual(points.map((p) => p.durationSeconds));
+    expect(props.options.scales.y.ticks.stepSize).toBe(250);
+    expect(props.options.scales.y.max).toBe(1000);
+  });
+
+  it("keeps the end label and drops labels that would collide", () => {
+    const durations = [1, 5, 10, 30, 60, 120, 300, 600, 1200, 1800];
+    expect([...visibleLogLabels(durations, 600)]).toContain(9);
+    expect(visibleLogLabels(durations, 600).has(8)).toBe(false);
+    expect([...visibleLogLabels(durations, 300)].length).toBeLessThan(durations.length);
+    expect(niceStep(211)).toBe(250);
+    expect(niceStep(160)).toBe(200);
+    expect(niceStep(45)).toBe(50);
   });
 });
