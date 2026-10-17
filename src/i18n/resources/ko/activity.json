@@ -2559,5 +2559,33 @@
     "confirmFirst": "먼저 비교 가능한 시간을 확인해 주세요.",
     "proof": "표시 근거",
     "map": "저장 파워 구간과 현재 지도 자료의 동일 출처를 확인할 수 없어 지도 위치로 자동 연결하지 않습니다."
+  },
+  "detail": {
+    "navigation": "활동 상세 보기",
+    "overview": {
+      "title": "이번 활동 한눈에",
+      "description": "핵심 기록과 운동 강도를 살펴보고, 활동의 흐름을 확인하세요."
+    },
+    "analysis": {
+      "title": "숫자로 읽는 활동",
+      "description": "훈련 부하부터 파워·심박 분포까지, 기록의 의미를 자세히 살펴보세요."
+    },
+    "segments": {
+      "title": "구간별 기록",
+      "description": "완주한 구간과 주요 성과를 확인하고, 구간을 선택해 기록을 살펴보세요."
+    },
+    "compare": {
+      "title": "이전 활동과 비교",
+      "description": "같은 종목의 과거 활동을 선택해 거리, 속도와 운동 강도의 변화를 확인하세요."
+    },
+    "chartsTitle": "상세 기록 살펴보기",
+    "chartsDescription": "상세 데이터를 불러오면 시간에 따른 기록을 더 자세히 살펴볼 수 있어요.",
+    "loadCharts": "상세 기록 보기",
+    "compareEmptyTitle": "어떤 점이 달라졌을까요?",
+    "compareEmptyDescription": "위에서 비교할 활동을 선택하면 두 활동의 기록과 차이를 함께 보여드려요.",
+    "segmentScrollHint": "표를 좌우로 밀어 모든 지표를 확인하세요.",
+    "speedAnomaly": "속도 데이터가 비정상적이어서 표시하지 않습니다.",
+    "analysisMetricSource": "세부 분석은 저장된 활동 메트릭을 표시합니다. 개요 요약과 다른 값이 표시될 수 있습니다.",
+    "loadingData": "상세 기록을 불러오는 중…"
   }
 }

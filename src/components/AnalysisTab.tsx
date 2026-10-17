@@ -81,14 +81,14 @@ function MetricCard({ label, value, unit, description, color = "ink", tone, tool
     : baseColor;
   return (
     <div style={{
-      padding: "14px 16px",
+      padding: "var(--space-3) var(--space-4)",
       borderRadius: "var(--r-xl)",
       background: "var(--bg-2)",
       border: "1px solid var(--line-soft)",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)" }}>
         <span style={{ width: 5, height: 5, borderRadius: "50%", background: accent, flexShrink: 0 }} />
-        <Text variant="eyebrow" style={{ fontSize: "var(--fs-xs)" }}>{label}</Text>
+        <Text variant="bodySmall" weight={600} style={{ fontSize: "var(--fs-xs)", letterSpacing: "normal" }}>{label}</Text>
         {tooltip && <InfoTip content={tooltip} label={label} />}
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
@@ -482,7 +482,7 @@ export default function AnalysisTab({
   const cyclingDynamicsSection = cyclingDynamicsCards.length > 0 && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.cyclingDynamics")}</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {cyclingDynamicsCards.map((card) => (
               <MetricCard
                 key={card.kind}
@@ -499,7 +499,7 @@ export default function AnalysisTab({
       );
 
   if (sport === "run" && sm) {
-    return <div className="space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={isOwner ? streams.runningBestEffortsFacts : undefined} onSelectEffort={isOwner ? onSelectRunEffort : undefined} effortsReady={visibleServerMetrics.status === "ready"} metrics={sm as ActivityMetricsDoc} isOwner={isOwner} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={isOwner ? onSelectLap : undefined} canSelectLap={canSelectLap} />}</div>;
+    return <div className="activity-analysis-content space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={isOwner ? streams.runningBestEffortsFacts : undefined} onSelectEffort={isOwner ? onSelectRunEffort : undefined} effortsReady={visibleServerMetrics.status === "ready"} metrics={sm as ActivityMetricsDoc} isOwner={isOwner} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={isOwner ? onSelectLap : undefined} canSelectLap={canSelectLap} />}</div>;
   }
 
   // 공개 수치·존·파워곡선은 같은 서버 presentation에서 그린다. 기존 허용 그래프/랩은 보존한다.
@@ -557,7 +557,7 @@ export default function AnalysisTab({
     : decoupling < 5 ? "good" : decoupling < 10 ? "warn" : "bad";
 
   return (
-    <div className="space-y-6">
+    <div className="activity-analysis-content space-y-6">
       {/* Phase A.7: 서버 메트릭 배너 (있으면 표시) */}
       <ServerMetricsBanner
         state={visibleServerMetrics}
@@ -580,7 +580,8 @@ export default function AnalysisTab({
       {/* 부하 (Load) — intervals.icu 스타일 핵심 지표 */}
       <div>
         <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.load")}</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        {sm && <Text as="p" variant="bodySmall" tone="secondary" style={{ marginBottom: "var(--space-4)" }}>{t("detail.analysisMetricSource")}</Text>}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <MetricCard color="violet" label="TSS" value={tss?.toFixed(0)} description={t("analysis.metric.tssDesc")} tooltip={t("analysis.glossary.tss")} />
           <MetricCard color="violet" label="IF" value={ifactor?.toFixed(2)} description={hasFtp ? t("analysis.metric.ifDesc", { ftp }) : t("overviewEvidence.ftpMissing")} tooltip={t("analysis.glossary.if")} />
           <MetricCard color="lime" label={t("analysis.metric.work")} value={workKj != null ? Math.round(workKj).toString() : null} unit="kJ" description={t("analysis.metric.workDesc")} tooltip={t("analysis.glossary.work")} />
@@ -601,7 +602,7 @@ export default function AnalysisTab({
             <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.power")}</h3>
             {isVirtualPower && <VirtualPowerBadge params={virtualPowerParams} />}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard color="lime" label={t("analysis.metric.avgPower")} value={powerStats.avg != null ? Math.round(powerStats.avg).toString() : null} unit="W" tooltip={t("analysis.glossary.avgPower")} />
             <MetricCard color="lime" label={t("analysis.metric.maxPower")} value={powerStats.max != null ? Math.round(powerStats.max).toString() : null} unit="W" description={t("analysis.metric.maxPowerDesc")} tooltip={t("analysis.glossary.maxPower")} />
             <MetricCard color="violet" label="NP" value={np != null ? Math.round(np).toString() : null} unit="W" description={t("analysis.metric.npDesc")} tooltip={t("analysis.glossary.np")} />
@@ -621,7 +622,7 @@ export default function AnalysisTab({
       {hasPower && (cp || (matches && matches.count > 0)) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.criticalPower")}</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {cp && (
               <>
                 <MetricCard color="violet" label={t("analysis.metric.cp")} value={Math.round(cp.cp).toString()} unit="W" description={cp.rSquared != null ? t("analysis.metric.cpDesc", { value: cp.rSquared.toFixed(2) }) : undefined} tooltip={t("analysis.glossary.cp")} />
@@ -660,7 +661,7 @@ export default function AnalysisTab({
       {hasPower && (sm?.quadrant || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.pedalQuality")}</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {sm?.quadrant && (
               <>
                 <MetricCard color="lime" label={t("analysis.metric.q1")} value={Math.round(sm.quadrant.q1Pct).toString()} unit="%" description={t("analysis.metric.q1Desc")} tooltip={t("analysis.glossary.quadrant")} />
@@ -683,7 +684,7 @@ export default function AnalysisTab({
       {hasHr && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.hr")}</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard color="rose" label={t("analysis.metric.avgHr")} value={hrStats.avg != null ? Math.round(hrStats.avg).toString() : null} unit="bpm" tooltip={t("analysis.glossary.avgHr")} />
             <MetricCard color="rose" label={t("analysis.metric.maxHr")} value={hrStats.max != null ? Math.round(hrStats.max).toString() : null} unit="bpm" tooltip={t("analysis.glossary.maxHr")} />
             <MetricCard
@@ -725,7 +726,7 @@ export default function AnalysisTab({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {criticalBands.map((b) => (
               <div key={b.label} style={{
-                padding: "14px 16px",
+                padding: "var(--space-3) var(--space-4)",
                 borderRadius: "var(--r-xl)",
                 background: "var(--bg-2)",
                 border: "1px solid var(--line-soft)",
@@ -751,7 +752,7 @@ export default function AnalysisTab({
       {(cadenceStats.avg != null || speed.avgKph != null || distanceKm != null || elevGain != null || caloriesKcal != null) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.exerciseData")}</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard color="aqua" label={t("analysis.metric.distance")} value={distanceKm != null ? distVal(distanceKm) : null} unit={distUnit} tooltip={t("analysis.glossary.distance")} />
             <MetricCard color="aqua" label={t("analysis.metric.elevGain")} value={elevGain != null && elevGain > 0 ? elevValRound(elevGain).toString() : null} unit={elevUnit} tooltip={t("analysis.glossary.elevGain")} />
             <MetricCard color="lime" label={t("analysis.metric.avgSpeed")} value={speed.avgKph != null ? speedVal(speed.avgKph) : null} unit={speedUnit} tooltip={t("analysis.glossary.avgSpeed")} />
@@ -1101,6 +1102,7 @@ export default function AnalysisTab({
 export function AnalysisLapTable({ laps, ftp, sport = "ride", onSelectLap, canSelectLap }: { onSelectLap?: (lap: ActivityAnalysisSummary["laps"][number]) => void; canSelectLap?: (lap: ActivityAnalysisSummary["laps"][number]) => boolean; laps: ActivityAnalysisSummary["laps"]; ftp: number | null; sport?: "ride" | "run" | "swim" | "other" }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
+  if (laps.length === 0) return null;
   const isRun = sport === "run";
   const M_PER_MI = 1609.344;
   const distVal = (km: number) => units === 'imperial' ? (km * 1000 / M_PER_MI).toFixed(2) : km.toFixed(2);

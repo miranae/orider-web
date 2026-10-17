@@ -2559,5 +2559,33 @@
     "confirmFirst": "Check the available duration first.",
     "proof": "Display evidence",
     "map": "Stored power windows cannot be confirmed as the same source as the current map, so map locations are not aligned automatically."
+  },
+  "detail": {
+    "navigation": "Activity details",
+    "overview": {
+      "title": "Your activity at a glance",
+      "description": "Review the key numbers, effort and rhythm of this activity."
+    },
+    "analysis": {
+      "title": "Understand your effort",
+      "description": "Explore training load, power and heart rate to see what your numbers mean."
+    },
+    "segments": {
+      "title": "Segment performances",
+      "description": "Explore completed segments and achievements. Select a segment to view its history."
+    },
+    "compare": {
+      "title": "Compare with a previous activity",
+      "description": "Choose an earlier activity in the same sport to explore changes in distance, speed and effort."
+    },
+    "chartsTitle": "Explore detailed recordings",
+    "chartsDescription": "Load detailed data to explore your recordings over time.",
+    "loadCharts": "View detailed recordings",
+    "compareEmptyTitle": "What has changed?",
+    "compareEmptyDescription": "Choose an activity above to see both activities and their differences side by side.",
+    "segmentScrollHint": "Swipe the table horizontally to view every metric.",
+    "speedAnomaly": "Speed is hidden because the recorded data is implausible.",
+    "analysisMetricSource": "Detailed analysis displays stored activity metrics. Values may differ from the Overview summary.",
+    "loadingData": "Loading detailed recordings…"
   }
 }

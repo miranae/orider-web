@@ -1899,6 +1899,31 @@ describe("ActivityPage", () => {
     expect(await screen.findByLabelText("좋아요 취소")).toBeInTheDocument();
   });
 
+  it.each(["Swim", "Yoga"])("keeps a retry action after an overview stream load fails for %s", async (type) => {
+    const activity = createMockActivity({ id: "test-activity", source: "apple_health", type, thumbnailTrack: null });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    renderWithProviders(<ActivityPage />, { authenticated: true, user: { uid: activity.userId } });
+    fireEvent.click(await screen.findByRole("button", { name: "상세 기록 보기" }));
+    expect(await screen.findByText(/원본 스트림 데이터가 아직 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다시 시도" })).toBeInTheDocument();
+  });
+
+  it("supports keyboard tab navigation and associates the active panel", async () => {
+    setDocData("activities/test-activity", createMockActivity({ id: "test-activity", userId: "test-uid" }) as unknown as Record<string, unknown>);
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    const overview = await screen.findByRole("tab", { name: "개요" });
+    overview.focus();
+    fireEvent.keyDown(overview, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "분석" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "activity-tab-analysis");
+    fireEvent.keyDown(screen.getByRole("tab", { name: "분석" }), { key: "End" });
+    expect(screen.getByRole("tab", { name: "비교" })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole("tab", { name: "비교" }), { key: "Home" });
+    expect(overview).toHaveFocus();
+    expect(overview).toHaveAttribute("tabindex", "0");
+  });
+
   it("exposes title editing as a keyboard-focusable button for owners", async () => {
     const activity = createMockActivity({
       id: "test-activity",

@@ -1,7 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { LocalizedLink } from "../LocalizedLink";
 import { segmentHistoryPath } from "../../features/segments/segmentHistoryNavigation";
-import { Card } from "../../theme/components";
+import { Button, Card } from "../../theme/components";
+import { useLocale } from "../../contexts/LocaleContext";
+import { formatDistance, formatSpeed } from "../../utils/units";
 import { isImplausibleAvgSpeed } from "../../utils/activitySanity";
 
 export interface SegmentEffortData {
@@ -52,18 +54,19 @@ export default function SegmentEffortsCard<E extends SegmentEffortData>({
   formatTime,
 }: SegmentEffortsCardProps<E>) {
   const { t } = useTranslation("activity");
-  const prCount = efforts.filter((e) => e.prRank != null && e.prRank <= 3).length;
-  const komCount = efforts.filter((e) => e.komRank != null && e.komRank <= 10).length;
+  const { units } = useLocale();
+  const prCount = efforts.filter((e) => e.prRank != null && e.prRank >= 1 && e.prRank <= 3).length;
+  const komCount = efforts.filter((e) => e.komRank != null && e.komRank >= 1 && e.komRank <= 10).length;
   const visible = showAll ? efforts : efforts.slice(0, 5);
 
   return (
     <Card id="segments" padding="none" className="overflow-hidden" style={{ padding: 0 }}>
-      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+      <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3" style={{ borderBottom: "1px solid var(--line-soft)" }}>
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>{t("segments.title")}</h3>
           <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("segments.matched", { count: efforts.length })}</div>
         </div>
-        <div className="flex items-center gap-1.5 text-[length:var(--fs-xs)]">
+        <div className="flex flex-wrap items-center gap-1.5 text-[length:var(--fs-xs)]">
           {prCount > 0 && (
             <span
               className="px-2 py-0.5 rounded-full font-bold text-[length:var(--fs-xs)]"
@@ -81,27 +84,23 @@ export default function SegmentEffortsCard<E extends SegmentEffortData>({
             </span>
           )}
           {efforts.length > 5 && (
-            <button
-              type="button"
-              onClick={() => setShowAll(!showAll)}
-              className="ml-2 text-[length:var(--fs-xs)] font-medium hover:underline"
-              style={{ color: "var(--lime)" }}
-            >
+            <Button size="sm" variant="ghost" onClick={() => setShowAll(!showAll)} aria-expanded={showAll}>
               {showAll ? t("segments.collapse") : t("segments.viewAll")}
-            </button>
+            </Button>
           )}
         </div>
       </div>
-      <div className="overflow-x-auto">
+      <p className="activity-detail-segment-hint">{t("detail.segmentScrollHint")}</p>
+      <div className="overflow-x-auto activity-detail-segment-table" tabIndex={0} role="region" aria-label={t("segments.title")}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
           <thead>
             <tr style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xs)", letterSpacing: "0.08em" }}>
-              <th style={{ textAlign: "left", padding: "10px 18px", fontWeight: 500 }}>{t("segments.header.name")}</th>
-              <th style={{ textAlign: "right", padding: "10px 10px", fontWeight: 500 }}>{t("segments.header.distance")}</th>
-              <th style={{ textAlign: "right", padding: "10px 10px", fontWeight: 500 }}>{t("segments.header.grade")}</th>
-              <th style={{ textAlign: "right", padding: "10px 10px", fontWeight: 500 }}>{t("segments.header.time")}</th>
-              <th style={{ textAlign: "right", padding: "10px 10px", fontWeight: 500 }}>{t("segments.header.speed")}</th>
-              <th style={{ textAlign: "right", padding: "10px 18px", fontWeight: 500 }}>{t("segments.header.rank")}</th>
+              <th scope="col" style={{ textAlign: "left", padding: "10px 18px", fontWeight: 500 }}>{t("segments.header.name")}</th>
+              <th scope="col" style={{ textAlign: "right", padding: "10px 10px", fontWeight: 500 }}>{t("segments.header.time")}</th>
+              <th scope="col" style={{ textAlign: "right", padding: "10px 10px", fontWeight: 500 }}>{t("segments.header.distance")}</th>
+              <th scope="col" style={{ textAlign: "right", padding: "10px 10px", fontWeight: 500 }}>{t("segments.header.grade")}</th>
+              <th scope="col" style={{ textAlign: "right", padding: "10px 10px", fontWeight: 500 }}>{t("segments.header.speed")}</th>
+              <th scope="col" style={{ textAlign: "right", padding: "10px 18px", fontWeight: 500 }}>{t("segments.header.rank")}</th>
             </tr>
           </thead>
           <tbody>
@@ -160,25 +159,25 @@ export default function SegmentEffortsCard<E extends SegmentEffortData>({
                       )}
                     </div>
                   </td>
+                  <td style={{ textAlign: "right", padding: "12px 10px", color: "var(--ink-0)", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
+                    {formatTime(effort.elapsedTime)}
+                  </td>
                   <td style={{ textAlign: "right", padding: "12px 10px", color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>
-                    {(seg.distance / 1000).toFixed(1)} km
+                    {formatDistance(seg.distance, units)}
                   </td>
                   <td style={{ textAlign: "right", padding: "12px 10px", color: "var(--ink-2)", fontFamily: "var(--font-mono)" }}>
                     {seg.averageGrade.toFixed(1)}%
                   </td>
-                  <td style={{ textAlign: "right", padding: "12px 10px", color: "var(--ink-0)", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
-                    {formatTime(effort.elapsedTime)}
-                  </td>
                   <td
                     style={{ textAlign: "right", padding: "12px 10px", color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}
-                    title={isImplausibleAvgSpeed(avgSpeed, "bike") ? `데이터 이상 — 원본값 ${avgSpeed.toFixed(1)} km/h` : undefined}
+                    title={isImplausibleAvgSpeed(avgSpeed, "bike") ? t("detail.speedAnomaly") : undefined}
                   >
                     {avgSpeed > 0
-                      ? (isImplausibleAvgSpeed(avgSpeed, "bike") ? "—" : `${avgSpeed.toFixed(1)} km/h`)
+                      ? (isImplausibleAvgSpeed(avgSpeed, "bike") ? "—" : formatSpeed(avgSpeed / 3.6, units, "bike"))
                       : "-"}
                   </td>
                   <td style={{ textAlign: "right", padding: "12px 18px", color: "var(--ink-2)", fontFamily: "var(--font-mono)" }}>
-                    {effort.komRank ? `#${effort.komRank}` : "-"}
+                    {effort.komRank != null && effort.komRank >= 1 ? `#${effort.komRank}` : "—"}
                   </td>
                 </tr>
               );
@@ -188,14 +187,9 @@ export default function SegmentEffortsCard<E extends SegmentEffortData>({
       </div>
       {efforts.length > 5 && !showAll && (
         <div className="px-4 py-2.5 text-center" style={{ borderTop: "1px solid var(--line-soft)" }}>
-          <button
-            type="button"
-            onClick={() => setShowAll(true)}
-            className="text-[length:var(--fs-xs)] font-medium hover:underline"
-            style={{ color: "var(--lime)" }}
-          >
+          <Button size="sm" variant="ghost" onClick={() => setShowAll(true)} aria-expanded={false}>
             {t("segments.moreCount", { count: efforts.length - 5 })}
-          </button>
+          </Button>
         </div>
       )}
     </Card>

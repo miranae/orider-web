@@ -1,4 +1,4 @@
-import { Globe, Lock, Users } from "lucide-react";
+import { ArrowLeftRight, BarChart3, ChevronDown, Globe, Layers, Lock, Route, Trophy, Users } from "lucide-react";
 import SportIcon from "../components/common/SportIcon";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
@@ -19,7 +19,7 @@ import { normalizeEpochMilliseconds } from "../utils/timestampUnit";
 import { useRunSplitLocation } from "../features/activity/detail/useRunSplitLocation";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 import Avatar from "../components/Avatar";
-import TabNav from "../components/TabNav";
+import "./activity/activity-detail-page.css";
 import AnalysisTab, { AnalysisLapTable } from "../components/AnalysisTab";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
 import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
@@ -618,7 +618,7 @@ export default function ActivityPage() {
 
   if (loadingActivity) {
     return (
-      <div className="site-shell space-y-6">
+      <div className="site-shell activity-detail space-y-6">
         <div className="h-80 rounded-[var(--r-lg)] animate-pulse" style={{ background: 'var(--bg-2)' }} />
         <div className="h-8 rounded-[var(--r-sm)] w-1/3 animate-pulse" style={{ background: 'var(--bg-2)' }} />
         <div className="grid grid-cols-4 gap-3">
@@ -859,9 +859,9 @@ export default function ActivityPage() {
   );
 
   return (
-    <div className="site-shell space-y-6">
+    <div className="site-shell activity-detail space-y-6">
       {/* 1. Header (제목) */}
-      <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+      <Card padding="none" className="activity-detail-header" style={{ padding: 'var(--space-5)' }}>
         <div className="flex items-start gap-4">
           <Avatar
             name={activity.nickname}
@@ -992,13 +992,13 @@ export default function ActivityPage() {
               )}
             </div>
             {user?.uid !== activity.userId && <details className="mt-2">
-              <summary aria-label={t("page.more")} className="cursor-pointer">⋯</summary>
+              <summary className="activity-detail-more">{t("page.more")} <ChevronDown size={16} aria-hidden="true" /></summary>
               <Button data-testid="D1-0-M5" variant="ghost" onClick={() => { setShowExport(true); if (!streamsSignInRequired) requestStreams(); }}>{t("tab.export")}</Button>
             </details>}
             {user?.uid === activity.userId && (
               <details data-testid="D1-0-M" className="mt-2">
-                <summary aria-label={t("page.more")} className="cursor-pointer">⋯</summary>
-                <div className="flex flex-wrap items-center gap-2 py-3">
+                <summary className="activity-detail-more">{t("page.more")} <ChevronDown size={16} aria-hidden="true" /></summary>
+                <div className="activity-detail-actions flex flex-wrap items-center gap-2 py-3">
                   <Link data-testid="D1-0-M1" to={`/activity/${activityId}/edit`}>{t("page.editActivity")}</Link>
                   <Button data-testid="D1-0-M2" variant="ghost" onClick={() => photoInputRef.current?.click()}>{t("page.addPhoto")}</Button>
                   <Link data-testid="D1-0-M3" to={`/course/create?activityId=${activityId}`}>{t("page.menuCourse")}</Link>
@@ -1048,7 +1048,7 @@ export default function ActivityPage() {
       </Card>
 
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
-      <div data-testid="D1-1" ref={runLocationAnchor} style={{ scrollMarginTop: "var(--space-8)" }}>
+      <div className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} style={{ scrollMarginTop: "var(--space-8)" }}>
       <ActivityMediaPanel
         activity={activity}
         streams={streams}
@@ -1070,24 +1070,38 @@ export default function ActivityPage() {
 
       <RideActivityRouteButton activityId={activityId} activity={activity} hasRoute={hasTrack} sport={sport} />
       {/* ── 탭 네비게이션 ── */}
-      <TabNav
-        tabs={[
-          { id: "overview", label: t("tab.overview"), specId: "D1-T" },
-          { id: "analysis", label: t("tab.analysis"), specId: "D1-T" },
-          { id: "segments", label: t("tab.segments"), specId: "D1-T", count: segmentEfforts.length || undefined },
-          ...(isActivityOwner ? [{ id: "compare", label: t("tab.compare"), specId: "D1-T" }] : []),
-        ]}
-        activeTab={activeTab}
-        onChange={(tab) => {
-          pendingPeakLocation.current = null;
-          pendingLap.current = null;
-          setActiveTab(tab);
-        }}
-      />
+      <div className="activity-detail-navigation">
+        <div className="activity-detail-tabs" role="tablist" aria-label={t("detail.navigation")} onKeyDown={(event) => {
+          const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+          const index = tabs.indexOf(event.target as HTMLButtonElement);
+          if (index < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+          tabs[next]?.focus();
+          tabs[next]?.click();
+        }}>
+          {[
+            { id: "overview", icon: Layers },
+            { id: "analysis", icon: BarChart3 },
+            { id: "segments", icon: Route },
+            ...(isActivityOwner ? [{ id: "compare", icon: ArrowLeftRight }] : []),
+          ].map(({ id, icon: Icon }) => <button key={id} id={`activity-tab-${id}`} data-testid="D1-T" type="button" role="tab"
+            aria-selected={activeTab === id} aria-controls="activity-tab-panel" tabIndex={activeTab === id ? 0 : -1}
+            onClick={() => { pendingPeakLocation.current = null; pendingLap.current = null; setActiveTab(id); }}>
+            <Icon size={18} aria-hidden="true" /><span>{t(`tab.${id}`)}</span>
+            {id === "segments" && segmentEfforts.length > 0 && <span className="activity-detail-tab-count">{segmentEfforts.length}</span>}
+          </button>)}
+        </div>
+      </div>
+      <div id="activity-tab-panel" role="tabpanel" aria-labelledby={`activity-tab-${activeTab}`} tabIndex={0} className="activity-detail-panel">
+      <div className="activity-detail-section-heading">
+        <div><Text as="h2" variant="title">{t(`detail.${activeTab}.title`)}</Text>
+          <Text as="p" variant="bodyMedium" tone="secondary">{t(`detail.${activeTab}.description`)}</Text></div>
+      </div>
 
       {unlinkedLapIdentity === rangeSelection.identity && rangeSelection.ownerUid && <Text as="p" variant="bodyMedium" tone="secondary" role="status">{t("analysis.lap.locationUnavailable")}</Text>}
 
-      {activeTab === "analysis" && <section data-testid="D1-3">
+      {activeTab === "analysis" && <section data-testid="D1-3" className="activity-detail-analysis">
       {/* ── 분석 탭 ── */}
       {activeTab === "analysis" && sport !== "run" && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
         <div className="space-y-4">
@@ -1096,7 +1110,7 @@ export default function ActivityPage() {
             description={t(streamsSignInRequired ? "page.summarySensorSignInDesc" : "page.summarySensorDesc")}
             metrics={summarySensorMetrics}
           />
-          {streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
+          {loadingStreams || showStreamSpinner ? <Card className="activity-detail-loading" role="status" aria-live="polite"><span className="activity-detail-spinner" aria-hidden="true" />{t("detail.loadingData")}</Card> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
         </div>
       )}
       {activeTab === "analysis" && activity?.id && <ActivityPersonalBenchmark activityId={activity.id}
@@ -1148,7 +1162,7 @@ export default function ActivityPage() {
       )}
 
       {/* ── 랩 탭 ── */}
-      {activeTab === "segments" && (analysisTabProps?.analysisSummary?.laps || streams?.laps) && (
+      {activeTab === "segments" && ((analysisTabProps?.analysisSummary?.laps ?? streams?.laps)?.length ?? 0) > 0 && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           {!analysisTabProps?.analysisSummary && sport !== "run" && <h3 className="text-[length:var(--fs-md)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>
             {sport === "swim" ? t("page.swim.setAnalysis") : t("page.lapAnalysis")}
@@ -1182,22 +1196,25 @@ export default function ActivityPage() {
       (2026-10-18 실측) 소유자 화면은 버튼을 누를 때만 받는다. 서버 요약만으로 개요가 완결된다. */}
       {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} />}
       {!streamsSignInRequired && !streams && !loadingStreams && (
-        <Button variant="outline" onClick={requestStreams}>
-          {showElevation ? t("page.elevPerf") : sport === "swim" ? t("tab.sets") : t("tab.overview")}
-        </Button>
+        !streamsError && <Card className="activity-detail-load-card">
+          <div className="activity-detail-load-icon"><BarChart3 size={24} aria-hidden="true" /></div>
+          <div><Text as="h3" variant="bodyMedium" weight={600}>{t("detail.chartsTitle")}</Text>
+            <Text as="p" variant="bodyMedium" tone="secondary">{t("detail.chartsDescription")}</Text></div>
+          <Button variant="outline" onClick={requestStreams}>{t("detail.loadCharts")}</Button>
+        </Card>
       )}
 
       {/* 분석 (고도 & 성능 차트) — 수영/기타는 고도 차트 숨김 */}
-      {showElevation && (showStreamSpinner || loadingStreams) && (
+      {(showStreamSpinner || loadingStreams) && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("page.elevPerf")}</h3>
-          <div className="h-[320px] flex items-center justify-center">
+          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("detail.chartsTitle")}</h3>
+          <div className="activity-detail-loading" role="status" aria-live="polite">
             <div className="flex items-center gap-2 text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-3)' }}>
               <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              {t("page.loadingGps")}
+              {t("detail.loadingData")}
             </div>
           </div>
         </Card>
@@ -1218,7 +1235,7 @@ export default function ActivityPage() {
       )}
 
       {/* Streams error */}
-      {!streamsSignInRequired && showElevation && !hasStreams && !loadingStreams && !showStreamSpinner && streamsError && (
+      {!streamsSignInRequired && !hasStreams && !loadingStreams && !showStreamSpinner && streamsError && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <div className="text-center text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
             <p>{streamsError}</p>
@@ -1476,7 +1493,7 @@ export default function ActivityPage() {
 
       {/* ── 세그먼트 탭 — 주요성과 + 세그먼트/코스 등록 ── */}
       {activeTab === "segments" && !streams && (
-        streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.segmentsUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
+        loadingStreams || showStreamSpinner ? <Card className="activity-detail-loading" role="status" aria-live="polite"><span className="activity-detail-spinner" aria-hidden="true" />{t("detail.loadingData")}</Card> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.segmentsUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
       )}
       {activeTab === "segments" && streams && (
       <div data-testid="D1-4" className="space-y-6">
@@ -1486,21 +1503,7 @@ export default function ActivityPage() {
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                <path d="M7 4h10v7a5 5 0 01-10 0V4z" fill="#FBBF24" />
-                <path d="M7 4h10v7a5 5 0 01-10 0V4z" fill="url(#trophy-shine)" />
-                <path d="M7 6.5H5.5a2 2 0 00-2 2v0c0 1.66 1.34 3 3 3H7" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round" />
-                <path d="M17 6.5h1.5a2 2 0 012 2v0c0 1.66-1.34 3-3 3H17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round" />
-                <rect x="10" y="15" width="4" height="2.5" rx="0.5" fill="#F59E0B" />
-                <rect x="8" y="18" width="8" height="2" rx="1" fill="#D97706" />
-                <path d="M9.5 7v4" stroke="white" strokeWidth="1" strokeLinecap="round" opacity="0.45" />
-                <defs>
-                  <linearGradient id="trophy-shine" x1="7" y1="4" x2="17" y2="11">
-                    <stop offset="0%" stopColor="white" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="white" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-              </svg>
+              <Trophy size={20} aria-hidden="true" style={{ color: "var(--amber)" }} />
               <h3 className="text-[length:var(--fs-sm)] font-bold" style={{ color: 'var(--ink-0)' }}>{t("page.topResults")}</h3>
               <span className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>{topResults.length}</span>
             </div>
@@ -1525,60 +1528,60 @@ export default function ActivityPage() {
               let badgeBg: string;
 
               if (isKOM) {
-                iconBg = "bg-gradient-to-br from-orange-400 to-orange-600";
+                iconBg = "activity-detail-achievement-icon";
                 iconContent = (
                   <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none">
-                    <path d="M4 17h16l-2-10-4.5 4L12 5l-1.5 6L6 7l-2 10z" fill="white" />
-                    <path d="M4 17h16l-2-10-4.5 4L12 5l-1.5 6L6 7l-2 10z" fill="white" opacity="0.15" />
-                    <circle cx="6" cy="7" r="1.5" fill="white" opacity="0.7" />
-                    <circle cx="12" cy="4.5" r="1.5" fill="white" opacity="0.7" />
-                    <circle cx="18" cy="7" r="1.5" fill="white" opacity="0.7" />
-                    <rect x="4" y="18" width="16" height="2.5" rx="0.75" fill="white" opacity="0.85" />
+                    <path d="M4 17h16l-2-10-4.5 4L12 5l-1.5 6L6 7l-2 10z" fill="currentColor" />
+                    <path d="M4 17h16l-2-10-4.5 4L12 5l-1.5 6L6 7l-2 10z" fill="currentColor" opacity="0.15" />
+                    <circle cx="6" cy="7" r="1.5" fill="currentColor" opacity="0.7" />
+                    <circle cx="12" cy="4.5" r="1.5" fill="currentColor" opacity="0.7" />
+                    <circle cx="18" cy="7" r="1.5" fill="currentColor" opacity="0.7" />
+                    <rect x="4" y="18" width="16" height="2.5" rx="0.75" fill="currentColor" opacity="0.85" />
                   </svg>
                 );
                 badgeText = `KOM #${effort.komRank}`;
-                badgeBg = "bg-gradient-to-r from-[var(--lime)] to-[var(--aqua)] text-[var(--bg-0)]";
+                badgeBg = "activity-detail-achievement-badge";
               } else if (rank === 1) {
-                iconBg = "bg-gradient-to-br from-yellow-300 to-amber-500";
+                iconBg = "activity-detail-achievement-icon";
                 iconContent = (
                   <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none">
-                    <path d="M8 4h8v6.5a4 4 0 01-8 0V4z" fill="#92400E" opacity="0.25" />
-                    <path d="M8 4h8v6.5a4 4 0 01-8 0V4z" fill="white" opacity="0.7" />
-                    <path d="M8 6H6.5a1.5 1.5 0 00-1.5 1.5v0A2.5 2.5 0 007.5 10H8" stroke="white" strokeWidth="1.3" strokeLinecap="round" opacity="0.8" />
-                    <path d="M16 6h1.5A1.5 1.5 0 0119 7.5v0a2.5 2.5 0 01-2.5 2.5H16" stroke="white" strokeWidth="1.3" strokeLinecap="round" opacity="0.8" />
-                    <rect x="10.5" y="13" width="3" height="3" rx="0.5" fill="white" opacity="0.7" />
-                    <rect x="9" y="17" width="6" height="2" rx="1" fill="white" opacity="0.85" />
-                    <path d="M10.5 6.5v3" stroke="white" strokeWidth="0.75" strokeLinecap="round" opacity="0.5" />
+                    <path d="M8 4h8v6.5a4 4 0 01-8 0V4z" fill="currentColor" opacity="0.25" />
+                    <path d="M8 4h8v6.5a4 4 0 01-8 0V4z" fill="currentColor" opacity="0.7" />
+                    <path d="M8 6H6.5a1.5 1.5 0 00-1.5 1.5v0A2.5 2.5 0 007.5 10H8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.8" />
+                    <path d="M16 6h1.5A1.5 1.5 0 0119 7.5v0a2.5 2.5 0 01-2.5 2.5H16" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.8" />
+                    <rect x="10.5" y="13" width="3" height="3" rx="0.5" fill="currentColor" opacity="0.7" />
+                    <rect x="9" y="17" width="6" height="2" rx="1" fill="currentColor" opacity="0.85" />
+                    <path d="M10.5 6.5v3" stroke="currentColor" strokeWidth="0.75" strokeLinecap="round" opacity="0.5" />
                   </svg>
                 );
                 badgeText = "PR";
-                badgeBg = "bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-900";
+                badgeBg = "activity-detail-achievement-badge";
               } else if (rank === 2) {
-                iconBg = "bg-gradient-to-br from-slate-300 to-slate-500";
+                iconBg = "activity-detail-achievement-icon";
                 iconContent = (
                   <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none">
-                    <path d="M10 3l-1 5h6l-1-5h-4z" fill="white" opacity="0.5" />
-                    <circle cx="12" cy="14" r="6" fill="white" opacity="0.25" />
-                    <circle cx="12" cy="14" r="6" stroke="white" strokeWidth="1.5" opacity="0.8" />
-                    <circle cx="12" cy="14" r="3.5" stroke="white" strokeWidth="1" opacity="0.5" />
-                    <text x="12" y="16" textAnchor="middle" fill="white" fontSize="6" fontWeight="bold" opacity="0.85">2</text>
+                    <path d="M10 3l-1 5h6l-1-5h-4z" fill="currentColor" opacity="0.5" />
+                    <circle cx="12" cy="14" r="6" fill="currentColor" opacity="0.25" />
+                    <circle cx="12" cy="14" r="6" stroke="currentColor" strokeWidth="1.5" opacity="0.8" />
+                    <circle cx="12" cy="14" r="3.5" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+                    <text x="12" y="16" textAnchor="middle" fill="currentColor" fontSize="6" fontWeight="bold" opacity="0.85">2</text>
                   </svg>
                 );
                 badgeText = "2nd";
-                badgeBg = "bg-gradient-to-r from-slate-400 to-slate-500 text-[var(--ink-0)]";
+                badgeBg = "activity-detail-achievement-badge";
               } else {
-                iconBg = "bg-gradient-to-br from-orange-300 to-orange-500";
+                iconBg = "activity-detail-achievement-icon";
                 iconContent = (
                   <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none">
-                    <path d="M10 3l-1 5h6l-1-5h-4z" fill="white" opacity="0.5" />
-                    <circle cx="12" cy="14" r="6" fill="white" opacity="0.25" />
-                    <circle cx="12" cy="14" r="6" stroke="white" strokeWidth="1.5" opacity="0.8" />
-                    <circle cx="12" cy="14" r="3.5" stroke="white" strokeWidth="1" opacity="0.5" />
-                    <text x="12" y="16" textAnchor="middle" fill="white" fontSize="6" fontWeight="bold" opacity="0.85">3</text>
+                    <path d="M10 3l-1 5h6l-1-5h-4z" fill="currentColor" opacity="0.5" />
+                    <circle cx="12" cy="14" r="6" fill="currentColor" opacity="0.25" />
+                    <circle cx="12" cy="14" r="6" stroke="currentColor" strokeWidth="1.5" opacity="0.8" />
+                    <circle cx="12" cy="14" r="3.5" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+                    <text x="12" y="16" textAnchor="middle" fill="currentColor" fontSize="6" fontWeight="bold" opacity="0.85">3</text>
                   </svg>
                 );
                 badgeText = "3rd";
-                badgeBg = "bg-gradient-to-r from-[var(--amber)] to-[var(--amber)] text-[var(--bg-0)]";
+                badgeBg = "activity-detail-achievement-badge";
               }
 
               return (
@@ -1589,7 +1592,7 @@ export default function ActivityPage() {
                   onMouseEnter={() => setHoveredSegment(effort)}
                   onMouseLeave={() => setHoveredSegment(null)}
                 >
-                  <div className={`w-8 h-8 rounded-[var(--r-lg)] ${iconBg} flex items-center justify-center flex-shrink-0 shadow-md`}>
+                  <div className={`w-8 h-8 rounded-[var(--r-lg)] ${iconBg} flex items-center justify-center flex-shrink-0`}>
                     {iconContent}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1602,7 +1605,7 @@ export default function ActivityPage() {
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <span className={`text-[length:var(--fs-xs)] font-bold px-2 py-0.5 rounded-full shadow-sm ${badgeBg}`}>
+                    <span className={`text-[length:var(--fs-xs)] font-bold px-2 py-0.5 rounded-full ${badgeBg}`}>
                       {badgeText}
                     </span>
                     <div className="font-mono font-bold text-[length:var(--fs-xs)] tabular-nums mt-0.5" style={{ color: 'var(--ink-0)' }}>{formatTime(effort.elapsedTime)}</div>
@@ -1632,7 +1635,7 @@ export default function ActivityPage() {
 
       {/* 세그먼트 & 코스 만들기 (수영은 세그먼트 없음) */}
       {user && sport !== "swim" && (
-        <div className="flex gap-2">
+        <div className="activity-detail-segment-actions flex gap-2">
           <Link
             to={`/segment/create?activityId=${activityId}`}
             className={buttonClass({ className: "flex-1 gap-2" })}
@@ -1646,7 +1649,7 @@ export default function ActivityPage() {
           </Link>
           <Link
             to={`/course/create?activityId=${activityId}`}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] font-medium transition-colors" style={{ background: 'color-mix(in srgb, var(--aqua) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--aqua) 30%, transparent)', color: 'var(--aqua)' }}
+            className={buttonClass({ variant: "outline", className: "flex-1 gap-2" })}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -1660,6 +1663,7 @@ export default function ActivityPage() {
 
       </div>
       )}{/* end 세그먼트 탭 */}
+      </div>
     </div>
   );
 }

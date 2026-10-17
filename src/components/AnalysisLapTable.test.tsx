@@ -12,6 +12,11 @@ afterEach(() => { cleanup(); state.units = "metric"; });
 const lap = { number: 1, durationMs: 360000, distanceKm: 1, avgSpeed: 3600 / 300, avgHeartRate: 151, avgCadence: 88, avgPower: 240 };
 
 describe("기록 랩 종목 표시", () => {
+  it("does not render an empty lap table or provenance text when there are no laps", () => {
+    const { container } = render(<AnalysisLapTable laps={[]} ftp={200} onSelectLap={() => {}} />);
+    expect(container).toBeEmptyDOMElement();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
   it("offers a keyboard-accessible range action only for a validated row, preserving its source object", () => {
     const onSelectLap = vi.fn();
     const located = { ...lap, startTimeMs: 1791375809000, endTimeMs: 1791375869000 };

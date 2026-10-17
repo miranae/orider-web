@@ -54,3 +54,12 @@
 }
 
 .activity-growth-selection .ds-dropdown-select__trigger { min-height: var(--dim-button-height); }
+
+.activity-comparison-panel { padding: var(--dim-card-padding); background: var(--bg-1); border: 1px solid var(--line-soft); border-radius: var(--r-xl); }
+.activity-comparison-panel .activity-growth-selection { max-width: 44rem; padding: var(--space-4); border: 1px solid var(--line-soft); border-radius: var(--r-lg); background: var(--bg-2); }
+.activity-comparison-empty { padding: var(--space-8) var(--space-5); text-align: center; border: 1px dashed var(--line); border-radius: var(--r-lg); }
+.activity-comparison-empty p { margin: var(--space-3) auto 0; max-width: 32rem; }
+.activity-comparison-panel .activity-growth-table thead { background: var(--bg-2); }
+.activity-comparison-panel .activity-growth-table th:first-child { padding-left: var(--space-3); }
+.activity-comparison-panel .activity-growth-table th:last-child, .activity-comparison-panel .activity-growth-table td:last-child { padding-right: var(--space-3); }
+.activity-growth-table .activity-comparison-date { white-space: nowrap; }

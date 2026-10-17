@@ -44,11 +44,11 @@ export function ActivityMediaPanel({
 }: ActivityMediaPanelProps) {
   if (hasTrack) {
     return (
-      <div className="-mx-6 sm:-mx-8 lg:mx-[calc((100vw-1120px)/-2-24px)] xl:mx-0" style={{ marginTop: -24 }}>
+      <div className="activity-detail-route-frame">
         <RouteMap
           polyline={activity.thumbnailTrack}
           latlng={streams?.latlng}
-          height="h-[360px]"
+          height="activity-detail-route-map"
           interactive
           markerPosition={markerPosition}
           highlightRange={hoveredSegment ? {

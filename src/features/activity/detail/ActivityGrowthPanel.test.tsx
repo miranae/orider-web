@@ -569,7 +569,10 @@ describe("owner comparison readable moving time", () => {
     expect(screen.getByRole("option", { name: /02:10:00.*Ride/ })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /02:20:00.*Ride/ })).toBeInTheDocument();
     chooseComparison("previous");
-    expect(screen.getByRole("columnheader", { name: /02:10:00/ })).toHaveTextContent(language === "ko" ? "2026. 10. 07." : "10/07/2026");
+    const header = screen.getByRole("columnheader", { name: /02:10:00/ });
+    expect(header).toHaveTextContent(language === "ko" ? "26. 10. 7." : "10/7/26");
+    expect(header).toHaveAttribute("title", expect.stringContaining("02:10:00"));
+    expect(header).toHaveClass("activity-comparison-date");
     expect(mocks.metrics).toHaveBeenLastCalledWith("previous"); expect(mocks.route).toHaveBeenLastCalledWith({ current, previous: first }); expect(mocks.periods).not.toHaveBeenCalled();
   });
 });

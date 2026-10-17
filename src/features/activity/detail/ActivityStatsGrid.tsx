@@ -171,7 +171,7 @@ export function ActivityStatsGrid({
 
   return (
     <div
-      className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
+      className="grid grid-cols-2 sm:grid-cols-3"
       data-testid="activity-stats-grid"
     >
         {sport !== "other" && (
