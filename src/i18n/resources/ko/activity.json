@@ -255,10 +255,10 @@
     "ofPreviousBest": "활동 전 최고의 {{pct}}%",
     "usualPct": "평소 {{pct}}%",
     "usualHigh": "평소 Z4+ {{pct}}%",
-    "reserveStart": "0% 여유",
-    "reserveEnd": "100% 소진",
-    "remainingStart": "0% 바닥",
-    "remainingEnd": "100% 가득",
+    "reserveStart": "여유",
+    "reserveEnd": "소진",
+    "remainingStart": "바닥",
+    "remainingEnd": "가득",
     "movingTime": "이동 시간",
     "distance": "거리",
     "integrated_ctl": "통합 체력 · CTL",
@@ -270,7 +270,7 @@
     "labelPickPrevious": "점 라벨은 활동 전 최고에 가장 가까웠던 창 하나에 붙습니다.",
     "changesEmpty": "같은 유형을 더 기록하면 비교가 열려요.",
     "changesEmptyOther": "같은 유형 기록이 더 쌓이면 비교가 열려요.",
-    "zonesEmpty": "0%: {{zones}}"
+    "zonesEmpty": "0% 구간 · {{zones}}"
   },
   "overviewEvidence": {
     "integratedFitness": "통합 훈련 부하 · 운동 전",
@@ -427,7 +427,7 @@
     },
     "personalStates": {
       "available": "비교 지표 없음",
-      "character_uncertain": "활동 성격이 불명확하여 같은 유형 비교를 보류했습니다.",
+      "character_uncertain": "활동 성격이 불명확해 같은 유형 비교를 미뤘어요.",
       "insufficient_history": "같은 유형의 비교 기록을 더 쌓는 중입니다.",
       "unavailable": "개인 비교 자료 없음"
     },

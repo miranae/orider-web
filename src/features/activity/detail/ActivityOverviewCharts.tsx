@@ -113,9 +113,9 @@ export function IntensityGauge({ value }: { value: number }) {
 
 /* ───────────── 존 시간 누적 막대 ───────────── */
 
-const LABEL_MIN_PX = 32;
+const LABEL_MIN_PX = 22;
 
-const BRACKET_MIN_PX = 12;
+const BRACKET_MIN_PX = 22;
 
 type StripItem = { label: string; detail: string };
 
@@ -127,6 +127,16 @@ function ZoneStrip({ weights, className, label, labelled = false, items }: { wei
   const [ref, width] = useElementWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
+  // 무엇이 툴팁을 열었나 — 탭(click)으로 연 것은 같은 조각을 다시 탭하면 닫힌다.
+  const openedBy = useRef<"focus" | "click" | "hover" | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  // 터치: 막대 밖을 탭하면 닫는다.
+  useEffect(() => {
+    if (active == null) return;
+    const close = (event: PointerEvent) => { if (!wrapRef.current?.contains(event.target as Node)) { setActive(null); openedBy.current = null; } };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [active]);
   const segmentRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const total = weights.reduce((sum, w) => sum + Math.max(0, w), 0);
   const present = weights.flatMap((w, i) => w > 0 ? [i] : []);
@@ -146,20 +156,27 @@ function ZoneStrip({ weights, className, label, labelled = false, items }: { wei
     const before = weights.slice(0, index).reduce((sum, w) => sum + Math.max(0, w), 0);
     return total > 0 ? (before + Math.max(0, weights[index]!) / 2) / total * 100 : 0;
   };
-  return <div className="activity-overview-zones__strip-wrap">
+  return <div ref={wrapRef} className="activity-overview-zones__strip-wrap">
     <div ref={ref} className={`activity-overview-zones__strip ${className ?? ""}`} role={interactive ? "group" : "img"} aria-label={label}>
       {groups.map((group, groupIndex) => {
         const visible = group.filter(([w]) => w > 0);
         const grow = visible.reduce((sum, [w]) => sum + w, 0);
         if (!visible.length) return null;
-        // 괄호가 12px 보다 좁으면 "∩" 처럼 보인다 — 숨기고 Z4+ 비율은 머리글 글자로만 둔다.
+        // 괄호가 22px 보다 좁으면 "∩" 처럼 보인다 — 숨기고 Z4+ 비율은 머리글 글자로만 둔다.
         const narrowBracket = groupIndex > 0 && total > 0 && width * grow / total < BRACKET_MIN_PX;
         return <span key={groupIndex} className={`activity-overview-zones__group ${groupIndex ? "activity-overview-zones__group--high" : ""} ${narrowBracket ? "is-narrow" : ""}`} style={{ flexGrow: grow }} aria-hidden={interactive ? undefined : true}>
           {visible.map(([w, i]) => <span key={i} ref={(node) => { segmentRefs.current[i] = node; }} className={`activity-overview-zone--${i + 1}`} style={{ flexGrow: w }}
             {...(interactive ? {
               role: "img", "aria-label": `${items![i]!.label} · ${items![i]!.detail}`, tabIndex: i === rovingIndex ? 0 : -1,
-              onFocus: () => { setFocusIndex(i); setActive(i); }, onBlur: () => setActive(null),
-              onMouseEnter: () => setActive(i), onMouseLeave: () => setActive(null),
+              onFocus: () => { setFocusIndex(i); setActive(i); openedBy.current = "focus"; },
+              onBlur: () => { setActive(null); openedBy.current = null; },
+              onMouseEnter: () => { setActive(i); openedBy.current = "hover"; },
+              onMouseLeave: () => { if (openedBy.current === "hover") { setActive(null); openedBy.current = null; } },
+              onClick: () => {
+                // 같은 조각을 다시 탭하면 닫는다. 첫 탭(포커스·호버로 이미 열린 경우 포함)은 연 채로 둔다.
+                if (active === i && openedBy.current === "click") { setActive(null); openedBy.current = null; return; }
+                setActive(i); openedBy.current = "click";
+              },
               onKeyDown: (event: KeyboardEvent<HTMLSpanElement>) => {
                 if (event.key === "ArrowRight" || event.key === "ArrowLeft") { event.preventDefault(); move(i, event.key === "ArrowRight" ? 1 : -1); }
                 if (event.key === "Home" || event.key === "End") { event.preventDefault(); move(i, event.key === "Home" ? -99 : 99); }

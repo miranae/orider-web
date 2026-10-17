@@ -255,10 +255,10 @@
     "ofPreviousBest": "{{pct}}% of previous best",
     "usualPct": "usual {{pct}}%",
     "usualHigh": "usual Z4+ {{pct}}%",
-    "reserveStart": "0% fresh",
-    "reserveEnd": "100% depleted",
-    "remainingStart": "0% empty",
-    "remainingEnd": "100% full",
+    "reserveStart": "fresh",
+    "reserveEnd": "depleted",
+    "remainingStart": "empty",
+    "remainingEnd": "full",
     "movingTime": "Moving time",
     "distance": "Distance",
     "integrated_ctl": "Combined fitness · CTL",
@@ -270,7 +270,7 @@
     "labelPickPrevious": "The point label marks the one duration closest to your previous best.",
     "changesEmpty": "Record more sessions of this type to unlock comparisons.",
     "changesEmptyOther": "Comparisons unlock as more sessions of this type are recorded.",
-    "zonesEmpty": "0%: {{zones}}"
+    "zonesEmpty": "0% zones · {{zones}}"
   },
   "overviewEvidence": {
     "integratedFitness": "Combined training load · before session",

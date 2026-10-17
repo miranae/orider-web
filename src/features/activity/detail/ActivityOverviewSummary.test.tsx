@@ -278,7 +278,7 @@ describe("missing threshold is stated as a dead end, not as pending work", () =>
   it("keeps the pending wording when the verdict really is still uncertain", () => {
     render(<MemoryRouter><ActivityOverviewSummaryContent presentation={{ ...noThreshold, thresholdBasis: "power_ftp" }} /></MemoryRouter>);
     expect(screen.getByText(renderedText("성격 확인 중"))).toBeInTheDocument();
-    expect(screen.getByText(renderedText("활동 성격이 불명확하여 같은 유형 비교를 보류했습니다."))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("활동 성격이 불명확해 같은 유형 비교를 미뤘어요."))).toBeInTheDocument();
     expect(screen.queryByText(renderedText("임계값 없음"))).not.toBeInTheDocument();
   });
 });
@@ -509,7 +509,7 @@ describe("overview v9 zone strip, legend and change meters", () => {
   });
   it("folds zero-share zones into one line and keeps zone names in the legend", () => {
     render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "bike", load: 112 }, zones: [zone] }} />);
-    expect(screen.getByText(renderedText("0%: Z5 최대"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("0% 구간 · Z5 최대"))).toBeInTheDocument();
     expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toContain("Z4 역치1.2%1:13");
   });
   it("uses an action-oriented empty state for missing comparisons", () => {
@@ -528,5 +528,28 @@ describe("overview v9 zone strip, legend and change meters", () => {
     const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, powerFingerprint: [{ duration: "2m", watts: 400, deltaPct: 72, medianWatts: 232, priorSampleCount: 10 }] }} />);
     expect(container.querySelector(".activity-overview-delta__bar.is-clipped")).not.toBeNull();
     expect(container.querySelector(".activity-overview-delta__scale")).toHaveTextContent("−50%0+50%");
+  });
+});
+
+describe("overview v10 touch tooltip", () => {
+  const zone = { kind: "heartRate" as const, seconds: [2563, 2776, 491, 73, 0], priority: "secondary" as const, currentPercentages: [43.4, 47, 8.3, 1.2, 0] };
+  it("closes the segment tooltip when the same segment is tapped again or when tapping elsewhere", () => {
+    render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "bike", load: 112 }, zones: [zone] }} />);
+    const [first] = screen.getAllByRole("img", { name: /^Z1/ }).filter((node) => node.hasAttribute("tabindex"));
+    fireEvent.click(first!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Z1 회복");
+    fireEvent.click(first!);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    fireEvent.click(first!);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("labels both ends of the W′ meters without numbers that read backwards", () => {
+    const { container, rerender } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, thresholdWork: { wPrimeDepletionPct: 100 } }} />);
+    expect(container.querySelector(".activity-overview-meter__ends")).toHaveTextContent(/^여유소진$/);
+    rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, thresholdWork: { wPrimeRemainingPct: 0 } }} />);
+    expect(container.querySelector(".activity-overview-meter__ends")).toHaveTextContent(/^바닥가득$/);
   });
 });
