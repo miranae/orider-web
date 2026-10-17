@@ -743,7 +743,7 @@
   "lifetimeMilestones.label": "{{km}}km",
   "lifetimeMilestones.loading": "구독 중…",
   "lifetimeMilestones.pending": "집계 준비 중",
-  "lifetimeMilestones.longestRide": "최장 라이드",
+  "lifetimeMilestones.longestRide": "최장 이동거리",
   "thresholdDecision.modelOnly": "PDC 추정값은 분석 근거이며 여기서 바로 적용되지 않습니다.",
   "ftpDecision.ariaLabel": "FTP 변경 결정",
   "ftpDecision.title": "FTP 변경 검토",
@@ -1208,5 +1208,6 @@
   "criticalPace.description": "기간별 페이스를 비교합니다. 수치 표에서 지속시간별 값을 확인할 수 있어요.",
   "criticalPace.duration": "지속시간",
   "criticalPace.recent": "최근 기록",
-  "criticalPace.previous": "이전 기록"
+  "criticalPace.previous": "이전 기록",
+  "lifetimeMilestones.scopedTotal": "누적 이동거리 {{km}} km · {{scope}}"
 }

@@ -1,3 +1,5 @@
+import { Copy } from "lucide-react";
+import "./FriendsPage.css";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -7,7 +9,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { useDialog } from "../contexts/DialogContext";
 import Avatar from "../components/Avatar";
-import { Button, Card, Text, buttonClass } from "../theme/components";
+import { Button, Card, Text, Input, buttonClass } from "../theme/components";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { buildFriendInviteUrl, shareFriendInvite } from "../utils/friendInviteShare";
 import i18n from "../i18n";
@@ -119,7 +121,7 @@ export default function FriendsPage() {
     <div data-testid="P3-0" className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">{t("title")}</h1>
-        <a data-testid="P3-0-2" href="#friend-invite" className={buttonClass({ variant: "secondary", size: "sm" })}>{t("inviteButton")}</a>
+        <a data-testid="P3-0-2" href="#friend-invite" className={buttonClass({ variant: "secondary", size: "md" })}>{t("inviteButton")}</a>
       </div>
 
       {fromOnboarding && (
@@ -130,9 +132,7 @@ export default function FriendsPage() {
             <Button onClick={handleShareInvite} disabled={friendCodeLoading || !friendCode}>
               {friendCodeLoading ? t("onboarding.loadingCode") : friendCode ? t("onboarding.share") : t("onboarding.codeUnavailable")}
             </Button>
-            <button type="button" onClick={() => navigate(continueTo, { replace: true })} className="px-4 py-2 rounded-[var(--r-lg)] bg-[var(--bg-2)] text-[var(--ink-1)]">
-              {t("onboarding.continue")}
-            </button>
+            <Button variant="secondary" onClick={() => navigate(continueTo, { replace: true })}>{t("onboarding.continue")}</Button>
           </div>
         </Card>
       )}
@@ -140,24 +140,17 @@ export default function FriendsPage() {
       {/* Friend code + add by code */}
       <Card id="friend-invite" data-testid="P3-3" padding="none" className="rounded-[var(--r-lg)] p-5">
         {friendCode && (
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex flex-wrap items-center gap-3 mb-4">
             <span className="text-[length:var(--fs-sm)] text-[var(--ink-3)]">{t("myCode")}</span>
             <Text variant="mono" className="font-semibold text-[var(--aqua)] bg-[var(--aqua)]/10 px-3 py-1 rounded-[var(--r-lg)] text-[length:var(--fs-lg)]">
               {friendCode}
             </Text>
-            <button
-              onClick={() => { navigator.clipboard.writeText(friendCode); showToast(t("copied")); }}
-              className="text-[var(--ink-3)] hover:text-[var(--lime)] transition-colors"
-              title={t("copyTooltip")}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-            </button>
+            <Button variant="ghost" iconOnly aria-label={t("copyTooltip")} onClick={() => { void navigator.clipboard.writeText(friendCode).then(() => showToast(t("copied"))).catch(() => showToast(t("onboarding.shareFailed"), "error")); }}><Copy size={16} aria-hidden="true" /></Button>
           </div>
         )}
         <div className="flex gap-2">
-          <input
+          <Input
+            aria-label={t("codePlaceholder")}
             type="text"
             data-testid="P3-3-1" value={codeInput}
             onChange={(e) => setCodeInput(e.target.value)}
@@ -168,8 +161,7 @@ export default function FriendsPage() {
               }
             }}
             placeholder={t("codePlaceholder")}
-            className="flex-1 px-4 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] focus:outline-none focus:border-[var(--lime)]"
-            style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
+            className="flex-1 min-w-0"
           />
           <Button
             onClick={handleAddByCode}
@@ -190,44 +182,12 @@ export default function FriendsPage() {
       </Card>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[var(--line-soft)]" role="tablist" data-testid="P3-0-1" aria-label={t("tabsLabel")}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "friends"}
-          onClick={() => setTab("friends")}
-          className={`px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${
-            tab === "friends"
-              ? "border-[var(--lime)] text-[var(--lime)]"
-              : "border-transparent text-[var(--ink-3)] hover:text-[var(--ink-1)]"
-          }`}
-        >
-          {t("tab.friends", { count: friends.length })}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "requests"}
-          aria-label={t("tab.requestsAria", { count: requests.length })}
-          onClick={() => setTab("requests")}
-          className={`px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors relative ${
-            tab === "requests"
-              ? "border-[var(--lime)] text-[var(--lime)]"
-              : "border-transparent text-[var(--ink-3)] hover:text-[var(--ink-1)]"
-          }`}
-        >
-          {t("tab.requests", { count: requests.length })}
-          {requests.length > 0 && tab !== "requests" && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[20px] h-[20px] px-1 bg-[var(--lime)] rounded-full text-[length:var(--fs-xs)] font-bold text-[var(--bg-0)] flex items-center justify-center">
-              {requests.length}
-            </span>
-          )}
-        </button>
-        <button type="button" role="tab" aria-selected={tab === "sent"} onClick={() => setTab("sent")} className="px-4 py-2.5 border-b-2" style={{ borderColor: tab === "sent" ? "var(--lime)" : "transparent" }}>{t("tab.sent", { count: sentRequests.length })}</button>
+      <div className="friends-tabs" role="tablist" data-testid="P3-0-1" aria-label={t("tabsLabel")}>
+        {(["friends", "requests", "sent"] as const).map((target) => <Button key={target} role="tab" aria-selected={tab === target} variant={tab === target ? "secondary" : "ghost"} onClick={() => setTab(target)}>{t(`tab.${target}`, {count: target === "friends" ? friends.length : target === "requests" ? requests.length : sentRequests.length})}</Button>)}
       </div>
 
       {readError != null && <p role="alert" data-testid="P3.error">{t("readFailed")}</p>}
-      {tab === "sent" && <Card data-testid="P3-5">{sentRequests.length === 0 ? <p>{t("sentEmpty")}</p> : sentRequests.map(request => <div key={request.targetId} data-testid="P3-5-1" className="flex items-center justify-between gap-3 py-2"><Link to={`/athlete/${request.targetId}`} className="flex items-center gap-2"><Avatar name={request.nickname || t("defaultNickname")} imageUrl={request.profileImage} size="md" /><span>{request.nickname || t("defaultNickname")}<Text as="time" variant="caption" tone="secondary">{request.createdAt > 0 ? new Date(request.createdAt).toLocaleString() : "—"}</Text></span></Link><Button size="sm" disabled={pendingRequests.has(`cancel:${request.targetId}`)} onClick={async () => {
+      {tab === "sent" && <Card data-testid="P3-5">{sentRequests.length === 0 ? <p>{t("sentEmpty")}</p> : sentRequests.map(request => <div key={request.targetId} data-testid="P3-5-1" className="friends-sent"><Link to={`/athlete/${request.targetId}`} className="flex items-center gap-2"><Avatar name={request.nickname || t("defaultNickname")} imageUrl={request.profileImage} size="md" /><span>{request.nickname || t("defaultNickname")}<Text as="time" variant="caption" tone="secondary">{request.createdAt > 0 ? new Date(request.createdAt).toLocaleString() : "—"}</Text></span></Link><Button disabled={pendingRequests.has(`cancel:${request.targetId}`)} onClick={async () => {
         const key = `cancel:${request.targetId}`;
         if (pendingRequests.has(key)) return;
         setPendingRequests(prev => new Set(prev).add(key));
@@ -260,12 +220,7 @@ export default function FriendsPage() {
                       )}
                     </div>
                   </Link>
-                  <button
-                    onClick={() => handleRemove(f.userId, f.nickname)}
-                    className="text-[length:var(--fs-xs)] text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors shrink-0 px-2 py-1"
-                  >
-                    {t("remove")}
-                  </button>
+                  <Button variant="ghost" aria-label={t("removeNamed", {name: f.nickname})} onClick={() => handleRemove(f.userId, f.nickname)}>{t("remove")}</Button>
                 </div>
               ))}
             </div>
@@ -287,27 +242,20 @@ export default function FriendsPage() {
                 const declining = pendingRequests.has(`decline:${r.requesterId}`);
                 const requestPending = accepting || declining;
                 return (
-                  <div data-testid="P3-2-1" key={r.requesterId} className="px-4 py-3 flex items-center gap-3">
+                  <div data-testid="P3-2-1" key={r.requesterId} className="friends-request">
                   <Link to={`/athlete/${r.requesterId}`} className="flex items-center gap-3 flex-1 min-w-0">
                     <Avatar name={r.nickname} imageUrl={r.profileImage} size="md" />
                     <span className="text-[length:var(--fs-sm)] font-medium text-[var(--ink-0)] truncate">{r.nickname}</span>
                   </Link>
                   <div className="flex gap-2 shrink-0">
-                    <Button size="sm"
+                    <Button aria-label={t("acceptNamed", {name: r.nickname})}
                       onClick={() => handleAccept(r.requesterId)}
                       disabled={requestPending}
                       className={accepting ? 'cursor-wait' : undefined}
                     >
                       {accepting ? t("accepting") : t("accept")}
                     </Button>
-                    <button
-                      onClick={() => handleDecline(r.requesterId)}
-                      disabled={requestPending}
-                      className={`px-3 py-1.5 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-lg)] text-[var(--ink-1)] hover:bg-[var(--bg-3)] transition-colors disabled:opacity-50 ${declining ? 'cursor-wait' : ''}`}
-                      style={{ background: 'var(--bg-2)', border: '1px solid var(--line-soft)' }}
-                    >
-                      {declining ? t("declining") : t("decline")}
-                    </button>
+                    <Button variant="secondary" aria-label={t("declineNamed", {name: r.nickname})} onClick={() => handleDecline(r.requesterId)} disabled={requestPending}>{declining ? t("declining") : t("decline")}</Button>
                   </div>
                   </div>
                 );

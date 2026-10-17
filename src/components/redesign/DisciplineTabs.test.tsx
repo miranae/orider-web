@@ -1,3 +1,5 @@
+import i18n from "i18next";
+import enCommon from "../../i18n/resources/en/common.json";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -25,4 +27,19 @@ describe("DisciplineTabs availability", () => {
     fireEvent.click(swim);
     expect(onChange).toHaveBeenCalledWith("swim");
   });
+});
+
+it("keeps full English accessible names and historical swimming keyboard access with compact labels", async () => {
+  i18n.addResourceBundle("en", "common", enCommon);
+  await i18n.changeLanguage("en");
+  try {
+    const change = vi.fn();
+    render(<MemoryRouter><DisciplineTabs includeTri value="bike" onChange={change} /></MemoryRouter>);
+    const bike = screen.getByRole("tab", {name: "Cycling"});
+    expect(screen.getAllByRole("tab")).toHaveLength(4);
+    expect(screen.getByRole("tab", {name: "Swimming"})).toBeEnabled();
+    fireEvent.keyDown(bike, {key: "End"});
+    expect(change).toHaveBeenLastCalledWith("swim");
+    expect(screen.getByRole("tab", {name: "Swimming"})).toHaveFocus();
+  } finally { await i18n.changeLanguage("ko"); }
 });

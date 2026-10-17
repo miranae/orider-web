@@ -26,13 +26,13 @@ export function ProfileHero({
   const initial = (nickname || "?").slice(0, 1).toUpperCase();
   const size = 72;
   return (
-    <Card padding="none"
+    <Card padding="none" className="settings-profile-hero"
       style={{
         padding: "22px 24px",
         marginBottom: 'var(--space-5)',
         display: "grid",
-        gridTemplateColumns: "auto 1fr auto",
-        gap: 22,
+        gridTemplateColumns: "auto minmax(0, 1fr)",
+        gap: "var(--space-4)",
         alignItems: "center",
       }}
     >
@@ -68,7 +68,7 @@ export function ProfileHero({
       )}
 
       <div style={{ minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-2)', marginBottom: "var(--space-0-5)" }}>
+        <div className="settings-profile-name" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 'var(--space-2)', marginBottom: "var(--space-0-5)" }}>
           <h2
             style={{
               margin: 0,
@@ -83,7 +83,6 @@ export function ProfileHero({
           {onEditNickname && (
             <Button variant="ghost"
               onClick={onEditNickname}
-              style={{ padding: "3px 6px", fontSize: "var(--fs-xs)" }}
               aria-label={t("profile.editNickname")}
             >
               <Pencil size={11} /> {t("profile.change")}
@@ -122,7 +121,7 @@ export function ProfileHero({
           {email && (
             <>
               {friendCode && <span>·</span>}
-              <span>{email}</span>
+              <span style={{ overflowWrap: "anywhere" }}>{email}</span>
             </>
           )}
           {stravaConnected && (
@@ -144,7 +143,7 @@ export function ProfileHero({
         </div>
       </div>
 
-      {actions && <div style={{ display: "flex", gap: "var(--space-1-5)" }}>{actions}</div>}
+      {actions && <div className="settings-profile-actions">{actions}</div>}
     </Card>
   );
 }

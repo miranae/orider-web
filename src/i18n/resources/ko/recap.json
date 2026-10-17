@@ -1,5 +1,5 @@
 {
-  "title": "연말결산",
+  "title": "연간 기록",
   "subtitle": "{{year}}년 나의 활동",
   "rider": "라이더",
   "loginRequired": "로그인이 필요합니다.",
@@ -10,7 +10,7 @@
   "monthShort": "{{month}}월",
   "empty": {
     "title": "{{year}}년 활동이 아직 없어요",
-    "desc": "활동을 기록하면 연말결산이 채워집니다."
+    "desc": "활동을 기록하면 연간 기록이 채워집니다."
   },
   "section": {
     "totals": "한 해 총합",
@@ -18,13 +18,15 @@
     "byDiscipline": "종목별",
     "highlights": "최고 노력",
     "monthly": "월별 추이",
-    "share": "공유하기"
+    "share": "공유하기",
+    "runningRecords": "전체 기간 러닝 개인기록과 배지",
+    "lifetimeRecords": "전체 기간 거리 기록"
   },
   "stat": {
-    "distance": "총 거리",
-    "time": "총 시간",
+    "distance": "누적 이동거리",
+    "time": "누적 운동시간",
     "elevation": "총 상승고도",
-    "activities": "활동 수"
+    "activities": "전체 활동수"
   },
   "unit": {
     "hour": "시간",
@@ -39,8 +41,8 @@
   },
   "consistency": {
     "score": "일관성 점수",
-    "activeDays": "활동일",
-    "activeWeeks": "활동 주",
+    "activeDays": "활동 일수",
+    "activeWeeks": "활동 주수",
     "streak": "최장 연속",
     "note": "최근 {{window}}일 기준입니다. 현재 연속 활동은 {{current}}일입니다."
   },
@@ -50,5 +52,12 @@
     "story": "스토리 카드 저장"
   },
   "shareTitle": "{{year}} 연말결산",
-  "shareFooter": "orider.co.kr · 오라이더"
+  "shareFooter": "orider.co.kr · 오라이더",
+  "scope": {
+    "all": "모든 종목",
+    "bike": "사이클",
+    "run": "러닝·걷기·하이킹",
+    "swim": "수영"
+  },
+  "activityCount": "{{count}}회"
 }

@@ -1,5 +1,5 @@
 {
-  "title": "Year in Review",
+  "title": "Annual records",
   "subtitle": "My {{year}} activities",
   "rider": "Rider",
   "loginRequired": "Please sign in.",
@@ -18,7 +18,9 @@
     "byDiscipline": "By sport",
     "highlights": "Best efforts",
     "monthly": "Monthly trend",
-    "share": "Share"
+    "share": "Share",
+    "runningRecords": "Lifetime running records and badges",
+    "lifetimeRecords": "Lifetime distance records"
   },
   "stat": {
     "distance": "Total distance",
@@ -50,5 +52,14 @@
     "story": "Save story card"
   },
   "shareTitle": "{{year}} Year in Review",
-  "shareFooter": "orider.co.kr · Orider"
+  "shareFooter": "orider.co.kr · Orider",
+  "scope": {
+    "all": "All sports",
+    "bike": "Cycling",
+    "run": "Running, walking and hiking",
+    "swim": "Swimming"
+  },
+  "activityCount": "{{count}} activities",
+  "activityCount_one": "{{count}} activity",
+  "activityCount_other": "{{count}} activities"
 }

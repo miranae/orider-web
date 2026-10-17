@@ -61,5 +61,8 @@
   "cancelSuccess": "Request cancelled",
   "cancelFailed": "Could not cancel request",
   "cancelConfirm": "Cancel this friend request?",
-  "inviteButton": "Invite"
+  "inviteButton": "Invite",
+  "removeNamed": "Remove {{name}} from friends",
+  "acceptNamed": "Accept request from {{name}}",
+  "declineNamed": "Decline request from {{name}}"
 }

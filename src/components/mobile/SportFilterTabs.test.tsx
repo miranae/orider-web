@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import SportFilterTabs from "./SportFilterTabs";
@@ -8,7 +8,7 @@ describe("SportFilterTabs first label", () => {
     renderWithProviders(<SportFilterTabs value="all" onChange={vi.fn()} />);
     expect(screen.getByRole("group", { name: "종목 선택" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "전체", pressed: true })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "🚴 사이클", pressed: false })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "사이클", pressed: false })).toBeInTheDocument();
   });
 
   it("allows fitness to name its integrated view without changing generic filters", () => {
@@ -16,4 +16,13 @@ describe("SportFilterTabs first label", () => {
     expect(screen.getByRole("button", { name: "통합", pressed: true })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "전체" })).not.toBeInTheDocument();
   });
+});
+
+it("uses stable decorative SVGs while retaining labeled filter actions", () => {
+  const change = vi.fn();
+  renderWithProviders(<SportFilterTabs value="bike" onChange={change} />);
+  const run = screen.getByRole("button", {name: "러닝", pressed: false});
+  expect(run.querySelector('svg[data-icon="run"]')).toHaveAttribute("aria-hidden", "true");
+  fireEvent.click(run);
+  expect(change).toHaveBeenCalledWith("run");
 });

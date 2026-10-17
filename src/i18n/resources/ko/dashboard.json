@@ -336,9 +336,10 @@
       "tssUnknown": "TSS 미확인",
       "tssPartial": "산출 가능한 활동의 부분합계 · 미확인 {{count}}건",
       "tssEstimated": "추정 포함",
-      "distance": "거리 (km)",
-      "time": "시간 (h)",
-      "elevation": "고도 (m)"
+      "distance": "이동거리 (km)",
+      "time": "운동시간 (h)",
+      "elevation": "상승고도 (m)",
+      "title": "월별 활동 기록"
     },
     "dailyLoad": {
       "datasetLabel": "일별 부하",

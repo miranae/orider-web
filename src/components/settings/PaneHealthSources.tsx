@@ -13,7 +13,7 @@ import type {
   HealthSport,
   ProviderId,
 } from "@shared/types";
-import { Card, Chip } from "../../theme/components";
+import { DropdownSelect, Card, Chip } from "../../theme/components";
 import { Toggle } from "./_primitives";
 
 /**
@@ -63,7 +63,7 @@ function ProviderCard({
   providerId: ProviderId;
   conn: ConnectionDoc | null;
 }) {
-  const { t } = useTranslation("settings");
+  const { t, i18n } = useTranslation("settings");
   const meta = PROVIDER_META[providerId];
   const status: ConnectionStatus | "not_connected" = conn?.status ?? "not_connected";
 
@@ -84,14 +84,14 @@ function ProviderCard({
   }
 
   return (
-    <Card data-testid="S2.loading" padding="none" style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: 'var(--space-2)' }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
-        <div style={{ color: "var(--rd-text-muted)" }}>{meta.icon}</div>
-        <div style={{ flex: 1 }}>
+    <Card data-testid={`health-provider-${providerId}`} padding="none" style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: 'var(--space-2)' }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 'var(--space-3)' }}>
+        <div style={{ color: "var(--ink-2)" }}>{meta.icon}</div>
+        <div style={{ flex: "1 1 8rem", minWidth: 0 }}>
           <div style={{ fontWeight: 600 }}>{meta.label}</div>
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--rd-text-muted)" }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>
             {status === "active" && conn?.lastSyncAt
-              ? t("healthSources.lastSync", { time: formatRelativeTime(conn.lastSyncAt, t) })
+              ? t("healthSources.lastSync", { time: formatRelativeTime(conn.lastSyncAt, i18n.resolvedLanguage ?? i18n.language, t) })
               : t(meta.hintKey)}
           </div>
         </div>
@@ -101,12 +101,12 @@ function ProviderCard({
         <div
           style={{
             fontSize: "var(--fs-xs)",
-            color: "var(--rd-text-muted)",
+            color: "var(--ink-2)",
             display: "flex",
             alignItems: "center",
             gap: "var(--space-1-5)",
             paddingTop: 'var(--space-1)',
-            borderTop: "1px solid var(--rd-border)",
+            borderTop: "1px solid var(--line)",
           }}
         >
           <Smartphone size={14} />
@@ -115,16 +115,14 @@ function ProviderCard({
       )}
       {conn?.scopes && conn.scopes.length > 0 && status === "active" && (
         <details style={{ fontSize: "var(--fs-xs)" }}>
-          <summary style={{ cursor: "pointer", color: "var(--rd-text-muted)" }}>
+          <summary style={{ cursor: "pointer", color: "var(--ink-2)" }}>
             {t("healthSources.scopesTitle", { count: conn.scopes.length })}
           </summary>
           <ul style={{ marginTop: 'var(--space-1)', paddingLeft: 'var(--space-4)' }}>
-            {conn.scopes.slice(0, 6).map((s) => (
+            {conn.scopes.map((s) => (
               <li key={s} style={{ wordBreak: "break-all" }}>{s}</li>
             ))}
-            {conn.scopes.length > 6 && (
-              <li>{t("healthSources.scopesMore", { count: conn.scopes.length - 6 })}</li>
-            )}
+
           </ul>
         </details>
       )}
@@ -132,16 +130,17 @@ function ProviderCard({
   );
 }
 
-function formatRelativeTime(ms: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
+function formatRelativeTime(ms: number, locale: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (!ms) return "—";
   const diff = Date.now() - ms;
   const min = Math.floor(diff / 60_000);
   if (min < 1) return t("healthSources.justNow");
-  if (min < 60) return `${min}m`;
+  const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (min < 60) return relative.format(-min, "minute");
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h`;
+  if (hr < 24) return relative.format(-hr, "hour");
   const day = Math.floor(hr / 24);
-  return `${day}d`;
+  return relative.format(-day, "day");
 }
 
 function PrimarySourceSelector({
@@ -156,27 +155,14 @@ function PrimarySourceSelector({
   onChange: (sport: HealthSport, provider: ProviderId | null) => void;
 }) {
   const { t } = useTranslation("settings");
-  const current = prefs?.primarySource[sport] ?? null;
+  const current = prefs?.primarySource?.[sport] ?? null;
+  const inactiveCurrent = current && !activeProviders.includes(current) ? current : null;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
       <span style={{ minWidth: 60, fontSize: "var(--fs-sm)" }}>{t(SPORT_LABEL_KEYS[sport])}</span>
-      <select
-        value={current ?? ""}
-        onChange={(e) => onChange(sport, e.target.value === "" ? null : (e.target.value as ProviderId))}
-        style={{
-          flex: 1,
-          padding: "6px 8px",
-          borderRadius: "var(--r-md)",
-          border: "1px solid var(--rd-border)",
-          background: "var(--rd-bg-elevated)",
-          color: "var(--rd-text)",
-        }}
-      >
-        <option value="">{t("healthSources.primarySourceAuto")}</option>
-        {activeProviders.map((p) => (
-          <option key={p} value={p}>{PROVIDER_META[p].label}</option>
-        ))}
-      </select>
+      <DropdownSelect value={current ?? ""} label={t(SPORT_LABEL_KEYS[sport])}
+        onChange={value => onChange(sport, value === "" ? null : value as ProviderId)}
+        options={[{ value: "", label: t("healthSources.primarySourceAuto") }, ...activeProviders.map(value => ({ value, label: PROVIDER_META[value].label })), ...(inactiveCurrent ? [{ value: inactiveCurrent, label: `${PROVIDER_META[inactiveCurrent].label} (${t("healthSources.statusNotConnected")})`, disabled: true }] : [])]} />
     </div>
   );
 }
@@ -244,7 +230,7 @@ export function PaneHealthSources() {
     <div data-testid="S2-2-1" style={{ display: "flex", flexDirection: "column", gap: 'var(--space-4)' }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 'var(--space-2)' }}>
         <h2 style={{ fontSize: "var(--fs-lg)", fontWeight: 600 }}>{t("healthSources.title")}</h2>
-        <p style={{ fontSize: "var(--fs-sm)", color: "var(--rd-text-muted)" }}>
+        <p style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)" }}>
           {t("healthSources.desc")}
         </p>
       </section>
@@ -261,7 +247,7 @@ export function PaneHealthSources() {
         >
           <div>
             <h3 style={{ fontSize: "var(--fs-sm)", fontWeight: 600 }}>{t("healthSources.primarySourceTitle")}</h3>
-            <p style={{ fontSize: "var(--fs-xs)", color: "var(--rd-text-muted)", marginTop: 'var(--space-1)' }}>
+            <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginTop: 'var(--space-1)' }}>
               {t("healthSources.primarySourceDesc")}
             </p>
           </div>
@@ -284,7 +270,7 @@ export function PaneHealthSources() {
       >
         <div>
           <h3 style={{ fontSize: "var(--fs-sm)", fontWeight: 600 }}>{t("healthSources.retentionTitle")}</h3>
-          <p style={{ fontSize: "var(--fs-xs)", color: "var(--rd-text-muted)", marginTop: 'var(--space-1)' }}>
+          <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginTop: 'var(--space-1)' }}>
             {t("healthSources.retentionDesc")}
           </p>
         </div>
@@ -305,9 +291,9 @@ export function PaneHealthSources() {
               gap: 'var(--space-2)',
               padding: 'var(--space-2)',
               borderRadius: "var(--r-md)",
-              background: "var(--rd-bg-muted)",
+              background: "var(--bg-2)",
               fontSize: "var(--fs-xs)",
-              color: "var(--rd-text-muted)",
+              color: "var(--ink-2)",
             }}
           >
             <AlertCircle size={14} style={{ flexShrink: 0, marginTop: "var(--space-0-5)" }} />

@@ -1,5 +1,8 @@
 /** Shared names follow activity.analysis.glossary and metricGlossary; definitions live in termGlossary. */
 export const TERM_GLOSSARY = [
+  { id: "di2", aliases: ["Di2", "DI2"] },
+  { id: "axs", aliases: ["AXS"] },
+  { id: "virtualPower", aliases: ["가상 파워", "가상파워", "Virtual Power", "Virtual power", "virtual power"] },
   { id: "timeFormat", aliases: ["HH:MM", "HH:mm"] },
   { id: "liveTracking", aliases: ["LIVE", "실시간 위치 공유", "Live tracking", "live tracking"] },
   { id: "trainingLoad", aliases: ["주간 훈련 부하", "훈련 부하", "훈련부하", "Weekly training load", "weekly training load", "Training load", "training load", "Training Load", "Weekly Training Load"] },
