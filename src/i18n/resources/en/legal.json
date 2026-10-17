@@ -350,7 +350,8 @@
             "list": [
               "Strava unique ID",
               "Ride records (distance, speed, elevation, route, activity time, etc.)",
-              "Activity descriptions, segment records, and other data the User has made public on Strava"
+              "Activity descriptions, segment records, and other data the User has made public on Strava",
+              "OAuth access and refresh tokens and expiry information for the connection"
             ]
           },
           {
@@ -360,7 +361,10 @@
               "Device info (device type, OS version)",
               "Cookies (web) and local storage (app)",
               "Location info (GPS): ride and run routes, real-time location sharing",
-              "BLE sensor data: heart rate, cadence, power, gearing status, radar"
+              "BLE sensor data: heart rate, cadence, power, gearing status, radar",
+              "SDK usage data: screen views, app interactions, sessions and performance, crash reports and error diagnostics",
+              "App and installation identifiers, user identifiers associated with the signed-in account, and push notification tokens",
+              "Approximate location, such as country or city, derived from IP addresses. Google Analytics uses IP addresses to derive location but does not log or store the IP addresses themselves."
             ]
           },
           {
@@ -454,7 +458,7 @@
           {
             "heading": "5. Credential security",
             "list": [
-              "Strava OAuth tokens are stored and managed only on the server side and are not exposed to clients (browser/app).",
+              "Strava OAuth tokens are processed on the server for integration features. The authenticated account’s app may also download, store and synchronize them on the device. Tokens are credentials and are not made public to other users.",
               "Token exchange is handled over HTTPS encrypted communication."
             ]
           }
@@ -503,16 +507,48 @@
           {
             "heading": "5. Processing principles",
             "list": [
-              "Health data is used only to provide service features — never for advertising or other purposes, and never shared with third parties.",
+              "Health data is used for service features and not for advertising. User-requested integrations and processing by the service providers described in Article 5 may apply.",
               "Data in transit and at rest is protected by HTTPS and access controls."
             ]
           }
         ]
       },
       {
-        "title": "Article 5 (Outsourced Processing)",
+        "title": "Article 5 (External Providers and Processing)",
         "paragraphs": [
-          "Currently, the Company does not outsource personal information processing to external companies. If outsourcing occurs in the future, related details will be disclosed in this Policy."
+          "We use Google LLC services, including Firebase and Google Cloud, for authentication, data storage, server operations and notifications, and Google Analytics and Firebase Crashlytics for usage, error and performance analysis. The information below is transmitted to and processed by Google.",
+          "Firebase customer data is processed on our behalf under the applicable processing terms. Google Analytics has separate terms, and service data Google processes for its own operations and security may follow separate policies. Not all Google processing has the same provider role."
+        ],
+        "groups": [
+          {
+            "heading": "1. Authentication, storage and service operations",
+            "list": [
+              "Firebase Authentication: account identifiers, email and profile, authentication and connection information — sign-in, account management and abuse prevention",
+              "Cloud Firestore, Realtime Database, Cloud Storage, Cloud Functions and Hosting: service data you store or transmit, including account, workout, route, sensor and photo data, and request information — synchronization, storage, analysis features and web/server operations",
+              "Firebase Cloud Messaging and App Check: app/installation identifiers, notification tokens and app/device attestation information — notification delivery and access protection"
+            ]
+          },
+          {
+            "heading": "2. Usage analysis and reliability",
+            "list": [
+              "Google Analytics: screen views, interactions, sessions, app/device/installation and account-associated identifiers, and IP-derived approximate location — usage analysis and feature improvement",
+              "Firebase Crashlytics and Performance Monitoring: crash/error/performance records, app/device information and installation identifiers — troubleshooting and reliability. SDKs may automatically collect and transmit some information while the app is used."
+            ]
+          }
+        ],
+        "policyLinks": [
+          {
+            "label": "Firebase data processing and retention",
+            "url": "https://firebase.google.com/support/privacy"
+          },
+          {
+            "label": "Google Analytics data collection",
+            "url": "https://support.google.com/analytics/answer/11593727?hl=en"
+          },
+          {
+            "label": "Google Privacy Policy",
+            "url": "https://policies.google.com/privacy?hl=en"
+          }
         ]
       },
       {
@@ -531,7 +567,7 @@
       {
         "title": "Article 7 (Cookies and Similar Technologies)",
         "paragraphs": [
-          "The Company may use cookies (web), local storage (app), or similar technologies to improve the Service. Users may refuse the use of cookies and local storage through browser settings (web) or app settings (mobile)."
+          "The Service uses cookies and device storage to maintain sign-in and preferences. Browser settings can restrict storage, which may affect some features. Blocking browser storage alone does not stop app SDK analytics or diagnostic collection. Contact the privacy officer listed in this Policy with requests about data processing or collection."
         ]
       },
       {
