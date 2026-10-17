@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { LocalizedLink } from "../components/LocalizedLink";
 import { Card } from "../theme/components";
 
 interface Group {
@@ -30,6 +31,8 @@ export default function PrivacyPage() {
       </div>
 
       <p className="text-[length:var(--fs-sm)] text-[var(--ink-2)] leading-relaxed">{t("privacy.intro")}</p>
+
+      <p><LocalizedLink to="/account-deletion" className="text-[var(--lime)] underline">{t("accountDeletion.title")}</LocalizedLink></p>
 
       <Card padding="none" className="divide-y divide-[var(--line-soft)]">
         {sections.map((s, i) => (

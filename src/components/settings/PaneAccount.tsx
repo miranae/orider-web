@@ -21,7 +21,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { useTheme, type ThemePreference } from "../../contexts/ThemeContext";
-import { useStrava } from "../../hooks/useStrava";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { logClientError } from "../../services/errorLogger";
 
@@ -45,7 +44,6 @@ export function PaneAccount() {
   const { showToast } = useToast();
   const dialog = useDialog();
   const { theme, setTheme } = useTheme();
-  const { deleteUserData, loading: stravaLoading } = useStrava();
 
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [bioSaving, setBioSaving] = useState(false);
@@ -59,7 +57,6 @@ export function PaneAccount() {
   const [visibilityAvailability, setVisibilityAvailability] = useState<"ready" | "error">("ready");
   const [existingActivityCount, setExistingActivityCount] = useState<number | null>(null);
   const [nicknameSaving, setNicknameSaving] = useState(false);
-  const [deletingAccount, setDeletingAccount] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [friendCode, setFriendCode] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -248,30 +245,6 @@ export function PaneAccount() {
     } catch {
       setter(!value);
       showToast(t("privacy.settingChangeFailed"));
-    }
-  }
-
-  async function handleDeleteAccount() {
-    if (deletingAccount) return;
-    const typed = await dialog.prompt(t("pane.account.deleteTypeConfirm"), {
-      destructive: true,
-      confirmLabel: t("pane.account.deleteBtnLabel"),
-      placeholder: t("pane.account.deleteTypePlaceholder"),
-    });
-    if (typed?.trim() !== t("pane.account.deleteTypeToken")) {
-      if (typed != null) showToast(t("pane.account.deleteTypeMismatch"));
-      return;
-    }
-    setDeletingAccount(true);
-    try {
-      await deleteUserData();
-      await logout();
-      showToast(t("pane.account.deleteAccountDone"));
-      navigate("/", { replace: true });
-    } catch (e) {
-      showToast(`${t("pane.account.deleteAccountFailed")}: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setDeletingAccount(false);
     }
   }
 
@@ -466,10 +439,9 @@ export function PaneAccount() {
           hint={t("pane.account.deleteHint")}
         >
           <Button variant="danger"
-            onClick={handleDeleteAccount}
-            disabled={stravaLoading || deletingAccount}
+            onClick={() => navigate("/account-deletion")}
           >
-            {stravaLoading || deletingAccount ? t("pane.account.deleteBtnDeleting") : t("pane.account.deleteBtnLabel")}
+            {t("pane.account.deleteBtnLabel")}
           </Button>
         </InlineRow>
       </SettingsCard>

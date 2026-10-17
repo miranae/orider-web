@@ -50,6 +50,7 @@ const FriendsPage = lazyTimed("FriendsPage", () => import("./pages/FriendsPage")
 const MigrationPage = lazyTimed("MigrationPage", () => import("./pages/MigrationPage"));
 const FriendInvitePage = lazyTimed("FriendInvitePage", () => import("./pages/FriendInvitePage"));
 const TermsPage = lazyTimed("TermsPage", () => import("./pages/TermsPage"));
+const AccountDeletionPage = lazyTimed("AccountDeletionPage", () => import("./pages/AccountDeletionPage"));
 const PrivacyPage = lazyTimed("PrivacyPage", () => import("./pages/PrivacyPage"));
 const AiCoachPolicyPage = lazyTimed("AiCoachPolicyPage", () => import("./pages/AiCoachPolicyPage"));
 const CoachHistoryPage = lazyTimed("CoachHistoryPage", () => import("./pages/CoachHistoryPage"));
@@ -186,6 +187,7 @@ export function AppRoutes() {
           <Route path="feedback/board" element={<Navigate to="../community/board?type=inquiry" replace />} />
           <Route path="terms" element={<TermsPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
+          <Route path="account-deletion" element={<AccountDeletionPage />} />
           <Route path="policies/ai-coach" element={<AiCoachPolicyPage />} />
           <Route path="policies/community" element={<CommunityGuidelinesPage />} />
           <Route path="about" element={<AboutPage />} />
