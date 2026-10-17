@@ -76,12 +76,104 @@
     "aiPolicy": "AI coach policy",
     "stravaTerms": "Strava terms",
     "calculator": "Public calculator",
-    "partnershipInquiry": "Partnership inquiries",
+    "partnershipInquiry": "Get involved",
     "help": "Help",
     "policies": "Terms & policies",
     "install": "Get the app",
     "navigation": "Site information",
     "email": "Email"
+  },
+  "partnership": {
+    "eyebrow": "OUR RIDER. OPEN RIDER.",
+    "title": "Get involved with Orider",
+    "intro": "Help build it, connect with it or explore how it can last. Choose the conversation you would like to start.",
+    "choicesLabel": "Ways to get involved",
+    "back": "All ways to get involved",
+    "aboutContext": "Built by a rider, shaped by the people who use it.",
+    "aboutLink": "How Orider began",
+    "jumpToContact": "Start a conversation by email",
+    "contactTitle": "Tell us your story by email",
+    "contactDescription": "You do not need a formal proposal. Share as much or as little of the following as you like.",
+    "emailLabel": "Email",
+    "emailHint": "Select the address to copy it, or use the button to open your email app.",
+    "supportText": "Have a question about the app or an improvement in mind?",
+    "supportLink": "General questions & feedback",
+    "build": {
+      "title": "Build with us",
+      "summary": "Product planning, design, joining the team and open-source contributions",
+      "intro": "Orider is an early-stage product that began with frustrations on real rides. Help shape a platform that riders and runners improve and use together.",
+      "sections": [
+        {
+          "title": "Product planning and design are our biggest needs",
+          "description": "Help decide what to build first and improve the journey from preparing for an activity to reviewing records. We would like to work with people who want to turn real user feedback into a better product."
+        },
+        {
+          "title": "Explore becoming part of the team",
+          "description": "Tell us about the role and way of contributing you have in mind. We are open to conversations about co-founding or joining the team, starting with understanding each other's direction."
+        },
+        {
+          "title": "Start small with open source",
+          "description": "Explore the code and documentation in the public web repository, suggest improvements or contribute. Something you notice while using Orider is a good place to start."
+        }
+      ],
+      "repository": "View the public web repository on GitHub",
+      "contactDetails": [
+        "A short introduction and the role that interests you",
+        "Your experience, portfolio or GitHub link, if available",
+        "How you would like to work together and the ideas you want to share"
+      ],
+      "emailAction": "Email about joining us"
+    },
+    "collaborate": {
+      "title": "Partnerships & advertising",
+      "summary": "Device integrations, brand collaborations, direct advertising, sponsorships and local events",
+      "intro": "We are looking for connections that help people stay active. Tell us about partnerships, direct advertising or sponsorships that could extend the Orider experience.",
+      "sections": [
+        {
+          "title": "Devices & service integrations",
+          "description": "Propose ways to connect sensors, sports devices and training services that people could use together."
+        },
+        {
+          "title": "Brands, direct advertising & sponsorships",
+          "description": "We welcome conversations about joint campaigns, user benefits, direct advertising and brand sponsorships. We can explore a suitable approach based on your proposal."
+        },
+        {
+          "title": "Clubs, events & content",
+          "description": "Share ideas for group rides and runs, races and challenges, coaching content or joint creative projects."
+        },
+        {
+          "title": "Shops, travel & local projects",
+          "description": "Propose ways to connect bike shops, repairs, equipment rentals, active travel and local routes. Ideas beyond these examples are welcome, too."
+        }
+      ],
+      "contactDetails": [
+        "An introduction to you, your organization or brand, and contact details",
+        "Your partnership, advertising or sponsorship idea",
+        "The intended audience, tentative timing and useful materials, if available"
+      ],
+      "emailAction": "Email a partnership idea"
+    },
+    "investment": {
+      "title": "Investment inquiries",
+      "summary": "The direction of an open sports platform and a sustainable business",
+      "intro": "We want to build trust rather than ownership. We would like to meet investors who share the direction of an open sports platform and want to explore a lasting business for Orider.",
+      "sections": [
+        {
+          "title": "Start with where we are today",
+          "description": "Orider is at an early stage, refining the product through real use. We are exploring how lasting value for people who use it can support a sustainable business."
+        },
+        {
+          "title": "Bring your product and business questions",
+          "description": "Tell us what interests you and what you would like to understand. We would like to begin an investment conversation grounded in the current product and our thinking about the business."
+        }
+      ],
+      "contactDetails": [
+        "Your name or organization and contact details",
+        "The business direction or investment perspective that interests you",
+        "Questions or materials you would like to discuss first"
+      ],
+      "emailAction": "Email about investment"
+    }
   },
   "nav": {
     "todayTraining": "Today’s workout",

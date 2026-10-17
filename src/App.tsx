@@ -59,6 +59,8 @@ const BoardPage = lazyTimed("BoardPage", () => import("./pages/BoardPage"));
 const PostDetailPage = lazyTimed("PostDetailPage", () => import("./pages/PostDetailPage"));
 const CreatePostPage = lazyTimed("CreatePostPage", () => import("./pages/CreatePostPage"));
 const CreatorHubPage = lazyTimed("CreatorHubPage", () => import("./pages/CreatorHubPage"));
+const PartnershipPage = lazyTimed("PartnershipPage", () => import("./pages/PartnershipPage"));
+const PartnershipDetailPage = lazyTimed("PartnershipDetailPage", () => import("./pages/PartnershipPage").then(module => ({ default: module.PartnershipDetailPage })));
 const AboutPage = lazyTimed("AboutPage", () => import("./pages/AboutPage"));
 const StravaTermsPage = lazyTimed("StravaTermsPage", () => import("./pages/StravaTermsPage"));
 const CreateSegmentPage = lazyTimed("CreateSegmentPage", () => import("./pages/CreateSegmentPage"));
@@ -191,6 +193,10 @@ export function AppRoutes() {
           <Route path="policies/ai-coach" element={<AiCoachPolicyPage />} />
           <Route path="policies/community" element={<CommunityGuidelinesPage />} />
           <Route path="about" element={<AboutPage />} />
+          <Route path="partnership" element={<PartnershipPage />} />
+          <Route path="partnership/build" element={<PartnershipDetailPage purpose="build" />} />
+          <Route path="partnership/collaborate" element={<PartnershipDetailPage purpose="collaborate" />} />
+          <Route path="partnership/investment" element={<PartnershipDetailPage purpose="investment" />} />
           <Route path="strava-terms" element={<StravaTermsPage />} />
           <Route path="event/create" element={<EventCreatePage />} />
           {/* Event detail page route */}
