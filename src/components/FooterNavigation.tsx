@@ -7,7 +7,11 @@ import { Button, Card } from "../theme/components";
 import { LocalizedLink as Link } from "./LocalizedLink";
 import AppInstallLinks from "./AppInstallLinks";
 
-type Group = "help" | "policies" | "install";
+type Group = "partnershipInquiry" | "help" | "policies" | "install";
+const partnershipLinks = [
+  ["/about", "nav.aboutOrider"], ["/partnership/build", "partnership.build.title"],
+  ["/partnership/collaborate", "partnership.collaborate.title"], ["/partnership/investment", "partnership.investment.title"],
+];
 const helpLinks = [
   ["/manual", "footer.appManual"], ["/web-manual", "footer.webManual"],
   ["/community/board?type=inquiry", "footer.contact"], ["/feedback", "footer.feedback"],
@@ -59,16 +63,14 @@ export default function FooterNavigation() {
   }, [open]);
   const linkClass = "transition-colors hover:opacity-80";
   return <nav ref={root} aria-label={t("footer.navigation")} className="flex flex-wrap items-center gap-4">
-    <Link data-testid="X2-1" to="/about" className={linkClass}>{t("nav.aboutOrider")}</Link>
-    <Link to="/partnership" className={linkClass}>{t("footer.partnershipInquiry")}</Link>
-    {(["help", "policies", "install"] as const).map(group => <Button key={group} ref={node => { triggers.current[group] = node; }} variant="ghost" size="sm"
+    {(["partnershipInquiry", "help", "policies", "install"] as const).map(group => <Button key={group} ref={node => { triggers.current[group] = node; }} variant="ghost" size="sm"
       aria-expanded={open === group} aria-controls={`${id}-${group}`} onClick={() => setOpen(value => value === group ? null : group)}
       style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t(`footer.${group}`)}<ChevronUp aria-hidden="true" size={12} style={{ transform: open === group ? "rotate(180deg)" : undefined }} /></Button>)}
     {open && createPortal(<div ref={panel} tabIndex={-1} id={`${id}-${open}`} role="region" aria-label={t(`footer.${open}`)}
       style={{ position: "fixed", ...position, zIndex: 100, maxHeight: `calc(100dvh - ${position.bottom}px - 16px)`, overflowY: "auto" }}>
       <Card padding="compact" style={{ boxShadow: "var(--shadow-lg)" }}>
         {open === "install" ? <AppInstallLinks compact appStoreLabel="App Store" playStoreLabel="Google Play" /> : <div className="flex flex-col gap-1">
-          {(open === "help" ? helpLinks : policyLinks).map(([to, key]) => <Link key={to} to={to!} className={`${linkClass} flex items-center rounded-[var(--r-sm)] px-3 py-2`} style={{ minHeight: 44, fontSize: "var(--fs-sm)" }}>{t(key!)}</Link>)}
+          {(open === "partnershipInquiry" ? partnershipLinks : open === "help" ? helpLinks : policyLinks).map(([to, key]) => <Link key={to} to={to!} data-testid={to === "/about" ? "X2-1" : undefined} className={`${linkClass} flex items-center rounded-[var(--r-sm)] px-3 py-2`} style={{ minHeight: 44, fontSize: "var(--fs-sm)" }}>{t(key!)}</Link>)}
         </div>}
       </Card>
     </div>, document.body)}

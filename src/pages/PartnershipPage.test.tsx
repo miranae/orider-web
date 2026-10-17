@@ -89,9 +89,20 @@ describe("Get involved pages", () => {
       </I18nextProvider>,
     );
     const user = userEvent.setup();
-    const inquiry = screen.getByRole("link", { name: copy.footer.partnershipInquiry });
-    expect(inquiry).toHaveAttribute("href", '/' + language + '/partnership');
+    const inquiry = screen.getByRole("button", { name: copy.footer.partnershipInquiry });
+    expect(screen.queryByRole("link", { name: copy.nav.aboutOrider })).not.toBeInTheDocument();
     await user.click(inquiry);
+    const popup = screen.getByRole("region", { name: copy.footer.partnershipInquiry });
+    const popupLinks = within(popup).getAllByRole("link");
+    expect(popupLinks.map(link => link.getAttribute("href"))).toEqual([
+      '/' + language + '/about', '/' + language + '/partnership/build',
+      '/' + language + '/partnership/collaborate', '/' + language + '/partnership/investment',
+    ]);
+    expect(popupLinks[0]).toHaveFocus();
+    await user.click(within(popup).getByRole("link", { name: copy.partnership.build.title }));
+    expect(screen.getByRole("heading", { level: 1, name: copy.partnership.build.title })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: copy.footer.partnershipInquiry })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: copy.partnership.back }));
     expect(screen.getByRole("heading", { level: 1, name: copy.partnership.title })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: copy.partnership.aboutLink })).toHaveAttribute("href", '/' + language + '/about');
     expect(screen.queryByText("orider.app@gmail.com")).not.toBeInTheDocument();

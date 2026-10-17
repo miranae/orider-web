@@ -36,10 +36,25 @@ describe("Layout", () => {
     expect(footer).toHaveAttribute("data-testid", "H-F");
     const user = userEvent.setup();
     const navigation = within(footer).getByRole("navigation", { name: "사이트 안내" });
-    expect(within(navigation).getAllByRole("button")).toHaveLength(3);
-    expect(within(navigation).getByRole("link", { name: "함께하기" })).toHaveAttribute("href", "/ko/partnership");
+    expect(within(navigation).getAllByRole("button")).toHaveLength(4);
+    expect(within(navigation).queryByRole("link", { name: "오라이더 소개" })).not.toBeInTheDocument();
+    const together = within(navigation).getByRole("button", { name: "함께하기" });
+    await user.click(together);
+    const partnership = screen.getByRole("region", { name: "함께하기" });
+    const partnershipLinks = within(partnership).getAllByRole("link");
+    expect(partnershipLinks.map(link => link.getAttribute("href"))).toEqual([
+      "/ko/about", "/ko/partnership/build", "/ko/partnership/collaborate", "/ko/partnership/investment",
+    ]);
+    expect(partnershipLinks.map(link => link.textContent)).toEqual(["오라이더 소개", "함께 만들기", "제휴 · 광고 문의", "투자 문의"]);
+    expect(partnershipLinks[0]).toHaveFocus();
+    expect(partnershipLinks[0]).toHaveAttribute("data-testid", "X2-1");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("region", { name: "함께하기" })).not.toBeInTheDocument();
+    expect(together).toHaveFocus();
+    await user.click(together);
     expect(screen.queryByText("orider.app@gmail.com")).not.toBeInTheDocument();
     await user.click(within(navigation).getByRole("button", { name: "도움말" }));
+    expect(screen.queryByRole("region", { name: "함께하기" })).not.toBeInTheDocument();
     const help = screen.getByRole("region", { name: "도움말" });
     expect(within(help).getByRole("link", { name: "앱 설명서" })).toHaveAttribute("href", "/ko/manual");
     expect(within(help).getByRole("link", { name: "웹 설명서" })).toHaveAttribute("href", "/ko/web-manual");
