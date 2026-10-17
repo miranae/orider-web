@@ -15,16 +15,16 @@ describe("canonical bike mileage", () => {
   it("binds the current owner's bike and shows canonical accumulated km", () => {
     value("canonical"); render(<BikeMileage profileId="road" />);
     expect(mocks.read).toHaveBeenCalledWith("owner", "road");
-    expect(screen.getByText("누적 1234.0km")).toBeInTheDocument();
+    expect(screen.getByText("누적 이동거리 1234.0km")).toBeInTheDocument();
   });
   it("labels stale data and projects imperial units", () => {
     value("stale"); mocks.units = "imperial"; render(<BikeMileage profileId="road" />);
-    expect(screen.getByText(/누적 766.8mi.*이전 집계/)).toBeInTheDocument();
+    expect(screen.getByText(/누적 이동거리 766.8mi.*이전 집계/)).toBeInTheDocument();
   });
   it.each([null, "loading", "error", "empty"] as const)("does not present unknown distance as zero for %s", display => {
     mocks.state.display = display; render(<BikeMileage profileId="road" />);
     expect(screen.queryByText(/0.*km/)).toBeNull();
-    expect(screen.getByTestId("P4-1-1")).not.toHaveTextContent("누적 0");
+    expect(screen.getByTestId("P4-1-1")).not.toHaveTextContent("누적 이동거리 0");
   });
   it("does not draw failed payloads even when the reader carries an odometer", () => {
     value("failed"); render(<BikeMileage profileId="road" />);

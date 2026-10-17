@@ -35,16 +35,16 @@ export function GearShoeStatus() {
   if (legacyShoe) shoes.push({ id: "", shoe: legacyShoe });
   return <SettingsCard data-testid="P4-3" title={t("shoeSnapshot.title")}>
     <Text as="p" variant="caption" tone="secondary">{t("shoeSnapshot.coverage")}</Text>
-    {loading ? <p data-testid="P4.loading" role="status">{t("shoeSnapshot.loading")}</p>
-      : !available ? <p data-testid="P4.error" role="alert">{t("shoeSnapshot.unavailable")}</p>
-      : shoes.length === 0 ? <p data-testid="P4.shoeEmpty">{t("shoeSnapshot.empty")}</p>
+    {loading ? <Text as="p" variant="body" data-testid="P4.loading" role="status">{t("shoeSnapshot.loading")}</Text>
+      : !available ? <Text as="p" variant="body" tone="danger" data-testid="P4.error" role="alert">{t("shoeSnapshot.unavailable")}</Text>
+      : shoes.length === 0 ? <Text as="p" variant="body" tone="secondary" data-testid="P4.shoeEmpty">{t("shoeSnapshot.empty")}</Text>
       : shoes.map(({ id, shoe }) => shoe && <div key={id ? `identified:${id}` : "legacy"} data-testid="P4-3-1" className="space-y-2 mt-3">
-        <Text as="p" weight={600}>{shoe.name}</Text>
+        <Text as="p" variant="body" weight={600}>{shoe.name}</Text>
         <Text as="p" variant="caption" tone="secondary">{id ? t("shoeSnapshot.identity", { id }) : t("shoeSnapshot.legacyIdentity")}</Text>
-        <Text as="p">{t("shoeSnapshot.total", { distance: formatDistance(shoe.totalDistanceKm * 1000, units) })}</Text>
-        <Text as="p">{t("shoeSnapshot.remaining", { distance: formatDistance(shoe.remainingKm * 1000, units), maximum: formatDistance(shoe.maxDistanceKm * 1000, units) })}</Text>
+        <Text as="p" variant="body">{t("shoeSnapshot.total", { distance: formatDistance(shoe.totalDistanceKm * 1000, units) })}</Text>
+        <Text as="p" variant="body">{t("shoeSnapshot.remaining", { distance: formatDistance(shoe.remainingKm * 1000, units), maximum: formatDistance(shoe.maxDistanceKm * 1000, units) })}</Text>
         {shoe.replacementDue && <Chip>{t("shoeSnapshot.replacementDue")}</Chip>}
       </div>)}
-    {!loading && available && conflictingIdentity && <p role="status">{t("shoeSnapshot.conflictingIdentity")}</p>}
+    {!loading && available && conflictingIdentity && <Text as="p" variant="caption" tone="secondary" role="status">{t("shoeSnapshot.conflictingIdentity")}</Text>}
   </SettingsCard>;
 }

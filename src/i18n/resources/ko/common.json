@@ -411,5 +411,10 @@
   "nav.create.club": "클럽 만들기",
   "nav.create.post": "글쓰기",
   "nav.create.import": "활동 가져오기",
-  "nav.create.goal": "목표 만들기"
+  "nav.create.goal": "목표 만들기",
+  "discipline.compact.tri": "통합",
+  "discipline.compact.bike": "사이클",
+  "discipline.compact.run": "러닝",
+  "discipline.compact.swim": "수영",
+  "discipline.compact.soon": "준비 중"
 }

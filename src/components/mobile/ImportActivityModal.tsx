@@ -1,11 +1,13 @@
+import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
+import { useTrainingDialog } from "../training/useTrainingDialog";
 import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { X, Upload, CheckCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
-import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
-import { Button, Card, Text } from "../../theme/components";
+import { Button, Card, Text, Input, buttonClass } from "../../theme/components";
 import { LocalizedLink as Link } from "../LocalizedLink";
 
 interface ImportActivityModalProps {
@@ -14,14 +16,13 @@ interface ImportActivityModalProps {
 }
 
 export default function ImportActivityModal({ open, onClose }: ImportActivityModalProps) {
-  useBodyScrollLock(open);
 
   const { t } = useTranslation("activity");
   const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [completion, setCompletion] = useState<{ activityId?: string } | null>(null);
-  const finish = () => { const target = completion?.activityId ? `/activity/${completion.activityId}` : "/athlete/me/activities"; setCompletion(null); onClose(); navigate(target); };
+  const finish = () => { const target = completion?.activityId ? `/activity/${completion.activityId}` : "/athlete/me/activities"; setCompletion(null); reset(); onClose(); navigate(target); };
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [visibility, setVisibility] = useState<"everyone" | "friends" | "private">("everyone");
@@ -29,7 +30,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
-  if (completion) return <div role="dialog" aria-modal="true" aria-label={t("import.successDone")} className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"><Card><Text as="h2" variant="subtitle">{t("import.successDone")}</Text><div className="flex gap-3 mt-4"><Button onClick={finish}>{t("import.viewResult")}</Button><Link to="/coach/condition" onClick={() => { setCompletion(null); onClose(); }}>{t("import.viewCoach")}</Link></div></Card></div>;
+  if (completion) return <ImportDialogShell key="completion" title={t("import.successDone")} onClose={finish}><Card className="m-4"><Text as="h2" variant="subtitle">{t("import.successDone")}</Text><div className="flex gap-3 mt-4"><Button onClick={finish}>{t("import.viewResult")}</Button><Link to="/coach/condition" className={buttonClass({variant: "secondary"})} onClick={() => { setCompletion(null); reset(); onClose(); }}>{t("import.viewCoach")}</Link></div></Card></ImportDialogShell>;
 
   const fileExt = file?.name.toLowerCase().split(".").pop();
   const isValidExt = fileExt === "fit" || fileExt === "gpx" || fileExt === "tcx" || fileExt === "zip";
@@ -90,6 +91,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    if (uploading) return;
     const f = e.dataTransfer.files[0];
     if (!f) return;
     const ext = f.name.toLowerCase().split(".").pop();
@@ -101,20 +103,21 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
     return kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.round(kb)} KB`;
   };
 
-  const reset = () => {
+  function reset() {
     setFile(null);
     setName("");
     setVisibility("everyone");
-  };
+  }
 
   const handleClose = () => {
+    if (uploading) return;
     reset();
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col" data-testid="P1-3" role="dialog" aria-modal="true" aria-label={t("import.modalTitle")}>
-      <div className="flex-1" style={{ background: "color-mix(in srgb, var(--bg-0) 50%, transparent)" }} onClick={handleClose} />
+    <ImportDialogShell key="upload" title={t("import.modalTitle")} onClose={handleClose} busy={uploading}>
+      <div className="flex-1" style={{ background: "color-mix(in srgb, var(--bg-0) 50%, transparent)" }} onClick={() => { if (!uploading) handleClose(); }} />
       <div
         className="overflow-y-auto"
         style={{
@@ -125,16 +128,13 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
       >
         <div className="flex items-center justify-between" style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
           <span style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink-0)" }}>{t("import.modalTitle")}</span>
-          <button onClick={handleClose} style={{ background: "none", border: "none", cursor: "pointer", padding: "var(--space-2)", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <X size={20} style={{ color: "var(--ink-3)" }} />
-          </button>
+          <Button variant="ghost" iconOnly onClick={handleClose} disabled={uploading} aria-label={t("import.close")}><X size={20} aria-hidden="true" /></Button>
         </div>
 
         <div style={{ padding: 'var(--space-4)' }}>
           <div style={{ marginBottom: 'var(--space-4)' }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("import.fileSection")}</Text>
             <div
-              onClick={() => fileRef.current?.click()}
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
               style={{
@@ -153,10 +153,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
                       {fileSizeStr(file)} · {fileExt?.toUpperCase()}
                     </div>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setFile(null); }}
-                    style={{ background: "none", border: "none", cursor: "pointer" }}>
-                    <X size={16} style={{ color: "var(--ink-4)" }} />
-                  </button>
+                  <Button variant="ghost" iconOnly aria-label={t("import.removeFile")} disabled={uploading} onClick={() => setFile(null)}><X size={16} aria-hidden="true" /></Button>
                 </div>
               ) : (
                 <>
@@ -166,21 +163,15 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
                 </>
               )}
             </div>
-            <input data-testid="P1-3-1" ref={fileRef} type="file" accept=".fit,.gpx,.tcx,.zip" hidden
+            <Button className="mt-2" variant="secondary" disabled={uploading} onClick={() => fileRef.current?.click()}>{t("import.chooseFile")}</Button>
+            <input aria-label={t("import.fileSection")} data-testid="P1-3-1" ref={fileRef} type="file" accept=".fit,.gpx,.tcx,.zip" hidden
               onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f); }} />
           </div>
 
           {!isZip && (
             <div style={{ marginBottom: 'var(--space-4)' }}>
               <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("import.nameSection")}</Text>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)}
-                placeholder={file?.name.replace(/\.(fit|gpx|tcx)$/i, "") || t("import.namePlaceholder")}
-                style={{
-                  width: "100%", padding: "10px 12px",
-                  background: "var(--bg-2)", border: "1px solid var(--line-soft)",
-                  borderRadius: "var(--r-md)", fontSize: "var(--fs-sm)", color: "var(--ink-1)",
-                  outline: "none", fontFamily: "inherit",
-                }} />
+              <Input aria-label={t("import.nameSection")} type="text" value={name} disabled={uploading} onChange={(e) => setName(e.target.value)} placeholder={file?.name.replace(/\.(fit|gpx|tcx)$/i, "") || t("import.namePlaceholder")} className="w-full" />
             </div>
           )}
 
@@ -188,37 +179,23 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("import.visibilitySection")}</Text>
             <div className="flex gap-2">
               {([["everyone", t("import.visibilityEveryone")], ["friends", t("import.visibilityFriends")], ["private", t("import.visibilityPrivate")]] as const).map(([v, label]) => (
-                <button key={v} onClick={() => setVisibility(v)}
-                  style={{
-                    flex: 1, padding: "12px 0", fontSize: "var(--fs-xs)", fontWeight: 500,
-                    borderRadius: "var(--r-md)", cursor: "pointer",
-                    background: visibility === v ? "var(--bg-3)" : "transparent",
-                    border: `1px solid ${visibility === v ? "var(--lime)" : "var(--line-soft)"}`,
-                    color: visibility === v ? "var(--ink-0)" : "var(--ink-3)",
-                  }}>
-                  {label}
-                </button>
+                <Button key={v} variant={visibility === v ? "secondary" : "outline"} aria-pressed={visibility === v} disabled={uploading} onClick={() => setVisibility(v)} className="flex-1">{label}</Button>
               ))}
             </div>
           </div>
 
-          <button onClick={handleSubmit} disabled={!file || !isValidExt || uploading}
-            style={{
-              width: "100%", padding: "14px 0", fontSize: "var(--fs-sm)", fontWeight: 600,
-              borderRadius: "var(--r-md)",
-              cursor: file && isValidExt && !uploading ? "pointer" : "default",
-              background: file && isValidExt && !uploading ? "var(--lime)" : "var(--bg-3)",
-              color: file && isValidExt && !uploading ? "var(--primary-fg)" : "var(--ink-4)",
-              border: "none",
-            }}>
-            {uploading ? (isZip ? t("import.submitBatch") : t("import.submitSingle")) : t("import.submit")}
-          </button>
+          <Button variant="primary" block onClick={handleSubmit} disabled={!file || !isValidExt || !user} loading={uploading}>{uploading ? (isZip ? t("import.submitBatch") : t("import.submitSingle")) : t("import.submit")}</Button>
 
           <p className="text-center" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-3)" }}>
-            {t("import.stravaNote")} <Link to="/settings/connections" className="hover:underline" style={{ color: "var(--strava)" }} onClick={handleClose}>{t("import.stravaSettingsLink")}</Link>{t("import.stravaNoteSuffix")}
+            {t("import.stravaNote")} {uploading ? <span>{t("import.stravaSettingsLink")}</span> : <Link to="/settings/connections" className="hover:underline" style={{ color: "var(--strava)" }} onClick={handleClose}>{t("import.stravaSettingsLink")}</Link>}{t("import.stravaNoteSuffix")}
           </p>
         </div>
       </div>
-    </div>
+    </ImportDialogShell>
   );
+}
+
+function ImportDialogShell({ title, onClose, busy = false, children }: {title: string; onClose: () => void; busy?: boolean; children: ReactNode}) {
+  const ref = useTrainingDialog(onClose, busy);
+  return createPortal(<div ref={ref} tabIndex={-1} className="fixed inset-0 z-[200] flex flex-col justify-end" data-testid="P1-3" role="dialog" aria-modal="true" aria-label={title}>{children}</div>, document.body);
 }

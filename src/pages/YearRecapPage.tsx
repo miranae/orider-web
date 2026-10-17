@@ -1,5 +1,9 @@
 import { useMemo, useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import SportIcon from "../components/common/SportIcon";
+import { Activity as ActivityIcon, CalendarDays } from "lucide-react";
+import { DropdownSelect } from "../theme/components";
+import "./YearRecapPage.css";
 import RunRecordsBoard from "../components/fitness/RunRecordsBoard";
 import MilestonesGrid from "../components/fitness/MilestonesGrid";
 import MilestoneCelebration from "../components/fitness/MilestoneCelebration";
@@ -18,7 +22,6 @@ import {
 } from "../utils/yearRecap";
 import {
   getDisciplineColor,
-  getDisciplineIcon,
   getDisciplineLabelKey,
 } from "../utils/disciplineFilter";
 import {
@@ -121,11 +124,8 @@ export default function YearRecapPage() {
 
   return (
     <div data-testid="P2-4-1" className="max-w-2xl mx-auto pb-20" style={{ padding: "var(--space-5) var(--space-4)" }}>
-      <div data-testid="P2-0-1"><DisciplineTabs includeTri value={discipline} onChange={(value) => { const next = new URLSearchParams(params); next.set("sport", value); setParams(next); }} /></div>
-      {discipline === "run" && <><div data-testid="P2-1"><div data-testid="P2-1-1"><RunRecordsBoard run={run} /></div></div><div data-testid="P2-2"><div data-testid="P2-2-1"><MilestonesGrid achieved={milestones} /></div></div></>}
-      {pendingMilestone && <MilestoneCelebration milestoneId={pendingMilestone.id} onClose={() => { void markCelebrated(pendingMilestone.id); setDismissedMilestones((previous) => new Set(previous).add(pendingMilestone.id)); }} />}
       {/* 헤더 + 연도 선택 */}
-      <div data-testid="P2-0" className="flex items-center justify-between" style={{ marginBottom: "var(--space-5)" }}>
+      <div data-testid="P2-0" className="recap-header">
         <div>
           <Text as="h1" variant="title" weight={700}>
             {t("title")}
@@ -135,28 +135,13 @@ export default function YearRecapPage() {
           </Text>
         </div>
         {years.length > 1 && (
-          <select data-testid="P2-0-1"
-            value={year}
-            onChange={(e) => { const next = new URLSearchParams(params); next.set("year", e.target.value); setParams(next); }}
-            aria-label={t("selectYear")}
-            style={{
-              padding: "8px 12px",
-              borderRadius: "var(--r-md)",
-              border: "1px solid var(--line)",
-              background: "var(--bg-1)",
-              color: "var(--ink-0)",
-              fontSize: "var(--fs-sm)",
-            }}
-          >
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
+          <DropdownSelect value={String(year)} onChange={(value) => { const next = new URLSearchParams(params); next.set("year", value); setParams(next); }} label={t("selectYear")} options={years.map((y) => ({value: String(y), label: String(y)}))} />
         )}
       </div>
 
+      <div data-testid="P2-0-1"><DisciplineTabs includeTri value={discipline} onChange={(value) => { const next = new URLSearchParams(params); next.set("sport", value); setParams(next); }} /></div>
+      {discipline === "run" && <details className="recap-disclosure"><summary>{t("section.runningRecords")}</summary><div data-testid="P2-1"><div data-testid="P2-1-1"><RunRecordsBoard run={run} /></div></div><div data-testid="P2-2"><div data-testid="P2-2-1"><MilestonesGrid achieved={milestones} /></div></div></details>}
+      {pendingMilestone && <MilestoneCelebration milestoneId={pendingMilestone.id} onClose={() => { void markCelebrated(pendingMilestone.id); setDismissedMilestones((previous) => new Set(previous).add(pendingMilestone.id)); }} />}
       {loading ? (
         <Card data-testid="P2.loading">
           <Text tone="tertiary">{t("loading")}</Text>
@@ -165,7 +150,7 @@ export default function YearRecapPage() {
         <Card data-testid="P2.emptyYear">
           <Stack gap="var(--space-3)" align="center">
             <Text variant="dataMedium" tone="tertiary">
-              🗓️
+              <CalendarDays size={24} aria-hidden="true" />
             </Text>
             <Text weight={600}>{t("empty.title", { year })}</Text>
             <Text tone="tertiary" variant="bodySmall">
@@ -244,7 +229,7 @@ export default function YearRecapPage() {
           </Card>
 
           {/* 킬로미터스톤 (이슈 #360) — 배지 판정 주체는 플래그, 누적 합계·최장 라이드는 화면 집계 */}
-          <LifetimeMilestonesGrid activities={activities} achieved={milestones} loading={milestonesLoading} />
+          <details className="recap-disclosure"><summary>{t("section.lifetimeRecords")}</summary><LifetimeMilestonesGrid activities={activities} achieved={milestones} loading={milestonesLoading} scopeLabel={t(discipline === "tri" ? "scope.all" : `scope.${discipline}`)} /></details>
 
           {/* 월별 추이 */}
           <Card title={t("section.monthly")}>
@@ -295,13 +280,13 @@ function DisciplineRow({
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center" style={{ gap: "var(--space-2)" }}>
-        <span style={{ fontSize: "var(--fs-lg)" }}>{getDisciplineIcon(discipline)}</span>
+        <span style={{ fontSize: "var(--fs-lg)" }}>{discipline === "bike" || discipline === "run" || discipline === "swim" ? <SportIcon sport={discipline} size={20} /> : <ActivityIcon size={20} aria-hidden="true" />}</span>
         <Text weight={600} style={{ color }}>
           {t(getDisciplineLabelKey(discipline))}
         </Text>
       </div>
       <Text tone="secondary" variant="bodySmall">
-        {count}회 · {(distanceMeters / 1000).toFixed(0)} km
+        {t("recap:activityCount", {count})} · {(distanceMeters / 1000).toFixed(0)} km
       </Text>
     </div>
   );

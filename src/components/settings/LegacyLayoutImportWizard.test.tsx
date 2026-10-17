@@ -68,7 +68,8 @@ describe("LegacyLayoutImportWizard", () => {
   it("확인 전에는 아무것도 쓰지 않는다", async () => {
     renderWizard();
 
-    await userEvent.selectOptions(screen.getByTestId("legacy-import-target"), "road");
+    await userEvent.click(screen.getByTestId("legacy-import-target").querySelector("button")!);
+    await userEvent.click(screen.getByRole("option", { name: "로드" }));
     await userEvent.click(screen.getByTestId("legacy-import-start"));
 
     expect(screen.getByTestId("legacy-import-preview")).toBeTruthy();
@@ -78,7 +79,8 @@ describe("LegacyLayoutImportWizard", () => {
   it("확인하면 그 자전거로 교체한다", async () => {
     const onDone = renderWizard();
 
-    await userEvent.selectOptions(screen.getByTestId("legacy-import-target"), "road");
+    await userEvent.click(screen.getByTestId("legacy-import-target").querySelector("button")!);
+    await userEvent.click(screen.getByRole("option", { name: "로드" }));
     await userEvent.click(screen.getByTestId("legacy-import-start"));
     await userEvent.click(screen.getByTestId("legacy-import-confirm"));
 
@@ -92,7 +94,8 @@ describe("LegacyLayoutImportWizard", () => {
     mocks.save.mockResolvedValue({ status: "localSaveFailed", cause: new Error("nope") });
     const onDone = renderWizard();
 
-    await userEvent.selectOptions(screen.getByTestId("legacy-import-target"), "road");
+    await userEvent.click(screen.getByTestId("legacy-import-target").querySelector("button")!);
+    await userEvent.click(screen.getByRole("option", { name: "로드" }));
     await userEvent.click(screen.getByTestId("legacy-import-start"));
     await userEvent.click(screen.getByTestId("legacy-import-confirm"));
 
@@ -105,11 +108,14 @@ describe("LegacyLayoutImportWizard", () => {
     mocks.canSave = false;
     renderWizard();
 
-    await userEvent.selectOptions(screen.getByTestId("legacy-import-target"), "road");
+    await userEvent.click(screen.getByTestId("legacy-import-target").querySelector("button")!);
+    await userEvent.click(screen.getByRole("option", { name: "로드" }));
     await userEvent.click(screen.getByTestId("legacy-import-start"));
 
     expect(screen.getByTestId("legacy-import-blocked")).toBeTruthy();
-    expect(screen.getByTestId<HTMLButtonElement>("legacy-import-confirm").disabled).toBe(true);
+    expect(screen.getByTestId<HTMLButtonElement>("legacy-import-start").disabled).toBe(true);
+    expect(screen.queryByTestId("legacy-import-confirm")).toBeNull();
+    expect(mocks.save).not.toHaveBeenCalled();
   });
 
   it("자전거가 없으면 가져오기 자체를 열지 않는다", () => {

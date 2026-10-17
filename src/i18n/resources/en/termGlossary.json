@@ -1,6 +1,9 @@
 {
   "openLabel": "About {{term}}",
   "terms": {
+    "di2": {"label": "Di2 electronic shifting", "description": "Shimano’s electronic shifting system. Compatible connected equipment can provide shifting information."},
+    "axs": {"label": "AXS component connectivity", "description": "SRAM’s system connecting electronic bike components and software. This screen lists connected shifting equipment."},
+    "virtualPower": {"label": "Virtual power", "description": "Estimated output based on movement speed, gradient, weight and resistance settings. It can differ from power measured directly by a power meter."},
     "timeFormat": {"label": "Hours and minutes", "description": "Hours (HH) and minutes (MM) separated by a colon. Clock times use the 24-hour format; estimated durations mean elapsed hours and minutes."},
     "liveTracking": {"label": "Live tracking", "description": "Displays participant locations and progress as they update during the event."},
     "lsd": {

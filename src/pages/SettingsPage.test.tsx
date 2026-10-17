@@ -106,7 +106,16 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("opens the account deletion request page from the danger zone", async () => {
+  it("provides account management and a dedicated data settings link", async () => {
+    renderWithProviders(<SettingsPage tab="account" />, { authenticated: true });
+    await waitFor(() => {
+      expect(screen.getByText("계정 관리")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "데이터 관리" })).toHaveAttribute("href", "/ko/settings/data");
+      expect(screen.queryByRole("button", { name: "모든 활동 데이터 삭제" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("opens the account deletion request page from account management", async () => {
     const user = userEvent.setup();
     renderWithProviders(
       <Routes>
@@ -115,7 +124,7 @@ describe("SettingsPage", () => {
       </Routes>,
       { authenticated: true, route: "/ko/settings/account" },
     );
-    expect(await screen.findByText("위험 영역")).toBeInTheDocument();
+    expect(await screen.findByText("계정 관리")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "계정 삭제 안내 및 요청" }));
     expect(await screen.findByRole("heading", { name: "계정 삭제 요청 페이지" })).toBeInTheDocument();
   });
@@ -172,7 +181,7 @@ describe("SettingsPage", () => {
     expect(settingsPage).toContain("if (isMobile)");
     expect(settingsPage).toContain("if (!tab) return <MobileSettingsPage />;");
     for (const [section, panes] of [
-      ["account", "<PaneAccount /><PaneAiCoach />"],
+      ["account", "<PaneAccount />"],
       ["gear", "<PaneEquipment />"],
       ["device", "<PaneDevice /><PaneEquipment part=\"device\" />"],
       ["connections", "<PaneConnections /><PaneHealthSources />"],

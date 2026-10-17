@@ -6,7 +6,7 @@ import type { DataPageConfig } from "@shared/types/deviceSettings";
 import { useBikeProfileLayout } from "../../hooks/useBikeProfileLayout";
 import { useBikeProfiles } from "../../hooks/useBikeProfiles";
 import { useToast } from "../../contexts/ToastContext";
-import { Button, Text } from "../../theme/components";
+import { Button, DropdownSelect, Text } from "../../theme/components";
 
 type DeviceOption = { deviceId: string; label: string; config: DataPageConfig };
 
@@ -83,32 +83,16 @@ export function LegacyLayoutImportWizard({
     <div style={{ display: "grid", gap: "var(--space-3)" }} data-testid="legacy-import-wizard">
       <label style={{ display: "grid", gap: "var(--space-1)" }}>
         <Text variant="eyebrow">{t("device.legacyImportSourceDevice")}</Text>
-        <select
-          value={deviceId}
-          onChange={(e) => setDeviceId(e.target.value)}
-          data-testid="legacy-import-device"
-        >
-          {devices.map((d) => (
-            <option key={d.deviceId} value={d.deviceId}>{d.label}</option>
-          ))}
-        </select>
+        <div data-testid="legacy-import-device"><DropdownSelect label={t("device.legacyImportSourceDevice")}
+          value={deviceId} onChange={(value) => { setDeviceId(value); setConfirming(false); }}
+          disabled={busy} options={devices.map((d) => ({ value: d.deviceId, label: d.label }))} /></div>
       </label>
 
       <label style={{ display: "grid", gap: "var(--space-1)" }}>
         <Text variant="eyebrow">{t("device.legacyImportTargetBike")}</Text>
-        <select
-          value={targetProfileId ?? ""}
-          onChange={(e) => {
-            setTargetProfileId(e.target.value || null);
-            setConfirming(false);
-          }}
-          data-testid="legacy-import-target"
-        >
-          <option value="">{t("device.legacyImportTargetPlaceholder")}</option>
-          {profiles.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
+        <div data-testid="legacy-import-target"><DropdownSelect label={t("device.legacyImportTargetBike")}
+          value={targetProfileId ?? ""} onChange={(value) => { setTargetProfileId(value || null); setConfirming(false); }} disabled={busy}
+          options={[{ value: "", label: t("device.legacyImportTargetPlaceholder") }, ...profiles.map((p) => ({ value: p.id, label: p.name }))]} /></div>
       </label>
 
       {target && (
@@ -130,7 +114,8 @@ export function LegacyLayoutImportWizard({
       {target && !confirming && (
         <Button
           variant="secondary"
-          size="sm"
+          size="md"
+          disabled={busy || !canSave || !source}
           onClick={() => setConfirming(true)}
           data-testid="legacy-import-start"
         >
@@ -138,20 +123,20 @@ export function LegacyLayoutImportWizard({
         </Button>
       )}
       {target && confirming && (
-        <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", alignItems: "center" }}>
           <Text variant="body" style={{ color: "var(--ink-2)" }}>
             {t("device.legacyImportConfirm", { name: target.name })}
           </Text>
           <Button
             variant="primary"
-            size="sm"
+            size="md"
             onClick={handleImport}
             disabled={busy || !canSave}
             data-testid="legacy-import-confirm"
           >
             {t("device.legacyImportConfirmAction")}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setConfirming(false)} disabled={busy}>
+          <Button variant="ghost" size="md" onClick={() => setConfirming(false)} disabled={busy}>
             {t("device.legacyImportCancel")}
           </Button>
         </div>

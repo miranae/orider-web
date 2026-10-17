@@ -1,3 +1,9 @@
+import { createPortal } from "react-dom";
+import { Button } from "../../theme/components";
+import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
+import SportIcon from "../common/SportIcon";
+import GlossaryText from "../common/GlossaryText";
+import { Activity as ActivityIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -6,7 +12,7 @@ import { Upload } from "lucide-react";
 import type { Activity } from "@shared/types";
 import ImportActivityModal from "./ImportActivityModal";
 import SportFilterTabs from "./SportFilterTabs";
-import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineLabelKey } from "../../utils/disciplineFilter";
+import { getDiscipline, getDisciplineColor, getDisciplineLabelKey } from "../../utils/disciplineFilter";
 import { isIndoorActivity } from "../../utils/indoorActivity";
 import { planDayKey, planCalendarDate } from "@shared/training/planDate";
 import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../../utils/estimateTSS";
@@ -78,6 +84,7 @@ export default function MobileLogPage({ activities, representativeCandidates = a
   const [activityLimit, setActivityLimit] = useState(20);
   const [dayDetailActs, setDayDetailActs] = useState<Activity[] | null>(null);
   const daySheetRef = useRef<HTMLDivElement>(null);
+  useBodyScrollLock(dayDetailActs !== null);
   const navigate = useNavigate();
 
   // Sport filter
@@ -203,16 +210,7 @@ export default function MobileLogPage({ activities, representativeCandidates = a
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{monthLabel}</span>
         </div>
         <div style={{ flex: 1 }} />
-        <button data-testid="P1-0-2" type="button" onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")}
-          style={{
-            display: "flex", alignItems: "center", gap: 'var(--space-1)',
-            padding: "5px 10px", background: "var(--bg-2)",
-            border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)",
-            fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-2)", cursor: "pointer",
-          }}>
-          <Upload size={13} />
-          {t("mobileLog.importBtn")}
-        </button>
+        <Button data-testid="P1-0-2" variant="secondary" onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")} leadingIcon={<Upload size={16} aria-hidden="true" />}>{t("mobileLog.importBtn")}</Button>
       </div>
 
       {/* 종목 필터 */}
@@ -254,7 +252,7 @@ export default function MobileLogPage({ activities, representativeCandidates = a
             <strong>{aggregateUnavailable ? "–" : formatDuration(monthTotals.timeMs)}</strong>
           </div>
           <div className="mobile-log__glance-metric">
-            <span>{t("mobileLog.glanceTss")}{monthTotals.load.estimated && <sup aria-hidden="true">*</sup>}</span>
+            <span><GlossaryText>{t("mobileLog.glanceTss")}</GlossaryText>{monthTotals.load.estimated && <sup aria-hidden="true">*</sup>}</span>
             <strong>{aggregateUnavailable ? "–" : monthTotals.load.value ?? "–"}</strong>
           </div>
           <div className="mobile-log__glance-note">{t("mobileLog.recordBasis")}</div>
@@ -269,9 +267,9 @@ export default function MobileLogPage({ activities, representativeCandidates = a
           <div style={{ padding: 'var(--space-3) var(--space-4)' }}>
             <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)' }}>
               <div className="flex items-center gap-3">
-                <button type="button" data-testid="P1-0-1" aria-label={t("training:page.prevMonth")} onClick={() => onChangeMonth(-1)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>◀</button>
+                <Button variant="ghost" iconOnly data-testid="P1-0-1" aria-label={t("training:page.prevMonth")} onClick={() => onChangeMonth(-1)}><ChevronLeft size={16} aria-hidden="true" /></Button>
                 <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{monthLabel}</span>
-                <button type="button" data-testid="P1-0-1" aria-label={t("training:page.nextMonth")} onClick={() => onChangeMonth(1)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>▶</button>
+                <Button variant="ghost" iconOnly data-testid="P1-0-1" aria-label={t("training:page.nextMonth")} onClick={() => onChangeMonth(1)}><ChevronRight size={16} aria-hidden="true" /></Button>
               </div>
             </div>
 
@@ -351,18 +349,10 @@ export default function MobileLogPage({ activities, representativeCandidates = a
           <div className="mobile-log__summary">
             {[
               [t("mobileLog.activeDays"), `${activeDays}/${daysInMonth}`],
-              [t("mobileLog.totalSessions"), monthRepresentatives.length],
-              [t("mobileLog.totalTime", { defaultValue: "총 시간" }), formatDuration(monthTotals.timeMs)],
-              [
-                monthTotals.load.estimated
-                  ? `${t("mobileLog.totalTss", { defaultValue: "총 TSS" })} · ${t("stat.tssEstimatedIncluded")}`
-                  : t("mobileLog.totalTss", { defaultValue: "총 TSS" }),
-                monthTotals.load.value ?? "–",
-              ],
               [t("mobileLog.totalElevation", { defaultValue: "상승고도" }), `${monthTotals.elevationM.toLocaleString()}m`],
             ].map(([label, value]) => (
               <div key={String(label)} className="mobile-log__summary-item">
-                <div className="mobile-log__summary-label">{label}</div>
+                <div className="mobile-log__summary-label"><GlossaryText>{String(label)}</GlossaryText></div>
                 <div className="mobile-log__summary-value">{aggregateUnavailable ? "–" : value}</div>
               </div>
             ))}
@@ -371,9 +361,9 @@ export default function MobileLogPage({ activities, representativeCandidates = a
           {/* Sport breakdown rows */}
           {!aggregateUnavailable && <div style={{ padding: "0 16px 12px" }}>
             {[
-              { icon: "🚴", label: t("mobileLog.sportBike"), color: getDisciplineColor("bike"), filter: (a: Activity) => getDiscipline(a.type) === "bike", unit: "km", divisor: 1000 },
-              { icon: "🏃", label: t("mobileLog.sportRun"), color: getDisciplineColor("run"), filter: (a: Activity) => getDiscipline(a.type) === "run", unit: "km", divisor: 1000 },
-              { icon: "🏊", label: t("mobileLog.sportSwim"), color: getDisciplineColor("swim"), filter: (a: Activity) => getDiscipline(a.type) === "swim", unit: "m", divisor: 1 },
+              { icon: <SportIcon sport="bike" size={20} />, label: t("mobileLog.sportBike"), color: getDisciplineColor("bike"), filter: (a: Activity) => getDiscipline(a.type) === "bike", unit: "km", divisor: 1000 },
+              { icon: <SportIcon sport="run" size={20} />, label: t("mobileLog.sportRun"), color: getDisciplineColor("run"), filter: (a: Activity) => getDiscipline(a.type) === "run", unit: "km", divisor: 1000 },
+              { icon: <SportIcon sport="swim" size={20} />, label: t("mobileLog.sportSwim"), color: getDisciplineColor("swim"), filter: (a: Activity) => getDiscipline(a.type) === "swim", unit: "m", divisor: 1 },
             ].map(sport => {
               const acts = monthRepresentatives.filter(sport.filter);
               if (acts.length === 0) return null;
@@ -419,7 +409,7 @@ export default function MobileLogPage({ activities, representativeCandidates = a
       <ImportActivityModal open={importOpen} onClose={closeImport} />
 
       {/* 하루 여러 활동 바텀시트 */}
-      {dayDetailActs && (
+      {dayDetailActs && createPortal(
         <>
           {/* 오버레이 */}
           <button type="button" aria-label={t("mobileLog.close")}
@@ -442,7 +432,7 @@ export default function MobileLogPage({ activities, representativeCandidates = a
           >
             {/* 핸들 */}
             <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
-              <div style={{ width: 40, height: 4, borderRadius: "var(--r-xs)", background: "var(--line)" }} />
+              <div style={{ width: 40, height: 4, borderRadius: "var(--r-sm)", background: "var(--line)" }} />
             </div>
             {/* 제목 */}
             <div style={{ padding: "var(--space-2) var(--space-4) var(--space-3)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
@@ -456,7 +446,7 @@ export default function MobileLogPage({ activities, representativeCandidates = a
               {dayDetailActs.map((a) => {
                 const disc = getDiscipline(a.type);
                 // 삼항 else 가 미지 종목을 자전거로 떨어뜨렸다 — 중립 아이콘까지 다루는 헬퍼로 대체.
-                const icon = getDisciplineIcon(disc);
+                const icon = disc ? <SportIcon sport={disc} size={20} /> : <ActivityIcon size={20} aria-hidden="true" />;
                 const color = getDisciplineColor(disc);
                 const km = Number.isFinite(a.summary.distance) ? (a.summary.distance / 1000).toFixed(1) : null;
                 const tmStr = formatRecordedDuration(a.summary.ridingTimeMillis);
@@ -495,19 +485,10 @@ export default function MobileLogPage({ activities, representativeCandidates = a
             </div>
             {/* 닫기 버튼 */}
             <div style={{ padding: "var(--space-3) var(--space-4)" }}>
-              <button
-                onClick={() => setDayDetailActs(null)}
-                style={{
-                  width: "100%", padding: "var(--space-3)", borderRadius: "var(--r-xl)",
-                  background: "var(--bg-2)", border: "1px solid var(--line-soft)",
-                  fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-2)", cursor: "pointer",
-                }}
-              >
-                {t("mobileLog.close")}
-              </button>
+              <Button block variant="secondary" onClick={() => setDayDetailActs(null)}>{t("mobileLog.close")}</Button>
             </div>
           </div>
-        </>
+        </>, document.body
       )}
     </div>
   );

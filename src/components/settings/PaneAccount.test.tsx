@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { PaneAccount } from "./PaneAccount";
 
 const mocks = vi.hoisted(() => ({
@@ -12,8 +13,11 @@ const mocks = vi.hoisted(() => ({
   showToast: vi.fn(),
   currentUser: { uid: "u1" } as { uid: string } | null,
   callable: vi.fn(),
+  navigate: vi.fn(),
   confirm: vi.fn(async () => true),
 }));
+
+vi.mock("./PaneAiCoach", () => ({ PaneAiCoach: () => <section data-testid="coach-consent">Consent</section> }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -83,7 +87,8 @@ vi.mock("../../hooks/useStrava", () => ({
 }));
 
 vi.mock("../../hooks/useLocalizedNavigate", () => ({
-  useLocalizedNavigate: () => vi.fn(),
+  useLocalizedNavigate: () => mocks.navigate,
+  useLocalizedPath: (path: string) => `/ko${path}`,
 }));
 
 describe("PaneAccount nickname save", () => {
@@ -96,6 +101,7 @@ describe("PaneAccount nickname save", () => {
     mocks.updateProfile.mockClear().mockResolvedValue(undefined);
     mocks.logClientError.mockClear();
     mocks.showToast.mockClear();
+    mocks.navigate.mockClear();
     mocks.confirm.mockClear().mockResolvedValue(true);
     mocks.callable.mockReset().mockImplementation(async (name, input) => ({ data: name === "applyVisibilityToExistingActivities" ? input.dryRun ? { count: 2 } : { updated: 2 } : { updated: 0, scope: "default" } }));
   });
@@ -104,8 +110,26 @@ describe("PaneAccount nickname save", () => {
     vi.restoreAllMocks();
   });
 
+  it("keeps optional medical details discoverable and places consent before account actions", () => {
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    const summary = screen.getByText("pane.account.medicalSummary");
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByTestId("coach-consent").compareDocumentPosition(screen.getByText("pane.account.cardManagement")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("link", { name: "pane.account.manageData" })).toHaveAttribute("href", "/ko/settings/data");
+    expect(screen.getByRole("button", { name: "pane.account.deleteBtnLabel" })).toBeInTheDocument();
+  });
+
+  it("opens deletion guidance without executing a destructive operation", () => {
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "pane.account.deleteBtnLabel" }));
+    expect(mocks.navigate).toHaveBeenCalledWith("/account-deletion");
+    expect(mocks.callable).not.toHaveBeenCalled();
+    expect(mocks.updateDoc).not.toHaveBeenCalled();
+    expect(mocks.confirm).not.toHaveBeenCalled();
+  });
+
   it("syncs Firebase Auth displayName after saving the Firestore nickname", async () => {
-    render(<PaneAccount />);
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
 
     fireEvent.click(screen.getByLabelText("profile.editNickname"));
 
@@ -119,7 +143,7 @@ describe("PaneAccount nickname save", () => {
   it("shows a toast but does not throw when Auth displayName sync fails", async () => {
     mocks.updateProfile.mockRejectedValueOnce(new Error("network"));
 
-    render(<PaneAccount />);
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
 
     fireEvent.click(screen.getByLabelText("profile.editNickname"));
 
@@ -133,7 +157,7 @@ describe("PaneAccount nickname save", () => {
     expect(mocks.showToast).toHaveBeenCalledWith("profile.nicknameUpdated");
   });
   it("does not read existing activity counts on mount or when changing defaults", async () => {
-    render(<PaneAccount />);
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
     expect(mocks.callable).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: /privacy.visOptEveryone/ }));
     await waitFor(() => expect(mocks.callable).toHaveBeenCalledWith("updateDefaultVisibility", { visibility: "everyone" }));
@@ -141,13 +165,13 @@ describe("PaneAccount nickname save", () => {
   });
   it("a failed lazy bulk count does not lock new activity defaults", async () => {
     mocks.callable.mockImplementation(async name => { if (name === "applyVisibilityToExistingActivities") throw new Error("unavailable"); return { data: { updated: 0, scope: "default" } }; });
-    render(<PaneAccount />);
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
     fireEvent.click(screen.getByTestId("S1-2-1b"));
     await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("privacy.existingFailed"));
     expect(screen.getByRole("button", { name: /privacy.visOptEveryone/ })).not.toBeDisabled();
   });
   it("changes only new-activity defaults and never calls bulk execution", async () => {
-    render(<PaneAccount />);
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
     const everyone = screen.getByRole("button", { name: /privacy.visOptEveryone/ });
     await waitFor(() => expect(everyone).not.toBeDisabled());
     fireEvent.click(everyone);
@@ -156,7 +180,7 @@ describe("PaneAccount nickname save", () => {
     expect(mocks.showToast).toHaveBeenCalledWith("privacy.visibilityChanged");
   });
   it("refreshes the count and requires confirmation before a separate existing-activity write", async () => {
-    render(<PaneAccount />);
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
     const apply = screen.getByTestId("S1-2-1b");
     await waitFor(() => expect(apply).not.toBeDisabled());
     fireEvent.click(apply);
@@ -166,7 +190,7 @@ describe("PaneAccount nickname save", () => {
   });
   it("cancelling confirmation leaves all existing activity visibility unchanged", async () => {
     mocks.confirm.mockResolvedValue(false);
-    render(<PaneAccount />);
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
     const apply = screen.getByTestId("S1-2-1b");
     await waitFor(() => expect(apply).not.toBeDisabled()); fireEvent.click(apply);
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalled());
@@ -175,7 +199,7 @@ describe("PaneAccount nickname save", () => {
 
   it("rejects an unsupported default-scope response and locks further default changes", async () => {
     mocks.callable.mockImplementation(async name => ({ data: name === "applyVisibilityToExistingActivities" ? { count: 2 } : { updated: 2 } }));
-    render(<PaneAccount />);
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
     const everyone = screen.getByRole("button", { name: /privacy.visOptEveryone/ });
     await waitFor(() => expect(everyone).not.toBeDisabled()); fireEvent.click(everyone);
     await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("privacy.changeFailed"));

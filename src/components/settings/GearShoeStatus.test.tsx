@@ -15,7 +15,7 @@ describe("recent shoe snapshot", () => {
     mocks.runs = [shoe(20, "Latest", 900), shoe(10, "Older", 200)];
     render(<GearShoeStatus />);
     expect(screen.getByTestId("P4-3-1")).toHaveTextContent("Latest");
-    expect(screen.getByText("누적 900.0km")).toBeInTheDocument();
+    expect(screen.getByText("누적 이동거리 900.0km")).toBeInTheDocument();
     expect(screen.getByText("남은 거리 100.0km · 교체 권장 1000.0km")).toBeInTheDocument();
     expect(screen.getByText(/교체 임박/)).toBeInTheDocument();
     expect(screen.queryByText("Older")).toBeNull();
@@ -33,8 +33,8 @@ describe("recent shoe snapshot", () => {
     expect(rows).toHaveLength(3);
     const first = rows.find(row => row.textContent?.includes("신발 ID g1"))!;
     const second = rows.find(row => row.textContent?.includes("신발 ID g2"))!;
-    expect(within(first).getByText("누적 900.0km")).toBeInTheDocument();
-    expect(within(second).getByText("누적 600.0km")).toBeInTheDocument();
+    expect(within(first).getByText("누적 이동거리 900.0km")).toBeInTheDocument();
+    expect(within(second).getByText("누적 이동거리 600.0km")).toBeInTheDocument();
     expect(screen.getAllByText("Same name")).toHaveLength(2);
     expect(screen.getByText("Recent legacy")).toBeInTheDocument();
     expect(screen.queryByText("Older legacy")).toBeNull();
@@ -48,7 +48,7 @@ describe("recent shoe snapshot", () => {
     ];
     render(<GearShoeStatus />);
     expect(screen.getAllByTestId("P4-3-1")).toHaveLength(1);
-    expect(screen.getByText("누적 500.0km")).toBeInTheDocument();
+    expect(screen.getByText("누적 이동거리 500.0km")).toBeInTheDocument();
     expect(screen.queryByText("Conflict")).toBeNull();
     expect(screen.queryByText("Meta conflict")).toBeNull();
     expect(screen.getByRole("status")).toHaveTextContent("식별자가 서로 다른");
@@ -65,7 +65,7 @@ describe("recent shoe snapshot", () => {
   it("uses preferred units and preserves the exact 15% threshold", () => {
     mocks.runs = [shoe(20, "Shoe", 850)]; mocks.units = "imperial";
     render(<GearShoeStatus />);
-    expect(screen.getByText("누적 528.2mi")).toBeInTheDocument();
+    expect(screen.getByText("누적 이동거리 528.2mi")).toBeInTheDocument();
     expect(screen.queryByText(/교체 임박/)).toBeNull();
   });
   it.each(["loading", "unavailable", "empty", "missingMaximum", "invalidDistance"])("does not invent distance in %s state", state => {
@@ -74,7 +74,7 @@ describe("recent shoe snapshot", () => {
     if (state === "invalidDistance") mocks.runs = [shoe(1, "Shoe", NaN)];
     render(<GearShoeStatus />);
     expect(screen.queryByTestId("P4-3-1")).toBeNull();
-    expect(screen.queryByText(/누적 0/)).toBeNull();
+    expect(screen.queryByText(/누적 이동거리 0/)).toBeNull();
     if (state === "unavailable") expect(screen.getByRole("alert")).toBeInTheDocument();
   });
 });
