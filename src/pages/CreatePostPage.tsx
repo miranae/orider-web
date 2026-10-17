@@ -552,9 +552,18 @@ const CreatePostPage: React.FC = () => {
     // Fix lazy-loaded images + enable cross-origin display
     temp.querySelectorAll('img').forEach(img => {
       const realSrc = img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('src');
-      if (realSrc) {
-        img.setAttribute('src', realSrc);
+      if (!realSrc) {
+        img.remove();
+        return;
       }
+      // data-* 속성은 DOMPurify의 URL 검사 대상이 아니므로 src 승격 전에 검사한다.
+      const safeSrc = normalizeUserContentUrl(realSrc);
+      const rasterData = /^data:image\/(?:png|jpeg|webp|gif);base64,[a-z\d+/=\s]+$/i.test(realSrc);
+      if (!safeSrc && !rasterData) {
+        img.remove();
+        return;
+      }
+      img.setAttribute('src', safeSrc || realSrc);
       // no-referrer bypasses Referer-based hotlink protection (Naver, etc.)
       img.setAttribute('referrerpolicy', 'no-referrer');
       img.removeAttribute('data-src');
@@ -600,7 +609,7 @@ const CreatePostPage: React.FC = () => {
         const editor = editorRef.current;
         if (editor) {
           editor.focus();
-          document.execCommand('insertHTML', false, temp.innerHTML);
+          document.execCommand('insertHTML', false, DOMPurify.sanitize(temp.innerHTML));
         }
       }
       // Then insert images

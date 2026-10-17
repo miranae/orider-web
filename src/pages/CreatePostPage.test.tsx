@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CreatePostPage from './CreatePostPage';
 
 const mocks = vi.hoisted(() => ({ mobile: false, loading: false, user: { uid: 'writer' } as { uid: string } | null, showToast: vi.fn(), alert: vi.fn(), navigate: vi.fn() }));
@@ -22,6 +22,7 @@ function renderPage(route = '/community/board/new') {
 }
 
 describe('board writing interactions', () => {
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
     mocks.mobile = false;
     mocks.loading = false;
@@ -124,5 +125,74 @@ describe('board writing interactions', () => {
     expect(screen.getByText('writing.inquiryHint')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'label.backToBoard' }));
     expect(mocks.navigate).toHaveBeenCalledWith('/community/board?type=inquiry');
+  });
+
+  it.each([
+    ['data-src', 'javascript:alert(1)'],
+    ['data-original', 'java&#9;script:alert(1)'],
+    ['data-src', 'data:image/svg+xml,&lt;svg onload=alert(1)&gt;'],
+    ['data-src', 'data:text/html,&lt;script&gt;alert(1)&lt;/script&gt;'],
+  ])('rejects unsafe lazy image URLs in %s before insertion: %s', async (attribute, src) => {
+    renderPage();
+    const insert = vi.fn<typeof document.execCommand>(() => true);
+    document.execCommand = insert;
+    const fetchImage = vi.spyOn(globalThis, 'fetch');
+    await act(async () => {
+      fireEvent.paste(screen.getByRole('textbox', { name: 'label.editor' }), {
+        clipboardData: {
+          items: [],
+          getData: (type: string) => type === 'text/html' ? `<p>Keep <strong>formatting</strong></p><img ${attribute}="${src}">` : '',
+        },
+      });
+    });
+    const inserted = document.createElement('div');
+    inserted.innerHTML = insert.mock.calls[0][2] as string;
+    expect(inserted.querySelector('img')).toBeNull();
+    expect(inserted.querySelector('strong')).toHaveTextContent('formatting');
+    expect(fetchImage).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'https://example.com/photo.jpg',
+    '/images/photo.jpg',
+    'data:image/png;base64,aGVsbG8=',
+  ])('preserves safe lazy images and escaped literal markup: %s', async (src) => {
+    renderPage();
+    document.execCommand = vi.fn<typeof document.execCommand>(() => true);
+    const html = `<p>&lt;img src=x onerror=alert(1)&gt;</p><p><strong>Second paragraph</strong></p><img data-src="${src}">`;
+    await act(async () => {
+      fireEvent.paste(screen.getByRole('textbox', { name: 'label.editor' }), {
+        clipboardData: { items: [], getData: (type: string) => type === 'text/html' ? html : '' },
+      });
+    });
+    const inserted = document.createElement('div');
+    inserted.innerHTML = vi.mocked(document.execCommand).mock.calls[0][2] as string;
+    expect(inserted.querySelectorAll('p')).toHaveLength(2);
+    expect(inserted.querySelector('p')).toHaveTextContent('<img src=x onerror=alert(1)>');
+    expect(inserted.querySelector('strong')).toHaveTextContent('Second paragraph');
+    expect(inserted.querySelectorAll('img')).toHaveLength(1);
+    expect(inserted.querySelector('img')).toHaveAttribute('src', src);
+    expect(inserted.querySelector('img')).not.toHaveAttribute('data-src');
+    expect(inserted.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('sanitizes HTML accompanying a direct image file while preserving literal text', async () => {
+    renderPage();
+    document.execCommand = vi.fn<typeof document.execCommand>(() => true);
+    await act(async () => {
+      fireEvent.paste(screen.getByRole('textbox', { name: 'label.editor' }), {
+        clipboardData: {
+          items: [{ type: 'image/png', getAsFile: () => null }],
+          getData: (type: string) => type === 'text/html'
+            ? '<p><strong>Caption</strong> &lt;script&gt;literal&lt;/script&gt;</p><script>alert(1)</script><a href="javascript:alert(1)">unsafe</a>' : '',
+        },
+      });
+    });
+    const inserted = document.createElement('div');
+    inserted.innerHTML = vi.mocked(document.execCommand).mock.calls[0][2] as string;
+    expect(inserted.querySelector('strong')).toHaveTextContent('Caption');
+    expect(inserted.querySelector('p')).toHaveTextContent('<script>literal</script>');
+    expect(inserted.querySelector('script')).toBeNull();
+    expect(inserted.querySelector('a')).not.toHaveAttribute('href');
   });
 });
