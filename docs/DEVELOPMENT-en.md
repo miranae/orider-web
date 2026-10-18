@@ -65,6 +65,8 @@ Use one of these modes:
 
 Some routes will show empty, loading, or permission states without backend data. That is expected for a frontend-only public repo.
 
+If a local browser stalls on Firestore streaming connections, set `VITE_FIRESTORE_FORCE_LONG_POLLING=true` in the ignored `.env.development.local` file and restart Vite. This transport option applies only to Vite development on `localhost`, `127.0.0.1` or `[::1]`. Auth and App Check remain required; deployed builds retain the default transport.
+
 ## Frontend-Only Review Routes
 
 These routes are useful when working with placeholder config, emulator data, or mocked component state. They do not require private backend source code.

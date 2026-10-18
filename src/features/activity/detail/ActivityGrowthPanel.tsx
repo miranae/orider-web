@@ -1,3 +1,5 @@
+import GlossaryProvider from "../../../components/common/GlossaryProvider";
+import GlossaryText from "../../../components/common/GlossaryText";
 import { disciplineOfType } from "@shared/sport/discipline";
 import { getRuntimeConfig } from "../../../services/runtimeConfig";
 import { LocalizedLink } from "../../../components/LocalizedLink";
@@ -80,11 +82,13 @@ function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }:
     : number(value, ["avgHr", "avgPower", "np", "elevationGainM", "movingTimeSec"].includes(key) ? 0 : 1); };
   const unit = (key: string) => key === "avgSpeedKph" ? running ? units === "imperial" ? "/mi" : "/km" : units === "imperial" ? "mph" : "km/h"
     : ({ distanceKm: units === "imperial" ? "mi" : "km", movingTimeSec: "", avgHr: "bpm", avgPower: "W", np: "W", elevationGainM: units === "imperial" ? "ft" : "m" }[key] ?? "");
-  const date = (time: number) => Number.isFinite(time) && Number.isFinite(new Date(time).getTime())
-    ? new Date(time).toLocaleString(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }) : "—";
+  const date = (time: number, compact = false) => Number.isFinite(time) && Number.isFinite(new Date(time).getTime())
+    ? new Intl.DateTimeFormat(i18n.language, compact
+      ? { timeZone: "Asia/Seoul", year: "2-digit", month: "numeric", day: "numeric" }
+      : { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(new Date(time)) : "—";
   const powerLabel = (source: MetricsLike | null) => !source || !settledMetrics(source) || ![source.avgPower, source.np, ...Object.values(source.mmp ?? {})].some((value) => typeof value === "number" && Number.isFinite(value) && value > 0) ? t("growth.visual.powerMissing") : source?.isVirtualPower === true ? t("growth.virtualPower")
     : source?.isVirtualPower === false ? t("growth.measuredPower") : t("growth.powerUnknown");
-  return <div className="space-y-4">
+  return <GlossaryProvider scopeKey={`activity-comparison:${activity.id}:${selectedId}`} triggerTone="inherit"><div className="space-y-4">
     <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.conditions")}</Text>
     {stageRoutes && <Stack direction="row" wrap gap="var(--space-2)">
       <Button size="sm" variant={!routeOnly ? "secondary" : "ghost"} aria-pressed={!routeOnly} onClick={() => setRouteOnly(false)}>{t("growth.route.all")}</Button>
@@ -104,23 +108,27 @@ function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }:
             label: `${date(candidate.startTime)} · ${candidate.description || candidate.type}${routeOnly && !routes.candidates.some(match => match.id === candidate.id) ? ` · ${t("growth.route.retained")}` : ""}`,
           }))]} />
     </div>
-    {history.loading && <Text as="p">{t("growth.loading")}</Text>}
+    {history.loading && <Text as="p" role="status" aria-live="polite">{t("growth.loading")}</Text>}
     {history.error && <Button size="sm" onClick={history.retry}>{t("growth.retry")}</Button>}
     {!history.loading && !history.error && candidates.length === 0 && <Text as="p">{t("growth.noPrevious")}</Text>}
     {history.hasMore && <Button size="sm" variant="outline" loading={history.loadingMore} onClick={history.loadMore}>{t("growth.loadMore")}</Button>}
     {stageRoutes && <ObservedRouteHistoryPanel anchor={activity} activities={candidates} observedMetricsIdentity={JSON.stringify([currentMetricsStatus, metrics?.computedAt, metrics?.version, metrics?.inputPending, metrics?.inputCoverage, metrics?.sourceLayer])} />}
+    {!selected && !history.loading && candidates.length > 0 && <div className="activity-comparison-empty">
+      <Text as="h3" variant="title">{t("detail.compareEmptyTitle")}</Text>
+      <Text as="p" variant="bodyMedium" tone="secondary">{t("detail.compareEmptyDescription")}</Text>
+    </div>}
     {selected && <>
       {stageRoutes && <ObservedRouteComparisonPanel current={activity} previous={selected} />}
       <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.route.context", { current: number(activity.summary?.pauseTimeSec ?? null, 0), previous: number(selected.summary?.pauseTimeSec ?? null, 0) })}</Text>
       <Button size="sm" variant="ghost" onClick={() => setSelectedId("")}>{t("growth.clear")}</Button>
-      {baseline.status === "loading" && <Text as="p">{t("growth.loading")}</Text>}
+      {baseline.status === "loading" && <Text as="p" role="status" aria-live="polite">{t("growth.loading")}</Text>}
       {baseline.status === "stale" && <Text as="p" tone="warning">{t("growth.stale")}</Text>}
       {!baseline.metrics && baseline.status !== "loading" && <Text as="p">{t("growth.metricsMissing")}</Text>}
       <div className="activity-growth-table-shell">
         <table className="activity-growth-table">
-          <thead><tr><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{t("growth.current")}</Text></th><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{date(selected.startTime)}</Text></th></tr></thead>
+          <thead><tr><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{t("growth.current")}</Text></th><th scope="col" className="activity-comparison-date" title={date(selected.startTime)} aria-label={date(selected.startTime)}><Text variant="bodyMedium" weight={600} tone="secondary">{date(selected.startTime, true)}</Text></th></tr></thead>
           <tbody>{comparisonRows(metrics, baseline.metrics, running).map((row) => <tr key={row.key}>
-            <th scope="row"><Text variant="bodyMedium" tone="secondary">{t(`growth.metrics.${row.key === "avgSpeedKph" && running ? "pace" : row.key}`)}{unit(row.key) ? ` · ${unit(row.key)}` : ""}</Text></th>
+            <th scope="row"><Text variant="bodyMedium" tone="secondary"><GlossaryText>{t(`growth.metrics.${row.key === "avgSpeedKph" && running ? "pace" : row.key}`)}</GlossaryText>{unit(row.key) ? ` · ${unit(row.key)}` : ""}</Text></th>
             <td><Text variant="bodyMedium" mono tone="primary" title={row.key === "movingTimeSec" && row.value != null ? `${row.value} s` : undefined}>{format(row.value, row.key)}</Text>{row.delta != null && <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.change")} <span className="whitespace-nowrap" title={row.key === "movingTimeSec" && row.delta != null ? `${row.delta} s` : undefined}>{row.key === "movingTimeSec" ? comparisonDuration(row.delta, true) : <>{signedNumber(convert(row.delta, row.key), 1)} {row.key === "avgSpeedKph" && running ? units === "imperial" ? "s/mi" : "s/km" : unit(row.key)}</>}</span></Text>}</td>
             <td><Text variant="bodyMedium" mono tone="secondary" title={row.key === "movingTimeSec" && row.baseline != null ? `${row.baseline} s` : undefined}>{format(row.baseline, row.key)}</Text></td>
           </tr>)}</tbody>
@@ -135,7 +143,7 @@ function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }:
         <ActivityComparisonVisuals key={selected.id} current={metrics} previous={baseline.metrics} running={running} units={units} />
       </>}
     </>}
-  </div>;
+  </div></GlossaryProvider>;
 }
 function Statistics({ activity }: { activity: Activity }) {
   const { units } = useLocale();
@@ -216,7 +224,7 @@ function Statistics({ activity }: { activity: Activity }) {
     {!unsupportedYear && (period !== "year" || applied) && <>
     {(period !== "custom" || custom) && <Text as="p" variant="bodyMedium" tone="secondary">{t(period === "year" ? yearBoundaries?.ytd ? "observedYears.ytd" : "observedYears.full" : period === "custom" ? "growth.customPeriodNote" : "growth.periodNote")} · {date(boundaries.start)}–{date(boundaries.end - 1)} / {date(boundaries.previousStart)}–{date(boundaries.previousEnd - 1)}</Text>}
     {period === "year" && yearBoundaries?.leapClamped && <Text as="p" variant="bodyMedium" tone="secondary">{t("observedYears.leapNote")}</Text>}
-    {stats.coverage === "loading" && <Text as="p">{t("growth.loading")}</Text>}
+    {stats.coverage === "loading" && <Text as="p" role="status" aria-live="polite">{t("growth.loading")}</Text>}
     {stats.error && <Button size="sm" onClick={stats.retry}>{t("growth.retry")}</Button>}
     {!complete && stats.coverage !== "loading" && <Text as="p" tone="warning">{t("growth.partial", { count: sources.length })}</Text>}
     {canonicalEnabled && canonical.response?.periods.some((p) => p.coverage.truncated) && <Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.truncated")}</Text>}
@@ -274,7 +282,7 @@ function GrowthSections(props: ActivityGrowthPanelProps) {
   const [statisticsOpen, setStatisticsOpen] = useState(false);
   const [comparisonLoaded, setComparisonLoaded] = useState(false);
   const [statisticsLoaded, setStatisticsLoaded] = useState(false);
-  if (props.comparisonOnly) return <section data-testid="D1-5" className="space-y-4">
+  if (props.comparisonOnly) return <section data-testid="D1-5" className="activity-comparison-panel space-y-4">
     <Comparison {...props} />
     {getRuntimeConfig().appEnvironment === "stage" && <>
       {getDiscipline(props.activity.type) === "run" && <ActivityRunDistanceEvidencePanel activity={props.activity} metrics={props.metrics} />}

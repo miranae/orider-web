@@ -9,6 +9,7 @@ import { formatDuration, formatPace, formatSwimPace, type SportCategory } from "
 import type { StripStat, SummaryStripStats } from "./summaryStripStats";
 
 type ActivityStatsGridProps = {
+  section?: "all" | "primary" | "secondary";
   summary: ActivitySummary;
   /**
    * 서버 `activity_metrics` 우선으로 결정된 표시값 (#885 §2). 서버가 null 이면 대시로 비우고,
@@ -38,6 +39,18 @@ type ActivityStatsGridProps = {
   elevUnit: string;
   t: TFunction<"activity">;
 };
+
+/** 보조 셀의 실제 표시 조건을 공유해 빈 통계 카드·펼침 버튼을 만들지 않는다. */
+export function hasSecondaryActivityStats({ summary, stats, sport, showElevation, runTrainingLoad }: Pick<ActivityStatsGridProps, "summary" | "stats" | "sport" | "showElevation" | "runTrainingLoad">): boolean {
+  return (["ride", "run", "swim"].includes(sport) && summary.maxSpeed > 0)
+    || (showElevation && (stats.elevationGainM.value != null || stats.elevationLossM.value != null))
+    || stats.avgHr.value != null
+    || ((sport === "ride" || sport === "run") && stats.avgPower.value != null)
+    || (["ride", "run", "swim"].includes(sport) && stats.avgCadence.value != null)
+    || (sport === "run" ? runTrainingLoad != null : summary.tss != null)
+    || (sport === "swim" && summary.swolf != null)
+    || stats.caloriesKcal.value != null;
+}
 
 const gridCellStyle = {
   borderRight: "1px solid var(--line-soft)",
@@ -117,6 +130,7 @@ function Unit({ children }: { children: React.ReactNode }) {
 }
 
 export function ActivityStatsGrid({
+  section = "all",
   summary: s,
   stats,
   sport,
@@ -169,11 +183,14 @@ export function ActivityStatsGrid({
     )
     : null;
 
+  if (section === "secondary" && !hasSecondaryActivityStats({ summary: s, stats, sport, showElevation, runTrainingLoad })) return null;
+
   return (
     <div
-      className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
-      data-testid="activity-stats-grid"
+      className={`grid grid-cols-2 sm:grid-cols-3 activity-stats-${section}`}
+      data-testid={section === "all" ? "activity-stats-grid" : `activity-stats-${section}`}
     >
+        {section !== "secondary" && <>
         {sport !== "other" && (
           <MetricCell label={t("stat.distance")} provisionalLabel={provisional(stats.distanceM)}>
             {stats.distanceM.value == null ? (
@@ -252,6 +269,8 @@ export function ActivityStatsGrid({
           </MetricCell>
         )}
 
+        </>}
+        {section !== "primary" && <>
         {sport === "ride" && s.maxSpeed > 0 && (
           <MetricCell
             label={t("stat.maxSpeed")}
@@ -380,6 +399,7 @@ export function ActivityStatsGrid({
             <Unit>kcal</Unit>
           </MetricCell>
         )}
+        </>}
     </div>
   );
 }

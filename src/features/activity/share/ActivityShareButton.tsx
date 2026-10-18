@@ -7,6 +7,7 @@ import { canvasToPng, downloadShareCard, drawActivityShareCard, type ActivitySha
 import { ActivityShareMapCapture, type ActivityShareMapCaptureHandle } from "./ActivityShareMapCapture";
 
 type Props = {
+  compact?: boolean;
   card: ActivityShareCardInput;
   filename: string;
   url: string;
@@ -16,7 +17,7 @@ type Props = {
   onFeedback: (message: string) => void;
 };
 
-export function ActivityShareButton({ card, filename, url, activityId, visibility, routeTrack, onFeedback }: Props) {
+export function ActivityShareButton({ compact = false, card, filename, url, activityId, visibility, routeTrack, onFeedback }: Props) {
   const { t } = useTranslation("activity");
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -90,7 +91,7 @@ export function ActivityShareButton({ card, filename, url, activityId, visibilit
         aria-label={busy ? t("page.share.generating") : t("page.share.button")}
         onClick={() => void handleShare()}
       >
-        {busy ? t("page.share.generating") : t("page.share.button")}
+        {busy ? t("page.share.generating") : compact ? t("detail.shareShort") : t("page.share.button")}
       </Button>
     </>
   );

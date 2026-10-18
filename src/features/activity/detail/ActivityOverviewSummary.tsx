@@ -97,7 +97,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
     ...(p.runRecordAchievements ?? []).map((row) => ({ key: row.distance, value: `${row.distance} · ${duration(row.valueSec)}`, achievement: row.recordAchievement })),
   ] : [];
   const note = (children: ReactNode) => <Text as="p" variant="caption" tone="tertiary"><GlossaryText>{children}</GlossaryText></Text>;
-  const loadLabel = p.session.loadKind === "tss" ? "TSS" : p.session.loadSource === "time" ? `${label("load")} · ${label("loadEstimatedFromTime")}` : label("load");
+  const loadLabel = t("detail.acceptedLoadLabel");
   const hasHero = p.session.load != null || (powerVisible && (p.session.normalizedPowerW != null || p.session.intensityFactor != null));
   const hasGauge = powerVisible && p.session.intensityFactor != null;
   const facts = [
@@ -226,6 +226,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
             {p.session.load != null && <Stat {...latin(loadLabel)} label={<GlossaryText>{loadLabel}</GlossaryText>} value={number(p.session.load)} />}
             {powerVisible && p.session.normalizedPowerW != null && <Stat data-latin="" label={<GlossaryText>NP</GlossaryText>} value={number(p.session.normalizedPowerW)} unit="W" />}
           </div>
+          {p.session.load != null && note(`${t("detail.acceptedLoadDescription")}${p.session.loadKind === "tss" ? ` ${t("detail.acceptedLoadTssBasis")}` : p.session.loadSource === "time" ? ` ${t("detail.acceptedLoadTimeBasis")}` : p.session.loadSource === "trimp" ? ` ${t("detail.acceptedLoadHrBasis")}` : ""}`)}
           {!hasGauge && sessionFacts.length > 0 && <div className="activity-overview-hero">{sessionFacts}</div>}
           {hasGauge && <div className="activity-overview-if">
             <div className="activity-overview-if__head">

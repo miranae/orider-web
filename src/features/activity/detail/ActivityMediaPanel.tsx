@@ -22,6 +22,7 @@ type ActivityMediaPanelProps = {
   markerPosition: [number, number] | null;
   hoveredSegment: SegmentEffortData | null;
   selectedRunRange?: { startIndex: number; endIndex: number };
+  selectedSegmentRange?: { startIndex: number; endIndex: number } | null;
   photos: StreamPhoto[];
   uploadedPhotos: UploadedPhoto[];
   flyToPosition: [number, number] | null;
@@ -37,6 +38,7 @@ export function ActivityMediaPanel({
   markerPosition,
   hoveredSegment,
   selectedRunRange,
+  selectedSegmentRange,
   photos,
   uploadedPhotos,
   flyToPosition,
@@ -44,12 +46,14 @@ export function ActivityMediaPanel({
 }: ActivityMediaPanelProps) {
   if (hasTrack) {
     return (
-      <div className="-mx-6 sm:-mx-8 lg:mx-[calc((100vw-1120px)/-2-24px)] xl:mx-0" style={{ marginTop: -24 }}>
+      <div className="activity-detail-route-frame">
         <RouteMap
           polyline={activity.thumbnailTrack}
           latlng={streams?.latlng}
-          height="h-[360px]"
+          height="activity-detail-route-map"
           interactive
+          showRouteEndpoints
+          routeLineWidth={3}
           markerPosition={markerPosition}
           highlightRange={hoveredSegment ? {
             startIndex: hoveredSegment.startIndex,
@@ -63,7 +67,8 @@ export function ActivityMediaPanel({
               .filter((p) => p.location)
               .map((p) => ({ id: `upload-${p.id}`, url: p.url, location: p.location!, caption: null as string | null })),
           ]}
-          flyToPosition={flyToPosition}
+          flyToRange={selectedSegmentRange}
+          flyToPosition={selectedSegmentRange ? undefined : flyToPosition}
           fallbackImageUrl={activity.mapImageUrl}
         />
       </div>

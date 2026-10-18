@@ -275,8 +275,12 @@
   .activity-overview-zones__time { display: none; }
   .activity-overview-grid section { padding-top: var(--space-3); }
   .activity-overview-shift__from { font-size: var(--fs-2xs); }
-  /* 좁으면 이름·값(운동 전 → 후)을 한 줄, 막대를 다음 줄 전폭으로 — 막대가 너무 짧아지지 않게. */
-  .activity-overview-shift__rows { grid-template-columns: minmax(0, 1fr) max-content; grid-auto-flow: row dense; row-gap: var(--space-1); }
+  /* 긴 번역도 값과 겹치지 않도록 이름 → 값 → 전폭 막대를 각각 한 줄로 둔다. */
+  .activity-overview-shift__rows { display: flex; flex-direction: column; gap: var(--space-3); }
+  .activity-overview-shift__row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-1); min-width: 0; }
+  .activity-overview-shift__label { order: 0; white-space: normal; min-width: 0; }
+  .activity-overview-shift__values { order: 1; white-space: normal; text-align: left; }
+  .activity-overview-shift__track { order: 2; }
   .activity-overview-shift__track, .activity-overview-shift__axis { grid-column: 1 / -1; }
   .activity-overview-shift__axis { margin-top: 0; }
   .activity-overview-shift__row--axis > span { display: none; }

@@ -1,0 +1,6 @@
+/* 좁은 화면에서는 긴 시간·소수 숫자를 나누지 않고 카드 폭을 확보한다. */
+@media (max-width: 359px) {
+  .activity-analysis-metric-grid.grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

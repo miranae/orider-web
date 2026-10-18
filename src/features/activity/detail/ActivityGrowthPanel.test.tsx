@@ -11,6 +11,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import type { Activity } from "@shared/types";
+import koTerms from "../../../i18n/resources/ko/termGlossary.json";
+import enTerms from "../../../i18n/resources/en/termGlossary.json";
 import ko from "../../../i18n/resources/ko/activity.json";
 import en from "../../../i18n/resources/en/activity.json";
 import { resetRuntimeConfigForTests } from "../../../services/runtimeConfig";
@@ -26,8 +28,8 @@ vi.mock("../../../hooks/useActivityGrowthHistory", () => ({ useActivityGrowthHis
 vi.mock("../../../services/trainingAnalysisPeriods", () => ({ trainingAnalysisPeriodsAvailable: () => mocks.periodAvailable }));
 vi.mock("../../../hooks/useTrainingAnalysisPeriods", () => ({ useTrainingAnalysisPeriods: mocks.periods }));
 vi.mock("../../../hooks/useActivityMetrics", () => ({ useActivityMetrics: mocks.metrics }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: { language: mocks.language }, t: (key: string, params?: Record<string, unknown>) => {
-  let text: unknown = mocks.language === "ko" ? ko : en;
+vi.mock("react-i18next", () => ({ useTranslation: (namespace = "activity") => ({ i18n: { language: mocks.language }, t: (key: string, params?: Record<string, unknown>) => {
+  let text: unknown = namespace === "termGlossary" ? (mocks.language === "ko" ? koTerms : enTerms) : mocks.language === "ko" ? ko : en;
   for (const part of key.split(".")) text = (text as Record<string, unknown>)?.[part];
   return typeof text === "string" ? text.replace(/{{(\w+)}}/g, (_, name: string) => String(params?.[name] ?? "")) : key;
 } }) }));
@@ -58,6 +60,22 @@ function openComparisonOptions() {
   if (control.getAttribute("aria-expanded") !== "true") fireEvent.click(control);
 }
 describe("ActivityGrowthPanel", () => {
+  it.each(["ko", "en"])("NP comparison uses the same shared term and text trigger in %s", language => {
+    mocks.language = language;
+    const bike = { ...activity, type: "Ride" };
+    mocks.history.mockReturnValue({ activities: [{ ...previous, type: "Ride" }], loading: false, error: false, hasMore: false });
+    render(<ActivityGrowthPanel activity={bike} metrics={null} isOwner comparisonOnly />);
+    chooseComparison("previous");
+    const trigger = screen.getByRole("button", { name: language === "ko" ? "NP 설명" : "About NP" });
+    expect(trigger).toHaveStyle({ textDecoration: "underline dotted" });
+    fireEvent.focus(trigger);
+    const tooltip = screen.getByRole("tooltip");
+    expect(tooltip).toHaveClass("ds-tooltip-content");
+    expect(tooltip).toHaveTextContent((language === "ko" ? koTerms : enTerms).terms.np.description);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
   it("web comparison keeps only normal activity comparison in production, without period/stage sections", () => {
     render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner comparisonOnly />);
     expect(screen.getByTestId("D1-5")).toBeInTheDocument();
@@ -569,7 +587,10 @@ describe("owner comparison readable moving time", () => {
     expect(screen.getByRole("option", { name: /02:10:00.*Ride/ })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /02:20:00.*Ride/ })).toBeInTheDocument();
     chooseComparison("previous");
-    expect(screen.getByRole("columnheader", { name: /02:10:00/ })).toHaveTextContent(language === "ko" ? "2026. 10. 07." : "10/07/2026");
+    const header = screen.getByRole("columnheader", { name: /02:10:00/ });
+    expect(header).toHaveTextContent(language === "ko" ? "26. 10. 7." : "10/7/26");
+    expect(header).toHaveAttribute("title", expect.stringContaining("02:10:00"));
+    expect(header).toHaveClass("activity-comparison-date");
     expect(mocks.metrics).toHaveBeenLastCalledWith("previous"); expect(mocks.route).toHaveBeenLastCalledWith({ current, previous: first }); expect(mocks.periods).not.toHaveBeenCalled();
   });
 });

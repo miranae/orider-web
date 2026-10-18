@@ -171,7 +171,7 @@ describe("ActivityStatsGrid", () => {
     expect(cellTexts().some((text) => text?.startsWith("획득 고도"))).toBe(false);
   });
 
-  it("uses two columns on mobile and delays six columns until extra-wide screens", () => {
+  it("keeps the default grid balanced at two mobile and three wider columns", () => {
     renderGrid(missingState, {
       showElevation: false,
       summary: { ...runningSummary, averageHeartRate: null, averageCadence: null, tss: null, calories: null },
@@ -180,7 +180,6 @@ describe("ActivityStatsGrid", () => {
     expect(screen.getByTestId("activity-stats-grid")).toHaveClass(
       "grid-cols-2",
       "sm:grid-cols-3",
-      "xl:grid-cols-6",
     );
   });
 });
