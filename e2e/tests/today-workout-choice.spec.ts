@@ -56,8 +56,13 @@ async function signIn(page: Page) {
   }, { email: TEST_EMAIL, password: TEST_PASSWORD });
 }
 
+/** 데모 녹화(TODAY_CHOICE_SHOTS) 때만 단계마다 잠깐 멈춰 영상에서 화면이 읽히게 한다. */
+const DEMO = Boolean(process.env.TODAY_CHOICE_SHOTS);
+if (DEMO) test.use({ video: { mode: "on", size: { width: 390, height: 844 } } });
+
 async function shot(page: Page, testInfo: TestInfo, name: string) {
   await page.waitForFunction(() => document.fonts.status === "loaded");
+  if (DEMO) await page.waitForTimeout(1500);
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: false }), contentType: "image/png" });
   if (process.env.TODAY_CHOICE_SHOTS) await page.screenshot({ path: `${process.env.TODAY_CHOICE_SHOTS}/${name}.png` });
 }
