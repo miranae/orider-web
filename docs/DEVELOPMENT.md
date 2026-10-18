@@ -68,6 +68,8 @@ secret, service account, private key, production export는 `.env`나 git에 넣�
 
 일부 기능은 Firebase Auth, Firestore, Mapbox, Strava, App Check 설정이 있어야 완전히 동작합니다. provider가 없어도 UI는 empty/loading/error state로 검토 가능해야 합니다.
 
+로컬 브라우저에서 Firestore 스트리밍 연결이 멈추는 경우, git에서 제외된 `.env.development.local`에 `VITE_FIRESTORE_FORCE_LONG_POLLING=true`를 넣고 Vite를 재시작할 수 있습니다. 이 설정은 Vite 개발 모드의 `localhost`, `127.0.0.1`, `[::1]`에서만 적용됩니다. 인증·App Check 요구사항과 배포 환경의 기본 전송 설정은 그대로 유지됩니다.
+
 App Check debug token은 maintainer-only 테스트에서만 사용하고, 사용 후 Firebase App Check에서 삭제합니다. 공개 repository, screenshot, log, GitHub secret에 저장하지 않습니다.
 
 ## Personal Data API와 recipe

@@ -68,7 +68,7 @@ export function ActivityOverviewEvidenceContent({ presentation: p, isOwner = tru
     {section("stimulus", [
       [label("sport"), label(`sports.${p.session.discipline}`)],
       [label("character"), p.session.character ? label(`characters.${p.session.character}`) + (p.aboveUsualVolume ? ` · ${label("aboveUsualVolume")}` : "") : "—"],
-      [`${label("load")} · ${p.session.loadKind === "tss" ? "TSS" : p.session.loadSource === "time" ? label("loadEstimatedFromTime") : label("load")}`, number(p.session.load)],
+      [`${t("detail.acceptedLoadLabel")} · ${p.session.loadKind === "tss" ? t("detail.acceptedLoadTssBasis") : p.session.loadSource === "time" ? t("detail.acceptedLoadTimeBasis") : p.session.loadSource === "trimp" ? t("detail.acceptedLoadHrBasis") : label("load")}`, number(p.session.load)],
       ...(powerVisible ? [["IF", p.session.intensityFactor != null ? p.session.intensityFactor.toFixed(2) : "—"], ["NP", number(p.session.normalizedPowerW, " W")]] as [string, string][] : []),
       [label("highZone"), `${number(highPercent, "%")} · ${highZone ? label(highZone.kind) : "—"}`],
       ...(powerVisible ? [

@@ -1,5 +1,9 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ThemeProvider } from "../contexts/ThemeContext";
+import { OriderThemeProvider } from "../theme";
+import koTerms from "../i18n/resources/ko/termGlossary.json";
+import enTerms from "../i18n/resources/en/termGlossary.json";
 import koActivity from "../i18n/resources/ko/activity.json";
 import koGlossary from "../i18n/resources/ko/metricGlossary.json";
 import enGlossary from "../i18n/resources/en/metricGlossary.json";
@@ -11,7 +15,7 @@ const state = vi.hoisted(() => ({ metrics: {} as UseActivityMetricsState, units:
 vi.mock("../hooks/useActivityMetrics", () => ({ useActivityMetrics: () => state.metrics }));
 vi.mock("react-i18next", () => ({ useTranslation: (namespace = "activity") => ({ t: (key: string, values?: Record<string, unknown>) => {
   if (!state.language) return key;
-  const resource: unknown = namespace === "metricGlossary" ? (state.language === "ko" ? koGlossary : enGlossary) : state.language === "ko" ? koActivity : enActivity;
+  const resource: unknown = namespace === "termGlossary" ? (state.language === "ko" ? koTerms : enTerms) : namespace === "metricGlossary" ? (state.language === "ko" ? koGlossary : enGlossary) : state.language === "ko" ? koActivity : enActivity;
   const value = key.split(".").reduce<unknown>((node, part) => node && typeof node === "object" ? (node as Record<string, unknown>)[part] : undefined, resource);
   return typeof value === "string" ? value.replace(/\{\{(\w+)\}\}/g, (_, name: string) => String(values?.[name] ?? "")) : key;
 } }) }));
@@ -48,6 +52,7 @@ function renderRun() {
 }
 
 import AnalysisTab from "./AnalysisTab";
+import MetabolismCard from "./MetabolismCard";
 import RunAnalysisPanel from "./activity/RunAnalysisPanel";
 
 describe("러닝 분석 게이트", () => {
@@ -311,4 +316,76 @@ describe("running split measurement quality", () => {
     expect(within(screen.getByTestId("selected-run-split")).getByText(resource.analysis.metric.elevGain)).toBeInTheDocument();
     expect(screen.getByTestId("selected-run-split")).toHaveTextContent("0m");
   });
+});
+
+
+describe("분석 용어 설명의 공용 동선", () => {
+  it.each(["ko", "en"] as const)("NP·IF·TSS는 개요와 같은 정의를 텍스트 트리거로 연다 locale=%s", language => {
+    state.language = language;
+    state.metrics = gpsOnlyRunMetrics();
+    Object.assign(state.metrics.metrics!, { discipline: "bike", avgPower: 200, np: 220, tss: 70, if: 0.8, powerZoneSec: [], hrZoneSec: [], runMetrics: null, splits: [] });
+    render(<ThemeProvider><OriderThemeProvider><AnalysisTab sport="ride" isOwner streams={{ time: [], distance: [] } as unknown as ActivityStreams} /></OriderThemeProvider></ThemeProvider>);
+    const terms = language === "ko" ? koTerms : enTerms;
+    for (const id of ["np", "if", "tss"] as const) {
+      const trigger = document.querySelector(`[data-glossary-key="${id}"] button`)!;
+      expect(trigger).toHaveStyle({ textDecoration: "underline dotted" });
+      expect(trigger.querySelector("svg")).toBeNull();
+      fireEvent.focus(trigger);
+      fireEvent.click(trigger);
+      const tooltip = screen.getByRole("tooltip");
+      expect(tooltip).toHaveClass("ds-tooltip-content");
+      expect(tooltip).toHaveTextContent(terms.terms[id].label);
+      expect(tooltip).toHaveTextContent(terms.terms[id].description);
+      expect(trigger).toHaveAttribute("aria-describedby", tooltip.id);
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+      fireEvent.blur(trigger);
+    }
+  });
+});
+
+
+it.each(["ko", "en"] as const)("대사와 FATMAX도 같은 텍스트 설명 동선을 제공한다 locale=%s", language => {
+  state.language = language;
+  render(<MetabolismCard substrate={{ totalKcal: 500, fatKcal: 200, carbKcal: 300, fatPct: 0.4 }}
+    fatMax={{ fatMaxWatts: 170, fatMaxPctFtp: 0.68, sustainableMin: null, tssAtFatMax: null }} />);
+  const activity = language === "ko" ? koActivity : enActivity;
+  const terms = language === "ko" ? koTerms : enTerms;
+  for (const label of [activity.metabolism.section, activity.metabolism.fatMaxZone]) {
+    const trigger = screen.getByRole("button", { name: terms.openLabel.replace("{{term}}", label) });
+    expect(trigger).toHaveStyle({ textDecoration: "underline dotted" });
+    expect(trigger.querySelector("svg")).toBeNull();
+    fireEvent.click(trigger);
+    expect(screen.getByRole("tooltip")).toHaveClass("ds-tooltip-content");
+    if (label === activity.metabolism.fatMaxZone) expect(screen.getByRole("tooltip")).toHaveTextContent(terms.terms.fatmax.description);
+    fireEvent.keyDown(document, { key: "Escape" });
+  }
+});
+
+
+it.each(["ko", "en"] as const)("Threshold describes the recorded FTP band instead of a lactate test locale=%s", language => {
+  state.language = language;
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", avgPower: 200, np: 220, zonesSec: { sweetSpot: 0, threshold: 60, vo2: 0, anaerobic: 0 }, powerZoneSec: [], hrZoneSec: [], runMetrics: null, splits: [] });
+  render(<ThemeProvider><OriderThemeProvider><AnalysisTab sport="ride" isOwner streams={{ time: [], distance: [] } as unknown as ActivityStreams} /></OriderThemeProvider></ThemeProvider>);
+  fireEvent.click(screen.getByText("Threshold", { selector: "button" }));
+  const tooltip = screen.getByRole("tooltip");
+  expect(tooltip).toHaveClass("ds-tooltip-content");
+  expect(tooltip).toHaveTextContent((language === "ko" ? koActivity : enActivity).analysis.glossary.threshold);
+  expect(tooltip).toHaveTextContent(/95[~–]106%/);
+});
+
+
+it.each(["ko", "en"] as const)("긴 분석 숫자와 단위를 중간에서 나누지 않는다 locale=%s", language => {
+  state.language = language;
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", durationSec: 2405, avgPower: 140, np: 160, contextSnapshot: { weightKg: 80 }, powerZoneSec: [], hrZoneSec: [], runMetrics: null, splits: [] });
+  render(<ThemeProvider><OriderThemeProvider><AnalysisTab sport="ride" isOwner streams={{ time: [], distance: [] } as unknown as ActivityStreams} /></OriderThemeProvider></ThemeProvider>);
+  for (const text of ["0:40:05", "1.75"]) {
+    const value = screen.getByText(text);
+    expect(value).toHaveStyle({ whiteSpace: "nowrap", flexShrink: 0 });
+    expect(value.parentElement).toHaveStyle({ flexWrap: "wrap" });
+    expect(value.closest(".activity-analysis-metric-grid")).toBeInTheDocument();
+  }
+  expect(screen.getAllByText("W/kg", { selector: ".ds-text--unit" })[0]).toHaveStyle({ whiteSpace: "nowrap", flexShrink: 0 });
 });

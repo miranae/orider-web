@@ -794,6 +794,11 @@
     "pace": "Pace"
   },
   "segments": {
+    "viewOnMap": "View on map",
+    "viewOnMapNamed": "View {{name}} on map",
+    "selectedOnMap": "Segment on map: {{name}}",
+    "returnToSegment": "Back to segment",
+    "mapRegion": "Activity route map",
     "title": "Segments",
     "matched": "{{count}} segments matched on this ride",
     "matched_one": "{{count}} segment matched on this ride",
@@ -960,7 +965,7 @@
       "ef": "Efficiency Factor — NP ÷ average HR. Higher means better aerobic efficiency.",
       "decoupling": "Decoupling — drop in power:HR efficiency in the later half. Lower means better endurance.",
       "sweetSpot": "Sweet Spot — 83–94% FTP. Efficient fitness-building zone for the fatigue cost.",
-      "threshold": "Threshold — 95–105% FTP. Around the 1-hour sustainable limit.",
+      "threshold": "Threshold — time spent at 95–106% FTP on this screen. This is a power band, not a lactate threshold measured by a blood test.",
       "vo2max": "VO2max — 106–120% FTP. High intensity that stresses cardiovascular capacity.",
       "anaerobic": "Anaerobic — above 120% FTP. Short, all-out efforts.",
       "fatmax": "FATMAX — the intensity at which fat oxidation rate peaks.",
@@ -2559,5 +2564,47 @@
     "confirmFirst": "Check the available duration first.",
     "proof": "Display evidence",
     "map": "Stored power windows cannot be confirmed as the same source as the current map, so map locations are not aligned automatically."
+  },
+  "detail": {
+    "navigation": "Activity details",
+    "overview": {
+      "title": "Your activity at a glance",
+      "description": "Review the key numbers, effort and rhythm of this activity."
+    },
+    "analysis": {
+      "title": "Understand your effort",
+      "description": "Explore training load, power and heart rate to see what your numbers mean."
+    },
+    "segments": {
+      "title": "Segment performances",
+      "description": "Explore completed segments and achievements. Select a segment to view its history."
+    },
+    "compare": {
+      "title": "Compare with a previous activity",
+      "description": "Choose an earlier activity in the same sport to explore changes in distance, speed and effort."
+    },
+    "chartsTitle": "Explore detailed recordings",
+    "chartsDescription": "Load detailed data to explore your recordings over time.",
+    "loadCharts": "View detailed recordings",
+    "compareEmptyTitle": "What has changed?",
+    "compareEmptyDescription": "Choose an activity above to see both activities and their differences side by side.",
+    "segmentScrollHint": "Swipe the table horizontally to view every metric.",
+    "speedAnomaly": "Speed is hidden because the recorded data is implausible.",
+    "analysisMetricSource": "Detailed analysis displays the stored analysis metrics for this activity.",
+    "loadingData": "Loading detailed recordings…",
+    "acceptedLoadLabel": "Applied training load",
+    "acceptedLoadDescription": "The server load used for fitness and fatigue calculations.",
+    "acceptedLoadTssBasis": "TSS basis",
+    "acceptedLoadTimeBasis": "Estimated from time",
+    "acceptedLoadHrBasis": "Heart-rate basis",
+    "analysisLoadLabel": "Analysis TSS",
+    "analysisLoadDescription": "Stored analysis load for this activity",
+    "loadValuesTitle": "About these load values",
+    "loadValues": "Applied training load {{accepted}} · Analysis TSS {{analysis}}",
+    "loadValuesDescription": "The applied server load differs from this activity’s analysis value. Applied training load is used for fitness and fatigue calculations; Analysis TSS is the detailed analysis value stored for this activity.",
+    "previousAnalysisValue": "Analysis TSS is from an earlier analysis version.",
+    "additionalStats": "More activity stats",
+    "shareShort": "Save card",
+    "moreShort": "More"
   }
 }

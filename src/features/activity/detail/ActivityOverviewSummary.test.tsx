@@ -40,6 +40,13 @@ const rich: ActivityOverviewPresentation = {
 };
 
 describe("ActivityOverviewSummary", () => {
+  it.each(["tss", "time"] as const)("names the accepted load and preserves its %s basis without recalculation", (source) => {
+    render(<ActivityOverviewSummaryContent presentation={{ ...rich, session: { ...rich.session, load: 220, loadKind: source === "tss" ? "tss" : "load", loadSource: source } }} />);
+    expect(screen.getByText(renderedText("반영 훈련 부하"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText("220"))).toBeInTheDocument();
+    expect(screen.getByText(renderedText(source === "tss" ? /TSS 기준/ : /시간 기반 추정/))).toBeInTheDocument();
+  });
+
   it.each(["ko", "en"])("explains repeated known labels without nesting interactive controls in %s", async language => {
     i18n.addResourceBundle("en", "activity", enActivity, true, true);
     i18n.addResourceBundle("en", "termGlossary", enGlossary, true, true);

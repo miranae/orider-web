@@ -296,7 +296,7 @@
     },
     "trainingLoad": {
       "label": "Training load",
-      "description": "Training load combines duration and relative intensity. This card uses TSS (Training Stress Score): about 100 points for one hour of cycling at FTP."
+      "description": "A measure of the demand of an activity based on its duration and intensity. Values depend on the available power, heart-rate or time data and the calculation method. Check the calculation basis shown with the value."
     },
     "countdown": {
       "label": "Days until the target date",
