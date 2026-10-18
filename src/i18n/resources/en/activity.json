@@ -2585,7 +2585,21 @@
     "compareEmptyDescription": "Choose an activity above to see both activities and their differences side by side.",
     "segmentScrollHint": "Swipe the table horizontally to view every metric.",
     "speedAnomaly": "Speed is hidden because the recorded data is implausible.",
-    "analysisMetricSource": "Detailed analysis displays stored activity metrics. Values may differ from the Overview summary.",
-    "loadingData": "Loading detailed recordings…"
+    "analysisMetricSource": "Detailed analysis displays the stored analysis metrics for this activity.",
+    "loadingData": "Loading detailed recordings…",
+    "acceptedLoadLabel": "Applied training load",
+    "acceptedLoadDescription": "The server load used for fitness and fatigue calculations.",
+    "acceptedLoadTssBasis": "TSS basis",
+    "acceptedLoadTimeBasis": "Estimated from time",
+    "acceptedLoadHrBasis": "Heart-rate basis",
+    "analysisLoadLabel": "Analysis TSS",
+    "analysisLoadDescription": "Stored analysis load for this activity",
+    "loadValuesTitle": "About these load values",
+    "loadValues": "Applied training load {{accepted}} · Analysis TSS {{analysis}}",
+    "loadValuesDescription": "The applied server load differs from this activity’s analysis value. Applied training load is used for fitness and fatigue calculations; Analysis TSS is the detailed analysis value stored for this activity.",
+    "previousAnalysisValue": "Analysis TSS is from an earlier analysis version.",
+    "additionalStats": "More activity stats",
+    "shareShort": "Save card",
+    "moreShort": "More"
   }
 }

@@ -55,7 +55,7 @@ export default function SegmentEffortsCard<E extends SegmentEffortData>({
 }: SegmentEffortsCardProps<E>) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
-  const prCount = efforts.filter((e) => e.prRank != null && e.prRank >= 1 && e.prRank <= 3).length;
+  const prCount = efforts.filter((e) => e.prRank === 1).length;
   const komCount = efforts.filter((e) => e.komRank != null && e.komRank >= 1 && e.komRank <= 10).length;
   const visible = showAll ? efforts : efforts.slice(0, 5);
 

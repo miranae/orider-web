@@ -70,6 +70,10 @@ export async function initFirebase() {
   _auth = getAuth(app);
   _firestore = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    // 로컬 브라우저의 스트리밍 프록시 문제에만 명시적으로 사용한다. 배포 기본값은 유지한다.
+    ...(import.meta.env.DEV && import.meta.env.VITE_FIRESTORE_FORCE_LONG_POLLING === "true"
+      && ["localhost", "127.0.0.1", "[::1]"].includes(globalThis.location?.hostname)
+      ? { experimentalForceLongPolling: true } : {}),
   });
   _storage = getStorage(app);
   _functions = getFunctions(app, runtimeConfig.appEnvironment === "stage" ? runtimeConfig.firebaseFunctionsBase : runtimeConfig.firebaseFunctionsRegion || "us-central1");

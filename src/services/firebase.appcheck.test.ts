@@ -69,6 +69,7 @@ describe("ensureAppCheckReady", () => {
     vi.resetModules();
     vi.stubEnv("DEV", true);
     vi.stubEnv("VITE_APPCHECK_DEBUG_TOKEN", undefined);
+    vi.stubEnv("VITE_FIRESTORE_FORCE_LONG_POLLING", undefined);
     vi.stubGlobal("location", { hostname: "127.0.0.1" });
     mocks.qaRequested = false;
     mocks.emulatorRuntime = false;
@@ -84,6 +85,25 @@ describe("ensureAppCheckReady", () => {
       firebaseAppId: "test-app",
       appCheckRecaptchaSiteKey: "site-key",
     };
+  });
+
+  it.each(["localhost", "127.0.0.1", "[::1]"])("uses opt-in Firestore long polling on Vite loopback %s", async hostname => {
+    vi.stubEnv("VITE_FIRESTORE_FORCE_LONG_POLLING", "true");
+    vi.stubGlobal("location", { hostname });
+    await loadFirebase();
+    const { initializeFirestore } = await import("firebase/firestore");
+    expect(initializeFirestore).toHaveBeenLastCalledWith(expect.anything(), {
+      localCache: expect.anything(), experimentalForceLongPolling: true,
+    });
+  });
+
+  it.each(["unset", "false", "production-build", "remote-origin"])("preserves Firestore transport defaults for %s", async mode => {
+    if (mode !== "unset") vi.stubEnv("VITE_FIRESTORE_FORCE_LONG_POLLING", mode === "false" ? "false" : "true");
+    if (mode === "production-build") vi.stubEnv("DEV", false);
+    if (mode === "remote-origin") vi.stubGlobal("location", { hostname: "localhost.example.com" });
+    await loadFirebase();
+    const { initializeFirestore } = await import("firebase/firestore");
+    expect(initializeFirestore).toHaveBeenLastCalledWith(expect.anything(), { localCache: expect.anything() });
   });
 
   it("uses an explicitly registered debug credential only for Vite loopback development", async () => {

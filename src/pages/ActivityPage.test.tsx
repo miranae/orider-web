@@ -731,7 +731,7 @@ describe("ActivityPage", () => {
 
     const view = renderWithProviders(<ActivityPage />, { authenticated: true });
 
-    const stats = await screen.findByTestId("activity-stats-grid");
+    const stats = await screen.findByTestId("activity-detail-hero");
     await waitFor(() => expect(stats).not.toHaveTextContent("평균 파워"));
     expect(screen.queryByRole("button", { name: "가상 파워" })).not.toBeInTheDocument();
 
@@ -921,7 +921,7 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />);
 
-    const stats = await screen.findByTestId("activity-stats-grid");
+    const stats = await screen.findByTestId("activity-detail-hero");
     await waitFor(() => {
       expect(stats).not.toHaveTextContent("평균 심박");
       expect(stats).not.toHaveTextContent("평균 파워");
@@ -954,7 +954,7 @@ describe("ActivityPage", () => {
     });
   });
 
-  it("places key stats before the tab navigation", async () => {
+  it("places tab navigation before the hero stats and map", async () => {
     const activity = createMockActivity({
       id: "test-activity",
       summary: createMockSummary({
@@ -971,7 +971,7 @@ describe("ActivityPage", () => {
     const stat = (await screen.findAllByText("50.0"))[0]!;
     const overviewTab = await screen.findByRole("tab", { name: "개요" });
 
-    expect(stat.compareDocumentPosition(overviewTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(overviewTab.compareDocumentPosition(stat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("shows processing state instead of not found when activity summary is still missing", async () => {
@@ -1542,7 +1542,7 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />);
 
-    const stats = await screen.findByTestId("activity-stats-grid");
+    const stats = await screen.findByTestId("activity-detail-hero");
     await waitFor(() => expect(stats).not.toHaveTextContent("평균 심박"));
     expect(stats).not.toHaveTextContent("평균 케이던스");
     expect(stats).not.toHaveTextContent("평균 파워");
@@ -1574,7 +1574,7 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />);
 
-    const stats = await screen.findByTestId("activity-stats-grid");
+    const stats = await screen.findByTestId("activity-detail-hero");
     await waitFor(() => {
       expect(stats).toHaveTextContent("평균 파워210W");
       expect(stats).toHaveTextContent("평균 심박155bpm최고 160");
@@ -1601,7 +1601,7 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />);
 
-    const stats = await screen.findByTestId("activity-stats-grid");
+    const stats = await screen.findByTestId("activity-detail-hero");
     await waitFor(() => expect(stats).toHaveTextContent("평균 심박150bpm최고 160"));
   });
 
@@ -1657,7 +1657,7 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />);
 
-    const stats = await screen.findByTestId("activity-stats-grid");
+    const stats = await screen.findByTestId("activity-detail-hero");
     await waitFor(() => {
       expect(stats).not.toHaveTextContent("평균 심박");
       expect(stats).not.toHaveTextContent("평균 케이던스");
@@ -1696,7 +1696,7 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />);
 
-    const stats = await screen.findByTestId("activity-stats-grid");
+    const stats = await screen.findByTestId("activity-detail-hero");
     await waitFor(() => {
       expect(stats).toHaveTextContent("평균 파워175W");
       expect(stats).not.toHaveTextContent("평균 심박");
@@ -1729,7 +1729,7 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />);
 
-    const stats = await screen.findByTestId("activity-stats-grid");
+    const stats = await screen.findByTestId("activity-detail-hero");
     await waitFor(() => expect(stats).toHaveTextContent("평균 파워80W"));
   });
 
@@ -1766,7 +1766,7 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />);
 
-    const stats = await screen.findByTestId("activity-stats-grid");
+    const stats = await screen.findByTestId("activity-detail-hero");
     await waitFor(() => expect(stats).toHaveTextContent("평균 파워210W"));
     expect(stats).not.toHaveTextContent("NP 250 W");
   });

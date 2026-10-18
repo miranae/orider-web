@@ -50,6 +50,8 @@ export function ActivityMediaPanel({
           latlng={streams?.latlng}
           height="activity-detail-route-map"
           interactive
+          showRouteEndpoints
+          routeLineWidth={3}
           markerPosition={markerPosition}
           highlightRange={hoveredSegment ? {
             startIndex: hoveredSegment.startIndex,

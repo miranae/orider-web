@@ -2585,7 +2585,21 @@
     "compareEmptyDescription": "위에서 비교할 활동을 선택하면 두 활동의 기록과 차이를 함께 보여드려요.",
     "segmentScrollHint": "표를 좌우로 밀어 모든 지표를 확인하세요.",
     "speedAnomaly": "속도 데이터가 비정상적이어서 표시하지 않습니다.",
-    "analysisMetricSource": "세부 분석은 저장된 활동 메트릭을 표시합니다. 개요 요약과 다른 값이 표시될 수 있습니다.",
-    "loadingData": "상세 기록을 불러오는 중…"
+    "analysisMetricSource": "세부 분석은 이 활동의 저장된 분석 지표를 표시해요.",
+    "loadingData": "상세 기록을 불러오는 중…",
+    "acceptedLoadLabel": "반영 훈련 부하",
+    "acceptedLoadDescription": "체력·피로 계산에 반영한 서버 부하예요.",
+    "acceptedLoadTssBasis": "TSS 기준",
+    "acceptedLoadTimeBasis": "시간 기반 추정",
+    "acceptedLoadHrBasis": "심박 기반",
+    "analysisLoadLabel": "분석 TSS",
+    "analysisLoadDescription": "이 활동의 저장된 분석 부하",
+    "loadValuesTitle": "부하 지표 안내",
+    "loadValues": "반영 훈련 부하 {{accepted}} · 분석 TSS {{analysis}}",
+    "loadValuesDescription": "서버에 반영된 부하와 이 활동의 분석값에 차이가 있어요. 반영 훈련 부하는 체력·피로 계산에 사용하는 값이며, 분석 TSS는 이 활동에 저장된 상세 분석값입니다.",
+    "previousAnalysisValue": "분석 TSS는 이전 버전의 분석값입니다.",
+    "additionalStats": "추가 기록 보기",
+    "shareShort": "성과 카드 저장",
+    "moreShort": "더 보기"
   }
 }

@@ -49,6 +49,8 @@ interface RouteMapProps {
   fitPadding?: number;
   /** 캔버스 캡처에 포함되는 경로 시작(초록)·종료(빨강) 마커 */
   showRouteEndpoints?: boolean;
+  /** 상세 경로의 선명도를 조절한다. 다른 지도는 기본 두께를 유지한다. */
+  routeLineWidth?: number;
   /** Mapbox 렌더링이 실패했을 때 보여줄 저장된 정적 지도 이미지 */
   fallbackImageUrl?: string | null;
   fallbackImageAlt?: string;
@@ -261,6 +263,7 @@ export default function RouteMap({
   pixelRatio,
   fitPadding = 20,
   showRouteEndpoints = false,
+  routeLineWidth = 2,
   fallbackImageUrl,
   fallbackImageAlt,
   fallbackHeight,
@@ -397,7 +400,7 @@ export default function RouteMap({
                 }} layout={{ "line-cap": "round", "line-join": "round" }} />
                 <Layer id="highlight-main" type="line" paint={{
                   "line-color": RECORDED_TRACK_COLOR,
-                  "line-width": 2,
+                  "line-width": routeLineWidth,
                   "line-opacity": 0.95,
                 }} layout={{ "line-cap": "round", "line-join": "round" }} />
               </Source>
@@ -436,7 +439,7 @@ export default function RouteMap({
             }} layout={{ "line-cap": "round", "line-join": "round" }} />
             <Layer id="route-main" type="line" paint={{
               "line-color": RECORDED_TRACK_COLOR,
-              "line-width": 2,
+              "line-width": routeLineWidth,
               "line-opacity": 0.95,
             }} layout={{ "line-cap": "round", "line-join": "round" }} />
           </Source>

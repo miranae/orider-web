@@ -2,7 +2,7 @@ import { ArrowLeftRight, BarChart3, ChevronDown, Globe, Layers, Lock, Route, Tro
 import SportIcon from "../components/common/SportIcon";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useParams, useSearchParams, useLocation } from "react-router-dom";
+import { useParams, useSearchParams, useLocation, useNavigationType } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
@@ -60,7 +60,7 @@ import { logClientError } from "../services/errorLogger";
 import { Button, Card, Text, buttonClass } from "../theme/components";
 import { ErrorState } from "../components/redesign";
 import { formatDuration, formatTime, type SegmentEffortData } from "../features/activity/detail/activityDetailUtils";
-import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid";
+import { ActivityStatsGrid, hasSecondaryActivityStats } from "../features/activity/detail/ActivityStatsGrid";
 import { resolveSummaryStripStats } from "../features/activity/detail/summaryStripStats";
 import { useRunActivityDetail, RunActivityIntro } from "../features/activity/detail/runActivityDetail";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
@@ -169,9 +169,25 @@ export default function ActivityPage() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
+  const sectionHeadingRef = useRef<HTMLDivElement>(null);
+  const initialTabPositioned = useRef(false);
+  const [wideStats, setWideStats] = useState(false);
+  const [secondaryStatsOpen, setSecondaryStatsOpen] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 64rem)");
+    const update = () => setWideStats(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  const scrollToActivitySection = useCallback(() => {
+    requestAnimationFrame(() => sectionHeadingRef.current?.scrollIntoView?.({ block: "start", behavior: "auto" }));
+  }, []);
   // 탭 네비게이션
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  const navigationType = useNavigationType();
+  const previousLocationKey = useRef(location.key);
   const [showExport, setShowExport] = useState(searchParams.get("tab") === "export");
   const requestedTab = searchParams.get("tab") ?? "overview";
   const activeTab = requestedTab === "splits" || requestedTab === "laps" ? "segments"
@@ -182,6 +198,17 @@ export default function ActivityPage() {
   useEffect(() => {
     if (requestedTab === "export") setShowExport(true);
   }, [requestedTab]);
+  useEffect(() => { initialTabPositioned.current = false; }, [activityId]);
+  useEffect(() => {
+    const changed = previousLocationKey.current !== location.key;
+    previousLocationKey.current = location.key;
+    if (changed && navigationType === "POP") scrollToActivitySection();
+  }, [location.key, navigationType, scrollToActivitySection]);
+  useEffect(() => {
+    if (loadingActivity || !sectionHeadingRef.current || initialTabPositioned.current) return;
+    initialTabPositioned.current = true;
+    if (activeTab !== "overview") scrollToActivitySection();
+  }, [activeTab, activityId, loadingActivity, scrollToActivitySection]);
   useEffect(() => {
     if (["segments", "splits", "laps", "export"].includes(requestedTab) && activity && !streams && !streamsSignInRequired) requestStreams();
   }, [requestedTab, activity, streams, streamsSignInRequired, requestStreams]);
@@ -618,7 +645,7 @@ export default function ActivityPage() {
 
   if (loadingActivity) {
     return (
-      <div className="site-shell activity-detail space-y-6">
+      <div className="site-shell activity-detail">
         <div className="h-80 rounded-[var(--r-lg)] animate-pulse" style={{ background: 'var(--bg-2)' }} />
         <div className="h-8 rounded-[var(--r-sm)] w-1/3 animate-pulse" style={{ background: 'var(--bg-2)' }} />
         <div className="grid grid-cols-4 gap-3">
@@ -831,9 +858,19 @@ export default function ActivityPage() {
       : null,
   ] as (SummarySensorMetric | null)[]).filter((metric): metric is SummarySensorMetric => metric != null);
 
-  const keyStatsStrip = (
-    <Card padding="none" style={{ padding: 0 }}>
+  const acceptedLoad = overview.response?.status === "available" ? overview.response.presentation.session.load : null;
+  const analysisLoad = serverMetrics.metrics?.tss;
+  // 두 화면에 표시하는 정밀도가 다른 경우도 사용자가 보는 차이를 안내한다.
+  const differentLoadValues = !activePowerOverride && !analysisTabProps?.suppressServerPowerMetrics
+    && (serverMetrics.status === "ready" || serverMetrics.status === "stale") && acceptedLoad != null && Number.isFinite(acceptedLoad)
+    && analysisLoad != null && Number.isFinite(analysisLoad) && Math.round(acceptedLoad * 10) / 10 !== Math.round(analysisLoad);
+
+  const secondaryStatsAvailable = hasSecondaryActivityStats({ summary: displayedSummary, stats: stripStats, sport,
+    showElevation, runTrainingLoad: serverMetrics.metrics?.streamTrimpTss ?? null });
+
+  const keyStatsStrip = (section: "primary" | "secondary") => (
       <ActivityStatsGrid
+        section={section}
         runTrainingLoad={serverMetrics.metrics?.streamTrimpTss ?? null}
         summary={displayedSummary}
         stats={stripStats}
@@ -855,13 +892,12 @@ export default function ActivityPage() {
         elevUnit={elevUnit}
         t={t}
       />
-    </Card>
   );
 
   return (
-    <div className="site-shell activity-detail space-y-6">
+    <div className="site-shell activity-detail">
       {/* 1. Header (제목) */}
-      <Card padding="none" className="activity-detail-header" style={{ padding: 'var(--space-5)' }}>
+      <Card padding="none" className="activity-detail-header">
         <div className="flex items-start gap-4">
           <Avatar
             name={activity.nickname}
@@ -956,8 +992,13 @@ export default function ActivityPage() {
                 </a>
               )}
             </div>
-            <div data-testid="D1-7" className="mt-3">
+
+          </div>
+        </div>
+            <div className="activity-detail-utilities">
+            <div data-testid="D1-7">
               <ActivityShareButton
+                compact
                 card={{
                   title: activity.description || tCommon(getSportLabelKey(activity.type)),
                   athlete: activity.nickname,
@@ -991,13 +1032,13 @@ export default function ActivityPage() {
                 </span>
               )}
             </div>
-            {user?.uid !== activity.userId && <details className="mt-2">
-              <summary className="activity-detail-more">{t("page.more")} <ChevronDown size={16} aria-hidden="true" /></summary>
+            {user?.uid !== activity.userId && <details>
+              <summary aria-label={t("page.more")} className="activity-detail-more">{t("detail.moreShort")} <ChevronDown size={16} aria-hidden="true" /></summary>
               <Button data-testid="D1-0-M5" variant="ghost" onClick={() => { setShowExport(true); if (!streamsSignInRequired) requestStreams(); }}>{t("tab.export")}</Button>
             </details>}
             {user?.uid === activity.userId && (
-              <details data-testid="D1-0-M" className="mt-2">
-                <summary className="activity-detail-more">{t("page.more")} <ChevronDown size={16} aria-hidden="true" /></summary>
+              <details data-testid="D1-0-M">
+                <summary aria-label={t("page.more")} className="activity-detail-more">{t("detail.moreShort")} <ChevronDown size={16} aria-hidden="true" /></summary>
                 <div className="activity-detail-actions flex flex-wrap items-center gap-2 py-3">
                   <Link data-testid="D1-0-M1" to={`/activity/${activityId}/edit`}>{t("page.editActivity")}</Link>
                   <Button data-testid="D1-0-M2" variant="ghost" onClick={() => photoInputRef.current?.click()}>{t("page.addPhoto")}</Button>
@@ -1043,32 +1084,9 @@ export default function ActivityPage() {
                 </div>
               </details>
             )}
-          </div>
-        </div>
+            </div>
       </Card>
 
-      {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
-      <div className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} style={{ scrollMarginTop: "var(--space-8)" }}>
-      <ActivityMediaPanel
-        activity={activity}
-        streams={streams}
-        sport={sport}
-        hasTrack={hasTrack}
-        summary={s}
-        markerPosition={markerPosition}
-        hoveredSegment={hoveredSegment}
-        selectedRunRange={rangeSelection.selection ? rangeSelection.routeRange : runSplitLocation?.routeRange ?? peakLocation?.routeRange}
-        photos={photos}
-        uploadedPhotos={uploadedPhotos}
-        flyToPosition={flyToPosition}
-        t={t}
-      />
-      </div>
-
-      {/* 핵심 스탯 — 모바일 첫 화면에서 지도 직후, 탭보다 먼저 노출. */}
-      {keyStatsStrip}
-
-      <RideActivityRouteButton activityId={activityId} activity={activity} hasRoute={hasTrack} sport={sport} />
       {/* ── 탭 네비게이션 ── */}
       <div className="activity-detail-navigation">
         <div className="activity-detail-tabs" role="tablist" aria-label={t("detail.navigation")} onKeyDown={(event) => {
@@ -1087,17 +1105,54 @@ export default function ActivityPage() {
             ...(isActivityOwner ? [{ id: "compare", icon: ArrowLeftRight }] : []),
           ].map(({ id, icon: Icon }) => <button key={id} id={`activity-tab-${id}`} data-testid="D1-T" type="button" role="tab"
             aria-selected={activeTab === id} aria-controls="activity-tab-panel" tabIndex={activeTab === id ? 0 : -1}
-            onClick={() => { pendingPeakLocation.current = null; pendingLap.current = null; setActiveTab(id); }}>
+            onClick={() => { pendingPeakLocation.current = null; pendingLap.current = null; setActiveTab(id); scrollToActivitySection(); }}>
             <Icon size={18} aria-hidden="true" /><span>{t(`tab.${id}`)}</span>
             {id === "segments" && segmentEfforts.length > 0 && <span className="activity-detail-tab-count">{segmentEfforts.length}</span>}
           </button>)}
         </div>
       </div>
+      <div className="activity-detail-hero" data-testid="activity-detail-hero">
+        <div className="activity-detail-summary">
+        <Card padding="none" className="activity-detail-primary-stats">{keyStatsStrip("primary")}</Card>
+      {secondaryStatsAvailable && <details className="activity-detail-secondary-stats" open={wideStats || secondaryStatsOpen} onToggle={(event) => {
+        if (!wideStats) setSecondaryStatsOpen(event.currentTarget.open);
+      }}>
+        <summary>{t("detail.additionalStats")}<ChevronDown size={16} aria-hidden="true" /></summary>
+        {keyStatsStrip("secondary")}
+      </details>}
+        </div>
+      {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
+      <div className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} style={{ scrollMarginTop: "var(--space-8)" }}>
+      <ActivityMediaPanel
+        activity={activity}
+        streams={streams}
+        sport={sport}
+        hasTrack={hasTrack}
+        summary={s}
+        markerPosition={markerPosition}
+        hoveredSegment={hoveredSegment}
+        selectedRunRange={rangeSelection.selection ? rangeSelection.routeRange : runSplitLocation?.routeRange ?? peakLocation?.routeRange}
+        photos={photos}
+        uploadedPhotos={uploadedPhotos}
+        flyToPosition={flyToPosition}
+        t={t}
+      />
+      <div className="activity-detail-route-tools"><RideActivityRouteButton activityId={activityId} activity={activity} hasRoute={hasTrack} sport={sport} /></div>
+      </div>
+
+      </div>
       <div id="activity-tab-panel" role="tabpanel" aria-labelledby={`activity-tab-${activeTab}`} tabIndex={0} className="activity-detail-panel">
-      <div className="activity-detail-section-heading">
+      <div ref={sectionHeadingRef} className="activity-detail-section-heading">
         <div><Text as="h2" variant="title">{t(`detail.${activeTab}.title`)}</Text>
           <Text as="p" variant="bodyMedium" tone="secondary">{t(`detail.${activeTab}.description`)}</Text></div>
       </div>
+
+      {(activeTab === "overview" || activeTab === "analysis") && differentLoadValues && <Card data-testid="activity-load-provenance" role="note" aria-label={t("detail.loadValuesTitle")}>
+        <Text as="h3" variant="bodyMedium" weight={600}>{t("detail.loadValuesTitle")}</Text>
+        <Text as="p" variant="bodyMedium" mono style={{ marginTop: "var(--space-2)" }}>{t("detail.loadValues", { accepted: Math.round(acceptedLoad! * 10) / 10, analysis: Math.round(analysisLoad!) })}</Text>
+        <Text as="p" variant="bodySmall" tone="secondary" style={{ marginTop: "var(--space-2)" }}>{t("detail.loadValuesDescription")}</Text>
+        {serverMetrics.status === "stale" && <Text as="p" variant="bodySmall" tone="warning" style={{ marginTop: "var(--space-2)" }}>{t("detail.previousAnalysisValue")}</Text>}
+      </Card>}
 
       {unlinkedLapIdentity === rangeSelection.identity && rangeSelection.ownerUid && <Text as="p" variant="bodyMedium" tone="secondary" role="status">{t("analysis.lap.locationUnavailable")}</Text>}
 

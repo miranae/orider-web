@@ -51,6 +51,11 @@ afterEach(() => {
 });
 
 describe("ActivityShareButton", () => {
+  it("uses a compact visible action while keeping the full accessible label", () => {
+    render(<ActivityShareButton {...props} compact />);
+    const button = screen.getByRole("button", { name: "성과 카드 이미지 저장" });
+    expect(button).toHaveTextContent("성과 카드 저장");
+  });
   it("downloads the generated PNG even when native file sharing is supported", async () => {
     const routeCanvas = document.createElement("canvas");
     captureMap.mockResolvedValue(routeCanvas);

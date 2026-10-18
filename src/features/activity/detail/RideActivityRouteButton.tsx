@@ -279,10 +279,10 @@ export function RideActivityRouteButton({
     <>
       <Button
         onClick={handleClick}
-        variant="primary"
+        variant="outline"
         disabled={status !== "idle"}
         aria-busy={status === "creating" || status === "sending"}
-        className="w-full justify-center"
+        className="justify-center"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 17.5V6.8a1 1 0 011.45-.9L10 8.2l4-2 4.55 2.3a1 1 0 01.55.9v8.8a1 1 0 01-1.45.9L14 17.2l-4 2-5.45-2.7A1 1 0 014 17.5zM10 8.2v11M14 6.2v11" />

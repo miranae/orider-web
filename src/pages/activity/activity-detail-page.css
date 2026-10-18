@@ -74,3 +74,62 @@
 }
 .activity-detail-analysis > section > .ds-btn[aria-expanded] > svg { flex-shrink: 0; }
 @media (max-width: 40rem) { .activity-detail-tab-count { display: none; } }
+
+/* 기록의 핵심과 탐색은 먼저, 센서 세부값은 그 다음에 읽는다. */
+.activity-detail { display: flex; flex-direction: column; gap: var(--space-4); }
+.activity-detail-header h1 { font-size: var(--fs-xl); line-height: 1.3; }
+.activity-detail-utilities { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
+.activity-detail-utilities > details[open] { flex-basis: 100%; }
+.activity-detail-navigation { position: sticky; top: 0; z-index: 20; box-shadow: 0 var(--space-1) var(--space-4) color-mix(in srgb, var(--bg-0) 85%, transparent); }
+.activity-detail-section-heading { scroll-margin-top: calc(var(--space-8) + var(--space-6)); }
+.activity-detail-hero { display: grid; gap: var(--space-3); min-width: 0; }
+.activity-detail-primary-stats { overflow: hidden; }
+.activity-detail .activity-stats-primary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.activity-detail .activity-stats-primary:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
+.activity-detail .activity-stats-primary:has(> :nth-child(2):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.activity-stats-primary > div { padding: var(--space-3); border-bottom: 0 !important; }
+.activity-stats-primary > div:last-child { border-right: 0 !important; }
+.activity-stats-primary .ds-text--eyebrow { font-size: var(--fs-xs); letter-spacing: normal; }
+.activity-stats-primary .ds-text--data-large { font-size: var(--fs-xl); }
+.activity-stats-primary .ds-text--unit { font-size: var(--fs-xs); }
+.activity-detail-secondary-stats { min-width: 0; border: 1px solid var(--line-soft); border-radius: var(--r-xl); background: var(--bg-1); overflow: hidden; }
+.activity-detail-secondary-stats > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); min-height: var(--space-8); font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); cursor: pointer; list-style: none; }
+.activity-detail-secondary-stats > summary::-webkit-details-marker { display: none; }
+.activity-detail-secondary-stats[open] > summary { border-bottom: 1px solid var(--line-soft); }
+.activity-detail-secondary-stats[open] > summary svg { transform: rotate(180deg); }
+.activity-detail-secondary-stats > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: calc(var(--space-1) * -1); }
+.activity-stats-secondary > div { padding: var(--space-3); }
+.activity-stats-secondary .ds-text--data-large { font-size: var(--fs-lg); }
+.activity-stats-secondary .ds-text--eyebrow { font-size: var(--fs-xs); letter-spacing: normal; }
+.activity-stats-secondary .ds-text--unit { font-size: var(--fs-xs); }
+.activity-detail-route-map { height: 12rem; }
+.activity-detail-route-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); padding-top: var(--space-2); }
+.activity-detail-route-tools:empty { display: none; }
+.activity-detail-route-tools > .ds-btn { min-height: calc(var(--space-7) + var(--space-3)); font-size: var(--fs-sm); }
+.activity-detail-header { display: grid; gap: var(--space-2); padding: var(--space-4); }
+.activity-detail-utilities { margin-top: 0; }
+.activity-detail-utilities .ds-btn, .activity-detail-utilities .activity-detail-more { min-height: calc(var(--space-7) + var(--space-3)); height: auto; font-size: var(--fs-sm); }
+.activity-detail-summary { display: contents; }
+.activity-detail-primary-stats { order: 0; }
+.activity-detail-map { order: 1; }
+.activity-detail-secondary-stats { order: 2; }
+@media (min-width: 64rem) {
+  .activity-detail-header { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); padding: var(--space-5); }
+  .activity-detail-header:has(> .activity-detail-utilities > details[open]) { grid-template-columns: minmax(0, 1fr); }
+  .activity-detail-utilities { justify-content: flex-end; }
+  .activity-detail-hero { grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr); gap: var(--space-3) var(--space-4); align-items: start; }
+  .activity-detail-summary { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; order: 1; }
+  .activity-detail-map { order: 0; }
+  .activity-detail-secondary-stats > summary { display: none; }
+  .activity-detail .activity-stats-secondary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .activity-detail-route-map { height: 20rem; }
+}
+@media (max-width: 40rem) {
+  .activity-stats-primary > div { padding: var(--space-3) var(--space-2); }
+  .activity-stats-primary .ds-text--data-large { font-size: clamp(var(--fs-lg), 6vw, var(--fs-xl)); }
+  .activity-stats-primary .ds-text--unit { margin-left: 0; }
+}
+
+@media (max-width: 40rem) {
+  .activity-stats-primary:lang(en) .ds-text--eyebrow { min-height: 4.5em; }
+}

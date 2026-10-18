@@ -582,7 +582,7 @@ export default function AnalysisTab({
         <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.load")}</h3>
         {sm && <Text as="p" variant="bodySmall" tone="secondary" style={{ marginBottom: "var(--space-4)" }}>{t("detail.analysisMetricSource")}</Text>}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard color="violet" label="TSS" value={tss?.toFixed(0)} description={t("analysis.metric.tssDesc")} tooltip={t("analysis.glossary.tss")} />
+          <MetricCard color="violet" label={t("detail.analysisLoadLabel")} value={tss?.toFixed(0)} description={t("detail.analysisLoadDescription")} tooltip={t("analysis.glossary.tss")} />
           <MetricCard color="violet" label="IF" value={ifactor?.toFixed(2)} description={hasFtp ? t("analysis.metric.ifDesc", { ftp }) : t("overviewEvidence.ftpMissing")} tooltip={t("analysis.glossary.if")} />
           <MetricCard color="lime" label={t("analysis.metric.work")} value={workKj != null ? Math.round(workKj).toString() : null} unit="kJ" description={t("analysis.metric.workDesc")} tooltip={t("analysis.glossary.work")} />
           <MetricCard color="lime" label={t("analysis.metric.kjPerHour")} value={kjPerHr != null ? Math.round(kjPerHr).toString() : null} unit="kJ/h" description={t("analysis.metric.kjPerHourDesc")} tooltip={t("analysis.glossary.kjPerHour")} />

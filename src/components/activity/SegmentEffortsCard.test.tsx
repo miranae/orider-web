@@ -7,6 +7,11 @@ vi.mock("../../contexts/LocaleContext", () => ({ useLocale: () => locale }));
 beforeEach(() => { locale.units = "metric"; });
 const native = { id: "orider_a_native", name: "Synthetic segment", elapsedTime: 120000, movingTime: 120000, distance: 1000, startIndex: 1, endIndex: 2, averageWatts: null, averageHeartrate: null, maxHeartrate: null, averageCadence: null, prRank: null, komRank: null, achievements: [], segment: { id: "native", name: "Synthetic segment", distance: 1000, averageGrade: 0, maximumGrade: 0, elevationHigh: 1, elevationLow: 0, climbCategory: 0, starred: false } } satisfies SegmentEffortData;
 describe("activity segment link context", () => {
+  it("does not count a third-best effort as a personal record", () => {
+    render(<MemoryRouter><SegmentEffortsCard efforts={[{ ...native, prRank: 3 }]} showAll={false} setShowAll={() => {}} onHover={() => {}} formatTime={() => "2:00"} /></MemoryRouter>);
+    expect(screen.getByText("3rd")).toBeInTheDocument();
+    expect(screen.queryByText("PR 1")).not.toBeInTheDocument();
+  });
   it("shows imperial distance and speed while excluding invalid rank counts", () => {
     locale.units = "imperial";
     render(<MemoryRouter><SegmentEffortsCard efforts={[{ ...native, prRank: 0, komRank: -1 }]} showAll={false} setShowAll={() => {}} onHover={() => {}} formatTime={() => "2:00"} /></MemoryRouter>);
