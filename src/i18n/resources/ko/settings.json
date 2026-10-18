@@ -444,6 +444,13 @@
       "importPastHint": "Strava의 과거 활동을 일괄 가져옵니다.",
       "importBtnReport": "리포트 보기",
       "importBtnImport": "가져오기",
+      "signupImportTitle": "운동기록 가져오기",
+      "signupImportConsent": "Strava 로그인과 운동 기록 연동은 별도입니다. 활동 권한을 확인한 뒤 가져올 기록을 설정할 수 있습니다.",
+      "signupImportReady": "Strava 활동이 연결되어 있습니다. 가져올 과거 기록을 설정하세요.",
+      "signupConnect": "운동 기록 연동하기",
+      "signupImport": "기록 가져오기",
+      "signupLater": "나중에",
+      "signupConnectFailed": "활동 연결을 시작하지 못했습니다. 잠시 후 다시 시도하세요.",
       "activityApps": "활동 앱 연결",
       "futureApps": "준비 중인 활동 앱"
     },

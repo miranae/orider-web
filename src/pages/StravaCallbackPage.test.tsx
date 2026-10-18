@@ -148,6 +148,17 @@ describe("StravaCallbackPage", () => {
     expect(sessionStorage.getItem("strava_write_activities")).toBeNull();
   });
 
+  it("retains the newcomer guide and original destination when activity permission is not granted", async () => {
+    sessionStorage.setItem("strava_state", "nonce");
+    sessionStorage.setItem("strava_return_to", "/settings/connections?stravaSignup=1&returnTo=%2Fgroup%2Fabc");
+    mocks.exchangeCode.mockResolvedValue({ athleteId: 1, stravaSyncReauthRequired: true });
+    render(<MemoryRouter initialEntries={["/strava/callback?code=read-only-code&state=nonce"]}><StravaCallbackPage /></MemoryRouter>);
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith(
+      "/settings/connections?stravaSignup=1&returnTo=%2Fgroup%2Fabc", { replace: true },
+    ));
+    expect(mocks.connectStrava).not.toHaveBeenCalled();
+  });
+
   it("stops waiting when auth session is not restored", async () => {
     vi.useFakeTimers();
     mocks.auth.user = null;

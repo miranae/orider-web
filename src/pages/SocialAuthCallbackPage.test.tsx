@@ -98,6 +98,34 @@ describe("SocialAuthCallbackPage", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("sends only new Strava signup through onboarding before import guidance and preserves the original destination", async () => {
+    mocks.complete.mockResolvedValue({ mode: "login", provider: "strava", token: "custom-token", isNewUser: true, returnTo: "/group/abc?tab=rides#today" });
+    render(<SocialAuthCallbackPage />);
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalled());
+    const target = new URL(mocks.navigate.mock.calls[0][0], "https://orider.invalid");
+    expect(target.pathname).toBe("/onboarding");
+    expect(target.searchParams.get("stravaSignup")).toBe("1");
+    const guidance = new URL(target.searchParams.get("returnTo")!, target.origin);
+    expect(guidance.pathname).toBe("/settings/connections");
+    expect(guidance.searchParams.get("returnTo")).toBe("/group/abc?tab=rides#today");
+  });
+
+  it.each(["https://evil.invalid", "/settings/connections?stravaSignup=1&returnTo=%2Fplan", "/%73ettings/connections?stravaSignup=1&returnTo=%2Fplan"])("does not nest unsafe or repeated signup destinations: %s", async returnTo => {
+    mocks.complete.mockResolvedValue({ mode: "login", provider: "strava", token: "custom-token", isNewUser: true, returnTo });
+    render(<SocialAuthCallbackPage />);
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalled());
+    const target = new URL(mocks.navigate.mock.calls[0][0], "https://orider.invalid");
+    const guidance = new URL(target.searchParams.get("returnTo")!, target.origin);
+    expect(guidance.searchParams.get("returnTo")).toBe("/");
+  });
+
+  it("keeps explicit Strava linking on its original settings destination", async () => {
+    mocks.complete.mockResolvedValue({ mode: "link", provider: "strava", returnTo: "/settings/account" });
+    render(<SocialAuthCallbackPage />);
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith("/settings/account", { replace: true }));
+    expect(mocks.signIn).not.toHaveBeenCalled();
+  });
+
   it("blocks unopted-in legacy Strava accounts with explicit account-link guidance", async () => {
     mocks.complete.mockRejectedValue({ code: "functions/failed-precondition", details: { reason: "strava-existing-account-link-required" } });
     render(<SocialAuthCallbackPage />);

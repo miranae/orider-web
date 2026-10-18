@@ -9,10 +9,12 @@ const mocks = vi.hoisted(() => ({
   disconnectStrava: vi.fn(),
   track: vi.fn(),
   showToast: vi.fn(),
+  connectStrava: vi.fn(),
+  profile: { stravaConnected: true, autoUpload: false },
 }));
 
 vi.mock("../../contexts/AuthContext", () => ({
-  useAuth: () => ({ user: { uid: "u1" }, profile: { stravaConnected: true, autoUpload: false } }),
+  useAuth: () => ({ user: { uid: "u1" }, profile: mocks.profile }),
 }));
 vi.mock("../../contexts/ToastContext", () => ({
   useToast: () => ({ showToast: mocks.showToast }),
@@ -22,7 +24,7 @@ vi.mock("../../contexts/DialogContext", () => ({
 }));
 vi.mock("../../hooks/useStrava", () => ({
   useStrava: () => ({
-    connectStrava: vi.fn(),
+    connectStrava: mocks.connectStrava,
     disconnectStrava: mocks.disconnectStrava,
     loading: false,
   }),
@@ -37,6 +39,8 @@ describe("PaneConnections Strava disconnect observability", () => {
     mocks.disconnectStrava.mockReset();
     mocks.track.mockReset();
     mocks.showToast.mockReset();
+    mocks.connectStrava.mockReset();
+    mocks.profile.stravaConnected = true;
     vi.spyOn(crypto, "randomUUID").mockReturnValue(
       "123e4567-e89b-42d3-a456-426614174000",
     );
@@ -110,5 +114,31 @@ describe("PaneConnections Strava disconnect observability", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "연결 해제" }));
 
     expect(mocks.showToast).toHaveBeenCalledWith("Strava 연결을 해제하지 못했습니다. 잠시 후 다시 시도하세요.", "error");
+  });
+
+  it("offers explicit activity permission setup for signup without automatically connecting or importing", async () => {
+    mocks.profile.stravaConnected = false;
+    render(<MemoryRouter initialEntries={["/ko/settings/connections?stravaSignup=1&returnTo=%2Fgroup%2Fabc%3Ftab%3Drides%23today"]}><PaneConnections /></MemoryRouter>);
+    expect(screen.getByText("운동기록 가져오기")).toBeInTheDocument();
+    expect(mocks.connectStrava).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "나중에" })).toHaveAttribute("href", "/ko/group/abc?tab=rides#today");
+    await userEvent.setup().click(screen.getByRole("button", { name: "운동 기록 연동하기" }));
+    expect(mocks.connectStrava).toHaveBeenCalledWith("/settings/connections?stravaSignup=1&returnTo=%2Fgroup%2Fabc%3Ftab%3Drides%23today");
+  });
+
+  it("offers existing import settings when activity sync is active instead of repeating OAuth", () => {
+    render(<MemoryRouter initialEntries={["/ko/settings/connections?stravaSignup=1&returnTo=%2Fplan"]}><PaneConnections /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "기록 가져오기" })).toHaveAttribute("href", "/ko/settings/data#migrate");
+    expect(screen.queryByRole("button", { name: "운동 기록 연동하기" })).not.toBeInTheDocument();
+    expect(mocks.connectStrava).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "나중에" })).toHaveAttribute("href", "/ko/plan");
+  });
+
+  it("does not show signup guidance for normal settings and cannot loop Later back to the guide", () => {
+    const { unmount } = render(<MemoryRouter><PaneConnections /></MemoryRouter>);
+    expect(screen.queryByText("운동기록 가져오기")).not.toBeInTheDocument();
+    unmount();
+    render(<MemoryRouter initialEntries={["/ko/settings/connections?stravaSignup=1&returnTo=%2Fsettings%2Fconnections%3FstravaSignup%3D1"]}><PaneConnections /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "나중에" })).toHaveAttribute("href", "/ko/");
   });
 });

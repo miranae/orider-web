@@ -444,6 +444,13 @@
       "importPastHint": "Bulk-import your past Strava activities.",
       "importBtnReport": "View report",
       "importBtnImport": "Import",
+      "signupImportTitle": "Import your workout history",
+      "signupImportConsent": "Strava sign-in and workout sync are separate. Review activity permissions, then choose the history to import.",
+      "signupImportReady": "Strava activities are connected. Choose your past workouts to import.",
+      "signupConnect": "Connect workout history",
+      "signupImport": "Import workouts",
+      "signupLater": "Later",
+      "signupConnectFailed": "Could not start the activity connection. Please try again shortly.",
       "activityApps": "Activity app connections",
       "futureApps": "Upcoming activity apps"
     },

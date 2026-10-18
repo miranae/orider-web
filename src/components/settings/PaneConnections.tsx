@@ -2,6 +2,8 @@ import StravaSummarySettings from "./StravaSummarySettings";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
+import { useSearchParams } from "react-router-dom";
+import { stravaSignupGuidancePath, stravaSignupReturnTo } from "../../utils/stravaSignup";
 
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { useAuth } from "../../contexts/AuthContext";
@@ -122,6 +124,10 @@ export function PaneConnections() {
   const { showToast } = useToast();
   const dialog = useDialog();
   const { connectStrava, disconnectStrava, loading } = useStrava();
+  const [searchParams] = useSearchParams();
+  const stravaSignup = searchParams.get("stravaSignup") === "1";
+  const signupReturnTo = stravaSignupReturnTo(searchParams.get("returnTo"));
+  const guidancePath = stravaSignupGuidancePath(signupReturnTo);
   const [autoUploadSaving, setAutoUploadSaving] = useState(false);
 
   const stravaConnected = profile?.stravaConnected ?? false;
@@ -168,7 +174,7 @@ export function PaneConnections() {
       brand: "#FC4C02",
       icon: <StravaIcon size={22} />,
       connected: stravaConnected,
-      onConnect: () => connectStrava("/settings/connections"),
+      onConnect: () => connectStrava(stravaSignup ? guidancePath : "/settings/connections"),
       onDisconnect: handleStravaDisconnect,
     },
     {
@@ -200,6 +206,22 @@ export function PaneConnections() {
 
   return (
     <>
+      {stravaSignup && (
+        <SettingsCard title={t("pane.connections.signupImportTitle")}>
+          <p>{t(stravaConnected ? "pane.connections.signupImportReady" : "pane.connections.signupImportConsent")}</p>
+          <div className="flex flex-wrap gap-2">
+            {stravaConnected ? (
+              <Link to="/settings/data#migrate" className={buttonClass({ variant: "primary" })}>{t("pane.connections.signupImport")}</Link>
+            ) : (
+              <Button disabled={loading} onClick={() => {
+                try { connectStrava(guidancePath); }
+                catch { showToast(t("pane.connections.signupConnectFailed"), "error"); }
+              }}>{t("pane.connections.signupConnect")}</Button>
+            )}
+            <Link to={signupReturnTo} className={buttonClass({ variant: "secondary" })}>{t("pane.connections.signupLater")}</Link>
+          </div>
+        </SettingsCard>
+      )}
       <SettingsCard data-testid="S2-1-1"
         title={t("pane.connections.activityApps")}
         action={

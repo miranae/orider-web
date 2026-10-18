@@ -11,6 +11,8 @@ import { firestore } from "../services/firebase";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
 import { buildOriderSharePayload, shareOrCopy } from "../features/share/oriderShareText";
+import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
+import { stravaSignupGuidancePath } from "../utils/stravaSignup";
 
 type Step = "verifying" | "exchanging" | "done" | "error";
 
@@ -141,10 +143,13 @@ export default function StravaCallbackPage() {
         const result = grantedScope ? await exchangeCode(code, grantedScope) : await exchangeCode(code);
         sessionStorage.removeItem("strava_write_activities");
         if (result.stravaSyncReauthRequired) {
+          const pendingReturn = new URL(sanitizeInternalReturnPath(sessionStorage.getItem("strava_return_to")), "https://orider.invalid");
+          const guidance = pendingReturn.pathname === SETTINGS_CONNECTIONS_PATH && pendingReturn.searchParams.get("stravaSignup") === "1"
+            ? stravaSignupGuidancePath(pendingReturn.searchParams.get("returnTo")) : SETTINGS_CONNECTIONS_PATH;
           sessionStorage.removeItem("strava_return_to");
           track("strava_connect", { result: "reauth_required" });
           showToast(t("socialCallback.error.stravaSyncReauth"), "info");
-          navigate(SETTINGS_CONNECTIONS_PATH, { replace: true });
+          navigate(guidance, { replace: true });
           return;
         }
         // funnel 의 결정적 마일스톤 — first_open → sign_up → strava_connect → first_kudos
