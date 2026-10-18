@@ -63,7 +63,8 @@ import CanonicalFitnessNotice from "../features/fitness/components/CanonicalFitn
 import FitnessActivityWindowNotice from "../features/fitness/components/FitnessActivityWindowNotice";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import { getDisciplineColor } from "../utils/disciplineFilter";
-import { toLocalDate, toUtcDate } from "../utils/dateUtils";
+import { toLocalDate } from "../utils/dateUtils";
+import { fitnessTodayKey } from "@shared/training/dateKey";
 import TriFitnessView from "./fitness/TriFitnessView";
 import { formatPlanGoalTitle } from "../features/training/plan/planDisplay";
 import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../features/sufficiency/SufficiencyBlock";
@@ -177,7 +178,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const renderMobile = embedded || isMobile;
   const activityImpacts = discipline === "tri" || !hasCanonicalTimeseries
     ? []
-    : deriveActivityImpacts(fitnessData, disciplineActivities, { limit: 6 });
+    : deriveActivityImpacts(fitnessData, disciplineActivities, { limit: 6, dateKeyBasis: model.fitnessDateKeyBasis });
   const coveredActivityIds = activityIdsCoveredByImpacts(disciplineActivities, activityImpacts);
   const newestDisciplineActivity = disciplineActivities.reduce<(typeof disciplineActivities)[number] | null>(
     (latest, activity) => isNegligibleActivitySummary(activity.summary)
@@ -190,7 +191,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     ? newestDisciplineActivity
     : null;
   const pendingDayLoad = pendingImpactActivity && hasCanonicalTimeseries
-    ? activityDayLoad(pendingImpactActivity, fitnessData)
+    ? activityDayLoad(pendingImpactActivity, fitnessData, model.fitnessDateKeyBasis)
     : null;
   const selectedActivityIsAvailable = selectedActivityId != null && (
     pendingImpactActivity?.id === selectedActivityId
@@ -300,7 +301,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           timeline={triFitnessTimeline}
           combinedLoad={combinedLoad}
           loadFocus={integratedLoadFocus}
-          historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={model.hasCanonicalHistory} controlledRange={historyRange} onControlledRangeChange={changeHistoryRange} rangeChoices={[42, 90, 180, 365, "3y", "all"]} />}
+          historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={fitnessTodayKey(Date.now(), model.fitnessDateKeyBasis)} canonical={model.hasCanonicalHistory} controlledRange={historyRange} onControlledRangeChange={changeHistoryRange} rangeChoices={[42, 90, 180, 365, "3y", "all"]} />}
         />
       </div>
     );
@@ -545,7 +546,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             trendSlot={<PmcHistoryPanel
               key={`${user.uid}-${discipline}`}
               points={model.pmcHistoryPoints}
-              today={toUtcDate(Date.now())}
+              today={fitnessTodayKey(Date.now(), model.fitnessDateKeyBasis)}
               canonical={model.hasCanonicalHistory}
               controlledRange={historyRange}
               onControlledRangeChange={changeHistoryRange}
@@ -561,7 +562,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             : <PmcHistoryPanel
               key={`${user.uid}-${discipline}`}
               points={model.pmcHistoryPoints}
-              today={toUtcDate(Date.now())}
+              today={fitnessTodayKey(Date.now(), model.fitnessDateKeyBasis)}
               canonical={model.hasCanonicalHistory}
               controlledRange={historyRange}
               onControlledRangeChange={changeHistoryRange}

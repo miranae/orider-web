@@ -5,7 +5,7 @@
  *   - lastActivityIngestAt > projection.computedAt  (신규 활동)
  *   - now - computedAt > 3h                          (시간 경과)
  *   - computedAt 없음                                (한 번도 계산 안 됨)
- *   - 단일 종목 입력/PMC revision 미처리, 무효화 또는 이전 UTC 날짜
+ *   - 단일 종목 입력/PMC revision 미처리, 무효화 또는 이전 날짜(정본 dateKeyBasis 기준, 없으면 UTC)
  *   - 통합 processingState 미처리 (입력 unknown 자체는 반복 갱신 사유가 아님)
  *
  * 사용처: FitnessPage, PlanPage, HomePage TodaysWorkout 등 "살아있는 분석"이 필요한 화면.
@@ -23,6 +23,7 @@ import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import type { FitnessProjection } from "@shared/types/goal";
 import { hasFitnessLoadLifecycle, isFitnessInputInvalidated } from "../features/fitness/pmcHistory";
+import { fitnessTodayKey } from "@shared/training/dateKey";
 import { toUtcDate } from "../utils/dateUtils";
 import {
   executeFirestoreSessionRecovery,
@@ -223,7 +224,9 @@ export function useFreshTraining(discipline?: string, projectionOnly = false, ac
         const lifecycleProcessed = timeseries?.discipline === discipline && hasFitnessLoadLifecycle(timeseries) && !isFitnessInputInvalidated(timeseries)
           && timeseries!.pmc!.status === "processed"
           && timeseries!.pmc!.processedInputRevision === timeseries!.loadSnapshot!.inputRevision
-          && timeseries!.loadSnapshot!.coverageEndDate === toUtcDate(now)
+          // 정본 오늘은 서버가 기록한 날짜 키 구간 기준이다(없으면 UTC). UTC 로 보면 KST 00~09시에
+          // 정본을 매번 stale 로 오판해 화면 진입마다 revalidate 를 호출한다.
+          && timeseries!.loadSnapshot!.coverageEndDate === fitnessTodayKey(now, timeseries!.loadSnapshot!.dateKeyBasis)
           && timeseries!.computedAt === timeseries!.loadSnapshot!.asOf
           && typeof timeseries!.pmc!.asOf === "number" && timeseries!.pmc!.asOf >= timeseries!.loadSnapshot!.asOf;
         const lifecycleAsOf = lifecycleProcessed ? timeseries!.loadSnapshot!.asOf : 0;

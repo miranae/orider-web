@@ -890,6 +890,7 @@
   "hub.weekly.loadDown": "Last 7 days training load is {{pct}}% lower than the previous 7 days ({{tss}} TSS equivalent).",
   "hub.weekly.partial": "Observed load in the last 7 days: {{tss}} TSS equivalent. {{count}} of the last 14 days are incomplete; change and training advice are unavailable.",
   "hub.weekly.basis.utc": "Through {{date}} · UTC dates",
+  "hub.weekly.basis.zone": "Through {{date}} · your time zone dates",
   "hub.weekly.basis.local": "Through {{date}} · device local dates",
   "hub.weekly.basis.mixed": "Period comparison unavailable across mixed UTC and local dates.",
   "weekly.window": "{{start}}–{{end}} days back",

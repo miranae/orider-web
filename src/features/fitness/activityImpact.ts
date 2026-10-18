@@ -12,6 +12,7 @@ import {
   pickPhysicalRideRepresentative,
 } from "../../utils/samePhysicalRide";
 import { disciplineOfType } from "@shared/sport/discipline";
+import { fitnessDateKeyFor } from "@shared/training/dateKey";
 
 export type ActivityImpactConfidence = "canonical-single" | "estimated-allocation" | "activity-tss";
 
@@ -23,11 +24,11 @@ export interface ActivityDayLoad {
 export function activityDayLoad(
   activity: Activity,
   points: readonly FitnessPoint[],
+  /** 정본 loadSnapshot.dateKeyBasis. 없으면 UTC 날짜. */
+  dateKeyBasis?: unknown,
 ): ActivityDayLoad | null {
-  if (!Number.isFinite(activity.startTime)) return null;
-  const start = new Date(activity.startTime);
-  if (!Number.isFinite(start.getTime())) return null;
-  const date = start.toISOString().slice(0, 10);
+  const date = fitnessDayFromMillis(activity.startTime, dateKeyBasis);
+  if (date == null) return null;
   const point = points.find((candidate) => candidate.date === date);
   if (!point || !Number.isFinite(point.dailyLoad) || point.dailyLoad < 0) return null;
   return { dailyLoad: point.dailyLoad };
@@ -41,7 +42,7 @@ export interface FitnessStateDelta {
 
 export interface ActivityImpactEntry {
   activity: Activity;
-  /** The UTC calendar day whose canonical aggregate load backs this entry. */
+  /** The canonical day key (dateKeyBasis, UTC when absent) whose aggregate load backs this entry. */
   date: string;
   /** Canonical allocation, or the activity's own rounded TSS for an activity-tss model estimate. */
   attributedLoad: number;
@@ -49,7 +50,7 @@ export interface ActivityImpactEntry {
   confidence: ActivityImpactConfidence;
   /** Load-only EMA contribution. This is not an instantaneous before/after state. */
   marginalImpact: FitnessStateDelta;
-  /** End-of-day state change versus the preceding UTC calendar day's canonical point. */
+  /** End-of-day state change versus the preceding calendar day's canonical point. */
   actualDayChange: FitnessStateDelta | null;
   daysSince: number;
   /** Portion of this activity's marginal EMA contribution remaining after daysSince. */
@@ -57,8 +58,10 @@ export interface ActivityImpactEntry {
 }
 
 export interface DeriveActivityImpactOptions {
-  /** UTC day (YYYY-MM-DD) used for recency and contribution decay. Defaults to the latest point. */
+  /** Canonical day (YYYY-MM-DD) used for recency and contribution decay. Defaults to the latest point. */
   asOfDate?: string;
+  /** Canonical loadSnapshot.dateKeyBasis used to place activities on day keys. UTC when absent. */
+  dateKeyBasis?: unknown;
   /** Maximum number of activity entries after deterministic newest-first sorting. */
   limit?: number;
 }
@@ -90,6 +93,11 @@ function utcDayFromMillis(value: number): string | null {
   if (!Number.isFinite(value)) return null;
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : null;
+}
+
+/** Activity instant → canonical day key. Calendar arithmetic stays on day strings. */
+function fitnessDayFromMillis(value: number, dateKeyBasis: unknown): string | null {
+  return utcDayFromMillis(value) === null ? null : fitnessDateKeyFor(value, dateKeyBasis);
 }
 
 function previousUtcDay(date: string): string {
@@ -207,12 +215,12 @@ export function deriveActivityImpacts(
 
   const activitiesByDate = new Map<string, Activity[]>();
   const eligibleActivities = activities.filter((activity) => {
-    const date = utcDayFromMillis(activity.startTime);
+    const date = fitnessDayFromMillis(activity.startTime, options.dateKeyBasis);
     return date != null && date <= asOfDate && !isNegligibleActivitySummary(activity.summary);
   });
   const physicalActivities = dedupeSamePhysicalRides(eligibleActivities.map(physicalRideIdentity));
   for (const { activity } of physicalActivities) {
-    const date = utcDayFromMillis(activity.startTime)!;
+    const date = fitnessDayFromMillis(activity.startTime, options.dateKeyBasis)!;
     const sameDay = activitiesByDate.get(date) ?? [];
     sameDay.push(activity);
     activitiesByDate.set(date, sameDay);

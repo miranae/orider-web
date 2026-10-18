@@ -254,6 +254,38 @@ describe("useFreshTraining", () => {
     expect(listeners.every(listener => listener.unsubscribe.mock.calls.length === 1)).toBe(true);
   });
 
+  it.each([
+    { name: "KST basis, KST today at KST 01:00", basis: "kst", coverageEndDate: "2026-10-18", fresh: true },
+    { name: "KST basis, stale UTC-date coverage", basis: "kst", coverageEndDate: "2026-10-17", fresh: false },
+    { name: "no basis, UTC today (unchanged)", basis: null, coverageEndDate: "2026-10-17", fresh: true },
+    { name: "no basis, KST-ahead coverage (unchanged)", basis: null, coverageEndDate: "2026-10-18", fresh: false },
+  ])("정본 오늘 키는 dateKeyBasis 로 판정한다 — $name", async ({ basis, coverageEndDate, fresh }) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    // KST 2026-10-18 01:00 = UTC 2026-10-17 16:00
+    const now = Date.parse("2026-10-17T16:00:00.000Z");
+    vi.setSystemTime(now);
+    try {
+      const listeners = installControlledSnapshots(true);
+      const readTime = { seconds: Math.floor(now / 1000), nanoseconds: (now % 1000) * 1_000_000 };
+      const lifecycle = {
+        discipline: "bike",
+        computedAt: now,
+        loadSnapshot: { inputRevision: 2, inputDigest: "a".repeat(64), asOf: now, inputReadTime: readTime,
+          coverageStartDate: coverageEndDate, coverageEndDate,
+          points: [{ date: coverageEndDate, dailyLoad: 0, status: "final", quality: "zero" }],
+          ...(basis === "kst" ? { dateKeyBasis: { segments: [{ fromMs: null, tz: "UTC" }, { fromMs: Date.parse("2026-10-10T15:00:00.000Z"), tz: "Asia/Seoul" }] } } : {}) },
+        pmc: { status: "processed", attemptId: "two", inputRevision: 2, processedInputRevision: 2, asOf: now, deadlineAt: now - 1 },
+      };
+      const { result, unmount } = renderHook(() => useFreshTraining("bike"));
+      act(() => { emit(listeners[0], {}); emit(listeners[1], { computedAt: now }); emit(listeners[2], lifecycle); });
+      await waitFor(() => expect(result.current.lastStatus).toBe(fresh ? "fresh" : "recomputed"));
+      expect(mockCallableInvocations).toHaveLength(fresh ? 0 : 1);
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("숨은 동안 listener를 닫고 복귀하면 재개하며 owner 변경은 상태를 지운다", () => {
     const listeners = installControlledSnapshots(true);
     const hook = renderHook(({ active }) => useFreshTraining("bike", false, active),

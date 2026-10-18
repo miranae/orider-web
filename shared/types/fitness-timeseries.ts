@@ -10,6 +10,7 @@
  */
 import type { FitnessPoint } from '../training/fitness'
 import type { SufficiencySet } from './sufficiency'
+import type { FitnessDateKeyBasis } from '../training/dateKey'
 
 export const FITNESS_TIMESERIES_SCHEMA_VERSION = 1
 
@@ -20,9 +21,9 @@ export interface FitnessTimeseriesDoc {
   schemaVersion: number
   /** 계산 시각(ms). projection.computedAt 와 동기화. */
   computedAt: number
-  /** 시계열 첫 포인트 날짜 (UTC 'YYYY-MM-DD'). points 비면 null. */
+  /** 시계열 첫 포인트 날짜 ('YYYY-MM-DD', loadSnapshot.dateKeyBasis 기준 — 없으면 UTC). points 비면 null. */
   startDate: string | null
-  /** 시계열 마지막 포인트 날짜 (= 계산일, UTC). points 비면 null. */
+  /** 시계열 마지막 포인트 날짜 (= 계산일, loadSnapshot.dateKeyBasis 기준 — 없으면 UTC). points 비면 null. */
   endDate: string | null
   pointCount: number
   /** 첫 활동일~오늘 0-fill 일별 포인트. 0-시드는 첫 활동 지점에서 정확. */
@@ -49,6 +50,8 @@ export interface FitnessLoadSnapshot {
   coverageStartDate: string
   coverageEndDate: string
   points: FitnessLoadPoint[]
+  /** 날짜 키를 만든 시간대 구간. 없으면 처음부터 UTC. */
+  dateKeyBasis?: FitnessDateKeyBasis
 }
 export interface FitnessPmcState {
   status: 'pending' | 'processed' | 'failed'
