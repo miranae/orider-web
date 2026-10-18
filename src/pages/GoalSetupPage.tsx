@@ -438,7 +438,7 @@ export default function GoalSetupPage() {
 function GoalWizard({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
-  const { user, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const discipline = normalizePlanSport(searchParams.get("sport"));
@@ -520,7 +520,7 @@ function GoalWizard({ embedded = false }: { embedded?: boolean }) {
           title={t("goals.loginRequiredTitle")}
           description={t("goals.loginRequiredDescription")}
           actionLabel={tCommon("button.loginGoogle")}
-          onAction={() => { void signInWithGoogle(); }}
+          onAction={() => { void signIn(); }}
         />
       </div>
     );

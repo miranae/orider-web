@@ -371,7 +371,7 @@ function AuthorizedSurface({
     profile,
     profileLoading,
     loading: false,
-    signInWithGoogle: async () => {},
+    signIn: async () => {},
     logout,
   }), [logout, profile, profileLoading, user]);
 

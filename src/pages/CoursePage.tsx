@@ -353,7 +353,7 @@ export default function CoursePage() {
   const detailTab = canPrepare && detailParams.get("tab") === "prepare" ? "prepare" : detailParams.get("tab") === "edit" ? "edit" : "overview";
   const setDetailTab = (tab: string) => { const next = new URLSearchParams(detailParams); if (tab === "overview") next.delete("tab"); else next.set("tab", tab); setDetailParams(next, { replace: true, state: detailLocation.state }); };
   const { courseId } = useParams<{ courseId: string }>();
-  const { user, profile, profileLoading, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, profile, profileLoading, loading: authLoading, signIn } = useAuth();
   const navigate = useNavigate();
   const { data: course, loading: courseLoading } = useDocument<CourseData>("courses", courseId);
   // 획득고도 정본(#887). 전환이 꺼져 있으면 envelope 은 null 이고 코스 문서 값이 그대로 남는다.
@@ -952,7 +952,7 @@ export default function CoursePage() {
                 prediction={prediction}
                 loading={climbPredictionLoading}
                 signedIn={Boolean(user)}
-                onLogin={() => { void signInWithGoogle(); }}
+                onLogin={() => { void signIn(); }}
               />}
             </div>
           ))}
@@ -1492,7 +1492,7 @@ export default function CoursePage() {
       </div>
 
       {canPrepare && detailTab === "prepare" && <CourseRidePlanSection courseId={courseId ?? course.id} isOwner={isOwner} user={user}
-        onSignIn={() => { void signInWithGoogle(); }} />}
+        onSignIn={() => { void signIn(); }} />}
 
       {/* Back */}
       <div className="flex items-center">

@@ -15,7 +15,7 @@
     "less": "Less",
     "login": "Sign in",
     "logout": "Sign out",
-    "loginGoogle": "Sign in with Google",
+    "loginGoogle": "Sign in",
     "markAllRead": "Mark all read"
   },
   "error": {

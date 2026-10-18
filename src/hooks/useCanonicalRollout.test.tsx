@@ -24,7 +24,7 @@ function withUser(uid: string | null, services?: FirebaseServices) {
     profile: null,
     profileLoading: false,
     loading: false,
-    signInWithGoogle: async () => {},
+    signIn: async () => {},
     logout: async () => {},
   } satisfies AuthContextValue;
   return ({ children }: { children: React.ReactNode }) => {

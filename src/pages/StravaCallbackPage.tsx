@@ -6,10 +6,13 @@ import type { Activity } from "@shared/types";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { useStrava } from "../hooks/useStrava";
 import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 import { firestore } from "../services/firebase";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
 import { buildOriderSharePayload, shareOrCopy } from "../features/share/oriderShareText";
+import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
+import { stravaSignupGuidancePath } from "../utils/stravaSignup";
 
 type Step = "verifying" | "exchanging" | "done" | "error";
 
@@ -74,6 +77,7 @@ export default function StravaCallbackPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
   const { connectStrava, exchangeCode } = useStrava();
   const [step, setStep] = useState<Step>("verifying");
   const [errorMsg, setErrorMsg] = useState("");
@@ -136,9 +140,18 @@ export default function StravaCallbackPage() {
       try {
         setStep("exchanging");
         const grantedScope = searchParams.get("scope");
-        if (grantedScope) await exchangeCode(code, grantedScope);
-        else await exchangeCode(code);
+        const result = grantedScope ? await exchangeCode(code, grantedScope) : await exchangeCode(code);
         sessionStorage.removeItem("strava_write_activities");
+        if (result.stravaSyncReauthRequired) {
+          const pendingReturn = new URL(sanitizeInternalReturnPath(sessionStorage.getItem("strava_return_to")), "https://orider.invalid");
+          const guidance = pendingReturn.pathname === SETTINGS_CONNECTIONS_PATH && pendingReturn.searchParams.get("stravaSignup") === "1"
+            ? stravaSignupGuidancePath(pendingReturn.searchParams.get("returnTo")) : SETTINGS_CONNECTIONS_PATH;
+          sessionStorage.removeItem("strava_return_to");
+          track("strava_connect", { result: "reauth_required" });
+          showToast(t("socialCallback.error.stravaSyncReauth"), "info");
+          navigate(guidance, { replace: true });
+          return;
+        }
         // funnel 의 결정적 마일스톤 — first_open → sign_up → strava_connect → first_kudos
         track("strava_connect", { result: "ok" });
         setStep("done");
@@ -163,7 +176,7 @@ export default function StravaCallbackPage() {
       }
     })();
 
-  }, [authLoading, exchangeCode, navigate, searchParams, t, user]);
+  }, [authLoading, exchangeCode, navigate, searchParams, showToast, t, user]);
 
   const shareSuccess = async () => {
     const body = t("stravaCallback.share.text", {

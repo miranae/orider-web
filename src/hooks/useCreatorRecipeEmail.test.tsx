@@ -6,9 +6,9 @@ import { useCreatorRecipeEmail } from "./useCreatorRecipeEmail";
 const user = { uid: "test-uid" };
 const actions = { emailed: "SENT", emailLogin: "LOGIN", emailFailed: "FAILED", emailQuotaExceeded: "EMAIL_QUOTA", emailCooldown: "EMAIL_COOLDOWN" };
 const showToast = vi.fn();
-const signInWithGoogle = vi.fn();
+const signIn = vi.fn();
 function Harness({ language = "en" }: { language?: string }) {
-  const { handleEmailRecipe } = useCreatorRecipeEmail({ user, language, actions, showToast, signInWithGoogle });
+  const { handleEmailRecipe } = useCreatorRecipeEmail({ user, language, actions, showToast, signIn });
   return <button onClick={() => void handleEmailRecipe("weekly-load")}>Send</button>;
 }
 it.each(["ko", "en"])("does not mislabel a recipe read limit as email quota in %s", async language => {

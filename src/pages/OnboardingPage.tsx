@@ -27,6 +27,8 @@ export default function OnboardingPage() {
   const { connectStrava } = useStrava();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const stravaSignup = searchParams.get("stravaSignup") === "1";
+  const steps: Step[] = stravaSignup ? ["discipline", "goal"] : STEPS;
   const [step, setStep] = useState<Step>("discipline");
   const returnTo = sanitizeInternalReturnPath(searchParams.get("returnTo"));
   const returnSuffix = returnTo === "/" ? "" : `?returnTo=${encodeURIComponent(returnTo)}`;
@@ -51,13 +53,13 @@ export default function OnboardingPage() {
       return;
     }
     if (profile.onboardingStep === "discipline" || profile.onboardingStep === "strava" || profile.onboardingStep === "goal") {
-      setStep(profile.onboardingStep);
+      setStep(stravaSignup && profile.onboardingStep === "strava" ? "goal" : profile.onboardingStep);
     }
     const discipline = profile.primaryDiscipline;
     if (discipline === "tri" || discipline === "bike" || discipline === "run" || discipline === "swim") {
       setSelected(discipline);
     }
-  }, [profile, finishTarget, navigate]);
+  }, [profile, finishTarget, navigate, stravaSignup]);
 
   // 비인증 가드
   if (!loading && !user) {
@@ -107,8 +109,9 @@ export default function OnboardingPage() {
     setSaving(true);
     setError(null);
     try {
-      await updateDoc(userRef, { primaryDiscipline: selected, onboardingStep: "strava" });
-      setStep("strava");
+      const nextStep = stravaSignup ? "goal" : "strava";
+      await updateDoc(userRef, { primaryDiscipline: selected, onboardingStep: nextStep });
+      setStep(nextStep);
     } catch (err) {
       logClientError("OnboardingPage.handleDisciplineNext", err, { selected });
       setError(t("saveFailed"));
@@ -156,7 +159,7 @@ export default function OnboardingPage() {
   };
 
   const handleGoalSetup = async () => {
-    await finishOnboarding(`/goal-setup?source=onboarding&sport=${selected === "run" || selected === "swim" ? selected : "bike"}&returnTo=${encodeURIComponent(returnTo)}`);
+    await finishOnboarding(`/goal-setup?source=${stravaSignup ? "strava-signup" : "onboarding"}&sport=${selected === "run" || selected === "swim" ? selected : "bike"}&returnTo=${encodeURIComponent(returnTo)}`);
   };
 
   const handleInviteFriends = async () => {
@@ -169,8 +172,8 @@ export default function OnboardingPage() {
 
   const handleBack = () => {
     if (saving) return;
-    const index = STEPS.indexOf(step);
-    if (index > 0) setStep(STEPS[index - 1]!);
+    const index = steps.indexOf(step);
+    if (index > 0) setStep(steps[index - 1]!);
   };
 
   return (
@@ -181,20 +184,20 @@ export default function OnboardingPage() {
       <div className="w-full max-w-sm">
         {/* 단계 표시 */}
         <div className="flex items-center gap-2 mb-8">
-          {STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <div
               key={s}
               role="progressbar"
               aria-valuemin={1}
-              aria-valuemax={STEPS.length}
-              aria-valuenow={STEPS.indexOf(step) + 1}
-              aria-label={t("onboarding.progress", { current: STEPS.indexOf(step) + 1, total: STEPS.length })}
+              aria-valuemax={steps.length}
+              aria-valuenow={steps.indexOf(step) + 1}
+              aria-label={t("onboarding.progress", { current: steps.indexOf(step) + 1, total: steps.length })}
               className="flex-1 h-1 rounded-full"
               style={{
                 background:
                   s === step
                     ? "var(--lime)"
-                    : STEPS.indexOf(step) > i
+                    : steps.indexOf(step) > i
                     ? "var(--lime)"
                     : "var(--line-soft)",
               }}
@@ -264,15 +267,15 @@ export default function OnboardingPage() {
               {t("onboarding.strava.title")}
             </h1>
             <p className="text-[length:var(--fs-sm)] mb-6" style={{ color: "var(--ink-3)" }}>
-              {t("onboarding.strava.subtitle")}
+              {t(profile?.stravaConnected ? "onboarding.strava.alreadyConnected" : "onboarding.strava.subtitle")}
             </p>
             <button
-              onClick={handleStravaConnect}
+              onClick={profile?.stravaConnected ? handleStravaSkip : handleStravaConnect}
               disabled={saving}
               className="w-full py-3 rounded-[var(--r-xl)] font-semibold text-[length:var(--fs-sm)] mb-3"
               style={{ background: "var(--accent)", color: "var(--ink-0)", opacity: saving ? 0.4 : 1 }}
             >
-              {saving ? t("saving") : t("onboarding.strava.connect")}
+              {saving ? t("saving") : t(profile?.stravaConnected ? "next" : "onboarding.strava.connect")}
             </button>
             <button
               onClick={handleBack}

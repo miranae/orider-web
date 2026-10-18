@@ -28,6 +28,7 @@ import { PaneMedical } from "./PaneMedical";
 import { ProfileHero } from "./ProfileHero";
 import { LocalizedLink } from "../LocalizedLink";
 import { PaneAiCoach } from "./PaneAiCoach";
+import { SocialLinksCard } from "./SocialLinksCard";
 import { Button, Textarea, buttonClass } from "../../theme/components";
 
 type VisOpt = { value: Visibility; labelKey: string; icon: typeof User };
@@ -397,6 +398,8 @@ export function PaneAccount() {
       </details>
       <PaneAiCoach />
 
+
+      <SocialLinksCard />
 
       <SettingsCard data-testid="S1-5-1" title={t("pane.account.cardManagement")} dense>
         <InlineRow label={t("pane.account.logoutLabel")} hint={t("pane.account.logoutHint")}>

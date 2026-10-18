@@ -62,6 +62,7 @@ const CreatorHubPage = lazyTimed("CreatorHubPage", () => import("./pages/Creator
 const PartnershipPage = lazyTimed("PartnershipPage", () => import("./pages/PartnershipPage"));
 const PartnershipDetailPage = lazyTimed("PartnershipDetailPage", () => import("./pages/PartnershipPage").then(module => ({ default: module.PartnershipDetailPage })));
 const AboutPage = lazyTimed("AboutPage", () => import("./pages/AboutPage"));
+const SocialAuthCallbackPage = lazyTimed("SocialAuthCallbackPage", () => import("./pages/SocialAuthCallbackPage"));
 const StravaTermsPage = lazyTimed("StravaTermsPage", () => import("./pages/StravaTermsPage"));
 const CreateSegmentPage = lazyTimed("CreateSegmentPage", () => import("./pages/CreateSegmentPage"));
 const CoursePage = lazyTimed("CoursePage", () => import("./pages/CoursePage"));
@@ -173,6 +174,7 @@ export function AppRoutes() {
           <Route path="course/:courseId/edit" element={<CourseEditPage />} />
           <Route path="course/:courseId" element={<CoursePage />} />
           <Route path="strava/callback" element={<StravaCallbackPage />} />
+          <Route path="auth/social/callback" element={<SocialAuthCallbackPage />} />
           <Route path="friend/:code" element={<FriendInvitePage />} />
           <Route path="migrate" element={<MigrationPage />} />
           {/* 커뮤니티 — board/write 정적이 board/:postId 보다 먼저 */}

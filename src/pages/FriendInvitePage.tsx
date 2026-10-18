@@ -60,7 +60,7 @@ async function loadInvitePreview(code: string): Promise<InvitePreview | null> {
 export default function FriendInvitePage() {
   const { code } = useParams<{ code: string }>();
   const { t } = useTranslation("friends");
-  const { user, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
   const { addByCode, actionLoading } = useFriends();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -257,7 +257,7 @@ export default function FriendInvitePage() {
               : t("invite.loginPrompt")}
           </p>
           <button
-            onClick={signInWithGoogle}
+            onClick={signIn}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[var(--r-lg)] shadow-sm transition-colors border"
             style={{ background: "var(--bg-0)", borderColor: "var(--line-soft)" }}
           >

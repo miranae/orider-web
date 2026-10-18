@@ -96,7 +96,7 @@ const STEP_KEYS = ["create.step.basic", "create.step.course", "create.step.entry
 export default function EventCreatePage() {
   const { t } = useTranslation("event");
   const navigate = useNavigate();
-  const { user, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedGroupId = searchParams.get("groupId");
@@ -435,7 +435,7 @@ export default function EventCreatePage() {
       </div>
     );
   }
-  if (!user) return <div className="event-controls-surface explore-editor-surface max-w-xl mx-auto py-16"><PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signInWithGoogle(); }} /></div>;
+  if (!user) return <div className="event-controls-surface explore-editor-surface max-w-xl mx-auto py-16"><PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signIn(); }} /></div>;
 
   // 완료 화면
   if (createdEventId) {

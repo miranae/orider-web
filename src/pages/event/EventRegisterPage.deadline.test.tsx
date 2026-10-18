@@ -42,9 +42,9 @@ describe("event registration Firestore deadline", () => {
   });
   it("keeps direct registration behind Google login even after selecting the participation tab", async () => {
     renderRegistration(new Date(Date.now() + 43200000).toISOString(), "OPEN", false);
-    expect(await screen.findByRole("button", { name: /Google/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "로그인", exact: true })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("link", { name: "참가", exact: true }));
-    expect(screen.getByRole("button", { name: /Google/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "로그인", exact: true })).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("홍길동")).not.toBeInTheDocument();
   });
 });

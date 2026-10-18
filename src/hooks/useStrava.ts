@@ -46,7 +46,7 @@ export function useStrava() {
     try {
       const fn = httpsCallable(functions, "stravaExchangeToken");
       const result = await fn({ code, ...(scope ? { scope } : {}) });
-      return result.data as { athleteId: number; firstname: string; lastname: string };
+      return result.data as { athleteId: number; firstname: string; lastname: string; stravaSyncReauthRequired?: boolean };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Token exchange failed";
       setError(msg);

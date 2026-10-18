@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
+import { isSignInCancelled } from "../utils/signInCancelled";
 import { LocalizedLink } from "../components/LocalizedLink";
 import { Button, Card, Text } from "../theme/components";
 import { getAccountDeletionStatus, readAccountDeletionReceipt, saveAccountDeletionReceipt, reauthenticateAccountDeletion, requestAccountDeletion, requiresDeletionReauthentication, requiresDeletionOwnerLogin, type AccountDeletionStatus } from "../services/accountDeletion";
 
 export default function AccountDeletionPage() {
   const { t } = useTranslation("legal");
-  const { user, loading, signInWithGoogle } = useAuth();
+  const { user, loading, signIn } = useAuth();
   const [job, setJob] = useState<AccountDeletionStatus | null>(null);
   const [jobOwner, setJobOwner] = useState<string | undefined>();
   const [checked, setChecked] = useState(false);
@@ -91,10 +92,10 @@ export default function AccountDeletionPage() {
     setError(null);
     try {
       if (reauth) await reauthenticateAccountDeletion();
-      else await signInWithGoogle();
+      else await signIn();
       setNeedsReauth(false);
-    } catch {
-      setError("signInFailed");
+    } catch (err) {
+      if (!isSignInCancelled(err)) setError("signInFailed");
     } finally {
       setBusy(false);
     }

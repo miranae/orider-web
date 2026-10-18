@@ -64,7 +64,7 @@ describe("러닝 분석 게이트", () => {
     const { rerender } = render(<AnalysisTab {...props} streamsSignInRequired onSignIn={signIn} />);
     expect(screen.getByText("로그인하고 상세 분석을 확인하세요")).toBeInTheDocument();
     expect(screen.queryByTestId("analysis-missing")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Google로 로그인" }));
+    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
     expect(signIn).toHaveBeenCalledOnce();
     rerender(<AnalysisTab {...props} streamsSignInRequired={false} onSignIn={signIn} />);
     expect(screen.getByTestId("analysis-missing")).toBeInTheDocument();

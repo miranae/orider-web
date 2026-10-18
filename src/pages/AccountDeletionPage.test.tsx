@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   user: { uid: "u1", email: "review@example.test" } as { uid: string; email: string } | null,
   status: vi.fn(), request: vi.fn(), reauth: vi.fn(), signIn: vi.fn(), readReceipt: vi.fn(), saveReceipt: vi.fn(),
 }));
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, loading: false, signInWithGoogle: mocks.signIn }) }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, loading: false, signIn: mocks.signIn }) }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("../services/accountDeletion", () => ({
   getAccountDeletionStatus: mocks.status,

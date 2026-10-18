@@ -6,8 +6,8 @@ describe("EventRegisterPage auth gate", () => {
   it("offers Google sign-in from the locked registration screen", () => {
     const source = readFileSync(join(process.cwd(), "src/pages/event/EventRegisterPage.tsx"), "utf8");
 
-    expect(source).toContain("signInWithGoogle");
+    expect(source).toContain("signIn");
     expect(source).toContain('actionLabel={tCommon("button.loginGoogle")}');
-    expect(source).toContain("onAction={() => { void signInWithGoogle(); }}");
+    expect(source).toContain("onAction={() => { void signIn(); }}");
   });
 });

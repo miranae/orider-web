@@ -30,6 +30,7 @@ import { computeRunWeeklyRecap, isRecapVisible } from "../utils/runWeeklyRecap";
 import { seoulWeekday } from "../utils/seoulWeek";
 import ActivityCard from "../components/ActivityCard";
 import { useAuth } from "../contexts/AuthContext";
+import { isSignInCancelled } from "../utils/signInCancelled";
 import { useToast } from "../contexts/ToastContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatTrainingLoad } from "../utils/trainingLoadDisplay";
@@ -203,16 +204,16 @@ function DashboardContent() {
   // 사이드바 푸터(약관/정책 링크) 접이식 — Layout 데스크톱 푸터를 메인화면에서 흡수 (#347 후속)
   const [searchInput, setSearchInput] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, profile, loading: authLoading, signIn } = useAuth();
   const { showToast } = useToast();
   const [signInPending, setSignInPending] = useState(false);
   const handleGuestSignIn = async () => {
     if (signInPending) return;
     setSignInPending(true);
     try {
-      await signInWithGoogle();
-    } catch {
-      showToast(t("header.signInFailed"), "error");
+      await signIn();
+    } catch (err) {
+      if (!isSignInCancelled(err)) showToast(t("header.signInFailed"), "error");
     } finally {
       setSignInPending(false);
     }
@@ -633,7 +634,7 @@ function DashboardContent() {
           right={
             <>
               {/* 비로그인: 가치 제안 헤더에 실제 로그인 CTA 동반 (#234) —
-                  TopNav 와 동일한 signInWithGoogle 트리거 재사용. */}
+                  TopNav 와 동일한 signIn 트리거 재사용. */}
               {isAnon && (
                 <Button onClick={() => { void handleGuestSignIn(); }} loading={signInPending} variant="primary" size="sm">
                   {t("header.anonCta")}

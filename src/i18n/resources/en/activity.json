@@ -830,7 +830,7 @@
     "loginToKudos": "Sign in to give kudos",
     "loginTitle": "Sign in to join",
     "loginDesc": "Sign in to give kudos or leave a comment. You can still read comments.",
-    "loginAction": "Sign in with Google",
+    "loginAction": "Sign in",
     "ariaInput": "Comment input",
     "ariaEdit": "Edit comment",
     "deleteConfirm": "Delete this comment?",

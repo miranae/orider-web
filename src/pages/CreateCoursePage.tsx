@@ -135,7 +135,7 @@ function StatsPanel({ stats, hideGrades = false }: { stats: ReturnType<typeof co
 export default function CreateCoursePage() {
   const { t } = useTranslation("course");
   const { t: tActivity } = useTranslation("activity");
-  const { user, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activityId = searchParams.get("activityId");
@@ -575,7 +575,7 @@ export default function CreateCoursePage() {
           title={t("createAuth.title")}
           description={t("createAuth.description")}
           actions={[
-            { label: t("createAuth.login"), variant: "primary", onClick: () => { void signInWithGoogle(); } },
+            { label: t("createAuth.login"), variant: "primary", onClick: () => { void signIn(); } },
             { label: t("button.courseList"), variant: "secondary", href: "/explore/courses" },
           ]}
         />

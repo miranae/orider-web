@@ -44,7 +44,8 @@ describe("GroupInvitePage", () => {
     renderInvite("/ko/group/join/abcd1234", false);
 
     expect(await screen.findByText(koGroup["inviteLink.title"])).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Google로 로그인" }));
+    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+    fireEvent.click(await screen.findByTestId("A1-1-1"));
 
     expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
     expect(mockCallableInvocations).toEqual([]);
