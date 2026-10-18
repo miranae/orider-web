@@ -1,6 +1,7 @@
 import { ensureAppCheckReady } from "./firebase";
 import { authCallable } from "./authCallables";
 import { logClientError } from "./errorLogger";
+import { socialAuthReturnTo } from "../utils/socialAuthReturnTo";
 
 /**
  * 네이버·카카오·Strava 로그인/계정 연결 (서버 custom token 흐름).
@@ -41,7 +42,7 @@ export function socialRedirectUri(): string {
 export function currentReturnTo(): string {
   const { pathname, search, hash } = window.location;
   const stripped = pathname.replace(/^\/(ko|en)(?=\/|$)/, "") || "/";
-  return `${stripped}${search}${hash}`;
+  return socialAuthReturnTo(`${stripped}${search}${hash}`);
 }
 
 /** 동의 화면으로 이동. 성공 시 페이지를 떠나므로 resolve 되지 않는다. */
@@ -52,7 +53,7 @@ export async function startSocialAuth(provider: SocialProvider, mode: SocialMode
       { provider: SocialProvider; mode: SocialMode; redirectUri: string; returnTo: string },
       { authorizeUrl: string; state?: string }
     >("socialAuthStart");
-    const { data } = await start({ provider, mode, redirectUri: socialRedirectUri(), returnTo });
+    const { data } = await start({ provider, mode, redirectUri: socialRedirectUri(), returnTo: socialAuthReturnTo(returnTo) });
     const state = data.state ?? new URL(data.authorizeUrl).searchParams.get("state");
     if (!state) throw new Error("social-auth/missing-state");
     // 저장소를 사용할 수 없으면 이동하지 않는다. 콜백에서 브라우저 일치를 확인할 수 없기 때문이다.

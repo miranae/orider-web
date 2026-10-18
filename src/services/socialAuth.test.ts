@@ -16,6 +16,11 @@ describe("socialAuth helpers", () => {
     expect(currentReturnTo()).toBe("/korea-ride");
   });
 
+  it.each(["/auth/social/callback", "/ko/auth/social/callback?retry=1#again", "/en/auth/social/callback", "/en/auth/social/callback/?retry=1", "/ko/auth/social/%63allback"])("does not return a login retry to its callback: %s", path => {
+    window.history.replaceState(null, "", path);
+    expect(currentReturnTo()).toBe("/");
+  });
+
   it("uses a language-free callback path on the current origin", () => {
     expect(socialRedirectUri()).toBe(`${window.location.origin}${SOCIAL_CALLBACK_PATH}`);
     expect(SOCIAL_CALLBACK_PATH).toBe("/auth/social/callback");
@@ -71,6 +76,20 @@ describe("OAuth browser state binding", () => {
     expect(assign).toHaveBeenCalledOnce();
     expect(consumeSocialAuthState("expected-state")).toBe(true);
     expect(consumeSocialAuthState("expected-state")).toBe(false);
+  });
+
+  it.each(["login", "link", "reauth"] as const)("replaces explicit callback destinations before starting %s", async mode => {
+    vi.stubGlobal("window", { location: { origin: "https://orider-dev.web.app", assign: vi.fn() } });
+    mocks.invoke.mockResolvedValue({ data: { authorizeUrl: "https://www.strava.com/oauth/authorize", state: "expected-state" } });
+    await startSocialAuth("strava", mode, "/en/auth/social/callback?retry=1#again");
+    expect(mocks.invoke).toHaveBeenLastCalledWith(expect.objectContaining({ mode, returnTo: "/" }));
+  });
+
+  it.each(["link", "reauth"] as const)("preserves explicit account destinations for %s", async mode => {
+    vi.stubGlobal("window", { location: { origin: "https://orider-dev.web.app", assign: vi.fn() } });
+    mocks.invoke.mockResolvedValue({ data: { authorizeUrl: "https://www.strava.com/oauth/authorize", state: "expected-state" } });
+    await startSocialAuth("strava", mode, "/settings/account?tab=login#strava");
+    expect(mocks.invoke).toHaveBeenLastCalledWith(expect.objectContaining({ mode, returnTo: "/settings/account?tab=login#strava" }));
   });
 
   it("stores the canonical state instead of the Strava proxy transport envelope", async () => {

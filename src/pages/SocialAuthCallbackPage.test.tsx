@@ -67,6 +67,13 @@ describe("SocialAuthCallbackPage", () => {
     expect(mocks.track).toHaveBeenCalledWith("sign_up", { method: "naver" });
   });
 
+  it.each(["/auth/social/callback", "/ko/auth/social/callback?retry=1#again", "/en/auth/social/callback/", "/ko/auth/social/%63allback"])("leaves the callback after successful login instead of returning to %s", async returnTo => {
+    mocks.complete.mockResolvedValue({ mode: "login", provider: "strava", token: "custom-token", isNewUser: false, returnTo });
+    render(<StrictMode><SocialAuthCallbackPage /></StrictMode>);
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith("/", { replace: true }));
+    expect(mocks.signIn).toHaveBeenCalledOnce();
+  });
+
   it("returns an existing account to settings after linking without replacing its session", async () => {
     mocks.complete.mockResolvedValue({ mode: "link", provider: "kakao", returnTo: "/settings/account" });
     render(<SocialAuthCallbackPage />);
@@ -119,6 +126,22 @@ describe("SocialAuthCallbackPage", () => {
     const target = new URL(mocks.navigate.mock.calls[0][0], "https://orider.invalid");
     const guidance = new URL(target.searchParams.get("returnTo")!, target.origin);
     expect(guidance.searchParams.get("returnTo")).toBe("/");
+  });
+
+  it("removes a callback destination from new Strava signup guidance", async () => {
+    mocks.complete.mockResolvedValue({ mode: "login", provider: "strava", token: "custom-token", isNewUser: true, returnTo: "/en/auth/social/callback?retry=1" });
+    render(<SocialAuthCallbackPage />);
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalled());
+    const onboarding = new URL(mocks.navigate.mock.calls[0][0], "https://orider.invalid");
+    const guidance = new URL(onboarding.searchParams.get("returnTo")!, onboarding.origin);
+    expect(guidance.searchParams.get("returnTo")).toBe("/");
+  });
+
+  it("leaves the callback after linking if the server returns that processing route", async () => {
+    mocks.complete.mockResolvedValue({ mode: "link", provider: "strava", returnTo: "/ko/auth/social/callback#again" });
+    render(<SocialAuthCallbackPage />);
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith("/", { replace: true }));
+    expect(mocks.signIn).not.toHaveBeenCalled();
   });
 
   it("keeps explicit Strava linking on its original settings destination", async () => {
