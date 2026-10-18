@@ -208,6 +208,7 @@ export function filterInvalidatedServerMetrics(
         ...metrics.cyclingMetrics,
         longestZ4PlusSec: suppression.power ? null : metrics.cyclingMetrics.longestZ4PlusSec,
         cadenceStdDev: suppression.cadence ? null : metrics.cyclingMetrics.cadenceStdDev,
+        ...(suppression.cadence ? { coastingPct: undefined, coastingSec: undefined, longestCoastSec: undefined } : {}),
       }
     : undefined;
 
@@ -670,11 +671,13 @@ export default function AnalysisTab({
       {cyclingDynamicsSection}
 
       {/* #459/#462 페달링 사분면 + 노력 품질 (서버 사전계산 메트릭 노출) */}
-      {hasPower && (sm?.quadrant || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null) && (
+      {/* #3221 코스팅은 케이던스만 있으면 된다 — 파워 없는 라이딩에도 보인다. */}
+      {((hasPower && (sm?.quadrant || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null))
+        || sm?.cyclingMetrics?.coastingPct != null) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.pedalQuality")}</h3>
           <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
-            {sm?.quadrant && (
+            {hasPower && sm?.quadrant && (
               <>
                 <MetricCard color="lime" label={t("analysis.metric.q1")} value={Math.round(sm.quadrant.q1Pct).toString()} unit="%" description={t("analysis.metric.q1Desc")} tooltip={t("analysis.glossary.quadrant")} />
                 <MetricCard color="amber" label={t("analysis.metric.q4")} value={Math.round(sm.quadrant.q4Pct).toString()} unit="%" description={t("analysis.metric.q4Desc")} tooltip={t("analysis.glossary.quadrant")} />
@@ -682,11 +685,14 @@ export default function AnalysisTab({
                 <MetricCard color="ink" label={t("analysis.metric.q3")} value={Math.round(sm.quadrant.q3Pct).toString()} unit="%" description={t("analysis.metric.q3Desc")} tooltip={t("analysis.glossary.quadrant")} />
               </>
             )}
-            {sm?.cyclingMetrics?.longestZ4PlusSec != null && sm.cyclingMetrics.longestZ4PlusSec > 0 && (
+            {hasPower && sm?.cyclingMetrics?.longestZ4PlusSec != null && sm.cyclingMetrics.longestZ4PlusSec > 0 && (
               <MetricCard color="amber" label={t("analysis.metric.longestZ4")} value={formatDuration(sm.cyclingMetrics.longestZ4PlusSec)} description={t("analysis.metric.longestZ4Desc")} tooltip={t("analysis.glossary.longestZ4")} />
             )}
-            {sm?.cyclingMetrics?.cadenceStdDev != null && (
+            {hasPower && sm?.cyclingMetrics?.cadenceStdDev != null && (
               <MetricCard color="violet" label={t("analysis.metric.cadenceConsistency")} value={sm.cyclingMetrics.cadenceStdDev.toFixed(0)} unit="rpm σ" description={t("analysis.metric.cadenceConsistencyDesc")} tooltip={t("analysis.glossary.cadenceConsistency")} />
+            )}
+            {sm?.cyclingMetrics?.coastingPct != null && sm.cyclingMetrics.coastingSec != null && (
+              <MetricCard color="aqua" label={t("analysis.metric.coasting")} value={Math.round(sm.cyclingMetrics.coastingPct).toString()} unit="%" description={t("analysis.metric.coastingDesc", { duration: formatDuration(sm.cyclingMetrics.coastingSec) })} tooltip={t("analysis.glossary.coasting")} />
             )}
           </div>
         </div>

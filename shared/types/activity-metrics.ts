@@ -231,6 +231,12 @@ export interface ActivityMetrics {
     cadenceStdDev: number | null;
     /** sec — 가장 긴 Z4+ (≥91% FTP) 연속 구간. ftp/watts 없으면 null. */
     longestZ4PlusSec: number | null;
+    /** % — 이동 중 cadence 0(페달을 쉰) 시간 비율. 케이던스 센서·이동 판정이 없으면 없음(v39+, #3221). */
+    coastingPct?: number;
+    /** sec — 이동 중 페달을 쉰 시간 합계. */
+    coastingSec?: number;
+    /** sec — 가장 긴 연속 코스팅. */
+    longestCoastSec?: number;
   };
 
   // ── Swim-specific
