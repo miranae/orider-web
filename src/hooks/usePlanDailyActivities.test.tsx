@@ -182,19 +182,33 @@ describe("usePlanDailyActivities", () => {
     expect(result.current?.total).toEqual({ value: 30, estimated: false });
   });
 
-  it("waits for a server snapshot before deciding to build from a cached document", async () => {
+  it("builds from a cached incomplete document once and never stays loading", async () => {
     setDocData(path("2026-09"), monthDoc("2026-09", {}));
     const original = vi.mocked(onSnapshot).getMockImplementation()!;
     vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, next: (snap: unknown) => void) => {
       if (ref.path !== path("2026-10")) return (original as (...a: unknown[]) => () => void)(ref, next);
-      next({ exists: () => false, data: () => null, metadata: { fromCache: true, hasPendingWrites: false } });
+      // 영속 캐시의 미완성 문서. 서버 데이터가 같으면 추가 이벤트가 오지 않는다.
+      next({ exists: () => true, data: () => monthDoc("2026-10", {}, { complete: false }), metadata: { fromCache: true, hasPendingWrites: false } });
       return () => undefined;
     }) as unknown as typeof onSnapshot);
+    setCallableImplementation("ensureDailyActivities", async () => ({ data: { months: [{ month: "2026-10", status: "current" }] } }));
     const { result } = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }));
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
-    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities")).toHaveLength(0);
-    expect(result.current?.loading).toBe(true);
+    await waitFor(() => expect(result.current?.loading).toBe(false));
+    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities").map(call => call.data)).toEqual([{ discipline: "bike", months: ["2026-10"] }]);
     vi.mocked(onSnapshot).mockImplementation(original);
+  });
+
+  it("extends the subscription to the user's month when their time zone is already past KST", async () => {
+    // 2026-10-31 22:30 KST = 2026-11-01 03:30 (Pacific/Kiritimati, UTC+14)
+    vi.mocked(Date.now).mockReturnValue(Date.parse("2026-10-31T22:30:00+09:00"));
+    const crossing = [{ ...weeks[1], days: [planDay("2026-10-26"), planDay("2026-11-03")] }] as unknown as PlanWeek[];
+    setDocData(path("2026-10"), monthDoc("2026-10", {}, { timezone: "Pacific/Kiritimati" }));
+    setCallableImplementation("ensureDailyActivities", async () => ({ data: { months: [{ month: "2026-11", status: "built" }] } }));
+    const { result } = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks: crossing, enabled: true }));
+    await waitFor(() => expect(vi.mocked(onSnapshot).mock.calls.some(([ref]) => (ref as { path: string }).path === path("2026-11"))).toBe(true));
+    await waitFor(() => expect(result.current?.loading).toBe(false));
+    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities").map(call => call.data)).toEqual([{ discipline: "bike", months: ["2026-11"] }]);
+    expect(result.current?.todayKey).toBe("2026-11-01");
   });
 
   it("splits ensure into calls of at most six months and marks months older than the window unavailable", async () => {

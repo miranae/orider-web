@@ -243,11 +243,13 @@ describe("MobilePlanContent actual activities", () => {
 
   it("keeps the plan with a small notice for days whose month could not be loaded", () => {
     const actual = actualOf({}, { failedMonths: new Set([dateKey(today).slice(0, 7)]), total: null });
-    renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="W1" goalTitle="Goal" actual={actual} />);
+    const view = renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="W1" goalTitle="Goal" actual={actual} />);
     expect(screen.getByTestId("K4-5-10")).toHaveTextContent("활동 확인 불가");
     expect(screen.queryByTestId("K4-7-2")).not.toBeInTheDocument();
     expect(screen.getByTestId("K4-2-5")).toHaveTextContent("—");
-    expect(screen.getByText("75 분 · 60 TSS")).toBeInTheDocument();
+    // 계획은 그대로 보인다(오늘을 확인할 수 없어 다음 운동 카드만 비운다).
+    expect(screen.getByRole("region", { name: "이번 주 요약" })).toHaveTextContent("훈련부하 · TSS60");
+    expect(view.container.querySelector(`[data-plan-date="${dateKey(today)}"]`)).toBeInTheDocument();
   });
 
   it("marks estimated activity load", () => {
@@ -269,5 +271,16 @@ describe("MobilePlanContent review guards", () => {
   it("hides the next workout card while daily documents are loading", () => {
     renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="W1" goalTitle="Goal" actual={actualOf({}, { loading: true, total: null })} />);
     expect(screen.queryByText("오늘의 다음 운동")).not.toBeInTheDocument();
+  });
+
+  it("hides the next workout card when today's month cannot be checked", () => {
+    renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="W1" goalTitle="Goal"
+      actual={actualOf({}, { failedMonths: new Set([dateKey(today).slice(0, 7)]), total: null })} />);
+    expect(screen.queryByText("오늘의 다음 운동")).not.toBeInTheDocument();
+  });
+
+  it("shows the next workout as before when the daily activity feature is inactive", () => {
+    renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="W1" goalTitle="Goal" actual={null} />);
+    expect(screen.getByText("오늘의 다음 운동")).toBeInTheDocument();
   });
 });

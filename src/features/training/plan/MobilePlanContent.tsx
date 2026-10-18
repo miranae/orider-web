@@ -15,6 +15,7 @@ import { Button, Card, Text } from "../../../theme/components";
 import { formatPlanGoalTitle } from "./planDisplay";
 import PlanDayActivities from "./PlanDayActivities";
 import {
+  canShowNextWorkout,
   dailyActivitiesUnavailable,
   sumDailyTss,
   type PlanDailyActivities,
@@ -145,8 +146,8 @@ export default function MobilePlanContent({
   const todayWorkout = todayIdx >= 0 ? days[todayIdx] : null;
   // "한 날" = 그날 그 종목 실제 활동이 있다. 계획 연결 판정(completed)은 화면 표시에 쓰지 않는다.
   const hasActivityOn = (dateKey: string) => (actual?.days.get(dateKey)?.activities.length ?? 0) > 0;
-  // 문서를 읽기 전에는 "한 날"을 알 수 없으니 다음 운동 카드를 비운다(actual 을 넘기지 않은 화면은 예전처럼).
-  const activityKnown = actual === undefined || (actual !== null && !actual.loading);
+  // 문서를 읽는 중이거나 오늘 날짜를 확인할 수 없으면 다음 운동 카드를 비운다(비활성이면 예전처럼, 데스크톱과 같은 기준).
+  const activityKnown = canShowNextWorkout(actual, todayStr);
   const todayActionable = activityKnown && todayWorkout && !hasActivityOn(todayStr) && !todayWorkout.skipped && todayWorkout.workout !== "rest";
   const nextWorkoutIdx = todayActionable ? todayIdx : !activityKnown ? -1 : days.findIndex(day => {
     const key = kstDateString(day.date);

@@ -393,4 +393,13 @@ describe("PlanPresentation review guards", () => {
     await within(activityCell).findByTestId("K4-5-8");
     expect(activityCell.textContent).not.toMatch(/권장/);
   });
+
+  it("shows the next workout as before when daily activities are inactive (no signed-in uid)", () => {
+    desktop();
+    const todayMs = today();
+    const day = { date: todayMs, dayOfWeek: 0, workout: "z2", plannedTSS: 60, plannedDurationMin: 60, completed: false, skipped: false };
+    renderWithProviders(<PlanPresentation model={{ ...model, weeks: [{ id: "w1", weekNumber: 1, phase: "base", startDate: todayMs, plannedTSS: 60, days: [day] }],
+      isTodayCell: () => true } as unknown as PlanModel} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
+    expect(screen.getByText("오늘의 다음 운동")).toBeInTheDocument();
+  });
 });

@@ -12,7 +12,7 @@
  * 문서가 완성으로 보이면 기억을 지우므로, 나중에 서버가 그 달을 다시 무효화하면 다시 부른다.
  * 호출은 6개월씩 나눈다.
  * 트리거는 문서가 없는 달을 만들지 않으므로 문서가 없는 달은 반드시 ensure 로 만든다.
- * 응답이 basis_changed(생성 중 FTP·시간대 변경)인 달은 한 번 더 부른다(같은 달 최대 2회).
+ * 응답이 basis_changed(생성 중 스키마 버전이 바뀐 경우)인 달은 한 번 더 부른다(같은 달 최대 2회).
  * 서버가 받는 달은 사용자 시간대 기준 [이번 달-12, 이번 달] 뿐이라 그 밖의 달은 요청에서 뺀다.
  *
  * 날짜 매칭: 문서의 날짜 키는 사용자 시간대(timezone 필드) 기준 로컬 날짜다. 계획 칸 날짜는
@@ -192,6 +192,19 @@ export function dailyActivitiesUnavailable(actual: PlanDailyActivities, dateKey:
   return dateKey <= actual.todayKey && actual.failedMonths.has(dateKey.slice(0, 7));
 }
 
+/**
+ * "한 날" 판단에 쓸 만큼 문서를 읽었는가. 비활성(null·미지정)이면 활동 표시가 없는 화면으로 보고 true.
+ * 계획 화면 데스크톱·모바일이 같은 기준을 쓴다.
+ */
+export function dailyActivitiesSettled(actual: PlanDailyActivities | null | undefined): boolean {
+  return actual == null || !actual.loading;
+}
+
+/** 다음 운동 카드를 보여도 되는가: 문서를 읽었고 오늘 날짜를 확인할 수 있다. */
+export function canShowNextWorkout(actual: PlanDailyActivities | null | undefined, todayKey: string): boolean {
+  return dailyActivitiesSettled(actual) && !(actual != null && dailyActivitiesUnavailable(actual, todayKey));
+}
+
 export function localDateKey(epochMs: number, timeZone: string | null): string | null {
   if (!timeZone) return null;
   try {
@@ -323,7 +336,12 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
     return () => clearTimeout(timer);
   }, [clock, enabled]);
   const kstToday = planDayKey(Date.now());
-  const { months, uncovered } = useMemo(() => planActivityMonths(weeks, kstToday), [weeks, kstToday]);
+  // 사용자 시간대: 문서에서 알게 되면 그것, 그 전에는 브라우저 시간대. 구독 키가 바뀌어도 유지한다.
+  const [userTimeZone, setUserTimeZone] = useState<string | null>(browserTimeZone);
+  const userToday = localDateKey(Date.now(), userTimeZone) ?? kstToday;
+  // 구독 끝 달 = max(KST 기준 오늘, 사용자 시간대 기준 오늘) 이 속한 달.
+  const subscriptionToday = userToday > kstToday ? userToday : kstToday;
+  const { months, uncovered } = useMemo(() => planActivityMonths(weeks, subscriptionToday), [weeks, subscriptionToday]);
   const range = useMemo(() => planRange(weeks), [weeks]);
   const monthsKey = months.join(",");
   const subscriptionKey = enabled && uid ? `${uid}|${discipline}|${monthsKey}` : "";
@@ -395,12 +413,13 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
       if (pendingBatch.length === 0) return;
       const resolvers = new Map(pendingBatch.map(item => [item.month, item.resolve]));
       const months = [...resolvers.keys()];
-      const userToday = localDateKey(Date.now(), knownTimezone ?? browserTimeZone()) ?? planDayKey(Date.now());
-      const batch = ensurableMonths(months, userToday);
+      const requestToday = localDateKey(Date.now(), knownTimezone ?? browserTimeZone()) ?? planDayKey(Date.now());
+      const batch = ensurableMonths(months, requestToday);
       // 서버가 받지 않는 달(invalid-argument)은 요청하지 않고 있는 문서 그대로 둔다.
       const outOfRange = months.filter(month => !batch.includes(month));
-      if (outOfRange.length > 0) debugLog("PlanPage.ensureDailyActivities.skip", { discipline, months: outOfRange, userToday });
-      for (const month of outOfRange) resolvers.get(month)?.(true);
+      if (outOfRange.length > 0) debugLog("PlanPage.ensureDailyActivities.skip", { discipline, months: outOfRange, requestToday });
+      // 사용자 시간대로 아직 오지 않은 달은 빈 달, 허용 범위보다 오래된 달은 확인 불가로 둔다.
+      for (const month of outOfRange) resolvers.get(month)?.(month > requestToday.slice(0, 7));
       for (let index = 0; index < batch.length; index += MAX_ENSURE_MONTHS_PER_CALL) {
         const chunk = batch.slice(index, index + MAX_ENSURE_MONTHS_PER_CALL);
         void ensureChunk(chunk).then(ok => { for (const month of chunk) resolvers.get(month)?.(ok); });
@@ -435,11 +454,6 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
           update(month, { received: true, needsEnsure: false, ensured: false, failed: false, days, timezone });
           return;
         }
-        // 캐시 문서로는 판단을 미루고 서버 응답을 기다린다(있는 데이터는 보인다).
-        if (snapshot.metadata.fromCache) {
-          update(month, { received: true, needsEnsure: true, days, timezone });
-          return;
-        }
         update(month, { received: true, needsEnsure: true, days, timezone });
         const existing = ensureRequests.get(requestKey(month));
         if (existing) {
@@ -462,7 +476,7 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
   }, [discipline, enabled, firestore, functions, monthsKey, uid]);
 
   const monthStates = state.key === subscriptionKey ? state.months : null;
-  return useMemo(() => {
+  const result = useMemo((): PlanDailyActivities | null => {
     if (!subscriptionKey) return null;
     const days = new Map<string, DailyActivityDay>();
     // 확인 불가 달: 읽기·생성 실패 + 서버 허용 범위보다 오래된 계획 달.
@@ -488,4 +502,9 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
     return { discipline, timezone, todayKey, days, loading, failedMonths, total };
     // clock: 정각마다 todayKey(Date.now 기반)를 다시 계산한다.
   }, [clock, discipline, kstToday, monthStates, months, range, subscriptionKey, uncovered]);
+  const documentTimeZone = result?.timezone ?? null;
+  useEffect(() => {
+    if (documentTimeZone && documentTimeZone !== userTimeZone) setUserTimeZone(documentTimeZone);
+  }, [documentTimeZone, userTimeZone]);
+  return result;
 }

@@ -20,6 +20,8 @@ import { PlanAdjustmentNarrative } from "../../trainingHub/TrainingHubOpportunit
 import MobilePlanContent, { type MobilePlanContentProps } from "./MobilePlanContent";
 import PlanDayActivities from "./PlanDayActivities";
 import {
+  canShowNextWorkout,
+  dailyActivitiesSettled,
   dailyActivitiesUnavailable,
   planActualProgressPct,
   sumDailyTss,
@@ -586,8 +588,8 @@ export default function PlanPresentation({
     enabled: goal !== null && goalMatchesDiscipline,
   });
   const hasActivityOn = (dateKey: string) => (actual?.days.get(dateKey)?.activities.length ?? 0) > 0;
-  // 문서를 읽기 전에는 "한 날"을 알 수 없으니 다음 운동·남은 운동 수를 비운다.
-  const activityKnown = actual != null && !actual.loading;
+  // 문서를 읽는 중에는 "한 날"을 알 수 없으니 남은 운동 수를 비운다(모바일과 같은 기준).
+  const activityKnown = dailyActivitiesSettled(actual);
   const actualTotal = actual?.total ?? null;
   // 진행률 = 실제 부하(계획 첫날~오늘) / 계획 TSS. 실제 부하를 아직 모르면 비운다.
   const progress = planActualProgressPct(totalTSS, actual);
@@ -621,7 +623,8 @@ export default function PlanPresentation({
   }).length, 0) : undefined;
   const planScope = summarizeStoredPlan(weeks, goalDate, Date.now(), hasActivityOn);
   const scopeNotice = goalDate && planScope.afterGoal > 0 ? <Text data-testid="plan-scope-notice" as="p" variant="bodySmall" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)" }}>{t("scope.summary", planScope)}</Text> : null;
-  const nextAction = !activityKnown ? undefined : weeks.slice(currentWeekIndex).flatMap((week) => week.days.map((day, dayIndex) => ({ day, weekId: week.id, dayIndex })))
+  // 오늘 날짜를 확인할 수 없어도 다음 운동 카드를 비운다.
+  const nextAction = !canShowNextWorkout(actual, todayKey) ? undefined : weeks.slice(currentWeekIndex).flatMap((week) => week.days.map((day, dayIndex) => ({ day, weekId: week.id, dayIndex })))
     .find(({ day }) => kstDayKey(day.date) >= todayKey && !hasActivityOn(kstDayKey(day.date)) && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal');
   const nextActionLabel = nextAction ? buildWorkoutMeta(t)[nextAction.day.workout]?.label ?? nextAction.day.workout : null;
   const goalTitle = goal?.title ?? goal?.courseName ?? '—';
