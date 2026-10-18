@@ -294,6 +294,12 @@ function monthStatus(month: MonthState | undefined): "loading" | "ready" | "erro
   return "ready";
 }
 
+/** 계획 진행률(%) = 실제 부하(계획 첫날~오늘) ÷ 계획 TSS. 계획 화면·목표 화면 공용. 모르면 null. */
+export function planActualProgressPct(totalTSS: number, actual: PlanDailyActivities | null | undefined): number | null {
+  const value = actual?.total?.value;
+  return totalTSS > 0 && value != null ? Math.round((value / totalTSS) * 100) : null;
+}
+
 /** 다음 정각(최대 1시간)까지 — 어느 시간대의 자정이든 1시간 안에 "오늘"이 바뀐다. */
 function msUntilNextHour(now: number): number {
   return Math.max(1_000, 3_600_000 - (now % 3_600_000));
@@ -330,7 +336,9 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
     let cancelled = false;
     // 달 → 지금 기다리는 생성 요청. 문서가 완성되면 지운다.
     const awaiting = new Map<string, Promise<boolean>>();
-    const pending: string[] = [];
+    // 생성 요청 대기열. 세션 기억(ensureRequests)에는 대기열에 넣는 순간 등록해, 같은 틱에 같은 달을
+    // 구독한 다른 화면(계획·목표 화면 동시 마운트, StrictMode 재마운트)이 중복 호출하지 않게 한다.
+    const pending: Array<{ month: string; resolve: (ok: boolean) => void }> = [];
     let timer: ReturnType<typeof setTimeout> | null = null;
     // 허용 달 범위 계산용 사용자 시간대. 문서·응답에서 알게 되기 전에는 브라우저 시간대로 근사한다.
     let knownTimezone: string | null = null;
@@ -355,8 +363,6 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
     const ensure = httpsCallable<{ discipline: PlanDiscipline; months: string[] }, unknown>(dailyActivitiesFunctions(functions), "ensureDailyActivities");
     /** 한 묶음(≤6개월): basis_changed 는 같은 달 최대 2회, invalid-argument 는 범위를 좁혀 1회 재시도. */
     const ensureChunk = async (chunk: string[]): Promise<boolean> => {
-      // 세션 기억(ensureRequests)에 등록된 뒤에 호출해야, 호출 중 도착한 완성 스냅샷이 기억을 지울 수 있다.
-      await Promise.resolve();
       let targets = chunk;
       let narrowed = false;
       for (let attempt = 1; attempt <= MAX_ENSURE_ATTEMPTS && targets.length > 0;) {
@@ -387,24 +393,31 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
       timer = null;
       const pendingBatch = pending.splice(0);
       if (pendingBatch.length === 0) return;
+      const resolvers = new Map(pendingBatch.map(item => [item.month, item.resolve]));
+      const months = [...resolvers.keys()];
       const userToday = localDateKey(Date.now(), knownTimezone ?? browserTimeZone()) ?? planDayKey(Date.now());
-      const batch = ensurableMonths(pendingBatch, userToday);
+      const batch = ensurableMonths(months, userToday);
       // 서버가 받지 않는 달(invalid-argument)은 요청하지 않고 있는 문서 그대로 둔다.
-      const outOfRange = pendingBatch.filter(month => !batch.includes(month));
+      const outOfRange = months.filter(month => !batch.includes(month));
       if (outOfRange.length > 0) debugLog("PlanPage.ensureDailyActivities.skip", { discipline, months: outOfRange, userToday });
-      for (const month of outOfRange) update(month, { ensured: true });
+      for (const month of outOfRange) resolvers.get(month)?.(true);
       for (let index = 0; index < batch.length; index += MAX_ENSURE_MONTHS_PER_CALL) {
         const chunk = batch.slice(index, index + MAX_ENSURE_MONTHS_PER_CALL);
-        const call = ensureChunk(chunk);
-        for (const month of chunk) {
-          const request = call.then(ok => {
-            if (!ok && ensureRequests.get(requestKey(month)) === request) ensureRequests.delete(requestKey(month));
-            return ok;
-          });
-          ensureRequests.set(requestKey(month), request);
-          settle(month, request);
-        }
+        void ensureChunk(chunk).then(ok => { for (const month of chunk) resolvers.get(month)?.(ok); });
       }
+    };
+    const enqueue = (month: string) => {
+      let resolve: (ok: boolean) => void = () => undefined;
+      const deferred = new Promise<boolean>(done => { resolve = done; });
+      const request = deferred.then(ok => {
+        if (!ok && ensureRequests.get(requestKey(month)) === request) ensureRequests.delete(requestKey(month));
+        return ok;
+      });
+      ensureRequests.set(requestKey(month), request);
+      settle(month, request);
+      pending.push({ month, resolve });
+      // 같은 틱에 도착하는 여러 달의 첫 응답을 한 번의 호출로 묶는다.
+      timer ??= setTimeout(flush, 0);
     };
 
     const unsubscribes = monthList.map(month => onSnapshot(
@@ -433,9 +446,7 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
           settle(month, existing);
           return;
         }
-        if (!pending.includes(month) && !awaiting.has(month)) pending.push(month);
-        // 같은 틱에 도착하는 여러 달의 첫 응답을 한 번의 호출로 묶는다.
-        timer ??= setTimeout(flush, 0);
+        if (!awaiting.has(month)) enqueue(month);
       },
       error => {
         logClientError("PlanPage.dailyActivities", error, { discipline, month });
@@ -445,7 +456,7 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
 
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
+      // 대기열은 취소하지 않는다: 이미 세션 기억에 올린 요청을 다른 화면이 기다릴 수 있다(화면 갱신은 cancelled 로 막힌다).
       for (const unsubscribe of unsubscribes) unsubscribe();
     };
   }, [discipline, enabled, firestore, functions, monthsKey, uid]);

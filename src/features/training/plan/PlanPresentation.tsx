@@ -21,6 +21,7 @@ import MobilePlanContent, { type MobilePlanContentProps } from "./MobilePlanCont
 import PlanDayActivities from "./PlanDayActivities";
 import {
   dailyActivitiesUnavailable,
+  planActualProgressPct,
   sumDailyTss,
   usePlanDailyActivities,
   type PlanDailyActivities,
@@ -589,7 +590,7 @@ export default function PlanPresentation({
   const activityKnown = actual != null && !actual.loading;
   const actualTotal = actual?.total ?? null;
   // 진행률 = 실제 부하(계획 첫날~오늘) / 계획 TSS. 실제 부하를 아직 모르면 비운다.
-  const progress = totalTSS > 0 && actualTotal?.value != null ? Math.round((actualTotal.value / totalTSS) * 100) : null;
+  const progress = planActualProgressPct(totalTSS, actual);
   const firstCalendarWeek = weeks.find(week => week.days.length > 0);
   const firstCalendarWeekday = firstCalendarWeek?.days[0]
     ? (planCalendarDate(firstCalendarWeek.days[0].date).getUTCDay() + 6) % 7 : 0;

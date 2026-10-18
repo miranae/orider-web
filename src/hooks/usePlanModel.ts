@@ -60,8 +60,6 @@ export interface PlanModel {
   goalDate: Date | null;
   daysLeft: number;
   totalTSS: number;
-  completedTSS: number;
-  progress: number;
   weeksLeft: number;
   isTodayCell: (day: PlanDay) => boolean;
   retryLoad: () => void;
@@ -263,12 +261,8 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
   const daysLeft = goalDate
     ? Math.max(0, Math.round((goalDate.getTime() - todayMs) / DAY_MS))
     : 0;
-  const {
-    totalTSS,
-    completedTSS,
-    progressPct: progress,
-    weeksLeft,
-  } = computePlanProgress(weeks, todayMs);
+  // 완료 TSS·진행률(계획 연결 판정 기반)은 화면에서 쓰지 않는다 — 진행률은 planActualProgressPct(일별 활동 문서).
+  const { totalTSS, weeksLeft } = computePlanProgress(weeks, todayMs);
   const goalMatchesDiscipline = !goal || !goal.discipline || goal.discipline === discipline;
   const isTodayCell = useCallback((day: PlanDay): boolean => {
     return planDayKey(day.date) === planDayKey(todayMs);
@@ -338,8 +332,6 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
     goalDate,
     daysLeft,
     totalTSS,
-    completedTSS,
-    progress,
     weeksLeft,
     isTodayCell,
     retryLoad,

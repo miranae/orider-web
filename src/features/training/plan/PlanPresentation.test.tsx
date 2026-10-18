@@ -19,8 +19,6 @@ const model = {
   justRecomputed: false,
   daysLeft: 20,
   totalTSS: 200,
-  completedTSS: 50,
-  progress: 25,
   weeksLeft: 3,
   isTodayCell: () => false,
 } as unknown as PlanModel;
@@ -158,7 +156,7 @@ describe("PlanPresentation responsive layout", () => {
   it("omits unsupported fitness forecasts and empty course metrics for a time-based running goal", () => {
     vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: false, media: query, onchange: null,
       addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
-    const runModel = { ...model, discipline: "run", totalTSS: 0, completedTSS: 0,
+    const runModel = { ...model, discipline: "run", totalTSS: 0,
       goal: { ...model.goal, title: "30분 달리기", courseDist: 0, courseElev: 0, targetDurationMin: 30, snapshot: { ctl: 50 } },
     } as unknown as PlanModel;
     renderWithProviders(<PlanPresentation model={runModel} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);

@@ -6,6 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { usePlanModel } from "../hooks/usePlanModel";
+import { planActualProgressPct, usePlanDailyActivities } from "../hooks/usePlanDailyActivities";
 import { useDialog } from "../contexts/DialogContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
@@ -20,6 +21,14 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   const [params] = useSearchParams();
   const model = usePlanModel(params.get("sport"));
   const { user, goal, discipline } = model;
+  // 진행률은 계획 화면과 같은 값: 일별 활동 문서 기반 실제 부하(계획 첫날~오늘) ÷ 계획 TSS.
+  const actual = usePlanDailyActivities({
+    uid: user && !user.isAnonymous ? user.uid : null,
+    discipline,
+    weeks: model.weeks,
+    enabled: goal !== null && model.goalMatchesDiscipline,
+  });
+  const progress = planActualProgressPct(model.totalTSS, actual);
   const [choice, setChoice] = useState<{ sport: string; kind: "event" | "climb" } | null>(null);
   const [error, setError] = useState(false);
   const types = useRef<HTMLDivElement>(null);
@@ -61,9 +70,9 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
         <div data-testid="K3-1-1"><Text as="h2" variant="title">{goal.title || goal.courseName}</Text><Text>{t(`goalHub.goalType.${goal.runProgram ? "program" : goal.goalType === "climb" ? "climb" : goal.eventType === "completion" ? "completion" : goal.eventType === "time" ? "time" : "race"}`)} · {model.goalDate?.toLocaleDateString(i18n.resolvedLanguage ?? i18n.language)} · D-{Math.max(0, model.daysLeft)}</Text><Text>{goal.targetDurationMin ? t("goalHub.minutes", { value: goal.targetDurationMin }) : null}{goal.target?.climbDurationMin ? <GlossaryText>{`${t("goalHub.minutes", { value: goal.target.climbDurationMin })} · ${goal.target.targetWkg ?? "—"} W/kg`}</GlossaryText> : null}</Text></div>
         <div data-testid="K3-1-2" style={{ marginBlock: "var(--space-4)" }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-2)", color: "var(--ink-1)" }}>
-            <Text>{t("goalHub.planProgress")}</Text><Text variant="dataMedium">{model.progress}%</Text>
+            <Text>{t("goalHub.planProgress")}</Text><Text variant="dataMedium">{progress != null ? `${progress}%` : "—"}</Text>
           </div>
-          <Progress value={model.progress / 100} aria-label={t("goalHub.progress")} />
+          <Progress value={(progress ?? 0) / 100} aria-label={t("goalHub.progress")} aria-valuenow={progress ?? undefined} />
           {goalDay && <Text>{t("goalHub.goalDayEstimate")} · <GlossaryText>{`CTL ${goalDay.ctl.toFixed(1)} · TSB ${goalDay.tsb.toFixed(1)}`}</GlossaryText></Text>}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-3)" }}>

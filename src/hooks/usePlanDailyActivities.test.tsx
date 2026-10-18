@@ -13,6 +13,7 @@ import {
   ensurableMonths,
   readEnsureResponse,
   parseDailyActivityDays,
+  planActualProgressPct,
   planActivityMonths,
   sumDailyTss,
   sumDailyTssInRange,
@@ -325,5 +326,25 @@ describe("usePlanDailyActivities", () => {
       { discipline: "bike", months: ["2026-10"] },
     ]);
     expect(result.current?.failedMonths.size).toBe(0);
+  });
+
+  it("shares one ensure request between screens mounted in the same tick (plan + goal hub, StrictMode)", async () => {
+    setCallableImplementation("ensureDailyActivities", async () => ({ data: { months: [] } }));
+    const views = renderHook(() => [
+      usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }),
+      usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }),
+    ]);
+    await waitFor(() => expect(views.result.current.every(actual => actual?.loading === false)).toBe(true));
+    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities").map(call => call.data)).toEqual([
+      { discipline: "bike", months: ["2026-09", "2026-10"] },
+    ]);
+  });
+
+  it("computes the shared plan progress from actual load and plan TSS", () => {
+    const actual = { total: { value: 45, estimated: false } } as Parameters<typeof planActualProgressPct>[1];
+    expect(planActualProgressPct(180, actual)).toBe(25);
+    expect(planActualProgressPct(0, actual)).toBeNull();
+    expect(planActualProgressPct(180, { ...actual!, total: null })).toBeNull();
+    expect(planActualProgressPct(180, null)).toBeNull();
   });
 });

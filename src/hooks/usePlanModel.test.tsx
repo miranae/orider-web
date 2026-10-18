@@ -117,8 +117,6 @@ describe("usePlanModel", () => {
     expect(result.current.goal?.id).toBe("goal-run");
     expect(result.current.weeks).toHaveLength(1);
     expect(result.current.totalTSS).toBe(80);
-    expect(result.current.completedTSS).toBe(40);
-    expect(result.current.progress).toBe(50);
     expect(collection).toHaveBeenCalledWith(firestore, "goals");
     expect(collection).toHaveBeenCalledWith(firestore, "goals", "goal-run", "plan");
     expect(mocks.freshTraining).toHaveBeenCalledWith("run", true, true);

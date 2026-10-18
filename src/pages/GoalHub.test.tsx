@@ -5,13 +5,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setDocData } from "../__tests__/mocks/firebase";
 import GoalHub from "./GoalHub";
-const state = vi.hoisted(() => ({ goal: null as null | Record<string, unknown>, sport: "bike", user: { uid: "owner" } as { uid: string; isAnonymous?: boolean } | null }));
-vi.mock("../hooks/usePlanModel", () => ({ usePlanModel: () => ({ user: state.user, goal: state.goal, discipline: state.sport, loading: false, loadError: null, progress: 12, weeks: [], daysLeft: 30, goalDate: new Date("2026-12-01"), retryLoad: vi.fn() }) }));
+import { __resetDailyActivitiesEnsureForTests } from "../hooks/usePlanDailyActivities";
+const state = vi.hoisted(() => ({ goal: null as null | Record<string, unknown>, sport: "bike", user: { uid: "owner" } as { uid: string; isAnonymous?: boolean } | null,
+  weeks: [] as unknown[], totalTSS: 0 }));
+vi.mock("../hooks/usePlanModel", () => ({ usePlanModel: () => ({ user: state.user, goal: state.goal, discipline: state.sport, loading: false, loadError: null, weeks: state.weeks, totalTSS: state.totalTSS, goalMatchesDiscipline: true, daysLeft: 30, goalDate: new Date("2026-12-01"), retryLoad: vi.fn() }) }));
+const todayKey = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
+const todayMs = Date.parse(`${todayKey}T00:00:00+09:00`);
+/** 오늘 하루짜리 계획(계획 TSS 100)과 그달 일별 활동 문서(실제 12 TSS). */
+function seedActualPlan() {
+  state.weeks = [{ id: "w1", weekNumber: 1, phase: "base", startDate: todayMs, plannedTSS: 100,
+    days: [{ date: todayMs, dayOfWeek: 0, workout: "z2", plannedTSS: 100, plannedDurationMin: 60, completed: false, skipped: false }] }];
+  state.totalTSS = 100;
+  setDocData(`users/owner/daily_activities/bike_${todayKey.slice(0, 7)}`, { uid: "owner", discipline: "bike", month: todayKey.slice(0, 7), timezone: "Asia/Seoul",
+    schemaVersion: 1, ftp: 250, complete: true, updatedAt: 1, dayAsOf: {},
+    days: { [todayKey]: { tss: 12, tssEstimated: false, activities: [{ id: "a", startTime: todayMs + 3_600_000, distance: 10000, movingSec: 1800, tss: 12, estimated: false, source: "orider" }] } } });
+}
 vi.mock("./ClimbGoalSetupPage", () => ({ default: () => <div>climb form</div> }));
-beforeEach(() => { state.goal = null; state.sport = "bike"; state.user = { uid: "owner" }; });
+beforeEach(() => { state.goal = null; state.sport = "bike"; state.user = { uid: "owner" }; state.weeks = []; state.totalTSS = 0; __resetDailyActivitiesEnsureForTests(); });
 describe("goal hub", () => {
   it("shows the existing goal before type selection and opens the wizard only after choosing", () => {
     state.goal = { id: "g", title: "Winter course", courseName: "Course", eventType: "completion" };
+    seedActualPlan();
     renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />, { route: "/ko/coach/goals?sport=bike" });
     expect(screen.getByTestId("K3-1-1")).toHaveTextContent("Winter course");
     expect(screen.getByTestId("K3-1-2")).toHaveTextContent("계획진행률12%");
@@ -72,4 +86,13 @@ it.each(['ko', 'en'])('uses the active %s UI locale for the saved target date', 
     expect(screen.getByTestId('K3-1-1')).toHaveTextContent(expectedDate);
     expect(format).toHaveBeenCalledWith(locale);
   } finally { format.mockRestore(); await i18n.changeLanguage(previous); }
+});
+
+describe("goal hub progress", () => {
+  it("uses the plan screen's actual-load progress and shows a dash until it is known", () => {
+    state.goal = { id: "g", title: "No plan yet", eventType: "completion" };
+    renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />);
+    expect(screen.getByTestId("K3-1-2")).toHaveTextContent("계획진행률—");
+    expect(screen.getByRole("progressbar", { name: "목표 진행률" })).not.toHaveAttribute("aria-valuenow");
+  });
 });
