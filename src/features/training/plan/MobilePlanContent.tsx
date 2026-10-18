@@ -145,8 +145,10 @@ export default function MobilePlanContent({
   const todayWorkout = todayIdx >= 0 ? days[todayIdx] : null;
   // "한 날" = 그날 그 종목 실제 활동이 있다. 계획 연결 판정(completed)은 화면 표시에 쓰지 않는다.
   const hasActivityOn = (dateKey: string) => (actual?.days.get(dateKey)?.activities.length ?? 0) > 0;
-  const todayActionable = todayWorkout && !hasActivityOn(todayStr) && !todayWorkout.skipped && todayWorkout.workout !== "rest";
-  const nextWorkoutIdx = todayActionable ? todayIdx : days.findIndex(day => {
+  // 문서를 읽기 전에는 "한 날"을 알 수 없으니 다음 운동 카드를 비운다(actual 을 넘기지 않은 화면은 예전처럼).
+  const activityKnown = actual === undefined || (actual !== null && !actual.loading);
+  const todayActionable = activityKnown && todayWorkout && !hasActivityOn(todayStr) && !todayWorkout.skipped && todayWorkout.workout !== "rest";
+  const nextWorkoutIdx = todayActionable ? todayIdx : !activityKnown ? -1 : days.findIndex(day => {
     const key = kstDateString(day.date);
     return key >= todayStr && !hasActivityOn(key) && !day.skipped && day.workout !== "rest";
   });
@@ -303,7 +305,8 @@ export default function MobilePlanContent({
         // 지난 날에 활동이 없으면 판정 문구 없이 계획만 흐리게 둔다.
         const state = hasActivities ? "active" : isToday ? "today" : isRest ? "off" : isPast ? "past" : "planned";
         const stateLabel = state === "active" ? t('mobile.stateActive') : state === "today" ? t('mobile.stateToday') : state === "planned" ? t('mobile.statePlanned') : "";
-        const actualList = actual ? <PlanDayActivities actual={actual} dateKey={dayStr} /> : null;
+        const actualList = actual && (hasActivities || dailyActivitiesUnavailable(actual, dayStr))
+          ? <PlanDayActivities actual={actual} dateKey={dayStr} /> : null;
 
         const intensityColor = isRest ? "var(--ink-4)"
           : (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? "var(--amber)"
@@ -336,8 +339,11 @@ export default function MobilePlanContent({
           );
         }
 
+        const rowBackground = isToday || dayStr === selectedDate ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent";
+        // 행 전체가 편집 버튼(role=button)이라 활동 링크는 버튼 안에 넣지 않고 형제로 둔다.
         return (
-          <div key={i} className="flex items-center gap-3.5"
+          <div key={i} style={{ borderBottom: "1px solid var(--line-soft)", background: rowBackground }}>
+          <div className="flex items-center gap-3.5"
             data-plan-date={dayStr}
             aria-current={dayStr === selectedDate ? "date" : undefined}
             data-testid={dayStr === selectedDate ? "K4-5-6" : undefined}
@@ -352,8 +358,7 @@ export default function MobilePlanContent({
               }
             } : undefined}
             style={{
-              padding: "13px 16px", borderBottom: "1px solid var(--line-soft)",
-              background: isToday || dayStr === selectedDate ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent",
+              padding: "13px 16px",
               cursor: onEditWorkout ? "pointer" : "default",
               opacity: state === "past" ? 0.6 : 1,
             }}>
@@ -393,9 +398,10 @@ export default function MobilePlanContent({
                   {stateLabel}
                 </div>
               )}
-              {actualList}
             </div>
             {state === "active" && <span aria-hidden="true" style={{ color: "var(--lime)", fontSize: "var(--fs-base)" }}>✓</span>}
+          </div>
+          {actualList && <div style={{ padding: "0 var(--space-4) var(--space-3) var(--space-8)" }}>{actualList}</div>}
           </div>
         );
       })}

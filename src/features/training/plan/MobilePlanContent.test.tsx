@@ -257,3 +257,17 @@ describe("MobilePlanContent actual activities", () => {
     expect(screen.getByTestId("K4-2-5")).toHaveTextContent("30 추정");
   });
 });
+
+describe("MobilePlanContent review guards", () => {
+  it("keeps activity links outside the row edit button", () => {
+    renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="W1" onEditWorkout={vi.fn()} actual={actualOf({ [dateKey(today)]: activityDay("ride-x", 40) })} />);
+    const link = screen.getByTestId("K4-5-8");
+    expect(link.closest('[role="button"]')).toBeNull();
+    expect(screen.getByRole("button", { name: /운동한 날/ })).toBeInTheDocument();
+  });
+
+  it("hides the next workout card while daily documents are loading", () => {
+    renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="W1" goalTitle="Goal" actual={actualOf({}, { loading: true, total: null })} />);
+    expect(screen.queryByText("오늘의 다음 운동")).not.toBeInTheDocument();
+  });
+});

@@ -8,9 +8,10 @@ import { mockCallableInvocations, setCallableImplementation, setDocData } from "
 import * as errorLogger from "../services/errorLogger";
 import {
   __resetDailyActivitiesEnsureForTests,
-  basisChangedMonths,
+  ensurableMonthsInAnyTimeZone,
   dailyActivitiesUnavailable,
   ensurableMonths,
+  readEnsureResponse,
   parseDailyActivityDays,
   planActivityMonths,
   sumDailyTss,
@@ -51,11 +52,15 @@ describe("daily activity document helpers", () => {
     expect(days.get("2026-10-02")?.activities[0]).toMatchObject({ id: "b", tss: null, distance: null });
   });
 
-  it("covers only the plan months through today and caps the subscription", () => {
-    expect(planActivityMonths(weeks, "2026-10-17")).toEqual(["2026-09", "2026-10"]);
-    expect(planActivityMonths(weeks, "2026-09-01")).toEqual([]);
-    const long = [{ ...weeks[0], days: [planDay("2026-01-05"), planDay("2026-10-20")] }] as unknown as PlanWeek[];
-    expect(planActivityMonths(long, "2026-10-17")).toEqual(["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"]);
+  it("covers the plan months through today within the server window and lists older ones as uncovered", () => {
+    expect(planActivityMonths(weeks, "2026-10-17")).toEqual({ months: ["2026-09", "2026-10"], uncovered: [] });
+    expect(planActivityMonths(weeks, "2026-09-01")).toEqual({ months: [], uncovered: [] });
+    const long = [{ ...weeks[0], days: [planDay("2025-08-04"), planDay("2026-10-20")] }] as unknown as PlanWeek[];
+    const { months, uncovered } = planActivityMonths(long, "2026-10-17");
+    expect(months).toHaveLength(13);
+    expect(months[0]).toBe("2025-10");
+    expect(months[12]).toBe("2026-10");
+    expect(uncovered).toEqual(["2025-08", "2025-09"]);
   });
 
   it("sums server day TSS, keeps estimates visible and leaves unknown load empty", () => {
@@ -66,6 +71,8 @@ describe("daily activity document helpers", () => {
     });
     expect(sumDailyTss(days, ["2026-10-01", "2026-10-02", "2026-10-03"])).toEqual({ value: 60, estimated: true });
     expect(sumDailyTss(days, ["2026-10-03"])).toEqual({ value: null, estimated: false });
+    // TSS 를 모르는 활동일이 빠진 합계는 추정으로 표시한다.
+    expect(sumDailyTss(days, ["2026-10-01", "2026-10-03"])).toEqual({ value: 40, estimated: true });
     expect(sumDailyTss(days, ["2026-10-04"])).toEqual({ value: 0, estimated: false });
     expect(sumDailyTssInRange(days, "2026-10-02", "2026-10-31")).toEqual({ value: 20, estimated: true });
   });
@@ -77,9 +84,15 @@ describe("ensure request helpers", () => {
     expect(ensurableMonths(["2025-12", "2026-01"], "2026-01-01")).toEqual(["2025-12", "2026-01"]);
   });
 
-  it("reads basis_changed months from the response", () => {
-    expect(basisChangedMonths({ months: [{ month: "2026-09", status: "built" }, { month: "2026-10", status: "basis_changed" }, { status: "basis_changed" }] })).toEqual(["2026-10"]);
-    expect(basisChangedMonths(null)).toEqual([]);
+  it("reads the time zone and basis_changed months from the response", () => {
+    expect(readEnsureResponse({ timezone: "Asia/Seoul", months: [{ month: "2026-09", status: "built" }, { month: "2026-10", status: "basis_changed" }, { status: "basis_changed" }] }))
+      .toEqual({ timezone: "Asia/Seoul", basisChanged: ["2026-10"] });
+    expect(readEnsureResponse(null)).toEqual({ timezone: null, basisChanged: [] });
+  });
+
+  it("keeps only months valid in every time zone for the narrowed retry", () => {
+    // 2026-11-01 03:00 KST: UTC-12 은 아직 10월, UTC+14 는 11월
+    expect(ensurableMonthsInAnyTimeZone(["2025-10", "2025-11", "2026-10", "2026-11"], Date.parse("2026-11-01T03:00:00+09:00"))).toEqual(["2025-11", "2026-10"]);
   });
 });
 
@@ -121,11 +134,96 @@ describe("usePlanDailyActivities", () => {
     expect(first.result.current?.total).toEqual({ value: 55, estimated: false });
     first.unmount();
 
-    // 같은 세션에서 다시 열어도(문서가 여전히 미완성이어도) 같은 달은 다시 부르지 않는다.
-    setDocData(path("2026-10"), monthDoc("2026-10", {}, { schemaVersion: 0 }));
+    // 같은 세션에서 다시 열어도 완성 문서면 부르지 않는다.
     const second = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }));
     await waitFor(() => expect(second.result.current?.loading).toBe(false));
     expect(mockCallableInvocations).toHaveLength(1);
+  });
+
+  it("does not repeat ensure while a month stays incomplete after a successful request", async () => {
+    setDocData(path("2026-09"), monthDoc("2026-09", {}));
+    setDocData(path("2026-10"), monthDoc("2026-10", {}, { complete: false }));
+    setCallableImplementation("ensureDailyActivities", async () => ({ data: { months: [{ month: "2026-10", status: "current" }] } }));
+    const first = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }));
+    await waitFor(() => expect(first.result.current?.loading).toBe(false));
+    act(() => setDocData(path("2026-10"), monthDoc("2026-10", {}, { complete: false, updatedAt: 2 })));
+    first.unmount();
+    const second = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }));
+    await waitFor(() => expect(second.result.current?.loading).toBe(false));
+    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities")).toHaveLength(1);
+  });
+
+  it("asks again when the server later invalidates a month that was complete", async () => {
+    setDocData(path("2026-09"), monthDoc("2026-09", {}));
+    setDocData(path("2026-10"), monthDoc("2026-10", {}, { complete: false }));
+    setCallableImplementation("ensureDailyActivities", async () => {
+      setDocData(path("2026-10"), monthDoc("2026-10", {}));
+      return { data: { months: [{ month: "2026-10", status: "built" }] } };
+    });
+    const { result } = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }));
+    await waitFor(() => expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities")).toHaveLength(1));
+    await waitFor(() => expect(result.current?.loading).toBe(false));
+    // FTP 변경 등으로 서버가 complete:false 로 내리면 다시 만든다(한 번만).
+    act(() => setDocData(path("2026-10"), monthDoc("2026-10", {}, { complete: false, updatedAt: 3 })));
+    await waitFor(() => expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities")).toHaveLength(2));
+    await waitFor(() => expect(result.current?.loading).toBe(false));
+    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities")).toHaveLength(2);
+  });
+
+  it("clears a failure once a complete document arrives", async () => {
+    vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+    setDocData(path("2026-09"), monthDoc("2026-09", {}));
+    setCallableImplementation("ensureDailyActivities", async () => { throw new Error("internal"); });
+    const { result } = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }));
+    await waitFor(() => expect(result.current?.failedMonths.has("2026-10")).toBe(true));
+    act(() => setDocData(path("2026-10"), monthDoc("2026-10", { "2026-10-12": { tss: 30, tssEstimated: false, activities: [ride("late", 30)] } })));
+    await waitFor(() => expect(result.current?.failedMonths.size).toBe(0));
+    expect(result.current?.total).toEqual({ value: 30, estimated: false });
+  });
+
+  it("waits for a server snapshot before deciding to build from a cached document", async () => {
+    setDocData(path("2026-09"), monthDoc("2026-09", {}));
+    const original = vi.mocked(onSnapshot).getMockImplementation()!;
+    vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, next: (snap: unknown) => void) => {
+      if (ref.path !== path("2026-10")) return (original as (...a: unknown[]) => () => void)(ref, next);
+      next({ exists: () => false, data: () => null, metadata: { fromCache: true, hasPendingWrites: false } });
+      return () => undefined;
+    }) as unknown as typeof onSnapshot);
+    const { result } = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities")).toHaveLength(0);
+    expect(result.current?.loading).toBe(true);
+    vi.mocked(onSnapshot).mockImplementation(original);
+  });
+
+  it("splits ensure into calls of at most six months and marks months older than the window unavailable", async () => {
+    const long = [{ ...weeks[0], days: [planDay("2025-08-04"), planDay("2026-10-20")] }] as unknown as PlanWeek[];
+    setCallableImplementation("ensureDailyActivities", async () => ({ data: { months: [] } }));
+    const { result } = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks: long, enabled: true }));
+    await waitFor(() => expect(result.current?.loading).toBe(false));
+    const calls = mockCallableInvocations.filter(call => call.name === "ensureDailyActivities").map(call => (call.data as { months: string[] }).months);
+    expect(calls.map(months => months.length)).toEqual([6, 6, 1]);
+    expect(calls.flat()[0]).toBe("2025-10");
+    expect(result.current?.failedMonths).toEqual(new Set(["2025-08", "2025-09"]));
+    expect(dailyActivitiesUnavailable(result.current!, "2025-08-04")).toBe(true);
+    expect(result.current?.total).toBeNull();
+  });
+
+  it("retries once with months valid in every time zone after invalid-argument", async () => {
+    vi.mocked(Date.now).mockReturnValue(Date.parse("2026-11-01T03:00:00+09:00"));
+    const crossing = [{ ...weeks[1], days: [planDay("2026-10-26"), planDay("2026-11-01")] }] as unknown as PlanWeek[];
+    setDocData(path("2026-10"), monthDoc("2026-10", {}, { complete: false }));
+    setCallableImplementation("ensureDailyActivities", async (data) => {
+      if ((data as { months: string[] }).months.includes("2026-11")) throw Object.assign(new Error("bad month"), { code: "functions/invalid-argument" });
+      return { data: { months: [{ month: "2026-10", status: "built" }] } };
+    });
+    const { result } = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks: crossing, enabled: true }));
+    await waitFor(() => expect(result.current?.loading).toBe(false));
+    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities").map(call => call.data)).toEqual([
+      { discipline: "bike", months: ["2026-10", "2026-11"] },
+      { discipline: "bike", months: ["2026-10"] },
+    ]);
+    expect(result.current?.failedMonths.size).toBe(0);
   });
 
   it("calls ensure for an outdated schema even when the document says complete", async () => {

@@ -4,10 +4,13 @@
  * 문서: `users/{uid}/daily_activities/{discipline}_{YYYY-MM}` (본인 read 전용, 서버 write).
  * 같은 주행 중복 제거·TSS 산출은 서버가 끝낸 값이다. 웹은 다시 계산하지 않는다(지표 정본 원칙).
  *
- * 읽기 비용: 계획 범위(첫날~오늘)의 월 문서만 onSnapshot 으로 구독한다(보통 2~4개, 최대 6개).
+ * 읽기 비용: 계획 범위(첫날~오늘)의 월 문서만 onSnapshot 으로 구독한다(보통 2~4개). 서버 허용 범위
+ * [이번 달-12, 이번 달] 안의 달만 구독하고(최대 13개), 더 오래된 계획 달은 "확인 불가"로 둔다.
  * 활동이 추가·삭제되면 서버가 문서를 갱신하므로 재조회·캐시 로직은 두지 않는다.
  * 문서가 없거나 미완성(complete!==true)·스키마 불일치일 때만 `ensureDailyActivities` 를 부르고,
  * 같은 세션에서 같은 달은 한 번만 부른다(성공한 요청은 기억, 실패하면 다음 마운트에서 다시 시도).
+ * 문서가 완성으로 보이면 기억을 지우므로, 나중에 서버가 그 달을 다시 무효화하면 다시 부른다.
+ * 호출은 6개월씩 나눈다.
  * 트리거는 문서가 없는 달을 만들지 않으므로 문서가 없는 달은 반드시 ensure 로 만든다.
  * 응답이 basis_changed(생성 중 FTP·시간대 변경)인 달은 한 번 더 부른다(같은 달 최대 2회).
  * 서버가 받는 달은 사용자 시간대 기준 [이번 달-12, 이번 달] 뿐이라 그 밖의 달은 요청에서 뺀다.
@@ -30,8 +33,6 @@ import type { PlanDiscipline } from "./usePlanModel";
 
 /** @sync-with orider-g1-web functions daily_activities schemaVersion */
 export const DAILY_ACTIVITIES_SCHEMA_VERSION = 1;
-/** ensureDailyActivities 가 한 번에 받는 최대 달 수이자 구독 상한. */
-export const MAX_DAILY_ACTIVITY_MONTHS = 6;
 
 export interface DailyActivity {
   id: string;
@@ -66,9 +67,9 @@ export interface PlanDailyActivities {
   days: ReadonlyMap<string, DailyActivityDay>;
   /** 구독 중인 달 가운데 아직 첫 응답·생성 요청을 기다리는 달이 있다. */
   loading: boolean;
-  /** 읽기·생성 요청이 실패한 달(YYYY-MM). */
+  /** 확인할 수 없는 달(YYYY-MM): 읽기·생성 실패 또는 서버 허용 범위보다 오래된 계획 달. */
   failedMonths: ReadonlySet<string>;
-  /** 계획 첫날~오늘(계획 마지막 날까지) 실제 TSS 합계. 로딩·실패 중에는 null. */
+  /** 계획 첫날~오늘(계획 마지막 날까지) 실제 TSS 합계. 로딩 중이거나 확인 불가 달이 있으면 null. */
   total: TssSum | null;
 }
 
@@ -114,11 +115,10 @@ export function parseDailyActivityDays(raw: unknown): Map<string, DailyActivityD
   return days;
 }
 
-/** YYYY-MM 문자열 다음 달. */
-function nextMonth(month: string): string {
-  const year = Number(month.slice(0, 4));
-  const index = Number(month.slice(5, 7));
-  return index === 12 ? `${year + 1}-01` : `${year}-${String(index + 1).padStart(2, "0")}`;
+/** YYYY-MM 문자열을 delta 달만큼 옮긴다. */
+function shiftMonth(month: string, delta: number): string {
+  const index = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1 + delta;
+  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
 }
 
 function planRange(weeks: readonly PlanWeek[]): { first: string; last: string } | null {
@@ -133,18 +133,35 @@ function planRange(weeks: readonly PlanWeek[]): { first: string; last: string } 
   return first && last ? { first, last } : null;
 }
 
-/** 계획 첫날~min(계획 마지막 날, 오늘) 이 걸친 달. 최근 MAX_DAILY_ACTIVITY_MONTHS 개만. */
-export function planActivityMonths(weeks: readonly PlanWeek[], todayKey: string): string[] {
+/** ensureDailyActivities 가 받는 달 범위: 사용자 시간대 기준 [이번 달-12, 이번 달]. */
+export const ENSURE_MONTH_WINDOW = 12;
+/** ensureDailyActivities 한 번 호출에 담는 최대 달 수. */
+export const MAX_ENSURE_MONTHS_PER_CALL = 6;
+/** basis_changed 재요청 포함 같은 달 최대 호출 수. */
+export const MAX_ENSURE_ATTEMPTS = 2;
+
+/**
+ * 계획 첫날~min(계획 마지막 날, 오늘) 이 걸친 달을 구독할 달(서버 허용 범위 [이번 달-12, 이번 달],
+ * 최대 13개)과 그보다 오래돼 확인할 수 없는 달로 나눈다.
+ */
+export function planActivityMonths(weeks: readonly PlanWeek[], todayKey: string): { months: string[]; uncovered: string[] } {
   const range = planRange(weeks);
-  if (!range) return [];
+  if (!range) return { months: [], uncovered: [] };
   const end = range.last < todayKey ? range.last : todayKey;
-  if (range.first > end) return [];
+  if (range.first > end) return { months: [], uncovered: [] };
+  const oldest = shiftMonth(todayKey.slice(0, 7), -ENSURE_MONTH_WINDOW);
   const months: string[] = [];
-  for (let month = range.first.slice(0, 7); month <= end.slice(0, 7); month = nextMonth(month)) months.push(month);
-  return months.slice(-MAX_DAILY_ACTIVITY_MONTHS);
+  const uncovered: string[] = [];
+  for (let month = range.first.slice(0, 7); month <= end.slice(0, 7); month = shiftMonth(month, 1)) {
+    (month < oldest ? uncovered : months).push(month);
+  }
+  return { months, uncovered };
 }
 
-/** 주어진 달력 날짜들의 실제 TSS 합계(서버 일별 값 그대로 더한다). */
+/**
+ * 주어진 달력 날짜들의 실제 TSS 합계(서버 일별 값 그대로 더한다).
+ * 활동은 있는데 TSS 를 모르는 날이 빠지면 합계가 실제보다 작으므로 estimated 로 표시한다.
+ */
 export function sumDailyTss(days: ReadonlyMap<string, DailyActivityDay>, keys: Iterable<string>): TssSum {
   let sum = 0;
   let known = 0;
@@ -161,7 +178,8 @@ export function sumDailyTss(days: ReadonlyMap<string, DailyActivityDay>, keys: I
     known++;
     estimated ||= day.tssEstimated;
   }
-  return { value: known > 0 ? Math.round(sum) : unknown > 0 ? null : 0, estimated };
+  if (known === 0) return { value: unknown > 0 ? null : 0, estimated: false };
+  return { value: Math.round(sum), estimated: estimated || unknown > 0 };
 }
 
 /** from~to(포함) 달력 날짜 범위의 실제 TSS 합계. */
@@ -169,7 +187,7 @@ export function sumDailyTssInRange(days: ReadonlyMap<string, DailyActivityDay>, 
   return sumDailyTss(days, [...days.keys()].filter(key => key >= from && key <= to));
 }
 
-/** 이 날짜 칸의 활동을 확인하지 못했는가(그 달 읽기 실패 + 오늘까지). */
+/** 이 날짜 칸의 활동을 확인하지 못했는가(그 달 읽기 실패 또는 확인 범위 밖 + 오늘까지). */
 export function dailyActivitiesUnavailable(actual: PlanDailyActivities, dateKey: string): boolean {
   return dateKey <= actual.todayKey && actual.failedMonths.has(dateKey.slice(0, 7));
 }
@@ -186,16 +204,6 @@ export function localDateKey(epochMs: number, timeZone: string | null): string |
   }
 }
 
-/** ensureDailyActivities 가 받는 달 범위: 사용자 시간대 기준 [이번 달-12, 이번 달]. */
-export const ENSURE_MONTH_WINDOW = 12;
-/** basis_changed 재요청 포함 같은 달 최대 호출 수. */
-export const MAX_ENSURE_ATTEMPTS = 2;
-
-function shiftMonth(month: string, delta: number): string {
-  const index = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1 + delta;
-  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
-}
-
 /** 서버가 받는 달만 남긴다(사용자 시간대 오늘 기준). */
 export function ensurableMonths(months: readonly string[], userTodayKey: string): string[] {
   const current = userTodayKey.slice(0, 7);
@@ -203,13 +211,29 @@ export function ensurableMonths(months: readonly string[], userTodayKey: string)
   return months.filter(month => month >= oldest && month <= current);
 }
 
-/** 응답에서 basis_changed 인 달. */
-export function basisChangedMonths(data: unknown): string[] {
-  const months = data && typeof data === "object" ? (data as { months?: unknown }).months : null;
-  if (!Array.isArray(months)) return [];
-  return months.flatMap(item => item && typeof item === "object"
-    && (item as { status?: unknown }).status === "basis_changed"
-    && typeof (item as { month?: unknown }).month === "string" ? [(item as { month: string }).month] : []);
+/** 어떤 시간대(UTC-12~UTC+14)여도 서버가 받는 달만 남긴다 — invalid-argument 재시도용. */
+export function ensurableMonthsInAnyTimeZone(months: readonly string[], epochMs: number): string[] {
+  const earliest = localDateKey(epochMs, "Etc/GMT+12");
+  const latest = localDateKey(epochMs, "Etc/GMT-14");
+  if (!earliest || !latest) return [];
+  return ensurableMonths(ensurableMonths(months, earliest), latest);
+}
+
+interface EnsureResponse {
+  timezone: string | null;
+  basisChanged: string[];
+}
+
+/** 응답의 사용자 시간대와 basis_changed 인 달. */
+export function readEnsureResponse(data: unknown): EnsureResponse {
+  const record = data && typeof data === "object" ? data as { timezone?: unknown; months?: unknown } : {};
+  const months = Array.isArray(record.months) ? record.months : [];
+  return {
+    timezone: typeof record.timezone === "string" && record.timezone !== "" ? record.timezone : null,
+    basisChanged: months.flatMap(item => item && typeof item === "object"
+      && (item as { status?: unknown }).status === "basis_changed"
+      && typeof (item as { month?: unknown }).month === "string" ? [(item as { month: string }).month] : []),
+  };
 }
 
 function browserTimeZone(): string | null {
@@ -218,6 +242,11 @@ function browserTimeZone(): string | null {
   } catch {
     return null;
   }
+}
+
+function isInvalidArgument(error: unknown): boolean {
+  const code = error && typeof error === "object" ? (error as { code?: unknown }).code : null;
+  return code === "functions/invalid-argument" || code === "invalid-argument";
 }
 
 /** ensureDailyActivities 배포 리전. */
@@ -239,6 +268,7 @@ export function dailyActivitiesFunctions(base: Functions): Functions {
 }
 
 // 세션 동안 같은 (uid, 종목, 달) 생성 요청을 한 번만 보낸다. 값은 성공 여부.
+// 그 달 문서가 완성(complete·스키마 일치)으로 보이면 항목을 지워, 나중에 서버가 다시 무효화하면 다시 부른다.
 const ensureRequests = new Map<string, Promise<boolean>>();
 
 /** 테스트 격리용. */
@@ -264,6 +294,11 @@ function monthStatus(month: MonthState | undefined): "loading" | "ready" | "erro
   return "ready";
 }
 
+/** 다음 정각(최대 1시간)까지 — 어느 시간대의 자정이든 1시간 안에 "오늘"이 바뀐다. */
+function msUntilNextHour(now: number): number {
+  return Math.max(1_000, 3_600_000 - (now % 3_600_000));
+}
+
 interface Options {
   uid: string | null | undefined;
   discipline: PlanDiscipline;
@@ -274,8 +309,15 @@ interface Options {
 /** 계획 범위의 일별 활동 문서를 구독한다. 비활성(목표 없음·종목 불일치·비로그인)이면 null. */
 export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Options): PlanDailyActivities | null {
   const { firestore, functions } = useFirebaseServices();
+  // 자정을 넘기면 "오늘"·구독 달·합계 끝 날짜가 바뀌도록 정각마다 다시 그린다.
+  const [clock, setClock] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    const timer = setTimeout(() => setClock(value => value + 1), msUntilNextHour(Date.now()));
+    return () => clearTimeout(timer);
+  }, [clock, enabled]);
   const kstToday = planDayKey(Date.now());
-  const months = useMemo(() => planActivityMonths(weeks, kstToday), [weeks, kstToday]);
+  const { months, uncovered } = useMemo(() => planActivityMonths(weeks, kstToday), [weeks, kstToday]);
   const range = useMemo(() => planRange(weeks), [weeks]);
   const monthsKey = months.join(",");
   const subscriptionKey = enabled && uid ? `${uid}|${discipline}|${monthsKey}` : "";
@@ -286,11 +328,13 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
     const key = `${uid}|${discipline}|${monthsKey}`;
     const monthList = monthsKey.split(",");
     let cancelled = false;
-    const awaiting = new Set<string>();
+    // 달 → 지금 기다리는 생성 요청. 문서가 완성되면 지운다.
+    const awaiting = new Map<string, Promise<boolean>>();
     const pending: string[] = [];
     let timer: ReturnType<typeof setTimeout> | null = null;
-    // 허용 달 범위 계산용 사용자 시간대. 문서에서 알게 되기 전에는 브라우저 시간대로 근사한다.
+    // 허용 달 범위 계산용 사용자 시간대. 문서·응답에서 알게 되기 전에는 브라우저 시간대로 근사한다.
     let knownTimezone: string | null = null;
+    const requestKey = (month: string) => `${uid}|${discipline}|${month}`;
 
     const update = (month: string, patch: Partial<MonthState>) => {
       if (cancelled) return;
@@ -301,8 +345,43 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
     };
     const settle = (month: string, request: Promise<boolean>) => {
       if (awaiting.has(month)) return;
-      awaiting.add(month);
-      void request.then(ok => update(month, ok ? { ensured: true } : { failed: true }));
+      awaiting.set(month, request);
+      void request.then(ok => {
+        // 기다리는 사이 문서가 완성돼 대기가 풀렸거나 새 요청으로 바뀌었으면 반영하지 않는다.
+        if (awaiting.get(month) !== request) return;
+        update(month, ok ? { ensured: true } : { failed: true });
+      });
+    };
+    const ensure = httpsCallable<{ discipline: PlanDiscipline; months: string[] }, unknown>(dailyActivitiesFunctions(functions), "ensureDailyActivities");
+    /** 한 묶음(≤6개월): basis_changed 는 같은 달 최대 2회, invalid-argument 는 범위를 좁혀 1회 재시도. */
+    const ensureChunk = async (chunk: string[]): Promise<boolean> => {
+      // 세션 기억(ensureRequests)에 등록된 뒤에 호출해야, 호출 중 도착한 완성 스냅샷이 기억을 지울 수 있다.
+      await Promise.resolve();
+      let targets = chunk;
+      let narrowed = false;
+      for (let attempt = 1; attempt <= MAX_ENSURE_ATTEMPTS && targets.length > 0;) {
+        try {
+          const result = await ensure({ discipline, months: targets });
+          const response = readEnsureResponse(result.data);
+          if (response.timezone) knownTimezone = response.timezone;
+          debugLog("PlanPage.ensureDailyActivities", { discipline, months: targets, attempt, result: result.data });
+          const requested = targets;
+          targets = response.basisChanged.filter(month => requested.includes(month));
+          attempt++;
+        } catch (error) {
+          const safe = ensurableMonthsInAnyTimeZone(targets, Date.now());
+          if (!narrowed && isInvalidArgument(error) && safe.length < targets.length) {
+            narrowed = true;
+            debugLog("PlanPage.ensureDailyActivities.narrow", { discipline, months: targets, retry: safe });
+            targets = safe;
+            continue;
+          }
+          logClientError("PlanPage.ensureDailyActivities", error, { discipline, months: targets });
+          return false;
+        }
+      }
+      // 두 번째도 basis_changed 면 더 부르지 않는다. 문서 갱신은 구독이 받는다.
+      return true;
     };
     const flush = () => {
       timer = null;
@@ -314,30 +393,17 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
       const outOfRange = pendingBatch.filter(month => !batch.includes(month));
       if (outOfRange.length > 0) debugLog("PlanPage.ensureDailyActivities.skip", { discipline, months: outOfRange, userToday });
       for (const month of outOfRange) update(month, { ensured: true });
-      if (batch.length === 0) return;
-      const ensure = httpsCallable<{ discipline: PlanDiscipline; months: string[] }, unknown>(dailyActivitiesFunctions(functions), "ensureDailyActivities");
-      const call = (async () => {
-        let targets = batch;
-        for (let attempt = 1; attempt <= MAX_ENSURE_ATTEMPTS && targets.length > 0; attempt++) {
-          const result = await ensure({ discipline, months: targets });
-          debugLog("PlanPage.ensureDailyActivities", { discipline, months: targets, attempt, result: result.data });
-          const requested = targets;
-          targets = basisChangedMonths(result.data).filter(month => requested.includes(month));
+      for (let index = 0; index < batch.length; index += MAX_ENSURE_MONTHS_PER_CALL) {
+        const chunk = batch.slice(index, index + MAX_ENSURE_MONTHS_PER_CALL);
+        const call = ensureChunk(chunk);
+        for (const month of chunk) {
+          const request = call.then(ok => {
+            if (!ok && ensureRequests.get(requestKey(month)) === request) ensureRequests.delete(requestKey(month));
+            return ok;
+          });
+          ensureRequests.set(requestKey(month), request);
+          settle(month, request);
         }
-        // 두 번째도 basis_changed 면 더 부르지 않는다. 문서 갱신은 구독이 받는다.
-        return true;
-      })().catch((error: unknown) => {
-        logClientError("PlanPage.ensureDailyActivities", error, { discipline, months: batch });
-        return false;
-      });
-      for (const month of batch) {
-        const requestKey = `${uid}|${discipline}|${month}`;
-        const request = call.then(ok => {
-          if (!ok) ensureRequests.delete(requestKey);
-          return ok;
-        });
-        ensureRequests.set(requestKey, request);
-        settle(month, request);
       }
     };
 
@@ -346,15 +412,23 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
       snapshot => {
         const data = snapshot.exists() ? snapshot.data() as Record<string, unknown> : null;
         const needsEnsure = !data || data.complete !== true || data.schemaVersion !== DAILY_ACTIVITIES_SCHEMA_VERSION;
-        if (typeof data?.timezone === "string" && data.timezone !== "") knownTimezone = data.timezone;
-        update(month, {
-          received: true,
-          needsEnsure,
-          days: data ? parseDailyActivityDays(data.days) : EMPTY_DAYS,
-          timezone: typeof data?.timezone === "string" && data.timezone !== "" ? data.timezone : null,
-        });
-        if (!needsEnsure) return;
-        const existing = ensureRequests.get(`${uid}|${discipline}|${month}`);
+        const timezone = typeof data?.timezone === "string" && data.timezone !== "" ? data.timezone : null;
+        if (timezone) knownTimezone = timezone;
+        const days = data ? parseDailyActivityDays(data.days) : EMPTY_DAYS;
+        if (!needsEnsure) {
+          // 완성 문서: 실패·대기 상태를 풀고 세션 기억도 지운다. 나중에 무효화되면 다시 부른다.
+          ensureRequests.delete(requestKey(month));
+          awaiting.delete(month);
+          update(month, { received: true, needsEnsure: false, ensured: false, failed: false, days, timezone });
+          return;
+        }
+        // 캐시 문서로는 판단을 미루고 서버 응답을 기다린다(있는 데이터는 보인다).
+        if (snapshot.metadata.fromCache) {
+          update(month, { received: true, needsEnsure: true, days, timezone });
+          return;
+        }
+        update(month, { received: true, needsEnsure: true, days, timezone });
+        const existing = ensureRequests.get(requestKey(month));
         if (existing) {
           settle(month, existing);
           return;
@@ -380,7 +454,8 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
   return useMemo(() => {
     if (!subscriptionKey) return null;
     const days = new Map<string, DailyActivityDay>();
-    const failedMonths = new Set<string>();
+    // 확인 불가 달: 읽기·생성 실패 + 서버 허용 범위보다 오래된 계획 달.
+    const failedMonths = new Set<string>(uncovered);
     let loading = false;
     let timezone: string | null = null;
     for (const month of months) {
@@ -394,10 +469,12 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
       }
     }
     const todayKey = localDateKey(Date.now(), timezone) ?? kstToday;
+    // 확인하지 못한 달이 하나라도 있으면 합계를 정상처럼 보이지 않게 비운다.
     let total: TssSum | null = null;
     if (!loading && failedMonths.size === 0) {
       total = range ? sumDailyTssInRange(days, range.first, range.last < todayKey ? range.last : todayKey) : { value: 0, estimated: false };
     }
     return { discipline, timezone, todayKey, days, loading, failedMonths, total };
-  }, [discipline, kstToday, monthStates, months, range, subscriptionKey]);
+    // clock: 정각마다 todayKey(Date.now 기반)를 다시 계산한다.
+  }, [clock, discipline, kstToday, monthStates, months, range, subscriptionKey, uncovered]);
 }

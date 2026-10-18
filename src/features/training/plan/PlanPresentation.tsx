@@ -96,7 +96,7 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
   const effectiveTSS = day.adjustedTSS ?? day.plannedTSS;
   const effectiveDur = day.adjustedDurationMin ?? day.plannedDurationMin;
   const daysUntil = Math.max(0, Math.floor((day.date - planDayStartMs(Date.now())) / DAY_MS));
-  const downshift = !isPast && !isSkipped && !isRest && !isGoal && !day.completed && currentTsb != null
+  const downshift = !isPast && !isSkipped && !isRest && !isGoal && !day.completed && !hasActivities && currentTsb != null
     ? evaluateRecoveryDownshift({ workoutKind: day.workout, tsb: currentTsb, daysUntil })
     : null;
 
@@ -585,6 +585,8 @@ export default function PlanPresentation({
     enabled: goal !== null && goalMatchesDiscipline,
   });
   const hasActivityOn = (dateKey: string) => (actual?.days.get(dateKey)?.activities.length ?? 0) > 0;
+  // 문서를 읽기 전에는 "한 날"을 알 수 없으니 다음 운동·남은 운동 수를 비운다.
+  const activityKnown = actual != null && !actual.loading;
   const actualTotal = actual?.total ?? null;
   // 진행률 = 실제 부하(계획 첫날~오늘) / 계획 TSS. 실제 부하를 아직 모르면 비운다.
   const progress = totalTSS > 0 && actualTotal?.value != null ? Math.round((actualTotal.value / totalTSS) * 100) : null;
@@ -612,13 +614,13 @@ export default function PlanPresentation({
   const visibleWeeks = showPreviousWeeks || currentWeekIndex === 0 ? weeks : weeks.slice(currentWeekIndex);
   const todayKey = kstDayKey(Date.now());
   // 남은 계획 운동: 오늘 이후 예정(건너뜀·휴식·목표일 제외)에서 이미 활동이 있는 날을 뺀다.
-  const remainingSessions = weeks.reduce((total, week) => total + week.days.filter((day) => {
+  const remainingSessions = activityKnown ? weeks.reduce((total, week) => total + week.days.filter((day) => {
     const key = kstDayKey(day.date);
     return key >= todayKey && !hasActivityOn(key) && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal';
-  }).length, 0);
+  }).length, 0) : undefined;
   const planScope = summarizeStoredPlan(weeks, goalDate, Date.now(), hasActivityOn);
   const scopeNotice = goalDate && planScope.afterGoal > 0 ? <Text data-testid="plan-scope-notice" as="p" variant="bodySmall" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)" }}>{t("scope.summary", planScope)}</Text> : null;
-  const nextAction = weeks.slice(currentWeekIndex).flatMap((week) => week.days.map((day, dayIndex) => ({ day, weekId: week.id, dayIndex })))
+  const nextAction = !activityKnown ? undefined : weeks.slice(currentWeekIndex).flatMap((week) => week.days.map((day, dayIndex) => ({ day, weekId: week.id, dayIndex })))
     .find(({ day }) => kstDayKey(day.date) >= todayKey && !hasActivityOn(kstDayKey(day.date)) && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal');
   const nextActionLabel = nextAction ? buildWorkoutMeta(t)[nextAction.day.workout]?.label ?? nextAction.day.workout : null;
   const goalTitle = goal?.title ?? goal?.courseName ?? '—';
@@ -868,7 +870,7 @@ export default function PlanPresentation({
             }}
           >
             {[
-              { label: t('metrics.sessionsLeft'), value: String(remainingSessions), unit: t('mobile.sessionsUnit'), color: 'var(--ink-0)' },
+              { label: t('metrics.sessionsLeft'), value: remainingSessions != null ? String(remainingSessions) : '—', unit: remainingSessions != null ? t('mobile.sessionsUnit') : '', color: 'var(--ink-0)' },
               // 실제 부하: 서버 일별 문서 기준 계획 첫날~오늘 합계(계획 TSS 와 나란히)
               ...(actual ? [{ testId: 'K4-2-5', hint: t('metrics.actualTSSBasis'), label: t('metrics.actualTSS'),
                 value: actualTotal?.value != null ? actualTotal.value.toLocaleString() : '—',

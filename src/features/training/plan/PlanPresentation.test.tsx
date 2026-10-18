@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlanModel } from "../../../hooks/usePlanModel";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
@@ -256,7 +256,7 @@ it.each([false, true])("labels only the actual target date as goal day (mobile=%
     addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
   const date = Date.now() + 86400000;
   const goal = { date, dayOfWeek: 0, workout: "goal", plannedTSS: 0, plannedDurationMin: 0 };
-  renderWithProviders(<PlanPresentation model={{ ...model, goalDate: new Date(date), weeks: [{ id: "truth-week", weekNumber: 1, phase: "taper", startDate: date, days: [goal, { ...goal, date: date + 7 * 86400000 }] }] } as unknown as PlanModel}
+  renderWithProviders(<PlanPresentation model={{ ...model, user: { uid: "me" }, goalDate: new Date(date), weeks: [{ id: "truth-week", weekNumber: 1, phase: "taper", startDate: date, days: [goal, { ...goal, date: date + 7 * 86400000 }] }] } as unknown as PlanModel}
     mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
   const calendar = within(screen.getByTestId(mobile ? "K4-5m" : "K4-5"));
   expect(calendar.getAllByText("목표일")).toHaveLength(mobile ? 2 : 1);
@@ -286,7 +286,7 @@ it.each([false, true])("distinguishes post-goal stored workouts and keeps their 
   vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-17T12:00:00+09:00"));
   const date = Date.parse("2026-10-21T12:00:00+09:00");
   const day = { date, dayOfWeek: 2, workout: "z2", plannedTSS: 30, plannedDurationMin: 45, completed: false, skipped: false };
-  const scoped = { ...model, goalDate: new Date("2026-10-18T00:00:00+09:00"), daysLeft: 1,
+  const scoped = { ...model, user: { uid: "me" }, goalDate: new Date("2026-10-18T00:00:00+09:00"), daysLeft: 1,
     weeks: [{ id: "after", weekNumber: 1, phase: "base", startDate: date, plannedTSS: 30, days: [day] }] } as unknown as PlanModel;
   renderWithProviders(<PlanPresentation model={scoped} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
   expect(screen.getByTestId("plan-scope-notice")).toHaveTextContent("목표일까지 예정 0회 · 목표일 이후 저장된 운동 1회");
@@ -352,5 +352,47 @@ describe("PlanPresentation actual activities (server daily documents)", () => {
     expect(vi.mocked(onSnapshot).mock.calls.filter(([ref]) => (ref as { path: string }).path.includes("daily_activities"))).toHaveLength(0);
     expect(mockCallableInvocations).toHaveLength(0);
     expect(screen.queryByTestId("K4-2-5")).not.toBeInTheDocument();
+  });
+});
+
+describe("PlanPresentation review guards", () => {
+  const desktop = () => vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: false, media: query, onchange: null,
+    addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+  const today = () => Date.parse(`${kstKey(Date.now())}T00:00:00+09:00`);
+
+  it("leaves the next workout and remaining sessions empty until the daily documents are read", async () => {
+    desktop();
+    const todayMs = today();
+    const day = { date: todayMs, dayOfWeek: 0, workout: "z2", plannedTSS: 60, plannedDurationMin: 60, completed: false, skipped: false };
+    // 문서 없음 → ensure 응답 전까지 로딩
+    let resolve: (value: unknown) => void = () => undefined;
+    setCallableImplementation("ensureDailyActivities", () => new Promise(done => { resolve = done; }));
+    renderWithProviders(<PlanPresentation model={{ ...model, user: { uid: "me" }, weeks: [{ id: "w1", weekNumber: 1, phase: "base", startDate: todayMs, plannedTSS: 60, days: [day] }],
+      isTodayCell: () => true } as unknown as PlanModel} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
+    expect(screen.queryByText("오늘의 다음 운동")).not.toBeInTheDocument();
+    expect(screen.getByText("남은 계획 운동").parentElement).toHaveTextContent("—");
+    await waitFor(() => expect(mockCallableInvocations.some(call => call.name === "ensureDailyActivities")).toBe(true));
+    await act(async () => { resolve({ data: { months: [] } }); });
+    expect(await screen.findByText("오늘의 다음 운동")).toBeInTheDocument();
+    expect(screen.getByText("남은 계획 운동").parentElement).toHaveTextContent("1");
+  });
+
+  it("does not suggest a recovery downshift on a day that already has an activity", async () => {
+    desktop();
+    const todayMs = today();
+    const hard = { date: todayMs, dayOfWeek: 0, workout: "vo2", plannedTSS: 90, plannedDurationMin: 60, completed: false, skipped: false };
+    const scoped = (withActivity: boolean) => {
+      seedDailyDocs("bike", [kstKey(todayMs)], withActivity ? { [kstKey(todayMs)]: { tss: 80, tssEstimated: false, activities: [{ id: "done", startTime: todayMs + 3600000, distance: 30000, movingSec: 3600, tss: 80, estimated: false, source: "orider" }] } } : {});
+      return { ...model, user: { uid: "me" }, currentTsb: -40, weeks: [{ id: "w1", weekNumber: 1, phase: "base", startDate: todayMs, plannedTSS: 90, days: [hard] }],
+        isTodayCell: () => true } as unknown as PlanModel;
+    };
+    const view = renderWithProviders(<PlanPresentation model={scoped(false)} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
+    const cell = () => view.container.querySelector(`[data-plan-date="${kstKey(todayMs)}"]`) as HTMLElement;
+    await waitFor(() => expect(cell().textContent).toMatch(/권장/));
+    view.unmount();
+    const withActivity = renderWithProviders(<PlanPresentation model={scoped(true)} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
+    const activityCell = withActivity.container.querySelector(`[data-plan-date="${kstKey(todayMs)}"]`) as HTMLElement;
+    await within(activityCell).findByTestId("K4-5-8");
+    expect(activityCell.textContent).not.toMatch(/권장/);
   });
 });
