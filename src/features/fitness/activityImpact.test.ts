@@ -303,6 +303,52 @@ describe("deriveActivityImpacts", () => {
     );
     expect(impacts).toMatchObject([{ activity: { id: "known" }, attributedLoad: 50, confidence: "activity-tss" }]);
   });
+
+  // 같은 실주행 잔여 구간 사양 RES-7-9 — 서버 일 부하(대표 + 잔여)를 웹이 어떻게 배정하는지 알려진 동작을 고정한다.
+  // (miranae/orider-g1-web#3223 참조. 웹은 잔여를 모르며 일 부하를 그날 대표 활동에 배정한다.)
+  describe("residual load known behavior (RES-9-40, RES-9-41)", () => {
+    it("RES-9-40: gives the single representative the whole dailyLoad including the residual", () => {
+      // 대표 활동 TSS 100 + 잔여 40 = 서버 dailyLoad 140
+      const impacts = deriveActivityImpacts(
+        [point("2026-09-10", 10, 12, 140)],
+        [activity("representative", Date.UTC(2026, 8, 10, 7), 100)],
+      );
+      expect(impacts).toHaveLength(1);
+      expect(impacts[0]).toMatchObject({
+        activity: { id: "representative" },
+        attributedLoad: 140,
+        canonicalDailyLoad: 140,
+        confidence: "canonical-single",
+      });
+    });
+
+    it("RES-9-41a: emits no entry for a residual day without a representative activity (UTC)", () => {
+      // 09-11 은 잔여만 있는 날(dailyLoad 40), 대표 활동은 09-10 에만 있다.
+      const impacts = deriveActivityImpacts(
+        [point("2026-09-10", 10, 12, 100), point("2026-09-11", 10, 12, 40)],
+        [activity("only-prev-day", Date.UTC(2026, 8, 10, 23, 30), 100)],
+      );
+      expect(impacts.map((entry) => entry.date)).toEqual(["2026-09-10"]);
+      expect(impacts.some((entry) => entry.date === "2026-09-11")).toBe(false);
+      expect(impacts[0].attributedLoad).toBe(100);
+    });
+
+    it("RES-9-41b: splits the dailyLoad (representatives + residual) proportionally across two TSS representatives", () => {
+      // TSS 60 + 20 + 잔여 20 = dailyLoad 100 → 75 / 25
+      const impacts = deriveActivityImpacts(
+        [point("2026-09-12", 10, 12, 100)],
+        [
+          activity("big", Date.UTC(2026, 8, 12, 6), 60),
+          activity("small", Date.UTC(2026, 8, 12, 15), 20),
+        ],
+      );
+      const byId = new Map(impacts.map((entry) => [entry.activity.id, entry]));
+      expect(impacts.every((entry) => entry.confidence === "estimated-allocation")).toBe(true);
+      expect(byId.get("big")?.attributedLoad).toBeCloseTo(75);
+      expect(byId.get("small")?.attributedLoad).toBeCloseTo(25);
+      expect(impacts.reduce((sum, entry) => sum + entry.attributedLoad, 0)).toBeCloseTo(100);
+    });
+  });
 });
 
 describe("forecastFitness48Hours", () => {
