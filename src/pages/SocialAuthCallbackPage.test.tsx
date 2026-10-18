@@ -28,6 +28,8 @@ describe("socialAuthErrorKey", () => {
     expect(socialAuthErrorKey("functions/failed-precondition", "strava-existing-account-link-required")).toBe("socialCallback.error.existingStravaAccount");
     expect(socialAuthErrorKey("functions/failed-precondition", "strava-owner-conflict")).toBe("socialCallback.error.alreadyLinked");
     expect(socialAuthErrorKey("functions/failed-precondition", "strava-sync-reauth-required")).toBe("socialCallback.error.stravaSyncReauth");
+    expect(socialAuthErrorKey("functions/failed-precondition", "social-account-recovery-required")).toBe("socialCallback.error.accountRecovery");
+    expect(socialAuthErrorKey("functions/unavailable", "social-account-recovery-required")).toBe("socialCallback.error.generic");
   });
 });
 
@@ -131,6 +133,15 @@ describe("SocialAuthCallbackPage", () => {
     render(<SocialAuthCallbackPage />);
     expect(await screen.findByRole("alert")).toHaveTextContent("socialCallback.error.existingStravaAccount");
     expect(mocks.signIn).not.toHaveBeenCalled();
+  });
+
+  it("explains account recovery without signing in or rendering the server message", async () => {
+    mocks.complete.mockRejectedValue({ code: "functions/failed-precondition", details: { reason: "social-account-recovery-required" }, message: "private server diagnostic" });
+    render(<SocialAuthCallbackPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("socialCallback.error.accountRecovery");
+    expect(screen.queryByText("private server diagnostic")).not.toBeInTheDocument();
+    expect(mocks.signIn).not.toHaveBeenCalled();
+    expect(mocks.navigate).not.toHaveBeenCalled();
   });
 
   it("keeps a failed custom-token sign-in on the error screen", async () => {
