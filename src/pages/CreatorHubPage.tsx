@@ -524,7 +524,7 @@ function diaryFailureMessage(error: unknown, language: string, fallback: string)
 export default function CreatorHubPage() {
   const { i18n } = useTranslation();
   const { t: loadT } = useTranslation("dashboard");
-  const { user, signInWithGoogle } = useAuth();
+  const { user, signIn } = useAuth();
   const { showToast } = useToast();
   const { section: sectionParam } = useParams<{ section?: string }>();
   const navigate = useLocalizedNavigate();
@@ -567,7 +567,7 @@ export default function CreatorHubPage() {
     language: i18n.language,
     actions: copy.actions,
     showToast,
-    signInWithGoogle,
+    signIn,
   });
   const [previewRequest, setPreviewRequest] = useState<RecipePreviewRequest | null>(null);
   useEffect(() => { setPreviewRequest(null); }, [user?.uid]);
@@ -714,7 +714,7 @@ export default function CreatorHubPage() {
   const handleEmailRecipe = async (itemId: string) => {
     if (!user) {
       showToast(copy.actions.emailLogin, "info");
-      await signInWithGoogle();
+      await signIn();
       return;
     }
 
@@ -728,7 +728,7 @@ export default function CreatorHubPage() {
   const handleGenerateDiary = async () => {
     if (!user) {
       showToast(copy.actions.loginPrompt, "info");
-      await signInWithGoogle();
+      await signIn();
       return;
     }
     if (generating || policyLoading) return;
@@ -776,7 +776,7 @@ export default function CreatorHubPage() {
   const handleReportItem = async (itemId: string) => {
     if (!user) {
       showToast(copy.actions.reportLogin, "info");
-      await signInWithGoogle();
+      await signIn();
       return;
     }
     if (reportedItemIds.has(itemId) || reportingItemIds.has(itemId)) return;
@@ -1112,7 +1112,7 @@ export default function CreatorHubPage() {
 
                 <div className="mt-4 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
                   <Button data-testid="E6-1-2" className={recipeActionClass} size="sm" variant="secondary" onClick={() => {
-                    if (!user) { void signInWithGoogle(); return; }
+                    if (!user) { void signIn(); return; }
                     if (item.id === "ai-diary") { void handleGenerateDiary(); return; }
                     if (item.id === "ride-story") { setRideStoryPickerOpen(true); return; }
                     setPreviewRequest({ recipeId: item.id });

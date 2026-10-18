@@ -33,9 +33,9 @@ export function calendarLoadDays(points: DailyLoadPoint[], asOf: string, days: n
 
 export function buildFitnessWeeklyInsight({ ctlDelta, ctl, atl, tsb, dailyData, asOf, dateBasis, ready = true }: {
   ctlDelta: number; ctl: number; atl: number; tsb: number;
-  dailyData: DailyLoadPoint[]; asOf: string; dateBasis: "utc" | "local" | "mixed"; ready?: boolean;
+  dailyData: DailyLoadPoint[]; asOf: string; dateBasis: "utc" | "zone" | "local" | "mixed"; ready?: boolean;
 }) {
-  const days = calendarLoadDays(dateBasis !== "utc" && dateBasis !== "local" ? [] : dailyData, asOf, 14);
+  const days = calendarLoadDays(dateBasis === "mixed" ? [] : dailyData, asOf, 14);
   const current = days.slice(0, 7);
   const previous = days.slice(7);
   const sum = (rows: typeof days) => {

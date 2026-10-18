@@ -1,4 +1,5 @@
 import type { RunningBestEffortsFacts } from "./types/running-best-efforts-facts";
+import type { FitnessDateKeyBasis } from "./training/dateKey";
 // ── ActivityType ────────────────────────────────────────────────────
 /** Strava 및 Orider 내부에서 사용하는 활동 종목 문자열. Activity.type은 하위 호환을 위해 string 유지. */
 export type ActivityType = 'Ride' | 'Run' | 'Swim' | 'Walk' | 'Hike' | 'VirtualRide' | 'VirtualRun' | 'cycling' | 'running' | 'swimming' | 'transition' | 'brick';
@@ -778,6 +779,8 @@ export interface UserFitness {
     projectedTSB: number;
     compliancePct: number;
   };
+  /** 통합 신선도의 날짜 키 구간 — timeseries loadSnapshot.dateKeyBasis 와 같은 형식. 없으면 UTC. */
+  dateKeyBasis?: FitnessDateKeyBasis;
 }
 
 export * from "./types/goal";

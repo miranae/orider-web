@@ -241,7 +241,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   const lang = narrativeLangFrom(i18n.language);
   const header = <><Bot size={16} aria-hidden="true" style={{ display: "inline", marginInlineEnd: "var(--space-2)", verticalAlign: "text-bottom" }} />{t(sportHeaderKey(sport)).replace(/^🤖\s*/u, "")}</>;
   const previewSummary = lang === "en" ? (summaryPreviewEn || summaryPreview) : (summaryPreview || summaryPreviewEn);
-  const { user, signInWithGoogle } = useAuth();
+  const { user, signIn } = useAuth();
   // 1단계: 캐시 peek (LLM 호출 없이 빠른 확인).
   //   공개(everyone) 활동의 캐시 조회는 비로그인도 허용(CF getActivityNarrative cacheOnly) →
   //   이미 생성된 분석은 로그아웃 상태에서도 hit 으로 표시된다. 언어별 슬롯 조회.
@@ -344,7 +344,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
               {t("ai.startBtn")}
             </Button>
           ) : (
-            <Button size="sm" variant="secondary" onClick={() => signInWithGoogle()}>
+            <Button size="sm" variant="secondary" onClick={() => signIn()}>
               {t("ai.loginBtn")}
             </Button>
           )}
@@ -389,7 +389,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
           <div className="flex items-center justify-between flex-wrap gap-2">
             <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
             {authError ? (
-              <Button size="sm" variant="secondary" onClick={() => signInWithGoogle()}>
+              <Button size="sm" variant="secondary" onClick={() => signIn()}>
                 {t("ai.loginBtn")}
               </Button>
             ) : appCheckThrottled ? (
@@ -489,7 +489,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
           <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--color-error)" }}>
             {t("ai.refreshFailedHint")}
           </p>
-          <Button size="sm" variant="secondary" onClick={authError ? () => signInWithGoogle() : appCheckThrottled ? restartAfterAppCheckThrottle : retryFullAnalysis}>
+          <Button size="sm" variant="secondary" onClick={authError ? () => signIn() : appCheckThrottled ? restartAfterAppCheckThrottle : retryFullAnalysis}>
             {t(authError ? "ai.loginBtn" : appCheckThrottled ? "ai.appCheckRestartBtn" : "ai.retryBtn")}
           </Button>
         </div>

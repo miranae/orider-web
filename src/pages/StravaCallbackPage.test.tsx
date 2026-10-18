@@ -2,12 +2,15 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import StravaCallbackPage from "./StravaCallbackPage";
+import { getDocs } from "firebase/firestore";
+import { track } from "../services/analytics";
 
 const mocks = vi.hoisted(() => ({
   auth: { user: { uid: "u1" } as { uid: string } | null, loading: false },
   connectStrava: vi.fn(),
   exchangeCode: vi.fn(),
   navigate: vi.fn(),
+  showToast: vi.fn(),
   activityDocs: [] as Array<Record<string, unknown>>,
 }));
 
@@ -40,6 +43,9 @@ vi.mock("../services/errorLogger", () => ({
 vi.mock("../contexts/AuthContext", () => ({
   useAuth: () => mocks.auth,
 }));
+vi.mock("../contexts/ToastContext", () => ({
+  useToast: () => ({ showToast: mocks.showToast }),
+}));
 
 vi.mock("../hooks/useLocalizedNavigate", () => ({
   useLocalizedNavigate: () => mocks.navigate,
@@ -70,6 +76,9 @@ describe("StravaCallbackPage", () => {
     mocks.connectStrava.mockReset();
     mocks.exchangeCode.mockReset();
     mocks.navigate.mockReset();
+    mocks.showToast.mockReset();
+    vi.mocked(track).mockClear();
+    vi.mocked(getDocs).mockClear();
     mocks.activityDocs = [
       {
         id: "a1",
@@ -119,6 +128,35 @@ describe("StravaCallbackPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "stravaCallback.action.continue" }));
 
     expect(mocks.navigate).toHaveBeenCalledWith("/onboarding?returnTo=%2Fplan");
+  });
+
+  it("returns to connection settings without claiming connected when activity permission requires reauthorization", async () => {
+    sessionStorage.setItem("strava_state", "nonce");
+    sessionStorage.setItem("strava_return_to", "/onboarding");
+    sessionStorage.setItem("strava_write_activities", "true");
+    mocks.exchangeCode.mockResolvedValue({ athleteId: 1, stravaSyncReauthRequired: true });
+    render(<MemoryRouter initialEntries={["/strava/callback?code=read-only-code&state=nonce"]}><StravaCallbackPage /></MemoryRouter>);
+
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith("/settings/connections", { replace: true }));
+
+    expect(mocks.showToast).toHaveBeenCalledWith("socialCallback.error.stravaSyncReauth", "info");
+    expect(track).not.toHaveBeenCalledWith("strava_connect", { result: "ok" });
+    expect(getDocs).not.toHaveBeenCalled();
+    expect(screen.queryByText("stravaCallback.step.done")).not.toBeInTheDocument();
+    expect(mocks.connectStrava).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem("strava_return_to")).toBeNull();
+    expect(sessionStorage.getItem("strava_write_activities")).toBeNull();
+  });
+
+  it("retains the newcomer guide and original destination when activity permission is not granted", async () => {
+    sessionStorage.setItem("strava_state", "nonce");
+    sessionStorage.setItem("strava_return_to", "/settings/connections?stravaSignup=1&returnTo=%2Fgroup%2Fabc");
+    mocks.exchangeCode.mockResolvedValue({ athleteId: 1, stravaSyncReauthRequired: true });
+    render(<MemoryRouter initialEntries={["/strava/callback?code=read-only-code&state=nonce"]}><StravaCallbackPage /></MemoryRouter>);
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith(
+      "/settings/connections?stravaSignup=1&returnTo=%2Fgroup%2Fabc", { replace: true },
+    ));
+    expect(mocks.connectStrava).not.toHaveBeenCalled();
   });
 
   it("stops waiting when auth session is not restored", async () => {

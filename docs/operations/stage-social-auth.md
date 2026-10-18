@@ -1,0 +1,11 @@
+# Stage social sign-in routing / Stage 소셜 로그인 경로
+
+Normal Stage intentionally shares Firebase Auth/Firestore with `miranae-orider-g1` while analysis callables use `orider-dev`. This change preserves that profile. `socialAuthFunctionsBase` is optional and unset by default; production and local emulator routing keep their existing defaults.
+
+The reviewed opt-in is `STAGE_VITE_SOCIAL_AUTH_FUNCTIONS_BASE=https://asia-northeast3-miranae-orider-g1.cloudfunctions.net`. The writer emits it into served runtime config; there is no compiled client fallback. To disable it, regenerate and redeploy runtime config without the field; the next page load then uses the default route. Removing a GitHub variable alone does not change the already-served config. It is accepted only at `https://orider-dev.web.app` with the existing shared Firebase identity. The typed client accessor permits only `socialAuthStart`, `socialAuthComplete`, `socialAuthListLinks`, `socialAuthUnlink` and `ensureUserProfile`. Analysis callables keep the Stage endpoint. Stage profile provisioning remains skipped unless this opt-in is explicitly configured.
+
+Before activation, prepare and approve the canonical handlers, the exact Stage callback `https://orider-dev.web.app/auth/social/callback`, provider-console redirect registration and the Strava proxy return-origin allowlist. The same shared canonical identity/token store must own any Strava grant; an isolated Firebase profile alone does not isolate a shared Strava app authorization. Actual provider pages and additional consent remain user controlled.
+
+This PR changes source only: it does not set the runtime variable, deploy production handlers, register provider callbacks or request an OAuth grant. Deployment approval must cover the concrete handler/config changes before the optional route is enabled. After activation, verify the served runtime value, the four social callable destinations, canonical profile bootstrap and unchanged analysis destination. Do not treat a successful Hosting build as provider-login acceptance.
+
+기본 Stage 분석 설정은 유지됩니다. 정본 Auth 경로는 기본값이 없으며, 검토된 운영 핸들러·Stage 콜백·제공자 설정의 배포 승인을 받은 뒤에만 명시적으로 켭니다. 로그인·연결·해제·프로필 초기화만 정본으로 보내고 분석 API는 기존 Stage에 남습니다. Strava는 같은 앱 권한을 공유하므로 운영 정본 토큰 저장소를 일치시켜야 하며, 추가 동의는 사용자가 직접 진행합니다.

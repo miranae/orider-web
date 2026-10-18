@@ -127,6 +127,16 @@ function checkHostingConfig(hosting, label, aiApiOrigin, stage = false) {
     } else if (connectSrc.split(/\s+/).some(source => source === PROD_AI_API_ORIGIN)) {
       fail(`${label} must not allow production service origins`);
     }
+    if (stage) {
+      const sources = connectSrc.split(/\s+/);
+      const allowed = ["https://asia-northeast3-orider-dev.cloudfunctions.net", "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net"];
+      const unreviewed = sources.some(source => {
+        if (["*", "https:", "http:"].includes(source)) return true;
+        try { return new URL(source).hostname.endsWith(".cloudfunctions.net") && !allowed.includes(source); }
+        catch { return false; }
+      });
+      if (!allowed.every(origin => sources.includes(origin)) || unreviewed) fail(`${label} must allow only reviewed exact Cloud Functions origins`);
+    }
   }
 
   const rewrites = hosting.rewrites ?? [];

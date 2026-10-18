@@ -142,7 +142,7 @@ export default function CreateSegmentPage() {
 function CreateSegmentContent() {
   const { t } = useTranslation("segment");
   const { t: tCommon } = useTranslation("common");
-  const { user, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activityId = searchParams.get("activityId");
@@ -427,7 +427,7 @@ function CreateSegmentContent() {
           title={t("createAuth.title")}
           description={t("createAuth.description")}
           actionLabel={tCommon("button.loginGoogle")}
-          onAction={() => { void signInWithGoogle(); }}
+          onAction={() => { void signIn(); }}
         />
       </div>
     );

@@ -88,6 +88,7 @@ import { SummarySensorFallbackCard, type SummarySensorMetric } from "../features
 import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignalCard";
 import { useActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { ActivityFtpDecisionCard } from "../features/activity/detail/ActivityFtpDecisionCard";
+import { fitnessDateKeyFor } from "@shared/training/dateKey";
 
 export default function ActivityPage() {
   const { t, i18n } = useTranslation("activity");
@@ -95,7 +96,7 @@ export default function ActivityPage() {
   const timeAgo = useTimeAgo();
   const formatFullDate = useFormatFullDate();
   const { activityId } = useParams<{ activityId: string }>();
-  const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, profile, loading: authLoading, signIn } = useAuth();
   const { units } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
@@ -762,7 +763,7 @@ export default function ActivityPage() {
   const s = activity.summary;
   const displayedSummary = selectedSummary ?? s;
   const activityDate = Number.isFinite(activity.startTime) && Number.isFinite(new Date(activity.startTime).getTime())
-    ? new Date(activity.startTime).toISOString().slice(0, 10)
+    ? fitnessDateKeyFor(activity.startTime, fitnessTimeseries?.loadSnapshot?.dateKeyBasis)
     : null;
   const fitnessAtActivity = fitnessTimeseries?.points
     .slice()
@@ -1168,7 +1169,7 @@ export default function ActivityPage() {
 
       <Modal open={showExport} onClose={() => setShowExport(false)} title={t("tab.export")} maxWidth="max-w-3xl">
         <div>
-        {streams ? <ExportTab activity={activity} streams={streams} /> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
+        {streams ? <ExportTab activity={activity} streams={streams} /> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
         </div>
       </Modal>
       <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
@@ -1303,7 +1304,7 @@ export default function ActivityPage() {
         onSubmitComment={handleSubmitComment}
         onDeleteComment={handleDeleteComment}
         onSaveEditComment={handleSaveEditComment}
-        onSignIn={() => { void signInWithGoogle(); }}
+        onSignIn={() => { void signIn(); }}
         activityOwnerId={activity.userId}
         hiddenComments={hiddenComments}
         moderationBusy={moderationBusy}
@@ -1336,10 +1337,10 @@ export default function ActivityPage() {
         ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} totalCalories={stripStats.caloriesKcal.value}
         storedLoad={(isActivityOwner || overview.response?.status !== "available" || differentLoadValues) && !activePowerOverride && !analysisTabProps?.suppressServerPowerMetrics && (serverMetrics.status === "ready" || serverMetrics.status === "stale") ? serverMetrics.metrics?.tss ?? null : null}
         sharedStats={{ averagePower: stripStats.avgPower.value, averageCadence: stripStats.avgCadence.value, averageHeartRate: stripStats.avgHr.value, maxHeartRate: stripStats.maxHr.value }}
-        analysisProps={hasAnalysisStreams && analysisTabProps ? { ...analysisTabProps, onSignIn: () => { void signInWithGoogle(); } } : null}
+        analysisProps={hasAnalysisStreams && analysisTabProps ? { ...analysisTabProps, onSignIn: () => { void signIn(); } } : null}
         timeline={<>
       {/* 상세 스트림은 분석 탭 진입 시 자동으로 불러온다. */}
-      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} />}
+      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} />}
       {streams && !streamsSignInRequired && !streamsError && !loadingStreams && !showStreamSpinner && (!showElevation || elevData.length === 0) && (
         <Card><Text as="p" variant="bodyMedium" tone="secondary">{t("page.chartsUnavailable")}</Text></Card>
       )}
@@ -1433,7 +1434,7 @@ export default function ActivityPage() {
       </Card>}
 
       {/* 상세 스트림은 분석 탭 진입 시 자동으로 불러온다. */}
-      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} />}
+      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} />}
       {streams && !streamsSignInRequired && !streamsError && !loadingStreams && !showStreamSpinner && (!showElevation || elevData.length === 0) && (
         <Card><Text as="p" variant="bodyMedium" tone="secondary">{t("page.chartsUnavailable")}</Text></Card>
       )}
@@ -1534,7 +1535,7 @@ export default function ActivityPage() {
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
               훅이 소유권과 활성 자전거를 함께 검증해 비소유자의 프로필로 활동 스트림을
               다시 추정하지 않도록 한다. */}
-          <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} onSignIn={() => { void signInWithGoogle(); }} integratedPresentation={overview.enabled && !overview.loading && overview.response?.status === "available" ? overview.response.presentation : undefined} />
+          <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} onSignIn={() => { void signIn(); }} integratedPresentation={overview.enabled && !overview.loading && overview.response?.status === "available" ? overview.response.presentation : undefined} />
         </div>
       )}
       {activeTab === "analysis" && sport === "run" && <AnalysisTab
@@ -1545,7 +1546,7 @@ export default function ActivityPage() {
         sport="run"
         streamsSignInRequired={streamsSignInRequired}
         showStreamSignInPrompt={false}
-        onSignIn={() => { void signInWithGoogle(); }}
+        onSignIn={() => { void signIn(); }}
         streams={streams ?? { userId: activity.userId, time: [], distance: [] }}
         summary={displayedSummary}
         canonicalPresentationAvailable={overview.response?.status === "available"}
@@ -1669,7 +1670,7 @@ export default function ActivityPage() {
 
       {/* ── 세그먼트 탭 — 주요성과 + 세그먼트/코스 등록 ── */}
       {activeTab === "segments" && !streams && (
-        loadingStreams || showStreamSpinner ? <Card className="activity-detail-loading" role="status" aria-live="polite"><span className="activity-detail-spinner" aria-hidden="true" />{t("detail.loadingData")}</Card> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.segmentsUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
+        loadingStreams || showStreamSpinner ? <Card className="activity-detail-loading" role="status" aria-live="polite"><span className="activity-detail-spinner" aria-hidden="true" />{t("detail.loadingData")}</Card> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} /> : <StreamUnavailableCard title={t("page.segmentsUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
       )}
       {activeTab === "segments" && streams && (
       <div data-testid="D1-4" className="space-y-6">

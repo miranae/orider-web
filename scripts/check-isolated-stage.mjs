@@ -12,6 +12,7 @@ checkIsolatedStageConfig({
   firebaseAppId: process.env.VITE_FIREBASE_APP_ID,
   firebaseMessagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   firebaseFunctionsBase: process.env.VITE_FIREBASE_FUNCTIONS_BASE,
+  socialAuthFunctionsBase: process.env.VITE_SOCIAL_AUTH_FUNCTIONS_BASE,
   firebaseFunctionsRegion: process.env.VITE_FIREBASE_FUNCTIONS_REGION,
   aiApiBase: process.env.VITE_ORIDER_AI_API_BASE,
   personalApiBase: process.env.VITE_ORIDER_PERSONAL_API_BASE,

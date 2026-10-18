@@ -7,6 +7,7 @@ export function checkIsolatedStageConfig(config) {
   if (config.firebaseAppId !== "1:289663940841:web:ba08cdae154286e6499878" || String(config.firebaseMessagingSenderId) !== "289663940841") throw new Error("isolated stage Firebase app identity mismatch");
   if (config.firebaseFunctionsRegion !== "asia-northeast3") throw new Error("isolated stage Functions region mismatch");
   if (config.firebaseFunctionsBase !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("stage callable endpoint mismatch");
+  if (config.socialAuthFunctionsBase && config.socialAuthFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net") throw new Error("stage social Auth endpoint mismatch");
   for (const key of ["aiApiBase", "personalApiBase", "segmentTilesBase", "heatmapBase", "stravaRedirectUri"]) {
     if (!config[key]) continue;
     const url = new URL(config[key]);

@@ -1036,11 +1036,11 @@ describe("ActivityPage", () => {
       },
     ]);
     renderWithProviders(<ActivityPage />, { authenticated: false });
-    await screen.findByRole("button", { name: "Google로 로그인" });
+    await screen.findByRole("button", { name: "로그인" });
     expect(screen.queryByText("공개 댓글입니다")).not.toBeInTheDocument();
     expect(screen.getByText("좋아요 4")).toBeInTheDocument();
     expect(screen.getByText("댓글 1")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Google로 로그인" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "로그인" })).toBeInTheDocument();
     expect(socialSnapshotPaths()).toEqual([]);
   });
 
@@ -1085,6 +1085,7 @@ describe("ActivityPage", () => {
     mockSignInWithPopup.mockClear();
     renderWithProviders(<ActivityPage />, { authenticated: false });
     fireEvent.click(await screen.findByRole("button", { name: "로그인하고 좋아요" }));
+    fireEvent.click(await screen.findByTestId("A1-1-1"));
     await waitFor(() => {
       expect(mockSignInWithPopup).toHaveBeenCalled();
     });
@@ -1459,6 +1460,7 @@ describe("ActivityPage", () => {
     await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: false, route: "/ko/activity/test-activity?tab=segments" }); });
 
     fireEvent.click(await screen.findByRole("button", { name: "로그인하고 이 경로로 라이드" }));
+    fireEvent.click(await screen.findByTestId("A1-1-1"));
 
     await waitFor(() => expect(mockSignInWithPopup).toHaveBeenCalledTimes(1));
     expect(mockCallableInvocations).not.toContainEqual(expect.objectContaining({ name: "createCourseFromActivity" }));

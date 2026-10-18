@@ -7,6 +7,7 @@ import IntegratedLoadCard, { type CombinedLoadStatus } from "../../components/mo
 import type { LoadFocusResult } from "../../features/fitness/multisportPerformance";
 import { DISCIPLINE_CHART_COLORS, PMC_LINE_PALETTE } from "../../features/fitness/chartPalette";
 import type { TriFitnessBreakdown, TriFitnessTimelinePoint } from "../../hooks/useFitnessModel";
+import { addFitnessDateKeyDays, fitnessTodayKey } from "@shared/training/dateKey";
 import DetailsSection from "../../components/redesign/DetailsSection";
 import "./TriFitnessView.css";
 
@@ -547,8 +548,8 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
 
   const weeklyEvidence = Object.fromEntries((["bike", "run", "swim"] as const).map(discipline => {
     const entry = triBreakdown[discipline];
-    const today = new Date().toISOString().slice(0, 10);
-    const weekStart = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
+    const today = fitnessTodayKey(Date.now(), entry.dateKeyBasis);
+    const weekStart = addFitnessDateKeyDays(today, -6);
     const days = (entry.dailyData ?? []).filter(day => day.date >= weekStart && day.date <= today);
     const unknownCount = entry.weeklyUnknownCount ?? days.reduce((sum, day) => sum + (day.unknownCount ?? 0), 0);
     const known = entry.hasKnownWeeklyLoad ?? (days.some(day => day.activities.length > 0 || day.totalLoad > 0)
@@ -592,7 +593,7 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
     for (const discipline of ["bike", "run", "swim"] as const) {
       const entry = triBreakdown[discipline];
       const now = new Date();
-      const today = entry.canonical ? now.toISOString().slice(0, 10)
+      const today = entry.canonical ? fitnessTodayKey(now.getTime(), entry.dateKeyBasis)
         : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const cutoff = new Date(Date.parse(`${today}T00:00:00Z`) - 41 * 86_400_000).toISOString().slice(0, 10);
       const source = entry.dailyData ?? entry.fitness.map(point => ({ date: point.date, totalLoad: point.dailyLoad, activities: [], unknownCount: 0 }));

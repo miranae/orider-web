@@ -33,7 +33,7 @@ interface UseCreatorRecipeEmailParams {
   language: string;
   actions: CreatorEmailActions;
   showToast: (message: string, type?: "success" | "error" | "info") => void;
-  signInWithGoogle: () => Promise<void>;
+  signIn: () => Promise<void>;
 }
 
 export function formatCreatorEmailQuotaLabel(template: string, quota: CreatorEmailQuota | null) {
@@ -48,7 +48,7 @@ export function useCreatorRecipeEmail({
   language,
   actions,
   showToast,
-  signInWithGoogle,
+  signIn,
 }: UseCreatorRecipeEmailParams) {
   const [emailSendingId, setEmailSendingId] = useState<string | null>(null);
   const [emailSentItemIds, setEmailSentItemIds] = useState<Set<string>>(() => new Set());
@@ -86,7 +86,7 @@ export function useCreatorRecipeEmail({
   const handleEmailRecipe = async (itemId: string) => {
     if (!user) {
       showToast(actions.emailLogin, "info");
-      await signInWithGoogle();
+      await signIn();
       return;
     }
     setEmailSendingId(itemId);

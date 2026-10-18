@@ -200,7 +200,7 @@
   "inviteLink.joining": "클럽 가입 중...",
   "inviteLink.title": "클럽 초대를 받았습니다",
   "inviteLink.loginPrompt": "클럽에 가입하려면 먼저 로그인하세요. 로그인 후 자동으로 가입됩니다.",
-  "inviteLink.signInGoogle": "Google로 로그인",
+  "inviteLink.signInGoogle": "로그인",
   "inviteLink.joined": "클럽에 가입했습니다.",
   "members.confirmBulkRemove": "선택한 {{count}}명을 클럽에서 내보내시겠습니까?",
   "members.confirmRemove": "{{name}}님을 클럽에서 내보내시겠습니까?",

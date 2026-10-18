@@ -88,7 +88,7 @@ export default function EventEditPage() {
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user, signInWithGoogle } = useAuth();
+  const { user, signIn } = useAuth();
 
   const TYPE_OPTIONS = TYPE_DEFS.map((d) => ({ value: d.value, label: t(d.labelKey) }));
   const VISIBILITY_OPTIONS = VISIBILITY_DEFS.map((d) => ({ value: d.value, label: t(d.labelKey) }));
@@ -453,7 +453,7 @@ export default function EventEditPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signInWithGoogle(); }} />
+        <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signIn(); }} />
       </div>
     );
   }

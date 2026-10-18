@@ -25,6 +25,7 @@ describe("GuestValuePreview", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "로그인하면 내 데이터로 보기" }));
+    await user.click(await screen.findByTestId("A1-1-1"));
     expect(mockSignInWithPopup).toHaveBeenCalled();
     expect(screen.queryByRole("link", { name: "로그인하면 내 데이터로 보기" })).not.toBeInTheDocument();
   });
