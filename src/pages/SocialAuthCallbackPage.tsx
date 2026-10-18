@@ -16,6 +16,7 @@ type Step = "working" | "error";
 
 /** 서버 HttpsError 코드 → 안내 문구 키. 서버 메시지는 한국어 전용이라 화면 문구는 여기서 고른다. */
 export function socialAuthErrorKey(code: string | undefined, reason?: string): string {
+  if (code === "functions/failed-precondition" && reason === "social-account-recovery-required") return "socialCallback.error.accountRecovery";
   if (reason === "strava-existing-account-link-required") return "socialCallback.error.existingStravaAccount";
   if (reason === "strava-owner-conflict") return "socialCallback.error.alreadyLinked";
   if (reason === "strava-sync-reauth-required") return "socialCallback.error.stravaSyncReauth";
