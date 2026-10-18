@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink, useParams, useLocation, type NavLinkProps } from "react-router-dom";
+import { Link, NavLink, matchPath, useParams, useLocation, type NavLinkProps } from "react-router-dom";
 import { SUPPORTED_LANGS } from "../i18n/detector";
 import "./TabNav.css";
 
@@ -52,6 +52,8 @@ export default function TabNav({ tabs, activeTab, onChange }: TabNavProps) {
 
 interface RouteTab {
   to: string;
+  /** 같은 탐색 탭에 속하는 하위 경로. 링크 목적지는 to를 유지한다. */
+  activePaths?: string[];
   label: string;
   end?: boolean;
   specId?: string;
@@ -72,7 +74,7 @@ export function RouteTabNav({ tabs, state, revealActive = true }: RouteTabNavPro
   const [canScrollBack, setCanScrollBack] = useState(false);
   const [canScrollForward, setCanScrollForward] = useState(false);
 
-  const tabGeometryKey = tabs.map(tab => `${tab.to}:${tab.label}`).join("|");
+  const tabGeometryKey = tabs.map(tab => `${tab.to}:${tab.label}:${tab.activePaths?.join(",") ?? ""}`).join("|");
   useLayoutEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
@@ -134,25 +136,17 @@ export function RouteTabNav({ tabs, state, revealActive = true }: RouteTabNavPro
         if (scroller) { cancelRevealRef.current(); scroller.scrollLeft -= scroller.clientWidth * 0.7; }
       }}>‹</button>
       <div ref={scrollerRef} className="route-tab-nav__scroller flex overflow-x-auto">
-      {tabs.map((tab) => (
-        <NavLink
-          key={tab.to}
-          data-testid={tab.specId}
-          to={localizeTo(tab.to, lang)}
-          end={tab.end}
-          state={state}
-          className={({ isActive }) =>
-            `flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-2 sm:px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${
-              isActive
-                ? ""
-                : "border-transparent hover:border-[var(--line)]"
-            }`
-          }
-          style={({ isActive }) => isActive ? { borderColor: "var(--lime)", color: "var(--lime)" } : { color: "var(--ink-2)" }}
-        >
-          {tab.label}
-        </NavLink>
-      ))}
+      {tabs.map((tab) => {
+        const aliasActive = tab.activePaths?.some(path => matchPath({ path: localizeTo(path, lang), end: false }, pathname)) ?? false;
+        const className = (active: boolean) => `flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-2 sm:px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${active ? "" : "border-transparent hover:border-[var(--line)]"}`;
+        const style = (active: boolean) => active ? { borderColor: "var(--lime)", color: "var(--lime)" } : { color: "var(--ink-2)" };
+        // NavLink는 자체 목적지 일치 여부로 aria-current를 결정하므로 별칭은 실제 Link로 표현한다.
+        return aliasActive ? (
+          <Link key={tab.to} data-testid={tab.specId} to={localizeTo(tab.to, lang)} state={state} aria-current="page" className={className(true)} style={style(true)}>{tab.label}</Link>
+        ) : (
+          <NavLink key={tab.to} data-testid={tab.specId} to={localizeTo(tab.to, lang)} end={tab.end} state={state} className={({ isActive }) => className(isActive)} style={({ isActive }) => style(isActive)}>{tab.label}</NavLink>
+        );
+      })}
       </div>
       <button type="button" className="route-tab-nav__more" disabled={!canScrollForward} style={{ visibility: canScrollForward ? "visible" : "hidden" }} aria-label={t("button.nextTabs")} onClick={() => {
         const scroller = scrollerRef.current;

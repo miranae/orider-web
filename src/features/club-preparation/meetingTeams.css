@@ -1,0 +1,343 @@
+.cp-teams {
+  display: grid;
+  gap: var(--space-4);
+}
+.cp-teams h2,
+.cp-team-unassigned h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.cp-team-board > .cp-section-heading {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.cp-team-board > .cp-section-heading p {
+  margin-top: var(--space-2);
+}
+.cp-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-4);
+}
+.cp-team-card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  padding: var(--space-4);
+  min-width: 0;
+}
+.cp-team-card h3,
+.cp-team-person strong {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.cp-team-person {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--line-soft);
+  min-width: 0;
+}
+.cp-team-person strong {
+  flex: 1 1 8rem;
+  font-size: var(--ft-body-size);
+  font-weight: 500;
+}
+.cp-team-person .ds-input {
+  width: 9rem;
+  max-width: 100%;
+}
+.cp-team-draft,
+.cp-team-review {
+  background: var(--bg-2);
+  border-left: 3px solid var(--color-primary-dark);
+  border-radius: var(--r-md);
+  padding: var(--space-3) var(--space-4);
+}
+.cp-team-review {
+  display: grid;
+  gap: var(--space-3);
+}
+.cp-team-unassigned {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line-soft);
+}
+.cp-team-save {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line-soft);
+}
+.cp-team-save > p {
+  flex-basis: 100%;
+}
+@media (max-width: 36rem) {
+  .cp-team-board > .cp-section-heading > .cp-actions {
+    width: 100%;
+  }
+  .cp-team-save > .ds-btn {
+    flex: 1;
+  }
+}
+.cp-team-initial {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  padding: var(--space-4);
+}
+.cp-team-initial .ds-field {
+  width: 10rem;
+  max-width: 100%;
+}
+.cp-team-initial > p {
+  flex-basis: 100%;
+}
+
+/* 편성은 설정 폼 대신 명단 보드에서 선택하고 한 번에 조정한다. */
+.cp-team-selection {
+  position: sticky;
+  top: var(--space-2);
+  z-index: 4;
+  display: grid;
+  gap: var(--space-2);
+  background: var(--bg-0);
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--color-primary-dark);
+  border-radius: var(--r-md);
+  padding: var(--space-3) var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+.cp-team-selection > .cp-section-heading {
+  flex-wrap: wrap;
+}
+.cp-team-selection > p,
+.cp-team-selection details {
+  font-size: var(--ft-body-size);
+}
+.cp-team-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.cp-team-check {
+  display: flex;
+  flex: 1 1 7rem;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  min-height: var(--dim-button-height);
+  min-width: 0;
+}
+.cp-team-check input {
+  flex-shrink: 0;
+  accent-color: var(--color-primary-dark);
+}
+.cp-team-person--selected {
+  background: var(--bg-2);
+  border-radius: var(--r-sm);
+}
+.cp-team-card {
+  gap: var(--space-2);
+}
+.cp-team-person {
+  gap: var(--space-1);
+  padding-block: 0;
+}
+.cp-team-person > .ds-btn {
+  font-size: var(--fs-xs);
+}
+.cp-team-settings {
+  font-size: var(--ft-body-size);
+  color: var(--ink-2);
+}
+.cp-team-settings > summary {
+  cursor: pointer;
+  padding-block: var(--space-2);
+}
+.cp-team-settings[open] > .cp-stack {
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+}
+.cp-team-grid {
+  align-items: start;
+}
+@media (max-width: 36rem) {
+  .cp-team-selection {
+    padding: var(--space-3);
+  }
+  .cp-team-selection > .cp-section-heading > .cp-actions {
+    gap: var(--space-2);
+  }
+  .cp-team-targets > .ds-btn {
+    flex: 1 1 7rem;
+  }
+}
+/* 많은 조·긴 선택명단도 선택바가 화면 전체를 가리지 않도록 제한한다. */
+.cp-team-selection {
+  max-height: 60vh;
+  max-height: 60dvh;
+  overflow-y: auto;
+}
+.cp-team-destination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.cp-team-destination > .ds-input {
+  width: 12rem;
+  max-width: 100%;
+}
+@media (max-width: 36rem) {
+  .cp-team-destination {
+    width: 100%;
+  }
+  .cp-team-destination > .ds-input {
+    flex: 1 1 9rem;
+    width: auto;
+    min-width: 0;
+  }
+}
+
+.cp-team-board {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.cp-team-drag-handle {
+  touch-action: none;
+  cursor: grab;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: var(--dim-button-height);
+  min-height: var(--dim-button-height);
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--bg-0);
+  color: var(--ink-2);
+}
+.cp-team-drag-handle:active {
+  cursor: grabbing;
+}
+.cp-team-drag-handle:focus-visible {
+  outline: var(--space-0-5) solid var(--color-primary);
+  outline-offset: var(--space-0-5);
+}
+.cp-team-drag-handle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.cp-team-person[data-dragging] {
+  opacity: 0.25;
+}
+.cp-team-card[data-drop-active],
+.cp-team-unassigned[data-drop-active] {
+  outline: var(--space-0-5) solid var(--color-primary);
+  background: var(--bg-2);
+}
+.cp-team-drag-status {
+  pointer-events: none;
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+/* body portal: 앱 스크롤·카드 transform에 잘리지 않고 잡은 위치를 그대로 따라간다. */
+.cp-team-drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  pointer-events: none;
+  user-select: none;
+  transform: translate3d(var(--team-drag-x), var(--team-drag-y), 0);
+  width: var(--team-drag-width);
+  min-height: var(--team-drag-height);
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--space-0-5) solid var(--color-primary);
+  border-radius: var(--r-md);
+  background: var(--bg-0);
+  color: var(--ink-0);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-sans);
+  font-size: var(--ft-body-size);
+  will-change: transform;
+}
+.cp-team-drag-ghost * {
+  pointer-events: none;
+}
+.cp-team-drag-identity {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: var(--space-1);
+  overflow-wrap: anywhere;
+}
+.cp-team-drag-identity span,
+.cp-team-drag-ghost small {
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+}
+.cp-team-drag-ghost small {
+  flex-basis: 100%;
+  padding-left: var(--space-6);
+}
+.cp-team-card[data-drop-blocked],
+.cp-team-drag-ghost[data-blocked] {
+  outline-color: var(--color-error);
+  border-color: var(--color-error);
+}
+.cp-team-drag-ghost[data-blocked] small {
+  color: var(--color-error);
+}
+
+.cp-team-person {
+  position: relative;
+}
+.cp-team-person[data-insert-side]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--space-0-5);
+  background: var(--color-primary);
+  pointer-events: none;
+  z-index: 1;
+}
+.cp-team-person[data-insert-side="before"]::before {
+  top: 0;
+}
+.cp-team-person[data-insert-side="after"]::before {
+  bottom: 0;
+}
+.cp-team-card[data-insert-end]::after {
+  content: "";
+  height: var(--space-0-5);
+  background: var(--color-primary);
+  pointer-events: none;
+}
+.cp-team-order-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}

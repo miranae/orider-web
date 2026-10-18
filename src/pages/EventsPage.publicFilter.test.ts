@@ -30,6 +30,7 @@ describe("eventAvailability", () => {
 });
 
 describe("isPublicEventInfo", () => {
+  it("keeps club meeting metadata out of generic public event recruitment",()=>{expect(isPublicEventInfo({kind:"CLUB_MEETING",status:"OPEN",visibility:"PUBLIC"})).toBe(false);});
   it.each(["OPEN", "LIVE", "FINISHED"])("allows public %s events", (status) => {
     expect(isPublicEventInfo({ status, visibility: "PUBLIC" })).toBe(true);
   });
