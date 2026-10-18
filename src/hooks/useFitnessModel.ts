@@ -50,7 +50,7 @@ import { useRunRecords } from "./useRunRecords";
 import { useUserFitness } from "./useUserFitness";
 import { filterByDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { toLocalDate } from "../utils/dateUtils";
-import { addFitnessDateKeyDays, fitnessDateKeyFor, fitnessDateKeyTimeZone, fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/dateKey";
+import { addFitnessDateKeyDays, fitnessDateKeyFor, fitnessDateKeyTimezoneAt, fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/dateKey";
 import {
   aggregateDailyLoad,
   ATL_DAYS,
@@ -858,7 +858,7 @@ export function useFitnessModel(
       return source.days.filter(day => day.date >= start && day.date <= end).every(day => snapshot.get(day.date)?.dailyLoad === day.totalLoad && snapshot.get(day.date)?.status === "final");
     });
     // 정본 날짜는 서버 구간의 현재 시간대로 표기한다. UTC 가 아니면 "zone"(사용자 시간대) 라벨.
-    const canonicalTimeZones = new Set(sources.map(source => fitnessDateKeyTimeZone(readClock, basisOf(source.doc))));
+    const canonicalTimeZones = new Set(sources.map(source => fitnessDateKeyTimezoneAt(readClock, basisOf(source.doc))));
     const canonicalBasis = canonicalTimeZones.size > 1 ? "mixed" as const : canonicalTimeZones.has("UTC") ? "utc" as const : "zone" as const;
     return {
       dateBasis: sources.every(source => source.canonical || source.weekly !== undefined) ? canonicalBasis : sources.every(source => !source.canonical) ? "local" as const : "mixed" as const,

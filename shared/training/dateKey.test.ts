@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addFitnessDateKeyDays,
   fitnessDateKeyFor,
-  fitnessDateKeyTimeZone,
+  fitnessDateKeyTimezoneAt,
   fitnessTodayKey,
   normalizeFitnessDateKeyBasis,
   UTC_FITNESS_DATE_KEY_BASIS,
@@ -33,8 +33,8 @@ describe("fitnessDateKeyFor", () => {
     // 전환일 2026-10-10 은 UTC 00:00 ~ 15:00 (15시간)
     expect(fitnessDateKeyFor(Date.parse("2026-10-10T00:00:00.000Z"), KST_BASIS)).toBe("2026-10-10");
     expect(fitnessDateKeyFor(Date.parse("2026-10-09T23:59:59.999Z"), KST_BASIS)).toBe("2026-10-09");
-    expect(fitnessDateKeyTimeZone(CUT - 1, KST_BASIS)).toBe("UTC");
-    expect(fitnessDateKeyTimeZone(CUT, KST_BASIS)).toBe("Asia/Seoul");
+    expect(fitnessDateKeyTimezoneAt(CUT - 1, KST_BASIS)).toBe("UTC");
+    expect(fitnessDateKeyTimezoneAt(CUT, KST_BASIS)).toBe("Asia/Seoul");
   });
 
   it("KST 01:00(UTC 전날 16:00) 의 오늘 키는 KST 날짜", () => {
