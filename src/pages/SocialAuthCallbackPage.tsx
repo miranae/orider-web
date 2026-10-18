@@ -14,7 +14,10 @@ import { Button } from "../theme/components";
 type Step = "working" | "error";
 
 /** 서버 HttpsError 코드 → 안내 문구 키. 서버 메시지는 한국어 전용이라 화면 문구는 여기서 고른다. */
-export function socialAuthErrorKey(code: string | undefined): string {
+export function socialAuthErrorKey(code: string | undefined, reason?: string): string {
+  if (reason === "strava-existing-account-link-required") return "socialCallback.error.existingStravaAccount";
+  if (reason === "strava-owner-conflict") return "socialCallback.error.alreadyLinked";
+  if (reason === "strava-sync-reauth-required") return "socialCallback.error.stravaSyncReauth";
   switch (code) {
     case "functions/already-exists": return "socialCallback.error.alreadyLinked";
     case "functions/failed-precondition": return "socialCallback.error.providerInUse";
@@ -68,10 +71,12 @@ export default function SocialAuthCallbackPage() {
           track("social_link", { provider: result.provider });
           showToast(t("socialCallback.linked"), "success");
         }
+        if (result.stravaSyncReauthRequired) showToast(t("socialCallback.stravaSyncReauth"), "info");
         navigate(result.returnTo, { replace: true });
       } catch (err) {
         logClientError("SocialAuthCallbackPage.complete", err);
-        setErrorKey(socialAuthErrorKey((err as { code?: string })?.code));
+        const error = err as { code?: string; details?: { reason?: string } };
+        setErrorKey(socialAuthErrorKey(error?.code, error?.details?.reason));
         setStep("error");
       }
     })();

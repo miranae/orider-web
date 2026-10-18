@@ -52,7 +52,7 @@ export interface AuthContextValue {
   profile: UserProfile | null;
   profileLoading: boolean;
   loading: boolean;
-  /** 로그인 방식 선택 창(Google·네이버·카카오)을 연다. Google 로 로그인되면 resolve, 창을 닫으면 reject. */
+  /** 로그인 방식 선택 창(Google·네이버·카카오·Strava)을 연다. Google 로 로그인되면 resolve, 창을 닫으면 reject. */
   signIn: () => Promise<void>;
   logout: () => Promise<void>;
 }

@@ -73,6 +73,16 @@ describe("OAuth browser state binding", () => {
     expect(consumeSocialAuthState("expected-state")).toBe(false);
   });
 
+  it("stores the canonical state instead of the Strava proxy transport envelope", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("window", { location: { origin: "https://orider.co.kr", assign } });
+    mocks.invoke.mockResolvedValue({ data: { authorizeUrl: "https://www.strava.com/oauth/authorize?state=https%3A%2F%2Forider.co.kr%7Ccanonical-state&scope=read", state: "canonical-state" } });
+    await startSocialAuth("strava", "login", "/");
+    expect(consumeSocialAuthState("https://orider.co.kr|canonical-state")).toBe(false);
+    expect(consumeSocialAuthState("canonical-state")).toBe(true);
+    expect(mocks.invoke).toHaveBeenCalledWith({ provider: "strava", mode: "login", redirectUri: "https://orider.co.kr/auth/social/callback", returnTo: "/" });
+  });
+
   it("rejects unsolicited, missing, or another tab's state without consuming the valid request", () => {
     expect(consumeSocialAuthState("other-tab-state")).toBe(false);
     sessionStorage.setItem(stateKey, "expected-state");

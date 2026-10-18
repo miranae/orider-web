@@ -3,16 +3,16 @@ import { ensureAppCheckReady, functions } from "./firebase";
 import { logClientError } from "./errorLogger";
 
 /**
- * 네이버·카카오 로그인/계정 연결 (서버 custom token 흐름).
+ * 네이버·카카오·Strava 로그인/계정 연결 (서버 custom token 흐름).
  *
- * Firebase Auth 가 네이버·카카오를 지원하지 않아 서버(`socialAuthStart`/`socialAuthComplete`)가
+ * Firebase Auth 가 이 제공자들을 지원하지 않아 서버(`socialAuthStart`/`socialAuthComplete`)가
  * OAuth code 를 교환하고 custom token 을 준다. 동의 화면은 전체 페이지 이동이라
  * 돌아올 경로(returnTo)는 서버 state 에 실어 보낸다.
  */
-export type SocialProvider = "naver" | "kakao";
+export type SocialProvider = "naver" | "kakao" | "strava";
 export type SocialMode = "login" | "link" | "reauth";
 
-export const SOCIAL_PROVIDERS: readonly SocialProvider[] = ["naver", "kakao"];
+export const SOCIAL_PROVIDERS: readonly SocialProvider[] = ["naver", "kakao", "strava"];
 /** 언어 접두 없는 경로 — LocaleRedirect 가 쿼리를 보존해 /:lang/auth/social/callback 으로 보낸다. */
 export const SOCIAL_CALLBACK_PATH = "/auth/social/callback";
 const pendingStateKey = "orider.social-auth.state.v1";
@@ -30,8 +30,8 @@ export function consumeSocialAuthState(state: string | null): boolean {
 }
 
 export type SocialCompleteResult =
-  | { mode: "login"; provider: SocialProvider; token: string; isNewUser: boolean; returnTo: string }
-  | { mode: "link"; provider: SocialProvider; returnTo: string };
+  | { mode: "login"; provider: SocialProvider; token: string; isNewUser: boolean; returnTo: string; stravaSyncReauthRequired?: boolean }
+  | { mode: "link"; provider: SocialProvider; returnTo: string; stravaSyncReauthRequired?: boolean };
 
 export function socialRedirectUri(): string {
   return `${window.location.origin}${SOCIAL_CALLBACK_PATH}`;
@@ -50,10 +50,10 @@ export async function startSocialAuth(provider: SocialProvider, mode: SocialMode
     await ensureAppCheckReady();
     const start = httpsCallable<
       { provider: SocialProvider; mode: SocialMode; redirectUri: string; returnTo: string },
-      { authorizeUrl: string }
+      { authorizeUrl: string; state?: string }
     >(functions, "socialAuthStart");
     const { data } = await start({ provider, mode, redirectUri: socialRedirectUri(), returnTo });
-    const state = new URL(data.authorizeUrl).searchParams.get("state");
+    const state = data.state ?? new URL(data.authorizeUrl).searchParams.get("state");
     if (!state) throw new Error("social-auth/missing-state");
     // 저장소를 사용할 수 없으면 이동하지 않는다. 콜백에서 브라우저 일치를 확인할 수 없기 때문이다.
     sessionStorage.setItem(pendingStateKey, state);

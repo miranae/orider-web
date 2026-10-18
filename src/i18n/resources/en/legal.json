@@ -344,7 +344,8 @@
               "Google account information: name, email address, profile image",
               "Google unique identifier",
               "When Naver or Kakao sign-in is selected: the provider-specific user ID, nickname and profile image if consented to and provided",
-              "Naver/Kakao connection maintenance and revocation: OAuth access/refresh tokens and expiry information (server only)"
+              "Naver/Kakao connection maintenance and revocation: OAuth access/refresh tokens and expiry information (server only)",
+              "When Strava sign-in is selected: athlete ID and public profile name/image"
             ]
           },
           {
@@ -419,7 +420,8 @@
       {
         "title": "Article 4-2 (Data Processing for Strava Integration)",
         "paragraphs": [
-          "When a User integrates a Strava account, data is processed as follows:"
+          "When a User integrates a Strava account, data is processed as follows:",
+          "Strava sign-in requests public profile read access (read) only. Signing in does not import activities or start sync. An existing activity connection does not automatically enable Strava sign-in; sign in to your existing account first and explicitly add Strava sign-in. Sign-in and activity sync share the same Strava app authorization, so activity sync may require reauthorization after permission changes."
         ],
         "groups": [
           {
@@ -437,7 +439,8 @@
             "list": [
               "Unified management and analysis of the User's ride records",
               "Visualization features such as elevation profiles and performance charts",
-              "Segment leaderboards and personal record comparison"
+              "Segment leaderboards and personal record comparison",
+              "Account identification, sign-in and explicit connection management when you choose Strava sign-in"
             ]
           },
           {
@@ -454,7 +457,8 @@
               "Users may disconnect Strava integration at any time from the Settings page.",
               "Strava authentication tokens are discarded immediately upon disconnection.",
               "Users may request deletion of all activity data imported from Strava from the Settings page.",
-              "Strava data cleanup is separate from O-Rider account deletion. To delete your account, workouts and photos, use the account deletion page and check the server-confirmed completion status."
+              "Strava data cleanup is separate from O-Rider account deletion. To delete your account, workouts and photos, use the account deletion page and check the server-confirmed completion status.",
+              "Revoking the same Strava app authorization affects both sign-in and activity sync. Ensure another sign-in method is available before disconnecting; removing the last sign-in method is blocked."
             ]
           },
           {

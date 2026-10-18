@@ -379,7 +379,8 @@
       "cardSocial": "Sign-in connections",
       "social": {
         "naver": "Naver",
-        "kakao": "Kakao"
+        "kakao": "Kakao",
+        "strava": "Strava"
       },
       "socialLinked": "Linked — you can also sign in to this account with it.",
       "socialNotLinked": "Link it to sign in to this account with this service.",
@@ -389,7 +390,11 @@
       "socialUnlinkLast": "You can't unlink your only sign-in method.",
       "socialUnlinkFailed": "Couldn't unlink. Please try again.",
       "socialLinkFailed": "Couldn't start linking. Please try again.",
-      "socialLoadFailed": "Couldn't load connection status."
+      "socialLoadFailed": "Couldn't load connection status.",
+      "stravaLoginHint": "This is a sign-in connection, separate from activity sync status.",
+      "stravaUnlinkConfirm": "Unlink Strava sign-in? This revokes Strava authorization for this app. If activity sync is connected, disconnect it in settings first and ensure you have another sign-in method.",
+      "stravaSyncActive": "Activity sync is connected. Ensure you have another sign-in method, then disconnect Strava in Settings > Connected apps.",
+      "stravaSyncSettings": "Activity sync settings"
     },
     "app": {
       "cardLocaleUnits": "Language & Units",

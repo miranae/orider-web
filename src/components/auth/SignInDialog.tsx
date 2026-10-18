@@ -42,7 +42,7 @@ export function KakaoLogo() {
 
 const BUTTON_CLASS = "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[var(--r-lg)] font-medium transition-opacity disabled:opacity-60";
 
-/** 로그인 방식 선택 — Google 은 팝업, 네이버·카카오는 동의 화면으로 이동한다. */
+/** 로그인 방식 선택 — Google 은 팝업, 다른 제공자는 동의 화면으로 이동한다. */
 export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
   const { t } = useTranslation("auth");
   const [pending, setPending] = useState<Provider | null>(null);
@@ -94,6 +94,12 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
           onClick={() => { void handleSocial("kakao"); }}>
           <KakaoLogo />{t("signIn.kakao")}
         </button>
+        <button data-testid="A1-1-4" type="button" aria-label={t("signIn.strava")}
+          className="w-full flex items-center justify-center disabled:opacity-60" disabled={pending !== null}
+          onClick={() => { void handleSocial("strava"); }}>
+          <img src="/btn_strava_connect_orange.svg" alt="" className="h-12 w-auto" />
+        </button>
+        <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>{t("signIn.stravaHint")}</p>
         {error && <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)", margin: 0 }}>{error}</p>}
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>{t("signIn.separateAccountHint")}</p>
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>

@@ -54,3 +54,13 @@ describe("Naver/Kakao account privacy disclosure", () => {
     expect(screen.getByText(language === "ko" ? /로그인 연결 해제는 O-Rider 계정 삭제와 다릅니다/ : /Disconnecting a sign-in provider does not delete your O-Rider account/)).toBeInTheDocument();
   });
 });
+
+describe("Strava sign-in and activity permission boundaries", () => {
+  it.each(["ko", "en"])("explains explicit login opt-in and shared authorization in %s", async language => {
+    i18n.addResourceBundle("en", "legal", enLegal);
+    await i18n.changeLanguage(language);
+    render(<MemoryRouter><PrivacyPage /></MemoryRouter>);
+    expect(screen.getByText(language === "ko" ? /기존 활동 연동만으로 로그인 방법이 자동 추가되지 않으며/ : /An existing activity connection does not automatically enable Strava sign-in/)).toBeInTheDocument();
+    expect(screen.getByText(language === "ko" ? /같은 Strava 앱의 인증 해제는 로그인과 활동 연동에 함께 영향을 줍니다/ : /Revoking the same Strava app authorization affects both sign-in and activity sync/)).toBeInTheDocument();
+  });
+});

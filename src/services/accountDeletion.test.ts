@@ -48,6 +48,13 @@ describe("account deletion callable contract", () => {
     expect(mocks.startSocial).toHaveBeenCalledWith("kakao", "reauth", "/account-deletion");
     expect(mocks.reauth).not.toHaveBeenCalled();
   });
+  it("uses the owner-bound Strava flow when it is the current sign-in connection", async () => {
+    mocks.auth.currentUser = { uid: "owner", getIdToken: vi.fn(), providerData: [] };
+    mocks.listSocial.mockResolvedValue([{ provider: "strava", linkedAt: 1 }]);
+    await reauthenticateAccountDeletion();
+    expect(mocks.startSocial).toHaveBeenCalledWith("strava", "reauth", "/account-deletion");
+    expect(mocks.reauth).not.toHaveBeenCalled();
+  });
   it("does not reuse a removed provider from the session claim", async () => {
     mocks.auth.currentUser = { uid: "owner", getIdToken: vi.fn(), providerData: [], getIdTokenResult: vi.fn().mockResolvedValue({ claims: { socialProvider: "naver" } }) };
     await reauthenticateAccountDeletion();

@@ -25,6 +25,9 @@ describe("socialAuthErrorKey", () => {
     expect(socialAuthErrorKey("functions/deadline-exceeded")).toBe("socialCallback.error.expired");
     expect(socialAuthErrorKey("functions/permission-denied")).toBe("socialCallback.error.denied");
     expect(socialAuthErrorKey(undefined)).toBe("socialCallback.error.generic");
+    expect(socialAuthErrorKey("functions/failed-precondition", "strava-existing-account-link-required")).toBe("socialCallback.error.existingStravaAccount");
+    expect(socialAuthErrorKey("functions/failed-precondition", "strava-owner-conflict")).toBe("socialCallback.error.alreadyLinked");
+    expect(socialAuthErrorKey("functions/failed-precondition", "strava-sync-reauth-required")).toBe("socialCallback.error.stravaSyncReauth");
   });
 });
 
@@ -83,6 +86,22 @@ describe("SocialAuthCallbackPage", () => {
     render(<SocialAuthCallbackPage />);
     expect(await screen.findByRole("alert")).toHaveTextContent("socialCallback.error.denied");
     expect(mocks.complete).not.toHaveBeenCalled();
+    expect(mocks.signIn).not.toHaveBeenCalled();
+  });
+
+  it("completes Strava login while separately explaining activity reauthorization", async () => {
+    mocks.complete.mockResolvedValue({ mode: "login", provider: "strava", token: "custom-token", isNewUser: false, returnTo: "/", stravaSyncReauthRequired: true });
+    render(<SocialAuthCallbackPage />);
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith("/", { replace: true }));
+    expect(mocks.signIn).toHaveBeenCalledWith({ name: "auth" }, "custom-token");
+    expect(mocks.toast).toHaveBeenCalledWith("socialCallback.stravaSyncReauth", "info");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("blocks unopted-in legacy Strava accounts with explicit account-link guidance", async () => {
+    mocks.complete.mockRejectedValue({ code: "functions/failed-precondition", details: { reason: "strava-existing-account-link-required" } });
+    render(<SocialAuthCallbackPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("socialCallback.error.existingStravaAccount");
     expect(mocks.signIn).not.toHaveBeenCalled();
   });
 
