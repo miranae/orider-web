@@ -19,7 +19,8 @@ vi.mock("../hooks/useFitnessTimeseries", () => ({ useFitnessTimeseries: () => ({
 vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ pdc: null }) }));
 vi.mock("../components/AnalysisTab", () => ({ default: (props: ComponentProps<typeof AnalysisTab>) => {
   mocks.analysisProps(props);
-  return <div data-testid="summary-analysis">Analysis</div>;
+  const content = <div data-testid="summary-analysis">Analysis</div>;
+  return props.renderSections ? props.renderSections({ load: content }) : content;
 }, AnalysisLapTable: (props: Record<string, unknown>) => { mocks.lapProps(props); return <div data-testid="summary-laps"><h3>랩 분석</h3>Laps</div>; } }));
 vi.mock("../components/RouteMap", () => ({ default: () => <div /> }));
 vi.mock("../components/ElevationChart", () => ({ default: () => <div /> }));
@@ -65,12 +66,13 @@ describe("ActivityPage server summary presentation", () => {
     mocks.model!.analysisTabProps!.sport = "run";
     Object.assign(mocks.model!.serverMetrics.metrics!, { discipline: "run", avgSpeedKph, runMetrics: { gapAvgSec: 337.29 } });
     renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     const gapCard = screen.getByText("지형 보정 페이스 (GAP)").parentElement!;
     expect(within(gapCard).getByText(avgSpeedKph == null ? "—" : "5:00/km")).toBeInTheDocument();
     expect(within(gapCard).queryByText("6:00/km")).not.toBeInTheDocument();
     expect(within(gapCard).getByText("5:37/km")).toBeInTheDocument();
     expect(mocks.model!.activity!.summary.averageSpeed).toBe(10);
-    expect(mocks.requestStreams).not.toHaveBeenCalled();
+    expect(mocks.requestStreams).toHaveBeenCalledOnce();
   });
 
   it("renders analysis with no downloaded streams or stream projection", () => {
@@ -81,9 +83,44 @@ describe("ActivityPage server summary presentation", () => {
     expect(mocks.analysisProps.mock.lastCall?.[0]).toMatchObject({
       activityId: "summary-only", isOwner: true, streams: { time: [], distance: [] },
     });
-    expect(mocks.requestStreams).not.toHaveBeenCalled();
+    expect(mocks.requestStreams).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: "상세 기록 보기" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(mocks.requestStreams).toHaveBeenCalledOnce();
+    if (screen.queryByRole("button", { name: "활동 관리" })) fireEvent.click(screen.getByRole("button", { name: "활동 관리" }));
     fireEvent.click(screen.getByRole("button", { name: "내보내기" }));
-    expect(mocks.requestStreams).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog", { name: "활동 관리" })).not.toBeInTheDocument();
+    expect(mocks.requestStreams).toHaveBeenCalledTimes(2);
+  });
+
+  it("분석 요청 scope가 개요에서 바뀌고 돌아와도 새 scope는 자동으로 불러온다", () => {
+    const rendered = renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(mocks.requestStreams).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    const nextRequest = vi.fn();
+    mocks.model!.requestStreams = nextRequest;
+    rendered.rerender(<ActivityPage />);
+    expect(nextRequest).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(nextRequest).toHaveBeenCalledOnce();
+    rendered.rerender(<ActivityPage />);
+    expect(nextRequest).toHaveBeenCalledOnce();
+  });
+
+  it("이미 불러오는 동안 추가 요청 없이 진행 상태를 보이고 정상 빈 결과는 재시도를 요구하지 않는다", () => {
+    mocks.model!.loadingStreams = true;
+    const rendered = renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/summary-only?tab=insights" });
+    expect(screen.getByText("상세 기록을 불러오는 중…").closest('[role="status"]')).toBeInTheDocument();
+    expect(mocks.requestStreams).not.toHaveBeenCalled();
+    expect(screen.queryByText("이 기록에 표시할 차트 데이터가 없습니다.")).not.toBeInTheDocument();
+    mocks.model!.loadingStreams = false;
+    mocks.model!.streams = { userId: "test-uid", time: [], distance: [] } as never;
+    rendered.rerender(<ActivityPage />);
+    expect(screen.getByText("이 기록에 표시할 차트 데이터가 없습니다.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
+    expect(mocks.requestStreams).not.toHaveBeenCalled();
   });
 
   it("keeps saved laps visible while requesting streams for matching and export", () => {
@@ -135,7 +172,7 @@ describe("ActivityPage server summary presentation", () => {
     mocks.model!.streamsError = "SIGN_IN_REQUIRED";
     Object.assign(mocks.model!.serverMetrics.metrics!, { avgHr: 150, avgPower: 200, maxPower: 300, np: 210, avgCadence: 80 });
     renderWithProviders(<ActivityPage />);
-    expect(screen.getByText("로그인하고 상세 분석을 확인하세요")).toBeInTheDocument();
+    expect(screen.queryByText("로그인하고 상세 분석을 확인하세요")).not.toBeInTheDocument();
     expect(screen.queryByText("SIGN_IN_REQUIRED")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(screen.getByText("로그인하고 상세 분석을 확인하세요")).toBeInTheDocument();
@@ -149,6 +186,7 @@ describe("ActivityPage server summary presentation", () => {
     expect(screen.getByText("NP 210 W")).toBeInTheDocument();
     expect(screen.getAllByText("300").length).toBeGreaterThan(0);
     expect(screen.getAllByText("80").length).toBeGreaterThan(0);
+    if (screen.queryByRole("button", { name: "활동 관리" })) fireEvent.click(screen.getByRole("button", { name: "활동 관리" }));
     fireEvent.click(screen.getByRole("button", { name: "내보내기" }));
     const exportDialog = within(screen.getByRole("dialog", { name: "내보내기" }));
     expect(exportDialog.getByText("로그인하고 상세 분석을 확인하세요")).toBeInTheDocument();
@@ -166,11 +204,27 @@ describe("ActivityPage server summary presentation", () => {
     mocks.model!.streamsError = "network request failed";
     renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-    expect(screen.getByText("상세 분석 데이터를 찾을 수 없습니다")).toBeInTheDocument();
+    expect(screen.queryByText("상세 분석 데이터를 찾을 수 없습니다")).not.toBeInTheDocument();
     expect(screen.getByText("network request failed")).toBeInTheDocument();
     expect(screen.queryByText("로그인하고 상세 분석을 확인하세요")).not.toBeInTheDocument();
+    expect(mocks.requestStreams).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(mocks.requestStreams).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
     expect(mocks.model!.retryStreams).toHaveBeenCalledOnce();
   });
 
+});
+
+
+it("does not add an empty technical card for a sensorless public activity without overview", () => {
+  mocks.model!.overview.enabled = false;
+  mocks.model!.isActivityOwner = false;
+  mocks.model!.sport = "other";
+  mocks.model!.hasAnalysisStreams = false;
+  mocks.model!.analysisTabProps = null;
+  Object.assign(mocks.model!.activity!.summary, { averageHeartRate: null, maxHeartRate: null, averagePower: null, maxPower: null, averageCadence: null, maxCadence: null });
+  renderWithProviders(<ActivityPage />, { route: "/ko/activity/summary-only?tab=analysis" });
+  expect(screen.queryByRole("heading", { name: "상세 지표와 근거" })).not.toBeInTheDocument();
 });

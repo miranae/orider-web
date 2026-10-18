@@ -283,6 +283,8 @@ export function RideActivityRouteButton({
         variant="outline"
         disabled={status !== "idle"}
         aria-busy={status === "creating" || status === "sending"}
+        aria-label={label}
+        title={label}
         className="justify-center"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">

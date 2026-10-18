@@ -88,7 +88,7 @@ function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }:
       : { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(new Date(time)) : "—";
   const powerLabel = (source: MetricsLike | null) => !source || !settledMetrics(source) || ![source.avgPower, source.np, ...Object.values(source.mmp ?? {})].some((value) => typeof value === "number" && Number.isFinite(value) && value > 0) ? t("growth.visual.powerMissing") : source?.isVirtualPower === true ? t("growth.virtualPower")
     : source?.isVirtualPower === false ? t("growth.measuredPower") : t("growth.powerUnknown");
-  return <GlossaryProvider scopeKey={`activity-comparison:${activity.id}:${selectedId}`} triggerTone="inherit"><div className="space-y-4">
+  return <GlossaryProvider scopeKey={`activity-comparison:${activity.id}:${selectedId}`}><div className="space-y-4">
     <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.conditions")}</Text>
     {stageRoutes && <Stack direction="row" wrap gap="var(--space-2)">
       <Button size="sm" variant={!routeOnly ? "secondary" : "ghost"} aria-pressed={!routeOnly} onClick={() => setRouteOnly(false)}>{t("growth.route.all")}</Button>

@@ -22,7 +22,7 @@ function SummarySection({ title, children, info, className = "", collapsible = f
   const ref = useRef<HTMLElement | null>(null);
   const bodyId = useId();
   const [narrow, setNarrow] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   useEffect(() => {
     // 접힘 여부는 카드 폭(휴대폰)으로 정한다 — 태블릿 두 열의 좁은 열에서는 펼친다.
     const element = ref.current?.closest(".activity-overview-body") ?? ref.current;
@@ -36,9 +36,9 @@ function SummarySection({ title, children, info, className = "", collapsible = f
     <div className="activity-overview-section-head">
       {collapsible && narrow
         ? <h3 className="activity-overview-section-head__title"><button type="button" className="activity-overview-disclosure" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen((value) => !value)}>
-            <Text variant="subtitle" tone="primary">{title}</Text><span aria-hidden="true" className="activity-overview-disclosure__chevron" />
+            <Text variant="bodyMedium" weight={600} tone="primary">{title}</Text><span aria-hidden="true" className="activity-overview-disclosure__chevron" />
           </button></h3>
-        : <Text as="h3" variant="subtitle">{title}</Text>}
+        : <Text as="h3" variant="bodyMedium" weight={600}>{title}</Text>}
       {info && <InfoTip content={info} label={t("overviewSummary.aboutSection", { title })} />}
     </div>
     <div id={bodyId} hidden={folded} className="space-y-4">{children}</div>
@@ -62,7 +62,7 @@ const latin = (value: string) => /^[A-Za-z0-9 .+′'/-]+$/.test(value) ? { "data
  * 훈련 부하 전→후. 숫자는 그림이 가리키는 몇 개만 크게 남기고, 설명은 ⓘ 로 접는다.
  * 값은 전부 서버 정본이다. 없으면 그 그림을 그리지 않는다.
  */
-export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true, ftpW }: { presentation: ActivityOverviewPresentation; isOwner?: boolean;
+export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true, ftpW, integrated = false }: { integrated?: boolean; presentation: ActivityOverviewPresentation; isOwner?: boolean;
   /** 서버 지표(`activity_metrics.contextSnapshot.ftp`)의 활동 당시 FTP. 있을 때만 파워 커브에 기준선을 긋는다. */
   ftpW?: number | null }) {
   const { t, i18n } = useTranslation("activity");
@@ -146,7 +146,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       {!!records.length && <Stack direction="row" wrap>{records.map((row) => <Stack key={row.key} direction="row" wrap align="center"><Chip variant="accent">{label(`records.${row.achievement}`)}</Chip><Text variant="bodyMedium" tone="primary"><MixedValue value={row.value} /></Text></Stack>)}</Stack>}
       {!!personal.length && <Stack gap="var(--space-4)">{personal.map((row) => <PercentMeter key={row.axis} mid value={row.personalIndex}
         label={<><GlossaryText>{label(`axes.${row.axis}`)}</GlossaryText> · <GlossaryText>{label(`bands.${row.band}`)}</GlossaryText></>}
-        display={<MixedValue value={`${copy("index")} ${number(row.personalIndex)}`} />} />)}</Stack>}
+        display={<MixedValue value={`${copy("index")} ${number(row.personalIndex)} · ${row.sampleCount}${copy("samples")}`} />} />)}</Stack>}
       {!personal.length && (thresholdMissing
         ? <Stack gap="var(--dim-item-gap)">
             {note(p.session.discipline === "run" && isOwner ? copy("runThresholdMissing") : voice("thresholdMissing"))}
@@ -199,7 +199,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       </div>
       {p.routeLoad!.elevationSuspect && note(copy("elevationSuspect"))}
     </SummarySection> : null;
-  return <GlossaryProvider scopeKey="activity-overview-summary" triggerTone="inherit"><Stack gap="var(--dim-section-gap)" className="activity-overview-root">
+  return <GlossaryProvider scopeKey="activity-overview-summary"><Stack gap="var(--dim-section-gap)" className="activity-overview-root">
     <Stack gap="var(--dim-item-gap)">
       {/* 성격이 곧 라벨이다 — 별도 은유 층을 두지 않는다. 서버가 확정한 값만 그린다(화면에서 재분류하지 않는다). */}
       <Stack direction="row" wrap><Chip variant={p.session.character ? "accent" : "default"}>
@@ -247,6 +247,13 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
         ? <PercentMeter quiet label={<GlossaryText>{copy("reserve")}</GlossaryText>} value={effort.wPrimeDepletionPct} display={<MixedValue value={`${number(effort.wPrimeDepletionPct)}%`} />} tone="high" ends={[copy("reserveStart"), copy("reserveEnd")]} />
         : effort?.wPrimeRemainingPct != null && <PercentMeter quiet label={<GlossaryText>{copy("remaining")}</GlossaryText>} value={effort.wPrimeRemainingPct} display={<MixedValue value={`${number(effort.wPrimeRemainingPct)}%`} />} ends={[copy("remainingStart"), copy("remainingEnd")]} />}
     </div>}
+    {integrated ? <>
+      <div className="activity-overview-area--shift">{shiftBlock}</div>
+      {curveBlock && <div className="activity-overview-area--curve">{curveBlock}</div>}
+      <div className="activity-overview-area--changes">{changesBlock}</div>
+      {recoveryBlock && <div className="activity-overview-area--recovery">{recoveryBlock}</div>}
+      {routeBlock && <div className="activity-overview-area--route">{routeBlock}</div>}
+    </> : <>
     {/* 넓은 카드의 두 열은 자리가 고정이다 — 활동이 달라도 같은 그림이 같은 곳에 온다.
         왼쪽: 커브 → 회복과 연료 → 경로 / 오른쪽: 훈련 부하 → 나의 변화. 커브가 없으면 훈련 부하가 왼쪽 첫 자리.
         열 높이 차이는 열 아래 여백으로 둔다. 좁은 카드는 order 로 한 줄. */}
@@ -261,8 +268,9 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       {power.length > 0 && <div className="activity-overview-area--shift">{shiftBlock}</div>}
       <div className="activity-overview-area--changes">{changesBlock}</div>
     </div>
+    </>}
     </div></div>
-    {(modelNote || p.qualityNote || (p.session.discipline !== "bike" && p.recovery)) && <Stack gap="var(--dim-item-gap)" className="activity-overview-footnotes">
+    {(modelNote || p.qualityNote || (p.session.discipline !== "bike" && p.recovery)) && <Stack gap="var(--space-2)" className="activity-overview-footnotes">
       {modelNote && note(modelNote)}
       {p.session.discipline !== "bike" && p.recovery && note(copy("runRecoveryNote"))}
       {p.qualityNote && note(copy("qualityFooter"))}
@@ -270,17 +278,17 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   </Stack></GlossaryProvider>;
 }
 
-export default function ActivityOverviewSummary({ overview, preview = false, isOwner = true, ftpW, children }: { overview: ReturnType<typeof useActivityOverview>; preview?: boolean; isOwner?: boolean; ftpW?: number | null; children?: ReactNode }) {
+export default function ActivityOverviewSummary({ overview, preview = false, isOwner = true, ftpW, children, integrated = false }: { integrated?: boolean; overview: ReturnType<typeof useActivityOverview>; preview?: boolean; isOwner?: boolean; ftpW?: number | null; children?: ReactNode }) {
   const { t } = useTranslation("activity");
   if (!overview.enabled) return null;
   const reason = overview.response?.status === "unavailable" ? overview.response.reason : null;
   // 남의 활동에서는 보여줄 개요가 있을 때만 카드를 낸다 — 진단 문구·재시도는 소유자의 것이다.
   if (!isOwner && overview.response?.status !== "available") return null;
   return <Card data-testid="activity-overview-summary" className="activity-overview-card"><Stack gap="var(--dim-section-gap)">
-    <Stack direction="row" wrap justify="space-between" align="baseline"><Text as="h2" variant="subtitle"><GlossaryText>{t("overviewSummary.title")}</GlossaryText></Text><Text variant="eyebrow" tone="accent">O-RIDER</Text></Stack>
+    <Stack direction="row" wrap justify="space-between" align="baseline"><Text as="h2" variant="subtitle" weight={600}><GlossaryText>{t("overviewSummary.title")}</GlossaryText></Text><Text variant="eyebrow" tone="accent">O-RIDER</Text></Stack>
     {preview && <Text as="p" variant="caption"><GlossaryText>{t("overviewEvidence.preview")}</GlossaryText></Text>}
     {overview.loading ? <Text as="p" variant="body" role="status"><GlossaryText>{t("overviewEvidence.loading")}</GlossaryText></Text> : overview.response?.status === "available" ? <>
-      <ActivityOverviewSummaryContent presentation={overview.response.presentation} isOwner={isOwner} ftpW={ftpW} />
+      <ActivityOverviewSummaryContent presentation={overview.response.presentation} isOwner={isOwner} ftpW={ftpW} integrated={integrated} />
       {!!overview.response.partialReasons?.length && <Text as="p" variant="caption"><GlossaryText>{t("overviewEvidence.partial")}</GlossaryText> <GlossaryText>{overview.response.partialReasons.map((value) => t(`overviewEvidence.partialReasons.${value}`)).join(" · ")}</GlossaryText></Text>}
     </> : <Stack><Text as="p" variant="body"><GlossaryText>{t(overview.error ? "overviewEvidence.error" : reason ? `overviewEvidence.unavailable.${reason}` : "overviewEvidence.missing")}</GlossaryText></Text>{reason !== "rollout_disabled" && <Button size="sm" variant="outline" onClick={overview.retry}>{t("overviewEvidence.retry")}</Button>}</Stack>}
     {children}

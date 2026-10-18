@@ -352,8 +352,26 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   return canvas;
 }
 
-export function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob | null> {
-  return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+export function canvasToPng(canvas: HTMLCanvasElement, signal?: AbortSignal): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve(null);
+    let settled = false;
+    const finish = (blob: Blob | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
+      resolve(blob);
+    };
+    const abort = () => finish(null);
+    const timeout = setTimeout(() => finish(null), 5_000);
+    signal?.addEventListener("abort", abort, { once: true });
+    try {
+      canvas.toBlob(finish, "image/png");
+    } catch {
+      finish(null);
+    }
+  });
 }
 
 export function downloadShareCard(blob: Blob, filename: string): void {

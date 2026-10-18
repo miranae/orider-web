@@ -9,6 +9,7 @@ import { visiblePeakEfforts } from "./activityPeakEfforts";
 
 interface Props {
   activityId: string;
+  defaultExpanded?: boolean;
   metrics: ActivityMetrics | null;
   isOwner: boolean;
   invalidated?: boolean;
@@ -27,10 +28,10 @@ export default function ActivityPeakEffortInspector(props: Props) {
   return <PeakEffortContent key={`${props.activityId}:${props.metrics?.computedAt ?? ""}`} {...props} peaks={peaks} />;
 }
 
-function PeakEffortContent({ metrics, peaks, onLocate, locating, locationUnavailable, chartOnly, suppressHeartRate, suppressCadence }: Props & { peaks: RidePeakEffort[] }) {
+function PeakEffortContent({ defaultExpanded = false, metrics, peaks, onLocate, locating, locationUnavailable, chartOnly, suppressHeartRate, suppressCadence }: Props & { peaks: RidePeakEffort[] }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
-  const [opened, setOpened] = useState(false);
+  const [opened, setOpened] = useState(defaultExpanded);
   const id = useId();
   const [duration, setDuration] = useState(peaks[0]!.durationSec);
   const peak = peaks.find(value => value.durationSec === duration) ?? peaks[0]!;
@@ -48,10 +49,10 @@ function PeakEffortContent({ metrics, peaks, onLocate, locating, locationUnavail
     [t("peakInspector.cadence"), number(suppressCadence ? null : peak.avgCadence, "rpm"), "—"],
   ];
   return <section className="space-y-4" aria-label={t("peakInspector.title")}>
-    <Button variant="ghost" size="sm" aria-expanded={opened} aria-controls={id} onClick={() => {
+    <h3 className="activity-analysis-tool-heading"><Button variant="ghost" size="sm" aria-expanded={opened} aria-controls={id} onClick={() => {
       setOpened(value => !value);
       if (opened) onLocate?.(null);
-    }}><Text variant="subtitle">{t("peakInspector.title")}</Text>{opened ? <ChevronUp aria-hidden="true" size={16} /> : <ChevronDown aria-hidden="true" size={16} />}</Button>
+    }}><Text variant="bodyMedium" weight={600}>{t("peakInspector.title")}</Text>{opened ? <ChevronUp aria-hidden="true" size={16} /> : <ChevronDown aria-hidden="true" size={16} />}</Button></h3>
     {opened && <div id={id} className="activity-peak-reading space-y-4">
       <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{t("peakInspector.description")}</p>
       <div className="flex flex-wrap gap-2" role="group" aria-label={t("peakInspector.duration")}>

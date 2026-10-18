@@ -16,9 +16,10 @@ export interface ActivityPersonalBenchmarkProps {
   sport: string;
   metrics: MetricsLike | null;
   suppliedPdcState?: UsePdcState;
+  defaultExpanded?: boolean;
 }
 function duration(seconds: number) { return seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${seconds / 60}m` : `${seconds / 3600}h`; }
-function BenchmarkReading({ metrics, state }: { metrics: MetricsLike | null; state: UsePdcState }) {
+function BenchmarkReading({ metrics, state, defaultExpanded = false }: { metrics: MetricsLike | null; state: UsePdcState; defaultExpanded?: boolean }) {
   const { t, i18n } = useTranslation("activity");
   const id = useId();
   const [selectedDuration, setSelectedDuration] = useState(300);
@@ -56,7 +57,7 @@ function BenchmarkReading({ metrics, state }: { metrics: MetricsLike | null; sta
       <LocalizedLink className="activity-benchmark-source" to={`/activity/${encodeURIComponent(selected.activityId)}`}>{t("benchmark.source", { date: selected.date })}</LocalizedLink>
     </ChartFrame>
     <Text as="p" variant="bodySmall" tone="secondary">{t("benchmark.timingShort")}</Text>
-    <details className="activity-benchmark-help">
+    <details className="activity-benchmark-help" open={defaultExpanded}>
       <summary>{t("benchmark.readingGuide")}</summary>
       <div className="space-y-3">
         <Text as="p" variant="bodySmall" tone="secondary">{t("benchmark.timingNote")}</Text>
@@ -65,18 +66,18 @@ function BenchmarkReading({ metrics, state }: { metrics: MetricsLike | null; sta
     </details>
   </div>;
 }
-function LazyBenchmark({ ownerUid, metrics }: { ownerUid: string; metrics: MetricsLike | null }) {
+function LazyBenchmark({ ownerUid, metrics, defaultExpanded }: { ownerUid: string; metrics: MetricsLike | null; defaultExpanded?: boolean }) {
   const state = usePdc(ownerUid);
-  return <BenchmarkReading metrics={metrics} state={state} />;
+  return <BenchmarkReading metrics={metrics} state={state} defaultExpanded={defaultExpanded} />;
 }
-function BenchmarkSection({ ownerUid, metrics, suppliedPdcState }: ActivityPersonalBenchmarkProps & { ownerUid: string }) {
+function BenchmarkSection({ ownerUid, metrics, suppliedPdcState, defaultExpanded = false }: ActivityPersonalBenchmarkProps & { ownerUid: string }) {
   const { t } = useTranslation("activity");
-  const [opened, setOpened] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [opened, setOpened] = useState(defaultExpanded);
+  const [mounted, setMounted] = useState(defaultExpanded);
   const id = useId();
   return <section className="activity-personal-benchmark space-y-3">
-    <Button variant="ghost" size="sm" aria-expanded={opened} aria-controls={id} onClick={() => { setOpened(value => !value); setMounted(true); }}><Text variant="subtitle">{t("benchmark.title")}</Text>{opened ? <ChevronUp aria-hidden="true" size={16} /> : <ChevronDown aria-hidden="true" size={16} />}</Button>
-    {mounted && <div id={id} hidden={!opened}>{suppliedPdcState ? <BenchmarkReading metrics={metrics} state={suppliedPdcState} /> : <LazyBenchmark metrics={metrics} ownerUid={ownerUid} />}</div>}
+    <h3 className="activity-analysis-tool-heading"><Button variant="ghost" size="sm" aria-expanded={opened} aria-controls={id} onClick={() => { setOpened(value => !value); setMounted(true); }}><Text variant="bodyMedium" weight={600}>{t("benchmark.title")}</Text>{opened ? <ChevronUp aria-hidden="true" size={16} /> : <ChevronDown aria-hidden="true" size={16} />}</Button></h3>
+    {mounted && <div id={id} hidden={!opened}>{suppliedPdcState ? <BenchmarkReading metrics={metrics} state={suppliedPdcState} defaultExpanded={defaultExpanded} /> : <LazyBenchmark metrics={metrics} ownerUid={ownerUid} defaultExpanded={defaultExpanded} />}</div>}
   </section>;
 }
 export function ActivityPersonalBenchmark(props: ActivityPersonalBenchmarkProps) {

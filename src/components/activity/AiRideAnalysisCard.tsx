@@ -282,9 +282,9 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   // peek 로딩 중 (첫 열람, 빠름)
   if (peek.loading) {
     return (
-      <Card padding="none" style={{ padding: "var(--space-5)" }}>
+      <Card>
         <div className="flex items-center gap-2">
-          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
+          <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         </div>
         <div className="mt-3 flex items-center gap-2 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>
           <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -302,9 +302,9 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   if (peek.cacheMiss && !triggerFull && !full.data) {
     if (previewSummary) {
       return (
-        <Card padding="none" style={{ padding: "var(--space-5)" }}>
+        <Card>
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
+            <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
             {user ? (
               <Button
                 size="sm"
@@ -328,9 +328,9 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
       );
     }
     return (
-      <Card padding="none" style={{ padding: "var(--space-5)" }}>
+      <Card>
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
+          <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
           {user ? (
             <Button
               size="sm"
@@ -362,9 +362,9 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   // full 생성 중 (버튼 클릭 후)
   if (triggerFull && full.loading && !data) {
     return (
-      <Card padding="none" style={{ padding: "var(--space-5)" }}>
+      <Card>
         <div className="flex items-center gap-2">
-          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
+          <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         </div>
         <div className="mt-3 flex items-center gap-2 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>
           <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -385,9 +385,9 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   if (error && !data) {
     if (previewSummary) {
       return (
-        <Card padding="none" style={{ padding: "var(--space-5)" }}>
+        <Card>
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
+            <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
             {authError ? (
               <Button size="sm" variant="secondary" onClick={() => signIn()}>
                 {t("ai.loginBtn")}
@@ -420,9 +420,9 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     }
 
     return (
-      <Card padding="none" style={{ padding: "var(--space-5)" }}>
+      <Card>
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
+          <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
           {appCheckThrottled ? (
             appCheckRecoveryAttempted ? (
               <Button size="sm" variant="secondary" onClick={restartAfterAppCheckThrottle}>
@@ -458,10 +458,10 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   const totalKm = overall.totalDistanceKm;
 
   return (
-    <Card padding="none" style={{ padding: "var(--space-5)" }}>
+    <Card>
       {/* 헤더 */}
       <div className="flex items-center flex-wrap gap-2 mb-3">
-        <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
+        <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         {tempBadge && <Text variant="caption" tone="tertiary">{tempBadge}</Text>}
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
         {user && (data.stale || needsShareRegeneration) && (
