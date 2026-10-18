@@ -16,6 +16,15 @@ describe("GoalSetupPage", () => {
     expect(screen.getByTestId("K3-3-2")).toBeInTheDocument();
   });
 
+  it("tells which selection is missing while the next button is disabled", async () => {
+    renderWithProviders(<GoalSetupPage />, { authenticated: true, route: "/ko/goal-setup?sport=bike" });
+    await screen.findByRole("heading", { name: "3분 안에 나만의 운동 계획 만들기" });
+    const next = screen.getByRole("button", { name: "다음 →" });
+    expect(next).toBeDisabled();
+    expect(screen.getByTestId("goal-wizard-missing")).toHaveTextContent("목표로 삼을 코스를 선택해 주세요.");
+    expect(next).toHaveAttribute("aria-describedby", screen.getByTestId("goal-wizard-missing").id);
+  });
+
   it("requires sign-in before showing the bike goal wizard", async () => {
     renderWithProviders(<GoalSetupPage />, {
       authenticated: false,

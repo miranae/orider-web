@@ -252,6 +252,12 @@
     "stretch": "도전적",
     "risky": "무리"
   },
+  "wizardMissing": {
+    "course": "목표로 삼을 코스를 선택해 주세요.",
+    "eventDate": "목표 날짜를 선택해 주세요.",
+    "eventDateTooSoon": "목표 날짜는 {{date}} 이후로 선택해 주세요.",
+    "targetTime": "목표 기록(시간)을 입력해 주세요."
+  },
   "footerButtons": {
     "prev": "← 이전",
     "next": "다음 →",

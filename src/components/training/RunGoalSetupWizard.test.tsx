@@ -70,6 +70,7 @@ describe("goal setup input review", () => {
     fireEvent.change(screen.getByLabelText("목표 날짜"), { target: { value: targetDate() } });
     for (const field of screen.getAllByRole("spinbutton")) fireEvent.change(field, { target: { value: "0" } });
     expect(screen.getByRole("button", { name: "다음 →" })).toBeDisabled();
+    expect(screen.getByTestId("run-goal-wizard-missing")).toHaveTextContent("목표 기록(시간)을 입력해 주세요.");
     fireEvent.change(screen.getByRole("spinbutton", { name: "목표 시간 (분)" }), { target: { value: "30" } });
     next();
     await user.click(screen.getByTestId("K3-3-7"));

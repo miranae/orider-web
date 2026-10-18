@@ -384,18 +384,24 @@ function CourseSelectStep({ selectedId, onSelect, hideCreateCourse = false }: Co
 interface WizardFooterProps {
   step: number;
   canNext: boolean;
+  /** 다음 버튼이 꺼진 이유. 무엇이 빠졌는지 버튼 바로 위에 알린다. */
+  missingHint?: string | null;
   submitting: boolean;
   onPrev: () => void;
   onNext: () => void;
   onStart: () => void;
 }
 
-function WizardFooter({ step, canNext, submitting, onPrev, onNext, onStart }: WizardFooterProps) {
+function WizardFooter({ step, canNext, missingHint, submitting, onPrev, onNext, onStart }: WizardFooterProps) {
   const { t } = useTranslation('training');
+  const hintId = useId();
+  const showHint = step < 3 && !canNext && Boolean(missingHint);
   return (
     <div
       style={{
         display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
         gap: "var(--space-2)",
         marginTop: 'var(--space-6)',
         position: "sticky",
@@ -406,6 +412,8 @@ function WizardFooter({ step, canNext, submitting, onPrev, onNext, onStart }: Wi
         zIndex: 5,
       }}
     >
+      {showHint && <Text id={hintId} data-testid="goal-wizard-missing" as="p" variant="caption" tone="warning" role="status" aria-live="polite"
+        style={{ width: "100%", margin: 0, textAlign: "right" }}>{missingHint}</Text>}
       <Button variant="ghost"
         onClick={onPrev}
         style={{ opacity: step === 1 ? 0 : 1, pointerEvents: step === 1 ? "none" : "auto" }}
@@ -417,6 +425,7 @@ function WizardFooter({ step, canNext, submitting, onPrev, onNext, onStart }: Wi
         <Button variant="primary"
           onClick={onNext}
           disabled={!canNext}
+          aria-describedby={showHint ? hintId : undefined}
           style={{ opacity: canNext ? 1 : 0.4, cursor: canNext ? "pointer" : "not-allowed" }}
         >
           {t('footerButtons.next')}
@@ -516,6 +525,10 @@ export function GoalWizard({ embedded = false, inAppHost = false, onCreated }: {
     step === 1 ? selectedCourseId !== null :
     step === 2 ? goalDetails.eventDate !== "" :
     true;
+  const missingHint =
+    step === 1 && selectedCourseId === null ? t('wizardMissing.course') :
+    step === 2 && goalDetails.eventDate === "" ? t('wizardMissing.eventDate') :
+    null;
 
   if (authLoading) {
     return (
@@ -660,6 +673,7 @@ export function GoalWizard({ embedded = false, inAppHost = false, onCreated }: {
           <WizardFooter
             step={step}
             canNext={canNext}
+            missingHint={missingHint}
             submitting={submitting}
             onPrev={handlePrev}
             onNext={handleNext}

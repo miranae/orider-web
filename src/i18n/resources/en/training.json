@@ -252,6 +252,12 @@
     "stretch": "Challenging",
     "risky": "Risky"
   },
+  "wizardMissing": {
+    "course": "Choose a goal course.",
+    "eventDate": "Choose a goal date.",
+    "eventDateTooSoon": "Choose a goal date on or after {{date}}.",
+    "targetTime": "Enter a target time."
+  },
   "footerButtons": {
     "prev": "← Previous",
     "next": "Next →",

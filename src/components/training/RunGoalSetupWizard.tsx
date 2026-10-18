@@ -3,7 +3,7 @@ import { useGoalFitnessInputs } from "../../hooks/useGoalFitnessInputs";
 import { GoalInputNotice } from "./GoalInputNotice";
 import { useSearchParams } from "react-router-dom";
 import { goalCreatedPath } from "../../utils/internalReturnPath";
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { httpsCallable } from 'firebase/functions';
@@ -105,6 +105,12 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
   const canNext = step === 1 ? true : step === 2 ? eventDate >= minDateStr && (goalType === 'completion' || Number.isFinite(targetTotalSec) && targetTotalSec > 0) : true;
 
+  // 다음 버튼이 꺼진 이유를 버튼 바로 위에 알린다.
+  const missingHint = step !== 2 || canNext ? null
+    : !eventDate ? t('wizardMissing.eventDate')
+    : eventDate < minDateStr ? t('wizardMissing.eventDateTooSoon', { date: minDateStr })
+    : t('wizardMissing.targetTime');
+  const missingHintId = useId();
   const handleNext = () => setStep(s => Math.min(3, s + 1));
   const handlePrev = () => setStep(s => Math.max(1, s - 1));
   const handleStart = async () => {
@@ -343,6 +349,8 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
       <div
         style={{
           display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
           gap: "var(--space-2)",
           marginTop: 'var(--space-6)',
           position: 'sticky',
@@ -353,12 +361,14 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
           zIndex: 5,
         }}
       >
+        {missingHint && <Text id={missingHintId} data-testid="run-goal-wizard-missing" as="p" variant="caption" tone="warning" role="status" aria-live="polite"
+          style={{ width: '100%', margin: 0, textAlign: 'right' }}>{missingHint}</Text>}
         <Button variant="ghost" disabled={step === 1 || submitting} onClick={handlePrev} style={{ opacity: step === 1 ? 0 : 1, pointerEvents: step === 1 ? 'none' : 'auto' }}>
           {t('footerButtons.prev')}
         </Button>
         <div style={{ flex: 1 }} />
         {step < 3 ? (
-          <Button variant="primary" onClick={handleNext} disabled={!canNext} style={{ opacity: canNext ? 1 : 0.4, cursor: canNext ? 'pointer' : 'not-allowed' }}>
+          <Button variant="primary" onClick={handleNext} disabled={!canNext} aria-describedby={missingHint ? missingHintId : undefined} style={{ opacity: canNext ? 1 : 0.4, cursor: canNext ? 'pointer' : 'not-allowed' }}>
             {t('footerButtons.next')}
           </Button>
         ) : (
