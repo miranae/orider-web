@@ -1,5 +1,5 @@
-import { httpsCallable } from "firebase/functions";
-import { ensureAppCheckReady, functions } from "./firebase";
+import { ensureAppCheckReady } from "./firebase";
+import { authCallable } from "./authCallables";
 import { logClientError } from "./errorLogger";
 
 /**
@@ -48,10 +48,10 @@ export function currentReturnTo(): string {
 export async function startSocialAuth(provider: SocialProvider, mode: SocialMode, returnTo = currentReturnTo()): Promise<void> {
   try {
     await ensureAppCheckReady();
-    const start = httpsCallable<
+    const start = authCallable<
       { provider: SocialProvider; mode: SocialMode; redirectUri: string; returnTo: string },
       { authorizeUrl: string; state?: string }
-    >(functions, "socialAuthStart");
+    >("socialAuthStart");
     const { data } = await start({ provider, mode, redirectUri: socialRedirectUri(), returnTo });
     const state = data.state ?? new URL(data.authorizeUrl).searchParams.get("state");
     if (!state) throw new Error("social-auth/missing-state");
@@ -66,21 +66,21 @@ export async function startSocialAuth(provider: SocialProvider, mode: SocialMode
 
 export async function completeSocialAuth(code: string, state: string): Promise<SocialCompleteResult> {
   await ensureAppCheckReady();
-  const complete = httpsCallable<{ code: string; state: string }, SocialCompleteResult>(functions, "socialAuthComplete");
+  const complete = authCallable<{ code: string; state: string }, SocialCompleteResult>("socialAuthComplete");
   const { data } = await complete({ code, state });
   return data;
 }
 
 export async function listSocialLinks(): Promise<Array<{ provider: SocialProvider; linkedAt: number | null }>> {
   await ensureAppCheckReady();
-  const list = httpsCallable<void, { links: Array<{ provider: SocialProvider; linkedAt: number | null }> }>(functions, "socialAuthListLinks");
+  const list = authCallable<void, { links: Array<{ provider: SocialProvider; linkedAt: number | null }> }>("socialAuthListLinks");
   const { data } = await list();
   return data.links;
 }
 
 export async function unlinkSocial(provider: SocialProvider): Promise<boolean> {
   await ensureAppCheckReady();
-  const unlink = httpsCallable<{ provider: SocialProvider }, { unlinked: boolean }>(functions, "socialAuthUnlink");
+  const unlink = authCallable<{ provider: SocialProvider }, { unlinked: boolean }>("socialAuthUnlink");
   const { data } = await unlink({ provider });
   return data.unlinked;
 }

@@ -8,6 +8,8 @@ export interface RuntimeConfig {
   firebaseFunctionsRegion?: string;
   /** Stage compute endpoint; Auth and data stay on the shared FirebaseApp. */
   firebaseFunctionsBase?: string;
+  /** Stage 로그인 검증만 명시적으로 정본 Auth backend에 연결한다. 기본 비활성. */
+  socialAuthFunctionsBase?: string;
   appCheckRecaptchaSiteKey?: string;
   stravaClientId?: string;
   stravaRedirectUri?: string;
@@ -159,8 +161,12 @@ export function resetRuntimeConfigForTests(config: RuntimeConfig = {}): void {
   loaded = false;
 }
 
-/** Shared data is intentional; stage must never fall back to production Functions. */
-export function assertIsolatedStageRuntime(config: RuntimeConfig, hostname = globalThis.location?.hostname): void {
+/** Shared data is intentional; analysis stays isolated and Auth needs an explicit reviewed exception. */
+export function assertIsolatedStageRuntime(config: RuntimeConfig, hostname = globalThis.location?.hostname, origin = globalThis.location?.origin): void {
+  if (config.socialAuthFunctionsBase && (config.appEnvironment !== "stage" || origin !== "https://orider-dev.web.app"
+    || config.socialAuthFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net")) {
+    throw new Error("stage/social-auth-endpoint-mismatch");
+  }
   if (config.appEnvironment !== "stage" && hostname !== "orider-dev.web.app" && hostname !== "orider-dev.firebaseapp.com") return;
   if (config.appEnvironment !== "stage" || config.firebaseProjectId !== "miranae-orider-g1"
     || config.firebaseAuthDomain !== "miranae-orider-g1.firebaseapp.com"

@@ -19,13 +19,13 @@ import {
   type UserCredential,
 } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
+import { authCallable } from "../services/authCallables";
 // AuthProvider 는
 // 임베드에서 마운트되지 않는다(AppRoot 가 임베드 경로를 AuthProvider 없이 렌더하고,
 // 임베드는 AuthContextProvider 에 세션을 직접 주입한다). 이 모듈이 임베드 폐포에 든 것은
 // 타입·AuthContextProvider 때문이다.
 // eslint-disable-next-line design-system/no-firebase-singleton-in-embed
-import { auth, ensureAppCheckReady, firestore, functions, googleProvider } from "../services/firebase";
+import { auth, ensureAppCheckReady, firestore, googleProvider } from "../services/firebase";
 import { track } from "../services/analytics";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { logClientError } from "../services/errorLogger";
@@ -111,12 +111,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profileOwnerRef.current = nextUid;
       setUser(firebaseUser);
       setProfileLoading(Boolean(firebaseUser));
-      if (firebaseUser && getRuntimeConfig().appEnvironment !== "stage") {
+      if (firebaseUser && (getRuntimeConfig().appEnvironment !== "stage" || getRuntimeConfig().socialAuthFunctionsBase)) {
         // 프로필 생성 — 3회 지수 백오프 retry
         try {
           const { data: ensuredProfile } = await callWithRetry(async () => {
             await ensureAppCheckReady();
-            const ensureProfile = httpsCallable<void, UserProfile>(functions, "ensureUserProfile");
+            const ensureProfile = authCallable<void, UserProfile>("ensureUserProfile");
             return ensureProfile();
           }, generation);
           // 서버가 이미 확인한 정본을 첫 live snapshot 전에 표시한다. 늦게 도착한

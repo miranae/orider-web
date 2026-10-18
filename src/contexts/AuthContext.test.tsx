@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { onSnapshot } from "firebase/firestore";
 import * as runtimeConfig from "../services/runtimeConfig";
+import * as authCallables from "../services/authCallables";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { isSignInCancelled } from "../utils/signInCancelled";
 import {
@@ -69,6 +70,19 @@ describe("AuthContext", () => {
       expect(screen.getByTestId("profile")).toHaveTextContent("null");
       expect(mockCallableInvocations.filter(({ name }) => name === "ensureUserProfile")).toHaveLength(0);
     } finally { runtime.mockRestore(); }
+  });
+
+  it("provisions a Stage profile only through the explicitly enabled canonical Auth callable", async () => {
+    const runtime = vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({ ...runtimeConfig.getRuntimeConfig(), appEnvironment: "stage", socialAuthFunctionsBase: "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net" });
+    const ensure = vi.fn().mockResolvedValue({ data: createMockProfile({ nickname: "Canonical Stage Rider" }) });
+    const callable = vi.spyOn(authCallables, "authCallable").mockReturnValue(ensure);
+    try {
+      renderAuth();
+      act(() => { simulateLogin({ uid: "stage-opted-in" }); });
+      await waitFor(() => expect(screen.getByTestId("profile")).toHaveTextContent("Canonical Stage Rider"));
+      expect(callable).toHaveBeenCalledWith("ensureUserProfile");
+      expect(ensure).toHaveBeenCalledTimes(1);
+    } finally { runtime.mockRestore(); callable.mockRestore(); }
   });
 
   it("starts with no user and loading becomes false", async () => {
