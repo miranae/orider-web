@@ -29,4 +29,28 @@ describe("Strava sign-in choice", () => {
     await waitFor(() => expect(button).not.toBeDisabled());
     expect(screen.getByRole("button", { name: "Google로 계속하기" })).not.toBeDisabled();
   });
+
+  it("explains the isolated test guard and restores provider buttons for retry", async () => {
+    mocks.start.mockRejectedValueOnce({ code: "functions/failed-precondition", details: { reason: "strava-isolated-acceptance-required" } });
+    render(<MemoryRouter><SignInDialog open onClose={vi.fn()} onGoogle={vi.fn()} /></MemoryRouter>);
+    const button = screen.getByRole("button", { name: "Strava로 계속하기" });
+    fireEvent.click(button);
+    expect(await screen.findByRole("alert")).toHaveTextContent("테스트 환경에서는 Strava 로그인이 제한되어 있습니다. 테스트 계정을 확인한 뒤 진행할 수 있습니다.");
+    expect(button).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Google로 계속하기" })).not.toBeDisabled();
+    fireEvent.click(button);
+    await waitFor(() => expect(mocks.start).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["네이버로 계속하기", "functions/failed-precondition", "strava-isolated-acceptance-required"],
+    ["Strava로 계속하기", "functions/unavailable", "strava-isolated-acceptance-required"],
+    ["Strava로 계속하기", "functions/failed-precondition", "unrelated-reason"],
+  ])("keeps unrelated errors generic: %s / %s / %s", async (providerLabel, code, reason) => {
+    mocks.start.mockRejectedValueOnce({ code, details: { reason } });
+    render(<MemoryRouter><SignInDialog open onClose={vi.fn()} onGoogle={vi.fn()} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: providerLabel }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("로그인에 실패했습니다. 다시 시도해 주세요.");
+  });
 });

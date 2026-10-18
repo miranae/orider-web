@@ -69,8 +69,11 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
     try {
       await startSocialAuth(provider, "login");
       // 페이지 이동 중 — pending 유지
-    } catch {
-      setError(t("signIn.failed"));
+    } catch (err) {
+      const error = err as { code?: string; details?: { reason?: string } } | null;
+      const isolatedStrava = provider === "strava" && error?.code === "functions/failed-precondition"
+        && error.details?.reason === "strava-isolated-acceptance-required";
+      setError(t(isolatedStrava ? "signIn.stravaTestRestricted" : "signIn.failed"));
       setPending(null);
     }
   };
