@@ -172,6 +172,7 @@ export default function ActivityPage() {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
   const sectionHeadingRef = useRef<HTMLDivElement>(null);
+  const activityNavigationRef = useRef<HTMLDivElement>(null);
   const initialTabPositioned = useRef(false);
   const [wideStats, setWideStats] = useState(false);
   const [secondaryStatsOpen, setSecondaryStatsOpen] = useState(false);
@@ -237,6 +238,13 @@ export default function ActivityPage() {
     setHoveredSegment(null);
     setSegmentMapSelection({ scope: segmentMapScope, effort });
     requestAnimationFrame(() => {
+      const stickyNavigation = Array.from(document.querySelectorAll("nav")).filter(nav => {
+        const style = getComputedStyle(nav), top = Number.parseFloat(style.top);
+        return ["sticky", "fixed"].includes(style.position) && Number.isFinite(top) && nav.getBoundingClientRect().top <= top + 1;
+      });
+      const clearance = Math.max(0, ...stickyNavigation.map(nav => nav.getBoundingClientRect().bottom))
+        + (activityNavigationRef.current?.getBoundingClientRect().height ?? 0);
+      runLocationAnchor.current?.style.setProperty("--activity-sticky-clearance", `${Math.ceil(clearance)}px`);
       runLocationAnchor.current?.focus({ preventScroll: true });
       runLocationAnchor.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
     });
@@ -1117,7 +1125,7 @@ export default function ActivityPage() {
       </Card>
 
       {/* ── 탭 네비게이션 ── */}
-      <div className="activity-detail-navigation">
+      <div className="activity-detail-navigation" ref={activityNavigationRef}>
         <div className="activity-detail-tabs" role="tablist" aria-label={t("detail.navigation")} onKeyDown={(event) => {
           const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
           const index = tabs.indexOf(event.target as HTMLButtonElement);
@@ -1151,7 +1159,7 @@ export default function ActivityPage() {
       </details>}
         </div>
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
-      <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined} style={{ scrollMarginTop: "var(--space-8)" }}>
+      <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined}>
       {selectedMapSegment && <div className="activity-detail-segment-map-selection">
         <p role="status">{t("segments.selectedOnMap", { name: selectedMapSegment.name })}</p>
         <Button variant="outline" size="sm" onClick={returnToSegment}>{t("segments.returnToSegment")}</Button>

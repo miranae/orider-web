@@ -141,4 +141,5 @@
 .activity-detail-segment-map-selection { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
 .activity-detail-segment-map-selection p { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink-1); font-size: var(--fs-sm); }
 .activity-detail-segment-map-selection .ds-btn { min-height: calc(var(--space-7) + var(--space-3)); }
+.activity-detail-map { scroll-margin-top: calc(var(--activity-sticky-clearance, var(--space-8)) + var(--space-4)); }
 .activity-detail-map:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }

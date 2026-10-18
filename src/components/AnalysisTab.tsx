@@ -12,6 +12,7 @@ import ZoneDistributionChart from "./ZoneDistributionChart";
 import PowerCurveChart from "./PowerCurveChart";
 import SpeedCurveChart from "./SpeedCurveChart";
 import MetabolismCard from "./MetabolismCard";
+import "./analysis-tab.css";
 import InfoTip from "./InfoTip";
 import type { GlossaryTermId } from "../utils/termGlossary";
 import { VirtualPowerBadge } from "./activity/VirtualPowerBadge";
@@ -96,11 +97,11 @@ function MetricCard({ label, value, unit, description, color = "ink", tone, tool
             label={t("openLabel", { term: label })} termId={termId} tone="inherit">{label}</InfoTip> : label}
         </Text>
       </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
-        <Text variant="dataHero" style={{ fontSize: "var(--fs-xl)", color: value != null ? accent : "var(--ink-3)" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
+        <Text variant="dataHero" style={{ fontSize: "var(--fs-xl)", color: value != null ? accent : "var(--ink-3)", whiteSpace: "nowrap", flexShrink: 0 }}>
           {value ?? "—"}
         </Text>
-        {value != null && unit && <Text variant="unit">{unit}</Text>}
+        {value != null && unit && <Text variant="unit" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>{unit}</Text>}
       </div>
       {description && (
         <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>{description}</div>
@@ -494,7 +495,7 @@ export default function AnalysisTab({
   const cyclingDynamicsSection = cyclingDynamicsCards.length > 0 && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.cyclingDynamics")}</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
             {cyclingDynamicsCards.map((card) => (
               <MetricCard
                 key={card.kind}
@@ -593,7 +594,7 @@ export default function AnalysisTab({
       <div>
         <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.load")}</h3>
         {sm && <Text as="p" variant="bodySmall" tone="secondary" style={{ marginBottom: "var(--space-4)" }}>{t("detail.analysisMetricSource")}</Text>}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
           <MetricCard color="violet" label={t("detail.analysisLoadLabel")} value={tss?.toFixed(0)} description={t("detail.analysisLoadDescription")} termId="tss" tooltip={t("analysis.glossary.tss")} />
           <MetricCard color="violet" label="IF" value={ifactor?.toFixed(2)} description={hasFtp ? t("analysis.metric.ifDesc", { ftp }) : t("overviewEvidence.ftpMissing")} termId="if" tooltip={t("analysis.glossary.if")} />
           <MetricCard color="lime" label={t("analysis.metric.work")} value={workKj != null ? Math.round(workKj).toString() : null} unit="kJ" description={t("analysis.metric.workDesc")} tooltip={t("analysis.glossary.work")} />
@@ -614,7 +615,7 @@ export default function AnalysisTab({
             <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.power")}</h3>
             {isVirtualPower && <VirtualPowerBadge params={virtualPowerParams} />}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard color="lime" label={t("analysis.metric.avgPower")} value={powerStats.avg != null ? Math.round(powerStats.avg).toString() : null} unit="W" tooltip={t("analysis.glossary.avgPower")} />
             <MetricCard color="lime" label={t("analysis.metric.maxPower")} value={powerStats.max != null ? Math.round(powerStats.max).toString() : null} unit="W" description={t("analysis.metric.maxPowerDesc")} tooltip={t("analysis.glossary.maxPower")} />
             <MetricCard color="violet" label="NP" value={np != null ? Math.round(np).toString() : null} unit="W" description={t("analysis.metric.npDesc")} termId="np" tooltip={t("analysis.glossary.np")} />
@@ -634,7 +635,7 @@ export default function AnalysisTab({
       {hasPower && (cp || (matches && matches.count > 0)) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.criticalPower")}</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
             {cp && (
               <>
                 <MetricCard color="violet" label={t("analysis.metric.cp")} value={Math.round(cp.cp).toString()} unit="W" description={cp.rSquared != null ? t("analysis.metric.cpDesc", { value: cp.rSquared.toFixed(2) }) : undefined} termId="cp" tooltip={t("analysis.glossary.cp")} />
@@ -672,7 +673,7 @@ export default function AnalysisTab({
       {hasPower && (sm?.quadrant || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.pedalQuality")}</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
             {sm?.quadrant && (
               <>
                 <MetricCard color="lime" label={t("analysis.metric.q1")} value={Math.round(sm.quadrant.q1Pct).toString()} unit="%" description={t("analysis.metric.q1Desc")} tooltip={t("analysis.glossary.quadrant")} />
@@ -695,7 +696,7 @@ export default function AnalysisTab({
       {hasHr && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.hr")}</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard color="rose" label={t("analysis.metric.avgHr")} value={hrStats.avg != null ? Math.round(hrStats.avg).toString() : null} unit="bpm" tooltip={t("analysis.glossary.avgHr")} />
             <MetricCard color="rose" label={t("analysis.metric.maxHr")} value={hrStats.max != null ? Math.round(hrStats.max).toString() : null} unit="bpm" tooltip={t("analysis.glossary.maxHr")} />
             <MetricCard
@@ -734,7 +735,7 @@ export default function AnalysisTab({
       {criticalBands && criticalBands.some((b) => b.seconds > 0) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.criticalBands")}</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
             {criticalBands.map((b) => (
               <div key={b.label} style={{
                 padding: "var(--space-3) var(--space-4)",
@@ -764,7 +765,7 @@ export default function AnalysisTab({
       {(cadenceStats.avg != null || speed.avgKph != null || distanceKm != null || elevGain != null || caloriesKcal != null) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.exerciseData")}</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard color="aqua" label={t("analysis.metric.distance")} value={distanceKm != null ? distVal(distanceKm) : null} unit={distUnit} tooltip={t("analysis.glossary.distance")} />
             <MetricCard color="aqua" label={t("analysis.metric.elevGain")} value={elevGain != null && elevGain > 0 ? elevValRound(elevGain).toString() : null} unit={elevUnit} termId="elevationGain" tooltip={t("analysis.glossary.elevGain")} />
             <MetricCard color="lime" label={t("analysis.metric.avgSpeed")} value={speed.avgKph != null ? speedVal(speed.avgKph) : null} unit={speedUnit} tooltip={t("analysis.glossary.avgSpeed")} />

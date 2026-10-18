@@ -374,3 +374,18 @@ it.each(["ko", "en"] as const)("Threshold describes the recorded FTP band instea
   expect(tooltip).toHaveTextContent((language === "ko" ? koActivity : enActivity).analysis.glossary.threshold);
   expect(tooltip).toHaveTextContent(/95[~–]106%/);
 });
+
+
+it.each(["ko", "en"] as const)("긴 분석 숫자와 단위를 중간에서 나누지 않는다 locale=%s", language => {
+  state.language = language;
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", durationSec: 2405, avgPower: 140, np: 160, contextSnapshot: { weightKg: 80 }, powerZoneSec: [], hrZoneSec: [], runMetrics: null, splits: [] });
+  render(<ThemeProvider><OriderThemeProvider><AnalysisTab sport="ride" isOwner streams={{ time: [], distance: [] } as unknown as ActivityStreams} /></OriderThemeProvider></ThemeProvider>);
+  for (const text of ["0:40:05", "1.75"]) {
+    const value = screen.getByText(text);
+    expect(value).toHaveStyle({ whiteSpace: "nowrap", flexShrink: 0 });
+    expect(value.parentElement).toHaveStyle({ flexWrap: "wrap" });
+    expect(value.closest(".activity-analysis-metric-grid")).toBeInTheDocument();
+  }
+  expect(screen.getAllByText("W/kg", { selector: ".ds-text--unit" })[0]).toHaveStyle({ whiteSpace: "nowrap", flexShrink: 0 });
+});

@@ -299,13 +299,16 @@ describe("ActivityPage", () => {
       latlng: [[37, 127], [37.001, 127], [37.002, 127], [37.003, 127], [37.004, 127]],
       segment_efforts: [effort],
     }) });
-    renderWithProviders(<ActivityPage />, { authenticated: true });
+    const { container } = renderWithProviders(<><nav aria-label="Global navigation" style={{ position: "sticky", top: 0 }} /><ActivityPage /></>, { authenticated: true });
+    vi.spyOn(screen.getByRole("navigation", { name: "Global navigation" }), "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 320, 52));
     fireEvent.click(await screen.findByRole("tab", { name: /구간/ }));
+    vi.spyOn(container.querySelector(".activity-detail-navigation")!, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 320, 88));
     const actions = await screen.findAllByRole("button", { name: "합성 언덕 지도에서 보기" });
     const action = actions[origin === "table" ? 1 : 0];
     fireEvent.click(action);
     expect(await screen.findByText("지도에서 보는 구간: 합성 언덕")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("region", { name: "활동 경로 지도" })).toHaveFocus());
+    expect(screen.getByRole("region", { name: "활동 경로 지도" }).style.getPropertyValue("--activity-sticky-clearance")).toBe("140px");
     fireEvent.mouseLeave(action.closest("tr") ?? action.parentElement!);
     expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 1, endIndex: 3 });
     expect(action).toHaveAttribute("aria-pressed", "true");
@@ -1010,7 +1013,6 @@ describe("ActivityPage", () => {
     const activity = createMockActivity({ id: "test-activity" });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     renderWithProviders(<ActivityPage />, { authenticated: true });
-
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/댓글/)).toBeInTheDocument();
     });
@@ -1035,9 +1037,7 @@ describe("ActivityPage", () => {
         deletedAt: null,
       },
     ]);
-
     renderWithProviders(<ActivityPage />, { authenticated: false });
-
     await screen.findByRole("button", { name: "Google로 로그인" });
     expect(screen.queryByText("공개 댓글입니다")).not.toBeInTheDocument();
     expect(screen.getByText("좋아요 4")).toBeInTheDocument();
@@ -1063,11 +1063,9 @@ describe("ActivityPage", () => {
       resolveAuth = next;
       return vi.fn();
     }) as typeof onAuthStateChanged);
-
     renderWithProviders(<ActivityPage />, { authenticated: false });
     await screen.findByText(activity.description);
     expect(socialSnapshotPaths()).toEqual([]);
-
     act(() => {
       resolveAuth({
         uid: "signed-in-user",
@@ -1076,7 +1074,6 @@ describe("ActivityPage", () => {
         photoURL: null,
       } as Parameters<typeof resolveAuth>[0]);
     });
-
     expect(await screen.findByText("로그인 후 댓글")).toBeInTheDocument();
     expect(socialSnapshotPaths()).toEqual([
       "activities/test-activity/kudos",
@@ -1088,11 +1085,8 @@ describe("ActivityPage", () => {
     const activity = createMockActivity({ id: "test-activity" });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     mockSignInWithPopup.mockClear();
-
     renderWithProviders(<ActivityPage />, { authenticated: false });
-
     fireEvent.click(await screen.findByRole("button", { name: "로그인하고 좋아요" }));
-
     await waitFor(() => {
       expect(mockSignInWithPopup).toHaveBeenCalled();
     });
@@ -1107,7 +1101,6 @@ describe("ActivityPage", () => {
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     setCallableResult("createCourseFromActivity", { data: { courseId: "course-from-activity" } });
     setCallableResult("sendCourseToApp", { data: {} });
-
     await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
 
     const button = await screen.findByRole("button", { name: "이 경로로 라이드" });
