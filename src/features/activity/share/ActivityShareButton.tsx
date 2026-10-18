@@ -25,10 +25,13 @@ export function ActivityShareButton({ compact = false, card, filename, url, acti
   const mounted = useRef(true);
   const controller = useRef<AbortController | null>(null);
   const mapCapture = useRef<ActivityShareMapCaptureHandle>(null);
-  useEffect(() => () => {
-    mounted.current = false;
-    generation.current += 1;
-    controller.current?.abort();
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      generation.current += 1;
+      controller.current?.abort();
+    };
   }, []);
 
   const context = { activityId, visibility };
@@ -49,7 +52,7 @@ export function ActivityShareButton({ compact = false, card, filename, url, acti
       if (!mounted.current || currentGeneration !== generation.current) return;
       const canvas = await drawActivityShareCard({ ...card, routeCanvas }, abortController.signal);
       if (!mounted.current || currentGeneration !== generation.current) return;
-      const blob = await canvasToPng(canvas);
+      const blob = await canvasToPng(canvas, abortController.signal);
       if (!mounted.current || currentGeneration !== generation.current) return;
       if (!blob) throw new Error("canvas.toBlob returned null");
       downloadShareCard(blob, filename);
@@ -59,8 +62,14 @@ export function ActivityShareButton({ compact = false, card, filename, url, acti
       if (abortController.signal.aborted) return;
       track("activity_share_fail", { ...context, stage: "generate" });
       logClientError("ActivityShareButton.generate", error, context);
+      let clipboardTimeout: ReturnType<typeof setTimeout> | undefined;
       try {
-        await navigator.clipboard.writeText(url);
+        await Promise.race([
+          navigator.clipboard.writeText(url),
+          new Promise<never>((_, reject) => {
+            clipboardTimeout = setTimeout(() => reject(new Error("clipboard timed out")), 3_000);
+          }),
+        ]);
         if (!mounted.current || currentGeneration !== generation.current) return;
         track("activity_share_link", context);
         onFeedback(t("page.share.linkCopied"));
@@ -69,6 +78,8 @@ export function ActivityShareButton({ compact = false, card, filename, url, acti
         track("activity_share_fail", { ...context, stage: "clipboard" });
         logClientError("ActivityShareButton.clipboard", clipboardError, context);
         onFeedback(t("page.share.failed"));
+      } finally {
+        clearTimeout(clipboardTimeout);
       }
     } finally {
       if (currentGeneration === generation.current) {

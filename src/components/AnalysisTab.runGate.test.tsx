@@ -328,7 +328,8 @@ describe("분석 용어 설명의 공용 동선", () => {
     const terms = language === "ko" ? koTerms : enTerms;
     for (const id of ["np", "if", "tss"] as const) {
       const trigger = document.querySelector(`[data-glossary-key="${id}"] button`)!;
-      expect(trigger).toHaveStyle({ textDecoration: "underline dotted" });
+      expect(trigger).toHaveStyle({ color: "var(--color-primary-dark)" });
+      expect((trigger as HTMLElement).style.textDecoration).toBe("");
       expect(trigger.querySelector("svg")).toBeNull();
       fireEvent.focus(trigger);
       fireEvent.click(trigger);
@@ -353,7 +354,8 @@ it.each(["ko", "en"] as const)("대사와 FATMAX도 같은 텍스트 설명 동�
   const terms = language === "ko" ? koTerms : enTerms;
   for (const label of [activity.metabolism.section, activity.metabolism.fatMaxZone]) {
     const trigger = screen.getByRole("button", { name: terms.openLabel.replace("{{term}}", label) });
-    expect(trigger).toHaveStyle({ textDecoration: "underline dotted" });
+    expect(trigger).toHaveStyle({ color: "var(--color-primary-dark)" });
+    expect((trigger as HTMLElement).style.textDecoration).toBe("");
     expect(trigger.querySelector("svg")).toBeNull();
     fireEvent.click(trigger);
     expect(screen.getByRole("tooltip")).toHaveClass("ds-tooltip-content");
@@ -388,4 +390,59 @@ it.each(["ko", "en"] as const)("긴 분석 숫자와 단위를 중간에서 나�
     expect(value.closest(".activity-analysis-metric-grid")).toBeInTheDocument();
   }
   expect(screen.getAllByText("W/kg", { selector: ".ds-text--unit" })[0]).toHaveStyle({ whiteSpace: "nowrap", flexShrink: 0 });
+});
+
+it("integrated Analysis removes only populated rich-summary fields and preserves stored TSS plus uncovered power durations", () => {
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", avgPower: 200, np: 220, tss: 70, if: 0.8, mmp: { "5s": 400, "5m": 240 }, matches: { count: 2, totalSec: 42, longestSec: 30, peakW: 400 }, powerZoneSec: [], hrZoneSec: [], runMetrics: null, splits: [] });
+  const base = { activityId: "bike", sport: "ride" as const, isOwner: true, streams: { time: [], distance: [] } as unknown as ActivityStreams };
+  const { rerender } = render(<ThemeProvider><OriderThemeProvider><AnalysisTab {...base} integratedPresentation={{ session: { discipline: "bike", load: 70, normalizedPowerW: 220 }, powerFingerprint: [{ duration: "5m", watts: 240 }], thresholdWork: { matchesTotalSec: 42 } }} /></OriderThemeProvider></ThemeProvider>);
+  expect(screen.queryByText("NP")).not.toBeInTheDocument();
+  expect(screen.getByText("IF")).toBeInTheDocument();
+  expect(screen.getByText("analysis.metric.matchesTime")).toBeInTheDocument();
+  expect(screen.getByText("70")).toBeInTheDocument();
+  expect(screen.getByText("analysis.section.powerCurve")).toBeInTheDocument();
+  rerender(<ThemeProvider><OriderThemeProvider><AnalysisTab {...base} integratedPresentation={{ session: { discipline: "bike", intensityFactor: 0.8 }, thresholdWork: { matchesCount: 2, matchesTotalSec: 42 } }} /></OriderThemeProvider></ThemeProvider>);
+  expect(screen.getByText("NP")).toBeInTheDocument();
+  expect(screen.queryByText("analysis.metric.matchesTime")).not.toBeInTheDocument();
+  expect(screen.queryByText("IF")).not.toBeInTheDocument();
+  rerender(<ThemeProvider><OriderThemeProvider><AnalysisTab {...base} /></OriderThemeProvider></ThemeProvider>);
+  expect(screen.getByText("NP")).toBeInTheDocument();
+  expect(screen.getByText("IF")).toBeInTheDocument();
+});
+
+it("does not leave a power heading when its only metric is already in the rich visualization", () => {
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", avgPower: null, np: 220, powerZoneSec: [], hrZoneSec: [], runMetrics: null, splits: [] });
+  const { rerender } = render(<ThemeProvider><OriderThemeProvider><AnalysisTab sport="ride" isOwner streams={{ time: [], distance: [] } as unknown as ActivityStreams} integratedPresentation={{ session: { discipline: "bike", normalizedPowerW: 220 } }} /></OriderThemeProvider></ThemeProvider>);
+  expect(screen.queryByText("analysis.section.power")).not.toBeInTheDocument();
+  rerender(<ThemeProvider><OriderThemeProvider><AnalysisTab sport="ride" isOwner streams={{ time: [], distance: [] } as unknown as ActivityStreams} /></OriderThemeProvider></ThemeProvider>);
+  expect(screen.getByText("analysis.section.power")).toBeInTheDocument();
+});
+
+it("suppresses an exactly matching HR distribution but preserves raw zones when the presentation differs", () => {
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", avgPower: null, np: null, avgHr: 140, hrZoneSec: [10, 20, 30, 0, 0], runMetrics: null, splits: [] });
+  const props = { sport: "ride" as const, isOwner: true, streams: { time: [], distance: [] } as unknown as ActivityStreams };
+  const { rerender } = render(<AnalysisTab {...props} integratedPresentation={{ session: { discipline: "bike" }, zones: [{ kind: "heartRate", priority: "primary", seconds: [10, 20, 30, 0, 0] }] }} />);
+  expect(screen.queryByText("analysis.zones.hr")).not.toBeInTheDocument();
+  rerender(<AnalysisTab {...props} integratedPresentation={{ session: { discipline: "bike" }, zones: [{ kind: "heartRate", priority: "primary", seconds: [10, 20, 31, 0, 0] }] }} />);
+  expect(screen.getByText("analysis.zones.hr")).toBeInTheDocument();
+});
+
+it("shows one matching fuel split in integrated analysis while preserving FATMAX, model differences and standalone output", () => {
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", avgPower: 200, np: null, powerZoneSec: [], hrZoneSec: [], runMetrics: null, splits: [], substrate: { totalKcal: 319, fatKcal: 75, carbKcal: 244, fatPct: 0.236 }, fatMax: { fatMaxWatts: 170, fatMaxPctFtp: 0.68 } });
+  const props = { sport: "ride" as const, isOwner: true, streams: { time: [], distance: [] } as unknown as ActivityStreams };
+  const presentation = { session: { discipline: "bike" as const }, energy: { totalKcal: 319, fatKcal: 75, carbKcal: 244, fatPct: 23.6, carbPct: 76.4 } };
+  const { container, rerender } = render(<ThemeProvider><OriderThemeProvider><AnalysisTab {...props} integratedPresentation={presentation} /></OriderThemeProvider></ThemeProvider>);
+  expect(container.querySelector(".fuel-split-bar")).toBeNull();
+  expect(screen.getByText("170")).toBeInTheDocument();
+  rerender(<ThemeProvider><OriderThemeProvider><AnalysisTab {...props} integratedPresentation={{ ...presentation, energy: { ...presentation.energy, totalKcal: 336 } }} /></OriderThemeProvider></ThemeProvider>);
+  expect(container.querySelectorAll(".fuel-split-bar")).toHaveLength(1);
+  rerender(<ThemeProvider><OriderThemeProvider><AnalysisTab {...props} /></OriderThemeProvider></ThemeProvider>);
+  expect(container.querySelectorAll(".fuel-split-bar")).toHaveLength(1);
+  state.metrics = { ...state.metrics, metrics: { ...state.metrics.metrics!, fatMax: null } };
+  rerender(<ThemeProvider><OriderThemeProvider><AnalysisTab {...props} integratedPresentation={presentation} /></OriderThemeProvider></ThemeProvider>);
+  expect(screen.queryByText("metabolism.section")).not.toBeInTheDocument();
 });

@@ -146,7 +146,7 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(await screen.findByRole("tab", { name: "분석" }));
     await screen.findByText("이동 시간 기준이 달라 구간 페이스를 확인할 수 없어요.");
-    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     await screen.findByTestId("route-map");
     expect(screen.queryByText("3:59/km")).not.toBeInTheDocument();
     expect(screen.getAllByText("5:00/km").length).toBeGreaterThan(0);
@@ -166,7 +166,7 @@ describe("ActivityPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: /2km.*5:00/u }));
     await waitFor(() => expect(routeMapProps.mock.lastCall?.[0]).toMatchObject({ highlightRange: { startIndex: 200, endIndex: 400 }, markerPosition: latlng[400] }));
     fireEvent.click(screen.getByRole("button", { name: "지도·고도로 보기" }));
-    await waitFor(() => expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true"));
     const chart = elevationChartProps.mock.lastCall?.[0];
     expect(chart.data[chart.highlightRange[0]].distance).toBe(1000);
     expect(chart.data[chart.highlightRange[1]].distance).toBe(2000);
@@ -243,15 +243,16 @@ describe("ActivityPage", () => {
     expect(screen.getByTestId("departure-state")).toHaveTextContent("club");
     expect(screen.getByTestId("departure-state")).toHaveTextContent("tab=analysis");
   });
-  it("uses four main tabs and keeps owner export/delete/edit inside the more menu", async () => {
+  it("uses four main tabs and keeps owner actions inside the management dialog", async () => {
     const activity = createMockActivity({ id: "test-activity", userId: "test-uid" });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     renderWithProviders(<ActivityPage />, { authenticated: true });
     await screen.findByRole("tab", { name: "비교" });
     expect(screen.getAllByRole("tab").map(tab => tab.textContent)).toEqual(["개요", "분석", "구간", "비교"]);
     expect(screen.queryByRole("tab", { name: "내보내기" })).not.toBeInTheDocument();
-    const menu = within(screen.getByTestId("D1-0-M"));
-    expect(menu.getByRole("link", { name: "활동 편집" })).toHaveAttribute("href", "/ko/activity/test-activity/edit");
+    fireEvent.click(screen.getByRole("button", { name: "활동 관리" }));
+    const menu = within(screen.getByRole("dialog", { name: "활동 관리" }));
+    expect(menu.getByRole("link", { name: "활동 정보 편집" })).toHaveAttribute("href", "/ko/activity/test-activity/edit");
     expect(menu.getByRole("button", { name: "내보내기" })).toBeInTheDocument();
     expect(menu.getByRole("button", { name: "삭제" })).toBeInTheDocument();
   });
@@ -337,10 +338,11 @@ describe("ActivityPage", () => {
     fireEvent.click(await screen.findByRole("tab", { name: /구간/ }));
     fireEvent.click(await screen.findByRole("button", { name: "랩 2 구간 보기" }));
     await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 20, endIndex: 40 }));
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(elevationChartProps.mock.lastCall?.[0].highlightRange).toEqual([20, 40]);
     expect(screen.getByLabelText("시작 시간")).toHaveValue("0:20");
     expect(screen.getByLabelText("끝 시간")).toHaveValue("0:40");
-    expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
     fireEvent.click(screen.getByRole("tab", { name: /구간/ }));
     fireEvent.click(await screen.findByRole("button", { name: "다른 지도 구간 지도에서 보기" }));
     await waitFor(() => expect(routeMapProps.mock.lastCall?.[0]).toMatchObject({
@@ -407,7 +409,7 @@ describe("ActivityPage", () => {
       distance: Array.from({ length: count }, (_, index) => index < 50 ? 100 : index * 10),
       altitude: Array(count).fill(10), latlng: Array.from({ length: count }, () => [37, 127]),
     }) });
-    renderWithProviders(<ActivityPage />, { authenticated: true });
+    renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
     fireEvent.click(await screen.findByRole("button", { name: "구간 분석" }));
     const inputs = [screen.getByLabelText("시작 시간"), screen.getByLabelText("끝 시간")];
     fireEvent.change(inputs[0]!, { target: { value: "0:20" } });
@@ -438,7 +440,7 @@ describe("ActivityPage", () => {
       toKm: mode === "invalid" ? 3 : 0.3, avgPowerW: 250, maxPowerW: 400, avgHr: null, maxHr: null, avgSpeedKmh: 36, maxSpeedKmh: 40, avgCadence: null };
     setDocData(`activities/${id}`, activity as unknown as Record<string, unknown>);
     setDocData(`activity_metrics/${id}`, { version: ACTIVITY_METRICS_VERSION, computedAt: 1, discipline: "bike", isVirtualPower: false,
-      peakEfforts: { peaks: [peak], highlight: peak, indexAxis: "route" } });
+      peakEfforts: { peaks: [peak, { ...peak, durationSec: 300 }], highlight: peak, indexAxis: "route" } });
     setDocData(`activity_streams/${id}`, { userId: "test-uid", json: JSON.stringify(createMockStreams({ userId: "test-uid", distance,
       time: distance.map((_, index) => index), latlng: latlng as [number, number][], altitude: distance.map(() => 10),
       watts: undefined, heartrate: undefined, cadence: undefined, velocity_smooth: undefined })) });
@@ -454,11 +456,14 @@ describe("ActivityPage", () => {
     });
     try {
       const rendered = renderWithProviders(<ActivityPage />, { authenticated: true });
-      await screen.findByText("최고 노력 위치 테스트");
+      await screen.findByTestId("activity-stats-primary");
       fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-      fireEvent.click(await screen.findByRole("button", { name: "최고 노력 자세히 보기" }));
+      expect(await screen.findByRole("button", { name: "최고 노력 자세히 보기" })).toHaveAttribute("aria-expanded", "true");
+      await waitFor(() => expect(release).not.toBeNull());
+      if (mode === "invalid") fireEvent.click(screen.getByRole("button", { name: "5분" }));
       fireEvent.click(screen.getByRole("button", { name: "차트·지도에서 구간 보기" }));
       await waitFor(() => expect(release).not.toBeNull());
+      expect(vi.mocked(getDoc).mock.calls.filter(([ref]) => (ref as unknown as { path: string }).path === `activity_streams/${id}`)).toHaveLength(1);
       expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
       if (mode === "cancel") fireEvent.click(screen.getByRole("button", { name: "최고 노력 자세히 보기" }));
       if (mode === "account") act(() => simulateLogin({ uid: "another-owner", displayName: "Other" }));
@@ -481,7 +486,7 @@ describe("ActivityPage", () => {
         expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
       } else {
         await waitFor(() => expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true"));
-        if (mode === "invalid") expect(await screen.findByText("이 구간을 경로에 확실하게 연결할 수 없어 위치를 표시하지 않습니다.")).toBeInTheDocument();
+        if (mode === "invalid") { expect(await screen.findByText("이 구간을 경로에 확실하게 연결할 수 없어 위치를 표시하지 않습니다.")).toBeInTheDocument(); expect(screen.getByRole("button", { name: "5분" })).toHaveAttribute("aria-pressed", "true"); }
       }
     } finally { vi.mocked(getDoc).mockImplementation(original); }
   });
@@ -494,20 +499,16 @@ describe("ActivityPage", () => {
       status: "available", activityId: activity.id, version: "activity-overview-v1", inputDigest: "fixture",
       presentation: { coachSentence: "내 지속출력이 돋보인 활동", session: { discipline: "bike", load: 42 }, recovery: { hours: 11 } },
     } });
-    renderWithProviders(<ActivityPage />, { authenticated: true });
-    expect(await screen.findByText("내 지속출력이 돋보인 활동")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "오라이더 활동개요" })).toBeInTheDocument();
-    expect(screen.getByTestId("activity-overview-summary").querySelector("table")).toBeNull();
-    expect(screen.getByTestId("activity-overview-summary").compareDocumentPosition(screen.getByTestId("strava-summary-publishing")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByTestId("activity-overview-evidence")).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "활동개요 평가 근거" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-    expect(await screen.findByRole("heading", { name: "활동개요 평가 근거" })).toBeInTheDocument();
-    expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
-    expect(screen.getByText("11 h")).toBeInTheDocument();
+    renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
+    expect(await within(await screen.findByTestId("activity-analysis-domains")).findByText("내 지속출력이 돋보인 활동")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "훈련 부하와 체력" })).toBeInTheDocument();
+    expect(screen.getByTestId("activity-analysis-domains").compareDocumentPosition(screen.getByTestId("strava-summary-publishing")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("activity-analysis-domains")).toBeInTheDocument();
+    expect(within(screen.getByTestId("activity-analysis-domains")).getByText((_, node) => node?.classList.contains("ds-stat__value") === true && node.textContent === "11시간")).toBeInTheDocument();
     expect(screen.getAllByText("내 지속출력이 돋보인 활동")).toHaveLength(1);
     fireEvent.click(screen.getByRole("tab", { name: "개요" }));
-    expect(screen.getByRole("heading", { name: "오라이더 활동개요" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(screen.getByRole("heading", { name: "훈련 부하와 체력" })).toBeInTheDocument();
     expect(mockCallableInvocations.filter(({ name }) => name === "getActivityOverview")).toHaveLength(1);
   });
 
@@ -528,21 +529,19 @@ describe("ActivityPage", () => {
         zones: [{ kind: "power", seconds: [100, 0, 0, 0, 0, 0, 100], currentPercentages: [50, 0, 0, 0, 0, 0, 50], priority: "primary" }],
       },
     } });
-    renderWithProviders(<ActivityPage />, { authenticated: true });
-    expect(await screen.findByText("306.9")).toBeInTheDocument();
+    renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
+    expect(await screen.findByText("49.0 / 51.0")).toBeInTheDocument();
+    const summary = screen.getByTestId("activity-analysis-domains");
+    expect(await within(summary).findByText("306.9")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "지난 활동과 비교" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "활동 통계" })).not.toBeInTheDocument();
-    expect(screen.getByText("164.9")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-    expect(await screen.findByTestId("activity-overview-evidence")).toBeInTheDocument();
-    expect(screen.getByText("306.9")).toBeInTheDocument();
-    expect(screen.getByText("164.9 W")).toBeInTheDocument();
-    expect(screen.getByText("0.94")).toBeInTheDocument();
-    expect(screen.getByText("679")).toBeInTheDocument();
-    expect(screen.getByText("Z7")).toBeInTheDocument();
-    expect(await screen.findByTestId("public-analysis-charts")).toBeInTheDocument();
+    expect(within(summary).getByText("164.9")).toBeInTheDocument();
+    expect(within(summary).getByText("164.9")).toBeInTheDocument();
+    expect(within(summary).getByText("0.94")).toBeInTheDocument();
+    expect(within(summary).getAllByText("679")).toHaveLength(2);
+    expect(within(summary).getAllByText("Z7").length).toBeGreaterThan(0);
     expect(screen.getByText("49.0 / 51.0")).toBeInTheDocument();
-    expect(screen.getByTestId("activity-overview-evidence")).toHaveTextContent("추정 파워 기준");
+    expect(summary).toHaveTextContent("추정 파워 기준");
     expect(screen.queryByText("FTP 미설정")).not.toBeInTheDocument();
     expect(screen.queryByText("잘린 입력 기준")).not.toBeInTheDocument();
     expect(screen.queryByText("저장된 센서 요약")).not.toBeInTheDocument();
@@ -557,8 +556,7 @@ describe("ActivityPage", () => {
     // 공개 여부 판정은 서버에만 있다 — 클라이언트는 소유권으로 막지 않고 묻는다.
     await waitFor(() => expect(mockCallableInvocations.some(({ name }) => name === "getActivityOverview")).toBe(true));
     // 서버가 개요를 주지 않으면 남의 활동에는 진단 문구도 재시도 버튼도 남기지 않는다.
-    expect(screen.queryByTestId("activity-overview-evidence")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("activity-analysis-domains")).not.toBeInTheDocument();
     expect(screen.queryByText("평가 근거 다시 불러오기")).not.toBeInTheDocument();
   });
 
@@ -774,7 +772,7 @@ describe("ActivityPage", () => {
       }],
     });
     mockVirtualPowerStream.mockReturnValue(overrideWatts);
-    const view = renderWithProviders(<ActivityPage />, { authenticated: true });
+    const view = renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
     const stats = await screen.findByTestId("activity-detail-hero");
     await waitFor(() => expect(stats).not.toHaveTextContent("평균 파워"));
     expect(screen.queryByRole("button", { name: "가상 파워" })).not.toBeInTheDocument();
@@ -787,7 +785,7 @@ describe("ActivityPage", () => {
     expect(screen.queryByText("444")).not.toBeInTheDocument();
     expect(screen.queryByText("333")).not.toBeInTheDocument();
     expect(screen.queryByText("서버 분석")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     await waitFor(() => expect(stats).toHaveTextContent("평균 파워250W"));
     const latestShareMetrics = () => {
       const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
@@ -825,7 +823,7 @@ describe("ActivityPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
     expect(screen.queryByText("가상 파워")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     await waitFor(() => expect(stats).not.toHaveTextContent("평균 파워"));
     expect(screen.queryByRole("button", { name: "가상 파워" })).not.toBeInTheDocument();
     expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([
@@ -963,7 +961,7 @@ describe("ActivityPage", () => {
     });
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     // 서버 분석 문서가 없을 때는 "스트림 없음" 이 아니라 "서버 분석 없음" — 모름을 없음으로 그리지 않는다(리뷰 A3)
-    expect(await screen.findByText("서버 분석이 아직 없어요")).toBeInTheDocument();
+    expect(await screen.findByText(/서버 분석 데이터 없음/)).toBeInTheDocument();
     expect(screen.queryByText("파워 분석")).not.toBeInTheDocument();
     expect(screen.queryByText("심박 분석")).not.toBeInTheDocument();
   });
@@ -1102,7 +1100,7 @@ describe("ActivityPage", () => {
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     setCallableResult("createCourseFromActivity", { data: { courseId: "course-from-activity" } });
     setCallableResult("sendCourseToApp", { data: {} });
-    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
 
     const button = await screen.findByRole("button", { name: "이 경로로 라이드" });
     fireEvent.click(button);
@@ -1141,7 +1139,7 @@ describe("ActivityPage", () => {
     }]);
     setCallableResult("sendCourseToApp", { data: {} });
 
-    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
 
     expect(await findSentButton()).toBeDisabled();
@@ -1159,7 +1157,7 @@ describe("ActivityPage", () => {
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     vi.mocked(getDocs).mockRejectedValueOnce(new Error("index unavailable"));
 
-    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("기존 코스를 확인하지 못했습니다");
@@ -1176,7 +1174,7 @@ describe("ActivityPage", () => {
     }));
 
     let first!: ReturnType<typeof renderWithProviders>;
-    await act(async () => { first = renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { first = renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     await waitFor(() => expect(vi.mocked(getDocs).mock.calls.filter(([ref]) => (ref as { _collectionPath?: string })._collectionPath === "courses")).toHaveLength(1), { timeout: COURSE_ASYNC_TIMEOUT });
     expect(await screen.findByRole("alert", {}, { timeout: COURSE_ASYNC_TIMEOUT }))
@@ -1185,7 +1183,7 @@ describe("ActivityPage", () => {
     first.unmount();
 
     let second!: ReturnType<typeof renderWithProviders>;
-    await act(async () => { second = renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { second = renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     expect(await screen.findByRole("alert", {}, { timeout: COURSE_ASYNC_TIMEOUT }))
       .toHaveTextContent("코스 생성 결과를 확인 중입니다");
@@ -1207,14 +1205,14 @@ describe("ActivityPage", () => {
 
     let first!: ReturnType<typeof renderWithProviders>;
 
-    await act(async () => { first = renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { first = renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
     const firstButton = await screen.findByRole("button", { name: "이 경로로 라이드" });
     await waitFor(() => expect(firstButton).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
     first.unmount();
 
     let second!: ReturnType<typeof renderWithProviders>;
 
-    await act(async () => { second = renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { second = renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
     try {
       const secondButton = await screen.findByRole("button", { name: "이 경로로 라이드" });
       await waitFor(() => expect(secondButton).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
@@ -1241,7 +1239,7 @@ describe("ActivityPage", () => {
     setCallableResult("createCourseFromActivity", createResponse);
     setCallableResult("sendCourseToApp", { data: {} });
 
-    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     await waitForCallableCount("createCourseFromActivity", 1);
 
@@ -1273,7 +1271,7 @@ describe("ActivityPage", () => {
 
     let view!: ReturnType<typeof renderWithProviders>;
 
-    await act(async () => { view = renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { view = renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
     try {
       const button = await screen.findByRole("button", { name: "이 경로로 라이드" });
       await waitFor(() => expect(button).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
@@ -1318,7 +1316,7 @@ describe("ActivityPage", () => {
 
     mockSignInWithPopup.mockClear();
     // 인증 콜백과 초기 mount 효과를 마친 뒤, unavailable 응답 복구 경로를 검증한다.
-    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
     const button = await screen.findByRole("button", { name: "이 경로로 라이드" });
     expect(button).toBeEnabled();
     fireEvent.click(button);
@@ -1347,7 +1345,7 @@ describe("ActivityPage", () => {
     // 이 테스트가 도중에 실패하면 Storage 스파이가 남아 뒤따르는 테스트가 전부 "blocked" 로
     // 죽는다 — 원인 케이스를 가리므로 복원은 finally 에서 보장한다.
     try {
-      await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
+      await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
       fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
 
       expect(await findSentButton()).toBeDisabled();
@@ -1371,7 +1369,7 @@ describe("ActivityPage", () => {
 
     let view!: ReturnType<typeof renderWithProviders>;
 
-    await act(async () => { view = renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { view = renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     await waitForCallableCount("createCourseFromActivity", 1);
 
@@ -1393,7 +1391,7 @@ describe("ActivityPage", () => {
 
     let view!: ReturnType<typeof renderWithProviders>;
 
-    await act(async () => { view = renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { view = renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     await waitForCallableCount("createCourseFromActivity", 1);
     view.unmount();
@@ -1410,7 +1408,7 @@ describe("ActivityPage", () => {
     let resolveUserACreate!: (value: { data: { courseId: string } }) => void;
     setCallableResult("createCourseFromActivity", new Promise((resolve) => { resolveUserACreate = resolve; }));
 
-    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true, user: { uid: "user-a" } }); });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true, user: { uid: "user-a" }, route: "/ko/activity/test-activity?tab=segments" }); });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     await waitForCallableCount("createCourseFromActivity", 1);
 
@@ -1440,7 +1438,7 @@ describe("ActivityPage", () => {
     void rejectedDelivery.catch(() => undefined);
     setCallableResult("sendCourseToApp", rejectedDelivery);
 
-    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true }); });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
 
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
     expect(await screen.findByRole("alert", undefined, { timeout: 5000 }))
@@ -1459,7 +1457,7 @@ describe("ActivityPage", () => {
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     mockSignInWithPopup.mockClear();
 
-    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: false }); });
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: false, route: "/ko/activity/test-activity?tab=segments" }); });
 
     fireEvent.click(await screen.findByRole("button", { name: "로그인하고 이 경로로 라이드" }));
     fireEvent.click(await screen.findByTestId("A1-1-1"));
@@ -1476,7 +1474,7 @@ describe("ActivityPage", () => {
       json: JSON.stringify({ userId: "user-1", time: [0, 60] }),
     });
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
+    renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" });
 
     await screen.findByText("한강 라이딩");
     expect(screen.queryByRole("button", { name: "이 경로로 라이드" })).not.toBeInTheDocument();
@@ -1492,7 +1490,7 @@ describe("ActivityPage", () => {
       });
       setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
 
-      renderWithProviders(<ActivityPage />, { authenticated: true });
+      renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" });
 
       await screen.findByText("한강 라이딩");
       expect(screen.queryByRole("button", { name: "이 경로로 라이드" })).not.toBeInTheDocument();
@@ -1802,7 +1800,7 @@ describe("ActivityPage", () => {
       json: JSON.stringify(streamsWithoutRoute),
     });
 
-    renderWithProviders(<ActivityPage />);
+    renderWithProviders(<ActivityPage />, { route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
 
     expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
   });
@@ -1819,7 +1817,7 @@ describe("ActivityPage", () => {
       json: JSON.stringify({ userId: "user-1", time: [0, 60] }),
     });
 
-    renderWithProviders(<ActivityPage />);
+    renderWithProviders(<ActivityPage />, { route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
 
     await screen.findByText("한강 라이딩");
     expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
@@ -1834,7 +1832,7 @@ describe("ActivityPage", () => {
     });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
+    renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
 
     expect(await screen.findByTestId("strava-summary-publishing")).toBeInTheDocument();
     expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
@@ -1853,7 +1851,7 @@ describe("ActivityPage", () => {
       json: JSON.stringify(createMockStreams()),
     });
 
-    renderWithProviders(<ActivityPage />);
+    renderWithProviders(<ActivityPage />, { route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
 
     expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
   });
@@ -1882,23 +1880,23 @@ describe("ActivityPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
 
-    expect(await screen.findByText("훈련 부하")).toBeInTheDocument();
+    expect(await screen.findByText("저장된 분석 지표")).toBeInTheDocument();
     expect(screen.queryByText(/원본 스트림 데이터가 아직 저장되지 않았습니다/)).not.toBeInTheDocument();
     expect(await screen.findByTestId("route-map")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(await screen.findByTestId("elevation-chart")).toBeInTheDocument();
     expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
   });
 
-  it("shows the AI analysis card on overview when a saved preview exists without streams", async () => {
+  it("shows the AI analysis card on Insights when a saved preview exists without streams", async () => {
     const activity = createMockActivity({
       id: "test-activity",
       aiSummaryPreview: "저장된 AI 분석 결과입니다.",
     });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
 
-    renderWithProviders(<ActivityPage />);
+    renderWithProviders(<ActivityPage />, { route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
 
     expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
   });
@@ -1916,11 +1914,11 @@ describe("ActivityPage", () => {
     expect(await screen.findByLabelText("좋아요 취소")).toBeInTheDocument();
   });
 
-  it.each(["Swim", "Yoga"])("keeps a retry action after an overview stream load fails for %s", async (type) => {
+  it.each(["Swim", "Yoga"])("keeps a retry action after an Insights stream load fails for %s", async (type) => {
     const activity = createMockActivity({ id: "test-activity", source: "apple_health", type, thumbnailTrack: null });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
-    renderWithProviders(<ActivityPage />, { authenticated: true, user: { uid: activity.userId } });
-    fireEvent.click(await screen.findByRole("button", { name: "상세 기록 보기" }));
+    renderWithProviders(<ActivityPage />, { authenticated: true, user: { uid: activity.userId }, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
+    expect(screen.queryByRole("button", { name: "상세 기록 보기" })).not.toBeInTheDocument();
     expect(await screen.findByText(/원본 스트림 데이터가 아직 저장되지 않았습니다/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 시도" })).toBeInTheDocument();
   });
@@ -1969,10 +1967,11 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />, { authenticated: true });
 
-    fireEvent.click(await screen.findByRole("button", { name: /친구/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "활동 관리" }));
+    fireEvent.click(screen.getByRole("radio", { name: "친구" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("공개 범위를 변경하지 못했습니다");
-    expect(screen.getByRole("button", { name: /전체 공개/ })).toHaveStyle({ color: "var(--lime)" });
+    expect(screen.getByRole("radio", { name: "전체 공개" })).toBeChecked();
   });
 
   it("shows 404 message when activity not found", async () => {

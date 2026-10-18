@@ -1,5 +1,5 @@
-import { forwardRef, useImperativeHandle } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode, forwardRef, useImperativeHandle } from "react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ActivityShareButton } from "./ActivityShareButton";
 import * as cardModule from "./activityShareCard";
@@ -43,6 +43,7 @@ const card = {
 const props = { card, filename: "ride.png", url: "https://orider.net/a/1", activityId: "a1", visibility: "everyone", onFeedback: vi.fn() };
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.clearAllMocks();
   captureMap.mockResolvedValue(null);
   vi.restoreAllMocks();
@@ -80,6 +81,32 @@ describe("ActivityShareButton", () => {
     expect(track).toHaveBeenCalledWith("activity_share_download", { activityId: "a1", visibility: "everyone" });
   });
 
+  it("completes generation after StrictMode effect replay and allows another download", async () => {
+    vi.mocked(cardModule.drawActivityShareCard).mockResolvedValue(document.createElement("canvas"));
+    vi.mocked(cardModule.canvasToPng).mockResolvedValue(new Blob(["png"], { type: "image/png" }));
+    render(<StrictMode><ActivityShareButton {...props} /></StrictMode>);
+    const button = screen.getByRole("button");
+    fireEvent.click(button);
+    await waitFor(() => expect(cardModule.downloadShareCard).toHaveBeenCalledOnce());
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    await waitFor(() => expect(cardModule.downloadShareCard).toHaveBeenCalledTimes(2));
+    expect(button).toBeEnabled();
+  });
+
+  it("releases the button with failure feedback when clipboard fallback never settles", async () => {
+    vi.useFakeTimers();
+    vi.mocked(cardModule.drawActivityShareCard).mockRejectedValue(new Error("render failed"));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: vi.fn(() => new Promise(() => {})) }, configurable: true });
+    const onFeedback = vi.fn();
+    render(<ActivityShareButton {...props} onFeedback={onFeedback} />);
+    fireEvent.click(screen.getByRole("button"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3_000); });
+    expect(screen.getByRole("button")).toBeEnabled();
+    expect(onFeedback).toHaveBeenCalledOnce();
+    expect(track).toHaveBeenCalledWith("activity_share_fail", { activityId: "a1", visibility: "everyone", stage: "clipboard" });
+  });
+
   it("downloads once when native file sharing is unavailable and blocks duplicate clicks", async () => {
     let resolveCanvas!: (canvas: HTMLCanvasElement) => void;
     vi.mocked(cardModule.drawActivityShareCard).mockReturnValue(new Promise((resolve) => { resolveCanvas = resolve; }));
@@ -95,6 +122,21 @@ describe("ActivityShareButton", () => {
 
     await waitFor(() => expect(cardModule.downloadShareCard).toHaveBeenCalledTimes(1));
     expect(track).toHaveBeenCalledWith("activity_share_download", { activityId: "a1", visibility: "everyone" });
+  });
+
+  it("falls back to the safe link after PNG encoding timeout and permits a fresh retry", async () => {
+    vi.mocked(cardModule.drawActivityShareCard).mockResolvedValue(document.createElement("canvas"));
+    vi.mocked(cardModule.canvasToPng).mockResolvedValueOnce(null).mockResolvedValueOnce(new Blob(["png"], { type: "image/png" }));
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<ActivityShareButton {...props} />);
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(props.url));
+    expect(cardModule.downloadShareCard).not.toHaveBeenCalled();
+    expect(screen.getByRole("button")).toBeEnabled();
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => expect(cardModule.downloadShareCard).toHaveBeenCalledOnce());
+    expect(screen.getByRole("button")).toBeEnabled();
   });
 
   it("copies the safe activity link if image generation fails", async () => {
