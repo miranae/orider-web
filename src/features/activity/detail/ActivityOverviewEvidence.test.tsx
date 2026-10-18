@@ -196,3 +196,43 @@ it("distinguishes previous best from all-time best including this activity", () 
  expect(screen.getByText(renderedText(/역대 최고 대비는 이번 활동을 포함한/))).toBeInTheDocument();
  expect(screen.getByText(renderedText(/활동 전 최고 대비는 이번 활동 이전/))).toBeInTheDocument();
 });
+
+it("supplements the rich summary without repeating narrative, load or fitness cards and retains unique model inputs", () => {
+  const { container } = render(<ActivityOverviewEvidenceContent presentation={{ ...rich, thresholdWork: { ...rich.thresholdWork, aboveFtpKj: 18.9 }, routeLoad: { highestCategory: "HC", avgGradePct: 4.2 } }} supplemental />);
+  expect(screen.queryByText(rich.coachSentence!)).not.toBeInTheDocument();
+  expect(screen.queryByText("NP")).not.toBeInTheDocument();
+  expect(screen.getByText(renderedText("18.9 kJ"))).toBeInTheDocument();
+  expect(screen.getByText(renderedText("19.4 g"))).toBeInTheDocument();
+  expect(screen.getByText(renderedText("1000 kcal"))).toBeInTheDocument();
+  expect(screen.getByText("HC")).toBeInTheDocument();
+  expect(screen.getByText("4.2%")).toBeInTheDocument();
+  expect(container.querySelectorAll('section[aria-label="훈련 부하 변화"]')).toHaveLength(0);
+  expect(Array.from(container.querySelectorAll("section > .grid .ds-card")).every(card => !card.textContent?.includes("—"))).toBe(true);
+});
+
+it("retains non-bike fuel and orphan effort time when the rich summary does not visualize them", () => {
+  const { rerender } = render(<ActivityOverviewEvidenceContent presentation={{ session: { discipline: "run" }, energy: { fatPct: 25, carbPct: 75, fatKcal: 100, carbKcal: 300 } }} supplemental />);
+  expect(screen.getByText(renderedText("25% · 100 kcal"))).toBeInTheDocument();
+  rerender(<ActivityOverviewEvidenceContent presentation={{ session: { discipline: "bike" }, thresholdWork: { matchesTotalSec: 42 }, energy: { fatKcal: 175 } }} supplemental />);
+  expect(screen.getByText(renderedText("42 s"))).toBeInTheDocument();
+  expect(screen.getByText(renderedText("— · 175 kcal"))).toBeInTheDocument();
+});
+
+it("renders supplemental scalar evidence as compact facts while keeping comparison tables", () => {
+  const { container } = render(<ActivityOverviewEvidenceContent presentation={{ ...rich, thresholdWork: { aboveFtpKj: 18.9 } }} supplemental />);
+  const fact = screen.getByText(renderedText("18.9 kJ")).closest(".activity-evidence-fact")!;
+  expect(fact.closest("dl")).toBeInTheDocument();
+  expect(fact.closest(".ds-card")).toBeNull();
+  expect(container.querySelectorAll(".activity-evidence-fact dt").length).toBeGreaterThan(1);
+  expect(screen.getAllByRole("table").length).toBeGreaterThan(0);
+});
+
+it("keeps compact two-column comparisons labelled with duration and comparison context", () => {
+  const { container } = render(<ActivityOverviewEvidenceContent supplemental presentation={{ session: { discipline: "bike" }, powerFingerprint: [
+    { duration: "2m", watts: 288, deltaPct: 19.3 }, { duration: "5m", watts: 219, deltaPct: -4 },
+  ] }} />);
+  const comparison = container.querySelector(".activity-evidence-comparison")!;
+  expect(comparison).toHaveAccessibleName(/변화/);
+  expect(comparison.querySelector("dt")).toHaveTextContent("2m");
+  expect(comparison.querySelector("dd")).toHaveTextContent("+19.3%");
+});

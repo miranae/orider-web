@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActivityStreams, ActivitySummary } from "@shared/types";
 import type { ActivityAnalysisSummary } from "@shared/analysis/activityAnalysisSummary";
@@ -63,8 +63,17 @@ const BAND_GLOSSARY_KEY: Record<string, GlossaryTermId> = {
   "Anaerobic": "anaerobic",
 };
 
+export interface ActivityAnalysisSections {
+  status?: ReactNode; calories?: ReactNode; load?: ReactNode; power?: ReactNode; anaerobic?: ReactNode;
+  dynamics?: ReactNode; pedaling?: ReactNode; heartRate?: ReactNode; bands?: ReactNode;
+  cadence?: ReactNode; energyFacts?: ReactNode; recovery?: ReactNode; exercise?: ReactNode; metabolism?: ReactNode; zones?: ReactNode; bestEfforts?: ReactNode;
+  powerCurve?: ReactNode; speedCurve?: ReactNode; climbs?: ReactNode; runSplits?: ReactNode; laps?: ReactNode;
+  context?: { ftp: number | null; weightKg: number | null; caloriesKcal: number | null; substrate: ActivityMetricsDoc["substrate"]; zoneKj: ActivityMetricsDoc["zoneKj"] | undefined; workKj: number | null | undefined; maxHr: number | null; hrZones: ReturnType<typeof hrZoneDistribution> | null; powerZones: ReturnType<typeof powerZoneDistribution> | null; powerCurve: ReturnType<typeof powerCurvePoints> };
+}
+
 interface MetricCardProps {
   label: string;
+  hideUnavailable?: boolean;
   value: string | null | undefined;
   unit?: string;
   description?: string;
@@ -75,8 +84,9 @@ interface MetricCardProps {
   termId?: GlossaryTermId;
 }
 
-function MetricCard({ label, value, unit, description, color = "ink", tone, tooltip, termId }: MetricCardProps) {
+function MetricCard({ hideUnavailable, label, value, unit, description, color = "ink", tone, tooltip, termId }: MetricCardProps) {
   const { t } = useTranslation("termGlossary");
+  if (hideUnavailable && value == null) return null;
   const baseColor = ACCENT[color];
   const accent = tone === "good" ? "var(--lime)"
     : tone === "warn" ? "var(--amber)"
@@ -153,6 +163,8 @@ interface AnalysisTabProps {
   serverMetrics?: UseActivityMetricsState;
   /** 공개 분석의 지표는 overview presentation이 제공하고 허용된 그래프·랩만 유지한다. */
   canonicalPresentationAvailable?: boolean;
+  integratedPresentation?: ActivityOverviewPresentation;
+  renderSections?: (sections: ActivityAnalysisSections) => ReactNode;
   overviewRecovery?: ActivityOverviewPresentation["recovery"] | null;
   /** 현재 센서 provenance가 서버 계산 입력과 달라진 채널만 서버 파생 지표를 숨긴다. */
   suppressServerPowerMetrics?: boolean;
@@ -166,6 +178,8 @@ interface AnalysisTabProps {
   summary?: ActivitySummary;
   sport?: "ride" | "run" | "swim" | "other";
   streamsSignInRequired?: boolean;
+  /** 통합 분석 화면이 이미 스트림 로그인 안내를 표시하는 경우 중복을 숨긴다. */
+  showStreamSignInPrompt?: boolean;
   onSignIn?: () => void;
   isVirtualPower?: boolean;
   virtualPowerParams?: {
@@ -208,6 +222,7 @@ export function filterInvalidatedServerMetrics(
         ...metrics.cyclingMetrics,
         longestZ4PlusSec: suppression.power ? null : metrics.cyclingMetrics.longestZ4PlusSec,
         cadenceStdDev: suppression.cadence ? null : metrics.cyclingMetrics.cadenceStdDev,
+        ...(suppression.cadence ? { coastingPct: undefined, coastingSec: undefined, longestCoastSec: undefined } : {}),
       }
     : undefined;
 
@@ -315,9 +330,9 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
 }
 
 export default function AnalysisTab({
-  activityId, isOwner = false, serverMetrics: suppliedServerMetrics, canonicalPresentationAvailable = false, overviewRecovery = null, startTime, streams, analysisSummary, summary, sport, isVirtualPower, virtualPowerParams,
+  activityId, isOwner = false, serverMetrics: suppliedServerMetrics, canonicalPresentationAvailable = false, integratedPresentation, renderSections, overviewRecovery = null, startTime, streams, analysisSummary, summary, sport, isVirtualPower, virtualPowerParams,
   onSelectLap, canSelectLap, onSelectRunEffort, onSelectRunSplit, onViewRunSplitLocation, canViewRunSplitLocation,
-  streamsSignInRequired = false, onSignIn,
+  streamsSignInRequired = false, showStreamSignInPrompt = true, onSignIn,
   suppressServerPowerMetrics = false, suppressServerHeartRateMetrics = false, suppressServerCadenceMetrics = false,
 }: AnalysisTabProps) {
   // 소유자는 정본(`activity_metrics`), 뷰어는 공개 projection(`activity_metrics_public`) 을 읽는다.
@@ -497,7 +512,7 @@ export default function AnalysisTab({
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.cyclingDynamics")}</h3>
           <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
             {cyclingDynamicsCards.map((card) => (
-              <MetricCard
+              <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections}
                 key={card.kind}
                 color={card.kind === "balance" ? "aqua" : card.kind === "coverage" ? "ink" : "violet"}
                 label={cyclingDynamicsLabel(card)}
@@ -515,8 +530,39 @@ export default function AnalysisTab({
     return <div className="activity-analysis-content space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={isOwner ? streams.runningBestEffortsFacts : undefined} onSelectEffort={isOwner ? onSelectRunEffort : undefined} effortsReady={visibleServerMetrics.status === "ready"} metrics={sm as ActivityMetricsDoc} isOwner={isOwner} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={isOwner ? onSelectLap : undefined} canSelectLap={canSelectLap} />}</div>;
   }
 
+  const integratedPower = integratedPresentation?.session.discipline === "bike" && !suppressServerPowerMetrics ? integratedPresentation : undefined;
+
+  const summaryFuel = integratedPower?.energy;
+  const substrate = sm?.substrate;
+  const fuelSplitCovered = summaryFuel?.fatPct != null && summaryFuel.carbPct != null && substrate != null
+    && Math.round(summaryFuel.fatPct * 10) === Math.round(substrate.fatPct * 1000)
+    && Math.round(summaryFuel.carbPct * 10) === Math.round((1 - substrate.fatPct) * 1000)
+    && summaryFuel.fatKcal === substrate.fatKcal && summaryFuel.carbKcal === substrate.carbKcal
+    && summaryFuel.totalKcal === substrate.totalKcal;
+  const presentedHrZone = !suppressServerHeartRateMetrics ? integratedPresentation?.zones?.find(zone => zone.kind === "heartRate") : undefined;
+  const hrZoneCovered = !!presentedHrZone?.seconds.length && presentedHrZone.seconds.length === hrZones?.length
+    && hrZones.every((zone, index) => zone.seconds === presentedHrZone.seconds[index]);
+  const powerStatsVisible = !integratedPresentation || [
+    (sport === "ride" || sport === "run") && summary?.averagePower != null ? null : powerStats.avg,
+    powerStats.max,
+    integratedPower?.session.normalizedPowerW != null ? null : np,
+    xPower, vi,
+    weightKg ? powerStats.avg : null,
+    weightKg ? np : null,
+  ].some(value => value != null);
+  const supplementalPowerCurve = !integratedPower?.powerFingerprint?.length ? powerCurve : powerCurve.filter(point => !integratedPower.powerFingerprint!.some(row => {
+    const match = /^(\d+)([smh])$/.exec(row.duration);
+    return match && Number(match[1]) * (match[2] === "h" ? 3600 : match[2] === "m" ? 60 : 1) === point.durationSeconds;
+  }));
+
   // 공개 수치·존·파워곡선은 같은 서버 presentation에서 그린다. 기존 허용 그래프/랩은 보존한다.
   if (!isOwner && canonicalPresentationAvailable) {
+    const publicSections: ActivityAnalysisSections = {
+      dynamics: cyclingDynamicsSection,
+      speedCurve: speedCurve.length > 0 ? <SpeedCurveChart points={speedCurve} /> : null,
+      laps: laps && laps.length > 0 ? <AnalysisLapTable laps={laps} ftp={null} sport={sport} /> : null,
+    };
+    if (renderSections) return renderSections(publicSections);
     return <div className="space-y-6" data-testid="public-analysis-charts">
       {cyclingDynamicsSection}
       {speedCurve.length > 0 && <div><h3 className="text-[length:var(--fs-sm)] font-semibold mb-3">{t("analysis.section.speedCurve")}</h3><SpeedCurveChart points={speedCurve} /></div>}
@@ -524,7 +570,7 @@ export default function AnalysisTab({
     </div>;
   }
 
-  if (!hasPower && !hasHr && cyclingDynamicsCards.length === 0 && !hasRunAnalysis
+  if (!renderSections && !hasPower && !hasHr && cyclingDynamicsCards.length === 0 && !hasRunAnalysis
     && !laps?.length && caloriesKcal == null && climbRows.length === 0) {
     // 서버 분석 문서가 아직 없거나 로딩 중이면 "스트림 없음" 이 아니다 — 모름을 없음으로 그리지 않는다.
     // kill switch — 서버가 이 면을 껐다. 빈 화면으로 두면 "데이터가 없다" 로 읽힌다.
@@ -544,7 +590,7 @@ export default function AnalysisTab({
         </div>
       );
     }
-    if (streamsSignInRequired) return <ActivityAnalysisSignInCard onSignIn={onSignIn} />;
+    if (streamsSignInRequired) return showStreamSignInPrompt ? <ActivityAnalysisSignInCard onSignIn={onSignIn} /> : null;
     if (serverMetrics.status === "missing") {
       return (
         <div className="rounded-[var(--r-lg)] border border-dashed px-4 py-8 text-center" style={{ background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }} data-testid="analysis-missing">
@@ -569,8 +615,18 @@ export default function AnalysisTab({
   const decoupTone = decoupling == null ? "default"
     : decoupling < 5 ? "good" : decoupling < 10 ? "warn" : "bad";
 
-  return (
-    <div className="activity-analysis-content space-y-6">
+  const assembledZones = <>
+    {hasHr && !presentedHrZone && <ZoneDistributionChart title={t("analysis.zones.hr")} zones={hrZones ?? []} />}
+    {hasPower && !integratedPower?.zones?.some(zone => zone.kind === "power") && <ZoneDistributionChart title={t("analysis.zones.power")} zones={powerZones ?? []} />}
+    {seilerZones && polarization && <section className="space-y-3">
+      <Text as="h3" variant="bodyMedium" weight={600}>{t("analysis.seiler.title")}</Text>
+      {seilerZones.map(zone => <div key={zone.zone}><div className="flex justify-between gap-3"><Text variant="bodySmall">Z{zone.zone} {t(`analysis.seiler.z${zone.zone}`)}</Text><Text variant="bodySmall" mono>{zone.pct.toFixed(1)}%</Text></div><div className="activity-analysis-zone-track" aria-hidden="true"><span style={{ width: `${zone.pct}%`, background: zone.color }} /></div></div>)}
+      <Text as="p" variant="bodySmall">{t(`analysis.seiler.${polarization.verdict}`)} · {t("analysis.seiler.extremePct")} {polarization.extremePct.toFixed(0)}%</Text>
+      <Text as="p" variant="caption" tone="tertiary">{POLARIZATION_DESCRIPTION[polarization.verdict][locale.startsWith("ko") ? "ko" : "en"]}</Text>
+    </section>}
+  </>;
+  const sections: ActivityAnalysisSections = {
+    status: <>
       {/* Phase A.7: 서버 메트릭 배너 (있으면 표시) */}
       <ServerMetricsBanner
         state={visibleServerMetrics}
@@ -590,67 +646,65 @@ export default function AnalysisTab({
         </div>
       )}
 
+    </>,
+    load: renderSections && ![tss, np, ifactor, trimp, sm?.sufferScore, durationSec > 0 ? durationSec : null].some(value => value != null) ? null : <>
       {/* 부하 (Load) — intervals.icu 스타일 핵심 지표 */}
       <div>
-        <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.load")}</h3>
+        <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t(renderSections ? "detail.analysisTopics.storedMetrics" : "analysis.section.load")}</h3>
         {sm && <Text as="p" variant="bodySmall" tone="secondary" style={{ marginBottom: "var(--space-4)" }}>{t("detail.analysisMetricSource")}</Text>}
         <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard color="violet" label={t("detail.analysisLoadLabel")} value={tss?.toFixed(0)} description={t("detail.analysisLoadDescription")} termId="tss" tooltip={t("analysis.glossary.tss")} />
-          <MetricCard color="violet" label="IF" value={ifactor?.toFixed(2)} description={hasFtp ? t("analysis.metric.ifDesc", { ftp }) : t("overviewEvidence.ftpMissing")} termId="if" tooltip={t("analysis.glossary.if")} />
-          <MetricCard color="lime" label={t("analysis.metric.work")} value={workKj != null ? Math.round(workKj).toString() : null} unit="kJ" description={t("analysis.metric.workDesc")} tooltip={t("analysis.glossary.work")} />
-          <MetricCard color="lime" label={t("analysis.metric.kjPerHour")} value={kjPerHr != null ? Math.round(kjPerHr).toString() : null} unit="kJ/h" description={t("analysis.metric.kjPerHourDesc")} tooltip={t("analysis.glossary.kjPerHour")} />
-          <MetricCard color="rose" label="TRIMP" value={trimp != null ? Math.round(trimp).toString() : null} description={t("analysis.metric.trimpDesc")} termId="trimp" tooltip={t("analysis.glossary.trimp")} />
+          <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="violet" label={t("detail.analysisLoadLabel")} value={tss?.toFixed(0)} description={t("detail.analysisLoadDescription")} termId="tss" tooltip={t("analysis.glossary.tss")} />
+          {renderSections && integratedPower?.session.normalizedPowerW == null && np != null && <MetricCard hideUnavailable color="violet" label="NP" value={Math.round(np).toString()} unit="W" termId="np" />}
+          {(integratedPower?.session.intensityFactor == null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="violet" label="IF" value={ifactor?.toFixed(2)} description={hasFtp ? t("analysis.metric.ifDesc", { ftp }) : t("overviewEvidence.ftpMissing")} termId="if" tooltip={t("analysis.glossary.if")} />}
+          <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="rose" label="TRIMP" value={trimp != null ? Math.round(trimp).toString() : null} description={t("analysis.metric.trimpDesc")} termId="trimp" tooltip={t("analysis.glossary.trimp")} />
           {sm?.sufferScore != null && (
-            <MetricCard color="rose" label={t("analysis.metric.sufferScore")} value={Math.round(sm.sufferScore).toString()} description={t("analysis.metric.sufferScoreDesc")} tooltip={t("analysis.glossary.sufferScore")} />
+            <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="rose" label={t("analysis.metric.sufferScore")} value={Math.round(sm.sufferScore).toString()} description={t("analysis.metric.sufferScoreDesc")} tooltip={t("analysis.glossary.sufferScore")} />
           )}
-          <MetricCard color="amber" label={t("analysis.metric.recovery")} value={recovery != null ? `~${recovery.hours}` : null} unit="h" description={t("analysis.metric.recoveryDesc")} tooltip={t("analysis.glossary.recovery")} />
-          <MetricCard color="aqua" label={t("analysis.metric.duration")} value={durationSec > 0 ? formatHms(durationSec) : null} description={t("analysis.metric.durationDesc")} tooltip={t("analysis.glossary.duration")} />
+          <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="aqua" label={t("analysis.metric.duration")} value={durationSec > 0 ? formatHms(durationSec) : null} description={t("analysis.metric.durationDesc")} tooltip={t("analysis.glossary.duration")} />
         </div>
       </div>
 
-      {/* 파워 분석 */}
-      {hasPower && (
+    </>,
+    power: (hasPower && powerStatsVisible && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.power")}</h3>
             {isVirtualPower && <VirtualPowerBadge params={virtualPowerParams} />}
           </div>
           <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard color="lime" label={t("analysis.metric.avgPower")} value={powerStats.avg != null ? Math.round(powerStats.avg).toString() : null} unit="W" tooltip={t("analysis.glossary.avgPower")} />
-            <MetricCard color="lime" label={t("analysis.metric.maxPower")} value={powerStats.max != null ? Math.round(powerStats.max).toString() : null} unit="W" description={t("analysis.metric.maxPowerDesc")} tooltip={t("analysis.glossary.maxPower")} />
-            <MetricCard color="violet" label="NP" value={np != null ? Math.round(np).toString() : null} unit="W" description={t("analysis.metric.npDesc")} termId="np" tooltip={t("analysis.glossary.np")} />
-            <MetricCard color="violet" label="xPower" value={xPower != null ? Math.round(xPower).toString() : null} unit="W" description={t("analysis.metric.xPowerDesc")} termId="xpower" tooltip={t("analysis.glossary.xpower")} />
-            <MetricCard color="amber" label="VI" value={vi?.toFixed(2)} description={t("analysis.metric.viDesc")} termId="vi" tooltip={t("analysis.glossary.vi")} />
+            {!(integratedPresentation && (sport === "ride" || sport === "run") && summary?.averagePower != null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="lime" label={t("analysis.metric.avgPower")} value={powerStats.avg != null ? Math.round(powerStats.avg).toString() : null} unit="W" tooltip={t("analysis.glossary.avgPower")} />}
+            <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="lime" label={t("analysis.metric.maxPower")} value={powerStats.max != null ? Math.round(powerStats.max).toString() : null} unit="W" description={t("analysis.metric.maxPowerDesc")} tooltip={t("analysis.glossary.maxPower")} />
+            {!renderSections && (integratedPower?.session.normalizedPowerW == null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="violet" label="NP" value={np != null ? Math.round(np).toString() : null} unit="W" description={t("analysis.metric.npDesc")} termId="np" tooltip={t("analysis.glossary.np")} />}
+            <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="violet" label="xPower" value={xPower != null ? Math.round(xPower).toString() : null} unit="W" description={t("analysis.metric.xPowerDesc")} termId="xpower" tooltip={t("analysis.glossary.xpower")} />
+            <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="amber" label="VI" value={vi?.toFixed(2)} description={t("analysis.metric.viDesc")} termId="vi" tooltip={t("analysis.glossary.vi")} />
             {weightKg && (
               <>
-                <MetricCard color="lime" label={t("analysis.metric.wkgAvg")} value={powerStats.avg != null ? (powerStats.avg / weightKg).toFixed(2) : null} unit="W/kg" tooltip={t("analysis.glossary.wkgAvg")} />
-                <MetricCard color="violet" label={t("analysis.metric.wkgNp")} value={np != null ? (np / weightKg).toFixed(2) : null} unit="W/kg" tooltip={t("analysis.glossary.wkgNp")} />
+                <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="lime" label={t("analysis.metric.wkgAvg")} value={powerStats.avg != null ? (powerStats.avg / weightKg).toFixed(2) : null} unit="W/kg" tooltip={t("analysis.glossary.wkgAvg")} />
+                <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="violet" label={t("analysis.metric.wkgNp")} value={np != null ? (np / weightKg).toFixed(2) : null} unit="W/kg" tooltip={t("analysis.glossary.wkgNp")} />
               </>
             )}
           </div>
         </div>
-      )}
-
-      {/* 임계 파워 (CP / W') + 매치 분석 */}
-      {hasPower && (cp || (matches && matches.count > 0)) && (
+      )),
+    anaerobic: (hasPower && (cp || (matches && matches.count > 0)) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.criticalPower")}</h3>
           <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
             {cp && (
               <>
-                <MetricCard color="violet" label={t("analysis.metric.cp")} value={Math.round(cp.cp).toString()} unit="W" description={cp.rSquared != null ? t("analysis.metric.cpDesc", { value: cp.rSquared.toFixed(2) }) : undefined} termId="cp" tooltip={t("analysis.glossary.cp")} />
-                <MetricCard color="amber" label={t("analysis.metric.wPrime")} value={Math.round(cp.wPrime / 1000).toString()} unit="kJ" description={t("analysis.metric.wPrimeDesc")} termId="wprime" tooltip={t("analysis.glossary.wprime")} />
+                <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="violet" label={t("analysis.metric.cp")} value={Math.round(cp.cp).toString()} unit="W" description={cp.rSquared != null ? t("analysis.metric.cpDesc", { value: cp.rSquared.toFixed(2) }) : undefined} termId="cp" tooltip={t("analysis.glossary.cp")} />
+                <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="amber" label={t("analysis.metric.wPrime")} value={Math.round(cp.wPrime / 1000).toString()} unit="kJ" description={t("analysis.metric.wPrimeDesc")} termId="wprime" tooltip={t("analysis.glossary.wprime")} />
               </>
             )}
             {matches && matches.count > 0 && (
               <>
-                <MetricCard color="rose" label={t("analysis.metric.matches")} value={matches.count.toString()} unit={t("analysis.metric.matchesUnit")} description={t("analysis.metric.matchesDesc", { ftp })} tooltip={t("analysis.glossary.matches")} />
-                <MetricCard color="rose" label={t("analysis.metric.matchesTime")} value={formatDuration(matches.totalSeconds)} description={matches.peakPower != null ? t("overviewEvidence.peakPower", { value: Math.round(matches.peakPower) }) : undefined} tooltip={t("analysis.glossary.matchesTime")} />
-                <MetricCard color="rose" label={t("analysis.metric.longestMatch")} value={matches.longestSeconds > 0 ? formatDuration(matches.longestSeconds) : null} description={matches.longestAvgPower != null ? `${Math.round(matches.longestAvgPower)}W` : undefined} tooltip={t("analysis.glossary.longestMatch")} />
+                {(integratedPower?.thresholdWork?.matchesCount == null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="rose" label={t("analysis.metric.matches")} value={matches.count.toString()} unit={t("analysis.metric.matchesUnit")} description={t("analysis.metric.matchesDesc", { ftp })} tooltip={t("analysis.glossary.matches")} />}
+                {(integratedPower?.thresholdWork?.matchesTotalSec == null || integratedPower.thresholdWork.matchesCount == null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="rose" label={t("analysis.metric.matchesTime")} value={formatDuration(matches.totalSeconds)} description={matches.peakPower != null ? t("overviewEvidence.peakPower", { value: Math.round(matches.peakPower) }) : undefined} tooltip={t("analysis.glossary.matchesTime")} />}
+                <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="rose" label={t("analysis.metric.longestMatch")} value={matches.longestSeconds > 0 ? formatDuration(matches.longestSeconds) : null} description={matches.longestAvgPower != null ? `${Math.round(matches.longestAvgPower)}W` : undefined} tooltip={t("analysis.glossary.longestMatch")} />
               </>
             )}
           </div>
-          {/* #458 W'bal 잔량 궤적 차트 (CP/W' 추정 있을 때만) */}
+
           {wbal && cp && (
             <div className="mt-4">
               <div className="flex items-center justify-between mb-1.5">
@@ -665,41 +719,40 @@ export default function AnalysisTab({
             </div>
           )}
         </div>
-      )}
-
-      {cyclingDynamicsSection}
-
-      {/* #459/#462 페달링 사분면 + 노력 품질 (서버 사전계산 메트릭 노출) */}
-      {hasPower && (sm?.quadrant || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null) && (
+      )),
+    dynamics: (cyclingDynamicsSection),
+    pedaling: renderSections && !(hasPower && (sm?.quadrant || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null && sm.cyclingMetrics.longestZ4PlusSec > 0 && integratedPower?.thresholdWork?.longestZ4PlusSec == null) || sm?.cyclingMetrics?.coastingPct != null && sm.cyclingMetrics.coastingSec != null) ? null : (((hasPower && (sm?.quadrant || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null))
+        || sm?.cyclingMetrics?.coastingPct != null) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.pedalQuality")}</h3>
           <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
-            {sm?.quadrant && (
+            {hasPower && sm?.quadrant && (
               <>
-                <MetricCard color="lime" label={t("analysis.metric.q1")} value={Math.round(sm.quadrant.q1Pct).toString()} unit="%" description={t("analysis.metric.q1Desc")} tooltip={t("analysis.glossary.quadrant")} />
-                <MetricCard color="amber" label={t("analysis.metric.q4")} value={Math.round(sm.quadrant.q4Pct).toString()} unit="%" description={t("analysis.metric.q4Desc")} tooltip={t("analysis.glossary.quadrant")} />
-                <MetricCard color="aqua" label={t("analysis.metric.q2")} value={Math.round(sm.quadrant.q2Pct).toString()} unit="%" description={t("analysis.metric.q2Desc")} tooltip={t("analysis.glossary.quadrant")} />
-                <MetricCard color="ink" label={t("analysis.metric.q3")} value={Math.round(sm.quadrant.q3Pct).toString()} unit="%" description={t("analysis.metric.q3Desc")} tooltip={t("analysis.glossary.quadrant")} />
+                <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="lime" label={t("analysis.metric.q1")} value={Math.round(sm.quadrant.q1Pct).toString()} unit="%" description={t("analysis.metric.q1Desc")} tooltip={t("analysis.glossary.quadrant")} />
+                <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="amber" label={t("analysis.metric.q4")} value={Math.round(sm.quadrant.q4Pct).toString()} unit="%" description={t("analysis.metric.q4Desc")} tooltip={t("analysis.glossary.quadrant")} />
+                <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="aqua" label={t("analysis.metric.q2")} value={Math.round(sm.quadrant.q2Pct).toString()} unit="%" description={t("analysis.metric.q2Desc")} tooltip={t("analysis.glossary.quadrant")} />
+                <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="ink" label={t("analysis.metric.q3")} value={Math.round(sm.quadrant.q3Pct).toString()} unit="%" description={t("analysis.metric.q3Desc")} tooltip={t("analysis.glossary.quadrant")} />
               </>
             )}
-            {sm?.cyclingMetrics?.longestZ4PlusSec != null && sm.cyclingMetrics.longestZ4PlusSec > 0 && (
-              <MetricCard color="amber" label={t("analysis.metric.longestZ4")} value={formatDuration(sm.cyclingMetrics.longestZ4PlusSec)} description={t("analysis.metric.longestZ4Desc")} tooltip={t("analysis.glossary.longestZ4")} />
+            {hasPower && sm?.cyclingMetrics?.longestZ4PlusSec != null && sm.cyclingMetrics.longestZ4PlusSec > 0 && integratedPower?.thresholdWork?.longestZ4PlusSec == null && (
+              <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="amber" label={t("analysis.metric.longestZ4")} value={formatDuration(sm.cyclingMetrics.longestZ4PlusSec)} description={t("analysis.metric.longestZ4Desc")} tooltip={t("analysis.glossary.longestZ4")} />
             )}
-            {sm?.cyclingMetrics?.cadenceStdDev != null && (
-              <MetricCard color="violet" label={t("analysis.metric.cadenceConsistency")} value={sm.cyclingMetrics.cadenceStdDev.toFixed(0)} unit="rpm σ" description={t("analysis.metric.cadenceConsistencyDesc")} tooltip={t("analysis.glossary.cadenceConsistency")} />
+            {hasPower && sm?.cyclingMetrics?.cadenceStdDev != null && (
+              <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="violet" label={t("analysis.metric.cadenceConsistency")} value={sm.cyclingMetrics.cadenceStdDev.toFixed(0)} unit="rpm σ" description={t("analysis.metric.cadenceConsistencyDesc")} tooltip={t("analysis.glossary.cadenceConsistency")} />
+            )}
+            {sm?.cyclingMetrics?.coastingPct != null && sm.cyclingMetrics.coastingSec != null && (
+              <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="aqua" label={t("analysis.metric.coasting")} value={Math.round(sm.cyclingMetrics.coastingPct).toString()} unit="%" description={t("analysis.metric.coastingDesc", { duration: formatDuration(sm.cyclingMetrics.coastingSec) })} tooltip={t("analysis.glossary.coasting")} />
             )}
           </div>
         </div>
-      )}
-
-      {/* 심박 분석 */}
-      {hasHr && (
+      )),
+    heartRate: (hasHr && (!renderSections || [integratedPresentation && summary?.averageHeartRate != null ? null : hrStats.avg, integratedPresentation && summary?.maxHeartRate != null ? null : hrStats.max, hrDrift, hasPower ? ef : null, hasPower ? decoupling : null].some(value => value != null)) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.hr")}</h3>
           <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard color="rose" label={t("analysis.metric.avgHr")} value={hrStats.avg != null ? Math.round(hrStats.avg).toString() : null} unit="bpm" tooltip={t("analysis.glossary.avgHr")} />
-            <MetricCard color="rose" label={t("analysis.metric.maxHr")} value={hrStats.max != null ? Math.round(hrStats.max).toString() : null} unit="bpm" tooltip={t("analysis.glossary.maxHr")} />
-            <MetricCard
+            {!(integratedPresentation && summary?.averageHeartRate != null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="rose" label={t("analysis.metric.avgHr")} value={hrStats.avg != null ? Math.round(hrStats.avg).toString() : null} unit="bpm" tooltip={t("analysis.glossary.avgHr")} />}
+            {!(integratedPresentation && summary?.maxHeartRate != null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="rose" label={t("analysis.metric.maxHr")} value={hrStats.max != null ? Math.round(hrStats.max).toString() : null} unit="bpm" tooltip={t("analysis.glossary.maxHr")} />}
+            <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections}
               label={t("analysis.metric.hrDrift")}
               value={hrDrift != null ? `${hrDrift >= 0 ? "+" : ""}${hrDrift.toFixed(1)}%` : null}
               description={t("analysis.metric.hrDriftDesc")}
@@ -708,8 +761,8 @@ export default function AnalysisTab({
             />
             {hasPower && (
               <>
-                <MetricCard color="aqua" label={t("analysis.metric.ef")} value={ef != null ? ef.toFixed(2) : null} description={t("analysis.metric.efDesc")} termId="ef" tooltip={t("analysis.glossary.ef")} />
-                <MetricCard
+                <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="aqua" label={t("analysis.metric.ef")} value={ef != null ? ef.toFixed(2) : null} description={t("analysis.metric.efDesc")} termId="ef" tooltip={t("analysis.glossary.ef")} />
+                <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections}
                   label={t("analysis.metric.decoupling")}
                   value={decoupling != null ? `${decoupling >= 0 ? "+" : ""}${decoupling.toFixed(1)}%` : null}
                   description={t("analysis.metric.decouplingDesc")}
@@ -729,10 +782,8 @@ export default function AnalysisTab({
             </div>
           )}
         </div>
-      )}
-
-      {/* 임계 영역 (Sweet Spot / Threshold / VO2 / Anaerobic 시간) */}
-      {criticalBands && criticalBands.some((b) => b.seconds > 0) && (
+      )),
+    bands: (criticalBands && criticalBands.some((b) => b.seconds > 0) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.criticalBands")}</h3>
           <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -759,50 +810,42 @@ export default function AnalysisTab({
             ))}
           </div>
         </div>
-      )}
-
-      {/* 케이던스/속도/거리/고도 */}
-      {(cadenceStats.avg != null || speed.avgKph != null || distanceKm != null || elevGain != null || caloriesKcal != null) && (
+      )),
+    exercise: renderSections && ![integratedPresentation && summary?.distance != null ? null : distanceKm, integratedPresentation && summary?.elevationGain != null ? null : elevGain, integratedPresentation && summary?.averageSpeed != null ? null : speed.avgKph, integratedPresentation && summary?.maxSpeed != null ? null : speed.maxKph].some(value => value != null) ? null : ((cadenceStats.avg != null || speed.avgKph != null || distanceKm != null || elevGain != null || caloriesKcal != null) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.exerciseData")}</h3>
           <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard color="aqua" label={t("analysis.metric.distance")} value={distanceKm != null ? distVal(distanceKm) : null} unit={distUnit} tooltip={t("analysis.glossary.distance")} />
-            <MetricCard color="aqua" label={t("analysis.metric.elevGain")} value={elevGain != null && elevGain > 0 ? elevValRound(elevGain).toString() : null} unit={elevUnit} termId="elevationGain" tooltip={t("analysis.glossary.elevGain")} />
-            <MetricCard color="lime" label={t("analysis.metric.avgSpeed")} value={speed.avgKph != null ? speedVal(speed.avgKph) : null} unit={speedUnit} tooltip={t("analysis.glossary.avgSpeed")} />
-            <MetricCard color="lime" label={t("analysis.metric.maxSpeed")} value={speed.maxKph != null ? speedVal(speed.maxKph) : null} unit={speedUnit} tooltip={t("analysis.glossary.maxSpeed")} />
-            <MetricCard color="violet" label={t("analysis.metric.avgRpm")} value={cadenceStats.avg != null ? Math.round(cadenceStats.avg).toString() : null} unit="rpm" termId="cadence" tooltip={t("analysis.glossary.avgRpm")} />
-            <MetricCard color="violet" label={t("analysis.metric.maxRpm")} value={cadenceStats.max != null ? Math.round(cadenceStats.max).toString() : null} unit="rpm" termId="cadence" tooltip={t("analysis.glossary.maxRpm")} />
+            {!(integratedPresentation && summary?.distance != null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="aqua" label={t("analysis.metric.distance")} value={distanceKm != null ? distVal(distanceKm) : null} unit={distUnit} tooltip={t("analysis.glossary.distance")} />}
+            {!(integratedPresentation && summary?.elevationGain != null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="aqua" label={t("analysis.metric.elevGain")} value={elevGain != null && elevGain > 0 ? elevValRound(elevGain).toString() : null} unit={elevUnit} termId="elevationGain" tooltip={t("analysis.glossary.elevGain")} />}
+            {!(integratedPresentation && summary?.averageSpeed != null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="lime" label={t("analysis.metric.avgSpeed")} value={speed.avgKph != null ? speedVal(speed.avgKph) : null} unit={speedUnit} tooltip={t("analysis.glossary.avgSpeed")} />}
+            {!(integratedPresentation && summary?.maxSpeed != null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="lime" label={t("analysis.metric.maxSpeed")} value={speed.maxKph != null ? speedVal(speed.maxKph) : null} unit={speedUnit} tooltip={t("analysis.glossary.maxSpeed")} />}
+            {!renderSections && !(integratedPresentation && (sport === "ride" || sport === "run" || sport === "swim") && summary?.averageCadence != null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="violet" label={t("analysis.metric.avgRpm")} value={cadenceStats.avg != null ? Math.round(cadenceStats.avg).toString() : null} unit="rpm" termId="cadence" tooltip={t("analysis.glossary.avgRpm")} />}
+            {!renderSections && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="violet" label={t("analysis.metric.maxRpm")} value={cadenceStats.max != null ? Math.round(cadenceStats.max).toString() : null} unit="rpm" termId="cadence" tooltip={t("analysis.glossary.maxRpm")} />}
             {sport === "run" && sm?.runMetrics?.minPaceSecPerKm != null && (
-              <MetricCard color="lime" label={t("analysis.metric.fastestKm")} value={formatPace(sm.runMetrics.minPaceSecPerKm)} unit="/km" tooltip={t("analysis.glossary.fastestKm")} />
+              <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="lime" label={t("analysis.metric.fastestKm")} value={formatPace(sm.runMetrics.minPaceSecPerKm)} unit="/km" tooltip={t("analysis.glossary.fastestKm")} />
             )}
             {sport === "run" && sm?.runMetrics?.paceStdDevSec != null && (
-              <MetricCard color="aqua" label={t("analysis.metric.paceConsistency")} value={formatPace(sm.runMetrics.paceStdDevSec)} unit="σ" description={t("analysis.metric.paceConsistencyDesc")} tooltip={t("analysis.glossary.paceConsistency")} />
+              <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="aqua" label={t("analysis.metric.paceConsistency")} value={formatPace(sm.runMetrics.paceStdDevSec)} unit="σ" description={t("analysis.metric.paceConsistencyDesc")} tooltip={t("analysis.glossary.paceConsistency")} />
             )}
-            {/* 확정 지표 → 서버 요약 폴백. 과거 문서만 스트림 칼로리를 쓴다. */}
-            {caloriesKcal != null && (
-              <MetricCard color="amber" label={t("analysis.metric.calories")} value={Math.round(caloriesKcal).toString()} unit="kcal" tooltip={t("analysis.glossary.calories")} />
-            )}
+
           </div>
         </div>
-      )}
-
-      {/* 에너지 대사 (FATMAX / 지방·탄수) — 바이크 + 충분한 파워 스트림일 때만 */}
-      {hasPower && sport !== "run" && sport !== "swim" && sm.substrate && (
+      )),
+    metabolism: (hasPower && sport !== "run" && sport !== "swim" && sm.substrate && (
         <MetabolismCard
+          showFuelSplit={renderSections ? summaryFuel?.fatPct == null || summaryFuel.carbPct == null : !fuelSplitCovered}
           substrate={sm.substrate}
           fatMax={sm.fatMax}
           isVirtualPower={isVirtualPower}
         />
-      )}
-
-      {/* 존 분포 */}
-      {(hasHr || hasPower) && (
+      )),
+    zones: renderSections ? assembledZones : (((hasHr && !hrZoneCovered) || hasPower) && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1.5">
               <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}><MetricTerm termId="zones" label={t("analysis.section.zones")} /></h3>
             </div>
-            {/* Coggan ↔ Seiler 토글 (자전거+파워 있을 때만) */}
+
             {seilerZones && (
               <div className="flex items-center gap-1 rounded-[var(--r-md)] p-0.5" style={{ background: 'var(--bg-2)' }}>
                 <button
@@ -829,7 +872,7 @@ export default function AnalysisTab({
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {hasHr && (
+            {hasHr && !hrZoneCovered && (
               <ZoneDistributionChart
                 title={t("analysis.zones.hr")}
                 zones={hrZones ?? []}
@@ -839,13 +882,13 @@ export default function AnalysisTab({
             )}
             {powerZoneView === "coggan" && powerZones && (
               <div>
-                <ZoneDistributionChart
+                {!integratedPower?.zones?.some(zone => zone.kind === "power" && zone.seconds.length > 0) && <ZoneDistributionChart
                   title={t("analysis.zones.power")}
                   zones={powerZones}
                   emptyTitle={t("analysis.empty.powerZonesTitle")}
                   emptyDescription={t("analysis.empty.powerZonesDesc")}
-                />
-                {/* #460 존별 일량(kJ) — 서버 사전계산 zoneKj 노출(시간 분포 보완) */}
+                />}
+
                 {sm?.zoneKj && (
                   <div className="mt-3">
                     <div className="text-[length:var(--fs-xs)] mb-1.5" style={{ color: 'var(--ink-3)' }}>{t("analysis.zones.powerKj")}</div>
@@ -869,7 +912,7 @@ export default function AnalysisTab({
                 <h4 className="text-[length:var(--fs-sm)] font-semibold mb-2" style={{ color: "var(--ink-1)" }}>
                   {t("analysis.seiler.title")}
                 </h4>
-                {/* Seiler 3존 막대 */}
+
                 <div className="space-y-2 mb-3">
                   {seilerZones.map((z) => (
                     <div key={z.zone}>
@@ -886,7 +929,7 @@ export default function AnalysisTab({
                     </div>
                   ))}
                 </div>
-                {/* 양극화 판정 */}
+
                 <div className="rounded-[var(--r-md)] px-3 py-2.5" style={{ background: 'var(--bg-2)' }}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -914,10 +957,8 @@ export default function AnalysisTab({
             )}
           </div>
         </div>
-      )}
-
-      {/* 베스트 노력 (W/kg) */}
-      {hasPower && powerCurve.length > 0 && (
+      )),
+    bestEfforts: (hasPower && powerCurve.length > 0 && (!integratedPower?.powerFingerprint?.length || !!weightKg) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.bestEfforts")}</h3>
           <div className="rounded-[var(--r-lg)] overflow-hidden" style={{ background: 'var(--bg-2)' }}>
@@ -925,7 +966,7 @@ export default function AnalysisTab({
               <thead>
                 <tr className="text-[length:var(--fs-xs)] uppercase tracking-wide" style={{ color: 'var(--ink-3)' }}>
                   <th className="text-left px-4 py-2">{t("analysis.bestEfforts.duration")}</th>
-                  <th className="text-right px-4 py-2">{t("analysis.bestEfforts.power")}</th>
+                  {!integratedPower?.powerFingerprint?.length && <th className="text-right px-4 py-2">{t("analysis.bestEfforts.power")}</th>}
                   {weightKg && <th className="text-right px-4 py-2">{t("analysis.bestEfforts.wkg")}</th>}
                   <th className="text-right px-4 py-2">{t("analysis.bestEfforts.ftpPercent")}</th>
                 </tr>
@@ -938,7 +979,7 @@ export default function AnalysisTab({
                         : r.duration < 3600 ? t("analysis.bestEfforts.minutes", { count: r.duration / 60 })
                           : t("analysis.bestEfforts.hours", { count: r.duration / 3600 })}
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{r.watts}W</td>
+                    {!integratedPower?.powerFingerprint?.length && <td className="px-4 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{r.watts}W</td>}
                     {weightKg && (
                       <td className="px-4 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>
                         {r.wkg != null ? `${r.wkg.toFixed(2)}` : "-"}
@@ -953,31 +994,25 @@ export default function AnalysisTab({
             </table>
           </div>
         </div>
-      )}
-
-      {/* 파워 커브 */}
-      {hasPower && (
+      )),
+    powerCurve: (hasPower && (!integratedPower || supplementalPowerCurve.length > 0) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.powerCurve")}</h3>
           <PowerCurveChart
-            points={powerCurve}
+            points={supplementalPowerCurve}
             ftp={ftp ?? undefined}
             emptyTitle={t("analysis.empty.powerCurveTitle")}
             emptyDescription={t("analysis.empty.powerCurveDesc")}
           />
         </div>
-      )}
-
-      {/* 속도 커브 — 파워 커브와 같은 창 길이라 나란히 읽힌다 */}
-      {speedCurve.length > 0 && (
+      )),
+    speedCurve: (speedCurve.length > 0 && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.speedCurve")}</h3>
           <SpeedCurveChart points={speedCurve} />
         </div>
-      )}
-
-      {/* 클라임 자동 탐지 */}
-      {climbRows.length > 0 && (
+      )),
+    climbs: (climbRows.length > 0 && (
         <div>
           <h3 id="climb-analysis-heading" className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.climbs", { count: climbRows.length })}</h3>
           <div className="rounded-[var(--r-lg)] overflow-x-auto" style={{ background: 'var(--bg-2)', border: '1px solid var(--line-soft)' }}>
@@ -1048,10 +1083,8 @@ export default function AnalysisTab({
             {t("analysis.climbs.footnote")}
           </div>
         </div>
-      )}
-
-      {/* 러닝 — 1km 스플릿 + GAP */}
-      {sport === "run" && runSplits.length > 0 && (
+      )),
+    runSplits: (sport === "run" && runSplits.length > 0 && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>
             {t("analysis.section.splits")}
@@ -1101,14 +1134,22 @@ export default function AnalysisTab({
             {t("analysis.splits.footnote")}
           </div>
         </div>
-      )}
-
-      {/* 랩 분석 */}
-      {laps && laps.length > 0 && (
+      )),
+    laps: (laps && laps.length > 0 && (
         <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={isOwner ? onSelectLap : undefined} canSelectLap={canSelectLap} />
-      )}
-    </div>
-  );
+      )),
+    cadence: renderSections && (cadenceStats.max != null || cadenceStats.avg != null && summary?.averageCadence == null) ? <div className="activity-analysis-metric-grid grid grid-cols-2 gap-3">{summary?.averageCadence == null && <MetricCard hideUnavailable color="violet" label={t("analysis.metric.avgRpm")} value={cadenceStats.avg != null ? Math.round(cadenceStats.avg).toString() : null} unit="rpm" />}<MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="violet" label={t("analysis.metric.maxRpm")} value={cadenceStats.max != null ? Math.round(cadenceStats.max).toString() : null} unit="rpm" termId="cadence" tooltip={t("analysis.glossary.maxRpm")} /></div> : null,
+    energyFacts: hasPower && (workKj != null || kjPerHr != null) ? <div className="activity-analysis-metric-grid grid grid-cols-2 gap-3">
+          <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="lime" label={t("analysis.metric.work")} value={workKj != null ? Math.round(workKj).toString() : null} unit="kJ" description={t("analysis.metric.workDesc")} tooltip={t("analysis.glossary.work")} />
+          <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="lime" label={t("analysis.metric.kjPerHour")} value={kjPerHr != null ? Math.round(kjPerHr).toString() : null} unit="kJ/h" description={t("analysis.metric.kjPerHourDesc")} tooltip={t("analysis.glossary.kjPerHour")} />
+    </div> : null,
+    recovery: renderSections && recovery?.hours == null ? null : ((integratedPower?.recovery?.hours == null || !!integratedPower.recoveryGuidance) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="amber" label={t("analysis.metric.recovery")} value={recovery != null ? `~${recovery.hours}` : null} unit="h" description={t("analysis.metric.recoveryDesc")} tooltip={t("analysis.glossary.recovery")} />),
+    // The composer owns source-labelled calories; standalone retains its existing metric.
+    calories: !renderSections && caloriesKcal != null ? <MetricCard color="amber" label={t("analysis.metric.calories")} value={Math.round(caloriesKcal).toString()} unit="kcal" /> : null,
+    context: { ftp, weightKg, caloriesKcal: caloriesKcal ?? null, substrate: sm?.substrate, zoneKj: sm?.zoneKj, workKj, maxHr, hrZones, powerZones, powerCurve },
+  };
+  if (renderSections) return renderSections(sections);
+  return <div className="activity-analysis-content space-y-6">{Object.entries(sections).filter(([key]) => key !== "context").map(([key, value]) => <Fragment key={key}>{value as ReactNode}</Fragment>)}</div>;
 }
 
 export function AnalysisLapTable({ laps, ftp, sport = "ride", onSelectLap, canSelectLap }: { onSelectLap?: (lap: ActivityAnalysisSummary["laps"][number]) => void; canSelectLap?: (lap: ActivityAnalysisSummary["laps"][number]) => boolean; laps: ActivityAnalysisSummary["laps"]; ftp: number | null; sport?: "ride" | "run" | "swim" | "other" }) {

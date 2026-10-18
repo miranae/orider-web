@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useLocale } from "../../../contexts/LocaleContext";
 import ElevationChart, { type OverlayDataset } from "../../../components/ElevationChart";
 import { ActivityZoneTimeline } from "../../../components/activity/ActivityZoneTimeline";
-import { Card } from "../../../theme/components";
+import { Card, Text } from "../../../theme/components";
 import { formatDistance } from "../../../utils/units";
 import { runningCadenceSpm } from "../../../utils/runningCadence";
 import type { OverlayConfig, SampledPoint } from "./activityDetailUtils";
@@ -11,6 +11,7 @@ import type { buildSummaryStats } from "./activityDetailDerived";
 import type { ActivityAnalysisModel } from "../../../hooks/useActivityAnalysisModel";
 
 interface ActivityPerformanceChartsProps {
+  embedded?: boolean;
   rangeControls?: ReactNode;
   rangeAnalysis?: ReactNode;
   elapsedAxisSec?: readonly number[];
@@ -39,7 +40,7 @@ export default function ActivityPerformanceCharts({
   elevData, availableOverlays, activeOverlays, focusedOverlayKey, toggleOverlay,
   chartOverlays, hoverPoint, summaryStats, sport, recordedRunCadenceUnit,
   onHoverIndex, chartHighlightRange, metrics, powerSource, hasElevation = true, range, onRangeChange,
-  rangeControls, rangeAnalysis, elapsedAxisSec, xAxis,
+  rangeControls, rangeAnalysis, elapsedAxisSec, xAxis, embedded = false,
 }: ActivityPerformanceChartsProps) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
@@ -49,10 +50,10 @@ export default function ActivityPerformanceCharts({
     ? t(powerSource === "watts_calc" || powerSource === "virtualPowerOverride" ? "page.chartVirtualPower" : "page.chartMeasuredPower")
     : t(`overlay.${cfg.label}`);
   return (
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>
+        <Card>
+          <Text as={embedded ? "h3" : "h2"} variant={embedded ? "bodyMedium" : "subtitle"} weight={600} className="mb-3">
             {!hasElevation ? t("page.detailedCharts") : availableOverlays.length > 0 ? t("page.elevTitleWithPerf") : t("page.elevProfile")}
-          </h3>
+          </Text>
 
           {/* Overlay toggle buttons */}
           {hasStreams && availableOverlays.length > 0 && (

@@ -1,7 +1,8 @@
+import { useId, useState } from "react";
 import type { TFunction } from "i18next";
 import type { Activity, ActivityStreams } from "@shared/types";
 import RouteMap from "../../../components/RouteMap";
-import { Card } from "../../../theme/components";
+import { Button, Card } from "../../../theme/components";
 import { formatDuration, type SegmentEffortData, type SportCategory } from "./activityDetailUtils";
 import type { UploadedPhoto } from "./activityDisplay";
 import { isIndoorActivity } from "../../../utils/indoorActivity";
@@ -44,33 +45,50 @@ export function ActivityMediaPanel({
   flyToPosition,
   t,
 }: ActivityMediaPanelProps) {
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const mapId = useId();
+
   if (hasTrack) {
     return (
-      <div className="activity-detail-route-frame">
-        <RouteMap
-          polyline={activity.thumbnailTrack}
-          latlng={streams?.latlng}
-          height="activity-detail-route-map"
-          interactive
-          showRouteEndpoints
-          routeLineWidth={3}
-          markerPosition={markerPosition}
-          highlightRange={hoveredSegment ? {
-            startIndex: hoveredSegment.startIndex,
-            endIndex: hoveredSegment.endIndex,
-          } : selectedRunRange}
-          photos={[
-            ...photos
-              .filter((p) => p.url && p.location)
-              .map((p) => ({ id: String(p.id), url: p.url!, location: p.location!, caption: p.caption })),
-            ...uploadedPhotos
-              .filter((p) => p.location)
-              .map((p) => ({ id: `upload-${p.id}`, url: p.url, location: p.location!, caption: null as string | null })),
-          ]}
-          flyToRange={selectedSegmentRange}
-          flyToPosition={selectedSegmentRange ? undefined : flyToPosition}
-          fallbackImageUrl={activity.mapImageUrl}
-        />
+      <div className="activity-detail-route-frame" data-map-expanded={mapExpanded}>
+        <div id={mapId} className="activity-detail-resizable-map">
+          <RouteMap
+            polyline={activity.thumbnailTrack}
+            latlng={streams?.latlng}
+            height="activity-detail-route-map"
+            interactive
+            showRouteEndpoints
+            routeLineWidth={3}
+            navigationLabels={{ zoomIn: t("page.mapView.zoomIn"), zoomOut: t("page.mapView.zoomOut"), fitRoute: t("page.mapView.fitRoute") }}
+            markerPosition={markerPosition}
+            highlightRange={hoveredSegment ? {
+              startIndex: hoveredSegment.startIndex,
+              endIndex: hoveredSegment.endIndex,
+            } : selectedRunRange}
+            photos={[
+              ...photos
+                .filter((p) => p.url && p.location)
+                .map((p) => ({ id: String(p.id), url: p.url!, location: p.location!, caption: p.caption })),
+              ...uploadedPhotos
+                .filter((p) => p.location)
+                .map((p) => ({ id: `upload-${p.id}`, url: p.url, location: p.location!, caption: null as string | null })),
+            ]}
+            flyToRange={selectedSegmentRange}
+            flyToPosition={selectedSegmentRange ? undefined : flyToPosition}
+            fallbackImageUrl={activity.mapImageUrl}
+          />
+          {(["top-left", "bottom-right"] as const).map(corner => (
+          <Button key={corner} variant="ghost" iconOnly className={`activity-detail-map-resize activity-detail-map-resize--${corner}`}
+            aria-label={t(mapExpanded ? "page.mapView.collapse" : "page.mapView.expand")}
+            title={t(mapExpanded ? "page.mapView.collapse" : "page.mapView.expand")}
+            aria-controls={mapId} aria-expanded={mapExpanded}
+            onClick={() => setMapExpanded(expanded => !expanded)}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <path d="M7 19 19 7M13 19l6-6" />
+            </svg>
+          </Button>
+          ))}
+        </div>
       </div>
     );
   }

@@ -451,17 +451,14 @@ describe("overview duration wording", () => {
 });
 
 describe("overview v7 wording and tone", () => {
-  it("names the sport-only CTL scope and uses the same color-only glossary triggers as Home", () => {
+  it("names the scope of the sport-only CTL footnote and keeps Home-style accent glossary triggers", () => {
     const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, fitnessScope: "integrated",
       sportFitnessStatus: { discipline: "bike", ctl: 48.1, atl: 38.3, tsb: 9.8, evidence: "limited" } }} />);
     expect(screen.getByText(renderedText(/^라이딩 기록만 · CTL 48.1/))).toBeInTheDocument();
-    const triggers = container.querySelectorAll<HTMLButtonElement>('[data-glossary-term] button');
-    expect(triggers.length).toBeGreaterThan(0);
-    for (const trigger of triggers) {
-      expect(trigger.style.color).toBe("var(--color-primary-dark)");
-      expect(trigger.style.textDecoration).toBe("");
-      expect(trigger.style.minWidth).toBe("var(--space-6)");
-    }
+    const trigger = container.querySelector('[data-glossary-term="np"] button') as HTMLButtonElement;
+    expect(trigger.style.color).toBe("var(--color-primary-dark)");
+    expect(trigger.style.minWidth).toBe("var(--space-6)");
+    expect(trigger.style.textDecoration).toBe("");
   });
 
   it("keeps the W′ meter inside the details grid and labels the curve point with its duration", () => {
@@ -572,4 +569,13 @@ it("closes the zone tooltip with Escape while keeping focus on the segment", () 
   expect(screen.getByRole("tooltip")).toBeInTheDocument();
   fireEvent.keyDown(first!, { key: "Escape" });
   expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+});
+
+it("keeps integrated visual sections in the same reading and DOM order", () => {
+  const { container } = render(<ActivityOverviewSummaryContent integrated presentation={{ ...rich, routeLoad: { climbCount: 2 } }} />);
+  const sections = Array.from(container.querySelector(".activity-overview-grid")!.children);
+  expect(sections.map(node => node.className.match(/activity-overview-area--\w+/)?.[0])).toEqual([
+    "activity-overview-area--stimulus", "activity-overview-area--facts", "activity-overview-area--shift",
+    "activity-overview-area--curve", "activity-overview-area--changes", "activity-overview-area--recovery", "activity-overview-area--route",
+  ]);
 });

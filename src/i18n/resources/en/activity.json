@@ -190,7 +190,7 @@
     "thresholdMissingCta": "Set thresholds",
     "peaks": "Peak power by duration",
     "route": "Route",
-    "title": "O-Rider activity overview",
+    "title": "Activity interpretation",
     "characterPending": "Character pending",
     "aboveUsualVolume": "More than usual",
     "stimulus": "Training stimulus",
@@ -312,6 +312,8 @@
     },
     "title": "Activity overview evidence",
     "source": "The same canonical server evidence as the overview. Not reanalysed in the browser.",
+    "comparisonEvidence": "Comparison and calculation evidence",
+    "supplementalSource": "Additional metrics and comparison context for the activity interpretation.",
     "preview": "Saved analysis below does not incorporate the temporary virtual-power preview.",
     "loading": "Loading evidence",
     "error": "Evidence could not be loaded. Other analysis remains available.",
@@ -602,7 +604,7 @@
       "tie": "Tied best",
       "firstRecord": "First attempt",
       "collapse": "Collapse",
-      "more": "+{{count}} more"
+    "more": "+{{count}} more"
     },
     "temp": {
       "device": "measured",
@@ -657,6 +659,12 @@
     "unknown": "The change could not be saved. Please try again shortly."
   },
   "page": {
+    "management": {
+      "visibilityHint": "Changes apply immediately.",
+      "title": "Manage activity",
+      "edit": "Edit activity details",
+      "visibility": "Visibility"
+    },
     "summarySensorSignInDesc": "These values are saved in the activity record.",
     "analysisSignInTitle": "Sign in to view detailed analysis",
     "analysisSignInDescription": "Sign in to view detailed charts and activity streams. The public activity summary remains available.",
@@ -784,7 +792,14 @@
     "menuCourse": "Create course",
     "menuSegment": "Create segment",
     "menuShareRecipe": "Create a brag card",
-    "compareOwnerOnly": "Activity comparison is available for your own activities."
+    "compareOwnerOnly": "Activity comparison is available for your own activities.",
+    "mapView": {
+      "expand": "Expand map",
+      "collapse": "Restore default map size",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fitRoute": "Show entire route"
+    }
   },
   "overlay": {
     "speed": "Speed",
@@ -926,6 +941,8 @@
       "longestZ4Desc": "Longest continuous ≥91% FTP",
       "cadenceConsistency": "Cadence consistency",
       "cadenceConsistencyDesc": "Cadence std-dev (lower = steadier)",
+      "coasting": "Coasting",
+      "coastingDesc": "Time not pedaling while moving: {{duration}}",
       "pedalBalance": "Pedal balance",
       "pedalBalanceDesc": "Left-right difference {{value}}pp",
       "torqueEffectiveness": "Torque effectiveness",
@@ -992,6 +1009,7 @@
       "quadrant": "Pedaling quadrants — time share across cadence×torque. High Q4 (low rpm·high torque) = strength-style; high Q1 (high rpm·high power) = high-intensity spinning.",
       "longestZ4": "Longest continuous time ≥91% FTP — threshold endurance.",
       "cadenceConsistency": "Cadence standard deviation. Lower = steadier pedaling.",
+      "coasting": "Share of moving time with zero cadence. Stops are excluded. Average cadence counts only pedaling time.",
       "pedalBalance": "Left/right power share recorded by a dual-sided power meter. Values closer to 50/50 indicate more even output.",
       "torqueEffectiveness": "Torque effectiveness is the share of total pedal force that contributes to forward crank torque.",
       "pedalSmoothness": "Pedal smoothness describes how evenly power is delivered through each crank revolution.",
@@ -1553,12 +1571,35 @@
     "source": "View source activity"
   },
   "stravaSummary": {
-    "title": "Publish summary to Strava",
-    "disclosure": "Publish this summary, including fitness, fatigue and form, to your Strava activity description. Your existing description is preserved; only the O-Rider summary is updated.",
-    "publish": "Publish / update on Strava",
+    "scrollPreview": "Scroll inside the summary to review all of the outgoing content.",
+    "localPreviewOnly": "Local preview mode does not publish to Strava or prepare a new summary.",
+    "resultTitle": {
+      "published": "Published",
+      "unchanged": "Already up to date",
+      "queued": "Waiting to publish",
+      "reauthorization-required": "Check your Strava connection",
+      "unavailable": "Not ready to publish yet",
+      "invalidTarget": "Check the target activity",
+      "publishError": "Could not publish",
+      "mappingRequired": "Choose a target activity",
+      "summaryNotReady": "Summary not ready",
+      "activityUnavailable": "Check activity access",
+      "previewError": "Could not load summary",
+      "previewChanged": "Review the updated preview",
+      "metricsNotReady": "Analysis is being prepared",
+      "receiptPending": "Activity is being processed",
+      "inputsChanged": "Activity data changed",
+      "publishUnconfirmed": "Check the publishing result",
+      "statusError": "Could not check request status",
+      "statusUnavailable": "Request status unavailable",
+      "provisionalPublished": "Interim summary applied"
+    },
+    "title": "Share activity summary to Strava",
+    "disclosure": "Add or update the activity summary in your Strava activity description. Your existing description is preserved. Loading this preview does not publish anything.",
+    "publish": "Publish this summary to Strava",
     "working": "Working…",
     "reconnect": "Connect Strava write access",
-    "targetHelp": "No linked Strava activity?",
+    "targetHelp": "Change target activity manually",
     "targetLabel": "Your Strava activity link to receive this summary",
     "automatic": "Generate and publish Strava summaries automatically",
     "automaticHint": "When enabled, a Strava-specific summary is generated and published once a newly started activity is linked to Strava. Detailed AI analysis is not run.",
@@ -1573,7 +1614,33 @@
     "publishError": "Could not request publishing to Strava. Please try again.",
     "autoEnabled": "Automatic Strava summary generation and publishing is enabled for activities started from now on.",
     "autoDisabled": "Automatic publishing is disabled.",
-    "view": "View on Strava"
+    "view": "View on Strava",
+    "loadingPreview": "Checking the outgoing summary and target activity…",
+    "previewLabel": "Summary to add or update in the Strava description",
+    "resolvedTarget": "Target Strava activity",
+    "targetActivity": "Strava activity {{id}}",
+    "targetVerification": "Publishing verifies that this activity belongs to your connected Strava account.",
+    "retryPreview": "Check preview again",
+    "loadTargetPreview": "Preview for this activity",
+    "mappingRequired": "No linked Strava activity was found. Enter the link to your target Strava activity.",
+    "summaryNotReady": "The Strava summary for this activity is not ready yet.",
+    "activityUnavailable": "Publishing information is unavailable. Check that you are using the activity owner’s account.",
+    "previewError": "The outgoing summary could not be loaded. Please try again.",
+    "previewChanged": "The outgoing content changed after this preview. Review the updated summary before publishing again.",
+    "lastResult": "Last publishing request result",
+    "prepare": "Prepare summary for publishing",
+    "preparing": "Preparing the summary for publishing…",
+    "metricsNotReady": "Activity analysis is not ready yet. Check again after analysis is complete.",
+    "receiptPending": "The activity record is still being processed. Check again when processing is complete.",
+    "inputsChanged": "The activity data changed and the summary needs another check. Reload the preview shortly.",
+    "publishUnconfirmed": "The publishing request result could not be confirmed. Check its status before submitting another request.",
+    "statusError": "The last publishing request status could not be checked. Please check again shortly.",
+    "statusUnavailable": "The last request status is unavailable. This does not confirm that nothing was published. Check the Strava activity and request status again.",
+    "refreshStatus": "Check publishing status",
+    "provisionalPublished": "An interim summary was applied. The detailed summary is still being prepared; final publishing is not complete.",
+    "phaseProvisional": "This is the interim summary publishing stage. The detailed summary is still being prepared.",
+    "resultTarget": "Requested target · Strava activity {{id}}",
+    "statusTitle": "Publishing status"
   },
   "socialSummary": {
     "retry": "Reload share summary",
@@ -2573,7 +2640,7 @@
     },
     "analysis": {
       "title": "Understand your effort",
-      "description": "Explore training load, power and heart rate to see what your numbers mean."
+      "description": "Explore the activity timeline and training stimulus, then review detailed metrics and evidence."
     },
     "segments": {
       "title": "Segment performances",
@@ -2605,6 +2672,36 @@
     "previousAnalysisValue": "Analysis TSS is from an earlier analysis version.",
     "additionalStats": "More activity stats",
     "shareShort": "Save card",
-    "moreShort": "More"
+    "moreShort": "More",
+    "summarySharing": "Share summary",
+    "analysisTopics": {
+      "energyModel": "Recovery time and fat/carbohydrate allocation are model estimates, not direct physiological measurements.",
+      "wPrimeModel": "W′ capacity, balance and depletion are power-based model estimates. Their basis differs from work above FTP.",
+      "storedMetrics": "Stored analysis metrics",
+      "fuelDifference": "The summary fuel model and metric fuel model differ. Their differing values are listed below.",
+      "metricFuelCarbKcal": "Metric fuel model carbohydrate energy",
+      "metricFuelCarb": "Metric fuel model carbohydrate share",
+      "metricFuelFatKcal": "Metric fuel model fat energy",
+      "metricFuelFat": "Metric fuel model fat share",
+      "metricFuelTotal": "Metric fuel model total",
+      "metricZoneTime": "Metric zone time",
+      "summaryZoneTime": "Summary zone time",
+      "weightBasis": "Analysis weight",
+      "hrBasis": "Zone reference maximum heart rate",
+      "ftpBasis": "Analysis FTP",
+      "timeline": "Activity timeline",
+      "training": "Training load and fitness",
+      "intensity": "Intensity and sustained efforts",
+      "records": "Power records and peak efforts",
+      "efficiency": "Heart rate and pedaling efficiency",
+      "energy": "Recovery and energy",
+      "terrain": "Speed and terrain",
+      "activityCalories": "Total activity energy",
+      "modelCalories": "Power-based fuel model"
+},
+    "technicalDetails": {
+      "title": "Detailed metrics and evidence",
+      "description": "Explore sensor metrics, personal benchmarks, peak efforts and calculation evidence."
+    }
   }
 }

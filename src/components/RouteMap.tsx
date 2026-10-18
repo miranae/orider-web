@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { useMemo, useEffect, useRef, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
+import { LocateFixed, Minus, Plus } from "lucide-react";
+import { Button } from "../theme/components";
 import type { LngLatBoundsLike } from "mapbox-gl";
 // 컨트롤/팝업 스타일. 메인 entry 가 아닌 RouteMap chunk 와 함께 로드 (홈 진입 시 1.6MB 절약).
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -51,6 +53,8 @@ interface RouteMapProps {
   showRouteEndpoints?: boolean;
   /** 상세 경로의 선명도를 조절한다. 다른 지도는 기본 두께를 유지한다. */
   routeLineWidth?: number;
+  /** 활동 상세에서만 명시적 확대·축소·전체 경로 및 컨테이너 크기 동기화를 활성화한다. */
+  navigationLabels?: { zoomIn: string; zoomOut: string; fitRoute: string };
   /** Mapbox 렌더링이 실패했을 때 보여줄 저장된 정적 지도 이미지 */
   fallbackImageUrl?: string | null;
   fallbackImageAlt?: string;
@@ -179,6 +183,27 @@ function RouteMapFallback({
   );
 }
 
+function RouteNavigation({ labels, bounds, padding }: {
+  labels: NonNullable<RouteMapProps["navigationLabels"]>;
+  bounds: LngLatBoundsLike;
+  padding: number;
+}) {
+  const { current: map } = useMap();
+  useEffect(() => {
+    if (!map || typeof ResizeObserver === "undefined") return;
+    // 컨테이너 높이만 바뀌어도 canvas를 갱신한다. 카메라와 선택 구간은 그대로 둔다.
+    const observer = new ResizeObserver(() => map.resize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  const motion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 250;
+  return <div className="activity-detail-map-navigation" role="group" aria-label={labels.fitRoute}>
+    <Button size="sm" iconOnly aria-label={labels.zoomIn} title={labels.zoomIn} onClick={() => map?.zoomIn({ duration: motion() })}><Plus size={18} aria-hidden="true" /></Button>
+    <Button size="sm" iconOnly aria-label={labels.zoomOut} title={labels.zoomOut} onClick={() => map?.zoomOut({ duration: motion() })}><Minus size={18} aria-hidden="true" /></Button>
+    <Button size="sm" iconOnly aria-label={labels.fitRoute} title={labels.fitRoute} onClick={() => map?.fitBounds(bounds, { padding, duration: motion() })}><LocateFixed size={18} aria-hidden="true" /></Button>
+  </div>;
+}
+
 function FitBoundsOnLoad({ bounds }: { bounds: LngLatBoundsLike }) {
   const { current: map } = useMap();
   const fittedKey = useRef<string | null>(null);
@@ -264,6 +289,7 @@ export default function RouteMap({
   fitPadding = 20,
   showRouteEndpoints = false,
   routeLineWidth = 2,
+  navigationLabels,
   fallbackImageUrl,
   fallbackImageAlt,
   fallbackHeight,
@@ -288,6 +314,7 @@ export default function RouteMap({
 
   // hook 호출은 early return 이전에 모두 마쳐야 한다 (Rules of Hooks).
   // positions 가 비어있을 때도 같은 순서로 hook 이 호출되도록 빈 GeoJSON 으로 폴백.
+  const bounds = useMemo(() => getBounds(positions), [positions]);
   const fullRouteGeoJSON = useMemo(() => toGeoJSON(positions), [positions]);
 
   const highlightGeoJSON = useMemo(() => {
@@ -335,7 +362,6 @@ export default function RouteMap({
     );
   }
 
-  const bounds = getBounds(positions);
   const containerClass = `${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`;
   const mapboxToken = getMapboxToken();
   const fallback = (
@@ -580,6 +606,7 @@ export default function RouteMap({
           </Source>
         )}
 
+        {navigationLabels && <RouteNavigation labels={navigationLabels} bounds={bounds} padding={fitPadding} />}
         <FitBoundsOnLoad bounds={bounds} />
         {flyToRange !== undefined && (
           <FlyToSegmentRange positions={positions} range={flyToRange} fullBounds={bounds} />

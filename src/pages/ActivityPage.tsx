@@ -1,7 +1,7 @@
-import { ArrowLeftRight, BarChart3, ChevronDown, Globe, Layers, Lock, Route, Trophy, Users } from "lucide-react";
+import { ArrowLeftRight, BarChart3, ChevronDown, Layers, Route, Settings2, Trophy } from "lucide-react";
 import SportIcon from "../components/common/SportIcon";
 import { getRuntimeConfig } from "../services/runtimeConfig";
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -21,10 +21,12 @@ import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvid
 import Avatar from "../components/Avatar";
 import "./activity/activity-detail-page.css";
 import AnalysisTab, { AnalysisLapTable } from "../components/AnalysisTab";
+import ActivityAnalysisBody from "../features/activity/detail/ActivityAnalysisBody";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
 import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
 import LapTable from "../components/LapTable";
 import Modal from "../components/Modal";
+import ActivityManagementModal from "../components/activity/ActivityManagementModal";
 import ExportTab from "../components/ExportTab";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
@@ -164,8 +166,6 @@ export default function ActivityPage() {
   const bikePdcState = usePdc(isActivityOwner && shareDiscipline === "bike" ? user?.uid : null);
   const bikePdc = bikePdcState.pdc;
   // Inline description editing
-  const [editingDescription, setEditingDescription] = useState(false);
-  const [descriptionText, setDescriptionText] = useState("");
   // Photo upload/delete
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -185,18 +185,51 @@ export default function ActivityPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const [showExport, setShowExport] = useState(searchParams.get("tab") === "export");
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionText, setDescriptionText] = useState("");
+  const [openManagementScope, setOpenManagementScope] = useState<string | null>(null);
+  const managementScope = JSON.stringify([activityId, user?.uid]);
+  useEffect(() => setOpenManagementScope(null), [activityId, user?.uid]);
   const requestedTab = searchParams.get("tab") ?? "overview";
-  const activeTab = requestedTab === "splits" || requestedTab === "laps" ? "segments"
+  const activeTab = requestedTab === "insights" ? "analysis" : requestedTab === "splits" || requestedTab === "laps" ? "segments"
     : ["overview", "analysis", "segments"].includes(requestedTab) || (requestedTab === "compare" && isActivityOwner) ? requestedTab : "overview";
+  useLayoutEffect(() => {
+    const list = activityNavigationRef.current?.querySelector<HTMLElement>('[role="tablist"]');
+    if (!list) return;
+    const reveal = () => {
+      const selected = list.querySelector<HTMLElement>('[aria-selected="true"]');
+      if (!selected) return;
+      const listRect = list.getBoundingClientRect(), selectedRect = selected.getBoundingClientRect();
+      if (selectedRect.left < listRect.left) list.scrollLeft -= listRect.left - selectedRect.left;
+      else if (selectedRect.right > listRect.right) list.scrollLeft += selectedRect.right - listRect.right;
+    };
+    reveal();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(reveal);
+    observer?.observe(list);
+    return () => observer?.disconnect();
+  }, [activeTab, i18n.language, isActivityOwner, loadingActivity]);
   const setActiveTab = useCallback((tab: string) => setSearchParams(previous => {
     const next = new URLSearchParams(previous); next.set("tab", tab); return next;
   }, { state: location.state }), [setSearchParams, location.state]);
+  useEffect(() => {
+    if (requestedTab !== "insights") return;
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous); next.set("tab", "analysis"); return next;
+    }, { replace: true, state: location.state });
+  }, [requestedTab, setSearchParams, location.state]);
   useEffect(() => {
     if (requestedTab === "export") setShowExport(true);
   }, [requestedTab]);
   useEffect(() => {
     if (["segments", "splits", "laps", "export"].includes(requestedTab) && activity && !streams && !streamsSignInRequired) requestStreams();
   }, [requestedTab, activity, streams, streamsSignInRequired, requestStreams]);
+  const analysisStreamsRequested = useRef<typeof requestStreams | null>(null);
+  useEffect(() => {
+    if (activeTab !== "analysis" || !activity || activity.id !== activityId || streams
+      || streamsSignInRequired || loadingStreams || streamsError || analysisStreamsRequested.current === requestStreams) return;
+    analysisStreamsRequested.current = requestStreams;
+    requestStreams();
+  }, [activeTab, activity, activityId, user?.uid, streams, streamsSignInRequired, loadingStreams, streamsError, requestStreams]);
   const [peakSelection, setPeakSelection] = useState<{ activityId: string | undefined; peak: RidePeakEffort | null }>({ activityId, peak: null });
   const pendingPeakLocation = useRef<{ activityId: string | undefined; uid: string | undefined; peak: RidePeakEffort } | null>(null);
   useEffect(() => {
@@ -235,8 +268,12 @@ export default function ActivityPage() {
     segmentMapTrigger.current?.focus({ preventScroll: true });
     segmentMapTrigger.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
   }, []);
-  const viewRunSplitLocation = useCallback(() => {
+  const viewMapLocation = useCallback(() => {
     setActiveTab("overview");
+    runLocationAnchor.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
+  }, [setActiveTab]);
+  const viewRunSplitLocation = useCallback(() => {
+    setActiveTab("analysis");
     runLocationAnchor.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
   }, [setActiveTab]);
 
@@ -327,7 +364,7 @@ export default function ActivityPage() {
     }, (err) => {
       logClientError("ActivityPage.comments", err, { path: `activities/${activityId}/comments` });
     });
-     
+
   }, [activityId, authLoading, user]);
 
   useEffect(() => {
@@ -460,7 +497,7 @@ export default function ActivityPage() {
   };
 
   const handleVisibilityChange = async (visibility: Visibility) => {
-    if (!activity || activity.visibility === visibility) return;
+    if (!activity || !user || user.uid !== activity.userId || activity.visibility === visibility) return;
     const previous = activity.visibility;
     setActivity({ ...activity, visibility });
     try {
@@ -588,8 +625,8 @@ export default function ActivityPage() {
       pendingPeakLocation.current = { activityId, uid: user?.uid, peak };
       requestStreams();
     }
-    else if (resolvePeakEffortLocation(peak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData)) viewRunSplitLocation();
-  }, [activityId, user?.uid, streams, requestStreams, viewRunSplitLocation, serverMetrics.metrics, sampledData]);
+    else if (resolvePeakEffortLocation(peak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData)) viewMapLocation();
+  }, [activityId, user?.uid, streams, requestStreams, viewMapLocation, serverMetrics.metrics, sampledData]);
   useEffect(() => {
     const pending = pendingPeakLocation.current;
     if (!pending) return;
@@ -601,8 +638,8 @@ export default function ActivityPage() {
     if (!streams || loadingStreams) return;
     // 준비된 위치를 한 번만 보여 준다. 이후 사용자의 탭 선택은 바꾸지 않는다.
     pendingPeakLocation.current = null;
-    if (peakLocation) viewRunSplitLocation();
-  }, [activityId, user?.uid, isActivityOwner, selectedPeak, streams, streamsError, loadingStreams, peakLocation, viewRunSplitLocation]);
+    if (peakLocation) viewMapLocation();
+  }, [activityId, user?.uid, isActivityOwner, selectedPeak, streams, streamsError, loadingStreams, peakLocation, viewMapLocation]);
   const lapContext = { source: activity?.source, activityStartMs: normalizeEpochMilliseconds(activity?.startTime) ?? 0, durationSec: rangeSelection.durationSec };
   const [unlinkedLapIdentity, setUnlinkedLapIdentity] = useState<string | null>(null);
   const pendingLap = useRef<{ identity: string; lap: RecordedLap } | null>(null);
@@ -620,7 +657,7 @@ export default function ActivityPage() {
       return;
     }
     const range = resolveRecordedLapRange(lap, lapContext, streams.time, streams.laps);
-    if (range) { rangeSelection.selectAndEnable(range); viewRunSplitLocation(); }
+    if (range) { rangeSelection.selectAndEnable(range); viewMapLocation(); }
   };
   useEffect(() => {
     const pending = pendingLap.current;
@@ -633,9 +670,9 @@ export default function ActivityPage() {
     pendingLap.current = null;
     const range = resolveRecordedLapRange(pending.lap, { source: activity?.source,
       activityStartMs: normalizeEpochMilliseconds(activity?.startTime) ?? 0, durationSec: rangeSelection.durationSec }, streams.time, streams.laps);
-    if (range) { rangeSelection.selectAndEnable(range); viewRunSplitLocation(); }
+    if (range) { rangeSelection.selectAndEnable(range); viewMapLocation(); }
     else setUnlinkedLapIdentity(rangeSelection.identity);
-  }, [rangeSelection, streams, loadingStreams, streamsError, activity?.source, activity?.startTime, viewRunSplitLocation]);
+  }, [rangeSelection, streams, loadingStreams, streamsError, activity?.source, activity?.startTime, viewMapLocation]);
   const markerPosition = useMemo(() => {
     if (selectedMapSegment) return streams?.latlng?.[selectedMapSegment.endIndex] ?? null;
     if (hoverIndex == null || !sampledData[hoverIndex]) {
@@ -965,37 +1002,18 @@ export default function ActivityPage() {
               )}
             </div>
             {editingDescription ? (
-              <input
-                type="text"
-                value={descriptionText}
-                onChange={(e) => setDescriptionText(e.target.value)}
+              <input type="text" value={descriptionText} onChange={e => setDescriptionText(e.target.value)}
                 onBlur={handleSaveDescription}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); handleSaveDescription(); } if (e.key === "Escape") { setEditingDescription(false); } }}
-                autoFocus
-                className="ds-text ds-text--page-title bg-transparent outline-none w-full"
-                style={{ borderBottom: '2px solid var(--lime)' }}
-              />
-            ) : (
-              user?.uid === activity.userId ? (
-                <button
-                  type="button"
-                  className="group block max-w-full text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lime)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-0)]"
-                  onClick={() => { setDescriptionText(activity.description || ""); setEditingDescription(true); }}
-                  aria-label={t("page.editTitleAria")}
-                >
-                  <Text as="h1" variant="pageTitle">
-                    {activity.description || tCommon(getSportLabelKey(activity.type))}
-                    <svg className="inline-block w-4 h-4 ml-1.5 text-[var(--ink-3)] group-hover:text-[var(--lime)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                  </Text>
-                </button>
-              ) : (
-                <Text data-testid="D1-0" as="h1" variant="pageTitle">
-                  {activity.description || tCommon(getSportLabelKey(activity.type))}
+                onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); handleSaveDescription(); } if (e.key === "Escape") setEditingDescription(false); }}
+                autoFocus className="ds-text ds-text--page-title bg-transparent outline-none w-full" style={{ borderBottom: "2px solid var(--lime)" }} />
+            ) : user?.uid === activity.userId ? (
+              <button type="button" className="group block max-w-full text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lime)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-0)]"
+                onClick={() => { setDescriptionText(activity.description || ""); setEditingDescription(true); }} aria-label={t("page.editTitleAria")}>
+                <Text as="h1" variant="pageTitle">{activity.description || tCommon(getSportLabelKey(activity.type))}
+                  <svg className="inline-block w-4 h-4 ml-1.5 text-[var(--ink-3)] group-hover:text-[var(--lime)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                 </Text>
-              )
-            )}
+              </button>
+            ) : <Text data-testid="D1-0" as="h1" variant="pageTitle">{activity.description || tCommon(getSportLabelKey(activity.type))}</Text>}
             <div className="flex flex-col items-start gap-2 mt-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
               <span className="text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)', wordBreak: "keep-all", lineHeight: 1.5 }}>{formatFullDate(activity.startTime)}</span>
               {isStrava && stravaActivityUrl && (
@@ -1051,60 +1069,18 @@ export default function ActivityPage() {
                 </span>
               )}
             </div>
-            {user?.uid !== activity.userId && <details>
-              <summary aria-label={t("page.more")} className="activity-detail-more">{t("detail.moreShort")} <ChevronDown size={16} aria-hidden="true" /></summary>
-              <Button data-testid="D1-0-M5" variant="ghost" onClick={() => { setShowExport(true); if (!streamsSignInRequired) requestStreams(); }}>{t("tab.export")}</Button>
-            </details>}
-            {user?.uid === activity.userId && (
-              <details data-testid="D1-0-M">
-                <summary aria-label={t("page.more")} className="activity-detail-more">{t("detail.moreShort")} <ChevronDown size={16} aria-hidden="true" /></summary>
-                <div className="activity-detail-actions flex flex-wrap items-center gap-2 py-3">
-                  <Link data-testid="D1-0-M1" to={`/activity/${activityId}/edit`}>{t("page.editActivity")}</Link>
-                  <Button data-testid="D1-0-M2" variant="ghost" onClick={() => photoInputRef.current?.click()}>{t("page.addPhoto")}</Button>
-                  <Link data-testid="D1-0-M3" to={`/course/create?activityId=${activityId}`}>{t("page.menuCourse")}</Link>
-                  <Link data-testid="D1-0-M4" to={`/segment/create?activityId=${activityId}`}>{t("page.menuSegment")}</Link>
-                  <Button variant="ghost" onClick={() => { setShowExport(true); if (!streamsSignInRequired) requestStreams(); }}>{t("tab.export")}</Button>
-                  {canRecalculateVirtualPowerPreview && <Button data-testid="D1-0-M6" variant="ghost" onClick={recalculateVirtualPowerPreview}>{t("page.vp.recalcBtn")}</Button>}
-                  {activePowerOverride && <Button variant="ghost" onClick={revertVirtualPowerPreview}>{t("page.vp.revertBtn")}</Button>}
-                  <Link data-testid="D1-0-M8" to="/explore/recipes/share">{t("page.menuShareRecipe")}</Link>
-
-                {([
-                  { value: "everyone", label: t("page.visibility.everyone"), icon: Globe },
-                  { value: "friends", label: t("page.visibility.friends"), icon: Users },
-                  { value: "private", label: t("page.visibility.private"), icon: Lock },
-                ] as { value: Visibility; label: string; icon: typeof Globe }[]).map((opt) => (
-                  <Button variant="outline" aria-pressed={activity.visibility === opt.value}
-                    key={opt.value}
-                    onClick={() => { void handleVisibilityChange(opt.value); }}
-                    className="gap-2"
-                    style={activity.visibility === opt.value ? {
-                      background: 'color-mix(in srgb, var(--lime) 12%, transparent)',
-                      borderColor: 'var(--lime)',
-                      color: 'var(--lime)',
-                    } : {
-                      borderColor: 'var(--line-soft)',
-                      color: 'var(--ink-2)',
-                    }}
-                  >
-                    <opt.icon size={16} aria-hidden="true" /> {opt.label}
-                  </Button>
-                ))}
-                <Button variant="outline" data-testid="D1-0-M7"
-                  onClick={handleDeleteActivity}
-                  className="ml-auto"
-                  style={{
-                    borderColor: "color-mix(in srgb, var(--rose) 35%, var(--line-soft))",
-                    color: "var(--rose)",
-                    background: "color-mix(in srgb, var(--rose) 8%, transparent)",
-                  }}
-                >
-                  {t("page.delete")}
-                </Button>
-                </div>
-              </details>
-            )}
+            {user?.uid === activity.userId ? <Button variant="ghost" size="sm" onClick={() => setOpenManagementScope(managementScope)} leadingIcon={<Settings2 size={16} aria-hidden="true" />}>{t("page.management.title")}</Button>
+              : <Button data-testid="D1-0-M5" variant="ghost" size="sm" onClick={() => { setShowExport(true); if (!streamsSignInRequired) requestStreams(); }}>{t("tab.export")}</Button>}
             </div>
       </Card>
+
+      {user?.uid === activity.userId && <ActivityManagementModal key={managementScope}
+        open={openManagementScope === managementScope} activityId={activity.id} visibility={activity.visibility}
+        onClose={() => setOpenManagementScope(null)}
+        onExport={() => { setOpenManagementScope(null); setShowExport(true); if (!streamsSignInRequired) requestStreams(); }}
+        onDelete={() => { setOpenManagementScope(null); void handleDeleteActivity(); }}
+        onVisibilityChange={handleVisibilityChange}
+      />}
 
       {/* ── 탭 네비게이션 ── */}
       <div className="activity-detail-navigation" ref={activityNavigationRef}>
@@ -1131,15 +1107,6 @@ export default function ActivityPage() {
         </div>
       </div>
       <div className="activity-detail-hero" data-testid="activity-detail-hero">
-        <div className="activity-detail-summary">
-        <Card padding="none" className="activity-detail-primary-stats">{keyStatsStrip("primary")}</Card>
-      {secondaryStatsAvailable && <details className="activity-detail-secondary-stats" open={wideStats || secondaryStatsOpen} onToggle={(event) => {
-        if (!wideStats) setSecondaryStatsOpen(event.currentTarget.open);
-      }}>
-        <summary>{t("detail.additionalStats")}<ChevronDown size={16} aria-hidden="true" /></summary>
-        {keyStatsStrip("secondary")}
-      </details>}
-        </div>
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
       <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined}>
       {selectedMapSegment && <div className="activity-detail-segment-map-selection">
@@ -1161,80 +1128,27 @@ export default function ActivityPage() {
         flyToPosition={flyToPosition}
         t={t}
       />
-      <div className="activity-detail-route-tools"><RideActivityRouteButton activityId={activityId} activity={activity} hasRoute={hasTrack} sport={sport} /></div>
       </div>
+
+        <div className="activity-detail-summary">
+          <Card padding="none" className="activity-detail-primary-stats">{keyStatsStrip("primary")}</Card>
+          {secondaryStatsAvailable && <details className="activity-detail-secondary-stats" open={wideStats || secondaryStatsOpen} onToggle={(event) => {
+            if (!wideStats) setSecondaryStatsOpen(event.currentTarget.open);
+          }}>
+            <summary>{t("detail.additionalStats")}<ChevronDown size={16} aria-hidden="true" /></summary>
+            {keyStatsStrip("secondary")}
+          </details>}
+        </div>
 
       </div>
       <div id="activity-tab-panel" role="tabpanel" aria-labelledby={`activity-tab-${activeTab}`} tabIndex={0} className="activity-detail-panel">
-      <div className="activity-detail-section-heading">
+      {activeTab !== "overview" && <div className="activity-detail-section-heading">
         <div><Text as="h2" variant="title">{t(`detail.${activeTab}.title`)}</Text>
           <Text as="p" variant="bodyMedium" tone="secondary">{t(`detail.${activeTab}.description`)}</Text></div>
-      </div>
-
-      {(activeTab === "overview" || activeTab === "analysis") && differentLoadValues && <Card data-testid="activity-load-provenance" role="note" aria-label={t("detail.loadValuesTitle")}>
-        <Text as="h3" variant="bodyMedium" weight={600}>{t("detail.loadValuesTitle")}</Text>
-        <Text as="p" variant="bodyMedium" mono style={{ marginTop: "var(--space-2)" }}>{t("detail.loadValues", { accepted: Math.round(acceptedLoad! * 10) / 10, analysis: Math.round(analysisLoad!) })}</Text>
-        <Text as="p" variant="bodySmall" tone="secondary" style={{ marginTop: "var(--space-2)" }}>{t("detail.loadValuesDescription")}</Text>
-        {serverMetrics.status === "stale" && <Text as="p" variant="bodySmall" tone="warning" style={{ marginTop: "var(--space-2)" }}>{t("detail.previousAnalysisValue")}</Text>}
-      </Card>}
+      </div>}
 
       {unlinkedLapIdentity === rangeSelection.identity && rangeSelection.ownerUid && <Text as="p" variant="bodyMedium" tone="secondary" role="status">{t("analysis.lap.locationUnavailable")}</Text>}
 
-      {activeTab === "analysis" && <section data-testid="D1-3" className="activity-detail-analysis">
-      {/* ── 분석 탭 ── */}
-      {activeTab === "analysis" && sport !== "run" && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
-        <div className="space-y-4">
-          <SummarySensorFallbackCard
-            title={t("page.summarySensorTitle")}
-            description={t(streamsSignInRequired ? "page.summarySensorSignInDesc" : "page.summarySensorDesc")}
-            metrics={summarySensorMetrics}
-          />
-          {loadingStreams || showStreamSpinner ? <Card className="activity-detail-loading" role="status" aria-live="polite"><span className="activity-detail-spinner" aria-hidden="true" />{t("detail.loadingData")}</Card> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
-        </div>
-      )}
-      {activeTab === "analysis" && activity?.id && <ActivityPersonalBenchmark activityId={activity.id}
-        ownerUid={isActivityOwner ? user?.uid : null} sport={shareDiscipline ?? "other"}
-        metrics={activePowerOverride || analysisTabProps?.suppressServerPowerMetrics ? null : serverMetrics.metrics}
-        suppliedPdcState={bikePdcState} /> }
-      {activeTab === "analysis" && sport === "ride" && activity?.id && <ActivityPeakEffortInspector
-        activityId={activity.id} metrics={serverMetrics.metrics} isOwner={isActivityOwner}
-        invalidated={activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true}
-        suppressHeartRate={analysisTabProps?.suppressServerHeartRateMetrics} suppressCadence={analysisTabProps?.suppressServerCadenceMetrics}
-        onLocate={locatePeak} locating={loadingStreams && selectedPeak != null}
-        locationUnavailable={!!streams && selectedPeak != null && !peakLocation} /> }
-      {activeTab === "analysis" && sport !== "run" && hasAnalysisStreams && analysisTabProps && (
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
-              훅이 소유권과 활성 자전거를 함께 검증해 비소유자의 프로필로 활동 스트림을
-              다시 추정하지 않도록 한다. */}
-          <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} onSignIn={() => { void signInWithGoogle(); }} />
-        </Card>
-      )}
-      {activeTab === "analysis" && sport === "run" && <AnalysisTab
-        key={activityId}
-        {...analysisTabProps}
-        activityId={activityId}
-        isOwner={isActivityOwner}
-        sport="run"
-        streamsSignInRequired={streamsSignInRequired}
-        onSignIn={() => { void signInWithGoogle(); }}
-        streams={streams ?? { userId: activity.userId, time: [], distance: [] }}
-        summary={displayedSummary}
-        canonicalPresentationAvailable={overview.response?.status === "available"}
-        onSelectRunEffort={getRuntimeConfig().appEnvironment === "stage" && getRuntimeConfig().activityAnalysisExpansionEnabled === true && rangeSelection.enabled && !rangeSelection.sourceLocked ? rangeSelection.select : undefined}
-        onSelectLap={rangeSelection.ownerUid ? selectLap : undefined}
-        canSelectLap={canSelectLap}
-        onSelectRunSplit={selectRunSplit}
-        onViewRunSplitLocation={viewRunSplitLocation}
-        canViewRunSplitLocation={!!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
-      />}
-      {activeTab === "analysis" && sport === "run" && isActivityOwner && activity?.id && <div className="space-y-4">
-        <ActivityRangeControls selection={rangeSelection} />
-        <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} />
-      </div>}
-      {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} />}
-
-      </section>}
       {/* ── 스플릿 탭 (러닝 전용) ── */}
       {activeTab === "segments" && sport === "run" && streams && (
         <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={isActivityOwner ? profile?.thresholdPace ?? null : null} hrZoneSec={serverMetrics.metrics?.hrZoneSec} />
@@ -1260,113 +1174,7 @@ export default function ActivityPage() {
       <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
       {activeTab === "compare" && isActivityOwner && <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} currentMetricsStatus={serverMetrics.status} isOwner={isActivityOwner} comparisonOnly />}
 
-      {/* ── Two-column layout: Main | Sidebar (개요 탭) ── */}
-      {activeTab === "overview" && (
-      <div className="flex flex-col lg:flex-row gap-6">
-      {/* ── Left: 분석 / 스탯 / 사진 / 댓글 ── */}
-      <div data-testid="D1-2" className="flex-1 min-w-0 space-y-6">
-
-      {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
-      <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={runGapSecPerKm} />
-
-      <ActivityOverviewSummary overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} />
-
-      {/* 고도 & 성능 — 개요 카드 바로 아래. 스트림은 활동 하나에 함수 호출 1회와 0.1~0.8MB 를 쓰므로
-      (2026-10-18 실측) 소유자 화면은 버튼을 누를 때만 받는다. 서버 요약만으로 개요가 완결된다. */}
-      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} />}
-      {!streamsSignInRequired && !streams && !loadingStreams && (
-        !streamsError && <Card className="activity-detail-load-card">
-          <div className="activity-detail-load-icon"><BarChart3 size={24} aria-hidden="true" /></div>
-          <div><Text as="h3" variant="bodyMedium" weight={600}>{t("detail.chartsTitle")}</Text>
-            <Text as="p" variant="bodyMedium" tone="secondary">{t("detail.chartsDescription")}</Text></div>
-          <Button variant="outline" onClick={requestStreams}>{t("detail.loadCharts")}</Button>
-        </Card>
-      )}
-
-      {/* 분석 (고도 & 성능 차트) — 수영/기타는 고도 차트 숨김 */}
-      {(showStreamSpinner || loadingStreams) && (
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("detail.chartsTitle")}</h3>
-          <div className="activity-detail-loading" role="status" aria-live="polite">
-            <div className="flex items-center gap-2 text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-3)' }}>
-              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              {t("detail.loadingData")}
-            </div>
-          </div>
-        </Card>
-      )}
-      {showElevation && elevData.length > 0 && (
-        <ActivityPerformanceCharts
-          elevData={elevData} availableOverlays={availableOverlays} activeOverlays={activeOverlays}
-          focusedOverlayKey={focusedOverlayKey} toggleOverlay={toggleOverlay} chartOverlays={chartOverlays}
-          hoverPoint={hoverPoint} summaryStats={summaryStats} sport={sport} recordedRunCadenceUnit={recordedRunCadenceUnit}
-          elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={rangeSelection.xAxis}
-          rangeControls={<ActivityRangeControls selection={rangeSelection} />}
-          rangeAnalysis={activity?.id ? <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /> : null}
-          range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampledData.length - 1]}
-          onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis ? rangeSelection.selectChart : undefined}
-          onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
-          metrics={serverMetrics.metrics} powerSource={streamSensorSummary?.powerSource}
-        />
-      )}
-
-      {/* Streams error */}
-      {!streamsSignInRequired && !hasStreams && !loadingStreams && !showStreamSpinner && streamsError && (
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <div className="text-center text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
-            <p>{streamsError}</p>
-            <button
-              onClick={() => { void retryStreams(); }}
-              className="mt-2 font-medium hover:underline" style={{ color: 'var(--lime)' }}
-            >
-              {t("page.retry")}
-            </button>
-          </div>
-        </Card>
-      )}
-
-      <EquipmentSignalCard
-        key={activity.id}
-        activityId={activity.id}
-        ownerId={activity.userId}
-        viewerId={user?.uid ?? null}
-      />
-
-      <ActivityFtpDecisionCard
-        uid={user?.uid ?? null}
-        activityId={activity.id}
-        enabled={isActivityOwner && shareDiscipline === "bike"}
-      />
-
-      {isActivityOwner && activityId && (
-        <StravaSummaryPublishing
-          key={`${activityId}:${stravaSummaryLang}:${user?.uid ?? "anonymous"}`}
-          activityId={activityId}
-          lang={stravaSummaryLang}
-        />
-      )}
-
-      {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}
-      {canShowAiAnalysis && (
-        <AiRideAnalysisCard
-          activityId={activityId ?? null}
-          enabled={canShowAiAnalysis}
-          sport={sport}
-          isActivityOwner={isActivityOwner}
-          summaryPreview={activity.aiSummaryPreview}
-          summaryPreviewEn={activity.aiSummaryPreview_en}
-        />
-      )}
-
-
-
-      {/* 러닝/수영 전용 상세 카드 (좌측, 개요 탭에서만) */}
-      {activeTab === "overview" && sport === "run" && streams && <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={isActivityOwner ? profile?.thresholdPace ?? null : null} hrZoneSec={serverMetrics.metrics?.hrZoneSec} />}
-      {activeTab === "overview" && sport === "swim" && streams && <SwimLeftCards streams={streams} />}
-
+      {activeTab === "overview" && <div data-testid="D1-2" className="space-y-6">
       {/* 사진 (가로 스크롤) — Strava + 업로드 사진 */}
       {(photos.length > 0 || uploadedPhotos.length > 0 || user?.uid === activity.userId) && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
@@ -1475,6 +1283,315 @@ export default function ActivityPage() {
         </Card>
       )}
 
+      {/* ── 6. 좋아요 & 댓글 ── */}
+      <section data-testid="D1-6"><KudosCommentsCard
+        user={user}
+        profile={profile}
+        liked={displayLiked}
+        kudos={activityKudos}
+        kudosCount={user ? activityKudos.length : activity.kudosCount}
+        comments={activityComments}
+        commentCount={user ? activityComments.length : activity.commentCount}
+        commentText={commentText}
+        setCommentText={setCommentText}
+        submitting={submitting}
+        editingCommentId={editingCommentId}
+        setEditingCommentId={setEditingCommentId}
+        editingText={editingText}
+        setEditingText={setEditingText}
+        onToggleKudos={handleToggleKudos}
+        onSubmitComment={handleSubmitComment}
+        onDeleteComment={handleDeleteComment}
+        onSaveEditComment={handleSaveEditComment}
+        onSignIn={() => { void signInWithGoogle(); }}
+        activityOwnerId={activity.userId}
+        hiddenComments={hiddenComments}
+        moderationBusy={moderationBusy}
+        onReportComment={handleReportComment}
+        onSetCommentHidden={handleSetCommentHidden}
+        formatTimeAgo={timeAgo}
+      /></section>
+
+      </div>}
+
+      <div className="activity-detail-analysis-content space-y-6" data-testid="activity-analysis-content" hidden={activeTab !== "analysis"}>
+      {activeTab === "analysis" && <>
+      {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
+      <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={runGapSecPerKm} />
+
+      {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}
+      {canShowAiAnalysis && (
+        <AiRideAnalysisCard
+          activityId={activityId ?? null}
+          enabled={canShowAiAnalysis}
+          sport={sport}
+          isActivityOwner={isActivityOwner}
+          summaryPreview={activity.aiSummaryPreview}
+          summaryPreviewEn={activity.aiSummaryPreview_en}
+        />
+      )}
+
+      {sport === "ride" ? <ActivityAnalysisBody
+        overview={overview} isOwner={isActivityOwner} preview={activePowerOverride != null}
+        ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} totalCalories={stripStats.caloriesKcal.value}
+        storedLoad={(isActivityOwner || overview.response?.status !== "available" || differentLoadValues) && !activePowerOverride && !analysisTabProps?.suppressServerPowerMetrics && (serverMetrics.status === "ready" || serverMetrics.status === "stale") ? serverMetrics.metrics?.tss ?? null : null}
+        sharedStats={{ averagePower: stripStats.avgPower.value, averageCadence: stripStats.avgCadence.value, averageHeartRate: stripStats.avgHr.value, maxHeartRate: stripStats.maxHr.value }}
+        analysisProps={hasAnalysisStreams && analysisTabProps ? { ...analysisTabProps, onSignIn: () => { void signInWithGoogle(); } } : null}
+        timeline={<>
+      {/* 상세 스트림은 분석 탭 진입 시 자동으로 불러온다. */}
+      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} />}
+      {streams && !streamsSignInRequired && !streamsError && !loadingStreams && !showStreamSpinner && (!showElevation || elevData.length === 0) && (
+        <Card><Text as="p" variant="bodyMedium" tone="secondary">{t("page.chartsUnavailable")}</Text></Card>
+      )}
+
+      {/* 분석 (고도 & 성능 차트) — 수영/기타는 고도 차트 숨김 */}
+      {(showStreamSpinner || loadingStreams) && (
+        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("detail.chartsTitle")}</h3>
+          <div className="activity-detail-loading" role="status" aria-live="polite">
+            <div className="flex items-center gap-2 text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-3)' }}>
+              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              {t("detail.loadingData")}
+            </div>
+          </div>
+        </Card>
+      )}
+      {showElevation && elevData.length > 0 && (
+        <ActivityPerformanceCharts embedded
+          elevData={elevData} availableOverlays={availableOverlays} activeOverlays={activeOverlays}
+          focusedOverlayKey={focusedOverlayKey} toggleOverlay={toggleOverlay} chartOverlays={chartOverlays}
+          hoverPoint={hoverPoint} summaryStats={summaryStats} sport={sport} recordedRunCadenceUnit={recordedRunCadenceUnit}
+          elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={rangeSelection.xAxis}
+          rangeControls={<ActivityRangeControls selection={rangeSelection} />}
+          rangeAnalysis={activity?.id ? <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /> : null}
+          range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampledData.length - 1]}
+          onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis ? rangeSelection.selectChart : undefined}
+          onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
+          metrics={serverMetrics.metrics} powerSource={streamSensorSummary?.powerSource}
+        />
+      )}
+
+      {/* Streams error */}
+      {!streamsSignInRequired && !hasStreams && !loadingStreams && !showStreamSpinner && streamsError && (
+        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+          <div className="text-center text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
+            <p>{streamsError}</p>
+            <button
+              onClick={() => { void retryStreams(); }}
+              className="mt-2 font-medium hover:underline" style={{ color: 'var(--lime)' }}
+            >
+              {t("page.retry")}
+            </button>
+          </div>
+        </Card>
+      )}
+
+        </>}
+        provenance={differentLoadValues ? <Text as="p" variant="caption" tone="secondary">{t("detail.loadValuesDescription")}{serverMetrics.status === "stale" ? ` · ${t("detail.previousAnalysisValue")}` : ""}</Text> : null}
+        benchmark={isActivityOwner && shareDiscipline === "bike" ? <>
+      {activeTab === "analysis" && activity?.id && <ActivityPersonalBenchmark activityId={activity.id}
+        ownerUid={isActivityOwner ? user?.uid : null} sport={shareDiscipline ?? "other"}
+        metrics={activePowerOverride || analysisTabProps?.suppressServerPowerMetrics ? null : serverMetrics.metrics}
+        suppliedPdcState={bikePdcState} defaultExpanded /> }        </> : null}
+        peakInspector={<>
+
+      {visiblePeakEfforts(serverMetrics.metrics, isActivityOwner, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true).length > 0 && sport === "ride" && activity?.id && <ActivityPeakEffortInspector
+        activityId={activity.id} metrics={serverMetrics.metrics} isOwner={isActivityOwner}
+        invalidated={activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true}
+        suppressHeartRate={analysisTabProps?.suppressServerHeartRateMetrics} suppressCadence={analysisTabProps?.suppressServerCadenceMetrics}
+        defaultExpanded onLocate={locatePeak} locating={loadingStreams && selectedPeak != null}
+        locationUnavailable={!!streams && selectedPeak != null && !peakLocation} /> }        </>}
+        powerControls={isActivityOwner && (canRecalculateVirtualPowerPreview || activePowerOverride) ? <div className="activity-analysis-power-controls">
+          <Text as="h3" variant="bodyMedium" weight={600}>{t("page.vp.heading")}</Text>
+          <div className="flex flex-wrap gap-2">
+            {canRecalculateVirtualPowerPreview && <Button variant="outline" size="sm" onClick={recalculateVirtualPowerPreview}>{t("page.vp.recalcBtn")}</Button>}
+            {activePowerOverride && <Button variant="ghost" size="sm" onClick={revertVirtualPowerPreview}>{t("page.vp.revertBtn")}</Button>}
+          </div>
+        </div> : null}
+        sensorFallback={<>
+      {activeTab === "analysis" && summarySensorMetrics.length > 0 && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
+        <div className="space-y-4">
+          <SummarySensorFallbackCard
+            title={t("page.summarySensorTitle")}
+            description={t(streamsSignInRequired ? "page.summarySensorSignInDesc" : "page.summarySensorDesc")}
+            metrics={summarySensorMetrics}
+          />
+        </div>
+      )}
+        </>}
+      /> : <>
+      <ActivityOverviewSummary integrated overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} />
+
+      {activeTab === "analysis" && differentLoadValues && <Card data-testid="activity-load-provenance" role="note" aria-label={t("detail.loadValuesTitle")}>
+        <Text as="h3" variant="bodyMedium" weight={600}>{t("detail.loadValuesTitle")}</Text>
+        <Text as="p" variant="bodyMedium" mono style={{ marginTop: "var(--space-2)" }}>{t("detail.loadValues", { accepted: Math.round(acceptedLoad! * 10) / 10, analysis: Math.round(analysisLoad!) })}</Text>
+        <Text as="p" variant="bodySmall" tone="secondary" style={{ marginTop: "var(--space-2)" }}>{t("detail.loadValuesDescription")}</Text>
+        {serverMetrics.status === "stale" && <Text as="p" variant="bodySmall" tone="warning" style={{ marginTop: "var(--space-2)" }}>{t("detail.previousAnalysisValue")}</Text>}
+      </Card>}
+
+      {/* 상세 스트림은 분석 탭 진입 시 자동으로 불러온다. */}
+      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} />}
+      {streams && !streamsSignInRequired && !streamsError && !loadingStreams && !showStreamSpinner && (!showElevation || elevData.length === 0) && (
+        <Card><Text as="p" variant="bodyMedium" tone="secondary">{t("page.chartsUnavailable")}</Text></Card>
+      )}
+
+      {/* 분석 (고도 & 성능 차트) — 수영/기타는 고도 차트 숨김 */}
+      {(showStreamSpinner || loadingStreams) && (
+        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("detail.chartsTitle")}</h3>
+          <div className="activity-detail-loading" role="status" aria-live="polite">
+            <div className="flex items-center gap-2 text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-3)' }}>
+              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              {t("detail.loadingData")}
+            </div>
+          </div>
+        </Card>
+      )}
+      {showElevation && elevData.length > 0 && (
+        <ActivityPerformanceCharts
+          elevData={elevData} availableOverlays={availableOverlays} activeOverlays={activeOverlays}
+          focusedOverlayKey={focusedOverlayKey} toggleOverlay={toggleOverlay} chartOverlays={chartOverlays}
+          hoverPoint={hoverPoint} summaryStats={summaryStats} sport={sport} recordedRunCadenceUnit={recordedRunCadenceUnit}
+          elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={rangeSelection.xAxis}
+          rangeControls={<ActivityRangeControls selection={rangeSelection} />}
+          rangeAnalysis={activity?.id ? <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /> : null}
+          range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampledData.length - 1]}
+          onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis ? rangeSelection.selectChart : undefined}
+          onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
+          metrics={serverMetrics.metrics} powerSource={streamSensorSummary?.powerSource}
+        />
+      )}
+
+      {/* Streams error */}
+      {!streamsSignInRequired && !hasStreams && !loadingStreams && !showStreamSpinner && streamsError && (
+        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+          <div className="text-center text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
+            <p>{streamsError}</p>
+            <button
+              onClick={() => { void retryStreams(); }}
+              className="mt-2 font-medium hover:underline" style={{ color: 'var(--lime)' }}
+            >
+              {t("page.retry")}
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {/* 러닝/수영 전용 상세 — 기존 공개·센서 조건 유지 */}
+      {sport === "run" && streams && <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={isActivityOwner ? profile?.thresholdPace ?? null : null} hrZoneSec={serverMetrics.metrics?.hrZoneSec} />}
+      {sport === "swim" && streams && <SwimLeftCards streams={streams} />}
+
+      {(sport === "run" || sport === "swim") && (
+      <div className="space-y-6">
+      {sport === "run" && (
+        <RunRightCards
+          avgSpeedKph={stripStats.avgSpeedKph.value}
+          hrLoad={serverMetrics.metrics?.streamTrimpTss ?? null}
+          gapSecPerKm={runGapSecPerKm}
+          summary={s}
+          activity={activity}
+          metricsWeather={serverMetrics.metrics?.weather}
+          metricsStatus={serverMetrics.status}
+        />
+      )}
+      {sport === "swim" && <SwimRightCards summary={s} streams={streams} />}
+      </div>
+      )}
+
+
+
+      {(sport === "run" || hasAnalysisStreams && !!analysisTabProps
+        || overview.enabled && (isActivityOwner || overview.response?.status === "available")
+        || isActivityOwner && shareDiscipline === "bike"
+        || !hasAnalysisStreams && (isActivityOwner || overview.response?.status !== "available") && summarySensorMetrics.length > 0) && <Card className="activity-detail-analysis-details">
+      <Text as="h2" variant="subtitle" weight={600}>{t("detail.technicalDetails.title")}</Text>
+      {activeTab === "analysis" && <section data-testid="D1-3" className="activity-detail-analysis">
+
+      {activeTab === "analysis" && sport !== "run" && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
+        <div className="space-y-4">
+          <SummarySensorFallbackCard
+            title={t("page.summarySensorTitle")}
+            description={t(streamsSignInRequired ? "page.summarySensorSignInDesc" : "page.summarySensorDesc")}
+            metrics={summarySensorMetrics}
+          />
+        </div>
+      )}
+      <div className="activity-analysis-peak-tools">
+      {activeTab === "analysis" && activity?.id && <ActivityPersonalBenchmark activityId={activity.id}
+        ownerUid={isActivityOwner ? user?.uid : null} sport={shareDiscipline ?? "other"}
+        metrics={activePowerOverride || analysisTabProps?.suppressServerPowerMetrics ? null : serverMetrics.metrics}
+        suppliedPdcState={bikePdcState} defaultExpanded /> }
+
+      </div>
+      {activeTab === "analysis" && sport !== "run" && hasAnalysisStreams && analysisTabProps && (
+        <div>
+          {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
+              훅이 소유권과 활성 자전거를 함께 검증해 비소유자의 프로필로 활동 스트림을
+              다시 추정하지 않도록 한다. */}
+          <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} onSignIn={() => { void signInWithGoogle(); }} integratedPresentation={overview.enabled && !overview.loading && overview.response?.status === "available" ? overview.response.presentation : undefined} />
+        </div>
+      )}
+      {activeTab === "analysis" && sport === "run" && <AnalysisTab
+        key={activityId}
+        {...analysisTabProps}
+        activityId={activityId}
+        isOwner={isActivityOwner}
+        sport="run"
+        streamsSignInRequired={streamsSignInRequired}
+        showStreamSignInPrompt={false}
+        onSignIn={() => { void signInWithGoogle(); }}
+        streams={streams ?? { userId: activity.userId, time: [], distance: [] }}
+        summary={displayedSummary}
+        canonicalPresentationAvailable={overview.response?.status === "available"}
+        onSelectRunEffort={getRuntimeConfig().appEnvironment === "stage" && getRuntimeConfig().activityAnalysisExpansionEnabled === true && rangeSelection.enabled && !rangeSelection.sourceLocked ? rangeSelection.select : undefined}
+        onSelectLap={rangeSelection.ownerUid ? selectLap : undefined}
+        canSelectLap={canSelectLap}
+        onSelectRunSplit={selectRunSplit}
+        onViewRunSplitLocation={viewRunSplitLocation}
+        canViewRunSplitLocation={!!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
+      />}
+      {activeTab === "analysis" && sport === "run" && isActivityOwner && activity?.id && <div className="space-y-4">
+        <ActivityRangeControls selection={rangeSelection} />
+        <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} />
+      </div>}
+      {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} supplemental />}
+
+      </section>}
+      </Card>}
+      </>}
+
+      <EquipmentSignalCard
+        key={activity.id}
+        activityId={activity.id}
+        ownerId={activity.userId}
+        viewerId={user?.uid ?? null}
+      />
+
+      <ActivityFtpDecisionCard
+        uid={user?.uid ?? null}
+        activityId={activity.id}
+        enabled={isActivityOwner && shareDiscipline === "bike"}
+      />
+
+      </>}
+      {isActivityOwner && activityId && <section aria-labelledby="activity-summary-sharing" className="space-y-4">
+        <Text as="h2" variant="subtitle" weight={600} style={{ paddingInline: "var(--dim-card-padding)" }} id="activity-summary-sharing">{t("detail.summarySharing")}</Text>
+        <StravaSummaryPublishing
+          key={`${activityId}:${stravaSummaryLang}:${user?.uid ?? "anonymous"}`}
+          activityId={activityId}
+          lang={stravaSummaryLang}
+        />
+
+      </section>}
+      </div>
+
+      {activeTab === "segments" && <>
       {/* Co-riders (함께 탄 라이더) */}
       {coRiders.length > 0 && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
@@ -1518,56 +1635,36 @@ export default function ActivityPage() {
         </Card>
       )}
 
-      {/* ── 6. 좋아요 & 댓글 ── */}
-      <section data-testid="D1-6"><KudosCommentsCard
-        user={user}
-        profile={profile}
-        liked={displayLiked}
-        kudos={activityKudos}
-        kudosCount={user ? activityKudos.length : activity.kudosCount}
-        comments={activityComments}
-        commentCount={user ? activityComments.length : activity.commentCount}
-        commentText={commentText}
-        setCommentText={setCommentText}
-        submitting={submitting}
-        editingCommentId={editingCommentId}
-        setEditingCommentId={setEditingCommentId}
-        editingText={editingText}
-        setEditingText={setEditingText}
-        onToggleKudos={handleToggleKudos}
-        onSubmitComment={handleSubmitComment}
-        onDeleteComment={handleDeleteComment}
-        onSaveEditComment={handleSaveEditComment}
-        onSignIn={() => { void signInWithGoogle(); }}
-        activityOwnerId={activity.userId}
-        hiddenComments={hiddenComments}
-        moderationBusy={moderationBusy}
-        onReportComment={handleReportComment}
-        onSetCommentHidden={handleSetCommentHidden}
-        formatTimeAgo={timeAgo}
-      /></section>
+      </>}
 
-      </div>{/* end left column */}
-
-      {/* ── Right sidebar (개요): 종목별 카드만 ── */}
-      {(sport === "run" || sport === "swim") && (
-      <div className="lg:w-80 flex-shrink-0 space-y-6 lg:pl-6 lg:[border-left:1px_solid_var(--line-soft)]">
-      {sport === "run" && (
-        <RunRightCards
-          avgSpeedKph={stripStats.avgSpeedKph.value}
-          hrLoad={serverMetrics.metrics?.streamTrimpTss ?? null}
-          gapSecPerKm={runGapSecPerKm}
-          summary={s}
-          activity={activity}
-          metricsWeather={serverMetrics.metrics?.weather}
-          metricsStatus={serverMetrics.status}
-        />
-      )}
-      {sport === "swim" && <SwimRightCards summary={s} streams={streams} />}
-      </div>
-      )}
-
-      </div>
+      {/* 스트림 상태와 무관한 경로 전송은 유지하고, 기존 생성 링크의 조건은 그대로 둔다.
+          다른 탭에서는 그룹만 숨겨 진행 중인 생성·전송을 중단하지 않는다. */}
+      {((user && streams && sport !== "swim") || (sport === "ride" && hasTrack)) && (
+        <div className="activity-detail-segment-actions flex gap-2" hidden={activeTab !== "segments"}>
+          {user && streams && <>
+          <Link
+            to={`/segment/create?activityId=${activityId}`}
+            className={buttonClass({ className: "flex-1 gap-2" })}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+              <path d="M2 20L8.5 8l4 6 3.5-5L22 20H2z" fill="currentColor" opacity="0.15" />
+              <path d="M2 20L8.5 8l4 6 3.5-5L22 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M12 4v4m-2-2h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            {t("page.createSegment")}
+          </Link>
+          <Link
+            to={`/course/create?activityId=${activityId}`}
+            className={buttonClass({ variant: "outline", className: "flex-1 gap-2" })}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+            {t("page.registerRoute")}
+          </Link>
+          </>}
+          <RideActivityRouteButton activityId={activityId} activity={activity} hasRoute={hasTrack} sport={sport} />
+        </div>
       )}
 
       {/* ── 세그먼트 탭 — 주요성과 + 세그먼트/코스 등록 ── */}
@@ -1728,31 +1825,6 @@ export default function ActivityPage() {
         <StreamUnavailableCard title={t("page.noSegmentsTitle")} message={t("page.noSegmentsDesc")} />
       )}
 
-      {/* 세그먼트 & 코스 만들기 (수영은 세그먼트 없음) */}
-      {user && sport !== "swim" && (
-        <div className="activity-detail-segment-actions flex gap-2">
-          <Link
-            to={`/segment/create?activityId=${activityId}`}
-            className={buttonClass({ className: "flex-1 gap-2" })}
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-              <path d="M2 20L8.5 8l4 6 3.5-5L22 20H2z" fill="currentColor" opacity="0.15" />
-              <path d="M2 20L8.5 8l4 6 3.5-5L22 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M12 4v4m-2-2h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            {t("page.createSegment")}
-          </Link>
-          <Link
-            to={`/course/create?activityId=${activityId}`}
-            className={buttonClass({ variant: "outline", className: "flex-1 gap-2" })}
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-            </svg>
-            {t("page.registerRoute")}
-          </Link>
-        </div>
-      )}
       {/* 세그먼트 효과는 개요의 AI 라이딩 분석 카드(AiRideAnalysisCard)에 구간별로도 녹여 표시.
           매핑: analysis/ride-segments.ts */}
 

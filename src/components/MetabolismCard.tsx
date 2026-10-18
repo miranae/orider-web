@@ -15,6 +15,8 @@ interface MetabolismCardProps {
   fatMax: FatMaxProfile | null | undefined;
   /** 가상파워(추정 파워) 활동 여부 — 신뢰도 낮음 표기. */
   isVirtualPower?: boolean;
+  /** 통합 분석에서 같은 연료 분할을 이미 표시한 경우 FATMAX와 모델 안내만 남긴다. */
+  showFuelSplit?: boolean;
 }
 
 const panelStyle: CSSProperties = {
@@ -43,11 +45,12 @@ export default function MetabolismCard({
   substrate,
   fatMax,
   isVirtualPower = false,
+  showFuelSplit = true,
 }: MetabolismCardProps) {
   const { t } = useTranslation("activity");
   const { t: term } = useTranslation("termGlossary");
 
-  if (!substrate || substrate.totalKcal <= 0) return null;
+  if (!substrate || substrate.totalKcal <= 0 || (!showFuelSplit && !fatMax && !isVirtualPower)) return null;
 
   const fatPctRound = Math.round(substrate.fatPct * 1000) / 10;
   const carbPctRound = Math.round((1 - substrate.fatPct) * 1000) / 10;
@@ -85,7 +88,7 @@ export default function MetabolismCard({
       )}
 
       {/* 지방 vs 탄수 분할 — 개요와 같은 막대를 쓴다. */}
-      <div style={panelStyle}>
+      {showFuelSplit && <div style={panelStyle}>
         <FuelSplitBar
           fat={{ label: t("metabolism.fat"), pct: fatPctRound, kcal: substrate.fatKcal }}
           carb={{ label: t("metabolism.carb"), pct: carbPctRound, kcal: substrate.carbKcal }}
@@ -93,10 +96,10 @@ export default function MetabolismCard({
             {t("metabolism.totalKcal", { kcal: substrate.totalKcal })}
           </Text>}
         />
-      </div>
+      </div>}
 
       {/* FATMAX 존 */}
-      {fatMax && <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+      {fatMax && <div className="activity-metabolism-facts grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
         <div style={metricStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
             <Dot color="var(--lime)" />
