@@ -29,6 +29,7 @@ interface ImportMetaEnv {
   readonly VITE_ORIDER_PERSONAL_API_BASE?: string;
   readonly VITE_FIREBASE_FUNCTIONS_REGION?: string;
   readonly VITE_FIREBASE_FUNCTIONS_BASE?: string;
+  readonly VITE_SOCIAL_AUTH_FUNCTIONS_BASE?: string;
   readonly VITE_SENTRY_DSN?: string;
   readonly VITE_USE_EMULATORS?: string;
   readonly VITE_FIRESTORE_FORCE_LONG_POLLING?: string;

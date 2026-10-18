@@ -86,3 +86,14 @@ test("stage CSP does not mistake a production URL embedded in another source pat
   });
   assert.equal(result.status, 0, result.stderr);
 });
+
+test("Stage CSP includes only the exact analysis and canonical Auth Functions hosts", () => {
+  for (const replacement of ["", "https://*.cloudfunctions.net", "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net:8443"]) {
+    const result = run(({ stage }) => {
+      const csp = stage.hosting.headers.find(rule => rule.source === "**").headers.find(header => header.key.toLowerCase() === "content-security-policy");
+      csp.value = csp.value.replace("https://asia-northeast3-miranae-orider-g1.cloudfunctions.net", replacement);
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /only reviewed exact Cloud Functions origins/);
+  }
+});

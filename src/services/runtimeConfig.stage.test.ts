@@ -1,11 +1,37 @@
-import { describe, expect, it } from "vitest";
-import { assertIsolatedStageRuntime, type RuntimeConfig } from "./runtimeConfig";
+import { describe, expect, it, vi } from "vitest";
+import { assertIsolatedStageRuntime, getRuntimeConfig, resetRuntimeConfigForTests, type RuntimeConfig } from "./runtimeConfig";
 const stage: RuntimeConfig = {
   appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
   firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878",
   firebaseMessagingSenderId: "289663940841", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net",
 };
 describe("isolated stage Firebase identity", () => {
+  it("requires the served runtime opt-in instead of retaining a compiled fallback after disable", () => {
+    vi.stubEnv("VITE_SOCIAL_AUTH_FUNCTIONS_BASE", "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net");
+    try {
+      resetRuntimeConfigForTests();
+      expect(getRuntimeConfig().socialAuthFunctionsBase).toBeUndefined();
+    } finally { vi.unstubAllEnvs(); resetRuntimeConfigForTests(); }
+  });
+  it("allows explicit canonical Auth routing only on the reviewed Stage origin without changing analysis compute", () => {
+    const config = { ...stage, socialAuthFunctionsBase: "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net" };
+    expect(() => assertIsolatedStageRuntime(config, "orider-dev.web.app", "https://orider-dev.web.app")).not.toThrow();
+    expect(config.firebaseFunctionsBase).toBe(stage.firebaseFunctionsBase);
+    for (const origin of ["https://orider.co.kr", "https://orider-dev.firebaseapp.com", "http://orider-dev.web.app", "https://evil.example"]) {
+      expect(() => assertIsolatedStageRuntime(config, new URL(origin).hostname, origin)).toThrow("stage/social-auth-endpoint-mismatch");
+    }
+  });
+  it.each([
+    "https://asia-northeast3-orider-dev.cloudfunctions.net",
+    "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net.evil.example",
+    "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net:8443",
+    "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net/other",
+  ])("rejects a noncanonical Auth endpoint %s", socialAuthFunctionsBase => {
+    expect(() => assertIsolatedStageRuntime({ ...stage, socialAuthFunctionsBase }, "orider-dev.web.app", "https://orider-dev.web.app")).toThrow("stage/social-auth-endpoint-mismatch");
+  });
+  it("does not enable the optional Stage Auth route in production", () => {
+    expect(() => assertIsolatedStageRuntime({ ...stage, appEnvironment: "production", socialAuthFunctionsBase: "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net" }, "orider.co.kr", "https://orider.co.kr")).toThrow("stage/social-auth-endpoint-mismatch");
+  });
   it("accepts shared production data with stage callable compute", () => expect(() => assertIsolatedStageRuntime(stage, "orider-dev.web.app")).not.toThrow());
   it.each([
     { firebaseProjectId: "orider-dev" }, { appEnvironment: "production" }, { firebaseAuthDomain: "auth.orider.co.kr" },
