@@ -40,7 +40,7 @@ export function KakaoLogo() {
   );
 }
 
-const BUTTON_CLASS = "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[var(--r-lg)] font-medium transition-opacity disabled:opacity-60";
+const BUTTON_CLASS = "w-full h-12 flex items-center justify-center gap-2 px-4 py-3 rounded-[var(--r-lg)] font-medium transition-opacity disabled:opacity-60";
 
 /** 로그인 방식 선택 — Google 은 팝업, 다른 제공자는 동의 화면으로 이동한다. */
 export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
@@ -78,7 +78,6 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
   return (
     <Modal open={open} onClose={onClose} title={t("signIn.title")} maxWidth="max-w-sm" busy={pending !== null && pending !== "google"}>
       <div data-testid="A1-1" className="flex flex-col gap-3">
-        <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)", margin: 0 }}>{t("signIn.description")}</p>
         <button data-testid="A1-1-1" type="button" className={`${BUTTON_CLASS} border`} disabled={pending !== null}
           style={{ background: "var(--bg-0)", borderColor: "var(--line-soft)", color: "var(--ink-1)" }}
           onClick={() => { void handleGoogle(); }}>
@@ -95,15 +94,14 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
           <KakaoLogo />{t("signIn.kakao")}
         </button>
         <button data-testid="A1-1-4" type="button" aria-label={t("signIn.strava")}
-          className="w-full flex items-center justify-center disabled:opacity-60" disabled={pending !== null}
+          className="w-full h-12 flex items-center justify-center rounded-[var(--r-lg)] overflow-hidden disabled:opacity-60"
+          style={{ background: "var(--strava-login)" }} disabled={pending !== null}
           onClick={() => { void handleSocial("strava"); }}>
           <img src="/btn_strava_connect_orange.svg" alt="" className="h-12 w-auto" />
         </button>
-        <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>{t("signIn.stravaHint")}</p>
         {error && <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)", margin: 0 }}>{error}</p>}
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>{t("signIn.separateAccountHint")}</p>
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>
-          {t("signIn.policyIntro")} {" "}
           <LocalizedLink to="/terms" onClick={onClose} className="underline">{t("signIn.terms")}</LocalizedLink>
           {" · "}
           <LocalizedLink to="/privacy" onClick={onClose} className="underline">{t("signIn.privacy")}</LocalizedLink>

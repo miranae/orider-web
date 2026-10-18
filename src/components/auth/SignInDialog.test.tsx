@@ -12,7 +12,10 @@ describe("Strava sign-in choice", () => {
     render(<MemoryRouter><SignInDialog open onClose={vi.fn()} onGoogle={vi.fn()} /></MemoryRouter>);
     const button = screen.getByRole("button", { name: "Strava로 계속하기" });
     expect(button.querySelector("img")).toHaveAttribute("src", "/btn_strava_connect_orange.svg");
-    expect(screen.getByText(/공개 프로필 읽기 권한만 요청/)).toBeInTheDocument();
+    expect(screen.getByText("기존 계정이 있다면 로그인 후 설정에서 다른 로그인 방법을 연결하세요.")).toBeInTheDocument();
+    expect(screen.queryByText(/공개 프로필 읽기 권한/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "이용약관" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "개인정보처리방침" })).toBeInTheDocument();
     fireEvent.click(button);
     expect(mocks.start).toHaveBeenCalledWith("strava", "login");
   });

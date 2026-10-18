@@ -391,7 +391,7 @@
       "socialUnlinkFailed": "연결을 해제하지 못했습니다. 다시 시도해 주세요.",
       "socialLinkFailed": "연결을 시작하지 못했습니다. 다시 시도해 주세요.",
       "socialLoadFailed": "연결 상태를 불러오지 못했습니다.",
-      "stravaLoginHint": "이 연결은 로그인용이며 활동 동기화 상태와 다릅니다.",
+      "stravaLoginHint": "공개 프로필 읽기 권한으로 로그인하며 활동 동기화는 별도입니다. 권한 변경 시 동기화에 재동의가 필요할 수 있습니다.",
       "stravaUnlinkConfirm": "Strava 로그인 연결을 해제할까요? 이 앱의 Strava 인증을 해제하므로 활동 동기화가 연결된 경우 먼저 설정에서 해제해야 합니다. 다른 로그인 방법을 확보하세요.",
       "stravaSyncActive": "활동 동기화가 연결되어 있습니다. 다른 로그인 방법을 확보한 뒤 설정 > 연결된 앱에서 Strava를 해제하세요.",
       "stravaSyncSettings": "활동 동기화 설정"

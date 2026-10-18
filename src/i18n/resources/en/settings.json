@@ -391,7 +391,7 @@
       "socialUnlinkFailed": "Couldn't unlink. Please try again.",
       "socialLinkFailed": "Couldn't start linking. Please try again.",
       "socialLoadFailed": "Couldn't load connection status.",
-      "stravaLoginHint": "This is a sign-in connection, separate from activity sync status.",
+      "stravaLoginHint": "Sign-in uses public profile read access; activity sync is separate and may need reauthorization after permission changes.",
       "stravaUnlinkConfirm": "Unlink Strava sign-in? This revokes Strava authorization for this app. If activity sync is connected, disconnect it in settings first and ensure you have another sign-in method.",
       "stravaSyncActive": "Activity sync is connected. Ensure you have another sign-in method, then disconnect Strava in Settings > Connected apps.",
       "stravaSyncSettings": "Activity sync settings"

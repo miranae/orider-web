@@ -89,6 +89,7 @@
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --feed-thumb-aspect: 14 / 5;
   --strava: #FC4C02;
+  --strava-login: #FC5200;
   --naver: #03A94D;
   --naver-ink: #FFFFFF;
   --kakao: #FEE500;
@@ -207,6 +208,7 @@
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --feed-thumb-aspect: 14 / 5;
   --strava: #FC4C02;
+  --strava-login: #FC5200;
   --naver: #03A94D;
   --naver-ink: #FFFFFF;
   --kakao: #FEE500;
@@ -326,6 +328,7 @@
     --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --feed-thumb-aspect: 14 / 5;
     --strava: #FC4C02;
+    --strava-login: #FC5200;
     --naver: #03A94D;
     --naver-ink: #FFFFFF;
     --kakao: #FEE500;
