@@ -1571,6 +1571,12 @@
     "source": "View source activity"
   },
   "stravaSummary": {
+    "legacy": {
+      "title": "Publish summary to Strava",
+      "disclosure": "Publish this summary, including fitness, fatigue and form, to your Strava activity description. Your existing description is preserved; only the O-Rider summary is updated.",
+      "publish": "Publish / update on Strava",
+      "targetHelp": "No linked Strava activity?"
+    },
     "scrollPreview": "Scroll inside the summary to review all of the outgoing content.",
     "localPreviewOnly": "Local preview mode does not publish to Strava or prepare a new summary.",
     "resultTitle": {

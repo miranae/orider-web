@@ -327,6 +327,7 @@ describe("ActivityPage presentation", () => {
   });
 
   it("keeps the real Strava publisher and its pending/uncertain guard across ordinary tab changes", async () => {
+    resetRuntimeConfigForTests({ stravaSummaryPreviewEnabled: true });
     let rejectPublish!: (error: Error) => void;
     const pending = new Promise((_resolve, reject) => { rejectPublish = reject; });
     void pending.catch(() => undefined);

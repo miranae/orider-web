@@ -8,6 +8,8 @@ import { Button, Card, Text } from "../../theme/components";
 import type { NarrativeLang } from "../../hooks/useActivityNarrative";
 import { isLocalStravaSummaryPreview, requestStravaSummaryPreview, type StravaSummaryPreview, type StravaSummaryPublishResult } from "../../services/stravaSummaryPreview";
 import "./StravaSummaryPublishing.css";
+import { getRuntimeConfig } from "../../services/runtimeConfig";
+import StravaSummaryPublishingLegacy from "./StravaSummaryPublishingLegacy";
 
 export function parseStravaSummaryTarget(input: string): string | null {
   const value = input.trim();
@@ -37,7 +39,13 @@ const resultFeedback = (result: StravaSummaryPublishResult) => result.status ===
   : result.phase === "provisional" && (result.status === "published" || result.status === "unchanged") ? "provisionalPublished" : result.status;
 
 /** 부모 key는 계정·활동·언어가 바뀌면 이전 미리보기와 요청 상태를 폐기한다. */
-export default function StravaSummaryPublishing({ activityId, lang }: { activityId: string; lang: NarrativeLang }) {
+export default function StravaSummaryPublishing(props: { activityId: string; lang: NarrativeLang }) {
+  return getRuntimeConfig().stravaSummaryPreviewEnabled === true || isLocalStravaSummaryPreview()
+    ? <StravaSummaryPublishingPreview {...props} />
+    : <StravaSummaryPublishingLegacy {...props} />;
+}
+
+function StravaSummaryPublishingPreview({ activityId, lang }: { activityId: string; lang: NarrativeLang }) {
   const { t } = useTranslation("activity");
   const { functions, ensureAppCheckReady } = useFirebaseServices();
   const { connectStrava } = useStrava();

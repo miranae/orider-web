@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import StravaSummaryPublishing, { parseStravaSummaryTarget } from "./StravaSummaryPublishing";
 
 const mocks = vi.hoisted(() => ({ preview: vi.fn(), prepare: vi.fn(), publish: vi.fn(), status: vi.fn(), connect: vi.fn(), ready: vi.fn(), local: false, log: vi.fn(), functions: {} }));
@@ -18,15 +19,56 @@ async function renderReady(lang: "ko" | "en" = "ko") {
 }
 beforeEach(() => {
   vi.clearAllMocks(); mocks.local = false;
+  resetRuntimeConfigForTests({ stravaSummaryPreviewEnabled: true });
   mocks.ready.mockResolvedValue(undefined);
   mocks.preview.mockResolvedValue({ data: readyPreview() });
   mocks.prepare.mockResolvedValue({ data: readyPreview() });
   mocks.publish.mockResolvedValue({ data: { status: "published", stravaActivityId: "12345" } });
   mocks.status.mockResolvedValue({ data: { status: "unavailable" } });
 });
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); resetRuntimeConfigForTests(); });
 
 describe("Strava summary publishing", () => {
+  it("defaults to the existing publisher without preview, prepare, or mount-time status calls", async () => {
+    resetRuntimeConfigForTests();
+    render(<StravaSummaryPublishing activityId="own-ride" lang="en" />);
+    expect(screen.queryByLabelText("stravaSummary.previewLabel")).not.toBeInTheDocument();
+    expect(mocks.preview).not.toHaveBeenCalled();
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.status).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "stravaSummary.legacy.publish" }));
+    await waitFor(() => expect(mocks.publish).toHaveBeenCalledWith({ activityId: "own-ride", lang: "en" }));
+    expect(await screen.findByRole("link", { name: "stravaSummary.view" })).toHaveAttribute("href", "https://www.strava.com/activities/12345");
+    expect(mocks.preview).not.toHaveBeenCalled();
+    expect(mocks.prepare).not.toHaveBeenCalled();
+  });
+
+  it("preserves queued legacy status polling without invoking the preview API", async () => {
+    vi.useFakeTimers();
+    resetRuntimeConfigForTests({ stravaSummaryPreviewEnabled: false });
+    mocks.publish.mockResolvedValue({ data: { status: "queued", stravaActivityId: "12345" } });
+    mocks.status.mockResolvedValue({ data: { status: "published", stravaActivityId: "12345" } });
+    await act(async () => { render(<StravaSummaryPublishing activityId="own-ride" lang="ko" />); });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "stravaSummary.legacy.publish" })); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(mocks.status).toHaveBeenCalledWith({ activityId: "own-ride", stravaActivityId: "12345" });
+    expect(mocks.publish).toHaveBeenCalledOnce();
+    expect(mocks.preview).not.toHaveBeenCalled();
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "stravaSummary.view" })).toBeInTheDocument();
+  });
+
+  it("keeps the approved local read-only adapter available with the remote feature disabled", async () => {
+    resetRuntimeConfigForTests({ stravaSummaryPreviewEnabled: false });
+    mocks.local = true;
+    expect((await renderReady()).textContent).toBe(canonicalBlock);
+    expect(mocks.preview).toHaveBeenCalledOnce();
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "stravaSummary.publish" })).toBeDisabled();
+  });
+
   it("automatically reads the exact canonical block and target without preparing or publishing", async () => {
     const text = await renderReady();
     expect(text.textContent).toBe(canonicalBlock);

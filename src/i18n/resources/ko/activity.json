@@ -1571,6 +1571,12 @@
     "source": "근거 활동 보기"
   },
   "stravaSummary": {
+    "legacy": {
+      "title": "Strava에 요약 게시",
+      "disclosure": "체력·피로·상태를 포함한 공유요약을 Strava 활동 설명에 게시합니다. 기존 설명은 보존하고 오라이더 요약만 갱신합니다.",
+      "publish": "Strava에 게시 / 갱신",
+      "targetHelp": "연결된 Strava 활동이 없나요?"
+    },
     "scrollPreview": "요약 안을 스크롤해 전체 내용을 확인하세요.",
     "localPreviewOnly": "로컬 미리보기에서는 Strava에 게시하거나 새 요약을 준비하지 않습니다.",
     "resultTitle": {
