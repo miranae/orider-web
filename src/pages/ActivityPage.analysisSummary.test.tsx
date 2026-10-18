@@ -127,7 +127,7 @@ describe("ActivityPage server summary presentation", () => {
     expect(mocks.requestStreams).not.toHaveBeenCalled();
   });
 
-  it("공개 요약·분석·내보내기는 인증 필요를 결측이나 재시도로 표시하지 않고 기존 Google 로그인을 연다", async () => {
+  it("공개 요약·분석·내보내기는 인증 필요를 결측이나 재시도로 표시하지 않고 기존 로그인을 연다", async () => {
     mocks.model!.isActivityOwner = false;
     mocks.model!.hasAnalysisStreams = false;
     mocks.model!.analysisTabProps = null;
@@ -154,7 +154,8 @@ describe("ActivityPage server summary presentation", () => {
     expect(exportDialog.getByText("로그인하고 상세 분석을 확인하세요")).toBeInTheDocument();
     expect(mocks.requestStreams).not.toHaveBeenCalled();
     const calls = vi.mocked(signInWithPopup).mock.calls.length;
-    fireEvent.click(exportDialog.getByRole("button", { name: "Google로 로그인" }));
+    fireEvent.click(exportDialog.getByRole("button", { name: "로그인" }));
+    fireEvent.click(await screen.findByTestId("A1-1-1"));
     await waitFor(() => expect(vi.mocked(signInWithPopup).mock.calls.length).toBe(calls + 1));
     expect(screen.queryByText("SIGN_IN_REQUIRED")).not.toBeInTheDocument();
   });

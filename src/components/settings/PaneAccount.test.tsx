@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   confirm: vi.fn(async () => true),
 }));
 
+// 연결 카드는 자체 테스트(SocialLinksCard.test.tsx) — 여기선 계정 화면의 읽기·쓰기 계약만 본다.
+vi.mock("./SocialLinksCard", () => ({ SocialLinksCard: () => null }));
 vi.mock("./PaneAiCoach", () => ({ PaneAiCoach: () => <section data-testid="coach-consent">Consent</section> }));
 
 vi.mock("react-i18next", () => ({

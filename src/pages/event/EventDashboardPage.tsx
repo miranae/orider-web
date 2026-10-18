@@ -148,7 +148,7 @@ function formatHHMM(ts: number | null | undefined): string {
 export default function EventDashboardPage() {
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
-  const { user, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
   const navigate = useNavigate();
   const dialog = useDialog();
   const [info, setInfo] = useState<{ name: string; status: string; creatorId: string; hostIds: string[] } | null>(null);
@@ -218,7 +218,7 @@ export default function EventDashboardPage() {
     }
   }
   if (authLoading) return <LoadingSkeleton kind="chart" />;
-  if (!user) return <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signInWithGoogle(); }} />;
+  if (!user) return <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signIn(); }} />;
   if (error) return <ErrorState title={t("dashboard.errorTitle")} description={error} onRetry={() => window.location.reload()} />;
   if (!info || loadedIdentity !== identity || !roleLoaded) return <LoadingSkeleton kind="chart" />;
   if (!permissions.canEnter) return <PermissionGate title={t("host.permissionDenied")} />;
@@ -242,7 +242,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
   const dialog = useDialog();
 
   const STATUS_LABELS: Record<string, string> = {
@@ -682,7 +682,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signInWithGoogle(); }} />
+        <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signIn(); }} />
       </div>
     );
   }

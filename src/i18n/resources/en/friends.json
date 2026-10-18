@@ -37,7 +37,7 @@
   "invite.titleWithName": "{{nickname}} invited you to Orider",
   "invite.loginPrompt": "Sign in to add this friend",
   "invite.loginPromptWithName": "Sign in to add {{nickname}} as a friend",
-  "invite.signInGoogle": "Sign in with Google",
+  "invite.signInGoogle": "Sign in",
   "invite.errorTitle": "Could not process this invite",
   "invite.errorNotFound": "This friend invite code is invalid or expired.",
   "invite.errorInvalid": "This invite code cannot be used.",

@@ -19,6 +19,7 @@ import { getEventPublicParticipants, publicParticipantTimestampMs } from "../../
 import { logClientError } from "../../services/errorLogger";
 import { getPublicUserProfile } from "../../services/publicProfiles";
 import { useAuth } from "../../contexts/AuthContext";
+import { isSignInCancelled } from "../../utils/signInCancelled";
 import { useDialog } from "../../contexts/DialogContext";
 import { Course } from "@shared/types";
 import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
@@ -87,7 +88,7 @@ export default function EventDetailPage() {
   const { t, i18n } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user, signInWithGoogle } = useAuth();
+  const { user, signIn } = useAuth();
   const dialog = useDialog();
 
   // 이벤트 상세는 대회 문맥 — 컷오프를 포함한 4레인을 쓰고, 보급은 "보급"으로 부른다.
@@ -739,8 +740,8 @@ export default function EventDetailPage() {
                   <><Button type="button" variant="secondary" size="sm" disabled={followPending || followLoading} onClick={async () => {
                     if (!eventId) return;
                     if (!user) {
-                      try { await signInWithGoogle(); }
-                      catch (error) { logClientError("EventDetailPage.signInToFollow", error, { eventId }); showToast(t("follow.failed")); }
+                      try { await signIn(); }
+                      catch (error) { if (isSignInCancelled(error)) return; logClientError("EventDetailPage.signInToFollow", error, { eventId }); showToast(t("follow.failed")); }
                       return;
                     }
                     const next = !followingEvent;

@@ -53,7 +53,7 @@ function signedInAs({ children }: { children: React.ReactNode }) {
     profile: null,
     profileLoading: false,
     loading: false,
-    signInWithGoogle: async () => {},
+    signIn: async () => {},
     logout: async () => {},
   } satisfies AuthContextValue;
   return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
@@ -65,7 +65,7 @@ function signedIn({ children }: { children: React.ReactNode }) {
     profile: null,
     profileLoading: false,
     loading: false,
-    signInWithGoogle: async () => {},
+    signIn: async () => {},
     logout: async () => {},
   } satisfies AuthContextValue;
   return <AuthContextProvider value={value}>{children}</AuthContextProvider>;

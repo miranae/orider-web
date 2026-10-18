@@ -33,6 +33,7 @@ export function shouldBypassOnboardingRedirect(path: string): boolean {
     path === "/settings" ||
     path.startsWith("/settings/") ||
     path === "/strava/callback" ||
+    path === "/auth/social/callback" ||
     path === "/migrate" ||
     path === "/terms" ||
     path === "/privacy" ||

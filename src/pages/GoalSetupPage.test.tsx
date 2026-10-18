@@ -26,7 +26,8 @@ describe("GoalSetupPage", () => {
     expect(screen.getByText("코스와 목표 시간을 입력하기 전에 먼저 로그인해 주세요. 로그인하면 목표 저장과 주간 계획 생성까지 이어집니다.")).toBeInTheDocument();
     expect(screen.queryByText("STEP")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Google 로그인" }));
+    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+    fireEvent.click(await screen.findByTestId("A1-1-1"));
 
     expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
   });

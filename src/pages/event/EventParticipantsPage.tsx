@@ -157,7 +157,7 @@ function ageFromBirth(birth: string): number | null {
 export default function EventParticipantsPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user, signInWithGoogle } = useAuth();
+  const { user, signIn } = useAuth();
   const { t } = useTranslation("event");
   const dialog = useDialog();
 
@@ -409,7 +409,7 @@ export default function EventParticipantsPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signInWithGoogle(); }} />
+        <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signIn(); }} />
       </div>
     );
   }

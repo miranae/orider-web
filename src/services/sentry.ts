@@ -29,7 +29,7 @@ const LOAD_RETRY_DELAY_MS = 30_000;
  */
 export function scrubUrlCredentials(value: string): string {
   return value.replace(
-    /([?&#](?:impersonateToken|handoff|token|access_token|id_token|refresh_token)=)[^&#\s]+/gi,
+    /([?&#](?:impersonateToken|handoff|token|access_token|id_token|refresh_token|code|state)=)[^&#\s]+/gi,
     "$1[redacted]",
   );
 }

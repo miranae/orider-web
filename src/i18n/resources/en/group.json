@@ -200,7 +200,7 @@
   "inviteLink.joining": "Joining club...",
   "inviteLink.title": "You were invited to a club",
   "inviteLink.loginPrompt": "Sign in first to join this club. Joining will continue automatically after sign-in.",
-  "inviteLink.signInGoogle": "Sign in with Google",
+  "inviteLink.signInGoogle": "Sign in",
   "inviteLink.joined": "Joined club.",
   "members.confirmBulkRemove": "Remove {{count}} members from the club?",
   "members.confirmRemove": "Remove {{name}} from the club?",

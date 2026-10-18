@@ -89,7 +89,7 @@ function CoachStoredTurnResult({ response }: { response: CoachV2Response | Coach
 
 export default function CoachHistoryPage() {
   const { t, i18n } = useTranslation("coach");
-  const { user, profile, signInWithGoogle } = useAuth();
+  const { user, profile, signIn } = useAuth();
   const dialog = useDialog();
   const navigate = useLocalizedNavigate();
   const { threadId } = useParams<{ threadId?: string }>();
@@ -357,7 +357,7 @@ export default function CoachHistoryPage() {
   const launcher = <div data-testid="K6-0-3"><CoachQuestionLauncher
     user={user}
     discipline={coachDiscipline}
-    onSignIn={signInWithGoogle}
+    onSignIn={signIn}
     triggerBlock={false}
   /></div>;
 
