@@ -34,6 +34,7 @@ const config = {
   firebaseAppId: readEnv("VITE_FIREBASE_APP_ID"),
   firebaseFunctionsBase: readEnv("VITE_FIREBASE_FUNCTIONS_BASE"),
   socialAuthFunctionsBase: readEnv("VITE_SOCIAL_AUTH_FUNCTIONS_BASE"),
+  stravaConnectionFunctionsBase: readEnv("VITE_STRAVA_CONNECTION_FUNCTIONS_BASE"),
   firebaseFunctionsRegion: readEnv("VITE_FIREBASE_FUNCTIONS_REGION"),
   appCheckRecaptchaSiteKey: readEnv("VITE_APPCHECK_RECAPTCHA_SITE_KEY"),
   stravaClientId: readEnv("VITE_STRAVA_CLIENT_ID"),
@@ -89,7 +90,7 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-if (stage || config.socialAuthFunctionsBase) checkIsolatedStageConfig(config);
+if (stage || config.socialAuthFunctionsBase || config.stravaConnectionFunctionsBase) checkIsolatedStageConfig(config);
 
 const publicConfig = Object.fromEntries(
   Object.entries(config).filter(([, value]) => value !== undefined && value !== ""),

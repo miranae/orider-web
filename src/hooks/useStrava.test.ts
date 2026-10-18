@@ -9,10 +9,11 @@ import {
 const mocks = vi.hoisted(() => ({
   track: vi.fn(),
   logClientError: vi.fn(),
+  config: { stravaClientId: "123", stravaRedirectUri: "https://example.com/callback" },
 }));
 
 vi.mock("../services/runtimeConfig", () => ({
-  getRuntimeConfig: () => ({ stravaClientId: "123", stravaRedirectUri: "https://example.com/callback" }),
+  getRuntimeConfig: () => mocks.config,
 }));
 
 vi.mock("../services/analytics", () => ({ track: mocks.track }));
@@ -24,6 +25,16 @@ describe("useStrava", () => {
     const { result } = renderHook(() => useStrava());
     await act(async () => { await result.current.exchangeCode("write-code", "read,activity:read_all,activity:write"); });
     expect(mockCallableInvocations).toContainEqual({ name: "stravaExchangeToken", data: { code: "write-code", scope: "read,activity:read_all,activity:write" } });
+  });
+  it("does not start OAuth when the deployed public client configuration is missing", () => {
+    const previous = mocks.config;
+    mocks.config = { stravaClientId: "", stravaRedirectUri: "" };
+    const { result } = renderHook(() => useStrava());
+    sessionStorage.clear();
+    try {
+      expect(() => result.current.connectStrava()).toThrow("Strava configuration is missing");
+      expect(sessionStorage.getItem("strava_state")).toBeNull();
+    } finally { mocks.config = previous; }
   });
   it("starts with loading=false and no error", () => {
     const { result } = renderHook(() => useStrava());

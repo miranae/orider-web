@@ -76,3 +76,14 @@ it("allows only the exact reviewed AI API origin for its own config key", () => 
     expect(() => assertIsolatedStageRuntime({ ...stage, aiApiBase })).toThrow("stage/service-origin-mismatch");
   }
 });
+
+
+it("permits the exact Strava proxy only with the explicit Stage connection route", () => {
+  const config = { ...stage, stravaConnectionFunctionsBase: "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net", stravaRedirectUri: "https://orider-strava.web.app/strava/callback" };
+  expect(() => assertIsolatedStageRuntime(config, "orider-dev.web.app", "https://orider-dev.web.app")).not.toThrow();
+  expect(() => assertIsolatedStageRuntime({ ...config, stravaConnectionFunctionsBase: undefined }, "orider-dev.web.app", "https://orider-dev.web.app")).toThrow("stage/service-origin-mismatch");
+  for (const uri of [config.stravaRedirectUri + "/other", config.stravaRedirectUri + "?other=1", "https://orider-strava.web.app/auth/social/callback"]) {
+    expect(() => assertIsolatedStageRuntime({ ...config, stravaRedirectUri: uri }, "orider-dev.web.app", "https://orider-dev.web.app")).toThrow("stage/service-origin-mismatch");
+  }
+  expect(() => assertIsolatedStageRuntime(config, "orider.co.kr", "https://orider.co.kr")).toThrow("stage/strava-connection-endpoint-mismatch");
+});

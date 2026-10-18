@@ -121,3 +121,18 @@ test("training period capability defaults off and stage workflow declares the se
   const stage = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
   assert.match(stage, /VITE_TRAINING_ANALYSIS_PERIODS_ENABLED: \$\{\{ vars\.STAGE_VITE_TRAINING_ANALYSIS_PERIODS_ENABLED \}\}/);
 });
+
+
+test("Stage Strava connection opt-in requires OAuth config and preserves analysis compute", () => {
+  const endpoint = "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net";
+  const options = { ...isolatedStage, VITE_STRAVA_CONNECTION_FUNCTIONS_BASE: endpoint, VITE_STRAVA_CLIENT_ID: "test-client", VITE_STRAVA_REDIRECT_URI: "https://orider-strava.web.app/strava/callback" };
+  const config = render(options);
+  assert.equal(config.stravaConnectionFunctionsBase, endpoint);
+  assert.equal(config.firebaseFunctionsBase, isolatedStage.VITE_FIREBASE_FUNCTIONS_BASE);
+  assert.equal(render(isolatedStage).stravaConnectionFunctionsBase, undefined);
+  assert.throws(() => render({ VITE_STRAVA_CONNECTION_FUNCTIONS_BASE: endpoint }));
+  for (const extra of [{ VITE_STRAVA_CLIENT_ID: "" }, { VITE_STRAVA_REDIRECT_URI: "" }, { VITE_STRAVA_CONNECTION_FUNCTIONS_BASE: endpoint + "/other" }, { VITE_STRAVA_REDIRECT_URI: options.VITE_STRAVA_REDIRECT_URI + "?other=1" }]) {
+    assert.throws(() => render({ ...options, ...extra }));
+  }
+  assert.match(readFileSync(".github/workflows/deploy-stage.yml", "utf8"), /VITE_STRAVA_CONNECTION_FUNCTIONS_BASE: \$\{\{ vars\.STAGE_VITE_STRAVA_CONNECTION_FUNCTIONS_BASE \}\}/);
+});

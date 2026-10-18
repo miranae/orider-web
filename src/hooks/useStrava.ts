@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { httpsCallable } from "firebase/functions";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import { stravaConnectionCallable } from "../services/stravaConnectionCallables";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
@@ -44,7 +45,7 @@ export function useStrava() {
     setLoading(true);
     setError(null);
     try {
-      const fn = httpsCallable(functions, "stravaExchangeToken");
+      const fn = stravaConnectionCallable(functions, "stravaExchangeToken");
       const result = await fn({ code, ...(scope ? { scope } : {}) });
       return result.data as { athleteId: number; firstname: string; lastname: string; stravaSyncReauthRequired?: boolean };
     } catch (e) {
@@ -60,7 +61,7 @@ export function useStrava() {
     setLoading(true);
     setError(null);
     try {
-      const fn = httpsCallable(functions, "stravaQueueEnqueue");
+      const fn = stravaConnectionCallable(functions, "stravaQueueEnqueue");
       const result = await fn({});
       return result.data as { jobId: string; queuePosition: number };
     } catch (e) {
@@ -76,7 +77,7 @@ export function useStrava() {
     setLoading(true);
     setError(null);
     try {
-      const fn = httpsCallable(functions, "stravaQueueCancel");
+      const fn = stravaConnectionCallable(functions, "stravaQueueCancel");
       await fn();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Cancel failed";
@@ -125,7 +126,7 @@ export function useStrava() {
     setLoading(true);
     setError(null);
     try {
-      const fn = httpsCallable(functions, "stravaDisconnect");
+      const fn = stravaConnectionCallable(functions, "stravaDisconnect");
       await fn({ operationId, source: "web" });
       track("strava_disconnect_success", { operationId, source: "web" });
     } catch (e) {

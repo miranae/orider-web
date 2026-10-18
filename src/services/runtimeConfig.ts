@@ -10,6 +10,8 @@ export interface RuntimeConfig {
   firebaseFunctionsBase?: string;
   /** Stage 로그인 검증만 명시적으로 정본 Auth backend에 연결한다. 기본 비활성. */
   socialAuthFunctionsBase?: string;
+  /** Stage 활동 연결만 정본 서버로 보내는 명시적 런타임 옵션. */
+  stravaConnectionFunctionsBase?: string;
   appCheckRecaptchaSiteKey?: string;
   stravaClientId?: string;
   stravaRedirectUri?: string;
@@ -173,6 +175,10 @@ export function assertIsolatedStageRuntime(config: RuntimeConfig, hostname = glo
     || config.socialAuthFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net")) {
     throw new Error("stage/social-auth-endpoint-mismatch");
   }
+  if (config.stravaConnectionFunctionsBase && (config.appEnvironment !== "stage" || origin !== "https://orider-dev.web.app"
+    || config.stravaConnectionFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net")) {
+    throw new Error("stage/strava-connection-endpoint-mismatch");
+  }
   if (config.appEnvironment !== "stage" && hostname !== "orider-dev.web.app" && hostname !== "orider-dev.firebaseapp.com") return;
   if (config.appEnvironment !== "stage" || config.firebaseProjectId !== "miranae-orider-g1"
     || config.firebaseAuthDomain !== "miranae-orider-g1.firebaseapp.com"
@@ -184,7 +190,8 @@ export function assertIsolatedStageRuntime(config: RuntimeConfig, hostname = glo
   for (const key of ["aiApiBase", "personalApiBase", "segmentTilesBase", "heatmapBase", "stravaRedirectUri"] as const) {
     if (!config[key]) continue;
     const url = new URL(config[key]);
-    const isolated = ["orider-dev.web.app", "orider-dev.firebaseapp.com", "asia-northeast3-orider-dev.cloudfunctions.net"].includes(url.hostname)
+    const isolated = (key === "stravaRedirectUri" && !!config.stravaConnectionFunctionsBase
+      && config.stravaRedirectUri === "https://orider-strava.web.app/strava/callback") || ["orider-dev.web.app", "orider-dev.firebaseapp.com", "asia-northeast3-orider-dev.cloudfunctions.net"].includes(url.hostname)
       || (key === "personalApiBase" && url.origin === "https://qapersonalapi-ldfyfyx5da-du.a.run.app")
       || (key === "aiApiBase" && url.origin === "https://orider-ai-api-qa-firstpass-ldfyfyx5da-du.a.run.app")
       || (["segmentTilesBase", "heatmapBase"].includes(key) && url.hostname === "storage.googleapis.com" && /^\/miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)\//.test(url.pathname));

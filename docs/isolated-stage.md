@@ -21,3 +21,15 @@ Stage에서는 native·Strava 활동 모두 `getActivityStreams`를 통해 같�
 기존 stage site에서 새 주소로 redirect하는 작업은 이전 stage Hosting에만 적용한다. 운영 Hosting과 운영 Functions 배포는 별도 경계다. 최소 인스턴스 0, 최대 인스턴스 제한과 비용 알림은 stage 서버 설정에서 관리한다.
 
 Stage에서는 미배포 AI 내러티브 카드를 숨기고 자동 peek·생성 callable을 호출하지 않는다. 클라이언트 오류는 Sentry 진단을 유지하되 미배포 `logClientError` 서버 backup 호출은 건너뛴다. 운영 웹의 프로필 생성·AI 분석·서버 오류 기록은 기존 경로를 유지한다.
+
+
+### Stage Strava activity connection
+
+Set `STAGE_VITE_STRAVA_CONNECTION_FUNCTIONS_BASE` to
+`https://asia-northeast3-miranae-orider-g1.cloudfunctions.net` only after the connection functions are deployed.
+Set `STAGE_VITE_STRAVA_CLIENT_ID` (existing GitHub secret) to the matching public Strava client ID and
+`STAGE_VITE_STRAVA_REDIRECT_URI` to `https://orider-strava.web.app/strava/callback`.
+The runtime writer rejects this opt-in when the OAuth configuration is missing.
+Only `stravaExchangeToken`, `stravaQueueEnqueue`, `stravaQueueCancel`, and `stravaDisconnect`
+use the shared account's canonical backend. Activity analysis and other callables retain the Stage Functions base.
+Removing the connection-base variable restores default routing; it has no compiled fallback.

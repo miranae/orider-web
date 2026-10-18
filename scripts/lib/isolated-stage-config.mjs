@@ -8,10 +8,13 @@ export function checkIsolatedStageConfig(config) {
   if (config.firebaseFunctionsRegion !== "asia-northeast3") throw new Error("isolated stage Functions region mismatch");
   if (config.firebaseFunctionsBase !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("stage callable endpoint mismatch");
   if (config.socialAuthFunctionsBase && config.socialAuthFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net") throw new Error("stage social Auth endpoint mismatch");
+  if (config.stravaConnectionFunctionsBase && config.stravaConnectionFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net") throw new Error("stage Strava connection endpoint mismatch");
+  if (config.stravaConnectionFunctionsBase && (!config.stravaClientId || !config.stravaRedirectUri)) throw new Error("stage Strava connection requires OAuth client and redirect config");
   for (const key of ["aiApiBase", "personalApiBase", "segmentTilesBase", "heatmapBase", "stravaRedirectUri"]) {
     if (!config[key]) continue;
     const url = new URL(config[key]);
-    const isolated = ["orider-dev.web.app", "orider-dev.firebaseapp.com", "asia-northeast3-orider-dev.cloudfunctions.net"].includes(url.hostname)
+    const isolated = (key === "stravaRedirectUri" && !!config.stravaConnectionFunctionsBase
+      && config.stravaRedirectUri === "https://orider-strava.web.app/strava/callback") || ["orider-dev.web.app", "orider-dev.firebaseapp.com", "asia-northeast3-orider-dev.cloudfunctions.net"].includes(url.hostname)
       || (key === "personalApiBase" && url.origin === "https://qapersonalapi-ldfyfyx5da-du.a.run.app")
       || (key === "aiApiBase" && url.origin === "https://orider-ai-api-qa-firstpass-ldfyfyx5da-du.a.run.app")
       || (["segmentTilesBase", "heatmapBase"].includes(key) && url.hostname === "storage.googleapis.com" && /^\/miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)\//.test(url.pathname));

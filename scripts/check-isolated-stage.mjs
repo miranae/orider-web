@@ -13,11 +13,13 @@ checkIsolatedStageConfig({
   firebaseMessagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   firebaseFunctionsBase: process.env.VITE_FIREBASE_FUNCTIONS_BASE,
   socialAuthFunctionsBase: process.env.VITE_SOCIAL_AUTH_FUNCTIONS_BASE,
+  stravaConnectionFunctionsBase: process.env.VITE_STRAVA_CONNECTION_FUNCTIONS_BASE,
   firebaseFunctionsRegion: process.env.VITE_FIREBASE_FUNCTIONS_REGION,
   aiApiBase: process.env.VITE_ORIDER_AI_API_BASE,
   personalApiBase: process.env.VITE_ORIDER_PERSONAL_API_BASE,
   segmentTilesBase: process.env.VITE_SEGMENT_TILES_BASE,
   heatmapBase: process.env.VITE_HEATMAP_BASE,
+  stravaClientId: process.env.VITE_STRAVA_CLIENT_ID,
   stravaRedirectUri: process.env.VITE_STRAVA_REDIRECT_URI,
   useEmulators: process.env.VITE_USE_EMULATORS === "true",
 });
