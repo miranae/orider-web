@@ -204,7 +204,7 @@ export interface CanonicalFitnessSummaryData {
   ctl: number;
   /** Acute Training Load — 피로. */
   atl: number;
-  /** Training Stress Balance — 컨디션(= CTL − ATL). */
+  /** Training Stress Balance — 폼(= CTL − ATL). */
   tsb: number;
   breakdown: Record<TimeseriesDiscipline, { ctl: number; atl: number; tsb: number; weeklyTSS: number }>;
   totalsBasis: TimeseriesDiscipline[];

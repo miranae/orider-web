@@ -60,8 +60,8 @@ function renderBriefing(overrides: Partial<React.ComponentProps<typeof FitnessCo
 
 describe("FitnessCoachBriefing", () => {
   it("names the snapshot date and source independently from the chart's pending history", () => {
-    renderBriefing({ part: "condition", currentBasis: "2026-10-15 기준 · 현재 컨디션 요약", current: { ctl: 49.4, atl: 38.1, tsb: 11.3 }, trendSlot: <p>2026-10-16 · PMC 반영 대기</p> });
-    expect(screen.getByText("2026-10-15 기준 · 현재 컨디션 요약")).toBeInTheDocument();
+    renderBriefing({ part: "condition", currentBasis: "2026-10-15 기준 · 현재 훈련 상태 요약", current: { ctl: 49.4, atl: 38.1, tsb: 11.3 }, trendSlot: <p>2026-10-16 · PMC 반영 대기</p> });
+    expect(screen.getByText("2026-10-15 기준 · 현재 훈련 상태 요약")).toBeInTheDocument();
     expect(screen.getByText("2026-10-16 · PMC 반영 대기")).toBeInTheDocument();
     expect(screen.getByText("49.4")).toBeInTheDocument();
     expect(screen.getByText("+11.3")).toBeInTheDocument();

@@ -104,7 +104,7 @@ function niceTicks(min: number, max: number, count = 5): number[] {
  * 라인:
  *  - CTL(lime, 두꺼움) — 장기 피트니스 (42일 EMA)
  *  - ATL(rose) — 단기 피로 (7일 EMA)
- *  - TSB(amber) — 폼/컨디션 (CTL - ATL, 0 근처 최적)
+ *  - TSB(amber) — 폼 (CTL - ATL, 0 근처 최적)
  *
  * 추가 시각 요소:
  *  - 좌상단 범례 (라인 색 + 의미)

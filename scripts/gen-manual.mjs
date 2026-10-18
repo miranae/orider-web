@@ -24,7 +24,7 @@ const GROUPS = [
     { file: "ch05-group-event.html", title: "5. 클럽·친구·이벤트", level: "intermediate", desc: "클럽 가입·운영, 이번 주 순위, 친구 맺기, 대회" },
   ] },
   { name: "코치와 훈련", pages: [
-    { file: "ch06-advanced.html", title: "6. 컨디션·체력 — 코치 > 컨디션·분석", level: "advanced", desc: "CTL·ATL·TSB, 파워 커브, 가정값, 훈련 기준값" },
+    { file: "ch06-advanced.html", title: "6. 훈련 상태·체력 — 코치 > 훈련 상태·분석", level: "advanced", desc: "CTL·ATL·TSB, 파워 커브, 가정값, 훈련 기준값" },
     { file: "ch07-training.html", title: "7. 코치 — 오늘 운동·계획·목표·대화", level: "intermediate", desc: "목표 세우기, 주간 플랜, 오늘 고르기, AI 코치" },
     { file: "ch08-multisport.html", title: "8. 종목별 읽기·멀티스포츠", level: "intermediate", desc: "러닝 페이스·GAP·케이던스, 수영, 통합 부하" },
   ] },
@@ -72,9 +72,9 @@ const FIGURES = {
     { at: "s5-6", img: "web-friends.png", max: 700, cap: "친구 위쪽 — 내 친구코드와 복사 아이콘, 친구코드 입력 칸, 친구·요청·보낸 요청 탭(친구 목록은 잘라 냈습니다)." },
   ],
   "ch06-advanced.html": [
-    { at: "s6-1", img: "05-fitness-pmc.png", cap: "코치 > 컨디션 — 브리핑 결론과 장기체력 CTL·단기피로 ATL·회복상태 TSB. '낮은 근거' 표시와 남은 요건을 눈여겨보세요." },
+    { at: "s6-1", img: "05-fitness-pmc.png", cap: "코치 > 훈련 상태 — 브리핑 결론과 장기체력 CTL·단기피로 ATL·회복상태 TSB. '낮은 근거' 표시와 남은 요건을 눈여겨보세요." },
     { at: "s6-3", img: "web-coach-analysis.png", cap: "코치 > 분석 — 왼쪽 기간별 실측 파워 비교, 오른쪽 파워 커브(최근 28일 실선, 이전 28일 점선)와 '확인할 지속시간'별 최고 파워." },
-    { at: "s6-5", img: "web-condition-sections.png", cap: "코치 > 컨디션 아래쪽 — 최근 활동이 남긴 영향과 접힌 영역들. '전체 종목 훈련 기준 설정'과 'FTP·파워 판단 근거'를 눌러 펼칩니다." },
+    { at: "s6-5", img: "web-condition-sections.png", cap: "코치 > 훈련 상태 아래쪽 — 최근 활동이 남긴 영향과 접힌 영역들. '전체 종목 훈련 기준 설정'과 'FTP·파워 판단 근거'를 눌러 펼칩니다." },
   ],
   "ch07-training.html": [
     { at: "s7-2", img: "web-today.png", cap: "코치 > 오늘 운동 — 세 가지 중 하나를 고르면 24·48시간 뒤 CTL·ATL·TSB 예상이 바뀝니다. 계획 결정·실행 기능은 준비 중입니다." },
@@ -156,10 +156,10 @@ function glossaryContent() {
     ["임계 페이스 곡선", "Critical pace curve", "지속 시간별로 낼 수 있었던 가장 빠른 평균 페이스를 이은 선. 짧게 달릴수록 빠르고 길게 달릴수록 느려집니다."],
   ];
   const dataTerms = [
-    ["장기체력", "CTL", "최근 약 6주 부하의 평균. 천천히 오르면 체력이 쌓이는 중입니다. 코치 > 컨디션에서 봅니다."],
+    ["장기체력", "CTL", "최근 약 6주 부하의 평균. 천천히 오르면 체력이 쌓이는 중입니다. 코치 > 훈련 상태에서 봅니다."],
     ["단기피로", "ATL", "최근 약 1주 부하의 평균. 강한 주에 빠르게 오릅니다."],
     ["회복상태", "TSB", "장기체력 − 단기피로. 음수면 피로, 양수면 회복된 상태입니다."],
-    ["훈련 기준값", "Threshold", "FTP·임계 페이스·CSS·최대 심박·LTHR처럼 존과 부하 계산의 기준이 되는 개인 값. 코치 > 컨디션 > 전체 종목 훈련 기준 설정에서 넣습니다."],
+    ["훈련 기준값", "Threshold", "FTP·임계 페이스·CSS·최대 심박·LTHR처럼 존과 부하 계산의 기준이 되는 개인 값. 코치 > 훈련 상태 > 전체 종목 훈련 기준 설정에서 넣습니다."],
     ["파워-지속시간 곡선", "PDC", "1초~1시간 각 시간 동안 낸 최고 평균 파워를 이은 곡선. 파워 커브와 라이더 능력 3축의 근거입니다."],
     ["가정값", "Assumed value", "내가 입력하지 않은 기준값(체중·FTP 등)을 기본값으로 넣어 계산했다는 표시. 내 값을 넣으면 사라집니다."],
     ["가정값 시작값", "Assumed baseline", "계획·목표의 출발점을 가정값으로 잡았다는 표시. '기준값 입력·확인'으로 바꿉니다."],
@@ -168,7 +168,7 @@ function glossaryContent() {
     ["미산출", "Not calculated", "근거가 없어 그 항목만 계산하지 않았다는 뜻. 0점이 아닙니다."],
     ["가상 파워", "Virtual power", "파워미터 없이 속도·경사·체중·자전거 무게로 추정한 파워. 실측 파워 계산에서는 빠집니다."],
   ];
-  secs += `    <h3>컨디션 · 데이터 상태</h3>\n    <div class="card"><table><tr><th>용어</th><th>영문</th><th>설명</th></tr>\n${dataTerms.map(([term, en, desc]) => `      <tr><td><strong>${esc(term)}</strong></td><td>${esc(en)}</td><td>${esc(desc)}</td></tr>`).join("\n")}\n    </table></div>\n`;
+  secs += `    <h3>훈련 상태 · 데이터 상태</h3>\n    <div class="card"><table><tr><th>용어</th><th>영문</th><th>설명</th></tr>\n${dataTerms.map(([term, en, desc]) => `      <tr><td><strong>${esc(term)}</strong></td><td>${esc(en)}</td><td>${esc(desc)}</td></tr>`).join("\n")}\n    </table></div>\n`;
   secs += `    <h3>러닝 · 종목별 기록</h3>\n    <div class="card"><table><tr><th>용어</th><th>영문</th><th>설명</th></tr>\n${runningTerms.map(([term, en, desc]) => `      <tr><td><strong>${esc(term)}</strong></td><td>${esc(en)}</td><td>${esc(desc)}</td></tr>`).join("\n")}\n    </table></div>\n`;
   const used = new Set();
   for (const grp of G_GROUPS) {
@@ -335,10 +335,10 @@ ${sidebar("index.html")}
     <main class="gb-content">
       <div class="gb-hero">
         <h1>오라이더 웹 설명서</h1>
-        <p>사이클과 러닝 기록을 확인하고, 컨디션을 읽고, 코치와 함께 다음 운동을 정하는 방법을 처음부터 차례로 안내합니다. <strong>앱에서 기록하고, 웹에서 되짚어 봅니다.</strong></p>
+        <p>사이클과 러닝 기록을 확인하고, 훈련 상태를 읽고, 코치와 함께 다음 운동을 정하는 방법을 처음부터 차례로 안내합니다. <strong>앱에서 기록하고, 웹에서 되짚어 봅니다.</strong></p>
       </div>
       <div class="info">왼쪽 목차(휴대폰에서는 위쪽 <strong>☰ 메뉴</strong>)에서 장을 고르거나, 목차의 <strong>검색</strong>으로 용어·메뉴 이름을 바로 찾으세요. 2026년 10월 화면 기준이며, 그림은 실제 계정 화면입니다.</div>
-      <div class="card"><h3>처음이라면 이 순서로</h3><ol><li><a href="ch01-start.html#s1-2">로그인</a>하고 <a href="ch01-start.html#s1-3">메뉴 5개</a>를 둘러봅니다.</li><li><a href="ch01-start.html#s1-5">처음 해 둘 설정</a> — 훈련 기준값, 공개 범위, 기록 가져오기.</li><li><a href="ch02-records.html">홈·운동일지</a>에서 내 기록을 찾고 <a href="ch03-analysis.html">활동 상세</a>를 엽니다.</li><li><a href="ch06-advanced.html#s6-1">코치 &gt; 컨디션</a>에서 오늘 상태를 보고, <a href="ch07-training.html#s7-4">목표</a>를 세웁니다.</li></ol></div>
+      <div class="card"><h3>처음이라면 이 순서로</h3><ol><li><a href="ch01-start.html#s1-2">로그인</a>하고 <a href="ch01-start.html#s1-3">메뉴 5개</a>를 둘러봅니다.</li><li><a href="ch01-start.html#s1-5">처음 해 둘 설정</a> — 훈련 기준값, 공개 범위, 기록 가져오기.</li><li><a href="ch02-records.html">홈·운동일지</a>에서 내 기록을 찾고 <a href="ch03-analysis.html">활동 상세</a>를 엽니다.</li><li><a href="ch06-advanced.html#s6-1">코치 &gt; 훈련 상태</a>에서 오늘 상태를 보고, <a href="ch07-training.html#s7-4">목표</a>를 세웁니다.</li></ol></div>
       <div class="card"><h3>하고 싶은 일로 찾기</h3><ul><li><strong>러닝 시작:</strong> <a href="ch01-start.html#s1-5">러닝을 처음 확인할 때</a> → <a href="ch03-analysis.html#s3-run">페이스·구간 읽기</a> → <a href="ch07-training.html#s7-4">러닝 대회·30분 달리기</a></li><li><strong>사이클 실력 보기:</strong> <a href="ch03-analysis.html#s3-5">파워 읽기</a> → <a href="ch06-advanced.html#s6-3">파워 커브</a> → <a href="ch04-compare.html#s4-2">세그먼트 순위</a></li><li><strong>숫자가 비었거나 '가정값'이 보일 때:</strong> <a href="ch06-advanced.html#s6-4">데이터 충분도·가정값</a></li><li><strong>함께 달리기:</strong> <a href="ch05-group-event.html">클럽·친구·이벤트</a></li><li><strong>내 데이터 관리:</strong> <a href="ch10-settings.html#s10-5">API 키</a> · <a href="ch10-settings.html#s10-7">내보내기·삭제</a> · <a href="ch10-settings.html#s10-8">계정 삭제 요청</a></li></ul><p>휴대폰 앱 사용법은 <a href="/manual/">앱 설명서</a>에 있습니다.</p></div>
       <div class="gb-cards">
 ${cards}

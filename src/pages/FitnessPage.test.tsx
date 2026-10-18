@@ -1005,7 +1005,7 @@ describe("FitnessPage", () => {
             guarantee: "sufficient", target: { value: 42, unit: "day" }, current: { value: days, unit: "day" } }] }),
       ], { catalogVersion: "load-history-sufficiency-v1", ownerOutput: "timeseries_bike" });
 
-    it("K1 현재 지표 아래에 기록 기간이 모자란 컨디션 해석을 낮은 근거로 알린다", async () => {
+    it("K1 현재 지표 아래에 기록 기간이 모자란 폼 해석을 낮은 근거로 알린다", async () => {
       viewport.isMobile = false;
       const today = new Date().toISOString().slice(0, 10);
       setDocData("users/test-uid/fitness/timeseries_bike", { discipline: "bike", schemaVersion: 1, computedAt: Date.now(),

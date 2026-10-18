@@ -673,7 +673,7 @@ function DashboardContent() {
           </Card>
         )}
 
-        {/* 최근 7일 활동 요약 — 컨디션은 사이드바에서 확인한다. */}
+        {/* 최근 7일 활동 요약 — 훈련 상태는 사이드바에서 확인한다. */}
         {user && (
           <div className="dashboard-kpi-overview grid gap-3" style={{ marginTop: "var(--space-2)" }}>
             <Card padding="none" style={{ overflow: "hidden" }}>

@@ -843,7 +843,7 @@
     "legacyImportFailed": "Couldn't import. Please try again.",
     "legacyImportBlocked": "Import is paused because the target bike's saved layout couldn't be read.",
     "legacyImportNoBikes": "No bikes to import into. Create a bike first.",
-    "thresholdSource": "Manage canonical thresholds in Coach > Condition →",
+    "thresholdSource": "Manage canonical thresholds in Coach > Training status →",
     "selectDevice": "Device to configure"
   },
   "layout": {

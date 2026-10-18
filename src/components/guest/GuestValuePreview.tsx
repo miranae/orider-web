@@ -49,7 +49,7 @@ function copy(kind: PreviewKind, lang?: string) {
       ...shared,
       title: ko ? "피트니스 곡선 미리보기" : "Fitness curve preview",
       desc: ko ? "CTL, ATL, TSB 흐름으로 훈련 부하와 회복 타이밍을 먼저 확인합니다." : "Preview load, fatigue, and form with CTL, ATL, and TSB.",
-      metric: ko ? "오늘 컨디션" : "Today form",
+      metric: ko ? "오늘 폼" : "Today form",
     };
   }
   if (kind === "plan") {

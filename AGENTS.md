@@ -19,7 +19,7 @@ Orider Web is a React 19, Vite, and TypeScript frontend. Application code lives 
 
 ## Coding Style & Naming Conventions
 
-Use TypeScript and functional React components. Keep component files in PascalCase, hooks named `useThing.ts`, and utility modules in camelCase. Follow the existing two-space indentation style. Prefer design-system components and tokens from `src/theme/`; ESLint flags Tailwind token bypasses, inline pixel spacing, hard-coded hex colors, and deprecated `rd*` classes. Use aliases such as `@shared` for shared modules.
+Use TypeScript and functional React components. Keep component files in PascalCase, hooks named `useThing.ts`, and utility modules in camelCase. Follow the existing two-space indentation style. UI copy follows the terminology rules in `docs/TERMINOLOGY.md` (for example, never use "컨디션" as the name of a metric, screen, or number). Prefer design-system components and tokens from `src/theme/`; ESLint flags Tailwind token bypasses, inline pixel spacing, hard-coded hex colors, and deprecated `rd*` classes. Use aliases such as `@shared` for shared modules.
 
 ## Testing Guidelines
 

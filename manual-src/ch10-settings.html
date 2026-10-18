@@ -22,7 +22,7 @@
       <tr><td rowspan="2"><strong>앱</strong></td><td><strong>표시</strong></td><td>언어, 단위, 테마 (<a href="#s10-6">10.6</a>)</td></tr>
       <tr><td><strong>내 데이터</strong></td><td>내보내기, 활동 기록 삭제 (<a href="#s10-7">10.7</a>)</td></tr>
     </table>
-    <div class="info">FTP · 임계 페이스 · 심박 같은 <strong>훈련 기준값</strong>은 설정이 아니라 <strong>코치 &gt; 컨디션 &gt; 전체 종목 훈련 기준 설정</strong>에 있습니다(<a href="ch06-advanced.html#s6-5">6.5</a>). 자전거·장비는 아바타 &gt; <strong>장비</strong>에 있습니다(<a href="#s10-3">10.3</a>).</div>
+    <div class="info">FTP · 임계 페이스 · 심박 같은 <strong>훈련 기준값</strong>은 설정이 아니라 <strong>코치 &gt; 훈련 상태 &gt; 전체 종목 훈련 기준 설정</strong>에 있습니다(<a href="ch06-advanced.html#s6-5">6.5</a>). 자전거·장비는 아바타 &gt; <strong>장비</strong>에 있습니다(<a href="#s10-3">10.3</a>).</div>
   </div>
 
   <h3 id="s10-1">10.1 계정 — 프로필 · 공개 범위 · 동의</h3>
@@ -70,7 +70,7 @@
     </ol>
     <table>
       <tr><th>카드</th><th>내용</th></tr>
-      <tr><td>라이더 임계값</td><td>FTP, 최대 심박, 체중 — 앱에 들어간 값. 기준이 되는 값은 코치 &gt; 컨디션에서 관리합니다(화면 문구: "정본 기준값" = 기준이 되는 원래 값).</td></tr>
+      <tr><td>라이더 임계값</td><td>FTP, 최대 심박, 체중 — 앱에 들어간 값. 기준이 되는 값은 코치 &gt; 훈련 상태에서 관리합니다(화면 문구: "정본 기준값" = 기준이 되는 원래 값).</td></tr>
       <tr><td>자동 일시정지 / 자동 랩</td><td>멈췄다고 볼 속도·시간, 자동 랩 방식</td></tr>
       <tr><td>알림 임계치</td><td>심박 · 파워 · 케이던스 · 속도 범위를 벗어나면 앱이 알려 줄지</td></tr>
       <tr><td>데이터 화면 레이아웃</td><td>앱 기록 화면의 페이지와 칸 배치</td></tr>
@@ -102,7 +102,7 @@
     <ol>
       <li>설정 &gt; <strong>개발자</strong>를 엽니다.</li>
       <li><strong>키 이름</strong>을 정합니다(예: Notion 주간 리포트, 개인 대시보드).</li>
-      <li><strong>허용할 데이터</strong>에서 필요한 것만 고릅니다 — profile:read(프로필), activities:read(활동), streams:read(상세 기록), fitness:read(컨디션), exports:read(내보내기).</li>
+      <li><strong>허용할 데이터</strong>에서 필요한 것만 고릅니다 — profile:read(프로필), activities:read(활동), streams:read(상세 기록), fitness:read(체력·훈련 부하), exports:read(내보내기).</li>
       <li><strong>키 생성</strong>을 누르고, 바로 나오는 전체 키 값을 복사해 안전한 곳에 둡니다.</li>
       <li><strong>바로 실행해보기</strong>의 예시 명령으로 내 활동 목록이 읽히는지 확인합니다. 자세한 사용법은 <strong>개발자 문서</strong>의 API 문서·활용 예시에 있습니다.</li>
     </ol>
@@ -151,7 +151,7 @@
   <div class="card">
     <table>
       <tr><th>이럴 때</th><th>확인할 것</th></tr>
-      <tr><td>"운동 프로필" 메뉴가 없어요</td><td>코치 &gt; 컨디션 &gt; 전체 종목 훈련 기준 설정으로 옮겨졌습니다.</td></tr>
+      <tr><td>"운동 프로필" 메뉴가 없어요</td><td>코치 &gt; 훈련 상태 &gt; 전체 종목 훈련 기준 설정으로 옮겨졌습니다.</td></tr>
       <tr><td>"앱 &amp; 데이터" 메뉴가 없어요</td><td>설정 &gt; 표시(언어·단위·테마)와 설정 &gt; 내 데이터(내보내기·삭제)로 나뉘었습니다.</td></tr>
       <tr><td>공개 범위를 바꿨는데 옛 활동은 그대로예요</td><td>기본값은 새 활동에만 적용됩니다. 옛 활동은 <strong>기존 활동에도 적용</strong>을 누르세요.</td></tr>
       <tr><td>기기 화면이 비어 있어요</td><td>휴대폰 앱에서 설정을 한 번 바꿔 동기화하세요.</td></tr>

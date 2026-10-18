@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import DetailsSection from "../../../components/redesign/DetailsSection";
 import { Text } from "../../../theme/components";
 
-/** 코치 컨디션의 결정 딥링크만 펼친다. 기존 임베드의 접힘 동작은 유지한다. */
+/** 코치 훈련 상태 화면의 결정 딥링크만 펼친다. 기존 임베드의 접힘 동작은 유지한다. */
 export default function FtpDecisionSection({ title, anchorEnabled, preserveExpanded = false, children }: { title: string; anchorEnabled: boolean; preserveExpanded?: boolean; children: ReactNode }) {
   const location = useLocation();
   const details = useRef<HTMLDetailsElement>(null);

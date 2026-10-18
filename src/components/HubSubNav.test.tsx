@@ -5,7 +5,7 @@ import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 describe("HubSubNav", () => {
   it("renders the six coach tabs in specification order", () => {
     renderWithProviders(<HubSubNav hubKey="coach" />, { route: "/coach/condition" });
-    expect(screen.getAllByRole("link").map(link => link.textContent)).toEqual(["컨디션", "오늘 운동", "계획", "목표", "분석", "대화"]);
+    expect(screen.getAllByRole("link").map(link => link.textContent)).toEqual(["훈련 상태", "오늘 운동", "계획", "목표", "분석", "대화"]);
     expect(screen.getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/ko/coach/condition", "/ko/coach/today", "/ko/coach/plan", "/ko/coach/goals", "/ko/coach/analysis", "/ko/coach/chat"]);
   });
 

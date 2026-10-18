@@ -41,7 +41,7 @@ describe("PmcHistoryPanel", () => {
 
   it("changes day/week/month granularity and keeps navigation synchronized with the value strip", () => {
     const { container } = renderPanel();
-    expect(screen.getByText("컨디션 변화")).toBeInTheDocument();
+    expect(screen.getByText("훈련 부하 변화")).toBeInTheDocument();
     expect(screen.queryByText(/실적 \+ 예측/)).not.toBeInTheDocument();
     expect(container.querySelector('[data-pmc-today-marker="true"]')).toBeInTheDocument();
     expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("장기체력 CTL");
@@ -163,13 +163,13 @@ describe("PmcHistoryPanel", () => {
     const chart = container.querySelector(".pmc-history__trend-stack");
     expect(range.compareDocumentPosition(chart!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(container.querySelector(".pmc-history__latest")).toBeNull();
-    expect(screen.getAllByRole("heading", { name: "컨디션 변화" })).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { name: "훈련 부하 변화" })).toHaveLength(1);
     expect(container.querySelector(".pmc-history__navigation label")?.compareDocumentPosition(screen.getByRole("button", { name: "오늘" }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("keeps selected values keyed to the plotted series and emphasizes the independent zero baseline", () => {
     const { container } = renderWithProviders(<PmcHistoryPanel points={points} today="2026-09-06" canonical ctlColor="var(--color-brand-bike)" />);
-    expect(screen.getByRole("heading", { name: "컨디션 변화" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "훈련 부하 변화" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "표시 기간" })).toHaveTextContent("일별");
     expect(container.querySelector(".pmc-history__values [data-pmc-metric='ctl']")).toHaveStyle({ borderInlineStartColor: "var(--color-brand-bike)" });
     expect(container.querySelector(".pmc-history__values [data-pmc-metric='atl']")).toHaveStyle({ borderInlineStartColor: "var(--rose)" });
@@ -194,7 +194,7 @@ describe("PmcHistoryPanel", () => {
 
   it("reuses the canonical PMC renderer for the combined trend and keeps year comparison specialized", () => {
     const { container } = renderPanel();
-    expect(screen.getByRole("region", { name: "컨디션 변화" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "훈련 부하 변화" })).toBeInTheDocument();
     expect(screen.getByRole("img")).toBeInTheDocument();
     expect(container.querySelectorAll("[data-pmc-series]")).toHaveLength(3);
     expect(container.querySelector('svg[role="img"] [data-pmc-series="tsb"]')).not.toBeInTheDocument();

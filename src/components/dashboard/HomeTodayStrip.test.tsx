@@ -95,7 +95,7 @@ describe("home today strip", () => {
   it("uses the selected run sport for condition and today, keeps run goals alongside the recap", () => {
     mocks.goal = { id: "g", title: "Should not show monthly goal", eventDate: Date.now() + 86400000 };
     render(<MemoryRouter><GlossaryProvider><HomeTodayStrip {...props} discipline="run" runningRecap={<p>Last week running recap</p>} /></GlossaryProvider></MemoryRouter>);
-    expect(screen.getByRole("link", { name: "컨디션 보기 →" })).toHaveAttribute("href", "/ko/coach/condition?sport=run");
+    expect(screen.getByRole("link", { name: "훈련 상태 보기 →" })).toHaveAttribute("href", "/ko/coach/condition?sport=run");
     expect(screen.getByRole("link", { name: "정하기 →" })).toHaveAttribute("href", "/ko/coach/today?sport=run");
     expect(screen.getByTestId("H2-3-4")).toHaveTextContent("Last week running recap");
     expect(screen.getByText("Should not show monthly goal")).toBeInTheDocument();
@@ -134,9 +134,9 @@ describe("home today strip", () => {
   it("keeps combined condition values linked to the all-sport condition reader without changing today's sport", () => {
     render(<MemoryRouter><GlossaryProvider><HomeTodayStrip {...props} mobile conditionDiscipline="tri" fitness={{ ctl: 90, atl: 100, tsb: -10 }} /></GlossaryProvider></MemoryRouter>);
     const condition = screen.getByTestId("H2-1-1");
-    expect(screen.getByRole("heading", { name: "통합 · 컨디션" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "통합 · 훈련 상태" })).toBeInTheDocument();
     expect(condition).toHaveTextContent("CTL 90.0 · ATL 100.0 · TSB -10.0");
-    const path = screen.getByRole("link", { name: "컨디션 보기 →" }).getAttribute("href")!;
+    const path = screen.getByRole("link", { name: "훈련 상태 보기 →" }).getAttribute("href")!;
     expect(path).toBe("/ko/coach/condition?sport=tri");
     expect(screen.getByRole("link", { name: "정하기 →" })).toHaveAttribute("href", "/ko/coach/today?sport=bike");
   });

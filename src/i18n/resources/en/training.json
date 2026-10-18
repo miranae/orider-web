@@ -421,7 +421,7 @@
       "goal": "Deliver the fitness you've built"
     },
     "currentStatus": "Current Status",
-    "tsbGood": "Feeling good",
+    "tsbGood": "Good form",
     "tsbHigh": "Fatigued",
     "tsbModerate": "Balanced",
     "tsbHint": "TSB · {{label}}",
@@ -1197,7 +1197,7 @@
   "previewReview": {
     "title": "Review your goal",
     "notSaved": "Nothing has been saved yet. Starting will create your goal and training plan on the server.",
-    "pendingPlan": "Session totals, training distance, weekly load, phases and condition forecasts are available after the plan is generated.",
+    "pendingPlan": "Session totals, training distance, weekly load, phases and form forecasts are available after the plan is generated.",
     "event": "Target event",
     "distance": "Target distance",
     "elevation": "Elevation gain",

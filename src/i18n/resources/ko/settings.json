@@ -843,7 +843,7 @@
     "legacyImportFailed": "가져오지 못했어요. 다시 시도해 주세요.",
     "legacyImportBlocked": "대상 자전거의 저장된 구성을 읽지 못해 가져오기를 막았어요.",
     "legacyImportNoBikes": "가져갈 자전거가 없어요. 자전거를 먼저 만들어 주세요.",
-    "thresholdSource": "정본 기준값은 코치 > 컨디션에서 관리하세요 →",
+    "thresholdSource": "정본 기준값은 코치 > 훈련 상태에서 관리하세요 →",
     "selectDevice": "설정할 기기"
   },
   "layout": {
