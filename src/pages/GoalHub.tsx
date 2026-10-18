@@ -6,7 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { usePlanModel } from "../hooks/usePlanModel";
-import { planActualProgressPct, usePlanDailyActivities } from "../hooks/usePlanDailyActivities";
+import { planActualProgressPct, planDailyActivitiesOptions, progressBarValue, usePlanDailyActivities } from "../hooks/usePlanDailyActivities";
 import { useDialog } from "../contexts/DialogContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
@@ -22,13 +22,9 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   const model = usePlanModel(params.get("sport"));
   const { user, goal, discipline } = model;
   // 진행률은 계획 화면과 같은 값: 일별 활동 문서 기반 실제 부하(계획 첫날~오늘) ÷ 계획 TSS.
-  const actual = usePlanDailyActivities({
-    uid: user && !user.isAnonymous ? user.uid : null,
-    discipline,
-    weeks: model.weeks,
-    enabled: goal !== null && model.goalMatchesDiscipline,
-  });
+  const actual = usePlanDailyActivities(planDailyActivitiesOptions(model));
   const progress = planActualProgressPct(model.totalTSS, actual);
+  const progressBar = progressBarValue(progress);
   const [choice, setChoice] = useState<{ sport: string; kind: "event" | "climb" } | null>(null);
   const [error, setError] = useState(false);
   const types = useRef<HTMLDivElement>(null);
@@ -72,7 +68,7 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-2)", color: "var(--ink-1)" }}>
             <Text>{t("goalHub.planProgress")}</Text><Text variant="dataMedium">{progress != null ? `${progress}%` : "—"}</Text>
           </div>
-          <Progress value={(progress ?? 0) / 100} aria-label={t("goalHub.progress")} aria-valuenow={progress ?? undefined} />
+          <Progress value={progressBar.clamped / 100} aria-label={t("goalHub.progress")} aria-valuenow={progressBar.valueNow} aria-valuetext={progressBar.valueText} />
           {goalDay && <Text>{t("goalHub.goalDayEstimate")} · <GlossaryText>{`CTL ${goalDay.ctl.toFixed(1)} · TSB ${goalDay.tsb.toFixed(1)}`}</GlossaryText></Text>}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-3)" }}>

@@ -1,6 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { auth } from "../../../services/firebase";
 import type { PlanModel } from "../../../hooks/usePlanModel";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import PlanPresentation from "./PlanPresentation";
@@ -23,6 +24,7 @@ const model = {
   isTodayCell: () => false,
 } as unknown as PlanModel;
 
+beforeEach(() => { (auth as { currentUser: unknown }).currentUser = { uid: "me" }; });
 afterEach(() => { vi.restoreAllMocks(); __resetDailyActivitiesEnsureForTests(); });
 
 const kstKey = (ms: number) => new Date(ms + 9 * 3600000).toISOString().slice(0, 10);
@@ -326,6 +328,10 @@ describe("PlanPresentation actual activities (server daily documents)", () => {
     expect(screen.getByTestId("K4-5-12")).toHaveTextContent("실제 90 추정");
     expect(screen.getByTestId("K4-2-5")).toHaveTextContent("90/ 60 추정");
     expect(screen.getByText("150%")).toBeInTheDocument();
+    const bar = screen.getByRole("progressbar", { name: "진행률" });
+    expect(bar).toHaveAttribute("aria-valuenow", "100");
+    expect(bar).toHaveAttribute("aria-valuetext", "150%");
+    expect(bar.firstElementChild).toHaveStyle({ width: "100%" });
   });
 
   it("keeps the plan visible with a small per-day notice when the month cannot be loaded", async () => {

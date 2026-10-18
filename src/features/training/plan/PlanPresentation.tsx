@@ -24,6 +24,8 @@ import {
   dailyActivitiesSettled,
   dailyActivitiesUnavailable,
   planActualProgressPct,
+  planDailyActivitiesOptions,
+  progressBarValue,
   sumDailyTss,
   usePlanDailyActivities,
   type PlanDailyActivities,
@@ -581,18 +583,14 @@ export default function PlanPresentation({
   } = model;
   // 날짜 칸·주간·상단의 실제 활동·부하는 서버 일별 활동 문서만 읽는다(계획 연결 판정과 무관).
   // 목표가 없거나 종목이 맞지 않으면 계획 칸이 없으니 구독하지 않는다.
-  const actual = usePlanDailyActivities({
-    uid: model.user?.uid,
-    discipline,
-    weeks,
-    enabled: goal !== null && goalMatchesDiscipline,
-  });
+  const actual = usePlanDailyActivities(planDailyActivitiesOptions(model));
   const hasActivityOn = (dateKey: string) => (actual?.days.get(dateKey)?.activities.length ?? 0) > 0;
   // 문서를 읽는 중에는 "한 날"을 알 수 없으니 남은 운동 수를 비운다(모바일과 같은 기준).
   const activityKnown = dailyActivitiesSettled(actual);
   const actualTotal = actual?.total ?? null;
   // 진행률 = 실제 부하(계획 첫날~오늘) / 계획 TSS. 실제 부하를 아직 모르면 비운다.
   const progress = planActualProgressPct(totalTSS, actual);
+  const progressBar = progressBarValue(progress);
   const firstCalendarWeek = weeks.find(week => week.days.length > 0);
   const firstCalendarWeekday = firstCalendarWeek?.days[0]
     ? (planCalendarDate(firstCalendarWeek.days[0].date).getUTCDay() + 6) % 7 : 0;
@@ -859,8 +857,8 @@ export default function PlanPresentation({
                 <InfoTip title={t('metrics.progress')} content={t('metrics.progressBasis')}>{t('metrics.progress')}</InfoTip>
                 <strong style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-md)' }}>{progress != null ? `${progress}%` : '—'}</strong>
               </div>
-              <div role="progressbar" aria-label={t('metrics.progress')} aria-valuenow={progress ?? undefined} aria-valuemin={0} aria-valuemax={100} style={{ height: 6, borderRadius: 'var(--r-xs)', background: 'var(--bg-3)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, progress ?? 0))}%`, background: 'var(--lime)' }} />
+              <div role="progressbar" aria-label={t('metrics.progress')} aria-valuenow={progressBar.valueNow} aria-valuetext={progressBar.valueText} aria-valuemin={0} aria-valuemax={100} style={{ height: 6, borderRadius: 'var(--r-xs)', background: 'var(--bg-3)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${progressBar.clamped}%`, background: 'var(--lime)' }} />
               </div>
             </div>
           </div>

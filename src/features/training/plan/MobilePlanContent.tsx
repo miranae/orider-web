@@ -16,6 +16,7 @@ import { formatPlanGoalTitle } from "./planDisplay";
 import PlanDayActivities from "./PlanDayActivities";
 import {
   canShowNextWorkout,
+  progressBarValue,
   dailyActivitiesUnavailable,
   sumDailyTss,
   type PlanDailyActivities,
@@ -191,7 +192,7 @@ export default function MobilePlanContent({
               </Button>
             )}
           </div>
-          <div data-testid="K4-2-2" role="progressbar" aria-label={t("metrics.progress")} aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} className="mobile-plan-progress">
+          <div data-testid="K4-2-2" role="progressbar" aria-label={t("metrics.progress")} aria-valuenow={progressBarValue(progressPct ?? null).valueNow} aria-valuetext={progressBarValue(progressPct ?? null).valueText} aria-valuemin={0} aria-valuemax={100} className="mobile-plan-progress">
             <div style={{ width: `${Math.min(100, Math.max(0, progressPct ?? 0))}%`, height: "100%", background: "var(--lime)" }} />
           </div>
           <div className="mobile-plan-goal-stats">

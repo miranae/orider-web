@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlanWeek } from "@shared/types/goal";
 import { mockCallableInvocations, setCallableImplementation, setDocData } from "../__tests__/mocks/firebase";
 import * as errorLogger from "../services/errorLogger";
+import { auth } from "../services/firebase";
 import {
   __resetDailyActivitiesEnsureForTests,
   ensurableMonthsInAnyTimeZone,
@@ -38,6 +39,7 @@ beforeEach(() => {
   vi.spyOn(Date, "now").mockReturnValue(NOW);
   __resetDailyActivitiesEnsureForTests();
   vi.mocked(onSnapshot).mockClear();
+  (auth as { currentUser: unknown }).currentUser = { uid: "me" };
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -360,5 +362,45 @@ describe("usePlanDailyActivities", () => {
     expect(planActualProgressPct(0, actual)).toBeNull();
     expect(planActualProgressPct(180, { ...actual!, total: null })).toBeNull();
     expect(planActualProgressPct(180, null)).toBeNull();
+  });
+
+  it("does not remember months skipped as future and builds them once they arrive", async () => {
+    // 2026-11-01 03:00 KST = 2026-10-31 (America/Los_Angeles): 11월은 아직 미래 달
+    vi.mocked(Date.now).mockReturnValue(Date.parse("2026-11-01T03:00:00+09:00"));
+    const crossing = [{ ...weeks[1], days: [planDay("2026-10-26"), planDay("2026-11-01")] }] as unknown as PlanWeek[];
+    setDocData(path("2026-10"), monthDoc("2026-10", {}, { timezone: "America/Los_Angeles" }));
+    setCallableImplementation("ensureDailyActivities", async () => ({ data: { months: [{ month: "2026-11", status: "built" }] } }));
+    const first = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks: crossing, enabled: true }));
+    await waitFor(() => expect(first.result.current?.loading).toBe(false));
+    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities")).toHaveLength(0);
+    first.unmount();
+    // LA 도 11월 1일이 되면 같은 세션에서 다시 판단해 만든다.
+    vi.mocked(Date.now).mockReturnValue(Date.parse("2026-11-01T20:00:00+09:00"));
+    const second = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks: crossing, enabled: true }));
+    await waitFor(() => expect(second.result.current?.loading).toBe(false));
+    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities").map(call => call.data)).toEqual([{ discipline: "bike", months: ["2026-11"] }]);
+  });
+
+  it("drops queued requests when the signed-in account changed before the call", async () => {
+    vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+    (auth as { currentUser: unknown }).currentUser = { uid: "someone-else" };
+    setDocData(path("2026-09"), monthDoc("2026-09", {}));
+    const { result } = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }));
+    await waitFor(() => expect(result.current?.failedMonths.has("2026-10")).toBe(true));
+    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities")).toHaveLength(0);
+  });
+
+  it("forgets the previous account's time zone when the account changes", async () => {
+    vi.mocked(Date.now).mockReturnValue(Date.parse("2026-10-31T22:30:00+09:00"));
+    const crossing = [{ ...weeks[1], days: [planDay("2026-10-26"), planDay("2026-11-03")] }] as unknown as PlanWeek[];
+    setDocData(path("2026-10"), monthDoc("2026-10", {}, { timezone: "Pacific/Kiritimati" }));
+    setCallableImplementation("ensureDailyActivities", async () => ({ data: { months: [] } }));
+    const view = renderHook(({ uid }) => usePlanDailyActivities({ uid, discipline: "bike", weeks: crossing, enabled: true }), { initialProps: { uid: "me" } });
+    await waitFor(() => expect(vi.mocked(onSnapshot).mock.calls.some(([ref]) => (ref as { path: string }).path === path("2026-11"))).toBe(true));
+    (auth as { currentUser: unknown }).currentUser = { uid: "other" };
+    view.rerender({ uid: "other" });
+    await waitFor(() => expect(view.result.current?.loading).toBe(false));
+    const otherPaths = vi.mocked(onSnapshot).mock.calls.map(([ref]) => (ref as { path: string }).path).filter(item => item.startsWith("users/other/"));
+    expect(otherPaths).toEqual(["users/other/daily_activities/bike_2026-10"]);
   });
 });

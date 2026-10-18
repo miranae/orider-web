@@ -21,7 +21,7 @@
  * KST 가 아닌 사용자는 계획 칸 경계(KST)와 문서 경계(사용자 시간대)가 다르지만, 칸이 뜻하는
  * 달력 날짜에 사용자가 그 시간대에서 한 활동을 붙이는 것이 의도다. (miranae/orider-g1-web#3252)
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { connectFunctionsEmulator, getFunctions, httpsCallable, type Functions } from "firebase/functions";
 import type { PlanWeek } from "@shared/types/goal";
@@ -29,7 +29,7 @@ import { planDayKey } from "@shared/training/planDate";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { debugLog, logClientError } from "../services/errorLogger";
 import { getRuntimeConfig, isEmulatorRuntime } from "../services/runtimeConfig";
-import type { PlanDiscipline } from "./usePlanModel";
+import type { PlanDiscipline, PlanModel } from "./usePlanModel";
 
 /** @sync-with orider-g1-web functions daily_activities schemaVersion */
 export const DAILY_ACTIVITIES_SCHEMA_VERSION = 1;
@@ -325,9 +325,29 @@ interface Options {
   enabled: boolean;
 }
 
+/**
+ * 계획 화면·목표 화면 공용 활성 기준: 로그인(익명 제외) + 목표 있음 + 종목 일치.
+ * 두 화면이 같은 조건으로 같은 문서를 읽어 같은 진행률을 낸다.
+ */
+export function planDailyActivitiesOptions(model: Pick<PlanModel, "user" | "discipline" | "weeks" | "goal" | "goalMatchesDiscipline">): Options {
+  return {
+    uid: model.user && model.user.isAnonymous !== true ? model.user.uid : null,
+    discipline: model.discipline,
+    weeks: model.weeks,
+    enabled: model.goal != null && model.goalMatchesDiscipline,
+  };
+}
+
+/** 진행률 막대 표시값: 막대 폭·aria-valuenow 는 0~100 으로 자르고, 실제 %는 aria-valuetext 로 전한다. */
+export function progressBarValue(progress: number | null): { clamped: number; valueNow: number | undefined; valueText: string | undefined } {
+  if (progress == null) return { clamped: 0, valueNow: undefined, valueText: undefined };
+  const clamped = Math.min(100, Math.max(0, progress));
+  return { clamped, valueNow: clamped, valueText: `${progress}%` };
+}
+
 /** 계획 범위의 일별 활동 문서를 구독한다. 비활성(목표 없음·종목 불일치·비로그인)이면 null. */
 export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Options): PlanDailyActivities | null {
-  const { firestore, functions } = useFirebaseServices();
+  const { auth, firestore, functions } = useFirebaseServices();
   // 자정을 넘기면 "오늘"·구독 달·합계 끝 날짜가 바뀌도록 정각마다 다시 그린다.
   const [clock, setClock] = useState(0);
   useEffect(() => {
@@ -336,8 +356,12 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
     return () => clearTimeout(timer);
   }, [clock, enabled]);
   const kstToday = planDayKey(Date.now());
-  // 사용자 시간대: 문서에서 알게 되면 그것, 그 전에는 브라우저 시간대. 구독 키가 바뀌어도 유지한다.
-  const [userTimeZone, setUserTimeZone] = useState<string | null>(browserTimeZone);
+  // 사용자 시간대: 문서에서 알게 되면 그것, 그 전에는 브라우저 시간대. 구독 키가 바뀌어도 유지하고,
+  // 계정이 바뀌면 브라우저 시간대로 돌아간다.
+  const [timeZoneState, setTimeZoneState] = useState<{ uid: string | null | undefined; timeZone: string | null }>(() => ({ uid, timeZone: browserTimeZone() }));
+  const userTimeZone = timeZoneState.uid === uid ? timeZoneState.timeZone : browserTimeZone();
+  const userTimeZoneRef = useRef(userTimeZone);
+  useEffect(() => { userTimeZoneRef.current = userTimeZone; }, [userTimeZone]);
   const userToday = localDateKey(Date.now(), userTimeZone) ?? kstToday;
   // 구독 끝 달 = max(KST 기준 오늘, 사용자 시간대 기준 오늘) 이 속한 달.
   const subscriptionToday = userToday > kstToday ? userToday : kstToday;
@@ -356,10 +380,10 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
     const awaiting = new Map<string, Promise<boolean>>();
     // 생성 요청 대기열. 세션 기억(ensureRequests)에는 대기열에 넣는 순간 등록해, 같은 틱에 같은 달을
     // 구독한 다른 화면(계획·목표 화면 동시 마운트, StrictMode 재마운트)이 중복 호출하지 않게 한다.
-    const pending: Array<{ month: string; resolve: (ok: boolean) => void }> = [];
+    const pending: Array<{ month: string; resolve: (ok: boolean) => void; request: Promise<boolean> }> = [];
     let timer: ReturnType<typeof setTimeout> | null = null;
     // 허용 달 범위 계산용 사용자 시간대. 문서·응답에서 알게 되기 전에는 브라우저 시간대로 근사한다.
-    let knownTimezone: string | null = null;
+    let knownTimezone: string | null = userTimeZoneRef.current;
     const requestKey = (month: string) => `${uid}|${discipline}|${month}`;
 
     const update = (month: string, patch: Partial<MonthState>) => {
@@ -411,7 +435,14 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
       timer = null;
       const pendingBatch = pending.splice(0);
       if (pendingBatch.length === 0) return;
+      // 그 사이 계정이 바뀌었으면 이전 계정 달을 요청하지 않는다(실패로 끝내 세션 기억도 지운다).
+      if (auth.currentUser?.uid !== uid) {
+        debugLog("PlanPage.ensureDailyActivities.accountChanged", { discipline, months: pendingBatch.map(item => item.month) });
+        for (const item of pendingBatch) item.resolve(false);
+        return;
+      }
       const resolvers = new Map(pendingBatch.map(item => [item.month, item.resolve]));
+      const requests = new Map(pendingBatch.map(item => [item.month, item.request]));
       const months = [...resolvers.keys()];
       const requestToday = localDateKey(Date.now(), knownTimezone ?? browserTimeZone()) ?? planDayKey(Date.now());
       const batch = ensurableMonths(months, requestToday);
@@ -419,7 +450,12 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
       const outOfRange = months.filter(month => !batch.includes(month));
       if (outOfRange.length > 0) debugLog("PlanPage.ensureDailyActivities.skip", { discipline, months: outOfRange, requestToday });
       // 사용자 시간대로 아직 오지 않은 달은 빈 달, 허용 범위보다 오래된 달은 확인 불가로 둔다.
-      for (const month of outOfRange) resolvers.get(month)?.(month > requestToday.slice(0, 7));
+      for (const month of outOfRange) {
+        const future = month > requestToday.slice(0, 7);
+        // 미래 달이라 건너뛴 결과는 세션에 기억하지 않는다(그 달이 되면 다시 판단).
+        if (future && ensureRequests.get(requestKey(month)) === requests.get(month)) ensureRequests.delete(requestKey(month));
+        resolvers.get(month)?.(future);
+      }
       for (let index = 0; index < batch.length; index += MAX_ENSURE_MONTHS_PER_CALL) {
         const chunk = batch.slice(index, index + MAX_ENSURE_MONTHS_PER_CALL);
         void ensureChunk(chunk).then(ok => { for (const month of chunk) resolvers.get(month)?.(ok); });
@@ -434,7 +470,7 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
       });
       ensureRequests.set(requestKey(month), request);
       settle(month, request);
-      pending.push({ month, resolve });
+      pending.push({ month, resolve, request });
       // 같은 틱에 도착하는 여러 달의 첫 응답을 한 번의 호출로 묶는다.
       timer ??= setTimeout(flush, 0);
     };
@@ -473,7 +509,7 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
       // 대기열은 취소하지 않는다: 이미 세션 기억에 올린 요청을 다른 화면이 기다릴 수 있다(화면 갱신은 cancelled 로 막힌다).
       for (const unsubscribe of unsubscribes) unsubscribe();
     };
-  }, [discipline, enabled, firestore, functions, monthsKey, uid]);
+  }, [auth, discipline, enabled, firestore, functions, monthsKey, uid]);
 
   const monthStates = state.key === subscriptionKey ? state.months : null;
   const result = useMemo((): PlanDailyActivities | null => {
@@ -504,7 +540,7 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
   }, [clock, discipline, kstToday, monthStates, months, range, subscriptionKey, uncovered]);
   const documentTimeZone = result?.timezone ?? null;
   useEffect(() => {
-    if (documentTimeZone && documentTimeZone !== userTimeZone) setUserTimeZone(documentTimeZone);
-  }, [documentTimeZone, userTimeZone]);
+    if (documentTimeZone && documentTimeZone !== userTimeZone) setTimeZoneState({ uid, timeZone: documentTimeZone });
+  }, [documentTimeZone, uid, userTimeZone]);
   return result;
 }

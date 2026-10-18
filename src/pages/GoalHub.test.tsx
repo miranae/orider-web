@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setDocData } from "../__tests__/mocks/firebase";
 import GoalHub from "./GoalHub";
+import { auth } from "../services/firebase";
 import { __resetDailyActivitiesEnsureForTests } from "../hooks/usePlanDailyActivities";
 const state = vi.hoisted(() => ({ goal: null as null | Record<string, unknown>, sport: "bike", user: { uid: "owner" } as { uid: string; isAnonymous?: boolean } | null,
   weeks: [] as unknown[], totalTSS: 0 }));
@@ -21,7 +22,8 @@ function seedActualPlan() {
     days: { [todayKey]: { tss: 12, tssEstimated: false, activities: [{ id: "a", startTime: todayMs + 3_600_000, distance: 10000, movingSec: 1800, tss: 12, estimated: false, source: "orider" }] } } });
 }
 vi.mock("./ClimbGoalSetupPage", () => ({ default: () => <div>climb form</div> }));
-beforeEach(() => { state.goal = null; state.sport = "bike"; state.user = { uid: "owner" }; state.weeks = []; state.totalTSS = 0; __resetDailyActivitiesEnsureForTests(); });
+beforeEach(() => { state.goal = null; state.sport = "bike"; state.user = { uid: "owner" }; state.weeks = []; state.totalTSS = 0; __resetDailyActivitiesEnsureForTests();
+  (auth as { currentUser: unknown }).currentUser = { uid: "owner" }; });
 describe("goal hub", () => {
   it("shows the existing goal before type selection and opens the wizard only after choosing", () => {
     state.goal = { id: "g", title: "Winter course", courseName: "Course", eventType: "completion" };
@@ -89,6 +91,18 @@ it.each(['ko', 'en'])('uses the active %s UI locale for the saved target date', 
 });
 
 describe("goal hub progress", () => {
+  it("clamps the bar over 100% while keeping the actual percentage in text", () => {
+    state.goal = { id: "g", title: "Over plan", eventType: "completion" };
+    seedActualPlan();
+    state.totalTSS = 8; // 실제 12 ÷ 계획 8 = 150%
+    renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />);
+    expect(screen.getByTestId("K3-1-2")).toHaveTextContent("계획진행률150%");
+    const bar = screen.getByRole("progressbar", { name: "목표 진행률" });
+    expect(bar).toHaveAttribute("aria-valuenow", "100");
+    expect(bar).toHaveAttribute("aria-valuetext", "150%");
+    expect(bar.firstElementChild).toHaveStyle({ width: "100%" });
+  });
+
   it("uses the plan screen's actual-load progress and shows a dash until it is known", () => {
     state.goal = { id: "g", title: "No plan yet", eventType: "completion" };
     renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />);
